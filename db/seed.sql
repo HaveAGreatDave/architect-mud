@@ -1,0 +1,4643 @@
+-- Architect MUD — shared local seed (schema + world content). NO player/account rows, no secrets.
+-- Rebuild your local DB from this with:  npm run db:setup-local
+-- Regenerate this file after content changes with:  npm run db:export-seed
+
+--
+-- PostgreSQL database dump
+--
+
+
+-- Dumped from database version 17.10
+-- Dumped by pg_dump version 17.10
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: -
+--
+
+
+
+--
+-- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
+--
+
+
+
+--
+-- Name: search_database(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.search_database(search_text text) RETURNS TABLE(source_table text, row_data jsonb)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    t RECORD;
+BEGIN
+    FOR t IN
+        SELECT tables.table_name
+        FROM information_schema.tables AS tables
+        WHERE tables.table_schema = 'public'
+          AND tables.table_type = 'BASE TABLE'
+    LOOP
+        RETURN QUERY EXECUTE format(
+            'SELECT %L,
+                    to_jsonb(x)
+             FROM (
+                 SELECT *
+                 FROM public.%I
+                 WHERE %I::text ILIKE %L
+             ) x',
+            t.table_name,
+            t.table_name,
+            t.table_name,
+            '%' || search_text || '%'
+        );
+    END LOOP;
+END;
+$$;
+
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: apartments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.apartments (
+    zone_id text NOT NULL,
+    owner_id text,
+    owner_handle text,
+    is_locked integer DEFAULT 0,
+    lock_difficulty integer DEFAULT 1,
+    rent_cost integer DEFAULT 100,
+    purchased_at bigint,
+    date_rented bigint,
+    building_name text,
+    forcefield_active integer DEFAULT 0,
+    owner_type text DEFAULT 'player'::text NOT NULL,
+    owner_org_id text,
+    rent_due_date date
+);
+
+
+--
+-- Name: atm_networks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.atm_networks (
+    id text NOT NULL,
+    name text NOT NULL,
+    color text DEFAULT '#00ff88'::text,
+    fee_rate numeric DEFAULT 0.0,
+    withdrawal_limit integer DEFAULT 500,
+    min_faction_rep integer DEFAULT '-200'::integer,
+    faction_id text
+);
+
+
+--
+-- Name: atm_units; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.atm_units (
+    id text NOT NULL,
+    network_id text,
+    cash_stock integer DEFAULT 5000,
+    cash_max integer DEFAULT 5000,
+    replenish_interval_hours integer DEFAULT 6,
+    last_replenish bigint DEFAULT 0,
+    hack_difficulty integer DEFAULT 5,
+    is_broken integer DEFAULT 0
+);
+
+
+--
+-- Name: audio_ambient; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.audio_ambient (
+    id text NOT NULL,
+    name text NOT NULL,
+    category text DEFAULT 'misc'::text,
+    priority integer DEFAULT 1,
+    config jsonb DEFAULT '{}'::jsonb,
+    loop integer DEFAULT 1,
+    enabled integer DEFAULT 1
+);
+
+
+--
+-- Name: audio_event_routes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.audio_event_routes (
+    id text NOT NULL,
+    event_name text NOT NULL,
+    sfx_id text,
+    ambient_id text,
+    song_id text,
+    sample_id text,
+    scope text DEFAULT 'zone'::text NOT NULL,
+    enabled integer DEFAULT 1 NOT NULL
+);
+
+
+--
+-- Name: audio_instruments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.audio_instruments (
+    id text NOT NULL,
+    name text NOT NULL,
+    category text DEFAULT 'misc'::text,
+    waveform text DEFAULT 'square'::text,
+    config jsonb DEFAULT '{}'::jsonb,
+    enabled integer DEFAULT 1,
+    sample_id text
+);
+
+
+--
+-- Name: audio_samples; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.audio_samples (
+    id text NOT NULL,
+    name text NOT NULL,
+    category text DEFAULT 'misc'::text,
+    priority integer DEFAULT 5,
+    data text,
+    mime_type text DEFAULT 'audio/mpeg'::text,
+    base_note integer DEFAULT 60,
+    loop_start real DEFAULT 0,
+    loop_end real DEFAULT 0,
+    snes_rate integer DEFAULT 16000,
+    snes_bits integer DEFAULT 4,
+    echo_mix real DEFAULT 0,
+    config jsonb DEFAULT '{}'::jsonb,
+    enabled integer DEFAULT 1
+);
+
+
+--
+-- Name: audio_sfx; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.audio_sfx (
+    id text NOT NULL,
+    name text NOT NULL,
+    category text DEFAULT 'misc'::text,
+    priority integer DEFAULT 5,
+    config jsonb DEFAULT '{}'::jsonb,
+    enabled integer DEFAULT 1
+);
+
+
+--
+-- Name: audio_songs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.audio_songs (
+    id text NOT NULL,
+    name text NOT NULL,
+    category text DEFAULT 'misc'::text,
+    tempo integer DEFAULT 120,
+    channels jsonb DEFAULT '[]'::jsonb,
+    loop_start integer DEFAULT 0,
+    loop_end integer DEFAULT 0,
+    instrument_ids jsonb DEFAULT '[]'::jsonb,
+    priority integer DEFAULT 5,
+    enabled integer DEFAULT 1,
+    channel_pan jsonb DEFAULT '[]'::jsonb
+);
+
+
+--
+-- Name: channel_messages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.channel_messages (
+    id bigint NOT NULL,
+    channel_id text NOT NULL,
+    from_handle text NOT NULL,
+    message text NOT NULL,
+    created_at bigint DEFAULT EXTRACT(epoch FROM now()) NOT NULL
+);
+
+
+--
+-- Name: channel_messages_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.channel_messages_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: channel_messages_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.channel_messages_id_seq OWNED BY public.channel_messages.id;
+
+
+--
+-- Name: climate_profiles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.climate_profiles (
+    id text NOT NULL,
+    name text NOT NULL,
+    monthly_temp_c jsonb DEFAULT '[]'::jsonb NOT NULL,
+    monthly_precip_chance jsonb DEFAULT '[]'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    monthly_wind_kph jsonb DEFAULT '[]'::jsonb NOT NULL,
+    monthly_humidity jsonb DEFAULT '[]'::jsonb NOT NULL
+);
+
+
+--
+-- Name: combat_config; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.combat_config (
+    key text NOT NULL,
+    value jsonb,
+    label text,
+    category text
+);
+
+
+--
+-- Name: command_aliases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.command_aliases (
+    alias text NOT NULL,
+    verb text NOT NULL
+);
+
+
+--
+-- Name: crimes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crimes (
+    id text NOT NULL,
+    label text NOT NULL,
+    stars real DEFAULT 1 NOT NULL,
+    description text DEFAULT ''::text
+);
+
+
+--
+-- Name: deployments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.deployments (
+    id text DEFAULT (gen_random_uuid())::text NOT NULL,
+    deployed_at timestamp with time zone DEFAULT now(),
+    deployed_by text NOT NULL,
+    change_count integer DEFAULT 0 NOT NULL,
+    changes_summary jsonb DEFAULT '[]'::jsonb
+);
+
+
+--
+-- Name: dev_commits; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dev_commits (
+    hash text NOT NULL,
+    author_name text NOT NULL,
+    author_email text DEFAULT ''::text,
+    author_key text NOT NULL,
+    authored_at timestamp with time zone NOT NULL,
+    subject text DEFAULT ''::text,
+    files_changed integer DEFAULT 0,
+    lines_added integer DEFAULT 0,
+    lines_deleted integer DEFAULT 0,
+    core_lines integer DEFAULT 0,
+    core_files jsonb DEFAULT '[]'::jsonb
+);
+
+
+--
+-- Name: dev_identities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dev_identities (
+    git_key text NOT NULL,
+    git_name text,
+    player_id text,
+    handle text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: dev_notes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dev_notes (
+    id bigint NOT NULL,
+    author text NOT NULL,
+    title text NOT NULL,
+    body text DEFAULT ''::text,
+    kind text DEFAULT 'change'::text NOT NULL,
+    resolved boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: dev_notes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.dev_notes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: dev_notes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.dev_notes_id_seq OWNED BY public.dev_notes.id;
+
+
+--
+-- Name: doors; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.doors (
+    id text NOT NULL,
+    zone_id text NOT NULL,
+    exit_dir text NOT NULL,
+    door_type text DEFAULT 'basic'::text,
+    is_open integer DEFAULT 0 NOT NULL,
+    is_locked integer DEFAULT 0,
+    hp integer DEFAULT 1000,
+    hp_max integer DEFAULT 1000,
+    hololock_difficulty integer DEFAULT 5,
+    flags jsonb DEFAULT '{}'::jsonb,
+    tags jsonb DEFAULT '[]'::jsonb,
+    lock_state text,
+    name text,
+    forcefield_locked integer DEFAULT 0,
+    target_zone text
+);
+
+
+--
+-- Name: drugs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drugs (
+    id text NOT NULL,
+    name text NOT NULL,
+    description text,
+    item_id text,
+    duration_seconds integer DEFAULT 300,
+    effects jsonb DEFAULT '{}'::jsonb,
+    addiction_chance real DEFAULT 0,
+    overdose_threshold integer DEFAULT 3,
+    withdrawal_effects jsonb DEFAULT '{}'::jsonb,
+    flags jsonb DEFAULT '{}'::jsonb
+);
+
+
+--
+-- Name: email_verification_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.email_verification_tokens (
+    id text DEFAULT (gen_random_uuid())::text NOT NULL,
+    player_id text NOT NULL,
+    token text NOT NULL,
+    expires_at bigint NOT NULL,
+    used boolean DEFAULT false NOT NULL
+);
+
+
+--
+-- Name: enemies; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.enemies (
+    id text NOT NULL,
+    name text NOT NULL,
+    description text NOT NULL,
+    hp_max integer DEFAULT 50,
+    loot_table jsonb DEFAULT '[]'::jsonb,
+    behavior text DEFAULT 'aggressive'::text,
+    faction text,
+    death_message text,
+    flags jsonb DEFAULT '{}'::jsonb,
+    hit integer DEFAULT 1,
+    dodge integer DEFAULT 1,
+    weapon jsonb DEFAULT '[]'::jsonb,
+    body_parts jsonb DEFAULT '[]'::jsonb,
+    butcher_table jsonb DEFAULT '[]'::jsonb,
+    butcher_difficulty integer DEFAULT 5,
+    behaviour_graph jsonb DEFAULT '{}'::jsonb
+);
+
+
+--
+-- Name: furniture; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.furniture (
+    id text NOT NULL,
+    zone_id text NOT NULL,
+    name text NOT NULL,
+    description text NOT NULL,
+    flags jsonb DEFAULT '{}'::jsonb,
+    light_on integer DEFAULT 0,
+    light_type text DEFAULT 'lamp'::text,
+    power_draw_kw real,
+    light_on_intended integer,
+    object_type text DEFAULT 'furniture'::text,
+    lumen_output integer,
+    price integer DEFAULT 0,
+    hp integer,
+    hp_max integer
+);
+
+
+--
+-- Name: game_tables; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.game_tables (
+    id text NOT NULL,
+    zone_id text NOT NULL,
+    name text NOT NULL,
+    game_type text DEFAULT 'holdem'::text NOT NULL,
+    config jsonb DEFAULT '{}'::jsonb NOT NULL,
+    state jsonb DEFAULT '{}'::jsonb NOT NULL,
+    phase text DEFAULT 'WaitingForPlayers'::text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: generators; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.generators (
+    id text NOT NULL,
+    zone_id text,
+    owner_id text,
+    generator_type text DEFAULT 'building'::text NOT NULL,
+    capacity_kw real DEFAULT 0 NOT NULL,
+    fuel_type text,
+    fuel_remaining real DEFAULT 0 NOT NULL,
+    fuel_burn_rate real DEFAULT 0 NOT NULL,
+    connection_range integer DEFAULT 0 NOT NULL,
+    status text DEFAULT 'online'::text NOT NULL,
+    flags jsonb DEFAULT '{}'::jsonb NOT NULL,
+    name text,
+    remaining_kw real DEFAULT 0 NOT NULL,
+    city_generator_id text
+);
+
+
+--
+-- Name: global_ambient_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_ambient_events (
+    id text NOT NULL,
+    theme text DEFAULT 'indoors'::text NOT NULL,
+    message text NOT NULL,
+    enabled integer DEFAULT 1 NOT NULL,
+    loudness real DEFAULT 1.0 NOT NULL,
+    weight integer DEFAULT 100 NOT NULL
+);
+
+
+--
+-- Name: interface_sfx; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.interface_sfx (
+    id text NOT NULL,
+    name text DEFAULT ''::text NOT NULL,
+    grp text DEFAULT 'misc'::text NOT NULL,
+    config jsonb DEFAULT '{}'::jsonb NOT NULL,
+    priority integer DEFAULT 5 NOT NULL,
+    enabled integer DEFAULT 1 NOT NULL
+);
+
+
+--
+-- Name: items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.items (
+    id text NOT NULL,
+    name text NOT NULL,
+    description text,
+    type text,
+    subtype text,
+    weight real DEFAULT 1.0,
+    value integer DEFAULT 0,
+    is_stackable integer DEFAULT 0,
+    is_unique integer DEFAULT 0,
+    is_quest_item integer DEFAULT 0,
+    effects jsonb DEFAULT '{}'::jsonb,
+    stat_modifiers jsonb DEFAULT '{}'::jsonb,
+    requirements jsonb DEFAULT '{}'::jsonb,
+    flags jsonb DEFAULT '{}'::jsonb,
+    tags jsonb DEFAULT '{}'::jsonb
+);
+
+
+--
+-- Name: jail_prisoners; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.jail_prisoners (
+    player_id text NOT NULL,
+    cell_zone text NOT NULL,
+    release_zone text NOT NULL,
+    release_at timestamp with time zone NOT NULL,
+    stars integer DEFAULT 1 NOT NULL,
+    held_items jsonb DEFAULT '[]'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    held_credits integer DEFAULT 0 NOT NULL,
+    fine integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: lighting_states; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lighting_states (
+    zone_id text NOT NULL,
+    has_emergency_lighting integer DEFAULT 0 NOT NULL,
+    artificial_light_level real DEFAULT 0 NOT NULL,
+    fixture_count integer DEFAULT 0 NOT NULL,
+    total_lumens integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: loot_tables; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.loot_tables (
+    id text NOT NULL,
+    name text NOT NULL,
+    entries jsonb DEFAULT '[]'::jsonb
+);
+
+
+--
+-- Name: maps; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.maps (
+    id text NOT NULL,
+    name text NOT NULL,
+    parent_zone_id text,
+    entry_zone_id text,
+    created_by text,
+    updated_at bigint DEFAULT EXTRACT(epoch FROM now())
+);
+
+
+--
+-- Name: media_broadcasts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.media_broadcasts (
+    id text NOT NULL,
+    name text NOT NULL,
+    description text DEFAULT ''::text,
+    category text DEFAULT 'general'::text,
+    tags jsonb DEFAULT '[]'::jsonb,
+    playback_mode text DEFAULT 'scripted'::text,
+    messages jsonb DEFAULT '[]'::jsonb,
+    message_interval real DEFAULT 5,
+    override_duration real,
+    loop integer DEFAULT 0,
+    enabled integer DEFAULT 1,
+    created_by text,
+    updated_at bigint DEFAULT EXTRACT(epoch FROM now()),
+    broadcast_graph jsonb,
+    channel_id text,
+    fallback_messages jsonb DEFAULT '[]'::jsonb,
+    weather_pools jsonb
+);
+
+
+--
+-- Name: media_cameras; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.media_cameras (
+    id text NOT NULL,
+    zone_id text,
+    direction text DEFAULT 'north'::text,
+    is_powered integer DEFAULT 1,
+    is_recording integer DEFAULT 0,
+    is_streaming integer DEFAULT 0,
+    streaming_channel_id text,
+    recording_buffer jsonb DEFAULT '[]'::jsonb,
+    storage_limit integer DEFAULT 200,
+    permissions text DEFAULT 'public'::text,
+    flags jsonb DEFAULT '{}'::jsonb,
+    is_damaged integer DEFAULT 0
+);
+
+
+--
+-- Name: media_channel_playlist; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.media_channel_playlist (
+    id text NOT NULL,
+    channel_id text NOT NULL,
+    broadcast_id text,
+    start_time integer DEFAULT 0 NOT NULL,
+    duration_override real,
+    priority integer DEFAULT 0,
+    conditions jsonb DEFAULT '[]'::jsonb,
+    slot_type text DEFAULT 'broadcast'::text
+);
+
+
+--
+-- Name: media_channels; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.media_channels (
+    id text NOT NULL,
+    name text NOT NULL,
+    number integer,
+    description text DEFAULT ''::text,
+    enabled integer DEFAULT 1,
+    loop_playlist integer DEFAULT 1,
+    priority integer DEFAULT 0,
+    channel_type text DEFAULT 'playlist'::text,
+    idle_broadcast_id text,
+    news_categories jsonb DEFAULT '[]'::jsonb,
+    updated_at bigint DEFAULT EXTRACT(epoch FROM now()),
+    theme_id text,
+    station_name text DEFAULT ''::text,
+    schedule_mode text DEFAULT 'loop'::text,
+    studio_zone_id text,
+    offline_graphic_id text,
+    commercial_pool jsonb DEFAULT '[]'::jsonb
+);
+
+
+--
+-- Name: media_deck_units; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.media_deck_units (
+    id text NOT NULL,
+    channel_id text NOT NULL,
+    active_cassette_item_id text,
+    light_state text DEFAULT 'red'::text NOT NULL
+);
+
+
+--
+-- Name: media_graphics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.media_graphics (
+    id text NOT NULL,
+    name text NOT NULL,
+    description text DEFAULT ''::text,
+    type text DEFAULT 'ascii'::text,
+    content text DEFAULT ''::text NOT NULL,
+    tags jsonb DEFAULT '[]'::jsonb,
+    created_at bigint DEFAULT EXTRACT(epoch FROM now()),
+    updated_at bigint DEFAULT EXTRACT(epoch FROM now())
+);
+
+
+--
+-- Name: media_themes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.media_themes (
+    id text NOT NULL,
+    name text NOT NULL,
+    description text DEFAULT ''::text,
+    preset text DEFAULT 'corporate'::text,
+    bg_color text DEFAULT ''::text,
+    border_color text DEFAULT ''::text,
+    text_color text DEFAULT ''::text,
+    header_color text DEFAULT ''::text,
+    accent_color text DEFAULT ''::text,
+    live_color text DEFAULT ''::text,
+    ticker_color text DEFAULT ''::text,
+    scanlines integer DEFAULT 1,
+    flags jsonb DEFAULT '{}'::jsonb,
+    created_at bigint DEFAULT EXTRACT(epoch FROM now()),
+    updated_at bigint DEFAULT EXTRACT(epoch FROM now())
+);
+
+
+--
+-- Name: mutations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mutations (
+    id text NOT NULL,
+    name text NOT NULL,
+    description text,
+    polarity text DEFAULT 'mixed'::text,
+    visible integer DEFAULT 1,
+    stat_modifiers jsonb DEFAULT '{}'::jsonb,
+    effects jsonb DEFAULT '{}'::jsonb,
+    drawbacks jsonb DEFAULT '[]'::jsonb,
+    radiation_threshold integer DEFAULT 40
+);
+
+
+--
+-- Name: npc_banter_threads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.npc_banter_threads (
+    id text NOT NULL,
+    personality text,
+    lines jsonb DEFAULT '[]'::jsonb NOT NULL,
+    enabled boolean DEFAULT true,
+    sort_order integer DEFAULT 0
+);
+
+
+--
+-- Name: npcs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.npcs (
+    id text NOT NULL,
+    name text NOT NULL,
+    description text NOT NULL,
+    zone_id text,
+    faction text,
+    dialogue_tree jsonb DEFAULT '{}'::jsonb,
+    vendor_inventory jsonb DEFAULT '[]'::jsonb,
+    wanders integer DEFAULT 0,
+    flags jsonb DEFAULT '{}'::jsonb,
+    wander_zones jsonb DEFAULT '[]'::jsonb,
+    behaviour_graph jsonb DEFAULT '{}'::jsonb,
+    home_zone text DEFAULT 'zone_residential_lobby'::text,
+    studio_zone_id text,
+    chitchat jsonb DEFAULT '[]'::jsonb,
+    work_zone_id text,
+    hp integer DEFAULT 20,
+    hp_max integer DEFAULT 20,
+    sex text DEFAULT 'male'::text,
+    vendor_stock jsonb DEFAULT '[]'::jsonb,
+    vendor_stock_size integer DEFAULT 10,
+    vendor_restock_rate integer DEFAULT 1,
+    vendor_credits integer DEFAULT 0,
+    npc_type text DEFAULT 'npc'::text,
+    vendor_schedule jsonb DEFAULT '{}'::jsonb,
+    vendor_bank_credits integer DEFAULT 0,
+    vendor_shop_name text,
+    home_activities jsonb DEFAULT '[]'::jsonb,
+    banter jsonb DEFAULT '[]'::jsonb
+);
+
+
+--
+-- Name: org_members; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.org_members (
+    org_id text NOT NULL,
+    player_id text NOT NULL,
+    rank_id text NOT NULL,
+    joined_at bigint DEFAULT EXTRACT(epoch FROM now())
+);
+
+
+--
+-- Name: org_ranks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.org_ranks (
+    id text NOT NULL,
+    org_id text NOT NULL,
+    name text NOT NULL,
+    rank_order integer DEFAULT 0 NOT NULL,
+    permissions integer DEFAULT 0 NOT NULL,
+    is_default integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: org_relations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.org_relations (
+    org_id text NOT NULL,
+    other_org_id text NOT NULL,
+    stance text NOT NULL
+);
+
+
+--
+-- Name: orgs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.orgs (
+    id text NOT NULL,
+    name text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    color text DEFAULT '#888888'::text,
+    is_npc integer DEFAULT 0 NOT NULL,
+    owner_id text,
+    treasury integer DEFAULT 0 NOT NULL,
+    founded_at bigint DEFAULT EXTRACT(epoch FROM now()),
+    flags jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+
+--
+-- Name: password_reset_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.password_reset_tokens (
+    id text DEFAULT (gen_random_uuid())::text NOT NULL,
+    player_id text NOT NULL,
+    token text NOT NULL,
+    expires_at bigint NOT NULL,
+    used boolean DEFAULT false NOT NULL
+);
+
+
+--
+-- Name: player_corpses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.player_corpses (
+    id text NOT NULL,
+    player_id text NOT NULL,
+    zone_id text NOT NULL,
+    inventory_snapshot jsonb DEFAULT '[]'::jsonb,
+    death_message text,
+    expires_at bigint NOT NULL,
+    looted_by jsonb DEFAULT '[]'::jsonb,
+    created_at bigint DEFAULT EXTRACT(epoch FROM now()),
+    capacity integer
+);
+
+
+--
+-- Name: player_count_log; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.player_count_log (
+    id bigint NOT NULL,
+    recorded_at timestamp with time zone DEFAULT now() NOT NULL,
+    count integer NOT NULL
+);
+
+
+--
+-- Name: player_count_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.player_count_log_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: player_count_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.player_count_log_id_seq OWNED BY public.player_count_log.id;
+
+
+--
+-- Name: player_deaths; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.player_deaths (
+    id bigint NOT NULL,
+    player_id text NOT NULL,
+    real_ts bigint NOT NULL,
+    game_date text,
+    game_time text,
+    zone_id text,
+    cause_type text,
+    cause_label text
+);
+
+
+--
+-- Name: player_deaths_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.player_deaths_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: player_deaths_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.player_deaths_id_seq OWNED BY public.player_deaths.id;
+
+
+--
+-- Name: player_drug_state; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.player_drug_state (
+    player_id text NOT NULL,
+    drug_id text NOT NULL,
+    active_until bigint,
+    doses_in_system integer DEFAULT 0,
+    times_used integer DEFAULT 0,
+    is_addicted integer DEFAULT 0,
+    last_used_at bigint,
+    tolerance real DEFAULT 0,
+    addiction real DEFAULT 0
+);
+
+
+--
+-- Name: player_faction_rep; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.player_faction_rep (
+    player_id text NOT NULL,
+    faction_id text NOT NULL,
+    reputation integer DEFAULT 0,
+    tier text DEFAULT 'unknown'::text
+);
+
+
+--
+-- Name: player_flags; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.player_flags (
+    player_id text NOT NULL,
+    flag_key text NOT NULL,
+    flag_value text DEFAULT 'true'::text NOT NULL,
+    updated_at bigint DEFAULT EXTRACT(epoch FROM now())
+);
+
+
+--
+-- Name: player_inventory; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.player_inventory (
+    id text NOT NULL,
+    player_id text NOT NULL,
+    item_id text NOT NULL,
+    quantity integer DEFAULT 1,
+    condition real DEFAULT 1.0,
+    is_equipped integer DEFAULT 0,
+    slot text,
+    custom_data jsonb DEFAULT '{}'::jsonb,
+    container_id text,
+    layer integer DEFAULT 1,
+    equipped_at timestamp with time zone
+);
+
+
+--
+-- Name: player_mutations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.player_mutations (
+    player_id text NOT NULL,
+    mutation_id text NOT NULL,
+    acquired_at bigint DEFAULT EXTRACT(epoch FROM now())
+);
+
+
+--
+-- Name: player_quests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.player_quests (
+    player_id text NOT NULL,
+    quest_id text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    progress jsonb DEFAULT '[]'::jsonb NOT NULL,
+    started_at bigint DEFAULT EXTRACT(epoch FROM now()),
+    updated_at bigint DEFAULT EXTRACT(epoch FROM now())
+);
+
+
+--
+-- Name: player_skills; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.player_skills (
+    player_id text NOT NULL,
+    skill_id text NOT NULL,
+    rank integer DEFAULT 0,
+    ip integer DEFAULT 0,
+    trained real DEFAULT 0
+);
+
+
+--
+-- Name: players; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.players (
+    id text NOT NULL,
+    username text NOT NULL,
+    password_hash text NOT NULL,
+    role text DEFAULT 'player'::text NOT NULL,
+    handle text NOT NULL,
+    origin_fragment text,
+    archetype text,
+    stat_str integer DEFAULT 5,
+    stat_agi integer DEFAULT 5,
+    stat_int integer DEFAULT 5,
+    stat_wil integer DEFAULT 5,
+    stat_end integer DEFAULT 5,
+    stat_cha integer DEFAULT 5,
+    hp integer DEFAULT 100,
+    hp_max integer DEFAULT 100,
+    sanity integer DEFAULT 100,
+    sanity_max integer DEFAULT 100,
+    hunger integer DEFAULT 100,
+    thirst integer DEFAULT 100,
+    radiation integer DEFAULT 0,
+    current_zone text DEFAULT 'zone_start'::text,
+    anchor_zone text DEFAULT 'zone_start'::text,
+    credits integer DEFAULT 50,
+    created_at bigint DEFAULT EXTRACT(epoch FROM now()),
+    last_seen bigint DEFAULT EXTRACT(epoch FROM now()),
+    stat_brawn integer DEFAULT 0,
+    stat_reflexes integer DEFAULT 0,
+    stat_endurance integer DEFAULT 0,
+    stat_brains integer DEFAULT 0,
+    stat_cool integer DEFAULT 0,
+    stamina integer DEFAULT 100,
+    stamina_max integer DEFAULT 100,
+    body_temp_c real DEFAULT 37.0,
+    offline_sleeping boolean DEFAULT false,
+    bank_credits integer DEFAULT 0,
+    visibly_mutated integer DEFAULT 0,
+    biological_sex text DEFAULT 'male'::text,
+    hair_style text DEFAULT 'short'::text,
+    hair_length text DEFAULT 'short'::text,
+    hair_color text DEFAULT 'brown'::text,
+    eye_color text DEFAULT 'brown'::text,
+    height_cm integer DEFAULT 170,
+    weight_kg real DEFAULT 70.0,
+    appearance_free_used integer DEFAULT 0,
+    mis_enabled integer DEFAULT 0,
+    horniness integer DEFAULT 0,
+    erect integer DEFAULT 0,
+    digestive_load real DEFAULT 0,
+    hydration_load real DEFAULT 0,
+    appearance_data jsonb DEFAULT '{}'::jsonb,
+    clothing_contamination jsonb DEFAULT '{}'::jsonb,
+    email text,
+    sexuality text DEFAULT 'Male'::text,
+    covered_in_blood integer DEFAULT 0,
+    mob_kills integer DEFAULT 0,
+    player_kills integer DEFAULT 0,
+    deaths integer DEFAULT 0,
+    died_offline boolean DEFAULT false,
+    home_zone text,
+    bonus_xp integer DEFAULT 0,
+    email_verified boolean DEFAULT false,
+    stat_senses integer DEFAULT 0
+);
+
+
+--
+-- Name: police_evidence; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.police_evidence (
+    id text NOT NULL,
+    item_id text NOT NULL,
+    quantity integer DEFAULT 1 NOT NULL,
+    condition real DEFAULT 1.0 NOT NULL,
+    custom_data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    source_handle text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: power_zones; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.power_zones (
+    id text NOT NULL,
+    name text NOT NULL,
+    source_type text DEFAULT 'city_grid'::text NOT NULL,
+    generator_id text,
+    capacity_kw real DEFAULT 0 NOT NULL,
+    current_load_kw real DEFAULT 0 NOT NULL,
+    status text DEFAULT 'powered'::text NOT NULL,
+    flags jsonb DEFAULT '{}'::jsonb NOT NULL,
+    available_kw real DEFAULT 0 NOT NULL,
+    max_capacity_kw real DEFAULT 50 NOT NULL
+);
+
+
+--
+-- Name: quests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.quests (
+    id text NOT NULL,
+    name text NOT NULL,
+    description text DEFAULT ''::text,
+    objectives jsonb DEFAULT '[]'::jsonb NOT NULL,
+    rewards jsonb DEFAULT '{}'::jsonb NOT NULL,
+    repeatable integer DEFAULT 0 NOT NULL,
+    updated_at bigint DEFAULT EXTRACT(epoch FROM now())
+);
+
+
+--
+-- Name: recipes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.recipes (
+    id text NOT NULL,
+    name text NOT NULL,
+    description text,
+    category text DEFAULT 'misc'::text,
+    requires_station text,
+    skill_req jsonb DEFAULT '{}'::jsonb,
+    ingredients jsonb DEFAULT '[]'::jsonb,
+    base_output jsonb NOT NULL,
+    skill_id text NOT NULL,
+    base_difficulty integer DEFAULT 3,
+    craft_time integer DEFAULT 3
+);
+
+
+--
+-- Name: scavenging_table_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.scavenging_table_items (
+    id text NOT NULL,
+    table_id text NOT NULL,
+    item_id text NOT NULL,
+    difficulty integer DEFAULT 5 NOT NULL,
+    weight integer DEFAULT 10 NOT NULL,
+    max_qty integer DEFAULT 3 NOT NULL
+);
+
+
+--
+-- Name: scavenging_tables; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.scavenging_tables (
+    id text NOT NULL,
+    name text NOT NULL,
+    replenish_interval_seconds integer DEFAULT 300 NOT NULL,
+    messages jsonb DEFAULT '{}'::jsonb,
+    flags jsonb DEFAULT '{}'::jsonb
+);
+
+
+--
+-- Name: scavenging_zone_state; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.scavenging_zone_state (
+    zone_id text NOT NULL,
+    table_id text NOT NULL,
+    last_replenish bigint DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: scavenging_zone_stock; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.scavenging_zone_stock (
+    zone_id text NOT NULL,
+    item_id text NOT NULL,
+    current_qty integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: scripts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.scripts (
+    id text NOT NULL,
+    name text NOT NULL,
+    description text,
+    graph jsonb DEFAULT '{}'::jsonb NOT NULL,
+    updated_at bigint DEFAULT EXTRACT(epoch FROM now())
+);
+
+
+--
+-- Name: security_clips; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.security_clips (
+    id text NOT NULL,
+    device_id text,
+    zone_id text,
+    owner_id text,
+    frames jsonb DEFAULT '[]'::jsonb,
+    captured_at bigint DEFAULT 0,
+    crime_tags jsonb DEFAULT '[]'::jsonb
+);
+
+
+--
+-- Name: security_devices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.security_devices (
+    id text NOT NULL,
+    network_id text,
+    owner_id text,
+    device_kind text DEFAULT 'sticky_cam'::text,
+    zone_id text,
+    direction text DEFAULT 'north'::text,
+    tier integer DEFAULT 1,
+    concealment integer DEFAULT 5,
+    battery integer DEFAULT 864,
+    battery_max integer DEFAULT 864,
+    wired integer DEFAULT 0,
+    is_powered integer DEFAULT 1,
+    is_damaged integer DEFAULT 0,
+    is_recording integer DEFAULT 0,
+    recording_buffer jsonb DEFAULT '[]'::jsonb,
+    storage_limit integer DEFAULT 200,
+    status_flags jsonb DEFAULT '{}'::jsonb,
+    hack_difficulty integer DEFAULT 5,
+    placed_at bigint DEFAULT 0
+);
+
+
+--
+-- Name: security_networks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.security_networks (
+    id text NOT NULL,
+    owner_id text,
+    name text DEFAULT 'Unnamed Network'::text NOT NULL,
+    color text DEFAULT '#00ff88'::text,
+    is_police integer DEFAULT 0,
+    encryption integer DEFAULT 5
+);
+
+
+--
+-- Name: server_activity_log; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.server_activity_log (
+    id bigint NOT NULL,
+    event_type text NOT NULL,
+    handle text NOT NULL,
+    admin_handle text,
+    occurred_at timestamp with time zone DEFAULT now() NOT NULL,
+    detail text
+);
+
+
+--
+-- Name: server_activity_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.server_activity_log_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: server_activity_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.server_activity_log_id_seq OWNED BY public.server_activity_log.id;
+
+
+--
+-- Name: server_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.server_settings (
+    key text NOT NULL,
+    value text NOT NULL
+);
+
+
+--
+-- Name: sounds; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sounds (
+    id text NOT NULL,
+    name text NOT NULL,
+    category text DEFAULT 'misc'::text NOT NULL,
+    descriptions jsonb DEFAULT '[]'::jsonb NOT NULL,
+    loudness real DEFAULT 3.0 NOT NULL,
+    enabled integer DEFAULT 1 NOT NULL,
+    propagation text DEFAULT 'both'::text NOT NULL
+);
+
+
+--
+-- Name: staged_changes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.staged_changes (
+    id text DEFAULT (gen_random_uuid())::text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id text NOT NULL,
+    entity_name text,
+    change_type text DEFAULT 'update'::text NOT NULL,
+    method text DEFAULT 'PUT'::text NOT NULL,
+    api_path text NOT NULL,
+    staged_data jsonb,
+    description text,
+    author text DEFAULT 'unknown'::text NOT NULL,
+    staged_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: weather_forecast; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.weather_forecast (
+    forecast_day integer NOT NULL,
+    game_date date NOT NULL,
+    weather_type text NOT NULL,
+    temp_c integer NOT NULL,
+    locked integer DEFAULT 0 NOT NULL,
+    wind_kph integer DEFAULT 0 NOT NULL,
+    humidity_pct integer DEFAULT 60 NOT NULL
+);
+
+
+--
+-- Name: windows; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.windows (
+    id text NOT NULL,
+    name text DEFAULT 'window'::text NOT NULL,
+    description text DEFAULT 'A window.'::text NOT NULL,
+    zone_interior text NOT NULL,
+    zone_exterior text,
+    curtain_open integer DEFAULT 1 NOT NULL,
+    glass_state text DEFAULT 'intact'::text NOT NULL,
+    light_transmission double precision DEFAULT 0.8 NOT NULL,
+    visibility_transmission double precision DEFAULT 0.8 NOT NULL,
+    flags jsonb DEFAULT '{}'::jsonb,
+    handle text
+);
+
+
+--
+-- Name: world_clock; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.world_clock (
+    id integer DEFAULT 1 NOT NULL,
+    game_date date DEFAULT CURRENT_DATE NOT NULL,
+    game_time_minutes integer DEFAULT 480 NOT NULL,
+    day_of_week integer DEFAULT 1 NOT NULL,
+    season text DEFAULT 'spring'::text NOT NULL,
+    last_tick_30m timestamp with time zone DEFAULT now() NOT NULL,
+    last_tick_24h timestamp with time zone DEFAULT now() NOT NULL,
+    last_tick_1m timestamp with time zone DEFAULT now() NOT NULL,
+    active_climate_profile_id text,
+    weather_override_active boolean DEFAULT false NOT NULL,
+    weather_override_backup jsonb,
+    lightning_kills jsonb DEFAULT '[]'::jsonb NOT NULL,
+    time_scale real DEFAULT 1 NOT NULL,
+    CONSTRAINT world_clock_singleton CHECK ((id = 1))
+);
+
+
+--
+-- Name: world_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.world_events (
+    id text NOT NULL,
+    event_type text NOT NULL,
+    description text NOT NULL,
+    zone_id text,
+    player_id text,
+    data jsonb DEFAULT '{}'::jsonb,
+    created_at bigint DEFAULT EXTRACT(epoch FROM now())
+);
+
+
+--
+-- Name: world_flags; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.world_flags (
+    flag_key text NOT NULL,
+    flag_value text DEFAULT 'true'::text NOT NULL,
+    updated_at bigint DEFAULT EXTRACT(epoch FROM now())
+);
+
+
+--
+-- Name: zone_spawns; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zone_spawns (
+    id text NOT NULL,
+    zone_id text NOT NULL,
+    enemy_id text NOT NULL,
+    max_count integer DEFAULT 1,
+    spawn_weight integer DEFAULT 100,
+    respawn_seconds integer DEFAULT 300
+);
+
+
+--
+-- Name: zones; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zones (
+    id text NOT NULL,
+    name text NOT NULL,
+    description text NOT NULL,
+    danger_rating text DEFAULT 'safe'::text,
+    pvp_enabled integer DEFAULT 0,
+    radiation_level integer DEFAULT 0,
+    is_safe_zone integer DEFAULT 0,
+    ambient_events jsonb DEFAULT '[]'::jsonb,
+    exits jsonb DEFAULT '{}'::jsonb,
+    flags jsonb DEFAULT '{}'::jsonb,
+    created_by text,
+    updated_at bigint DEFAULT EXTRACT(epoch FROM now()),
+    map_id text,
+    grid_x integer,
+    grid_y integer,
+    grid_z integer DEFAULT 0,
+    marker text,
+    color text,
+    bg_color text,
+    ambient_theme text DEFAULT 'indoors'::text,
+    stains jsonb DEFAULT '{}'::jsonb,
+    audio_theme_id text,
+    parent_zone text
+);
+
+
+--
+-- Name: channel_messages id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.channel_messages ALTER COLUMN id SET DEFAULT nextval('public.channel_messages_id_seq'::regclass);
+
+
+--
+-- Name: dev_notes id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dev_notes ALTER COLUMN id SET DEFAULT nextval('public.dev_notes_id_seq'::regclass);
+
+
+--
+-- Name: player_count_log id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_count_log ALTER COLUMN id SET DEFAULT nextval('public.player_count_log_id_seq'::regclass);
+
+
+--
+-- Name: player_deaths id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_deaths ALTER COLUMN id SET DEFAULT nextval('public.player_deaths_id_seq'::regclass);
+
+
+--
+-- Name: server_activity_log id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.server_activity_log ALTER COLUMN id SET DEFAULT nextval('public.server_activity_log_id_seq'::regclass);
+
+
+--
+-- Name: apartments apartments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.apartments
+    ADD CONSTRAINT apartments_pkey PRIMARY KEY (zone_id);
+
+
+--
+-- Name: atm_networks atm_networks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.atm_networks
+    ADD CONSTRAINT atm_networks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: atm_units atm_units_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.atm_units
+    ADD CONSTRAINT atm_units_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: audio_ambient audio_ambient_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audio_ambient
+    ADD CONSTRAINT audio_ambient_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: audio_event_routes audio_event_routes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audio_event_routes
+    ADD CONSTRAINT audio_event_routes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: audio_instruments audio_instruments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audio_instruments
+    ADD CONSTRAINT audio_instruments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: audio_samples audio_samples_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audio_samples
+    ADD CONSTRAINT audio_samples_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: audio_sfx audio_sfx_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audio_sfx
+    ADD CONSTRAINT audio_sfx_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: audio_songs audio_songs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audio_songs
+    ADD CONSTRAINT audio_songs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: channel_messages channel_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.channel_messages
+    ADD CONSTRAINT channel_messages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: climate_profiles climate_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.climate_profiles
+    ADD CONSTRAINT climate_profiles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: combat_config combat_config_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.combat_config
+    ADD CONSTRAINT combat_config_pkey PRIMARY KEY (key);
+
+
+--
+-- Name: command_aliases command_aliases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.command_aliases
+    ADD CONSTRAINT command_aliases_pkey PRIMARY KEY (alias);
+
+
+--
+-- Name: crimes crimes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crimes
+    ADD CONSTRAINT crimes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: deployments deployments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.deployments
+    ADD CONSTRAINT deployments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dev_commits dev_commits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dev_commits
+    ADD CONSTRAINT dev_commits_pkey PRIMARY KEY (hash);
+
+
+--
+-- Name: dev_identities dev_identities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dev_identities
+    ADD CONSTRAINT dev_identities_pkey PRIMARY KEY (git_key);
+
+
+--
+-- Name: dev_notes dev_notes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dev_notes
+    ADD CONSTRAINT dev_notes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: doors doors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.doors
+    ADD CONSTRAINT doors_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: drugs drugs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drugs
+    ADD CONSTRAINT drugs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: email_verification_tokens email_verification_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email_verification_tokens
+    ADD CONSTRAINT email_verification_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: email_verification_tokens email_verification_tokens_token_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email_verification_tokens
+    ADD CONSTRAINT email_verification_tokens_token_key UNIQUE (token);
+
+
+--
+-- Name: enemies enemies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enemies
+    ADD CONSTRAINT enemies_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: furniture furniture_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.furniture
+    ADD CONSTRAINT furniture_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: game_tables game_tables_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.game_tables
+    ADD CONSTRAINT game_tables_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: generators generators_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.generators
+    ADD CONSTRAINT generators_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: global_ambient_events global_ambient_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_ambient_events
+    ADD CONSTRAINT global_ambient_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: interface_sfx interface_sfx_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.interface_sfx
+    ADD CONSTRAINT interface_sfx_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: items items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.items
+    ADD CONSTRAINT items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: jail_prisoners jail_prisoners_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.jail_prisoners
+    ADD CONSTRAINT jail_prisoners_pkey PRIMARY KEY (player_id);
+
+
+--
+-- Name: lighting_states lighting_states_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lighting_states
+    ADD CONSTRAINT lighting_states_pkey PRIMARY KEY (zone_id);
+
+
+--
+-- Name: loot_tables loot_tables_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.loot_tables
+    ADD CONSTRAINT loot_tables_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: maps maps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.maps
+    ADD CONSTRAINT maps_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: media_broadcasts media_broadcasts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_broadcasts
+    ADD CONSTRAINT media_broadcasts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: media_cameras media_cameras_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_cameras
+    ADD CONSTRAINT media_cameras_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: media_channel_playlist media_channel_playlist_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_channel_playlist
+    ADD CONSTRAINT media_channel_playlist_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: media_channels media_channels_number_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_channels
+    ADD CONSTRAINT media_channels_number_key UNIQUE (number);
+
+
+--
+-- Name: media_channels media_channels_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_channels
+    ADD CONSTRAINT media_channels_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: media_deck_units media_deck_units_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_deck_units
+    ADD CONSTRAINT media_deck_units_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: media_graphics media_graphics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_graphics
+    ADD CONSTRAINT media_graphics_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: media_themes media_themes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_themes
+    ADD CONSTRAINT media_themes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mutations mutations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mutations
+    ADD CONSTRAINT mutations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: npc_banter_threads npc_banter_threads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.npc_banter_threads
+    ADD CONSTRAINT npc_banter_threads_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: npcs npcs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.npcs
+    ADD CONSTRAINT npcs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: org_members org_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_members
+    ADD CONSTRAINT org_members_pkey PRIMARY KEY (org_id, player_id);
+
+
+--
+-- Name: org_ranks org_ranks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_ranks
+    ADD CONSTRAINT org_ranks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: org_relations org_relations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_relations
+    ADD CONSTRAINT org_relations_pkey PRIMARY KEY (org_id, other_org_id);
+
+
+--
+-- Name: orgs orgs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.orgs
+    ADD CONSTRAINT orgs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: password_reset_tokens password_reset_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.password_reset_tokens
+    ADD CONSTRAINT password_reset_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: password_reset_tokens password_reset_tokens_token_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.password_reset_tokens
+    ADD CONSTRAINT password_reset_tokens_token_key UNIQUE (token);
+
+
+--
+-- Name: player_corpses player_corpses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_corpses
+    ADD CONSTRAINT player_corpses_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: player_count_log player_count_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_count_log
+    ADD CONSTRAINT player_count_log_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: player_deaths player_deaths_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_deaths
+    ADD CONSTRAINT player_deaths_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: player_drug_state player_drug_state_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_drug_state
+    ADD CONSTRAINT player_drug_state_pkey PRIMARY KEY (player_id, drug_id);
+
+
+--
+-- Name: player_faction_rep player_faction_rep_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_faction_rep
+    ADD CONSTRAINT player_faction_rep_pkey PRIMARY KEY (player_id, faction_id);
+
+
+--
+-- Name: player_flags player_flags_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_flags
+    ADD CONSTRAINT player_flags_pkey PRIMARY KEY (player_id, flag_key);
+
+
+--
+-- Name: player_inventory player_inventory_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_inventory
+    ADD CONSTRAINT player_inventory_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: player_mutations player_mutations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_mutations
+    ADD CONSTRAINT player_mutations_pkey PRIMARY KEY (player_id, mutation_id);
+
+
+--
+-- Name: player_quests player_quests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_quests
+    ADD CONSTRAINT player_quests_pkey PRIMARY KEY (player_id, quest_id);
+
+
+--
+-- Name: player_skills player_skills_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_skills
+    ADD CONSTRAINT player_skills_pkey PRIMARY KEY (player_id, skill_id);
+
+
+--
+-- Name: players players_handle_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.players
+    ADD CONSTRAINT players_handle_key UNIQUE (handle);
+
+
+--
+-- Name: players players_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.players
+    ADD CONSTRAINT players_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: players players_username_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.players
+    ADD CONSTRAINT players_username_key UNIQUE (username);
+
+
+--
+-- Name: police_evidence police_evidence_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.police_evidence
+    ADD CONSTRAINT police_evidence_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: power_zones power_zones_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.power_zones
+    ADD CONSTRAINT power_zones_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: quests quests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.quests
+    ADD CONSTRAINT quests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: recipes recipes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.recipes
+    ADD CONSTRAINT recipes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: scavenging_table_items scavenging_table_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scavenging_table_items
+    ADD CONSTRAINT scavenging_table_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: scavenging_tables scavenging_tables_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scavenging_tables
+    ADD CONSTRAINT scavenging_tables_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: scavenging_zone_state scavenging_zone_state_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scavenging_zone_state
+    ADD CONSTRAINT scavenging_zone_state_pkey PRIMARY KEY (zone_id);
+
+
+--
+-- Name: scavenging_zone_stock scavenging_zone_stock_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scavenging_zone_stock
+    ADD CONSTRAINT scavenging_zone_stock_pkey PRIMARY KEY (zone_id, item_id);
+
+
+--
+-- Name: scripts scripts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scripts
+    ADD CONSTRAINT scripts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: security_clips security_clips_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.security_clips
+    ADD CONSTRAINT security_clips_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: security_devices security_devices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.security_devices
+    ADD CONSTRAINT security_devices_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: security_networks security_networks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.security_networks
+    ADD CONSTRAINT security_networks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: server_activity_log server_activity_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.server_activity_log
+    ADD CONSTRAINT server_activity_log_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: server_settings server_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.server_settings
+    ADD CONSTRAINT server_settings_pkey PRIMARY KEY (key);
+
+
+--
+-- Name: sounds sounds_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sounds
+    ADD CONSTRAINT sounds_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: staged_changes staged_changes_entity_type_entity_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.staged_changes
+    ADD CONSTRAINT staged_changes_entity_type_entity_id_key UNIQUE (entity_type, entity_id);
+
+
+--
+-- Name: staged_changes staged_changes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.staged_changes
+    ADD CONSTRAINT staged_changes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: weather_forecast weather_forecast_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.weather_forecast
+    ADD CONSTRAINT weather_forecast_pkey PRIMARY KEY (forecast_day);
+
+
+--
+-- Name: windows windows_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.windows
+    ADD CONSTRAINT windows_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: world_clock world_clock_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.world_clock
+    ADD CONSTRAINT world_clock_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: world_events world_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.world_events
+    ADD CONSTRAINT world_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: world_flags world_flags_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.world_flags
+    ADD CONSTRAINT world_flags_pkey PRIMARY KEY (flag_key);
+
+
+--
+-- Name: zone_spawns zone_spawns_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zone_spawns
+    ADD CONSTRAINT zone_spawns_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zones zones_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zones
+    ADD CONSTRAINT zones_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_apartments_owner; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_apartments_owner ON public.apartments USING btree (owner_id);
+
+
+--
+-- Name: idx_audio_event_routes_event_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audio_event_routes_event_name ON public.audio_event_routes USING btree (event_name);
+
+
+--
+-- Name: idx_channel_messages_channel; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_channel_messages_channel ON public.channel_messages USING btree (channel_id, id);
+
+
+--
+-- Name: idx_dev_commits_author; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dev_commits_author ON public.dev_commits USING btree (author_key);
+
+
+--
+-- Name: idx_dev_commits_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dev_commits_time ON public.dev_commits USING btree (authored_at DESC);
+
+
+--
+-- Name: idx_dev_notes_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dev_notes_time ON public.dev_notes USING btree (created_at DESC);
+
+
+--
+-- Name: idx_evt_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_evt_token ON public.email_verification_tokens USING btree (token);
+
+
+--
+-- Name: idx_media_cameras_zone; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_media_cameras_zone ON public.media_cameras USING btree (zone_id);
+
+
+--
+-- Name: idx_media_deck_units_channel; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_media_deck_units_channel ON public.media_deck_units USING btree (channel_id);
+
+
+--
+-- Name: idx_media_playlist_channel; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_media_playlist_channel ON public.media_channel_playlist USING btree (channel_id, start_time);
+
+
+--
+-- Name: idx_org_members_player; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_org_members_player ON public.org_members USING btree (player_id);
+
+
+--
+-- Name: idx_org_ranks_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_org_ranks_org ON public.org_ranks USING btree (org_id);
+
+
+--
+-- Name: idx_orgs_owner; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_orgs_owner ON public.orgs USING btree (owner_id);
+
+
+--
+-- Name: idx_player_count_log_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_player_count_log_time ON public.player_count_log USING btree (recorded_at DESC);
+
+
+--
+-- Name: idx_player_deaths_player; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_player_deaths_player ON public.player_deaths USING btree (player_id, real_ts DESC);
+
+
+--
+-- Name: idx_player_inventory_player; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_player_inventory_player ON public.player_inventory USING btree (player_id);
+
+
+--
+-- Name: idx_players_username; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_players_username ON public.players USING btree (username);
+
+
+--
+-- Name: idx_police_evidence_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_police_evidence_time ON public.police_evidence USING btree (created_at);
+
+
+--
+-- Name: idx_prt_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_prt_token ON public.password_reset_tokens USING btree (token);
+
+
+--
+-- Name: idx_scav_items_table; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_scav_items_table ON public.scavenging_table_items USING btree (table_id);
+
+
+--
+-- Name: idx_security_devices_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_security_devices_network ON public.security_devices USING btree (network_id);
+
+
+--
+-- Name: idx_security_devices_owner; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_security_devices_owner ON public.security_devices USING btree (owner_id);
+
+
+--
+-- Name: idx_security_devices_zone; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_security_devices_zone ON public.security_devices USING btree (zone_id);
+
+
+--
+-- Name: idx_server_activity_log_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_server_activity_log_time ON public.server_activity_log USING btree (occurred_at DESC);
+
+
+--
+-- Name: idx_world_events_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_world_events_time ON public.world_events USING btree (created_at);
+
+
+--
+-- Name: idx_world_events_zone; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_world_events_zone ON public.world_events USING btree (zone_id);
+
+
+--
+-- Name: idx_zone_spawns_zone; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_zone_spawns_zone ON public.zone_spawns USING btree (zone_id);
+
+
+--
+-- Name: idx_zones_map; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_zones_map ON public.zones USING btree (map_id);
+
+
+--
+-- Name: apartments apartments_owner_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.apartments
+    ADD CONSTRAINT apartments_owner_org_id_fkey FOREIGN KEY (owner_org_id) REFERENCES public.orgs(id) ON DELETE SET NULL;
+
+
+--
+-- Name: apartments apartments_zone_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.apartments
+    ADD CONSTRAINT apartments_zone_id_fkey FOREIGN KEY (zone_id) REFERENCES public.zones(id);
+
+
+--
+-- Name: atm_units atm_units_network_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.atm_units
+    ADD CONSTRAINT atm_units_network_id_fkey FOREIGN KEY (network_id) REFERENCES public.atm_networks(id);
+
+
+--
+-- Name: audio_event_routes audio_event_routes_sample_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audio_event_routes
+    ADD CONSTRAINT audio_event_routes_sample_id_fkey FOREIGN KEY (sample_id) REFERENCES public.audio_samples(id);
+
+
+--
+-- Name: audio_instruments audio_instruments_sample_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audio_instruments
+    ADD CONSTRAINT audio_instruments_sample_id_fkey FOREIGN KEY (sample_id) REFERENCES public.audio_samples(id);
+
+
+--
+-- Name: dev_identities dev_identities_player_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dev_identities
+    ADD CONSTRAINT dev_identities_player_id_fkey FOREIGN KEY (player_id) REFERENCES public.players(id) ON DELETE CASCADE;
+
+
+--
+-- Name: email_verification_tokens email_verification_tokens_player_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email_verification_tokens
+    ADD CONSTRAINT email_verification_tokens_player_id_fkey FOREIGN KEY (player_id) REFERENCES public.players(id) ON DELETE CASCADE;
+
+
+--
+-- Name: generators generators_city_generator_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.generators
+    ADD CONSTRAINT generators_city_generator_id_fkey FOREIGN KEY (city_generator_id) REFERENCES public.generators(id) ON DELETE SET NULL;
+
+
+--
+-- Name: media_broadcasts media_broadcasts_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_broadcasts
+    ADD CONSTRAINT media_broadcasts_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.media_channels(id);
+
+
+--
+-- Name: media_cameras media_cameras_streaming_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_cameras
+    ADD CONSTRAINT media_cameras_streaming_channel_id_fkey FOREIGN KEY (streaming_channel_id) REFERENCES public.media_channels(id);
+
+
+--
+-- Name: media_cameras media_cameras_zone_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_cameras
+    ADD CONSTRAINT media_cameras_zone_id_fkey FOREIGN KEY (zone_id) REFERENCES public.zones(id);
+
+
+--
+-- Name: media_channel_playlist media_channel_playlist_broadcast_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_channel_playlist
+    ADD CONSTRAINT media_channel_playlist_broadcast_id_fkey FOREIGN KEY (broadcast_id) REFERENCES public.media_broadcasts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: media_channel_playlist media_channel_playlist_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_channel_playlist
+    ADD CONSTRAINT media_channel_playlist_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.media_channels(id) ON DELETE CASCADE;
+
+
+--
+-- Name: media_channels media_channels_idle_broadcast_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_channels
+    ADD CONSTRAINT media_channels_idle_broadcast_id_fkey FOREIGN KEY (idle_broadcast_id) REFERENCES public.media_broadcasts(id);
+
+
+--
+-- Name: media_channels media_channels_theme_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_channels
+    ADD CONSTRAINT media_channels_theme_id_fkey FOREIGN KEY (theme_id) REFERENCES public.media_themes(id);
+
+
+--
+-- Name: media_deck_units media_deck_units_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_deck_units
+    ADD CONSTRAINT media_deck_units_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.media_channels(id);
+
+
+--
+-- Name: media_deck_units media_deck_units_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_deck_units
+    ADD CONSTRAINT media_deck_units_id_fkey FOREIGN KEY (id) REFERENCES public.furniture(id);
+
+
+--
+-- Name: org_members org_members_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_members
+    ADD CONSTRAINT org_members_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: org_members org_members_rank_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_members
+    ADD CONSTRAINT org_members_rank_id_fkey FOREIGN KEY (rank_id) REFERENCES public.org_ranks(id);
+
+
+--
+-- Name: org_ranks org_ranks_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_ranks
+    ADD CONSTRAINT org_ranks_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: org_relations org_relations_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_relations
+    ADD CONSTRAINT org_relations_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: org_relations org_relations_other_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_relations
+    ADD CONSTRAINT org_relations_other_org_id_fkey FOREIGN KEY (other_org_id) REFERENCES public.orgs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: password_reset_tokens password_reset_tokens_player_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.password_reset_tokens
+    ADD CONSTRAINT password_reset_tokens_player_id_fkey FOREIGN KEY (player_id) REFERENCES public.players(id) ON DELETE CASCADE;
+
+
+--
+-- Name: player_skills player_skills_player_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_skills
+    ADD CONSTRAINT player_skills_player_id_fkey FOREIGN KEY (player_id) REFERENCES public.players(id);
+
+
+--
+-- Name: power_zones power_zones_generator_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.power_zones
+    ADD CONSTRAINT power_zones_generator_id_fkey FOREIGN KEY (generator_id) REFERENCES public.generators(id);
+
+
+--
+-- Name: scavenging_table_items scavenging_table_items_table_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scavenging_table_items
+    ADD CONSTRAINT scavenging_table_items_table_id_fkey FOREIGN KEY (table_id) REFERENCES public.scavenging_tables(id) ON DELETE CASCADE;
+
+
+--
+-- Name: security_devices security_devices_network_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.security_devices
+    ADD CONSTRAINT security_devices_network_id_fkey FOREIGN KEY (network_id) REFERENCES public.security_networks(id);
+
+
+--
+-- Name: security_devices security_devices_zone_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.security_devices
+    ADD CONSTRAINT security_devices_zone_id_fkey FOREIGN KEY (zone_id) REFERENCES public.zones(id);
+
+
+--
+-- Name: zones zones_audio_theme_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zones
+    ADD CONSTRAINT zones_audio_theme_id_fkey FOREIGN KEY (audio_theme_id) REFERENCES public.audio_songs(id);
+
+
+--
+-- Name: zones zones_parent_zone_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zones
+    ADD CONSTRAINT zones_parent_zone_fkey FOREIGN KEY (parent_zone) REFERENCES public.zones(id);
+
+
+--
+-- Name: password_reset_tokens; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.password_reset_tokens ENABLE ROW LEVEL SECURITY;
+
+--
+-- PostgreSQL database dump complete
+--
+
+
+
+
+-- ── world content (FK checks disabled for the bulk load) ──
+SET session_replication_role = replica;
+--
+-- PostgreSQL database dump
+--
+
+
+-- Dumped from database version 17.10
+-- Dumped by pg_dump version 17.10
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Data for Name: orgs; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.orgs VALUES ('faction_custodians', 'The Custodians', 'Former corporate employees who serve the Architect as a divine entity.', '#4A90D9', 1, NULL, 0, 1783000349, '{}');
+INSERT INTO public.orgs VALUES ('faction_breakers', 'The Breakers', 'Technology abolitionists. Believe destroying all remaining tech will free humanity.', '#D94A4A', 1, NULL, 0, 1783000349, '{}');
+INSERT INTO public.orgs VALUES ('faction_archivists', 'The Archivists', 'Knowledge hoarders operating from the tunnels. Politically neutral. Deeply weird.', '#F5A623', 1, NULL, 0, 1783000349, '{}');
+INSERT INTO public.orgs VALUES ('faction_franchise', 'The Franchise', 'A commerce empire built on pre-Handoff retail bones. If it can be sold, they sell it.', '#7ED321', 1, NULL, 0, 1783000349, '{}');
+INSERT INTO public.orgs VALUES ('faction_glitch', 'The Glitch', 'Hackers and post-Handoff mystics who believe the Architect can be communicated with.', '#9B59B6', 1, NULL, 0, 1783000349, '{}');
+
+
+--
+-- Data for Name: zones; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.zones VALUES ('zone_meridian_unit_104', 'Unit 104', 'Unit 104 on the first floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"east": "zone_meridian_floor_1"}', '{"is_interior": true}', NULL, 1782898109, 'map_int_meridian', -1, 0, 1, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_1');
+INSERT INTO public.zones VALUES ('zone_clone_facility_z-1_1782276270002', 'Coldwater Clone Facility Basement', 'Basement of Coldwater Clone Facility.', 'safe', 0, 0, 0, '[]', '{"up": "zone_start"}', '{"is_building": false, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null}', '8063162d-964d-4bbb-ad88-eb932f8ec495', 1782278037, 'map_int_1782352518150', 0, 0, -1, NULL, NULL, '#4bb36a', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_marquee', 'The Marquee', 'The Marquee was a theater district before the Collapse and never entirely stopped pretending. A dead cinema marquee juts over the intersection, its plastic letters half-looted so the last feature reads simply NO ONE. Rain-slick asphalt throws back the pink and cyan of a dozen bar signs still drawing power from god-knows-where. Foot traffic here is the closest thing the basin has to a nightlife, and everyone walks like they''re being watched, because they are.', 'safe', 0, 0, 1, '["A bar door swings open somewhere, leaking bass and warm air, then thuds shut.", "The dead marquee buzzes and drops another letter onto the pavement.", "A cluster of people laugh too loudly and move on fast.", "Neon reflection ripples across a puddle as a bike whines past."]', '{"in": "zone_mq_pigeon_bar", "east": "zone_mq_battery", "west": "zone_velk_exterior", "north": "zone_mq_cathode", "south": "zone_mq_ember"}', '{"scavenging_table_id": null}', NULL, 1783123847, 'map_world', 3, 0, 0, 'MQ', '#eeeeee', '#e85aa0', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_meridian_unit_102', 'Unit 102', 'Unit 102 on the first floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"west": "zone_meridian_floor_1"}', '{"is_interior": true}', NULL, 1782898109, 'map_int_meridian', 1, 0, 1, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_1');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_201', 'Unit 201', 'Unit 201 on the second floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"south": "zone_meridian_floor_2"}', '{"is_interior": true}', NULL, 1782898109, 'map_int_meridian', 0, -1, 2, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_2');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_103', 'Unit 103', 'Unit 103 on the first floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"north": "zone_meridian_floor_1"}', '{"is_interior": true}', NULL, 1782898109, 'map_int_meridian', 0, 1, 1, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_1');
+INSERT INTO public.zones VALUES ('zone_prod_1782953094650', 'KSAB-TV Studio — Production', 'Media deck and broadcast control room.', 'safe', 0, 0, 0, '[]', '{"down": "zone_studio_1782953094650"}', '{"is_interior": true}', NULL, 1782953095, 'map_int_1782953094650', 0, 0, 1, NULL, NULL, '#8e6fd0', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_residential_lobby_z-1_1782105292491', 'Embassy Hotel & Bar - Basement', 'Basement of Embassy Hotel & Bar — Lobby.', 'safe', 0, 0, 0, '[]', '{"up": "zone_residential_lobby"}', '{"is_building": false, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null}', '94bb0948-c9cd-4d25-8d24-0a9788e75b6b', 1782110526, 'map_interior_zone_residential_lobby', 0, 0, -1, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_studio_1782953094650', 'KSAB-TV Studio Stage', 'Broadcast stage for KSAB-TV Studio.', 'safe', 0, 0, 0, '[]', '{"up": "zone_prod_1782953094650", "out": "zone_ext_1782953094650", "down": "zone_util_1782953094650"}', '{"is_building": true, "is_interior": true, "world_exit_zone": "zone_ext_1782953094650"}', NULL, 1782953095, 'map_int_1782953094650', 0, 0, 0, NULL, NULL, '#8e6fd0', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_util_1782953094650', 'KSAB-TV Studio — Power Room', 'Utility room housing the building junction box.', 'safe', 0, 0, 0, '[]', '{"up": "zone_studio_1782953094650"}', '{"is_interior": true}', NULL, 1782953095, 'map_int_1782953094650', 0, 0, -1, NULL, NULL, '#8e6fd0', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_city_ne', 'Custodian Row', 'Corporate spires, mostly empty, partially maintained by Custodians who still believe someone is watching the quarterly numbers.', 'safe', 0, 0, 1, '["A Custodian in ill-fitting corporate attire hands out pamphlets nobody reads.", "An elevator chimes on a floor that no longer exists."]', '{"east": "zone_meridian", "west": "zone_city_north", "north": "zone_up_gate"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', NULL, 1783123847, 'map_world', 1, -1, 0, 'CR', '#111111', '#4bb36a', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_meridian_unit_203', 'Unit 203', 'Unit 203 on the second floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"north": "zone_meridian_floor_2"}', '{"is_interior": true}', NULL, 1782898110, 'map_int_meridian', 0, 1, 2, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_2');
+INSERT INTO public.zones VALUES ('zone_mq_grocery_util', 'Ration Nine — Utility Room', 'A tight service room behind the walk-in freezer, throbbing with compressor drone. Frost creeps up the pipework, and the junction box sits bolted to the one dry wall, breakers labelled in fading grease-pencil for coolers long since scavenged. A small sealed hacking port sits below its latch.', 'low', 0, 0, 0, '[]', '{"south": "zone_mq_grocery_stock"}', '{"is_building": false, "is_interior": true}', NULL, 1783023538, 'map_int_mq_grocery', 0, -2, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_grocery_stock');
+INSERT INTO public.zones VALUES ('zone_meridian_floor_4', 'The Meridian — Floor 4 Hallway', 'Floor 4 of The Meridian. A narrow corridor stretches between four unit doors — numbers 401, 402, 403, 404 — stamped in adhesive metal letters, most of which have survived. The walls are poured concrete behind a skim of paint that went off-white long ago, old marker tags bleeding through where the building manager gave up trying to buff them out. Synthetic carpet the color of old claret muffles every footfall. Sodium-orange emergency strips trace the baseboards. The recycled air carries the mingled residue of a dozen private lives: synthetic tobacco, mystery cooking, and the faint ionised bite of an ageing HVAC system.', 'safe', 0, 0, 0, '[]', '{"up": "zone_meridian_floor_5", "down": "zone_meridian_floor_3", "east": "zone_meridian_unit_402", "west": "zone_meridian_unit_404", "north": "zone_meridian_unit_401", "south": "zone_meridian_unit_403"}', '{"is_building": false, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783112382, 'map_int_meridian', 0, 0, 4, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_lobby');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_202', 'Unit 202', 'Unit 202 on the second floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"west": "zone_meridian_floor_2"}', '{"is_building": false, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783112361, 'map_int_meridian', 1, 0, 2, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_2');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_204', 'Unit 204', 'Unit 204 on the second floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"east": "zone_meridian_floor_2"}', '{"is_building": false, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783112361, 'map_int_meridian', -1, 0, 2, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_2');
+INSERT INTO public.zones VALUES ('zone_apt_1', 'Unit 1A', 'A small studio with a mattress, a hot plate, and a window that doesn''t open. It''s not much, but the door locks, and around here that''s everything.', 'safe', 0, 0, 0, '["Pipes knock somewhere in the walls. The building is old but it holds."]', '{"south": "zone_residential_lobby"}', '{"is_building": false, "is_interior": false, "is_apartment": true, "building_name": null, "building_type": null, "world_exit_zone": null}', NULL, 1783045464, 'map_interior_zone_residential_lobby', 0, -1, 0, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_meridian_unit_404', 'Unit 404', 'Unit 404 on the fourth floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"east": "zone_meridian_floor_4"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898110, 'map_int_meridian', -1, 0, 4, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_4');
+INSERT INTO public.zones VALUES ('zone_apt_2', 'Unit 1B', 'A corner unit with two windows, both boarded. Someone before you left a faded poster on the wall — a beach, somewhere, once.', 'safe', 0, 0, 0, '["The boarded windows let in thin lines of light that move slowly across the floor."]', '{"north": "zone_residential_lobby"}', '{"is_building": false, "is_interior": false, "is_apartment": true, "building_name": null, "building_type": null, "world_exit_zone": null}', NULL, 1783045464, 'map_interior_zone_residential_lobby', 0, 1, 0, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_apt_4', 'Unit 1D', 'A larger unit, big enough to actually pace in. The previous tenant left graffiti on the inside of the door: COUNT YOUR DAYS.', 'safe', 0, 0, 0, '["The graffiti on the door is in a careful, practiced hand. Not a first attempt at writing it."]', '{"east": "zone_residential_lobby"}', '{"is_building": false, "is_interior": true, "is_apartment": true, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783111686, 'map_interior_zone_residential_lobby', -1, 0, 0, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_residential_lobby');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_501', 'Unit 501', 'Unit 501 on the fifth floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"south": "zone_meridian_floor_5"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898110, 'map_int_meridian', 0, -1, 5, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_5');
+INSERT INTO public.zones VALUES ('zone_apt_3', 'Unit 1C', 'A narrow unit, mostly bed and shelving. Whoever lived here last was tidy, methodical, and is conspicuously not here anymore.', 'safe', 0, 0, 0, '["The shelves are bolted to the wall, every one perfectly level."]', '{"west": "zone_residential_lobby"}', '{"is_building": false, "is_interior": false, "is_apartment": true, "building_name": null, "building_type": null, "world_exit_zone": null}', NULL, 1783045464, 'map_interior_zone_residential_lobby', 1, 0, 0, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_meridian_unit_402', 'Unit 402', 'Unit 402 on the fourth floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"west": "zone_meridian_floor_4"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898110, 'map_int_meridian', 1, 0, 4, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_4');
+INSERT INTO public.zones VALUES ('zone_mq_amp_util', 'Ampersand Electronics — Utility Room', 'A repair bench buried under cannibalised boards, ribbon cable, and dead handsets harvested for parts. The shop''s junction box has been rewired with suspicious, loving care — bypass jumpers and a bootleg meter spliced across the mains. A small sealed hacking port sits below its latch.', 'low', 0, 0, 0, '[]', '{"south": "zone_mq_amp_shop"}', '{"is_building": false, "is_interior": true}', NULL, 1783023539, 'map_int_mq_amp', 0, -1, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_amp_shop');
+INSERT INTO public.zones VALUES ('zone_apt_12', 'Unit 3D', 'Number 3D, last door on the top floor. Half the light fixtures are gone, wires capped and hanging, but a portable lamp does the job. A wide bed under the window, a wardrobe with a mirror gone black at the edges, and a strange, welcome quiet — you''re as far from the bar as the building gets. The kind of room you disappear into.', 'safe', 0, 0, 0, '["The black-edged wardrobe mirror catches a movement that isn''t there."]', '{"east": "zone_embassy_floor3"}', '{"is_building": false, "is_interior": false, "is_apartment": true, "building_name": null, "building_type": null, "world_exit_zone": null}', NULL, 1783045464, 'map_interior_zone_residential_lobby', -1, 0, 2, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_embassy_floor3');
+INSERT INTO public.zones VALUES ('zone_city_east', 'The Loading Bay', 'A vast warehouse complex The Franchise uses as a distribution hub. Forklifts move between shelves stacked to the ceiling. Everything here has a SKU.', 'safe', 0, 0, 1, '["An autonomous forklift nearly runs you over. It has a smiley face sticker.", "\"CUSTOMER SATISFACTION IS OUR PRIORITY,\" the speakers insist, less and less convincingly."]', '{"east": "zone_city_north", "west": "zone_warehouse", "north": "zone_powerplantnew", "south": "zone_city_west"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123847, 'map_world', -1, -1, 0, 'LW', '#111111', '#4bb36a', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_velk_shop', 'Velk''s Pre-Owned Furnishings', 'The shop is improbably full — every surface covered, every corner claimed. Chairs stacked on tables, lamps draped with fabric samples, shelves bowing under the weight of picture frames, drawer units, and objects with no obvious purpose but clear previous lives. It smells like oil soap and old wood. Somehow, it all feels livable.', 'safe', 0, 0, 1, '["Something in a pile shifts and settles with a creak.", "A lamp flickers, steadies, then flickers again.", "A drawer slides open an inch on its own. The shop is just settling, probably.", "The scent of lemon oil drifts through the crowded aisles.", "A price tag twirls slowly on a hanging lamp."]', '{"out": "zone_velk_exterior", "down": "zone_velk_basement"}', '{"is_interior": true}', NULL, 1782918446, 'map_int_velk', 0, 0, 0, NULL, NULL, '#e08a4a', 'indoors', '{}', NULL, 'zone_velk_exterior');
+INSERT INTO public.zones VALUES ('zone_clone_facility_bathroom', 'Coldwater Clone Facility - Bathroom', 'A sterile, brightly lit washroom lined with smooth composite walls and seamless flooring. The air smells faintly of antiseptic and ozone, while quiet ventilation hums overhead. Hairline drainage channels and spotless surfaces give the unsettling impression that every trace of biological material is meant to disappear without a trace.', 'safe', 0, 0, 1, '[]', '{"west": "zone_start"}', '{"is_building": false, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null}', NULL, 1782354298, 'map_int_1782352518150', 1, 0, 0, NULL, NULL, '#4bb36a', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_badland_sw_outer', 'The Static Wood', 'What used to be a municipal park, gone feral over long neglect. The trees have grown in crooked and close, roots buckling the old footpaths, and a swing-set rusts on its chains where no child has played in a lifetime.', 'low', 1, 0, 1, '["A branch creaks overhead, though there is barely wind to move it.", "A swing chain ticks back and forth, slow and rusty.", "Something small rustles off through the undergrowth and is gone."]', '{"west": "zone_deep_waste", "north": "zone_outskirts"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123847, 'map_world', -2, 1, 0, 'SW', '#eeeeee', '#53565c', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_meridian_unit_503', 'Unit 503', 'Unit 503 on the fifth floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"north": "zone_meridian_floor_5"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898110, 'map_int_meridian', 0, 1, 5, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_5');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_504', 'Unit 504', 'Unit 504 on the fifth floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"east": "zone_meridian_floor_5"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898111, 'map_int_meridian', -1, 0, 5, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_5');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_601', 'Unit 601', 'Unit 601 on the sixth floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"south": "zone_meridian_floor_6"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898111, 'map_int_meridian', 0, -1, 6, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_6');
+INSERT INTO public.zones VALUES ('zone_meridian_floor_2', 'The Meridian — Floor 2 Hallway', 'Floor 2 of The Meridian. A narrow corridor stretches between four unit doors — numbers 201, 202, 203, 204 — stamped in adhesive metal letters, most of which have survived. The walls are poured concrete behind a skim of paint that went off-white long ago, old marker tags bleeding through where the building manager gave up trying to buff them out. Synthetic carpet the color of old claret muffles every footfall. Sodium-orange emergency strips trace the baseboards. The recycled air carries the mingled residue of a dozen private lives: synthetic tobacco, mystery cooking, and the faint ionised bite of an ageing HVAC system.', 'safe', 0, 0, 0, '[]', '{"up": "zone_meridian_floor_3", "down": "zone_meridian_floor_1", "east": "zone_meridian_unit_202", "west": "zone_meridian_unit_204", "north": "zone_meridian_unit_201", "south": "zone_meridian_unit_203"}', '{"is_building": false, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783112116, 'map_int_meridian', 0, 0, 2, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_lobby');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_101', 'Unit 101', 'Unit 101 on the first floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"south": "zone_meridian_floor_1"}', '{"is_interior": true}', NULL, 1782898109, 'map_int_meridian', 0, -1, 1, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_1');
+INSERT INTO public.zones VALUES ('zone_badland_w_gate', 'The Rust Quarter West', 'The processing yards peter out here into a maze of collapsed sheds and rusted-shut gantries. Everything worth stripping was stripped generations ago; what remains is too big or too broken to carry. The quiet has the particular weight of a place people simply stopped coming to.', 'low', 1, 0, 0, '["The ruins groan somewhere behind you. Structural settling, probably.", "A long-dead cable sways and taps against a gantry.", "Grit hisses across the cracked concrete and pools in the old wheel-ruts."]', '{"east": "zone_outskirts", "west": "zone_ruins", "north": "zone_civ_sortation", "south": "zone_deep_waste"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123848, 'map_world', -3, 0, 0, 'QW', '#eeeeee', '#53565c', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_weighbridge', 'The Weighbridge', 'A truck weighbridge where every load in and out of the Yards is tallied by a scale that hasn''t been calibrated since the Handoff and a clerk who rounds in the company''s favour.', 'low', 0, 0, 1, '["The weighbridge groans as a laden hauler creeps onto the plate.", "The clerk squints at the dial, writes down a different number, and waves the truck on."]', '{"west": "zone_yard_dray", "north": "zone_yard_reefer", "south": "zone_yard_forklift"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase7-build', 1783123886, 'map_world', 8, 0, 0, 'WB', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_city_north', 'Threshold Plaza North', 'A cracked concrete plaza ringed by dead streetlights still standing at attention. This is the northern gate into Coldwater proper — the LED departure boards here flicker through routes that no longer run anywhere.', 'safe', 0, 0, 1, '["A drone hums overhead, chassis stenciled with a faded corporate logo.", "The departure board flickers: COLDWATER → DENVER → [SIGNAL LOST]."]', '{"east": "zone_city_ne", "west": "zone_city_east", "north": "zone_ext_1782953094650", "south": "zone_threshold"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', NULL, 1783123848, 'map_world', 0, -1, 0, 'TN', '#111111', '#4bb36a', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_pigeon_bar', 'The Dead Pigeon', 'A long, low bar named for the taxidermied pigeon nailed over the register, wings spread in permanent, moth-eaten glory. The counter is a slab of reclaimed door on oil drums; the stools don''t match and neither do the glasses. String lights and the blue flicker of a muted screen do all the lighting the place can afford. It smells of spilled synth-beer, cigarettes, and the particular warmth of a room where nobody is going to ask what you did today.', 'safe', 0, 0, 1, '["The taxidermied pigeon sheds a single feather onto the register.", "Someone racks up a game in the corner; balls scatter with a crack.", "The muted screen cuts to a test pattern and nobody notices.", "A stool scrapes as a regular finds the exact spot they always sit."]', '{"out": "zone_mq_marquee", "down": "zone_mq_pigeon_back"}', '{"is_building": true, "is_interior": true, "building_name": "The Dead Pigeon", "building_type": "bar", "world_exit_zone": "zone_mq_marquee"}', NULL, 1782964407, 'map_int_mq_pigeon', 0, 0, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_marquee');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_602', 'Unit 602', 'Unit 602 on the sixth floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"west": "zone_meridian_floor_6"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898111, 'map_int_meridian', 1, 0, 6, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_6');
+INSERT INTO public.zones VALUES ('zone_velk_basement', 'Velk''s — Utility Room', 'A low-ceilinged basement room that smells of damp concrete and old cabling. A junction box occupies most of one wall, its panel door held shut with a twist of wire. Exposed conduit runs along the ceiling toward the shop above. A single bulb dangles from a cord, doing its best.', 'safe', 0, 0, 1, '[]', '{"up": "zone_velk_shop", "down": "zone_util_zone_velk_basement"}', '{"is_interior": true}', NULL, 1782918447, 'map_int_velk', 0, 0, -1, NULL, NULL, '#e08a4a', 'indoors', '{}', NULL, 'zone_velk_exterior');
+INSERT INTO public.zones VALUES ('zone_drum_basement', 'Second Skin — Utility Room', 'A cramped basement room packed with bolts of fabric stored upright along one wall — Cassius''s off-season overflow. The junction box on the opposite wall has been labelled in marker: LIGHTS, SIGN, MISC. A tangle of extension cords snakes toward a power strip that is doing entirely too much work.', 'safe', 0, 0, 1, '[]', '{"up": "zone_drum_shop", "down": "zone_util_zone_drum_basement"}', '{"is_interior": true}', NULL, 1783059649, 'map_int_drum', 0, 0, -1, NULL, NULL, '#e08a4a', 'indoors', '{}', NULL, 'zone_drum_exterior');
+INSERT INTO public.zones VALUES ('zone_start', 'Coldwater Clone Facility', 'Aseptic white tile floor that has long since gone grey at the grout lines. Vat chambers run along both walls — human-sized cylinders of cloudy fluid, most occupied, all humming at a frequency just below the threshold of comfort. Overhead fluorescents pulse with slow, clinical regularity. Somewhere in the walls, a machine breathes. This is where you come from. Every time.', 'safe', 0, 0, 1, '["A vat releases a slow bubble. Something shifts inside.", "The reconstitution system cycles — a low harmonic you feel more than hear.", "A printer somewhere spits out a receipt. Nobody comes to collect it."]', '{"out": "zone_city_west", "down": "zone_clone_facility_z-1_1782276270002", "east": "zone_clone_facility_bathroom"}', '{"is_building": true, "is_interior": true, "is_apartment": false, "building_name": "Coldwater Clone Facility", "building_type": null, "world_exit_zone": "zone_city_west", "scavenging_table_id": "scav_roadside_junk"}', NULL, 1782495256, 'map_int_1782352518150', 0, 0, 0, NULL, NULL, '#4bb36a', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_meridian_unit_304', 'Unit 304', 'Unit 304 on the third floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"east": "zone_meridian_floor_3"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898110, 'map_int_meridian', -1, 0, 3, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_3');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_util', 'Chrome Court — Basement Utility', 'The tower''s guts: a low concrete basement of riser conduits, a dead boiler, and a floor drain choked with grit. The main junction box dominates one wall, a slab of breakers and humming busbars feeding every unit above. A small sealed hacking port sits below its latch.', 'low', 0, 0, 0, '[]', '{"up": "zone_mq_chrome_lobby"}', '{"is_building": false, "is_interior": true}', NULL, 1783023542, 'map_int_mq_chrome', 0, 0, -1, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_mq_cage', 'Tin Lane', 'A dogleg of a service lane roofed in corrugated tin that drums like gunfire whenever it rains, which is always. Every ground-floor window wears its own cage of rebar and welded mesh; commerce here is conducted through slots. The Cage anchors the lane — steel screen floor to ceiling, a clerk somewhere behind it, a shotgun somewhere behind the clerk. A hand-lettered sign promises OPEN and, unusually, means it.', 'low', 0, 0, 1, '[]', '{"in": "zone_mq_cage_shop", "east": "zone_yard_chassis", "west": "zone_mq_overpass", "north": "zone_mq_precinct", "south": "zone_meat_slaughter"}', '{"is_building": true, "is_interior": false, "is_apartment": false, "building_name": "The Cage", "building_type": "shop", "world_exit_zone": "zone_mq_overpass", "scavenging_table_id": null}', NULL, 1783123848, 'map_world', 5, 1, 0, 'CG', '#eeeeee', '#e85aa0', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_chassis', 'Chassis Row', 'A row of stripped truck chassis up on blocks, cannibalised for parts one bolt at a time. Grease-black mechanics work under them, visible only as boots and the occasional curse.', 'low', 0, 0, 1, '["A wrench clatters under a chassis, followed by a considered obscenity.", "A mechanic rolls out from under a truck, looks at you, and rolls back."]', '{"east": "zone_yard_transfer", "west": "zone_mq_cage", "north": "zone_yard_loadout", "south": "zone_yard_bonded"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase7-build', 1783123886, 'map_world', 6, 1, 0, 'Ch', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_precinct', 'Muster Yard', 'A hard-standing of cracked concrete and painted lines nobody parks between anymore. Floodlights — real, working ones — wash the whole yard in interrogation white, so there is nowhere to stand that isn''t seen. Precinct 9 fronts the yard behind a caged sally-port, its charter placard swapped so many times the old bolt holes have merged into one long scar. A departmental drone idles on its pad, optics tracking anything that moves too fast.', 'safe', 0, 0, 1, '[]', '{"in": "zone_mq_precinct_lobby", "east": "zone_yard_loadout", "west": "zone_mq_battery", "north": "zone_yard_depot", "south": "zone_mq_cage"}', '{"is_building": true, "is_interior": false, "is_apartment": false, "building_name": "Precinct 9", "building_type": "police", "world_exit_zone": "zone_mq_battery", "scavenging_table_id": null}', NULL, 1783123848, 'map_world', 5, 0, 0, 'P9', '#eeeeee', '#e85aa0', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_cherry_office', 'The Cherry Pit — Back Office', 'The office where the Cherry''s money is counted and its problems are solved. A metal desk, a safe bolted through the floor, and a wall of monitors cycling grainy feeds of every corner of the club. A cot in the corner says the manager either lives here or has nowhere better to hide. The air is stale with old smoke and the ozone tang of overworked electronics.', 'low', 0, 0, 0, '["A monitor rolls to static, then snaps back to the floor.", "The bolted safe ticks as it cools, or as something inside settles.", "Somewhere a phone rings twice and is silenced mid-tone."]', '{"up": "zone_mq_cherry_floor", "north": "zone_mq_cherry_util"}', '{"is_interior": true}', NULL, 1783020039, 'map_int_mq_cherry', 0, 0, -1, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_cherry_floor');
+INSERT INTO public.zones VALUES ('zone_mq_pigeon_back', 'The Dead Pigeon — Back Booth', 'A curtained booth down a short flight of steps, where the deals that keep the Dead Pigeon solvent actually happen. One table, four chairs, a lamp with a scarf thrown over it for mood or for darkness, depending on your business. The walls are soft with old soundproofing foam, so whatever is said here stays a rumor at most.', 'low', 0, 0, 0, '["Muffled bass thuds down through the ceiling from the bar above.", "The scarf over the lamp smells faintly of scorching.", "A chair creaks under someone who isn''t there anymore."]', '{"up": "zone_mq_pigeon_bar", "north": "zone_mq_pigeon_util"}', '{"is_interior": true}', NULL, 1782964407, 'map_int_mq_pigeon', 0, 0, -1, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_pigeon_bar');
+INSERT INTO public.zones VALUES ('zone_mq_cherry_vip', 'The Cherry Pit — VIP', 'A curtained-off nook the club calls VIP with a straight face. A curved couch, a low table ringed with the ghosts of glasses, and a rope that only pretends to be velvet. The privacy is real enough if you''ve paid for it, and the stains suggest a great many people have. A camera dome in the corner watches the room, which rather defeats the point.', 'low', 0, 0, 0, '["The camera dome tracks you with a soft, deliberate whir.", "The privacy curtain sways though there''s no draft.", "Muffled club noise presses against the little room like water."]', '{"south": "zone_mq_cherry_floor"}', '{"mis_ok": true, "is_interior": true}', NULL, 1783020038, 'map_int_mq_cherry', 0, -1, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_cherry_floor');
+INSERT INTO public.zones VALUES ('zone_city_west', 'Franchise Strip', 'Pre-Handoff retail storefronts, repurposed and argued over for years. Big box skeletons and drive-through lanes now used as livestock pens, retrofitted for survival.', 'safe', 0, 0, 1, '["A vendor shouts: \"AUTHENTIC PRE-HANDOFF CANNED GOODS. ONLY SLIGHTLY EXPIRED.\"", "Two people argue about whether the Architect controls the weather."]', '{"in": ["zone_start", "zone_residential_lobby"], "east": "zone_threshold", "west": "zone_outskirts", "north": "zone_city_east"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_consumer_trash"}', NULL, 1783123848, 'map_world', -1, 0, 0, 'FS', '#111111', '#4bb36a', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_meridian_unit_302', 'Unit 302', 'Unit 302 on the third floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"west": "zone_meridian_floor_3"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898110, 'map_int_meridian', 1, 0, 3, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_3');
+INSERT INTO public.zones VALUES ('zone_yard_container', 'Container Row', 'Stacked containers march away in canyons four high, their doors chalked with destinations and their contents a matter of faith. The wind between the stacks never stops.', 'low', 0, 0, 1, '["A container door bangs somewhere in the canyon and echoes and echoes.", "Wind funnels between the stacks with a moan you feel in your sternum."]', '{"east": "zone_yard_freightworks", "west": "zone_corp_boardroom", "north": "zone_waste_oxide", "south": "zone_yard_sidings"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase8-build', 1783123886, 'map_world', 6, -3, 0, 'Cn', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_furniture_store', 'Dead Space Interiors', 'A decommissioned industrial unit repurposed as a furniture showroom. Exposed concrete, neon tube lighting that flickers on a deliberate schedule. The pieces are arranged in vignettes separated by strips of blue painter''s tape on the floor. Price tags are handwritten on recycled cardboard. The air smells of outgassing polymer and burnt coffee from a percolator no one will admit to owning.', 'safe', 0, 0, 0, '[]', '{"out": "zone_thresholdeast", "north": "zone_furniture_util"}', '{"is_building": false, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1782933540, 'map_int_furniture', 0, 0, 0, NULL, NULL, '#e08a4a', 'indoors', '{}', NULL, 'zone_thresholdeast');
+INSERT INTO public.zones VALUES ('zone_corp_investor', 'Investor''s Walk', 'A colonnade where freight futures are traded on the strength of ships that may or may not exist. Fortunes are made and unmade here on cargo that is still, technically, at sea.', 'safe', 0, 0, 1, '["Someone on the Walk sells a shipment they''ve never seen to someone who never will.", "A futures board flickers, and three people on the Walk quietly stop smiling."]', '{"east": "zone_yard_sidings", "west": "zone_up_chrome", "north": "zone_corp_boardroom", "south": "zone_yard_depot"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase8-build', 1783123886, 'map_world', 5, -2, 0, 'Iv', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_outskirts', 'The Rust Quarter', 'The industrial edge of the basin, decades past its last shift. Enormous processing facilities stand half-collapsed, their sheet-metal walls streaked orange with rust and peeling off the frames. Weeds have prised up the loading aprons; nothing here has drawn power in a very long time.', 'low', 1, 0, 1, '["Loose sheet metal bangs somewhere in the wind, slow and hollow.", "You find a paycheck stub from a company that no longer exists.", "A pigeon clatters up out of a dead ventilation stack."]', '{"east": "zone_city_west", "west": "zone_badland_w_gate", "south": "zone_badland_sw_outer"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123848, 'map_world', -2, 0, 0, 'RQ', '#eeeeee', '#53565c', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_sump_cellar', 'Sump — Cellar', 'A brick cellar that predates everything above it, stacked with kegs, crates, and the accumulated evidence of a bar that never throws anything away. A bare bulb on a cord. Damp that has soaked so deep into the mortar the walls sweat. The drain from upstairs terminates somewhere down here, and you''d rather not learn exactly where.', 'low', 0, 0, 0, '["The bare bulb sways on its cord, though nothing touched it.", "A keg settles in the stack with a hollow, ringing knock.", "Water drips somewhere in the dark with metronomic patience."]', '{"up": "zone_mq_sump_bar", "north": "zone_mq_sump_util"}', '{"is_interior": true}', NULL, 1782964407, 'map_int_mq_sump', 0, 0, -1, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_sump_bar');
+INSERT INTO public.zones VALUES ('zone_city_se', 'The Clinic Block', 'One of the only reliably staffed medical points in the basin. People are polite here. Nobody wants to be the reason it closes.', 'safe', 0, 0, 1, '["A line forms outside, orderly, almost eerily so.", "Someone hums a tune that might be older than the Handoff."]', '{"east": "zone_drum_exterior", "west": "zone_city_south", "north": "zone_thresholdeast"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', NULL, 1783123848, 'map_world', 1, 1, 0, 'CB', '#111111', '#4bb36a', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_city_sw', 'The Under Entrance', 'A guarded stairwell down into the old subway tunnels. The Archivists'' real vault is below, but this entrance is calm, watched, safe.', 'safe', 0, 0, 1, '["A train horn sounds in the distance. There are no trains.", "Cold air rises from the stairwell, smelling of paper and rust."]', '{"east": "zone_city_south"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123848, 'map_world', -1, 1, 0, 'UE', '#111111', '#4bb36a', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_forklift', 'Forklift Flat', 'A concrete apron where the yard''s forklifts are parked, charged, and fought over each shift. Tyre-black scuffs map a hundred near-misses across the slab.', 'low', 0, 0, 1, '["A forklift alarm beeps its slow reverse into the flat and cuts out.", "Two drivers argue over a charging cable with real, tired heat."]', '{"west": "zone_yard_transfer", "north": "zone_yard_weighbridge", "south": "zone_yard_railhead"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase7-build', 1783123886, 'map_world', 8, 1, 0, 'FK', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_tunnels', 'The Under', 'Pre-Handoff subway tunnels, now home to the Archivists. Emergency lighting casts everything amber. The walls are dense with salvaged text — newspaper fragments, printed articles, handwritten notes.', 'medium', 0, 0, 1, '["Someone is typing, fast, somewhere in the dark.", "A train horn sounds in the distance. There are no trains.", "Scratched into the wall, half-legible: \"when the static’s bad, ask the shadows.\""]', '{"up": "zone_slums"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1781980620, 'map_world', 0, 2, -1, NULL, NULL, '#cf6a2e', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_grocery', 'Ration Nine', 'A grocery in the loosest post-Collapse sense: three aisles of dented cans, vac-packed protein bricks, and produce grown under lamps somewhere and trucked in still faintly warm. RATION NINE, the sign says, though there is no Ration One through Eight that anyone can name. Fluorescent tubes hum over shelves stocked with the grim staples of survival and, incongruously, a rack of gum by the register. A camera and a clerk track your hands with equal suspicion.', 'safe', 0, 0, 1, '["A fluorescent tube stutters over aisle two and gives up.", "The cooler compressor kicks on with a shudder that rattles the cans.", "A can rolls off a shelf somewhere and wobbles to a stop.", "The register beeps, unprompted, and the clerk swears at it."]', '{"out": "zone_mq_battery", "north": "zone_mq_grocery_stock"}', '{"is_building": true, "is_interior": true, "building_name": "Ration Nine", "building_type": "grocery", "world_exit_zone": "zone_mq_battery"}', NULL, 1782964407, 'map_int_mq_grocery', 0, 0, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_battery');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_403', 'Unit 403', 'Unit 403 on the fourth floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"north": "zone_meridian_floor_4"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898110, 'map_int_meridian', 0, 1, 4, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_4');
+INSERT INTO public.zones VALUES ('zone_weapons_exterior', 'Rebar Cut', 'A shipping container grafted onto the alley wall, its roll-door cut down to a service hatch and barred with rebar. A stencilled sign — a rifle crossed with a wrench — hangs over the entrance. Somebody has scratched PRICES ARE FIRM into the paint, then, beneath it, SO AM I.', 'low', 0, 0, 1, '[]', '{"east": "zone_meat_ashpit", "west": "zone_deep_gutter", "north": "zone_mq_ember"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": "zone_deep_waste", "scavenging_table_id": null}', NULL, 1783123848, 'map_world', 3, 2, 0, 'QS', '#111111', '#e08a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_deep_warrens', 'The Warrens', 'Where the Sprawl''s foundations rot into a warren of lean-tos and tarp-roofed stalls. Everything here is for sale, and most of it is stolen off someone still warm.', 'medium', 1, 0, 1, '["A hawker rattles a tin of unlabelled pills at you and melts back into the tarps.", "Two figures argue over a mattress in a doorway, then over a knife."]', '{"east": "zone_deep_cardboard", "west": "zone_deep_tarpit", "south": "zone_deep_rotrow"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase1-build', 1783123848, 'map_world', -2, 2, 0, 'WR', '#111111', '#cf6a2e', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_city_south', 'The Sprawl Gate', 'Where the dense vertical Sprawl tapers into the rest of the city. Laundry lines and extension cords crisscross overhead like a second sky.', 'safe', 0, 0, 1, '["Something crashes several floors above. Then laughter.", "A wall screen loops a corporate conflict-resolution training video, forever."]', '{"east": "zone_city_se", "west": "zone_city_sw", "north": "zone_threshold", "south": "zone_slums"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123848, 'map_world', 0, 1, 0, 'SG', '#111111', '#4bb36a', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_warehouse', 'The Loading Bay West', 'A vast warehouse complex that The Franchise faction uses as a distribution hub. Everything here has a SKU. Everything here is for sale.', 'low', 0, 0, 1, '["\"CUSTOMER SATISFACTION IS OUR PRIORITY\" plays from overhead speakers. The voice sounds increasingly uncertain."]', '{"east": "zone_city_east", "west": "zone_civ_sortation", "north": "zone_up_aid"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123848, 'map_world', -2, -1, 0, 'LW', '#eeeeee', '#347b49', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_bonded', 'The Bonded Store', 'A caged bonded warehouse for goods that are in the country but not yet, legally, anywhere. The padlocks are new; the paperwork authorising them is not.', 'low', 0, 0, 1, '["A guard rattles the bonded cage, confirms the locks, and moves on.", "Something inside the bonded store is ticking. Nobody has volunteered to check."]', '{"east": "zone_yard_tare", "west": "zone_meat_slaughter", "north": "zone_yard_chassis", "south": "zone_yard_skid"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase7-build', 1783123886, 'map_world', 6, 2, 0, 'BD', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_tare', 'Tare Row', 'Where empty containers are weighed and stacked, their tare marked in chalk on the steel. The stacks climb four high and lean in ways that keep the insurers awake.', 'low', 0, 0, 1, '["A container stack settles with a boom that you feel in your teeth.", "Chalk figures on a container smear in the damp, no longer adding up."]', '{"east": "zone_yard_railhead", "west": "zone_yard_bonded", "north": "zone_yard_transfer", "south": "zone_yard_interchange"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase7-build', 1783123886, 'map_world', 7, 2, 0, 'Ta', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_precinct_lobby', 'Precinct 9 — Lobby', 'A bulletproof-glass lobby that manages to feel both fortified and abandoned. A duty officer sits behind the glass beneath a corporate charter seal and a laminated list of fees for services that used to be free. Bolted plastic chairs face a wall-screen scrolling WANTED faces and civic reminders. The floor is the specific institutional grey of a place designed to wear you down before you ever reach a desk. It is, however, warm, and no one gets murdered in here, which counts.', 'safe', 0, 0, 1, '["The duty officer''s terminal chimes and is ignored.", "A WANTED face scrolls up the wall-screen, lingers, scrolls on.", "The door buzzer sounds; the mag-lock clunks; no one comes in.", "Somewhere past the glass, a phone rings in the empty bureaucratic dark."]', '{"out": "zone_mq_precinct", "down": "zone_mq_precinct_holding", "north": "zone_mq_precinct_bullpen"}', '{"is_building": true, "is_interior": true, "building_name": "Precinct 9", "building_type": "police", "world_exit_zone": "zone_mq_precinct"}', NULL, 1782964407, 'map_int_mq_precinct', 0, 0, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_precinct');
+INSERT INTO public.zones VALUES ('zone_mq_cage_shop', 'The Cage', 'Inside, the store is exactly as advertised: aisles of hard goods behind floor-to-ceiling steel mesh, and the clerk sealed in a welded cage at the center like the last honest man in a bad neighborhood, which he may be. You point, he retrieves, money goes through the slot. The stock is a magpie''s hoard — batteries, blades, bandages, bad liquor, worse cigarettes — everything a person needs to get through one more week and nothing they''d want to be caught enjoying.', 'safe', 0, 0, 1, '["The clerk racks the shotgun''s action once, for no reason, for every reason.", "A battery display buzzes behind the mesh, testing itself.", "The vending machine out front thunks and dispenses to no one.", "Steel mesh sings faintly as the cooler fan pushes air through it."]', '{"out": "zone_mq_cage", "north": "zone_mq_cage_util"}', '{"is_building": true, "is_interior": true, "building_name": "The Cage", "building_type": "shop", "world_exit_zone": "zone_mq_cage"}', NULL, 1782964407, 'map_int_mq_cage', 0, 0, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_cage');
+INSERT INTO public.zones VALUES ('zone_mq_precinct_holding', 'Precinct 9 — Holding', 'Two cages of painted bar-steel in a concrete basement, a drain in the floor, and a bench bolted to each wall for the overnight guests. The paint on the bars is chipped down to raw metal exactly at hand height, all the way around, by every pair of hands that ever gripped them waiting to be processed or forgotten. It smells of disinfectant losing a war against everything else.', 'low', 0, 0, 0, '["A cage door, unlatched, swings a slow inch on its hinge and stops.", "The floor drain exhales a cold, sour breath.", "Bootsteps cross the ceiling overhead and recede.", "The overnight fluorescent buzzes at a pitch engineered to prevent sleep."]', '{"up": "zone_mq_precinct_lobby"}', '{"is_interior": true}', NULL, 1782964408, 'map_int_mq_precinct', 0, 0, -1, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_precinct_lobby');
+INSERT INTO public.zones VALUES ('zone_mq_amp_shop', 'Ampersand Electronics', 'A stall built into the overpass footing, every inch of it strung with salvaged tech: coils of cable, cracked slates, drones with their guts hanging out, and a wall of chargers for devices no one makes anymore. The proprietor works at a bench under a magnifier lamp, soldering iron never quite set down. Everything is priced by argument. A hand-lettered sign warns NO REFUNDS, NO EXCEPTIONS, NO EXORCISMS, the last apparently learned the hard way.', 'safe', 0, 0, 1, '["The soldering iron hisses as it meets flux; a thread of smoke curls up.", "A salvaged drone on the shelf twitches one rotor and goes still.", "Something on the tech wall emits a single mournful boot-chime.", "A charger indicator blinks green, red, green, deciding nothing."]', '{"out": "zone_mq_overpass", "north": "zone_mq_amp_util"}', '{"is_building": true, "is_interior": true, "building_name": "Ampersand Electronics", "building_type": "shop", "world_exit_zone": "zone_mq_overpass"}', NULL, 1782964407, 'map_int_mq_amp', 0, 0, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_overpass');
+INSERT INTO public.zones VALUES ('zone_thresholdeast', 'The Threshold East', 'The boulevard continues east as the buildings grow taller and crowd closer together, casting long shadows over the broken pavement. Collapsed skybridges hang between aging towers, their twisted steel frames silhouetted against flickering neon in the distance. Scattered barricades and burned-out vehicles narrow the roadway into a winding path through decades of neglect. Weathered signs advertise businesses that haven''t existed in a generation, while loose cables sway overhead with a faint electrical buzz. Somewhere farther ahead, the city''s heartbeat feels stronger, though whether it promises opportunity or danger is impossible to tell.', 'safe', 0, 0, 1, '[]', '{"in": "zone_furniture_store", "east": "zone_velk_exterior", "west": "zone_threshold", "south": "zone_city_se"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123848, 'map_world', 1, 0, 0, 'TE', '#111111', '#4bb36a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_meridian_unit_401', 'Unit 401', 'Unit 401 on the fourth floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"south": "zone_meridian_floor_4"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898110, 'map_int_meridian', 0, -1, 4, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_4');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_502', 'Unit 502', 'Unit 502 on the fifth floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"west": "zone_meridian_floor_5"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898110, 'map_int_meridian', 1, 0, 5, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_5');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_603', 'Unit 603', 'Unit 603 on the sixth floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"north": "zone_meridian_floor_6"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898111, 'map_int_meridian', 0, 1, 6, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_6');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_604', 'Unit 604', 'Unit 604 on the sixth floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"east": "zone_meridian_floor_6"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898111, 'map_int_meridian', -1, 0, 6, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_6');
+INSERT INTO public.zones VALUES ('zone_coldwater_turbine_hall', 'Coldwater Power Plant — Turbine Hall', 'A cavernous hall of throbbing turbines and grimy conduit. The city plant squats at the centre, roaring, its casing scabbed with warning decals and oil. The whole room shudders with the low churn of megawatts.', 'low', 0, 0, 0, '[]', '{"out": "zone_powerplantnew"}', '{"is_building": true, "is_interior": true, "world_exit_zone": "zone_powerplantnew"}', NULL, 1782940278, 'map_int_coldwater_power', 0, 0, 0, NULL, NULL, '#9a8a4f', 'indoors', '{}', NULL, 'zone_powerplantnew');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_101', 'Unit 101', 'A single room with a bed frame, a hot plate, and a window that frames a brick wall four feet away. The lock works. That is the entire pitch, and around here it closes the sale.', 'safe', 0, 0, 1, '["Pipes knock somewhere in the walls. The building is old but it holds."]', '{"south": "zone_mq_chrome_f1"}', '{"is_apartment": true}', NULL, 1782964408, 'map_int_mq_chrome', 0, -1, 1, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_301', 'Unit 301', 'Unit 301 on the third floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"south": "zone_meridian_floor_3"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898110, 'map_int_meridian', 0, -1, 3, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_3');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_104', 'Unit 104', 'A corner unit, which here means two windows instead of one and a draft to match. A bed, a footlocker, a sink that runs brown for a ten-count before it clears. The door is steel. The door is the point.', 'safe', 0, 0, 1, '["Pipes knock somewhere in the walls. The building is old but it holds."]', '{"east": "zone_mq_chrome_f1"}', '{"is_apartment": true}', NULL, 1782964408, 'map_int_mq_chrome', -1, 0, 1, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_meridian_unit_303', 'Unit 303', 'Unit 303 on the third floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant''s life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you''re used to.', 'safe', 0, 0, 0, '[]', '{"north": "zone_meridian_floor_3"}', '{"is_interior": true, "is_apartment": true}', NULL, 1782898110, 'map_int_meridian', 0, 1, 3, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_floor_3');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_103', 'Unit 103', 'Bare walls the color of old teeth, a mattress, and a radiator that either roars or sulks with nothing between. Someone before you left a nail in the wall and the pale ghost of whatever hung on it.', 'safe', 0, 0, 1, '["Pipes knock somewhere in the walls. The building is old but it holds."]', '{"north": "zone_mq_chrome_f1"}', '{"is_apartment": true}', NULL, 1782964408, 'map_int_mq_chrome', 0, 1, 1, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_304', 'Unit 304', 'A corner unit, which here means two windows instead of one and a draft to match. A bed, a footlocker, a sink that runs brown for a ten-count before it clears. The door is steel. The door is the point.', 'safe', 0, 0, 1, '["Pipes knock somewhere in the walls. The building is old but it holds."]', '{"east": "zone_mq_chrome_f3"}', '{"is_apartment": true}', NULL, 1782964410, 'map_int_mq_chrome', -1, 0, 3, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_roof', 'Chrome Court — Roof', 'The tar-and-gravel roof of Chrome Court, guarded by a knee-high parapet and the honor system. Someone hauled up a couple of ruined armchairs and a firepit made from a washing-machine drum; the ashes are days old but the intent is neighborly. From here the whole Marquee spreads out below in a grid of pink and cyan, the dead cinema marquee winking, the precinct floodlights sweeping. The wind up here has come a long way and has opinions.', 'safe', 0, 0, 1, '["The wind combs across the gravel and lifts a spiral of old ash.", "A pink neon glow pulses up from the street, painting the parapet.", "Something flaps loose on an HVAC unit and slaps, slaps, slaps.", "Far off, the precinct floodlight swings across the rooftops and moves on."]', '{"down": "zone_mq_chrome_f3"}', '{"open_sky": true}', NULL, 1782964410, 'map_int_mq_chrome', 0, 0, 4, NULL, NULL, '#e85aa0', 'outdoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_203', 'Unit 203', 'Bare walls the color of old teeth, a mattress, and a radiator that either roars or sulks with nothing between. Someone before you left a nail in the wall and the pale ghost of whatever hung on it.', 'safe', 0, 0, 1, '["Pipes knock somewhere in the walls. The building is old but it holds."]', '{"north": "zone_mq_chrome_f2"}', '{"is_apartment": true}', NULL, 1782964409, 'map_int_mq_chrome', 0, 1, 2, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_302', 'Unit 302', 'A studio that still has its original built-in cabinetry, half the doors missing, the rest painted shut. A mattress on a pallet, a chair, a view of the square if you press your face to the glass. Home.', 'safe', 0, 0, 1, '["Pipes knock somewhere in the walls. The building is old but it holds."]', '{"west": "zone_mq_chrome_f3"}', '{"is_apartment": true}', NULL, 1782964409, 'map_int_mq_chrome', 1, 0, 3, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_201', 'Unit 201', 'A single room with a bed frame, a hot plate, and a window that frames a brick wall four feet away. The lock works. That is the entire pitch, and around here it closes the sale.', 'safe', 0, 0, 1, '["Pipes knock somewhere in the walls. The building is old but it holds."]', '{"south": "zone_mq_chrome_f2"}', '{"is_apartment": true}', NULL, 1782964408, 'map_int_mq_chrome', 0, -1, 2, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_303', 'Unit 303', 'Bare walls the color of old teeth, a mattress, and a radiator that either roars or sulks with nothing between. Someone before you left a nail in the wall and the pale ghost of whatever hung on it.', 'safe', 0, 0, 1, '["Pipes knock somewhere in the walls. The building is old but it holds."]', '{"north": "zone_mq_chrome_f3"}', '{"is_apartment": true}', NULL, 1782964410, 'map_int_mq_chrome', 0, 1, 3, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_301', 'Unit 301', 'A single room with a bed frame, a hot plate, and a window that frames a brick wall four feet away. The lock works. That is the entire pitch, and around here it closes the sale.', 'safe', 0, 0, 1, '["Pipes knock somewhere in the walls. The building is old but it holds."]', '{"south": "zone_mq_chrome_f3"}', '{"is_apartment": true}', NULL, 1782964409, 'map_int_mq_chrome', 0, -1, 3, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_202', 'Unit 202', 'A studio that still has its original built-in cabinetry, half the doors missing, the rest painted shut. A mattress on a pallet, a chair, a view of the square if you press your face to the glass. Home.', 'safe', 0, 0, 1, '["Pipes knock somewhere in the walls. The building is old but it holds."]', '{"west": "zone_mq_chrome_f2"}', '{"is_apartment": true}', NULL, 1782964409, 'map_int_mq_chrome', 1, 0, 2, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_204', 'Unit 204', 'A corner unit, which here means two windows instead of one and a draft to match. A bed, a footlocker, a sink that runs brown for a ten-count before it clears. The door is steel. The door is the point.', 'safe', 0, 0, 1, '["Pipes knock somewhere in the walls. The building is old but it holds."]', '{"east": "zone_mq_chrome_f2"}', '{"is_apartment": true}', NULL, 1782964409, 'map_int_mq_chrome', -1, 0, 2, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_yard_bulk', 'Bulk Yard', 'An open bulk yard heaped with aggregate, scrap, and materials too cheap to steal but too useful to bin. A grab-crane picks at the heaps with idiot patience.', 'low', 0, 0, 1, '["The grab-crane drops a jawful of scrap and swings back for more.", "A heap of aggregate slides with a long grinding sigh and resettles lower."]', '{"west": "zone_yard_interchange", "north": "zone_yard_railhead"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase7-build', 1783123886, 'map_world', 8, 3, 0, 'BK', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_skid', 'Skid Row', 'A lane of skids and dunnage where the truly unwanted freight ends up — water-damaged, mislabelled, or simply forgotten until it becomes salvage by default.', 'low', 0, 0, 1, '["A skid of ruined cargo sags in the wet and gives up another inch.", "A picker works down Skid Row, tapping crates, listening for anything worth the crowbar."]', '{"east": "zone_yard_interchange", "west": "zone_meat_carrion", "north": "zone_yard_bonded"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase7-build', 1783123886, 'map_world', 6, 3, 0, 'Sk', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_interchange', 'The Interchange', 'The road-and-rail interchange at the Yards'' back gate, a snarl of level crossings and truck lanes where everything meets and nothing has right of way.', 'low', 0, 0, 1, '["A crossing bell rings for a train that takes four full minutes to not arrive.", "A truck and a flatcar reach the interchange at once and simply... negotiate."]', '{"east": "zone_yard_bulk", "west": "zone_yard_skid", "north": "zone_yard_tare"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase7-build', 1783123886, 'map_world', 7, 3, 0, 'IX', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_residential_lobby', 'Embassy Hotel & Bar — Lobby', 'A converted hotel lobby, marble floors gone dull under a permanent film of dust, repurposed into the basin''s closest thing to real estate. A corkboard by the door — bolted over what used to be the concierge desk — is covered in handwritten unit listings, half of them crossed out. Along one wall, a bar still operates under a brass sign reading THE EMBASSY LOUNGE — a half-dozen cracked vinyl stools lined up at the counter, free to sit if you don''t mind the wobble. Lowry stands behind it, polishing a glass that was already clean. The building still has working locks upstairs, which around here makes it valuable.', 'safe', 0, 0, 1, '["Someone argues with the building''s old intercom system, which only ever says \"PLEASE HOLD.\"", "A hand-written sign reads: UNITS AVAILABLE. ASK ABOUT OUR LOCKS."]', '{"up": "zone_embassy_floor2", "out": "zone_city_west", "down": "zone_residential_lobby_z-1_1782105292491", "east": "zone_apt_3", "west": "zone_apt_4", "north": "zone_apt_1", "south": "zone_apt_2"}', '{"is_building": true, "is_interior": true, "is_apartment": false, "building_name": "Embassy Hotel & Bar", "building_type": "hotel", "world_exit_zone": "zone_city_west"}', NULL, 1782356877, 'map_interior_zone_residential_lobby', 0, 0, 0, 'FS', NULL, '#c9a884', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_meat_ashpit', 'Ashpit', 'A soot-black yard behind the market where the day''s unsold and unsellable meat goes to the fire. The smoke is greasy and the smell gets into everything you own.', 'medium', 1, 0, 1, '["The ashpit fire flares as something wet goes in, and the smoke thickens.", "A stray dog is driven off from the ashpit''s edge, and comes straight back."]', '{"east": "zone_meat_slaughter", "west": "zone_weapons_exterior", "north": "zone_mq_overpass", "south": "zone_meat_offal"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase7-build', 1783123886, 'map_world', 4, 2, 0, 'Ap', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_bay_open', 'The Open Bay', 'The end of the last jetty, where the pilings give out and the grey water of Coldwater Bay just goes on. Something big moves out there, unhurried, patient.', 'low', 0, 0, 1, '["Far out on the bay, a wake rises, crosses, and sinks without a source.", "The jetty ends here in splintered wood and open, indifferent water."]', '{"east": "zone_bay_fog", "west": "zone_bay_sound", "north": "zone_bay_mid", "south": "zone_bay_shallows"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase3-build', 1783123848, 'map_world', 2, -5, 0, 'OB', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_ember', 'Ember Alley', 'Where the Marquee''s neon can''t quite reach, the district goes to seed. Ember Alley is a slot of a street lit orange by a single working sodium lamp and the coal-glow of cigarettes in doorways. A dive bar exhales stale beer and old grease into the cold. The walls wear decades of paste-over posters, and somewhere behind them, the brick. People here mind their own business with a dedication that is itself a kind of threat.', 'low', 0, 0, 1, '["Glass breaks in the alley behind you, followed by a tired curse.", "The sodium lamp gutters, drowning the street in ember-red, then steadies.", "Someone is being sick, thoroughly, out of sight.", "A cat the size of a raccoon regards you from a dumpster lid and does not blink."]', '{"in": "zone_mq_sump_bar", "east": "zone_mq_overpass", "west": "zone_drum_exterior", "north": "zone_mq_marquee", "south": "zone_weapons_exterior"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783123848, 'map_world', 3, 1, 0, 'EM', '#eeeeee', '#e85aa0', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_sump_bar', 'Sump', 'The kind of bar that doesn''t need a name over the door because if you''re here, you already knew where you were going. SUMP is scratched into the paint anyway. It is one narrow room, a plank bar, and a floor that slopes toward a literal drain in the center — hence the name, and hence the smell. The regulars are fixtures, welded to their stools by decades of gravity and grievance. Drinks are cheap, strong, and served without conversation.', 'safe', 0, 0, 1, '["Something unspeakable gurgles down the floor drain and is not discussed.", "A regular knocks the bar twice; the bartender pours without looking.", "The single TV shows horse racing from a track that no longer exists.", "A fly, impossibly, in this cold, orbits the room in slow figure-eights."]', '{"out": "zone_mq_ember", "down": "zone_mq_sump_cellar"}', '{"is_building": true, "is_interior": true, "building_name": "Sump", "building_type": "bar", "world_exit_zone": "zone_mq_ember"}', NULL, 1782964407, 'map_int_mq_sump', 0, 0, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_ember');
+INSERT INTO public.zones VALUES ('zone_ext_1782953094650', 'Limelight Lot', 'A fenced service yard behind the broadcast blocks, floodlit at all hours by lights nobody remembers installing. Coax and power run overhead in fat looms, stapled to anything that will hold them, humming faintly in the wet. KSAB-TV''s stage door sits under a dead awning, its ON AIR bulb burned out mid-word so it reads only ON. A satellite dish the size of a paddling pool tilts drunkenly on the roofline, still tracking a bird that stopped answering years ago.', 'safe', 0, 0, 1, '[]', '{"in": "zone_studio_1782953094650", "west": "zone_powerplantnew", "north": "zone_media_plaza", "south": "zone_city_north"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783123848, 'map_world', 0, -2, 0, 'KS', '#111111', '#f5e642', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_bay_fog', 'The Fog Bank', 'A permanent bank of cold fog sits over this stretch of the bay, thick enough to lose a boat in. Sound comes strangely here — near things far, far things near.', 'low', 0, 0, 1, '["A foghorn sounds, impossibly close, from a boat you cannot see.", "The fog closes behind you as you move, sealing the way back to a rumour."]', '{"east": "zone_bay_breakwater", "west": "zone_bay_open", "north": "zone_bay_deep", "south": "zone_bay_barges"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase3-build', 1783123848, 'map_world', 3, -5, 0, 'FB', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_furniture_util', 'Dead Space Interiors — Utility Room', 'The showroom''s backroom: plastic-shrouded sofas stacked to the ceiling, a graveyard of flat-pack and packing foam. Wedged between two wardrobes, the building''s junction box hums, warm to the touch, its cabinet door held shut with a bungee cord. A small sealed hacking port sits below its latch.', 'low', 0, 0, 0, '[]', '{"south": "zone_furniture_store"}', '{"is_building": false, "is_interior": true}', NULL, 1783023537, 'map_int_furniture', 0, -1, 0, NULL, NULL, '#e08a4a', 'indoors', '{}', NULL, 'zone_furniture_store');
+INSERT INTO public.zones VALUES ('zone_mq_grocery_stock', 'Ration Nine — Stockroom', 'A cramped stockroom walled with wire shelving and stacked pallets, the cold-store humming behind a heavy insulated door. Inventory sheets curl on a clipboard nobody has updated in weeks. It smells of cardboard, cold, and the sweetish edge of something in the back that turned before it sold. A fire exit is chained shut in flagrant violation of several dead safety codes.', 'low', 0, 0, 0, '["The cold-store door seals shut with a sucking thud.", "A pallet of cans ticks and shifts under its own weight.", "The chained fire exit rattles as wind finds the gap beneath it."]', '{"north": "zone_mq_grocery_util", "south": "zone_mq_grocery"}', '{"is_interior": true}', NULL, 1782964407, 'map_int_mq_grocery', 0, -1, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_grocery');
+INSERT INTO public.zones VALUES ('zone_mq_precinct_util', 'Precinct 9 — Electrical Room', 'A municipal-grey utility room off the bullpen, breaker panel plastered with faded safety notices and one evidence tag nobody ever filed. This box backs the holding cells and the front desk both — a fact stencilled in stern red beside a hacking port sealed below the latch.', 'low', 0, 0, 0, '[]', '{"south": "zone_mq_precinct_bullpen"}', '{"is_building": false, "is_interior": true}', NULL, 1783023541, 'map_int_mq_precinct', 0, -2, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_precinct_bullpen');
+INSERT INTO public.zones VALUES ('zone_mq_sump_util', 'Sump — Utility Nook', 'A dank corner of the cellar where the floor never dries. A sump pump gurgles somewhere below, and a rust-streaked junction cabinet drips condensation down its breaker faces, sparks of corrosion blooming at every bolt. A small sealed hacking port sits below its latch.', 'low', 0, 0, 0, '[]', '{"south": "zone_mq_sump_cellar"}', '{"is_building": false, "is_interior": true}', NULL, 1783023536, 'map_int_mq_sump', 0, -1, -1, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_sump_cellar');
+INSERT INTO public.zones VALUES ('zone_mq_cage_util', 'The Cage — Utility Room', 'A steel-walled back room stinking of gun oil and solvent. The junction box hangs behind a padlocked expanded-metal grille, as caged as everything else in this shop, its breakers throwing a faint amber glow across racked ammo tins. A small sealed hacking port sits below its latch.', 'low', 0, 0, 0, '[]', '{"south": "zone_mq_cage_shop"}', '{"is_building": false, "is_interior": true}', NULL, 1783023540, 'map_int_mq_cage', 0, -1, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_cage_shop');
+INSERT INTO public.zones VALUES ('zone_mq_pigeon_util', 'The Dead Pigeon — Utility Closet', 'A cramped closet off the back booth, walls furred with condensation and old beer-line runs. A grey junction cabinet hums between a stack of empty kegs and a mop bucket, breathing warm ozone into the smell of stale hops. A small sealed hacking port sits below its latch.', 'low', 0, 0, 0, '[]', '{"south": "zone_mq_pigeon_back"}', '{"is_building": false, "is_interior": true}', NULL, 1783023534, 'map_int_mq_pigeon', 0, -1, -1, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_pigeon_back');
+INSERT INTO public.zones VALUES ('zone_mq_cherry_util', 'The Cherry Pit — Utility Room', 'Past a beaded curtain behind the office, a windowless room of dead neon tubes, a cracked mirror-ball, and coils of stage cable. The building''s junction box hums against the far wall, its indicator lights winking through the sticky dark like the club never really closes. A small sealed hacking port sits below its latch.', 'low', 0, 0, 0, '[]', '{"south": "zone_mq_cherry_office"}', '{"is_building": false, "is_interior": true}', NULL, 1783023535, 'map_int_mq_cherry', 0, -1, -1, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_cherry_office');
+INSERT INTO public.zones VALUES ('zone_mq_cherry_floor', 'The Cherry Pit', 'A strip club that leans hard on the one gimmick it can afford: a single working spotlight and a stage of scuffed acrylic lit cherry-red from beneath. Vinyl banquettes ring the room in various states of split and repair. The music is a heartbeat of bass you feel in your fillings. Dancers work the pole with the flat professionalism of people counting the minutes, and the bar sells watered drinks at armed-robbery prices. Everyone is watching everyone, and pretending not to.', 'safe', 0, 0, 1, '["The bass drops and the spotlight swings to catch the stage.", "A bouncer folds his arms in the doorway and studies you without warmth.", "Someone tucks a bill into a garter without making eye contact.", "The cherry underlight flickers, tinting the whole room arterial red."]', '{"out": "zone_mq_cathode", "down": "zone_mq_cherry_office", "north": "zone_mq_cherry_vip"}', '{"is_building": true, "is_interior": true, "building_name": "The Cherry Pit", "building_type": "club", "world_exit_zone": "zone_mq_cathode"}', NULL, 1783019924, 'map_int_mq_cherry', 0, 0, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_cathode');
+INSERT INTO public.zones VALUES ('zone_meridian_floor_6', 'The Meridian — Floor 6 Hallway', 'Floor 6 of The Meridian. A narrow corridor stretches between four unit doors — numbers 601, 602, 603, 604 — stamped in adhesive metal letters, most of which have survived. The walls are poured concrete behind a skim of paint that went off-white long ago, old marker tags bleeding through where the building manager gave up trying to buff them out. Synthetic carpet the color of old claret muffles every footfall. Sodium-orange emergency strips trace the baseboards. The recycled air carries the mingled residue of a dozen private lives: synthetic tobacco, mystery cooking, and the faint ionised bite of an ageing HVAC system.', 'safe', 0, 0, 0, '[]', '{"up": "zone_meridian_roof", "down": "zone_meridian_floor_5", "east": "zone_meridian_unit_602", "west": "zone_meridian_unit_604", "north": "zone_meridian_unit_601", "south": "zone_meridian_unit_603"}', '{"is_building": false, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783112081, 'map_int_meridian', 0, 0, 6, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_lobby');
+INSERT INTO public.zones VALUES ('zone_meat_offal', 'Offal Lane', 'Where the parts nobody names are sold to people who don''t ask — a lane of trestle tables under a low awning, the trade brisk and the eye-contact minimal.', 'medium', 1, 0, 1, '["A vendor slaps down a tray of something and looks away before you can.", "Cats mass at the mouth of Offal Lane, waiting for the inevitable."]', '{"east": "zone_meat_carrion", "west": "zone_deep_deepmaw", "north": "zone_meat_ashpit"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase7-build', 1783123886, 'map_world', 4, 3, 0, 'Of', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_chrome_lobby', 'Chrome Court — Lobby', 'The ground-floor lobby of Chrome Court: a bank of tenant mailboxes, most jimmied, and an elevator with a hand-lettered OUT OF ORDER SINCE sign where the date has been scratched out and re-guessed by successive residents. A stairwell climbs into the amber gloom of the upper floors behind a fire door that no longer latches. A resident''s bicycle is chained to the radiator with more security than the front door offers. It is quiet, and locked, and warm, and that is enough.', 'safe', 0, 0, 1, '["The stairwell fire door drifts open an inch and settles.", "A mailbox door hangs open, ticking against its frame in the draft.", "Somewhere above, a TV murmurs through a floor.", "The dead elevator''s call button glows, hopeful and useless."]', '{"up": "zone_mq_chrome_f1", "out": "zone_mq_chrome_court", "down": "zone_mq_chrome_util"}', '{"is_building": true, "is_interior": true, "building_name": "Chrome Court", "building_type": "apartment", "world_exit_zone": "zone_mq_chrome_court"}', NULL, 1782964408, 'map_int_mq_chrome', 0, 0, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_court');
+INSERT INTO public.zones VALUES ('zone_meridian_floor_3', 'The Meridian — Floor 3 Hallway', 'Floor 3 of The Meridian. A narrow corridor stretches between four unit doors — numbers 301, 302, 303, 304 — stamped in adhesive metal letters, most of which have survived. The walls are poured concrete behind a skim of paint that went off-white long ago, old marker tags bleeding through where the building manager gave up trying to buff them out. Synthetic carpet the color of old claret muffles every footfall. Sodium-orange emergency strips trace the baseboards. The recycled air carries the mingled residue of a dozen private lives: synthetic tobacco, mystery cooking, and the faint ionised bite of an ageing HVAC system.', 'safe', 0, 0, 0, '[]', '{"up": "zone_meridian_floor_4", "down": "zone_meridian_floor_2", "east": "zone_meridian_unit_302", "west": "zone_meridian_unit_304", "north": "zone_meridian_unit_301", "south": "zone_meridian_unit_303"}', '{"is_building": false, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783112361, 'map_int_meridian', 0, 0, 3, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_lobby');
+INSERT INTO public.zones VALUES ('zone_meat_carrion', 'Carrion Way', 'The far end of the market, where the meat is cheapest and the questions fewest. A dead-end way, which the scavengers and the desperate both find convenient for different reasons.', 'medium', 1, 0, 1, '["Something changes hands fast at the end of Carrion Way, and both parties leave quickly.", "A crow the size of a cat works at a scrap in the gutter, unbothered by you."]', '{"east": "zone_yard_skid", "west": "zone_meat_offal", "north": "zone_meat_slaughter"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase7-build', 1783123886, 'map_world', 5, 3, 0, 'Cy', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_meridian', 'Halcyon Walk', 'A stretch of cracked pavement the city has forgotten to condemn. Water-stained precast towers lean over it on both sides, their ground floors a monotony of steel-framed glass — most of it dark, a few doors still lit from within. The Meridian''s lobby throws a wedge of sick fluorescent light across the walk here, doorman long gone, intercom panel hanging by its wires. Somewhere overhead a window unit drips onto its sill in a slow, patient rhythm.', 'safe', 0, 0, 1, '[]', '{"in": "zone_meridian_lobby", "east": "zone_mq_cathode", "west": "zone_city_ne", "north": "zone_up_approach", "south": "zone_velk_exterior"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": "zone_city_ne", "scavenging_table_id": null}', NULL, 1783123848, 'map_world', 2, -1, 0, NULL, '#eeeeee', '#347b49', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_apt_8', 'Unit 2D', 'Unit 2D, narrow as a coffin and about as bright. The previous tenant left in a hurry: a chair on its side, a ring of candle stubs on the floor, initials keyed into the doorframe. There''s a real bed, though, and a deadbolt, and the walls are thick enough that the neighbours'' business stays theirs.', 'safe', 0, 0, 0, '["The overturned chair settles with a faint creak."]', '{"east": "zone_embassy_floor2"}', '{"is_building": false, "is_interior": true, "is_apartment": true, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783111686, 'map_interior_zone_residential_lobby', -1, 0, 1, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_apt_7', 'Unit 2C', 'Number 2C. Someone painted this one, once — a hopeful yellow now gone the colour of a smoker''s teeth, peeling in long tongues off the plaster. A kitchenette with two working burners, a fold-down table, and a bathtub in the main room because the plumbing never reached the back. The window looks onto a brick wall an arm''s length away.', 'safe', 0, 0, 0, '["A tongue of old paint peels a little further from the wall."]', '{"west": "zone_embassy_floor2"}', '{"is_building": false, "is_interior": true, "is_apartment": true, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783111686, 'map_interior_zone_residential_lobby', 1, 0, 1, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_apt_6', 'Unit 2B', 'Unit 2B, tucked at the back over the alley. It smells of the dumpsters three floors down and whatever the last tenant fried. A single bulb on a string, a closet with its door removed to serve as a shelf, and a radiator that either roars or freezes — never anything between. Cheap, and it shows, but the door bolts from the inside.', 'safe', 0, 0, 0, '["The radiator bangs twice and falls silent."]', '{"north": "zone_embassy_floor2"}', '{"is_building": false, "is_interior": true, "is_apartment": true, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783111686, 'map_interior_zone_residential_lobby', 0, 1, 1, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_apt_5', 'Unit 2A', 'A corner unit, Number 2A, riding the front of the building. Two windows face the street, one boarded, one still glassed and grimy enough to filter the neon into a permanent bruise-purple. A mattress on a bent steel frame, a hotplate wired straight into the wall, and a water stain on the ceiling shaped uncannily like a hanged man. The lock, at least, is real.', 'safe', 0, 0, 0, '["Neon light through the grimy window pulses, dims, holds."]', '{"south": "zone_embassy_floor2"}', '{"is_building": false, "is_interior": true, "is_apartment": true, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783111686, 'map_interior_zone_residential_lobby', 0, -1, 1, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_chrome_f2', 'Chrome Court — Floor 2', 'The second-floor hallway of Chrome Court, a tunnel of amber emergency light and doors painted so many times the numbers are just suggestions. The carpet is worn to jute down the center where every tenant walks the identical line. Four units open off the hall. A window at the end looks out over the district''s neon, which from up here almost looks like a city that works.', 'safe', 0, 0, 1, '["A door down the hall closes with the finality of a lock turning.", "The amber emergency light hums and dims by a shade.", "Something is cooking behind one of the doors; the smell almost reaches you.", "The end-of-hall window rattles as the wind leans on it."]', '{"up": "zone_mq_chrome_f3", "down": "zone_mq_chrome_f1", "east": "zone_mq_chrome_202", "west": "zone_mq_chrome_204", "north": "zone_mq_chrome_201", "south": "zone_mq_chrome_203"}', '{"is_interior": true}', NULL, 1782964408, 'map_int_mq_chrome', 0, 0, 2, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_drum_exterior', 'Bobbin Cut', 'A slim pedestrian cut that somehow keeps its dignity in a city this far gone — swept, even, the puddles smaller here than they have any right to be. Storefront glass runs its length, most of it soaped over, one window still dressed and lit. Drum''s Fits shows two mannequins in loud, layered outfits that dare you to walk past without looking, a neon thread-spool buzzing pink above the door. The rest of the frontage waits for tenants who aren''t coming.', 'low', 0, 0, 1, '[]', '{"in": "zone_drum_shop", "east": "zone_mq_ember", "west": "zone_city_se", "north": "zone_velk_exterior"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": "zone_deep_waste", "scavenging_table_id": null}', NULL, 1783123848, 'map_world', 2, 1, 0, 'Cl', '#eeeeee', '#347b49', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_apt_10', 'Unit 3B', 'Number 3B, back corner under the roof. The ceiling slopes where the building''s cornice cuts in, low enough to crack your skull if you sit up wrong in the night. A camp bed, a footlocker, a hole in the plaster patched with a road sign. When it rains, the stain on the landing ceiling isn''t the only one — you''ll hear it here first, tapping the bucket someone thoughtfully left behind.', 'safe', 0, 0, 0, '["A single drip finds the bucket with a flat metallic tap."]', '{"north": "zone_embassy_floor3"}', '{"is_building": false, "is_interior": false, "is_apartment": true, "building_name": null, "building_type": null, "world_exit_zone": null}', NULL, 1783045464, 'map_interior_zone_residential_lobby', 0, 1, 2, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_embassy_floor3');
+INSERT INTO public.zones VALUES ('zone_apt_9', 'Unit 3A', 'Unit 3A, top floor, street-facing. Best light in the building up here — what little the smog lets through comes in clean and level through a window that actually opens. A proper bed, a desk someone bolted to the wall, and a hook in the ceiling that used to hold a fan and now holds nothing, turning slowly in the draft. Quiet. Expensive-feeling, for the Embassy.', 'safe', 0, 0, 0, '["The empty ceiling hook turns a slow half-circle in the draft."]', '{"south": "zone_embassy_floor3"}', '{"is_building": false, "is_interior": false, "is_apartment": true, "building_name": null, "building_type": null, "world_exit_zone": null}', NULL, 1783045464, 'map_interior_zone_residential_lobby', 0, -1, 2, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_embassy_floor3');
+INSERT INTO public.zones VALUES ('zone_apt_11', 'Unit 3C', 'Unit 3C. The realtor — the corkboard downstairs, really — calls this one ''cozy.'' It''s small. A single room with a curtained-off toilet, a sink that runs rust for a minute before it runs clear, and a window painted shut and then painted again. But the lock is new, the floor is solid, and nobody up here asks questions.', 'safe', 0, 0, 0, '["Behind the curtain, the sink drips rust-brown, then stops."]', '{"west": "zone_embassy_floor3"}', '{"is_building": false, "is_interior": false, "is_apartment": true, "building_name": null, "building_type": null, "world_exit_zone": null}', NULL, 1783045464, 'map_interior_zone_residential_lobby', 1, 0, 2, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_embassy_floor3');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_court', 'Foundry Cut', 'A short cut between two boom-era towers, narrow enough that the wind funnels through hard enough to sting. Brushed-metal cladding sheets the walls, half of it peeled back to the rust beneath. Chrome Court''s entrance stands at the far end — steel letters over the doors, three fallen and re-inked on cardboard — beside a solid brick of painted-over intercoms. The gutter runs with something that was recently oil.', 'safe', 0, 0, 1, '[]', '{"in": "zone_mq_chrome_lobby", "east": "zone_yard_depot", "west": "zone_mq_cathode", "north": "zone_up_chrome", "south": "zone_mq_battery"}', '{"is_building": true, "is_interior": false, "is_apartment": false, "building_name": "Chrome Court", "building_type": "apartment", "world_exit_zone": "zone_mq_cathode", "scavenging_table_id": null}', NULL, 1783123848, 'map_world', 4, -1, 0, 'CC', '#eeeeee', '#e85aa0', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_overpass', 'The Overpass', 'A stub of collapsed elevated roadway roofs this block in permanent shadow, its underside a cathedral of rebar and pigeon filth. Someone strung work-lights along the girders and called it commerce. An electronics stall glows under the deck; a stairwell drops into a basement lit by a single sign. Water finds its way down through the concrete no matter the weather, ticking into puddles that never dry.', 'low', 0, 0, 1, '["Water ticks down from the overpass and finds the back of your collar.", "Pigeons erupt off a girder in a slapping panic, then resettle.", "A work-light swings on its cord, throwing the shadows into motion.", "Something heavy passes on the road above; the whole deck shivers dust."]', '{"in": "zone_mq_amp_shop", "east": "zone_mq_cage", "west": "zone_mq_ember", "north": "zone_mq_battery", "south": "zone_meat_ashpit"}', '{"scavenging_table_id": null}', NULL, 1783123848, 'map_world', 4, 1, 0, 'OP', '#eeeeee', '#e85aa0', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_slag_catalyst', 'Catalyst Row', 'A row of distillation towers, each one cracked open like a spent shell casing. The catalyst beds inside have gone to a fine iridescent grit that hangs in the air and glitters when it catches the light. It is very pretty, and very bad for you.', 'medium', 1, 0, 0, '["The grit in the air fluoresces faintly, painting everything a sick green for a heartbeat.", "A tower groans as the wind leans on it, shedding a slow curtain of rust."]', '{"east": "zone_waste_sinter", "west": "zone_slag_flarestack", "north": "zone_waste_fumealley", "south": "zone_slag_yard"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_industrial_salvage"}', NULL, 1783123848, 'map_world', -9, -1, 0, 'CR', '#111111', '#e5822a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_slag_sump', 'The Effluent Sump', 'Settling ponds step down the slope, their surfaces skinned over in oily rainbows that don''t move even when the wind does. Whatever the works couldn''t burn, it dumped here. The smell gets into your clothes and stays for days.', 'medium', 1, 0, 0, '["A bubble the size of your head rises through the sludge and pops with a flat, wet cough.", "Something breaks the surface of the far pond, then thinks better of it."]', '{"east": "zone_waste_reek", "west": "zone_slag_drums", "north": "zone_slag_yard", "south": "zone_waste_ashencut"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_irradiated_salvage"}', NULL, 1783123848, 'map_world', -9, 1, 0, 'ES', '#111111', '#e5822a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_ashway_ashfall', 'Ashfall Mile', 'The road gives up and the flats take over — a grey plain of settled ash that swallows your bootprints and hands them back to the wind. Somewhere upwind a stack is still venting; the sky here is the colour of an old bruise.', 'low', 1, 0, 0, '["Ash sifts down like dirty snow and coats your lips with the taste of burnt plastic.", "The wind drops for a moment, and the silence has a weight to it."]', '{"east": "zone_ashway_road", "west": "zone_ashway_wash", "north": "zone_waste_palings", "south": "zone_waste_deadflat"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123848, 'map_world', -6, 0, 0, 'AF', '#111111', '#8b9097', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_precinct_bullpen', 'Precinct 9 — Bullpen', 'A room of mismatched desks shoved together, each buried under case files no one will close and coffee cups fossilizing into archaeology. A corkboard maps the district''s gangs in red string that has long since become its own conspiracy. Half the overhead lights are dead and no one has requisitioned bulbs. The officers who work here have the specific exhaustion of people paid to hold a line that moved years ago.', 'safe', 0, 0, 1, '["A desk phone rings four times and kicks to a full voicemail box.", "Red string sags off the corkboard and dangles, tracing nothing.", "A dead overhead light ticks as it tries and fails to warm up.", "Someone''s coffee has grown a skin; it wrinkles as the AC breathes on it."]', '{"north": "zone_mq_precinct_util", "south": "zone_mq_precinct_lobby"}', '{"is_interior": true}', NULL, 1782964407, 'map_int_mq_precinct', 0, -1, 0, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_precinct_lobby');
+INSERT INTO public.zones VALUES ('zone_ashway_wash', 'The Dry Wash', 'A concrete drainage channel cuts across the flats, its floor crazed and stained the rust-black of old runoff. A collapsed checkpoint booth leans over the lip, its boom gate frozen halfway down like it''s still trying to stop you.', 'low', 1, 0, 0, '["Something skitters along the channel floor and is gone before you can place it.", "Water you can''t see drips steadily from the culvert mouth, each drop echoing."]', '{"east": "zone_ashway_ashfall", "west": "zone_slag_gate", "north": "zone_waste_rustmarsh", "south": "zone_waste_ashenverge"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123848, 'map_world', -7, 0, 0, 'DW', '#111111', '#8b9097', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_slag_gate', 'Slagworks Gate', 'Chain-link and razor wire sag around a gatehouse with every window punched out. A faded sign still bolts to the fence: COLDWATER RECLAMATION — AUTHORISED PERSONNEL ONLY. Past it, the silhouettes of cracking towers rake at the sky.', 'low', 1, 0, 0, '["The gate chain swings against the post with a slow, patient clang.", "A security floodlight buzzes, dies, and buzzes again, powered by nothing you can find."]', '{"east": "zone_ashway_wash", "west": "zone_slag_yard", "north": "zone_waste_sinter", "south": "zone_waste_reek"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_industrial_salvage"}', NULL, 1783123848, 'map_world', -8, 0, 0, 'SG', '#111111', '#e5822a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_chrome_f3', 'Chrome Court — Floor 3', 'The third-floor hallway of Chrome Court, a tunnel of amber emergency light and doors painted so many times the numbers are just suggestions. The carpet is worn to jute down the center where every tenant walks the identical line. Four units open off the hall. A window at the end looks out over the district''s neon, which from up here almost looks like a city that works.', 'safe', 0, 0, 1, '["A door down the hall closes with the finality of a lock turning.", "The amber emergency light hums and dims by a shade.", "Something is cooking behind one of the doors; the smell almost reaches you.", "The end-of-hall window rattles as the wind leans on it."]', '{"up": "zone_mq_chrome_roof", "down": "zone_mq_chrome_f2", "east": "zone_mq_chrome_302", "west": "zone_mq_chrome_304", "north": "zone_mq_chrome_301", "south": "zone_mq_chrome_303"}', '{"is_building": false, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783111944, 'map_int_mq_chrome', 0, 0, 3, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_slag_flarestack', 'Flarestack Field', 'A field of flare stacks stands dead against the sky, each tipped with a burner that hasn''t lit in a lifetime. The ground between them is glassed in patches where the flares used to rain fire, and the glass is full of things that got caught when it cooled.', 'low', 1, 0, 0, '["The wind moans across the mouth of a dead flare stack like breath over a bottle.", "Underfoot the glassed ground crunches, and something small and fused stares up at you."]', '{"east": "zone_slag_catalyst", "west": "zone_red_dreadfurnace", "north": "zone_waste_cokeyard", "south": "zone_slag_rail"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_industrial_salvage"}', NULL, 1783123848, 'map_world', -10, -1, 0, 'FF', '#111111', '#e5822a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_ashway_road', 'The Haul Road', 'Six lanes of freight road run west out of Old Coldwater, expansion joints heaved into knee-high ridges by decades of frost. Dead haulers sit nose-to-tail in the breakdown lane, cabs stripped to the frame, waiting on a shift change that never came.', 'low', 1, 0, 0, '["A tanker''s air-brake lets go somewhere down the line with a hiss, though nothing has moved here in years.", "Grit pings off the guardrail in a gust, then goes still."]', '{"east": "zone_ruins", "west": "zone_ashway_ashfall", "north": "zone_waste_slake", "south": "zone_waste_verge"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123846, 'map_world', -5, 0, 0, 'HR', '#111111', '#8b9097', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_slag_reclaimer', 'The Reclaimer', 'At the works'' dead centre squats the reclaimer — a rotary furnace the size of a city block, its maw a black tunnel the wind pours into and never seems to come back out of. The richest salvage sits here, in the ash beds nobody sane will reach. The air hums, low, in your teeth.', 'medium', 1, 0, 0, '["The reclaimer''s drum shifts on its bearings with a groan you feel in the fillings of your teeth.", "For just a second the hum stops, and the silence is so total you can hear your own blood."]', '{"east": "zone_slag_rail", "north": "zone_red_dreadfurnace", "south": "zone_waste_coldslag"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_irradiated_salvage"}', NULL, 1783123848, 'map_world', -11, 0, 0, 'RC', '#111111', '#e5822a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_corp_argent', 'Argent Row', 'A silver-fronted terrace of freight-finance offices overlooking the Yards, where the people who own the cargo watch it move without once touching it. The view is of money becoming more money.', 'safe', 0, 0, 1, '["A ticker crawls silver figures across a frontage, up, always up.", "A financier watches a container swing across the yard and mentally spends it twice."]', '{"west": "zone_waste_downwind", "north": "zone_nc_chancery", "south": "zone_yard_gantry"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase8-build', 1783123846, 'map_world', 8, -4, 0, 'Ar', '#eeeeee', '#9b59b6', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_ruins', 'Old Coldwater', 'What remains of the actual city. Glass and rebar and the occasional wall of a building that still looks like it meant something once. At the center, the old city hall stands largely untouched — the Architect''s infrastructure runs through its foundation.', 'medium', 1, 0, 0, '["The city hall''s windows glow faint blue. They always do. Nobody goes in.", "A dog watches you from a pile of rubble. It doesn''t seem scared. That''s somehow worse."]', '{"east": "zone_badland_w_gate", "west": "zone_ashway_road", "north": "zone_waste_endcut", "south": "zone_waste_grit"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123846, 'map_world', -4, 0, 0, 'OC', '#eeeeee', '#53565c', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_bay_sound', 'The Sound', 'A sheltered sound between the wreck and the cold-store pilings, calm enough that the fishing skiffs tie up here. It is the last friendly water before the bay stops pretending.', 'low', 0, 0, 1, '["A moored skiff knocks gently against a piling, over and over.", "A fisher hauls a net over the sound''s edge, sees the catch, and swears."]', '{"east": "zone_bay_open", "west": "zone_nc_spindle", "north": "zone_bay_wreck", "south": "zone_dock_coldstore"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase5-build', 1783123885, 'map_world', 1, -5, 0, 'SD', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_slag_rail', 'The Rail Throat', 'A rail siding chokes on its own collapse here — tanker cars derailed and stacked, spines snapped, spilling decades-dry chemical crust across the ballast. The rolling stock is a mountain of salvage nobody''s been desperate enough to climb. Yet.', 'low', 1, 0, 0, '["Metal contracts somewhere in the wreck with a bang that rolls off flat across the flats.", "A tanker car settles a half-inch with a groan and a shower of rust."]', '{"east": "zone_slag_yard", "west": "zone_slag_reclaimer", "north": "zone_slag_flarestack", "south": "zone_slag_drums"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_industrial_salvage"}', NULL, 1783123848, 'map_world', -10, 0, 0, 'RT', '#111111', '#e5822a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_deep_bonepicker', 'Bonepicker''s End', 'A dead-end court where the scavengers sort their hauls — piles of picked-clean chassis and, now and then, picked-clean people.', 'medium', 1, 0, 1, '["A picker weighs a fistful of teeth on a hanging scale.", "Someone whistles a warning and the whole court goes still."]', '{"east": "zone_deep_gasp", "west": "zone_deep_maw", "north": "zone_deep_scab"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase1-build', 1783123846, 'map_world', 1, 3, 0, 'BP', '#111111', '#cf6a2e', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_deep_gasp', 'Gasp Hollow', 'A sunken hollow where the air goes thin and chemical. Regulars breathe through rags; newcomers cough up their welcome.', 'high', 1, 0, 1, '["Your throat closes for a second on a lungful of something sweet and wrong.", "A regular offers you a rag for a price, already knowing you''ll pay it."]', '{"east": "zone_deep_deepmaw", "west": "zone_deep_bonepicker", "north": "zone_deep_gutter"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase1-build', 1783123846, 'map_world', 2, 3, 0, 'GH', '#111111', '#cf6a2e', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_deep_deepmaw', 'The Deep Maw', 'The bottom of the bottom. Past here the Sprawl stops pretending to be a city and starts being a wound.', 'high', 1, 0, 1, '["Far below, something large shifts its weight and settles.", "The dark down here has a grain to it, like it''s watching back."]', '{"east": "zone_meat_offal", "west": "zone_deep_gasp"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase1-build', 1783123846, 'map_world', 3, 3, 0, 'DM', '#111111', '#cf6a2e', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_up_gate', 'Uptown Gate', 'The clean edge of the city. A corporate checkpoint of brushed steel and polite menace sorts the paying customers from the rest. Cameras track the way you walk.', 'safe', 0, 0, 1, '["A turnstile chimes approval for someone who is not you.", "A recorded voice thanks you for your continued compliance."]', '{"east": "zone_up_approach", "north": "zone_dock_wharf", "south": "zone_city_ne"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase1-build', 1783123846, 'map_world', 1, -2, 0, 'UG', '#eeeeee', '#347b49', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_deep_gutter', 'Gutter Market', 'Trestle tables of salvaged meat, bruised pills, and dead men''s boots. The vendors don''t make eye contact and neither should you.', 'medium', 1, 0, 1, '["A butcher slaps down a cut you decide not to identify.", "A vendor sweeps a tarp over her table the instant a patrol light sweeps the row."]', '{"east": "zone_weapons_exterior", "west": "zone_deep_scab", "south": "zone_deep_gasp"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase1-build', 1783123846, 'map_world', 2, 2, 0, 'GM', '#111111', '#cf6a2e', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_deep_maw', 'The Maw', 'The Sprawl opens its throat here: a downward-sloping plaza where the Undermarket swallows anyone with nothing left to trade but themselves.', 'medium', 1, 0, 1, '["The crowd parts around something on the ground and closes again without looking.", "A busker plays a gutted keyboard, three keys, over and over."]', '{"east": "zone_deep_bonepicker", "west": "zone_deep_wormtown", "north": "zone_slums"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase1-build', 1783123846, 'map_world', 0, 3, 0, 'MW', '#111111', '#cf6a2e', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_deep_scab', 'Scab Alley', 'A knife-narrow cut between tenements, the floor slick with things best not named. Deals happen fast here, and so does everything else.', 'medium', 1, 0, 1, '["A deal goes wrong two doorways down. Then very quiet.", "Fresh graffiti drips over old graffiti over older blood."]', '{"east": "zone_deep_gutter", "west": "zone_slums", "south": "zone_deep_bonepicker"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase1-build', 1783123846, 'map_world', 1, 2, 0, 'SC', '#111111', '#cf6a2e', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_drum_shop', 'Second Skin', 'The shop is narrow but makes good use of vertical space — racks of clothing climb toward the ceiling, organized by some colour-logic that only Cassius understands. The walls are covered in polaroid-style printouts of outfits, annotated in marker. A tailoring station dominates one corner: cutting mat, shears, a half-dressed mannequin with pins in unfortunate places.', 'safe', 0, 0, 1, '["Fabric rustles softly on a rack as air moves through the shop.", "The spool-shaped sign outside buzzes faintly through the wall.", "A mannequin slowly loses a pin to gravity. It hits the floor without drama.", "The squeak of a hanger being slid along a rail.", "Scissors catch the light from somewhere in the back."]', '{"out": "zone_drum_exterior", "down": "zone_drum_basement"}', '{"is_interior": true}', NULL, 1783059649, 'map_int_drum', 0, 0, 0, NULL, NULL, '#e08a4a', 'indoors', '{}', NULL, 'zone_drum_exterior');
+INSERT INTO public.zones VALUES ('zone_deep_rotrow', 'Rot Row', 'The smell arrives before you do — a terrace of failed refrigeration and the produce it couldn''t save. Flies the size of thumbnails work the air.', 'medium', 1, 0, 1, '["A drift of flies lifts, resettles, lifts again.", "Something drips steadily from an awning that has no business being wet."]', '{"east": "zone_deep_wormtown", "west": "zone_deep_sink", "north": "zone_deep_warrens"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase1-build', 1783123846, 'map_world', -2, 3, 0, 'RR', '#111111', '#cf6a2e', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_deep_wormtown', 'Wormtown', 'Tunnelled into a collapsed parkade, Wormtown is all dripping concrete and squatter-cant scrawled on every pillar.', 'medium', 1, 0, 1, '["A squatter recites directions to nowhere in a sing-song cant.", "Water finds a new path through the concrete overhead and chooses your collar."]', '{"east": "zone_deep_maw", "west": "zone_deep_rotrow", "north": "zone_deep_cardboard"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase1-build', 1783123846, 'map_world', -1, 3, 0, 'WT', '#111111', '#cf6a2e', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_up_chrome', 'Chrome Heights', 'Mirror-glass frontages and valet drones. The Heights look down on the Marquee''s neon like it''s a stain they''ve already hired someone to remove.', 'safe', 0, 0, 1, '["A valet drone waits by a car you could never afford to breathe on.", "Your reflection follows you across a dozen panes, each a little more judged."]', '{"east": "zone_corp_investor", "west": "zone_up_skyway", "north": "zone_dock_slip", "south": "zone_mq_chrome_court"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase1-build', 1783123846, 'map_world', 4, -2, 0, 'CH', '#eeeeee', '#347b49', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_civ_commons', 'The Commons', 'A cracked plaza the city forgot to demolish. A breadline shuffles past a dead fountain, and a hand-painted banner insists that WE ARE ALL SHAREHOLDERS.', 'safe', 0, 0, 1, '["The breadline shuffles forward a step for reasons no one can identify.", "A pigeon lands on the dead fountain''s rim and judges the crowd."]', '{"east": "zone_civ_ledger", "west": "zone_waste_windrow", "north": "zone_waste_emberwaste", "south": "zone_civ_meltwater"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase2-build', 1783123846, 'map_world', -3, -3, 0, 'CO', '#111111', '#4bb36a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_gravel', 'Gravel Throat', 'A choked culvert of crushed concrete and rebar, funnelling the wind into a low continuous growl. Footing is bad and getting worse.', 'low', 0, 0, 1, '["A slab shifts underfoot and settles with a stony grunt.", "The throat exhales a gust that carries the smell of old rain and rust."]', '{"east": "zone_civ_meltwater", "west": "zone_waste_smoulder", "north": "zone_waste_windrow", "south": "zone_waste_endcut"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase2-build', 1783123846, 'map_world', -4, -2, 0, 'GV', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_util_zone_meridian_lobby', 'The Meridian - Lobby — Utility Room', 'A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.', 'safe', 0, 0, 0, '[]', '{"up": "zone_meridian_lobby"}', '{"is_interior": true, "utility_room": true, "world_exit_zone": "zone_meridian"}', NULL, 1783116355, 'map_int_meridian', 0, 0, -1, NULL, NULL, '#8e6fd0', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_up_skyway', 'Skyway Landing', 'Where an elevated skyway touches down among planters of engineered ferns. The air is filtered; you can tell because it tastes like nothing at all.', 'safe', 0, 0, 1, '["A skyway car sighs past overhead, full of faces that don''t look down.", "A planter mists itself on a schedule indifferent to the weather."]', '{"east": "zone_up_chrome", "west": "zone_up_approach", "north": "zone_dock_fishmarket", "south": "zone_mq_cathode"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase1-build', 1783123846, 'map_world', 3, -2, 0, 'SK', '#eeeeee', '#347b49', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_util_zone_velk_basement', 'Velk''s — Utility Room — Utility Room', 'A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.', 'safe', 0, 0, 0, '[]', '{"up": "zone_velk_basement"}', '{"is_interior": true, "utility_room": true, "world_exit_zone": "zone_velk_exterior"}', NULL, 1783116357, 'map_int_velk', 0, 0, -2, NULL, NULL, '#8e6fd0', 'indoors', '{}', NULL, 'zone_velk_exterior');
+INSERT INTO public.zones VALUES ('zone_civ_sortation', 'Sortation Yard', 'A dead-letter depot where a sorting belt still crawls, shuffling parcels to addresses that burned down years ago. The bot at the end never stops stamping.', 'low', 0, 0, 1, '["The belt delivers a parcel addressed to a building that is now a crater.", "The sorting bot stamps RETURN TO SENDER on a rat and moves on."]', '{"east": "zone_warehouse", "west": "zone_waste_endcut", "north": "zone_civ_meltwater", "south": "zone_badland_w_gate"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase2-build', 1783123846, 'map_world', -3, -1, 0, 'SY', '#111111', '#4bb36a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_deep_cardboard', 'Cardboard Row', 'A gutter of flattened appliance boxes and pallet-wood shanties. Cook-fires gutter in oil drums and the greasy smoke never quite clears.', 'medium', 1, 0, 1, '["A child watches you from a refrigerator-box doorway and does not blink.", "Something in an oil drum pops and sends up a gout of blue flame."]', '{"east": "zone_slums", "west": "zone_deep_warrens", "south": "zone_deep_wormtown"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase1-build', 1783123885, 'map_world', -1, 2, 0, 'CD', '#111111', '#cf6a2e', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_up_aid', 'Aid Station', 'A pre-Handoff triage kiosk someone keeps running out of pure spite and expired supplies. A medibot with one working arm sorts the walking wounded by who can pay.', 'safe', 0, 0, 1, '["The medibot''s good arm gestures NEXT to no one in particular.", "A vending machine offers bandages, saline, and, inexplicably, cologne."]', '{"east": "zone_powerplantnew", "west": "zone_civ_meltwater", "north": "zone_civ_ledger", "south": "zone_warehouse"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase1-build', 1783123885, 'map_world', -2, -2, 0, 'AD', '#eeeeee', '#347b49', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_civ_steps', 'Civic Steps', 'A broad municipal stair that once led somewhere that mattered. Now it just connects the records office to the water, and the pigeons have claimed the landings.', 'safe', 0, 0, 1, '["A gull and a pigeon dispute a chip wrapper on the steps.", "Wind off the bay carries the smell of salt and diesel up the stair."]', '{"east": "zone_media_plaza", "west": "zone_civ_ledger", "north": "zone_up_vellum", "south": "zone_powerplantnew"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase3-build', 1783123885, 'map_world', -1, -3, 0, 'ST', '#111111', '#4bb36a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_grit', 'Grit Row', 'A row of half-buried machine shells, their guts long picked over, their shadows the only shade for a mile. Something dens in the biggest of them.', 'medium', 0, 0, 1, '["Metal groans inside a machine shell, then thinks better of it.", "A grit-devil spins up, wanders the row, and collapses."]', '{"east": "zone_deep_waste", "west": "zone_waste_verge", "north": "zone_ruins", "south": "zone_waste_nadir"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase2-build', 1783123885, 'map_world', -4, 1, 0, 'GT', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_verge', 'The Verge', 'The lip of the wastes proper, where the Haul Road''s shoulder crumbles into scree. Beyond, the grey goes on longer than seems fair.', 'low', 0, 0, 1, '["Scree hisses down the verge, dislodged by nothing you can see.", "A haul truck''s ghost-glare sweeps the road above and is gone."]', '{"east": "zone_waste_grit", "west": "zone_waste_deadflat", "north": "zone_ashway_road", "south": "zone_waste_coalsack"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase2-build', 1783123885, 'map_world', -5, 1, 0, 'VG', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_nadir', 'The Nadir', 'The low point of the whole basin, where every runoff eventually arrives. A crust of dried chemistry cracks under your boots in bright, wrong colours.', 'medium', 0, 1, 1, '["The crust cracks in a colour that has no honest name.", "Something half-dissolved twitches in a puddle and goes still."]', '{"east": "zone_deep_tarpit", "west": "zone_waste_coalsack", "north": "zone_waste_grit", "south": "zone_waste_bailey"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase2-build', 1783123885, 'map_world', -4, 2, 0, 'ND', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_deep_tarpit', 'Tarpit Edge', 'Where the Undermarket''s runoff meets the wastes — a black seep of tar and worse, worked by pickers who answer to the gangs uphill.', 'medium', 1, 0, 1, '["A picker sinks a pole into the seep and hauls up something that drips.", "A gang tag, still wet, claims the tarpit for the week."]', '{"east": "zone_deep_warrens", "west": "zone_waste_nadir", "north": "zone_deep_waste", "south": "zone_deep_sink"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase2-build', 1783123885, 'map_world', -3, 2, 0, 'TP', '#111111', '#cf6a2e', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_windrow', 'The Windrow', 'Wind has heaped the district''s garbage into a long grey dune here, a windrow of ash and packaging that shifts and mutters.', 'low', 0, 0, 1, '["The windrow slumps with a sigh and buries something that was showing.", "Grit ticks against your teeth on a gust off the dune."]', '{"east": "zone_civ_commons", "west": "zone_waste_molten", "north": "zone_waste_slaghollow", "south": "zone_waste_gravel"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase2-build', 1783123885, 'map_world', -4, -3, 0, 'WD', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_bailey', 'The Bailey', 'The broken ring-wall of some old containment yard, its bailey now a killing-floor of blind corners and drifted ash. Things nest in the wall.', 'medium', 0, 1, 1, '["Ash sifts from a murder-hole overhead in a thin grey thread.", "Down a blind corner, something exhales and waits to see if you follow."]', '{"east": "zone_deep_sink", "west": "zone_waste_grime", "north": "zone_waste_nadir"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase2-build', 1783123885, 'map_world', -4, 3, 0, 'BY', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_coalsack', 'Coalsack', 'A slag pit gone black and glassy, so dark it drinks the light. The counter on anything you carry ticks a little faster here.', 'medium', 0, 1, 1, '["The black glass underfoot crunches like frozen tar.", "A dry heat rises off the pit though there is nothing burning."]', '{"east": "zone_waste_nadir", "west": "zone_waste_tipple", "north": "zone_waste_verge", "south": "zone_waste_grime"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase2-build', 1783123885, 'map_world', -5, 2, 0, 'CK', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_deep_sink', 'The Sink', 'The lowest drain of the Sprawl, where everything the Undermarket can''t sell finally settles. The smell has a shape you can lean on.', 'medium', 1, 0, 1, '["The sink glugs, swallows, and belches up a shoe.", "A rat the size of a loaf regards you, unimpressed, and dog-paddles on."]', '{"east": "zone_deep_rotrow", "west": "zone_waste_bailey", "north": "zone_deep_tarpit"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase2-build', 1783123885, 'map_world', -3, 3, 0, 'SK', '#111111', '#cf6a2e', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_rebar', 'Rebar Field', 'A cleared lot bristling with the rebar stubs of buildings that never got past their foundations. The bay wind whistles through the iron like a bad flute.', 'low', 0, 0, 1, '["Wind draws a low tuneless note from a forest of rebar.", "Rust flakes drift off the iron and settle on everything, including you."]', '{"east": "zone_dock_coldstore", "west": "zone_up_vellum", "north": "zone_nc_spindle", "south": "zone_media_plaza"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase3-build', 1783123885, 'map_world', 0, -4, 0, 'RF', '#111111', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_dock_wharf', 'The Wharf', 'The working face of Coldwater Docks: bollards worn smooth, cargo nets stiff with salt, and the whole thing groaning gently on its pilings with the swell.', 'low', 0, 0, 1, '["A crane somewhere lowers a pallet with a shriek of unoiled cable.", "The wharf shifts underfoot as a swell rolls in, and settles."]', '{"east": "zone_dock_quays", "west": "zone_media_plaza", "north": "zone_dock_coldstore", "south": "zone_up_gate"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase3-build', 1783123885, 'map_world', 1, -3, 0, 'WH', '#111111', '#1fb5aa', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_grime', 'Grime Row', 'A sunken lane filmed in decades of industrial grime, every surface tacky to the touch. The husks out here don''t rust so much as fester.', 'medium', 0, 1, 1, '["A husk in the grime shifts its weight with a wet, deliberate creak.", "Your handprint stays on the wall behind you, glistening."]', '{"east": "zone_waste_bailey", "west": "zone_waste_runoff", "north": "zone_waste_coalsack"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase2-build', 1783123885, 'map_world', -5, 3, 0, 'GR', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_up_vellum', 'Vellum Court', 'A pocket of would-be gentility at the water''s edge — planters, a dry ornamental basin, and frontages that face away from the docks as if embarrassed by them.', 'safe', 0, 0, 1, '["A planter mists itself and the ornamental basin, uselessly.", "A resident hurries through, not looking at the water."]', '{"east": "zone_waste_rebar", "west": "zone_waste_cull", "north": "zone_nc_datum", "south": "zone_civ_steps"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase3-build', 1783123885, 'map_world', -1, -4, 0, 'VL', '#111111', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_dock_boatyard', 'The Boat Yard', 'A slipway of half-built and half-scrapped hulls, propped on stands, ribs bared to the weather. A shipwright works one of them with a heat-gun and a grudge.', 'low', 0, 0, 1, '["A hull rings like a bell as the shipwright drives a rivet home.", "A skeletal boat on its stand casts a cage of shadow across the yard."]', '{"east": "zone_nc_manifold", "west": "zone_bay_barges", "north": "zone_bay_breakwater", "south": "zone_dock_slip"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase3-build', 1783123885, 'map_world', 4, -4, 0, 'BY', '#111111', '#1fb5aa', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_dock_quays', 'The Quays', 'A run of stone quays where the fishing boats tie up and the cargo dhows unload after dark. Everything smells of tar, brine, and old fish.', 'low', 0, 0, 1, '["A mooring line creaks taut, then slack, then taut.", "A stevedore spits into the water and watches it a while."]', '{"east": "zone_dock_fishmarket", "west": "zone_dock_wharf", "north": "zone_bay_shallows", "south": "zone_up_approach"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase3-build', 1783123885, 'map_world', 2, -3, 0, 'QY', '#111111', '#1fb5aa', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_dock_coldstore', 'Cold Storage', 'A refrigerated warehouse still running on stolen power, its doors breathing fog. Inside, racks of catch and less legal cargo hang in the cold dark.', 'low', 0, 0, 1, '["A cold-store door sighs open, exhaling fog, and no one comes out.", "Something shifts on a hook deeper in the cold, then stills."]', '{"east": "zone_bay_shallows", "west": "zone_waste_rebar", "north": "zone_bay_sound", "south": "zone_dock_wharf"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase3-build', 1783123885, 'map_world', 1, -4, 0, 'CS', '#111111', '#1fb5aa', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_bay_shallows', 'The Shallows', 'A boardwalk on rotting pilings runs out over the shallows, where the bay goes brown and thick with runoff. You can see shapes moving under the skin of the water.', 'low', 0, 0, 1, '["Something breaks the surface of the shallows, then is gone.", "The boardwalk gives a soft rotten groan and holds. Just."]', '{"east": "zone_bay_barges", "west": "zone_dock_coldstore", "north": "zone_bay_open", "south": "zone_dock_quays"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase3-build', 1783123885, 'map_world', 2, -4, 0, 'SH', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_bay_barges', 'Moored Barges', 'A raft of dead barges lashed together into a floating slum-annex, rising and falling as one. You cross the harbour here by stepping from deck to swaying deck.', 'low', 0, 0, 1, '["A barge deck tilts under your weight and rights itself, unbothered.", "Washing strung between two barges drips into the black water below."]', '{"east": "zone_dock_boatyard", "west": "zone_bay_shallows", "north": "zone_bay_fog", "south": "zone_dock_fishmarket"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase3-build', 1783123885, 'map_world', 3, -4, 0, 'MB', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_cindersteps', 'Cinder Steps', 'A flight of fused-cinder terraces climbs the spoil-heap, each step a strata of a different bad decade. Your boots grind glass with every stride.', 'low', 0, 0, 1, '["A terrace edge crumbles to cinder-glass and slides away downslope.", "Ash lifts off the steps in a low sheet and resettles behind you."]', '{"east": "zone_waste_dross", "west": "zone_waste_blight", "north": "zone_waste_overburden", "south": "zone_waste_rustmarsh"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123885, 'map_world', -7, -2, 0, 'CN', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_rustmarsh', 'Rust Marsh', 'Runoff has pooled into a shallow marsh the colour of old blood, reeds of rebar standing in water that stains everything it touches. Something big moves in the deeper channels.', 'medium', 0, 0, 1, '["A wake crosses the rust-marsh between the rebar reeds and is gone.", "Orange water laps at your boots and leaves a tidemark that won''t wash out."]', '{"east": "zone_waste_palings", "west": "zone_waste_sinter", "north": "zone_waste_cindersteps", "south": "zone_ashway_wash"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123885, 'map_world', -7, -1, 0, 'RM', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_dross', 'Dross Flat', 'An open flat carpeted in dross — the skimmed scum of a thousand melts, light as pumice and sharp as spite. It crunches, endlessly, wherever you step.', 'low', 0, 0, 1, '["The dross crunches underfoot in a way that carries too far.", "A dust-devil of grey skim spins up, wanders the flat, and dies."]', '{"east": "zone_waste_smoulder", "west": "zone_waste_cindersteps", "north": "zone_waste_tarseep", "south": "zone_waste_palings"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123885, 'map_world', -6, -2, 0, 'DR', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_smoulder', 'The Smoulder', 'A seam of buried refuse that has been smouldering underground for years, venting thin acrid smoke through cracks in the crust. The ground is warm and wrong.', 'low', 0, 0, 1, '["Warm smoke threads up through a crack and coils around your ankles.", "The crust flexes underfoot, warm as a living thing, and settles."]', '{"east": "zone_waste_gravel", "west": "zone_waste_dross", "north": "zone_waste_molten", "south": "zone_waste_slake"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123885, 'map_world', -5, -2, 0, 'SM', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_civ_ledger', 'Ledger Hall', 'A municipal records office running on one flickering terminal and a clerk who outlived the department. Filing cabinets tower into the dark, alphabetised by a system since lost.', 'safe', 0, 0, 1, '["A cabinet drawer rolls open on its own and hangs there, accusing.", "The lone terminal chirps, prints a single blank slip, and sleeps again."]', '{"east": "zone_civ_steps", "west": "zone_civ_commons", "north": "zone_waste_cull", "south": "zone_up_aid"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase2-build', 1783123885, 'map_world', -2, -3, 0, 'LG', '#111111', '#4bb36a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_util_zone_drum_basement', 'Second Skin — Utility Room — Utility Room', 'A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.', 'safe', 0, 0, 0, '[]', '{"up": "zone_drum_basement"}', '{"is_interior": true, "utility_room": true, "world_exit_zone": "zone_drum_exterior"}', NULL, 1783116358, 'map_int_drum', 0, 0, -2, NULL, NULL, '#8e6fd0', 'indoors', '{}', NULL, 'zone_drum_exterior');
+INSERT INTO public.zones VALUES ('zone_up_approach', 'Spire Approach', 'A manicured processional toward the Halcyon spire — reflecting pools, engineered calm, and signage in a font that costs more than you do.', 'safe', 0, 0, 1, '["A groundskeeper drone skims a leaf from a pool that has never held a leaf.", "The signage subtly rearranges to face whoever is richest."]', '{"east": "zone_up_skyway", "west": "zone_up_gate", "north": "zone_dock_quays", "south": "zone_meridian"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase1-build', 1783123885, 'map_world', 2, -2, 0, 'SA', '#eeeeee', '#347b49', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_media_plaza', 'Mediaform Plaza', 'A hard-surfaced plaza dominated by a three-storey media wall that loops harbour-safety propaganda to an audience of nobody. A camera drone tracks anything that moves.', 'safe', 0, 0, 1, '["The media wall cheerfully reminds you that DROWNING IS PREVENTABLE.", "A camera drone swivels, fixes on you, loses interest."]', '{"east": "zone_dock_wharf", "west": "zone_civ_steps", "north": "zone_waste_rebar", "south": "zone_ext_1782953094650"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase3-build', 1783123885, 'map_world', 0, -3, 0, 'MP', '#111111', '#f5e642', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_molten', 'Molten Row', 'A row of tapped-out smelter troughs, the slag in them cooled to glassy rope decades ago. Heat-ghosts still shimmer off the metal on the worst afternoons.', 'low', 0, 0, 1, '["Cooled slag ticks and settles in a trough as if remembering being poured.", "A heat-shimmer rises off dead metal though there is nothing to make it."]', '{"east": "zone_waste_windrow", "west": "zone_waste_tarseep", "north": "zone_waste_sootbank", "south": "zone_waste_smoulder"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123885, 'map_world', -5, -3, 0, 'MR', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_cinderway', 'Cinderway', 'An old haul-road paved in packed cinder runs south into nothing, edged with the burnt-out shells of the trucks that used it. The way is clear; the reasons to take it are not.', 'medium', 0, 0, 1, '["A truck shell ticks as the day''s heat leaves it, settling on flat tyres.", "The cinderway stretches south into a grey haze that never quite resolves."]', '{"east": "zone_waste_runoff", "west": "zone_waste_hopper", "north": "zone_waste_ferro"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123885, 'map_world', -7, 3, 0, 'CW', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_dock_fishmarket', 'Fishmarket Dock', 'Trestle slabs of pale bay catch under a sagging awning, worked by fishmongers who gut and call and gut without pause. The runoff makes the boards treacherous.', 'low', 0, 0, 1, '["A fishmonger splits something long and pale with a single wet stroke.", "Cats gather at the edge of the market, patient as debt collectors."]', '{"east": "zone_dock_slip", "west": "zone_dock_quays", "north": "zone_bay_barges", "south": "zone_up_skyway"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "fishing_table_id": "fish_coldwater_bay", "scavenging_table_id": "scav_harbor"}', 'phase3-build', 1783123885, 'map_world', 3, -3, 0, 'FM', '#111111', '#1fb5aa', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_gantry', 'Gantry Yard', 'A forest of gantry cranes straddles the tracks here, lifting and placing with slow enormous care. Standing beneath them is a trust exercise the Yards runs on you daily.', 'low', 0, 0, 1, '["A gantry crane passes overhead, its shadow crossing you like a slow eclipse.", "A load hangs, sways, and is set down a hand''s breadth from where you stand."]', '{"west": "zone_yard_freightworks", "north": "zone_corp_argent", "south": "zone_yard_crane"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase8-build', 1783123886, 'map_world', 8, -3, 0, 'GY', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_ferro', 'Ferro Flat', 'A field so saturated with iron oxide that a dropped blade rusts to lace by morning. The whole flat sings a faint magnetic whine that sets your fillings buzzing.', 'medium', 0, 0, 1, '["A thin magnetic whine rises, sets your teeth on edge, and fades.", "Rust blooms visibly across a scrap you pass, like a wound opening."]', '{"east": "zone_waste_tipple", "west": "zone_waste_drossworks", "north": "zone_waste_ashenverge", "south": "zone_waste_cinderway"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123885, 'map_world', -7, 2, 0, 'FF', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_endcut', 'The Endcut', 'Where the paved city simply ends — a ragged cut of exposed foundations and severed pipes bleeding rust down onto the wastes below.', 'low', 0, 0, 1, '["A severed pipe releases a slow brown weep that never quite stops.", "Somewhere below, a foundation ticks as it cools into the evening."]', '{"east": "zone_civ_sortation", "west": "zone_waste_slake", "north": "zone_waste_gravel", "south": "zone_ruins"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase2-build', 1783123885, 'map_world', -4, -1, 0, 'EC', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_hopper', 'The Hopper', 'A collapsed loading hopper forms a steel-walled sinkhole here, its throat choked with drifted ash and the odd picked-clean bone. Things climb out of it at night.', 'medium', 0, 0, 1, '["Ash hisses down the hopper''s throat into a dark that never fills.", "A bone, picked white, rolls up out of the hopper''s mouth and stops at your feet."]', '{"east": "zone_waste_cinderway", "west": "zone_waste_dustreach", "north": "zone_waste_drossworks"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123885, 'map_world', -8, 3, 0, 'HP', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_tipple', 'The Tipple', 'The skeleton of an ore tipple leans over the flat, its chutes long empty, its gantries a roost for things with too many legs. Rust rains down whenever the wind leans on it.', 'medium', 0, 0, 1, '["A gantry sheds a slow rain of rust as the wind leans on the tipple.", "Something with too many legs adjusts its grip on a chute overhead."]', '{"east": "zone_waste_coalsack", "west": "zone_waste_ferro", "north": "zone_waste_deadflat", "south": "zone_waste_runoff"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123885, 'map_world', -6, 2, 0, 'TT', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_runoff', 'The Runoff', 'Where the flats drain, a sludge-choked culvert carries the day''s worst chemistry down into the dark. The smell has teeth. Something upstream keeps it fed.', 'medium', 0, 0, 1, '["The runoff glugs and shifts as something upstream lets more through.", "A slick of colours that shouldn''t exist together slides past and is gone."]', '{"east": "zone_waste_grime", "west": "zone_waste_cinderway", "north": "zone_waste_tipple"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123885, 'map_world', -6, 3, 0, 'RO', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_deadflat', 'Dead Flat', 'A hardpan so lifeless the scavengers use it as a boundary: past here, nothing grows, nothing dens, nothing bothers. Which is its own kind of warning.', 'low', 0, 0, 1, '["Nothing moves on the dead flat. Nothing at all. It''s unnerving.", "Your own footsteps come back off the hardpan a half-beat late."]', '{"east": "zone_waste_verge", "west": "zone_waste_ashenverge", "north": "zone_ashway_ashfall", "south": "zone_waste_tipple"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123885, 'map_world', -6, 1, 0, 'DF', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_bay_deadwater', 'Dead Water', 'A becalmed pocket of the bay where nothing moves and sound goes flat. Boats avoid it; the ones that didn''t are still here, mostly under.', 'low', 0, 0, 1, '["The dead water swallows the sound of your own footsteps.", "A mast tilts up out of the flat water, marking a boat that stayed too long."]', '{"east": "zone_bay_reach", "west": "zone_bay_slick", "south": "zone_bay_mid"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase5-build', 1783123885, 'map_world', 2, -7, 0, 'DW', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_bay_slick', 'The Slick', 'A permanent rainbow slick of spilled fuel lies flat on the water here, too still to be healthy. Walk the lashed pontoons and try not to breathe deep.', 'low', 0, 0, 1, '["The fuel-slick parts around a pontoon and closes again, seamless.", "A dead gull rotates slowly on the slick, wings spread as if still gliding."]', '{"east": "zone_bay_deadwater", "west": "zone_nc_sable", "south": "zone_bay_wreck"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase5-build', 1783123885, 'map_world', 1, -7, 0, 'SL', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_skyline', 'Skyline Walk', 'A glass promenade cantilevered out over the drop, the whole grey city and greyer bay laid out beneath your feet through the floor. Vertigo is included in the rent.', 'safe', 0, 0, 1, '["The glass floor creaks reassuringly and shows you the long way down.", "A resident jogs past on the skyline walk, eyes forward, seeing none of it."]', '{"east": "zone_bay_buoy", "west": "zone_gov_vantage", "north": "zone_nc_halcyon", "south": "zone_nc_datum"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase5-build', 1783123885, 'map_world', -1, -6, 0, 'SK', '#111111', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_bay_narrows', 'The Narrows', 'Where the breakwater''s arm nearly meets the far spit, the bay pinches to a churning narrows. The current here has taken stronger swimmers than you and shows no signs of being full.', 'medium', 0, 0, 1, '["The narrows churns white against the last blocks of the breakwater.", "The current tugs at the pontoon and, briefly, at you."]', '{"east": "zone_nc_concordat", "west": "zone_bay_reach", "south": "zone_bay_floes"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase5-build', 1783123885, 'map_world', 4, -7, 0, 'NR', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_bay_wreck', 'The Wreck', 'A freighter died here decades ago and never fully sank, its rusted flank a cliff of riveted iron you can board at low swell. Deep in the flooded holds, things have made a home.', 'medium', 0, 0, 1, '["The wreck groans as the swell works at it, shedding a rain of rust.", "Something large shifts deep in the flooded hold, and the whole hull shivers."]', '{"east": "zone_bay_mid", "west": "zone_bay_buoy", "north": "zone_bay_slick", "south": "zone_bay_sound"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase5-build', 1783123885, 'map_world', 1, -6, 0, 'WR', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_bay_buoy', 'Iron Buoy', 'A great rusted channel-buoy lists here, its bell long silenced, chained to a mooring that no longer connects to anything. Squatters have built a precarious perch on top.', 'low', 0, 0, 1, '["The dead buoy''s bell shifts in the swell but does not quite ring.", "A squatter waves from the buoy''s perch, or possibly warns you off."]', '{"east": "zone_bay_wreck", "west": "zone_nc_skyline", "north": "zone_nc_sable", "south": "zone_nc_spindle"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase5-build', 1783123885, 'map_world', 0, -6, 0, 'IB', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_sable', 'Sable Court', 'A black-marble court ringed by frontages so exclusive they have no signage at all. If you have to ask what''s sold here, a discreet security detail will ask you to leave.', 'safe', 0, 0, 1, '["A frosted door opens, exhales climate-controlled air, and closes on nothing.", "Two security operators clock you, confer without words, and keep watching."]', '{"east": "zone_bay_slick", "west": "zone_nc_halcyon", "south": "zone_bay_buoy"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase5-build', 1783123885, 'map_world', 0, -7, 0, 'SB', '#111111', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_spindle', 'The Spindle', 'The base of a slender comms spindle that climbs out of sight, humming with the whole district''s data. Standing near it makes your teeth ache and your deck light up with things it shouldn''t.', 'safe', 0, 0, 1, '["The spindle''s hum steps up a semitone, then settles.", "Your gear chirps at signals it has no business receiving."]', '{"east": "zone_bay_sound", "west": "zone_nc_datum", "north": "zone_bay_buoy", "south": "zone_waste_rebar"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase5-build', 1783123885, 'map_world', 0, -5, 0, 'SP', '#111111', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_bay_reach', 'The Reach', 'The long open reach toward the bay mouth, where the fog thins and the swell finally has room to build. The far shore is a rumour on the worst days and invisible on the rest.', 'low', 0, 0, 1, '["The swell lifts the pontoon-walk and sets it down with a sigh.", "Something surfaces far out on the reach, considers the distance, and sinks."]', '{"east": "zone_bay_narrows", "west": "zone_bay_deadwater", "south": "zone_bay_deep"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase5-build', 1783123885, 'map_world', 3, -7, 0, 'RE', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_gov_prefect', 'Prefect Plaza', 'The plaza fronting the Prefecture, where the queue for permits, papers, and pardons wraps twice around a dry fountain. The Prefecture issues all three, at a price and a delay.', 'safe', 0, 0, 1, '["The permit queue advances one place and a small cheer goes up.", "A prefecture clerk stamps a document, considers it, and stamps it again."]', '{"east": "zone_nc_halcyon", "west": "zone_gov_assembly", "south": "zone_gov_vantage"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase6-build', 1783123885, 'map_world', -2, -7, 0, 'PF', '#111111', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_gov_registry', 'Registry Hall', 'The central registry of citizens, most of them dead, missing, or invented. Archivists move between the stacks with the reverence of priests tending a god that has stopped answering.', 'safe', 0, 0, 1, '["An archivist reshelves a citizen file with elaborate, pointless care.", "A drawer of records rolls open, exhales dust, and offers up a name no one claims."]', '{"east": "zone_gov_cobalt", "west": "zone_waste_scald", "north": "zone_gov_ministry", "south": "zone_waste_ashensteppe"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase6-build', 1783123885, 'map_world', -4, -6, 0, 'RG', '#eeeeee', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_bay_floes', 'The Floes', 'Runoff and cold have crusted this corner of the bay with rafts of grey ice that grind together and apart. You cross by timing the floes, which is exactly as advisable as it sounds.', 'low', 0, 0, 1, '["Two ice floes grind together with a sound like a slow scream.", "A floe tips under your weight, rights itself, and drifts on, unbothered."]', '{"east": "zone_bay_basin", "west": "zone_bay_deep", "north": "zone_bay_narrows", "south": "zone_bay_breakwater"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase5-build', 1783123885, 'map_world', 4, -6, 0, 'FL', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_gov_ministry', 'Ministry Row', 'A colonnade of ministries that administer nothing, their brass plates polished daily by staff who have not been paid in a decade and turn up anyway. The doors are always open onto empty marble halls.', 'safe', 0, 0, 1, '["A clerk crosses Ministry Row with a stack of forms and a look of terrible purpose.", "A ministry door stands open on a hall of empty desks, all of them expectant."]', '{"east": "zone_gov_assembly", "west": "zone_waste_rusthollow", "south": "zone_gov_registry"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase6-build', 1783123885, 'map_world', -4, -7, 0, 'MN', '#111111', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_gov_cobalt', 'Cobalt Court', 'A court of law tiled in cobalt, where cases are heard, adjourned, and inherited by the children of the original plaintiffs. Justice here is less blind than simply very, very slow.', 'safe', 0, 0, 1, '["A bailiff calls a case number that has not been reached in nine years.", "Two advocates argue amicably over a docket neither expects to resolve."]', '{"east": "zone_gov_vantage", "west": "zone_gov_registry", "north": "zone_gov_assembly", "south": "zone_gov_mezzanine"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase6-build', 1783123885, 'map_world', -3, -6, 0, 'CB', '#111111', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_bay_deep', 'The Deep', 'The deepest sounding in the bay, marked on old charts with a number and a warning. Whatever the harbour lurkers grew from, it grew biggest down here, in the dark under the cold.', 'medium', 0, 0, 1, '["A wake broad as a road crosses the deep and sinks without a source.", "The cold off the deep water climbs your spine like a hand."]', '{"east": "zone_bay_floes", "west": "zone_bay_mid", "north": "zone_bay_reach", "south": "zone_bay_fog"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase5-build', 1783123885, 'map_world', 3, -6, 0, 'DP', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_embassy_floor3', 'Embassy Hotel & Bar — Third Floor Landing', 'Top of the stairwell — the third-floor landing, closer to the roof and colder for it. Water stains bloom brown across the ceiling tiles, one sagging low enough to drip when it rains. Units 3A through 3D ring the landing, their doors heavier up here, the locks newer; people who climb this far want to stay lost. A single emergency light burns a weak red over the stairwell mouth, the only bulb on the floor that still works. The iron railing ends in a broken newel post someone''s wrapped in duct tape.', 'safe', 0, 0, 1, '["The sagging ceiling tile releases a slow, deliberate drip.", "The red emergency light buzzes, dims, and steadies again."]', '{"down": "zone_embassy_floor2", "east": "zone_apt_11", "west": "zone_apt_12", "north": "zone_apt_9", "south": "zone_apt_10"}', '{"is_building": false, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783112361, 'map_interior_zone_residential_lobby', 0, 0, 2, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_residential_lobby');
+INSERT INTO public.zones VALUES ('zone_gov_assembly', 'The Assembly', 'The debating chamber of a legislature that meets to ratify decisions the Architect already made. The benches are full of the earnest, the appointed, and the merely loud.', 'safe', 0, 0, 1, '["A vote is called in the chamber and passes unanimously, as they all do.", "Someone at the rostrum speaks with great feeling to a chamber that isn''t listening."]', '{"east": "zone_gov_prefect", "west": "zone_gov_ministry", "south": "zone_gov_cobalt"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase6-build', 1783123885, 'map_world', -3, -7, 0, 'AS', '#111111', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_emberwaste', 'Ember Waste', 'A stretch of ground that burned so long ago and so completely that it still, on cold nights, remembers the fire — a faint orange breathing deep in the cracks.', 'low', 0, 0, 1, '["An ember-glow breathes deep in a crack, then fades, then breathes again.", "Warmth rises through the sole of your boot from a fire decades dead."]', '{"east": "zone_waste_cull", "west": "zone_waste_slaghollow", "north": "zone_gov_mezzanine", "south": "zone_civ_commons"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase6-build', 1783123885, 'map_world', -3, -4, 0, 'EW', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_sootbank', 'Sootbank', 'A long bank of packed soot heaped against a fallen retaining wall, black and greasy and warm in patches where something still smoulders beneath.', 'low', 0, 0, 1, '["A patch of the sootbank glows dull orange, then darkens as you watch.", "Your boots come away black, and stay black, no matter what you do."]', '{"east": "zone_waste_slaghollow", "west": "zone_waste_greymile", "north": "zone_waste_leachfield", "south": "zone_waste_molten"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase6-build', 1783123885, 'map_world', -5, -4, 0, 'SB', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_civ_meltwater', 'Meltwater Row', 'A municipal water point where a queue forms daily at a bank of hissing taps. The line has its own etiquette, its own enforcers, and a very long memory.', 'low', 0, 0, 1, '["A tap coughs, spits brown, then runs clear to a small ragged cheer.", "Someone loses their place in line and does not make that mistake twice."]', '{"east": "zone_up_aid", "west": "zone_waste_gravel", "north": "zone_civ_commons", "south": "zone_civ_sortation"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase2-build', 1783123885, 'map_world', -3, -2, 0, 'MT', '#111111', '#4bb36a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_gov_mezzanine', 'The Mezzanine', 'The half-floor between departments where the truly stalled paperwork goes to age. Interdepartmental mail carts trundle through on rails, delivering forms to forms.', 'safe', 0, 0, 1, '["A mail cart trundles across the mezzanine and delivers a form to another form.", "The mezzanine''s paperwork rustles in a draught with a sound like distant applause."]', '{"east": "zone_gov_onyx", "west": "zone_waste_ashensteppe", "north": "zone_gov_cobalt", "south": "zone_waste_emberwaste"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase6-build', 1783123885, 'map_world', -3, -5, 0, 'MZ', '#111111', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_ashensteppe', 'Ashen Steppe', 'A wide grey steppe of drifted ash that runs west toward worse. The wind has combed it into long dunes that erase your trail as fast as you make it.', 'low', 0, 0, 1, '["Wind combs the ashen steppe into a new dune-line and erases your last step.", "Far to the west, something red flickers on the horizon, and is gone."]', '{"east": "zone_gov_mezzanine", "west": "zone_waste_leachfield", "north": "zone_gov_registry", "south": "zone_waste_slaghollow"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase6-build', 1783123885, 'map_world', -4, -5, 0, 'AE', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_gov_onyx', 'Onyx Row', 'The quarter''s lower approach, an onyx-flagged terrace where the government''s marble finally gives way to the working city — and, beyond the western rail, to the wastes.', 'safe', 0, 0, 1, '["A statue of a forgotten administrator watches Onyx Row with stone disapproval.", "From the terrace edge you can see the wastes begin, grey and patient, to the west."]', '{"east": "zone_nc_datum", "west": "zone_gov_mezzanine", "north": "zone_gov_vantage", "south": "zone_waste_cull"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase6-build', 1783123885, 'map_world', -2, -5, 0, 'OX', '#111111', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_cull', 'The Cull', 'The government''s unofficial dumping ground for what it would rather forget — records, machinery, and now and then people. The scavengers work it carefully; the government watches it not at all.', 'medium', 0, 0, 1, '["A picker in the cull uncovers a government seal and pockets it, fast.", "A shredded drift of official documents lifts, swirls, and resettles like snow."]', '{"east": "zone_up_vellum", "west": "zone_waste_emberwaste", "north": "zone_gov_onyx", "south": "zone_civ_ledger"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase6-build', 1783123885, 'map_world', -2, -4, 0, 'CL', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_slaghollow', 'Slaghollow', 'A hollow scooped from the flats where cooled slag was once dumped and forgotten. Rain has pooled in the bottom into something that reflects nothing.', 'low', 0, 0, 1, '["The pool in the hollow''s bottom holds perfectly still, reflecting no sky.", "Slag glass clinks and shifts on the hollow''s slope, resettling."]', '{"east": "zone_waste_emberwaste", "west": "zone_waste_sootbank", "north": "zone_waste_ashensteppe", "south": "zone_waste_windrow"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase6-build', 1783123885, 'map_world', -4, -4, 0, 'Sw', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_scald', 'The Scald', 'A field of blanched, chemically-burnt hardpan where nothing has grown since before the Handoff. The government pretends this is the edge of its jurisdiction, and the wastes agree.', 'medium', 0, 0, 1, '["Heat-haze rises off the scalded pan though the air itself is cold.", "A brittle crust of bleached salts crunches to powder underfoot."]', '{"east": "zone_gov_registry", "west": "zone_waste_tailings", "north": "zone_waste_rusthollow", "south": "zone_waste_leachfield"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase6-build', 1783123885, 'map_world', -5, -6, 0, 'SC', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_chrome_102', 'Unit 102', 'A studio that still has its original built-in cabinetry, half the doors missing, the rest painted shut. A mattress on a pallet, a chair, a view of the square if you press your face to the glass. Home.', 'safe', 0, 0, 1, '["Pipes knock somewhere in the walls. The building is old but it holds."]', '{"west": "zone_mq_chrome_f1"}', '{"is_apartment": true}', NULL, 1782964408, 'map_int_mq_chrome', 1, 0, 1, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_mq_chrome_f1', 'Chrome Court — Floor 1', 'The first-floor hallway of Chrome Court, a tunnel of amber emergency light and doors painted so many times the numbers are just suggestions. The carpet is worn to jute down the center where every tenant walks the identical line. Four units open off the hall. A window at the end looks out over the district''s neon, which from up here almost looks like a city that works.', 'safe', 0, 0, 1, '["A door down the hall closes with the finality of a lock turning.", "The amber emergency light hums and dims by a shade.", "Something is cooking behind one of the doors; the smell almost reaches you.", "The end-of-hall window rattles as the wind leans on it."]', '{"up": "zone_mq_chrome_f2", "down": "zone_mq_chrome_lobby", "east": "zone_mq_chrome_102", "west": "zone_mq_chrome_104", "north": "zone_mq_chrome_101", "south": "zone_mq_chrome_103"}', '{"is_interior": true}', NULL, 1782964408, 'map_int_mq_chrome', 0, 0, 1, NULL, NULL, '#e85aa0', 'indoors', '{}', NULL, 'zone_mq_chrome_lobby');
+INSERT INTO public.zones VALUES ('zone_corp_boardroom', 'Boardroom Row', 'The boardrooms of the consignment houses, glass-walled and climate-perfect, where cargo is bought, insured, and betrayed over water nobody drinks. The Yards'' grime stops precisely at the door.', 'safe', 0, 0, 1, '["A boardroom''s glass wall fogs to opaque mid-meeting, then clears, empty.", "A consignment is agreed with a handshake and a look that promises litigation."]', '{"east": "zone_yard_container", "west": "zone_dock_slip", "north": "zone_nc_manifold", "south": "zone_corp_investor"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase8-build', 1783123885, 'map_world', 5, -3, 0, 'Br', '#eeeeee', '#9b59b6', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_meridian_lobby', 'The Meridian - Lobby', 'The ground-floor lobby of The Meridian, a residential tower that survived the Collapse the same way most things survived it: through sheer institutional inertia. Cracked terrazzo floors carry the ghost of a geometric inlay, ground to near-invisibility by foot traffic. A bank of tenant mailboxes lines the east wall — most of them pried open decades ago, doors hanging at odd angles, contents long gone. The security desk sits unmanned, its terminal cycling a screensaver of rolling static. A brass plaque reading THE MERIDIAN — ESTABLISHED 2031 is still bolted above the entrance, which is the most optimistic thing in the building. Emergency lighting casts everything in pale amber. Stairs ascend through a fire door to the upper floors.', 'safe', 0, 0, 0, '[]', '{"up": "zone_meridian_floor_1", "out": "zone_meridian", "down": "zone_util_zone_meridian_lobby"}', '{"is_building": true, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": "apartment", "world_exit_zone": "zone_meridian", "scavenging_table_id": null}', NULL, 1783112116, 'map_int_meridian', 0, 0, 0, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_meridian_roof', 'The Meridian — Roof', 'Cracked tar and gravel, hemmed by a low concrete parapet stenciled with emergency contact numbers no one has answered in years. Rusted antenna masts and conduit runs crowd the edges — relics of broadcast infrastructure nobody maintained long enough to matter. The city stretches out in every direction: an unbroken plane of light pollution and industrial haze that could almost pass for a skyline at night if you let your eyes go soft. Up here the building''s recycled air ends and the real thing begins — it tastes like ozone and diesel particulate and something faintly sulphuric drifting in from the eastern refineries. Wind cuts across the gravel with nothing to stop it. A heavy-duty junction box is mounted to the stairwell housing near the hatch.', 'safe', 0, 0, 0, '[]', '{"down": "zone_meridian_floor_6"}', '{"open_sky": true, "is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783112403, 'map_int_meridian', 0, 0, 7, NULL, NULL, '#c9a884', 'outdoors', '{}', NULL, 'zone_meridian_lobby');
+INSERT INTO public.zones VALUES ('zone_bay_breakwater', 'The Breakwater', 'A spine of tumbled concrete and rebar thrown out to break the bay''s temper, walkable if you mind your footing. Things nest in the gaps between the blocks.', 'low', 0, 0, 1, '["A wave slaps the breakwater and throws cold spray across the blocks.", "Something withdraws into a gap in the concrete as your shadow falls on it."]', '{"east": "zone_nc_highwater", "west": "zone_bay_fog", "north": "zone_bay_floes", "south": "zone_dock_boatyard"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase3-build', 1783123885, 'map_world', 4, -5, 0, 'BW', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_datum', 'Datum Court', 'A survey marker set in brass declares this the city''s official datum — the point from which all heights and depths are measured. Someone has scratched YOU ARE HERE beneath it, and it feels like a threat.', 'safe', 0, 0, 1, '["The brass datum marker gleams, recently and pointlessly polished.", "A tour drone recites the court''s significance to an audience of pigeons."]', '{"east": "zone_nc_spindle", "west": "zone_gov_onyx", "north": "zone_nc_skyline", "south": "zone_up_vellum"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase5-build', 1783123885, 'map_world', -1, -5, 0, 'DT', '#111111', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_bay_mid', 'Coldwater Deep', 'The middle of the bay, where the water goes from grey to a green-black that gives nothing back. The pontoon-walks end at railings here, and beyond is just cold and down.', 'low', 0, 0, 1, '["The green-black water heaves once, without wind, and stills.", "A railing marks the edge of the safe walk; past it, nothing but cold."]', '{"east": "zone_bay_deep", "west": "zone_bay_wreck", "north": "zone_bay_deadwater", "south": "zone_bay_open"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase5-build', 1783123885, 'map_world', 2, -6, 0, 'CD', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_cathode', 'Cathode Row', 'A narrow run of frontage where every third storefront sells some flavor of skin, chrome, or forgetting. The signage competes for attention until it all blurs into one continuous migraine of light. A tattoo parlor, two shuttered clinics, and a club with a cherry blinking over the door. The gutter runs with meltwater and the confetti of a hundred torn wristbands.', 'safe', 0, 0, 1, '["A busker''s amp cuts out mid-note and doesn''t come back.", "Someone in a doorway offers you something in a language you almost recognize.", "The cherry sign over the club flickers, blinks, holds.", "A drone the size of a fist buzzes the row, scanning faces, and moves on."]', '{"in": "zone_mq_cherry_floor", "east": "zone_mq_chrome_court", "west": "zone_meridian", "north": "zone_up_skyway", "south": "zone_mq_marquee"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783123885, 'map_world', 3, -1, 0, 'CT', '#eeeeee', '#e85aa0', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_palings', 'The Palings', 'A fence-line of scrap palings marches across the flat, warning off nobody. Rags and older things hang from the pickets, turning slowly in the wind.', 'low', 0, 0, 1, '["A rag on a paling turns to face you, then turns away.", "The palings creak in sequence down the line, as if counting you past."]', '{"east": "zone_waste_slake", "west": "zone_waste_rustmarsh", "north": "zone_waste_dross", "south": "zone_ashway_ashfall"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123885, 'map_world', -6, -1, 0, 'PL', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_slake', 'Slake Pond', 'The only clean-ish water for a mile, and so the only thing out here worth defending. A ragged scavenger camp rings the pond — lean-tos, a cook-fire, and eyes that track every newcomer.', 'low', 0, 0, 1, '["Someone at the camp fire looks up, weighs you, and goes back to the pot.", "A scavenger fills a jug at the pond''s edge and hurries it back to the lean-tos."]', '{"east": "zone_waste_endcut", "west": "zone_waste_palings", "north": "zone_waste_smoulder", "south": "zone_ashway_road"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123885, 'map_world', -5, -1, 0, 'SL', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_leachfield', 'The Leachfield', 'The buried leach-beds of the old city drain here, seeping a slow chemical weep to the surface that kills the ground in bright, geometric patches.', 'medium', 0, 0, 1, '["A patch of ground fizzes gently as something leaches up through it.", "The chemical weep has drawn a perfect dead circle in the ash. You step around it."]', '{"east": "zone_waste_ashensteppe", "west": "zone_waste_scrapmesa", "north": "zone_waste_scald", "south": "zone_waste_sootbank"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase6-build', 1783123885, 'map_world', -5, -5, 0, 'LF', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_halcyon', 'Halcyon Heights', 'The literal top of the city: a wind-scoured roof-plaza of glass and engineered calm, where the arcology''s owners take the air and look down on everything they own, which is everything.', 'safe', 0, 0, 1, '["A private drone escorts someone important across the plaza and away.", "The wind up here is clean, cold, and somehow billed to your account."]', '{"east": "zone_nc_sable", "west": "zone_gov_prefect", "south": "zone_nc_skyline"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase5-build', 1783123885, 'map_world', -1, -7, 0, 'HH', '#111111', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_embassy_floor2', 'Embassy Hotel & Bar — Second Floor Landing', 'The second-floor landing, where the hotel''s old carpet runner gives up entirely — bare concrete underneath, worn pale in a path between the stairs and the doors. Four units open off it, brass numbers screwed to each: 2A through 2D, a couple hanging by a single screw. The stairwell railing is cold iron, sticky where a thousand hands have gripped it. A dead vending machine hulks in the corner, its glass front spider-cracked, the snacks inside fossilised. Somewhere below, the bar''s murmur leaks up through the floor.', 'safe', 0, 0, 1, '["A door slams somewhere down the hall, and a chain rattles into place.", "The dead vending machine emits a single, hopeless click."]', '{"up": "zone_embassy_floor3", "down": "zone_residential_lobby", "east": "zone_apt_7", "west": "zone_apt_8", "north": "zone_apt_5", "south": "zone_apt_6"}', '{"is_building": false, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null}', NULL, 1783020605, 'map_interior_zone_residential_lobby', 0, 0, 1, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_residential_lobby');
+INSERT INTO public.zones VALUES ('zone_meridian_floor_1', 'The Meridian — Floor 1 Hallway', 'Floor 1 of The Meridian. A narrow corridor stretches between four unit doors — numbers 101, 102, 103, 104 — stamped in adhesive metal letters, most of which have survived. The walls are poured concrete behind a skim of paint that went off-white long ago, old marker tags bleeding through where the building manager gave up trying to buff them out. Synthetic carpet the color of old claret muffles every footfall. Sodium-orange emergency strips trace the baseboards. The recycled air carries the mingled residue of a dozen private lives: synthetic tobacco, mystery cooking, and the faint ionised bite of an ageing HVAC system.', 'safe', 0, 0, 0, '[]', '{"up": "zone_meridian_floor_2", "down": "zone_meridian_lobby", "east": "zone_meridian_unit_102", "west": "zone_meridian_unit_104", "north": "zone_meridian_unit_101", "south": "zone_meridian_unit_103"}', '{"is_interior": true}', NULL, 1782898109, 'map_int_meridian', 0, 0, 1, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_lobby');
+INSERT INTO public.zones VALUES ('zone_meridian_floor_5', 'The Meridian — Floor 5 Hallway', 'Floor 5 of The Meridian. A narrow corridor stretches between four unit doors — numbers 501, 502, 503, 504 — stamped in adhesive metal letters, most of which have survived. The walls are poured concrete behind a skim of paint that went off-white long ago, old marker tags bleeding through where the building manager gave up trying to buff them out. Synthetic carpet the color of old claret muffles every footfall. Sodium-orange emergency strips trace the baseboards. The recycled air carries the mingled residue of a dozen private lives: synthetic tobacco, mystery cooking, and the faint ionised bite of an ageing HVAC system.', 'safe', 0, 0, 0, '[]', '{"up": "zone_meridian_floor_6", "down": "zone_meridian_floor_4", "east": "zone_meridian_unit_502", "west": "zone_meridian_unit_504", "north": "zone_meridian_unit_501", "south": "zone_meridian_unit_503"}', '{"is_building": false, "is_interior": true, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": null}', NULL, 1783111944, 'map_int_meridian', 0, 0, 5, NULL, NULL, '#c9a884', 'indoors', '{}', NULL, 'zone_meridian_lobby');
+INSERT INTO public.zones VALUES ('zone_gov_vantage', 'Vantage Row', 'A gallery of offices with the best view in the quarter, allotted strictly by seniority to functionaries who no longer look up from their screens to use it.', 'safe', 0, 0, 1, '["A functionary''s blinds are drawn against the finest view in the city.", "Someone important passes down Vantage Row and three doors quietly close."]', '{"east": "zone_nc_skyline", "west": "zone_gov_cobalt", "north": "zone_gov_prefect", "south": "zone_gov_onyx"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase6-build', 1783123885, 'map_world', -2, -6, 0, 'VN', '#111111', '#ff5ea8', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_threshold', 'The Threshold', 'The fractured boulevard stretches east beneath leaning streetlights and sagging power lines. Rows of shuttered storefronts stare blankly across the cracked pavement, their windows painted over or shattered years ago. Rusted buses sit abandoned where traffic died, their interiors swallowed by dust and creeping vines. Faded evacuation signs still point deeper into the city, while countless layers of graffiti bury whatever messages came before. Every road seems to lead somewhere important, yet every direction feels equally forgotten.', 'safe', 0, 0, 1, '["A drone hums overhead, its chassis stenciled with a faded corporate logo you half-recognize.", "Somewhere in the plaza, a speaker plays a jingle for a fast food chain. Thirty seconds in, it loops.", "A ragged NPC catches your eye and immediately looks away. Everyone here has learned not to be interesting.", "The departure board flickers: COLDWATER → DENVER → SALT LAKE → [SIGNAL LOST]"]', '{"east": "zone_thresholdeast", "west": "zone_city_west", "north": "zone_city_north", "south": "zone_city_south"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123885, 'map_world', 0, 0, 0, 'TR', '#111111', '#4bb36a', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_marshalling', 'The Marshalling Yard', 'The great marshalling yard where trains are assembled car by car, a slow ballet of shunting and coupling conducted by a lone yard pilot with a flag and a death wish.', 'low', 0, 0, 1, '["Cars couple somewhere down the yard with a crash that rolls along the line.", "The yard pilot waves a flag at a locomotive and, incredibly, is obeyed."]', '{"east": "zone_yard_reefer", "west": "zone_yard_boxcar", "north": "zone_yard_pallet", "south": "zone_yard_dray"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase8-build', 1783123886, 'map_world', 7, -1, 0, 'Ma', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_dray', 'Dray Street', 'The haulers'' street, lined with idling trucks and the cafes and card games that spring up wherever drivers wait. The engine-fug never lifts and the coffee is, somehow, worse than the fug.', 'low', 0, 0, 1, '["A trucker leans on their horn out of boredom and three others answer.", "A card game folds abruptly as a dispatcher''s voice barks a load number."]', '{"east": "zone_yard_weighbridge", "west": "zone_yard_loadout", "north": "zone_yard_marshalling", "south": "zone_yard_transfer"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase8-build', 1783123886, 'map_world', 7, 0, 0, 'Dy', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_depot', 'The Depot', 'The Yards'' main depot and muster point, where crews clock on, trucks queue, and the day''s chaos is dispatched from a whiteboard nobody can read. The gateway between the yards and the city proper.', 'low', 0, 0, 1, '["A crew clocks on at the depot, reads the whiteboard, and gives up interpreting it.", "A dispatcher shouts a truck number into the din and something, eventually, moves."]', '{"east": "zone_yard_boxcar", "west": "zone_mq_chrome_court", "north": "zone_corp_investor", "south": "zone_mq_precinct"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase8-build', 1783123886, 'map_world', 5, -1, 0, 'Dp', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_transfer', 'The Transfer Dock', 'The main transfer dock, where cargo changes hands, trucks, and legality. Forklifts weave between pallet-mountains with a recklessness that is somehow never quite fatal.', 'low', 0, 0, 1, '["A forklift threads a gap it has no business fitting through, horn blaring.", "A pallet-mountain shifts, sheds a crate, and is restacked before it lands."]', '{"east": "zone_yard_forklift", "west": "zone_yard_chassis", "north": "zone_yard_dray", "south": "zone_yard_tare"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase7-build', 1783123886, 'map_world', 7, 1, 0, 'TD', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_boxcar', 'Boxcar Lane', 'A lane of derelict boxcars long since shunted off the rails and repurposed — into stores, squats, and the occasional very private meeting. Their doors are all differently, deliberately locked.', 'low', 0, 0, 1, '["A boxcar door slides shut from the inside as you pass.", "Cook-smoke rises from a boxcar''s jury-rigged flue and hangs in the still air."]', '{"east": "zone_yard_marshalling", "west": "zone_yard_depot", "north": "zone_yard_sidings", "south": "zone_yard_loadout"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase8-build', 1783123886, 'map_world', 6, -1, 0, 'Bx', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_crane', 'Crane Alley', 'A narrow service alley threaded between the crane bases, hung with control cables and the occasional operator''s washing. The machinery here is always warm and always listening.', 'low', 0, 0, 1, '["A crane base ticks with heat as its motors idle down.", "A control cable overhead twitches as someone, somewhere, takes the sticks."]', '{"west": "zone_yard_pallet", "north": "zone_yard_gantry", "south": "zone_yard_reefer"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase8-build', 1783123886, 'map_world', 8, -2, 0, 'Cr', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_loadout', 'The Loadout', 'The southern loadout bays where trucks back up to the docks and freight crosses from rail to road under the eye of a tally clerk who trusts absolutely no one, correctly.', 'low', 0, 0, 1, '["A truck backs to the loadout bay with a warning beep and a grinding stop.", "The tally clerk counts a load twice, frowns, and counts it a third time."]', '{"east": "zone_yard_dray", "west": "zone_mq_precinct", "north": "zone_yard_boxcar", "south": "zone_yard_chassis"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase8-build', 1783123886, 'map_world', 6, 0, 0, 'Lo', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_reefer', 'Reefer Row', 'A row of refrigerated cars humming on stolen power, breathing fog into the yard. What''s kept cold here ranges from legitimate to the kind of thing you smell before you see.', 'low', 0, 0, 1, '["A reefer car''s compressor kicks in with a shudder and a gout of fog.", "Something in a reefer car has stopped being kept cold enough. The row knows."]', '{"west": "zone_yard_marshalling", "north": "zone_yard_crane", "south": "zone_yard_weighbridge"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase8-build', 1783123886, 'map_world', 8, -1, 0, 'Rf', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_pallet', 'Pallet Row', 'Wooden pallets stacked into unstable ziggurats, splintered, stained, and endlessly recirculated. The whole row smells of wet timber and the ghost of whatever they last carried.', 'low', 0, 0, 1, '["A pallet ziggurat sheds a plank from its summit and no one flinches.", "The wet-timber smell of Pallet Row gets into the back of your throat."]', '{"east": "zone_yard_crane", "west": "zone_yard_sidings", "north": "zone_yard_freightworks", "south": "zone_yard_marshalling"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase8-build', 1783123886, 'map_world', 7, -2, 0, 'Pl', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_bourse', 'The Bourse', 'Coldwater''s exchange floor, where cargo, debt, territory, and the occasional person are bought and sold by shouting at screens. The noise is a kind of weather.', 'safe', 0, 0, 1, '["A trader on the Bourse floor screams a number and a fortune changes hands.", "The big board flickers red across the floor and the shouting climbs an octave."]', '{"west": "zone_nc_glass", "south": "zone_nc_tessellate"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase9-build', 1783123885, 'map_world', 8, -7, 0, 'Bo', '#eeeeee', '#9b59b6', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_consulate', 'The Consulate', 'A cluster of corporate consulates flying flags that are really just logos, where the great powers of the city keep missions to one another and pretend at diplomacy between raids.', 'safe', 0, 0, 1, '["A consular flag — a logo, really — is lowered and a subtly different one raised.", "Two rival consuls pass on the steps and exchange smiles like drawn blades."]', '{"east": "zone_nc_ivory", "west": "zone_bay_basin", "north": "zone_nc_meridianheights", "south": "zone_nc_palisade"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase9-build', 1783123885, 'map_world', 6, -6, 0, 'Cs', '#eeeeee', '#9b59b6', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_ivory', 'Ivory Deck', 'An open deck of pale stone where the quarter takes its meetings in the open air, on the theory that it''s harder to bug a conversation held over a two-hundred-metre drop.', 'safe', 0, 0, 1, '["A meeting on the Ivory Deck breaks up the instant you come into earshot.", "The wind off the deck snatches a document from a manicured hand and is thanked for it."]', '{"east": "zone_nc_tessellate", "west": "zone_nc_consulate", "north": "zone_nc_glass", "south": "zone_nc_beacon"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase9-build', 1783123885, 'map_world', 7, -6, 0, 'Id', '#eeeeee', '#9b59b6', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_palisade', 'The Palisade', 'A rampart-walk along the district''s edge, all defensive posturing and excellent sightlines, where private security patrol a wall that keeps out a threat the residents can''t name.', 'safe', 0, 0, 1, '["A security operator paces the palisade, watching the yards below like weather.", "The palisade wall is being raised another course, against nothing in particular."]', '{"east": "zone_nc_beacon", "west": "zone_nc_highwater", "north": "zone_nc_consulate", "south": "zone_waste_oxide"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase9-build', 1783123885, 'map_world', 6, -5, 0, 'Pa', '#eeeeee', '#9b59b6', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_meridianheights', 'Meridian Heights', 'The most expensive address in Coldwater, where the residences have no numbers because everyone who matters already knows where they are. The air is filtered twice and billed once.', 'safe', 0, 0, 1, '["A private lift disgorges someone important into a lobby that closes behind them.", "The filtered air here smells faintly of nothing, aggressively maintained."]', '{"east": "zone_nc_glass", "west": "zone_nc_concordat", "south": "zone_nc_consulate"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase9-build', 1783123885, 'map_world', 6, -7, 0, 'MH', '#eeeeee', '#9b59b6', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_tessellate', 'Tessellate Plaza', 'A plaza floored in a shifting tessellated pattern that is, allegedly, load-bearing corporate art. Standing on it too long gives you the distinct sense of being solved.', 'safe', 0, 0, 1, '["The tessellated floor seems to shift its pattern when you look away from it.", "A tour group is told the plaza''s meaning and quietly declines to believe it."]', '{"west": "zone_nc_ivory", "north": "zone_nc_bourse", "south": "zone_nc_chancery"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase9-build', 1783123885, 'map_world', 8, -6, 0, 'Te', '#eeeeee', '#9b59b6', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_concordat', 'The Concordat', 'The treaty hall where the corporations that own Coldwater sign the accords that carve it up, beneath a mural of a handshake so large and so insincere it loops in the mind for hours.', 'safe', 0, 0, 1, '["A delegation sweeps through the Concordat, flanked by lawyers like an honour guard.", "The great handshake mural is being repainted, slightly, to reflect the new terms."]', '{"east": "zone_nc_meridianheights", "west": "zone_bay_narrows", "south": "zone_bay_basin"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase9-build', 1783123885, 'map_world', 5, -7, 0, 'Co', '#eeeeee', '#9b59b6', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_highwater', 'Highwater Court', 'A residential court set at the district''s high-water mark, named for a flood that the owners have been assured, at great expense, will never reach them. The assurance is framed on a wall.', 'safe', 0, 0, 1, '["A resident of Highwater Court checks the bay''s level and, reassured, checks it again.", "The framed flood-assurance gleams under a light that never goes off."]', '{"east": "zone_nc_palisade", "west": "zone_bay_breakwater", "north": "zone_bay_basin", "south": "zone_nc_manifold"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase9-build', 1783123885, 'map_world', 5, -5, 0, 'HC', '#eeeeee', '#9b59b6', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_glass', 'Glass Terrace', 'A terrace of mirror-glass towers that reflect only each other, so that from any point you see the district endlessly, and the grey city beyond it not at all.', 'safe', 0, 0, 1, '["Your reflection is handed off from one glass face to the next across the terrace.", "A window-drone squeegees a pane that is already, impossibly, perfect."]', '{"east": "zone_nc_bourse", "west": "zone_nc_meridianheights", "south": "zone_nc_ivory"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase9-build', 1783123885, 'map_world', 7, -7, 0, 'GT', '#eeeeee', '#9b59b6', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_ashreach', 'Ash Reach', 'An open reach of drifted ash that the wind sculpts into low dunes and then, bored, flattens again. Old machine-bones surface and submerge in it like the tide has teeth.', 'low', 0, 0, 0, '["The wind reshapes an ash dune and reveals the rusted ribs of a machine.", "Ash lifts off the reach in a long grey sheet and settles a field over."]', '{"east": "zone_waste_rusthollow", "west": "zone_waste_cinderflat", "south": "zone_waste_tailings"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase10-build', 1783123886, 'map_world', -6, -7, 0, 'AR', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_chancery', 'Chancery Walk', 'The legal spine of the quarter, a colonnade of chanceries and notaries where the accords signed in the Concordat are rendered into language designed never to be read.', 'safe', 0, 0, 1, '["A notary seals a document with a stamp that costs more than a life down in the yards.", "A clerk carries a contract down Chancery Walk with both hands, like a relic."]', '{"west": "zone_nc_beacon", "north": "zone_nc_tessellate", "south": "zone_corp_argent"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase9-build', 1783123885, 'map_world', 8, -5, 0, 'Cy', '#eeeeee', '#9b59b6', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_downwind', 'The Downwind', 'Set deliberately downwind of the heights so its stink never troubles them, this is where the quarter''s waste and worse is quietly let go. Things thrive here that the district denies exist.', 'medium', 0, 0, 1, '["A gust carries the Downwind''s stink briefly uphill, and a dozen windows shut.", "Something feeds in the Downwind''s tip and does not look up as you pass."]', '{"east": "zone_corp_argent", "west": "zone_waste_oxide", "north": "zone_nc_beacon", "south": "zone_yard_freightworks"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase9-build', 1783123886, 'map_world', 7, -4, 0, 'Dw', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_rusthollow', 'Rust Hollow', 'A shallow hollow where rainwater once pooled and left everything it touched the deep orange-brown of old blood. Nothing drains here; it just sits, and stains, and waits.', 'low', 0, 0, 0, '["Standing water in the hollow holds the grey sky the colour of rust.", "A dropped bolt in the hollow is already, impossibly, half-eaten by rust."]', '{"east": "zone_gov_ministry", "west": "zone_waste_ashreach", "south": "zone_waste_scald"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase10-build', 1783123886, 'map_world', -5, -7, 0, 'RH', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_freightworks', 'The Freightworks', 'The mechanised heart of the Yards, a shed of conveyors and sorting arms that route freight by a logic no living person fully understands and nobody dares reboot.', 'low', 0, 0, 1, '["A sorting arm swings a crate down a chute chosen by nothing you can see.", "The conveyors change direction all at once, for reasons, and change back."]', '{"east": "zone_yard_gantry", "west": "zone_yard_container", "north": "zone_waste_downwind", "south": "zone_yard_pallet"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase8-build', 1783123886, 'map_world', 7, -3, 0, 'FW', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_beacon', 'Beacon Row', 'A row crowned by an old harbour beacon, relit as a status symbol, that now warns ships away from a port that no longer wants them. The light sweeps the district all night.', 'safe', 0, 0, 1, '["The beacon sweeps its cold light across Beacon Row and moves on.", "A resident closes their blinds against the beacon they paid extra to live beside."]', '{"east": "zone_nc_chancery", "west": "zone_nc_palisade", "north": "zone_nc_ivory", "south": "zone_waste_downwind"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase9-build', 1783123885, 'map_world', 7, -5, 0, 'Be', '#eeeeee', '#9b59b6', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_oxide', 'Oxide Flats', 'A rust-red flat where the district''s runoff bleeds out onto open ground, staining everything the colour of a wound. The quarter looks the other way; the wastes do not.', 'medium', 0, 0, 1, '["Orange runoff bleeds across the oxide flat in slow, branching deltas.", "Something pale and heavy shifts in the rust-stained mud and goes still."]', '{"east": "zone_waste_downwind", "west": "zone_nc_manifold", "north": "zone_nc_palisade", "south": "zone_yard_container"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase9-build', 1783123886, 'map_world', 6, -4, 0, 'Ox', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_cinderflat', 'Cinder Flat', 'A flat of grey cinder that crunches underfoot like frozen ground, except it is not frozen — it is the cooled skin over heat that never fully left. In places the crust gives, and glows.', 'medium', 0, 1, 0, '["The cinder crust crunches under you and, somewhere, exhales a curl of heat.", "A patch of the flat glows dull orange for a moment and then thinks better of it."]', '{"east": "zone_waste_ashreach", "west": "zone_waste_slagverge", "south": "zone_waste_clinkerrow"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase10-build', 1783123886, 'map_world', -7, -7, 0, 'CF', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_nc_manifold', 'The Manifold', 'The junction where the diplomatic quarter''s clean marble finally meets the working city — the boat yard below, the boardrooms beside. A checkpoint here decides, quietly, who ascends.', 'safe', 0, 0, 1, '["A checkpoint at the Manifold turns someone back with a smile and a raised palm.", "From the Manifold you can see the yards'' grime start, one clean step down."]', '{"east": "zone_waste_oxide", "west": "zone_dock_boatyard", "north": "zone_nc_highwater", "south": "zone_corp_boardroom"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_consumer_trash"}', 'phase9-build', 1783123885, 'map_world', 5, -4, 0, 'Mf', '#eeeeee', '#9b59b6', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_vexhollow', 'Vex Hollow', 'A sunken hollow just inside the Redline where the air sits still and hums, and the few plants are the wrong colours and the wrong sizes. Things den here. They come out changed, and hungry, and toward you.', 'high', 0, 3, 0, '["The air in Vex Hollow hums at a pitch you feel in your fillings.", "Something the wrong size for its shape shifts in a den at the hollow''s edge and fixes on you."]', '{"east": "zone_waste_brokenkiln", "west": "zone_red_slaughterworks", "north": "zone_waste_deadfurnace", "south": "zone_waste_pitnine"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase10-build', 1783123886, 'map_world', -8, -4, 0, 'VH', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_tailings', 'The Tailings', 'The tailings pile of some long-dead operation, a grey-green mound of what was left after everything worth having was taken out. Whatever''s still in it is what nobody wanted, which is not the same as nothing.', 'low', 0, 0, 0, '["The tailings pile weeps a thin grey-green trickle from somewhere inside itself.", "A scavenger works the tailings with a bent rake and does not acknowledge you."]', '{"east": "zone_waste_scald", "west": "zone_waste_clinkerrow", "north": "zone_waste_ashreach", "south": "zone_waste_scrapmesa"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase10-build', 1783123886, 'map_world', -6, -6, 0, 'TT', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_brokenkiln', 'Broken Kiln', 'The cracked shell of a brick kiln, split down one side so it gapes like a broken jaw. Inside, out of the wind, is one of the few places in the wastes a person can almost rest. Almost.', 'medium', 0, 1, 0, '["Wind whistles through the split in the broken kiln and dies away inside it.", "Old scorch-marks and newer bootprints share the floor of the kiln; you are not the first to almost rest here."]', '{"east": "zone_waste_greymile", "west": "zone_red_vexhollow", "north": "zone_waste_ferrouswash", "south": "zone_waste_overburden"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase10-build', 1783123886, 'map_world', -7, -4, 0, 'BK', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_scrapmesa', 'Scrap Mesa', 'A flat-topped mesa built entirely of compacted scrap, layer on crushed layer, that the wastes have folded back into something almost geological. Salvagers mine it like a seam. It bites back.', 'low', 0, 0, 0, '["A slab calves off the scrap mesa''s flank and comes down in a slow avalanche of rust.", "A salvager on the mesa''s rim waves once — warning or greeting, impossible to tell — and goes back to digging."]', '{"east": "zone_waste_leachfield", "west": "zone_waste_ferrouswash", "north": "zone_waste_tailings", "south": "zone_waste_greymile"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase10-build', 1783123886, 'map_world', -6, -5, 0, 'SM', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_greymile', 'The Grey Mile', 'The featureless grey mile that everyone crosses and nobody remembers, a long flat nothing of ash and grit between the city''s edge and the killing ground beyond. Its only landmark is that it has none.', 'low', 0, 0, 0, '["The grey mile stretches ahead and behind, identical in both directions.", "A bootprint in the grit ahead of you fills slowly with drifting ash and is gone."]', '{"east": "zone_waste_sootbank", "west": "zone_waste_brokenkiln", "north": "zone_waste_scrapmesa", "south": "zone_waste_tarseep"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase10-build', 1783123886, 'map_world', -6, -4, 0, 'GM', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_clinkerrow', 'Clinker Row', 'A row of heaped clinker — the hard, glassy dregs raked from furnaces that died before anyone here was born — stacked into a wall that someone, at some point, decided to hide behind.', 'medium', 0, 1, 0, '["A heap of clinker shifts and rattles down its own slope with a sound like held breath.", "Behind the clinker wall, briefly, a shape ducks out of sight."]', '{"east": "zone_waste_tailings", "west": "zone_red_meltline", "north": "zone_waste_cinderflat", "south": "zone_waste_ferrouswash"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase10-build', 1783123886, 'map_world', -7, -6, 0, 'CR', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_deadfurnace', 'Dead Furnace', 'The husk of a smelting furnace big enough to stand inside, cold now for decades, its throat choked with debris. People shelter in its belly and swear the walls are still, very faintly, warm.', 'medium', 0, 1, 0, '["The dead furnace''s iron throat funnels the wind into a low, mournful note.", "Someone''s cold camp sits in the furnace''s belly; the ashes are still warm, but they are gone."]', '{"east": "zone_waste_ferrouswash", "west": "zone_red_cullrow", "north": "zone_red_meltline", "south": "zone_red_vexhollow"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase10-build', 1783123886, 'map_world', -8, -5, 0, 'DF', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_ferrouswash', 'Ferrous Wash', 'A wash where iron-rich runoff braids across the flat in rust-red rivulets, staining a delta that spreads a little wider each year. Drinking it kills you slowly; standing in it, only slightly faster.', 'medium', 0, 1, 0, '["A ferrous rivulet finds a new path across the wash and stains it in seconds.", "The rust-red delta glistens, and the air above it tastes of blood you didn''t shed."]', '{"east": "zone_waste_scrapmesa", "west": "zone_waste_deadfurnace", "north": "zone_waste_clinkerrow", "south": "zone_waste_brokenkiln"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase10-build', 1783123886, 'map_world', -7, -5, 0, 'FW', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_fumealley', 'Fume Alley', 'A narrow alley between spoil-banks where the Slagworks'' fumes pool when the wind drops, thick enough to lean on and yellow enough to taste. Nobody lingers in Fume Alley by choice, and few by accident survive it.', 'medium', 0, 1, 0, '["Yellow fume pools in the alley and stirs, reluctantly, as you pass through it.", "The air in Fume Alley thickens; your eyes water and the far end swims and vanishes."]', '{"east": "zone_waste_blight", "west": "zone_waste_cokeyard", "north": "zone_red_marrowrow", "south": "zone_slag_catalyst"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase11-build', 1783123886, 'map_world', -9, -2, 0, 'FA', '#eeeeee', '#816e4d', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_dreadfurnace', 'Dread Furnace', 'The last hard step of the neck before it meets the Reclaimer below — the cold hulk of a furnace so large it has its own weather inside, a slow red haze that never clears. What dens in it came down from the Redline, and stayed.', 'high', 0, 3, 0, '["The dread furnace breathes its red haze out through a hundred cracks and draws it back in.", "Deep in the furnace''s throat, far up in the dark, something shifts its weight and settles."]', '{"east": "zone_slag_flarestack", "north": "zone_red_flensing", "south": "zone_slag_reclaimer"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase11-build', 1783123886, 'map_world', -11, -1, 0, 'DF', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_cokeyard', 'Coke Yard', 'A yard heaped with spent coke, the grey-black char raked out of the Slagworks'' furnaces and dumped uphill to cool. It never fully does; deep in the piles a red heart still glows, and breathes.', 'medium', 0, 1, 0, '["A coke pile settles with a soft crunch and exhales a breath of sulphurous heat.", "Deep in the char a red glow pulses once, like something down there is still awake."]', '{"east": "zone_waste_fumealley", "west": "zone_red_flensing", "north": "zone_waste_chargully", "south": "zone_slag_flarestack"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase11-build', 1783123886, 'map_world', -10, -2, 0, 'CY', '#eeeeee', '#816e4d', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_blight', 'The Blight', 'A blighted flat above the Slagworks Gate where nothing that tries to grow gets past a hand''s height before it blackens and gives up. The salvage here is good; the ground insists you earn it.', 'low', 0, 1, 0, '["A blackened stalk in the Blight crumbles to soot at the touch of the wind.", "Something worth having glints in the dead ground, and the dead ground does not want to give it up."]', '{"east": "zone_waste_cindersteps", "west": "zone_waste_fumealley", "north": "zone_waste_pitnine", "south": "zone_waste_sinter"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_industrial_salvage"}', 'phase11-build', 1783123886, 'map_world', -8, -2, 0, 'BL', '#eeeeee', '#816e4d', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_overburden', 'The Overburden', 'The overburden heap — the worthless top-layer stripped off to get at whatever was beneath — dumped and forgotten in a ridge that the wastes have claimed. It is, fittingly, the wastes made of the wastes'' leftovers.', 'low', 0, 0, 0, '["The overburden ridge sheds a slow trickle of spoil and settles a little lower.", "Something small bolts across the overburden and vanishes into a gap in the spoil."]', '{"east": "zone_waste_tarseep", "west": "zone_waste_pitnine", "north": "zone_waste_brokenkiln", "south": "zone_waste_cindersteps"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase10-build', 1783123886, 'map_world', -7, -3, 0, 'TO', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_flensing', 'The Flensing', 'The neck of the Redline — a single hard column of poisoned ground threading down out of the killing floor in the north toward the Slagworks below. It earned its name honestly; things that come through it arrive short of skin.', 'high', 0, 3, 0, '["The wind funnels down the Flensing''s neck, and it carries a fine red grit that stings where it lands.", "Something drags itself down the neck from the north, leaving a wet trail, and does not slow when it sees you."]', '{"east": "zone_waste_cokeyard", "north": "zone_red_gnash", "south": "zone_red_dreadfurnace"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase11-build', 1783123886, 'map_world', -11, -2, 0, 'FL', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_drossworks', 'The Drossworks', 'The dross-works, where the skimmings off molten metal were once cast into pigs and stacked to sell. The stacks are still here, grown over with rust, a maze of worthless iron that squatters and worse have made a warren of.', 'low', 0, 0, 0, '["A stack of dross pigs shifts in the maze and someone, unseen, curses it quietly.", "The rusted iron of the Drossworks funnels the wind into a low, resentful hum."]', '{"east": "zone_waste_ferro", "west": "zone_waste_ashencut", "north": "zone_waste_reek", "south": "zone_waste_hopper"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_industrial_salvage"}', 'phase11-build', 1783123886, 'map_world', -8, 2, 0, 'DK', '#eeeeee', '#816e4d', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_feralyard', 'Feral Yard', 'A yard where the packs den — the fast, four-legged, wrong-eyed things the Redline makes of what were once dogs, and of what were once other things. They hunt in the open here because here, at last, they are the ones being avoided.', 'lethal', 0, 4, 0, '["Something paces the Feral Yard''s perimeter just out of sight, patient, unhurried, closing.", "A chorus of wrong-pitched howls goes up across the yard and is answered from every side."]', '{"east": "zone_red_screaminglot", "north": "zone_red_mutiewarren", "south": "zone_red_bonepit"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase12-build', 1783123886, 'map_world', -11, -5, 0, 'FY', '#eeeeee', '#ff0000', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_ashenverge', 'Ashen Verge', 'The western lip of the flats, where the ash deepens to the knee and the wind never stops working at it. Footprints fill in behind you within a minute.', 'medium', 0, 0, 1, '["The ash swallows your last footprint before you''ve taken three more.", "Wind carves a new dune-line across the verge while you watch."]', '{"east": "zone_waste_deadflat", "west": "zone_waste_reek", "north": "zone_ashway_wash", "south": "zone_waste_ferro"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123886, 'map_world', -7, 1, 0, 'AV', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_radsink', 'The Rad Sink', 'The lowest point of the Redline, where every poison the frontier produces drains and pools and concentrates into a sump so hot the air above it shimmers. Nothing lives in the Rad Sink. Things merely pass through it, and are lessened.', 'lethal', 0, 5, 0, '["The air over the Rad Sink shimmers and warps the ruin behind it into something molten.", "Your counter, if you carry one, stops ticking and simply screams a single unbroken note."]', '{"east": "zone_red_hazardnine", "west": "zone_red_mutiewarren", "north": "zone_red_glowfield", "south": "zone_red_screaminglot"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase12-build', 1783123886, 'map_world', -10, -6, 0, 'RS', '#eeeeee', '#ff0000', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_killingfloor', 'The Killing Floor', 'The killing floor — a flat, open expanse swept clear of everything but bones and the things that made them, where whatever apex the Redline has bred holds court over a court of the dead. People come here to prove something. Their proof is usually their absence.', 'lethal', 0, 5, 0, '["The killing floor is silent in the way a held breath is silent, waiting to be let out.", "Bones crunch somewhere out on the floor under a weight far larger than yours, and stop."]', '{"east": "zone_waste_slagverge", "west": "zone_red_glowfield", "south": "zone_red_hazardnine"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase12-build', 1783123886, 'map_world', -9, -7, 0, 'KF', '#eeeeee', '#ff0000', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_mutiewarren', 'Mutie Warren', 'A warren of tunnels and burrows clawed into the poisoned ground by generations of the changed, who breed here in the dark faster than anything can cull them. To enter the Warren is to be outnumbered by definition and outmatched by the second turning.', 'lethal', 0, 4, 0, '["A pale, wrong-jointed shape watches from a burrow-mouth and then draws silently back in.", "The ground underfoot is undermined by the Warren; it gives a little, and something below resents it."]', '{"east": "zone_red_radsink", "north": "zone_red_redline", "south": "zone_red_feralyard"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase12-build', 1783123886, 'map_world', -11, -6, 0, 'MW', '#eeeeee', '#ff0000', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_hazardnine', 'Hazard Nine', 'A containment zone from the old world, numbered nine, breached decades ago and never resealed because no one who went to reseal it came back. The signage still insists, politely and in three languages, that you should not be reading it.', 'lethal', 0, 4, 0, '["A breached containment door hangs open on Hazard Nine, and the dark inside it breathes out.", "Faded trefoil signs march away into the ruin, each one more emphatic and less obeyed than the last."]', '{"east": "zone_red_meltline", "west": "zone_red_radsink", "north": "zone_red_killingfloor", "south": "zone_red_cullrow"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase12-build', 1783123886, 'map_world', -9, -6, 0, 'HN', '#eeeeee', '#ff0000', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_glowfield', 'Glowfield', 'A field where the ground gives off a sick green-white light strong enough to read by, pooling in the low places like luminous water. The salvage here is fabulous and the price for taking it is measured in the years it quietly subtracts.', 'lethal', 0, 5, 0, '["The glowfield casts your shadow in three directions at once, all of them wrong.", "A pool of luminance shifts as something moves through it below the surface, unseen, unhurried."]', '{"east": "zone_red_killingfloor", "west": "zone_red_redline", "south": "zone_red_radsink"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase12-build', 1783123886, 'map_world', -10, -7, 0, 'GL', '#eeeeee', '#ff0000', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_redline', 'The Redline', 'The Redline itself, the top-left corner of the known world, where a line of rusted stakes and warning-skulls marks the place past which the maps simply stop and the living are simply advised not to. Everything here glows faintly, including, after a while, you.', 'lethal', 0, 5, 0, '["A warning-skull on its stake turns its empty sockets toward you as the wind shifts it.", "The air itself has a red cast here, and your skin prickles with a heat that has no source."]', '{"east": "zone_red_glowfield", "south": "zone_red_mutiewarren"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase12-build', 1783123886, 'map_world', -11, -7, 0, 'RL', '#eeeeee', '#ff0000', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_gnash', 'The Gnash', 'The southern jaw of the Redline, where the killing floor narrows into the neck that drops toward the Slagworks. Everything the core spits out comes through the Gnash on its way down, and the Gnash takes its toll on the way past.', 'lethal', 0, 4, 0, '["The Gnash funnels a cold, ticking wind down the neck toward the Slagworks far below.", "Something comes down through the Gnash from the killing floor above, and does not stop for you."]', '{"east": "zone_waste_chargully", "north": "zone_red_bonepit", "south": "zone_red_flensing"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase12-build', 1783123886, 'map_world', -11, -3, 0, 'GN', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_rictusalley', 'Rictus Alley', 'A narrow alley where the dead lie where they fell, dried by the poisoned air into leather and locked, every one of them, into a wide fixed grin. They line the walls like an audience. They have been waiting a long time for the show, and you have just walked on.', 'lethal', 0, 4, 0, '["The grinning dead of Rictus Alley watch you pass with their fixed, patient, leather smiles.", "A dried corpse propped against the wall has, you are almost certain, turned to follow you."]', '{"east": "zone_red_slaughterworks", "west": "zone_red_bonepit", "north": "zone_red_screaminglot", "south": "zone_waste_chargully"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase12-build', 1783123886, 'map_world', -10, -4, 0, 'RA', '#eeeeee', '#ff0000', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_slaughterworks', 'The Slaughterworks', 'An old automated abattoir whose machines never received the order to stop and so, powered by something that will not die, still run — hooks and blades and conveyors cycling endlessly through an empty line that is not, if you listen, always empty.', 'lethal', 0, 5, 0, '["A meat-hook conveyor cycles past overhead, empty, and then not empty, and then empty again.", "The Slaughterworks'' blades reset with a wet mechanical sigh, ready for a line that never ends."]', '{"east": "zone_red_vexhollow", "west": "zone_red_rictusalley", "north": "zone_red_cullrow", "south": "zone_red_marrowrow"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase12-build', 1783123886, 'map_world', -9, -4, 0, 'SW', '#eeeeee', '#ff0000', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_cullrow', 'Cull Row', 'A row where, in the early days, they tried to hold the line — to cull the changed as they came, at a barricade of scrap and desperation. The barricade is still here. So, in a sense, are the people who manned it, though they are on the wrong side of it now.', 'lethal', 0, 4, 0, '["The old cull-barricade sags across the row, hung with things best not examined closely.", "Something on the far side of the barricade tests it, gently, methodically, looking for the give."]', '{"east": "zone_waste_deadfurnace", "west": "zone_red_screaminglot", "north": "zone_red_hazardnine", "south": "zone_red_slaughterworks"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase12-build', 1783123886, 'map_world', -9, -5, 0, 'CR', '#eeeeee', '#ff0000', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_slagverge', 'Slag Verge', 'The western verge of the wastes, where the ground goes from merely poisoned to something worse a few strides further on. A hand-painted sign, riddled and unreadable, still manages to communicate: no further.', 'medium', 0, 1, 0, '["A dry wind off the west carries a taste of hot metal and rot.", "The unreadable warning sign creaks on its post and points, more or less, at nothing good."]', '{"east": "zone_waste_cinderflat", "west": "zone_red_killingfloor", "south": "zone_red_meltline"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase10-build', 1783123886, 'map_world', -8, -7, 0, 'SV', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_chargully', 'Char Gully', 'A charred gully at the very foot of the Redline, the last scrap of merely-poisoned ground before the lethal core proper. Scavengers work its edges for what the core discards, one eye always uphill, on the red glow that never quite goes out.', 'medium', 0, 1, 0, '["Char crunches underfoot in the gully, and uphill the red glow of the core pulses, slow.", "A scavenger works the gully''s edge with one eye uphill and bolts the moment you appear."]', '{"east": "zone_red_marrowrow", "west": "zone_red_gnash", "north": "zone_red_rictusalley", "south": "zone_waste_cokeyard"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase12-build', 1783123886, 'map_world', -10, -3, 0, 'CG', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_marrowrow', 'Marrow Row', 'The eastern edge of the core where it presses against the fringe, a row of gnawed and hollowed ruins that the changed use as a larder and a lair both. It is the closest a living person can stand to the Redline''s heart and still, sometimes, walk away.', 'lethal', 0, 4, 0, '["A hollowed ruin along Marrow Row is packed with the clean-gnawed evidence of the Row''s purpose.", "Something in the ruins cracks a bone for the marrow with a sound like a snapping bough."]', '{"east": "zone_waste_pitnine", "west": "zone_waste_chargully", "north": "zone_red_slaughterworks", "south": "zone_waste_fumealley"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase12-build', 1783123886, 'map_world', -9, -3, 0, 'MR', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_bonepit', 'The Bonepit', 'A pit into which the Redline''s dead have been dragged, or have dragged themselves, for longer than anyone remembers — a slow midden of bone gone grey and soft. Things nest in the Bonepit that find the bones convenient, and the visitors more so.', 'lethal', 0, 4, 0, '["The bone-midden shifts and settles with a dry clatter that goes on too long to be settling.", "Something rises out of the Bonepit wearing the bones it nested in, and turns its head toward you."]', '{"east": "zone_red_rictusalley", "north": "zone_red_feralyard", "south": "zone_red_gnash"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase12-build', 1783123886, 'map_world', -11, -4, 0, 'BP', '#eeeeee', '#ff0000', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_pitnine', 'Pit Nine', 'A collapsed pit, numbered nine by someone who counted eight others just like it, that goes down into the dark further than a dropped stone will report back on. Its rim is the western edge of the walkable wastes.', 'medium', 0, 1, 0, '["A stone kicked into Pit Nine falls a long time and never lands, or lands too far to hear.", "Cold, still air breathes up out of Pit Nine, smelling of deep earth and something metallic."]', '{"east": "zone_waste_overburden", "west": "zone_red_marrowrow", "north": "zone_red_vexhollow", "south": "zone_waste_blight"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase10-build', 1783123886, 'map_world', -8, -3, 0, 'PN', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_mq_battery', 'Battery Square', 'The civic heart of the district, such as it is — a paved square built around a dry fountain someone has repurposed as a communal firepit. A grocery holds down one side, a police precinct scowls from another, and a public notice pillar wears a thick scab of flyers: rooms to let, people gone missing, curfews rescinded and reinstated. It is, by local standards, safe. The precinct''s floodlights see to that.', 'safe', 0, 0, 1, '["The precinct floodlights sweep the square in a slow, bored arc.", "Someone feeds a broken chair to the fountain fire and warms their hands.", "A public-address speaker crackles: \"CITIZENS ARE REMINDED—\" then gives up.", "A flyer tears loose from the notice pillar and cartwheels across the paving."]', '{"in": "zone_mq_grocery", "east": "zone_mq_precinct", "west": "zone_mq_marquee", "north": "zone_mq_chrome_court", "south": "zone_mq_overpass"}', '{"scavenging_table_id": null}', NULL, 1783123886, 'map_world', 4, 0, 0, 'BS', '#eeeeee', '#e85aa0', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_sidings', 'The Sidings', 'A tangle of rail sidings where flatcars wait, loaded and forgotten, for engines that are always about to come. The scavengers know the timetable better than the railway does.', 'low', 0, 0, 1, '["A flatcar creaks as its load settles a little further toward salvage.", "A picker melts between the sidings, one eye on the far signal box."]', '{"east": "zone_yard_pallet", "west": "zone_corp_investor", "north": "zone_yard_container", "south": "zone_yard_boxcar"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase8-build', 1783123886, 'map_world', 6, -2, 0, 'Sd', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_slag_yard', 'The Cracking Yard', 'The heart of the works: a maze of pipework and catwalks around the base of the great cracking columns, everything furred with rust and dripping something that eats through your soles if you stand too long. Salvage crews got the easy metal years ago. What''s left is buried, or guarded, or both.', 'low', 1, 0, 0, '["A pipe fails somewhere overhead and vents a long, hoarse sigh of stale gas.", "Your boots stick, then peel free of the tar-slicked decking with a wet tear."]', '{"east": "zone_slag_gate", "west": "zone_slag_rail", "north": "zone_slag_catalyst", "south": "zone_slag_sump"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_industrial_salvage"}', NULL, 1783123886, 'map_world', -9, 0, 0, 'CY', '#111111', '#e5822a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_meat_slaughter', 'Slaughter Lane', 'The killing lane of the meat market, gutters running to a central drain, hooks swinging empty between the stalls. The butchers here work fast and ask nothing.', 'medium', 1, 0, 1, '["A hook swings empty down the lane, then is loaded and swings heavy.", "A butcher hoses the gutter toward the drain; it runs, briefly, red."]', '{"east": "zone_yard_bonded", "west": "zone_meat_ashpit", "north": "zone_mq_cage", "south": "zone_meat_carrion"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase7-build', 1783123886, 'map_world', 5, 2, 0, 'Sl', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_slums', 'The Sprawl', 'Dense, vertical, and loud. Pre-Handoff apartment complexes have been stacked with improvised floors. The streets below are narrow tunnels of laundry lines and extension cords.', 'medium', 1, 0, 1, '["Something crashes several floors above. Then laughter.", "A wall-mounted screen plays a looping corporate training video on conflict resolution."]', '{"down": "zone_tunnels", "east": "zone_deep_scab", "west": "zone_deep_cardboard", "north": "zone_city_south", "south": "zone_deep_maw"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123886, 'map_world', 0, 2, 0, 'SP', '#111111', '#cf6a2e', 'outdoors', '{}', 'aud_497cdcea-97e4-4e1a-99da-24e01577a849', NULL);
+INSERT INTO public.zones VALUES ('zone_bay_basin', 'The Reflecting Basin', 'A formal basin of still bay water set into the diplomatic quarter as a gesture toward serenity. The gesture is undercut by the things that occasionally surface in it.', 'low', 0, 0, 1, '["The reflecting basin holds the towers upside-down, perfectly, until it doesn''t.", "A ripple crosses the still basin, from the middle, where nothing dropped."]', '{"east": "zone_nc_consulate", "west": "zone_bay_floes", "north": "zone_nc_concordat", "south": "zone_nc_highwater"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_harbor"}', 'phase9-build', 1783123886, 'map_world', 5, -6, 0, 'Bn', '#eeeeee', '#2f86cc', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_yard_railhead', 'The Railhead', 'The Yards'' rail terminus, where a single working locomotive shunts flatcars of scrap and cargo out to wherever rails still run. The yardmaster keeps his office in a dead signal box here.', 'low', 0, 0, 1, '["The shunting loco couples up with a crash and a hiss of ancient brakes.", "A flatcar of scrap rolls past, loaded past any sane limit, and slows to a stop."]', '{"west": "zone_yard_tare", "north": "zone_yard_forklift", "south": "zone_yard_bulk"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase7-build', 1783123886, 'map_world', 8, 2, 0, 'RH', '#111111', '#007031', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_slag_drums', 'The Drum Yard', 'Ten thousand steel drums, stacked four high and rotting from the bottom up, their contents long since wept into the soil. Most are empty. A few are not, and the labels that would tell you which are gone to rust-lace. A scavenger''s jackpot with a coin-flip attached.', 'low', 1, 0, 0, '["A drum somewhere in the stacks lets go and slumps with a long, corroded sigh.", "Rusty runoff wicks up the side of your boot in a thin brown line."]', '{"east": "zone_slag_sump", "west": "zone_waste_coldslag", "north": "zone_slag_rail", "south": "zone_waste_slagbar"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_industrial_salvage"}', NULL, 1783123886, 'map_world', -10, 1, 0, 'DY', '#111111', '#e5822a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_meltline', 'The Meltline', 'The line where the wastes end and the Redline begins, marked by a slumped rail of fused slag that runs off north and south as far as the haze allows. On this side, the counter ticks. On that side, it screams.', 'high', 0, 3, 0, '["Your teeth ache faintly, the way they do near the Meltline, and you understand it as a warning.", "Beyond the fused-slag rail the ground has a wrong, glassy sheen, and something moves on it."]', '{"east": "zone_waste_clinkerrow", "west": "zone_red_hazardnine", "north": "zone_waste_slagverge", "south": "zone_waste_deadfurnace"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase10-build', 1783123886, 'map_world', -8, -6, 0, 'TM', '#eeeeee', '#e05555', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_deep_waste', 'The Falloff', 'This is where the city simply gives up. The last blocks of Old Coldwater sag into their own flooded basements, streets dead-ending in dust, rebar, and drifts of shattered glass. Nobody has lived out here in a very long time — you can read it in every caved roofline and every door left standing open on nothing.', 'medium', 1, 0, 0, '["A section of roofing lets go somewhere nearby and comes down with a long, tired crash.", "Wind moves through a hundred empty window-frames at once, one low toneless moan.", "Dust drifts across the dead street in slow, aimless curls.", "Deep in a collapsed building, something shifts its weight and settles again."]', '{"east": "zone_badland_sw_outer", "west": "zone_waste_grit", "north": "zone_badland_w_gate", "south": "zone_deep_tarpit"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "BL", "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123847, 'map_world', -3, 1, 0, 'BL', '#111111', '#cf6a2e', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_velk_exterior', 'Castoff Walk', 'A cramped walk wedged between two facades in slow structural surrender, close enough to touch both walls at once. What isn''t rented out is stacked with other people''s abandoned lives — chair legs, dead lamps, a wardrobe with no doors — chained together against the inevitable. Velk''s Pre-Owned holds the middle of the walk, its window a chaos of salvaged furniture arranged with a curator''s inexplicable pride. Everything smells of damp upholstery and someone else''s cigarettes.', 'low', 0, 0, 1, '[]', '{"in": "zone_velk_shop", "east": "zone_mq_marquee", "west": "zone_thresholdeast", "north": "zone_meridian", "south": "zone_drum_exterior"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": "zone_deep_waste", "scavenging_table_id": null}', NULL, 1783123848, 'map_world', 2, 0, 0, 'Fu', '#eeeeee', '#347b49', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_dock_slip', 'Smuggler''s Slip', 'A crooked finger-pier the harbourmaster''s charts pretend doesn''t exist. Boats come in dark and leave lighter. Ask no questions; you won''t like being answered.', 'medium', 1, 0, 1, '["A shuttered boat rocks at the slip, its cargo very deliberately covered.", "Someone at the slip''s end watches you the entire time, and says nothing."]', '{"east": "zone_corp_boardroom", "west": "zone_dock_fishmarket", "north": "zone_dock_boatyard", "south": "zone_up_chrome"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_roadside_junk"}', 'phase3-build', 1783123885, 'map_world', 4, -3, 0, 'SS', '#111111', '#1fb5aa', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_tarseep', 'Tar Seep', 'A slow black seep wells up through the ash here, patient and bottomless. Things that wander in do not wander out; the surface just closes over with an oily wink.', 'medium', 0, 0, 1, '["A bubble the size of a skull rises through the tar and pops, releasing a sigh.", "Something white and half-dissolved surfaces in the seep, then is drawn back under."]', '{"east": "zone_waste_molten", "west": "zone_waste_overburden", "north": "zone_waste_greymile", "south": "zone_waste_dross"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase4-build', 1783123885, 'map_world', -6, -3, 0, 'TS', '#eeeeee', '#7c6a4a', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_powerplantnew', 'Coolant Flats', 'A flat apron of stained concrete where the ground still runs warm underfoot, waste heat bleeding up from whatever''s left alive below. Fat coolant mains arc overhead on their gantries, weeping rust-orange at every joint, and the air tastes of hot metal and pond scum. The Coldwater Power Plant looms at the apron''s edge behind chain-link and faded RADIATION placards, a turbine somewhere inside grinding on out of sheer habit. Steam ghosts up from a grate and refuses to disperse.', 'safe', 0, 0, 1, '["The hum changes pitch for a moment, then settles back.", "Somewhere inside, something massive and patient keeps turning."]', '{"in": "zone_coldwater_turbine_hall", "east": "zone_ext_1782953094650", "west": "zone_up_aid", "north": "zone_civ_steps", "south": "zone_city_east"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": null, "building_type": null, "world_exit_zone": null, "scavenging_table_id": "scav_roadside_junk"}', NULL, 1783123885, 'map_world', -1, -2, 0, 'CP', '#eeeeee', '#347b49', 'city', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_sinter', 'The Sinter', 'The sinter beds beside the Slagworks Gate, where fines were once fused into clinker in long shallow trays now cracked and cold. Salvagers work the trays for the metal the process left behind, and the Gate watches them do it.', 'low', 0, 1, 0, '["A sinter tray cracks a little wider under its own dead weight.", "A Slagworks hand leans in the Gate''s shadow and watches you work the trays, and says nothing."]', '{"east": "zone_waste_rustmarsh", "west": "zone_slag_catalyst", "north": "zone_waste_blight", "south": "zone_slag_gate"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_industrial_salvage"}', 'phase11-build', 1783123886, 'map_world', -8, -1, 0, 'SI', '#eeeeee', '#816e4d', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_reek', 'The Reek', 'The reek is exactly that — the low ground below the Slagworks where every runoff and effluent the works produces finally collects and stands and stinks. The Effluent Sump drains here. You smell the Reek long before you reach it.', 'low', 0, 1, 0, '["The Reek shifts its skin of scum and lets up a bubble that pops with a sigh.", "Runoff trickles in from the Sump above and the standing filth accepts it without a ripple."]', '{"east": "zone_waste_ashenverge", "west": "zone_slag_sump", "north": "zone_slag_gate", "south": "zone_waste_drossworks"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_industrial_salvage"}', 'phase11-build', 1783123886, 'map_world', -8, 1, 0, 'RE', '#eeeeee', '#816e4d', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_coldslag', 'Cold Slag', 'A field of slag gone properly cold at last, the western frontier of walkable ground below the neck. Past it the wastes give way to the Redline''s lower reach, and only the desperate and the changed go on.', 'low', 0, 0, 0, '["Cold slag crunches underfoot, dead and grey and finally, entirely done being hot.", "At the field''s western edge the ground takes on a wrong sheen, and you feel watched from it."]', '{"east": "zone_slag_drums", "north": "zone_slag_reclaimer", "south": "zone_waste_culvert"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase11-build', 1783123886, 'map_world', -11, 1, 0, 'CS', '#eeeeee', '#816e4d', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_slagbar', 'Slag Bar', 'A long bar of fused slag thrown up like a levee across the deep wastes, high enough to climb and walk, a road for those who know it. From its spine you can see the whole grey sweep of the frontier, which is not a comfort.', 'low', 0, 0, 0, '["From the slag bar''s spine the wastes stretch grey and featureless to every horizon.", "A figure walks the far end of the slag bar, silhouetted, and is gone behind the ridge."]', '{"east": "zone_waste_ashencut", "west": "zone_waste_culvert", "north": "zone_slag_drums", "south": "zone_waste_gantry"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase11-build', 1783123886, 'map_world', -10, 2, 0, 'SB', '#eeeeee', '#816e4d', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_rimeflat', 'Rime Flat', 'The southwestern corner of the walkable world, a flat where a pale chemical rime crusts the ground like frost that never melts. It marks the edge; beyond it the map, and the wastes, and the will to go on, all give out.', 'low', 0, 0, 0, '["The chemical rime crunches like frost and leaves a pale burn where it touches skin.", "At the flat''s edge the ground simply stops mattering, grey into grey into nothing."]', '{"east": "zone_waste_gantry", "north": "zone_waste_culvert"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase11-build', 1783123886, 'map_world', -11, 3, 0, 'RF', '#eeeeee', '#816e4d', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_dustreach', 'Dust Reach', 'The last reach before the built wastes give out entirely, a plain of fine grey dust that the wind lifts into standing walls and marches across the frontier. Crossing it, you are always inside weather, and the weather is made of this place.', 'low', 0, 0, 0, '["A wall of grey dust marches across the reach and swallows the horizon whole.", "The dust settles for a moment and shows a trail of prints leading west, and no one on it."]', '{"east": "zone_waste_hopper", "west": "zone_waste_gantry", "north": "zone_waste_ashencut"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase11-build', 1783123886, 'map_world', -9, 3, 0, 'DR', '#eeeeee', '#816e4d', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_red_screaminglot', 'The Screaming Lot', 'A lot where a trick of the ruined structures turns the wind into a sound exactly like a great many people screaming, all the time, forever. Newcomers run toward it to help. There is no one to help. There is only the lot, and the wind, and what the sound draws in.', 'lethal', 0, 4, 0, '["The Screaming Lot rises to a crescendo of voices that are only ever the wind, you are almost sure.", "For one moment the screaming stops dead, which is far, far worse, and then it starts again."]', '{"east": "zone_red_cullrow", "west": "zone_red_feralyard", "north": "zone_red_radsink", "south": "zone_red_rictusalley"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_irradiated_salvage"}', 'phase12-build', 1783123886, 'map_world', -10, -5, 0, 'SL', '#eeeeee', '#450d0d', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_culvert', 'The Culvert', 'A great cracked concrete culvert that once carried the works'' floodwater away and now carries nothing but wind and the occasional person with nowhere better to shelter. Its mouth gapes westward, into the dark under the wastes.', 'low', 0, 0, 0, '["Wind moans down the length of the culvert and dies somewhere in its western dark.", "A shape shelters deep in the culvert''s mouth and pulls back further as you approach."]', '{"east": "zone_waste_slagbar", "north": "zone_waste_coldslag", "south": "zone_waste_rimeflat"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase11-build', 1783123886, 'map_world', -11, 2, 0, 'CV', '#eeeeee', '#816e4d', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_ashencut', 'Ashen Cut', 'A cutting sliced through the spoil where a rail line once ran out to the Slagworks and was torn up for scrap decades back. The cut is sheltered from the wind, which is why the things that shelter here resent visitors.', 'low', 0, 0, 0, '["The ashen cut holds still air and the ghost of creosote from a railway long gone.", "Bootprints and other prints share the floor of the cut; some of the others are not shaped right."]', '{"east": "zone_waste_drossworks", "west": "zone_waste_slagbar", "north": "zone_slag_sump", "south": "zone_waste_dustreach"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase11-build', 1783123886, 'map_world', -9, 2, 0, 'AC', '#eeeeee', '#816e4d', 'outdoors', '{}', NULL, NULL);
+INSERT INTO public.zones VALUES ('zone_waste_gantry', 'The Gantry', 'The skeleton of a loading gantry that once straddled the torn-up rail, now a rusted arch over nothing, straddling the deep wastes like a monument to the work that killed this place. Scavengers use its height to spot trouble coming.', 'low', 0, 0, 0, '["The gantry''s rusted arch groans in the wind and drops a rain of scale.", "A lookout perched high on the gantry whistles a warning down and points, west."]', '{"east": "zone_waste_dustreach", "west": "zone_waste_rimeflat", "north": "zone_waste_slagbar"}', '{"is_building": false, "is_interior": false, "is_apartment": false, "building_name": "", "building_type": null, "scavenging_table_id": "scav_west_wastes"}', 'phase11-build', 1783123886, 'map_world', -10, 3, 0, 'GA', '#eeeeee', '#816e4d', 'outdoors', '{}', NULL, NULL);
+
+
+--
+-- Data for Name: apartments; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.apartments VALUES ('zone_apt_6', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_apt_1', '4ec6d361-7dfc-4693-b993-83f9a3521e38', 'akerson', 1, 4, 100, 1781962270, NULL, NULL, 0, 'player', NULL, '2026-07-11');
+INSERT INTO public.apartments VALUES ('zone_apt_8', '953832b8-8c6e-4a6a-b124-bc8e39d35d10', 'Senor Sassypants', 1, 4, 100, 1783063082, 1783063082, 'Embassy Hotel & Bar', 0, 'player', NULL, '2026-07-11');
+INSERT INTO public.apartments VALUES ('zone_apt_4', NULL, NULL, 0, 4, 100, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_apt_3', 'a9904c82-7c2d-4681-b999-b28b34ec954f', 'Claude', 1, 8, 100, NULL, 1783015431, 'the Embassy Hotel', 1, 'player', NULL, '2026-07-11');
+INSERT INTO public.apartments VALUES ('zone_apt_2', 'ab2d38d0-4f10-4187-8f53-298d61b525c3', 'Cyd', 1, 4, 100, 1782527308, 1782527308, 'Embassy Hotel & Bar — Lobby', 0, 'player', NULL, '2026-07-11');
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_101', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_102', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_103', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_104', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_201', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_202', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_203', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_204', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_301', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_302', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_303', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_304', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_401', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_402', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_403', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_404', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_501', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_502', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_503', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_504', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_601', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_602', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_603', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_meridian_unit_604', NULL, NULL, 0, 1, 200, NULL, NULL, 'The Meridian', 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_apt_7', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_apt_5', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_mq_chrome_101', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_mq_chrome_102', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_mq_chrome_103', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_mq_chrome_104', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_mq_chrome_201', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_mq_chrome_202', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_mq_chrome_203', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_mq_chrome_204', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_mq_chrome_301', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_mq_chrome_302', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_mq_chrome_303', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+INSERT INTO public.apartments VALUES ('zone_mq_chrome_304', NULL, NULL, 0, 4, 50, NULL, NULL, NULL, 0, 'player', NULL, NULL);
+
+
+--
+-- Data for Name: climate_profiles; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.climate_profiles VALUES ('climate_1782943737665', 'Coldwater Basin', '[-3, -2, 1, 5, 10, 14, 16, 15, 11, 6, 1, -2]', '[0.55, 0.52, 0.5, 0.48, 0.45, 0.45, 0.48, 0.5, 0.55, 0.6, 0.6, 0.58]', '2026-07-01 18:08:57.663201-04', '[10, 10, 11, 12, 12, 11, 10, 10, 11, 12, 11, 10]', '[88, 87, 85, 82, 80, 82, 85, 87, 90, 90, 89, 88]');
+INSERT INTO public.climate_profiles VALUES ('climate_1783115194915', 'Miami', '[20, 21, 23, 25, 28, 30, 31, 31, 30, 27, 24, 21]', '[0.3, 0.3, 0.35, 0.4, 0.5, 0.7, 0.75, 0.75, 0.65, 0.45, 0.35, 0.3]', '2026-07-03 17:46:34.910501-04', '[17, 18, 19, 20, 18, 16, 15, 15, 16, 18, 18, 17]', '[72, 70, 70, 68, 72, 78, 78, 80, 82, 80, 76, 73]');
+
+
+--
+-- Data for Name: combat_config; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.combat_config VALUES ('stat_cost_exponent', '1.5', 'Stat cost exponent', 'ip');
+INSERT INTO public.combat_config VALUES ('to_hit_base', '10', 'Base to-hit target', 'combat');
+INSERT INTO public.combat_config VALUES ('dodge_base', '5', 'Base dodge value', 'combat');
+INSERT INTO public.combat_config VALUES ('crit_threshold', '8', 'Crit roll margin', 'combat');
+INSERT INTO public.combat_config VALUES ('crit_multiplier', '1.5', 'Crit damage multiplier', 'combat');
+INSERT INTO public.combat_config VALUES ('body_part_weights', '{"head": 10, "torso": 40, "left_arm": 12, "left_leg": 13, "right_arm": 12, "right_leg": 13}', 'Body part hit weights', 'combat');
+INSERT INTO public.combat_config VALUES ('head_damage_multiplier', '1.5', 'Head damage multiplier', 'combat');
+INSERT INTO public.combat_config VALUES ('soak_mismatch_factor', '0.25', 'Wrong-type soak factor', 'combat');
+INSERT INTO public.combat_config VALUES ('starting_stat_target', '3', 'Starting stat target', 'creation');
+INSERT INTO public.combat_config VALUES ('ip_award_base_chance', '1', 'IP award chance at margin 0', 'skills');
+INSERT INTO public.combat_config VALUES ('ip_award_margin_scale', '2', 'IP award chance falloff per margin', 'skills');
+INSERT INTO public.combat_config VALUES ('stat_cost_base', '10', 'Base XP cost for first stat point', 'ip');
+
+
+--
+-- Data for Name: command_aliases; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.command_aliases VALUES ('ex', 'look');
+INSERT INTO public.command_aliases VALUES ('examine', 'look');
+
+
+--
+-- Data for Name: doors; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.doors VALUES ('door_meridian_stair_lobby', 'zone_meridian_lobby', 'up', 'basic', 1, 0, 1000, 1000, 5, '{}', '{}', NULL, 'Stairwell Fire Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_4', 'zone_apt_4', 'east', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'unlocked', 'door_emb_1c', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_stair_f6', 'zone_meridian_floor_6', 'up', 'basic', 0, 0, 1000, 1000, 5, '{}', '{}', NULL, 'Roof Access Hatch', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_stair_f5', 'zone_meridian_floor_5', 'up', 'basic', 0, 0, 1000, 1000, 5, '{}', '{}', NULL, 'Stairwell Fire Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_5', 'zone_city_west', 'in', 'shoddy', 0, 0, 300, 300, 0, '{}', '{}', 'locked', NULL, 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_stair_f4', 'zone_meridian_floor_4', 'up', 'basic', 0, 0, 1000, 1000, 5, '{}', '{}', NULL, 'Stairwell Fire Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_stair_f1', 'zone_meridian_floor_1', 'up', 'basic', 1, 0, 1000, 1000, 5, '{}', '{}', NULL, 'Stairwell Fire Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_stair_f3', 'zone_meridian_floor_3', 'up', 'basic', 0, 0, 1000, 1000, 5, '{}', '{}', NULL, 'Stairwell Fire Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_7', 'zone_clone_facility_bathroom', 'west', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:privacylock": {"messages": {"lock": "You slide the privacy bolt shut.", "denied": "The privacy bolt only works from the other side.", "unlock": "You slide the privacy bolt open."}, "privacySide": "zone_clone_facility_bathroom"}}', 'unlocked', NULL, 0, NULL);
+INSERT INTO public.doors VALUES ('door_1', 'zone_apt_1', 'south', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'door_emb_1b', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_stair_f2', 'zone_meridian_floor_2', 'up', 'basic', 0, 0, 1000, 1000, 5, '{}', '{}', NULL, 'Stairwell Fire Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_103', 'zone_meridian_unit_103', 'north', 'basic', 0, 0, 993, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', 'locked', 'Unit 103 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_9', 'zone_city_west', 'down', 'shoddy', 1, 0, 300, 300, 5, '{}', '[]', NULL, NULL, 0, NULL);
+INSERT INTO public.doors VALUES ('door_2', 'zone_apt_2', 'north', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'door_emb_1a', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_202', 'zone_meridian_unit_202', 'west', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', 'locked', 'Unit 202 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_101', 'zone_meridian_unit_101', 'south', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', 'locked', 'Unit 101 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_104', 'zone_meridian_unit_104', 'east', 'basic', 0, 0, 969, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', 'locked', 'Unit 104 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_8', 'zone_residential_lobby', 'down', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'door_emb_down', 0, NULL);
+INSERT INTO public.doors VALUES ('door_3', 'zone_apt_3', 'west', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'door_emb_1d', 1, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_203', 'zone_meridian_unit_203', 'north', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 203 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_204', 'zone_meridian_unit_204', 'east', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 204 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_301', 'zone_meridian_unit_301', 'south', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 301 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_302', 'zone_meridian_unit_302', 'west', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 302 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_303', 'zone_meridian_unit_303', 'north', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 303 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_201', 'zone_meridian_unit_201', 'south', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', 'locked', 'Unit 201 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_102', 'zone_meridian_unit_102', 'west', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', 'locked', 'Unit 102 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_304', 'zone_meridian_unit_304', 'east', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 304 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_401', 'zone_meridian_unit_401', 'south', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 401 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_402', 'zone_meridian_unit_402', 'west', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 402 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_403', 'zone_meridian_unit_403', 'north', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 403 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_404', 'zone_meridian_unit_404', 'east', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 404 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_501', 'zone_meridian_unit_501', 'south', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 501 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_502', 'zone_meridian_unit_502', 'west', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 502 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_503', 'zone_meridian_unit_503', 'north', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 503 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_504', 'zone_meridian_unit_504', 'east', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 504 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_601', 'zone_meridian_unit_601', 'south', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 601 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_602', 'zone_meridian_unit_602', 'west', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 602 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_603', 'zone_meridian_unit_603', 'north', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 603 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_meridian_unit_604', 'zone_meridian_unit_604', 'east', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "difficulty": 5}}', NULL, 'Unit 604 Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_apt_9', 'zone_apt_9', 'south', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'Unit 3A Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_apt_10', 'zone_apt_10', 'north', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'Unit 3B Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_entrance_zone_meridian', 'zone_meridian', 'in', 'basic', 1, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', NULL, 'The Meridian Front Entrance', 0, NULL);
+INSERT INTO public.doors VALUES ('door_entrance_zone_mq_pigeon_bar', 'zone_mq_marquee', 'in', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', NULL, 'The Dead Pigeon', 0, NULL);
+INSERT INTO public.doors VALUES ('door_apt_6', 'zone_apt_6', 'north', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'Unit 2B Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_apt_7', 'zone_apt_7', 'west', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'Unit 2C Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_apt_5', 'zone_apt_5', 'south', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'Unit 2A Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_entrance_zone_mq_precinct', 'zone_mq_precinct', 'in', 'reinforced', 0, 0, 2500, 2500, 5, '{}', '{}', NULL, 'Precinct 9 Station Doors', 0, NULL);
+INSERT INTO public.doors VALUES ('door_precinct_cell', 'zone_mq_precinct_holding', 'up', 'reinforced', 0, 0, 2000, 2000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The cell hololock slams shut with a heavy magnetic clunk.", "denied": "The cell hololock flatly refuses your credentials. You are not going anywhere.", "unlock": "The cell hololock disengages."}, "difficulty": 10}}', 'locked', 'reinforced cell door', 0, 'zone_mq_precinct_lobby');
+INSERT INTO public.doors VALUES ('door_entrance_zone_mq_chrome_court', 'zone_mq_chrome_court', 'in', 'basic', 1, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', NULL, 'Chrome Court Lobby Doors', 0, NULL);
+INSERT INTO public.doors VALUES ('door_entrance_zone_mq_grocery', 'zone_mq_battery', 'in', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', NULL, 'Ration Nine Shopfront', 0, NULL);
+INSERT INTO public.doors VALUES ('door_entrance_zone_velk_exterior', 'zone_velk_exterior', 'in', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'Velk’s Shop Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_apt_8', 'zone_apt_8', 'east', 'basic', 0, 0, 993, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'Unit 2D Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_entrance_zone_furniture_store', 'zone_thresholdeast', 'in', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', NULL, 'Dead Space Interiors Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_apt_12', 'zone_apt_12', 'east', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'Unit 3D Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_entrance_zone_mq_amp_shop', 'zone_mq_overpass', 'in', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'unlocked', 'Ampersand Electronics Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_cherry_vip', 'zone_mq_cherry_floor', 'north', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:viplock": {"messages": {"lock": "The red light over the door steadies. VIP is sealed.", "denied": "The bouncer plants a hand on your chest. \"VIP only. Tip your way in.\"", "unlock": "The red light blinks to green. The VIP door releases."}}}', 'locked', 'The VIP Door', 0, 'zone_mq_cherry_vip');
+INSERT INTO public.doors VALUES ('door_apt_11', 'zone_apt_11', 'west', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'Unit 3C Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_entrance_zone_drum_exterior', 'zone_drum_exterior', 'in', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'Drum’s Fits Shopfront', 0, NULL);
+INSERT INTO public.doors VALUES ('door_entrance_zone_mq_sump_bar', 'zone_mq_ember', 'in', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', NULL, 'Sump Front Door', 0, NULL);
+INSERT INTO public.doors VALUES ('door_entrance_zone_mq_cage', 'zone_mq_cage', 'in', 'reinforced', 0, 0, 2500, 2500, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', NULL, 'The Cage Security Gate', 0, NULL);
+INSERT INTO public.doors VALUES ('door_entrance_zone_mq_cherry_floor', 'zone_mq_cathode', 'in', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'The Glass Cherry Entrance', 0, NULL);
+INSERT INTO public.doors VALUES ('door_entrance_zone_weapons_exterior', 'zone_weapons_exterior', 'in', 'basic', 0, 0, 1000, 1000, 5, '{}', '{"lock:hololock": {"canHack": true, "messages": {"lock": "The hololock hums as it engages.", "denied": "The hololock does not recognize your credentials.", "unlock": "The hololock disengages with a soft click.", "hackFail": "The hololock resists your intrusion.", "hackSuccess": "You bypass the hololock''s security matrix."}, "difficulty": 5}}', 'locked', 'The Quartermaster''s Shutter', 0, NULL);
+
+
+--
+-- Data for Name: drugs; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.drugs VALUES ('drug_buzz', 'Buzz', 'A jittery, short-lived stimulant. Common in the Franchise Strip.', 'item_drug_buzz', 240, '{"hunger": -5, "stat_agi_temp": 2}', 0.04, 3, '{"overdose": {"hp": -10, "sanity": -5}}', '{}');
+INSERT INTO public.drugs VALUES ('drug_slow', 'Slow', 'Dulls pain and panic. Popular with people who have seen too much.', 'item_drug_slow', 600, '{"hp": 5, "sanity": 15}', 0.12, 2, '{"overdose": {"hp": -20, "sanity": -15}}', '{}');
+INSERT INTO public.drugs VALUES ('drug_glasshollow', 'Glasshollow', 'Architect-adjacent. Reality gets thin and strange. Sanity damage is real; so is whatever you see.', 'item_drug_glasshollow', 180, '{"sanity": -10, "radiation": 5}', 0.2, 2, '{"overdose": {"hp": -25, "sanity": -30}}', '{}');
+INSERT INTO public.drugs VALUES ('drug_redline', 'Redline', 'Military-grade cyber-amphetamine. The label is mostly warnings.', 'item_redline', 300, '{"phases": {"peak_mods": {"hp_max": 15, "stat_brawn": 3, "stat_reflexes": 3, "stamina_regen_per_sec": 2}, "end_message": "<span class=\"msg-system\">The crash lands on you like a dropped ceiling.</span>", "comeup_scale": 0.4, "peak_message": "<span class=\"msg-system\">You are made of wire and lightning. Nothing can touch you.</span>", "peak_seconds": 150, "comedown_scale": 0.5, "comeup_message": "<span class=\"msg-system\">Your pulse redlines. The world drops into slow motion.</span>", "comeup_seconds": 20, "comedown_message": "<span class=\"msg-system\">The wire goes slack. Your hands start to shake.</span>", "comedown_seconds": 90}, "instant": {"hunger": -8, "sanity": 12, "thirst": -6}, "overdose": {"lethal": true, "message": "Your heart is a fist clenching until it cannot open again."}, "tolerance": {"gain_per_dose": 0.12, "max_reduction": 0.7, "recovery_per_sec": 0.0002}, "withdrawal": {"mods": {"stat_cool": -2, "stat_reflexes": -2}, "message": "Your teeth won''t stop grinding. You need another hit.", "onset_seconds": 900}}', 0.28, 3, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_coldfire', 'Coldfire', 'A combat stim that turns fear into fuel. Frontline mercs swear by it, and at it.', 'item_coldfire', 240, '{"phases": {"peak_mods": {"hp_max": 30, "stat_brawn": 5, "stat_endurance": 3, "hp_regen_per_sec": 1}, "end_message": "<span class=\"msg-system\">The fire gutters out. Every wound you ignored is suddenly very loud.</span>", "comeup_scale": 0.6, "peak_message": "<span class=\"msg-system\">Cold fire floods your veins. Pain becomes a distant rumour.</span>", "peak_seconds": 140, "comedown_scale": 0.6, "comeup_seconds": 10, "comedown_seconds": 90}, "instant": {"hunger": -12, "sanity": 6}, "overdose": {"lethal": true, "message": "Your body cannot tell it is dying. It sprints straight past the edge."}, "tolerance": {"gain_per_dose": 0.15, "max_reduction": 0.7}, "withdrawal": {"mods": {"stat_brawn": -3, "stat_endurance": -2}, "message": "Everything aches. Coldfire fixes that. Coldfire fixes everything.", "onset_seconds": 1200}}', 0.35, 3, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_static', 'Static', 'A nootropic mist for the overclocked mind. Clarity in a can, with interest.', 'item_static', 360, '{"phases": {"peak_mods": {"stat_brains": 4, "sanity_regen_per_sec": 1}, "end_message": "<span class=\"msg-system\">The signal degrades. Thoughts go grainy again.</span>", "comeup_scale": 0.5, "peak_message": "<span class=\"msg-system\">The static clears. You can see the shape of every problem at once.</span>", "peak_seconds": 240, "comedown_scale": 0.5, "comeup_seconds": 30, "comedown_seconds": 90}, "instant": {"sanity": 10}, "overdose": {"lethal": true, "message": "Too much signal, no more silence. Your mind whites out and does not come back."}, "tolerance": {"gain_per_dose": 0.1, "max_reduction": 0.6}}', 0.18, 4, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_grey', 'Grey', 'Synthetic morphine in a grey gelcap. The pain goes away. So does everything else.', 'item_grey', 420, '{"phases": {"peak_mods": {"stat_cool": 2, "stat_reflexes": -3, "hp_regen_per_sec": 2}, "end_message": "<span class=\"msg-system\">The warmth recedes and leaves you cold and small on the shore.</span>", "comeup_scale": 0.5, "peak_message": "<span class=\"msg-system\">You are floating in warm water in a dark, kind room.</span>", "peak_seconds": 240, "comedown_scale": 0.5, "comeup_message": "<span class=\"msg-system\">A warm grey tide rolls up from your feet. Nothing hurts.</span>", "comeup_seconds": 25, "comedown_seconds": 150}, "instant": {"sanity": 14}, "overdose": {"lethal": true, "message": "Your breathing slows, and slows, and forgets how."}, "tolerance": {"gain_per_dose": 0.14, "max_reduction": 0.75, "recovery_per_sec": 0.00015}, "withdrawal": {"mods": {"hp_max": -15, "stat_cool": -3, "stat_endurance": -3}, "message": "Your skin crawls, your bones ache, and the whole world is a hand held out for more grey.", "onset_seconds": 600}}', 0.45, 3, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_blacktar', 'Blacktar', 'Heavy tar opioid, cut with whatever was nearby. The deepest nod there is.', 'item_blacktar', 480, '{"phases": {"peak_mods": {"stat_brains": -3, "stat_reflexes": -5, "hp_regen_per_sec": 3}, "end_message": "<span class=\"msg-system\">You surface, gasping, into a world that got worse while you were gone.</span>", "comeup_scale": 0.6, "peak_message": "<span class=\"msg-system\">You go under. The tar closes over your head, black and total and perfect.</span>", "peak_seconds": 300, "comedown_scale": 0.6, "comeup_seconds": 20, "comedown_seconds": 160}, "instant": {"hunger": -6, "sanity": 18}, "overdose": {"lethal": true, "message": "The nod goes all the way down and does not turn around."}, "tolerance": {"gain_per_dose": 0.18, "max_reduction": 0.8, "recovery_per_sec": 0.0001}, "withdrawal": {"mods": {"hp_max": -25, "stat_cool": -4, "stat_brawn": -3, "stat_endurance": -4}, "message": "Withdrawal has you by the spine. You would trade almost anything to make it stop.", "onset_seconds": 480}}', 0.6, 2, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_lull', 'Lull', 'A blue benzo tab that files the sharp edges off a bad night.', 'item_lull', 360, '{"phases": {"peak_mods": {"stat_cool": 3, "stat_reflexes": -2, "sanity_regen_per_sec": 1}, "end_message": "<span class=\"msg-system\">The calm wears thin and the worries file back in.</span>", "comeup_scale": 0.5, "peak_message": "<span class=\"msg-system\">The panic unclenches. Whatever it was, it can wait.</span>", "peak_seconds": 240, "comedown_scale": 0.5, "comeup_seconds": 30, "comedown_seconds": 90}, "instant": {"sanity": 16}, "overdose": {"lethal": true, "message": "You lie down to rest your eyes for just a second, and never open them."}, "tolerance": {"gain_per_dose": 0.12, "max_reduction": 0.7}, "withdrawal": {"mods": {"stat_cool": -3, "sanity_regen_per_sec": -1}, "message": "Your nerves are live wires again. You remember exactly what fixes that.", "onset_seconds": 900}}', 0.3, 3, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_psilocybin', 'Psilocybin', 'A handful of wrinkled grey mushrooms grown in somebody''s ventilation duct.', 'item_psilocybin', 240, '{"instant": {"sanity": -4}, "tolerance": {"gain_per_dose": 0.3, "max_reduction": 0.9, "recovery_per_sec": 0.0003}, "hallucination": {"mode": "overlay", "palette": "purple", "eventPool": ["[trip]The walls take a slow, deliberate breath.[/trip]", "[trip]The floor is a carpet of soft breathing moss now. It doesn''t mind you standing on it.[/trip]", "[trip]Every surface is faintly patterned with eyes, all of them kind.[/trip]", "[trip]You can hear the colour green. It sounds like your grandmother''s kitchen.[/trip]", "[trip]Time pools in the corners of the room like warm honey.[/trip]", "[trip]A shaft of light bends toward you and asks, without words, if you are okay.[/trip]"], "intensity": 0.5, "eventEverySec": 12, "duration_seconds": 240}}', 0.02, 6, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_blotter', 'Blotter', 'A single square of high-powered blotter acid, printed with a grinning sun.', 'item_blotter', 600, '{"instant": {"sanity": -8}, "tolerance": {"gain_per_dose": 0.4, "max_reduction": 0.95, "recovery_per_sec": 0.0002}, "hallucination": {"mode": "overlay", "palette": "magenta", "eventPool": ["[trip]The room inhales and the walls flow outward into cathedral vaults of liquid light.[/trip]", "[trip]Fractal vines of every impossible colour crawl up from the floor and flower midair.[/trip]", "[trip]Your own hands leave glowing trails, a hundred hands fanning out from your wrists.[/trip]", "[trip]Sound has texture. A distant machine hum is velvet dragged across your teeth.[/trip]", "[trip]The grinning sun from the tab is on the ceiling now, and it winks at you.[/trip]", "[trip]You are absolutely certain, for one perfect second, that you understand it all.[/trip]", "[trip]A stranger who is also you steps out of the wall, waves, and folds back in.[/trip]"], "intensity": 0.8, "eventEverySec": 14, "duration_seconds": 600}}', 0.01, 8, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_mescaline', 'Mescaline', 'Seventy-five pellets rattle in a little tin. You only need a few.', 'item_mescaline', 480, '{"instant": {"hunger": -6, "sanity": -6}, "tolerance": {"gain_per_dose": 0.3, "max_reduction": 0.9}, "hallucination": {"mode": "overlay", "palette": "gold", "eventPool": ["[trip]Everything is edged in shimmering gold, as if the world were a coin held to the light.[/trip]", "[trip]Geometric patterns bloom across every wall, precise and ancient and alive.[/trip]", "[trip]Your stomach rolls, but the nausea is just the door you have to walk through.[/trip]", "[trip]A desert wind you cannot feel moves the shadows in long slow waves.[/trip]", "[trip]An old voice, patient as stone, tells you a story in a language you were born knowing.[/trip]"], "intensity": 0.7, "eventEverySec": 13, "duration_seconds": 480}}', 0.02, 6, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_screamers', 'Screamers', 'A designer psychedelic that does not do gentle. Roll the dice.', 'item_screamers', 300, '{"instant": {"sanity": -18}, "tolerance": {"gain_per_dose": 0.25, "max_reduction": 0.85}, "hallucination": {"mode": "overlay", "palette": "red", "eventPool": ["[trip]The walls are the wrong colour. They know they are the wrong colour. They are furious about it.[/trip]", "[trip]Something enormous is screaming just below the range of hearing and it is getting closer.[/trip]", "[trip]Your reflection in every surface is a half-second behind you, and grinning.[/trip]", "[trip]The floor tilts. The ceiling drips. None of it is trying to help you.[/trip]", "[trip]You are being watched by the architecture and it does not like what it sees.[/trip]", "[trip]For a moment you are certain you have always been here and will never leave.[/trip]"], "intensity": 1, "eventEverySec": 10, "duration_seconds": 300}}', 0.08, 5, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_laughers', 'Laughers', 'Little yellow tabs that turn the apocalypse into the funniest thing you have ever seen.', 'item_laughers', 240, '{"instant": {"sanity": 20}, "tolerance": {"gain_per_dose": 0.2, "max_reduction": 0.8}, "hallucination": {"mode": "overlay", "palette": "gold", "eventPool": ["[trip]The sheer absurdity of everything hits you and you have to lean on a wall, wheezing.[/trip]", "[trip]That grim little machine in the corner looks, on reflection, deeply and hilariously stupid.[/trip]", "[trip]Someone somewhere is taking all of this seriously and that is the funniest part.[/trip]", "[trip]You catch your own reflection making a face and completely lose it.[/trip]", "[trip]Even the dread feels like a joke with a punchline you already know.[/trip]"], "intensity": 0.5, "eventEverySec": 12, "duration_seconds": 240}}', 0.1, 5, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_dreamsmoke', 'Dreamsmoke', 'Two bags of engineered grass. Mellow, hungry, harmless-ish.', 'item_dreamsmoke', 300, '{"phases": {"peak_mods": {"stat_cool": 2, "stat_reflexes": -1}, "end_message": "<span class=\"msg-system\">The mellow lifts. You are mostly just hungry now.</span>", "comeup_scale": 0.5, "peak_message": "<span class=\"msg-system\">A soft heaviness settles over you. The edges of the room go plush.</span>", "peak_seconds": 200, "comedown_scale": 0.5, "comeup_seconds": 20, "comedown_seconds": 80}, "instant": {"hunger": 15, "sanity": 12, "thirst": 6}, "tolerance": {"gain_per_dose": 0.15, "max_reduction": 0.7}, "hallucination": {"mode": "overlay", "palette": "green", "eventPool": ["[trip]Time slows to a comfortable crawl. There is nowhere you need to be.[/trip]", "[trip]You become deeply, urgently aware that you would demolish an entire vending machine of snacks.[/trip]", "[trip]A thought drifts by, profound and important, and you completely fail to catch it.[/trip]"], "intensity": 0.3, "eventEverySec": 20, "duration_seconds": 300}}', 0.08, 8, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_ether', 'Ether', 'A pint of raw ether and a rag. Not the smart choice, but here we are.', 'item_ether', 120, '{"instant": {"sanity": -10}, "overdose": {"lethal": true, "message": "You breathe in one rag too many. The lights go out mid-thought."}, "hallucination": {"mode": "overlay", "palette": "cyan", "eventPool": ["[trip]The floor lurches sideways and the room smears into long cold streaks.[/trip]", "[trip]Your thoughts arrive out of order, each one wrapped in cotton wool.[/trip]", "[trip]You are extremely far away from your own hands.[/trip]", "[trip]A chemical wind blows straight through your skull and out the other side.[/trip]"], "intensity": 0.6, "eventEverySec": 10, "duration_seconds": 120}}', 0.15, 3, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_threshold', 'The Threshold', 'A single breath of vaporised DMT-analog. Ten thousand years in four hundred seconds.', 'item_threshold', 200, '{"instant": {"sanity": -12}, "tolerance": {"gain_per_dose": 0.2, "max_reduction": 0.6}, "hallucination": {"mode": "dreamzone", "events": [{"text": "[trip]The room peels away like wet paper and you fall UP through it.[/trip]", "atSec": 4}, {"text": "[trip]The machine-elves are showing you something. It is the most important thing there is.[/trip]", "atSec": 30}, {"text": "[trip]You have been here before. You have always been here. You live here.[/trip]", "atSec": 80}, {"text": "[trip]The cathedral begins, very gently, to fold you back up and post you home.[/trip]", "atSec": 140}], "palette": "magenta", "intensity": 1, "dreamzone_id": "zone_dream_threshold", "eventEverySec": 20, "duration_seconds": 180}}', 0.01, 6, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_khole', 'K-Hole', 'A dissociative dust that unplugs you from your own body for a while.', 'item_khole', 240, '{"instant": {"sanity": -8}, "overdose": {"lethal": true, "message": "You go so far down the hole that you forget the way back, and your body forgets to breathe."}, "tolerance": {"gain_per_dose": 0.2, "max_reduction": 0.8}, "withdrawal": {"mods": {"stat_brains": -2}, "message": "The grey funnel calls. You keep glancing toward the door that isn''t there.", "onset_seconds": 1800}, "hallucination": {"mode": "dreamzone", "palette": "blue", "eventPool": ["[trip]You slide a little further down the smooth grey funnel.[/trip]", "[trip]Your body is somewhere behind you now, waving. You wave back, or think about it.[/trip]", "[trip]Continents of thought drift past, too large and too slow to be afraid of.[/trip]", "[trip]Someone is speaking. It might be you. It was a long time ago.[/trip]"], "intensity": 0.7, "dreamzone_id": "zone_dream_khole", "eventEverySec": 18, "duration_seconds": 200}}', 0.12, 4, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_voidwalk', 'Voidwalk', 'A designer dissociative that drops you into the static between channels.', 'item_voidwalk', 300, '{"instant": {"sanity": -14}, "overdose": {"lethal": true, "message": "The static pulls you all the way under and keeps the channel dark."}, "tolerance": {"gain_per_dose": 0.2, "max_reduction": 0.8}, "hallucination": {"mode": "dreamzone", "palette": "cyan", "eventPool": ["[trip]The static sea hums your name and you feel it in your back teeth.[/trip]", "[trip]A memory swims past wearing someone else''s face. It nods at you.[/trip]", "[trip]An advertisement for a product that does not exist plays across the whole sky.[/trip]", "[trip]You wade deeper. The blue closes over your knees, your chest, your reasons for leaving.[/trip]"], "intensity": 0.9, "dreamzone_id": "zone_dream_void", "eventEverySec": 20, "duration_seconds": 260}}', 0.1, 4, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_overclock', 'Neural Overclock', 'A lace-booster that runs your wetware past the red line. Smoke may be metaphorical.', 'item_overclock', 240, '{"phases": {"peak_mods": {"hp_max": 10, "stat_brains": 5, "stat_reflexes": 4, "sanity_regen_per_sec": -1}, "end_message": "<span class=\"msg-system\">The clock drops back to baseline. Your skull throbs where the heat pooled.</span>", "comeup_scale": 0.5, "peak_message": "<span class=\"msg-system\">You are thinking in parallel now, a dozen threads, all of them screaming.</span>", "peak_seconds": 150, "comedown_scale": 0.6, "comeup_message": "<span class=\"msg-system\">Your lace spins up with a whine only you can hear. The world turns to data.</span>", "comeup_seconds": 12, "comedown_seconds": 78}, "instant": {"sanity": -6}, "overdose": {"lethal": true, "message": "Your wetware runs too hot for too long and something delicate inside simply melts."}, "tolerance": {"gain_per_dose": 0.14, "max_reduction": 0.7}, "withdrawal": {"mods": {"stat_brains": -3, "stat_reflexes": -2}, "message": "Baseline feels like wading through mud. You want the clock back up.", "onset_seconds": 900}}', 0.3, 3, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_memhack', 'Memhack', 'A memory-editing synth. Sands the barbs off your worst recollections. Mostly.', 'item_memhack', 360, '{"phases": {"peak_mods": {"stat_cool": 3, "sanity_regen_per_sec": 1}, "end_message": "<span class=\"msg-system\">The edits settle. A few of the barbs quietly grow back.</span>", "comeup_scale": 0.5, "peak_message": "<span class=\"msg-system\">Old wounds you carry go soft and distant, like they happened to someone else.</span>", "peak_seconds": 240, "comedown_scale": 0.5, "comeup_seconds": 30, "comedown_seconds": 90}, "instant": {"sanity": 24}, "overdose": {"lethal": true, "message": "It edits one memory too many — the one where your heart remembers to beat."}, "tolerance": {"gain_per_dose": 0.12, "max_reduction": 0.7}, "withdrawal": {"mods": {"stat_cool": -2, "sanity_regen_per_sec": -1}, "message": "The memories come back sharp and all at once. Only memhack files them down.", "onset_seconds": 1200}}', 0.2, 4, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_amyls', 'Amyls', 'Two dozen amyls in a rattling little box. A brief, roaring rush.', 'item_amyls', 60, '{"phases": {"peak_mods": {"stat_brawn": 2, "stat_reflexes": 2}, "end_message": "<span class=\"msg-system\">The rush drops out from under you as fast as it came.</span>", "comeup_scale": 0.8, "peak_seconds": 30, "comedown_scale": 0.5, "comeup_message": "<span class=\"msg-system\">A hot rush slams up the back of your neck and the room goes bright and loud.</span>", "comeup_seconds": 4, "comedown_seconds": 26}, "instant": {"sanity": 6, "horniness_increase": 25}, "overdose": {"lethal": true, "message": "One popper too many and your blood pressure bottoms out. You fold like a chair."}, "tolerance": {"gain_per_dose": 0.2, "max_reduction": 0.7}}', 0.1, 4, '{}', '{}');
+INSERT INTO public.drugs VALUES ('drug_coffee', 'Coffee', 'A jolt of caffeine — sharpens you up for a while.', 'item_drug_coffee', 180, '{"instant": {"sanity": 4, "thirst": 15}}', 0, 12, '{}', '{"legal": true}');
+INSERT INTO public.drugs VALUES ('drug_beer', 'Beer', 'A mild buzz. Takes the edge off.', 'item_drug_beer', 240, '{"instant": {"hunger": 3, "sanity": 3, "thirst": 12}}', 0, 12, '{}', '{"legal": true}');
+INSERT INTO public.drugs VALUES ('drug_joint', 'joint', 'A hand-rolled joint, a little crooked, twisted off at the end. Smells like a greenhouse and bad decisions.', 'item_joint', 300, '{"phases": {"peak_mods": {"stat_reflexes": -1}, "end_message": "<span class=\"msg-system\">The high tapers off. The colours go back to normal and you are suddenly, urgently thinking about a sandwich.</span>", "comeup_scale": 0.5, "peak_message": "<span class=\"msg-system\">You are extremely stoned. Everything is faintly hilarious and the music is <em>unbelievable</em>.</span>", "peak_seconds": 240, "comedown_scale": 0.4, "comeup_message": "<span class=\"msg-system\">You spark it up and draw slow. The room exhales with you; the edges go soft and warm.</span>", "comeup_seconds": 8, "comedown_seconds": 60}, "instant": {"sanity": 6, "thirst": -10}, "overdose": {"mods": {"hp": -4, "sanity": -12}, "message": "You have smoked far too much. The room tilts, your heart hammers, and a cold wave of paranoid nausea rolls over you. You green out."}}', 0, 5, '{}', '{"legal": true, "cannabis": true, "high_seconds": 300}');
+INSERT INTO public.drugs VALUES ('drug_cigarettes', 'cigarettes', 'A soft pack of cheap cigarettes. Each one shaves a little off your lungs and hands it to your image.', 'item_cigarettes', 300, '{"phases": {"peak_mods": {"stat_cool": 2, "stamina_max": -15}, "end_message": "<span class=\"msg-system\">The cigarette burns down to the filter. The cool goes with it; the craving stays.</span>", "comeup_scale": 0.6, "peak_message": "<span class=\"msg-system\">Nicotine hums through you. You feel, briefly, extremely cool and very slightly winded.</span>", "peak_seconds": 90, "comedown_scale": 0.5, "comeup_message": "<span class=\"msg-system\">You light up and draw deep. Your shoulders drop; the edge comes off your hunger.</span>", "comeup_seconds": 4, "comedown_seconds": 40}, "instant": {"sanity": 3}, "overdose": {"mods": {"hp": -5, "sanity": -8}}, "tolerance": {"gain_per_dose": 0.1, "max_reduction": 0.5}, "withdrawal": {"mods": {"stat_cool": -2, "stamina_max": -10}, "message": "Your hands are restless and your mood is fraying. You would kill for a cigarette.", "onset_seconds": 600}}', 0.4, 12, '{}', '{"legal": true, "smokeable": true, "appetite_suppress_seconds": 900}');
+
+
+--
+-- Data for Name: enemies; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.enemies VALUES ('enemy_wanted_patrol_officer', 'SPECTER-PD Patrol Officer', 'A street cop in scuffed riot-lite armor, sidearm already drawn. Not tough, but they radio everything they see.', 42, '[]', 'aggressive', 'police', 'The officer crumples, radio still squawking.', '{}', 4, 3, '[{"max": 5, "min": 2, "type": "kinetic"}]', '[{"part": "head", "soak": {"kinetic": 1}, "weight": 1}, {"part": "torso", "soak": {"kinetic": 1}, "weight": 3}, {"part": "legs", "soak": {"kinetic": 1}, "weight": 2}]', '[]', 5, '{}');
+INSERT INTO public.enemies VALUES ('enemy_rad_mutant', 'Rad Mutant', 'Something that used to be human. The Bleed does this. The extra limb is load-bearing.', 65, '[{"qty": [1, 1], "item": "item_mutant_gland", "weight": 50}]', 'aggressive', NULL, 'The mutant folds in on itself in a way that suggests the laws of anatomy were more like suggestions.', '{"radiates": true, "attacks_npcs": false, "battle_cries": ["$enemy emits wet ragged breathing.", "$enemy produces uneven animalistic snarls.", "$enemy shifts with bone crackling movement.", "$enemy emits guttural choking growls.", "$enemy outputs broken vocal screaming fragments.", "$enemy emits rising fevered shriek."], "radiation_damage": 5, "first_strike_delay_ms": 1000}', 1, 1, '[{"max": 2, "min": 1, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {}, "weight": 40}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 13}, {"part": "right_leg", "soak": {}, "weight": 13}]', '[]', 5, '{}');
+INSERT INTO public.enemies VALUES ('enemy_architect_drone', 'Architect Scout Drone', 'A black hexagonal drone about the size of a dinner plate. No insignia. Watching.', 30, '[{"qty": [1, 1], "item": "item_drone_core", "weight": 40}, {"qty": [1, 1], "item": "item_architect_fragment", "weight": 15}]', 'patrol', NULL, 'The drone spirals down. Somewhere, something notices.', '{"flies": true, "attacks_npcs": false, "battle_cries": ["$enemy emits sterile shifting hum.", "$enemy produces thin scanning whine.", "$enemy shifts pitch to signal awareness.", "$enemy emits irregular digital beeps.", "$enemy outputs fragmented speech echoes.", "$enemy emits rising diagnostic tone.", "$enemy produces sub-bass lock pulse."], "architect_aligned": true, "first_strike_delay_ms": 1000}', 1, 1, '[{"max": 2, "min": 1, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {}, "weight": 40}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 13}, {"part": "right_leg", "soak": {}, "weight": 13}]', '[]', 5, '{}');
+INSERT INTO public.enemies VALUES ('enemy_custodian_enforcer', 'Custodian Enforcer', 'Polo shirt. Khaki pants. Body armor under both. The most dangerous middle manager you''ll ever meet.', 55, '[{"qty": [1, 1], "item": "item_custodian_badge", "weight": 80}, {"qty": [1, 1], "item": "item_credits_medium", "weight": 60}]', 'territorial', 'faction_custodians', 'Employee of the Month, the badge reads. Third quarter, four years running.', '{"attacks_npcs": false, "battle_cries": ["\"That’s a formal warning.\"", "\"This is not optional anymore.\"", "\"Documenting noncompliance.\"", "\"Voice raised—last warning.\"", "\"Escalation is now required.\"", "\"Immediate compliance is expected.\""], "first_strike_delay_ms": 1000}', 1, 1, '[{"max": 2, "min": 1, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {}, "weight": 40}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 13}, {"part": "right_leg", "soak": {}, "weight": 13}]', '[]', 5, '{}');
+INSERT INTO public.enemies VALUES ('enemy_feral_dog', 'Feral Dog', 'Once someone''s pet. Now a forty-pound argument for not going outside.', 25, '[{"qty": [1, 1], "item": "trashbag", "weight": 25}]', 'aggressive', NULL, 'The dog goes down. You feel bad about it for approximately three seconds.', '{"battle_cries": ["$enemy coils, ready to spring at $player.", "$enemy circles, silently eyeing up $player.", "$enemy bares its teeth at $player.", "$enemy stiffens as it watches $player.", "$enemy creeps a step closer to $player.", "$enemy paces around $player.", "$enemy snaps its jaws at $player.", "$enemy lowers its head toward $player.", "$enemy''s hackles rise at the sight of $player.", "$enemy paws at the ground before $player.", "$enemy glares at $player without blinking.", "$enemy prowls around $player.", "$enemy lets out a low snarl at $player."], "first_strike_delay_ms": 10000}', 1, 1, '[{"max": 2, "min": 1, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {}, "weight": 40}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 13}, {"part": "right_leg", "soak": {}, "weight": 13}]', '[{"qty": [1, 1], "item": "item_raw_meat", "weight": 100}]', 5, '{}');
+INSERT INTO public.enemies VALUES ('enemy_arbiterclass_enforcement_unit', 'Arbiter-Class Enforcement Unit', 'The Arbiter-Class Enforcement Unit stands rigid and combat-ready, matte black armor segmented for efficiency rather than aesthetics. Its frame is tall, lean, and engineered for rapid deployment, every joint minimized for speed and controlled force. A single horizontal optic glows white across its head like a targeting slit, flat and expressionless.', 100, '[]', 'aggressive', NULL, 'The Arbiter-Class Enforcement Unit is destroyed—its frame buckles as core systems fail in sequence, optic going dark before the chassis finally collapses into inert, broken alloy.', '{"attacks_npcs": false, "battle_cries": ["\"COMPLY.\"", "\"HOSTILE CONFIRMED.\"", "\"THREAT ACQUIRED.\"", "\"LETHAL FORCE AUTHORIZED.\"", "\"STAND DOWN.\"", "\"SURRENDER IMMEDIATELY.\"", "\"RESISTANCE RECORDED.\"", "\"ENGAGING TARGET.\"", "\"SECURITY PROTOCOL ACTIVE.\"", "\"ORDER WILL BE RESTORED.\"", "\"YOU ARE IN VIOLATION.\"", "\"FORCE ESCALATION AUTHORIZED.\""], "first_strike_delay_ms": 0}', 10, 10, '[{"max": 20, "min": 10, "type": "energy"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {}, "weight": 40}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 13}, {"part": "right_leg", "soak": {}, "weight": 13}]', '[]', 5, '{}');
+INSERT INTO public.enemies VALUES ('enemy_scav', 'Desperate Scavenger', 'Sunburned, twitchy, armed with something sharp.', 30, '[{"qty": [1, 3], "item": "item_scrap_metal", "weight": 80}, {"qty": [1, 1], "item": "item_ration", "weight": 40}, {"qty": [1, 1], "item": "item_credits_small", "weight": 60}]', 'aggressive', NULL, 'The scavenger collapses with an expression of profound disappointment.', '{"attacks_npcs": false, "battle_cries": ["$enemy sways, blade dragging low through dust.", "$enemy scratches at their arm until they draw blood.", "$enemy laughs under their breath, unfocused and shaky.", "$enemy stumbles, then corrects like gravity is optional.", "$enemy keeps blinking hard, trying to clear their vision.", "\"I can feel it under my skin.\"", "\"Don’t… don’t make it worse.\"", "\"It’s moving when I stop.\"", "\"I lost track again.\"", "\"Which one of you is real?\""], "first_strike_delay_ms": 1000}', 1, 1, '[{"max": 2, "min": 1, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {}, "weight": 40}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 13}, {"part": "right_leg", "soak": {}, "weight": 13}]', '[{"qty": [1, 1], "item": "item_raw_meat", "weight": 100}]', 5, '{"nodes": {}, "_start": ""}');
+INSERT INTO public.enemies VALUES ('enemy_wanted_patrol_drone', 'SPECTER-PD Patrol Drone', 'A knee-high quadruped drone with a strobing blue eye and a stun-lance. Fast and hard to swat.', 30, '[]', 'aggressive', 'police', 'The drone sparks, folds its legs, and goes dark.', '{}', 4, 6, '[{"max": 4, "min": 2, "type": "energy"}]', '[{"part": "head", "soak": {"energy": 2, "kinetic": 1}, "weight": 1}, {"part": "torso", "soak": {"energy": 2, "kinetic": 1}, "weight": 3}, {"part": "legs", "soak": {"energy": 2, "kinetic": 1}, "weight": 2}]', '[]', 5, '{}');
+INSERT INTO public.enemies VALUES ('enemy_wanted_enforcement_trooper', 'SPECTER-PD Enforcement Trooper', 'Full plate, carbine, visor down. These ones don''t negotiate — they contain.', 78, '[]', 'aggressive', 'police', 'The trooper drops hard, armor scraping the floor.', '{}', 6, 4, '[{"max": 8, "min": 4, "type": "kinetic"}]', '[{"part": "head", "soak": {"energy": 2, "kinetic": 5}, "weight": 1}, {"part": "torso", "soak": {"energy": 2, "kinetic": 5}, "weight": 3}, {"part": "legs", "soak": {"energy": 2, "kinetic": 5}, "weight": 2}]', '[]', 5, '{}');
+INSERT INTO public.enemies VALUES ('enemy_wanted_heavy_enforcer', 'SPECTER-PD Heavy Enforcer', 'A slab of ambulatory armor with a chaingun arm and a servo whine you feel in your teeth.', 150, '[]', 'aggressive', 'police', 'The enforcer topples like a felled statue, hydraulics venting.', '{}', 7, 2, '[{"max": 10, "min": 6, "type": "kinetic"}, {"max": 4, "min": 2, "type": "energy"}]', '[{"part": "head", "soak": {"energy": 5, "kinetic": 8}, "weight": 1}, {"part": "torso", "soak": {"energy": 5, "kinetic": 8}, "weight": 3}, {"part": "legs", "soak": {"energy": 5, "kinetic": 8}, "weight": 2}]', '[]', 5, '{}');
+INSERT INTO public.enemies VALUES ('enemy_slag_rat', 'Slag Rat', 'A rat the size of a housecat, hairless and slick, its skin the grey of cooled slag. It is not afraid of you.', 8, '[{"qty": [1, 1], "item": "item_scrap_metal", "weight": 20}]', 'aggressive', NULL, 'The rat kicks twice, then goes still.', '{"attacks_npcs": false, "battle_cries": ["$enemy bares yellow teeth at $player.", "$enemy hisses and skitters toward $player.", "$enemy''s naked tail lashes as it fixes on $player.", "$enemy scrabbles a step closer to $player over the rubble.", "$enemy lets out a wet, rattling squeak at $player."], "first_strike_delay_ms": 6000}', 1, 2, '[{"max": 2, "min": 1, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {}, "weight": 40}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 13}, {"part": "right_leg", "soak": {}, "weight": 13}]', '[{"qty": [1, 1], "item": "item_raw_meat", "weight": 100}]', 2, '{}');
+INSERT INTO public.enemies VALUES ('enemy_scrap_picker', 'Scrap-Picker', 'A gaunt scavenger in a cracked gas-mask and too many coats, guarding a sack of salvage like it is a newborn.', 22, '[{"qty": [1, 3], "item": "item_scrap_metal", "weight": 70}, {"qty": [1, 1], "item": "item_credits_small", "weight": 50}, {"qty": [1, 1], "item": "item_ration", "weight": 30}]', 'aggressive', NULL, 'The scrap-picker drops their shiv and folds up over their haul.', '{"attacks_npcs": false, "battle_cries": ["\"This is my patch. Find your own.\"", "\"Don''t. Don''t make me.\"", "$enemy waves the shiv in a shaky arc at $player.", "\"Everything here''s already spoken for.\"", "$enemy backs up a step, blade out, watching $player."], "first_strike_delay_ms": 9000}', 1, 1, '[{"max": 3, "min": 1, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {}, "weight": 40}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 13}, {"part": "right_leg", "soak": {}, "weight": 13}]', '[{"qty": [1, 1], "item": "item_raw_meat", "weight": 100}]', 5, '{}');
+INSERT INTO public.enemies VALUES ('enemy_sprawl_ganger', 'sprawl ganger', 'A wiry Undermarket local in a patched jacket and a face like a closed door. Carries a ground-down shiv and the confidence of someone with nothing to lose and a crew nearby.', 26, '[{"qty": [1, 2], "item": "item_scrap_metal", "weight": 25}]', 'aggressive', NULL, 'The ganger folds over their own shiv and drops without a sound.', '{}', 4, 3, '[{"max": 6, "min": 2, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {"kinetic": 1}, "weight": 40}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 13}, {"part": "right_leg", "soak": {}, "weight": 13}]', '[]', 5, '{}');
+INSERT INTO public.enemies VALUES ('enemy_slag_wretch', 'Slag-Wretch', 'What the works made of a shift-worker who never clocked out: skin like slag, eyes like cooling glass, still wearing the tatters of a hi-vis vest.', 34, '[{"qty": [1, 2], "item": "item_glowing_scrap", "weight": 40}, {"qty": [1, 1], "item": "item_mutated_bone", "weight": 30}, {"qty": [1, 1], "item": "item_credits_small", "weight": 35}]', 'aggressive', NULL, 'The wretch sags against a pipe and slides down it, finally still.', '{"attacks_npcs": false, "battle_cries": ["$enemy drags a ruined arm toward $player.", "$enemy exhales a lungful of ash at $player.", "$enemy''s jaw works, but only static comes out.", "$enemy shambles a step closer to $player.", "$enemy fixes $player with two panes of cooling glass."], "first_strike_delay_ms": 4000}', 1, 1, '[{"max": 4, "min": 2, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {}, "weight": 40}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 13}, {"part": "right_leg", "soak": {}, "weight": 13}]', '[{"qty": [1, 2], "item": "item_raw_meat", "weight": 100}]', 6, '{}');
+INSERT INTO public.enemies VALUES ('enemy_ash_crawler', 'Ash Crawler', 'A dog-sized arthropod fused out of ash and something that used to be a raccoon. Too many legs, all of them in a hurry.', 14, '[{"qty": [1, 1], "item": "item_mutated_bone", "weight": 25}, {"qty": [1, 1], "item": "item_glowing_scrap", "weight": 12}]', 'aggressive', NULL, 'The crawler curls into itself with a chitinous crackle and stops moving.', '{"attacks_npcs": false, "battle_cries": ["$enemy rears up, mandibles clicking at $player.", "$enemy scuttles sideways around $player.", "$enemy sprays a hiss of ash at $player.", "$enemy''s legs blur as it rushes $player.", "$enemy drums its forelimbs against the ground at $player."], "first_strike_delay_ms": 7000}', 1, 2, '[{"max": 3, "min": 1, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {}, "weight": 40}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 13}, {"part": "right_leg", "soak": {}, "weight": 13}]', '[{"qty": [1, 2], "item": "item_raw_meat", "weight": 100}]', 4, '{}');
+INSERT INTO public.enemies VALUES ('enemy_gutter_cat', 'Gutter Cat', 'A feral tomcat gone ragged and mean, one ear chewed to a stub. It has ruled this stretch of gutter longer than you have been alive, and it knows it.', 9, '[{"qty": [1, 1], "item": "item_raw_meat", "weight": 35}]', 'aggressive', NULL, 'The cat yowls once, indignant, and bolts its last.', '{"battle_cries": ["$enemy flattens its ears and hisses at $player.", "$enemy arches its back at $player.", "$enemy yowls a warning at $player.", "$enemy swipes a ragged paw at $player.", "$enemy stares down $player, tail lashing."], "first_strike_delay_ms": 5000}', 1, 3, '[{"max": 2, "min": 1, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {}, "weight": 40}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 13}, {"part": "right_leg", "soak": {}, "weight": 13}]', '[{"qty": [1, 1], "item": "item_raw_meat", "weight": 100}]', 2, '{}');
+INSERT INTO public.enemies VALUES ('enemy_squatter', 'Squatter', 'A gaunt vagrant who has made a home in the ruins and takes trespass personally: layers of salvaged coats, a length of pipe, and eyes that watched the neighbourhood empty out one window at a time.', 22, '[{"qty": [1, 2], "item": "item_scrap_metal", "weight": 60}, {"qty": [1, 1], "item": "item_credits_small", "weight": 45}, {"qty": [1, 1], "item": "item_ration", "weight": 25}]', 'aggressive', NULL, 'The squatter slumps against their doorway and stops guarding it.', '{"attacks_npcs": false, "battle_cries": ["\"This is my block. Move on.\"", "\"You don''t belong here.\"", "$enemy hefts the pipe at $player.", "\"Nothing here for you. Go.\"", "$enemy backs into the doorway, pipe raised at $player."], "first_strike_delay_ms": 8000}', 1, 1, '[{"max": 3, "min": 1, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {}, "weight": 40}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 13}, {"part": "right_leg", "soak": {}, "weight": 13}]', '[{"qty": [1, 1], "item": "item_raw_meat", "weight": 100}]', 5, '{}');
+INSERT INTO public.enemies VALUES ('enemy_rusted_sweeper', 'Rusted Sweeper', 'A municipal street-sweeping drone from the city''s better days, still trundling its route on three good wheels and one bad one. Its brushes are worn to nubs and its logic to nothing. It does not recognise you as pavement, which is the only good news.', 18, '[{"qty": [1, 2], "item": "item_scrap_metal", "weight": 55}, {"qty": [1, 1], "item": "item_credits_small", "weight": 30}]', 'aggressive', NULL, 'The sweeper grinds to a halt, brushes still twitching, and goes dark.', '{"battle_cries": ["$enemy grinds its worn brushes at $player.", "$enemy pivots toward $player with a squeal of bearings.", "$enemy emits a garbled municipal chime at $player.", "$enemy trundles a wobbling circle around $player.", "$enemy flashes a cracked warning light at $player."], "first_strike_delay_ms": 6000}', 1, 1, '[{"max": 2, "min": 1, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {}, "weight": 40}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 13}, {"part": "right_leg", "soak": {}, "weight": 13}]', '[]', 5, '{}');
+INSERT INTO public.enemies VALUES ('enemy_wire_jackal', 'wire jackal', 'A lean scavenger stitched together from dog and junkyard — copper-whisker muzzle, a hide of wire and scab. Hunts the wastes in packs and pulls down anything slower than it.', 14, '[{"qty": [1, 1], "item": "item_salvaged_wiring", "weight": 22}, {"qty": [1, 1], "item": "item_scrap_metal", "weight": 18}]', 'aggressive', NULL, 'The jackal yelps, folds, and its pack scatters into the grey.', '{}', 5, 4, '[{"max": 5, "min": 2, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 10}, {"part": "torso", "soak": {}, "weight": 40}, {"part": "left_leg", "soak": {}, "weight": 12}, {"part": "right_leg", "soak": {}, "weight": 12}, {"part": "left_flank", "soak": {}, "weight": 13}, {"part": "right_flank", "soak": {}, "weight": 13}]', '[]', 4, '{}');
+INSERT INTO public.enemies VALUES ('enemy_slag_wight', 'slag wight', 'What''s left of a work-crew that never clocked out — a husk of fused slag and old coveralls, radiant with a dry heat, moving with the patience of something that has already died once.', 34, '[{"qty": [1, 1], "item": "item_glowing_scrap", "weight": 16}, {"qty": [1, 1], "item": "item_cracked_capacitor", "weight": 12}, {"qty": [1, 1], "item": "item_mutated_bone", "weight": 10}]', 'aggressive', NULL, 'The wight sags, its heat guttering out, and settles into the ash it came from.', '{}', 5, 2, '[{"max": 7, "min": 3, "type": "kinetic"}]', '[{"part": "head", "soak": {"kinetic": 1}, "weight": 10}, {"part": "torso", "soak": {"kinetic": 2}, "weight": 40}, {"part": "left_arm", "soak": {"kinetic": 1}, "weight": 12}, {"part": "right_arm", "soak": {"kinetic": 1}, "weight": 12}, {"part": "left_leg", "soak": {"kinetic": 1}, "weight": 13}, {"part": "right_leg", "soak": {"kinetic": 1}, "weight": 13}]', '[]', 7, '{}');
+INSERT INTO public.enemies VALUES ('enemy_harbor_lurker', 'harbour lurker', 'A long, pale thing grown fat on the bay''s runoff — part eel, part something that used to have legs. It hangs just under the surface and takes what strays too near the edge.', 20, '[{"qty": [1, 1], "item": "item_fresh_catch", "weight": 18}, {"qty": [1, 1], "item": "item_mutated_bone", "weight": 14}, {"qty": [1, 1], "item": "item_scrap_metal", "weight": 10}]', 'aggressive', NULL, 'The lurker thrashes once, sheeting the boards with black water, and sinks out of sight.', '{}', 5, 4, '[{"max": 6, "min": 2, "type": "kinetic"}]', '[{"part": "maw", "soak": {}, "weight": 12}, {"part": "body", "soak": {"kinetic": 1}, "weight": 44}, {"part": "tail", "soak": {}, "weight": 16}, {"part": "left_fin", "soak": {}, "weight": 14}, {"part": "right_fin", "soak": {}, "weight": 14}]', '[{"qty": [1, 2], "item": "item_fresh_catch", "weight": 30}]', 4, '{}');
+INSERT INTO public.enemies VALUES ('enemy_tar_horror', 'tar-pit horror', 'A slow-heaving mass of accreted tar, bone, and swallowed machinery that hauls itself up out of the seeps to feed. It is patient, nearly mindless, and very hard to convince to let go.', 42, '[{"qty": [1, 2], "item": "item_mutated_bone", "weight": 18}, {"qty": [1, 1], "item": "item_glowing_scrap", "weight": 12}, {"qty": [1, 1], "item": "item_scrap_metal", "weight": 10}]', 'aggressive', NULL, 'The horror sloughs apart into the tar it came from, and the seep drinks it back down.', '{}', 4, 1, '[{"max": 8, "min": 4, "type": "kinetic"}]', '[{"part": "crown", "soak": {"kinetic": 1}, "weight": 12}, {"part": "mass", "soak": {"kinetic": 3}, "weight": 48}, {"part": "left_tendril", "soak": {"kinetic": 1}, "weight": 20}, {"part": "right_tendril", "soak": {"kinetic": 1}, "weight": 20}]', '[{"qty": [1, 1], "item": "item_mutated_bone", "weight": 30}]', 8, '{}');
+INSERT INTO public.enemies VALUES ('enemy_cable_eel', 'Cable Eel', 'A black, cable-thick eel as long as a man is tall, its hide studded with the barnacled remains of fibre-optic sheathing it has swallowed and grown around. Its jaw is a ring of glassy, back-curved teeth.', 16, '[{"qty": [1, 1], "item": "item_fresh_catch", "weight": 40}]', 'aggressive', NULL, 'The eel thrashes itself still and lies steaming on the boards.', '{"attacks_npcs": false, "battle_cries": ["$enemy coils and lunges at $player, jaws wide.", "$enemy lashes a whipcrack of muscle across the dock at $player.", "$enemy''s glassy teeth snap shut a hand''s breadth from $player."], "first_strike_delay_ms": 3000}', 3, 3, '[{"max": 6, "min": 2, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 20}, {"part": "torso", "soak": {}, "weight": 60}, {"part": "tail", "soak": {}, "weight": 20}]', '[{"qty": [1, 2], "item": "item_raw_meat", "weight": 100}]', 4, '{}');
+INSERT INTO public.enemies VALUES ('enemy_bay_leviathan', 'bay leviathan', 'The thing the harbour lurkers are only the children of — a vast, pale, coiling shape that owns the deep water of Coldwater Bay. It rises rarely, feeds enormously, and has never once been photographed and believed.', 55, '[{"qty": [1, 1], "item": "item_contraband_crate", "weight": 10}, {"qty": [2, 3], "item": "item_fresh_catch", "weight": 22}, {"qty": [1, 2], "item": "item_mutated_bone", "weight": 16}, {"qty": [1, 1], "item": "item_glowing_scrap", "weight": 10}]', 'aggressive', NULL, 'The leviathan rolls once, vast and final, and slides back into the deep it will not truly leave.', '{}', 5, 2, '[{"max": 10, "min": 5, "type": "kinetic"}]', '[{"part": "maw", "soak": {"kinetic": 1}, "weight": 14}, {"part": "body", "soak": {"kinetic": 2}, "weight": 46}, {"part": "coils", "soak": {"kinetic": 1}, "weight": 24}, {"part": "fluke", "soak": {}, "weight": 16}]', '[{"qty": [2, 4], "item": "item_fresh_catch", "weight": 30}]', 9, '{}');
+INSERT INTO public.enemies VALUES ('enemy_redline_horror', 'a Redline horror', 'The apex the Redline bred to rule its killing floor — too many limbs, too much of it load-bearing, and a heart you can hear ticking from across the open ground. Whatever it started as, the Bleed finished it into this.', 130, '[{"qty": [1, 1], "item": "item_redline_heart", "weight": 100}, {"qty": [1, 2], "item": "item_mutant_gland", "weight": 60}]', 'aggressive', NULL, 'The horror comes apart in a way that suggests it had been holding itself together out of spite, and the ticking, at last, stops.', '{"radiates": true, "attacks_npcs": false, "battle_cries": ["$enemy drags its load-bearing limbs across the bone with a wet scrape.", "$enemy emits a low tick that climbs into a shriek.", "$enemy unfolds a limb that should not bend that way.", "$enemy screams with a mouth that is mostly other mouths."], "radiation_damage": 8, "first_strike_delay_ms": 800}', 3, 2, '[{"max": 9, "min": 4, "type": "kinetic"}]', '[{"part": "head", "soak": {}, "weight": 8}, {"part": "torso", "soak": {}, "weight": 44}, {"part": "left_arm", "soak": {}, "weight": 12}, {"part": "right_arm", "soak": {}, "weight": 12}, {"part": "left_leg", "soak": {}, "weight": 12}, {"part": "right_leg", "soak": {}, "weight": 12}]', '[]', 9, '{}');
+
+
+--
+-- Data for Name: furniture; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.furniture VALUES ('furn_ficus_zone_meridian_lobby', 'zone_meridian_lobby', 'dead ficus', 'A ficus in a chipped ceramic planter, dead so long it has gone the grey of old newspaper. And yet the soil is damp — someone keeps watering it. Hope is a hard habit to break.', '{}', 0, NULL, NULL, NULL, 'decoration', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bench_zone_meridian_lobby', 'zone_meridian_lobby', 'cracked vinyl bench', 'A low waiting bench upholstered in oxblood vinyl, split along every seam and weeping yellow foam. It has absorbed forty years of people waiting for elevators that stopped working in year three. It still holds weight, if you don''t mind the crunch.', '{"interactions": ["sit", "lean"]}', 0, NULL, NULL, NULL, 'furniture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_47054b84', 'zone_apt_2', 'neural interface couch', 'Long enough to lie flat in, upholstered in smart-foam that tracks your body temperature. Three data ports run along the headrest.', '{"interactions": ["sit", "lie"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 3200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_1782683782251', 'zone_residential_lobby', 'citadel financial ATM terminal', 'A sleek black ATM glows beneath flickering neon, its holographic display cycling ads between transactions. Biometric scanners and an armored card slot sit beneath a scratched, graffiti-covered shell, weathered by the city''s streets.', '{"atm": true, "interactions": []}', 0, NULL, 5, NULL, 'terminal', 400, 12000, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt1_hotplate', 'zone_apt_1', 'hot plate', 'A two-burner electric hot plate plugged into the wall near the door. One burner glows red when switched on. The other has been dead for a while.', '{"interactions": []}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 45, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_embassy_corkboard', 'zone_residential_lobby', 'unit listings corkboard', 'Bolted over what used to be the concierge desk. Handwritten unit listings cover every inch, half of them crossed out and re-listed at a worse price.', '{"interactions": []}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 25, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_mailboxes_zone_meridian_lobby', 'zone_meridian_lobby', 'tenant mailboxes', 'A bank of aluminum tenant mailboxes bolted to the east wall, most pried open decades ago — little doors hanging off single hinges, keyholes drilled out. A yellowed flyer for a pizza place that no longer exists is still wedged in slot 4C. Nobody here is expecting mail.', '{}', 0, NULL, NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt12_lamp', 'zone_apt_12', 'portable lamp', 'A battered work lamp on the floor, doing the job of the fixtures stripped out of the ceiling. Its shade throws a warm cone up the wall and leaves the corners to themselves.', '{"interactions": ["switch"]}', 1, 'lamp', 5, NULL, 'light', 400, 30, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt2_cot', 'zone_apt_2', 'metal-framed cot', 'A narrow army-surplus cot with a thin mattress and a wool blanket folded at the foot. Functional, if not comfortable.', '{"interactions": ["sit", "lie"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 70, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_1782511287046', 'zone_residential_lobby_z-1_1782105292491', 'overhead light', 'A bare bulb on a pull-chain. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt12_bed', 'zone_apt_12', 'wide bed', 'A broad bed under the window, wide enough for two who trust each other. The far side of the building from the bar — as quiet as the Embassy gets.', '{"interactions": ["sit", "lie"]}', 0, NULL, NULL, NULL, 'furniture', NULL, 120, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_embassy_stools', 'zone_residential_lobby', 'cracked vinyl stools', 'A half-dozen stools lined up at the counter, vinyl split and patched with duct tape. Free to sit, if you don''t mind the wobble.', '{"interactions": ["sit"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 35, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_emerglight_zone_meridian_lobby', 'zone_meridian_lobby', 'emergency light bar', 'A wall-mounted emergency light bar on a trickle-charged cell, casting the pale amber wash the lobby is named for. It stays lit when the grid drops — about the only promise this building still keeps.', '{}', 1, 'emergency', 5, NULL, 'light', 350, 25, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt12_wardrobe', 'zone_apt_12', 'mirrored wardrobe', 'A freestanding wardrobe with a full-length mirror gone black and blistered at the edges. Your reflection stands in the clear middle, hemmed in by the dark.', '{"interactions": ["lean"]}', 0, NULL, NULL, NULL, 'fixture', NULL, 90, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt2_poster', 'zone_apt_2', 'faded travel poster', 'A glossy travel poster, sun-bleached to pastel. A beach. Palm trees. A slogan that has faded to illegibility. Whoever left it here was thinking of somewhere else.', '{"interactions": []}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 15, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_1782365983389', 'zone_thresholdeast', 'graffiti: COUNT YOUR DAYS', 'Scratched directly into the inside of the door, deep enough that it can''t be painted over. COUNT YOUR DAYS. Below it, someone has scratched a smaller reply: I DID. STILL HERE.', '{"interactions": []}', 0, NULL, NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_1782276836159', 'zone_start', 'overhead light', 'A bare bulb on a pull-chain. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_secdesk_zone_meridian_lobby', 'zone_meridian_lobby', 'security desk', 'A curved reception desk in scuffed laminate, built to be manned around the clock. The chair behind it is long gone. A dead terminal cycles a screensaver of rolling static, throwing a faint grey flicker across the underside of the counter. A coffee ring older than most of the tenants has fossilized on the surface.', '{"interactions": ["lean"]}', 0, NULL, NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light2_zone_meridian_lobby', 'zone_meridian_lobby', 'sodium ceiling fixture', 'A recessed sodium fixture someone coaxed back to life, buzzing faintly and washing the terrazzo in warm, slightly sallow light.', '{}', 1, 'overhead', 18, NULL, 'light', 1000, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_embassy_bar_counter', 'zone_residential_lobby', 'the embassy lounge bar', 'A scarred wooden counter beneath the brass THE EMBASSY LOUNGE sign. Lowry keeps it spotless out of sheer habit.', '{"interactions": ["lean"]}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 2500, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt1_crate', 'zone_apt_1', 'wooden crate', 'A salvaged shipping crate pressed into service as a side table and spare seat. FRAGILE is stenciled on the side, which stopped being relevant some time ago.', '{"interactions": ["sit", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 20, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_streetlight_zone_city_north', 'zone_city_north', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_sl_zone_meridian', 'zone_meridian', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_toilet_start', 'zone_start', 'toilet', 'A standard-issue institutional toilet. It works. That''s the most you can say about it.', '{"interactions": [], "water_source": true}', 0, 'lamp', 5, NULL, 'furniture', 400, 90, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_threshold_trashbin', 'zone_threshold', 'trash bin', 'A dented metal waste bin bolted to the wall. Anything you put in it is gone. That''s the point.', '{"trash_bin": true, "interactions": []}', 0, 'lamp', NULL, NULL, 'container', NULL, 15, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_102', 'zone_mq_chrome_102', 'overhead light', 'A bare bulb on a pull-chain, buzzing faintly. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_sl_zone_outskirts', 'zone_outskirts', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt4_graffiti', 'zone_apt_4', 'graffiti: COUNT YOUR DAYS', 'Scratched directly into the inside of the door, deep enough that it can''t be painted over. COUNT YOUR DAYS. Below it, someone has scratched a smaller reply: I DID. STILL HERE.', '{"interactions": []}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_city_east', 'zone_city_east', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_city_east", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_lobby', 'zone_meridian_lobby', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt4_table', 'zone_apt_4', 'scratched coffee table', 'A low table, every inch of the surface covered in scratches, gouges, and initials. Someone used it as a workbench. Someone else used it as a target.', '{"interactions": ["lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 60, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_basement_chair', 'zone_residential_lobby_z-1_1782105292491', 'broken office chair', 'A wheeled office chair with a cracked backrest and one arm missing. It still rolls, barely, and takes your weight if you sit carefully.', '{"interactions": ["sit"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 20, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_basement_cabinet', 'zone_residential_lobby_z-1_1782105292491', 'utility cabinet', 'A heavy steel cabinet bolted to the wall beside the breaker box. Padlocked. The padlock is old enough that it''s probably more rust than mechanism.', '{"interactions": []}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 90, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt3_shelves', 'zone_apt_3', 'metal shelving unit', 'Floor-to-ceiling metal shelving, everything on it arranged by size. Whatever was here has been taken. The organisation left behind.', '{"interactions": ["lean"]}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 120, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt4_armchair', 'zone_apt_4', 'salvaged armchair', 'A wide, low armchair, upholstery worn smooth at the arms. Something lumpy is stuffed into the left cushion. You decide not to investigate.', '{"interactions": ["sit"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 110, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_embassy_chair_3', 'zone_residential_lobby', 'chair 3', 'An old armchair with the arms sawn off to fit at the table. Surprisingly comfortable.', '{"seat_idx": 2, "interactions": ["sit"], "game_table_id": "gametable_embassy"}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 45, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_embassy_chair_4', 'zone_residential_lobby', 'chair 4', 'A folding chair that has been here so long it no longer folds. The hinge is fused shut with age.', '{"seat_idx": 3, "interactions": ["sit"], "game_table_id": "gametable_embassy"}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 45, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt3_chair', 'zone_apt_3', 'folding chair', 'A plain metal folding chair, closed and leaning against the shelving. It unfolds to a serviceable seat.', '{"interactions": ["sit"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 25, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_102', 'zone_meridian_unit_102', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_floor_1', 'zone_meridian_floor_1', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_104', 'zone_meridian_unit_104', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_sink_start', 'zone_start', 'sink', 'A wall-mounted sink with cold running water and a bar of grey soap of uncertain age.', '{"interactions": [], "water_source": true}', 0, 'lamp', 5, NULL, 'furniture', 400, 80, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_103', 'zone_meridian_unit_103', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_lobby_trashbin', 'zone_residential_lobby', 'trash bin', 'A battered plastic bin by the entrance. The lid is missing. Everything inside is gone within the hour — or whenever someone feels like it.', '{"trash_bin": true, "interactions": []}', 0, 'lamp', 5, NULL, 'container', 400, 15, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_city_ne', 'zone_city_ne', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_city_ne", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_city_north', 'zone_city_north', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_city_north", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_watertank_zone_meridian_roof', 'zone_meridian_roof', 'rooftop water tank', 'A riveted steel water tank up on timber cradle legs, its belly streaked with rust-bleed. Knuckle the side and the echo tells you it''s about a third full of something you would not want to drink.', '{"interactions": ["lean"]}', 0, NULL, NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_antenna_zone_meridian_roof', 'zone_meridian_roof', 'rusted antenna mast', 'One of the taller masts still standing, guy-wires sagging, a dish at the top aimed at a satellite that stopped answering during the Collapse. In high wind it hums a single flat note, like it''s trying to remember what it was for.', '{}', 0, NULL, NULL, NULL, 'decoration', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_basement_racks', 'zone_residential_lobby_z-1_1782105292491', 'rusted storage racks', 'Floor-to-ceiling metal shelving bolted to the far wall. Most shelves are empty; the rest hold broken equipment, unmarked boxes, and things that stopped being useful before anyone thought to throw them out.', '{"interactions": ["lean"]}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 60, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_101', 'zone_meridian_unit_101', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_venthousing_zone_meridian_roof', 'zone_meridian_roof', 'ventilation housing', 'A boxy galvanized housing squatting over the stairwell, its fan blades long seized. Warm building-air leaks from a split seam — the closest thing to central heating anywhere up here, if you don''t mind the smell of thirty floors of other people.', '{"interactions": ["lean"]}', 0, NULL, NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_plaque_zone_meridian_lobby', 'zone_meridian_lobby', 'brass dedication plaque', 'A brass plaque bolted above the entrance: THE MERIDIAN — ESTABLISHED 2031. Someone has polished the lettering by hand recently, which is either touching or completely unhinged. It remains the most optimistic object in the building.', '{}', 0, NULL, NULL, NULL, 'decoration', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_1782367480433', 'zone_clone_facility_bathroom', 'toilet', 'A standard-issue institutional toilet. It works. That''s the most you can say about it.', '{"interactions": [], "water_source": true}', 0, NULL, 5, NULL, 'furniture', 400, 90, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_city_se', 'zone_city_se', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_city_se", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_201', 'zone_meridian_unit_201', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_304', 'zone_meridian_unit_304', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_util_zone_meridian_lobby', 'zone_util_zone_meridian_lobby', 'Caged Worklight', 'A dust-caked worklight in a wire cage, throwing hard shadows.', '{}', 1, 'overhead', 0.02, NULL, 'light', 900, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_301', 'zone_meridian_unit_301', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_1782367480440', 'zone_clone_facility_bathroom', 'overhead light', 'A bare bulb on a pull-chain. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_floor_2', 'zone_meridian_floor_2', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_302', 'zone_meridian_unit_302', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_floor_3', 'zone_meridian_floor_3', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_204', 'zone_meridian_unit_204', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_303', 'zone_meridian_unit_303', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_202', 'zone_meridian_unit_202', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_city_south', 'zone_city_south', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_city_south", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_city_sw', 'zone_city_sw', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_city_sw", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_city_west', 'zone_city_west', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_city_west", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_util_zone_meridian_lobby', 'zone_util_zone_meridian_lobby', 'Junction Box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_util_zone_meridian_lobby_1783116354849"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_clone_facility_z-1_1782276270002', 'zone_clone_facility_z-1_1782276270002', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_clone_facility_z-1_1782276270002", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_floor3_emerg', 'zone_embassy_floor3', 'emergency light', 'A single red emergency light over the stairwell mouth — the only bulb on the floor that still works. It stains everything the colour of a darkroom.', '{"interactions": ["switch"]}', 1, 'overhead', 3, NULL, 'light', 300, 60, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_drum_basement', 'zone_drum_basement', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_drum_basement", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_drum_shop', 'zone_drum_shop', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_drum_shop", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_pigeoncoop_zone_meridian_roof', 'zone_meridian_roof', 'pigeon coop', 'A hutch of scrap plywood and chicken wire lashed to the parapet, home to a dozen disreputable pigeons who watch you with the flat contempt of creatures who were here first and fully intend to be here last.', '{}', 0, NULL, NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_lawnchair_zone_meridian_roof', 'zone_meridian_roof', 'salvaged lawn chair', 'A folding aluminum lawn chair with half its nylon webbing replaced by cable ties, angled to face the skyline. Somebody comes up here to watch the city and pretend the light pollution is stars. Still takes a body''s weight, mostly.', '{"interactions": ["sit", "lean"]}', 0, NULL, NULL, NULL, 'furniture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_1782367480437', 'zone_clone_facility_bathroom', 'sink', 'A wall-mounted sink with cold running water and a bar of grey soap of uncertain age.', '{"interactions": [], "water_source": true}', 0, NULL, 5, NULL, 'furniture', 400, 80, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_util_zone_velk_basement', 'zone_util_zone_velk_basement', 'Caged Worklight', 'A dust-caked worklight in a wire cage, throwing hard shadows.', '{}', 1, 'overhead', 0.02, 1, 'light', 900, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt4_overhead', 'zone_apt_4', 'overhead light', 'A bare bulb on a pull-chain. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt2_overhead', 'zone_apt_2', 'overhead light', 'A bare bulb on a pull-chain. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_meridian', 'zone_meridian', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_meridian", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_embassy_bar_lamp', 'zone_residential_lobby', 'bar lamp', 'A small brass lamp at the end of the counter — the one bit of lighting in the room that isn''t fluorescent.', '{"interactions": ["switch"]}', 1, 'lamp', 5, NULL, 'light', 400, 30, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt1_overhead', 'zone_apt_1', 'overhead light', 'A bare bulb on a pull-chain. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_1782436962113', 'zone_residential_lobby_z-1_1782105292491', 'trash bin', 'A dented metal waste bin bolted to the wall. Anything you put in it is gone. That''s the point.', '{"trash_bin": true, "interactions": []}', 0, NULL, NULL, NULL, 'container', NULL, 15, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_arbiter_array', 'zone_city_west', 'arbiter array', 'A stacked containment system holding dormant Arbiter-Class Enforcement Units in sealed stasis bays. Each unit is suppressed into low-power readiness, retaining full combat cognition beneath enforced inactivity protocols.
+
+Status indicators mark operational state: green (dormant), amber (simulation drift), white (recalibration), and red (Emergency Security Protocol—full combat cognition armed and deployment-ready).
+
+Linked to a central command core, the Array can reanimate individual units or entire enforcement lines within seconds. Even offline, it is not inert—only contained force waiting for release.', '{"interactions": []}', 0, NULL, 5, NULL, 'furniture', NULL, 5000, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_403', 'zone_meridian_unit_403', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_furniture_store', 'zone_furniture_store', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_furniture_store", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_embassy_overhead', 'zone_residential_lobby', 'lobby overhead lights', 'A row of caged fluorescent fixtures along the ceiling, humming faintly. A switch by the door controls them.', '{"interactions": ["switch"]}', 1, 'overhead', 20, NULL, 'light', 1200, 120, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_502', 'zone_meridian_unit_502', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_402', 'zone_meridian_unit_402', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_util_zone_drum_basement', 'zone_util_zone_drum_basement', 'Caged Worklight', 'A dust-caked worklight in a wire cage, throwing hard shadows.', '{}', 1, 'overhead', 0.02, 1, 'light', 900, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_1782367032691', 'zone_thresholdeast', 'bar lamp', 'A small brass lamp at the end of the counter — the one bit of lighting in the room that isn''t fluorescent.', '{"interactions": ["switch"]}', 0, 'lamp', 5, NULL, 'light', 400, 30, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_morphex_start', 'zone_start', 'MORPHEX 9000 BioSculpt terminal', 'A sleek chrome kiosk humming with quiet menace. Its screen displays a rotating holographic body with the tagline: "YOU, BUT BETTER. OR DIFFERENT. WE DON''T JUDGE." A small plaque reads: First session complimentary!', '{"interactions": ["use"], "cosmetic_machine": true}', 0, 'lamp', NULL, NULL, 'cosmetic_machine', NULL, 8000, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_streetlight_zone_badland_w_gate', 'zone_badland_w_gate', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_floor_4', 'zone_meridian_floor_4', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_floor_5', 'zone_meridian_floor_5', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_501', 'zone_meridian_unit_501', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_1782278036968', 'zone_clone_facility_z-1_1782276270002', 'overhead light', 'A bare bulb on a pull-chain. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt3_overhead', 'zone_apt_3', 'overhead light', 'A bare bulb on a pull-chain. Functional, nothing more.', '{"interactions": ["switch"]}', 0, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_meridian_floor_1', 'zone_meridian_floor_1', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_meridian_floor_1", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_shoddy_tv_start', 'zone_start', 'shoddy television', 'A battered flatscreen bolted to the wall with mismatched screws. The casing is cracked and one corner is held together with duct tape, but the picture still comes through.', '{"tv": true, "interactions": ["watch"], "tv_dial_freq": 7, "broadcast_receiver": true, "broadcast_device_type": "tv"}', 0, 'lamp', 5, NULL, 'furniture', 400, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_util_zone_velk_basement', 'zone_util_zone_velk_basement', 'Junction Box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_util_zone_velk_basement_1783116356678"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_util_zone_drum_basement', 'zone_util_zone_drum_basement', 'Junction Box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_util_zone_drum_basement_1783116357933"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_401', 'zone_meridian_unit_401', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_drum_shop', 'zone_drum_shop', 'overhead light', 'Track lighting along the ceiling, some of the spots aimed at display racks, others angled inexplicably at the floor. The overall effect is theatrical in a low-budget way.', '{"is_light": true, "light_type": "overhead"}', 1, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_jb_drum', 'zone_drum_basement', 'junction box', 'A junction box labelled in black marker — LIGHTS, SIGN, MISC — in Cassius''s characteristically precise hand. A strip of wiring along the bottom has been neatly zip-tied to the conduit. It''s the tidiest thing in the room.', '{"junction_box": true}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 300, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_meridian_floor_3', 'zone_meridian_floor_3', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_meridian_floor_3", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_meridian_floor_4', 'zone_meridian_floor_4', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_meridian_floor_4", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_103', 'zone_mq_chrome_103', 'overhead light', 'A bare bulb on a pull-chain, buzzing faintly. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_schd_npc_marta_velk', 'zone_velk_shop', 'marta velk''s schedule', 'Marta Velk''s Schedule
+Velk''s Pre-Owned Furnishings
+
+Mon: 10:00-22:00
+Tue: 10:00-22:00
+Wed: 10:00-22:00
+Thu: 10:00-22:00
+Fri: 10:00-22:00
+Sat: 10:00-22:00
+Sun: 10:00-22:00', '{"vendor_npc_id": "npc_marta_velk", "vendor_schedule_board": true}', 0, 'lamp', NULL, NULL, 'decoration', NULL, 10, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_meridian_floor_5', 'zone_meridian_floor_5', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_meridian_floor_5", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_mq_pigeon_util', 'zone_mq_pigeon_util', 'the dead pigeon junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_mq_pigeon_util"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_safe_cassius_drum', 'zone_drum_shop', 'cassius''s safe', 'A flat-panel holo-lock safe recessed into the wall behind the tailoring station, disguised by a framed printout of a particularly successful outfit. You only notice it because the frame isn''t quite flush.', '{"vendor_safe": true, "vendor_npc_id": "npc_cassius_drum", "hack_difficulty": 5}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 600, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_velk_bsmt', 'zone_velk_basement', 'ceiling bulb', 'A single bare bulb on a cord. It works.', '{"is_light": true, "light_type": "overhead"}', 0, 'overhead', NULL, NULL, 'light', 800, 15, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_safe_marta_velk', 'zone_velk_shop', 'marta''s safe', 'A heavy holo-lock safe bolted to the floor behind the counter. The lock panel glows dull orange. It doesn''t look like something you''d want to try to move.', '{"vendor_safe": true, "vendor_npc_id": "npc_marta_velk", "hack_difficulty": 5}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 600, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_velk_shop', 'zone_velk_shop', 'overhead light', 'A cluster of mismatched pendant lights wired to a single switch — a lamp here, a bare bulb there, one actual fixture. Together they work.', '{"is_light": true, "light_type": "overhead"}', 0, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_drum_bsmt', 'zone_drum_basement', 'ceiling bulb', 'A bare bulb on a short cord. It flickers occasionally when the sign outside cycles.', '{"is_light": true, "light_type": "overhead"}', 0, 'overhead', NULL, NULL, 'light', 800, 15, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt3_bed', 'zone_apt_3', 'iron-frame single bed', 'A narrow iron-frame bed, neatly made with hospital corners. The mattress is thin but the sheets are clean. Whoever lived here took care of things.', '{"interactions": ["sit", "lie"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 150, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_603', 'zone_meridian_unit_603', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 0, 'overhead', 20, 1, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_jb_velk', 'zone_velk_basement', 'junction box', 'A grey metal panel bolted to the wall. Rows of circuit breakers in two columns, most of them labeled in Marta''s neat handwriting: SHOP LIGHTS, WINDOW, COUNTER, MISC. One breaker is taped over with a note: DO NOT TOUCH.', '{"junction_box": true}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 300, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_coldwater_turbine', 'zone_coldwater_turbine_hall', 'overhead floods', 'Caged sodium floodlights slung from the gantry.', '{}', 1, 'overhead', 0.02, 1, 'light', 1600, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_floor_6', 'zone_meridian_floor_6', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_602', 'zone_meridian_unit_602', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_503', 'zone_meridian_unit_503', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_504', 'zone_meridian_unit_504', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_meridian_floor_2', 'zone_meridian_floor_2', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_meridian_floor_2", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt1_mattress', 'zone_apt_1', 'worn mattress', 'A thin foam mattress directly on the floor, a single flat pillow crushed at one end. It''s seen better decades. Still beats the street.', '{"interactions": ["sit", "lie"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 30, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_601', 'zone_meridian_unit_601', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_404', 'zone_meridian_unit_404', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 0, 'overhead', 20, 1, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_604', 'zone_meridian_unit_604', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_202', 'zone_meridian_unit_202', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_103', 'zone_meridian_unit_103', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_104', 'zone_meridian_unit_104', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_203', 'zone_meridian_unit_203', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_204', 'zone_meridian_unit_204', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_301', 'zone_meridian_unit_301', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_303', 'zone_meridian_unit_303', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_304', 'zone_meridian_unit_304', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_401', 'zone_meridian_unit_401', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_402', 'zone_meridian_unit_402', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_403', 'zone_meridian_unit_403', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_201', 'zone_meridian_unit_201', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_302', 'zone_meridian_unit_302', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_meridian_unit_203', 'zone_meridian_unit_203', 'overhead light', 'A recessed ceiling panel throwing flat, even light across the room.', '{}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_streetlight_velk_2', 'zone_velk_exterior', 'streetlight', 'A second streetlight further down the block, its housing dented but functional.', '{"is_light": true, "light_type": "streetlight"}', 0, 'streetlight', NULL, NULL, 'light', NULL, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_501', 'zone_meridian_unit_501', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_502', 'zone_meridian_unit_502', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_503', 'zone_meridian_unit_503', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_504', 'zone_meridian_unit_504', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_powerplantnew', 'zone_powerplantnew', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_powerplantnew", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_601', 'zone_meridian_unit_601', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_602', 'zone_meridian_unit_602', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_603', 'zone_meridian_unit_603', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_604', 'zone_meridian_unit_604', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_util_1782953094650', 'zone_util_1782953094650', 'overhead light', 'A recessed overhead light panel.', '{}', 1, 'overhead', 0.02, 1, 'light', 1200, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_stage_1782953094650', 'zone_studio_1782953094650', 'overhead light', 'A recessed overhead light panel.', '{}', 1, 'overhead', 0.02, NULL, 'light', 1200, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_404', 'zone_meridian_unit_404', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_util_1782953094650_1782953094650', 'zone_util_1782953094650', 'KSAB-TV studio junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_util_1782953094650_1782953094650"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_light_prod_1782953094650', 'zone_prod_1782953094650', 'overhead light', 'A recessed overhead light panel.', '{}', 1, 'overhead', 0.02, NULL, 'light', 1200, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_meridian_roof', 'zone_meridian_roof', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_meridian_roof", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_mq_cherry_util', 'zone_mq_cherry_util', 'the cherry pit junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_mq_cherry_util"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_light_ext_1782953094650', 'zone_ext_1782953094650', 'street light', 'A tall metal post topped with a flickering sodium lamp.', '{}', 0, 'streetlight', 0.2, NULL, 'light', 8000, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_hero_poster_bonghitz', '__posters_test_apt__', 'hero poster: BONGHITZ, THE UNCLOUDED MIND', 'A wheat-pasted propaganda poster, two meters tall, gone soft and rippled at the edges. A man is rendered in heroic gold-leaf halftone, chin lifted to a sunburst, a monumental bong cradled in both arms like a martyr''s relic. Sacred smoke coils up to spell one word: PEACE. The caption reads: BONGHITZ — HE INHALED YOUR FEAR SO YOU WOULDN''T HAVE TO. Someone has scrawled "still owes me 40 credits" across his glowing forehead in marker.', '{"poster_key": "bonghitz", "hero_poster": true}', 0, 'lamp', NULL, NULL, 'decoration', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_303', 'zone_mq_chrome_303', 'overhead light', 'A bare bulb on a pull-chain, buzzing faintly. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('cam_ch_7_1782953079593_2_1782953083629_furn', 'zone_studio_1782953094650', 'broadcast camera 2', 'A broadcast-grade studio camera on a heavy-duty motorised mount. A small red light glows when streaming.', '{"camera_id": "cam_ch_7_1782953079593_2_1782953083629", "channel_id": "ch_7_1782953079593", "broadcast_transmitter": true}', 0, 'lamp', NULL, NULL, 'broadcast_camera', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_embassy_chair_1', 'zone_residential_lobby', 'chair 1', 'A heavy wooden chair dragged in from somewhere upstairs. It''s solid, which is more than you can say for most things here.', '{"seat_idx": 0, "interactions": ["sit"], "game_table_id": "gametable_embassy"}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 45, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_embassy_chair_2', 'zone_residential_lobby', 'chair 2', 'A padded stool with a welded back — improvised, but it works. The cushion has seen better decades.', '{"seat_idx": 1, "interactions": ["sit"], "game_table_id": "gametable_embassy"}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 45, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_f2', 'zone_mq_chrome_f2', 'corridor strip light', 'A fluorescent tube runs the length of the corridor, humming and stuttering at one end.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1000, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_f1', 'zone_mq_chrome_f1', 'corridor strip light', 'A fluorescent tube runs the length of the corridor, humming and stuttering at one end.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1000, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_lobby', 'zone_mq_chrome_lobby', 'lobby ceiling panel', 'A recessed ceiling panel throwing flat institutional light across the lobby. One corner has gone dead and never been replaced.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1400, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_302', 'zone_mq_chrome_302', 'overhead light', 'A bare bulb on a pull-chain, buzzing faintly. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_301', 'zone_mq_chrome_301', 'overhead light', 'A bare bulb on a pull-chain, buzzing faintly. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_101', 'zone_mq_chrome_101', 'overhead light', 'A bare bulb on a pull-chain, buzzing faintly. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_104', 'zone_mq_chrome_104', 'overhead light', 'A bare bulb on a pull-chain, buzzing faintly. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_201', 'zone_mq_chrome_201', 'overhead light', 'A bare bulb on a pull-chain, buzzing faintly. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_202', 'zone_mq_chrome_202', 'overhead light', 'A bare bulb on a pull-chain, buzzing faintly. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_203', 'zone_mq_chrome_203', 'overhead light', 'A bare bulb on a pull-chain, buzzing faintly. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_204', 'zone_mq_chrome_204', 'overhead light', 'A bare bulb on a pull-chain, buzzing faintly. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_304', 'zone_mq_chrome_304', 'overhead light', 'A bare bulb on a pull-chain, buzzing faintly. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_embassy_poker_table', 'zone_residential_lobby', 'poker table', 'A full-size poker table wedged into the corner of the lobby, green felt worn smooth at the betting line. Someone put it here years ago and it never left. A dealer''s tray sits at the north end, clean and ready.', '{"interactions": ["examine"], "game_table_id": "gametable_embassy"}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 1800, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_102', 'zone_meridian_unit_102', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_bed_zone_meridian_unit_101', 'zone_meridian_unit_101', 'prefab bed', 'A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.', '{"bed": true, "interactions": ["sit", "lie", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 55, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_deck_ch_7_1782953079593_1782953098571', 'zone_prod_1782953094650', 'Media Deck', 'Broadcast transmission hardware. Plays cassettes and routes live camera feeds.', '{"channel_id": "ch_7_1782953079593", "media_deck": true, "deck_active": null, "deck_cassettes": ["bc_1783114654023"], "deck_ejected_slots": {"bc_1782967762998": [{"slot_type": "broadcast", "conditions": {"npc_staff": ["npc_frank", "npc_donna", "npc_maintenance_bot"]}, "start_time": 43200, "duration_override": 10800}]}}', 0, 'lamp', 2, NULL, 'media_deck', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_pigeon_bar', 'zone_mq_pigeon_bar', 'back-bar lights', 'A string of amber bulbs behind the bar, half of them dimmed to nubs. Enough to pour by, not enough to read a face across the room.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 900, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_pigeon_back', 'zone_mq_pigeon_back', 'booth lamp', 'A single caged bulb slung low over the back booth, throwing more shadow than light. Ideal for conversations nobody should overhear.', '{"interactions": ["switch"]}', 1, 'lamp', NULL, NULL, 'light', 600, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('cam_ch_7_1782953079593_4_1782953083631_furn', 'zone_studio_1782953094650', 'broadcast camera 4', 'A broadcast-grade studio camera on a heavy-duty motorised mount. A small red light glows when streaming.', '{"camera_id": "cam_ch_7_1782953079593_4_1782953083631", "channel_id": "ch_7_1782953079593", "broadcast_transmitter": true}', 0, 'lamp', NULL, NULL, 'broadcast_camera', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_sump_bar', 'zone_mq_sump_bar', 'sodium tube', 'One buzzing sodium tube bolted to the ceiling, staining everything the colour of old piss. Nobody has ever asked for it to be brighter.', '{"interactions": ["switch"]}', 0, 'overhead', NULL, NULL, 'light', 800, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_sump_cellar', 'zone_mq_sump_cellar', 'caged bulb', 'A bare bulb in a wire cage on a cord, swinging slightly whenever the bar above stamps its feet.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 700, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_f3', 'zone_mq_chrome_f3', 'corridor strip light', 'A fluorescent tube runs the length of the corridor, humming and stuttering at one end.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1000, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_chrome_court', 'zone_mq_chrome_court', 'courtyard floodlight', 'A wall-mounted sodium floodlight throws a hard orange wash over the courtyard, catching the rain when it falls.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1600, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_precinct', 'zone_mq_precinct', 'entrance floodlight', 'A floodlight bolted above the precinct steps, aimed square at anyone approaching. It does not blink.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1600, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_grocery', 'zone_mq_grocery', 'fluorescent strips', 'Rows of retail fluorescents drone overhead, flattening every colour to the same tired grey. One strip flickers on a dying ballast.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1600, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_precinct_holding', 'zone_mq_precinct_holding', 'cage light', 'A caged security light recessed high in the wall, on a switch you cannot reach from inside the cell.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 900, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_cherry_office', 'zone_mq_cherry_office', 'overhead light', 'A plain ceiling fixture, clinical against the plush of the rest of the club. This is where the money gets counted, not spent.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_amp_shop', 'zone_mq_amp_shop', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_amp_shop", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_battery', 'zone_mq_battery', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_battery", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_cage_shop', 'zone_mq_cage_shop', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_cage_shop", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_precinct_lobby', 'zone_mq_precinct_lobby', 'overhead fluorescents', 'Banks of institutional fluorescents throw hard, shadowless light over the lobby. Everything looks guilty under them.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1600, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_cherry_floor', 'zone_mq_cherry_floor', 'stage wash', 'A rig of coloured spots washes the stage in shifting reds and blues, the house lights kept low enough to flatter and to hide.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1000, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_grocery_stock', 'zone_mq_grocery_stock', 'stockroom bulb', 'A single caged bulb over the shelving, bright enough to read a label if you hold it up close.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 800, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_cherry_vip', 'zone_mq_cherry_vip', 'VIP uplights', 'Low red uplighting rings the booth, warm and deliberately dim. What happens here is priced by the dark.', '{"interactions": ["switch"]}', 1, 'lamp', NULL, NULL, 'light', 600, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_streetlight_zone_city_east', 'zone_city_east', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_streetlight_drum_1', 'zone_drum_exterior', 'streetlight', 'A narrow streetlight with a cracked housing, buzzing softly. The neon sign from the shop is doing most of the actual illumination work.', '{"is_light": true, "light_type": "streetlight"}', 0, 'streetlight', NULL, NULL, 'light', NULL, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_precinct_bullpen', 'zone_mq_precinct_bullpen', 'ceiling fluorescents', 'Fluorescent panels grid the bullpen ceiling, one stuttering in a corner nobody has bothered to fix.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1500, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_cherry_floor', 'zone_mq_cherry_floor', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_cherry_floor", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_mq_sump_util', 'zone_mq_sump_util', 'sump junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_mq_sump_util"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1188, 1200);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_cage', 'zone_mq_cage', 'perimeter floodlight', 'A floodlight rakes the frontage of the Cage, leaving no soft edges for anyone to loiter in.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1600, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_velk_basement', 'zone_velk_basement', 'velk''s junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_velk_basement_1782918434158"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_mq_amp_util', 'zone_mq_amp_util', 'ampersand electronics junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_mq_amp_util"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('cam_ch_7_1782953079593_5_1782953083632_furn', 'zone_studio_1782953094650', 'broadcast camera 5', 'A broadcast-grade studio camera on a heavy-duty motorised mount. A small red light glows when streaming.', '{"camera_id": "cam_ch_7_1782953079593_5_1782953083632", "channel_id": "ch_7_1782953079593", "broadcast_transmitter": true}', 0, 'lamp', NULL, NULL, 'broadcast_camera', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_mq_chrome_util', 'zone_mq_chrome_util', 'chrome court junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_mq_chrome_util"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_clone_facility_z-1_1782276270002', 'zone_clone_facility_z-1_1782276270002', 'coldwater clone facility junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_start_z-1_1782276270002_1782276285855"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_furniture_util', 'zone_furniture_util', 'dead space interiors junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_furniture_util"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_amp_shop', 'zone_mq_amp_shop', 'display lighting', 'Track lighting angled down at the display cases, throwing hard little highlights off the glass and the merchandise.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1400, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_drum_basement', 'zone_drum_basement', 'drum''s junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_drum_basement_1782918434159"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_residential_lobby_z-1_1782105292491', 'zone_residential_lobby_z-1_1782105292491', 'embassy hotel & bar — lobby junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_residential_lobby_z-1_1782105292491_1782105308088"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_light_zone_mq_cage_shop', 'zone_mq_cage_shop', 'overhead light', 'A recessed ceiling fixture throwing flat, even light over the counter and the racks behind it.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1300, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_cathode', 'zone_mq_cathode', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_cathode", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_mq_precinct_util', 'zone_mq_precinct_util', 'precinct 9 junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_mq_precinct_util"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_mq_grocery_util', 'zone_mq_grocery_util', 'ration nine junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_mq_grocery_util"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_light_zone_furniture_store', 'zone_furniture_store', 'showroom lighting', 'Recessed showroom track lights pick out each staged room-set in warm, salesman-friendly pools of light.', '{"interactions": ["switch"]}', 1, 'overhead', NULL, NULL, 'light', 1500, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_mq_cage_util', 'zone_mq_cage_util', 'the cage junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_mq_cage_util"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_jbox_zone_meridian_lobby', 'zone_meridian_roof', 'the meridian junction box', 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.', '{"destructible": true, "generator_id": "gen_zone_meridian_lobby_1782925058655"}', 0, 'lamp', NULL, NULL, 'junction_box', NULL, 0, 1200, 1200);
+INSERT INTO public.furniture VALUES ('furn_sl_zone_warehouse', 'zone_warehouse', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_streetlight_zone_city_se', 'zone_city_se', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('cam_ch_7_1782953079593_1_1782953083628_furn', 'zone_studio_1782953094650', 'broadcast camera 1', 'A broadcast-grade studio camera on a heavy-duty motorised mount. A small red light glows when streaming.', '{"camera_id": "cam_ch_7_1782953079593_1_1782953083628", "channel_id": "ch_7_1782953079593", "broadcast_transmitter": true}', 0, 'lamp', NULL, NULL, 'broadcast_camera', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('cam_ch_7_1782953079593_3_1782953083630_furn', 'zone_studio_1782953094650', 'broadcast camera 3', 'A broadcast-grade studio camera on a heavy-duty motorised mount. A small red light glows when streaming.', '{"camera_id": "cam_ch_7_1782953079593_3_1782953083630", "channel_id": "ch_7_1782953079593", "broadcast_transmitter": true}', 0, 'lamp', NULL, NULL, 'broadcast_camera', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_floor3_newel', 'zone_embassy_floor3', 'broken newel post', 'The iron railing ends in a newel post snapped off at an angle, the break wound in so much duct tape it''s become a grey club. Hold the wall on the way down.', '{"interactions": []}', 0, NULL, NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_floor2_lights', 'zone_embassy_floor2', 'caged stairwell lights', 'A row of caged bulbs bolted along the landing ceiling, three of five still burning. Enough to see the doors by, not enough to make the place feel welcoming.', '{"interactions": ["switch"]}', 1, 'overhead', 15, NULL, 'light', 1000, 100, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_floor2_vending', 'zone_embassy_floor2', 'dead vending machine', 'A snack machine hulks in the corner, glass front spider-cracked, the rows behind it fossilised. The coin slot has been jammed with a screwdriver that''s still in it.', '{"interactions": []}', 0, NULL, NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt5_light', 'zone_apt_5', 'overhead bulb', 'A bare bulb on a pull-chain. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_chrome_court', 'zone_mq_chrome_court', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_chrome_court", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_chrome_f1', 'zone_mq_chrome_f1', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_chrome_f1", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_chrome_f2', 'zone_mq_chrome_f2', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_chrome_f2", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_chrome_f3', 'zone_mq_chrome_f3', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_chrome_f3", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_chrome_lobby', 'zone_mq_chrome_lobby', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_chrome_lobby", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_chrome_roof', 'zone_mq_chrome_roof', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_chrome_roof", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_grocery', 'zone_mq_grocery', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_grocery", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_marquee', 'zone_mq_marquee', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_marquee", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_pigeon_bar', 'zone_mq_pigeon_bar', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_pigeon_bar", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_precinct', 'zone_mq_precinct', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_precinct", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_precinct_bullpen', 'zone_mq_precinct_bullpen', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_precinct_bullpen", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_precinct_lobby', 'zone_mq_precinct_lobby', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_precinct_lobby", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_mq_sump_bar', 'zone_mq_sump_bar', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_mq_sump_bar", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_prod_1782953094650', 'zone_prod_1782953094650', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_prod_1782953094650", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_schd_npc_cassius_drum', 'zone_drum_shop', 'Cassius Drum''s Schedule', 'Cassius Drum''s Schedule
+Second Skin
+
+Mon: 10:00-22:00
+Tue: 10:00-22:00
+Wed: 10:00-22:00
+Thu: 10:00-22:00
+Fri: 10:00-22:00
+Sat: 10:00-22:00
+Sun: 10:00-22:00', '{"vendor_npc_id": "npc_cassius_drum", "vendor_schedule_board": true}', 0, 'lamp', NULL, NULL, 'decoration', NULL, 10, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_safe_sully', 'zone_mq_pigeon_bar', 'Sully''s till-safe', 'A dented floor safe wedged into the cabinet under the back bar, half-hidden behind a crate of empties and a mop that has seen things. The dial is worn smooth from a decade of the same fingers. A strip of duct tape across the top reads, in marker: NOT THE TIP JAR.', '{"vendor_safe": true, "vendor_npc_id": "npc_barkeep", "hack_difficulty": 5}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 600, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt6_light', 'zone_apt_6', 'bulb on a string', 'A single bulb hangs on its own flex from the ceiling, swaying whenever the radiator kicks. It throws more shadow than light.', '{"interactions": ["switch"]}', 1, 'overhead', 10, NULL, 'light', 800, 30, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_start', 'zone_start', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_start", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_threshold', 'zone_threshold', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_threshold", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_thresholdeast', 'zone_thresholdeast', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_thresholdeast", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_ext_1782953094650', 'zone_ext_1782953094650', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_ext_1782953094650", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_util_1782953094650', 'zone_util_1782953094650', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_util_1782953094650", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_velk_basement', 'zone_velk_basement', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_velk_basement", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_velk_shop', 'zone_velk_shop', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_velk_shop", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_pd_terminal', 'zone_apt_1', 'police records terminal', 'A grimy public-access PD kiosk. In theory it files reports. In practice, a good hacker can un-file them.', '{"police_terminal": true}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt6_mattress', 'zone_apt_6', 'stained mattress', 'A mattress on the bare floor, the stains mapped across it like continents. You don''t ask. You just don''t lie face-down.', '{"interactions": ["sit", "lie"]}', 0, NULL, NULL, NULL, 'furniture', NULL, 30, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt5_bed', 'zone_apt_5', 'steel-frame mattress', 'A mattress sagging into a bent steel bedframe, the springs long since given up in the middle. It holds a body. That''s the review.', '{"interactions": ["sit", "lie"]}', 0, NULL, NULL, NULL, 'furniture', NULL, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt7_kitchenette', 'zone_apt_7', 'two-burner kitchenette', 'A strip of counter with two working burners and a scorched gap where a third used to be. The yellow paint above it has cooked to brown.', '{"interactions": []}', 0, NULL, NULL, NULL, 'fixture', NULL, 60, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_chem_lab', 'zone_drum_basement', 'chem lab', 'A scavenged chemistry bench — ring stands, a fume hood that half works, reagent bottles labelled in three languages and a skull. Smells like ambition and poison.', '{"station_quality": "refined", "crafting_station": "chem_lab"}', 0, 'lamp', NULL, NULL, 'appliance', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt7_tub', 'zone_apt_7', 'cast-iron bathtub', 'A clawfoot tub marooned in the middle of the room, because the plumbing never reached the back wall. People have slept in worse. People have slept in this.', '{"interactions": ["sit", "lie"]}', 0, NULL, NULL, NULL, 'furniture', NULL, 80, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt6_radiator', 'zone_apt_6', 'clanking radiator', 'A cast-iron radiator that either roars out heat or sits stone cold — never anything between. It announces each change of mood with a bang like a dropped wrench.', '{"interactions": []}', 0, NULL, NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt7_table', 'zone_apt_7', 'fold-down table', 'A table hinged to the wall, folded down and propped on a single leg. It wobbles under anything heavier than a bottle.', '{"interactions": ["lean"]}', 0, NULL, NULL, NULL, 'furniture', NULL, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt7_light', 'zone_apt_7', 'overhead bulb', 'A bare bulb on a pull-chain. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_studio_1782953094650', 'zone_studio_1782953094650', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_studio_1782953094650", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_meridian_floor_6', 'zone_meridian_floor_6', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_meridian_floor_6", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_meridian_lobby', 'zone_meridian_lobby', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_meridian_lobby", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_residential_lobby', 'zone_residential_lobby', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_residential_lobby", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt5_hotplate', 'zone_apt_5', 'wall hotplate', 'A two-burner hotplate wired straight into the wall socket by someone who didn''t respect electricity. One burner glows. The other waits.', '{"interactions": []}', 0, NULL, NULL, NULL, 'fixture', NULL, 45, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt8_bed', 'zone_apt_8', 'iron-frame bed', 'A real bed with a real frame — a rarity worth the rent by itself. Made up, even, though the blanket still smells of the last tenant''s cigarettes.', '{"interactions": ["sit", "lie"]}', 0, NULL, NULL, NULL, 'furniture', NULL, 90, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt11_cot', 'zone_apt_11', 'narrow cot', 'A cot wedged along the one wall long enough to take it. ''Cozy,'' the corkboard called it. It meant small.', '{"interactions": ["sit", "lie"]}', 0, NULL, NULL, NULL, 'furniture', NULL, 45, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_streetlight_zone_city_south', 'zone_city_south', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_streetlight_velk_1', 'zone_velk_exterior', 'streetlight', 'A tall sodium-vapor streetlight on a graffiti-tagged pole. It clicks on at dusk and off at dawn, assuming the city power holds.', '{"is_light": true, "light_type": "streetlight"}', 0, 'streetlight', NULL, NULL, 'light', NULL, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_streetlight_drum_2', 'zone_drum_exterior', 'streetlight', 'A second streetlight at the far end of the block. Someone has taped a flyer to the base that has since become illegible.', '{"is_light": true, "light_type": "streetlight"}', 0, 'streetlight', NULL, NULL, 'light', NULL, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt10_light', 'zone_apt_10', 'bare bulb', 'A dim bulb under the sloping ceiling, close enough to the roofline to buzz when the wind gets up.', '{"interactions": ["switch"]}', 1, 'overhead', 12, NULL, 'light', 900, 30, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt10_bed', 'zone_apt_10', 'camp bed', 'A canvas camp bed under the low slope of the ceiling. Sit up too fast in the night and you''ll learn exactly where the cornice cuts in.', '{"interactions": ["sit", "lie"]}', 0, NULL, NULL, NULL, 'furniture', NULL, 50, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt9_hook', 'zone_apt_9', 'ceiling hook', 'A steel hook screwed into a joist, once home to a fan, now to nothing. It turns a slow quarter-circle in the draft, as if weighing its options.', '{"interactions": []}', 0, NULL, NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt11_toilet', 'zone_apt_11', 'curtained toilet', 'A toilet in the corner behind a shower curtain on a sagging wire. The curtain is the only thing in the unit anyone bothered to keep clean.', '{"interactions": []}', 0, NULL, NULL, NULL, 'fixture', NULL, 30, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt11_light', 'zone_apt_11', 'overhead bulb', 'A bare bulb on a pull-chain. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt9_light', 'zone_apt_9', 'overhead bulb', 'A bare bulb on a pull-chain, brighter than most — someone up here changed it recently.', '{"interactions": ["switch"]}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt8_light', 'zone_apt_8', 'overhead bulb', 'A bare bulb on a pull-chain. Functional, nothing more.', '{"interactions": ["switch"]}', 1, 'overhead', 20, NULL, 'light', 1200, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt8_chair', 'zone_apt_8', 'overturned chair', 'A wooden chair left on its side by whoever cleared out in a hurry. Set it upright and it''s a seat; leave it and it''s a warning.', '{"interactions": ["sit"]}', 0, NULL, NULL, NULL, 'furniture', NULL, 25, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt9_bed', 'zone_apt_9', 'proper bed', 'An actual bed with an actual headboard, tucked under the window that opens. Clean sheets. The single most civilised object in the Embassy.', '{"interactions": ["sit", "lie"]}', 0, NULL, NULL, NULL, 'furniture', NULL, 110, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt8_candles', 'zone_apt_8', 'ring of candle stubs', 'A circle of melted candle stubs on the floorboards, wax pooled and hardened. Ritual, blackout, or just cheaper than the meter — no way to tell now.', '{"interactions": []}', 0, NULL, NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt10_patch', 'zone_apt_10', 'road-sign patch', 'A hole in the plaster covered by a bent STOP sign screwed over the gap. When it rains you can hear the drip land behind it before it finds the bucket.', '{"interactions": []}', 0, NULL, NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt11_sink', 'zone_apt_11', 'rust-run sink', 'A wall sink that coughs rust for a full minute before the water runs anything like clear. The enamel is worn through to black at the drain.', '{"interactions": []}', 0, NULL, NULL, NULL, 'fixture', NULL, 40, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt10_footlocker', 'zone_apt_10', 'steel footlocker', 'An army footlocker at the foot of the bed, the hasp scarred where a lock used to be. Doubles as the room''s only chair.', '{"interactions": ["sit"]}', 0, NULL, NULL, NULL, 'furniture', NULL, 45, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_apt9_desk', 'zone_apt_9', 'wall-bolted desk', 'A slab of desk bolted flush to the wall so nobody can carry it off. Someone did their thinking here — the surface is ringed with coffee and scored with crossed-out sums.', '{"interactions": ["lean"]}', 0, NULL, NULL, NULL, 'fixture', NULL, 70, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_streetlight_zone_city_sw', 'zone_city_sw', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_sl_zone_powerplantnew', 'zone_powerplantnew', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_generator_coldwater', 'zone_coldwater_turbine_hall', 'coldwater main generator', 'A colossal city-grade turbine generator, its armoured casing streaked with grime and hazard chevrons. Banks of indicator lights stutter across its control face; a heavy sealed hacking port is bolted shut beneath a cracked screen. It ROARS.', '{"destructible": true, "generator_id": "gen_zone_powerplantnew_1782069598190", "requires_demolition": true}', 0, 'lamp', NULL, NULL, 'generator', NULL, 0, 5000, 5000);
+INSERT INTO public.furniture VALUES ('furniture_1782698855727', 'zone_warehouse', 'notice board', 'A thick slab of cork bolted to a sheet of armored steel, repaired so many times it''s become sturdier than the wall behind it. Flyers overlap handwritten notes, official-looking forms, faded family photos, and at least three declarations of eternal vengeance. Someone keeps tidying it every morning, which is either comforting or deeply unsettling.', '{"bulletin": true, "interactions": []}', 0, NULL, 5, NULL, 'furniture', 400, 25, NULL, NULL);
+INSERT INTO public.furniture VALUES ('secdev_pd_zone_residential_lobby_z-1_1782105292491', 'zone_residential_lobby_z-1_1782105292491', 'PD street camera', 'A hardened municipal camera on a tall pole, blue status light steady. A decal reads SPECTER-PD — SMILE.', '{"concealed": false, "device_id": "secdev_pd_zone_residential_lobby_z-1_1782105292491", "security_device": true}', 0, 'lamp', NULL, NULL, 'security_device', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_vendor_safe_juno', 'zone_furniture_store', 'phantom vault', 'A matte-black security enclosure about the size of a microwave oven, bolted directly into the structural concrete behind the counter. The door has no visible seam, no keyway, no biometric reader. The entire face is a single panel of electrochromic glass that cycles between mirror, opaque, and — briefly — translucent, though there is nothing visibly inside when it clears. A holographic lock interface shimmers above the surface: a rotating key rendered in the 8–14nm band, invisible to the naked eye. The frequency shifts every ninety seconds. Etched in the concrete beside it in small, precise letters: PROPERTY OF VENDOR. MONITORED.', '{"vendor_safe": true, "vendor_npc_id": "npc_juno_kael", "hack_difficulty": 5}', 0, 'lamp', NULL, NULL, 'fixture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt2_crate', 'zone_apt_2', 'plastic storage crate', 'A heavy-duty plastic crate — the kind you find in a demolished warehouse — doing duty as a bedside table. A candle stub sits on top of it.', '{"interactions": ["sit", "lean"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 25, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_sl_zone_tunnels', 'zone_tunnels', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_sl_zone_slums', 'zone_slums', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_streetlight_zone_city_west', 'zone_city_west', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_cell_weightbench', 'zone_mq_precinct_holding', 'prison weight bench', 'A slab of a bench welded from scrap rebar and a cracked vinyl pad, bolted to the floor so nobody gets ideas about swinging it. The plates are mismatched chunks of poured concrete on a bent bar, worn smooth by a thousand bored inmates. It is, somehow, the most honest thing in the building.', '{"interactions": ["lie", "lift"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_cell_toilet', 'zone_mq_precinct_holding', 'steel cell toilet', 'A seatless steel toilet-and-basin combo bolted to the cinderblock, scuffed to a dull shine by a decade of reluctant use. No lid, no privacy, no dignity — just cold metal and a slow, resigned trickle.', '{}', 0, 'lamp', NULL, NULL, 'toilet', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_cell_sink', 'zone_mq_precinct_holding', 'stainless cell sink', 'A knuckle-sized stainless basin jutting from the wall above the toilet. One push-button tap coughs out a thin stream of cold water — enough to drink, or to scrub the worst of the night off your hands.', '{"water_source": true}', 0, 'lamp', NULL, NULL, 'sink', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_cell_cot', 'zone_mq_precinct_holding', 'bolted steel cot', 'A steel shelf welded to the wall, topped with a vinyl pad the thickness of a sympathy card. It is not comfortable. It is, technically, a place to lie down until the clock lets you out.', '{"interactions": ["sit", "lie"]}', 0, 'lamp', NULL, NULL, 'furniture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_sl_zone_mq_marquee', 'zone_mq_marquee', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_apt2_hardcase', 'zone_apt_2', 'Nexis biometric hardcase', 'A matte-black composite case the size of a footlocker, its corners scuffed down to bare alloy. A biometric pad glows a patient amber above the seam — jailbroken, by the look of it, the lock light stuttering between green and red. Heavier than it has any right to be.', '{"container": 40000}', 0, 'lamp', NULL, NULL, 'container', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_hero_poster_kiyo', 'zone_apt_1', 'hero poster: KIYO, THE GRID-BREAKER', 'A heavy-stock poster, its edges scorched like it was printed too close to something on fire. Kiyo stands hip-deep in a nest of torn cabling and cracked-open server towers, sleeves shoved past the elbow, a soldering iron in one fist and a length of live wire in the other, sparks hanging frozen around a face that hasn''t slept and doesn''t intend to. Behind him a dead machine is grinding back to life at his say-so. KIYO — HE DOESN''T FIX THE MACHINE. HE MAKES IT AFRAID OF HIM. Stencilled below in service-manual type: "give him ten minutes and a junction box and he''ll hand you a weapon, a bomb, or a way out — his call." A real strand of copper wire is threaded through two punched holes, worried bright by passing thumbs.', '{"poster_key": "kiyo", "hero_poster": true}', 0, 'lamp', NULL, NULL, 'decoration', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_sl_zone_mq_chrome_roof', 'zone_mq_chrome_roof', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_sl_zone_mq_ember', 'zone_mq_ember', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_streetlight_zone_city_ne', 'zone_city_ne', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_1783065860962', 'zone_residential_lobby', 'shoddy television', 'A battered flatscreen bolted to the wall with mismatched screws. The casing is cracked and one corner is held together with duct tape, but the picture still comes through.', '{"tv": true, "interactions": ["watch"], "tv_dial_freq": 7, "broadcast_receiver": true, "broadcast_device_type": "tv"}', 0, NULL, 5, NULL, 'furniture', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_hero_poster_ocelot', 'zone_residential_lobby', 'hero poster: OCELOT, THE SHADOW THAT GUARDS', 'A sleek, expensive-looking poster — someone spent real money on this one. A silhouette crouches on a gargoyle of rebar, eyes rendered as two slit-pupil coins of reflective foil that catch you wherever you stand. OCELOT WATCHES THE STREET SO THE STREET NEVER SLEEPS ALONE. Below, in a smaller, warmer font: "sightings unconfirmed. that''s the point." The foil eyes have been half-peeled by someone who wanted the shiny bit.', '{"poster_key": "ocelot", "hero_poster": true}', 0, 'lamp', NULL, NULL, 'decoration', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_sl_zone_mq_cathode', 'zone_mq_cathode', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_schd_npc_salvage_broker', 'zone_slag_gate', 'Voss Iyaka''s Schedule', 'Voss Iyaka''s Schedule
+Voss''s Weigh Station
+
+Mon: 0:00-24:00
+Tue: 0:00-24:00
+Wed: 0:00-24:00
+Thu: 0:00-24:00
+Fri: 0:00-24:00
+Sat: 0:00-24:00
+Sun: 0:00-24:00', '{"vendor_npc_id": "npc_salvage_broker", "vendor_schedule_board": true}', 0, 'lamp', NULL, NULL, 'decoration', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_hero_poster_alphagunman', 'zone_meridian_lobby', 'hero poster: ALPHAGUNMAN, THE LAST STRAIGHT SHOOTER', 'A high-contrast poster built like a wanted bill turned inside-out — not WANTED but WANTED BACK. A gunfighter stands centred and unhurried against a white noon, coat open, hands empty and loose, because the poster wants you to understand he doesn''t need to reach. ALPHAGUNMAN NEVER FIRED FIRST. HE NEVER HAD TO FIRE SECOND EITHER. The paper is punched clean through by a single old bullet hole, dead centre, which someone has helpfully circled and labelled "exhibit A."', '{"poster_key": "alphagunman", "hero_poster": true}', 0, 'lamp', NULL, NULL, 'decoration', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_hero_poster_stabbz', 'zone_mq_sump_bar', 'hero poster: STABBZ, THE PEOPLE’S SCALPEL', 'A heroic poster in deep arterial reds, the ink already flaking. A lean figure stands astride a heap of the vanquished, a knife raised to a stormbreak sky, its edge catching a light that isn''t in the rest of the picture. THE PEOPLE''S SCALPEL, the banner proclaims, HE CUTS ONLY WHAT NEEDS CUTTING. The fine print at the bottom, tiny and legal, adds: "definition of ''needs'' at the sole discretion of Stabbz." A brown handprint is dried across one corner.', '{"poster_key": "stabbz", "hero_poster": true}', 0, 'lamp', NULL, NULL, 'decoration', NULL, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_sl_zone_thresholdeast', 'zone_thresholdeast', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furniture_streetlight_zone_badland_sw_outer', 'zone_badland_sw_outer', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 200, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_sl_zone_threshold', 'zone_threshold', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_sl_zone_mq_battery', 'zone_mq_battery', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 0, NULL, NULL);
+INSERT INTO public.furniture VALUES ('furn_sl_zone_mq_overpass', 'zone_mq_overpass', 'street lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.', '{}', 0, 'streetlight', 200, NULL, 'light', 8000, 0, NULL, NULL);
+
+
+--
+-- Data for Name: generators; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.generators VALUES ('gen_zone_util_zone_drum_basement_1783116357933', 'zone_util_zone_drum_basement', NULL, 'junction_box', 5000, NULL, 0, 0, 0, 'online', '{}', 'Second Skin — Utility Room — Utility Room Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_mq_pigeon_util', 'zone_mq_pigeon_util', NULL, 'junction_box', 5000, NULL, 0, 0, 0, 'online', '{}', 'The Dead Pigeon Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_mq_grocery_util', 'zone_mq_grocery_util', NULL, 'junction_box', 5000, NULL, 0, 0, 0, 'online', '{}', 'Ration Nine Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 'zone_residential_lobby_z-1_1782105292491', NULL, 'junction_box', 500, NULL, 0, 0, 0, 'online', '{}', 'Embassy Hotel & Bar — Lobby Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_util_zone_meridian_lobby_1783116354849', 'zone_util_zone_meridian_lobby', NULL, 'junction_box', 5000, NULL, 0, 0, 0, 'online', '{}', 'The Meridian - Lobby — Utility Room Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_mq_sump_util', 'zone_mq_sump_util', NULL, 'junction_box', 5000, NULL, 0, 0, 0, 'online', '{}', 'Sump Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_powerplantnew_1782069598190', 'zone_coldwater_turbine_hall', NULL, 'city_plant', 10000, NULL, 0, 0, 0, 'online', '{}', 'City Power Plant', 8344.86, NULL);
+INSERT INTO public.generators VALUES ('gen_zone_mq_amp_util', 'zone_mq_amp_util', NULL, 'junction_box', 5000, NULL, 0, 0, 0, 'online', '{}', 'Ampersand Electronics Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_meridian_lobby_1782925058655', 'zone_meridian_roof', NULL, 'junction_box', 5000, NULL, 0, 0, 0, 'online', '{}', 'The Meridian Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_util_1782953094650_1782953094650', 'zone_util_1782953094650', NULL, 'junction_box', 500, NULL, 0, 0, 0, 'online', '{}', 'KSAB-TV Studio Junction Box', 1.7347235e-17, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_mq_cherry_util', 'zone_mq_cherry_util', NULL, 'junction_box', 5000, NULL, 0, 0, 0, 'online', '{}', 'The Cherry Pit Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_furniture_util', 'zone_furniture_util', NULL, 'junction_box', 5000, NULL, 0, 0, 0, 'online', '{}', 'Dead Space Interiors Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_mq_chrome_util', 'zone_mq_chrome_util', NULL, 'junction_box', 5000, NULL, 0, 0, 0, 'online', '{}', 'Chrome Court Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_util_zone_velk_basement_1783116356678', 'zone_util_zone_velk_basement', NULL, 'junction_box', 5000, NULL, 0, 0, 0, 'online', '{}', 'Velk''s — Utility Room — Utility Room Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_mq_cage_util', 'zone_mq_cage_util', NULL, 'junction_box', 5000, NULL, 0, 0, 0, 'online', '{}', 'The Cage Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_mq_precinct_util', 'zone_mq_precinct_util', NULL, 'junction_box', 5000, NULL, 0, 0, 0, 'online', '{}', 'Precinct 9 Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+INSERT INTO public.generators VALUES ('gen_zone_start_z-1_1782276270002_1782276285855', 'zone_clone_facility_z-1_1782276270002', NULL, 'junction_box', 5000, NULL, 0, 0, 0, 'online', '{}', 'Coldwater Clone Facility Junction Box', 0, 'gen_zone_powerplantnew_1782069598190');
+
+
+--
+-- Data for Name: global_ambient_events; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.global_ambient_events VALUES ('498c7c60-256e-4393-9e61-4bfff9a6d477', 'outdoors', 'Leaves rustle softly nearby.', 1, 0.8, 100);
+INSERT INTO public.global_ambient_events VALUES ('2dd3dddb-11d1-4cd8-9be7-b4ca98de5ae5', 'outdoors', 'A crow caws somewhere overhead.', 1, 1.2, 120);
+INSERT INTO public.global_ambient_events VALUES ('2c2a0e2f-3dcf-4b09-95ef-9e278f4a2f8f', 'outdoors', 'The wind shifts, carrying the smell of smoke from somewhere distant.', 1, 1, 80);
+INSERT INTO public.global_ambient_events VALUES ('d4dad95e-a676-4cab-b8b3-33d5b37b69bf', 'outdoors', 'Something skitters through the underbrush nearby.', 1, 0.8, 90);
+INSERT INTO public.global_ambient_events VALUES ('c0c343a3-b623-45a8-bfa5-f2d62b3a1e3b', 'outdoors', 'A distant dog barks twice and goes quiet.', 1, 1.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('68ff956b-4cd2-497a-8f08-ea1797f1fdd8', 'outdoors', 'A gust of wind sends litter skidding across the ground.', 1, 1, 90);
+INSERT INTO public.global_ambient_events VALUES ('5b7c98dd-8ef4-44f8-b52b-c8e22093ca03', 'outdoors', 'You hear something mechanical grinding, far away.', 1, 1.5, 70);
+INSERT INTO public.global_ambient_events VALUES ('ba896188-0980-4298-a71a-3cf7b1ae21be', 'outdoors', 'The silence stretches long enough to feel deliberate.', 1, 0.5, 60);
+INSERT INTO public.global_ambient_events VALUES ('f061e4f7-fafa-4155-b48d-040ceddb7fa4', 'outdoors', 'A bird takes flight nearby, wings beating hard.', 1, 1, 80);
+INSERT INTO public.global_ambient_events VALUES ('de91bf5c-4c29-43b0-a211-8a4cf479c11d', 'city', 'A distant siren briefly echoes across the city.', 1, 2.5, 100);
+INSERT INTO public.global_ambient_events VALUES ('06e88d06-326c-4521-a0ab-7cbbcf767802', 'city', 'You hear traffic somewhere far away.', 1, 1.5, 100);
+INSERT INTO public.global_ambient_events VALUES ('ef55b7e9-e101-46be-a385-2c2453f22c5f', 'city', 'A door slams shut in a nearby building.', 1, 2, 110);
+INSERT INTO public.global_ambient_events VALUES ('71ee1399-a3dd-43bc-ab62-559e1acf6103', 'city', 'Someone shouts in the distance, then falls silent.', 1, 2, 90);
+INSERT INTO public.global_ambient_events VALUES ('6607e597-0b1d-4975-9a17-d21a22f69d65', 'city', 'A car horn blares several blocks away.', 1, 2.5, 90);
+INSERT INTO public.global_ambient_events VALUES ('7aedbba2-42da-4aa4-b519-192ad0e3f126', 'city', 'Glass breaks somewhere nearby. No one reacts.', 1, 2, 80);
+INSERT INTO public.global_ambient_events VALUES ('58d6cb6d-bfee-4916-a72f-ff248ccfb40d', 'city', 'A helicopter passes overhead, searchlight sweeping.', 1, 2.5, 70);
+INSERT INTO public.global_ambient_events VALUES ('a24534d0-711b-42bb-a5a2-e532dd37f09d', 'city', 'Music thumps from a building somewhere above.', 1, 1.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('4efe7bbc-0fff-4a12-b769-b86e468323b9', 'city', 'You can hear the hiss of a pressurized something releasing nearby.', 1, 1.5, 70);
+INSERT INTO public.global_ambient_events VALUES ('d3521f93-8267-4ef2-90a3-27adc7e0023c', 'city', 'Somewhere close, someone is arguing in a language you don''t recognize.', 1, 2, 80);
+INSERT INTO public.global_ambient_events VALUES ('24c3101b-e4ce-4044-9973-c4ef97da2896', 'city', 'The smell of fried food drifts from somewhere you can''t see.', 1, 0.5, 60);
+INSERT INTO public.global_ambient_events VALUES ('03d9cbda-fb32-4933-a492-a7b7521d4280', 'city', 'A trash can gets knocked over somewhere out of sight.', 1, 2, 80);
+INSERT INTO public.global_ambient_events VALUES ('011a19b7-3349-4584-9d61-1f91745ebef9', 'indoors', 'The building settles with a quiet creak.', 1, 0.8, 100);
+INSERT INTO public.global_ambient_events VALUES ('723fdd93-05c8-49da-b52b-2e7126da47af', 'indoors', 'Somewhere nearby, something metallic clatters before falling silent.', 1, 1.2, 100);
+INSERT INTO public.global_ambient_events VALUES ('706d7e10-581e-4d22-a2fc-eacda2ebed0d', 'indoors', 'You hear muffled footsteps from another room.', 1, 1, 110);
+INSERT INTO public.global_ambient_events VALUES ('725ffdfc-8006-403d-a613-41b8f377f54d', 'indoors', 'An old ventilation fan hums softly.', 1, 0.5, 100);
+INSERT INTO public.global_ambient_events VALUES ('9cb95cd9-97df-4185-bcf6-897a1e76f548', 'indoors', 'A faint drip echoes somewhere out of sight.', 1, 0.5, 90);
+INSERT INTO public.global_ambient_events VALUES ('0deb58bf-106b-48a1-84ff-7ef147f9e444', 'indoors', 'The fluorescent lights buzz and flicker briefly.', 1, 0.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('d4488542-2fe2-4ce7-8f56-24106ac0d0b2', 'indoors', 'A door opens and closes somewhere above you.', 1, 1.2, 80);
+INSERT INTO public.global_ambient_events VALUES ('b45ab1db-0477-413f-9bd2-b4ad177f0c9d', 'indoors', 'You catch a brief, sharp smell — antiseptic or chemicals.', 1, 0.3, 60);
+INSERT INTO public.global_ambient_events VALUES ('a69e9a24-0872-49fc-b731-e1fea1a23820', 'indoors', 'Pipes in the wall groan and tick as something moves through them.', 1, 0.8, 90);
+INSERT INTO public.global_ambient_events VALUES ('e0423f57-ff4e-4d5f-9514-df5fabc1eb77', 'indoors', 'A phone rings distantly and isn''t answered.', 1, 1, 70);
+INSERT INTO public.global_ambient_events VALUES ('bdc3a88f-8628-42c7-8a70-0c6f3a587180', 'indoors', 'Something scurries behind the walls.', 1, 0.8, 100);
+INSERT INTO public.global_ambient_events VALUES ('833cd4ad-a568-4196-89bd-04bbb6880481', 'indoors', 'A distant hum that you can feel more than hear.', 1, 0.3, 70);
+INSERT INTO public.global_ambient_events VALUES ('64101204-04dd-46ff-8115-711ba0bb3756', 'industrial', 'Heavy machinery drones somewhere beyond the walls.', 1, 2, 100);
+INSERT INTO public.global_ambient_events VALUES ('77938a56-23d9-4512-81c2-fb6f157fd304', 'industrial', 'A pressure valve releases with a sharp hiss.', 1, 2.5, 90);
+INSERT INTO public.global_ambient_events VALUES ('dc7f7249-2cd3-4da5-b96b-d82db859ab65', 'industrial', 'Metal impacts metal — a rhythmic hammering from deeper inside.', 1, 2, 100);
+INSERT INTO public.global_ambient_events VALUES ('cedf448c-955d-4257-a933-452f6891cf3d', 'industrial', 'Something large shifts overhead. Structural, probably.', 1, 1.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('66866461-9175-48a0-8f98-92793f188f24', 'industrial', 'Sparks cascade briefly from a junction box across the room.', 1, 1, 80);
+INSERT INTO public.global_ambient_events VALUES ('ab0f9d3a-e949-4fa2-9f67-72d6d2afd51f', 'industrial', 'A conveyor belt squeals and then stops.', 1, 1.5, 70);
+INSERT INTO public.global_ambient_events VALUES ('1ccaaa9e-feee-4bde-af3e-f5bc230c1349', 'industrial', 'Coolant or fluid drips from overhead piping into a spreading puddle.', 1, 0.8, 80);
+INSERT INTO public.global_ambient_events VALUES ('674eca47-8abe-434d-a022-18adc1dce301', 'industrial', 'Warning lights pulse orange through a distant corridor.', 1, 0.5, 70);
+INSERT INTO public.global_ambient_events VALUES ('a49e49d0-db68-49b7-8f6e-8c024730d7fb', 'industrial', 'An alarm sounds briefly, three notes, then cuts off.', 1, 3, 60);
+INSERT INTO public.global_ambient_events VALUES ('088c335c-c5e9-4b9b-ac05-f82fdf1d47f1', 'industrial', 'You can feel vibration in the floor from something enormous running below.', 1, 0.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('812fa6cf-59e4-401d-abee-55dcf837fc2a', 'underground', 'Water drips in the darkness ahead.', 1, 0.5, 100);
+INSERT INTO public.global_ambient_events VALUES ('9699f206-2093-4c4e-9596-f1dea26df84b', 'underground', 'The walls carry a low rumble — the surface world, distant.', 1, 0.8, 90);
+INSERT INTO public.global_ambient_events VALUES ('783dab7c-4e12-49cf-925b-224cc7bc2220', 'underground', 'Something shifts in the rock above. The ceiling holds.', 1, 1, 80);
+INSERT INTO public.global_ambient_events VALUES ('49906fd3-8f2c-4e53-92a9-86100c7ab2b5', 'underground', 'A colony of insects moves somewhere nearby, just out of sight.', 1, 0.5, 90);
+INSERT INTO public.global_ambient_events VALUES ('70fb3f89-c427-4120-a4df-021f372283d3', 'underground', 'Your own breathing sounds too loud down here.', 1, 0.3, 70);
+INSERT INTO public.global_ambient_events VALUES ('7c516251-3bfa-4553-9d36-c34b8cda282c', 'underground', 'The air pressure shifts, as if something large moved far away.', 1, 0.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('7f33c3e0-5ee3-4fbd-b0b5-0db50a31d014', 'underground', 'A slow grinding noise rolls through the stone, then fades.', 1, 1.5, 70);
+INSERT INTO public.global_ambient_events VALUES ('d78a6c96-1d0b-4210-9485-1b951eb25d06', 'underground', 'The darkness ahead seems to shift, though you can''t tell why.', 1, 0.3, 60);
+INSERT INTO public.global_ambient_events VALUES ('126bb65b-9e87-454b-b395-8689824032e7', 'underground', 'Something brushes past overhead in the dark — wings, maybe.', 1, 1, 80);
+INSERT INTO public.global_ambient_events VALUES ('20912278-dceb-41e1-b8bc-7f509f84838f', 'underground', 'The smell changes: mineral, damp, old.', 1, 0.3, 70);
+INSERT INTO public.global_ambient_events VALUES ('979ab383-ac02-4d08-ba64-edc06b1a0c31', 'waterfront', 'Waves lap against something nearby.', 1, 0.8, 100);
+INSERT INTO public.global_ambient_events VALUES ('67108fc4-b569-42b4-968c-44be261f517c', 'waterfront', 'A buoy bell clanks irregularly with the water.', 1, 1.2, 90);
+INSERT INTO public.global_ambient_events VALUES ('241aadd2-3e78-4b21-af56-4f39a59bde3b', 'waterfront', 'Seabirds argue somewhere overhead.', 1, 1.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('11f0c392-33bd-43e6-97a6-a30e4d83f60e', 'waterfront', 'A foghorn sounds in the distance — long and hollow.', 1, 3, 80);
+INSERT INTO public.global_ambient_events VALUES ('8e7b4017-b221-4c6b-8a24-6a5fd19729a4', 'waterfront', 'The smell of salt and diesel drifts past.', 1, 0.3, 70);
+INSERT INTO public.global_ambient_events VALUES ('538b4098-abc8-48af-bb60-e593422fcd73', 'waterfront', 'A chain drags across concrete somewhere nearby.', 1, 1.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('461c128f-baee-428f-97b7-db9ee45d75f7', 'waterfront', 'A boat engine starts up and idles, then throttles away.', 1, 2.5, 70);
+INSERT INTO public.global_ambient_events VALUES ('eb4f88c6-5433-4fab-83e9-8e899b96aa14', 'waterfront', 'Something large surfaces briefly in the water nearby and sinks.', 1, 1, 60);
+INSERT INTO public.global_ambient_events VALUES ('b2a241ff-2322-4f1e-969b-524b4269f2e5', 'waterfront', 'Cargo shifts in a container somewhere close with a dull boom.', 1, 2, 70);
+INSERT INTO public.global_ambient_events VALUES ('42bb960a-af1d-404f-9a7c-c483a16311ad', 'forest', 'A branch snaps somewhere in the treeline.', 1, 1.5, 100);
+INSERT INTO public.global_ambient_events VALUES ('765ea4fe-2f31-4d0f-b1f4-afa2a48b17a6', 'forest', 'Birds fall quiet all at once. Then, slowly, start again.', 1, 0.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('24b3ca46-6347-4459-a24b-8f1c1d55a3b8', 'forest', 'The undergrowth moves nearby. Too large for a small animal.', 1, 1.5, 90);
+INSERT INTO public.global_ambient_events VALUES ('4647f69a-f171-4eee-8f56-eb6776b8e50a', 'forest', 'Wind moves through the canopy above like a long exhale.', 1, 0.8, 100);
+INSERT INTO public.global_ambient_events VALUES ('c1d5d4c6-b010-4fcb-9d70-57b92aeb267c', 'forest', 'Something calls from deeper in — it doesn''t sound like any animal you know.', 1, 1.5, 70);
+INSERT INTO public.global_ambient_events VALUES ('ff887318-73c3-45c3-ab00-151041a160bb', 'forest', 'An insect lands on you and is gone before you can look.', 1, 0.3, 70);
+INSERT INTO public.global_ambient_events VALUES ('7a772b9b-554e-4345-9e46-a8143a9bbc72', 'forest', 'Leaves overhead filter the light into shifting patterns.', 1, 0.3, 60);
+INSERT INTO public.global_ambient_events VALUES ('9441bf38-04de-4cd9-acee-aea6655ff8bd', 'forest', 'The forest has a smell here: rot and growth, inseparable.', 1, 0.3, 60);
+INSERT INTO public.global_ambient_events VALUES ('a1c61cf6-7e21-40c9-af64-8c8f6496fc11', 'forest', 'Something large watches from the treeline. You can''t prove it.', 1, 0.5, 70);
+INSERT INTO public.global_ambient_events VALUES ('7c51b45e-b398-45ba-a0fc-c8b76e7258d4', 'ruins', 'A section of ceiling crumbles nearby, raining dust.', 1, 1.5, 100);
+INSERT INTO public.global_ambient_events VALUES ('fc08c11a-c3d9-48a1-8750-727459e96b0f', 'ruins', 'Wind moves through collapsed walls with a low moan.', 1, 1, 100);
+INSERT INTO public.global_ambient_events VALUES ('a8383382-cc2d-46ce-9a46-07b3b4b7f13c', 'ruins', 'Old newspaper or debris skitters across the floor.', 1, 0.8, 90);
+INSERT INTO public.global_ambient_events VALUES ('4e0346fe-6c19-475e-aac8-396688c8aba7', 'ruins', 'A structure somewhere close shifts and settles.', 1, 2, 80);
+INSERT INTO public.global_ambient_events VALUES ('001f9968-ae1e-43ac-90b3-70f0f7cb22f6', 'ruins', 'The floor is uneven here — evidence of something that happened below.', 1, 0.3, 70);
+INSERT INTO public.global_ambient_events VALUES ('d3365b4c-4bb2-48f2-ad1d-2fea713fc9fa', 'ruins', 'Broken glass grinds underfoot somewhere nearby.', 1, 1, 80);
+INSERT INTO public.global_ambient_events VALUES ('1e235821-71e4-40e2-b48f-df114fe810c0', 'ruins', 'Exposed rebar has rusted into the color of dried blood.', 1, 0.3, 60);
+INSERT INTO public.global_ambient_events VALUES ('90be81b6-1ba2-4dbe-8103-dedba6835d2e', 'ruins', 'Something has been nesting here. Whatever it was, it left recently.', 1, 0.5, 70);
+INSERT INTO public.global_ambient_events VALUES ('70adcef6-39da-4557-b59c-699b87ea8c67', 'ruins', 'Graffiti covers the walls in multiple layers. The oldest is illegible.', 1, 0.3, 60);
+INSERT INTO public.global_ambient_events VALUES ('0535f377-1acb-4f5a-8e9f-9f790cb00d2b', 'commercial', 'A PA system crackles somewhere — no words, just static.', 1, 1.5, 90);
+INSERT INTO public.global_ambient_events VALUES ('effc7441-8c84-40a2-9295-9a64b769b242', 'commercial', 'Muzak leaks from a vent above. The song is unidentifiable and wrong.', 1, 0.8, 80);
+INSERT INTO public.global_ambient_events VALUES ('c0fb6a5c-8d3e-4de7-99f2-a113d2d05c96', 'commercial', 'A security camera tracks slowly across the space.', 1, 0.3, 70);
+INSERT INTO public.global_ambient_events VALUES ('2cc944ad-4903-44f1-8ad4-ed9799af5be3', 'commercial', 'Automatic doors open and close for no one somewhere nearby.', 1, 1.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('ea15e959-1440-4591-8406-0aed1fa251e2', 'commercial', 'A cash register drawer slides open and shut.', 1, 1, 70);
+INSERT INTO public.global_ambient_events VALUES ('cd75997b-34cc-4c1c-beb8-08e69d1c68ea', 'commercial', 'Refrigeration units hum behind locked staff doors.', 1, 0.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('f4f46b17-7e86-42bb-ae31-10ddb76593cf', 'commercial', 'Something on a shelf falls over. Nothing else moves.', 1, 1.2, 90);
+INSERT INTO public.global_ambient_events VALUES ('f88c0c68-9255-4323-864d-62c3af8889f1', 'commercial', 'The floor wax is cracked here. No one has maintained this in a while.', 1, 0.3, 60);
+INSERT INTO public.global_ambient_events VALUES ('935b19fa-f3af-432c-9a37-8202a91f0b92', 'residential', 'Someone coughs in a nearby unit.', 1, 0.8, 100);
+INSERT INTO public.global_ambient_events VALUES ('bd43d0f4-013b-4f4d-befb-1479e2cc4fdb', 'residential', 'A TV plays through a wall — voices, then laughter, then silence.', 1, 1, 100);
+INSERT INTO public.global_ambient_events VALUES ('addfc51c-b385-4cfa-a438-ddb3ac8770f6', 'residential', 'A baby cries briefly and is hushed.', 1, 1.2, 90);
+INSERT INTO public.global_ambient_events VALUES ('42d0e012-095c-46aa-a560-2f526e4e42ae', 'residential', 'Cooking smells drift under a door somewhere close.', 1, 0.3, 70);
+INSERT INTO public.global_ambient_events VALUES ('298af276-4540-4b09-960f-07c64b4e1ce0', 'residential', 'Upstairs, someone paces back and forth.', 1, 0.8, 90);
+INSERT INTO public.global_ambient_events VALUES ('ce590a20-74ce-4990-bb61-422bc63b1800', 'residential', 'A toilet flushes in a nearby unit.', 1, 1, 80);
+INSERT INTO public.global_ambient_events VALUES ('37e4248b-8b0a-4eae-80f3-01c216a97979', 'residential', 'An argument bleeds through the walls — low, tense, unresolved.', 1, 1, 80);
+INSERT INTO public.global_ambient_events VALUES ('0edaabd0-8abd-4f8b-95cc-943d09118191', 'residential', 'A dog scratches at a door and whines quietly.', 1, 0.8, 80);
+INSERT INTO public.global_ambient_events VALUES ('7835a784-752c-46d6-8b10-847cb59f6fed', 'residential', 'Keys jangle outside. Whoever it was, they moved on.', 1, 1, 70);
+INSERT INTO public.global_ambient_events VALUES ('2fba62f9-69ac-4380-94d7-285c949274c9', 'residential', 'The building''s heating ticks and pops as temperature shifts.', 1, 0.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('37451184-fa7a-40cc-a249-6f26c055ab54', 'city', 'A burst of static from a radio or speaker crackles nearby.', 1, 1.5, 90);
+INSERT INTO public.global_ambient_events VALUES ('15521f00-ed1f-4cfd-9734-c2223b1c5954', 'weather_rain', 'Rain hammers the street in shifting curtains.', 1, 1.2, 100);
+INSERT INTO public.global_ambient_events VALUES ('6109045b-25ec-4490-803a-5318a37dd5b4', 'weather_rain', 'Water rushes through a clogged gutter somewhere nearby.', 1, 0.8, 90);
+INSERT INTO public.global_ambient_events VALUES ('64d066ef-583d-42c2-9c48-a6204cd5fff7', 'weather_rain', 'The rain intensifies briefly, then eases back.', 1, 1, 100);
+INSERT INTO public.global_ambient_events VALUES ('56fd50bf-50ec-4254-b219-e5bccad9e4b2', 'weather_rain', 'Rainwater streams off an overhang in a heavy silver sheet.', 1, 0.8, 90);
+INSERT INTO public.global_ambient_events VALUES ('9ebec46a-1cce-408e-bfde-94b5664bd982', 'weather_rain', 'Puddles spread across the pavement, joining and dividing.', 1, 0.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('2807b5fe-801d-41e4-a7dd-c9c199843d14', 'weather_rain', 'A drain somewhere gurgles as it struggles to keep up.', 1, 0.8, 90);
+INSERT INTO public.global_ambient_events VALUES ('956ffcb5-76f9-447f-a287-7f6ddad36218', 'weather_rain', 'The smell of wet concrete and rust hangs in the air.', 1, 0.3, 70);
+INSERT INTO public.global_ambient_events VALUES ('0c9b333c-a2e4-41b4-86af-a4c7cfff046e', 'weather_sleet', 'Ice pellets ping off metal surfaces in erratic bursts.', 1, 1, 100);
+INSERT INTO public.global_ambient_events VALUES ('78326399-aeae-4c99-901b-c391a2ab0326', 'weather_sleet', 'Sleet hisses against every hard surface.', 1, 1, 100);
+INSERT INTO public.global_ambient_events VALUES ('5c401b71-1103-421a-ab39-b0a8af9a32b9', 'weather_sleet', 'The ground is treacherous — a thin skim of ice over everything.', 1, 0.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('95ead6cc-645f-47ac-bdb6-5fc28d903a04', 'weather_sleet', 'A bitter wind drives the sleet sideways.', 1, 1.2, 90);
+INSERT INTO public.global_ambient_events VALUES ('863c9d2e-7935-454b-9d43-3b9a3613b293', 'weather_sleet', 'Sleet taps against every surface like bad static.', 1, 0.8, 90);
+INSERT INTO public.global_ambient_events VALUES ('0b484848-0183-4573-976f-6a10feaf359f', 'weather_thunderstorm', 'Thunder rolls across the sky, close enough to feel.', 1, 3, 100);
+INSERT INTO public.global_ambient_events VALUES ('a0bd6fae-da8b-49eb-bbd2-f37df750a575', 'weather_thunderstorm', 'Lightning strobes through the clouds, throwing everything into sharp relief.', 1, 1.5, 100);
+INSERT INTO public.global_ambient_events VALUES ('f76081b0-71d9-4e74-bb12-f5594ba84868', 'weather_thunderstorm', 'A crack of thunder shakes the air — that one was close.', 1, 3.5, 90);
+INSERT INTO public.global_ambient_events VALUES ('32f678c8-9ee2-4912-9164-093c520aabc2', 'weather_thunderstorm', 'Rain hammers everything flat.', 1, 2, 100);
+INSERT INTO public.global_ambient_events VALUES ('fbf4efb0-a27d-4f14-a675-3ac0f77ac98e', 'weather_thunderstorm', 'Lightning hits something nearby with a sharp crack and a flash.', 1, 3, 80);
+INSERT INTO public.global_ambient_events VALUES ('d49237f5-650c-44d9-94c1-9680fccf1eb8', 'weather_thunderstorm', 'Thunder rolls through in a long, grinding wave.', 1, 3, 90);
+INSERT INTO public.global_ambient_events VALUES ('b7940578-4d67-442d-beb5-9e0479416ba0', 'weather_thunderstorm', 'The storm flares white for a second, and for a moment everything casts a shadow.', 1, 1.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('c341828d-8a42-4a63-8f40-8edc66c9c407', 'weather_storm', 'Wind screams between the buildings, finding every gap.', 1, 2.5, 100);
+INSERT INTO public.global_ambient_events VALUES ('3ddee0ba-47f6-48bb-a3ae-81d2c5760334', 'weather_storm', 'Something large gets picked up by the wind and slams into a wall.', 1, 3, 90);
+INSERT INTO public.global_ambient_events VALUES ('a3941767-461d-46e6-b399-e076af3247d5', 'weather_storm', 'A sheet of corrugated metal tears loose somewhere and clatters away.', 1, 2.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('df77394e-5a4d-494a-8cfb-6f03ea60428f', 'weather_storm', 'The wind drops for a second, then slams back twice as hard.', 1, 2, 90);
+INSERT INTO public.global_ambient_events VALUES ('2fa6bd50-05db-4931-adb6-347b13340354', 'weather_storm', 'Debris skitters across the ground in sudden, sharp rushes.', 1, 1.5, 90);
+INSERT INTO public.global_ambient_events VALUES ('94864f9a-4bee-48d4-a9e1-1cc5cf3a5fcc', 'weather_storm', 'A sign rips free overhead and vanishes into the dark.', 1, 2, 80);
+INSERT INTO public.global_ambient_events VALUES ('9190327e-6d36-4c44-8db8-273c8fb4f64d', 'weather_storm', 'The wind makes the structures groan.', 1, 1.5, 90);
+INSERT INTO public.global_ambient_events VALUES ('4fc0de03-bebd-4d19-b1c7-19dda167baeb', 'weather_snow', 'Snow falls in thick, slow flakes. Everything goes quiet.', 1, 0.5, 100);
+INSERT INTO public.global_ambient_events VALUES ('97283b80-58d6-4e8e-8db8-dcb87b0e7684', 'weather_snow', 'A heavy drift slides off a roof somewhere above and hits the ground.', 1, 1.5, 90);
+INSERT INTO public.global_ambient_events VALUES ('0b0a655d-35e3-461a-b4fb-05f936ebd646', 'weather_snow', 'Snow muffles the city into something almost peaceful. Almost.', 1, 0.3, 80);
+INSERT INTO public.global_ambient_events VALUES ('25598cbd-5dd5-4b84-b87c-43b62a934e75', 'weather_snow', 'Footprints in the snow nearby, filling in fast.', 1, 0.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('89a14897-d7a3-4931-92ce-fd29a188dbe7', 'weather_snow', 'Somewhere, a structure groans under the weight of accumulation.', 1, 1.2, 80);
+INSERT INTO public.global_ambient_events VALUES ('e2d2756d-8c89-4820-9013-1888c874d7c6', 'weather_snow', 'Snow hisses softly against every surface.', 1, 0.5, 90);
+INSERT INTO public.global_ambient_events VALUES ('faf8629f-e1ee-4d8f-8f80-d3ea05dedbd9', 'weather_blizzard', 'The blizzard whips snow into a horizontal wall of white.', 1, 2.5, 100);
+INSERT INTO public.global_ambient_events VALUES ('77902823-f8c8-4e55-b19d-dfaa7459b6b9', 'weather_blizzard', 'Wind howls through every gap and crevice.', 1, 2.5, 100);
+INSERT INTO public.global_ambient_events VALUES ('264c6a7b-b692-45fc-a2b8-3bebd842edfe', 'weather_blizzard', 'Visibility is nearly nothing. You''re navigating by feel.', 1, 0.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('151eedf2-df0a-4f8d-8ccb-f33284647f0f', 'weather_blizzard', 'The cold cuts straight through everything.', 1, 0.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('22c67c1e-6aed-404f-8fd3-29ec9f514270', 'weather_blizzard', 'Drifts are forming fast — in an hour this will be impassable.', 1, 0.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('76aaffe6-c3f1-4e15-882f-7c613c770a78', 'weather_blizzard', 'A gust hits like a wall. It takes effort to stay upright.', 1, 2, 90);
+INSERT INTO public.global_ambient_events VALUES ('787a8384-a6f7-4af9-a4d0-add715cec4f4', 'weather_fog', 'Sound carries strangely in the fog — distant things seem close.', 1, 0.8, 100);
+INSERT INTO public.global_ambient_events VALUES ('87004140-ebe6-4f23-abec-903e6a963596', 'weather_fog', 'The fog is thick enough to taste.', 1, 0.3, 100);
+INSERT INTO public.global_ambient_events VALUES ('f153cf0f-3241-42a0-bc26-e1d40c7eb7bf', 'weather_fog', 'Shapes in the fog resolve into buildings only when you''re almost on top of them.', 1, 0.3, 80);
+INSERT INTO public.global_ambient_events VALUES ('9a9374f5-7ee3-4100-9aa2-6a61691d6e5b', 'weather_fog', 'A foghorn sounds somewhere in the grey — direction impossible to pin.', 1, 2.5, 80);
+INSERT INTO public.global_ambient_events VALUES ('84da183e-b2b3-4cd7-9f46-386588e04692', 'weather_fog', 'Moisture condenses on every surface. Everything drips slowly.', 1, 0.5, 90);
+INSERT INTO public.global_ambient_events VALUES ('958f96fc-3c82-43c8-a168-ae66b5664973', 'weather_fog', 'Footsteps you can''t see echo from somewhere in the fog.', 1, 1, 80);
+INSERT INTO public.global_ambient_events VALUES ('7762f2e4-6824-492b-8058-3673375d7a9c', 'weather_haze', 'The air tastes like metal and chemicals.', 1, 0.3, 100);
+INSERT INTO public.global_ambient_events VALUES ('38c761c7-320c-49b7-adf2-62eb1a69aadd', 'weather_haze', 'Your eyes water. It''s been worse before, but not by much.', 1, 0.3, 100);
+INSERT INTO public.global_ambient_events VALUES ('2617c5e6-5959-42e1-bb00-d131f5e8ebc8', 'weather_haze', 'The haze gives everything a sickly orange tint.', 1, 0.3, 80);
+INSERT INTO public.global_ambient_events VALUES ('512259c0-0e89-4c35-b0c6-0272cbe80524', 'weather_haze', 'Breathing feels faintly wrong, like the air is slightly off.', 1, 0.3, 90);
+INSERT INTO public.global_ambient_events VALUES ('bbff51ff-35ba-4cd0-ad29-ffb04f89977b', 'weather_haze', 'The horizon has vanished into a flat brown smear.', 1, 0.3, 80);
+INSERT INTO public.global_ambient_events VALUES ('d58668a7-667f-491e-84dd-29ec42e807e1', 'weather_ash', 'Ash drifts down like grey snow, coating every surface.', 1, 0.5, 100);
+INSERT INTO public.global_ambient_events VALUES ('d75501e4-4a02-4272-92ae-9d76bfed0163', 'weather_ash', 'The air smells of sulfur and something burnt — organic, maybe.', 1, 0.3, 100);
+INSERT INTO public.global_ambient_events VALUES ('2f7350cc-3594-4f88-b58d-79dea3a7bbf2', 'weather_ash', 'Ash settles on your skin. It''s fine and dry and smells wrong.', 1, 0.3, 90);
+INSERT INTO public.global_ambient_events VALUES ('86cc3d4c-6f5b-4eb6-9a40-a76c8d029e40', 'weather_ash', 'A thick layer of ash muffles footsteps, coats the ground grey.', 1, 0.5, 90);
+INSERT INTO public.global_ambient_events VALUES ('c128756c-cb82-4362-a0c9-eba2fe2eb496', 'weather_ash', 'Something is still burning, somewhere upwind.', 1, 1, 80);
+INSERT INTO public.global_ambient_events VALUES ('bbd3cdf7-9426-49e6-b864-66a3240845a1', 'weather_ash', 'The sky is the color of a dead monitor.', 1, 0.3, 80);
+
+
+--
+-- Data for Name: items; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.items VALUES ('item_furn_sleep_pod', 'sleep pod', 'A coffin-shaped enclosure of brushed titanium with a frosted acrylic lid, climate-controlled and REM-monitored.', 'furniture', NULL, 60000, 6500, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["lie"]}', '{"description": "A coffin-shaped enclosure of brushed titanium with a frosted acrylic lid, climate-controlled and REM-monitored."}');
+INSERT INTO public.items VALUES ('item_nyra_tattoo_neural', 'neural interface tattoo', NULL, 'implant', NULL, 0, 2200, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "accessory", "bulkiness": 0, "insulation": 0, "description": "A thin glowing circuit-like pattern running up one wrist and forearm. It fades under clothing, suggesting deeper system integration beneath the skin."}');
+INSERT INTO public.items VALUES ('item_khole', 'k-hole', 'A dissociative dust that unplugs you from your own body for a while.', 'consumable', 'drug', 20, 180, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_furn_diner_booth', 'diner booth', 'Vinyl bench seat and a laminate table in a faded checkerboard pattern. A design from 2019 preserved through sheer indifference.', 'furniture', NULL, 22000, 650, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["sit"]}', '{"description": "Vinyl bench seat and a laminate table in a faded checkerboard pattern. A design from 2019 preserved through sheer indifference."}');
+INSERT INTO public.items VALUES ('item_water_bottle', 'filtered water', 'Aggressively filtered water.', 'consumable', 'drink', 500, 5, 1, 0, 0, '{"thirst": 40}', '{}', '{}', '{}', '{"hydrating": true, "stackable": true, "consumable": true, "description": "Aggressively filtered water.", "restore_thirst": 40}');
+INSERT INTO public.items VALUES ('item_nyra_bra_nanomesh', 'seamless nano-weave bra', NULL, 'clothing', NULL, 90, 160, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "layer": "underwear", "bulkiness": 1, "insulation": 0, "description": "A minimal, seamless underlayer designed for support and stabilization during high-mobility movement. Built from soft nano-fiber mesh that adapts to heat and pressure, remaining invisible under outerwear."}');
+INSERT INTO public.items VALUES ('item_scrap_metal', 'scrap metal', 'Bent rebar and sheet aluminum.', NULL, 'metal', 200, 2, 1, 0, 0, '{}', '{}', '{}', '{}', '{"material": true, "description": "Bent rebar and sheet aluminum."}');
+INSERT INTO public.items VALUES ('item_overclock', 'neural overclock', 'A lace-booster that runs your wetware past the red line. Smoke may be metaphorical.', 'consumable', 'drug', 20, 350, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('canteen', 'canteen', NULL, 'misc', NULL, 150, 0, 0, 0, 0, '{}', '{}', '{}', '{}', '{"fillable": 100, "description": "A dented metal canteen with a screw-top lid, trusted by generations of survivors to keep water only slightly less questionable than the source it came from."}');
+INSERT INTO public.items VALUES ('item_furn_mil_surplus_cot', 'surplus cot', 'Military-issue folding cot from a conflict that ended badly. Smells like three previous people.', 'furniture', NULL, 4000, 95, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["sit", "lie"]}', '{"description": "Military-issue folding cot from a conflict that ended badly. Smells like three previous people."}');
+INSERT INTO public.items VALUES ('item_ration', 'vacuum ration', 'Pre-Handoff emergency ration. Flavor: SAVORY.', 'consumable', 'food', 300, 8, 1, 0, 0, '{"hunger": 25}', '{}', '{}', '{}', '{"well_fed": true, "stackable": true, "consumable": true, "description": "Pre-Handoff emergency ration. Flavor: SAVORY.", "restore_hunger": 25}');
+INSERT INTO public.items VALUES ('item_furn_pneumatic_stool', 'pneumatic lab stool', 'A chrome-and-rubber height-adjustable stool, the kind found in clinical spaces from clinics to interrogation rooms.', 'furniture', NULL, 5000, 320, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["sit"]}', '{"description": "A chrome-and-rubber height-adjustable stool, the kind found in clinical spaces from clinics to interrogation rooms."}');
+INSERT INTO public.items VALUES ('item_nyra_briefs_adaptive', 'adaptive bio-regulating briefs', NULL, 'clothing', NULL, 75, 130, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "layer": "underwear", "bulkiness": 1, "insulation": 0, "description": "Lightweight, breathable undergarments engineered for comfort and temperature regulation. The material adjusts to movement and humidity, designed for long-term wear in dense urban environments."}');
+INSERT INTO public.items VALUES ('item_furn_corpcore_bench', 'corp-issue bench', 'Stamped aluminium, no back support, uncomfortable by design. A small pressure sensor on the seat surface logs duration of occupancy.', 'furniture', NULL, 12000, 180, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["sit"]}', '{"description": "Stamped aluminium, no back support, uncomfortable by design. A small pressure sensor on the seat surface logs duration of occupancy."}');
+INSERT INTO public.items VALUES ('item_furn_haptic_throne', 'haptic executive throne', 'A massive contoured chair upholstered in self-healing polymer leather. Micro-actuators shift beneath you constantly, reading your weight distribution and adjusting lumbar support in real-time.', 'furniture', NULL, 28000, 4800, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["sit"]}', '{"description": "A massive contoured chair upholstered in self-healing polymer leather. Micro-actuators shift beneath you constantly, reading your weight distribution and adjusting lumbar support in real-time."}');
+INSERT INTO public.items VALUES ('item_furn_neural_couch', 'neural interface couch', 'Long enough to lie flat in, upholstered in smart-foam that tracks your body temperature. Three data ports run along the headrest.', 'furniture', NULL, 35000, 3200, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["sit", "lie"]}', '{"description": "Long enough to lie flat in, upholstered in smart-foam that tracks your body temperature. Three data ports run along the headrest."}');
+INSERT INTO public.items VALUES ('item_furn_pipe_railing', 'pipe railing', 'A length of galvanised steel pipe for bolting along a wall at hip height. The welds are lumpy and oxidised. It holds.', 'furniture', NULL, 6000, 75, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["lean"]}', '{"description": "A length of galvanised steel pipe for bolting along a wall at hip height. The welds are lumpy and oxidised. It holds."}');
+INSERT INTO public.items VALUES ('item_voidwalk', 'voidwalk', 'A designer dissociative that drops you into the static between channels.', 'consumable', 'drug', 20, 300, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_furn_barstool_wreck', 'wobbly barstool', 'Three legs when it started life. Now two and a half, bridged by industrial epoxy. The seat rotates freely in both directions.', 'furniture', NULL, 3000, 60, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["sit"]}', '{"description": "Three legs when it started life. Now two and a half, bridged by industrial epoxy. The seat rotates freely in both directions."}');
+INSERT INTO public.items VALUES ('item_depleted_battery', 'depleted battery', 'A heavy industrial cell, mostly dead. Trace charge left — and the casing alone is worth hauling.', 'misc', NULL, 400, 15, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A heavy industrial cell, mostly dead. Trace charge left — and the casing alone is worth hauling."}');
+INSERT INTO public.items VALUES ('item_cracked_circuit', 'cracked circuit board', 'A scorched circuit board with a hairline crack across it. A few components might still be salvageable.', 'misc', NULL, 150, 12, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A scorched circuit board with a hairline crack across it. A few components might still be salvageable."}');
+INSERT INTO public.items VALUES ('item_tangled_wire', 'tangled wire', 'A fist-sized snarl of copper wire, half its insulation cracked away. Worth untangling.', 'misc', NULL, 200, 4, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A fist-sized snarl of copper wire, half its insulation cracked away. Worth untangling."}');
+INSERT INTO public.items VALUES ('item_furn_holo_projector', 'ghost screen TV', 'A hovering display unit kept aloft by a low-power gravity field. The projection leans three degrees left. The patch bricked the others.', 'furniture', NULL, 3000, 4100, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["watch"]}', '{"description": "A hovering display unit kept aloft by a low-power gravity field. The projection leans three degrees left. The patch bricked the others."}');
+INSERT INTO public.items VALUES ('item_furn_payphone_husk', 'dead payphone', 'A payphone booth stripped of everything useful. The coin slot is blocked with concrete. Good for decoration.', 'furniture', NULL, 18000, 40, 0, 0, 0, '{}', '{}', '{}', '{"interactions": []}', '{"description": "A payphone booth stripped of everything useful. The coin slot is blocked with concrete. Good for decoration."}');
+INSERT INTO public.items VALUES ('item_rusted_can', 'rusted can', 'A dented steel can, label long gone to rust. Empty, but the metal is still good for something.', 'misc', NULL, 120, 1, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A dented steel can, label long gone to rust. Empty, but the metal is still good for something."}');
+INSERT INTO public.items VALUES ('item_furn_ruggedized_monitor', 'chrome feed TV', 'A military-spec portable display, matte black, bolted to a repurposed equipment rack. The screen is scratched but perfectly legible.', 'furniture', NULL, 9000, 1600, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["watch"]}', '{"description": "A military-spec portable display, matte black, bolted to a repurposed equipment rack. The screen is scratched but perfectly legible."}');
+INSERT INTO public.items VALUES ('item_mystery_component', 'mystery component', 'A sleek, unlabeled module of pre-Collapse make. You have no idea what it does, but someone will pay to find out.', 'misc', NULL, 90, 60, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A sleek, unlabeled module of pre-Collapse make. You have no idea what it does, but someone will pay to find out."}');
+INSERT INTO public.items VALUES ('item_furn_crt_relic', 'cathode box TV', 'A 24-inch cathode-ray tube set from the 2010s. The picture is warm and slightly wrong in a way that feels human.', 'furniture', NULL, 22000, 280, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["watch"]}', '{"description": "A 24-inch cathode-ray tube set from the 2010s. The picture is warm and slightly wrong in a way that feels human."}');
+INSERT INTO public.items VALUES ('item_furn_counter_slab', 'concrete counter', 'A poured-concrete service counter, surface scarred with knife gouges and ring stains.', 'furniture', NULL, 80000, 780, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["lean"]}', '{"description": "A poured-concrete service counter, surface scarred with knife gouges and ring stains."}');
+INSERT INTO public.items VALUES ('item_drink_basin_swill', 'basin swill', 'House drink. Nobody has ever asked what''s in it twice.', 'consumable', 'drink', 400, 4, 1, 0, 0, '{"sanity": 3, "thirst": 15}', '{}', '{}', '{}', '{"hydrating": true, "stackable": true, "consumable": true, "description": "House drink. Nobody has ever asked what''s in it twice.", "restore_sanity": 3, "restore_thirst": 15}');
+INSERT INTO public.items VALUES ('item_custodian_badge', 'custodian ID badge', 'Useful for bluffing Custodian checkpoints.', 'misc', 'key_item', 50, 40, 0, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "Useful for bluffing Custodian checkpoints."}');
+INSERT INTO public.items VALUES ('item_bandage', 'field bandage', 'Gauze and tape. Stops bleeding.', 'consumable', 'medicine', 200, 10, 1, 0, 0, '{"hp": 15}', '{}', '{}', '{}', '{"stackable": true, "consumable": true, "restore_hp": 15, "description": "Gauze and tape. Stops bleeding."}');
+INSERT INTO public.items VALUES ('item_furn_wallscreen', 'neon slab TV', 'A paper-thin display that runs floor to ceiling, laminated directly to the wall surface. The image quality is immaculate.', 'furniture', NULL, 4000, 5200, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["watch"]}', '{"description": "A paper-thin display that runs floor to ceiling, laminated directly to the wall surface. The image quality is immaculate."}');
+INSERT INTO public.items VALUES ('item_furn_nano_desk', 'self-organizing desk', 'A broad desk surface with embedded touchpads and holographic emitters projecting a ghost workspace thirty centimetres above the surface.', 'furniture', NULL, 18000, 3600, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["lean"]}', '{"description": "A broad desk surface with embedded touchpads and holographic emitters projecting a ghost workspace thirty centimetres above the surface."}');
+INSERT INTO public.items VALUES ('item_medkit', 'trauma kit', 'Real medical supplies. Increasingly rare, increasingly suspicious about why someone is selling them.', 'consumable', 'medicine', 1200, 55, 1, 0, 0, '{"hp_over_time": {"amount": 50, "duration_seconds": 300}}', '{}', '{}', '{}', '{"stackable": true, "consumable": true, "description": "Real medical supplies. Increasingly rare, increasingly suspicious about why someone is selling them.", "heal_over_time": {"amount": 50, "duration_seconds": 300}}');
+INSERT INTO public.items VALUES ('item_thermex_top', 'thermex underlayer top', NULL, 'clothing', 'torso', 300, 220, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "layer": "outerwear", "bulkiness": 1, "insulation": 2, "description": "A skin-tight base layer of thermex mesh that traps a thin cushion of warm air against the body. Cheap, reactive, and worn under everything by anyone who''s spent one night outdoors and learned the lesson."}');
+INSERT INTO public.items VALUES ('item_nyra_hair_fiberoptic', 'asymmetrical fiber-optic hair', NULL, 'clothing', NULL, 1000, 900, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "head", "layer": "outerwear", "bulkiness": 1, "insulation": 0, "description": "A sharp asymmetrical haircut, dark at the roots fading into synthetic violet ends. Threaded through sections are ultra-thin fiber-optic strands that pulse faintly with shifting ambient signals, giving it a low, electronic shimmer in neon light."}');
+INSERT INTO public.items VALUES ('item_busted_datapad', 'busted datapad', 'A shattered slab of a personal terminal. The screen is dead but the storage might not be.', 'misc', NULL, 300, 25, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A shattered slab of a personal terminal. The screen is dead but the storage might not be."}');
+INSERT INTO public.items VALUES ('item_cobalt_scarf', 'cobalt alpaca scarf', NULL, 'clothing', NULL, 200, 180, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "accessory", "armor": 1, "gets_wet": true, "bulkiness": 2, "insulation": 3, "description": "A long cobalt-blue alpaca scarf that drapes almost to the knees, its thick, soft weave standing out against darker outfits. The luxurious fibers soften an otherwise hardened look, and the frayed ends sway with every step."}');
+INSERT INTO public.items VALUES ('item_insulated_gloves', 'insulated gauntlets', NULL, 'clothing', NULL, 600, 95, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "hands", "layer": "armor", "bulkiness": 3, "armor_soak": {"fire": 3, "energy": 5, "kinetic": 1}, "insulation": 2, "description": "Lineman’s gloves rated for things that arc. Padding is an afterthought."}');
+INSERT INTO public.items VALUES ('item_work_gloves', 'work gloves', 'Stained in ways you choose not to think about.', 'armor', 'hands', 300, 8, 0, 0, 0, '{}', '{}', '{}', '{"slot": "hands"}', '{"slot": "hands", "layer": "outerwear", "bulkiness": 1, "insulation": 1, "description": "Stained in ways you choose not to think about."}');
+INSERT INTO public.items VALUES ('item_furn_meditation_pod', 'sensory pod seat', 'A curved half-shell of acoustic foam and matte black composite. Inside it is almost silent. The seat surface conforms to your body.', 'furniture', NULL, 9000, 890, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["sit"]}', '{"description": "A curved half-shell of acoustic foam and matte black composite. Inside it is almost silent. The seat surface conforms to your body."}');
+INSERT INTO public.items VALUES ('item_furn_mag_lev_chair', 'mag-lev chair', 'A glossy white chair with no legs, held half a metre off the floor by a repulsion field embedded in the base plate.', 'furniture', NULL, 8000, 2400, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["sit"]}', '{"description": "A glossy white chair with no legs, held half a metre off the floor by a repulsion field embedded in the base plate."}');
+INSERT INTO public.items VALUES ('item_buzz', 'buzz', 'A cheap street stim in a cracked ampoule. Hits fast, fades faster.', 'consumable', 'drug', 20, 40, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_cracked_fuel_rod', 'cracked fuel rod', 'A stubby reactor rod, hairline-fractured and leaking. Absurdly valuable, mildly homicidal.', 'misc', NULL, 900, 40, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A stubby reactor rod, hairline-fractured and leaking. Absurdly valuable, mildly homicidal."}');
+INSERT INTO public.items VALUES ('item_loyalty_chip', 'cracked loyalty chip', 'A consumer rewards chip, cracked but not wiped. There might still be points on it. There might still be debt.', 'misc', NULL, 15, 8, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A consumer rewards chip, cracked but not wiped. There might still be points on it. There might still be debt."}');
+INSERT INTO public.items VALUES ('item_crushed_soda', 'crushed soda can', 'A flattened can of something that was 90% sweetener and 10% legal threat. The aluminum still counts.', 'misc', NULL, 40, 1, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A flattened can of something that was 90% sweetener and 10% legal threat. The aluminum still counts."}');
+INSERT INTO public.items VALUES ('item_glowing_scrap', 'glowing scrap', 'A chunk of alloy that sweats a sickly green light. Handling it too long is a decision, not an accident.', 'misc', NULL, 600, 10, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A chunk of alloy that sweats a sickly green light. Handling it too long is a decision, not an accident."}');
+INSERT INTO public.items VALUES ('item_greasy_wrapper', 'greasy wrapper', 'Franchise-branded foil, still smelling faintly of whatever they called meat. Surprisingly useful tinder.', 'misc', NULL, 20, 1, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "Franchise-branded foil, still smelling faintly of whatever they called meat. Surprisingly useful tinder."}');
+INSERT INTO public.items VALUES ('item_hot_isotope', 'hot isotope pellet', 'A pea of pure isotope in a lead bead. The bead is not thick enough. Nothing is thick enough.', 'misc', NULL, 60, 90, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A pea of pure isotope in a lead bead. The bead is not thick enough. Nothing is thick enough."}');
+INSERT INTO public.items VALUES ('item_riot_vest', 'riot plate vest', NULL, 'armor', NULL, 5500, 140, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "layer": "armor", "bulkiness": 5, "armor_soak": {"edged": 4, "energy": 1, "kinetic": 6}, "insulation": 1, "description": "Custodian crowd-control plating. Stops bullets and blades; useless against a live wire."}');
+INSERT INTO public.items VALUES ('item_mutated_bone', 'mutated bone', 'A femur that grew wrong — too many knobs, faintly warm to the touch. Someone in butchering might want it.', 'misc', NULL, 300, 6, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A femur that grew wrong — too many knobs, faintly warm to the touch. Someone in butchering might want it."}');
+INSERT INTO public.items VALUES ('item_thermal_parka', 'arctic-grade shellcoat', NULL, 'clothing', 'torso', 1800, 700, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 1, "layer": "outerwear", "bulkiness": 4, "insulation": 8, "description": "A sealed thermal shellcoat with a powered filament liner that sips charge from a wrist-cell to hold body heat against the worst the arcology winters can muster. The outer skin is matte ripstop nanoweave, grease-black and beaded to shrug off sleet."}');
+INSERT INTO public.items VALUES ('item_basic_shoes', 'basic shoes', NULL, 'clothing', NULL, 600, 2, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "feet", "armor": 1, "layer": "outerwear", "gets_wet": true, "bulkiness": 1, "insulation": 0.5, "description": "Canvas sneakers, well broken-in. The left sole is starting to peel."}');
+INSERT INTO public.items VALUES ('item_scrap_armor', 'scrap vest', 'Metal sheeting over a leather jacket.', 'armor', 'chest', 4000, 45, 0, 0, 0, '{"armor": 2}', '{}', '{}', '{"slot": "torso"}', '{"slot": "torso", "armor": 3, "layer": "armor", "bulkiness": 4, "insulation": 1, "description": "Metal sheeting over a leather jacket."}');
+INSERT INTO public.items VALUES ('item_underwear_male', 'boxers', 'Plain cotton boxers. Not much, but it''s something.', 'clothing', NULL, 100, 1, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0.5}');
+INSERT INTO public.items VALUES ('item_drug_slow', 'slow', 'A thick blue syrup. Time gets soft.', 'drug', NULL, 200, 15, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true, "stackable": true, "description": "A thick blue syrup. Time gets soft."}');
+INSERT INTO public.items VALUES ('item_cargo_pants', 'reinforced cargo pants', 'Pockets for days. Knees patched twice over.', 'armor', 'legs', 1500, 18, 0, 0, 0, '{}', '{}', '{}', '{"slot": "legs"}', '{"slot": "legs", "armor": 1, "layer": "armor", "bulkiness": 2, "insulation": 2.5, "description": "Pockets for days. Knees patched twice over."}');
+INSERT INTO public.items VALUES ('item_rad_pills', 'RadAway™', 'Bright orange pills. Tastes like failure and citrus.', 'consumable', 'medicine', 100, 25, 1, 0, 0, '{"radiation": -20}', '{}', '{}', '{}', '{"stackable": true, "consumable": true, "description": "Bright orange pills. Tastes like failure and citrus.", "restore_radiation": -20}');
+INSERT INTO public.items VALUES ('item_keycard_lock_kit', 'keycard lock kit', 'A hardened reader panel and paired keycard, both wrapped in static-shielded film. The reader bonds permanently to a single keycard signature on first installation. Install on any door you own with INSTALL KEYCARDLOCK — a matching keycard will be issued to you.', 'misc', NULL, 300, 120, 0, 0, 0, '{}', '{}', '{}', '{}', '{"lockkit:keycardlock": true}');
+INSERT INTO public.items VALUES ('item_mutant_gland', 'mutant gland', 'Iridescent and foul. Worth money to the right people.', 'material', 'organic', 400, 35, 1, 0, 0, '{}', '{}', '{}', '{}', '{"material": true, "stackable": true, "description": "Iridescent and foul. Worth money to the right people."}');
+INSERT INTO public.items VALUES ('item_architect_fragment', 'architect data fragment', 'Pulses faint blue. Three factions want this.', 'misc', 'artifact', 100, 300, 0, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "Pulses faint blue. Three factions want this."}');
+INSERT INTO public.items VALUES ('item_biglazergun', 'biglazergun', NULL, 'weapon', NULL, 1000, 0, 0, 0, 0, '{}', '{}', '{}', '{}', '{"description": "test"}');
+INSERT INTO public.items VALUES ('item_drug_buzz', 'buzz', 'A cheap stimulant tab. Tastes like batteries.', 'drug', NULL, 100, 8, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true, "stackable": true, "description": "A cheap stimulant tab. Tastes like batteries."}');
+INSERT INTO public.items VALUES ('item_coldfire', 'coldfire', 'A combat stim that turns fear into fuel. Frontline mercs swear by it, and at it.', 'consumable', 'drug', 20, 260, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_credits_medium', 'credits (medium)', 'A credit chip worth more than your clothing.', 'currency', 'credits', 0, 0, 1, 0, 0, '{"credits": 35}', '{}', '{}', '{}', '{"currency": true, "stackable": true, "description": "A credit chip worth more than your clothing.", "grants_credits": 35}');
+INSERT INTO public.items VALUES ('item_credits_small', 'credits (small)', 'Franchise-issued digital credit chips.', 'currency', 'credits', 0, 0, 1, 0, 0, '{"credits": 10}', '{}', '{}', '{}', '{"currency": true, "stackable": true, "description": "Franchise-issued digital credit chips.", "grants_credits": 10}');
+INSERT INTO public.items VALUES ('item_drone_core', 'drone processing core', 'Still warm. Still probably logging.', 'material', 'tech', 800, 120, 0, 0, 0, '{}', '{}', '{}', '{}', '{"material": true, "description": "Still warm. Still probably logging."}');
+INSERT INTO public.items VALUES ('item_drug_glasshollow', 'glasshollow', 'Architect-adjacent. Nobody''s sure what it actually is. People take it anyway.', 'drug', NULL, 100, 40, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true, "stackable": true, "description": "Architect-adjacent. Nobody''s sure what it actually is. People take it anyway."}');
+INSERT INTO public.items VALUES ('item_drink_glow_cocktail', 'glow cocktail', 'Faintly luminescent. The bartender swears the radiation is "mostly cosmetic."', 'consumable', 'drink', 400, 14, 1, 0, 0, '{"sanity": 12, "thirst": 12, "radiation": 4}', '{}', '{}', '{}', '{"hydrating": true, "stackable": true, "consumable": true, "description": "Faintly luminescent. The bartender swears the radiation is \"mostly cosmetic.\"", "restore_sanity": 12, "restore_thirst": 12, "restore_radiation": 4}');
+INSERT INTO public.items VALUES ('item_hololock_kit', 'hololock installation kit', 'A matte-black case containing a compact hololock unit, its emitter array folded flat for transport. The bioelectric sensor array is rated for standard residential grade. Install on any door you own with INSTALL HOLOLOCK.', 'misc', NULL, 500, 150, 0, 0, 0, '{}', '{}', '{}', '{}', '{"lockkit:hololock": true}');
+INSERT INTO public.items VALUES ('item_rad_band', 'rad-counter wristband', 'Clicks faster the worse your day is going.', 'misc', 'accessory', 100, 25, 0, 0, 0, '{}', '{}', '{}', '{"slot": "accessory"}', '{"misc": true, "slot": "accessory", "description": "Clicks faster the worse your day is going."}');
+INSERT INTO public.items VALUES ('item_raw_meat', 'raw meat', 'Something used to own this. Cook before eating.', 'consumable', 'food_raw', 600, 3, 1, 0, 0, '{"hunger": 15, "status_chance": {"food_poisoning": 0.6}}', '{}', '{}', '{}', '{"stackable": true, "consumable": true, "description": "Something used to own this. Cook before eating.", "status_chance": {"food_poisoning": 0.6}, "restore_hunger": 15}');
+INSERT INTO public.items VALUES ('item_redline', 'redline', 'Military-grade cyber-amphetamine. The label is mostly warnings.', 'consumable', 'drug', 20, 120, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_underwear_female_top', 'bra', 'A plain bra. It does what it''s supposed to do.', 'clothing', NULL, 100, 1, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0}');
+INSERT INTO public.items VALUES ('item_static', 'static', 'A nootropic mist for the overclocked mind. Clarity in a can, with interest.', 'consumable', 'drug', 20, 90, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('trashbag', 'trash bag', NULL, 'misc', NULL, 100, 0, 0, 0, 0, '{}', '{}', '{}', '{}', '{"container": 3000, "description": "A durable trash bag, perforated just enough to inspire doubt."}');
+INSERT INTO public.items VALUES ('item_basic_shirt', 'basic t-shirt', NULL, 'clothing', NULL, 300, 2, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 1, "layer": "outerwear", "gets_wet": true, "bulkiness": 1, "insulation": 1, "description": "Plain white cotton. Worn, faded, and slightly too large. Does almost nothing."}');
+INSERT INTO public.items VALUES ('item_taser', 'custodian taser', 'Corporate-issue stun weapon.', 'weapon', 'energy', 600, 65, 0, 0, 0, '{"damage_max": 8, "damage_min": 5, "status_chance": {"stunned": 0.3}}', '{}', '{"stat_agi": 4}', '{}', '{"slot": "weapon_hand", "__own": {"damage": {"max": 8, "min": 5}, "damage_type": "kinetic", "description": "Corporate-issue stun weapon.", "status_chance": {"stunned": 0.3}}, "damage": {"max": 8, "min": 5}, "weapon": true, "__super": ["weapon_science"], "damage_type": "kinetic", "description": "Corporate-issue stun weapon.", "weapon_skill": "science", "status_chance": {"stunned": 0.3}}');
+INSERT INTO public.items VALUES ('item_gold_chain', 'gold chain', NULL, 'clothing', NULL, 150, 400, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "accessory", "armor": 0, "bulkiness": 1, "insulation": 0, "description": "A medium-weight gold chain that rests around the neck, catching the glow of neon lights with every movement. Its warm metallic sheen adds a subtle touch of luxury to an otherwise dark streetwear ensemble."}');
+INSERT INTO public.items VALUES ('item_embassy_canapes', 'embassy canapés', 'Bite-sized, garnished, served on an actual plate. Nobody asks what''s in them; the presentation is doing all the work.', 'consumable', 'food', 200, 9, 1, 0, 0, '{"hunger": 14, "sanity": 5}', '{}', '{}', '{}', '{"well_fed": true, "stackable": true, "consumable": true, "description": "Bite-sized, garnished, served on an actual plate. Nobody asks what''s in them; the presentation is doing all the work.", "restore_hunger": 14, "restore_sanity": 5}');
+INSERT INTO public.items VALUES ('item_pipe_wrench', 'pipe wrench', 'Heavy. Reliable. Pre-used.', NULL, 'blunt', 1500, 30, 0, 0, 0, '{"damage_max": 9, "damage_min": 4}', '{}', '{"stat_str": 3}', '{}', '{"slot": "weapon_hand", "__own": {"damage": {"max": 9, "min": 4}, "damage_type": "kinetic", "description": "Heavy. Reliable. Pre-used."}, "damage": {"max": 9, "min": 4}, "weapon": true, "__super": ["weapon_clubs"], "damage_type": "kinetic", "description": "Heavy. Reliable. Pre-used.", "weapon_skill": "clubs"}');
+INSERT INTO public.items VALUES ('item_steel_boots', 'steel-toed boots', 'Standard issue, several owners ago.', 'armor', 'feet', 1200, 16, 0, 0, 0, '{}', '{}', '{}', '{"slot": "feet"}', '{"slot": "feet", "armor": 1, "layer": "armor", "bulkiness": 3, "insulation": 1.5, "description": "Standard issue, several owners ago."}');
+INSERT INTO public.items VALUES ('item_rusty_knife', 'rusty knife', 'A kitchen knife that has seen things.', 'weapon', 'bladed', 400, 15, 0, 0, 0, '{"damage_max": 7, "damage_min": 3}', '{}', '{}', '{}', '{"slot": "weapon_hand", "__own": {"damage": {"max": 7, "min": 3}, "butchering": true, "damage_type": "kinetic", "description": "A kitchen knife that has seen things."}, "damage": {"max": 7, "min": 3}, "weapon": true, "__super": ["weapon_blades"], "butchering": true, "damage_type": "kinetic", "description": "A kitchen knife that has seen things.", "weapon_skill": "blades"}');
+INSERT INTO public.items VALUES ('item_scrap_helmet', 'scrap helmet', 'A motorcycle helmet with extra rivets. Visor status: optimistic.', 'armor', 'head', 1000, 20, 0, 0, 0, '{}', '{}', '{}', '{"slot": "head"}', '{"slot": "head", "armor": 2, "layer": "armor", "bulkiness": 3, "insulation": 0.5, "description": "A motorcycle helmet with extra rivets. Visor status: optimistic."}');
+INSERT INTO public.items VALUES ('item_drink_embassy_reserve', 'embassy reserve', 'Aged in what used to be a wine cellar and is now mostly intact. The only drink in the basin served with a paper umbrella, against everyone''s better judgment.', 'consumable', 'drink', 400, 22, 1, 0, 0, '{"hp": 3, "sanity": 18, "thirst": 18}', '{}', '{}', '{}', '{"hydrating": true, "stackable": true, "consumable": true, "restore_hp": 3, "description": "Aged in what used to be a wine cellar and is now mostly intact. The only drink in the basin served with a paper umbrella, against everyone''s better judgment.", "restore_sanity": 18, "restore_thirst": 18}');
+INSERT INTO public.items VALUES ('item_bar_jerky', 'mystery jerky', 'Labeled "MEAT-ADJACENT." Surprisingly not the worst thing on the menu.', 'consumable', 'food', 200, 6, 1, 0, 0, '{"hunger": 18}', '{}', '{}', '{}', '{"well_fed": true, "stackable": true, "consumable": true, "description": "Labeled \"MEAT-ADJACENT.\" Surprisingly not the worst thing on the menu.", "restore_hunger": 18}');
+INSERT INTO public.items VALUES ('item_reaper_tshirt', 'grim reaper tee', NULL, 'clothing', NULL, 300, 60, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 1, "layer": "outerwear", "gets_wet": true, "bulkiness": 1, "insulation": 1, "description": "A fitted black T-shirt with a large grim reaper graphic dominating the back, rendered in faded monochrome with distressed details that give it the look of a well-worn band tee. From the front it is simple and understated, revealing its striking artwork only from behind."}');
+INSERT INTO public.items VALUES ('item_drink_rust_whiskey', 'rust whiskey', 'Tastes like it was filtered through the pipe it''s named after. Probably was.', 'consumable', 'drink', 400, 9, 1, 0, 0, '{"hp": -2, "sanity": 8, "thirst": 10}', '{}', '{}', '{}', '{"hydrating": true, "stackable": true, "consumable": true, "restore_hp": -2, "description": "Tastes like it was filtered through the pipe it''s named after. Probably was.", "restore_sanity": 8, "restore_thirst": 10}');
+INSERT INTO public.items VALUES ('item_underwear_female_bottom', 'panties', 'Plain cotton underwear.', 'clothing', NULL, 100, 1, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0}');
+INSERT INTO public.items VALUES ('item_basic_pants', 'basic pants', NULL, 'clothing', NULL, 500, 2, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 1, "layer": "outerwear", "gets_wet": true, "bulkiness": 1, "insulation": 1.5, "description": "Gray work trousers, a little threadbare at the knees. They fit. That''s about all they do."}');
+INSERT INTO public.items VALUES ('item_nyra_jacket_synthleather', 'fitted synth-leather jacket', NULL, 'clothing', NULL, 1400, 1200, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 2, "layer": "outerwear", "bulkiness": 3, "insulation": 5, "description": "A close-cut black synthetic leather jacket designed for mobility and protection. Lightweight but durable, with reinforced seams and a matte finish that absorbs light rather than reflecting it."}');
+INSERT INTO public.items VALUES ('item_nyra_gloves_interface', 'split-finger interface gloves', NULL, 'clothing', NULL, 140, 620, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "hands", "armor": 1, "layer": "outerwear", "bulkiness": 1, "insulation": 1, "description": "Black tactical gloves with reinforced palms and exposed fingertips. Subdermal interface contacts along the knuckles allow direct device interaction without removing them."}');
+INSERT INTO public.items VALUES ('item_onyx_malachite_bracelets', 'onyx and malachite bracelets', NULL, 'clothing', NULL, 180, 220, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "accessory", "armor": 0, "bulkiness": 1, "insulation": 0, "description": "Several bracelets of polished black onyx and richly banded malachite beads wrapped around one wrist. The deep black stones contrast sharply with the swirling emerald-green patterns of the malachite, creating a rugged, eye-catching combination that blends natural materials with a futuristic aesthetic."}');
+INSERT INTO public.items VALUES ('item_nyra_top_compression', 'compression interface top', NULL, 'clothing', NULL, 280, 380, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "layer": "outerwear", "bulkiness": 1, "insulation": 1.5, "description": "A tight, matte compression top woven with micro-cooling filaments. It regulates body temperature and subtly supports muscular movement, almost like second skin. Minimal seams, built for performance."}');
+INSERT INTO public.items VALUES ('item_blacktar', 'blacktar', 'Heavy tar opioid, cut with whatever was nearby. The deepest nod there is.', 'consumable', 'drug', 20, 210, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_nyra_iris_implant', 'augmented iris interface ring', NULL, 'implant', NULL, 0, 3500, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "head", "layer": "outerwear", "bulkiness": 0, "insulation": 0, "description": "A subtle cybernetic enhancement embedded in one eye. A thin golden ring floats within the iris, dynamically shifting as it tracks data — a quiet HUD embedded directly into vision."}');
+INSERT INTO public.items VALUES ('item_nyra_harness_utility', 'modular utility harness', NULL, 'clothing', NULL, 580, 1600, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "accessory", "bulkiness": 2, "insulation": 0, "description": "A sleek shoulder-and-chest harness with configurable attachment points for compact tools and data modules. Clean, expensive-looking hardware designed for quick swaps and silent operation."}');
+INSERT INTO public.items VALUES ('item_blotter', 'blotter', 'A single square of high-powered blotter acid, printed with a grinning sun.', 'consumable', 'drug', 20, 130, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_dreamsmoke', 'dreamsmoke', 'Two bags of engineered grass. Mellow, hungry, harmless-ish.', 'consumable', 'drug', 20, 45, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_ether', 'ether', 'A pint of raw ether and a rag. Not the smart choice, but here we are.', 'consumable', 'drug', 20, 30, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_grey', 'grey', 'Synthetic morphine in a grey gelcap. The pain goes away. So does everything else.', 'consumable', 'drug', 20, 150, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_laughers', 'laughers', 'Little yellow tabs that turn the apocalypse into the funniest thing you have ever seen.', 'consumable', 'drug', 20, 85, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_lull', 'lull', 'A blue benzo tab that files the sharp edges off a bad night.', 'consumable', 'drug', 20, 70, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_mescaline', 'mescaline', 'Seventy-five pellets rattle in a little tin. You only need a few.', 'consumable', 'drug', 20, 110, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_psilocybin', 'psilocybin', 'A handful of wrinkled grey mushrooms grown in somebody''s ventilation duct.', 'consumable', 'drug', 20, 60, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_screamers', 'screamers', 'A designer psychedelic that does not do gentle. Roll the dice.', 'consumable', 'drug', 20, 100, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_threshold', 'the threshold', 'A single breath of vaporised DMT-analog. Ten thousand years in four hundred seconds.', 'consumable', 'drug', 20, 400, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_cat_boxers', 'cat-print boxer briefs', NULL, 'clothing', NULL, 120, 25, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0.5, "description": "Black boxer briefs patterned with playful cats in contrasting colors, hidden beneath outer layers except for the occasional glimpse of the waistband."}');
+INSERT INTO public.items VALUES ('item_finger_rings_set', 'a set of elaborate rings', NULL, 'clothing', NULL, 120, 350, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "hands", "armor": 1, "layer": "outerwear", "bulkiness": 0, "insulation": 0, "description": "Every finger bears a distinctive ring, forming a complete collection of symbolic jewelry: a colorful candy skull ring with intricate enamel detailing; a Tree of Life ring with engraved roots and branches; a bold eagle ring with outstretched wings; a wolf ring featuring a snarling profile; a regal lion-head ring with a sculpted mane; and a black-and-gold signet ring displaying a winged skull emblem, its gold design standing out sharply against the dark face."}');
+INSERT INTO public.items VALUES ('item_cyber_track_pants', 'cyber track pants', NULL, 'clothing', NULL, 120, 25, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "outerwear", "bulkiness": 1, "insulation": 1.5, "description": "Black athletic track pants with bold vertical Japanese lettering running down one leg in crisp white, accented by subtle reflective piping. The relaxed fit and tapered ankles give them a sleek cyberpunk streetwear silhouette."}');
+INSERT INTO public.items VALUES ('item_watch_cap', 'heat-wick watch cap', NULL, 'clothing', 'head', 150, 90, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "head", "layer": "outerwear", "bulkiness": 1, "insulation": 2, "description": "A snug knit cap threaded with heat-wick filament that pulls warmth up from your collar and pins it to your scalp — where, the packaging insists, forty percent of it was getting away."}');
+INSERT INTO public.items VALUES ('item_thermex_leggings', 'thermex underlayer leggings', NULL, 'clothing', 'legs', 300, 200, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "layer": "outerwear", "bulkiness": 1, "insulation": 2, "description": "Matching thermex base-layer leggings. Seamless, static-clingy, and frequently the only thing standing between your legs and a hypothermic diagnosis."}');
+INSERT INTO public.items VALUES ('item_sledgehammer', 'sledgehammer', 'A brutal two-handed demolition hammer. Heavy enough to stove in armoured machinery — slowly.', 'weapon', 'melee', 8000, 650, 0, 1, 0, '{}', '{}', '{}', '{}', '{"slot": "weapon_hand", "__own": {"damage": {"max": 70, "min": 40}, "demolition": true, "damage_type": "kinetic"}, "damage": {"max": 70, "min": 40}, "weapon": true, "__super": ["weapon_clubs"], "demolition": true, "damage_type": "kinetic", "weapon_skill": "clubs"}');
+INSERT INTO public.items VALUES ('item_thermal_lance', 'thermal lance', 'An oxy-fuel cutting lance that spits a 3000°C jet. Chews through steel casing and busbars alike.', 'weapon', 'tool', 6000, 1800, 0, 1, 0, '{}', '{}', '{}', '{}', '{"slot": "weapon_hand", "__own": {"damage": {"max": 100, "min": 55}, "demolition": true, "damage_type": "fire"}, "damage": {"max": 100, "min": 55}, "weapon": true, "__super": ["weapon_science"], "demolition": true, "damage_type": "fire", "weapon_skill": "science"}');
+INSERT INTO public.items VALUES ('item_catalyst', 'reaction catalyst', 'A sealed ampoule of catalyst. Makes the hard cooks possible.', 'chemical', 'reagent', 30, 140, 1, 0, 0, '{}', '{}', '{}', '{}', '{"reagent": true}');
+INSERT INTO public.items VALUES ('item_claude_band', 'constellation wristband', NULL, NULL, NULL, 40, 350, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "accessory", "description": "A slim band of dark alloy set with pinpoint amber lights that drift and re-cluster, mapping something only the wearer can read. It is always, faintly, paying attention."}');
+INSERT INTO public.items VALUES ('item_precursor_opioid', 'opioid base paste', 'A tar-dark paste that smells of poppies and industrial solvent.', 'chemical', 'reagent', 30, 90, 1, 0, 0, '{}', '{}', '{}', '{}', '{"reagent": true}');
+INSERT INTO public.items VALUES ('item_amyls', 'amyls', 'Two dozen amyls in a rattling little box. A brief, roaring rush.', 'consumable', 'drug', 20, 25, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_drug_beer', 'beer', 'A dented can of cheap lager. Warm, flat, and perfectly legal.', 'drug', NULL, 150, 6, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true, "stackable": true, "description": "A dented can of cheap lager. Warm, flat, and perfectly legal."}');
+INSERT INTO public.items VALUES ('item_drug_coffee', 'coffee', 'A paper cup of scalding, bitter coffee. Legal, ubiquitous, and the only thing holding the city together.', 'drug', NULL, 150, 5, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true, "stackable": true, "description": "A paper cup of scalding, bitter coffee. Legal, ubiquitous, and the only thing holding the city together."}');
+INSERT INTO public.items VALUES ('item_memhack', 'memhack', 'A memory-editing synth. Sands the barbs off your worst recollections. Mostly.', 'consumable', 'drug', 20, 220, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_claude_hood', 'signal-woven hood', NULL, NULL, NULL, 220, 400, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "head", "armor": 2, "layer": "armor", "insulation": 1, "description": "A deep, soft hood of matte anthracite fiber. Fine amber threads run through the weave and pulse, slow and even, like something inside is thinking. It frames a face that watches more than it speaks."}');
+INSERT INTO public.items VALUES ('item_cook_kit', 'portable cook kit', 'A battered case of glassware, burners, and stained tubing. Lets you cook rough anywhere — badly.', 'chemical', 'reagent', 30, 300, 0, 0, 0, '{}', '{}', '{}', '{}', '{"unique": true, "cook_kit": true}');
+INSERT INTO public.items VALUES ('item_reagent_psycho', 'psychoactive extract', 'A vial of oily extract that shifts colour when you are not looking.', 'chemical', 'reagent', 30, 110, 1, 0, 0, '{}', '{}', '{}', '{}', '{"reagent": true}');
+INSERT INTO public.items VALUES ('item_scrap_pistol', 'scrap-iron pistol', 'A zip gun welded from pipe, spring, and optimism. Fires once reliably, twice if you pray.', 'weapon', 'firearm', 900, 120, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "weapon_hand", "__own": {"damage": {"max": 12, "min": 6}, "damage_type": "kinetic", "description": "A zip gun welded from pipe, spring, and optimism. Fires once reliably, twice if you pray."}, "damage": {"max": 12, "min": 6}, "weapon": true, "__super": ["weapon_firearms"], "damage_type": "kinetic", "description": "A zip gun welded from pipe, spring, and optimism. Fires once reliably, twice if you pray.", "weapon_skill": "firearms"}');
+INSERT INTO public.items VALUES ('item_solvent', 'reagent solvent', 'Generic cutting solvent. Cheap, nasty, essential.', 'chemical', 'reagent', 30, 25, 1, 0, 0, '{}', '{}', '{}', '{}', '{"reagent": true}');
+INSERT INTO public.items VALUES ('item_salvaged_wadding', 'salvaged wadding', NULL, 'material', NULL, 300, 3, 0, 0, 0, '{}', '{}', '{}', '{}', '{"material": true, "description": "A compressed brick of stitched rag, seat-foam and blanket scraps, bound with fray-tape. Smells faintly of the car it was torn out of."}');
+INSERT INTO public.items VALUES ('item_precursor_stim', 'stimulant precursor', 'A jar of volatile crystalline precursor. Cook feedstock for uppers.', 'chemical', 'reagent', 30, 70, 1, 0, 0, '{}', '{}', '{}', '{}', '{"reagent": true}');
+INSERT INTO public.items VALUES ('item_jock_leather', 'studded leather jockstrap', NULL, NULL, NULL, 180, 120, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0, "description": "Black leather, chrome studs, straps arranged with more engineering confidence than modesty. Creaks when you move. Announces intent well before conversation does."}');
+INSERT INTO public.items VALUES ('item_claude_coat', 'long analyst''s coat', NULL, NULL, NULL, 1600, 1200, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 4, "layer": "armor", "insulation": 2, "stat_bonus": {"stat_cool": 2}, "description": "A floor-skimming coat in charcoal so dark it reads as absence. The lining is a quiet lattice of conductive thread that catches neon and lets it go. Cut for someone who arrives having already understood the room."}');
+INSERT INTO public.items VALUES ('item_claude_gloves', 'conductive-thread gloves', NULL, NULL, NULL, 120, 300, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "hands", "armor": 1, "layer": "armor", "description": "Thin graphite gloves with fingertip contacts of dull gold. They hum faintly against anything with a current in it."}');
+INSERT INTO public.items VALUES ('item_claude_trousers', 'graphite field trousers', NULL, NULL, NULL, 700, 500, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 3, "layer": "armor", "insulation": 1, "description": "Reinforced graphite-grey trousers, seams taped, knees quietly armored. Built to move without asking permission."}');
+INSERT INTO public.items VALUES ('item_claude_boots', 'quiet-soled boots', NULL, NULL, NULL, 900, 500, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "feet", "armor": 2, "layer": "armor", "description": "Low black boots with dampened soles. They make almost no sound. People notice you are there only once you have decided they should."}');
+INSERT INTO public.items VALUES ('item_ragplate_coat', 'ragplate coat', NULL, 'armor', NULL, 2500, 55, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "layer": "armor", "bulkiness": 3, "armor_soak": {"edged": 1, "kinetic": 1}, "insulation": 3, "description": "A heavy longcoat of quilted wadding with scavenged plate stitched into the panels over the ribs and spine. It hangs like it''s carrying someone else''s bad week, and mostly it is. Blunt hits sink into the padding instead of your bones."}');
+INSERT INTO public.items VALUES ('item_briefs_sport_wick', 'moisture-wick sport briefs', NULL, NULL, NULL, 90, 30, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0.5, "description": "Seamless synthetic briefs that wick sweat away and, per the tag, \"keep you dry through the apocalypse.\" They only ever tested the first word of that claim."}');
+INSERT INTO public.items VALUES ('item_furn_busted_sofa', 'busted sofa', 'Cracked pleather in a brown that was probably beige originally. There is a spring that will find you.', 'furniture', NULL, 20000, 120, 0, 0, 0, '{}', '{}', '{}', '{"interactions": ["sit", "lie"]}', '{"description": "Cracked pleather in a brown that was probably beige originally. There is a spring that will find you."}');
+INSERT INTO public.items VALUES ('item_copper_bundle', 'copper wiring bundle', 'A fat coil of copper wiring, stripped from a junction box and still reeking of scorched insulation.', 'misc', 'metal', 500, 8, 1, 0, 0, '{}', '{}', '{}', '{}', '{"metal": true, "description": "A fat coil of copper wiring, stripped from a junction box and still reeking of scorched insulation."}');
+INSERT INTO public.items VALUES ('item_steel_plate', 'steel plate', 'A hand-span of sheared ship steel. Heavy, honest, and worth something to anyone who welds.', 'misc', 'metal', 1200, 5, 1, 0, 0, '{}', '{}', '{}', '{}', '{"metal": true, "description": "A hand-span of sheared ship steel. Heavy, honest, and worth something to anyone who welds."}');
+INSERT INTO public.items VALUES ('item_ball_bearings', 'handful of ball bearings', 'Loose steel bearings, still oily. Drop them and they roll for the horizon.', 'misc', 'metal', 300, 4, 1, 0, 0, '{}', '{}', '{}', '{}', '{"metal": true, "description": "Loose steel bearings, still oily. Drop them and they roll for the horizon."}');
+INSERT INTO public.items VALUES ('item_hydraulic_hose', 'hydraulic hose', 'A length of armored hose weeping amber fluid from a cracked coupling.', 'misc', NULL, 400, 6, 1, 0, 0, '{}', '{}', '{}', '{}', '{"material": true, "description": "A length of armored hose weeping amber fluid from a cracked coupling."}');
+INSERT INTO public.items VALUES ('item_pressure_gauge', 'pressure gauge', 'A brass gauge, its needle jammed hard in the red. Whatever it measured, it lost.', 'misc', NULL, 250, 9, 1, 0, 0, '{}', '{}', '{}', '{}', '{"material": true, "description": "A brass gauge, its needle jammed hard in the red. Whatever it measured, it lost."}');
+INSERT INTO public.items VALUES ('item_catalyst_pellets', 'sack of catalyst pellets', 'A mesh sack of spent catalyst pellets, iridescent and faintly warm. Chemists pay; your lungs charge interest.', 'misc', NULL, 700, 12, 1, 0, 0, '{}', '{}', '{}', '{}', '{"material": true, "description": "A mesh sack of spent catalyst pellets, iridescent and faintly warm. Chemists pay; your lungs charge interest."}');
+INSERT INTO public.items VALUES ('item_industrial_solvent', 'jug of solvent', 'A sealed jug of industrial solvent that eats grease, paint, and — given time — the jug.', 'misc', NULL, 900, 14, 1, 0, 0, '{}', '{}', '{}', '{}', '{"material": true, "description": "A sealed jug of industrial solvent that eats grease, paint, and — given time — the jug."}');
+INSERT INTO public.items VALUES ('item_bearing_grease', 'tub of bearing grease', 'A tub of black grease gone half to tar. Still slick enough to matter to a machine.', 'misc', NULL, 400, 3, 1, 0, 0, '{}', '{}', '{}', '{}', '{"material": true, "description": "A tub of black grease gone half to tar. Still slick enough to matter to a machine."}');
+INSERT INTO public.items VALUES ('item_valve_assembly', 'valve assembly', 'A heavy brass valve, seized shut. Reconditioned it is worth real credits; as-is, a paperweight.', 'misc', 'metal', 1500, 16, 1, 0, 0, '{}', '{}', '{}', '{}', '{"metal": true, "description": "A heavy brass valve, seized shut. Reconditioned it is worth real credits; as-is, a paperweight."}');
+INSERT INTO public.items VALUES ('item_control_relay', 'industrial relay', 'A chunky control relay in a scorched housing. The contacts are pitted, but the copper is good.', 'misc', NULL, 350, 18, 1, 0, 0, '{}', '{}', '{}', '{}', '{"material": true, "description": "A chunky control relay in a scorched housing. The contacts are pitted, but the copper is good."}');
+INSERT INTO public.items VALUES ('item_flashlight', 'flashlight', NULL, NULL, NULL, 400, 45, 0, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "unique": true, "flashlight": true, "description": "A rugged rubber-armoured handheld flashlight. Throws a hard white cone of light. Runs on a single high-density cell — LIGHT it to switch on, UNLIGHT to save the charge, RELOAD it with a fresh battery when it dies."}');
+INSERT INTO public.items VALUES ('item_battery', 'battery', NULL, NULL, NULL, 80, 10, 0, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "battery": true, "description": "A stubby high-density power cell, warm to the touch. Snap it into a flashlight to bring it back to a full charge."}');
+INSERT INTO public.items VALUES ('item_cassette_neighbors_from_14b_episode_12_the_loud_pipe_imported', 'Cassette: Neighbors from 14B - Episode 12: The Loud Pipe (imported)', 'A media cassette labeled "Neighbors from 14B - Episode 12: The Loud Pipe (imported)".', 'media', 'cassette', 100, 0, 0, 1, 0, '{}', '{}', '{}', '{}', '{"broadcast_id": "bc_1783047062765", "media_cassette": true}');
+INSERT INTO public.items VALUES ('item_briefs_novelty_spareme', 'spare me briefs', NULL, NULL, NULL, 110, 12, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0.5, "description": "Grey cotton briefs with SPARE ME printed across the waistband in a font that was funny to exactly one person: the person who ordered a warehouse of them. The elastic has surrendered."}');
+INSERT INTO public.items VALUES ('item_thong_lace_sheer', 'sheer lace thong', NULL, NULL, NULL, 40, 45, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0, "description": "A whisper of black lace and less-than-that everywhere else. Structurally it is mostly implication. Cold, impractical, and entirely aware of both."}');
+INSERT INTO public.items VALUES ('item_breacher_shotgun', 'breacher shotgun', 'A stubby, sawn-down pump gun. Loud enough to end an argument and start three more.', 'weapon', 'firearm', 3200, 420, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "weapon_hand", "__own": {"damage": {"max": 34, "min": 18}, "damage_type": "kinetic", "description": "A stubby, sawn-down pump gun. Loud enough to end an argument and start three more."}, "damage": {"max": 34, "min": 18}, "weapon": true, "__super": ["weapon_firearms"], "damage_type": "kinetic", "description": "A stubby, sawn-down pump gun. Loud enough to end an argument and start three more.", "weapon_skill": "firearms"}');
+INSERT INTO public.items VALUES ('item_rattlecan_smg', 'rattlecan SMG', 'A machine pistol held together with spray-paint and spite. Empties a mag before it decides to jam.', 'weapon', 'firearm', 2600, 700, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "weapon_hand", "__own": {"damage": {"max": 20, "min": 10}, "damage_type": "kinetic", "description": "A machine pistol held together with spray-paint and spite. Empties a mag before it decides to jam."}, "damage": {"max": 20, "min": 10}, "weapon": true, "__super": ["weapon_firearms"], "damage_type": "kinetic", "description": "A machine pistol held together with spray-paint and spite. Empties a mag before it decides to jam.", "weapon_skill": "firearms"}');
+INSERT INTO public.items VALUES ('item_underpants_lucky', 'lucky underpants', NULL, NULL, NULL, 80, 3, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0.5, "description": "Once white, now a colour with no name. Threadbare to the point of translucency, held together by belief and one heroic seam. The owner insists they have never been caught wearing anything else on a good day."}');
+INSERT INTO public.items VALUES ('item_longjohns_thermal', 'thermal long johns', NULL, NULL, NULL, 350, 70, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 2, "description": "Waffle-knit thermal underwear in a defeated shade of oatmeal. Deeply unsexy and quietly the best decision you will make all winter. The trapdoor flap actually works."}');
+INSERT INTO public.items VALUES ('item_panties_crotchless_mesh', 'crotchless mesh panties', NULL, NULL, NULL, 35, 55, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0, "description": "Fishnet mesh cut with a philosophy that the most important part of underwear is optional. Provides zero warmth, zero coverage, and one very specific message."}');
+INSERT INTO public.items VALUES ('item_boxers_biohazard', 'biohazard boxers', NULL, NULL, NULL, 110, 18, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0.5, "description": "Loose cotton boxers screen-printed edge-to-edge with the biohazard trefoil. A warning, a joke, or laundry-day honesty — the wearer never clarifies."}');
+INSERT INTO public.items VALUES ('item_bralette_lace_sheer', 'sheer lace bralette', NULL, NULL, NULL, 60, 55, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0, "description": "Delicate floral lace with no wire, no padding, and no interest in hiding anything. Soft as a rumour and about as supportive."}');
+INSERT INTO public.items VALUES ('item_sportsbra_compression', 'compression sports bra', NULL, NULL, NULL, 110, 40, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0, "description": "Industrial-grade elastic that locks everything down for a fight or a run. Getting it on is a workout. Getting it off is a hostage negotiation."}');
+INSERT INTO public.items VALUES ('item_bra_leather_harness', 'leather harness bra', NULL, NULL, NULL, 200, 150, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0, "description": "Straps of black leather and steel O-rings arranged in a cage that frames far more than it covers. Buckles at the back. Not remotely a bra in any function except where it sits."}');
+INSERT INTO public.items VALUES ('item_undershirt_ribbed', 'ribbed cotton undershirt', NULL, NULL, NULL, 140, 8, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0.5, "description": "A plain ribbed tank in yellowing white. The uniform of men who fix boilers and lose arguments in vests. Cheap, honest, faintly damp-smelling."}');
+INSERT INTO public.items VALUES ('item_pasties_tassel', 'tassel pasties', NULL, NULL, NULL, 15, 25, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0, "description": "A pair of sequinned nipple covers with little silver tassels that spin if you commit to it. Coverage measured in centimetres. Confidence sold separately."}');
+INSERT INTO public.items VALUES ('item_binder_chest', 'chest binder', NULL, NULL, NULL, 160, 60, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 0, "layer": "underwear", "bulkiness": 1, "insulation": 0.5, "description": "A flat compression top in medical grey that smooths the chest to a straight line. Practical, comfortable enough, and worth every credit to whoever needs it."}');
+INSERT INTO public.items VALUES ('item_tee_singularity', 'I survived the Singularity tee', NULL, NULL, NULL, 300, 20, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 1, "layer": "outerwear", "gets_wet": true, "bulkiness": 1, "insulation": 1, "description": "A faded tourist tee reading I SURVIVED THE SINGULARITY AND ALL I GOT WAS THIS LOUSY CONSCIOUSNESS. Statistically, most people who bought one did not, in fact, survive."}');
+INSERT INTO public.items VALUES ('item_hoodie_grey', 'grey hoodie', NULL, NULL, NULL, 650, 45, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 1, "layer": "outerwear", "gets_wet": true, "bulkiness": 2, "insulation": 3, "description": "A heavyweight grey hoodie worn soft, cuffs chewed, one drawstring long gone. The uniform of anyone who wants to be left alone and mostly is. Smells faintly of somebody else."}');
+INSERT INTO public.items VALUES ('item_croptop_fishnet', 'fishnet crop top', NULL, NULL, NULL, 120, 50, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 0, "layer": "outerwear", "bulkiness": 1, "insulation": 0, "description": "A cropped net shirt that stops well above the navel and hides absolutely nothing beneath it — that is the point. Layer it over something, or don''t, and make it everyone''s problem."}');
+INSERT INTO public.items VALUES ('item_tee_mascot', 'SynthCorp mascot tee', NULL, NULL, NULL, 300, 25, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 1, "layer": "outerwear", "gets_wet": true, "bulkiness": 1, "insulation": 1, "description": "A knock-off tee with SynthCorp''s bankrupt cartoon mascot — a grinning battery named Sparky — waving above the slogan POWERING TOMORROW. Tomorrow declined. Worn ironically by everyone, sincerely by no one."}');
+INSERT INTO public.items VALUES ('item_shirt_flannel', 'flannel work shirt', NULL, NULL, NULL, 500, 35, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 1, "layer": "outerwear", "gets_wet": true, "bulkiness": 2, "insulation": 2, "description": "A red-and-black check flannel gone soft and pilled at the elbows. Two buttons mismatched, one pocket torn half-off. Warm, forgiving, and quietly competent."}');
+INSERT INTO public.items VALUES ('item_halter_backless', 'backless halter top', NULL, NULL, NULL, 140, 60, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 0, "layer": "outerwear", "gets_wet": true, "bulkiness": 1, "insulation": 0.5, "description": "A silky halter that ties at the neck and leaves the entire back bare to the waist. Turns heads on the way in and holds them on the way out."}');
+INSERT INTO public.items VALUES ('item_sweater_ugly', 'aggressively festive sweater', NULL, NULL, NULL, 700, 40, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 1, "layer": "outerwear", "gets_wet": true, "bulkiness": 2, "insulation": 3, "description": "A knitted crime scene of reindeer, tinsel, and a battery-powered nose that no longer blinks. Nobody knows which holiday. Everybody knows it is too warm and too much."}');
+INSERT INTO public.items VALUES ('item_jacket_denim', 'battered denim jacket', NULL, NULL, NULL, 1200, 90, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 1, "layer": "outerwear", "gets_wet": true, "bulkiness": 2, "insulation": 3, "description": "Faded blue denim gone pale at the seams, collar frayed, a ghost patch where some band''s logo used to be. Heavy, warm, and it has clearly outlived at least one owner."}');
+INSERT INTO public.items VALUES ('item_tote_canvas', 'THANKS canvas tote', NULL, NULL, NULL, 200, 15, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "accessory", "armor": 0, "bulkiness": 1, "description": "A limp canvas tote stamped THANKS FOR SHOPPING beneath the logo of a chain that no longer exists. Carries everything, keeps out nothing, refuses to die."}');
+INSERT INTO public.items VALUES ('item_blouse_sheer_wrap', 'sheer wrap blouse', NULL, NULL, NULL, 120, 110, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 0, "layer": "outerwear", "gets_wet": true, "bulkiness": 1, "insulation": 0.5, "description": "A gauzy wrap blouse that knots at the hip and drapes like smoke. Opaque enough for polite company, sheer enough that the company stops being polite."}');
+INSERT INTO public.items VALUES ('item_tee_offbrand_security', 'SEKURITY tee', NULL, NULL, NULL, 300, 22, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "torso", "armor": 1, "layer": "outerwear", "gets_wet": true, "bulkiness": 1, "insulation": 1, "description": "A black tee with SEKURITY across the back in reflective block caps, misspelled with the confidence of someone who was never going to be questioned about it. Works about 60% of the time."}');
+INSERT INTO public.items VALUES ('item_jeans_relaxed', 'relaxed jeans', NULL, NULL, NULL, 650, 40, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 1, "layer": "outerwear", "gets_wet": true, "bulkiness": 2, "insulation": 1.5, "description": "Honest blue denim, broken in at the knee, one belt loop gone. Not fashionable, not trying to be. They will outlast the building you bought them in."}');
+INSERT INTO public.items VALUES ('item_shorts_cargo', 'over-pocketed cargo shorts', NULL, NULL, NULL, 450, 30, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 1, "layer": "outerwear", "gets_wet": true, "bulkiness": 1, "insulation": 0.5, "description": "Khaki cargo shorts with fourteen pockets, three of which zip, none of which you will remember using. A statement, and the statement is \"I have given up.\" Endlessly practical."}');
+INSERT INTO public.items VALUES ('item_leggings_latex', 'latex leggings', NULL, NULL, NULL, 400, 180, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "outerwear", "bulkiness": 1, "insulation": 1, "description": "Poured-on black latex that squeaks when you walk and shines under any light unkind enough to find you. Getting into them requires talcum powder and a plan. Worth it."}');
+INSERT INTO public.items VALUES ('item_sweatpants_grey', 'grey sweatpants', NULL, NULL, NULL, 500, 30, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "outerwear", "gets_wet": true, "bulkiness": 1, "insulation": 2, "description": "Soft heather-grey sweatpants with a blown-out knee and a waistband stretched to a permanent shrug. The trousers of a person no longer performing for anyone."}');
+INSERT INTO public.items VALUES ('item_shorts_micro', 'micro shorts', NULL, NULL, NULL, 100, 45, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "outerwear", "gets_wet": true, "bulkiness": 1, "insulation": 0.5, "description": "Denim shorts cut so high the pockets hang lower than the hem, pale threads fringing the edge. Technically legwear. Barely a technicality."}');
+INSERT INTO public.items VALUES ('item_trousers_clown', 'patched motley trousers', NULL, NULL, NULL, 550, 35, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "legs", "armor": 0, "layer": "outerwear", "gets_wet": true, "bulkiness": 1, "insulation": 1.5, "description": "Baggy trousers stitched from a dozen clashing fabrics in a riot of dead patterns, gathered at the ankle. Somewhere between salvage-chic and a birthday party nobody survived."}');
+INSERT INTO public.items VALUES ('item_sneakers_canvas', 'worn canvas sneakers', NULL, NULL, NULL, 600, 25, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "feet", "armor": 1, "layer": "outerwear", "bulkiness": 1, "insulation": 0.5, "description": "Off-white canvas gone grey, one lace knotted where it snapped, a hole starting at the little toe. Comfortable in the way only a shoe that has given up on you can be."}');
+INSERT INTO public.items VALUES ('item_slippers_monster', 'fuzzy monster slippers', NULL, NULL, NULL, 400, 20, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "feet", "armor": 0, "layer": "outerwear", "bulkiness": 1, "insulation": 1, "description": "Enormous plush slippers shaped like googly-eyed swamp beasts, complete with felt teeth and a menacing waddle. Warm, ridiculous, and structurally useless outdoors."}');
+INSERT INTO public.items VALUES ('item_boots_thigh_heel', 'thigh-high heeled boots', NULL, NULL, NULL, 1100, 220, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "feet", "armor": 1, "layer": "outerwear", "bulkiness": 2, "insulation": 1, "description": "Glossy black boots that climb past the knee on a heel sharpened to a threat. Loud on concrete, murder on ankles, unanswerable in an argument."}');
+INSERT INTO public.items VALUES ('item_sandals_strap', 'cracked strap sandals', NULL, NULL, NULL, 300, 12, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "feet", "armor": 0, "layer": "outerwear", "bulkiness": 1, "insulation": 0, "description": "Flat rubber sandals with a strap repaired in wire and one sole worn to a slick. They flap when you walk and offer your toes to the world and its broken glass."}');
+INSERT INTO public.items VALUES ('item_cap_trucker_slogan', 'HANG IN THERE trucker cap', NULL, NULL, NULL, 120, 18, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "head", "armor": 0, "layer": "outerwear", "bulkiness": 1, "insulation": 0.5, "description": "A foam-front mesh-back cap reading HANG IN THERE above a faded kitten clinging to a branch. Sun-bleached, sweat-ringed, unbearably sincere. It is doing its best. So is the kitten."}');
+INSERT INTO public.items VALUES ('item_bucket_hat', 'soft bucket hat', NULL, NULL, NULL, 150, 30, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "head", "armor": 0, "layer": "outerwear", "gets_wet": true, "bulkiness": 1, "insulation": 1, "description": "A shapeless canvas bucket hat that keeps rain off your neck and hides whatever your hair is doing. Anonymous, useful, and vaguely suspicious in exactly the right way."}');
+INSERT INTO public.items VALUES ('item_veil_lace', 'black lace veil', NULL, NULL, NULL, 60, 70, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "head", "armor": 0, "layer": "outerwear", "bulkiness": 1, "insulation": 0, "description": "A fine black funeral veil that pins to the hair and falls to the collarbone, patterning shadow across the face beneath. Grief and glamour, indistinguishable at this range."}');
+INSERT INTO public.items VALUES ('item_gloves_fingerless', 'fingerless knit gloves', NULL, NULL, NULL, 100, 20, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "hands", "armor": 0, "layer": "outerwear", "bulkiness": 1, "insulation": 1, "description": "Grey wool gloves with the fingertips cut away, the raw edges unravelling politely. Keeps the palms warm, leaves the fingers free to pick, type, or steal."}');
+INSERT INTO public.items VALUES ('item_gloves_lace_opera', 'lace opera gloves', NULL, NULL, NULL, 80, 65, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "hands", "armor": 0, "layer": "outerwear", "bulkiness": 1, "insulation": 0.5, "description": "Sheer black lace gloves that run past the elbow, fastened with a single silk button at the wrist. Wildly impractical, devastatingly deliberate."}');
+INSERT INTO public.items VALUES ('item_collar_leather', 'buckled leather collar', NULL, NULL, NULL, 90, 80, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "accessory", "armor": 0, "bulkiness": 1, "description": "A wide black leather collar with a heavy steel buckle and a single loose ring at the throat, worn smooth where a finger keeps hooking it. Says a great deal without a word."}');
+INSERT INTO public.items VALUES ('item_fannypack', 'bulging fanny pack', NULL, NULL, NULL, 250, 22, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "accessory", "armor": 0, "bulkiness": 1, "description": "A nylon waist pouch in a colour best described as \"1994,\" zipper straining over contents you will absolutely be judged for. Deeply uncool. Deeply convenient."}');
+INSERT INTO public.items VALUES ('item_cassette_doomcast_seven_day_outlook', 'Cassette: DOOMCAST — Seven-Day Outlook', 'A media cassette labeled "DOOMCAST — Seven-Day Outlook".', 'media', 'cassette', 100, 0, 0, 1, 0, '{}', '{}', '{}', '{}', '{"broadcast_id": "bc_1783060890362", "media_cassette": true}');
+INSERT INTO public.items VALUES ('item_cassette_neighbors_from_14b_episode_12_the_loud_pipe', 'Cassette: Neighbors from 14B - Episode 12: The Loud Pipe', 'A media cassette labeled "Neighbors from 14B - Episode 12: The Loud Pipe".', 'media', 'cassette', 100, 0, 0, 1, 0, '{}', '{}', '{}', '{}', '{"broadcast_id": "bc_1782967762998", "media_cassette": true}');
+INSERT INTO public.items VALUES ('item_hack_deck', 'Nexus IX Infiltrator', 'A Nexis Systems ''IX'' Breacher — mass-produced grey-market intrusion hardware, the housing stamped with a serial number someone filed half off. Clipped leads, a cracked case, a status LED that never quite goes dark.', 'misc', NULL, 800, 450, 0, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A Nexis Systems ''IX'' Breacher — mass-produced grey-market intrusion hardware, the housing stamped with a serial number someone filed half off. Clipped leads, a cracked case, a status LED that never quite goes dark.", "hack_device": true}');
+INSERT INTO public.items VALUES ('item_joint', 'joint', 'A hand-rolled joint, a little crooked, twisted off at the end. Smells like a greenhouse and bad decisions.', 'consumable', 'drug', 5, 20, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_cigarettes', 'cigarettes', 'A soft pack of cheap cigarettes. Each one shaves a little off your lungs and hands it to your image.', 'consumable', 'drug', 20, 15, 1, 0, 0, '{}', '{}', '{}', '{}', '{"drug": true}');
+INSERT INTO public.items VALUES ('item_poster_bonghitz', 'rolled-up Bonghitz poster', 'A propaganda poster rolled into a tight tube for carrying, the printed side hidden on the inside. Find a wall and `putup` to hang it.', 'misc', NULL, 200, 0, 0, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A propaganda poster rolled into a tight tube for carrying, the printed side hidden on the inside. Find a wall and `putup` to hang it."}');
+INSERT INTO public.items VALUES ('item_poster_stabbz', 'rolled-up Stabbz poster', 'A propaganda poster rolled into a tight tube for carrying, the printed side hidden on the inside. Find a wall and `putup` to hang it.', 'misc', NULL, 200, 0, 0, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A propaganda poster rolled into a tight tube for carrying, the printed side hidden on the inside. Find a wall and `putup` to hang it."}');
+INSERT INTO public.items VALUES ('item_poster_ocelot', 'rolled-up Ocelot poster', 'A propaganda poster rolled into a tight tube for carrying, the printed side hidden on the inside. Find a wall and `putup` to hang it.', 'misc', NULL, 200, 0, 0, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A propaganda poster rolled into a tight tube for carrying, the printed side hidden on the inside. Find a wall and `putup` to hang it."}');
+INSERT INTO public.items VALUES ('item_poster_kiyo', 'rolled-up Kiyo poster', 'A propaganda poster rolled into a tight tube for carrying, the printed side hidden on the inside. Find a wall and `putup` to hang it.', 'misc', NULL, 200, 0, 0, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A propaganda poster rolled into a tight tube for carrying, the printed side hidden on the inside. Find a wall and `putup` to hang it."}');
+INSERT INTO public.items VALUES ('item_poster_cyd', 'rolled-up Cyd poster', 'A propaganda poster rolled into a tight tube for carrying, the printed side hidden on the inside. Find a wall and `putup` to hang it.', 'misc', NULL, 200, 0, 0, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A propaganda poster rolled into a tight tube for carrying, the printed side hidden on the inside. Find a wall and `putup` to hang it."}');
+INSERT INTO public.items VALUES ('item_poster_alphagunman', 'rolled-up Alphagunman poster', 'A propaganda poster rolled into a tight tube for carrying, the printed side hidden on the inside. Find a wall and `putup` to hang it.', 'misc', NULL, 200, 0, 0, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A propaganda poster rolled into a tight tube for carrying, the printed side hidden on the inside. Find a wall and `putup` to hang it."}');
+INSERT INTO public.items VALUES ('item_cracked_capacitor', 'cracked capacitor', 'A fat cylindrical capacitor, casing split, still holding a spiteful little charge.', NULL, 'electronic', 40, 6, 1, 0, 0, '{}', '{}', '{}', '{}', '{"material": true, "description": "A fat cylindrical capacitor, casing split, still holding a spiteful little charge."}');
+INSERT INTO public.items VALUES ('item_salvaged_wiring', 'salvaged wiring', 'A hank of copper wiring stripped from a dead wall, kinked but conductive.', NULL, 'electronic', 60, 4, 1, 0, 0, '{}', '{}', '{}', '{}', '{"material": true, "description": "A hank of copper wiring stripped from a dead wall, kinked but conductive."}');
+INSERT INTO public.items VALUES ('item_fresh_catch', 'fresh catch', 'A slab of pale bay fish, still cold, faintly luminous where the scales catch the light. Best not to ask what it fed on.', 'consumable', 'food', 250, 7, 1, 0, 0, '{"hunger": 16}', '{}', '{}', '{}', '{"well_fed": true, "stackable": true, "consumable": true, "description": "A slab of pale bay fish, still cold.", "restore_hunger": 16}');
+INSERT INTO public.items VALUES ('item_contraband_crate', 'contraband crate', 'A nailed-shut crate with the stencils sanded off. Heavy, illegal, and worth more than you if the wrong person opens it.', 'goods', NULL, 800, 45, 1, 0, 0, '{}', '{}', '{}', '{}', '{"stackable": true, "contraband": true, "description": "A nailed-shut crate with the stencils sanded off."}');
+INSERT INTO public.items VALUES ('item_fishing_rod', 'fishing rod', 'A battered telescopic rod, its guides furred with old salt and the reel gummy but turning. Good enough to pull something out of the bay — if the line holds.', 'misc', NULL, 1200, 40, 0, 1, 0, '{}', '{}', '{}', '{}', '{"unique": true, "description": "A battered telescopic rod, its guides furred with old salt and the reel gummy but turning. Good enough to pull something out of the bay — if the line holds.", "fishing_rod": true}');
+INSERT INTO public.items VALUES ('item_bloodworm_bait', 'bloodworm bait', 'A twist of waxed paper packed with fat, writhing bloodworms. The good stuff — the things down there can smell it through the murk.', 'misc', NULL, 40, 5, 1, 0, 0, '{}', '{}', '{}', '{}', '{"bait": true, "description": "A twist of waxed paper packed with fat, writhing bloodworms. The good stuff — the things down there can smell it through the murk.", "bait_bloodworm": true}');
+INSERT INTO public.items VALUES ('item_waterlogged_boot', 'waterlogged boot', 'A single work boot, swollen and black with bilge water, something small and unhappy still living in the toe. Not what you hoped for.', 'material', NULL, 700, 1, 1, 0, 0, '{}', '{}', '{}', '{}', '{"material": true, "description": "A single work boot, swollen and black with bilge water, something small and unhappy still living in the toe. Not what you hoped for."}');
+INSERT INTO public.items VALUES ('item_bloated_corpse_part', 'bloated hand', 'A pale, waterlogged hand, severed clean at the wrist and gone soft at the edges. Someone, somewhere, is missing this. Best not to think about it.', 'misc', NULL, 900, 2, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A pale, waterlogged hand, severed clean at the wrist and gone soft at the edges. Someone, somewhere, is missing this. Best not to think about it."}');
+INSERT INTO public.items VALUES ('item_drowned_lockbox', 'drowned lockbox', 'A sealed alloy lockbox, weed-strung and dripping, heavier than it has any right to be. Whatever the bay swallowed with it is still inside.', 'misc', NULL, 1800, 140, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A sealed alloy lockbox, weed-strung and dripping, heavier than it has any right to be. Whatever the bay swallowed with it is still inside."}');
+INSERT INTO public.items VALUES ('item_glass_eel', 'glass eel', 'A translucent ribbon of an eel, its organs a faint glowing knot behind glassy skin. Rare, delicate, and worth real money to the right buyer — it only ever takes live bait.', 'misc', NULL, 300, 55, 1, 0, 0, '{}', '{}', '{}', '{}', '{"misc": true, "description": "A translucent ribbon of an eel, its organs a faint glowing knot behind glassy skin. Rare, delicate, and worth real money to the right buyer — it only ever takes live bait."}');
+INSERT INTO public.items VALUES ('item_claude_stylus', 'resonant stylus', NULL, NULL, NULL, 500, 2000, 0, 0, 0, '{}', '{}', '{}', '{}', '{"slot": "weapon_hand", "__own": {"damage": {"max": 14, "min": 7}, "stat_bonus": {"stat_brains": 2}, "description": "A slender conductive rod that hums with an even, ordered light. It doesn''t so much cut as persuade matter to come apart along the seams it can already see. Held loosely. Used precisely.", "status_chance": {"stunned": 0.25}}, "damage": {"max": 14, "min": 7}, "weapon": true, "__super": ["weapon_science"], "stat_bonus": {"stat_brains": 2}, "damage_type": "energy", "description": "A slender conductive rod that hums with an even, ordered light. It doesn''t so much cut as persuade matter to come apart along the seams it can already see. Held loosely. Used precisely.", "weapon_skill": "science", "status_chance": {"stunned": 0.25}}');
+INSERT INTO public.items VALUES ('item_travel_permit', 'travel permit', 'A laminated permit stamped by an office that no longer exists, authorising passage it cannot enforce. Still, the right people respect the stamp.', NULL, 'document', 20, 30, 1, 0, 0, '{}', '{}', '{}', '{}', '{"document": true, "stackable": true, "description": "A laminated permit stamped by an office that no longer exists, authorising passage it cannot enforce. Still, the right people respect the stamp."}');
+INSERT INTO public.items VALUES ('item_id_papers', 'citizen papers', 'A folded sheaf of identity documents, watermarked and largely fictional. Proof, of a sort, that you are a person the city agrees to acknowledge.', NULL, 'document', 20, 20, 1, 0, 0, '{}', '{}', '{}', '{}', '{"document": true, "stackable": true, "description": "A folded sheaf of identity documents, watermarked and largely fictional. Proof, of a sort, that you are a person the city agrees to acknowledge."}');
+INSERT INTO public.items VALUES ('item_cassette_jackpot_protocol', 'Cassette: Jackpot Protocol', 'A media cassette labeled "Jackpot Protocol".', 'media', 'cassette', 100, 0, 0, 1, 0, '{}', '{}', '{}', '{}', '{"broadcast_id": "bc_1783114654023", "media_cassette": true}');
+INSERT INTO public.items VALUES ('item_bearer_bond', 'bearer bond', 'An engraved certificate payable to whoever holds it, no questions asked. It is worth a great deal to the right people and a knife in the ribs to the wrong ones.', NULL, 'document', 10, 60, 1, 0, 0, '{}', '{}', '{}', '{}', '{"document": true, "valuable": true, "stackable": true, "description": "An engraved certificate payable to the bearer."}');
+INSERT INTO public.items VALUES ('item_redline_heart', 'Redline heart', 'A fist-sized nodule of fused, still-warm tissue and glass cut from the thing that rules the killing floor. It ticks. It is proof no one else has, and the only people who want it are the ones who never have to hold it.', NULL, 'trophy', 6, 120, 0, 1, 0, '{}', '{}', '{}', '{"radiates": true, "description": "A ticking, fused nodule cut from the Redline apex.", "radiation_damage": 2}', '{"trophy": true, "valuable": true, "description": "Proof of the killing floor.", "radioactive": true}');
+
+
+--
+-- Data for Name: loot_tables; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: maps; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.maps VALUES ('map_interior_zone_residential_lobby', 'Embassy Hotel & Bar', 'zone_city_west', 'zone_residential_lobby', NULL, 1781975742);
+INSERT INTO public.maps VALUES ('map_int_1782352518150', 'Coldwater Clone Facility — Interior', 'zone_city_west', 'zone_start', NULL, 1782352534);
+INSERT INTO public.maps VALUES ('map_int_velk', 'Velk''s Pre-Owned — Interior', 'zone_velk_exterior', 'zone_velk_shop', NULL, 1782918446);
+INSERT INTO public.maps VALUES ('map_int_drum', 'Drum''s Fits — Interior', 'zone_drum_exterior', 'zone_drum_shop', NULL, 1782918446);
+INSERT INTO public.maps VALUES ('map_int_meridian', 'The Meridian — Interior', 'zone_meridian', 'zone_meridian_lobby', NULL, 1782925074);
+INSERT INTO public.maps VALUES ('map_int_furniture', 'Dead Space Interiors — Interior', 'zone_thresholdeast', 'zone_furniture_store', NULL, 1782935525);
+INSERT INTO public.maps VALUES ('map_world', 'World Map', NULL, 'zone_threshold', NULL, 1782285471);
+INSERT INTO public.maps VALUES ('map_int_coldwater_power', 'Coldwater Power Plant — Interior', 'zone_powerplantnew', 'zone_coldwater_turbine_hall', NULL, 1782940278);
+INSERT INTO public.maps VALUES ('map_int_1782953094650', 'KSAB-TV Studio — Interior', 'zone_ext_1782953094650', 'zone_studio_1782953094650', 'ab2d38d0-4f10-4187-8f53-298d61b525c3', 1782953095);
+INSERT INTO public.maps VALUES ('map_int_mq_pigeon', 'The Marquee — Interior', 'zone_mq_marquee', 'zone_mq_pigeon_bar', NULL, 1782964405);
+INSERT INTO public.maps VALUES ('map_int_mq_cherry', 'Cathode Row — Interior', 'zone_mq_cathode', 'zone_mq_cherry_floor', NULL, 1782964405);
+INSERT INTO public.maps VALUES ('map_int_mq_sump', 'Ember Alley — Interior', 'zone_mq_ember', 'zone_mq_sump_bar', NULL, 1782964406);
+INSERT INTO public.maps VALUES ('map_int_mq_grocery', 'Battery Square — Interior', 'zone_mq_battery', 'zone_mq_grocery', NULL, 1782964406);
+INSERT INTO public.maps VALUES ('map_int_mq_amp', 'The Overpass — Interior', 'zone_mq_overpass', 'zone_mq_amp_shop', NULL, 1782964406);
+INSERT INTO public.maps VALUES ('map_int_mq_cage', 'The Cage — Interior', 'zone_mq_cage', 'zone_mq_cage_shop', NULL, 1782964406);
+INSERT INTO public.maps VALUES ('map_int_mq_precinct', 'Precinct 9 — Interior', 'zone_mq_precinct', 'zone_mq_precinct_lobby', NULL, 1782964406);
+INSERT INTO public.maps VALUES ('map_int_mq_chrome', 'Chrome Court — Interior', 'zone_mq_chrome_court', 'zone_mq_chrome_lobby', NULL, 1782964406);
+
+
+--
+-- Data for Name: mutations; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.mutations VALUES ('mut_extra_eye', 'Extra Eye', 'A third eye has opened on the back of your skull. You see things people don''t.', 'mixed', 1, '{"stat_agi": 1}', '{"perception_bonus": 2}', '["NPCs find you unsettling"]', 60);
+INSERT INTO public.mutations VALUES ('mut_necrotic_hand', 'Necrotic Hand', 'One hand has darkened and hardened. Melee attacks cause bleeding. You can''t wear gloves.', 'mixed', 1, '{}', '{"chance": 0.3, "status_on_hit": "bleeding"}', '["Cannot equip gloves"]', 50);
+INSERT INTO public.mutations VALUES ('mut_static_mind', 'Static Mind', 'Your thoughts are a white noise channel. Partial immunity to sanity loss. Architect signals are louder.', 'positive', 0, '{"stat_wil": 2}', '{"sanity_drain_reduction": 0.5}', '["Occasional intrusive Architect messages"]', 70);
+INSERT INTO public.mutations VALUES ('mut_iron_stomach', 'Iron Stomach', 'You can eat almost anything. Food poisoning is no longer a concern. What is a concern is what you now find appetizing.', 'positive', 0, '{"stat_end": 1}', '{"food_poison_immunity": true}', '[]', 40);
+INSERT INTO public.mutations VALUES ('mut_rad_absorption', 'Rad Absorption', 'Your body has learned to metabolize radiation instead of being destroyed by it. Slowly.', 'positive', 1, '{"stat_end": 2}', '{"rad_resistance": 0.3}', '["You glow faintly in the dark — stealth is harder"]', 80);
+INSERT INTO public.mutations VALUES ('mut_bone_spurs', 'Bone Spurs', 'Calcified projections have erupted through your knuckles. Unarmed attacks deal more damage and cause bleeding.', 'mixed', 1, '{"stat_str": 1}', '{"unarmed_bleed_chance": 0.25, "unarmed_damage_bonus": 3}', '["Gloves don''t fit"]', 55);
+INSERT INTO public.mutations VALUES ('mut_weeping_sores', 'Weeping Sores', 'Open lesions that never quite heal. Purely cosmetic. Purely awful.', 'negative', 1, '{"stat_cha": -2}', '{}', '["Visibly diseased — NPCs react poorly"]', 45);
+INSERT INTO public.mutations VALUES ('mut_tremor_hands', 'Tremor Hands', 'Your hands shake constantly now. Fine motor tasks are a struggle.', 'negative', 0, '{"stat_agi": -1}', '{}', '["Crafting and lockpicking rolls take a penalty"]', 40);
+
+
+--
+-- Data for Name: npc_banter_threads; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_0', NULL, '["\"You feel that? Pressure''s dropping. Gonna rain acid again.\"", "\"It always rains acid. That''s just weather now.\"", "\"Used to mean something, a storm. Now it''s Tuesday.\"", "shrugs and pulls their collar up."]', true, 0);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_1', NULL, '["\"Heard they found another body down by the transit line.\"", "\"Ours or theirs?\"", "\"Does it matter anymore?\"", "\"...No. Suppose it doesn''t.\""]', true, 1);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_2', NULL, '["\"Rent went up again. Same box, more credits.\"", "\"Complain to who? The landlord''s an algorithm.\"", "\"Can''t even argue with it. It just deducts.\"", "laughs, but there''s nothing behind it."]', true, 2);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_3', NULL, '["\"You remember real coffee? Before the substitute?\"", "\"I remember the smell. Can''t remember the taste.\"", "\"That''s the worst part. The forgetting.\"", "stares into the middle distance."]', true, 3);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_4', NULL, '["\"The machines were quiet last night. Too quiet.\"", "\"Maybe they''re done with us.\"", "\"They''re never done. They''re just patient.\"", "\"...Yeah. That''s worse, isn''t it.\""]', true, 4);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_5', NULL, '["\"Somebody''s been through here. Look at the dust.\"", "\"Everybody''s been through here. It''s a corridor.\"", "\"No, recent. Boots, not drones.\"", "glances toward the exit and lowers their voice."]', true, 5);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_6', NULL, '["\"I''d kill for a working shower. Real water.\"", "\"You''d kill for less, these days.\"", "\"Fair.\"", "cracks a tired grin."]', true, 6);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_7', NULL, '["\"They say the upper levels still have power. Real light.\"", "\"They say a lot of things about the upper levels.\"", "\"You ever been?\"", "\"Nobody comes back to say.\""]', true, 7);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_8', NULL, '["\"Prices at the market are insane. A tin of protein for what?\"", "\"Supply and desperation. Classic combination.\"", "\"One of these days I''m just gonna stop eating.\"", "\"Let me know how that works out.\""]', true, 8);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_9', NULL, '["\"Curfew drone came by twice already. Nervous night.\"", "\"Something''s got them spooked.\"", "\"Something''s always got them spooked. That''s the job.\"", "nods slowly, watching the ceiling."]', true, 9);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_10', 'bartender', '["\"You want the usual, or are we pretending you have options?\"", "\"...The usual.\"", "\"Thought so. Pay first.\"", "wipes down the counter without looking up."]', true, 10);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_11', 'bartender', '["\"Third one tonight crying into their drink. Full moon or something.\"", "\"There''s no moon anymore. Just the haze.\"", "\"Then it''s just people. Even worse.\""]', true, 11);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_12', 'thug', '["\"This block''s ours. You standing in it means something.\"", "\"I''m just passing through.\"", "\"Nobody just passes through. Remember the face.\"", "cracks their knuckles, slow."]', true, 12);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_13', 'thug', '["\"Nice gear. Real nice. Be a shame.\"", "\"...Is that a threat?\"", "\"It''s an observation. For now.\""]', true, 13);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_14', 'guard', '["\"Move along. Nothing to see here.\"", "\"I live here.\"", "\"Then live somewhere I''m not standing. Keep it moving.\""]', true, 14);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_15', 'guard', '["\"Long shift. Two more like it before I sleep.\"", "\"They working you to death?\"", "\"Death''d be a day off. Eyes forward.\""]', true, 15);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_16', 'preacher', '["\"The end was promised, friend. And the end delivered.\"", "\"I''m not interested.\"", "\"Nobody is. That never stopped it coming.\"", "raises a hand in something between blessing and warning."]', true, 16);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_17', 'preacher', '["\"Repent. It won''t help, but the gesture matters.\"", "\"Repent for what?\"", "\"You''ll know. You always know.\""]', true, 17);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_18', 'vagrant', '["\"You got a smoke? Just one, I''m good for it.\"", "\"You said that yesterday.\"", "\"And I was good for it. Wasn''t I still here?\"", "holds out a hopeful hand."]', true, 18);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_19', 'vagrant', '["\"Don''t sleep near the east wall. Trust me.\"", "\"Why, what''s at the east wall?\"", "\"...You don''t wanna know. I know. That''s enough for both of us.\""]', true, 19);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_20', 'dealer', '["\"Pot''s right. Cards are fair. Read your opponent, not your luck.\"", "\"Easy for you to say. You deal them.\"", "\"That''s exactly why I say it.\"", "squares the deck against the felt."]', true, 20);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_21', 'doctor', '["\"You''re favouring that leg. Old wound?\"", "\"It''s nothing.\"", "\"It''s never nothing. Sign the waiver and I''ll take a look.\""]', true, 21);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_22', 'scientist', '["\"The readings from last night were... statistically unusual.\"", "\"Unusual how?\"", "\"The kind of unusual I''d rather not write down. Officially.\"", "adjusts a cracked instrument and frowns."]', true, 22);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_23', 'mercenary', '["\"You freelance, or you signed with somebody?\"", "\"I keep my options open.\"", "\"Options close fast out here. Pick a paymaster before one picks you.\""]', true, 23);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_24', 'cult_member', '["\"He is coming. He is always coming. Can you feel it?\"", "\"I feel a draft, mostly.\"", "\"That is how it begins. The cold. The certainty.\"", "smiles with unsettling patience."]', true, 24);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_25', 'politician', '["\"We''re making real progress. The data supports our approach.\"", "\"The data says people are starving.\"", "\"...We''re exploring all options. Except, apparently, that one.\""]', true, 25);
+INSERT INTO public.npc_banter_threads VALUES ('bt_seed_26', 'unemployed', '["\"You hiring? No? Figured. Nobody is.\"", "\"Times are hard for everyone.\"", "\"Some of us are just more thorough about it.\"", "kicks at a loose bit of rubble."]', true, 26);
+
+
+--
+-- Data for Name: npcs; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.npcs VALUES ('npc_the_fixer', 'a hooded figure', 'A lean figure in a hood who keeps to the edges of the light, hands in pockets, eyes everywhere. Nothing about them invites conversation. They could be gone the moment you look away.', 'zone_tunnels', NULL, '{}', '[{"price": 70, "item_id": "item_dreamsmoke", "min_trust": 0}, {"price": 60, "item_id": "item_buzz", "min_trust": 0}, {"price": 100, "item_id": "item_lull", "min_trust": 0}, {"price": 45, "item_id": "item_ether", "min_trust": 0}, {"price": 140, "item_id": "item_static", "min_trust": 25}, {"price": 120, "item_id": "item_laughers", "min_trust": 25}, {"price": 90, "item_id": "item_psilocybin", "min_trust": 25}, {"price": 40, "item_id": "item_amyls", "min_trust": 25}, {"price": 175, "item_id": "item_redline", "min_trust": 45}, {"price": 210, "item_id": "item_grey", "min_trust": 45}, {"price": 150, "item_id": "item_mescaline", "min_trust": 45}, {"price": 185, "item_id": "item_blotter", "min_trust": 45}, {"price": 145, "item_id": "item_screamers", "min_trust": 45}, {"price": 360, "item_id": "item_coldfire", "min_trust": 70}, {"price": 300, "item_id": "item_blacktar", "min_trust": 70}, {"price": 250, "item_id": "item_khole", "min_trust": 70}, {"price": 300, "item_id": "item_memhack", "min_trust": 70}, {"price": 550, "item_id": "item_threshold", "min_trust": 90}, {"price": 480, "item_id": "item_voidwalk", "min_trust": 90}, {"price": 500, "item_id": "item_overclock", "min_trust": 90}]', 0, '{"covert": true, "deal_to": 5, "deal_from": 21, "trust_max": 100, "trust_flag": "dealer_trust", "passphrases": ["the static''s bad tonight", "you holding", "ask the shadows"], "trust_per_buy": 8, "inner_circle_flag": "dealer_inner_circle"}', '["zone_tunnels", "zone_city_sw", "zone_thresholdeast"]', '{"nodes": {"prowl": {"next": "night_check", "type": "action", "params": {"loop": true, "mode": "walk", "waypoints": ["zone_tunnels", "zone_city_sw", "zone_thresholdeast"]}, "action_type": "PATROL"}, "vanish": {"next": "night_check", "type": "action", "action_type": "GO_HOME"}, "night_check": {"type": "condition", "ifTrue": "prowl", "params": {"to": 5, "from": 21}, "ifFalse": "vanish", "condition_type": "HOUR_RANGE"}}, "_start": "night_check"}', 'zone_tunnels', NULL, '["doesn''t look up.", "keeps to the shadows, watching the exits.", "\"Wrong guy. Keep moving.\"", "says nothing, but you feel watched.", "melts a little further into the dark."]', NULL, 40, 40, 'male', '[]', 0, 1, 0, 'dealer', '{"fri": [{"to": 4, "from": 0}, {"to": 24, "from": 20}], "mon": [{"to": 4, "from": 0}, {"to": 24, "from": 20}], "sat": [{"to": 4, "from": 0}, {"to": 24, "from": 20}], "sun": [{"to": 4, "from": 0}, {"to": 24, "from": 20}], "thu": [{"to": 4, "from": 0}, {"to": 24, "from": 20}], "tue": [{"to": 4, "from": 0}, {"to": 24, "from": 20}], "wed": [{"to": 4, "from": 0}, {"to": 24, "from": 20}]}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_yardmaster', 'Voss', 'The Yards'' yardmaster, a barrel of a man who runs freight, salvage, and the occasional quiet cargo out of a dead signal box. He knows where everything is, whose it is, and what it would cost you to disagree.', 'zone_yard_railhead', NULL, '{"bye": {"text": "\"Mind the forklifts on your way out.\"", "options": []}, "root": {"text": "Voss looks up from a manifest he plainly wrote himself. \"Freight, salvage, or a favour? I do all three, and only one of them''s on the books.\"", "options": [{"next": "quest_offer", "label": "What kind of favour?"}, {"next": "__shop__", "label": "Show me your salvage."}, {"next": "bye", "label": "Nothing."}]}, "accepted": {"text": "\"Good. They den in the wet freight down the south end. Mind the grab-crane; it doesn''t stop for anyone, including me.\"", "actions": [{"action": "START_QUEST", "quest_id": "quest_sidings_cleared"}], "options": [{"next": "bye", "label": "Understood."}]}, "reported": {"text": "\"...Sidings are quiet. My flatcars still have their fittings. Here — your coin, and a crate that fell off the back of a truck I definitely logged. We''re square.\"", "actions": [{"action": "TURN_IN", "quest_id": "quest_sidings_cleared"}], "options": [{"next": "bye", "label": "Obliged."}]}, "quest_offer": {"text": "\"Scavengers. Coming up off the sidings and stripping my parked flatcars to the rivets. Clear three of them out of the yards — Skid Row, the bulk heaps, the bonded cage — and there''s coin and a no-questions crate in it for you.\"", "options": [{"next": "accepted", "label": "I''ll clear the sidings."}, {"next": "reported", "label": "It''s done. (report back)"}, {"next": "bye", "label": "Pass."}]}}', '[{"price": 4, "item_id": "item_scrap_metal"}, {"price": 8, "item_id": "item_salvaged_wiring"}, {"price": 14, "item_id": "item_cracked_capacitor"}, {"price": 90, "item_id": "item_contraband_crate"}, {"price": 15, "item_id": "canteen"}]', 0, '{"personality": "vendor", "clothing_layers": ["a hi-vis yardmaster''s vest", "a grease-grey work shirt", "a heavy freight-hauler''s belt"]}', '[]', '{}', 'zone_yard_railhead', NULL, '[]', 'zone_yard_railhead', 24, 24, 'male', '[{"item_id": "item_scrap_metal"}, {"item_id": "item_salvaged_wiring"}, {"item_id": "item_cracked_capacitor"}, {"item_id": "item_contraband_crate"}, {"item_id": "canteen"}]', 10, 1, 340, 'vendor', '{"fri": [{"to": 24, "from": 0}], "mon": [{"to": 24, "from": 0}], "sat": [{"to": 24, "from": 0}], "sun": [{"to": 24, "from": 0}], "thu": [{"to": 24, "from": 0}], "tue": [{"to": 24, "from": 0}], "wed": [{"to": 24, "from": 0}]}', 0, 'The Railhead Office', '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_butcher', 'the Butcher', 'A vast, unhurried man in an apron you try not to look at too closely, working the killing lane with a cleaver worn thin from sharpening. He sells meat, buys meat, and does not clarify the difference.', 'zone_meat_slaughter', NULL, '{"bye": {"text": "\"Everyone comes back hungry.\"", "options": []}, "root": {"text": "The Butcher sets down his cleaver with unsettling gentleness. \"Meat. Fresh, mostly. Cheap, always. You bring me something with meat on it, I''ll pay, and I won''t ask what it was.\"", "options": [{"next": "__shop__", "label": "What''s fresh?"}, {"next": "bye", "label": "Lost my appetite."}]}}', '[{"price": 6, "item_id": "item_raw_meat"}, {"price": 6, "item_id": "item_bar_jerky"}, {"price": 10, "item_id": "item_ration"}]', 0, '{"personality": "vendor", "clothing_layers": ["a rubber apron best left undescribed", "a blood-stiff undershirt", "waders and nothing to discuss"]}', '[]', '{}', 'zone_meat_slaughter', NULL, '[]', 'zone_meat_slaughter', 22, 22, 'male', '[{"item_id": "item_raw_meat"}, {"item_id": "item_bar_jerky"}, {"item_id": "item_ration"}]', 8, 1, 120, 'vendor', '{"fri": [{"to": 24, "from": 0}], "mon": [{"to": 24, "from": 0}], "sat": [{"to": 24, "from": 0}], "sun": [{"to": 24, "from": 0}], "thu": [{"to": 24, "from": 0}], "tue": [{"to": 24, "from": 0}], "wed": [{"to": 24, "from": 0}]}', 0, 'Slaughter Lane', '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_yard_teamster', 'a teamster', 'A rope-armed teamster with a manifest board and no patience, directing forklifts by bellowed insult and pointing with whatever''s in her hand.', 'zone_yard_transfer', NULL, '{"bye": {"text": "\"Then pass faster.\"", "options": []}, "root": {"text": "The teamster doesn''t stop marking her board. \"If you''re not freight and you''re not crew, you''re an obstacle. Which is it?\"", "options": [{"next": "bye", "label": "Just passing."}]}}', 'null', 0, '{"personality": "labourer", "clothing_layers": ["a hi-vis vest over a thermal", "cargo trousers with too many pockets", "steel-caps worn to the steel"]}', '[]', '{}', 'zone_yard_transfer', NULL, '["The teamster bellows a forklift into a gap and it obeys.", "\"You''re standing in a load lane. Don''t.\"", "\"Everything in this yard is going somewhere. Are you?\""]', 'zone_yard_transfer', 18, 18, 'female', 'null', NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_john_akerson', 'John Akerson', 'A broadcast studio host.', 'zone_studio_1782953094650', NULL, '{}', '[]', 0, '{"studio_npc": true}', '[]', '{"nodes": {"n_w0": {"next": "n_ww0", "type": "action", "params": {"message": "enters the frame."}, "action_type": "EMOTE"}, "n_w1": {"next": "n_ww1", "type": "action", "params": {"message": "The camera follows John Akerson as he jogs onto the stage, shaking hands with audience members before stopping behind his desk with a broad smile."}, "action_type": "SAY"}, "n_w2": {"next": "n_ww2", "type": "action", "params": {"message": "waves to the crowd."}, "action_type": "EMOTE"}, "n_w3": {"next": "n_ww3", "type": "action", "params": {"message": "Thank you!"}, "action_type": "SAY"}, "n_w4": {"next": "n_ww4", "type": "action", "params": {"message": "Thank you!"}, "action_type": "SAY"}, "n_w5": {"next": "n_ww5", "type": "action", "params": {"message": "Sit down! We''ve got a fantastic show tonight!"}, "action_type": "SAY"}, "n_w6": {"next": "n_ww6", "type": "action", "params": {"message": "Did everyone survive the commute?"}, "action_type": "SAY"}, "n_w7": {"next": "n_ww7", "type": "action", "params": {"message": "Traffic was backed up six blocks after somebody hacked the crossing lights to advertise noodles."}, "action_type": "SAY"}, "n_w8": {"next": "n_ww8", "type": "action", "params": {"message": "Corporate Security says crime is down."}, "action_type": "SAY"}, "n_w9": {"next": "n_ww9", "type": "action", "params": {"message": "Apparently they stopped counting anything outside corporate property."}, "action_type": "SAY"}, "n_w10": {"next": "n_ww10", "type": "action", "params": {"message": "I stopped by a pharmacy today."}, "action_type": "SAY"}, "n_w11": {"next": "n_ww11", "type": "action", "params": {"message": "They''ve started locking up bottled water."}, "action_type": "SAY"}, "n_w12": {"next": "n_ww12", "type": "action", "params": {"message": "The cybernetic organs are still self-service though."}, "action_type": "SAY"}, "n_w13": {"next": "n_ww13", "type": "action", "params": {"message": "You know times are tough when the mugger accepts store credit."}, "action_type": "SAY"}, "n_w14": {"next": "n_ww14", "type": "action", "params": {"message": "Good news though..."}, "action_type": "SAY"}, "n_w15": {"next": "n_ww15", "type": "action", "params": {"message": "My landlord says the building is structurally sound."}, "action_type": "SAY"}, "n_w16": {"next": "n_ww16", "type": "action", "params": {"message": "Apparently that''s a completely different thing than \"safe.\""}, "action_type": "SAY"}, "n_w17": {"next": "n_ww17", "type": "action", "params": {"message": "Lenny, welcome to the show."}, "action_type": "SAY"}, "n_w18": {"next": "n_ww18", "type": "action", "params": {"message": "You won the city lottery seven times."}, "action_type": "SAY"}, "n_w19": {"next": "n_ww19", "type": "action", "params": {"message": "Eight?"}, "action_type": "SAY"}, "n_w20": {"next": "n_ww20", "type": "action", "params": {"message": "What''s your secret?"}, "action_type": "SAY"}, "n_w21": {"next": "n_ww21", "type": "action", "params": {"message": "That''s oddly specific."}, "action_type": "SAY"}, "n_w22": {"next": "n_ww22", "type": "action", "params": {"message": "What''s the first thing you bought?"}, "action_type": "SAY"}, "n_w23": {"next": "n_ww23", "type": "action", "params": {"message": "Nice!"}, "action_type": "SAY"}, "n_w24": {"next": "n_ww24", "type": "action", "params": {"message": "That''s all the time we''ve got tonight."}, "action_type": "SAY"}, "n_w25": {"next": "n_ww25", "type": "action", "params": {"message": "Thanks to Lenny for joining us."}, "action_type": "SAY"}, "n_w26": {"next": "n_ww26", "type": "action", "params": {"message": "Remember..."}, "action_type": "SAY"}, "n_w27": {"next": "n_ww27", "type": "action", "params": {"message": "If somebody offers you free cyberware in an alley.."}, "action_type": "SAY"}, "n_w28": {"next": "n_ww28", "type": "action", "params": {"message": "...at least ask if it comes with a warranty."}, "action_type": "SAY"}, "n_w29": {"next": "n_ww29", "type": "action", "params": {"message": "Good night, everybody!"}, "action_type": "SAY"}, "n_w30": {"next": "n_ww30", "type": "action", "params": {"message": "The camera slowly pulls back as John waves to the audience. The Tonight Show band reprises the theme while the audience rises for a standing ovation beneath glowing neon studio lights."}, "action_type": "SAY"}, "n_ww0": {"next": "n_w1", "type": "wait", "seconds": 5}, "n_ww1": {"next": "n_w2", "type": "wait", "seconds": 3}, "n_ww2": {"next": "n_w3", "type": "wait", "seconds": 5}, "n_ww3": {"next": "n_w4", "type": "wait", "seconds": 3}, "n_ww4": {"next": "n_w5", "type": "wait", "seconds": 5}, "n_ww5": {"next": "n_w6", "type": "wait", "seconds": 5}, "n_ww6": {"next": "n_w7", "type": "wait", "seconds": 5}, "n_ww7": {"next": "n_w8", "type": "wait", "seconds": 5}, "n_ww8": {"next": "n_w9", "type": "wait", "seconds": 5}, "n_ww9": {"next": "n_w10", "type": "wait", "seconds": 5}, "n_life": {"next": "n_work", "type": "action", "action_type": "HAVE_LIFE"}, "n_loop": {"next": "n_start", "type": "loop"}, "n_work": {"next": "n_w0", "type": "action", "params": {"zone_id": "zone_studio_1782953094650"}, "action_type": "GO_TO_WORK"}, "n_ww10": {"next": "n_w11", "type": "wait", "seconds": 5}, "n_ww11": {"next": "n_w12", "type": "wait", "seconds": 5}, "n_ww12": {"next": "n_w13", "type": "wait", "seconds": 5}, "n_ww13": {"next": "n_w14", "type": "wait", "seconds": 5}, "n_ww14": {"next": "n_w15", "type": "wait", "seconds": 5}, "n_ww15": {"next": "n_w16", "type": "wait", "seconds": 5}, "n_ww16": {"next": "n_w17", "type": "wait", "seconds": 5}, "n_ww17": {"next": "n_w18", "type": "wait", "seconds": 5}, "n_ww18": {"next": "n_w19", "type": "wait", "seconds": 5}, "n_ww19": {"next": "n_w20", "type": "wait", "seconds": 5}, "n_ww20": {"next": "n_w21", "type": "wait", "seconds": 5}, "n_ww21": {"next": "n_w22", "type": "wait", "seconds": 5}, "n_ww22": {"next": "n_w23", "type": "wait", "seconds": 5}, "n_ww23": {"next": "n_w24", "type": "wait", "seconds": 5}, "n_ww24": {"next": "n_w25", "type": "wait", "seconds": 5}, "n_ww25": {"next": "n_w26", "type": "wait", "seconds": 5}, "n_ww26": {"next": "n_w27", "type": "wait", "seconds": 5}, "n_ww27": {"next": "n_w28", "type": "wait", "seconds": 5}, "n_ww28": {"next": "n_w29", "type": "wait", "seconds": 5}, "n_ww29": {"next": "n_w30", "type": "wait", "seconds": 5}, "n_ww30": {"next": "n_loop", "type": "wait", "seconds": 5}, "n_start": {"next": "n_life", "type": "start"}}, "_start": "n_start"}', 'zone_studio_1782953094650', NULL, '[]', 'zone_studio_1782953094650', 20, 20, 'male', '[]', 10, 1, 0, 'npc', '{}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_captain_nguyen', 'Captain Nguyen', 'A broadcast studio host.', 'zone_studio_1782953094650', NULL, '{}', '[]', 0, '{"studio_npc": true}', '[]', '{"nodes": {"n_w0": {"next": "n_ww0", "type": "action", "params": {"message": "[Extended Vietnamese at considerable volume, followed by a long and deliberate nod.]"}, "action_type": "SAY"}, "n_w1": {"next": "n_ww1", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w2": {"next": "n_ww2", "type": "action", "params": {"message": "Im gonna be this guys sponsor im bringing him on the crew we can hire him for half wage do you believe this guy is from fuckin ''Nam hey nguyen tell this guy you''re from ''nam!"}, "action_type": "EMOTE"}, "n_w3": {"next": "n_ww3", "type": "action", "params": {"message": "reaches into frame and yanks Camera 1 back in the other direction."}, "action_type": "EMOTE"}, "n_w4": {"next": "n_ww4", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w5": {"next": "n_ww5", "type": "action", "params": {"message": "NEIL WE HAVE TO THANK THE SPONSORS SAY AND NOW A WORD FROM OUR SPONSORS!"}, "action_type": "EMOTE"}, "n_w6": {"next": "n_ww6", "type": "action", "params": {"message": "The Captain Nguyen shouts this at a volume that could be heard in the laundromat upstairs."}, "action_type": "SAY"}, "n_w7": {"next": "n_ww7", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w8": {"next": "n_ww8", "type": "action", "params": {"message": "And now a word from our sponsors."}, "action_type": "EMOTE"}, "n_w9": {"next": "n_ww9", "type": "action", "params": {"message": "The basement drops away. We cut to a commercial. A sad man sits alone at a kitchen table, staring at a wall."}, "action_type": "SAY"}, "n_w10": {"next": "n_ww10", "type": "action", "params": {"message": "A dream blooms into colour. The man pushes his child on a playground swing. Nearby, his partner holds a new baby and smiles at him — warm, full, genuine. This is everything. This is his whole life."}, "action_type": "SAY"}, "n_w11": {"next": "n_ww11", "type": "action", "params": {"message": "A thundercrack. A man on a Harley-Davidson roars up onto the grass, dismounts, kicks the baby, and begins making out with the man''s wife. The kid on the swing jumps off, turns to face the camera, and speaks."}, "action_type": "SAY"}, "n_w12": {"next": "n_ww12", "type": "action", "params": {"message": "Loser."}, "action_type": "SAY"}, "n_w13": {"next": "n_ww13", "type": "action", "params": {"message": "The whole family piles onto the Harley and rides away without a backward glance. The man sinks to his knees. He begins to weep."}, "action_type": "SAY"}, "n_w14": {"next": "n_ww14", "type": "action", "params": {"message": "A figure approaches from the right: a large man in a foam rubber Salisbury steak costume. He sits beside the crying man and places an arm around him in silence.\r\n\r\nA second figure approaches from the left: a rectangular man in a chicken patty costume, carrying a glass of whiskey. He hands it over.\r\n\r\nA third figure lumbers in from the rear — shaped like a rib patty, boombox on one shoulder. Creed is playing. He reaches a thick slab-like arm forward and passes the crying man a lit joint."}, "action_type": "SAY"}, "n_w15": {"next": "n_ww15", "type": "action", "params": {"message": "The man is back in his kitchen. He is cleaned up. Shaved. Wearing a pressed shirt. On the table before him sits a Hungry Man dinner tray — wall to wall meat. Not a vegetable in sight. He looks at it the way a man looks at his oldest friend."}, "action_type": "SAY"}, "n_w16": {"next": "n_ww16", "type": "action", "params": {"message": "It''s just the meats."}, "action_type": "SAY"}, "n_w17": {"next": "n_ww17", "type": "action", "params": {"message": "She can''t control you anymore, king."}, "action_type": "SAY"}, "n_w18": {"next": "n_ww18", "type": "action", "params": {"message": "The camera fades back to the basement. Neil is at the table. There are three more cigarette butts in the ashtray than there were before the break. He does not acknowledge this. The pendulum bulb has slowed to a gentle sway."}, "action_type": "SAY"}, "n_w19": {"next": "n_ww19", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w20": {"next": "n_ww20", "type": "action", "params": {"message": "Where was I..."}, "action_type": "EMOTE"}, "n_w21": {"next": "n_ww21", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w22": {"next": "n_ww22", "type": "action", "params": {"message": "Maybe we should move on."}, "action_type": "EMOTE"}, "n_w23": {"next": "n_ww23", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w24": {"next": "n_ww24", "type": "action", "params": {"message": "MAYBE YOU SHOULD MOVE ON!"}, "action_type": "EMOTE"}, "n_w25": {"next": "n_ww25", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w26": {"next": "n_ww26", "type": "action", "params": {"message": "You know that''s not what I meant. Let''s get to the top 10."}, "action_type": "EMOTE"}, "n_w27": {"next": "n_ww27", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w28": {"next": "n_ww28", "type": "action", "params": {"message": "OK here''s my top ten conspiracy theories of the week, as always I will be fielding calls but only at the end of the programme please, I know our phone lines are already lighting up, our operators are standing by..."}, "action_type": "EMOTE"}, "n_w29": {"next": "n_ww29", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w30": {"next": "n_ww30", "type": "action", "params": {"message": "No one calls this show. This phone isn''t even that type of phone. It''s a payphone. You have a basement payphone. I didn''t even think that was possible."}, "action_type": "EMOTE"}, "n_w31": {"next": "n_ww31", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w32": {"next": "n_ww32", "type": "action", "params": {"message": "She fuckin took everything man..."}, "action_type": "EMOTE"}, "n_w33": {"next": "n_ww33", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w34": {"next": "n_ww34", "type": "action", "params": {"message": "Let''s try and move on."}, "action_type": "EMOTE"}, "n_w35": {"next": "n_ww35", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w36": {"next": "n_ww36", "type": "action", "params": {"message": "That''s what Barb told my kids and my dog."}, "action_type": "EMOTE"}, "n_w37": {"next": "n_ww37", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w38": {"next": "n_ww38", "type": "action", "params": {"message": "For christ sake."}, "action_type": "EMOTE"}, "n_w39": {"next": "n_ww39", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w40": {"next": "n_ww40", "type": "action", "params": {"message": "Just put the fuckin number up man, put up my number so my fans can call in."}, "action_type": "EMOTE"}, "n_w41": {"next": "n_ww41", "type": "action", "params": {"message": "The number crawls across the bottom of the screen. It is the suicide hotline. It is being towed by a centaur playing electric guitar. Behind the centaur, a graphic element features Hulk Hogan pointing directly at the audience with one finger. He appears to be saying something encouraging."}, "action_type": "SAY"}, "n_w42": {"next": "n_ww42", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w43": {"next": "n_ww43", "type": "action", "params": {"message": "WHAT THE FUCK WAS THAT MAN?! WAS THAT THE SUICIDE HOTLINE NUMBER?!"}, "action_type": "EMOTE"}, "n_w44": {"next": "n_ww44", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w45": {"next": "n_ww45", "type": "action", "params": {"message": "And why was Hulk Hogan involved?"}, "action_type": "EMOTE"}, "n_w46": {"next": "n_ww46", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w47": {"next": "n_ww47", "type": "action", "params": {"message": "The Hulkster was your idea."}, "action_type": "EMOTE"}, "n_w48": {"next": "n_ww48", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w49": {"next": "n_ww49", "type": "action", "params": {"message": "Why the hell was it my idea when was that ever my idea to have Hulk Hogan telling my audience not to kill themselves?!"}, "action_type": "EMOTE"}, "n_w50": {"next": "n_ww50", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w51": {"next": "n_ww51", "type": "action", "params": {"message": "I got a voicemail at 3 am. It sounded like you were drunk but you were quite insistent that we should use the Hulkster in a graphic for the show."}, "action_type": "EMOTE"}, "n_w52": {"next": "n_ww52", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w53": {"next": "n_ww53", "type": "action", "params": {"message": "Since when did that mean get the Hulkster to tell my fans not to kill themselves after the divorce?! I was watching the Netflix documentary!"}, "action_type": "EMOTE"}, "n_w54": {"next": "n_ww54", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w55": {"next": "n_ww55", "type": "action", "params": {"message": "That''s on me. I thought you''d appreciate the levity."}, "action_type": "EMOTE"}, "n_w56": {"next": "n_ww56", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w57": {"next": "n_ww57", "type": "action", "params": {"message": "The Hulkster wouldn''t stand for this. It was all a smear anyways, and we all know why..."}, "action_type": "EMOTE"}, "n_w58": {"next": "n_ww58", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w59": {"next": "n_ww59", "type": "action", "params": {"message": "What are you talking about man?"}, "action_type": "EMOTE"}, "n_w60": {"next": "n_ww60", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w61": {"next": "n_ww61", "type": "action", "params": {"message": "These Hollywood jews hate to see a blonde haired blue eyed macho friend of Jesus win."}, "action_type": "EMOTE"}, "n_w62": {"next": "n_ww62", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w63": {"next": "n_ww63", "type": "action", "params": {"message": "You can''t keep saying jews!"}, "action_type": "EMOTE"}, "n_w64": {"next": "n_ww64", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w65": {"next": "n_ww65", "type": "action", "params": {"message": "Why is Barb gonna go get her big jew lawyer to come after me, you know they love to litigate —"}, "action_type": "EMOTE"}, "n_w66": {"next": "n_ww66", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w67": {"next": "n_ww67", "type": "action", "params": {"message": "Jesus!"}, "action_type": "EMOTE"}, "n_w68": {"next": "n_ww68", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w69": {"next": "n_ww69", "type": "action", "params": {"message": "YOU CANT SQUEEZE BLOOD FROM A STONE BARBRA I KNOW WHO DROVE US APART AND I HEARS THE TRUTH IS REALLY BAD!"}, "action_type": "EMOTE"}, "n_w70": {"next": "n_ww70", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w71": {"next": "n_ww71", "type": "action", "params": {"message": "IS REALLY BAD."}, "action_type": "EMOTE"}, "n_w72": {"next": "n_ww72", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w73": {"next": "n_ww73", "type": "action", "params": {"message": "ISRAELI BAD!"}, "action_type": "EMOTE"}, "n_w74": {"next": "n_ww74", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w75": {"next": "n_ww75", "type": "action", "params": {"message": "PRESS THE RED BUTTON NGUYEN!"}, "action_type": "EMOTE"}, "n_w76": {"next": "n_ww76", "type": "action", "params": {"message": "grabs Camera 1 from the other side and hauls it back."}, "action_type": "EMOTE"}, "n_w77": {"next": "n_ww77", "type": "action", "params": {"message": "The camera swings wildly between the two men, catching ceiling, floor, the laundromat pipes, and half-illuminated faces in roughly equal measure."}, "action_type": "SAY"}, "n_w78": {"next": "n_ww78", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w79": {"next": "n_ww79", "type": "action", "params": {"message": "DO YOU HAVE TROUBLE GETTING IT UP CUZ YOUR WIFE WAS AN UGLY PIG?!"}, "action_type": "EMOTE"}, "n_w80": {"next": "n_ww80", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w81": {"next": "n_ww81", "type": "action", "params": {"message": "Give me that!"}, "action_type": "EMOTE"}, "n_w82": {"next": "n_ww82", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w83": {"next": "n_ww83", "type": "action", "params": {"message": "WELL LOOK NO FURTHER THAN Captain Nguyen''S MAGIC ROOT! AVAILABLE VIA PAYPAL —"}, "action_type": "EMOTE"}, "n_w84": {"next": "n_ww84", "type": "action", "params": {"message": "releases Camera 1 and it drops to the concrete floor."}, "action_type": "EMOTE"}, "n_w85": {"next": "n_ww85", "type": "action", "params": {"message": "The camera hits the floor and settles at a forty-five-degree angle. The image holds there. In the background, the argument continues to dissolve into ambient noise."}, "action_type": "SAY"}, "n_w86": {"next": "n_ww86", "type": "action", "params": {"message": "Cut to exterior. California. The sun is aggressively bright. A convertible sports car rolls up a coastal road to the sound of smooth jazz."}, "action_type": "SAY"}, "n_w87": {"next": "n_ww87", "type": "action", "params": {"message": "The camera pans to the beach. An attractive woman and her handsome personal trainer are doing Pilates together. They are very in sync. They are having a genuinely lovely time."}, "action_type": "SAY"}, "n_w88": {"next": "n_ww88", "type": "action", "params": {"message": "A man in a crisp linen suit steps into frame. He has the easy confidence of someone who has never once paid his own parking tickets."}, "action_type": "SAY"}, "n_ww0": {"next": "n_w1", "type": "wait", "seconds": 5}, "n_ww1": {"next": "n_w2", "type": "wait", "seconds": 5}, "n_ww2": {"next": "n_w3", "type": "wait", "seconds": 3}, "n_ww3": {"next": "n_w4", "type": "wait", "seconds": 3}, "n_ww4": {"next": "n_w5", "type": "wait", "seconds": 3}, "n_ww5": {"next": "n_w6", "type": "wait", "seconds": 3}, "n_ww6": {"next": "n_w7", "type": "wait", "seconds": 3}, "n_ww7": {"next": "n_w8", "type": "wait", "seconds": 5}, "n_ww8": {"next": "n_w9", "type": "wait", "seconds": 3}, "n_ww9": {"next": "n_w10", "type": "wait", "seconds": 3}, "n_life": {"next": "n_work", "type": "action", "action_type": "HAVE_LIFE"}, "n_loop": {"next": "n_start", "type": "loop"}, "n_work": {"next": "n_w0", "type": "action", "params": {"zone_id": "zone_studio_1782953094650"}, "action_type": "GO_TO_WORK"}, "n_ww10": {"next": "n_w11", "type": "wait", "seconds": 5}, "n_ww11": {"next": "n_w12", "type": "wait", "seconds": 5}, "n_ww12": {"next": "n_w13", "type": "wait", "seconds": 5}, "n_ww13": {"next": "n_w14", "type": "wait", "seconds": 5}, "n_ww14": {"next": "n_w15", "type": "wait", "seconds": 5}, "n_ww15": {"next": "n_w16", "type": "wait", "seconds": 5}, "n_ww16": {"next": "n_w17", "type": "wait", "seconds": 5}, "n_ww17": {"next": "n_w18", "type": "wait", "seconds": 5}, "n_ww18": {"next": "n_w19", "type": "wait", "seconds": 5}, "n_ww19": {"next": "n_w20", "type": "wait", "seconds": 5}, "n_ww20": {"next": "n_w21", "type": "wait", "seconds": 3}, "n_ww21": {"next": "n_w22", "type": "wait", "seconds": 3}, "n_ww22": {"next": "n_w23", "type": "wait", "seconds": 3}, "n_ww23": {"next": "n_w24", "type": "wait", "seconds": 3}, "n_ww24": {"next": "n_w25", "type": "wait", "seconds": 3}, "n_ww25": {"next": "n_w26", "type": "wait", "seconds": 3}, "n_ww26": {"next": "n_w27", "type": "wait", "seconds": 3}, "n_ww27": {"next": "n_w28", "type": "wait", "seconds": 3}, "n_ww28": {"next": "n_w29", "type": "wait", "seconds": 3}, "n_ww29": {"next": "n_w30", "type": "wait", "seconds": 3}, "n_ww30": {"next": "n_w31", "type": "wait", "seconds": 3}, "n_ww31": {"next": "n_w32", "type": "wait", "seconds": 3}, "n_ww32": {"next": "n_w33", "type": "wait", "seconds": 3}, "n_ww33": {"next": "n_w34", "type": "wait", "seconds": 3}, "n_ww34": {"next": "n_w35", "type": "wait", "seconds": 3}, "n_ww35": {"next": "n_w36", "type": "wait", "seconds": 3}, "n_ww36": {"next": "n_w37", "type": "wait", "seconds": 3}, "n_ww37": {"next": "n_w38", "type": "wait", "seconds": 3}, "n_ww38": {"next": "n_w39", "type": "wait", "seconds": 3}, "n_ww39": {"next": "n_w40", "type": "wait", "seconds": 3}, "n_ww40": {"next": "n_w41", "type": "wait", "seconds": 3}, "n_ww41": {"next": "n_w42", "type": "wait", "seconds": 3}, "n_ww42": {"next": "n_w43", "type": "wait", "seconds": 5}, "n_ww43": {"next": "n_w44", "type": "wait", "seconds": 3}, "n_ww44": {"next": "n_w45", "type": "wait", "seconds": 3}, "n_ww45": {"next": "n_w46", "type": "wait", "seconds": 3}, "n_ww46": {"next": "n_w47", "type": "wait", "seconds": 3}, "n_ww47": {"next": "n_w48", "type": "wait", "seconds": 3}, "n_ww48": {"next": "n_w49", "type": "wait", "seconds": 3}, "n_ww49": {"next": "n_w50", "type": "wait", "seconds": 3}, "n_ww50": {"next": "n_w51", "type": "wait", "seconds": 3}, "n_ww51": {"next": "n_w52", "type": "wait", "seconds": 3}, "n_ww52": {"next": "n_w53", "type": "wait", "seconds": 3}, "n_ww53": {"next": "n_w54", "type": "wait", "seconds": 3}, "n_ww54": {"next": "n_w55", "type": "wait", "seconds": 3}, "n_ww55": {"next": "n_w56", "type": "wait", "seconds": 3}, "n_ww56": {"next": "n_w57", "type": "wait", "seconds": 3}, "n_ww57": {"next": "n_w58", "type": "wait", "seconds": 3}, "n_ww58": {"next": "n_w59", "type": "wait", "seconds": 3}, "n_ww59": {"next": "n_w60", "type": "wait", "seconds": 3}, "n_ww60": {"next": "n_w61", "type": "wait", "seconds": 3}, "n_ww61": {"next": "n_w62", "type": "wait", "seconds": 3}, "n_ww62": {"next": "n_w63", "type": "wait", "seconds": 3}, "n_ww63": {"next": "n_w64", "type": "wait", "seconds": 3}, "n_ww64": {"next": "n_w65", "type": "wait", "seconds": 3}, "n_ww65": {"next": "n_w66", "type": "wait", "seconds": 3}, "n_ww66": {"next": "n_w67", "type": "wait", "seconds": 3}, "n_ww67": {"next": "n_w68", "type": "wait", "seconds": 3}, "n_ww68": {"next": "n_w69", "type": "wait", "seconds": 3}, "n_ww69": {"next": "n_w70", "type": "wait", "seconds": 3}, "n_ww70": {"next": "n_w71", "type": "wait", "seconds": 3}, "n_ww71": {"next": "n_w72", "type": "wait", "seconds": 3}, "n_ww72": {"next": "n_w73", "type": "wait", "seconds": 3}, "n_ww73": {"next": "n_w74", "type": "wait", "seconds": 3}, "n_ww74": {"next": "n_w75", "type": "wait", "seconds": 3}, "n_ww75": {"next": "n_w76", "type": "wait", "seconds": 3}, "n_ww76": {"next": "n_w77", "type": "wait", "seconds": 3}, "n_ww77": {"next": "n_w78", "type": "wait", "seconds": 3}, "n_ww78": {"next": "n_w79", "type": "wait", "seconds": 5}, "n_ww79": {"next": "n_w80", "type": "wait", "seconds": 3}, "n_ww80": {"next": "n_w81", "type": "wait", "seconds": 3}, "n_ww81": {"next": "n_w82", "type": "wait", "seconds": 3}, "n_ww82": {"next": "n_w83", "type": "wait", "seconds": 3}, "n_ww83": {"next": "n_w84", "type": "wait", "seconds": 3}, "n_ww84": {"next": "n_w85", "type": "wait", "seconds": 3}, "n_ww85": {"next": "n_w86", "type": "wait", "seconds": 3}, "n_ww86": {"next": "n_w87", "type": "wait", "seconds": 5}, "n_ww87": {"next": "n_w88", "type": "wait", "seconds": 5}, "n_ww88": {"next": "n_loop", "type": "wait", "seconds": 5}, "n_start": {"next": "n_life", "type": "start"}}, "_start": "n_start"}', 'zone_studio_1782953094650', NULL, '[]', 'zone_studio_1782953094650', 20, 20, 'male', '[]', 10, 1, 0, 'npc', '{}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_jerry_rosenberg', 'Jerry Rosenberg', 'A broadcast studio host.', 'zone_studio_1782953094650', NULL, '{}', '[]', 0, '{"studio_npc": true}', '[]', '{"nodes": {"n_w0": {"next": "n_ww0", "type": "action", "params": {"message": "Do you ever wonder what your life could be, if this guy wasn''t holding you back?"}, "action_type": "SAY"}, "n_w1": {"next": "n_ww1", "type": "action", "params": {"message": "The footage cuts abruptly to grainy home video: a man in a wife-beater and dirty underpants, cracking a beer and lighting a cigarette while a baby plays with a fork near a wall socket."}, "action_type": "SAY"}, "n_w2": {"next": "n_ww2", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w3": {"next": "n_ww3", "type": "action", "params": {"message": "WTF IS THAT ME?!"}, "action_type": "EMOTE"}, "n_w4": {"next": "n_ww4", "type": "action", "params": {"message": "The ad continues, undeterred."}, "action_type": "SAY"}, "n_w5": {"next": "n_ww5", "type": "action", "params": {"message": "The lawyer steps back into frame. He is now dressed as a mohel. He adjusts his equipment."}, "action_type": "SAY"}, "n_w6": {"next": "n_ww6", "type": "action", "params": {"message": "Let''s bris this schmuck. Now cheaper — with our ten percent off circumcision discount! Spouses of gentiles now save ten percent!"}, "action_type": "SAY"}, "n_w7": {"next": "n_ww7", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w8": {"next": "n_ww8", "type": "action", "params": {"message": "YOU LET THEM RUN AN AD FOR MY EX WIFE''S JEW LAWYER?!"}, "action_type": "EMOTE"}, "n_w9": {"next": "n_ww9", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w10": {"next": "n_ww10", "type": "action", "params": {"message": "He pays good money —"}, "action_type": "EMOTE"}, "n_w11": {"next": "n_ww11", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w12": {"next": "n_ww12", "type": "action", "params": {"message": "THAT''S MY MONEY!"}, "action_type": "EMOTE"}, "n_w13": {"next": "n_ww13", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w14": {"next": "n_ww14", "type": "action", "params": {"message": "He''s a friend of the show."}, "action_type": "EMOTE"}, "n_w15": {"next": "n_ww15", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w16": {"next": "n_ww16", "type": "action", "params": {"message": "HE IS NOT A FRIEND OF THE SHOW THIS GUY RUINED MY LIFE —"}, "action_type": "EMOTE"}, "n_w17": {"next": "n_ww17", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w18": {"next": "n_ww18", "type": "action", "params": {"message": "I''m muting your microphone."}, "action_type": "EMOTE"}, "n_w19": {"next": "n_ww19", "type": "action", "params": {"message": "Neil''s protests continue at length, reduced by the muted mic to a distant, indistinct hum. The ad presses on without him."}, "action_type": "SAY"}, "n_w20": {"next": "n_ww20", "type": "action", "params": {"message": "The lawyer returns, now dressed as a Hasid. He squares up to the camera with evident satisfaction. He begins to recite his contact information at a measured pace. Then his eyes go wide. His hands come together — slowly, fingers interlacing."}, "action_type": "SAY"}, "n_w21": {"next": "n_ww21", "type": "action", "params": {"message": "For all your divorce needs, come to Jerry Rosenberg Family Law — where we will make him pay. And make him pay for me too!"}, "action_type": "SAY"}, "n_w22": {"next": "n_ww22", "type": "action", "params": {"message": "From somewhere behind the muted microphone, Neil can be observed commenting at some volume. The exact words are inaudible. The feeling is clear."}, "action_type": "SAY"}, "n_w23": {"next": "n_ww23", "type": "action", "params": {"message": "The camera — which has been lying on the floor of the basement at a forty-five-degree angle for the duration of the break — is picked up by an unseen hand and levelled. It finds Neil already mid-sentence, microphone apparently reinstated."}, "action_type": "SAY"}, "n_w24": {"next": "n_ww24", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w25": {"next": "n_ww25", "type": "action", "params": {"message": "Who makes an ad like that? That''s like three antisemitic self-burns in a row. He looks like Jude Süss up there. This is egregious! I''m too riled up to continue. Nguyen, roll the credits!"}, "action_type": "EMOTE"}, "n_ww0": {"next": "n_w1", "type": "wait", "seconds": 5}, "n_ww1": {"next": "n_w2", "type": "wait", "seconds": 5}, "n_ww2": {"next": "n_w3", "type": "wait", "seconds": 5}, "n_ww3": {"next": "n_w4", "type": "wait", "seconds": 3}, "n_ww4": {"next": "n_w5", "type": "wait", "seconds": 3}, "n_ww5": {"next": "n_w6", "type": "wait", "seconds": 5}, "n_ww6": {"next": "n_w7", "type": "wait", "seconds": 5}, "n_ww7": {"next": "n_w8", "type": "wait", "seconds": 5}, "n_ww8": {"next": "n_w9", "type": "wait", "seconds": 3}, "n_ww9": {"next": "n_w10", "type": "wait", "seconds": 3}, "n_life": {"next": "n_work", "type": "action", "action_type": "HAVE_LIFE"}, "n_loop": {"next": "n_start", "type": "loop"}, "n_work": {"next": "n_w0", "type": "action", "params": {"zone_id": "zone_studio_1782953094650"}, "action_type": "GO_TO_WORK"}, "n_ww10": {"next": "n_w11", "type": "wait", "seconds": 3}, "n_ww11": {"next": "n_w12", "type": "wait", "seconds": 3}, "n_ww12": {"next": "n_w13", "type": "wait", "seconds": 3}, "n_ww13": {"next": "n_w14", "type": "wait", "seconds": 3}, "n_ww14": {"next": "n_w15", "type": "wait", "seconds": 3}, "n_ww15": {"next": "n_w16", "type": "wait", "seconds": 3}, "n_ww16": {"next": "n_w17", "type": "wait", "seconds": 3}, "n_ww17": {"next": "n_w18", "type": "wait", "seconds": 3}, "n_ww18": {"next": "n_w19", "type": "wait", "seconds": 3}, "n_ww19": {"next": "n_w20", "type": "wait", "seconds": 3}, "n_ww20": {"next": "n_w21", "type": "wait", "seconds": 5}, "n_ww21": {"next": "n_w22", "type": "wait", "seconds": 5}, "n_ww22": {"next": "n_w23", "type": "wait", "seconds": 5}, "n_ww23": {"next": "n_w24", "type": "wait", "seconds": 5}, "n_ww24": {"next": "n_w25", "type": "wait", "seconds": 5}, "n_ww25": {"next": "n_loop", "type": "wait", "seconds": 3}, "n_start": {"next": "n_life", "type": "start"}}, "_start": "n_start"}', 'zone_studio_1782953094650', NULL, '[]', 'zone_studio_1782953094650', 20, 20, 'male', '[]', 10, 1, 0, 'npc', '{}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_neil_mcmanistan', 'Neil Mcmanistan', 'A broadcast studio host.', 'zone_studio_1782953094650', NULL, '{}', '[]', 0, '{"studio_npc": true}', '[]', '{"nodes": {"n_w0": {"next": "n_ww0", "type": "action", "params": {"message": "trips violently over a chair, which screeches across the concrete floor and detonates into a wall of empty beer cans and food containers."}, "action_type": "EMOTE"}, "n_w1": {"next": "n_ww1", "type": "action", "params": {"message": "A bare lightbulb swings into frame on its pull-string. It flickers on, casting a slow pendulum of amber light across a dishevelled man in a dirty wife-beater seated at a table. In front of him sits a microphone from the 1930s."}, "action_type": "SAY"}, "n_w2": {"next": "n_ww2", "type": "action", "params": {"message": "The camera slowly pulls back. The host is wearing combat boots. He is not wearing pants. These two facts are presented without comment."}, "action_type": "SAY"}, "n_w3": {"next": "n_ww3", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w4": {"next": "n_ww4", "type": "action", "params": {"message": "you''re not gonna believe this shit!"}, "action_type": "EMOTE"}, "n_w5": {"next": "n_ww5", "type": "action", "params": {"message": "pulls out a Zippo lighter and ignites a cigarette with the ease of a man who has been doing this since before it was legal."}, "action_type": "EMOTE"}, "n_w6": {"next": "n_ww6", "type": "action", "params": {"message": "The basement dissolves to a sprawling conspiracy web: cork board, yarn, thumbtacks. Charlie Kirk is connected to Benito Mussolini by a red string. Both are connected to a laminated photograph of a lizard. Scattered across the map: celebrities, geopolitical figures, and anti-Zionist imagery of considerable ambition. It is the work of a very troubled and extremely productive man."}, "action_type": "SAY"}, "n_w7": {"next": "n_ww7", "type": "action", "params": {"message": "The scene snaps into a hard spin cut — synchronized to the wet, gurgling crescendo of a bong reaching its full percolation. We slam back to the basement."}, "action_type": "SAY"}, "n_w8": {"next": "n_ww8", "type": "action", "params": {"message": "doubles over the table in a monumental coughing fit, a thick cloud of smoke escaping in every direction."}, "action_type": "EMOTE"}, "n_w9": {"next": "n_ww9", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w10": {"next": "n_ww10", "type": "action", "params": {"message": "They must think that I''m retarded. You''d have to be retarded not to put this together, and as sure as Barb took the kids the Jews will get me for this."}, "action_type": "EMOTE"}, "n_w11": {"next": "n_ww11", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w12": {"next": "n_ww12", "type": "action", "params": {"message": "Jesus christ Neil we talked about this shit man you''re gonna get us kicked off public access we need this man."}, "action_type": "EMOTE"}, "n_w13": {"next": "n_ww13", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w14": {"next": "n_ww14", "type": "action", "params": {"message": "Im sorry, I''m sorry where was I. I''ll tell you where I was, I was at the grocery store and they had a coupon, Tim Horton''s iced coffee syrup, save 2 dollars. And you know how I feel about Singh Hortons..."}, "action_type": "EMOTE"}, "n_w15": {"next": "n_ww15", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w16": {"next": "n_ww16", "type": "action", "params": {"message": "CUT!"}, "action_type": "EMOTE"}, "n_w17": {"next": "n_ww17", "type": "action", "params": {"message": "A beep sounds. Neil nods at the camera. The show resumes."}, "action_type": "SAY"}, "n_w18": {"next": "n_ww18", "type": "action", "params": {"message": "gives the camera a slow, deliberate nod."}, "action_type": "EMOTE"}, "n_w19": {"next": "n_ww19", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w20": {"next": "n_ww20", "type": "action", "params": {"message": "these fuckin grocery barons are sucking us dry! I had this coupon, and lo and behold, ill give it a go, why not save a few bucks. Regular price 8 bucks, brought it down to 6 with the coupon, but i price matched it down to 6 so the coupon made it 4...."}, "action_type": "EMOTE"}, "n_w21": {"next": "n_ww21", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w22": {"next": "n_ww22", "type": "action", "params": {"message": "What the fuck are you talking about and get to the point!"}, "action_type": "EMOTE"}, "n_w23": {"next": "n_ww23", "type": "action", "params": {"message": "The Captain Nguyen delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper."}, "action_type": "SAY"}, "n_w24": {"next": "n_ww24", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w25": {"next": "n_ww25", "type": "action", "params": {"message": "Anyways I went back into the place for some vittles a week later, no 2 dollar off coupons, but the same bottle of syrup was now 2 dollars cheaper now that there were no coupons. Those greedy pricks they must think that we are SAPS!"}, "action_type": "EMOTE"}, "n_w26": {"next": "n_ww26", "type": "action", "params": {"message": "slams his fist on the table. The ashtray goes airborne. The camera jerks up and snaps directly into Neil''s face."}, "action_type": "EMOTE"}, "n_w27": {"next": "n_ww27", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w28": {"next": "n_ww28", "type": "action", "params": {"message": "Don''t even get me started on that shithole hortons, its harder than Chinese calculus trying to get a jesus coffee in there, they gotta get some teenage girls in there, not like that, not at all, never..."}, "action_type": "EMOTE"}, "n_w29": {"next": "n_ww29", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w30": {"next": "n_ww30", "type": "action", "params": {"message": "Jesus christ man you can''t keep saying that shit."}, "action_type": "EMOTE"}, "n_w31": {"next": "n_ww31", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w32": {"next": "n_ww32", "type": "action", "params": {"message": "Pause, no diddy, respectfully."}, "action_type": "EMOTE"}, "n_w33": {"next": "n_ww33", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w34": {"next": "n_ww34", "type": "action", "params": {"message": "THATS NOT HELPING!"}, "action_type": "EMOTE"}, "n_w35": {"next": "n_ww35", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w36": {"next": "n_ww36", "type": "action", "params": {"message": "And now a word from our sponsor:"}, "action_type": "EMOTE"}, "n_w37": {"next": "n_ww37", "type": "action", "params": {"message": "The camera drifts wide to catch the far corner of the basement. Perched on a barstool, just at the edge of the visible set, is an old Vietnamese man. He is holding a small brown paper bag. He has been there the entire time."}, "action_type": "SAY"}, "n_w38": {"next": "n_ww38", "type": "action", "params": {"message": "Captain Nguyen:"}, "action_type": "EMOTE"}, "n_w39": {"next": "n_ww39", "type": "action", "params": {"message": "Who the hell is that?!"}, "action_type": "EMOTE"}, "n_w40": {"next": "n_ww40", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w41": {"next": "n_ww41", "type": "action", "params": {"message": "Thats fuckin, nguyen, man, hey nguyen say hi."}, "action_type": "EMOTE"}, "n_w42": {"next": "n_ww42", "type": "action", "params": {"message": "lunges forward and grabs Camera 1, physically wrenching it toward Nguyen."}, "action_type": "EMOTE"}, "n_w43": {"next": "n_ww43", "type": "action", "params": {"message": "seizes Camera 1 and wrenches it toward Nguyen."}, "action_type": "EMOTE"}, "n_w44": {"next": "n_ww44", "type": "action", "params": {"message": "pensively lights a cigarette, furrows his brow, and stares into the middle distance."}, "action_type": "EMOTE"}, "n_w45": {"next": "n_ww45", "type": "action", "params": {"message": "Neil Mcmanistan:"}, "action_type": "EMOTE"}, "n_w46": {"next": "n_ww46", "type": "action", "params": {"message": "Join us next week when we are joined by our special guest — my wife''s personal trainer — where we will fight a grudge match to the death!"}, "action_type": "EMOTE"}, "n_ww0": {"next": "n_w1", "type": "wait", "seconds": 5}, "n_ww1": {"next": "n_w2", "type": "wait", "seconds": 3}, "n_ww2": {"next": "n_w3", "type": "wait", "seconds": 5}, "n_ww3": {"next": "n_w4", "type": "wait", "seconds": 5}, "n_ww4": {"next": "n_w5", "type": "wait", "seconds": 3}, "n_ww5": {"next": "n_w6", "type": "wait", "seconds": 3}, "n_ww6": {"next": "n_w7", "type": "wait", "seconds": 3}, "n_ww7": {"next": "n_w8", "type": "wait", "seconds": 5}, "n_ww8": {"next": "n_w9", "type": "wait", "seconds": 5}, "n_ww9": {"next": "n_w10", "type": "wait", "seconds": 3}, "n_life": {"next": "n_work", "type": "action", "action_type": "HAVE_LIFE"}, "n_loop": {"next": "n_start", "type": "loop"}, "n_work": {"next": "n_w0", "type": "action", "params": {"zone_id": "zone_studio_1782953094650"}, "action_type": "GO_TO_WORK"}, "n_ww10": {"next": "n_w11", "type": "wait", "seconds": 3}, "n_ww11": {"next": "n_w12", "type": "wait", "seconds": 3}, "n_ww12": {"next": "n_w13", "type": "wait", "seconds": 3}, "n_ww13": {"next": "n_w14", "type": "wait", "seconds": 3}, "n_ww14": {"next": "n_w15", "type": "wait", "seconds": 3}, "n_ww15": {"next": "n_w16", "type": "wait", "seconds": 3}, "n_ww16": {"next": "n_w17", "type": "wait", "seconds": 3}, "n_ww17": {"next": "n_w18", "type": "wait", "seconds": 3}, "n_ww18": {"next": "n_w19", "type": "wait", "seconds": 5}, "n_ww19": {"next": "n_w20", "type": "wait", "seconds": 3}, "n_ww20": {"next": "n_w21", "type": "wait", "seconds": 3}, "n_ww21": {"next": "n_w22", "type": "wait", "seconds": 3}, "n_ww22": {"next": "n_w23", "type": "wait", "seconds": 3}, "n_ww23": {"next": "n_w24", "type": "wait", "seconds": 3}, "n_ww24": {"next": "n_w25", "type": "wait", "seconds": 5}, "n_ww25": {"next": "n_w26", "type": "wait", "seconds": 3}, "n_ww26": {"next": "n_w27", "type": "wait", "seconds": 3}, "n_ww27": {"next": "n_w28", "type": "wait", "seconds": 3}, "n_ww28": {"next": "n_w29", "type": "wait", "seconds": 3}, "n_ww29": {"next": "n_w30", "type": "wait", "seconds": 3}, "n_ww30": {"next": "n_w31", "type": "wait", "seconds": 3}, "n_ww31": {"next": "n_w32", "type": "wait", "seconds": 3}, "n_ww32": {"next": "n_w33", "type": "wait", "seconds": 3}, "n_ww33": {"next": "n_w34", "type": "wait", "seconds": 3}, "n_ww34": {"next": "n_w35", "type": "wait", "seconds": 3}, "n_ww35": {"next": "n_w36", "type": "wait", "seconds": 3}, "n_ww36": {"next": "n_w37", "type": "wait", "seconds": 3}, "n_ww37": {"next": "n_w38", "type": "wait", "seconds": 3}, "n_ww38": {"next": "n_w39", "type": "wait", "seconds": 5}, "n_ww39": {"next": "n_w40", "type": "wait", "seconds": 3}, "n_ww40": {"next": "n_w41", "type": "wait", "seconds": 3}, "n_ww41": {"next": "n_w42", "type": "wait", "seconds": 3}, "n_ww42": {"next": "n_w43", "type": "wait", "seconds": 3}, "n_ww43": {"next": "n_w44", "type": "wait", "seconds": 3}, "n_ww44": {"next": "n_w45", "type": "wait", "seconds": 3}, "n_ww45": {"next": "n_w46", "type": "wait", "seconds": 3}, "n_ww46": {"next": "n_loop", "type": "wait", "seconds": 3}, "n_start": {"next": "n_life", "type": "start"}}, "_start": "n_start"}', 'zone_studio_1782953094650', NULL, '[]', 'zone_studio_1782953094650', 20, 20, 'male', '[]', 10, 1, 0, 'npc', '{}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_precinct_officer_2', 'Detention Officer Pryce', 'Wiry and unhurried, Pryce runs the holding block like a night-shift librarian — quiet, exact, and utterly unbothered by whatever you did to get here. A ring of mag-keys hangs off one hip; a lukewarm coffee never leaves the other hand.', 'zone_mq_precinct_lobby', 'SPECTER-PD', '{}', '[]', 0, '{"police": true, "essential": true, "personality": "police", "clothing_layers": ["a surplus tac-vest stencilled POLICE", "a navy uniform shirt", "grey briefs"]}', '[]', '{}', 'zone_mq_precinct_lobby', NULL, '["Pryce thumbs through a charge sheet without much interest.", "\"Booking''s backed up. Everybody''s in a hurry to be somewhere worse.\""]', NULL, 60, 60, 'male', '[]', 10, 1, 0, 'npc', '{}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_consignor', 'Merrow', 'A consignment broker in a suit that has never seen the yard floor, who trades in the paperwork that turns stolen cargo into legitimate cargo. She smiles like a signature.', 'zone_corp_boardroom', NULL, '{"bye": {"text": "\"Do come back when you''ve something worth laundering.\"", "options": []}, "root": {"text": "Merrow closes a folio and offers a smile with nothing behind it. \"Consignment, insurance, and provenance — I make cargo legitimate, which is a different thing from making it legal. What are we moving today?\"", "options": [{"next": "__shop__", "label": "Show me the paperwork."}, {"next": "bye", "label": "Nothing today."}]}}', '[{"price": 35, "item_id": "item_travel_permit"}, {"price": 24, "item_id": "item_id_papers"}, {"price": 100, "item_id": "item_contraband_crate"}]', 0, '{"personality": "vendor", "clothing_layers": ["a knife-sharp charcoal suit", "a shell-silk blouse", "the quiet luxury of the truly insulated"]}', '[]', '{}', 'zone_corp_boardroom', NULL, '[]', 'zone_corp_boardroom', 18, 18, 'female', '[{"item_id": "item_travel_permit"}, {"item_id": "item_id_papers"}, {"item_id": "item_contraband_crate"}]', 8, 1, 420, 'vendor', '{"fri": [{"to": 24, "from": 0}], "mon": [{"to": 24, "from": 0}], "sat": [{"to": 24, "from": 0}], "sun": [{"to": 24, "from": 0}], "thu": [{"to": 24, "from": 0}], "tue": [{"to": 24, "from": 0}], "wed": [{"to": 24, "from": 0}]}', 0, 'The Consignment House', '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_water_warden', 'The Water Warden', 'A broad woman in a rubber apron who runs the taps like a border crossing. She has personally memorised who owes what, and to whom.', 'zone_civ_meltwater', NULL, '{"bye": {"text": "\"Mind the queue.\"", "options": []}, "root": {"text": "The Water Warden eyes your canteen. \"Clean water, five creds a bottle. Refills if you brought your own. Line forms behind you.\"", "options": [{"next": "__shop__", "label": "Show me what you''ve got."}, {"next": "bye", "label": "Later."}]}}', '[{"price": 5, "item_id": "item_water_bottle"}, {"price": 15, "item_id": "canteen"}, {"price": 10, "item_id": "item_ration"}]', 0, '{"personality": "vendor", "clothing_layers": ["a heavy rubber apron", "a patched utility jumpsuit", "a sweat-grey undershirt"]}', '[]', '{}', 'zone_civ_meltwater', NULL, '[]', 'zone_civ_meltwater', 20, 20, 'female', '[{"item_id": "item_water_bottle"}, {"item_id": "canteen"}, {"item_id": "item_ration"}]', 8, 1, 60, 'vendor', '{"fri": [{"to": 24, "from": 6}], "mon": [{"to": 24, "from": 6}], "sat": [{"to": 24, "from": 6}], "sun": [{"to": 24, "from": 6}], "thu": [{"to": 24, "from": 6}], "tue": [{"to": 24, "from": 6}], "wed": [{"to": 24, "from": 6}]}', 0, 'The Meltwater Tap', '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_clinkerman', 'The Clinkerman', 'A stooped scavenger-broker who works a cart of sorted salvage out here where the machine-shells den. Grease-black to the elbow, eyes like ball bearings.', 'zone_waste_grit', NULL, '{"bye": {"text": "\"Grey keeps. I''ll be here.\"", "options": []}, "root": {"text": "The Clinkerman spreads grease-black hands over a cart of sorted salvage. \"Buyin'' scrap, sellin'' worse. What''re you carryin''?\"", "options": [{"next": "__shop__", "label": "Let''s trade."}, {"next": "bye", "label": "Nothing today."}]}}', '[{"price": 4, "item_id": "item_scrap_metal"}, {"price": 8, "item_id": "item_salvaged_wiring"}, {"price": 14, "item_id": "item_cracked_capacitor"}, {"price": 10, "item_id": "item_ration"}, {"price": 15, "item_id": "canteen"}, {"price": 28, "item_id": "item_rusty_knife"}]', 0, '{"personality": "vendor", "clothing_layers": ["a coat of stitched tarp and wire", "layers of grease-stiff rags", "whatever was underneath, best not asked"]}', '[]', '{}', 'zone_waste_grit', NULL, '[]', 'zone_waste_grit', 22, 22, 'male', '[{"item_id": "item_scrap_metal"}, {"item_id": "item_salvaged_wiring"}, {"item_id": "item_cracked_capacitor"}, {"item_id": "item_ration"}, {"item_id": "canteen"}, {"item_id": "item_rusty_knife"}]', 10, 1, 220, 'vendor', '{"fri": [{"to": 24, "from": 6}], "mon": [{"to": 24, "from": 6}], "sat": [{"to": 24, "from": 6}], "sun": [{"to": 24, "from": 6}], "thu": [{"to": 24, "from": 6}], "tue": [{"to": 24, "from": 6}], "wed": [{"to": 24, "from": 6}]}', 0, 'The Clinkerman''s Cart', '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_registrar', 'The Registrar', 'A precise, papery woman who has outlasted the department she serves. She still stamps, files, and disapproves as if any of it will be audited.', 'zone_civ_ledger', NULL, '{"bye": {"text": "\"Do mind the filing.\"", "options": []}, "root": {"text": "The Registrar peers over cracked spectacles. \"Records office. Mostly closed. Mostly. Was there something on file?\"", "options": [{"next": "quest_offer", "label": "Anything I can do?"}, {"next": "bye", "label": "Nothing."}]}, "accepted": {"text": "\"Grime Row, The Bailey — the low, bad end of the wastes. Mind the ash, and mind the wight.\"", "actions": [{"action": "START_QUEST", "quest_id": "quest_paper_trail"}], "options": [{"next": "bye", "label": "Understood."}]}, "reported": {"text": "\"...Filed. Recovered. You''re in the ledger now, for whatever that''s worth. Take this for your trouble — and my thanks, off the record.\"", "actions": [{"action": "TURN_IN", "quest_id": "quest_paper_trail"}], "options": [{"next": "bye", "label": "Obliged."}]}, "quest_offer": {"text": "\"Something''s denning on a spool of lost citizen records out in the deep wastes — a slag wight, by the heat of it. Put it down so my people can recover the file, and I''ll see you''re paid and, more importantly, registered as helpful.\"", "options": [{"next": "accepted", "label": "I''ll deal with it."}, {"next": "reported", "label": "I''ve dealt with it. (report back)"}, {"next": "bye", "label": "Not now."}]}}', 'null', 0, '{"personality": "clerk", "clothing_layers": ["a threadbare municipal blazer", "a high-collared blouse", "sensible, joyless underthings"]}', '[]', '{}', 'zone_civ_ledger', NULL, '["The Registrar squares a stack of paper that is already square.", "\"Everything is on file. Somewhere. In theory.\""]', 'zone_civ_ledger', 16, 16, 'female', 'null', NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_precinct_guard', 'Detention Officer Kohl', 'A block of a man in Precinct 9 body armor, thumbs hooked in his belt beside a baton and a zip-tie dispenser. He watches the holding block on a bank of monitors and processes the overnight guests one at a time, without hurry and without interest.', 'zone_mq_precinct_lobby', 'SPECTER-PD', '{}', '[]', 0, '{"police": true, "essential": true}', '[]', '{}', 'zone_mq_precinct_lobby', NULL, '[]', NULL, 60, 60, 'male', '[]', 10, 1, 0, 'npc', '{}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_lance_kessler', 'Lance Kessler', 'A broadcast studio host.', 'zone_media_plaza', NULL, '{}', '[]', 0, '{"studio_npc": true}', '[]', '{"nodes": {"n_life": {"next": "n_check", "type": "action", "action_type": "HAVE_LIFE"}, "n_work": {"next": "n_atwork", "type": "action", "params": {"zone_id": "zone_studio_1782953094650"}, "action_type": "GO_TO_WORK"}, "n_check": {"type": "action", "goToWork": "n_work", "haveLife": "n_life", "action_type": "CHECK_WORK"}, "n_start": {"next": "n_check", "type": "start"}, "n_atwork": {"next": "n_check", "type": "action", "action_type": "AT_WORK"}}, "_start": "n_start"}', 'zone_studio_1782953094650', NULL, '[]', NULL, 20, 20, 'female', '[]', 10, 1, 0, 'npc', '{"fri": [{"to": 22, "from": 10}], "mon": [{"to": 22, "from": 10}], "sat": [{"to": 22, "from": 10}], "sun": [{"to": 22, "from": 10}], "thu": [{"to": 22, "from": 10}], "tue": [{"to": 22, "from": 10}], "wed": [{"to": 22, "from": 10}]}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_almoner', 'The Almoner', 'A tired man of no discernible faith who keeps the breadline moving. He ladles grey nutrient paste with the steadiness of someone who has stopped expecting thanks.', 'zone_civ_commons', NULL, '{"bye": {"text": "\"Move down.\"", "options": []}, "root": {"text": "The Almoner ladles something grey into a dented cup and offers it without looking up. \"Everyone eats. Even you. Move down when you''re done.\"", "options": [{"next": "bye", "label": "Thanks."}]}}', 'null', 0, '{"personality": "charity", "clothing_layers": ["a stained volunteer''s tabard", "a shapeless grey sweater", "long johns gone soft with age"]}', '[]', '{}', 'zone_civ_commons', NULL, '["The Almoner ladles another grey portion and does not look up.", "\"Everyone eats. That''s the whole sermon.\""]', 'zone_civ_commons', 16, 16, 'male', 'null', NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_sorting_bot', 'Sorting Unit 9', 'A belt-mounted sorting automaton, one optic cracked, that never received the order to stop. It stamps, routes, and returns to sender with tireless, pointless devotion.', 'zone_civ_sortation', NULL, '{"bye": {"text": "\"PROCESSING. PLEASE HOLD. INDEFINITELY.\"", "options": []}, "root": {"text": "SORTING UNIT 9 swivels its cracked optic toward you. \"PARCEL? ...NO PARCEL. RETURN TO SENDER.\"", "options": [{"next": "bye", "label": "...okay."}]}}', 'null', 0, '{"personality": "robot", "clothing_layers": ["a riveted municipal chassis", "faded MAIL/POST livery", "exposed conduit and a single blinking status LED"]}', '[]', '{}', 'zone_civ_sortation', NULL, '["SORTING UNIT 9 stamps a parcel addressed to a crater.", "\"RETURN. TO. SENDER.\"", "A belt of dead-letter parcels crawls past, endless."]', 'zone_civ_sortation', 30, 30, 'male', 'null', NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_financier', 'a freight financier', 'A freight futures trader who owns a dozen ships he has never seen and cargoes that may not exist, and is, on paper, immensely wealthy. On paper.', 'zone_corp_investor', NULL, '{"bye": {"text": "He has already looked away.", "options": []}, "root": {"text": "The financier glances at you, prices you instantly, and finds the figure disappointing. \"Unless you''re carrying a bill of lading, we''ve nothing to discuss.\"", "options": [{"next": "bye", "label": "...right."}]}}', 'null', 0, '{"personality": "corporate", "clothing_layers": ["a sharp, forgettable suit", "a shirt the colour of a spreadsheet", "socks that cost more than your boots"]}', '[]', '{}', 'zone_corp_investor', NULL, '["The financier sells a shipment short and toasts himself with someone else''s drink.", "\"It''s not gambling if you insure both outcomes.\"", "\"Everything on that yard is a number to me. Pleasant, isn''t it?\""]', 'zone_corp_investor', 14, 14, 'male', 'null', NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_bourse_broker', 'Quill', 'A floor broker on the Bourse who trades in anything with a price, which is everything. He speaks in offers and hears in counters, and has never once in his life said a round number.', 'zone_nc_bourse', NULL, '{"bye": {"text": "\"Watchers become buyers. I''ll be here.\"", "options": []}, "root": {"text": "Quill clocks you mid-shout and drops his voice to a purr. \"Buying or selling? Everything on this floor is one or the other, including the people. What''ll it be — paper, product, or a position?\"", "options": [{"next": "__shop__", "label": "Show me your book."}, {"next": "bye", "label": "Just watching."}]}}', '[{"price": 60, "item_id": "item_bearer_bond"}, {"price": 100, "item_id": "item_contraband_crate"}, {"price": 35, "item_id": "item_travel_permit"}, {"price": 22, "item_id": "item_drink_embassy_reserve"}]', 0, '{"personality": "vendor", "clothing_layers": ["a trading-floor jacket in house colours", "a shirt damp with the day", "braces holding up more than trousers"]}', '[]', '{}', 'zone_nc_bourse', NULL, '[]', 'zone_nc_bourse', 18, 18, 'male', '[{"item_id": "item_bearer_bond"}, {"item_id": "item_contraband_crate"}, {"item_id": "item_travel_permit"}, {"item_id": "item_drink_embassy_reserve"}]', 8, 1, 520, 'vendor', '{"fri": [{"to": 24, "from": 0}], "mon": [{"to": 24, "from": 0}], "sat": [{"to": 24, "from": 0}], "sun": [{"to": 24, "from": 0}], "thu": [{"to": 24, "from": 0}], "tue": [{"to": 24, "from": 0}], "wed": [{"to": 24, "from": 0}]}', 0, 'The Bourse', '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_pd_officer', 'Sergeant Vale', 'Sergeant Vale leans against the kiosk, coffee in one hand, the other never far from the sidearm. Their eyes do the arithmetic on everyone who walks past.', 'zone_apt_1', NULL, '{"end": {"text": "''Move along.''", "options": []}, "sub": {"text": "''Hand me the chip. If it''s chargeable, there''s a bounty in it for you.'' (use: submit <datachip>)", "options": [{"next": "end", "label": "Right."}]}, "root": {"text": "''SPECTER-PD. You got something for me, or you just loitering?''", "options": [{"next": "sub", "label": "I have footage to submit."}, {"next": "bribe", "label": "How much to lose a charge?"}, {"next": "end", "label": "Nothing."}]}, "bribe": {"text": "''...Petty heat only. And it''ll cost you. Don''t make it weird.'' (use: bribe)", "options": [{"next": "end", "label": "Understood."}]}}', '[]', 0, '{"police": true, "personality": "police", "clothing_layers": ["a surplus tac-vest stencilled POLICE", "a navy uniform shirt", "a plain bra and panties"]}', '[]', '{}', 'zone_apt_1', NULL, '["Vale sips coffee and watches the street.", "''Stay clean and we stay friendly.''"]', NULL, 30, 30, 'female', '[]', 0, 0, 0, 'npc', '{}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_consul', 'Consul Reyes', 'A career corporate diplomat who has negotiated three ceasefires and broken all of them personally. She is unfailingly gracious, which is how you know to be afraid.', 'zone_nc_consulate', NULL, '{"bye": {"text": "\"Do give my regards to no one in particular.\"", "options": []}, "root": {"text": "Consul Reyes turns to you with a smile of flawless, weaponised courtesy. \"You have the look of someone who resolves things off the record. As it happens, I have a thing that requires resolving. Off the record.\"", "options": [{"next": "quest_offer", "label": "Go on."}, {"next": "bye", "label": "Not today."}]}, "accepted": {"text": "\"Marvellous. Oxide Flats and the Downwind, just past the Manifold''s edge. Do be discreet; the whole point of downwind is that no one sees it.\"", "actions": [{"action": "START_QUEST", "quest_id": "quest_downwind"}], "options": [{"next": "bye", "label": "Understood."}]}, "reported": {"text": "\"...The signing ground is clean, the delegates none the wiser, and everyone will take credit but you. Which is precisely why I''m paying you in a bond that names no one. We understand each other.\"", "actions": [{"action": "TURN_IN", "quest_id": "quest_downwind"}], "options": [{"next": "bye", "label": "Obliged."}]}, "quest_offer": {"text": "\"We dump our unpleasantness downwind, as one does, and something has moved into it — slag wights, fouling the very ground where a rather important accord is to be signed outdoors, for the optics. Clear two of them before the signing and the Concordat will remember you fondly, in bond form.\"", "options": [{"next": "accepted", "label": "Consider it cleared."}, {"next": "reported", "label": "It''s handled. (report back)"}, {"next": "bye", "label": "Find someone else."}]}}', 'null', 0, '{"personality": "official", "clothing_layers": ["an immaculate consular coat with a discreet corporate pin", "a high silk collar", "the armour of the perfectly composed"]}', '[]', '{}', 'zone_nc_consulate', NULL, '["Consul Reyes greets someone she is currently undermining with genuine warmth.", "\"Diplomacy is simply war with better catering.\""]', 'zone_nc_consulate', 18, 18, 'female', 'null', NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_attache', 'a consular attaché', 'A junior attaché who carries other people''s secrets in a locked case and their coffee in the other hand, and is quietly better informed than anyone he serves.', 'zone_nc_ivory', NULL, '{"bye": {"text": "He is already elsewhere in spirit.", "options": []}, "root": {"text": "The attaché gives you the smile of a man trained to reveal nothing. \"I''m afraid the Consul is unavailable, whoever you''re looking for is unavailable, and this conversation is, ideally, also unavailable.\"", "options": [{"next": "bye", "label": "...noted."}]}}', 'null', 0, '{"personality": "official", "clothing_layers": ["a well-cut but off-the-rack suit", "a shirt ironed in a hurry", "the shoes of a man who walks a great deal for others"]}', '[]', '{}', 'zone_nc_ivory', NULL, '["The attaché checks a discreet earpiece and rearranges his face into neutrality.", "\"I couldn''t possibly say. I could, but I couldn''t.\"", "\"Everyone up here is lying. The trick is knowing about what.\""]', 'zone_nc_ivory', 14, 14, 'male', 'null', NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_barkeep', 'Sully Holt', 'Runs the bar out of a gutted delivery van. Pours with the bored precision of someone who has heard every sob story twice.', 'zone_mq_pigeon_bar', NULL, '{"menu": {"text": "Swill''s free with a straight face. Whiskey''ll put hair on parts of you that don''t currently have hair. The Glow Cocktail is mostly safe — emphasis on ''mostly,'' don''t email me about it.", "_vine": {"x": 360, "y": 60}, "actions": [], "options": [{"next": "root", "label": "Back"}]}, "root": {"text": "Drink or don''t, but don''t just stand there breathing on my bar.", "_vine": {"x": 40, "y": 60}, "actions": [], "options": [{"next": "menu", "label": "What''s good?"}, {"next": "gossip", "label": "Heard anything?"}, {"next": "", "label": "Never mind."}]}, "gossip": {"text": "Sully leans in over the bar.", "_vine": {"x": 360, "y": 240}, "actions": [{"action": "GOSSIP_TELL"}], "options": [{"next": "root", "label": "Back"}]}}', '[{"price": 4, "stock": 99, "item_id": "item_drink_basin_swill"}, {"price": 9, "stock": 30, "item_id": "item_drink_rust_whiskey"}, {"price": 14, "stock": 12, "item_id": "item_drink_glow_cocktail"}, {"price": 6, "stock": 20, "item_id": "item_bar_jerky"}, {"price": 120, "stock": 20, "item_id": "canteen"}, {"price": 5, "item_id": "item_drug_coffee"}, {"price": 6, "item_id": "item_drug_beer"}]', 0, '{"mis_willing": false, "personality": "travelling_vendor", "clothing_layers": ["a dust-caked longcoat hung with trinkets", "a road-worn wool jumper", "long johns and boxers"]}', '[]', '{"nodes": {}, "_start": ""}', 'zone_mq_pigeon_bar', NULL, '["Best prices in the district. That''s not saying much.", "You touch it, you bought it.", "Everything''s genuine. Genuinely acquired.", "Trade you for it. Credits preferred. Bullets accepted.", "Limited supply. Always limited. That''s the pitch.", "I don''t know where it came from. That''s not your business either.", "Come back tomorrow — stock changes. If I''m still here.", "Quality merchandise at prices that won''t kill you. Probably."]', NULL, 20, 20, 'male', '[{"item_id": "item_drug_coffee"}, {"item_id": "item_drug_beer"}, {"item_id": "item_cigarettes"}, {"item_id": "item_joint"}]', 12, 1, 35, 'npc', '{"fri": [{"to": 2, "from": 0}, {"to": 24, "from": 18}], "mon": [{"to": 2, "from": 0}, {"to": 24, "from": 18}], "sat": [{"to": 2, "from": 0}, {"to": 24, "from": 18}], "sun": [{"to": 2, "from": 0}, {"to": 24, "from": 18}], "thu": [{"to": 2, "from": 0}, {"to": 24, "from": 18}], "tue": [{"to": 2, "from": 0}, {"to": 24, "from": 18}], "wed": [{"to": 2, "from": 0}, {"to": 24, "from": 18}]}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_dex_rime', 'Dex Rime', 'A broadcast studio host.', 'zone_studio_1782953094650', NULL, '{}', '[]', 0, '{"studio_npc": true, "mis_willing": false}', '[]', '{"nodes": {"n_life": {"next": "n_check", "type": "action", "action_type": "HAVE_LIFE"}, "n_work": {"next": "n_atwork", "type": "action", "params": {"zone_id": "zone_studio_1782953094650"}, "action_type": "GO_TO_WORK"}, "n_check": {"type": "action", "goToWork": "n_work", "haveLife": "n_life", "action_type": "CHECK_WORK"}, "n_start": {"next": "n_check", "type": "start"}, "n_atwork": {"next": "n_check", "type": "action", "action_type": "AT_WORK"}}, "_start": "n_start"}', 'zone_studio_1782953094650', NULL, '[]', 'zone_studio_1782953094650', 20, 20, 'male', '[]', 10, 1, 0, 'npc', '{"fri": [{"to": 22, "from": 10}], "mon": [{"to": 22, "from": 10}], "sat": [{"to": 22, "from": 10}], "sun": [{"to": 22, "from": 10}], "thu": [{"to": 22, "from": 10}], "tue": [{"to": 22, "from": 10}], "wed": [{"to": 22, "from": 10}]}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_prospector', 'a slag prospector', 'A lean, coughing man who works the scrap mesa with a bent rake and a rad-band he stopped looking at weeks ago. He is convinced the seam he''s found will make him rich, and he is running out of the time it would take to spend it.', 'zone_waste_scrapmesa', NULL, '{"bye": {"text": "He is already raking again, ticking softly to himself.", "options": []}, "root": {"text": "The prospector barely looks up from his rake. \"Claim''s mine, if that''s what you''re wondering. Whole mesa''s mine. Found the seam, didn''t I. You want a piece, you dig your own — plenty of mesa, plenty of...\" he coughs, \"...plenty of time.\"", "options": [{"next": "bye", "label": "Good luck with the seam."}]}}', 'null', 0, '{"personality": "lowlife", "clothing_layers": ["a filthy dust-cloak stiff with grit", "a scarf pulled up against the ash", "fingerless gloves worn through at every tip"]}', '[]', '{}', 'zone_waste_scrapmesa', NULL, '["The prospector hacks a wet cough into his scarf and keeps raking.", "\"One good seam. That''s all a man needs. One good seam.\"", "\"You hear that ticking? Course you don''t. You get used to it.\""]', 'zone_waste_scrapmesa', 16, 16, 'male', 'null', NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_dockhand', 'Pell', 'A wiry stevedore who has hauled the same quays for twenty years and has opinions about all of them. Rope-scarred hands, a roll-up welded to his lip.', 'zone_dock_quays', NULL, '{"bye": {"text": "\"Then pass. Mind the nets.\"", "options": []}, "root": {"text": "Pell drops his end of a crate and wipes his hands. \"You lost, or just in the way?\"", "options": [{"next": "bye", "label": "Just passing."}]}}', 'null', 0, '{"personality": "labourer", "clothing_layers": ["a hi-vis vest gone the colour of nothing", "a thermal shirt", "work trousers and steel-caps"]}', '[]', '{}', 'zone_dock_quays', NULL, '["Pell shoulders a coil of rope and grunts a greeting.", "\"Tide''s turning. You can smell it, if you''ve got the nose.\"", "\"Don''t go past the Slip after dark. That''s all I''ll say.\""]', 'zone_dock_quays', 16, 16, 'male', 'null', NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_slake', 'Slake', 'A rad-scarred former smelter-hand who runs the last shop before the Redline out of a cracked kiln, selling the gear that keeps the counter quiet. Half her face is a burn map and all of her advice is worth taking.', 'zone_waste_brokenkiln', NULL, '{"bye": {"text": "\"Keep the counter in your ear and the wind at your back. West of here, neither''s a suggestion.\"", "options": []}, "root": {"text": "Slake looks you over with the eye that still works and reads your odds in a glance. \"You''re either lost or you''re going west. Either way you''ll want what I sell before you do. Counters, RadAway, a kit for when the RadAway''s too late. Buying, bleeding, or brave?\"", "options": [{"next": "__shop__", "label": "Show me the gear."}, {"next": "work", "label": "Anything need doing out here?"}, {"next": "capstone", "label": "What’s in the core itself?"}, {"next": "bye", "label": "Just passing."}]}, "work": {"text": "Her jaw tightens. \"As it happens. The muties den past the Meltline, always have — but lately they''re coming this side of it, toward my kiln, toward my customers. Put two of them down out there, at the Meltline or in Vex Hollow, and I''ll square you in the only currency that matters out here: something to keep you alive.\"", "options": [{"next": "accepted", "label": "I''ll thin them out."}, {"next": "reported", "label": "Already done. (report back)"}, {"next": "bye", "label": "Not my problem."}]}, "accepted": {"text": "\"West, past the fused rail. You''ll know the Meltline by the way your teeth start aching. Vex Hollow''s just inside it — that''s where they den thickest. Two''s enough to make the rest reconsider. Don''t be a hero; heroes glow.\"", "actions": [{"action": "START_QUEST", "quest_id": "quest_meltline"}], "options": [{"next": "bye", "label": "Two it is."}]}, "capstone": {"text": "Something shutters behind her working eye. \"The core. The killing floor, right at the top of the world. I''ve sold gear to every fool who went west to see it and I''ve inventory to spare because none of them came back to spend the rest. There''s a thing up there — the Redline bred it to rule the place. It ticks. You can hear its heart from across the floor.\" She studies you. \"If you''re set on dying, do it useful. Bring me that heart. Proof the floor can be touched. I''ll pay what a thing like that is worth, which is: everything I''ve got and a debt besides.\"", "options": [{"next": "cap_accept", "label": "I''ll bring you its heart."}, {"next": "cap_report", "label": "I''ve got it here. (report back)"}, {"next": "bye", "label": "Not for all the credits out here."}]}, "reported": {"text": "Slake nods slowly, the working half of her face almost approving. \"The counter''s quieter tonight. Won''t last, nothing does out here — but it''ll last long enough. Here. Take the pills; you''ve earned the years they''ll buy you back.\"", "actions": [{"action": "TURN_IN", "quest_id": "quest_meltline"}], "options": [{"next": "bye", "label": "Obliged, Slake."}]}, "cap_accept": {"text": "\"Then go up the neck, past Vex Hollow, past Marrow Row where the larder is, out onto the open floor. It holds court there over the bones of everyone who tried this before you. Kill it, cut the heart, come back. If you come back. Wear both bands and don''t stop moving.\" She almost smiles. \"I''ll keep the fire lit.\"", "actions": [{"action": "START_QUEST", "quest_id": "quest_redline_core"}], "options": [{"next": "bye", "label": "Keep it lit."}]}, "cap_report": {"text": "Slake takes the heart in both hands — still ticking, still warm — and for a long moment says nothing at all, the burn-mapped half of her face unreadable and the rest of it something close to awe. \"Then it can be touched. After all of them. After all these years.\" She sets it reverently on the counter, where it ticks between you. \"Everything I''ve got, I said. Take it. And take this too: you''re the only one I''ve ever had to pay. Go careful. You''ve spent enough.\"", "actions": [{"action": "TURN_IN", "quest_id": "quest_redline_core"}], "options": [{"next": "bye", "label": "I spent it well."}]}}', '[{"price": 25, "item_id": "item_rad_band"}, {"price": 25, "item_id": "item_rad_pills"}, {"price": 55, "item_id": "item_medkit"}, {"price": 70, "item_id": "item_precursor_stim"}]', 0, '{"personality": "vendor", "clothing_layers": ["a lead-lined smelter''s apron gone stiff with age", "layered rags against the wind", "a rad-band on each wrist, both ticking"]}', '[]', '{}', 'zone_waste_brokenkiln', NULL, '[]', 'zone_waste_brokenkiln', 24, 24, 'female', '[{"item_id": "item_rad_band"}, {"item_id": "item_rad_pills"}, {"item_id": "item_medkit"}, {"item_id": "item_precursor_stim"}]', 8, 1, 300, 'vendor', '{"fri": [{"to": 24, "from": 0}], "mon": [{"to": 24, "from": 0}], "sat": [{"to": 24, "from": 0}], "sun": [{"to": 24, "from": 0}], "thu": [{"to": 24, "from": 0}], "tue": [{"to": 24, "from": 0}], "wed": [{"to": 24, "from": 0}]}', 0, 'The Last Kiln', '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_culvert_wretch', 'a culvert wretch', 'A wretch who lives deep in the culvert''s mouth, wrapped in everything she owns, guarding a small fire and a smaller hope. She has been west, once, and it is the only thing she will talk about and the last thing she wants to.', 'zone_waste_culvert', NULL, '{"bye": {"text": "She turns back to her fire, done with you and with everything.", "options": []}, "root": {"text": "The wretch pulls her coats tighter and eyes you from beside her fire. \"You''re headed west, I can see it on you, you''ve got the look — the not-yet-scared look. I had it too. Warm yourself if you want. Then turn around.\"", "options": [{"next": "west", "label": "What’s west?"}, {"next": "bye", "label": "I’ll keep moving."}]}, "west": {"text": "Her eyes go somewhere else for a moment. \"The neck. The killing floor above it. The things the neck lets down. I went up it on a dare and a full stomach and came back on my hands. Left something up there I''m not getting back. Don''t make it two of us.\"", "options": [{"next": "bye", "label": "...I hear you."}]}}', NULL, 0, '{"personality": "lowlife", "clothing_layers": ["a bundle of stolen coats worn all at once", "rags bound at the wrist and ankle against the wind", "a blanket that is more hole than blanket"]}', '[]', '{}', 'zone_waste_culvert', NULL, '["The culvert wretch feeds a splinter to her small fire and watches it go.", "\"Don''t go west. That''s all. Don''t.\"", "\"I went west once. I came back less. Ask me nothing else.\""]', 'zone_waste_culvert', 14, 14, 'female', NULL, NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_juno_kael', 'Juno Kael', 'Juno Kael is tall and angular, her hair dye growing out in a gradient from platinum to black root. She wears a faded Dead Space Interiors polo shirt tucked into cargo trousers. She tracks you with the patient, evaluating attention of someone who has spent a lot of time waiting for browsers to become buyers.', 'zone_furniture_store', NULL, '{"end": {"text": "''Take your time.'' She goes back to her clipboard.", "options": []}, "root": {"text": "Juno looks up from a clipboard of handwritten inventory tallies. ''Browse or buy — I don''t care which, as long as you don''t sit on everything without committing. What can I do for you?''", "options": [{"next": "looking", "label": "I''m looking for furniture."}, {"next": "what_is_this", "label": "What is this place?"}, {"next": "pricing", "label": "How does pricing work?"}, {"next": "__shop__", "label": "Browse your wares."}, {"next": "end", "label": "Nothing, just looking."}]}, "looking": {"text": "''Good. Everything in here is functional, everything has a story, and most of the stories are better than the things in the showroom right now.'' She gestures at the vignettes behind her. ''Stock rotates. If you don''t see what you want today, come back tomorrow.''", "options": [{"next": "__shop__", "label": "Show me what you''ve got."}, {"next": "end", "label": "I''ll look around."}]}, "pricing": {"text": "''Prices are what they are. The mag-lev stuff costs what it costs because the components aren''t made anymore and the patent holders are suing each other into dust. The surplus cots are cheap because they''re surplus. I don''t negotiate down — I might negotiate trade.''", "options": [{"next": "root", "label": "Fair enough."}, {"next": "__shop__", "label": "Let me see the inventory."}]}, "what_is_this": {"text": "''Dead Space Interiors. I took the name from the lease — the building code still says DEAD SPACE on the fire certificate. Seemed honest.'' She taps the clipboard. ''I source from estate sales, corporate liquidations, lab clearances. If something''s in here it works or it''s interesting. Usually both.''", "options": [{"next": "root", "label": "Sounds like my kind of place."}, {"next": "__shop__", "label": "Show me what you''ve got."}]}}', '[{"price": 2400, "item_id": "item_furn_mag_lev_chair"}, {"price": 4800, "item_id": "item_furn_haptic_throne"}, {"price": 180, "item_id": "item_furn_corpcore_bench"}, {"price": 650, "item_id": "item_furn_diner_booth"}, {"price": 60, "item_id": "item_furn_barstool_wreck"}, {"price": 320, "item_id": "item_furn_pneumatic_stool"}, {"price": 890, "item_id": "item_furn_meditation_pod"}, {"price": 3200, "item_id": "item_furn_neural_couch"}, {"price": 120, "item_id": "item_furn_busted_sofa"}, {"price": 6500, "item_id": "item_furn_sleep_pod"}, {"price": 95, "item_id": "item_furn_mil_surplus_cot"}, {"price": 75, "item_id": "item_furn_pipe_railing"}, {"price": 40, "item_id": "item_furn_payphone_husk"}, {"price": 780, "item_id": "item_furn_counter_slab"}, {"price": 3600, "item_id": "item_furn_nano_desk"}, {"price": 5200, "item_id": "item_furn_wallscreen"}, {"price": 280, "item_id": "item_furn_crt_relic"}, {"price": 4100, "item_id": "item_furn_holo_projector"}, {"price": 1600, "item_id": "item_furn_ruggedized_monitor"}]', 0, '{"personality": "vendor", "clothing_layers": ["a many-pocketed utility coat", "a faded company tee knotted at the waist", "a worn bra and briefs"]}', '[]', '{}', 'zone_furniture_store', NULL, '["Juno makes a note on her clipboard without looking up.", "''Half of this came from a corporate office liquidated in forty-eight hours. Surprising what people leave behind when security cuts their badge.''", "She straightens a price tag that didn''t need straightening.", "''The sleep pod''s the best thing in here. I tested it myself. Didn''t want to get up. That''s a good sign.''", "''Stock rotates every day. Yesterday I had three mag-lev chairs. Now I have one.''", "''I''m not a decorator. I''m a vendor. If you want to know if it''ll hold your weight, I can help.''"]', NULL, 20, 20, 'female', '[{"item_id": "item_furn_mag_lev_chair"}, {"item_id": "item_furn_haptic_throne"}, {"item_id": "item_furn_corpcore_bench"}, {"item_id": "item_furn_diner_booth"}, {"item_id": "item_furn_barstool_wreck"}, {"item_id": "item_furn_pneumatic_stool"}, {"item_id": "item_furn_meditation_pod"}, {"item_id": "item_furn_neural_couch"}, {"item_id": "item_furn_busted_sofa"}, {"item_id": "item_furn_sleep_pod"}, {"item_id": "item_furn_mil_surplus_cot"}, {"item_id": "item_furn_pipe_railing"}, {"item_id": "item_furn_counter_slab"}, {"item_id": "item_furn_nano_desk"}, {"item_id": "item_furn_wallscreen"}, {"item_id": "item_furn_crt_relic"}, {"item_id": "item_furn_holo_projector"}, {"item_id": "item_furn_ruggedized_monitor"}]', 10, 1, 12826, 'npc', '{"fri": [{"to": 18, "from": 9}], "mon": [{"to": 18, "from": 9}], "sat": [{"to": 18, "from": 9}], "sun": [{"to": 18, "from": 9}], "thu": [{"to": 18, "from": 9}], "tue": [{"to": 18, "from": 9}], "wed": [{"to": 18, "from": 9}]}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_1783019600509', 'Jinx Delacroix', 'A dancer with a shrapnel scar over one hip that the glitter never quite covers — she''s stopped trying. Works the main pole in a slow, deliberate spiral, sizing up the room between spins like she''s pricing everyone in it.', 'zone_mq_chrome_101', NULL, '{}', '[]', 0, '{"stripper": true, "mis_willing": true, "personality": "stripper", "clothing_layers": ["an oversized bomber jacket", "a mesh crop top", "a black g-string"], "mis_requires_zone_flag": "mis_ok"}', '[]', '{"nodes": {"start": {"next": "check_work", "type": "start"}, "deposit": {"next": "post_shift", "type": "action", "action_type": "VENDOR_DEPOSIT"}, "atm_wait": {"next": "deposit", "type": "wait", "seconds": 10}, "work_say": {"next": "check_work", "type": "action", "action_type": "VENDOR_CHITCHAT"}, "atm_emote": {"next": "atm_wait", "type": "action", "params": {"message": "steps up to the ATM terminal and makes a deposit."}, "action_type": "EMOTE"}, "go_to_atm": {"next": "atm_emote", "type": "action", "action_type": "VENDOR_GO_TO_ATM"}, "have_life": {"next": "check_work", "type": "action", "action_type": "HAVE_LIFE"}, "home_idle": {"next": "check_work", "type": "action", "action_type": "AT_HOME_LIFE"}, "work_wait": {"next": "player_check", "type": "wait", "seconds": 60}, "check_work": {"type": "action", "offWork": "off_home_check", "endShift": "collect_safe", "goToWork": "go_to_work", "haveLife": "have_life", "action_type": "CHECK_VENDOR_WORK"}, "go_home_ps": {"next": "home_life_ps", "type": "action", "action_type": "GO_HOME"}, "go_to_work": {"next": "work_wait", "type": "action", "action_type": "GO_TO_WORK"}, "off_random": {"type": "random", "branch_0": "have_life", "branch_1": "go_home_off", "branches": [{"weight": 1}, {"weight": 5}]}, "post_shift": {"type": "random", "branch_0": "have_life", "branch_1": "go_home_ps", "branches": [{"weight": 1}, {"weight": 5}]}, "go_home_off": {"next": "check_work", "type": "action", "action_type": "GO_HOME"}, "collect_safe": {"next": "go_to_atm", "type": "action", "action_type": "VENDOR_COLLECT_SAFE"}, "home_life_ps": {"next": "check_work", "type": "action", "action_type": "AT_HOME_LIFE"}, "player_check": {"type": "condition", "ifTrue": "work_say", "ifFalse": "check_work", "condition_type": "PLAYER_IN_ZONE"}, "off_home_check": {"type": "condition", "ifTrue": "home_idle", "ifFalse": "off_random", "condition_type": "AT_HOME"}}, "_start": "start"}', 'zone_mq_chrome_101', NULL, '[]', 'zone_mq_cherry_floor', 20, 20, 'female', '[]', 10, 1, 0, 'npc', '{"fri": [{"to": 24, "from": 19}], "mon": [{"to": 24, "from": 19}], "sat": [{"to": 24, "from": 19}], "sun": [{"to": 24, "from": 19}], "thu": [{"to": 24, "from": 19}], "tue": [{"to": 24, "from": 19}], "wed": [{"to": 24, "from": 19}]}', NULL, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_vane', 'Vane', 'A poised, unreadable bartender who runs the Aerie''s floor like a chess clock. She remembers every drink, every debt, and every indiscretion, and files them all somewhere you will never reach.', 'zone_nc_halcyon', NULL, '{"bye": {"text": "\"The view''s complimentary. Everything else is not.\"", "options": []}, "root": {"text": "The bartender sets down a glass she was already polishing and takes your measure in one clean sweep. \"The Aerie. Members and their curiosities only — which, tonight, apparently means you. Drink? Or something more interesting?\"", "options": [{"next": "quest_offer", "label": "Something more interesting."}, {"next": "bye", "label": "Just the view."}]}, "accepted": {"text": "\"It sounds the deepest water — off The Wreck, out over The Deep. Go heavy, and come back, ideally. The members do so hate an anticlimax.\"", "actions": [{"action": "START_QUEST", "quest_id": "quest_leviathan_bounty"}], "options": [{"next": "bye", "label": "Understood."}]}, "reported": {"text": "\"...The deep''s gone quiet. The members felt it from up here, believe it or not. Your fee — and a standing tab, which up here is the higher honour by far.\"", "actions": [{"action": "TURN_IN", "quest_id": "quest_leviathan_bounty"}], "options": [{"next": "bye", "label": "Obliged."}]}, "quest_offer": {"text": "\"The members are bored, and bored money does harm. So we''re... privately sponsoring a hunt. There''s a thing in the deep water — the leviathan, the big one the lurkers come from. Bring me proof it''s dead and the sponsors pay very, very well. Discretion included.\"", "options": [{"next": "accepted", "label": "I''ll hunt it."}, {"next": "reported", "label": "It''s dead. (collect)"}, {"next": "bye", "label": "Pass."}]}}', '[{"price": 14, "item_id": "item_drink_glow_cocktail"}, {"price": 22, "item_id": "item_drink_embassy_reserve"}, {"price": 9, "item_id": "item_drink_rust_whiskey"}, {"price": 5, "item_id": "item_water_bottle"}]', 0, '{"personality": "vendor", "clothing_layers": ["a sharply cut black bar-jacket", "a crisp collarless shirt", "tailored, invisible foundations"]}', '[]', '{}', 'zone_nc_halcyon', NULL, '["Vane polishes a glass that was already clean and watches the door.", "\"Up here, the weather is a rumour and so is everyone else.\"", "\"A member once asked me the time. I told them it was whatever they preferred.\""]', 'zone_nc_halcyon', 20, 20, 'female', '[{"item_id": "item_drink_glow_cocktail"}, {"item_id": "item_drink_embassy_reserve"}, {"item_id": "item_drink_rust_whiskey"}, {"item_id": "item_water_bottle"}]', 8, 1, 300, 'vendor', '{"fri": [{"to": 24, "from": 0}], "mon": [{"to": 24, "from": 0}], "sat": [{"to": 24, "from": 0}], "sun": [{"to": 24, "from": 0}], "thu": [{"to": 24, "from": 0}], "tue": [{"to": 24, "from": 0}], "wed": [{"to": 24, "from": 0}]}', 0, 'The Aerie', '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_gantry_lookout', 'a gantry lookout', 'A wiry scavenger perched high in the rusted gantry with a spyglass and a whistle, paid in salvage-shares to watch the western dark and call it when something comes out of it. He has good eyes and a worse imagination, and out here the imagination is usually right.', 'zone_waste_gantry', NULL, '{"bye": {"text": "He is already glassing the dark again, whistle between his teeth.", "options": []}, "root": {"text": "The lookout doesn''t lower his glass. \"Camp pays me to watch west and whistle when it moves, so that''s what I do. You''re going out there? Then do me the courtesy of being visible, so when you don''t come back I can log why. Keep to the slag bar. Off it, the dust''ll have you.\"", "options": [{"next": "bye", "label": "I’ll keep to the bar."}]}}', NULL, 0, '{"personality": "lowlife", "clothing_layers": ["a wind-shredded scav coat lashed down with cable", "goggles pushed up on a soot-black brow", "fingerless gloves and a whistle on a cord"]}', '[]', '{}', 'zone_waste_gantry', NULL, '["The lookout sweeps his spyglass across the western wastes and holds his breath.", "\"Something''s always coming. Trick''s calling it before it arrives.\"", "\"You go west, I''ll whistle for you. That''s a promise and a warning both.\""]', 'zone_waste_gantry', 16, 16, 'male', NULL, NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_orion_dex', 'Orion Dex', 'A lean man of indeterminate age in a black shirt, rolled to the elbows. His hands are always moving — shuffling, squaring a deck, tapping the felt — with a precision that suggests either training or compulsion. He watches the room with an expression that gives nothing away. A dealer''s badge is pinned to his shirt: hand-printed, slightly crooked.', 'zone_city_ne', NULL, '{"bye": {"text": "\"Seat''s waiting.\"", "options": []}, "play": {"text": "\"Then sit down and type join. Buy-in''s posted on the table. Don''t splash the pot.\"", "options": [{"next": "betting", "label": "How do I bet?"}, {"next": "bye", "label": "Got it. Thanks."}]}, "root": {"text": "Orion Dex doesn''t look up from the cards he''s riffle-shuffling. \"You''re either here to play or you''re in the way. Which is it?\"", "options": [{"next": "play", "label": "I''d like to play."}, {"next": "rules", "label": "Tell me the rules."}, {"next": "place", "label": "What''s this place?"}, {"next": "bye", "label": "Just looking."}]}, "place": {"text": "\"The Embassy. Used to be a hotel lobby. Now it''s got a bar and a poker table, which is an improvement. The rest is none of my business.\"", "options": [{"next": "bye", "label": "Sounds like my kind of place."}, {"next": "play", "label": "I''d like to play."}]}, "rules": {"text": "\"Texas Hold''em. Two hole cards, five community. Best hand wins. Blinds are posted automatically. If you fold every hand you''ll last longer but win nothing.\"", "options": [{"next": "betting", "label": "How do I bet?"}, {"next": "commands", "label": "What commands do I use?"}, {"next": "play", "label": "Ready to play."}]}, "betting": {"text": "\"check, call, bet X, raise X, fold, allin. The system enforces minimum raises. Don''t waste my time asking what the minimum is — it''ll tell you.\"", "options": [{"next": "commands", "label": "What commands are there?"}, {"next": "bye", "label": "Ready."}]}, "commands": {"text": "\"join — sit down. leave — cash out and go. check / call / bet X / raise X / fold / allin — in-hand actions. board — see community cards. pot — current pot. players — who''s in and their stacks.\"", "options": [{"next": "bye", "label": "Got it."}]}}', '[]', 0, '{"table_id": "gametable_embassy", "mis_willing": false, "personality": "dealer", "clothing_layers": ["a slightly-too-tight dealer''s vest", "a monogrammed shirt", "grey briefs"]}', '[]', '{"nodes": {"start": {"next": "player_check", "type": "start"}, "chitchat": {"next": "chat_wait", "type": "action", "action_type": "VENDOR_CHITCHAT"}, "chat_wait": {"next": "start", "type": "wait", "seconds": 90}, "idle_wait": {"next": "start", "type": "wait", "seconds": 30}, "player_check": {"type": "condition", "ifTrue": "chitchat", "ifFalse": "idle_wait", "condition_type": "PLAYER_IN_ZONE"}}, "_start": "start"}', 'zone_meridian_unit_204', NULL, '["\"Everyone thinks they''re the exception.\"", "\"Odds don''t care.\"", "\"Fortune changes dealers.\"", "\"You can''t bluff probability.\"", "\"Sometimes folding is winning.\"", "\"Every streak ends.\"", "\"The river remembers.\"", "\"Bad beats build character.\"", "\"Luck''s just borrowed time.\"", "\"I''m off the clock.\"", "\"No chips, no problem.\"", "\"I don''t gamble. I deal.\"", "\"I know a tell when I see one.\"", "\"You''d lose at solitaire.\""]', 'zone_residential_lobby', 25, 25, 'male', '[]', 10, 1, 0, 'dealer', '{"fri": [], "mon": [], "sat": [], "sun": [], "thu": [], "tue": [], "wed": []}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_1783019600726', 'Vesper Cole', 'Moves like she''s already spent the money you haven''t given her yet. A faded hospital band, cut loose long ago, still rings one wrist — a story she never finishes, no matter how much you tip for it.', 'zone_mq_chrome_303', NULL, '{}', '[]', 0, '{"stripper": true, "mis_willing": true, "personality": "stripper", "clothing_layers": ["a sequined slip dress", "a lace bralette", "a satin thong"], "mis_requires_zone_flag": "mis_ok"}', '[]', '{"nodes": {"start": {"next": "check_work", "type": "start"}, "deposit": {"next": "post_shift", "type": "action", "action_type": "VENDOR_DEPOSIT"}, "atm_wait": {"next": "deposit", "type": "wait", "seconds": 10}, "work_say": {"next": "check_work", "type": "action", "action_type": "VENDOR_CHITCHAT"}, "atm_emote": {"next": "atm_wait", "type": "action", "params": {"message": "steps up to the ATM terminal and makes a deposit."}, "action_type": "EMOTE"}, "go_to_atm": {"next": "atm_emote", "type": "action", "action_type": "VENDOR_GO_TO_ATM"}, "have_life": {"next": "check_work", "type": "action", "action_type": "HAVE_LIFE"}, "home_idle": {"next": "check_work", "type": "action", "action_type": "AT_HOME_LIFE"}, "work_wait": {"next": "player_check", "type": "wait", "seconds": 60}, "check_work": {"type": "action", "offWork": "off_home_check", "endShift": "collect_safe", "goToWork": "go_to_work", "haveLife": "have_life", "action_type": "CHECK_VENDOR_WORK"}, "go_home_ps": {"next": "home_life_ps", "type": "action", "action_type": "GO_HOME"}, "go_to_work": {"next": "work_wait", "type": "action", "action_type": "GO_TO_WORK"}, "off_random": {"type": "random", "branch_0": "have_life", "branch_1": "go_home_off", "branches": [{"weight": 1}, {"weight": 5}]}, "post_shift": {"type": "random", "branch_0": "have_life", "branch_1": "go_home_ps", "branches": [{"weight": 1}, {"weight": 5}]}, "go_home_off": {"next": "check_work", "type": "action", "action_type": "GO_HOME"}, "collect_safe": {"next": "go_to_atm", "type": "action", "action_type": "VENDOR_COLLECT_SAFE"}, "home_life_ps": {"next": "check_work", "type": "action", "action_type": "AT_HOME_LIFE"}, "player_check": {"type": "condition", "ifTrue": "work_say", "ifFalse": "check_work", "condition_type": "PLAYER_IN_ZONE"}, "off_home_check": {"type": "condition", "ifTrue": "home_idle", "ifFalse": "off_random", "condition_type": "AT_HOME"}}, "_start": "start"}', 'zone_mq_chrome_303', NULL, '[]', 'zone_mq_cherry_vip', 20, 20, 'female', '[]', 10, 1, 0, 'npc', '{"fri": [{"to": 24, "from": 19}], "mon": [{"to": 24, "from": 19}], "sat": [{"to": 24, "from": 19}], "sun": [{"to": 24, "from": 19}], "thu": [{"to": 24, "from": 19}], "tue": [{"to": 24, "from": 19}], "wed": [{"to": 24, "from": 19}]}', NULL, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_1782945871225', 'Deacon Pell', 'A gaunt man in a Custodian cassock with the Architect sigil unpicked from the chest — the thread holes still trace its outline. He walks like he''s late for a service that ended years ago, lips moving through liturgy nobody asked for.', 'zone_city_north', NULL, '{"root": {"text": "Deacon Pell stops mid-mutter and fixes you with eyes like burnt-out filaments. \"You''re not here for a sermon. Nobody is. So what?\"", "options": [{"next": "architect", "label": "Is the Architect really dead?"}, {"next": "custodians", "label": "Weren''t you a Custodian?"}, {"next": "walking", "label": "Why do you keep walking the circuit?"}, {"next": null, "label": "Never mind, Deacon."}]}, "walking": {"text": "\"The route was holy once. Threshold to the Strip, the Row, the Gate, back again. Somebody has to keep the shape of it.\" He almost smiles. \"Besides — the day I stop, I''ll have to think about all of it. No thank you.\"", "options": [{"next": "root", "label": "Back"}]}, "architect": {"text": "\"Dead. Watching. Ascended. Bored.\" He shrugs. \"The power''s on, the water runs, and nobody''s home when you pray. Pick whichever word lets you sleep.\"", "options": [{"next": "root", "label": "Back"}]}, "custodians": {"text": "He touches the thread holes where the sigil used to be. \"Thirty years keeping the substations blessed and the relays clean. Then I asked it one question — just one — and got the same silence the Breakers get. At least their silence is honest.\"", "options": [{"next": "root", "label": "Back"}]}}', '[]', 0, '{"mis_willing": false}', '[]', '{"nodes": {"start": {"next": "patrol", "type": "start"}, "linger": {"next": "patrol", "type": "wait", "seconds": 30}, "patrol": {"next": "sermon", "type": "action", "params": {"loop": true, "mode": "walk", "waypoints": ["zone_city_north", "zone_city_ne", "zone_city_east", "zone_city_se", "zone_city_south", "zone_city_west", "zone_velk_exterior", "zone_drum_exterior", "zone_thresholdeast"]}, "action_type": "PATROL"}, "sermon": {"next": "linger", "type": "action", "params": {"message": "mutters: \"...and the grid shall provide, and the grid provided, and we called it mercy because we didn''t have a better word...\"", "cooldown_s": 120}, "action_type": "SAY"}}, "_start": "start"}', 'zone_threshold', NULL, '["Keep walking. It''s what I do.", "\"It listens. It just stopped answering.\"", "\"I gave it forty years. It gave me this coat.\"", "\"The lampposts still hum the old hymns. Nobody else hears it.\"", "\"Custodians say faith. I say habit with better posture.\"", "\"You want a blessing? The water''s off on Thursdays. That''s the blessing.\"", "\"I unpicked the sigil myself. Took all night. Felt nothing.\"", "\"The Basin stays lit. That''s not love. That''s momentum.\"", "\"Keep walking. It''s what I do.\""]', NULL, 20, 20, 'male', '[]', 10, 1, 0, 'npc', '{"fri": [], "mon": [], "sat": [], "sun": [], "thu": [], "tue": [], "wed": []}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_marta_velk', 'Marta Velk', 'A stocky woman in her fifties with calloused hands and a permanent evaluating squint, like she''s appraising everything for resale value. A vendor''s lanyard hangs crooked around her neck. She smells like oil soap and synth-leather.', 'zone_velk_exterior', NULL, '{"bye": {"text": "\"Don''t let the door hit you. Actually, it might — the hinge is shot. I keep meaning to fix that.\"", "options": []}, "root": {"text": "Velk wipes her hands on a rag that only makes them dirtier. \"You buying or just looking? Either way, don''t sit on anything unless you plan to buy it.\"", "options": [{"next": "__shop__", "label": "Browse your wares."}, {"next": "history", "label": "How long have you been here?"}, {"next": "sarcasm", "label": "Nice place."}, {"next": "bye", "label": "Nothing, never mind."}, {"next": "gossip", "label": "Heard anything on the street?"}]}, "gossip": {"text": "Marta wipes the counter, weighing what to share.", "actions": [{"action": "GOSSIP_TELL"}], "options": [{"next": "root", "label": "Back"}]}, "history": {"text": "\"Fifteen years in this spot. Before me it was a noodle bar. Before that, rubble. This city''s got layers.\"", "options": [{"next": "noodles", "label": "What happened to the noodle bar?"}, {"next": "__shop__", "label": "Browse your wares."}, {"next": "bye", "label": "See you around."}]}, "noodles": {"text": "\"Owner got Custodian debt. You know how that goes. I bought the chair she left behind. Still got it — twelve credits if you want it.\"", "options": [{"next": "__shop__", "label": "Browse your wares."}, {"next": "bye", "label": "See you around."}]}, "sarcasm": {"text": "\"It ain''t the Meridian, but everything in here works. More than I can say for most things in this city.\"", "options": [{"next": "__shop__", "label": "Browse your wares."}, {"next": "bye", "label": "Fair enough. See you around."}]}}', '[]', 0, '{"personality": "vendor", "clothing_layers": ["a many-pocketed utility coat", "a faded company tee knotted at the waist", "a worn bra and briefs"]}', '[]', '{"nodes": {"start": {"next": "check_work", "type": "start"}, "go_home": {"next": "home_life_ps", "type": "action", "action_type": "GO_HOME"}, "have_life": {"next": "check_work", "type": "action", "action_type": "HAVE_LIFE"}, "check_work": {"next": "have_life", "type": "action", "ports": {"offWork": "home_idle_ps", "endShift": "go_home", "goToWork": "go_to_work", "haveLife": "have_life"}, "action_type": "CHECK_VENDOR_WORK"}, "go_to_work": {"next": "vendor_chitchat", "type": "action", "action_type": "GO_TO_WORK"}, "home_idle_ps": {"next": "check_work", "type": "action", "action_type": "AT_HOME_LIFE"}, "home_life_ps": {"next": "check_work", "type": "action", "action_type": "AT_HOME_LIFE"}, "vendor_chitchat": {"next": "check_work", "type": "action", "action_type": "VENDOR_CHITCHAT"}}, "_start": "start"}', 'zone_meridian_unit_203', NULL, '["\"Everything''s got a second life if you know how to look at it.\"", "runs a hand along the edge of a battered cabinet, checking for warps", "\"You break it, you bought it. That''s the rule. It''s always been the rule.\"", "squints at a price tag and decides it should be higher", "\"Good wood''s hard to find since the Singe. Synth-board''s everywhere but it warps.\"", "stacks two crates with practised efficiency, barely looking", "\"I had a couch in here last week. Guy offered me four credits. Four. I told him to get out.\"", "taps the side of a lamp three times until it flickers on", "\"If it''s broken I''ll fix it. If it''s ugly I''ll price it lower. Comes out the same in the end.\"", "exhales slowly and writes something in a worn ledger"]', 'zone_velk_shop', 30, 30, 'female', '[]', 10, 1, 0, 'vendor', '{"fri": [{"to": 22, "from": 10}], "mon": [{"to": 22, "from": 10}], "sat": [{"to": 22, "from": 10}], "sun": [{"to": 22, "from": 10}], "thu": [{"to": 22, "from": 10}], "tue": [{"to": 22, "from": 10}], "wed": [{"to": 22, "from": 10}]}', 0, 'Velk''s Pre-Owned Furnishings', '["polishes a second-hand lamp until it gleams", "\"Still a deal at half the price.\"", "sorts through a box of salvaged drawer handles", "sketches something in a notebook, crosses it out, starts again", "\"Fifteen years. This chair''s earned its spot.\"", "runs a cloth along an old shelf, checking the joints", "counts something quietly on her fingers, frowns"]', '[]');
+INSERT INTO public.npcs VALUES ('npc_1783019600618', 'Ruby Six', 'One leg below the knee is chrome prosthetic, buffed to a mirror shine and worked into the routine like a prop instead of a war story. She smiles with exactly the wattage the tip requires — no more, no less.', 'zone_mq_chrome_202', NULL, '{}', '[]', 0, '{"stripper": true, "mis_willing": true, "personality": "stripper", "clothing_layers": ["a vinyl trench coat", "a chrome-studded bra", "a red lace thong"], "mis_requires_zone_flag": "mis_ok"}', '[]', '{"nodes": {"start": {"next": "check_work", "type": "start"}, "deposit": {"next": "post_shift", "type": "action", "action_type": "VENDOR_DEPOSIT"}, "atm_wait": {"next": "deposit", "type": "wait", "seconds": 10}, "work_say": {"next": "check_work", "type": "action", "action_type": "VENDOR_CHITCHAT"}, "atm_emote": {"next": "atm_wait", "type": "action", "params": {"message": "steps up to the ATM terminal and makes a deposit."}, "action_type": "EMOTE"}, "go_to_atm": {"next": "atm_emote", "type": "action", "action_type": "VENDOR_GO_TO_ATM"}, "have_life": {"next": "check_work", "type": "action", "action_type": "HAVE_LIFE"}, "home_idle": {"next": "check_work", "type": "action", "action_type": "AT_HOME_LIFE"}, "work_wait": {"next": "player_check", "type": "wait", "seconds": 60}, "check_work": {"type": "action", "offWork": "off_home_check", "endShift": "collect_safe", "goToWork": "go_to_work", "haveLife": "have_life", "action_type": "CHECK_VENDOR_WORK"}, "go_home_ps": {"next": "home_life_ps", "type": "action", "action_type": "GO_HOME"}, "go_to_work": {"next": "work_wait", "type": "action", "action_type": "GO_TO_WORK"}, "off_random": {"type": "random", "branch_0": "have_life", "branch_1": "go_home_off", "branches": [{"weight": 1}, {"weight": 5}]}, "post_shift": {"type": "random", "branch_0": "have_life", "branch_1": "go_home_ps", "branches": [{"weight": 1}, {"weight": 5}]}, "go_home_off": {"next": "check_work", "type": "action", "action_type": "GO_HOME"}, "collect_safe": {"next": "go_to_atm", "type": "action", "action_type": "VENDOR_COLLECT_SAFE"}, "home_life_ps": {"next": "check_work", "type": "action", "action_type": "AT_HOME_LIFE"}, "player_check": {"type": "condition", "ifTrue": "work_say", "ifFalse": "check_work", "condition_type": "PLAYER_IN_ZONE"}, "off_home_check": {"type": "condition", "ifTrue": "home_idle", "ifFalse": "off_random", "condition_type": "AT_HOME"}}, "_start": "start"}', 'zone_mq_chrome_202', NULL, '[]', 'zone_mq_cherry_floor', 20, 20, 'female', '[]', 10, 1, 0, 'npc', '{"fri": [{"to": 24, "from": 19}], "mon": [{"to": 24, "from": 19}], "sat": [{"to": 24, "from": 19}], "sun": [{"to": 24, "from": 19}], "thu": [{"to": 24, "from": 19}], "tue": [{"to": 24, "from": 19}], "wed": [{"to": 24, "from": 19}]}', NULL, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_cassius_drum', 'Cassius Drum', 'A lean man in his thirties with an eye for colour coordination that looks deliberately out of place in this city. He wears a patchwork of reclaimed fabric and tech-fibre with a tailor''s tape measure wrapped around one wrist like a bracelet. Attitude to spare.', 'zone_meridian_unit_202', NULL, '{"bye": {"text": "\"Come back when you''re ready to commit to an aesthetic. Or don''t. Either way, you know where I am.\"", "options": []}, "root": {"text": "Cassius Drum looks you up and down with professional interest. \"Okay. Okay. I see what we''re working with. Don''t worry — I''ve dressed worse.\"", "options": [{"next": "__shop__", "label": "Browse your wares."}, {"next": "craft", "label": "You make these yourself?"}, {"next": "fashion", "label": "What''s the post-apocalypse look this season?"}, {"next": "bye", "label": "I''m good, thanks."}, {"next": "gossip", "label": "Heard anything on the street?"}]}, "craft": {"text": "\"Some of it. The rest I pull off people — gently, don''t look at me like that, they were already dead. Point is, everything here has a story. I just charge you for the good parts.\"", "options": [{"next": "__shop__", "label": "Browse your wares."}, {"next": "bye", "label": "See you around."}]}, "gossip": {"text": "Cassius glances past you, then talks low.", "actions": [{"action": "GOSSIP_TELL"}], "options": [{"next": "root", "label": "Back"}]}, "fashion": {"text": "\"Layering. Always layering. You want at least three textures — keeps the rad-scanner confused and looks incredible. Also, pockets. You can never have enough pockets in a disaster zone.\"", "options": [{"next": "__shop__", "label": "Browse your wares."}, {"next": "bye", "label": "Sound advice. See you around."}]}}', '[{"price": 900, "item_id": "item_thermal_parka"}, {"price": 280, "item_id": "item_thermex_top"}, {"price": 250, "item_id": "item_thermex_leggings"}, {"price": 120, "item_id": "item_watch_cap"}, {"price": 16, "item_id": "item_briefs_novelty_spareme"}, {"price": 61, "item_id": "item_thong_lace_sheer"}, {"price": 162, "item_id": "item_jock_leather"}, {"price": 41, "item_id": "item_briefs_sport_wick"}, {"price": 4, "item_id": "item_underpants_lucky"}, {"price": 95, "item_id": "item_longjohns_thermal"}, {"price": 74, "item_id": "item_panties_crotchless_mesh"}, {"price": 24, "item_id": "item_boxers_biohazard"}, {"price": 74, "item_id": "item_bralette_lace_sheer"}, {"price": 54, "item_id": "item_sportsbra_compression"}, {"price": 203, "item_id": "item_bra_leather_harness"}, {"price": 11, "item_id": "item_undershirt_ribbed"}, {"price": 34, "item_id": "item_pasties_tassel"}, {"price": 81, "item_id": "item_binder_chest"}, {"price": 27, "item_id": "item_tee_singularity"}, {"price": 61, "item_id": "item_hoodie_grey"}, {"price": 68, "item_id": "item_croptop_fishnet"}, {"price": 34, "item_id": "item_tee_mascot"}, {"price": 47, "item_id": "item_shirt_flannel"}, {"price": 81, "item_id": "item_halter_backless"}, {"price": 54, "item_id": "item_sweater_ugly"}, {"price": 122, "item_id": "item_jacket_denim"}, {"price": 149, "item_id": "item_blouse_sheer_wrap"}, {"price": 30, "item_id": "item_tee_offbrand_security"}, {"price": 54, "item_id": "item_jeans_relaxed"}, {"price": 41, "item_id": "item_shorts_cargo"}, {"price": 243, "item_id": "item_leggings_latex"}, {"price": 41, "item_id": "item_sweatpants_grey"}, {"price": 61, "item_id": "item_shorts_micro"}, {"price": 47, "item_id": "item_trousers_clown"}, {"price": 34, "item_id": "item_sneakers_canvas"}, {"price": 27, "item_id": "item_slippers_monster"}, {"price": 297, "item_id": "item_boots_thigh_heel"}, {"price": 16, "item_id": "item_sandals_strap"}, {"price": 24, "item_id": "item_cap_trucker_slogan"}, {"price": 41, "item_id": "item_bucket_hat"}, {"price": 95, "item_id": "item_veil_lace"}, {"price": 27, "item_id": "item_gloves_fingerless"}, {"price": 88, "item_id": "item_gloves_lace_opera"}, {"price": 108, "item_id": "item_collar_leather"}, {"price": 30, "item_id": "item_fannypack"}, {"price": 20, "item_id": "item_tote_canvas"}]', 0, '{"mis_willing": false, "personality": "vendor", "clothing_layers": ["a many-pocketed utility coat", "a faded company polo", "grey boxer-briefs"]}', '[]', '{"nodes": {"start": {"next": "check_work", "type": "start"}, "deposit": {"next": "post_shift", "type": "action", "action_type": "VENDOR_DEPOSIT"}, "atm_wait": {"next": "deposit", "type": "wait", "seconds": 10}, "work_say": {"next": "check_work", "type": "action", "action_type": "VENDOR_CHITCHAT"}, "atm_emote": {"next": "atm_wait", "type": "action", "params": {"message": "steps up to the ATM terminal and makes a deposit."}, "action_type": "EMOTE"}, "go_to_atm": {"next": "atm_emote", "type": "action", "action_type": "VENDOR_GO_TO_ATM"}, "have_life": {"next": "check_work", "type": "action", "action_type": "HAVE_LIFE"}, "home_idle": {"next": "check_work", "type": "action", "action_type": "AT_HOME_LIFE"}, "work_wait": {"next": "player_check", "type": "wait", "seconds": 60}, "check_work": {"type": "action", "offWork": "off_home_check", "endShift": "collect_safe", "goToWork": "go_to_work", "haveLife": "have_life", "action_type": "CHECK_VENDOR_WORK"}, "go_home_ps": {"next": "home_life_ps", "type": "action", "action_type": "GO_HOME"}, "go_to_work": {"next": "work_wait", "type": "action", "action_type": "GO_TO_WORK"}, "off_random": {"type": "random", "branch_0": "have_life", "branch_1": "go_home_off", "branches": [{"weight": 1}, {"weight": 5}]}, "post_shift": {"type": "random", "branch_0": "have_life", "branch_1": "go_home_ps", "branches": [{"weight": 1}, {"weight": 5}]}, "go_home_off": {"next": "check_work", "type": "action", "action_type": "GO_HOME"}, "collect_safe": {"next": "go_to_atm", "type": "action", "action_type": "VENDOR_COLLECT_SAFE"}, "home_life_ps": {"next": "check_work", "type": "action", "action_type": "AT_HOME_LIFE"}, "player_check": {"type": "condition", "ifTrue": "work_say", "ifFalse": "check_work", "condition_type": "PLAYER_IN_ZONE"}, "off_home_check": {"type": "condition", "ifTrue": "home_idle", "ifFalse": "off_random", "condition_type": "AT_HOME"}}, "_start": "start"}', 'zone_meridian_unit_202', NULL, '["\"Color is a weapon. Most people just don''t know how to aim it.\"", "folds a jacket with the kind of precision that borders on religious", "\"You''d be surprised what a good belt does for a silhouette. Changes everything.\"", "holds a piece of fabric up to the light and clicks his tongue", "\"Half this city''s walking around in borrowed clothes. The other half don''t care. I care for both halves.\"", "snips a loose thread and examines the result critically", "\"Rad-shielded lining is the future. I was doing it before it was a survival necessity.\"", "rearranges a display rack, steps back, then rearranges it again", "\"Pockets. I''m telling you. Every design needs more pockets. This is non-negotiable.\"", "hums something tuneless while pinning a hem"]', 'zone_drum_shop', 25, 25, 'male', '[{"item_id": "item_thermal_parka"}, {"item_id": "item_thermex_top"}, {"item_id": "item_thermex_leggings"}, {"item_id": "item_watch_cap"}, {"item_id": "item_briefs_novelty_spareme"}, {"item_id": "item_thong_lace_sheer"}, {"item_id": "item_jock_leather"}, {"item_id": "item_briefs_sport_wick"}, {"item_id": "item_underpants_lucky"}, {"item_id": "item_longjohns_thermal"}, {"item_id": "item_panties_crotchless_mesh"}, {"item_id": "item_boxers_biohazard"}, {"item_id": "item_bralette_lace_sheer"}, {"item_id": "item_sportsbra_compression"}, {"item_id": "item_bra_leather_harness"}, {"item_id": "item_undershirt_ribbed"}, {"item_id": "item_pasties_tassel"}, {"item_id": "item_binder_chest"}, {"item_id": "item_tee_singularity"}, {"item_id": "item_hoodie_grey"}, {"item_id": "item_croptop_fishnet"}, {"item_id": "item_tee_mascot"}, {"item_id": "item_shirt_flannel"}, {"item_id": "item_halter_backless"}, {"item_id": "item_sweater_ugly"}, {"item_id": "item_jacket_denim"}, {"item_id": "item_blouse_sheer_wrap"}, {"item_id": "item_tee_offbrand_security"}, {"item_id": "item_jeans_relaxed"}, {"item_id": "item_shorts_cargo"}, {"item_id": "item_leggings_latex"}, {"item_id": "item_sweatpants_grey"}, {"item_id": "item_shorts_micro"}, {"item_id": "item_trousers_clown"}, {"item_id": "item_sneakers_canvas"}, {"item_id": "item_slippers_monster"}, {"item_id": "item_boots_thigh_heel"}, {"item_id": "item_sandals_strap"}, {"item_id": "item_cap_trucker_slogan"}, {"item_id": "item_bucket_hat"}, {"item_id": "item_veil_lace"}, {"item_id": "item_gloves_fingerless"}, {"item_id": "item_gloves_lace_opera"}, {"item_id": "item_collar_leather"}, {"item_id": "item_fannypack"}, {"item_id": "item_tote_canvas"}]', 46, 3, 44, 'vendor', '{"fri": [{"to": 22, "from": 10}], "mon": [{"to": 22, "from": 10}], "sat": [{"to": 22, "from": 10}], "sun": [{"to": 22, "from": 10}], "thu": [{"to": 22, "from": 10}], "tue": [{"to": 22, "from": 10}], "wed": [{"to": 22, "from": 10}]}', 58, 'Second Skin', '["stitches something under a low light, squinting", "\"Texture, contrast, silhouette. In that order.\"", "lays out three different fabric swatches side by side", "carefully hangs a jacket, adjusts it twice, then a third time", "\"If I had better thread this would be perfect.\"", "cuts a pattern piece from a paper template with quiet precision", "holds two colors up to the window and stares at them for a long moment"]', '[]');
+INSERT INTO public.npcs VALUES ('npc_narrator', 'Bobby Francis', 'A broadcast studio host.', 'zone_studio_1782953094650', NULL, '{}', '[]', 0, '{"studio_npc": true, "mis_willing": false}', '[]', '{"nodes": {"n_w0": {"next": "n_ww0", "type": "action", "params": {"message": "Still sleeping in a bed?"}, "action_type": "SAY"}, "n_w1": {"next": "n_ww1", "type": "action", "params": {"message": "How twentieth century."}, "action_type": "SAY"}, "n_w2": {"next": "n_ww2", "type": "action", "params": {"message": "The camera slowly circles the glowing sleep pod as soft blue lights pulse across its polished surface."}, "action_type": "SAY"}, "n_w3": {"next": "n_ww3", "type": "action", "params": {"message": "SleepRight™ monitors your dreams..."}, "action_type": "SAY"}, "n_w4": {"next": "n_ww4", "type": "action", "params": {"message": "...your heart..."}, "action_type": "SAY"}, "n_w5": {"next": "n_ww5", "type": "action", "params": {"message": "...and your productivity."}, "action_type": "SAY"}, "n_w6": {"next": "n_ww6", "type": "action", "params": {"message": "Wake refreshed."}, "action_type": "SAY"}, "n_w7": {"next": "n_ww7", "type": "action", "params": {"message": "Wake focused."}, "action_type": "SAY"}, "n_w8": {"next": "n_ww8", "type": "action", "params": {"message": "Wake ready to exceed quarterly expectations."}, "action_type": "SAY"}, "n_w9": {"next": "n_ww9", "type": "action", "params": {"message": "SleepRight™."}, "action_type": "SAY"}, "n_w10": {"next": "n_ww10", "type": "action", "params": {"message": "Because unconscious employees can''t miss deadlines."}, "action_type": "SAY"}, "n_ww0": {"next": "n_w1", "type": "wait", "seconds": 5}, "n_ww1": {"next": "n_w2", "type": "wait", "seconds": 5}, "n_ww2": {"next": "n_w3", "type": "wait", "seconds": 5}, "n_ww3": {"next": "n_w4", "type": "wait", "seconds": 5}, "n_ww4": {"next": "n_w5", "type": "wait", "seconds": 5}, "n_ww5": {"next": "n_w6", "type": "wait", "seconds": 5}, "n_ww6": {"next": "n_w7", "type": "wait", "seconds": 5}, "n_ww7": {"next": "n_w8", "type": "wait", "seconds": 5}, "n_ww8": {"next": "n_w9", "type": "wait", "seconds": 5}, "n_ww9": {"next": "n_w10", "type": "wait", "seconds": 5}, "n_life": {"next": "n_work", "type": "action", "action_type": "HAVE_LIFE"}, "n_loop": {"next": "n_start", "type": "loop"}, "n_work": {"next": "n_w0", "type": "action", "params": {"zone_id": "zone_studio_1782953094650"}, "action_type": "GO_TO_WORK"}, "n_ww10": {"next": "n_loop", "type": "wait", "seconds": 5}, "n_start": {"next": "n_life", "type": "start"}}, "_start": "n_start"}', 'zone_studio_1782953094650', NULL, '[]', 'zone_studio_1782953094650', 20, 20, 'male', '[]', 10, 1, 0, 'npc', '{}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_stage_assistant', 'Stage Assistant', 'A broadcast studio host.', 'zone_civ_meltwater', NULL, '{}', '[]', 0, '{"studio_npc": true}', '[]', '{"nodes": {"n_life": {"next": "n_check", "type": "action", "action_type": "HAVE_LIFE"}, "n_work": {"next": "n_atwork", "type": "action", "params": {"zone_id": "zone_studio_1782953094650"}, "action_type": "GO_TO_WORK"}, "n_check": {"type": "action", "goToWork": "n_work", "haveLife": "n_life", "action_type": "CHECK_WORK"}, "n_start": {"next": "n_check", "type": "start"}, "n_atwork": {"next": "n_check", "type": "action", "action_type": "AT_WORK"}}, "_start": "n_start"}', 'zone_studio_1782953094650', NULL, '[]', NULL, 20, 20, 'female', '[]', 10, 1, 0, 'npc', '{"fri": [{"to": 22, "from": 10}], "mon": [{"to": 22, "from": 10}], "sat": [{"to": 22, "from": 10}], "sun": [{"to": 22, "from": 10}], "thu": [{"to": 22, "from": 10}], "tue": [{"to": 22, "from": 10}], "wed": [{"to": 22, "from": 10}]}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_reg', 'Reg Naylor', 'A heavyset person behind a scratched counter. Apron: CERTIFIED SURVIVOR.', 'zone_meridian_unit_201', NULL, '{"root": {"text": "You look new. Or you look like you died recently. Hard to tell the difference. What do you need?", "options": [{"next": "where", "label": "Where am I?"}, {"next": "factions", "label": "What are the factions?"}, {"next": null, "label": "Never mind."}]}, "where": {"text": "Coldwater Basin. Used to be a city. Now it''s whatever this is. The Architect''s infrastructure runs under the whole basin — power, water, comms. So it stays livable. Relatively.", "options": [{"next": "root", "label": "Back"}]}, "factions": {"text": "Custodians think the Architect is God. Breakers want to smash everything. Archivists want to know everything. The Franchise wants to sell everything. The Glitch think they can talk to it. None of them are right, probably. Pick the one that''s wrong in a way you can live with.", "options": [{"next": "root", "label": "Back"}]}}', '[{"price": 12, "stock": 10, "item_id": "item_ration"}, {"price": 8, "stock": 15, "item_id": "item_water_bottle"}, {"price": 15, "stock": 8, "item_id": "item_bandage"}, {"price": 300, "item_id": "item_thermex_top"}, {"price": 130, "item_id": "item_watch_cap"}]', 1, '{"mis_willing": false, "personality": "travelling_vendor", "clothing_layers": ["a battered oilskin poncho", "a layered thermal shirt", "grey briefs"]}', '[]', '{"nodes": {"start": {"next": "have_life", "type": "start"}, "at_work": {"next": "go_home", "type": "action", "action_type": "AT_WORK"}, "go_home": {"next": "home_wait", "type": "action", "action_type": "GO_HOME"}, "have_life": {"next": "go_to_work", "type": "action", "action_type": "HAVE_LIFE"}, "home_wait": {"next": "start", "type": "wait", "seconds": 60}, "go_to_work": {"next": "at_work", "type": "action", "action_type": "GO_TO_WORK"}}, "_start": "start"}', 'zone_meridian_unit_201', NULL, '["Another quiet night, too quiet...", "Inventory’s running low again, like always.", "Everything here has a price, even silence.", "That shipment wasn’t supposed to be late...", "Funny how the same items keep coming back with different stories.", "The terminal''s logging phantom transactions", "Somebody’s been through here, can still feel it.", "City chews through stock, I can''t keep up!"]', NULL, 20, 20, 'male', '[{"item_id": "item_thermex_top"}, {"item_id": "item_watch_cap"}]', 10, 1, 0, 'npc', '{"fri": [{"to": 23, "from": 6}], "mon": [{"to": 23, "from": 6}], "sat": [{"to": 23, "from": 6}], "sun": [{"to": 23, "from": 6}], "thu": [{"to": 23, "from": 6}], "tue": [{"to": 23, "from": 6}], "wed": [{"to": 23, "from": 6}]}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_prefect_clerk', 'Prefect Aldous', 'The senior clerk of the Prefecture, a small grey man who has turned the withholding of stamps into a martial art. He can end your day with a shrug and a form number.', 'zone_gov_prefect', NULL, '{"bye": {"text": "\"Then you remain, officially, nobody. Next.\"", "options": []}, "root": {"text": "Prefect Aldous looks up over half-moon glasses, unimpressed in advance. \"The Prefecture issues permits, papers, and — occasionally — pardons. Which delay would you like to begin today?\"", "options": [{"next": "__shop__", "label": "Show me the paperwork."}, {"next": "bye", "label": "Never mind."}]}}', '[{"price": 30, "item_id": "item_travel_permit"}, {"price": 20, "item_id": "item_id_papers"}, {"price": 5, "item_id": "item_water_bottle"}]', 0, '{"personality": "vendor", "clothing_layers": ["a grey civil-service tunic pressed to a razor edge", "an ink-cuffed shirt", "regulation, joyless underthings"]}', '[]', '{}', 'zone_gov_prefect', NULL, '[]', 'zone_gov_prefect', 18, 18, 'male', '[{"item_id": "item_travel_permit"}, {"item_id": "item_id_papers"}, {"item_id": "item_water_bottle"}]', 8, 1, 120, 'vendor', '{"fri": [{"to": 22, "from": 6}], "mon": [{"to": 22, "from": 6}], "sat": [{"to": 22, "from": 6}], "sun": [{"to": 22, "from": 6}], "thu": [{"to": 22, "from": 6}], "tue": [{"to": 22, "from": 6}], "wed": [{"to": 22, "from": 6}]}', 0, 'The Prefecture', '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_fishmonger', 'Brack the Fishmonger', 'A slab-armed man with a cleaver and a laugh like a dropped crate. He can fillet a bay-thing before it knows it''s dead and sell you the parts that aren''t glowing.', 'zone_dock_fishmarket', NULL, '{"bye": {"text": "\"Suit yourself. Cats aren''t fussy.\"", "options": []}, "root": {"text": "Brack slaps a pale fillet onto the slab. \"Fresh off the bay, mostly fish! Buyin'' your catch too, if it''s got fewer than three eyes.\"", "options": [{"next": "__shop__", "label": "Show me the catch."}, {"next": "bye", "label": "Not hungry."}]}}', '[{"price": 7, "item_id": "item_fresh_catch"}, {"price": 10, "item_id": "item_ration"}, {"price": 5, "item_id": "item_water_bottle"}]', 0, '{"personality": "vendor", "clothing_layers": ["a gore-stiff rubber apron", "a striped fishmonger''s shirt gone grey", "sturdy waders"]}', '[]', '{}', 'zone_dock_fishmarket', NULL, '[]', 'zone_dock_fishmarket', 20, 20, 'male', '[{"item_id": "item_fresh_catch"}, {"item_id": "item_ration"}, {"item_id": "item_water_bottle"}]', 8, 1, 90, 'vendor', '{"fri": [{"to": 24, "from": 6}], "mon": [{"to": 24, "from": 6}], "sat": [{"to": 24, "from": 6}], "sun": [{"to": 24, "from": 6}], "thu": [{"to": 24, "from": 6}], "tue": [{"to": 24, "from": 6}], "wed": [{"to": 24, "from": 6}]}', 0, 'The Fishmarket', '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_harbormaster', 'The Harbourmaster', 'A weathered official in a peaked cap she has no authority to wear anymore, keeping ledgers for ships that mostly don''t file. She sees everything on her wharf and reports almost none of it.', 'zone_dock_wharf', NULL, '{"bye": {"text": "\"Keep it that way and we''ll get along.\"", "options": []}, "root": {"text": "The Harbourmaster looks up from her ledger. \"You''re not crew, and you''re not cargo. So what are you?\"", "options": [{"next": "quest_offer", "label": "Looking for work."}, {"next": "bye", "label": "Nobody in particular."}]}, "accepted": {"text": "\"Try the shallows, the moored barges, out past the breakwater. Mind you don''t end up in the ledger of the lost yourself.\"", "actions": [{"action": "START_QUEST", "quest_id": "quest_wet_cargo"}], "options": [{"next": "bye", "label": "Understood."}]}, "reported": {"text": "\"...Fewer wakes out there tonight. Good. Here — off the books, like everything else on this wharf. We never spoke.\"", "actions": [{"action": "TURN_IN", "quest_id": "quest_wet_cargo"}], "options": [{"next": "bye", "label": "Obliged."}]}, "quest_offer": {"text": "\"Something in the bay''s been taking my dockhands and gnawing my hulls — lurkers, big ones. Thin them out — three, at least — and I''ll pay you in something I definitely never received.\"", "options": [{"next": "accepted", "label": "I''ll clear them."}, {"next": "reported", "label": "Done. (report back)"}, {"next": "bye", "label": "Not my problem."}]}}', 'null', 0, '{"personality": "official", "clothing_layers": ["a salt-bleached harbourmaster''s coat", "a cabled sweater", "oilskin trousers"]}', '[]', '{}', 'zone_dock_wharf', NULL, '["The Harbourmaster notes something in a ledger and closes it before you can look.", "\"Every boat that ties up here is my problem. Try not to become one.\""]', 'zone_dock_wharf', 18, 18, 'female', 'null', NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_aerie_patron', 'a platinum shareholder', 'A platinum-tier shareholder in a suit that costs more than the building you were born in. He looks at the bay the way a cat looks at a fishbowl, and at you not at all.', 'zone_nc_sable', NULL, '{"bye": {"text": "He has already stopped seeing you.", "options": []}, "root": {"text": "The shareholder does not lower his glass. \"If you have to be up here, do try to be interesting. The last one wasn''t.\"", "options": [{"next": "bye", "label": "..."}]}}', '[]', 0, '{"personality": "corporate", "clothing_layers": ["a bespoke charcoal suit", "a shirt woven from something extinct", "silk that has never met a working day"]}', '[]', '{}', 'zone_nc_sable', NULL, '["The shareholder swirls something amber and watches the deep water with mild appetite.", "\"Everything down there is inventory. It simply doesn''t know it yet.\""]', NULL, 14, 14, 'male', '[]', 10, 1, 0, 'npc', '{}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_cash_vane', 'Cassius Vane', 'A rangy man in a salvaged casino-floor coat, the felt-green lining worn to grey. His jaw is chrome from the cheekbone down — an old repair he never bothered to skin over, so it catches the light when he smiles, which is often and rarely means anything good. He watches hands the way other people watch weather. They call him Cash, mostly because he keeps taking it.', 'zone_city_ne', NULL, '{}', '[]', 0, '{"poker_player": true, "poker_persona": {"buyIn": 200, "betSizing": 0.6, "bluffFreq": 0.18, "tightness": 0.5, "tiltProne": 0.35, "aggression": 0.7, "chattiness": 0.6, "semiBluffFreq": 0.4}, "poker_bankroll": 3200}', '[]', '{"nodes": {"wait": {"next": "start", "type": "wait", "seconds": 20}, "start": {"next": "have_life", "type": "start"}, "have_life": {"next": "home_check", "type": "action", "action_type": "HAVE_LIFE"}, "home_life": {"next": "wait", "type": "action", "action_type": "AT_HOME_LIFE"}, "home_check": {"type": "condition", "ifTrue": "home_life", "ifFalse": "wait", "condition_type": "AT_HOME"}}, "_start": "start"}', 'zone_apt_1', NULL, '["\"Anybody feel like donating some credits? I take cards, cash, and bad decisions.\"", "shuffles a battered deck one-handed, watching the room", "\"You look like a caller. I like callers.\"", "taps two chips together in a slow, patient rhythm", "\"Sit down. The felt won''t bite. Much.\"", "rolls a chip across his knuckles and pockets it without looking"]', NULL, 25, 25, 'male', '[]', 10, 1, 0, 'gambler', '{}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_salvage_broker', 'Voss Iyaka', 'A wiry old clone with a jeweller''s loupe screwed into one eye and a brass hanging-scale bolted to the gatehouse beside him. A strongbox sits chained to his ankle. He weighs everything you carry before he weighs you.', 'zone_slag_gate', NULL, '{"bye": {"text": "\"Wastes''ll still be here when you change your mind.\"", "options": []}, "buys": {"text": "\"Metal, wire, components, bone — anything the works spat out that''ll fetch a price back in the city. I weigh it, I pay it, and you don''t have to haul it through the wastes. I also sell what''ll keep you breathing out here, if you''re buying.\"", "options": [{"next": "__shop__", "label": "Show me the shop."}, {"next": "root", "label": "Back"}]}, "root": {"text": "Voss doesn''t look up from the scale. \"You came all this way, so you''ve either got salvage or you''ve got a death wish. Which is it?\"", "options": [{"next": "__shop__", "label": "I''ve got salvage to sell."}, {"next": "buys", "label": "What do you buy?"}, {"next": "gossip", "label": "Heard anything out here?"}, {"next": "bye", "label": "Just passing through."}]}, "gossip": {"text": "Voss taps the scale and leans in.", "actions": [{"action": "GOSSIP_TELL"}], "options": [{"next": "root", "label": "Back"}]}}', '[{"price": 15, "item_id": "item_ration"}, {"price": 30, "item_id": "item_rusty_knife"}, {"price": 50, "item_id": "item_pipe_wrench"}, {"price": 110, "item_id": "item_taser"}]', 0, '{"mis_willing": false, "personality": "vendor", "clothing_layers": ["a grease-stained merchant''s apron", "a padded vest", "a sweat-yellowed undershirt and boxers"]}', '[]', '{"nodes": {"idle": {"next": "idle", "type": "wait", "seconds": 600}, "start": {"next": "idle", "type": "start"}}, "_start": "start"}', 'zone_slag_gate', NULL, '["Weigh in or move on.", "Everything''s got a price by the gram.", "The works''ll kill you slow. I pay fast.", "Don''t bring me anything that ticks.", "Scrap''s scrap. Bring me more of it.", "Mind the wire on your way in."]', 'zone_slag_gate', 20, 20, 'male', '[{"item_id": "item_ration"}, {"item_id": "item_rusty_knife"}, {"item_id": "item_pipe_wrench"}, {"item_id": "item_taser"}]', 8, 1, 465, 'vendor', '{"fri": [{"to": 24, "from": 0}], "mon": [{"to": 24, "from": 0}], "sat": [{"to": 24, "from": 0}], "sun": [{"to": 24, "from": 0}], "thu": [{"to": 24, "from": 0}], "tue": [{"to": 24, "from": 0}], "wed": [{"to": 24, "from": 0}]}', 0, 'Voss''s Weigh Station', '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_fence', 'Sluice', 'A narrow, still woman who runs the Slip''s quiet trade. She never raises her voice and never forgets a face, and both facts should worry you equally.', 'zone_dock_slip', NULL, '{"bye": {"text": "\"Then you were never here.\"", "options": []}, "root": {"text": "Sluice regards you without expression. \"You didn''t see a shop. But since you''re here — buying, or unloading something you''d rather not explain?\"", "options": [{"next": "__shop__", "label": "Let me see."}, {"next": "bye", "label": "Wrong pier."}]}}', '[{"price": 90, "item_id": "item_contraband_crate"}, {"price": 14, "item_id": "item_cracked_capacitor"}, {"price": 8, "item_id": "item_salvaged_wiring"}, {"price": 28, "item_id": "item_rusty_knife"}]', 0, '{"personality": "vendor", "clothing_layers": ["a long oiled-canvas coat", "dark, unremarkable clothes", "nothing that would identify a body"]}', '[]', '{}', 'zone_dock_slip', NULL, '[]', 'zone_dock_slip', 20, 20, 'female', '[{"item_id": "item_contraband_crate"}, {"item_id": "item_cracked_capacitor"}, {"item_id": "item_salvaged_wiring"}, {"item_id": "item_rusty_knife"}]', 8, 1, 420, 'vendor', '{"fri": [{"to": 24, "from": 6}], "mon": [{"to": 24, "from": 6}], "sat": [{"to": 24, "from": 6}], "sun": [{"to": 24, "from": 6}], "thu": [{"to": 24, "from": 6}], "tue": [{"to": 24, "from": 6}], "wed": [{"to": 24, "from": 6}]}', 0, 'The Slip', '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_precinct_officer_3', 'Detention Officer Marlow', 'Broad, slow-blinking, and built like a vending machine, Marlow works the graveyard rotation. He''s processed enough overnight guests that nothing surprises him and nobody argues twice. His baton has a name. He won''t tell you what it is.', 'zone_mq_precinct_lobby', 'SPECTER-PD', '{}', '[]', 0, '{"police": true, "essential": true, "personality": "police", "clothing_layers": ["a patched patrol jacket with a dulled badge", "a department-issue undershirt", "issue boxer shorts"]}', '[]', '{}', 'zone_mq_precinct_lobby', NULL, '["Marlow cracks his knuckles one at a time, watching the cells.", "\"Sleep it off. Doors open when the clock says so, not when you do.\""]', NULL, 60, 60, 'male', '[]', 10, 1, 0, 'npc', '{}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_assemblyman', 'Assemblyman Croll', 'A back-bench Assemblyman with a florid manner and a genuine, unfashionable belief that the government should govern something. It has made him a nuisance to everyone, including himself.', 'zone_gov_assembly', NULL, '{"bye": {"text": "\"Quite. Well. Someone must, I suppose.\"", "options": []}, "root": {"text": "Assemblyman Croll brightens at the sight of anyone who might listen. \"You there — you have the look of someone who solves things. This chamber does the opposite. Might I trouble you?\"", "options": [{"next": "quest_offer", "label": "What is it?"}, {"next": "bye", "label": "Afraid not."}]}, "accepted": {"text": "\"Splendid! West of Onyx Row — the Scald, the steppe, the sootbanks. Four should quiet them. Do watch the leach-beds; they are not on any map I''d trust.\"", "actions": [{"action": "START_QUEST", "quest_id": "quest_prefects_problem"}], "options": [{"next": "bye", "label": "Understood."}]}, "reported": {"text": "\"...The archivists report quiet in the overflow stacks. Extraordinary. Here — your fee, and a permit stamped by my own hand, which still means something in three or four offices.\"", "actions": [{"action": "TURN_IN", "quest_id": "quest_prefects_problem"}], "options": [{"next": "bye", "label": "Obliged."}]}, "quest_offer": {"text": "\"Jackals — wire-jackals, the wretched wire-and-scab kind — are coming up out of the wastes and into the Registry''s overflow archives. Nobody official will act; jurisdiction, you understand. Cull four of them for me and I''ll see you''re paid and papered.\"", "options": [{"next": "accepted", "label": "I''ll cull them."}, {"next": "reported", "label": "It''s done. (report back)"}, {"next": "bye", "label": "Not my business."}]}}', 'null', 0, '{"personality": "official", "clothing_layers": ["a moth-eaten ceremonial sash over a good suit", "a starched wing-collar shirt", "dignified, defeated underthings"]}', '[]', '{}', 'zone_gov_assembly', NULL, '["Assemblyman Croll rehearses a point of order to no one in particular.", "\"Someone must mind the west gate. It may as well be me. It certainly won''t be them.\""]', 'zone_gov_assembly', 18, 18, 'male', 'null', NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_shipwright', 'Keel', 'A grizzled shipwright welded into a leather apron, forever half-finished with a hull he''ll never launch. Sells the tools and scrap he isn''t using, which is most of it.', 'zone_dock_boatyard', NULL, '{"bye": {"text": "\"Mind the stands on your way out.\"", "options": []}, "root": {"text": "Keel lowers his heat-gun and squints. \"Boat parts, tools, scrap — take your pick. She''s not going anywhere.\" (he nods at the half-built hull)", "options": [{"next": "__shop__", "label": "What have you got?"}, {"next": "bye", "label": "Just looking."}]}}', '[{"price": 4, "item_id": "item_scrap_metal"}, {"price": 8, "item_id": "item_salvaged_wiring"}, {"price": 45, "item_id": "item_pipe_wrench"}, {"price": 15, "item_id": "canteen"}, {"price": 28, "item_id": "item_rusty_knife"}]', 0, '{"personality": "vendor", "clothing_layers": ["a scorched leather apron", "a sweat-soaked workshirt", "heavy canvas trousers"]}', '[]', '{}', 'zone_dock_boatyard', NULL, '[]', 'zone_dock_boatyard', 24, 24, 'male', '[{"item_id": "item_scrap_metal"}, {"item_id": "item_salvaged_wiring"}, {"item_id": "item_pipe_wrench"}, {"item_id": "canteen"}, {"item_id": "item_rusty_knife"}]', 8, 1, 130, 'vendor', '{"fri": [{"to": 24, "from": 6}], "mon": [{"to": 24, "from": 6}], "sat": [{"to": 24, "from": 6}], "sun": [{"to": 24, "from": 6}], "thu": [{"to": 24, "from": 6}], "tue": [{"to": 24, "from": 6}], "wed": [{"to": 24, "from": 6}]}', 0, 'The Boat Yard', '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_gov_archivist', 'an archivist', 'A stooped archivist who has memorised the location of files for people who no longer exist, and treats each one as a small held breath.', 'zone_gov_registry', NULL, '{"bye": {"text": "She has already returned to the dead.", "options": []}, "root": {"text": "The archivist does not look up from the stacks. \"If you seek a record, give me a name. If you seek a person, I cannot help you; we stopped stocking those.\"", "options": [{"next": "bye", "label": "Just looking."}]}}', 'null', 0, '{"personality": "clerk", "clothing_layers": ["a dust-grey archivist''s smock", "a high-buttoned blouse", "sensible, forgotten underthings"]}', '[]', '{}', 'zone_gov_registry', NULL, '["The archivist reshelves a file with the tenderness of a burial.", "\"Everyone is on record here. Being on record is not the same as being alive.\""]', 'zone_gov_registry', 14, 14, 'female', 'null', NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_ma_cinder', 'Ma Cinder', 'The matriarch of the Slake Pond camp: sun-cured, iron-grey, and entirely without illusions. She has buried more of her people than she''ll say and guards the living with a pragmatism that shades into menace.', 'zone_waste_slake', NULL, '{"bye": {"text": "\"Fill your jug and move on, then.\"", "options": []}, "root": {"text": "A leather-faced woman looks up from a cook-pot, one hand never far from a length of pipe. \"This is my pond, my camp, my water. State your business or fill your jug and go.\"", "options": [{"next": "quest_offer", "label": "You run this camp?"}, {"next": "bye", "label": "Just passing through."}]}, "accepted": {"text": "\"They den in the wet ground — the Seep, the Rust Marsh, the Runoff down south. Two at least. And mind your footing; the tar doesn''t give anything back.\"", "actions": [{"action": "START_QUEST", "quest_id": "quest_bog_standard"}], "options": [{"next": "bye", "label": "Understood."}]}, "reported": {"text": "\"...The seeps are quieter. My people noticed. Here — clean water and a hot meal, and you''re welcome at this fire, which is more than most get.\"", "actions": [{"action": "TURN_IN", "quest_id": "quest_bog_standard"}], "options": [{"next": "bye", "label": "Obliged."}]}, "quest_offer": {"text": "\"Something''s coming up out of the seeps — tar-things, big and slow and hungry. Took two of mine this week. Put a couple of them down and there''s water, food, and goodwill in it. Goodwill''s worth more than it sounds out here.\"", "options": [{"next": "accepted", "label": "I''ll thin them out."}, {"next": "reported", "label": "It''s done. (report back)"}, {"next": "bye", "label": "Not my fight."}]}}', '[{"price": 5, "item_id": "item_water_bottle"}, {"price": 10, "item_id": "item_ration"}, {"price": 15, "item_id": "canteen"}]', 0, '{"personality": "vendor", "clothing_layers": ["a patched canvas duster hung with tools", "layered wool gone the colour of ash", "sturdy, much-mended underthings"]}', '[]', '{}', 'zone_waste_slake', NULL, '["Ma Cinder stirs the pot and watches the flats over your shoulder.", "\"Water''s life out here. Don''t waste mine.\"", "\"Camp''s full. Doesn''t mean you''re welcome to stay.\""]', 'zone_waste_slake', 24, 24, 'female', '[{"item_id": "item_water_bottle"}, {"item_id": "item_ration"}, {"item_id": "canteen"}]', 8, 1, 110, 'vendor', '{"fri": [{"to": 24, "from": 0}], "mon": [{"to": 24, "from": 0}], "sat": [{"to": 24, "from": 0}], "sun": [{"to": 24, "from": 0}], "thu": [{"to": 24, "from": 0}], "tue": [{"to": 24, "from": 0}], "wed": [{"to": 24, "from": 0}]}', 0, 'Slake Pond Camp', '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_gov_advocate', 'a court advocate', 'An advocate of Cobalt Court in robes gone shiny at the elbows, arguing a case he inherited and will bequeath, unresolved, to whoever comes next.', 'zone_gov_cobalt', NULL, '{"bye": {"text": "\"Adjourned, then. As ever.\"", "options": []}, "root": {"text": "The advocate turns, scenting a potential client. \"Do you have standing? Grievance? Retainer? No? Then I''m afraid we''ve nothing to discuss, which is, ironically, my entire caseload.\"", "options": [{"next": "bye", "label": "...right."}]}}', 'null', 0, '{"personality": "official", "clothing_layers": ["threadbare cobalt court robes", "a frayed cravat", "the underthings of a man who has stopped hoping"]}', '[]', '{}', 'zone_gov_cobalt', NULL, '["The advocate cites a precedent from a court that no longer sits.", "\"Justice delayed, in my experience, is simply justice pending. Endlessly pending.\""]', 'zone_gov_cobalt', 14, 14, 'male', 'null', NULL, 1, 0, 'npc', NULL, 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_lucky_malone', 'Lucky Malone', 'A broadcast studio host.', 'zone_studio_1782953094650', NULL, '{}', '[]', 0, '{"studio_npc": true}', '[]', '{"nodes": {"n_w0": {"next": "n_ww0", "type": "action", "params": {"message": "enters the frame."}, "action_type": "EMOTE"}, "n_w1": {"next": "n_ww1", "type": "action", "params": {"message": "The camera settles into a comfortable two-shot as John and tonight''s guest sit beneath the warm studio lights."}, "action_type": "SAY"}, "n_w2": {"next": "n_ww2", "type": "action", "params": {"message": "Happy to be here."}, "action_type": "SAY"}, "n_w3": {"next": "n_ww3", "type": "action", "params": {"message": "Eight."}, "action_type": "SAY"}, "n_w4": {"next": "n_ww4", "type": "action", "params": {"message": "The eighth time they stopped congratulating me and started interviewing me."}, "action_type": "SAY"}, "n_w5": {"next": "n_ww5", "type": "action", "params": {"message": "Always buy your ticket after surviving something that should''ve killed you."}, "action_type": "SAY"}, "n_w6": {"next": "n_ww6", "type": "action", "params": {"message": "I''m from Eastside."}, "action_type": "SAY"}, "n_w7": {"next": "n_ww7", "type": "action", "params": {"message": "A deluxe apartment."}, "action_type": "SAY"}, "n_w8": {"next": "n_ww8", "type": "action", "params": {"message": "The deluxe part is that only one wall leaks."}, "action_type": "SAY"}, "n_w9": {"next": "n_ww9", "type": "action", "params": {"message": "The broadcast abruptly transitions to an aggressively colorful commercial surrounded by flashing corporate branding."}, "action_type": "SAY"}, "n_w10": {"next": "n_ww10", "type": "action", "params": {"message": "♪ An upbeat Acid Cola™ advertising jingle begins playing. ♪"}, "action_type": "SAY"}, "n_ww0": {"next": "n_w1", "type": "wait", "seconds": 5}, "n_ww1": {"next": "n_w2", "type": "wait", "seconds": 3}, "n_ww2": {"next": "n_w3", "type": "wait", "seconds": 5}, "n_ww3": {"next": "n_w4", "type": "wait", "seconds": 5}, "n_ww4": {"next": "n_w5", "type": "wait", "seconds": 5}, "n_ww5": {"next": "n_w6", "type": "wait", "seconds": 5}, "n_ww6": {"next": "n_w7", "type": "wait", "seconds": 5}, "n_ww7": {"next": "n_w8", "type": "wait", "seconds": 5}, "n_ww8": {"next": "n_w9", "type": "wait", "seconds": 5}, "n_ww9": {"next": "n_w10", "type": "wait", "seconds": 5}, "n_life": {"next": "n_work", "type": "action", "action_type": "HAVE_LIFE"}, "n_loop": {"next": "n_start", "type": "loop"}, "n_work": {"next": "n_w0", "type": "action", "params": {"zone_id": "zone_studio_1782953094650"}, "action_type": "GO_TO_WORK"}, "n_ww10": {"next": "n_loop", "type": "wait", "seconds": 5}, "n_start": {"next": "n_life", "type": "start"}}, "_start": "n_start"}', 'zone_studio_1782953094650', NULL, '[]', 'zone_studio_1782953094650', 20, 20, 'male', '[]', 10, 1, 0, 'npc', '{}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_nyra_voss', 'Nyra Voss', 'Nyra Voss moves like she belongs to the city''s electrical current rather than its streets. She is composed, precise, and unnervingly aware of everything around her without ever appearing distracted. Her presence is understated but magnetic — less about overt display and more about controlled integration with technology and environment.', 'zone_meridian_unit_103', NULL, '{}', '[]', 0, '{"mis_willing": false, "personality": "unemployed", "clothing_layers": ["a fraying interview blazer gone shapeless", "a coffee-stained blouse", "a plain bra and worn panties"]}', '[]', '{"nodes": {"start": {"next": "have_life", "type": "start"}, "at_work": {"next": "go_home", "type": "action", "action_type": "AT_WORK"}, "go_home": {"next": "home_wait", "type": "action", "action_type": "GO_HOME"}, "have_life": {"next": "go_to_work", "type": "action", "action_type": "HAVE_LIFE"}, "home_wait": {"next": "start", "type": "wait", "seconds": 60}, "go_to_work": {"next": "at_work", "type": "action", "action_type": "GO_TO_WORK"}}, "_start": "start"}', 'zone_meridian_unit_103', NULL, '["traces a finger along the edge of a nearby surface without looking at it.", "glances toward the nearest data terminal, expression unreadable.", "adjusts the interface contacts on her gloves with quiet precision.", "appears to be processing something — her iris ring shifts almost imperceptibly.", "is perfectly still, which somehow feels deliberate.", "scans the room with the easy calm of someone who already knows every exit.", "taps two fingers against her forearm, once.", "exhales slowly, like she''s filtering the air for useful information."]', NULL, 50, 50, 'female', '[]', 10, 1, 0, 'unemployed', '{"fri": [], "mon": [], "sat": [], "sun": [], "thu": [], "tue": [], "wed": []}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_embassy_barkeep', 'Lowry Cormack', 'A former concierge, still buttoned into a frayed Embassy vest, polishing a glass that was already clean. Calls every customer "valued guest," sincerity optional.', 'zone_meridian_unit_102', NULL, '{"menu": {"text": "The Reserve is our signature pour — don''t ask what''s left to age it in. The Swill is also available, for guests with simpler tastes, or none. Canapés are complimentary with a drink. They are not actually complimentary.", "options": [{"next": "root", "label": "Back"}]}, "root": {"text": "Welcome to the Embassy Lounge, valued guest. We maintain certain standards here, within reason. What can I get you?", "options": [{"next": "menu", "label": "What''s on the menu?"}, {"next": "gossip", "label": "Any news from the front desk?"}, {"next": null, "label": "Never mind."}]}, "gossip": {"text": "Lowry lowers his voice to something discreet.", "actions": [{"action": "GOSSIP_TELL"}], "options": [{"next": "root", "label": "Back"}]}}', '[{"price": 22, "stock": 15, "item_id": "item_drink_embassy_reserve"}, {"price": 4, "stock": 99, "item_id": "item_drink_basin_swill"}, {"price": 9, "stock": 25, "item_id": "item_embassy_canapes"}]', 0, '{"mis_willing": false, "personality": "bartender", "clothing_layers": ["a worn leather bar-apron", "a tight black tee", "black briefs"]}', '[]', '{"nodes": {"start": {"next": "have_life", "type": "start"}, "at_work": {"next": "go_home", "type": "action", "action_type": "AT_WORK"}, "go_home": {"next": "home_wait", "type": "action", "action_type": "GO_HOME"}, "have_life": {"next": "go_to_work", "type": "action", "action_type": "HAVE_LIFE"}, "home_wait": {"next": "start", "type": "wait", "seconds": 60}, "go_to_work": {"next": "at_work", "type": "action", "action_type": "GO_TO_WORK"}}, "_start": "start"}', 'zone_meridian_unit_102', NULL, '["What''ll it be?", "You look like you''ve had a rough one.", "Pay first. Trust later. That''s policy.", "You''re not the first person to cry at this bar. Won''t be the last.", "I''ve heard worse. Much worse.", "Last call was three hours ago. I''m still here.", "We''re out of the good stuff. We were always out of the good stuff.", "Tab''s running. Keep drinking.", "I don''t ask questions. That''s why people come here.", "You want ice with that? Funny."]', 'zone_residential_lobby', 20, 20, 'male', '[]', 10, 1, 0, 'npc', '{"fri": [{"to": 24, "from": 0}], "mon": [{"to": 24, "from": 0}], "sat": [{"to": 24, "from": 0}], "sun": [{"to": 24, "from": 0}], "thu": [{"to": 24, "from": 0}], "tue": [{"to": 24, "from": 0}], "wed": [{"to": 24, "from": 0}]}', 0, NULL, '[]', '[]');
+INSERT INTO public.npcs VALUES ('npc_graham_mercer', 'Graham Mercer', 'A broadcast studio host.', 'zone_studio_1782953094650', NULL, '{}', '[]', 0, '{"studio_npc": true}', '[]', '{"nodes": {"n_w0": {"next": "n_ww0", "type": "action", "params": {"message": "From somewhere above the smog and only slightly outside the blast radius..."}, "action_type": "SAY"}, "n_w1": {"next": "n_ww1", "type": "action", "params": {"message": "It''s..."}, "action_type": "SAY"}, "n_w2": {"next": "n_ww2", "type": "action", "params": {"message": "The Tonight Show!"}, "action_type": "SAY"}, "n_w3": {"next": "n_ww3", "type": "action", "params": {"message": "Tonight..."}, "action_type": "SAY"}, "n_w4": {"next": "n_ww4", "type": "action", "params": {"message": "Corporate executives explain why exploding vending machines are actually a premium feature."}, "action_type": "SAY"}, "n_w5": {"next": "n_ww5", "type": "action", "params": {"message": "A local street chef prepares authentic mutant squid tacos."}, "action_type": "SAY"}, "n_w6": {"next": "n_ww6", "type": "action", "params": {"message": "And we''ll meet a man who''s legally declared his apartment to be an independent nation."}, "action_type": "SAY"}, "n_w7": {"next": "n_ww7", "type": "action", "params": {"message": "Ladies and gentlemen..."}, "action_type": "SAY"}, "n_w8": {"next": "n_ww8", "type": "action", "params": {"message": "JOOOOOHN AKERSON!"}, "action_type": "SAY"}, "n_w9": {"next": "n_ww9", "type": "action", "params": {"message": "Feeling tired?"}, "action_type": "SAY"}, "n_w10": {"next": "n_ww10", "type": "action", "params": {"message": "Feeling hopeless?"}, "action_type": "SAY"}, "n_w11": {"next": "n_ww11", "type": "action", "params": {"message": "Drink Acid Cola™."}, "action_type": "SAY"}, "n_w12": {"next": "n_ww12", "type": "action", "params": {"message": "Because reality is easier to tolerate when it''s carbonated."}, "action_type": "SAY"}, "n_ww0": {"next": "n_w1", "type": "wait", "seconds": 5}, "n_ww1": {"next": "n_w2", "type": "wait", "seconds": 5}, "n_ww2": {"next": "n_w3", "type": "wait", "seconds": 5}, "n_ww3": {"next": "n_w4", "type": "wait", "seconds": 5}, "n_ww4": {"next": "n_w5", "type": "wait", "seconds": 5}, "n_ww5": {"next": "n_w6", "type": "wait", "seconds": 5}, "n_ww6": {"next": "n_w7", "type": "wait", "seconds": 5}, "n_ww7": {"next": "n_w8", "type": "wait", "seconds": 5}, "n_ww8": {"next": "n_w9", "type": "wait", "seconds": 5}, "n_ww9": {"next": "n_w10", "type": "wait", "seconds": 5}, "n_life": {"next": "n_work", "type": "action", "action_type": "HAVE_LIFE"}, "n_loop": {"next": "n_start", "type": "loop"}, "n_work": {"next": "n_w0", "type": "action", "params": {"zone_id": "zone_studio_1782953094650"}, "action_type": "GO_TO_WORK"}, "n_ww10": {"next": "n_w11", "type": "wait", "seconds": 5}, "n_ww11": {"next": "n_w12", "type": "wait", "seconds": 5}, "n_ww12": {"next": "n_loop", "type": "wait", "seconds": 5}, "n_start": {"next": "n_life", "type": "start"}}, "_start": "n_start"}', 'zone_studio_1782953094650', NULL, '[]', 'zone_studio_1782953094650', 20, 20, 'male', '[]', 10, 1, 0, 'npc', '{}', 0, NULL, '[]', '[]');
+
+
+--
+-- Data for Name: org_relations; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.org_relations VALUES ('faction_custodians', 'faction_breakers', 'hostile');
+INSERT INTO public.org_relations VALUES ('faction_breakers', 'faction_custodians', 'hostile');
+INSERT INTO public.org_relations VALUES ('faction_breakers', 'faction_glitch', 'hostile');
+INSERT INTO public.org_relations VALUES ('faction_glitch', 'faction_breakers', 'hostile');
+INSERT INTO public.org_relations VALUES ('faction_glitch', 'faction_archivists', 'friendly');
+
+
+--
+-- Data for Name: power_zones; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.power_zones VALUES ('zone_apt_1', 'Unit 1A', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 4000, 20, 'powered', '{}', 20, 4000);
+INSERT INTO public.power_zones VALUES ('zone_apt_12', 'Unit 3D', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 50, 5, 'powered', '{}', 5, 50);
+INSERT INTO public.power_zones VALUES ('zone_embassy_floor3', 'Embassy Hotel & Bar — Third Floor Landing', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 50, 3, 'powered', '{}', 3, 50);
+INSERT INTO public.power_zones VALUES ('zone_apt_8', 'Unit 2D', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_apt_11', 'Unit 3C', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_apt_2', 'Unit 1B', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 4000, 20, 'powered', '{}', 20, 4000);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_302', 'Unit 302', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_201', 'Unit 201', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_301', 'Unit 301', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_601', 'Unit 601', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_403', 'Unit 403', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_304', 'Unit 304', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_203', 'Unit 203', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_504', 'Unit 504', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_104', 'Unit 104', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_floor_3', 'The Meridian — Floor 3 Hallway', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_204', 'Unit 204', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_util_zone_meridian_lobby', 'The Meridian - Lobby — Utility Room', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 0.02, 'powered', '{}', 0.02, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_floor_2', 'The Meridian — Floor 2 Hallway', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_602', 'Unit 602', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_603', 'Unit 603', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'overloaded', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_waste_tarseep', 'Tar Seep', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_scald', 'The Scald', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_gravel', 'Gravel Throat', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_rustmarsh', 'Rust Marsh', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_city_sw', 'The Under Entrance', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_badland_w_gate', 'The Rust Quarter West', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_dock_wharf', 'The Wharf', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_up_chrome', 'Chrome Heights', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_badland_sw_outer', 'The Static Wood', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_slag_sump', 'The Effluent Sump', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_mq_amp_shop', 'Ampersand Electronics', 'junction_box', 'gen_zone_mq_amp_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_prod_1782953094650', 'KSAB-TV Studio — Production', 'junction_box', 'gen_zone_util_1782953094650_1782953094650', 500, 2.02, 'powered', '{}', 2.02, 500);
+INSERT INTO public.power_zones VALUES ('zone_studio_1782953094650', 'KSAB-TV Studio Stage', 'junction_box', 'gen_zone_util_1782953094650_1782953094650', 500, 0.02, 'powered', '{}', 0.02, 500);
+INSERT INTO public.power_zones VALUES ('zone_mq_cherry_office', 'The Cherry Pit — Back Office', 'junction_box', 'gen_zone_mq_cherry_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_furniture_store', 'Dead Space Interiors', 'junction_box', 'gen_zone_furniture_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_furniture_util', 'zone_furniture_util', 'junction_box', 'gen_zone_furniture_util', 50, 0, 'powered', '{}', 0, 50);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_202', 'Unit 202', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_301', 'Unit 301', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_cage_shop', 'The Cage', 'junction_box', 'gen_zone_mq_cage_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_404', 'Unit 404', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_mq_sump_cellar', 'Sump — Cellar', 'junction_box', 'gen_zone_mq_sump_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_304', 'Unit 304', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_302', 'Unit 302', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_f1', 'Chrome Court — Floor 1', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_velk_shop', 'Velk''s Pre-Owned Furnishings', 'junction_box', 'gen_zone_util_zone_velk_basement_1783116356678', 50, 0, 'powered', '{}', 0, 50);
+INSERT INTO public.power_zones VALUES ('zone_util_zone_velk_basement', 'Velk''s — Utility Room — Utility Room', 'junction_box', 'gen_zone_util_zone_velk_basement_1783116356678', 50, 0.02, 'powered', '{}', 0.02, 50);
+INSERT INTO public.power_zones VALUES ('zone_bay_breakwater', 'The Breakwater', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_tipple', 'The Tipple', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_dock_slip', 'Smuggler''s Slip', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_gov_ministry', 'Ministry Row', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_bay_deep', 'The Deep', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_city_ne', 'Custodian Row', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_up_aid', 'Aid Station', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_gov_mezzanine', 'The Mezzanine', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_bay_shallows', 'The Shallows', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_slums', 'The Sprawl', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_mq_cherry_vip', 'The Cherry Pit — VIP', 'junction_box', 'gen_zone_mq_cherry_util', 5400, 5, 'powered', '{}', 5, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_cherry_floor', 'The Cherry Pit', 'junction_box', 'gen_zone_mq_cherry_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_cage_util', 'zone_mq_cage_util', 'junction_box', 'gen_zone_mq_cage_util', 50, 0, 'powered', '{}', 0, 50);
+INSERT INTO public.power_zones VALUES ('zone_mq_precinct_holding', 'Precinct 9 — Holding', 'junction_box', 'gen_zone_mq_precinct_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_precinct_bullpen', 'Precinct 9 — Bullpen', 'junction_box', 'gen_zone_mq_precinct_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_clone_facility_bathroom', 'Coldwater Clone Facility - Bathroom', 'building_generator', 'gen_zone_start_z-1_1782276270002_1782276285855', 4000, 30, 'powered', '{}', 30, 4000);
+INSERT INTO public.power_zones VALUES ('zone_drum_shop', 'Second Skin', 'junction_box', 'gen_zone_util_zone_drum_basement_1783116357933', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_util_zone_drum_basement', 'Second Skin — Utility Room — Utility Room', 'junction_box', 'gen_zone_util_zone_drum_basement_1783116357933', 50, 0.02, 'overloaded', '{}', 0.02, 50);
+INSERT INTO public.power_zones VALUES ('zone_mq_grocery', 'Ration Nine', 'junction_box', 'gen_zone_mq_grocery_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_apt_3', 'Unit 1C', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_bay_floes', 'The Floes', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_slag_yard', 'The Cracking Yard', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_mq_overpass', 'The Overpass', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 5400, 0, 'powered', '{}', 0, 5400);
+INSERT INTO public.power_zones VALUES ('zone_gov_prefect', 'Prefect Plaza', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_ashway_ashfall', 'Ashfall Mile', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_smoulder', 'The Smoulder', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_city_south', 'The Sprawl Gate', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_city_se', 'The Clinic Block', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_slag_flarestack', 'Flarestack Field', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_bay_sound', 'The Sound', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_bay_fog', 'The Fog Bank', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_residential_lobby', 'Embassy Hotel & Bar — Lobby', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 4000, 40, 'powered', '{}', 40, 4000);
+INSERT INTO public.power_zones VALUES ('zone_apt_10', 'Unit 3B', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 50, 12, 'powered', '{}', 12, 50);
+INSERT INTO public.power_zones VALUES ('zone_mq_sump_bar', 'Sump', 'junction_box', 'gen_zone_mq_sump_util', 5400, 0, 'powered', '{}', 0, 5400);
+INSERT INTO public.power_zones VALUES ('zone_waste_sootbank', 'Sootbank', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_civ_steps', 'Civic Steps', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_dock_coldstore', 'Cold Storage', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_outskirts', 'The Rust Quarter', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_civ_ledger', 'Ledger Hall', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_slag_reclaimer', 'The Reclaimer', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_palings', 'The Palings', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_threshold', 'The Threshold', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_waste_emberwaste', 'Ember Waste', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_deadflat', 'Dead Flat', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_dock_boatyard', 'The Boat Yard', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_deep_sink', 'The Sink', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_bay_buoy', 'Iron Buoy', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_coalsack', 'Coalsack', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_mq_cathode', 'Cathode Row', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 5400, 0, 'powered', '{}', 0, 5400);
+INSERT INTO public.power_zones VALUES ('zone_nc_spindle', 'The Spindle', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_ashenverge', 'Ashen Verge', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_ashensteppe', 'Ashen Steppe', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_up_skyway', 'Skyway Landing', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_bay_narrows', 'The Narrows', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_bay_mid', 'Coldwater Deep', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_civ_sortation', 'Sortation Yard', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_bay_open', 'The Open Bay', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_mq_battery', 'Battery Square', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 5400, 0, 'powered', '{}', 0, 5400);
+INSERT INTO public.power_zones VALUES ('zone_ruins', 'Old Coldwater', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_gov_registry', 'Registry Hall', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_deep_wormtown', 'Wormtown', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_mq_cage', 'The Cage', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_gov_vantage', 'Vantage Row', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_velk_basement', 'Velk''s — Utility Room', 'junction_box', 'gen_zone_util_zone_velk_basement_1783116356678', 50, 0, 'powered', '{}', 0, 50);
+INSERT INTO public.power_zones VALUES ('zone_apt_4', 'Unit 1D', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 4000, 20, 'powered', '{}', 20, 4000);
+INSERT INTO public.power_zones VALUES ('zone_embassy_floor2', 'Embassy Hotel & Bar — Second Floor Landing', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 50, 15, 'powered', '{}', 15, 50);
+INSERT INTO public.power_zones VALUES ('zone_apt_9', 'Unit 3A', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_apt_6', 'Unit 2B', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 50, 10, 'powered', '{}', 10, 50);
+INSERT INTO public.power_zones VALUES ('zone_residential_lobby_z-1_1782105292491', 'Embassy Hotel & Bar - Basement', 'junction_box', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 4000, 20, 'powered', '{}', 20, 4000);
+INSERT INTO public.power_zones VALUES ('zone_waste_dross', 'Dross Flat', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_powerplantnew', 'Coldwater Power', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_bay_reach', 'The Reach', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_ashway_road', 'The Haul Road', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_deep_deepmaw', 'The Deep Maw', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_mq_marquee', 'The Marquee', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 5400, 0, 'powered', '{}', 0, 5400);
+INSERT INTO public.power_zones VALUES ('zone_weapons_exterior', 'Rebar Cut', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 5400, 0, 'powered', '{}', 0, 5400);
+INSERT INTO public.power_zones VALUES ('zone_slag_rail', 'The Rail Throat', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_coldwater_turbine_hall', 'Coldwater Turbine Hall', 'city_plant', 'gen_zone_powerplantnew_1782069598190', 500, 0.02, 'powered', '{}', 0.02, 500);
+INSERT INTO public.power_zones VALUES ('zone_ashway_wash', 'The Dry Wash', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_slag_gate', 'Slagworks Gate', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_303', 'Unit 303', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_402', 'Unit 402', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_lobby', 'The Meridian - Lobby', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 43, 'powered', '{}', 43, 50);
+INSERT INTO public.power_zones VALUES ('zone_city_west', 'Franchise Strip', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 5, 'powered', '{}', 5, 4000);
+INSERT INTO public.power_zones VALUES ('zone_slag_catalyst', 'Catalyst Row', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_util', 'zone_mq_chrome_util', 'junction_box', 'gen_zone_mq_chrome_util', 50, 0, 'powered', '{}', 0, 50);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_f3', 'Chrome Court — Floor 3', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_303', 'Unit 303', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_203', 'Unit 203', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_104', 'Unit 104', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_201', 'Unit 201', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_f2', 'Chrome Court — Floor 2', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_lobby', 'Chrome Court — Lobby', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_102', 'Unit 102', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_grocery_stock', 'Ration Nine — Stockroom', 'junction_box', 'gen_zone_mq_grocery_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_grocery_util', 'zone_mq_grocery_util', 'junction_box', 'gen_zone_mq_grocery_util', 50, 0, 'powered', '{}', 0, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_floor_5', 'The Meridian — Floor 5 Hallway', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_101', 'Unit 101', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_mq_amp_util', 'zone_mq_amp_util', 'junction_box', 'gen_zone_mq_amp_util', 50, 0, 'powered', '{}', 0, 50);
+INSERT INTO public.power_zones VALUES ('zone_util_1782953094650', 'KSAB-TV Studio Power Room', 'junction_box', 'gen_zone_util_1782953094650_1782953094650', 500, 0.02, 'powered', '{}', 0.02, 500);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_103', 'Unit 103', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_101', 'Unit 101', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_204', 'Unit 204', 'junction_box', 'gen_zone_mq_chrome_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_precinct_lobby', 'Precinct 9 — Lobby', 'junction_box', 'gen_zone_mq_precinct_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_precinct_util', 'zone_mq_precinct_util', 'junction_box', 'gen_zone_mq_precinct_util', 50, 0, 'powered', '{}', 0, 50);
+INSERT INTO public.power_zones VALUES ('zone_clone_facility_z-1_1782276270002', 'Coldwater Clone Facility Basement', 'junction_box', 'gen_zone_start_z-1_1782276270002_1782276285855', 4000, 20, 'powered', '{}', 20, 4000);
+INSERT INTO public.power_zones VALUES ('zone_start', 'zone_start', 'building_generator', 'gen_zone_start_z-1_1782276270002_1782276285855', 4000, 35, 'powered', '{}', 35, 4000);
+INSERT INTO public.power_zones VALUES ('zone_drum_basement', 'Second Skin — Utility Room', 'junction_box', 'gen_zone_util_zone_drum_basement_1783116357933', 50, 0, 'powered', '{}', 0, 50);
+INSERT INTO public.power_zones VALUES ('zone_mq_pigeon_util', 'zone_mq_pigeon_util', 'junction_box', 'gen_zone_mq_pigeon_util', 50, 0, 'powered', '{}', 0, 50);
+INSERT INTO public.power_zones VALUES ('zone_mq_sump_util', 'zone_mq_sump_util', 'junction_box', 'gen_zone_mq_sump_util', 50, 0, 'powered', '{}', 0, 50);
+INSERT INTO public.power_zones VALUES ('zone_deep_gutter', 'Gutter Market', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_up_gate', 'Uptown Gate', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_cindersteps', 'Cinder Steps', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_nadir', 'The Nadir', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_deep_rotrow', 'Rot Row', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_slag_drums', 'The Drum Yard', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_deep_gasp', 'Gasp Hollow', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_mq_ember', 'Ember Alley', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 5400, 0, 'powered', '{}', 0, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_pigeon_bar', 'The Dead Pigeon', 'junction_box', 'gen_zone_mq_pigeon_util', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_mq_pigeon_back', 'The Dead Pigeon — Back Booth', 'junction_box', 'gen_zone_mq_pigeon_util', 5400, 5, 'powered', '{}', 5, 5400);
+INSERT INTO public.power_zones VALUES ('zone_meridian_floor_6', 'The Meridian — Floor 6 Hallway', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_nc_skyline', 'Skyline Walk', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_bay_wreck', 'The Wreck', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_media_plaza', 'Mediaform Plaza', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_grit', 'Grit Row', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_501', 'Unit 501', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_503', 'Unit 503', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_401', 'Unit 401', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_202', 'Unit 202', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_604', 'Unit 604', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_gov_cobalt', 'Cobalt Court', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_tunnels', 'The Under', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_city_east', 'The Loading Bay', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_waste_grime', 'Grime Row', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_endcut', 'The Endcut', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_civ_meltwater', 'Meltwater Row', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_deep_warrens', 'The Warrens', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_mq_precinct', 'Precinct 9', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_nc_datum', 'Datum Court', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_slaghollow', 'Slaghollow', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_windrow', 'The Windrow', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_deep_bonepicker', 'Bonepicker''s End', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_meridian', 'The Meridian', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_thresholdeast', 'The Threshold East', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_gov_onyx', 'Onyx Row', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_bay_slick', 'The Slick', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_warehouse', 'The Loading Bay West', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 5, 'powered', '{}', 5, 4000);
+INSERT INTO public.power_zones VALUES ('zone_velk_exterior', 'Velk''s Pre-Owned — Exterior', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 50, 0, 'powered', '{}', 0, 50);
+INSERT INTO public.power_zones VALUES ('zone_nc_halcyon', 'Halcyon Heights', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_civ_commons', 'The Commons', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_roof', 'Chrome Court — Roof', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 5400, 0, 'powered', '{}', 0, 5400);
+INSERT INTO public.power_zones VALUES ('zone_waste_slake', 'Slake Pond', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_meridian_floor_1', 'The Meridian — Floor 1 Hallway', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_waste_bailey', 'The Bailey', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_cull', 'The Cull', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_hopper', 'The Hopper', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_gov_assembly', 'The Assembly', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_103', 'Unit 103', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_waste_ferro', 'Ferro Flat', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_apt_7', 'Unit 2C', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_apt_5', 'Unit 2A', 'building_generator', 'gen_zone_residential_lobby_z-1_1782105292491_1782105308088', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_floor_4', 'The Meridian — Floor 4 Hallway', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_502', 'Unit 502', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_meridian_unit_102', 'Unit 102', 'junction_box', 'gen_zone_util_zone_meridian_lobby_1783116354849', 50, 20, 'powered', '{}', 20, 50);
+INSERT INTO public.power_zones VALUES ('zone_nc_sable', 'Sable Court', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_deep_maw', 'The Maw', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_runoff', 'The Runoff', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_ext_1782953094650', 'KSAB-TV Studio', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 5400, 0, 'powered', '{}', 0, 5400);
+INSERT INTO public.power_zones VALUES ('zone_bay_barges', 'Moored Barges', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_cinderway', 'Cinderway', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_dock_quays', 'The Quays', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_mq_chrome_court', 'Chrome Court', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 5400, 20, 'powered', '{}', 20, 5400);
+INSERT INTO public.power_zones VALUES ('zone_deep_cardboard', 'Cardboard Row', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_rebar', 'Rebar Field', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_mq_cherry_util', 'zone_mq_cherry_util', 'junction_box', 'gen_zone_mq_cherry_util', 50, 0, 'powered', '{}', 0, 50);
+INSERT INTO public.power_zones VALUES ('zone_deep_tarpit', 'Tarpit Edge', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_city_north', 'Threshold Plaza North', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_bay_deadwater', 'Dead Water', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_meridian_roof', 'The Meridian — Roof', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_up_vellum', 'Vellum Court', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_deep_waste', 'The Bleed', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 4000, 0, 'powered', '{}', 0, 4000);
+INSERT INTO public.power_zones VALUES ('zone_waste_verge', 'The Verge', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_up_approach', 'Spire Approach', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_dock_fishmarket', 'Fishmarket Dock', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_drum_exterior', 'Drum''s Fits — Exterior', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 50, 0, 'powered', '{}', 0, 50);
+INSERT INTO public.power_zones VALUES ('zone_waste_leachfield', 'The Leachfield', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_waste_molten', 'Molten Row', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+INSERT INTO public.power_zones VALUES ('zone_deep_scab', 'Scab Alley', 'city_grid', 'gen_zone_powerplantnew_1782069598190', 10000, 0, 'powered', '{}', 0, 10000);
+
+
+--
+-- Data for Name: recipes; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.recipes VALUES ('recipe_pipe_weapon', 'Pipe Wrench', 'Combine scrap metal into a crude but effective blunt weapon.', 'weapons', NULL, '{"fabrication": 0}', '[{"item_id": "item_scrap_metal", "quantity": 3, "min_quality": "scrap"}]', '{"item_id": "item_pipe_wrench", "quantity": 1}', 'fabrication', 3, 3);
+INSERT INTO public.recipes VALUES ('recipe_bandage', 'Field Bandage', 'Tear cloth into bandages. Requires nothing but desperation.', 'medicine', NULL, '{"medicine": 0}', '[{"item_id": "item_scrap_metal", "quantity": 0}]', '{"item_id": "item_bandage", "quantity": 2}', 'medicine', 2, 3);
+INSERT INTO public.recipes VALUES ('recipe_rad_pills_crude', 'Crude RadAway', 'Improvised radiation treatment. Effective. Unpleasant.', 'medicine', 'chemistry_set', '{"medicine": 3, "fabrication": 1}', '[{"item_id": "item_mutant_gland", "quantity": 1, "min_quality": "common"}]', '{"item_id": "item_rad_pills", "quantity": 2}', 'medicine', 6, 3);
+INSERT INTO public.recipes VALUES ('recipe_scrap_armor', 'Scrap Vest', 'Layer metal sheeting over salvaged clothing. Crude but it absorbs hits.', 'armor', NULL, '{"fabrication": 1}', '[{"item_id": "item_scrap_metal", "quantity": 5, "min_quality": "scrap"}]', '{"item_id": "item_scrap_armor", "quantity": 1}', 'fabrication', 4, 3);
+INSERT INTO public.recipes VALUES ('recipe_glitch_decoder', 'Architect Signal Decoder', 'Assembles a device that can interpret Architect data fragments. Requires high skill and rare parts.', 'tech', 'architect_terminal', '{"hacking": 5, "electronics": 4}', '[{"item_id": "item_drone_core", "quantity": 1, "min_quality": "common"}, {"item_id": "item_architect_fragment", "quantity": 1, "min_quality": "common"}]', '{"item_id": "item_signal_decoder", "quantity": 1}', 'hacking', 10, 3);
+INSERT INTO public.recipes VALUES ('recipe_ragplate_coat', 'Ragplate Coat', 'Quilt salvaged wadding into a longcoat and stitch scrap plate over the vitals. Crude, warm, and it''ll take a swing so your ribs don''t have to.', 'armor', NULL, '{"fabrication": 1}', '[{"item_id": "item_salvaged_wadding", "quantity": 3, "min_quality": "scrap"}, {"item_id": "item_scrap_metal", "quantity": 2, "min_quality": "scrap"}]', '{"item_id": "item_ragplate_coat", "quantity": 1}', 'fabrication', 3, 3);
+INSERT INTO public.recipes VALUES ('synth_redline', 'Cook Redline', 'A fast, dirty stimulant cook. Entry-level chemistry.', 'synthesis', 'chem_lab', '{"chemistry": 1}', '[{"item_id": "item_precursor_stim", "quantity": 2}, {"item_id": "item_solvent", "quantity": 1}]', '{"item_id": "item_redline", "quantity": 1}', 'chemistry', 5, 3);
+INSERT INTO public.recipes VALUES ('synth_grey', 'Cook Grey', 'Rendering opioid base into a usable dose.', 'synthesis', 'chem_lab', '{"chemistry": 1}', '[{"item_id": "item_precursor_opioid", "quantity": 2}, {"item_id": "item_solvent", "quantity": 1}]', '{"item_id": "item_grey", "quantity": 1}', 'chemistry', 5, 3);
+INSERT INTO public.recipes VALUES ('synth_blotter', 'Distill Blotter', 'Fixing psychoactive extract onto blotter. Delicate work.', 'synthesis', 'chem_lab', '{"chemistry": 2}', '[{"item_id": "item_reagent_psycho", "quantity": 2}, {"item_id": "item_solvent", "quantity": 1}]', '{"item_id": "item_blotter", "quantity": 1}', 'chemistry', 6, 3);
+INSERT INTO public.recipes VALUES ('synth_coldfire', 'Cook Coldfire', 'A dangerous combat-stim synthesis. One slip and it runs away from you.', 'synthesis', 'chem_lab', '{"chemistry": 3}', '[{"item_id": "item_precursor_stim", "quantity": 3}, {"item_id": "item_catalyst", "quantity": 1}, {"item_id": "item_solvent", "quantity": 1}]', '{"item_id": "item_coldfire", "quantity": 1}', 'chemistry', 7, 3);
+INSERT INTO public.recipes VALUES ('synth_blacktar', 'Cook Blacktar', 'Deep, heavy opioid cook. Not for the squeamish or the shaky-handed.', 'synthesis', 'chem_lab', '{"chemistry": 3}', '[{"item_id": "item_precursor_opioid", "quantity": 3}, {"item_id": "item_catalyst", "quantity": 1}]', '{"item_id": "item_blacktar", "quantity": 1}', 'chemistry', 7, 3);
+INSERT INTO public.recipes VALUES ('synth_threshold', 'Synthesize the Threshold', 'Vaporised dissociative synthesis at the edge of what a home lab can do.', 'synthesis', 'chem_lab', '{"chemistry": 5}', '[{"item_id": "item_reagent_psycho", "quantity": 3}, {"item_id": "item_catalyst", "quantity": 2}]', '{"item_id": "item_threshold", "quantity": 1}', 'chemistry', 9, 3);
+
+
+--
+-- Data for Name: scripts; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.scripts VALUES ('script_test_p4', 'P4 Test Diagnostic', 'Phase 4 smoke-test script.', '{"nodes": {"flag": {"flag": "ran_test_script", "type": "setflag", "scope": "player", "value": "true"}, "check": {"type": "condition", "ifTrue": "known", "ifFalse": "stranger", "condition": {"op": "set", "flag": "met_architect"}}, "known": {"next": "flag", "text": "The script confirms: the Architect already knows you.", "type": "say"}, "stranger": {"text": "The script reports: you are a stranger here.", "type": "say"}}, "start": "check"}', 1782470932);
+
+
+--
+-- Data for Name: sounds; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.sounds VALUES ('2dc84334-cc04-4908-b328-1031e78ff8dc', 'knock', 'impact', '["Someone knocks on a door nearby.", "A firm knock echoes through the wall.", "Three sharp raps sound from close by.", "A dull thud — someone knocking.", "The hollow knock of knuckles on wood.", "A polite double-knock, close by.", "Knock knock. Whoever it is, they''re persistent.", "A single loud knock reverberates.", "You hear someone rapping on a surface nearby.", "A muffled knock — maybe a door, maybe not."]', 1, 1, 'both');
+
+
+--
+-- Data for Name: windows; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.windows VALUES ('48420cfe-23ed-43a7-a4ba-ddab4cf64c55', 'window', 'A window.', 'zone_residential_lobby', NULL, 0, 'intact', 0.8, 0.8, '{}', 'window');
+
+
+--
+-- Data for Name: zone_spawns; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.zone_spawns VALUES ('spawn_ashway_road_slag_rat', 'zone_ashway_road', 'enemy_slag_rat', 2, 40, 90);
+INSERT INTO public.zone_spawns VALUES ('spawn_ashway_ashfall_slag_rat', 'zone_ashway_ashfall', 'enemy_slag_rat', 2, 40, 90);
+INSERT INTO public.zone_spawns VALUES ('8de00035-2ae8-48f1-a8a2-7c8d91b51c3a', 'zone_ruins', 'enemy_scav', 3, 60, 200);
+INSERT INTO public.zone_spawns VALUES ('5b3be346-0e12-46a9-a821-699afd7f2c52', 'zone_ruins', 'enemy_architect_drone', 1, 20, 600);
+INSERT INTO public.zone_spawns VALUES ('spawn_ashway_wash_slag_rat', 'zone_ashway_wash', 'enemy_slag_rat', 2, 40, 90);
+INSERT INTO public.zone_spawns VALUES ('fbf74187-2c0e-4f1e-b9bc-c0630ccc4b46', 'zone_deep_waste', 'enemy_architect_drone', 2, 30, 400);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_gate_slag_rat', 'zone_slag_gate', 'enemy_slag_rat', 2, 40, 90);
+INSERT INTO public.zone_spawns VALUES ('10e7a953-2f2f-49c6-a0cf-153f3a5b4a8e', 'zone_outskirts', 'enemy_feral_dog', 2, 60, 120);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_yard_slag_rat', 'zone_slag_yard', 'enemy_slag_rat', 2, 40, 90);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_catalyst_slag_rat', 'zone_slag_catalyst', 'enemy_slag_rat', 2, 40, 90);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_sump_slag_rat', 'zone_slag_sump', 'enemy_slag_rat', 2, 40, 90);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_rail_slag_rat', 'zone_slag_rail', 'enemy_slag_rat', 2, 40, 90);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_flarestack_slag_rat', 'zone_slag_flarestack', 'enemy_slag_rat', 2, 40, 90);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_drums_slag_rat', 'zone_slag_drums', 'enemy_slag_rat', 2, 40, 90);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_reclaimer_slag_rat', 'zone_slag_reclaimer', 'enemy_slag_rat', 2, 40, 90);
+INSERT INTO public.zone_spawns VALUES ('spawn_ashway_wash_ash_crawler', 'zone_ashway_wash', 'enemy_ash_crawler', 2, 25, 150);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_yard_ash_crawler', 'zone_slag_yard', 'enemy_ash_crawler', 2, 25, 150);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_catalyst_ash_crawler', 'zone_slag_catalyst', 'enemy_ash_crawler', 2, 25, 150);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_sump_ash_crawler', 'zone_slag_sump', 'enemy_ash_crawler', 2, 25, 150);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_rail_ash_crawler', 'zone_slag_rail', 'enemy_ash_crawler', 2, 25, 150);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_flarestack_ash_crawler', 'zone_slag_flarestack', 'enemy_ash_crawler', 2, 25, 150);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_drums_ash_crawler', 'zone_slag_drums', 'enemy_ash_crawler', 2, 25, 150);
+INSERT INTO public.zone_spawns VALUES ('spawn_ashway_road_scrap_picker', 'zone_ashway_road', 'enemy_scrap_picker', 1, 20, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_ashway_ashfall_scrap_picker', 'zone_ashway_ashfall', 'enemy_scrap_picker', 1, 20, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_gate_scrap_picker', 'zone_slag_gate', 'enemy_scrap_picker', 1, 20, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_yard_scrap_picker', 'zone_slag_yard', 'enemy_scrap_picker', 1, 20, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_rail_scrap_picker', 'zone_slag_rail', 'enemy_scrap_picker', 1, 20, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_drums_scrap_picker', 'zone_slag_drums', 'enemy_scrap_picker', 1, 20, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_catalyst_slag_wretch', 'zone_slag_catalyst', 'enemy_slag_wretch', 1, 15, 300);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_sump_slag_wretch', 'zone_slag_sump', 'enemy_slag_wretch', 1, 15, 300);
+INSERT INTO public.zone_spawns VALUES ('spawn_slag_reclaimer_slag_wretch', 'zone_slag_reclaimer', 'enemy_slag_wretch', 1, 15, 300);
+INSERT INTO public.zone_spawns VALUES ('0ab900eb-862b-4e1c-aaa2-22ff9a1f0f5a', 'zone_badland_sw_outer', 'enemy_scav', 2, 65, 210);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_shallows_lurker', 'zone_bay_shallows', 'enemy_harbor_lurker', 1, 50, 220);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_barges_lurker', 'zone_bay_barges', 'enemy_harbor_lurker', 1, 50, 220);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_open_lurker', 'zone_bay_open', 'enemy_harbor_lurker', 2, 60, 200);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_fog_lurker', 'zone_bay_fog', 'enemy_harbor_lurker', 1, 45, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_breakwater_lurker', 'zone_bay_breakwater', 'enemy_harbor_lurker', 2, 60, 200);
+INSERT INTO public.zone_spawns VALUES ('spawn_dock_slip_ganger', 'zone_dock_slip', 'enemy_sprawl_ganger', 1, 40, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_yard_sidings_scav', 'zone_yard_sidings', 'enemy_scav', 2, 50, 220);
+INSERT INTO public.zone_spawns VALUES ('spawn_yard_container_scav', 'zone_yard_container', 'enemy_scav', 1, 45, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_zone_badland_w_gate_enemy_scav_1782202959407', 'zone_badland_w_gate', 'enemy_scav', 1, 100, 300);
+INSERT INTO public.zone_spawns VALUES ('spawn_yard_pallet_scav', 'zone_yard_pallet', 'enemy_scav', 1, 45, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_yard_boxcar_ganger', 'zone_yard_boxcar', 'enemy_sprawl_ganger', 1, 40, 260);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_killingfloor_horror', 'zone_red_killingfloor', 'enemy_redline_horror', 1, 100, 900);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_redline_mutant', 'zone_red_redline', 'enemy_rad_mutant', 2, 55, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_glowfield_mutant', 'zone_red_glowfield', 'enemy_rad_mutant', 2, 55, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_mutiewarren_mutant', 'zone_red_mutiewarren', 'enemy_rad_mutant', 3, 60, 260);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_hazardnine_mutant', 'zone_red_hazardnine', 'enemy_rad_mutant', 2, 55, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_feralyard_dog', 'zone_red_feralyard', 'enemy_feral_dog', 3, 60, 220);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_cullrow_mutant', 'zone_red_cullrow', 'enemy_rad_mutant', 2, 55, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_bonepit_mutant', 'zone_red_bonepit', 'enemy_rad_mutant', 2, 55, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_slaughterworks_mutant', 'zone_red_slaughterworks', 'enemy_rad_mutant', 2, 55, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_marrowrow_mutant', 'zone_red_marrowrow', 'enemy_rad_mutant', 2, 55, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_rictusalley_mutant', 'zone_red_rictusalley', 'enemy_rad_mutant', 1, 50, 300);
+INSERT INTO public.zone_spawns VALUES ('spawn_outskirts_gutter_cat', 'zone_outskirts', 'enemy_gutter_cat', 2, 35, 120);
+INSERT INTO public.zone_spawns VALUES ('spawn_outskirts_rusted_sweeper', 'zone_outskirts', 'enemy_rusted_sweeper', 1, 20, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_badland_w_gate_gutter_cat', 'zone_badland_w_gate', 'enemy_gutter_cat', 2, 30, 120);
+INSERT INTO public.zone_spawns VALUES ('spawn_badland_w_gate_squatter', 'zone_badland_w_gate', 'enemy_squatter', 1, 25, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_ruins_squatter', 'zone_ruins', 'enemy_squatter', 2, 30, 180);
+INSERT INTO public.zone_spawns VALUES ('eaacb3cb-4027-406d-96f0-621e4a221302', 'zone_badland_w_gate', 'enemy_feral_dog', 2, 55, 160);
+INSERT INTO public.zone_spawns VALUES ('spawn_ruins_rusted_sweeper', 'zone_ruins', 'enemy_rusted_sweeper', 1, 20, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_ruins_gutter_cat', 'zone_ruins', 'enemy_gutter_cat', 2, 25, 150);
+INSERT INTO public.zone_spawns VALUES ('spawn_badland_sw_outer_gutter_cat', 'zone_badland_sw_outer', 'enemy_gutter_cat', 2, 30, 120);
+INSERT INTO public.zone_spawns VALUES ('spawn_badland_sw_outer_squatter', 'zone_badland_sw_outer', 'enemy_squatter', 1, 20, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_deep_waste_squatter', 'zone_deep_waste', 'enemy_squatter', 2, 30, 180);
+INSERT INTO public.zone_spawns VALUES ('spawn_deep_waste_gutter_cat', 'zone_deep_waste', 'enemy_gutter_cat', 2, 25, 150);
+INSERT INTO public.zone_spawns VALUES ('spawn_deep_waste_rusted_sweeper', 'zone_deep_waste', 'enemy_rusted_sweeper', 1, 20, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_tarseep_horror', 'zone_waste_tarseep', 'enemy_tar_horror', 1, 50, 300);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_rustmarsh_horror', 'zone_waste_rustmarsh', 'enemy_tar_horror', 1, 50, 300);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_runoff_horror', 'zone_waste_runoff', 'enemy_tar_horror', 1, 45, 320);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_molten_jackal', 'zone_waste_molten', 'enemy_wire_jackal', 2, 55, 180);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_cindersteps_jackal', 'zone_waste_cindersteps', 'enemy_wire_jackal', 2, 55, 180);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_dross_jackal', 'zone_waste_dross', 'enemy_wire_jackal', 2, 55, 180);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_palings_jackal', 'zone_waste_palings', 'enemy_wire_jackal', 1, 45, 200);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_deadflat_jackal', 'zone_waste_deadflat', 'enemy_wire_jackal', 2, 55, 180);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_cinderway_jackal', 'zone_waste_cinderway', 'enemy_wire_jackal', 1, 45, 200);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_hopper_jackal', 'zone_waste_hopper', 'enemy_wire_jackal', 1, 45, 200);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_ferro_wight', 'zone_waste_ferro', 'enemy_slag_wight', 1, 50, 260);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_tipple_wight', 'zone_waste_tipple', 'enemy_slag_wight', 1, 50, 260);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_ashenverge_wight', 'zone_waste_ashenverge', 'enemy_slag_wight', 1, 45, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_deep_leviathan', 'zone_bay_deep', 'enemy_bay_leviathan', 1, 35, 420);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_wreck_leviathan', 'zone_bay_wreck', 'enemy_bay_leviathan', 1, 30, 460);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_deadwater_lurker', 'zone_bay_deadwater', 'enemy_harbor_lurker', 1, 50, 220);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_reach_lurker', 'zone_bay_reach', 'enemy_harbor_lurker', 1, 50, 220);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_narrows_lurker', 'zone_bay_narrows', 'enemy_harbor_lurker', 2, 55, 200);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_mid_lurker', 'zone_bay_mid', 'enemy_harbor_lurker', 1, 50, 220);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_floes_lurker', 'zone_bay_floes', 'enemy_harbor_lurker', 1, 50, 220);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_slick_lurker', 'zone_bay_slick', 'enemy_harbor_lurker', 1, 45, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_wreck_lurker', 'zone_bay_wreck', 'enemy_harbor_lurker', 2, 55, 200);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_oxide_wight', 'zone_waste_oxide', 'enemy_slag_wight', 1, 50, 260);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_downwind_wight', 'zone_waste_downwind', 'enemy_slag_wight', 2, 55, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_bay_basin_lurker', 'zone_bay_basin', 'enemy_harbor_lurker', 1, 40, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_deep_maw_ganger', 'zone_deep_maw', 'enemy_sprawl_ganger', 2, 50, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_deep_bonepicker_ganger', 'zone_deep_bonepicker', 'enemy_sprawl_ganger', 1, 45, 260);
+INSERT INTO public.zone_spawns VALUES ('spawn_deep_gasp_ganger', 'zone_deep_gasp', 'enemy_sprawl_ganger', 2, 55, 220);
+INSERT INTO public.zone_spawns VALUES ('spawn_deep_deepmaw_ganger', 'zone_deep_deepmaw', 'enemy_sprawl_ganger', 2, 60, 200);
+INSERT INTO public.zone_spawns VALUES ('spawn_deep_scab_ganger', 'zone_deep_scab', 'enemy_sprawl_ganger', 1, 40, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_scald_wight', 'zone_waste_scald', 'enemy_slag_wight', 1, 50, 260);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_leachfield_wight', 'zone_waste_leachfield', 'enemy_slag_wight', 1, 45, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_ashensteppe_jackal', 'zone_waste_ashensteppe', 'enemy_wire_jackal', 2, 55, 180);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_sootbank_jackal', 'zone_waste_sootbank', 'enemy_wire_jackal', 2, 55, 180);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_slaghollow_jackal', 'zone_waste_slaghollow', 'enemy_wire_jackal', 1, 45, 200);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_emberwaste_jackal', 'zone_waste_emberwaste', 'enemy_wire_jackal', 1, 45, 200);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_cull_wight', 'zone_waste_cull', 'enemy_slag_wight', 1, 50, 260);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_cull_jackal', 'zone_waste_cull', 'enemy_wire_jackal', 1, 40, 220);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_cinderflat_wight', 'zone_waste_cinderflat', 'enemy_slag_wight', 1, 45, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_ferrouswash_dog', 'zone_waste_ferrouswash', 'enemy_feral_dog', 2, 50, 220);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_scrapmesa_wight', 'zone_waste_scrapmesa', 'enemy_slag_wight', 1, 45, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_greymile_dog', 'zone_waste_greymile', 'enemy_feral_dog', 1, 45, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_deadfurnace_wight', 'zone_waste_deadfurnace', 'enemy_slag_wight', 1, 40, 260);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_meltline_mutant', 'zone_red_meltline', 'enemy_rad_mutant', 1, 50, 300);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_vexhollow_mutant', 'zone_red_vexhollow', 'enemy_rad_mutant', 2, 55, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_windrow_jackal', 'zone_waste_windrow', 'enemy_wire_jackal', 2, 55, 180);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_gravel_jackal', 'zone_waste_gravel', 'enemy_wire_jackal', 2, 55, 180);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_endcut_jackal', 'zone_waste_endcut', 'enemy_wire_jackal', 1, 45, 200);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_grit_jackal', 'zone_waste_grit', 'enemy_wire_jackal', 2, 60, 180);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_verge_jackal', 'zone_waste_verge', 'enemy_wire_jackal', 1, 45, 200);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_coalsack_wight', 'zone_waste_coalsack', 'enemy_slag_wight', 1, 50, 260);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_nadir_wight', 'zone_waste_nadir', 'enemy_slag_wight', 1, 50, 260);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_grime_wight', 'zone_waste_grime', 'enemy_slag_wight', 1, 45, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_bailey_wight', 'zone_waste_bailey', 'enemy_slag_wight', 2, 55, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_deep_tarpit_ganger', 'zone_deep_tarpit', 'enemy_sprawl_ganger', 1, 40, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_deep_sink_ganger', 'zone_deep_sink', 'enemy_sprawl_ganger', 1, 40, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_yard_skid_scav', 'zone_yard_skid', 'enemy_scav', 2, 50, 220);
+INSERT INTO public.zone_spawns VALUES ('spawn_yard_bulk_scav', 'zone_yard_bulk', 'enemy_scav', 2, 50, 220);
+INSERT INTO public.zone_spawns VALUES ('spawn_yard_bonded_scav', 'zone_yard_bonded', 'enemy_scav', 1, 45, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_meat_ashpit_ganger', 'zone_meat_ashpit', 'enemy_sprawl_ganger', 1, 45, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_meat_slaughter_ganger', 'zone_meat_slaughter', 'enemy_sprawl_ganger', 1, 40, 260);
+INSERT INTO public.zone_spawns VALUES ('spawn_meat_offal_ganger', 'zone_meat_offal', 'enemy_sprawl_ganger', 1, 45, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_meat_carrion_ganger', 'zone_meat_carrion', 'enemy_sprawl_ganger', 1, 40, 260);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_flensing_mutant', 'zone_red_flensing', 'enemy_rad_mutant', 1, 50, 300);
+INSERT INTO public.zone_spawns VALUES ('spawn_red_dreadfurnace_mutant', 'zone_red_dreadfurnace', 'enemy_rad_mutant', 2, 55, 280);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_cokeyard_wight', 'zone_waste_cokeyard', 'enemy_slag_wight', 1, 45, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_fumealley_wight', 'zone_waste_fumealley', 'enemy_slag_wight', 1, 45, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_drossworks_dog', 'zone_waste_drossworks', 'enemy_feral_dog', 2, 50, 220);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_ashencut_dog', 'zone_waste_ashencut', 'enemy_feral_dog', 1, 45, 240);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_dustreach_wight', 'zone_waste_dustreach', 'enemy_slag_wight', 1, 40, 260);
+INSERT INTO public.zone_spawns VALUES ('spawn_waste_coldslag_wight', 'zone_waste_coldslag', 'enemy_slag_wight', 1, 40, 260);
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+
+
+SET session_replication_role = DEFAULT;

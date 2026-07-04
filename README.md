@@ -87,6 +87,39 @@ The stack is intentionally minimal. There's a dev panel at `/dev` with live zone
 
 ---
 
+## Local Development Database
+
+Development runs against a **local Postgres**, not the production Supabase database. This keeps dev/test/script traffic off Supabase (which is metered on egress) and means you can't break the live game by experimenting. The live server on Render still uses Supabase — that's unchanged.
+
+The world (zones, items, NPCs, furniture — **no player accounts, no secrets**) is committed to the repo as a snapshot at [`db/seed.sql`](db/seed.sql). It's the shared source of truth for content between developers.
+
+**First-time setup:**
+
+1. Install PostgreSQL (17+). On Windows: `winget install PostgreSQL.PostgreSQL.17`. Use superuser password `postgres` (or set your own — see below).
+2. Copy `.env` and point `DATABASE_URL` at your local server:
+   ```
+   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/architect_dev
+   ```
+   (If you chose a different Postgres password, put it here.)
+3. Build the local database from the committed snapshot:
+   ```
+   npm run db:setup-local
+   ```
+   This drops & recreates `architect_dev` and loads `db/seed.sql`. No `psql` needed — it runs through the `pg` driver. Register a fresh character in-game (player data isn't shared).
+
+**Day-to-day:** `npm run dev`, `npm run test:regress`, and the dev panel all use your local database automatically — same commands as before.
+
+**Sharing content changes:** local DBs are separate copies and don't sync automatically. After you change content locally, regenerate and commit the snapshot so your teammate gets it on `git pull`:
+```
+npm run db:export-seed   # rewrites db/seed.sql from your local DB
+git add db/seed.sql && git commit -m "Update world seed"
+```
+The other dev then runs `npm run db:setup-local` to rebuild from the new snapshot.
+
+**Touching production deliberately** (e.g. pushing content live at deploy time): temporarily swap `DATABASE_URL` back to the Supabase pooler string (kept commented in `.env`), run what you need, then swap back.
+
+---
+
 ## Player Commands
 
 | Command | Description |
