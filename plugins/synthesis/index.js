@@ -217,6 +217,25 @@ const BLOCKS = ['instant', 'phases', 'hallucination'];
 const STRUCT = ['instant', 'phases', 'hallucination', 'tolerance', 'withdrawal', 'overdose'];
 const pendingSplice = new Map();
 
+// Visual metadata for the drag-drop SELECT screen. FORM/COLOUR are content
+// (drug flags.form / flags.color / flags.sub / flags.volatility) with generic,
+// stable-per-drug fallbacks — so packages render distinctly even before any
+// content is backfilled, and content can override later without a code change.
+const SPLICE_FORMS = ['liquid', 'powder', 'gel', 'pill'];
+const SPLICE_SUBS = { liquid: 'thin', powder: 'fine', gel: 'viscous', pill: 'tablet' };
+const PALETTE_HEX = { green: '#4fe08a', purple: '#9a5ce0', red: '#e0644f', gold: '#e0b64f', cyan: '#5fd0e0', magenta: '#e05cc0', blue: '#4f9ae0' };
+const FALLBACK_HEX = ['#4fe08a', '#e0644f', '#4f9ae0', '#e0b64f', '#9a5ce0', '#5fd0e0', '#7de07a', '#e05cc0', '#d6a0e0', '#c9c9d6'];
+function hashStr(s) { let h = 0; for (let i = 0; i < String(s).length; i++) h = (h * 31 + String(s).charCodeAt(i)) >>> 0; return h; }
+function drugVisual(id, drug) {
+  const flags = drug?.flags || {}, e = drug?.effects || {}, h = hashStr(id);
+  const form = SPLICE_FORMS.includes(flags.form) ? flags.form : SPLICE_FORMS[h % 4];
+  const sub = flags.sub || SPLICE_SUBS[form];
+  const color = flags.color || PALETTE_HEX[e.hallucination?.palette] || FALLBACK_HEX[h % FALLBACK_HEX.length];
+  let vol = flags.volatility;
+  if (vol == null) vol = Math.min(1, (e.overdose?.lethal ? 0.5 : 0.25) + (e.hallucination?.intensity || 0) * 0.3 + (e.phases ? 0.1 : 0));
+  return { form, sub, color, vol: Math.round(vol * 100) / 100 };
+}
+
 const clone = (o) => JSON.parse(JSON.stringify(o));
 function normEff(e) {
   e = e || {};
@@ -324,9 +343,14 @@ async function cmdSplice(args, raw, player, broadcast) {
     if (Object.keys(e.instant).length) blocks.instant = summariseInstant(e.instant);
     if (e.phases) blocks.phases = summarisePhases(e.phases);
     if (e.hallucination) blocks.hallucination = summariseHall(e.hallucination);
-    if (Object.keys(blocks).length) drugs.push({ drug: r.drug_id, name: r.name, blocks });
+    if (Object.keys(blocks).length) drugs.push({ drug: r.drug_id, name: r.name, blocks, ...drugVisual(r.drug_id, cache[r.drug_id]) });
   }
   if (drugs.length < 2) return { type: 'error', message: 'You need at least two different drugs on hand to splice.' };
+
+  // familiarity: a drug's effects reveal with repeated use (learned-by-use)
+  const { rows: kn } = await query('SELECT drug_id, times_used FROM player_drug_state WHERE player_id=$1 AND drug_id = ANY($2)', [player.id, drugs.map(d => d.drug)]);
+  const usedBy = {}; for (const k of kn) usedBy[k.drug_id] = k.times_used || 0;
+  for (const d of drugs) d.known = Math.max(0.2, Math.min(1, 0.35 + (usedBy[d.drug] || 0) * 0.09));
 
   return { type: 'splice_designer', drugs, minSkill: SPLICE_MIN_SKILL, baseDifficulty: SPLICE_BASE_DIFF, hasStabilizer: await hasStabilizer(player.id) };
 }
@@ -491,7 +515,7 @@ function cmdSpliceTest(args, raw, player) {
     if (Object.keys(e.instant).length) blocks.instant = summariseInstant(e.instant);
     if (e.phases) blocks.phases = summarisePhases(e.phases);
     if (e.hallucination) blocks.hallucination = summariseHall(e.hallucination);
-    if (Object.keys(blocks).length) drugs.push({ drug: d.id, name: d.name, blocks });
+    if (Object.keys(blocks).length) drugs.push({ drug: d.id, name: d.name, blocks, ...drugVisual(d.id, d), known: 0.85 });
     if (drugs.length >= 6) break;
   }
   if (drugs.length < 2) return { type: 'error', message: 'Need ≥2 drugs with effects in the cache — run seed-drugs.js first.' };

@@ -37,6 +37,7 @@ const DARK_THEMES = [
   ['contrast','Terminal'],['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
   ['aurora','Aurora'],['neon','Neon'],['cathode','Cathode'],['grove','Grove'],
   ['tide','Tide'],['dusk','Dusk'],['solarflare','Solar Flare'],
+  ['abyss','Abyss'],['mulberry','Mulberry'],['umber','Umber'],
 ];
 const BUILTIN_THEMES = [...LIGHT_THEMES, ...DARK_THEMES];
 
@@ -54,6 +55,7 @@ const THEME_COLOR_VARS = [
   { v: '--red',         label: 'Red',                    desc: 'Danger, errors, offline' },
   { v: '--orange',      label: 'Orange',                 desc: 'Warnings, overload' },
   { v: '--yellow',      label: 'Yellow',                 desc: 'Caution, loot, highlight' },
+  { v: '--cyan',        label: 'Cyan',                   desc: 'Info, links, window light' },
   { v: '--purple',      label: 'Purple',                 desc: 'Special, lore, mutations' },
 ];
 

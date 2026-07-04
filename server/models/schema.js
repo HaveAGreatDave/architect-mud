@@ -1314,6 +1314,65 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_aircraft_parked ON aircraft(parked_zone_id);
   CREATE INDEX IF NOT EXISTS idx_aircraft_owner ON aircraft(owner_id);
+  -- Phase B–D additions: weapons state, per-instance customization (tune/parts/
+  -- livery in custom_data), and which hangar (if any) the craft is secured in.
+  ALTER TABLE aircraft ADD COLUMN IF NOT EXISTS weapons_hot INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE aircraft ADD COLUMN IF NOT EXISTS custom_data JSONB NOT NULL DEFAULT '{}';
+  ALTER TABLE aircraft ADD COLUMN IF NOT EXISTS hangar_id TEXT;
+  ALTER TABLE aircraft ADD COLUMN IF NOT EXISTS insured INTEGER NOT NULL DEFAULT 0;
+
+  -- Cargo/passenger contracts (flight contracts.js). A row is a live job: open
+  -- on a board, then accepted (bound to a player + craft) and flown origin→dest.
+  CREATE TABLE IF NOT EXISTS flight_contracts (
+    id          TEXT PRIMARY KEY,
+    kind        TEXT NOT NULL DEFAULT 'cargo',   -- cargo | passenger
+    origin_zone TEXT NOT NULL,                   -- airfield zone id
+    dest_zone   TEXT NOT NULL,                   -- airfield zone id
+    cargo_name  TEXT NOT NULL,                   -- what's being hauled / who
+    item_id     TEXT,                            -- optional real item delivered
+    weight      INTEGER NOT NULL DEFAULT 40,
+    payout      INTEGER NOT NULL DEFAULT 100,
+    risk        INTEGER NOT NULL DEFAULT 1,      -- 1..5
+    contraband  INTEGER NOT NULL DEFAULT 0,      -- must fly dark (transponder off)
+    status      TEXT NOT NULL DEFAULT 'open',    -- open | active | delivered | failed
+    player_id   TEXT,
+    aircraft_id TEXT,
+    accepted_at BIGINT,
+    deadline_s  INTEGER NOT NULL DEFAULT 1800,   -- seconds after accept to deliver
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_flight_contracts_origin ON flight_contracts(origin_zone, status);
+  CREATE INDEX IF NOT EXISTS idx_flight_contracts_player ON flight_contracts(player_id, status);
+
+  -- Ground anti-aircraft emplacements (flight combat.js). Fire on low/slow craft
+  -- overflying within range. CONTENT: seeded, editable.
+  CREATE TABLE IF NOT EXISTS aa_sites (
+    id        TEXT PRIMARY KEY,
+    zone_id   TEXT NOT NULL,                     -- surface cell it sits on (map_world)
+    name      TEXT NOT NULL,
+    range     INTEGER NOT NULL DEFAULT 1,        -- tiles
+    damage    REAL NOT NULL DEFAULT 0.2,         -- hull fraction per hit
+    accuracy  INTEGER NOT NULL DEFAULT 6,        -- opposing value in the piloting evade check
+    faction   TEXT,
+    active    INTEGER NOT NULL DEFAULT 1
+  );
+  CREATE INDEX IF NOT EXISTS idx_aa_sites_zone ON aa_sites(zone_id);
+
+  -- Hangars (flight hangars.js) — ownable/rentable secure storage at a field.
+  -- Reuses the rent cadence idea from apartments; a stored aircraft is safe.
+  CREATE TABLE IF NOT EXISTS hangars (
+    id            TEXT PRIMARY KEY,
+    field_zone    TEXT NOT NULL,                 -- airfield zone id
+    name          TEXT NOT NULL,
+    owner_id      TEXT,
+    owner_org_id  TEXT,
+    rent_paid_until BIGINT,
+    rent_per_period INTEGER NOT NULL DEFAULT 200,
+    tier          INTEGER NOT NULL DEFAULT 1,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_hangars_field ON hangars(field_zone);
+  CREATE INDEX IF NOT EXISTS idx_hangars_owner ON hangars(owner_id);
 `;
 
 export async function applySchema() {

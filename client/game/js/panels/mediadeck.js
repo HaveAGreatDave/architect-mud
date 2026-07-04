@@ -124,7 +124,22 @@ export function updateMediaDeckBroadcast(msg) {
   if (!preview) return;
   const el = document.createElement('div');
   el.className = 'mediadeck-preview-line';
-  el.textContent = msg.message || '';
+  // Render by style, mirroring the TV panel (scaled into the small monitor):
+  // SVG title cards inject as live markup, ASCII art / credits keep monospace
+  // whitespace, tickers read as a marquee line, everything else is plain text.
+  const style = msg.style || 'raw';
+  if (style === 'svg') {
+    el.classList.add('mediadeck-preview-svg');
+    el.innerHTML = msg.message || ''; // dev-authored graphic — safe, same as TV panel
+  } else if (style === 'ascii_art' || style === 'credits') {
+    const pre = document.createElement('pre');
+    pre.className = 'mediadeck-preview-ascii';
+    pre.textContent = msg.message || '';
+    el.appendChild(pre);
+  } else {
+    if (style === 'ticker') el.classList.add('mediadeck-preview-ticker');
+    el.textContent = msg.message || '';
+  }
   preview.appendChild(el);
   // spacer between lines
   const sp = document.createElement('div');

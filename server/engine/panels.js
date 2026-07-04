@@ -7,6 +7,7 @@ import { query } from '../models/db.js';
 import { sendToPlayer } from './messaging.js';
 import { SKILLS, getPlayerSkills } from './skills.js';
 import { getPlayerFactionRep } from './factions.js';
+import { getPlayerMembership, getOrg } from './world.js';
 
 const SKILL_CATS = ['combat', 'survival', 'tech', 'social', 'arcane'];
 
@@ -37,7 +38,24 @@ async function resolveInvCount(playerId) {
   return Number(rows[0]?.n || 0);
 }
 
-const RESOLVERS = { skills: resolveSkills, factions: resolveFactions, inv_count: resolveInvCount };
+// Corp status — live sidebar fields (treasury/zones/heat from the org cache).
+// Architect heat is 0 until the Phase-1 territory engine drives it.
+const corpOrg = (playerId) => { const m = getPlayerMembership(playerId); return m ? getOrg(m.org_id) : null; };
+const resolveCorpName = async (pid) => corpOrg(pid)?.name || '—';
+const resolveCorpTreasury = async (pid) => corpOrg(pid)?.treasury || 0;
+const resolveCorpHeat = async () => ({ val: 0, max: 100 });
+async function resolveCorpZones(pid) {
+  const m = getPlayerMembership(pid);
+  if (!m) return 0;
+  const { rows } = await query('SELECT COUNT(*)::int n FROM apartments WHERE owner_org_id=$1', [m.org_id]);
+  return Number(rows[0]?.n || 0);
+}
+
+const RESOLVERS = {
+  skills: resolveSkills, factions: resolveFactions, inv_count: resolveInvCount,
+  corp_name: resolveCorpName, corp_treasury: resolveCorpTreasury,
+  corp_zones: resolveCorpZones, corp_heat: resolveCorpHeat,
+};
 
 // The builder's Skills sub-picker needs the skill list up front (before any
 // panel_data fetch). Cameras are added by the surveillance plugin's own

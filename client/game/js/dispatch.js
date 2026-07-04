@@ -16,6 +16,7 @@ import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
+import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
 import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillancehub.js';
@@ -23,10 +24,10 @@ import { openDatachipReplay } from './panels/datachipreplay.js';
 import { openCircuitHack } from './panels/circuithack.js';
 import { openHololock } from './panels/hololock.js';
 import { openFishing } from './panels/fishing.js';
-import { updateCockpit, openTakeoff, openGlideslope } from './panels/cockpit.js';
+import { updateCockpit, openTakeoff, openGlideslope, openTargeting } from './panels/cockpit.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame } from './panels/synthlab.js';
-import { openSpliceDesigner, updateSplicePreview } from './panels/splicelab.js';
+import { openSpliceSelect, openSpliceStages } from './panels/splicelab.js';
 import { updateWantedHud } from './panels/wanted.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
 import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
@@ -278,6 +279,8 @@ const handlers = {
 
   // Corps (org) command results. Most just render text; the ones that move the
   // player's own credits also refresh the vitals HUD.
+  corp_console:       (msg) => { openCorpConsole(msg); },
+  corp_console_patch: (msg) => { updateCorpConsole(msg); },
   corp_info:        (msg) => { appendHtml(msg.message, 'help'); },
   corp_roster:      (msg) => { appendHtml(msg.message, 'help'); },
   corp_invite:      (msg) => { appendHtml(msg.message, 'help'); },
@@ -541,6 +544,14 @@ const handlers = {
       onResult: ({ won }) => sendCmdSilent(`landresolve ${msg.token} ${won ? 1 : 0}`),
     });
   },
+  flight_target: (msg) => {
+    openTargeting({
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 6,
+      deviceName: msg.deviceName || 'TARGET',
+      onResult: ({ won }) => sendCmdSilent(`strafresolve ${msg.token} ${won ? 1 : 0}`),
+    });
+  },
 
   vault_crack: (msg) => {
     const resolveCmd = msg.resolveCmd || 'safecrackresolve';
@@ -553,21 +564,29 @@ const handlers = {
   },
 
   synth_minigame: (msg) => {
-    openSynthMinigame({
-      difficulty: msg.difficulty ?? 5,
-      recipeName: msg.recipeName || 'COMPOUND',
-      workspace: msg.workspace || '',
-      hard: !!msg.hard,
-      instability: msg.instability,
-      onResult: ({ score }) => {
-        if (msg.kind === 'test') return; // dev feel-test — verdict shown on-screen, no server resolve
-        sendCmdSilent(msg.kind === 'splice' ? `spliceresolve ${msg.token} ${score}` : `synthresolve ${msg.recipeId} ${score}`);
-      },
-    });
+    if (msg.kind === 'splice') {
+      // the master-tier orchestra (mix→pour→stir→stabilize→set)
+      openSpliceStages({
+        difficulty: msg.difficulty ?? 8,
+        instability: msg.instability ?? 0,
+        recipeName: msg.recipeName || 'COMPOUND',
+        onResult: ({ score }) => sendCmdSilent(`spliceresolve ${msg.token} ${score}`),
+      });
+    } else {
+      // the basic cook gauge + quench beat
+      openSynthMinigame({
+        difficulty: msg.difficulty ?? 5,
+        recipeName: msg.recipeName || 'COMPOUND',
+        workspace: msg.workspace || '',
+        onResult: ({ score }) => {
+          if (msg.kind === 'test') return; // dev feel-test — verdict on-screen, no server resolve
+          sendCmdSilent(`synthresolve ${msg.recipeId} ${score}`);
+        },
+      });
+    }
   },
 
-  splice_designer: (msg) => { openSpliceDesigner(msg); },
-  splice_preview:  (msg) => { updateSplicePreview(msg); },
+  splice_designer: (msg) => { openSpliceSelect(msg); },
 
   esp_state:   (msg) => { applyEspState(msg); },
   esp_warning: (msg) => { handleEspWarning(msg); },

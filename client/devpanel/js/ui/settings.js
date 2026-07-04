@@ -30,22 +30,28 @@ function repaintPowerTileColors() {
   });
 }
 
+// Kept in lockstep with client/shared/settings.js — both clients offer the
+// identical theme set, and every id here has a palette in client/shared/themes.css.
 const LIGHT_THEMES = [
   ['light','Parchment'],['inkwell','Inkwell'],['studio','Studio'],
   ['arctic','Arctic'],['solar','Solar'],['mint','Mint'],['lavender','Lavender'],['fog','Fog'],
   ['latte','Latte'],['rose','Rosewater'],['papertape','Papertape'],['bubblegum','Bubblegum'],
+  ['meadow','Meadow'],['clay','Clay'],['highbeam','Highbeam'],
 ];
 const DARK_THEMES = [
   ['dark','Void'],['eclipse','Eclipse'],['iron','Iron'],
   ['contrast','Terminal'],['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
   ['aurora','Aurora'],['neon','Neon'],['cathode','Cathode'],['grove','Grove'],
+  ['tide','Tide'],['dusk','Dusk'],['solarflare','Solar Flare'],
+  ['abyss','Abyss'],['mulberry','Mulberry'],['umber','Umber'],
 ];
 const BUILTIN_THEME_VALUES = [...LIGHT_THEMES, ...DARK_THEMES].map(([v]) => v);
 
 // --- Theme swatch picker ---
 // Dots read live off the rendered CSS, so new/custom themes self-illustrate.
-// Uses the vars the devpanel themes actually declare (--accent2/--accent3/--cyan).
-const _CHIP_DOT_VARS = ['--accent', '--accent2', '--accent3', '--red', '--yellow', '--cyan'];
+// Canonical vars (shared with the game client's swatch chips) — themes.css now
+// declares these directly; the panel's --accent2/--accent3 are aliases of them.
+const _CHIP_DOT_VARS = ['--accent', '--green', '--red', '--orange', '--yellow', '--purple'];
 const _CHIP_FRAME_VARS = ['--bg', '--border'];
 
 function _probeThemeVars(theme) {
@@ -292,9 +298,33 @@ function openThemeEditor() {
   const overlay = document.getElementById('theme-editor-overlay');
   overlay.style.display = 'flex';
   _makeThemeEditorDraggable();
+  _tceCenterWindow();
   _themeEditLoaded = false;
   populateThemeGrid();
   _showThemeTab('swatches');
+  _tceScrollToSelected();
+}
+
+// Open centred over the viewport (matches the game client) rather than pinned
+// to the corner. Runs each open, so it resets even after the window's been dragged.
+function _tceCenterWindow() {
+  const win = document.getElementById('tce-window');
+  if (!win) return;
+  const w = win.offsetWidth || 360;
+  const h = win.offsetHeight || Math.min(window.innerHeight * 0.82, 560);
+  win.style.right = 'auto';
+  win.style.left = Math.max(8, (window.innerWidth - w) / 2) + 'px';
+  win.style.top = Math.max(8, (window.innerHeight - h) / 2) + 'px';
+}
+
+// Bring the active theme's chip into view (centred) when the editor opens.
+function _tceScrollToSelected() {
+  const grid = document.getElementById('dev-opt-theme-grid');
+  const sel = grid && grid.querySelector('.theme-chip.selected');
+  if (!grid || !sel) return;
+  const gRect = grid.getBoundingClientRect();
+  const sRect = sel.getBoundingClientRect();
+  grid.scrollTop += (sRect.top - gRect.top) - (grid.clientHeight - sel.clientHeight) / 2;
 }
 
 // Swatches (theme picker) is the default view; the Edit pane lazy-loads the

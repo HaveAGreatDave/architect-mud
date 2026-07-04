@@ -1,10 +1,42 @@
-# Flight System — As Built (Phase A)
+# Flight System — As Built (Phases A–D)
 
-> Status: **Phase A vertical slice built 2026-07-03.** This is the running source
-> for flight *as actually built*. The full locked design (all phases A–D, the six
-> aircraft, purpose systems, combat, hangars) lives in the blueprint:
+> Status: **Phases A–D built 2026-07-03.** This is the running source for flight
+> *as actually built*. The full locked design lives in the blueprint:
 > [docs/proposals/systems-flight.md](proposals/systems-flight.md). Read that for
 > intent; read this for what exists.
+
+## Plugin layout (multi-file)
+
+`plugins/flight/` is composed of a wiring hub + shared state + one module per system:
+- **state.js** — the shared substrate: the live-aircraft registry (the aircraft
+  owns its occupant set), the computed-overlay coord index (`surfaceAt`), the
+  synthesized HUD payload, `effStats` (tune + weight-&-balance → effective numbers),
+  and the `parkAt` / `crash` transitions. Every module imports this.
+- **index.js** — the verbs (board/startup/throttle/heading/climb/dive/takeoff/land/
+  refuel) + the airborne tick loop + move gate + cardinal input matcher + no-fly.
+- **hazards.js** — Phase B hazards + emergency/utility verbs.
+- **combat.js** — AA fire + the armed gun pass.
+- **contracts.js** — the freight economy.
+- **hangars.js** — ownership: hangars, repair, salvage, rebuild, tuning.
+- **acquisition.js** — charter / buy / refuel.
+
+## Six airfields (live)
+
+Flagged onto fitting zones (the `zones.flags.airfield_id` pattern):
+
+| Field | Zone | Services |
+|---|---|---|
+| Threshold Helipad | The Threshold (0,0) | charter · avgas/jet |
+| **Coldwater Regional** | The Rust Quarter (−2,0) | **dealer + charter** · all fuels |
+| Marshalling Field | The Marshalling Yard (7,−1) | charter · avgas/jet |
+| Slagworks Strip | Slagworks Gate (−8,0) | charter · avgas/biofuel |
+| Redline Airstrip | The Scald (−5,−6) | derelict · biofuel only |
+| Smuggler's Slip Pad | Smuggler's Slip (4,−3) | charter · avgas/biofuel |
+
+Six aircraft types seeded (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass),
+three fuel types (avgas/jet/biofuel), standing charter rentals at several fields,
+three ground AA sites (Redline/Wastes/Slagworks), a Core no-fly cluster, and one
+downed Carcass to salvage/rebuild. Content: [`scripts/seed-flight.js`](../scripts/seed-flight.js).
 
 ## What Phase A gives you
 
@@ -110,12 +142,56 @@ Routed in `dispatch.js` (`cockpit_update`/`cockpit_close`/`flight_takeoff`/
    flags take effect.
 4. Stand in The Marshalling Yard → `board` · `startup` · `throttle 60` · `takeoff`.
 
-## Not built yet (Phase B+)
+## Phases B–D as built
 
-Rich hazards (stall/fire/weather buffeting hooked to the extreme-weather severity
-scalar), the aerial minimap + full moving-map nav display, artificial horizon,
-no-fly airspace enforcement (the move-gate/interception ladder), authored
-special-airspace zones, cargo/passenger contracts, air-to-ground/air-to-air combat
-+ AA sites, hangars-as-housing, wreck-salvage repair, aircraft mods/tuning, comms/
-ATC, the other five aircraft, and the six authored airfields. See the blueprint's
-phase map for the boundary.
+**Phase B — hazards & instruments** (`hazards.js`). The tick loop calls
+`rollHazards()`: **STALL** (high + slow → buffet → stall → spin → crash, cleared by
+`recover` after powering up) and **ENGINE FIRE** (overheat → fire, cleared by
+`extinguish`/`cut fuel`) are persistent escalating ladders; **WEATHER buffeting**
+(hooked to `getZoneSeverity`, amplified by altitude) and **BIRD STRIKE** (low/slow)
+are one-shot per-tick events. Utility verbs: `preflight`, `hover` (VTOL), `spot`
+(aerial spotting → wrecks/AA on the ground), `chart` (dead-reckoning + nearest
+field + fuel range), `squawk` (transponder; running dark evades cameras but is a
+crime), and `eject`/`bail` (parachute-gated — a pilot bailing dooms the craft).
+
+**No-fly enforcement** (`index.checkAirspace`). Over an `airspace_restricted` cell:
+tower warning → `WANTED_RAISE` (+2) + interceptor scramble message. No-fly cells
+render as a red hatch on the moving-map.
+
+**Phase D — contracts** (`contracts.js`). A field's board lazily tops up to ~3
+open jobs (cargo/passenger, origin→dest airfield, weight, deadline, risk stars,
+payout = distance × weight × risk). `accept` loads weight onto the craft (fed
+through `effStats` → takeoff difficulty + fuel burn + an overweight gate);
+`manifest` tracks active jobs; delivery is detected on landing at the destination
+(on-time = full, late = half). Contraband jobs pay ~1.8× but want you dark.
+
+**Phase D — combat** (`combat.js`). `tickCombat()` each airborne tick: AA sites in
+range fire on low/slow overflights (altitude, speed, `evade`, and a piloting jink
+cut the hit chance); a hit walks the hull-damage ladder → breakup → `crash`.
+`arm`/`safe` toggle weapons (hardpoints only); `strafe`/`fire` arms the **targeting-
+reticle deck** (`flight_target` → `strafresolve`) to silence a site.
+
+**Phase D — ownership** (`hangars.js`). `hangar rent/store/pull` (stored = theft-
+proof; an owned craft on an open ramp can be stolen — grand theft, +3 stars);
+`repair` (Fabrication + credits); `salvage` a wreck for scrap; `rebuild` a Carcass
+(Fabrication + Chemistry + 1500c → a random flyable type); `tune` mixture/pitch/
+boost/CG curves (Fabrication widens the safe range) feeding `effStats`.
+
+**Acquisition** (`acquisition.js`). `charter <type>` rents, `buy <type>` purchases
+at a dealer field (`buy` routes back to commerce for ordinary shopping).
+
+**Client** — the HUD gains a no-fly map hatch + ARMED indicator; a fourth
+**targeting** deck joins takeoff/glideslope (all shared chassis + `flight` SFX).
+
+## Verb-collision routers
+
+Flight wins several verbs by manifest `after` and delegates by context:
+`board`→gametable (poker), `refuel`→generator, `buy`→commerce, `eject`/`tune`→
+broadcast, and `repair` falls through to the engine gear-repair builtin off-context.
+
+## Still lighter / follow-on
+
+Full PvP air-to-air (the AA/reticle seam exists; player-vs-player interception is a
+message today), authored storm-cell/offshore special-airspace *content*, comms/ATC
+channel flavor, corp-owned aircraft + insurance, and discrete parts-as-items slots
+(the continuous tune curves are in). See the blueprint.

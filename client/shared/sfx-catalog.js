@@ -303,6 +303,14 @@
       config: { duration: 0.85, layers: [
         { waveform: 'sawtooth', freq: 150, pitchBend: { to: 34, time: 0.5 }, filter: { type: 'lowpass', freq: 700, q: 1 }, adsr: { a: 0.005, d: 0.4, s: 0.3, r: 0.3 }, gain: 0.24 },
         { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 480, q: 0.7 }, adsr: { a: 0.002, d: 0.5, s: 0.2, r: 0.2 }, gain: 0.2 } ] } },
+    { id: 'flight-lock', name: 'Flight — target lock', group: 'flight', category: 'sfx', priority: 6,
+      config: { duration: 0.35, layers: [
+        { waveform: 'square', freq: 1320, adsr: { a: 0.002, d: 0.05, s: 0.6, r: 0.06 }, filter: { type: 'bandpass', freq: 1400, q: 5 }, gain: 0.08 },
+        { waveform: 'square', freq: 1320, delay: 0.12, adsr: { a: 0.002, d: 0.05, s: 0.6, r: 0.06 }, filter: { type: 'bandpass', freq: 1400, q: 5 }, gain: 0.08 } ] } },
+    { id: 'flight-guns', name: 'Flight — cannon burst', group: 'flight', category: 'sfx', priority: 8,
+      config: { duration: 0.5, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 900, q: 1 }, adsr: { a: 0.001, d: 0.45, s: 0, r: 0.05 }, gain: 0.14 },
+        { waveform: 'sawtooth', freq: 90, pitchBend: { to: 50, time: 0.4 }, adsr: { a: 0.001, d: 0.4, s: 0, r: 0.05 }, gain: 0.16 } ] } },
   ];
 
   const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)' };

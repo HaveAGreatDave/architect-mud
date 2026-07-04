@@ -120,6 +120,12 @@ npm run content:sync               # pull, and rebuild the local DB only if the 
 ```
 A `post-merge` git hook also nudges you to run `content:sync` whenever a `git pull` brings in a changed seed (enable hooks once with `npm run hooks:install`). Under the hood these wrap `db:export-seed` (regenerate `db/seed.sql`) and `db:setup-local` (rebuild from it); `content:publish` only commits when the *content* actually changed, so incidental row-reordering never creates a spurious commit.
 
+**The Relay — a GUI over all of the above:**
+```
+npm run relay                      # opens http://localhost:4599
+```
+A local-only web console for shipping work between machines, with a red/green pre-flight panel that flags problems *before* you push. Two lanes: **World** (Publish / Sync — wraps `content:publish` / `content:sync`, publish guarded to a localhost DB) and **Code** (a regress-gated push — runs the full `test:regress` suite and only pushes if it's green). First time on a new machine, `git pull` once to receive the tool, then `npm run relay` from then on.
+
 **Touching production deliberately** (e.g. pushing content live at deploy time): temporarily swap `DATABASE_URL` back to the Supabase pooler string (kept commented in `.env`), run what you need, then swap back. Don't restore `db/seed.sql` onto production — that file drops & rebuilds a *local* DB (and is guarded to refuse anything non-localhost). Push content live via the dev panel's additive export/restore instead.
 
 ### Backups

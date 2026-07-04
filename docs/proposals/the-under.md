@@ -1,6 +1,27 @@
 # The Under — Proposal & Phased Build Plan
 
-**Status:** SCOPED 2026-07-03, not built. Build order: **this project first**, then the [Interior Pass](interior-pass.md).
+**Status:** SCOPED 2026-07-03. The full metro/cavern build below is **not built**. A separate,
+**minimal "North City gate corridor" IS BUILT (2026-07-03)** — see the box below. Build order for
+the full project: **this project first**, then the [Interior Pass](interior-pass.md).
+
+> ## BUILT: The Under — North City gate corridor (minimal)
+> A small, self-contained slice that repurposes The Under as *the northwest gate to North City*,
+> built ahead of (and independent from) the full metro/cavern scope.
+> - **Surface wall:** the 14-tile NW North City enclave (govt block + west North City + the uptown
+>   finger `zone_up_vellum`) is sealed. All 14 surface crossings into the surrounding wastes/bay/civic
+>   grid were severed **except one chokepoint** — **The Steps**, `zone_civ_steps` ↔ `zone_up_vellum`
+>   (marked ⛩). That is the only surface way in.
+> - **The Under corridor (3 new z-1 tiles):** `zone_under_commons` (−3,−3, `up`→`zone_civ_commons`) →
+>   `zone_under_deep` (−3,−4) → `zone_under_landing` (−3,−5, `up`→`zone_gov_mezzanine`). Descend at the
+>   Commons, walk the tunnel, resurface inside the government quarter. Free walkable tunnel; **no
+>   express train** (that's the future `plugins/metro/`).
+> - **Verified:** global BFS — all 223 tiles reachable, no orphans; enclave boundary seams are exactly
+>   The Steps + the Under landing. `npm run test:regress` 207/207.
+> - **Scope boundary:** North City's **east** half (x 5..8, across the bay, reached from The Yards) is
+>   untouched — this gates the NW approach only.
+> - **Live:** content is in Postgres; **world reload/restart PENDING** to go live.
+> - Not done here (still the scoped build below): z-1 station ring, z-2 caverns, bestiary/apex, the
+>   express plugin.
 
 A z-1 metro + z-2 cavern layer beneath the 220-tile surface map. Solves the biggest post-expansion
 pain (traversal cost across a full 20×11 rectangle) *and* adds an explorable underworld biome with its

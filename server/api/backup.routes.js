@@ -40,7 +40,7 @@ export async function handleBackupApi(path, method, body, auth) {
   return { status: 200, body: { sql, filename: `architect-dump.sql` } };
 }
 
-async function buildDump() {
+export async function buildDump() {
   const parts = [];
   parts.push('-- Architect MUD database dump');
   parts.push('-- Schema + world content. Player/runtime rows are intentionally excluded.');

@@ -45,12 +45,18 @@ function slideMinimap(direction) {
   }
 }
 
+function minimapMessage(msg) {
+  for (const id of ['minimap-grid', 'minimap-grid-mob', 'minimap-grid-hud']) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = `<span class="mm-msg">${msg}</span>`;
+  }
+}
+
 export function renderMinimap(nodes, direction) {
-  const grid = document.getElementById('minimap-grid');
-  if (!nodes || !nodes.length) { grid.textContent = '(unmapped)'; return; }
+  if (!nodes || !nodes.length) { minimapMessage('(unmapped)'); return; }
 
   const current = nodes.find(n => n.is_current);
-  if (!current) { grid.textContent = '(unmapped)'; return; }
+  if (!current) { minimapMessage('(unmapped)'); return; }
 
   const byId = new Map(nodes.map(n => [n.id, n]));
   const coords = new Map();
@@ -83,37 +89,67 @@ export function renderMinimap(nodes, direction) {
     }
   }
 
-  const cellAt = new Map();
-  for (const [id, [x,y]] of coords) cellAt.set(`${x},${y}`, id);
+  // A 5×5 window (x,y ∈ −R..R) expands to a (2·(2R+1)−1)² cell grid: even indices
+  // hold rooms, odd indices hold the connector *between* two rooms. A gap with a
+  // connector = a walkable exit; an empty gap = a wall. This is the readability
+  // fix — the same room+gap connector model openMapPopup() uses for the full map.
+  const R = 2;
+  const gCols = (2 * R + 1) * 2 - 1, gRows = gCols;
+  const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
+  const inWin = (x, y) => x >= -R && x <= R && y >= -R && y <= R;
 
-  const dangerClass = { safe:'mm-safe', low:'mm-low', medium:'mm-medium', high:'mm-high', lethal:'mm-lethal' };
+  for (const [id, [x, y]] of coords) {
+    if (!inWin(x, y)) continue;
+    cell[(y + R) * 2][(x + R) * 2] = { kind: 'room', id };
+  }
+  // Draw a connector into the gap between a room and each neighbour it has a real
+  // exit to (positional dx/dy off the coord map, exactly like the full map). Non-
+  // cardinal exits (up/down/in/out) target tiles off this coord map and are skipped.
+  for (const [id, [x, y]] of coords) {
+    if (!inWin(x, y)) continue;
+    const node = byId.get(id);
+    if (!node) continue;
+    const gx = (x + R) * 2, gy = (y + R) * 2;
+    for (const targetId of Object.values(node.exits || {})) {
+      if (!coords.has(targetId)) continue;
+      const [tx, ty] = coords.get(targetId);
+      const dx = tx - x, dy = ty - y;
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1 || (dx === 0 && dy === 0)) continue;
+      const cx = gx + dx, cy = gy + dy;
+      if (cx < 0 || cx >= gCols || cy < 0 || cy >= gRows) continue;
+      if (cell[cy][cx]?.kind === 'room') continue;
+      const ch = (dx !== 0 && dy === 0) ? '─' : (dx === 0 && dy !== 0) ? '│' : (dx === dy ? '╲' : '╱');
+      cell[cy][cx] = { kind: 'link', ch };
+    }
+  }
+
+  const symFor = (node) => node.marker
+    ? (node.marker.length === 1 ? node.marker + ' ' : node.marker.slice(0, 2))
+    : (node.is_safe_zone ? '◆ ' : (node.pvp_enabled ? '✕ ' : '○ '));
 
   let html = '';
-  for (let y = -2; y <= 2; y++) {
-    for (let x = -2; x <= 2; x++) {
-      const id = cellAt.get(`${x},${y}`);
-      if (!id) { html += `<span class="mm-cell mm-blank">. </span>`; continue; }
-      const node = byId.get(id);
-      if (!node) { html += `<span class="mm-cell mm-blank">. </span>`; continue; }
-      if (node.is_current) { html += `<span class="mm-cell mm-current" title="${node.name}">()</span>`; continue; }
-      const sym = node.marker
-        ? (node.marker.length === 1 ? node.marker + ' ' : node.marker.slice(0,2))
-        : (node.is_safe_zone ? '◆ ' : (node.pvp_enabled ? '✕ ' : '○ '));
+  for (let r = 0; r < gRows; r++) {
+    for (let c = 0; c < gCols; c++) {
+      const it = cell[r][c];
+      if (!it) { html += `<span class="mm-c mm-void"></span>`; continue; }
+      if (it.kind === 'link') { html += `<span class="mm-c mm-link">${it.ch}</span>`; continue; }
+      const node = byId.get(it.id);
+      if (!node) { html += `<span class="mm-c mm-void"></span>`; continue; }
+      if (node.is_current) { html += `<span class="mm-c mm-room mm-current" title="${node.name}"></span>`; continue; }
       const styles = [];
       if (node.bg_color) styles.push(`background:${node.bg_color}`);
       const textColor = node.color || (node.bg_color ? luminanceTextColor(node.bg_color) : null);
       if (textColor) styles.push(`color:${textColor}`);
       const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
-      const cls = `mm-cell ${node.color || node.bg_color ? 'mm-zone' : (dangerClass[node.danger_rating] || 'mm-zone')}`;
-      html += `<span class="${cls}"${styleAttr} title="${node.name}">${sym}</span>`;
+      const styled = (node.bg_color || node.color) ? ' mm-styled' : '';
+      const cls = `mm-c mm-room danger-${node.danger_rating || 'safe'}${styled}`;
+      html += `<span class="${cls}"${styleAttr} title="${node.name}">${symFor(node)}</span>`;
     }
-    html += '<br>';
   }
-  grid.innerHTML = html;
-  const mob = document.getElementById('minimap-grid-mob');
-  if (mob) mob.innerHTML = html;
-  const hud = document.getElementById('minimap-grid-hud');
-  if (hud) hud.innerHTML = html;
+  for (const id of ['minimap-grid', 'minimap-grid-mob', 'minimap-grid-hud']) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  }
   if (direction) slideMinimap(direction);
 }
 
@@ -136,6 +172,30 @@ const FUNC_LEGEND = {
   slum:        { label: 'Slum / Undermarket',    color: '#cf6a2e' },
   hazard:      { label: 'Hazard / lethal',       color: '#e05555' },
 };
+
+// Street tint: a connector inherits meaning from the tiles it joins. In zone/interior
+// view it takes the *higher* danger of its two endpoints (so any street touching a
+// lethal tile glows red); in regional view it blends the two land-use colours.
+const DANGER_RANK = { safe: 0, low: 1, medium: 2, high: 3, lethal: 4 };
+const DANGER_STREET = [
+  'rgba(120,140,165,0.40)', // safe — neutral steel
+  'rgba(205,180,70,0.44)',  // low
+  'rgba(220,140,55,0.48)',  // medium
+  'rgba(212,70,60,0.52)',   // high
+  'rgba(214,55,55,0.64)',   // lethal
+];
+function hexToRgb(hex) {
+  const h = (hex || '').replace('#', '');
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+function streetColor(a, b, regional) {
+  if (regional) {
+    const [r1, g1, b1] = hexToRgb(FUNC_LEGEND[a.func]?.color || FUNC_LEGEND.residential.color);
+    const [r2, g2, b2] = hexToRgb(FUNC_LEGEND[b.func]?.color || FUNC_LEGEND.residential.color);
+    return `rgba(${(r1 + r2) >> 1},${(g1 + g2) >> 1},${(b1 + b2) >> 1},0.5)`;
+  }
+  return DANGER_STREET[Math.max(DANGER_RANK[a.danger] ?? 0, DANGER_RANK[b.danger] ?? 0)];
+}
 
 // ── Three-level map popup: interior → zone → regional ────────────────────────
 // Popup state, kept across re-opens so the tab buttons + wheel know the current
@@ -340,7 +400,7 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
   const byId = mapState.byId;
 
   const symFor = (t) => {
-    if (t.isCurrent) return '()';
+    if (t.isCurrent) return '';
     if (t.marker) return (t.marker.length === 1 ? t.marker + ' ' : t.marker.slice(0, 2));
     return twoLetterAbbrev(t.name).padEnd(2, ' ');
   };
@@ -364,11 +424,10 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
       const cy = gy + dy, cx = gx + dx;
       if (cy < 0 || cy >= gRows || cx < 0 || cx >= gCols) continue;
       if (cell[cy][cx]?.kind === 'room') continue;
-      let ch = '·';
-      if (dx !== 0 && dy === 0) ch = '─';
-      else if (dx === 0 && dy !== 0) ch = '│';
-      else if (dx !== 0 && dy !== 0) ch = (dx === dy) ? '╲' : '╱';
-      cell[cy][cx] = { kind: 'link', ch };
+      const orient = (dx !== 0 && dy === 0) ? 'h' : (dx === 0 && dy !== 0) ? 'v' : (dx === dy ? 'd1' : 'd2');
+      // A street adjacent to the current tile is one of "your exits" — highlight it.
+      const open = !!(t.isCurrent || n.isCurrent) || !!cell[cy][cx]?.open;
+      cell[cy][cx] = { kind: 'link', orient, color: streetColor(t, n, regional), open };
     }
   }
 
@@ -380,7 +439,15 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
     for (let c = 0; c < gCols; c++) {
       const it = cell[r][c];
       if (!it) { html += `<span class="map-c"></span>`; continue; }
-      if (it.kind === 'link') { html += `<span class="map-c map-link">${it.ch}</span>`; continue; }
+      if (it.kind === 'link') {
+        if (it.orient === 'd1' || it.orient === 'd2') { // diagonals stay glyphs (rare)
+          html += `<span class="map-c map-link">${it.orient === 'd1' ? '╲' : '╱'}</span>`;
+        } else {
+          const scls = `map-c map-street map-street-${it.orient}${it.open ? ' map-street-open' : ''}`;
+          html += `<span class="${scls}" style="--street:${it.color}"></span>`;
+        }
+        continue;
+      }
       const t = it.tile;
       const funcColor = FUNC_LEGEND[t.func]?.color || FUNC_LEGEND.residential.color;
       const bg = regional ? funcColor : t.bg_color;
@@ -390,9 +457,15 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
         ? luminanceTextColor(bg)
         : (t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null));
       if (tColor) styles.push(`color:${tColor}`);
+      // Dead-end = exactly one connector touching this room.
+      let deg = 0;
+      for (const [rr, cc] of [[r, c - 1], [r, c + 1], [r - 1, c], [r + 1, c]])
+        if (cell[rr]?.[cc]?.kind === 'link') deg++;
       const cls = `map-c map-room danger-${t.danger || 'safe'}` +
         (t.isCurrent ? ' map-current' : '') +
-        (regional || t.bg_color || t.color ? ' map-styled' : '');
+        (regional || t.bg_color || t.color ? ' map-styled' : '') +
+        (t.buildings && t.buildings.length ? ' map-has-building' : '') +
+        (deg === 1 ? ' map-deadend' : '');
       const style = styles.length ? ` style="${styles.join(';')}"` : '';
       html += `<span class="${cls}"${style} data-zone-id="${t.id}">${symFor(t)}</span>`;
     }
@@ -400,8 +473,13 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
   grid.innerHTML = html;
 
   // Right panel: land-use legend (regional) or alphabetical room list (interior/zone).
+  // Shared glyph keys (street / your-exits / building) — same visual language as the grid.
+  const KEYS =
+    `<div class="map-leg-row"><span class="map-leg-sym"><i class="map-leg-street"></i></span> Street</div>` +
+    `<div class="map-leg-row"><span class="map-leg-sym"><i class="map-leg-street map-leg-street-open"></i></span> Your exits</div>` +
+    `<div class="map-leg-row"><span class="map-leg-sym"><i class="map-leg-bld"></i></span> Building here</div>`;
   if (regional) {
-    let leg = `<div class="map-leg-row"><span class="map-leg-sym map-current">()</span> You are here</div>`;
+    let leg = `<div class="map-leg-row"><span class="map-leg-sym map-current"></span> You are here</div>` + KEYS;
     const present = new Set(tiles.map(t => t.func || 'residential'));
     for (const key of Object.keys(FUNC_LEGEND)) {
       if (!present.has(key)) continue;
@@ -412,7 +490,7 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
     legend.innerHTML = leg;
   } else {
     const youLabel = (mode === 'zone' && insideInterior) ? 'You are here (inside)' : 'You are here';
-    let leg = `<div class="map-leg-row map-leg-head"><span class="map-leg-sym map-current">()</span> ${youLabel}</div>`;
+    let leg = `<div class="map-leg-row map-leg-head"><span class="map-leg-sym map-current"></span> ${youLabel}</div>` + KEYS;
     leg += `<div class="map-list">`;
     // Alphabetical by marker (falling back to the 2-letter tile abbrev), then name.
     const sorted = [...tiles].sort((a, b) => {

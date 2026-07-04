@@ -100,6 +100,11 @@ export function openTvPanel(data) {
 
   applyTvTheme(data.theme || null);
 
+  // Chassis skin is a property of the physical set (device flag), not the channel —
+  // so it persists across tune echoes. Default 'crt' = the base #tv-window chassis.
+  const skinWin = document.getElementById('tv-window');
+  if (skinWin) skinWin.dataset.skin = data.skin || 'crt';
+
   if (isTuneEcho) return; // metadata synced; dial position and animations are untouched
 
   _tvFrequency = 0;

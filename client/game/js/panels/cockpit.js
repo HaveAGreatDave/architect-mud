@@ -104,6 +104,7 @@ function mapGrid(map, heading) {
   if (!Array.isArray(map)) return '';
   const rows = map.map(row => `<div class="ck-map-row">` + row.map(cell => {
     if (cell.kind === 'craft') return `<span class="ck-map-c ck-map-craft">${HDG_GLYPH[heading] || '▲'}</span>`;
+    if (cell.kind === 'nofly') return `<span class="ck-map-c ck-map-nofly">▚</span>`;
     if (cell.kind === 'land') return `<span class="ck-map-c ck-map-land">▓</span>`;
     return `<span class="ck-map-c ck-map-air">·</span>`;
   }).join('') + `</div>`).join('');
@@ -151,10 +152,13 @@ export function updateCockpit(state) {
     ${gauge('ENG ', Math.round(((s.temp ?? 0) / (s.tempMax || 160)) * 100), tempClass(Math.round(((s.temp ?? 0) / (s.tempMax || 160)) * 100)), `${s.temp ?? 0}°C`)}
   </div>`;
 
+  const armTag = s.hardpoints > 0
+    ? `<span class="${s.armed ? 'ck-red' : 'ck-dim'}">${s.armed ? '● ARMED' : '○ SAFE'}</span>` : '';
   const readout = `<div class="ck-readout">
     <span>ALT <b>${esc(s.bandLabel || '—')}</b></span>
     <span>SPD <b>${s.spd ?? 0}</b>kt</span>
     <span>HDG <b>${(s.heading || 'n').toUpperCase()}</b></span>
+    ${armTag ? `<span>${armTag}</span>` : ''}
     <span class="ck-below">⌖ <b>${esc(s.surface || 'open air')}</b></span>
   </div>`;
 
@@ -194,6 +198,7 @@ function ensureHudStyles() {
     .ck-map-c { width:20px; text-align:center; font-size:15px; line-height:1.25; }
     .ck-map-craft { color:#ffcf3e; text-shadow:0 0 8px rgba(255,207,62,0.8); }
     .ck-map-land { color:#2f6d4a; }
+    .ck-map-nofly { color:#ff5b5b; opacity:0.7; }
     .ck-map-air { color:#1c3a4a; }
     .ck-map-sweep { position:absolute; top:50%; left:50%; width:140%; height:2px; transform-origin:left center;
       background:linear-gradient(90deg, rgba(79,184,224,0.55), transparent); animation:ck-radar 3.6s linear infinite; pointer-events:none; }
@@ -497,6 +502,110 @@ export function openGlideslope(opts = {}) {
     else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); doFlare(); }
   });
   add(window, 'keyup', (e) => { if (e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); setHold(false); } });
+  window.AudioEngine?.init?.();
+  csfx('flight-approach', 'hololock-entry');
+  last = performance.now(); raf = requestAnimationFrame(tick);
+}
+
+// ══ 4. TARGETING — the gun-pass reticle deck ══════════════════════════════════
+// Steer the pipper onto a jinking ground target (move the pointer, or WASD/arrows),
+// hold it there to build LOCK, then FIRE. Skill widens the lock gate + slows the
+// target's jink; the AA's accuracy tightens it. Reports { won } → `strafresolve`.
+export function openTargeting(opts = {}) {
+  ensureMgStyles(); ensureChassisStyles();
+  const o = { skill: 4, difficulty: 6, deviceName: 'TARGET', onResult: null, ...opts };
+  const edge = o.skill - o.difficulty;
+  const lockRadius = clampNum(0.16 + edge * 0.014, 0.08, 0.28);   // how close counts as on-target
+  const jink = clampNum(0.5 + o.difficulty * 0.06 - o.skill * 0.02, 0.3, 1.4);
+  const lockRate = clampNum(0.55 + edge * 0.04, 0.3, 1.0);
+  const TIME = 8;
+
+  let ret = { x: 0.5, y: 0.5 }, tgt = { x: 0.5, y: 0.28 }, tgtT = 0, lock = 0, locked = false;
+  let t0 = 0, over = false, raf = 0, last = 0;
+  const listeners = [];
+  const add = (t, ty, fn, op) => { t.addEventListener(ty, fn, op); listeners.push([t, ty, fn, op]); };
+
+  const scr = `<svg viewBox="0 0 220 220" preserveAspectRatio="xMidYMid meet" id="ck-tgt-svg">
+    <defs><radialGradient id="ck-tgt-bg" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="#06202a"/><stop offset="1" stop-color="#01080c"/></radialGradient></defs>
+    <rect x="8" y="8" width="204" height="204" rx="10" fill="url(#ck-tgt-bg)" stroke="#22465a" stroke-width="2"/>
+    ${[40, 70, 100].map(r => `<circle cx="110" cy="110" r="${r}" fill="none" stroke="#1c3a4a" stroke-width="1"/>`).join('')}
+    <line x1="110" y1="14" x2="110" y2="206" stroke="#153040" stroke-width="1"/>
+    <line x1="14" y1="110" x2="206" y2="110" stroke="#153040" stroke-width="1"/>
+    <!-- target -->
+    <g id="ck-tgt"><rect x="-9" y="-9" width="18" height="18" fill="none" stroke="#ff8a3e" stroke-width="2"/><circle cx="0" cy="0" r="2.5" fill="#ff8a3e"/></g>
+    <!-- reticle -->
+    <g id="ck-ret"><circle cx="0" cy="0" r="16" fill="none" stroke="#4fb8e0" stroke-width="1.5"/>
+      <line x1="-22" y1="0" x2="-8" y2="0" stroke="#4fb8e0" stroke-width="2"/><line x1="8" y1="0" x2="22" y2="0" stroke="#4fb8e0" stroke-width="2"/>
+      <line x1="0" y1="-22" x2="0" y2="-8" stroke="#4fb8e0" stroke-width="2"/><line x1="0" y1="8" x2="0" y2="22" stroke="#4fb8e0" stroke-width="2"/></g>
+  </svg>`;
+
+  const html = `<div class="ck-panel mg-chassis">
+    ${deviceHeader('&#127919;', 'TARGETING', 'GUN PASS &middot; ' + esc(o.deviceName).toUpperCase())}
+    <div class="ck-hud2"><span>TGT <b>${esc(o.deviceName)}</b></span><span class="ck-asi-wrap">LOCK <span class="ck-asi-bar"><span class="ck-asi-fill" id="ck-lock" style="background:linear-gradient(90deg,#7a5310,#ffb23e)"></span></span></span></div>
+    <div class="mg-bezel">${bezelScrews()}<div class="ck-scr mg-screen" style="--mg-sweep-h:220px">${scr}${crtOverlays()}</div></div>
+    ${deckStrip('GUN BUS', 'LOCK')}
+    <div class="ck-status2" id="ck-status"><span class="ck-hint">Move the pipper onto the target and hold it to LOCK — then FIRE (space / click).</span></div>
+    <div class="ck-actions"><button class="ck-btn ck-btn-fire">Fire &#9251;</button><button class="ck-btn ck-btn-abort">Break Off</button></div>
+  </div>`;
+
+  const mounted = mountOverlay({ id: 'cockpit-overlay', html, closeOnBackdrop: false,
+    onClose: () => { if (raf) cancelAnimationFrame(raf); for (const [t, ty, fn, op] of listeners) t.removeEventListener(ty, fn, op); } });
+  const overlay = mounted.overlay;
+  const svg = overlay.querySelector('#ck-tgt-svg');
+  const setStatus = (h) => { const el = overlay.querySelector('#ck-status'); if (el) el.innerHTML = h; };
+
+  const finish = (won) => {
+    if (over) return; over = true;
+    if (raf) cancelAnimationFrame(raf); raf = 0;
+    csfx(won ? 'flight-guns' : 'flight-abort', won ? 'hololock-win' : 'hololock-lose');
+    setStatus(won ? '<span class="ck-win">◇ SPLASH — target destroyed.</span>' : '<span class="ck-lose">✕ No hits — you overfly the target.</span>');
+    setTimeout(() => { mounted.close(); if (o.onResult) o.onResult({ won }); }, 950);
+  };
+  const fire = () => { if (over) return; if (locked) finish(true); else finish(false); };
+
+  const svgXY = (e) => {
+    const r = svg.getBoundingClientRect();
+    return { x: clampNum((e.clientX - r.left) / r.width, 0, 1), y: clampNum((e.clientY - r.top) / r.height, 0, 1) };
+  };
+  add(svg, 'pointermove', (e) => { ret = svgXY(e); });
+  add(window, 'keydown', (e) => {
+    const k = e.key.toLowerCase();
+    if (k === 'arrowleft' || k === 'a') ret.x = clampNum(ret.x - 0.05, 0, 1);
+    else if (k === 'arrowright' || k === 'd') ret.x = clampNum(ret.x + 0.05, 0, 1);
+    else if (k === 'arrowup' || k === 'w') ret.y = clampNum(ret.y - 0.05, 0, 1);
+    else if (k === 'arrowdown' || k === 's') ret.y = clampNum(ret.y + 0.05, 0, 1);
+    else if (k === ' ' || k === 'spacebar') { e.preventDefault(); fire(); }
+  });
+  overlay.querySelector('.ck-btn-fire').addEventListener('click', fire);
+  overlay.querySelector('.ck-btn-abort').addEventListener('click', () => finish(false));
+  overlay.querySelector('.mg-close').addEventListener('click', () => finish(false));
+
+  const tick = (t) => {
+    if (over) return;
+    const dt = Math.min(0.05, (t - last) / 1000 || 0); last = t;
+    if (!t0) t0 = t;
+    // Target jinks toward wandering waypoints.
+    tgtT -= dt;
+    if (tgtT <= 0) { tgt.tx = 0.2 + Math.random() * 0.6; tgt.ty = 0.15 + Math.random() * 0.5; tgtT = 0.4 + Math.random() / jink; }
+    tgt.x += ((tgt.tx ?? 0.5) - tgt.x) * Math.min(1, jink * dt * 2);
+    tgt.y += ((tgt.ty ?? 0.3) - tgt.y) * Math.min(1, jink * dt * 2);
+    const d = Math.hypot(ret.x - tgt.x, ret.y - tgt.y);
+    const on = d <= lockRadius;
+    lock = clampNum(lock + (on ? lockRate : -lockRate * 1.3) * dt, 0, 1);
+    const wasLocked = locked;
+    locked = lock >= 1;
+    if (locked && !wasLocked) csfx('flight-lock');
+    // Render (viewBox 0..220 with 8px inset → map 0..1 onto 14..206).
+    const px = (v) => 14 + v * 192;
+    overlay.querySelector('#ck-ret').setAttribute('transform', `translate(${px(ret.x)} ${px(ret.y)})`);
+    overlay.querySelector('#ck-tgt').setAttribute('transform', `translate(${px(tgt.x)} ${px(tgt.y)})`);
+    overlay.querySelector('#ck-ret').style.stroke = locked ? '#46e05a' : on ? '#ffb23e' : '#4fb8e0';
+    overlay.querySelector('#ck-lock').style.width = `${Math.round(lock * 100)}%`;
+    setDeckLevel(overlay, lock);
+    if (locked) { setStatus('<span style="color:#46e05a">LOCK — FIRE!</span>'); if (!over) csfx('flight-lock'); }
+    if ((t - t0) / 1000 >= TIME) { finish(false); return; }
+    raf = requestAnimationFrame(tick);
+  };
   window.AudioEngine?.init?.();
   csfx('flight-approach', 'hololock-entry');
   last = performance.now(); raf = requestAnimationFrame(tick);

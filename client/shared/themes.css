@@ -1,0 +1,628 @@
+/* ============================================================================
+   Shared theme palettes — single source of truth for both the game client
+   (client/game/) and the dev panel (client/devpanel/).
+
+   Each block sets the canonical theme variables on [data-theme="…"]. The
+   "dark" / Void default lives in each app's own :root (it also carries app
+   fonts/spacing), so it is intentionally NOT here. Both index.html files
+   <link> this file AFTER their own styles.css so these blocks win over :root.
+
+   The dev panel additionally aliases its legacy names (--accent2 → --green,
+   --accent3/--warning → --orange, --danger → --red, --success → --green) in
+   its own :root, so it reads these same palettes without touching its ~96
+   existing var() call sites.
+
+   To add a theme: add a block here AND its [id,'Name'] entry to LIGHT_THEMES
+   or DARK_THEMES in BOTH client/shared/settings.js and
+   client/devpanel/js/ui/settings.js.
+   ============================================================================ */
+
+/* Parchment — warm paper background, same accent family for brand continuity */
+[data-theme="light"] {
+	--bg: #f4f2ed;
+	--bg2: #e9e6de;
+	--bg3: #ddd9cf;
+	--border: #c8c3b6;
+	--text: #3a3834;
+	--text-dim: #6f6a5e;
+	--text-bright: #1a1916;
+	--accent: #c4197f;
+	--accent-dim: #f5cfe5;
+	--green: #1f8f4f;
+	--red: #c23b3b;
+	--orange: #b8651f;
+	--yellow: #9c8a1a;
+	--cyan: #145a66;
+	--purple: #7b3f99;
+}
+
+/* Arctic — crisp winter white, ice-blue accent */
+[data-theme="arctic"] {
+	--bg: #f0f5fc;
+	--bg2: #e2eaf6;
+	--bg3: #d4e0f0;
+	--border: #a8c0de;
+	--text: #1c2e4a;
+	--text-dim: #476488;
+	--text-bright: #08182e;
+	--accent: #1a60d0;
+	--accent-dim: #bcd4f0;
+	--green: #1a7a40;
+	--red: #b82020;
+	--orange: #c05818;
+	--yellow: #8a7000;
+	--cyan: #116878;
+	--purple: #6030a8;
+}
+
+/* Solar — warm cream, amber/gold accent */
+[data-theme="solar"] {
+	--bg: #fdf6e8;
+	--bg2: #f5eccc;
+	--bg3: #ecd8b0;
+	--border: #c8a870;
+	--text: #3c2c10;
+	--text-dim: #6f5a3c;
+	--text-bright: #1a1008;
+	--accent: #c07000;
+	--accent-dim: #f8e4b0;
+	--green: #287040;
+	--red: #b82020;
+	--orange: #c05810;
+	--yellow: #8a7000;
+	--cyan: #0f5878;
+	--purple: #7030a0;
+}
+
+/* Mint — clean white, fresh green accent */
+[data-theme="mint"] {
+	--bg: #f0faf4;
+	--bg2: #e0f4e8;
+	--bg3: #ccecda;
+	--border: #90d0a8;
+	--text: #1a3028;
+	--text-dim: #3d6b5b;
+	--text-bright: #081818;
+	--accent: #1a9050;
+	--accent-dim: #b0e8cc;
+	--green: #148040;
+	--red: #b82030;
+	--orange: #c05818;
+	--yellow: #7a7800;
+	--cyan: #056478;
+	--purple: #7030a0;
+}
+
+/* Lavender — soft lilac background, violet accent */
+[data-theme="lavender"] {
+	--bg: #f5f2fc;
+	--bg2: #ede8f8;
+	--bg3: #e2dcf4;
+	--border: #b8a8d8;
+	--text: #2a1e48;
+	--text-dim: #7060a0;
+	--text-bright: #100a30;
+	--accent: #5030b0;
+	--accent-dim: #d0c4f0;
+	--green: #287050;
+	--red: #b02030;
+	--orange: #b86010;
+	--yellow: #7a7000;
+	--cyan: #0a5080;
+	--purple: #5828a0;
+}
+
+/* Fog — cool neutral gray, steel-blue accent */
+[data-theme="fog"] {
+	--bg: #f2f4f6;
+	--bg2: #e4e8ec;
+	--bg3: #d4d8de;
+	--border: #a8b0bc;
+	--text: #1e2530;
+	--text-dim: #505f73;
+	--text-bright: #0a1018;
+	--accent: #2878a8;
+	--accent-dim: #b8d4e8;
+	--green: #1e7848;
+	--red: #b82828;
+	--orange: #b86018;
+	--yellow: #7a7000;
+	--cyan: #0f6878;
+	--purple: #6838a8;
+}
+
+/* Inkwell — crisp neutral white, crimson accent, full editorial spectrum */
+[data-theme="inkwell"] {
+	--bg: #f8f8f6;
+	--bg2: #f0f0ec;
+	--bg3: #e4e4de;
+	--border: #c0c0b8;
+	--text: #1a1a18;
+	--text-dim: #706868;
+	--text-bright: #000000;
+	--accent: #d42040;
+	--accent-dim: #fcccd4;
+	--green: #208040;
+	--red: #cc1020;
+	--orange: #c86010;
+	--yellow: #9a8800;
+	--cyan: #0a6878;
+	--purple: #7020b0;
+}
+
+/* Studio — cool neutral white, emerald accent, clean modern spectrum */
+[data-theme="studio"] {
+	--bg: #f4f6f8;
+	--bg2: #eaeef2;
+	--bg3: #dee4ea;
+	--border: #b4bec8;
+	--text: #181e28;
+	--text-dim: #4a6070;
+	--text-bright: #081018;
+	--accent: #0d7a50;
+	--accent-dim: #c0e8d8;
+	--green: #1a8848;
+	--red: #cc1828;
+	--orange: #c87018;
+	--yellow: #8a8800;
+	--cyan: #0a6088;
+	--purple: #6828c0;
+}
+
+/* High contrast — pure black/white, amber accent (classic terminal phosphor) */
+[data-theme="contrast"] {
+	--bg: #000000;
+	--bg2: #0a0a0a;
+	--bg3: #141414;
+	--border: #555555;
+	--text: #ffffff;
+	--text-dim: #aaaaaa;
+	--text-bright: #ffffff;
+	--accent: #ffb000;
+	--accent-dim: #5c3f00;
+	--green: #4eff4e;
+	--red: #ff5050;
+	--orange: #ffb000;
+	--yellow: #ffe14e;
+	--cyan: #50e0ff;
+	--purple: #d050ff;
+}
+
+/* Phosphor — classic green-on-black CRT terminal */
+[data-theme="phosphor"] {
+	--bg: #010e01;
+	--bg2: #031503;
+	--bg3: #061e06;
+	--border: #0f4010;
+	--text: #33ff33;
+	--text-dim: #22a822;
+	--text-bright: #80ff80;
+	--accent: #00ff41;
+	--accent-dim: #003310;
+	--green: #00ff41;
+	--red: #ff4444;
+	--orange: #ffaa00;
+	--yellow: #ccff00;
+	--cyan: #00ffcc;
+	--purple: #88ff44;
+}
+
+/* Synthwave — deep navy, neon pink and cyan */
+[data-theme="synthwave"] {
+	--bg: #0d0221;
+	--bg2: #130330;
+	--bg3: #1a0540;
+	--border: #3d1466;
+	--text: #e0d0ff;
+	--text-dim: #9070c0;
+	--text-bright: #ffffff;
+	--accent: #ff2bff;
+	--accent-dim: #5a005a;
+	--green: #00ffaa;
+	--red: #ff3355;
+	--orange: #ff8c00;
+	--yellow: #ffe066;
+	--cyan: #00e5ff;
+	--purple: #cc66ff;
+}
+
+/* Blood Moon — dark red atmosphere, crimson accents */
+[data-theme="bloodmoon"] {
+	--bg: #0d0101;
+	--bg2: #160303;
+	--bg3: #200505;
+	--border: #4a0c0c;
+	--text: #f0c8b0;
+	--text-dim: #b87868;
+	--text-bright: #ffe8d8;
+	--accent: #ff2200;
+	--accent-dim: #5c0800;
+	--green: #88dd44;
+	--red: #ff4422;
+	--orange: #ff7722;
+	--yellow: #ffdd44;
+	--cyan: #ff9966;
+	--purple: #dd44aa;
+}
+
+/* Slate — cool charcoal, electric blue-green */
+[data-theme="slate"] {
+	--bg: #0e1117;
+	--bg2: #161b24;
+	--bg3: #1e2530;
+	--border: #2e3a4a;
+	--text: #c8d8e8;
+	--text-dim: #6a8aaa;
+	--text-bright: #eaf4ff;
+	--accent: #38b2f0;
+	--accent-dim: #0a3050;
+	--green: #4ed8a0;
+	--red: #f05858;
+	--orange: #f0a040;
+	--yellow: #f0e050;
+	--cyan: #38e8e8;
+	--purple: #a878f0;
+}
+
+/* Eclipse — warm near-black base, copper accent, full vivid spectrum */
+[data-theme="eclipse"] {
+	--bg: #0a0808;
+	--bg2: #130e0e;
+	--bg3: #1c1616;
+	--border: #302828;
+	--text: #e8d8d0;
+	--text-dim: #907870;
+	--text-bright: #fff8f0;
+	--accent: #ff8040;
+	--accent-dim: #501808;
+	--green: #44e880;
+	--red: #ff3355;
+	--orange: #ff9922;
+	--yellow: #ffdd44;
+	--cyan: #22ccff;
+	--purple: #cc44ff;
+}
+
+/* Iron — deep navy-black base, blazing orange accent, full vivid spectrum */
+[data-theme="iron"] {
+	--bg: #080c10;
+	--bg2: #101820;
+	--bg3: #182030;
+	--border: #283848;
+	--text: #d0e0f0;
+	--text-dim: #6088b0;
+	--text-bright: #f0f8ff;
+	--accent: #ff7020;
+	--accent-dim: #501800;
+	--green: #40e890;
+	--red: #ff4055;
+	--orange: #ff8830;
+	--yellow: #ffe040;
+	--cyan: #20ddff;
+	--purple: #c040ff;
+}
+
+/* Aurora — slate-blue night base, balanced pastel-vivid spectrum (Tokyo Night lineage) */
+[data-theme="aurora"] {
+	--bg: #16161e;
+	--bg2: #1e1e2a;
+	--bg3: #282838;
+	--border: #363652;
+	--text: #c8d0f0;
+	--text-dim: #8b90ba;
+	--text-bright: #ffffff;
+	--accent: #7aa2ff;
+	--accent-dim: #1e2a4a;
+	--green: #6ee7b7;
+	--red: #ff6b81;
+	--orange: #ff9e64;
+	--yellow: #ffd76b;
+	--cyan: #56e0e0;
+	--purple: #bb8cff;
+}
+
+/* Neon — near-black arcade base, magenta/lime/cyan neon triad */
+[data-theme="neon"] {
+	--bg: #08060f;
+	--bg2: #0f0b1c;
+	--bg3: #171029;
+	--border: #2e1f52;
+	--text: #e8e0ff;
+	--text-dim: #8f7bc0;
+	--text-bright: #ffffff;
+	--accent: #ff2fb3;
+	--accent-dim: #4a0f38;
+	--green: #2bff88;
+	--red: #ff3b5c;
+	--orange: #ff7a18;
+	--yellow: #f5e642;
+	--cyan: #23e5ff;
+	--purple: #a25bff;
+}
+
+/* Cathode — warm amber-CRT base, amber lead with green/teal phosphor accents */
+[data-theme="cathode"] {
+	--bg: #0c0a06;
+	--bg2: #14100a;
+	--bg3: #1d170d;
+	--border: #3a2c14;
+	--text: #ffcf70;
+	--text-dim: #a07a38;
+	--text-bright: #ffe9b0;
+	--accent: #ffb52e;
+	--accent-dim: #4a2f08;
+	--green: #7dd93f;
+	--red: #ff5a3c;
+	--orange: #ff8a1e;
+	--yellow: #ffe23c;
+	--cyan: #38d6c0;
+	--purple: #d07bff;
+}
+
+/* Grove — muted forest dark, soft desaturated nature palette (Everforest lineage) */
+[data-theme="grove"] {
+	--bg: #1f2420;
+	--bg2: #272e28;
+	--bg3: #313a32;
+	--border: #45503f;
+	--text: #d3c6aa;
+	--text-dim: #97a49b;
+	--text-bright: #eef0e2;
+	--accent: #a7c080;
+	--accent-dim: #2f3a2a;
+	--green: #83c092;
+	--red: #e67e80;
+	--orange: #e69875;
+	--yellow: #dbbc7f;
+	--cyan: #7fbbb3;
+	--purple: #d699b6;
+}
+
+/* Latte — clean light base, vivid modern accents (Catppuccin Latte lineage) */
+[data-theme="latte"] {
+	--bg: #eff1f5;
+	--bg2: #e6e9ef;
+	--bg3: #dce0e8;
+	--border: #bcc0cc;
+	--text: #4c4f69;
+	--text-dim: #63677a;
+	--text-bright: #1e2030;
+	--accent: #1e66f5;
+	--accent-dim: #d6e2ff;
+	--green: #40a02b;
+	--red: #d20f39;
+	--orange: #fe640b;
+	--yellow: #df8e1d;
+	--cyan: #179299;
+	--purple: #8839ef;
+}
+
+/* Rosewater — warm parchment light, muted editorial multi-hue (Rosé Pine Dawn lineage) */
+[data-theme="rose"] {
+	--bg: #faf4ed;
+	--bg2: #f0e6da;
+	--bg3: #e6dccb;
+	--border: #cfc4b0;
+	--text: #575279;
+	--text-dim: #656177;
+	--text-bright: #393552;
+	--accent: #b4637a;
+	--accent-dim: #f0dfe4;
+	--green: #618375;
+	--red: #b4506a;
+	--orange: #d7827e;
+	--yellow: #ea9d34;
+	--cyan: #56949f;
+	--purple: #907aa9;
+}
+
+/* Papertape — cream teletype base, colored-ribbon ink accents */
+[data-theme="papertape"] {
+	--bg: #f6f0df;
+	--bg2: #ece3c9;
+	--bg3: #e0d4b2;
+	--border: #c2b184;
+	--text: #3b3222;
+	--text-dim: #6f6142;
+	--text-bright: #211a0e;
+	--accent: #b5601a;
+	--accent-dim: #ecd9be;
+	--green: #4a7a2a;
+	--red: #b52a24;
+	--orange: #c47318;
+	--yellow: #a88410;
+	--cyan: #1a7a86;
+	--purple: #7a4a9a;
+}
+
+/* Bubblegum — soft pink-white pop base, bright vaporwave-day palette */
+[data-theme="bubblegum"] {
+	--bg: #fdf2fb;
+	--bg2: #f8e6f6;
+	--bg3: #f2d9ef;
+	--border: #e0aede;
+	--text: #4a2b52;
+	--text-dim: #8a4f8a;
+	--text-bright: #2a0f34;
+	--accent: #e6217f;
+	--accent-dim: #fbcce4;
+	--green: #12b886;
+	--red: #f03e5c;
+	--orange: #fb8c2a;
+	--yellow: #f0b310;
+	--cyan: #0bb4d4;
+	--purple: #8a3ffb;
+}
+
+/* Tide — deep ocean-teal base, luminous aqua lead (abyssal Nord lineage) */
+[data-theme="tide"] {
+	--bg: #0e1c1e;
+	--bg2: #142629;
+	--bg3: #1c3236;
+	--border: #294c52;
+	--text: #c2ded9;
+	--text-dim: #6f9d9a;
+	--text-bright: #e8f6f2;
+	--accent: #4fd6c4;
+	--accent-dim: #0c3d3a;
+	--green: #6fd98f;
+	--red: #f0716f;
+	--orange: #eaa25c;
+	--yellow: #e6d17c;
+	--cyan: #5ce0dc;
+	--purple: #b48cf0;
+}
+
+/* Dusk — muted indigo-plum base, soft rose lead (Rosé Pine lineage) */
+[data-theme="dusk"] {
+	--bg: #191724;
+	--bg2: #1f1d2e;
+	--bg3: #26233a;
+	--border: #403d5c;
+	--text: #e0def4;
+	--text-dim: #908caa;
+	--text-bright: #f5f4fb;
+	--accent: #ebbcba;
+	--accent-dim: #3a2e3f;
+	--green: #6fcf9c;
+	--red: #eb6f92;
+	--orange: #f6c177;
+	--yellow: #f6d488;
+	--cyan: #9ccfd8;
+	--purple: #c4a7e7;
+}
+
+/* Meadow — warm sage-cream base, leaf-green lead (Everforest Light lineage) */
+[data-theme="meadow"] {
+	--bg: #edf0dd;
+	--bg2: #e4e9cf;
+	--bg3: #d9e0bf;
+	--border: #bcc79c;
+	--text: #4a5340;
+	--text-dim: #6f7a5c;
+	--text-bright: #333c28;
+	--accent: #6f942e;
+	--accent-dim: #d5e2b4;
+	--green: #4c8a2e;
+	--red: #e0524a;
+	--orange: #d9852b;
+	--yellow: #c69a20;
+	--cyan: #359489;
+	--purple: #9d5ba0;
+}
+
+/* Clay — warm terracotta-sand base, burnt-clay lead (Gruvbox Light lineage) */
+[data-theme="clay"] {
+	--bg: #f3e6d8;
+	--bg2: #ecdcc8;
+	--bg3: #e3cfb5;
+	--border: #cbb193;
+	--text: #4b3a2a;
+	--text-dim: #7a6449;
+	--text-bright: #332417;
+	--accent: #c0562b;
+	--accent-dim: #ecd0b8;
+	--green: #6a7a1e;
+	--red: #c02f28;
+	--orange: #d1741c;
+	--yellow: #b3841a;
+	--cyan: #3a8478;
+	--purple: #9a5586;
+}
+
+/* Highbeam — maximum-contrast light theme for direct sunlight / high glare:
+   pure white base, jet-black text, bold saturated signal colours */
+[data-theme="highbeam"] {
+	--bg: #ffffff;
+	--bg2: #f2f2f2;
+	--bg3: #e6e6e6;
+	--border: #333333;
+	--text: #000000;
+	--text-dim: #444444;
+	--text-bright: #000000;
+	--accent: #0b46ff;
+	--accent-dim: #c7d6ff;
+	--green: #006e1c;
+	--red: #cc0000;
+	--orange: #b34700;
+	--yellow: #6e5600;
+	--cyan: #005f73;
+	--purple: #6a12b0;
+}
+
+/* Solar Flare — sunlight-readable amber HUD: deep black base, high-luminance
+   amber text, bold signal colours. Glare-friendly like a hardened field display */
+[data-theme="solarflare"] {
+	--bg: #000000;
+	--bg2: #0b0b0b;
+	--bg3: #161616;
+	--border: #6b5600;
+	--text: #ffd23a;
+	--text-dim: #b38f2e;
+	--text-bright: #ffe680;
+	--accent: #ff9e00;
+	--accent-dim: #4a2f00;
+	--green: #57ff57;
+	--red: #ff5555;
+	--orange: #ffae2b;
+	--yellow: #ffe14d;
+	--cyan: #4ad0ff;
+	--purple: #cf8bff;
+}
+
+/* Abyss — deep ocean-navy base, luminous azure lead (colored background) */
+[data-theme="abyss"] {
+	--bg: #101a2e;
+	--bg2: #16233b;
+	--bg3: #1e2e4a;
+	--border: #33456b;
+	--text: #cdd9ee;
+	--text-dim: #7f93b8;
+	--text-bright: #eef3fb;
+	--accent: #4d9fff;
+	--accent-dim: #16294a;
+	--green: #5fd0a0;
+	--red: #f0687f;
+	--orange: #f0a15c;
+	--yellow: #e6cf72;
+	--cyan: #5cd6ee;
+	--purple: #a99bf0;
+}
+
+/* Mulberry — deep wine-plum base, rose-magenta lead (colored background) */
+[data-theme="mulberry"] {
+	--bg: #241825;
+	--bg2: #2e1f30;
+	--bg3: #3a273c;
+	--border: #55385a;
+	--text: #ecd6ea;
+	--text-dim: #b088ad;
+	--text-bright: #fbeef8;
+	--accent: #e85ba8;
+	--accent-dim: #3d213a;
+	--green: #8fd08a;
+	--red: #f0687f;
+	--orange: #eaa06a;
+	--yellow: #e6c778;
+	--cyan: #74c7c4;
+	--purple: #c99bf0;
+}
+
+/* Umber — warm coffee-brown base, amber lead (colored background) */
+[data-theme="umber"] {
+	--bg: #241b13;
+	--bg2: #2e2318;
+	--bg3: #3a2d20;
+	--border: #544133;
+	--text: #ecdcc6;
+	--text-dim: #b39a7c;
+	--text-bright: #fbefdd;
+	--accent: #e0912f;
+	--accent-dim: #3d2a16;
+	--green: #a3bd6a;
+	--red: #e5766a;
+	--orange: #e69a58;
+	--yellow: #dcc274;
+	--cyan: #6fbcae;
+	--purple: #c496c4;
+}
