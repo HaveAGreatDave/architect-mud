@@ -2540,8 +2540,13 @@ textarea {
 	flex: 0 0 auto;
 	min-width: 220px;
 	max-width: 300px;
-	/* Match the 11-row map viewport height so the list bottom lines up. */
+	/* Match the 11-row map viewport height so the panel bottom lines up with the
+	   map, and clip/scroll anything past it (regional's land-use list can be tall)
+	   so it never bleeds over the CLOSE button. */
 	max-height: calc(21 * 16px);
+	overflow: hidden auto;
+	scrollbar-width: thin;
+	scrollbar-color: var(--accent) var(--bg);
 	display: flex;
 	flex-direction: column;
 	align-content: flex-start;
