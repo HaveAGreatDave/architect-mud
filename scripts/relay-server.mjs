@@ -229,23 +229,42 @@ const server = createServer(async (req, res) => {
     }
 
     // Launch the game server (detached, mirrors `npm run dev`). It's long-running,
-    // so we don't stream it — spawn, unref, and let the port check confirm it's up.
+    // so we don't stream it — but we DO watch stdout/stderr for a few seconds so an
+    // early boot crash (bad DB, missing schema) surfaces here instead of vanishing
+    // into a detached process. If it's still alive after the grace window, we detach
+    // and let the port check confirm it's up.
     if (req.url === '/api/launch' && req.method === 'POST') {
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
       if (await portOpen(GAME_PORT)) {
         return res.end(`✓ Architect is already running on http://localhost:${GAME_PORT}`);
       }
+      let child;
       try {
-        const child = spawn(NODE, ['--watch', 'server/index.js'], {
-          cwd: ROOT,
-          detached: true,
-          stdio: 'ignore',
-        });
-        child.unref();
-        return res.end(`🏚  Architect launching on http://localhost:${GAME_PORT} …\nGive it a second to boot, then use the ▶ Architect link. Stop it with:  npm run kill:orphans`);
+        child = spawn(NODE, ['--watch', 'server/index.js'], { cwd: ROOT, detached: true });
       } catch (e) {
         return res.end('✗ Failed to launch: ' + e.message);
       }
+      // Watch the boot for up to 4s: if the process exits (crash) in that window,
+      // report its captured output; otherwise assume it booted and detach.
+      const BOOT_GRACE_MS = 4000;
+      let output = '';
+      let booting = true; // stop accumulating once detached, but keep draining the
+                          // pipes so a filled OS buffer never blocks the child.
+      child.stdout.on('data', (d) => { if (booting) output += d; });
+      child.stderr.on('data', (d) => { if (booting) output += d; });
+      const outcome = await new Promise((done) => {
+        const timer = setTimeout(() => done({ crashed: false }), BOOT_GRACE_MS);
+        child.once('exit', (code) => { clearTimeout(timer); done({ crashed: true, code }); });
+        child.once('error', (e) => { clearTimeout(timer); done({ crashed: true, error: e.message }); });
+      });
+      if (outcome.crashed) {
+        const why = outcome.error ? outcome.error : `exit code ${outcome.code}`;
+        const tail = output.trim().split('\n').slice(-20).join('\n');
+        return res.end(`✗ Architect crashed on boot (${why}).\n\n${tail || '(no output captured)'}`);
+      }
+      booting = false; // detach: keep listeners (draining) but drop the buffer
+      child.unref();
+      return res.end(`🏚  Architect launching on http://localhost:${GAME_PORT} …\nGive it a second to boot, then use the ▶ Architect link. Stop it with:  npm run kill:orphans`);
     }
 
     // World lane — publish seed (guarded to localhost).

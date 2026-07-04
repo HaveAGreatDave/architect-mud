@@ -407,7 +407,8 @@ export const SCHEMA_SQL = `
     ingredients JSONB DEFAULT '[]',
     base_output JSONB NOT NULL,
     skill_id TEXT NOT NULL,
-    base_difficulty INTEGER DEFAULT 3
+    base_difficulty INTEGER DEFAULT 3,
+    craft_time INTEGER DEFAULT 3
   );
 
   CREATE TABLE IF NOT EXISTS drugs (
