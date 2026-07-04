@@ -236,6 +236,9 @@ export const SCHEMA_SQL = `
   -- Nominal worth in credits (room dressing is examine-only, so this is flavour/
   -- appraisal value, not a shop price). 0 = worthless/unpriced.
   ALTER TABLE furniture ADD COLUMN IF NOT EXISTS price INTEGER DEFAULT 0;
+  -- Destructible furniture HP (NULL = indestructible room dressing).
+  ALTER TABLE furniture ADD COLUMN IF NOT EXISTS hp INTEGER;
+  ALTER TABLE furniture ADD COLUMN IF NOT EXISTS hp_max INTEGER;
 
   -- Triggered sound definitions (gunshot, explosion, bark, etc.).
   -- Associated with objects/events via tags; loudness determines tile range.
@@ -290,11 +293,6 @@ export const SCHEMA_SQL = `
     visibility_transmission FLOAT NOT NULL DEFAULT 0.8,
     flags JSONB DEFAULT '{}'
   );
-  ALTER TABLE doors ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '{}';
-  ALTER TABLE doors ADD COLUMN IF NOT EXISTS lock_state TEXT DEFAULT NULL;
-  UPDATE doors SET is_open=0 WHERE is_open IS NULL;
-  ALTER TABLE doors ALTER COLUMN is_open SET NOT NULL;
-  ALTER TABLE doors ALTER COLUMN is_open SET DEFAULT 0;
   ALTER TABLE windows ADD COLUMN IF NOT EXISTS handle TEXT;
 
   CREATE TABLE IF NOT EXISTS doors (
@@ -308,6 +306,15 @@ export const SCHEMA_SQL = `
     hololock_difficulty INTEGER DEFAULT 5,
     flags JSONB DEFAULT '{}'
   );
+
+  -- doors columns/constraints. These live AFTER CREATE TABLE doors — they were
+  -- historically placed above it, which broke a fresh empty-DB bootstrap.
+  ALTER TABLE doors ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '{}';
+  ALTER TABLE doors ADD COLUMN IF NOT EXISTS lock_state TEXT DEFAULT NULL;
+  ALTER TABLE doors ADD COLUMN IF NOT EXISTS is_locked INTEGER DEFAULT 0;
+  UPDATE doors SET is_open=0 WHERE is_open IS NULL;
+  ALTER TABLE doors ALTER COLUMN is_open SET NOT NULL;
+  ALTER TABLE doors ALTER COLUMN is_open SET DEFAULT 0;
 
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS name TEXT DEFAULT NULL;
   -- Pins a door to one specific exit when its direction has multiple exits
@@ -402,6 +409,7 @@ export const SCHEMA_SQL = `
     skill_id TEXT NOT NULL,
     base_difficulty INTEGER DEFAULT 3
   );
+  ALTER TABLE recipes ADD COLUMN IF NOT EXISTS craft_time INTEGER DEFAULT 3;
 
   CREATE TABLE IF NOT EXISTS drugs (
     id TEXT PRIMARY KEY,
@@ -830,6 +838,15 @@ export const SCHEMA_SQL = `
     news_categories JSONB DEFAULT '[]',
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+
+  -- Physical deck/player units bound to a channel (cassette-driven TVs, etc.).
+  CREATE TABLE IF NOT EXISTS media_deck_units (
+    id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL REFERENCES media_channels(id),
+    active_cassette_item_id TEXT,
+    light_state TEXT NOT NULL DEFAULT 'red'
+  );
+  CREATE INDEX IF NOT EXISTS idx_media_deck_units_channel ON media_deck_units(channel_id);
 
   -- Playlist timeline items. start_time is seconds from the start of the loop.
   -- duration_override replaces the broadcast's calculated duration for this slot.
