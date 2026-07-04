@@ -368,7 +368,26 @@ function wireMapUi() {
     el.addEventListener('mouseover', onMapHover);
     el.addEventListener('mousemove', onMapMove);
     el.addEventListener('mouseout', onMapOut);
+    // Charter destination-pick: while armed, clicking a tile chooses it.
+    el.addEventListener('click', (e) => {
+      if (!_pickCb) return;
+      const cell = e.target.closest('[data-zone-id]');
+      if (!cell) return;
+      const zid = cell.getAttribute('data-zone-id');
+      const cb = _pickCb; _pickCb = null;
+      document.getElementById('map-panel')?.classList.remove('active');
+      cb(zid);
+    });
   }
+}
+
+// Arm the map popup so the next tile click selects a destination (charter). The
+// callback receives the clicked zone id; picking closes the map.
+let _pickCb = null;
+export function armMapPick(cb) {
+  _pickCb = cb;
+  const title = document.getElementById('map-title');
+  if (title) title.textContent = 'Charter — pick your destination';
 }
 
 export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
