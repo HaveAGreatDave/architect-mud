@@ -221,8 +221,8 @@ const pendingSplice = new Map();
 // (drug flags.form / flags.color / flags.sub / flags.volatility) with generic,
 // stable-per-drug fallbacks — so packages render distinctly even before any
 // content is backfilled, and content can override later without a code change.
-const SPLICE_FORMS = ['liquid', 'powder', 'gel', 'pill', 'gas', 'crystal', 'blotter', 'paste', 'leaf'];
-const SPLICE_SUBS = { liquid: 'thin', powder: 'fine', gel: 'viscous', pill: 'tablet', gas: 'pressurized', crystal: 'shard', blotter: 'sheet', paste: 'tar', leaf: 'dried' };
+const SPLICE_FORMS = ['liquid', 'powder', 'gel', 'pill', 'gas', 'crystal', 'blotter', 'paste'];
+const SPLICE_SUBS = { liquid: 'thin', powder: 'fine', gel: 'viscous', pill: 'tablet', gas: 'pressurized', crystal: 'shard', blotter: 'sheet', paste: 'tar' };
 const FORM_FALLBACK = ['liquid', 'powder', 'gel', 'pill']; // auto-derive only assigns the common four; the rest are opt-in via flags.form
 const PALETTE_HEX = { green: '#4fe08a', purple: '#9a5ce0', red: '#e0644f', gold: '#e0b64f', cyan: '#5fd0e0', magenta: '#e05cc0', blue: '#4f9ae0' };
 const FALLBACK_HEX = ['#4fe08a', '#e0644f', '#4f9ae0', '#e0b64f', '#9a5ce0', '#5fd0e0', '#7de07a', '#e05cc0', '#d6a0e0', '#c9c9d6'];

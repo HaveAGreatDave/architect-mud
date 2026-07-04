@@ -28,7 +28,6 @@ import { commands as acquisitionCommands, refuelAt, fieldStocks } from './acquis
 import { commands as combatCommands, tickCombat } from './combat.js';
 import { commands as contractCommands, checkContractDelivery } from './contracts.js';
 import { commands as hangarCommands } from './hangars.js';
-import { commands as charterCommands, charterDebug } from './charter.js';
 
 // Verb-collision routers (see plugin.json `after`): flight wins `board`/`refuel`
 // and delegates to the prior owner by context.
@@ -65,9 +64,8 @@ function breakOffAttackers(player) {
 
 // ── Boarding ──────────────────────────────────────────────────────────────────
 async function findParkedHere(zoneId, nameArg) {
-  const { rows } = await query('SELECT id, name, type_id, is_wreck, owner_id, hangar_id, rental, custom_data FROM aircraft WHERE parked_zone_id=$1', [zoneId]);
-  // Charter craft are the NPC pilot's — never boardable as a normal aircraft.
-  const flyable = rows.filter(r => !r.is_wreck && (r.custom_data?.charter !== true));
+  const { rows } = await query('SELECT id, name, type_id, is_wreck, owner_id, hangar_id, rental FROM aircraft WHERE parked_zone_id=$1', [zoneId]);
+  const flyable = rows.filter(r => !r.is_wreck);
   if (!flyable.length) return null;
   if (nameArg) return flyable.find(r => (r.name || '').toLowerCase().includes(nameArg) || r.id.includes(nameArg)) || null;
   return flyable[0];
@@ -451,7 +449,6 @@ async function flightTick() {
   ticking = true;
   try {
     for (const live of [...liveAircraft.values()]) {
-      if (live.charter) continue;   // NPC-flown charters are driven by charter.js, not the physics tick
       if (!live.row.airborne || live.pending) continue;
       const a = live.row, eff = effStats(live);
 
@@ -522,50 +519,17 @@ function describeAirfield(zone) {
   return `<span class="furniture-label">Services:</span> ${bits.join('   ·   ')}`;
 }
 
-// ── Admin: free test-fly any aircraft from a field ────────────────────────────
-async function cmdTestFly(args, raw, player) {
-  if (!['admin', 'dev'].includes(player.role)) return { type: 'error', message: 'Access denied.' };
-  if (player.aircraftId) return { type: 'emote', message: 'Disembark first.' };
-  const zone = getZone(player.current_zone);
-  if (!zone?.flags?.airfield_id) return { type: 'emote', message: 'Stand at an airfield to conjure a test aircraft.' };
-  const wanted = (args[0] || '').toLowerCase();
-  const { rows } = await query("SELECT id, name, fuel_capacity FROM aircraft_types WHERE (id=$1 OR lower(name)=$1) AND class <> 'wreck'", [wanted]);
-  if (!rows.length) {
-    const all = await query("SELECT id FROM aircraft_types WHERE class <> 'wreck' ORDER BY price_buy");
-    return { type: 'output', message: `Usage: <b>.testfly &lt;type&gt;</b>. Types: ${all.rows.map(r => r.id.replace('ac_', '')).join(', ')}` };
-  }
-  const t = rows[0];
-  const id = `aircraft_test_${player.id.slice(0, 6)}_${randomUUID().slice(0, 6)}`;
-  await query(
-    `INSERT INTO aircraft (id,type_id,name,owner_id,map_id,grid_x,grid_y,altitude_band,parked_zone_id,fuel,engine_temp,rental)
-     VALUES ($1,$2,$3,$4,'map_world',$5,$6,'ground',$7,$8,20,0)`,
-    [id, t.id, `TEST ${t.name}`, player.id, zone.grid_x, zone.grid_y, zone.id, t.fuel_capacity]
-  );
-  const live = await loadAircraft(id);
-  live.occupants.add(player.id); player.aircraftId = id; player.seat = 'pilot';
-  pushHud(live);
-  return { type: 'emote', message: `<span class="text-green">[TEST] A free <b>${t.name}</b>, full tank, and you're in the pilot's seat. startup · throttle · takeoff. It's yours — scrap it when done.</span>` };
-}
-
 export const commands = {
-  embark: cmdBoard, board: cmdBoard, disembark: cmdDisembark, deplane: cmdDisembark, testfly: cmdTestFly,
+  embark: cmdBoard, board: cmdBoard, disembark: cmdDisembark, deplane: cmdDisembark,
   startup: cmdStartup, shutdown: cmdShutdown, throttle: cmdThrottle,
   heading: cmdHeading, climb: cmdClimb, dive: cmdDive,
   takeoff: cmdTakeoff, land: cmdLand, refuel: cmdRefuel,
   takeoffresolve: cmdTakeoffResolve, landresolve: cmdLandResolve,
-  ...hazardCommands, ...acquisitionCommands, ...combatCommands, ...contractCommands, ...hangarCommands, ...charterCommands,
+  ...hazardCommands, ...acquisitionCommands, ...combatCommands, ...contractCommands, ...hangarCommands,
 };
 
 export const hooks = {
   'zone.describeRoom': describeAirfield,
-};
-
-// ── Dev-panel debug route (GET /flight/debug) — charter pilot status + flight log
-export const routeHandler = async (path, method, body, auth) => {
-  if (!path.startsWith('/flight')) return null;
-  const parts = path.split('/').filter(Boolean);
-  if (parts[1] === 'debug' && method === 'GET') return { status: 200, body: await charterDebug() };
-  return null;
 };
 
 export const _test = { surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach };

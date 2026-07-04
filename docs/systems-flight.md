@@ -202,32 +202,8 @@ name**, the **livery**, and **saveable tune profiles** (`modify save/load <name>
 quick curve shortcut, now equally owner-gated (`ownedCraft`); rentals and
 other people's aircraft can't be modified.
 
-**Acquisition** (`acquisition.js`). `buy <type>` purchases at a dealer field (`buy`
-routes back to commerce for ordinary shopping).
-
-**NPC-pilot charters** (`charter.js`). `charter` is a *ride*, not a self-flown
-rental: an on-duty **charter-pilot NPC** (a new `charter_pilot` personality;
-three seeded — Ratchet Doyle @ Coldwater Regional 0000–0800, Magpie Soto @
-Marshalling Field 0800–1600, Old Kessler @ Smuggler's Slip 1600–0000) flies you as
-a passenger. Each pilot works a fixed **8-hour shift** at one field (the three tile
-the day). Pilots **physically clock in and out** (`syncPilots` moves the NPC): a
-pilot is **at work** when they're **in their hangar** or **out on a flight** —
-`available()` = in-hangar + free. On shift they stand at the desk; off shift they
-go **home** (desk closed, "back at 08:00"); out on a run they're gone until they
-**return**. A flight that **overruns the shift** keeps them at work (flying) until
-they land — then the next sync sends them **home, off the clock**. A pilot already
-out means you **wait for their return**. `charter` lists **passenger-capable** aircraft (seats ≥ 2)
-at **10× the hourly rate**; on booking you board as a passenger and pick a
-destination — a numbered **airport list**, or, for the VTOL **Dragonfly**, **any
-exterior tile clicked on the full map** (`flight_pick_dest` → `armMapPick` → `flyto`).
-The pilot does everything (a server-driven autoflight tick, no minigames — the
-main physics tick skips `live.charter` craft); you have **no controls**. On arrival
-they set you down and tell you to `disembark`; if you don't within **20 s** they put
-you out automatically, then the craft despawns and the pilot frees up. Payment is
-taken on departure; can't-afford cleanly cancels. **Admin:** `.testfly <type>`
-spawns any aircraft free at a field and boards you as pilot for normal flight.
-**Dev-panel:** a **Flight** panel (`GET /flight/debug`) shows each pilot's
-work-status (on duty / off shift / flying → where) and a live flight-request log.
+**Acquisition** (`acquisition.js`). `charter <type>` rents, `buy <type>` purchases
+at a dealer field (`buy` routes back to commerce for ordinary shopping).
 
 **The glass cockpit** (`cockpit.js` + `engine-audio.js`). The area pane becomes a
 brushed-metal/glass instrument panel animated every frame by a local rAF loop that

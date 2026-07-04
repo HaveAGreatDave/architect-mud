@@ -315,22 +315,6 @@ export function getZoneNpcs(zoneId) {
   return [...z.npcs].map(id => world.npcs.get(id)).filter(Boolean);
 }
 
-// Live NPCs carrying a given flag key — presence-independent (used e.g. by the
-// charter system to find a field's assigned pilot even when they're off-site).
-export function getNpcsByFlag(flagKey) {
-  return [...world.npcs.values()].filter(n => n?.flags && n.flags[flagKey]);
-}
-
-// Relocate an NPC between zones in-memory (mirrors the ai-behaviour move seam).
-export function moveNpcToZone(npcId, toZoneId) {
-  const npc = world.npcs.get(npcId);
-  if (!npc || npc.zone_id === toZoneId) return false;
-  if (npc.zone_id) world.zones.get(npc.zone_id)?.npcs.delete(npcId);
-  npc.zone_id = toZoneId;
-  world.zones.get(toZoneId)?.npcs.add(npcId);
-  return true;
-}
-
 export function getZoneCorpses(zoneId) {
   const z = world.zones.get(zoneId);
   if (!z) return [];

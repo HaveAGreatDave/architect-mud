@@ -436,38 +436,6 @@ const DEFAULTS = {
     ],
   },
 
-  charter_pilot: {
-    label: 'Charter Pilot', icon: '✈', sells: false, mobile: false, npcType: 'npc',
-    workchitchat: [
-      "You need to be somewhere, I'll get you there.",
-      "Weather's fine. Weather's always fine if you don't look too hard.",
-      "wipes a smear off the windscreen with a rag",
-      "Ten times the fare of renting, but you don't have to land it. Fair trade.",
-      "I've put this bird down on worse than you'd believe.",
-      "runs a slow eye over the fuel gauge and grunts",
-      "Passengers up front, opinions in the back.",
-      "Where to? I don't do sightseeing — straight lines only.",
-    ],
-    lifechitchat: [
-      "Off shift. The sky can wait eight hours.",
-      "Three of us cover the whole day between us. I drew the short straw.",
-      "nurses a coffee gone cold hours ago",
-      "You fly enough hours, the ground starts to look strange.",
-      "My hands still think they're on the stick.",
-      "counts the hours to the end of the shift on scarred fingers",
-    ],
-    combat_lines: [
-      'Hey — HANDS off the pilot!',
-      'You want a ride or a fight? Pick one.',
-      'I fly, I don\'t brawl — but I\'ll make an exception.',
-      'That\'s my flying hand, you idiot!',
-      'GROUND CREW! We\'ve got a problem!',
-    ],
-    mis_willing: false,
-    mis_lines_ok: ['Not in the cockpit.', 'After the shift, maybe.'],
-    mis_lines_no: ['I\'m working. Go find a bar.', 'Hands to yourself, passenger.'],
-  },
-
   police: {
     label: 'Police', icon: '👮', sells: false, mobile: false, npcType: 'npc',
     workchitchat: [

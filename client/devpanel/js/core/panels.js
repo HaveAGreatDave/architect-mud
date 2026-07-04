@@ -274,13 +274,6 @@ const PANELS = {
     noEdit: true,
     render: renderEmergencyPanel,
   },
-  flight: {
-    title: 'Flight',
-    description: 'Charter-pilot work status (shifts / on duty / out flying) and the log of requested charter flights.',
-    fetch: () => directAPI('/flight/debug'),
-    noEdit: true,
-    render: renderFlightPanel,
-  },
   worldstate: {
     title: 'World State',
     description: 'Live flags and variables governing the world\'s current global state.',

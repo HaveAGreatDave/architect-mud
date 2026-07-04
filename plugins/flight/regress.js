@@ -53,8 +53,6 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('hangar'); check('hangar off-field reports airfields', /airfield/i.test(r?.message || ''), r?.message);
   r = await run('salvage'); check('salvage with no wreck reports it', /no wreck/i.test(r?.message || ''), r?.message);
   r = await run('modify'); check('modify requires an owned aircraft', /own|no aircraft of your own/i.test(r?.message || ''), r?.message);
-  r = await run('flyto 1'); check('flyto with no charter reports it', /not waiting|charter destination/i.test(r?.message || ''), r?.message);
-  r = await run('testfly dragonfly'); check('testfly is admin-gated', /access denied/i.test(r?.message || ''), r?.message);
 
   // ── Collision routers fall through / delegate off-context ───────────────────
   r = await run('repair'); check('repair off-context falls through to gear repair', !/aircraft/i.test(r?.message || ''), r?.message);

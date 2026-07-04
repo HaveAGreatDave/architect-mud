@@ -1,6 +1,6 @@
 const SETTINGS_KEY = 'architect_settings';
 const DEFAULT_AUDIO_SETTINGS = { enabled: false, music: false, sfx: false, tv: false, masterVolume: 0.8, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.5, tvVolume: 0.6, muteWhenHidden: true };
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'off', tempUnit: 'C', contrast: 0, dpadSize: 'small', smartUi: 'off', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'off', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', audio: DEFAULT_AUDIO_SETTINGS };
 
 const DEFAULT_FELT_GREEN = '#1a4a1a';
 
@@ -223,7 +223,6 @@ export function applySettings(settings) {
   document.documentElement.setAttribute('data-sidebar', settings.sidebarPosition || 'left');
   document.documentElement.setAttribute('data-motion', settings.motion || 'on');
   document.documentElement.setAttribute('data-dpad-size', settings.dpadSize || 'small');
-  document.documentElement.setAttribute('data-smart-ui', settings.smartUi || 'off');
   document.documentElement.style.setProperty('--font-size-base', (settings.fontSize || '14') + 'px');
 
   // Apply active custom theme colors, or any in-progress editor colors, then contrast boost
@@ -278,10 +277,10 @@ export function applySettings(settings) {
   if (_cs && _cs.value !== String(_cv)) _cs.value = _cv;
   if (_cl) _cl.textContent = _cv === 0 ? 'Base' : `+${_cv}%`;
 
-  for (const group of ['fontsize', 'density', 'sidebar', 'motion', 'weatherfx', 'tempunit', 'dpadsize', 'smartui']) {
+  for (const group of ['fontsize', 'density', 'sidebar', 'motion', 'weatherfx', 'tempunit', 'dpadsize']) {
     const container = document.getElementById(`opt-${group}`);
     if (!container) continue;
-    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group === 'tempunit' ? 'tempUnit' : group === 'dpadsize' ? 'dpadSize' : group === 'weatherfx' ? 'weatherFx' : group === 'smartui' ? 'smartUi' : group;
+    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group === 'tempunit' ? 'tempUnit' : group === 'dpadsize' ? 'dpadSize' : group === 'weatherfx' ? 'weatherFx' : group;
     container.querySelectorAll('.settings-opt').forEach(btn => {
       btn.classList.toggle('selected', btn.dataset.value === String(settings[key]));
     });
@@ -358,9 +357,6 @@ export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {})
   });
   document.querySelectorAll('#opt-dpadsize .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.dpadSize = btn.dataset.value; saveAndApply(); });
-  });
-  document.querySelectorAll('#opt-smartui .settings-opt').forEach(btn => {
-    btn.addEventListener('click', () => { settings.smartUi = btn.dataset.value; saveAndApply(); });
   });
   document.querySelectorAll('#opt-tempunit .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => {

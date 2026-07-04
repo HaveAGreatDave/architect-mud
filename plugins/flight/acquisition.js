@@ -120,7 +120,7 @@ async function cmdBuy(args, raw, player, broadcast) {
   return commerceCommands.buy(args, raw, player, broadcast);
 }
 
-// `charter` is now an NPC-pilot ride (see charter.js), not a self-flown rental.
 export const commands = {
   buy: cmdBuy,
+  charter: (a, r, p) => acquire(a, r, p, 'charter'),
 };
