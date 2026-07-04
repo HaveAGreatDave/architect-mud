@@ -12,6 +12,9 @@
   "objectGatedCommands": {
     "scrub":  { "discoverVia": "police_terminal", "exposed": false, "note": "KNOWN GAP: plain command, no examine hint on the police records terminal" },
     "bribe":  { "discoverVia": "npc:police",       "exposed": false, "note": "KNOWN GAP: on-scene cop NPC advertises this only via dialogue, not examine" },
-    "submit": { "discoverVia": "npc:police",       "exposed": false, "note": "KNOWN GAP: on-scene cop NPC advertises this only via dialogue, not examine" }
+    "submit": { "discoverVia": "npc:police",       "exposed": false, "note": "KNOWN GAP: on-scene cop NPC advertises this only via dialogue, not examine" },
+    "retrieve": { "discoverVia": "furniture:security_device", "exposed": false, "note": "KNOWN GAP: acts on a concealed planted-device furniture revealed only by sweep; sweep output hints retrieve but examine lists no action (the device carries no tag/interactions)." },
+    "smash":    { "discoverVia": "furniture:security_device", "exposed": false, "note": "KNOWN GAP: destroys a swept-out device furniture; not hinted by sweep, not surfaced by examine." },
+    "hijack":   { "discoverVia": "furniture:security_device", "exposed": false, "note": "KNOWN GAP: breaches a swept-out device furniture; no examine/sweep hint." }
   }
 }

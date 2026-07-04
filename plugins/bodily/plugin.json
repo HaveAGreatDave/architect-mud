@@ -4,5 +4,8 @@
   "description": "Bowel/bladder pressure simulation (1m tick), involuntary release, pee/poop/flush verbs, timed relief routines onto any target (toilet/ground/furniture/lying creature; poop drops legwear + squats 20-40s, pee 10s w/ male-stand/female-sit; farts (pressure-scaled) + plops + surface-varied pee-stream sound cues via bodily.sfx; NPCs yell when peed on and bystanders recoil at public elimination, which also emits bodily.publicRelief → indecent-exposure charge; toilets foul until flushed), toilet/sink use panels. Stains + digestion loads stay engine (server/engine/bodily.js substrate).",
   "hooks": ["furniture.describe"],
   "events": { "emits": ["bodily.sfx", "bodily.publicRelief"], "consumes": ["player.logout"] },
-  "commands": ["pee", "urinate", "piss", "poop", "defecate", "shit", "flush"]
+  "commands": ["pee", "urinate", "piss", "poop", "defecate", "shit", "flush"],
+  "objectGatedCommands": {
+    "flush": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: requires a toilet in the zone (object_type='toilet' or flags.toilet); errors otherwise. Surfaced as an action-link inside the 'use toilet' panel, not on examine. (The `use toilet`/`use sink` panels are a tagless specializedAction that examine can't surface either — toilet/sink are not in examine's hardcoded object_type branches — but `use` is not a command so it cannot be logged here.)" }
+  }
 }

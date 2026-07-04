@@ -3,5 +3,11 @@
   "version": "1.0.0",
   "description": "Vendor shopping verbs (shop/browse/buy/sell) and balance display. Vendor services (stock, pricing, trust, restock) stay engine.",
   "hooks": [],
-  "commands": ["shop", "browse", "buy", "sell", "balance"]
+  "commands": ["shop", "browse", "buy", "sell", "balance"],
+  "objectGatedCommands": {
+    "shop":   { "discoverVia": "npc:vendor_inventory", "exposed": false, "note": "KNOWN GAP: vendor NPC verb; examine shows only talk/attack for NPCs. Discoverable via the click-a-vendor shop panel / dialogue, not examine." },
+    "browse": { "discoverVia": "npc:vendor_inventory", "exposed": false, "note": "KNOWN GAP: alias of shop; same NPC gap." },
+    "buy":    { "discoverVia": "npc:vendor_inventory", "exposed": false, "note": "KNOWN GAP: targets on-scene vendor via resolveVendor; NPC-gated, discoverable via shop panel." },
+    "sell":   { "discoverVia": "npc:vendor_inventory", "exposed": false, "note": "KNOWN GAP: targets on-scene vendor via resolveVendor; NPC-gated, discoverable via shop panel." }
+  }
 }

@@ -3,5 +3,8 @@
   "version": "1.0.0",
   "description": "Knock on a door in a given direction. Sound reaches only the adjacent room on the same floor; never propagates outdoors.",
   "hooks": [],
-  "commands": ["knock"]
+  "commands": ["knock"],
+  "objectGatedCommands": {
+    "knock": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: directional door-gated verb (knock <dir>); resolves an exit door via exitTargets. The door examine set is a fixed hardcoded list that does not include knock, and there is no per-object tag anchor. Same directional class as shove/drag." }
+  }
 }

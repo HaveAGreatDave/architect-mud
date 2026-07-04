@@ -2,5 +2,6 @@
   "name": "vendor-safe",
   "version": "1.0.0",
   "description": "Hackable vendor safes — furniture pieces that store a vendor's accumulated sale credits. Crack the combination via the VAULT CRACK dial minigame to drain them.",
-  "commands": ["hack", "safecrackresolve"]
+  "commands": ["safecrackresolve"],
+  "specializedActions": ["hack"]
 }

@@ -3,6 +3,13 @@
   "version": "1.0.0",
   "description": "Portable fuel generators: DEPLOY a unit, REFUEL it from a fuel can, CONNECT it to a building junction box, and run it to back-feed power during an outage. Control hub verb is `generator`/`gen`.",
   "hooks": ["furniture.describe"],
-  "commands": ["generator", "gen", "deploy", "connect", "plug", "refuel"],
-  "specializedActions": []
+  "commands": ["generator", "gen", "connect", "plug", "refuel"],
+  "specializedActions": ["deploy"],
+  "objectGatedCommands": {
+    "connect": { "discoverVia": "generator_portable", "exposed": false, "note": "KNOWN GAP: acts on a deployed generator_portable furniture; examine has no hardcoded branch and the unit carries no tag/interactions. Discovered via the deploy confirmation + the furniture.describe status line." },
+    "plug":    { "discoverVia": "generator_portable", "exposed": false, "note": "KNOWN GAP: alias of connect; same deployed-furniture gate." },
+    "refuel":  { "discoverVia": "generator_portable", "exposed": false, "note": "KNOWN GAP: refuels a deployed generator_portable unit; not surfaced on examine." },
+    "generator": { "discoverVia": "generator_portable", "exposed": false, "note": "KNOWN GAP: control hub (start/stop/pack/disconnect/status) for a deployed unit; state/subcommand verb, not examine-surfaced." },
+    "gen":     { "discoverVia": "generator_portable", "exposed": false, "note": "KNOWN GAP: alias of the generator hub verb." }
+  }
 }

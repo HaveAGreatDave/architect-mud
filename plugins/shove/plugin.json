@@ -3,5 +3,9 @@
   "version": "1.0.0",
   "description": "Shove/drag a player or corpse into an adjacent room via a contested brawn-vs-weight check.",
   "hooks": [],
-  "commands": ["shove", "drag"]
+  "commands": ["shove", "drag"],
+  "objectGatedCommands": {
+    "shove": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: targets a player/NPC/corpse/sleeper and shoves them through a directional exit. NPC/player examine only prints talk+attack; directional, no tag anchor." },
+    "drag":  { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: alias of shove; same target/direction gating and same discoverability gap." }
+  }
 }

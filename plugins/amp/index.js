@@ -80,7 +80,12 @@ async function cmdInsert(args, raw, player, broadcast) {
   };
 }
 
-export const commands = { insert: cmdInsert };
+// Tag-gated so examining a cassette (tag `amp_cassette`) advertises `insert`
+// via availableActions — the verb needs the cassette to do anything, so the
+// object that unlocks it is exactly where it should be discoverable.
+export const specializedActions = [
+  { verb: 'insert', requiredTag: 'amp_cassette', handler: cmdInsert },
+];
 
 // ── npc.gift — generic cassette-for-item trade on an NPC ──────────────────────
 //

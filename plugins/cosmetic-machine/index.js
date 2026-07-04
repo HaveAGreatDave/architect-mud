@@ -297,6 +297,9 @@ registerAction({
 // undefined otherwise so the verb falls through to the inventory `use` builtin.
 export const specializedActions = [{
   verb: 'use',
+  // Tag-gated so examining the terminal (flags.cosmetic_machine) advertises
+  // `use` via availableActions — the front door into the panel.
+  requiredTag: 'cosmetic_machine',
   handler: async (args, raw, player) => {
     const target = args.join(' ').toLowerCase();
     if (!MACHINE_NAMES.some(n => target.includes(n))) return undefined;

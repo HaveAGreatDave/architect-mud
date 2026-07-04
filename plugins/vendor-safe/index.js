@@ -154,4 +154,12 @@ async function cmdSafeCrackResolve(args, raw, player) {
   };
 }
 
-export const commands = { hack: cmdHack, safecrackresolve: cmdSafeCrackResolve };
+// `hack` is tag-gated on the safe furniture (flags.vendor_safe) so examining a
+// vendor safe advertises it via availableActions. The handler still self-gates
+// (returns undefined when no safe is present) so a hacked hololock door still
+// claims the verb through the doors plugin.
+export const specializedActions = [
+  { verb: 'hack', requiredTag: 'vendor_safe', handler: cmdHack },
+];
+
+export const commands = { safecrackresolve: cmdSafeCrackResolve };

@@ -2,5 +2,8 @@
   "name": "butchering",
   "version": "1.0.0",
   "description": "Butchering — a timed, posture-based carve on butcherable corpses. Requires a butchering tool; the Butchering skill gates each cut; botches ruin the part and bloody the butcher.",
-  "commands": ["butcher"]
+  "commands": ["butcher"],
+  "objectGatedCommands": {
+    "butcher": { "discoverVia": "corpse", "exposed": false, "note": "KNOWN GAP: targets a butcherable enemy corpse (corpse.butcher_table). Corpse examine only surfaces loot/attack/pinch (engine hardcode). Discovered instead via the loot router — `loot <corpse>` dispatches BUTCHER when the corpse is empty-but-butcherable. Not surfaceable on examine." }
+  }
 }

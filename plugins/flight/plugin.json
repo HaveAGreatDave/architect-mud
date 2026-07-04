@@ -10,6 +10,20 @@
     "contracts", "jobs", "accept", "manifest",
     "hangar", "repair", "salvage", "rebuild", "tune", "modify", "customize"
   ],
+  "objectGatedCommands": {
+    "board":     { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: boards a parked aircraft row (aircraft.parked_zone_id). Aircraft are DB rows, not furniture/items/NPCs, so they can never appear in an examine Actions line — discovered via airfield look/ambience text." },
+    "buy":       { "discoverVia": "zone:airfield_dealer", "exposed": false, "note": "KNOWN GAP: zone-flag gate, not an examinable object." },
+    "charter":   { "discoverVia": "zone:airfield_charter", "exposed": false, "note": "KNOWN GAP: zone-flag gate." },
+    "refuel":    { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: aboard an aircraft at a field with fuel stock; aircraft/zone-flag gate, not examinable." },
+    "contracts": { "discoverVia": "zone:airfield_id", "exposed": false, "note": "KNOWN GAP: contract board is a zone flag, no board furniture." },
+    "jobs":      { "discoverVia": "zone:airfield_id", "exposed": false, "note": "KNOWN GAP: alias of contracts." },
+    "accept":    { "discoverVia": "zone:airfield_id", "exposed": false, "note": "KNOWN GAP: zone-flag gate." },
+    "hangar":    { "discoverVia": "zone:airfield_id", "exposed": false, "note": "KNOWN GAP: zone-flag gate." },
+    "repair":    { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: owned aircraft row + zone flag airfield_id; shadows the engine gear-repair builtin and falls through when no craft." },
+    "salvage":   { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: wreck aircraft row (is_wreck=1) in zone; not examinable furniture." },
+    "rebuild":   { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: wreck row + zone flag airfield_id." },
+    "tune":      { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: owned aircraft row + zone flag airfield_id (distinct from broadcast's tune)." }
+  },
   "after": ["gametable", "generator", "commerce", "broadcast"],
   "routePrefix": "/flight",
   "dataSchema": ["aircraft", "aircraft_types", "flight_contracts", "aa_sites", "hangars"]

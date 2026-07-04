@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Tip-driven strip club: dancers whose show escalates with shared stage heat (peeling layered clothing, graphic at 500), plus a per-player 24h VIP pass (1000 tipped) gated by the viplock door. MIS is allowed in VIP rooms and refused in the main room.",
   "commands": ["tip"],
+  "objectGatedCommands": {
+    "tip": { "discoverVia": "npc:stripper", "exposed": false, "note": "KNOWN GAP: targets an on-scene flags.stripper NPC; examine shows only talk/attack. Telegraphed via the escalating dance zone_event lines, not examine." }
+  },
   "ticks": ["15s"],
   "dependencies": ["mis", "doors"]
 }

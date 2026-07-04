@@ -8,5 +8,8 @@
     "stroke", "masturbate", "jerkoff", "jackoff", "rubself", "fingerself",
     "suck", "fuck", "sex", "screw", "rail", "bang", "breed",
     "blowjob", "bj", "handjob", "hj", "ejaculate", "cum", "come", "wash"
-  ]
+  ],
+  "objectGatedCommands": {
+    "wash": { "discoverVia": "furniture:water_source", "exposed": false, "note": "KNOWN GAP: gated on a sink/water_source furniture in zone (or a water item in inventory as fallback). cmdWash/cmdWashHands error 'You need a sink or water...' with neither. Not on any sink Actions: block; a specializedAction on water_source furniture (as the water plugin does for drink) would make it discoverable." }
+  }
 }

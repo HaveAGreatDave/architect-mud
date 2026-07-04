@@ -241,8 +241,16 @@ async function generator(args, raw, player, broadcast) {
 
 export const commands = {
   generator, gen: generator,
-  deploy, connect, plug: connect, refuel,
+  connect, plug: connect, refuel,
 };
+
+// `deploy` is tag-gated on the carried portable-generator item
+// (tag `portable_generator`) so examining the packed unit advertises it via
+// availableActions. connect/plug/refuel and the generator/gen hub act on the
+// *deployed* furniture and stay plain commands (logged in objectGatedCommands).
+export const specializedActions = [
+  { verb: 'deploy', requiredTag: 'portable_generator', handler: deploy },
+];
 
 export const hooks = {
   // Status readout appended to the deployed unit when examined.

@@ -3,5 +3,11 @@
   "version": "1.0.0",
   "description": "MORPHEX 9000 BioSculpt terminal — body customization panel and morphex/makeover/biosculpt verbs. Engine furniture router opens it via the cosmetic.open Action.",
   "hooks": [],
-  "commands": ["morphex", "makeover", "biosculpt"]
+  "commands": ["morphex", "makeover", "biosculpt"],
+  "specializedActions": ["use"],
+  "objectGatedCommands": {
+    "morphex":   { "discoverVia": "cosmetic_machine", "exposed": false, "note": "Panel-reached: the tag-gated `use` specializedAction surfaces on examine and opens the panel; morphex/makeover/biosculpt are the same handler behind it. Requires the machine furniture to carry flags.cosmetic_machine for the `use` hint to appear." },
+    "makeover":  { "discoverVia": "cosmetic_machine", "exposed": false, "note": "Alias of morphex; panel-reached via `use`." },
+    "biosculpt": { "discoverVia": "cosmetic_machine", "exposed": false, "note": "Alias of morphex; panel-reached via `use`." }
+  }
 }
