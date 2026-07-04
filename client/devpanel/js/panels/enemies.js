@@ -49,6 +49,7 @@ function openAddSpawnForm(zoneId) {
       <div class="field-row" style="gap:8px">
         <div class="field"><label>Max Count</label><input id="ns-max" type="number" value="1" min="1" style="width:70px"></div>
         <div class="field"><label>Respawn (s)</label><input id="ns-respawn" type="number" value="300" min="1" style="width:80px"></div>
+        <div class="field"><label>Spawn Weight</label><input id="ns-weight" type="number" value="100" min="0" max="100" style="width:70px"></div>
       </div>
       <div class="zone-inline-form-actions">
         <button class="action-btn success" onclick='submitAddSpawn(${JSON.stringify(zoneId)})'>Add</button>
@@ -61,7 +62,9 @@ async function submitAddSpawn(zoneId) {
   if (!enemy_id) { toast('Pick an enemy', true); return; }
   const max_count = parseInt(document.getElementById('ns-max').value) || 1;
   const respawn_seconds = parseInt(document.getElementById('ns-respawn').value) || 300;
-  const result = await directAPI('/spawns', 'POST', { zone_id: zoneId, enemy_id, max_count, spawn_weight: 100, respawn_seconds });
+  const weightEl = document.getElementById('ns-weight');
+  const spawn_weight = weightEl && weightEl.value.trim() !== '' ? parseInt(weightEl.value) : 100;
+  const result = await directAPI('/spawns', 'POST', { zone_id: zoneId, enemy_id, max_count, spawn_weight, respawn_seconds });
   if (result?.error) { toast(result.error, true); return; }
   await directAPI(`/zones/${encodeURIComponent(zoneId)}/live-enemies`, 'POST', { enemy_id });
   document.getElementById('zone-add-spawn-form').innerHTML = '';
@@ -199,8 +202,11 @@ function removeButcherRow(btn) { btn.closest('.butcher-row').remove(); }
 // Damage types shared by weapon components and per-part soak. Mirrors the
 // item tag catalog's damage_type options.
 const ENEMY_DAMAGE_TYPES = ['kinetic','edged','energy','fire','radiation'];
-const ENEMY_BODY_PARTS = ['head','torso','left_arm','right_arm','left_leg','right_leg'];
-const DEFAULT_BODY_PART_WEIGHTS = { head:10, torso:40, left_arm:12, right_arm:12, left_leg:13, right_leg:13 };
+// Must mirror combat.js DEFAULT_BODY_PART_WEIGHTS / PART_TO_SLOT — including
+// `feet`, or monsters built here can never be struck on the feet (boot soak
+// would never apply against them).
+const ENEMY_BODY_PARTS = ['head','torso','left_arm','right_arm','left_leg','right_leg','feet'];
+const DEFAULT_BODY_PART_WEIGHTS = { head:10, torso:40, left_arm:12, right_arm:12, left_leg:11, right_leg:11, feet:4 };
 
 // --- Enemy weapon (typed multi-component damage) ---
 function weaponRow(comp) {

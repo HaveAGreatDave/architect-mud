@@ -299,11 +299,16 @@ function furnitureEditForm(rec, isNew) {
       </select>
     </div>
     <div class="field"><label>Object Type</label>
+      ${(rec.object_type && !['furniture','light','container'].includes(rec.object_type)) ? `
+      <div style="font-size:11px;color:var(--text-bright);background:var(--bg2);border:1px solid var(--border);padding:6px 8px;border-radius:3px">
+        Specialized type <b>${rec.object_type}</b> — managed by another panel/script. This form preserves it on save; the dropdown below is disabled to prevent coercion.
+      </div>
+      <select id="f-object_type" disabled><option selected>${rec.object_type}</option></select>` : `
       <select id="f-object_type" onchange="const show=this.value==='light';['f-light-fields','f-lighton-field','f-powerdraw-field','f-lumens-field'].forEach(function(id){document.getElementById(id).style.display=show?'':'none';})">
         <option value="furniture" ${(!rec.object_type||rec.object_type==='furniture')?'selected':''}>Furniture</option>
         <option value="light" ${rec.object_type==='light'?'selected':''}>Light</option>
         <option value="container" ${rec.object_type==='container'?'selected':''}>Container</option>
-      </select>
+      </select>`}
     </div>
     <div class="field" id="f-light-fields" style="${rec.object_type==='light'?'':'display:none'}">
       <label>Light Type</label>
@@ -447,11 +452,26 @@ async function assignRoomToJB(zoneId) {
   editRecord(zoneId);
 }
 
+// Object types this generic form is allowed to author. Anything else
+// (generator, junction_box, broadcast_camera, media_deck, cosmetic_machine,
+// security_device, toilet, generator_portable, …) is created by other panels
+// or seed scripts; this form must preserve it, not coerce it back.
+const FURNITURE_EDITABLE_TYPES = ['furniture','light','container'];
+// Interactions the checkbox row can set. Values outside this list (e.g. lift,
+// examine) are set by scripts and must be preserved on save.
+const FURNITURE_STD_INTERACTIONS = ['sit','lie','lean','watch','switch'];
+
 async function saveFurniture(existing) {
   const isNew = !existing?.id;
-  const objectType = document.getElementById('f-object_type')?.value || 'furniture';
+  const dropdownType = document.getElementById('f-object_type')?.value || 'furniture';
+  // Don't let the 3-option dropdown coerce a specialized piece back to a plain type.
+  const objectType = (existing && !FURNITURE_EDITABLE_TYPES.includes(existing.object_type))
+    ? existing.object_type
+    : dropdownType;
   const isLight = objectType === 'light';
-  const flags = { ...(existing?.flags || {}), interactions: ['sit','lie','lean','watch','switch'].filter(i => document.getElementById(`f-ix-${i}`)?.checked) };
+  const checkedIx = FURNITURE_STD_INTERACTIONS.filter(i => document.getElementById(`f-ix-${i}`)?.checked);
+  const preservedIx = (existing?.flags?.interactions || []).filter(i => !FURNITURE_STD_INTERACTIONS.includes(i));
+  const flags = { ...(existing?.flags || {}), interactions: [...checkedIx, ...preservedIx] };
   // Re-derive furniture-applicable catalog tags from the picker. Non-catalog
   // flags (e.g. atm) and the interactions array are preserved.
   for (const [name, def] of Object.entries(TAG_CATALOG)) {

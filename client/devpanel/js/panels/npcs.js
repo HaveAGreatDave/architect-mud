@@ -994,7 +994,7 @@ async function npcEditForm(rec, isNew) {
       </div>
       <textarea id="f-behaviour_graph" rows="6">${JSON.stringify(behaviourGraph, null, 2)}</textarea>
     </div>
-    <div class="field"><label>Flags (JSON) — e.g. gender, first_strike_delay_ms, battle_cries</label><textarea id="f-flags" rows="3">${JSON.stringify(flags, null, 2)}</textarea></div>
+    <div class="field"><label>Flags (JSON) — e.g. first_strike_delay_ms, battle_cries, mis_willing</label><textarea id="f-flags" rows="3">${JSON.stringify(flags, null, 2)}</textarea></div>
   `;
 }
 
