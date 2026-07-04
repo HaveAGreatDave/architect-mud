@@ -215,7 +215,10 @@ const columnsOf = async (url, remote) => {
     const r = await client.query(
       `SELECT table_name, column_name FROM information_schema.columns WHERE table_schema='public'`,
     );
-    return new Set(r.rows.map((x) => `${x.table_name}.${x.column_name}`));
+    const cols = new Set();
+    const tables = new Set();
+    for (const x of r.rows) { cols.add(`${x.table_name}.${x.column_name}`); tables.add(x.table_name); }
+    return { cols, tables };
   } finally {
     await client.end();
   }
@@ -236,11 +239,17 @@ const schemaDrift = async () => {
   } catch (e) {
     return { ok: false, reason: `Could not read schema: ${e.message}` };
   }
-  // In local but not prod → prod needs an ADD COLUMN. In prod but not local →
-  // SCHEMA_SQL dropped it but prod still carries it (needs DROP COLUMN).
-  const missingOnProd = [...local].filter((c) => !prod.has(c)).sort();
-  const extraOnProd = [...prod].filter((c) => !local.has(c)).sort();
-  return { ok: true, prodHost: hostOf(prodUrl), missingOnProd, extraOnProd };
+  // Whole-table drift vs. column drift on a SHARED table are different problems:
+  //   • a table missing on prod is created by a content Deploy (CREATE TABLE IF
+  //     NOT EXISTS is additive) — no manual work.
+  //   • a column that differs on a table BOTH sides already have needs a manual
+  //     one-shot ALTER, because CREATE TABLE IF NOT EXISTS won't touch it.
+  const newTables = [...local.tables].filter((t) => !prod.tables.has(t)).sort();
+  const droppedTables = [...prod.tables].filter((t) => !local.tables.has(t)).sort();
+  const shared = (c) => local.tables.has(c.split('.')[0]) && prod.tables.has(c.split('.')[0]);
+  const addColumns = [...local.cols].filter((c) => !prod.cols.has(c) && shared(c)).sort();
+  const dropColumns = [...prod.cols].filter((c) => !local.cols.has(c) && shared(c)).sort();
+  return { ok: true, prodHost: hostOf(prodUrl), newTables, droppedTables, addColumns, dropColumns };
 };
 
 // --- HTTP -------------------------------------------------------------------
@@ -718,15 +727,21 @@ async function checkDrift() {
     return;
   }
   if (!d.ok) { el.innerHTML = line('mute', 'Schema check skipped', esc(d.reason)); return; }
-  if (!d.missingOnProd.length && !d.extraOnProd.length) {
+  if (!d.newTables.length && !d.droppedTables.length && !d.addColumns.length && !d.dropColumns.length) {
     el.innerHTML = line('ok', 'Prod schema matches local', d.prodHost + ' — no drift');
     return;
   }
   let html = '';
-  for (const c of d.missingOnProd)
-    html += line('bad', 'Prod is missing ' + esc(c), 'run ALTER TABLE … ADD COLUMN on prod');
-  for (const c of d.extraOnProd)
-    html += line('warn', 'Prod still has ' + esc(c), 'SCHEMA_SQL dropped it — run ALTER TABLE … DROP COLUMN on prod');
+  // Column drift on shared tables — the actionable, easy-to-forget one-shots.
+  for (const c of d.addColumns)
+    html += line('bad', 'Prod missing column ' + esc(c), 'run ALTER TABLE … ADD COLUMN on prod');
+  for (const c of d.dropColumns)
+    html += line('warn', 'Prod still has column ' + esc(c), 'SCHEMA_SQL dropped it — run ALTER TABLE … DROP COLUMN on prod');
+  // Whole-table drift — a content Deploy handles new tables additively.
+  if (d.newTables.length)
+    html += line('mute', d.newTables.length + ' table(s) not on prod', 'a content Deploy creates them: ' + esc(d.newTables.join(', ')));
+  for (const t of d.droppedTables)
+    html += line('warn', 'Prod still has table ' + esc(t), 'SCHEMA_SQL no longer defines it — drop on prod if intended');
   el.innerHTML = html;
 }
 $('drift').onclick = checkDrift;
