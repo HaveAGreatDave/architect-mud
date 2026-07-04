@@ -64,6 +64,21 @@ registerMoveGate(async ({ player, opts }) => {
   }
 }, 'engine:encumbrance');
 
+// Open water is impassable on foot. Entering a water tile (zone flags.water)
+// needs a boat — an uncontained inventory item tagged 'boat' (capability tag,
+// same shape as the fishing rod / hack deck). Cheap: the DB check only runs when
+// the destination is actually water, so dry-land moves never touch it.
+registerMoveGate(async ({ player, to }) => {
+  if (!to?.flags?.water) return;
+  const { rows } = await query(
+    `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'boat') LIMIT 1`,
+    [player.id]
+  );
+  if (rows.length) return;
+  return { block: true, message: 'Black water laps at the edge — you need a boat to cross open water.' };
+}, 'engine:water');
+
 function buildArriveMsg(name, arrivalDir, sourceZoneName) {
   if (arrivalDir === 'out') return `${name} arrives from outside.`;
   if (arrivalDir === 'in')  return `${name} emerges from ${sourceZoneName}.`;

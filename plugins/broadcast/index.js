@@ -149,9 +149,110 @@ function makeDefaultStudioGraph(studioZoneId = null) {
 // Backward-compat alias used where no specific studio zone is known yet
 const DEFAULT_STUDIO_BEHAVIOUR_GRAPH = makeDefaultStudioGraph();
 
+// Neutral "off the payroll" graph: just live a random life, no studio commute.
+// Used to un-stick an NPC that a scripted show wrongly routed to a studio.
+function makeWanderGraph() {
+  return {
+    _start: 'n_start',
+    nodes: {
+      n_start: { type: 'start',  next: 'n_life' },
+      n_life:  { type: 'action', action_type: 'HAVE_LIFE', next: 'n_loop' },
+      n_loop:  { type: 'loop',   next: 'n_start' },
+    },
+  };
+}
+
 // graphicsCache.get(id) = { id, name, type, content }
 // Loaded at startup and after any graphics CRUD operation.
 const graphicsCache = new Map();
+
+// Per-channel broadcast log: the graceful-failure events the live runtime hits
+// while airing — unknown/unparseable nodes, missing graphics/songs, node errors.
+// In-memory ring (clears on restart, like the rest of the runtime), surfaced in
+// the dev-panel broadcast debugger. This is the "channel's broadcast log" the
+// graceful-failure contract writes to before moving on to the next node.
+const broadcastLog = new Map(); // channelId -> [{ ts, level, msg, node }]
+const BROADCAST_LOG_MAX = 120;
+function logBroadcast(channelId, level, msg, node = null) {
+  if (!channelId) return;
+  const arr = broadcastLog.get(channelId) || [];
+  arr.push({ ts: Date.now(), level, msg, node });
+  while (arr.length > BROADCAST_LOG_MAX) arr.shift();
+  broadcastLog.set(channelId, arr);
+}
+
+// Node types the graph walker knows how to run. Anything else is skipped on air.
+const KNOWN_BROADCAST_NODES = new Set([
+  'start', 'say', 'music', 'npc_action', 'ticker', 'npc_anchor', 'camera_cut',
+  'title_card', 'credits', 'overlay', 'show_overlay', 'clear_overlay',
+  'tech_difficulties', 'event', 'wait', 'condition', 'loop', 'random',
+  'set_flag', 'inject_news', 'break',
+]);
+
+// Static day-scan for the dev-panel broadcast debugger: walk every scheduled
+// slot's graph and report anything that would make the runtime skip a node or
+// drop to technical difficulties on air — missing graphics/songs/NPCs/zones,
+// unknown/unparseable nodes — plus the channel-level gaps that black a channel
+// out (no transmitter deck, no offline graphic). Read-only; also returns the
+// live runtime broadcast log so authoring problems and on-air failures sit
+// side by side. Returns null if the channel doesn't exist.
+async function scanChannelDay(channelId) {
+  const { rows: chRows } = await query('SELECT * FROM media_channels WHERE id=$1', [channelId]);
+  if (!chRows.length) return null;
+  const ch = chRows[0];
+  const issues = [];
+  const add = (severity, code, msg, extra = {}) => issues.push({ severity, code, msg, ...extra });
+
+  // Channel-level: the transmitter (media deck). Without a powered one, dark.
+  const { rows: deckRows } = await query(
+    `SELECT id, zone_id FROM furniture WHERE flags->>'media_deck'='true' AND flags->>'channel_id'=$1 LIMIT 1`, [channelId]
+  );
+  if (!deckRows.length) add('error', 'no_transmitter', 'No media deck (transmitter) linked — this channel cannot broadcast; it stays dark.');
+  else if (deckRows[0].zone_id) {
+    const z = getZone(deckRows[0].zone_id);
+    if (z && z.powerStatus === 'offline') add('warn', 'transmitter_unpowered', 'The media deck sits in a blacked-out zone — off air until power returns.');
+  }
+  if (!ch.offline_graphic_id) add('info', 'no_offline_graphic', 'No offline graphic set — off-air / technical difficulties will show plain stand-by text, not a graphic.');
+
+  const { rows: items } = await query(
+    `SELECT p.start_time, p.broadcast_id, b.name AS broadcast_name, b.playback_mode, b.broadcast_graph
+       FROM media_channel_playlist p JOIN media_broadcasts b ON b.id=p.broadcast_id
+      WHERE p.channel_id=$1 ORDER BY p.start_time`, [channelId]
+  );
+  let scanned = 0;
+  for (const item of items) {
+    const label = item.broadcast_name || item.broadcast_id;
+    if (item.playback_mode === 'weather') { add('info', 'weather_live', `'${label}' is a weather forecast — assembled live, not statically scannable.`, { broadcast: label }); continue; }
+    let graph = item.broadcast_graph;
+    if (!graph) continue;
+    if (typeof graph === 'string') { try { graph = JSON.parse(graph); } catch { add('error', 'bad_graph', `'${label}' has an unparseable broadcast graph.`, { broadcast: label }); continue; } }
+    const norm = _normalizeBroadcastGraph(graph);
+    if (!norm?._start || !norm.nodes?.[norm._start]) add('error', 'no_start', `'${label}' has no valid start node.`, { broadcast: label });
+    scanned++;
+    for (const [nid, node] of Object.entries(norm.nodes || {})) {
+      const d = node.data || {};
+      if (!KNOWN_BROADCAST_NODES.has(node.type)) { add('warn', 'unknown_node', `'${label}': unknown node type '${node.type}' will be skipped on air.`, { broadcast: label, node: nid }); continue; }
+      const gid = (node.type === 'title_card' || node.type === 'overlay' || node.type === 'show_overlay') ? d.graphic_id : null;
+      if (gid && !graphicsCache.has(gid)) add('warn', 'missing_graphic', `'${label}': graphic '${gid}' not found — the card will be skipped.`, { broadcast: label, node: nid });
+      if (node.type === 'music' && d.song && !getSongDefByName(d.song)) add('info', 'missing_song', `'${label}': song '${d.song}' not found — falls back to cue text or is skipped.`, { broadcast: label, node: nid });
+      if (node.type === 'npc_anchor' && d.npc_id && !world.npcs?.has(d.npc_id)) add('warn', 'missing_npc', `'${label}': host NPC '${d.npc_id}' does not exist.`, { broadcast: label, node: nid });
+      if (node.type === 'camera_cut' && d.zone_id && !getZone(d.zone_id)) add('warn', 'missing_zone', `'${label}': camera-cut zone '${d.zone_id}' does not exist.`, { broadcast: label, node: nid });
+    }
+  }
+
+  return {
+    channel: { id: ch.id, name: ch.name, number: ch.number },
+    slots: items.length,
+    scanned,
+    counts: {
+      error: issues.filter(i => i.severity === 'error').length,
+      warn:  issues.filter(i => i.severity === 'warn').length,
+      info:  issues.filter(i => i.severity === 'info').length,
+    },
+    issues,
+    log: (broadcastLog.get(channelId) || []).slice(-60),
+  };
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -183,7 +284,8 @@ function _vineDuration(graph, interval) {
     if (node.type === 'say' || node.type === 'ticker') total += interval;
     else if (node.type === 'wait') total += node.data?.seconds ?? 5;
     else if (node.type === 'credits') total += node.data?.duration ?? 10;
-    else if (node.type === 'music') total += 15;
+    else if (node.type === 'title_card') total += node.data?.duration ?? 10;
+    else if (node.type === 'music') total += 8;
     nodeId = node.next ?? null;
   }
   return total;
@@ -269,6 +371,14 @@ async function loadChannelRuntimes() {
       if (cam.streaming_channel_id) cameraByChannel.set(cam.streaming_channel_id, cam);
     }
 
+    // Each channel's transmitter (media deck): where it physically sits, so the
+    // tick can check its zone still has power. No deck → the channel can't transmit.
+    const { rows: deckRows } = await query(
+      `SELECT flags->>'channel_id' AS channel_id, zone_id FROM furniture WHERE flags->>'media_deck'='true'`
+    );
+    const deckZoneByChannel = new Map();
+    for (const d of deckRows) if (d.channel_id && !deckZoneByChannel.has(d.channel_id)) deckZoneByChannel.set(d.channel_id, d.zone_id);
+
     const playlistByChannel = new Map();
     for (const item of playlist) {
       if (!playlistByChannel.has(item.channel_id)) playlistByChannel.set(item.channel_id, []);
@@ -309,6 +419,12 @@ async function loadChannelRuntimes() {
     for (const ch of channels) {
       if (ch.studio_zone_id) studioZoneIndex.set(ch.studio_zone_id, ch.id);
       const pl = playlistByChannel.get(ch.id) || [];
+      // Studio staffing only applies to LIVE channels and WEATHER forecasts. A scripted
+      // show's npc_anchor nodes are speaker attribution, not a cue for the NPC to appear
+      // on-stage — so the AI schedule/studio lookups must never see them as staff.
+      for (const it of pl) {
+        if (ch.channel_type !== 'live' && it.playback_mode !== 'weather') it.npcStaff = [];
+      }
       const totalDuration = pl.length
         ? Math.max(...pl.map(i => i.startTime + i.duration))
         : 0;
@@ -327,6 +443,7 @@ async function loadChannelRuntimes() {
         camera: cameraByChannel.get(ch.id) || null,
         scheduleMode: ch.schedule_mode || 'loop',
         studioZoneId: ch.studio_zone_id || null,
+        deckZoneId: deckZoneByChannel.get(ch.id) || null,
         offlineGraphicId: ch.offline_graphic_id || null,
         commercialPool,
         commercialBroadcasts: commercialPool.map(id => commercialMap.get(id)).filter(Boolean),
@@ -387,6 +504,7 @@ async function loadZoneTunings() {
       if (!zoneTunings.has(row.zone_id)) zoneTunings.set(row.zone_id, new Map());
       zoneTunings.get(row.zone_id).set(row.channel_id, deviceType);
       furnitureChannelIndex.set(row.id, { zoneId: row.zone_id, channelId: row.channel_id, deviceType,
+        skin: flags.tv_skin || 'crt',
         dialFrequency: typeof flags.tv_dial_freq === 'number' ? flags.tv_dial_freq : (parseFloat(flags.tuned_channel) || 0) });
     }
   } catch (err) {
@@ -796,6 +914,18 @@ async function _getDeckMessage(zoneId, nowMs) {
 
 // ── Broadcast tick ───────────────────────────────────────────────────────────
 
+// The media deck IS the channel's transmitter: it routes the studio cameras and
+// tapes into the broadcast. No deck, or the deck sitting in a blacked-out zone,
+// means the channel has no way to get its signal out — it goes dark. (A zone whose
+// power was never modelled is treated as live so unpowered interiors don't nuke a
+// whole channel; only an explicit blackout — 'offline' — kills the feed.)
+function channelTransmitterLive(state) {
+  if (!state.deckZoneId) return false;
+  const z = getZone(state.deckZoneId);
+  if (!z) return false;
+  return z.powerStatus !== 'offline';
+}
+
 // The off-air broadcast payload (channel dark → show the channel's offline graphic or
 // static). Shared by the tick's go-dark path and the panel-open immediate signal.
 function _offAirMessage(state, channelId) {
@@ -819,6 +949,14 @@ function _techDiffMessage(state, channelId, nowMs) {
 
 async function broadcastTick() {
   const nowMs = Date.now();
+  // Channels the zone loop below will drive this tick (a tuned zone with players).
+  // The deck-preview pass skips these so the stateful graph walker isn't advanced
+  // twice in one tick.
+  const activeChannels = new Set();
+  for (const [zoneId, channelMap] of zoneTunings) {
+    if (!getZonePlayers(zoneId).length) continue;
+    for (const cid of channelMap.keys()) activeChannels.add(cid);
+  }
   for (const [zoneId, channelMap] of zoneTunings) {
     const players = getZonePlayers(zoneId);
     if (!players.length) continue;
@@ -826,6 +964,19 @@ async function broadcastTick() {
     for (const [channelId, deviceType] of channelMap) {
       const state = channelRuntime.get(channelId);
       if (!state) continue;
+
+      // No working transmitter (media deck) → the channel can't get on air. Fire the
+      // one-shot off_air transition (offline graphic / static) and skip content.
+      if (!channelTransmitterLive(state)) {
+        if (state.wasActive) {
+          state.wasActive = false;
+          const offAir = _offAirMessage(state, channelId);
+          for (const player of players) {
+            if (tvWatchers.get(player.id) === channelId) sendToPlayer(player.id, offAir);
+          }
+        }
+        continue;
+      }
 
       let result;
       try {
@@ -897,6 +1048,40 @@ async function broadcastTick() {
       if (formatted) _recordDeckMessage(channelId, formatted);
       emit('broadcast.message', { channelId, zoneId, text: result.text });
     }
+  }
+
+  // ── Media-deck preview sync ──────────────────────────────────────────────
+  // An operator using a deck (or previewing from the dev-panel channel window)
+  // watches a live monitor of the channel. Drive any channel that has preview
+  // watchers but that the zone loop above didn't already tick — the deck's own
+  // room usually has no TV — so the preview tracks the live schedule. A loaded
+  // cassette overrides, just like on-air. Off-air/tech-diff isn't gated here: the
+  // console monitor shows what's scheduled regardless of transmitter power.
+  for (const channelId of new Set(deckWatchers.values())) {
+    if (activeChannels.has(channelId)) continue;
+    const state = channelRuntime.get(channelId);
+    if (!state) continue;
+    let result;
+    try {
+      const deckResult = state.deckZoneId ? await _getDeckMessage(state.deckZoneId, nowMs) : null;
+      result = deckResult || await getCurrentMessage(state, nowMs);
+    } catch (err) {
+      console.error(`[broadcast] deck-preview tick error (${channelId}):`, err.message);
+      continue;
+    }
+    if (!result || result.key === state.lastMsgKey) continue;
+    state.lastMsgKey = result.key;
+    if (result.style === 'overlay') {
+      for (const [pid, cid] of deckWatchers) if (cid === channelId)
+        sendToPlayer(pid, { type: 'deck_overlay', channelId, overlay: result.overlay ?? null });
+      continue;
+    }
+    if (result.style === 'live_relay') continue;
+    const formatted = formatMessage(result.text, 'tv', null, result.style);
+    if (!formatted) continue;
+    _recordDeckMessage(channelId, formatted);
+    for (const [pid, cid] of deckWatchers) if (cid === channelId)
+      sendToPlayer(pid, { type: 'deck_broadcast', message: formatted, channel: channelId, style: result.style || 'raw' });
   }
 }
 
@@ -1151,16 +1336,20 @@ async function _injectWorkPhaseForPlaylistItem(item) {
 // any host, and re-inject the per-broadcast work-phase actions. Idempotent.
 async function recalculateNpcSchedules() {
   const { rows: plItems } = await query(`
-    SELECT p.id, p.channel_id, p.broadcast_id, p.start_time, p.duration_override,
-           p.priority, p.conditions, p.slot_type,
-           b.broadcast_graph
+    SELECT p.id, p.channel_id, p.broadcast_id, p.conditions,
+           b.broadcast_graph, b.playback_mode,
+           c.channel_type, c.studio_zone_id
     FROM media_channel_playlist p
     JOIN media_broadcasts b ON b.id = p.broadcast_id
+    JOIN media_channels c ON c.id = p.channel_id
     WHERE p.broadcast_id IS NOT NULL
   `);
 
   let updatedItems = 0;
   let updatedNpcs  = 0;
+  // Authoritative set of NPCs that legitimately staff a studio (live shows +
+  // weather forecasts), with the studio they belong to. Used for the self-heal pass.
+  const liveStaff = new Map();
 
   for (const row of plItems) {
     let graph = row.broadcast_graph;
@@ -1174,28 +1363,33 @@ async function recalculateNpcSchedules() {
       const nid = node.data?.npc_id || node.npc_id;
       if (node.type === 'npc_anchor' && nid && !npcIds.includes(nid)) npcIds.push(nid);
     }
-    if (!npcIds.length) continue;
 
-    // Merge into existing conditions, preserving any manual additions
+    // Only LIVE channels and WEATHER forecasts physically staff the studio. For a
+    // scripted show, npc_anchor is speaker attribution only — never staff it, and
+    // strip any stale staffing a previous (buggy) pass merged into its conditions.
+    const staffsNpcs = row.channel_type === 'live' || row.playback_mode === 'weather';
+    const studioZoneId = row.studio_zone_id || null;
+
+    // Reconcile npc_staff in the item's conditions (merge for live/weather, clear otherwise)
     let cond = row.conditions;
     if (typeof cond === 'string') { try { cond = JSON.parse(cond); } catch { cond = {}; } }
-    if (Array.isArray(cond)) cond = {};
+    if (Array.isArray(cond) || !cond) cond = {};
     const existing = Array.isArray(cond.npc_staff) ? cond.npc_staff : [];
-    const merged   = [...new Set([...existing, ...npcIds])];
-    const staffChanged = !(merged.length === existing.length && merged.every((v, i) => v === existing[i]));
-
+    const desired  = staffsNpcs ? [...new Set([...existing, ...npcIds])] : [];
+    const staffChanged = !(desired.length === existing.length && desired.every((v, i) => v === existing[i]));
     if (staffChanged) {
-      cond.npc_staff = merged;
+      if (desired.length) cond.npc_staff = desired; else delete cond.npc_staff;
       await query(`UPDATE media_channel_playlist SET conditions=$1 WHERE id=$2`, [JSON.stringify(cond), row.id]);
       updatedItems++;
     }
 
+    if (!staffsNpcs || !npcIds.length) continue;
+
     // Assign default behaviour graph (with studio zone) to any staff NPC, and
     // ensure work_zone_id points at the studio so GO_TO_WORK resolves.
-    const { rows: chSzRow2 } = await query('SELECT studio_zone_id FROM media_channels WHERE id=$1', [row.channel_id]);
-    const studioZoneId = chSzRow2[0]?.studio_zone_id || null;
     const defaultGraph = JSON.stringify(makeDefaultStudioGraph(studioZoneId));
     for (const npcId of npcIds) {
+      liveStaff.set(npcId, studioZoneId);
       // Always overwrite — ensures zone_id is populated even for existing graphs; set work_zone_id so GO_TO_WORK resolves without graph params
       const { rowCount } = await query(
         `UPDATE npcs SET behaviour_graph=$1, work_zone_id=COALESCE(work_zone_id,$2) WHERE id=$3`,
@@ -1210,6 +1404,25 @@ async function recalculateNpcSchedules() {
 
     // Re-inject work-phase actions from the broadcast graph
     await _injectWorkPhaseForPlaylistItem({ broadcast_id: row.broadcast_id, npcStaff: npcIds, studioZoneId });
+  }
+
+  // Self-heal: any NPC still routed to a studio zone but no longer legitimately
+  // staffed (e.g. a scripted show's attributed speaker that a prior buggy pass
+  // commuted on-stage) is reset to a plain wander graph so it stops appearing.
+  const { rows: szRows } = await query(`SELECT studio_zone_id FROM media_channels WHERE studio_zone_id IS NOT NULL`);
+  const studioZoneIds = szRows.map(r => r.studio_zone_id);
+  if (studioZoneIds.length) {
+    const { rows: strays } = await query(
+      `SELECT id FROM npcs WHERE work_zone_id = ANY($1)`, [studioZoneIds]
+    ).catch(() => ({ rows: [] }));
+    const neutral = JSON.stringify(makeWanderGraph());
+    for (const npc of strays) {
+      if (liveStaff.has(npc.id)) continue; // legitimately staffed — leave alone
+      await query(`UPDATE npcs SET behaviour_graph=$1, work_zone_id=NULL WHERE id=$2`, [neutral, npc.id]).catch(() => {});
+      const live = world.npcs.get(npc.id);
+      if (live) { live.behaviour_graph = JSON.parse(neutral); live.work_zone_id = null; }
+      updatedNpcs++;
+    }
   }
 
   await loadChannelRuntimes();
@@ -1295,7 +1508,9 @@ function nodeHoldMs(node) {
     case 'event':
       return 3000;
     case 'music':
-      return getSongDefByName(d.song) ? 15000 : 5000;
+      return getSongDefByName(d.song) ? 8000 : 5000;
+    case 'title_card':
+      return (d.duration ?? 10) * 1000;
     case 'wait':
       return (d.seconds ?? 5) * 1000;
     case 'credits':
@@ -1474,6 +1689,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           }
           return { text, song: songDef, key: key_music, style: 'music' };
         }
+        logBroadcast(channelId, 'info', `Song '${songName}' not found — ${text ? 'showing cue text' : 'skipped'}`, nodeId);
         if (!text) { nodeId = bb.currentNode; bb.waitUntil = null; break; }
         bb.waitUntil = nowMs + nodeHoldMs(node);
         return { text, key: key_music, style: 'raw' };
@@ -1622,7 +1838,8 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           const caption = node.data?.caption ? `\n${node.data.caption}` : '';
           return { text: graphic.content + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphicStyle(graphic) };
         }
-        // Graphic not found — skip but still consume the wait slot
+        // Graphic not found — log it, show nothing, move on to the next node.
+        logBroadcast(channelId, 'warn', `Title-card graphic '${gid || '(none)'}' not found — skipped`, nodeId);
         nodeId = bb.currentNode;
         bb.waitUntil = null;
         break;
@@ -1689,11 +1906,22 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       }
 
       default:
-        // Unknown node type — skip to next rather than halting the graph
+        // Unparseable/unknown node — ignore it, show nothing, log it, move on.
+        logBroadcast(channelId, 'warn', `Unknown node type '${node.type}' — skipped`, nodeId);
         nodeId = _resolveEdge(edges, nodeId, 'next');
     } } catch (err) {
+      // The node couldn't be run or safely skipped — log it and this tick surface
+      // technical difficulties with the specific error as an on-screen card, then
+      // advance so the graph recovers on the next tick.
       console.error(`[broadcast] graph node error (${channelId}/${nodeId}):`, err.message);
-      nodeId = _resolveEdge(edges, nodeId, 'next');
+      logBroadcast(channelId, 'error', `Node error: ${err.message}`, nodeId);
+      bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+      bb.waitUntil = nowMs + BROADCAST_TICK_MS;
+      return {
+        style: 'overlay',
+        overlay: { overlayType: 'text_card', text: `TECHNICAL DIFFICULTIES\n${err.message}`, duration: 5 },
+        key: `techdiff-err:${channelId}:${nodeId}:${nowMs}`,
+      };
     }
   }
   return null;
@@ -2170,6 +2398,15 @@ function _furnitureEntryForZoneChannel(zoneId, channelId) {
   return null;
 }
 
+// The chassis skin of the (first) TV device in a zone, from its `tv_skin` flag.
+// Falls back to 'crt' (the base chassis) for untuned/unknown sets.
+function _tvSkinForZone(zoneId) {
+  for (const entry of furnitureChannelIndex.values()) {
+    if (entry.zoneId === zoneId && entry.deviceType === 'tv') return entry.skin || 'crt';
+  }
+  return 'crt';
+}
+
 function buildTvPanel(channelId, player, dialFrequency) {
   const state = channelRuntime.get(channelId);
   if (!state) return null;
@@ -2177,11 +2414,9 @@ function buildTvPanel(channelId, player, dialFrequency) {
     .filter(s => s.number != null)
     .sort((a, b) => a.number - b.number)
     .map(s => ({ number: s.number, name: s.name, channelId: s.channelId }));
-  // Resolve dialFrequency from cache if not passed directly
-  if (dialFrequency === undefined) {
-    const fEntry = _furnitureEntryForZoneChannel(player.current_zone, channelId);
-    dialFrequency = fEntry?.dialFrequency ?? 0;
-  }
+  // Resolve dialFrequency + chassis skin from the zone's TV device if not passed directly
+  const fEntry = _furnitureEntryForZoneChannel(player.current_zone, channelId);
+  if (dialFrequency === undefined) dialFrequency = fEntry?.dialFrequency ?? 0;
   sendToPlayer(player.id, {
     type: 'tv_panel',
     channelId,
@@ -2189,6 +2424,7 @@ function buildTvPanel(channelId, player, dialFrequency) {
     stationName: state.stationName || state.name || channelId,
     channelNumber: state.number ?? 0,
     dialFrequency,
+    skin: fEntry?.skin || _tvSkinForZone(player.current_zone),
     channelType: state.channelType || 'playlist',
     theme: state.theme || null,
     channelList,
@@ -2206,7 +2442,7 @@ function buildTvPanel(channelId, player, dialFrequency) {
   return { type: 'output', message: 'You turn to the television.' };
 }
 
-function buildTvOffPanel(player) {
+function buildTvOffPanel(player, skin) {
   const channelList = [...channelRuntime.values()]
     .filter(s => s.number != null)
     .sort((a, b) => a.number - b.number)
@@ -2219,6 +2455,7 @@ function buildTvOffPanel(player) {
     stationName: '',
     channelType: null,
     theme: null,
+    skin: skin || _tvSkinForZone(player.current_zone),
     channelList,
   });
   return { type: 'output', message: 'You turn to the television.' };
@@ -2232,14 +2469,13 @@ async function doUseTv(args, raw, player) {
   // Find a tv furniture in the zone matching the name hint. A piece counts as a
   // TV if it carries the `tv` flag OR is simply named like a television.
   const { rows } = await query(
-    `SELECT id, name FROM furniture WHERE zone_id=$1 AND (flags::text LIKE '%broadcast_receiver%' OR name ILIKE '%television%')${nameHint ? ' AND name ILIKE $2' : ''} LIMIT 1`,
+    `SELECT id, name, flags FROM furniture WHERE zone_id=$1 AND (flags::text LIKE '%broadcast_receiver%' OR name ILIKE '%television%')${nameHint ? ' AND name ILIKE $2' : ''} LIMIT 1`,
     nameHint ? [player.current_zone, `%${nameHint}%`] : [player.current_zone]
   );
   if (!rows.length) return undefined;
 
-  const entry = furnitureChannelIndex.get(rows[0].id);
-  if (!entry || entry.deviceType !== 'tv') return buildTvOffPanel(player);
-  return buildTvOffPanel(player);
+  const flags = typeof rows[0].flags === 'object' ? rows[0].flags : JSON.parse(rows[0].flags || '{}');
+  return buildTvOffPanel(player, flags.tv_skin || 'crt');
 }
 
 async function cmdTv(args, raw, player) {
@@ -2443,7 +2679,6 @@ export const routeHandler = async (path, method, body, auth) => {
           // Replace entire playlist for channel
           await query('DELETE FROM media_channel_playlist WHERE channel_id=$1', [id]);
           const items = Array.isArray(body) ? body : [];
-          const allNpcIds = new Set();
           for (const item of items) {
             const pid = item.id || `pl_${randomUUID()}`;
             const slotType = item.slot_type || 'broadcast';
@@ -2455,35 +2690,11 @@ export const routeHandler = async (path, method, body, auth) => {
                item.duration_override || null, item.priority || 0,
                JSON.stringify(cond), slotType]
             );
-            const staff = Array.isArray(cond?.npc_staff) ? cond.npc_staff
-              : (Array.isArray(cond) ? [] : (Array.isArray(cond?.npc_staff) ? cond.npc_staff : []));
-            for (const nid of staff) if (nid) allNpcIds.add(nid);
           }
-          // Fetch studio zone once — needed for both default graph and work-phase injection
-          const { rows: chSzRows } = await query('SELECT studio_zone_id FROM media_channels WHERE id=$1', [id]);
-          const chStudioZone = chSzRows[0]?.studio_zone_id || null;
-          // Assign default behaviour graph to any staff NPC that doesn't have one yet
-          if (allNpcIds.size) {
-            const defaultGraph = JSON.stringify(makeDefaultStudioGraph(chStudioZone));
-            for (const npcId of allNpcIds) {
-              await query(
-                `UPDATE npcs SET behaviour_graph=$1 WHERE id=$2 AND (behaviour_graph IS NULL OR behaviour_graph::text = '{}' OR behaviour_graph::text = 'null')`,
-                [defaultGraph, npcId]
-              ).catch(() => {});
-            }
-          }
-          // Inject work-phase actions from each item's broadcast graph into NPC behaviour graphs
-          const parsedItems = items.map(item => {
-            const cond = item.conditions || [];
-            return {
-              broadcast_id: item.broadcast_id || null,
-              npcStaff: Array.isArray(cond?.npc_staff) ? cond.npc_staff : [],
-              studioZoneId: chStudioZone,
-            };
-          });
-          await Promise.all(parsedItems.map(i => _injectWorkPhaseForPlaylistItem(i)));
-          // Recalculate NPC work schedules across all channels on every save so
-          // hosts derived from broadcast graphs stay assigned to their studio.
+          // Single authority for NPC staffing: recalc derives each broadcast's hosts
+          // from its graph and staffs the studio ONLY for live shows + weather
+          // forecasts (scripted shows never put NPCs on-stage). It also self-heals
+          // any NPC a prior pass wrongly commuted to a studio.
           await recalculateNpcSchedules();
           return { status: 200, body: { message: 'Playlist updated' } };
         }
@@ -2494,6 +2705,14 @@ export const routeHandler = async (path, method, body, auth) => {
         return ok
           ? { status: 200, body: { message: 'Channel broadcast restarted.' } }
           : { status: 404, body: { error: 'Channel not found or not running.' } };
+      }
+
+      // Broadcast debugger: scan a channel's scheduled day for problems that
+      // would cause skips / technical difficulties, plus the live runtime log.
+      if (id && sub === 'debug' && method === 'GET') {
+        if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
+        const report = await scanChannelDay(id);
+        return report ? { status: 200, body: report } : { status: 404, body: { error: 'Channel not found' } };
       }
 
       if (!id && method === 'GET') {

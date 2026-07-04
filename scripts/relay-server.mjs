@@ -413,8 +413,8 @@ const PAGE = `<!DOCTYPE html>
 
   <div class="card">
     <div class="lane-title">World — shared DB seed</div>
+    <div style="margin-bottom:12px"><input id="msg" placeholder="commit message (optional)" style="width:100%" /></div>
     <div class="actions">
-      <input id="msg" placeholder="commit message (optional)" />
       <button id="publish">⇧ Publish content</button>
       <button class="ghost" id="sync">⇩ Sync content</button>
     </div>
@@ -457,14 +457,26 @@ const PAGE = `<!DOCTYPE html>
 <script>
 const $ = (id) => document.getElementById(id);
 let st = null;
+let streaming = false;  // an action (publish/sync/ship/deploy/launch) is running
+let refreshing = false; // a status refresh is in flight — avoid overlapping polls
 
 function line(cls, label, msg) {
   return '<div class="row"><span class="dot ' + cls + '"></span><span>' + label +
     '</span>' + (msg ? ' <span class="msg">— ' + msg + '</span>' : '') + '</div>';
 }
 
-async function refresh() {
-  $('checks').innerHTML = line('mute', 'Checking…', '');
+async function refresh(showSpinner = true) {
+  if (refreshing) return; // don't stack polls on top of each other
+  refreshing = true;
+  if (showSpinner) $('checks').innerHTML = line('mute', 'Checking…', '');
+  try {
+    await refreshInner();
+  } finally {
+    refreshing = false;
+  }
+}
+
+async function refreshInner() {
   try {
     st = await (await fetch('/api/status')).json();
   } catch (e) {
@@ -561,6 +573,7 @@ async function loadActivity() {
 }
 
 async function runStream(url, payload, label) {
+  streaming = true;
   document.querySelectorAll('button').forEach((b) => (b.disabled = true));
   $('running').textContent = '● ' + label + '…';
   $('out').textContent = '';
@@ -580,11 +593,13 @@ async function runStream(url, payload, label) {
     }
   } finally {
     $('running').textContent = '';
+    streaming = false;
     await refresh();
   }
 }
 
 $('launch').onclick = async () => {
+  streaming = true;
   document.querySelectorAll('button').forEach((b) => (b.disabled = true));
   $('running').textContent = '● Launching server…';
   $('out').textContent = '';
@@ -592,12 +607,18 @@ $('launch').onclick = async () => {
     $('out').textContent = await (await fetch('/api/launch', { method: 'POST' })).text();
   } finally {
     $('running').textContent = '';
+    streaming = false;
     await refresh();
-    setTimeout(refresh, 2500); // give the server a moment to bind :3000, then reflect it
+    setTimeout(() => refresh(false), 2500); // give the server a moment to bind :3000, then reflect it
   }
 };
 
-$('refresh').onclick = refresh;
+// Auto-poll: keep pre-flight + activity current without a manual refresh, so
+// merges/pushes made elsewhere show up on their own. Skipped while an action is
+// streaming (would fight the button states) and while a refresh is already running.
+setInterval(() => { if (!streaming) refresh(false); }, 15000);
+
+$('refresh').onclick = () => refresh(true);
 $('publish').onclick = () => runStream('/api/publish', { message: $('msg').value }, 'Publishing');
 $('sync').onclick = () => runStream('/api/sync', {}, 'Syncing');
 $('regress').onclick = () => runStream('/api/regress', {}, 'Running regress');

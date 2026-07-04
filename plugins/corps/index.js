@@ -58,6 +58,65 @@ function myRankOrder(org, membership) {
 
 // ─── Commands ─────────────────────────────────────────────────────────────
 
+// A short display tag for a corp (flags.tag, else first alnum letters of the name).
+function deriveTag(org) {
+  if (org?.flags?.tag) return org.flags.tag;
+  const letters = (org?.name || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return letters.slice(0, 4) || 'ORG';
+}
+
+// Assemble the rich Corp Command Console payload (rendered by panels/corp-console.js).
+// Phase-0 data: identity, treasury, members, diplomacy. Territory/directives are
+// stubs until the Phase-1 zone_control engine lands (income/upkeep/heat = 0).
+async function buildConsolePayload(player) {
+  const m = getPlayerMembership(player.id);
+  if (!m) return err('You are not in a corp. Found one with "corp found <name>".');
+  const org = getOrg(m.org_id);
+  const myRank = org.ranks.find(r => r.id === m.rank_id);
+
+  const { rows: memRows } = await query(
+    `SELECT p.id, p.handle, r.name AS rank, r.rank_order FROM org_members om
+       JOIN players p ON p.id = om.player_id JOIN org_ranks r ON r.id = om.rank_id
+      WHERE om.org_id = $1 ORDER BY r.rank_order DESC, LOWER(p.handle)`, [m.org_id]);
+  const online = new Set(getAllLivePlayers().map(p => p.id));
+  const members = memRows.map(r => ({ handle: r.handle, rank: r.rank, online: online.has(r.id) }));
+
+  const { rows: relRows } = await query(
+    `SELECT o.name, rel.stance FROM org_relations rel JOIN orgs o ON o.id = rel.other_org_id
+      WHERE rel.org_id = $1 ORDER BY o.name`, [m.org_id]);
+  const relations = relRows.map(r => ({ name: r.name, stance: r.stance }));
+
+  // Territory: HQ zones only until Phase 1 (no influence contest yet).
+  const { rows: hqRows } = await query('SELECT zone_id FROM apartments WHERE owner_org_id = $1', [m.org_id]);
+  const territory = hqRows.map(h => ({ zone: getZone(h.zone_id)?.name || h.zone_id, status: 'HQ', influence: 1 }));
+
+  return {
+    type: 'corp_console',
+    accent: org.color || '#35e0c8',
+    org: { name: org.name, tag: deriveTag(org), tier: org.flags?.tier || 1 },
+    you: { rank: myRank?.name || '—', permissions: m.permissions },
+    treasury: { balance: org.treasury || 0, income: 0, upkeep: 0 },
+    members,
+    relations,
+    territory,
+    directives: [],
+    architectHeat: 0,
+  };
+}
+
+// Push a live console patch to every online member of an org (after treasury/
+// roster changes), so an open console updates without a manual refresh.
+async function pushConsole(orgId, broadcast) {
+  if (!broadcast) return;
+  for (const p of getAllLivePlayers()) {
+    if (getPlayerMembership(p.id)?.org_id !== orgId) continue;
+    const payload = await buildConsolePayload(p);
+    if (payload.type === 'corp_console') {
+      broadcast(null, { type: 'corp_console_patch', treasury: payload.treasury, architectHeat: payload.architectHeat, members: payload.members }, null, p.id);
+    }
+  }
+}
+
 async function cmdFound(player, name) {
   if (getPlayerMembership(player.id)) return err("You're already in a corp. Leave it first.");
   name = (name || '').trim();
@@ -175,7 +234,7 @@ async function cmdKick(player, targetName) {
   return { type: 'corp_kick', message: `You kick ${esc(target.handle)} from ${esc(org.name)}.` };
 }
 
-async function cmdContribute(player, amountStr) {
+async function cmdContribute(player, amountStr, broadcast) {
   const m = getPlayerMembership(player.id);
   if (!m) return err("You're not in a corp.");
   const amount = amountStr === 'all' ? (player.credits || 0) : parseInt(amountStr, 10);
@@ -187,6 +246,7 @@ async function cmdContribute(player, amountStr) {
   });
   if (!ok) return err(`You only have ${player.credits || 0}c on you.`);
   await reloadOrg(m.org_id);
+  await pushConsole(m.org_id, broadcast);
   return {
     type: 'corp_contribute',
     message: `You contribute ${amount}c to ${esc(getOrg(m.org_id).name)}. Treasury: ${getOrg(m.org_id).treasury}c.`,
@@ -216,6 +276,7 @@ async function cmdDisburse(player, targetName, amountStr, broadcast) {
   });
   if (!result) return err(`The treasury doesn't have ${amount}c.`);
   await reloadOrg(m.org_id);
+  await pushConsole(m.org_id, broadcast);
   const org = getOrg(m.org_id);
   if (targetLive && targetLive.id !== player.id) {
     broadcast(null, { type: 'output', message: `<span class="msg-system">${esc(org.name)} disburses ${amount}c to you.</span>`, player_update: { credits: targetLive.credits } }, null, targetLive.id);
@@ -353,8 +414,22 @@ async function cmdClaim(player) {
   });
   if (!result) return err(`The treasury doesn't have ${HQ_FEE}c.`);
   setApartmentCache(zone.id, result.apt);
+  await ensureCorpTerminal(zone.id);
   await reloadOrg(org.id);
-  return { type: 'corp_hq_claim', message: `<b>${esc(org.name)}</b> claims this unit as its HQ for ${HQ_FEE}c. Members with manage_hq can now lock it. Treasury: ${result.treasury}c.` };
+  return { type: 'corp_hq_claim', message: `<b>${esc(org.name)}</b> claims this unit as its HQ for ${HQ_FEE}c. A corp ops terminal boots against the wall — <b>use</b> it (or type <b>corp</b>) to open the console. Treasury: ${result.treasury}c.` };
+}
+
+// Every claimed HQ gets a wall-mounted ops terminal (idempotent) — the diegetic
+// entry to the console; `use` it (doUseCorpTerminal) to open it.
+async function ensureCorpTerminal(zoneId) {
+  const { rows } = await query(`SELECT 1 FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'corp_terminal') LIMIT 1`, [zoneId]);
+  if (rows.length) return;
+  await query(
+    `INSERT INTO furniture (id, zone_id, name, description, flags, object_type)
+       VALUES ($1,$2,$3,$4,$5,'terminal')`,
+    [randomUUID(), zoneId, 'corp ops terminal',
+     'A wall-mounted command terminal, its screen aglow with the corp sigil. USE it to open the ops console.',
+     JSON.stringify({ corp_terminal: true, interactions: ['use'] })]);
 }
 
 async function cmdDisband(player) {
@@ -363,9 +438,13 @@ async function cmdDisband(player) {
   const org = getOrg(m.org_id);
   if (org.owner_id !== player.id && !hasPerm(player, PERM.DISBAND)) return err('Only the owner (or a rank with disband) can dissolve the corp.');
 
-  // Release any HQ apartments first (clears ownership + unlocks the door + syncs cache).
+  // Release any HQ apartments first (clears ownership + unlocks the door + syncs cache),
+  // and remove the ops terminal so a vacated unit isn't left with a dead console.
   const { rows: hqRows } = await query('SELECT zone_id FROM apartments WHERE owner_org_id=$1', [org.id]);
-  for (const h of hqRows) await releaseCorpHq(h.zone_id);
+  for (const h of hqRows) {
+    await releaseCorpHq(h.zone_id);
+    await query(`DELETE FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'corp_terminal')`, [h.zone_id]);
+  }
 
   await withTransaction(async (q) => {
     if ((org.treasury || 0) > 0 && org.owner_id) {
@@ -417,7 +496,8 @@ async function cmdCorp(args, raw, player, broadcast) {
   const sub = (args[0] || '').toLowerCase();
   const rest = args.slice(1);
   switch (sub) {
-    case '':            return cmdInfo(player);
+    case '':
+    case 'console':     return buildConsolePayload(player);
     case 'help':        return { type: 'output', message: USAGE };
     case 'found':       return cmdFound(player, rest.join(' '));
     case 'info':        return cmdInfo(player);
@@ -429,7 +509,7 @@ async function cmdCorp(args, raw, player, broadcast) {
     case 'leave':       return cmdLeave(player);
     case 'kick':        return cmdKick(player, rest[0]);
     case 'contribute':
-    case 'deposit':     return cmdContribute(player, rest[0]);
+    case 'deposit':     return cmdContribute(player, rest[0], broadcast);
     case 'disburse':
     case 'withdraw':    return cmdDisburse(player, rest[0], rest[1], broadcast);
     case 'edit':        return cmdEdit(player, rest[0], rest.slice(1).join(' '));
@@ -444,9 +524,33 @@ async function cmdCorp(args, raw, player, broadcast) {
   }
 }
 
+// Diegetic entry: `use` an HQ terminal (furniture tagged `corp_terminal`) boots
+// the console, mirroring the ATM's `{verb:'use', requiredTag:'atm'}`. Self-resolves
+// its target (the specialized-action registry fires this on every `use`), so it
+// falls through when there's no terminal here. Bound to the HQ's owning corp.
+async function doUseCorpTerminal(args, raw, player) {
+  const hint = (args.join(' ') || '').trim();
+  const { rows } = await query(
+    `SELECT id FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'corp_terminal')` +
+    (hint ? ' AND name ILIKE $2' : '') + ' LIMIT 1',
+    hint ? [player.current_zone, `%${hint}%`] : [player.current_zone]);
+  if (!rows.length) return undefined; // no corp terminal here — fall through
+  const m = getPlayerMembership(player.id);
+  if (!m) return err('The terminal blinks: CORP CREDENTIALS REQUIRED.');
+  const apt = getApartment(player.current_zone);
+  if (apt?.owner_type === 'org' && apt.owner_org_id && apt.owner_org_id !== m.org_id) {
+    return err('ACCESS DENIED — this terminal is bound to another corporation.');
+  }
+  return buildConsolePayload(player);
+}
+
 export const commands = {
   corp: cmdCorp,
   org: cmdCorp,
 };
+
+export const specializedActions = [
+  { verb: 'use', requiredTag: 'corp_terminal', handler: doUseCorpTerminal },
+];
 
 console.log('[corps] Plugin loaded.');

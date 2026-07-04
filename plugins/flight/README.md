@@ -1,6 +1,8 @@
 # flight (plugin)
 
-**Phase A vertical slice** of the flight system. Full design: [docs/systems-flight.md](../../docs/systems-flight.md) (as-built) and [docs/proposals/systems-flight.md](../../docs/proposals/systems-flight.md) (the locked blueprint).
+**Full flight system (Phases A–D).** As-built: [docs/systems-flight.md](../../docs/systems-flight.md); blueprint: [docs/proposals/systems-flight.md](../../docs/proposals/systems-flight.md).
+
+Multi-file: **state.js** (shared registry / computed-overlay / synthesized HUD / `effStats` / `parkAt`+`crash`) is imported by **index.js** (verbs + tick loop + move gate + no-fly), **hazards.js**, **combat.js**, **contracts.js**, **hangars.js**, **acquisition.js**.
 
 ## Purpose
 
@@ -24,13 +26,19 @@ startup / takeoff / landing and widens the minigame safe bands.
 
 ## Commands
 
-`board` · `disembark` / `deplane` · `startup` · `shutdown` · `throttle <0-100>` ·
-`heading <dir>` · `climb` · `dive` · `takeoff` · `land` · `refuel [amount]` ·
-`takeoffresolve` / `landresolve` (silent — the minigame overlays report their outcome).
+- **Flight:** `board` · `disembark`/`deplane` · `startup` · `shutdown` · `throttle` · `heading` · `climb` · `dive` · `takeoff` · `land` · `refuel`
+- **Emergencies / utility (Phase B):** `recover` · `extinguish` · `eject`/`bail` · `preflight` · `hover` · `spot`/`scan` · `chart` · `squawk`
+- **Acquisition:** `buy` · `charter`
+- **Combat:** `arm` · `safe` · `evade` · `strafe`/`fire`
+- **Contracts:** `contracts`/`jobs` · `accept` · `manifest`
+- **Ownership:** `hangar` · `repair` · `salvage` · `rebuild` · `tune`
+- **Silent resolvers:** `takeoffresolve` · `landresolve` · `strafresolve`
 
-Bare compass verbs (`n`/`north`/…) are intercepted by an **input matcher** only
-while the pilot is airborne (they set heading); otherwise they fall through to the
-normal ground mover.
+Bare compass verbs (`n`/`north`/…) are intercepted by an **input matcher** only while
+airborne (set heading); otherwise they fall through to the ground mover.
+
+**Verb-collision routers** (manifest `after`, delegate by context): `board`→gametable,
+`refuel`→generator, `buy`→commerce, `eject`/`tune`→broadcast, `repair`→engine builtin.
 
 ## Seams
 
@@ -56,9 +64,8 @@ area-pane gauge HUD + the rolling-takeoff and glideslope-landing minigames.
 Routed in `client/game/js/dispatch.js` (`cockpit_update` / `cockpit_close` /
 `flight_takeoff` / `flight_land`). All display-only; the server is authoritative.
 
-## Not yet (Phase B+)
+## Follow-on
 
-Rich hazards (stall/fire/weather buffeting), the aerial minimap + moving-map
-nav, no-fly airspace enforcement, cargo/passenger contracts, air combat + AA,
-hangars, wreck-salvage repair, the other five aircraft, and the six authored
-airfields. See the as-built doc for the boundary.
+Full PvP air-to-air, authored storm-cell/offshore special-airspace content, comms/ATC
+flavor, corp aircraft + insurance, and discrete parts-as-items slots (the continuous
+tune curves are in). See the as-built doc for the boundary.

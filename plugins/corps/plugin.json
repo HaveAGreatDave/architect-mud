@@ -2,5 +2,6 @@
   "name": "corps",
   "version": "1.0.0",
   "description": "Corporations (player orgs): found/join a corp, custom ranks, a shared atomic treasury, a private corp channel, and a claimable HQ. NPC factions share the unified orgs table.",
-  "commands": ["corp", "org"]
+  "commands": ["corp", "org"],
+  "specializedActions": [{ "verb": "use", "requiredTag": "corp_terminal" }]
 }

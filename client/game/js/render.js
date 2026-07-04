@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { updateBodyTempHUD } from './panels/environment.js';
 import { refreshCustomPanels } from './panels/custom/manager.js';
 import { registerList, mountScopeToggle } from './panels/list-reorder.js';
+import { renderSmartBar } from './panels/smartbar.js';
 
 // Make the Vitals list reorderable. Call after initSidebarOrder, which reparents
 // the section's rows into a .sidebar-section-body (the real row container).
@@ -164,6 +165,9 @@ export function parseZoneInfo(html) {
     btn.classList.toggle('dpad-locked', lockByDir[dir] === 'locked');
     btn.classList.toggle('dpad-owned', lockByDir[dir] === 'owned');
   }
+
+  // Rebuild the mobile smart action bar from the same room refresh.
+  renderSmartBar();
 }
 
 export function showDevPanelButton() {

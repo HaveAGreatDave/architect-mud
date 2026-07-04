@@ -1,17 +1,30 @@
   :root {
-    --bg: #0a0a12;
-    --bg2: #13131e;
-    --bg3: #1d1d2c;
-    --border: #35354e;
-    --text: #c4c4dc;
-    --text-dim: #7878a0;
-    --text-bright: #e8e8f5;
+    /* Canonical theme vars — identical schema to the game client and to
+       client/shared/themes.css. This :root IS the "dark"/Void base theme. */
+    --bg: #05050a;
+    --bg2: #0d0d16;
+    --bg3: #15151f;
+    --border: #2a2a40;
+    --text: #e8e8f5;
+    --text-dim: #8888a8;
+    --text-bright: #ffffff;
     --accent: #ff2ec4;
-    --accent2: #39ff8f;
-    --accent3: #ff9a3c;
+    --accent-dim: #6e1957;
+    --green: #39ff8f;
     --red: #ff3b5c;
+    --orange: #ff9a3c;
     --yellow: #f5e642;
     --cyan: #28e5ff;
+    --purple: #b86bff;
+    /* Legacy dev-panel names, kept as aliases onto the canonical vars so the
+       panel's ~96 existing var() call sites need no changes. Because these
+       reference the canonical vars (which each [data-theme] block overrides),
+       they track the active theme automatically. */
+    --accent2: var(--green);
+    --accent3: var(--orange);
+    --warning: var(--orange);
+    --danger: var(--red);
+    --success: var(--green);
     --font: 'Lucida Console', 'Lucida Sans Typewriter', 'Monaco', 'Consolas', monospace;
     --font-size-base: 13px;
   }
@@ -416,186 +429,12 @@
   .settings-select:hover, .settings-select:focus { border-color: var(--accent); }
   .settings-select option { background: var(--bg2); color: var(--text); }
 
-  [data-theme="light"] {
-    --bg: #f5f3ee; --bg2: #ebe8e0; --bg3: #dddad0; --border: #c5c0b0;
-    --text: #2e2c28; --text-dim: #6f6a5e; --text-bright: #1a1916;
-    --accent: #c4197f; --accent2: #0f9176; --accent3: #b8651f;
-    --red: #c23b3b; --warning: #b8651f; --danger: #c23b3b; --success: #0f9176;
-    --cyan: #0a7a8a;
-  }
-  [data-theme="arctic"] {
-    --bg: #f0f5fc; --bg2: #e2eaf6; --bg3: #d4e0f0; --border: #a8c0de;
-    --text: #1c2e4a; --text-dim: #476488; --text-bright: #08182e;
-    --accent: #1a60d0; --accent2: #1a7a40; --accent3: #c05818;
-    --red: #b82020; --warning: #c05818; --danger: #b82020; --success: #1a7a40;
-    --cyan: #0a6a8a;
-  }
-  [data-theme="solar"] {
-    --bg: #fdf6e8; --bg2: #f5eccc; --bg3: #ecd8b0; --border: #c8a870;
-    --text: #3c2c10; --text-dim: #6f5a3c; --text-bright: #1a1008;
-    --accent: #c07000; --accent2: #287040; --accent3: #7030a0;
-    --red: #b82020; --warning: #c05810; --danger: #b82020; --success: #287040;
-    --cyan: #1a6a78;
-  }
-  [data-theme="mint"] {
-    --bg: #f0faf4; --bg2: #e0f4e8; --bg3: #ccecda; --border: #90d0a8;
-    --text: #1a3028; --text-dim: #3d6b5b; --text-bright: #081818;
-    --accent: #1a9050; --accent2: #0888a0; --accent3: #c05818;
-    --red: #b82030; --warning: #c05818; --danger: #b82030; --success: #1a9050;
-    --cyan: #0a7070;
-  }
-  [data-theme="lavender"] {
-    --bg: #f5f2fc; --bg2: #ede8f8; --bg3: #e2dcf4; --border: #b8a8d8;
-    --text: #2a1e48; --text-dim: #7060a0; --text-bright: #100a30;
-    --accent: #5030b0; --accent2: #287050; --accent3: #b86010;
-    --red: #b02030; --warning: #b86010; --danger: #b02030; --success: #287050;
-    --cyan: #285888;
-  }
-  [data-theme="fog"] {
-    --bg: #f2f4f6; --bg2: #e4e8ec; --bg3: #d4d8de; --border: #a8b0bc;
-    --text: #1e2530; --text-dim: #505f73; --text-bright: #0a1018;
-    --accent: #2878a8; --accent2: #1e7848; --accent3: #b86018;
-    --red: #b82828; --warning: #b86018; --danger: #b82828; --success: #1e7848;
-    --cyan: #1a6880;
-  }
-  [data-theme="contrast"] {
-    --bg: #000000; --bg2: #0a0a0a; --bg3: #161616; --border: #555566;
-    --text: #ffffff; --text-dim: #aaaaaa; --text-bright: #ffffff;
-    --accent: #ff52d6; --accent2: #5cff9f; --accent3: #ffb15c;
-    --red: #ff4040; --warning: #ffb15c; --danger: #ff4040; --success: #5cff9f;
-  }
-  [data-theme="phosphor"] {
-    --bg: #010e01; --bg2: #031503; --bg3: #061e06; --border: #0f4010;
-    --text: #33ff33; --text-dim: #22a822; --text-bright: #80ff80;
-    --accent: #00ff41; --accent2: #00ffcc; --accent3: #ccff00;
-    --red: #ff4444; --warning: #ffaa00; --danger: #ff4444; --success: #00ff41;
-  }
-  [data-theme="synthwave"] {
-    --bg: #0d0221; --bg2: #130330; --bg3: #1a0540; --border: #3d1466;
-    --text: #e0d0ff; --text-dim: #9070c0; --text-bright: #ffffff;
-    --accent: #ff2bff; --accent2: #00ffaa; --accent3: #ff8c00;
-    --red: #ff3355; --warning: #ff8c00; --danger: #ff3355; --success: #00ffaa;
-  }
-  [data-theme="bloodmoon"] {
-    --bg: #0d0101; --bg2: #160303; --bg3: #200505; --border: #4a0c0c;
-    --text: #f0c8b0; --text-dim: #b87868; --text-bright: #ffe8d8;
-    --accent: #ff2200; --accent2: #88dd44; --accent3: #ff7722;
-    --red: #ff4422; --warning: #ff7722; --danger: #ff4422; --success: #88dd44;
-  }
-  [data-theme="slate"] {
-    --bg: #0e1117; --bg2: #161b24; --bg3: #1e2530; --border: #2e3a4a;
-    --text: #c8d8e8; --text-dim: #6a8aaa; --text-bright: #eaf4ff;
-    --accent: #38b2f0; --accent2: #4ed8a0; --accent3: #f0a040;
-    --red: #f05858; --warning: #f0a040; --danger: #f05858; --success: #4ed8a0;
-  }
-  [data-theme="inkwell"] {
-    --bg: #f8f8f6; --bg2: #f0f0ec; --bg3: #e4e4de; --border: #c0c0b8;
-    --text: #1a1a18; --text-dim: #706868; --text-bright: #000000;
-    --accent: #d42040; --accent2: #208040; --accent3: #c86010;
-    --red: #cc1020; --warning: #c86010; --danger: #cc1020; --success: #208040;
-  }
-  [data-theme="studio"] {
-    --bg: #f4f6f8; --bg2: #eaeef2; --bg3: #dee4ea; --border: #b4bec8;
-    --text: #181e28; --text-dim: #4a6070; --text-bright: #081018;
-    --accent: #0d7a50; --accent2: #1080b0; --accent3: #c87018;
-    --red: #cc1828; --warning: #c87018; --danger: #cc1828; --success: #1a8848;
-  }
-  [data-theme="eclipse"] {
-    --bg: #0a0808; --bg2: #130e0e; --bg3: #1c1616; --border: #302828;
-    --text: #e8d8d0; --text-dim: #907870; --text-bright: #fff8f0;
-    --accent: #ff8040; --accent2: #44e880; --accent3: #ff9922;
-    --red: #ff3355; --warning: #ff9922; --danger: #ff3355; --success: #44e880;
-  }
-  [data-theme="iron"] {
-    --bg: #080c10; --bg2: #101820; --bg3: #182030; --border: #283848;
-    --text: #d0e0f0; --text-dim: #6088b0; --text-bright: #f0f8ff;
-    --accent: #ff7020; --accent2: #40e890; --accent3: #ffe040;
-    --red: #ff4055; --warning: #ff8830; --danger: #ff4055; --success: #40e890;
-  }
-  [data-theme="aurora"] {
-    --bg: #16161e; --bg2: #1e1e2a; --bg3: #282838; --border: #363652;
-    --text: #c8d0f0; --text-dim: #8b90ba; --text-bright: #ffffff;
-    --accent: #7aa2ff; --accent2: #6ee7b7; --accent3: #ff9e64;
-    --red: #ff6b81; --warning: #ff9e64; --danger: #ff6b81; --success: #6ee7b7;
-    --cyan: #56e0e0;
-  }
-  [data-theme="neon"] {
-    --bg: #08060f; --bg2: #0f0b1c; --bg3: #171029; --border: #2e1f52;
-    --text: #e8e0ff; --text-dim: #8f7bc0; --text-bright: #ffffff;
-    --accent: #ff2fb3; --accent2: #2bff88; --accent3: #ff7a18;
-    --red: #ff3b5c; --warning: #ff7a18; --danger: #ff3b5c; --success: #2bff88;
-    --cyan: #23e5ff;
-  }
-  [data-theme="cathode"] {
-    --bg: #0c0a06; --bg2: #14100a; --bg3: #1d170d; --border: #3a2c14;
-    --text: #ffcf70; --text-dim: #a07a38; --text-bright: #ffe9b0;
-    --accent: #ffb52e; --accent2: #7dd93f; --accent3: #ff8a1e;
-    --red: #ff5a3c; --warning: #ff8a1e; --danger: #ff5a3c; --success: #7dd93f;
-    --cyan: #38d6c0;
-  }
-  [data-theme="grove"] {
-    --bg: #1f2420; --bg2: #272e28; --bg3: #313a32; --border: #45503f;
-    --text: #d3c6aa; --text-dim: #97a49b; --text-bright: #eef0e2;
-    --accent: #a7c080; --accent2: #83c092; --accent3: #e69875;
-    --red: #e67e80; --warning: #e69875; --danger: #e67e80; --success: #83c092;
-    --cyan: #7fbbb3;
-  }
-  [data-theme="latte"] {
-    --bg: #eff1f5; --bg2: #e6e9ef; --bg3: #dce0e8; --border: #bcc0cc;
-    --text: #4c4f69; --text-dim: #63677a; --text-bright: #1e2030;
-    --accent: #1e66f5; --accent2: #40a02b; --accent3: #fe640b;
-    --red: #d20f39; --warning: #df8e1d; --danger: #d20f39; --success: #40a02b;
-    --cyan: #179299;
-  }
-  [data-theme="rose"] {
-    --bg: #faf4ed; --bg2: #f0e6da; --bg3: #e6dccb; --border: #cfc4b0;
-    --text: #575279; --text-dim: #656177; --text-bright: #393552;
-    --accent: #b4637a; --accent2: #618375; --accent3: #d7827e;
-    --red: #b4506a; --warning: #ea9d34; --danger: #b4506a; --success: #618375;
-    --cyan: #56949f;
-  }
-  [data-theme="papertape"] {
-    --bg: #f6f0df; --bg2: #ece3c9; --bg3: #e0d4b2; --border: #c2b184;
-    --text: #3b3222; --text-dim: #6f6142; --text-bright: #211a0e;
-    --accent: #b5601a; --accent2: #4a7a2a; --accent3: #c47318;
-    --red: #b52a24; --warning: #c47318; --danger: #b52a24; --success: #4a7a2a;
-    --cyan: #1a7a86;
-  }
-  [data-theme="bubblegum"] {
-    --bg: #fdf2fb; --bg2: #f8e6f6; --bg3: #f2d9ef; --border: #e0aede;
-    --text: #4a2b52; --text-dim: #8a4f8a; --text-bright: #2a0f34;
-    --accent: #e6217f; --accent2: #12b886; --accent3: #fb8c2a;
-    --red: #f03e5c; --warning: #fb8c2a; --danger: #f03e5c; --success: #12b886;
-    --cyan: #0bb4d4;
-  }
-  [data-theme="tide"] {
-    --bg: #0e1c1e; --bg2: #142629; --bg3: #1c3236; --border: #294c52;
-    --text: #c2ded9; --text-dim: #6f9d9a; --text-bright: #e8f6f2;
-    --accent: #4fd6c4; --accent2: #6fd98f; --accent3: #eaa25c;
-    --red: #f0716f; --warning: #eaa25c; --danger: #f0716f; --success: #6fd98f;
-    --cyan: #5ce0dc;
-  }
-  [data-theme="dusk"] {
-    --bg: #191724; --bg2: #1f1d2e; --bg3: #26233a; --border: #403d5c;
-    --text: #e0def4; --text-dim: #908caa; --text-bright: #f5f4fb;
-    --accent: #ebbcba; --accent2: #6fcf9c; --accent3: #f6c177;
-    --red: #eb6f92; --warning: #f6c177; --danger: #eb6f92; --success: #6fcf9c;
-    --cyan: #9ccfd8;
-  }
-  [data-theme="meadow"] {
-    --bg: #edf0dd; --bg2: #e4e9cf; --bg3: #d9e0bf; --border: #bcc79c;
-    --text: #4a5340; --text-dim: #6f7a5c; --text-bright: #333c28;
-    --accent: #6f942e; --accent2: #4c8a2e; --accent3: #d9852b;
-    --red: #e0524a; --warning: #d9852b; --danger: #e0524a; --success: #4c8a2e;
-    --cyan: #359489;
-  }
-  [data-theme="clay"] {
-    --bg: #f3e6d8; --bg2: #ecdcc8; --bg3: #e3cfb5; --border: #cbb193;
-    --text: #4b3a2a; --text-dim: #7a6449; --text-bright: #332417;
-    --accent: #c0562b; --accent2: #6a7a1e; --accent3: #d1741c;
-    --red: #c02f28; --warning: #d1741c; --danger: #c02f28; --success: #6a7a1e;
-    --cyan: #3a8478;
-  }
+  /* Theme palettes ([data-theme="…"]) live in the shared single source of
+     truth: client/shared/themes.css (linked after this file). The dev panel's
+     :root aliases (--accent2/--accent3/--warning/--danger/--success) map onto
+     those canonical vars, so existing var() call sites keep working. Add new
+     themes there, not here. */
+
   .theme-grid-wrap { max-height: 300px; overflow-y: auto; }
   .theme-grid-head { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin: 12px 0 6px; }
   .theme-grid-head:first-child { margin-top: 0; }

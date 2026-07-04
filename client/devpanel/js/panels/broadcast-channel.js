@@ -150,6 +150,7 @@ function _renderDeckChild(ch, deckData) {
         <span style="font-size:10px;color:var(--text)">${escHtml2(deck.name || deck.id)}</span>
         <span style="font-size:9px;color:var(--text-dim)">→ ${escHtml2(deck.zone_id)}</span>
         <button class="action-btn" style="font-size:9px;padding:1px 6px;margin-left:auto;color:#ff4455;border-color:#ff4455" onclick="bcLivePreview('${ch.id}','${chName}','${escHtml2(ch.studio_zone_id||'')}')">⬤ Live</button>
+        <button class="action-btn" style="font-size:9px;padding:1px 6px" onclick="bcDebugChannel('${ch.id}')">🐞 Debug</button>
         <button class="action-btn" style="font-size:9px;padding:1px 6px" onclick="restartChannelBSM('${ch.id}')">⟳ Restart BSM</button>
         <button class="action-btn" style="font-size:9px;padding:1px 6px" onclick="spawnDeckForChannel('${ch.id}')">⇄ Replace</button>
       </div>
@@ -208,6 +209,47 @@ async function restartChannelBSM(channelId) {
     if (res?.error) { toast(res.error, true); return; }
     toast('Broadcast restarted from the top.');
   } catch (e) { toast(e.message, true); }
+}
+
+// Broadcast debugger: scan the channel's scheduled day for problems that would
+// cause skips / technical difficulties on air, and show them alongside the live
+// runtime broadcast log (graceful-failure events the runtime hit while airing).
+async function bcDebugChannel(channelId) {
+  let report;
+  try { report = await directAPI(`/broadcast/channels/${channelId}/debug`); }
+  catch (e) { toast(e.message, true); return; }
+  if (report?.error) { toast(report.error, true); return; }
+
+  const sev = { error: '#ff4455', warn: '#ffb000', info: '#5cc8ff' };
+  const issuesHtml = report.issues.length
+    ? report.issues.map(i => `<div style="display:flex;gap:8px;padding:4px 6px;border-left:3px solid ${sev[i.severity] || '#888'};background:rgba(255,255,255,0.02);margin-bottom:3px">
+        <span style="color:${sev[i.severity] || '#888'};font-size:9px;text-transform:uppercase;min-width:40px">${i.severity}</span>
+        <span style="font-size:11px;color:var(--text)">${escHtml2(i.msg)}</span></div>`).join('')
+    : `<div style="color:#5cd68a;font-size:11px;padding:6px">✓ No problems found in the scheduled day.</div>`;
+  const logHtml = (report.log || []).length
+    ? report.log.slice().reverse().map(l => `<div style="font-family:monospace;font-size:10px;color:${sev[l.level] || 'var(--text-dim)'};padding:1px 0">[${new Date(l.ts).toLocaleTimeString()}] ${escHtml2(l.msg)}${l.node ? ` <span style="color:var(--text-dim)">(${escHtml2(l.node)})</span>` : ''}</div>`).join('')
+    : `<div style="color:var(--text-dim);font-size:10px;padding:6px">No runtime failures logged this session.</div>`;
+
+  document.getElementById('bc-debug-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'bc-debug-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;width:min(680px,92vw);max-height:86vh;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border)">
+        <span style="font-weight:600;color:var(--accent)">🐞 Broadcast Debugger — ${escHtml2(report.channel.name)} (CH ${report.channel.number})</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${report.scanned}/${report.slots} slots · ${report.counts.error} err · ${report.counts.warn} warn · ${report.counts.info} info</span>
+        <button class="action-btn" style="font-size:11px;padding:1px 8px" onclick="document.getElementById('bc-debug-modal').remove()">✕</button>
+      </div>
+      <div style="overflow-y:auto;padding:10px 14px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Day scan</div>
+        ${issuesHtml}
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin:12px 0 4px">Runtime broadcast log (newest first)</div>
+        ${logHtml}
+      </div>
+    </div>`;
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
 }
 
 async function spawnDeckForChannel(channelId) {

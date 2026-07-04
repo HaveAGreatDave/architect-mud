@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>CHIMERA-9 · SPLICE BENCH (test rig)</title>
+<style>
+/* ───────────────────────────────────────────────────────────────────────────
+   SPLICE BENCH — standalone test harness.
+   Salvaged corp medlab hardware, firmware cracked, repurposed for crimes.
+   Futuristic but gritty & sardonic. No build step, no assets — all canvas +
+   WebAudio. Ports onto the real client's mg-chassis dressing later.
+   ─────────────────────────────────────────────────────────────────────────── */
+:root{
+  --tox:#4fe08a;         /* toxic green — primary accent */
+  --tox-dim:#2f8a56;
+  --amber:#ffb23e;
+  --red:#ff4a5b;
+  --violet:#9a5ce0;      /* catalyst */
+  --cyan:#5fd0e0;
+  --ink:#cfe9d8;
+  --ink-dim:#6f8a7c;
+  --steel:#8496a8;
+  --font:'DejaVu Sans Mono','Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:#04060a; color:var(--ink); font-family:var(--font);
+  overflow:hidden; letter-spacing:.3px;
+  display:flex; align-items:center; justify-content:center;
+  -webkit-font-smoothing:none;
+}
+#rig{
+  position:relative; width:min(96vw,960px); aspect-ratio:960/604;
+  border-radius:18px; overflow:hidden;
+  background:linear-gradient(180deg,#0c1116,#070b0f 40%,#04070a);
+  border:1px solid #05070a;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.05),
+    inset 0 0 0 1px rgba(0,0,0,.5),
+    0 24px 70px rgba(0,0,0,.8),
+    0 0 60px rgba(79,224,138,.10);
+}
+#stage{position:absolute; inset:0; width:100%; height:100%; display:block}
+
+/* ── grit overlays (stacked above canvas, below HUD) ── */
+.fx{position:absolute; inset:0; pointer-events:none; z-index:5}
+.fx.scan{background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.16) 2px 3px); opacity:.55; mix-blend-mode:multiply}
+.fx.vig{box-shadow:inset 0 0 140px rgba(0,0,0,.75), inset 0 0 40px rgba(0,0,0,.5)}
+.fx.grid{opacity:.10;
+  background-image:linear-gradient(rgba(79,224,138,.5) 1px,transparent 1px),linear-gradient(90deg,rgba(79,224,138,.5) 1px,transparent 1px);
+  background-size:30px 30px; animation:drift 8s linear infinite}
+@keyframes drift{to{background-position:0 30px,30px 0}}
+#grain{position:absolute; inset:0; z-index:6; pointer-events:none; opacity:.06; mix-blend-mode:screen; image-rendering:pixelated; width:100%; height:100%}
+.fx.sweep{z-index:6; background:linear-gradient(180deg,transparent,rgba(79,224,138,.06),transparent); height:60px; top:0; mix-blend-mode:screen; animation:sweep 5.5s linear infinite}
+@keyframes sweep{0%{transform:translateY(-60px)}100%{transform:translateY(604px)}}
+
+/* ── HUD ── */
+.hud{position:absolute; z-index:8; pointer-events:none; font-size:11px; text-transform:uppercase}
+#topbar{top:0; left:0; right:0; height:34px; display:flex; align-items:center; gap:10px; padding:0 12px;
+  background:linear-gradient(180deg,rgba(6,10,8,.92),rgba(6,10,8,0)); }
+.brand{display:flex; align-items:center; gap:7px; color:var(--tox)}
+.brand .mk{font-size:15px; text-shadow:0 0 10px var(--tox); animation:breathe 3s ease-in-out infinite}
+@keyframes breathe{50%{text-shadow:0 0 18px var(--tox)}}
+.brand b{letter-spacing:2px; font-size:12px; text-shadow:1px 0 var(--red),-1px 0 var(--cyan)}
+.brand small{opacity:.4; letter-spacing:3px; font-size:8px}
+.spacer{flex:1}
+#topbar,#steps{transition:opacity .5s}
+.brand{transition:opacity .6s}
+.chip{padding:2px 6px; color:var(--ink-dim); font-size:9px; letter-spacing:1.5px; opacity:.75}
+.chip b{color:var(--tox)}
+.chip.warn b{color:var(--amber)} .chip.bad b{color:var(--red)}
+
+#steps{top:34px; left:0; right:0; height:20px; display:flex; align-items:center; gap:0; padding:0 12px; font-size:7px; letter-spacing:2px; opacity:.6}
+.step{flex:1; text-align:center; color:#3a4a42; position:relative; padding:3px 0}
+.step.on{color:var(--tox); text-shadow:0 0 8px rgba(79,224,138,.6)}
+.step.done{color:var(--tox-dim)}
+.step+.step::before{content:'·'; position:absolute; left:-2px; color:#243029}
+
+/* instability meter */
+#insta{position:absolute; z-index:8; right:12px; bottom:12px; width:180px; pointer-events:none}
+#insta .lab{font-size:8px; letter-spacing:2px; color:var(--ink-dim); display:flex; justify-content:space-between; margin-bottom:3px}
+#insta .lab b{color:var(--amber)}
+#insta .bar{height:8px; border:1px solid #05070a; border-radius:3px; background:#0a0f0c; overflow:hidden; box-shadow:inset 0 1px 3px #000}
+#insta .fill{height:100%; width:0%; background:linear-gradient(90deg,var(--tox),var(--amber) 60%,var(--red)); transition:width .18s; box-shadow:0 0 8px rgba(255,74,91,.5)}
+
+/* ticker / sardonic voice */
+#ticker{position:absolute; z-index:8; left:12px; bottom:12px; right:200px; font-size:10px; color:var(--ink-dim);
+  pointer-events:none; text-shadow:0 0 6px rgba(0,0,0,.9); min-height:14px}
+#ticker b{color:var(--tox)} #ticker .r{color:var(--red)} #ticker .a{color:var(--amber)}
+
+/* interactive layer for DOM buttons/labels (canvas draws the world).
+   pointer-events:none so the canvas below still gets moves/drags — only the
+   .btn children opt back into pointer-events. */
+#ui{position:absolute; inset:0; z-index:7; pointer-events:none}
+.btn{position:absolute; pointer-events:auto; cursor:pointer; font-family:var(--font); font-size:11px; letter-spacing:2px; text-transform:uppercase;
+  color:#04120b; background:linear-gradient(180deg,var(--tox),var(--tox-dim)); border:none; padding:9px 20px; border-radius:4px; font-weight:bold;
+  box-shadow:0 0 18px rgba(79,224,138,.45), inset 0 1px 0 rgba(255,255,255,.4); transition:filter .15s, transform .08s}
+.btn:hover{filter:brightness(1.15)} .btn:active{transform:translateY(1px)}
+.btn.ghost{background:none; color:var(--steel); border:1px solid rgba(132,150,168,.35); box-shadow:none}
+.btn.ghost:hover{color:var(--tox); border-color:var(--tox)}
+.btn[disabled]{opacity:.35; cursor:not-allowed; filter:grayscale(.6)}
+
+/* drug label card (pops on click during selection) */
+#label{position:absolute; z-index:9; width:210px; pointer-events:none; display:none;
+  background:linear-gradient(180deg,#0e1512,#080c0a); border:1px solid rgba(79,224,138,.4); border-radius:5px; padding:10px 11px;
+  box-shadow:0 10px 30px rgba(0,0,0,.8), 0 0 20px rgba(79,224,138,.15); font-size:10px}
+#label .nm{font-size:13px; letter-spacing:2px; color:var(--tox); font-weight:bold; text-transform:uppercase; margin-bottom:2px}
+#label .tag{font-size:8px; letter-spacing:2px; color:var(--amber); margin-bottom:6px}
+#label .row{display:flex; justify-content:space-between; color:var(--ink-dim); margin:2px 0; text-transform:uppercase; font-size:8px; letter-spacing:1px}
+#label .row b{color:var(--ink)}
+#label .blurb{color:#9db8ab; font-style:italic; margin:6px 0; line-height:1.35}
+#label .eff{border-top:1px dashed rgba(79,224,138,.25); padding-top:5px; margin-top:5px; color:var(--ink)}
+#label .redact{color:#3a4a42; background:#111; letter-spacing:0; user-select:none}
+#label .known{position:absolute; top:8px; right:10px; font-size:7px; letter-spacing:1px; color:var(--ink-dim)}
+
+/* result card */
+#result{position:absolute; inset:0; z-index:10; display:none; align-items:center; justify-content:center; text-align:center;
+  background:radial-gradient(120% 90% at 50% 40%,rgba(4,8,6,.6),rgba(2,4,3,.94))}
+#result .card{width:400px; padding:24px; background:linear-gradient(180deg,#0e1512,#070b09); border:1px solid rgba(79,224,138,.4); border-radius:8px;
+  box-shadow:0 20px 60px rgba(0,0,0,.9), 0 0 40px rgba(79,224,138,.15)}
+#result h1{font-size:20px; letter-spacing:3px; margin-bottom:4px}
+#result .sub{font-size:9px; letter-spacing:3px; color:var(--ink-dim); text-transform:uppercase; margin-bottom:16px}
+#result .grade{display:flex; justify-content:space-between; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--ink-dim); margin:5px 0; padding:0 20px}
+#result .grade b{color:var(--tox)} #result .grade b.a{color:var(--amber)} #result .grade b.r{color:var(--red)}
+#result .verdict{font-size:11px; color:#9db8ab; font-style:italic; margin:14px 20px; line-height:1.4}
+#result .mystery{font-size:9px; letter-spacing:1px; color:var(--violet); text-transform:uppercase; border:1px dashed rgba(154,92,224,.4); padding:8px; margin:12px 20px; border-radius:4px}
+
+/* dev skill drawer */
+#dev{position:absolute; z-index:11; top:60px; right:10px; width:186px; padding:9px 10px; pointer-events:auto;
+  background:rgba(8,12,10,.9); border:1px solid rgba(132,150,168,.25); border-radius:5px; font-size:9px; color:var(--ink-dim); letter-spacing:1px}
+#dev .h{display:flex; justify-content:space-between; cursor:pointer; text-transform:uppercase; color:var(--steel)}
+#dev .body{margin-top:8px}
+#dev.min .body{display:none}
+#dev label{display:block; text-transform:uppercase; margin:8px 0 2px}
+#dev input[type=range]{width:100%; accent-color:var(--tox)}
+#dev .val{color:var(--tox)}
+#dev .capline{margin-top:8px; padding-top:7px; border-top:1px solid rgba(132,150,168,.2); color:var(--ink)}
+#dev .capline b{color:var(--tox)}
+#dev .re{margin-top:8px; width:100%; text-align:center; cursor:pointer; padding:5px; border:1px solid rgba(132,150,168,.3); border-radius:3px; color:var(--steel); text-transform:uppercase; letter-spacing:2px}
+#dev .re:hover{color:var(--tox); border-color:var(--tox)}
+
+.hidden{display:none!important}
+.flash{position:absolute; inset:0; z-index:20; pointer-events:none; background:#fff; opacity:0}
+</style>
+</head>
+<body>
+<div id="rig">
+  <canvas id="stage" width="960" height="604"></canvas>
+
+  <div class="fx grid"></div>
+  <div class="fx sweep"></div>
+  <div class="fx scan"></div>
+  <canvas id="grain" width="240" height="151"></canvas>
+  <div class="fx vig"></div>
+
+  <div id="topbar" class="hud">
+    <span class="brand"><span class="mk">&#9879;</span><span><b>CHIMERA&#8209;9</b> <small>GENESPLICER</small></span></span>
+    <span class="spacer"></span>
+    <span class="chip" id="chip-diff">DIFF <b>—</b></span>
+    <span class="chip" id="chip-skill">CHEM <b>—</b></span>
+    <span class="chip" id="chip-batch">BATCH <b>—</b></span>
+  </div>
+
+  <div id="steps" class="hud">
+    <span class="step" data-s="loadin">BOOT</span>
+    <span class="step" data-s="select">SELECT</span>
+    <span class="step" data-s="mix">MIX</span>
+    <span class="step" data-s="pour">POUR</span>
+    <span class="step" data-s="stir">STIR</span>
+    <span class="step" data-s="heat">STABILIZE</span>
+    <span class="step" data-s="rhythm">SET</span>
+  </div>
+
+  <div id="ui"></div>
+  <div id="label"></div>
+
+  <div id="insta" class="hidden">
+    <div class="lab"><span>INSTABILITY</span><b id="insta-pct">0%</b></div>
+    <div class="bar"><div class="fill" id="insta-fill"></div></div>
+  </div>
+  <div id="ticker" class="hud"></div>
+
+  <div id="dev" class="min">
+    <div class="h" id="dev-h"><span>&#9881; RIG CALIBRATION</span><span id="dev-tog">+</span></div>
+    <div class="body">
+      <label>YOUR CHEMISTRY SKILL <span class="val" id="sk-val">6</span></label>
+      <input type="range" id="sk" min="1" max="16" value="6">
+      <div class="capline" id="capline">Rated: <b>averagely capable</b></div>
+      <label style="margin-top:10px">CATASTROPHE STAKES</label>
+      <div style="display:flex;gap:4px;margin-top:3px">
+        <span class="re" id="stk-real" style="flex:1">REAL</span>
+        <span class="re" id="stk-often" style="flex:1">DEMO</span>
+      </div>
+      <div class="re" id="dev-restart">&#8635; NEW SESSION</div>
+    </div>
+  </div>
+
+  <div id="result">
+    <div class="card">
+      <h1 id="r-name">—</h1>
+      <div class="sub" id="r-sub">UNSTABLE COMPOUND</div>
+      <div class="grade"><span>MIX</span><b id="r-mix">—</b></div>
+      <div class="grade"><span>POUR PRECISION</span><b id="r-pour">—</b></div>
+      <div class="grade"><span>AGITATION</span><b id="r-stir">—</b></div>
+      <div class="grade"><span>STABILITY</span><b id="r-heat">—</b></div>
+      <div class="grade"><span>SET / TIMING</span><b id="r-rhythm">—</b></div>
+      <div class="grade" style="border-top:1px solid rgba(79,224,138,.2);padding-top:8px;margin-top:8px"><span>POTENCY</span><b id="r-pot">—</b></div>
+      <div class="verdict" id="r-verdict">—</div>
+      <div class="mystery" id="r-mystery">This compound is a mystery to everyone but you.</div>
+      <button class="btn" id="r-again" style="position:static;margin-top:6px">&#8635; SPLICE ANOTHER</button>
+    </div>
+  </div>
+
+  <div class="flash" id="flash"></div>
+</div>
+
+<script>
+"use strict";
+// ═══════════════════════════════════════════════════════════════════════════
+//  TINY WEBAUDIO — clicks, hums, chimes, klaxon. No assets. All guarded.
+// ═══════════════════════════════════════════════════════════════════════════
+const AX = (()=>{
+  let ac=null; const loops={};
+  const ctx=()=>{ if(!ac){ try{ac=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } if(ac&&ac.state==='suspended') ac.resume(); return ac; };
+  function tone(freq,dur,{type='sine',gain=.2,to=null,bend=0,filt=null}={}){
+    const a=ctx(); if(!a) return; const t=a.currentTime;
+    const o=a.createOscillator(), g=a.createGain(); o.type=type;
+    o.frequency.setValueAtTime(freq,t); if(to) o.frequency.exponentialRampToValueAtTime(to,t+dur);
+    let node=o;
+    if(filt){ const f=a.createBiquadFilter(); f.type=filt.type||'lowpass'; f.frequency.value=filt.freq||800; f.Q.value=filt.q||1; o.connect(f); node=f; }
+    node.connect(g); g.connect(a.destination);
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(gain,t+.008); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.start(t); o.stop(t+dur+.02);
+  }
+  function noise(dur,{gain=.2,freq=800,q=1,type='lowpass'}={}){
+    const a=ctx(); if(!a) return; const t=a.currentTime;
+    const n=a.createBufferSource(), buf=a.createBuffer(1,a.sampleRate*dur,a.sampleRate); const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1);
+    n.buffer=buf; const f=a.createBiquadFilter(); f.type=type; f.frequency.value=freq; f.Q.value=q; const g=a.createGain();
+    n.connect(f); f.connect(g); g.connect(a.destination);
+    g.gain.setValueAtTime(gain,t); g.gain.exponentialRampToValueAtTime(.0001,t+dur); n.start(t); n.stop(t+dur+.02);
+  }
+  function loop(id,{freq=90,type='sawtooth',gain=.06,filt=520,tremRate=0,tremDepth=0}={}){
+    const a=ctx(); if(!a||loops[id]) return; const t=a.currentTime;
+    const o=a.createOscillator(), g=a.createGain(), f=a.createBiquadFilter();
+    o.type=type; o.frequency.value=freq; f.type='lowpass'; f.frequency.value=filt;
+    o.connect(f); f.connect(g); g.connect(a.destination); g.gain.value=gain; o.start();
+    let lfo=null,lg=null; if(tremRate){ lfo=a.createOscillator(); lg=a.createGain(); lfo.frequency.value=tremRate; lg.gain.value=gain*tremDepth; lfo.connect(lg); lg.connect(g.gain); lfo.start(); }
+    loops[id]={o,g,lfo,f};
+  }
+  function loopGain(id,v){ const l=loops[id]; if(l){ const a=ctx(); l.g.gain.linearRampToValueAtTime(v,a.currentTime+.08);} }
+  function stop(id){ const l=loops[id]; if(l){ try{l.o.stop(); l.lfo&&l.lfo.stop();}catch(e){} delete loops[id]; } }
+  return {
+    tone,noise,loop,loopGain,stop,
+    click:()=>tone(1400,.05,{type:'square',gain:.12,to:800}),
+    tick:()=>tone(2000,.03,{type:'square',gain:.06}),
+    good:()=>{tone(520,.12,{type:'triangle',gain:.2}); setTimeout(()=>tone(780,.16,{type:'triangle',gain:.2}),90);},
+    perfect:()=>{tone(660,.09,{gain:.22}); setTimeout(()=>tone(990,.14,{gain:.22}),70); setTimeout(()=>tone(1320,.18,{gain:.18}),150);},
+    bad:()=>tone(150,.3,{type:'sawtooth',gain:.2,to:70}),
+    drop:()=>{noise(.18,{gain:.25,freq:400,type:'lowpass'}); tone(300,.14,{type:'sine',gain:.12,to:120});},
+    pour:on=>{ if(on) loop('pour',{freq:220,type:'sawtooth',gain:.05,filt:900,tremRate:18,tremDepth:.5}); else stop('pour'); },
+    klaxon:()=>{ for(let i=0;i<4;i++) setTimeout(()=>tone(440,.3,{type:'sawtooth',gain:.25,to:300}),i*260); noise(1.4,{gain:.3,freq:1600,type:'highpass'}); },
+    shatter:()=>{ noise(.5,{gain:.4,freq:3000,type:'highpass',q:.5}); for(let i=0;i<8;i++) setTimeout(()=>tone(600+Math.random()*3000,.08,{type:'triangle',gain:.08}),Math.random()*300); },
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  UTIL
+// ═══════════════════════════════════════════════════════════════════════════
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const rnd=(a=1,b=0)=>b+Math.random()*(a-b);
+const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const cv=document.getElementById('stage'), G=cv.getContext('2d');
+const W=cv.width, H=cv.height;
+const UI=document.getElementById('ui');
+const el=id=>document.getElementById(id);
+function mk(cls,html,style){ const d=document.createElement('div'); if(cls)d.className=cls; if(html!=null)d.innerHTML=html; if(style)d.setAttribute('style',style); return d; }
+// pointer in canvas logical coords
+const ptr={x:W/2,y:H/2,down:false};
+function evPos(e){ const r=cv.getBoundingClientRect(); const cx=(e.touches?e.touches[0].clientX:e.clientX); const cy=(e.touches?e.touches[0].clientY:e.clientY); return {x:(cx-r.left)/r.width*W, y:(cy-r.top)/r.height*H}; }
+cv.addEventListener('pointermove',e=>{const p=evPos(e);ptr.x=p.x;ptr.y=p.y; if(stage&&stage.move)stage.move(p);});
+cv.addEventListener('pointerdown',e=>{AX.tick();const p=evPos(e);ptr.x=p.x;ptr.y=p.y;ptr.down=true; if(stage&&stage.down)stage.down(p);});
+window.addEventListener('pointerup',e=>{ptr.down=false; if(stage&&stage.up)stage.up();});
+window.addEventListener('keydown',e=>{ if(e.repeat)return; if(stage&&stage.key)stage.key(e); });
+window.addEventListener('keyup',e=>{ if(stage&&stage.keyup)stage.keyup(e); });
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  DRUG LIBRARY (mock) — forms backfilled: liquid / powder / gel / pill.
+//  `known` 0..1 gates how much of the label you can read (learned-by-use).
+// ═══════════════════════════════════════════════════════════════════════════
+const DRUGS=[
+  {id:'redline', name:'REDLINE',  tag:'COMBAT STIM', form:'liquid', sub:'thin',       color:'#e0644f', diff:4,  vol:.30, known:.92, blurb:'Field stim. Turns your heart into a war drum, briefly.', eff:'+Reflexes +Brawn, jitters, comedown crash'},
+  {id:'bluenote',name:'BLUE NOTE',tag:'DEPRESSANT', form:'liquid', sub:'oil',        color:'#4f9ae0', diff:6,  vol:.45, known:.55, blurb:'Downer in an oily suspension. Refuses to mix with anything decent.', eff:'sedation, −anxiety, respiratory risk'},
+  {id:'ashdust', name:'ASH DUST', tag:'PSYCHEDELIC',form:'powder', sub:'fine',       color:'#c9c9d6', diff:3,  vol:.20, known:.80, blurb:'Grey powder. Tastes, reportedly, like a crematorium floor.', eff:'mild visuals, time-dilation'},
+  {id:'goldbug', name:'GOLDBUG',  tag:'DESIGNER',   form:'powder', sub:'crystalline',color:'#e0b64f', diff:7,  vol:.55, known:.35, blurb:'Crystal shards. Corporate designer trash with a nasty markup.', eff:'euphoria, ???'},
+  {id:'halo',    name:'HALO',     tag:'ANTIPSY',    form:'pill',   sub:'tablet',     color:'#d6a0e0', diff:5,  vol:.30, known:.62, blurb:'Chalky tabs. Somebody scratched a little halo into each one.', eff:'−hallucination, clarity, flat affect'},
+  {id:'venom',   name:'VENOM GEL',tag:'NEUROTOXIN', form:'gel',    sub:'viscous',    color:'#7de07a', diff:9,  vol:.78, known:.22, blurb:'Bioluminescent goo. Twitches when you look away from it.', eff:'UNKNOWN — smells lethal'},
+  {id:'blacksun',name:'BLACK SUN',tag:'?????',      form:'liquid', sub:'solvent',    color:'#9a5ce0', diff:12, vol:.96, known:.06, blurb:'Light bends around the vial. This should not be legal. It isn\'t.', eff:'UNIDENTIFIED — DO NOT'},
+];
+function redact(s,known){ if(known>=.75) return s; if(known<.25) return `<span class="redact">${'█'.repeat(Math.min(22,Math.max(6,s.length)))}</span>`;
+  return s.split('').map(c=>(c===' '||Math.random()<known)?c:'<span class="redact">█</span>').join(''); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════════════════════════
+const CAP=['','barely conscious','a danger to yourself','fumbling amateur','below average','nearly competent','averagely capable','a steady hand','quietly skilled','practised','sharp','gifted','clinic-grade','black-lab veteran','surgical','frighteningly good','the one they warn you about'];
+const game={
+  skill:6, stakes:'real',
+  selected:[], // drug objects; [0] = base
+  scores:{mix:0,pour:0,stir:0,heat:0,rhythm:0},
+  instability:0, blown:false, batch:1,
+  diff(){ if(!this.selected.length) return 0; const b=this.selected[0].diff;
+    let d=b; for(let i=1;i<this.selected.length;i++) d=Math.max(d, b*.6+this.selected[i].diff*.6);
+    d+=this.comboPenalty(); return Math.round(clamp(d,1,16)); },
+  vol(){ if(!this.selected.length) return .3; let v=0; this.selected.forEach(s=>v=Math.max(v,s.vol)); return clamp(v+this.comboPenalty()*.05,0,1); },
+  comboPenalty(){ // oil + water-ish, or crystalline + solvent = temperamental
+    const forms=this.selected.map(s=>s.sub); let p=0;
+    if(forms.includes('oil')&&forms.some(f=>f==='thin'||f==='fine')) p+=2;
+    if(forms.includes('solvent')) p+=2;
+    if(forms.includes('crystalline')&&forms.includes('viscous')) p+=1.5;
+    if(this.selected.length>=3) p+=1.2*(this.selected.length-2);
+    return p; },
+  edge(){ return this.skill - this.diff(); }, // + = comfortable, − = out of your depth
+  reset(){ this.selected=[]; this.scores={mix:0,pour:0,stir:0,heat:0,rhythm:0}; this.instability=0; this.blown=false; }
+};
+function addInstability(amt,reason){
+  const soften=clamp(1-game.edge()*0.06,.4,1.6); // skill softens; being out of depth amplifies
+  const v=amt*soften; game.instability=clamp(game.instability+v,0,100);
+  el('insta-fill').style.width=game.instability+'%';
+  el('insta-pct').textContent=Math.round(game.instability)+'%';
+  el('insta-pct').style.color=game.instability>75?'var(--red)':game.instability>45?'var(--amber)':'var(--tox)';
+  if(reason&&v>2) tick(reason,'a');
+  // mid-run catastrophe check when the reaction runs away
+  if(game.instability>=88 && !game.blown){
+    const p=catastropheChance()*1.4;
+    if(Math.random()<p) catastrophe(reason||'the reaction');
+  }
+}
+function catastropheChance(){
+  // rare at parity; climbs as instability rises and skill falls short.
+  const base=game.stakes==='often'?.22:.05;
+  const deficit=Math.max(0,-game.edge());
+  const iFac=Math.max(0,(game.instability-60)/40);
+  return clamp(base*(0.3+iFac) + deficit*0.02*iFac, 0, .9);
+}
+
+// ── ticker / voice ──
+let tickerT=null;
+function tick(msg,cls){ const t=el('ticker'); t.innerHTML=`&gt; ${cls?`<span class="${cls}">${msg}</span>`:msg}`; }
+const QUIPS={
+  boot:['WARNING: unit was not rated for recreational synthesis. Proceeding anyway.','Firmware integrity: cracked (by you).','Coolant: low. Ethics module: not found.','Reminder: the last operator is a stain on the extractor hood.'],
+};
+
+// ── HUD chips / steps ──
+const STEP_ORDER=['loadin','select','mix','pour','stir','heat','rhythm'];
+function setStep(name){
+  const i=STEP_ORDER.indexOf(name);
+  document.querySelectorAll('.step').forEach(s=>{ const j=STEP_ORDER.indexOf(s.dataset.s);
+    s.classList.toggle('on',j===i); s.classList.toggle('done',j<i); });
+}
+function refreshChips(){
+  el('chip-diff').innerHTML=`DIFF <b>${game.selected.length?game.diff():'—'}</b>`;
+  el('chip-diff').className='chip'+(game.selected.length&&game.diff()>game.skill+2?' bad':game.selected.length&&game.diff()>game.skill?' warn':'');
+  el('chip-skill').innerHTML=`CHEM <b>${game.skill}</b>`;
+  el('chip-batch').innerHTML=`BATCH <b>#${String(game.batch).padStart(3,'0')}</b>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STAGE MACHINE  (each stage: enter / update(dt) / draw / exit + input hooks)
+// ═══════════════════════════════════════════════════════════════════════════
+let stage=null, last=performance.now(), transition=0, transitFrom=null, transitTo=null;
+function go(name){
+  if(stage&&stage.exit) stage.exit();
+  UI.innerHTML=''; el('label').style.display='none';
+  stage=STAGES[name]; stage.name=name;
+  setStep(name); refreshChips();
+  el('insta').classList.toggle('hidden', name==='loadin'||name==='select');
+  // declutter: the boot screen is almost pure graphics; chrome fades in after
+  const boot=name==='loadin';
+  el('steps').style.opacity = boot?0:'';
+  document.querySelector('.brand').style.opacity = boot?0:'';
+  document.querySelectorAll('#chip-diff,#chip-skill,#chip-batch').forEach(c=>c.style.opacity = boot?0:'');
+  if(stage.enter) stage.enter();
+}
+function transit(to){ if(transition>0) return; transitTo=to; transition=0.001; AX.noise(.4,{gain:.2,freq:1200,type:'bandpass',q:.7}); }
+
+function frame(now){
+  let dt=(now-last)/1000; last=now; if(dt>.05)dt=.05;
+  if(stage&&stage.update) stage.update(dt);
+  G.clearRect(0,0,W,H);
+  drawBench(); // shared gritty backdrop
+  if(stage&&stage.draw) stage.draw(dt);
+  if(transition>0){
+    transition+=dt*2.4;
+    drawTransition(transition);
+    if(transition>=1&&transitTo){ const t=transitTo; transitTo=null; transition=0; go(t); }
+  }
+  requestAnimationFrame(frame);
+}
+function drawTransition(t){
+  const tt=clamp(t,0,1);
+  G.save(); G.globalAlpha=tt<.5?ease(tt*2):ease((1-tt)*2);
+  G.fillStyle='#04070a'; G.fillRect(0,0,W,H);
+  G.globalAlpha=Math.sin(tt*Math.PI); G.strokeStyle='rgba(79,224,138,.4)'; G.lineWidth=2;
+  for(let i=0;i<6;i++){ const y=H*(i/6)+((t*400)%(H/6)); G.beginPath(); G.moveTo(0,y); G.lineTo(W,y); G.stroke(); }
+  G.restore();
+}
+
+// shared bench backdrop — brushed steel top, grime, stencilled hazard marks
+let benchT=0;
+function drawBench(dt){
+  benchT+=.016;
+  // deep vignette base
+  const bg=G.createLinearGradient(0,0,0,H); bg.addColorStop(0,'#0a0f12'); bg.addColorStop(.55,'#070b0e'); bg.addColorStop(1,'#04070a');
+  G.fillStyle=bg; G.fillRect(0,0,W,H);
+  // faint brushed-steel bench slab lower third
+  const by=H*0.62;
+  const steel=G.createLinearGradient(0,by,0,H); steel.addColorStop(0,'#161c21'); steel.addColorStop(1,'#0c1114');
+  G.fillStyle=steel; G.fillRect(0,by,W,H-by);
+  G.strokeStyle='rgba(0,0,0,.6)'; G.lineWidth=2; G.beginPath(); G.moveTo(0,by); G.lineTo(W,by); G.stroke();
+  G.strokeStyle='rgba(120,150,140,.06)'; G.lineWidth=1;
+  for(let x=0;x<W;x+=6){ G.beginPath(); G.moveTo(x,by+2); G.lineTo(x-14,H); G.stroke(); }
+  // grime blooms
+  G.fillStyle='rgba(40,60,30,.06)';
+  G.beginPath(); G.ellipse(W*.2,by+40,120,30,0,0,7); G.fill();
+  G.beginPath(); G.ellipse(W*.8,by+60,160,40,0,0,7); G.fill();
+  // stencilled hazard on the wall
+  G.save(); G.globalAlpha=.05; G.font='bold 120px var(--font,monospace)'; G.fillStyle='#ffb23e'; G.textAlign='center';
+  G.fillText('☣', W*.5, H*.4); G.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STAGE: LOADIN — the lab powers up. Implies an advanced rig; never says so.
+// ═══════════════════════════════════════════════════════════════════════════
+const STAGES={};
+STAGES.loadin={
+  enter(){
+    this.t=0; this.pw=0; this.spin=0; this.done=false; this.titleA=0; this.flick=1;
+    this.quip=QUIPS.boot[Math.floor(rnd(QUIPS.boot.length))];
+    AX.loop('hood',{freq:54,type:'sawtooth',gain:0,filt:320,tremRate:7,tremDepth:.25});
+    tick('');
+  },
+  showBtn(){ AX.good();
+    const b=mk('btn',null,'left:50%;bottom:60px;transform:translateX(-50%)'); b.textContent='▶ IGNITE BENCH';
+    b.onclick=()=>{ AX.stop('hood'); AX.click(); transit('select'); }; UI.appendChild(b);
+    tick('bench is hot. try not to become the next warning label.');
+  },
+  exit(){ AX.stop('hood'); },
+  update(dt){ this.t+=dt; this.spin+=dt*(1.1+(1-this.pw)*3);
+    const target=clamp((this.t-0.3)/2.2,0,1); this.pw=lerp(this.pw,target,dt*3);
+    this.flick=this.pw>0.96?1:(Math.random()<0.10?rnd(1,.25):lerp(this.flick,1,dt*8));
+    this.titleA=lerp(this.titleA,this.pw>0.35?1:0,dt*3);
+    AX.loopGain('hood',.06*this.pw+.02);
+    if(!this.done&&this.pw>0.985){ this.done=true; this.showBtn(); }
+  },
+  draw(){
+    const cx=W/2, benchY=H*0.62, pw=this.pw, fl=this.flick;
+    // ── back wall: fume-hood window, green-lit, condensation ──
+    const hw=360, hh=196, hx=cx-hw/2, hy=52;
+    const win=G.createLinearGradient(0,hy,0,hy+hh); win.addColorStop(0,`rgba(20,60,44,${.5*pw})`); win.addColorStop(1,`rgba(6,20,14,${.6*pw})`);
+    G.fillStyle=win; G.fillRect(hx,hy,hw,hh);
+    G.globalAlpha=pw*.5; G.strokeStyle='rgba(8,18,14,.9)'; G.lineWidth=3;
+    for(let i=0;i<5;i++){ const tx=hx+42+i*69; G.beginPath(); G.moveTo(tx,hy); G.lineTo(tx+Math.sin(this.t+i)*4,hy+48+((i*13)%42)); G.stroke(); }
+    G.globalAlpha=1;
+    condensation(hx+8,hy+8,hw-16,hh-16,3,Math.floor(pw*40));
+    G.strokeStyle=`rgba(90,110,120,${.5+.3*pw})`; G.lineWidth=4; G.strokeRect(hx,hy,hw,hh);
+    G.strokeStyle='rgba(60,80,88,.6)'; G.lineWidth=2; G.beginPath(); G.moveTo(hx,hy+hh*.5); G.lineTo(hx+hw,hy+hh*.5); G.stroke();
+
+    // ── overhead lamp + volumetric shaft ──
+    lightShaft(cx,70,300,benchY+30,'130,225,175',.06*pw*fl+.015);
+    G.fillStyle='#1a2024'; G.fillRect(cx-40,14,80,14);
+    G.save(); G.shadowColor='rgba(120,255,190,.9)'; G.shadowBlur=30*pw*fl; G.fillStyle=`rgba(190,255,225,${.7*pw*fl})`; G.fillRect(cx-34,26,68,5); G.restore();
+    dustMotes(this.t,46,'150,225,185');
+
+    // ── assay lens (rotating ring) ──
+    G.save(); G.translate(cx,H*0.335);
+    const lg=G.createRadialGradient(0,0,4,0,0,54); lg.addColorStop(0,`rgba(79,224,138,${.4*pw*fl})`); lg.addColorStop(1,'rgba(79,224,138,0)');
+    G.fillStyle=lg; G.beginPath(); G.arc(0,0,54,0,7); G.fill();
+    G.rotate(this.spin*.3); G.strokeStyle=`rgba(120,240,180,${.55*pw})`; G.lineWidth=2;
+    for(let i=0;i<12;i++){ G.rotate(Math.PI/6); G.beginPath(); G.moveTo(22,0); G.lineTo(30,0); G.stroke(); }
+    G.beginPath(); G.arc(0,0,20,0,7); G.stroke(); G.restore();
+
+    // ── equipment on the bench ──
+    this.drawFlask(cx-152,benchY+16,pw);
+    this.drawCondenser(cx+150,benchY-8,pw);
+    G.globalAlpha=pw*.75; G.fillStyle='rgba(28,42,38,.7)'; G.fillRect(cx+44,benchY+10,26,34); G.fillRect(cx-46,benchY+16,20,28); G.globalAlpha=1;
+
+    // ── title with chromatic glow, one sardonic line ──
+    G.save(); G.globalAlpha=this.titleA; G.textAlign='center';
+    G.font='bold 40px var(--font,monospace)';
+    G.fillStyle='rgba(255,74,91,.45)'; G.fillText('CHIMERA-9',cx-2,H*0.335+14);
+    G.fillStyle='rgba(95,208,224,.45)'; G.fillText('CHIMERA-9',cx+2,H*0.335+14);
+    G.shadowColor='rgba(79,224,138,.8)'; G.shadowBlur=22*pw; G.fillStyle='#dffbe9'; G.fillText('CHIMERA-9',cx,H*0.335+14); G.shadowBlur=0;
+    G.font='11px var(--font,monospace)'; G.fillStyle='rgba(159,199,172,.7)'; G.fillText('G E N E S P L I C E R',cx,H*0.335+34);
+    G.globalAlpha=this.titleA*.7*(0.6+0.4*Math.sin(this.t*2)); G.fillStyle='#7f9a8c'; G.font='italic 11px var(--font,monospace)';
+    G.fillText(this.quip,cx,benchY-16); G.restore();
+  },
+  drawFlask(x,y,pw){
+    G.strokeStyle='rgba(80,96,104,.7)'; G.lineWidth=4; G.beginPath(); G.moveTo(x-30,y+40); G.lineTo(x-30,y-70); G.stroke();
+    G.fillStyle='rgba(70,84,92,.8)'; G.fillRect(x-46,y+38,50,6);
+    G.strokeStyle='rgba(90,108,116,.7)'; G.lineWidth=3; G.beginPath(); G.moveTo(x-30,y-16); G.lineTo(x,y-16); G.stroke();
+    const r=26;
+    G.save(); G.beginPath(); G.arc(x,y,r,0,7); G.rect(x-5,y-r-22,10,24); G.clip();
+    const lvl=y-4; const fg=G.createLinearGradient(0,lvl,0,y+r); fg.addColorStop(0,`rgba(120,240,170,${pw})`); fg.addColorStop(1,`rgba(20,90,54,${pw})`);
+    G.fillStyle=fg; G.fillRect(x-r,lvl,r*2,r*2);
+    for(let i=0;i<6;i++){ const bx=x+Math.sin(this.t*2+i*2)*10, by=y+r-((this.t*30+i*14)%Math.max(1,(y+r-lvl))); G.fillStyle=`rgba(210,255,230,${.3*pw})`; G.beginPath(); G.arc(bx,by,1.6,0,7); G.fill(); }
+    G.restore();
+    G.strokeStyle=`rgba(200,240,235,${.5+.3*pw})`; G.lineWidth=2; G.beginPath(); G.arc(x,y,r,0,7); G.stroke(); G.strokeRect(x-5,y-r-22,10,22);
+    G.save(); G.shadowColor='rgba(120,255,180,.8)'; G.shadowBlur=20*pw; G.strokeStyle=`rgba(120,255,180,${.3*pw})`; G.beginPath(); G.arc(x,y,r,0,7); G.stroke(); G.restore();
+    drawSteam(x,y-r-18,pw*.7,this.t,'200,255,220');
+    G.save(); G.globalCompositeOperation='lighter'; flame(x,y+r+30,7,20+8*Math.sin(this.t*10),Math.sin(this.t*7)*2,`rgba(120,180,255,${.6*pw})`,8); flame(x,y+r+30,4,12,0,`rgba(255,200,120,${.5*pw})`,6); G.restore();
+  },
+  drawCondenser(x,y,pw){
+    G.save(); G.translate(x,y); G.rotate(0.5);
+    G.fillStyle=`rgba(90,150,200,${.12*pw})`; roundRect(-12,-70,24,140,8); G.fill();
+    G.globalAlpha=pw*.3; G.fillStyle='#3a7ac0'; roundRect(-10,-66,20,132,6); G.fill(); G.globalAlpha=1;
+    G.strokeStyle=`rgba(150,210,235,${.5*pw})`; G.lineWidth=2.5; G.beginPath();
+    for(let i=0;i<=40;i++){ const p=i/40, yy=-64+p*128, xx=Math.sin(p*Math.PI*7)*7; i===0?G.moveTo(xx,yy):G.lineTo(xx,yy); } G.stroke();
+    G.strokeStyle=`rgba(180,220,240,${.4+.3*pw})`; G.lineWidth=2; roundRect(-12,-70,24,140,8); G.stroke();
+    G.restore();
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STAGE: SELECT — packages on the table, click to read your knowledge,
+//  drop 2+ into the reaction cradle, then SPLICE.
+// ═══════════════════════════════════════════════════════════════════════════
+STAGES.select={
+  enter(){
+    // per-form spring frequency (Hz) and per-substance "fluidity" (slosh gain)
+    const freq={liquid:2.0, gel:2.1, powder:2.4, pill:2.8};
+    const fluidOf={thin:1, oil:1, solvent:1, fine:.28, crystalline:.22, viscous:.55, tablet:.06};
+    const zeta=0.62;
+    this.pkgs=DRUGS.map((d,i)=>{ const cols=4, gapx=176, x0=(W-(cols-1)*gapx)/2;
+      const col=i%cols, row=Math.floor(i/cols), hx=x0+col*gapx, hy=H*0.30+row*128;
+      const w=2*Math.PI*freq[d.form], k=w*w, c=2*zeta*w;
+      return {d, home:{x:hx,y:hy}, x:hx, y:hy, vx:0, vy:0, pvx:0, tilt:0, slosh:0, sloshV:0,
+        held:false, inCradle:false, gdx:0, gdy:0, k, c, fluid:fluidOf[d.sub]??.3, spill:0, warn:0}; });
+    this.cradle={x:W/2, y:H-104, r:62};
+    this.drag=null; this.pressP=null; this.pressT=0; this.moved=false; this.hover=null; this.t=0; this.drips=[]; this.labelFor=null;
+    this.mkBtns();
+    tick('drag a package into the cradle. carry it steady — slosh a volatile one and it spits at you. tap to read a label.');
+    AX.loop('hood',{freq:60,type:'sawtooth',gain:.03,filt:340,tremRate:7,tremDepth:.3});
+  },
+  exit(){ AX.stop('hood'); cv.style.cursor='default'; },
+  mkBtns(){
+    this.splice=mk('btn',null,'left:50%;bottom:16px;transform:translateX(-50%)'); this.splice.textContent='SPLICE ▶';
+    this.splice.disabled=true; this.splice.onclick=()=>{ if(game.selected.length<2)return; AX.click(); game.batch++; transit('mix'); };
+    UI.appendChild(this.splice);
+    const clr=mk('btn ghost',null,'left:16px;bottom:16px'); clr.textContent='CLEAR';
+    clr.onclick=()=>{ AX.click(); this.pkgs.forEach(p=>p.inCradle=false); game.selected=[]; this.sync(); };
+    UI.appendChild(clr);
+    this.hint=mk('','','position:absolute;left:50%;bottom:50px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:1px;text-transform:uppercase;pointer-events:none;text-align:center;width:82%');
+    UI.appendChild(this.hint);
+  },
+  sync(){ refreshChips();
+    const n=game.selected.length; this.splice.disabled=n<2;
+    this.hint.textContent = n? `${game.selected[0].name} base${n>1?` · ${n-1} graft${n-1===1?'':'s'}`:''} · diff ${game.diff()} · your edge ${game.edge()>=0?'+':''}${game.edge()}` : 'drop at least two into the cradle';
+    this.hint.style.color=game.edge()<-1?'var(--red)':game.edge()<1?'var(--amber)':'#6f8a7c';
+  },
+  topAt(p){ for(let i=this.pkgs.length-1;i>=0;i--){ const k=this.pkgs[i]; if(Math.hypot(p.x-k.x,p.y-k.y)<44) return k; } return null; },
+  move(p){ if(this.drag && !this.moved && Math.hypot(p.x-this.pressP.x,p.y-this.pressP.y)>6) this.moved=true;
+    this.hover=this.drag||this.topAt(p); cv.style.cursor=this.hover?(this.drag?'grabbing':'grab'):'default'; },
+  down(p){
+    const k=this.topAt(p); if(!k){ el('label').style.display='none'; this.labelFor=null; return; }
+    this.drag=k; k.held=true; k.gdx=k.x-p.x; k.gdy=k.y-p.y; this.pressP={x:p.x,y:p.y}; this.pressT=this.t; this.moved=false;
+    this.pkgs.splice(this.pkgs.indexOf(k),1); this.pkgs.push(k); // raise to top of z-order
+    if(k.inCradle){ k.inCradle=false; game.selected=game.selected.filter(d=>d!==k.d); this.sync(); } // dragging out removes it
+    AX.tick();
+  },
+  up(){
+    const k=this.drag; if(!k) return; this.drag=null; k.held=false;
+    if(!this.moved && (this.t-this.pressT)<0.25){ // a tap: toggle the knowledge label
+      const L=el('label');
+      if(this.labelFor===k && L.style.display==='block'){ L.style.display='none'; this.labelFor=null; }
+      else { this.showLabel(k); this.labelFor=k; }
+      return;
+    }
+    if(Math.hypot(k.x-this.cradle.x,k.y-this.cradle.y)<this.cradle.r+12){ // dropped in the cradle
+      if(game.selected.length>=4 && !game.selected.includes(k.d)){ tick('cradle\'s full. four is already ambitious.','a'); AX.bad(); }
+      else { k.inCradle=true; if(!game.selected.includes(k.d)) game.selected.push(k.d); AX.drop(); this.sync(); }
+    } else AX.tick();
+    el('label').style.display='none'; this.labelFor=null;
+  },
+  showLabel(k){
+    const d=k.d, L=el('label'); L.style.display='block';
+    const r=cv.getBoundingClientRect();
+    L.style.left=clamp(k.home.x/W*r.width - 105, 6, r.width-216)+'px';
+    L.style.top=clamp(k.home.y/H*r.height + 40, 6, r.height-196)+'px';
+    const knw=Math.round(d.known*100);
+    L.innerHTML=`<span class="known">FAMILIARITY ${knw}%</span>
+      <div class="nm">${d.known>.4?d.name:'UNIDENTIFIED'}</div>
+      <div class="tag">${redact(d.tag,d.known)} · ${d.form.toUpperCase()}</div>
+      <div class="row"><span>form</span><b>${d.form} / ${d.sub}</b></div>
+      <div class="row"><span>volatility</span><b>${d.vol>.7?'EXTREME':d.vol>.45?'HIGH':d.vol>.3?'MODERATE':'LOW'}</b></div>
+      <div class="row"><span>handling diff</span><b>${d.known>.5?d.diff:'?'}</b></div>
+      <div class="blurb">${d.known>.3?d.blurb:'You have no idea what this is. The label peeled off years ago.'}</div>
+      <div class="eff">EFFECTS: ${redact(d.eff,d.known)}</div>`;
+  },
+  update(dt){ this.t+=dt;
+    const cr=this.cradle, inC=this.pkgs.filter(p=>p.inCradle);
+    this.pkgs.forEach(p=>{
+      let tx,ty,k=p.k;
+      if(this.drag===p){ tx=ptr.x+p.gdx; ty=ptr.y+p.gdy; }
+      else if(p.inCradle){ const idx=inC.indexOf(p), n=inC.length, a=-Math.PI/2+(idx-(n-1)/2)*0.52; tx=cr.x+Math.cos(a)*48; ty=cr.y+Math.sin(a)*22-6; k*=1.5; }
+      else { tx=p.home.x; ty=p.home.y; }
+      // critically-damped-ish spring → weighty carry with a little overshoot
+      const ax=(tx-p.x)*k - p.vx*p.c, ay=(ty-p.y)*k - p.vy*p.c;
+      p.vx+=ax*dt; p.vy+=ay*dt;
+      const sp=Math.hypot(p.vx,p.vy); if(sp>1000){ p.vx*=1000/sp; p.vy*=1000/sp; }
+      p.x+=p.vx*dt; p.y+=p.vy*dt;
+      p.tilt=lerp(p.tilt, clamp(-p.vx*0.0016,-0.42,0.42), dt*9);
+      // contents slosh: kicked by horizontal acceleration, damped spring back to flat
+      const dax=p.vx-p.pvx; p.pvx=p.vx;
+      p.sloshV += dax*p.fluid*0.6; p.sloshV += (-p.slosh*38 - p.sloshV*3.6)*dt; p.slosh=clamp(p.slosh+p.sloshV*dt,-1.5,1.5);
+      // careless carrying of a volatile liquid → drips, then a real penalty
+      if(this.drag===p && p.fluid>0.7 && Math.abs(p.slosh)>0.95){
+        p.warn=1; p.spill+=dt*Math.abs(p.slosh);
+        if(Math.random()<0.35) this.drips.push({x:p.x+rnd(15,-15),y:p.y+12,vy:50,life:0,col:p.d.color});
+        if(p.spill>1.3){ p.spill=0; game.instability=clamp(game.instability+6,0,100); tick('you slopped it — that residue will bite you later.','r'); AX.bad(); }
+      } else { p.warn=lerp(p.warn,0,dt*4); p.spill=Math.max(0,p.spill-dt*0.5); }
+    });
+    this.drips.forEach(d=>{ d.life+=dt; d.y+=d.vy*dt; d.vy+=400*dt; }); this.drips=this.drips.filter(d=>d.life<0.6);
+  },
+  draw(){
+    const cr=this.cradle;
+    // shelves the table packages rest on
+    G.strokeStyle='rgba(120,150,140,.10)'; G.lineWidth=2;
+    [H*0.30+31, H*0.30+128+31].forEach(sy=>{ G.beginPath(); G.moveTo(W*0.12,sy); G.lineTo(W*0.88,sy); G.stroke();
+      G.fillStyle='rgba(0,0,0,.28)'; G.fillRect(W*0.12,sy,W*0.76,3); });
+
+    // cradle socket seated on the bench
+    const pulse=.5+.5*Math.sin(this.t*3);
+    const cg=G.createRadialGradient(cr.x,cr.y,6,cr.x,cr.y,cr.r+34); cg.addColorStop(0,`rgba(79,224,138,${.13+pulse*.1})`); cg.addColorStop(1,'rgba(79,224,138,0)');
+    G.fillStyle=cg; G.beginPath(); G.ellipse(cr.x,cr.y,cr.r+34,cr.r*.62,0,0,7); G.fill();
+    G.strokeStyle='rgba(120,150,150,.5)'; G.lineWidth=3; G.beginPath(); G.ellipse(cr.x,cr.y+4,cr.r*.78,cr.r*.36,0,0.1,Math.PI-0.1,false); G.stroke();
+    G.strokeStyle='rgba(79,224,138,.4)'; G.setLineDash([7,6]); G.lineWidth=1.6; G.beginPath(); G.ellipse(cr.x,cr.y,cr.r,cr.r*.5,0,0,7); G.stroke(); G.setLineDash([]);
+    G.fillStyle='rgba(111,138,124,.7)'; G.font='9px var(--font,monospace)'; G.textAlign='center'; G.fillText('REACTION CRADLE', cr.x, cr.y+cr.r*.5+18);
+
+    // spill drips
+    this.drips.forEach(d=>{ G.globalAlpha=1-d.life/0.6; G.fillStyle=d.col; G.beginPath(); G.arc(d.x,d.y,2.2,0,7); G.fill(); }); G.globalAlpha=1;
+
+    // packages, back-to-front, each with a ground shadow that separates as it lifts
+    this.pkgs.forEach(p=>{
+      const groundY = p.inCradle? cr.y+26 : p.home.y+40;
+      const lift = clamp((groundY-p.y)/120,0,1);
+      G.save(); G.globalAlpha=.42*(1-lift*.5); G.fillStyle='#000';
+      G.beginPath(); G.ellipse(p.x, groundY, 20+lift*8, 5, 0, 0, 7); G.fill(); G.restore();
+      drawPackage(p.d, p.x, p.y, p.inCradle, this.hover===p||this.drag===p, this.t, {tilt:p.tilt, slosh:p.slosh, warn:p.warn, held:this.drag===p});
+    });
+  }
+};
+
+// draw a drug package by FORM — vial / baggie / gel-pack / pill-blister.
+// phys = {tilt, slosh, warn, held} drives physical tilt + contents sloshing.
+function drawPackage(d, x, y, inCradle, hi, t, phys){
+  phys=phys||{}; const tilt=phys.tilt||0, slosh=phys.slosh||0, warn=phys.warn||0, held=phys.held, c=d.color;
+  G.save(); G.translate(x,y); G.rotate(tilt);
+  if(hi||inCradle||warn>0.05){ G.shadowColor = warn>0.1?`rgba(255,90,90,${clamp(warn,0,1)})`:c; G.shadowBlur = held?26:(inCradle?18:12); }
+
+  if(d.form==='liquid'){
+    const gw=26, gh=62;
+    G.fillStyle='rgba(200,225,235,.10)'; roundRect(-gw/2,-gh/2,gw,gh,8); G.fill();
+    // fluid — surface counter-rotates the tilt so it pools to the low side, + slosh wave
+    G.save(); roundRect(-gw/2+2,-gh/2+3,gw-4,gh-6,6); G.clip();
+    const fillTop=6, s=-tilt;
+    G.beginPath(); G.moveTo(-gw/2, gh/2);
+    for(let px=-gw/2; px<=gw/2; px+=3){ G.lineTo(px, fillTop + s*px + Math.sin(px*0.35+t*7)*slosh*2.4); }
+    G.lineTo(gw/2, gh/2); G.closePath();
+    const lg=G.createLinearGradient(0,fillTop-6,0,gh/2); lg.addColorStop(0,shade(c,42)); lg.addColorStop(.2,c); lg.addColorStop(1,shade(c,-46));
+    G.fillStyle=lg; G.fill();
+    G.strokeStyle=shade(c,72); G.lineWidth=1.3; G.beginPath();
+    for(let px=-gw/2; px<=gw/2; px+=3){ const yy=fillTop + s*px + Math.sin(px*0.35+t*7)*slosh*2.4; px===-gw/2?G.moveTo(px,yy):G.lineTo(px,yy); } G.stroke();
+    for(let i=0;i<3;i++){ G.fillStyle='rgba(255,255,255,.22)'; G.beginPath(); G.arc(Math.sin(t*2+i+slosh)*5,16+Math.cos(t*1.7+i)*7,1.5,0,7); G.fill(); }
+    G.restore();
+    G.strokeStyle='rgba(215,240,245,.55)'; G.lineWidth=1.6; roundRect(-gw/2,-gh/2,gw,gh,8); G.stroke();
+    G.fillStyle='rgba(255,255,255,.16)'; G.fillRect(-gw/2+4,-gh/2+8,3,gh-18);
+    G.fillStyle='#2a343a'; roundRect(-8,-gh/2-8,16,10,2); G.fill(); G.fillStyle='#1a2024'; G.fillRect(-6,-gh/2-1,12,3);
+  } else if(d.form==='powder'){
+    const bw=42, bh=58;
+    G.fillStyle='rgba(200,220,230,.10)'; roundRect(-bw/2,-bh/2,bw,bh,4); G.fill();
+    G.save(); roundRect(-bw/2+3,-bh/2+10,bw-6,bh-16,3); G.clip();
+    // powder heap settles to the low side as you tilt/slosh
+    const shift=slosh*6;
+    G.fillStyle=shade(c,-6); G.beginPath(); G.moveTo(-bw/2, bh/2);
+    for(let px=-bw/2; px<=bw/2; px+=4){ G.lineTo(px, bh/2-14 - Math.cos(px*0.11)*4 - px*0.02*shift); }
+    G.lineTo(bw/2, bh/2); G.closePath(); G.fill();
+    for(let i=0;i<26;i++){ G.fillStyle=i%3?shade(c,22):shade(c,-28); G.fillRect(-bw/2+2+Math.random()*(bw-4), bh/2-2-Math.random()*20,1.4,1.4); }
+    if(d.sub==='crystalline'){ G.fillStyle='rgba(255,255,255,.45)'; for(let i=0;i<6;i++){ G.save(); G.translate(-12+Math.random()*24, bh/2-4-Math.random()*14); G.rotate(Math.random()*3); G.fillRect(-1,-3,2,6); G.restore(); } }
+    G.restore();
+    G.strokeStyle='rgba(210,230,240,.4)'; G.lineWidth=1.2; roundRect(-bw/2,-bh/2,bw,bh,4); G.stroke();
+    G.fillStyle='rgba(232,242,246,.7)'; G.fillRect(-bw/2,-bh/2,bw,7);
+    G.strokeStyle='rgba(120,140,150,.5)'; G.lineWidth=1; for(let i=-bw/2+2;i<bw/2;i+=3){ G.beginPath(); G.moveTo(i,-bh/2); G.lineTo(i,-bh/2+6); G.stroke(); }
+    G.fillStyle='rgba(255,255,255,.10)'; G.fillRect(-bw/2+4,-bh/2+10,3,bh-22);
+  } else if(d.form==='gel'){
+    const amp=1+Math.abs(slosh)*0.5;
+    const gg=G.createRadialGradient(-4,-4,3,0,4,26*amp); gg.addColorStop(0,shade(c,72)); gg.addColorStop(1,shade(c,-18));
+    G.fillStyle=gg; blob(0,0,24*amp,20/amp,t*1.6+slosh*3); G.fill();
+    G.strokeStyle='rgba(255,255,255,.5)'; G.lineWidth=1.4; blob(0,0,24*amp,20/amp,t*1.6+slosh*3); G.stroke();
+    G.fillStyle='rgba(255,255,255,.4)'; G.beginPath(); G.arc(Math.sin(t*1.3)*5+slosh*6,Math.cos(t*1.1)*4,4,0,7); G.fill();
+    G.globalAlpha=.5; G.fillStyle=shade(c,90); G.beginPath(); G.arc(slosh*4,2,8,0,7); G.fill(); G.globalAlpha=1;
+  } else { // pill blister
+    const bw=46, bh=40;
+    G.fillStyle='rgba(180,190,200,.32)'; roundRect(-bw/2,-bh/2,bw,bh,4); G.fill();
+    for(let r=0;r<2;r++)for(let cc=0;cc<3;cc++){ const px=-14+cc*14, py=-8+r*16+slosh*1.4*(r?1:-1);
+      G.fillStyle='rgba(230,235,240,.5)'; G.beginPath(); G.arc(px,py,6,0,7); G.fill();
+      G.fillStyle=c; G.beginPath(); G.arc(px,py,4.4,0,7); G.fill();
+      G.fillStyle='rgba(255,255,255,.5)'; G.fillRect(px-3,py-.5,6,1); }
+    G.strokeStyle='rgba(200,210,220,.4)'; G.lineWidth=1; roundRect(-bw/2,-bh/2,bw,bh,4); G.stroke();
+    G.fillStyle='rgba(255,255,255,.10)'; roundRect(-bw/2+3,-bh/2+3,bw-6,5,2); G.fill();
+  }
+  G.shadowBlur=0; G.restore();
+
+  // nameplate — drawn level (outside the tilt) under the container
+  G.textAlign='center';
+  G.fillStyle=inCradle?'#4fe08a':(hi?'#dffbe9':'#7f9a8c'); G.font=(inCradle?'bold ':'')+'10px var(--font,monospace)';
+  G.fillText(d.known>.4?d.name:'???', x, y+46);
+  if(inCradle){ const idx=game.selected.indexOf(d); G.fillStyle='#4fe08a'; G.font='bold 9px var(--font,monospace)'; G.fillText(idx===0?'◆ BASE':'+ GRAFT', x, y+58); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STAGE: MIX — combine the substances in the beaker. Forms behave differently:
+//  powder→liquid dissolves, oil+water separate & must be emulsified, powders
+//  must be folded. Keep the AGITATION in the sweet zone until homogeneous.
+// ═══════════════════════════════════════════════════════════════════════════
+STAGES.mix={
+  enter(){
+    this.t=0; this.homog=0; this.agit=0; this.target=.55; this.added=0; this.phase='pour-in';
+    this.forms=game.selected.map(s=>s.sub);
+    this.immiscible=this.forms.includes('oil')||this.forms.includes('solvent');
+    this.powdery=this.forms.every(f=>['fine','crystalline'].includes(f));
+    this.layers=game.selected.map((d,i)=>({d,y:i/game.selected.length,off:0}));
+    this.particles=[]; this.done=false; this.overd=0;
+    this.beaker={x:W/2,y:H*0.5,w:150,h:210};
+    // instruction by combo
+    this.action = this.immiscible?'EMULSIFY — the layers refuse to mix':this.powdery?'FOLD — blend the powders evenly':'DISSOLVE — work the powder into solution';
+    tick(`${this.action}. hold to agitate; keep it in the amber zone — don\'t thrash it.`);
+    this.mkBtn();
+    // drop each substance in sequence
+    let dd=.4; game.selected.forEach((d,i)=>setTimeout(()=>{ this.added++; AX.drop(); this.splash(d.color); }, dd*1000+i*450));
+    AX.loop('whir',{freq:120,type:'triangle',gain:0,filt:700,tremRate:22,tremDepth:.6});
+  },
+  exit(){ AX.stop('whir'); },
+  mkBtn(){ this.b=mk('btn',null,'left:50%;bottom:20px;transform:translateX(-50%)'); this.b.textContent='LOCK IN MIX'; this.b.disabled=true;
+    this.b.onclick=()=>{ this.finish(); }; UI.appendChild(this.b); },
+  splash(col){ for(let i=0;i<14;i++) this.particles.push({x:this.beaker.x+rnd(30,-30),y:this.beaker.y-80,vx:rnd(60,-60),vy:rnd(-40,-120),life:0,ttl:.6,col}); },
+  down(){ this.hold=true; }, up(){ this.hold=false; },
+  key(e){ if(e.code==='Space'){ e.preventDefault(); this.hold=true; } },
+  keyup(e){ if(e.code==='Space') this.hold=false; },
+  update(dt){
+    this.t+=dt;
+    // ramp agitation toward hold state, with inertia
+    const want=this.hold?1:0; this.agit=lerp(this.agit,want, dt*(this.hold?3:2.2));
+    AX.loopGain('whir', this.agit*.12);
+    if(this.added<game.selected.length) return; // wait until everything's in
+    // sweet spot band; homogeneity climbs when agitation near target, over-thrash spikes instability
+    const band=clamp(.16 - game.diff()*0.004,.06,.16);
+    const inZone=Math.abs(this.agit-this.target)<band;
+    if(inZone){ this.homog=clamp(this.homog+dt*(this.immiscible?.28:.42),0,1); }
+    else if(this.agit>this.target+band){ this.overd+=dt; addInstability(dt*7*game.vol(),'over-agitating'); }
+    // immiscible layers fight back — homogeneity decays if you stop
+    if(this.immiscible && this.agit<this.target-band) this.homog=clamp(this.homog-dt*.12,0,1);
+    // particles
+    this.particles.forEach(p=>{ p.life+=dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=300*dt; });
+    this.particles=this.particles.filter(p=>p.life<p.ttl);
+    if(this.homog>=1&&!this.done){ this.done=true; this.b.disabled=false; AX.good(); tick('homogeneous. lock it in.'); }
+    // update target readout
+  },
+  finish(){ AX.click();
+    game.scores.mix=clamp(this.homog - this.overd*0.06,0,1);
+    addInstability((1-game.scores.mix)*10*game.vol(),'sloppy mix');
+    transit('pour');
+  },
+  draw(){
+    const b=this.beaker;
+    drawBeaker(b, ctxState=>{
+      // fluid fill scaled by how much is added
+      const filled=this.added/game.selected.length;
+      const top=b.y+b.h/2 - (b.h*0.66)*filled;
+      if(this.immiscible && this.homog<.98){
+        // separated layers sloshing
+        const n=game.selected.length, area=(b.y+b.h/2)-top;
+        game.selected.forEach((d,i)=>{ const mix=this.homog;
+          const ly=top + area*(i/n) + Math.sin(this.t*3+i)*4*(1-mix);
+          const lh=area/n + 2;
+          const blend = mixColors(d.color, avgColor(game.selected), mix);
+          G.fillStyle=blend; G.fillRect(b.x-b.w/2, ly, b.w, lh+area*mix*0.02);
+        });
+      } else {
+        // dissolved / folded — single body, cloudiness = 1-homog
+        const col=avgColor(game.selected);
+        const lg=G.createLinearGradient(0,top,0,b.y+b.h/2); lg.addColorStop(0,shade(col,20)); lg.addColorStop(1,shade(col,-30));
+        G.fillStyle=lg; G.fillRect(b.x-b.w/2,top,b.w,(b.y+b.h/2)-top);
+        // suspended powder clouds when not homogeneous
+        G.globalAlpha=(1-this.homog)*.5;
+        for(let i=0;i<20;i++){ G.fillStyle=shade(col,40); const px=b.x+Math.sin(this.t*2+i)*b.w*.35, py=top+((i*13+this.t*20)% ((b.y+b.h/2)-top));
+          G.beginPath(); G.arc(px,py,2.5,0,7); G.fill(); }
+        G.globalAlpha=1;
+      }
+      // agitation swirl
+      const cx=b.x, cyy=b.y+b.h*0.18;
+      G.strokeStyle=`rgba(255,255,255,${.1+this.agit*.3})`; G.lineWidth=2;
+      for(let s=0;s<3;s++){ G.beginPath();
+        for(let a=0;a<Math.PI*2;a+=.3){ const rr=(18+s*14)*(1+this.agit*.3); const wob=Math.sin(this.t*8+a*3)*this.agit*6;
+          const px=cx+Math.cos(a+this.t*4*this.agit)*(rr+wob), py=cyy+Math.sin(a+this.t*4*this.agit)*(rr*.4+wob*.4);
+          a===0?G.moveTo(px,py):G.lineTo(px,py); } G.stroke(); }
+      // meniscus
+      G.strokeStyle='rgba(255,255,255,.3)'; G.lineWidth=1.5; G.beginPath(); G.moveTo(b.x-b.w/2,top); G.lineTo(b.x+b.w/2,top); G.stroke();
+    });
+    // splashes
+    this.particles.forEach(p=>{ G.globalAlpha=1-p.life/p.ttl; G.fillStyle=p.col; G.beginPath(); G.arc(p.x,p.y,2.5,0,7); G.fill(); }); G.globalAlpha=1;
+
+    // agitation gauge (vertical, right of beaker) with target band
+    const gx=b.x+b.w/2+40, gy=b.y-b.h/2, gh=b.h;
+    G.fillStyle='#0a0f0c'; G.strokeStyle='rgba(132,150,168,.3)'; roundRect(gx,gy,16,gh,4); G.fill(); G.stroke();
+    const band=clamp(.16-game.diff()*0.004,.06,.16);
+    G.fillStyle='rgba(255,178,62,.25)'; G.fillRect(gx,gy+gh*(1-(this.target+band)),16,gh*band*2);
+    G.strokeStyle='rgba(255,178,62,.7)'; G.strokeRect(gx,gy+gh*(1-(this.target+band)),16,gh*band*2);
+    // needle
+    const ny=gy+gh*(1-this.agit); G.fillStyle=Math.abs(this.agit-this.target)<band?'#4fe08a':this.agit>this.target?'#ff4a5b':'#5fd0e0';
+    G.fillRect(gx-3,ny-2,22,4);
+    G.save(); G.translate(gx+8,gy-8); G.fillStyle='#6f8a7c'; G.font='8px var(--font,monospace)'; G.textAlign='center'; G.fillText('AGITATE',0,0); G.restore();
+
+    // homogeneity readout
+    G.fillStyle='#6f8a7c'; G.font='10px var(--font,monospace)'; G.textAlign='center';
+    G.fillText(this.action, b.x, b.y-b.h/2-30);
+    G.fillStyle='#4fe08a'; G.font='bold 13px var(--font,monospace)'; G.fillText('HOMOGENEITY '+Math.round(this.homog*100)+'%', b.x, b.y-b.h/2-12);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STAGE: POUR — reagent then catalyst, each poured to a precise line.
+//  Hold to pour; the level rises (with lag); release inside the target band.
+//  Catalyst overshoot is punished hard (temperamental!).
+// ═══════════════════════════════════════════════════════════════════════════
+STAGES.pour={
+  enter(){
+    this.t=0; this.stepIdx=0; this.level=0; this.vel=0; this.pouring=false; this.locked=[];
+    this.steps=[
+      {name:'REAGENT', col:'#4fe08a', target:.55, band:clamp(.10 - game.diff()*.003,.04,.10)},
+      {name:'CATALYST',col:'#9a5ce0', target:.78, band:clamp(.075 - game.diff()*.003,.03,.075), touchy:true},
+    ];
+    this.drops=[]; this.result=null;
+    this.beaker={x:W/2,y:H*0.5,w:150,h:210};
+    tick('pour the REAGENT to its line. hold to pour, release on the mark. the stream lags — anticipate.');
+    this.mkBtn();
+  },
+  exit(){ AX.pour(false); },
+  mkBtn(){ this.b=mk('btn ghost',null,'left:50%;bottom:20px;transform:translateX(-50%)'); this.b.textContent='HOLD TO POUR / RELEASE ON MARK'; this.b.style.pointerEvents='none'; UI.appendChild(this.b); },
+  down(){ this.startPour(); }, up(){ this.endPour(); },
+  key(e){ if(e.code==='Space'){ e.preventDefault(); this.startPour(); } },
+  keyup(e){ if(e.code==='Space') this.endPour(); },
+  startPour(){ if(this.stepIdx>=this.steps.length||this.pouring)return; this.pouring=true; AX.pour(true); },
+  endPour(){ if(!this.pouring)return; this.pouring=false; AX.pour(false); this.lock(); },
+  lock(){
+    const s=this.steps[this.stepIdx]; const err=Math.abs(this.level-s.target);
+    const acc=clamp(1 - err/(s.band*2.4),0,1);
+    const over=Math.max(0,this.level-(s.target+s.band));
+    this.locked.push(acc);
+    if(over>0){ addInstability(over*100*(s.touchy?1.6:0.8), s.name+' overpour'); AX.bad(); }
+    else AX.good();
+    tick(acc>.85?`${s.name}: dead on.`:acc>.5?`${s.name}: close enough.`:`${s.name}: ${this.level>s.target?'too much':'short'}.`, acc>.5?null:'a');
+    this.stepIdx++; this.level=0; this.vel=0;
+    if(this.stepIdx>=this.steps.length){ this.finish(); }
+    else { const n=this.steps[this.stepIdx]; tick(`now the ${n.name}. ${n.touchy?'this one bites — pour slow.':''}`); }
+  },
+  finish(){
+    game.scores.pour=this.locked.reduce((a,b)=>a+b,0)/this.locked.length;
+    setTimeout(()=>transit('stir'),500);
+  },
+  update(dt){ this.t+=dt;
+    const s=this.steps[this.stepIdx]; if(!s){ return; }
+    // pour physics: momentum so it overshoots if you hold too long
+    if(this.pouring){ this.vel+=dt*(s.touchy?0.5:0.72); for(let i=0;i<2;i++) this.drops.push({x:this.beaker.x+rnd(6,-6),y:this.beaker.y-this.beaker.h/2-30,vy:200,life:0,col:s.col}); }
+    this.vel*=Math.pow(0.1,dt); this.level=clamp(this.level+this.vel*dt,0,1);
+    if(this.level>=1&&this.pouring){ this.endPour(); } // overflow forces a stop
+    this.drops.forEach(d=>{ d.life+=dt; d.y+=d.vy*dt; }); this.drops=this.drops.filter(d=>d.life<.5);
+  },
+  draw(){
+    const b=this.beaker, s=this.steps[this.stepIdx];
+    drawBeaker(b, ()=>{
+      // already-locked layers sit at bottom
+      let base=b.y+b.h/2;
+      // draw prior fills stacked
+      let acc=0; this.locked.forEach((a,i)=>{ const st=this.steps[i]; const fh=b.h*0.6*st.target*0.5;
+        G.fillStyle=shade(st.col,-10); G.fillRect(b.x-b.w/2, base-fh-acc, b.w, fh); acc+=fh; });
+      // current pour column
+      if(s){ const fh=b.h*0.6*this.level; const lg=G.createLinearGradient(0,base-fh-acc,0,base-acc); lg.addColorStop(0,shade(s.col,20)); lg.addColorStop(1,shade(s.col,-30));
+        G.fillStyle=lg; G.fillRect(b.x-b.w/2, base-fh-acc, b.w, fh);
+        G.strokeStyle='rgba(255,255,255,.3)'; G.beginPath(); G.moveTo(b.x-b.w/2,base-fh-acc); G.lineTo(b.x+b.w/2,base-fh-acc); G.stroke();
+      }
+    });
+    // pouring stream from a tilted bottle above
+    if(s){
+      const bx=b.x, byTop=b.y-b.h/2;
+      if(this.pouring){ G.strokeStyle=s.col; G.lineWidth=3; G.globalAlpha=.8; G.beginPath(); G.moveTo(bx,byTop-70); G.lineTo(bx+Math.sin(this.t*30)*2,byTop-10); G.stroke(); G.globalAlpha=1; }
+      // reagent bottle icon
+      G.save(); G.translate(bx-30,byTop-92); G.rotate(this.pouring?0.5:0.15);
+      G.fillStyle='rgba(200,220,225,.15)'; roundRect(0,0,30,44,5); G.fill(); G.fillStyle=s.col; G.fillRect(4,20,22,20);
+      G.strokeStyle='rgba(220,235,240,.5)'; roundRect(0,0,30,44,5); G.stroke(); G.fillStyle='#2a343a'; G.fillRect(10,-8,10,10); G.restore();
+      // drops
+      this.drops.forEach(d=>{ G.globalAlpha=1-d.life/.5; G.fillStyle=d.col; G.beginPath(); G.arc(d.x,d.y,2.2,0,7); G.fill(); }); G.globalAlpha=1;
+
+      // target gauge on the beaker's right
+      const gx=b.x+b.w/2+30, gy=b.y-b.h/2, gh=b.h;
+      G.fillStyle='#0a0f0c'; G.strokeStyle='rgba(132,150,168,.3)'; roundRect(gx,gy,14,gh,4); G.fill(); G.stroke();
+      // target band
+      G.fillStyle=s.touchy?'rgba(154,92,224,.3)':'rgba(79,224,138,.25)';
+      G.fillRect(gx, gy+gh*(1-(s.target+s.band)), 14, gh*s.band*2);
+      G.strokeStyle=s.touchy?'rgba(154,92,224,.8)':'rgba(79,224,138,.8)'; G.strokeRect(gx, gy+gh*(1-(s.target+s.band)), 14, gh*s.band*2);
+      // current level needle
+      const ny=gy+gh*(1-this.level);
+      const good=Math.abs(this.level-s.target)<s.band;
+      G.fillStyle=good?'#4fe08a':this.level>s.target?'#ff4a5b':'#5fd0e0'; G.fillRect(gx-4,ny-2,22,4);
+
+      G.fillStyle='#6f8a7c'; G.font='10px var(--font,monospace)'; G.textAlign='center';
+      G.fillText(`POURING: ${s.name}`, b.x, b.y-b.h/2-28);
+      G.fillStyle=s.touchy?'#9a5ce0':'#4fe08a'; G.font='bold 12px var(--font,monospace)'; G.fillText(`${this.stepIdx+1} / ${this.steps.length}`, b.x, b.y-b.h/2-12);
+    }
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STAGE: STIR — the stirring mechanism. Trace circles with the mouse (or A/D)
+//  to spin the rod; keep RPM in the green band for the duration. Too fast splashes.
+// ═══════════════════════════════════════════════════════════════════════════
+STAGES.stir={
+  enter(){
+    this.t=0; this.angle=0; this.rpm=0; this.spin=0; this.lastA=null; this.holdT=0; this.need=5.5;
+    this.targetRpm=0.55; this.band=clamp(.22 - game.diff()*.008,.1,.22); this.keyDir=0;
+    this.beaker={x:W/2,y:H*0.5,w:150,h:210}; this.trail=[];
+    tick('STIR — trace circles over the beaker (or hold ← / →). hold the rod in the green RPM band.');
+    this.bar=mk('','','position:absolute;left:50%;bottom:24px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:2px;text-transform:uppercase;pointer-events:none');
+    UI.appendChild(this.bar);
+    AX.loop('stir',{freq:80,type:'sawtooth',gain:0,filt:500,tremRate:0});
+  },
+  exit(){ AX.stop('stir'); },
+  move(p){ const dx=p.x-this.beaker.x, dy=p.y-this.beaker.y; const a=Math.atan2(dy,dx);
+    if(this.lastA!==null){ let d=a-this.lastA; while(d>Math.PI)d-=Math.PI*2; while(d<-Math.PI)d+=Math.PI*2; this.spin=Math.abs(d)*3; }
+    this.lastA=a; },
+  key(e){ if(e.key==='ArrowRight'||e.key==='d'){ this.keyDir=1; } if(e.key==='ArrowLeft'||e.key==='a'){ this.keyDir=-1; } },
+  keyup(e){ if(['ArrowRight','d','ArrowLeft','a'].includes(e.key)) this.keyDir=0; },
+  update(dt){ this.t+=dt;
+    let input=this.spin||0; this.spin*=0.6; // decays each frame; refreshed by move
+    if(this.keyDir) input=Math.max(input,0.14);
+    this.rpm=lerp(this.rpm, clamp(input*4,0,1), dt*4);
+    this.angle+=this.rpm*dt*10*(this.keyDir<0?-1:1);
+    AX.loopGain('stir', this.rpm*.1);
+    const inBand=Math.abs(this.rpm-this.targetRpm)<this.band;
+    if(inBand){ this.holdT+=dt; } else if(this.rpm>this.targetRpm+this.band){ addInstability(dt*8*game.vol(),'stirring too hard'); }
+    // trail
+    this.trail.push({a:this.angle,r:44+this.rpm*10,life:0}); this.trail.forEach(p=>p.life+=dt); this.trail=this.trail.filter(p=>p.life<.5);
+    this.bar.textContent=`RPM ${Math.round(this.rpm*100)} · BLEND ${Math.round(clamp(this.holdT/this.need,0,1)*100)}%`;
+    if(this.holdT>=this.need && !this.ended){ this.ended=true; game.scores.stir=clamp(1 - this.offTime()*0.1,.4,1); AX.good(); transit('heat'); }
+  },
+  offTime(){ return Math.max(0, this.t - this.holdT); },
+  draw(){
+    const b=this.beaker;
+    drawBeaker(b, ()=>{
+      const col=avgColor(game.selected); const top=b.y-b.h*0.18;
+      const lg=G.createLinearGradient(0,top,0,b.y+b.h/2); lg.addColorStop(0,shade(col,15)); lg.addColorStop(1,shade(col,-30)); G.fillStyle=lg; G.fillRect(b.x-b.w/2,top,b.w,(b.y+b.h/2)-top);
+      // vortex
+      G.save(); G.translate(b.x, b.y-b.h*0.02);
+      G.strokeStyle='rgba(255,255,255,.18)'; G.lineWidth=2;
+      for(let s=0;s<4;s++){ G.beginPath(); for(let i=0;i<40;i++){ const a=this.angle*(this.keyDir<0?-1:1)+i*.4+s*1.6; const rr=(6+i*1.6)*(1-this.rpm*0.2); const px=Math.cos(a)*rr, py=Math.sin(a)*rr*.4; i===0?G.moveTo(px,py):G.lineTo(px,py);} G.stroke(); }
+      // funnel dip in center scales with rpm
+      G.fillStyle='rgba(4,8,6,'+(this.rpm*.5)+')'; G.beginPath(); G.ellipse(0,0,10+this.rpm*22,4+this.rpm*8,0,0,7); G.fill();
+      G.restore();
+    });
+    // glass stir rod
+    const rodA=this.angle, rr=40; const rx=b.x+Math.cos(rodA)*rr, ry=(b.y-b.h*0.02)+Math.sin(rodA)*rr*.4;
+    G.strokeStyle='rgba(220,240,245,.7)'; G.lineWidth=4; G.beginPath(); G.moveTo(rx,ry-70); G.lineTo(rx,ry); G.stroke();
+    G.fillStyle='rgba(220,240,245,.5)'; G.beginPath(); G.arc(rx,ry,4,0,7); G.fill();
+
+    // RPM ring gauge (top-right)
+    const cx=b.x+b.w/2+70, cy=b.y-b.h/2+50, R=38;
+    G.strokeStyle='rgba(132,150,168,.25)'; G.lineWidth=8; G.beginPath(); G.arc(cx,cy,R,Math.PI*.75,Math.PI*2.25); G.stroke();
+    // green band arc
+    const a0=Math.PI*.75, a1=Math.PI*2.25, span=a1-a0;
+    const bs=a0+span*(this.targetRpm-this.band), be=a0+span*(this.targetRpm+this.band);
+    G.strokeStyle='rgba(79,224,138,.7)'; G.beginPath(); G.arc(cx,cy,R,bs,be); G.stroke();
+    // needle
+    const na=a0+span*this.rpm; G.strokeStyle=Math.abs(this.rpm-this.targetRpm)<this.band?'#4fe08a':this.rpm>this.targetRpm?'#ff4a5b':'#5fd0e0';
+    G.lineWidth=3; G.beginPath(); G.moveTo(cx,cy); G.lineTo(cx+Math.cos(na)*R,cy+Math.sin(na)*R); G.stroke();
+    G.fillStyle='#6f8a7c'; G.font='8px var(--font,monospace)'; G.textAlign='center'; G.fillText('RPM',cx,cy+R+14);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STAGE: HEAT — stabilize the reaction (port of the cook gauge). Keep the
+//  glowing reagent inside the drifting green band; hold to feed the burner.
+// ═══════════════════════════════════════════════════════════════════════════
+STAGES.heat={
+  enter(){
+    this.t=0; this.dur=15; this.level=.5; this.vel=0; this.hold=false; this.inBand=0;
+    const d=game.diff();
+    this.gravity=0.95+d*.05; this.push=1.9+d*.05;
+    this.bandHalf=clamp(.16 - d*.008,.05,.16); this.bandSpeed=.2+d*.05;
+    this.beaker={x:W/2,y:H*0.48,w:120,h:230}; this.bubbles=[]; this.heatS=0;
+    tick('STABILIZE — hold to heat, keep the reagent in the green band. let it run away and it bites.');
+    this.bar=mk('','','position:absolute;left:50%;bottom:22px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:2px;text-transform:uppercase;pointer-events:none');
+    UI.appendChild(this.bar);
+    AX.loop('burner',{freq:70,type:'sawtooth',gain:.04,filt:520,tremRate:11,tremDepth:.35});
+  },
+  exit(){ AX.stop('burner'); },
+  down(){ this.hold=true; }, up(){ this.hold=false; },
+  key(e){ if(e.code==='Space'){ e.preventDefault(); this.hold=true; } }, keyup(e){ if(e.code==='Space') this.hold=false; },
+  band(){ const c=.5+(.5-this.bandHalf)*.8*Math.sin(this.t*this.bandSpeed*Math.PI*2); return clamp(c,this.bandHalf,1-this.bandHalf); },
+  update(dt){ this.t+=dt;
+    this.vel+=(this.hold?this.push:-this.gravity)*dt; this.vel*=Math.pow(.06,dt); this.level=clamp(this.level+this.vel*dt,0,1);
+    this.heatS+=((this.hold?1:0)-this.heatS)*Math.min(1,dt*6); AX.loopGain('burner',.04+this.heatS*.1);
+    const c=this.band(), inb=Math.abs(this.level-c)<=this.bandHalf; if(inb) this.inBand+=dt;
+    if(!inb){ addInstability(dt*5*game.vol()*(Math.abs(this.level-c)/this.bandHalf), null); }
+    // bubbles
+    if(Math.random()<this.heatS*.6+.05) this.bubbles.push({x:rnd(1,-1),y:0,r:rnd(3,1),spd:rnd(1.4,.6)});
+    this.bubbles.forEach(bl=>bl.y+=bl.spd*dt); this.bubbles=this.bubbles.filter(bl=>bl.y<1);
+    const pct=Math.round(this.inBand/Math.max(.001,this.t)*100);
+    this.bar.textContent=`STABLE ${pct}% · ${Math.max(0,this.dur-this.t).toFixed(1)}s`;
+    if(this.t>=this.dur && !this.ended){ this.ended=true; game.scores.heat=clamp(this.inBand/this.dur,0,1); addInstability((1-game.scores.heat)*8*game.vol(),'unstable reaction'); if(!game.blown) transit('rhythm'); }
+  },
+  draw(){
+    const b=this.beaker, base=b.y+b.h/2, ly=base-this.level*(b.h*0.7);
+    const slosh=clamp(Math.abs(this.vel)*0.5,0,1);
+    drawBurner2(b, this.heatS, this.t);
+    drawBeaker(b, ()=>{
+      const c=this.band(); const inb=Math.abs(this.level-c)<=this.bandHalf;
+      const col=inb?'#4fe08a':(this.level>c?'#e0b64f':'#e0644f');
+      fillLiquid(b.x-b.w/2, b.w, ly, base, col, col, this.t, slosh, this.heatS);
+      // safe band overlay
+      const bt=base-(c+this.bandHalf)*(b.h*0.7), bb=base-(c-this.bandHalf)*(b.h*0.7);
+      G.fillStyle=inb?'rgba(90,255,150,.16)':'rgba(90,255,150,.07)'; G.fillRect(b.x-b.w/2,bt,b.w,bb-bt);
+      G.strokeStyle='rgba(120,255,170,.6)'; G.setLineDash([5,4]); G.lineWidth=1; G.beginPath(); G.moveTo(b.x-b.w/2,bt);G.lineTo(b.x+b.w/2,bt);G.moveTo(b.x-b.w/2,bb);G.lineTo(b.x+b.w/2,bb); G.stroke(); G.setLineDash([]);
+      // rising bubbles
+      this.bubbles.forEach(bl=>{ G.fillStyle='rgba(220,255,235,.3)'; G.beginPath(); G.arc(b.x+bl.x*b.w*.35, base-bl.y*(base-ly), bl.r,0,7); G.fill(); });
+    });
+    drawSteam(b.x, ly, this.heatS*0.9, this.t, '210,255,225');
+    G.fillStyle='#6f8a7c'; G.font='10px var(--font,monospace)'; G.textAlign='center'; G.fillText('STABILIZE THE REACTION', b.x, b.y-b.h/2-14);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STAGE: RHYTHM — the finale. Timed pulses converge on the SET ring; hit
+//  SPACE/click on the beat to lock the compound's lattice. Miss and it destabilizes.
+// ═══════════════════════════════════════════════════════════════════════════
+STAGES.rhythm={
+  enter(){
+    this.t=0; this.beats=[]; this.idx=0; this.judgements=[]; this.done=false; this.flashT=0; this.shake=0;
+    const bpm= 78 + game.diff()*6; this.interval=60/bpm; this.window=clamp(.16 - game.diff()*.006,.06,.16);
+    const count=8; this.lead=2.0;
+    for(let i=0;i<count;i++) this.beats.push({time:this.lead+i*this.interval, hit:null});
+    this.beaker={x:W/2,y:H*0.5,w:150,h:200};
+    tick('SET — strike SPACE on each pulse. lock the lattice. this is the part everyone rushes and ruins.');
+    this.readout=mk('','','position:absolute;left:50%;bottom:24px;transform:translateX(-50%);color:#6f8a7c;font-size:11px;letter-spacing:2px;text-transform:uppercase;pointer-events:none;min-width:120px;text-align:center');
+    UI.appendChild(this.readout);
+    AX.loop('drone',{freq:55,type:'sine',gain:.05,filt:300});
+    this.nextMetro=this.lead;
+  },
+  exit(){ AX.stop('drone'); },
+  down(){ this.strike(); }, key(e){ if(e.code==='Space'){ e.preventDefault(); this.strike(); } },
+  strike(){
+    // find nearest unhit beat within a generous grab window
+    let best=null,bd=1;
+    this.beats.forEach(b=>{ if(b.hit!==null)return; const d=Math.abs(b.time-this.t); if(d<bd){bd=d;best=b;} });
+    if(!best||bd>this.window*2.5){ // wild swing
+      addInstability(6*game.vol(),'mistimed strike'); this.shake=6; AX.bad(); this.judgements.push({txt:'MISS',t:this.t,col:'#ff4a5b'}); return; }
+    const acc=1-bd/(this.window*2.5);
+    let txt,col,score;
+    if(bd<this.window*0.5){ txt='PERFECT'; col='#4fe08a'; score=1; AX.perfect(); }
+    else if(bd<this.window){ txt='GOOD'; col='#5fd0e0'; score=.75; AX.good(); }
+    else { txt='OFF'; col='#ffb23e'; score=.4; addInstability(3*game.vol(),null); AX.click(); }
+    best.hit=score; this.judgements.push({txt,t:this.t,col,x:this.beaker.x}); this.flashT=.2; this.shake=score>.7?3:0;
+  },
+  update(dt){ this.t+=dt; this.flashT=Math.max(0,this.flashT-dt); this.shake*=0.85;
+    // metronome ticks + auto-miss passed beats
+    this.beats.forEach(b=>{ if(b.hit===null && this.t>b.time+this.window*2.5){ b.hit=0; addInstability(5*game.vol(),'dropped beat'); this.judgements.push({txt:'MISS',t:this.t,col:'#ff4a5b'}); AX.bad(); this.shake=5; } });
+    if(this.t>=this.nextMetro && this.nextMetro< this.lead+8*this.interval){ AX.tick(); this.nextMetro+=this.interval; }
+    this.judgements=this.judgements.filter(j=>this.t-j.t<.7);
+    const hits=this.beats.filter(b=>b.hit!==null);
+    this.readout.textContent=`${hits.length}/${this.beats.length}`;
+    if(!this.done && this.beats.every(b=>b.hit!==null)){ this.done=true; setTimeout(()=>this.finish(),700); }
+  },
+  finish(){
+    const s=this.beats.reduce((a,b)=>a+b.hit,0)/this.beats.length;
+    game.scores.rhythm=s;
+    finalize();
+  },
+  draw(){
+    const b=this.beaker; G.save(); if(this.shake>.3) G.translate(rnd(this.shake,-this.shake),rnd(this.shake,-this.shake));
+    // finished compound glowing in beaker
+    drawBeaker(b, ()=>{
+      const col=avgColor(game.selected); const top=b.y-b.h*0.1, base=b.y+b.h/2;
+      const glow=.6+.4*Math.sin(this.t*6)+this.flashT*3;
+      const lg=G.createLinearGradient(0,top,0,base); lg.addColorStop(0,shade(col,30+this.flashT*80)); lg.addColorStop(1,shade(col,-20)); G.fillStyle=lg; G.fillRect(b.x-b.w/2,top,b.w,base-top);
+      G.globalAlpha=clamp(glow*.15,0,.5); G.fillStyle='#fff'; G.fillRect(b.x-b.w/2,top,b.w,base-top); G.globalAlpha=1;
+      G.strokeStyle='rgba(255,255,255,.3)'; G.beginPath(); G.moveTo(b.x-b.w/2,top); G.lineTo(b.x+b.w/2,top); G.stroke();
+    });
+    // the SET ring — pulses converge here
+    const cy=b.y-b.h/2-70, cx=b.x, R=40;
+    G.strokeStyle=this.flashT>0?'#4fe08a':'rgba(120,150,140,.5)'; G.lineWidth=3; G.beginPath(); G.arc(cx,cy,R,0,7); G.stroke();
+    G.strokeStyle='rgba(79,224,138,.3)'; G.lineWidth=1; G.beginPath(); G.arc(cx,cy,R+6,0,7); G.stroke();
+    // incoming beat rings shrink toward R as their time approaches
+    this.beats.forEach(bt=>{ if(bt.hit!==null)return; const dt=bt.time-this.t; if(dt>this.lead||dt<-this.window*2.5)return;
+      const rr=R + clamp(dt,0,this.lead)/this.lead * 160;
+      G.strokeStyle=`rgba(95,208,224,${clamp(1-dt/this.lead,.2,1)})`; G.lineWidth=2; G.beginPath(); G.arc(cx,cy,rr,0,7); G.stroke(); });
+    // beat pips on a timeline under the ring
+    this.beats.forEach((bt,i)=>{ const px=cx-140+i*40; const col=bt.hit===null?'#3a4a42':bt.hit>=1?'#4fe08a':bt.hit>=.75?'#5fd0e0':bt.hit>=.4?'#ffb23e':'#ff4a5b';
+      G.fillStyle=col; G.beginPath(); G.arc(px,cy+R+26,4,0,7); G.fill(); });
+    // judgement popups
+    this.judgements.forEach(j=>{ const a=1-(this.t-j.t)/.7; G.globalAlpha=a; G.fillStyle=j.col; G.font='bold 16px var(--font,monospace)'; G.textAlign='center';
+      G.fillText(j.txt, cx, cy-30-(1-a)*20); }); G.globalAlpha=1;
+    G.fillStyle='#6f8a7c'; G.font='9px var(--font,monospace)'; G.textAlign='center'; G.fillText('◄ STRIKE ON THE RING ►', cx, cy-56);
+    G.restore();
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RESULT + CATASTROPHE
+// ═══════════════════════════════════════════════════════════════════════════
+function finalize(){
+  // final catastrophe roll on the whole batch
+  if(!game.blown && Math.random()<catastropheChance()){ catastrophe('the final set'); return; }
+  showResult();
+}
+function catastrophe(reason){
+  game.blown=true; AX.klaxon(); AX.shatter();
+  const f=el('flash'); f.style.transition='none'; f.style.opacity='1';
+  requestAnimationFrame(()=>{ f.style.transition='opacity 1.1s'; f.style.background='#ff4a5b'; f.style.opacity='0'; });
+  // shatter particles burst
+  const parts=[]; for(let i=0;i<60;i++) parts.push({x:W/2,y:H/2,vx:rnd(400,-400),vy:rnd(-100,-460),life:0,col:Math.random()<.5?avgColor(game.selected):'#dfeef0'});
+  let pt=performance.now();
+  (function burst(now){ const dt=(now-pt)/1000; pt=now;
+    G.save(); parts.forEach(p=>{ p.life+=dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=800*dt; G.globalAlpha=clamp(1-p.life/1.4,0,1); G.fillStyle=p.col; G.beginPath(); G.arc(p.x,p.y,rnd(3,1),0,7); G.fill(); }); G.restore();
+    if(parts[0].life<1.4) requestAnimationFrame(burst); })(pt);
+  // damage message — equipment and/or you
+  const sev=Math.max(0,-game.edge())+game.instability/40;
+  const hurtYou=sev>1.4;
+  const lines=[
+    'The beaker detonates. Glass, everywhere.',
+    hurtYou?'Superheated reagent flays your forearm — 24 HP gone, and the smell will linger.':'The extractor hood eats the blast. Equipment scorched; you keep your eyebrows.',
+    game.selected.some(s=>s.id==='blacksun')?'For a moment the light bends the wrong way. Then it stops. You do not look at your hands.':'',
+  ].filter(Boolean);
+  setTimeout(()=>showResult(true,lines),700);
+}
+function showResult(blown,lines){
+  const r=el('result'); r.style.display='flex';
+  const potency = blown? 0 : computePotency();
+  el('r-name').textContent = blown? 'BATCH LOST' : compoundName();
+  el('r-name').style.color = blown?'var(--red)':'var(--tox)';
+  el('r-name').style.textShadow = blown?'0 0 12px rgba(255,74,91,.6)':'0 0 12px rgba(79,224,138,.5)';
+  el('r-sub').textContent = blown? 'CATASTROPHIC FAILURE' : (potency>1.3?'POTENT · VOLATILE':'UNKNOWN COMPOUND');
+  setGrade('r-mix',game.scores.mix); setGrade('r-pour',game.scores.pour); setGrade('r-stir',game.scores.stir);
+  setGrade('r-heat',game.scores.heat); setGrade('r-rhythm',game.scores.rhythm);
+  const pel=el('r-pot'); if(pel){ pel.textContent=blown?'—':potency.toFixed(2)+'×'; pel.className=blown?'r':potency>=1.2?'':potency>=.8?'a':'r'; }
+  el('r-verdict').innerHTML = blown? (lines||['It\'s gone.']).map(l=>`<div>${l}</div>`).join('') : verdictFor(potency);
+  el('r-mystery').style.display = blown?'none':'block';
+  el('r-mystery').innerHTML = `◆ ${compoundName()} is unrecognised. Its effects are a mystery to everyone but you — and even you only <b>think</b> you know what it does. The street will learn the hard way.`;
+  AX.tone(blown?120:520,.4,{type:blown?'sawtooth':'triangle',gain:.2, to:blown?60:780});
+}
+function setGrade(id,v){ const e=el(id); if(!e)return; const p=Math.round(v*100); e.textContent=p+'%'; e.className=p>=75?'':p>=45?'a':'r'; }
+function computePotency(){
+  const avg=(game.scores.mix+game.scores.pour+game.scores.stir+game.scores.heat+game.scores.rhythm)/5;
+  const skillBonus=game.edge()*0.04;
+  const instaPen=game.instability/100*0.5;
+  return clamp(0.55 + avg*0.9 + skillBonus - instaPen, 0.3, 1.85);
+}
+function compoundName(){
+  const a=game.selected[0]?.name.split(' ')[0]||'X'; const b=game.selected[game.selected.length-1]?.name.split(' ')[0]||'Y';
+  const fuse=a.slice(0,Math.ceil(a.length/2))+b.slice(Math.floor(b.length/2));
+  return fuse.replace(/[^A-Z]/gi,'').toUpperCase()+'-'+String(game.batch).padStart(2,'0');
+}
+function verdictFor(p){
+  if(p>=1.5) return 'Glassy, stable, and far too strong. Whoever takes this first is a test subject, not a customer.';
+  if(p>=1.1) return 'A clean splice. Holds together. Sells.';
+  if(p>=0.8) return 'Serviceable. Cut it and nobody complains too loudly.';
+  if(p>=0.5) return 'Weak and cloudy. It technically does something. Technically.';
+  return 'Barely a drug. Mostly regret in suspension.';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  SHARED DRAW HELPERS — realistic glass, liquid, steam, light, color, shapes
+// ═══════════════════════════════════════════════════════════════════════════
+
+// A wavy liquid surface: sum of travelling sines. `slosh` 0..1 amplifies chop.
+function surfaceY(x, baseY, t, slosh, span){
+  const a=(1.2+slosh*7);
+  return baseY + Math.sin(x*0.06 + t*2.2)*a*.6 + Math.sin(x*0.13 - t*3.1)*a*.4 + Math.sin(x*0.021 + t*1.3)*a*slosh*1.4;
+}
+// Fill a body of liquid inside an already-clipped region with a wavy top,
+// depth gradient, subsurface glow and a bright meniscus line.
+function fillLiquid(x, w, topY, botY, colTop, colBot, t, slosh, glow){
+  slosh=slosh||0;
+  G.save();
+  // clip to the liquid body (wavy top)
+  G.beginPath(); G.moveTo(x, botY); G.lineTo(x, topY);
+  for(let px=x; px<=x+w; px+=6) G.lineTo(px, surfaceY(px, topY, t, slosh));
+  G.lineTo(x+w, botY); G.closePath(); G.clip();
+  // depth gradient body
+  const lg=G.createLinearGradient(0, topY-8, 0, botY);
+  lg.addColorStop(0, shade(colTop,34)); lg.addColorStop(.18, colTop); lg.addColorStop(1, shade(colBot,-26));
+  G.fillStyle=lg; G.fillRect(x, topY-24, w, botY-topY+30);
+  // subsurface volumetric glow pooling at the base
+  if(glow){ const rg=G.createRadialGradient(x+w/2, botY, 4, x+w/2, botY, w*.9); rg.addColorStop(0,`rgba(255,255,255,${glow*.22})`); rg.addColorStop(1,'rgba(255,255,255,0)'); G.fillStyle=rg; G.fillRect(x, topY-24, w, botY-topY+30); }
+  G.restore();
+  // bright meniscus + specular skin on the surface
+  G.save(); G.lineWidth=2; G.strokeStyle=shade(colTop,60); G.shadowColor=colTop; G.shadowBlur=10;
+  G.beginPath(); for(let px=x; px<=x+w; px+=6){ const yy=surfaceY(px, topY, t, slosh); px===x?G.moveTo(px,yy):G.lineTo(px,yy); } G.stroke();
+  G.shadowBlur=0; G.globalAlpha=.5; G.lineWidth=1; G.strokeStyle='rgba(255,255,255,.5)';
+  G.beginPath(); for(let px=x; px<=x+w; px+=6){ const yy=surfaceY(px, topY, t, slosh)-2; px===x?G.moveTo(px,yy):G.lineTo(px,yy); } G.stroke();
+  G.restore();
+}
+// Rising steam/vapour column above a hot surface.
+function drawSteam(cx, y, amount, t, tint){
+  if(amount<=0.02) return; tint=tint||'220,240,225';
+  G.save(); G.globalCompositeOperation='lighter';
+  for(let i=0;i<7;i++){ const ph=i*1.7+t*(.5+i*.08); const rise=((t*22*(0.5+amount))+i*40)%180;
+    const sx=cx+Math.sin(ph)*(10+rise*.18)+Math.sin(t+i)*4; const sy=y-rise; const r=6+rise*.14+amount*6;
+    const a=clamp((1-rise/180)*amount*.14,0,.14);
+    const g=G.createRadialGradient(sx,sy,0,sx,sy,r); g.addColorStop(0,`rgba(${tint},${a})`); g.addColorStop(1,`rgba(${tint},0)`);
+    G.fillStyle=g; G.beginPath(); G.arc(sx,sy,r,0,7); G.fill(); }
+  G.restore();
+}
+// Drifting dust motes catching the light — cheap volumetric atmosphere.
+let _motes=null;
+function dustMotes(t, n, tint){ if(!_motes){ _motes=Array.from({length:60},()=>({x:rnd(W),y:rnd(H),z:rnd(1,.2),s:rnd(1.4,.4),ph:rnd(7)})); }
+  G.save(); G.globalCompositeOperation='lighter'; tint=tint||'150,220,180';
+  for(let i=0;i<(n||60);i++){ const m=_motes[i]; m.x+=Math.sin(t*.3+m.ph)*.15*m.z; m.y+=(.06+m.z*.14); if(m.y>H)m.y=0;
+    const a=(.08+Math.sin(t*1.3+m.ph)*.05)*m.z; G.fillStyle=`rgba(${tint},${clamp(a,0,.16)})`; G.beginPath(); G.arc(m.x,m.y,m.s*m.z,0,7); G.fill(); }
+  G.restore();
+}
+// A soft volumetric light shaft from an overhead source.
+function lightShaft(cx, topW, botW, h, tint, a){
+  G.save(); G.globalCompositeOperation='lighter';
+  const g=G.createLinearGradient(0,0,0,h); g.addColorStop(0,`rgba(${tint},${a})`); g.addColorStop(1,`rgba(${tint},0)`);
+  G.fillStyle=g; G.beginPath(); G.moveTo(cx-topW/2,0); G.lineTo(cx+topW/2,0); G.lineTo(cx+botW/2,h); G.lineTo(cx-botW/2,h); G.closePath(); G.fill(); G.restore();
+}
+// Condensation beads clinging to cold glass.
+function condensation(x,y,w,h,seed,density){ G.save();
+  for(let i=0;i<(density||16);i++){ const px=x+((i*97+seed*13)%w), py=y+((i*53+seed*29)%h), r=((i*7+seed)%3)*.6+.5;
+    G.fillStyle='rgba(220,240,245,.22)'; G.beginPath(); G.arc(px,py,r,0,7); G.fill();
+    G.fillStyle='rgba(255,255,255,.35)'; G.beginPath(); G.arc(px-r*.3,py-r*.3,r*.4,0,7); G.fill(); }
+  G.restore();
+}
+
+function beakerPath(x,y,w,h,r){ G.beginPath(); G.moveTo(x,y+16); G.lineTo(x, y+h-r); G.arc(x+r,y+h-r,r,Math.PI,0,true); G.lineTo(x+w,y+16); }
+function drawBeaker(b, fillFn){
+  const x=b.x-b.w/2, y=b.y-b.h/2, w=b.w, h=b.h, r=w/2;
+  G.save();
+  // contact shadow pooled on the bench under the rounded base
+  const sh=G.createRadialGradient(b.x,y+h+4,4,b.x,y+h+4,w*.8); sh.addColorStop(0,'rgba(0,0,0,.5)'); sh.addColorStop(1,'rgba(0,0,0,0)');
+  G.fillStyle=sh; G.beginPath(); G.ellipse(b.x,y+h+6,w*.62,12,0,0,7); G.fill();
+  // clamp/stand
+  G.strokeStyle='rgba(120,140,150,.35)'; G.lineWidth=6; G.beginPath(); G.moveTo(x+w+2,y+20); G.lineTo(x+w+40,y+20); G.stroke();
+  G.strokeStyle='rgba(90,110,120,.5)'; G.lineWidth=2; G.beginPath(); G.arc(x+w+8,y+20,7,-1,4,false); G.stroke(); // clamp jaw
+
+  // ── fluid, clipped to the glass body ──
+  beakerPath(x,y,w,h,r); G.save(); G.clip();
+  if(fillFn) fillFn();
+  // inner-wall refraction shading over the fluid (darkened glass thickness)
+  const inw=G.createLinearGradient(x,0,x+w,0);
+  inw.addColorStop(0,'rgba(10,20,18,.55)'); inw.addColorStop(.10,'rgba(10,20,18,0)'); inw.addColorStop(.9,'rgba(10,20,18,0)'); inw.addColorStop(1,'rgba(10,20,18,.55)');
+  G.fillStyle=inw; G.fillRect(x,y,w,h);
+  G.restore();
+
+  // empty-glass cavity tint (only reads where there's no fluid)
+  const cav=G.createLinearGradient(x,0,x+w,0); cav.addColorStop(0,'rgba(180,220,230,.09)'); cav.addColorStop(.5,'rgba(180,220,230,.015)'); cav.addColorStop(1,'rgba(180,220,230,.09)');
+  G.fillStyle=cav; beakerPath(x,y,w,h,r); G.closePath(); G.fill();
+
+  // ── glass walls: bright outer rim + crisp inner highlight = thickness ──
+  beakerPath(x,y,w,h,r); G.strokeStyle='rgba(205,240,245,.55)'; G.lineWidth=2.5; G.stroke();
+  G.strokeStyle='rgba(120,200,180,.35)'; G.lineWidth=1; G.stroke(); // faint green edge light
+  beakerPath(x+3,y,w-6,h-3,r-3); G.strokeStyle='rgba(255,255,255,.10)'; G.lineWidth=1; G.stroke();
+
+  // flared lip + neck
+  G.strokeStyle='rgba(225,248,252,.75)'; G.lineWidth=2.5; G.beginPath(); G.moveTo(x-6,y+8); G.lineTo(x+w+6,y+8); G.stroke();
+  G.lineWidth=2; G.beginPath(); G.moveTo(x,y+16); G.lineTo(x-6,y+8); G.moveTo(x+w,y+16); G.lineTo(x+w+6,y+8); G.stroke();
+
+  // graduation ticks etched right
+  G.strokeStyle='rgba(200,235,240,.22)'; G.lineWidth=1;
+  for(let i=1;i<7;i++){ const yy=y+h*0.28+(h*0.62)*(i/7); G.beginPath(); G.moveTo(x+w-(i%2?8:15),yy); G.lineTo(x+w-3,yy); G.stroke(); }
+
+  // twin speculars — hot streak left, soft sheen right
+  const sp=G.createLinearGradient(x,0,x+18,0); sp.addColorStop(0,'rgba(255,255,255,0)'); sp.addColorStop(.5,'rgba(255,255,255,.28)'); sp.addColorStop(1,'rgba(255,255,255,0)');
+  G.fillStyle=sp; G.fillRect(x+8,y+22,7,h-52);
+  const sp2=G.createLinearGradient(x+w-16,0,x+w-4,0); sp2.addColorStop(0,'rgba(255,255,255,0)'); sp2.addColorStop(.6,'rgba(255,255,255,.12)'); sp2.addColorStop(1,'rgba(255,255,255,0)');
+  G.fillStyle=sp2; G.fillRect(x+w-14,y+30,5,h-70);
+  G.restore();
+}
+function drawBurner2(b,heat,t){
+  const cx=b.x, baseY=b.y+b.h/2+40;
+  const flick=.85+.15*Math.sin(t*22)+rnd(.06,-.06);
+  const Hh=(24+heat*74)*flick, sway=Math.sin(t*7)*(2+heat*4);
+  const glow=G.createRadialGradient(cx,baseY-Hh*.4,4,cx,baseY-Hh*.4,50+heat*30); glow.addColorStop(0,`rgba(255,150,40,${(.12+heat*.28)})`); glow.addColorStop(1,'rgba(255,150,40,0)');
+  G.fillStyle=glow; G.fillRect(cx-90,baseY-Hh-40,180,Hh+60);
+  G.save(); G.globalCompositeOperation='lighter';
+  flame(cx,baseY,15+heat*5,Hh,sway,'rgba(230,90,20,.85)',14);
+  flame(cx,baseY,11+heat*3,Hh*.82,sway*.8,'rgba(255,170,40,.9)',10);
+  flame(cx,baseY,7+heat*2,Hh*.6,sway*.6,'rgba(255,235,150,.95)',6);
+  flame(cx,baseY,8,14+heat*10,sway*.3,'rgba(90,150,255,.6)',6);
+  G.restore();
+  // barrel
+  G.fillStyle='#2a3138'; G.fillRect(cx-11,baseY+2,22,H-(baseY+2)); G.fillStyle='#12161a'; G.fillRect(cx-15,baseY,30,4);
+}
+function flame(cx,baseY,hw,ht,sway,col,blur){ G.beginPath(); G.moveTo(cx-hw,baseY); G.quadraticCurveTo(cx-hw,baseY-ht*.55,cx+sway,baseY-ht); G.quadraticCurveTo(cx+hw,baseY-ht*.55,cx+hw,baseY); G.quadraticCurveTo(cx,baseY+5,cx-hw,baseY); G.closePath(); G.shadowColor=col; G.shadowBlur=blur; G.fillStyle=col; G.fill(); G.shadowBlur=0; }
+function roundRect(x,y,w,h,r){ G.beginPath(); G.moveTo(x+r,y); G.arcTo(x+w,y,x+w,y+h,r); G.arcTo(x+w,y+h,x,y+h,r); G.arcTo(x,y+h,x,y,r); G.arcTo(x,y,x+w,y,r); G.closePath(); }
+function blob(cx,cy,rx,ry,t){ G.beginPath(); for(let a=0;a<=Math.PI*2+.01;a+=.4){ const r=1+Math.sin(a*3+t*1.5)*.08; const px=cx+Math.cos(a)*rx*r, py=cy+Math.sin(a)*ry*r; a===0?G.moveTo(px,py):G.lineTo(px,py);} G.closePath(); }
+function shade(hex,amt){ const c=hexToRgb(hex); return `rgb(${clamp(c.r+amt,0,255)|0},${clamp(c.g+amt,0,255)|0},${clamp(c.b+amt,0,255)|0})`; }
+function hexToRgb(h){ h=h.replace('#',''); if(h.length===3)h=h.split('').map(x=>x+x).join(''); const n=parseInt(h,16); return {r:(n>>16)&255,g:(n>>8)&255,b:n&255}; }
+// accept hex ('#abc'), rgb() strings, or {r,g,b} objects for either endpoint
+function toRgb(c){ if(typeof c==='object') return c; if(c[0]==='#') return hexToRgb(c); const m=c.match(/\d+/g).map(Number); return {r:m[0],g:m[1],b:m[2]}; }
+function mixColors(a,b,t){ const A=toRgb(a),B=toRgb(b); return `rgb(${lerp(A.r,B.r,t)|0},${lerp(A.g,B.g,t)|0},${lerp(A.b,B.b,t)|0})`; }
+function avgColor(drugs){ let r=0,g=0,bb=0; drugs.forEach(d=>{ const c=hexToRgb(d.color); r+=c.r;g+=c.g;bb+=c.b; }); const n=drugs.length||1; return `rgb(${r/n|0},${g/n|0},${bb/n|0})`; }
+
+// patch shade() to accept rgb() strings too
+const _shade=shade;
+shade=function(col,amt){ if(typeof col==='string'&&col.startsWith('rgb')){ const m=col.match(/\d+/g).map(Number); return `rgb(${clamp(m[0]+amt,0,255)|0},${clamp(m[1]+amt,0,255)|0},${clamp(m[2]+amt,0,255)|0})`; } return _shade(col,amt); };
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  GRAIN (animated film noise)
+// ═══════════════════════════════════════════════════════════════════════════
+const gcv=el('grain'), gg=gcv.getContext('2d');
+function grain(){ const id=gg.createImageData(gcv.width,gcv.height); const d=id.data; for(let i=0;i<d.length;i+=4){ const v=Math.random()*255; d[i]=d[i+1]=d[i+2]=v; d[i+3]=Math.random()<.5?40:0; } gg.putImageData(id,0,0); }
+setInterval(grain, 90);
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  DEV DRAWER + BOOT
+// ═══════════════════════════════════════════════════════════════════════════
+el('dev-h').onclick=()=>{ el('dev').classList.toggle('min'); el('dev-tog').textContent=el('dev').classList.contains('min')?'+':'–'; };
+el('sk').oninput=e=>{ game.skill=+e.target.value; el('sk-val').textContent=game.skill; el('capline').innerHTML='Rated: <b>'+CAP[game.skill]+'</b>'; refreshChips(); };
+function pickStakes(s){ game.stakes=s; el('stk-real').style.color=s==='real'?'var(--tox)':''; el('stk-often').style.color=s==='often'?'var(--red)':''; el('stk-real').style.borderColor=s==='real'?'var(--tox)':''; el('stk-often').style.borderColor=s==='often'?'var(--red)':''; }
+el('stk-real').onclick=()=>pickStakes('real'); el('stk-often').onclick=()=>pickStakes('often');
+el('dev-restart').onclick=()=>{ el('result').style.display='none'; game.reset(); go('loadin'); };
+el('r-again').onclick=()=>{ el('result').style.display='none'; game.reset(); go('select'); };
+pickStakes('real');
+el('capline').innerHTML='Rated: <b>'+CAP[6]+'</b>';
+refreshChips();
+
+go('loadin');
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

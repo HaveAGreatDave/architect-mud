@@ -44,6 +44,12 @@ export const FIELD_CATALOG = [
 
   // Factions — snapshot list
   { key: 'factions', label: 'Faction rep', group: 'Factions', valueType: 'list', source: 'snapshot' },
+
+  // Corp — snapshot (your org's live status)
+  { key: 'corp_name',     label: 'Corp',          group: 'Corp', valueType: 'text',   source: 'snapshot' },
+  { key: 'corp_treasury', label: 'Treasury',      group: 'Corp', valueType: 'number', source: 'snapshot' },
+  { key: 'corp_zones',    label: 'Zones held',    group: 'Corp', valueType: 'number', source: 'snapshot' },
+  { key: 'corp_heat',     label: 'Architect heat', group: 'Corp', valueType: 'ratio', source: 'snapshot' },
 ];
 
 export const FIELD_BY_KEY = Object.fromEntries(FIELD_CATALOG.map(f => [f.key, f]));
