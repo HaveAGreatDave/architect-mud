@@ -19,6 +19,7 @@
     "db:backup-prod": "node scripts/backup-prod.mjs",
     "content:publish": "node scripts/content-publish.mjs",
     "content:sync": "node scripts/content-sync.mjs",
+    "relay": "node scripts/relay-server.mjs",
     "db:rename-admin": "node server/models/temp/rename-admin.js",
     "db:reset-chars": "node server/models/temp/reset-chars.js",
     "db:migrate-xp": "node server/models/temp/migrate-xp.js",

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relay — morning setup for Akerson</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0b0e13; color: #cdd6e4;
+         font: 15px/1.6 ui-monospace, "Cascadia Code", Consolas, monospace;
+         padding: 32px 20px; }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; color: #7fd1ff; letter-spacing: .5px; margin: 0 0 6px; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 1.5px; color: #7fd1ff;
+       margin: 34px 0 12px; border-bottom: 1px solid #212a38; padding-bottom: 6px; }
+  p { margin: 10px 0; }
+  .haiku { background: #131923; border: 1px solid #212a38; border-left: 3px solid #7fd1ff;
+           border-radius: 8px; padding: 16px 20px; margin: 18px 0 24px; font-style: italic;
+           color: #9fb0c8; white-space: pre-line; text-align: center; }
+  .note { background: #1a1508; border: 1px solid #4a3b12; border-left: 3px solid #f5b544;
+          border-radius: 8px; padding: 12px 16px; margin: 16px 0; color: #e8d9b0; font-size: 14px; }
+  .step { display: flex; gap: 14px; margin: 22px 0; }
+  .num { flex: none; width: 30px; height: 30px; border-radius: 50%; background: #1c66d6;
+         color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .step-body { flex: 1; }
+  .step-body > :first-child { margin-top: 3px; }
+  code.cmd { display: block; background: #06080c; border: 1px solid #1a2230; border-radius: 6px;
+             padding: 11px 14px; margin: 8px 0; color: #7fd1ff; font-size: 14px; cursor: pointer;
+             position: relative; }
+  code.cmd:hover { border-color: #2a4a63; }
+  code.cmd::after { content: "click to copy"; position: absolute; right: 10px; top: 10px;
+                    font-size: 10px; color: #3a4557; }
+  code.cmd.copied::after { content: "copied ✓"; color: #37d67a; }
+  ul { padding-left: 20px; } li { margin: 8px 0; }
+  .k { color: #e6edf6; font-weight: 600; }
+  .warn { color: #f5b544; }
+  .dim { color: #61708a; font-size: 13px; }
+  .btn { display: inline-block; background: #212a38; color: #cdd6e4; border: 1px solid #2a3547;
+         border-radius: 5px; padding: 2px 8px; font-size: 13px; }
+  em.hint { color: #61708a; font-style: normal; }
+</style></head>
+<body><div class="wrap">
+
+  <h1>🌅 Morning, Akerson — get Relay + Cyd's latest</h1>
+
+  <div class="haiku">Sleepy Akerson —
+Relay hums, Cyd's night flows in
+coffee, then we build</div>
+
+  <div class="note"><span class="k">One-time thing to understand:</span> Relay is the tool that
+  syncs everything, but it can't install <em>itself</em>. So the very first time you do one plain
+  <span class="btn">git pull</span> by hand. After that, Relay does the work.</div>
+
+  <h2>Do these in order</h2>
+
+  <div class="step"><div class="num">1</div><div class="step-body">
+    <p><span class="k">Open a terminal in the architect repo folder.</span></p>
+    <p class="dim">Wherever you cloned it — the folder with <span class="btn">package.json</span> in it.</p>
+  </div></div>
+
+  <div class="step"><div class="num">2</div><div class="step-body">
+    <p><span class="k">Get Cyd's work</span> (plain git — one time):</p>
+    <code class="cmd">git pull</code>
+    <ul>
+      <li>If it just works, great — move on.</li>
+      <li>If it says <em>"your local changes would be overwritten"</em>, you have unsaved edits.
+          Do this instead:</li>
+    </ul>
+    <code class="cmd">git stash
+git pull
+git stash pop</code>
+    <p class="dim">(<span class="btn">stash</span> tucks your changes aside,
+    <span class="btn">stash pop</span> puts them back after the pull.)</p>
+  </div></div>
+
+  <div class="step"><div class="num">3</div><div class="step-body">
+    <p><span class="k">Refresh dependencies</span> (quick, safe):</p>
+    <code class="cmd">npm install</code>
+  </div></div>
+
+  <div class="step"><div class="num">4</div><div class="step-body">
+    <p><span class="k">Rebuild your local world DB from Cyd's latest content:</span></p>
+    <code class="cmd">npm run db:setup-local</code>
+    <p><span class="warn">⚠️ This wipes and rebuilds your local <span class="btn">architect_dev</span>
+    database</span> from the shared seed — that's expected. Your login/character is local-only, so
+    <span class="k">you'll re-register a character in-game</span> afterward.</p>
+    <p class="dim">(Do this via the command, not Relay, this one time — Relay's "Sync" only rebuilds
+    when a <em>fresh</em> pull changes the seed, and you already pulled in step 2.)</p>
+  </div></div>
+
+  <div class="step"><div class="num">5</div><div class="step-body">
+    <p><span class="k">Start Relay:</span></p>
+    <code class="cmd">npm run relay</code>
+    <p>A browser tab opens at <span class="k">http://localhost:4599</span>. That's Relay.</p>
+  </div></div>
+
+  <h2>Now you're in Relay — what to click</h2>
+  <ul>
+    <li><span class="k">🏚 Launch server</span> — starts the Architect game server on
+        <span class="btn">localhost:3000</span>. Wait ~2 sec; the light turns green
+        ("Architect server running").</li>
+    <li><span class="k">▶ Architect</span> — opens the game. <span class="k">⚙ Devpanel</span> —
+        opens the dev panel.</li>
+    <li><span class="k">Recent activity</span> (bottom card) — you should see
+        <span class="k">Cyd's commits from last night</span> listed. That's how you confirm the
+        sync worked.</li>
+    <li><span class="k">Pre-flight panel</span> (top) — DB is local, tracking main, up to date.
+        Glance at it; green is good.</li>
+  </ul>
+
+  <h2>From tomorrow on, your daily loop is just</h2>
+  <code class="cmd">npm run relay</code>
+  <p>Then in Relay: <span class="k">⇩ Sync content</span> (pulls Cyd's latest + rebuilds the DB if
+  the world changed) → <span class="k">🏚 Launch server</span> → build/play. No more hand-typed git
+  for normal days.</p>
+
+  <h2>If something's weird</h2>
+  <ul>
+    <li><span class="k">"Port 3000 already in use"</span> when launching → an old server is stuck.
+        Run <span class="btn">npm run kill:orphans</span>, then Launch again.</li>
+    <li><span class="k">Relay page won't open / port 4599 busy</span> → close the old Relay
+        tab/terminal, re-run <span class="btn">npm run relay</span>.</li>
+    <li><span class="k">Recent activity doesn't show Cyd's commits</span> → the pull didn't land.
+        Re-run <span class="btn">git pull</span> and check for an error message.</li>
+    <li><span class="k">Optional nicety:</span> <span class="btn">npm run hooks:install</span> once —
+        it nudges you to sync whenever a pull brings new world content.</li>
+  </ul>
+
+  <p class="dim" style="margin-top:28px;border-top:1px solid #212a38;padding-top:16px">
+  Everything Relay does is just the same <span class="btn">git</span> / <span class="btn">npm</span>
+  commands with a safety net — nothing magic, nothing that can quietly break the live game.</p>
+
+</div>
+<script>
+  // Click any command block to copy it.
+  document.querySelectorAll('code.cmd').forEach((el) => {
+    el.addEventListener('click', () => {
+      const text = el.textContent;
+      navigator.clipboard && navigator.clipboard.writeText(text).then(() => {
+        el.classList.add('copied');
+        setTimeout(() => el.classList.remove('copied'), 1400);
+      });
+    });
+  });
+</script>
+</body></html>
