@@ -79,6 +79,7 @@ function drugEditForm(rec, isNew) {
           <option value="crystal" ${rec.flags?.form==='crystal'?'selected':''}>crystal (shard)</option>
           <option value="blotter" ${rec.flags?.form==='blotter'?'selected':''}>blotter (tab sheet)</option>
           <option value="paste" ${rec.flags?.form==='paste'?'selected':''}>paste (tar brick)</option>
+          <option value="leaf" ${rec.flags?.form==='leaf'?'selected':''}>leaf (herb baggie)</option>
         </select></div>
       <div class="field"><label>Sub-form (mix behaviour)</label><input id="f-sub" value="${rec.flags?.sub||''}" placeholder="auto — thin/oil/solvent/fine/crystalline/viscous/tablet"></div>
     </div>

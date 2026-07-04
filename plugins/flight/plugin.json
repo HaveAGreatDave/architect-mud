@@ -1,16 +1,16 @@
 {
   "name": "flight",
-  "version": "0.2.0",
-  "description": "Flight — full system. Board/charter/buy aircraft at six airfields, fly the map_world tile grid on a real-time posture tick loop (heading/throttle/altitude bands/fuel), through interactive takeoff + glideslope minigames. Phase B hazards (stall/fire/weather/bird), no-fly airspace enforcement, cargo/passenger + smuggling contracts, ground AA + air combat + shootdowns, hangars, wreck salvage/rebuild, and deep tuning. The aircraft is a first-class object owning its occupant set; the cockpit HUD is synthesized. Piloting skill gates flight; Fabrication/Chemistry gate repair/rebuild.",
+  "version": "0.3.0",
+  "description": "Flight — full system. Embark/charter/buy aircraft at six airfields; fly the map_world tile grid on a real-time posture tick loop through interactive takeoff/glideslope/targeting decks, OR ride an NPC-pilot charter as a passenger. Phase B hazards, no-fly airspace, cargo/passenger + smuggling contracts, ground AA + air combat, hangars, wreck salvage/rebuild, owner-only customization, and engine-noise propagation. The aircraft is a first-class object owning its occupant set; the cockpit HUD is synthesized per-aircraft.",
   "commands": [
     "embark", "board", "disembark", "deplane", "startup", "shutdown", "throttle", "heading", "climb", "dive", "takeoff", "land", "refuel", "takeoffresolve", "landresolve",
     "recover", "extinguish", "eject", "bail", "preflight", "hover", "spot", "scan", "chart", "squawk",
-    "buy", "charter",
+    "buy", "charter", "flyto", "testfly",
     "arm", "safe", "evade", "strafe", "fire", "strafresolve",
     "contracts", "jobs", "accept", "manifest",
     "hangar", "repair", "salvage", "rebuild", "tune", "modify", "customize"
   ],
   "after": ["gametable", "generator", "commerce", "broadcast"],
-  "hooks": ["zone.describeRoom"],
+  "routePrefix": "/flight",
   "dataSchema": ["aircraft", "aircraft_types", "flight_contracts", "aa_sites", "hangars"]
 }

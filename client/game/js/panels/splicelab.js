@@ -247,6 +247,20 @@ function drawPackage(d, x, y, inCradle, hi, t, phys) {
     G.fillStyle = 'rgba(255,255,255,.3)'; G.beginPath(); G.ellipse(-5, -5, 7, 3, -0.4, 0, 7); G.fill();
     G.fillStyle = 'rgba(255,255,255,.15)'; G.beginPath(); G.ellipse(6, 3, 4, 2, 0.3, 0, 7); G.fill();
     G.strokeStyle = 'rgba(200,195,180,.4)'; G.lineWidth = 1; roundRect(-24, -18, 48, 36, 4); G.stroke();
+  } else if (d.form === 'leaf') {
+    const bw = 42, bh = 56;
+    G.fillStyle = 'rgba(200,220,230,.10)'; roundRect(-bw / 2, -bh / 2, bw, bh, 4); G.fill();
+    G.save(); roundRect(-bw / 2 + 3, -bh / 2 + 10, bw - 6, bh - 16, 3); G.clip();
+    const shift = slosh * 5;
+    for (let i = 0; i < 22; i++) { G.save(); G.translate(-bw / 2 + 5 + Math.random() * (bw - 10) - shift * 0.3, bh / 2 - 5 - Math.random() * 24); G.rotate(Math.random() * 3);
+      G.fillStyle = i % 3 ? shade(c, 10) : shade(c, -24); G.beginPath(); G.moveTo(0, -2.5); G.lineTo(2, 0); G.lineTo(0, 2.5); G.lineTo(-2, 0); G.closePath(); G.fill(); G.restore(); }
+    for (let k = 0; k < 2; k++) { G.save(); G.translate(-7 + k * 14, 8); G.rotate(0.4 - k * 0.8);
+      G.fillStyle = shade(c, k ? 24 : -8); G.beginPath(); G.ellipse(0, 0, 3, 8, 0, 0, 7); G.fill();
+      G.strokeStyle = shade(c, -30); G.lineWidth = 0.6; G.beginPath(); G.moveTo(0, -7); G.lineTo(0, 7); G.stroke(); G.restore(); }
+    G.restore();
+    G.strokeStyle = 'rgba(210,230,240,.4)'; G.lineWidth = 1.2; roundRect(-bw / 2, -bh / 2, bw, bh, 4); G.stroke();
+    G.fillStyle = 'rgba(232,242,246,.7)'; G.fillRect(-bw / 2, -bh / 2, bw, 7);
+    G.strokeStyle = 'rgba(120,140,150,.5)'; G.lineWidth = 1; for (let i = -bw / 2 + 2; i < bw / 2; i += 3) { G.beginPath(); G.moveTo(i, -bh / 2); G.lineTo(i, -bh / 2 + 6); G.stroke(); }
   } else {
     const bw = 46, bh = 40;
     G.fillStyle = 'rgba(180,190,200,.32)'; roundRect(-bw / 2, -bh / 2, bw, bh, 4); G.fill();
@@ -352,8 +366,8 @@ STAGES.title = {
 
 STAGES.select = {
   enter() {
-    const g = game; const freq = { liquid: 2.0, gel: 2.1, powder: 2.4, pill: 2.8, gas: 2.3, crystal: 2.9, blotter: 3.2, paste: 1.7 };
-    const fluidOf = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, viscous: .55, tablet: .06, pressurized: .5, shard: .05, sheet: .04, tar: .35 };
+    const g = game; const freq = { liquid: 2.0, gel: 2.1, powder: 2.4, pill: 2.8, gas: 2.3, crystal: 2.9, blotter: 3.2, paste: 1.7, leaf: 2.6 };
+    const fluidOf = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, viscous: .55, tablet: .06, pressurized: .5, shard: .05, sheet: .04, tar: .35, dried: .08 };
     const zeta = 0.62, n = g.drugs.length, cols = Math.min(4, Math.max(1, n)), gapx = 176, x0 = (W - (cols - 1) * gapx) / 2;
     this.pkgs = g.drugs.map((d, i) => { const col = i % cols, row = Math.floor(i / cols), hx = x0 + col * gapx, hy = H * 0.28 + row * 128;
       const w = 2 * Math.PI * (freq[d.form] || 2.2), k = w * w, c = 2 * zeta * w;
@@ -444,8 +458,8 @@ STAGES.charge = {
     const g = game; this.t = 0; this.hover = null; this.drag = null; this.fill = 0; this.pouredCount = 0; this.drips = []; this._done = false;
     this.beaker = { x: W / 2, y: H * 0.52, w: 150, h: 210 };
     this.zone = { x: W / 2, y: H * 0.52 - 210 / 2 - 34, r: 46 };
-    const freq = { liquid: 2.0, gel: 2.1, powder: 2.4, pill: 2.8, gas: 2.3, crystal: 2.9, blotter: 3.2, paste: 1.7 };
-    const fluidOf = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, viscous: .55, tablet: .06, pressurized: .5, shard: .05, sheet: .04, tar: .35 };
+    const freq = { liquid: 2.0, gel: 2.1, powder: 2.4, pill: 2.8, gas: 2.3, crystal: 2.9, blotter: 3.2, paste: 1.7, leaf: 2.6 };
+    const fluidOf = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, viscous: .55, tablet: .06, pressurized: .5, shard: .05, sheet: .04, tar: .35, dried: .08 };
     const zeta = 0.62;
     // far-side supply racks → a long diagonal carry to the central pour zone
     this.cans = g.selected.map((d, i) => { const side = i % 2 === 0 ? -1 : 1, row = Math.floor(i / 2), hx = W / 2 + side * (W * 0.40), hy = H * 0.86 - row * 82, w = 2 * Math.PI * (freq[d.form] || 2.2), k = w * w, c = 2 * zeta * w;
@@ -520,6 +534,7 @@ STAGES.mix = {
     const d = this.queue[this.idx]; this.meter = 0; this.crushHits = 0; if (!d) return; const f = d.form;
     if (f === 'liquid') { this.mode = 'auto'; this.rate = 1.1; this.label = 'ALREADY LIQUID — decanting'; }
     else if (f === 'crystal' || f === 'pill') { this.mode = 'crush'; this.label = 'CRUSH — mash SPACE / click'; }
+    else if (f === 'leaf') { this.mode = 'crush'; this.label = 'GRIND — mash SPACE / click'; }
     else if (f === 'gas') { this.mode = 'hold'; this.rate = 0.42; this.label = 'BLEED the valve — hold'; }
     else if (f === 'gel') { this.mode = 'hold'; this.rate = 0.30; this.label = 'WORK it down — hold'; }
     else if (f === 'paste') { this.mode = 'hold'; this.rate = 0.22; this.label = 'CUT with solvent — hold'; }

@@ -1,0 +1,7 @@
+{
+  "name": "rolling",
+  "version": "1.0.0",
+  "description": "Roll loose cannabis / tobacco (sold by the gram) into joints / cigarettes — 1 gram makes 1. `roll [n|all] [cannabis|tobacco]`.",
+  "hooks": [],
+  "commands": ["roll"]
+}

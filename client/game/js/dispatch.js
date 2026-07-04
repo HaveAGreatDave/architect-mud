@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
-import { renderMinimap, openMapPopup, refreshMapIfOpen } from './panels/minimap.js';
+import { renderMinimap, openMapPopup, refreshMapIfOpen, armMapPick } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut } from './panels/environment.js';
 import { setWeatherEventFx } from './panels/weather-fx.js';
 import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
@@ -556,6 +556,12 @@ const handlers = {
       deviceName: msg.deviceName || 'TARGET',
       onResult: ({ won }) => sendCmdSilent(`strafresolve ${msg.token} ${won ? 1 : 0}`),
     });
+  },
+  // Charter: a Dragonfly passenger picks any tile on the full map.
+  flight_pick_dest: (msg) => {
+    if (msg.message) appendHtml(msg.message, 'system');
+    openMapPopup(msg.tiles || [], 'regional', false);
+    armMapPick((zoneId) => sendCmdSilent(`flyto ${zoneId}`));
   },
 
   vault_crack: (msg) => {
