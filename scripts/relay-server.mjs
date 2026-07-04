@@ -8,15 +8,15 @@
 //
 // It shells out to the same scripts/git the CLI uses — nothing new touches the DB
 // or git. Dev-only; never wired into the game server or production boot.
-import { createServer } from 'node:http';
-import { execFile, spawn } from 'node:child_process';
-import { connect } from 'node:net';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
-import pg from 'pg';
+import { createServer } from "node:http";
+import { execFile, spawn } from "node:child_process";
+import { connect } from "node:net";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+import pg from "pg";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 4599;
 const GAME_PORT = 3000; // Architect game server (server/index.js)
 const NODE = process.execPath;
@@ -24,176 +24,238 @@ const NODE = process.execPath;
 // Is something listening on a local port? Used to tell whether the game server
 // is already up (started here or in a terminal) before offering to launch it.
 const portOpen = (port) =>
-  new Promise((res) => {
-    const sock = connect({ host: '127.0.0.1', port });
-    const done = (v) => { sock.destroy(); res(v); };
-    sock.setTimeout(500);
-    sock.once('connect', () => done(true));
-    sock.once('timeout', () => done(false));
-    sock.once('error', () => done(false));
-  });
+	new Promise((res) => {
+		const sock = connect({ host: "127.0.0.1", port });
+		const done = (v) => {
+			sock.destroy();
+			res(v);
+		};
+		sock.setTimeout(500);
+		sock.once("connect", () => done(true));
+		sock.once("timeout", () => done(false));
+		sock.once("error", () => done(false));
+	});
 
 // The regress gate, spawned as real `node` processes (not `npm run`, which on
 // Windows means npm.cmd — Node refuses to spawn .cmd without a shell). This
 // mirrors the `pretest:regress` hook: sweep orphaned pool connections first,
 // then run the suite.
 const REGRESS_STEPS = [
-  ['Sweep orphans', NODE, ['scripts/kill-orphans.js']],
-  ['Regression gate', NODE, ['tests/regress.js']],
+	["Sweep orphans", NODE, ["scripts/kill-orphans.js"]],
+	["Regression gate", NODE, ["tests/regress.js"]],
 ];
 
 // --- shell helpers ----------------------------------------------------------
 const git = (args, raw = false) =>
-  new Promise((res) => {
-    execFile('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }, (err, out, se) =>
-      // `raw` preserves the leading status column (porcelain lines start with a
-      // space) — trimming would drop the first line's " " and shift the offset.
-      res({ ok: !err, out: raw ? (out || '') : (out || '').trim(), err: (se || '').trim() }),
-    );
-  });
+	new Promise((res) => {
+		execFile(
+			"git",
+			args,
+			{ cwd: ROOT, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
+			(err, out, se) =>
+				// `raw` preserves the leading status column (porcelain lines start with a
+				// space) — trimming would drop the first line's " " and shift the offset.
+				res({
+					ok: !err,
+					out: raw ? out || "" : (out || "").trim(),
+					err: (se || "").trim(),
+				}),
+		);
+	});
 
 // Run a sequence of commands, streaming combined output to the response. Stops
 // at the first non-zero exit (this is what makes the regress gate a real gate).
 const streamSeq = async (steps, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-cache' });
-  for (const [label, cmd, args] of steps) {
-    res.write(`\n── ${label} ──\n`);
-    const code = await new Promise((done) => {
-      let child;
-      try {
-        // spawn can throw synchronously (e.g. EINVAL on Windows) — don't let
-        // that escape the promise executor and crash the whole server.
-        child = spawn(cmd, args, { cwd: ROOT });
-      } catch (e) {
-        res.write(`\n[failed to launch: ${e.message}]`);
-        return done(1);
-      }
-      child.stdout.on('data', (d) => res.write(d));
-      child.stderr.on('data', (d) => res.write(d));
-      child.on('close', done);
-      child.on('error', (e) => {
-        res.write(`\n[failed to launch: ${e.message}]`);
-        done(1);
-      });
-    });
-    if (code !== 0) {
-      res.write(`\n✗ ${label} failed (exit ${code}) — aborting, nothing pushed.`);
-      return res.end();
-    }
-  }
-  res.write('\n✓ done');
-  res.end();
+	res.writeHead(200, {
+		"Content-Type": "text/plain; charset=utf-8",
+		"Cache-Control": "no-cache",
+	});
+	for (const [label, cmd, args] of steps) {
+		res.write(`\n── ${label} ──\n`);
+		const code = await new Promise((done) => {
+			let child;
+			try {
+				// spawn can throw synchronously (e.g. EINVAL on Windows) — don't let
+				// that escape the promise executor and crash the whole server.
+				child = spawn(cmd, args, { cwd: ROOT });
+			} catch (e) {
+				res.write(`\n[failed to launch: ${e.message}]`);
+				return done(1);
+			}
+			child.stdout.on("data", (d) => res.write(d));
+			child.stderr.on("data", (d) => res.write(d));
+			child.on("close", done);
+			child.on("error", (e) => {
+				res.write(`\n[failed to launch: ${e.message}]`);
+				done(1);
+			});
+		});
+		if (code !== 0) {
+			res.write(
+				`\n✗ ${label} failed (exit ${code}) — aborting, nothing pushed.`,
+			);
+			return res.end();
+		}
+	}
+	res.write("\n✓ done");
+	res.end();
 };
 
 // --- pre-flight checks ------------------------------------------------------
 // Read an env var straight from .env (uncommented lines only), so the pre-flight
 // reflects the file the scripts will actually load, not this process's own env.
 const readEnvUrl = (name) => {
-  try {
-    const env = readFileSync(resolve(ROOT, '.env'), 'utf8');
-    const re = new RegExp(`^\\s*${name}\\s*=`);
-    const line = env.split(/\r?\n/).find((l) => re.test(l));
-    if (!line) return '';
-    return line.replace(re, '').trim().replace(/^["']|["']$/g, '');
-  } catch {
-    return '';
-  }
+	try {
+		const env = readFileSync(resolve(ROOT, ".env"), "utf8");
+		const re = new RegExp(`^\\s*${name}\\s*=`);
+		const line = env.split(/\r?\n/).find((l) => re.test(l));
+		if (!line) return "";
+		return line
+			.replace(re, "")
+			.trim()
+			.replace(/^["']|["']$/g, "");
+	} catch {
+		return "";
+	}
 };
-const hostOf = (u) => { try { return new URL(u).hostname; } catch { return ''; } };
+const hostOf = (u) => {
+	try {
+		return new URL(u).hostname;
+	} catch {
+		return "";
+	}
+};
 const isLocalHost = (h) => /^(localhost|127\.0\.0\.1|::1)$/.test(h);
 
 const status = async () => {
-  const dbUrl = readEnvUrl('DATABASE_URL');
-  const host = hostOf(dbUrl);
-  const isLocal = isLocalHost(host);
+	const dbUrl = readEnvUrl("DATABASE_URL");
+	const host = hostOf(dbUrl);
+	const isLocal = isLocalHost(host);
 
-  const prodUrl = readEnvUrl('PROD_DATABASE_URL');
-  const prodHost = hostOf(prodUrl);
-  const prodReady = !!prodUrl && !isLocalHost(prodHost);
+	const prodUrl = readEnvUrl("PROD_DATABASE_URL");
+	const prodHost = hostOf(prodUrl);
+	const prodReady = !!prodUrl && !isLocalHost(prodHost);
 
-  const branchR = await git(['rev-parse', '--abbrev-ref', 'HEAD']);
-  const branch = branchR.ok ? branchR.out : '?';
-  const hasUpstream = (await git(['rev-parse', '--abbrev-ref', '@{u}'])).ok;
+	const branchR = await git(["rev-parse", "--abbrev-ref", "HEAD"]);
+	const branch = branchR.ok ? branchR.out : "?";
+	const hasUpstream = (await git(["rev-parse", "--abbrev-ref", "@{u}"])).ok;
 
-  // Best-effort fetch so ahead/behind reflect the remote (catches "push rejected").
-  const fetchR = await git(['fetch', '--quiet']);
+	// Best-effort fetch so ahead/behind reflect the remote (catches "push rejected").
+	const fetchR = await git(["fetch", "--quiet"]);
 
-  let ahead = 0;
-  let behind = 0;
-  if (hasUpstream) {
-    const a = await git(['rev-list', '--count', '@{u}..HEAD']);
-    const b = await git(['rev-list', '--count', 'HEAD..@{u}']);
-    ahead = a.ok ? parseInt(a.out, 10) || 0 : 0;
-    behind = b.ok ? parseInt(b.out, 10) || 0 : 0;
-  }
+	let ahead = 0;
+	let behind = 0;
+	if (hasUpstream) {
+		const a = await git(["rev-list", "--count", "@{u}..HEAD"]);
+		const b = await git(["rev-list", "--count", "HEAD..@{u}"]);
+		ahead = a.ok ? parseInt(a.out, 10) || 0 : 0;
+		behind = b.ok ? parseInt(b.out, 10) || 0 : 0;
+	}
 
-  const porcelain = await git(['status', '--porcelain'], true);
-  const lines = porcelain.ok ? porcelain.out.split('\n').filter(Boolean) : [];
-  const seedDirty = lines.some((l) => l.slice(3) === 'db/seed.sql');
-  const otherDirty = lines.filter((l) => l.slice(3) !== 'db/seed.sql').map((l) => l.slice(3));
+	const porcelain = await git(["status", "--porcelain"], true);
+	const lines = porcelain.ok ? porcelain.out.split("\n").filter(Boolean) : [];
+	const seedDirty = lines.some((l) => l.slice(3) === "db/seed.sql");
+	const otherDirty = lines
+		.filter((l) => l.slice(3) !== "db/seed.sql")
+		.map((l) => l.slice(3));
 
-  const serverUp = await portOpen(GAME_PORT);
+	const serverUp = await portOpen(GAME_PORT);
 
-  return {
-    server: { running: serverUp, port: GAME_PORT },
-    db: { host, isLocal, present: !!dbUrl },
-    prod: { host: prodHost, ready: prodReady, present: !!prodUrl },
-    git: {
-      branch,
-      hasUpstream,
-      ahead,
-      behind,
-      diverged: ahead > 0 && behind > 0,
-      seedDirty,
-      otherDirty,
-      offline: !fetchR.ok,
-    },
-  };
+	return {
+		server: { running: serverUp, port: GAME_PORT },
+		db: { host, isLocal, present: !!dbUrl },
+		prod: { host: prodHost, ready: prodReady, present: !!prodUrl },
+		git: {
+			branch,
+			hasUpstream,
+			ahead,
+			behind,
+			diverged: ahead > 0 && behind > 0,
+			seedDirty,
+			otherDirty,
+			offline: !fetchR.ok,
+		},
+	};
 };
 
 // Recent commit activity, pulled LIVE from git (the devpanel reads a synced DB
 // table; here we just run git log, so it's always current). 14-day feed + a
 // per-author summary, with unpushed commits (ahead of the remote) flagged.
 const activity = async () => {
-  const SEP = '\x1e', FS = '\x1f';
-  const r = await git(
-    ['log', '--since=14 days ago', '--date=short', '--numstat', `--pretty=format:${SEP}%H${FS}%an${FS}%ad${FS}%s`],
-    true,
-  );
-  if (!r.ok) return { ok: false, commits: [], authors: [] };
+	const SEP = "\x1e",
+		FS = "\x1f";
+	const r = await git(
+		[
+			"log",
+			"--since=14 days ago",
+			"--date=short",
+			"--numstat",
+			`--pretty=format:${SEP}%H${FS}%an${FS}%ad${FS}%s`,
+		],
+		true,
+	);
+	if (!r.ok) return { ok: false, commits: [], authors: [] };
 
-  let unpushed = new Set();
-  if ((await git(['rev-parse', '--abbrev-ref', '@{u}'])).ok) {
-    const rl = await git(['rev-list', '@{u}..HEAD']);
-    if (rl.ok && rl.out) unpushed = new Set(rl.out.split('\n'));
-  }
+	let unpushed = new Set();
+	if ((await git(["rev-parse", "--abbrev-ref", "@{u}"])).ok) {
+		const rl = await git(["rev-list", "@{u}..HEAD"]);
+		if (rl.ok && rl.out) unpushed = new Set(rl.out.split("\n"));
+	}
 
-  const commits = [];
-  for (const rec of r.out.split(SEP)) {
-    if (!rec.trim()) continue;
-    const lines = rec.split('\n');
-    const [hash, author, date, subject] = lines[0].split(FS);
-    let files = 0, add = 0, del = 0;
-    for (let i = 1; i < lines.length; i++) {
-      const parts = lines[i].split('\t');
-      if (parts.length < 3 || !parts[2]) continue;
-      files++;
-      const a = parseInt(parts[0], 10), d = parseInt(parts[1], 10); // "-" for binary → NaN
-      if (!isNaN(a)) add += a;
-      if (!isNaN(d)) del += d;
-    }
-    commits.push({ hash, author, date, subject, files, add, del, unpushed: unpushed.has(hash) });
-  }
+	const commits = [];
+	for (const rec of r.out.split(SEP)) {
+		if (!rec.trim()) continue;
+		const lines = rec.split("\n");
+		const [hash, author, date, subject] = lines[0].split(FS);
+		let files = 0,
+			add = 0,
+			del = 0;
+		for (let i = 1; i < lines.length; i++) {
+			const parts = lines[i].split("\t");
+			if (parts.length < 3 || !parts[2]) continue;
+			files++;
+			const a = parseInt(parts[0], 10),
+				d = parseInt(parts[1], 10); // "-" for binary → NaN
+			if (!isNaN(a)) add += a;
+			if (!isNaN(d)) del += d;
+		}
+		commits.push({
+			hash,
+			author,
+			date,
+			subject,
+			files,
+			add,
+			del,
+			unpushed: unpushed.has(hash),
+		});
+	}
 
-  const byAuthor = {};
-  for (const c of commits) {
-    const a = (byAuthor[c.author] ||= { author: c.author, commits: 0, files: 0, add: 0, del: 0 });
-    a.commits++; a.files += c.files; a.add += c.add; a.del += c.del;
-  }
-  const authors = Object.values(byAuthor).sort((x, y) => y.commits - x.commits);
-  // Author summary covers the whole window; the feed is capped (we only render
-  // the most recent handful) to keep the payload small.
-  return { ok: true, commits: commits.slice(0, 50), total: commits.length, authors };
+	const byAuthor = {};
+	for (const c of commits) {
+		const a = (byAuthor[c.author] ||= {
+			author: c.author,
+			commits: 0,
+			files: 0,
+			add: 0,
+			del: 0,
+		});
+		a.commits++;
+		a.files += c.files;
+		a.add += c.add;
+		a.del += c.del;
+	}
+	const authors = Object.values(byAuthor).sort(
+		(x, y) => y.commits - x.commits,
+	);
+	// Author summary covers the whole window; the feed is capped (we only render
+	// the most recent handful) to keep the payload small.
+	return {
+		ok: true,
+		commits: commits.slice(0, 50),
+		total: commits.length,
+		authors,
+	};
 };
 
 // --- schema drift -----------------------------------------------------------
@@ -204,219 +266,335 @@ const activity = async () => {
 // (which reflects SCHEMA_SQL, since it's what built it) against PRODUCTION and
 // flags the disagreements a manual one-shot ALTER still needs to fix.
 const columnsOf = async (url, remote) => {
-  const client = new pg.Client({
-    connectionString: url,
-    ssl: remote ? { rejectUnauthorized: false } : undefined,
-    connectionTimeoutMillis: 6000,
-    query_timeout: 6000,
-  });
-  await client.connect();
-  try {
-    const r = await client.query(
-      `SELECT table_name, column_name FROM information_schema.columns WHERE table_schema='public'`,
-    );
-    const cols = new Set();
-    const tables = new Set();
-    for (const x of r.rows) { cols.add(`${x.table_name}.${x.column_name}`); tables.add(x.table_name); }
-    return { cols, tables };
-  } finally {
-    await client.end();
-  }
+	const client = new pg.Client({
+		connectionString: url,
+		ssl: remote ? { rejectUnauthorized: false } : undefined,
+		connectionTimeoutMillis: 6000,
+		query_timeout: 6000,
+	});
+	await client.connect();
+	try {
+		const r = await client.query(
+			`SELECT table_name, column_name FROM information_schema.columns WHERE table_schema='public'`,
+		);
+		const cols = new Set();
+		const tables = new Set();
+		for (const x of r.rows) {
+			cols.add(`${x.table_name}.${x.column_name}`);
+			tables.add(x.table_name);
+		}
+		return { cols, tables };
+	} finally {
+		await client.end();
+	}
 };
 
 const schemaDrift = async () => {
-  const localUrl = readEnvUrl('DATABASE_URL');
-  const prodUrl = readEnvUrl('PROD_DATABASE_URL');
-  if (!localUrl || !isLocalHost(hostOf(localUrl))) {
-    return { ok: false, reason: 'DATABASE_URL is not local — point it at your local DB to compare.' };
-  }
-  if (!prodUrl || isLocalHost(hostOf(prodUrl))) {
-    return { ok: false, reason: 'No remote PROD_DATABASE_URL set — nothing to compare against.' };
-  }
-  let local, prod;
-  try {
-    [local, prod] = await Promise.all([columnsOf(localUrl, false), columnsOf(prodUrl, true)]);
-  } catch (e) {
-    return { ok: false, reason: `Could not read schema: ${e.message}` };
-  }
-  // Whole-table drift vs. column drift on a SHARED table are different problems:
-  //   • a table missing on prod is created by a content Deploy (CREATE TABLE IF
-  //     NOT EXISTS is additive) — no manual work.
-  //   • a column that differs on a table BOTH sides already have needs a manual
-  //     one-shot ALTER, because CREATE TABLE IF NOT EXISTS won't touch it.
-  const newTables = [...local.tables].filter((t) => !prod.tables.has(t)).sort();
-  const droppedTables = [...prod.tables].filter((t) => !local.tables.has(t)).sort();
-  const shared = (c) => local.tables.has(c.split('.')[0]) && prod.tables.has(c.split('.')[0]);
-  const addColumns = [...local.cols].filter((c) => !prod.cols.has(c) && shared(c)).sort();
-  const dropColumns = [...prod.cols].filter((c) => !local.cols.has(c) && shared(c)).sort();
-  return { ok: true, prodHost: hostOf(prodUrl), newTables, droppedTables, addColumns, dropColumns };
+	const localUrl = readEnvUrl("DATABASE_URL");
+	const prodUrl = readEnvUrl("PROD_DATABASE_URL");
+	if (!localUrl || !isLocalHost(hostOf(localUrl))) {
+		return {
+			ok: false,
+			reason: "DATABASE_URL is not local — point it at your local DB to compare.",
+		};
+	}
+	if (!prodUrl || isLocalHost(hostOf(prodUrl))) {
+		return {
+			ok: false,
+			reason: "No remote PROD_DATABASE_URL set — nothing to compare against.",
+		};
+	}
+	let local, prod;
+	try {
+		[local, prod] = await Promise.all([
+			columnsOf(localUrl, false),
+			columnsOf(prodUrl, true),
+		]);
+	} catch (e) {
+		return { ok: false, reason: `Could not read schema: ${e.message}` };
+	}
+	// Whole-table drift vs. column drift on a SHARED table are different problems:
+	//   • a table missing on prod is created by a content Deploy (CREATE TABLE IF
+	//     NOT EXISTS is additive) — no manual work.
+	//   • a column that differs on a table BOTH sides already have needs a manual
+	//     one-shot ALTER, because CREATE TABLE IF NOT EXISTS won't touch it.
+	const newTables = [...local.tables]
+		.filter((t) => !prod.tables.has(t))
+		.sort();
+	const droppedTables = [...prod.tables]
+		.filter((t) => !local.tables.has(t))
+		.sort();
+	const shared = (c) =>
+		local.tables.has(c.split(".")[0]) && prod.tables.has(c.split(".")[0]);
+	const addColumns = [...local.cols]
+		.filter((c) => !prod.cols.has(c) && shared(c))
+		.sort();
+	const dropColumns = [...prod.cols]
+		.filter((c) => !local.cols.has(c) && shared(c))
+		.sort();
+	return {
+		ok: true,
+		prodHost: hostOf(prodUrl),
+		newTables,
+		droppedTables,
+		addColumns,
+		dropColumns,
+	};
 };
 
 // --- HTTP -------------------------------------------------------------------
 const readBody = (req) =>
-  new Promise((res) => {
-    let b = '';
-    req.on('data', (d) => (b += d));
-    req.on('end', () => res(b));
-  });
+	new Promise((res) => {
+		let b = "";
+		req.on("data", (d) => (b += d));
+		req.on("end", () => res(b));
+	});
 
 const server = createServer(async (req, res) => {
-  try {
-    if (req.url === '/' || req.url === '/index.html') {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      return res.end(PAGE);
-    }
-    if (req.url === '/favicon.ico') {
-      try {
-        const buf = readFileSync(resolve(ROOT, 'client/game/favicon.ico'));
-        res.writeHead(200, { 'Content-Type': 'image/x-icon', 'Cache-Control': 'max-age=3600' });
-        return res.end(buf);
-      } catch {
-        res.writeHead(404);
-        return res.end();
-      }
-    }
-    if (req.url === '/api/status') {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      return res.end(JSON.stringify(await status()));
-    }
-    if (req.url === '/api/activity') {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      return res.end(JSON.stringify(await activity()));
-    }
-    // On-demand only (a Supabase round-trip) — never wired into the status poll.
-    if (req.url === '/api/schema-drift') {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      return res.end(JSON.stringify(await schemaDrift()));
-    }
+	try {
+		if (req.url === "/" || req.url === "/index.html") {
+			res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+			return res.end(PAGE);
+		}
+		if (req.url === "/favicon.ico") {
+			try {
+				const buf = readFileSync(
+					resolve(ROOT, "client/game/favicon.ico"),
+				);
+				res.writeHead(200, {
+					"Content-Type": "image/x-icon",
+					"Cache-Control": "max-age=3600",
+				});
+				return res.end(buf);
+			} catch {
+				res.writeHead(404);
+				return res.end();
+			}
+		}
+		if (req.url === "/api/status") {
+			res.writeHead(200, {
+				"Content-Type": "application/json; charset=utf-8",
+			});
+			return res.end(JSON.stringify(await status()));
+		}
+		if (req.url === "/api/activity") {
+			res.writeHead(200, {
+				"Content-Type": "application/json; charset=utf-8",
+			});
+			return res.end(JSON.stringify(await activity()));
+		}
+		// On-demand only (a Supabase round-trip) — never wired into the status poll.
+		if (req.url === "/api/schema-drift") {
+			res.writeHead(200, {
+				"Content-Type": "application/json; charset=utf-8",
+			});
+			return res.end(JSON.stringify(await schemaDrift()));
+		}
 
-    // Launch the game server (detached, mirrors `npm run dev`). It's long-running,
-    // so we don't stream it — but we DO watch stdout/stderr for a few seconds so an
-    // early boot crash (bad DB, missing schema) surfaces here instead of vanishing
-    // into a detached process. If it's still alive after the grace window, we detach
-    // and let the port check confirm it's up.
-    if (req.url === '/api/launch' && req.method === 'POST') {
-      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-      if (await portOpen(GAME_PORT)) {
-        return res.end(`✓ Architect is already running on http://localhost:${GAME_PORT}`);
-      }
-      let child;
-      try {
-        child = spawn(NODE, ['--watch', 'server/index.js'], { cwd: ROOT, detached: true });
-      } catch (e) {
-        return res.end('✗ Failed to launch: ' + e.message);
-      }
-      // Watch the boot for up to 4s: if the process exits (crash) in that window,
-      // report its captured output; otherwise assume it booted and detach.
-      const BOOT_GRACE_MS = 4000;
-      let output = '';
-      let booting = true; // stop accumulating once detached, but keep draining the
-                          // pipes so a filled OS buffer never blocks the child.
-      child.stdout.on('data', (d) => { if (booting) output += d; });
-      child.stderr.on('data', (d) => { if (booting) output += d; });
-      const outcome = await new Promise((done) => {
-        const timer = setTimeout(() => done({ crashed: false }), BOOT_GRACE_MS);
-        child.once('exit', (code) => { clearTimeout(timer); done({ crashed: true, code }); });
-        child.once('error', (e) => { clearTimeout(timer); done({ crashed: true, error: e.message }); });
-      });
-      if (outcome.crashed) {
-        const why = outcome.error ? outcome.error : `exit code ${outcome.code}`;
-        const tail = output.trim().split('\n').slice(-20).join('\n');
-        return res.end(`✗ Architect crashed on boot (${why}).\n\n${tail || '(no output captured)'}`);
-      }
-      booting = false; // detach: keep listeners (draining) but drop the buffer
-      child.unref();
-      return res.end(`🏚  Architect launching on http://localhost:${GAME_PORT} …\nGive it a second to boot, then use the ▶ Architect link. Stop it with the ⏹ Stop server button (or npm run kill:orphans).`);
-    }
+		// Launch the game server (detached, mirrors `npm run dev`). It's long-running,
+		// so we don't stream it — but we DO watch stdout/stderr for a few seconds so an
+		// early boot crash (bad DB, missing schema) surfaces here instead of vanishing
+		// into a detached process. If it's still alive after the grace window, we detach
+		// and let the port check confirm it's up.
+		if (req.url === "/api/launch" && req.method === "POST") {
+			res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+			if (await portOpen(GAME_PORT)) {
+				return res.end(
+					`✓ Architect is already running on http://localhost:${GAME_PORT}`,
+				);
+			}
+			let child;
+			try {
+				child = spawn(NODE, ["--watch", "server/index.js"], {
+					cwd: ROOT,
+					detached: true,
+				});
+			} catch (e) {
+				return res.end("✗ Failed to launch: " + e.message);
+			}
+			// Watch the boot for up to 4s: if the process exits (crash) in that window,
+			// report its captured output; otherwise assume it booted and detach.
+			const BOOT_GRACE_MS = 4000;
+			let output = "";
+			let booting = true; // stop accumulating once detached, but keep draining the
+			// pipes so a filled OS buffer never blocks the child.
+			child.stdout.on("data", (d) => {
+				if (booting) output += d;
+			});
+			child.stderr.on("data", (d) => {
+				if (booting) output += d;
+			});
+			const outcome = await new Promise((done) => {
+				const timer = setTimeout(
+					() => done({ crashed: false }),
+					BOOT_GRACE_MS,
+				);
+				child.once("exit", (code) => {
+					clearTimeout(timer);
+					done({ crashed: true, code });
+				});
+				child.once("error", (e) => {
+					clearTimeout(timer);
+					done({ crashed: true, error: e.message });
+				});
+			});
+			if (outcome.crashed) {
+				const why = outcome.error
+					? outcome.error
+					: `exit code ${outcome.code}`;
+				const tail = output.trim().split("\n").slice(-20).join("\n");
+				return res.end(
+					`✗ Architect crashed on boot (${why}).\n\n${tail || "(no output captured)"}`,
+				);
+			}
+			booting = false; // detach: keep listeners (draining) but drop the buffer
+			child.unref();
+			return res.end(
+				`🏚  Architect launching on http://localhost:${GAME_PORT} …\nGive it a second to boot, then use the ▶ Architect link. Stop it with the ⏹ Kill Orphans button (or npm run kill:orphans).`,
+			);
+		}
 
-    // Stop the game server — sweep this project's orphaned node processes (same
-    // scoped signature match as the predev/pretest hook). Handy because the launch
-    // above is detached and windowless, so it's easy to leave running.
-    if (req.url === '/api/kill' && req.method === 'POST') {
-      return streamSeq([['Stop server (sweep orphans)', NODE, ['scripts/kill-orphans.js']]], res);
-    }
+		// Stop the game server — sweep this project's orphaned node processes (same
+		// scoped signature match as the predev/pretest hook). Handy because the launch
+		// above is detached and windowless, so it's easy to leave running.
+		if (req.url === "/api/kill" && req.method === "POST") {
+			return streamSeq(
+				[
+					[
+						"Stop server (sweep orphans)",
+						NODE,
+						["scripts/kill-orphans.js"],
+					],
+				],
+				res,
+			);
+		}
 
-    // World lane — publish seed (guarded to localhost).
-    if (req.url === '/api/publish' && req.method === 'POST') {
-      const body = await readBody(req);
-      const s = await status();
-      if (!s.db.isLocal) {
-        res.writeHead(409, { 'Content-Type': 'text/plain; charset=utf-8' });
-        return res.end(`✗ Refusing to publish: DATABASE_URL host is "${s.db.host}", not localhost.\nPoint .env back at your local DB first.`);
-      }
-      let msg = '';
-      try { msg = (JSON.parse(body || '{}').message || '').trim(); } catch {}
-      const args = ['scripts/content-publish.mjs', ...(msg ? ['--', msg] : [])];
-      return streamSeq([['Publish world seed', process.execPath, args]], res);
-    }
+		// World lane — publish seed (guarded to localhost).
+		if (req.url === "/api/publish" && req.method === "POST") {
+			const body = await readBody(req);
+			const s = await status();
+			if (!s.db.isLocal) {
+				res.writeHead(409, {
+					"Content-Type": "text/plain; charset=utf-8",
+				});
+				return res.end(
+					`✗ Refusing to publish: DATABASE_URL host is "${s.db.host}", not localhost.\nPoint .env back at your local DB first.`,
+				);
+			}
+			let msg = "";
+			try {
+				msg = (JSON.parse(body || "{}").message || "").trim();
+			} catch {}
+			const args = [
+				"scripts/content-publish.mjs",
+				...(msg ? ["--", msg] : []),
+			];
+			return streamSeq(
+				[["Publish world seed", process.execPath, args]],
+				res,
+			);
+		}
 
-    // World lane — sync (pull + conditional DB rebuild).
-    if (req.url === '/api/sync' && req.method === 'POST') {
-      return streamSeq([['Sync world', process.execPath, ['scripts/content-sync.mjs']]], res);
-    }
+		// World lane — sync (pull + conditional DB rebuild).
+		if (req.url === "/api/sync" && req.method === "POST") {
+			return streamSeq(
+				[
+					[
+						"Sync world",
+						process.execPath,
+						["scripts/content-sync.mjs"],
+					],
+				],
+				res,
+			);
+		}
 
-    // Code lane — regress only (no push), for a quick pre-check.
-    if (req.url === '/api/regress' && req.method === 'POST') {
-      return streamSeq(REGRESS_STEPS, res);
-    }
+		// Code lane — regress only (no push), for a quick pre-check.
+		if (req.url === "/api/regress" && req.method === "POST") {
+			return streamSeq(REGRESS_STEPS, res);
+		}
 
-    // Code lane — the regress-gated push. Server enforces the gate + fast-forward.
-    if (req.url === '/api/ship' && req.method === 'POST') {
-      const s = await status();
-      const g = s.git;
-      const blocker =
-        !g.hasUpstream ? 'no upstream tracking branch to push to.'
-        : g.diverged ? 'branch has diverged — Sync and resolve first.'
-        : g.behind > 0 ? `${g.behind} commit(s) behind — Sync first so the push fast-forwards.`
-        : g.ahead === 0 ? 'nothing to push — no local commits ahead of the remote.'
-        : '';
-      if (blocker) {
-        res.writeHead(409, { 'Content-Type': 'text/plain; charset=utf-8' });
-        return res.end(`✗ Can't ship: ${blocker}`);
-      }
-      return streamSeq([...REGRESS_STEPS, ['Push', 'git', ['push']]], res);
-    }
+		// Code lane — the regress-gated push. Server enforces the gate + fast-forward.
+		if (req.url === "/api/ship" && req.method === "POST") {
+			const s = await status();
+			const g = s.git;
+			const blocker = !g.hasUpstream
+				? "no upstream tracking branch to push to."
+				: g.diverged
+					? "branch has diverged — Sync and resolve first."
+					: g.behind > 0
+						? `${g.behind} commit(s) behind — Sync first so the push fast-forwards.`
+						: g.ahead === 0
+							? "nothing to push — no local commits ahead of the remote."
+							: "";
+			if (blocker) {
+				res.writeHead(409, {
+					"Content-Type": "text/plain; charset=utf-8",
+				});
+				return res.end(`✗ Can't ship: ${blocker}`);
+			}
+			return streamSeq(
+				[...REGRESS_STEPS, ["Push", "git", ["push"]]],
+				res,
+			);
+		}
 
-    // Production lane — additive content deploy. Gated by: typed confirmation,
-    // local-read + remote-write checks, regress must pass, and a prod backup runs
-    // first. Sequence aborts on any failure (streamSeq stops at first non-zero).
-    if (req.url === '/api/deploy-prod' && req.method === 'POST') {
-      const body = await readBody(req);
-      let confirm = '';
-      try { confirm = (JSON.parse(body || '{}').confirm || '').trim(); } catch {}
-      const s = await status();
-      const blocker =
-        confirm !== 'DEPLOY' ? 'confirmation text did not match.'
-        : !s.db.isLocal ? `DATABASE_URL host is "${s.db.host}", not local — we push LOCAL content.`
-        : !s.prod.ready ? 'PROD_DATABASE_URL is missing or not a remote host.'
-        : '';
-      if (blocker) {
-        res.writeHead(409, { 'Content-Type': 'text/plain; charset=utf-8' });
-        return res.end(`✗ Deploy blocked: ${blocker}`);
-      }
-      return streamSeq(
-        [
-          ...REGRESS_STEPS,
-          ['Back up production first', NODE, ['scripts/backup-prod.mjs']],
-          ['Deploy content (additive)', NODE, ['scripts/deploy-content-to-prod.mjs', '--yes']],
-        ],
-        res,
-      );
-    }
+		// Production lane — additive content deploy. Gated by: typed confirmation,
+		// local-read + remote-write checks, regress must pass, and a prod backup runs
+		// first. Sequence aborts on any failure (streamSeq stops at first non-zero).
+		if (req.url === "/api/deploy-prod" && req.method === "POST") {
+			const body = await readBody(req);
+			let confirm = "";
+			try {
+				confirm = (JSON.parse(body || "{}").confirm || "").trim();
+			} catch {}
+			const s = await status();
+			const blocker =
+				confirm !== "DEPLOY"
+					? "confirmation text did not match."
+					: !s.db.isLocal
+						? `DATABASE_URL host is "${s.db.host}", not local — we push LOCAL content.`
+						: !s.prod.ready
+							? "PROD_DATABASE_URL is missing or not a remote host."
+							: "";
+			if (blocker) {
+				res.writeHead(409, {
+					"Content-Type": "text/plain; charset=utf-8",
+				});
+				return res.end(`✗ Deploy blocked: ${blocker}`);
+			}
+			return streamSeq(
+				[
+					...REGRESS_STEPS,
+					[
+						"Back up production first",
+						NODE,
+						["scripts/backup-prod.mjs"],
+					],
+					[
+						"Deploy content (additive)",
+						NODE,
+						["scripts/deploy-content-to-prod.mjs", "--yes"],
+					],
+				],
+				res,
+			);
+		}
 
-    res.writeHead(404);
-    res.end('not found');
-  } catch (e) {
-    res.writeHead(500, { 'Content-Type': 'text/plain' });
-    res.end('error: ' + e.message);
-  }
+		res.writeHead(404);
+		res.end("not found");
+	} catch (e) {
+		res.writeHead(500, { "Content-Type": "text/plain" });
+		res.end("error: " + e.message);
+	}
 });
 
 server.listen(PORT, () => {
-  const url = `http://localhost:${PORT}`;
-  console.log(`\n  The Relay → ${url}\n  (Ctrl-C to stop)\n`);
-  if (process.platform === 'win32') execFile('cmd', ['/c', 'start', '', url]);
-  else if (process.platform === 'darwin') execFile('open', [url]);
+	const url = `http://localhost:${PORT}`;
+	console.log(`\n  The Relay → ${url}\n  (Ctrl-C to stop)\n`);
+	if (process.platform === "win32") execFile("cmd", ["/c", "start", "", url]);
+	else if (process.platform === "darwin") execFile("open", [url]);
 });
 
 // --- the page (inline, no build, no external requests) ----------------------
@@ -483,7 +661,7 @@ const PAGE = `<!DOCTYPE html>
     </div>
     <div class="links">
       <button id="launch">🏚 Launch server</button>
-      <button class="ghost" id="stop">⏹ Stop server</button>
+      <button class="ghost" id="stop">⏹ Kill Orphans</button>
       <a class="linkbtn" href="http://localhost:3000" target="_blank" rel="noopener">▶ Architect</a>
       <a class="linkbtn" href="http://localhost:3000/dev" target="_blank" rel="noopener">⚙ Devpanel</a>
     </div>
