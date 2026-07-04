@@ -2422,8 +2422,12 @@ textarea {
 #map-header h2 {
 	margin-bottom: 0;
 }
-#map-toggle {
+#map-tabs {
 	flex: 0 0 auto;
+	display: flex;
+	gap: 6px;
+}
+.map-tab {
 	font-family: "Courier New", monospace;
 	font-size: 12px;
 	letter-spacing: 1px;
@@ -2434,9 +2438,20 @@ textarea {
 	padding: 5px 12px;
 	cursor: pointer;
 }
-#map-toggle:hover {
+.map-tab:hover:not(:disabled) {
 	background: var(--accent);
 	color: var(--bg);
+}
+.map-tab.active {
+	background: var(--accent);
+	color: var(--bg);
+	font-weight: bold;
+}
+.map-tab:disabled {
+	opacity: 0.4;
+	cursor: default;
+	border-color: var(--border);
+	color: var(--text-dim);
 }
 #map-body {
 	display: flex;

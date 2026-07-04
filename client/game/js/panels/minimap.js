@@ -138,8 +138,7 @@ const FUNC_LEGEND = {
 };
 
 // ── Three-level map popup: interior → zone → regional ────────────────────────
-const LEVEL_LABEL = { interior: 'Interior', zone: 'Zone', regional: 'Regional' };
-// Popup state, kept across re-opens so the toggle button + wheel know the current
+// Popup state, kept across re-opens so the tab buttons + wheel know the current
 // level and the tooltip can look tiles up by id.
 const mapState = { mode: 'zone', insideInterior: false, byId: new Map() };
 let mapUiWired = false;
@@ -165,13 +164,6 @@ function stepMapLevel(delta) {
   if (i < 0) i = 0;
   const next = levels[Math.min(levels.length - 1, Math.max(0, i + delta))];
   if (next && next !== mapState.mode) sendCmdSilent(`map ${next}`);
-}
-// Toggle button: advance outward with wrap.
-function cycleMapLevel() {
-  const levels = mapLevels();
-  let i = levels.indexOf(mapState.mode);
-  if (i < 0) i = 0;
-  sendCmdSilent(`map ${levels[(i + 1) % levels.length]}`);
 }
 
 function mapTooltipEl() {
@@ -248,7 +240,14 @@ function onMapOut(e) {
 function wireMapUi() {
   if (mapUiWired) return;
   mapUiWired = true;
-  document.getElementById('map-toggle')?.addEventListener('click', cycleMapLevel);
+  // Three explicit level buttons (interior / zone / regional). The wheel still
+  // cycles; these jump straight to a level.
+  document.getElementById('map-tabs')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.map-tab');
+    if (!btn || btn.disabled) return;
+    const level = btn.getAttribute('data-level');
+    if (level && level !== mapState.mode) sendCmdSilent(`map ${level}`);
+  });
   const vp = document.getElementById('map-viewport');
   if (vp) {
     let lastWheel = 0;
@@ -312,13 +311,11 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
   if (title) title.textContent =
     mode === 'regional' ? 'City Map — Regional' : mode === 'interior' ? 'City Map — Interior' : 'City Map — Zone';
 
-  const toggle = document.getElementById('map-toggle');
-  if (toggle) {
-    const levels = mapLevels();
-    const i = Math.max(0, levels.indexOf(mode));
-    const next = levels[(i + 1) % levels.length];
-    toggle.textContent = `${LEVEL_LABEL[mode]} ▸ ${LEVEL_LABEL[next]}`;
-    toggle.style.display = levels.length > 1 ? '' : 'none';
+  // Highlight the active level; disable Interior when you're not inside one.
+  for (const btn of document.querySelectorAll('#map-tabs .map-tab')) {
+    const level = btn.getAttribute('data-level');
+    btn.classList.toggle('active', level === mode);
+    btn.disabled = (level === 'interior' && !insideInterior);
   }
 
   const tip = document.getElementById('map-tooltip');
