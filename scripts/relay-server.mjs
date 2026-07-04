@@ -465,7 +465,14 @@ function line(cls, label, msg) {
 
 async function refresh() {
   $('checks').innerHTML = line('mute', 'Checking…', '');
-  st = await (await fetch('/api/status')).json();
+  try {
+    st = await (await fetch('/api/status')).json();
+  } catch (e) {
+    // Server down/restarted — say so instead of freezing on "Checking…".
+    $('checks').innerHTML = line('bad', 'Relay server not responding', 'restart it in your terminal:  npm run relay');
+    document.querySelectorAll('.actions button, .links button').forEach((b) => (b.disabled = true));
+    return;
+  }
   const g = st.git, d = st.db, sv = st.server, p = st.prod;
   let html = '';
 
@@ -528,7 +535,13 @@ function esc(s) {
 
 async function loadActivity() {
   const el = $('activity');
-  const a = await (await fetch('/api/activity')).json();
+  let a;
+  try {
+    a = await (await fetch('/api/activity')).json();
+  } catch (e) {
+    el.innerHTML = '<div class="hint">Relay server not responding — restart: npm run relay</div>';
+    return;
+  }
   if (!a.ok) { el.innerHTML = '<div class="hint">git log unavailable.</div>'; return; }
   if (!a.commits.length) { el.innerHTML = '<div class="hint">No commits in the last 14 days.</div>'; return; }
   const chips = a.authors.map((au) =>
