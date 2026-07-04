@@ -15,11 +15,21 @@ export default async function regress({ run, check, getPlayer }) {
   check('landDifficulty rises with damage', _test.landDifficulty(hurt, false) > _test.landDifficulty(clean, false));
   check('emergency landing is harder', _test.landDifficulty(clean, true) > _test.landDifficulty(clean, false));
 
+  // Engine-noise propagation: bigger/louder craft carry farther; altitude silences.
+  const quiet = { type: { noise: 1, engines: 1, max_takeoff_weight: 90 }, row: { throttle: 60, altitude_band: 'low' } };
+  const loud = { type: { noise: 3, engines: 4, max_takeoff_weight: 1400 }, row: { throttle: 60, altitude_band: 'low' } };
+  const high = { type: { noise: 3, engines: 4, max_takeoff_weight: 1400 }, row: { throttle: 60, altitude_band: 'high' } };
+  check('a big loud craft is heard farther than an ultralight', _test.noiseReach(loud) > _test.noiseReach(quiet), `${_test.noiseReach(loud)} vs ${_test.noiseReach(quiet)}`);
+  check('high flight is inaudible from the ground', _test.noiseReach(high) === 0, String(_test.noiseReach(high)));
+
   const savedPosture = p.posture, savedCombat = p.npcCombatTargetId, savedAc = p.aircraftId;
   p.posture = 'standing'; p.npcCombatTargetId = null; delete p.aircraftId; delete p.seat;
 
   // ── Core verbs gate when not aboard ─────────────────────────────────────────
-  let r = await run('board');
+  // `embark` (primary) is aircraft-only; `board` (backup) delegates to poker off-context.
+  let r = await run('embark');
+  check('embark with no craft here reports it', /no aircraft here to embark/i.test(r?.message || ''), r?.message);
+  r = await run('board');
   check('board with no craft here delegates to poker board', /no active hand|not.*seat|table/i.test(r?.message || ''), r?.message);
   r = await run('startup'); check('startup not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('throttle 50'); check('throttle not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
@@ -42,6 +52,7 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('contracts'); check('contracts off-field reports the board is elsewhere', /board/i.test(r?.message || ''), r?.message);
   r = await run('hangar'); check('hangar off-field reports airfields', /airfield/i.test(r?.message || ''), r?.message);
   r = await run('salvage'); check('salvage with no wreck reports it', /no wreck/i.test(r?.message || ''), r?.message);
+  r = await run('modify'); check('modify requires an owned aircraft', /own|no aircraft of your own/i.test(r?.message || ''), r?.message);
 
   // ── Collision routers fall through / delegate off-context ───────────────────
   r = await run('repair'); check('repair off-context falls through to gear repair', !/aircraft/i.test(r?.message || ''), r?.message);

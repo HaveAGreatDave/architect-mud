@@ -299,6 +299,10 @@ const DRUGS=[
   {id:'halo',    name:'HALO',     tag:'ANTIPSY',    form:'pill',   sub:'tablet',     color:'#d6a0e0', diff:5,  vol:.30, known:.62, blurb:'Chalky tabs. Somebody scratched a little halo into each one.', eff:'−hallucination, clarity, flat affect'},
   {id:'venom',   name:'VENOM GEL',tag:'NEUROTOXIN', form:'gel',    sub:'viscous',    color:'#7de07a', diff:9,  vol:.78, known:.22, blurb:'Bioluminescent goo. Twitches when you look away from it.', eff:'UNKNOWN — smells lethal'},
   {id:'blacksun',name:'BLACK SUN',tag:'?????',      form:'liquid', sub:'solvent',    color:'#9a5ce0', diff:12, vol:.96, known:.06, blurb:'Light bends around the vial. This should not be legal. It isn\'t.', eff:'UNIDENTIFIED — DO NOT'},
+  {id:'huff',    name:'HUFF',     tag:'INHALANT',   form:'gas',     sub:'pressurized',color:'#5fd0e0', diff:6,  vol:.70, known:.50, blurb:'A dented aerosol can, label scratched off. Ice-cold to the touch.', eff:'dizziness, euphoria, brain-cell attrition'},
+  {id:'glass',   name:'GLASS',    tag:'STIM CRYSTAL',form:'crystal',sub:'shard',      color:'#bfe0ff', diff:8,  vol:.60, known:.40, blurb:'A glinting shard in a fold of foil. Sharp enough to cut the deal.', eff:'wired for days, teeth optional'},
+  {id:'halos',   name:'HALOS',    tag:'PSYCHEDELIC',form:'blotter', sub:'sheet',      color:'#e05cc0', diff:5,  vol:.35, known:.55, blurb:'A perforated sheet, each square stamped with a tiny grinning sun.', eff:'geometry, ego-death, giggles'},
+  {id:'tar',     name:'BLACK TAR',tag:'OPIOID',     form:'paste',   sub:'tar',        color:'#7a5a3a', diff:7,  vol:.50, known:.45, blurb:'A sticky lump wrapped in wax paper. Smells of vinegar and bad decisions.', eff:'warmth, nod, the long grey want'},
 ];
 function redact(s,known){ if(known>=.75) return s; if(known<.25) return `<span class="redact">${'█'.repeat(Math.min(22,Math.max(6,s.length)))}</span>`;
   return s.split('').map(c=>(c===' '||Math.random()<known)?c:'<span class="redact">█</span>').join(''); }
@@ -411,6 +415,36 @@ function drawTransition(t){
 
 // shared bench backdrop — brushed steel top, grime, stencilled hazard marks
 let benchT=0;
+const _propCols=['#e0644f','#4f9ae0','#e0b64f','#7de07a','#9a5ce0','#5fd0e0','#e05cc0','#d6a0e0','#c9c9d6','#7a5a3a'];
+function drawLabProps(t,pw){
+  pw=clamp(pw,0,1); if(pw<=0.02) return;
+  for(let i=0;i<3;i++){ const y=8+i*9; G.strokeStyle=`rgba(90,104,112,${.4*pw})`; G.lineWidth=5-i; G.beginPath(); G.moveTo(0,y); G.lineTo(W,y); G.stroke(); }
+  G.strokeStyle=`rgba(90,104,112,${.4*pw})`; G.lineWidth=4; G.beginPath(); G.moveTo(W*0.18,12); G.lineTo(W*0.18,40); G.moveTo(W*0.82,12); G.lineTo(W*0.82,52); G.stroke();
+  G.fillStyle=`rgba(18,24,28,${pw})`; G.beginPath(); G.arc(W*0.82,58,8,0,7); G.fill();
+  G.strokeStyle=`rgba(120,200,160,${.7*pw})`; G.lineWidth=1.4; G.beginPath(); G.moveTo(W*0.82,58); G.lineTo(W*0.82+Math.cos(t)*5,58+Math.sin(t)*5); G.stroke();
+  const shelf=(sx,sy,w,n,seed)=>{ G.fillStyle=`rgba(24,30,34,${.7*pw})`; G.fillRect(sx,sy,w,4); G.fillStyle=`rgba(0,0,0,${.4*pw})`; G.fillRect(sx,sy+4,w,3);
+    const gap=w/n; for(let i=0;i<n;i++){ const bx=sx+gap*i+gap/2, col=_propCols[(i+seed)%_propCols.length], bw=9, bh=22+((i*7+seed)%8);
+      G.globalAlpha=pw; G.fillStyle='rgba(200,220,225,.12)'; roundRect(bx-bw/2,sy-bh,bw,bh,2); G.fill();
+      G.fillStyle=col; G.fillRect(bx-bw/2+1,sy-bh*0.6,bw-2,bh*0.6-1);
+      G.fillStyle='rgba(240,240,240,.5)'; G.fillRect(bx-bw/2+1,sy-bh*0.42,bw-2,4);
+      G.fillStyle='#2a343a'; G.fillRect(bx-3,sy-bh-3,6,4); G.globalAlpha=1; } };
+  shelf(W*0.03,H*0.20,W*0.24,7,1); shelf(W*0.03,H*0.34,W*0.24,7,4); shelf(W*0.73,H*0.20,W*0.24,7,2); shelf(W*0.73,H*0.34,W*0.24,7,6);
+  const mx=W*0.045,my=H*0.46,mw=150,mh=92;
+  G.fillStyle=`rgba(10,14,16,${pw})`; roundRect(mx-6,my-6,mw+12,mh+12,6); G.fill();
+  G.strokeStyle=`rgba(70,84,92,${pw})`; G.lineWidth=3; roundRect(mx-6,my-6,mw+12,mh+12,6); G.stroke();
+  G.save(); roundRect(mx,my,mw,mh,3); G.clip(); G.fillStyle=`rgba(6,20,14,${pw})`; G.fillRect(mx,my,mw,mh);
+  G.strokeStyle=`rgba(79,224,138,${.12*pw})`; G.lineWidth=1;
+  for(let gx=0;gx<mw;gx+=16){ G.beginPath(); G.moveTo(mx+gx,my); G.lineTo(mx+gx,my+mh); G.stroke(); }
+  for(let gy=0;gy<mh;gy+=16){ G.beginPath(); G.moveTo(mx,my+gy); G.lineTo(mx+mw,my+gy); G.stroke(); }
+  G.strokeStyle=`rgba(95,255,170,${.85*pw})`; G.lineWidth=1.5; G.shadowColor='rgba(79,224,138,.7)'; G.shadowBlur=6*pw; G.beginPath();
+  for(let px=0;px<=mw;px+=3){ const yy=my+mh/2+Math.sin(px*0.09+t*3)*14*pw+Math.sin(px*0.31-t*5)*6*pw; px===0?G.moveTo(mx+px,yy):G.lineTo(mx+px,yy); }
+  G.stroke(); G.shadowBlur=0; G.restore();
+  G.fillStyle=`rgba(120,150,140,${.6*pw})`; G.font='7px monospace'; G.textAlign='left'; G.fillText('ASSAY ▸ NOMINAL',mx+2,my+mh-4);
+  G.save(); G.globalAlpha=pw; G.strokeStyle='rgba(150,170,180,.5)'; G.lineWidth=3; G.lineCap='round'; const tx=W*0.955;
+  G.beginPath(); G.moveTo(tx,H*0.46); G.lineTo(tx,H*0.46+34); G.lineTo(tx-8,H*0.46+46); G.stroke();
+  G.beginPath(); G.moveTo(tx-20,H*0.46); G.lineTo(tx-20,H*0.46+40); G.stroke(); G.beginPath(); G.arc(tx-20,H*0.46+44,4,0,7); G.stroke(); G.restore();
+  G.fillStyle=`rgba(30,44,24,${.05*pw})`; G.beginPath(); G.ellipse(W*0.5,H*0.14,200,44,0,0,7); G.fill();
+}
 function drawBench(dt){
   benchT+=.016;
   // deep vignette base
@@ -438,16 +472,15 @@ function drawBench(dt){
 const STAGES={};
 STAGES.loadin={
   enter(){
-    this.t=0; this.pw=0; this.spin=0; this.done=false; this.titleA=0; this.flick=1;
+    this.t=0; this.pw=0; this.spin=0; this.done=false; this.titleA=0; this.flick=1; this.ready=false; this._begun=false;
     this.quip=QUIPS.boot[Math.floor(rnd(QUIPS.boot.length))];
     AX.loop('hood',{freq:54,type:'sawtooth',gain:0,filt:320,tremRate:7,tremDepth:.25});
     tick('');
   },
-  showBtn(){ AX.good();
-    const b=mk('btn',null,'left:50%;bottom:60px;transform:translateX(-50%)'); b.textContent='▶ IGNITE BENCH';
-    b.onclick=()=>{ AX.stop('hood'); AX.click(); transit('select'); }; UI.appendChild(b);
-    tick('bench is hot. try not to become the next warning label.');
-  },
+  showBtn(){ AX.good(); this.ready=true; tick('bench is hot — CLICK or SPACE to ignite. try not to become the next warning label.'); },
+  begin(){ if(!this.ready||this._begun) return; this._begun=true; AX.stop('hood'); AX.click(); transit('select'); },
+  down(){ this.begin(); },
+  key(e){ if(e.code==='Space'||e.key===' '||e.key==='Enter'){ e.preventDefault(); this.begin(); } },
   exit(){ AX.stop('hood'); },
   update(dt){ this.t+=dt; this.spin+=dt*(1.1+(1-this.pw)*3);
     const target=clamp((this.t-0.3)/2.2,0,1); this.pw=lerp(this.pw,target,dt*3);
@@ -458,6 +491,7 @@ STAGES.loadin={
   },
   draw(){
     const cx=W/2, benchY=H*0.62, pw=this.pw, fl=this.flick;
+    drawLabProps(this.t,pw);
     // ── back wall: fume-hood window, green-lit, condensation ──
     const hw=360, hh=196, hx=cx-hw/2, hy=52;
     const win=G.createLinearGradient(0,hy,0,hy+hh); win.addColorStop(0,`rgba(20,60,44,${.5*pw})`); win.addColorStop(1,`rgba(6,20,14,${.6*pw})`);
@@ -497,6 +531,7 @@ STAGES.loadin={
     G.font='11px var(--font,monospace)'; G.fillStyle='rgba(159,199,172,.7)'; G.fillText('G E N E S P L I C E R',cx,H*0.335+34);
     G.globalAlpha=this.titleA*.7*(0.6+0.4*Math.sin(this.t*2)); G.fillStyle='#7f9a8c'; G.font='italic 11px var(--font,monospace)';
     G.fillText(this.quip,cx,benchY-16); G.restore();
+    if(this.ready){ G.save(); G.globalAlpha=.55+.45*Math.sin(this.t*4); G.fillStyle='#4fe08a'; G.font='bold 13px monospace'; G.textAlign='center'; G.shadowColor='rgba(79,224,138,.7)'; G.shadowBlur=12; G.fillText('▶ CLICK or SPACE to ignite',cx,H-50); G.restore(); }
   },
   drawFlask(x,y,pw){
     G.strokeStyle='rgba(80,96,104,.7)'; G.lineWidth=4; G.beginPath(); G.moveTo(x-30,y+40); G.lineTo(x-30,y-70); G.stroke();
@@ -531,8 +566,8 @@ STAGES.loadin={
 STAGES.select={
   enter(){
     // per-form spring frequency (Hz) and per-substance "fluidity" (slosh gain)
-    const freq={liquid:2.0, gel:2.1, powder:2.4, pill:2.8};
-    const fluidOf={thin:1, oil:1, solvent:1, fine:.28, crystalline:.22, viscous:.55, tablet:.06};
+    const freq={liquid:2.0, gel:2.1, powder:2.4, pill:2.8, gas:2.3, crystal:2.9, blotter:3.2, paste:1.7};
+    const fluidOf={thin:1, oil:1, solvent:1, fine:.28, crystalline:.22, viscous:.55, tablet:.06, pressurized:.5, shard:.05, sheet:.04, tar:.35};
     const zeta=0.62;
     this.pkgs=DRUGS.map((d,i)=>{ const cols=4, gapx=176, x0=(W-(cols-1)*gapx)/2;
       const col=i%cols, row=Math.floor(i/cols), hx=x0+col*gapx, hy=H*0.30+row*128;
@@ -548,7 +583,7 @@ STAGES.select={
   exit(){ AX.stop('hood'); cv.style.cursor='default'; },
   mkBtns(){
     this.splice=mk('btn',null,'left:50%;bottom:16px;transform:translateX(-50%)'); this.splice.textContent='SPLICE ▶';
-    this.splice.disabled=true; this.splice.onclick=()=>{ if(game.selected.length<2)return; AX.click(); game.batch++; transit('mix'); };
+    this.splice.disabled=true; this.splice.onclick=()=>{ if(game.selected.length<2)return; AX.click(); game.batch++; transit('charge'); };
     UI.appendChild(this.splice);
     const clr=mk('btn ghost',null,'left:16px;bottom:16px'); clr.textContent='CLEAR';
     clr.onclick=()=>{ AX.click(); this.pkgs.forEach(p=>p.inCradle=false); game.selected=[]; this.sync(); };
@@ -617,7 +652,12 @@ STAGES.select={
       const dax=p.vx-p.pvx; p.pvx=p.vx;
       p.sloshV += dax*p.fluid*0.6; p.sloshV += (-p.slosh*38 - p.sloshV*3.6)*dt; p.slosh=clamp(p.slosh+p.sloshV*dt,-1.5,1.5);
       // careless carrying of a volatile liquid → drips, then a real penalty
-      if(this.drag===p && p.fluid>0.7 && Math.abs(p.slosh)>0.95){
+      const speed=Math.hypot(p.vx,p.vy);
+      if(this.drag===p && p.d.form==='gas' && speed>480){
+        p.warn=1; p.spill+=dt*(speed/600);
+        if(Math.random()<0.4) this.drips.push({x:p.x+rnd(10,-10),y:p.y-24,vy:-55,life:0,col:shade(p.d.color,80)});
+        if(p.spill>1.2){ p.spill=0; game.instability=clamp(game.instability+5,0,100); tick('the canister hisses — you\'re bleeding pressure.','r'); AX.bad(); }
+      } else if(this.drag===p && p.fluid>0.7 && Math.abs(p.slosh)>0.95){
         p.warn=1; p.spill+=dt*Math.abs(p.slosh);
         if(Math.random()<0.35) this.drips.push({x:p.x+rnd(15,-15),y:p.y+12,vy:50,life:0,col:p.d.color});
         if(p.spill>1.3){ p.spill=0; game.instability=clamp(game.instability+6,0,100); tick('you slopped it — that residue will bite you later.','r'); AX.bad(); }
@@ -702,6 +742,45 @@ function drawPackage(d, x, y, inCradle, hi, t, phys){
     G.strokeStyle='rgba(255,255,255,.5)'; G.lineWidth=1.4; blob(0,0,24*amp,20/amp,t*1.6+slosh*3); G.stroke();
     G.fillStyle='rgba(255,255,255,.4)'; G.beginPath(); G.arc(Math.sin(t*1.3)*5+slosh*6,Math.cos(t*1.1)*4,4,0,7); G.fill();
     G.globalAlpha=.5; G.fillStyle=shade(c,90); G.beginPath(); G.arc(slosh*4,2,8,0,7); G.fill(); G.globalAlpha=1;
+  } else if(d.form==='gas'){
+    const cw=26, ch=60;
+    const bg=G.createLinearGradient(-cw/2,0,cw/2,0); bg.addColorStop(0,'#3a444c'); bg.addColorStop(.5,'#8a97a2'); bg.addColorStop(1,'#2a3138');
+    G.fillStyle=bg; roundRect(-cw/2,-ch/2+6,cw,ch-6,6); G.fill();
+    G.globalAlpha=.8; G.fillStyle=c; G.fillRect(-cw/2+2,ch/2-20,cw-4,14); G.globalAlpha=1;
+    G.strokeStyle=shade(c,60); G.lineWidth=1; G.strokeRect(-cw/2+2,ch/2-20,cw-4,14);
+    G.strokeStyle='rgba(220,235,240,.5)'; G.lineWidth=1.4; roundRect(-cw/2,-ch/2+6,cw,ch-6,6); G.stroke();
+    G.fillStyle='rgba(255,255,255,.25)'; G.fillRect(-cw/2+4,-ch/2+10,3,ch-20);
+    G.fillStyle='#20262b'; G.fillRect(-4,-ch/2-4,8,12); G.fillStyle='#4a545c'; G.fillRect(-6,-ch/2-6,12,4);
+    G.save(); G.translate(0,-ch/2+18);
+    G.fillStyle='#0c1114'; G.beginPath(); G.arc(0,0,7,0,7); G.fill(); G.strokeStyle='rgba(200,220,225,.5)'; G.lineWidth=1; G.stroke();
+    const na=-Math.PI*0.75+(0.5+slosh*0.4)*Math.PI*1.5;
+    G.strokeStyle=Math.abs(slosh)>0.6?'#ff4a5b':'#4fe08a'; G.lineWidth=1.4; G.beginPath(); G.moveTo(0,0); G.lineTo(Math.cos(na)*5,Math.sin(na)*5); G.stroke(); G.restore();
+    if(Math.abs(slosh)>0.5){ G.globalAlpha=Math.min(.4,Math.abs(slosh)*.3); G.fillStyle=shade(c,80); for(let i=0;i<3;i++){ G.beginPath(); G.arc(rnd(6,-6),-ch/2-8-i*4,2+i,0,7); G.fill(); } G.globalAlpha=1; }
+  } else if(d.form==='crystal'){
+    G.fillStyle='rgba(180,190,200,.3)'; G.beginPath(); G.ellipse(0,14,22,7,0,0,7); G.fill();
+    G.strokeStyle='rgba(210,220,230,.4)'; G.lineWidth=1; G.stroke();
+    const cg=G.createLinearGradient(0,-24,0,14); cg.addColorStop(0,shade(c,80)); cg.addColorStop(.5,c); cg.addColorStop(1,shade(c,-30));
+    G.fillStyle=cg; G.beginPath(); G.moveTo(0,-26); G.lineTo(-13,-2); G.lineTo(-7,14); G.lineTo(7,14); G.lineTo(13,-2); G.closePath(); G.fill();
+    G.strokeStyle='rgba(255,255,255,.5)'; G.lineWidth=1; G.beginPath(); G.moveTo(0,-26); G.lineTo(-7,14); G.moveTo(0,-26); G.lineTo(7,14); G.moveTo(-13,-2); G.lineTo(13,-2); G.stroke();
+    G.shadowColor=c; G.shadowBlur=hi||inCradle?18:10; G.strokeStyle=shade(c,50); G.beginPath(); G.moveTo(0,-26); G.lineTo(-13,-2); G.lineTo(-7,14); G.lineTo(7,14); G.lineTo(13,-2); G.closePath(); G.stroke(); G.shadowBlur=0;
+    G.fillStyle='rgba(255,255,255,.8)'; G.beginPath(); G.arc(-3,-8,1.5,0,7); G.fill();
+    G.fillStyle='rgba(255,255,255,.5)'; G.beginPath(); G.arc(4,2,1,0,7); G.fill();
+  } else if(d.form==='blotter'){
+    const bw=44, bh=44, cell=bw/4;
+    G.fillStyle='rgba(232,227,212,.92)'; roundRect(-bw/2,-bh/2,bw,bh,2); G.fill();
+    for(let r=0;r<4;r++)for(let cc=0;cc<4;cc++){ const px=-bw/2+cc*cell, py=-bh/2+r*cell;
+      G.globalAlpha=.85; G.fillStyle=((r+cc)%2)?shade(c,10):shade(c,-15); G.fillRect(px+1,py+1,cell-2,cell-2); G.globalAlpha=1;
+      G.fillStyle=shade(c,60); G.beginPath(); G.arc(px+cell/2,py+cell/2,1.4,0,7); G.fill(); }
+    G.strokeStyle='rgba(120,110,90,.4)'; G.lineWidth=.5; G.setLineDash([1,2]);
+    for(let i=1;i<4;i++){ G.beginPath(); G.moveTo(-bw/2+i*cell,-bh/2); G.lineTo(-bw/2+i*cell,bh/2); G.moveTo(-bw/2,-bh/2+i*cell); G.lineTo(bw/2,-bh/2+i*cell); G.stroke(); }
+    G.setLineDash([]); G.strokeStyle='rgba(120,110,90,.5)'; G.lineWidth=1; roundRect(-bw/2,-bh/2,bw,bh,2); G.stroke();
+  } else if(d.form==='paste'){
+    G.fillStyle='rgba(200,195,180,.25)'; roundRect(-24,-18,48,36,4); G.fill();
+    const tg=G.createRadialGradient(-5,-5,3,0,3,24); tg.addColorStop(0,shade(c,30)); tg.addColorStop(.6,shade(c,-40)); tg.addColorStop(1,shade(c,-70));
+    G.fillStyle=tg; blob(0,0,22,15,t*0.6+slosh*1.5); G.fill();
+    G.fillStyle='rgba(255,255,255,.3)'; G.beginPath(); G.ellipse(-5,-5,7,3,-0.4,0,7); G.fill();
+    G.fillStyle='rgba(255,255,255,.15)'; G.beginPath(); G.ellipse(6,3,4,2,0.3,0,7); G.fill();
+    G.strokeStyle='rgba(200,195,180,.4)'; G.lineWidth=1; roundRect(-24,-18,48,36,4); G.stroke();
   } else { // pill blister
     const bw=46, bh=40;
     G.fillStyle='rgba(180,190,200,.32)'; roundRect(-bw/2,-bh/2,bw,bh,4); G.fill();
@@ -726,26 +805,96 @@ function drawPackage(d, x, y, inCradle, hi, t, phys){
 //  powder→liquid dissolves, oil+water separate & must be emulsified, powders
 //  must be folded. Keep the AGITATION in the sweet zone until homogeneous.
 // ═══════════════════════════════════════════════════════════════════════════
+// CHARGE — careful placement: lift each container over the beaker and pour it
+// in, slow and steady. Jostle it while carrying and it slops (drips + instability).
+STAGES.charge={
+  enter(){
+    this.t=0; this.hover=null; this.drag=null; this.fill=0; this.pouredCount=0; this.drips=[]; this._done=false;
+    this.beaker={x:W/2,y:H*0.52,w:150,h:210};
+    this.zone={x:W/2,y:H*0.52-105-34,r:46};
+    const freq={liquid:2.0,gel:2.1,powder:2.4,pill:2.8,gas:2.3,crystal:2.9,blotter:3.2,paste:1.7};
+    const fluidOf={thin:1,oil:1,solvent:1,fine:.28,crystalline:.22,viscous:.55,tablet:.06,pressurized:.5,shard:.05,sheet:.04,tar:.35};
+    const zeta=0.62;
+    this.cans=game.selected.map((d,i)=>{ const side=i%2===0?-1:1, row=Math.floor(i/2), hx=W/2+side*(W*0.40), hy=H*0.86-row*82, w=2*Math.PI*(freq[d.form]||2.2), k=w*w, c=2*zeta*w;
+      return {d,home:{x:hx,y:hy},x:hx,y:hy,vx:0,vy:0,pvx:0,tilt:0,slosh:0,sloshV:0,held:false,gdx:0,gdy:0,k,c,fluid:fluidOf[d.sub]??.3,poured:0,done:false,spill:0,warn:0,pourSfx:false}; });
+    tick('CHARGE — lift each one over the beaker and pour it in, slow and steady. jostle it and it slops.');
+    this.hint=mk('',null,'position:absolute;left:50%;bottom:20px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:2px;text-transform:uppercase;pointer-events:none'); UI.appendChild(this.hint);
+  },
+  exit(){ AX.pour(false); cv.style.cursor='default'; },
+  topAt(p){ for(let i=this.cans.length-1;i>=0;i--){ const k=this.cans[i]; if(!k.done && Math.hypot(p.x-k.x,p.y-k.y)<44) return k; } return null; },
+  move(p){ this.hover=this.drag||this.topAt(p); cv.style.cursor=this.hover?(this.drag?'grabbing':'grab'):'default'; },
+  down(p){ const k=this.topAt(p); if(!k) return; this.drag=k; k.held=true; k.gdx=k.x-p.x; k.gdy=k.y-p.y; this.cans.splice(this.cans.indexOf(k),1); this.cans.push(k); AX.tick(); },
+  up(){ const k=this.drag; if(!k) return; this.drag=null; k.held=false; if(k.pourSfx){ k.pourSfx=false; AX.pour(false); } },
+  update(dt){ this.t+=dt; const z=this.zone;
+    this.cans.forEach(p=>{ if(p.done) return;
+      let tx,ty; if(this.drag===p){ tx=ptr.x+p.gdx; ty=ptr.y+p.gdy; } else { tx=p.home.x; ty=p.home.y; }
+      const ax=(tx-p.x)*p.k - p.vx*p.c, ay=(ty-p.y)*p.k - p.vy*p.c; p.vx+=ax*dt; p.vy+=ay*dt;
+      const spd=Math.hypot(p.vx,p.vy); if(spd>1000){ p.vx*=1000/spd; p.vy*=1000/spd; }
+      p.x+=p.vx*dt; p.y+=p.vy*dt;
+      const dax=p.vx-p.pvx; p.pvx=p.vx; p.sloshV+=dax*p.fluid*0.6; p.sloshV+=(-p.slosh*38-p.sloshV*3.6)*dt; p.slosh=clamp(p.slosh+p.sloshV*dt,-1.5,1.5);
+      const inZone=Math.hypot(p.x-z.x,p.y-z.y)<z.r, steady=spd<130 && Math.abs(p.slosh)<0.55;
+      if(this.drag===p && inZone && steady){
+        p.tilt=lerp(p.tilt,-0.7,dt*4); p.poured=clamp(p.poured+dt*0.7,0,1); this.fill=this.pouredFill();
+        if(!p.pourSfx){ p.pourSfx=true; AX.pour(true); }
+        if(p.poured>=1 && !p.done){ p.done=true; this.pouredCount++; AX.pour(false); AX.drop(); this.drag=null; p.held=false; }
+      } else {
+        p.tilt=lerp(p.tilt,clamp(-p.vx*0.0016,-0.42,0.42),dt*9);
+        if(p.pourSfx){ p.pourSfx=false; AX.pour(false); }
+        if(this.drag===p){ const hazard=p.d.form==='gas'?spd>480:Math.abs(p.slosh)>1.0;
+          if(hazard){ p.warn=1; p.spill+=dt;
+            if(Math.random()<0.3) this.drips.push({x:p.x+rnd(12,-12),y:p.y+(p.d.form==='gas'?-22:12),vy:p.d.form==='gas'?-50:60,life:0,col:p.d.form==='gas'?shade(p.d.color,80):p.d.color});
+            if(p.spill>1.0){ p.spill=0; addInstability(5*game.vol(),'you slopped it moving it'); AX.bad(); }
+          } else p.warn=lerp(p.warn,0,dt*4);
+        } else p.warn=lerp(p.warn,0,dt*4);
+      }
+    });
+    this.drips.forEach(d=>{ d.life+=dt; d.y+=d.vy*dt; d.vy+=400*dt; }); this.drips=this.drips.filter(d=>d.life<0.6);
+    this.hint.textContent=`${this.pouredCount} / ${game.selected.length} charged`;
+    if(this.pouredCount>=game.selected.length && !this._done){ this._done=true; game._charged=true; AX.good(); tick('charged. into the mix.'); setTimeout(()=>transit('mix'),500); }
+  },
+  pouredFill(){ let s=0; this.cans.forEach(p=>s+=p.poured); return clamp(s/Math.max(1,game.selected.length),0,1); },
+  chargeColor(){ const ds=this.cans.filter(c=>c.poured>0.02).map(c=>c.d); return avgColor(ds.length?ds:game.selected); },
+  draw(){ const b=this.beaker, z=this.zone;
+    drawBeaker(b,()=>{ if(this.fill>0.001){ const col=this.chargeColor(), base=b.y+b.h/2, top=base-(b.h*0.66)*this.fill; fillLiquid(b.x-b.w/2,b.w,top,base,col,col,this.t,0.12,0.15); } });
+    const anyIn=this.drag && Math.hypot(this.drag.x-z.x,this.drag.y-z.y)<z.r;
+    G.strokeStyle=anyIn?'rgba(79,224,138,.85)':'rgba(120,150,140,.4)'; G.lineWidth=2; G.setLineDash([6,5]); G.beginPath(); G.arc(z.x,z.y,z.r,0,7); G.stroke(); G.setLineDash([]);
+    G.fillStyle='rgba(111,138,124,.7)'; G.font='9px monospace'; G.textAlign='center'; G.fillText('POUR ZONE',z.x,z.y-z.r-6);
+    this.cans.forEach(p=>{ const ry=p.home.y+30; G.strokeStyle='rgba(120,150,140,.14)'; G.lineWidth=2; G.beginPath(); G.moveTo(p.home.x-42,ry); G.lineTo(p.home.x+42,ry); G.stroke(); G.fillStyle='rgba(0,0,0,.28)'; G.fillRect(p.home.x-42,ry,84,3); });
+    this.drips.forEach(d=>{ G.globalAlpha=1-d.life/0.6; G.fillStyle=d.col; G.beginPath(); G.arc(d.x,d.y,2.2,0,7); G.fill(); }); G.globalAlpha=1;
+    this.cans.forEach(p=>{ if(p.done) return;
+      if(this.drag===p && p.poured>0 && p.poured<1){ G.strokeStyle=p.d.color; G.globalAlpha=.7; G.lineWidth=3; G.beginPath(); G.moveTo(p.x,p.y+6); G.lineTo(b.x+rnd(4,-4),b.y-b.h/2+10); G.stroke(); G.globalAlpha=1; }
+      const groundY=p.home.y+40, lift=clamp((groundY-p.y)/140,0,1);
+      G.save(); G.globalAlpha=.4*(1-lift*.5); G.fillStyle='#000'; G.beginPath(); G.ellipse(p.x,groundY,20+lift*8,5,0,0,7); G.fill(); G.restore();
+      drawPackage(p.d,p.x,p.y,false,this.hover===p||this.drag===p,this.t,{tilt:p.tilt,slosh:p.slosh,warn:p.warn,held:this.drag===p});
+    });
+  },
+};
+
 STAGES.mix={
   enter(){
     this.t=0; this.homog=0; this.agit=0; this.target=.55; this.added=0; this.phase='pour-in';
     this.forms=game.selected.map(s=>s.sub);
-    this.immiscible=this.forms.includes('oil')||this.forms.includes('solvent');
-    this.powdery=this.forms.every(f=>['fine','crystalline'].includes(f));
+    const has=(x)=>this.forms.includes(x);
+    this.immiscible=has('oil')||has('solvent')||has('tar');
+    this.steep=has('sheet'); this.sparge=has('pressurized');
+    this.powdery=this.forms.every(f=>['fine','crystalline','shard'].includes(f));
     this.layers=game.selected.map((d,i)=>({d,y:i/game.selected.length,off:0}));
     this.particles=[]; this.done=false; this.overd=0;
     this.beaker={x:W/2,y:H*0.5,w:150,h:210};
     // instruction by combo
-    this.action = this.immiscible?'EMULSIFY — the layers refuse to mix':this.powdery?'FOLD — blend the powders evenly':'DISSOLVE — work the powder into solution';
+    this.action = this.immiscible?(this.forms.includes('tar')?'DISSOLVE — the tar fights the solvent':'EMULSIFY — the layers refuse to mix')
+      : this.steep?'STEEP — ease it in; don\'t thrash the sheet'
+      : this.sparge?'SPARGE — bleed it through, steady and even'
+      : this.powdery?'FOLD — blend the solids evenly'
+      : 'DISSOLVE — work it into solution';
     tick(`${this.action}. hold to agitate; keep it in the amber zone — don\'t thrash it.`);
     this.mkBtn();
     // drop each substance in sequence
-    let dd=.4; game.selected.forEach((d,i)=>setTimeout(()=>{ this.added++; AX.drop(); this.splash(d.color); }, dd*1000+i*450));
+    if(game._charged){ this.added=game.selected.length; } else { let dd=.4; game.selected.forEach((d,i)=>setTimeout(()=>{ this.added++; AX.drop(); this.splash(d.color); }, dd*1000+i*450)); }
     AX.loop('whir',{freq:120,type:'triangle',gain:0,filt:700,tremRate:22,tremDepth:.6});
   },
   exit(){ AX.stop('whir'); },
-  mkBtn(){ this.b=mk('btn',null,'left:50%;bottom:20px;transform:translateX(-50%)'); this.b.textContent='LOCK IN MIX'; this.b.disabled=true;
-    this.b.onclick=()=>{ this.finish(); }; UI.appendChild(this.b); },
+  mkBtn(){ this.locking=false; }, // auto-locks when homogeneous — no button
   splash(col){ for(let i=0;i<14;i++) this.particles.push({x:this.beaker.x+rnd(30,-30),y:this.beaker.y-80,vx:rnd(60,-60),vy:rnd(-40,-120),life:0,ttl:.6,col}); },
   down(){ this.hold=true; }, up(){ this.hold=false; },
   key(e){ if(e.code==='Space'){ e.preventDefault(); this.hold=true; } },
@@ -759,14 +908,19 @@ STAGES.mix={
     // sweet spot band; homogeneity climbs when agitation near target, over-thrash spikes instability
     const band=clamp(.16 - game.diff()*0.004,.06,.16);
     const inZone=Math.abs(this.agit-this.target)<band;
-    if(inZone){ this.homog=clamp(this.homog+dt*(this.immiscible?.28:.42),0,1); }
-    else if(this.agit>this.target+band){ this.overd+=dt; addInstability(dt*7*game.vol(),'over-agitating'); }
-    // immiscible layers fight back — homogeneity decays if you stop
-    if(this.immiscible && this.agit<this.target-band) this.homog=clamp(this.homog-dt*.12,0,1);
+    if(this.steep){
+      if(this.agit<=this.target+band) this.homog=clamp(this.homog+dt*.34,0,1);
+      else { this.overd+=dt*1.6; addInstability(dt*10*game.vol(),'shredding the sheet'); this.homog=clamp(this.homog-dt*.1,0,1); }
+    } else {
+      if(inZone){ this.homog=clamp(this.homog+dt*(this.immiscible?.26:.42),0,1); }
+      else if(this.agit>this.target+band){ this.overd+=dt; addInstability(dt*(this.sparge?10:7)*game.vol(),this.sparge?'venting too hard':'over-agitating'); }
+      // immiscible layers fight back — homogeneity decays if you stop
+      if(this.immiscible && this.agit<this.target-band) this.homog=clamp(this.homog-dt*.12,0,1);
+    }
     // particles
     this.particles.forEach(p=>{ p.life+=dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=300*dt; });
     this.particles=this.particles.filter(p=>p.life<p.ttl);
-    if(this.homog>=1&&!this.done){ this.done=true; this.b.disabled=false; AX.good(); tick('homogeneous. lock it in.'); }
+    if(this.homog>=1&&!this.locking){ this.locking=true; AX.good(); tick('homogeneous — locking it in…'); setTimeout(()=>{ if(stage===this) this.finish(); },700); }
     // update target readout
   },
   finish(){ AX.click();

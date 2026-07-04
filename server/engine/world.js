@@ -14,6 +14,7 @@ const world = {
   doors: new Map(),      // id -> door row
   orgs: new Map(),       // orgId -> org row + { ranks: [...] }
   orgMembers: new Map(), // playerId -> { org_id, rank_id, permissions }  (one corp per player)
+  zoneControl: new Map(),// zoneId -> zone_control row (territory: controller + influence grip)
   maps: new Map(),       // mapId -> maps row (parent_zone_id links an interior to its overworld tile)
 };
 
@@ -40,6 +41,7 @@ export async function initWorld() {
   await loadGlobalAmbients();
   await loadDoors();
   await loadOrgs();
+  await loadZoneControl();
   await loadMaps();
   await loadPlayerCorpses();
   console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments, ${world.doors.size} doors, ${world.orgs.size} orgs`);
@@ -124,6 +126,7 @@ async function loadSpawnTemplates() {
   const now = Date.now();
   for (const t of rows) {
     const zone = world.zones.get(t.zone_id);
+    if (zone?.flags?.no_spawn) continue;
     if (zone) {
       const count = [...zone.enemies].filter(eid => world.enemies.get(eid)?.templateId === t.id).length;
       for (let i = count; i < t.max_count; i++) spawnEnemySync(t, t.zone_id);
@@ -223,6 +226,19 @@ export function getOrgByName(name) {
   for (const o of world.orgs.values()) if ((o.name || '').toLowerCase() === wanted) return o;
   return null;
 }
+
+// ─── Territory control ───────────────────────────────────────────────────────
+// world.zoneControl mirrors the zone_control table (controller + influence grip).
+// DB stays source of truth; corp commands write DB then setZoneControlCache().
+async function loadZoneControl() {
+  world.zoneControl.clear();
+  const { rows } = await query('SELECT * FROM zone_control').catch(() => ({ rows: [] }));
+  for (const r of rows) world.zoneControl.set(r.zone_id, r);
+}
+export function getZoneControl(zoneId) { return world.zoneControl.get(zoneId) || null; }
+export function setZoneControlCache(zoneId, row) { if (row) world.zoneControl.set(zoneId, row); else world.zoneControl.delete(zoneId); }
+export function getAllZoneControl() { return [...world.zoneControl.values()]; }
+export function getOrgZones(orgId) { return [...world.zoneControl.values()].filter(z => z.org_id === orgId); }
 
 export function getZone(id) { return world.zones.get(id) || null; }
 

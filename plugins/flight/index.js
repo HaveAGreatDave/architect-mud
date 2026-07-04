@@ -14,14 +14,17 @@ import { effectiveSkill, awardSkillUse, skillCheck } from '../../server/engine/s
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { dispatchAction } from '../../server/engine/actions.js';
+import { getZoneEnemies, getZoneNpcs } from '../../server/engine/world.js';
 import {
   TICK_MS, FUEL_RESERVE_FRAC, BANDS, BAND_LABEL, BAND_BURN, DIRS, DIR_ALIASES,
   liveAircraft, surfaceAt, bounds, loadAircraft, pilotOf, persist, reap, effStats,
-  pushHud, out, detach, takeoffDifficulty, landDifficulty,
+  pushHud, out, toOccupants, detach, takeoffDifficulty, landDifficulty,
   parkAt, crash, setHeading, getZone, getLivePlayer, sendToZone, sendToPlayer, setPosture,
+  advance, initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
+  ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg,
 } from './state.js';
 import { rollHazards, commands as hazardCommands } from './hazards.js';
-import { commands as acquisitionCommands, refuelAt } from './acquisition.js';
+import { commands as acquisitionCommands, refuelAt, fieldStocks } from './acquisition.js';
 import { commands as combatCommands, tickCombat } from './combat.js';
 import { commands as contractCommands, checkContractDelivery } from './contracts.js';
 import { commands as hangarCommands } from './hangars.js';
@@ -30,6 +33,34 @@ import { commands as hangarCommands } from './hangars.js';
 // and delegates to the prior owner by context.
 import { commands as gametableCommands } from '../gametable/index.js';
 import { commands as generatorCommands } from '../generator/index.js';
+
+// ── Boarding under fire ───────────────────────────────────────────────────────
+// Getting into the cockpit mid-fight is a scramble: a Reflexes check (harder the
+// more things are on you). Succeed and you slam the hatch — every enemy/NPC loses
+// its lock on you and combat breaks off.
+function roll2d8() { return Math.floor(Math.random() * 8) + 1 + Math.floor(Math.random() * 8) + 1; }
+function attackersOf(player) {
+  const zoneId = player.current_zone;
+  return {
+    enemies: getZoneEnemies(zoneId).filter(e => e && e.targetId === player.id),
+    npcs: getZoneNpcs(zoneId).filter(n => n && n._combatTargetId === player.id),
+  };
+}
+function countAttackers(player) {
+  const a = attackersOf(player);
+  return a.enemies.length + a.npcs.length + (player.pvpTargetId ? 1 : 0);
+}
+function reflexCheck(player, difficulty) {
+  return ((player.stat_reflexes || 0) - difficulty) + (roll2d8() - roll2d8()) >= 0;
+}
+function breakOffAttackers(player) {
+  const { enemies, npcs } = attackersOf(player);
+  for (const e of enemies) { e.targetId = null; e.aggroedAt = null; }
+  for (const n of npcs) { n._combatTargetId = null; }
+  player.combatTargetId = null; player.npcCombatTargetId = null; player.pvpTargetId = null;
+  player.disengagedUntil = Date.now() + 6000;
+  return enemies.length + npcs.length;
+}
 
 // ── Boarding ──────────────────────────────────────────────────────────────────
 async function findParkedHere(zoneId, nameArg) {
@@ -43,12 +74,26 @@ async function findParkedHere(zoneId, nameArg) {
 async function cmdBoard(args, raw, player, broadcast) {
   if (player.aircraftId) return { type: 'emote', message: "You're already aboard." };
   const found = await findParkedHere(player.current_zone, args.join(' ').trim().toLowerCase());
-  if (!found) return gametableCommands.board(args, raw, player, broadcast);   // poker board
+  if (!found) {
+    // `embark` is aircraft-only; the `board` backup still delegates to poker's
+    // community-board when there's no aircraft here.
+    const verb = (raw || '').trim().toLowerCase().split(/\s+/)[0];
+    if (verb === 'board') return gametableCommands.board(args, raw, player, broadcast);
+    return { type: 'emote', message: "There's no aircraft here to embark." };
+  }
 
-  if (player.combatTargetId || player.pvpTargetId || player.npcCombatTargetId)
-    return { type: 'emote', message: "Not while you're fighting for your life." };
   if ((player.posture || 'standing') !== 'standing')
     return { type: 'emote', message: 'You need to be on your feet to climb aboard.' };
+
+  // Boarding under fire — a Reflexes check, harder the more attackers are on you.
+  const inCombat = !!(player.combatTargetId || player.pvpTargetId || player.npcCombatTargetId);
+  if (inCombat) {
+    const diff = 4 + Math.max(0, countAttackers(player) - 1);
+    if (!reflexCheck(player, diff)) {
+      broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} lunges for the cockpit but is beaten back into the fight.` }, player.id);
+      return { type: 'emote', message: '<span class="text-amber">You break for the cockpit — but they\'re all over you and drive you back. Try again.</span>' };
+    }
+  }
 
   // Parked security: a craft locked in a hangar is off-limits to non-owners; an
   // owned craft on an open ramp CAN be stolen — but that's grand theft (heat).
@@ -69,12 +114,22 @@ async function cmdBoard(args, raw, player, broadcast) {
   live.occupants.add(player.id);
   player.aircraftId = found.id;
   player.seat = seat;
-  broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} climbs into the ${live.type.name}.` }, player.id);
+  // Made it in under fire — slam the hatch and everything on you loses its lock.
+  let broke = 0;
+  if (inCombat) {
+    broke = breakOffAttackers(player);
+    broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} throws themselves into the ${live.type.name} and hauls the hatch shut.` }, player.id);
+  } else {
+    broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} climbs into the ${live.type.name}.` }, player.id);
+  }
   pushHud(live);
   const hint = seat === 'pilot'
     ? "You settle into the pilot's seat. <span class=\"text-dim\">startup</span>, set a <span class=\"text-dim\">throttle</span>, then <span class=\"text-dim\">takeoff</span>."
     : 'You strap into a passenger seat and wait on the pilot.';
-  return { type: 'emote', message: `You climb aboard the ${live.type.name}. ${hint}` };
+  const scramble = inCombat
+    ? `<span class="text-green">You throw yourself aboard and slam the hatch — ${broke ? 'they lose you' : 'the fight breaks off'}.</span> `
+    : '';
+  return { type: 'emote', message: `${scramble}You climb aboard the ${live.type.name}. ${hint}` };
 }
 
 async function cmdDisembark(args, raw, player, broadcast) {
@@ -98,20 +153,51 @@ export function requirePilot(player) {
 async function cmdStartup(args, raw, player, broadcast) {
   const { live, err } = requirePilot(player); if (err) return err;
   if (live.row.airborne) return { type: 'emote', message: "The engine's already running — you're flying it." };
-  if (live.row.engine_on) return { type: 'emote', message: "The engine's already spun up." };
+  if (live.row.engine_on && enginesAllStable(live)) return { type: 'emote', message: 'Engines are lit and stable.' };
+  if (live.row.engine_on && live.runup) return { type: 'emote', message: 'Already running up — watch the gauges settle.' };
   if (live.row.fuel <= 0) return { type: 'emote', message: 'Dry tank. Nothing to burn — you\'ll need to refuel.' };
   const chk = await skillCheck(player, 'piloting', Math.max(2, takeoffDifficulty(live) - 3));
   if (!chk.success) {
-    live.row.engine_temp = Math.min(140, live.row.engine_temp + 8);
-    return { type: 'emote', message: 'The engine coughs, catches, and dies. You reset the switches to try again.' };
+    return { type: 'emote', message: 'A starter cartridge misfires — the engine coughs and dies. Reset and try again.' };
   }
+  // Begin a live run-up: engines spin and warm toward their stable idle band.
   live.row.engine_on = 1;
+  live.runup = true;
+  initEngines(live);
+  live.engines.forEach((e, i) => { e.spoolAt = i * 1.2; e.t = 0; });  // stagger multi-engine starts
   await persist(live);
   pushHud(live);
   await awardSkillUse(player.id, 'piloting', 0);
-  broadcast(player.current_zone, { type: 'zone_event', message: `The ${live.type.name} shudders and its engine spins up to a howl.` }, player.id);
-  return { type: 'emote', message: '<span class="text-cyan">The engine catches and settles into a steady roar.</span> You have the controls.' };
+  const n = engineCount(live);
+  broadcast(player.current_zone, { type: 'zone_event', message: `The ${live.type.name} whines and its ${n > 1 ? n + ' engines' : 'engine'} spin up.` }, player.id);
+  return { type: 'emote', message: `<span class="text-cyan">Starter engaged — ${n > 1 ? 'all ' + n + ' engines' : 'the engine'} spooling up.</span> Watch the temps climb and <b>settle to green</b> before you roll — a cold engine can fail on takeoff.` };
 }
+
+// Run-up ticker (1s) — warms each engine toward its stable idle band; announces
+// when the whole plant is green. Faster than the flight tick so the gauges live.
+async function runupTick() {
+  for (const live of liveAircraft.values()) {
+    if (!live.runup || !live.engines) continue;
+    let allStable = true;
+    for (const e of live.engines) {
+      e.t = (e.t || 0) + 1;
+      if (e.t < (e.spoolAt || 0)) { allStable = false; continue; }   // not yet cranking
+      e.temp += (ENGINE_IDLE - e.temp) * 0.28 + (Math.random() - 0.5) * 3;
+      if (Math.abs(e.temp - ENGINE_IDLE) <= ENGINE_STABLE_BAND) { e.stableFor = (e.stableFor || 0) + 1; }
+      else e.stableFor = 0;
+      e.stable = (e.stableFor || 0) >= 3;
+      if (!e.stable) allStable = false;
+    }
+    syncEngineTemp(live);
+    if (allStable) {
+      live.runup = false;
+      await persist(live);
+      toOccupants(live, '<span class="text-green">All engines stable and in the green. Cleared to roll — <b>throttle</b> up and <b>takeoff</b>.</span>');
+    }
+    pushHud(live);
+  }
+}
+setInterval(() => runupTick().catch(e => console.error('[flight] runup error:', e.message)), 1000);
 
 async function cmdShutdown(args, raw, player, broadcast) {
   const { live, err } = requirePilot(player); if (err) return err;
@@ -136,10 +222,14 @@ async function cmdThrottle(args, raw, player) {
 async function cmdHeading(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
   if (!live.row.airborne) return { type: 'emote', message: 'Set a heading once you\'re in the air.' };
-  const d = DIR_ALIASES[(args[0] || '').toLowerCase()] || (args[0] || '').toLowerCase();
-  if (!DIRS[d]) return { type: 'emote', message: 'Heading where? (n, s, e, w, ne, nw, se, sw)' };
-  setHeading(live, d); live.hover = false; pushHud(live);
-  return { type: 'emote', message: `Coming around to ${d.toUpperCase()}.` };
+  const arg = (args[0] || '').toLowerCase();
+  const card = DIR_ALIASES[arg] || arg;
+  let deg;
+  if (DIRS[card]) deg = toDeg(card);
+  else if (/^\d{1,3}$/.test(arg)) deg = ((parseInt(arg, 10) % 360) + 360) % 360;
+  else return { type: 'emote', message: 'Heading where? A compass point (n, se, …) or a bearing (`heading 247`).' };
+  setHeading(live, deg); live.hover = false; pushHud(live);
+  return { type: 'emote', message: `Coming around to <b>${String(deg).padStart(3, '0')}°</b> (${degToCardinal(deg).toUpperCase()}).` };
 }
 
 async function cmdClimb(args, raw, player) {
@@ -230,6 +320,12 @@ async function cmdTakeoffResolve(args, raw, player) {
     pushHud(live); return { type: 'noop' };
   }
   live.row.airborne = 1; live.row.altitude_band = 'low'; live.row.parked_zone_id = null; live.starving = false;
+  live.runup = false;
+  initFloat(live);
+  // Rolled before the engines settled? They'll run hot and rough for a while, and
+  // may fail outright (hazards.rollHazards reads coldStart).
+  live.coldStart = enginesAllStable(live) ? 0 : 8;
+  if (live.coldStart) toOccupants(live, '<span class="text-amber">You firewall it with the temps still swinging — the engine note is rough. This was a gamble.</span>');
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid); if (!p) continue;
     getZone(p.current_zone)?.players.delete(pid);
@@ -281,6 +377,71 @@ async function checkAirspace(live) {
   }
 }
 
+// ── Engine noise → the ground ─────────────────────────────────────────────────
+// Each class has its own signature; loudness scales with the type's noise rating,
+// engine count and size, and is cut hard by altitude (high = quiet) and helped by
+// speed. That loudness becomes a reach radius over the tile grid: nearby ground
+// zones hear an identified pass, farther ones a fainter directional rumble.
+const CLASS_SOUND = {
+  ultralight: { near: 'buzzes past low overhead like an angry wasp',            far: 'the thin two-stroke whine of an ultralight' },
+  heli:       { near: 'clatters low overhead, rotors thudding the air flat',    far: 'the flat thudding of rotor blades' },
+  prop:       { near: 'drones past low overhead, prop clawing the air',         far: 'the steady drone of a piston aircraft' },
+  heavy:      { near: 'thunders past low overhead, the ground trembling',       far: 'a deep, building roar' },
+  gunship:    { near: 'screams past low and fast — you feel it in your chest',  far: 'a hard, fast howl closing in' },
+  wreck:      { near: 'sputters past low overhead trailing a thread of smoke',  far: 'a rough, misfiring engine somewhere aloft' },
+};
+function classSound(cls) { return CLASS_SOUND[cls] || CLASS_SOUND.prop; }
+
+// Reach in tiles (0 = inaudible from the ground).
+function noiseReach(live) {
+  const t = live.type, a = live.row;
+  let loud = (t.noise || 2) + Math.max(0, (t.engines || 1) - 1) * 0.4 + ((t.max_takeoff_weight || 0) > 800 ? 1 : 0);
+  loud += (a.throttle - 50) / 60;                       // firewalled = louder; idling = quieter
+  if (a.altitude_band === 'high') return 0;             // too high to hear
+  if (a.altitude_band === 'cruise') loud -= 2;          // muffled by altitude
+  return Math.max(0, Math.min(4, Math.round(loud)));
+}
+
+function overflyNoise(live) {
+  const a = live.row, t = live.type;
+  const reach = noiseReach(live);
+  if (reach <= 0) return;
+  const snd = classSound(t.class), hdg = degToCardinal(toDeg(a.heading)).toUpperCase();
+  for (let dx = -reach; dx <= reach; dx++) for (let dy = -reach; dy <= reach; dy++) {
+    const dist = Math.max(Math.abs(dx), Math.abs(dy));
+    if (dist > reach) continue;
+    const cell = surfaceAt(a.grid_x + dx, a.grid_y + dy);
+    if (!cell) continue;
+    if (Math.random() > Math.max(0.08, 0.55 - dist * 0.16)) continue;   // thins with distance → not spammy
+    let msg;
+    if (dist === 0) msg = `<span class="text-dim">A <b>${t.name}</b> ${snd.near}, heading ${hdg}.</span>`;
+    else {
+      const from = degToCardinal(bearingDeg(a.grid_x + dx, a.grid_y + dy, a.grid_x, a.grid_y)).toUpperCase();
+      msg = `<span class="text-dim">You hear ${snd.far} to the ${from}${dist >= reach ? ', distant' : ''}.</span>`;
+    }
+    sendToZone(cell.id, { type: 'zone_event', message: msg });
+    if (dist === 0 && a.altitude_band === 'low') groundReact(live, cell.id, reach);
+  }
+}
+
+// Ground threats notice a loud, low pass: hostiles snarl and the aggressive ones
+// throw up small-arms fire (a lighter cousin of the AA in combat.js).
+async function groundReact(live, zoneId, loud) {
+  const enemies = getZoneEnemies(zoneId);
+  if (!enemies.length) return;
+  const hostiles = enemies.filter(e => e && (e.behavior === 'aggressive' || e.behavior === 'defensive'));
+  if (!hostiles.length) return;
+  const e = hostiles[Math.floor(Math.random() * hostiles.length)];
+  sendToZone(zoneId, { type: 'zone_event', message: `${e.name} snaps its head up, tracking the aircraft overhead.` });
+  // Aggressive things take a potshot; louder/lower = a fatter, easier target.
+  if (e.behavior === 'aggressive' && Math.random() < 0.15 + loud * 0.05) {
+    live.row.damage = Math.min(1, live.row.damage + 0.05);
+    toOccupants(live, `<span class="text-amber">Ground fire from below cracks off the hull — hull ${Math.round((1 - live.row.damage) * 100)}%.</span>`);
+    sendToZone(zoneId, { type: 'zone_event', message: `${e.name} looses a burst of fire up at the passing aircraft.` });
+    if (live.row.damage >= 1) await crash(live, 'groundfire');
+  }
+}
+
 // ── The airborne tick loop ────────────────────────────────────────────────────
 let ticking = false;
 async function flightTick() {
@@ -291,19 +452,16 @@ async function flightTick() {
       if (!live.row.airborne || live.pending) continue;
       const a = live.row, eff = effStats(live);
 
-      // 1. Advance (hover holds station).
-      const step = live.hover ? 0 : Math.round(eff.cruise * (a.throttle / 100));
-      if (step > 0) {
-        const [dx, dy] = DIRS[a.heading] || [0, 0];
-        const b = bounds();
-        a.grid_x = Math.max(b.minx, Math.min(b.maxx, a.grid_x + dx * step));
-        a.grid_y = Math.max(b.miny, Math.min(b.maxy, a.grid_y + dy * step));
-      }
+      // 1. Advance along the true heading (sub-tile float accumulation).
+      advance(live, live.hover ? 0 : eff.cruise * (a.throttle / 100));
       // 2. Burn.
       a.fuel = Math.max(0, a.fuel - eff.burn * (0.15 + (a.throttle / 100)) * (BAND_BURN[a.altitude_band] || 1));
-      // 3. Thermal (tuning biases it hotter).
-      const target = 20 + a.throttle * 1.1 + eff.heatBias;
-      a.engine_temp += (target - a.engine_temp) * 0.3;
+      // 3. Thermal — per engine (a cold-started plant runs hotter and rougher).
+      const target = 20 + a.throttle * 1.1 + eff.heatBias + (live.coldStart > 0 ? 22 : 0);
+      if (live.engines?.length) {
+        for (const e of live.engines) e.temp += (target + (e.seed % 2 ? 4 : -4) - e.temp) * 0.3;
+        syncEngineTemp(live);
+      } else { a.engine_temp += (target - a.engine_temp) * 0.3; }
       // 4. Starvation → dead stick, then crash.
       if (a.fuel <= 0) {
         if (!live.starving) { live.starving = true; for (const pid of live.occupants) out(pid, '<span class="text-red">⚠ ENGINE OUT — the tank\'s dry. Dead stick. Get it down NOW.</span>'); }
@@ -315,11 +473,11 @@ async function flightTick() {
       await checkAirspace(live);
       await tickCombat(live);
       if (!liveAircraft.has(live.row.id)) continue;
-      // 6. Emit HUD + engine noise below.
+      // 6. Emit HUD + propagate engine noise to the ground (identified passes,
+      //    directional rumble, and ground-threat reactions).
       pushHud(live);
-      const below = surfaceAt(a.grid_x, a.grid_y);
-      if (below && a.altitude_band === 'low' && Math.random() < 0.5)
-        sendToZone(below.id, { type: 'zone_event', message: `An aircraft passes low overhead with a hammering drone.` });
+      overflyNoise(live);
+      if (!liveAircraft.has(live.row.id)) continue;   // ground fire may have downed it
       if (++live.persistCtr % 4 === 0) await persist(live);
     }
   } finally { ticking = false; }
@@ -345,8 +503,24 @@ registerInputMatcher(/^(n|s|e|w|ne|nw|se|sw|north|south|east|west|northeast|nort
     return { type: 'emote', message: `Coming around to ${d.toUpperCase()}.` };
   }, 'flight');
 
+// ── Airfield services line ────────────────────────────────────────────────────
+// Fires unconditionally per zone (unlike zone.furniturePanel, which only fires
+// when the zone has furniture rows) — several airfields have none, so this is
+// the only reliable way to surface "there's a hangar here" at every field.
+function describeAirfield(zone) {
+  if (!zone?.flags?.airfield_id) return undefined;
+  const f = zone.flags;
+  const link = (cmd, label) => `<span class="action-link" data-action="cmd" data-cmd="${cmd}" title="${label}">${label}</span>`;
+  const bits = [link('hangar', 'hangar')];
+  const stocks = fieldStocks(zone);
+  if (stocks.length) bits.push(`${link('refuel', 'refuel')} <span class="text-dim">(${stocks.join('/')})</span>`);
+  if (f.airfield_dealer) bits.push(link('buy', 'buy'));
+  if (f.airfield_charter) bits.push(link('charter', 'charter'));
+  return `<span class="furniture-label">Services:</span> ${bits.join('   ·   ')}`;
+}
+
 export const commands = {
-  board: cmdBoard, disembark: cmdDisembark, deplane: cmdDisembark,
+  embark: cmdBoard, board: cmdBoard, disembark: cmdDisembark, deplane: cmdDisembark,
   startup: cmdStartup, shutdown: cmdShutdown, throttle: cmdThrottle,
   heading: cmdHeading, climb: cmdClimb, dive: cmdDive,
   takeoff: cmdTakeoff, land: cmdLand, refuel: cmdRefuel,
@@ -354,6 +528,10 @@ export const commands = {
   ...hazardCommands, ...acquisitionCommands, ...combatCommands, ...contractCommands, ...hangarCommands,
 };
 
-export const _test = { surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft };
+export const hooks = {
+  'zone.describeRoom': describeAirfield,
+};
+
+export const _test = { surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach };
 
 console.log('[flight] Plugin loaded.');

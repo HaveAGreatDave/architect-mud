@@ -44,6 +44,18 @@ export async function rollHazards(live) {
   // Escalate an active persistent hazard first.
   if (live.hazard) { await escalate(live); return; }
 
+  // Cold start — you took off before the engines stabilised. They run hot and
+  // may let go outright for the first several ticks.
+  if (live.coldStart > 0) {
+    live.coldStart--;
+    a.engine_temp += 6;
+    if (Math.random() < 0.16) {
+      live.hazard = { type: 'FIRE', stage: 0 };
+      toOccupants(live, '<span class="text-red">🔥 A cold cylinder seizes and the engine lets go — FIRE. You warned yourself. <b>extinguish</b> / <b>cut fuel</b>!</span>');
+      return;
+    }
+  }
+
   // WEATHER buffeting — severity of the tile below, amplified with altitude.
   const severity = below ? getZoneSeverity(below.id) : 0;
   if (severity > 0.35) {

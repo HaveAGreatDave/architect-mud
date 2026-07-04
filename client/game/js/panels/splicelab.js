@@ -20,7 +20,8 @@ import { sendCmdSilent } from '../net.js';
 import {
   clamp, lerp, rnd, ease, shade, mixColors, avgColor,
   G, W, H, roundRect, blob, fillLiquid, drawSteam,
-  drawBench, drawBeaker, drawBurner, AX, mountLab, evPos,
+  drawBench, drawBeaker, drawBurner, flame, dustMotes, lightShaft, condensation, drawLabProps,
+  AX, mountLab, evPos,
 } from './lab-kit.js';
 
 // ── module state ─────────────────────────────────────────────────────────────
@@ -47,7 +48,7 @@ export function openSpliceSelect(msg) {
   }));
   game.difficulty = msg.baseDifficulty || 8;
   wireInput(game);
-  go(game, 'select');
+  go(game, 'title');
   game.raf = requestAnimationFrame(loop);
 }
 
@@ -62,7 +63,7 @@ export function openSpliceStages(opts) {
   game.onResolve = opts.onResult || null;
   wireInput(game);
   lab.setInsta(game.instability);
-  go(game, 'mix');
+  go(game, 'charge');
   game.raf = requestAnimationFrame(loop);
 }
 
@@ -207,6 +208,45 @@ function drawPackage(d, x, y, inCradle, hi, t, phys) {
     G.strokeStyle = 'rgba(255,255,255,.5)'; G.lineWidth = 1.4; blob(0, 0, 24 * amp, 20 / amp, t * 1.6 + slosh * 3); G.stroke();
     G.fillStyle = 'rgba(255,255,255,.4)'; G.beginPath(); G.arc(Math.sin(t * 1.3) * 5 + slosh * 6, Math.cos(t * 1.1) * 4, 4, 0, 7); G.fill();
     G.globalAlpha = .5; G.fillStyle = shade(c, 90); G.beginPath(); G.arc(slosh * 4, 2, 8, 0, 7); G.fill(); G.globalAlpha = 1;
+  } else if (d.form === 'gas') {
+    const cw = 26, ch = 60;
+    const bg = G.createLinearGradient(-cw / 2, 0, cw / 2, 0); bg.addColorStop(0, '#3a444c'); bg.addColorStop(.5, '#8a97a2'); bg.addColorStop(1, '#2a3138');
+    G.fillStyle = bg; roundRect(-cw / 2, -ch / 2 + 6, cw, ch - 6, 6); G.fill();
+    G.globalAlpha = .8; G.fillStyle = c; G.fillRect(-cw / 2 + 2, ch / 2 - 20, cw - 4, 14); G.globalAlpha = 1;
+    G.strokeStyle = shade(c, 60); G.lineWidth = 1; G.strokeRect(-cw / 2 + 2, ch / 2 - 20, cw - 4, 14);
+    G.strokeStyle = 'rgba(220,235,240,.5)'; G.lineWidth = 1.4; roundRect(-cw / 2, -ch / 2 + 6, cw, ch - 6, 6); G.stroke();
+    G.fillStyle = 'rgba(255,255,255,.25)'; G.fillRect(-cw / 2 + 4, -ch / 2 + 10, 3, ch - 20);
+    G.fillStyle = '#20262b'; G.fillRect(-4, -ch / 2 - 4, 8, 12); G.fillStyle = '#4a545c'; G.fillRect(-6, -ch / 2 - 6, 12, 4);
+    G.save(); G.translate(0, -ch / 2 + 18);
+    G.fillStyle = '#0c1114'; G.beginPath(); G.arc(0, 0, 7, 0, 7); G.fill(); G.strokeStyle = 'rgba(200,220,225,.5)'; G.lineWidth = 1; G.stroke();
+    const na = -Math.PI * 0.75 + (0.5 + slosh * 0.4) * Math.PI * 1.5;
+    G.strokeStyle = Math.abs(slosh) > 0.6 ? '#ff4a5b' : '#4fe08a'; G.lineWidth = 1.4; G.beginPath(); G.moveTo(0, 0); G.lineTo(Math.cos(na) * 5, Math.sin(na) * 5); G.stroke(); G.restore();
+    if (Math.abs(slosh) > 0.5) { G.globalAlpha = Math.min(.4, Math.abs(slosh) * .3); G.fillStyle = shade(c, 80); for (let i = 0; i < 3; i++) { G.beginPath(); G.arc(rnd(6, -6), -ch / 2 - 8 - i * 4, 2 + i, 0, 7); G.fill(); } G.globalAlpha = 1; }
+  } else if (d.form === 'crystal') {
+    G.fillStyle = 'rgba(180,190,200,.3)'; G.beginPath(); G.ellipse(0, 14, 22, 7, 0, 0, 7); G.fill();
+    G.strokeStyle = 'rgba(210,220,230,.4)'; G.lineWidth = 1; G.stroke();
+    const cg = G.createLinearGradient(0, -24, 0, 14); cg.addColorStop(0, shade(c, 80)); cg.addColorStop(.5, c); cg.addColorStop(1, shade(c, -30));
+    G.fillStyle = cg; G.beginPath(); G.moveTo(0, -26); G.lineTo(-13, -2); G.lineTo(-7, 14); G.lineTo(7, 14); G.lineTo(13, -2); G.closePath(); G.fill();
+    G.strokeStyle = 'rgba(255,255,255,.5)'; G.lineWidth = 1; G.beginPath(); G.moveTo(0, -26); G.lineTo(-7, 14); G.moveTo(0, -26); G.lineTo(7, 14); G.moveTo(-13, -2); G.lineTo(13, -2); G.stroke();
+    G.shadowColor = c; G.shadowBlur = hi || inCradle ? 18 : 10; G.strokeStyle = shade(c, 50); G.beginPath(); G.moveTo(0, -26); G.lineTo(-13, -2); G.lineTo(-7, 14); G.lineTo(7, 14); G.lineTo(13, -2); G.closePath(); G.stroke(); G.shadowBlur = 0;
+    G.fillStyle = 'rgba(255,255,255,.8)'; G.beginPath(); G.arc(-3, -8, 1.5, 0, 7); G.fill();
+    G.fillStyle = 'rgba(255,255,255,.5)'; G.beginPath(); G.arc(4, 2, 1, 0, 7); G.fill();
+  } else if (d.form === 'blotter') {
+    const bw = 44, bh = 44, cell = bw / 4;
+    G.fillStyle = 'rgba(232,227,212,.92)'; roundRect(-bw / 2, -bh / 2, bw, bh, 2); G.fill();
+    for (let r = 0; r < 4; r++) for (let cc = 0; cc < 4; cc++) { const px = -bw / 2 + cc * cell, py = -bh / 2 + r * cell;
+      G.globalAlpha = .85; G.fillStyle = ((r + cc) % 2) ? shade(c, 10) : shade(c, -15); G.fillRect(px + 1, py + 1, cell - 2, cell - 2); G.globalAlpha = 1;
+      G.fillStyle = shade(c, 60); G.beginPath(); G.arc(px + cell / 2, py + cell / 2, 1.4, 0, 7); G.fill(); }
+    G.strokeStyle = 'rgba(120,110,90,.4)'; G.lineWidth = .5; G.setLineDash([1, 2]);
+    for (let i = 1; i < 4; i++) { G.beginPath(); G.moveTo(-bw / 2 + i * cell, -bh / 2); G.lineTo(-bw / 2 + i * cell, bh / 2); G.moveTo(-bw / 2, -bh / 2 + i * cell); G.lineTo(bw / 2, -bh / 2 + i * cell); G.stroke(); }
+    G.setLineDash([]); G.strokeStyle = 'rgba(120,110,90,.5)'; G.lineWidth = 1; roundRect(-bw / 2, -bh / 2, bw, bh, 2); G.stroke();
+  } else if (d.form === 'paste') {
+    G.fillStyle = 'rgba(200,195,180,.25)'; roundRect(-24, -18, 48, 36, 4); G.fill();
+    const tg = G.createRadialGradient(-5, -5, 3, 0, 3, 24); tg.addColorStop(0, shade(c, 30)); tg.addColorStop(.6, shade(c, -40)); tg.addColorStop(1, shade(c, -70));
+    G.fillStyle = tg; blob(0, 0, 22, 15, t * 0.6 + slosh * 1.5); G.fill();
+    G.fillStyle = 'rgba(255,255,255,.3)'; G.beginPath(); G.ellipse(-5, -5, 7, 3, -0.4, 0, 7); G.fill();
+    G.fillStyle = 'rgba(255,255,255,.15)'; G.beginPath(); G.ellipse(6, 3, 4, 2, 0.3, 0, 7); G.fill();
+    G.strokeStyle = 'rgba(200,195,180,.4)'; G.lineWidth = 1; roundRect(-24, -18, 48, 36, 4); G.stroke();
   } else {
     const bw = 46, bh = 40;
     G.fillStyle = 'rgba(180,190,200,.32)'; roundRect(-bw / 2, -bh / 2, bw, bh, 4); G.fill();
@@ -218,6 +258,7 @@ function drawPackage(d, x, y, inCradle, hi, t, phys) {
     G.fillStyle = 'rgba(255,255,255,.10)'; roundRect(-bw / 2 + 3, -bh / 2 + 3, bw - 6, 5, 2); G.fill();
   }
   G.shadowBlur = 0; G.restore();
+  if (phys.noName) return; // scattered title-screen packages carry no label
   G.textAlign = 'center';
   G.fillStyle = inCradle ? '#4fe08a' : (hi ? '#dffbe9' : '#7f9a8c'); G.font = (inCradle ? 'bold ' : '') + '10px monospace';
   G.fillText((d.known ?? 1) > .4 ? d.name : '???', x, y + 46);
@@ -227,10 +268,92 @@ function drawPackage(d, x, y, inCradle, hi, t, phys) {
 // ══ STAGES ═══════════════════════════════════════════════════════════════════
 const STAGES = {};
 
+// TITLE — the bench powers up with the player's drugs scattered across it, then
+// BEGIN drops into the selection screen. Pure client-side intro (no server hit).
+STAGES.title = {
+  enter() {
+    const g = game; this.t = 0; this.pw = 0; this.spin = 0; this.titleA = 0; this.flick = 1; this.btnShown = false; this.ready = false; this._begun = false;
+    this.quip = ['this bench has killed better chemists than you.', 'ventilation nominal. conscience optional.', 'everything on this table is technically evidence.', 'mind the third beaker. it bites.'][Math.floor(rnd(4))];
+    const anchors = [
+      { x: .12, y: .73, r: -.16 }, { x: .25, y: .83, r: .12 }, { x: .17, y: .55, r: .22 },
+      { x: .88, y: .73, r: .14 }, { x: .75, y: .83, r: -.12 }, { x: .83, y: .55, r: -.22 },
+      { x: .37, y: .88, r: .05 }, { x: .63, y: .88, r: -.06 }, { x: .31, y: .64, r: .16 }, { x: .69, y: .64, r: -.16 },
+    ];
+    this.scatter = g.drugs.map((d, i) => { const a = anchors[i % anchors.length], wrap = Math.floor(i / anchors.length);
+      return { d, x: (a.x + (wrap ? rnd(.05, -.05) : 0)) * W, y: (a.y - wrap * 0.09) * H, r: a.r, bob: rnd(7) }; });
+    g.lab.setTop('SPLICE BENCH'); g.lab.ticker('');
+    AX.loop('hood', { freq: 54, type: 'sawtooth', gain: 0, filt: 320, tremRate: 7, tremDepth: .25 });
+  },
+  exit() { AX.stop('hood'); },
+  showBtn() { AX.good(); this.ready = true; game.lab.ticker('the reagents are all here — CLICK or SPACE to begin. pick your poison, two at least.'); },
+  begin() { if (!this.ready || this._begun) return; this._begun = true; AX.click(); AX.stop('hood'); transit(game, 'select'); },
+  down() { this.begin(); },
+  key(e) { if (e.code === 'Space' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); this.begin(); } },
+  update(dt) { this.t += dt; this.spin += dt * (1.1 + (1 - this.pw) * 3);
+    const target = clamp((this.t - 0.2) / 1.6, 0, 1); this.pw = lerp(this.pw, target, dt * 3);
+    this.flick = this.pw > 0.96 ? 1 : (Math.random() < 0.10 ? rnd(1, .25) : lerp(this.flick, 1, dt * 8));
+    this.titleA = lerp(this.titleA, this.pw > 0.35 ? 1 : 0, dt * 3);
+    AX.loopGain('hood', .06 * this.pw + .02);
+    if (!this.btnShown && this.pw > 0.985) { this.btnShown = true; this.showBtn(); }
+  },
+  draw() {
+    const cx = W / 2, benchY = H * 0.62, pw = this.pw, fl = this.flick;
+    drawLabProps(this.t, pw);
+    const hw = 360, hh = 196, hx = cx - hw / 2, hy = 44;
+    const win = G.createLinearGradient(0, hy, 0, hy + hh); win.addColorStop(0, `rgba(20,60,44,${.5 * pw})`); win.addColorStop(1, `rgba(6,20,14,${.6 * pw})`);
+    G.fillStyle = win; G.fillRect(hx, hy, hw, hh);
+    G.globalAlpha = pw * .5; G.strokeStyle = 'rgba(8,18,14,.9)'; G.lineWidth = 3;
+    for (let i = 0; i < 5; i++) { const tx = hx + 42 + i * 69; G.beginPath(); G.moveTo(tx, hy); G.lineTo(tx + Math.sin(this.t + i) * 4, hy + 48 + ((i * 13) % 42)); G.stroke(); }
+    G.globalAlpha = 1;
+    condensation(hx + 8, hy + 8, hw - 16, hh - 16, 3, Math.floor(pw * 40));
+    G.strokeStyle = `rgba(90,110,120,${.5 + .3 * pw})`; G.lineWidth = 4; G.strokeRect(hx, hy, hw, hh);
+    G.strokeStyle = 'rgba(60,80,88,.6)'; G.lineWidth = 2; G.beginPath(); G.moveTo(hx, hy + hh * .5); G.lineTo(hx + hw, hy + hh * .5); G.stroke();
+    lightShaft(cx, 70, 320, benchY + 30, '130,225,175', .06 * pw * fl + .015);
+    G.fillStyle = '#1a2024'; G.fillRect(cx - 40, 8, 80, 14);
+    G.save(); G.shadowColor = 'rgba(120,255,190,.9)'; G.shadowBlur = 30 * pw * fl; G.fillStyle = `rgba(190,255,225,${.7 * pw * fl})`; G.fillRect(cx - 34, 20, 68, 5); G.restore();
+    dustMotes(this.t, 46, '150,225,185');
+    this.drawFlask(cx - 176, benchY + 16, pw);
+    this.drawCondenser(cx + 176, benchY - 8, pw);
+    this.scatter.forEach(s => drawPackage(s.d, s.x, s.y + Math.sin(this.t * 1.2 + s.bob) * 1.5, false, false, this.t * .4 + s.bob, { tilt: s.r, slosh: 0, noName: true }));
+    G.save(); G.globalAlpha = this.titleA; G.textAlign = 'center'; G.font = 'bold 38px monospace';
+    G.fillStyle = 'rgba(255,74,91,.45)'; G.fillText('SPLICE BENCH', cx - 2, H * 0.33 + 12);
+    G.fillStyle = 'rgba(95,208,224,.45)'; G.fillText('SPLICE BENCH', cx + 2, H * 0.33 + 12);
+    G.shadowColor = 'rgba(79,224,138,.8)'; G.shadowBlur = 22 * pw; G.fillStyle = '#dffbe9'; G.fillText('SPLICE BENCH', cx, H * 0.33 + 12); G.shadowBlur = 0;
+    G.font = '11px monospace'; G.fillStyle = 'rgba(159,199,172,.7)'; G.fillText('CHIMERA-9 · GENESPLICER', cx, H * 0.33 + 32);
+    G.globalAlpha = this.titleA * .7 * (0.6 + 0.4 * Math.sin(this.t * 2)); G.fillStyle = '#7f9a8c'; G.font = 'italic 11px monospace';
+    G.fillText(this.quip, cx, benchY - 16); G.restore();
+    if (this.ready) { G.save(); G.globalAlpha = .55 + .45 * Math.sin(this.t * 4); G.fillStyle = '#4fe08a'; G.font = 'bold 13px monospace'; G.textAlign = 'center'; G.shadowColor = 'rgba(79,224,138,.7)'; G.shadowBlur = 12; G.fillText('▶ CLICK or SPACE to begin', cx, H * 0.44); G.restore(); }
+  },
+  drawFlask(x, y, pw) {
+    G.strokeStyle = 'rgba(80,96,104,.7)'; G.lineWidth = 4; G.beginPath(); G.moveTo(x - 30, y + 40); G.lineTo(x - 30, y - 70); G.stroke();
+    G.fillStyle = 'rgba(70,84,92,.8)'; G.fillRect(x - 46, y + 38, 50, 6);
+    G.strokeStyle = 'rgba(90,108,116,.7)'; G.lineWidth = 3; G.beginPath(); G.moveTo(x - 30, y - 16); G.lineTo(x, y - 16); G.stroke();
+    const r = 26;
+    G.save(); G.beginPath(); G.arc(x, y, r, 0, 7); G.rect(x - 5, y - r - 22, 10, 24); G.clip();
+    const lvl = y - 4; const fg = G.createLinearGradient(0, lvl, 0, y + r); fg.addColorStop(0, `rgba(120,240,170,${pw})`); fg.addColorStop(1, `rgba(20,90,54,${pw})`);
+    G.fillStyle = fg; G.fillRect(x - r, lvl, r * 2, r * 2);
+    for (let i = 0; i < 6; i++) { const bx = x + Math.sin(this.t * 2 + i * 2) * 10, by = y + r - ((this.t * 30 + i * 14) % Math.max(1, (y + r - lvl))); G.fillStyle = `rgba(210,255,230,${.3 * pw})`; G.beginPath(); G.arc(bx, by, 1.6, 0, 7); G.fill(); }
+    G.restore();
+    G.strokeStyle = `rgba(200,240,235,${.5 + .3 * pw})`; G.lineWidth = 2; G.beginPath(); G.arc(x, y, r, 0, 7); G.stroke(); G.strokeRect(x - 5, y - r - 22, 10, 22);
+    G.save(); G.shadowColor = 'rgba(120,255,180,.8)'; G.shadowBlur = 20 * pw; G.strokeStyle = `rgba(120,255,180,${.3 * pw})`; G.beginPath(); G.arc(x, y, r, 0, 7); G.stroke(); G.restore();
+    drawSteam(x, y - r - 18, pw * .7, this.t, '200,255,220');
+    G.save(); G.globalCompositeOperation = 'lighter'; flame(x, y + r + 30, 7, 20 + 8 * Math.sin(this.t * 10), Math.sin(this.t * 7) * 2, `rgba(120,180,255,${.6 * pw})`, 8); flame(x, y + r + 30, 4, 12, 0, `rgba(255,200,120,${.5 * pw})`, 6); G.restore();
+  },
+  drawCondenser(x, y, pw) {
+    G.save(); G.translate(x, y); G.rotate(0.5);
+    G.fillStyle = `rgba(90,150,200,${.12 * pw})`; roundRect(-12, -70, 24, 140, 8); G.fill();
+    G.globalAlpha = pw * .3; G.fillStyle = '#3a7ac0'; roundRect(-10, -66, 20, 132, 6); G.fill(); G.globalAlpha = 1;
+    G.strokeStyle = `rgba(150,210,235,${.5 * pw})`; G.lineWidth = 2.5; G.beginPath();
+    for (let i = 0; i <= 40; i++) { const p = i / 40, yy = -64 + p * 128, xx = Math.sin(p * Math.PI * 7) * 7; i === 0 ? G.moveTo(xx, yy) : G.lineTo(xx, yy); } G.stroke();
+    G.strokeStyle = `rgba(180,220,240,${.4 + .3 * pw})`; G.lineWidth = 2; roundRect(-12, -70, 24, 140, 8); G.stroke();
+    G.restore();
+  },
+};
+
 STAGES.select = {
   enter() {
-    const g = game; const freq = { liquid: 2.0, gel: 2.1, powder: 2.4, pill: 2.8 };
-    const fluidOf = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, viscous: .55, tablet: .06 };
+    const g = game; const freq = { liquid: 2.0, gel: 2.1, powder: 2.4, pill: 2.8, gas: 2.3, crystal: 2.9, blotter: 3.2, paste: 1.7 };
+    const fluidOf = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, viscous: .55, tablet: .06, pressurized: .5, shard: .05, sheet: .04, tar: .35 };
     const zeta = 0.62, n = g.drugs.length, cols = Math.min(4, Math.max(1, n)), gapx = 176, x0 = (W - (cols - 1) * gapx) / 2;
     this.pkgs = g.drugs.map((d, i) => { const col = i % cols, row = Math.floor(i / cols), hx = x0 + col * gapx, hy = H * 0.28 + row * 128;
       const w = 2 * Math.PI * (freq[d.form] || 2.2), k = w * w, c = 2 * zeta * w;
@@ -243,19 +366,15 @@ STAGES.select = {
   },
   exit() { AX.stop('hood'); game.lab.canvas.style.cursor = 'default'; },
   mkBtns() {
-    this.splice = mkBtn('SPLICE ▶', 'left:50%;bottom:16px;transform:translateX(-50%)'); this.splice.disabled = true;
-    this.splice.onclick = () => { if (game.selected.length < 2) return; AX.click(); this.commit(); };
-    const clr = mkBtn('CLEAR', 'left:16px;bottom:16px', 'ghost');
-    clr.onclick = () => { AX.click(); this.pkgs.forEach(p => p.inCradle = false); game.selected = []; this.sync(); };
-    this.hint = mkEl('position:absolute;left:50%;bottom:50px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:1px;text-transform:uppercase;pointer-events:none;text-align:center;width:82%');
+    this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:1px;text-transform:uppercase;pointer-events:none;text-align:center;width:82%');
   },
-  sync() { const n = game.selected.length; this.splice.disabled = n < 2;
-    this.hint.textContent = n ? `${game.selected[0].name} base${n > 1 ? ` · ${n - 1} graft${n - 1 === 1 ? '' : 's'}` : ''} — drop at least two` : 'drop at least two into the cradle';
+  sync() { const n = game.selected.length;
+    this.hint.textContent = n ? `${game.selected[0].name} base${n > 1 ? ` · ${n - 1} graft${n - 1 === 1 ? '' : 's'}` : ''} — ${n >= 2 ? 'SPACE to splice · C to clear' : 'drop one more'}` : 'drag two+ into the cradle · tap to read · C to clear';
   },
   commit() {
     const sel = game.selected.slice();
     _stash = { selection: sel, instability: game.instability };
-    if (game.mode === 'test') { transit(game, 'mix'); return; }
+    if (game.mode === 'test') { transit(game, 'charge'); return; }
     // build the server payload: base + every block of each graft drug
     const base = sel[0].drug;
     const grafts = [];
@@ -277,6 +396,7 @@ STAGES.select = {
       else { k.inCradle = true; if (!game.selected.includes(k.d)) game.selected.push(k.d); AX.drop(); this.sync(); }
     } else AX.tick();
     hideLabel(); },
+  key(e) { if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); if (game.selected.length >= 2) this.commit(); } else if (e.key === 'c' || e.key === 'C') { AX.click(); this.pkgs.forEach(p => p.inCradle = false); game.selected = []; this.sync(); } },
   update(dt) { this.t += dt; const cr = this.cradle, inC = this.pkgs.filter(p => p.inCradle);
     this.pkgs.forEach(p => { let tx, ty, k = p.k;
       if (this.drag === p) { tx = ptr.x + p.gdx; ty = ptr.y + p.gdy; }
@@ -288,7 +408,12 @@ STAGES.select = {
       p.tilt = lerp(p.tilt, clamp(-p.vx * 0.0016, -0.42, 0.42), dt * 9);
       const dax = p.vx - p.pvx; p.pvx = p.vx;
       p.sloshV += dax * p.fluid * 0.6; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
-      if (this.drag === p && p.fluid > 0.7 && Math.abs(p.slosh) > 0.95) { p.warn = 1; p.spill += dt * Math.abs(p.slosh);
+      const speed = Math.hypot(p.vx, p.vy);
+      if (this.drag === p && p.d.form === 'gas' && speed > 480) { // pressurised — vents when hauled around fast
+        p.warn = 1; p.spill += dt * (speed / 600);
+        if (Math.random() < 0.4) this.drips.push({ x: p.x + rnd(10, -10), y: p.y - 24, vy: -55, life: 0, col: shade(p.d.color, 80) });
+        if (p.spill > 1.2) { p.spill = 0; addInstability(5, "the canister hisses — you're bleeding pressure."); AX.bad(); }
+      } else if (this.drag === p && p.fluid > 0.7 && Math.abs(p.slosh) > 0.95) { p.warn = 1; p.spill += dt * Math.abs(p.slosh);
         if (Math.random() < 0.35) this.drips.push({ x: p.x + rnd(15, -15), y: p.y + 12, vy: 50, life: 0, col: p.d.color });
         if (p.spill > 1.3) { p.spill = 0; addInstability(6, 'you slopped it — that residue will bite you later.'); AX.bad(); }
       } else { p.warn = lerp(p.warn, 0, dt * 4); p.spill = Math.max(0, p.spill - dt * 0.5); }
@@ -311,62 +436,147 @@ STAGES.select = {
   },
 };
 
+// CHARGE — the careful-placement step. Lift each chosen container, hold it
+// steady over the POUR ZONE above the beaker to decant it in; jostle it while
+// carrying and it slops (drips + instability). Only when all are in does MIX run.
+STAGES.charge = {
+  enter() {
+    const g = game; this.t = 0; this.hover = null; this.drag = null; this.fill = 0; this.pouredCount = 0; this.drips = []; this._done = false;
+    this.beaker = { x: W / 2, y: H * 0.52, w: 150, h: 210 };
+    this.zone = { x: W / 2, y: H * 0.52 - 210 / 2 - 34, r: 46 };
+    const freq = { liquid: 2.0, gel: 2.1, powder: 2.4, pill: 2.8, gas: 2.3, crystal: 2.9, blotter: 3.2, paste: 1.7 };
+    const fluidOf = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, viscous: .55, tablet: .06, pressurized: .5, shard: .05, sheet: .04, tar: .35 };
+    const zeta = 0.62;
+    // far-side supply racks → a long diagonal carry to the central pour zone
+    this.cans = g.selected.map((d, i) => { const side = i % 2 === 0 ? -1 : 1, row = Math.floor(i / 2), hx = W / 2 + side * (W * 0.40), hy = H * 0.86 - row * 82, w = 2 * Math.PI * (freq[d.form] || 2.2), k = w * w, c = 2 * zeta * w;
+      return { d, home: { x: hx, y: hy }, x: hx, y: hy, vx: 0, vy: 0, pvx: 0, tilt: 0, slosh: 0, sloshV: 0, held: false, gdx: 0, gdy: 0, k, c, fluid: fluidOf[d.sub] ?? .3, poured: 0, done: false, spill: 0, warn: 0, pourSfx: false }; });
+    g.lab.ticker('CHARGE — lift each one over the beaker and pour it in, slow and steady. jostle it and it slops.');
+    this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:2px;text-transform:uppercase;pointer-events:none');
+  },
+  exit() { AX.pour(false); game.lab.canvas.style.cursor = 'default'; },
+  topAt(p) { for (let i = this.cans.length - 1; i >= 0; i--) { const k = this.cans[i]; if (!k.done && Math.hypot(p.x - k.x, p.y - k.y) < 44) return k; } return null; },
+  move(p) { this.hover = this.drag || this.topAt(p); game.lab.canvas.style.cursor = this.hover ? (this.drag ? 'grabbing' : 'grab') : 'default'; },
+  down(p) { const k = this.topAt(p); if (!k) return; this.drag = k; k.held = true; k.gdx = k.x - p.x; k.gdy = k.y - p.y; this.cans.splice(this.cans.indexOf(k), 1); this.cans.push(k); AX.tick(); },
+  up() { const k = this.drag; if (!k) return; this.drag = null; k.held = false; if (k.pourSfx) { k.pourSfx = false; AX.pour(false); } },
+  update(dt) { this.t += dt; const z = this.zone;
+    this.cans.forEach(p => { if (p.done) return;
+      let tx, ty; if (this.drag === p) { tx = ptr.x + p.gdx; ty = ptr.y + p.gdy; } else { tx = p.home.x; ty = p.home.y; }
+      const ax = (tx - p.x) * p.k - p.vx * p.c, ay = (ty - p.y) * p.k - p.vy * p.c; p.vx += ax * dt; p.vy += ay * dt;
+      const spd = Math.hypot(p.vx, p.vy); if (spd > 1000) { p.vx *= 1000 / spd; p.vy *= 1000 / spd; }
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      const dax = p.vx - p.pvx; p.pvx = p.vx; p.sloshV += dax * p.fluid * 0.6; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
+      const inZone = Math.hypot(p.x - z.x, p.y - z.y) < z.r, steady = spd < 130 && Math.abs(p.slosh) < 0.55;
+      if (this.drag === p && inZone && steady) { // decant
+        p.tilt = lerp(p.tilt, -0.7, dt * 4); p.poured = clamp(p.poured + dt * 0.7, 0, 1); this.fill = this.pouredFill();
+        if (!p.pourSfx) { p.pourSfx = true; AX.pour(true); }
+        if (p.poured >= 1 && !p.done) { p.done = true; this.pouredCount++; AX.pour(false); AX.drop(); this.drag = null; p.held = false; }
+      } else {
+        p.tilt = lerp(p.tilt, clamp(-p.vx * 0.0016, -0.42, 0.42), dt * 9);
+        if (p.pourSfx) { p.pourSfx = false; AX.pour(false); }
+        if (this.drag === p) { const hazard = p.d.form === 'gas' ? spd > 480 : Math.abs(p.slosh) > 1.0;
+          if (hazard) { p.warn = 1; p.spill += dt;
+            if (Math.random() < 0.3) this.drips.push({ x: p.x + rnd(12, -12), y: p.y + (p.d.form === 'gas' ? -22 : 12), vy: p.d.form === 'gas' ? -50 : 60, life: 0, col: p.d.form === 'gas' ? shade(p.d.color, 80) : p.d.color });
+            if (p.spill > 1.0) { p.spill = 0; addInstability(5 * game.vol(), 'you slopped it moving it'); AX.bad(); }
+          } else p.warn = lerp(p.warn, 0, dt * 4);
+        } else p.warn = lerp(p.warn, 0, dt * 4);
+      }
+    });
+    this.drips.forEach(d => { d.life += dt; d.y += d.vy * dt; d.vy += 400 * dt; }); this.drips = this.drips.filter(d => d.life < 0.6);
+    this.hint.textContent = `${this.pouredCount} / ${game.selected.length} charged`;
+    if (this.pouredCount >= game.selected.length && !this._done) { this._done = true; game._charged = true; AX.good(); game.lab.ticker('charged. into the mix.'); setTimeout(() => { if (game && !game.closed) transit(game, 'mix'); }, 500); }
+  },
+  pouredFill() { let s = 0; this.cans.forEach(p => s += p.poured); return clamp(s / Math.max(1, game.selected.length), 0, 1); },
+  chargeColor() { const ds = this.cans.filter(c => c.poured > 0.02).map(c => c.d); return avgColor(ds.length ? ds : game.selected); },
+  draw() { const b = this.beaker, z = this.zone;
+    drawBeaker(b, () => { if (this.fill > 0.001) { const col = this.chargeColor(), base = b.y + b.h / 2, top = base - (b.h * 0.66) * this.fill; fillLiquid(b.x - b.w / 2, b.w, top, base, col, col, this.t, 0.12, 0.15); } });
+    const anyIn = this.drag && Math.hypot(this.drag.x - z.x, this.drag.y - z.y) < z.r;
+    G.strokeStyle = anyIn ? 'rgba(79,224,138,.85)' : 'rgba(120,150,140,.4)'; G.lineWidth = 2; G.setLineDash([6, 5]); G.beginPath(); G.arc(z.x, z.y, z.r, 0, 7); G.stroke(); G.setLineDash([]);
+    G.fillStyle = 'rgba(111,138,124,.7)'; G.font = '9px monospace'; G.textAlign = 'center'; G.fillText('POUR ZONE', z.x, z.y - z.r - 6);
+    this.cans.forEach(p => { const ry = p.home.y + 30; G.strokeStyle = 'rgba(120,150,140,.14)'; G.lineWidth = 2; G.beginPath(); G.moveTo(p.home.x - 42, ry); G.lineTo(p.home.x + 42, ry); G.stroke(); G.fillStyle = 'rgba(0,0,0,.28)'; G.fillRect(p.home.x - 42, ry, 84, 3); });
+    this.drips.forEach(d => { G.globalAlpha = 1 - d.life / 0.6; G.fillStyle = d.col; G.beginPath(); G.arc(d.x, d.y, 2.2, 0, 7); G.fill(); }); G.globalAlpha = 1;
+    this.cans.forEach(p => { if (p.done) return;
+      if (this.drag === p && p.poured > 0 && p.poured < 1) { G.strokeStyle = p.d.color; G.globalAlpha = .7; G.lineWidth = 3; G.beginPath(); G.moveTo(p.x, p.y + 6); G.lineTo(b.x + rnd(4, -4), b.y - b.h / 2 + 10); G.stroke(); G.globalAlpha = 1; }
+      const groundY = p.home.y + 40, lift = clamp((groundY - p.y) / 140, 0, 1);
+      G.save(); G.globalAlpha = .4 * (1 - lift * .5); G.fillStyle = '#000'; G.beginPath(); G.ellipse(p.x, groundY, 20 + lift * 8, 5, 0, 0, 7); G.fill(); G.restore();
+      drawPackage(p.d, p.x, p.y, false, this.hover === p || this.drag === p, this.t, { tilt: p.tilt, slosh: p.slosh, warn: p.warn, held: this.drag === p });
+    });
+  },
+};
+
+// MIX = REDUCE: turn every form into a liquid its own way — crush solids,
+// dissolve powders, bleed gas, cut paste — each pouring into the beaker.
+// Buttonless: mash SPACE/click for solids, hold for the rest.
 STAGES.mix = {
-  enter() { const g = game; this.t = 0; this.homog = 0; this.agit = 0; this.target = .55; this.added = 0; this.hold = false;
-    this.forms = g.selected.map(s => s.sub); this.immiscible = this.forms.includes('oil') || this.forms.includes('solvent');
-    this.powdery = this.forms.every(f => ['fine', 'crystalline'].includes(f)); this.particles = []; this.done = false; this.overd = 0;
-    this.beaker = { x: W / 2, y: H * 0.5, w: 150, h: 210 };
-    this.action = this.immiscible ? 'EMULSIFY — the layers refuse to mix' : this.powdery ? 'FOLD — blend the powders evenly' : 'DISSOLVE — work the powder into solution';
-    g.lab.ticker(`${this.action}. hold to agitate; keep it in the amber zone — don't thrash it.`);
-    this.b = mkBtn('LOCK IN MIX', 'left:50%;bottom:20px;transform:translateX(-50%)'); this.b.disabled = true; this.b.onclick = () => this.finish();
-    let dd = .4; g.selected.forEach((d, i) => setTimeout(() => { if (game !== g || g.closed) return; this.added++; AX.drop(); this.splash(d.color); }, dd * 1000 + i * 450));
-    AX.loop('whir', { freq: 120, type: 'triangle', gain: 0, filt: 700, tremRate: 22, tremDepth: .6 });
+  enter() {
+    const g = game; this.t = 0; this.queue = g.selected.slice(); this.idx = 0; this.meter = 0; this.fill = 0;
+    this.hold = false; this.crushHits = 0; this.frags = []; this.cloud = []; this.done = false;
+    this.beaker = { x: W / 2, y: H * 0.52, w: 140, h: 200 };
+    g.lab.ticker('REDUCE — turn every form into a liquid: crush solids, dissolve powders, bleed gas, cut paste.');
+    this.setupCurrent();
+    AX.loop('whir', { freq: 110, type: 'triangle', gain: 0, filt: 700, tremRate: 20, tremDepth: .5 });
   },
   exit() { AX.stop('whir'); },
-  splash(col) { for (let i = 0; i < 14; i++) this.particles.push({ x: this.beaker.x + rnd(30, -30), y: this.beaker.y - 80, vx: rnd(60, -60), vy: rnd(-40, -120), life: 0, ttl: .6, col }); },
-  down() { this.hold = true; }, up() { this.hold = false; },
-  key(e) { if (e.code === 'Space') { e.preventDefault(); this.hold = true; } }, keyup(e) { if (e.code === 'Space') this.hold = false; },
-  update(dt) { this.t += dt; this.agit = lerp(this.agit, this.hold ? 1 : 0, dt * (this.hold ? 3 : 2.2)); AX.loopGain('whir', this.agit * .12);
-    if (this.added < game.selected.length) return;
-    const band = clamp(.16 - game.diff() * 0.004, .06, .16), inZone = Math.abs(this.agit - this.target) < band;
-    if (inZone) this.homog = clamp(this.homog + dt * (this.immiscible ? .28 : .42), 0, 1);
-    else if (this.agit > this.target + band) { this.overd += dt; addInstability(dt * 7 * game.vol(), 'over-agitating'); }
-    if (this.immiscible && this.agit < this.target - band) this.homog = clamp(this.homog - dt * .12, 0, 1);
-    this.particles.forEach(p => { p.life += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; }); this.particles = this.particles.filter(p => p.life < p.ttl);
-    if (this.homog >= 1 && !this.done) { this.done = true; this.b.disabled = false; AX.good(); game.lab.ticker('homogeneous. lock it in.'); }
+  setupCurrent() {
+    const d = this.queue[this.idx]; this.meter = 0; this.crushHits = 0; if (!d) return; const f = d.form;
+    if (f === 'liquid') { this.mode = 'auto'; this.rate = 1.1; this.label = 'ALREADY LIQUID — decanting'; }
+    else if (f === 'crystal' || f === 'pill') { this.mode = 'crush'; this.label = 'CRUSH — mash SPACE / click'; }
+    else if (f === 'gas') { this.mode = 'hold'; this.rate = 0.42; this.label = 'BLEED the valve — hold'; }
+    else if (f === 'gel') { this.mode = 'hold'; this.rate = 0.30; this.label = 'WORK it down — hold'; }
+    else if (f === 'paste') { this.mode = 'hold'; this.rate = 0.22; this.label = 'CUT with solvent — hold'; }
+    else if (f === 'blotter') { this.mode = 'hold'; this.rate = 0.34; this.label = 'STEEP — hold, gently'; }
+    else { this.mode = 'hold'; this.rate = 0.5; this.label = 'DISSOLVE the powder — hold'; }
   },
-  finish() { if (this.done === 'locked') return; this.done = 'locked'; AX.click(); game.scores.mix = clamp(this.homog - this.overd * 0.06, 0, 1); addInstability((1 - game.scores.mix) * 10 * game.vol(), 'sloppy mix'); transit(game, 'pour'); },
-  draw() { const b = this.beaker;
-    drawBeaker(b, () => { const filled = this.added / Math.max(1, game.selected.length), top = b.y + b.h / 2 - (b.h * 0.66) * filled;
-      if (this.immiscible && this.homog < .98) { const n = game.selected.length, area = (b.y + b.h / 2) - top;
-        game.selected.forEach((d, i) => { const ly = top + area * (i / n) + Math.sin(this.t * 3 + i) * 4 * (1 - this.homog); const lh = area / n + 2;
-          G.fillStyle = mixColors(d.color, avgColor(game.selected), this.homog); G.fillRect(b.x - b.w / 2, ly, b.w, lh + area * this.homog * 0.02); });
-      } else { const col = avgColor(game.selected), top2 = top;
-        fillLiquid(b.x - b.w / 2, b.w, top2, b.y + b.h / 2, col, col, this.t, this.agit * 0.4, 0.2);
-        G.globalAlpha = (1 - this.homog) * .5; for (let i = 0; i < 20; i++) { G.fillStyle = shade(col, 40); const px = b.x + Math.sin(this.t * 2 + i) * b.w * .35, py = top2 + ((i * 13 + this.t * 20) % ((b.y + b.h / 2) - top2)); G.beginPath(); G.arc(px, py, 2.5, 0, 7); G.fill(); } G.globalAlpha = 1;
-      }
-      const cx = b.x, cyy = b.y + b.h * 0.18; G.strokeStyle = `rgba(255,255,255,${.1 + this.agit * .3})`; G.lineWidth = 2;
-      for (let sN = 0; sN < 3; sN++) { G.beginPath(); for (let a = 0; a < Math.PI * 2; a += .3) { const rr = (18 + sN * 14) * (1 + this.agit * .3), wob = Math.sin(this.t * 8 + a * 3) * this.agit * 6; const px = cx + Math.cos(a + this.t * 4 * this.agit) * (rr + wob), py = cyy + Math.sin(a + this.t * 4 * this.agit) * (rr * .4 + wob * .4); a === 0 ? G.moveTo(px, py) : G.lineTo(px, py); } G.stroke(); }
-    });
-    this.particles.forEach(p => { G.globalAlpha = 1 - p.life / p.ttl; G.fillStyle = p.col; G.beginPath(); G.arc(p.x, p.y, 2.5, 0, 7); G.fill(); }); G.globalAlpha = 1;
-    const gx = b.x + b.w / 2 + 40, gy = b.y - b.h / 2, gh = b.h;
-    G.fillStyle = '#0a0f0c'; G.strokeStyle = 'rgba(132,150,168,.3)'; roundRect(gx, gy, 16, gh, 4); G.fill(); G.stroke();
-    const band = clamp(.16 - game.diff() * 0.004, .06, .16);
-    G.fillStyle = 'rgba(255,178,62,.25)'; G.fillRect(gx, gy + gh * (1 - (this.target + band)), 16, gh * band * 2);
-    G.strokeStyle = 'rgba(255,178,62,.7)'; G.strokeRect(gx, gy + gh * (1 - (this.target + band)), 16, gh * band * 2);
-    const ny = gy + gh * (1 - this.agit); G.fillStyle = Math.abs(this.agit - this.target) < band ? '#4fe08a' : this.agit > this.target ? '#ff4a5b' : '#5fd0e0'; G.fillRect(gx - 3, ny - 2, 22, 4);
-    G.fillStyle = '#6f8a7c'; G.font = '10px monospace'; G.textAlign = 'center'; G.fillText(this.action, b.x, b.y - b.h / 2 - 30);
-    G.fillStyle = '#4fe08a'; G.font = 'bold 13px monospace'; G.fillText('HOMOGENEITY ' + Math.round(this.homog * 100) + '%', b.x, b.y - b.h / 2 - 12);
+  advance() {
+    const d = this.queue[this.idx]; this.idx++; this.fill = clamp(this.idx / this.queue.length, 0, 1);
+    for (let i = 0; i < 12; i++) this.cloud.push({ x: this.beaker.x + rnd(28, -28), y: this.beaker.y - 52, vx: rnd(50, -50), vy: rnd(-30, -90), life: 0, ttl: .6, col: d.color });
+    AX.drop();
+    if (this.idx >= this.queue.length) { if (!this.done) { this.done = true; game.scores.mix = 0.9; AX.good(); game.lab.ticker('all reduced to a clean liquid.'); setTimeout(() => { if (game && !game.closed && stage === this) transit(game, 'pour'); }, 650); } }
+    else this.setupCurrent();
+  },
+  mash() { if (this.mode !== 'crush' || this.done) return; this.crushHits++; this.meter = clamp(this.meter + 0.16, 0, 1); AX.tick();
+    const d = this.queue[this.idx]; for (let i = 0; i < 5; i++) this.frags.push({ x: rnd(18, -18), y: rnd(8, -8), vx: rnd(130, -130), vy: rnd(-70, -170), life: 0, ttl: .5, col: d.color });
+    if (this.meter >= 1) this.advance();
+  },
+  down() { if (this.mode === 'crush') this.mash(); else this.hold = true; },
+  up() { this.hold = false; },
+  key(e) { if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); if (this.mode === 'crush') this.mash(); else this.hold = true; } },
+  keyup(e) { if (e.code === 'Space' || e.key === ' ') this.hold = false; },
+  update(dt) { this.t += dt; const d = this.queue[this.idx];
+    if (d && !this.done) {
+      if (this.mode === 'auto') { this.meter = clamp(this.meter + dt * this.rate, 0, 1); if (this.meter >= 1) this.advance(); }
+      else if (this.mode === 'hold') { AX.loopGain('whir', (this.hold ? 1 : 0) * .1); if (this.hold) { this.meter = clamp(this.meter + dt * this.rate, 0, 1); if (this.meter >= 1) this.advance(); } }
+    }
+    this.frags.forEach(fr => { fr.life += dt; fr.x += fr.vx * dt; fr.y += fr.vy * dt; fr.vy += 500 * dt; }); this.frags = this.frags.filter(fr => fr.life < fr.ttl);
+    this.cloud.forEach(c => { c.life += dt; c.x += c.vx * dt; c.y += c.vy * dt; c.vy += 300 * dt; }); this.cloud = this.cloud.filter(c => c.life < c.ttl);
+  },
+  draw() {
+    const b = this.beaker, base = b.y + b.h / 2, cy = b.y - b.h / 2 - 50;
+    drawBeaker(b, () => { if (this.fill > 0.001) { const done = this.queue.slice(0, this.idx); const col = avgColor(done.length ? done : this.queue); const top = base - (b.h * 0.66) * this.fill; fillLiquid(b.x - b.w / 2, b.w, top, base, col, col, this.t, 0.1, 0.15); } });
+    const d = this.queue[this.idx];
+    if (d && !this.done) {
+      const held = this.mode === 'hold' && this.hold;
+      G.save(); G.globalAlpha = 1 - this.meter * 0.55;
+      drawPackage(d, b.x, cy, false, false, this.t, { tilt: held ? -0.5 : (this.mode === 'crush' ? Math.sin(this.t * 28) * 0.05 : 0), slosh: held ? 0.6 : 0 });
+      G.restore();
+      if (held) { G.strokeStyle = d.color; G.globalAlpha = .7; G.lineWidth = 3; G.beginPath(); G.moveTo(b.x, cy + 12); G.lineTo(b.x + rnd(4, -4), base - b.h + 10); G.stroke(); G.globalAlpha = 1; }
+      G.textAlign = 'center'; G.fillStyle = '#6f8a7c'; G.font = '9px monospace'; G.fillText(`${(d.known ?? 1) > .4 ? d.name : 'UNKNOWN'} · ${this.idx + 1}/${this.queue.length}`, b.x, cy - 54);
+      G.fillStyle = '#cfe9d8'; G.font = 'bold 11px monospace'; G.fillText(this.label, b.x, cy - 40);
+      const mw = 150, mx = b.x - mw / 2, my = base + 16;
+      G.fillStyle = '#0a0f0c'; G.strokeStyle = 'rgba(132,150,168,.3)'; roundRect(mx, my, mw, 8, 3); G.fill(); G.stroke();
+      G.fillStyle = this.mode === 'crush' ? '#ffb23e' : '#4fe08a'; roundRect(mx, my, mw * this.meter, 8, 3); G.fill();
+    }
+    this.frags.forEach(fr => { G.globalAlpha = 1 - fr.life / fr.ttl; G.fillStyle = fr.col; G.fillRect(b.x + fr.x, cy + fr.y, 3, 3); }); G.globalAlpha = 1;
+    this.cloud.forEach(c => { G.globalAlpha = 1 - c.life / c.ttl; G.fillStyle = c.col; G.beginPath(); G.arc(c.x, c.y, 2.5, 0, 7); G.fill(); }); G.globalAlpha = 1;
   },
 };
 
 STAGES.pour = {
   enter() { const g = game; this.t = 0; this.stepIdx = 0; this.level = 0; this.vel = 0; this.pouring = false; this.locked = [];
-    this.steps = [ { name: 'REAGENT', col: '#4fe08a', target: .55, band: clamp(.10 - g.diff() * .003, .04, .10) },
-      { name: 'CATALYST', col: '#9a5ce0', target: .78, band: clamp(.075 - g.diff() * .003, .03, .075), touchy: true } ];
+    this.steps = [ { name: 'REAGENT', col: '#4fe08a', target: .55, band: clamp(.14 - g.diff() * .0025, .07, .14) },
+      { name: 'CATALYST', col: '#9a5ce0', target: .78, band: clamp(.11 - g.diff() * .0025, .05, .11), touchy: true } ];
     this.drops = []; this.beaker = { x: W / 2, y: H * 0.5, w: 150, h: 210 };
     g.lab.ticker('pour the REAGENT to its line. hold to pour, release on the mark. the stream lags — anticipate.');
-    this.b = mkBtn('HOLD TO POUR / RELEASE ON MARK', 'left:50%;bottom:20px;transform:translateX(-50%)', 'ghost'); this.b.style.pointerEvents = 'none';
+    this.b = mkBtn('HOLD TO POUR / RELEASE ON MARK', 'left:50%;top:40px;transform:translateX(-50%)', 'ghost'); this.b.style.pointerEvents = 'none';
   },
   exit() { AX.pour(false); },
   down() { this.startPour(); }, up() { this.endPour(); },
@@ -383,7 +593,7 @@ STAGES.pour = {
   },
   finish() { game.scores.pour = this.locked.reduce((a, b) => a + b, 0) / this.locked.length; setTimeout(() => { if (game && !game.closed) transit(game, 'stir'); }, 500); },
   update(dt) { this.t += dt; const s = this.steps[this.stepIdx]; if (!s) return;
-    if (this.pouring) { this.vel += dt * (s.touchy ? 0.5 : 0.72); for (let i = 0; i < 2; i++) this.drops.push({ x: this.beaker.x + rnd(6, -6), y: this.beaker.y - this.beaker.h / 2 - 30, vy: 200, life: 0, col: s.col }); }
+    if (this.pouring) { this.vel += dt * (s.touchy ? 0.34 : 0.48); for (let i = 0; i < 2; i++) this.drops.push({ x: this.beaker.x + rnd(6, -6), y: this.beaker.y - this.beaker.h / 2 - 30, vy: 200, life: 0, col: s.col }); }
     this.vel *= Math.pow(0.1, dt); this.level = clamp(this.level + this.vel * dt, 0, 1); if (this.level >= 1 && this.pouring) this.endPour();
     this.drops.forEach(d => { d.life += dt; d.y += d.vy * dt; }); this.drops = this.drops.filter(d => d.life < .5);
   },
@@ -414,7 +624,7 @@ STAGES.stir = {
   enter() { const g = game; this.t = 0; this.angle = 0; this.rpm = 0; this.spin = 0; this.lastA = null; this.holdT = 0; this.need = 5.5;
     this.targetRpm = 0.55; this.band = clamp(.22 - g.diff() * .008, .1, .22); this.keyDir = 0; this.beaker = { x: W / 2, y: H * 0.5, w: 150, h: 210 }; this.ended = false;
     g.lab.ticker('STIR — trace circles over the beaker (or hold ← / →). hold the rod in the green RPM band.');
-    this.bar = mkEl('position:absolute;left:50%;bottom:24px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:2px;text-transform:uppercase;pointer-events:none');
+    this.bar = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:2px;text-transform:uppercase;pointer-events:none');
     AX.loop('stir', { freq: 80, type: 'sawtooth', gain: 0, filt: 500 });
   },
   exit() { AX.stop('stir'); },
@@ -450,16 +660,16 @@ STAGES.stir = {
 
 STAGES.heat = {
   enter() { const g = game; this.t = 0; this.dur = 15; this.level = .5; this.vel = 0; this.hold = false; this.inBand = 0; this.ended = false;
-    const d = g.diff(); this.gravity = 0.95 + d * .05; this.push = 1.9 + d * .05; this.bandHalf = clamp(.16 - d * .008, .05, .16); this.bandSpeed = .2 + d * .05;
+    const d = g.diff(); this.gravity = 0.8 + d * .04; this.push = 1.7 + d * .04; this.bandHalf = clamp(.20 - d * .006, .09, .20); this.bandSpeed = .09 + d * .018;
     this.beaker = { x: W / 2, y: H * 0.48, w: 120, h: 230 }; this.bubbles = []; this.heatS = 0;
     g.lab.ticker('STABILIZE — hold to heat, keep the reagent in the green band. let it run away and it bites.');
-    this.bar = mkEl('position:absolute;left:50%;bottom:22px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:2px;text-transform:uppercase;pointer-events:none');
+    this.bar = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:2px;text-transform:uppercase;pointer-events:none');
     AX.loop('burner', { freq: 70, type: 'sawtooth', gain: .04, filt: 520, tremRate: 11, tremDepth: .35 });
   },
   exit() { AX.stop('burner'); },
   down() { this.hold = true; }, up() { this.hold = false; },
   key(e) { if (e.code === 'Space') { e.preventDefault(); this.hold = true; } }, keyup(e) { if (e.code === 'Space') this.hold = false; },
-  band() { const c = .5 + (.5 - this.bandHalf) * .8 * Math.sin(this.t * this.bandSpeed * Math.PI * 2); return clamp(c, this.bandHalf, 1 - this.bandHalf); },
+  band() { const c = .5 + (.5 - this.bandHalf) * .5 * Math.sin(this.t * this.bandSpeed * Math.PI * 2); return clamp(c, this.bandHalf, 1 - this.bandHalf); },
   update(dt) { this.t += dt; this.vel += (this.hold ? this.push : -this.gravity) * dt; this.vel *= Math.pow(.06, dt); this.level = clamp(this.level + this.vel * dt, 0, 1);
     this.heatS += ((this.hold ? 1 : 0) - this.heatS) * Math.min(1, dt * 6); AX.loopGain('burner', .04 + this.heatS * .1);
     const c = this.band(), inb = Math.abs(this.level - c) <= this.bandHalf; if (inb) this.inBand += dt;
@@ -490,7 +700,7 @@ STAGES.rhythm = {
     this.beaker = { x: W / 2, y: H * 0.5, w: 150, h: 200 };
     g.lab.ticker('SET — strike SPACE on each pulse. lock the lattice. this is the part everyone rushes and ruins.');
     this.judgements = []; this.nextMetro = this.lead;
-    this.readout = mkEl('position:absolute;left:50%;bottom:24px;transform:translateX(-50%);color:#6f8a7c;font-size:11px;letter-spacing:2px;text-transform:uppercase;pointer-events:none;min-width:120px;text-align:center');
+    this.readout = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:11px;letter-spacing:2px;text-transform:uppercase;pointer-events:none;min-width:120px;text-align:center');
     AX.loop('drone', { freq: 55, type: 'sine', gain: .05, filt: 300 });
   },
   exit() { AX.stop('drone'); },

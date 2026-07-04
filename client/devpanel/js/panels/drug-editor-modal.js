@@ -63,6 +63,14 @@ async function openDrugEditorFromForm() {
   const g = (id) => document.getElementById(id);
   let effects = {};
   try { effects = JSON.parse(g('f-effects')?.value || '{}'); } catch { await dpAlert('Effects JSON is invalid — fix it before using the structured editor.'); return; }
+  // Carry flags through the modal: start from the full stashed flags, then apply
+  // the inline form's appearance edits so nothing is lost on round-trip.
+  let flags = {}; try { flags = JSON.parse(g('f-flags-json')?.value || '{}'); } catch { flags = {}; }
+  if (g('f-is_legal')) flags.legal = g('f-is_legal').value === '1';
+  const _fm = g('f-form')?.value; if (_fm) flags.form = _fm; else delete flags.form;
+  const _sb = g('f-sub')?.value.trim(); if (_sb) flags.sub = _sb; else delete flags.sub;
+  if (g('f-color-on')) { if (g('f-color-on').checked) flags.color = g('f-color')?.value; else delete flags.color; }
+  const _vv = g('f-volatility')?.value; if (_vv == null || _vv === '') delete flags.volatility; else flags.volatility = Math.max(0, Math.min(1, +_vv));
   const rec = {
     id: g('f-id')?.value || '',
     name: g('f-name')?.value || '',
@@ -71,7 +79,7 @@ async function openDrugEditorFromForm() {
     duration_seconds: g('f-duration_seconds')?.value || 300,
     overdose_threshold: g('f-overdose_threshold')?.value || 3,
     addiction_chance: g('f-addiction_chance')?.value || 0,
-    effects,
+    effects, flags,
     withdrawal_effects: (() => { try { return JSON.parse(g('f-withdrawal_effects')?.value || '{}'); } catch { return {}; } })(),
   };
   openDrugEditorModal(rec, !g('f-id')?.readOnly);
@@ -112,6 +120,29 @@ function openDrugEditorModal(rec, isNew) {
         ${_num('overdose_threshold', 'OD threshold (doses)', rec.overdose_threshold)}
         ${_num('addiction_chance', 'Addiction/dose (0–1)', rec.addiction_chance, 0.01)}
         ${_num('diuretic', 'Diuretic (1=neutral, >1 pees, <1 retains)', e.diuretic, 0.05, '1')}
+      </div>
+
+      ${_hdr('🧪 Splice-bench appearance (blank = auto-derive)')}
+      <div class="field-row">
+        <div class="field"><label>Package form</label>
+          <select id="dg-form">
+            <option value="" ${!rec.flags?.form ? 'selected' : ''}>— auto —</option>
+            <option value="liquid" ${rec.flags?.form === 'liquid' ? 'selected' : ''}>liquid (vial)</option>
+            <option value="powder" ${rec.flags?.form === 'powder' ? 'selected' : ''}>powder (baggie)</option>
+            <option value="gel" ${rec.flags?.form === 'gel' ? 'selected' : ''}>gel (pouch)</option>
+            <option value="pill" ${rec.flags?.form === 'pill' ? 'selected' : ''}>pill (blister)</option>
+            <option value="gas" ${rec.flags?.form === 'gas' ? 'selected' : ''}>gas (canister)</option>
+            <option value="crystal" ${rec.flags?.form === 'crystal' ? 'selected' : ''}>crystal (shard)</option>
+            <option value="blotter" ${rec.flags?.form === 'blotter' ? 'selected' : ''}>blotter (tab sheet)</option>
+            <option value="paste" ${rec.flags?.form === 'paste' ? 'selected' : ''}>paste (tar brick)</option>
+          </select></div>
+        ${_txt('sub', 'Sub-form (mix behaviour)', rec.flags?.sub, 'auto — thin/oil/solvent/fine/crystalline/viscous/tablet')}
+        <div class="field"><label>Colour</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="color" id="dg-color" value="${rec.flags?.color || '#4fe08a'}" oninput="var c=document.getElementById('dg-color_on');if(c)c.checked=true" style="width:34px;height:28px;padding:1px;border:1px solid var(--border);background:var(--bg3);cursor:pointer">
+            <label style="font-size:12px;display:flex;gap:4px;align-items:center"><input type="checkbox" id="dg-color_on" ${rec.flags?.color ? 'checked' : ''} style="width:auto"> custom</label>
+          </div></div>
+        ${_num('volatility', 'Volatility (0–1)', rec.flags?.volatility, 0.05, 'auto')}
       </div>
 
       ${_hdr('⚡ Instant (one-shot deltas)')}
@@ -275,10 +306,19 @@ async function _dgSave() {
 
   const id = _v('id').trim();
   if (!id) { toast('Drug ID is required', true); return; }
+
+  // Preserve flags (legal + anything else) and apply the appearance controls.
+  // (Without this the modal used to silently wipe the drug's flags on save.)
+  const flags = { ..._dgRec?.flags };
+  { const v = _v('form'); if (v) flags.form = v; else delete flags.form; }
+  { const v = _v('sub').trim(); if (v) flags.sub = v; else delete flags.sub; }
+  { const on = document.getElementById('dg-color_on'); if (on) { if (on.checked) flags.color = _v('color'); else delete flags.color; } }
+  { const v = _v('volatility'); if (v === '') delete flags.volatility; else flags.volatility = Math.max(0, Math.min(1, Number(v))); }
+
   const body = {
     name: _v('name'), description: _v('description'), item_id: _v('item_id') || null,
     duration_seconds: _n('duration_seconds') || 300, overdose_threshold: _n('overdose_threshold') || 3,
-    addiction_chance: _n('addiction_chance') || 0, effects,
+    addiction_chance: _n('addiction_chance') || 0, effects, flags,
     withdrawal_effects: _dgRec?.withdrawal_effects || {},
   };
   if (_dgIsNew) body.id = id;

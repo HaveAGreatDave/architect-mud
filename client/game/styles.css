@@ -2036,7 +2036,12 @@ textarea {
 }
 .map-street-h::before { width: 100%; height: 2px; }
 .map-street-v::before { width: 2px; height: 100%; }
-/* "Your exits" — streets touching the current tile, brightened. */
+/* Major road — a tagged (flags.artery) through-street, fixed colour regardless
+   of danger/land-use tint, so the city's arteries read at a glance. */
+.map-street-artery::before { background: var(--cyan); box-shadow: 0 0 3px var(--cyan); }
+.map-street-h.map-street-artery::before { height: 3px; }
+.map-street-v.map-street-artery::before { width: 3px; }
+/* "Your exits" — streets touching the current tile, brightened. Wins over artery styling. */
 .map-street-open::before { background: var(--accent); box-shadow: 0 0 4px var(--accent); }
 .map-street-h.map-street-open::before { height: 3px; }
 .map-street-v.map-street-open::before { width: 3px; }
@@ -2061,6 +2066,15 @@ textarea {
 }
 /* Dead-end (a single connector) reads slightly muted. */
 .map-room.map-deadend { opacity: 0.82; }
+
+/* Landmark POI icons — bold, colour-coded by category (airport, police, …). */
+.map-poi { font-weight: bold; }
+.map-poi-airport { color: #2fd0c0; }
+.map-poi-police  { color: #6a9bff; }
+.map-poi-power   { color: #ffd23a; }
+.map-poi-club    { color: #ff6ac1; }
+.map-poi-vendor  { color: #4bd07a; }
+.map-poi-stairs  { color: #c0a0ff; }
 .map-room.danger-safe {
 	background: rgba(35, 100, 55, 0.45);
 	border-color: rgba(80, 180, 100, 0.55);
@@ -2200,6 +2214,11 @@ textarea {
 	border-radius: 1px;
 	background: var(--text-dim);
 	vertical-align: middle;
+}
+.map-leg-street.map-leg-street-artery {
+	height: 3px;
+	background: var(--cyan);
+	box-shadow: 0 0 3px var(--cyan);
 }
 .map-leg-street.map-leg-street-open {
 	height: 3px;
@@ -6212,7 +6231,7 @@ textarea {
 	justify-content: space-between;
 	/* Chunky VHS-style shell: tall vertical padding gives the cassette body real
 	   video-cassette thickness (reels stay centred in the taller window). */
-	padding: 34px 14px;
+	padding: 50px 14px;
 	overflow: visible;
 	perspective: 380px;
 }
@@ -6246,8 +6265,20 @@ textarea {
 	inset: 4px;
 	border-radius: 4px;
 	/* Amber-brown broadcast cassette shell — clearly distinct from the
-	   purple-black studio chassis. */
-	background: linear-gradient(180deg, #221108 0%, #150b05 100%);
+	   purple-black studio chassis. Bored spool-hole rims: each reel sits in a
+	   socket whose upper lip catches light and lower lip falls into shadow. The
+	   crescents are offset up/down from each reel centre so, with the Z-lift in
+	   the drop animation below, the sockets read as real 3D bores as the tape
+	   tilts in — not flat printed rings. (Reels cover the inner disc; only the
+	   collar shows.) */
+	background:
+		radial-gradient(circle 30px at 32px calc(50% - 6px), rgba(255, 214, 150, 0.30) 55%, rgba(255, 214, 150, 0) 82%),
+		radial-gradient(circle 30px at 32px calc(50% + 7px), rgba(0, 0, 0, 0.72) 52%, rgba(0, 0, 0, 0) 84%),
+		radial-gradient(circle 30px at calc(100% - 32px) calc(50% - 6px), rgba(255, 214, 150, 0.30) 55%, rgba(255, 214, 150, 0) 82%),
+		radial-gradient(circle 30px at calc(100% - 32px) calc(50% + 7px), rgba(0, 0, 0, 0.72) 52%, rgba(0, 0, 0, 0) 84%),
+		radial-gradient(ellipse 26px 20px at 50% calc(50% - 5px), rgba(255, 214, 150, 0.24) 55%, rgba(255, 214, 150, 0) 82%),
+		radial-gradient(ellipse 26px 20px at 50% calc(50% + 6px), rgba(0, 0, 0, 0.68) 52%, rgba(0, 0, 0, 0) 84%),
+		linear-gradient(180deg, #221108 0%, #150b05 100%);
 	border: 1px solid rgba(200, 130, 40, 0.45);
 	display: flex;
 	align-items: center;
@@ -6274,17 +6305,17 @@ textarea {
 /* The tape tips forward (top toward viewer) as it comes down, then flattens as it
    slides home behind the glass — hinging on its bottom edge for the 3D lean. */
 @keyframes mediadeck-cassette-drop {
-	0%   { opacity: 0; transform: translateY(-150%) rotateX(-34deg); }
+	0%   { opacity: 0; transform: translateY(-150%) translateZ(32px) rotateX(-34deg); }
 	12%  { opacity: 1; }
-	58%  { transform: translateY(-6%) rotateX(-30deg); }
-	76%  { transform: translateY(7%) rotateX(-7deg); }
-	90%  { transform: translateY(-2%) rotateX(0deg); }
-	100% { opacity: 1; transform: translateY(0) rotateX(0deg); }
+	58%  { transform: translateY(-6%) translateZ(28px) rotateX(-30deg); }
+	76%  { transform: translateY(7%) translateZ(16px) rotateX(-7deg); }
+	90%  { transform: translateY(-2%) translateZ(5px) rotateX(0deg); }
+	100% { opacity: 1; transform: translateY(0) translateZ(0) rotateX(0deg); }
 }
 @keyframes mediadeck-cassette-rise {
-	0%   { opacity: 1; transform: translateY(0) rotateX(0deg); }
-	25%  { transform: translateY(6%) rotateX(-10deg); }
-	100% { opacity: 0; transform: translateY(-150%) rotateX(-34deg); }
+	0%   { opacity: 1; transform: translateY(0) translateZ(0) rotateX(0deg); }
+	25%  { transform: translateY(6%) translateZ(20px) rotateX(-10deg); }
+	100% { opacity: 0; transform: translateY(-150%) translateZ(32px) rotateX(-34deg); }
 }
 #mediadeck-slot.inserting .mediadeck-cassette-body {
 	opacity: 1;
@@ -7186,7 +7217,7 @@ textarea {
 	border-radius: 8px;
 	/* Taller window so the tape shell reads as a chunky block reaching up to the
 	   glass top edge (reels stay centred, mask holes stay aligned over them). */
-	padding: 30px 16px;
+	padding: 44px 16px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -7199,8 +7230,19 @@ textarea {
 	inset: 4px;
 	border-radius: 6px;
 	/* Graphite walkman tape shell — deliberately a different colour from the
-	   theme-tinted chassis window so the cassette reads as its own object. */
-	background: linear-gradient(180deg, #2b2f3a 0%, #14161d 100%);
+	   theme-tinted chassis window so the cassette reads as its own object.
+	   Bored spool-hole rims: light crescents on the upper lip of each hole, dark
+	   crescents on the lower lip. They're offset up/down from each hole centre so
+	   the mask (below) clips their inner half, leaving directional rims that — with
+	   the Z-lift in the drop animation — read as real 3D bores as the tape tilts in. */
+	background:
+		radial-gradient(circle 32px at 40px calc(50% - 6px), rgba(210, 228, 255, 0.28) 55%, rgba(210, 228, 255, 0) 82%),
+		radial-gradient(circle 32px at 40px calc(50% + 7px), rgba(0, 0, 0, 0.72) 52%, rgba(0, 0, 0, 0) 84%),
+		radial-gradient(circle 32px at calc(100% - 40px) calc(50% - 6px), rgba(210, 228, 255, 0.28) 55%, rgba(210, 228, 255, 0) 82%),
+		radial-gradient(circle 32px at calc(100% - 40px) calc(50% + 7px), rgba(0, 0, 0, 0.72) 52%, rgba(0, 0, 0, 0) 84%),
+		radial-gradient(ellipse 34px 22px at 50% calc(50% - 5px), rgba(210, 228, 255, 0.22) 55%, rgba(210, 228, 255, 0) 82%),
+		radial-gradient(ellipse 34px 22px at 50% calc(50% + 6px), rgba(0, 0, 0, 0.68) 52%, rgba(0, 0, 0, 0) 84%),
+		linear-gradient(180deg, #2b2f3a 0%, #14161d 100%);
 	border: 1px solid #3d4354;
 	display: flex;
 	align-items: center;
@@ -7244,17 +7286,17 @@ textarea {
 /* The tape tips forward (top toward viewer) as it comes down, then flattens as it
    slides home behind the glass — hinging on its bottom edge for the 3D lean. */
 @keyframes amp-cassette-drop {
-	0%   { opacity: 0; transform: translateY(-150%) rotateX(-34deg); }
+	0%   { opacity: 0; transform: translateY(-150%) translateZ(34px) rotateX(-34deg); }
 	12%  { opacity: 1; }
-	58%  { transform: translateY(-6%) rotateX(-30deg); }
-	76%  { transform: translateY(7%) rotateX(-7deg); }
-	90%  { transform: translateY(-2%) rotateX(0deg); }
-	100% { opacity: 1; transform: translateY(0) rotateX(0deg); }
+	58%  { transform: translateY(-6%) translateZ(30px) rotateX(-30deg); }
+	76%  { transform: translateY(7%) translateZ(17px) rotateX(-7deg); }
+	90%  { transform: translateY(-2%) translateZ(6px) rotateX(0deg); }
+	100% { opacity: 1; transform: translateY(0) translateZ(0) rotateX(0deg); }
 }
 @keyframes amp-cassette-rise {
-	0%   { opacity: 1; transform: translateY(0) rotateX(0deg); }
-	25%  { transform: translateY(6%) rotateX(-10deg); }
-	100% { opacity: 0; transform: translateY(-150%) rotateX(-34deg); }
+	0%   { opacity: 1; transform: translateY(0) translateZ(0) rotateX(0deg); }
+	25%  { transform: translateY(6%) translateZ(22px) rotateX(-10deg); }
+	100% { opacity: 0; transform: translateY(-150%) translateZ(34px) rotateX(-34deg); }
 }
 .amp-cassette-window.inserting .amp-cassette-body {
 	opacity: 1;

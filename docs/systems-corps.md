@@ -159,8 +159,17 @@ wants* is the deepest thread ([story.md](story.md)). Corps give it something to 
   **fixed** to read org membership (was reading a nonexistent `player.faction`). **Deferred within Phase 0:**
   HQ forcefield/home-bind/best-rest stay personal-only; NPC-faction-vs-player *reputation* reactions want a
   future async REP condition (FACTION_MATCH only covers crew membership).
-- **Phase 1 — Territory.** `zone_control` + `claim`, the influence tug-of-war, upkeep + income on the 24h
-  tick.
+- **Phase 1 — Territory. ✅ BUILT 2026-07-04.** `zone_control` table (one controller + `influence` 0–100
+  grip + tracked `challenger_org_id` + base_income/base_upkeep), cached in `world.zoneControl`. Context-sensitive
+  `corp claim` (apartment→HQ, claimable zone→territory; claimable = danger≠safe or `flags.claimable`), plus
+  `corp contest` (an Intimidate check erodes a rival's grip; **seizes** the zone at 0%) and `corp reinforce`
+  (spend treasury → +grip). 24h tick (`runTerritoryTick`, scheduled): income−upkeep to each controller's
+  treasury (overextension bleeds it — the natural cap), uncontested grip consolidates toward 100, contested
+  erodes and flips. **Architect heat** = concentration (zones held + treasury) → drives the console LED deck +
+  sidebar. Client: console territory column shows real tug-bars (contested pulse, live-patched), and the
+  **standalone strategic map** (`corp map` → `panels/corp-map.js`) tints the city grid by controlling org with
+  per-zone influence, contested pulses, a legend, and a context-aware detail panel (claim/contest/reinforce
+  where you stand). Verified: full loop DB test + regress 221/221.
 - **Phase 2 — Investment.** Org tiers, buy assets (vendors / ATMs / turrets / stations).
 - **Phase 3 — Conflict & diplomacy.** War / raids, espionage / sabotage (SPECTER + Crime),
   treaties / relations.

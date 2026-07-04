@@ -26,7 +26,7 @@ startup / takeoff / landing and widens the minigame safe bands.
 
 ## Commands
 
-- **Flight:** `board` · `disembark`/`deplane` · `startup` · `shutdown` · `throttle` · `heading` · `climb` · `dive` · `takeoff` · `land` · `refuel`
+- **Flight:** `embark` (primary; `board` is a backup) · `disembark`/`deplane` · `startup` · `shutdown` · `throttle` · `heading` (cardinal or `heading 247`) · `climb` · `dive` · `takeoff` · `land` · `refuel`
 - **Emergencies / utility (Phase B):** `recover` · `extinguish` · `eject`/`bail` · `preflight` · `hover` · `spot`/`scan` · `chart` · `squawk`
 - **Acquisition:** `buy` · `charter`
 - **Combat:** `arm` · `safe` · `evade` · `strafe`/`fire`

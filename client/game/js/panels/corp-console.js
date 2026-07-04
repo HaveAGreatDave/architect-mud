@@ -45,6 +45,16 @@ function ensureStyles() {
     #corp-console-overlay .war { color:#ff5a6a; } #corp-console-overlay .nap { color:#ffcf4a; } #corp-console-overlay .ally { color:#7bffb0; } #corp-console-overlay .neu { color:#6b8a90; }
     #corp-console-overlay .zrow { display:flex; justify-content:space-between; padding:3px 0; }
     #corp-console-overlay .ztag { font-size:9px; letter-spacing:1px; padding:1px 5px; border-radius:3px; color:#7bffb0; border:1px solid #244; background:#0c1a15; }
+    #corp-console-overlay .ztag.t-cont { color:#ffcf4a; border-color:#3a3018; background:#1a150a; }
+    #corp-console-overlay .ztag.t-hq { color:var(--mg-accent); border-color:color-mix(in srgb,var(--mg-accent) 30%,transparent); background:#0a1418; }
+    #corp-console-overlay .cc-zone { margin-bottom:9px; }
+    #corp-console-overlay .zhead { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px; }
+    #corp-console-overlay .ctug { position:relative; height:10px; border-radius:5px; background:#ff5a6a; overflow:hidden; border:1px solid #000; }
+    #corp-console-overlay .ctug i { display:block; height:100%; background:linear-gradient(90deg,var(--mg-accent),#7bffb0); box-shadow:0 0 6px var(--mg-accent); transition:width .3s; }
+    #corp-console-overlay .cc-zone.contested .ctug { animation:cc-tug-pulse 1.5s ease-in-out infinite; }
+    @keyframes cc-tug-pulse { 0%,100%{box-shadow:inset 0 0 0 1px rgba(255,207,74,.2)} 50%{box-shadow:inset 0 0 0 1px rgba(255,207,74,.9),0 0 8px rgba(255,207,74,.4)} }
+    #corp-console-overlay .zpct { display:flex; justify-content:space-between; font-size:10px; margin-top:2px; color:#5a7a80; }
+    #corp-console-overlay .zpct .my { color:var(--mg-accent); }
     #corp-console-overlay .cc-empty { color:#4a636a; font-size:11px; line-height:1.5; }
     /* ATM-recipe button */
     #corp-console-overlay .cc-btn { padding:6px 10px; border-radius:4px; font-family:'Courier New',monospace; font-size:10.5px; font-weight:bold; letter-spacing:1.5px; text-transform:uppercase; cursor:pointer;
@@ -73,8 +83,17 @@ function renderBody() {
   ).join('') || '<div class="cc-empty">No members.</div>';
 
   const territory = (d.territory && d.territory.length)
-    ? d.territory.map(z => `<div class="zrow"><span>${esc(z.zone)}</span><span class="ztag">${esc(z.status)}</span></div>`).join('')
-    : '<div class="cc-empty">No territory yet.<br>Zone control comes online with the territory system.</div>';
+    ? d.territory.map(z => {
+        const inf = z.influence != null ? z.influence : 100;
+        const cls = z.status === 'CONTESTED' ? 't-cont' : z.status === 'HQ' ? 't-hq' : 't-held';
+        const rival = z.challenger ? `<span class="rv">${esc(z.challenger)} ${100 - inf}%</span>` : '<span class="dim">—</span>';
+        return `<div class="cc-zone${z.status === 'CONTESTED' ? ' contested' : ''}">
+          <div class="zhead"><span>${esc(z.zone)}</span><span class="ztag ${cls}">${esc(z.status)}</span></div>
+          <div class="ctug"><i style="width:${inf}%"></i></div>
+          <div class="zpct"><span class="my">GRIP ${inf}%</span>${rival}</div>
+        </div>`;
+      }).join('')
+    : '<div class="cc-empty">No territory yet.<br>Claim a contestable zone with <b>corp claim</b>.</div>';
 
   const directives = (d.directives && d.directives.length)
     ? d.directives.map(o => `<div class="zrow"><span>${esc(o.title)}</span><span class="dim">${esc(String(o.progress ?? ''))}</span></div>`).join('')
@@ -158,6 +177,7 @@ export function updateCorpConsole(patch) {
   if (!_overlay || !_data) return;
   if (patch.treasury) _data.treasury = patch.treasury;
   if (patch.members) _data.members = patch.members;
+  if (patch.territory) _data.territory = patch.territory;
   if (patch.architectHeat != null) _data.architectHeat = patch.architectHeat;
   const screen = _overlay.querySelector('.cc-screen');
   if (screen) {

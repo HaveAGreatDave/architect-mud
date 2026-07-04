@@ -158,12 +158,22 @@ crime), and `eject`/`bail` (parachute-gated — a pilot bailing dooms the craft)
 tower warning → `WANTED_RAISE` (+2) + interceptor scramble message. No-fly cells
 render as a red hatch on the moving-map.
 
-**Phase D — contracts** (`contracts.js`). A field's board lazily tops up to ~3
-open jobs (cargo/passenger, origin→dest airfield, weight, deadline, risk stars,
-payout = distance × weight × risk). `accept` loads weight onto the craft (fed
-through `effStats` → takeoff difficulty + fuel burn + an overweight gate);
-`manifest` tracks active jobs; delivery is detected on landing at the destination
-(on-time = full, late = half). Contraband jobs pay ~1.8× but want you dark.
+**Phase D — contracts** (`contracts.js`). A field's board lazily tops up to ~4
+open jobs drawn from an **authored job-type table** (`JOB_TYPES`) — a spread of
+legal and illegal work, each with its own flavour, load, deadline and pay:
+- **Legal:** Freight · Priority Courier (tight deadline premium) · Cold-Chain Meds ·
+  Passenger/VIP Charter · Medevac (urgent) · Relief Run (dangerous but honest) · Survey Drop.
+- **Illegal** (contraband → **run dark**, +heavy pay, higher risk): Smuggling ·
+  Gun-Running · Chop-Shop Parts · Disposal · Toxic Dump · Exfil (hot) · Data Mule.
+
+Illegal jobs only appear at **lawless fields** (`airfield_lawless` — Slagworks,
+Redline, Smuggler's Slip) and prefer a lawless drop; honest fields (Core, Regional,
+Marshalling) carry legal work only. `accept` loads the weight onto the craft (fed
+through `effStats` → takeoff difficulty + fuel burn + overweight gate); `manifest`
+tracks active jobs; delivery is detected on landing at the destination (on-time =
+full, late = half; contraband pays in "unmarked cash"). Payout = distance × weight
+(or passenger rate) × risk × the job's `payMult`. The board tags each job
+LEGAL/ILLEGAL and shows the deadline.
 
 **Phase D — combat** (`combat.js`). `tickCombat()` each airborne tick: AA sites in
 range fire on low/slow overflights (altitude, speed, `evade`, and a piloting jink
@@ -171,17 +181,70 @@ cut the hit chance); a hit walks the hull-damage ladder → breakup → `crash`.
 `arm`/`safe` toggle weapons (hardpoints only); `strafe`/`fire` arms the **targeting-
 reticle deck** (`flight_target` → `strafresolve`) to silence a site.
 
+**Boarding under fire** (`cmdBoard`). Getting into the cockpit mid-fight is a
+**Reflexes check** (`stat_reflexes` vs a difficulty that scales with the number of
+things attacking you). Fail and you're beaten back into the fight; succeed and you
+slam the hatch — `breakOffAttackers` drops every enemy `targetId` / NPC
+`_combatTargetId` locked on you and clears your combat state (6 s disengage grace),
+so **everything attacking you breaks off**. (Out of combat, boarding is free.)
+
 **Phase D — ownership** (`hangars.js`). `hangar rent/store/pull` (stored = theft-
 proof; an owned craft on an open ramp can be stolen — grand theft, +3 stars);
 `repair` (Fabrication + credits); `salvage` a wreck for scrap; `rebuild` a Carcass
-(Fabrication + Chemistry + 1500c → a random flyable type); `tune` mixture/pitch/
-boost/CG curves (Fabrication widens the safe range) feeding `effStats`.
+(Fabrication + Chemistry + 1500c → a random flyable type).
+
+**Customisation is owner-only** — the umbrella verb `modify` (alias `customize`)
+adjusts everything on a craft you *own outright* (not a charter rental), at a field,
+on the ground: the **tune curves** (mixture / pitch / boost / CG, Fabrication widens
+the safe range, feeding `effStats` → the tick-loop hazard math + HUD), the **tail
+name**, the **livery**, and **saveable tune profiles** (`modify save/load <name>`).
+`modify` with no argument prints the full customisation sheet. `tune` remains the
+quick curve shortcut, now equally owner-gated (`ownedCraft`); rentals and
+other people's aircraft can't be modified.
 
 **Acquisition** (`acquisition.js`). `charter <type>` rents, `buy <type>` purchases
 at a dealer field (`buy` routes back to commerce for ordinary shopping).
 
-**Client** — the HUD gains a no-fly map hatch + ARMED indicator; a fourth
-**targeting** deck joins takeoff/glideslope (all shared chassis + `flight` SFX).
+**The glass cockpit** (`cockpit.js` + `engine-audio.js`). The area pane becomes a
+brushed-metal/glass instrument panel animated every frame by a local rAF loop that
+*eases* toward each server push (the compass spins to a bearing, the horizon banks
+into turns, needles glide): artificial horizon · expanded **heading-up RADAR**
+(sweep, range rings, land/field/no-fly blips, and the **fuel-guide arrow** to the
+nearest field shown below 30% fuel) · a rotating **compass** · **per-engine temp
+gauges** · the **real minimap** (`getMinimapData`, danger-coloured) · seven-segment
+digital dials. **Engine run-up:** `startup` warms each engine live; the gauges must
+settle to green or a cold takeoff runs hot and can fail. **Numeric headings:**
+`heading 247` flies a true bearing (sub-tile float advance). **Engine audio:** a
+live throttle-tracking drone + slipstream + airframe creaks/gear/gust. The four
+decks are deepened — **takeoff** (run-up → centreline + V1/Vr callouts → rotate →
+gear up), **glideslope** (two-axis localizer + glideslope, gear, flare, roll-out),
+**targeting** — all shared chassis + the `flight` SFX group.
+`aircraft_types.engines` sets the powerplant count.
+
+**Per-aircraft adaptive layout.** The panel composes itself from each craft's
+capabilities + size (`mountHud`): the engine cluster shows one gauge per engine; a
+**weapons** panel appears only on hardpoint craft; a **cargo / W&B** load panel only
+on craft with a hold; a **VTOL vertical tape + HOVER lamp** only on rotorcraft; the
+radar scales up for gunships/heavies and down for ultralights. Each class carries a
+**theme** (accent + chrome): gunship military-red, heavy industrial-amber, heli
+rotor-green, ultralight minimal, prop analog-blue, and the **Carcass wreck runs a
+degraded panel** (flicker, desaturation, "AVIONICS DEGRADED"). So a Mayfly is a
+sparse two-gauge panel and a Leviathan is a dense four-engine freighter console.
+
+## Engine noise → the ground (`overflyNoise`)
+
+Each airborne tick, a craft radiates engine noise to the surface. Loudness =
+`type.noise` + engine count + size, boosted by throttle and **cut by altitude**
+(high band = inaudible, cruise = muffled, low = loud). That becomes a **reach
+radius** over the tile grid: the cell directly below hears an **identified pass**
+naming the type + heading (per-class flavour — an ultralight *buzzes*, a heli
+*clatters*, a Leviathan *thunders*, a Reaper *screams past*), and nearby cells hear
+a fainter **directional** rumble that thins with distance. On a loud low pass,
+**ground threats react** — hostiles look up and aggressive enemies throw up
+small-arms fire (light hull damage); AA sites engage via `combat.js`. Per-class
+timbre also drives the pilot's own audio (idle/power/spool) in `engine-audio.js`.
+Fly high, fast, and you're quiet; low and slow over a hostile tile and everyone
+below knows exactly what you are and where you're headed.
 
 ## Verb-collision routers
 

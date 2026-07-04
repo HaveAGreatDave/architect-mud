@@ -12,18 +12,36 @@ import { getZone, liveAircraft, out, effStats, persist } from './state.js';
 const nowSec = () => Math.floor(Date.now() / 1000);
 const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
 
-const CARGO_POOL = [
-  'a pallet of machine parts', 'a crate of medical supplies', 'sealed drums of coolant',
-  'a container of dry goods', 'crated electronics', 'a load of scrap alloy', 'refrigerated cargo',
+// ── Authored job types — a spread of legal and illegal work ───────────────────
+// legal: honest freight/charter, humanitarian, urgent premiums.
+// illegal (contraband): fly it DARK (transponder off) or the cameras make you;
+//   only offered at LAWLESS fields (Redline / Slagworks / Smuggler's Slip), and
+//   they prefer a lawless drop. Higher pay, harder risk.
+// payMult scales the base rate; wMin/wMax the load; risk adds to the distance
+// risk; mins = delivery deadline (tight = urgent premium).
+const JOB_TYPES = [
+  // ── Legal ──────────────────────────────────────────────────────────────────
+  { id: 'freight',  label: 'Freight',        kind: 'cargo',     legal: true,  payMult: 1.0, risk: 0, wMin: 60, wMax: 260, mins: 30, names: ['a pallet of machine parts', 'crated electronics', 'a container of dry goods', 'a load of milled alloy', 'baled textiles'] },
+  { id: 'courier',  label: 'Priority Courier', kind: 'cargo',   legal: true,  payMult: 1.4, risk: 0, wMin: 15, wMax: 55,  mins: 14, names: ['a bonded document pouch', 'a sealed courier case', 'a signature-only parcel'] },
+  { id: 'pharma',   label: 'Cold-Chain Meds', kind: 'cargo',    legal: true,  payMult: 1.4, risk: 1, wMin: 60, wMax: 160, mins: 18, names: ['a refrigerated medcrate', 'temperature-locked antivirals', 'a chilled organ box'] },
+  { id: 'charter',  label: 'Passenger Charter', kind: 'passenger', legal: true, payMult: 1.1, risk: 0, wMin: 80, wMax: 80, mins: 30, names: ['a corporate auditor', 'an off-duty ripperdoc', 'a family relocating out of the sprawl'] },
+  { id: 'vip',      label: 'VIP Charter',    kind: 'passenger', legal: true,  payMult: 1.9, risk: 1, wMin: 120, wMax: 120, mins: 24, names: ['a nervous executive and their bodyguard', 'a mid-tier corpo who tips well'] },
+  { id: 'medevac',  label: 'Medevac (URGENT)', kind: 'passenger', legal: true, payMult: 1.7, risk: 1, wMin: 90, wMax: 90, mins: 11, names: ['a wounded runner bleeding out', 'a crash survivor who needs a real clinic'] },
+  { id: 'relief',   label: 'Relief Run',     kind: 'cargo',     legal: true,  payMult: 1.5, risk: 2, wMin: 120, wMax: 300, mins: 30, names: ['crates of relief supplies', 'water and rations for the wastes', 'a mobile clinic in flatpack'] },
+  { id: 'survey',   label: 'Survey Drop',    kind: 'cargo',     legal: true,  payMult: 1.2, risk: 1, wMin: 40, wMax: 80,  mins: 26, names: ['sensor pods for recovery', 'a survey drone package', 'seismic charges (permitted)'] },
+
+  // ── Illegal (contraband; fly dark) ─────────────────────────────────────────
+  { id: 'smuggle',  label: 'Smuggling',      kind: 'cargo',     legal: false, payMult: 2.1, risk: 2, wMin: 40, wMax: 120, mins: 24, names: ['an unmarked crate that ticks', 'sealed bricks of something illegal', 'a case nobody will describe'] },
+  { id: 'gunrun',   label: 'Gun-Running',    kind: 'cargo',     legal: false, payMult: 2.3, risk: 3, wMin: 80, wMax: 200, mins: 24, names: ['a crate of hot iron', 'oiled rifles in a fish shipment', 'a pallet of "agricultural parts"'] },
+  { id: 'chopshop', label: 'Chop-Shop Parts', kind: 'cargo',    legal: false, payMult: 2.1, risk: 2, wMin: 40, wMax: 100, mins: 20, names: ['stripped, still-warm cyberware', 'a VIN-scrubbed drive core', 'boxed black-market implants'] },
+  { id: 'disposal', label: 'Disposal',       kind: 'cargo',     legal: false, payMult: 2.4, risk: 3, wMin: 90, wMax: 90,  mins: 30, names: ['a body that needs to disappear', 'a rolled tarp you were told not to open'] },
+  { id: 'toxic',    label: 'Toxic Dump',     kind: 'cargo',     legal: false, payMult: 1.9, risk: 2, wMin: 150, wMax: 350, mins: 30, names: ['drums nobody will sign for', 'leaking canisters of something bright', 'unlabelled slurry'] },
+  { id: 'exfil',    label: 'Exfil (HOT)',    kind: 'passenger', legal: false, payMult: 2.7, risk: 4, wMin: 90, wMax: 90,  mins: 20, names: ['a fugitive who can\'t use the front door', 'a witness who needs to vanish tonight'] },
+  { id: 'datamule', label: 'Data Mule',      kind: 'passenger', legal: false, payMult: 2.4, risk: 3, wMin: 85, wMax: 85,  mins: 16, names: ['a courier wired with a case they can\'t open', 'a decker running from their last client'] },
 ];
-const PAX_POOL = [
-  'a nervous corporate auditor', 'an off-duty ripperdoc', 'a courier who won\'t say what\'s in the case',
-  'a family relocating out of the Redline', 'a wounded runner who needs a clinic',
-];
-const CONTRABAND_POOL = [
-  'an unmarked crate that ticks', 'a case of hot cyberware', 'sealed bricks of something illegal',
-  'a body that needs to disappear',
-];
+const LEGAL_JOBS = JOB_TYPES.filter(j => j.legal);
+const ILLEGAL_JOBS = JOB_TYPES.filter(j => !j.legal);
+const jobById = (id) => JOB_TYPES.find(j => j.id === id);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 async function airfields() {
@@ -31,25 +49,30 @@ async function airfields() {
   return rows;
 }
 
-// Keep ~3 open jobs on a field's board (lazy top-up when listed).
+// Keep ~4 open jobs on a field's board (lazy top-up when listed). Legal fields
+// carry only honest work; lawless fields also carry the shady jobs.
 async function topUp(fieldZone, fields) {
   const { rows } = await query("SELECT COUNT(*)::int n FROM flight_contracts WHERE origin_zone=$1 AND status='open'", [fieldZone.id]);
   const have = rows[0]?.n || 0;
-  const dests = fields.filter(f => f.id !== fieldZone.id && f.grid_x != null);
-  if (!dests.length) return;
-  for (let i = have; i < 3; i++) {
-    const dest = pick(dests);
+  const others = fields.filter(f => f.id !== fieldZone.id && f.grid_x != null);
+  if (!others.length) return;
+  const lawless = !!fieldZone.flags?.airfield_lawless;
+  const lawlessDests = others.filter(f => f.flags?.airfield_lawless);
+  // A lawless field's board is ~40% shady work; legal fields are all-legal.
+  const pool = (n) => (lawless && Math.random() < 0.4 ? ILLEGAL_JOBS : LEGAL_JOBS);
+
+  for (let i = have; i < 4; i++) {
+    const job = pick(pool(i));
+    const dest = (!job.legal && lawlessDests.length) ? pick(lawlessDests) : pick(others);
     const dist = cheb(fieldZone.grid_x, fieldZone.grid_y, dest.grid_x, dest.grid_y) || 1;
-    const contraband = Math.random() < 0.25 ? 1 : 0;
-    const kind = !contraband && Math.random() < 0.35 ? 'passenger' : 'cargo';
-    const weight = kind === 'passenger' ? 80 : 40 + Math.floor(Math.random() * 240);
-    const risk = Math.min(5, 1 + Math.floor(dist / 4) + (contraband ? 2 : 0) + ((dest.flags?.danger || 0) > 3 ? 1 : 0));
-    const payout = Math.round(dist * (kind === 'passenger' ? 12 : weight * 0.25) * (1 + risk * 0.4) * (contraband ? 1.8 : 1)) + 60;
-    const name = contraband ? pick(CONTRABAND_POOL) : kind === 'passenger' ? pick(PAX_POOL) : pick(CARGO_POOL);
+    const weight = job.wMin + Math.floor(Math.random() * (job.wMax - job.wMin + 1));
+    const risk = Math.min(5, 1 + Math.floor(dist / 4) + job.risk + ((dest.flags?.airfield_lawless) ? 1 : 0));
+    const rate = job.kind === 'passenger' ? 12 : weight * 0.25;
+    const payout = Math.round(dist * rate * (1 + risk * 0.4) * job.payMult) + 60;
     await query(
-      `INSERT INTO flight_contracts (id,kind,origin_zone,dest_zone,cargo_name,weight,payout,risk,contraband,status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'open')`,
-      [randomUUID(), kind, fieldZone.id, dest.id, name, weight, payout, risk, contraband]
+      `INSERT INTO flight_contracts (id,kind,job_type,origin_zone,dest_zone,cargo_name,weight,payout,risk,contraband,status,deadline_s)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'open',$11)`,
+      [randomUUID(), job.kind, job.id, fieldZone.id, dest.id, pick(job.names), weight, payout, risk, job.legal ? 0 : 1, job.mins * 60]
     );
   }
 }
@@ -68,11 +91,15 @@ async function cmdContracts(args, raw, player) {
   await topUp(field, fields);
   const { rows } = await query("SELECT * FROM flight_contracts WHERE origin_zone=$1 AND status='open' ORDER BY payout DESC", [field.id]);
   const nameOf = (id) => fields.find(f => f.id === id)?.name || id;
-  const lines = rows.map((c, i) =>
-    `<b>[${i + 1}]</b> ${c.contraband ? '<span class="text-red">⚠ </span>' : ''}${c.cargo_name} → <b>${nameOf(c.dest_zone)}</b>\n` +
-    `      ${c.kind} · ${c.weight}kg · risk ${stars(c.risk)} · <span class="text-green">${c.payout}c</span> · ${Math.round(c.deadline_s / 60)}min` +
-    ` · <span class="action-link" data-action="cmd" data-cmd="accept ${i + 1}">accept</span>`);
-  const head = `<span class="text-cyan">CONTRACT BOARD — ${field.flags.airfield_name || field.name}:</span>`;
+  const lines = rows.map((c, i) => {
+    const job = jobById(c.job_type);
+    const tag = c.contraband ? '<span class="text-red">⚠ ILLEGAL</span>' : '<span class="text-green">LEGAL</span>';
+    return `<b>[${i + 1}]</b> <b>${job?.label || c.kind}</b> — ${c.cargo_name} → <b>${nameOf(c.dest_zone)}</b>  [${tag}]\n` +
+      `      ${c.weight}kg · risk ${stars(c.risk)} · <span class="text-green">${c.payout}c</span> · ${Math.round(c.deadline_s / 60)}min` +
+      `${c.contraband ? ' · <span class="text-red">run dark</span>' : ''} · <span class="action-link" data-action="cmd" data-cmd="accept ${i + 1}">accept</span>`;
+  });
+  const shady = field.flags.airfield_lawless ? ' <span class="text-red">(no questions asked here)</span>' : '';
+  const head = `<span class="text-cyan">CONTRACT BOARD — ${field.flags.airfield_name || field.name}:</span>${shady}`;
   return { type: 'output', message: rows.length ? `${head}\n${lines.join('\n')}` : `${head}\nThe board is empty. Check back later.` };
 }
 
@@ -140,7 +167,8 @@ export async function checkContractDelivery(player, live, fieldZoneId) {
     if (cd.contractId === c.id) delete cd.contractId;
     live.row.custom_data = cd;
     await persist(live);
-    out(player.id, `<span class="item-grant">Delivered: ${c.cargo_name}. ${late ? 'Late — half rate: ' : 'Paid in full: '}<b>${pay}c</b>.</span>`);
+    const how = c.contraband ? (late ? 'Late — half, in unmarked cash: ' : 'Paid in unmarked cash: ') : (late ? 'Late — half rate: ' : 'Paid in full: ');
+    out(player.id, `<span class="item-grant">Delivered: ${c.cargo_name}. ${how}<b>${pay}c</b>.</span>`);
   }
 }
 

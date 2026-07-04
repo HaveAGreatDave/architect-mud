@@ -71,8 +71,8 @@ async function acquire(args, raw, player, kind) {
     [id, t.id, tailNum, player.id, field.grid_x, field.grid_y, field.id, Math.round((await typeCap(t.id)) * 0.5), kind === 'buy' ? 0 : 1]
   );
   return { type: 'output', message: kind === 'buy'
-    ? `<span class="item-grant">Sold. A brand-new <b>${t.name}</b> (${tailNum}) is towed onto the ramp. It's yours — <b>board</b> her.</span>`
-    : `<span class="item-grant">Chartered a <b>${t.name}</b> (${tailNum}), half a tank, parked and ready. <b>board</b> her — bring her back in one piece.</span>` };
+    ? `<span class="item-grant">Sold. A brand-new <b>${t.name}</b> (${tailNum}) is towed onto the ramp. It's yours — <b>embark</b> her.</span>`
+    : `<span class="item-grant">Chartered a <b>${t.name}</b> (${tailNum}), half a tank, parked and ready. <b>embark</b> her — bring her back in one piece.</span>` };
 }
 
 async function typeCap(typeId) {

@@ -29,6 +29,7 @@ export function appendHtml(html, cls = '') {
   el.innerHTML = html;
   document.getElementById('output').appendChild(el);
   scrollOutput();
+  return el;
 }
 
 export function appendPre(text, cls = '') {

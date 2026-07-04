@@ -7,7 +7,7 @@ import { query } from '../models/db.js';
 import { sendToPlayer } from './messaging.js';
 import { SKILLS, getPlayerSkills } from './skills.js';
 import { getPlayerFactionRep } from './factions.js';
-import { getPlayerMembership, getOrg } from './world.js';
+import { getPlayerMembership, getOrg, getOrgZones } from './world.js';
 
 const SKILL_CATS = ['combat', 'survival', 'tech', 'social', 'arcane'];
 
@@ -43,13 +43,14 @@ async function resolveInvCount(playerId) {
 const corpOrg = (playerId) => { const m = getPlayerMembership(playerId); return m ? getOrg(m.org_id) : null; };
 const resolveCorpName = async (pid) => corpOrg(pid)?.name || '—';
 const resolveCorpTreasury = async (pid) => corpOrg(pid)?.treasury || 0;
-const resolveCorpHeat = async () => ({ val: 0, max: 100 });
-async function resolveCorpZones(pid) {
+const resolveCorpZones = async (pid) => { const m = getPlayerMembership(pid); return m ? getOrgZones(m.org_id).length : 0; };
+const resolveCorpHeat = async (pid) => {
   const m = getPlayerMembership(pid);
-  if (!m) return 0;
-  const { rows } = await query('SELECT COUNT(*)::int n FROM apartments WHERE owner_org_id=$1', [m.org_id]);
-  return Number(rows[0]?.n || 0);
-}
+  if (!m) return { val: 0, max: 100 };
+  const zones = getOrgZones(m.org_id).length;
+  const heat = Math.max(0, Math.min(100, zones * 12 + Math.floor((getOrg(m.org_id)?.treasury || 0) / 5000) * 5));
+  return { val: heat, max: 100 };
+};
 
 const RESOLVERS = {
   skills: resolveSkills, factions: resolveFactions, inv_count: resolveInvCount,

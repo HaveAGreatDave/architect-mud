@@ -79,6 +79,72 @@ export function condensation(x, y, w, h, seed, density) { G.save();
   G.restore();
 }
 
+// Detailed back-wall props for the title/intro: overhead conduits, reagent-bottle
+// shelves flanking the hood, a wall monitor with a live waveform, hanging tools,
+// grime. All alpha-scale by `pw` (power-up). Draw first (backmost).
+const _propCols = ['#e0644f', '#4f9ae0', '#e0b64f', '#7de07a', '#9a5ce0', '#5fd0e0', '#e05cc0', '#d6a0e0', '#c9c9d6', '#7a5a3a'];
+export function drawLabProps(t, pw) {
+  pw = clamp(pw, 0, 1); if (pw <= 0.02) return;
+  // overhead conduits + a wiggling gauge
+  for (let i = 0; i < 3; i++) { const y = 8 + i * 9; G.strokeStyle = `rgba(90,104,112,${.4 * pw})`; G.lineWidth = 5 - i; G.beginPath(); G.moveTo(0, y); G.lineTo(W, y); G.stroke(); }
+  G.strokeStyle = `rgba(90,104,112,${.4 * pw})`; G.lineWidth = 4; G.beginPath(); G.moveTo(W * 0.18, 12); G.lineTo(W * 0.18, 40); G.moveTo(W * 0.82, 12); G.lineTo(W * 0.82, 52); G.stroke();
+  G.fillStyle = `rgba(18,24,28,${pw})`; G.beginPath(); G.arc(W * 0.82, 58, 8, 0, 7); G.fill();
+  G.strokeStyle = `rgba(120,200,160,${.7 * pw})`; G.lineWidth = 1.4; G.beginPath(); G.moveTo(W * 0.82, 58); G.lineTo(W * 0.82 + Math.cos(t) * 5, 58 + Math.sin(t) * 5); G.stroke();
+  // reagent-bottle shelves
+  const shelf = (sx, sy, w, n, seed) => {
+    G.fillStyle = `rgba(24,30,34,${.7 * pw})`; G.fillRect(sx, sy, w, 4); G.fillStyle = `rgba(0,0,0,${.4 * pw})`; G.fillRect(sx, sy + 4, w, 3);
+    const gap = w / n;
+    for (let i = 0; i < n; i++) { const bx = sx + gap * i + gap / 2, col = _propCols[(i + seed) % _propCols.length], bw = 9, bh = 22 + ((i * 7 + seed) % 8);
+      G.globalAlpha = pw; G.fillStyle = 'rgba(200,220,225,.12)'; roundRect(bx - bw / 2, sy - bh, bw, bh, 2); G.fill();
+      G.fillStyle = col; G.fillRect(bx - bw / 2 + 1, sy - bh * 0.6, bw - 2, bh * 0.6 - 1);
+      G.fillStyle = 'rgba(240,240,240,.5)'; G.fillRect(bx - bw / 2 + 1, sy - bh * 0.42, bw - 2, 4);
+      G.fillStyle = '#2a343a'; G.fillRect(bx - 3, sy - bh - 3, 6, 4); G.globalAlpha = 1; }
+  };
+  shelf(W * 0.03, H * 0.20, W * 0.24, 7, 1); shelf(W * 0.03, H * 0.34, W * 0.24, 7, 4);
+  shelf(W * 0.73, H * 0.20, W * 0.24, 7, 2); shelf(W * 0.73, H * 0.34, W * 0.24, 7, 6);
+  // wall monitor + scrolling waveform (lower-left)
+  const mx = W * 0.045, my = H * 0.46, mw = 150, mh = 92;
+  G.fillStyle = `rgba(10,14,16,${pw})`; roundRect(mx - 6, my - 6, mw + 12, mh + 12, 6); G.fill();
+  G.strokeStyle = `rgba(70,84,92,${pw})`; G.lineWidth = 3; roundRect(mx - 6, my - 6, mw + 12, mh + 12, 6); G.stroke();
+  G.save(); roundRect(mx, my, mw, mh, 3); G.clip(); G.fillStyle = `rgba(6,20,14,${pw})`; G.fillRect(mx, my, mw, mh);
+  G.strokeStyle = `rgba(79,224,138,${.12 * pw})`; G.lineWidth = 1;
+  for (let gx = 0; gx < mw; gx += 16) { G.beginPath(); G.moveTo(mx + gx, my); G.lineTo(mx + gx, my + mh); G.stroke(); }
+  for (let gy = 0; gy < mh; gy += 16) { G.beginPath(); G.moveTo(mx, my + gy); G.lineTo(mx + mw, my + gy); G.stroke(); }
+  G.strokeStyle = `rgba(95,255,170,${.85 * pw})`; G.lineWidth = 1.5; G.shadowColor = 'rgba(79,224,138,.7)'; G.shadowBlur = 6 * pw; G.beginPath();
+  for (let px = 0; px <= mw; px += 3) { const yy = my + mh / 2 + Math.sin(px * 0.09 + t * 3) * 14 * pw + Math.sin(px * 0.31 - t * 5) * 6 * pw; px === 0 ? G.moveTo(mx + px, yy) : G.lineTo(mx + px, yy); }
+  G.stroke(); G.shadowBlur = 0; G.restore();
+  G.fillStyle = `rgba(120,150,140,${.6 * pw})`; G.font = '7px monospace'; G.textAlign = 'left'; G.fillText('ASSAY ▸ NOMINAL', mx + 2, my + mh - 4);
+  // hanging tools (right)
+  G.save(); G.globalAlpha = pw; G.strokeStyle = 'rgba(150,170,180,.5)'; G.lineWidth = 3; G.lineCap = 'round'; const tx = W * 0.955;
+  G.beginPath(); G.moveTo(tx, H * 0.46); G.lineTo(tx, H * 0.46 + 34); G.lineTo(tx - 8, H * 0.46 + 46); G.stroke();
+  G.beginPath(); G.moveTo(tx - 20, H * 0.46); G.lineTo(tx - 20, H * 0.46 + 40); G.stroke(); G.beginPath(); G.arc(tx - 20, H * 0.46 + 44, 4, 0, 7); G.stroke(); G.restore();
+  // bench glassware still-life (behind the hero glass)
+  G.save(); G.globalAlpha = pw; G.lineWidth = 1.4;
+  { const x = W * 0.19, y = H * 0.78, w = 16, h = 64; // graduated cylinder
+    G.fillStyle = '#4f9ae0'; G.globalAlpha = pw * .75; G.fillRect(x - w / 2 + 2, y - h * 0.55, w - 4, h * 0.55 - 2); G.globalAlpha = pw;
+    G.strokeStyle = 'rgba(200,235,240,.45)'; G.strokeRect(x - w / 2, y - h, w, h);
+    G.strokeStyle = 'rgba(200,235,240,.22)'; for (let i = 1; i < 6; i++) { const ty = y - h * (i / 6); G.beginPath(); G.moveTo(x + w / 2 - 5, ty); G.lineTo(x + w / 2, ty); G.stroke(); }
+    G.fillStyle = 'rgba(255,255,255,.16)'; G.fillRect(x - w / 2 + 3, y - h + 5, 2.5, h - 10); G.fillStyle = '#2a343a'; G.fillRect(x - w / 2 - 3, y, w + 6, 4); }
+  { const x = W * 0.81, y = H * 0.78, r = 26, nw = 9, top = y - r * 2.1; // Erlenmeyer flask
+    G.strokeStyle = 'rgba(200,235,240,.45)'; G.beginPath(); G.moveTo(x - nw, top); G.lineTo(x - nw, top + 14); G.lineTo(x - r, y); G.lineTo(x + r, y); G.lineTo(x + nw, top + 14); G.lineTo(x + nw, top); G.stroke();
+    G.save(); G.beginPath(); G.moveTo(x - nw, top + 14); G.lineTo(x - r, y); G.lineTo(x + r, y); G.lineTo(x + nw, top + 14); G.closePath(); G.clip();
+    G.fillStyle = '#7de07a'; G.globalAlpha = pw * .75; G.fillRect(x - r, y - r * 0.85, r * 2, r * 0.85); G.restore(); G.globalAlpha = pw;
+    G.fillStyle = '#2a343a'; G.fillRect(x - nw - 2, top - 4, nw * 2 + 4, 5); }
+  { const x = W * 0.30, y = H * 0.80, w = 30, h = 30; // beaker with dregs
+    G.fillStyle = '#e0b64f'; G.globalAlpha = pw * .65; G.fillRect(x - w / 2 + 2, y - h * 0.38, w - 4, h * 0.38 - 2); G.globalAlpha = pw;
+    G.strokeStyle = 'rgba(200,235,240,.4)'; G.beginPath(); G.moveTo(x - w / 2, y - h); G.lineTo(x - w / 2, y); G.lineTo(x + w / 2, y); G.lineTo(x + w / 2, y - h); G.stroke();
+    G.strokeStyle = 'rgba(220,245,250,.55)'; G.beginPath(); G.moveTo(x - w / 2 - 3, y - h); G.lineTo(x + w / 2 + 3, y - h); G.stroke();
+    G.fillStyle = 'rgba(255,255,255,.16)'; G.fillRect(x - w / 2 + 3, y - h + 5, 2.5, h - 10); }
+  { const x = W * 0.50, y = H * 0.84, rw = 66, tc = ['#e0644f', '#5fd0e0', '#e05cc0', '#9a5ce0']; // test-tube rack
+    G.fillStyle = 'rgba(40,50,44,.85)'; G.fillRect(x - rw / 2, y, rw, 6); G.fillStyle = 'rgba(28,36,32,.85)'; G.fillRect(x - rw / 2, y + 6, rw, 4);
+    for (let i = 0; i < 4; i++) { const tx = x - rw / 2 + 12 + i * 14, th = 26;
+      G.strokeStyle = 'rgba(200,235,240,.4)'; G.beginPath(); G.moveTo(tx - 4, y - th); G.lineTo(tx - 4, y - 4); G.arc(tx, y - 4, 4, Math.PI, 0, true); G.lineTo(tx + 4, y - th); G.stroke();
+      G.fillStyle = tc[i]; G.globalAlpha = pw * .8; G.fillRect(tx - 3, y - th * 0.55, 6, th * 0.55 - 3); G.globalAlpha = pw; } }
+  G.restore();
+  // grime bloom
+  G.fillStyle = `rgba(30,44,24,${.05 * pw})`; G.beginPath(); G.ellipse(W * 0.5, H * 0.14, 200, 44, 0, 0, 7); G.fill();
+}
+
 // gritty steel bench + hazard stencil backdrop, shared by every stage
 let _benchT = 0;
 export function drawBench() {

@@ -23,6 +23,28 @@ async function targetCraft(player) {
   return rows[0] ? { id: rows[0].id, live: liveAircraft.get(rows[0].id) || null } : null;
 }
 
+// Customisation is OWNER-ONLY: the craft the player is aboard or parked here that
+// they actually own outright (not a charter rental). { notOwned:true } means
+// they're near/aboard something that isn't theirs to modify.
+async function ownedCraft(player) {
+  if (player.aircraftId) {
+    const l = liveAircraft.get(player.aircraftId);
+    if (l) return (l.row.owner_id === player.id && !l.row.rental) ? { id: l.row.id, live: l } : { notOwned: true };
+  }
+  const { rows } = await query('SELECT id FROM aircraft WHERE parked_zone_id=$1 AND owner_id=$2 AND rental=0 AND is_wreck=0 LIMIT 1', [player.current_zone, player.id]);
+  return rows[0] ? { id: rows[0].id, live: liveAircraft.get(rows[0].id) || null } : null;
+}
+async function loadCd(tgt) {
+  if (tgt.live) return tgt.live.row.custom_data || {};
+  const { rows } = await query('SELECT custom_data FROM aircraft WHERE id=$1', [tgt.id]);
+  return rows[0]?.custom_data || {};
+}
+async function saveCd(tgt, cd) {
+  await query('UPDATE aircraft SET custom_data=$1 WHERE id=$2', [JSON.stringify(cd), tgt.id]);
+  if (tgt.live) tgt.live.row.custom_data = cd;
+}
+const clean = (s) => String(s || '').replace(/[<>]/g, '').trim();
+
 // ── Hangars ───────────────────────────────────────────────────────────────────
 async function cmdHangar(args, raw, player) {
   const field = fieldOf(player);
@@ -135,33 +157,95 @@ const TUNE_PARAMS = {
   cg:      'tail-heavy(+) agile but stall-prone; nose-heavy(−) stable but sluggish',
 };
 
-async function cmdTune(args, raw, player, broadcast) {
-  // No aircraft of yours in reach → `tune` is a broadcast-channel tune.
-  const tgt = await targetCraft(player);
-  if (!tgt) return broadcastCommands.tune(args, raw, player, broadcast);
-  const field = fieldOf(player);
-  if (!field) return { type: 'emote', message: 'Tuning needs a hangar\'s tools — do it at a field.' };
-  const param = (args[0] || '').toLowerCase();
-  if (!param) {
-    const { rows } = await query('SELECT custom_data FROM aircraft WHERE id=$1', [tgt.id]);
-    const tune = rows[0]?.custom_data?.tune || {};
-    const lines = Object.entries(TUNE_PARAMS).map(([k, d]) => `· <b>${k}</b> [${(tune[k] ?? 0) > 0 ? '+' : ''}${tune[k] ?? 0}] — ${d}`);
-    return { type: 'output', message: `<span class="text-cyan">TUNING — set −2..+2 (e.g. <b>tune mixture 1</b>):</span>\n${lines.join('\n')}` };
-  }
-  if (!TUNE_PARAMS[param]) return { type: 'emote', message: `Can't tune "${param}". Options: ${Object.keys(TUNE_PARAMS).join(', ')}.` };
-  let val = parseInt(args[1], 10);
-  if (Number.isNaN(val)) return { type: 'emote', message: `Set it to what? e.g. <b>tune ${param} 1</b> (−2..+2).` };
-  // Mechanics sets how far you can safely push a curve.
+// Shared: set one tuning curve. Mechanics (Fabrication) sets how far you can push.
+async function setCurve(player, tgt, param, valRaw) {
+  let val = parseInt(valRaw, 10);
+  if (Number.isNaN(val)) return { type: 'emote', message: `Set it to what? e.g. <b>modify ${param} 1</b> (−2..+2).` };
   const eff = await effectiveSkill(player, 'fabrication');
   const range = Math.min(2, 1 + Math.floor(eff / 4));
   val = Math.max(-range, Math.min(range, val));
-  const { rows } = await query('SELECT custom_data FROM aircraft WHERE id=$1', [tgt.id]);
-  const cd = rows[0]?.custom_data || {};
+  const cd = await loadCd(tgt);
   cd.tune = { ...(cd.tune || {}), [param]: val };
-  await query('UPDATE aircraft SET custom_data=$1 WHERE id=$2', [JSON.stringify(cd), tgt.id]);
-  if (tgt.live) { tgt.live.row.custom_data = cd; }
+  await saveCd(tgt, cd);
   await awardSkillUse(player.id, 'fabrication', 0);
-  return { type: 'output', message: `<span class="item-grant">Tuned ${param} to ${val > 0 ? '+' : ''}${val}. ${eff < 4 ? 'Your hands aren\'t steady enough to push it harder yet.' : ''}</span>`.trim() };
+  return { type: 'output', message: `<span class="item-grant">Set ${param} to ${val > 0 ? '+' : ''}${val}.</span>${eff < 4 ? ' <span class="text-dim">(Your hands aren\'t steady enough to push it harder yet.)</span>' : ''}` };
+}
+
+// Gate every customisation path: must own the craft, at a field, on the ground.
+async function requireOwned(player) {
+  const tgt = await ownedCraft(player);
+  if (tgt?.notOwned) return { err: { type: 'emote', message: 'You can only modify an aircraft you <b>own</b> — this one isn\'t yours.' } };
+  if (!tgt) return { err: { type: 'emote', message: 'No aircraft of your own here to modify. Buy one at a dealer field.' } };
+  if (tgt.live?.row.airborne) return { err: { type: 'emote', message: 'Land first — you can\'t work on her in the air.' } };
+  if (!fieldOf(player)) return { err: { type: 'emote', message: 'Modifications need a hangar\'s tools — do it at a field.' } };
+  return { tgt };
+}
+
+// The full customisation sheet.
+async function showSheet(player, tgt) {
+  const cd = await loadCd(tgt), tune = cd.tune || {};
+  const { rows } = await query('SELECT a.name, t.name tname, t.class FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1', [tgt.id]);
+  const ac = rows[0] || {};
+  const curves = Object.entries(TUNE_PARAMS).map(([k, d]) => {
+    const v = tune[k] ?? 0, next = v >= 2 ? -2 : v + 1;
+    return `· <b>${k}</b> [${v > 0 ? '+' : ''}${v}] — ${d} · <span class="action-link" data-action="cmd" data-cmd="modify ${k} ${next}">cycle</span>`;
+  });
+  const profs = Object.keys(cd.profiles || {});
+  return { type: 'output', message:
+    `<span class="text-cyan">MODIFY — ${ac.tname} "${clean(ac.name)}" (${ac.class}):</span>\n` +
+    `<b>TUNING</b> (−2..+2, wider with Fabrication):\n${curves.join('\n')}\n` +
+    `<b>LIVERY:</b> ${cd.livery ? clean(cd.livery) : '<span class="text-dim">bare metal</span>'}  ·  <span class="text-dim">modify livery &lt;text&gt;</span>\n` +
+    `<b>TAIL:</b> ${clean(ac.name)}  ·  <span class="text-dim">modify name &lt;text&gt;</span>\n` +
+    `<b>PROFILES:</b> ${profs.length ? profs.join(', ') : '<span class="text-dim">none</span>'}  ·  <span class="text-dim">modify save/load &lt;name&gt;</span>` };
+}
+
+// Umbrella customisation verb — everything adjustable on a craft you own.
+async function cmdModify(args, raw, player) {
+  const { tgt, err } = await requireOwned(player); if (err) return err;
+  const sub = (args[0] || '').toLowerCase();
+  const rest = clean(raw.split(/\s+/).slice(2).join(' ')).slice(0, 40);
+
+  if (!sub) return showSheet(player, tgt);
+  if (TUNE_PARAMS[sub]) return setCurve(player, tgt, sub, args[1]);
+
+  if (sub === 'name' || sub === 'tail') {
+    if (!rest) return { type: 'emote', message: 'Re-letter her to what? <b>modify name &lt;text&gt;</b>' };
+    const name = rest.slice(0, 24);
+    await query('UPDATE aircraft SET name=$1 WHERE id=$2', [name, tgt.id]);
+    if (tgt.live) tgt.live.row.name = name;
+    return { type: 'output', message: `<span class="item-grant">Tail re-lettered: <b>${name}</b>.</span>` };
+  }
+  if (sub === 'livery' || sub === 'paint') {
+    const cd = await loadCd(tgt); cd.livery = rest; await saveCd(tgt, cd);
+    return { type: 'output', message: rest ? `<span class="item-grant">New livery: ${rest}.</span>` : 'You strip her back to bare metal.' };
+  }
+  if (sub === 'save') {
+    const pname = clean(args[1] || 'default').toLowerCase().slice(0, 16);
+    const cd = await loadCd(tgt); cd.profiles = { ...(cd.profiles || {}), [pname]: { ...(cd.tune || {}) } }; await saveCd(tgt, cd);
+    return { type: 'output', message: `<span class="item-grant">Saved tune profile "${pname}".</span>` };
+  }
+  if (sub === 'load') {
+    const pname = clean(args[1] || 'default').toLowerCase().slice(0, 16);
+    const cd = await loadCd(tgt); const p = cd.profiles?.[pname];
+    if (!p) return { type: 'emote', message: `No saved profile "${pname}". Save one with <b>modify save &lt;name&gt;</b>.` };
+    cd.tune = { ...p }; await saveCd(tgt, cd);
+    return { type: 'output', message: `<span class="item-grant">Loaded tune profile "${pname}" onto the aircraft.</span>` };
+  }
+  return { type: 'emote', message: 'modify — <b>&lt;mixture|pitch|boost|cg&gt; &lt;−2..2&gt;</b> · <b>name</b> · <b>livery</b> · <b>save/load &lt;profile&gt;</b>' };
+}
+
+// `tune` stays as the quick curve shortcut — now owner-gated, still delegating to
+// the broadcast channel-tune when you're not near an aircraft of yours.
+async function cmdTune(args, raw, player, broadcast) {
+  const tgt = await ownedCraft(player);
+  if (!tgt) return broadcastCommands.tune(args, raw, player, broadcast);
+  if (tgt.notOwned) return { type: 'emote', message: 'You can only tune an aircraft you own.' };
+  if (tgt.live?.row.airborne) return { type: 'emote', message: 'Land first — you can\'t tune her in the air.' };
+  if (!fieldOf(player)) return { type: 'emote', message: 'Tuning needs a hangar\'s tools — do it at a field.' };
+  const param = (args[0] || '').toLowerCase();
+  if (!param) return showSheet(player, tgt);
+  if (!TUNE_PARAMS[param]) return { type: 'emote', message: `Can't tune "${param}". Options: ${Object.keys(TUNE_PARAMS).join(', ')}, or <b>modify</b> for the full sheet.` };
+  return setCurve(player, tgt, param, args[1]);
 }
 
 export const commands = {
@@ -170,4 +254,6 @@ export const commands = {
   salvage: cmdSalvage,
   rebuild: cmdRebuild,
   tune: cmdTune,
+  modify: cmdModify,
+  customize: cmdModify,
 };

@@ -221,15 +221,16 @@ const pendingSplice = new Map();
 // (drug flags.form / flags.color / flags.sub / flags.volatility) with generic,
 // stable-per-drug fallbacks — so packages render distinctly even before any
 // content is backfilled, and content can override later without a code change.
-const SPLICE_FORMS = ['liquid', 'powder', 'gel', 'pill'];
-const SPLICE_SUBS = { liquid: 'thin', powder: 'fine', gel: 'viscous', pill: 'tablet' };
+const SPLICE_FORMS = ['liquid', 'powder', 'gel', 'pill', 'gas', 'crystal', 'blotter', 'paste'];
+const SPLICE_SUBS = { liquid: 'thin', powder: 'fine', gel: 'viscous', pill: 'tablet', gas: 'pressurized', crystal: 'shard', blotter: 'sheet', paste: 'tar' };
+const FORM_FALLBACK = ['liquid', 'powder', 'gel', 'pill']; // auto-derive only assigns the common four; the rest are opt-in via flags.form
 const PALETTE_HEX = { green: '#4fe08a', purple: '#9a5ce0', red: '#e0644f', gold: '#e0b64f', cyan: '#5fd0e0', magenta: '#e05cc0', blue: '#4f9ae0' };
 const FALLBACK_HEX = ['#4fe08a', '#e0644f', '#4f9ae0', '#e0b64f', '#9a5ce0', '#5fd0e0', '#7de07a', '#e05cc0', '#d6a0e0', '#c9c9d6'];
 function hashStr(s) { let h = 0; for (let i = 0; i < String(s).length; i++) h = (h * 31 + String(s).charCodeAt(i)) >>> 0; return h; }
 function drugVisual(id, drug) {
   const flags = drug?.flags || {}, e = drug?.effects || {}, h = hashStr(id);
-  const form = SPLICE_FORMS.includes(flags.form) ? flags.form : SPLICE_FORMS[h % 4];
-  const sub = flags.sub || SPLICE_SUBS[form];
+  const form = SPLICE_FORMS.includes(flags.form) ? flags.form : FORM_FALLBACK[h % FORM_FALLBACK.length];
+  const sub = flags.sub || SPLICE_SUBS[form] || 'thin';
   const color = flags.color || PALETTE_HEX[e.hallucination?.palette] || FALLBACK_HEX[h % FALLBACK_HEX.length];
   let vol = flags.volatility;
   if (vol == null) vol = Math.min(1, (e.overdose?.lethal ? 0.5 : 0.25) + (e.hallucination?.intensity || 0) * 0.3 + (e.phases ? 0.1 : 0));

@@ -8,7 +8,7 @@
 // engine-facing seam the whole plugin shares.
 
 import { query } from '../../server/models/db.js';
-import { getZone, getAllZones, getLivePlayer } from '../../server/engine/world.js';
+import { getZone, getAllZones, getLivePlayer, getMinimapData } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
@@ -27,6 +27,34 @@ export const DIRS = {
 };
 export const DIR_ALIASES = { north: 'n', south: 's', east: 'e', west: 'w',
   northeast: 'ne', northwest: 'nw', southeast: 'se', southwest: 'sw' };
+
+// ── Heading model (degrees) ───────────────────────────────────────────────────
+// Heading is stored on the row as a string but is really a compass degree
+// (0=N, 90=E, 180=S, 270=W). Legacy cardinal strings map in. Movement uses a
+// continuous heading vector + sub-tile float accumulation, so `heading 247` flies
+// a true bearing across the tile grid, not just one of eight steps.
+const CARD_DEG = { n: 0, ne: 45, e: 90, se: 135, s: 180, sw: 225, w: 270, nw: 315 };
+export function toDeg(h) {
+  if (h == null) return 0;
+  if (typeof h === 'number') return ((h % 360) + 360) % 360;
+  if (CARD_DEG[h] != null) return CARD_DEG[h];
+  const n = parseInt(h, 10);
+  return Number.isFinite(n) ? ((n % 360) + 360) % 360 : 0;
+}
+export function degToCardinal(deg) {
+  const dirs = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
+  return dirs[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
+}
+// Screen/grid vector for a heading: N = -y, E = +x.
+export function headingVec(deg) {
+  const r = deg * Math.PI / 180;
+  return [Math.sin(r), -Math.cos(r)];
+}
+// Bearing (deg) from one grid point to another (N-up).
+export function bearingDeg(fromX, fromY, toX, toY) {
+  const dx = toX - fromX, dy = toY - fromY;
+  return ((Math.atan2(dx, -dy) * 180 / Math.PI) % 360 + 360) % 360;
+}
 
 // ── Surface coord index (the computed-overlay lookup) ─────────────────────────
 let _coordIndex = null;
@@ -106,20 +134,67 @@ export function reap(live) {
   if (!live.occupants.size && !live.row.airborne) liveAircraft.delete(live.row.id);
 }
 
+// ── Per-engine model (run-up + gauges) ────────────────────────────────────────
+// Each powerplant carries its own temperature; startup runs them up toward a
+// stable idle band. Taking off before every engine has stabilised risks failure.
+export const ENGINE_IDLE = 78;         // °C target at idle
+export const ENGINE_STABLE_BAND = 8;   // ± window that counts as "stable"
+export function engineCount(live) { return Math.max(1, live.type.engines || 1); }
+export function initEngines(live, temp) {
+  const n = engineCount(live);
+  live.engines = Array.from({ length: n }, (_, i) => ({
+    temp: temp ?? 20 + Math.random() * 6, stable: false, stableFor: 0, seed: i,
+  }));
+}
+export function enginesAllStable(live) {
+  return !!live.engines && live.engines.every(e => e.stable);
+}
+// Average per-engine temp back onto the row for persistence/legacy reads.
+function syncEngineTemp(live) {
+  if (live.engines?.length) live.row.engine_temp = Math.round(live.engines.reduce((s, e) => s + e.temp, 0) / live.engines.length);
+}
+
+// ── Continuous-heading sub-tile advance ───────────────────────────────────────
+export function initFloat(live) {
+  if (live.fx == null) { live.fx = live.row.grid_x ?? 0; live.fy = live.row.grid_y ?? 0; }
+}
+export function advance(live, tiles) {
+  initFloat(live);
+  const [ux, uy] = headingVec(toDeg(live.row.heading));
+  const b = bounds();
+  live.fx = Math.max(b.minx, Math.min(b.maxx, live.fx + ux * tiles));
+  live.fy = Math.max(b.miny, Math.min(b.maxy, live.fy + uy * tiles));
+  live.row.grid_x = Math.round(live.fx);
+  live.row.grid_y = Math.round(live.fy);
+}
+
 // ── HUD payload (synthesized cockpit state, pushed to occupants) ──────────────
-function mapWindow(a) {
+function mapWindow(a, radius = 4) {
   const rows = [];
-  for (let dy = -2; dy <= 2; dy++) {
+  for (let dy = -radius; dy <= radius; dy++) {
     const row = [];
-    for (let dx = -2; dx <= 2; dx++) {
+    for (let dx = -radius; dx <= radius; dx++) {
       if (dx === 0 && dy === 0) { row.push({ kind: 'craft' }); continue; }
       const cell = surfaceAt(a.grid_x + dx, a.grid_y + dy);
-      const restricted = cell?.flags?.airspace_restricted;
-      row.push({ kind: cell ? (restricted ? 'nofly' : 'land') : 'air' });
+      if (!cell) { row.push({ kind: 'air' }); continue; }
+      if (cell.flags?.airfield_id) row.push({ kind: 'field' });
+      else if (cell.flags?.airspace_restricted) row.push({ kind: 'nofly' });
+      else row.push({ kind: 'land' });
     }
     rows.push(row);
   }
   return rows;
+}
+
+// Nearest airfield to a coord + the bearing to it (for the <30%-fuel guide icon).
+function nearestField(x, y) {
+  let best = null, bestD = Infinity;
+  for (const z of getAllZones()) {
+    if (z.map_id !== 'map_world' || !z.flags?.airfield_id || z.grid_x == null) continue;
+    const d = Math.hypot(z.grid_x - x, z.grid_y - y);
+    if (d < bestD) { bestD = d; best = z; }
+  }
+  return best ? { name: best.flags.airfield_name || best.name, bearing: Math.round(bearingDeg(x, y, best.grid_x, best.grid_y)), dist: Math.round(bestD) } : null;
 }
 
 export function gaugePayload(live) {
@@ -127,23 +202,35 @@ export function gaugePayload(live) {
   const cap = eff.fuelCap;
   const below = a.airborne ? surfaceAt(a.grid_x, a.grid_y) : null;
   const fuelPct = Math.max(0, Math.round((a.fuel / cap) * 100));
+  const deg = toDeg(a.heading);
   let warn = null;
   if (a.fuel <= 0) warn = 'STARVATION';
   else if (live.hazard) warn = live.hazard.type;
   else if (a.fuel <= cap * BINGO_FRAC) warn = 'BINGO';
+
+  // Per-engine gauges (fall back to a single synthetic engine when cold/never run).
+  const engines = (live.engines?.length ? live.engines : Array.from({ length: engineCount(live) }, () => ({ temp: a.engine_temp, stable: false })))
+    .map(e => ({ temp: Math.round(e.temp), stable: !!e.stable, pct: Math.max(0, Math.min(100, Math.round((e.temp / 160) * 100))) }));
+
   return {
     craft: t.name, tail: a.name || t.name, class: t.class,
     band: a.altitude_band, bandLabel: BAND_LABEL[a.altitude_band] || a.altitude_band,
     bandIndex: BANDS.indexOf(a.altitude_band), ceiling: eff.ceiling,
-    heading: (a.heading || 'n').toLowerCase(),
+    heading: degToCardinal(deg), headingDeg: deg,
     throttle: a.throttle, spd: a.airborne ? Math.round(eff.cruise * (a.throttle / 100) * 84) : 0,
     fuel: Math.round(a.fuel), fuelPct, fuelCap: Math.round(cap),
     temp: Math.round(a.engine_temp), tempMax: 160,
+    engines, enginesStable: enginesAllStable(live), engineOn: !!a.engine_on, runup: !!live.runup,
     hullPct: Math.max(0, Math.round((1 - a.damage) * 100)),
-    x: a.grid_x, y: a.grid_y, surface: a.airborne ? (below ? below.name : 'open air') : null,
-    airborne: !!a.airborne, engineOn: !!a.engine_on, warn, fuelType: t.fuel_type,
+    x: a.grid_x, y: a.grid_y, fx: live.fx, fy: live.fy,
+    surface: a.airborne ? (below ? below.name : 'open air') : null,
+    airborne: !!a.airborne, warn, fuelType: t.fuel_type, noise: t.noise || 2,
     armed: !!a.weapons_hot, hardpoints: t.hardpoints || 0,
+    cargo: eff.cargo, maxTOW: eff.maxTOW, cargoCap: t.cargo_capacity || 0,
+    seats: t.seats || 1, vtol: t.takeoff_mode === 'vtol', hover: !!live.hover,
     map: a.airborne ? mapWindow(a) : null,
+    minimap: a.airborne && below ? getMinimapData(below.id, 3) : null,
+    guide: (a.airborne && fuelPct < 30) ? nearestField(a.grid_x, a.grid_y) : null,
   };
 }
 
@@ -181,14 +268,18 @@ export function landDifficulty(live, emergency) {
 // ── Bring a craft to rest at an airfield; restore occupants to the ground ──────
 export async function parkAt(live, zoneId) {
   const z = getZone(zoneId);
-  if (z) { live.row.grid_x = z.grid_x; live.row.grid_y = z.grid_y; }
+  if (z) { live.row.grid_x = z.grid_x; live.row.grid_y = z.grid_y; live.fx = z.grid_x; live.fy = z.grid_y; }
   live.row.airborne = 0;
   live.row.altitude_band = 'ground';
   live.row.throttle = 0;
   live.row.parked_zone_id = zoneId;
   live.row.weapons_hot = 0;
+  live.row.engine_on = 0;
   live.starving = false;
   live.hazard = null;
+  live.runup = false;
+  live.engines = null;
+  live.coldStart = 0;
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
     if (!p) continue;
@@ -228,7 +319,10 @@ export async function crash(live, reason = 'crash') {
   liveAircraft.delete(live.row.id);
 }
 
-export function setHeading(live, dir) { live.row.heading = dir; }
+// Accepts a cardinal ('nw'), a compass degree (247 or '247'), or a legacy string;
+// always stores a normalised degree string on the row.
+export function setHeading(live, dirOrDeg) { live.row.heading = String(toDeg(dirOrDeg)); }
+export { syncEngineTemp };
 
 // Convenience re-exports so submodules import world/zone helpers from one place.
 export { getZone, getLivePlayer, sendToZone, sendToPlayer, setPosture, forceStand };

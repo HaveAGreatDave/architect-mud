@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, tryBattleCry } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -536,12 +536,45 @@ function buildingsAt(zone) {
   return names;
 }
 
+// Map POI icon — the single most salient landmark at a tile, for legibility.
+// Uses the clean signals (airfield_name flag, building_type on adjacent buildings)
+// plus vendor NPCs and up/down stairs. Deliberately SPARSE: most tiles return null.
+// Priority is the "what matters most here" order. { icon, poi } | null.
+const POI_ICON = { airport: '✈', police: '★', power: '⚡', club: '♥', vendor: '$', stairs: '⇕' };
+const POWER_RE = /coolant|turbine|reactor|powerplant/i;
+function buildingTypesAt(zone) {
+  const types = new Set();
+  for (const { target } of allExits(zone)) {
+    const t = getZone(target);
+    if (t?.flags?.is_building && t.flags.building_type) types.add(t.flags.building_type);
+  }
+  return types;
+}
+function hasVendorNpc(zoneId) {
+  for (const npc of getZoneNpcs(zoneId) || [])
+    if (npc.npc_type === 'vendor' || npc.flags?.personality === 'vendor' || npc.vendor_inventory?.length) return true;
+  return false;
+}
+function mapPoi(zone) {
+  if (zone.flags?.airfield_name) return { icon: POI_ICON.airport, poi: 'airport' };
+  const bt = buildingTypesAt(zone);
+  if (bt.has('police')) return { icon: POI_ICON.police, poi: 'police' };
+  if (POWER_RE.test(zone.id || '') || POWER_RE.test(zone.name || '') ||
+      allExits(zone).some(e => { const t = getZone(e.target); return t?.flags?.is_building && (POWER_RE.test(t.id || '') || POWER_RE.test(t.name || '')); }))
+    return { icon: POI_ICON.power, poi: 'power' };
+  if (bt.has('club')) return { icon: POI_ICON.club, poi: 'club' };
+  if (bt.has('shop') || bt.has('grocery') || hasVendorNpc(zone.id)) return { icon: POI_ICON.vendor, poi: 'vendor' };
+  if (zone.exits?.up || zone.exits?.down) return { icon: POI_ICON.stairs, poi: 'stairs' };
+  return null;
+}
+
 // One tile snapshot, positioned at (x,y) relative to the map's origin.
 function mapTile(zone, x, y, placed, currentId) {
   const links = {};
   for (const [dir, target] of Object.entries(primaryExits(zone))) {
     if (placed.has(target) && MAP_DIR_OFFSET[dir]) links[dir] = target;
   }
+  const poi = mapPoi(zone);
   return {
     id: zone.id, x, y, name: zone.name,
     danger: zone.danger_rating || null, marker: zone.marker || null,
@@ -549,6 +582,9 @@ function mapTile(zone, x, y, placed, currentId) {
     func: mapFunc(zone),
     description: zone.description || '',
     buildings: buildingsAt(zone),
+    icon: poi?.icon || null, poi: poi?.poi || null,
+    // Street name(s) this tile sits on (an intersection can carry more than one) — null if none.
+    artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
     exits: links, isCurrent: zone.id === currentId,
   };
 }

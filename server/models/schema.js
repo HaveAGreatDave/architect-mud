@@ -1225,6 +1225,20 @@ export const SCHEMA_SQL = `
   ALTER TABLE apartments ADD COLUMN IF NOT EXISTS owner_type TEXT NOT NULL DEFAULT 'player';
   ALTER TABLE apartments ADD COLUMN IF NOT EXISTS owner_org_id TEXT REFERENCES orgs(id) ON DELETE SET NULL;
 
+  -- Territory control (Phase 1). One controller per zone with a 0..100 grip
+  -- (influence); a challenger erodes it and takes the zone when it hits 0. Income
+  -- and upkeep flow to/from the controller's treasury on the 24h tick.
+  CREATE TABLE IF NOT EXISTS zone_control (
+    zone_id           TEXT PRIMARY KEY REFERENCES zones(id) ON DELETE CASCADE,
+    org_id            TEXT REFERENCES orgs(id) ON DELETE SET NULL,   -- controller; NULL = uncontrolled
+    influence         INTEGER NOT NULL DEFAULT 50,                   -- controller's grip 0..100
+    challenger_org_id TEXT REFERENCES orgs(id) ON DELETE SET NULL,   -- top contester
+    base_income       INTEGER NOT NULL DEFAULT 100,                  -- credits/day to the controller
+    base_upkeep       INTEGER NOT NULL DEFAULT 40,                   -- credits/day cost to hold
+    captured_at       BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+  CREATE INDEX IF NOT EXISTS idx_zone_control_org ON zone_control(org_id);
+
   -- ── Jail system (jail plugin) ──────────────────────────────────────────────
   -- Runtime tables: schema is exported, rows are not. Written by plugins/jail.
   -- A jailed player's legal gear is snapshotted into held_items (JSONB array of
@@ -1283,8 +1297,10 @@ export const SCHEMA_SQL = `
     noise              INTEGER NOT NULL DEFAULT 2,
     price_buy          INTEGER NOT NULL DEFAULT 0,
     price_rent_hourly  INTEGER NOT NULL DEFAULT 0,
+    engines            INTEGER NOT NULL DEFAULT 1,     -- powerplant count (per-engine gauges + run-up)
     data               JSONB   NOT NULL DEFAULT '{}'
   );
+  ALTER TABLE aircraft_types ADD COLUMN IF NOT EXISTS engines INTEGER NOT NULL DEFAULT 1;
 
   -- aircraft is RUNTIME state: one row per physical craft in the world. Schema is
   -- exported, rows are not (production-owned, like generators/atm_units). The
@@ -1342,6 +1358,7 @@ export const SCHEMA_SQL = `
     deadline_s  INTEGER NOT NULL DEFAULT 1800,   -- seconds after accept to deliver
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  ALTER TABLE flight_contracts ADD COLUMN IF NOT EXISTS job_type TEXT;   -- authored job flavour (freight/medevac/smuggle/exfil/…)
   CREATE INDEX IF NOT EXISTS idx_flight_contracts_origin ON flight_contracts(origin_zone, status);
   CREATE INDEX IF NOT EXISTS idx_flight_contracts_player ON flight_contracts(player_id, status);
 

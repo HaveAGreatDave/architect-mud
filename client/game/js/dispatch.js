@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
-import { renderMinimap, openMapPopup } from './panels/minimap.js';
+import { renderMinimap, openMapPopup, refreshMapIfOpen } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut } from './panels/environment.js';
 import { setWeatherEventFx } from './panels/weather-fx.js';
 import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
@@ -17,6 +17,7 @@ import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
+import { openCorpMap } from './panels/corp-map.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
 import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillancehub.js';
@@ -24,7 +25,7 @@ import { openDatachipReplay } from './panels/datachipreplay.js';
 import { openCircuitHack } from './panels/circuithack.js';
 import { openHololock } from './panels/hololock.js';
 import { openFishing } from './panels/fishing.js';
-import { updateCockpit, openTakeoff, openGlideslope, openTargeting } from './panels/cockpit.js';
+import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting } from './panels/cockpit.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame } from './panels/synthlab.js';
 import { openSpliceSelect, openSpliceStages } from './panels/splicelab.js';
@@ -111,6 +112,7 @@ const handlers = {
     if (msg.minimap) renderMinimap(msg.minimap, msg.direction);
     if (msg.tempC !== undefined) updateZoneTempHUD(msg.tempC);
     refreshZoneVisibility();
+    refreshMapIfOpen();
   },
 
   combat: (() => {
@@ -196,7 +198,7 @@ const handlers = {
     };
   })(),
   emote: (msg) => {
-    const el = appendMsg(msg.message, 'zone-event');
+    const el = appendHtml(msg.message, 'zone-event');
     if (msg.butcherMs) { closeLootPanel(); attachInlineProgress(el, msg.butcherMs); }
   },
   say: (msg) => { appendMsg(msg.message, 'say'); },
@@ -281,6 +283,8 @@ const handlers = {
   // player's own credits also refresh the vitals HUD.
   corp_console:       (msg) => { openCorpConsole(msg); },
   corp_console_patch: (msg) => { updateCorpConsole(msg); },
+  corp_map:           (msg) => { openCorpMap(msg); },
+  corp_territory:     (msg) => { appendHtml(msg.message, 'help'); },
   corp_info:        (msg) => { appendHtml(msg.message, 'help'); },
   corp_roster:      (msg) => { appendHtml(msg.message, 'help'); },
   corp_invite:      (msg) => { appendHtml(msg.message, 'help'); },
@@ -526,11 +530,12 @@ const handlers = {
 
   // ── Flight (cockpit HUD + takeoff/landing minigames) ─────────────────────
   cockpit_update: (msg) => { updateCockpit(msg.state); },
-  cockpit_close: () => { sendCmdSilent('look'); },   // hand the area pane back to the room view
+  cockpit_close: () => { closeCockpit(); sendCmdSilent('look'); },   // hand the area pane back to the room view
   flight_takeoff: (msg) => {
     openTakeoff({
       skill: msg.skill ?? 4,
       difficulty: msg.difficulty ?? 5,
+      vtol: !!msg.vtol,
       deviceName: msg.deviceName || 'CRAFT',
       onResult: ({ won }) => sendCmdSilent(`takeoffresolve ${msg.token} ${won ? 1 : 0}`),
     });

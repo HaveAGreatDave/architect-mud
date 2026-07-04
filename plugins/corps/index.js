@@ -10,17 +10,48 @@ import { query, withTransaction } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import {
   getOrg, getOrgByName, getPlayerMembership, reloadOrg, removeOrgFromCache,
-  getAllLivePlayers, getZone, getApartment, setApartmentCache,
+  getAllLivePlayers, getZone, getAllZones, getApartment, setApartmentCache,
+  getZoneControl, setZoneControlCache, getOrgZones, getAllZoneControl,
 } from '../../server/engine/world.js';
 import { PERM, PERM_ALL, hasPerm } from '../../server/engine/org-perms.js';
 import { releaseCorpHq } from '../../server/engine/apartments.js';
 import { sendToChatChannel } from '../../server/engine/channels.js';
+import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
+import { schedule } from '../../server/engine/scheduler.js';
 
 const FOUND_FEE = 1000;            // credits to found a corp
 const HQ_FEE = 500;                // credits (from treasury) to claim an HQ
 const HQ_LOCK_DIFFICULTY = 4;      // matches apartments' base
 const INVITE_TTL_MS = 120000;      // 2 minutes
 const MAX_NAME = 40;
+
+// ── Territory (Phase 1) tunables ──
+const TERRITORY_CLAIM_FEE = 300;   // credits (from treasury) to claim a zone
+const START_INFLUENCE = 50;        // grip a newly-claimed/flipped zone begins at
+const REINFORCE_COST = 20;         // credits per +1 grip point
+const CONTEST_COOLDOWN_MS = 30000; // per-player anti-spam on contesting
+const CONSOLIDATE_PER_DAY = 10;    // uncontested grip drift toward 100 / 24h tick
+const ERODE_PER_DAY = 8;           // contested grip decay toward 0 / 24h tick
+
+// playerId -> timestamp of last contest (anti-spam)
+const contestCooldown = new Map();
+
+// A zone is claimable territory if it's contestable ground: non-safe by danger,
+// or explicitly flagged. Safe hubs and apartments are never territory.
+function isClaimableZone(zone) {
+  if (!zone || zone.flags?.is_apartment) return false;
+  if (zone.flags?.claimable === true) return true;
+  if (zone.flags?.claimable === false) return false;
+  return !!zone.danger_rating && zone.danger_rating !== 'safe';
+}
+
+// Architect attention 0..100 for an org — concentration of power (zones held +
+// treasury). A telegraph for now; "optimization" events come later.
+function architectHeat(org, zoneCount) {
+  const byZones = (zoneCount || 0) * 12;
+  const byTreasury = Math.floor((org?.treasury || 0) / 5000) * 5;
+  return Math.max(0, Math.min(100, byZones + byTreasury));
+}
 
 // targetPlayerId -> { orgId, orgName, expiresAt }
 const pendingInvites = new Map();
@@ -86,21 +117,32 @@ async function buildConsolePayload(player) {
       WHERE rel.org_id = $1 ORDER BY o.name`, [m.org_id]);
   const relations = relRows.map(r => ({ name: r.name, stance: r.stance }));
 
-  // Territory: HQ zones only until Phase 1 (no influence contest yet).
-  const { rows: hqRows } = await query('SELECT zone_id FROM apartments WHERE owner_org_id = $1', [m.org_id]);
-  const territory = hqRows.map(h => ({ zone: getZone(h.zone_id)?.name || h.zone_id, status: 'HQ', influence: 1 }));
+  // Territory: controlled zones (influence grip), with HQ zones marked.
+  const zones = getOrgZones(m.org_id);
+  const hqSet = new Set((await query('SELECT zone_id FROM apartments WHERE owner_org_id=$1', [m.org_id])).rows.map(r => r.zone_id));
+  const territory = zones.map(z => ({
+    zone: getZone(z.zone_id)?.name || z.zone_id,
+    status: hqSet.has(z.zone_id) ? 'HQ' : (z.challenger_org_id ? 'CONTESTED' : 'HELD'),
+    influence: z.influence,
+    challenger: z.challenger_org_id ? (getOrg(z.challenger_org_id)?.name || null) : null,
+  }));
+  for (const zid of hqSet) if (!zones.find(z => z.zone_id === zid)) {
+    territory.push({ zone: getZone(zid)?.name || zid, status: 'HQ', influence: 100, challenger: null });
+  }
+  const income = zones.reduce((s, z) => s + (z.base_income || 0), 0);
+  const upkeep = zones.reduce((s, z) => s + (z.base_upkeep || 0), 0);
 
   return {
     type: 'corp_console',
     accent: org.color || '#35e0c8',
     org: { name: org.name, tag: deriveTag(org), tier: org.flags?.tier || 1 },
     you: { rank: myRank?.name || '—', permissions: m.permissions },
-    treasury: { balance: org.treasury || 0, income: 0, upkeep: 0 },
+    treasury: { balance: org.treasury || 0, income, upkeep },
     members,
     relations,
     territory,
     directives: [],
-    architectHeat: 0,
+    architectHeat: architectHeat(org, zones.length),
   };
 }
 
@@ -112,9 +154,49 @@ async function pushConsole(orgId, broadcast) {
     if (getPlayerMembership(p.id)?.org_id !== orgId) continue;
     const payload = await buildConsolePayload(p);
     if (payload.type === 'corp_console') {
-      broadcast(null, { type: 'corp_console_patch', treasury: payload.treasury, architectHeat: payload.architectHeat, members: payload.members }, null, p.id);
+      broadcast(null, { type: 'corp_console_patch', treasury: payload.treasury, architectHeat: payload.architectHeat, members: payload.members, territory: payload.territory }, null, p.id);
     }
   }
+}
+
+// Standalone strategic map payload: placed zones on the current map, tinted by
+// controlling org, with per-zone influence + a legend of orgs present.
+async function cmdCorpMap(player) {
+  const m = getPlayerMembership(player.id);
+  const cur = getZone(player.current_zone);
+  const mapId = cur?.map_id || 'map_world';
+  const gz = cur?.grid_z ?? 0;
+  const orgsSeen = new Map();
+  const tiles = [];
+  for (const z of getAllZones()) {
+    if (z.map_id !== mapId || (z.grid_z ?? 0) !== gz) continue;
+    if (z.grid_x == null || z.grid_y == null) continue;
+    const zc = getZoneControl(z.id);
+    let control;
+    if (zc?.org_id) {
+      const o = getOrg(zc.org_id);
+      const ch = zc.challenger_org_id ? getOrg(zc.challenger_org_id) : null;
+      control = {
+        org_id: zc.org_id, tag: o ? deriveTag(o) : '?', color: o?.color || '#888',
+        influence: zc.influence, status: zc.challenger_org_id ? 'CONTESTED' : 'HELD',
+        challenger: ch?.name || null, mine: !!(m && zc.org_id === m.org_id),
+        income: zc.base_income, upkeep: zc.base_upkeep,
+      };
+      if (o) orgsSeen.set(o.id, { id: o.id, tag: deriveTag(o), color: o.color || '#888', name: o.name });
+      if (ch) orgsSeen.set(ch.id, { id: ch.id, tag: deriveTag(ch), color: ch.color || '#888', name: ch.name });
+    } else {
+      control = { org_id: null, status: isClaimableZone(z) ? 'OPEN' : 'SAFE' };
+    }
+    tiles.push({ id: z.id, x: z.grid_x, y: z.grid_y, name: z.name, danger: z.danger_rating || 'safe', isCurrent: z.id === player.current_zone, control });
+  }
+  return {
+    type: 'corp_map',
+    accent: (m ? getOrg(m.org_id)?.color : null) || '#35e0c8',
+    myOrgId: m?.org_id || null,
+    myTag: m ? deriveTag(getOrg(m.org_id)) : null,
+    orgs: [...orgsSeen.values()],
+    tiles,
+  };
 }
 
 async function cmdFound(player, name) {
@@ -385,7 +467,15 @@ async function cmdSetRank(player, targetName, rankName) {
   return { type: 'corp_rank_update', message: `${esc(target.handle)} is now ${esc(rank.name)}.` };
 }
 
-async function cmdClaim(player) {
+// `corp claim` is context-sensitive: an apartment → HQ; a claimable zone → territory.
+async function cmdClaim(player, broadcast) {
+  const zone = getZone(player.current_zone);
+  if (zone?.flags?.is_apartment) return cmdClaimHQ(player);
+  if (isClaimableZone(zone)) return cmdClaimTerritory(player, broadcast);
+  return err("Nothing to claim here — stand in a vacant apartment (HQ) or a contestable zone (territory).");
+}
+
+async function cmdClaimHQ(player) {
   const m = getPlayerMembership(player.id);
   if (!m) return err("You're not in a corp.");
   if (!hasPerm(player, PERM.MANAGE_HQ)) return err("You don't have permission to claim an HQ.");
@@ -417,6 +507,135 @@ async function cmdClaim(player) {
   await ensureCorpTerminal(zone.id);
   await reloadOrg(org.id);
   return { type: 'corp_hq_claim', message: `<b>${esc(org.name)}</b> claims this unit as its HQ for ${HQ_FEE}c. A corp ops terminal boots against the wall — <b>use</b> it (or type <b>corp</b>) to open the console. Treasury: ${result.treasury}c.` };
+}
+
+async function cmdClaimTerritory(player, broadcast) {
+  const m = getPlayerMembership(player.id);
+  if (!m) return err("You're not in a corp.");
+  if (!hasPerm(player, PERM.MANAGE_HQ)) return err("You don't have permission to claim territory.");
+  const zone = getZone(player.current_zone);
+  const zc = getZoneControl(zone.id);
+  if (zc?.org_id) {
+    if (zc.org_id === m.org_id) return err("Your corp already controls this zone — 'corp reinforce' to strengthen your grip.");
+    return err(`Held by a rival (grip ${zc.influence}%). Break it with 'corp contest'.`);
+  }
+  const org = getOrg(m.org_id);
+  if ((org.treasury || 0) < TERRITORY_CLAIM_FEE) return err(`Claiming territory costs ${TERRITORY_CLAIM_FEE}c from the treasury — it has ${org.treasury || 0}c.`);
+  const now = Math.floor(Date.now() / 1000);
+  const res = await withTransaction(async (q) => {
+    const dec = await q('UPDATE orgs SET treasury=treasury-$1 WHERE id=$2 AND treasury>=$1 RETURNING treasury', [TERRITORY_CLAIM_FEE, org.id]);
+    if (!dec.rowCount) return null;
+    const row = await q(
+      `INSERT INTO zone_control (zone_id, org_id, influence, challenger_org_id, captured_at)
+         VALUES ($1,$2,$3,NULL,$4)
+       ON CONFLICT (zone_id) DO UPDATE SET org_id=$2, influence=$3, challenger_org_id=NULL, captured_at=$4
+       RETURNING *`, [zone.id, org.id, START_INFLUENCE, now]);
+    return { treasury: dec.rows[0].treasury, row: row.rows[0] };
+  });
+  if (!res) return err(`The treasury doesn't have ${TERRITORY_CLAIM_FEE}c.`);
+  setZoneControlCache(zone.id, res.row);
+  await reloadOrg(m.org_id);
+  await pushConsole(m.org_id, broadcast);
+  broadcast?.(player.current_zone, { type: 'zone_event', message: `<span class="msg-system">${esc(org.name)} raises its colours over ${esc(zone.name)}.</span>` }, player.id);
+  return { type: 'corp_territory', message: `<b>${esc(org.name)}</b> claims <b>${esc(zone.name)}</b>. Grip ${START_INFLUENCE}% · +${res.row.base_income}/day income.` };
+}
+
+async function cmdContest(player, broadcast) {
+  const m = getPlayerMembership(player.id);
+  if (!m) return err("You're not in a corp.");
+  const zone = getZone(player.current_zone);
+  if (!isClaimableZone(zone)) return err("There's no territory to contest here.");
+  const zc = getZoneControl(zone.id);
+  if (!zc || !zc.org_id) return err("This zone is unclaimed — take it with 'corp claim'.");
+  if (zc.org_id === m.org_id) return err("Your corp already holds this zone.");
+  const until = contestCooldown.get(player.id) || 0;
+  if (Date.now() < until) return err(`You need to regroup before pushing again. (${Math.ceil((until - Date.now()) / 1000)}s)`);
+  contestCooldown.set(player.id, Date.now() + CONTEST_COOLDOWN_MS);
+
+  const difficulty = 5 + Math.floor(zc.influence / 20);
+  const check = await skillCheck(player, 'intimidate', difficulty);
+  if (!check.success) {
+    return { type: 'corp_territory', message: `You push against the hold on <b>${esc(zone.name)}</b> but make no headway. (${check.effective} vs ${check.difficulty})` };
+  }
+  await awardSkillUse(player.id, 'intimidate', check.margin);
+  const erosion = Math.max(4, 8 + check.margin * 2);
+  const now = Math.floor(Date.now() / 1000);
+  const res = await withTransaction(async (q) => {
+    const cur = await q('SELECT * FROM zone_control WHERE zone_id=$1 FOR UPDATE', [zone.id]);
+    const row0 = cur.rows[0];
+    if (!row0 || !row0.org_id || row0.org_id === m.org_id) return { noop: true };
+    if (row0.influence - erosion <= 0) {
+      const flipped = await q('UPDATE zone_control SET org_id=$1, influence=$2, challenger_org_id=NULL, captured_at=$3 WHERE zone_id=$4 RETURNING *',
+        [m.org_id, START_INFLUENCE, now, zone.id]);
+      return { row: flipped.rows[0], flipped: true, prevOrg: row0.org_id };
+    }
+    const upd = await q('UPDATE zone_control SET influence=$1, challenger_org_id=$2 WHERE zone_id=$3 RETURNING *',
+      [row0.influence - erosion, m.org_id, zone.id]);
+    return { row: upd.rows[0], flipped: false };
+  });
+  if (res.noop) return err("Control of the zone just shifted — try again.");
+  setZoneControlCache(zone.id, res.row);
+  await pushConsole(m.org_id, broadcast);
+  if (res.prevOrg) await pushConsole(res.prevOrg, broadcast);
+  const org = getOrg(m.org_id);
+  if (res.flipped) {
+    broadcast?.(player.current_zone, { type: 'zone_event', message: `<span class="msg-system">${esc(org.name)} seizes ${esc(zone.name)}!</span>` }, player.id);
+    return { type: 'corp_territory', message: `<b>${esc(org.name)}</b> breaks the last hold and <b>seizes ${esc(zone.name)}</b>! Grip ${res.row.influence}%.` };
+  }
+  return { type: 'corp_territory', message: `You erode the hold on <b>${esc(zone.name)}</b> — grip down to ${res.row.influence}%. Keep the pressure on.` };
+}
+
+async function cmdReinforce(player, amountStr, broadcast) {
+  const m = getPlayerMembership(player.id);
+  if (!m) return err("You're not in a corp.");
+  if (!hasPerm(player, PERM.MANAGE_HQ)) return err("You don't have permission to reinforce territory.");
+  const zone = getZone(player.current_zone);
+  const zc = getZoneControl(zone?.id);
+  if (!zc || zc.org_id !== m.org_id) return err("Your corp doesn't control this zone.");
+  if (zc.influence >= 100) return err("Your grip here is already absolute (100%).");
+  const want = amountStr ? Math.max(1, parseInt(amountStr, 10) || 0) : 10;
+  const points = Math.min(want, 100 - zc.influence);
+  const cost = points * REINFORCE_COST;
+  const org = getOrg(m.org_id);
+  if ((org.treasury || 0) < cost) return err(`Reinforcing +${points}% costs ${cost}c — the treasury has ${org.treasury || 0}c.`);
+  const res = await withTransaction(async (q) => {
+    const dec = await q('UPDATE orgs SET treasury=treasury-$1 WHERE id=$2 AND treasury>=$1 RETURNING treasury', [cost, org.id]);
+    if (!dec.rowCount) return null;
+    const row = await q('UPDATE zone_control SET influence=LEAST(100, influence+$1) WHERE zone_id=$2 RETURNING *', [points, zone.id]);
+    return { treasury: dec.rows[0].treasury, row: row.rows[0] };
+  });
+  if (!res) return err(`The treasury doesn't have ${cost}c.`);
+  setZoneControlCache(zone.id, res.row);
+  await reloadOrg(m.org_id);
+  await pushConsole(m.org_id, broadcast);
+  return { type: 'corp_territory', message: `You pour ${cost}c into holding <b>${esc(zone.name)}</b>. Grip ${res.row.influence}%.` };
+}
+
+// 24h territory tick: settle income − upkeep to each controller's treasury, and
+// drift grip (uncontested consolidates toward 100; contested erodes toward a flip).
+async function runTerritoryTick() {
+  const rows = getAllZoneControl().filter(z => z.org_id);
+  const net = new Map();
+  for (const z of rows) {
+    net.set(z.org_id, (net.get(z.org_id) || 0) + (z.base_income || 0) - (z.base_upkeep || 0));
+    let inf = z.challenger_org_id ? z.influence - ERODE_PER_DAY : Math.min(100, z.influence + CONSOLIDATE_PER_DAY);
+    if (inf <= 0 && z.challenger_org_id) {
+      const now = Math.floor(Date.now() / 1000);
+      await query('UPDATE zone_control SET org_id=$1, influence=$2, challenger_org_id=NULL, captured_at=$3 WHERE zone_id=$4', [z.challenger_org_id, START_INFLUENCE, now, z.zone_id]);
+    } else if (inf !== z.influence) {
+      await query('UPDATE zone_control SET influence=$1 WHERE zone_id=$2', [Math.max(0, inf), z.zone_id]);
+    }
+  }
+  for (const [orgId, delta] of net) {
+    if (delta > 0) await query('UPDATE orgs SET treasury=treasury+$1 WHERE id=$2', [delta, orgId]);
+    else if (delta < 0) await query('UPDATE orgs SET treasury=GREATEST(0, treasury+$1) WHERE id=$2', [delta, orgId]);
+  }
+  for (const z of rows) {
+    const { rows: r } = await query('SELECT * FROM zone_control WHERE zone_id=$1', [z.zone_id]);
+    setZoneControlCache(z.zone_id, r[0] || null);
+  }
+  for (const orgId of net.keys()) await reloadOrg(orgId);
+  if (rows.length) console.log(`[corps] Territory tick: ${rows.length} zone(s), ${net.size} org(s) settled.`);
 }
 
 // Every claimed HQ gets a wall-mounted ops terminal (idempotent) — the diegetic
@@ -485,7 +704,9 @@ const USAGE = [
   'corp rank list|add|set|del ...  — manage ranks',
   'corp setrank <player> <rank>    — assign a member\'s rank',
   'corp edit name|desc|color <value>',
-  'corp claim                — claim this apartment as HQ (costs ' + HQ_FEE + 'c from treasury)',
+  'corp claim                — claim where you stand (apartment → HQ ' + HQ_FEE + 'c; zone → territory ' + TERRITORY_CLAIM_FEE + 'c)',
+  'corp contest              — erode a rival\'s grip on this zone (seize it at 0%)',
+  'corp reinforce [pts]      — spend treasury to strengthen your grip here',
   'corp say <message>        — talk on your private corp channel',
   'corp disband              — dissolve the corp (owner only)',
 ].join('\n');
@@ -516,7 +737,12 @@ async function cmdCorp(args, raw, player, broadcast) {
     case 'rank':        return cmdRank(player, rest);
     case 'setrank':
     case 'promote':     return cmdSetRank(player, rest[0], rest[1]);
-    case 'claim':       return cmdClaim(player);
+    case 'claim':       return cmdClaim(player, broadcast);
+    case 'map':         return cmdCorpMap(player);
+    case 'contest':
+    case 'raid':        return cmdContest(player, broadcast);
+    case 'reinforce':
+    case 'fortify':     return cmdReinforce(player, rest[0], broadcast);
     case 'say':
     case 'chat':        return cmdSay(player, rest.join(' '), broadcast);
     case 'disband':     return cmdDisband(player);
@@ -552,5 +778,11 @@ export const commands = {
 export const specializedActions = [
   { verb: 'use', requiredTag: 'corp_terminal', handler: doUseCorpTerminal },
 ];
+
+// Exported for tests/ops (the verify harness drives it without waiting 24h).
+export { runTerritoryTick };
+
+// Settle territory income/upkeep + grip drift once a day.
+schedule('24h', () => runTerritoryTick().catch(e => console.error('[corps] territory tick error:', e.message)));
 
 console.log('[corps] Plugin loaded.');

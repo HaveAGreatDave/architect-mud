@@ -197,10 +197,20 @@ function streetColor(a, b, regional) {
   return DANGER_STREET[Math.max(DANGER_RANK[a.danger] ?? 0, DANGER_RANK[b.danger] ?? 0)];
 }
 
+// Landmark icons — icon glyph must match the server POI_ICON in movement.js.
+const POI_LEGEND = {
+  airport: { icon: '✈', label: 'Airport / airfield' },
+  police:  { icon: '★', label: 'Police station' },
+  power:   { icon: '⚡', label: 'Power plant' },
+  club:    { icon: '♥', label: 'Strip club' },
+  vendor:  { icon: '$', label: 'Vendor / shop' },
+  stairs:  { icon: '⇕', label: 'Stairs (up/down)' },
+};
+
 // ── Three-level map popup: interior → zone → regional ────────────────────────
 // Popup state, kept across re-opens so the tab buttons + wheel know the current
 // level and the tooltip can look tiles up by id.
-const mapState = { mode: 'zone', insideInterior: false, byId: new Map() };
+const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false };
 let mapUiWired = false;
 // Pan offset of the grid within the fixed 11×11 viewport, and live drag state.
 const mapPan = { tx: 0, ty: 0 };
@@ -308,6 +318,13 @@ function wireMapUi() {
     const level = btn.getAttribute('data-level');
     if (level && level !== mapState.mode) sendCmdSilent(`map ${level}`);
   });
+  // Avenue View: a rendering toggle, not a zoom level — swaps room symbols for
+  // a road-passage glyph (no server round-trip needed, just re-render).
+  document.getElementById('map-avenue-toggle')?.addEventListener('click', () => {
+    mapState.avenueView = !mapState.avenueView;
+    document.getElementById('map-avenue-toggle')?.classList.toggle('active', mapState.avenueView);
+    renderMapGrid();
+  });
   const vp = document.getElementById('map-viewport');
   if (vp) {
     let lastWheel = 0;
@@ -362,11 +379,10 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
   mapState.mode = mode;
   mapState.insideInterior = !!insideInterior;
   mapState.byId = new Map(tiles.map(t => [t.id, t]));
+  mapState.tiles = tiles;
 
   wireMapUi();
 
-  const grid = document.getElementById('map-grid');
-  const legend = document.getElementById('map-legend');
   const title = document.getElementById('map-title');
   if (title) title.textContent =
     mode === 'regional' ? 'City Map — Regional' : mode === 'interior' ? 'City Map — Interior' : 'City Map — Zone';
@@ -377,14 +393,26 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
     btn.classList.toggle('active', level === mode);
     btn.disabled = (level === 'interior' && !insideInterior);
   }
+  document.getElementById('map-avenue-toggle')?.classList.toggle('active', mapState.avenueView);
 
   const tip = document.getElementById('map-tooltip');
   if (tip) tip.style.display = 'none';
 
+  renderMapGrid();
+  document.getElementById('map-panel').classList.add('active');
+}
+
+// Refreshes the map popup's grid/legend from mapState (tiles/mode/insideInterior/
+// avenueView) without touching the server — used both by the initial open and by
+// the Avenue View toggle (a pure rendering-mode switch on already-fetched tiles).
+function renderMapGrid() {
+  const { tiles, mode, insideInterior, avenueView } = mapState;
+  const grid = document.getElementById('map-grid');
+  const legend = document.getElementById('map-legend');
+
   if (!tiles.length) {
     grid.textContent = '(no map data)';
     legend.innerHTML = '';
-    document.getElementById('map-panel').classList.add('active');
     return;
   }
 
@@ -401,6 +429,7 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
 
   const symFor = (t) => {
     if (t.isCurrent) return '';
+    if (t.icon) return t.icon + ' ';                 // POI landmark (airport, police, …)
     if (t.marker) return (t.marker.length === 1 ? t.marker + ' ' : t.marker.slice(0, 2));
     return twoLetterAbbrev(t.name).padEnd(2, ' ');
   };
@@ -427,7 +456,12 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
       const orient = (dx !== 0 && dy === 0) ? 'h' : (dx === 0 && dy !== 0) ? 'v' : (dx === dy ? 'd1' : 'd2');
       // A street adjacent to the current tile is one of "your exits" — highlight it.
       const open = !!(t.isCurrent || n.isCurrent) || !!cell[cy][cx]?.open;
-      cell[cy][cx] = { kind: 'link', orient, color: streetColor(t, n, regional), open };
+      // A major road (flags.artery) is a fixed tag, not a computed tint — both
+      // endpoints must share a named artery (an intersection tile carries more
+      // than one), so a cross-street segment into an unrelated side street
+      // doesn't light up.
+      const artery = !!(t.artery && n.artery && t.artery.some(s => n.artery.includes(s)));
+      cell[cy][cx] = { kind: 'link', orient, color: streetColor(t, n, regional), open, artery };
     }
   }
 
@@ -443,7 +477,7 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
         if (it.orient === 'd1' || it.orient === 'd2') { // diagonals stay glyphs (rare)
           html += `<span class="map-c map-link">${it.orient === 'd1' ? '╲' : '╱'}</span>`;
         } else {
-          const scls = `map-c map-street map-street-${it.orient}${it.open ? ' map-street-open' : ''}`;
+          const scls = `map-c map-street map-street-${it.orient}${it.artery ? ' map-street-artery' : ''}${it.open ? ' map-street-open' : ''}`;
           html += `<span class="${scls}" style="--street:${it.color}"></span>`;
         }
         continue;
@@ -453,10 +487,11 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
       const bg = regional ? funcColor : t.bg_color;
       const styles = [];
       if (bg) styles.push(`background:${bg}`);
+      const isPoi = t.icon && !t.isCurrent; // POI icon gets its own colour via a class
       const tColor = regional
         ? luminanceTextColor(bg)
         : (t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null));
-      if (tColor) styles.push(`color:${tColor}`);
+      if (tColor && !isPoi) styles.push(`color:${tColor}`);
       // Dead-end = exactly one connector touching this room.
       let deg = 0;
       for (const [rr, cc] of [[r, c - 1], [r, c + 1], [r - 1, c], [r + 1, c]])
@@ -464,20 +499,39 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
       const cls = `map-c map-room danger-${t.danger || 'safe'}` +
         (t.isCurrent ? ' map-current' : '') +
         (regional || t.bg_color || t.color ? ' map-styled' : '') +
+        (isPoi ? ` map-poi map-poi-${t.poi}` : '') +
         (t.buildings && t.buildings.length ? ' map-has-building' : '') +
         (deg === 1 ? ' map-deadend' : '');
       const style = styles.length ? ` style="${styles.join(';')}"` : '';
-      html += `<span class="${cls}"${style} data-zone-id="${t.id}">${symFor(t)}</span>`;
+      // Avenue View strips room identity down to "does a named artery pass
+      // through here" — || north/south, = east/west, + at a crossing.
+      let sym;
+      if (t.isCurrent) sym = '';
+      else if (avenueView) {
+        const isArteryLink = (link) => link?.kind === 'link' && link.artery;
+        const hasNS = isArteryLink(cell[r - 1]?.[c]) || isArteryLink(cell[r + 1]?.[c]);
+        const hasEW = isArteryLink(cell[r]?.[c - 1]) || isArteryLink(cell[r]?.[c + 1]);
+        sym = hasNS && hasEW ? '+' : hasNS ? '||' : hasEW ? '=' : '';
+      } else sym = symFor(t);
+      html += `<span class="${cls}"${style} data-zone-id="${t.id}">${sym}</span>`;
     }
   }
   grid.innerHTML = html;
 
   // Right panel: land-use legend (regional) or alphabetical room list (interior/zone).
   // Shared glyph keys (street / your-exits / building) — same visual language as the grid.
-  const KEYS =
+  let KEYS =
     `<div class="map-leg-row"><span class="map-leg-sym"><i class="map-leg-street"></i></span> Street</div>` +
+    `<div class="map-leg-row"><span class="map-leg-sym"><i class="map-leg-street map-leg-street-artery"></i></span> Major road</div>` +
     `<div class="map-leg-row"><span class="map-leg-sym"><i class="map-leg-street map-leg-street-open"></i></span> Your exits</div>` +
     `<div class="map-leg-row"><span class="map-leg-sym"><i class="map-leg-bld"></i></span> Building here</div>`;
+  // Landmark icons actually present in this view (kept sparse — see server mapPoi()).
+  const poiPresent = new Set(tiles.map(t => t.poi).filter(Boolean));
+  for (const key of Object.keys(POI_LEGEND)) {
+    if (!poiPresent.has(key)) continue;
+    const p = POI_LEGEND[key];
+    KEYS += `<div class="map-leg-row"><span class="map-leg-sym map-poi map-poi-${key}">${p.icon}</span> ${p.label}</div>`;
+  }
   if (regional) {
     let leg = `<div class="map-leg-row"><span class="map-leg-sym map-current"></span> You are here</div>` + KEYS;
     const present = new Set(tiles.map(t => t.func || 'residential'));
@@ -513,7 +567,15 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
     legend.innerHTML = leg;
   }
 
-  document.getElementById('map-panel').classList.add('active');
   // Center the viewport on the current tile (offsets require the panel laid out).
   centerMapOnCurrent();
+}
+
+// If the map popup is currently open, silently re-request it at the current
+// zoom level so it stays in sync as the player moves — same-shape response as
+// opening it fresh, just routed back through the normal 'map' message handler.
+export function refreshMapIfOpen() {
+  if (document.getElementById('map-panel')?.classList.contains('active')) {
+    sendCmdSilent(`map ${mapState.mode}`);
+  }
 }

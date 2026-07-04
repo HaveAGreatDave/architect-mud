@@ -1,8 +1,11 @@
 # The Under gate to North City + map readability + colors
 
-**Status:** Workstreams **A, B, C BUILT 2026-07-03** (world reload/restart PENDING for A's content).
-Workstream **D planned, not built**. Companion doc: [the-under.md](the-under.md) (A is recorded there
-too, as the "North City gate corridor" box).
+**Status:** Workstreams **B, C BUILT 2026-07-03**. Workstream **A's live-in-production status is
+unverified** — a 2026-07-04 spot-check found production zone exits that don't match the sealed-gate
+description below; a follow-up task was spawned to confirm one way or the other. Workstream **D's
+mesh-to-avenue rollouts never actually landed** (see correction below); superseded by the **Named
+arteries** tagging pass, **BUILT 2026-07-04** (world reload/restart PENDING). Companion doc:
+[the-under.md](the-under.md) (A is recorded there too, as the "North City gate corridor" box).
 
 ## Context
 
@@ -94,6 +97,18 @@ Reworked `openMapPopup()` + `.map-*` CSS in [minimap.js](../../client/game/js/pa
 - **Legend keys:** street / your-exits / building added to both legends.
 - No server change, no data dependency.
 
+### Landmark POI icons  ✅ BUILT 2026-07-04
+Colour-coded landmark icons on the full map, from clean signals (no guesswork), kept **sparse**
+(~18 icons over 220 tiles). Server `mapPoi()` in [movement.js](../../server/engine/commands/movement.js)
+classifies each tile by priority and adds `icon`/`poi` to the map payload; the client
+([minimap.js](../../client/game/js/panels/minimap.js) `openMapPopup`) draws the icon in place of the
+2-letter abbrev with a per-category colour + a legend key.
+- ✈ **Airport** (`airfield_name` flag, 6) · ★ **Police** (`building_type=police`) · ⚡ **Power plant**
+  (name/id + adjacent power *building*) · ♥ **Strip club** (`building_type=club`) · $ **Vendor**
+  (`building_type=shop`/`grocery` or a vendor NPC in the tile) · ⇕ **Stairs** (up/down exit — surfaces
+  the Under seams).
+- Priority order per tile picks the single most salient landmark; current-tile beacon still wins.
+
 ### Tier 2 — semantic crossings  ⏳ PLANNED (needs a small read-only payload add)
 Stair (▲/▼) glyphs for `up`/`down` exits — makes the Under gate visible on the surface map — and
 door/locked-crossing glyphs; back-port both to the sidebar minimap. Requires extending `mapTile()`
@@ -165,6 +180,57 @@ preserved. Just 4 internal edges severed (it was already tight), avg **2.64 → 
 **Rollout (if kept):** continue phase district by district (like the coldwater build), BFS/regress each phase,
 and watch the gameplay seams the exit graph drives — enemy patrols & pathfinding, fleeing (dead-ends
 become death traps), spawn/quest reachability, NPC wandering. This is a project, not a one-shot.
+
+**Correction (2026-07-04):** direct inspection of production found none of Rollouts #1–5 actually
+landed — `map_world` still averages **3.61** cardinal exits/tile (the documented *pre-rework* baseline),
+no zone carries a street/artery flag, and none of the "Row/Lane" names found are multi-tile corridors
+(they're ordinary single-room flavor names). The mesh-to-avenue conversion described above was either
+reverted or never actually applied to the live database — the docs above were stale. Superseded by the
+lighter-weight "Named arteries" tagging pass below, which achieves the readability goal without
+re-deriving the mesh-severing project.
+
+## Named arteries (BUILT 2026-07-04)
+
+Since the mesh-to-avenue rework never actually landed, delivered the "highlight major roads" ask a
+different way: a `flags.artery` tag (array of street names, so an intersection tile can carry more
+than one) on top of the **existing, unmodified mesh** — no exits changed, no BFS/regress risk.
+
+- **Server:** `mapTile()` in [movement.js](../../server/engine/commands/movement.js) exposes
+  `artery: string[] | null` per tile from `zone.flags.artery`.
+- **Client:** `openMapPopup()` in [minimap.js](../../client/game/js/panels/minimap.js) colours a street
+  segment as a major road (fixed cyan, thicker) when both endpoint tiles share a named artery —
+  distinct from the pink "your exits" highlight, which still wins when both apply. New legend row.
+- **Content:** [scripts/tag-arteries.js](../../scripts/tag-arteries.js) (idempotent, additive) tagged
+  **7 named arteries / 34 tiles** across four districts, each verified against the real exit graph
+  before tagging:
+  - **Grand Avenue** — downtown N–S spine, x=0 (Rebar Field → Mediaform Plaza → Limelight Lot →
+    Threshold Plaza North → The Threshold → The Sprawl Gate)
+  - **Quay Road** — downtown docks E–W, y=−3 (Civic Steps → Mediaform Plaza → The Wharf → The Quays →
+    Fishmarket Dock → Smuggler's Slip)
+  - **The Haul Road** — Wastes/Ashway E–W, y=0, Slagworks Gate → Franchise Strip (8 tiles)
+  - **North Head** / **Main Haul** — The Yards' two E–W haul roads, y=−1 and y=0 (4 tiles each)
+  - **The Axis** — North City ceremonial N–S spine, x=−1, up from the Steps gate (5 tiles)
+  - **The Mall** — North City ministry-frontage E–W, y=−7 (5 tiles)
+  - Deliberate intersections carry both names: Mediaform Plaza (Grand Avenue × Quay Road), Civic Steps
+    (Quay Road × The Axis), Halcyon Heights (The Axis × The Mall).
+  - **The Strip** — Marquee nightlife-district main street, y=0 (The Marquee → Battery Square →
+    Muster Yard; Muster Yard is a second intersection, already carrying Main Haul)
+- Applied directly to production (`scripts/tag-arteries.js` run against `PROD_DATABASE_URL`).
+  **World reload/restart PENDING** to go live.
+
+### Avenue View (BUILT 2026-07-04)
+
+A rendering-mode toggle on the full map popup — `#map-avenue-toggle` button next to the
+interior/zone/regional tabs — that strips room symbols down to a road-passage glyph so the artery
+network reads at a glance: `||` where a named artery runs north/south through the tile, `=` for
+east/west, `+` at a crossing, blank otherwise. Pure client-side re-render (`renderMapGrid()`,
+factored out of `openMapPopup()` so the toggle doesn't need a server round-trip); `mapState.tiles`
+now holds the last-fetched tile set for this. Toggle state persists across pans/zoom-level changes
+within the session.
+
+Also fixed a real gap while at it: the full map popup didn't refresh while open if you walked around —
+only the sidebar minimap did. `refreshMapIfOpen()` (minimap.js) now silently re-issues `map <mode>`
+after every move if the popup is currently open, so it live-tracks you.
 
 ## Verification
 

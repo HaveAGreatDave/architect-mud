@@ -49,6 +49,7 @@ function drugEditForm(rec, isNew) {
   const effects = typeof rec.effects === 'object' ? rec.effects : JSON.parse(rec.effects||'{}');
   const withdrawal = typeof rec.withdrawal_effects === 'object' ? rec.withdrawal_effects : JSON.parse(rec.withdrawal_effects||'{}');
   return `
+    <input type="hidden" id="f-flags-json" value='${JSON.stringify(rec.flags||{}).replace(/'/g,'&#39;').replace(/</g,'&lt;')}'>
     <div class="field"><label>Drug ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
     <div class="field"><label>Description</label><textarea id="f-description" rows="2">${rec.description||''}</textarea></div>
@@ -65,6 +66,30 @@ function drugEditForm(rec, isNew) {
           <option value="1" ${rec.flags?.legal?'selected':''}>Legal</option>
         </select>
       </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Package form (how it looks on the splice bench)</label>
+        <select id="f-form">
+          <option value="" ${!rec.flags?.form?'selected':''}>— auto (derive from drug) —</option>
+          <option value="liquid" ${rec.flags?.form==='liquid'?'selected':''}>liquid (vial)</option>
+          <option value="powder" ${rec.flags?.form==='powder'?'selected':''}>powder (baggie)</option>
+          <option value="gel" ${rec.flags?.form==='gel'?'selected':''}>gel (pouch)</option>
+          <option value="pill" ${rec.flags?.form==='pill'?'selected':''}>pill (blister)</option>
+          <option value="gas" ${rec.flags?.form==='gas'?'selected':''}>gas (canister)</option>
+          <option value="crystal" ${rec.flags?.form==='crystal'?'selected':''}>crystal (shard)</option>
+          <option value="blotter" ${rec.flags?.form==='blotter'?'selected':''}>blotter (tab sheet)</option>
+          <option value="paste" ${rec.flags?.form==='paste'?'selected':''}>paste (tar brick)</option>
+        </select></div>
+      <div class="field"><label>Sub-form (mix behaviour)</label><input id="f-sub" value="${rec.flags?.sub||''}" placeholder="auto — thin/oil/solvent/fine/crystalline/viscous/tablet"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Package colour</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="color" id="f-color" value="${rec.flags?.color||'#4fe08a'}" oninput="var c=document.getElementById('f-color-on');if(c)c.checked=true" style="width:34px;height:28px;padding:1px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;flex-shrink:0">
+          <label style="font-size:12px;display:flex;gap:4px;align-items:center"><input type="checkbox" id="f-color-on" ${rec.flags?.color?'checked':''}> custom (else auto)</label>
+        </div>
+      </div>
+      <div class="field"><label>Volatility (0–1 — splice danger)</label><input type="number" id="f-volatility" value="${rec.flags?.volatility ?? ''}" min="0" max="1" step="0.05" placeholder="auto"></div>
     </div>
     <div class="field"><button type="button" class="action-btn primary" style="width:100%" onclick="openDrugEditorFromForm()">⚗ Open Structured Editor…</button><div class="hint" style="font-size:11px;opacity:0.7;margin-top:4px">Sectioned pop-out for instant / phased / tolerance / withdrawal / overdose / hallucination — no raw JSON. Seeds from the fields below.</div></div>
     <div class="field"><label>Effects (JSON — advanced / fallback)</label>
@@ -92,6 +117,12 @@ async function saveDrug(existing) {
     ? { ...existing.flags }
     : (() => { try { return JSON.parse(existing?.flags || '{}'); } catch { return {}; } })();
   flags.legal = document.getElementById('f-is_legal').value === '1';
+  // Splice-bench appearance (blank/unchecked = auto-derive; the plugin falls back).
+  const _f = (id) => document.getElementById(id);
+  if (_f('f-form')) { const v = _f('f-form').value; if (v) flags.form = v; else delete flags.form; }
+  if (_f('f-sub')) { const v = _f('f-sub').value.trim(); if (v) flags.sub = v; else delete flags.sub; }
+  if (_f('f-color-on')) { if (_f('f-color-on').checked) flags.color = _f('f-color').value; else delete flags.color; }
+  if (_f('f-volatility')) { const v = _f('f-volatility').value; if (v === '') delete flags.volatility; else flags.volatility = Math.max(0, Math.min(1, +v)); }
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
