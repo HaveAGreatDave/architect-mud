@@ -409,7 +409,6 @@ export const SCHEMA_SQL = `
     skill_id TEXT NOT NULL,
     base_difficulty INTEGER DEFAULT 3
   );
-  ALTER TABLE recipes ADD COLUMN IF NOT EXISTS craft_time INTEGER DEFAULT 3;
 
   CREATE TABLE IF NOT EXISTS drugs (
     id TEXT PRIMARY KEY,

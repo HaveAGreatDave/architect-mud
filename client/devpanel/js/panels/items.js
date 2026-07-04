@@ -185,7 +185,7 @@ function applyItemSupertag() {
 const CATEGORY_DEFAULT_TAGS = {
   clothing:   { slot: 'torso' },
   armor:      { slot: 'torso', armor: 0 },
-  weapon:     { weapon: true, slot: 'weapon_hand', weapon_skill: 'blunt', damage: { min: 1, max: 2 } },
+  weapon:     { weapon: true, slot: 'weapon_hand', weapon_skill: 'clubs', damage: { min: 1, max: 2 } },
   consumable: { consumable: true },
   drug:       { consumable: true },
   implant:    {},
