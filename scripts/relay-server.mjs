@@ -14,6 +14,7 @@ import { connect } from 'node:net';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import pg from 'pg';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 4599;
@@ -195,6 +196,53 @@ const activity = async () => {
   return { ok: true, commits: commits.slice(0, 50), total: commits.length, authors };
 };
 
+// --- schema drift -----------------------------------------------------------
+// The seed's schema block is all CREATE TABLE IF NOT EXISTS — it builds tables
+// that don't exist yet but never ALTERs an existing one. So a column added to /
+// dropped from SCHEMA_SQL reaches a fresh DB (local rebuilds) but NEVER an
+// existing one (production). This compares the public columns of the LOCAL DB
+// (which reflects SCHEMA_SQL, since it's what built it) against PRODUCTION and
+// flags the disagreements a manual one-shot ALTER still needs to fix.
+const columnsOf = async (url, remote) => {
+  const client = new pg.Client({
+    connectionString: url,
+    ssl: remote ? { rejectUnauthorized: false } : undefined,
+    connectionTimeoutMillis: 6000,
+    query_timeout: 6000,
+  });
+  await client.connect();
+  try {
+    const r = await client.query(
+      `SELECT table_name, column_name FROM information_schema.columns WHERE table_schema='public'`,
+    );
+    return new Set(r.rows.map((x) => `${x.table_name}.${x.column_name}`));
+  } finally {
+    await client.end();
+  }
+};
+
+const schemaDrift = async () => {
+  const localUrl = readEnvUrl('DATABASE_URL');
+  const prodUrl = readEnvUrl('PROD_DATABASE_URL');
+  if (!localUrl || !isLocalHost(hostOf(localUrl))) {
+    return { ok: false, reason: 'DATABASE_URL is not local — point it at your local DB to compare.' };
+  }
+  if (!prodUrl || isLocalHost(hostOf(prodUrl))) {
+    return { ok: false, reason: 'No remote PROD_DATABASE_URL set — nothing to compare against.' };
+  }
+  let local, prod;
+  try {
+    [local, prod] = await Promise.all([columnsOf(localUrl, false), columnsOf(prodUrl, true)]);
+  } catch (e) {
+    return { ok: false, reason: `Could not read schema: ${e.message}` };
+  }
+  // In local but not prod → prod needs an ADD COLUMN. In prod but not local →
+  // SCHEMA_SQL dropped it but prod still carries it (needs DROP COLUMN).
+  const missingOnProd = [...local].filter((c) => !prod.has(c)).sort();
+  const extraOnProd = [...prod].filter((c) => !local.has(c)).sort();
+  return { ok: true, prodHost: hostOf(prodUrl), missingOnProd, extraOnProd };
+};
+
 // --- HTTP -------------------------------------------------------------------
 const readBody = (req) =>
   new Promise((res) => {
@@ -226,6 +274,11 @@ const server = createServer(async (req, res) => {
     if (req.url === '/api/activity') {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       return res.end(JSON.stringify(await activity()));
+    }
+    // On-demand only (a Supabase round-trip) — never wired into the status poll.
+    if (req.url === '/api/schema-drift') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify(await schemaDrift()));
     }
 
     // Launch the game server (detached, mirrors `npm run dev`). It's long-running,
@@ -433,9 +486,13 @@ const PAGE = `<!DOCTYPE html>
   <div class="card">
     <div class="row" style="justify-content:space-between">
       <strong>Pre-flight</strong>
-      <button class="ghost" id="refresh">↻ Recheck</button>
+      <div style="display:flex;gap:8px">
+        <button class="ghost" id="drift">⚖ Check prod schema</button>
+        <button class="ghost" id="refresh">↻ Recheck</button>
+      </div>
     </div>
     <div class="checks" id="checks"><div class="row"><span class="dot mute"></span>Checking…</div></div>
+    <div class="checks" id="driftOut"></div>
   </div>
 
   <div class="card">
@@ -552,6 +609,7 @@ async function refreshInner() {
   $('stop').disabled = !sv.running;
   const canDeploy = d.isLocal && p.ready && !g.diverged;
   $('deploy').disabled = !canDeploy;
+  $('drift').disabled = !(d.isLocal && p.ready); // needs local + a remote prod to compare
   $('prodHint').textContent = !p.ready
     ? 'Set PROD_DATABASE_URL (Supabase session pooler) in .env to enable prod deploys.'
     : !d.isLocal ? 'Deploy disabled: DATABASE_URL must be local (we push your LOCAL content).'
@@ -648,6 +706,30 @@ setInterval(() => { if (!streaming) refresh(false); }, 15000);
 
 $('refresh').onclick = () => refresh(true);
 $('stop').onclick = () => runStream('/api/kill', {}, 'Stopping server');
+
+async function checkDrift() {
+  const el = $('driftOut');
+  el.innerHTML = line('mute', 'Comparing local ↔ production schema…', '');
+  let d;
+  try {
+    d = await (await fetch('/api/schema-drift')).json();
+  } catch (e) {
+    el.innerHTML = line('warn', 'Schema check failed', 'Relay not responding');
+    return;
+  }
+  if (!d.ok) { el.innerHTML = line('mute', 'Schema check skipped', esc(d.reason)); return; }
+  if (!d.missingOnProd.length && !d.extraOnProd.length) {
+    el.innerHTML = line('ok', 'Prod schema matches local', d.prodHost + ' — no drift');
+    return;
+  }
+  let html = '';
+  for (const c of d.missingOnProd)
+    html += line('bad', 'Prod is missing ' + esc(c), 'run ALTER TABLE … ADD COLUMN on prod');
+  for (const c of d.extraOnProd)
+    html += line('warn', 'Prod still has ' + esc(c), 'SCHEMA_SQL dropped it — run ALTER TABLE … DROP COLUMN on prod');
+  el.innerHTML = html;
+}
+$('drift').onclick = checkDrift;
 $('publish').onclick = () => runStream('/api/publish', { message: $('msg').value }, 'Publishing');
 $('sync').onclick = () => runStream('/api/sync', {}, 'Syncing');
 $('regress').onclick = () => runStream('/api/regress', {}, 'Running regress');
