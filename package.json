@@ -26,6 +26,7 @@
     "db:fold-factions": "node server/models/temp/fold-factions-into-orgs.js",
     "db:drop-factions": "node server/models/temp/drop-factions-table.js",
     "db:strip-craft-quality": "node server/models/temp/strip-craft-quality.js",
+    "db:drop-craft-time": "node server/models/temp/drop-craft-time.js",
     "db:seed-audio": "node server/models/temp/seed-audio.js"
   },
   "dependencies": {
