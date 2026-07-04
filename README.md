@@ -116,7 +116,12 @@ git add db/seed.sql && git commit -m "Update world seed"
 ```
 The other dev then runs `npm run db:setup-local` to rebuild from the new snapshot.
 
-**Touching production deliberately** (e.g. pushing content live at deploy time): temporarily swap `DATABASE_URL` back to the Supabase pooler string (kept commented in `.env`), run what you need, then swap back.
+**Touching production deliberately** (e.g. pushing content live at deploy time): temporarily swap `DATABASE_URL` back to the Supabase pooler string (kept commented in `.env`), run what you need, then swap back. Don't restore `db/seed.sql` onto production — that file drops & rebuilds a *local* DB (and is guarded to refuse anything non-localhost). Push content live via the dev panel's additive export/restore instead.
+
+### Backups
+
+- **Content only** (no accounts): the dev panel's one-click _Database Backup → Export_ — safe to share, this is what `db/seed.sql` is built from.
+- **Full production backup** (schema + all data, **including player accounts/password hashes**): `npm run db:backup-prod`. Writes a timestamped `.sql` to `~/Documents/architect-backups` (outside the repo), keeps the newest 10. Targets `PROD_DATABASE_URL` (the session-pooler URL, port 5432) — set that in `.env`. **This file contains secrets: keep it private, never commit it.** A Windows scheduled task ("ArchitectMUD Weekly Prod Backup") runs this weekly. Restore into a fresh DB with `psql "<url>" -f <file>`.
 
 ---
 

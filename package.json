@@ -16,6 +16,7 @@
     "db:restore": "node server/models/restore.js",
     "db:setup-local": "node scripts/setup-local-db.mjs",
     "db:export-seed": "node scripts/export-seed.mjs",
+    "db:backup-prod": "node scripts/backup-prod.mjs",
     "db:rename-admin": "node server/models/temp/rename-admin.js",
     "db:reset-chars": "node server/models/temp/reset-chars.js",
     "db:migrate-xp": "node server/models/temp/migrate-xp.js",
