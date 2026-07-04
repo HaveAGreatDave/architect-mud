@@ -198,13 +198,17 @@
   .zone-inline-form { background: var(--bg3); border: 1px solid var(--border); border-radius: 2px; padding: 12px; margin: 8px 0; }
   .zone-inline-form .field { margin-bottom: 8px; }
   .zone-inline-form-actions { display: flex; gap: 8px; margin-top: 4px; }
-  .zone-collapse-toggle {
+  /* Zones list accordion fold toggle — a clear button-like chip. */
+  .z-arrow {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 16px; height: 16px; margin-right: 6px;
-    border: 1px solid var(--border); border-radius: 2px;
-    font-size: 11px; line-height: 1; color: var(--text-dim); cursor: pointer;
+    width: 20px; height: 20px; margin-right: 8px; flex-shrink: 0;
+    border: 1px solid var(--border); border-radius: 3px;
+    background: var(--bg3);
+    font-size: 13px; font-weight: 700; line-height: 1;
+    color: var(--accent); cursor: pointer;
   }
-  .zone-collapse-toggle:hover { color: var(--accent); border-color: var(--accent); }
+  .z-arrow:empty { border: none; background: none; }
+  [onclick*="zToggle"]:hover .z-arrow { border-color: var(--accent); background: var(--accent); color: var(--bg1); }
 
   /* Items panel — type sections */
   .item-section { }

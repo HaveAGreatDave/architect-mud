@@ -13,9 +13,41 @@ let ctx = null;
 let running = false;
 let enabled = false;             // Settings gate (weatherFx on + motion on); default off until settings apply
 
-// Current effect descriptor: { effect, intensity, windKph }. `effect` is one of
-// 'rain' | 'snow' | 'ash' | 'fog' | 'wind' | 'none'; intensity is 0..1.
+// Current *target* effect descriptor: { effect, intensity, windKph }. `effect` is
+// one of 'rain' | 'snow' | 'ash' | 'fog' | 'wind' | 'none'; intensity is 0..1.
 let cur = { effect: 'none', intensity: 0, windKph: 0 };
+
+// Rendered state, eased toward the target so weather ramps in/out instead of
+// snapping. `active` is the effect actually being drawn; while it differs from
+// `cur.effect` we're retiring the old one (presence → 0) before switching.
+//   presence     0..1 fade factor — 1 = fully present, 0 = gone. Drives the
+//                appear/retire fade all the way down to zero particles.
+//   dispIntensity eased copy of cur.intensity, so a rain level change (light↔
+//                heavy) ramps smoothly rather than jumping the particle count.
+let active = 'none';
+let presence = 0;
+let dispIntensity = 0;
+const PRES_RATE = 0.5;   // presence units/sec → ~2s to fully fade in or out
+const INT_RATE = 0.6;    // intensity units/sec → smooth ramp between levels
+
+function approach(v, target, step) {
+  if (v < target) return Math.min(target, v + step);
+  if (v > target) return Math.max(target, v - step);
+  return v;
+}
+
+// Ease presence/intensity and, once a retiring effect has fully faded, swap to
+// the new target effect and begin fading it in. Called each frame from draw().
+function updateTransition(dt) {
+  const retiring = active !== cur.effect;
+  presence = approach(presence, (retiring || active === 'none') ? 0 : 1, dt * PRES_RATE);
+  if (!retiring) dispIntensity = approach(dispIntensity, cur.intensity, dt * INT_RATE);
+  if (retiring && presence <= 0.001) {
+    active = cur.effect;
+    dispIntensity = 0;      // ramp the incoming effect up from nothing
+    reseed();
+  }
+}
 
 // Named "hero" weather event overlay, composited ON TOP of the base effect:
 // ion_storm (green tint + lightning flashes) / acid_rain (caustic yellow-green
@@ -80,13 +112,17 @@ function syncRect() {
 function targetCount() {
   const area = paneRect.width * paneRect.height;
   const density = area / 9000; // ~1 particle per 9k px² at full intensity
+  // Uses the eased dispIntensity so a level change ramps the count, and the
+  // whole thing is scaled by `presence` so an appearing/retiring effect grows
+  // from and shrinks to zero particles instead of popping in/out.
   // Rain keeps a healthy floor (0.9·density) so even a light drizzle reads as
-  // rain, then scales up with intensity — always visible in every condition.
-  if (cur.effect === 'rain') return Math.round(density * (0.9 + 1.6 * cur.intensity));
-  if (cur.effect === 'snow') return Math.round(density * (0.2 + 0.5 * cur.intensity));
-  if (cur.effect === 'ash')  return Math.round(density * (0.15 + 0.35 * cur.intensity));
-  if (cur.effect === 'wind') return Math.round(density * (0.03 + 0.05 * cur.intensity));
-  return 0;
+  // rain, then scales up with intensity — always visible while fully present.
+  let base = 0;
+  if (active === 'rain') base = density * (0.9 + 1.6 * dispIntensity);
+  else if (active === 'snow') base = density * (0.2 + 0.5 * dispIntensity);
+  else if (active === 'ash')  base = density * (0.15 + 0.35 * dispIntensity);
+  else if (active === 'wind') base = density * (0.03 + 0.05 * dispIntensity);
+  return Math.round(base * presence);
 }
 
 function rand(a, b) { return a + Math.random() * (b - a); }
@@ -94,26 +130,26 @@ function rand(a, b) { return a + Math.random() * (b - a); }
 function spawnParticle(fromTop) {
   const w = paneRect.width, h = paneRect.height;
   const wind = cur.windKph / 60; // 0..~1.5
-  if (cur.effect === 'rain') {
+  if (active === 'rain') {
     return {
       x: rand(-0.1 * w, w), y: fromTop ? rand(-h, 0) : rand(0, h),
-      len: rand(10, 18) * (0.7 + cur.intensity), vy: rand(600, 900) * (0.6 + cur.intensity),
+      len: rand(10, 18) * (0.7 + dispIntensity), vy: rand(600, 900) * (0.6 + dispIntensity),
       vx: (120 + 300 * wind), a: rand(0.45, 0.8),
     };
   }
-  if (cur.effect === 'snow') {
+  if (active === 'snow') {
     const r = rand(1.2, 3.2);
     return {
       x: rand(0, w), y: fromTop ? rand(-h, 0) : rand(0, h),
-      r, vy: rand(25, 60) * (0.7 + cur.intensity), vx: 30 * wind,
+      r, vy: rand(25, 60) * (0.7 + dispIntensity), vx: 30 * wind,
       sway: rand(0.5, 1.5), phase: rand(0, Math.PI * 2), a: rand(0.5, 0.9),
     };
   }
-  if (cur.effect === 'wind') {
+  if (active === 'wind') {
     // Long, near-horizontal gust streaks blowing across the pane.
     return {
       x: rand(-0.3 * w, w * 0.2), y: rand(0, h),
-      len: rand(30, 80) * (0.6 + cur.intensity), vx: rand(500, 850) * (0.6 + cur.intensity),
+      len: rand(30, 80) * (0.6 + dispIntensity), vx: rand(500, 850) * (0.6 + dispIntensity),
       vy: rand(-20, 20), a: rand(0.06, 0.16),
     };
   }
@@ -121,7 +157,7 @@ function spawnParticle(fromTop) {
   const r = rand(0.8, 2.4);
   return {
     x: rand(0, w), y: fromTop ? rand(-h, 0) : rand(0, h),
-    r, vy: rand(18, 45) * (0.7 + cur.intensity), vx: 20 * wind,
+    r, vy: rand(18, 45) * (0.7 + dispIntensity), vx: 20 * wind,
     sway: rand(0.3, 1.2), phase: rand(0, Math.PI * 2), a: rand(0.35, 0.7),
     flick: rand(0, Math.PI * 2),
   };
@@ -131,7 +167,7 @@ function reseed() {
   refreshThemeColors();
   particles = [];
   fogBlobs = [];
-  if (cur.effect === 'fog') {
+  if (active === 'fog') {
     const n = Math.round(3 + 3 * cur.intensity);
     for (let i = 0; i < n; i++) {
       fogBlobs.push({
@@ -147,14 +183,14 @@ function reseed() {
 }
 
 function drawBase(dt, w, h) {
-  if (cur.effect === 'fog') {
+  if (active === 'fog') {
     if (!fogBlobs.length) reseed();  // pane may have been collapsed at reseed time
     for (const b of fogBlobs) {
       b.x += b.vx * dt;
       if (b.x - b.r > w) b.x = -b.r;
       if (b.x + b.r < 0) b.x = w + b.r;
       const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
-      g.addColorStop(0, `rgba(200,205,210,${b.a})`);
+      g.addColorStop(0, `rgba(200,205,210,${b.a * presence})`);
       g.addColorStop(1, 'rgba(200,205,210,0)');
       ctx.fillStyle = g;
       ctx.beginPath();
@@ -169,14 +205,14 @@ function drawBase(dt, w, h) {
   while (particles.length < want) particles.push(spawnParticle(true));
   if (particles.length > want) particles.length = want;
 
-  if (cur.effect === 'rain') {
-    ctx.strokeStyle = `rgba(${rainRGB},1)`;   // per-particle alpha is the only attenuation
+  if (active === 'rain') {
+    ctx.strokeStyle = `rgba(${rainRGB},1)`;   // per-particle alpha × presence is the attenuation
     ctx.lineWidth = 1.4;
     for (const p of particles) {
       p.x += p.vx * dt; p.y += p.vy * dt;
       if (p.y > h || p.x > w + 20) { Object.assign(p, spawnParticle(true)); continue; }
       const dx = p.vx / p.vy * p.len, dy = p.len;
-      ctx.globalAlpha = p.a;
+      ctx.globalAlpha = p.a * presence;
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
       ctx.lineTo(p.x - dx, p.y - dy);
@@ -186,13 +222,13 @@ function drawBase(dt, w, h) {
     return;
   }
 
-  if (cur.effect === 'wind') {
+  if (active === 'wind') {
     ctx.strokeStyle = 'rgba(210,215,220,0.7)';
     ctx.lineWidth = 1;
     for (const p of particles) {
       p.x += p.vx * dt; p.y += p.vy * dt;
       if (p.x - p.len > w) { Object.assign(p, spawnParticle(false)); continue; }
-      ctx.globalAlpha = p.a;
+      ctx.globalAlpha = p.a * presence;
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
       ctx.lineTo(p.x - p.len, p.y - (p.vy / p.vx) * p.len);
@@ -210,8 +246,9 @@ function drawBase(dt, w, h) {
     if (p.y > h + 4) { Object.assign(p, spawnParticle(false), { y: -4, x: rand(0, w) }); continue; }
     if (p.x > w + 4) p.x = -4; else if (p.x < -4) p.x = w + 4;
     let alpha = p.a;
-    if (cur.effect === 'ash') { p.flick += dt * 4; alpha = p.a * (0.7 + 0.3 * Math.sin(p.flick)); }
-    ctx.fillStyle = cur.effect === 'snow'
+    if (active === 'ash') { p.flick += dt * 4; alpha = p.a * (0.7 + 0.3 * Math.sin(p.flick)); }
+    alpha *= presence;
+    ctx.fillStyle = active === 'snow'
       ? `rgba(235,240,248,${alpha})`
       : `rgba(120,116,110,${alpha})`;
     ctx.beginPath();
@@ -243,6 +280,7 @@ function drawEventOverlay(dt, w, h) {
 
 function draw(dt) {
   const w = paneRect.width, h = paneRect.height;
+  updateTransition(dt);
   ctx.clearRect(0, 0, w, h);
   drawBase(dt, w, h);
   if (eventFx.type) drawEventOverlay(dt, w, h);
@@ -253,11 +291,15 @@ function frame(t) {
   const dt = lastT ? Math.min((t - lastT) / 1000, 0.05) : 0;
   lastT = t;
   if (syncRect()) draw(dt);
+  if (!shouldRun()) { stopLoop(); return; }   // effect fully faded out → idle
   requestAnimationFrame(frame);
 }
 
+// Keep running while anything is still on screen — including an effect mid-fade
+// (active/presence) after the target has already gone to 'none'.
 function shouldRun() {
-  return enabled && (cur.effect !== 'none' || !!eventFx.type) && !document.hidden;
+  const busy = cur.effect !== 'none' || active !== 'none' || presence > 0.001 || !!eventFx.type;
+  return enabled && busy && !document.hidden;
 }
 
 function startLoop() {
@@ -266,6 +308,10 @@ function startLoop() {
   canvas.style.display = '';
   running = true;
   lastT = 0;
+  // Fresh start: begin from nothing and let updateTransition fade the effect in.
+  active = cur.effect;
+  presence = 0;
+  dispIntensity = 0;
   if (syncRect()) reseed();
   requestAnimationFrame(frame);
 }
@@ -278,11 +324,12 @@ function stopLoop() {
 // Public: update the active weather effect. Called by environment.js whenever the
 // local weather or indoor/outdoor state changes.
 export function setWeatherFx({ effect, intensity, windKph }) {
-  const nextEffect = effect || 'none';
-  const changedEffect = nextEffect !== cur.effect;
-  cur = { effect: nextEffect, intensity: Math.max(0, Math.min(1, intensity || 0)), windKph: windKph || 0 };
-  if (!shouldRun()) { stopLoop(); return; }
-  if (running && changedEffect) reseed();
+  cur = { effect: effect || 'none', intensity: Math.max(0, Math.min(1, intensity || 0)), windKph: windKph || 0 };
+  // Don't touch `active`/particles here — updateTransition eases toward the new
+  // target every frame (ramping the level, or fading out and swapping effects).
+  // While disabled we still stop; otherwise ensure the loop is turning so the
+  // fade actually animates even when the new target is 'none'.
+  if (!enabled) { stopLoop(); return; }
   startLoop();
 }
 

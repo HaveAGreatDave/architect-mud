@@ -58,6 +58,11 @@ function _renderChannelRow(ch) {
   const expanded = _channelExpanded.has(ch.id);
   const col      = _chTypeColor[ch.channel_type] || 'var(--text)';
   const studio   = ch.studio_zone_id ? `<span style="font-size:9px;color:var(--text-dim);margin-left:6px">📍 ${escHtml2(ch.studio_zone_id)}</span>` : '';
+  // What's on air right now (server snapshot at fetch time). Green ● when broadcasting.
+  const nb       = ch.now_broadcasting;
+  const nowOnAir = ch.enabled && nb
+    ? `<span title="Now broadcasting" style="font-size:9px;padding:1px 6px;border-radius:2px;background:color-mix(in srgb,var(--green) 18%,var(--bg3));color:var(--green);white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis">● ${escHtml2(nb.name)}</span>`
+    : `<span title="Nothing on air" style="font-size:9px;color:var(--text-dim);white-space:nowrap">○ off air</span>`;
 
   const children = expanded ? `
     <div id="ch-children-${CSS.escape(ch.id)}" style="border-top:1px solid var(--border);background:var(--bg3)">
@@ -71,6 +76,7 @@ function _renderChannelRow(ch) {
         <span style="font-size:11px;color:var(--text-dim);width:12px;flex-shrink:0">${expanded ? '▼' : '▶'}</span>
         <span style="font-weight:bold;color:var(--accent);min-width:28px">Ch ${ch.number ?? '—'}</span>
         <span style="font-weight:600;flex:1;color:${ch.enabled ? 'var(--text-bright)' : 'var(--text-dim)'}">${escHtml2(ch.name)}</span>
+        ${nowOnAir}
         ${studio}
         <span style="font-size:10px;padding:2px 6px;border-radius:2px;background:var(--bg3);color:${col}">${ch.channel_type || 'playlist'}</span>
         <span style="font-size:10px;color:var(--text-dim)">${plCount} item${plCount !== 1 ? 's' : ''}</span>

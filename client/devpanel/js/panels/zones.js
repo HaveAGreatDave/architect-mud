@@ -67,6 +67,29 @@ function renderZonesTable(records) {
     else looseBuildings.push(b);
   }
 
+  // Order the exterior bands by walking distance out from the start zone, so the
+  // list radiates from the spawn point instead of running alphabetically.
+  // Anything unreachable from the start (or if there's no start zone) falls to
+  // the end, ordered by name.
+  const extDist = new Map();
+  if (byId.has('zone_start')) {
+    const q = ['zone_start'];
+    extDist.set('zone_start', 0);
+    while (q.length) {
+      const cur = q.shift();
+      for (const nId of flatNeighbors(byId.get(cur)?.exits || {})) {
+        const n = byId.get(nId);
+        if (n && isExterior(n) && !extDist.has(nId)) {
+          extDist.set(nId, extDist.get(cur) + 1);
+          q.push(nId);
+        }
+      }
+    }
+  }
+  const byDistThenName = (a, b) =>
+    (extDist.has(a.id) ? extDist.get(a.id) : Infinity) - (extDist.has(b.id) ? extDist.get(b.id) : Infinity)
+    || byName(a, b);
+
   // --- Row / band builders (furniture-panel visual language) ---
   const stBadge = s => !s ? '' :
     s === 'pending delete'
@@ -91,14 +114,15 @@ function renderZonesTable(records) {
 
   // Interior rooms grouped by grid_z into collapsible floor sections; each floor
   // is its own fold. A single-floor building skips the floor tier and lists its
-  // rooms directly. Floors read top-down (highest grid_z first).
+  // rooms directly. Floors read bottom-up (lowest grid_z first, so Floor 2 sits
+  // below Floor 1).
   const floorLabel = z => z === 0 ? 'Ground Floor' : z > 0 ? `Floor ${z}` : z === -1 ? 'Basement' : `Basement ${-z}`;
   const floorGroup = (bId, z, rooms) => {
     const key = `${bId}__z${z}`;
     const inner = rooms.slice().sort(byName).map(r => interiorRow(r, 60)).join('');
     return `<div>
       <div data-zone-id="${key}" style="display:flex;align-items:center;gap:0;padding:5px 12px 5px 44px;background:var(--bg2);border-top:1px solid var(--border);cursor:pointer;user-select:none" onclick="zToggle(this)">
-        <span class="z-arrow" style="color:var(--text-dim);font-size:11px;width:14px;display:inline-block;flex-shrink:0">▸</span>
+        <span class="z-arrow">▸</span>
         <span style="color:var(--accent2);font-weight:600">${floorLabel(z)}</span>
         <span style="font-size:10px;color:var(--text-dim);margin-left:6px">z${z}</span>
         <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${rooms.length} room${rooms.length !== 1 ? 's' : ''}</span>
@@ -121,11 +145,11 @@ function renderZonesTable(records) {
     } else if (floors.size <= 1) {
       rows = members.slice().sort(byName).map(m => interiorRow(m, 44)).join('');
     } else {
-      rows = [...floors.keys()].sort((a, b) => b - a).map(z => floorGroup(b.id, z, floors.get(z))).join('');
+      rows = [...floors.keys()].sort((a, b) => a - b).map(z => floorGroup(b.id, z, floors.get(z))).join('');
     }
     return `<div>
       <div data-zone-id="${b.id}" style="display:flex;align-items:center;gap:0;padding:5px 12px 5px 28px;background:var(--bg2);border-top:1px solid var(--border);cursor:pointer;user-select:none;${del ? 'opacity:0.6;text-decoration:line-through' : ''}" onclick="zToggle(this)">
-        <span class="z-arrow" style="color:var(--text-dim);font-size:11px;width:14px;display:inline-block;flex-shrink:0">▸</span>
+        <span class="z-arrow">▸</span>
         <span style="color:var(--accent)">↳ ${b.name || b.id}</span>
         <span style="font-size:10px;color:var(--text-dim);margin-left:6px">${b.id}</span>${stBadge(b._stagingStatus)}
         <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${members.length} room${members.length !== 1 ? 's' : ''}</span>
@@ -145,17 +169,17 @@ function renderZonesTable(records) {
         ${rowBtns(ext.id)}`;
     if (!blds.length) {
       return `<div><div data-zone-id="${ext.id}" style="${HEAD_STYLE};${del}" onclick="editRecord('${ext.id}')">
-        <span class="z-arrow" style="width:14px;display:inline-block;flex-shrink:0"></span>${label}</div></div>`;
+        <span class="z-arrow"></span>${label}</div></div>`;
     }
     return `<div>
       <div data-zone-id="${ext.id}" style="${HEAD_STYLE};${del}" onclick="zToggle(this)">
-        <span class="z-arrow" style="color:var(--text-dim);font-size:11px;width:14px;display:inline-block;flex-shrink:0">▸</span>${label}</div>
+        <span class="z-arrow">▸</span>${label}</div>
       <div class="z-children" style="display:none">${blds.map(buildingBlock).join('')}</div>
     </div>`;
   };
   const catchAllBand = (key, title, count, inner) => `<div>
     <div data-zone-id="${key}" style="${HEAD_STYLE}" onclick="zToggle(this)">
-      <span class="z-arrow" style="color:var(--text-dim);font-size:11px;width:14px;display:inline-block;flex-shrink:0">▸</span>
+      <span class="z-arrow">▸</span>
       <span style="color:var(--text-dim);font-style:italic;font-weight:700;font-size:13px">${title}</span>
       <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${count}</span>
     </div>
@@ -164,7 +188,7 @@ function renderZonesTable(records) {
 
   // --- Assemble ---
   let html = `<div style="padding:10px 12px"><button class="action-btn" onclick="openBigMap()">🗺 View Big Map</button></div>`;
-  html += records.filter(isExterior).sort(byName).map(exteriorBlock).join('');
+  html += records.filter(isExterior).sort(byDistThenName).map(exteriorBlock).join('');
   if (looseBuildings.length) {
     html += catchAllBand('__loose_buildings__', 'Buildings — no exterior entrance', looseBuildings.length,
       looseBuildings.sort(byName).map(buildingBlock).join(''));

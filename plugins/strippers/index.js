@@ -45,6 +45,9 @@ const idleTicks  = new Map(); // npcId -> consecutive ticks since the last tip (
 
 const isStripper = (npc) => !!npc?.flags?.stripper && !npc._dead;
 const layersOf   = (npc) => Array.isArray(npc.flags?.clothing_layers) ? npc.flags.clothing_layers : [];
+// The show only happens on a club floor. A dancer who's wandered off-shift out into
+// the city (an exterior tile) never performs — no poles on the street.
+const isVenueZone = (zone) => !!(zone?.flags?.is_interior || zone?.flags?.is_building);
 
 // How many outer layers should be off at a given heat. Scales with the outfit so
 // a two-piece and a five-piece both end fully bare exactly at NAKED_AT.
@@ -238,8 +241,9 @@ function stripperTick() {
         if (h0 > 0) heat.set(npc.id, Math.max(0, h0 - DECAY_PER_TICK)); // ease the tier, hold the exposure
       }
 
-      // Dance to the current tier. Non-MIS viewers never see the graphic pool.
-      if (Math.random() < DANCE_CHANCE) {
+      // Dance to the current tier — only on the club floor. Non-MIS viewers never see
+      // the graphic pool. Off the floor (out in the city) a dancer never performs.
+      if (isVenueZone(zone) && Math.random() < DANCE_CHANCE) {
         const tier = tierForHeat(heat.get(npc.id) || 0);
         tieredZoneLine(zoneId,
           DANCE[Math.min(tier, 3)](npc.name),

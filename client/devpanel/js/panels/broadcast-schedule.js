@@ -407,11 +407,11 @@ function _schedBuildTimeline() {
 
     if (item.missing_cassette) {
       items += `
-        <div onclick="_schedOpenPopover(event,${idx})"
+        <div title="No cassette loaded — nothing scheduled here"
           style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
                     background:repeating-linear-gradient(135deg,var(--bg3) 0,var(--bg3) 6px,var(--bg2) 6px,var(--bg2) 12px);
                     border:1px dashed var(--border);border-radius:2px;box-sizing:border-box;
-                    overflow:hidden;opacity:0.7;cursor:pointer">
+                    overflow:hidden;opacity:0.7;cursor:not-allowed;pointer-events:none">
           <div style="padding:3px 5px;font-size:10px;font-weight:600;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">⚠ ${escHtml(item.broadcast_name)}</div>
           <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
           <div style="padding:0 5px;font-size:9px;color:var(--red);letter-spacing:1px;text-transform:uppercase">NO CASSETTE</div>
@@ -614,11 +614,11 @@ function _schedRenderTimeline() {
 
     if (item.missing_cassette) {
       items += `
-        <div onclick="_schedOpenPopover(event,${idx})"
+        <div title="No cassette loaded — nothing scheduled here"
           style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
                     background:repeating-linear-gradient(135deg,var(--bg3) 0,var(--bg3) 6px,var(--bg2) 6px,var(--bg2) 12px);
                     border:1px dashed var(--border);border-radius:2px;box-sizing:border-box;
-                    overflow:hidden;opacity:0.7;cursor:pointer">
+                    overflow:hidden;opacity:0.7;cursor:not-allowed;pointer-events:none">
           <div style="padding:3px 5px;font-size:10px;font-weight:600;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">⚠ ${escHtml(item.broadcast_name)}</div>
           <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
           <div style="padding:0 5px;font-size:9px;color:var(--red);letter-spacing:1px;text-transform:uppercase">NO CASSETTE</div>
@@ -669,9 +669,10 @@ function _schedRenderTimeline() {
 
 function _schedOpenPopover(e, idx) {
   e.stopPropagation();
+  const item = _schedItems[idx];
+  if (item?.missing_cassette) return; // empty/ejected slot — nothing to edit, not clickable
   _schedClosePopover();
   _schedPopoverIdx = idx;
-  const item = _schedItems[idx];
 
   // Auto-seed npc_staff from npc_anchor nodes in the broadcast graph
   if (item.broadcast_id) {

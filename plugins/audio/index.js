@@ -627,6 +627,7 @@ const WEATHER_AMBIENT_EVENTS = {
   snow:         'weather.ambient.snow',
   blizzard:     'weather.ambient.blizzard',
   storm:        'weather.ambient.blizzard',
+  acid:         'weather.ambient.rain',
   wind:         'weather.ambient.wind',
 };
 
@@ -657,7 +658,7 @@ const WEATHER_AMBIENT_FALLBACK = {
 
 // Collapse the precip taxonomy onto the ambience beds.
 function weatherAmbientKind(kind) {
-  if (kind === 'thunderstorm' || kind === 'drizzle') return 'rain';
+  if (kind === 'thunderstorm' || kind === 'drizzle' || kind === 'acid') return 'rain';
   if (kind === 'storm') return 'blizzard';
   return kind;
 }

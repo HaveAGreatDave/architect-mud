@@ -976,6 +976,37 @@ registerNpcStudioZoneLookup((npcId) => {
   return null;
 });
 
+// What a channel is airing RIGHT NOW, from live runtime timing (same clock the
+// schedule checker uses). Returns { broadcast_id, name, source } or null (off air).
+// Consumed by the dev-panel Channels tab so builders can see what's on without
+// opening the live CRT preview. A disabled channel has no runtime → null.
+function nowBroadcastingFor(channelId) {
+  const state = channelRuntime.get(channelId);
+  if (!state) return null;
+  const { minutes } = getEnvironmentState();
+  const gameSecs = (minutes ?? 0) * 60;
+  const nowMs = Date.now();
+  let item = null;
+  if (state.scheduleMode === 'daily') {
+    item = state.playlist.find(i => gameSecs >= i.startTime && gameSecs < i.startTime + i.duration);
+  } else if (state.playlist.length && state.totalDuration > 0) {
+    const elapsed = ((nowMs - state.loopOriginMs) / 1000) % state.totalDuration;
+    item = state.playlist.find(i => elapsed >= i.startTime && elapsed < i.startTime + i.duration);
+  }
+  // A VINE-graph-driven channel tracks its own active broadcast — prefer it when set.
+  const activeId = state.graphBlackboard?.activeBroadcastId || null;
+  const activeItem = activeId ? state.playlist.find(i => i.broadcastId === activeId) : null;
+  const chosen = activeItem || item;
+  if (chosen) {
+    if (chosen.slotType === 'commercial_break') return { broadcast_id: null, name: 'Commercial break', source: 'break' };
+    return { broadcast_id: chosen.broadcastId, name: chosen.broadcastName || chosen.broadcastId, source: 'playlist' };
+  }
+  if (state.channelType === 'news')  return { broadcast_id: null, name: 'Live news feed',   source: 'news' };
+  if (state.channelType === 'live')  return { broadcast_id: null, name: 'Live studio feed',  source: 'live' };
+  if (state.idleBroadcast)           return { broadcast_id: null, name: 'Idle / standby',    source: 'idle' };
+  return null;
+}
+
 // ── Behaviour-tree nodes ──────────────────────────────────────────────────────
 // Broadcast-specific VINE nodes, registered into the AI runner (moved out of
 // the engine's ai-behaviour.js switch — registerAICondition/registerAIAction).
@@ -2478,7 +2509,7 @@ export const routeHandler = async (path, method, body, auth) => {
           if (!plByChannel[item.channel_id]) plByChannel[item.channel_id] = [];
           plByChannel[item.channel_id].push(item);
         }
-        return { status: 200, body: channels.map(c => ({ ...c, playlist: plByChannel[c.id] || [] })) };
+        return { status: 200, body: channels.map(c => ({ ...c, playlist: plByChannel[c.id] || [], now_broadcasting: nowBroadcastingFor(c.id) })) };
       }
       if (!id && method === 'POST') {
         const cid = body.id || `ch_${Date.now()}`;

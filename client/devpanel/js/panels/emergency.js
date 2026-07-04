@@ -87,10 +87,13 @@ function _startCrimeLogPoll() {
   _crimeLogTimer = setInterval(_refreshCrimeLog, 3000);
 }
 
+let _espDefaultMessage = '';
+
 function renderEmergencyPanel(data) {
   const panel = document.getElementById('list-panel');
   const active  = !!data?.active;
   const message = data?.message || '';
+  _espDefaultMessage = data?.defaultMessage || '';
   const zones   = Array.isArray(data?.zones) ? data.zones : [];
   const arb     = data?.arbiters || {};
 
@@ -141,6 +144,7 @@ function renderEmergencyPanel(data) {
         <textarea id="esp-msg" rows="5" style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:11px;padding:8px;border-radius:2px;resize:vertical;letter-spacing:0.5px">${esc(message)}</textarea>
         <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
           <button class="action-btn" onclick="espSaveMessage()">Save Message</button>
+          <button class="action-btn" onclick="espResetMessage()" ${_espDefaultMessage ? '' : 'disabled style="opacity:0.35"'}>Reset to Default</button>
           <span style="font-size:10px;color:var(--text-dim)">Sent once on activation${active ? ' — save to resend now' : ''}</span>
         </div>
       </div>
@@ -213,6 +217,16 @@ async function espSaveMessage() {
   const r = await directAPI('/emergency/message', 'PUT', { message });
   if (r.error) { toast(r.error, true); return; }
   toast('Warning message updated' + (r.message ? ' and broadcast live' : ''));
+}
+
+// Restore the built-in default warning text (both the textarea and the server).
+async function espResetMessage() {
+  if (!_espDefaultMessage) { toast('Default message unavailable', true); return; }
+  const ta = document.getElementById('esp-msg');
+  if (ta) ta.value = _espDefaultMessage;
+  const r = await directAPI('/emergency/message', 'PUT', { message: _espDefaultMessage });
+  if (r.error) { toast(r.error, true); return; }
+  toast('Warning message reset to default');
 }
 
 // ── Arbiter controls ──────────────────────────────────────────────────────────

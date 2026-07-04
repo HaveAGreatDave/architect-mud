@@ -1655,28 +1655,36 @@ function broadcastZoneWeather(occupied) {
     if (!z || z.mapId !== 'map_world') continue;
     const f = sampleField(z.gridX, z.gridY);
     let precipRate = active ? f.precipRate : 0;
+    // Local precip TYPE comes from the field's full taxonomy (rain/sleet/thunder-
+    // storm/storm/snow/blizzard/acid), not the coarse global roll — a passing storm
+    // cell renders and sounds like what it actually is over this exact tile. This is
+    // the single source both the visual FX and the audio ambience derive from, so
+    // they can never disagree: see it → hear it.
+    let localType = precipRate > 0 ? f.precipType : 'none';
     let muffled = false;
     let muffleHops = 0;
     if (active && precipRate < MUFFLE_LOCAL_THRESHOLD) {
       const { rate: bleed, hops } = muffledNeighborPrecip(zoneId);
-      if (bleed > precipRate) { precipRate = bleed; muffled = true; muffleHops = hops; }
+      // Hearing/seeing a neighbouring cell's storm — the bleed carries no type of its
+      // own, so fall back to the day's headline precip for the type.
+      if (bleed > precipRate) { precipRate = bleed; muffled = true; muffleHops = hops; localType = state.currentPrecip; }
     }
+    if (precipRate > 0 && (!localType || localType === 'none')) localType = state.currentPrecip;
     broadcast(zoneId, {
       type: 'environment.zoneTempTick',
       tempC: Math.round(base + f.tempOffset),
       cloudCover: f.cloudCover,
-      precipType: precipRate > 0 ? state.currentPrecip : 'none',
+      precipType: localType,
       precipRate,
       severity: f.severity,
     });
-    // Signal the audio layer what weather ambience this tile is under. The audio
-    // plugin runs two reactive beds off this: a precip bed (type from the full
-    // taxonomy state.currentPrecip, gated + gain-scaled by this tile's local
-    // precipRate, further cut if `muffled`) and a wind bed (gain-scaled by the
-    // day's windKph).
+    // Signal the audio layer what weather ambience this tile is under, from the SAME
+    // localType/precipRate the FX overlay just got. The audio plugin runs two reactive
+    // beds off this: a precip bed (gated + gain-scaled by precipRate, further cut if
+    // `muffled`) and a wind bed (gain-scaled by the day's windKph).
     emit('weather.zoneAmbience', {
       zoneId,
-      precipType: state.currentPrecip,
+      precipType: localType,
       active: precipRate > 0,
       precipRate,
       windKph: state.forecast[0]?.windKph ?? 0,

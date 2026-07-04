@@ -23,6 +23,7 @@ import { openDatachipReplay } from './panels/datachipreplay.js';
 import { openCircuitHack } from './panels/circuithack.js';
 import { openHololock } from './panels/hololock.js';
 import { openFishing } from './panels/fishing.js';
+import { updateCockpit, openTakeoff, openGlideslope } from './panels/cockpit.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame } from './panels/synthlab.js';
 import { openSpliceDesigner, updateSplicePreview } from './panels/splicelab.js';
@@ -517,6 +518,27 @@ const handlers = {
       difficulty: msg.difficulty ?? 5,
       deviceName: msg.deviceName || 'THE LINE',
       onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.zoneId} ${won ? 1 : 0} ${msg.token}`),
+    });
+  },
+
+  // ── Flight (cockpit HUD + takeoff/landing minigames) ─────────────────────
+  cockpit_update: (msg) => { updateCockpit(msg.state); },
+  cockpit_close: () => { sendCmdSilent('look'); },   // hand the area pane back to the room view
+  flight_takeoff: (msg) => {
+    openTakeoff({
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      deviceName: msg.deviceName || 'CRAFT',
+      onResult: ({ won }) => sendCmdSilent(`takeoffresolve ${msg.token} ${won ? 1 : 0}`),
+    });
+  },
+  flight_land: (msg) => {
+    openGlideslope({
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      emergency: !!msg.emergency,
+      deviceName: msg.deviceName || 'FIELD',
+      onResult: ({ won }) => sendCmdSilent(`landresolve ${msg.token} ${won ? 1 : 0}`),
     });
   },
 

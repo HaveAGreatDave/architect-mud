@@ -510,6 +510,7 @@ export const routeHandler = async (path, method, body, auth) => {
       body: {
         active: espActive,
         message: espMessage,
+        defaultMessage: DEFAULT_MESSAGE,
         zones: [...espZones],
         arbiters: {
           active: arbitersActive,

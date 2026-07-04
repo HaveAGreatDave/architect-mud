@@ -12,7 +12,9 @@
 // one file. Do not read `zone.exits[dir]` raw elsewhere — that reintroduces the
 // split-source bug class (a reader assuming a string where another wrote an array).
 
-const DIR_ORDER = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out'];
+// Clockwise compass order (N, E, S, W) then vertical/other — the order every
+// exit list is rendered in, so directions always read the same way.
+const DIR_ORDER = ['north', 'east', 'south', 'west', 'up', 'down', 'in', 'out'];
 
 // All destination zone-ids for one direction, always as an array (0, 1, or many).
 export function exitTargets(zone, dir) {

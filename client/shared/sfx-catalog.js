@@ -262,9 +262,50 @@
       config: { duration: 0.75, layers: [
         { waveform: 'sawtooth', freq: 200, pitchBend: { to: 58, time: 0.5 }, filter: { type: 'lowpass', freq: 1000, q: 1 }, adsr: { a: 0.01, d: 0.3, s: 0.3, r: 0.25 }, gain: 0.2 },
         { waveform: 'noise', noiseMix: 1, delay: 0.06, filter: { type: 'bandpass', freq: 800, q: 1 }, adsr: { a: 0.02, d: 0.5, s: 0, r: 0.1 }, gain: 0.13 } ] } },
+
+    // ── Flight (cockpit / takeoff / landing) ─────────────────────────────────
+    // A grounded-real avionics register: engine spin-up, a takeoff-roll rumble,
+    // a positive rotation chirp, a warning warble, a flare cue, tyre chirp on
+    // touchdown, and the crash. The cockpit panel fires these by id.
+    { id: 'flight-startup', name: 'Flight — engine start', group: 'flight', category: 'sfx', priority: 4,
+      config: { duration: 0.8, layers: [
+        { waveform: 'sawtooth', freq: 34, pitchBend: { to: 128, time: 0.7 }, filter: { type: 'lowpass', freq: 900, q: 1 }, adsr: { a: 0.06, d: 0.5, s: 0.4, r: 0.18 }, gain: 0.2 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 520, q: 0.7 }, adsr: { a: 0.1, d: 0.55, s: 0.2, r: 0.14 }, gain: 0.08 } ] } },
+    { id: 'flight-roll', name: 'Flight — takeoff roll', group: 'flight', category: 'sfx', priority: 4,
+      config: { duration: 0.6, layers: [
+        { waveform: 'sawtooth', freq: 96, pitchBend: { to: 150, time: 0.5 }, filter: { type: 'lowpass', freq: 1100, q: 1 }, adsr: { a: 0.04, d: 0.4, s: 0.3, r: 0.14 }, gain: 0.16 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 760, q: 0.8 }, adsr: { a: 0.05, d: 0.45, s: 0.25, r: 0.1 }, gain: 0.1 } ] } },
+    { id: 'flight-rotate', name: 'Flight — rotate / liftoff', group: 'flight', category: 'sfx', priority: 8,
+      config: { duration: 0.55, layers: [
+        { waveform: 'triangle', freq: 260, pitchBend: { to: 900, time: 0.34 }, filter: { type: 'lowpass', freq: 4200, q: 1 }, adsr: { a: 0.006, d: 0.18, s: 0.15, r: 0.12 }, gain: 0.16 },
+        { waveform: 'sine', freq: 1500, delay: 0.24, adsr: { a: 0.004, d: 0.1, s: 0, r: 0.06 }, filter: { type: 'bandpass', freq: 1600, q: 4 }, gain: 0.14 } ] } },
+    { id: 'flight-abort', name: 'Flight — abort / overrun', group: 'flight', category: 'sfx', priority: 6,
+      config: { duration: 0.5, layers: [
+        { waveform: 'sawtooth', freq: 240, pitchBend: { to: 70, time: 0.4 }, filter: { type: 'lowpass', freq: 1000, q: 1 }, adsr: { a: 0.004, d: 0.3, s: 0.1, r: 0.1 }, gain: 0.2 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 420, q: 1.5 }, adsr: { a: 0.002, d: 0.22, s: 0, r: 0.08 }, gain: 0.18 } ] } },
+    { id: 'flight-warn', name: 'Flight — warning warble', group: 'flight', category: 'sfx', priority: 7,
+      config: { duration: 0.3, layers: [
+        { waveform: 'square', freq: 720, pitchBend: { to: 520, time: 0.12 }, adsr: { a: 0.003, d: 0.1, s: 0.2, r: 0.05 }, filter: { type: 'bandpass', freq: 900, q: 3 }, gain: 0.13 },
+        { waveform: 'square', freq: 720, delay: 0.16, pitchBend: { to: 520, time: 0.12 }, adsr: { a: 0.003, d: 0.1, s: 0, r: 0.05 }, filter: { type: 'bandpass', freq: 900, q: 3 }, gain: 0.13 } ] } },
+    { id: 'flight-approach', name: 'Flight — approach', group: 'flight', category: 'sfx', priority: 4,
+      config: { duration: 0.5, layers: [
+        { waveform: 'triangle', freq: 150, pitchBend: { to: 90, time: 0.4 }, filter: { type: 'lowpass', freq: 1400, q: 1 }, adsr: { a: 0.03, d: 0.28, s: 0.2, r: 0.14 }, gain: 0.16 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 700, q: 0.9 }, adsr: { a: 0.06, d: 0.4, s: 0, r: 0.1 }, gain: 0.05 } ] } },
+    { id: 'flight-flare', name: 'Flight — flare cue', group: 'flight', category: 'sfx', priority: 6,
+      config: { duration: 0.16, layers: [
+        { waveform: 'sine', freq: 640, pitchBend: { to: 960, time: 0.1 }, adsr: { a: 0.003, d: 0.11, s: 0, r: 0.04 }, gain: 0.14 } ] } },
+    { id: 'flight-touchdown', name: 'Flight — touchdown', group: 'flight', category: 'sfx', priority: 8,
+      config: { duration: 0.4, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 320, q: 1.4 }, adsr: { a: 0.002, d: 0.12, s: 0, r: 0.06 }, gain: 0.2 },
+        { waveform: 'sine', freq: 520, delay: 0.06, adsr: { a: 0.004, d: 0.12, s: 0, r: 0.06 }, gain: 0.1 },
+        { waveform: 'sine', freq: 660, delay: 0.16, adsr: { a: 0.004, d: 0.12, s: 0, r: 0.06 }, gain: 0.09 } ] } },
+    { id: 'flight-crash', name: 'Flight — crash', group: 'flight', category: 'sfx', priority: 8,
+      config: { duration: 0.85, layers: [
+        { waveform: 'sawtooth', freq: 150, pitchBend: { to: 34, time: 0.5 }, filter: { type: 'lowpass', freq: 700, q: 1 }, adsr: { a: 0.005, d: 0.4, s: 0.3, r: 0.3 }, gain: 0.24 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 480, q: 0.7 }, adsr: { a: 0.002, d: 0.5, s: 0.2, r: 0.2 }, gain: 0.2 } ] } },
   ];
 
-  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)' };
+  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)' };
 
   const _builtinById = new Map(BUILTINS.map(d => [d.id, d]));
   let _overrides = new Map(); // id -> { config, priority, enabled, name }

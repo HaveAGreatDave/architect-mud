@@ -99,7 +99,11 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
           const totalSupply  = zoneSupply + jbSupply;
           const status = p ? p.status : 'unpowered';
           const isBrownout = totalRequest > 0 && totalSupply > 0 && totalRequest > totalSupply + 0.01;
-          const effectiveStatus = isBrownout ? 'overloaded' : status;
+          // A wired-but-idle zone (a generator link but zero draw) reports
+          // 'powered' from the sim; render it dark like the Building Interior
+          // view so only tiles with live electricity glow.
+          const idle = p && totalRequest === 0 && status !== 'offline';
+          const effectiveStatus = isBrownout ? 'overloaded' : idle ? 'unpowered' : status;
           cls = `bigmap-tile bm-power-${effectiveStatus}`;
           powerStatus = effectiveStatus;
           if (totalRequest > 0) {
@@ -389,7 +393,10 @@ function renderBigMapOverlay() {
           powerSub = `<div style="font-size:9px;opacity:0.9;margin-top:2px">⚡ ${used.toFixed(0)}/${Number(cpGen.capacity_kw).toFixed(0)}W</div>`;
         } else {
           const zStatus = p ? p.status : 'unpowered';
-          cls = `bigmap-tile bm-power-${zStatus}`;
+          // Wired-but-idle zones report 'powered' with zero draw — render them
+          // dark (unpowered) so only tiles with live electricity glow.
+          const effStatus = (p && (p.loadKw ?? 0) === 0 && zStatus !== 'offline') ? 'unpowered' : zStatus;
+          cls = `bigmap-tile bm-power-${effStatus}`;
           if (p) powerSub = `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw??0).toFixed(1)}W load / ${(p.availableKw??0).toFixed(1)}W draw</div>`;
         }
       }
@@ -596,7 +603,7 @@ const PAINT_SWATCHES = [
 
 function togglePaintMode() {
   mapPaintMode = !mapPaintMode;
-  if (mapPaintMode) mapSafeZoneMode = false;
+  if (mapPaintMode) { mapSafeZoneMode = false; mapUndoStack = []; mapRedoStack = []; }
   renderMapOverview();
 }
 function setPaintTool(t) { mapPaintTool = t; renderMapOverview(); }
@@ -652,7 +659,7 @@ function mapPickColor(zoneId) {
   renderMapOverview();
 }
 
-function paintStart(e, zoneId) { e.preventDefault(); mapPainting = true; _brushTile(zoneId); }
+function paintStart(e, zoneId) { e.preventDefault(); _pushUndo(); mapPainting = true; _brushTile(zoneId); }
 function paintOver(zoneId) { if (mapPainting) _brushTile(zoneId); }
 function _brushTile(zoneId) {
   const z = mapOverview?.zones.get(zoneId);
@@ -661,7 +668,11 @@ function _brushTile(zoneId) {
   const el = _tileEl(z); if (el) _applyTileColor(el, mapPaintColor);
   _savePaintColor(zoneId, mapPaintColor);
 }
-document.addEventListener('mouseup', () => { mapPainting = false; });
+document.addEventListener('mouseup', () => {
+  const wasPainting = mapPainting;
+  mapPainting = false;
+  if (wasPainting && mapPaintMode) renderMapOverview(); // refresh Undo/Redo state after a brush stroke
+});
 
 // Flood-fill: from the clicked tile, spread to orthogonally-adjacent tiles that
 // share its colour, stopping at any different colour or empty cell (barrier).
@@ -670,6 +681,7 @@ async function mapFloodFill(startId) {
   if (!start) return;
   const from = (start.bg_color || '').toLowerCase();
   if (from === mapPaintColor.toLowerCase()) return;
+  _pushUndo();
   const z0 = mapOverview.z;
   const byCoord = new Map();
   for (const z of mapOverview.zones.values())
@@ -702,6 +714,7 @@ function mapLumInput(val) {
   const delta = parseInt(val, 10) / 200; // -100..100 → -0.5..+0.5 lightness
   const z0 = mapOverview.z;
   if (!mapLumBase) {
+    _pushUndo();
     mapLumBase = new Map();
     for (const z of mapOverview.zones.values())
       if ((z.grid_z ?? 0) === z0 && z.grid_x != null && z.grid_y != null && z.bg_color)
@@ -720,8 +733,7 @@ async function mapLumCommit() {
   if (!mapLumBase) return;
   const ids = [...mapLumBase.keys()];
   mapLumBase = null;
-  const s = document.getElementById('map-lum-slider'); if (s) s.value = 0;
-  const lbl = document.getElementById('map-lum-val'); if (lbl) lbl.textContent = '0';
+  renderMapOverview(); // resets slider + refreshes Undo/Redo state
   await _saveColorsBulk(ids);
 }
 
@@ -733,6 +745,7 @@ async function mapNormalizeLum() {
   const tiles = [...mapOverview.zones.values()].filter(z =>
     (z.grid_z ?? 0) === z0 && z.grid_x != null && z.grid_y != null && z.bg_color);
   if (!tiles.length) return;
+  _pushUndo();
   let sum = 0;
   for (const z of tiles) sum += rgbToHsl(hexToRgbArr(z.bg_color))[2];
   const target = sum / tiles.length;
@@ -753,21 +766,140 @@ async function mapRecalcText() {
   const tiles = [...mapOverview.zones.values()].filter(z =>
     (z.grid_z ?? 0) === z0 && z.grid_x != null && z.grid_y != null && z.bg_color);
   if (!tiles.length) return;
+  _pushUndo();
   for (const z of tiles) z.color = luminanceTextColor(z.bg_color);
   renderMapOverview();
   await _saveColorsBulk(tiles.map(z => z.id), 'color');
 }
 
-// The floating painter card (position:fixed so it hovers over the map).
+// Randomise the whole-map palette: give every distinct colour in use a fresh
+// hue spaced evenly around the wheel (random offset + shuffled, so no two
+// conflict), at ONE shared random saturation, preserving each colour's original
+// lightness. Repaints map-wide by colour group (all floors).
+async function mapRandomizeColors() {
+  if (!mapOverview) return;
+  const tiles = [...mapOverview.zones.values()].filter(z => z.bg_color && z.grid_x != null && z.grid_y != null);
+  if (!tiles.length) return;
+  _pushUndo();
+  const used = [...new Set(tiles.map(z => z.bg_color.toLowerCase()))];
+  const n = used.length;
+  const sat = 0.45 + Math.random() * 0.3;         // one saturation for every colour
+  const base = Math.random() * 360;
+  const hues = Array.from({ length: n }, (_, i) => (base + i * 360 / n) % 360);
+  for (let i = hues.length - 1; i > 0; i--) {     // shuffle which group gets which hue
+    const j = Math.floor(Math.random() * (i + 1));
+    [hues[i], hues[j]] = [hues[j], hues[i]];
+  }
+  const remap = new Map();
+  used.forEach((hex, i) => {
+    const rgb = hexToRgbArr(hex);
+    const l = rgb ? rgbToHsl(rgb)[2] : 0.5;        // keep this colour's lightness
+    remap.set(hex, rgbArrToHex(hslToRgbArr(hues[i], sat, l)));
+  });
+  for (const z of tiles) z.bg_color = remap.get(z.bg_color.toLowerCase());
+  renderMapOverview();
+  await _saveColorsBulk(tiles.map(z => z.id));
+}
+
+// ─── UNDO / REDO ───────────────────────────────────────────────────────────
+// 3-step complete history for painter actions. Each action calls _pushUndo()
+// before mutating; a snapshot is the {bg_color,color} of every placed tile, so
+// undo/redo restores the exact prior map state and re-saves only what changed.
+let mapUndoStack = [];
+let mapRedoStack = [];
+
+function _snapshotMap() {
+  const snap = {};
+  if (!mapOverview) return snap;
+  for (const z of mapOverview.zones.values())
+    if (z.grid_x != null && z.grid_y != null) snap[z.id] = { bg_color: z.bg_color, color: z.color };
+  return snap;
+}
+function _pushUndo() {
+  mapUndoStack.push(_snapshotMap());
+  if (mapUndoStack.length > 3) mapUndoStack.shift();
+  mapRedoStack = [];
+}
+async function _restoreSnapshot(snap) {
+  const changed = [];
+  for (const [id, c] of Object.entries(snap)) {
+    const z = mapOverview?.zones.get(id);
+    if (!z) continue;
+    if (z.bg_color !== c.bg_color || z.color !== c.color) {
+      z.bg_color = c.bg_color; z.color = c.color; changed.push(id);
+    }
+  }
+  renderMapOverview();
+  for (const id of changed) {
+    const z = mapOverview.zones.get(id);
+    const r = await API(`/zones/${id}`, 'PUT', { bg_color: z.bg_color, color: z.color });
+    if (r?.error) { toast(r.error, true); break; }
+  }
+  updateStagingBadge();
+}
+async function mapUndo() {
+  if (!mapUndoStack.length) return;
+  mapRedoStack.push(_snapshotMap());
+  if (mapRedoStack.length > 3) mapRedoStack.shift();
+  await _restoreSnapshot(mapUndoStack.pop());
+}
+async function mapRedo() {
+  if (!mapRedoStack.length) return;
+  mapUndoStack.push(_snapshotMap());
+  if (mapUndoStack.length > 3) mapUndoStack.shift();
+  await _restoreSnapshot(mapRedoStack.pop());
+}
+
+// Drag-to-move state for the painter popup. Position persists across the
+// frequent map re-renders (paintPanelHtml reads it), so the card stays put.
+let mapPaintPanelPos = null;  // {left, top} px once moved; null = default corner
+let _paintDrag = null;        // {dx, dy} grab offset during an active drag
+
+function paintPanelDragStart(e) {
+  if (e.target.closest('button, input')) return; // let the ✕ / picker work
+  const panel = document.getElementById('map-paint-panel');
+  if (!panel) return;
+  e.preventDefault();
+  const rect = panel.getBoundingClientRect();
+  _paintDrag = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+  mapPaintPanelPos = { left: rect.left, top: rect.top }; // pin to left/top so it won't jump
+  panel.style.right = 'auto';
+  panel.style.left = rect.left + 'px';
+  panel.style.top = rect.top + 'px';
+  document.addEventListener('mousemove', _paintPanelDragMove);
+  document.addEventListener('mouseup', _paintPanelDragEnd);
+}
+function _paintPanelDragMove(e) {
+  const panel = document.getElementById('map-paint-panel');
+  if (!_paintDrag || !panel) return;
+  const left = Math.max(0, Math.min(window.innerWidth - panel.offsetWidth, e.clientX - _paintDrag.dx));
+  const top = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, e.clientY - _paintDrag.dy));
+  mapPaintPanelPos = { left, top };
+  panel.style.left = left + 'px';
+  panel.style.top = top + 'px';
+}
+function _paintPanelDragEnd() {
+  _paintDrag = null;
+  document.removeEventListener('mousemove', _paintPanelDragMove);
+  document.removeEventListener('mouseup', _paintPanelDragEnd);
+}
+
+// The floating painter card (position:fixed so it hovers over the map;
+// drag its header to reposition — mapPaintPanelPos survives re-renders).
 function paintPanelHtml() {
   const sw = PAINT_SWATCHES.map(c =>
     `<button onclick="setPaintColor('${c}')" title="${c}" style="width:100%;aspect-ratio:1;border-radius:3px;border:2px solid ${c.toLowerCase() === mapPaintColor.toLowerCase() ? '#fff' : 'transparent'};background:${c};cursor:pointer;padding:0"></button>`
   ).join('');
   const toolBtn = (t, label) => `<button onclick="setPaintTool('${t}')" style="flex:1;font-size:11px;padding:5px 6px;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:${mapPaintTool === t ? 'var(--accent)' : 'var(--bg3)'};color:${mapPaintTool === t ? '#111' : 'var(--text)'}">${label}</button>`;
-  return `<div style="position:fixed;top:100px;right:28px;z-index:60;width:216px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px #000a;padding:11px;font-size:12px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
-      <strong style="font-size:12px;letter-spacing:.3px">🎨 Colour Painter</strong>
+  const pos = mapPaintPanelPos ? `left:${mapPaintPanelPos.left}px;top:${mapPaintPanelPos.top}px` : `top:100px;right:28px`;
+  return `<div id="map-paint-panel" style="position:fixed;${pos};z-index:60;width:216px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px #000a;padding:11px;font-size:12px">
+    <div onmousedown="paintPanelDragStart(event)" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;cursor:move;user-select:none">
+      <strong style="font-size:12px;letter-spacing:.3px">⠿ 🎨 Colour Painter</strong>
       <button onclick="togglePaintMode()" title="Close painter" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:15px;line-height:1">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:7px">
+      <button onclick="mapUndo()" title="Undo (3-step history)" ${mapUndoStack.length ? '' : 'disabled'} style="flex:1;font-size:11px;padding:4px 6px;border-radius:4px;cursor:${mapUndoStack.length ? 'pointer' : 'default'};border:1px solid var(--border);background:var(--bg3);color:var(--text);opacity:${mapUndoStack.length ? 1 : 0.4}">↶ Undo${mapUndoStack.length ? ` (${mapUndoStack.length})` : ''}</button>
+      <button onclick="mapRedo()" title="Redo" ${mapRedoStack.length ? '' : 'disabled'} style="flex:1;font-size:11px;padding:4px 6px;border-radius:4px;cursor:${mapRedoStack.length ? 'pointer' : 'default'};border:1px solid var(--border);background:var(--bg3);color:var(--text);opacity:${mapRedoStack.length ? 1 : 0.4}">↷ Redo${mapRedoStack.length ? ` (${mapRedoStack.length})` : ''}</button>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:9px">${toolBtn('brush', '🖌 Brush')}${toolBtn('fill', '🪣 Fill')}${toolBtn('pick', '💧 Pick')}</div>
     <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
@@ -780,6 +912,7 @@ function paintPanelHtml() {
       <input id="map-lum-slider" type="range" min="-100" max="100" value="0" oninput="mapLumInput(this.value)" onchange="mapLumCommit()" style="width:100%">
       <button onclick="mapNormalizeLum()" title="Pull every tile to the map's mean lightness (keeps hue)" style="width:100%;margin-top:9px;font-size:11px;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer">⚖ Normalise luminance</button>
       <button onclick="mapRecalcText()" title="Set every tile's text colour to readable black/white by its background luminance" style="width:100%;margin-top:6px;font-size:11px;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer">🔤 Recalc text colours</button>
+      <button onclick="mapRandomizeColors()" title="Give each used colour a fresh, mutually-distinct random hue at one shared random saturation (whole map)" style="width:100%;margin-top:6px;font-size:11px;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer">🎲 Randomize palette</button>
     </div>
     <div style="font-size:10px;color:var(--text-dim);margin-top:9px;line-height:1.45">${mapPaintTool === 'fill' ? 'Click a tile to flood-fill its same-colour region (stops at other colours).' : mapPaintTool === 'pick' ? 'Click a tile to sample its colour onto the brush.' : 'Click-drag across tiles to paint.'}</div>
   </div>`;
@@ -806,6 +939,7 @@ async function renderMapsPanel(data) {
 async function loadMapOverview(mapId) {
   const data = await API(`/maps/${mapId}`);
   if (data.error) { toast(data.error, true); return; }
+  mapUndoStack = []; mapRedoStack = []; // painter history doesn't carry across maps
   const zones = new Map((data.zones || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {}, grid_z: z.grid_z ?? 0 }]));
   const unplaced = new Map((data.unplaced || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {} }]));
   const unplacedInterior = new Map((data.unplacedInterior || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {} }]));

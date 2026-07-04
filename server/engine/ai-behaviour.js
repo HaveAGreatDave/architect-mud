@@ -30,6 +30,10 @@ const VENDOR_CLOSE_WHINE = [
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
+// Zones an NPC advances toward its workplace per wander tick while commuting.
+// >1 keeps far-flung workers from spending most of the morning in transit.
+const COMMUTE_STEPS_PER_TICK = 4;
+
 /**
  * Check whether a vendor NPC should be working right now.
  * Returns { working, dayHasSchedule, referenceRange }
@@ -150,11 +154,32 @@ export function formatChitchat(name, line) {
   return { type: 'zone_event', message: `${name} ${body}` };
 }
 
-function pickChitchatLine(entity) {
-  // NPC's own chitchat override, else the archetype default (getNpcChitchat).
+// Whether an NPC is currently ON THE CLOCK at their workplace — the gate that
+// decides work vs. life chitchat (and is exported for behaviours like the stripper
+// dance). Per the design: "in the work zone AND on shift", no exceptions.
+//   • Studio/broadcast actors: standing in their studio zone AND in an active slot.
+//   • Vendors: at their (immobile) stall during their open hours.
+//   • Anyone with an explicit work_zone_id: standing in it during open hours.
+//   • Everyone else has no workplace → never "at work" (always life chitchat).
+export function isNpcAtWork(entity) {
+  if (!entity || isEnemy(entity)) return false;
+  const hereId = entityZone(entity);
+  const studioZone = entity.studio_zone_id || getNpcStudioZone(entity.id);
+  if (studioZone) return hereId === studioZone && isNpcScheduledNow(entity.id);
+  if (entity.npc_type === 'vendor' || entity.work_zone_id) {
+    if (entity.work_zone_id && hereId !== entity.work_zone_id) return false;
+    return !!isVendorWorkTime(entity, getEnvironmentState()).working;
+  }
+  return false;
+}
+
+function pickChitchatLine(entity, mode) {
+  // Work vs. life pool, chosen by the NPC's current on-shift state unless a caller
+  // forces a mode. NPC's own override wins, else the archetype default (getNpcChitchat).
   // Enemies have no personality archetype, so this falls through to their own
   // chitchat array or null.
-  const lines = getNpcChitchat(entity) || (Array.isArray(entity.chitchat) ? entity.chitchat : []);
+  const m = mode || (isNpcAtWork(entity) ? 'work' : 'life');
+  const lines = getNpcChitchat(entity, m) || (Array.isArray(entity.chitchat) ? entity.chitchat : []);
   if (lines.length) return lines[Math.floor(Math.random() * lines.length)];
   return null; // SAY case falls back to the literal smoking line when this returns null
 }
@@ -836,7 +861,9 @@ async function execAction(node, entity, ctx) {
         if (minutesUntilDept > travelMinutes + 5) return 'RUNNING';
       }
 
-      // Time to commute — step one zone toward destination
+      // Time to commute — walk toward destination. Cover several zones per wander
+      // tick (a brisk commute) rather than one-zone-per-game-minute, so a worker
+      // far from their shop isn't stuck crossing town for half the day.
       if (!ai.patrolPath.length || ai.patrolTarget !== workZone) {
         const path = findPath(zoneId, workZone);
         if (!path || path.length < 2) return 'RUNNING';
@@ -844,13 +871,14 @@ async function execAction(node, entity, ctx) {
         ai.patrolTarget = workZone;
         ai.patrolMode = 'walk';
       }
-      const nextZone = ai.patrolPath[0];
-      if (!nextZone) return 'RUNNING';
-      ai.patrolPath.shift();
-      const moved = moveEntity(entity, nextZone, broadcast, query);
-      if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
-      else if (!isEnemy(entity) && query) {
-        query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
+      for (let step = 0; step < COMMUTE_STEPS_PER_TICK && ai.patrolPath.length; step++) {
+        const nextZone = ai.patrolPath.shift();
+        const moved = moveEntity(entity, nextZone, broadcast, query);
+        if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; break; }
+        if (!isEnemy(entity) && query) {
+          query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
+        }
+        if (entityZone(entity) === workZone) break; // arrived — let the graph advance
       }
       return 'RUNNING';
     }
@@ -967,7 +995,7 @@ async function execAction(node, entity, ctx) {
       // Small per-tick chance to emote or say a chitchat line, independent of movement.
       if (Date.now() - ai.lastSay > 20000 && Math.random() < 0.05) {
         ai.lastSay = Date.now();
-        const line = pickChitchatLine(entity);
+        const line = pickChitchatLine(entity, 'life'); // HAVE_LIFE only runs off-shift
         broadcast(zoneId, line
           ? formatChitchat(entity.name, line)
           : { type: 'zone_event', message: `${entity.name} smokes a cigarette.` });
@@ -1028,7 +1056,15 @@ async function execAction(node, entity, ctx) {
 
     // AT_WORK: hold at studio while scheduled; fall through when shift ends so graph routes to GO_HOME.
     case 'AT_WORK': {
-      if (isNpcScheduledNow(entity.id)) return 'RUNNING';
+      if (isNpcScheduledNow(entity.id)) {
+        // On the clock at the studio — occasional WORK chitchat (venue/job flavour).
+        if (ai && Date.now() - ai.lastSay > 20000 && Math.random() < 0.05) {
+          ai.lastSay = Date.now();
+          const line = pickChitchatLine(entity, 'work');
+          if (line) broadcast(zoneId, formatChitchat(entity.name, line));
+        }
+        return 'RUNNING';
+      }
       // Shift ended — fall through to 'next' so the graph can route to GO_HOME
       break;
     }
@@ -1405,6 +1441,41 @@ export async function tickEntityAI(entity, ctx) {
       }
     }
     return;
+  }
+
+  // Studio actors NEVER linger in their workspace off-shift — enforced here, before
+  // and independent of whatever behaviour graph the NPC carries, so there are no
+  // exceptions: an active scheduled slot is the ONLY thing that keeps an actor in the
+  // studio. Any actor sitting in (or anywhere inside) their studio while unscheduled is
+  // walked out toward the exterior, one step per tick, and the graph is skipped until
+  // they're clear of the building.
+  if (!isEnemy(entity)) {
+    const studioZone = entity.studio_zone_id || getNpcStudioZone(entity.id);
+    if (studioZone && !isNpcScheduledNow(entity.id)) {
+      const hereId = entityZone(entity);
+      const cur = world.zones.get(hereId);
+      const sz  = world.zones.get(studioZone);
+      const insideStudio = hereId === studioZone
+        || (cur && sz && sz.map_id && cur.map_id === sz.map_id && cur.flags?.is_interior);
+      if (insideStudio && sz) {
+        // Prefer the building's declared exterior seam, then an `out` exit, then home —
+        // home_zone guarantees a reachable target so an actor is never trapped on set.
+        const dest = sz.flags?.world_exit_zone || exitTargets(sz, 'out')[0] || entity.home_zone || null;
+        if (dest && hereId !== dest) {
+          if (!ai.patrolPath.length || ai.patrolTarget !== dest) {
+            const path = findPath(hereId, dest);
+            if (path && path.length >= 2) { ai.patrolPath = path.slice(1); ai.patrolTarget = dest; }
+          }
+          const next = ai.patrolPath.shift();
+          if (next) {
+            const moved = moveEntity(entity, next, ctx.broadcast, ctx.query);
+            if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
+            else if (ctx.query) ctx.query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
+          }
+          return; // evacuating — skip the graph this tick
+        }
+      }
+    }
   }
 
   // Check if suspended in a WAIT — currentNode already points to the resume target

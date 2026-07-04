@@ -1,0 +1,8 @@
+{
+  "name": "flight",
+  "version": "0.1.0",
+  "description": "Flight — Phase A vertical slice. Board a parked aircraft, spin up the engine, take off (rolling-bar minigame), fly over the map_world tile grid on a real-time posture tick loop (heading/throttle/altitude bands, fuel burn), and land (glideslope minigame). The aircraft is a first-class object that owns its occupant set — no runtime cabin zone; the cockpit HUD is synthesized and pushed each tick. Fuel-out is a lethal dead-stick crash that leaves a salvageable wreck. Piloting skill gates every takeoff/landing. Templates + airfields are content (aircraft_types table + zones.flags.airfield_id).",
+  "commands": ["board", "disembark", "deplane", "startup", "shutdown", "throttle", "heading", "climb", "dive", "takeoff", "land", "refuel", "takeoffresolve", "landresolve"],
+  "after": ["gametable", "generator"],
+  "dataSchema": ["aircraft", "aircraft_types"]
+}

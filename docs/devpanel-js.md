@@ -23,7 +23,7 @@ Also holds `STAGED_ENTITY_TYPES` (the path→entityType map) and `getEntityType(
 The shared list/edit lifecycle that every panel rides on:
 
 - `renderTable(columns, records, noEdit)` — builds the sortable HTML table in `#list-panel`.
-- `renderZonesTable(records)` — zones-specific override: a furniture-panel-style accordion, not a table. Tiers: exterior zone → buildings (attached via exits / `world_exit_zone`) → floors grouped by `grid_z` (collapsible, skipped for single-floor buildings) → rooms. Building membership is BFS over exits from the entrance. `filterZones(q)` / `zToggle(header)` back its search and per-section expand/collapse (state in `_zonesExpanded`).
+- `renderZonesTable(records)` — zones-specific override: a furniture-panel-style accordion, not a table. Tiers: exterior zone (ordered by BFS distance out from `zone_start`) → buildings (attached via exits / `world_exit_zone`) → floors grouped by `grid_z` ascending (collapsible, skipped for single-floor buildings) → rooms. Building membership is BFS over exits from the entrance. `filterZones(q)` / `zToggle(header)` back its search and per-section expand/collapse (state in `_zonesExpanded`).
 - `sortTableBy(key)` / `sortWorldStateBy(key)` / `filterTable()` — sort and search.
 - `selectRecord(id)` / `editRecord(id)` / `newRecord()` — record selection.
 - `openEdit(record, isNew)` / `closeEdit()` — open/close the right-hand edit panel. The panel carries a **Save/Delete bar both above (`#edit-actions-top`) and below (`.edit-footer`) the form**; buttons share the `.js-save-btn`/`.js-delete-btn` classes so `openEdit`/`saveRecord` drive both. `openEdit` hides Delete on a new record; the broadcast NPC sidebar override hides the top bar (it swaps the footer for its own buttons).

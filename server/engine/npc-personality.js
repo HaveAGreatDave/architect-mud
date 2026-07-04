@@ -11,7 +11,8 @@
  *   npcType         — value written to the npcs.npc_type column for runtime
  *                     behaviour (vendor commute, unemployed haunt). Derived from
  *                     the archetype; the editor no longer sets it directly.
- *   chitchat        — idle lines; used unless the NPC stores its own override
+ *   workchitchat    — idle lines said while on-shift at the job; NPC override wins
+ *   lifechitchat    — idle lines said off the clock out in the city; NPC override wins
  *   combat_lines    — said (or shouted) when the NPC is hit. ALL CAPS = shout.
  *   mis_willing     — default willingness for MIS actions (overridden by npc.flags.mis_willing)
  *   mis_lines_ok    — lines when NPC is willing
@@ -27,7 +28,7 @@ const DEFAULTS = {
   // ── Jobs ────────────────────────────────────────────────────────────────
   vendor: {
     label: 'Vendor', icon: '🛒', sells: true, mobile: false, npcType: 'vendor',
-    chitchat: [
+    workchitchat: [
       "Best prices in the district. That's not saying much.",
       "You touch it, you bought it.",
       "Everything's genuine. Genuinely acquired.",
@@ -36,6 +37,16 @@ const DEFAULTS = {
       "I don't know where it came from. That's not your business either.",
       "Come back tomorrow — stock changes. If I'm still here.",
       "Quality merchandise at prices that won't kill you. Probably.",
+    ],
+    lifechitchat: [
+      "Off the clock. Don't ask me the price of anything.",
+      "Feet are killing me. Standing all day does that.",
+      "Rent on the stall went up again. Everything goes up.",
+      "counts a thin roll of credits and sighs",
+      "One day I'll sell up and move somewhere with air.",
+      "The market's a shark tank. I'm a smaller shark.",
+      "rubs a knot out of the back of their neck",
+      "Half my supplier owes me. The other half I owe.",
     ],
     combat_lines: [
       'Hey! Watch the merchandise!',
@@ -66,7 +77,7 @@ const DEFAULTS = {
 
   travelling_vendor: {
     label: 'Travelling Vendor', icon: '🎒', sells: true, mobile: true, npcType: 'npc',
-    chitchat: [
+    workchitchat: [
       "Everything I sell fits on my back. Ask me how.",
       "Here today. Somewhere worse tomorrow.",
       "No stall, no rent, no problem.",
@@ -75,6 +86,16 @@ const DEFAULTS = {
       "Prices are firm. My feet hurt too much to haggle.",
       "Caught this batch three districts over. Rare out here.",
       "Keep moving, keep selling. That's the trade.",
+    ],
+    lifechitchat: [
+      "shifts the weight of the pack and keeps walking",
+      "My whole life's on my back. Lighter than you'd think.",
+      "Don't own a bed. Own the road. It's a fair trade.",
+      "checks the sky, judging how far till dark",
+      "Been to towns that aren't on any map. Wouldn't recommend most.",
+      "The road's honest. The people on it aren't.",
+      "picks a stone out of a worn-through boot",
+      "Home's wherever I set the pack down. So, nowhere.",
     ],
     combat_lines: [
       'HANDS OFF THE PACK.',
@@ -105,7 +126,7 @@ const DEFAULTS = {
 
   bartender: {
     label: 'Bartender', icon: '🍺', sells: true, mobile: false, npcType: 'npc',
-    chitchat: [
+    workchitchat: [
       "What'll it be?",
       "You look like you've had a rough one.",
       "Pay first. Trust later. That's policy.",
@@ -116,6 +137,16 @@ const DEFAULTS = {
       "Tab's running. Keep drinking.",
       "I don't ask questions. That's why people come here.",
       "You want ice with that? Funny.",
+    ],
+    lifechitchat: [
+      "smells of stale beer no matter how long the shower is",
+      "First drink I have is always the one I pour myself.",
+      "You spend all night listening to problems, you go home quiet.",
+      "My liver files a complaint every morning.",
+      "rolls a shoulder stiff from a thousand poured pints",
+      "Off the clock, don't tell me your troubles. I'm full up.",
+      "Sleep all day, work all night. My kind of vampire.",
+      "Rent, cutlery, a chair that doesn't wobble. That's the dream.",
     ],
     combat_lines: [
       'You just spilled my best bottle. I hope it was worth it.',
@@ -146,7 +177,7 @@ const DEFAULTS = {
 
   dealer: {
     label: 'Dealer', icon: '🂡', sells: false, mobile: false, npcType: 'dealer',
-    chitchat: [
+    workchitchat: [
       '"Pot\'s right."',
       'cuts the deck without looking, a motion as automatic as breathing',
       '"No rabbit hunting."',
@@ -159,6 +190,16 @@ const DEFAULTS = {
       'watches the table with the patient attention of someone who has seen every tell twice',
       '"Side pot. Keep your stacks separate."',
       'squares the deck against the felt — a crisp, decisive sound',
+    ],
+    lifechitchat: [
+      'flexes cramped fingers, the ache of a thousand deals',
+      '"I never gamble. I watch other people do it for a living."',
+      'shuffles an imaginary deck out of pure habit',
+      '"You spend all night reading tells, you stop trusting anyone."',
+      '"Tips were good. The company was worse."',
+      'rubs tired eyes that have watched too much felt',
+      '"House takes its cut of me too, you know."',
+      '"Home is somewhere with no cards in it. That\'s the whole appeal."',
     ],
     combat_lines: [
       'The house does not tolerate this.',
@@ -189,7 +230,7 @@ const DEFAULTS = {
 
   stripper: {
     label: 'Stripper', icon: '💃', sells: false, mobile: false, npcType: 'npc',
-    chitchat: [
+    workchitchat: [
       'catches your eye across the room and holds it a beat too long',
       '"Tip rail\'s right there. I don\'t bite. Unless you ask."',
       'traces a finger down the pole, bored, magnetic anyway',
@@ -202,6 +243,17 @@ const DEFAULTS = {
       '"Song\'s almost over. Stick around for the next one."',
       '"You want a private dance or you just here for the ambience?"',
       'stretches against the pole with the flat professionalism of a shift, not a show',
+    ],
+    lifechitchat: [
+      'walks flat-footed in worn sneakers, heels stuffed in a bag',
+      '"My feet have never forgiven me and never will."',
+      'pulls a hoodie tighter and keeps to the shadows',
+      '"Off the clock I don\'t smile at anybody. It\'s a rule."',
+      'counts out crumpled credits for the ride home',
+      '"Rent, tuition, a sick mother. Pick two, that\'s the job."',
+      'yawns, checking the time like it owes her sleep',
+      '"People think it\'s all glamour. It\'s ibuprofen and cold noodles."',
+      'rubs a sore ankle and mutters about the long walk home',
     ],
     combat_lines: [
       'Hey — HEY. Do you know what I paid for these heels?',
@@ -234,7 +286,7 @@ const DEFAULTS = {
 
   tv_host: {
     label: 'TV Host', icon: '📺', sells: false, mobile: false, npcType: 'npc',
-    chitchat: [
+    workchitchat: [
       "We'll be right back after these messages.",
       "Incredible. Simply incredible. Stay with us.",
       "That's all the time we have for tonight, folks.",
@@ -245,6 +297,16 @@ const DEFAULTS = {
       "I'm told we have a caller. Hello, you're on the air.",
       "This next segment has been approved by our corporate overlords.",
       "Remember: what you're about to see cannot be unseen.",
+    ],
+    lifechitchat: [
+      "People still recognise me. It's exhausting. It's wonderful.",
+      "keeps a practiced smile ready in case anyone's looking",
+      "My contract owns my face. I just rent it back.",
+      "I read three teleprompters in my sleep last night.",
+      "adjusts a collar that no one is filming",
+      "Fame's a diet of applause. You starve between meals.",
+      "Everyone wants a photo. Nobody wants to buy me dinner.",
+      "The makeup takes an hour. Taking it off takes longer.",
     ],
     combat_lines: [
       'WE ARE LIVE AND SOMEONE IS ATTACKING ME — DON\'T TOUCH THAT DIAL.',
@@ -276,17 +338,25 @@ const DEFAULTS = {
 
   unemployed: {
     label: 'Unemployed', icon: '🚷', sells: false, mobile: false, npcType: 'unemployed',
-    chitchat: [
+    workchitchat: [
+      "You hiring? No? Figures.",
+      "I'll do anything. Legal-ish. Ask.",
+      "Heard there was work down here. Heard wrong, apparently.",
+      "Give me a shot. I show up. That's rarer than you'd think.",
+      "scans every passing face for someone who might be hiring",
+      "Day labour, night labour, I don't care. Just labour.",
+      "I keep my head down and my hands empty. Nobody bothers me.",
+      "I know these halls better than anyone with somewhere to be.",
+    ],
+    lifechitchat: [
       "Used to have a job. Good one, too.",
       "Nothing going today. Nothing going most days.",
-      "You hiring? No? Figures.",
-      "I keep my head down and my hands empty. Nobody bothers me.",
       "Rent's due. Rent's always due.",
       "Killing time. It's the only thing that's free.",
-      "I know these halls better than anyone with somewhere to be.",
       "One of these days something'll turn up.",
       "Spare a credit? Didn't think so.",
       "I'm not loitering. I live here. Sort of.",
+      "stares at nothing in particular, in no hurry to stop",
     ],
     combat_lines: [
       'What did I even do to you?',
@@ -318,7 +388,7 @@ const DEFAULTS = {
   // ── Behavioural personalities ───────────────────────────────────────────
   guard: {
     label: 'Guard', icon: '🔒', sells: false, mobile: false, npcType: 'npc',
-    chitchat: [
+    workchitchat: [
       "Move along.",
       "Eyes forward.",
       "I see you.",
@@ -328,6 +398,16 @@ const DEFAULTS = {
       "Protocol says I have to say something. So: stop.",
       "Keep it moving.",
       "Don't make me call this in.",
+    ],
+    lifechitchat: [
+      "Out of the vest, I'm just some tired guy.",
+      "Twelve hours standing. My knees keep the score.",
+      "rolls the tension out of both shoulders",
+      "Nobody thanks you for the shift where nothing happened.",
+      "Pay's garbage. Benefits are worse. But it's steady.",
+      "I watch doors all day. Last thing I want at home is a door.",
+      "checks a cheap watch and counts down to nothing in particular",
+      "Guarding rich men's things doesn't make you rich. Learned that.",
     ],
     combat_lines: [
       'STAND DOWN. NOW.',
@@ -358,7 +438,7 @@ const DEFAULTS = {
 
   police: {
     label: 'Police', icon: '👮', sells: false, mobile: false, npcType: 'npc',
-    chitchat: [
+    workchitchat: [
       "Move along. Nothing here the department cares about.",
       "You didn't see anything. Neither did I.",
       "Permit for that? Didn't think so.",
@@ -369,6 +449,16 @@ const DEFAULTS = {
       "Report it if you want. The form's forty pages.",
       "Protect and serve. Mostly serve myself. Still counts.",
       "Keep it civil and we both clock out in one piece.",
+    ],
+    lifechitchat: [
+      "Twenty years in. Pension's a rumour at this point.",
+      "The badge comes off. The paranoia doesn't.",
+      "rubs the pale stripe where a wedding ring used to be",
+      "I don't drink at cop bars anymore. Can't stand the shop talk.",
+      "Everyone hates you till they need you. Then they still hate you.",
+      "sits heavily, letting the day soak out of tired legs",
+      "My kid asks what I do. I tell him: paperwork, mostly.",
+      "Rent's due, the car's dying, and I'm the law. Funny old world.",
     ],
     combat_lines: [
       'ASSAULTING AN OFFICER. Bold.',
@@ -400,7 +490,7 @@ const DEFAULTS = {
 
   thug: {
     label: 'Thug', icon: '🔪', sells: false, mobile: false, npcType: 'npc',
-    chitchat: [
+    workchitchat: [
       "You looking at something?",
       "Watch where you're walking.",
       "This block's got rules.",
@@ -409,6 +499,16 @@ const DEFAULTS = {
       "Mind your business and you'll keep your fingers.",
       "The crew knows your face now.",
       "We run things here. Not them. Us.",
+    ],
+    lifechitchat: [
+      "Off the block, I'm just a guy waiting on a bus like anybody.",
+      "Ma still thinks I do security. Guess I do, kind of.",
+      "counts a thin fold of credits and pockets it fast",
+      "You'd be surprised how boring being feared gets.",
+      "Everybody I came up with is dead or inside. Cheerful, right?",
+      "cracks scarred knuckles out of nothing but habit",
+      "One day I'm buying a little place with no stairs and no enemies.",
+      "Rent don't care what you did last night. Rent just wants paying.",
     ],
     combat_lines: [
       'YOU\'RE DEAD.',
@@ -439,7 +539,7 @@ const DEFAULTS = {
 
   doctor: {
     label: 'Doctor', icon: '🩺', sells: false, mobile: false, npcType: 'npc',
-    chitchat: [
+    workchitchat: [
       "Don't touch that with your bare hands.",
       "I've seen worse. Barely.",
       "The human body is remarkably resilient. And remarkably stupid.",
@@ -448,6 +548,16 @@ const DEFAULTS = {
       "My rates are reasonable. For the apocalypse.",
       "Symptom management is all any of us are doing at this point.",
       "Sign the waiver. Everyone signs the waiver.",
+    ],
+    lifechitchat: [
+      "I don't diagnose people at parties. Stop describing your rash.",
+      "scrubs at hands that never quite feel clean",
+      "Med school debt outlived med school. Outlived the schools, actually.",
+      "I've stopped noticing whether it's day or night.",
+      "You save enough of them, you stop counting the ones you don't.",
+      "presses two fingers to a wrist, reflexively taking its own pulse",
+      "First thing I do off-shift is sleep. Second thing is dread.",
+      "The Hippocratic oath didn't mention the paperwork.",
     ],
     combat_lines: [
       'This is counterproductive to your health.',
@@ -478,7 +588,7 @@ const DEFAULTS = {
 
   politician: {
     label: 'Politician', icon: '🎙', sells: false, mobile: false, npcType: 'npc',
-    chitchat: [
+    workchitchat: [
       "We're making progress.",
       "The data supports our approach.",
       "I hear your concerns. I'll note them down.",
@@ -487,6 +597,16 @@ const DEFAULTS = {
       "This is a temporary measure.",
       "Due process is very important to us.",
       "We are exploring all options. Except the obvious ones.",
+    ],
+    lifechitchat: [
+      "Off the record — and it's always off the record — I'm exhausted.",
+      "You smile at ten thousand people, none of them your friend.",
+      "loosens a tie that felt like a leash all day",
+      "Every handshake is a transaction. Even the ones I mean.",
+      "I haven't said a spontaneous sentence in years. Feels good.",
+      "checks the reflection in a dark window and fixes the hair",
+      "The donors own my calendar. My family gets the leftovers.",
+      "One scandal from selling insurance. We all are, really.",
     ],
     combat_lines: [
       'This is completely unacceptable.',
@@ -517,7 +637,7 @@ const DEFAULTS = {
 
   preacher: {
     label: 'Preacher', icon: '✝', sells: false, mobile: false, npcType: 'npc',
-    chitchat: [
+    workchitchat: [
       "The end was promised. The end delivered.",
       "Repent. It won't help, but the gesture matters.",
       "He watches. Even here.",
@@ -526,6 +646,16 @@ const DEFAULTS = {
       "The scripture didn't specify what kind of fire.",
       "Sin freely. Confess generously. That's the cycle.",
       "Judgment is coming. It commutes.",
+    ],
+    lifechitchat: [
+      "Even a shepherd has to buy bread.",
+      "The collection plate feeds one mouth. Guess whose.",
+      "wipes road-dust from a well-worn hem",
+      "Faith is easy in the pulpit. It's the walk home that tests it.",
+      "I preach fire all day and go home to a cold room.",
+      "murmurs a private prayer, meant for no congregation",
+      "Doubt visits me too. I just don't put it in the sermon.",
+      "The flock never asks if the shepherd's tired.",
     ],
     combat_lines: [
       'THE WAGES OF SIN.',
@@ -554,15 +684,25 @@ const DEFAULTS = {
 
   vagrant: {
     label: 'Vagrant', icon: '🚬', sells: false, mobile: false, npcType: 'npc',
-    chitchat: [
+    workchitchat: [
       "You got a smoke?",
+      "You got any credits? Just asking.",
+      "They took everything. But not this spot. This spot's mine.",
+      "Spare whatever. I'm not proud, not anymore.",
+      "This corner's the best pitch on the block. Fought for it.",
+      "rattles a near-empty cup at anyone passing",
+      "Help an old wreck out? No? Been that kind of day.",
+      "I don't beg. I offer people the chance to be kind. Different thing.",
+    ],
+    lifechitchat: [
       "I used to have a job. Good job too.",
       "Don't sleep near the east wall. Trust me.",
       "Seen things out there you wouldn't believe.",
       "It's gonna rain. I can tell. My knee knows.",
-      "You got any credits? Just asking.",
-      "They took everything. But not this spot. This spot's mine.",
       "The machines don't sleep. I've watched.",
+      "shuffles along, cataloguing the gutters out of long habit",
+      "Winter's the enemy. Everything else is just weather.",
+      "Talk to yourself long enough, you get good company.",
     ],
     combat_lines: [
       'Hey! I wasn\'t doing nothing!',
@@ -593,7 +733,7 @@ const DEFAULTS = {
 
   mercenary: {
     label: 'Mercenary', icon: '💀', sells: false, mobile: false, npcType: 'npc',
-    chitchat: [
+    workchitchat: [
       "This isn't personal. It's a contract.",
       "Better paid than the last job. That's all I ask.",
       "Don't mistake my silence for hesitation.",
@@ -602,6 +742,16 @@ const DEFAULTS = {
       "Eyes open. That's the whole philosophy.",
       "I get paid either way.",
       "There's no good side. Just better rates.",
+    ],
+    lifechitchat: [
+      "Between contracts I sleep with one eye open. Old habit.",
+      "field-strips a sidearm and reassembles it without looking",
+      "No pension in this line. You retire by not dying.",
+      "I count faces at every door. Even in a diner. Especially a diner.",
+      "The nightmares are subscription-based. Never miss a payment.",
+      "counts crumpled hazard pay and stares at it flatly",
+      "Made friends once. Learned my lesson twice.",
+      "Someday the money's enough and I just walk. Not yet.",
     ],
     combat_lines: [
       'Wrong call.',
@@ -633,7 +783,7 @@ const DEFAULTS = {
 
   scientist: {
     label: 'Scientist', icon: '🔬', sells: false, mobile: false, npcType: 'npc',
-    chitchat: [
+    workchitchat: [
       "The results were unexpected. As always.",
       "Containment is holding. For now.",
       "This is theoretically reversible.",
@@ -642,6 +792,16 @@ const DEFAULTS = {
       "I've run the numbers. The numbers are concerning.",
       "Progress requires sacrifice. Usually someone else's.",
       "We're close. We are always close.",
+    ],
+    lifechitchat: [
+      "I dream in error bars now. It's not restful.",
+      "The chemicals wash out of the hands eventually. The guilt doesn't.",
+      "absently sketches a molecule on a fogged-up surface",
+      "I published once. They redacted my name and the conclusion.",
+      "Everyone asks if it's like the movies. It's worse. It's spreadsheets.",
+      "checks a hand for a tremor, notes it clinically, moves on",
+      "I forgot how to talk to people who aren't a control group.",
+      "One breakthrough away from a Nobel or a war crime. Coin flip.",
     ],
     combat_lines: [
       'Interesting. That was considerably more painful than expected.',
@@ -673,7 +833,7 @@ const DEFAULTS = {
 
   cult_member: {
     label: 'Cult Member', icon: '👁', sells: false, mobile: false, npcType: 'npc',
-    chitchat: [
+    workchitchat: [
       "He is coming. He is always coming.",
       "Join us. The waiting is easier with company.",
       "The old world is ash. This is better.",
@@ -682,6 +842,16 @@ const DEFAULTS = {
       "Doubt is the first step. We help with the next ones.",
       "There is no leaving. There is only becoming.",
       "The vessel is willing. Are you?",
+    ],
+    lifechitchat: [
+      "murmurs the litany under their breath while running errands",
+      "The faithful still have to buy groceries. He provides. Sort of.",
+      "Even a vessel gets blisters walking these streets.",
+      "traces the sign of the open eye over a bowl of thin soup",
+      "I light a candle at home too. He notices the small ones.",
+      "Outside the fold the city feels so loud, so empty.",
+      "counts prayer-beads worn smooth by anxious fingers",
+      "They think I'm mad. He thinks I'm early. I side with Him.",
     ],
     combat_lines: [
       'THE VESSEL ACCEPTS ALL PAIN.',
@@ -779,13 +949,17 @@ export function npcMisAttacks(npc) {
   return !!(data.mis_attack) && Math.random() < 0.2;
 }
 
-// The idle chitchat pool for an NPC: its own stored override if any, otherwise
-// the archetype default. Returns null so callers can apply their own ultimate
-// fallback (DEFAULT_CHITCHAT_LINES) when neither is set.
-export function getNpcChitchat(npc) {
-  if (Array.isArray(npc.chitchat) && npc.chitchat.length) return npc.chitchat;
+// The idle chitchat pool for an NPC. Returns null so callers can apply their own
+// ultimate fallback (DEFAULT_CHITCHAT_LINES) when nothing is set.
+// mode: 'work' | 'life'. Per-NPC overrides: prefer npc.workchitchat/npc.lifechitchat
+// if present; else fall back to a legacy single npc.chitchat override (used for both
+// modes); else the archetype's workchitchat/lifechitchat pool. Returns null if none.
+export function getNpcChitchat(npc, mode = 'life') {
+  const key = mode === 'work' ? 'workchitchat' : 'lifechitchat';
+  if (Array.isArray(npc[key]) && npc[key].length) return npc[key];
+  if (Array.isArray(npc.chitchat) && npc.chitchat.length) return npc.chitchat; // legacy per-NPC override
   const data = getData(npc.flags?.personality);
-  return data.chitchat?.length ? data.chitchat : null;
+  return data[key]?.length ? data[key] : null;
 }
 
 // npc_type column value for a given archetype (runtime behaviour category).

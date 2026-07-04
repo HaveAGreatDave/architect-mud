@@ -1242,6 +1242,62 @@ export const SCHEMA_SQL = `
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE INDEX IF NOT EXISTS idx_police_evidence_time ON police_evidence(created_at ASC);
+
+  -- ── Flight system (flight plugin, docs/systems-flight.md) ──────────────────
+  -- aircraft_types is CONTENT: one row per craft template (ultralight, scout
+  -- heli, bush plane…), read by the flight plugin, editable via seed/dev panel.
+  -- Never hardcode these into engine files.
+  CREATE TABLE IF NOT EXISTS aircraft_types (
+    id                 TEXT PRIMARY KEY,
+    name               TEXT NOT NULL,
+    class              TEXT NOT NULL DEFAULT 'heli',   -- ultralight|heli|prop|heavy|gunship|wreck
+    takeoff_mode       TEXT NOT NULL DEFAULT 'vtol',   -- vtol|stol|strip
+    seats              INTEGER NOT NULL DEFAULT 1,
+    cargo_capacity     INTEGER NOT NULL DEFAULT 0,
+    max_takeoff_weight INTEGER NOT NULL DEFAULT 300,
+    fuel_capacity      REAL    NOT NULL DEFAULT 40,
+    fuel_burn_base     REAL    NOT NULL DEFAULT 1.0,   -- base drain per tile at full throttle
+    fuel_type          TEXT    NOT NULL DEFAULT 'avgas',
+    altitude_ceiling   INTEGER NOT NULL DEFAULT 2,     -- 1 low | 2 cruise | 3 high
+    cruise_speed       REAL    NOT NULL DEFAULT 1,     -- tiles/tick at full throttle
+    handling           REAL    NOT NULL DEFAULT 0,     -- piloting-difficulty modifier
+    hull_hp            INTEGER NOT NULL DEFAULT 20,
+    hardpoints         INTEGER NOT NULL DEFAULT 0,
+    noise              INTEGER NOT NULL DEFAULT 2,
+    price_buy          INTEGER NOT NULL DEFAULT 0,
+    price_rent_hourly  INTEGER NOT NULL DEFAULT 0,
+    data               JSONB   NOT NULL DEFAULT '{}'
+  );
+
+  -- aircraft is RUNTIME state: one row per physical craft in the world. Schema is
+  -- exported, rows are not (production-owned, like generators/atm_units). The
+  -- aircraft owns its occupant set at runtime (in-memory, mirroring live-zone
+  -- membership) -- there is deliberately NO cabin zones row; being aboard is
+  -- player state and the cabin is synthesized. parked_zone_id is null when airborne.
+  CREATE TABLE IF NOT EXISTS aircraft (
+    id            TEXT PRIMARY KEY,
+    type_id       TEXT NOT NULL REFERENCES aircraft_types(id),
+    name          TEXT,                                 -- tail number / owner name
+    owner_id      TEXT,                                 -- player id; null = rental/unowned stock
+    corp_id       TEXT,
+    map_id        TEXT NOT NULL DEFAULT 'map_world',
+    grid_x        INTEGER,
+    grid_y        INTEGER,
+    altitude_band TEXT    NOT NULL DEFAULT 'ground',    -- ground|low|cruise|high
+    heading       TEXT    NOT NULL DEFAULT 'n',
+    parked_zone_id TEXT,
+    fuel          REAL    NOT NULL DEFAULT 0,
+    throttle      INTEGER NOT NULL DEFAULT 0,
+    engine_temp   REAL    NOT NULL DEFAULT 20,
+    damage        REAL    NOT NULL DEFAULT 0,           -- 0 pristine .. 1 destroyed
+    airborne      INTEGER NOT NULL DEFAULT 0,
+    engine_on     INTEGER NOT NULL DEFAULT 0,
+    is_wreck      INTEGER NOT NULL DEFAULT 0,
+    rental        INTEGER NOT NULL DEFAULT 0,           -- rental stock returns to its home field
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_aircraft_parked ON aircraft(parked_zone_id);
+  CREATE INDEX IF NOT EXISTS idx_aircraft_owner ON aircraft(owner_id);
 `;
 
 export async function applySchema() {
