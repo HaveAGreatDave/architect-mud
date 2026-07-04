@@ -1,0 +1,5 @@
+# Keep the shared world seed as pure LF everywhere. It's generated pure-LF by
+# scripts/export-seed.mjs; without this, autocrlf would rewrite it to CRLF on
+# Windows checkout, and the mixed line endings defeat content:publish's
+# change-detection (spurious "Update world seed" commits).
+db/seed.sql text eol=lf

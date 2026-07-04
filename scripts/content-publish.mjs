@@ -18,9 +18,11 @@ run(process.execPath, ['scripts/export-seed.mjs']);
 // return content rows in a different physical order after edits, which would
 // churn the file without any real change; comparing a sorted-line view of the
 // new seed against the committed one filters that out.
-const norm = (s) => s.split('\n').sort().join('\n');
+// maxBuffer must exceed the seed size (~1 MB+) or git show throws ENOBUFS and the
+// guard silently no-ops into an always-commit. Strip CR so CRLF vs LF never counts.
+const norm = (s) => s.replace(/\r/g, '').split('\n').sort().join('\n');
 let headSeed = '';
-try { headSeed = execFileSync('git', ['show', 'HEAD:db/seed.sql'], { encoding: 'utf8' }); } catch { headSeed = ''; }
+try { headSeed = execFileSync('git', ['show', 'HEAD:db/seed.sql'], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 }); } catch { headSeed = ''; }
 const newSeed = readFileSync('db/seed.sql', 'utf8');
 
 if (headSeed && norm(headSeed) === norm(newSeed)) {

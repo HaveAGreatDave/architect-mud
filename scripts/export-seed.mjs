@@ -77,7 +77,10 @@ try {
   // Schema comes from SCHEMA_SQL — the codebase's single source of schema truth
   // (stable + versioned). Dumping schema from a running/used local DB is
   // non-deterministic (plugins add functions/tables at boot), so we don't.
-  const schema = SCHEMA_SQL.trim();
+  // Normalize CRLF→LF: schema.js may be checked out with CRLF (Windows), and
+  // mixing that with pg_dump's LF data made the seed's blank lines drift by a
+  // stray \r, defeating change detection. The whole seed is written pure-LF.
+  const schema = SCHEMA_SQL.replace(/\r\n?/g, '\n').trim();
   const tableArgs = CONTENT_TABLES.flatMap(t => ['-t', `public.${t}`]);
   // --column-inserts (not --inserts): names each column so rows load correctly
   // regardless of the physical column order SCHEMA_SQL produces vs the dump's.
@@ -98,7 +101,7 @@ try {
   ].join('\n');
 
   const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'db', 'seed.sql');
-  writeFileSync(out, seed, 'utf8');
+  writeFileSync(out, seed.replace(/\r\n?/g, '\n'), 'utf8'); // pure LF, always
   console.log(`✓ Wrote db/seed.sql (${(seed.length / 1024).toFixed(0)} KB). Commit it to share the world.`);
   process.exit(0);
 } catch (e) {
