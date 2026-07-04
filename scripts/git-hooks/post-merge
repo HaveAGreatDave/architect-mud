@@ -1,0 +1,17 @@
+#!/bin/sh
+# After a merge/pull, if the shared world seed (db/seed.sql) changed, remind the
+# dev to rebuild their local database so their world matches. Reminder ONLY — it
+# never rebuilds automatically, because that would wipe any un-exported local
+# content. Enabled via core.hooksPath scripts/git-hooks (npm run hooks:install).
+
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+cd "$root" || exit 0
+
+if git diff --name-only ORIG_HEAD HEAD 2>/dev/null | grep -q '^db/seed\.sql$'; then
+  echo ""
+  echo "🌍 The shared world seed (db/seed.sql) changed in that pull."
+  echo "   Run:  npm run content:sync   to update your local world."
+  echo ""
+fi
+
+exit 0

@@ -109,12 +109,16 @@ The world (zones, items, NPCs, furniture — **no player accounts, no secrets**)
 
 **Day-to-day:** `npm run dev`, `npm run test:regress`, and the dev panel all use your local database automatically — same commands as before.
 
-**Sharing content changes:** local DBs are separate copies and don't sync automatically. After you change content locally, regenerate and commit the snapshot so your teammate gets it on `git pull`:
+**Sharing content changes:** local DBs are separate copies and don't sync automatically, so use these two one-liners:
 ```
-npm run db:export-seed   # rewrites db/seed.sql from your local DB
-git add db/seed.sql && git commit -m "Update world seed"
+npm run content:publish            # export seed, commit db/seed.sql, push  (auto message)
+npm run content:publish -- "msg"   # ...with a custom commit message
 ```
-The other dev then runs `npm run db:setup-local` to rebuild from the new snapshot.
+On the other machine:
+```
+npm run content:sync               # pull, and rebuild the local DB only if the seed changed
+```
+A `post-merge` git hook also nudges you to run `content:sync` whenever a `git pull` brings in a changed seed (enable hooks once with `npm run hooks:install`). Under the hood these wrap `db:export-seed` (regenerate `db/seed.sql`) and `db:setup-local` (rebuild from it); `content:publish` only commits when the *content* actually changed, so incidental row-reordering never creates a spurious commit.
 
 **Touching production deliberately** (e.g. pushing content live at deploy time): temporarily swap `DATABASE_URL` back to the Supabase pooler string (kept commented in `.env`), run what you need, then swap back. Don't restore `db/seed.sql` onto production — that file drops & rebuilds a *local* DB (and is guarded to refuse anything non-localhost). Push content live via the dev panel's additive export/restore instead.
 
