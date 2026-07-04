@@ -3,3 +3,5 @@ node_modules/
 .env.*
 data/world.db
 *.db-journal
+server/mailer.js
+server/mailer.js

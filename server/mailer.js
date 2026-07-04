@@ -1,6 +1,10 @@
 import { BrevoClient } from '@getbrevo/brevo';
 
 export async function sendVerificationEmail(toEmail, verifyUrl) {
+  if (!process.env.BREVO_API_KEY) {
+    console.log(`[mailer] BREVO_API_KEY unset — skipping verification email to ${toEmail}. Verify link: ${verifyUrl}`);
+    return;
+  }
   const client = new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
   await client.transactionalEmails.sendTransacEmail({
     sender: { name: 'ARCHITECT', email: process.env.SMTP_FROM_EMAIL },
@@ -12,6 +16,10 @@ export async function sendVerificationEmail(toEmail, verifyUrl) {
 }
 
 export async function sendPasswordResetEmail(toEmail, resetUrl) {
+  if (!process.env.BREVO_API_KEY) {
+    console.log(`[mailer] BREVO_API_KEY unset — skipping password reset email to ${toEmail}. Reset link: ${resetUrl}`);
+    return;
+  }
   const client = new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
   await client.transactionalEmails.sendTransacEmail({
     sender: { name: 'ARCHITECT', email: process.env.SMTP_FROM_EMAIL },
