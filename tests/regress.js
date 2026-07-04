@@ -19,7 +19,7 @@
 // Run: npm run test:regress   (needs .env; shares the Supabase session pool —
 // if it dies with EMAXCONNSESSION, kill orphaned local servers / wait ~90s)
 
-import { readdir } from 'fs/promises';
+import { readdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -33,6 +33,7 @@ import { loadPlugins, getLoadedPlugins, getRegisteredCommands, getRegisteredHook
 import { loadMisSettings } from '../server/engine/mis.js';
 import { handleCommand } from '../server/engine/commands/index.js';
 import { getRegisteredMoveGates } from '../server/engine/movement-gates.js';
+import { getRegisteredSpecializedActions } from '../server/engine/specializedActions.js';
 import { registerProtectionProvider, getZoneProtection, getRegisteredProtectionProviders } from '../server/engine/protection.js';
 import { stopAll } from '../server/engine/scheduler.js';
 
@@ -68,6 +69,39 @@ console.log('— layer 1: manifest contracts —');
     }
   }
   check(`manifest contracts hold for ${getLoadedPlugins().length} plugins`, drift.length === 0, drift.join('; '));
+}
+
+// ── Layer 1b: object-gated verb discoverability ──────────────────────────────
+// A verb that only works near a specific world object (furniture/item/NPC) must be
+// discoverable in-world — surfaced on that object's examine via a tag-gated
+// specializedAction (or flags.interactions) — or be an explicitly logged gap. A
+// command that works but the player can't find is invisible content (the scrub /
+// police_terminal case). Each plugin declares its object-gated verbs in the
+// `objectGatedCommands` manifest field: { verb: { discoverVia, exposed, note } }.
+// This check fails if a verb declared discoverable (exposed !== false) isn't wired
+// into the specialized-action registry under the tag it claims. See
+// docs/audits/affordance-discoverability-audit.md and the verb-discoverability memory.
+console.log('— layer 1b: object-gated verb discoverability —');
+{
+  const specialized = getRegisteredSpecializedActions(); // { verb: [{ requiredTag, pluginName }] }
+  const problems = [], knownGaps = [];
+  const pluginDirs = (await readdir(PLUGINS_DIR, { withFileTypes: true })).filter(e => e.isDirectory());
+  for (const e of pluginDirs) {
+    const manifestPath = join(PLUGINS_DIR, e.name, 'plugin.json');
+    if (!existsSync(manifestPath)) continue;
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+    const gated = manifest.objectGatedCommands || {};
+    for (const [verb, spec] of Object.entries(gated)) {
+      if (!(manifest.commands || []).includes(verb)) {
+        problems.push(`${e.name}: objectGatedCommands "${verb}" is not in commands[]`);
+      }
+      if (spec.exposed === false) { knownGaps.push(`${e.name}:${verb} (via ${spec.discoverVia || '?'})`); continue; }
+      const wired = (specialized[verb] || []).some(x => x.requiredTag === spec.discoverVia);
+      if (!wired) problems.push(`${e.name}: "${verb}" declared discoverable via tag "${spec.discoverVia}" but no specializedAction surfaces it (examine shows no hint)`);
+    }
+  }
+  check('object-gated verbs are discoverable or logged', problems.length === 0, problems.join('; '));
+  if (knownGaps.length) console.log(`    (known discoverability gaps, logged not enforced: ${knownGaps.join(', ')})`);
 }
 
 // ── Fake player setup ─────────────────────────────────────────────────────────

@@ -20,6 +20,7 @@ posture/HP-regen break). The rest generalize that success to the other seams.
 | **Presentation ↔ everything** | inline CSS/markup taxing every file read; glyph mojibake; eroded styles.css contract | [ui-presentation-standard-audit.md](ui-presentation-standard-audit.md) |
 | **String-keyed registries** | typo'd emit/consume key (dead link); inconsistent naming convention across registries | [naming-registry-harmony-audit.md](naming-registry-harmony-audit.md) |
 | **Capability ↔ Item** | a "you need a ⟨tool⟩" gate hardcodes one item id instead of reading a tag, so a correctly-tagged second item is silently rejected | [capability-tag-vs-itemid-audit.md](capability-tag-vs-itemid-audit.md) |
+| **Verb ↔ Affordance** | an object-gated verb (works only near a specific furniture/item/NPC) never advertises itself on that object's `examine`, so the player can't discover it — invisible content | [affordance-discoverability-audit.md](affordance-discoverability-audit.md) |
 
 Two flavors live here:
 

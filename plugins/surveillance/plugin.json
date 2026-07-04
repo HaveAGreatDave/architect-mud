@@ -8,5 +8,10 @@
     { "verb": "use", "requiredTag": "spy_deck" },
     { "verb": "use", "requiredTag": "security_console" },
     { "verb": "use", "requiredTag": "datachip" }
-  ]
+  ],
+  "objectGatedCommands": {
+    "scrub":  { "discoverVia": "police_terminal", "exposed": false, "note": "KNOWN GAP: plain command, no examine hint on the police records terminal" },
+    "bribe":  { "discoverVia": "npc:police",       "exposed": false, "note": "KNOWN GAP: on-scene cop NPC advertises this only via dialogue, not examine" },
+    "submit": { "discoverVia": "npc:police",       "exposed": false, "note": "KNOWN GAP: on-scene cop NPC advertises this only via dialogue, not examine" }
+  }
 }
