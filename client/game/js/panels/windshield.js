@@ -30,14 +30,14 @@
 
 import { isWeatherFxEnabled } from './weather-fx.js';
 
-const FOV = 58;                 // forward field of view, degrees, for projecting obstacles
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
 let _obsHgt = 0;                // current view altitude fraction — drawers show more of a roof/top as it climbs
 
 // Live render tuning — mutated by the in-cockpit tuning sliders, read every frame.
 export const RENDER_TUNE = {
   worldPace: 0.001,   // cruise/air pace (tiles per knot per second)
-  groundBoost: 8,     // pace multiplier at zero altitude → quick down the runway; decays to 1× (0.001) by ~a few hundred ft
+  groundBoost: 8,     // pace multiplier at zero altitude → quick down the runway
+  groundDecay: 18,    // altitude e-fold (ft) for the boost → smaller = drops to cruise pace sooner after liftoff
   eh: 0.05,           // Mode-7 eye height on the GROUND (near-0 spread-out look; a floor keeps the runway from collapsing)
   climbLift: 7.0,     // eye-height ADDED per unit altitude: EH = max(floor, eh + climbLift*height). ~2 by 500ft → clears buildings
   tile: 0.85,         // Mode-7 floor tile frequency (higher = smaller terrain tiles)
@@ -49,8 +49,6 @@ export const RENDER_TUNE = {
   rwl: 3.2,           // runway length (tiles)
   rwyRecede: 4.0,     // how strongly climbing pushes the runway down/under
 };
-
-function angDelta(a, b) { let d = (b - a) % 360; if (d > 180) d -= 360; if (d < -180) d += 360; return d; }
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const lerp = (a, b, t) => a + (b - a) * t;
 const rgb = (c, a) => a == null ? `rgb(${c[0]|0},${c[1]|0},${c[2]|0})` : `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;
@@ -118,28 +116,6 @@ function sceneFor(id, W, H) {
     _scenes.set(id, st);
   }
   return st;
-}
-
-// Project the server map window into obstacles in the direction we're looking.
-// `look` is the view bearing (heading, or heading±90 for a side window).
-function obstaclesFromMap(map, look, off) {
-  if (!map || !map.length) return [];
-  const R = (map.length - 1) / 2;
-  const ox = off ? off.x : 0, oy = off ? off.y : 0;   // sub-tile forward offset → things approach as we move
-  const out = [];
-  for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
-    const cell = map[ry][rx]; if (!cell || cell.kind === 'air' || cell.kind === 'craft') continue;
-    if (cell.biome === 'water') continue;   // water is flat — drawn by the ground plane, not a silhouette
-    const dx = (rx - R) - ox, dy = (ry - R) - oy;
-    const dd = Math.hypot(dx, dy); if (dd < 0.12) continue;   // essentially under us
-    const bearing = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;   // 0=N, 90=E
-    const rel = angDelta(look || 0, bearing);
-    if (Math.abs(rel) > FOV / 2) continue;
-    const d = dd / (R + 0.5);
-    out.push({ ang: rel, dist: clamp(d, 0.04, 1), kind: cell.kind, biome: cell.biome, seed: (rx * 31 + ry * 17) });
-  }
-  out.sort((a, b) => b.dist - a.dist);   // far first, so near overdraws
-  return out;
 }
 
 export function ensureWindshieldStyles() {
@@ -878,11 +854,12 @@ function makeCam(W, horizonY, depth, v) {
   return { R, sinh, cosh, ox, oy, proj, projFL };
 }
 
-// One extruded, texture-mapped building box (painter's-sorted faces + roof).
-function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
+// One extruded, texture-mapped box between two heights (base wz0 → top wz1): painter-sorted
+// walls + an optional roof. Setback towers stack several of these.
+function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, roof) {
   const cs = [[-fh, -fh], [fh, -fh], [fh, fh], [-fh, fh]];
-  const b = cs.map(([a, c]) => cam.proj(dx + a, dy + c, 0));
-  const t = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz));
+  const b = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz0));
+  const t = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz1));
   const wall = wallTex(biome, night), shade = [0.0, 0.16, 0.3, 0.12];
   ctx.globalAlpha = alpha;
   const faces = [];
@@ -893,8 +870,35 @@ function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
     drawTexQuad(ctx, wall, P0, P1, P2, P3);
     if (shade[fc.i]) { ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.closePath(); ctx.fillStyle = `rgba(0,0,0,${shade[fc.i]})`; ctx.fill(); }
   }
-  drawTexQuad(ctx, roofTex(biome, night), [t[0].sx, t[0].sy], [t[1].sx, t[1].sy], [t[2].sx, t[2].sy], [t[3].sx, t[3].sy]);
+  if (roof) drawTexQuad(ctx, roofTex(biome, night), [t[0].sx, t[0].sy], [t[1].sx, t[1].sy], [t[2].sx, t[2].sy], [t[3].sx, t[3].sy]);
   ctx.globalAlpha = 1;
+}
+function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
+  draw3DBoxAt(ctx, cam, dx, dy, fh, 0, wz, biome, seed, night, alpha, true);
+}
+
+// Corporate glass skyscraper (downtown civic/uptown): a stack of setback tiers — each
+// narrower and higher, more tiers = taller — with the exposed tier roofs reading as
+// setback ledges, and ~half topped by a spire with a blinking red beacon. Variety comes
+// from the (world-stable) seed, so a downtown block reads as a varied skyline.
+function drawSkyscraper(ctx, cam, dx, dy, fh, h, biome, seed, night, alpha, now) {
+  const tiers = seed % 4;                        // 0 = plain block, up to 3 setbacks
+  const H = h * (1 + tiers * 0.45);              // more-tiered towers stand taller
+  let w = fh * 1.12, z = 0;                       // a touch wider than the generic box for presence
+  for (let i = 0; i <= tiers; i++) {
+    const z1 = H * ((i + 1) / (tiers + 1));
+    draw3DBoxAt(ctx, cam, dx, dy, w, z, z1, biome, seed + i * 7, night, alpha, true);
+    z = z1; w *= 0.72;
+  }
+  if ((seed & 1) === 0 && tiers >= 1) {           // spire + beacon on some
+    const base = cam.proj(dx, dy, H), tip = cam.proj(dx, dy, H + h * 0.6);
+    if (base.f > 0.1 && tip.f > 0.1) {
+      ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(190,205,225,0.85)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(base.sx, base.sy); ctx.lineTo(tip.sx, tip.sy); ctx.stroke();
+      ctx.fillStyle = `rgba(255,80,80,${0.45 + 0.45 * Math.abs(Math.sin((now || 0) * 0.004 + seed))})`;
+      ctx.beginPath(); ctx.arc(tip.sx, tip.sy, 1.6, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+    }
+  }
 }
 
 function drawTreeBB(ctx, cam, dx, dy, night, seed, alpha) {
@@ -992,6 +996,113 @@ function drawGuideBoxes(ctx, cam, v, now) {
   ctx.restore();
 }
 
+// General city-core building: a varied mix picked from the (stable) seed — plain mid-rise,
+// a podium with a set-back block, a block with a rooftop mechanical penthouse (sometimes
+// corner-offset), or the occasional taller tower — so the core reads as a mixed cityscape.
+function drawCityBuilding(ctx, cam, dx, dy, fh, h, biome, seed, night, alpha, now) {
+  const kind = seed % 5;
+  if (kind === 0) { drawSkyscraper(ctx, cam, dx, dy, fh, h, biome, seed, night, alpha, now); return; }
+  if (kind === 4) {                                         // wide podium + a narrower set-back block on top
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.35, 0, h * 0.32, biome, seed + 11, night, alpha, true);
+    draw3DBoxAt(ctx, cam, dx, dy, fh, h * 0.32, h, biome, seed, night, alpha, true);
+    return;
+  }
+  draw3DBoxAt(ctx, cam, dx, dy, fh, 0, h, biome, seed, night, alpha, true);   // the main block
+  if (kind === 1) return;                                   // plain mid-rise
+  const off = kind === 3 ? fh * 0.45 : 0;                    // rooftop penthouse, corner-pushed on kind 3
+  draw3DBoxAt(ctx, cam, dx + off, dy - off * 0.5, fh * 0.5, h, h + h * (0.18 + frac(seed + 2) * 0.22), biome, seed + 3, night, alpha, true);
+}
+
+// ── Per-biome adornments ──────────────────────────────────────────────────────
+function drawSmoke(ctx, cam, dx, dy, wz, col, alpha, now, seed) {
+  const p = cam.proj(dx, dy, wz); if (p.f <= 0.12) return;
+  const s = clamp(20 / p.f, 2, 40);
+  for (let i = 0; i < 3; i++) {
+    const t = ((now || 0) * 0.0002 + frac(seed + i)) % 1;
+    ctx.fillStyle = `rgba(${col},${alpha * 0.24 * (1 - t)})`;
+    ctx.beginPath(); ctx.arc(p.sx + Math.sin((now || 0) * 0.001 + i) * s * 0.4, p.sy - t * s * 2.4 - s * 0.5, s * (0.4 + t * 0.6), 0, 7); ctx.fill();
+  }
+}
+function drawGantry(ctx, cam, dx, dy, fh, h, alpha, seed) {
+  const hh = h * 1.5, lw = fh * 1.4;
+  const a = cam.proj(dx - lw, dy, 0), at = cam.proj(dx - lw, dy, hh), b = cam.proj(dx + lw, dy, 0), bt = cam.proj(dx + lw, dy, hh);
+  if ([a, at, b, bt].some(p => p.f <= 0.12)) return;
+  ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(126,116,96,0.85)'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(at.sx, at.sy); ctx.lineTo(bt.sx, bt.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+  const jib = cam.proj(dx + lw * 2.1, dy, hh * 0.9);
+  if (jib.f > 0.12) { ctx.beginPath(); ctx.moveTo(at.sx, at.sy); ctx.lineTo(jib.sx, jib.sy); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+}
+
+// ── Per-biome building archetypes (all built from draw3DBoxAt + adornments) ────
+function drawIndustrial(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
+  const kind = seed % 3;
+  if (kind === 0) {   // plant block + chimney stack venting smoke
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.2, 0, h * 0.4, bi, seed, night, alpha, true);
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.4, 0, h * 1.7, bi, seed + 2, night, alpha, true);
+    drawSmoke(ctx, cam, dx, dy, h * 1.7, '72,66,60', alpha, now, seed);
+  } else if (kind === 1) {   // squat storage tanks
+    draw3DBoxAt(ctx, cam, dx - fh * 0.9, dy, fh * 0.8, 0, h * 0.7, bi, seed, night, alpha, true);
+    draw3DBoxAt(ctx, cam, dx + fh * 0.9, dy, fh * 0.8, 0, h * 0.55, bi, seed + 3, night, alpha, true);
+  } else {   // low sprawling plant hall
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.25, 0, h * 0.8, bi, seed, night, alpha, true);
+  }
+}
+function drawInfra(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
+  if ((seed % 2) === 0) {   // cooling tower (wide base, narrower waist) venting steam
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.3, 0, h * 0.5, bi, seed, night, alpha, false);
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, h * 0.5, h * 1.25, bi, seed, night, alpha, true);
+    drawSmoke(ctx, cam, dx, dy, h * 1.25, '210,214,220', alpha * 0.85, now, seed);
+  } else {   // turbine hall + tall stack
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.3, 0, h * 0.7, bi, seed, night, alpha, true);
+    draw3DBoxAt(ctx, cam, dx + fh, dy, fh * 0.35, 0, h * 1.5, bi, seed + 2, night, alpha, true);
+  }
+}
+function drawFreight(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
+  const kind = seed % 3;
+  if (kind === 1) {   // stacked shipping containers
+    for (let i = 0; i < 4; i++) {
+      const cx = dx + (i % 2 - 0.5) * fh * 1.1, cy = dy + (Math.floor(i / 2) - 0.5) * fh * 0.7;
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.5, 0, h * (0.26 + (i % 2) * 0.13), bi, seed + i * 5, night, alpha, true);
+    }
+  } else {   // long low warehouse
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.4, 0, h * (kind === 0 ? 0.5 : 0.62), bi, seed, night, alpha, true);
+    if (bi === 'docks') drawGantry(ctx, cam, dx, dy, fh, h, alpha, seed);
+  }
+}
+function drawRuin(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
+  draw3DBoxAt(ctx, cam, dx, dy, fh, 0, h * (0.5 + frac(seed) * 0.45), bi, seed, night, alpha, true);   // half-standing shell
+  if ((seed % 2) === 0) draw3DBoxAt(ctx, cam, dx + fh * 0.95, dy, fh * 0.55, 0, h * (0.2 + frac(seed + 1) * 0.3), bi, seed + 4, night, alpha, true);   // broken remnant
+  if (bi === 'ruins') {   // Redline radioactive glow
+    const g = cam.proj(dx, dy, h * 0.3);
+    if (g.f > 0.12) { const s = clamp(24 / g.f, 3, 50), rg = ctx.createRadialGradient(g.sx, g.sy, 1, g.sx, g.sy, s); rg.addColorStop(0, `rgba(150,220,80,${alpha * 0.22})`); rg.addColorStop(1, 'rgba(150,220,80,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill(); }
+  }
+}
+function drawMarquee(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
+  draw3DBoxAt(ctx, cam, dx, dy, fh, 0, h * 0.7, bi, seed, night, alpha, true);
+  const b = cam.proj(dx, dy, h * 0.7), t = cam.proj(dx, dy, h * 1.05);   // rooftop neon sign
+  if (b.f > 0.12 && t.f > 0.12) {
+    const neon = ['#ff4a9a', '#5fd0ff', '#ffcf3e', '#7dff6a'][seed % 4];
+    ctx.globalAlpha = alpha * (night ? 0.95 : 0.5); ctx.strokeStyle = neon; ctx.lineWidth = 2.2;
+    if (night) { ctx.shadowColor = neon; ctx.shadowBlur = 6; }
+    ctx.beginPath(); ctx.moveTo(b.sx, b.sy); ctx.lineTo(t.sx, t.sy); ctx.stroke(); ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  }
+}
+
+// Route each biome to its archetype set — the one place building variety is chosen.
+function drawBuilding(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
+  switch (bi) {
+    case 'uptown': case 'civic': return drawSkyscraper(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now);
+    case 'citycore': return drawCityBuilding(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now);
+    case 'industrial': return drawIndustrial(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now);
+    case 'infra': return drawInfra(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now);
+    case 'freight': case 'docks': return drawFreight(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now);
+    case 'ruins': case 'oldcoldwater': return drawRuin(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now);
+    case 'marquee': return drawMarquee(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now);
+    default: return draw3DBox(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha);
+  }
+}
+
 // Collect visible tiles, sort far→near, draw each (textured box / billboard).
 function drawWorldObjects(ctx, cam, v, sky, now) {
   const map = v.map; if (!map || !map.length) return; const R = cam.R, night = sky.night;
@@ -1020,196 +1131,10 @@ function drawWorldObjects(ctx, cam, v, sky, now) {
     if (bi === 'badlands') { if ((it.seed % 3) === 0) drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
     const h = (BLDG_H[bi] || 0.3) * (0.7 + frac(it.seed) * 0.6) * RENDER_TUNE.bldgH;
     const fh = (0.3 + frac(it.seed + 2) * 0.08) * RENDER_TUNE.bldgFoot;
-    draw3DBox(ctx, cam, it.dx, it.dy, fh, h, bi, it.seed, night, alpha);
+    // Each biome draws its own archetype set (downtown towers, industrial stacks, freight
+    // containers, dock cranes, cooling towers, broken ruins, neon marquee, …).
+    drawBuilding(ctx, cam, it.dx, it.dy, fh, h, bi, it.seed, night, alpha, now);
   }
-}
-
-function drawObstacle(ctx, x, gy, scale, depth, kind, night, now, biome, seed) {
-  if (kind === 'field') {
-    const r = 8 + scale * 26;
-    ctx.strokeStyle = 'rgba(70,224,90,0.85)'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.ellipse(x, gy, r, r * 0.4, 0, 0, 7); ctx.stroke();
-    const blink = 0.4 + 0.6 * Math.abs(Math.sin(now * 0.004));
-    ctx.fillStyle = `rgba(120,255,150,${blink})`; ctx.beginPath(); ctx.arc(x, gy - r * 0.4, 2 + scale * 2, 0, 7); ctx.fill();
-    return;
-  }
-  if (kind === 'nofly') {
-    const h = 30 + scale * depth * 0.7, w = 10 + scale * 34;
-    const gr = ctx.createLinearGradient(0, gy - h, 0, gy);
-    gr.addColorStop(0, 'rgba(255,60,60,0)'); gr.addColorStop(1, 'rgba(255,60,60,0.32)');
-    ctx.fillStyle = gr; ctx.fillRect(x - w / 2, gy - h, w, h);
-    ctx.strokeStyle = 'rgba(255,90,90,0.8)'; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.moveTo(x - w / 2, gy - h); ctx.lineTo(x - w / 2, gy); ctx.moveTo(x + w / 2, gy - h); ctx.lineTo(x + w / 2, gy); ctx.stroke();
-    ctx.fillStyle = `rgba(255,80,80,${0.5 + 0.5 * Math.abs(Math.sin(now * 0.006))})`; ctx.beginPath(); ctx.arc(x, gy - h, 2.5 + scale * 2, 0, 7); ctx.fill();
-    return;
-  }
-  // land → the district biome's aerial silhouette (real Coldwater, not flat tiles).
-  drawBiome(ctx, x, gy, scale, depth, biome || 'citycore', night, now, seed | 0);
-}
-
-const bcol = (r, g, b, a = 1) => `rgba(${r | 0},${g | 0},${b | 0},${a})`;
-
-// A roof face receding up-and-back from a building's top edge, sized by the view
-// altitude (`_obsHgt`) — so you see more of the top as you climb. `seed` varies the
-// rooftop clutter so buildings don't all look identical.
-function boxRoof(ctx, x, topY, bw, base, seed) {
-  const rd = bw * (0.15 + 0.6 * _obsHgt);            // roof depth grows with altitude
-  if (rd < 2) return;
-  const sk = bw * 0.22 * _obsHgt;                    // slight 3/4-view skew
-  ctx.fillStyle = bcol(base[0] * 1.25 + 8, base[1] * 1.25 + 8, base[2] * 1.25 + 8, 0.96);
-  ctx.beginPath();
-  ctx.moveTo(x - bw / 2, topY); ctx.lineTo(x - bw / 2 + sk, topY - rd);
-  ctx.lineTo(x + bw / 2 + sk, topY - rd); ctx.lineTo(x + bw / 2, topY); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = bcol(0, 0, 0, 0.2); ctx.lineWidth = 1; ctx.stroke();
-  // rooftop clutter (HVAC unit / skylight), seeded so it varies per building
-  if (rd > 6) {
-    const kind = (seed | 0) % 3;
-    const ux = x + (frac(seed) - 0.5) * bw * 0.4 + sk * 0.5, uy = topY - rd * (0.4 + frac(seed + 3) * 0.3);
-    if (kind === 0) { ctx.fillStyle = bcol(0, 0, 0, 0.22); ctx.fillRect(ux - bw * 0.12, uy, bw * 0.24, rd * 0.28); }
-    else if (kind === 1) { ctx.fillStyle = bcol(140, 170, 200, 0.35); ctx.fillRect(ux - bw * 0.16, uy, bw * 0.32, rd * 0.2); }   // skylight glint
-    else { ctx.fillStyle = bcol(0, 0, 0, 0.2); ctx.beginPath(); ctx.arc(ux, uy, Math.min(bw, rd) * 0.14, 0, 7); ctx.fill(); }   // tank
-  }
-}
-
-// A lit-window grid across a facade (warm sodium at night, cool glass by day).
-function litGrid(ctx, x, top, w, h, night, seed, warm) {
-  if (w < 8 || h < 8) return;
-  const cols = Math.max(2, Math.round(w / 8)), rows = Math.max(2, Math.round(h / 10));
-  for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) {
-    if (((c * 7 + r * 13 + (seed | 0)) % 5) >= (night > 0.4 ? 3 : 1)) continue;
-    ctx.fillStyle = night > 0.4 ? (warm ? 'rgba(255,214,120,0.85)' : 'rgba(150,200,255,0.7)') : 'rgba(150,180,200,0.42)';
-    ctx.fillRect(x + 3 + c * (w - 6) / cols, top + 3 + r * (h - 6) / rows, Math.max(1.3, (w - 6) / cols - 2), Math.max(1.3, (h - 6) / rows - 2));
-  }
-}
-
-// Route a tile's biome to its silhouette.
-function drawBiome(ctx, x, gy, scale, depth, biome, night, now, seed) {
-  switch (biome) {
-    case 'uptown': return drawTower(ctx, x, gy, scale, depth, night, seed);
-    case 'civic': return drawBlock(ctx, x, gy, scale, depth, night, now, seed, 'stone');
-    case 'marquee': return drawBlock(ctx, x, gy, scale, depth, night, now, seed, 'neon');
-    case 'oldcoldwater': return drawRuinBlock(ctx, x, gy, scale, depth, night, seed, false);
-    case 'ruins': return drawRuinBlock(ctx, x, gy, scale, depth, night, seed, true);
-    case 'freight': return drawWarehouse(ctx, x, gy, scale, depth, night, seed);
-    case 'industrial': return drawStackTank(ctx, x, gy, scale, depth, night, now, seed);
-    case 'infra': return drawCooling(ctx, x, gy, scale, depth, night, now, seed);
-    case 'docks': return drawDockCrane(ctx, x, gy, scale, depth, night, seed);
-    case 'parkland': return drawTrees(ctx, x, gy, scale, seed);
-    case 'badlands': return drawMesa(ctx, x, gy, scale, depth, seed);
-    default: return drawBlock(ctx, x, gy, scale, depth, night, now, seed, 'concrete');   // citycore
-  }
-}
-
-// Uptown — a tall glass tower with a rooftop beacon.
-function drawTower(ctx, x, gy, scale, depth, night, seed) {
-  const bw = 12 + scale * 26, bh = 40 + scale * depth * 1.3 * (0.7 + frac(seed) * 0.7);
-  const g = ctx.createLinearGradient(x - bw / 2, 0, x + bw / 2, 0);
-  g.addColorStop(0, bcol(20, 28, 40)); g.addColorStop(0.5, bcol(34, 48, 66)); g.addColorStop(1, bcol(16, 22, 32));
-  ctx.fillStyle = g; ctx.fillRect(x - bw / 2, gy - bh, bw, bh);
-  ctx.strokeStyle = bcol(120, 170, 210, 0.3); ctx.lineWidth = 1; ctx.strokeRect(x - bw / 2, gy - bh, bw, bh);
-  litGrid(ctx, x - bw / 2, gy - bh, bw, bh, night, seed, false);
-  boxRoof(ctx, x, gy - bh, bw, [34, 48, 66], seed);
-  if (scale > 0.3) { ctx.fillStyle = `rgba(255,80,80,${0.35 + 0.5 * Math.abs(Math.sin(seed + 1))})`; ctx.fillRect(x - 1, gy - bh - 3, 2, 3); }
-}
-
-// Civic (stone monumental) / City Core (concrete) / Marquee (neon-lit) blocks.
-function drawBlock(ctx, x, gy, scale, depth, night, now, seed, style) {
-  const bw = 18 + scale * 44, bh = 22 + scale * depth * 0.8 * (0.6 + frac(seed) * 0.6);
-  const base = style === 'stone' ? [46, 44, 40] : style === 'neon' ? [30, 20, 32] : [26, 30, 38];
-  ctx.fillStyle = bcol(base[0] + night * 4, base[1] + night * 3, base[2], 0.94);
-  ctx.fillRect(x - bw / 2, gy - bh, bw, bh);
-  ctx.strokeStyle = bcol(120, 150, 170, 0.28); ctx.lineWidth = 1; ctx.strokeRect(x - bw / 2, gy - bh, bw, bh);
-  litGrid(ctx, x - bw / 2, gy - bh, bw, bh, night, seed, style !== 'neon');
-  boxRoof(ctx, x, gy - bh, bw, base, seed);
-  if (style === 'neon' && night > 0.25) {
-    const hue = [[255, 60, 140], [120, 90, 255], [60, 200, 255]][(seed | 0) % 3];
-    const a = 0.45 + 0.35 * Math.abs(Math.sin(now * 0.004 + seed));
-    ctx.fillStyle = bcol(hue[0], hue[1], hue[2], a);
-    ctx.fillRect(x - bw / 2, gy - bh - 2, bw, 3);
-    ctx.shadowColor = bcol(hue[0], hue[1], hue[2], 0.8); ctx.shadowBlur = 8; ctx.fillRect(x - bw / 2, gy - bh - 2, bw, 2); ctx.shadowBlur = 0;
-  }
-}
-
-// Badlands — an arid rocky mesa with strata (the Arizona look).
-function drawMesa(ctx, x, gy, scale, depth, seed) {
-  const w = 20 + scale * 46, h = 8 + scale * depth * 0.4 * (0.6 + frac(seed) * 0.9), dim = 0.6 + scale * 0.4;
-  ctx.fillStyle = bcol(120 * dim, 88 * dim, 58 * dim, 0.95);
-  ctx.beginPath(); ctx.moveTo(x - w, gy); ctx.lineTo(x - w * 0.7, gy - h * 0.8); ctx.lineTo(x - w * 0.2, gy - h); ctx.lineTo(x + w * 0.5, gy - h * 0.9); ctx.lineTo(x + w, gy); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = bcol(152 * dim, 112 * dim, 72 * dim, 0.5);   // sunlit face
-  ctx.beginPath(); ctx.moveTo(x - w * 0.2, gy - h); ctx.lineTo(x + w * 0.5, gy - h * 0.9); ctx.lineTo(x + w, gy); ctx.lineTo(x + w * 0.2, gy); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = bcol(80, 58, 38, 0.4); ctx.lineWidth = 1;
-  for (let i = 1; i < 3; i++) { const yy = gy - h * i / 3; ctx.beginPath(); ctx.moveTo(x - w, yy + 2); ctx.lineTo(x + w, yy); ctx.stroke(); }
-}
-
-// Industrial — a tank + a venting stack with an ember crown and rising smoke.
-function drawStackTank(ctx, x, gy, scale, depth, night, now, seed) {
-  const dim = 0.55 + scale * 0.45, tw = 10 + scale * 20, th = 8 + scale * 16;
-  ctx.fillStyle = bcol(70 * dim, 72 * dim, 66 * dim, 0.92); ctx.fillRect(x - tw, gy - th, tw * 1.2, th);
-  ctx.strokeStyle = bcol(140, 150, 140, 0.3); ctx.strokeRect(x - tw, gy - th, tw * 1.2, th);
-  const sw = 5 + scale * 7, sh = 28 + scale * depth * 0.9, sx = x + tw * 0.2;
-  const g = ctx.createLinearGradient(sx, 0, sx + sw, 0);
-  g.addColorStop(0, bcol(40, 34, 30)); g.addColorStop(0.5, bcol(70 * dim, 56 * dim, 48 * dim)); g.addColorStop(1, bcol(30, 24, 22));
-  ctx.fillStyle = g; ctx.fillRect(sx, gy - sh, sw, sh);
-  const eg = ctx.createRadialGradient(sx + sw / 2, gy - sh, 1, sx + sw / 2, gy - sh, 8 + scale * 8);
-  eg.addColorStop(0, 'rgba(255,140,60,0.7)'); eg.addColorStop(1, 'rgba(255,90,40,0)');
-  ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(sx + sw / 2, gy - sh, 8 + scale * 8, 0, 7); ctx.fill();
-  ctx.fillStyle = 'rgba(60,54,50,0.2)';
-  for (let i = 0; i < 2; i++) { const t = (now * 0.0004 + frac(seed + i)) % 1; ctx.beginPath(); ctx.arc(sx + sw / 2 + Math.sin(now * 0.001 + i) * 5 * scale, gy - sh - 6 - t * 26 * scale, (2 + i * 2) * scale, 0, 7); ctx.fill(); }
-}
-
-// Infra — a hyperboloid cooling tower breathing steam.
-function drawCooling(ctx, x, gy, scale, depth, night, now, seed) {
-  const dim = 0.6 + scale * 0.4, w = 14 + scale * 22, h = 24 + scale * depth * 0.7;
-  ctx.fillStyle = bcol(70 * dim, 74 * dim, 80 * dim, 0.95);
-  ctx.beginPath(); ctx.moveTo(x - w / 2, gy); ctx.quadraticCurveTo(x - w * 0.22, gy - h * 0.6, x - w * 0.34, gy - h); ctx.lineTo(x + w * 0.34, gy - h); ctx.quadraticCurveTo(x + w * 0.22, gy - h * 0.6, x + w / 2, gy); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = 'rgba(220,224,230,0.18)';
-  for (let i = 0; i < 3; i++) { const t = (now * 0.0003 + frac(seed + i)) % 1; ctx.beginPath(); ctx.arc(x + Math.sin(now * 0.0008 + i) * 6 * scale, gy - h - 4 - t * 30 * scale, (4 + i * 2) * scale, 0, 7); ctx.fill(); }
-}
-
-// Freight — a long low warehouse with a gable roof and a stack of containers.
-function drawWarehouse(ctx, x, gy, scale, depth, night, seed) {
-  const dim = 0.6 + scale * 0.4, w = 26 + scale * 52, h = 12 + scale * 22;
-  ctx.fillStyle = bcol(48 * dim, 52 * dim, 58 * dim, 0.95); ctx.fillRect(x - w / 2, gy - h, w, h);
-  ctx.fillStyle = bcol(62 * dim, 66 * dim, 72 * dim, 0.9);
-  ctx.beginPath(); ctx.moveTo(x - w / 2, gy - h); ctx.lineTo(x, gy - h - 6 * scale - 3); ctx.lineTo(x + w / 2, gy - h); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = bcol(120, 140, 160, 0.25); ctx.strokeRect(x - w / 2, gy - h, w, h);
-  boxRoof(ctx, x, gy - h, w, [56, 60, 68], seed);
-  const cc = [[176, 92, 70], [70, 122, 160], [150, 150, 84], [90, 150, 110]];
-  for (let i = 0; i < 4; i++) { const c = cc[(seed + i) % 4]; ctx.fillStyle = bcol(c[0] * dim, c[1] * dim, c[2] * dim, 0.92); ctx.fillRect(x - w * 0.4 + i * (9 + scale * 4), gy - (5 + scale * 4), 8 + scale * 4, 5 + scale * 4); }
-}
-
-// Docks — a gantry crane over a few containers.
-function drawDockCrane(ctx, x, gy, scale, depth, night, seed) {
-  const dim = 0.6 + scale * 0.4, h0 = 24 + scale * depth * 0.7, w = 12 + scale * 18;
-  ctx.strokeStyle = bcol(150, 120, 90, 0.85); ctx.lineWidth = Math.max(1, scale * 2.2); ctx.lineJoin = 'round';
-  ctx.beginPath(); ctx.moveTo(x - w, gy); ctx.lineTo(x - w * 0.3, gy - h0); ctx.moveTo(x + w, gy); ctx.lineTo(x + w * 0.3, gy - h0); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(x - w * 0.5, gy - h0 * 0.92); ctx.lineTo(x + w * 1.6, gy - h0); ctx.stroke();
-  ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + w * 1.4, gy - h0); ctx.lineTo(x + w * 1.4, gy - h0 * 0.5); ctx.stroke();
-  const cc = [[176, 92, 70], [70, 122, 160], [150, 150, 84]];
-  for (let i = 0; i < 3; i++) { const c = cc[(seed + i) % 3]; ctx.fillStyle = bcol(c[0] * dim, c[1] * dim, c[2] * dim, 0.9); ctx.fillRect(x - w - 3 + i * (7 + scale * 3), gy - (6 + scale * 4), 8 + scale * 4, 6 + scale * 4); }
-}
-
-// Parkland — a cluster of feral tree canopies (the only real green).
-function drawTrees(ctx, x, gy, scale, seed) {
-  const n = 3 + Math.round(scale * 3);
-  for (let i = 0; i < n; i++) {
-    const tx = x + (frac(seed + i) - 0.5) * (20 + scale * 40), r = 4 + scale * 10 * (0.6 + frac(seed + i * 2) * 0.7), ty = gy - r * 0.4;
-    ctx.fillStyle = bcol(30, 60, 34, 0.9); ctx.beginPath(); ctx.ellipse(tx, ty, r, r * 0.9, 0, 0, 7); ctx.fill();
-    // Lit canopy top — grows and centres as you climb (you look down onto the crown).
-    ctx.fillStyle = bcol(60 + _obsHgt * 30, 100 + _obsHgt * 34, 54 + _obsHgt * 18, 0.7 + _obsHgt * 0.2);
-    ctx.beginPath(); ctx.ellipse(tx - r * 0.2 * (1 - _obsHgt), ty - r * 0.3 * (1 - _obsHgt), r * (0.6 + _obsHgt * 0.35), r * (0.5 + _obsHgt * 0.4), 0, 0, 7); ctx.fill();
-  }
-}
-
-// Ruins / old Coldwater — a broken building; the Redline variant carries a glow.
-function drawRuinBlock(ctx, x, gy, scale, depth, night, seed, radioactive) {
-  const dim = 0.5 + scale * 0.4, w = 16 + scale * 36, h = 18 + scale * depth * 0.6 * (0.6 + frac(seed) * 0.7);
-  ctx.fillStyle = bcol(32 * dim, 30 * dim, 26 * dim, 0.95);
-  ctx.beginPath(); ctx.moveTo(x - w / 2, gy); ctx.lineTo(x - w / 2, gy - h * 0.8); ctx.lineTo(x - w * 0.25, gy - h); ctx.lineTo(x - w * 0.05, gy - h * 0.7); ctx.lineTo(x + w * 0.2, gy - h * 0.95); ctx.lineTo(x + w * 0.5, gy - h * 0.6); ctx.lineTo(x + w / 2, gy); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = bcol(90, 90, 80, 0.25); ctx.lineWidth = 1; ctx.stroke();
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  for (let i = 0; i < 3; i++) { const wx = x - w * 0.3 + i * w * 0.3; ctx.fillRect(wx, gy - h * 0.5, 3 + scale * 3, 4 + scale * 4); }
-  if (radioactive) { const g = ctx.createRadialGradient(x, gy - h * 0.3, 1, x, gy - h * 0.3, w * 0.8); g.addColorStop(0, 'rgba(150,220,80,0.26)'); g.addColorStop(1, 'rgba(150,220,80,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, gy - h * 0.3, w * 0.8, 0, 7); ctx.fill(); }
 }
 
 function drawWeather(ctx, W, H, wx, st, dt, speed) {

@@ -29,6 +29,7 @@ import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
 import { openSpliceSelect, openSpliceStages, applySplicePreview } from './panels/splicelab.js';
+import { showSpliceReport } from './panels/spliceReport.js';
 import { updateWantedHud, setWantedHeat } from './panels/wanted.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
 import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
@@ -614,6 +615,7 @@ const handlers = {
   splice_designer: (msg) => { openSpliceSelect(msg); },
 
   splice_preview: (msg) => { applySplicePreview(msg); },
+  splice_report: (msg) => { showSpliceReport(msg); },
 
   esp_state:   (msg) => { applyEspState(msg); },
   esp_warning: (msg) => { handleEspWarning(msg); },

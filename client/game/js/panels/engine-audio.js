@@ -15,7 +15,7 @@ function AE() { return window.AudioEngine; }
 
 // Per-class engine character.
 const CLASS_AUDIO = {
-  ultralight: { idle: [78, 150], power: [190, 320], wave: 'sawtooth', nm: 0.5, wind: 1.15 },
+  ultralight: { idle: [42, 60], power: [70, 100], wave: 'sawtooth', nm: 0.9, wind: 1.1, fs: 0.5, chug: 9 },   // deep low rumble (was a mid-tone "alarm")
   heli:       { idle: [40, 80],  power: [92, 150],  wave: 'triangle', nm: 0.42, wind: 0.9, sub: 1 },
   prop:       { idle: [52, 84],  power: [120, 190], wave: 'sawtooth', nm: 0.5, wind: 1.0 },
   heavy:      { idle: [36, 68],  power: [110, 215], wave: 'sawtooth', nm: 0.72, wind: 1.35, whine: 1 },
@@ -27,18 +27,19 @@ const prof = (cls) => CLASS_AUDIO[cls] || CLASS_AUDIO.prop;
 function buildLoops(cls, engines) {
   const p = prof(cls);
   const beef = 1 + Math.min(0.6, Math.max(0, (engines || 1) - 1) * 0.18);
-  const wf = p.whine ? 1.6 : 1;
+  const wf = p.whine ? 1.6 : 1, fs = p.fs || 1;   // fs darkens the filters → low rumble, no mid "alarm" tone
+  const chug = p.chug ? { tremolo: { rate: p.chug, depth: 0.22 } } : {};   // slow amplitude pulse = idling engine, not a steady tone
   const IDLE = { id: 'flt-eng-idle', category: 'ambient', config: { gain: 1, layers: [
-    { waveform: p.wave, freq: p.idle[0], filter: { type: 'lowpass', freq: 380 * wf, q: 2 }, adsr: { a: 0.5, d: 0, s: 1, r: 0.6 }, gain: 0.11 * beef },
-    { waveform: p.wave, freq: p.idle[1], filter: { type: 'lowpass', freq: 520 * wf, q: 3 }, adsr: { a: 0.5, d: 0, s: 1, r: 0.6 }, gain: 0.05 * beef },
+    { waveform: p.wave, freq: p.idle[0], filter: { type: 'lowpass', freq: 380 * wf * fs, q: 2 }, ...chug, adsr: { a: 0.5, d: 0, s: 1, r: 0.6 }, gain: 0.11 * beef },
+    { waveform: p.wave, freq: p.idle[1], filter: { type: 'lowpass', freq: 520 * wf * fs, q: 3 }, adsr: { a: 0.5, d: 0, s: 1, r: 0.6 }, gain: 0.05 * beef },
     ...(p.sub ? [{ waveform: 'sine', freq: p.idle[0] * 0.5, adsr: { a: 0.6, d: 0, s: 1, r: 0.6 }, gain: 0.055 }] : []),
     ...(p.detune ? [{ waveform: p.wave, freq: p.idle[0] * 1.03, filter: { type: 'lowpass', freq: 420, q: 2 }, adsr: { a: 0.5, d: 0, s: 1, r: 0.6 }, gain: 0.05 }] : []),
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 210, q: 0.7 }, adsr: { a: 0.6, d: 0, s: 1, r: 0.6 }, gain: 0.035 * p.nm },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 210 * fs, q: 0.7 }, adsr: { a: 0.6, d: 0, s: 1, r: 0.6 }, gain: 0.035 * p.nm },
   ] } };
   const POWER = { id: 'flt-eng-power', category: 'ambient', config: { gain: 1, layers: [
-    { waveform: p.wave, freq: p.power[0], filter: { type: 'lowpass', freq: 1100 * wf, q: 2 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.5 }, gain: 0.09 * beef },
-    { waveform: p.whine ? 'square' : p.wave, freq: p.power[1], filter: { type: 'bandpass', freq: 900 * wf, q: 1.4 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.5 }, gain: 0.045 * beef },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 700, q: 0.8 }, adsr: { a: 0.35, d: 0, s: 1, r: 0.5 }, gain: 0.05 * p.nm },
+    { waveform: p.wave, freq: p.power[0], filter: { type: 'lowpass', freq: 1100 * wf * fs, q: 2 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.5 }, gain: 0.09 * beef },
+    { waveform: p.whine ? 'square' : p.wave, freq: p.power[1], filter: { type: 'bandpass', freq: 900 * wf * fs, q: 1.4 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.5 }, gain: 0.045 * beef },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 700 * fs, q: 0.8 }, adsr: { a: 0.35, d: 0, s: 1, r: 0.5 }, gain: 0.05 * p.nm },
   ] } };
   const WIND = { id: 'flt-wind', category: 'ambient', config: { gain: 1, layers: [
     { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 620, q: 0.5 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.8 }, gain: 0.09 * p.wind },

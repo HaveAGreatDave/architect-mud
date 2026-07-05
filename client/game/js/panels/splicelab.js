@@ -32,6 +32,17 @@ const ptr = { x: W / 2, y: H / 2, down: false };
 const b64 = (obj) => btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const subFor = (f) => ({ liquid: 'thin', powder: 'fine', gel: 'viscous', pill: 'tablet' }[f] || 'thin');
+
+// Effect summary for an info panel, redacted by how familiar the player is with
+// the drug (learned by use). Unknown drugs read as a blur until you've dosed them.
+function effText(d) {
+  if ((d.known ?? 1) < 0.55) return 'effects unfamiliar —\nuse it more to read them';
+  const b = d.blocks || {}, lines = [];
+  if (b.instant) lines.push('• ' + b.instant);
+  if (b.phases) lines.push('• ' + b.phases);
+  if (b.hallucination) lines.push('• ' + b.hallucination);
+  return lines.join('\n') || 'inert';
+}
 function redact(s, known) { if (known >= .75) return esc(s); if (known < .25) return `<span class="redact">${'█'.repeat(Math.min(22, Math.max(6, String(s).length)))}</span>`;
   return String(s).split('').map(c => (c === ' ' || Math.random() < known) ? esc(c) : '<span class="redact">█</span>').join(''); }
 
@@ -41,7 +52,7 @@ const FORM_FLUID = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, v
 // side-view drug table (far-left): drugs stand along the tabletop at y = H*0.60
 function tableHomes(n) { const x0 = W * 0.06, x1 = W * 0.46, top = H * 0.60, pad = 40, usable = (x1 - x0) - pad * 2, step = n > 1 ? Math.min(58, usable / (n - 1)) : 0, first = (x0 + x1) / 2 - step * (n - 1) / 2;
   return Array.from({ length: n }, (_, i) => ({ x: first + i * step, y: top - 30 })); }
-// big top warning + product-loss readout, shared by SELECT + CHARGE
+// big top warning + product-loss readout, shared by SELECT + DECANT
 function bigWarn(text, tint, alpha) {
   G.save(); G.textAlign = 'center'; G.globalAlpha = clamp(alpha, 0, 1); G.font = 'bold 27px monospace'; const y = H * 0.13;
   G.fillStyle = 'rgba(255,74,91,.4)'; G.fillText(text, W / 2 - 2, y);
@@ -63,8 +74,10 @@ export function openSpliceSelect(msg) {
   game.drugs = (msg.drugs || []).map(d => ({
     drug: d.drug, name: d.name, blocks: d.blocks || {},
     form: d.form || 'liquid', color: d.color || '#4fe08a', sub: d.sub || subFor(d.form || 'liquid'),
-    vol: d.vol ?? .4, known: d.known ?? 1,
+    vol: d.vol ?? .4, known: d.known ?? 1, count: d.count ?? 1,
   }));
+  game.stabilizerCount = msg.stabilizerCount ?? (msg.hasStabilizer ? 99 : 0);
+  game.qtyBase = 1; game.qtySplice = 1;
   game.difficulty = msg.baseDifficulty || 8;
   wireInput(game);
   go(game, 'title');
@@ -400,7 +413,7 @@ STAGES.select = {
     this.cradle = { x: W * 0.73, y: H * 0.60, r: 58 };
     this.drag = null; this.pressP = null; this.pressT = 0; this.moved = false; this.hover = null; this.t = 0; this.drips = [];
     this.everGrabbed = false; this.carefulUntil = 0; this._spillT = 0; this._alarmT = 0; this.lost = 0;
-    this.mkBtns(); g.selected = [];
+    this.mkBtns(); g.selected = []; this.sync();
     g.lab.ticker('drag a drug from the table into the reaction cradle. carry it steady. tap one to read its label.');
     AX.loop('hood', { freq: 60, type: 'sawtooth', gain: .03, filt: 340, tremRate: 7, tremDepth: .3 });
   },
@@ -411,24 +424,98 @@ STAGES.select = {
     this.clr = mkBtn('CLEAR', 'right:150px;bottom:44px', 'ghost');
     this.clr.onclick = () => { AX.click(); this.pkgs.forEach(p => p.inCradle = false); game.selected = []; this.sync(); };
     this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:1px;text-transform:uppercase;pointer-events:none;text-align:center;width:70%');
-    this.risk = mkEl('position:absolute;left:50%;top:58px;transform:translateX(-50%);color:#c9a06a;font-size:9px;letter-spacing:.5px;pointer-events:none;text-align:center;width:80%;white-space:pre-line;line-height:1.5');
+    // Persistent picker panels: BASE + SPLICE (each with a colour-swatch "raw
+    // graphic", effect readout, and a quantity stepper) and a projected OUTPUT.
+    this.pBase = this.mkSlotPanel('BASE', 20);
+    this.pSplice = this.mkSlotPanel('SPLICE', 300);
+    this.pOut = this.mkOutPanel(580);
+    this.risk = this.pOut.risk;   // the live splice_preview readout feeds the OUTPUT panel
+  },
+  mkSlotPanel(role, leftPx) {
+    const STEP = 'width:22px;height:22px;border-radius:4px;background:#12241b;border:1px solid rgba(79,224,138,.4);color:#4fe08a;font-size:15px;line-height:1;cursor:pointer;padding:0';
+    const el = mkEl(`position:absolute;left:${leftPx}px;bottom:74px;width:268px;background:rgba(9,18,14,.88);border:1px solid rgba(79,224,138,.3);border-radius:7px;padding:9px 11px;font-family:monospace;pointer-events:auto;box-sizing:border-box`);
+    el.innerHTML =
+      `<div style="display:flex;align-items:center;justify-content:space-between">` +
+        `<span style="font-size:9px;letter-spacing:2px;color:#6f8a7c">${role}</span>` +
+        `<button class="cx" title="clear" style="background:none;border:none;color:#6f8a7c;font-size:12px;cursor:pointer;padding:0">✕</button></div>` +
+      `<div style="display:flex;align-items:center;gap:8px;margin-top:5px">` +
+        `<div class="sw" style="width:30px;height:30px;border-radius:6px;background:#1a2a22;border:1px solid #0007;flex:none;box-shadow:inset 0 0 6px #0008"></div>` +
+        `<div class="nm" style="font-size:11px;color:#6f8a7c;line-height:1.25;flex:1;min-width:0">— empty —</div></div>` +
+      `<div class="fm" style="font-size:8px;color:#7f9a8c;margin-top:5px;text-transform:uppercase;letter-spacing:1px;min-height:10px"></div>` +
+      `<div class="ef" style="font-size:8px;color:#9fc7ac;margin-top:4px;line-height:1.45;white-space:pre-line;min-height:22px">drop a drug into the cradle</div>` +
+      `<div class="qr" style="display:flex;align-items:center;gap:7px;margin-top:6px;opacity:.4">` +
+        `<span style="font-size:8px;color:#6f8a7c;letter-spacing:1px">QTY</span>` +
+        `<button class="qm" style="${STEP}">−</button>` +
+        `<span class="qn" style="font-size:13px;color:#4fe08a;min-width:26px;text-align:center;font-weight:bold">×1</span>` +
+        `<button class="qp" style="${STEP}">+</button>` +
+        `<span class="av" style="font-size:8px;color:#6f8a7c;margin-left:auto"></span></div>`;
+    const p = { el, sw: el.querySelector('.sw'), nm: el.querySelector('.nm'), fm: el.querySelector('.fm'), ef: el.querySelector('.ef'), qn: el.querySelector('.qn'), qr: el.querySelector('.qr'), av: el.querySelector('.av') };
+    const idx = role === 'BASE' ? 0 : 1;
+    el.querySelector('.cx').onclick = () => { const d = game.selected[idx]; if (!d) return; const pk = this.pkgs.find(x => x.d === d); if (pk) pk.inCradle = false; game.selected = game.selected.filter(x => x !== d); AX.click(); this.sync(); };
+    el.querySelector('.qm').onclick = () => { if (role === 'BASE') game.qtyBase--; else game.qtySplice--; AX.tick(); this.sync(); };
+    el.querySelector('.qp').onclick = () => { if (role === 'BASE') game.qtyBase++; else game.qtySplice++; AX.tick(); this.sync(); };
+    return p;
+  },
+  mkOutPanel(leftPx) {
+    const el = mkEl(`position:absolute;left:${leftPx}px;bottom:74px;width:268px;background:rgba(9,18,14,.88);border:1px solid rgba(95,208,224,.32);border-radius:7px;padding:9px 11px;font-family:monospace;pointer-events:none;box-sizing:border-box`);
+    el.innerHTML =
+      `<div style="font-size:9px;letter-spacing:2px;color:#6f8a7c">OUTPUT</div>` +
+      `<div style="display:flex;align-items:center;gap:8px;margin-top:5px">` +
+        `<div class="sw" style="width:30px;height:30px;border-radius:6px;background:#1a2a22;border:1px solid #0007;flex:none;box-shadow:inset 0 0 6px #0008"></div>` +
+        `<div class="nm" style="font-size:11px;color:#6f8a7c;line-height:1.25">— nothing yet —</div></div>` +
+      `<div class="ds" style="font-size:9px;color:#5fd0e0;margin-top:5px;letter-spacing:1px;min-height:11px"></div>` +
+      `<div class="risk" style="font-size:8px;color:#c9a06a;margin-top:5px;line-height:1.5;white-space:pre-line;min-height:30px"></div>`;
+    return { el, sw: el.querySelector('.sw'), nm: el.querySelector('.nm'), ds: el.querySelector('.ds'), risk: el.querySelector('.risk') };
+  },
+  refreshPanels() {
+    const g = game;
+    const fill = (p, drug, qty) => {
+      if (!drug) { p.sw.style.background = '#1a2a22'; p.sw.style.boxShadow = 'inset 0 0 6px #0008'; p.nm.textContent = '— empty —'; p.nm.style.color = '#6f8a7c'; p.fm.textContent = ''; p.ef.textContent = 'drop a drug into the cradle'; p.qn.textContent = '×1'; p.av.textContent = ''; p.qr.style.opacity = '.4'; return; }
+      p.sw.style.background = drug.color; p.sw.style.boxShadow = `inset 0 0 6px #0008, 0 0 10px ${drug.color}66`;
+      p.nm.textContent = drug.name; p.nm.style.color = '#dffbe9';
+      p.fm.textContent = `${drug.form} · ${drug.sub}`;
+      p.ef.textContent = effText(drug);
+      p.qn.textContent = '×' + qty; p.av.textContent = `have ${drug.count || 1}`; p.qr.style.opacity = '1';
+    };
+    fill(this.pBase, g.selected[0], g.qtyBase);
+    fill(this.pSplice, g.selected[1], g.qtySplice);
+    const o = this.pOut, a = g.selected[0], b = g.selected[1];
+    if (a && b) {
+      const out = Math.max(g.qtyBase, g.qtySplice), col = avgColor([a, b]);
+      const form = g.qtyBase >= g.qtySplice ? a.form : b.form;
+      o.sw.style.background = col; o.sw.style.boxShadow = `inset 0 0 6px #0008, 0 0 12px ${col}77`;
+      o.nm.textContent = 'spliced compound'; o.nm.style.color = '#dffbe9';
+      o.ds.textContent = `${out} dose${out === 1 ? '' : 's'} · ${form}`;
+    } else {
+      o.sw.style.background = '#1a2a22'; o.sw.style.boxShadow = 'inset 0 0 6px #0008';
+      o.nm.textContent = '— nothing yet —'; o.nm.style.color = '#6f8a7c'; o.ds.textContent = '';
+      if (o.risk) o.risk.textContent = '';
+    }
+  },
+  // Clamp base/splice quantities to what's carried and to the stabilizer supply
+  // (output = max of the two, and it costs one stabilizer per finished dose).
+  clampQtys() {
+    const g = game, base = g.selected[0], spl = g.selected[1];
+    const stab = g.stabilizerCount || 0, cap = stab > 0 ? stab : 99;
+    g.qtyBase = clamp(g.qtyBase || 1, 1, Math.min(base ? (base.count || 1) : 1, cap));
+    g.qtySplice = clamp(g.qtySplice || 1, 1, Math.min(spl ? (spl.count || 1) : 1, cap));
   },
   sync() { const n = game.selected.length; this.splice.disabled = n < 2;
-    this.hint.textContent = n ? `${game.selected[0].name} base${n > 1 ? ` · ${n - 1} graft${n - 1 === 1 ? '' : 's'}` : ''} — ${n >= 2 ? 'press SPLICE ▶ (or SPACE)' : 'drop one more'}` : 'drag two+ drugs into the cradle · tap to read · C clears';
+    if (n >= 2) this.clampQtys();
+    this.hint.textContent = n === 0 ? 'drag a drug into the cradle — first is the BASE, second is the SPLICE'
+      : n === 1 ? 'now drop the splice drug in too'
+        : 'set quantities below · SPLICE ▶ or SPACE to begin';
+    this.refreshPanels();
     // Live risk telegraph before you commit — server's authoritative composeSplice math.
     if (game.mode !== 'test' && n >= 2) {
-      const base = game.selected[0].drug, grafts = [];
-      for (let i = 1; i < n; i++) for (const blk of Object.keys(game.selected[i].blocks || {})) grafts.push({ drug: game.selected[i].drug, block: blk });
-      sendCmdSilent('splicepreview ' + b64({ base, grafts }));
+      sendCmdSilent('splicepreview ' + b64({ base: { drug: game.selected[0].drug, qty: game.qtyBase }, splice: { drug: game.selected[1].drug, qty: game.qtySplice } }));
     } else if (this.risk) this.risk.textContent = '';
   },
   commit() {
     const sel = game.selected.slice();
     _stash = { selection: sel, instability: game.instability };
     if (game.mode === 'test') { transit(game, 'charge'); return; }
-    const base = sel[0].drug, grafts = [];
-    for (let i = 1; i < sel.length; i++) for (const blk of Object.keys(sel[i].blocks || {})) grafts.push({ drug: sel[i].drug, block: blk });
-    sendCmdSilent('splicebegin ' + b64({ base, grafts, name: '' }));
+    sendCmdSilent('splicebegin ' + b64({ base: { drug: sel[0].drug, qty: game.qtyBase }, splice: { drug: sel[1].drug, qty: game.qtySplice }, name: '' }));
     game.lab.close();
   },
   topAt(p) { for (let i = this.pkgs.length - 1; i >= 0; i--) { const k = this.pkgs[i]; if (Math.hypot(p.x - k.x, p.y - k.y) < 44) return k; } return null; },
@@ -442,11 +529,23 @@ STAGES.select = {
   up() { const k = this.drag; if (!k) return; this.drag = null; k.held = false;
     if (!this.moved && (this.t - this.pressT) < 0.25) { if (_labelFor === k.d && _labelEl) hideLabel(); else showLabel(k.d, k.home.x, k.home.y); return; }
     if (Math.hypot(k.x - this.cradle.x, k.y - this.cradle.y) < this.cradle.r + 12) {
-      if (game.selected.length >= 4 && !game.selected.includes(k.d)) { game.lab.ticker("cradle's full. four is already ambitious.", 'a'); AX.bad(); }
+      if (game.selected.length >= 2 && !game.selected.includes(k.d)) { game.lab.ticker("two's the limit — a base and a splice.", 'a'); AX.bad(); }
       else { k.inCradle = true; if (!game.selected.includes(k.d)) game.selected.push(k.d); AX.drop(); this.sync(); }
     } else AX.tick();
     hideLabel(); },
-  key(e) { if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); if (game.selected.length >= 2) { AX.confirm(); this.commit(); } } else if (e.key === 'c' || e.key === 'C') { AX.click(); this.pkgs.forEach(p => p.inCradle = false); game.selected = []; this.sync(); } },
+  key(e) {
+    // Batch quantity: +/− for the base, [ ] for the splice (once both are in).
+    if (game.selected.length >= 2 && '+=-_[]{}'.includes(e.key)) {
+      e.preventDefault();
+      if (e.key === '+' || e.key === '=') game.qtyBase++;
+      else if (e.key === '-' || e.key === '_') game.qtyBase--;
+      else if (e.key === ']' || e.key === '}') game.qtySplice++;
+      else if (e.key === '[' || e.key === '{') game.qtySplice--;
+      AX.tick(); this.sync(); return;
+    }
+    if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); if (game.selected.length >= 2) { AX.confirm(); this.commit(); } }
+    else if (e.key === 'c' || e.key === 'C') { AX.click(); this.pkgs.forEach(p => p.inCradle = false); game.selected = []; this.sync(); }
+  },
   spillAlarm() { this._spillT = 0.35; if (this.t - this._alarmT > 0.55) { AX.alarm(); this._alarmT = this.t; } },
   update(dt) { this.t += dt; this._spillT = Math.max(0, this._spillT - dt); const cr = this.cradle, inC = this.pkgs.filter(p => p.inCradle);
     this.pkgs.forEach(p => { let tx, ty, k = p.k;
@@ -486,8 +585,9 @@ STAGES.select = {
   },
 };
 
-// CHARGE — carry each chosen drug from the side table to the POUR ZONE and hold
+// DECANT — carry each chosen drug from the side table to the POUR ZONE and hold
 // it steady to decant. Jostle it while carrying and it slops (drips + lost product).
+// (Internal stage key stays 'charge'; only the player-facing wording is "Decant".)
 STAGES.charge = {
   enter() {
     const g = game; this.t = 0; this.hover = null; this.drag = null; this.fill = 0; this.pouredCount = 0; this.drips = []; this._done = false;
@@ -497,7 +597,7 @@ STAGES.charge = {
     const homes = tableHomes(g.selected.length);
     this.cans = g.selected.map((d, i) => { const hx = homes[i].x, hy = homes[i].y, w = 2 * Math.PI * (FORM_FREQ[d.form] || 2.2), k = w * w, c = 2 * 0.62 * w;
       return { d, home: { x: hx, y: hy }, x: hx, y: hy, vx: 0, vy: 0, pvx: 0, tilt: 0, slosh: 0, sloshV: 0, held: false, gdx: 0, gdy: 0, k, c, fluid: FORM_FLUID[d.sub] ?? .3, poured: 0, done: false, spill: 0, warn: 0, pourSfx: false }; });
-    g.lab.ticker('CHARGE — carry each drug from the table to the POUR ZONE and hold it steady to decant. jostle it and it slops.');
+    g.lab.ticker('DECANT — carry each drug from the table to the POUR ZONE and hold it steady to decant. jostle it and it slops.');
     this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:2px;text-transform:uppercase;pointer-events:none');
   },
   exit() { AX.pour(false); game.lab.canvas.style.cursor = 'default'; },
@@ -531,8 +631,8 @@ STAGES.charge = {
       }
     });
     this.drips.forEach(d => { d.life += dt; d.y += d.vy * dt; d.vy += 400 * dt; }); this.drips = this.drips.filter(d => d.life < 0.6);
-    this.hint.textContent = `${this.pouredCount} / ${game.selected.length} charged`;
-    if (this.pouredCount >= game.selected.length && !this._done) { this._done = true; game._charged = true; AX.good(); game.lab.ticker('charged. into the mix.'); setTimeout(() => { if (game && !game.closed) transit(game, 'mix'); }, 500); }
+    this.hint.textContent = `${this.pouredCount} / ${game.selected.length} decanted`;
+    if (this.pouredCount >= game.selected.length && !this._done) { this._done = true; game._charged = true; AX.good(); game.lab.ticker('decanted. into the mix.'); setTimeout(() => { if (game && !game.closed) transit(game, 'mix'); }, 500); }
   },
   pouredFill() { let s = 0; this.cans.forEach(p => s += p.poured); return clamp(s / Math.max(1, game.selected.length), 0, 1); },
   chargeColor() { const ds = this.cans.filter(c => c.poured > 0.02).map(c => c.d); return avgColor(ds.length ? ds : game.selected); },

@@ -1725,12 +1725,13 @@ textarea {
 	color: var(--accent);
 	background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
-/* Avenue View artery glyph — the road running through a tile reads as the accent. */
-.mm-room.mm-avenue-road {
-	color: var(--accent);
-	font-weight: bold;
+/* Avenue View on the minimap: tile chrome is stripped so the SVG road skeleton
+   (shared .av-* classes with the full map) reads clean; the current-tile marker
+   still shows. Overflow is allowed so road arms can meet the gap bands. */
+.mm-room.mm-avenue-cell {
 	background: none;
 	border-color: transparent;
+	overflow: visible;
 }
 .mm-msg {
 	grid-column: 1 / -1;
@@ -2111,15 +2112,18 @@ textarea {
 #map-grid.avenue .map-room:not(.map-current) { background: none; border-color: transparent; }
 #map-grid.avenue .map-room.map-current { border: 1px solid var(--accent); border-radius: 2px; background: none; }
 #map-grid.avenue .av-gap { position: relative; }
-.av-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
-.av-rd  { fill: none; stroke: rgba(150,170,195,0.5); stroke-width: 8; stroke-linecap: butt; stroke-linejoin: round; }
-.av-hub { fill: rgba(150,170,195,0.5); }
-.av-cl  { fill: none; stroke: var(--cyan); stroke-width: 1.3; stroke-dasharray: 2.2 2.6; stroke-linecap: butt; opacity: 0.85; }
-/* Overlay glyph / abbrev on top of the road. */
+/* White avenues at 90% opacity, with the label riding on top: full-white text
+   with a solid black outline so it stays legible against the white roadway. */
+.av-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; opacity: 0.9; z-index: 1; }
+.av-rd  { fill: none; stroke: #fff; stroke-width: 8; stroke-linecap: butt; stroke-linejoin: round; }
+.av-hub { fill: #fff; }
+.av-cl  { fill: none; stroke: var(--cyan); stroke-width: 1.3; stroke-dasharray: 2.2 2.6; stroke-linecap: butt; }
+/* Overlay glyph / abbrev ON TOP of the road, outlined for legibility. */
 .av-ov { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2; pointer-events: none; }
-.av-ov-icon  { font-size: 12px; font-weight: bold; text-shadow: 0 0 3px #000, 0 0 2px #000, 0 0 5px #000; }
-.av-ov-label { font-size: 11px; font-weight: bold; letter-spacing: -0.5px; color: var(--text);
-  text-shadow: 0 0 3px #000, 0 0 2px #000, 0 1px 2px #000; }
+.av-ov-icon  { font-size: 12px; font-weight: bold;
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 3px #000; }
+.av-ov-label { font-size: 11px; font-weight: bold; letter-spacing: -0.5px; color: #fff;
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 3px #000; }
 
 /* Overlay slider: None / Icons / Labels — a segmented control with a sliding
    highlight, sitting in the map header next to the Avenue View toggle. */
@@ -8920,6 +8924,20 @@ body.esp-active #output {
 .arrest-val { flex: 1; color: var(--text); }
 .arrest-fine { color: var(--red); }
 .arrest-debt { color: var(--red); font-weight: bold; }
+
+/* Splice lab report — the A+…F grade card after a splice resolves. */
+.splice-report { width: 300px; }
+.splice-report .confirm-body { text-align: center; }
+.sr-grade { font-family: var(--font-mono); font-size: 66px; font-weight: bold; line-height: 1; margin: 4px 0 2px; }
+.sr-a { color: #39ff9e; text-shadow: 0 0 18px rgba(57, 255, 158, 0.55); }
+.sr-b { color: #ffc24d; text-shadow: 0 0 14px rgba(255, 190, 60, 0.5); }
+.sr-c { color: #ffb14d; }
+.sr-d { color: #ff8a5a; }
+.sr-f { color: var(--red); text-shadow: 0 0 14px rgba(255, 60, 60, 0.5); }
+.sr-name { font-size: 13px; color: var(--text); letter-spacing: 1px; margin-bottom: 12px; }
+.sr-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 2px; border-top: 1px solid var(--border); }
+.sr-row b { color: var(--accent); }
+.sr-note { font-size: 11px; color: var(--text-dim); margin: 10px 2px 2px; line-height: 1.5; }
 
 /* Apprehend prompt — the submit-or-run countdown when a cop grabs you (≤3.5★). */
 .apprehend-window {
