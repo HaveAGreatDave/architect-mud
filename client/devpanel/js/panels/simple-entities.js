@@ -30,6 +30,12 @@ async function saveMutation(existing) {
   const isNew = !existing?.id;
   let statMods, effects, drawbacks;
   try { statMods = JSON.parse(document.getElementById('f-stat_modifiers').value); } catch { return { error: 'Stat modifiers: invalid JSON' }; }
+  // The engine interpolates each key directly as a player column (mutations.js:
+  // `SET ${stat} = ${stat} + …`), so a non-column key throws at grant time and the
+  // mutation silently applies nothing. Reject anything but the real stat_* columns.
+  const STAT_COLS = ['stat_brawn', 'stat_reflexes', 'stat_endurance', 'stat_brains', 'stat_cool'];
+  const badStat = Object.keys(statMods || {}).find(k => !STAT_COLS.includes(k));
+  if (badStat) return { error: `Stat modifiers: "${badStat}" is not a stat column. Use one of: ${STAT_COLS.join(', ')}.` };
   try { effects = JSON.parse(document.getElementById('f-effects').value); } catch { return { error: 'Effects: invalid JSON' }; }
   try { drawbacks = JSON.parse(document.getElementById('f-drawbacks').value); } catch { return { error: 'Drawbacks: invalid JSON' }; }
   const body = {
@@ -114,6 +120,12 @@ async function saveDrug(existing) {
   let effects, withdrawal;
   try { effects = JSON.parse(document.getElementById('f-effects').value); } catch { return { error: 'Effects: invalid JSON' }; }
   try { withdrawal = JSON.parse(document.getElementById('f-withdrawal_effects').value); } catch { return { error: 'Overdose effects: invalid JSON' }; }
+  // The Overdose textarea historically saved into withdrawal_effects, but the engine
+  // reads lethality from effects.overdose.lethal (server/engine/drugs.js). Mirror the
+  // overdose block into effects so a lethal OD authored in the basic form actually fires.
+  if (withdrawal && typeof withdrawal.overdose === 'object' && withdrawal.overdose) {
+    effects.overdose = { ...(effects.overdose || {}), ...withdrawal.overdose };
+  }
   // Preserve any existing flags; just set/clear the `legal` bit from the dropdown.
   const flags = (existing && typeof existing.flags === 'object' && existing.flags)
     ? { ...existing.flags }

@@ -61,9 +61,10 @@ window.VineActionTypes = [
   {
     type: 'EXECUTE_SCRIPT',
     label: 'Execute Script',
+    // No `arguments` param: runGraph has no arg-passing mechanism, so an authored
+    // Arguments blob was silently dropped. Add it back only alongside real wiring.
     params: [
       { key: 'scriptId', type: 'text', label: 'Script ID', required: true },
-      { key: 'arguments', type: 'json', label: 'Arguments', default: '{}' },
     ],
   },
   {

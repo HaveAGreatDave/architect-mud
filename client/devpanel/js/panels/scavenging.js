@@ -123,11 +123,19 @@ async function saveScavengingTable(existing) {
   })).filter(e => e.item_id);
 
   const linesOf = id => document.getElementById(id).value.split('\n').map(s => s.trim()).filter(Boolean);
-  const messages = {};
+  // Seed from the existing row so keys this panel doesn't author survive the save.
+  // Fishing tables reuse this schema and stash their monster/bait-catch data under
+  // messages.fishing; rebuilding messages from scratch here would silently wipe it.
+  const existingMessages = (existing && typeof existing.messages === 'object' && existing.messages)
+    ? existing.messages
+    : (() => { try { return JSON.parse(existing?.messages || '{}'); } catch { return {}; } })();
+  const messages = { ...existingMessages };
   const player = linesOf('f-msg-player');
   const broadcast = linesOf('f-msg-broadcast');
-  if (player.length) messages.player = player;
-  if (broadcast.length) messages.broadcast = broadcast;
+  messages.player = player.length ? player : undefined;
+  messages.broadcast = broadcast.length ? broadcast : undefined;
+  if (!messages.player) delete messages.player;
+  if (!messages.broadcast) delete messages.broadcast;
 
   const body = {
     name: document.getElementById('f-name').value,

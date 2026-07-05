@@ -38,6 +38,11 @@ are *reusable prompts*; these are the *results* of a sweep):
 - [findings-2026-07.md](findings-2026-07.md) — nine-area sweep (NPC/AI · Broadcast · Vendor ·
   Combat · Survival · Economy · World · UI/CSS · Dev-panel↔REST). ~20 fixes applied; open
   items and recommended order at the end. Scavenging not yet covered.
+- [findings-2026-07-content-shape.md](findings-2026-07-content-shape.md) — content↔engine shape &
+  export-coverage sweep triggered by the `quests` bug. Two seams: `CONTENT_TABLES` allowlist gaps
+  (whole subsystems — broadcast, audio, flight, surveillance — silently absent from the seed) and
+  authored-vs-read JSON shape mismatches (dialogue params, drug overdose lethality, mutation stat
+  keys). Findings only, most not yet fixed; FK-ordering hazards flagged.
 
 ## How to use one
 

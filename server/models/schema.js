@@ -931,6 +931,18 @@ export const SCHEMA_SQL = `
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS commercial_pool JSONB DEFAULT '[]';
   ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS slot_type TEXT DEFAULT 'broadcast';
 
+  -- media_broadcasts.channel_id ↔ media_channels.idle_broadcast_id form a FK cycle.
+  -- Immediate checking makes them un-restorable (no insert order satisfies both), so
+  -- they're DEFERRABLE INITIALLY DEFERRED — the backup dump wraps inserts in one
+  -- transaction with SET CONSTRAINTS ALL DEFERRED. Drop-then-add keeps this idempotent
+  -- (the inline/ALTER-added FKs above are auto-named <table>_<column>_fkey).
+  ALTER TABLE media_channels DROP CONSTRAINT IF EXISTS media_channels_idle_broadcast_id_fkey;
+  ALTER TABLE media_channels ADD CONSTRAINT media_channels_idle_broadcast_id_fkey
+    FOREIGN KEY (idle_broadcast_id) REFERENCES media_broadcasts(id) DEFERRABLE INITIALLY DEFERRED;
+  ALTER TABLE media_broadcasts DROP CONSTRAINT IF EXISTS media_broadcasts_channel_id_fkey;
+  ALTER TABLE media_broadcasts ADD CONSTRAINT media_broadcasts_channel_id_fkey
+    FOREIGN KEY (channel_id) REFERENCES media_channels(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
+
   -- Broadcast graphics library. ASCII art referenced by VINE title_card nodes.
   -- type: 'ascii' | 'svg'; tags: JSONB array of labels for dev-panel filtering.
   CREATE TABLE IF NOT EXISTS media_graphics (
@@ -1145,6 +1157,12 @@ export const SCHEMA_SQL = `
     messages JSONB DEFAULT '{}',
     flags JSONB DEFAULT '{}'
   );
+  -- Fishing reuses this table (a zone opts in via flags.fishing_table_id). Its two
+  -- fishing-only pools live in dedicated columns — they were previously smuggled
+  -- into messages.fishing, which the scavenging dev panel's save silently wiped.
+  -- Empty [] for pure-scavenging rows. See docs/systems-fishing.md.
+  ALTER TABLE scavenging_tables ADD COLUMN IF NOT EXISTS fishing_monsters JSONB DEFAULT '[]';
+  ALTER TABLE scavenging_tables ADD COLUMN IF NOT EXISTS fishing_bait_catches JSONB DEFAULT '[]';
 
   -- Template loot entries. difficulty plays the role of an opposing skill in the
   -- 2d8-2d8 scavenging check; weight biases both the per-attempt pick and the

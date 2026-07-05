@@ -936,7 +936,10 @@ async function handleDialogue(ws, session, msg) {
 					const result = await dispatchAction({
 						type: a.action,
 						actor: player,
-						params: a.params || {},
+						// Dialogue actions are authored FLAT ({action, quest_id, …}) by the VINE
+				// dialogue editor, so fall back to the action object itself as the params
+				// bag (AI/script graphs nest under .params — hence the `|| a`).
+				params: a.params || a,
 						context: { broadcast, npc },
 					});
 					if (result?.type === "grant" && result.granted) {
@@ -975,7 +978,10 @@ async function handleDialogue(ws, session, msg) {
 			const result = await dispatchAction({
 				type: a.action,
 				actor: player,
-				params: a.params || {},
+				// Dialogue actions are authored FLAT ({action, quest_id, …}) by the VINE
+				// dialogue editor, so fall back to the action object itself as the params
+				// bag (AI/script graphs nest under .params — hence the `|| a`).
+				params: a.params || a,
 				context: { broadcast, npc },
 			});
 			if (result?.type === "grant" && result.granted) {

@@ -30,9 +30,9 @@ A 1 s tick runs one **cast** every `ATTEMPT_MS` (4.2 s):
 ### The eligible bite pool
 - **Normal catches** — stocked `scavenging_table_items` with `current_qty > 0`.
   With bait present, weights tilt toward the scarcer (higher-difficulty) entries.
-- **Bait-gated catches** — `messages.fishing.baitCatches[]`; only eligible when
-  the player carries the required bait sub-tag. Not zone-stocked.
-- **Monster hooks** — `messages.fishing.monsters[]`; a bad pull.
+- **Bait-gated catches** — the `fishing_bait_catches` column (JSONB array); only
+  eligible when the player carries the required bait sub-tag. Not zone-stocked.
+- **Monster hooks** — the `fishing_monsters` column (JSONB array); a bad pull.
 
 ## The reel overlay (client)
 
@@ -83,8 +83,11 @@ armed `pending`, the zone matches, and the player still carries a rod. Then:
   `scavenging_zone_stock` / `scavenging_zone_state` schema verbatim (per-zone
   stock + lazy replenish). A **separate** zone flag `flags.fishing_table_id`
   keeps the two systems from colliding; fishing-only extras (monsters,
-  bait-gated catches) ride in the table's `messages.fishing` JSONB — no
-  migration. *(Note: if a zone runs both systems and shares a catch item id, they
+  bait-gated catches) live in the dedicated `scavenging_tables.fishing_monsters`
+  and `fishing_bait_catches` JSONB columns (empty `[]` for pure-scavenging rows).
+  They were briefly stored under `messages.fishing`, which the scavenging dev
+  panel's save silently wiped — see the source-of-truth audit finding.
+  *(Note: if a zone runs both systems and shares a catch item id, they
   share that item's per-zone stock row — harmless, by design.)*
 
 ## Content (test spot)

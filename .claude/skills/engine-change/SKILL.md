@@ -98,8 +98,8 @@ are two separate, independently-shippable steps — do the seam with zero behavi
 
 Most substrates live in memory (posture, protection). If yours needs a table:
 
-- Add idempotent DDL to `SCHEMA_SQL` in `server/models/schema.js`, **and** run a deliberate one-shot against production. **Never add a boot-time migration** — boot stays deliberate. Apply with `npm run db:schema`.
-- The dev-panel export reuses `SCHEMA_SQL`, so backups stay in sync automatically.
+- Add idempotent DDL to `SCHEMA_SQL` in `server/models/schema.js`; `npm run db:schema` applies it to your **local** dev DB. **Never add a boot-time migration** — boot stays deliberate.
+- Production gets the schema through the **Relay deploy** (`npm run relay` → _Deploy content → Production_), which applies the full `SCHEMA_SQL` (embedded in the dump) + additive content in one regress-gated, backed-up transaction. Don't run `db:schema` against prod. Only *data transformations* on existing rows (backfills/rewrites the additive deploy can't do) need a hand-written prod one-shot.
 
 ---
 

@@ -11,7 +11,8 @@
 // template (fishing reuses that schema; a separate flag keeps the two systems
 // from colliding). Normal catches live in scavenging_table_items with per-zone
 // stock + lazy replenish, exactly like scavenging. Fishing-only extras — monster
-// hooks and bait-gated catches — ride in the table's `messages.fishing` JSONB.
+// hooks and bait-gated catches — live in dedicated scavenging_tables columns
+// (fishing_monsters / fishing_bait_catches).
 //
 // The twist over scavenging: a bite doesn't grant instantly. It ARMS the
 // client-side tension-bar reel overlay (a `fishing_game` message). The overlay
@@ -135,7 +136,7 @@ async function consumeBait(playerId) {
 // elapsed replenish interval).
 async function loadZoneTable(zoneId, tableId) {
   const { rows: tRows } = await query(
-    'SELECT id, name, replenish_interval_seconds, messages FROM scavenging_tables WHERE id=$1',
+    'SELECT id, name, replenish_interval_seconds, messages, fishing_monsters, fishing_bait_catches FROM scavenging_tables WHERE id=$1',
     [tableId]
   );
   if (!tRows.length) return null;
@@ -264,7 +265,11 @@ async function runAttempt(player, st, nowMs) {
   }
   const { table, entries } = loaded;
   const pools = flavorPools(table);
-  const extras = (table.messages && table.messages.fishing) || {};
+  // Fishing-only pools now live in dedicated columns (were table.messages.fishing).
+  const extras = {
+    baitCatches: table.fishing_bait_catches || [],
+    monsters: table.fishing_monsters || [],
+  };
   const bait = await baitState(player.id);
 
   // Build the eligible bite pool: stocked normal catches (bait boosts the rarer,

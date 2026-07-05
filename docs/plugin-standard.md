@@ -65,6 +65,24 @@ behavior. The loader (`server/engine/plugins.js`) continues to wire only `hooks`
 `routePrefix`; `actions`/`events`/`ticks` are registered imperatively in `index.js` today and
 *described* here for inspection. (A future pass may have the loader read them directly.)
 
+**`dataSchema` is documentation, not wiring — and it does not export your content.** Listing a table
+here records ownership; it does **not** add the table's DDL to `SCHEMA_SQL`, nor its rows to the git
+seed. Both are separate, deliberate steps:
+
+- **Schema:** add the idempotent DDL to `SCHEMA_SQL` in `server/models/schema.js`; `npm run db:schema`
+  applies it to your **local** dev DB. Production gets it through the **Relay deploy** — the
+  _Deploy content → Production_ lane (`npm run relay`) applies the full `SCHEMA_SQL` embedded in the
+  dump + additive content in one regress-gated, backed-up transaction. Don't run `db:schema` against
+  prod, and don't hand-write a prod one-shot for plain schema DDL. Never a boot-time migration.
+- **Content rows:** if the table holds *authored world content* (not per-player runtime state), add it
+  to `CONTENT_TABLES` in `server/api/backup.routes.js`, in FK-safe insertion order. This allowlist is
+  what the dump ships — into both the git seed and the prod deploy. **Miss it and your content restores
+  empty on a fresh DB with no error** — this is the class of bug that hid the `quests` table. Declaring
+  the table in `dataSchema` is *not* enough; that list is documentation, not wired to the export.
+- **Data transformations** (backfilling or rewriting *existing* rows — e.g. moving data between
+  columns) are the one thing the additive deploy can't do (`INSERT … ON CONFLICT DO NOTHING` never
+  touches existing rows). Those still need a hand-written one-shot, run against prod after the deploy.
+
 ## README requirement
 
 Every plugin has a `README.md` with these sections (mirroring `plugin.json`):
