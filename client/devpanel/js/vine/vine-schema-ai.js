@@ -50,7 +50,7 @@ const AI_CONDITIONS = [
   { type: 'PLAYER_IN_ZONE',   label: 'Player In Zone',          params: [{ key: 'min',     label: 'Min players',       type: 'number', default: 1 }] },
   { type: 'TARGET_HP_BELOW',  label: "Target's HP Below %",     params: [{ key: 'pct',     label: 'Threshold %',       type: 'number', default: 30 }] },
   { type: 'FACTION_MATCH',    label: 'Target In Org/Faction',   params: [{ key: 'faction', label: 'Org/Faction id',     type: 'text',   default: '' }] },
-  { type: 'FLAG_SET',         label: 'Flag Is Set',             params: [{ key: 'flag',    label: 'Flag key',          type: 'text',   default: '' }, { key: 'scope', label: 'Scope', type: 'select', options: ['world', 'self'], default: 'self' }] },
+  { type: 'FLAG_SET',         label: 'Flag Is Set',             params: [{ key: 'flag',    label: 'Flag key',          type: 'text',   default: '' }, { key: 'scope', label: 'Scope', type: 'select', options: ['self'], default: 'self' }] },
   { type: 'RANDOM_CHANCE',    label: 'Random Chance',           params: [{ key: 'chance',  label: 'Probability 0–1',   type: 'number', default: 0.5 }] },
   { type: 'IS_DAYTIME',       label: 'Is Daytime',              params: [] },
   { type: 'CHANNEL_HAS_VIEWERS', label: 'Channel Has Viewers', params: [{ key: 'channel_id', label: 'Channel ID', type: 'text', default: '' }] },
@@ -91,7 +91,7 @@ const AI_ACTIONS = [
   { type: 'SET_FLAG',        label: 'Set Flag',        params: [
     { key: 'flag',  label: 'Flag key', type: 'text',   default: '' },
     { key: 'value', label: 'Value',    type: 'text',   default: 'true' },
-    { key: 'scope', label: 'Scope',    type: 'select', options: ['world', 'self'], default: 'self' },
+    { key: 'scope', label: 'Scope',    type: 'select', options: ['self'], default: 'self' },
   ]},
   { type: 'BROADCAST_SAY', label: 'Broadcast Say', params: [
     { key: 'channel_id', label: 'Channel ID', type: 'text',   default: '' },

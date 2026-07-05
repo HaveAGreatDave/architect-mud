@@ -941,7 +941,9 @@ async function _schedSave() {
     start_time:        item.start_time,
     duration_override: item.duration_override,
     slot_type:         item.slot_type || 'broadcast',
-    conditions:        item.npc_staff.length ? { npc_staff: item.npc_staff } : [],
+    // Always an object — the engine reads conditions.npc_staff; an empty [] would
+    // read as undefined and silently drop the slot from the studio staff recompute.
+    conditions:        { npc_staff: item.npc_staff },
   }));
   try {
     const res = await directAPI(`/broadcast/channels/${_schedChannelId}/playlist`, 'PUT', payload);

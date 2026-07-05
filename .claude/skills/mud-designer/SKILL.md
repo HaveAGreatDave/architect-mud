@@ -87,6 +87,13 @@ The yield items are inserted by id, so **every `item` id must exist as an `items
 - [ ] Tags from the catalog only (`client/shared/tagCatalog.js`) — check `docs/tags.md`
 - [ ] A way into the world: vendor stock, loot table, scavenging table, or placed spawn
 
+**Quest (a quest-giver NPC is TWO things — a `quests` row AND dialogue that references it):**
+- [ ] The `quests` row exists **before** the dialogue points at it (`get quests`; POST via `/quests`). A dialogue `START_QUEST` whose `quest_id` has no matching quest row silently no-ops — the flavor text shows, nothing starts.
+- [ ] **Dialogue actions carry their params FLAT on the action object**, not nested under `params`: `{"action":"START_QUEST","quest_id":"quest_x"}` — NOT `{"action":"START_QUEST","params":{"quest_id":"quest_x"}}`. This is the shape the dev-panel action editor writes and the only shape the dialogue dispatcher reads. (VINE *behaviour/script graphs* nest under `params` — dialogue does not. Don't cross the conventions.)
+- [ ] Kill-objective `target` must be a **substring of the enemy's display `name`** (matched case-insensitively, e.g. target `"wire jackal"` vs enemy name `"wire jackal"`). A typo here makes kills never count.
+- [ ] Reward items/flags exist (`rewards.items[].item_id` must be real `items` rows; TURN_IN grants them through GRANT_ITEM).
+- [ ] **Behavioural-verify it**, don't just read the row back: actually walk the dialogue to the accept node and run `quest` — confirm the quest appears. "Data verified" (the quest row + dialogue exist) does NOT prove the wiring fires.
+
 **Furniture light (`object_type:'light'`):**
 - [ ] **`lumen_output` is set** — this, NOT `light_on`, is what brightens the room. A lit fixture with no `lumen_output` emits zero lumens (see lighting section below).
 - [ ] `light_on: 1` if it should start on (defaults to 0 — an off light does nothing)

@@ -65,15 +65,15 @@ const MESSAGES = {
   broadcast: [
     'casts a line out over the bay and settles in to fish.',
   ],
-  fishing: {
-    baitCatches: [
-      { itemId: 'item_glass_eel', requiresBaitTag: 'bait_bloodworm', name: 'glass eel', difficulty: 7, weight: 3 },
-    ],
-    monsters: [
-      { enemyTemplateId: MONSTER_ID, name: 'a cable eel', difficulty: 9, weight: 2 },
-    ],
-  },
 };
+
+// Fishing-only pools ride in dedicated scavenging_tables columns (not messages).
+const FISHING_BAIT_CATCHES = [
+  { itemId: 'item_glass_eel', requiresBaitTag: 'bait_bloodworm', name: 'glass eel', difficulty: 7, weight: 3 },
+];
+const FISHING_MONSTERS = [
+  { enemyTemplateId: MONSTER_ID, name: 'a cable eel', difficulty: 9, weight: 2 },
+];
 
 // ── Aquatic monster hook (cloned shape from enemy_slag_rat) ────────────────────
 const CABLE_EEL = {
@@ -146,15 +146,18 @@ for (const it of CATCH_ITEMS) await insertItem({ ...it, stack: 1, unique: 0 });
   }
 }
 
-// Fishing table (reuses the scavenging_tables schema; messages carries the
-// fishing-only extras — monsters + bait-gated catches).
+// Fishing table (reuses the scavenging_tables schema; fishing-only pools ride in
+// the fishing_monsters / fishing_bait_catches columns).
 await query(
-  `INSERT INTO scavenging_tables (id, name, replenish_interval_seconds, messages)
-   VALUES ($1, $2, $3, $4)
+  `INSERT INTO scavenging_tables (id, name, replenish_interval_seconds, messages, fishing_monsters, fishing_bait_catches)
+   VALUES ($1, $2, $3, $4, $5, $6)
    ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,
      replenish_interval_seconds=EXCLUDED.replenish_interval_seconds,
-     messages=EXCLUDED.messages`,
-  [TABLE_ID, 'Coldwater Bay Fishing', 90, JSON.stringify(MESSAGES)]
+     messages=EXCLUDED.messages,
+     fishing_monsters=EXCLUDED.fishing_monsters,
+     fishing_bait_catches=EXCLUDED.fishing_bait_catches`,
+  [TABLE_ID, 'Coldwater Bay Fishing', 90, JSON.stringify(MESSAGES),
+   JSON.stringify(FISHING_MONSTERS), JSON.stringify(FISHING_BAIT_CATCHES)]
 );
 
 await query('DELETE FROM scavenging_table_items WHERE table_id=$1', [TABLE_ID]);
@@ -165,7 +168,7 @@ for (const e of NORMAL_CATCHES) {
     [randomUUID(), TABLE_ID, e.item_id, e.difficulty, e.weight, e.max_qty]
   );
 }
-console.log(`Table '${TABLE_ID}' built with ${NORMAL_CATCHES.length} stocked entries (+ bait catch + monster in messages.fishing).`);
+console.log(`Table '${TABLE_ID}' built with ${NORMAL_CATCHES.length} stocked entries (+ bait catch + monster in fishing columns).`);
 
 // Attach to the zone via the fishing-specific flag (separate from scavenging_table_id).
 await query(
