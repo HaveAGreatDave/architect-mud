@@ -1162,13 +1162,15 @@ function paintLocal(ctx, W, H, F, ox, oy) {
 function paintNav(ctx, W, H, F, ox, oy) {
   const map = F.map;
   if (!map || !map.length) { ctx.fillStyle = '#456'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('NO MAP', W / 2, H / 2); return; }
-  const R = (map.length - 1) / 2, cell = Math.min(W, H) / map.length;
+  // Overscan: size cells so the whole 9×9 window spans the panel DIAGONAL — then track-up
+  // rotation never reveals empty corners (the outer rings just run off the visible edges).
+  const R = (map.length - 1) / 2, cell = Math.hypot(W, H) / map.length * 1.1;
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
-    const c = map[ry][rx]; if (!c) continue;
+    const c = map[ry][rx];
     const sx = W / 2 + (rx - R - ox) * cell, sy = H / 2 + (ry - R - oy) * cell;
-    const col = c.kind === 'air' ? '#0a1119' : c.kind === 'field' ? '#5fe0a0' : c.kind === 'nofly' ? '#7a2a2a' : (MFD_BCOL[c.biome] || '#2a3540');
+    const col = !c ? '#0e1a24' : c.kind === 'air' ? '#0a1119' : c.kind === 'field' ? '#5fe0a0' : c.kind === 'nofly' ? '#7a2a2a' : (MFD_BCOL[c.biome] || '#2a3540');
     ctx.fillStyle = col; ctx.fillRect(sx - cell / 2, sy - cell / 2, cell, cell);
-    if (c.kind === 'nofly') { ctx.strokeStyle = '#ff5a5b'; ctx.lineWidth = 1; ctx.strokeRect(sx - cell / 2, sy - cell / 2, cell, cell); }
+    if (c && c.kind === 'nofly') { ctx.strokeStyle = '#ff5a5b'; ctx.lineWidth = 1; ctx.strokeRect(sx - cell / 2, sy - cell / 2, cell, cell); }
   }
   ctx.strokeStyle = accA(0.18); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(W / 2, H / 2, Math.min(W, H) * 0.32, 0, 7); ctx.stroke();
 }
