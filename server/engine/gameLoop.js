@@ -549,7 +549,7 @@ async function stormTick() {
 
   for (const [zoneId, zone] of world.zones) {
     if (zone.players.size === 0) continue;
-    if (zone.flags?.is_interior) continue;
+    if (zone.flags?.is_interior || zone.flags?.is_apartment || zone.flags?.is_building) continue;
     // Per-tile: only zones actually under a storm cell flash, and denser cells
     // flash (and kill) more often. Field disabled → uniform 0.5 (old behaviour).
     const intensity = getZoneStormIntensity(zoneId);
