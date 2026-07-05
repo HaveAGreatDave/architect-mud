@@ -262,6 +262,16 @@ export function paintWindshield(id, view) {
     }
   }
 
+  // Pilotwings hero clouds — big, well-defined fluffy cumulus you sail past, ONLY when the
+  // weather calls for cloud. Lazily seeded, drift horizontally with parallax off speed/heading.
+  if (cloudy && !side && !onDeck) {
+    if (!st.pwClouds) st.pwClouds = Array.from({ length: 5 }, (_, i) => ({ x: (i * 0.23 + 0.08) % 1, y: 0.1 + frac(i * 3.1) * 0.44, s: 0.72 + frac(i * 7.7) * 0.95, sp: 0.5 + frac(i * 2.3) * 0.8 }));
+    for (const c of st.pwClouds) {
+      c.x = (c.x + (0.004 + speed * 0.05) * c.sp * dt) % 1.3;
+      drawPuff(ctx, (c.x - 0.15) * W, c.y * horizonY + 4, c.s * W * 0.11, litTint, baseTint, cloudAlpha * 1.05);
+    }
+  }
+
   // Ground.
   g = ctx.createLinearGradient(0, horizonY, 0, H + (H - horizonY));
   g.addColorStop(0, rgb(gTop)); g.addColorStop(1, rgb(gBot));
@@ -326,6 +336,7 @@ export function paintWindshield(id, view) {
     drawRoads(ctx, cam, v);
     if (v.runway) drawRunwayTex(ctx, cam, v);
     drawWorldObjects(ctx, cam, v, sky, now);
+    if (v.landGuide && v.runway) drawGuideBoxes(ctx, cam, v, now);
   }
 
   // Speed streaks (motion rush from the vanishing point) — forward view only.
@@ -753,6 +764,16 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop) {
   ctx.imageSmoothingEnabled = sm;
 }
 
+// One big, defined fluffy cumulus (Pilotwings look): a flat shaded base, rounded lit top
+// lobes — solid, not wispy — so it reads as a proper cloud you fly past.
+function drawPuff(ctx, cx, cy, s, lit, base, alpha) {
+  const lobes = [[-0.72, 0.14, 0.6], [-0.16, -0.16, 0.82], [0.5, 0.02, 0.68], [0.06, -0.42, 0.52], [1.02, 0.22, 0.46]];
+  ctx.fillStyle = rgb(mix(base, [86, 96, 112], 0.42), alpha * 0.9);
+  ctx.beginPath(); ctx.ellipse(cx + s * 0.15, cy + s * 0.3, s * 1.2, s * 0.34, 0, 0, 7); ctx.fill();   // shaded flat base
+  for (const [lx, ly, lr] of lobes) { ctx.fillStyle = rgb(base, alpha * 0.96); ctx.beginPath(); ctx.arc(cx + lx * s, cy + ly * s, lr * s, 0, 7); ctx.fill(); }
+  for (const [lx, ly, lr] of lobes) { ctx.fillStyle = rgb(lit, alpha * 0.65); ctx.beginPath(); ctx.arc(cx + lx * s - lr * s * 0.22, cy + ly * s - lr * s * 0.26, lr * s * 0.68, 0, 7); ctx.fill(); }   // lit crowns
+}
+
 // A soft, hazy band of distant rolling land at the horizon, parallax-scrolled by
 // heading — the Pilotwings far-terrain read (not hard mountains).
 function drawSkyline(ctx, W, H, horizonY, v, sky) {
@@ -903,33 +924,69 @@ function drawRoads(ctx, cam, v) {
   }
 }
 
-// Departure runway drawn as clean world-space geometry: ONE straight-edged asphalt
-// trapezoid + world-locked centreline dashes that recede toward the horizon and slide
-// toward you as you roll. No stacked affine-textured segments (which warped into jagged
-// edges) and nothing behind the camera (which smeared into a ghost trail after takeoff).
+// Departure runway anchored in the WORLD (origin + heading), projected through the same
+// camera as the buildings — so it stays put on the ground and recedes/rotates as you fly
+// away instead of tracking the nose. `rw = { ox, oy, hdg, alt }` = the runway origin's
+// world offset from the craft (tiles), its heading, and the climb-fade level.
 function drawRunwayTex(ctx, cam, v) {
-  const rw = v.runway, roll = rw.roll || 0, alt = clamp(rw.alt || 0, 0, 1);
-  const RWL = RENDER_TUNE.rwl, hw = 0.15, NEAR = 0.016;   // near edge past the bottom of the frame → no brown strip at all
-  const fade = clamp(1.35 - alt * 1.5, 0, 1); if (fade <= 0.02) return;
-  const farA = RWL - roll; if (farA <= NEAR + 0.02) return;   // whole strip is behind us now
+  const rw = v.runway; if (!rw) return;
+  const alt = clamp(rw.alt || 0, 0, 1);
+  const RWL = RENDER_TUNE.rwl, hw = 0.15, BACK = 0.6, fMin = 0.06;
+  const fade = clamp(1.4 - alt * 1.5, 0, 1); if (fade <= 0.02) return;
+  const hr = (rw.hdg || 0) * Math.PI / 180;
+  const dx0 = Math.sin(hr), dy0 = -Math.cos(hr);      // along-runway unit (world)
+  const pxu = Math.cos(hr), pyu = Math.sin(hr);       // across-runway unit (world)
+  const ox = rw.ox || 0, oy = rw.oy || 0;             // runway origin relative to the craft
+  // Forward distance along the centreline is linear in t: f(t) = A + t*B. Solve for the
+  // camera-plane crossing so we draw exactly the part in front of us (no behind-camera smear).
+  const A = ox * cam.sinh - oy * cam.cosh, B = dx0 * cam.sinh - dy0 * cam.cosh;
+  let tLo = -BACK, tHi = RWL;
+  if (Math.abs(B) < 1e-4) { if (A < fMin) return; }
+  else { const tc = (fMin - A) / B; if (B > 0) tLo = Math.max(tLo, tc); else tHi = Math.min(tHi, tc); }
+  if (tHi - tLo < 0.03) return;
+  const P = (t, s) => cam.proj(ox + t * dx0 + s * pxu, oy + t * dy0 + s * pyu, 0);
   ctx.save(); ctx.globalAlpha = fade;
-  // Asphalt slab — a single quad, so both edges are exactly straight lines to the vanishing point.
-  const NL = cam.projFL(NEAR, -hw, 0), NR = cam.projFL(NEAR, hw, 0);
-  const FL2 = cam.projFL(farA, -hw, 0), FR = cam.projFL(farA, hw, 0);
+  const NL = P(tLo, -hw), NR = P(tLo, hw), FL2 = P(tHi, -hw), FR = P(tHi, hw);
   ctx.fillStyle = '#22262d';
   ctx.beginPath(); ctx.moveTo(NL.sx, NL.sy); ctx.lineTo(FL2.sx, FL2.sy); ctx.lineTo(FR.sx, FR.sy); ctx.lineTo(NR.sx, NR.sy); ctx.closePath(); ctx.fill();
-  // Straight white edge lines.
   ctx.strokeStyle = 'rgba(228,232,236,0.82)'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
   ctx.beginPath(); ctx.moveTo(NL.sx, NL.sy); ctx.lineTo(FL2.sx, FL2.sy); ctx.moveTo(NR.sx, NR.sy); ctx.lineTo(FR.sx, FR.sy); ctx.stroke();
-  // Centreline dashes fixed in the world (one per tile) → they recede and slide toward us.
-  const cw = 0.018;
-  ctx.fillStyle = 'rgba(236,214,120,0.85)';
-  for (let p = 0; p <= Math.ceil(RWL); p++) {
-    let lo = p - roll, hi = lo + 0.55;                 // this tile's dash, relative to us
-    if (hi <= NEAR || lo >= farA) continue;
-    lo = Math.max(NEAR, lo); hi = Math.min(farA, hi);
-    const A = cam.projFL(hi, -cw, 0), B = cam.projFL(hi, cw, 0), C = cam.projFL(lo, cw, 0), D = cam.projFL(lo, -cw, 0);
-    ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.lineTo(C.sx, C.sy); ctx.lineTo(D.sx, D.sy); ctx.closePath(); ctx.fill();
+  // Centreline dashes fixed at each world tile along the strip.
+  const cw = 0.02; ctx.fillStyle = 'rgba(236,214,120,0.85)';
+  for (let t = Math.ceil(tLo); t < tHi; t += 1) {
+    const lo = Math.max(tLo, t + 0.12), hi = Math.min(tHi, t + 0.62); if (hi - lo < 0.05) continue;
+    const a = P(lo, -cw), b = P(lo, cw), c = P(hi, cw), d = P(hi, -cw);
+    ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.lineTo(c.sx, c.sy); ctx.lineTo(d.sx, d.sy); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Star Fox-style landing guide: a chain of wireframe gates on a gentle glideslope down to
+// the runway threshold. Anchored in the world (same camera as the runway/buildings), the
+// path reaches back proportional to your altitude and steps down to the numbers — fly
+// through the boxes to descend. Purely a guide; nothing is automated. `v.landGuide = { alt }`.
+function drawGuideBoxes(ctx, cam, v, now) {
+  const rw = v.runway, hr = (rw.hdg || 0) * Math.PI / 180;
+  const dx0 = Math.sin(hr), dy0 = -Math.cos(hr), pxu = Math.cos(hr), pyu = Math.sin(hr);
+  const ox = rw.ox || 0, oy = rw.oy || 0;                 // threshold, relative to the craft
+  const GS = 34;                                          // glideslope: feet of altitude per tile of approach
+  const craftAlt = Math.max(0, v.landGuide.alt || 0);
+  const Dtop = clamp(craftAlt / GS, 2, 15);               // how far back the path reaches (grows with altitude)
+  const N = 8, halfW = 0.34, halfH = 0.32;
+  const ehOf = (alt) => Math.max(0.05, RENDER_TUNE.eh + Math.min(1, Math.sqrt(Math.max(0, alt) / 3000)) * RENDER_TUNE.climbLift);
+  const pulse = 0.5 + 0.5 * Math.sin((now || 0) * 0.005);
+  ctx.save(); ctx.lineJoin = 'round';
+  for (let i = N - 1; i >= 0; i--) {                       // far → near so nearer gates draw on top
+    const t = i / (N - 1);
+    const D = 0.5 + t * (Dtop - 0.5);                      // tiles before the threshold
+    const wz = ehOf(D * GS);
+    const cxw = ox - D * dx0, cyw = oy - D * dy0;          // approach point on the glideslope
+    const f = cxw * cam.sinh - cyw * cam.cosh; if (f <= 0.12 || f > 11) continue;
+    const c = [[-1, 1], [1, 1], [1, -1], [-1, -1]].map(([sw, sh]) => cam.proj(cxw + sw * halfW * pxu, cyw + sw * halfW * pyu, wz + sh * halfH));
+    const near = i === 0;
+    ctx.strokeStyle = near ? `rgba(120,255,170,${0.7 + 0.3 * pulse})` : `rgba(120,200,255,${0.3 + 0.55 * (1 - t)})`;
+    ctx.lineWidth = near ? 2.4 : 1.6;
+    ctx.beginPath(); ctx.moveTo(c[0].sx, c[0].sy); ctx.lineTo(c[1].sx, c[1].sy); ctx.lineTo(c[2].sx, c[2].sy); ctx.lineTo(c[3].sx, c[3].sy); ctx.closePath(); ctx.stroke();
   }
   ctx.restore();
 }
@@ -937,20 +994,26 @@ function drawRunwayTex(ctx, cam, v) {
 // Collect visible tiles, sort far→near, draw each (textured box / billboard).
 function drawWorldObjects(ctx, cam, v, sky, now) {
   const map = v.map; if (!map || !map.length) return; const R = cam.R, night = sky.night;
+  const FAR = 7.5, wcx = v.mapCenter ? v.mapCenter.x : 0, wcy = v.mapCenter ? v.mapCenter.y : 0;
   const items = [];
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     const c = map[ry][rx]; if (!c || c.kind === 'air' || c.kind === 'craft' || c.kind === 'field' || c.biome === 'water') continue;
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
-    if (f <= 0.05 || f > 6.5) continue;
-    // Keep the flight path ahead clear — never render anything in the corridor dead ahead
-    // (a building parked on the runway/centreline is what you'd fly straight into).
+    if (f <= 0.05 || f > FAR) continue;
     const lat = dx * cam.cosh + dy * cam.sinh;
-    if (f > 0.1 && Math.abs(lat) < 0.7) continue;
-    items.push({ dx, dy, f, c, seed: rx * 31 + ry * 17 });
+    // Keep the flight path ahead clear (a building on the centreline is what you'd fly into),
+    // but FADE across the corridor edge rather than hard-skip so nothing pops in/out.
+    let alpha = clamp((f - 0.06) / 0.4, 0, 1) * clamp((FAR - f) / 1.6, 0, 1);   // near pass-under + soft far fade-in
+    if (f > 0.1) { const corr = clamp((Math.abs(lat) - 0.45) / 0.35, 0, 1); if (corr <= 0) continue; alpha *= corr; }
+    if (alpha <= 0.02) continue;
+    // Seed from the WORLD tile (stable), NOT the array index — so a building keeps its shape
+    // when the server recenters the map window (was the main "popping in and out" cause).
+    const wx = Math.round((rx - R) + wcx), wy = Math.round((ry - R) + wcy);
+    items.push({ dx, dy, f, c, alpha, seed: (wx + 512) * 73 + (wy + 512) * 149 });   // stable, positive, frac-friendly
   }
   items.sort((a, b) => b.f - a.f);
   for (const it of items) {
-    const alpha = clamp((it.f - 0.06) / 0.4, 0, 1), bi = it.c.biome;
+    const alpha = it.alpha, bi = it.c.biome;
     if (it.c.kind === 'nofly') { draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7); continue; }
     if (bi === 'parkland') { drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
     if (bi === 'badlands') { if ((it.seed % 3) === 0) drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }

@@ -741,6 +741,7 @@ export function openFlightSim(opts = {}) {
     input: { elevator: 0, aileron: 0, throttle: 0, flaps: 0 },
     pos: { x: opts.gx || 0, y: opts.gy || 0 },
     mapCenter: { x: Math.round(opts.gx || 0), y: Math.round(opts.gy || 0) }, rollDist: 0, travel: 0,
+    rwOrigin: { x: opts.gx || 0, y: opts.gy || 0 }, rwHdg: (((opts.heading || 0) % 360) + 360) % 360,   // world-fixed departure runway anchor
     airport: opts.airport || 'default',
     reg: opts.registration || (opts.deviceName || 'MAYFLY').toUpperCase(), owner: opts.owner || 'RENTED',
     fuel: opts.fuel ?? 100, fuelCap: opts.fuelCap || 100, warn: null,
@@ -902,10 +903,8 @@ function fsimFrame(now) {
   // Move through the world whenever rolling or flying — the takeoff roll translates
   // you forward down the runway (buildings grow and pass); liftoff just adds altitude.
   if (s.airspeed > 0.5) {
-    // Ground pace scales with the speed fraction (0 stopped → worldPace at Vne), so the world
-    // creeps as you begin the roll (~0.0001) and only reaches the 0.001 max near full speed.
-    const pace = RENDER_TUNE.worldPace * clampNum(s.airspeed / (P.vne || 120), 0, 1);
-    const d = s.airspeed * pace * dt, hr = s.heading * Math.PI / 180;
+    // Ground pace is a constant (0.001) — the world simply scrolls in proportion to airspeed.
+    const d = s.airspeed * RENDER_TUNE.worldPace * dt, hr = s.heading * Math.PI / 180;
     F.pos.x += Math.sin(hr) * d; F.pos.y += -Math.cos(hr) * d;
     F.travel += d;
     if (F.engineOn) F.rollDist += d;
@@ -969,15 +968,22 @@ function fsimFrame(now) {
   if (tv) tv.textContent = Math.round(input.throttle * 100) + '%';
 
   const back = F.reportedAirborne ? offMapHeading(F) : null;
+  // Landing guide: show the glideslope gates once airborne, low, and within reach of the
+  // departure runway (so it appears as you turn back to land).
+  const rwDist = Math.hypot(F.rwOrigin.x - F.pos.x, F.rwOrigin.y - F.pos.y);
+  const landGuide = (F.reportedAirborne && r.altitude < 1600 && rwDist < 16) ? { alt: r.altitude } : null;
   paintWindshield('fsim-ws', {
     pitch: d.pitch, bank: d.bank,
     // Render height fraction (drives eye-height/compression). Referenced to 3000ft with a
     // sqrt curve so it ramps HARD off the deck — by ~500ft you're visibly above the buildings.
     height: Math.min(1, Math.sqrt(Math.max(0, r.altitude) / 3000)), speed: clampNum(r.airspeed / (P.vne || 120), 0, 1),
     hour: F.sky?.hour, weather: F.sky?.weather, wind: F.sky?.wind, heading: d.hdg,
-    map: F.map, phase: 'cruise', airport: F.airport, biomeBelow: F.biomeBelow,
+    map: F.map, mapCenter: F.mapCenter, phase: 'cruise', airport: F.airport, biomeBelow: F.biomeBelow,
     mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y }, travel: F.travel,
-    runway: { roll: F.rollDist, alt: clampNum(r.altitude / 320, 0, 1) },
+    // World-fixed runway: its origin + heading in the world, offset from the craft — so it
+    // stays put and recedes/rotates naturally as you fly away (not glued ahead of the nose).
+    runway: { ox: F.rwOrigin.x - F.pos.x, oy: F.rwOrigin.y - F.pos.y, hdg: F.rwHdg, alt: clampNum(r.altitude / 320, 0, 1) },
+    landGuide,
     hud: true, navWarn: back == null ? null : `⚠ TURN ${String(back).padStart(3, '0')}° — RETURN TO MAP`,
   });
 
@@ -986,7 +992,8 @@ function fsimFrame(now) {
   if (F.reportedAirborne && F.syncAcc >= 1.2) {
     F.syncAcc = 0;
     sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} ${Math.round(s.altitude)} ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} ${Math.round(s.vs)} ${s.onGround ? 1 : 0} ${s.stalled ? 1 : 0}`);
-    F.mapCenter = { x: Math.round(F.pos.x), y: Math.round(F.pos.y) };   // server recenters the map window here
+    // NB: mapCenter is NOT advanced here — it stays paired with the map the server sends back
+    // (updated in flightSimContext), so buildings never jump/re-seed on a window recenter.
   }
   if (F.audioAcc >= 0.25) {
     F.audioAcc = 0;
@@ -1116,12 +1123,21 @@ function paintMFD(cv, F, d) {
   if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
   const ctx = cv.getContext('2d'); ctx.save(); ctx.scale(dpr, dpr);
   const W = cw, H = ch; ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#050a10'; ctx.fillRect(0, 0, W, H);
-  const ox = F.pos.x - F.mapCenter.x, oy = F.pos.y - F.mapCenter.y;
+  const ox = F.pos.x - F.mapCenter.x, oy = F.pos.y - F.mapCenter.y, hdgRad = (d.hdg || 0) * Math.PI / 180;
+  // TRACK-UP minimap: the map ROTATES so your direction of travel is always toward the top;
+  // the aircraft marker stays fixed pointing up. A north pointer swings round to show North.
+  ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(-hdgRad); ctx.translate(-W / 2, -H / 2);
   if (F.mfdMode === 'nav') paintNav(ctx, W, H, F, ox, oy); else paintLocal(ctx, W, H, F, ox, oy);
-  ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate((d.hdg || 0) * Math.PI / 180);
+  ctx.restore();
+  // Fixed aircraft marker — always points up (= where you're heading).
+  ctx.save(); ctx.translate(W / 2, H / 2);
   ctx.fillStyle = '#ffcf3e'; ctx.strokeStyle = '#1a1200'; ctx.lineWidth = 0.6;
   ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5, 6); ctx.lineTo(0, 3); ctx.lineTo(-5, 6); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.restore(); ctx.restore();
+  ctx.restore();
+  // North pointer — sits toward North on the rotated map (opposite your heading offset).
+  const rr = Math.min(W, H) * 0.4, nx = W / 2 - Math.sin(hdgRad) * rr, ny = H / 2 - Math.cos(hdgRad) * rr;
+  ctx.fillStyle = accA(0.8); ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('N', nx, ny);
+  ctx.restore();
 }
 
 // Full 5×5 tiles centred on the craft, straight from the always-complete map window —
@@ -1129,10 +1145,11 @@ function paintMFD(cv, F, d) {
 function paintLocal(ctx, W, H, F, ox, oy) {
   const map = F.map;
   if (!map || !map.length) { ctx.fillStyle = '#456'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('NO MAP', W / 2, H / 2); return; }
-  const R = (map.length - 1) / 2, N = 5, half = (N - 1) / 2, cell = Math.min(W, H) / N;
+  const R = (map.length - 1) / 2, cell = Math.min(W, H) / 5;   // 5 tiles visible across the panel
+  const drawHalf = 3;                                         // draw 7×7 so track-up rotation still fills the corners
   const ccx = R + ox, ccy = R + oy, bx = Math.round(ccx), by = Math.round(ccy);
   const fx = ccx - bx, fy = ccy - by;                        // sub-tile offset → smooth scroll
-  for (let dy = -half; dy <= half; dy++) for (let dx = -half; dx <= half; dx++) {
+  for (let dy = -drawHalf; dy <= drawHalf; dy++) for (let dx = -drawHalf; dx <= drawHalf; dx++) {
     const c = (map[by + dy] && map[by + dy][bx + dx]) || null;
     const sx = W / 2 + (dx - fx) * cell, sy = H / 2 + (dy - fy) * cell;
     const col = !c ? '#12202c' : c.kind === 'air' ? '#0a1119' : c.kind === 'field' ? '#5fe0a0' : c.kind === 'nofly' ? '#7a2a2a' : (MFD_BCOL[c.biome] || '#2a3540');
@@ -1161,7 +1178,8 @@ export function flightSimContext(msg) {
   const F = _fsim; if (!F || !msg) return;
   if (msg.fuel != null) F.fuel = msg.fuel;
   if (msg.fuelCap != null) F.fuelCap = msg.fuelCap;
-  if (msg.map) F.map = msg.map;
+  // Update the map AND its window centre together so they stay paired (no recenter jump).
+  if (msg.map) { F.map = msg.map; if (msg.mapX != null) F.mapCenter = { x: msg.mapX, y: msg.mapY }; }
   if (msg.minimap) F.minimap = msg.minimap;
   if (msg.sky) F.sky = msg.sky;
   if ('biomeBelow' in msg) F.biomeBelow = msg.biomeBelow;

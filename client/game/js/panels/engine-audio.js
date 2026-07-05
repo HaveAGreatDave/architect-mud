@@ -44,10 +44,13 @@ function buildLoops(cls, engines) {
     { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 620, q: 0.5 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.8 }, gain: 0.09 * p.wind },
     { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 300, q: 0.6 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.8 }, gain: 0.05 * p.wind },
   ] } };
-  // Ground roll — tyres rumbling over the strip; gain rides ground-speed (silent airborne).
+  // Ground roll — tyres rumbling over the pavement + a light airframe rattle. The whole loop's
+  // gain rides ground-speed (see updateEngineAudio), so both the rumble and the rattle build as
+  // you accelerate down the strip, and it's silent once airborne.
   const ROLL = { id: 'flt-roll', category: 'ambient', config: { gain: 1, layers: [
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 230, q: 0.8 }, adsr: { a: 0.15, d: 0, s: 1, r: 0.3 }, gain: 0.11 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 540, q: 0.6 }, adsr: { a: 0.15, d: 0, s: 1, r: 0.3 }, gain: 0.05 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 210, q: 0.8 }, tremolo: { rate: 7, depth: 0.3 }, adsr: { a: 0.15, d: 0, s: 1, r: 0.3 }, gain: 0.11 },   // wheel rumble (slow tremolo = pavement texture)
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 520, q: 0.6 }, adsr: { a: 0.15, d: 0, s: 1, r: 0.3 }, gain: 0.05 },                                    // tyre hiss
+    { waveform: 'square', freq: 92, tremolo: { rate: 19, depth: 0.85 }, filter: { type: 'bandpass', freq: 300, q: 1.3 }, adsr: { a: 0.2, d: 0, s: 1, r: 0.3 }, gain: 0.03 },   // airframe rattle
   ] } };
   return { IDLE, POWER, WIND, ROLL };
 }
@@ -172,10 +175,13 @@ const SPOOL_UP = {
     { waveform: 'square',   freq: 34, tremolo: { rate: 7, depth: 0.8 }, filter: { type: 'lowpass', freq: 380, q: 1 }, adsr: { a: 0.03, d: 0.6, s: 0.2, r: 0.15 }, gain: 0.10 },       // starter crank
     { waveform: 'sawtooth', freq: 26, pitchBend: { to: 150, time: 1.2 }, delay: 0.55, filter: { type: 'lowpass', freq: 800, q: 1 }, adsr: { a: 0.06, d: 1.1, s: 0.45, r: 0.25 }, gain: 0.12 },  // catch + rev
     { waveform: 'noise', noiseMix: 1, delay: 0.5, filter: { type: 'bandpass', freq: 280, q: 1 }, adsr: { a: 0.05, d: 1.0, s: 0.3, r: 0.25 }, gain: 0.06 } ] },                        // exhaust
-  // Two-stroke ultralight: a quick, buzzy zip up to a high idle.
-  ultralight: { duration: 1.1, layers: [
-    { waveform: 'sawtooth', freq: 60, pitchBend: { to: 300, time: 0.9 }, tremolo: { rate: 11, depth: 0.35 }, filter: { type: 'lowpass', freq: 1400, q: 1 }, adsr: { a: 0.03, d: 0.9, s: 0.5, r: 0.2 }, gain: 0.11 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 1600, q: 0.7 }, adsr: { a: 0.1, d: 0.8, s: 0.3, r: 0.2 }, gain: 0.03 } ] },
+  // Two-stroke ultralight: a pull-cord crank chugs a couple of times, the engine catches
+  // and zips up to a high buzzy idle with a raspy exhaust braap and rising intake hiss.
+  ultralight: { duration: 1.6, layers: [
+    { waveform: 'square', freq: 44, tremolo: { rate: 13, depth: 0.9 }, filter: { type: 'lowpass', freq: 480, q: 1 }, adsr: { a: 0.02, d: 0.42, s: 0, r: 0.1 }, gain: 0.09 },                                                                 // pull-cord crank
+    { waveform: 'sawtooth', freq: 55, pitchBend: { to: 330, time: 1.15 }, delay: 0.38, tremolo: { rate: 24, depth: 0.5 }, filter: { type: 'lowpass', freq: 1700, q: 1.2 }, adsr: { a: 0.04, d: 1.1, s: 0.55, r: 0.2 }, gain: 0.12 },        // catch + rev to idle
+    { waveform: 'square', freq: 108, pitchBend: { to: 232, time: 1.05 }, delay: 0.4, tremolo: { rate: 27, depth: 0.4 }, filter: { type: 'bandpass', freq: 1050, q: 1.4 }, adsr: { a: 0.05, d: 1.0, s: 0.4, r: 0.2 }, gain: 0.05 },          // exhaust braap
+    { waveform: 'noise', noiseMix: 1, delay: 0.38, filter: { type: 'highpass', freq: 1500, q: 0.7 }, adsr: { a: 0.15, d: 0.9, s: 0.3, r: 0.2 }, gain: 0.03 } ] },                                                                          // intake hiss
   // Salvaged wreck: it doesn't want to start — a couple of dead coughs, then a
   // rough, uneven catch.
   wreck:   { duration: 2.0, layers: [

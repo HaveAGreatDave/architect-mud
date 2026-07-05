@@ -8942,6 +8942,47 @@ body.esp-active #output {
 .apprehend-run:hover { background: #4a1a12; }
 .apprehend-hint { margin-top: 10px; font-size: 9px; letter-spacing: 1px; color: var(--text-dim); }
 .apprehend-keys { color: var(--accent-dim); }
+
+/* Conceal scan-sweep — palm contraband before the scanner line reaches it. */
+.conceal-window {
+	position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%);
+	z-index: 400; padding: 18px 20px 22px;
+	background: rgba(12, 8, 5, 0.97); border: 1px solid #7a5a16; border-radius: 6px;
+	box-shadow: 0 0 0 1px rgba(255, 190, 60, 0.18), 0 10px 44px rgba(0, 0, 0, 0.65);
+	font-family: var(--font-mono); text-align: center;
+	animation: apprehend-in 0.18s ease-out;
+}
+.conceal-title { font-size: 12px; letter-spacing: 3px; font-weight: bold; color: #ffc24d; text-shadow: 0 0 10px rgba(255, 170, 50, 0.5); }
+.conceal-sub { font-size: 11px; color: var(--text-dim); margin: 6px 0 16px; }
+.conceal-sub b { color: var(--text); }
+.conceal-keys { color: var(--accent-dim); }
+.conceal-track {
+	position: relative; height: 92px; margin: 0 auto;
+	background: repeating-linear-gradient(90deg, transparent 0 28px, rgba(255,255,255,.03) 28px 29px);
+	border: 1px solid var(--border); border-radius: 4px;
+}
+.conceal-line {
+	position: absolute; top: -3px; bottom: -3px; left: 0; width: 2px;
+	background: linear-gradient(180deg, transparent, #ff5a3c 20%, #ffb14d 80%, transparent);
+	box-shadow: 0 0 12px 2px rgba(255, 90, 60, 0.7); pointer-events: none; z-index: 3;
+}
+.conceal-chip {
+	position: absolute; top: 12px; width: 66px; height: 68px; cursor: pointer;
+	display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+	background: var(--bg3); border: 1px solid var(--border); border-radius: 5px;
+	transition: transform .12s, border-color .12s, opacity .2s, background .2s;
+}
+.conceal-chip:hover { border-color: #7a5a16; }
+.conceal-glyph { font-size: 20px; color: #ffc24d; line-height: 1; }
+.conceal-name { font-size: 8px; letter-spacing: .5px; color: var(--text-dim); max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conceal-tag { font-size: 8px; letter-spacing: 1px; color: var(--accent-dim); font-weight: bold; }
+.conceal-chip.conceal-palmed { border-color: #39c27a; background: #0f2418; transform: translateY(-8px); cursor: default; }
+.conceal-chip.conceal-palmed .conceal-tag { color: #39ff9e; }
+.conceal-chip.conceal-botch { border-color: var(--red); background: #2a0e0c; cursor: default; }
+.conceal-chip.conceal-botch .conceal-tag { color: var(--red); }
+.conceal-chip.conceal-scanned { opacity: 0.32; cursor: default; }
+.conceal-chip.conceal-full { animation: conceal-shake 0.2s; }
+@keyframes conceal-shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 .confirm-input {
 	width: 100%;
 	box-sizing: border-box;

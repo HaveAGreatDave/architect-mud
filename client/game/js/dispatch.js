@@ -37,6 +37,7 @@ import { playPokerSfx } from './poker-sfx.js';
 import { showConfirmDialog } from './panels/confirm.js';
 import { showArrestNotice } from './panels/arrest.js';
 import { openApprehendPrompt } from './panels/apprehend.js';
+import { openConcealSearch } from './panels/conceal.js';
 import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
 
@@ -464,6 +465,7 @@ const handlers = {
   confirm: (msg) => { showConfirmDialog(msg); },
   arrest_notice: (msg) => { showArrestNotice(msg); },
   apprehend_prompt: (msg) => { openApprehendPrompt(msg); },
+  conceal_search: (msg) => { openConcealSearch(msg); },
   poker_update: (msg) => { setAreaPane(msg.html); },
   poker_sfx: (msg) => { playPokerSfx(msg.cue); },
 

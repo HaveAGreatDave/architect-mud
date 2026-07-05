@@ -998,6 +998,17 @@ registerAction({
   },
 });
 
+// Cross-plugin seam: charge a specific crime key on a suspect with a forced
+// witness (the caller already knows they were caught — e.g. a fumbled palm during
+// a search). Runs the full raiseCrime path: stars + heat + evidence + siren.
+registerAction({
+  type: 'CHARGE_CRIME',
+  handler: async ({ actor, params }) => {
+    if (actor?.id && params?.key) await raiseCrime(actor, params.key, actor.current_zone, actor.handle, true);
+    return { type: 'charged', key: params?.key || null };
+  },
+});
+
 // Cross-plugin seam: read the PEAK wanted level reached this spree (not the
 // possibly-decayed current one). Jail books the arrest on this — decay 5★ → ½★
 // and you're still charged for the 5★ you earned. Falls back to current stars.
@@ -1172,6 +1183,9 @@ async function resolveApprehension(suspectId, choice) {
     sendToPlayer(suspectId, { type: 'system', message: `<span class="text-red">You wrench free and bolt — boots pounding after you.</span>` });
     await raiseWanted(suspect, 2, 'fleeing a lawful detainment', suspect.current_zone);
   } else {
+    // Suppress any re-prompt while booking runs (the palm minigame can take a few
+    // seconds; a teleport to the cell ends co-location right after).
+    s.apprehendCooldownUntil = Date.now() + 30000;
     sendToPlayer(suspectId, { type: 'system', message: `<span class="text-dim">You raise your hands. The cuffs go on.</span>` });
     await dispatchAction({ type: 'ARREST', actor: suspect });
   }

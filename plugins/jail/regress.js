@@ -3,6 +3,12 @@ import { query } from '../../server/models/db.js';
 import { _test } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
+  // ── Conceal verbs route + fail safe ───────────────────────────────────────
+  const cn = await run('conceal');
+  check('conceal with nothing illicit errors cleanly', cn?.type === 'error', cn?.type);
+  const cr = await run('concealresolve deadbeef');
+  check('concealresolve with a stale nonce no-ops', cr?.type === 'noop', cr?.type);
+
   // ── Contraband classification (pure) ──────────────────────────────────────
   check('weapon is contraband', _test.isContraband('item_x', { weapon: {} }) === true);
   check('drug is contraband', _test.isContraband('item_x', { drug: {} }) === true);

@@ -19,6 +19,7 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { world, getZone, getLivePlayer, getMinimapData } from '../../server/engine/world.js';
 import { getFlag } from '../../server/engine/flags.js';
+import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { on } from '../../server/engine/events.js';
 import { dispatchAction, registerAction } from '../../server/engine/actions.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
@@ -40,6 +41,21 @@ const MINUTE = 60 * 1000;
 const EVIDENCE_CAP = 50;                         // max rows in the shared locker
 const PURGE_MS = 3 * 24 * 60 * 60 * 1000;        // wipe evidence older than 3 days
 const FINE_PER_HALF_STAR = 50;                   // ₵ booking fine per half wanted-star
+
+// ── Conceal / search tuning ──────────────────────────────────────────────────
+// Contraband can be hidden from a search two ways: proactively (`conceal <item>`,
+// a Deception stash that the scanner then rolls against) or reactively (a live
+// scan-sweep palm the instant you're searched). Both mark the inventory row's
+// custom_data.concealed; confiscate() honors it.
+const SCAN_DIFFICULTY = 6;        // Deception target the scanner sets for a *proactively* stashed item
+const PALM_MAX_WEIGHT = 3;        // only small contraband can be palmed/stashed (no rifles up a sleeve)
+const CONCEAL_DIFFICULTY = 5;     // Deception target for the proactive `conceal` stash
+const CONCEAL_TIMEOUT_MS = 20000; // if the palm minigame never resolves, book anyway (everything given up)
+
+// A contraband item small enough to slip up a sleeve or into a waistband.
+function isPalmable(tags, weight) {
+  return isContraband(null, tags || {}) && (Number(weight) || 0) <= PALM_MAX_WEIGHT;
+}
 
 // Duty roster, in shift order: officer[0] works 00:00–08:00, [1] 08:00–16:00,
 // [2] 16:00–24:00 (game time runs 1:1 with real time, so a shift = 8 real hours).
@@ -88,32 +104,46 @@ async function lockUp(items, handle) {
 }
 
 // Strip everything off the player: contraband → evidence, the rest → held snapshot
-// (returned on release). Runs from the respawn hook while inventory is still intact.
-async function confiscate(playerId, handle) {
+// (returned on release). Concealed contraband gets a shot at slipping through —
+// a live palm (custom_data.concealed.palmed) is a guaranteed keep this search; a
+// proactive stash rolls Deception vs the scanner. Survivors stay on the player,
+// hidden. Runs while inventory is still intact (respawn hook or a live arrest).
+// `actor` (a live player) is needed only to roll a proactive stash; when absent
+// (the regress harness passes a synthetic id) concealment simply can't hide.
+async function confiscate(playerId, handle, actor = null) {
   const { rows } = await query(
-    `SELECT pi.item_id, pi.quantity, pi.condition, pi.is_equipped, pi.slot, pi.layer,
+    `SELECT pi.id AS inv_id, pi.item_id, pi.quantity, pi.condition, pi.is_equipped, pi.slot, pi.layer,
             pi.custom_data, pi.container_id, i.tags
        FROM player_inventory pi JOIN items i ON i.id = pi.item_id
       WHERE pi.player_id = $1`,
     [playerId]
   );
-  const held = [], contraband = [];
+  const held = [], contraband = [], survivedIds = [];
+  const who = actor || getLivePlayer(playerId);
   for (const r of rows) {
     const tags = r.tags || {};
     if (tags.quest_item === true) continue;   // stays on the player
+    const cd = r.custom_data || {};
+    const con = isContraband(r.item_id, tags);
+    if (con && cd.concealed && who) {
+      let keep = cd.concealed.palmed === true;                       // a clean live palm always holds
+      if (!keep) { const chk = await skillCheck(who, 'deception', SCAN_DIFFICULTY); keep = chk.success; }
+      if (keep) { survivedIds.push(r.inv_id); continue; }            // slipped through — stays on the player
+    }
     const snap = {
       item_id: r.item_id, quantity: r.quantity, condition: r.condition,
       is_equipped: r.is_equipped, slot: r.slot, layer: r.layer,
-      custom_data: r.custom_data || {}, container_id: r.container_id,
+      custom_data: cd, container_id: r.container_id,
     };
-    (isContraband(r.item_id, tags) ? contraband : held).push(snap);
+    (con ? contraband : held).push(snap);
   }
-  // Remove all non-quest items from the player (quest items left untouched).
+  // Remove all non-quest items EXCEPT any that beat the search (quest items untouched).
   await query(
     `DELETE FROM player_inventory pi USING items i
       WHERE i.id = pi.item_id AND pi.player_id = $1
-        AND NOT (i.tags @> '{"quest_item":true}')`,
-    [playerId]
+        AND NOT (i.tags @> '{"quest_item":true}')
+        AND pi.id <> ALL($2::text[])`,
+    [playerId, survivedIds]
   );
   await lockUp(contraband, handle);
   return held;
@@ -215,7 +245,7 @@ async function bookIntoCell(player, { teleport = false } = {}) {
     [player.id]
   ).catch(() => ({ rows: [{ n: 0 }] }))).rows[0].n;
 
-  const held = await confiscate(player.id, player.handle);
+  const held = await confiscate(player.id, player.handle, player);
   // Sentence is stars base-minutes, scaled UP by the game-speed knob so a faster
   // world clock means a proportionally longer lockout (at 3× a 5★ stretch is 15
   // real minutes). release_at + the release timer both use this real duration.
@@ -268,12 +298,131 @@ async function onRespawnZone(player, killer) {
   return { zone: r.zone, message: r.message };
 }
 
+// ── Conceal: hide contraband from a search ────────────────────────────────────
+// Proactive `conceal <item>` stashes a small contraband item (Deception check →
+// the scanner rolls against it later). Reactive: on a live arrest, any *open*
+// palmable contraband triggers a scan-sweep minigame — palm what you can before
+// the scanner passes; a fumbled palm is caught (contraband-possession charge +
+// heat). The arrest can't finish until the palm resolves, so ARREST arms it and
+// books on reply. Both paths mark custom_data.concealed, which confiscate() honors.
+const GLYPH = (tags) => tags?.weapon ? '▮' : tags?.hack_device ? '◈' : tags?.drug ? '☣' : '✦';
+
+// Open (not-yet-concealed) palmable contraband the player is carrying.
+async function openPalmableContraband(playerId) {
+  const { rows } = await query(
+    `SELECT pi.id AS inv_id, pi.item_id, pi.custom_data, i.name, i.tags, i.weight
+       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id = $1`,
+    [playerId]
+  ).catch(() => ({ rows: [] }));
+  const out = [];
+  for (const r of rows) {
+    const tags = r.tags || {};
+    if ((r.custom_data || {}).concealed) continue;   // already hidden
+    if (!isPalmable(tags, r.weight)) continue;
+    out.push({ invId: r.inv_id, name: r.name, glyph: GLYPH(tags) });
+  }
+  return out;
+}
+
+// Merge a `concealed` marker into an inventory row's custom_data.
+async function markConcealed(invId, data) {
+  await query(
+    `UPDATE player_inventory
+        SET custom_data = COALESCE(custom_data,'{}'::jsonb) || jsonb_build_object('concealed', $2::jsonb)
+      WHERE id = $1`,
+    [invId, JSON.stringify(data)]
+  );
+}
+
+// conceal <item> — proactively palm a small contraband item out of sight. A later
+// search rolls Deception against it; a good stash beats the scanner.
+async function cmdConceal(args, raw, player) {
+  const hint = args.join(' ').trim();
+  const params = [player.id];
+  let sql = `SELECT pi.id AS inv_id, pi.custom_data, i.name, i.tags, i.weight
+               FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+              WHERE pi.player_id = $1`;
+  if (hint) { sql += ` AND i.name ILIKE $2`; params.push(`%${hint}%`); }
+  sql += ` LIMIT 10`;
+  const { rows } = await query(sql, params);
+  const cand = rows.find(r => isPalmable(r.tags, r.weight) && !((r.custom_data || {}).concealed));
+  if (!cand) {
+    return { type: 'error', message: hint
+      ? `You can't palm a "${hint}" — it's not small contraband, or it's already tucked away.`
+      : "You've nothing small and illicit to conceal." };
+  }
+  const chk = await skillCheck(player, 'deception', CONCEAL_DIFFICULTY);
+  await awardSkillUse(player.id, 'deception', chk.margin);
+  await markConcealed(cand.inv_id, { quality: Math.max(1, 3 + chk.margin), palmed: false });
+  const how = chk.success
+    ? 'It vanishes into a fold of clothing — you barely feel it there.'
+    : "It's hidden, but not well — a thorough pat-down would turn it up.";
+  return { type: 'output', message: `You slip the ${cand.name} out of sight. ${how}` };
+}
+
+// ── Live palm minigame handshake ─────────────────────────────────────────────
+const pendingConceal = new Map();   // playerId -> { nonce, items:Set(invId), maxPalm, timer }
+
+function clearConceal(playerId) {
+  const p = pendingConceal.get(playerId);
+  if (p?.timer) clearTimeout(p.timer);
+  pendingConceal.delete(playerId);
+}
+
+// Arm the scan-sweep for a live arrest; book once the client replies (or times out).
+async function armConceal(player, open) {
+  const dex = await effectiveSkill(player, 'deception');
+  const cool = Number(player.stat_cool) || 0;
+  const scanMs = Math.round(2500 + 350 * dex + 120 * cool);          // steadier hands ⇒ a slower sweep
+  const maxPalm = Math.max(1, Math.min(open.length, 1 + Math.floor(dex / 3)));
+  const nonce = randomUUID().slice(0, 8);
+  const timer = setTimeout(() => finishArrest(player.id).catch(e => console.error('[jail] conceal timeout:', e.message)), CONCEAL_TIMEOUT_MS);
+  pendingConceal.set(player.id, { nonce, items: new Set(open.map(o => o.invId)), maxPalm, timer });
+  sendToPlayer(player.id, {
+    type: 'conceal_search', nonce, scanMs, maxPalm,
+    items: open.map(o => ({ id: o.invId, name: o.name, glyph: o.glyph })),
+  });
+}
+
+// concealresolve <nonce> <palmedIds csv> <botchedIds csv> — silent; the scan-sweep fires it.
+async function cmdConcealResolve(args, raw, player) {
+  const pend = pendingConceal.get(player.id);
+  if (!pend || args[0] !== pend.nonce) return { type: 'noop' };   // stale / not armed
+  const inSet = (csv) => (csv || '').split(',').filter(Boolean).filter(id => pend.items.has(id));
+  const palmed = inSet(args[1]).slice(0, pend.maxPalm);           // server caps how many you can hold
+  const botched = inSet(args[2]);
+  for (const invId of palmed) await markConcealed(invId, { palmed: true, quality: 6 });
+  if (botched.length) {
+    // Caught mid-palm — a fresh contraband-possession charge (stars + heat, forced witness).
+    await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'contraband_possession' } }).catch(() => {});
+    sendToPlayer(player.id, { type: 'system', message: `<span class="text-red">A hand clamps your wrist mid-reach — "What've you got there?" It goes on the sheet.</span>` });
+  }
+  clearConceal(player.id);
+  await finishArrest(player.id);
+  return { type: 'noop' };
+}
+
+// Complete booking after the palm resolves (or on timeout). Palmed items are
+// already flagged concealed, so confiscate() leaves them on the player.
+async function finishArrest(playerId) {
+  clearConceal(playerId);
+  const player = getLivePlayer(playerId);
+  if (!player) return;
+  await bookIntoCell(player, { teleport: true });
+}
+
+on('player.logout', ({ id }) => clearConceal(id));
+
 // Cross-plugin seam: the surveillance apprehend engine books a *live* suspect (no
-// death) straight into the cell once they submit to a ≤3.5★ arrest.
+// death) once they submit to a ≤3.5★ arrest. If they're carrying open palmable
+// contraband, the scan-sweep palm runs first; booking follows the client reply.
 registerAction({
   type: 'ARREST',
   handler: async ({ actor }) => {
     if (!actor?.id) return { type: 'arrest', booked: false };
+    const open = await openPalmableContraband(actor.id);
+    if (open.length) { await armConceal(actor, open); return { type: 'arrest', pending: true }; }
     const r = await bookIntoCell(actor, { teleport: true });
     return { type: 'arrest', booked: r.booked };
   },
@@ -391,6 +540,11 @@ setInterval(() => purgeEvidence(), 60 * 60 * 1000);
 
 // Place the duty roster once the world has loaded (the minute tick maintains it).
 setTimeout(() => { try { syncShift(); } catch (e) { console.error('[jail] shift sync error:', e.message); } }, 5000);
+
+export const commands = {
+  conceal: cmdConceal,
+  concealresolve: cmdConcealResolve,
+};
 
 export const hooks = { 'player.respawnZone': onRespawnZone };
 
