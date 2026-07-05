@@ -86,13 +86,22 @@ export async function buildDump() {
   for (const entry of CONTENT_TABLES) {
     const table = typeof entry === 'string' ? entry : entry.table;
     const where = typeof entry === 'string' ? '' : ` WHERE ${entry.where}`;
-    const { rows } = await query(`SELECT * FROM ${table}${where}`);
+    const res = await query(`SELECT * FROM ${table}${where}`);
+    const rows = res.rows;
     if (!rows.length) continue;
     parts.push('');
     parts.push(`-- ${table} (${rows.length} row${rows.length === 1 ? '' : 's'})`);
     const cols = Object.keys(rows[0]);
+    // Map json/jsonb columns to their cast keyword. node-pg parses these into JS
+    // values, so a jsonb column holding a scalar (a JSON number/bool/string) is
+    // indistinguishable from a numeric/text column by value alone — we must cast
+    // by the column's actual type (OID 3802=jsonb, 114=json), or Postgres rejects
+    // e.g. a bare `5` for a jsonb column ("type jsonb but expression is numeric").
+    const jsonCast = new Map((res.fields || [])
+      .filter(f => f.dataTypeID === 3802 || f.dataTypeID === 114)
+      .map(f => [f.name, f.dataTypeID === 114 ? 'json' : 'jsonb']));
     for (const row of rows) {
-      parts.push(rowToInsert(table, cols, row));
+      parts.push(rowToInsert(table, cols, row, jsonCast));
     }
   }
 
@@ -102,20 +111,23 @@ export async function buildDump() {
   return parts.join('\n');
 }
 
-function rowToInsert(table, cols, row) {
+function rowToInsert(table, cols, row, jsonCast) {
   const colList = cols.map(c => `"${c}"`).join(', ');
-  const valList = cols.map(c => sqlValue(row[c])).join(', ');
+  const valList = cols.map(c => sqlValue(row[c], jsonCast && jsonCast.get(c))).join(', ');
   // ON CONFLICT DO NOTHING so the dump is also safe to apply to a populated DB.
   return `INSERT INTO ${table} (${colList}) VALUES (${valList}) ON CONFLICT DO NOTHING;`;
 }
 
-function sqlValue(v) {
+function sqlValue(v, jsonCast) {
   if (v === null || v === undefined) return 'NULL';
+  // json/jsonb column: JSON-encode + cast so scalars ("x", 5, true) and structured
+  // values alike produce a valid literal. Driven by the column's real type, not v's.
+  if (jsonCast) return `'${escapeStr(JSON.stringify(v))}'::${jsonCast}`;
   if (typeof v === 'number') return String(v);
   if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
   if (v instanceof Date) return `'${v.toISOString()}'`;
   if (typeof v === 'object') {
-    // jsonb columns come back from node-pg already parsed into objects/arrays.
+    // Defensive: an object from a non-json column (shouldn't happen) still serializes.
     return `'${escapeStr(JSON.stringify(v))}'::jsonb`;
   }
   return `'${escapeStr(String(v))}'`;
