@@ -23,10 +23,25 @@ const envPath = findEnvFile(process.cwd());
 dotenv.config(envPath ? { path: envPath } : undefined);
 const { Pool } = pg;
 
+// SSL is decided by the HOST, not NODE_ENV: a remote DB (Supabase pooler) requires
+// TLS; a local Postgres doesn't do it. Keying off NODE_ENV was a footgun — running a
+// one-shot against prod (`node --env-file=.env.prod scripts/x.mjs`) left NODE_ENV as
+// 'development' and silently disabled the TLS Supabase demands. Host-based detection
+// makes any script Just Work against prod via --env-file, and the reusable prod
+// one-shot pattern needs no NODE_ENV juggling.
+function needsSsl(url) {
+  if (!url) return false; // no URL → pg defaults to localhost (no TLS)
+  try {
+    return !/^(localhost|127\.0\.0\.1|::1)$/.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 // Single connection pool, reused across all requests
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: needsSsl(process.env.DATABASE_URL) ? { rejectUnauthorized: false } : false,
   // Max simultaneous connections this process holds. Kept below the Supabase
   // pooler's per-project client cap so more than one process (e.g. the server +
   // a one-off script) can connect without tripping "max clients reached".
