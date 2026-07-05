@@ -932,6 +932,23 @@ CREATE TABLE IF NOT EXISTS players (
   ALTER TABLE media_broadcasts ADD CONSTRAINT media_broadcasts_channel_id_fkey
     FOREIGN KEY (channel_id) REFERENCES media_channels(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
 
+  -- Self-referential content FKs (a zone's parent zone; a zone's city generator).
+  -- A table can never be insert-ordered to satisfy its own self-reference, so on a
+  -- fresh restore of the world dump (schema + content in one BEGIN…COMMIT) an
+  -- immediate check aborts the WHOLE transaction — leaving an empty DB that fails to
+  -- boot ("relation server_settings does not exist"). Same fix as the media_* cycle:
+  -- make them DEFERRABLE INITIALLY DEFERRED so the dump's SET CONSTRAINTS ALL DEFERRED
+  -- holds the check to COMMIT, by which point every parent row exists. (The old git
+  -- seed masked this with SET session_replication_role=replica; buildDump doesn't —
+  -- and can't rely on it, since Supabase restricts that role. Drop-then-add is
+  -- idempotent; the inline/ALTER-added FKs are auto-named <table>_<column>_fkey.)
+  ALTER TABLE zones DROP CONSTRAINT IF EXISTS zones_parent_zone_fkey;
+  ALTER TABLE zones ADD CONSTRAINT zones_parent_zone_fkey
+    FOREIGN KEY (parent_zone) REFERENCES zones(id) DEFERRABLE INITIALLY DEFERRED;
+  ALTER TABLE generators DROP CONSTRAINT IF EXISTS generators_city_generator_id_fkey;
+  ALTER TABLE generators ADD CONSTRAINT generators_city_generator_id_fkey
+    FOREIGN KEY (city_generator_id) REFERENCES generators(id) DEFERRABLE INITIALLY DEFERRED;
+
   -- Broadcast graphics library. ASCII art referenced by VINE title_card nodes.
   -- type: 'ascii' | 'svg'; tags: JSONB array of labels for dev-panel filtering.
   CREATE TABLE IF NOT EXISTS media_graphics (

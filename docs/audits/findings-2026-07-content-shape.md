@@ -29,8 +29,20 @@ the row filters (leaking player crews/apartments into the shared seed). Fixes: (
 now reuses `buildDump()` — one list, one dump, for git seed + dev-panel + prod deploy alike;
 (2) added `quests` to `CONTENT_TABLES`; (3) added the explicit `EXCLUDED_TABLES` half of the
 partition and a **regress guard** (`tests/regress.js` layer 1a) that fails if any `SCHEMA_SQL` table
-isn't classified content-or-excluded — so this class can't silently recur. **Re-run
-`npm run content:publish` to regenerate `db/seed.sql` with the now-complete table set.**
+isn't classified content-or-excluded — so this class can't silently recur.
+
+**Follow-on restore bug (same day).** Switching the git seed onto `buildDump()` surfaced a latent
+hazard the old seed had masked: `buildDump` relies on FK-safe insert *ordering* + deferral, but the
+old `export-seed.mjs` used `SET session_replication_role = replica` which disabled **all** FK checks
+during load. Two **self-referential** content FKs — `zones.parent_zone → zones` and
+`generators.city_generator_id → generators` — can't be satisfied by any insert order, so a fresh
+`setup-local` restore aborted the whole one-transaction load, leaving an empty DB whose only symptom
+was boot dying on `relation "server_settings" does not exist`. Fix: made both FKs `DEFERRABLE
+INITIALLY DEFERRED` in `SCHEMA_SQL` (same pattern as the `media_*` cycle), so the dump's existing
+`SET CONSTRAINTS ALL DEFERRED` holds them to COMMIT — no `session_replication_role` (Supabase
+restricts it). A full content→content FK sweep confirmed these two are the only self/cyclic FKs; all
+others are satisfied by `CONTENT_TABLES` order. `db/seed.sql` regenerated with the deferrable schema
+and a fresh from-empty restore verified to COMMIT (333 zones, 6 aircraft_types, 3 aa_sites).
 
 | Rank | Table(s) | Symptom on fresh restore | Fix |
 |---|---|---|---|

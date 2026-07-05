@@ -242,12 +242,7 @@ document.getElementById("auth-toggle-link").addEventListener("click", () => {
 	document
 		.getElementById("handle-field")
 		.classList.toggle("visible", state.isRegister);
-	const misOn = !!localStorage.getItem("mis_client_enabled");
-	document.getElementById("sex-field").style.display = state.isRegister
-		? ""
-		: "none";
-	document.getElementById("sexuality-field").style.display =
-		state.isRegister && misOn ? "" : "none";
+	// biological sex & sexuality now live in the chargen section, not registration
 	document.getElementById("email-field").style.display = state.isRegister
 		? ""
 		: "none";

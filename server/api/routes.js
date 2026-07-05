@@ -380,7 +380,9 @@ export async function handleApiRequest(url, method, body, headers) {
 async function apiRegister(body) {
   const {username,password,handle,email} = body||{};
   if (!username||!password||!handle||!email) return {status:400,body:{error:'username, password, handle, email required'}};
-  const biological_sex = (body.biological_sex === 'female') ? 'female' : 'male';
+  // biological_sex & sexuality are chosen later in the chargen section; use safe
+  // placeholders here so the starting appearance/kit still generate. Chargen finalizes them.
+  const biological_sex = 'male';
   try {
     const id = randomUUID();
     await ensureTunables();
@@ -394,12 +396,12 @@ async function apiRegister(body) {
     await query(
       `INSERT INTO players
         (id,username,password_hash,handle,role,bonus_xp,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,stat_senses,
-         biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data,email,sexuality)
-       VALUES ($1,$2,$3,$4,'player',$5,${startHp},${startHp},1,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+         biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data,email,sexuality,current_zone)
+       VALUES ($1,$2,$3,$4,'player',$5,${startHp},${startHp},1,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'zone_the_inbetween')`,
       [id, username.toLowerCase(), hashPassword(password), handle, bonusXp,
        biological_sex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
        app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), email.toLowerCase().trim(),
-       body.sexuality || (biological_sex === 'male' ? 'Female' : 'Male')]
+       'Female']
     );
     // Starting kit — bandages always
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,'item_bandage',3,1.0)`, [randomUUID(), id]);
