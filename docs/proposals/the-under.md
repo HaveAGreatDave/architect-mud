@@ -16,10 +16,12 @@ the full project: **this project first**, then the [Interior Pass](interior-pass
 >   Commons, walk the tunnel, resurface inside the government quarter. Free walkable tunnel; **no
 >   express train** (that's the future `plugins/metro/`).
 > - **Verified:** global BFS — all 223 tiles reachable, no orphans; enclave boundary seams are exactly
->   The Steps + the Under landing. `npm run test:regress` 207/207.
+>   The Steps + the Under landing.
 > - **Scope boundary:** North City's **east** half (x 5..8, across the bay, reached from The Yards) is
 >   untouched — this gates the NW approach only.
-> - **Live:** content is in Postgres; **world reload/restart PENDING** to go live.
+> - **Live:** content is in Postgres and **confirmed present in production** as of 2026-07-04 (a prior
+>   2026-07-03 apply run silently failed to write to prod despite reporting success — re-ran and
+>   verified by direct query). **World reload/restart still PENDING** to go live in-game.
 > - Not done here (still the scoped build below): z-1 station ring, z-2 caverns, bestiary/apex, the
 >   express plugin.
 
