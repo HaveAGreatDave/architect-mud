@@ -260,7 +260,7 @@ const POI_LEGEND = {
 // ── Three-level map popup: interior → zone → regional ────────────────────────
 // Popup state, kept across re-opens so the tab buttons + wheel know the current
 // level and the tooltip can look tiles up by id.
-const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false, labelsView: false };
+const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false, avenueOverlay: 'none' };
 let mapUiWired = false;
 // Pan offset of the grid within the fixed 11×11 viewport, and live drag state.
 const mapPan = { tx: 0, ty: 0 };
@@ -280,6 +280,39 @@ function streetAbbrev(name) {
 }
 function escapeHtml(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+}
+
+// Avenue-View road tile as SVG: arms reach toward each connected artery side, so
+// straight / corner / T / crossroads / dead-end stub / lone node all emerge from
+// which dirs are present. Roadway band (av-rd) + centre hub + dashed centreline
+// (av-cl) read unmistakably as a road even under an overlay. viewBox is the room
+// cell's 22×16 (centre 11,8); arms reach the edges to meet the gap road bands.
+const AV_END = { n: '11 0', s: '11 16', e: '22 8', w: '0 8' };
+function avRoadSvg(dirs) {
+  let d = '';
+  for (const dir of dirs) d += `M11 8L${AV_END[dir]}`;
+  return `<svg class="av-svg" viewBox="0 0 22 16" preserveAspectRatio="none" aria-hidden="true">`
+    + (d ? `<path class="av-rd" d="${d}"/>` : '')
+    + `<circle class="av-hub" cx="11" cy="8" r="4.4"/>`
+    + (d ? `<path class="av-cl" d="${d}"/>` : '')
+    + `</svg>`;
+}
+// Gap-cell road band matching the room roadway, so an avenue reads continuously
+// across the space between two road tiles. 'h' = horizontal gap, 'v' = vertical.
+function avGapSvg(orient) {
+  const vb = orient === 'h' ? '0 0 11 16' : '0 0 22 16';
+  const d = orient === 'h' ? 'M0 8L11 8' : 'M11 0L11 16';
+  return `<svg class="av-svg" viewBox="${vb}" preserveAspectRatio="none" aria-hidden="true">`
+    + `<path class="av-rd" d="${d}"/><path class="av-cl" d="${d}"/></svg>`;
+}
+// Reflect mapState.avenueOverlay onto the 3-stop slider (active segment + the
+// data-ov attribute that slides the highlight).
+function syncOverlaySlider() {
+  const slider = document.getElementById('map-overlay-slider');
+  if (!slider) return;
+  slider.setAttribute('data-ov', mapState.avenueOverlay);
+  for (const seg of slider.querySelectorAll('.mo-seg'))
+    seg.classList.toggle('active', seg.getAttribute('data-ov') === mapState.avenueOverlay);
 }
 
 // Available zoom levels, inner→outer. Interior only exists when you're inside one.
@@ -384,15 +417,17 @@ function wireMapUi() {
     document.getElementById('map-avenue-toggle')?.classList.toggle('active', mapState.avenueView);
     renderMapGrid();
   });
-  // Labels: overlay 2–3 letter tile abbreviations on the road icons. Only meaningful
-  // in Avenue View, so turning it on turns Avenue View on too.
-  document.getElementById('map-labels-toggle')?.addEventListener('click', () => {
-    mapState.labelsView = !mapState.labelsView;
-    if (mapState.labelsView && !mapState.avenueView) {
+  // Overlay slider: what rides on top of the avenue roads — nothing / the minimap
+  // POI icons / 2-letter abbrevs. Picking an overlay implies Avenue View.
+  document.getElementById('map-overlay-slider')?.addEventListener('click', (e) => {
+    const seg = e.target.closest('.mo-seg');
+    if (!seg) return;
+    mapState.avenueOverlay = seg.getAttribute('data-ov') || 'none';
+    if (mapState.avenueOverlay !== 'none' && !mapState.avenueView) {
       mapState.avenueView = true;
       document.getElementById('map-avenue-toggle')?.classList.toggle('active', true);
     }
-    document.getElementById('map-labels-toggle')?.classList.toggle('active', mapState.labelsView);
+    syncOverlaySlider();
     renderMapGrid();
   });
   const vp = document.getElementById('map-viewport');
@@ -483,7 +518,7 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
     btn.disabled = (level === 'interior' && !insideInterior);
   }
   document.getElementById('map-avenue-toggle')?.classList.toggle('active', mapState.avenueView);
-  document.getElementById('map-labels-toggle')?.classList.toggle('active', mapState.labelsView);
+  syncOverlaySlider();
 
   const tip = document.getElementById('map-tooltip');
   if (tip) tip.style.display = 'none';
@@ -496,7 +531,7 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
 // avenueView) without touching the server — used both by the initial open and by
 // the Avenue View toggle (a pure rendering-mode switch on already-fetched tiles).
 function renderMapGrid() {
-  const { tiles, mode, insideInterior, avenueView, labelsView } = mapState;
+  const { tiles, mode, insideInterior, avenueView, avenueOverlay } = mapState;
   const grid = document.getElementById('map-grid');
   const legend = document.getElementById('map-legend');
 
@@ -557,9 +592,8 @@ function renderMapGrid() {
 
   grid.style.gridTemplateColumns = Array.from({ length: gCols }, (_, c) =>
     c % 2 === 0 ? 'var(--map-room)' : 'var(--map-gap)').join(' ');
-  // Avenue View strips tile chrome to a road skeleton; Labels overlays abbrevs.
+  // Avenue View strips tile chrome to an SVG road skeleton; overlay rides on top.
   grid.classList.toggle('avenue', avenueView);
-  grid.classList.toggle('labels', avenueView && labelsView);
 
   let html = '';
   for (let r = 0; r < gRows; r++) {
@@ -567,6 +601,16 @@ function renderMapGrid() {
       const it = cell[r][c];
       if (!it) { html += `<span class="map-c"></span>`; continue; }
       if (it.kind === 'link') {
+        if (avenueView) {
+          // Avenue View: only artery gaps draw, as SVG road bands matching the
+          // room roadway; everything else is blank so the skeleton reads clean.
+          if (it.artery && (it.orient === 'h' || it.orient === 'v')) {
+            html += `<span class="map-c av-gap">${avGapSvg(it.orient)}</span>`;
+          } else {
+            html += `<span class="map-c"></span>`;
+          }
+          continue;
+        }
         if (it.orient === 'd1' || it.orient === 'd2') { // diagonals stay glyphs (rare)
           html += `<span class="map-c map-link">${it.orient === 'd1' ? '╲' : '╱'}</span>`;
         } else {
@@ -596,22 +640,27 @@ function renderMapGrid() {
         (t.buildings && t.buildings.length ? ' map-has-building' : '') +
         (deg === 1 ? ' map-deadend' : '');
       const style = styles.length ? ` style="${styles.join(';')}"` : '';
-      // Avenue View: draw a connected road icon whose arms point toward each
-      // grid-adjacent artery link — straight / corner / T / crossroads emerge
-      // from which arms are present, meeting the gap-cell bars seamlessly. With
-      // Labels on, the tile abbreviation overlays the (dimmed) road.
+      // Avenue View: draw the tile as an SVG road whose arms point toward each
+      // grid-adjacent artery link (straight / corner / T / crossroads / stub),
+      // meeting the gap road bands seamlessly. The overlay slider then rides a
+      // minimap icon or the tile abbreviation on top, road still visible under it.
       let sym;
       if (t.isCurrent) sym = '';
       else if (avenueView) {
         const arteryLink = (link) => link?.kind === 'link' && link.artery;
-        let arms = '';
-        if (arteryLink(cell[r - 1]?.[c])) arms += '<i class="av-arm-n"></i>';
-        if (arteryLink(cell[r + 1]?.[c])) arms += '<i class="av-arm-s"></i>';
-        if (arteryLink(cell[r]?.[c - 1])) arms += '<i class="av-arm-w"></i>';
-        if (arteryLink(cell[r]?.[c + 1])) arms += '<i class="av-arm-e"></i>';
-        if (arms) {
-          sym = `<span class="av-road"><i class="av-node"></i>${arms}</span>`;
-          if (labelsView) sym += `<span class="av-label">${escapeHtml(streetAbbrev(t.name))}</span>`;
+        const dirs = [];
+        if (arteryLink(cell[r - 1]?.[c])) dirs.push('n');
+        if (arteryLink(cell[r + 1]?.[c])) dirs.push('s');
+        if (arteryLink(cell[r]?.[c + 1])) dirs.push('e');
+        if (arteryLink(cell[r]?.[c - 1])) dirs.push('w');
+        if (dirs.length) {
+          sym = avRoadSvg(dirs);
+          if (avenueOverlay === 'icons') {
+            const g = t.icon || (t.marker ? (t.marker.length === 1 ? t.marker : t.marker.slice(0, 2)) : '');
+            if (g) sym += `<span class="av-ov av-ov-icon${t.poi ? ` map-poi map-poi-${t.poi}` : ''}">${escapeHtml(g)}</span>`;
+          } else if (avenueOverlay === 'labels') {
+            sym += `<span class="av-ov av-ov-label">${escapeHtml(streetAbbrev(t.name))}</span>`;
+          }
         } else sym = '';
       } else sym = symFor(t);
       html += `<span class="${cls}"${style} data-zone-id="${t.id}">${sym}</span>`;

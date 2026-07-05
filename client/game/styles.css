@@ -2101,25 +2101,37 @@ textarea {
 /* Dead-end (a single connector) reads slightly muted. */
 .map-room.map-deadend { opacity: 0.82; }
 
-/* ── Avenue View: connected road icons ───────────────────────────────────────
+/* ── Avenue View: SVG road tiles + overlay ───────────────────────────────────
    In Avenue View the tile chrome is stripped to a clean arterial skeleton; each
-   artery tile draws arms toward its connected sides (straight / corner / T /
-   crossroads), which meet the gap-cell artery bars for a seamless road network.
-   The current tile keeps an accent ring so you can still see where you are. */
+   artery tile draws an SVG road (roadway band + dashed centreline) with arms
+   toward its connected sides, so straight / corner / T / crossroads / dead-end /
+   node all emerge and meet the gap-cell road bands seamlessly. An optional
+   overlay (minimap icon or 2-letter abbrev) rides on top with a dark halo, so
+   the road stays readable underneath. Current tile keeps an accent ring. */
 #map-grid.avenue .map-room:not(.map-current) { background: none; border-color: transparent; }
 #map-grid.avenue .map-room.map-current { border: 1px solid var(--accent); border-radius: 2px; background: none; }
-.av-road { position: absolute; inset: 0; pointer-events: none; }
-.av-road > i { position: absolute; background: var(--cyan); box-shadow: 0 0 3px var(--cyan); }
-.av-node  { left: 50%; top: 50%; width: 5px; height: 5px; border-radius: 1px; transform: translate(-50%, -50%); }
-.av-arm-n { left: 50%; top: 0; width: 3px; height: 50%; transform: translateX(-50%); }
-.av-arm-s { left: 50%; bottom: 0; width: 3px; height: 50%; transform: translateX(-50%); }
-.av-arm-e { top: 50%; right: 0; height: 3px; width: 50%; transform: translateY(-50%); }
-.av-arm-w { top: 50%; left: 0; height: 3px; width: 50%; transform: translateY(-50%); }
-/* Labels overlay: dim the road so the bold abbreviation stays legible on top. */
-.av-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-weight: bold; font-size: 11px; letter-spacing: -0.5px; color: var(--text);
-  text-shadow: 0 0 3px #000, 0 0 2px #000, 0 1px 2px #000; z-index: 2; }
-#map-grid.labels .av-road { opacity: 0.4; }
+#map-grid.avenue .av-gap { position: relative; }
+.av-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.av-rd  { fill: none; stroke: rgba(150,170,195,0.5); stroke-width: 8; stroke-linecap: butt; stroke-linejoin: round; }
+.av-hub { fill: rgba(150,170,195,0.5); }
+.av-cl  { fill: none; stroke: var(--cyan); stroke-width: 1.3; stroke-dasharray: 2.2 2.6; stroke-linecap: butt; opacity: 0.85; }
+/* Overlay glyph / abbrev on top of the road. */
+.av-ov { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2; pointer-events: none; }
+.av-ov-icon  { font-size: 12px; font-weight: bold; text-shadow: 0 0 3px #000, 0 0 2px #000, 0 0 5px #000; }
+.av-ov-label { font-size: 11px; font-weight: bold; letter-spacing: -0.5px; color: var(--text);
+  text-shadow: 0 0 3px #000, 0 0 2px #000, 0 1px 2px #000; }
+
+/* Overlay slider: None / Icons / Labels — a segmented control with a sliding
+   highlight, sitting in the map header next to the Avenue View toggle. */
+.map-overlay-slider { display: inline-flex; position: relative; border: 1px solid var(--border, #2a3a44);
+  border-radius: 12px; overflow: hidden; margin-left: 6px; vertical-align: middle; }
+.map-overlay-slider .mo-seg { width: 46px; text-align: center; background: transparent; border: none;
+  color: var(--text-dim); font: inherit; font-size: 11px; padding: 3px 0; cursor: pointer; position: relative; z-index: 1; }
+.map-overlay-slider .mo-seg.active { color: var(--bg, #0a0f12); }
+.map-overlay-slider::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 46px;
+  background: var(--cyan); border-radius: 11px; transition: left .15s ease; z-index: 0; }
+.map-overlay-slider[data-ov="icons"]::before  { left: 46px; }
+.map-overlay-slider[data-ov="labels"]::before { left: 92px; }
 
 /* Landmark POI icons — bold, colour-coded by category (airport, police, …). */
 .map-poi { font-weight: bold; }

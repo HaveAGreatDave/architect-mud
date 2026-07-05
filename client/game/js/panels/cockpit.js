@@ -621,6 +621,7 @@ const lerpN = (a, b, t) => a + (b - a) * t;
 // with windshield.js so a slider change takes effect on the very next frame.
 const FSIM_TUNE = [
   ['worldPace', 'Ground speed', 0, 0.001, 0.00005],
+  ['groundBoost', 'Ground boost', 1, 20, 0.5],
   ['eh', 'Horizon compress', 0, 1, 0.01],
   ['climbLift', 'Climb lift', 0, 20, 0.5],
   ['tile', 'Floor tiles', 0.1, 3, 0.05],
@@ -903,8 +904,10 @@ function fsimFrame(now) {
   // Move through the world whenever rolling or flying — the takeoff roll translates
   // you forward down the runway (buildings grow and pass); liftoff just adds altitude.
   if (s.airspeed > 0.5) {
-    // Ground pace is a constant (0.001) — the world simply scrolls in proportion to airspeed.
-    const d = s.airspeed * RENDER_TUNE.worldPace * dt, hr = s.heading * Math.PI / 180;
+    // Ground pace is quick so you actually roll down the runway, then decays FAST with altitude
+    // (exp, ~120ft e-fold) to the slow cruise pace (worldPace) so the sky doesn't rush past.
+    const pace = RENDER_TUNE.worldPace * (1 + (RENDER_TUNE.groundBoost - 1) * Math.exp(-Math.max(0, s.altitude) / 120));
+    const d = s.airspeed * pace * dt, hr = s.heading * Math.PI / 180;
     F.pos.x += Math.sin(hr) * d; F.pos.y += -Math.cos(hr) * d;
     F.travel += d;
     if (F.engineOn) F.rollDist += d;

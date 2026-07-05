@@ -19,7 +19,8 @@
  *     the "order AND pickup" that earns standing.
  *   • Checkpoint move gate (`smuggle:checkpoint`) — carry raw into a
  *     flags.checkpoint zone → a Deception check scaled to cook_tier; fail =
- *     WANTED_RAISE manufacturing + bounced back + a 45s guard-heat cooldown. The
+ *     a Manufacturing charge + the guards APPREHEND you (the shared arrest engine:
+ *     submit/run → booking, palm-search) + a 45s guard-heat cooldown. The
  *     scanner sees bagged raw too (unlike the street cameras). The sealed crate
  *     itself is tagged raw_drug at cook_tier 5, so hauling it whole is the *hardest*
  *     thing to sneak — you're meant to unpack at the Scald first.
@@ -37,7 +38,6 @@ import { dispatchAction, registerAction } from '../../server/engine/actions.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getLivePlayer } from '../../server/engine/world.js';
-import { getCrimeStars } from '../../server/engine/crimes.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 
 const DROP_ZONE = 'zone_waste_scald';        // the Scald — lawless Redline airstrip, far off in the wastes
@@ -198,7 +198,11 @@ registerMoveGate(async ({ player, to }) => {
     return;                                                // pass
   }
 
+  // Caught with raw on you. Charge manufacturing, then the border guards move to
+  // detain — the same arrest a street cop runs (submit/run → booking, with a shot
+  // to palm the goods first). The checkpoint stays; a failed check just routes here.
   heat.set(player.id, Date.now() + HEAT_MS);
-  await dispatchAction({ type: 'WANTED_RAISE', actor: player, params: { amount: getCrimeStars('manufacturing'), reason: 'manufacturing a controlled substance' } });
-  return { block: true, message: `The scanner shrills — <b>raw material</b>. You spin on your heel and bolt back before they can box you in. Word’s already out: you’re wanted for manufacturing.` };
+  await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'manufacturing' } });
+  await dispatchAction({ type: 'APPREHEND', actor: player, params: { officer: 'The border guards' } });
+  return { block: true, message: `The scanner shrills — <b>raw material</b>. The border guards move on you before you can turn — no bolting back this time.` };
 }, 'smuggle:checkpoint');

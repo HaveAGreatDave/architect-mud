@@ -1735,7 +1735,11 @@
 						<button type="button" class="map-tab" data-level="zone">Zone</button>
 						<button type="button" class="map-tab" data-level="regional">Regional</button>
 						<button type="button" id="map-avenue-toggle" class="map-tab">Avenue View</button>
-						<button type="button" id="map-labels-toggle" class="map-tab">Labels</button>
+						<div id="map-overlay-slider" class="map-overlay-slider" data-ov="none" role="group" aria-label="Overlay on roads">
+							<button type="button" class="mo-seg active" data-ov="none">None</button>
+							<button type="button" class="mo-seg" data-ov="icons">Icons</button>
+							<button type="button" class="mo-seg" data-ov="labels">Labels</button>
+						</div>
 					</div>
 				</div>
 				<div id="map-body">

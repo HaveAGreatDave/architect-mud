@@ -12,7 +12,8 @@
  *      no felons in the government quarter. Clear your record (or take the Under).
  *   2. CONTRABAND — a scanner. Carrying raw drug material or any `contraband`-tagged
  *      item runs a Deception check (bagged goods count — the scanner sees through a
- *      coat). Pass → through; fail → a `contraband_possession` bust + bounced back +
+ *      coat). Pass → through; fail → a `contraband_possession` charge + the guards
+ *      APPREHEND you (the shared arrest engine: submit/run → booking, palm-search) +
  *      a short guard-heat cooldown.
  *
  * Moving AROUND inside the quarter (enclave → checkpoint tile) never triggers it —
@@ -24,7 +25,6 @@ import { skillCheck } from '../../server/engine/skills.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { getCrimeStars } from '../../server/engine/crimes.js';
 import { getFlag } from '../../server/engine/flags.js';
 
 const SCAN_DIFF = 7;                          // government security is tighter than a wasteland border
@@ -58,7 +58,10 @@ registerMoveGate(async ({ player, from, to }) => {
     return;                                    // pass (no XP award — a gate, not a training ground; avoids a farm)
   }
 
+  // Caught. Charge the contraband, then the guards move to detain you — the same
+  // arrest a street cop runs (submit/run → booking, with a shot to palm the goods).
   heat.set(player.id, Date.now() + HEAT_MS);
-  await dispatchAction({ type: 'WANTED_RAISE', actor: player, params: { amount: getCrimeStars('contraband_possession'), reason: 'contraband at the government checkpoint' } });
-  return { block: true, message: `The scanner shrills — <b>contraband</b>. The guards move on you and you back off down The Steps before it turns into an arrest. Word gets logged.` };
+  await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'contraband_possession' } });
+  await dispatchAction({ type: 'APPREHEND', actor: player, params: { officer: 'The checkpoint guards' } });
+  return { block: true, message: `The scanner shrills — <b>contraband</b>. The guards close on you at the top of The Steps — no bolting out of this one.` };
 }, 'govgate:checkpoint');

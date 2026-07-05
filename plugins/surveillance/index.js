@@ -1218,6 +1218,20 @@ registerAction({
   },
 });
 
+// Cross-plugin seam: a checkpoint (smuggle funnel / govgate) that catches you
+// routes the bust through the SAME arrest as a street cop — a submit/run prompt,
+// then a booking. Fires regardless of the run-cooldown (the guard has you now).
+registerAction({
+  type: 'APPREHEND',
+  handler: async ({ actor, params }) => {
+    if (!actor?.id) return { type: 'apprehend', started: false };
+    const s = wantedState(actor.id);
+    s.apprehendCooldownUntil = 0;
+    await startApprehension(actor, s, { name: params?.officer || 'A checkpoint officer' });
+    return { type: 'apprehend', started: true };
+  },
+});
+
 // ── Crime → wanted routing ────────────────────────────────────────────────────
 // The data-driven path: a crime key (from crimes.js / the dev-panel `crimes`
 // table) is charged here — witness-gated, debounced, and (if a camera is live)

@@ -36,7 +36,8 @@ let _obsHgt = 0;                // current view altitude fraction — drawers sh
 
 // Live render tuning — mutated by the in-cockpit tuning sliders, read every frame.
 export const RENDER_TUNE = {
-  worldPace: 0.001,   // MAX ground pace (at full speed). Effective pace ramps 0→0.0001(begin roll)→0.001(full)
+  worldPace: 0.001,   // cruise/air pace (tiles per knot per second)
+  groundBoost: 8,     // pace multiplier at zero altitude → quick down the runway; decays to 1× (0.001) by ~a few hundred ft
   eh: 0.05,           // Mode-7 eye height on the GROUND (near-0 spread-out look; a floor keeps the runway from collapsing)
   climbLift: 7.0,     // eye-height ADDED per unit altitude: EH = max(floor, eh + climbLift*height). ~2 by 500ft → clears buildings
   tile: 0.85,         // Mode-7 floor tile frequency (higher = smaller terrain tiles)
