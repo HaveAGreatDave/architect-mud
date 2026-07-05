@@ -24,7 +24,38 @@ const CLASS_AUDIO = {
 };
 const prof = (cls) => CLASS_AUDIO[cls] || CLASS_AUDIO.prop;
 
+// Dedicated layered procedural PROP engine for the Mayfly (per the FM design brief): a
+// combustion rumble carrying the blade-passage pulse (tremolo ~30Hz = the "whomp-whomp"),
+// slow RPM hunting (vibrato), an airframe-vibration sub, and airflow hiss at idle; brighter
+// harmonics + faster pulse + an FM prop-tip "bite" + more air on the power layer; wind + the
+// ground-roll rumble/rattle on top. Layers cross-fade by gain (idle↔power↔wind) in
+// updateEngineAudio so the note tracks throttle/airspeed continuously.
+function buildPropLoops() {
+  const IDLE = { id: 'flt-eng-idle', category: 'ambient', config: { gain: 1, layers: [
+    { waveform: 'sawtooth', freq: 46, filter: { type: 'lowpass', freq: 210, q: 1.4 }, tremolo: { rate: 30, depth: 0.5 }, vibrato: { rate: 1.2, depth: 3 }, adsr: { a: 0.6, d: 0, s: 1, r: 0.6 }, gain: 0.11 },   // combustion + blade pulse + RPM hunt
+    { waveform: 'sine', freq: 30, tremolo: { rate: 30, depth: 0.4 }, adsr: { a: 0.6, d: 0, s: 1, r: 0.6 }, gain: 0.075 },                                                                                       // deep body, same pulse
+    { waveform: 'sine', freq: 23, tremolo: { rate: 0.6, depth: 0.55 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.6 }, gain: 0.04 },                                                                                       // airframe vibration (slow amplitude wander)
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 170, q: 0.6 }, adsr: { a: 0.6, d: 0, s: 1, r: 0.6 }, gain: 0.03 },                                                                        // airflow hiss
+  ] } };
+  const POWER = { id: 'flt-eng-power', category: 'ambient', config: { gain: 1, layers: [
+    { waveform: 'sawtooth', freq: 70, filter: { type: 'lowpass', freq: 620, q: 1.4 }, tremolo: { rate: 44, depth: 0.42 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.5 }, gain: 0.09 },                                     // brighter combustion, faster pulse
+    { waveform: 'square', freq: 100, fm: { rate: 170, depth: 70 }, filter: { type: 'bandpass', freq: 480, q: 1.1 }, tremolo: { rate: 44, depth: 0.32 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.5 }, gain: 0.045 },      // exhaust body + FM prop-tip bite
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 560, q: 0.7 }, adsr: { a: 0.35, d: 0, s: 1, r: 0.5 }, gain: 0.045 },                                                                      // broadband airflow
+  ] } };
+  const WIND = { id: 'flt-wind', category: 'ambient', config: { gain: 1, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 560, q: 0.5 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.8 }, gain: 0.10 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 280, q: 0.6 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.8 }, gain: 0.055 },
+  ] } };
+  const ROLL = { id: 'flt-roll', category: 'ambient', config: { gain: 1, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 210, q: 0.8 }, tremolo: { rate: 7, depth: 0.3 }, adsr: { a: 0.15, d: 0, s: 1, r: 0.3 }, gain: 0.11 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 520, q: 0.6 }, adsr: { a: 0.15, d: 0, s: 1, r: 0.3 }, gain: 0.05 },
+    { waveform: 'square', freq: 92, tremolo: { rate: 19, depth: 0.85 }, filter: { type: 'bandpass', freq: 300, q: 1.3 }, adsr: { a: 0.2, d: 0, s: 1, r: 0.3 }, gain: 0.03 },
+  ] } };
+  return { IDLE, POWER, WIND, ROLL };
+}
+
 function buildLoops(cls, engines) {
+  if (cls === 'ultralight') return buildPropLoops();   // the Mayfly gets the hand-built prop model
   const p = prof(cls);
   const beef = 1 + Math.min(0.6, Math.max(0, (engines || 1) - 1) * 0.18);
   const wf = p.whine ? 1.6 : 1, fs = p.fs || 1;   // fs darkens the filters → low rumble, no mid "alarm" tone
@@ -134,7 +165,7 @@ export function updateEngineAudio(s) {
   if (!running || curClass !== s.class) { if (running) { try { ['flt-eng-idle', 'flt-eng-power', 'flt-wind', 'flt-roll'].forEach(id => ae.stopLoop(id)); } catch {} } startLoops(s.class, s.engines?.length || 1); }
   const thr = (s.throttle || 0) / 100, spd = Math.min(1, (s.spd || 0) / 300);
   _smoothThr += (thr - _smoothThr) * 0.5; _smoothSpd += (spd - _smoothSpd) * 0.4;
-  ae.setLoopGain?.('flt-eng-idle', (s.engineOn ? 0.55 : 0.2), 0.25);
+  ae.setLoopGain?.('flt-eng-idle', (s.engineOn ? 0.55 - _smoothThr * 0.28 : 0.2), 0.25);   // fade idle down as power rises (clean crossfade, no double prop-pulse beat)
   ae.setLoopGain?.('flt-eng-power', Math.min(1, 0.25 + _smoothThr * 0.9) * (s.airborne ? 1 : 0.5), 0.25);
   ae.setLoopGain?.('flt-wind', s.airborne ? Math.min(1, 0.2 + _smoothSpd + (s.bandIndex || 0) * 0.12) : 0.0, 0.3);
   // Ground roll — Mayfly only for now: rumble builds with taxi/roll speed, gone once airborne.
@@ -176,13 +207,15 @@ const SPOOL_UP = {
     { waveform: 'square',   freq: 34, tremolo: { rate: 7, depth: 0.8 }, filter: { type: 'lowpass', freq: 380, q: 1 }, adsr: { a: 0.03, d: 0.6, s: 0.2, r: 0.15 }, gain: 0.10 },       // starter crank
     { waveform: 'sawtooth', freq: 26, pitchBend: { to: 150, time: 1.2 }, delay: 0.55, filter: { type: 'lowpass', freq: 800, q: 1 }, adsr: { a: 0.06, d: 1.1, s: 0.45, r: 0.25 }, gain: 0.12 },  // catch + rev
     { waveform: 'noise', noiseMix: 1, delay: 0.5, filter: { type: 'bandpass', freq: 280, q: 1 }, adsr: { a: 0.05, d: 1.0, s: 0.3, r: 0.25 }, gain: 0.06 } ] },                        // exhaust
-  // Two-stroke ultralight: a pull-cord crank chugs a couple of times, the engine catches
-  // and zips up to a high buzzy idle with a raspy exhaust braap and rising intake hiss.
-  ultralight: { duration: 1.6, layers: [
-    { waveform: 'square', freq: 44, tremolo: { rate: 13, depth: 0.9 }, filter: { type: 'lowpass', freq: 480, q: 1 }, adsr: { a: 0.02, d: 0.42, s: 0, r: 0.1 }, gain: 0.09 },                                                                 // pull-cord crank
-    { waveform: 'sawtooth', freq: 55, pitchBend: { to: 330, time: 1.15 }, delay: 0.38, tremolo: { rate: 24, depth: 0.5 }, filter: { type: 'lowpass', freq: 1700, q: 1.2 }, adsr: { a: 0.04, d: 1.1, s: 0.55, r: 0.2 }, gain: 0.12 },        // catch + rev to idle
-    { waveform: 'square', freq: 108, pitchBend: { to: 232, time: 1.05 }, delay: 0.4, tremolo: { rate: 27, depth: 0.4 }, filter: { type: 'bandpass', freq: 1050, q: 1.4 }, adsr: { a: 0.05, d: 1.0, s: 0.4, r: 0.2 }, gain: 0.05 },          // exhaust braap
-    { waveform: 'noise', noiseMix: 1, delay: 0.38, filter: { type: 'highpass', freq: 1500, q: 0.7 }, adsr: { a: 0.15, d: 0.9, s: 0.3, r: 0.2 }, gain: 0.03 } ] },                                                                          // intake hiss
+  // Engine start (per the FM brief): a dry electric starter whine rises with mounting FM
+  // complexity and a slight pitch flutter, metallic gear chatter from a lightly modulated
+  // operator, filtered-noise compressor airflow, and — ~60% through — a low combustion
+  // rumble fades in carrying the blade pulse, so it settles into idle rather than stopping.
+  ultralight: { duration: 2.2, layers: [
+    { waveform: 'sine', freq: 170, pitchBend: { to: 500, time: 1.6 }, fm: { rate: 340, depth: 110 }, filter: { type: 'bandpass', freq: 1500, q: 1.3 }, vibrato: { rate: 7, depth: 9 }, adsr: { a: 0.05, d: 1.9, s: 0.45, r: 0.35 }, gain: 0.06 },   // starter whine (rising, FM, flutter)
+    { waveform: 'square', freq: 64, fm: { rate: 184, depth: 80 }, tremolo: { rate: 15, depth: 0.85 }, filter: { type: 'bandpass', freq: 780, q: 2 }, adsr: { a: 0.03, d: 1.1, s: 0.15, r: 0.2 }, gain: 0.04 },                                        // metallic gear chatter
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 1100, q: 0.7 }, adsr: { a: 0.3, d: 1.3, s: 0.3, r: 0.3 }, gain: 0.035 },                                                                                                     // compressor airflow
+    { waveform: 'sawtooth', freq: 40, pitchBend: { to: 58, time: 0.9 }, delay: 1.15, filter: { type: 'lowpass', freq: 300, q: 1 }, tremolo: { rate: 26, depth: 0.4 }, adsr: { a: 0.25, d: 0, s: 0.85, r: 0.4 }, gain: 0.085 } ] },                   // low rumble → idle (settles in ~60% through)
   // Salvaged wreck: it doesn't want to start — a couple of dead coughs, then a
   // rough, uneven catch.
   wreck:   { duration: 2.0, layers: [

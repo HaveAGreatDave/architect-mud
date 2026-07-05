@@ -195,26 +195,29 @@ export function renderMinimap(nodes, direction) {
       const node = byId.get(it.id);
       if (!node) { html += `<span class="mm-c mm-void"></span>`; continue; }
       if (node.is_current) { html += `<span class="mm-c mm-room mm-current" title="${titleFor(node)}"></span>`; continue; }
+      // Tile keeps its danger-tinted / custom fill in both modes; Avenue View just
+      // draws the SVG road + reflected overlay ON TOP of the coloured tile.
+      const styles = [];
+      if (node.bg_color) styles.push(`background:${node.bg_color}`);
+      const textColor = node.color || (node.bg_color ? luminanceTextColor(node.bg_color) : null);
+      if (textColor) styles.push(`color:${textColor}`);
+      const styled = (node.bg_color || node.color) ? ' mm-styled' : '';
+      let sym, extra = '';
       if (mmAvenueView) {
-        // SVG road from the artery links touching this tile + the reflected overlay
-        // on EVERY tile (semi-transparent, so the road stays visible under it).
         const dirs = [];
         if (isArteryLink(cell[r - 1]?.[c])) dirs.push('n');
         if (isArteryLink(cell[r + 1]?.[c])) dirs.push('s');
         if (isArteryLink(cell[r]?.[c + 1])) dirs.push('e');
         if (isArteryLink(cell[r]?.[c - 1])) dirs.push('w');
-        const sym = (dirs.length ? avRoadSvg(dirs) : '') + avOverlay(node, overlay);
-        html += `<span class="mm-c mm-room mm-avenue-cell" style="position:relative" title="${titleFor(node)}">${sym}</span>`;
-        continue;
+        sym = (dirs.length ? avRoadSvg(dirs) : '') + avOverlay(node, overlay);
+        extra = ' mm-avenue-cell';
+        styles.push('position:relative');
+      } else {
+        sym = symFor(node);
       }
-      const styles = [];
-      if (node.bg_color) styles.push(`background:${node.bg_color}`);
-      const textColor = node.color || (node.bg_color ? luminanceTextColor(node.bg_color) : null);
-      if (textColor) styles.push(`color:${textColor}`);
       const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
-      const styled = (node.bg_color || node.color) ? ' mm-styled' : '';
-      const cls = `mm-c mm-room danger-${node.danger_rating || 'safe'}${styled}`;
-      html += `<span class="${cls}"${styleAttr} title="${titleFor(node)}">${symFor(node)}</span>`;
+      const cls = `mm-c mm-room danger-${node.danger_rating || 'safe'}${styled}${extra}`;
+      html += `<span class="${cls}"${styleAttr} title="${titleFor(node)}">${sym}</span>`;
     }
   }
   for (const id of ['minimap-grid', 'minimap-grid-mob', 'minimap-grid-hud']) {

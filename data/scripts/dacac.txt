@@ -1,1 +1,0 @@
-One more pass at amp central capstans, the cassette when it slides in is always behind them, I want that capstan to appear at a lower z level so the cassette holes show it only. also make them go from background to capstan color once the cassette locks into place, reverse that on eject

@@ -1725,12 +1725,10 @@ textarea {
 	color: var(--accent);
 	background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
-/* Avenue View on the minimap: tile chrome is stripped so the SVG road skeleton
-   (shared .av-* classes with the full map) reads clean; the current-tile marker
-   still shows. Overflow is allowed so road arms can meet the gap bands. */
+/* Avenue View on the minimap draws the SVG road (shared .av-* classes with the
+   full map) ON TOP of the tile's normal danger/custom fill, so tile colours still
+   read at a glance. Overflow is allowed so road arms can meet the gap bands. */
 .mm-room.mm-avenue-cell {
-	background: none;
-	border-color: transparent;
 	overflow: visible;
 }
 .mm-msg {
