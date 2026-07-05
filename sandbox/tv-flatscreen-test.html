@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TV Flatscreen Skin — visual test</title>
+<link rel="stylesheet" href="../client/game/styles.css">
+<style>
+  /* Just a stage backdrop so the floating chrome set reads against a room. */
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(ellipse at 50% 30%, #23252b, #0a0b0d 70%);
+    font-family: monospace;
+  }
+  /* Force the panel visible without the JS open path. */
+  #tv-panel.active { display: flex; }
+</style>
+</head>
+<body>
+  <div id="tv-panel" class="active">
+    <div id="tv-window" data-skin="flatscreen" data-theme="corporate">
+      <div id="tv-header" style="cursor:move">
+        <div id="tv-header-left">
+          <span id="tv-station-name">COLDWATER SPORTS</span>
+        </div>
+        <div id="tv-header-center">
+          <span id="tv-channel-num">CH 7</span>
+          <span id="tv-program-name" style="opacity:1">LIVE BASEBALL</span>
+        </div>
+        <div id="tv-header-right">
+          <span id="tv-live-badge"><span class="tv-live-dot">●</span> LIVE</span>
+          <button id="tv-close-btn" aria-label="Power off television" title="Power off">&#x23FB;</button>
+        </div>
+      </div>
+      <div id="tv-static"></div>
+      <div id="tv-content">
+        <div id="tv-messages">
+          <div class="tv-msg tv-msg-raw"><span class="tv-speaker" style="color:var(--tv-header-color)">Marv Dolan:</span><br>"Two down here in the bottom of the eighth, and the Ironhides are clinging to a one-run lead."</div>
+          <div style="height:0.75em"></div>
+          <div class="tv-msg tv-msg-raw"><span class="tv-speaker" style="color:var(--tv-header-color)">Marv Dolan:</span><br>"Reyes digs in. The kid's been ice all night — three for four, a double off the wall in the fourth."</div>
+          <div style="height:0.75em"></div>
+          <div class="tv-msg tv-msg-raw"><span class="tv-speaker" style="color:var(--tv-header-color)">Marv Dolan:</span><br>"Here's the pitch — SWUNG ON and BELTED to deep right field! That ball is GONE!"</div>
+          <div style="height:0.75em"></div>
+          <div class="tv-msg tv-msg-raw"><span class="tv-speaker" style="color:var(--tv-header-color)">Marv Dolan:</span><br>"A two-run shot, and just like that the Vultures have the lead back!"</div>
+          <div style="height:0.75em"></div>
+        </div>
+      </div>
+      <div id="tv-footer">
+        <div id="tv-ticker-track">
+          <span id="tv-ticker-inner">●   AROUND THE LEAGUE: Slagworks Rats fall to the Docksiders 4–2   ●   Redline Horrors postponed (hazard)   ●</span>
+        </div>
+        <div id="tv-knob-wrap">
+          <button id="tv-tune-down" class="tv-tune-btn" aria-label="Tune down">&#x2212;</button>
+          <svg id="tv-knob" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" aria-label="Tune channel">
+            <circle cx="18" cy="18" r="15" class="tv-knob-ring"/>
+            <line x1="18" y1="18" x2="18" y2="5" class="tv-knob-line"/>
+          </svg>
+          <button id="tv-tune-up" class="tv-tune-btn" aria-label="Tune up">&#x2b;</button>
+        </div>
+        <div id="tv-tuner-wrap">
+          <span id="tv-freq-display">7.00</span>
+        </div>
+      </div>
+      <div id="tv-overlay-container"></div>
+      <div id="tv-standings" class="on">
+        <div class="tv-st-title">DEADBALL — LEAGUE STANDINGS</div>
+        <div class="tv-st-row"><span class="tv-st-rank">1</span><span class="tv-st-team">Vellum Vultures</span><span class="tv-st-rec">12-5</span><span class="tv-st-rd">+23</span></div>
+        <div class="tv-st-row"><span class="tv-st-rank">2</span><span class="tv-st-team">Neon District Wolves</span><span class="tv-st-rec">11-6</span><span class="tv-st-rd">+14</span></div>
+        <div class="tv-st-row"><span class="tv-st-rank">3</span><span class="tv-st-team">Precinct 9 Enforcers</span><span class="tv-st-rec">9-8</span><span class="tv-st-rd">+2</span></div>
+        <div class="tv-st-row"><span class="tv-st-rank">4</span><span class="tv-st-team">Ironhides</span><span class="tv-st-rec">8-9</span><span class="tv-st-rd">-4</span></div>
+        <div class="tv-st-row"><span class="tv-st-rank">5</span><span class="tv-st-team">Rustpile Rats</span><span class="tv-st-rec">3-14</span><span class="tv-st-rd">-31</span></div>
+      </div>
+      <div id="tv-scorebug" class="on">
+        <div class="tv-sb-scores">
+          <div class="tv-sb-row lead"><span class="tv-sb-team">VUL</span><span class="tv-sb-num">4</span></div>
+          <div class="tv-sb-row"><span class="tv-sb-team">IRN</span><span class="tv-sb-num">3</span></div>
+        </div>
+        <div class="tv-sb-state">
+          <svg class="tv-sb-diamond" viewBox="0 0 34 34" aria-hidden="true">
+            <rect class="tv-sb-base on" x="12" y="4"  width="10" height="10" transform="rotate(45 17 9)"/>
+            <rect class="tv-sb-base" x="4"  y="12" width="10" height="10" transform="rotate(45 9 17)"/>
+            <rect class="tv-sb-base on" x="20" y="12" width="10" height="10" transform="rotate(45 25 17)"/>
+          </svg>
+          <div class="tv-sb-status">BOT 8TH</div>
+          <div class="tv-sb-outs" aria-label="2 out">
+            <span class="tv-sb-out on"></span><span class="tv-sb-out on"></span><span class="tv-sb-out"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

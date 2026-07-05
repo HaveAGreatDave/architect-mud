@@ -70,6 +70,8 @@
     layer: { label: 'Layer', shape: 'enum', scope: 'class', group: 'Equipment',
       options: ['underwear', 'outerwear', 'armor'],
       help: 'Which of the three worn layers this piece occupies on a body slot (underwear < outerwear < armor, innermost to outermost). Only one item per slot+layer; others see only your outermost layer. Ignored for weapon_hand and accessory. Defaults to outerwear if unset.' },
+    covers: { label: 'Also Covers', shape: 'list', scope: 'class', group: 'Equipment',
+      help: 'Extra body slots this one garment fills, e.g. ["legs"] on a torso jumpsuit — a single piece that occupies both slots at its layer. Equipping it clears (and is cleared by) anything in the covered slots at that layer; its insulation/armor apply to every covered slot.' },
     gets_wet: { label: 'Gets Wet', shape: 'flag', scope: 'class', group: 'Equipment',
       help: 'Accumulates wetness (0–100) when worn in rain or snow. Wet clothing lowers cooling thresholds and speeds heat loss.' },
     sealed: { label: 'Sealed (Respirator)', shape: 'flag', scope: 'class', group: 'Equipment',

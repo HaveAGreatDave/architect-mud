@@ -1,0 +1,6 @@
+{
+  "name": "trade",
+  "version": "1.0.0",
+  "description": "Two-sided player trade window — the default interface for exchanging items AND credits safely. `trade <player>` opens a shared two-panel window; each side stakes items/credits, any change unlocks both sides (anti-scam), and the atomic swap only happens once BOTH lock in. Buttons drive the same `tradeoffer`/`traderetract`/`tradeready` commands you can also type.",
+  "commands": ["trade", "tradeoffer", "traderetract", "tradeready", "tradecancel"]
+}

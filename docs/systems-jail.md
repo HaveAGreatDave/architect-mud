@@ -20,6 +20,13 @@ Owned by the **jail** plugin (`plugins/jail/`). Everything below is what ships.
    - **Confiscates** everything (quest items excepted): contraband (weapons, drugs,
      hacking decks) goes to the shared **police evidence locker**; the rest is
      snapshotted into `jail_prisoners.held_items` to hand back on release.
+   - **Issues a prison jumpsuit** (`dressInGarb` → `item_prison_jumpsuit`), worn
+     immediately. It's a "jumpsuit": one garment worn on the torso that also fills
+     the legs via its `covers:['legs']` tag (see the equip engine), so a stripped
+     prisoner isn't left half-naked. Insert-if-present, so a world missing the item
+     (e.g. the regress harness) just skips it. Removed automatically at release —
+     `restoreHeld` wipes the whole inventory (garb included) before restoring the
+     held snapshot, so you walk out in your own clothes again.
    - Writes a `jail_prisoners` row with `release_at = now + stars minutes`.
    - Returns `{ zone: cell, message }` — the engine respawns you in the cell, skips
      the corpse (the cops bagged your gear), and shows the holding-cell flavor.
@@ -28,7 +35,8 @@ Owned by the **jail** plugin (`plugins/jail/`). Everything below is what ships.
      window client-side.
 2. **Doing time.** You're locked in `zone_mq_precinct_holding` (now furnished with a
    toilet, sink, and cot — the bodily + posture systems work in the cell). Its only
-   exit (`up` → Lobby) is a **difficulty-10 hackable hololock** (`door_precinct_cell`).
+   exit (`up` → Lobby) is a **police-only hololock** (`door_precinct_cell`, `canHack:false`) —
+   no deck can bypass it; you leave only when the guard walks you out.
    Your **wanted HUD keeps your stars and visibly decays** over the sentence (the
    minute tick pushes the remaining stars, computed from `release_at`), hitting zero
    right as you're released. This is a cosmetic countdown — your street heat was
@@ -86,15 +94,17 @@ never touched (same carve-out `spawnPlayerCorpse` makes).
 
 ## Jailbreak
 
-The cell door is a real `canHack` hololock, so `hack door up` opens the HOLOLOCK
-BYPASS minigame — but the engine hack requires an `item_hack_deck` in inventory, and
-yours was confiscated. **Escaping therefore needs a deck smuggled to you** (a friend
-dropping one), on top of beating a difficulty-10 lock. If you do get out — or leave
-the cell any way other than the guard — the `zone.entered` listener treats it as an
-escape:
+**The cell door is police-only (`canHack:false`)** — hacking it out is disabled, so
+there is no self-service jailbreak: you leave when the guard walks you out, full stop.
+The escape machinery below still exists for any *other* way out of the cell (a future
+tunnel, an admin move, etc.): the `zone.entered` listener treats leaving `holding` by
+anything but the guarded release as an escape —
 - The legal gear the desk was holding is **bagged into evidence too** (forfeited).
 - `WANTED_RAISE` (surveillance action) puts your stars back — a jailbreak is a fresh
   crime, so you leave as a hot fugitive.
+
+Previously the door was a difficulty-10 *hackable* hololock (jailbreak via a smuggled
+`item_hack_deck`); that path was closed to make the station police-only.
 
 ## Persistence
 

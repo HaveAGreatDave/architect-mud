@@ -7,7 +7,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, liveAircraft, out, effStats, persist, fieldFor as fieldOf } from './state.js';
+import { getZone, liveAircraft, out, effStats, persist, fieldFor as fieldOf, isContinuous, pushContext } from './state.js';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
@@ -170,9 +170,41 @@ export async function checkContractDelivery(player, live, fieldZoneId) {
   }
 }
 
+// ── jettison — blow the cargo doors and dump the hold (fails the active job) ───
+// Bound to the cockpit's J key. Useful to shed weight (climb/handle better) or ditch
+// contraband before a checkpoint — at the cost of the contract and its payout.
+async function cmdJettison(args, raw, player) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live) return { type: 'emote', message: "You're not aboard an aircraft." };
+  if (player.seat !== 'pilot') return { type: 'emote', message: 'Only the pilot can blow the cargo doors.' };
+  const cd = live.row.custom_data || {};
+  if ((cd.cargoWeight || 0) <= 0) return { type: 'emote', message: 'Nothing in the hold to dump.' };
+
+  const { rows } = await query(
+    "SELECT id, cargo_name, contraband FROM flight_contracts WHERE aircraft_id=$1 AND player_id=$2 AND status='active'",
+    [live.row.id, player.id]
+  );
+  const names = rows.map(c => c.cargo_name);
+  const contraband = rows.some(c => c.contraband);
+  for (const c of rows) await query("UPDATE flight_contracts SET status='failed' WHERE id=$1", [c.id]);
+
+  cd.cargoWeight = 0; delete cd.contractId;
+  live.row.custom_data = cd;
+  await persist(live);
+  if (isContinuous(live)) pushContext(live);   // continuous cockpit: reflect the empty hold
+
+  const what = names.length ? names.join(', ') : 'the load';
+  const dump = live.row.airborne
+    ? `<span class="text-amber">You blow the cargo doors — ${what} tumbles away into the slipstream and is gone.</span>`
+    : `<span class="text-amber">You heave ${what} out onto the ramp and kick it clear.</span>`;
+  const tail = rows.length ? `\n<span class="text-red">Contract failed${contraband ? " — but there's nothing in your hold to find now" : ''}.</span>` : '';
+  return { type: 'emote', message: dump + tail };
+}
+
 export const commands = {
   contracts: cmdContracts,
   jobs: cmdContracts,
   accept: cmdAccept,
   manifest: cmdManifest,
+  jettison: cmdJettison,
 };

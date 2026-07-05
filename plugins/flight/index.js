@@ -19,7 +19,7 @@ import {
   TICK_MS, FUEL_RESERVE_FRAC, BANDS, BAND_LABEL, BAND_BURN, DIRS, DIR_ALIASES,
   liveAircraft, surfaceAt, bounds, loadAircraft, pilotOf, persist, reap, effStats,
   pushHud, out, toOccupants, detach, takeoffDifficulty, landDifficulty,
-  parkAt, crash, setHeading, getZone, getLivePlayer, sendToZone, sendToPlayer, setPosture,
+  parkAt, crash, setHeading, getZone, getLivePlayer, sendToZone, sendToZoneExcept, sendToPlayer, setPosture,
   advance, initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
   ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme,
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude,
@@ -77,17 +77,30 @@ async function findParkedHere(zoneId, nameArg) {
 async function cmdBoard(args, raw, player, broadcast) {
   if (player.aircraftId) return { type: 'emote', message: "You're already aboard." };
 
-  // A chartered aircraft parked here → board as a passenger (the NPC pilot flies
-  // it). Only the player who chartered it may board; anyone else falls through to
-  // normal boarding (the reserved charter stays invisible to them).
-  const parkedCharter = charterParkedAt(player.current_zone);
+  // Aircraft sit on the ramp, but you BOARD from inside the walk-in hangar (less
+  // ambiguity). From the hangar office, reach the aircraft parked on the linked ramp;
+  // standing on the ramp of a field that HAS a hangar, you're pointed inside instead.
+  const here = getZone(player.current_zone);
+  let parkZoneId = player.current_zone;
+  if (here?.flags?.hangar_interior && here.flags.hangar_ramp) {
+    parkZoneId = here.flags.hangar_ramp;
+  } else if (here?.flags?.airfield_id && here.flags.hangar_interior_zone) {
+    const verb = (raw || '').trim().toLowerCase().split(/\s+/)[0];
+    if (verb === 'board') return gametableCommands.board(args, raw, player, broadcast);
+    return { type: 'emote', message: 'Aircraft are boarded from inside the hangar office — head <span class="action-link" data-action="cmd" data-cmd="in">in</span>.' };
+  }
+
+  // A chartered aircraft parked on the ramp → board as a passenger (the NPC pilot
+  // flies it). Only the player who chartered it may board; anyone else falls through
+  // to normal boarding (the reserved charter stays invisible to them).
+  const parkedCharter = charterParkedAt(parkZoneId);
   if (parkedCharter && (!parkedCharter.chartererId || parkedCharter.chartererId === player.id)) {
     if ((player.posture || 'standing') !== 'standing')
       return { type: 'emote', message: 'You need to be on your feet to climb aboard.' };
     return embarkCharter(player, parkedCharter);
   }
 
-  const found = await findParkedHere(player.current_zone, args.join(' ').trim().toLowerCase());
+  const found = await findParkedHere(parkZoneId, args.join(' ').trim().toLowerCase());
   if (!found) {
     // `embark` is aircraft-only; the `board` backup still delegates to poker's
     // community-board when there's no aircraft here.
@@ -140,7 +153,7 @@ async function cmdBoard(args, raw, player, broadcast) {
   const hint = seat !== 'pilot'
     ? 'You strap into a passenger seat and wait on the pilot.'
     : isContinuous(live)
-      ? "You drop into the seat. <b>Flip the ENGINE switch</b>, ease the <b>THROTTLE</b> up, and at ~42kt <b>pull back</b> on the yoke to fly her off."
+      ? "You drop into the seat. <b>Flip the ENGINE switch</b>, ease the <b>THROTTLE</b> up, and <b>pull back</b> on the yoke as she comes alive to fly her off."
       : "You settle into the pilot's seat. <span class=\"text-dim\">startup</span>, set a <span class=\"text-dim\">throttle</span>, then <span class=\"text-dim\">takeoff</span>.";
   const scramble = inCombat
     ? `<span class="text-green">You throw yourself aboard and slam the hatch — ${broke ? 'they lose you' : 'the fight breaks off'}.</span> `
@@ -274,7 +287,7 @@ async function cmdDive(args, raw, player) {
 // ── Takeoff / land (minigames) ────────────────────────────────────────────────
 async function cmdTakeoff(args, raw, player, broadcast) {
   const { live, err } = requirePilot(player); if (err) return err;
-  if (isContinuous(live)) return { type: 'emote', message: 'No command needed — <b>throttle up</b> in the cockpit and pull back at ~42kt to fly her off.' };
+  if (isContinuous(live)) return { type: 'emote', message: 'No command needed — <b>throttle up</b> in the cockpit and ease back on the yoke as she comes alive to fly her off.' };
   if (live.row.airborne) return { type: 'emote', message: "You're already flying." };
   if (!live.row.engine_on) return { type: 'emote', message: 'Spin the engine up first — `startup`.' };
   const zone = getZone(live.row.parked_zone_id);
@@ -303,6 +316,7 @@ async function cmdTakeoff(args, raw, player, broadcast) {
 
 async function cmdLand(args, raw, player, broadcast) {
   const { live, err } = requirePilot(player); if (err) return err;
+  if (isContinuous(live)) return { type: 'emote', message: 'No command needed — line her up on a runway and fly her down; brake to a stop and cut the <b>ENGINE</b> to taxi in and park.' };
   if (!live.row.airborne) return { type: 'emote', message: "You're already on the ground." };
   if (live.row.altitude_band !== 'low') return { type: 'emote', message: 'Descend to LOW over a field before you land — `dive`.' };
   const below = surfaceAt(live.row.grid_x, live.row.grid_y);
@@ -411,7 +425,12 @@ function sendFlightSim(player, live) {
     registration: String(live.row.name || live.type.name || 'MAYFLY').toUpperCase(),
     owner: (live.row.rental || !live.row.owner_id) ? 'RENTED'
       : (live.row.owner_id === player.id ? String(player.name || player.username || 'OWNER').toUpperCase() : 'PRIVATE'),
-    fuel: ctx.fuel, fuelCap: ctx.fuelCap, map: ctx.map, sky: ctx.sky, biomeBelow: ctx.biomeBelow, minimap: ctx.minimap,
+    fuel: ctx.fuel, fuelCap: ctx.fuelCap, map: ctx.map, sky: ctx.sky, biomeBelow: ctx.biomeBelow, minimap: ctx.minimap, fields: ctx.fields,
+    // Per-airframe capabilities the continuous cockpit adapts to (Phase 3): heavies +
+    // gunships have retractable gear; hardpoints arm the weapons; cargo enables jettison.
+    gearRetract: ['heavy', 'gunship'].includes(live.type.class),
+    hardpoints: live.type.hardpoints || 0,
+    cargoCap: live.type.cargo_capacity || 0, cargoKg: ctx.cargo,
   });
 }
 
@@ -422,6 +441,9 @@ async function cmdFlightSync(args, raw, player) {
   const n = args.map(Number);
   if (n.length < 9 || n.some(Number.isNaN)) return { type: 'noop' };
   reconcile(live, { gx: n[0], gy: n[1], alt: n[2], ias: n[3], hdg: n[4], thr: n[5], vs: n[6], onGround: n[7] === 1, stalled: n[8] === 1 });
+  // While rolling out on the ground over an airfield, remember it — the shutdown `land`
+  // parks here even if the roll drifts a tile off the runway before the engine's cut.
+  if (n[7] === 1) { const b = surfaceAt(live.row.grid_x, live.row.grid_y); if (b?.flags?.airfield_id) live.rolloutField = b.id; }
   return { type: 'noop' };
 }
 
@@ -433,7 +455,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
   if (ev === 'takeoff') {
     if (live.row.airborne) return { type: 'noop' };
     const zone = getZone(live.row.parked_zone_id);
-    live.row.airborne = 1; live.row.parked_zone_id = null; live.starving = false; live.runup = false;
+    live.row.airborne = 1; live.row.parked_zone_id = null; live.starving = false; live.runup = false; live.rolloutField = null;
     initFloat(live);
     for (const pid of live.occupants) {
       const p = getLivePlayer(pid); if (!p) continue;
@@ -449,13 +471,15 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
 
   if (ev === 'land') {
     if (!live.row.airborne) return { type: 'noop' };
-    const below = surfaceAt(live.row.grid_x, live.row.grid_y);
+    let field = surfaceAt(live.row.grid_x, live.row.grid_y);
+    // A long roll-out can drift the plane a tile off the runway before you shut down —
+    // fall back to the airfield we actually touched down on (recorded while grounded over it).
+    if (!field?.flags?.airfield_id && live.rolloutField) field = getZone(live.rolloutField);
     // Fixed-wing sets down on a real airfield; anything else is a crash.
-    if (!below?.flags?.airfield_id) { await crash(live, 'offfield'); return { type: 'noop' }; }
-    await parkAt(live, below.id);
-    out(player.id, '<span class="text-green">Down and rolling out. Welcome back.</span>');
+    if (!field?.flags?.airfield_id) { await crash(live, 'offfield'); return { type: 'noop' }; }
+    await parkAt(live, field.id);
     await awardSkillUse(player.id, 'piloting', 0);
-    await checkContractDelivery(player, live, below.id);
+    await checkContractDelivery(player, live, field.id);
     return { type: 'noop' };
   }
 
@@ -531,7 +555,9 @@ function overflyNoise(live) {
       const from = degToCardinal(bearingDeg(a.grid_x + dx, a.grid_y + dy, a.grid_x, a.grid_y)).toUpperCase();
       msg = `<span class="text-dim">You hear ${snd.far} to the ${from}${dist >= reach ? ', distant' : ''}.</span>`;
     }
-    sendToZone(cell.id, { type: 'zone_event', message: msg });
+    // Exclude our own occupants: they share a stale ground zone but are aloft — they
+    // must never hear the noise their own aircraft is making below them.
+    sendToZoneExcept(cell.id, { type: 'zone_event', message: msg }, live.occupants);
     if (dist === 0 && a.altitude_band === 'low') groundReact(live, cell.id, reach);
   }
 }
@@ -544,12 +570,12 @@ async function groundReact(live, zoneId, loud) {
   const hostiles = enemies.filter(e => e && (e.behavior === 'aggressive' || e.behavior === 'defensive'));
   if (!hostiles.length) return;
   const e = hostiles[Math.floor(Math.random() * hostiles.length)];
-  sendToZone(zoneId, { type: 'zone_event', message: `${e.name} snaps its head up, tracking the aircraft overhead.` });
+  sendToZoneExcept(zoneId, { type: 'zone_event', message: `${e.name} snaps its head up, tracking the aircraft overhead.` }, live.occupants);
   // Aggressive things take a potshot; louder/lower = a fatter, easier target.
   if (e.behavior === 'aggressive' && Math.random() < 0.15 + loud * 0.05) {
     live.row.damage = Math.min(1, live.row.damage + 0.05);
     toOccupants(live, `<span class="text-amber">Ground fire from below cracks off the hull — hull ${Math.round((1 - live.row.damage) * 100)}%.</span>`);
-    sendToZone(zoneId, { type: 'zone_event', message: `${e.name} looses a burst of fire up at the passing aircraft.` });
+    sendToZoneExcept(zoneId, { type: 'zone_event', message: `${e.name} looses a burst of fire up at the passing aircraft.` }, live.occupants);
     if (live.row.damage >= 1) await crash(live, 'groundfire');
   }
 }
@@ -569,14 +595,21 @@ async function flightTick() {
       if (isContinuous(live)) {
         if (!live.row.airborne || live.pending) continue;   // taxi/roll is client-side until wheels-up
         const a = live.row, eff = effStats(live);
-        a.fuel = Math.max(0, a.fuel - eff.burn * (0.15 + (a.throttle / 100)) * (BAND_BURN[a.altitude_band] || 1));
-        if (a.fuel <= 0 && !live.starving) { live.starving = true; toOccupants(live, '<span class="text-red">⚠ ENGINE OUT — the tank\'s dry. Dead stick. Get it down.</span>'); }
-        await checkAirspace(live);
-        if (!liveAircraft.has(live.row.id)) continue;
-        await tickCombat(live);
-        if (!liveAircraft.has(live.row.id)) continue;
-        overflyNoise(live);
-        if (!liveAircraft.has(live.row.id)) continue;
+        // After touchdown the client keeps the sim open and rolls out on the ground
+        // (airborne stays 1 until it shuts down or lifts off again). Skip the airborne
+        // consequences — fuel burn, airspace/combat, overfly noise — while it's grounded;
+        // a taxiing plane mustn't "buzz past overhead" or trip no-fly rules.
+        const grounded = !!live.cont?.onGround;
+        if (!grounded) {
+          a.fuel = Math.max(0, a.fuel - eff.burn * (0.15 + (a.throttle / 100)) * (BAND_BURN[a.altitude_band] || 1));
+          if (a.fuel <= 0 && !live.starving) { live.starving = true; toOccupants(live, '<span class="text-red">⚠ ENGINE OUT — the tank\'s dry. Dead stick. Get it down.</span>'); }
+          await checkAirspace(live);
+          if (!liveAircraft.has(live.row.id)) continue;
+          await tickCombat(live);
+          if (!liveAircraft.has(live.row.id)) continue;
+          overflyNoise(live);
+          if (!liveAircraft.has(live.row.id)) continue;
+        }
         // While airborne the pilot is in the AIRCRAFT, not the field — keep them out
         // of the zone's player set so room ambience/banter/vendor chatter doesn't leak
         // into the cockpit. (Belt-and-suspenders against anything re-adding them.)
@@ -655,13 +688,24 @@ function serviceBits(field) {
   return `<span class="furniture-label">Services:</span> ${bits.join('   ·   ')}`;
 }
 
-// Inside a walk-in hangar: the same services (they resolve to the ramp via
-// fieldFor), a way `out` to the aircraft on the ramp, and — when one's on shift —
-// the charter pilot at their desk. Embarking always happens outside on the ramp.
-function describeHangarInterior(zone) {
+// Inside a walk-in hangar: the same services (they resolve to the ramp via fieldFor),
+// a way `out` to the ramp, the charter pilot when one's on shift — and this is where
+// you BOARD: the `embark` link reaches the aircraft parked on the linked ramp.
+async function describeHangarInterior(zone) {
   const ramp = getZone(zone.flags.hangar_ramp);
   if (!ramp) return `<span class="furniture-label">Hangar:</span> ${svcLink('out', 'out')} <span class="text-dim">back out to the ramp</span>`;
-  let line = `${serviceBits(ramp)}\n<span class="furniture-label">Ramp:</span> ${svcLink('out', 'out')} <span class="text-dim">step out to the aircraft on the ramp (embark there)</span>`;
+  let line = `${serviceBits(ramp)}\n<span class="furniture-label">Ramp:</span> ${svcLink('out', 'out')} <span class="text-dim">step back out onto the ramp</span>`;
+  // Board straight from the office — the aircraft on the linked ramp are in reach.
+  const { rows } = await query(
+    "SELECT name FROM aircraft WHERE parked_zone_id=$1 AND is_wreck=0 AND (custom_data->>'charter') IS DISTINCT FROM 'true' LIMIT 1",
+    [ramp.id]
+  ).catch(() => ({ rows: [] }));
+  if (rows.length) line += `\n<span class="furniture-label">On the ramp:</span> ${svcLink('embark', 'embark')} <span class="text-dim">an aircraft is parked outside — board it from here</span>`;
+  const ch = charterParkedAt(ramp.id);
+  if (ch) {
+    const who = getLivePlayer(ch.chartererId)?.handle;
+    line += `\n<span class="furniture-label">Charter waiting:</span> ${svcLink('embark', 'embark')} <span class="text-dim">${ch.pilotName}'s aircraft is on the ramp${who ? `, held for ${who}` : ''}</span>`;
+  }
   const pilot = getZoneNpcs(zone.id).find(n => n?.flags?.charter_pilot);
   if (pilot) line += `\n<span class="text-dim">${pilot.name} sits at the ops desk, feet up, a mug going cold on the console.</span>`;
   return line;
@@ -671,13 +715,17 @@ function describeHangarInterior(zone) {
 // when the zone has furniture rows) — several airfields have none, so this is
 // the only reliable way to surface "there's a hangar here" at every field.
 async function describeAirfield(zone) {
-  if (zone?.flags?.hangar_interior) return describeHangarInterior(zone);
+  if (zone?.flags?.hangar_interior) return await describeHangarInterior(zone);
   if (!zone?.flags?.airfield_id) return undefined;
   const f = zone.flags;
   let line = serviceBits(zone);
-  // The walk-in hangar entrance, if this field has one.
-  if (f.hangar_interior_zone) line += `\n<span class="furniture-label">Hangar:</span> ${svcLink('in', 'step inside')} <span class="text-dim">the hangar office — desk, tools, the charter pilot — is through the bay doors</span>`;
-  // If there's a boardable aircraft parked here, offer a one-click embark.
+  // If this field has a walk-in hangar, boarding is done INSIDE it (less ambiguity) —
+  // point players in through the bay doors; the embark links live in the office.
+  if (f.hangar_interior_zone) {
+    line += `\n<span class="furniture-label">Hangar:</span> ${svcLink('in', 'step inside')} <span class="text-dim">desk, tools, the charter pilot — and where you board your aircraft; through the bay doors</span>`;
+    return line;
+  }
+  // No walk-in hangar here → board straight off the ramp.
   const { rows } = await query(
     "SELECT name FROM aircraft WHERE parked_zone_id=$1 AND is_wreck=0 AND (custom_data->>'charter') IS DISTINCT FROM 'true' LIMIT 1",
     [zone.id]
@@ -715,7 +763,7 @@ async function cmdTestFly(args, raw, player) {
   live.occupants.add(player.id); player.aircraftId = id; player.seat = 'pilot';
   if (isContinuous(live)) sendFlightSim(player, live); else pushHud(live);
   const how = isContinuous(live)
-    ? 'flip the <b>ENGINE</b> switch, throttle up, and pull back at ~42kt'
+    ? 'flip the <b>ENGINE</b> switch, throttle up, and pull back as she comes alive'
     : 'startup · throttle · takeoff';
   return { type: 'emote', message: `<span class="text-green">[TEST] A free <b>${t.name}</b>, full tank, and you're in the pilot's seat. ${how}. It's yours — scrap it when done.</span>` };
 }

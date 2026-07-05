@@ -12,6 +12,7 @@ let canvas = null;
 let ctx = null;
 let running = false;
 let enabled = false;             // Settings gate (weatherFx on + motion on); default off until settings apply
+let suppressed = false;          // hard override — on while the flight cockpit owns the pane (it draws its own windshield weather); prevents the outdoor overlay flashing over the cockpit on embark
 
 // Current *target* effect descriptor: { effect, intensity, windKph }. `effect` is
 // one of 'rain' | 'snow' | 'ash' | 'fog' | 'wind' | 'none'; intensity is 0..1.
@@ -299,7 +300,7 @@ function frame(t) {
 // (active/presence) after the target has already gone to 'none'.
 function shouldRun() {
   const busy = cur.effect !== 'none' || active !== 'none' || presence > 0.001 || !!eventFx.type;
-  return enabled && busy && !document.hidden;
+  return enabled && !suppressed && busy && !document.hidden;
 }
 
 function startLoop() {
@@ -355,6 +356,15 @@ export function setWeatherFxEnabled(on) {
 // under the one WeatherFX toggle instead of having its own always-on switch.
 export function isWeatherFxEnabled() {
   return enabled;
+}
+
+// Public: hard-suppress the outdoor overlay while the flight cockpit owns the pane
+// (it renders its own windshield weather). Stops it immediately on embark so rain never
+// flashes over the cockpit, and lets it resume for the room view on exit.
+export function suppressWeatherFx(on) {
+  suppressed = !!on;
+  if (suppressed) stopLoop();
+  else startLoop();
 }
 
 export function initWeatherFx() {

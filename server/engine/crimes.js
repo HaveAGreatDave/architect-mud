@@ -17,8 +17,9 @@ import { query } from '../models/db.js';
 //   'always'  — self-reporting; heat applies even with nobody watching
 export const CRIME_DEFAULTS = {
   drug_use:            { label: 'Illegal drug use (on camera)', stars: 0.5, witness: 'camera', description: 'Using a controlled substance in view of a camera.' },
-  attack_player:       { label: 'Attacking a player',           stars: 3,   witness: 'any',    description: 'Opening fire on another player.' },
-  attack_npc:          { label: 'Attacking an NPC',             stars: 3,   witness: 'any',    description: 'Assaulting a non-player character.' },
+  drug_dealing:        { label: 'Dealing (hand-to-hand)',       stars: 1,   witness: 'any',    description: 'Passing a controlled substance to another person. A camera might catch it; a bystander might phone it in — never a sure thing, never zero.' },
+  attack_player:       { label: 'Attacking a player',           stars: 4,   witness: 'any',    description: 'Opening fire on another player in view of a witness (camera, cop, or bystander) inside city limits — an immediate 4-star response.' },
+  attack_npc:          { label: 'Attacking an NPC',             stars: 4,   witness: 'any',    description: 'Assaulting a non-player character in view of a witness inside city limits — an immediate 4-star response.' },
   kill_police:         { label: 'Killing police',               stars: 5,   witness: 'always', description: 'Killing a law-enforcement NPC.' },
   hacking:             { label: 'Hacking',                      stars: 2,   witness: 'any',    description: 'Breaching a device or terminal.' },
   murder:              { label: 'Murder',                       stars: 5,   witness: 'always', description: 'Killing another player outright.' },

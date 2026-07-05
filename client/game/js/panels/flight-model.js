@@ -50,11 +50,51 @@ export const TYPES = {
     flapLift: 0.35,       // extra lift per unit flap
     flapVs: 0.18,         // stall-speed reduction per unit flap
     rollFric: 1.6,        // ground rolling friction (kt/s) with throttle at idle
+    brake: 5.5,           // extra ground deceleration (kt/s) at full back-pressure — wheel brakes for the rollout
+    groundSteer: 30,      // nosewheel/tiller authority (deg/s) while taxiing; fades out toward rotation speed
     aoaCrit: 19,          // critical angle of attack (deg) — high = forgiving, resists the stall
     liftScale: 1.0,       // scales the whole lift/weight pair (cancels; kept as a knob)
     vsMax: 525,           // max sustained climb (ft/min) — scaled ~0.7× the Cessna 172 like our other numbers
     vsGain: 1600,         // how hard excess lift converts to vertical speed
     vsTau: 1.0,           // vertical inertia (s) — vs eases toward its target; lower = climbs out off the ground faster
+  },
+
+  // ── Phase 3 fixed-wing fleet ────────────────────────────────────────────────
+  // Scaled off the Mayfly by mass + character (heavier = slower rates, longer rolls,
+  // higher speeds). All knobs — starting points for a by-ear tuning pass like the Mayfly.
+  // The heli (Dragonfly, VTOL) is NOT here — it needs its own hover model (Phase 3b).
+
+  // Mule — twin-prop freight workhorse: heavier, stable, rough-strip capable.
+  mule: {
+    name: 'Mule', mass: 2.0, thrustMax: 20, vr: 52, vs0: 44, vne: 165, cruise: 110,
+    pitchRate: 8, pitchTau: 0.8, rollRate: 40, rollTau: 0.7, engineLag: 1.6,
+    pitchStable: 0.85, rollStable: 1.0, dragP: 0.00090, flapDrag: 0.6, flapLift: 0.4, flapVs: 0.2,
+    rollFric: 1.4, aoaCrit: 18, liftScale: 1.0, vsMax: 850, vsGain: 1600, vsTau: 1.2,
+    brake: 6.0, groundSteer: 26,
+  },
+  // Leviathan — 4-engine heavy: ponderous, fast, needs a real runway. Slow to rotate, long roll.
+  leviathan: {
+    name: 'Leviathan', mass: 5.0, thrustMax: 40, vr: 95, vs0: 78, vne: 280, cruise: 190,
+    pitchRate: 5, pitchTau: 1.2, rollRate: 22, rollTau: 1.1, engineLag: 2.4,
+    pitchStable: 0.7, rollStable: 0.85, dragP: 0.00070, flapDrag: 0.7, flapLift: 0.45, flapVs: 0.2,
+    rollFric: 1.2, aoaCrit: 16, liftScale: 1.0, vsMax: 1400, vsGain: 1600, vsTau: 1.6,
+    brake: 5.0, groundSteer: 16,
+  },
+  // Reaper — gunship: fast, powerful, twitchy-agile. Everyone hears it coming.
+  reaper: {
+    name: 'Reaper', mass: 2.2, thrustMax: 48, vr: 85, vs0: 66, vne: 340, cruise: 210,
+    pitchRate: 14, pitchTau: 0.5, rollRate: 95, rollTau: 0.45, engineLag: 1.1,
+    pitchStable: 0.95, rollStable: 1.15, dragP: 0.00060, flapDrag: 0.5, flapLift: 0.3, flapVs: 0.16,
+    rollFric: 1.5, aoaCrit: 20, liftScale: 1.0, vsMax: 2200, vsGain: 1800, vsTau: 0.85,
+    brake: 7.0, groundSteer: 30,
+  },
+  // Carcass — salvaged wreck: underpowered, draggy, unstable. A junker you nurse into the air.
+  carcass: {
+    name: 'Carcass', mass: 1.4, thrustMax: 11, vr: 44, vs0: 32, vne: 115, cruise: 72,
+    pitchRate: 10, pitchTau: 0.5, rollRate: 50, rollTau: 0.5, engineLag: 1.5,
+    pitchStable: 0.7, rollStable: 0.8, dragP: 0.00120, flapDrag: 0.55, flapLift: 0.32, flapVs: 0.17,
+    rollFric: 1.7, aoaCrit: 17, liftScale: 0.95, vsMax: 480, vsGain: 1500, vsTau: 1.1,
+    brake: 5.0, groundSteer: 30,
   },
 };
 
@@ -140,6 +180,11 @@ export function step(state, input, p, dt) {
   if (s.airspeed > 1 && !s.onGround) {
     const turnRate = (G_KT * Math.tan(s.bank * D2R)) / Math.max(p.vs0, s.airspeed) * R2D;
     s.heading = wrap360(s.heading + turnRate * dt);
+  } else if (s.onGround && s.airspeed > 0.3) {
+    // Nosewheel/tiller steering on the ground — the raw aileron swings the nose to taxi.
+    // Needs a little roll speed to bite and fades toward rotation so you don't swerve at Vr.
+    const steerAuth = clamp(s.airspeed / 5, 0, 1) * clamp((p.vr - s.airspeed) / p.vr, 0, 1);
+    s.heading = wrap360(s.heading + aileron * (p.groundSteer || 0) * steerAuth * dt);
   }
 
   // 6. Angle of attack from the current flight path (uses last frame's vs — fine at
@@ -208,7 +253,11 @@ export function step(state, input, p, dt) {
   const drag = (p.dragP + flaps * p.flapDrag * 0.0016) * s.airspeed * s.airspeed
              + s.aoa * s.aoa * 0.0016 * s.airspeed;              // induced drag ∝ AoA² — a hard pull bleeds speed fast, a gentle climb barely at all
   const grav = G_KT * Math.sin(s.pitch * D2R);
-  const fric = s.onGround ? p.rollFric * (1 - s.rpm) : 0;        // brakes off; idle drag rolls to a stop
+  // Ground friction: idle rolling drag, plus wheel brakes from FORWARD pressure (push the
+  // yoke, elevator < 0). Pushing also pins the nose to the runway, so braking never fights
+  // the back-pressure you use to rotate and lift off — they're opposite gestures.
+  const brake = s.onGround ? clamp(-elevator, 0, 1) * (p.brake || 0) : 0;
+  const fric = s.onGround ? p.rollFric * (1 - s.rpm) + brake : 0;
   s.airspeed = Math.max(0, s.airspeed + ((thrust - drag) / p.mass - grav - fric) * dt);
   s.groundSpeed = s.airspeed;
 

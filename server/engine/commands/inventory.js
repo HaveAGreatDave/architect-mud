@@ -60,12 +60,18 @@ export async function recomputeArmor(player) {
   for (const r of rows) {
     const slot = tagValue(r, 'slot');
     if (!slot) continue;
-    const entry = bySlot[slot] || (bySlot[slot] = { soak: {}, flat: 0 });
+    // A `covers` garment (e.g. a jumpsuit) protects every slot it fills.
+    const covers = tagValue(r, 'covers');
+    const slots = Array.isArray(covers) ? [slot, ...covers] : [slot];
     const sm = tagValue(r, 'armor_soak');
-    if (sm && typeof sm === 'object') {
-      for (const [type, val] of Object.entries(sm)) entry.soak[type] = (entry.soak[type] || 0) + (Number(val) || 0);
+    const flat = tagValue(r, 'armor', 0) || 0;
+    for (const s of slots) {
+      const entry = bySlot[s] || (bySlot[s] = { soak: {}, flat: 0 });
+      if (sm && typeof sm === 'object') {
+        for (const [type, val] of Object.entries(sm)) entry.soak[type] = (entry.soak[type] || 0) + (Number(val) || 0);
+      }
+      entry.flat += flat;
     }
-    entry.flat += tagValue(r, 'armor', 0) || 0;
   }
   player.soak = bySlot;
 }
@@ -80,6 +86,9 @@ export async function recomputeInsulation(player) {
     if (hasTag(r, 'sealed')) sealed = true;   // respirator/mask — blocks ash choking
     const slot = tagValue(r, 'slot');
     if (slot) covered.add(slot);
+    // A `covers` garment (e.g. a jumpsuit) counts its extra slots as clothed too.
+    const covers = tagValue(r, 'covers');
+    if (Array.isArray(covers)) for (const c of covers) covered.add(c);
   }
   player.insulation = total;
   // Whether any equipped item seals the airway (gas mask / respirator). Read by the
@@ -353,6 +362,8 @@ async function cmdUse(targetStr, player, broadcast) {
     // Synthesized drugs carry a potency multiplier baked into the inventory row;
     // spliced compounds also carry their whole composed effects blob inline.
     const cd = typeof item.custom_data === 'string' ? (() => { try { return JSON.parse(item.custom_data); } catch { return {}; } })() : (item.custom_data || {});
+    // Sealed in a climate crate — frozen and search-proof until you break the seal.
+    if (cd && cd.packaged) return { type: 'error', message: `That's sealed in a climate crate. <span class="text-dim">unseal</span> it first.` };
     const opts = { potencyMult: Number(cd?.potency) || 1 };
     if (cd && cd.effects) {
       opts.inlineEffects = cd.effects;

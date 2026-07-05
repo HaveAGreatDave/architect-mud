@@ -26,3 +26,10 @@ export function sendToPlayer(playerId, message) {
 export function sendToZone(zoneId, message, excludeId = null) {
   if (broadcastFn && zoneId) broadcastFn(zoneId, message, excludeId);
 }
+
+// Broadcast to a zone while excluding a Set of player ids — e.g. an aircraft's own
+// occupants, who share a stale ground `current_zone` but are up in the sky and must
+// not hear ambience (their own overfly noise, ground reactions) about themselves.
+export function sendToZoneExcept(zoneId, message, excludeSet = null) {
+  if (broadcastFn && zoneId) broadcastFn(zoneId, message, null, null, null, excludeSet);
+}

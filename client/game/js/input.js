@@ -4,6 +4,7 @@ import { appendHtml } from './render.js';
 import { MARKUP_HELP_HTML, STATUS_TEMPLATE } from './markup.js';
 import { appendToWhisperLog, sendToActiveTab } from './panels/whisper.js';
 import { openMusicPlayerPanel } from './panels/musicplayer.js';
+import { isFlightSimActive } from './panels/cockpit.js';
 
 function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
   const lower = cmd.toLowerCase();
@@ -64,6 +65,9 @@ export function initInput({ saveOrigin, notify } = {}) {
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
     if (document.getElementById('auth-screen').style.display !== 'none') return;
+    // The flight sim owns the keyboard (A/Z throttle, Q/E/S views, R/F flaps, …) — don't
+    // yank focus into the command box on those single-key presses.
+    if (isFlightSimActive()) return;
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
       input.focus();
     }

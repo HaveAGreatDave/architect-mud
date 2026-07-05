@@ -62,8 +62,8 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('landresolve tok 1'); check('landresolve unarmed no-ops', r?.type === 'noop', r?.type);
 
   // ── Continuous-flight seam (Mayfly slice) ───────────────────────────────────
-  check('continuous mode gated to the Mayfly', _test.isContinuous({ type: { id: 'ac_mayfly' } }) === true);
-  check('other aircraft keep the deck/band flow', _test.isContinuous({ type: { id: 'ac_mule' } }) === false);
+  check('fixed-wing fleet flies the continuous sim', _test.isContinuous({ type: { id: 'ac_mayfly' } }) === true && _test.isContinuous({ type: { id: 'ac_reaper' } }) === true);
+  check('the heli (VTOL) keeps the deck/band flow', _test.isContinuous({ type: { id: 'ac_dragonfly' } }) === false);
   check('bandFromAltitude: on the deck → ground', _test.bandFromAltitude(0, true) === 'ground');
   check('bandFromAltitude: 300ft → low', _test.bandFromAltitude(300) === 'low');
   check('bandFromAltitude: 800ft → cruise', _test.bandFromAltitude(800) === 'cruise');
@@ -80,6 +80,7 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('arm'); check('arm not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('strafe'); check('strafe not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('strafresolve tok 1'); check('strafresolve unarmed no-ops', r?.type === 'noop', r?.type);
+  r = await run('jettison'); check('jettison not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
 
   // ── Acquisition / contracts / hangars gate off an airfield ──────────────────
   r = await run('charter'); check('charter off-field reports no desk', /no .*(charter|dealer)/i.test(r?.message || ''), r?.message);

@@ -20,6 +20,8 @@ import { query, withTransaction } from '../../server/models/db.js';
 import { getRecipeCache, findRecipeByName } from '../../server/engine/crafting.js';
 import { skillCheck, awardSkillUse, skillStatBonus, effectiveSkill } from '../../server/engine/skills.js';
 import { getDrugCache } from '../../server/engine/drugs.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { getTunable } from '../../server/engine/tunables.js';
 import { randomUUID } from 'crypto';
 
 const SYNTH_SKILL = 'chemistry';
@@ -279,77 +281,90 @@ const summariseHall = (h) => `${h.mode || 'overlay'} trip (${h.palette || 'green
 const MAX_BATCH = 10;   // hard cap on a single splice's output doses
 const clampQty = (q) => Math.max(1, Math.min(MAX_BATCH, parseInt(q, 10) || 1));
 
-// Quantity-weighted blend of two effect-mod maps. Weights are exponential in the
-// input quantities (see composeSplice), so the majority side dominates more than
-// its raw share — the "proportion of side-effects" the ratio controls. Opposite
-// signs on a shared stat count as antagonism (volatility).
-function blendMods(a, b, wa, wb) {
+const THREE_WAY_CHEM = 10;      // near-max Chemistry to unlock the 3rd (splice-2) slot
+const THREE_WAY_SPLICES = 15;   // …and this many clean splices logged (the `splice_count` flag)
+
+// Weighted blend of N effect-mod maps (weights sum to 1). Opposite signs on a
+// shared stat across the inputs = antagonism (volatility). Empty result rounds
+// don't drop a real effect entirely.
+function blendManyMods(maps, weights) {
+  const keys = new Set(); maps.forEach(m => { for (const k in (m || {})) keys.add(k); });
   const obj = {}; let conflicts = 0;
-  const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
   for (const k of keys) {
-    const av = Number(a?.[k]) || 0, bv = Number(b?.[k]) || 0;
-    if (av && bv && Math.sign(av) !== Math.sign(bv)) conflicts++;
-    const v = Math.round(av * wa + bv * wb);
-    if (v !== 0) obj[k] = v;
-    else if (av || bv) obj[k] = (av * wa + bv * wb) >= 0 ? 1 : -1;   // don't let a real effect round away to nothing
+    let sum = 0; const signs = new Set();
+    maps.forEach((m, i) => { const v = Number(m?.[k]) || 0; sum += v * weights[i]; if (v) signs.add(Math.sign(v)); });
+    if (signs.size > 1) conflicts++;
+    const v = Math.round(sum);
+    if (v !== 0) obj[k] = v; else if (signs.size) obj[k] = sum >= 0 ? 1 : -1;
   }
   return { obj, conflicts };
 }
 
-// Weighted blend of two hex colours (w1 = base's share). Stored on the compound
-// so it reads as a genuine mix; a future re-splice would inherit this one colour.
-function hexBlend(c1, c2, w1) {
+// Weighted blend of N hex colours (up to 3 in a splice). "Re-splice inherits 1":
+// each input already carries one blended colour, so this yields one colour out.
+function hexBlendMany(colors, weights) {
   const parse = (h) => { h = String(h || '#888888').replace('#', ''); if (h.length === 3) h = h.split('').map(x => x + x).join(''); return [parseInt(h.slice(0, 2), 16) || 0, parseInt(h.slice(2, 4), 16) || 0, parseInt(h.slice(4, 6), 16) || 0]; };
-  const [r1, g1, b1] = parse(c1), [r2, g2, b2] = parse(c2), w2 = 1 - w1;
+  let r = 0, g = 0, b = 0;
+  colors.forEach((c, i) => { const [cr, cg, cb] = parse(c); r += cr * weights[i]; g += cg * weights[i]; b += cb * weights[i]; });
   const to = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
-  return '#' + to(r1 * w1 + r2 * w2) + to(g1 * w1 + g2 * w2) + to(b1 * w1 + b2 * w2);
+  return '#' + to(r) + to(g) + to(b);
 }
 
-// Compose a BASE drug with a SPLICE drug at chosen quantities. All effect layers
-// merge (no per-block picking); each side's magnitude is weighted by quantity²
-// (exponential), so the ratio you use sets the proportion. Output quantity is the
-// higher of the two; output form is the majority-quantity input's (tie → base);
-// output colour is the weighted blend. Difficulty/instability rise with batch size.
-// `base`/`splice` are { eff, form, color }.
-function composeSplice(base, splice, baseQty, spliceQty) {
-  const b = normEff(base.eff), s = normEff(splice.eff);
-  const wbRaw = baseQty * baseQty, wsRaw = spliceQty * spliceQty, tot = (wbRaw + wsRaw) || 1;
-  const wBase = wbRaw / tot, wSplice = wsRaw / tot;
+// Compose 2–3 drugs (each { eff, form, color, qty }) into one compound. All effect
+// layers merge (no per-block picking); each input is weighted by quantity²
+// (exponential), so the ratio sets the proportion. Output quantity = the highest
+// input; output form = the single highest-quantity input's (tie → base); output
+// colour = the weighted blend (up to 3). Difficulty/instability climb with the
+// input count and the batch size.
+function composeSplice(inputs) {
+  const norm = inputs.map(i => ({ eff: normEff(i.eff), form: i.form, color: i.color, qty: Math.max(1, i.qty || 1) }));
+  const wRaw = norm.map(i => i.qty * i.qty); const tot = wRaw.reduce((a, b) => a + b, 0) || 1;
+  const w = wRaw.map(x => x / tot);
   let antagonism = 0;
 
-  const ri = blendMods(b.instant, s.instant, wBase, wSplice); antagonism += ri.conflicts;
+  const ri = blendManyMods(norm.map(i => i.eff.instant), w); antagonism += ri.conflicts;
   const composed = {
     instant: ri.obj, phases: null, hallucination: null,
-    tolerance: b.tolerance ?? s.tolerance, withdrawal: b.withdrawal ?? s.withdrawal, overdose: b.overdose ?? s.overdose,
+    tolerance: norm.find(i => i.eff.tolerance != null)?.eff.tolerance,
+    withdrawal: norm.find(i => i.eff.withdrawal != null)?.eff.withdrawal,
+    overdose: norm.find(i => i.eff.overdose != null)?.eff.overdose,
   };
-  if (b.phases || s.phases) {
-    if (b.phases && s.phases) {
-      const rp = blendMods(b.phases.peak_mods || {}, s.phases.peak_mods || {}, wBase, wSplice); antagonism += rp.conflicts;
-      composed.phases = { ...b.phases, peak_mods: rp.obj };
-      for (const key of ['comeup_seconds', 'peak_seconds', 'comedown_seconds']) composed.phases[key] = Math.max(b.phases[key] || 0, s.phases[key] || 0);
-    } else composed.phases = clone(b.phases || s.phases);
-  }
-  if (b.hallucination || s.hallucination) {
-    if (b.hallucination && s.hallucination) {
-      composed.hallucination = clone(b.hallucination);
-      composed.hallucination.intensity = Math.min(1, (b.hallucination.intensity || 0.5) * wBase + (s.hallucination.intensity || 0.5) * wSplice);
-      composed.hallucination.events = [...(b.hallucination.events || []), ...(s.hallucination.events || [])].slice(0, 12);
-      if (s.hallucination.mode === 'dreamzone') { composed.hallucination.mode = 'dreamzone'; composed.hallucination.dreamzone_id = composed.hallucination.dreamzone_id || s.hallucination.dreamzone_id; }
-    } else composed.hallucination = clone(b.hallucination || s.hallucination);
+
+  const withP = norm.filter(i => i.eff.phases);
+  if (withP.length) {
+    const pw = withP.map(i => i.qty * i.qty); const pt = pw.reduce((a, b) => a + b, 0) || 1;
+    const rp = blendManyMods(withP.map(i => i.eff.phases.peak_mods || {}), pw.map(x => x / pt)); antagonism += rp.conflicts;
+    const ph = clone(withP[0].eff.phases); ph.peak_mods = rp.obj;
+    for (const key of ['comeup_seconds', 'peak_seconds', 'comedown_seconds']) ph[key] = Math.max(...withP.map(i => i.eff.phases[key] || 0));
+    composed.phases = ph;
   }
 
-  const outputQty = Math.max(baseQty, spliceQty);
-  const form = baseQty >= spliceQty ? base.form : splice.form;   // higher quantity wins, deterministic
-  const color = hexBlend(base.color, splice.color, wBase);
+  const withH = norm.filter(i => i.eff.hallucination);
+  if (withH.length) {
+    const hw = withH.map(i => i.qty * i.qty); const ht = hw.reduce((a, b) => a + b, 0) || 1;
+    const h = clone(withH[0].eff.hallucination);
+    h.intensity = Math.min(1, withH.reduce((s, i, idx) => s + (i.eff.hallucination.intensity || 0.5) * (hw[idx] / ht), 0));
+    h.events = withH.flatMap(i => i.eff.hallucination.events || []).slice(0, 12);
+    const dz = withH.find(i => i.eff.hallucination.mode === 'dreamzone');
+    if (dz) { h.mode = 'dreamzone'; h.dreamzone_id = h.dreamzone_id || dz.eff.hallucination.dreamzone_id; }
+    composed.hallucination = h;
+  }
+
+  const outputQty = Math.max(...norm.map(i => i.qty));
+  let fi = 0; for (let i = 1; i < norm.length; i++) if (norm[i].qty > norm[fi].qty) fi = i;
+  const form = norm[fi].form;
+  const color = hexBlendMany(norm.map(i => i.color), w);
   const totalAbs = absSum(composed.phases?.peak_mods) + absSum(composed.instant);
   const hallCount = composed.hallucination ? 1 : 0;
-  const difficulty = Math.round(SPLICE_BASE_DIFF + 1.2 * (outputQty - 1) + 1.5 * antagonism + totalAbs / 12);
-  const instability = Math.min(1, 0.10 * (outputQty - 1) + 0.18 * antagonism + 0.12 * hallCount + totalAbs / 120);
-  const doseWeight = 2;                  // a base+splice blend counts as two doses
+  const n = norm.length;
+  const difficulty = Math.round(SPLICE_BASE_DIFF + 1.5 * (n - 2) + 1.2 * (outputQty - 1) + 1.5 * antagonism + totalAbs / 12);
+  const instability = Math.min(1, 0.10 * (outputQty - 1) + 0.10 * (n - 2) + 0.18 * antagonism + 0.12 * hallCount + totalAbs / 120);
+  const doseWeight = n;                  // one dose-weight per distinct drug in the blend
   const odThreshold = doseWeight + 2;    // first dose usable; stacking doses ODs faster than a plain drug
   const warnings = [];
   if (antagonism > 0) warnings.push('Antagonistic effects fight each other — volatile.');
-  if (outputQty >= 4) warnings.push('Big batch — harder to hold steady, and it ODs fast.');
+  if (n >= 3) warnings.push('Three-way blend — overloaded, ODs fast.');
+  if (outputQty >= 4) warnings.push('Big batch — harder to hold steady.');
   if (instability > 0.6) warnings.push('Highly unstable — real risk of a bad batch, or worse.');
   return { effects: composed, difficulty, instability: Math.round(instability * 100) / 100, doseWeight, odThreshold, outputQty, form, color, warnings, antagonism };
 }
@@ -398,7 +413,7 @@ async function cmdSplice(args, raw, player, broadcast) {
   const usedBy = {}; for (const k of kn) usedBy[k.drug_id] = k.times_used || 0;
   for (const d of drugs) d.known = Math.max(0.2, Math.min(1, 0.35 + (usedBy[d.drug] || 0) * 0.09));
 
-  return { type: 'splice_designer', drugs, minSkill: SPLICE_MIN_SKILL, baseDifficulty: SPLICE_BASE_DIFF, hasStabilizer: stabilizerCount > 0, stabilizerCount };
+  return { type: 'splice_designer', drugs, minSkill: SPLICE_MIN_SKILL, baseDifficulty: SPLICE_BASE_DIFF, hasStabilizer: stabilizerCount > 0, stabilizerCount, allow3way: await allow3way(player) };
 }
 
 function summariseComposed(e) {
@@ -409,50 +424,80 @@ function summariseComposed(e) {
   return lines.join('\n') || 'No effects selected.';
 }
 
-// Build the {eff, form, color} shape composeSplice wants from a cached drug.
+// Build the { eff, form, color } shape composeSplice wants from a cached drug.
 function spliceInput(drugId, cache) {
   const d = cache[drugId];
   if (!d) return null;
   return { eff: d.effects, ...drugVisual(drugId, d) };
 }
 
+// Assemble the ordered input list (base, splice, optional splice-2) from a payload
+// of { drug, qty } slots. Returns null if any slot names an unknown drug.
+function buildInputs(payload, cache) {
+  const slots = [payload.base, payload.splice, payload.splice2].filter(s => s && s.drug);
+  const inputs = [];
+  for (const s of slots) {
+    const si = spliceInput(s.drug, cache);
+    if (!si) return null;
+    inputs.push({ ...si, qty: clampQty(s.qty), drug: s.drug, itemId: cache[s.drug]?.item_id, name: cache[s.drug]?.name });
+  }
+  return inputs;
+}
+
+// The 3rd (splice-2) slot unlocks at near-max Chemistry AND a body of splicing
+// experience — or whenever the `splice_3way_test` dev tunable is flipped on.
+async function allow3way(player) {
+  if (getTunable('splice_3way_test', false)) return true;
+  if (await effectiveSkill(player, SYNTH_SKILL) < THREE_WAY_CHEM) return false;
+  return (parseInt(await getFlag('player', 'splice_count', player), 10) || 0) >= THREE_WAY_SPLICES;
+}
+
+// Splice minigame stage keys (internal; 'charge' is the player-facing "Decant").
+const SPLICE_STAGES = ['charge', 'mix', 'pour', 'stir', 'heat', 'rhythm'];
+// Which stages a player has an automation rig for (carried item tagged `automates:<stage>`).
+// The `splice_auto_test` dev tunable force-automates every stage. An automated stage
+// passes at a Chemistry-scaled score instead of being played by hand.
+async function automatedStages(player) {
+  if (getTunable('splice_auto_test', false)) return SPLICE_STAGES.slice();
+  const { rows } = await query(
+    `SELECT DISTINCT i.tags->>'automates' AS stage FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id = $1 AND jsonb_exists(i.tags, 'automates')`, [player.id]).catch(() => ({ rows: [] }));
+  return rows.map(r => r.stage).filter(s => SPLICE_STAGES.includes(s));
+}
+
 // Live preview as the player designs (reuses composeSplice — authoritative math).
 async function cmdSplicePreview(args, raw, player) {
   let payload; try { payload = JSON.parse(Buffer.from(args[0] || '', 'base64').toString('utf8')); } catch { return { type: 'noop' }; }
-  const cache = getDrugCache();
-  const base = spliceInput(payload.base?.drug, cache), splice = spliceInput(payload.splice?.drug, cache);
-  if (!base || !splice) return { type: 'splice_preview', ok: false };
-  const comp = composeSplice(base, splice, clampQty(payload.base?.qty), clampQty(payload.splice?.qty));
+  const inputs = buildInputs(payload, getDrugCache());
+  if (!inputs || inputs.length < 2) return { type: 'splice_preview', ok: false };
+  const comp = composeSplice(inputs);
   return { type: 'splice_preview', ok: true, difficulty: comp.difficulty, instability: comp.instability, doseWeight: comp.doseWeight, odThreshold: comp.odThreshold, outputQty: comp.outputQty, warnings: comp.warnings, summary: summariseComposed(comp.effects) };
 }
 
 async function cmdSpliceBegin(args, raw, player, broadcast) {
   let payload;
   try { payload = JSON.parse(Buffer.from(args[0] || '', 'base64').toString('utf8')); } catch { return { type: 'error', message: 'Malformed splice payload.' }; }
-  const baseId = payload.base?.drug, spliceId = payload.splice?.drug;
   const name = String(payload.name || '').slice(0, 40).trim() || null;
-
   const cache = getDrugCache();
-  const bd = cache[baseId], sd = cache[spliceId];
-  if (!bd || !sd) return { type: 'error', message: 'Pick a base drug and a splice drug.' };
-  if (baseId === spliceId) return { type: 'error', message: "You can't splice a drug with itself." };
+  const inputs = buildInputs(payload, cache);
+  if (!inputs || inputs.length < 2) return { type: 'error', message: 'Pick a base drug and a splice drug.' };
+  if (inputs.length > 3) inputs.length = 3;
+  if (new Set(inputs.map(i => i.drug)).size !== inputs.length) return { type: 'error', message: 'Each slot needs a different drug.' };
+  if (inputs.length === 3 && !(await allow3way(player))) return { type: 'error', message: "Three-way splicing is master's work — Chemistry 10 and a lot of splices logged." };
+  if (inputs.some(i => !i.itemId)) return { type: 'error', message: 'A source drug is missing its item.' };
+
   const eff = await effectiveSkill(player, SYNTH_SKILL);
   if (eff < SPLICE_MIN_SKILL) return { type: 'error', message: `You need Chemistry ${SPLICE_MIN_SKILL}+ to splice.` };
   const ws = await findWorkspace({ requires_station: 'chem_lab' }, player);
   if (!ws || ws.mode !== 'lab') return { type: 'error', message: 'You need a chem lab to splice.' };
 
-  const baseQty = clampQty(payload.base?.qty), spliceQty = clampQty(payload.splice?.qty);
-  const comp = composeSplice(spliceInput(baseId, cache), spliceInput(spliceId, cache), baseQty, spliceQty);
+  const comp = composeSplice(inputs);
   const outputQty = comp.outputQty;
 
-  // Inputs scale with the batch: baseQty of the base, spliceQty of the splice, and
-  // one stabilizer per finished dose. Require enough across the player's stacks.
-  if (!bd.item_id || !sd.item_id) return { type: 'error', message: 'A source drug is missing its item.' };
-  const need = [
-    { itemId: bd.item_id, qty: baseQty, label: bd.name },
-    { itemId: sd.item_id, qty: spliceQty, label: sd.name },
-    { itemId: STABILIZER_ITEM, qty: outputQty, label: 'Stabilizer' },
-  ];
+  // Inputs scale with the batch: each slot's quantity, plus one stabilizer per
+  // finished dose. Require enough across the player's stacks.
+  const need = inputs.map(i => ({ itemId: i.itemId, qty: i.qty, label: i.name }));
+  need.push({ itemId: STABILIZER_ITEM, qty: outputQty, label: 'Stabilizer' });
   const inv = await playerInventory(player.id);
   for (const n of need) {
     const have = inv.filter(v => v.item_id === n.itemId).reduce((s, v) => s + v.quantity, 0);
@@ -460,12 +505,18 @@ async function cmdSpliceBegin(args, raw, player, broadcast) {
   }
 
   const token = randomUUID().slice(0, 8);
-  pendingSplice.set(player.id, { token, comp, name: name || `${bd.name} splice`, need, outputQty, ts: Date.now() });
+  const sources = inputs.map(i => ({ drug: i.drug, qty: i.qty }));   // for reclaim (break back to source drugs)
+  pendingSplice.set(player.id, { token, comp, name: name || `${inputs[0].name} splice`, need, outputQty, sources, ts: Date.now() });
+
+  // Automation rigs auto-clear their stages at a Chemistry-scaled score (50→95%).
+  const automated = await automatedStages(player);
+  const autoScore = Math.round(50 + Math.max(0, Math.min(10, eff)) / 10 * 45);
 
   return {
     type: 'synth_minigame', kind: 'splice', token,
-    recipeName: name || `${bd.name} splice`,
+    recipeName: name || `${inputs[0].name} splice`,
     difficulty: comp.difficulty, hard: true, instability: comp.instability, workspace: ws.label,
+    automated, autoScore,
   };
 }
 
@@ -537,24 +588,26 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
 
   // Bad batch (grade F) — you still bottle the batch, but it's degraded and nasty.
   if (!grade) {
-    const cd = { synthesized: true, spliced: true, potency: 0.4, name: `unstable ${p.name}`, effects: badBatch(p.comp.effects), overdose_threshold: Math.max(2, p.comp.odThreshold - 1), dose_weight: p.comp.doseWeight, duration_seconds: 300, form: p.comp.form, color: p.comp.color };
+    const cd = { synthesized: true, spliced: true, potency: 0.4, name: `unstable ${p.name}`, effects: badBatch(p.comp.effects), overdose_threshold: Math.max(2, p.comp.odThreshold - 1), dose_weight: p.comp.doseWeight, duration_seconds: 300, form: p.comp.form, color: p.comp.color, packaged: true, grade: 'F', sources: p.sources };
     await withTransaction(async (q) => { await consume(q); await insertCompound(q, cd, batch); });
-    broadcast?.(null, { type: 'output', message: `<span class="msg-system">The splice curdles into something wrong — cloudy, and it smells of solvent and regret. You bottle ${batch > 1 ? `${batch}× ` : ''}<span class="item">unstable ${p.name}</span> anyway.</span>` }, null, player.id);
-    return { type: 'splice_report', grade: 'F', outcome: 'badbatch', name: p.name, potency: 40, doses: p.comp.doseWeight, batch, note: 'Curdled — degraded effects, and it bites back.' };
+    broadcast?.(null, { type: 'output', message: `<span class="msg-system">The splice curdles into something wrong — cloudy, and it smells of solvent and regret. The lab seals ${batch > 1 ? `${batch}× ` : ''}<span class="item">unstable ${p.name}</span> into a climate crate anyway. <span class="text-dim">(unseal to use)</span></span>` }, null, player.id);
+    return { type: 'splice_report', grade: 'F', outcome: 'badbatch', name: p.name, potency: 40, doses: p.comp.doseWeight, batch, sealed: true, note: 'Curdled — degraded effects, and it bites back.' };
   }
 
   // Success — grade sets the potency, capped by the recipe's instability (overload caps power).
   const potencyCap = Math.max(0.6, 1.7 - p.comp.instability * 0.5);
   const potency = Math.max(0.5, Math.min(grade.potency, potencyCap));
   const capped = potency < grade.potency - 0.001;
-  const cd = { synthesized: true, spliced: true, potency, name: p.name, effects: p.comp.effects, overdose_threshold: p.comp.odThreshold, dose_weight: p.comp.doseWeight, duration_seconds: 300, form: p.comp.form, color: p.comp.color };
+  const cd = { synthesized: true, spliced: true, potency, name: p.name, effects: p.comp.effects, overdose_threshold: p.comp.odThreshold, dose_weight: p.comp.doseWeight, duration_seconds: 300, form: p.comp.form, color: p.comp.color, packaged: true, grade: grade.letter, sources: p.sources };
   await withTransaction(async (q) => { await consume(q); await insertCompound(q, cd, batch); });
   await awardSkillUse(player.id, SYNTH_SKILL, skillResult.margin);
+  // A clean splice logs toward the 3-way (splice-2 slot) unlock.
+  await setFlag('player', 'splice_count', (parseInt(await getFlag('player', 'splice_count', player), 10) || 0) + 1, player);
 
   const pct = Math.round(potency * 100);
-  broadcast?.(null, { type: 'output', message: `<span class="ip-gain">It holds.</span> You splice ${batch > 1 ? `${batch}× ` : ''}<span class="item">${p.name}</span> — grade <b>${grade.letter}</b>, <b>${pct}%</b> potency.` }, null, player.id);
+  broadcast?.(null, { type: 'output', message: `<span class="ip-gain">It holds.</span> You splice ${batch > 1 ? `${batch}× ` : ''}<span class="item">${p.name}</span> — grade <b>${grade.letter}</b>, <b>${pct}%</b> potency. <span class="text-dim">Sealed in a climate crate (unseal to use).</span>` }, null, player.id);
   return {
-    type: 'splice_report', grade: grade.letter, outcome: 'success', name: p.name, potency: pct, doses: p.comp.doseWeight, batch,
+    type: 'splice_report', grade: grade.letter, outcome: 'success', name: p.name, potency: pct, doses: p.comp.doseWeight, batch, sealed: true,
     note: capped ? 'Instability capped the yield — a cleaner recipe would hit harder.'
       : (p.comp.doseWeight > 1 ? `Heavy blend — counts as ${p.comp.doseWeight} doses, go easy.` : ''),
   };
@@ -596,7 +649,95 @@ function cmdSpliceTest(args, raw, player) {
     if (drugs.length >= 6) break;
   }
   if (drugs.length < 2) return { type: 'error', message: 'Need ≥2 drugs with effects in the cache — run seed-drugs.js first.' };
-  return { type: 'splice_designer', drugs, minSkill: SPLICE_MIN_SKILL, baseDifficulty: SPLICE_BASE_DIFF, hasStabilizer: true, test: true };
+  return { type: 'splice_designer', drugs, minSkill: SPLICE_MIN_SKILL, baseDifficulty: SPLICE_BASE_DIFF, hasStabilizer: true, test: true, allow3way: true };
+}
+
+// ── reclaim: reverse-engineer a drug back to materials ────────────────────────
+// A spliced compound breaks back into the source DRUGS it was made from (recovery
+// scaled by its stored grade); a plain cooked drug breaks back into its RAW stock
+// (recovery scaled by potency). Both need a chem lab; a good Chemistry roll pulls
+// a little more back. Loss scales inverse to quality — an F batch is nearly a wash.
+const RECLAIM_DIFF = 5;
+const GRADE_RECOVERY = { 'A+': 0.90, 'A': 0.80, 'B': 0.65, 'C': 0.50, 'D': 0.35, 'F': 0.15 };
+const rawItemFor = (drugId) => 'item_raw_' + String(drugId || '').replace(/^drug_/, '');
+
+// Add qty of a plain (non-instanced) item to the player, stacking where possible.
+async function stackAdd(q, playerId, itemId, qty) {
+  const { rows } = await q(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND (custom_data IS NULL OR custom_data='{}'::jsonb) LIMIT 1`, [playerId, itemId]);
+  if (rows.length) await q('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [qty, rows[0].id]);
+  else await q('INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,1.0)', [randomUUID(), playerId, itemId, qty]);
+}
+
+// reclaim [name] — break a drug you're carrying back down over the lab bench.
+async function cmdReclaim(args, raw, player) {
+  const ws = await findWorkspace({ requires_station: 'chem_lab' }, player);
+  if (!ws || ws.mode !== 'lab') return { type: 'error', message: 'Reverse-engineering a batch needs a real chem lab.' };
+  const hint = args.join(' ').trim();
+  const params = [player.id];
+  let sql = `SELECT pi.id AS inv_id, pi.quantity, pi.custom_data, i.name, d.id AS drug_id
+               FROM player_inventory pi JOIN items i ON i.id = pi.item_id JOIN drugs d ON d.item_id = i.id
+              WHERE pi.player_id = $1`;
+  if (hint) { sql += ` AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2)`; params.push(`%${hint}%`); }
+  sql += ` ORDER BY i.name LIMIT 1`;
+  const { rows } = await query(sql, params);
+  const row = rows[0];
+  if (!row) return { type: 'error', message: hint ? `You're not carrying a "${hint}" to break down.` : "Reclaim what? Name a drug you're carrying." };
+  const cd = row.custom_data || {};
+  if (cd.packaged) return { type: 'error', message: "It's sealed in a crate — unseal it first." };
+
+  const chk = await skillCheck(player, SYNTH_SKILL, RECLAIM_DIFF);
+  await awardSkillUse(player.id, SYNTH_SKILL, chk.margin);
+  const skillMul = Math.max(0.6, Math.min(1.15, 0.85 + chk.margin * 0.02));
+  const cache = getDrugCache();
+  const qtyN = row.quantity || 1;
+
+  // Spliced compound → the source drugs, scaled by grade.
+  if (cd.spliced) {
+    if (!Array.isArray(cd.sources) || !cd.sources.length) return { type: 'error', message: "The lab can't read what went into this batch (too old, or corrupted)." };
+    const quality = GRADE_RECOVERY[cd.grade] ?? 0.4;
+    const gives = [];
+    for (const s of cd.sources) {
+      const itemId = cache[s.drug]?.item_id; if (!itemId) continue;
+      const amt = Math.max(0, Math.round((s.qty || 1) * quality * skillMul));
+      if (amt > 0) gives.push({ itemId, amt, name: cache[s.drug]?.name || s.drug });
+    }
+    if (!gives.length) return { type: 'error', message: `A grade-${cd.grade || '?'} batch is too degraded — nothing usable comes back.` };
+    await withTransaction(async (q) => {
+      await q('DELETE FROM player_inventory WHERE id=$1', [row.inv_id]);
+      for (const g of gives) await stackAdd(q, player.id, g.itemId, g.amt);
+    });
+    return { type: 'output', message: `<span class="ambient">You crack the compound back down over the bench — grade <b>${cd.grade}</b>, so you pull ${gives.map(g => `${g.amt}× ${g.name}`).join(', ')} out of it.</span>` };
+  }
+
+  // Cooked / plain drug → its raw stock, scaled by potency.
+  const rawId = rawItemFor(row.drug_id);
+  const rawEx = (await query('SELECT name FROM items WHERE id=$1', [rawId])).rows[0];
+  if (!rawEx) return { type: 'error', message: `There's no raw form to break ${row.name} down into.` };
+  const potNorm = Math.max(0.2, Math.min(1.2, Number(cd.potency) || 1));
+  const amt = Math.max(0, Math.round(qtyN * potNorm * skillMul));
+  if (!amt) return { type: 'error', message: 'Too little to reclaim — the process would waste it all.' };
+  await withTransaction(async (q) => {
+    await q('DELETE FROM player_inventory WHERE id=$1', [row.inv_id]);
+    await stackAdd(q, player.id, rawId, amt);
+  });
+  return { type: 'output', message: `<span class="ambient">You cook ${row.name} back down to base stock — ${amt}× ${rawEx.name} reclaimed.</span>` };
+}
+
+// unseal [name] — pop a climate-crate seal off a packaged batch so it can be
+// used again (until then it's frozen and search-proof — "secure until you move it").
+async function cmdUnseal(args, raw, player) {
+  const hint = args.join(' ').trim();
+  const params = [player.id];
+  let sql = `SELECT pi.id AS inv_id, pi.custom_data, i.name FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+             WHERE pi.player_id = $1 AND (pi.custom_data->>'packaged') = 'true'`;
+  if (hint) { sql += ` AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2)`; params.push(`%${hint}%`); }
+  sql += ` ORDER BY i.name LIMIT 1`;
+  const { rows } = await query(sql, params);
+  const row = rows[0];
+  if (!row) return { type: 'error', message: hint ? `You've nothing sealed matching "${hint}".` : "You've nothing sealed in a climate crate." };
+  await query(`UPDATE player_inventory SET custom_data = custom_data - 'packaged' WHERE id = $1`, [row.inv_id]);
+  const nm = row.custom_data?.name || row.name;
+  return { type: 'output', message: `<span class="ambient">You break the climate crate's seal — the ${nm} is loose and live now. Watch who's looking.</span>` };
 }
 
 export const commands = {
@@ -607,6 +748,8 @@ export const commands = {
   splicepreview: cmdSplicePreview,
   splicebegin: cmdSpliceBegin,
   spliceresolve: cmdSpliceResolve,
+  unseal: cmdUnseal,
+  reclaim: cmdReclaim,
   cooktest: cmdCookTest,
   splicetest: cmdSpliceTest,
 };

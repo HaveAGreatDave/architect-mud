@@ -75,7 +75,7 @@ export function openTvPanel(data) {
     if (data.sounds.powerOff)_powerOffDef= { ...TV_POWER_OFF_DEF,config: data.sounds.powerOff.config };
   }
 
-  if ((data.channelId || null) !== _tvActiveChannelId) _clearScorebug();   // drop a stale bug when the dial moves
+  if ((data.channelId || null) !== _tvActiveChannelId) { _clearScorebug(); _clearStandings(); _clearSportsFx(); }   // drop stale graphics when the dial moves
   _tvActiveChannelId = data.channelId || null;
   _tvOpen = true;
   _tvShuttingDown = false;
@@ -260,6 +260,8 @@ export function closeTvPanel() {
   if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
   _clearOverlay();
   _clearScorebug();
+  _clearStandings();
+  _clearSportsFx();
   const win = document.getElementById('tv-window');
   win.classList.remove('tv-shutting-off');
   win.style.position = '';
@@ -298,6 +300,8 @@ export function applyTvOverlay(overlay) {
   // The score-bug is a persistent layer (updated in place, its own container) —
   // it must not be wiped by transient overlays, nor auto-dismiss on a timer.
   if (overlay && overlay.overlayType === 'scorebug') { _applyScorebug(overlay); return; }
+  if (overlay && overlay.overlayType === 'standings') { _applyStandingsBug(overlay); return; }
+  if (overlay && overlay.overlayType === 'sportsfx') { _applySportsFx(overlay); return; }
   _clearOverlay();
   const container = document.getElementById('tv-overlay-container');
   if (!container || !overlay) return;
@@ -378,6 +382,134 @@ function _applyScorebug(sb) {
 function _clearScorebug() {
   const host = document.getElementById('tv-scorebug');
   if (host) { host.innerHTML = ''; host.classList.remove('on'); }
+}
+
+// Transient "standings bug" — the league table flashed up periodically during a
+// sports broadcast. Its own container (top-left) so it coexists with the persistent
+// score-bug, and it auto-dismisses on a timer (the server flashes it, doesn't hold it).
+let _standingsTimer = null;
+function _applyStandingsBug(sb) {
+  const host = document.getElementById('tv-standings');
+  if (!host) return;
+  const rows = Array.isArray(sb.rows) ? sb.rows : [];
+  if (!rows.length) return;
+  const body = rows.map((r, i) => {
+    const rd = (r.rd > 0 ? '+' : '') + (Number.isFinite(r.rd) ? r.rd : 0);
+    return `<div class="tv-st-row">` +
+      `<span class="tv-st-rank">${i + 1}</span>` +
+      `<span class="tv-st-team">${_esc(r.team)}</span>` +
+      `<span class="tv-st-rec">${r.wins}-${r.losses}</span>` +
+      `<span class="tv-st-rd">${rd}</span>` +
+    `</div>`;
+  }).join('');
+  host.innerHTML = `<div class="tv-st-title">${_esc(sb.title || 'STANDINGS')}</div>${body}`;
+  host.classList.add('on');
+  if (_standingsTimer) clearTimeout(_standingsTimer);
+  _standingsTimer = setTimeout(_clearStandings, (sb.duration || 9) * 1000);
+}
+
+function _clearStandings() {
+  if (_standingsTimer) { clearTimeout(_standingsTimer); _standingsTimer = null; }
+  const host = document.getElementById('tv-standings');
+  if (host) { host.innerHTML = ''; host.classList.remove('on'); }
+}
+
+// Full-screen sports "graphics": the home-run trajectory call-out, the final-score
+// card, and the extra-innings hype card. Injected into #tv-fx (which sits above the
+// score/standings bugs) and auto-dismissed; the animations are pure CSS/SMIL so they
+// play the moment the markup lands. Server fires these on the matching spoken line.
+let _fxTimer = null;
+function _applySportsFx(fx) {
+  const host = document.getElementById('tv-fx');
+  if (!host) return;
+  let inner = '';
+  if (fx.kind === 'homerun') {
+    const sub = [fx.batter, fx.team].filter(Boolean).join(' · ');
+    inner =
+      `<div class="tv-fx-hr">` +
+        `<svg class="tv-fx-hr-svg" viewBox="0 0 400 240" preserveAspectRatio="xMidYMid slice" aria-hidden="true">` +
+          `<path id="tvHrPath" class="tv-fx-hr-arc" d="M 32 226 Q 210 -48 374 116" fill="none"/>` +
+          `<circle class="tv-fx-hr-ball" r="6"><animateMotion dur="1.25s" fill="freeze" rotate="auto"><mpath href="#tvHrPath"/></animateMotion></circle>` +
+          `<circle class="tv-fx-hr-burst" cx="374" cy="116" r="4"/>` +
+        `</svg>` +
+        `<div class="tv-fx-hr-title${fx.grand ? ' grand' : ''}">${fx.grand ? 'GRAND SLAM' : 'HOME RUN'}</div>` +
+        (sub ? `<div class="tv-fx-hr-sub">${_esc(sub)}</div>` : '') +
+      `</div>`;
+  } else if (fx.kind === 'gamewin') {
+    inner =
+      `<div class="tv-fx-final">` +
+        `<div class="tv-fx-final-label">${fx.extras ? `FINAL · ${_esc(fx.inningOrd || '')}` : 'FINAL'}</div>` +
+        `<div class="tv-fx-final-card">` +
+          `<div class="tv-fx-final-row win"><span class="nm">${_esc(fx.winner)}</span><span class="sc">${fx.winScore}</span></div>` +
+          `<div class="tv-fx-final-row"><span class="nm">${_esc(fx.loser)}</span><span class="sc">${fx.loseScore}</span></div>` +
+        `</div>` +
+        `<div class="tv-fx-final-tag">${_esc(fx.winner)} WIN</div>` +
+      `</div>`;
+  } else if (fx.kind === 'extras') {
+    inner =
+      `<div class="tv-fx-extras">` +
+        `<div class="tv-fx-extras-big">EXTRA<span>INNINGS</span></div>` +
+        `<div class="tv-fx-extras-sub">Free Baseball</div>` +
+      `</div>`;
+  } else if (fx.kind === 'walkoff') {
+    const sub = [fx.batter, fx.team].filter(Boolean).join(' · ');
+    const score = (fx.home != null) ? `${_esc(fx.home)} ${fx.homeScore} — ${fx.awayScore} ${_esc(fx.away)}` : '';
+    inner =
+      `<div class="tv-fx-walkoff">` +
+        `<div class="tv-fx-wo-rays"></div>` +
+        `<div class="tv-fx-wo-title">WALK-OFF!</div>` +
+        (sub ? `<div class="tv-fx-wo-sub">${_esc(sub)}</div>` : '') +
+        (score ? `<div class="tv-fx-wo-score">${score}</div>` : '') +
+      `</div>`;
+  } else if (fx.kind === 'matchup') {
+    const rec = (r) => r && r !== '0-0' ? `<span class="rec">${_esc(r)}</span>` : '';
+    inner =
+      `<div class="tv-fx-matchup">` +
+        `<div class="tv-fx-mu-label">Tonight on DEADBALL</div>` +
+        `<div class="tv-fx-mu-teams">` +
+          `<div class="tv-fx-mu-team away"><span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
+          `<div class="tv-fx-mu-vs">vs</div>` +
+          `<div class="tv-fx-mu-team home"><span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
+        `</div>` +
+      `</div>`;
+  } else if (fx.kind === 'doubleplay') {
+    inner =
+      `<div class="tv-fx-dp">` +
+        `<div class="tv-fx-dp-title">DOUBLE PLAY</div>` +
+        `<div class="tv-fx-dp-sub">Two down</div>` +
+      `</div>`;
+  } else if (fx.kind === 'worldseries') {
+    const rec = (r) => r && r !== '0-0' ? `<span class="rec">${_esc(r)}</span>` : '';
+    inner =
+      `<div class="tv-fx-ws">` +
+        `<div class="tv-fx-ws-banner">WORLD SERIES</div>` +
+        `<div class="tv-fx-ws-sub">Winner Takes the Season</div>` +
+        `<div class="tv-fx-mu-teams">` +
+          `<div class="tv-fx-mu-team away"><span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
+          `<div class="tv-fx-mu-vs">vs</div>` +
+          `<div class="tv-fx-mu-team home"><span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
+        `</div>` +
+      `</div>`;
+  } else if (fx.kind === 'champion') {
+    inner =
+      `<div class="tv-fx-champ">` +
+        `<div class="tv-fx-champ-rays"></div>` +
+        `<div class="tv-fx-champ-trophy">🏆</div>` +
+        `<div class="tv-fx-champ-team">${_esc(fx.winner)}</div>` +
+        `<div class="tv-fx-champ-label">World Series Champions</div>` +
+        `<div class="tv-fx-champ-score">${_esc(fx.winner)} ${fx.winScore} — ${fx.loseScore} ${_esc(fx.loser)}</div>` +
+      `</div>`;
+  } else return;
+  host.innerHTML = inner;
+  host.className = `tv-fx-host on fx-${fx.kind}`;
+  if (_fxTimer) clearTimeout(_fxTimer);
+  _fxTimer = setTimeout(_clearSportsFx, (fx.duration || 3.5) * 1000);
+}
+
+function _clearSportsFx() {
+  if (_fxTimer) { clearTimeout(_fxTimer); _fxTimer = null; }
+  const host = document.getElementById('tv-fx');
+  if (host) { host.innerHTML = ''; host.className = 'tv-fx-host'; }
 }
 
 function _esc(str) {
@@ -495,6 +627,8 @@ export function showTvOffAir(offlineGraphicContent, offlineGraphicType) {
   if (!staticEl || !content) return;
   _tvOffAir = true;
   _clearScorebug();
+  _clearStandings();
+  _clearSportsFx();
   if (offlineGraphicContent && !_tuneTimer) {
     staticEl.classList.remove('tv-static-on', 'tv-static-loop');
     staticEl.style.opacity = '';

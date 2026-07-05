@@ -1,0 +1,6 @@
+{
+  "name": "sportsbet",
+  "version": "1.0.0",
+  "description": "Player-vs-player betting on the live baseball broadcast. `wager <player> <amount> <team> [away-home]` proposes a bet on the airing game; the opponent `takewager`s the other side. Stakes are escrowed and, when the game's final airs, the pot goes to whoever called the winner — a called exact score trumps. Both are notified with the winner, final score, and bet details.",
+  "commands": ["wager", "takewager", "cancelwager"]
+}

@@ -59,7 +59,7 @@ function addItemTag() {
   const name = document.getElementById('item-add-tag').value;
   if (!name) return;
   const def = TAG_CATALOG[name];
-  const defaults = { flag:true, int:0, enum:def.options?.[0], range:{min:0,max:0}, hot:{amount:0,duration_seconds:0}, statmap:{}, text:'' };
+  const defaults = { flag:true, int:0, enum:def.options?.[0], range:{min:0,max:0}, hot:{amount:0,duration_seconds:0}, statmap:{}, text:'', list:[] };
   document.getElementById('item-tags').insertAdjacentHTML('beforeend', itemTagRow(name, defaults[def.shape]));
   refreshItemTagPicker();
 }

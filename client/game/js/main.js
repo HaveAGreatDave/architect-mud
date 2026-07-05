@@ -24,6 +24,7 @@ import { handleServerMsg } from "./dispatch.js";
 import { state } from "./state.js";
 import { initInput } from "./input.js";
 import { initEquipPanel } from "./panels/equipment.js";
+import { initTradePanel } from "./panels/trade.js";
 import { initRecipesPanel } from "./panels/recipes.js";
 import { initStatsPanel } from "./panels/stats.js";
 import { initSkillsPanel } from "./panels/skills.js";
@@ -426,6 +427,7 @@ initInput({ saveOrigin, notify: (msg) => appendMsg(msg, "system") });
 
 // Panels
 initEquipPanel();
+initTradePanel();
 initRecipesPanel();
 initStatsPanel();
 initSkillsPanel();

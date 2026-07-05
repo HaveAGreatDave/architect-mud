@@ -519,56 +519,86 @@ const SFX_PLOP = {
   ] },
 };
 
-// Pee stream — a solid, steady stream, NOT a splashy patter. Each burst is broad
-// filtered noise held at near-full sustain with no tremolo flutter, so it reads
-// as one continuous jet; the gaps between the bodily plugin's spaced bursts give
-// the natural "breaks". An occasional trailing drip lands in that break. The
-// surface it hits shapes the tone: watery into a toilet, harsher on concrete, a
-// duller absorbed hiss into furniture, a muffled patter on a body.
+// Pee stream — a solid, steady jet, NOT a splashy patter, but never perfectly
+// static (a dead-steady jet is the fake-sounding tell). Each burst is broad
+// filtered noise held at near-full sustain with a gentle turbulence flutter and a
+// per-burst ±6% jitter, so it reads as one living, continuous stream; the gaps
+// between the bodily plugin's spaced bursts give the natural "breaks". The
+// surface it hits shapes the tone and adds its own splatter + resonant ring:
+//   main = stream-body noise center · high = airy hiss edge · body = low impact
+//   tone · splash = the bright splatter of the jet striking · res = the surface's
+//   own resonant ring under it (0 = dead, no reflection) · flutter = base
+//   turbulence LFO Hz.
 const STREAM_SURFACES = {
-  water:    { main: 2200, high: 3200, hiGain: 0.08, body: 180 }, // toilet
-  concrete: { main: 2600, high: 4200, hiGain: 0.12, body: 140 }, // ground
-  soft:     { main: 1500, high: 2400, hiGain: 0.05, body: 160 }, // furniture
-  body:     { main: 1200, high: 2000, hiGain: 0.04, body: 150 }, // a person
+  // toilet — water in the bowl: bright, bubbling, resonant droplets
+  water:    { main: 2100, high: 3200, hiGain: 0.08, body: 180, splash: 2700, splashGain: 0.10, res: 540,  resGain: 0.06, flutter: 8  },
+  // ground — crisp splatter, short bright reflection, faint metallic overtone
+  concrete: { main: 2600, high: 4200, hiGain: 0.12, body: 140, splash: 3800, splashGain: 0.12, res: 1600, resGain: 0.04, flutter: 10 },
+  // furniture — dull absorbed hiss, no resonance
+  soft:     { main: 1500, high: 2400, hiGain: 0.05, body: 160, splash: 2000, splashGain: 0.05, res: 0,    resGain: 0,    flutter: 7  },
+  // a person — muffled patter, no resonance
+  body:     { main: 1200, high: 2000, hiGain: 0.04, body: 150, splash: 1600, splashGain: 0.05, res: 0,    resGain: 0,    flutter: 7  },
 };
-function makePeeStream(surface, fading) {
+// mode: 'start' (onset — narrow/high, swells in over ~200ms with extra wobble as
+// the jet finds its footing), 'steady' (the held jet), 'fade' (winding into a lull).
+function makePeeStream(surface, mode) {
   const s = STREAM_SURFACES[surface] || STREAM_SURFACES.water;
-  if (fading) {
+  const j = 1 + (Math.random() * 0.12 - 0.06); // ±6% on the noise center per burst
+  const flutter = s.flutter + Math.random() * 3; // turbulence LFO drifts a little
+
+  if (mode === 'fade') {
     // Tapering into a lull — no sustain plateau, a long soft release so the
-    // stream visibly (audibly) winds down instead of just stopping.
+    // stream audibly winds down instead of just stopping.
     return {
       id: 'sfx_pee_stream_fade', name: 'sfx_pee_stream_fade', category: 'sfx', priority: 3,
       config: { duration: 1.3, layers: [
-        { noiseMix: 1, filter: { type: 'bandpass', freq: s.main, q: 0.55 }, adsr: { a: 0.05, d: 0.5, s: 0.15, r: 0.7 }, gain: 0.22 },
+        { noiseMix: 1, filter: { type: 'bandpass', freq: s.main * j, q: 0.55 }, tremolo: { rate: flutter, depth: 0.14 }, adsr: { a: 0.05, d: 0.5, s: 0.15, r: 0.7 }, gain: 0.22 },
         { noiseMix: 1, filter: { type: 'highpass', freq: s.high, q: 0.5 }, adsr: { a: 0.05, d: 0.5, s: 0.1, r: 0.7 }, gain: s.hiGain * 0.7 },
       ] },
     };
   }
+
+  const starting = mode === 'start';
   const layers = [
-    // Stream body — broad, low-Q noise held steady (sustain 0.95, no tremolo) so
-    // it's a solid jet, not a spatter.
-    { noiseMix: 1, filter: { type: 'bandpass', freq: s.main, q: 0.55 }, adsr: { a: 0.12, d: 0.1, s: 0.95, r: 0.22 }, gain: 0.27 },
-    // A thin steady edge on top — still no flutter.
-    { noiseMix: 1, filter: { type: 'highpass', freq: s.high, q: 0.5 }, adsr: { a: 0.14, d: 0.1, s: 0.92, r: 0.22 }, gain: s.hiGain },
-    // Low pressure of the stream hitting the surface.
-    { waveform: 'sine', freq: s.body, adsr: { a: 0.12, d: 0.1, s: 0.9, r: 0.22 }, gain: 0.05 },
+    // Stream body — broad, low-Q noise at near-full sustain with a gentle flutter
+    // (a few %). On the onset the attack is slower (swells in) and the flutter
+    // deeper while the jet stabilizes.
+    { noiseMix: 1, filter: { type: 'bandpass', freq: s.main * j, q: 0.55 }, tremolo: { rate: starting ? flutter * 1.5 : flutter, depth: starting ? 0.18 : 0.08 }, adsr: { a: starting ? 0.2 : 0.12, d: 0.1, s: 0.95, r: 0.22 }, gain: 0.26 },
+    // Thin airy hiss edge on top.
+    { noiseMix: 1, filter: { type: 'highpass', freq: s.high, q: 0.5 }, adsr: { a: starting ? 0.06 : 0.14, d: 0.1, s: 0.92, r: 0.22 }, gain: s.hiGain },
+    // Bright splatter of the jet striking the surface.
+    { noiseMix: 1, filter: { type: 'bandpass', freq: s.splash, q: 0.9 }, tremolo: { rate: flutter * 1.7, depth: 0.25 }, adsr: { a: starting ? 0.14 : 0.12, d: 0.1, s: 0.85, r: 0.2 }, gain: s.splashGain },
+    // Low impact of the stream on the surface; the onset slides down as it settles.
+    // Light FM adds a subtle liquid texture (spec: "light FM modulation adds texture").
+    { waveform: 'sine', freq: starting ? s.body * 1.5 : s.body, pitchBend: starting ? { to: s.body, time: 0.4 } : undefined, fm: { rate: s.body * 0.25, depth: s.body * 0.15 }, adsr: { a: starting ? 0.08 : 0.12, d: 0.1, s: 0.9, r: 0.22 }, gain: 0.05 },
   ];
+  // A surface with a live resonance rings faintly under the stream (water droplets,
+  // concrete's short metallic reflection); soft/body surfaces stay dead.
+  if (s.resGain > 0) {
+    layers.push({ waveform: 'triangle', freq: s.res, fm: { rate: s.res * 0.5, depth: s.res * 0.3 }, adsr: { a: 0.1, d: 0.2, s: 0.5, r: 0.25 }, gain: s.resGain });
+  }
   return {
-    id: 'sfx_pee_stream', name: 'sfx_pee_stream', category: 'sfx', priority: 3,
-    config: { duration: 1.6, layers },
+    id: starting ? 'sfx_pee_start' : 'sfx_pee_stream',
+    name: starting ? 'sfx_pee_start' : 'sfx_pee_stream',
+    category: 'sfx', priority: 3,
+    config: { duration: starting ? 1.0 : 1.6, layers },
   };
 }
 
-// A single soft droplet during a lull in the stream — quiet, brief, never abrupt.
+// A single soft droplet in a mid-stream lull, or a final tail-off drip — quiet,
+// brief, pitch-scattered so no two are identical, with a bell-like resonant ring
+// on a live surface (spec: "small resonant impacts") and dead on a soft one.
 function makePeeDribble(surface) {
   const s = STREAM_SURFACES[surface] || STREAM_SURFACES.water;
-  return {
-    id: 'sfx_pee_dribble', name: 'sfx_pee_dribble', category: 'sfx', priority: 3,
-    config: { duration: 0.3, layers: [
-      { waveform: 'sine', freq: s.body * 4, pitchBend: { to: s.body * 2, time: 0.12 }, adsr: { a: 0.003, d: 0.1, s: 0, r: 0.12 }, gain: 0.13 },
-      { noiseMix: 1, filter: { type: 'bandpass', freq: 1800, q: 1.3 }, adsr: { a: 0.003, d: 0.08, s: 0, r: 0.1 }, gain: 0.06 },
-    ] },
-  };
+  const p = 0.85 + Math.random() * 0.4; // pitch scatter
+  const layers = [
+    { waveform: 'sine', freq: s.body * 4 * p, pitchBend: { to: s.body * 2 * p, time: 0.12 }, adsr: { a: 0.003, d: 0.1, s: 0, r: 0.12 }, gain: 0.12 },
+    { noiseMix: 1, filter: { type: 'bandpass', freq: s.splash, q: 1.3 }, adsr: { a: 0.003, d: 0.08, s: 0, r: 0.1 }, gain: 0.06 },
+  ];
+  if (s.resGain > 0) {
+    layers.push({ waveform: 'sine', freq: s.res * 2 * p, adsr: { a: 0.002, d: 0.18, s: 0, r: 0.16 }, gain: s.resGain * 1.2 });
+  }
+  return { id: 'sfx_pee_dribble', name: 'sfx_pee_dribble', category: 'sfx', priority: 3, config: { duration: 0.35, layers } };
 }
 
 // Toilet flush — the initial water rush swells then drains, a low swirling gurgle
@@ -606,12 +636,13 @@ function makeFart(big, seedFreq) {
 
 on('bodily.sfx', ({ zoneId, playerId, cue, surface }) => {
   // The stream is personal; farts/plops/finale/flush carry to everyone in the room.
-  if (cue === 'stream' || cue === 'stream_fade') {
-    if (playerId) sendToPlayer(playerId, { type: 'audio_sfx', def: makePeeStream(surface, cue === 'stream_fade'), gain: cue === 'stream_fade' ? 0.7 : 0.9 });
+  if (cue === 'stream' || cue === 'stream_fade' || cue === 'stream_start') {
+    const mode = cue === 'stream_fade' ? 'fade' : cue === 'stream_start' ? 'start' : 'steady';
+    if (playerId) sendToPlayer(playerId, { type: 'audio_sfx', def: makePeeStream(surface, mode), gain: mode === 'fade' ? 0.7 : 0.9 });
     return;
   }
-  if (cue === 'stream_dribble') {
-    if (playerId) sendToPlayer(playerId, { type: 'audio_sfx', def: makePeeDribble(surface), gain: 0.7 });
+  if (cue === 'stream_dribble' || cue === 'final_drip') {
+    if (playerId) sendToPlayer(playerId, { type: 'audio_sfx', def: makePeeDribble(surface), gain: cue === 'final_drip' ? 0.6 : 0.7 });
     return;
   }
   if (!zoneId) return;

@@ -31,6 +31,7 @@ export function showSpliceReport(msg) {
       <div class="sr-row"><span>Potency</span><b>${Math.max(0, msg.potency || 0)}%</b></div>
       ${msg.batch > 1 ? `<div class="sr-row"><span>Doses made</span><b>${msg.batch}</b></div>` : ''}
       ${msg.doses > 1 ? `<div class="sr-row"><span>Dose weight</span><b>${msg.doses}×</b></div>` : ''}
+      ${msg.sealed ? `<div class="sr-sealed">🔒 Sealed in a climate crate — <b>unseal</b> to use or it stays search-proof.</div>` : ''}
       ${msg.note ? `<div class="sr-note">${esc(msg.note)}</div>` : ''}
       <div class="confirm-actions">
         <button class="confirm-ok">${bad ? 'Bag it anyway' : 'Bag it'}</button>

@@ -394,15 +394,30 @@ async function startRelief(player, mode, target, broadcast) {
   toiletSessions.set(player.id, session);
 
   if (isPoop) {
-    const duration = 20000 + Math.floor(Math.random() * 20000); // 20–40s
+    // Duration scales with how full the bowel is: a full one (load ≥100) takes the
+    // full 20–40s, a barely-full one tapers down toward an ~8s floor (poop stays a
+    // commitment — never instant).
+    const scale = Math.min(1, (player.digestive_load || 0) / 100);
+    const duration = 8000 + Math.round(12000 * scale) + Math.floor(Math.random() * Math.round(20000 * scale));
     const fartChance = poopFartChance(player);
     session.timers.push(setTimeout(() => tickFart(player, session, fartChance), 4000));
     session.timers.push(setTimeout(() => tickPlop(player, session), 6000));
     session.timers.push(setTimeout(() => finishRelief(player, session).catch(logErr), duration));
   } else {
-    session.timers.push(setTimeout(() => tickStream(player, session), 300));
-    session.timers.push(setTimeout(() => tickFart(player, session, 0.12), 5000));
-    session.timers.push(setTimeout(() => finishRelief(player, session).catch(logErr), 10000));
+    // Duration scales with how full the bladder is: a full one (load ≥100) takes
+    // the full 10s, a barely-full one tapers down toward a ~3.5s floor (never
+    // instant — the onset + swell-in alone is ~1.2s).
+    const load = player.hydration_load || 0;
+    const duration = 3500 + Math.round(6500 * Math.min(1, load / 100));
+    // Onset first (the pressure release / swell-in), then the steady stream once
+    // the jet has found its footing (~1s in).
+    session.timers.push(setTimeout(() => {
+      if (toiletSessions.has(player.id) && stillInPosition(player, session))
+        emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'stream_start', surface: session.streamSurface });
+    }, 300));
+    session.timers.push(setTimeout(() => tickStream(player, session), 1200));
+    session.timers.push(setTimeout(() => tickFart(player, session, 0.12), Math.min(5000, duration * 0.5)));
+    session.timers.push(setTimeout(() => finishRelief(player, session).catch(logErr), duration));
   }
 
   return { type: 'output', message: dropped + openingLine(mode, target, seated) };
@@ -458,6 +473,18 @@ async function finishRelief(player, session) {
   // Sometimes cap a poop with a big fart + plop.
   if (isPoop && Math.random() < 0.55)
     emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'finale' });
+
+  // Cap a pee with a few isolated residual drips at irregular intervals (the
+  // spec's "final drips" — the stream never just cuts off). Fire-and-forget:
+  // the session is already torn down, and the drips are personal sound only.
+  if (!isPoop) {
+    let d = 300 + Math.random() * 200;
+    const drips = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < drips; i++) {
+      setTimeout(() => emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'final_drip', surface: session.streamSurface }), d);
+      d += 250 + Math.random() * 350;
+    }
+  }
 
   // Doing your business anywhere but a toilet is public indecency: disgusted
   // bystanders + an indecent-exposure charge (surveillance witness-gates it, so

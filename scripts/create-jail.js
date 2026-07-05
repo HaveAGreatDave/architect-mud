@@ -4,8 +4,9 @@
 // (or hit POST /world/reload) so the door/NPC load into the world cache.
 //
 // Adds:
-//   - a very-high-difficulty hackable hololock on the Holding → Lobby exit, so a
-//     jailed player is locked in (the jail plugin respawns them in Holding).
+//   - an un-hackable hololock on the Holding → Lobby exit, so a jailed player is
+//     locked in (the jail plugin respawns them in Holding). Only the police open
+//     it — the guard release path teleports you out; there is no player bypass.
 //   - a stationary desk guard in the Lobby for texture.
 import { query } from '../server/models/db.js';
 
@@ -16,8 +17,8 @@ const LOBBY_ZONE = 'zone_mq_precinct_lobby';
 const DOOR_ID = 'door_precinct_cell';
 const lockTag = {
   'lock:hololock': {
-    difficulty: 10,          // "very high" — near the top of the hololock scale
-    canHack: true,
+    difficulty: 10,          // "very high" — moot while canHack is false, kept for record
+    canHack: false,          // police-only: no deck can bypass it; you leave when the guard walks you out
     messages: {
       lock:   'The cell hololock slams shut with a heavy magnetic clunk.',
       unlock: 'The cell hololock disengages.',

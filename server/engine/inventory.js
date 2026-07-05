@@ -117,8 +117,20 @@ export async function giveToPlayer(row, toPlayer) {
 
 // Equip a row into a slot/layer, first clearing whatever occupies that slot+layer.
 // equipped_at orders the worn set (used to evict the oldest accessory when full).
+// A garment with a `covers` tag fills extra slots too (a jumpsuit on the torso
+// also fills the legs): it clears — and is cleared by — anything at this layer in
+// any slot it occupies, matched by the worn piece's own slot OR its own `covers`,
+// so a jumpsuit and separate pants displace each other symmetrically.
 export async function equipRow(row, player, slot, layer) {
-  await query('UPDATE player_inventory SET is_equipped=0, slot=NULL, layer=NULL, equipped_at=NULL WHERE player_id=$1 AND slot=$2 AND layer=$3 AND id<>$4', [player.id, slot, layer, row.id]);
+  const covers = Array.isArray(row?.tags?.covers) ? row.tags.covers : [];
+  const occupies = [slot, ...covers];
+  await query(
+    `UPDATE player_inventory pi SET is_equipped=0, slot=NULL, layer=NULL, equipped_at=NULL
+       FROM items i
+      WHERE i.id = pi.item_id AND pi.player_id=$1 AND pi.is_equipped=1 AND pi.layer=$2 AND pi.id<>$3
+        AND (pi.slot = ANY($4::text[]) OR jsonb_exists_any(i.tags->'covers', $4::text[]))`,
+    [player.id, layer, row.id, occupies]
+  );
   await query('UPDATE player_inventory SET is_equipped=1, slot=$1, layer=$2, equipped_at=now() WHERE id=$3', [slot, layer, row.id]);
 }
 

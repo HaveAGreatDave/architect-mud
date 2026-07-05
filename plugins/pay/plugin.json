@@ -1,0 +1,6 @@
+{
+  "name": "pay",
+  "version": "1.0.0",
+  "description": "Player-to-player credit transfers by mutual agreement: `pay <player> <amount>` offers cash; the recipient `acceptpay`s it (or `declinepay`s). Same-room, atomic, offer expires after 60s. The safe, agreed-upon way to hand credits over.",
+  "commands": ["pay", "acceptpay", "declinepay", "cancelpay"]
+}

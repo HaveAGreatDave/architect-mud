@@ -13,8 +13,9 @@
 
 import { setAreaPane } from '../render.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
-import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn } from './engine-audio.js';
+import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx } from './engine-audio.js';
 import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE } from './windshield.js';
+import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { sendCmdSilent } from '../net.js';
 
@@ -643,6 +644,28 @@ function ensureFlightSimStyles() {
     .fsim-view{ position:relative; height:clamp(150px,26vh,300px); border-radius:8px; overflow:hidden; box-shadow:inset 0 0 0 2px #0f1c28, 0 0 12px rgba(0,0,0,.6); }
     .fsim-lamp{ position:absolute; top:8px; left:50%; transform:translateX(-50%); font:11px/1 monospace; letter-spacing:2px; z-index:3;
       color:#ff5a5b; background:rgba(40,4,6,.7); border:1px solid #ff5a5b; border-radius:5px; padding:3px 9px; opacity:0; transition:opacity .12s; }
+    /* transient action toast (flap/gear/jettison confirmations) */
+    .fsim-toast{ position:absolute; top:38%; left:50%; transform:translateX(-50%); font:11px/1 monospace; letter-spacing:2px; z-index:5;
+      color:var(--cy); background:rgba(6,12,18,.82); border:1px solid var(--cy); border-radius:5px; padding:4px 11px; opacity:0; transition:opacity .18s; pointer-events:none; white-space:nowrap; }
+    .fsim-toast.show{ opacity:1; }
+    /* look-direction tag (Q/E/S hold-to-look) */
+    .fsim-viewtag{ position:absolute; bottom:8px; left:50%; transform:translateX(-50%); font:10px/1 monospace; letter-spacing:2px; z-index:5;
+      color:var(--cy); background:rgba(6,12,18,.7); border:1px solid #16303f; border-radius:4px; padding:2px 8px; opacity:0; transition:opacity .12s; pointer-events:none; }
+    .fsim-viewtag.show{ opacity:.9; }
+    /* weapons (gunship): master-arm + fire strip, and a centre gun reticle when hot */
+    .fsim-weap{ position:absolute; left:8px; bottom:8px; z-index:5; display:none; align-items:center; gap:6px;
+      background:rgba(10,8,6,.74); border:1px solid #3a2a12; border-radius:6px; padding:4px 6px; }
+    .fsim-weap.show{ display:flex; }
+    .fsim-weap-arm,.fsim-weap-fire{ font:8px/1 monospace; letter-spacing:1px; padding:5px 9px; border-radius:4px; cursor:pointer;
+      background:linear-gradient(180deg,#2a2416,#14100a); border:1px solid #4a3a18; color:#c8b070; }
+    .fsim-weap-arm:active,.fsim-weap-fire:active{ transform:translateY(1px); }
+    .fsim-weap-arm.hot{ color:#ff6a5b; border-color:#ff5a5b; background:linear-gradient(180deg,#3a1414,#1a0a0a); box-shadow:0 0 7px rgba(255,90,91,.5); }
+    .fsim-weap-fire{ color:#ff6a3a; border-color:#5a2a10; opacity:.4; pointer-events:none; }
+    .fsim-weap-fire.ready{ opacity:1; pointer-events:auto; text-shadow:0 0 6px rgba(255,106,58,.6); }
+    .fsim-weap-pips{ font-size:10px; color:#c8b070; letter-spacing:2px; }
+    .fsim-reticle{ position:absolute; left:50%; top:46%; width:34px; height:34px; margin:-17px 0 0 -17px; z-index:4; opacity:0; transition:opacity .15s; pointer-events:none; }
+    .fsim-reticle.on{ opacity:.85; }
+    .fsim-reticle svg{ width:100%; height:100%; filter:drop-shadow(0 0 3px rgba(255,106,58,.6)); }
     /* glass panel row: PFD | MFD (Diamond DA42-inspired) */
     .fsim-glass{ display:flex; gap:6px; height:clamp(150px,23vh,212px); }
     .fsim-pfd,.fsim-mfd,.fsim-gauges{ position:relative; flex:1 1 0; background:#060c12; border:1px solid #16303f; border-radius:8px; overflow:hidden;
@@ -658,16 +681,63 @@ function ensureFlightSimStyles() {
     /* controls: full yoke + throttle quadrant */
     /* control row: badge (bottom-left) | YOKE (aligned under gauges) | transponder (bottom-right) */
     .fsim-ctl{ display:flex; gap:6px; align-items:stretch; height:120px; }
-    .fsim-placard,.fsim-xpdr{ background:#04080c; border:1px solid #16303f; border-radius:8px; box-shadow:inset 0 0 12px rgba(0,0,0,.8); padding:9px 11px; display:flex; flex-direction:column; overflow:hidden; }
-    .fsim-placard{ flex:0.6 1 0; justify-content:center; gap:4px; }
-    .fsim-xpdr{ flex:1 1 0; gap:5px; justify-content:center; }
-    .fsim-plac-title,.fsim-xpdr-title{ font-size:8px; letter-spacing:2px; color:#4a5a68; }
-    .fsim-plac-reg{ font-size:16px; font-weight:bold; letter-spacing:2px; color:var(--cy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .fsim-plac-own{ font-size:10px; letter-spacing:1px; color:#8a9aa8; }
-    .fsim-plac-own.rented{ color:#ffb23e; }
-    .fsim-xpdr-sq{ font-size:19px; font-weight:bold; letter-spacing:4px; color:var(--gr); text-shadow:0 0 6px rgba(95,224,160,.4); }
-    .fsim-xpdr-row{ display:flex; justify-content:space-between; font-size:10px; color:#8a9aa8; letter-spacing:1px; }
-    .fsim-xpdr-row b{ color:var(--cy); }
+    /* ── bottom-left placard: a bolted, brushed-metal maker's plate ──────────── */
+    .fsim-placard{ position:relative; flex:0.6 1 0; justify-content:center; gap:3px; padding:10px 13px; overflow:hidden;
+      border-radius:8px; border:1px solid #10161c;
+      /* four hex-head bolts at the corners, over a brushed-metal field */
+      background:
+        radial-gradient(circle at 10px 10px, #d6dade 0 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) 10px, #d6dade 0 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at 10px calc(100% - 10px), #d6dade 0 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #d6dade 0 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        repeating-linear-gradient(92deg, rgba(255,255,255,.035) 0 1px, rgba(0,0,0,.05) 1px 2px),
+        linear-gradient(157deg, #4c545c 0%, #6b747c 22%, #3a4147 46%, #575f67 68%, #363c42 100%);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.28), inset 0 -2px 5px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.5); }
+    /* scene-reactive sheen: a diagonal glint whose opacity is driven by --sheen (bright day → 1, night → 0) */
+    .fsim-plac-sheen{ position:absolute; inset:0; pointer-events:none; opacity:var(--sheen,0); transition:opacity .5s linear;
+      background:linear-gradient(133deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.5) 46%, rgba(255,255,255,.08) 52%, rgba(255,255,255,0) 66%); }
+    .fsim-placard>*{ position:relative; z-index:1; }
+    .fsim-plac-title{ font-size:8px; letter-spacing:2px; color:#20262c; text-shadow:0 1px 0 rgba(255,255,255,.3); }
+    .fsim-plac-reg{ font-size:16px; font-weight:bold; letter-spacing:2px; color:#14181c; text-shadow:0 1px 0 rgba(255,255,255,.35); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .fsim-plac-own{ font-size:10px; letter-spacing:1px; color:#2a3037; text-shadow:0 1px 0 rgba(255,255,255,.25); }
+    .fsim-plac-own.rented{ color:#7a3410; text-shadow:0 1px 0 rgba(255,255,255,.25); }
+    /* ── bottom-right radio: transponder + COM/NAV with an LCD, buttons and knobs ── */
+    .fsim-xpdr{ flex:1 1 0; display:flex; flex-direction:column; gap:5px; padding:7px 9px; overflow:hidden;
+      border-radius:8px; border:1px solid #161c22;
+      background:linear-gradient(180deg,#20262c 0%,#161b20 48%,#0c1116 100%);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.14), inset 0 -2px 6px rgba(0,0,0,.6), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-xpdr-title{ font-size:8px; letter-spacing:2px; color:#5a6672; }
+    .fsim-radio-lcd{ background:linear-gradient(180deg,#0a2018,#06140e); border:1px solid #0c1a14; border-radius:4px; padding:4px 6px;
+      box-shadow:inset 0 0 8px rgba(0,0,0,.8); display:flex; flex-direction:column; gap:1px; }
+    .fsim-radio-frow{ display:flex; align-items:baseline; gap:6px; font-family:monospace; line-height:1.15; }
+    .fsim-radio-frow .k{ font-size:8px; letter-spacing:1px; color:#3e7a5e; flex:0 0 26px; }
+    .fsim-radio-frow b{ font-size:13px; font-weight:bold; letter-spacing:1px; color:#57e6a0; text-shadow:0 0 5px rgba(87,230,160,.5); }
+    .fsim-radio-frow i{ font-size:9px; font-style:normal; color:#2f7d5a; margin-left:auto; }
+    .fsim-radio-frow.sq b{ letter-spacing:3px; }
+    .fsim-radio-frow i.mode{ color:#e0b23e; text-shadow:0 0 5px rgba(224,178,62,.4); }
+    .fsim-radio-deck{ display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:auto; }
+    .fsim-radio-btns{ display:grid; grid-template-columns:1fr 1fr; gap:3px; }
+    .fsim-radio-btn{ font:7px/1 monospace; letter-spacing:.5px; color:#9fb0bd; padding:3px 5px; min-width:24px; cursor:pointer;
+      background:linear-gradient(180deg,#2b333b,#171d23); border:1px solid #0c1116; border-radius:3px;
+      box-shadow:0 1px 0 rgba(255,255,255,.12) inset, 0 2px 3px rgba(0,0,0,.5); }
+    .fsim-radio-btn:active{ transform:translateY(1px); box-shadow:inset 0 2px 4px rgba(0,0,0,.6); }
+    .fsim-radio-btn.on{ color:var(--cy); border-color:var(--cy); box-shadow:0 0 6px var(--cy), inset 0 1px 0 rgba(255,255,255,.1); }
+    .fsim-radio-knobs{ display:flex; gap:7px; }
+    .fsim-radio-knob{ position:relative; width:26px; height:26px; border-radius:50%; cursor:pointer;
+      background:radial-gradient(circle at 50% 34%, #444c54, #20262c 70%, #0c1116);
+      border:1px solid #0a0e12; box-shadow:0 2px 4px rgba(0,0,0,.6), inset 0 1px 1px rgba(255,255,255,.18);
+      background-image:radial-gradient(circle at 50% 34%,#444c54,#20262c 70%,#0c1116), repeating-conic-gradient(from 0deg, rgba(0,0,0,.35) 0 6deg, rgba(255,255,255,.05) 6deg 12deg); }
+    .fsim-radio-knob i{ position:absolute; left:50%; top:3px; width:2px; height:9px; margin-left:-1px; border-radius:1px; background:var(--cy); box-shadow:0 0 4px var(--cy); }
+    /* ── panel/instrument lights toggle (dash switch) ───────────────────────── */
+    .fsim-nightsw{ flex:0 0 auto; align-self:center; display:flex; align-items:center; gap:4px; padding:3px 8px; cursor:pointer; user-select:none;
+      font:8px/1 monospace; letter-spacing:1.5px; color:#6f8698; border-radius:5px;
+      background:linear-gradient(180deg,#141b21,#0a0f14); border:1px solid #16303f; box-shadow:inset 0 1px 0 rgba(255,255,255,.08); }
+    .fsim-nightsw-led{ width:6px; height:6px; border-radius:50%; background:#243038; box-shadow:inset 0 0 2px #000; }
+    .fsim-nightsw.on{ color:var(--cy); border-color:var(--cy); }
+    .fsim-nightsw.on .fsim-nightsw-led{ background:var(--cy); box-shadow:0 0 6px var(--cy); }
+    /* instrument night lighting: an accent wash over the glass panels + a lit edge */
+    .fsim-nightlit .fsim-pfd,.fsim-nightlit .fsim-mfd,.fsim-nightlit .fsim-gauges{ box-shadow:inset 0 0 14px var(--cy-dim,rgba(95,208,255,.16)), 0 0 6px var(--cy-dim,rgba(95,208,255,.12)); border-color:var(--cy); }
+    .fsim-nightlit .fsim-mfd-lbl,.fsim-nightlit .fsim-mfd-tog{ text-shadow:0 0 6px var(--cy); }
     .fsim-yoke{ position:relative; flex:2 1 0; background:radial-gradient(circle at 50% 26%,#0e1a24,#070d13); border:1px solid #16303f;
       border-radius:12px; touch-action:none; cursor:grab; overflow:visible; perspective:1000px; box-shadow:inset 0 0 14px rgba(0,0,0,.7); }
     .fsim-yoke.drag{ cursor:grabbing; }
@@ -733,6 +803,7 @@ const YOKE_SVG = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100
 export function openFlightSim(opts = {}) {
   closeFlightSim();          // clear any prior
   closeCockpit();            // stop the glass HUD loop; the continuous cockpit owns the pane
+  suppressWeatherFx(true);   // kill the outdoor overlay immediately so rain never flashes over the cockpit on embark
   ensureWindshieldStyles(); ensureFlightSimStyles(); refreshAccent();
   const P = TYPES[opts.craftType] || TYPES.mayfly;
   const s = createState(P);
@@ -748,10 +819,14 @@ export function openFlightSim(opts = {}) {
     reg: opts.registration || (opts.deviceName || 'MAYFLY').toUpperCase(), owner: opts.owner || 'RENTED',
     fuel: opts.fuel ?? 100, fuelCap: opts.fuelCap || 100, warn: null,
     map: opts.map || null, sky: opts.sky || { hour: 12, weather: 'clear', wind: 0 }, biomeBelow: opts.biomeBelow ?? null,
-    minimap: opts.minimap || null, mfdMode: 'local',
-    deadStick: false, reportedAirborne: false, over: false,
+    minimap: opts.minimap || null, mfdMode: 'local', fields: opts.fields || [],
+    deadStick: false, reportedAirborne: false, rolling: false, stopHinted: false,
     engineOn: !!opts.engineOn,
     yokeDrag: false, thrDrag: false,
+    viewYaw: 0, throttleKey: 0, flapIdx: 0,          // keyboard: hold-to-look yaw, A/Z throttle ramp, flap detent
+    gearRetract: !!opts.gearRetract, gearUp: false, cargoKg: opts.cargoKg || 0,   // gear (G) + jettison (J) — capabilities per airframe (Mayfly: none)
+    hardpoints: opts.hardpoints || 0, armed: false,  // weapons (gunship): master-arm + fire
+    nightLight: false,                               // instrument panel lights (PANEL switch)
     raf: 0, last: 0, syncAcc: 0, hornBeat: 0, audioAcc: 0,
     temp: 40, battery: 100,          // cosmetic engine-temp (°C) + battery charge (%) for the gauge cluster
 
@@ -761,7 +836,7 @@ export function openFlightSim(opts = {}) {
   _fsim = F;
 
   const html = `<div id="fsim-root" class="fsim">
-    <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div></div>
+    <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span></div><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div></div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -775,6 +850,7 @@ export function openFlightSim(opts = {}) {
         </div>
         <div class="fsim-side">
           <button class="fsim-engbtn" id="fsim-eng" title="engine master">⏻</button>
+          <button class="fsim-nightsw" id="fsim-nightsw" title="instrument panel lights" tabindex="-1"><span class="fsim-nightsw-led"></span>PANEL</button>
           <div class="fsim-flapsw">
             <div class="fsim-flapsw-track" id="fsim-flapsw-track"><div class="fsim-flapsw-knob" id="fsim-flapsw-knob"></div></div>
             <div class="fsim-flapsw-lbls"><span class="on">UP</span><span>½</span><span>FULL</span></div>
@@ -784,16 +860,31 @@ export function openFlightSim(opts = {}) {
     </div>
     <div class="fsim-ctl">
       <div class="fsim-placard">
+        <div class="fsim-plac-sheen" id="fsim-plac-sheen"></div>
         <div class="fsim-plac-title">◈ AIRCRAFT</div>
         <div class="fsim-plac-reg" id="fsim-reg">—</div>
         <div class="fsim-plac-own" id="fsim-own">—</div>
       </div>
       <div class="fsim-yoke" id="fsim-yoke">${YOKE_SVG}</div>
       <div class="fsim-xpdr">
-        <div class="fsim-xpdr-title">XPDR · RADIO</div>
-        <div class="fsim-xpdr-sq" id="fsim-sq">1200</div>
-        <div class="fsim-xpdr-row"><span>COM</span><b>118.00</b></div>
-        <div class="fsim-xpdr-row"><span>NAV</span><b>112.30</b></div>
+        <div class="fsim-xpdr-title">XPDR · COM/NAV</div>
+        <div class="fsim-radio-lcd">
+          <div class="fsim-radio-frow"><span class="k">COM</span><b>118.00</b><i>121.50</i></div>
+          <div class="fsim-radio-frow"><span class="k">NAV</span><b>112.30</b><i>110.90</i></div>
+          <div class="fsim-radio-frow sq"><span class="k">SQWK</span><b id="fsim-sq">1200</b><i class="mode">ALT</i></div>
+        </div>
+        <div class="fsim-radio-deck">
+          <div class="fsim-radio-btns">
+            <button class="fsim-radio-btn" tabindex="-1">SBY</button>
+            <button class="fsim-radio-btn on" tabindex="-1">ALT</button>
+            <button class="fsim-radio-btn" tabindex="-1">↔</button>
+            <button class="fsim-radio-btn" tabindex="-1">ID</button>
+          </div>
+          <div class="fsim-radio-knobs">
+            <span class="fsim-radio-knob" title="COM"><i></i></span>
+            <span class="fsim-radio-knob" title="NAV"><i></i></span>
+          </div>
+        </div>
       </div>
     </div>
   </div>`;
@@ -826,9 +917,68 @@ export function openFlightSim(opts = {}) {
   const flapTrack = q('#fsim-flapsw-track'), flapKnob = q('#fsim-flapsw-knob');
   const flapLbls = root.querySelectorAll('.fsim-flapsw-lbls span');
   const FLAP_VAL = [0, 0.5, 1], FLAP_TOP = ['2%', '36%', '70%'];
-  const setFlap = (i) => { F.input.flaps = FLAP_VAL[i]; if (flapKnob) flapKnob.style.top = FLAP_TOP[i]; flapLbls.forEach((s2, j) => s2.classList.toggle('on', j === i)); };
+  const setFlap = (i) => { F.flapIdx = i; F.input.flaps = FLAP_VAL[i]; if (flapKnob) flapKnob.style.top = FLAP_TOP[i]; flapLbls.forEach((s2, j) => s2.classList.toggle('on', j === i)); };
   add(flapTrack, 'pointerdown', (e) => { const r = flapTrack.getBoundingClientRect(); const f = (e.clientY - r.top) / r.height; const i = f < 0.34 ? 0 : f < 0.67 ? 1 : 2; if (FLAP_VAL[i] !== F.input.flaps) { setFlap(i); flapWhir(); } });
   setFlap(0);
+
+  // Transient action toast (flap/gear/jettison feedback). Auto-hides ~1.1s.
+  const toastEl = q('#fsim-toast');
+  const fsimToast = (txt) => {
+    if (!toastEl) return;
+    toastEl.textContent = txt; toastEl.classList.add('show');
+    if (F.toastT) clearTimeout(F.toastT);
+    F.toastT = setTimeout(() => toastEl.classList.remove('show'), 1100);
+  };
+  F.toast = fsimToast;   // so the frame loop (touchdown/rollout prompts) can raise toasts too
+
+  // ── Keyboard flight controls ────────────────────────────────────────────────
+  // A/Z throttle · Q/E/S hold-to-look (release → forward) · W forward · R/F flaps ·
+  // G gear (if retractable) · J jettison cargo. Ignored while typing in a text field.
+  const VIEW_TAG = { '-90': '◀ LEFT VIEW', '90': 'RIGHT VIEW ▶', '180': '▲ REAR VIEW' };
+  const viewTagEl = q('#fsim-viewtag');
+  const setView = (yaw) => {
+    F.viewYaw = yaw;
+    if (viewTagEl) { viewTagEl.textContent = VIEW_TAG[String(yaw)] || ''; viewTagEl.classList.toggle('show', yaw !== 0); }
+  };
+  const stepFlap = (d) => { const i = clampNum(F.flapIdx + d, 0, 2); if (i !== F.flapIdx) { setFlap(i); flapWhir(); } };
+  const toggleGear = () => {
+    if (!F.gearRetract) { fsimToast('— FIXED GEAR —'); return; }
+    F.gearUp = !F.gearUp;
+    try { gearFx(F.gearUp ? 'retract' : 'extend'); } catch {}
+    fsimToast(F.gearUp ? 'GEAR UP' : 'GEAR DOWN');
+  };
+  const jettison = () => {
+    if (!F.cargoKg) { fsimToast('— NO CARGO —'); return; }
+    F.cargoKg = 0; sendCmdSilent('jettison'); fsimToast('CARGO JETTISONED');
+  };
+  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'r', 'f', 'g', 'j', ' ']);
+  const onKeyDown = (e) => {
+    const tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+    const k = (e.key || '').toLowerCase();
+    if (!KEYS.has(k)) return;
+    e.preventDefault();
+    switch (k) {
+      case 'a': F.throttleKey = 1; break;
+      case 'z': F.throttleKey = -1; break;
+      case 'q': setView(-90); break;
+      case 'e': setView(90); break;
+      case 's': setView(180); break;
+      case 'w': setView(0); break;
+      case 'r': if (!e.repeat) stepFlap(1); break;
+      case 'f': if (!e.repeat) stepFlap(-1); break;
+      case 'g': if (!e.repeat) toggleGear(); break;
+      case 'j': if (!e.repeat) jettison(); break;
+      case ' ': if (!e.repeat && F.doFire) F.doFire(); break;   // fire guns (gunship)
+    }
+  };
+  const onKeyUp = (e) => {
+    const k = (e.key || '').toLowerCase();
+    if (k === 'a' || k === 'z') F.throttleKey = 0;
+    else if (k === 'q' || k === 'e' || k === 's') setView(0);   // release hold-to-look → forward
+  };
+  add(window, 'keydown', onKeyDown);
+  add(window, 'keyup', onKeyUp);
 
   // Engine master — a round accent button that recesses while running. Off→on any time;
   // on→off only parked and stopped (you can't kill the engine in the air).
@@ -842,9 +992,45 @@ export function openFlightSim(opts = {}) {
     } else if (s.onGround && s.airspeed < 5) {
       F.engineOn = false; engBtn.classList.remove('on');
       try { spoolDown(F.cls); } catch {}
-      sendCmdSilent('flightevent engineoff');
+      if (F.rolling) {
+        // Landed + rolled to a stop → shut down: taxi into the hangar and disembark.
+        F.rolling = false;
+        sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} 0 0 ${Math.round(s.heading)} 0 0 1 0`);
+        sendCmdSilent('flightevent land');
+        setTimeout(() => { closeFlightSim(); sendCmdSilent('look'); }, 600);
+      } else {
+        sendCmdSilent('flightevent engineoff');
+      }
     }
   });
+
+  // Instrument panel lights — a dash switch that backlights the glass panels + dials
+  // in the accent colour (for night flying). Independent of the badge's external sheen.
+  root.style.setProperty('--cy-dim', accA(0.16));
+  const nightSw = q('#fsim-nightsw');
+  add(nightSw, 'click', () => {
+    F.nightLight = !F.nightLight;
+    nightSw.classList.toggle('on', F.nightLight);
+    root.classList.toggle('fsim-nightlit', F.nightLight);
+  });
+
+  // Weapons (gunship only): master-arm toggle + FIRE (a gun pass — resolved inline by the
+  // server against an AA site in range). Space also fires. Reticle glows when armed.
+  const weapEl = q('#fsim-weap'), reticleEl = q('#fsim-reticle');
+  const armBtn = q('#fsim-arm'), fireBtn = q('#fsim-fire'), pipsEl = q('#fsim-weap-pips');
+  if (F.hardpoints > 0) {
+    if (weapEl) weapEl.classList.add('show');
+    if (pipsEl) pipsEl.textContent = '◆'.repeat(F.hardpoints);
+    const setArmed = (on) => {
+      F.armed = on;
+      if (armBtn) { armBtn.textContent = on ? '● ARMED' : '◈ SAFE'; armBtn.classList.toggle('hot', on); }
+      if (fireBtn) fireBtn.classList.toggle('ready', on);
+      if (reticleEl) reticleEl.classList.toggle('on', on);
+    };
+    add(armBtn, 'click', () => { setArmed(!F.armed); sendCmdSilent(F.armed ? 'arm' : 'safe'); });
+    F.doFire = () => { if (F.armed) { sendCmdSilent('fire'); if (F.toast) F.toast('GUNS · GUNS'); } };
+    add(fireBtn, 'click', F.doFire);
+  }
 
   // MFD map toggle — real local minimap ↔ aerial biome nav map.
   const mfdTog = q('#fsim-mfd-tog'), mfdLbl = q('#fsim-mfd-lbl');
@@ -864,6 +1050,15 @@ export function openFlightSim(opts = {}) {
     const tv = document.getElementById('fsim-tv-' + inp.dataset.k); if (tv) tv.textContent = tvFmt(RENDER_TUNE[inp.dataset.k]);
   }));
   add(tuneBtn, 'click', () => { tunePanel.style.display = tunePanel.style.display === 'none' ? 'block' : 'none'; });
+
+  // Focus model: the sim pane owns the keyboard by default on embark (so A/Z/Q/E/S…
+  // drive the plane immediately). Clicking anywhere on the pane takes focus off the
+  // command box; clicking the command box directly gives it back to typing.
+  root.tabIndex = -1;
+  const cmdInput = document.getElementById('cmd-input');
+  const focusSim = () => { try { if (document.activeElement === cmdInput) cmdInput.blur(); root.focus({ preventScroll: true }); } catch {} };
+  add(root, 'pointerdown', focusSim);
+  focusSim();
 
   F.last = performance.now();
   F.raf = requestAnimationFrame(fsimFrame);
@@ -896,6 +1091,8 @@ function fsimFrame(now) {
 
   // Yoke springs to centre when released.
   if (!F.yokeDrag) { input.elevator = lerpN(input.elevator, 0, Math.min(1, dt * 6)); input.aileron = lerpN(input.aileron, 0, Math.min(1, dt * 6)); }
+  // Keyboard throttle (A/Z held) ramps the lever ~2s full-sweep.
+  if (F.throttleKey) input.throttle = clampNum(input.throttle + F.throttleKey * dt * 0.5, 0, 1);
   // Effective throttle: the lever always moves, but there's no thrust unless the
   // engine master switch is on and the tank isn't dry (dead stick).
   const thr = (F.engineOn && !F.deadStick) ? input.throttle : 0;
@@ -917,16 +1114,19 @@ function fsimFrame(now) {
   // Transitions → tell the server. Track descent rate while airborne so touchdown knows
   // how hard the arrival was (soft squeak vs firm thump).
   if (!s.onGround) F.touchVs = s.vs;
-  if (!s.onGround && !F.reportedAirborne) { F.reportedAirborne = true; groundFx('liftoff'); sendCmdSilent('flightevent takeoff'); }
-  if (s.onGround && F.reportedAirborne && !F.over) {
-    F.over = true;
+  if (!s.onGround && !F.reportedAirborne) { F.reportedAirborne = true; F.rolling = false; groundFx('liftoff'); sendCmdSilent('flightevent takeoff'); }
+  if (s.onGround && F.reportedAirborne) {
+    // Touchdown → keep the sim open and ROLL OUT. We don't park yet: chop the throttle
+    // and hold the yoke back to brake to a stop, then cut the ENGINE to taxi into the
+    // hangar and disembark — or power back up for a touch-and-go. Report the tile so the
+    // server marks us grounded (no overfly noise / airspace rules while taxiing).
+    F.reportedAirborne = false; F.rolling = true; F.stopHinted = false;
     groundFx((F.touchVs || 0) < -500 ? 'touchdownHard' : 'touchdown');   // tyre squeak on the numbers
-    // Report the exact touchdown tile first, then land — the server decides
-    // field-landing vs off-field crash from this position.
-    sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} 0 0 ${Math.round(s.heading)} 0 0 1 0`);
-    sendCmdSilent('flightevent land');
-    setTimeout(() => { closeFlightSim(); sendCmdSilent('look'); }, 500);
+    sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} 0 ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} 0 1 0`);
+    if (F.toast) F.toast('ROLL OUT — brake to a stop, then cut the ENGINE to park');
   }
+  // Rolled to a stop on the ground → prompt the shutdown that taxis you into the hangar.
+  if (F.rolling && !F.stopHinted && s.onGround && s.airspeed < 5) { F.stopHinted = true; if (F.toast) F.toast('STOPPED — cut the ENGINE to shut down & park'); }
 
   // Stall horn (intermittent → continuous).
   fsimHorn(F, dt);
@@ -941,9 +1141,19 @@ function fsimFrame(now) {
   paintPFD(document.getElementById('fsim-pfd'), {
     pitch: d.pitch, bank: d.bank, ias: d.ias, alt: d.alt, vs: d.vs, hdg: d.hdg,
     vr: P.vr, vne: P.vne, vs0: P.vs0, sm: s.stallMargin, fuelPct: Math.round(F.fuel / (F.fuelCap || 1) * 100),
-    warn: r.stalled || s.stallMargin < 0.35, bingo: F.fuel <= 0 || F.warn === 'BINGO',
+    warn: r.stalled || s.stallMargin < 0.35, bingo: F.fuel <= 0 || F.warn === 'BINGO', night: F.nightLight,
   });
   paintMFD(document.getElementById('fsim-mfd'), F, d);
+
+  // Bottom-left badge sheen tracks the outside light: a bright midday glints off the
+  // metal (--sheen→1), dusk dims it, night kills it. Overcast/precip damps the glint.
+  if (root) {
+    const hr = F.sky?.hour ?? 12;
+    const day = clampNum(Math.sin(clampNum((hr - 6) / 12, 0, 1) * Math.PI), 0, 1);
+    const wx = (F.sky?.weather || 'clear').toLowerCase();
+    const wxMul = wx === 'clear' ? 1 : wx === 'cloudy' ? 0.5 : wx === 'fog' ? 0.28 : 0.4;
+    root.style.setProperty('--sheen', (day * wxMul).toFixed(2));
+  }
 
   // Cosmetic engine gauges: temp eases with RPM (slow thermal lag); battery charges while
   // the engine turns and trickles down otherwise. Neither feeds physics — dials only.
@@ -953,7 +1163,7 @@ function fsimFrame(now) {
   paintGauges(document.getElementById('fsim-gauges'), {
     rpm: s.rpm, temp: F.temp, ias: r.airspeed, vr: P.vr, vne: P.vne, vs0: P.vs0,
     fuelPct: Math.round(F.fuel / (F.fuelCap || 1) * 100), battery: F.battery,
-    stall: r.stalled, warn: r.stalled || s.stallMargin < 0.35, hornBeat: F.hornBeat,
+    stall: r.stalled, warn: r.stalled || s.stallMargin < 0.35, hornBeat: F.hornBeat, night: F.nightLight,
   });
 
   // Full yoke: roll with aileron + a 3-D pull toward/away with elevator (capped so it
@@ -989,11 +1199,13 @@ function fsimFrame(now) {
     runway: { ox: F.rwOrigin.x - F.pos.x, oy: F.rwOrigin.y - F.pos.y, hdg: F.rwHdg, alt: clampNum(r.altitude / 320, 0, 1) },
     landGuide,
     hud: true, navWarn: back == null ? null : `⚠ TURN ${String(back).padStart(3, '0')}° — RETURN TO MAP`,
+    airports: F.fields, viewYaw: F.viewYaw,
   });
 
-  // Stream state to the server (~1.2s) once we're actually flying; ride the engine audio.
+  // Stream state to the server (~1.2s) while flying AND during the ground roll-out — the
+  // server needs the fresh onGround flag to suppress overfly noise / airspace rules as we taxi.
   F.syncAcc += dt; F.audioAcc += dt;
-  if (F.reportedAirborne && F.syncAcc >= 1.2) {
+  if ((F.reportedAirborne || F.rolling) && F.syncAcc >= 1.2) {
     F.syncAcc = 0;
     sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} ${Math.round(s.altitude)} ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} ${Math.round(s.vs)} ${s.onGround ? 1 : 0} ${s.stalled ? 1 : 0}`);
     // NB: mapCenter is NOT advanced here — it stays paired with the map the server sends back
@@ -1001,7 +1213,9 @@ function fsimFrame(now) {
   }
   if (F.audioAcc >= 0.25) {
     F.audioAcc = 0;
-    updateEngineAudio({ airborne: F.reportedAirborne, engineOn: F.engineOn, class: F.cls, throttle: Math.round(thr * 100), spd: Math.round(s.airspeed), engines: [{ pct: Math.round(s.rpm * 100) }], bandIndex: s.altitude > 500 ? 1 : 0, sky: F.sky });
+    updateEngineAudio({ continuous: true, airborne: F.reportedAirborne, engineOn: F.engineOn, class: F.cls, throttle: Math.round(thr * 100), spd: Math.round(s.airspeed), engines: [{ pct: Math.round(s.rpm * 100) }], bandIndex: s.altitude > 500 ? 1 : 0, sky: F.sky,
+      rpm: s.rpm, airspeed: s.airspeed, vs: s.vs, altitude: s.altitude, onGround: s.onGround, groundSpeed: s.onGround ? s.airspeed : 0,
+      stallMargin: s.stallMargin, stalled: s.stalled, flaps: input.flaps });
   }
 
   F.raf = requestAnimationFrame(fsimFrame);
@@ -1038,6 +1252,20 @@ function pfdTape(ctx, x, w, H, val, step, count, warn, marks) {
   ctx.restore();
 }
 
+// Instrument night lighting: an accent backlight bloom over the glass + a lit accent
+// rim just inside the bezel, so the dials read as edge-lit in the dark. Drawn last.
+function nightGlow(ctx, W, H) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.12, W / 2, H / 2, Math.max(W, H) * 0.62);
+  g.addColorStop(0, accA(0.10)); g.addColorStop(0.6, accA(0.04)); g.addColorStop(1, accA(0));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.shadowColor = ACCENT; ctx.shadowBlur = 5; ctx.strokeStyle = accA(0.5); ctx.lineWidth = 1;
+  ctx.strokeRect(1.5, 1.5, W - 3, H - 3);
+  ctx.restore();
+}
+
 function paintPFD(cv, s) {
   if (!cv || !cv.getContext) return;
   const cw = cv.clientWidth, ch = cv.clientHeight; if (!cw || !ch) return;
@@ -1066,6 +1294,7 @@ function paintPFD(cv, s) {
   const vy = clampNum(cy - (s.vs || 0) / 2000 * (H * 0.42), 6, H - 6);
   ctx.fillStyle = (s.vs || 0) >= 0 ? '#5fe0a0' : '#ffb23e'; ctx.fillRect(W - TAPE - 4, Math.min(cy, vy), 3, Math.abs(vy - cy));
   ctx.fillStyle = s.bingo ? '#ff5a5b' : '#6f8698'; ctx.font = '7px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('FUEL ' + (s.fuelPct | 0) + '%', TAPE + 3, H - 2);
+  if (s.night) nightGlow(ctx, W, H);
   ctx.restore();
 }
 
@@ -1113,6 +1342,7 @@ function paintGauges(cv, g) {
   ctx.fillStyle = `rgba(224,64,58,${on})`; ctx.beginPath(); ctx.arc(c.x, c.y, r * 0.82, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
   ctx.strokeStyle = 'rgba(255,120,116,0.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(c.x, c.y, r * 0.82, 0, 7); ctx.stroke();
   ctx.fillStyle = on > 0.5 ? '#fff' : '#7a3a38'; ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('STALL', c.x, c.y);
+  if (g.night) nightGlow(ctx, W, H);
   ctx.restore();
 }
 
@@ -1141,6 +1371,7 @@ function paintMFD(cv, F, d) {
   // North pointer — sits toward North on the rotated map (opposite your heading offset).
   const rr = Math.min(W, H) * 0.4, nx = W / 2 - Math.sin(hdgRad) * rr, ny = H / 2 - Math.cos(hdgRad) * rr;
   ctx.fillStyle = accA(0.8); ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('N', nx, ny);
+  if (F.nightLight) nightGlow(ctx, W, H);
   ctx.restore();
 }
 
@@ -1187,6 +1418,8 @@ export function flightSimContext(msg) {
   // Update the map AND its window centre together so they stay paired (no recenter jump).
   if (msg.map) { F.map = msg.map; if (msg.mapX != null) F.mapCenter = { x: msg.mapX, y: msg.mapY }; }
   if (msg.minimap) F.minimap = msg.minimap;
+  if (msg.fields) F.fields = msg.fields;
+  if ('cargo' in msg) F.cargoKg = msg.cargo;   // current hold weight (drives the J jettison bind)
   if (msg.sky) F.sky = msg.sky;
   if ('biomeBelow' in msg) F.biomeBelow = msg.biomeBelow;
   F.warn = msg.warn || null;
@@ -1201,9 +1434,11 @@ export function closeFlightSim() {
   const F = _fsim; if (!F) return;
   _fsim = null;
   if (F.raf) cancelAnimationFrame(F.raf);
+  if (F.toastT) clearTimeout(F.toastT);
   for (const [t, ty, fn, op] of F.listeners) { try { t.removeEventListener(ty, fn, op); } catch {} }
   try { disposeWindshield('fsim-ws'); } catch {}
   stopEngineAudio();
+  suppressWeatherFx(false);   // back to the room view — let the outdoor overlay resume
 }
 
 export function openTakeoff(opts = {}) {
@@ -1296,7 +1531,7 @@ export function openTakeoff(opts = {}) {
       if (roll >= 1 && !v1) { finish(false, 'OVERRUN — off the end of the strip'); return; }
       if (v1 && stick > 0.12) {
         if (stick > STALL_BAND) { big('⚠ OVER-ROTATE — EASE OFF', '#ff5b5b'); stallT += dt; if (stallT > 1.2) { finish(false, 'STALL on rotation'); return; } }
-        else { airborne = true; stallT = 0; big('POSITIVE RATE — CLIMB', '#46e05a'); creak('gear'); q('#ck-gear').textContent = 'UP'; q('#ck-gear').style.color = '#46e05a'; }
+        else { airborne = true; stallT = 0; big('POSITIVE RATE — CLIMB', '#46e05a'); gearFx('retract'); q('#ck-gear').textContent = 'UP'; q('#ck-gear').style.color = '#46e05a'; }
       } else if (roll > 0.9 && stick < -0.15) { finish(false, 'NOSE-FIRST — you drove it into the ground'); return; }
       else if (stallT > 0 && stick <= STALL_BAND) { stallT = 0; big(v1 ? 'V1 — ROTATE!' : ''); }
     } else {
@@ -1485,6 +1720,7 @@ export function openGlideslope(opts = {}) {
   const mounted = mountOverlay({ id: 'cockpit-overlay', html, closeOnBackdrop: false,
     onClose: () => { if (raf) cancelAnimationFrame(raf); for (const [t, ty, fn, op] of listeners) t.removeEventListener(ty, fn, op); } });
   const overlay = mounted.overlay; const q = (s) => overlay.querySelector(s);
+  gearFx('extend');   // gear comes down as the approach begins
   const setStatus = (h) => { const el = q('#ck-status'); if (el) el.innerHTML = h; };
   const big = (h, c) => { const el = q('#ck-bigmsg'); if (el) { el.innerHTML = h || ''; el.style.color = c || '#ffcf3e'; } };
 

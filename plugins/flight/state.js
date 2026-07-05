@@ -10,7 +10,7 @@
 import { query } from '../../server/models/db.js';
 import { getZone, getAllZones, getLivePlayer, getMinimapData } from '../../server/engine/world.js';
 import { biomeOf, districtBiome } from './biomes.js';
-import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { sendToPlayer, sendToZone, sendToZoneExcept } from '../../server/engine/messaging.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
@@ -30,7 +30,9 @@ export const BAND_BURN = { ground: 1, low: 1, cruise: 1.25, high: 1.6 };
 // The overhaul's continuous energy model runs client-side; the server reconciles
 // and owns the consequences. It's gated to ONE airframe (the Mayfly) for the slice
 // — every other type keeps the discrete band/deck flow untouched until Phase 3.
-export const CONTINUOUS_TYPES = new Set(['ac_mayfly']);
+// Fixed-wing craft flown on the continuous cockpit sim. The heli (ac_dragonfly, VTOL)
+// stays on the modal decks until it gets its own hover model (Phase 3b).
+export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass']);
 export function isContinuous(live) { return !!live && CONTINUOUS_TYPES.has(live.type?.id); }
 
 // Continuous altitude (ft) → the legacy band the consequence systems still read
@@ -252,6 +254,21 @@ function nearestField(x, y) {
   return best ? { name: best.flags.airfield_name || best.name, bearing: Math.round(bearingDeg(x, y, best.grid_x, best.grid_y)), dist: Math.round(bestD) } : null;
 }
 
+// All airfields within FIELD_TAG_RANGE tiles of a coord, each as a bearing tag the
+// cockpit paints on the heading tape — purely distance-gated (shown at any altitude),
+// nearest first. Bearing is world-absolute; the client slides each tag as it turns.
+const FIELD_TAG_RANGE = 24;
+function nearbyFields(x, y) {
+  const out = [];
+  for (const z of getAllZones()) {
+    if (z.map_id !== 'map_world' || !z.flags?.airfield_id || z.grid_x == null) continue;
+    const d = Math.hypot(z.grid_x - x, z.grid_y - y);
+    if (d > FIELD_TAG_RANGE) continue;
+    out.push({ name: z.flags.airfield_name || z.name, bearing: Math.round(bearingDeg(x, y, z.grid_x, z.grid_y)), dist: Math.round(d) });
+  }
+  return out.sort((a, b) => a.dist - b.dist);
+}
+
 export function gaugePayload(live) {
   const a = live.row, t = live.type, eff = effStats(live);
   const cap = eff.fuelCap;
@@ -338,6 +355,8 @@ export function contextPayload(live) {
     surface: surfaceAt(a.grid_x, a.grid_y)?.name || 'open air',
     biomeBelow: districtBiome(surfaceAt(a.grid_x, a.grid_y)),
     minimap: (() => { const b = surfaceAt(a.grid_x, a.grid_y); return b ? getMinimapData(b.id, 3) : null; })(),
+    fields: nearbyFields(a.grid_x, a.grid_y),   // airport bearing tags for the heading tape
+    cargo: a.custom_data?.cargoWeight || 0,     // current hold weight (drives the cockpit jettison bind)
     warn: a.fuel <= 0 ? 'STARVATION' : (a.fuel <= cap * BINGO_FRAC ? 'BINGO' : null),
   };
 }
@@ -384,14 +403,22 @@ export async function parkAt(live, zoneId) {
   live.runup = false;
   live.engines = null;
   live.coldStart = 0;
+  // The aircraft comes to rest on the ramp (parked_zone_id above, boardable from the
+  // hangar), but you taxi it into the walk-in hangar to shut down and climb out — so
+  // occupants disembark INSIDE the hangar office when the field has one (mirrors the
+  // hangar-only embark), otherwise onto the ramp itself.
+  const hangar = z?.flags?.hangar_interior_zone;
+  const occZone = getZone(hangar) ? hangar : zoneId;
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
     if (!p) continue;
     if (p.posture === 'flying') forceStand(p, 'flight.land');
-    p.current_zone = zoneId;
-    getZone(zoneId)?.players.add(pid);
+    p.current_zone = occZone;
+    getZone(occZone)?.players.add(pid);
     closeHud(pid);
-    out(pid, `<span class="text-dim">You are down at ${z?.name || 'the field'}.</span>`);
+    out(pid, occZone === zoneId
+      ? `<span class="text-dim">You are down at ${z?.name || 'the field'}.</span>`
+      : `<span class="text-dim">You taxi into the hangar at ${z?.name || 'the field'}, cut the engine, and climb out.</span>`);
   }
   await persist(live);
 }
@@ -429,4 +456,4 @@ export function setHeading(live, dirOrDeg) { live.row.heading = String(toDeg(dir
 export { syncEngineTemp };
 
 // Convenience re-exports so submodules import world/zone helpers from one place.
-export { getZone, getLivePlayer, sendToZone, sendToPlayer, setPosture, forceStand };
+export { getZone, getLivePlayer, sendToZone, sendToZoneExcept, sendToPlayer, setPosture, forceStand };

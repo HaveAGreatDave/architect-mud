@@ -23,6 +23,12 @@ import { getCrimeStars, getCrimeWitness, getCrimeLabel, isCrimeEnabled } from '.
 
 const COMPASS = new Set(['north', 'south', 'east', 'west', 'up', 'down', 'n', 's', 'e', 'w', 'u', 'd']);
 
+// Cops don't chase a suspect who's currently airborne — you can't be apprehended
+// or searched mid-flight (no-fly airspace still raises stars via the flight plugin;
+// the pursuit simply waits until you're back on the ground). A player in a cockpit
+// carries an `aircraftId`; that's the authoritative "in a plane" signal.
+const isAirborne = (player) => !!player?.aircraftId;
+
 // Battery drain per 5-minute tick, by device kind. sticky_cam @864 max ≈ 3 days;
 // drone @864 ≈ 6 hours. Wired devices ignore this and follow zone power instead.
 const DRAIN = { sticky_cam: 1, relay: 1, motion_sensor: 1, audio_sensor: 1, jammer: 2, spoofer: 2, drone: 12 };
@@ -1225,6 +1231,7 @@ registerAction({
   type: 'APPREHEND',
   handler: async ({ actor, params }) => {
     if (!actor?.id) return { type: 'apprehend', started: false };
+    if (isAirborne(actor)) return { type: 'apprehend', started: false };   // can't be detained mid-flight
     const s = wantedState(actor.id);
     s.apprehendCooldownUntil = 0;
     await startApprehension(actor, s, { name: params?.officer || 'A checkpoint officer' });
@@ -1346,6 +1353,10 @@ function flushCrimesToHistory(playerId, outcome) {
 
 async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
   if (!player?.id || !player.handle) return;
+  // No law in the wastes: a zone outside city limits (flags.lawless) has no police
+  // apparatus, so a witness report there does nothing — no crime is ever charged,
+  // even a forced one. Only the policed city core raises stars.
+  if (getZone(zoneId)?.flags?.lawless) return;
   if (!isCrimeEnabled(key)) return; // admin switched this crime off in the Crime panel
   const stars = getCrimeStars(key);
   if (!stars) return;
@@ -1385,14 +1396,34 @@ async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
 
 // Combat (weapon plugin) and drug (engine) fire these; we charge the matching
 // crime. Witness-gating + debounce live in raiseCrime.
-on('player.attacked', ({ attacker }) => {
-  if (attacker?.id) raiseCrime(attacker, 'attack_player', attacker.current_zone, attacker.handle);
+// Attacks are special: raising a hand where ANY witness can see it (a live PD cam,
+// an on-scene cop, or a bystander player) is an immediate, guaranteed 4-star crime —
+// not the probabilistic camera roll the other crimes run. `isWitnessed` is the
+// deterministic gate, and we force the charge past raiseCrime's own roll. Off-camera,
+// unseen violence still slips; and the lawless-zone gate inside raiseCrime means none
+// of this fires outside city limits.
+on('player.attacked', async ({ attacker }) => {
+  if (attacker?.id && await isWitnessed(attacker.current_zone))
+    raiseCrime(attacker, 'attack_player', attacker.current_zone, attacker.handle, true);
 });
-on('npc.attacked', ({ actor }) => {
-  if (actor?.id) raiseCrime(actor, 'attack_npc', actor.current_zone, actor.handle);
+on('npc.attacked', async ({ actor }) => {
+  if (actor?.id && await isWitnessed(actor.current_zone))
+    raiseCrime(actor, 'attack_npc', actor.current_zone, actor.handle, true);
 });
 on('npc.killed', ({ actor, npc }) => {
   if (actor?.id && npc?.flags?.police) raiseCrime(actor, 'kill_police', actor.current_zone, actor.handle);
+});
+// Handing a controlled substance to another person is dealing. A live camera
+// might catch it (small chance) and a bystander might phone it in (lower, but
+// never zero) — raiseCrime's witness roll for the `any`-witnessed drug_dealing
+// crime models exactly that. Legal drugs (coffee/beer, drugs.flags.legal) and
+// non-drug items pass unremarked. The giver (the dealer) wears the charge.
+on('item.given', async ({ actor, item }) => {
+  if (!actor?.id || !item?.item_id) return;
+  const { rows } = await query('SELECT flags FROM drugs WHERE item_id=$1 LIMIT 1', [item.item_id]).catch(() => ({ rows: [] }));
+  const d = rows[0];
+  if (!d || d.flags?.legal) return;   // not a drug, or a legal one — no heat
+  raiseCrime(actor, 'drug_dealing', actor.current_zone, actor.handle);
 });
 on('player.drugUsed', ({ player, illegal, zoneId }) => {
   if (player?.id && illegal) raiseCrime(player, 'drug_use', zoneId || player.current_zone, player.handle);
@@ -1645,6 +1676,11 @@ function huntStep(e, targetZone, bc) {
 async function searchAndPursue(suspectId, s) {
   const suspect = getLivePlayer(suspectId);
   if (!suspect?.current_zone) return;
+  // Cops can't touch you in the air — hold the manhunt (no muster, no detain, no
+  // attack) until you're back on the ground. Your stars persist; the units are
+  // waiting when you land. (A flying player keeps current_zone set but is off the
+  // zone roster, so without this a hunter reaching that zone would "arrest" a plane.)
+  if (isAirborne(suspect)) return;
   const zone = suspect.current_zone;
   const bc = getBroadcast();
 

@@ -39,6 +39,7 @@ import { showConfirmDialog } from './panels/confirm.js';
 import { showArrestNotice } from './panels/arrest.js';
 import { openApprehendPrompt } from './panels/apprehend.js';
 import { openConcealSearch } from './panels/conceal.js';
+import { updateTrade, closeTrade } from './panels/trade.js';
 import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
 
@@ -469,6 +470,8 @@ const handlers = {
   conceal_search: (msg) => { openConcealSearch(msg); },
   poker_update: (msg) => { setAreaPane(msg.html); },
   poker_sfx: (msg) => { playPokerSfx(msg.cue); },
+  trade_update: (msg) => { updateTrade(msg.html); },
+  trade_close: () => { closeTrade(); },
 
   online_change: () => { refreshOnlinePlayers(); },
   whisper: (msg) => { receiveWhisper(msg.from || 'Admin', msg.message); },
@@ -593,6 +596,8 @@ const handlers = {
         difficulty: msg.difficulty ?? 8,
         instability: msg.instability ?? 0,
         recipeName: msg.recipeName || 'COMPOUND',
+        automated: msg.automated || [],
+        autoScore: msg.autoScore ?? 70,
         onResult: ({ score }) => sendCmdSilent(`spliceresolve ${msg.token} ${score}`),
       });
     } else {

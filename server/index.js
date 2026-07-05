@@ -98,6 +98,7 @@ function broadcast(
 	excludePlayerId = null,
 	targetPlayerId = null,
 	excludePlayerId2 = null,
+	excludeSet = null,
 ) {
 	const payload = JSON.stringify(message);
 	if (targetPlayerId) {
@@ -109,6 +110,7 @@ function broadcast(
 		if (ws.readyState !== 1) continue;
 		if (excludePlayerId && session.playerId === excludePlayerId) continue;
 		if (excludePlayerId2 && session.playerId === excludePlayerId2) continue;
+		if (excludeSet && excludeSet.has(session.playerId)) continue;
 		if (session.isGhost) {
 			// Ghost only receives broadcasts for its watched zone; skip global ones
 			if (!zoneId || session.ghostZoneId !== zoneId) continue;
@@ -117,6 +119,10 @@ function broadcast(
 			if (!p || p.current_zone !== zoneId) continue;
 			// Asleep players don't perceive the room around them — no actions, speech, or ambience.
 			if (p.sleeping) continue;
+			// Aboard an airborne aircraft the player is up in the sky, not in the stale ground
+			// zone they took off from — ground ambience (overfly noise, banter, vendors, weather)
+			// must not leak into the cockpit. Their own game messages arrive targeted.
+			if (p.posture === 'flying') continue;
 		}
 		ws.send(payload);
 	}

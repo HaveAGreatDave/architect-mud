@@ -37,6 +37,7 @@ const penaltyMult = () => Math.max(0, Number(getTunable('crime_penalty_multiplie
 const CELL_ZONE = 'zone_mq_precinct_holding';   // the holding cell you wake in
 const RELEASE_ZONE = 'zone_mq_precinct_lobby';  // where the guard walks you out to
 const BUNK_ZONE = 'zone_mq_precinct_bullpen';   // where off-shift officers wait (their desks)
+const PRISON_JUMPSUIT = 'item_prison_jumpsuit'; // issued at booking (torso+legs, via its `covers` tag)
 const MINUTE = 60 * 1000;
 const EVIDENCE_CAP = 50;                         // max rows in the shared locker
 const PURGE_MS = 3 * 24 * 60 * 60 * 1000;        // wipe evidence older than 3 days
@@ -124,6 +125,7 @@ async function confiscate(playerId, handle, actor = null) {
     const tags = r.tags || {};
     if (tags.quest_item === true) continue;   // stays on the player
     const cd = r.custom_data || {};
+    if (cd.packaged) { survivedIds.push(r.inv_id); continue; }   // sealed climate crate — tamper-proof, survives the search
     const con = isContraband(r.item_id, tags);
     if (con && cd.concealed && who) {
       let keep = cd.concealed.palmed === true;                       // a clean live palm always holds
@@ -147,6 +149,20 @@ async function confiscate(playerId, handle, actor = null) {
   );
   await lockUp(contraband, handle);
   return held;
+}
+
+// Issue the prison jumpsuit and put it on. Worn on the torso; its `covers` tag
+// (see items) fills the legs from the same single garment, so a stripped prisoner
+// isn't left half-naked. Removed automatically at release — restoreHeld() wipes
+// the whole inventory (garb included) before restoring the held snapshot.
+async function dressInGarb(playerId) {
+  // Insert-if-present: a booking never hinges on the garb item being seeded, so a
+  // world without item_prison_jumpsuit (e.g. the regress harness) just skips it.
+  await query(
+    `INSERT INTO player_inventory (id, player_id, item_id, quantity, is_equipped, slot, layer)
+     SELECT $1,$2,$3,1,1,'torso',2 WHERE EXISTS (SELECT 1 FROM items WHERE id=$3)`,
+    [randomUUID(), playerId, PRISON_JUMPSUIT]
+  );
 }
 
 // Wipe whatever the player is carrying (prison garb) and restore the held snapshot.
@@ -246,6 +262,7 @@ async function bookIntoCell(player, { teleport = false } = {}) {
   ).catch(() => ({ rows: [{ n: 0 }] }))).rows[0].n;
 
   const held = await confiscate(player.id, player.handle, player);
+  await dressInGarb(player.id);   // stripped and re-clothed in a Precinct 9 jumpsuit
   // Sentence is stars base-minutes, scaled UP by the game-speed knob so a faster
   // world clock means a proportionally longer lockout (at 3× a 5★ stretch is 15
   // real minutes). release_at + the release timer both use this real duration.

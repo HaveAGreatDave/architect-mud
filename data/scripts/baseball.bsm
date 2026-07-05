@@ -160,6 +160,14 @@ The {away} take the field against the {home}. Bad blood, worse plumbing. Here we
 It's {home} hosting {away} under whatever's left of the stadium lights.
 ::endlines
 
+# --- Matchup WITH standings (used once the league has records on the board) ------
+::lines matchup.records
+Tonight the {away}, {awayRecord} on the season, roll into town to face the {home} at {homeRecord}.
+On the marquee: {away} ({awayRecord}) versus {home} ({homeRecord}). Somebody's record gets worse tonight.
+The {away} bring their {awayRecord} mark in against the {home}, sitting at {homeRecord}. Standings on the line, such as they are.
+It's {home} ({homeRecord}) hosting {away} ({awayRecord}) — two clubs clawing up a league table nobody escapes.
+::endlines
+
 # --- Half-inning framing ------------------------------------------------------
 ::lines half.top
 Top of the {inningOrd}. The {team} step up to hit.
@@ -251,6 +259,26 @@ Four wide ones, {batter} draws the walk. Free pass.
 {batter} spits on a full count and takes his base. {pitcher} not happy about it.
 ::endlines
 
+# --- Situational outs: double plays, sac flies, productive groundouts -----------
+::lines atbat.doubleplay
+Ground ball, and they turn TWO on {batter}! Around the horn — rally strangled in the crib. {outs} away.
+{batter} raps into a tailor-made double play. {pitcher} exhales; the whole frame's undone in one pitch. {outs} down.
+Two for the price of one — {batter} bounces into a double play. The {team} dugout deflates. {outs} gone.
+{batter} chops it right at 'em and they flip it around for a double play. Cruel game. {outs} away.
+::endlines
+
+::lines atbat.sacfly
+Deep enough! {batter} lifts a sacrifice fly — the runner tags from third and scores. He's out, but it counts on the board. {outs} away.
+{batter} gives himself up, fly ball to the track, the runner trots home. Traded an out for a run. {outs} down.
+Sac fly off the bat of {batter}. {team} do it the ugly way — run's in, {outs} away.
+::endlines
+
+::lines atbat.productout
+{batter} rolls out to the right side but pushes the runner up ninety feet. A productive out — if there's such a thing in this town. {outs} away.
+Groundout by {batter}, does his job, moves the runner over. {outs} down.
+{batter} grounds one that scoots the runner up. Nothing pretty, but it plays. {outs} in the frame.
+::endlines
+
 # --- Runs batted in (non-home-run scoring play) -------------------------------
 ::lines rbi
 {batter} lines one into the gap and {rbi} come around to score! The {team} put it on the board.
@@ -299,6 +327,65 @@ Where we stand through {inningOrd}: {home} {homeScore}, {away} {awayScore}.
 AND THAT'LL DO IT! {batter} wins it for the {home}! The crowd — the four of them — go absolutely feral!
 WALK-OFF! {batter} sends everyone home! {home} take it, {homeScore} to {awayScore}!
 Ballgame over! {batter} is a hero in a town that eats its heroes! {home} win it in walk-off fashion!
+::endlines
+
+# --- Extra innings: tied after nine. We cut in only for the plays that matter. The
+# --- deeper it goes the harder both sides swing, so somebody breaks it — soon. ------
+::lines extras.intro
+Nine wasn't enough. We're going to EXTRA INNINGS, folks — nobody in this crumbling barn gets to go home yet.
+Tied after nine. Free baseball — and around here 'free' means it costs you your whole night and possibly a lung.
+We spill into extras, dead even. Somewhere a generator groans. Bats are getting angry. This ends soon, one way or another.
+::endlines
+
+::lines extras.top
+We cut back in — top of the {inningOrd}, {team} up, still level. Everybody's swinging for keeps now.
+Top of the {inningOrd}, extras, and the {team} are hacking at everything. Something's gotta give.
+::endlines
+
+::lines extras.bottom
+Bottom of the {inningOrd}, still knotted — the {team} get their cuts to end it right here.
+Home half of the {inningOrd}. The {team} looking for the one run that sends everybody home.
+::endlines
+
+::lines extras.cut
+Extra innings roll on, and both dugouts smell blood.
+::endlines
+
+::lines extras.hold
+...and they go quietly. Still level. On we go — the bats getting meaner by the inning.
+Nothing across. Still tied. Nobody said this town does mercy.
+Three up, three down, and we're still deadlocked — {away} {awayScore}, {home} {homeScore}. Somebody end this.
+::endlines
+
+# --- Top-half go-ahead in extras that the home side can't answer = a road win ------
+::lines winning.top
+The {leader} pushed across the go-ahead in the {inningOrd} and the home side had NOTHING in reply. That's your ballgame.
+That run in the top of the {inningOrd} stands up — the {leader} steal it on the road and get out of town alive.
+Go-ahead run in extras, home half comes up empty, and the {leader} make it stick. Ballgame.
+::endlines
+
+# --- WORLD SERIES: one game, top two teams, winner takes the season ---------------
+::lines worldseries.intro
+This is it. THE WORLD SERIES. One game, two clubs, and a whole miserable season of baseball comes down to the next nine innings. Chip Vega, and I have never been more awake.
+Welcome to the DEADBALL WORLD SERIES — winner takes the crown, loser takes the long walk home. Chip Vega in the booth, gripping the desk so hard my knuckles went.
+Nine innings from immortality. The World Series, folks — last game of the season, and somebody's about to become a legend in a town that forgets fast.
+::endlines
+
+::lines worldseries.matchup
+For all of it: the {away} versus the {home}. Two survivors, one trophy, no tomorrow.
+The {away} ({awayRecord}) against the {home} ({homeRecord}) — the two best clubs left standing, playing for the only thing that ever mattered.
+Winner takes the season, loser takes nothing. {away} and {home}. Let's settle it.
+::endlines
+
+::lines worldseries.final
+IT'S OVER! The {leader} are your DEADBALL WORLD SERIES CHAMPIONS! {home} {homeScore}, {away} {awayScore} — carve it into whatever's still standing!
+CHAMPIONS! The {leader} take the whole thing, {homeScore} to {awayScore}! A season of blood and rust, and they're the last ones grinning!
+That's your ballgame and your SEASON — the {leader} win the World Series! {away} {awayScore}, {home} {homeScore}. Somewhere, a bookie weeps into his ledger.
+::endlines
+
+::lines worldseries.outro
+The {leader} are champions. The rest of us go back to nothing. Chip Vega — good night, and long live the kings, however briefly.
+Champions crowned, season buried. Chip Vega signing off on the World Series. Same dirt tomorrow, but tonight belongs to the {leader}.
 ::endlines
 
 # --- Final ---------------------------------------------------------------------

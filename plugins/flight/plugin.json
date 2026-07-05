@@ -7,7 +7,7 @@
     "recover", "extinguish", "eject", "bail", "preflight", "hover", "spot", "scan", "chart", "squawk",
     "buy", "rent", "charter", "flyto", "cancel", "testfly", "flight", "fs",
     "arm", "safe", "evade", "strafe", "fire", "strafresolve",
-    "contracts", "jobs", "accept", "manifest",
+    "contracts", "jobs", "accept", "manifest", "jettison",
     "hangar", "repair", "salvage", "rebuild", "tune", "modify", "customize"
   ],
   "objectGatedCommands": {

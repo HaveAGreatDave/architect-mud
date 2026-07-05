@@ -128,10 +128,10 @@ export function ensureWindshieldStyles() {
     .ws-frame { position:absolute; inset:0; pointer-events:none; }
     .ws-frame::before { content:''; position:absolute; inset:0; border-radius:8px;
       box-shadow:inset 0 0 0 3px rgba(20,28,38,0.9), inset 0 0 40px rgba(0,0,0,0.55); }
-    /* canopy A-pillars + header rail */
+    /* canopy A-pillars only — the curved windscreen header is drawn on the canvas
+       (drawCanopy) so the top edge reads as a DA62-style bow, not a flat bar */
     .ws-frame::after { content:''; position:absolute; inset:0;
       background:
-        linear-gradient(180deg, rgba(12,18,26,0.85) 0%, rgba(12,18,26,0) 12%),
         linear-gradient(90deg, rgba(12,18,26,0.7) 0%, rgba(12,18,26,0) 7%, rgba(12,18,26,0) 93%, rgba(12,18,26,0.7) 100%); }
     .ws-label { position:absolute; top:5px; left:9px; font:9px/1 monospace; letter-spacing:2px;
       color:rgba(143,208,255,0.55); pointer-events:none; }`;
@@ -155,6 +155,10 @@ export function paintWindshield(id, view) {
   const dt = Math.min(0.05, st.last ? (now - st.last) / 1000 : 0.016); st.last = now;
 
   const v = view || {};
+  // Look direction: Q/E/S swivel the camera off the nose (viewYaw ≠ 0) while the aircraft
+  // keeps flying straight ahead — the WORLD renders in the look direction, but the HUD
+  // (heading tape, airport tags) always reads true heading. Everything else is shared.
+  const vw = v.viewYaw ? { ...v, heading: (v.heading || 0) + v.viewYaw } : v;
   const W = cw, H = ch, speed = clamp(v.speed || 0, 0, 1), height = clamp(v.height || 0, 0, 1);
   const phase = v.phase || 'cruise';
   const wx = (v.weather || 'clear').toLowerCase();
@@ -277,12 +281,12 @@ export function paintWindshield(id, view) {
     ctx.globalAlpha = 1;
   } else if (!onDeck) {
     // Mode-7-inspired textured ground plane (forward view).
-    drawMode7Floor(ctx, W, H, horizonY, focal, v, sky, gTop);
+    drawMode7Floor(ctx, W, H, horizonY, focal, vw, sky, gTop);
   }
 
   // Pilotwings horizon: distant rolling land + a soft hazy glow along the horizon.
   if (!side && !onDeck) {
-    drawSkyline(ctx, W, H, horizonY, v, sky);
+    drawSkyline(ctx, W, H, horizonY, vw, sky);
     const glow = ctx.createLinearGradient(0, horizonY - 14, 0, horizonY + 10);
     glow.addColorStop(0, rgb(sky.hor, 0));
     glow.addColorStop(0.5, rgb(mix(sky.hor, [255, 255, 255], 0.5), 0.42 * (1 - sky.night * 0.5)));
@@ -309,11 +313,11 @@ export function paintWindshield(id, view) {
     // Textured 3-D world through the Mode-7 camera: roads + runway on the ground,
     // then extruded building boxes on top (depth-sorted). Fixes the flat-billboard
     // "strange perspective" and pop-in.
-    const cam = makeCam(W, horizonY, focal, v);
-    drawRoads(ctx, cam, v);
-    if (v.runway) drawRunwayTex(ctx, cam, v);
-    drawWorldObjects(ctx, cam, v, sky, now);
-    if (v.landGuide && v.runway) drawGuideBoxes(ctx, cam, v, now);
+    const cam = makeCam(W, horizonY, focal, vw);
+    drawRoads(ctx, cam, vw);
+    if (vw.runway) drawRunwayTex(ctx, cam, vw);
+    drawWorldObjects(ctx, cam, vw, sky, now);
+    if (vw.landGuide && vw.runway) drawGuideBoxes(ctx, cam, vw, now);
   }
 
   // Speed streaks (motion rush from the vanishing point) — forward view only.
@@ -351,6 +355,7 @@ export function paintWindshield(id, view) {
 
   // On-glass weather (drops that cling to the canopy, lightning) + a WX badge.
   drawGlass(ctx, W, H, wx, st, dt, speed);
+  if (!v.windowClass) drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
   if (!v.windowClass) drawWxBadge(ctx, W, wx, v.wind);
   if (v.hud) drawHud(ctx, W, H, v);
   // Passenger cabin: cut the view into a window shaped to fit the aircraft.
@@ -397,6 +402,33 @@ function drawWindowFrame(ctx, W, H, cls) {
   const ig = ctx.createRadialGradient(W / 2, H / 2, Math.min(s.w, s.h) * 0.3, W / 2, H / 2, Math.max(s.w, s.h) * 0.7);
   ig.addColorStop(0, 'rgba(0,0,0,0)'); ig.addColorStop(1, 'rgba(6,10,14,0.5)');
   ctx.fillStyle = ig; ctx.fillRect(s.x, s.y, s.w, s.h); ctx.restore();
+}
+
+// DA62-style curved windscreen header: a dark canopy frame across the top whose lower
+// edge bows UP across the centre (more glass) and reaches deeper at the corners (the
+// raked A-pillar roots), plus a slim central windscreen post — so the top edge of the
+// view reads as a curved canopy bow instead of a flat black bar.
+function drawCanopy(ctx, W, H) {
+  const midY = H * 0.055;      // header depth at the centre (glass is highest here)
+  const cornerY = H * 0.20;    // header depth at the corners (raked pillar roots)
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, cornerY);
+  ctx.quadraticCurveTo(W * 0.5, midY, 0, cornerY);   // corner → up over centre → corner
+  ctx.closePath();
+  const g = ctx.createLinearGradient(0, 0, 0, cornerY);
+  g.addColorStop(0, 'rgba(9,14,20,0.94)'); g.addColorStop(0.62, 'rgba(9,14,20,0.9)'); g.addColorStop(1, 'rgba(9,14,20,0)');
+  ctx.fillStyle = g; ctx.fill();
+  // a faint highlight along the header's inner curve (canopy sealant catching light)
+  ctx.beginPath(); ctx.moveTo(0, cornerY); ctx.quadraticCurveTo(W * 0.5, midY, W, cornerY);
+  ctx.strokeStyle = 'rgba(150,185,215,0.10)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.restore();
+  // A short central windscreen-bow stub hanging from the header (a nod to the DA62's
+  // two-panel post) — kept brief so it doesn't bisect the Mayfly's bubble canopy.
+  const pw = Math.max(3, W * 0.011);
+  const pg = ctx.createLinearGradient(0, 0, 0, H * 0.24);
+  pg.addColorStop(0, 'rgba(9,14,20,0.6)'); pg.addColorStop(1, 'rgba(9,14,20,0)');
+  ctx.fillStyle = pg; ctx.fillRect(W / 2 - pw / 2, 0, pw, H * 0.24);
 }
 
 // Water on the windscreen + storm lightning — drawn on the fixed glass, not the
@@ -486,6 +518,24 @@ function drawHud(ctx, W, H, v) {
   ctx.fillRect(cx - 13, tapeY + tapeH + 7, 26, 12); ctx.strokeRect(cx - 13, tapeY + tapeH + 7, 26, 12);
   ctx.fillStyle = '#ffcf3e'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(String(Math.round(hdg)).padStart(3, '0'), cx, tapeY + tapeH + 13.5);
+  // Airport bearing tags — a magenta diamond + name/dist under the tape, purely
+  // distance-gated (shown at any altitude). Off the ±45° tape they pin to the edge as
+  // a chevron so you always know which way to turn toward the field.
+  const aps = Array.isArray(v.airports) ? v.airports : [];
+  if (aps.length) {
+    const rowY = tapeY + tapeH + 24;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const ap of aps.slice(0, 4)) {
+      const delta = (((ap.bearing - hdg) % 360) + 540) % 360 - 180;
+      const off = Math.abs(delta) > 45, x = cx + clamp(delta, -45, 45) * ppd;
+      ctx.fillStyle = off ? 'rgba(224,120,208,0.5)' : '#e078d0';
+      ctx.beginPath(); ctx.moveTo(x, rowY - 4); ctx.lineTo(x + 3, rowY); ctx.lineTo(x, rowY + 4); ctx.lineTo(x - 3, rowY); ctx.closePath(); ctx.fill();
+      ctx.font = 'bold 9px monospace';
+      if (off) ctx.fillText(delta > 0 ? '›' : '‹', x + (delta > 0 ? 8 : -8), rowY);
+      ctx.font = '7px monospace'; ctx.fillStyle = off ? 'rgba(224,120,208,0.7)' : '#f0a8e4';
+      ctx.fillText((ap.name || 'FIELD').slice(0, 7).toUpperCase() + (ap.dist != null ? ' ' + ap.dist : ''), x, rowY + 9);
+    }
+  }
   // Off-map turn-back banner.
   if (v.navWarn) {
     const y = H * 0.34; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

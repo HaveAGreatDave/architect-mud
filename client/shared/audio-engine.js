@@ -995,6 +995,9 @@
     playMusic, stopMusic, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
     stop,
     noteToFreq,
+    // Hand a custom synth (e.g. the flight-engine) the context + ambient bus + shared noise
+    // buffer so it can build its own live, parameter-driven node graph on the ambient chain.
+    engineNodes: () => { const c = ensureContext(); if (!c) return null; return { ctx: c, bus: busFor('ambient'), noise: getNoiseBuffer() }; },
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);

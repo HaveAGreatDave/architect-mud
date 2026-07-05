@@ -3,7 +3,7 @@ import { query } from '../../server/models/db.js';
 import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
-import { registerAction } from '../../server/engine/actions.js';
+import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
@@ -765,18 +765,20 @@ function sportsShuffle(arr) {
   return a;
 }
 
-// One plate appearance → an outcome. Weighted to feel like baseball: outs dominate,
-// extra-base hits and walks are less common, home runs rare.
+// One plate appearance → an outcome. Weights are tuned to real MLB per-PA rates:
+// K ~22.7%, reach-base ~32% (the single weight also absorbs reach-on-error so run
+// production lands right), HR ~3%, 2B ~4.2%, 3B ~0.4%. Ground outs outnumber fly
+// outs so double-play chances land near MLB. See the sim-tuning notes.
 const SPORTS_ATBAT_TABLE = [
-  { kind: 'strikeout', w: 22, bases: 0, out: true },
-  { kind: 'groundout', w: 20, bases: 0, out: true },
-  { kind: 'flyout',    w: 16, bases: 0, out: true },
-  { kind: 'popout',    w: 8,  bases: 0, out: true },
-  { kind: 'single',    w: 15, bases: 1, out: false },
-  { kind: 'walk',      w: 8,  bases: 1, out: false },
-  { kind: 'double',    w: 6,  bases: 2, out: false },
-  { kind: 'triple',    w: 1,  bases: 3, out: false },
-  { kind: 'homerun',   w: 4,  bases: 4, out: false },
+  { kind: 'strikeout', w: 225, bases: 0, out: true },
+  { kind: 'groundout', w: 240, bases: 0, out: true },
+  { kind: 'flyout',    w: 160, bases: 0, out: true },
+  { kind: 'popout',    w: 60,  bases: 0, out: true },
+  { kind: 'single',    w: 162, bases: 1, out: false },
+  { kind: 'walk',      w: 94,  bases: 1, out: false },
+  { kind: 'double',    w: 42,  bases: 2, out: false },
+  { kind: 'triple',    w: 4,   bases: 3, out: false },
+  { kind: 'homerun',   w: 31,  bases: 4, out: false },
 ];
 const SPORTS_ATBAT_TOTAL = SPORTS_ATBAT_TABLE.reduce((s, o) => s + o.w, 0);
 function sportsRollAtBat() {
@@ -784,6 +786,21 @@ function sportsRollAtBat() {
   for (const o of SPORTS_ATBAT_TABLE) { roll -= o.w; if (roll <= 0) return o; }
   return SPORTS_ATBAT_TABLE[0];
 }
+
+// Situational-out tunables — base/out-aware outcomes layered over the flat at-bat
+// roll. Double plays kill rallies (and tame blowouts); sac flies and productive
+// groundouts trade an out for a run or a base.
+const SPORTS_DP_CHANCE = 0.38;              // groundout, runner on 1st, <2 outs → two (~0.75 DP/team/game)
+const SPORTS_SACFLY_CHANCE = 0.90;          // flyout, runner on 3rd, <2 outs → run scores, out
+const SPORTS_PRODUCTIVE_OUT_CHANCE = 0.35;  // other groundout nudges a runner on 2nd/3rd up (3rd scores)
+
+// Extra innings. There is ALWAYS a winner — no ties, ever. The 10th plays out free;
+// after that, each extra frame that ends still tied carries an escalating chance the
+// next big swing simply decides it — a walk-off, or a go-ahead that holds. The chance
+// climbs every inning, so the tie can never drag on and always resolves to a winner —
+// you just don't know which side breaks it until it happens. STEP is the per-inning rise.
+const SPORTS_EXTRAS_DECIDE_STEP = 0.34;     // +34%/inning past the 10th; forced-decisive by ~the 13th
+const SPORTS_MAX_INNINGS = 20;              // safety cap; a winner is forced if it's ever reached
 
 const SPORTS_DEFAULT_NAMES = ['Rodriguez', 'Kane', 'Okafor', 'Bishop', 'Hale', 'Vance', 'Cruz', 'Doyle', 'Reyes', 'Park', 'Sato', 'Mundt', 'Nagy', 'Flynn', 'Ruiz', 'Abara', 'Cole', 'Voss', 'Dunn', 'Marsh'];
 
@@ -799,7 +816,8 @@ function sportsAbbr(name) {
 // ordered list of "beats" (half_start / atbat / half_end) carrying everything the
 // narration needs. Standard rules kept minimal: the home team doesn't bat in the
 // bottom half once it already leads in the 9th+, a bottom-half go-ahead run ends the
-// game as a walk-off, and a tie after nine goes to extra innings (capped at 15).
+// game as a walk-off, and a tie after nine goes to extra innings — where the offense
+// is cranked each frame until someone wins. There is always a winner; never a tie.
 function sportsSimGame(teams, players) {
   const teamPool = (Array.isArray(teams) && teams.length >= 2) ? teams : [...(teams || []), ...(teams || []), 'Home', 'Away'];
   const [awayName, homeName] = sportsShuffle(teamPool);
@@ -813,7 +831,6 @@ function sportsSimGame(teams, players) {
   const home = mk(homeName, 9 % Math.max(names.length, 1));
 
   const beats = [];
-  const MAX_INNINGS = 15;
   let gameOver = false, inning = 0;
 
   const playHalf = (half, batting, fielding) => {
@@ -824,38 +841,104 @@ function sportsSimGame(teams, players) {
       const batter = batting.lineup[batting.idx % 9];
       batting.idx++;
       const ab = sportsRollAtBat();
+      let kind = ab.kind, runs = 0;
+
       if (ab.out) {
-        outs++;
-        beats.push({ type: 'atbat', inning, half, battingName: batting.name, fieldingName: fielding.name, batter, pitcher: fielding.pitcher, kind: ab.kind, out: true, outs, rbi: 0, awayScore: away.score, homeScore: home.score, bases: [bases[0], bases[1], bases[2]] });
+        // Base/out-aware outs. A grounder with a man on first can turn two; a fly
+        // ball with a man on third can be traded for a run; other grounders can
+        // still push a runner over — a "productive out".
+        if (ab.kind === 'groundout' && bases[0] && outs < 2 && Math.random() < SPORTS_DP_CHANCE) {
+          kind = 'doubleplay';                 // batter + the force at second
+          bases[0] = false;
+          outs += 2;
+        } else if (ab.kind === 'flyout' && bases[2] && outs < 2 && Math.random() < SPORTS_SACFLY_CHANCE) {
+          kind = 'sacfly';                      // runner tags from third and scores
+          bases[2] = false; runs = 1;
+          outs += 1;
+        } else {
+          outs += 1;
+          if (ab.kind === 'groundout' && outs < 3 && (bases[1] || bases[2]) && Math.random() < SPORTS_PRODUCTIVE_OUT_CHANCE) {
+            kind = 'productout';                // grounder to the right side moves 'em up
+            if (bases[2]) { runs += 1; bases[2] = false; }
+            if (bases[1]) { bases[2] = true; bases[1] = false; }
+          }
+        }
+        batting.score += runs;
+        walkoff = half === 'bottom' && inning >= 9 && runs > 0 && home.score > away.score;
+        beats.push({ type: 'atbat', inning, half, battingName: batting.name, fieldingName: fielding.name, batter, pitcher: fielding.pitcher, kind, out: true, outs, rbi: runs, awayScore: away.score, homeScore: home.score, walkoff, bases: [bases[0], bases[1], bases[2]] });
+        if (walkoff) break;
         continue;
       }
-      let runs = 0;
+
+      // Reached base. A walk pushes only forced runners; hits advance runners with
+      // realistic aggressiveness — a single often scores a man from second and can
+      // send the trail runner first-to-third; a double clears second and third and
+      // frequently scores one from first. Advancement odds tuned to MLB run output.
       if (ab.kind === 'walk') {
         if (bases[0]) { if (bases[1]) { if (bases[2]) runs = 1; bases[2] = true; } bases[1] = true; }
         bases[0] = true;
       } else {
-        const b = ab.bases, nb = [false, false, false];
-        for (let r = 2; r >= 0; r--) if (bases[r]) { const dest = (r + 1) + b; if (dest >= 4) runs++; else nb[dest - 1] = true; }
-        if (b >= 4) runs++; else nb[b - 1] = true;
-        bases[0] = nb[0]; bases[1] = nb[1]; bases[2] = nb[2];
+        const r0 = bases[0], r1 = bases[1], r2 = bases[2];
+        bases[0] = bases[1] = bases[2] = false;
+        if (ab.kind === 'single') {
+          if (r2) runs++;
+          if (r1) { if (Math.random() < 0.72) runs++; else bases[2] = true; }
+          if (r0) { if (Math.random() < 0.42 && !bases[2]) bases[2] = true; else bases[1] = true; }
+          bases[0] = true;
+        } else if (ab.kind === 'double') {
+          if (r2) runs++;
+          if (r1) runs++;
+          if (r0) { if (Math.random() < 0.62) runs++; else bases[2] = true; }
+          bases[1] = true;
+        } else if (ab.kind === 'triple') {
+          runs += (r0 ? 1 : 0) + (r1 ? 1 : 0) + (r2 ? 1 : 0);
+          bases[2] = true;
+        } else { // homerun
+          runs += 1 + (r0 ? 1 : 0) + (r1 ? 1 : 0) + (r2 ? 1 : 0);
+        }
       }
       batting.score += runs;
       walkoff = half === 'bottom' && inning >= 9 && runs > 0 && home.score > away.score;
-      beats.push({ type: 'atbat', inning, half, battingName: batting.name, fieldingName: fielding.name, batter, pitcher: fielding.pitcher, kind: ab.kind, out: false, outs, rbi: runs, awayScore: away.score, homeScore: home.score, walkoff, bases: [bases[0], bases[1], bases[2]] });
+      beats.push({ type: 'atbat', inning, half, battingName: batting.name, fieldingName: fielding.name, batter, pitcher: fielding.pitcher, kind, out: false, outs, rbi: runs, awayScore: away.score, homeScore: home.score, walkoff, bases: [bases[0], bases[1], bases[2]] });
       if (walkoff) break;
     }
     beats.push({ type: 'half_end', inning, half, battingName: batting.name, fieldingName: fielding.name, awayScore: away.score, homeScore: home.score });
     return walkoff;
   };
 
-  while (!gameOver && inning < MAX_INNINGS) {
+  // Force a decisive frame: one swing ends it — a walk-off for the home side or a
+  // go-ahead that holds up for the visitors (coin-flip which). Used both when the
+  // extra-inning "decide" roll fires and as the never-a-tie backstop at the cap.
+  const forceFinish = () => {
+    inning = Math.max(inning, 10);
+    const homeWins = Math.random() < 0.5;
+    const bat = homeWins ? home : away, fld = homeWins ? away : home;
+    const half = homeWins ? 'bottom' : 'top';
+    const r = Math.random();
+    const kind = r < 0.15 ? 'homerun' : (r < 0.5 ? 'double' : 'single');
+    bat.score += 1;
+    beats.push({ type: 'half_start', inning, half, battingName: bat.name, fieldingName: fld.name, pitcher: fld.pitcher, awayScore: away.score - (homeWins ? 0 : 1), homeScore: home.score - (homeWins ? 1 : 0) });
+    beats.push({ type: 'atbat', inning, half, battingName: bat.name, fieldingName: fld.name, batter: bat.lineup[bat.idx % 9], pitcher: fld.pitcher, kind, out: false, outs: 0, rbi: 1, awayScore: away.score, homeScore: home.score, walkoff: homeWins, bases: [false, false, false] });
+    beats.push({ type: 'half_end', inning, half, battingName: bat.name, fieldingName: fld.name, awayScore: away.score, homeScore: home.score });
+  };
+
+  while (!gameOver && inning < SPORTS_MAX_INNINGS) {
     inning++;
     playHalf('top', away, home);
     // Home already ahead entering the bottom of the 9th+ → they've won; skip the half.
     if (inning >= 9 && home.score > away.score) { gameOver = true; break; }
     if (playHalf('bottom', home, away)) { gameOver = true; break; }   // walk-off
-    if (inning >= 9 && away.score !== home.score) gameOver = true;    // decided after a full inning
+    if (inning >= 9 && away.score !== home.score) { gameOver = true; break; }   // decided after a full inning
+    // Still tied in extras. Past the 10th, an escalating chance the next big swing
+    // decides it outright — so a tie can never drag on and always ends with a winner.
+    if (inning >= 10) {
+      const decide = Math.min(1, (inning - 10) * SPORTS_EXTRAS_DECIDE_STEP);
+      if (decide > 0 && Math.random() < decide) { forceFinish(); gameOver = true; break; }
+    }
   }
+
+  // Never a tie: if the cap was somehow reached dead even, one swing settles it.
+  if (away.score === home.score) forceFinish();
 
   return { away, home, awayScore: away.score, homeScore: home.score, beats, innings: inning };
 }
@@ -863,10 +946,11 @@ function sportsSimGame(teams, players) {
 // Build the play-by-play VINE graph for one simulated game. Selective narration keeps
 // on-air pacing watchable: every scoring play is called (+ a running score line), half
 // framing is always called, routine outs/hits are sampled and capped per half.
-function assembleSportsGraph(script, broadcastId, cycle) {
+function assembleSportsGraph(script, broadcastId, cycle, override) {
   const announcer = script.announcer || 'your announcer';
   const pools = script.pools || {};
-  const game = sportsSimGame(script.teams, script.players);
+  const ws = !!override?.worldSeries;                       // World Series takeover?
+  const game = sportsSimGame(override?.teams || script.teams, script.players);
   const { away, home, awayScore, homeScore, beats } = game;
 
   const nodes = {};
@@ -914,12 +998,27 @@ function assembleSportsGraph(script, broadcastId, cycle) {
     leader: b.homeScore === b.awayScore ? '' : (b.homeScore > b.awayScore ? home.name : away.name),
     lead: Math.abs(b.homeScore - b.awayScore),
   });
-  const say = (line, tok, sb) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}) }); };
+  // A spoken line, optionally carrying the score-bug and/or a full-screen broadcast
+  // "graphic" FX (home-run trajectory, final-score card, extra-innings hype). The FX
+  // rides the say node exactly like the score-bug and is pushed to TV watchers when
+  // the line airs; the client animates it. See _applySportsFx in tv.js.
+  const say = (line, tok, sb, graphic) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}) }); };
+  const hrGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'homerun', batter: b.batter || '', team: b.battingName || '', grand: b.rbi >= 4, duration: 3.6 });
+  const walkoffGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'walkoff', batter: b.batter || '', team: b.battingName || '', home: home.name, away: away.name, homeScore: b.homeScore, awayScore: b.awayScore, duration: 4.3 });
+  const dpGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'doubleplay', batter: b.batter || '', duration: 2.0 });
 
-  const gameTok = { announcer, away: away.name, home: home.name };
+  // Pre-game records from the live standings (module cache, refreshed before airing).
+  // When either team has a record on the board, the announcer works it into the
+  // matchup; before any games are played it's plain (avoids "the 0-0 X" on opening day).
+  const awayRecord = recordOf(away.name), homeRecord = recordOf(home.name);
+  const hasRecords = awayRecord !== '0-0' || homeRecord !== '0-0';
+  const gameTok = { announcer, away: away.name, home: home.name, awayRecord, homeRecord };
   const pregameBug = bug('PRE-GAME', 0, 0, 0, [false, false, false]);
-  say(sportsPick(pools, 'intro'), gameTok, pregameBug);
-  say(sportsPick(pools, 'matchup'), gameTok, pregameBug);
+  say(sportsPick(pools, ...(ws ? ['worldseries.intro', 'intro'] : ['intro'])), gameTok, pregameBug);
+  const muGraphic = ws
+    ? { overlayType: 'sportsfx', kind: 'worldseries', away: away.name, home: home.name, awayRecord, homeRecord, duration: 4.6 }
+    : { overlayType: 'sportsfx', kind: 'matchup', away: away.name, home: home.name, awayRecord, homeRecord, duration: 4.0 };
+  say(sportsPick(pools, ...(ws ? ['worldseries.matchup', 'matchup.records', 'matchup'] : (hasRecords ? ['matchup.records', 'matchup'] : ['matchup']))), gameTok, pregameBug, muGraphic);
 
   // Group the flat beat list into halves so each half-inning can be narrated as a
   // full "stage": EVERY one of the three outs is called, scoring plays are always
@@ -933,7 +1032,12 @@ function assembleSportsGraph(script, broadcastId, cycle) {
     else if (curHalf) curHalf.atbats.push(b);
   }
 
-  for (const h of halves) {
+  // Regulation (innings 1–9) is narrated full and dry. Extras are narrated as tight
+  // "cut to the drama" innings below — only the plays that matter.
+  const regHalves = halves.filter(h => h.start.inning <= 9);
+  const extraHalves = halves.filter(h => h.start.inning >= 10);
+
+  for (const h of regHalves) {
     say(sportsPick(pools, `half.${h.start.half}`, 'half'), beatTok(h.start), beatBug(h.start));
 
     const target = 6 + Math.floor(Math.random() * 3);   // 6, 7, or 8 lines this half
@@ -945,13 +1049,23 @@ function assembleSportsGraph(script, broadcastId, cycle) {
       const tok = beatTok(b), sb = beatBug(b);
       if (b.kind === 'homerun') {
         const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr');
-        say(sportsPick(pools, key, 'hr'), tok, sb); spoken++;
+        say(sportsPick(pools, key, 'hr'), tok, sb, hrGraphic(b)); spoken++;
         say(sportsPick(pools, 'score.update'), tok, sb); spoken++;
-        if (b.walkoff) { say(sportsPick(pools, 'walkoff'), tok, sb); spoken++; walkoffHalf = true; }
+        if (b.walkoff) { say(sportsPick(pools, 'walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+      } else if (b.kind === 'sacfly') {
+        say(sportsPick(pools, 'atbat.sacfly'), tok, sb); spoken++;
+        say(sportsPick(pools, 'score.update'), tok, sb); spoken++;
+        if (b.walkoff) { say(sportsPick(pools, 'walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+      } else if (b.kind === 'productout') {
+        say(sportsPick(pools, 'atbat.productout', 'atbat.groundout'), tok, sb); spoken++;
+        if (b.rbi > 0) { say(sportsPick(pools, 'score.update'), tok, sb); spoken++; }
+        if (b.walkoff) { say(sportsPick(pools, 'walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+      } else if (b.kind === 'doubleplay') {
+        say(sportsPick(pools, 'atbat.doubleplay'), tok, sb, dpGraphic(b)); spoken++;
       } else if (b.rbi > 0) {
         say(sportsPick(pools, 'rbi'), tok, sb); spoken++;
         say(sportsPick(pools, 'score.update'), tok, sb); spoken++;
-        if (b.walkoff) { say(sportsPick(pools, 'walkoff'), tok, sb); spoken++; walkoffHalf = true; }
+        if (b.walkoff) { say(sportsPick(pools, 'walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.out) {
         // Call every out. Thread a chatter line between outs (never after the 3rd).
         say(sportsPick(pools, `atbat.${b.kind}`, 'atbat.out'), tok, sb); spoken++;
@@ -977,23 +1091,115 @@ function assembleSportsGraph(script, broadcastId, cycle) {
     inning: game.innings, inningOrd: sportsOrdinal(game.innings),
   };
   const finalBug = bug('FINAL', awayScore, homeScore);   // game over — no outs/bases, just the score
-  say(sportsPick(pools, 'final'), finalTok, finalBug);
-  say(sportsPick(pools, 'outro'), finalTok, finalBug);
+
+  // ── Extra innings: cut to the drama. Only the decisive at-bats get called — the
+  // go-ahead run (top or bottom) or a walk-off — because in extras the offense is
+  // cranked and you never know which side breaks it until it happens. Always a winner.
+  if (extraHalves.length) {
+    const narrateScore = (b) => {
+      const tok = beatTok(b), sb = beatBug(b);
+      if (b.kind === 'homerun') { const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr'); say(sportsPick(pools, key, 'hr'), tok, sb, hrGraphic(b)); }
+      else if (b.kind === 'sacfly') say(sportsPick(pools, 'atbat.sacfly'), tok, sb);
+      else if (b.kind === 'productout') say(sportsPick(pools, 'atbat.productout', 'atbat.groundout'), tok, sb);
+      else say(sportsPick(pools, 'rbi'), tok, sb);
+      say(sportsPick(pools, 'score.update'), tok, sb);
+      if (b.walkoff) say(sportsPick(pools, 'walkoff'), tok, sb, walkoffGraphic(b));
+    };
+    say(sportsPick(pools, 'extras.intro'), gameTok, beatBug(extraHalves[0].start),
+      { overlayType: 'sportsfx', kind: 'extras', inningOrd: sportsOrdinal(extraHalves[0].start.inning), duration: 3.2 });
+    for (const h of extraHalves) {
+      say(sportsPick(pools, `extras.${h.start.half}`, 'extras.cut'), beatTok(h.start), beatBug(h.start));
+      const scorers = h.atbats.filter(b => b.rbi > 0);
+      if (scorers.length) for (const b of scorers) narrateScore(b);
+      else say(sportsPick(pools, 'extras.hold'), beatTok(h.end), beatBug(h.end));
+    }
+    // A go-ahead run in the top that the home side couldn't answer = a road win in extras.
+    if (winner() === away.name) say(sportsPick(pools, 'winning.top'), finalTok, finalBug);
+  }
+
+  const winName = winner();
+  const winGraphic = {
+    overlayType: 'sportsfx', kind: ws ? 'champion' : 'gamewin',
+    winner: winName,
+    loser: winName === away.name ? home.name : away.name,
+    winScore: winName === away.name ? awayScore : homeScore,
+    loseScore: winName === away.name ? homeScore : awayScore,
+    away: away.name, home: home.name, awayScore, homeScore,
+    extras: game.innings > 9, inningOrd: sportsOrdinal(game.innings),
+    duration: ws ? 5.4 : 4.6,
+  };
+  say(sportsPick(pools, ...(ws ? ['worldseries.final', 'final'] : ['final'])), finalTok, finalBug, winGraphic);
+  say(sportsPick(pools, ...(ws ? ['worldseries.outro', 'outro'] : ['outro'])), finalTok, finalBug);
 
   // When the chain ends the walker restarts at _start on its own. Folding the loop
   // cycle into _broadcastId resets the blackboard each cycle so a fresh game airs.
   const graph = _normalizeBroadcastGraph({ _start: startId, nodes });
-  graph._broadcastId = `${broadcastId}:sport:${cycle}`;
+  graph._broadcastId = `${broadcastId}:sport:${cycle}${ws ? ':ws' : ''}`;
+  // The whole game is decided the instant it's assembled (the play-by-play just
+  // reveals it over the airing). Stash the outcome so the tick can announce it to
+  // the betting system — the result is known at bet-lock time, paid at air's end.
+  graph._game = { away: away.name, home: home.name, awayScore, homeScore, winner: winner() };
   return graph;
+}
+
+// Fire a one-shot `sports.game` event when a fresh game starts airing on a channel,
+// carrying its (already-decided) result and when the broadcast wraps. The sportsbet
+// plugin consumes it. Deduped per (channel, game) so the 5s tick only announces once.
+const _sportsAnnounced = new Map();   // channelId -> last announced gameId
+function announceSportsGame(channelId, spGraph, endsAtMs) {
+  const g = spGraph?._game, gameId = spGraph?._broadcastId;
+  if (!g || !gameId || _sportsAnnounced.get(channelId) === gameId) return;
+  _sportsAnnounced.set(channelId, gameId);
+  emit('sports.game', { channelId, gameId, ...g, endsAtMs });
+}
+
+// ── League standings feed (for the on-air standings bug + record mentions) ──────
+// The sportsleague plugin owns the standings; broadcast reads them through its
+// getStandings Action (no table coupling). Cached briefly so a 5s tick doesn't
+// hammer the DB, and the bug is pushed on a slow cadence per channel.
+const STANDINGS_CACHE_MS = 30000;
+const STANDINGS_BUG_EVERY_MS = 45000;   // how often the standings graphic flashes up mid-game
+let _standingsCache = { at: 0, rows: [] };
+const _lastStandingsBug = new Map();    // channelId -> last push ms
+async function refreshStandings(nowMs) {
+  if (nowMs - _standingsCache.at < STANDINGS_CACHE_MS) return _standingsCache.rows;
+  const res = await dispatchAction({ type: 'sportsleague.getStandings' }).catch(() => null);
+  _standingsCache = { at: nowMs, rows: Array.isArray(res?.rows) ? res.rows : _standingsCache.rows };
+  return _standingsCache.rows;
+}
+// A team's "W-L" record from the cached standings, or '0-0' if it hasn't played.
+function recordOf(team) {
+  const r = _standingsCache.rows.find((x) => x.team === team);
+  return r ? `${r.wins}-${r.losses}` : '0-0';
+}
+
+// Season/World-Series state (from the sportsleague plugin, same Action seam). When the
+// Series is on, sports airings run THESE two teams with championship branding instead
+// of a random matchup.
+let _seasonCache = { at: 0, phase: 'regular', finalistA: null, finalistB: null };
+async function refreshSeason(nowMs) {
+  if (nowMs - _seasonCache.at < STANDINGS_CACHE_MS) return _seasonCache;
+  const res = await dispatchAction({ type: 'sportsleague.getSeason' }).catch(() => null);
+  if (res && typeof res.phase === 'string') _seasonCache = { at: nowMs, phase: res.phase, finalistA: res.finalistA, finalistB: res.finalistB };
+  else _seasonCache.at = nowMs;
+  return _seasonCache;
+}
+// { teams:[a,b], worldSeries:true } when a Series is on, else null.
+function worldSeriesOverride() {
+  const s = _seasonCache;
+  return (s.phase === 'worldseries' && s.finalistA && s.finalistB) ? { teams: [s.finalistA, s.finalistB], worldSeries: true } : null;
 }
 
 // Return the assembled game graph for a sports playlist item, rebuilding it when the
 // loop cycle advances (a new game per airing). Cached on the item between ticks.
-function getSportsGraph(item, cycle) {
+function getSportsGraph(item, cycle, override) {
   if (!item.sportsScript) return null;
-  if (!item._spGraph || item._spCycle !== cycle) {
-    item._spGraph = assembleSportsGraph(item.sportsScript, item.broadcastId, cycle);
-    item._spCycle = cycle;
+  // Fold the World-Series override into the cache key so a Series game and a regular
+  // game never collide on the same item, and a fresh game is assembled on transitions.
+  const key = `${cycle}${override?.worldSeries ? `|ws:${override.teams.join('|')}` : ''}`;
+  if (!item._spGraph || item._spKey !== key) {
+    item._spGraph = assembleSportsGraph(item.sportsScript, item.broadcastId, cycle, override);
+    item._spKey = key;
   }
   return item._spGraph;
 }
@@ -1033,7 +1239,9 @@ async function getCurrentMessage(state, nowMs) {
       // Sports on a daily channel — one fresh game per day (edge case; sports is normally
       // scheduled on a loop channel). Re-roll keyed to the calendar day.
       if (item.playback_mode === 'sports') {
-        const spGraph = getSportsGraph(item, Math.floor(Date.now() / 86400000));
+        await refreshStandings(nowMs);   // warm the record cache before a fresh game assembles
+        await refreshSeason(nowMs);
+        const spGraph = getSportsGraph(item, Math.floor(Date.now() / 86400000), worldSeriesOverride());
         if (spGraph) {
           const r = tickBroadcastGraph(state.channelId, spGraph, state, nowMs, segElapsed);
           if (r) r.programName = item.broadcastName || null;
@@ -1128,8 +1336,12 @@ async function getCurrentMessage(state, nowMs) {
       // Sports — simulate a fresh game per loop cycle, then walk the play-by-play graph
       if (item.playback_mode === 'sports') {
         const cycle = Math.floor((nowMs - loopOriginMs) / 1000 / totalDuration);
-        const spGraph = getSportsGraph(item, cycle);
+        await refreshStandings(nowMs);   // warm the record cache before a fresh game assembles
+        await refreshSeason(nowMs);      // is the World Series on? if so, run the finalists
+        const spGraph = getSportsGraph(item, cycle, worldSeriesOverride());
         if (spGraph) {
+          // Announce the airing to the betting system, tagged with when it wraps.
+          announceSportsGame(state.channelId, spGraph, loopOriginMs + (cycle + 1) * totalDuration * 1000);
           state.currentFallbackMessages = item.fallbackMessages || [];
           return tickBroadcastGraph(state.channelId, spGraph, state, nowMs);
         }
@@ -1394,11 +1606,30 @@ async function broadcastTick() {
       // overlay the client keeps on-screen and updates in place — sent every line so
       // late-tuners pick up the current state within one beat.
       const scorebugOverlay = result.scorebug ? { overlayType: 'scorebug', ...result.scorebug } : null;
+
+      // Standings bug: during a sports airing (score-bug present), flash the league
+      // table up on a slow cadence per channel. It's a transient graphic that rides
+      // the same tv_overlay channel and auto-dismisses client-side; it coexists with
+      // the persistent score-bug rather than replacing it.
+      let standingsOverlay = null;
+      if (scorebugOverlay && _seasonCache.phase !== 'worldseries' && nowMs - (_lastStandingsBug.get(channelId) || 0) > STANDINGS_BUG_EVERY_MS) {
+        _lastStandingsBug.set(channelId, nowMs);
+        const rows = await refreshStandings(nowMs);
+        if (rows.length) standingsOverlay = {
+          overlayType: 'standings',
+          title: 'DEADBALL — LEAGUE STANDINGS',
+          duration: 9,
+          rows: rows.slice(0, 8).map(r => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) })),
+        };
+      }
+
       for (const player of players) {
         if (tvWatchers.get(player.id) === channelId) {
           if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}) });
           if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song });
           if (scorebugOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
+          if (standingsOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: standingsOverlay });
+          if (result.graphic) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: result.graphic });
         } else if (result.speech) {
           sendToPlayer(player.id, { type: 'broadcast_ambient', speechText: result.speechText, channel: channelId });
         }
@@ -2050,7 +2281,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           ? `>> ${bb.npcAnchor ? `${bb.npcAnchor}: ` : ''}${raw} <<`
           : (!isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         const isSpeech = !isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor;
-        return { text: text_say, key: key_say, style: 'raw', ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}) };
+        return { text: text_say, key: key_say, style: 'raw', ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}) };
       }
 
       case 'music': {

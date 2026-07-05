@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TV Sports FX — visual test</title>
+<link rel="stylesheet" href="../client/game/styles.css">
+<style>
+  html, body { margin: 0; background: radial-gradient(ellipse at 50% 20%, #202329, #0a0b0d 70%); }
+  .stage { display: flex; flex-direction: column; gap: 26px; padding: 26px; align-items: center; }
+  /* A minimal stand-in for #tv-window so the FX host + CSS vars resolve. */
+  .frame {
+    position: relative; width: 620px; aspect-ratio: 760 / 520;
+    background: #061014; border-radius: 8px; overflow: hidden;
+    border: 2px solid #2c3037; box-shadow: 0 0 0 3px #e6e9ee, 0 0 0 6px #70767e, 0 14px 40px rgba(0,0,0,.7);
+  }
+  /* Fake header/footer bands so the top:44/bottom:72 insets read right. */
+  .frame::before { content:''; position:absolute; top:0; left:0; right:0; height:44px; background:rgba(0,40,30,.5); border-bottom:1px solid rgba(0,220,180,.35); z-index:2; }
+  .frame::after  { content:''; position:absolute; bottom:0; left:0; right:0; height:72px; background:rgba(0,20,15,.7); border-top:1px solid rgba(0,220,180,.35); z-index:2; }
+  #tv-window { /* pull in the themeable vars from the real stylesheet */ }
+  .label { color:#8fae9a; font-family:monospace; font-size:13px; letter-spacing:2px; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="label">HOME RUN</div>
+    <div id="tv-window" data-skin="flatscreen" data-theme="corporate" class="frame">
+      <div class="tv-fx-host on fx-homerun">
+        <div class="tv-fx-hr">
+          <svg class="tv-fx-hr-svg" viewBox="0 0 400 240" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <path id="tvHrPath" class="tv-fx-hr-arc" d="M 32 226 Q 210 -48 374 116" fill="none"/>
+            <circle class="tv-fx-hr-ball" r="6"><animateMotion dur="1.05s" fill="freeze" rotate="auto"><mpath href="#tvHrPath"/></animateMotion></circle>
+            <circle class="tv-fx-hr-burst" cx="374" cy="116" r="4"/>
+          </svg>
+          <div class="tv-fx-hr-title">HOME RUN</div>
+          <div class="tv-fx-hr-sub">Reyes · Vellum Vultures</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="label">GAME WIN</div>
+    <div id="tv-window" data-skin="flatscreen" data-theme="corporate" class="frame">
+      <div class="tv-fx-host on fx-gamewin">
+        <div class="tv-fx-final">
+          <div class="tv-fx-final-label">FINAL · 11TH</div>
+          <div class="tv-fx-final-card">
+            <div class="tv-fx-final-row win"><span class="nm">Vellum Vultures</span><span class="sc">6</span></div>
+            <div class="tv-fx-final-row"><span class="nm">Ironhides</span><span class="sc">5</span></div>
+          </div>
+          <div class="tv-fx-final-tag">Vellum Vultures WIN</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="label">EXTRA INNINGS</div>
+    <div id="tv-window" data-skin="flatscreen" data-theme="corporate" class="frame">
+      <div class="tv-fx-host on fx-extras">
+        <div class="tv-fx-extras">
+          <div class="tv-fx-extras-big">EXTRA<span>INNINGS</span></div>
+          <div class="tv-fx-extras-sub">Free Baseball</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="label">WALK-OFF</div>
+    <div id="tv-window" data-skin="flatscreen" data-theme="corporate" class="frame">
+      <div class="tv-fx-host on fx-walkoff">
+        <div class="tv-fx-walkoff">
+          <div class="tv-fx-wo-rays"></div>
+          <div class="tv-fx-wo-title">WALK-OFF!</div>
+          <div class="tv-fx-wo-sub">Doyle · Ironhides</div>
+          <div class="tv-fx-wo-score">Ironhides 6 — 5 Vellum Vultures</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="label">MATCHUP CARD</div>
+    <div id="tv-window" data-skin="flatscreen" data-theme="corporate" class="frame">
+      <div class="tv-fx-host on fx-matchup">
+        <div class="tv-fx-matchup">
+          <div class="tv-fx-mu-label">Tonight on DEADBALL</div>
+          <div class="tv-fx-mu-teams">
+            <div class="tv-fx-mu-team away"><span class="nm">Neon District Wolves</span><span class="rec">11-6</span></div>
+            <div class="tv-fx-mu-vs">vs</div>
+            <div class="tv-fx-mu-team home"><span class="nm">Vellum Vultures</span><span class="rec">12-5</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="label">DOUBLE PLAY (compact flash)</div>
+    <div id="tv-window" data-skin="flatscreen" data-theme="corporate" class="frame">
+      <div class="tv-fx-host on fx-doubleplay">
+        <div class="tv-fx-dp">
+          <div class="tv-fx-dp-title">DOUBLE PLAY</div>
+          <div class="tv-fx-dp-sub">Two down</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

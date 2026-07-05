@@ -1,0 +1,14 @@
+{
+  "name": "sportsleague",
+  "version": "1.0.0",
+  "description": "Baseball league for the DEADBALL broadcast: persistent standings (`standings`) booked from every simulated game, plus monthly seasons that climax in a single-game World Series between the top two teams (`worldseries`, `champions`). Standings reset each season; champions are kept as history.",
+  "commands": ["standings", "worldseries", "champions"],
+  "actions": { "registers": ["sportsleague.getStandings", "sportsleague.getSeason"] },
+  "events": { "consumes": ["sports.game"], "emits": ["sports.worldseries", "sports.champion"] },
+  "ticks": ["1m"],
+  "config": {
+    "seasonDays": { "type": "int", "default": 30, "note": "in-game days per season before the World Series (SPORTS_SEASON_DAYS in index.js)" },
+    "minWorldSeriesGames": { "type": "int", "default": 8, "note": "runner-up must have played this many before a Series can seed" }
+  },
+  "dataSchema": ["sports_standings", "sports_season"]
+}

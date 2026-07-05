@@ -24,38 +24,168 @@ const CLASS_AUDIO = {
 };
 const prof = (cls) => CLASS_AUDIO[cls] || CLASS_AUDIO.prop;
 
-// Dedicated layered procedural PROP engine for the Mayfly (per the FM design brief): a
-// combustion rumble carrying the blade-passage pulse (tremolo ~30Hz = the "whomp-whomp"),
-// slow RPM hunting (vibrato), an airframe-vibration sub, and airflow hiss at idle; brighter
-// harmonics + faster pulse + an FM prop-tip "bite" + more air on the power layer; wind + the
-// ground-roll rumble/rattle on top. Layers cross-fade by gain (idle↔power↔wind) in
-// updateEngineAudio so the note tracks throttle/airspeed continuously.
-function buildPropLoops() {
-  const IDLE = { id: 'flt-eng-idle', category: 'ambient', config: { gain: 1, layers: [
-    { waveform: 'sawtooth', freq: 46, filter: { type: 'lowpass', freq: 210, q: 1.4 }, tremolo: { rate: 30, depth: 0.5 }, vibrato: { rate: 1.2, depth: 3 }, adsr: { a: 0.6, d: 0, s: 1, r: 0.6 }, gain: 0.11 },   // combustion + blade pulse + RPM hunt
-    { waveform: 'sine', freq: 30, tremolo: { rate: 30, depth: 0.4 }, adsr: { a: 0.6, d: 0, s: 1, r: 0.6 }, gain: 0.075 },                                                                                       // deep body, same pulse
-    { waveform: 'sine', freq: 23, tremolo: { rate: 0.6, depth: 0.55 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.6 }, gain: 0.04 },                                                                                       // airframe vibration (slow amplitude wander)
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 170, q: 0.6 }, adsr: { a: 0.6, d: 0, s: 1, r: 0.6 }, gain: 0.03 },                                                                        // airflow hiss
-  ] } };
-  const POWER = { id: 'flt-eng-power', category: 'ambient', config: { gain: 1, layers: [
-    { waveform: 'sawtooth', freq: 70, filter: { type: 'lowpass', freq: 620, q: 1.4 }, tremolo: { rate: 44, depth: 0.42 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.5 }, gain: 0.09 },                                     // brighter combustion, faster pulse
-    { waveform: 'square', freq: 100, fm: { rate: 170, depth: 70 }, filter: { type: 'bandpass', freq: 480, q: 1.1 }, tremolo: { rate: 44, depth: 0.32 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.5 }, gain: 0.045 },      // exhaust body + FM prop-tip bite
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 560, q: 0.7 }, adsr: { a: 0.35, d: 0, s: 1, r: 0.5 }, gain: 0.045 },                                                                      // broadband airflow
-  ] } };
-  const WIND = { id: 'flt-wind', category: 'ambient', config: { gain: 1, layers: [
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 560, q: 0.5 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.8 }, gain: 0.10 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 280, q: 0.6 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.8 }, gain: 0.055 },
-  ] } };
-  const ROLL = { id: 'flt-roll', category: 'ambient', config: { gain: 1, layers: [
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 210, q: 0.8 }, tremolo: { rate: 7, depth: 0.3 }, adsr: { a: 0.15, d: 0, s: 1, r: 0.3 }, gain: 0.11 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 520, q: 0.6 }, adsr: { a: 0.15, d: 0, s: 1, r: 0.3 }, gain: 0.05 },
-    { waveform: 'square', freq: 92, tremolo: { rate: 19, depth: 0.85 }, filter: { type: 'bandpass', freq: 300, q: 1.3 }, adsr: { a: 0.2, d: 0, s: 1, r: 0.3 }, gain: 0.03 },
-  ] } };
-  return { IDLE, POWER, WIND, ROLL };
+// ── FlightEngine: a LIVE parameter-driven prop-engine synth (Mayfly) ──────────
+// One persistent Web-Audio node graph whose AudioParams are ramped every update from the
+// sim state — so the engine is a single continuous instrument (RPM/throttle/load/airspeed/
+// ground), not discrete crossfaded loops. Layers: combustion core carrying the blade-passage
+// pulse; airframe-vibration sub; FM prop-tip bite; engine airflow; wind; ground-roll rumble
+// + rattle; a master tone-filter for interior/exterior + distance; a doppler scalar on the
+// oscillator base frequencies. perspective/distance/doppler are HOOKS (default pilot-interior).
+let _fe = null;
+const _c01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const _cl = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+
+// Per-class VOICE for the parametric engine — shifts the same graph from a thin two-stroke
+// buzz to a piston drone, a deep 4-turbofan roar, a hard jet howl, or a rough misfiring
+// junker. coreB/coreS = combustion base freq + rpm span; wave = core timbre; pulseB/pulseS =
+// blade-pass rate; pDep = [base,span] blade "whomp" depth (low = smooth turbine); biteB/biteS/
+// biteM = prop-tip / turbine whine center+span+level; subB/subM = airframe sub freq+level; lpB/
+// lpS = core low-pass sweep; crk = exhaust crackle; det = 2nd-osc detune (grit); mas = master trim.
+// The `ultralight` row reproduces the Mayfly's existing hand-tuned numbers exactly (unchanged).
+const FE_VOICE = {
+  ultralight: { coreB: 38, coreS: 46, wave: 'sawtooth', pulseB: 28, pulseS: 22, pDep: [0.30, 0.35], biteB: 700,  biteS: 300,  biteM: 1.0, subB: 22, subM: 1.0, lpB: 220, lpS: 900,  crk: 1.0,  det: 1.007, mas: 1.0 },
+  prop:       { coreB: 32, coreS: 58, wave: 'sawtooth', pulseB: 22, pulseS: 26, pDep: [0.24, 0.30], biteB: 600,  biteS: 340,  biteM: 1.1, subB: 19, subM: 1.3, lpB: 200, lpS: 1000, crk: 1.15, det: 1.008, mas: 1.05 },
+  heavy:      { coreB: 24, coreS: 42, wave: 'sawtooth', pulseB: 34, pulseS: 34, pDep: [0.12, 0.18], biteB: 950,  biteS: 1500, biteM: 1.7, subB: 15, subM: 2.0, lpB: 240, lpS: 1300, crk: 0.5,  det: 1.005, mas: 1.1 },
+  gunship:    { coreB: 50, coreS: 96, wave: 'square',   pulseB: 40, pulseS: 44, pDep: [0.09, 0.16], biteB: 1150, biteS: 1800, biteM: 2.0, subB: 20, subM: 1.2, lpB: 320, lpS: 2000, crk: 0.4,  det: 1.006, mas: 1.0 },
+  wreck:      { coreB: 35, coreS: 40, wave: 'sawtooth', pulseB: 18, pulseS: 16, pDep: [0.34, 0.42], biteB: 540,  biteS: 260,  biteM: 0.9, subB: 23, subM: 1.0, lpB: 175, lpS: 680,  crk: 1.4,  det: 1.016, mas: 0.95 },
+};
+const voiceOf = (cls) => FE_VOICE[cls] || FE_VOICE.prop;
+
+function createFlightEngine(cls) {
+  try {
+    const ae = AE(); if (!ae?.engineNodes) return null;
+    const eng = ae.engineNodes(); if (!eng?.ctx || !eng.bus) return null;
+    const { ctx, bus, noise } = eng;
+    if (ctx.state === 'suspended') { try { ctx.resume(); } catch {} }
+    const V = voiceOf(cls);
+    const now = ctx.currentTime, src = [];
+    const osc = (type, f) => { const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; src.push(o); return o; };
+    const noiseSrc = () => { const n = ctx.createBufferSource(); n.buffer = noise; n.loop = true; src.push(n); return n; };
+    const gain = (v) => { const g = ctx.createGain(); g.gain.value = v; return g; };
+    const filt = (type, f, q) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q ?? 1; return b; };
+
+    const master = gain(0);
+    const toneFilter = filt('lowpass', 2600, 0.7);
+    master.connect(toneFilter).connect(bus);
+
+    // 1. combustion core + 2. prop blade pulse (LFO rides coreGain.gain around its base)
+    const coreOsc = osc(V.wave, V.coreB), coreLP = filt('lowpass', V.lpB, 1.4), coreGain = gain(0.1);
+    coreOsc.connect(coreLP).connect(coreGain).connect(master);
+    const pulseLFO = osc('sine', V.pulseB), pulseDepth = gain(V.pDep[0]);
+    pulseLFO.connect(pulseDepth).connect(coreGain.gain);
+
+    // 3. body sub + airframe vibration (slow wander LFO on subGain)
+    const subOsc = osc('sine', V.subB), subGain = gain(0.04);
+    subOsc.connect(subGain).connect(master);
+    const wanderLFO = osc('sine', V.rough ? 0.9 : 0.5), wanderDepth = gain(V.rough ? 0.05 : 0.02);
+    wanderLFO.connect(wanderDepth).connect(subGain.gain);
+
+    // 4. prop-tip bite (FM: mod → carrier.frequency)
+    const biteCarrier = osc('sine', V.biteB), biteMod = osc('sine', 200), biteModGain = gain(40);
+    biteMod.connect(biteModGain).connect(biteCarrier.frequency);
+    const biteBP = filt('bandpass', 1600, 2), biteGain = gain(0);
+    biteCarrier.connect(biteBP).connect(biteGain).connect(master);
+
+    // 5. engine airflow
+    const airHP = filt('highpass', 600, 0.7), airGain = gain(0.02);
+    noiseSrc().connect(airHP).connect(airGain).connect(master);
+
+    // 6. wind (independent of engine, ∝ airspeed)
+    const windBP = filt('bandpass', 560, 0.5), windGain = gain(0);
+    noiseSrc().connect(windBP).connect(windGain).connect(master);
+
+    // 7. ground roll: rumble + rattle, gated by one rollGate (0 when airborne)
+    const rollGate = gain(0); rollGate.connect(master);
+    noiseSrc().connect(filt('lowpass', 210, 0.8)).connect(gain(0.3)).connect(rollGate);
+    const rattleOsc = osc('square', 92), rattleLevel = gain(0.06);
+    rattleOsc.connect(filt('bandpass', 300, 1.3)).connect(rattleLevel).connect(rollGate);
+    const rattleLFO = osc('sine', 19), rattleTrem = gain(0.05);
+    rattleLFO.connect(rattleTrem).connect(rattleLevel.gain);
+
+    // 8. combustion richness — a slightly detuned 2nd oscillator beats against the core (grit;
+    // wreck uses a wide detune for a rough, misfiring beat)
+    const core2 = osc(V.wave, V.coreB * V.det); core2.connect(coreLP);
+    // 9. exhaust crackle / two-stroke "brap" — noise chopped by a sawtooth LFO, level ∝ RPM
+    const crBP = filt('bandpass', 750, 1.2), crTrem = gain(0.5), crLevel = gain(0);
+    noiseSrc().connect(crBP).connect(crTrem).connect(crLevel).connect(master);
+    const crLFO = osc('sawtooth', 12), crDepth = gain(0.5); crLFO.connect(crDepth).connect(crTrem.gain);
+    // 10. stall buffet — low broadband roughening, level ∝ (1 − stall margin), airborne only
+    const bfLP = filt('lowpass', 220, 1), bfTrem = gain(0.6), bfLevel = gain(0);
+    noiseSrc().connect(bfLP).connect(bfTrem).connect(bfLevel).connect(master);
+    const bfLFO = osc('sine', 5), bfDepth = gain(0.4); bfLFO.connect(bfDepth).connect(bfTrem.gain);
+    // 11. ground-reflection lows — extra reflected bass on the deck that thins at liftoff ("lighter")
+    const grefLP = filt('lowpass', 120, 1.2), grefGain = gain(0.02); coreLP.connect(grefLP).connect(grefGain).connect(master);
+    // 12. throttle-chop backfire — a short exhaust pop, event-scheduled on a sharp throttle drop
+    const popBP = filt('bandpass', 380, 1), popGain = gain(0); noiseSrc().connect(popBP).connect(popGain).connect(master);
+
+    src.forEach(n => { try { n.start(now); } catch {} });
+    master.gain.setValueAtTime(0, now); master.gain.linearRampToValueAtTime(V.mas, now + 0.8);   // swell in under the spool one-shot (per-class trim)
+
+    return { ctx, master, toneFilter, voice: V, voiceCls: cls,
+      core: { osc: coreOsc, lp: coreLP, gain: coreGain, pulseLFO, pulseDepth }, core2,
+      sub: { osc: subOsc, gain: subGain },
+      bite: { carrier: biteCarrier, modGain: biteModGain, bp: biteBP, gain: biteGain },
+      air: { hp: airHP, gain: airGain }, wind: { bp: windBP, gain: windGain }, roll: { gate: rollGate },
+      crackle: { level: crLevel }, buffet: { level: bfLevel }, gref: { gain: grefGain }, pop: { gain: popGain },
+      _thrPrev: 0, _src: src };
+  } catch { return null; }
+}
+
+// Ramp the graph from the live sim state. `s` = { rpm(0-1), throttle(0-100), airspeed(kt),
+// vs(fpm), onGround, groundSpeed(kt), engineOn, perspective, distance, doppler }.
+function updateFlightEngine(s) {
+  const N = _fe; if (!N) return;
+  const V = N.voice || FE_VOICE.ultralight;
+  const now = N.ctx.currentTime, set = (p, v, tau) => { try { p.setTargetAtTime(v, now, tau); } catch {} };
+  const thr = _c01((s.throttle || 0) / 100);
+  const rpm = s.engineOn ? _c01(s.rpm != null ? s.rpm : (s.engines?.[0]?.pct || 0) / 100) : 0;
+  const spdFrac = _c01((s.airspeed || 0) / 120), spdN = _c01((s.airspeed || 0) / 140);
+  const load = _c01(0.4 + (s.vs || 0) / 1600 + (thr - spdFrac) * 0.3);   // climb ⇒ loaded (darker/heavier); descent ⇒ light
+  const dop = s.doppler || 1;
+  const ext = s.perspective === 'exterior';
+  const windMul = ext ? 1.0 : 0.4, highsMul = ext ? 1.0 : 0.5, lowsMul = ext ? 1.0 : 1.2;
+  const dist = _c01(s.distance || 0);
+
+  set(N.core.osc.frequency, (V.coreB + rpm * V.coreS) * dop, 0.12);
+  set(N.core.lp.frequency, Math.max(120, V.lpB + rpm * V.lpS - load * 260), 0.15);   // prop-load darkens
+  set(N.core.gain.gain, 0.09 + rpm * 0.05, 0.10);
+  set(N.core.pulseLFO.frequency, V.pulseB + rpm * V.pulseS, 0.12);                 // blade-pulse rate ∝ prop RPM
+  set(N.core.pulseDepth.gain, V.pDep[0] + load * V.pDep[1], 0.20);                 // deeper "whomp" under load
+  set(N.sub.osc.frequency, (V.subB + rpm * 6) * dop, 0.20);
+  set(N.sub.gain.gain, (0.04 + load * 0.05) * lowsMul * V.subM, 0.20);
+  set(N.bite.carrier.frequency, (V.biteB + rpm * V.biteS) * dop, 0.15);
+  set(N.bite.modGain.gain, 40 + rpm * 120, 0.15);                                 // prop-tip whine brightens w/ RPM
+  set(N.bite.bp.frequency, 1200 + rpm * 1400, 0.15);
+  set(N.bite.gain.gain, rpm * 0.05 * highsMul * V.biteM, 0.15);
+  set(N.air.gain.gain, 0.02 + rpm * 0.03 + spdN * 0.02, 0.20);
+  set(N.air.hp.frequency, 500 + rpm * 700, 0.20);
+  const flaps = _c01(s.flaps || 0);
+  set(N.wind.gain.gain, spdN * 0.12 * windMul * (1 + flaps * 0.5), 0.30);         // wind ∝ airspeed (+ flaps); interior reduces
+  set(N.wind.bp.frequency, 500 + spdN * 700, 0.30);
+  set(N.roll.gate.gain, s.onGround ? _cl(0.1 + (s.groundSpeed || 0) / 60, 0, 0.4) : 0, 0.20);
+  set(N.toneFilter.frequency, Math.max(400, (ext ? 9000 : 2600) * (1 - dist * 0.6)), 0.25);   // interior/exterior + distance
+  // Enrichment layers
+  set(N.core2.frequency, (V.coreB + rpm * V.coreS) * dop * V.det, 0.12);          // detuned unison beats against the core
+  set(N.crackle.level.gain, rpm * 0.03 * V.crk * (ext ? 1.6 : 1), 0.15);          // exhaust crackle louder at power / outside
+  set(N.buffet.level.gain, (s.airborne && !s.onGround) ? _c01(1 - (s.stallMargin ?? 1)) * 0.1 : 0, 0.15);   // stall buffet
+  set(N.gref.gain.gain, s.onGround ? 0.05 : 0.008, 0.20);                          // reflected lows thin at liftoff
+  // Throttle-chop backfire — a short pop scheduled on a sharp throttle reduction at power.
+  if ((N._thrPrev - thr) > 0.28 && rpm > 0.25) {
+    try { const g = N.pop.gain; g.cancelScheduledValues(now); g.setValueAtTime(0.09, now); g.linearRampToValueAtTime(0, now + 0.2); } catch {}
+  }
+  N._thrPrev = thr;
+}
+
+function stopFlightEngine(fast) {
+  const fe = _fe; if (!fe) return; _fe = null;
+  try {
+    const { ctx, master, _src } = fe, now = ctx.currentTime, r = fast ? 0.15 : 0.6;
+    master.gain.cancelScheduledValues(now); master.gain.setValueAtTime(master.gain.value, now); master.gain.linearRampToValueAtTime(0, now + r);
+    setTimeout(() => { try { _src.forEach(n => { try { n.stop(); } catch {} }); master.disconnect(); } catch {} }, (r + 0.1) * 1000);
+  } catch {}
 }
 
 function buildLoops(cls, engines) {
-  if (cls === 'ultralight') return buildPropLoops();   // the Mayfly gets the hand-built prop model
   const p = prof(cls);
   const beef = 1 + Math.min(0.6, Math.max(0, (engines || 1) - 1) * 0.18);
   const wf = p.whine ? 1.6 : 1, fs = p.fs || 1;   // fs darkens the filters → low rumble, no mid "alarm" tone
@@ -156,21 +286,31 @@ function killLoops(fast) {
   running = false; curClass = null; curWeather = null; _hornOn = false;
 }
 
-export function stopEngineAudio() { if (running) killLoops(false); }
+export function stopEngineAudio() { if (running) killLoops(false); stopFlightEngine(false); }
 
-// Ride the loop gains off the live HUD state. Called every cockpit_update.
+// Ride the engine sound off the live HUD state. Called every cockpit update (~4/s).
 export function updateEngineAudio(s) {
   const ae = AE(); if (!ae) return;
-  if (!s || (!s.airborne && !s.engineOn)) { if (running) killLoops(false); return; }
+  if (!s || (!s.airborne && !s.engineOn)) { if (running) killLoops(false); stopFlightEngine(false); return; }
+
+  // Continuous cockpit (the fixed-wing fleet) → the live parametric FlightEngine synth, voiced
+  // per class; deck craft (the heli) → static crossfaded loops.
+  if (s.continuous) {
+    if (running) killLoops(false);                 // ensure the generic loops aren't also playing
+    if (!_fe || _fe.voiceCls !== s.class) { if (_fe) stopFlightEngine(true); _fe = createFlightEngine(s.class); }
+    updateFlightEngine(s);
+    applyWeather(s.sky, !!s.airborne);
+    return;
+  }
+  if (_fe) stopFlightEngine(false);                // switched to a deck craft
+
   if (!running || curClass !== s.class) { if (running) { try { ['flt-eng-idle', 'flt-eng-power', 'flt-wind', 'flt-roll'].forEach(id => ae.stopLoop(id)); } catch {} } startLoops(s.class, s.engines?.length || 1); }
   const thr = (s.throttle || 0) / 100, spd = Math.min(1, (s.spd || 0) / 300);
   _smoothThr += (thr - _smoothThr) * 0.5; _smoothSpd += (spd - _smoothSpd) * 0.4;
   ae.setLoopGain?.('flt-eng-idle', (s.engineOn ? 0.55 - _smoothThr * 0.28 : 0.2), 0.25);   // fade idle down as power rises (clean crossfade, no double prop-pulse beat)
   ae.setLoopGain?.('flt-eng-power', Math.min(1, 0.25 + _smoothThr * 0.9) * (s.airborne ? 1 : 0.5), 0.25);
   ae.setLoopGain?.('flt-wind', s.airborne ? Math.min(1, 0.2 + _smoothSpd + (s.bandIndex || 0) * 0.12) : 0.0, 0.3);
-  // Ground roll — Mayfly only for now: rumble builds with taxi/roll speed, gone once airborne.
-  const rollG = (!s.airborne && s.class === 'ultralight' && (s.spd || 0) > 1) ? Math.min(0.7, 0.12 + (s.spd || 0) / 55) : 0;
-  ae.setLoopGain?.('flt-roll', rollG, 0.2);
+  ae.setLoopGain?.('flt-roll', 0, 0.2);            // ground roll is handled by FlightEngine (Mayfly); loop path stays silent
   applyWeather(s.sky, !!s.airborne);
 }
 
@@ -261,14 +401,20 @@ const GROUND_FX = {
   liftoff: { config: { duration: 0.7, layers: [
     { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 680, q: 0.8 }, adsr: { a: 0.02, d: 0.5, s: 0.1, r: 0.15 }, gain: 0.09 },   // tyre spin-down
     { waveform: 'sine', freq: 158, pitchBend: { to: 92, time: 0.5 }, adsr: { a: 0.03, d: 0.5, s: 0, r: 0.15 }, gain: 0.06 } ] } },                  // body unloads/floats
-  touchdown: { config: { duration: 0.55, layers: [
-    { waveform: 'sawtooth', freq: 840, pitchBend: { to: 430, time: 0.22 }, filter: { type: 'bandpass', freq: 1650, q: 7 }, adsr: { a: 0.006, d: 0.28, s: 0, r: 0.12 }, gain: 0.09 },  // squeak
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2500, q: 3 }, adsr: { a: 0.004, d: 0.18, s: 0, r: 0.08 }, gain: 0.045 },     // rubber scuff
-    { waveform: 'square', freq: 64, pitchBend: { to: 42, time: 0.2 }, adsr: { a: 0.002, d: 0.22, s: 0, r: 0.08 }, gain: 0.06 } ] } },                // gear kiss
-  touchdownHard: { config: { duration: 0.7, layers: [
-    { waveform: 'sawtooth', freq: 700, pitchBend: { to: 360, time: 0.2 }, filter: { type: 'bandpass', freq: 1400, q: 6 }, adsr: { a: 0.004, d: 0.24, s: 0, r: 0.1 }, gain: 0.08 },   // scuffed squeal
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 700, q: 1 }, adsr: { a: 0.002, d: 0.4, s: 0, r: 0.12 }, gain: 0.12 },          // thud
-    { waveform: 'square', freq: 54, pitchBend: { to: 34, time: 0.28 }, adsr: { a: 0.002, d: 0.3, s: 0, r: 0.1 }, gain: 0.11 } ] } },                  // gear slam
+  // Layered touchdown (per the landing brief): tyre chirp → spin-up squeal → main-gear impact
+  // → suspension compression → a brief airframe resonance. Firm but controlled.
+  touchdown: { config: { duration: 0.9, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2200, q: 2.5 }, adsr: { a: 0.004, d: 0.09, s: 0, r: 0.04 }, gain: 0.06 },                                             // tyre chirp / scuff
+    { waveform: 'sawtooth', freq: 1400, pitchBend: { to: 520, time: 0.09 }, filter: { type: 'highpass', freq: 900, q: 1 }, adsr: { a: 0.004, d: 0.1, s: 0, r: 0.05 }, gain: 0.045 },          // spin-up squeal (drops fast)
+    { waveform: 'sine', freq: 120, fm: { rate: 150, depth: 80 }, pitchBend: { to: 70, time: 0.12 }, delay: 0.03, adsr: { a: 0.002, d: 0.2, s: 0, r: 0.1 }, gain: 0.09 },                      // main-gear impact (FM thump)
+    { waveform: 'sine', freq: 80, pitchBend: { to: 52, time: 0.35 }, delay: 0.06, filter: { type: 'lowpass', freq: 180, q: 1.4 }, adsr: { a: 0.01, d: 0.4, s: 0, r: 0.2 }, gain: 0.08 },      // suspension compression (settle)
+    { waveform: 'triangle', freq: 430, delay: 0.05, filter: { type: 'bandpass', freq: 430, q: 9 }, adsr: { a: 0.003, d: 0.26, s: 0, r: 0.12 }, gain: 0.03 } ] } },                            // damped airframe resonance
+  touchdownHard: { config: { duration: 1.0, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1900, q: 2.2 }, adsr: { a: 0.003, d: 0.14, s: 0, r: 0.06 }, gain: 0.08 },                                             // harder tyre chirp/skid
+    { waveform: 'sawtooth', freq: 1250, pitchBend: { to: 440, time: 0.12 }, filter: { type: 'bandpass', freq: 1400, q: 5 }, adsr: { a: 0.003, d: 0.14, s: 0, r: 0.06 }, gain: 0.06 },         // longer squeal
+    { waveform: 'sine', freq: 110, fm: { rate: 140, depth: 120 }, pitchBend: { to: 56, time: 0.14 }, delay: 0.02, adsr: { a: 0.002, d: 0.26, s: 0, r: 0.12 }, gain: 0.13 },                   // heavy impact
+    { waveform: 'sine', freq: 66, pitchBend: { to: 42, time: 0.4 }, tremolo: { rate: 6, depth: 0.5 }, delay: 0.05, filter: { type: 'lowpass', freq: 150, q: 1.5 }, adsr: { a: 0.01, d: 0.5, s: 0, r: 0.25 }, gain: 0.11 },   // deep suspension (1–2 damped bounces)
+    { waveform: 'triangle', freq: 360, delay: 0.04, filter: { type: 'bandpass', freq: 360, q: 8 }, adsr: { a: 0.003, d: 0.3, s: 0, r: 0.14 }, gain: 0.045 } ] } },                            // gear/airframe resonance
 };
 export function groundFx(kind) { const ae = AE(); const d = GROUND_FX[kind] || GROUND_FX.touchdown; try { ae?.init?.(); ae?.playSfx?.(d); } catch {} }
 
@@ -276,6 +422,33 @@ const FLAP_FX = { config: { duration: 0.5, layers: [
   { waveform: 'sawtooth', freq: 210, tremolo: { rate: 34, depth: 0.55 }, filter: { type: 'bandpass', freq: 880, q: 2 }, adsr: { a: 0.03, d: 0.42, s: 0.5, r: 0.1 }, gain: 0.05 },
   { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1200, q: 1.5 }, adsr: { a: 0.03, d: 0.42, s: 0.4, r: 0.1 }, gain: 0.022 } ] } };
 export function flapWhir() { const ae = AE(); try { ae?.playSfx?.(FLAP_FX); } catch {} }
+
+// Landing gear (per the FM brief): electrically driven, hydraulic-assisted, heavy, precise.
+//  extend  = "Nyeeeee-rrrrr-chunk…CHUNK…thud": a descending FM motor whine that dims under
+//            load, hydraulic hiss + airframe rumble underneath, ending in metallic locking
+//            clunks, a deep thunk, and a tiny ring.
+//  retract = "CLUNK-nyEEEER-krrr-THUNK…click-clack": an unlock clunk, then a brighter/rising
+//            higher-index FM whine with gear-train chatter + door rattle, a stow thunk, and
+//            high uplock clicks. (Inharmonic fm.rate ratios give the metallic/rough texture.)
+const GEAR_FX = {
+  extend: { config: { duration: 2.0, layers: [
+    { waveform: 'sine', freq: 900, pitchBend: { to: 340, time: 1.35 }, fm: { rate: 1180, depth: 220 }, tremolo: { rate: 5, depth: 0.28 }, filter: { type: 'bandpass', freq: 1100, q: 1.6 }, adsr: { a: 0.06, d: 1.3, s: 0.5, r: 0.05 }, gain: 0.08 },   // motor whine, descending + dimming
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1600, q: 0.7 }, adsr: { a: 0.5, d: 0.9, s: 0.4, r: 0.2 }, gain: 0.04 },                                                                                                     // hydraulic hiss swelling under
+    { waveform: 'sine', freq: 80, tremolo: { rate: 5, depth: 0.3 }, filter: { type: 'lowpass', freq: 160, q: 1 }, adsr: { a: 0.3, d: 1.2, s: 0.5, r: 0.2 }, gain: 0.05 },                                                                           // airframe rumble
+    { waveform: 'square', freq: 150, fm: { rate: 317, depth: 180 }, pitchBend: { to: 110, time: 0.12 }, delay: 1.35, filter: { type: 'bandpass', freq: 900, q: 1.5 }, adsr: { a: 0.002, d: 0.16, s: 0, r: 0.06 }, gain: 0.09 },                     // lock clunk 1
+    { waveform: 'square', freq: 130, fm: { rate: 289, depth: 200 }, pitchBend: { to: 92, time: 0.12 }, delay: 1.62, filter: { type: 'bandpass', freq: 760, q: 1.6 }, adsr: { a: 0.002, d: 0.2, s: 0, r: 0.08 }, gain: 0.11 },                       // lock clunk 2 (harder)
+    { waveform: 'sine', freq: 70, pitchBend: { to: 40, time: 0.2 }, delay: 1.66, adsr: { a: 0.002, d: 0.28, s: 0, r: 0.1 }, gain: 0.1 },                                                                                                            // deep thunk
+    { waveform: 'triangle', freq: 1300, delay: 1.7, filter: { type: 'bandpass', freq: 1300, q: 8 }, adsr: { a: 0.002, d: 0.22, s: 0, r: 0.12 }, gain: 0.03 } ] } },                                                                                 // tiny metallic ring
+  retract: { config: { duration: 1.8, layers: [
+    { waveform: 'square', freq: 150, fm: { rate: 331, depth: 200 }, pitchBend: { to: 100, time: 0.12 }, filter: { type: 'bandpass', freq: 850, q: 1.5 }, adsr: { a: 0.002, d: 0.2, s: 0, r: 0.08 }, gain: 0.1 },                                    // unlock clunk
+    { waveform: 'sine', freq: 70, delay: 0.02, tremolo: { rate: 22, depth: 0.7 }, adsr: { a: 0.005, d: 0.25, s: 0, r: 0.1 }, gain: 0.05 },                                                                                                          // release vibration
+    { waveform: 'sine', freq: 520, pitchBend: { to: 680, time: 1.1 }, fm: { rate: 1120, depth: 340 }, tremolo: { rate: 8, depth: 0.35 }, filter: { type: 'bandpass', freq: 1500, q: 1.4 }, delay: 0.16, adsr: { a: 0.05, d: 1.0, s: 0.55, r: 0.04 }, gain: 0.075 },   // bright rising motor whine + chatter
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2000, q: 1.2 }, tremolo: { rate: 11, depth: 0.8 }, delay: 0.3, adsr: { a: 0.1, d: 0.9, s: 0.3, r: 0.15 }, gain: 0.03 },                                                     // door scrape/rattle
+    { waveform: 'sine', freq: 90, pitchBend: { to: 48, time: 0.22 }, delay: 1.28, adsr: { a: 0.002, d: 0.3, s: 0, r: 0.1 }, gain: 0.11 },                                                                                                           // stow hydraulic thunk
+    { waveform: 'square', freq: 900, fm: { rate: 1970, depth: 260 }, delay: 1.42, filter: { type: 'bandpass', freq: 1800, q: 2.5 }, adsr: { a: 0.001, d: 0.08, s: 0, r: 0.04 }, gain: 0.05 },                                                       // uplock click
+    { waveform: 'square', freq: 760, fm: { rate: 1690, depth: 240 }, delay: 1.55, filter: { type: 'bandpass', freq: 1600, q: 2.5 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.04 }, gain: 0.05 } ] } },                                                 // uplock clack
+};
+export function gearFx(kind) { const ae = AE(); const d = GEAR_FX[kind] || GEAR_FX.extend; try { ae?.init?.(); ae?.playSfx?.(d); } catch {} }
 
 // Stall warning horn — a reedy buzzer that pulses on approach and goes continuous in the
 // stall (per the sound doc). `level` 0..1 rides its gain; 0 lets go and stops the loop.

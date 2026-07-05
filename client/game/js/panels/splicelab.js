@@ -49,6 +49,32 @@ function redact(s, known) { if (known >= .75) return esc(s); if (known < .25) re
 // per-form carry physics (spring freq Hz) + per-sub fluidity (slosh gain)
 const FORM_FREQ = { liquid: 2.0, gel: 2.1, powder: 2.4, pill: 2.8, gas: 2.3, crystal: 2.9, blotter: 3.2, paste: 1.7, leaf: 2.6 };
 const FORM_FLUID = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, viscous: .55, tablet: .06, pressurized: .5, shard: .05, sheet: .04, tar: .35, dried: .08 };
+
+// Per-form spill/vent physics — how each form punishes a heavy hand. `tiltMax` is
+// the tip angle it tolerates before it starts losing product (every form is now
+// tip-sensitive; the carry-tilt clamp caps at ±0.42, so a tiltMax below that can
+// actually trigger). mode picks the *primary* failure: liquids slosh, gas vents
+// (upward), solids/botanical scatter on tilt. `rate` scales how fast it bleeds.
+// All tunable — dial after feeling it in-game.
+const POUR_PHYS = {
+  liquid:  { mode: 'slosh', sloshMax: 0.82, tiltMax: 0.30, rate: 1.0 },
+  gel:     { mode: 'slosh', sloshMax: 1.10, tiltMax: 0.40, rate: 0.7 },   // viscous — forgiving
+  paste:   { mode: 'slosh', sloshMax: 1.25, tiltMax: 0.46, rate: 0.6 },   // tar-thick — hardest to slop
+  gas:     { mode: 'vent',  speedMax: 420,  tiltMax: 0.24, rate: 1.25, ventUp: true },  // pressurised — very tip-sensitive, vents up
+  powder:  { mode: 'tilt',  tiltMax: 0.32, rate: 0.9 },   // fine — scatters when tipped
+  crystal: { mode: 'tilt',  tiltMax: 0.38, rate: 0.8 },
+  pill:    { mode: 'tilt',  tiltMax: 0.50, rate: 0.5 },   // tablets — rattle but rarely lost
+  leaf:    { mode: 'tilt',  tiltMax: 0.28, rate: 1.0 },   // light — blows out of the mouth
+  blotter: { mode: 'tilt',  tiltMax: 0.54, rate: 0.4 },   // paper tabs — very stable
+};
+// Is a held container spilling/venting right now, given its speed, slosh and tilt?
+function pourHazard(p, spd) {
+  const cfg = POUR_PHYS[p.d.form] || POUR_PHYS.liquid;
+  let hazard = Math.abs(p.tilt) > cfg.tiltMax;                       // every form: over-tip → loss
+  if (cfg.mode === 'slosh') hazard = hazard || Math.abs(p.slosh) > cfg.sloshMax;
+  else if (cfg.mode === 'vent') hazard = hazard || spd > cfg.speedMax;
+  return { hazard, ventUp: !!cfg.ventUp, rate: cfg.rate || 1 };
+}
 // side-view drug table (far-left): drugs stand along the tabletop at y = H*0.60
 function tableHomes(n) { const x0 = W * 0.06, x1 = W * 0.46, top = H * 0.60, pad = 40, usable = (x1 - x0) - pad * 2, step = n > 1 ? Math.min(58, usable / (n - 1)) : 0, first = (x0 + x1) / 2 - step * (n - 1) / 2;
   return Array.from({ length: n }, (_, i) => ({ x: first + i * step, y: top - 30 })); }
@@ -77,7 +103,8 @@ export function openSpliceSelect(msg) {
     vol: d.vol ?? .4, known: d.known ?? 1, count: d.count ?? 1,
   }));
   game.stabilizerCount = msg.stabilizerCount ?? (msg.hasStabilizer ? 99 : 0);
-  game.qtyBase = 1; game.qtySplice = 1;
+  game.allow3way = !!msg.allow3way;
+  game.qtyBase = 1; game.qtySplice = 1; game.qtySplice2 = 1;
   game.difficulty = msg.baseDifficulty || 8;
   wireInput(game);
   go(game, 'title');
@@ -93,6 +120,8 @@ export function openSpliceStages(opts) {
   game.instability = (_stash && _stash.instability) || 0;
   game.difficulty = opts.difficulty || 8;
   game.onResolve = opts.onResult || null;
+  game.automated = new Set(opts.automated || []);   // stage keys an automation rig handles
+  game.autoScore = opts.autoScore || 70;            // Chemistry-scaled score for an automated stage
   wireInput(game);
   lab.setInsta(game.instability);
   go(game, 'charge');
@@ -141,11 +170,29 @@ function catastropheChance() {
 }
 
 // ── stage machine ────────────────────────────────────────────────────────────
+// Stage order through the reaction (rhythm is last → resolve).
+const STAGE_NEXT = { charge: 'mix', mix: 'pour', pour: 'stir', stir: 'heat', heat: 'rhythm' };
+const SCORED_STAGES = ['mix', 'pour', 'stir', 'heat', 'rhythm'];   // 'charge' (decant) carries no score
+
+// If the player has an automation rig for this stage, the rig clears it: bank the
+// Chemistry-scaled auto-score and advance after a beat, no hands-on play.
+function maybeAutomate(g, name) {
+  if (!g.automated || !g.automated.has(name)) return;
+  if (SCORED_STAGES.includes(name)) g.scores[name] = (g.autoScore || 70) / 100;
+  g.lab.ticker(`▸ ${name === 'charge' ? 'DECANT' : name.toUpperCase()} — automation rig handles it.`);
+  setTimeout(() => {
+    if (!g || g.closed) return;
+    if (name === 'rhythm') { if (g.mode === 'test') finalizeTest(); else resolveReal(); }
+    else transit(g, STAGE_NEXT[name]);
+  }, 750);
+}
+
 function go(g, name) {
   if (stage && stage.exit) stage.exit();
   g.lab.ui.innerHTML = ''; hideLabel();
   stage = STAGES[name];
   if (stage.enter) stage.enter();
+  maybeAutomate(g, name);
 }
 function transit(g, to) { if (g.transition > 0) return; g.transitTo = to; g.transition = 0.001; AX.noise(.4, { gain: .2, freq: 1200, type: 'bandpass', q: .7 }); }
 function drawTransition(t) {
@@ -424,16 +471,21 @@ STAGES.select = {
     this.clr = mkBtn('CLEAR', 'right:150px;bottom:44px', 'ghost');
     this.clr.onclick = () => { AX.click(); this.pkgs.forEach(p => p.inCradle = false); game.selected = []; this.sync(); };
     this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:1px;text-transform:uppercase;pointer-events:none;text-align:center;width:70%');
-    // Persistent picker panels: BASE + SPLICE (each with a colour-swatch "raw
-    // graphic", effect readout, and a quantity stepper) and a projected OUTPUT.
-    this.pBase = this.mkSlotPanel('BASE', 20);
-    this.pSplice = this.mkSlotPanel('SPLICE', 300);
-    this.pOut = this.mkOutPanel(580);
+    // Persistent picker panels: BASE + SPLICE (+ SPLICE 2 when unlocked), each with
+    // a colour-swatch "raw graphic", effect readout, and a quantity stepper, plus a
+    // projected OUTPUT. Layout tightens to four columns when the 3rd slot is open.
+    const three = !!game.allow3way;
+    const wd = three ? 224 : 268;
+    const xs = three ? [12, 246, 480, 714] : [20, 300, 580];
+    this.pBase = this.mkSlotPanel('BASE', 0, 'qtyBase', xs[0], wd);
+    this.pSplice = this.mkSlotPanel('SPLICE', 1, 'qtySplice', xs[1], wd);
+    if (three) this.pSplice2 = this.mkSlotPanel('SPLICE 2', 2, 'qtySplice2', xs[2], wd);
+    this.pOut = this.mkOutPanel(xs[three ? 3 : 2], wd);
     this.risk = this.pOut.risk;   // the live splice_preview readout feeds the OUTPUT panel
   },
-  mkSlotPanel(role, leftPx) {
+  mkSlotPanel(role, idx, qtyKey, leftPx, wd) {
     const STEP = 'width:22px;height:22px;border-radius:4px;background:#12241b;border:1px solid rgba(79,224,138,.4);color:#4fe08a;font-size:15px;line-height:1;cursor:pointer;padding:0';
-    const el = mkEl(`position:absolute;left:${leftPx}px;bottom:74px;width:268px;background:rgba(9,18,14,.88);border:1px solid rgba(79,224,138,.3);border-radius:7px;padding:9px 11px;font-family:monospace;pointer-events:auto;box-sizing:border-box`);
+    const el = mkEl(`position:absolute;left:${leftPx}px;bottom:74px;width:${wd}px;background:rgba(9,18,14,.88);border:1px solid rgba(79,224,138,.3);border-radius:7px;padding:9px 11px;font-family:monospace;pointer-events:auto;box-sizing:border-box`);
     el.innerHTML =
       `<div style="display:flex;align-items:center;justify-content:space-between">` +
         `<span style="font-size:9px;letter-spacing:2px;color:#6f8a7c">${role}</span>` +
@@ -450,14 +502,13 @@ STAGES.select = {
         `<button class="qp" style="${STEP}">+</button>` +
         `<span class="av" style="font-size:8px;color:#6f8a7c;margin-left:auto"></span></div>`;
     const p = { el, sw: el.querySelector('.sw'), nm: el.querySelector('.nm'), fm: el.querySelector('.fm'), ef: el.querySelector('.ef'), qn: el.querySelector('.qn'), qr: el.querySelector('.qr'), av: el.querySelector('.av') };
-    const idx = role === 'BASE' ? 0 : 1;
     el.querySelector('.cx').onclick = () => { const d = game.selected[idx]; if (!d) return; const pk = this.pkgs.find(x => x.d === d); if (pk) pk.inCradle = false; game.selected = game.selected.filter(x => x !== d); AX.click(); this.sync(); };
-    el.querySelector('.qm').onclick = () => { if (role === 'BASE') game.qtyBase--; else game.qtySplice--; AX.tick(); this.sync(); };
-    el.querySelector('.qp').onclick = () => { if (role === 'BASE') game.qtyBase++; else game.qtySplice++; AX.tick(); this.sync(); };
+    el.querySelector('.qm').onclick = () => { game[qtyKey]--; AX.tick(); this.sync(); };
+    el.querySelector('.qp').onclick = () => { game[qtyKey]++; AX.tick(); this.sync(); };
     return p;
   },
-  mkOutPanel(leftPx) {
-    const el = mkEl(`position:absolute;left:${leftPx}px;bottom:74px;width:268px;background:rgba(9,18,14,.88);border:1px solid rgba(95,208,224,.32);border-radius:7px;padding:9px 11px;font-family:monospace;pointer-events:none;box-sizing:border-box`);
+  mkOutPanel(leftPx, wd) {
+    const el = mkEl(`position:absolute;left:${leftPx}px;bottom:74px;width:${wd}px;background:rgba(9,18,14,.88);border:1px solid rgba(95,208,224,.32);border-radius:7px;padding:9px 11px;font-family:monospace;pointer-events:none;box-sizing:border-box`);
     el.innerHTML =
       `<div style="font-size:9px;letter-spacing:2px;color:#6f8a7c">OUTPUT</div>` +
       `<div style="display:flex;align-items:center;gap:8px;margin-top:5px">` +
@@ -470,6 +521,7 @@ STAGES.select = {
   refreshPanels() {
     const g = game;
     const fill = (p, drug, qty) => {
+      if (!p) return;
       if (!drug) { p.sw.style.background = '#1a2a22'; p.sw.style.boxShadow = 'inset 0 0 6px #0008'; p.nm.textContent = '— empty —'; p.nm.style.color = '#6f8a7c'; p.fm.textContent = ''; p.ef.textContent = 'drop a drug into the cradle'; p.qn.textContent = '×1'; p.av.textContent = ''; p.qr.style.opacity = '.4'; return; }
       p.sw.style.background = drug.color; p.sw.style.boxShadow = `inset 0 0 6px #0008, 0 0 10px ${drug.color}66`;
       p.nm.textContent = drug.name; p.nm.style.color = '#dffbe9';
@@ -479,13 +531,14 @@ STAGES.select = {
     };
     fill(this.pBase, g.selected[0], g.qtyBase);
     fill(this.pSplice, g.selected[1], g.qtySplice);
-    const o = this.pOut, a = g.selected[0], b = g.selected[1];
-    if (a && b) {
-      const out = Math.max(g.qtyBase, g.qtySplice), col = avgColor([a, b]);
-      const form = g.qtyBase >= g.qtySplice ? a.form : b.form;
+    fill(this.pSplice2, g.selected[2], g.qtySplice2);
+    const o = this.pOut, sel = g.selected.filter(Boolean), qtys = [g.qtyBase, g.qtySplice, g.qtySplice2];
+    if (sel.length >= 2) {
+      const out = Math.max(...sel.map((_, i) => qtys[i])), col = avgColor(sel);
+      let fi = 0; for (let i = 1; i < sel.length; i++) if (qtys[i] > qtys[fi]) fi = i;
       o.sw.style.background = col; o.sw.style.boxShadow = `inset 0 0 6px #0008, 0 0 12px ${col}77`;
-      o.nm.textContent = 'spliced compound'; o.nm.style.color = '#dffbe9';
-      o.ds.textContent = `${out} dose${out === 1 ? '' : 's'} · ${form}`;
+      o.nm.textContent = sel.length >= 3 ? 'triple-spliced compound' : 'spliced compound'; o.nm.style.color = '#dffbe9';
+      o.ds.textContent = `${out} dose${out === 1 ? '' : 's'} · ${sel[fi].form}`;
     } else {
       o.sw.style.background = '#1a2a22'; o.sw.style.boxShadow = 'inset 0 0 6px #0008';
       o.nm.textContent = '— nothing yet —'; o.nm.style.color = '#6f8a7c'; o.ds.textContent = '';
@@ -495,27 +548,34 @@ STAGES.select = {
   // Clamp base/splice quantities to what's carried and to the stabilizer supply
   // (output = max of the two, and it costs one stabilizer per finished dose).
   clampQtys() {
-    const g = game, base = g.selected[0], spl = g.selected[1];
+    const g = game;
     const stab = g.stabilizerCount || 0, cap = stab > 0 ? stab : 99;
-    g.qtyBase = clamp(g.qtyBase || 1, 1, Math.min(base ? (base.count || 1) : 1, cap));
-    g.qtySplice = clamp(g.qtySplice || 1, 1, Math.min(spl ? (spl.count || 1) : 1, cap));
+    const lim = (i) => { const d = g.selected[i]; return Math.min(d ? (d.count || 1) : 1, cap); };
+    g.qtyBase = clamp(g.qtyBase || 1, 1, lim(0));
+    g.qtySplice = clamp(g.qtySplice || 1, 1, lim(1));
+    g.qtySplice2 = clamp(g.qtySplice2 || 1, 1, lim(2));
+  },
+  slots() {
+    const s = game.selected;
+    const o = { base: { drug: s[0].drug, qty: game.qtyBase }, splice: { drug: s[1].drug, qty: game.qtySplice } };
+    if (s[2]) o.splice2 = { drug: s[2].drug, qty: game.qtySplice2 };
+    return o;
   },
   sync() { const n = game.selected.length; this.splice.disabled = n < 2;
     if (n >= 2) this.clampQtys();
-    this.hint.textContent = n === 0 ? 'drag a drug into the cradle — first is the BASE, second is the SPLICE'
+    this.hint.textContent = n === 0 ? `drag a drug into the cradle — BASE first, then SPLICE${game.allow3way ? ' (3rd slot open)' : ''}`
       : n === 1 ? 'now drop the splice drug in too'
         : 'set quantities below · SPLICE ▶ or SPACE to begin';
     this.refreshPanels();
     // Live risk telegraph before you commit — server's authoritative composeSplice math.
-    if (game.mode !== 'test' && n >= 2) {
-      sendCmdSilent('splicepreview ' + b64({ base: { drug: game.selected[0].drug, qty: game.qtyBase }, splice: { drug: game.selected[1].drug, qty: game.qtySplice } }));
-    } else if (this.risk) this.risk.textContent = '';
+    if (game.mode !== 'test' && n >= 2) sendCmdSilent('splicepreview ' + b64(this.slots()));
+    else if (this.risk) this.risk.textContent = '';
   },
   commit() {
     const sel = game.selected.slice();
     _stash = { selection: sel, instability: game.instability };
     if (game.mode === 'test') { transit(game, 'charge'); return; }
-    sendCmdSilent('splicebegin ' + b64({ base: { drug: sel[0].drug, qty: game.qtyBase }, splice: { drug: sel[1].drug, qty: game.qtySplice }, name: '' }));
+    sendCmdSilent('splicebegin ' + b64({ ...this.slots(), name: '' }));
     game.lab.close();
   },
   topAt(p) { for (let i = this.pkgs.length - 1; i >= 0; i--) { const k = this.pkgs[i]; if (Math.hypot(p.x - k.x, p.y - k.y) < 44) return k; } return null; },
@@ -529,7 +589,7 @@ STAGES.select = {
   up() { const k = this.drag; if (!k) return; this.drag = null; k.held = false;
     if (!this.moved && (this.t - this.pressT) < 0.25) { if (_labelFor === k.d && _labelEl) hideLabel(); else showLabel(k.d, k.home.x, k.home.y); return; }
     if (Math.hypot(k.x - this.cradle.x, k.y - this.cradle.y) < this.cradle.r + 12) {
-      if (game.selected.length >= 2 && !game.selected.includes(k.d)) { game.lab.ticker("two's the limit — a base and a splice.", 'a'); AX.bad(); }
+      if (game.selected.length >= (game.allow3way ? 3 : 2) && !game.selected.includes(k.d)) { game.lab.ticker(game.allow3way ? "three's the limit — base + two splices." : "two's the limit — a base and a splice.", 'a'); AX.bad(); }
       else { k.inCradle = true; if (!game.selected.includes(k.d)) game.selected.push(k.d); AX.drop(); this.sync(); }
     } else AX.tick();
     hideLabel(); },
@@ -559,12 +619,13 @@ STAGES.select = {
       const dax = p.vx - p.pvx; p.pvx = p.vx;
       p.sloshV += dax * p.fluid * 0.6; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
       const speed = Math.hypot(p.vx, p.vy);
-      if (this.drag === p && p.d.form === 'gas' && speed > 480) { p.warn = 1; p.spill += dt * (speed / 600); this.spillAlarm();
+      const hz = this.drag === p ? pourHazard(p, speed) : null;
+      if (hz && hz.hazard && hz.ventUp) { p.warn = 1; p.spill += dt * (speed / 600) * hz.rate; this.spillAlarm();
         if (Math.random() < 0.4) this.drips.push({ x: p.x + rnd(10, -10), y: p.y - 24, vy: -55, life: 0, col: shade(p.d.color, 80) });
         if (p.spill > 1.2) { p.spill = 0; this.lost += 4; addInstability(5, "the canister hisses — you're bleeding pressure."); AX.bad(); }
-      } else if (this.drag === p && p.fluid > 0.7 && Math.abs(p.slosh) > 0.95) { p.warn = 1; p.spill += dt * Math.abs(p.slosh); this.spillAlarm();
+      } else if (hz && hz.hazard) { p.warn = 1; p.spill += dt * Math.max(Math.abs(p.slosh), Math.abs(p.tilt) * 2) * hz.rate; this.spillAlarm();
         if (Math.random() < 0.35) this.drips.push({ x: p.x + rnd(15, -15), y: p.y + 12, vy: 50, life: 0, col: p.d.color });
-        if (p.spill > 1.3) { p.spill = 0; this.lost += 4; addInstability(6, 'you slopped it — you just lost product.'); AX.bad(); }
+        if (p.spill > 1.3) { p.spill = 0; this.lost += 4; addInstability(6, 'you tipped it — you just lost product.'); AX.bad(); }
       } else { p.warn = lerp(p.warn, 0, dt * 4); p.spill = Math.max(0, p.spill - dt * 0.5); }
     });
     this.drips.forEach(d => { d.life += dt; d.y += d.vy * dt; d.vy += 400 * dt; }); this.drips = this.drips.filter(d => d.life < 0.6);
@@ -622,10 +683,10 @@ STAGES.charge = {
       } else {
         p.tilt = lerp(p.tilt, clamp(-p.vx * 0.0016, -0.42, 0.42), dt * 9);
         if (p.pourSfx) { p.pourSfx = false; AX.pour(false); }
-        if (this.drag === p) { const hazard = p.d.form === 'gas' ? spd > 480 : Math.abs(p.slosh) > 1.0;
-          if (hazard) { p.warn = 1; p.spill += dt; this.spillAlarm();
-            if (Math.random() < 0.3) this.drips.push({ x: p.x + rnd(12, -12), y: p.y + (p.d.form === 'gas' ? -22 : 12), vy: p.d.form === 'gas' ? -50 : 60, life: 0, col: p.d.form === 'gas' ? shade(p.d.color, 80) : p.d.color });
-            if (p.spill > 1.0) { p.spill = 0; this.lost += 4; addInstability(5 * game.vol(), 'you slopped it — lost product'); AX.bad(); }
+        if (this.drag === p) { const hz = pourHazard(p, spd);
+          if (hz.hazard) { p.warn = 1; p.spill += dt * hz.rate; this.spillAlarm();
+            if (Math.random() < 0.3) this.drips.push({ x: p.x + rnd(12, -12), y: p.y + (hz.ventUp ? -22 : 12), vy: hz.ventUp ? -50 : 60, life: 0, col: hz.ventUp ? shade(p.d.color, 80) : p.d.color });
+            if (p.spill > 1.0) { p.spill = 0; this.lost += 4; addInstability(5 * game.vol(), hz.ventUp ? 'it vents — you bleed pressure' : 'you tipped it — lost product'); AX.bad(); }
           } else p.warn = lerp(p.warn, 0, dt * 4);
         } else p.warn = lerp(p.warn, 0, dt * 4);
       }

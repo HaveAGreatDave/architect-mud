@@ -51,10 +51,25 @@ export default async function regress({ run, check, getPlayer }) {
     check('restore returns the legal item', restored.rows.some(r => r.item_id === misc));
     check('restore does not return the weapon', !restored.rows.some(r => r.item_id === wpn));
 
+    // A sealed climate crate survives the search — packaged contraband is kept on
+    // the player (not bagged, not deleted).
+    const tid2 = `jailtest2_${p.id}`;
+    await query('DELETE FROM player_inventory WHERE player_id=$1', [tid2]).catch(() => {});
+    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,custom_data) VALUES ($1,$2,$3,1,$4)`, [`${tid2}_p`, tid2, wpn, JSON.stringify({ packaged: true })]);
+    const held2 = await _test.confiscate(tid2, 'JailTest');
+    check('sealed crate is not bagged as evidence', !held2.some(h => h.item_id === wpn));
+    const kept = await query('SELECT 1 FROM player_inventory WHERE player_id=$1', [tid2]);
+    check('sealed crate survives confiscation', kept.rows.length === 1, kept.rows.length);
+    await query('DELETE FROM player_inventory WHERE player_id=$1', [tid2]).catch(() => {});
+
     // cleanup
     await query('DELETE FROM player_inventory WHERE player_id=$1', [tid]).catch(() => {});
     await query(`DELETE FROM police_evidence WHERE source_handle='JailTest'`).catch(() => {});
   } else {
     check('confiscate round-trip (skipped — no sample items)', true);
   }
+
+  // unseal with nothing sealed must fail cleanly.
+  const us = await run('unseal');
+  check('unseal with nothing sealed errors cleanly', us?.type === 'error', us?.type);
 }

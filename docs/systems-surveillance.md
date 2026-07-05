@@ -8,6 +8,13 @@ PvP-capable surveillance layer. NPC police run the same tech to track crime.
 > live playtest). Phase 6 became a **witnessed-crime Wanted System** (below) rather than plain
 > evidence+dispatch — see [the Wanted System section](#wanted-system-phase-6).
 
+> **Cops don't chase you while you're airborne.** Ground policing runs normally, but the pursuit
+> engine leaves a suspect alone while they're in a cockpit: `searchAndPursue` and the `APPREHEND`
+> action both no-op when `isAirborne(suspect)` (the player carries an `aircraftId`). Your stars
+> persist and the manhunt simply **waits until you land**, then resumes. Flying into restricted
+> airspace still raises stars (the flight plugin's no-fly enforcement) — you just can't be
+> physically detained or searched mid-flight; the reckoning happens on the ground.
+
 ---
 
 ## The pitch

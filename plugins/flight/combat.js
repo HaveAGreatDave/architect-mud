@@ -12,7 +12,7 @@ import { query } from '../../server/models/db.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import {
   liveAircraft, surfaceAt, crash, toOccupants, out, pushHud, persist, pilotOf,
-  sendToZone, sendToPlayer, getZone, BANDS,
+  sendToZone, sendToPlayer, getZone, BANDS, isContinuous,
 } from './state.js';
 
 const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
@@ -94,7 +94,14 @@ async function cmdStrafe(args, raw, player) {
   const target = wanted ? inRange.find(s => s.name.toLowerCase().includes(wanted)) : inRange[0];
   if (!target) return { type: 'emote', message: 'Nothing in gun range on this pass. Line it up and come around.' };
 
-  // Arm the targeting-reticle deck (server-authoritative on `strafresolve`).
+  // Continuous cockpit: no modal reticle deck — resolve the gun pass with a piloting
+  // check inline (the FIRE button drives this straight from the flying cockpit).
+  if (isContinuous(live)) {
+    const chk = await skillCheck(player, 'piloting', target.accuracy || 6);
+    await applyStrafeResult(live, player, target.id, target.name, chk.success);
+    return { type: 'noop' };
+  }
+  // Deck craft: arm the targeting-reticle minigame (server-authoritative on `strafresolve`).
   const token = randomUUID();
   live.pendingStrafe = { token, targetId: target.id, targetName: target.name };
   sendToPlayer(player.id, {
@@ -104,16 +111,12 @@ async function cmdStrafe(args, raw, player) {
   return { type: 'emote', message: `<span class="text-cyan">Rolling in on ${target.name} — pipper on, guns hot.</span>` };
 }
 
-async function cmdStrafeResolve(args, raw, player) {
-  const token = args[0], won = args[1] === '1';
-  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
-  if (!live || player.seat !== 'pilot' || live.pendingStrafe?.token !== token) return { type: 'noop' };
-  const { targetId, targetName } = live.pendingStrafe;
-  live.pendingStrafe = null;
+// Apply a gun-pass outcome: silence the site on a hit, or wake it on a miss. Shared by
+// the deck minigame (strafresolve) and the continuous cockpit's inline fire.
+async function applyStrafeResult(live, player, targetId, targetName, won) {
   const below = surfaceAt(live.row.grid_x, live.row.grid_y);
-  // Target may already be dead / out of range by now.
   const { rows } = await query('SELECT active FROM aa_sites WHERE id=$1', [targetId]);
-  if (!rows.length || !rows[0].active) return { type: 'noop' };
+  if (!rows.length || !rows[0].active) return;   // already dead / gone
   if (won) {
     await query('UPDATE aa_sites SET active=0 WHERE id=$1', [targetId]);
     await awardSkillUse(player.id, 'piloting', 2);
@@ -122,6 +125,15 @@ async function cmdStrafeResolve(args, raw, player) {
   } else {
     out(player.id, `<span class="text-amber">Your burst goes wide of ${targetName} — and now it knows you're here.</span>`);
   }
+}
+
+async function cmdStrafeResolve(args, raw, player) {
+  const token = args[0], won = args[1] === '1';
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live || player.seat !== 'pilot' || live.pendingStrafe?.token !== token) return { type: 'noop' };
+  const { targetId, targetName } = live.pendingStrafe;
+  live.pendingStrafe = null;
+  await applyStrafeResult(live, player, targetId, targetName, won);
   return { type: 'noop' };
 }
 

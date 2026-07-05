@@ -46,6 +46,9 @@ registerMoveGate(async ({ player, direction, door, to }) => {
   const canPass = lockTypePassesWhileLocked(lockTag.type)
     && await checkLockAuth(lockTag, door, player);
   if (!canPass) {
+    // up/down read badly as "the door to the up" — say "above"/"below" instead
+    if (direction === 'up')   return { block: true, message: `The door above is locked.` };
+    if (direction === 'down') return { block: true, message: `The door below is locked.` };
     const label = NAMED_LOCK_DIRS.has(direction) && to?.name ? to.name : `the ${direction}`;
     return { block: true, message: `The door to ${label} is locked.` };
   }

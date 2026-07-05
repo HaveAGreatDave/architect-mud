@@ -6889,24 +6889,93 @@ textarea {
    skins below re-shape that chassis. Placed after the themes so the chassis
    overrides (background-image, box-shadow) win on selector-specificity ties. */
 #tv-window[data-skin="flatscreen"] {
-	/* thin brushed-chrome bezel, flat glass — no CRT scanlines or vignette */
-	border: 2px solid #2c3037;
-	border-radius: 8px;
+	/* High-gloss piano-black set seated in a machined-chrome trim ring — flat
+	   glass, no CRT scanlines/vignette. The layered box-shadow builds the metal
+	   ring: a bright top-lit edge grading down to a shadowed underside so the
+	   chrome reads as a real bevel catching light from above, then the whole set
+	   floats on a deep contact shadow. */
+	border: 2px solid #23262b;
+	border-radius: 12px;
 	outline: none;
 	box-shadow:
-		0 0 0 3px #e6e9ee,
-		0 0 0 4px #aab0b8,
-		0 0 0 6px #70767e,
-		0 0 0 11px #17191c,
-		0 18px 55px rgba(0, 0, 0, 0.75),
-		inset 0 0 60px rgba(0, 0, 0, 0.35);
+		/* machined-chrome trim — directional so the top edge is lit, base shadowed */
+		0 1px 0 3px #f4f7fa,
+		0 0 0 4px #ccd3da,
+		0 0 0 6px #8b9199,
+		0 2px 0 6px #565b62,
+		0 0 0 9px #2a2d32,
+		0 0 0 12px #0c0d0f,
+		/* theme-colored ambient bias-light — a soft backlit halo that picks up the
+		   channel's accent, like the glow behind a premium set */
+		0 0 52px 1px color-mix(in srgb, var(--tv-header-color) 24%, transparent),
+		/* the set floating in the room */
+		0 28px 72px -14px rgba(0, 0, 0, 0.88),
+		0 10px 26px rgba(0, 0, 0, 0.6),
+		/* glass seated into the bezel — bright hairline lip + inner shade */
+		inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+		inset 0 2px 20px rgba(0, 0, 0, 0.72),
+		inset 0 0 75px rgba(0, 0, 0, 0.5);
 	background-image:
-		linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 12%),
-		radial-gradient(ellipse at center, transparent 78%, rgba(0, 0, 0, 0.35) 100%);
+		linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 10%),
+		radial-gradient(ellipse at 50% 42%, transparent 60%, rgba(0, 0, 0, 0.55) 100%);
 }
-/* Chrome bezel catches a cool highlight along the top edge of the header */
+/* Chrome bezel catches a cool specular highlight along the top rails */
 #tv-window[data-skin="flatscreen"] #tv-header {
-	background: linear-gradient(180deg, rgba(210, 220, 230, 0.10), rgba(0, 0, 0, 0.35));
+	background: linear-gradient(180deg, rgba(226, 235, 244, 0.15), rgba(255, 255, 255, 0.02) 42%, rgba(0, 0, 0, 0.4));
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13);
+}
+#tv-window[data-skin="flatscreen"] #tv-footer {
+	background: linear-gradient(0deg, rgba(226, 235, 244, 0.07), rgba(0, 0, 0, 0.5));
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09);
+}
+/* Ceiling-light strip — a soft reflected light bar across the top of the glass,
+   the hallmark of a glossy flatscreen. Kept short and low-opacity so it reads as
+   a reflection without hurting the readability of the top text lines. */
+#tv-window[data-skin="flatscreen"]::before {
+	content: "";
+	position: absolute;
+	top: 45px;
+	left: 3px;
+	right: 3px;
+	height: 78px;
+	pointer-events: none;
+	z-index: 41;
+	border-radius: 3px 3px 50% 50% / 3px 3px 34px 34px;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.025) 45%, transparent 100%);
+	mix-blend-mode: screen;
+}
+/* Glass reflection — layered specular over the screen glass, not just the bezel
+   shell. A crisp diagonal light streak slowly drifts across the surface (living
+   glass), over a soft top-left ambient glare. Screen-blended so it only ever
+   brightens; the corner darkening lives on the window background above. Scoped to
+   the screen area (clear of the ~45px header and 72px footer) so text stays
+   legible. pointer-events:none; z-index sits above content/static but below the
+   scorebug (45) and overlays (50) so on-screen graphics aren't washed out. */
+#tv-window[data-skin="flatscreen"]::after {
+	content: "";
+	position: absolute;
+	top: 45px;
+	bottom: 72px;
+	left: 3px;
+	right: 3px;
+	pointer-events: none;
+	z-index: 40;
+	border-radius: 3px;
+	background:
+		linear-gradient(118deg, transparent 32%, rgba(255, 255, 255, 0.06) 45%, rgba(255, 255, 255, 0.16) 50%, rgba(255, 255, 255, 0.05) 55%, transparent 68%),
+		radial-gradient(120% 85% at 12% 0%, rgba(205, 224, 238, 0.11), transparent 55%);
+	background-size: 300% 100%, 100% 100%;
+	background-position: -40% 0, 0 0;
+	background-repeat: no-repeat;
+	mix-blend-mode: screen;
+	animation: tv-glass-drift 15s ease-in-out infinite alternate;
+}
+@keyframes tv-glass-drift {
+	from { background-position: -40% 0, 0 0; }
+	to   { background-position: 140% 0, 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+	#tv-window[data-skin="flatscreen"]::after { animation: none; background-position: 40% 0, 0 0; }
 }
 /* Station theme cross-fade — every themed element eases between colours when the
    channel (and its theme) changes. The colour vars live on #tv-window; children
@@ -7149,14 +7218,15 @@ textarea {
 }
 
 /* ── Sports score-bug (persistent overlay) ─────────────────────────────────────
-   Top-left "bug" that stays on-screen for the whole game and updates in place.
-   Sport-agnostic: two team/score rows + a status line, always. Baseball adds the
-   base diamond + out dots when the payload carries them; other sports omit those
-   and the bug shows just scores + status. Themed off the channel's TV vars. */
+   Bottom-right "bug" that stays on-screen for the whole game and updates in place.
+   Anchored below the play-by-play text (which fills from the top) so it never
+   blocks a line. Sport-agnostic: two team/score rows + a status line, always.
+   Baseball adds the base diamond + out dots when the payload carries them; other
+   sports omit those and the bug shows just scores + status. Themed off the TV vars. */
 #tv-scorebug {
 	position: absolute;
-	top: 52px;
-	left: 10px;
+	bottom: 82px;
+	right: 10px;
 	z-index: 45;
 	display: none;
 	pointer-events: none;
@@ -7213,8 +7283,293 @@ textarea {
 }
 .tv-sb-out.on { background: #ff3344; border-color: #ff3344; }
 @keyframes tv-sb-in {
-	from { opacity: 0; transform: translateY(-6px); }
+	from { opacity: 0; transform: translateY(6px); }
 	to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Standings bug (transient league table) ────────────────────────────────────
+   Flashed up periodically during a sports broadcast, top-left so it clears the
+   score-bug (bottom-right) and the play-by-play text (which fills from the top-left
+   but is short). Auto-dismisses client-side; slides in from the left. Themed off
+   the channel's TV vars, same broadcast-graphic look as the score-bug. */
+#tv-standings {
+	position: absolute;
+	top: 52px;
+	left: 10px;
+	z-index: 46;
+	display: none;
+	flex-direction: column;
+	min-width: 208px;
+	pointer-events: none;
+	background: rgba(2, 6, 5, 0.94);
+	border: 1px solid var(--tv-border);
+	border-left: 3px solid var(--tv-header-color);
+	border-radius: 2px;
+	overflow: hidden;
+	box-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
+	animation: tv-st-in 0.35s ease-out;
+}
+#tv-standings.on { display: flex; }
+.tv-st-title {
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: #05100c;
+	background: var(--tv-header-color);
+	padding: 3px 9px;
+	white-space: nowrap;
+}
+.tv-st-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 2px 9px;
+	font-size: 12px;
+	line-height: 1.3;
+	color: rgba(220, 240, 235, 0.85);
+}
+.tv-st-row:nth-child(2) { color: #fff; padding-top: 4px; }        /* leader pops */
+.tv-st-row:nth-child(2) .tv-st-rec { color: var(--tv-header-color); }
+.tv-st-row:last-child { padding-bottom: 4px; }
+.tv-st-rank {
+	width: 14px;
+	text-align: right;
+	color: var(--tv-header-color);
+	font-variant-numeric: tabular-nums;
+}
+.tv-st-team { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-st-rec { font-weight: bold; font-variant-numeric: tabular-nums; }
+.tv-st-rd {
+	width: 30px;
+	text-align: right;
+	font-size: 10px;
+	color: rgba(200, 220, 235, 0.55);
+	font-variant-numeric: tabular-nums;
+}
+@keyframes tv-st-in {
+	from { opacity: 0; transform: translateX(-10px); }
+	to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Sports graphics (full-screen FX) ──────────────────────────────────────────
+   Home-run trajectory call-out, final-score card, extra-innings hype. They take
+   over the screen area (below header, above footer) for a few seconds, above the
+   score/standings bugs, then auto-dismiss. Pure CSS/SMIL — play on insert. */
+.tv-fx-host {
+	position: absolute;
+	top: 44px; bottom: 72px; left: 0; right: 0;
+	z-index: 55;
+	pointer-events: none;
+	overflow: hidden;
+	display: none;
+}
+.tv-fx-host.on { display: block; }
+
+/* Home run: a ball arcs from the plate into the stands, then the call slams in. */
+.tv-fx-hr { position: absolute; inset: 0; }
+.fx-homerun::before {
+	content: ""; position: absolute; inset: 0;
+	background: radial-gradient(circle at 90% 24%, rgba(255, 210, 74, 0.28), transparent 55%);
+	opacity: 0; animation: tv-hr-flash 0.7s ease-out 0.95s;
+}
+.tv-fx-hr-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tv-fx-hr-arc {
+	stroke: var(--tv-header-color); stroke-width: 3; stroke-linecap: round;
+	filter: drop-shadow(0 0 4px var(--tv-header-color));
+	stroke-dasharray: 640; stroke-dashoffset: 640;
+	animation: tv-hr-draw 1.05s ease-out forwards;
+}
+.tv-fx-hr-ball { fill: #fff; filter: drop-shadow(0 0 5px #fff); }
+.tv-fx-hr-burst {
+	fill: #ffd24a; opacity: 0; transform-box: fill-box; transform-origin: center;
+	animation: tv-hr-burst 0.6s ease-out 1.0s forwards;
+}
+.tv-fx-hr-title {
+	position: absolute; left: 0; right: 0; top: 34%; text-align: center;
+	font-family: var(--font-mono); font-weight: 900;
+	font-size: clamp(30px, 9vw, 76px); letter-spacing: 4px; color: #fff;
+	text-shadow: 0 0 18px var(--tv-header-color), 0 3px 0 rgba(0, 0, 0, 0.55);
+	opacity: 0; animation: tv-hr-title 2.7s cubic-bezier(.2, 1.4, .3, 1) 0.85s forwards;
+}
+.tv-fx-hr-title.grand { color: #ffe66a; text-shadow: 0 0 22px #ffb300, 0 3px 0 rgba(0, 0, 0, 0.55); }
+.tv-fx-hr-sub {
+	position: absolute; left: 0; right: 0; top: calc(34% + clamp(38px, 11vw, 92px)); text-align: center;
+	font-family: var(--font-mono); font-size: 14px; letter-spacing: 3px; text-transform: uppercase;
+	color: var(--tv-header-color); opacity: 0; animation: tv-fx-hold 2.2s ease-out 1.3s forwards;
+}
+@keyframes tv-hr-draw { to { stroke-dashoffset: 0; } }
+@keyframes tv-hr-burst { 0% { opacity: 0.9; transform: scale(0.3); } 100% { opacity: 0; transform: scale(9); } }
+@keyframes tv-hr-flash { 0% { opacity: 0.85; } 100% { opacity: 0; } }
+@keyframes tv-hr-title {
+	0%   { opacity: 0; transform: scale(1.6); }
+	12%  { opacity: 1; transform: scale(1); }
+	16%  { transform: scale(1) translateX(-4px); }
+	20%  { transform: translateX(4px); }
+	24%  { transform: translateX(0); }
+	85%  { opacity: 1; }
+	100% { opacity: 0; transform: scale(1.05); }
+}
+@keyframes tv-fx-hold { 0% { opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Final-score card. */
+.tv-fx-final {
+	position: absolute; inset: 0; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 10px;
+	background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.82));
+	opacity: 0; animation: tv-fx-hold 4.4s ease-out forwards;
+}
+.tv-fx-final-label {
+	font-family: var(--font-mono); font-size: 13px; letter-spacing: 6px;
+	color: var(--tv-header-color); text-transform: uppercase;
+}
+.tv-fx-final-card {
+	display: flex; flex-direction: column; gap: 2px; min-width: min(64%, 320px);
+	background: rgba(0, 0, 0, 0.6); border: 1px solid var(--tv-border); border-radius: 3px;
+	overflow: hidden; transform: scale(0.9);
+	animation: tv-final-pop 0.5s cubic-bezier(.2, 1.4, .3, 1) 0.15s forwards;
+}
+.tv-fx-final-row {
+	display: flex; align-items: center; justify-content: space-between; gap: 20px;
+	padding: 8px 18px; font-family: var(--font-mono); font-size: clamp(18px, 4vw, 26px);
+	color: rgba(220, 240, 235, 0.75);
+}
+.tv-fx-final-row .sc { font-weight: 900; font-variant-numeric: tabular-nums; }
+.tv-fx-final-row.win { color: #fff; background: linear-gradient(90deg, color-mix(in srgb, var(--tv-header-color) 22%, transparent), transparent); }
+.tv-fx-final-row.win .sc { color: var(--tv-header-color); }
+.tv-fx-final-tag {
+	font-family: var(--font-mono); font-weight: 900; font-size: clamp(16px, 5vw, 30px);
+	letter-spacing: 3px; color: var(--tv-header-color); text-shadow: 0 0 14px var(--tv-header-color);
+	opacity: 0; animation: tv-fx-hold 3.6s ease-out 0.7s forwards;
+}
+@keyframes tv-final-pop { to { transform: scale(1); } }
+
+/* Extra innings hype card. */
+.tv-fx-extras {
+	position: absolute; inset: 0; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 8px;
+	opacity: 0; animation: tv-fx-hold 3.1s ease-out forwards;
+}
+.tv-fx-extras::before {
+	content: ""; position: absolute; inset: 0; opacity: 0.5;
+	background: repeating-linear-gradient(115deg, transparent 0 22px, color-mix(in srgb, var(--tv-header-color) 9%, transparent) 22px 24px);
+	animation: tv-extras-slide 0.8s linear infinite;
+}
+.tv-fx-extras-big {
+	position: relative; display: flex; flex-direction: column; align-items: center; line-height: 0.92;
+	font-family: var(--font-mono); font-weight: 900; font-size: clamp(28px, 8vw, 60px); letter-spacing: 5px;
+	color: #fff; text-shadow: 0 0 18px var(--tv-header-color);
+	animation: tv-extras-pulse 0.7s ease-in-out infinite alternate;
+}
+.tv-fx-extras-big span { color: var(--tv-header-color); }
+.tv-fx-extras-sub {
+	position: relative; font-family: var(--font-mono); font-size: 13px; letter-spacing: 6px;
+	text-transform: uppercase; color: var(--tv-header-color);
+}
+@keyframes tv-extras-slide { to { transform: translateX(24px); } }
+@keyframes tv-extras-pulse { from { transform: scale(1); } to { transform: scale(1.06); } }
+
+/* Walk-off: a celebratory sunburst spins behind the biggest call in the book. */
+.tv-fx-walkoff {
+	position: absolute; inset: 0; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 8px; overflow: hidden;
+	opacity: 0; animation: tv-fx-hold 4.2s ease-out forwards;
+}
+.tv-fx-wo-rays {
+	position: absolute; left: 50%; top: 44%; width: 200%; aspect-ratio: 1;
+	transform: translate(-50%, -50%); opacity: 0.5;
+	background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--tv-header-color) 16%, transparent) 0deg 6deg, transparent 6deg 14deg);
+	animation: tv-wo-spin 9s linear infinite;
+}
+.tv-fx-wo-title {
+	position: relative; font-family: var(--font-mono); font-weight: 900;
+	font-size: clamp(30px, 10vw, 80px); letter-spacing: 3px; color: #fff;
+	text-shadow: 0 0 22px var(--tv-header-color), 0 3px 0 rgba(0, 0, 0, 0.5);
+	animation: tv-wo-slam 0.6s cubic-bezier(.2, 1.5, .3, 1) both;
+}
+.tv-fx-wo-sub { position: relative; font-family: var(--font-mono); font-size: 15px; letter-spacing: 3px; text-transform: uppercase; color: var(--tv-header-color); }
+.tv-fx-wo-score { position: relative; font-family: var(--font-mono); font-size: 14px; letter-spacing: 2px; color: rgba(220, 240, 235, 0.8); font-variant-numeric: tabular-nums; }
+@keyframes tv-wo-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes tv-wo-slam {
+	0%   { opacity: 0; transform: scale(2.2); }
+	55%  { opacity: 1; transform: scale(0.94); }
+	70%  { transform: scale(1.03) translateX(-3px); }
+	82%  { transform: translateX(3px); }
+	100% { transform: scale(1) translateX(0); }
+}
+
+/* Pre-game matchup card: the two clubs slide in from opposite sides to face off. */
+.tv-fx-matchup {
+	position: absolute; inset: 0; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 12px;
+	background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.8));
+	opacity: 0; animation: tv-fx-hold 4.0s ease-out forwards;
+}
+.tv-fx-mu-label { font-family: var(--font-mono); font-size: 12px; letter-spacing: 6px; text-transform: uppercase; color: var(--tv-header-color); }
+.tv-fx-mu-teams { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.tv-fx-mu-team { display: flex; align-items: baseline; gap: 12px; font-family: var(--font-mono); opacity: 0; }
+.tv-fx-mu-team.away { transform: translateX(-26px); animation: tv-mu-in 0.5s ease-out 0.1s forwards; }
+.tv-fx-mu-team.home { transform: translateX(26px); animation: tv-mu-in 0.5s ease-out 0.28s forwards; }
+.tv-fx-mu-team .nm { font-weight: 900; font-size: clamp(20px, 5vw, 34px); color: #fff; text-shadow: 0 0 12px var(--tv-header-color); }
+.tv-fx-mu-team .rec { font-size: 14px; color: var(--tv-header-color); font-variant-numeric: tabular-nums; }
+.tv-fx-mu-vs { font-family: var(--font-mono); font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: rgba(220, 240, 235, 0.5); }
+@keyframes tv-mu-in { to { opacity: 1; transform: translateX(0); } }
+
+/* Double play: a short, snappy flash — not a full takeover (it happens often). */
+.tv-fx-dp {
+	position: absolute; inset: 0; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 4px;
+	opacity: 0; animation: tv-fx-hold 2.0s ease-out forwards;
+}
+.tv-fx-dp-title {
+	font-family: var(--font-mono); font-weight: 900; font-size: clamp(22px, 6vw, 44px);
+	letter-spacing: 3px; color: #fff; text-shadow: 0 0 14px var(--tv-header-color);
+	animation: tv-dp-pop 0.45s cubic-bezier(.2, 1.5, .3, 1) both;
+}
+.tv-fx-dp-sub { font-family: var(--font-mono); font-size: 12px; letter-spacing: 4px; text-transform: uppercase; color: var(--tv-header-color); }
+@keyframes tv-dp-pop {
+	0%   { opacity: 0; transform: scale(1.7) rotate(-4deg); }
+	60%  { opacity: 1; transform: scale(0.96) rotate(1deg); }
+	100% { transform: scale(1) rotate(0); }
+}
+
+/* World Series pre-game card — gold-accented, the two finalists face off. */
+.tv-fx-ws {
+	position: absolute; inset: 0; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 10px;
+	background: radial-gradient(ellipse at center, rgba(20, 14, 0, 0.55), rgba(0, 0, 0, 0.85));
+	opacity: 0; animation: tv-fx-hold 4.6s ease-out forwards;
+}
+.tv-fx-ws-banner {
+	font-family: var(--font-mono); font-weight: 900; font-size: clamp(26px, 7vw, 52px);
+	letter-spacing: 6px; color: #ffe066; text-shadow: 0 0 22px #ffb300, 0 3px 0 rgba(0, 0, 0, 0.5);
+	transform: scale(0.9); animation: tv-final-pop 0.5s cubic-bezier(.2, 1.4, .3, 1) 0.1s forwards;
+}
+.tv-fx-ws-sub { font-family: var(--font-mono); font-size: 12px; letter-spacing: 5px; text-transform: uppercase; color: #ffd24a; }
+.tv-fx-ws .tv-fx-mu-team .nm { text-shadow: 0 0 12px #ffb300; }
+.tv-fx-ws .tv-fx-mu-team .rec { color: #ffd24a; }
+
+/* World Series champion — trophy drops in, sunburst behind, gold everywhere. */
+.tv-fx-champ {
+	position: absolute; inset: 0; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 6px; overflow: hidden;
+	background: radial-gradient(ellipse at center, rgba(24, 16, 0, 0.5), rgba(0, 0, 0, 0.85));
+	opacity: 0; animation: tv-fx-hold 5.2s ease-out forwards;
+}
+.tv-fx-champ-rays {
+	position: absolute; left: 50%; top: 44%; width: 220%; aspect-ratio: 1;
+	transform: translate(-50%, -50%); opacity: 0.45;
+	background: repeating-conic-gradient(from 0deg, rgba(255, 200, 60, 0.16) 0deg 6deg, transparent 6deg 15deg);
+	animation: tv-wo-spin 12s linear infinite;
+}
+.tv-fx-champ-trophy { position: relative; font-size: clamp(40px, 11vw, 86px); filter: drop-shadow(0 0 18px #ffb300); animation: tv-champ-trophy 0.7s cubic-bezier(.2, 1.5, .3, 1) both; }
+.tv-fx-champ-team { position: relative; font-family: var(--font-mono); font-weight: 900; font-size: clamp(24px, 6vw, 48px); color: #fff; text-shadow: 0 0 20px #ffb300; }
+.tv-fx-champ-label { position: relative; font-family: var(--font-mono); font-size: 14px; letter-spacing: 5px; text-transform: uppercase; color: #ffe066; }
+.tv-fx-champ-score { position: relative; font-family: var(--font-mono); font-size: 13px; letter-spacing: 2px; color: rgba(235, 220, 180, 0.8); font-variant-numeric: tabular-nums; }
+@keyframes tv-champ-trophy {
+	0%   { opacity: 0; transform: scale(2) rotate(-12deg); }
+	60%  { opacity: 1; transform: scale(0.95) rotate(4deg); }
+	100% { transform: scale(1) rotate(0); }
 }
 
 /* Lower-third nameplate */
@@ -8936,6 +9291,8 @@ body.esp-active #output {
 .sr-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 2px; border-top: 1px solid var(--border); }
 .sr-row b { color: var(--accent); }
 .sr-note { font-size: 11px; color: var(--text-dim); margin: 10px 2px 2px; line-height: 1.5; }
+.sr-sealed { font-size: 10px; color: #5fd0e0; margin: 10px 2px 0; line-height: 1.5; }
+.sr-sealed b { color: #8fe6f0; }
 
 /* Apprehend prompt — the submit-or-run countdown when a cop grabs you (≤3.5★). */
 .apprehend-window {
@@ -9286,3 +9643,102 @@ body.tripping #output {
 	outline-offset: -1px;
 }
 .list-editing > .list-row-dragging { opacity: 0.45; cursor: grabbing; }
+
+/* ── Two-panel trade window (trade plugin) ─────────────────────────────────── */
+#trade-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 9000;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 3, 8, 0.72);
+	backdrop-filter: blur(2px);
+}
+#trade-box {
+	width: min(720px, 96vw);
+	max-height: 90vh;
+	overflow-y: auto;
+	background: var(--bg2);
+	border: 1px solid var(--accent);
+	border-radius: 4px;
+	box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+	font-family: var(--font-mono);
+	padding: 14px 16px 16px;
+}
+.trade-title {
+	font-size: 13px;
+	letter-spacing: 1px;
+	color: var(--text-bright);
+	border-bottom: 1px solid var(--border);
+	padding-bottom: 8px;
+	margin-bottom: 10px;
+}
+.trade-cols { display: flex; gap: 12px; }
+.trade-col {
+	flex: 1;
+	min-width: 0;
+	border: 1px solid var(--border);
+	border-radius: 3px;
+	padding: 8px 10px;
+	background: var(--bg);
+}
+.trade-col h4 {
+	margin: 0 0 6px;
+	font-size: 11px;
+	letter-spacing: 0.5px;
+	color: var(--text-dim);
+}
+.trade-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 6px;
+	padding: 2px 0;
+	font-size: 13px;
+}
+.trade-empty { font-size: 12px; color: var(--text-dim); font-style: italic; padding: 2px 0; }
+.trade-ready {
+	margin-top: 6px;
+	font-size: 11px;
+	color: var(--text-dim);
+	border-top: 1px dashed var(--border);
+	padding-top: 4px;
+}
+.trade-ready.on { color: var(--green, #5fbf5f); }
+.trade-credits-row { display: flex; gap: 6px; margin-top: 10px; }
+.trade-inv {
+	margin-top: 10px;
+	border-top: 1px solid var(--border);
+	padding-top: 8px;
+	max-height: 210px;
+	overflow-y: auto;
+}
+.trade-inv h4 { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.5px; color: var(--text-dim); }
+.trade-inv-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 13px; }
+.trade-inv-row > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trade-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; }
+input.trade-qty, #trade-credits-input {
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	color: var(--text);
+	border-radius: 3px;
+	padding: 2px 6px;
+	font-family: var(--font-mono);
+	font-size: 12px;
+}
+input.trade-qty { width: 56px; }
+#trade-credits-input { flex: 1; }
+.trade-btn {
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	color: var(--text);
+	cursor: pointer;
+	font-size: 12px;
+	padding: 3px 10px;
+	border-radius: 3px;
+	font-family: var(--font-mono);
+}
+.trade-btn:hover { border-color: var(--accent); color: var(--text-bright); }
+.trade-btn.on { border-color: var(--green, #5fbf5f); color: var(--green, #5fbf5f); }
+.trade-btn.trade-cancel:hover { border-color: var(--red); color: var(--red); }

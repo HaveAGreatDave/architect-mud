@@ -811,8 +811,8 @@ async function applyLightSwitch(nameStr, dir, player, broadcast) {
   await recalcZoneLoad(query, player.current_zone).catch(()=>{});
   await recomputePower().catch(()=>{});
   const flipMsg = newState
-    ? `You flip the switch. ${light.name} flickers on.`
-    : `You flip the switch. ${light.name} goes dark.`;
+    ? `The ${light.name} flickers on.`
+    : `The ${light.name} goes dark.`;
   const otherMsg = newState
     ? `${light.name} flickers on.`
     : `${light.name} goes dark.`;
