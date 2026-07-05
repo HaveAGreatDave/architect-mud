@@ -34,7 +34,60 @@ const seed = readFileSync(seedPath, 'utf8');
 const adminUrl = new URL(url);
 adminUrl.pathname = '/postgres'; // maintenance DB — can't DROP the DB you're connected to
 
+// The seed carries schema + world content but NO accounts, so a naive rebuild
+// wipes your local login every time the shared world changes. Snapshot the
+// runtime rows that are yours (not content) before the DROP, and re-insert them
+// after the seed loads, so accounts/settings survive a `content:sync`.
+const PRESERVE_TABLES = ['players', 'server_settings'];
+
+// Turn a result set into idempotent INSERTs to replay after the reseed.
+function rowsToInserts(table, res) {
+  if (!res.rows.length) return [];
+  const cols = Object.keys(res.rows[0]);
+  const jsonCast = new Map((res.fields || [])
+    .filter(f => f.dataTypeID === 3802 || f.dataTypeID === 114)
+    .map(f => [f.name, f.dataTypeID === 114 ? 'json' : 'jsonb']));
+  const lit = (v, cast) => {
+    if (v === null || v === undefined) return 'NULL';
+    if (cast) return `'${String(JSON.stringify(v)).replace(/'/g, "''")}'::${cast}`;
+    if (typeof v === 'number') return String(v);
+    if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+    if (v instanceof Date) return `'${v.toISOString()}'`;
+    if (typeof v === 'object') return `'${JSON.stringify(v).replace(/'/g, "''")}'::jsonb`;
+    return `'${String(v).replace(/'/g, "''")}'`;
+  };
+  const colList = cols.map(c => `"${c}"`).join(', ');
+  return res.rows.map(row => {
+    const vals = cols.map(c => lit(row[c], jsonCast.get(c))).join(', ');
+    return `INSERT INTO ${ident(table)} (${colList}) VALUES (${vals}) ON CONFLICT DO NOTHING;`;
+  });
+}
+
+async function snapshotPreserved() {
+  const inserts = [];
+  const existing = new pg.Client({ connectionString: url });
+  try {
+    await existing.connect();
+  } catch {
+    return inserts; // DB doesn't exist yet (first run) — nothing to preserve.
+  }
+  for (const table of PRESERVE_TABLES) {
+    try {
+      const res = await existing.query(`SELECT * FROM ${ident(table)}`);
+      const rows = rowsToInserts(table, res);
+      if (rows.length) {
+        inserts.push(...rows);
+        console.log(`  ↳ preserving ${rows.length} row(s) from ${table}`);
+      }
+    } catch { /* table absent in old DB — skip */ }
+  }
+  await existing.end();
+  return inserts;
+}
+
 async function main() {
+  const preserved = await snapshotPreserved();
+
   const admin = new pg.Client({ connectionString: adminUrl.toString() });
   await admin.connect();
   // Kick off any existing connections (e.g. a running dev server) so DROP succeeds.
@@ -49,6 +102,10 @@ async function main() {
   const db = new pg.Client({ connectionString: url });
   await db.connect();
   await db.query(seed); // schema + content in one batch
+  if (preserved.length) {
+    await db.query(preserved.join('\n'));
+    console.log(`✓ Re-applied ${preserved.length} preserved account/settings row(s)`);
+  }
   await db.end();
   console.log(`✓ Local database "${dbName}" rebuilt from db/seed.sql`);
 }
