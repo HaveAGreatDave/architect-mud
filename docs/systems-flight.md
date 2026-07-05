@@ -82,11 +82,30 @@ fishing/scavenging posture loops.
 
 ### Takeoff & landing are interactive, server-authoritative
 Both are minigames armed with an anti-spoof token (fishing-reel pattern):
-- **Takeoff** (`flight_takeoff` → `takeoffresolve`): a rolling-acceleration bar —
-  reach rotation speed before the strip runs out.
-- **Landing** (`flight_land` → `landresolve`): a glideslope channel — hold the
-  craft inside the drifting glidepath, then FLARE at touchdown. Emergency
-  (dead-stick) landings are narrower and faster.
+- **Takeoff** (`flight_takeoff` → `takeoffresolve`): a hand-flown departure on two
+  drag controls — a **THROTTLE lever** (0–100%, holds where you leave it) and a
+  **CONTROL COLUMN** (drag up = push forward = pitch down; drag down = pull back =
+  pitch up; holds). Roll begins once the throttle's up; at **80% of runway with
+  ≥60% throttle** the centre flashes **V1 — ROTATE!**, and a *gentle* pull-back
+  (~20–30%) lifts you off. Over-rotate → **STALL** (level out or crash); nose-down
+  → **nose-first crash**; no rotation before the end → **overrun**. On success the
+  server sets climb power (throttle → 70) since the deck flew it off the runway.
+  (Throttle is no longer a takeoff precondition — you set it *in* the run.)
+- **Landing** (`flight_land` → `landresolve`): **unified with takeoff** — the same
+  **THROTTLE lever + CONTROL COLUMN** pair. Throttle trades energy, column trades
+  pitch; hold the **glidepath diamond** centred (HIGH/ON/LOW) as the approach clock
+  runs, then a *gentle* pull-back **FLARE** at the threshold. Fail modes mirror
+  takeoff: pitch-up + idle → **STALL on final**, nose-down near the ground →
+  **nose-first**, too much sink at touchdown → **hard landing**, off the glidepath →
+  miss, dropping it in before ~80% of the approach → **short**. Emergency
+  (dead-stick) approaches are narrower and faster (no engine energy to trade).
+- **VTOL lift** (rotorcraft, e.g. the **Dragonfly**): both takeoff and landing route
+  to a dedicated **collective + cyclic** deck. Raise/lower the **COLLECTIVE** lever
+  for vertical rate; nudge **◀ ▶ (cyclic)** to hold station over the pad against a
+  wind that scales with difficulty. Takeoff = climb off the pad to altitude; landing
+  = ease the collective down to settle onto it. **Drift off the pad** or **thump it
+  down too hard (V/S)** and you wreck it. `takeoff_mode = 'vtol'` on the aircraft
+  type flips both decks; the server tags `flight_takeoff`/`flight_land` with `vtol`.
 
 Piloting skill vs. computed difficulty (handling + damage + emergency) **widens or
 narrows the band**; the client renders, the server decides. A botched landing does
@@ -108,18 +127,44 @@ parked) — `disembark` first.
 
 **Client** (`client/game/js/panels/cockpit.js`) — dressed in the shared minigame
 hardware idiom (Vault Crack / Circuit Breach / the reel), all display-only:
+- **Windshield / out-the-front-window view** (`client/game/js/panels/windshield.js`,
+  `paintWindshield(id, view)`): a **canvas** forward scene — a time-of-day sky
+  (palette blended from the in-game `hour`; stars, sun/moon, parallax clouds), a
+  perspective **ground plane** that scrolls with your speed, the **zones/obstacles
+  ahead** projected off the server `map` window (buildings for land, green pads for
+  fields, red hazard columns for no-fly airspace), a **runway/landing-pad whose size
+  reflects height above ground**, plus rich **weather FX** — rain/storm/snow/ash
+  particles, **water droplets clinging to the canopy glass**, **storm lightning
+  (full-frame flash + a jagged bolt)**, a dense low **fog bank**, and a top-right
+  **WX badge** (weather + wind) — speed streaks, and a static canopy frame + glass
+  sheen. Under it all rides an **ambient weather audio bed** (`engine-audio.js`: a
+  per-weather loop — rain/storm/snow/ash/fog — layered *beneath* the engine drone,
+  gain scaled by wind, with the odd thunderclap in a storm). It appears in **three
+  places**, all fed the same way (eased pitch/bank/height/speed): a **canopy band**
+  atop the pilot HUD, the **whole cabin window** in the passenger view, and a slim
+  **FWD VIEW band** in each takeoff/landing/VTOL deck (driven by that deck's own
+  physics loop, so the ground rushes up on takeoff and sinks toward you on landing).
+  Time-of-day + weather ride in a new `sky:{hour,weather,wind}` field on the gauge
+  payload (`state.js`, from `getEnvironmentState()`).
 - **Area-pane avionics HUD:** a graphical **artificial horizon** (SVG, pitched by
   altitude band), a rotating **compass card**, a **5×5 moving-map** nav display
   (the server pushes a `map` window each tick; north-up, craft glyph oriented by
   heading, land/air cells + a radar sweep), colour-graded **FUEL/THR/HULL/ENG**
   gauges, an ALT/SPD/HDG/surface-below readout, and a flashing warning strip.
-  Parked shows a pre-flight checklist; passengers get a stripped window view.
+  Parked shows a pre-flight checklist; passengers get the cabin-window layout
+  (the windshield fills the pane above a dest/alt/spd/hdg strip — no controls).
 - **Takeoff deck** (`flight_takeoff`): full `mg-chassis`/`mg-bezel`/`mg-screen`
   with a perspective **runway** SVG (scrolling centreline, Vr gate, sliding
   craft), an airspeed tape, and a live `deckStrip` (RWY-used tension).
-- **Glideslope deck** (`flight_land`): an **ILS/attitude instrument** — a pitching
-  + banking horizon, a fixed aircraft reference, a right-hand glidepath diamond to
-  keep centred, a growing runway, a `deckStrip` deviation meter, and a FLARE arm.
+- **Approach deck** (`flight_land`): the takeoff hardware reused — the same
+  **THROTTLE lever + CONTROL COLUMN**, a side-view of the craft sinking toward a
+  growing runway, a right-hand **glidepath diamond** (HIGH/ON/LOW), a live SINK
+  readout, a big centre call-out (ON GLIDEPATH / FLARE / STALL …), and a `deckStrip`
+  deviation meter.
+- **VTOL deck** (`openVtolLift`, rotorcraft): a **COLLECTIVE lever + ◀ ▶ cyclic**,
+  a 2-D pad view (craft glyph climbs/descends and drifts), an altitude tape, and
+  ALT/DRIFT/VS readouts — one function serves both takeoff (`'takeoff'`) and landing
+  (`'landing'`).
 - **SFX:** a `flight` group in `client/shared/sfx-catalog.js` (engine start, roll,
   rotate, abort, warble, approach, flare, touchdown, crash) — dev-panel editable.
 
@@ -217,9 +262,15 @@ go **home** (desk closed, "back at 08:00"); out on a run they're gone until they
 **return**. A flight that **overruns the shift** keeps them at work (flying) until
 they land — then the next sync sends them **home, off the clock**. A pilot already
 out means you **wait for their return**. `charter` lists **passenger-capable** aircraft (seats ≥ 2)
-at **10× the hourly rate**; on booking you board as a passenger and pick a
-destination — a numbered **airport list**, or, for the VTOL **Dragonfly**, **any
-exterior tile clicked on the full map** (`flight_pick_dest` → `armMapPick` → `flyto`).
+at **10× the hourly rate**. Booking **generates the aircraft parked on the ramp and
+the pilot climbs into it**, then waves you aboard — you are *not* auto-boarded. You
+then **`embark`** it (boards you as a passenger) and pick a destination — a numbered
+**airport list**, or, for the VTOL **Dragonfly**, **any exterior tile clicked on the
+full map** (`flight_pick_dest` → `armMapPick` → `flyto`). A charter aircraft is
+**locked without its pilot**: `embark` is refused unless the assigned pilot is aboard
+(`charterParkedAt` / `embarkCharter`, gated in `index.cmdBoard`). If nobody boards
+within **2 min** the pilot gives up and the craft despawns; orphaned charter rows are
+swept on plugin load.
 The pilot does everything (a server-driven autoflight tick, no minigames — the
 main physics tick skips `live.charter` craft); you have **no controls**. On arrival
 they set you down and tell you to `disembark`; if you don't within **20 s** they put

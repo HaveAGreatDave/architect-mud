@@ -35,7 +35,7 @@ Appear at the top, one per line, in any order. Recognized keys:
 | `@category general` | `meta.category` | defaults to `"general"` |
 | `@host npc_host_id` | `meta.host` | |
 | `@length 120` | `meta.length` | parsed as float (seconds) |
-| `@type live` | `meta.type` | lowercased; known values: `live`, `scripted`, `weather`; defaults to `"live"`. `weather` switches the file to the line-library format — see [Weather Broadcasts](#weather-broadcasts-type-weather). |
+| `@type live` | `meta.type` | lowercased; known values: `live`, `scripted`, `weather`, `sports`; defaults to `"live"`. `weather` and `sports` switch the file to the line-library format — see [Weather Broadcasts](#weather-broadcasts-type-weather) and [Sports Broadcasts](#sports-broadcasts-type-sports). |
 
 Any other `@key value` line is silently ignored at the top level (only `@actor`/`@alias` are meaningful elsewhere — see below).
 
@@ -478,3 +478,137 @@ END
 ```
 
 At air time, on a day-0 blizzard with a cold snap midweek, the runner might assemble: *intro.morning → today.lead → sky.blizzard → temp.frigid → wind.gale → warn.blizzard → forecast.lead → ahead.tomorrow → sky.snow → … → trend.deteriorating → outro* — every value in `{}` filled from that day's real forecast row.
+
+---
+
+# Sports Broadcasts (`@type sports`)
+
+A **sports** `.bsm` is the [weather](#weather-broadcasts-type-weather) format's sibling: a **line library** plus **team and player pools**, not a linear script. But where weather *reads* a live forecast, there is **no game in the world** — so the sports runner **simulates a whole game** each airing: it picks two teams, deals a lineup to each from the player pool, plays the sport out (for baseball: nine innings of randomized at-bats, tracking the score), and assembles a fresh play-by-play graph from the matching pools with `{tokens}` filled from the live game state. Same file, a different matchup and a **different final score every airing**.
+
+The authored `.bsm` holds the *voice* (the announcer's tone, the team/player flavour) and the *event language* (how a home run, a strikeout, a walk-off is called). The runner owns the *game* (who plays, what happens, what the score is). The author never hardcodes "team A wins 5–3" — they write home-run lines and the sim decides when to use them.
+
+Baseball is the first (and currently only) implemented sport; `@sport` is the extension point for future sports, which may divide the game into **periods** rather than innings.
+
+## How it differs from `live` / `scripted`
+
+| | `live` / `scripted` | `weather` | `sports` |
+|---|---|---|---|
+| Body | ordered directives → linked chain | condition-keyed line pools | event-keyed line pools + team/player pools |
+| State source | none | live 7-day forecast (read) | a simulated game (generated) |
+| Repeatable | same each time | re-rolls per forecast day | **re-rolls a new game each loop cycle** |
+| Acted live | live channels only | yes (`_requireHost`, host must be in-studio) | **no** — announcer is a name, no NPC, no presence gating |
+| Compiler output | `broadcastGraph` chain | `weatherScript` | `sportsScript` |
+
+**Not acted live, no NPC.** The announcer is a **name string**, not an `npc_*` id. Sports lines are spoken as plain narration (the announcer's voice), so nothing is added to `npcIds` and **importing a sports broadcast never spawns a studio NPC**. It runs happily on an ordinary `playlist`/`loop` channel with no studio zone.
+
+## Headers
+
+All the standard headers (`@broadcast`, `@channel`, `@category`, `@length`) work as usual. Sports adds:
+
+| Directive | Effect |
+|---|---|
+| `@type sports` | Switches the file to the sports line-library format. |
+| `@sport baseball` | Which simulation to run. Only `baseball` is implemented; the discriminator for future sports. |
+| `@announcer "Chip Vega"` | The play-by-play voice — a display **name**, surrounding quotes stripped. Available in lines as `{announcer}`. Not an NPC. |
+
+## Team & player pools
+
+Two block markers in the `::asset` / `::lines` family:
+
+```
+::teams
+The Rustpile Rats
+Coldwater Kingfishers
+...
+::endteams
+
+::players
+Rodriguez
+"Big" Halvorsen
+...
+::endplayers
+```
+
+- `::teams` — one team name per line. The runner picks **two** at random per airing (home + away). Surrounding quotes are stripped, so a name can be quoted if you like.
+- `::players` — one player name per line. The runner deals **nine** to each team's lineup plus a pitcher, per airing. Give it plenty (20+) so lineups vary. If the pool is thin, a built-in default set backs it up.
+- Blank lines and `#` comments inside either block are ignored.
+
+## Line pools (`::lines <key>`)
+
+Same `::lines <key>` … `::endlines` collector as weather. Each non-empty line is one interchangeable alternative; the runner picks one at random per event and fills `{tokens}`. Re-declared keys merge. Dotted keys fall back to the base key (`hr.grand` → `hr`).
+
+**Framing (once per game):** `intro` · `matchup` · `final` · `outro`
+**Half-inning framing:** `half.top` (away bats) · `half.bottom` (home bats) — fallback `half`
+**Routine outs:** `atbat.strikeout` · `atbat.groundout` · `atbat.flyout` · `atbat.popout` — fallback `atbat.out`
+**Non-scoring baserunners:** `atbat.single` · `atbat.double` · `atbat.triple` · `atbat.walk`
+**Scoring plays:** `rbi` (non-homer runs batted in) · `hr.solo` · `hr.grand` (grand slam) · `hr` (fallback)
+**After any scoring play:** `score.update` (the running-score line)
+**Situational:** `walkoff` (home wins with a late go-ahead run) · `recap.half` (a sparse score checkpoint at the end of every third inning)
+
+Only the keys the runner needs are voiced; a missing pool is skipped (framing) or falls back (`atbat.*` → `atbat.out`/`atbat.single`, `hr.*` → `hr`).
+
+## Tokens
+
+Filled per event from the live game state; unknown tokens strip to empty.
+
+| Token | Value |
+|---|---|
+| `{announcer}` | the announcer's name |
+| `{away}` / `{home}` | the two team names |
+| `{team}` | the team currently batting |
+| `{batter}` | the batter in this at-bat |
+| `{pitcher}` | the opposing pitcher |
+| `{inning}` / `{inningOrd}` | inning number / ordinal (`3` / `3rd`) |
+| `{half}` | `top` or `bottom` |
+| `{section}` / `{sectionOrd}` | generic section term (`inning` / `3rd`) — for cross-sport lines |
+| `{outs}` | outs in the current half after this play |
+| `{rbi}` / `{runs}` | runs driven in on this play |
+| `{awayScore}` / `{homeScore}` | current score |
+| `{battingScore}` / `{fieldingScore}` | score of the batting / fielding side |
+| `{leader}` | the team currently ahead (empty if tied) |
+| `{lead}` | current margin |
+
+## Assembly order (baseball)
+
+Each airing the runner simulates the game, then walks its beats: `intro → matchup →` for each half-inning: `half.top`/`half.bottom` → per at-bat (`atbat.*`, or `rbi` / `hr.*` + `score.update` on scoring plays, `walkoff` if it ends the game), sparse `recap.half` at the turn of every third inning → `final → outro`. Routine outs are **sampled and capped** per half so pacing stays watchable (each line holds ~5 s on air). Scoring plays and framing are always called.
+
+## Score-bug overlay
+
+Every spoken line also carries a **score-bug** — a persistent on-screen graphic (top-left of the TV panel) that stays up for the whole game and updates in place as the state changes. It's authored by nobody: the runner derives it from the live game state and attaches it to each `say` node; the walker returns it and `broadcastTick` pushes a `tv_overlay` (`overlayType: 'scorebug'`) to every TV watcher alongside the line. The client keeps one persistent element (`#tv-scorebug`), updated per line, cleared on off-air / channel-change / power-off.
+
+**The payload is sport-agnostic by design**, so other sports reuse the same bug:
+
+```js
+{
+  overlayType: 'scorebug',
+  sport: 'baseball',
+  away, home,            // full team names
+  awayAbbr, homeAbbr,    // 2–3 letter tags (derived by sportsAbbr)
+  awayScore, homeScore,
+  status,                // free-text state line: "TOP 3rd" / "FINAL" / (other sport) "Q3 08:42"
+  outs,                  // OPTIONAL, baseball-specific — renders the out dots
+  bases: [b1, b2, b3],   // OPTIONAL, baseball-specific — renders the base diamond
+}
+```
+
+The client renderer (`_applyScorebug` in [tv.js](../client/game/js/panels/tv.js)) **always** draws the two team/score rows (leader highlighted) and the `status` line. It draws the diamond only when `bases` is present and the out dots only when `outs` is present. So a future sport emits the same overlay with `status` set to its clock/period and simply omits `bases`/`outs` — same bug, no diamond — or adds its own optional field plus a matching client branch. Baseball's final bug drops `outs`/`bases` too, showing just the score under `FINAL`.
+
+## Compiler & runtime contract (as built)
+
+- `compileBsm(text)` returns the standard envelope **plus** a `sportsScript` field for `@type sports`, and leaves `broadcastGraph` minimal (just the `start` node — the real graph is generated per airing):
+  ```js
+  sportsScript: {
+    sport: 'baseball',          // @sport
+    announcer: 'Chip Vega',     // @announcer — a name, NOT added to npcIds
+    teams:   [ '…', … ],        // ::teams block
+    players: [ '…', … ],        // ::players block
+    pools:   { [key]: [line,…] } // ::lines blocks
+  }
+  ```
+- **Import** ([broadcast.js](../client/devpanel/js/panels/broadcast.js) `_bcImportSave`): saved with `playback_mode = 'sports'`, `loop = 1`, `override_duration = @length`, `sports_pools` = the `sportsScript` (new `media_broadcasts.sports_pools` JSONB column). No studio/host is created — asset-only.
+- **Runner** ([plugins/broadcast/index.js](../plugins/broadcast/index.js)): a `sports` playlist item calls `getSportsGraph(item, cycle)`, which caches the assembled game and re-rolls when the loop cycle advances. `assembleSportsGraph` runs `sportsSimGame` (the baseball simulator) and emits a `say`-node chain via `sportsPick`/`sportsFill`. The graph does **not** set `_requireHost`, so no presence gating — it plays on any channel. Downstream (`say` nodes, dedup, passive `[TV] "…"` leakage, off-air) reuses the existing broadcast walker unchanged.
+- **Schema**: `ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS sports_pools JSONB;` in `SCHEMA_SQL`. Apply with `npm run db:schema` before the runner loads (it `SELECT`s the column in `loadChannelRuntimes`).
+
+## Worked example
+
+See [data/scripts/baseball.bsm](../data/scripts/baseball.bsm) for the full library. A minimal viable file needs `@type sports`, `@sport baseball`, `@announcer`, a `::teams` pool (2+), a `::players` pool, and at least the `intro`, `half.top`, `half.bottom`, `atbat.out`, `hr`, `rbi`, `score.update`, `final`, and `outro` pools. Everything else is enrichment.

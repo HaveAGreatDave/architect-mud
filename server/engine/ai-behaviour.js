@@ -1380,6 +1380,74 @@ export function buildDefaultUnemployedGraph() {
   };
 }
 
+/**
+ * Default combat behaviour graph for auto-aggressive enemies (behavior
+ * 'aggressive' / 'territorial'). Target *acquisition* is deliberately left to the
+ * engine substrate — the escalating-aggro + battlecry ramp in gameLoop still owns
+ * "when the fight starts" (and keeps the telegraph). Once a target exists, the
+ * graph owns the fight: attack, but break off and flee below 20% HP. This mirrors
+ * the hardcoded fallback while adding the flee branch, and every part of it is now
+ * editable per-enemy in the VINE editor.
+ */
+export function buildDefaultAggressiveEnemyGraph() {
+  return {
+    _start: 'start',
+    nodes: {
+      start:      { type: 'start', next: 'has_target' },
+      has_target: { type: 'condition', condition_type: 'HAS_TARGET', ifTrue: 'low_hp', ifFalse: 'idle' },
+      low_hp:     { type: 'condition', condition_type: 'HP_BELOW', params: { pct: 20 }, ifTrue: 'flee', ifFalse: 'attack' },
+      flee:       { type: 'action', action_type: 'FLEE',   next: 'loop' },
+      attack:     { type: 'action', action_type: 'ATTACK', next: 'loop' },
+      idle:       { type: 'action', action_type: 'IDLE',   next: 'loop' },
+      loop:       { type: 'loop', next: 'start' },
+    },
+  };
+}
+
+/**
+ * Belt-and-suspenders: make sure an entity ticks through VINE rather than the
+ * hardcoded fallback, by assigning a type-appropriate default graph when it has
+ * none. Mirrors the auto-assign already done for NPCs at apiCreateNpc, extended to
+ * cover enemies (which had no auto-assign) and to self-heal legacy graphless rows
+ * at load. Returns true if a default was assigned.
+ *
+ * Intentionally conservative — leaves untouched:
+ *   • entities that already carry a graph (authored or previously defaulted);
+ *   • `_phantom` opt-outs (e.g. trip-plugin phantoms);
+ *   • non-aggressive enemies (passive/defensive never auto-acquire — the benign
+ *     fallback is correct for them);
+ *   • plain untyped 'npc' extras / static set-pieces (only vendors, employed,
+ *     unemployed and studio actors are meant to be autonomous).
+ *
+ * `kind` ('enemy' | 'npc') is inferred from instanceId when omitted, but callers
+ * acting on template rows (pre-instance) should pass it explicitly.
+ */
+export function ensureBehaviourGraph(entity, kind) {
+  if (!entity) return false;
+  const g = entity.behaviour_graph;
+  if (g && (g._start || Object.keys(g).length)) return false; // already has a graph
+  if (entity.flags?._phantom) return false;                    // deliberately inert
+
+  const isEnemyEntity = kind ? kind === 'enemy' : entity.instanceId != null;
+
+  if (isEnemyEntity) {
+    if (entity.behavior === 'aggressive' || entity.behavior === 'territorial') {
+      entity.behaviour_graph = buildDefaultAggressiveEnemyGraph();
+      return true;
+    }
+    return false;
+  }
+
+  const isActor = !!entity.studio_zone_id;
+  const autonomous = isActor || entity.npc_type === 'unemployed'
+    || entity.npc_type === 'vendor' || !!entity.work_zone_id;
+  if (!autonomous) return false;
+  entity.behaviour_graph = entity.npc_type === 'unemployed'
+    ? buildDefaultUnemployedGraph()
+    : isActor ? buildDefaultStudioGraph() : buildDefaultVendorGraph();
+  return true;
+}
+
 // ── Main tick ────────────────────────────────────────────────────────────────
 
 const MAX_STEPS = 50;

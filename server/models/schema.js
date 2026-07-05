@@ -437,6 +437,21 @@ export const SCHEMA_SQL = `
     PRIMARY KEY (player_id, drug_id)
   );
 
+  -- Black-market raw-drug orders (smuggle plugin, Phase 2): a placed order that a
+  -- MULE drop delivers to a far hangar after deliver_at, then the player smuggles in.
+  CREATE TABLE IF NOT EXISTS smuggle_orders (
+    id TEXT PRIMARY KEY,
+    player_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    item_name TEXT,
+    qty INTEGER DEFAULT 1,
+    drop_zone TEXT NOT NULL,
+    deliver_at BIGINT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    vendor_id TEXT
+  );
+  ALTER TABLE smuggle_orders ADD COLUMN IF NOT EXISTS vendor_id TEXT;
+
   -- Crime → wanted-star weights. Dev-panel editable; the engine ships defaults
   -- (server/engine/crimes.js) so a fresh DB works before any rows are authored.
   CREATE TABLE IF NOT EXISTS crimes (
@@ -911,6 +926,8 @@ export const SCHEMA_SQL = `
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS fallback_messages JSONB DEFAULT '[]';
   -- Weather broadcasts (playback_mode='weather') store line pools here: { pools:{key:[…]}, host }
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS weather_pools JSONB;
+  -- Sports broadcasts (playback_mode='sports') store a line library + team/player pools here: { sport, announcer, teams:[…], players:[…], pools:{key:[…]} }
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS sports_pools JSONB;
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS commercial_pool JSONB DEFAULT '[]';
   ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS slot_type TEXT DEFAULT 'broadcast';
 

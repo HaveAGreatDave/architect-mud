@@ -23,8 +23,13 @@ import {
 const CHARTER_MULT = 10;
 const SHIFT_HOURS = 8;
 const AUTO_DISEMBARK_MS = 20000;
+const BOARD_TIMEOUT_MS = 120000; // the pilot waits this long on the ramp for you to embark
 const CHARTER_TICK_MS = 2500;
 const CRUISE_TILES = 2;          // tiles/tick the NPC covers
+
+// Charter aircraft are ephemeral (they despawn on delivery). Clear any that a
+// crash/restart orphaned in the table so we never board a pilotless ghost.
+query("DELETE FROM aircraft WHERE (custom_data->>'charter')='true'").catch(() => {});
 
 // aircraftId -> { typeId, class, pilotId, pilotName, playerId, homeField, homeName,
 //   phase:'choosing'|'enroute'|'arrived', destZone, destName, fx, fy, tx, ty,
@@ -67,7 +72,15 @@ function syncPilots() {
   for (const pilot of getNpcsByFlag('charter_pilot')) {
     const cp = pilot.flags.charter_pilot;
     const home = pilot.home_zone || 'zone_residential_lobby';
-    if (pilotBusy(pilot.id)) { if (pilot.zone_id !== home) moveNpcToZone(pilot.id, home); continue; } // out flying
+    const busy = pilotBusy(pilot.id);
+    if (busy) {
+      // Airborne on a run (enroute/returning) → away. On the ramp readying or
+      // waiting for a destination (boarding/choosing) → still in the plane at the field.
+      const away = busy.phase === 'enroute' || busy.phase === 'returning';
+      const target = away ? home : cp.field;
+      if (pilot.zone_id !== target) moveNpcToZone(pilot.id, target);
+      continue;
+    }
     const target = onShift(pilot) ? cp.field : home;
     if (pilot.zone_id !== target) moveNpcToZone(pilot.id, target);
   }
@@ -113,7 +126,8 @@ export async function cmdCharter(args, raw, player) {
   const t = types.find(x => x.id === wanted || x.name.toLowerCase() === wanted || x.id.endsWith(wanted));
   if (!t) return { type: 'emote', message: `${pilot.name} doesn't fly a "${wanted}". Type <b>charter</b> for the list.` };
 
-  // Board as a passenger; the pilot has the controls. (Payment is on departure.)
+  // Generate the chartered aircraft, parked on the ramp, and put the pilot in it.
+  // You are NOT aboard yet — the pilot readies the machine and waves you to embark.
   const acId = `aircraft_charter_${randomUUID().slice(0, 10)}`;
   await query(
     `INSERT INTO aircraft (id,type_id,name,owner_id,map_id,grid_x,grid_y,altitude_band,heading,parked_zone_id,fuel,engine_temp,rental,custom_data)
@@ -122,29 +136,57 @@ export async function cmdCharter(args, raw, player) {
   );
   const live = await loadAircraft(acId);
   live.charter = true;
-  live.occupants.add(player.id);
-  player.aircraftId = acId;
-  player.seat = 'passenger';
 
   const anyTile = t.id === 'ac_dragonfly';
   const ch = {
     aircraftId: acId, typeId: t.id, class: t.class, pilotId: pilot.id, pilotName: pilot.name,
-    playerId: player.id, homeField: field.id, homeName: field.flags.airfield_name || field.name,
-    phase: 'choosing', anyTile, fx: field.grid_x, fy: field.grid_y,
+    playerId: null, homeField: field.id, homeName: field.flags.airfield_name || field.name,
+    phase: 'boarding', anyTile, fx: field.grid_x, fy: field.grid_y,
+    boardExpiry: Date.now() + BOARD_TIMEOUT_MS,
   };
   activeCharters.set(acId, ch);
-  pushHud(live);
+  sendToZone(field.id, { type: 'zone_event', message: `${pilot.name} climbs into ${t.name} and runs the avionics up.`, refresh: true }, player.id);
+  log({ player: player.handle, pilot: pilot.name, from: ch.homeName, to: '(awaiting)', status: 'boarding' });
+  return { type: 'output', message: `<span class="text-green">${pilot.name} swings the <b>${t.name}</b> out onto the ramp, climbs into the cockpit, and leans out the hatch: "She's fuelled and ready — <b>embark</b> when you are and tell me where we're going."</span>` };
+}
 
-  if (anyTile) {
+// Is a chartered aircraft parked here waiting for its passenger to board?
+export function charterParkedAt(zoneId) {
+  for (const ch of activeCharters.values()) if (ch.phase === 'boarding' && ch.homeField === zoneId) return ch;
+  return null;
+}
+
+// Board a waiting charter as a passenger. Gated on the pilot actually being in it —
+// without the assigned pilot the aircraft is locked and unusable. Called by the
+// engine's `embark`/`board` handler (index.cmdBoard).
+export async function embarkCharter(player, ch) {
+  const live = liveAircraft.get(ch.aircraftId);
+  if (!live) { activeCharters.delete(ch.aircraftId); return { type: 'emote', message: 'That charter aircraft is gone.' }; }
+  if (player.aircraftId) return { type: 'emote', message: "You're already aboard something — disembark first." };
+
+  // Lock: a charter aircraft is dead metal without its pilot aboard.
+  const pilot = getNpcsByFlag('charter_pilot').find(n => n.id === ch.pilotId);
+  if (!pilot || !inHangar(pilot))
+    return { type: 'emote', message: `The ${live.type.name} is locked up tight and dark — ${ch.pilotName || 'the pilot'} isn't in it. Without a pilot, you're not taking it anywhere.` };
+
+  live.occupants.add(player.id);
+  player.aircraftId = ch.aircraftId;
+  player.seat = 'passenger';
+  ch.playerId = player.id;
+  ch.phase = 'choosing';
+  pushHud(live);
+  sendToZone(ch.homeField, { type: 'zone_event', message: `${player.handle} climbs aboard ${ch.pilotName}'s ${live.type.name}.` }, player.id);
+
+  if (ch.anyTile) {
     const tiles = getAllZones()
       .filter(z => z.map_id === 'map_world' && (z.grid_z == null || z.grid_z === 0) && z.grid_x != null)
-      .map(z => ({ ...z, is_current: z.id === field.id }));
-    return { type: 'flight_pick_dest', message: `<span class="text-green">You climb into ${pilot.name}'s Dragonfly. "Anywhere you like — click a spot on the map, or tell me a place (<b>flyto &lt;place&gt;</b>)."</span>`, tiles };
+      .map(z => ({ ...z, is_current: z.id === ch.homeField }));
+    return { type: 'flight_pick_dest', message: `<span class="text-green">You settle into the cabin and pull the harness on. ${ch.pilotName}: "Anywhere you like — click a spot on the map, or name a place (<b>flyto &lt;place&gt;</b>)."</span>`, tiles };
   }
-  const fields = await airfieldList(field.id);
+  const fields = await airfieldList(ch.homeField);
   ch.destOptions = fields;
   const lines = fields.map((f, i) => `  <b>[${i + 1}]</b> ${f.name} <span class="text-dim">(${f.dist} out)</span> · <span class="action-link" data-action="cmd" data-cmd="flyto ${i + 1}">go</span>`);
-  return { type: 'output', message: `<span class="text-green">You climb aboard. ${pilot.name}: "Where to?"</span>\n${lines.join('\n')}\nType <b>flyto &lt;n&gt;</b>.` };
+  return { type: 'output', message: `<span class="text-green">You settle into the cabin and pull the harness on. ${ch.pilotName}: "Where to?"</span>\n${lines.join('\n')}\nType <b>flyto &lt;n&gt;</b>.` };
 }
 
 async function airfieldList(exceptZone) {
@@ -205,7 +247,13 @@ export async function cmdFlyTo(args, raw, player) {
   if (p) { getZone(p.current_zone)?.players.delete(p.id); setPosture(p, 'flying'); }
   await persist(live);
   pushHud(live);
-  toOccupants(live, `<span class="text-cyan">${ch.pilotName} runs it up and lifts off. "${ch.destName}, straight line. Sit back."</span>`);
+  // The pilot flies it — and calls the actions out loud. Staggered so it reads
+  // like a real departure (guarded: the charter may end before they fire).
+  const say = (line) => { const l = liveAircraft.get(ch.aircraftId); if (l) toOccupants(l, `<span class="text-cyan">${ch.pilotName}: "${line}"</span>`); };
+  say('Doors closed, avionics up. Sit back and enjoy the ride.');
+  setTimeout(() => say('Throttle set — one hundred percent. Rolling.'), 1600);
+  setTimeout(() => say('V1 &mdash; rotate. Positive rate, gear up.'), 3400);
+  setTimeout(() => say(`Levelling off for ${ch.destName}. Straight line from here.`), 5200);
   sendToZone(ch.homeField, { type: 'zone_event', message: `${rows[0].name} lifts off and turns out toward ${ch.destName}.` });
   log({ player: player.handle, pilot: ch.pilotName, from: ch.homeName, to: ch.destName, status: 'en route' });
   return { type: 'noop' };
@@ -221,20 +269,35 @@ async function charterTick() {
       const live = liveAircraft.get(ch.aircraftId);
       if (!live) { activeCharters.delete(ch.aircraftId); continue; }
 
+      // Waiting on the ramp for a passenger — the pilot gives up after a while.
+      if (ch.phase === 'boarding') {
+        if (Date.now() >= ch.boardExpiry) {
+          sendToZone(ch.homeField, { type: 'zone_event', message: `${ch.pilotName} gives up waiting, shuts the ${live.type.name} down and climbs out.`, refresh: true });
+          await cancelCharter(ch, null);
+        }
+        continue;
+      }
       // Abandoned before choosing (passenger bailed on the ground) → scrub it.
       if (ch.phase === 'choosing') { if (!live.occupants.size) await cancelCharter(ch, null); continue; }
 
-      if (ch.phase === 'enroute') {
+      if (ch.phase === 'enroute' || ch.phase === 'returning') {
+        const silent = ch.phase === 'returning';   // deadhead home = no chatter
         const dx = ch.tx - live.fx, dy = ch.ty - live.fy, d = Math.hypot(dx, dy);
-        if (d <= CRUISE_TILES) { live.fx = ch.tx; live.fy = ch.ty; await arrive(ch, live); continue; }
+        if (d <= CRUISE_TILES) {
+          live.fx = ch.tx; live.fy = ch.ty; live.row.grid_x = ch.tx; live.row.grid_y = ch.ty;
+          if (silent) { await finishReturn(ch, live); } else { await arrive(ch, live); }
+          continue;
+        }
         live.fx += (dx / d) * CRUISE_TILES; live.fy += (dy / d) * CRUISE_TILES;
         live.row.grid_x = Math.round(live.fx); live.row.grid_y = Math.round(live.fy);
         live.row.heading = String(Math.round(bearingDeg(live.fx, live.fy, ch.tx, ch.ty)));
-        const below = surfaceAt(live.row.grid_x, live.row.grid_y);
-        if (Math.random() < 0.5) toOccupants(live, `<span class="text-dim">${below ? 'Below: ' + below.name + '.' : 'Open ground slides past below.'} ${Math.max(1, Math.round(d))} out.</span>`);
+        if (!silent) {
+          const below = surfaceAt(live.row.grid_x, live.row.grid_y);
+          if (Math.random() < 0.5) toOccupants(live, `<span class="text-dim">${below ? 'Below: ' + below.name + '.' : 'Open ground slides past below.'} ${Math.max(1, Math.round(d))} out.</span>`);
+        }
         pushHud(live);
       } else if (ch.phase === 'arrived') {
-        if (!live.occupants.size || Date.now() >= ch.disembarkAt) await completeCharter(ch, live);
+        if (!live.occupants.size || Date.now() >= ch.disembarkAt) await dropoffReturn(ch, live);
       }
     }
   } finally { ticking = false; }
@@ -251,17 +314,31 @@ async function arrive(ch, live) {
   log({ player: getLivePlayer(ch.playerId)?.handle || '?', pilot: ch.pilotName, from: ch.homeName, to: ch.destName, status: 'arrived' });
 }
 
-async function completeCharter(ch, live) {
-  // Put out anyone still aboard at the destination.
+// Drop the passenger at the destination, then deadhead the aircraft back to its
+// home hangar (silently — the pilot flies the whole return leg unseen). The pilot
+// stays "out" (busy) until the aircraft is home, then frees up.
+async function dropoffReturn(ch, live) {
   for (const pid of [...live.occupants]) {
     const p = getLivePlayer(pid);
     detach(p || { id: pid, aircraftId: ch.aircraftId });
-    if (p) { p.current_zone = ch.destZone; getZone(ch.destZone)?.players.add(pid); out(pid, `<span class="text-dim">You climb down at ${ch.destName}. ${ch.pilotName} gives you a nod, lifts off, and turns back for ${ch.homeName}.</span>`); }
+    if (p) { p.current_zone = ch.destZone; getZone(ch.destZone)?.players.add(pid); out(pid, `<span class="text-dim">You climb down at ${ch.destName}. ${ch.pilotName} gives you a nod and starts buttoning up to head back.</span>`); }
   }
+  log({ player: getLivePlayer(ch.playerId)?.handle || '?', pilot: ch.pilotName, from: ch.homeName, to: ch.destName, status: 'delivered' });
+  // Deadhead home.
+  const home = getZone(ch.homeField);
+  ch.phase = 'returning';
+  ch.tx = home?.grid_x ?? live.row.grid_x; ch.ty = home?.grid_y ?? live.row.grid_y;
+  live.fx = live.row.grid_x; live.fy = live.row.grid_y;
+  live.row.airborne = 1; live.row.altitude_band = 'low'; live.row.parked_zone_id = null; live.row.throttle = 75;
+  live.row.heading = String(Math.round(bearingDeg(live.fx, live.fy, ch.tx, ch.ty)));
+  await persist(live);
+}
+
+async function finishReturn(ch, live) {
   liveAircraft.delete(ch.aircraftId);
   activeCharters.delete(ch.aircraftId);
   await query('DELETE FROM aircraft WHERE id=$1', [ch.aircraftId]).catch(() => {});
-  log({ player: getLivePlayer(ch.playerId)?.handle || '?', pilot: ch.pilotName, from: ch.homeName, to: ch.destName, status: 'delivered' });
+  sendToZone(ch.homeField, { type: 'zone_event', message: `${ch.pilotName}'s aircraft settles back onto the pad and the engines wind down.`, refresh: true });
 }
 
 async function cancelCharter(ch, msg) {

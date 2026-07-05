@@ -4,8 +4,8 @@ import { getZone, getZonePlayers, getLivePlayer } from '../../server/engine/worl
 import { neighborZoneIds } from '../../server/engine/exits.js';
 import { sendToZone, sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
-import { propagateAudio, getWeatherLeakGain } from '../../server/engine/sounds.js';
-import { getZonePrecip, getCurrentPrecipType, getWindKph } from '../../server/engine/environment.js';
+import { propagateAudio, getWeatherLeakGain, getWeatherLeakSource } from '../../server/engine/sounds.js';
+import { getZonePrecip, getWindKph } from '../../server/engine/environment.js';
 
 // ── In-memory library cache (loaded from DB at boot, refreshed after CRUD) ──
 
@@ -822,11 +822,15 @@ on('weather.event', ({ type, phase }) => reconcileWeatherEventBed(type, phase));
 // ones their new tile warrants at the right reactive gains — muffled indoors.
 function reconcilePlayerWeatherAmbient(playerId, zoneId) {
   if (!playerId || !zoneId) return;
-  const mult = isIndoorZone(zoneId) ? getWeatherLeakGain(zoneId) : 1;
+  // Sample weather from the outdoor tile that actually leaks into this zone —
+  // never the interior zone itself (it's off map_world, so getZonePrecip on it
+  // falls back to the map-wide roll and every building would hear rain that's
+  // only falling somewhere else on the map) and never the global precip type.
+  const { outdoorZoneId, gain: mult } = getWeatherLeakSource(zoneId);
   const desired = [];
-  const { precipType, precipRate } = getZonePrecip(zoneId);
+  const { precipType, precipRate } = outdoorZoneId ? getZonePrecip(outdoorZoneId) : { precipType: 'none', precipRate: 0 };
   if (precipRate && precipType !== 'none') {
-    const d = weatherAmbientDef(getCurrentPrecipType());
+    const d = weatherAmbientDef(precipType);
     if (d) desired.push({ def: d, gain: precipGainFor(precipRate) * mult });
   }
   const kph = getWindKph();

@@ -1151,6 +1151,11 @@ async function apiGetEnemies() { const {rows}=await query('SELECT * FROM enemies
 export async function apiCreateEnemy(body) {
   const id=body.id||`enemy_${Date.now()}`;
   try {
+    // Auto-assign the default combat graph to auto-aggressive enemies that ship
+    // without one, so they're VINE-editable like NPCs (no-op for passive enemies
+    // and for any enemy the caller already authored a graph for).
+    const { ensureBehaviourGraph } = await import('../engine/ai-behaviour.js');
+    ensureBehaviourGraph(body, 'enemy');
     await query(`INSERT INTO enemies (id,name,description,hit,dodge,hp_max,weapon,body_parts,loot_table,butcher_table,butcher_difficulty,behavior,faction,death_message,flags,behaviour_graph) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
       [id,body.name,body.description,body.hit??1,body.dodge??1,body.hp_max||30,JSON.stringify(body.weapon||[]),JSON.stringify(body.body_parts||[]),JSON.stringify(body.loot_table||[]),JSON.stringify(body.butcher_table||[]),body.butcher_difficulty??5,body.behavior||'aggressive',body.faction||null,body.death_message||'It dies.',JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{})]);
     return {status:201,body:{id}};

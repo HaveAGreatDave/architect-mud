@@ -99,9 +99,12 @@ export function openMediaDeckPanel(data) {
   // Whir runs whenever the deck is powered (any state but offline), so it's a
   // constant idle drone rather than only-while-a-tape-spins.
   _setDeckWhir(data.lightState !== 'red');
-  // Clear preview on open and subscribe to channel broadcast
+  // Clear preview on open and subscribe to channel broadcast. Until the first
+  // live line arrives (or if the channel is dead air) the screen shows the red
+  // [NO BROADCAST] card; any real broadcast line hides it (see below).
   const previewMsgs = document.getElementById('mediadeck-preview-msgs');
   if (previewMsgs) previewMsgs.innerHTML = '';
+  _setNoBroadcast(true);
   _clearOverlay();
   if (data.channelId) sendRaw({ type: 'deck_watch', channelId: data.channelId });
 }
@@ -119,9 +122,24 @@ export function closeMediaDeckPanel() {
   _setDeckWhir(false);
 }
 
+// Toggle the red [NO BROADCAST] dead-air card over the preview monitor.
+function _setNoBroadcast(on) {
+  const el = document.getElementById('mediadeck-no-broadcast');
+  if (el) el.hidden = !on;
+}
+
 export function updateMediaDeckBroadcast(msg) {
   const preview = document.getElementById('mediadeck-preview-msgs');
   if (!preview) return;
+  // Server signals dead air: clear the screen and raise the [NO BROADCAST] card.
+  if (msg.style === 'no_broadcast') {
+    preview.innerHTML = '';
+    _setNoBroadcast(true);
+    return;
+  }
+  // Real content is flowing — a live broadcast line, exactly like the TV panel
+  // receives — so drop the dead-air card and render the line.
+  _setNoBroadcast(false);
   const el = document.createElement('div');
   el.className = 'mediadeck-preview-line';
   // Render by style, mirroring the TV panel (scaled into the small monitor):
@@ -159,6 +177,8 @@ export function applyMediaDeckOverlay(overlay) {
   _clearOverlay();
   const container = document.getElementById('mediadeck-overlay-container');
   if (!container || !overlay) return;
+  // An on-screen graphic is live content — clear any dead-air card.
+  _setNoBroadcast(false);
 
   let el;
   if (overlay.overlayType === 'text_card') {
@@ -224,6 +244,10 @@ function renderMediaDeckPanel(data) {
       previewHeader.className = 'mediadeck-preview-header mediadeck-preview-header-scripted';
     }
   }
+
+  // A deck with no channel link or in an offline state is authoritatively dead
+  // air — raise the card immediately (live channels clear it when a line lands).
+  if (!data.channelId || lightState === 'red') _setNoBroadcast(true);
 
   const activeCassette = (cassettes || []).find(c => c.id === activeCassetteId);
   const cartridgeEl = document.getElementById('mediadeck-cartridge');

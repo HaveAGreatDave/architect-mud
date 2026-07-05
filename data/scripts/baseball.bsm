@@ -1,0 +1,296 @@
+@broadcast "Deadball — Coldwater League Baseball"
+@channel sport1
+@category sport
+@type sports
+@sport baseball
+@announcer "Chip Vega"
+@length 300
+@titlecard bb_deadball_title
+
+# =============================================================================
+# DEADBALL — line library for the ballpark broadcast, called by Chip Vega.
+# There is no game in the world; the sports runner SIMULATES a fresh nine innings
+# every airing — picks two teams below, deals lineups from the player pool, and
+# plays randomized at-bats while tracking the score. It then assembles the
+# play-by-play from these pools, one random line per event, {tokens} filled from
+# the live game state. Different teams, different score, every single time.
+# The announcer is a NAME, not an NPC — no studio host is ever spawned.
+# See docs/bsm-format.md#sports-broadcasts-type-sports.
+# =============================================================================
+
+# --- Title card: shown once before the game each airing (@titlecard above) -----
+# SVG asset; the runner content-sniffs the <svg> tag and renders it as a graphic.
+::asset bb_deadball_title
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" font-family="'Segoe UI',Helvetica,Arial,sans-serif">
+  <defs>
+    <linearGradient id="bbsky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1410"/>
+      <stop offset="0.55" stop-color="#0a100c"/>
+      <stop offset="1" stop-color="#050705"/>
+    </linearGradient>
+    <radialGradient id="bblight" cx="0.5" cy="0.08" r="0.75">
+      <stop offset="0" stop-color="#f5e6a3" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#f5e6a3" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="640" height="360" fill="url(#bbsky)"/>
+  <rect width="640" height="360" fill="url(#bblight)"/>
+
+  <!-- CRT scanlines -->
+  <g stroke="#12241a" stroke-width="1" opacity="0.35">
+    <line x1="0" y1="60" x2="640" y2="60"/>
+    <line x1="0" y1="120" x2="640" y2="120"/>
+    <line x1="0" y1="180" x2="640" y2="180"/>
+    <line x1="0" y1="240" x2="640" y2="240"/>
+    <line x1="0" y1="300" x2="640" y2="300"/>
+  </g>
+
+  <!-- outfield fence + home plate -->
+  <path d="M0 252 Q320 214 640 252" fill="none" stroke="#1c3327" stroke-width="2"/>
+  <path d="M300 300 L340 300 L340 314 L320 326 L300 314 Z" fill="#1d3226" stroke="#2f5340" stroke-width="1"/>
+
+  <!-- cracked baseball, upper-right -->
+  <g transform="translate(548,104)">
+    <circle r="54" fill="#e9e3d4" stroke="#b9b3a2" stroke-width="2"/>
+    <path d="M-38 -38 A54 54 0 0 1 -38 38" fill="none" stroke="#c23b30" stroke-width="3"/>
+    <path d="M38 -38 A54 54 0 0 0 38 38" fill="none" stroke="#c23b30" stroke-width="3"/>
+    <g stroke="#c23b30" stroke-width="2">
+      <line x1="-34" y1="-26" x2="-27" y2="-24"/><line x1="-36" y1="-13" x2="-29" y2="-12"/>
+      <line x1="-37" y1="-1" x2="-30" y2="-1"/><line x1="-36" y1="11" x2="-29" y2="10"/>
+      <line x1="-34" y1="24" x2="-27" y2="22"/>
+      <line x1="34" y1="-26" x2="27" y2="-24"/><line x1="36" y1="-13" x2="29" y2="-12"/>
+      <line x1="37" y1="-1" x2="30" y2="-1"/><line x1="36" y1="11" x2="29" y2="10"/>
+      <line x1="34" y1="24" x2="27" y2="22"/>
+    </g>
+    <path d="M-16 -46 L-4 -16 L-12 6 L4 36" fill="none" stroke="#7a2b23" stroke-width="1.5" opacity="0.7"/>
+  </g>
+
+  <!-- crossed bats, lower-left -->
+  <g transform="translate(96,244) rotate(-22)" fill="#5a4326" stroke="#3a2c19" stroke-width="1">
+    <rect x="-7" y="-66" width="14" height="112" rx="7"/>
+    <rect x="-5" y="42" width="10" height="15" rx="3" fill="#3a2c19"/>
+  </g>
+  <g transform="translate(96,244) rotate(22)" fill="#6b5230" stroke="#3a2c19" stroke-width="1">
+    <rect x="-7" y="-66" width="14" height="112" rx="7"/>
+    <rect x="-5" y="42" width="10" height="15" rx="3" fill="#3a2c19"/>
+  </g>
+
+  <!-- title -->
+  <text x="40" y="150" fill="#eef0e8" font-size="80" font-weight="800" letter-spacing="3">DEADBALL</text>
+  <rect x="42" y="167" width="332" height="3" fill="#f5a623"/>
+  <text x="44" y="195" fill="#f5a623" font-size="18" font-weight="600" letter-spacing="5">COLDWATER LEAGUE BASEBALL</text>
+
+  <!-- footer band -->
+  <rect x="0" y="322" width="640" height="38" fill="#0e1a13"/>
+  <rect x="0" y="322" width="640" height="2" fill="#c23b30"/>
+  <text x="20" y="347" fill="#8fae9a" font-size="15" font-weight="600" letter-spacing="3">NINE INNINGS &#183; NO SURVIVORS</text>
+  <text x="620" y="347" fill="#eef0e8" font-size="15" font-weight="600" letter-spacing="2" text-anchor="end">with CHIP VEGA</text>
+</svg>
+::endasset
+
+# --- Team pool: the runner picks two (home + away) per airing -----------------
+::teams
+Rustpile Rats
+Coldwater Kingfishers
+Neon District Wolves
+Slagworks Slaggers
+Ashway Ash-Kickers
+Precinct 9 Enforcers
+Undermarket Moles
+Redline Radwolves
+Docklands Drowners
+Vellum Vultures
+Chrome Row Chargers
+Gutter City Ghouls
+Yards Junkdogs
+Meltdown Mudhens
+Bunker Hill Bruisers
+Static Saints
+::endteams
+
+# --- Player-name pool: the runner deals nine to each lineup + a pitcher --------
+::players
+Rodriguez
+Okafor
+"Big" Halvorsen
+Bishop
+Sato
+Vance
+Cruz
+Doyle
+Reyes
+Park
+Mundt
+Nagy
+Flynn
+Ruiz
+Abara
+Cole
+Voss
+Dunn
+Marsh
+Kane
+Petrova
+Osei
+Delacroix
+Yamamoto
+Boothe
+Quist
+Ferraro
+Nkemelu
+Sokolov
+"Wheels" McGraw
+Grimaldi
+Achterberg
+::endplayers
+
+# --- Sign-on ------------------------------------------------------------------
+::lines intro
+Good evening, wasteland, and welcome to DEADBALL. Chip Vega in the booth, and we've got nine innings of ball for whoever's still got working eyes.
+Chip Vega here at the ballpark, where the lights work maybe sixty percent of the time and the hot dogs are legally a dare. Let's play ball.
+This is DEADBALL on Coldwater League radio. I'm Chip Vega. Somewhere out there the sun's setting on a stadium that has definitely, definitely been condemned.
+Welcome back to the ballgame. Chip Vega, and I'll be your only friend for the next nine innings.
+::endlines
+
+::lines matchup
+Tonight it's the {away} in from out of town to face the {home} on their home dirt.
+On the marquee: {away} versus {home}. Two rosters, one working scoreboard, no medical staff.
+The {away} take the field against the {home}. Bad blood, worse plumbing. Here we go.
+It's {home} hosting {away} under whatever's left of the stadium lights.
+::endlines
+
+# --- Half-inning framing ------------------------------------------------------
+::lines half.top
+Top of the {inningOrd}. The {team} step up to hit.
+Here's the top of the {inningOrd} — {team} coming to bat, the home nine taking the field.
+Top {inningOrd}. {team} due up. Let's see who's swinging.
+::endlines
+
+::lines half.bottom
+Bottom of the {inningOrd}. The home side, the {team}, grab the bats.
+Middle of the {inningOrd} behind us — now the {team} come up for their cuts.
+Bottom {inningOrd}, {team} at the plate.
+::endlines
+
+# --- Routine outs -------------------------------------------------------------
+::lines atbat.strikeout
+{batter} goes down swinging. {pitcher} blows it right past him. That's {outs} away.
+Strike three, {batter}'s frozen. {pitcher} owns him. {outs} down.
+{batter} waves at a nasty one from {pitcher} and sits. {outs} gone in the frame.
+::endlines
+
+::lines atbat.groundout
+{batter} chops it into the dirt — routine, throw across, he's out. {outs} away.
+Ground ball off the bat of {batter}, easy play, one more gone. {outs} down.
+{batter} rolls over on it. Grounder, out at first. {outs} in the books.
+::endlines
+
+::lines atbat.flyout
+{batter} lifts it to the outfield — camped under it, squeezed. {outs} away.
+Fly ball, {batter}, nothing on it. Caught. {outs} down.
+{batter} gets air but not enough. Run-of-the-mill flyout. {outs} gone.
+::endlines
+
+::lines atbat.popout
+{batter} pops it straight up. Infielder circles, gloves it. {outs} away.
+Little pop-up off {batter}'s bat, caught in fair territory. {outs} down.
+{batter} skies one shallow — easy out. {outs} in the frame.
+::endlines
+
+::lines atbat.out
+{batter} is retired. {outs} away.
+That's {batter} put out. {outs} down.
+::endlines
+
+# --- Non-scoring baserunners --------------------------------------------------
+::lines atbat.single
+{batter} slaps a clean single into the gap and takes first.
+Base hit, {batter}! He beats it out and stands on first.
+{batter} punches one through the infield. Runner aboard.
+::endlines
+
+::lines atbat.double
+{batter} rips it down the line — into the corner, he's got two! Standing double.
+{batter} laces one to the wall and pulls into second. Two-bagger.
+A screamer off {batter}'s bat rolls to the gap — he cruises into second.
+::endlines
+
+::lines atbat.triple
+{batter} drives it deep and wheels around — he's flying — slides into THIRD! Triple!
+Way back, off the wall, {batter} is churning — a stand-up triple!
+{batter} splits the outfielders and doesn't stop till third. What a leg on him.
+::endlines
+
+::lines atbat.walk
+{pitcher} loses the zone — {batter} takes ball four and trots to first.
+Four wide ones, {batter} draws the walk. Free pass.
+{batter} spits on a full count and takes his base. {pitcher} not happy about it.
+::endlines
+
+# --- Runs batted in (non-home-run scoring play) -------------------------------
+::lines rbi
+{batter} lines one into the gap and {rbi} come around to score! The {team} put it on the board.
+Base knock for {batter}, {rbi} runs cross the plate! {team} cash in.
+{batter} comes through with runners on — {rbi} in! Big swing for the {team}.
+Clutch hit, {batter}! {rbi} runs score for the {team}. The dugout's on its feet.
+{batter} drives {rbi} home with a shot to the corner. The {team} strike.
+::endlines
+
+# --- Home runs ----------------------------------------------------------------
+::lines hr.solo
+{batter} turns on one and it is GONE! A solo shot, no doubt about it — {team} tack on a run!
+SWING and a long drive by {batter}... see ya! Solo homer, over the wall for the {team}!
+{batter} launches it into the dark. Solo bomb. One run in for the {team}.
+::endlines
+
+::lines hr.grand
+{batter} unloads with the bases juiced — GRAND SLAM! Four runs! The {team} blow it open!
+Get up, get outta here — {batter} just hit a GRAND SLAM! Bases cleared, {rbi} runs, {team} take over!
+Bases loaded, and {batter} demolishes it! Grand slam! Four come around for the {team}!
+::endlines
+
+::lines hr
+{batter} crushes it — outta here! A {rbi}-run homer for the {team}!
+Long gone! {batter} goes deep, {rbi} runs score for the {team}!
+{batter} parks one over the fence — {rbi} in on the blast. {team} answer.
+::endlines
+
+# --- Running score, called after every scoring play ---------------------------
+::lines score.update
+That makes it {away} {awayScore}, {home} {homeScore}.
+Score check: {home} {homeScore}, {away} {awayScore}.
+On the board: {away} {awayScore}, {home} {homeScore}. {leader} out in front by {lead}.
+New numbers — {away} {awayScore}, {home} {homeScore}.
+::endlines
+
+# --- Occasional score checkpoint (end of every third inning) ------------------
+::lines recap.half
+After {inningOrd}: {away} {awayScore}, {home} {homeScore}. Grab a beer, it won't help.
+Three in the books at the turn of the {inningOrd} — {away} {awayScore}, {home} {homeScore}.
+Where we stand through {inningOrd}: {home} {homeScore}, {away} {awayScore}.
+::endlines
+
+# --- Walk-off (home team takes a late lead and the game ends) ------------------
+::lines walkoff
+AND THAT'LL DO IT! {batter} wins it for the {home}! The crowd — the four of them — go absolutely feral!
+WALK-OFF! {batter} sends everyone home! {home} take it, {homeScore} to {awayScore}!
+Ballgame over! {batter} is a hero in a town that eats its heroes! {home} win it in walk-off fashion!
+::endlines
+
+# --- Final ---------------------------------------------------------------------
+::lines final
+That's the ballgame. Final score: {home} {homeScore}, {away} {awayScore}. {leader} take it by {lead}.
+And it's over after {inningOrd}. {away} {awayScore}, {home} {homeScore} — {leader} on top.
+Ballgame. {leader} win it, {homeScore} to {awayScore}. Somewhere, a bookie is smiling.
+Final from the ballpark: {away} {awayScore}, {home} {homeScore}. {leader} get it done.
+::endlines
+
+# --- Sign-off ------------------------------------------------------------------
+::lines outro
+That's DEADBALL. {leader} take the day. Chip Vega saying: go home, lock the door, and dream of extra innings.
+For the {leader} and everyone still upright out there — this has been Chip Vega. Good night, and mind the radiation.
+Chip Vega, signing off. Same dirt, same dread, tomorrow. Stay off the field.
+::endlines
+
+END

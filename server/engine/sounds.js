@@ -139,11 +139,17 @@ function isOutdoorZone(zoneId) {
   return world.zones.get(zoneId)?.map_id === 'map_world';
 }
 
-export function getWeatherLeakGain(zoneId) {
-  if (isOutdoorZone(zoneId)) return 1;
+// Finds the outdoor (map_world) tile whose weather actually leaks into this
+// indoor zone the loudest, plus the gain of that leak. This is the tile whose
+// local precip/wind should be sampled for indoor ambience — not the global
+// weather state — so a building next to a dry tile doesn't hear rain just
+// because it's raining somewhere else on the map.
+export function getWeatherLeakSource(zoneId) {
+  if (isOutdoorZone(zoneId)) return { outdoorZoneId: zoneId, gain: 1 };
   const visited = new Map([[zoneId, 1]]);
   const queue = [[zoneId, 1, 0]];
   let best = 0;
+  let bestZoneId = null;
   while (queue.length) {
     const [id, gain, hops] = queue.shift();
     if ((visited.get(id) ?? 0) > gain) continue; // stale entry superseded by a stronger path
@@ -155,7 +161,7 @@ export function getWeatherLeakGain(zoneId) {
       const nextGain = gain * (closed ? WEATHER_DOOR_DECAY : WEATHER_ROOM_DECAY);
       if (nextGain < WEATHER_LEAK_STOP_THRESHOLD) continue;
       if (isOutdoorZone(target)) {
-        if (nextGain > best) best = nextGain;
+        if (nextGain > best) { best = nextGain; bestZoneId = target; }
         continue;
       }
       if (nextGain > (visited.get(target) || 0)) {
@@ -164,7 +170,11 @@ export function getWeatherLeakGain(zoneId) {
       }
     }
   }
-  return best;
+  return { outdoorZoneId: bestZoneId, gain: best };
+}
+
+export function getWeatherLeakGain(zoneId) {
+  return getWeatherLeakSource(zoneId).gain;
 }
 
 // Yell variant: all-caps, word-drop muffling at distance.

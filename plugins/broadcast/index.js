@@ -68,6 +68,9 @@ const deckWatchers = new Map();
 // preview shows the current program immediately instead of a blank screen.
 const deckRecent = new Map();
 const DECK_RECENT_MAX = 8;
+// Channels currently signalled as dead air to their deck monitors, so the
+// [NO BROADCAST] card fires once per idle transition rather than every tick.
+const deckIdleChannels = new Set();
 function _recordDeckMessage(channelId, message) {
   if (!channelId || !message) return;
   const ring = deckRecent.get(channelId) || [];
@@ -116,6 +119,12 @@ async function powerOffWatchedTv(playerId, channelId) {
 }
 on('deck.watch',   ({ playerId, channelId }) => {
   deckWatchers.set(playerId, channelId);
+  // If the channel is currently dead air, open straight onto the [NO BROADCAST]
+  // card instead of replaying the last program's stale lines.
+  if (deckIdleChannels.has(channelId)) {
+    sendToPlayer(playerId, { type: 'deck_broadcast', channel: channelId, style: 'no_broadcast' });
+    return;
+  }
   // Seed the preview with recent lines so it isn't blank until the next tick.
   for (const line of (deckRecent.get(channelId) || []))
     sendToPlayer(playerId, { type: 'deck_broadcast', message: line, channel: channelId, style: 'raw' });
@@ -223,6 +232,7 @@ async function scanChannelDay(channelId) {
   for (const item of items) {
     const label = item.broadcast_name || item.broadcast_id;
     if (item.playback_mode === 'weather') { add('info', 'weather_live', `'${label}' is a weather forecast — assembled live, not statically scannable.`, { broadcast: label }); continue; }
+    if (item.playback_mode === 'sports')  { add('info', 'sports_live',  `'${label}' is a sports broadcast — a fresh game is simulated each airing, not statically scannable.`, { broadcast: label }); continue; }
     let graph = item.broadcast_graph;
     if (!graph) continue;
     if (typeof graph === 'string') { try { graph = JSON.parse(graph); } catch { add('error', 'bad_graph', `'${label}' has an unparseable broadcast graph.`, { broadcast: label }); continue; } }
@@ -265,6 +275,9 @@ function broadcastDuration(bc) {
   // Weather graphs are assembled live from the forecast (not baked in the DB), so
   // there's nothing to measure here — give the slot a sane default airtime.
   if (bc.playback_mode === 'weather') return 120;
+  // Sports games are simulated fresh each airing (variable length); the runner rolls a
+  // new game per loop cycle, so give the slot a generous default airtime for one game.
+  if (bc.playback_mode === 'sports') return 300;
   if (bc.broadcast_graph) {
     const d = _vineDuration(bc.broadcast_graph, bc.message_interval || 5);
     if (d > 0) return d;
@@ -337,7 +350,7 @@ async function loadChannelRuntimes() {
         WHERE c.enabled = 1 ORDER BY c.number`
     );
     const { rows: playlist } = await query(
-      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages, b.weather_pools
+      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages, b.weather_pools, b.sports_pools
          FROM media_channel_playlist p
          LEFT JOIN media_broadcasts b ON b.id = p.broadcast_id
         ORDER BY p.channel_id, p.start_time`
@@ -394,6 +407,8 @@ async function loadChannelRuntimes() {
       const cond = typeof item.conditions === 'object' ? item.conditions : (item.conditions ? JSON.parse(item.conditions) : {});
       let weatherScript = item.weather_pools;
       if (typeof weatherScript === 'string') { try { weatherScript = JSON.parse(weatherScript); } catch { weatherScript = null; } }
+      let sportsScript = item.sports_pools;
+      if (typeof sportsScript === 'string') { try { sportsScript = JSON.parse(sportsScript); } catch { sportsScript = null; } }
       playlistByChannel.get(item.channel_id).push({
         id: item.id,
         broadcastId: item.broadcast_id,
@@ -405,6 +420,7 @@ async function loadChannelRuntimes() {
         weatherPools: weatherScript?.pools || null,
         weatherHost: weatherScript?.host || null,
         weatherTitle: weatherScript?.title || null,
+        sportsScript: sportsScript || null,
         messages: Array.isArray(item.messages) ? item.messages : (item.messages ? JSON.parse(item.messages) : []),
         message_interval: item.message_interval || 5,
         loop: item.loop,
@@ -718,6 +734,251 @@ function getWeatherGraph(item) {
   return item._wxGraph;
 }
 
+// ── Sports broadcasts ─────────────────────────────────────────────────────────
+// A sports broadcast (playback_mode 'sports') stores a line library plus team and
+// player pools instead of a baked graph. Unlike weather — which reads a live feed —
+// there is no game in the world, so each airing we SIMULATE a whole game: pick two
+// teams, deal lineups, play nine innings of randomized at-bats while accumulating the
+// score, then assemble a fresh play-by-play VINE graph from the matching line pools
+// with {tokens} filled from the live game state. The announcer is a plain name spoken
+// as narration (no npc_anchor); sports is NOT acted-live — no studio NPC, no presence
+// gating. A new game is rolled each loop cycle, so the final score differs every
+// airing. Only 'baseball' is implemented; @sport is the future extension point.
+// Spec: docs/bsm-format.md#sports-broadcasts-type-sports.
+
+const SPORTS_ORDINALS = ['0th', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th', '13th', '14th', '15th'];
+function sportsOrdinal(n) { return SPORTS_ORDINALS[n] || `${n}th`; }
+
+function sportsPick(pools, ...keys) {
+  for (const k of keys) {
+    const arr = pools[k];
+    if (Array.isArray(arr) && arr.length) return arr[Math.floor(Math.random() * arr.length)];
+  }
+  return null;
+}
+function sportsFill(line, tok) {
+  return line.replace(/\{(\w+)\}/g, (_, k) => (tok[k] !== undefined && tok[k] !== null ? String(tok[k]) : ''));
+}
+function sportsShuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+// One plate appearance → an outcome. Weighted to feel like baseball: outs dominate,
+// extra-base hits and walks are less common, home runs rare.
+const SPORTS_ATBAT_TABLE = [
+  { kind: 'strikeout', w: 22, bases: 0, out: true },
+  { kind: 'groundout', w: 20, bases: 0, out: true },
+  { kind: 'flyout',    w: 16, bases: 0, out: true },
+  { kind: 'popout',    w: 8,  bases: 0, out: true },
+  { kind: 'single',    w: 15, bases: 1, out: false },
+  { kind: 'walk',      w: 8,  bases: 1, out: false },
+  { kind: 'double',    w: 6,  bases: 2, out: false },
+  { kind: 'triple',    w: 1,  bases: 3, out: false },
+  { kind: 'homerun',   w: 4,  bases: 4, out: false },
+];
+const SPORTS_ATBAT_TOTAL = SPORTS_ATBAT_TABLE.reduce((s, o) => s + o.w, 0);
+function sportsRollAtBat() {
+  let roll = Math.random() * SPORTS_ATBAT_TOTAL;
+  for (const o of SPORTS_ATBAT_TABLE) { roll -= o.w; if (roll <= 0) return o; }
+  return SPORTS_ATBAT_TABLE[0];
+}
+
+const SPORTS_DEFAULT_NAMES = ['Rodriguez', 'Kane', 'Okafor', 'Bishop', 'Hale', 'Vance', 'Cruz', 'Doyle', 'Reyes', 'Park', 'Sato', 'Mundt', 'Nagy', 'Flynn', 'Ruiz', 'Abara', 'Cole', 'Voss', 'Dunn', 'Marsh'];
+
+// Short 2–3 letter tag for the score bug (initials of a multi-word name, else first letters).
+function sportsAbbr(name) {
+  const words = String(name || '').replace(/[^A-Za-z0-9 ]/g, '').trim().split(/\s+/).filter(Boolean);
+  let a = words.length > 1 ? words.map(w => w[0]).join('') : (words[0] || '');
+  a = a.toUpperCase().slice(0, 3);
+  return a.length >= 2 ? a : (words[0] || 'TBD').slice(0, 3).toUpperCase();
+}
+
+// Simulate a full baseball game. Returns the two teams (with final scores) and an
+// ordered list of "beats" (half_start / atbat / half_end) carrying everything the
+// narration needs. Standard rules kept minimal: the home team doesn't bat in the
+// bottom half once it already leads in the 9th+, a bottom-half go-ahead run ends the
+// game as a walk-off, and a tie after nine goes to extra innings (capped at 15).
+function sportsSimGame(teams, players) {
+  const teamPool = (Array.isArray(teams) && teams.length >= 2) ? teams : [...(teams || []), ...(teams || []), 'Home', 'Away'];
+  const [awayName, homeName] = sportsShuffle(teamPool);
+  const names = sportsShuffle((Array.isArray(players) && players.length) ? players : SPORTS_DEFAULT_NAMES);
+  const mk = (name, off) => ({
+    name, score: 0, idx: 0,
+    lineup: Array.from({ length: 9 }, (_, k) => names[(off + k) % names.length]),
+    pitcher: names[(off + 9) % names.length],
+  });
+  const away = mk(awayName, 0);
+  const home = mk(homeName, 9 % Math.max(names.length, 1));
+
+  const beats = [];
+  const MAX_INNINGS = 15;
+  let gameOver = false, inning = 0;
+
+  const playHalf = (half, batting, fielding) => {
+    beats.push({ type: 'half_start', inning, half, battingName: batting.name, fieldingName: fielding.name, pitcher: fielding.pitcher, awayScore: away.score, homeScore: home.score });
+    let outs = 0, walkoff = false;
+    const bases = [false, false, false];   // 1st, 2nd, 3rd occupied?
+    while (outs < 3) {
+      const batter = batting.lineup[batting.idx % 9];
+      batting.idx++;
+      const ab = sportsRollAtBat();
+      if (ab.out) {
+        outs++;
+        beats.push({ type: 'atbat', inning, half, battingName: batting.name, fieldingName: fielding.name, batter, pitcher: fielding.pitcher, kind: ab.kind, out: true, outs, rbi: 0, awayScore: away.score, homeScore: home.score, bases: [bases[0], bases[1], bases[2]] });
+        continue;
+      }
+      let runs = 0;
+      if (ab.kind === 'walk') {
+        if (bases[0]) { if (bases[1]) { if (bases[2]) runs = 1; bases[2] = true; } bases[1] = true; }
+        bases[0] = true;
+      } else {
+        const b = ab.bases, nb = [false, false, false];
+        for (let r = 2; r >= 0; r--) if (bases[r]) { const dest = (r + 1) + b; if (dest >= 4) runs++; else nb[dest - 1] = true; }
+        if (b >= 4) runs++; else nb[b - 1] = true;
+        bases[0] = nb[0]; bases[1] = nb[1]; bases[2] = nb[2];
+      }
+      batting.score += runs;
+      walkoff = half === 'bottom' && inning >= 9 && runs > 0 && home.score > away.score;
+      beats.push({ type: 'atbat', inning, half, battingName: batting.name, fieldingName: fielding.name, batter, pitcher: fielding.pitcher, kind: ab.kind, out: false, outs, rbi: runs, awayScore: away.score, homeScore: home.score, walkoff, bases: [bases[0], bases[1], bases[2]] });
+      if (walkoff) break;
+    }
+    beats.push({ type: 'half_end', inning, half, battingName: batting.name, fieldingName: fielding.name, awayScore: away.score, homeScore: home.score });
+    return walkoff;
+  };
+
+  while (!gameOver && inning < MAX_INNINGS) {
+    inning++;
+    playHalf('top', away, home);
+    // Home already ahead entering the bottom of the 9th+ → they've won; skip the half.
+    if (inning >= 9 && home.score > away.score) { gameOver = true; break; }
+    if (playHalf('bottom', home, away)) { gameOver = true; break; }   // walk-off
+    if (inning >= 9 && away.score !== home.score) gameOver = true;    // decided after a full inning
+  }
+
+  return { away, home, awayScore: away.score, homeScore: home.score, beats, innings: inning };
+}
+
+// Build the play-by-play VINE graph for one simulated game. Selective narration keeps
+// on-air pacing watchable: every scoring play is called (+ a running score line), half
+// framing is always called, routine outs/hits are sampled and capped per half.
+function assembleSportsGraph(script, broadcastId, cycle) {
+  const announcer = script.announcer || 'your announcer';
+  const pools = script.pools || {};
+  const game = sportsSimGame(script.teams, script.players);
+  const { away, home, awayScore, homeScore, beats } = game;
+
+  const nodes = {};
+  let n = 0, prevId = null, startId = null;
+  const add = (data) => {
+    const id = `sp_${n++}`;
+    nodes[id] = { ...data };
+    if (prevId) nodes[prevId].next = id;
+    if (startId === null) startId = id;
+    prevId = id;
+    return id;
+  };
+  add({ type: 'start' });
+  if (script.title) add({ type: 'title_card', graphic_id: script.title });
+
+  const winner = () => (homeScore === awayScore ? '' : (homeScore > awayScore ? home.name : away.name));
+
+  // Persistent score-bug snapshot attached to each spoken line. The shape is
+  // sport-agnostic (teams + scores + a free-text status line); baseball adds the
+  // sport-specific `outs` + `bases` so the client can draw the diamond. Another
+  // sport just sets `status` (e.g. "Q3 08:42") and omits outs/bases — same bug,
+  // no diamond. See docs/bsm-format.md#score-bug-overlay.
+  const awayAbbr = sportsAbbr(away.name), homeAbbr = sportsAbbr(home.name);
+  const bug = (status, aScore, hScore, outs, bases) => ({
+    sport: 'baseball',
+    away: away.name, home: home.name, awayAbbr, homeAbbr,
+    awayScore: aScore, homeScore: hScore, status,
+    ...(outs != null ? { outs } : {}),
+    ...(bases ? { bases } : {}),
+  });
+  const beatBug = (b) => bug(
+    `${b.half === 'top' ? 'TOP' : 'BOT'} ${sportsOrdinal(b.inning)}`,
+    b.awayScore, b.homeScore, b.outs ?? 0, b.bases || [false, false, false],
+  );
+
+  const beatTok = (b) => ({
+    announcer, away: away.name, home: home.name,
+    team: b.battingName, batter: b.batter || '', pitcher: b.pitcher || '',
+    inning: b.inning, inningOrd: sportsOrdinal(b.inning), half: b.half || '',
+    section: 'inning', sectionOrd: sportsOrdinal(b.inning),
+    outs: b.outs ?? '', rbi: b.rbi ?? 0, runs: b.rbi ?? 0,
+    awayScore: b.awayScore, homeScore: b.homeScore,
+    battingScore: b.half === 'top' ? b.awayScore : b.homeScore,
+    fieldingScore: b.half === 'top' ? b.homeScore : b.awayScore,
+    leader: b.homeScore === b.awayScore ? '' : (b.homeScore > b.awayScore ? home.name : away.name),
+    lead: Math.abs(b.homeScore - b.awayScore),
+  });
+  const say = (line, tok, sb) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}) }); };
+
+  const gameTok = { announcer, away: away.name, home: home.name };
+  const pregameBug = bug('PRE-GAME', 0, 0, 0, [false, false, false]);
+  say(sportsPick(pools, 'intro'), gameTok, pregameBug);
+  say(sportsPick(pools, 'matchup'), gameTok, pregameBug);
+
+  const NARRATE_CAP = 2;               // routine (non-scoring) calls per half
+  let narratedThisHalf = 0;
+  for (const b of beats) {
+    if (b.type === 'half_start') {
+      narratedThisHalf = 0;
+      say(sportsPick(pools, `half.${b.half}`, 'half'), beatTok(b), beatBug(b));
+      continue;
+    }
+    if (b.type === 'half_end') {
+      // Sparse score checkpoints — end of every third full inning.
+      if (b.half === 'bottom' && b.inning % 3 === 0) say(sportsPick(pools, 'recap.half'), beatTok(b), beatBug(b));
+      continue;
+    }
+    // at-bat
+    const tok = beatTok(b), sb = beatBug(b);
+    if (b.kind === 'homerun') {
+      const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr');
+      say(sportsPick(pools, key, 'hr'), tok, sb);
+      say(sportsPick(pools, 'score.update'), tok, sb);
+      if (b.walkoff) say(sportsPick(pools, 'walkoff'), tok, sb);
+    } else if (b.rbi > 0) {
+      say(sportsPick(pools, 'rbi'), tok, sb);
+      say(sportsPick(pools, 'score.update'), tok, sb);
+      if (b.walkoff) say(sportsPick(pools, 'walkoff'), tok, sb);
+    } else if (narratedThisHalf < NARRATE_CAP && (narratedThisHalf === 0 || Math.random() < 0.4)) {
+      const key = `atbat.${b.kind}`;
+      say(sportsPick(pools, key, b.out ? 'atbat.out' : 'atbat.single'), tok, sb);
+      narratedThisHalf++;
+    }
+  }
+
+  const finalTok = {
+    announcer, away: away.name, home: home.name, awayScore, homeScore,
+    leader: winner(), lead: Math.abs(homeScore - awayScore),
+    inning: game.innings, inningOrd: sportsOrdinal(game.innings),
+  };
+  const finalBug = bug('FINAL', awayScore, homeScore);   // game over — no outs/bases, just the score
+  say(sportsPick(pools, 'final'), finalTok, finalBug);
+  say(sportsPick(pools, 'outro'), finalTok, finalBug);
+
+  // When the chain ends the walker restarts at _start on its own. Folding the loop
+  // cycle into _broadcastId resets the blackboard each cycle so a fresh game airs.
+  const graph = _normalizeBroadcastGraph({ _start: startId, nodes });
+  graph._broadcastId = `${broadcastId}:sport:${cycle}`;
+  return graph;
+}
+
+// Return the assembled game graph for a sports playlist item, rebuilding it when the
+// loop cycle advances (a new game per airing). Cached on the item between ticks.
+function getSportsGraph(item, cycle) {
+  if (!item.sportsScript) return null;
+  if (!item._spGraph || item._spCycle !== cycle) {
+    item._spGraph = assembleSportsGraph(item.sportsScript, item.broadcastId, cycle);
+    item._spCycle = cycle;
+  }
+  return item._spGraph;
+}
+
 async function getCurrentMessage(state, nowMs) {
   const { channelType, playlist, totalDuration, idleBroadcast, newsCategories, camera, loopOriginMs, scheduleMode } = state;
 
@@ -746,6 +1007,16 @@ async function getCurrentMessage(state, nowMs) {
         const wxGraph = getWeatherGraph(item);
         if (wxGraph) {
           const r = tickBroadcastGraph(state.channelId, wxGraph, state, nowMs, segElapsed);
+          if (r) r.programName = item.broadcastName || null;
+          return r;
+        }
+      }
+      // Sports on a daily channel — one fresh game per day (edge case; sports is normally
+      // scheduled on a loop channel). Re-roll keyed to the calendar day.
+      if (item.playback_mode === 'sports') {
+        const spGraph = getSportsGraph(item, Math.floor(Date.now() / 86400000));
+        if (spGraph) {
+          const r = tickBroadcastGraph(state.channelId, spGraph, state, nowMs, segElapsed);
           if (r) r.programName = item.broadcastName || null;
           return r;
         }
@@ -833,6 +1104,15 @@ async function getCurrentMessage(state, nowMs) {
         if (wxGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
           return tickBroadcastGraph(state.channelId, wxGraph, state, nowMs);
+        }
+      }
+      // Sports — simulate a fresh game per loop cycle, then walk the play-by-play graph
+      if (item.playback_mode === 'sports') {
+        const cycle = Math.floor((nowMs - loopOriginMs) / 1000 / totalDuration);
+        const spGraph = getSportsGraph(item, cycle);
+        if (spGraph) {
+          state.currentFallbackMessages = item.fallbackMessages || [];
+          return tickBroadcastGraph(state.channelId, spGraph, state, nowMs);
         }
       }
       // VINE graph (scripted/news with broadcast_graph) — walker manages its own timing
@@ -1033,19 +1313,26 @@ async function broadcastTick() {
       // Split players: those watching this channel get the full panel message;
       // anyone else in a tuned zone overhears a spoken line as ambient background TV
       // (once per new message, per the lastMsgKey guard above — not every tick).
+      // A score-bug rides along with the spoken line (sports). It's a persistent
+      // overlay the client keeps on-screen and updates in place — sent every line so
+      // late-tuners pick up the current state within one beat.
+      const scorebugOverlay = result.scorebug ? { overlayType: 'scorebug', ...result.scorebug } : null;
       for (const player of players) {
         if (tvWatchers.get(player.id) === channelId) {
           if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}) });
           if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song });
+          if (scorebugOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
         } else if (result.speech) {
           sendToPlayer(player.id, { type: 'broadcast_ambient', speechText: result.speechText, channel: channelId });
         }
-        // Deck preview — independent of TV panel subscription
+        // Deck preview — independent of TV panel subscription. (The score-bug is a
+        // TV-viewer feature; the deck-preview monitor doesn't render it.)
         if (deckWatchers.get(player.id) === channelId && formatted) {
           sendToPlayer(player.id, { type: 'deck_broadcast', message: formatted, channel: channelId, style: result.style || 'raw' });
         }
+
       }
-      if (formatted) _recordDeckMessage(channelId, formatted);
+      if (formatted) { _recordDeckMessage(channelId, formatted); deckIdleChannels.delete(channelId); }
       emit('broadcast.message', { channelId, zoneId, text: result.text });
     }
   }
@@ -1069,7 +1356,20 @@ async function broadcastTick() {
       console.error(`[broadcast] deck-preview tick error (${channelId}):`, err.message);
       continue;
     }
-    if (!result || result.key === state.lastMsgKey) continue;
+    // Genuinely nothing on air (no live signal, no scheduled content, no tape) —
+    // tell the deck monitors to raise the [NO BROADCAST] dead-air card, once per
+    // transition into idle. A graph mid-wait isn't idle (content resumes shortly).
+    if (!result) {
+      const stillWaiting = state.graphBlackboard?.waitUntil > nowMs;
+      if (!stillWaiting && !deckIdleChannels.has(channelId)) {
+        deckIdleChannels.add(channelId);
+        for (const [pid, cid] of deckWatchers) if (cid === channelId)
+          sendToPlayer(pid, { type: 'deck_broadcast', channel: channelId, style: 'no_broadcast' });
+      }
+      continue;
+    }
+    if (result.key === state.lastMsgKey) continue;
+    deckIdleChannels.delete(channelId);
     state.lastMsgKey = result.key;
     if (result.style === 'overlay') {
       for (const [pid, cid] of deckWatchers) if (cid === channelId)
@@ -1673,7 +1973,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           ? `>> ${bb.npcAnchor ? `${bb.npcAnchor}: ` : ''}${raw} <<`
           : (!isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         const isSpeech = !isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor;
-        return { text: text_say, key: key_say, style: 'raw', ...(isSpeech ? { speech: true, speechText: text_say } : {}) };
+        return { text: text_say, key: key_say, style: 'raw', ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}) };
       }
 
       case 'music': {
@@ -2596,15 +2896,16 @@ export const routeHandler = async (path, method, body, auth) => {
         const bid = body.id || `bc_${Date.now()}`;
         const graph = body.broadcast_graph ? JSON.stringify(body.broadcast_graph) : null;
         const wxPools = body.weather_pools ? JSON.stringify(body.weather_pools) : null;
+        const spPools = body.sports_pools ? JSON.stringify(body.sports_pools) : null;
         await query(
-          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages,weather_pools)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15,$16)`,
+          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages,weather_pools,sports_pools)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15,$16,$17)`,
           [bid, body.name || 'Untitled', body.description || '', body.category || 'general',
            JSON.stringify(body.tags || []), body.playback_mode || 'scripted',
            JSON.stringify(body.messages || []), body.message_interval || 5,
            body.override_duration || null, body.loop ? 1 : 0, body.enabled !== false ? 1 : 0,
            auth?.playerId || 'unknown', graph, body.channel_id || null,
-           JSON.stringify(body.fallback_messages || []), wxPools]
+           JSON.stringify(body.fallback_messages || []), wxPools, spPools]
         );
         await loadChannelRuntimes();
         return { status: 201, body: { id: bid } };
@@ -2612,15 +2913,16 @@ export const routeHandler = async (path, method, body, auth) => {
       if (id && method === 'PUT') {
         const graph = body.broadcast_graph ? JSON.stringify(body.broadcast_graph) : null;
         const wxPools = body.weather_pools ? JSON.stringify(body.weather_pools) : null;
+        const spPools = body.sports_pools ? JSON.stringify(body.sports_pools) : null;
         await query(
           `UPDATE media_broadcasts SET name=$1,description=$2,category=$3,tags=$4,playback_mode=$5,
            messages=$6,message_interval=$7,override_duration=$8,loop=$9,enabled=$10,broadcast_graph=$11,
-           channel_id=$12,fallback_messages=$13,weather_pools=$14,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$15`,
+           channel_id=$12,fallback_messages=$13,weather_pools=$14,sports_pools=$15,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$16`,
           [body.name||'Untitled', body.description||'', body.category||'general',
            JSON.stringify(body.tags||[]), body.playback_mode||'scripted',
            JSON.stringify(body.messages||[]), body.message_interval||5,
            body.override_duration||null, body.loop?1:0, body.enabled!==false?1:0, graph,
-           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), wxPools, id]
+           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), wxPools, spPools, id]
         );
         await loadChannelRuntimes();
         return { status: 200, body: { id } };

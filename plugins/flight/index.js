@@ -28,7 +28,7 @@ import { commands as acquisitionCommands, refuelAt, fieldStocks } from './acquis
 import { commands as combatCommands, tickCombat } from './combat.js';
 import { commands as contractCommands, checkContractDelivery } from './contracts.js';
 import { commands as hangarCommands } from './hangars.js';
-import { commands as charterCommands, charterDebug } from './charter.js';
+import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter } from './charter.js';
 
 // Verb-collision routers (see plugin.json `after`): flight wins `board`/`refuel`
 // and delegates to the prior owner by context.
@@ -75,6 +75,16 @@ async function findParkedHere(zoneId, nameArg) {
 
 async function cmdBoard(args, raw, player, broadcast) {
   if (player.aircraftId) return { type: 'emote', message: "You're already aboard." };
+
+  // A chartered aircraft parked here → board as a passenger (the NPC pilot flies
+  // it). Gated on the pilot being aboard; without one the craft is locked.
+  const parkedCharter = charterParkedAt(player.current_zone);
+  if (parkedCharter) {
+    if ((player.posture || 'standing') !== 'standing')
+      return { type: 'emote', message: 'You need to be on your feet to climb aboard.' };
+    return embarkCharter(player, parkedCharter);
+  }
+
   const found = await findParkedHere(player.current_zone, args.join(' ').trim().toLowerCase());
   if (!found) {
     // `embark` is aircraft-only; the `board` backup still delegates to poker's
@@ -267,7 +277,8 @@ async function cmdTakeoff(args, raw, player, broadcast) {
     return { type: 'emote', message: 'Not enough fuel to safely take off. Refuel first.' };
   if (effStats(live).overweight)
     return { type: 'emote', message: `Overloaded — ${effStats(live).cargo}kg is over max takeoff weight. She won't fly. Shed cargo.` };
-  if (live.row.throttle < 40) return { type: 'emote', message: 'You need more throttle to get airborne — push it past 40%.' };
+  // Throttle is now set during the takeoff run itself (the departure deck), not
+  // as a precondition — you fly it off the runway.
 
   const token = randomUUID();
   live.pending = { kind: 'takeoff', token };
@@ -296,7 +307,7 @@ async function cmdLand(args, raw, player, broadcast) {
   const token = randomUUID();
   live.pending = { kind: 'land', token, fieldZoneId: field.id, emergency };
   sendToPlayer(player.id, {
-    type: 'flight_land', token, emergency,
+    type: 'flight_land', token, emergency, vtol: isVtol,
     skill: await effectiveSkill(player, 'piloting'), difficulty: landDifficulty(live, emergency), deviceName: field.name,
   });
   return { type: 'emote', message: emergency
@@ -323,6 +334,7 @@ async function cmdTakeoffResolve(args, raw, player) {
   }
   live.row.airborne = 1; live.row.altitude_band = 'low'; live.row.parked_zone_id = null; live.starving = false;
   live.runup = false;
+  if (live.row.throttle < 50) live.row.throttle = 70;   // climb-out power (the deck flew it off; keep it flying)
   initFloat(live);
   // Rolled before the engines settled? They'll run hot and rough for a while, and
   // may fail outright (hazards.rollHazards reads coldStart).
@@ -510,7 +522,7 @@ registerInputMatcher(/^(n|s|e|w|ne|nw|se|sw|north|south|east|west|northeast|nort
 // Fires unconditionally per zone (unlike zone.furniturePanel, which only fires
 // when the zone has furniture rows) — several airfields have none, so this is
 // the only reliable way to surface "there's a hangar here" at every field.
-function describeAirfield(zone) {
+async function describeAirfield(zone) {
   if (!zone?.flags?.airfield_id) return undefined;
   const f = zone.flags;
   const link = (cmd, label) => `<span class="action-link" data-action="cmd" data-cmd="${cmd}" title="${label}">${label}</span>`;
@@ -518,8 +530,18 @@ function describeAirfield(zone) {
   const stocks = fieldStocks(zone);
   if (stocks.length) bits.push(`${link('refuel', 'refuel')} <span class="text-dim">(${stocks.join('/')})</span>`);
   if (f.airfield_dealer) bits.push(link('buy', 'buy'));
-  if (f.airfield_charter) bits.push(link('charter', 'charter'));
-  return `<span class="furniture-label">Services:</span> ${bits.join('   ·   ')}`;
+  if (f.airfield_charter) bits.push(link('rent', 'rent'), link('charter', 'charter'));
+  let line = `<span class="furniture-label">Services:</span> ${bits.join('   ·   ')}`;
+  // If there's a boardable aircraft parked here, offer a one-click embark.
+  const { rows } = await query(
+    "SELECT name FROM aircraft WHERE parked_zone_id=$1 AND is_wreck=0 AND (custom_data->>'charter') IS DISTINCT FROM 'true' LIMIT 1",
+    [zone.id]
+  ).catch(() => ({ rows: [] }));
+  if (rows.length) line += `\n<span class="furniture-label">On the ramp:</span> ${link('embark', 'embark')} <span class="text-dim">an aircraft is parked here</span>`;
+  // A chartered aircraft waiting for its passenger — pilot aboard, ready to board.
+  const ch = charterParkedAt(zone.id);
+  if (ch) line += `\n<span class="furniture-label">Charter waiting:</span> ${link('embark', 'embark')} <span class="text-dim">${ch.pilotName}'s aircraft is on the ramp, pilot aboard</span>`;
+  return line;
 }
 
 // ── Admin: free test-fly any aircraft from a field ────────────────────────────
@@ -547,8 +569,26 @@ async function cmdTestFly(args, raw, player) {
   return { type: 'emote', message: `<span class="text-green">[TEST] A free <b>${t.name}</b>, full tank, and you're in the pilot's seat. startup · throttle · takeoff. It's yours — scrap it when done.</span>` };
 }
 
+// ── flight / status — a text readout of the aircraft you're aboard ─────────────
+async function cmdFlightStatus(args, raw, player) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live) return { type: 'emote', message: "You're not aboard an aircraft." };
+  const a = live.row, eff = effStats(live), deg = toDeg(a.heading);
+  const loc = a.airborne ? (surfaceAt(a.grid_x, a.grid_y)?.name || 'open air') : (getZone(a.parked_zone_id)?.name || '—');
+  const cap = Math.round(eff.fuelCap) || 1, fuel = Math.round(a.fuel);
+  const lines = [
+    `<span class="text-cyan">${live.type.name} "${a.name || live.type.name}" — ${player.seat === 'passenger' ? 'PASSENGER' : a.airborne ? 'AIRBORNE' : 'on the ground'}</span>`,
+    `Position: <b>${loc}</b> (${a.grid_x}, ${a.grid_y})` + (a.airborne ? ` · ALT ${BAND_LABEL[a.altitude_band] || a.altitude_band} · HDG <b>${String(deg).padStart(3, '0')}°</b> ${degToCardinal(deg).toUpperCase()} · ${Math.round(eff.cruise * (a.throttle / 100) * 84)}kt` : ''),
+    `Fuel: <b>${fuel}/${cap}</b> (${Math.round(fuel / cap * 100)}% ${live.type.fuel_type}) · Hull: <b>${Math.round((1 - a.damage) * 100)}%</b> · Throttle: ${a.throttle}%`,
+  ];
+  if (eff.cargo) lines.push(`Cargo: ${eff.cargo}/${eff.maxTOW}kg${eff.overweight ? ' <span class="text-red">⚠ OVERWEIGHT</span>' : ''}`);
+  if (live.type.hardpoints) lines.push(`Weapons: <b>${a.weapons_hot ? 'ARMED' : 'safe'}</b> (${live.type.hardpoints} hardpoints)`);
+  return { type: 'output', message: lines.join('\n') };
+}
+
 export const commands = {
   embark: cmdBoard, board: cmdBoard, disembark: cmdDisembark, deplane: cmdDisembark, testfly: cmdTestFly,
+  flight: cmdFlightStatus, fs: cmdFlightStatus,
   startup: cmdStartup, shutdown: cmdShutdown, throttle: cmdThrottle,
   heading: cmdHeading, climb: cmdClimb, dive: cmdDive,
   takeoff: cmdTakeoff, land: cmdLand, refuel: cmdRefuel,

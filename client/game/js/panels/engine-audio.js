@@ -50,6 +50,56 @@ function buildLoops(cls, engines) {
 let running = false, curClass = null;
 let _smoothThr = 0, _smoothSpd = 0;
 
+// ── Ambient weather bed (rides UNDER the engine drone) ────────────────────────
+// A sustained loop that voices whatever's outside — rain on the canopy, a storm's
+// roar, dry ash-hiss — cross-faded when the weather changes, its gain scaled by
+// wind. Only while airborne (you hear the sky rush past). Plus the odd thunderclap.
+const WEATHER_LOOP = {
+  rain: { vol: 0.85, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1500, q: 0.5 }, adsr: { a: 1.2, d: 0, s: 1, r: 1.2 }, gain: 0.10 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 560, q: 0.7 }, adsr: { a: 1.2, d: 0, s: 1, r: 1.2 }, gain: 0.06 } ] },
+  storm: { vol: 1.15, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1700, q: 0.4 }, adsr: { a: 1, d: 0, s: 1, r: 1 }, gain: 0.13 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 420, q: 0.7 }, adsr: { a: 1, d: 0, s: 1, r: 1 }, gain: 0.09 },
+    { waveform: 'sine', freq: 58, adsr: { a: 1.4, d: 0, s: 1, r: 1 }, gain: 0.05 } ] },
+  snow: { vol: 0.5, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 2600, q: 0.5 }, adsr: { a: 1.6, d: 0, s: 1, r: 1.4 }, gain: 0.05 } ] },
+  ash: { vol: 0.7, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 480, q: 0.6 }, adsr: { a: 1.4, d: 0, s: 1, r: 1.2 }, gain: 0.08 } ] },
+  fog: { vol: 0.4, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 260, q: 0.5 }, adsr: { a: 1.8, d: 0, s: 1, r: 1.6 }, gain: 0.05 } ] },
+};
+// Map the server's currentWeatherType strings onto our beds.
+function weatherKey(w) {
+  w = (w || '').toLowerCase();
+  if (/storm|thunder|squall/.test(w)) return 'storm';
+  if (/rain|drizzle|shower|sleet|wet/.test(w)) return 'rain';
+  if (/snow|blizzard|flurr/.test(w)) return 'snow';
+  if (/ash|dust|sand|smog/.test(w)) return 'ash';
+  if (/fog|mist|haze/.test(w)) return 'fog';
+  return null;   // clear / cloudy → silence
+}
+let curWeather = null, _stormT = 0;
+function applyWeather(sky, airborne) {
+  const ae = AE(); if (!ae) return;
+  const key = airborne ? weatherKey(sky?.weather) : null;
+  if (key !== curWeather) {
+    if (curWeather) { ae.setLoopGain?.('flt-weather', 0, 0.7); setTimeout(() => { try { ae.stopLoop('flt-weather'); } catch {} }, 800); }
+    curWeather = key;
+    if (key) { try { ae.loopSound({ id: 'flt-weather', category: 'ambient', config: { gain: 1, layers: WEATHER_LOOP[key].layers } }); } catch {} ae.setLoopGain?.('flt-weather', 0, 0.1); }
+  }
+  if (key) {
+    const wind = Math.min(1, (sky?.wind || 0) / 55);
+    ae.setLoopGain?.('flt-weather', Math.min(0.9, (0.28 + wind * 0.5) * WEATHER_LOOP[key].vol), 1.0);
+    // Occasional distant thunder in a storm.
+    if (key === 'storm' && (_stormT = (_stormT + 1) % 5) === 0 && Math.random() < 0.5) {
+      try { ae.playSfx?.({ config: { duration: 1.8, layers: [
+        { waveform: 'sine', freq: 46, pitchBend: { to: 28, time: 1.6 }, filter: { type: 'lowpass', freq: 220, q: 1 }, adsr: { a: 0.05, d: 1.4, s: 0.2, r: 0.4 }, gain: 0.16 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 340, q: 0.6 }, adsr: { a: 0.02, d: 1.2, s: 0.1, r: 0.4 }, gain: 0.09 } ] } }); } catch {}
+    }
+  }
+}
+
 function startLoops(cls, engines) {
   const ae = AE(); if (!ae) return;
   ae.init?.();
@@ -60,9 +110,10 @@ function startLoops(cls, engines) {
 }
 function killLoops(fast) {
   const ae = AE(); if (!ae) return;
-  ['flt-eng-idle', 'flt-eng-power', 'flt-wind'].forEach(id => ae.setLoopGain?.(id, 0, fast ? 0.15 : 0.6));
-  setTimeout(() => { try { ['flt-eng-idle', 'flt-eng-power', 'flt-wind'].forEach(id => ae.stopLoop(id)); } catch {} }, fast ? 200 : 800);
-  running = false; curClass = null;
+  const ids = ['flt-eng-idle', 'flt-eng-power', 'flt-wind', 'flt-weather'];
+  ids.forEach(id => ae.setLoopGain?.(id, 0, fast ? 0.15 : 0.6));
+  setTimeout(() => { try { ids.forEach(id => ae.stopLoop(id)); } catch {} }, fast ? 200 : 800);
+  running = false; curClass = null; curWeather = null;
 }
 
 export function stopEngineAudio() { if (running) killLoops(false); }
@@ -77,6 +128,7 @@ export function updateEngineAudio(s) {
   ae.setLoopGain?.('flt-eng-idle', (s.engineOn ? 0.55 : 0.2), 0.25);
   ae.setLoopGain?.('flt-eng-power', Math.min(1, 0.25 + _smoothThr * 0.9) * (s.airborne ? 1 : 0.5), 0.25);
   ae.setLoopGain?.('flt-wind', s.airborne ? Math.min(1, 0.2 + _smoothSpd + (s.bandIndex || 0) * 0.12) : 0.0, 0.3);
+  applyWeather(s.sky, !!s.airborne);
 }
 
 // ── Per-class start-up spool + shutdown spool-down ────────────────────────────

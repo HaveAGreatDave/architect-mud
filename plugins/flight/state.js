@@ -12,6 +12,7 @@ import { getZone, getAllZones, getLivePlayer, getMinimapData } from '../../serve
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
+import { getEnvironmentState } from '../../server/engine/environment.js';
 
 export const TICK_MS = 3000;
 export const FUEL_RESERVE_FRAC = 0.10;
@@ -231,7 +232,16 @@ export function gaugePayload(live) {
     map: a.airborne ? mapWindow(a) : null,
     minimap: a.airborne && below ? getMinimapData(below.id, 3) : null,
     guide: (a.airborne && fuelPct < 30) ? nearestField(a.grid_x, a.grid_y) : null,
+    sky: skyState(),
   };
+}
+
+// Time-of-day + weather for the client windshield's out-the-window scene.
+function skyState() {
+  try {
+    const env = getEnvironmentState();
+    return { hour: env.hour, weather: env.currentWeatherType || env.weatherType || 'clear', wind: env.windKph || 0 };
+  } catch { return { hour: 12, weather: 'clear', wind: 0 }; }
 }
 
 export function pushHud(live) {

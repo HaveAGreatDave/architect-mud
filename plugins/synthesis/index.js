@@ -24,7 +24,24 @@ import { randomUUID } from 'crypto';
 
 const SYNTH_SKILL = 'chemistry';
 const PENDING_TTL_MS = 180000;
-const pendingSynth = new Map(); // playerId -> { recipeId, contextBonus, mode, ts }
+const pendingSynth = new Map(); // playerId -> { recipeId, contextBonus, mode, tier, family, difficulty, ts }
+
+// Cook families: each material FORM maps to one of four single-stage minigames.
+const COOK_FAMILY = { powder: 'solids', pill: 'solids', crystal: 'solids', liquid: 'wet', gel: 'wet', paste: 'wet', gas: 'gas', leaf: 'botanical', blotter: 'botanical' };
+const TIER_PRICE = [0, 15, 40, 90, 180, 350]; // display estimate; real value is on the item (scripts/add-cook-tiers.js)
+// The drug a recipe produces (match its base_output item to a drugs-row item_id).
+function drugForOutput(recipe) { const outId = recipe.base_output?.item_id; if (!outId) return null; const cache = getDrugCache(); return Object.values(cache).find(d => d.item_id === outId) || null; }
+// Intensity tier 1..5 — author-set (flags.cook_tier) or derived from how nasty the drug is.
+function cookTier(drug) {
+  const t = Number(drug?.flags?.cook_tier); if (t >= 1 && t <= 5) return Math.round(t);
+  const e = drug?.effects || {}; let s = 1;
+  if (e.overdose?.lethal) s += 2;
+  const mag = Object.values(e.instant || {}).reduce((a, v) => a + Math.abs(Number(v) || 0), 0);
+  if (mag > 24) s += 1; if ((drug?.addiction_chance || 0) >= 0.3) s += 1; if (e.hallucination) s += 1;
+  return Math.max(1, Math.min(5, s));
+}
+function cookFamily(drug) { return COOK_FAMILY[drug?.flags?.form] || 'wet'; }
+function cookDiff(tier) { return Math.max(1, Math.min(14, 2 + tier * 2)); } // tier1=4 … tier5=12
 
 function synthRecipes() {
   return Object.values(getRecipeCache()).filter(r => r.skill_id === SYNTH_SKILL);
@@ -80,14 +97,15 @@ async function cmdCook(args, raw, player, broadcast) {
 
   const name = args.join(' ').trim();
   if (!name) {
+    // No arg → open the cook menu at the station (client renders it, click → `cook <name>`).
     const inv = await playerInventory(player.id);
-    const lines = recipes.map(r => {
-      const res = resolveIngredients(r, inv);
-      const ready = !res.missing;
-      const need = (r.ingredients || []).map(ing => `${ing.quantity}x ${ing.item_id.replace(/^item_/, '').replace(/_/g, ' ')}`).join(', ');
-      return `<span class="${ready ? 'safe' : 'system'}">${ready ? '✓' : '·'} ${r.name}</span> — ${need}`;
+    const items = recipes.map(r => {
+      const res = resolveIngredients(r, inv); const drug = drugForOutput(r); const tier = cookTier(drug);
+      const need = (r.ingredients || []).map(ing => `${ing.quantity}x ${ing.item_id.replace(/^item_/, '').replace(/_/g, ' ')}`);
+      return { recipe: r.name, drug: drug?.name || r.name, form: drug?.flags?.form || null, family: cookFamily(drug), tier, difficulty: cookDiff(tier), ready: !res.missing, need, value: TIER_PRICE[tier] };
     });
-    return { type: 'output', message: `<span class="msg-system">You can cook:</span>\n${lines.join('\n')}\n<span class="msg-system">Use "cook &lt;name&gt;" at a chem lab or with a cook kit.</span>` };
+    const hasLab = !!(await findWorkspace({ requires_station: 'chem_lab' }, player));
+    return { type: 'cook_menu', items, hasLab };
   }
 
   const recipe = findRecipeByName(name);
@@ -116,12 +134,13 @@ async function cmdCook(args, raw, player, broadcast) {
     return { type: 'error', message: `You need a ${need} or a cook kit to attempt this.` };
   }
 
-  pendingSynth.set(player.id, { recipeId: recipe.id, contextBonus: ws.contextBonus, mode: ws.mode, ts: Date.now() });
+  const drug = drugForOutput(recipe); const tier = cookTier(drug); const family = cookFamily(drug); const difficulty = cookDiff(tier);
+  pendingSynth.set(player.id, { recipeId: recipe.id, contextBonus: ws.contextBonus, mode: ws.mode, tier, family, difficulty, ts: Date.now() });
   return {
     type: 'synth_minigame',
     recipeId: recipe.id,
-    recipeName: recipe.name,
-    difficulty: recipe.base_difficulty ?? 5,
+    recipeName: drug?.name || recipe.name,
+    family, tier, difficulty,
     workspace: ws.label,
   };
 }
@@ -141,11 +160,12 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
   if (res.missing) return { type: 'error', message: "You're missing something now — the cook falls apart." };
   const toConsume = res.toConsume;
 
-  const skillResult = await skillCheck(player, SYNTH_SKILL, recipe.base_difficulty ?? 5);
+  const tier = pending.tier || 1;
+  const skillResult = await skillCheck(player, SYNTH_SKILL, pending.difficulty ?? (recipe.base_difficulty ?? 5));
   const minigameBonus = Math.round((score / 100 - 0.5) * 8); // -4..+4
   const finalMargin = skillResult.margin + minigameBonus + pending.contextBonus;
   const success = finalMargin >= 0;
-  const catastrophic = finalMargin < -5;
+  const catastrophic = finalMargin < -5 && tier >= 3; // tier 1–2 drugs are cheap + safe to botch
 
   const consume = async (q) => {
     for (const c of toConsume) {
@@ -156,9 +176,10 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
 
   if (catastrophic) {
     await withTransaction(consume);
-    // Toxic byproduct — a flash of heat and acrid smoke.
-    const hp = Math.max(0, (player.hp || 0) - 20);
-    const sanity = Math.max(0, (player.sanity || 0) - 10);
+    // Toxic byproduct — a flash of heat and acrid smoke. Nastier for higher-tier drugs.
+    const dmg = 6 + tier * 4; // tier3=18 … tier5=26
+    const hp = Math.max(0, (player.hp || 0) - dmg);
+    const sanity = Math.max(0, (player.sanity || 0) - (3 + tier * 2));
     player.hp = hp; player.sanity = sanity;
     query('UPDATE players SET hp=$1, sanity=$2 WHERE id=$3', [hp, sanity, player.id]).catch(() => {});
     if (hp <= 0) {
@@ -167,7 +188,7 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
       await handlePlayerDeath(player, null, { type: 'drug', label: 'Killed by a botched cook' });
       return { type: 'noop' };
     }
-    return { type: 'output', message: `<span class="overdose-warning">The reaction runs away from you — a flash of heat, a gout of acrid smoke. The batch is ruined and you're burned.</span>`, player_update: { hp, sanity } };
+    return { type: 'output', message: `<span class="overdose-warning">The reaction runs away from you — a flash of heat, a gout of acrid smoke. The batch is ruined and you're burned (−${dmg} HP).</span>`, player_update: { hp, sanity } };
   }
 
   if (!success) {

@@ -2,7 +2,7 @@ import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, 
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry, getPlayerCombat } from './combat.js';
-import { tickEntityAI, moveEntity } from './ai-behaviour.js';
+import { tickEntityAI, moveEntity, ensureBehaviourGraph } from './ai-behaviour.js';
 import { npcBanterTick } from './npc-banter.js';
 import { restockAllVendors } from './vendor.js';
 import { tickEffects, applyEffect } from './effects.js';
@@ -80,6 +80,9 @@ async function tick() {
 
   // Enemy AI
   for (const [instanceId, enemy] of world.enemies) {
+    // Self-heal: give auto-aggressive enemies without a graph the default combat
+    // graph so they run on VINE (idempotent — no-op once a graph is present).
+    ensureBehaviourGraph(enemy, 'enemy');
     // Ambient threat escalation — runs for all enemies when no target yet
     if (!enemy.targetId) {
       const zone = world.zones.get(enemy.zoneId);
@@ -947,6 +950,11 @@ async function npcWanderTick() {
       }
       continue;
     }
+
+    // Self-heal: legacy autonomous NPCs (vendor/employed/unemployed/actor) seeded
+    // without a graph get their type default so they tick on VINE instead of the
+    // dumb wander below (idempotent; skips static 'npc' extras and phantoms).
+    ensureBehaviourGraph(npc, 'npc');
 
     if (npc.behaviour_graph?._start) {
       // Behaviour graph drives this NPC — delegate to AI runtime.

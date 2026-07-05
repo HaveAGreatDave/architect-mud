@@ -20,7 +20,7 @@ import { sendCmdSilent } from '../net.js';
 import {
   clamp, lerp, rnd, ease, shade, mixColors, avgColor,
   G, W, H, roundRect, blob, fillLiquid, drawSteam,
-  drawBench, drawBeaker, drawBurner, flame, dustMotes, lightShaft, condensation, drawLabProps,
+  drawBench, drawBeaker, drawBurner, flame, dustMotes, lightShaft, condensation, drawLabProps, drawSideTable,
   AX, mountLab, evPos,
 } from './lab-kit.js';
 
@@ -34,6 +34,25 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 const subFor = (f) => ({ liquid: 'thin', powder: 'fine', gel: 'viscous', pill: 'tablet' }[f] || 'thin');
 function redact(s, known) { if (known >= .75) return esc(s); if (known < .25) return `<span class="redact">${'█'.repeat(Math.min(22, Math.max(6, String(s).length)))}</span>`;
   return String(s).split('').map(c => (c === ' ' || Math.random() < known) ? esc(c) : '<span class="redact">█</span>').join(''); }
+
+// per-form carry physics (spring freq Hz) + per-sub fluidity (slosh gain)
+const FORM_FREQ = { liquid: 2.0, gel: 2.1, powder: 2.4, pill: 2.8, gas: 2.3, crystal: 2.9, blotter: 3.2, paste: 1.7, leaf: 2.6 };
+const FORM_FLUID = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, viscous: .55, tablet: .06, pressurized: .5, shard: .05, sheet: .04, tar: .35, dried: .08 };
+// side-view drug table (far-left): drugs stand along the tabletop at y = H*0.60
+function tableHomes(n) { const x0 = W * 0.06, x1 = W * 0.46, top = H * 0.60, pad = 40, usable = (x1 - x0) - pad * 2, step = n > 1 ? Math.min(58, usable / (n - 1)) : 0, first = (x0 + x1) / 2 - step * (n - 1) / 2;
+  return Array.from({ length: n }, (_, i) => ({ x: first + i * step, y: top - 30 })); }
+// big top warning + product-loss readout, shared by SELECT + CHARGE
+function bigWarn(text, tint, alpha) {
+  G.save(); G.textAlign = 'center'; G.globalAlpha = clamp(alpha, 0, 1); G.font = 'bold 27px monospace'; const y = H * 0.13;
+  G.fillStyle = 'rgba(255,74,91,.4)'; G.fillText(text, W / 2 - 2, y);
+  G.fillStyle = 'rgba(95,208,224,.4)'; G.fillText(text, W / 2 + 2, y);
+  G.shadowColor = `rgba(${tint},.9)`; G.shadowBlur = 20; G.fillStyle = `rgb(${tint})`; G.fillText(text, W / 2, y); G.shadowBlur = 0; G.restore();
+}
+function drawCarryWarn(s) {
+  if (s._spillT > 0) bigWarn('⚠ SPILLING — LOSING PRODUCT ⚠', '255,74,91', .7 + .3 * Math.sin(s.t * 14));
+  else if (s.t < s.carefulUntil) bigWarn('⚠ CARRY IT STEADY ⚠', '255,178,62', clamp(s.carefulUntil - s.t, 0, 1));
+  if (s.lost > 0) { G.save(); G.textAlign = 'center'; G.globalAlpha = .85; G.fillStyle = '#ff6a6a'; G.font = 'bold 12px monospace'; G.fillText(`PRODUCT LOST: ${Math.round(s.lost)}%`, W / 2, H * 0.13 + 26); G.restore(); }
+}
 
 // ── entry points ─────────────────────────────────────────────────────────────
 export function openSpliceSelect(msg) {
@@ -288,13 +307,8 @@ STAGES.title = {
   enter() {
     const g = game; this.t = 0; this.pw = 0; this.spin = 0; this.titleA = 0; this.flick = 1; this.btnShown = false; this.ready = false; this._begun = false;
     this.quip = ['this bench has killed better chemists than you.', 'ventilation nominal. conscience optional.', 'everything on this table is technically evidence.', 'mind the third beaker. it bites.'][Math.floor(rnd(4))];
-    const anchors = [
-      { x: .12, y: .73, r: -.16 }, { x: .25, y: .83, r: .12 }, { x: .17, y: .55, r: .22 },
-      { x: .88, y: .73, r: .14 }, { x: .75, y: .83, r: -.12 }, { x: .83, y: .55, r: -.22 },
-      { x: .37, y: .88, r: .05 }, { x: .63, y: .88, r: -.06 }, { x: .31, y: .64, r: .16 }, { x: .69, y: .64, r: -.16 },
-    ];
-    this.scatter = g.drugs.map((d, i) => { const a = anchors[i % anchors.length], wrap = Math.floor(i / anchors.length);
-      return { d, x: (a.x + (wrap ? rnd(.05, -.05) : 0)) * W, y: (a.y - wrap * 0.09) * H, r: a.r, bob: rnd(7) }; });
+    const homes = tableHomes(g.drugs.length);
+    this.scatter = g.drugs.map((d, i) => ({ d, x: homes[i].x, y: homes[i].y, bob: rnd(7) }));
     g.lab.setTop('SPLICE BENCH'); g.lab.ticker('');
     AX.loop('hood', { freq: 54, type: 'sawtooth', gain: 0, filt: 320, tremRate: 7, tremDepth: .25 });
   },
@@ -326,9 +340,10 @@ STAGES.title = {
     G.fillStyle = '#1a2024'; G.fillRect(cx - 40, 8, 80, 14);
     G.save(); G.shadowColor = 'rgba(120,255,190,.9)'; G.shadowBlur = 30 * pw * fl; G.fillStyle = `rgba(190,255,225,${.7 * pw * fl})`; G.fillRect(cx - 34, 20, 68, 5); G.restore();
     dustMotes(this.t, 46, '150,225,185');
-    this.drawFlask(cx - 176, benchY + 16, pw);
-    this.drawCondenser(cx + 176, benchY - 8, pw);
-    this.scatter.forEach(s => drawPackage(s.d, s.x, s.y + Math.sin(this.t * 1.2 + s.bob) * 1.5, false, false, this.t * .4 + s.bob, { tilt: s.r, slosh: 0, noName: true }));
+    drawSideTable(W * 0.06, W * 0.46, H * 0.60);
+    this.drawFlask(cx + 120, benchY + 16, pw);
+    this.drawCondenser(cx + 250, benchY - 8, pw);
+    this.scatter.forEach(s => drawPackage(s.d, s.x, s.y + Math.sin(this.t * 1.2 + s.bob) * 1, false, false, this.t * .4 + s.bob, { tilt: 0, slosh: 0, noName: true }));
     G.save(); G.globalAlpha = this.titleA; G.textAlign = 'center'; G.font = 'bold 38px monospace';
     G.fillStyle = 'rgba(255,74,91,.45)'; G.fillText('SPLICE BENCH', cx - 2, H * 0.33 + 12);
     G.fillStyle = 'rgba(95,208,224,.45)'; G.fillText('SPLICE BENCH', cx + 2, H * 0.33 + 12);
@@ -366,35 +381,35 @@ STAGES.title = {
 
 STAGES.select = {
   enter() {
-    const g = game; const freq = { liquid: 2.0, gel: 2.1, powder: 2.4, pill: 2.8, gas: 2.3, crystal: 2.9, blotter: 3.2, paste: 1.7, leaf: 2.6 };
-    const fluidOf = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, viscous: .55, tablet: .06, pressurized: .5, shard: .05, sheet: .04, tar: .35, dried: .08 };
-    const zeta = 0.62, n = g.drugs.length, cols = Math.min(4, Math.max(1, n)), gapx = 176, x0 = (W - (cols - 1) * gapx) / 2;
-    this.pkgs = g.drugs.map((d, i) => { const col = i % cols, row = Math.floor(i / cols), hx = x0 + col * gapx, hy = H * 0.28 + row * 128;
-      const w = 2 * Math.PI * (freq[d.form] || 2.2), k = w * w, c = 2 * zeta * w;
-      return { d, home: { x: hx, y: hy }, x: hx, y: hy, vx: 0, vy: 0, pvx: 0, tilt: 0, slosh: 0, sloshV: 0, held: false, inCradle: false, gdx: 0, gdy: 0, k, c, fluid: fluidOf[d.sub] ?? .3, spill: 0, warn: 0 }; });
-    this.cradle = { x: W / 2, y: H - 104, r: 62 };
+    const g = game; const homes = tableHomes(g.drugs.length);
+    this.pkgs = g.drugs.map((d, i) => { const hx = homes[i].x, hy = homes[i].y, w = 2 * Math.PI * (FORM_FREQ[d.form] || 2.2), k = w * w, c = 2 * 0.62 * w;
+      return { d, home: { x: hx, y: hy }, x: hx, y: hy, vx: 0, vy: 0, pvx: 0, tilt: 0, slosh: 0, sloshV: 0, held: false, inCradle: false, gdx: 0, gdy: 0, k, c, fluid: FORM_FLUID[d.sub] ?? .3, spill: 0, warn: 0 }; });
+    this.cradle = { x: W * 0.73, y: H * 0.60, r: 58 };
     this.drag = null; this.pressP = null; this.pressT = 0; this.moved = false; this.hover = null; this.t = 0; this.drips = [];
+    this.everGrabbed = false; this.carefulUntil = 0; this._spillT = 0; this._alarmT = 0; this.lost = 0;
     this.mkBtns(); g.selected = [];
-    g.lab.ticker('drag a package into the cradle. carry it steady — slosh a volatile one and it spits at you. tap to read a label.');
+    g.lab.ticker('drag a drug from the table into the reaction cradle. carry it steady. tap one to read its label.');
     AX.loop('hood', { freq: 60, type: 'sawtooth', gain: .03, filt: 340, tremRate: 7, tremDepth: .3 });
   },
   exit() { AX.stop('hood'); game.lab.canvas.style.cursor = 'default'; },
   mkBtns() {
-    this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:1px;text-transform:uppercase;pointer-events:none;text-align:center;width:82%');
+    this.splice = mkBtn('SPLICE ▶', 'right:22px;bottom:44px'); this.splice.disabled = true;
+    this.splice.onclick = () => { if (game.selected.length >= 2) { AX.confirm(); this.commit(); } };
+    this.clr = mkBtn('CLEAR', 'right:150px;bottom:44px', 'ghost');
+    this.clr.onclick = () => { AX.click(); this.pkgs.forEach(p => p.inCradle = false); game.selected = []; this.sync(); };
+    this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:1px;text-transform:uppercase;pointer-events:none;text-align:center;width:70%');
   },
-  sync() { const n = game.selected.length;
-    this.hint.textContent = n ? `${game.selected[0].name} base${n > 1 ? ` · ${n - 1} graft${n - 1 === 1 ? '' : 's'}` : ''} — ${n >= 2 ? 'SPACE to splice · C to clear' : 'drop one more'}` : 'drag two+ into the cradle · tap to read · C to clear';
+  sync() { const n = game.selected.length; this.splice.disabled = n < 2;
+    this.hint.textContent = n ? `${game.selected[0].name} base${n > 1 ? ` · ${n - 1} graft${n - 1 === 1 ? '' : 's'}` : ''} — ${n >= 2 ? 'press SPLICE ▶ (or SPACE)' : 'drop one more'}` : 'drag two+ drugs into the cradle · tap to read · C clears';
   },
   commit() {
     const sel = game.selected.slice();
     _stash = { selection: sel, instability: game.instability };
     if (game.mode === 'test') { transit(game, 'charge'); return; }
-    // build the server payload: base + every block of each graft drug
-    const base = sel[0].drug;
-    const grafts = [];
+    const base = sel[0].drug, grafts = [];
     for (let i = 1; i < sel.length; i++) for (const blk of Object.keys(sel[i].blocks || {})) grafts.push({ drug: sel[i].drug, block: blk });
     sendCmdSilent('splicebegin ' + b64({ base, grafts, name: '' }));
-    game.lab.close(); // server replies synth_minigame:splice → openSpliceStages
+    game.lab.close();
   },
   topAt(p) { for (let i = this.pkgs.length - 1; i >= 0; i--) { const k = this.pkgs[i]; if (Math.hypot(p.x - k.x, p.y - k.y) < 44) return k; } return null; },
   move(p) { if (this.drag && !this.moved && Math.hypot(p.x - this.pressP.x, p.y - this.pressP.y) > 6) this.moved = true;
@@ -402,7 +417,8 @@ STAGES.select = {
   down(p) { const k = this.topAt(p); if (!k) { hideLabel(); return; }
     this.drag = k; k.held = true; k.gdx = k.x - p.x; k.gdy = k.y - p.y; this.pressP = { x: p.x, y: p.y }; this.pressT = this.t; this.moved = false;
     this.pkgs.splice(this.pkgs.indexOf(k), 1); this.pkgs.push(k);
-    if (k.inCradle) { k.inCradle = false; game.selected = game.selected.filter(d => d !== k.d); this.sync(); } AX.tick(); },
+    if (k.inCradle) { k.inCradle = false; game.selected = game.selected.filter(d => d !== k.d); this.sync(); }
+    AX.clink(); if (!this.everGrabbed) { this.everGrabbed = true; this.carefulUntil = this.t + 3.5; } },
   up() { const k = this.drag; if (!k) return; this.drag = null; k.held = false;
     if (!this.moved && (this.t - this.pressT) < 0.25) { if (_labelFor === k.d && _labelEl) hideLabel(); else showLabel(k.d, k.home.x, k.home.y); return; }
     if (Math.hypot(k.x - this.cradle.x, k.y - this.cradle.y) < this.cradle.r + 12) {
@@ -410,8 +426,9 @@ STAGES.select = {
       else { k.inCradle = true; if (!game.selected.includes(k.d)) game.selected.push(k.d); AX.drop(); this.sync(); }
     } else AX.tick();
     hideLabel(); },
-  key(e) { if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); if (game.selected.length >= 2) this.commit(); } else if (e.key === 'c' || e.key === 'C') { AX.click(); this.pkgs.forEach(p => p.inCradle = false); game.selected = []; this.sync(); } },
-  update(dt) { this.t += dt; const cr = this.cradle, inC = this.pkgs.filter(p => p.inCradle);
+  key(e) { if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); if (game.selected.length >= 2) { AX.confirm(); this.commit(); } } else if (e.key === 'c' || e.key === 'C') { AX.click(); this.pkgs.forEach(p => p.inCradle = false); game.selected = []; this.sync(); } },
+  spillAlarm() { this._spillT = 0.35; if (this.t - this._alarmT > 0.55) { AX.alarm(); this._alarmT = this.t; } },
+  update(dt) { this.t += dt; this._spillT = Math.max(0, this._spillT - dt); const cr = this.cradle, inC = this.pkgs.filter(p => p.inCradle);
     this.pkgs.forEach(p => { let tx, ty, k = p.k;
       if (this.drag === p) { tx = ptr.x + p.gdx; ty = ptr.y + p.gdy; }
       else if (p.inCradle) { const idx = inC.indexOf(p), n = inC.length, a = -Math.PI / 2 + (idx - (n - 1) / 2) * 0.52; tx = cr.x + Math.cos(a) * 48; ty = cr.y + Math.sin(a) * 22 - 6; k *= 1.5; }
@@ -423,20 +440,18 @@ STAGES.select = {
       const dax = p.vx - p.pvx; p.pvx = p.vx;
       p.sloshV += dax * p.fluid * 0.6; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
       const speed = Math.hypot(p.vx, p.vy);
-      if (this.drag === p && p.d.form === 'gas' && speed > 480) { // pressurised — vents when hauled around fast
-        p.warn = 1; p.spill += dt * (speed / 600);
+      if (this.drag === p && p.d.form === 'gas' && speed > 480) { p.warn = 1; p.spill += dt * (speed / 600); this.spillAlarm();
         if (Math.random() < 0.4) this.drips.push({ x: p.x + rnd(10, -10), y: p.y - 24, vy: -55, life: 0, col: shade(p.d.color, 80) });
-        if (p.spill > 1.2) { p.spill = 0; addInstability(5, "the canister hisses — you're bleeding pressure."); AX.bad(); }
-      } else if (this.drag === p && p.fluid > 0.7 && Math.abs(p.slosh) > 0.95) { p.warn = 1; p.spill += dt * Math.abs(p.slosh);
+        if (p.spill > 1.2) { p.spill = 0; this.lost += 4; addInstability(5, "the canister hisses — you're bleeding pressure."); AX.bad(); }
+      } else if (this.drag === p && p.fluid > 0.7 && Math.abs(p.slosh) > 0.95) { p.warn = 1; p.spill += dt * Math.abs(p.slosh); this.spillAlarm();
         if (Math.random() < 0.35) this.drips.push({ x: p.x + rnd(15, -15), y: p.y + 12, vy: 50, life: 0, col: p.d.color });
-        if (p.spill > 1.3) { p.spill = 0; addInstability(6, 'you slopped it — that residue will bite you later.'); AX.bad(); }
+        if (p.spill > 1.3) { p.spill = 0; this.lost += 4; addInstability(6, 'you slopped it — you just lost product.'); AX.bad(); }
       } else { p.warn = lerp(p.warn, 0, dt * 4); p.spill = Math.max(0, p.spill - dt * 0.5); }
     });
     this.drips.forEach(d => { d.life += dt; d.y += d.vy * dt; d.vy += 400 * dt; }); this.drips = this.drips.filter(d => d.life < 0.6);
   },
   draw() { const cr = this.cradle;
-    G.strokeStyle = 'rgba(120,150,140,.10)'; G.lineWidth = 2;
-    [H * 0.28 + 31, H * 0.28 + 128 + 31].forEach(sy => { G.beginPath(); G.moveTo(W * 0.12, sy); G.lineTo(W * 0.88, sy); G.stroke(); G.fillStyle = 'rgba(0,0,0,.28)'; G.fillRect(W * 0.12, sy, W * 0.76, 3); });
+    drawSideTable(W * 0.06, W * 0.46, H * 0.60);
     const pulse = .5 + .5 * Math.sin(this.t * 3);
     const cg = G.createRadialGradient(cr.x, cr.y, 6, cr.x, cr.y, cr.r + 34); cg.addColorStop(0, `rgba(79,224,138,${.13 + pulse * .1})`); cg.addColorStop(1, 'rgba(79,224,138,0)');
     G.fillStyle = cg; G.beginPath(); G.ellipse(cr.x, cr.y, cr.r + 34, cr.r * .62, 0, 0, 7); G.fill();
@@ -444,35 +459,35 @@ STAGES.select = {
     G.strokeStyle = 'rgba(79,224,138,.4)'; G.setLineDash([7, 6]); G.lineWidth = 1.6; G.beginPath(); G.ellipse(cr.x, cr.y, cr.r, cr.r * .5, 0, 0, 7); G.stroke(); G.setLineDash([]);
     G.fillStyle = 'rgba(111,138,124,.7)'; G.font = '9px monospace'; G.textAlign = 'center'; G.fillText('REACTION CRADLE', cr.x, cr.y + cr.r * .5 + 18);
     this.drips.forEach(d => { G.globalAlpha = 1 - d.life / 0.6; G.fillStyle = d.col; G.beginPath(); G.arc(d.x, d.y, 2.2, 0, 7); G.fill(); }); G.globalAlpha = 1;
-    this.pkgs.forEach(p => { const groundY = p.inCradle ? cr.y + 26 : p.home.y + 40, lift = clamp((groundY - p.y) / 120, 0, 1);
+    this.pkgs.forEach(p => { const groundY = p.inCradle ? cr.y + 26 : H * 0.60, lift = clamp((groundY - p.y) / 120, 0, 1);
       G.save(); G.globalAlpha = .42 * (1 - lift * .5); G.fillStyle = '#000'; G.beginPath(); G.ellipse(p.x, groundY, 20 + lift * 8, 5, 0, 0, 7); G.fill(); G.restore();
       drawPackage(p.d, p.x, p.y, p.inCradle, this.hover === p || this.drag === p, this.t, { tilt: p.tilt, slosh: p.slosh, warn: p.warn, held: this.drag === p }); });
+    drawCarryWarn(this);
   },
 };
 
-// CHARGE — the careful-placement step. Lift each chosen container, hold it
-// steady over the POUR ZONE above the beaker to decant it in; jostle it while
-// carrying and it slops (drips + instability). Only when all are in does MIX run.
+// CHARGE — carry each chosen drug from the side table to the POUR ZONE and hold
+// it steady to decant. Jostle it while carrying and it slops (drips + lost product).
 STAGES.charge = {
   enter() {
     const g = game; this.t = 0; this.hover = null; this.drag = null; this.fill = 0; this.pouredCount = 0; this.drips = []; this._done = false;
-    this.beaker = { x: W / 2, y: H * 0.52, w: 150, h: 210 };
-    this.zone = { x: W / 2, y: H * 0.52 - 210 / 2 - 34, r: 46 };
-    const freq = { liquid: 2.0, gel: 2.1, powder: 2.4, pill: 2.8, gas: 2.3, crystal: 2.9, blotter: 3.2, paste: 1.7, leaf: 2.6 };
-    const fluidOf = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, viscous: .55, tablet: .06, pressurized: .5, shard: .05, sheet: .04, tar: .35, dried: .08 };
-    const zeta = 0.62;
-    // far-side supply racks → a long diagonal carry to the central pour zone
-    this.cans = g.selected.map((d, i) => { const side = i % 2 === 0 ? -1 : 1, row = Math.floor(i / 2), hx = W / 2 + side * (W * 0.40), hy = H * 0.86 - row * 82, w = 2 * Math.PI * (freq[d.form] || 2.2), k = w * w, c = 2 * zeta * w;
-      return { d, home: { x: hx, y: hy }, x: hx, y: hy, vx: 0, vy: 0, pvx: 0, tilt: 0, slosh: 0, sloshV: 0, held: false, gdx: 0, gdy: 0, k, c, fluid: fluidOf[d.sub] ?? .3, poured: 0, done: false, spill: 0, warn: 0, pourSfx: false }; });
-    g.lab.ticker('CHARGE — lift each one over the beaker and pour it in, slow and steady. jostle it and it slops.');
+    this.everGrabbed = false; this.carefulUntil = 0; this._spillT = 0; this._alarmT = 0; this.lost = 0;
+    this.beaker = { x: W * 0.73, y: H * 0.52, w: 140, h: 200 };
+    this.zone = { x: this.beaker.x, y: this.beaker.y - this.beaker.h / 2 - 34, r: 46 };
+    const homes = tableHomes(g.selected.length);
+    this.cans = g.selected.map((d, i) => { const hx = homes[i].x, hy = homes[i].y, w = 2 * Math.PI * (FORM_FREQ[d.form] || 2.2), k = w * w, c = 2 * 0.62 * w;
+      return { d, home: { x: hx, y: hy }, x: hx, y: hy, vx: 0, vy: 0, pvx: 0, tilt: 0, slosh: 0, sloshV: 0, held: false, gdx: 0, gdy: 0, k, c, fluid: FORM_FLUID[d.sub] ?? .3, poured: 0, done: false, spill: 0, warn: 0, pourSfx: false }; });
+    g.lab.ticker('CHARGE — carry each drug from the table to the POUR ZONE and hold it steady to decant. jostle it and it slops.');
     this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:2px;text-transform:uppercase;pointer-events:none');
   },
   exit() { AX.pour(false); game.lab.canvas.style.cursor = 'default'; },
   topAt(p) { for (let i = this.cans.length - 1; i >= 0; i--) { const k = this.cans[i]; if (!k.done && Math.hypot(p.x - k.x, p.y - k.y) < 44) return k; } return null; },
   move(p) { this.hover = this.drag || this.topAt(p); game.lab.canvas.style.cursor = this.hover ? (this.drag ? 'grabbing' : 'grab') : 'default'; },
-  down(p) { const k = this.topAt(p); if (!k) return; this.drag = k; k.held = true; k.gdx = k.x - p.x; k.gdy = k.y - p.y; this.cans.splice(this.cans.indexOf(k), 1); this.cans.push(k); AX.tick(); },
+  down(p) { const k = this.topAt(p); if (!k) return; this.drag = k; k.held = true; k.gdx = k.x - p.x; k.gdy = k.y - p.y; this.cans.splice(this.cans.indexOf(k), 1); this.cans.push(k);
+    AX.clink(); if (!this.everGrabbed) { this.everGrabbed = true; this.carefulUntil = this.t + 3.5; } },
   up() { const k = this.drag; if (!k) return; this.drag = null; k.held = false; if (k.pourSfx) { k.pourSfx = false; AX.pour(false); } },
-  update(dt) { this.t += dt; const z = this.zone;
+  spillAlarm() { this._spillT = 0.35; if (this.t - this._alarmT > 0.55) { AX.alarm(); this._alarmT = this.t; } },
+  update(dt) { this.t += dt; this._spillT = Math.max(0, this._spillT - dt); const z = this.zone;
     this.cans.forEach(p => { if (p.done) return;
       let tx, ty; if (this.drag === p) { tx = ptr.x + p.gdx; ty = ptr.y + p.gdy; } else { tx = p.home.x; ty = p.home.y; }
       const ax = (tx - p.x) * p.k - p.vx * p.c, ay = (ty - p.y) * p.k - p.vy * p.c; p.vx += ax * dt; p.vy += ay * dt;
@@ -480,7 +495,7 @@ STAGES.charge = {
       p.x += p.vx * dt; p.y += p.vy * dt;
       const dax = p.vx - p.pvx; p.pvx = p.vx; p.sloshV += dax * p.fluid * 0.6; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
       const inZone = Math.hypot(p.x - z.x, p.y - z.y) < z.r, steady = spd < 130 && Math.abs(p.slosh) < 0.55;
-      if (this.drag === p && inZone && steady) { // decant
+      if (this.drag === p && inZone && steady) {
         p.tilt = lerp(p.tilt, -0.7, dt * 4); p.poured = clamp(p.poured + dt * 0.7, 0, 1); this.fill = this.pouredFill();
         if (!p.pourSfx) { p.pourSfx = true; AX.pour(true); }
         if (p.poured >= 1 && !p.done) { p.done = true; this.pouredCount++; AX.pour(false); AX.drop(); this.drag = null; p.held = false; }
@@ -488,9 +503,9 @@ STAGES.charge = {
         p.tilt = lerp(p.tilt, clamp(-p.vx * 0.0016, -0.42, 0.42), dt * 9);
         if (p.pourSfx) { p.pourSfx = false; AX.pour(false); }
         if (this.drag === p) { const hazard = p.d.form === 'gas' ? spd > 480 : Math.abs(p.slosh) > 1.0;
-          if (hazard) { p.warn = 1; p.spill += dt;
+          if (hazard) { p.warn = 1; p.spill += dt; this.spillAlarm();
             if (Math.random() < 0.3) this.drips.push({ x: p.x + rnd(12, -12), y: p.y + (p.d.form === 'gas' ? -22 : 12), vy: p.d.form === 'gas' ? -50 : 60, life: 0, col: p.d.form === 'gas' ? shade(p.d.color, 80) : p.d.color });
-            if (p.spill > 1.0) { p.spill = 0; addInstability(5 * game.vol(), 'you slopped it moving it'); AX.bad(); }
+            if (p.spill > 1.0) { p.spill = 0; this.lost += 4; addInstability(5 * game.vol(), 'you slopped it — lost product'); AX.bad(); }
           } else p.warn = lerp(p.warn, 0, dt * 4);
         } else p.warn = lerp(p.warn, 0, dt * 4);
       }
@@ -502,18 +517,19 @@ STAGES.charge = {
   pouredFill() { let s = 0; this.cans.forEach(p => s += p.poured); return clamp(s / Math.max(1, game.selected.length), 0, 1); },
   chargeColor() { const ds = this.cans.filter(c => c.poured > 0.02).map(c => c.d); return avgColor(ds.length ? ds : game.selected); },
   draw() { const b = this.beaker, z = this.zone;
+    drawSideTable(W * 0.06, W * 0.46, H * 0.60);
     drawBeaker(b, () => { if (this.fill > 0.001) { const col = this.chargeColor(), base = b.y + b.h / 2, top = base - (b.h * 0.66) * this.fill; fillLiquid(b.x - b.w / 2, b.w, top, base, col, col, this.t, 0.12, 0.15); } });
     const anyIn = this.drag && Math.hypot(this.drag.x - z.x, this.drag.y - z.y) < z.r;
     G.strokeStyle = anyIn ? 'rgba(79,224,138,.85)' : 'rgba(120,150,140,.4)'; G.lineWidth = 2; G.setLineDash([6, 5]); G.beginPath(); G.arc(z.x, z.y, z.r, 0, 7); G.stroke(); G.setLineDash([]);
     G.fillStyle = 'rgba(111,138,124,.7)'; G.font = '9px monospace'; G.textAlign = 'center'; G.fillText('POUR ZONE', z.x, z.y - z.r - 6);
-    this.cans.forEach(p => { const ry = p.home.y + 30; G.strokeStyle = 'rgba(120,150,140,.14)'; G.lineWidth = 2; G.beginPath(); G.moveTo(p.home.x - 42, ry); G.lineTo(p.home.x + 42, ry); G.stroke(); G.fillStyle = 'rgba(0,0,0,.28)'; G.fillRect(p.home.x - 42, ry, 84, 3); });
     this.drips.forEach(d => { G.globalAlpha = 1 - d.life / 0.6; G.fillStyle = d.col; G.beginPath(); G.arc(d.x, d.y, 2.2, 0, 7); G.fill(); }); G.globalAlpha = 1;
     this.cans.forEach(p => { if (p.done) return;
       if (this.drag === p && p.poured > 0 && p.poured < 1) { G.strokeStyle = p.d.color; G.globalAlpha = .7; G.lineWidth = 3; G.beginPath(); G.moveTo(p.x, p.y + 6); G.lineTo(b.x + rnd(4, -4), b.y - b.h / 2 + 10); G.stroke(); G.globalAlpha = 1; }
-      const groundY = p.home.y + 40, lift = clamp((groundY - p.y) / 140, 0, 1);
+      const groundY = H * 0.60, lift = clamp((groundY - p.y) / 140, 0, 1);
       G.save(); G.globalAlpha = .4 * (1 - lift * .5); G.fillStyle = '#000'; G.beginPath(); G.ellipse(p.x, groundY, 20 + lift * 8, 5, 0, 0, 7); G.fill(); G.restore();
       drawPackage(p.d, p.x, p.y, false, this.hover === p || this.drag === p, this.t, { tilt: p.tilt, slosh: p.slosh, warn: p.warn, held: this.drag === p });
     });
+    drawCarryWarn(this);
   },
 };
 

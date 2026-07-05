@@ -510,34 +510,13 @@ const server = createServer(async (req, res) => {
 			);
 		}
 
-		// Code lane — regress only (no push), for a quick pre-check.
+		// Code lane — regress only (no push), for a quick pre-check. Code is pushed
+		// with plain `git push`; the pre-push hook (scripts/git-hooks/pre-push) runs
+		// this same gate automatically. Relay no longer pushes code — that kept a
+		// second git actor off the shared working tree, which was the source of the
+		// stash-and-clash mess during simultaneous pushes.
 		if (req.url === "/api/regress" && req.method === "POST") {
 			return streamSeq(REGRESS_STEPS, res);
-		}
-
-		// Code lane — the regress-gated push. Server enforces the gate + fast-forward.
-		if (req.url === "/api/ship" && req.method === "POST") {
-			const s = await status();
-			const g = s.git;
-			const blocker = !g.hasUpstream
-				? "no upstream tracking branch to push to."
-				: g.diverged
-					? "branch has diverged — Sync and resolve first."
-					: g.behind > 0
-						? `${g.behind} commit(s) behind — Sync first so the push fast-forwards.`
-						: g.ahead === 0
-							? "nothing to push — no local commits ahead of the remote."
-							: "";
-			if (blocker) {
-				res.writeHead(409, {
-					"Content-Type": "text/plain; charset=utf-8",
-				});
-				return res.end(`✗ Can't ship: ${blocker}`);
-			}
-			return streamSeq(
-				[...REGRESS_STEPS, ["Push", "git", ["push"]]],
-				res,
-			);
 		}
 
 		// Production lane — additive content deploy. Gated by: typed confirmation,
@@ -656,7 +635,7 @@ const PAGE = `<!DOCTYPE html>
       <img class="logo" src="/favicon.ico" alt="Architect">
       <div>
         <h1>◆ THE RELAY</h1>
-        <div class="sub">Ship world + code between architects — with a pre-flight check.</div>
+        <div class="sub">Ship world content between architects — and pre-flight your code push.</div>
       </div>
     </div>
     <div class="links">
@@ -693,10 +672,9 @@ const PAGE = `<!DOCTYPE html>
   </div>
 
   <div class="card">
-    <div class="lane-title">Code — regress-gated push</div>
+    <div class="lane-title">Code — push with plain git</div>
     <div class="actions">
       <button class="ghost" id="regress">▶ Run regress</button>
-      <button id="ship">⇧ Ship code</button>
     </div>
     <div class="hint" id="codeHint"></div>
   </div>
@@ -728,7 +706,7 @@ const PAGE = `<!DOCTYPE html>
 <script>
 const $ = (id) => document.getElementById(id);
 let st = null;
-let streaming = false;  // an action (publish/sync/ship/deploy/launch) is running
+let streaming = false;  // an action (publish/sync/regress/deploy/launch) is running
 let refreshing = false; // a status refresh is in flight — avoid overlapping polls
 
 function line(cls, label, msg) {
@@ -780,17 +758,15 @@ async function refreshInner() {
   else html += line('mute', 'No PROD_DATABASE_URL', 'prod deploy disabled');
 
   if (g.seedDirty) html += line('warn', 'db/seed.sql has uncommitted edits', 'publish will commit it');
-  if (g.otherDirty.length) html += line('warn', g.otherDirty.length + ' uncommitted code file(s)', 'commit in git before Ship — Relay pushes commits, not working changes');
+  if (g.otherDirty.length) html += line('warn', g.otherDirty.length + ' uncommitted code file(s)', 'commit + push in git — the pre-push hook gates it with regress');
   if (!g.seedDirty && !g.otherDirty.length) html += line('ok', 'Working tree clean', '');
 
   $('checks').innerHTML = html;
 
   const canPublish = d.isLocal && !g.diverged;
-  const canShip = g.hasUpstream && !g.diverged && g.behind === 0 && g.ahead > 0;
   $('publish').disabled = !canPublish;
   $('sync').disabled = false;
   $('regress').disabled = false;
-  $('ship').disabled = !canShip;
   $('launch').disabled = sv.running;
   $('launch').textContent = sv.running ? '🏚 Server up' : '🏚 Launch server';
   $('stop').disabled = !sv.running;
@@ -806,10 +782,10 @@ async function refreshInner() {
     ? 'Publish disabled: point .env DATABASE_URL back at localhost.'
     : g.behind > 0 ? 'Tip: Sync before publishing so your push fast-forwards.' : '';
   $('codeHint').textContent = !g.hasUpstream ? 'No upstream branch set.'
-    : g.diverged ? 'Ship disabled: resolve the diverged branch first.'
-    : g.behind > 0 ? 'Ship disabled: Sync first (' + g.behind + ' behind).'
-    : g.ahead === 0 ? 'Nothing to ship — commit code first, then Ship runs regress and pushes.'
-    : 'Ship runs the full regress suite; it only pushes if regress is green.';
+    : g.diverged ? 'Branch diverged — Sync and resolve before you push.'
+    : g.behind > 0 ? 'Pull/Sync first (' + g.behind + ' behind) so your push fast-forwards.'
+    : g.ahead === 0 ? 'Commit your code in git, then push with: git push'
+    : g.ahead + ' commit(s) ready. Push with: git push — the pre-push hook runs regress and blocks a red push. (▶ Run regress here for a pre-check.)';
 
   loadActivity(); // fire-and-forget; refreshes the feed on every recheck
 }
@@ -926,7 +902,6 @@ $('drift').onclick = checkDrift;
 $('publish').onclick = () => runStream('/api/publish', { message: $('msg').value }, 'Publishing');
 $('sync').onclick = () => runStream('/api/sync', {}, 'Syncing');
 $('regress').onclick = () => runStream('/api/regress', {}, 'Running regress');
-$('ship').onclick = () => runStream('/api/ship', {}, 'Shipping code');
 $('deploy').onclick = () => {
   const host = (st && st.prod && st.prod.host) || 'production';
   const answer = prompt('This pushes your LOCAL content to PRODUCTION (' + host + ').\\nIt runs regress, backs prod up first, and only ADDS content.\\n\\nType DEPLOY to proceed:');

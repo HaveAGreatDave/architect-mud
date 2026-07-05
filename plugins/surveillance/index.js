@@ -1265,6 +1265,20 @@ async function nakedAmong(playerIds) {
   return new Set(playerIds.filter(id => !covered.has(id)));
 }
 
+// Players carrying any raw drug material (precursors / feedstock / seeds — tags.raw_drug)
+// out in the open. Raw stashed inside a container (container_id set) is hidden from a
+// street camera or a cop's eyeball — a bag beats a glance. The Scald→city checkpoint
+// scanner (smuggle plugin) is not so easily fooled: it sees bagged raw too.
+async function rawAmong(playerIds) {
+  if (!playerIds.length) return new Set();
+  const { rows } = await query(
+    `SELECT DISTINCT pi.player_id FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id = ANY($1) AND pi.container_id IS NULL AND jsonb_exists(i.tags, 'raw_drug')`,
+    [playerIds]
+  ).catch(() => ({ rows: [] }));
+  return new Set(rows.map(r => r.player_id));
+}
+
 // Each tick: refresh the naked-in-view offences, then roll a witness catch on
 // every active offence, the camera odds ramping with how long it's been running.
 async function scanActiveCrimes() {
@@ -1292,6 +1306,19 @@ async function scanActiveCrimes() {
   }
   for (const [pid, m] of activeCrimes) {
     if (m.has('indecent_exposure') && !nakedNow.has(pid)) endActiveCrime(pid, 'indecent_exposure');
+  }
+
+  // 1b. Manufacturing: players carrying raw drug material where a witness could see them.
+  const rawSet = await rawAmong(candidates.map(c => c.id));
+  const rawNow = new Set();
+  for (const c of candidates) {
+    if (!rawSet.has(c.id)) continue;
+    rawNow.add(c.id);
+    beginActiveCrime(c.id, 'manufacturing', c.zone);
+    activeCrimes.get(c.id).get('manufacturing').zoneId = c.zone;   // follow them between zones
+  }
+  for (const [pid, m] of activeCrimes) {
+    if (m.has('manufacturing') && !rawNow.has(pid)) endActiveCrime(pid, 'manufacturing');
   }
 
   // 2. Roll a witness catch on every active offence.

@@ -1,0 +1,13 @@
+{
+  "name": "smuggle",
+  "version": "2.0.0",
+  "description": "The raw-drug supply loop (Phase 2). Place black-market raw orders **through a fence NPC's dialogue** (Sully at the Pigeon Bar, unlocked by reaching the covert dealer's inner circle); a MULE drone drops a cipher-locked crate at a far lawless airstrip (the Scald); `unpack` it there to claim the raw and build standing with the fence (which widens his order menu), then smuggle the raw back past a scanner checkpoint into the city (Deception check scaled to cook_tier; fail = Manufacturing WANTED_RAISE + bounce + 45s heat). Registers the PLACE_SMUGGLE_ORDER dialogue action.",
+  "after": ["surveillance", "commerce"],
+  "actions": {
+    "tagGated": [
+      { "verb": "unpack", "requiredTag": "mule_crate" }
+    ]
+  },
+  "dataSchema": ["smuggle_orders"],
+  "ticks": ["MULE delivery landing (1m)"]
+}

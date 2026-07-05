@@ -38,6 +38,7 @@ export const CRIME_DEFAULTS = {
   curfew_violation:    { label: 'Curfew violation',              stars: 1,   witness: 'any',    description: 'Wandering outdoors during an active lockdown.' },
   looting:             { label: 'Looting',                       stars: 1,   witness: 'any',    description: 'Looting a corpse in view of a witness.' },
   contraband_possession: { label: 'Contraband possession',       stars: 1,   witness: 'any',    description: 'Carrying illicit goods past a checkpoint or scanner.' },
+  manufacturing:       { label: 'Manufacturing a controlled substance', stars: 4, witness: 'any', description: 'Caught carrying raw drug material — precursors, feedstock, seeds. A manufacturing felony, well past mere possession.' },
   trespassing:         { label: 'Trespassing',                   stars: 0.5, witness: 'any',    description: 'Entering restricted or private property uninvited.' },
   jamming_signal:      { label: 'Signal jamming',                stars: 1.5, witness: 'camera', description: "Jamming a security network's transmission." },
   bribery_attempt:     { label: 'Attempted bribery',              stars: 0.5, witness: 'camera', description: 'Attempting to bribe an officer on camera.' },

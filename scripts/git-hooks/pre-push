@@ -1,12 +1,60 @@
 #!/bin/sh
-# Before pushing (which triggers the Render auto-deploy), make sure the Dev Log
-# commit history in the DB is complete. The deployed host has a shallow clone and
-# can't build the history itself, so we sync from this full clone first.
-# Incremental (hash-diff) so it's fast, and best-effort so it NEVER blocks a push.
+# Pre-push gate. Two jobs, in order:
+#
+#   1. Regression gate — if the push contains any CODE change, run the full
+#      regress suite and BLOCK the push if it's red. Content-only pushes (just
+#      db/seed.sql) skip it — that's the World lane, and regress can't tell you
+#      anything about a seed dump. This is the same gate Relay's "Ship" button
+#      used to run, moved here so it fires no matter how you push (terminal,
+#      Relay, IDE) and can never race a second tool mutating the working tree.
+#      Bypass in a genuine emergency with:  git push --no-verify
+#
+#   2. Dev Log sync — the deployed host has a shallow clone and can't rebuild the
+#      commit history, so we sync it from this full clone first. Best-effort; a
+#      DB outage never blocks the push.
+#
+# Enabled via core.hooksPath scripts/git-hooks (run: npm run hooks:install).
 
 root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 cd "$root" || exit 0
 
+# All-zeros object id (a deleted or brand-new ref). Works for SHA-1 and SHA-256.
+is_zero() { case "$1" in *[!0]*) return 1 ;; *) return 0 ;; esac; }
+
+# --- 1. Regression gate ------------------------------------------------------
+# Read the refs git is about to push (stdin: <lref> <loid> <rref> <roid>) and
+# decide whether any non-seed file is going out. Read directly (no pipe) so the
+# flag survives the loop.
+needs_regress=0
+while read -r local_ref local_oid remote_ref remote_oid; do
+  is_zero "$local_oid" && continue          # branch deletion — nothing to gate
+  if is_zero "$remote_oid"; then
+    needs_regress=1                          # new branch on remote — gate to be safe
+    continue
+  fi
+  changed=$(git diff --name-only "$remote_oid" "$local_oid" 2>/dev/null)
+  # Anything in this push that ISN'T db/seed.sql means it's a code push.
+  other=$(printf '%s\n' "$changed" | grep -v '^db/seed\.sql$' | grep -v '^$')
+  [ -n "$other" ] && needs_regress=1
+done
+
+if [ "$needs_regress" = 1 ]; then
+  echo "[relay-gate] code changes in this push — running regression gate…"
+  node scripts/kill-orphans.js >/dev/null 2>&1   # sweep orphaned pool connections first
+  if node tests/regress.js </dev/null; then
+    echo "[relay-gate] regress green — push allowed."
+  else
+    echo ""
+    echo "✗ [relay-gate] Regression suite FAILED — push BLOCKED."
+    echo "  Fix the failures, then push again."
+    echo "  (Real emergency only:  git push --no-verify)"
+    exit 1
+  fi
+else
+  echo "[relay-gate] content-only push (db/seed.sql) — regress skipped."
+fi
+
+# --- 2. Dev Log commit-history sync (best-effort) ----------------------------
 echo "[dev-log] syncing commit history before push…"
 if node scripts/sync-commits.js >/dev/null 2>&1; then
   echo "[dev-log] commit history synced."

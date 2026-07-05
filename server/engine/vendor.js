@@ -147,7 +147,9 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
       await setFlag('player', npc.flags.trust_flag, String(newTrust), player);
       if (newTrust >= cap && npc.flags?.inner_circle_flag && !(await getFlag('player', npc.flags.inner_circle_flag, player))) {
         await setFlag('player', npc.flags.inner_circle_flag, 'true', player);
-        trustLine = `\n<span class="msg-system">The figure holds your gaze a moment longer than usual. "You're solid. Anything I've got, you can have. And I might have work for someone like you."</span>`;
+        // NPC-configurable payoff line (flags.inner_circle_line) — lets a dealer
+        // point a made regular at the next rung (e.g. the black-market fence).
+        trustLine = `\n<span class="msg-system">${npc.flags.inner_circle_line || `The figure holds your gaze a moment longer than usual. "You're solid. Anything I've got, you can have. And I might have work for someone like you."`}</span>`;
       }
     }
   }

@@ -5,7 +5,7 @@ function compileBsm(text) {
   const lines = text.split('\n');
   let i = 0;
 
-  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live' };
+  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '' };
   const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [] };
 
   // Pre-scan ::actors block to build alias map and actor list.
@@ -29,7 +29,9 @@ function compileBsm(text) {
 
   const nodes = {};
   const assets = [];
-  const weatherPools = {};    // pool_key → [line, …]  (only meaningful for @type weather)
+  const weatherPools = {};    // pool_key → [line, …]  (only meaningful for @type weather AND @type sports — both use ::lines pools)
+  const teams = [];           // team names from ::teams block  (only meaningful for @type sports)
+  const players = [];         // player names from ::players block (only meaningful for @type sports)
   const messages = [];
   const rooms = [];           // zone IDs from ROOM directives (ordered, deduplicated)
   const cameraNumbers = [];   // unique CAM numbers in order of first appearance
@@ -107,6 +109,8 @@ function compileBsm(text) {
         else if (key === 'host') meta.host = val;
         else if (key === 'length') meta.length = parseFloat(val);
         else if (key === 'type') meta.type = val.toLowerCase();
+        else if (key === 'sport') meta.sport = val.toLowerCase();               // sports: which sim to run (baseball)
+        else if (key === 'announcer') meta.announcer = val.replace(/^["']|["']$/g, ''); // sports: play-by-play voice — a name string, NOT an npc_ id
         else if (key === 'titlecard') meta.titlecard = val;   // weather: graphic id shown before the report
         // @actor / @alias are pre-scanned from ::actors block; skip here
       }
@@ -132,6 +136,29 @@ function compileBsm(text) {
       const content = collectBlock('::endlines');
       const opts = content.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('#'));
       if (key && opts.length) (weatherPools[key] || (weatherPools[key] = [])).push(...opts);
+      continue;
+    }
+
+    // ── Sports team pool (::teams … ::endteams) — one team name per line ──────
+    // The sports runner picks two (home + away) at random per airing. Surrounding
+    // quotes are stripped so names with spaces can be quoted if desired.
+    if (ln === '::teams') {
+      i++;
+      const content = collectBlock('::endteams');
+      for (const s of content.split('\n').map(t => t.trim()).filter(t => t && !t.startsWith('#'))) {
+        teams.push(s.replace(/^["']|["']$/g, ''));
+      }
+      continue;
+    }
+
+    // ── Sports player-name pool (::players … ::endplayers) ───────────────────
+    // The runner deals nine names to each team's lineup per airing.
+    if (ln === '::players') {
+      i++;
+      const content = collectBlock('::endplayers');
+      for (const s of content.split('\n').map(t => t.trim()).filter(t => t && !t.startsWith('#'))) {
+        players.push(s.replace(/^["']|["']$/g, ''));
+      }
       continue;
     }
 
@@ -367,5 +394,11 @@ function compileBsm(text) {
   if (meta.type === 'weather' && meta.host) npcIds.add(meta.host);
   const weatherScript = { pools: weatherPools, host: meta.host, title: meta.titlecard || '' };
 
-  return { meta, broadcastGraph: { _start: startId, nodes }, weatherScript, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };
+  // Sports broadcasts (@type sports) supply a line library plus team/player pools; the
+  // server assembles a fresh simulated game each airing. The announcer is a plain name
+  // string spoken as narration — deliberately NOT added to npcIds, so importing a sports
+  // broadcast never spawns a studio NPC. See docs/bsm-format.md#sports-broadcasts-type-sports.
+  const sportsScript = { sport: meta.sport || 'baseball', announcer: meta.announcer, teams, players, pools: weatherPools, title: meta.titlecard || '' };
+
+  return { meta, broadcastGraph: { _start: startId, nodes }, weatherScript, sportsScript, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };
 }

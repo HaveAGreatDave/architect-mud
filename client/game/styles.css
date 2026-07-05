@@ -6006,6 +6006,29 @@ textarea {
 	scrollbar-width: none;
 }
 #mediadeck-preview-msgs::-webkit-scrollbar { display: none; }
+/* Dead-air placeholder: when the linked channel has nothing on air at all (no
+   live signal, no scheduled content, no tape), the little monitor shows a red
+   [NO BROADCAST] card instead of a blank/stale screen — like a TV's NO SIGNAL. */
+#mediadeck-no-broadcast {
+	position: absolute;
+	left: 0; right: 0; top: 23px; bottom: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	letter-spacing: 3px;
+	color: #ff3b3b;
+	text-shadow: 0 0 8px rgba(255, 59, 59, 0.6);
+	background: rgba(4, 12, 16, 0.82);
+	pointer-events: none;
+	animation: mediadeck-nobroadcast-pulse 1.8s ease-in-out infinite;
+}
+#mediadeck-no-broadcast[hidden] { display: none; }
+@keyframes mediadeck-nobroadcast-pulse {
+	0%, 100% { opacity: 0.55; }
+	50%      { opacity: 1; }
+}
 .mediadeck-preview-line {
 	font-size: 10px;
 	line-height: 1.4;
@@ -6340,8 +6363,8 @@ textarea {
    deck-opening swings fully open; reels always visible through transparent glass. */
 .mediadeck-glass-cover {
 	position: absolute;
-	inset: 0;
-	border-radius: 6px;
+	inset: 4px;
+	border-radius: 4px;
 	/* Semi-transparent smoked glass with a diagonal sheen streak — reads as a
 	   real pane while the reels stay visible spinning behind it. */
 	background:
@@ -6363,7 +6386,9 @@ textarea {
 		inset 0 -1px 0 rgba(0,0,0,0.2),
 		0 -2px 6px rgba(200, 140, 255, 0.12);
 	transform-origin: bottom center;
-	transform: rotateX(-14deg);
+	/* At rest the pane sits flush against the shell (no tilt); it only swings out
+	   to show its 3D angle while the deck is opening/inserting/ejecting. */
+	transform: rotateX(0deg);
 	transition: transform 0.7s ease-in-out, border-top-width 0.7s ease-in-out;
 	z-index: 5;
 	pointer-events: none;
@@ -6401,7 +6426,18 @@ textarea {
 #mediadeck-slot.loaded .mediadeck-tape-head {
 	opacity: 1;
 	transform: translateY(0) scaleY(1);
+	filter: brightness(1);
 	box-shadow: 0 1px 2px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2), 0 0 5px rgba(0, 240, 255, 0.25);
+}
+/* On eject the capstans sink back into their sockets FIRST (fast), so they're
+   already recessed as the tape lifts away. Placed after the .loaded rule so it
+   wins while .loaded is still set at the very start of the eject. */
+#mediadeck-slot.ejecting .mediadeck-tape-guide,
+#mediadeck-slot.ejecting .mediadeck-tape-head {
+	transform: translateY(4px) scaleY(0.42);
+	filter: brightness(0.5);
+	box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.85);
+	transition: transform 0.16s ease-in, filter 0.16s ease-in, box-shadow 0.16s ease-in;
 }
 .mediadeck-cassette-label-strip {
 	/* Pinned to the lower face of the shell so it clears the centred reels/head
@@ -6497,9 +6533,13 @@ textarea {
 .mediadeck-tape-guide,
 .mediadeck-tape-head {
 	position: relative;
-	/* Recessed by default: sunk down into their sockets until a tape lifts them. */
-	transform: translateY(2px) scaleY(0.8);
-	transition: opacity 0.3s, transform 0.4s ease, box-shadow 0.4s ease;
+	/* Recessed by default: sunk down flush into their sockets and darkened, so an
+	   empty deck reads as bare holes with nothing standing proud until a tape
+	   seats and lifts them. */
+	transform: translateY(4px) scaleY(0.42);
+	filter: brightness(0.5);
+	box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.85);
+	transition: opacity 0.3s, transform 0.35s ease, box-shadow 0.35s ease, filter 0.35s ease;
 }
 .mediadeck-tape-guide::before,
 .mediadeck-tape-head::before {
@@ -6926,6 +6966,76 @@ textarea {
 	padding-top: 45px;
 	padding-bottom: 172px;
 }
+
+/* ── Sports score-bug (persistent overlay) ─────────────────────────────────────
+   Top-left "bug" that stays on-screen for the whole game and updates in place.
+   Sport-agnostic: two team/score rows + a status line, always. Baseball adds the
+   base diamond + out dots when the payload carries them; other sports omit those
+   and the bug shows just scores + status. Themed off the channel's TV vars. */
+#tv-scorebug {
+	position: absolute;
+	top: 52px;
+	left: 10px;
+	z-index: 45;
+	display: none;
+	pointer-events: none;
+	background: rgba(0, 0, 0, 0.82);
+	border: 1px solid var(--tv-border);
+	border-left: 3px solid var(--tv-header-color);
+	border-radius: 2px;
+	overflow: hidden;
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+	animation: tv-sb-in 0.3s ease-out;
+}
+#tv-scorebug.on { display: flex; }
+.tv-sb-scores { display: flex; flex-direction: column; min-width: 80px; }
+.tv-sb-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 3px 9px;
+	font-size: 13px;
+	line-height: 1.25;
+	color: rgba(220, 240, 235, 0.8);
+}
+.tv-sb-row:first-child { border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.tv-sb-row.lead { color: #fff; }
+.tv-sb-row.lead .tv-sb-num { color: var(--tv-header-color); }
+.tv-sb-team { font-weight: bold; letter-spacing: 1px; }
+.tv-sb-num { font-weight: bold; font-variant-numeric: tabular-nums; min-width: 16px; text-align: right; }
+.tv-sb-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 3px;
+	padding: 4px 9px;
+	background: rgba(255, 255, 255, 0.04);
+	border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+.tv-sb-diamond { width: 26px; height: 26px; display: block; }
+.tv-sb-base { fill: rgba(255, 255, 255, 0.12); stroke: rgba(255, 255, 255, 0.35); stroke-width: 1; }
+.tv-sb-base.on { fill: var(--tv-header-color); stroke: var(--tv-header-color); }
+.tv-sb-status {
+	font-size: 9px;
+	letter-spacing: 1px;
+	color: var(--tv-header-color);
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+.tv-sb-outs { display: flex; gap: 3px; }
+.tv-sb-out {
+	width: 5px; height: 5px; border-radius: 50%;
+	background: rgba(255, 255, 255, 0.18);
+	border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.tv-sb-out.on { background: #ff3344; border-color: #ff3344; }
+@keyframes tv-sb-in {
+	from { opacity: 0; transform: translateY(-6px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
 /* Lower-third nameplate */
 .tv-overlay-text-card {
 	text-align: center;
@@ -7343,7 +7453,9 @@ textarea {
 		inset 0 1px 0 rgba(255,255,255,0.14),
 		inset 0 -1px 0 rgba(0,0,0,0.2);
 	transform-origin: bottom center;
-	transform: rotateX(-14deg);
+	/* At rest the pane sits flush against the shell (no tilt); it only swings out
+	   to show its 3D angle while the deck is opening/inserting/ejecting. */
+	transform: rotateX(0deg);
 	transition: transform 0.7s ease-in-out, border-top-width 0.7s ease-in-out;
 	z-index: 5;
 	pointer-events: none;
@@ -7384,7 +7496,18 @@ textarea {
 .amp-cassette-body.loaded ~ .amp-tape-center .amp-tape-head {
 	background: linear-gradient(to bottom, var(--text-dim), var(--bg3));
 	transform: translateY(0) scaleY(1);
+	filter: brightness(1);
 	box-shadow: 0 1px 2px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.22);
+}
+/* On eject the capstans sink back into their sockets FIRST (fast), so they're
+   already recessed as the tape lifts away. Same specificity as the .loaded rule
+   above but placed after it, so it wins at the very start of the eject. */
+.amp-cassette-window.ejecting .amp-tape-center .amp-tape-guide,
+.amp-cassette-window.ejecting .amp-tape-center .amp-tape-head {
+	transform: translateY(4px) scaleY(0.42);
+	filter: brightness(0.5);
+	box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.85);
+	transition: transform 0.16s ease-in, filter 0.16s ease-in, box-shadow 0.16s ease-in;
 }
 .amp-cassette-label-strip {
 	/* Stuck-on paper label, off-white with dark hand-labelled text — its own
@@ -7500,10 +7623,13 @@ textarea {
 .amp-tape-guide,
 .amp-tape-head {
 	position: relative;
-	/* Recessed by default: the capstan/guides sit sunk down into their sockets
-	   (dropped + foreshortened) until a tape locks in and lifts them proud. */
-	transform: translateY(2px) scaleY(0.8);
-	transition: opacity 0.3s, background 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease;
+	/* Recessed by default: the capstan/guides sit sunk down flush into their
+	   sockets (dropped + foreshortened + darkened) so an empty slot reads as bare
+	   holes until a tape locks in and lifts them proud. */
+	transform: translateY(4px) scaleY(0.42);
+	filter: brightness(0.5);
+	box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.85);
+	transition: opacity 0.3s, background 0.4s ease, transform 0.35s ease, box-shadow 0.35s ease, filter 0.35s ease;
 }
 .amp-tape-guide::before,
 .amp-tape-head::before {

@@ -772,7 +772,7 @@ export async function describeApartmentStatus(zone) {
 	if (!isApartmentZone(zone)) return "";
 	const apt = getApartment(zone.id);
 	if (!apt?.owner_id) {
-		return `\n<span class="apartment-label">This unit is unowned.</span> (RENT to claim it for ${apt?.rent_cost ?? 100}c/week)`;
+		return `\n<span class="apartment-label">This unit is unowned.</span> (<span class="action-link" data-raw-cmd="rent" title="Rent this unit">RENT</span> to claim it for ${apt?.rent_cost ?? 100}c/week)`;
 	}
 	const lockState = apt.is_locked ? "locked" : "unlocked";
 	if (apt.owner_type === 'org') {

@@ -71,6 +71,7 @@ async function openDrugEditorFromForm() {
   const _sb = g('f-sub')?.value.trim(); if (_sb) flags.sub = _sb; else delete flags.sub;
   if (g('f-color-on')) { if (g('f-color-on').checked) flags.color = g('f-color')?.value; else delete flags.color; }
   const _vv = g('f-volatility')?.value; if (_vv == null || _vv === '') delete flags.volatility; else flags.volatility = Math.max(0, Math.min(1, +_vv));
+  const _ct = g('f-cook_tier')?.value; if (_ct == null || _ct === '') delete flags.cook_tier; else flags.cook_tier = Math.max(1, Math.min(5, Math.round(+_ct)));
   const rec = {
     id: g('f-id')?.value || '',
     name: g('f-name')?.value || '',
@@ -144,6 +145,7 @@ function openDrugEditorModal(rec, isNew) {
             <label style="font-size:12px;display:flex;gap:4px;align-items:center"><input type="checkbox" id="dg-color_on" ${rec.flags?.color ? 'checked' : ''} style="width:auto"> custom</label>
           </div></div>
         ${_num('volatility', 'Volatility (0–1)', rec.flags?.volatility, 0.05, 'auto')}
+        ${_num('cook_tier', 'Cook tier (1–5)', rec.flags?.cook_tier, 1, 'auto')}
       </div>
 
       ${_hdr('⚡ Instant (one-shot deltas)')}
@@ -315,6 +317,7 @@ async function _dgSave() {
   { const v = _v('sub').trim(); if (v) flags.sub = v; else delete flags.sub; }
   { const on = document.getElementById('dg-color_on'); if (on) { if (on.checked) flags.color = _v('color'); else delete flags.color; } }
   { const v = _v('volatility'); if (v === '') delete flags.volatility; else flags.volatility = Math.max(0, Math.min(1, Number(v))); }
+  { const v = _v('cook_tier'); if (v === '') delete flags.cook_tier; else flags.cook_tier = Math.max(1, Math.min(5, Math.round(Number(v)))); }
 
   const body = {
     name: _v('name'), description: _v('description'), item_id: _v('item_id') || null,

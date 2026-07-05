@@ -629,6 +629,12 @@ document.getElementById("area-content")?.addEventListener("click", (e) => {
 function handleActionLinkClick(e) {
 	const el = e.target.closest(".action-link");
 	if (!el) return;
+	// Verbatim-command links (SIFT picks, RENT prompt, …) bypass the
+	// action+target verb construction below and send the raw text as-is.
+	if (el.dataset.rawCmd) {
+		sendCmd(el.dataset.rawCmd, el.dataset.label);
+		return;
+	}
 	const action = el.dataset.action;
 	const target = el.dataset.target;
 	if (!action || !target) return;

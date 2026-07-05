@@ -120,22 +120,22 @@ export function drawLabProps(t, pw) {
   G.beginPath(); G.moveTo(tx - 20, H * 0.46); G.lineTo(tx - 20, H * 0.46 + 40); G.stroke(); G.beginPath(); G.arc(tx - 20, H * 0.46 + 44, 4, 0, 7); G.stroke(); G.restore();
   // bench glassware still-life (behind the hero glass)
   G.save(); G.globalAlpha = pw; G.lineWidth = 1.4;
-  { const x = W * 0.19, y = H * 0.78, w = 16, h = 64; // graduated cylinder
+  { const x = W * 0.80, y = H * 0.78, w = 16, h = 64; // graduated cylinder
     G.fillStyle = '#4f9ae0'; G.globalAlpha = pw * .75; G.fillRect(x - w / 2 + 2, y - h * 0.55, w - 4, h * 0.55 - 2); G.globalAlpha = pw;
     G.strokeStyle = 'rgba(200,235,240,.45)'; G.strokeRect(x - w / 2, y - h, w, h);
     G.strokeStyle = 'rgba(200,235,240,.22)'; for (let i = 1; i < 6; i++) { const ty = y - h * (i / 6); G.beginPath(); G.moveTo(x + w / 2 - 5, ty); G.lineTo(x + w / 2, ty); G.stroke(); }
     G.fillStyle = 'rgba(255,255,255,.16)'; G.fillRect(x - w / 2 + 3, y - h + 5, 2.5, h - 10); G.fillStyle = '#2a343a'; G.fillRect(x - w / 2 - 3, y, w + 6, 4); }
-  { const x = W * 0.81, y = H * 0.78, r = 26, nw = 9, top = y - r * 2.1; // Erlenmeyer flask
+  { const x = W * 0.95, y = H * 0.78, r = 26, nw = 9, top = y - r * 2.1; // Erlenmeyer flask
     G.strokeStyle = 'rgba(200,235,240,.45)'; G.beginPath(); G.moveTo(x - nw, top); G.lineTo(x - nw, top + 14); G.lineTo(x - r, y); G.lineTo(x + r, y); G.lineTo(x + nw, top + 14); G.lineTo(x + nw, top); G.stroke();
     G.save(); G.beginPath(); G.moveTo(x - nw, top + 14); G.lineTo(x - r, y); G.lineTo(x + r, y); G.lineTo(x + nw, top + 14); G.closePath(); G.clip();
     G.fillStyle = '#7de07a'; G.globalAlpha = pw * .75; G.fillRect(x - r, y - r * 0.85, r * 2, r * 0.85); G.restore(); G.globalAlpha = pw;
     G.fillStyle = '#2a343a'; G.fillRect(x - nw - 2, top - 4, nw * 2 + 4, 5); }
-  { const x = W * 0.30, y = H * 0.80, w = 30, h = 30; // beaker with dregs
+  { const x = W * 0.87, y = H * 0.80, w = 30, h = 30; // beaker with dregs
     G.fillStyle = '#e0b64f'; G.globalAlpha = pw * .65; G.fillRect(x - w / 2 + 2, y - h * 0.38, w - 4, h * 0.38 - 2); G.globalAlpha = pw;
     G.strokeStyle = 'rgba(200,235,240,.4)'; G.beginPath(); G.moveTo(x - w / 2, y - h); G.lineTo(x - w / 2, y); G.lineTo(x + w / 2, y); G.lineTo(x + w / 2, y - h); G.stroke();
     G.strokeStyle = 'rgba(220,245,250,.55)'; G.beginPath(); G.moveTo(x - w / 2 - 3, y - h); G.lineTo(x + w / 2 + 3, y - h); G.stroke();
     G.fillStyle = 'rgba(255,255,255,.16)'; G.fillRect(x - w / 2 + 3, y - h + 5, 2.5, h - 10); }
-  { const x = W * 0.50, y = H * 0.84, rw = 66, tc = ['#e0644f', '#5fd0e0', '#e05cc0', '#9a5ce0']; // test-tube rack
+  { const x = W * 0.86, y = H * 0.87, rw = 66, tc = ['#e0644f', '#5fd0e0', '#e05cc0', '#9a5ce0']; // test-tube rack
     G.fillStyle = 'rgba(40,50,44,.85)'; G.fillRect(x - rw / 2, y, rw, 6); G.fillStyle = 'rgba(28,36,32,.85)'; G.fillRect(x - rw / 2, y + 6, rw, 4);
     for (let i = 0; i < 4; i++) { const tx = x - rw / 2 + 12 + i * 14, th = 26;
       G.strokeStyle = 'rgba(200,235,240,.4)'; G.beginPath(); G.moveTo(tx - 4, y - th); G.lineTo(tx - 4, y - 4); G.arc(tx, y - 4, 4, Math.PI, 0, true); G.lineTo(tx + 4, y - th); G.stroke();
@@ -143,6 +143,21 @@ export function drawLabProps(t, pw) {
   G.restore();
   // grime bloom
   G.fillStyle = `rgba(30,44,24,${.05 * pw})`; G.beginPath(); G.ellipse(W * 0.5, H * 0.14, 200, 44, 0, 0, 7); G.fill();
+}
+
+// A side-view steel work table (drugs stand on topY). Cyberpunk neon underglow.
+export function drawSideTable(x0, x1, topY, accent) {
+  accent = accent || '79,224,138'; const w = x1 - x0;
+  const g1 = G.createLinearGradient(0, topY, 0, topY + 15); g1.addColorStop(0, '#2b343b'); g1.addColorStop(1, '#12181d');
+  G.fillStyle = g1; G.fillRect(x0, topY, w, 14);
+  G.fillStyle = 'rgba(0,0,0,.42)'; G.fillRect(x0, topY + 14, w, 6);
+  G.fillStyle = 'rgba(170,200,210,.13)'; G.fillRect(x0, topY, w, 3);
+  G.strokeStyle = 'rgba(120,160,170,.18)'; G.lineWidth = 1; for (let x = x0 + 2; x < x0 + w; x += 6) { G.beginPath(); G.moveTo(x, topY + 1); G.lineTo(x - 3, topY + 3); G.stroke(); }
+  const ng = G.createLinearGradient(0, topY + 18, 0, topY + 36); ng.addColorStop(0, `rgba(${accent},.35)`); ng.addColorStop(1, `rgba(${accent},0)`);
+  G.fillStyle = ng; G.fillRect(x0, topY + 18, w, 18);
+  G.strokeStyle = `rgba(${accent},.5)`; G.lineWidth = 1.5; G.beginPath(); G.moveTo(x0, topY + 17); G.lineTo(x0 + w, topY + 17); G.stroke();
+  G.fillStyle = '#161c21'; G.fillRect(x0 + 16, topY + 18, 12, H - topY - 18); G.fillRect(x0 + w - 28, topY + 18, 12, H - topY - 18);
+  G.fillStyle = 'rgba(120,160,170,.10)'; G.fillRect(x0 + 16, topY + 18, 3, H - topY - 18); G.fillRect(x0 + w - 28, topY + 18, 3, H - topY - 18);
 }
 
 // gritty steel bench + hazard stencil backdrop, shared by every stage
@@ -191,6 +206,9 @@ export function drawBeaker(b, fillFn) {
   G.fillStyle = sp; G.fillRect(x + 8, y + 22, 7, h - 52);
   const sp2 = G.createLinearGradient(x + w - 16, 0, x + w - 4, 0); sp2.addColorStop(0, 'rgba(255,255,255,0)'); sp2.addColorStop(.6, 'rgba(255,255,255,.12)'); sp2.addColorStop(1, 'rgba(255,255,255,0)');
   G.fillStyle = sp2; G.fillRect(x + w - 14, y + 30, 5, h - 70);
+  // caustic rim glints on the rounded base — a glassy pop (cyberpunk cyan on the far edge)
+  G.strokeStyle = 'rgba(255,255,255,.5)'; G.lineWidth = 2; G.beginPath(); G.arc(x + r, y + h - r, r - 4, Math.PI * 1.06, Math.PI * 1.36); G.stroke();
+  G.strokeStyle = 'rgba(150,235,255,.4)'; G.lineWidth = 1.4; G.beginPath(); G.arc(x + r, y + h - r, r - 5, Math.PI * -0.02, Math.PI * 0.22); G.stroke();
   G.restore();
 }
 export function drawBurner(b, heat, t) {
@@ -230,6 +248,9 @@ export const AX = (() => {
     pour: (on) => { if (on) loop('pour', { freq: 220, type: 'sawtooth', gain: .05, filt: 900, tremRate: 18, tremDepth: .5 }); else stop('pour'); },
     klaxon: () => { for (let i = 0; i < 4; i++) setTimeout(() => tone(440, .3, { type: 'sawtooth', gain: .25, to: 300 }), i * 260); noise(1.4, { gain: .3, freq: 1600, type: 'highpass' }); },
     shatter: () => { noise(.5, { gain: .4, freq: 3000, type: 'highpass', q: .5 }); for (let i = 0; i < 8; i++) setTimeout(() => tone(600 + Math.random() * 3000, .08, { type: 'triangle', gain: .08 }), Math.random() * 300); },
+    clink: () => { tone(2600, .05, { type: 'sine', gain: .09, to: 3400 }); tone(3800, .035, { type: 'sine', gain: .05 }); noise(.03, { gain: .05, freq: 5000, type: 'highpass' }); },
+    alarm: () => { tone(880, .12, { type: 'square', gain: .12 }); setTimeout(() => tone(660, .12, { type: 'square', gain: .12 }), 120); },
+    confirm: () => { tone(440, .1, { type: 'triangle', gain: .16, to: 660 }); setTimeout(() => tone(880, .16, { type: 'triangle', gain: .16 }), 90); setTimeout(() => tone(1320, .18, { type: 'sine', gain: .12 }), 180); },
   };
 })();
 

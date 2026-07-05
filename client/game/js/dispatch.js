@@ -27,7 +27,7 @@ import { openHololock } from './panels/hololock.js';
 import { openFishing } from './panels/fishing.js';
 import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting } from './panels/cockpit.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
-import { openSynthMinigame } from './panels/synthlab.js';
+import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
 import { openSpliceSelect, openSpliceStages } from './panels/splicelab.js';
 import { updateWantedHud } from './panels/wanted.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
@@ -545,6 +545,7 @@ const handlers = {
       skill: msg.skill ?? 4,
       difficulty: msg.difficulty ?? 5,
       emergency: !!msg.emergency,
+      vtol: !!msg.vtol,
       deviceName: msg.deviceName || 'FIELD',
       onResult: ({ won }) => sendCmdSilent(`landresolve ${msg.token} ${won ? 1 : 0}`),
     });
@@ -584,8 +585,9 @@ const handlers = {
         onResult: ({ score }) => sendCmdSilent(`spliceresolve ${msg.token} ${score}`),
       });
     } else {
-      // the basic cook gauge + quench beat
+      // the cook game — family (from the drug's form) picks the single-stage minigame
       openSynthMinigame({
+        family: msg.family || 'wet',
         difficulty: msg.difficulty ?? 5,
         recipeName: msg.recipeName || 'COMPOUND',
         workspace: msg.workspace || '',
@@ -596,6 +598,8 @@ const handlers = {
       });
     }
   },
+
+  cook_menu: (msg) => { openCookMenu(msg); },
 
   splice_designer: (msg) => { openSpliceSelect(msg); },
 

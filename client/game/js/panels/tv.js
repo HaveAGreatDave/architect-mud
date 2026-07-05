@@ -75,6 +75,7 @@ export function openTvPanel(data) {
     if (data.sounds.powerOff)_powerOffDef= { ...TV_POWER_OFF_DEF,config: data.sounds.powerOff.config };
   }
 
+  if ((data.channelId || null) !== _tvActiveChannelId) _clearScorebug();   // drop a stale bug when the dial moves
   _tvActiveChannelId = data.channelId || null;
   _tvOpen = true;
   _tvShuttingDown = false;
@@ -258,6 +259,7 @@ export function closeTvPanel() {
   if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
   if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
   _clearOverlay();
+  _clearScorebug();
   const win = document.getElementById('tv-window');
   win.classList.remove('tv-shutting-off');
   win.style.position = '';
@@ -293,6 +295,9 @@ export function shutdownTvPanel() {
 }
 
 export function applyTvOverlay(overlay) {
+  // The score-bug is a persistent layer (updated in place, its own container) —
+  // it must not be wiped by transient overlays, nor auto-dismiss on a timer.
+  if (overlay && overlay.overlayType === 'scorebug') { _applyScorebug(overlay); return; }
   _clearOverlay();
   const container = document.getElementById('tv-overlay-container');
   if (!container || !overlay) return;
@@ -329,6 +334,50 @@ function _clearOverlay() {
   if (_overlayTimer) { clearTimeout(_overlayTimer); _overlayTimer = null; }
   const container = document.getElementById('tv-overlay-container');
   if (container) container.innerHTML = '';
+}
+
+// Persistent sports score-bug. Sport-agnostic: always renders the two teams, their
+// scores, and a status line. Baseball adds the diamond + out dots when the payload
+// carries `bases`/`outs`; a sport without those (status = "Q3 08:42") simply shows
+// the bar with no diamond. Updated in place so it stays constant between plays.
+function _applyScorebug(sb) {
+  const host = document.getElementById('tv-scorebug');
+  if (!host) return;
+  const away = _esc(sb.awayAbbr || sb.away || 'AWY');
+  const home = _esc(sb.homeAbbr || sb.home || 'HOM');
+  const aScore = Number.isFinite(sb.awayScore) ? sb.awayScore : 0;
+  const hScore = Number.isFinite(sb.homeScore) ? sb.homeScore : 0;
+  const aLead = aScore > hScore, hLead = hScore > aScore;
+
+  let diamond = '';
+  if (Array.isArray(sb.bases)) {
+    const [b1, b2, b3] = sb.bases;
+    diamond =
+      `<svg class="tv-sb-diamond" viewBox="0 0 34 34" aria-hidden="true">` +
+      `<rect class="tv-sb-base ${b2 ? 'on' : ''}" x="12" y="4"  width="10" height="10" transform="rotate(45 17 9)"/>` +
+      `<rect class="tv-sb-base ${b3 ? 'on' : ''}" x="4"  y="12" width="10" height="10" transform="rotate(45 9 17)"/>` +
+      `<rect class="tv-sb-base ${b1 ? 'on' : ''}" x="20" y="12" width="10" height="10" transform="rotate(45 25 17)"/>` +
+      `</svg>`;
+  }
+  let outs = '';
+  if (sb.outs != null) {
+    const o = Math.max(0, Math.min(3, sb.outs | 0));
+    outs = `<div class="tv-sb-outs" aria-label="${o} out">` +
+      [0, 1, 2].map(i => `<span class="tv-sb-out ${i < o ? 'on' : ''}"></span>`).join('') + `</div>`;
+  }
+
+  host.innerHTML =
+    `<div class="tv-sb-scores">` +
+      `<div class="tv-sb-row ${aLead ? 'lead' : ''}"><span class="tv-sb-team">${away}</span><span class="tv-sb-num">${aScore}</span></div>` +
+      `<div class="tv-sb-row ${hLead ? 'lead' : ''}"><span class="tv-sb-team">${home}</span><span class="tv-sb-num">${hScore}</span></div>` +
+    `</div>` +
+    `<div class="tv-sb-state">${diamond}<div class="tv-sb-status">${_esc(sb.status || '')}</div>${outs}</div>`;
+  host.classList.add('on');
+}
+
+function _clearScorebug() {
+  const host = document.getElementById('tv-scorebug');
+  if (host) { host.innerHTML = ''; host.classList.remove('on'); }
 }
 
 function _esc(str) {
@@ -445,6 +494,7 @@ export function showTvOffAir(offlineGraphicContent, offlineGraphicType) {
   const content  = document.getElementById('tv-content');
   if (!staticEl || !content) return;
   _tvOffAir = true;
+  _clearScorebug();
   if (offlineGraphicContent && !_tuneTimer) {
     staticEl.classList.remove('tv-static-on', 'tv-static-loop');
     staticEl.style.opacity = '';

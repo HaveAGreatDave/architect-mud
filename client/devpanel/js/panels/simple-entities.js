@@ -91,6 +91,7 @@ function drugEditForm(rec, isNew) {
         </div>
       </div>
       <div class="field"><label>Volatility (0–1 — splice danger)</label><input type="number" id="f-volatility" value="${rec.flags?.volatility ?? ''}" min="0" max="1" step="0.05" placeholder="auto"></div>
+      <div class="field"><label>Cook tier (1–5 intensity — harder/pricier/dangerous)</label><input type="number" id="f-cook_tier" value="${rec.flags?.cook_tier ?? ''}" min="1" max="5" step="1" placeholder="auto"></div>
     </div>
     <div class="field"><button type="button" class="action-btn primary" style="width:100%" onclick="openDrugEditorFromForm()">⚗ Open Structured Editor…</button><div class="hint" style="font-size:11px;opacity:0.7;margin-top:4px">Sectioned pop-out for instant / phased / tolerance / withdrawal / overdose / hallucination — no raw JSON. Seeds from the fields below.</div></div>
     <div class="field"><label>Effects (JSON — advanced / fallback)</label>
@@ -124,6 +125,7 @@ async function saveDrug(existing) {
   if (_f('f-sub')) { const v = _f('f-sub').value.trim(); if (v) flags.sub = v; else delete flags.sub; }
   if (_f('f-color-on')) { if (_f('f-color-on').checked) flags.color = _f('f-color').value; else delete flags.color; }
   if (_f('f-volatility')) { const v = _f('f-volatility').value; if (v === '') delete flags.volatility; else flags.volatility = Math.max(0, Math.min(1, +v)); }
+  if (_f('f-cook_tier')) { const v = _f('f-cook_tier').value; if (v === '') delete flags.cook_tier; else flags.cook_tier = Math.max(1, Math.min(5, Math.round(+v))); }
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,

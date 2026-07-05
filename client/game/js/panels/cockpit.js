@@ -14,6 +14,7 @@
 import { setAreaPane } from '../render.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown } from './engine-audio.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield } from './windshield.js';
 
 function csfx(id, fallback) {
   const cat = window.SFXCatalog;
@@ -66,8 +67,8 @@ export function updateCockpit(state) {
   } else if (_target.runup) spoolUp(_target.class);
   _prev = _target;
 
-  // Rebuild the panel only when the aircraft's capability layout changes.
-  const sig = `${_target.class}|${_target.engines?.length || 1}|${(_target.hardpoints || 0) > 0}|${(_target.cargoCap || 0) > 0}|${!!_target.vtol}`;
+  // Rebuild the panel only when the aircraft's capability layout (or seat) changes.
+  const sig = `${_target.seat}|${_target.class}|${_target.engines?.length || 1}|${(_target.hardpoints || 0) > 0}|${(_target.cargoCap || 0) > 0}|${!!_target.vtol}`;
   const root = document.getElementById('ck-hud-root');
   if (!root || _sig !== sig) { mountHud(_target); _sig = sig; }
 
@@ -113,7 +114,20 @@ function hudFrame(t) {
   paintCompass(a, s);
   paintEngines(a, s);
   paintDials(a, s);
+  paintWindow('ck-ws', a, s);
   _raf = requestAnimationFrame(hudFrame);
+}
+
+// The out-the-front-window view — driven from the same eased HUD state.
+function paintWindow(id, a, s) {
+  if (!document.getElementById(id)) return;
+  const heightFrac = s.airborne ? clampNum((s.bandIndex || 0) / 3, 0, 1) : 0;
+  const speedFrac = clampNum((a.spd || 0) / 200, 0, 1);
+  paintWindshield(id, {
+    pitch: a.pitch, bank: a.roll, height: heightFrac, speed: speedFrac,
+    hour: s.sky?.hour, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
+    map: s.map, phase: s.airborne ? 'cruise' : 'ground',
+  });
 }
 
 const $ = (id) => document.getElementById(id);
@@ -160,6 +174,13 @@ function setSeven(id, val, tone) {
 function applyText(s) {
   const set = (id, v) => { const e = $(id); if (e) e.textContent = v; };
   const html = (id, v) => { const e = $(id); if (e) e.innerHTML = v; };
+  // Passenger cabin strip (present only in the passenger layout).
+  if ($('ck-pax-dest')) {
+    set('ck-pax-dest', s.surface || (s.airborne ? 'in flight' : 'on the ramp'));
+    set('ck-pax-alt', s.bandLabel || 'GND');
+    set('ck-pax-spd', String(s.spd || 0));
+    set('ck-pax-hdg', String(s.headingDeg ?? 0).padStart(3, '0') + '°');
+  }
   set('ck-hdg-num', String(s.headingDeg ?? 0).padStart(3, '0') + '°');
   set('ck-hdg-card', (s.heading || 'n').toUpperCase());
   set('ck-alt-band', s.bandLabel || 'GND');
@@ -306,8 +327,31 @@ function cargoInst() {
     <div class="ck-load-txt" id="ck-load-txt">0 kg</div></div>`;
 }
 
+// ── The passenger cabin: a big window + a slim readout strip, nothing to fly ──
+function mountPassenger(s) {
+  const th = themeFor(s.class);
+  const html = `<div id="ck-hud-root" class="ck-hud ck-pax ck-chrome-${th.chrome}" style="--acc:${th.acc}">
+    <div class="ck-titlebar">
+      <span class="ck-tmark">✈</span><span class="ck-t-name" id="ck-tail">CABIN</span>
+      <span class="ck-t-class" id="ck-class"></span>
+      <span class="ck-phase" id="ck-phase">Enjoy the flight.</span>
+    </div>
+    <div class="ck-pax-window">${windshieldHTML('ck-ws', 'CABIN WINDOW')}</div>
+    <div class="ck-pax-strip">
+      <span>◈ <b id="ck-pax-dest">—</b></span>
+      <span>ALT <b id="ck-pax-alt">GND</b></span>
+      <span>SPD <b id="ck-pax-spd">0</b> kt</span>
+      <span>HDG <b id="ck-pax-hdg">000°</b></span>
+    </div>
+    <div class="ck-warn" id="ck-warn" style="display:none"></div>
+  </div>`;
+  setAreaPane(html);
+}
+
 // ── Compose the DOM from the aircraft's capabilities + size ───────────────────
 function mountHud(s) {
+  ensureWindshieldStyles();
+  if (s.seat === 'passenger') return mountPassenger(s);
   const n = Math.max(1, s.engines?.length || 1);
   const th = themeFor(s.class);
   const hasWpn = (s.hardpoints || 0) > 0, hasCargo = (s.cargoCap || 0) > 0, isVtol = !!s.vtol;
@@ -325,6 +369,7 @@ function mountHud(s) {
       <span class="ck-pip ck-dim" id="ck-arm" style="display:none"></span>
       <span class="ck-pip ck-dim" id="ck-cargo" style="display:none"></span>
     </div>
+    <div class="ck-canopy">${windshieldHTML('ck-ws', 'FWD VIEW')}</div>
     <div class="ck-grid">
       <div class="ck-row ck-row-top">${adiInst()}${radarInst(th.radar)}</div>
       <div class="ck-row">${row2}</div>
@@ -363,7 +408,11 @@ function ensureHudStyles() {
   if (document.getElementById('cockpit-hud-styles')) return;
   const st = document.createElement('style'); st.id = 'cockpit-hud-styles';
   st.textContent = `
+    /* Fill the whole top pane and scale with it — the HUD is a flex column whose
+       instrument grid grows to eat all available height. */
+    #area-content:has(.ck-hud) { height:100%; }
     .ck-hud { --acc:#4fb8e0; font-family:'Courier New',monospace; color:#a9d4ec; padding:6px;
+      height:100%; box-sizing:border-box; display:flex; flex-direction:column; overflow:hidden;
       background:
         linear-gradient(180deg, rgba(90,110,130,0.10), transparent 30%),
         repeating-linear-gradient(102deg, #20272e 0px, #20272e 2px, #262e37 3px, #20272e 4px),
@@ -377,19 +426,30 @@ function ensureHudStyles() {
     .ck-t-class { color:#5f8299; font-size:10px; }
     .ck-phase { margin-left:auto; font-size:11px; letter-spacing:1px; }
     .ck-pip { font-size:10px; padding:1px 6px; border:1px solid #2a3540; border-radius:3px; background:rgba(0,0,0,0.3); }
+    /* Out-the-window canopy band (pilot) — sits above the instrument grid. */
+    .ck-canopy { flex:1.15 1 0; min-height:82px; margin:8px 2px 0; }
+    .ck-canopy .ws-wrap { height:100%; }
+    /* Passenger cabin: the window IS the panel. */
+    .ck-pax .ck-pax-window { flex:1 1 auto; min-height:0; margin:8px 4px 0; }
+    .ck-pax .ck-pax-window .ws-wrap { height:100%; }
+    .ck-pax-strip { display:flex; justify-content:space-around; gap:10px; padding:8px 6px 4px; font-size:11px; letter-spacing:1px; color:#7fae99; }
+    .ck-pax-strip b { color:#eaf6ff; }
     /* Capability-driven flex layout: rows of instrument cards. Which cards exist,
        and the radar's size, are chosen per aircraft in mountHud(). */
-    .ck-grid { display:flex; flex-direction:column; gap:8px; padding:8px 2px 2px; }
-    .ck-row { display:flex; gap:8px; align-items:stretch; }
+    .ck-grid { display:flex; flex-direction:column; gap:8px; padding:8px 2px 2px; flex:1 1 auto; min-height:0; }
+    .ck-row { display:flex; gap:8px; align-items:stretch; flex:1 1 0; min-height:0; }
+    .ck-row-top { flex:1.5 1 0; }
     .ck-row-top .ck-inst-adi { flex:1 1 40%; }
     .ck-row > .ck-inst { flex:1 1 0; min-width:0; }
     .ck-radar-sm { flex:1.1 1 0 !important; } .ck-radar-md { flex:1.5 1 0 !important; } .ck-radar-lg { flex:2 1 0 !important; }
-    .ck-inst { position:relative; padding:6px; border-radius:8px;
+    .ck-inst { position:relative; padding:6px; border-radius:8px; display:flex; flex-direction:column; min-height:0;
       background:linear-gradient(160deg, #2a333c, #161c22 70%);
       box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 0 1px rgba(0,0,0,0.5), 0 3px 8px rgba(0,0,0,0.5); }
     .ck-inst-lbl { position:absolute; top:5px; left:9px; font-size:8px; letter-spacing:2px; color:#5f8299; z-index:2; }
-    .ck-svg { display:block; width:100%; height:auto; }
+    /* SVG instruments scale to fill their card (aspect preserved via viewBox meet). */
+    .ck-svg { display:block; width:100%; height:100%; flex:1 1 0; min-height:0; }
     .ck-inst-radar .ck-svg { max-height:none; }
+    .ck-inst-mini, .ck-inst-cargo, .ck-inst-wpn { justify-content:center; }
     .ck-bezel-ring { fill:none; stroke:#39434d; stroke-width:6; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.7)); }
     .ck-bezel-glass { stroke:rgba(180,220,255,0.10); stroke-width:2; }
     .ck-eng-tube { fill:#0a1620; stroke:#2b4a60; stroke-width:1; }
@@ -495,223 +555,368 @@ function ensureMgStyles() {
 // ══════════════════════════════════════════════════════════════════════════════
 // 2. TAKEOFF — run-up → roll → V-speeds → rotate → gear up
 // ══════════════════════════════════════════════════════════════════════════════
+// Lever + big-message styling for the takeoff deck (injected once).
+function ensureTakeoffStyles() {
+  if (document.getElementById('cockpit-takeoff-styles')) return;
+  const s = document.createElement('style'); s.id = 'cockpit-takeoff-styles';
+  s.textContent = `
+    #cockpit-overlay .ck-scr-wrap { position:relative; }
+    #cockpit-overlay .ck-bigmsg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;
+      font-weight:bold; letter-spacing:2px; font-size:22px; text-align:center; text-shadow:0 0 12px currentColor, 0 2px 4px #000; }
+    #cockpit-overlay .ck-levers { display:flex; gap:10px; margin-top:10px; align-items:stretch; }
+    #cockpit-overlay .ck-lever { position:relative; flex:1; height:140px; border-radius:8px; cursor:grab; touch-action:none; user-select:none;
+      background:linear-gradient(180deg,#0c1826,#050b12); border:1px solid #2b4a60; box-shadow:inset 0 0 14px rgba(0,0,0,0.8); }
+    #cockpit-overlay .ck-lever.ck-grab { cursor:grabbing; }
+    #cockpit-overlay .ck-lever-fill { position:absolute; left:0; right:0; bottom:0; height:0%; border-radius:0 0 8px 8px; background:linear-gradient(180deg,rgba(79,184,224,0.35),rgba(79,184,224,0.12)); }
+    #cockpit-overlay .ck-lever-knob { position:absolute; left:4px; right:4px; height:20px; border-radius:5px; background:linear-gradient(180deg,#d6e8f5,#7f9bb0);
+      box-shadow:0 2px 4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.5); }
+    #cockpit-overlay .ck-lever-mid { position:absolute; left:0; right:0; top:50%; height:1px; background:#2b4a60; }
+    #cockpit-overlay .ck-lever-v1 { position:absolute; left:0; right:0; height:2px; background:#46e05a; box-shadow:0 0 6px #46e05a; }
+    #cockpit-overlay .ck-lever-lbl { position:absolute; top:4px; left:0; right:0; text-align:center; font-size:9px; letter-spacing:2px; color:#7f93a4; pointer-events:none; }
+    #cockpit-overlay .ck-lever-lbl b { display:block; color:#4fb8e0; font-size:14px; margin-top:2px; }
+    #cockpit-overlay .ck-deck-canopy { height:72px; margin:2px 0 6px; }
+    #cockpit-overlay .ck-deck-canopy .ws-wrap { height:100%; min-height:0; }
+  `;
+  document.head.appendChild(s);
+}
+
+// TAKEOFF — a hand-flown departure on two controls: a THROTTLE lever (drag to set
+// 0–100%, holds where you leave it) and a CONTROL COLUMN (drag up = push forward =
+// pitch down; drag down = pull back = pitch up; holds). Roll begins once the
+// throttle's up; at 80% of runway with ≥60% throttle you get V1 — ROTATE, and a
+// GENTLE pull-back (≈20–30%) lifts you off. Over-rotate → STALL (level out or
+// crash); nose-down → crash nose-first; no rotation before the end → overrun.
 export function openTakeoff(opts = {}) {
-  ensureMgStyles(); ensureChassisStyles();
+  if (opts.vtol) return openVtolLift(opts, 'takeoff');   // helicopters lift vertically
+  ensureMgStyles(); ensureChassisStyles(); ensureTakeoffStyles(); ensureWindshieldStyles();
   const o = { skill: 4, difficulty: 5, vtol: false, deviceName: 'CRAFT', onResult: null, ...opts };
   const edge = o.skill - o.difficulty;
-  const accel = clampNum(0.40 + edge * 0.03, 0.22, 0.78);
-  const rollRate = clampNum(0.05 - edge * 0.003, 0.026, 0.072);
-  const xwind = clampNum(0.35 + o.difficulty * 0.05 - o.skill * 0.02, 0.2, 1.2);   // crosswind pushing you off centreline
-  const V1 = 0.55, VR = 0.78, V2 = 0.92;
+  const ROLL = clampNum(0.16 + edge * 0.01, 0.10, 0.24);   // runway consumed per sec at full speed
+  const STALL_BAND = clampNum(0.58 - edge * 0.02, 0.46, 0.66);   // stick past this = stall (skill widens margin)
 
-  let hold = false, speed = 0, dist = 0, cl = 0, clVel = 0, rotated = false, gearUp = false, over = false, raf = 0, last = 0, clOffset = 0;
-  let steer = 0;   // -1..1 player rudder input
+  let throttle = 0, stick = 0, pitch = 0, speed = 0, roll = 0, alt = 0;
+  let airborne = false, v1 = false, over = false, stallT = 0, raf = 0, last = 0, dash = 0;
   const listeners = [];
   const add = (t, ty, fn, op) => { t.addEventListener(ty, fn, op); listeners.push([t, ty, fn, op]); };
 
-  const runway = `<svg viewBox="0 0 220 210" preserveAspectRatio="xMidYMid meet">
-    <defs><linearGradient id="ck-rw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0a1a12"/><stop offset="1" stop-color="#16281b"/></linearGradient></defs>
-    <polygon points="80,14 140,14 196,196 24,196" fill="url(#ck-rw)" stroke="#2f6d4a" stroke-width="1.5"/>
-    <g id="ck-rw-lines" stroke="#cfe8d6" stroke-width="2" stroke-dasharray="10 12">
-      <line x1="110" y1="20" x2="110" y2="196" id="ck-rw-line"/>
+  // Side-view attitude: sky/ground, a scrolling runway, the aircraft pitching +
+  // climbing, and a runway-remaining bar with a V1 gate.
+  const scr = `<svg viewBox="0 0 300 170" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <linearGradient id="ck-to-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e4c78"/><stop offset="1" stop-color="#1a6fa8"/></linearGradient>
+      <linearGradient id="ck-to-gnd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f3a20"/><stop offset="1" stop-color="#161c10"/></linearGradient>
+    </defs>
+    <rect x="0" y="0" width="300" height="128" fill="url(#ck-to-sky)"/>
+    <rect x="0" y="128" width="300" height="42" fill="url(#ck-to-gnd)"/>
+    <rect x="0" y="122" width="300" height="10" fill="#3a4a2a"/>
+    <line id="ck-to-rwline" x1="-40" y1="127" x2="340" y2="127" stroke="#cfe8d6" stroke-width="2" stroke-dasharray="16 14"/>
+    <g id="ck-to-plane" transform="translate(96 118)">
+      <path d="M-16,2 L10,-1 L16,2 L10,5 L-16,3 Z M-4,-2 L2,-9 L4,-2 Z M-16,3 L-20,-3 L-13,0 Z" fill="#eaf6ff" stroke="#4fb8e0" stroke-width="0.8"/>
     </g>
-    <line x1="70" y1="${210 - V1 * 196}" x2="150" y2="${210 - V1 * 196}" stroke="#5f8fa8" stroke-width="1" stroke-dasharray="3 5"/><text x="152" y="${212 - V1 * 196}" fill="#5f8fa8" font-size="8" font-family="monospace">V1</text>
-    <line x1="64" y1="${210 - VR * 196}" x2="156" y2="${210 - VR * 196}" stroke="#46e05a" stroke-width="2" stroke-dasharray="4 4"/><text x="158" y="${212 - VR * 196}" fill="#46e05a" font-size="9" font-family="monospace">Vr</text>
-    <g id="ck-rw-plane" transform="translate(110 186)"><path d="M0,-11 L4,-3 L12,3 L4,4 L2,11 L-2,11 L-4,4 L-12,3 L-4,-3 Z" fill="#d6f0ff" stroke="#4fb8e0" stroke-width="0.7"/></g>
+    <rect x="24" y="150" width="252" height="10" rx="3" fill="#0a1620" stroke="#2b4a60"/>
+    <rect id="ck-to-rwrem" x="26" y="152" width="248" height="6" rx="2" fill="#2f6d4a"/>
+    <line x1="${26 + 248 * 0.8}" y1="148" x2="${26 + 248 * 0.8}" y2="162" stroke="#46e05a" stroke-width="2"/>
+    <text x="${26 + 248 * 0.8}" y="147" fill="#46e05a" font-size="7" text-anchor="middle" font-family="monospace">V1</text>
   </svg>`;
 
   const html = `<div class="ck-panel mg-chassis">
     ${deviceHeader('&#9992;', o.vtol ? 'LIFT-OFF' : 'TAKEOFF', 'DEPARTURE &middot; ' + esc(o.deviceName).toUpperCase())}
-    <div class="ck-hud2">
-      <span>RWY <b id="ck-rwy">FULL</b></span><span>GEAR <b id="ck-gear">DOWN</b></span>
-      <span class="ck-asi-wrap">ASI <span class="ck-asi-bar"><span class="ck-asi-fill" id="ck-asi"></span><span class="ck-asi-vr" style="left:${VR * 100}%"></span></span></span>
+    <div class="ck-deck-canopy">${windshieldHTML('ck-ws-to', 'FWD VIEW')}</div>
+    <div class="ck-hud2"><span>ASPD <b id="ck-to-asi">0</b></span><span>PITCH <b id="ck-to-pit">0°</b></span><span>GEAR <b id="ck-gear">DOWN</b></span>
+      <span class="ck-asi-wrap">THR <span class="ck-asi-bar"><span class="ck-asi-fill" id="ck-to-thrbar" style="background:linear-gradient(90deg,#7a5310,#ffb23e)"></span></span></span></div>
+    <div class="mg-bezel">${bezelScrews()}<div class="ck-scr-wrap"><div class="ck-scr mg-screen" style="--mg-sweep-h:170px">${scr}${crtOverlays()}</div><div class="ck-bigmsg" id="ck-bigmsg"></div></div></div>
+    ${deckStrip('CONTROL BUS', 'RWY USED')}
+    <div class="ck-status2" id="ck-status"><span class="ck-hint">Drag the <b>THROTTLE</b> up to roll. At <b>V1</b>, gently pull the <b>COLUMN</b> back to rotate.</span></div>
+    <div class="ck-levers">
+      <div class="ck-lever" id="ck-thr"><div class="ck-lever-fill" id="ck-thr-fill"></div><div class="ck-lever-v1" style="bottom:60%"></div><div class="ck-lever-knob" id="ck-thr-knob" style="bottom:0%"></div><div class="ck-lever-lbl">THROTTLE<b id="ck-thr-val">0%</b></div></div>
+      <div class="ck-lever" id="ck-col"><div class="ck-lever-mid"></div><div class="ck-lever-knob" id="ck-col-knob" style="bottom:50%"></div><div class="ck-lever-lbl">COLUMN<b id="ck-col-val">NEUTRAL</b></div></div>
     </div>
-    <div class="mg-bezel">${bezelScrews()}<div class="ck-scr mg-screen" style="--mg-sweep-h:210px">${runway}${crtOverlays()}</div></div>
-    ${deckStrip('THROTTLE BUS', 'RWY USED')}
-    <div class="ck-status2" id="ck-status"><span class="ck-hint">HOLD throttle to accelerate. Keep it on the centreline (◀ ▶ / A-D). Rotate at Vr.</span></div>
-    <div class="ck-actions">
-      <button class="ck-btn ck-btn-l">◀</button>
-      <button class="ck-btn ck-btn-hold" style="flex:2">Throttle Up &#9251;</button>
-      <button class="ck-btn ck-btn-r">▶</button>
-      <button class="ck-btn ck-btn-abort">Abort</button>
-    </div>
+    <div class="ck-actions"><button class="ck-btn ck-btn-abort">Abort</button></div>
   </div>`;
 
   const mounted = mountOverlay({ id: 'cockpit-overlay', html, closeOnBackdrop: false,
     onClose: () => { if (raf) cancelAnimationFrame(raf); for (const [t, ty, fn, op] of listeners) t.removeEventListener(ty, fn, op); } });
   const overlay = mounted.overlay; const q = (s) => overlay.querySelector(s);
   const setStatus = (h) => { const el = q('#ck-status'); if (el) el.innerHTML = h; };
-  const setHold = (on) => { hold = on; q('.ck-btn-hold')?.classList.toggle('ck-down', on); };
+  const big = (h, color) => { const el = q('#ck-bigmsg'); if (el) { el.innerHTML = h || ''; el.style.color = color || '#ffcf3e'; } };
 
-  const finish = (won) => {
+  const finish = (won, why) => {
     if (over) return; over = true; if (raf) cancelAnimationFrame(raf); raf = 0;
-    csfx(won ? 'flight-rotate' : 'flight-abort', won ? 'hololock-win' : 'hololock-lose');
-    setStatus(won ? '<span class="ck-win">◇ POSITIVE RATE — gear up, you\'re flying.</span>' : '<span class="ck-lose">✕ ABORT — off the side / out of strip.</span>');
-    setTimeout(() => { mounted.close(); if (o.onResult) o.onResult({ won }); }, 1050);
+    csfx(won ? 'flight-rotate' : 'flight-crash', won ? 'hololock-win' : 'hololock-lose');
+    if (!won) creak('stress');
+    big(won ? '◇ AIRBORNE' : '✕ ' + (why || 'CRASH'), won ? '#46e05a' : '#ff5b5b');
+    setStatus(won ? '<span class="ck-win">◇ POSITIVE RATE — gear up, climbing out.</span>' : `<span class="ck-lose">✕ ${why || 'CRASH'}.</span>`);
+    setTimeout(() => { mounted.close(); if (o.onResult) o.onResult({ won }); }, 1150);
   };
 
-  let calledV1 = false;
+  // ── Drag a lever; sets a 0..1 fraction from the pointer's Y within the track ──
+  function bindLever(id, onFrac) {
+    const el = q('#' + id); if (!el) return;
+    let dragging = false;
+    const setFromY = (clientY) => { const r = el.getBoundingClientRect(); onFrac(clampNum(1 - (clientY - r.top) / r.height, 0, 1)); };
+    add(el, 'pointerdown', (e) => { dragging = true; el.classList.add('ck-grab'); try { el.setPointerCapture(e.pointerId); } catch {} setFromY(e.clientY); });
+    add(el, 'pointermove', (e) => { if (dragging) setFromY(e.clientY); });
+    const end = () => { dragging = false; el.classList.remove('ck-grab'); };
+    add(el, 'pointerup', end); add(el, 'pointercancel', end);
+  }
+  bindLever('ck-thr', (f) => { throttle = f; q('#ck-thr-knob').style.bottom = `${f * 100}%`; q('#ck-thr-fill').style.height = `${f * 100}%`; const v = q('#ck-thr-val'); if (v) { v.textContent = `${Math.round(f * 100)}%`; v.style.color = f >= 0.6 ? '#46e05a' : '#4fb8e0'; } });
+  bindLever('ck-col', (f) => { stick = (f - 0.5) * 2; q('#ck-col-knob').style.bottom = `${f * 100}%`; const v = q('#ck-col-val'); if (v) v.textContent = stick > 0.1 ? `BACK ${Math.round(stick * 100)}%` : stick < -0.1 ? `FWD ${Math.round(-stick * 100)}%` : 'NEUTRAL'; });
+
   const tick = (t) => {
     if (over) return; const dt = Math.min(0.05, (t - last) / 1000 || 0); last = t;
-    speed = clampNum(speed + (hold ? accel : -0.16) * dt, 0, 1);
-    dist = clampNum(dist + speed * rollRate * dt * 12, 0, 1);
-    // Centreline: crosswind shoves, steer corrects; worse the faster you go.
-    clVel += ((Math.random() - 0.5) * xwind - steer * 1.8) * dt * (0.6 + speed);
-    clVel *= 0.9; cl = clampNum(cl + clVel * dt, -1, 1);
-    if (Math.abs(cl) >= 1) { finish(false); return; }
-    // Callouts.
-    if (!calledV1 && speed >= V1) { calledV1 = true; setStatus('<span class="ck-call">V1</span>'); csfx('flight-lock'); }
-    if (speed >= VR && !rotated) { setStatus('<span class="ck-call">ROTATE</span>'); }
+    // Airspeed builds toward the throttle setting; roll eats runway while grounded.
+    speed = clampNum(speed + (throttle - speed) * dt * 1.1, 0, 1);
+    if (!airborne && throttle > 0) roll = clampNum(roll + speed * ROLL * dt, 0, 1);
+    pitch += (stick - pitch) * Math.min(1, dt * 7);
+
+    if (!v1 && roll >= 0.8 && throttle >= 0.6) { v1 = true; big('V1 — ROTATE!', '#ffcf3e'); csfx('flight-lock'); }
+
+    if (!airborne) {
+      if (roll >= 1 && !v1) { finish(false, 'OVERRUN — off the end of the strip'); return; }
+      if (v1 && stick > 0.12) {
+        if (stick > STALL_BAND) { big('⚠ OVER-ROTATE — EASE OFF', '#ff5b5b'); stallT += dt; if (stallT > 1.2) { finish(false, 'STALL on rotation'); return; } }
+        else { airborne = true; stallT = 0; big('POSITIVE RATE — CLIMB', '#46e05a'); creak('gear'); q('#ck-gear').textContent = 'UP'; q('#ck-gear').style.color = '#46e05a'; }
+      } else if (roll > 0.9 && stick < -0.15) { finish(false, 'NOSE-FIRST — you drove it into the ground'); return; }
+      else if (stallT > 0 && stick <= STALL_BAND) { stallT = 0; big(v1 ? 'V1 — ROTATE!' : ''); }
+    } else {
+      // Airborne: hold gentle back-pressure to climb out.
+      if (stick > STALL_BAND) { big('STALL! LEVEL OUT', '#ff5b5b'); stallT += dt; alt = clampNum(alt - 0.4 * dt, 0, 1); if (stallT > 1.4 || alt <= 0) { finish(false, 'STALL — you dropped it'); return; } }
+      else if (stick < -0.05 && alt < 0.65) { big('NOSE DOWN — PULL UP', '#ff8a3e'); alt = clampNum(alt - 0.55 * dt, 0, 1); if (alt <= 0) { finish(false, 'NOSE-FIRST into the deck'); return; } }
+      else { stallT = 0; if (alt < 1) big('CLIMB', '#46e05a'); alt = clampNum(alt + clampNum(stick, -0.15, 0.55) * 0.55 * dt, 0, 1); }
+      if (alt >= 1) { finish(true); return; }
+    }
+
     // Render.
-    const pl = q('#ck-rw-plane'); if (pl) pl.setAttribute('transform', `translate(${110 + cl * 46} ${186 - dist * 146})`);
-    clOffset = (clOffset + speed * 200 * dt) % 22; const line = q('#ck-rw-line'); if (line) line.setAttribute('stroke-dashoffset', `${clOffset}`);
-    q('#ck-asi').style.width = `${Math.round(speed * 100)}%`;
-    q('#ck-rwy').textContent = dist > 0.82 ? 'SHORT' : dist > 0.4 ? `${Math.round((1 - dist) * 100)}%` : 'FULL';
-    setDeckLevel(overlay, dist);
-    if (speed >= V2 && rotated && !gearUp) { gearUp = true; q('#ck-gear').textContent = 'UP'; q('#ck-gear').style.color = '#46e05a'; creak('gear'); finish(true); return; }
-    if (dist >= 1 && speed < VR) { finish(false); return; }
+    dash = (dash + speed * 220 * dt) % 30;
+    q('#ck-to-rwline').setAttribute('stroke-dashoffset', `${dash}`);
+    const px = 96, py = 118 - alt * 92;
+    q('#ck-to-plane').setAttribute('transform', `translate(${px} ${py}) rotate(${-pitch * 22})`);
+    q('#ck-to-rwrem').setAttribute('width', `${248 * (1 - roll)}`);
+    q('#ck-to-rwrem').setAttribute('fill', roll > 0.85 ? '#ff5b5b' : roll > 0.6 ? '#ffb23e' : '#2f6d4a');
+    q('#ck-to-asi').textContent = Math.round(speed * 160);
+    q('#ck-to-pit').textContent = `${Math.round(pitch * 22)}°`;
+    q('#ck-to-thrbar').style.width = `${Math.round(throttle * 100)}%`;
+    setDeckLevel(overlay, roll);
+    paintWindshield('ck-ws-to', { pitch: pitch * 22, bank: 0, height: alt, speed, hour: _target?.sky?.hour, weather: _target?.sky?.weather, wind: _target?.sky?.wind, phase: 'takeoff' });
     raf = requestAnimationFrame(tick);
   };
-  const rotate = () => { if (over || rotated) return; if (speed >= VR) { rotated = true; creak('stress'); setStatus('<span class="ck-call">POSITIVE RATE</span>'); } else finish(false); };
 
-  q('.mg-close').addEventListener('click', () => finish(false));
-  q('.ck-btn-abort').addEventListener('click', () => finish(false));
-  const holdBtn = q('.ck-btn-hold');
-  add(holdBtn, 'pointerdown', (e) => { e.preventDefault(); setHold(true); }); add(window, 'pointerup', () => setHold(false)); add(window, 'pointercancel', () => setHold(false));
-  const lb = q('.ck-btn-l'), rb = q('.ck-btn-r');
-  add(lb, 'pointerdown', (e) => { e.preventDefault(); steer = -1; }); add(lb, 'pointerup', () => steer = 0);
-  add(rb, 'pointerdown', (e) => { e.preventDefault(); steer = 1; }); add(rb, 'pointerup', () => steer = 0);
-  add(window, 'keydown', (e) => { const k = e.key.toLowerCase();
-    if ((k === ' ' || k === 'spacebar') && !e.repeat) { e.preventDefault(); setHold(true); }
-    else if (k === 'a' || k === 'arrowleft') steer = -1;
-    else if (k === 'd' || k === 'arrowright') steer = 1;
-    else if (k === 'r' || k === 'enter') rotate(); });
-  add(window, 'keyup', (e) => { const k = e.key.toLowerCase(); if (k === ' ' || k === 'spacebar') setHold(false); else if (['a', 'd', 'arrowleft', 'arrowright'].includes(k)) steer = 0; });
-  // A rotate button appears once at Vr via the same steer buttons? Provide Enter/R + a click on plane.
-  add(overlay.querySelector('.ck-scr'), 'pointerdown', () => rotate());
+  q('.mg-close').addEventListener('click', () => finish(false, 'ABORT'));
+  q('.ck-btn-abort').addEventListener('click', () => finish(false, 'ABORT'));
   window.AudioEngine?.init?.(); csfx('flight-roll', 'hololock-entry');
   last = performance.now(); raf = requestAnimationFrame(tick);
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// 3. GLIDESLOPE — localizer + glideslope, gear/flaps, flare + rollout
-// ══════════════════════════════════════════════════════════════════════════════
-export function openGlideslope(opts = {}) {
-  ensureMgStyles(); ensureChassisStyles();
-  const o = { skill: 4, difficulty: 5, emergency: false, deviceName: 'FIELD', onResult: null, ...opts };
-  const edge = o.skill - o.difficulty;
-  const gate = clampNum(0.28 + edge * 0.025, 0.13, 0.46);       // capture window (both axes)
-  const force = clampNum(0.5 + o.difficulty * 0.05 - o.skill * 0.02 + (o.emergency ? 0.35 : 0), 0.3, 1.5);
-  const descentRate = o.emergency ? 0.11 : 0.07;
+// Shared vertical-lever drag: sets a 0..1 fraction from the pointer's Y in the track.
+function levDrag(overlay, add, id, onFrac) {
+  const el = overlay.querySelector('#' + id); if (!el) return;
+  let dragging = false;
+  const setY = (cy) => { const r = el.getBoundingClientRect(); onFrac(clampNum(1 - (cy - r.top) / r.height, 0, 1)); };
+  add(el, 'pointerdown', (e) => { dragging = true; el.classList.add('ck-grab'); try { el.setPointerCapture(e.pointerId); } catch {} setY(e.clientY); });
+  add(el, 'pointermove', (e) => { if (dragging) setY(e.clientY); });
+  const end = () => { dragging = false; el.classList.remove('ck-grab'); };
+  add(el, 'pointerup', end); add(el, 'pointercancel', end);
+}
 
-  const LIFT = 1.7, GRAV = 1.15, DAMP = 0.86;
-  let hold = false, pos = 0.5, vel = 0;         // vertical (glideslope)
-  let loc = 0.5, locVel = 0, steer = 0;         // horizontal (localizer)
-  let descent = 0, inBand = 0, gearDown = false, flareArmed = false, flareHit = false, over = false, raf = 0, last = 0;
+// ══════════════════════════════════════════════════════════════════════════════
+// VTOL LIFT — the helicopter/Dragonfly minigame (collective + cyclic). mode
+// 'takeoff' climbs off the pad to altitude; 'landing' settles gently back onto it.
+// Raise/lower the COLLECTIVE for vertical rate; nudge ◀ ▶ (cyclic) to hold station
+// over the pad against wind. Drift off the pad, or thump it down too hard, and you
+// wreck it.
+// ══════════════════════════════════════════════════════════════════════════════
+export function openVtolLift(opts, mode) {
+  ensureMgStyles(); ensureChassisStyles(); ensureTakeoffStyles(); ensureWindshieldStyles();
+  const o = { skill: 4, difficulty: 5, deviceName: 'PAD', onResult: null, ...opts };
+  const edge = o.skill - o.difficulty;
+  const wind = clampNum(0.28 + o.difficulty * 0.05 - o.skill * 0.02, 0.12, 0.8);
+  const HOVER = 0.5, takeoff = mode === 'takeoff';
+  let coll = takeoff ? 0 : HOVER, cyc = 0, drift = 0, driftV = 0, alt = takeoff ? 0 : 1, vs = 0, over = false, raf = 0, last = 0;
   const listeners = [];
   const add = (t, ty, fn, op) => { t.addEventListener(ty, fn, op); listeners.push([t, ty, fn, op]); };
 
-  const scr = `<svg viewBox="0 0 240 250" preserveAspectRatio="xMidYMid meet">
-    <defs>
-      <clipPath id="ck-hz-clip"><rect x="8" y="8" width="184" height="234" rx="10"/></clipPath>
-      <linearGradient id="ck-hz-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e4c78"/><stop offset="1" stop-color="#1a6fa8"/></linearGradient>
-      <linearGradient id="ck-hz-gnd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a3f18"/><stop offset="1" stop-color="#241a0c"/></linearGradient>
-    </defs>
-    <g clip-path="url(#ck-hz-clip)">
-      <g id="ck-hz">
-        <rect x="-140" y="-200" width="480" height="340" fill="url(#ck-hz-sky)"/>
-        <rect x="-140" y="125" width="480" height="340" fill="url(#ck-hz-gnd)"/>
-        <line x1="-140" y1="125" x2="340" y2="125" stroke="#eaf6ff" stroke-width="1.5"/>
-      </g>
-      <polygon id="ck-runway" points="96,240 104,240 103,240 97,240" fill="#0c1a12" stroke="#3f8a5c" stroke-width="1"/>
-      <line id="ck-rw-cl" x1="100" y1="240" x2="100" y2="240" stroke="#cfe8d6" stroke-width="1.5" stroke-dasharray="4 5"/>
-    </g>
-    <!-- fixed aircraft ref -->
-    <path d="M70,125 L92,125 M108,125 L130,125" stroke="#ffcf3e" stroke-width="3" stroke-linecap="round"/>
-    <rect x="96" y="121" width="8" height="8" fill="none" stroke="#ffcf3e" stroke-width="2"/>
-    <!-- localizer (bottom) + glideslope (right) needles -->
-    <line x1="40" y1="224" x2="160" y2="224" stroke="#2b4a60" stroke-width="1.5"/>
-    ${[40, 70, 100, 130, 160].map(x => `<circle cx="${x}" cy="224" r="3" fill="none" stroke="#5f8fa8" stroke-width="1"/>`).join('')}
-    <line id="ck-loc-need" x1="100" y1="212" x2="100" y2="236" stroke="#4fb8e0" stroke-width="2.5"/>
-    <line x1="208" y1="40" x2="208" y2="210" stroke="#2b4a60" stroke-width="1.5"/>
-    ${[40, 82, 125, 168, 210].map(y => `<circle cx="208" cy="${y}" r="3" fill="none" stroke="#5f8fa8" stroke-width="1"/>`).join('')}
-    <line id="ck-gs-need" x1="196" y1="125" x2="220" y2="125" stroke="#4fb8e0" stroke-width="2.5"/>
-    <text x="208" y="26" fill="#5f8fa8" font-size="8" text-anchor="middle" font-family="monospace">G/S</text>
-    <text x="100" y="248" fill="#5f8fa8" font-size="8" text-anchor="middle" font-family="monospace">LOC</text>
-    <rect x="8" y="8" width="224" height="234" rx="10" fill="none" stroke="#22465a" stroke-width="2"/>
+  const scr = `<svg viewBox="0 0 300 200" preserveAspectRatio="xMidYMid meet">
+    <rect x="0" y="0" width="300" height="200" fill="#04121c"/>
+    <line x1="150" y1="18" x2="150" y2="184" stroke="#153040" stroke-width="1" stroke-dasharray="3 6"/>
+    <ellipse cx="150" cy="180" rx="46" ry="9" fill="#0c1a12" stroke="#3f8a5c" stroke-width="1.5"/>
+    <text x="150" y="183" fill="#3f8a5c" font-size="9" text-anchor="middle" font-family="monospace">H</text>
+    <rect x="150" y="${takeoff ? 24 : 172}" width="0" height="8" x2="0"/>
+    <line x1="118" y1="${takeoff ? 28 : 176}" x2="182" y2="${takeoff ? 28 : 176}" stroke="#46e05a" stroke-width="1.5" stroke-dasharray="4 4"/>
+    <text x="186" y="${takeoff ? 31 : 179}" fill="#46e05a" font-size="7" font-family="monospace">${takeoff ? 'ALT' : 'PAD'}</text>
+    <g id="ck-vt-craft"><circle cx="0" cy="0" r="7" fill="none" stroke="#4fe0a0" stroke-width="2"/><line x1="-12" y1="0" x2="12" y2="0" stroke="#4fe0a0" stroke-width="2"/><line x1="0" y1="-9" x2="0" y2="5" stroke="#4fe0a0" stroke-width="2"/></g>
+    <rect x="284" y="20" width="8" height="160" rx="3" fill="#0a1620" stroke="#2b4a60"/>
+    <rect id="ck-vt-tape" x="286" y="180" width="4" height="0" fill="#4fe0a0"/>
   </svg>`;
 
   const html = `<div class="ck-panel mg-chassis">
-    ${deviceHeader('&#128758;', o.emergency ? 'DEAD STICK' : 'APPROACH', 'ILS &middot; ' + esc(o.deviceName).toUpperCase())}
-    <div class="ck-hud2"><span>ALT <b id="ck-alt">—</b></span><span>GEAR <b id="ck-gear">UP</b></span><span>G/S <b id="ck-gs">—</b></span><span class="ck-asi-wrap">${o.emergency ? '<span style="color:#ff5b5b">NO ENGINE</span>' : 'ILS'}</span></div>
-    <div class="mg-bezel">${bezelScrews()}<div class="ck-scr mg-screen" style="--mg-sweep-h:250px">${scr}${crtOverlays()}</div></div>
-    ${deckStrip('CONTROL BUS', 'DEVIATION')}
-    <div class="ck-status2" id="ck-status"><span class="ck-hint">HOLD to arrest sink · ◀ ▶ track the localizer · GEAR down · FLARE at touchdown.</span></div>
-    <div class="ck-actions">
-      <button class="ck-btn ck-btn-l">◀</button>
-      <button class="ck-btn ck-btn-hold" style="flex:1.6">Pull Up &#9251;</button>
-      <button class="ck-btn ck-btn-r">▶</button>
-      <button class="ck-btn ck-btn-gear">Gear</button>
-      <button class="ck-btn ck-btn-flare">Flare</button>
+    ${deviceHeader('&#128757;', takeoff ? 'VERTICAL LIFT' : 'VERTICAL LANDING', 'VTOL &middot; ' + esc(o.deviceName).toUpperCase())}
+    <div class="ck-deck-canopy">${windshieldHTML('ck-ws-vt', 'FWD VIEW')}</div>
+    <div class="ck-hud2"><span>ALT <b id="ck-vt-altn">0%</b></span><span>DRIFT <b id="ck-vt-drift">0</b></span><span>V/S <b id="ck-vt-vs">0</b></span></div>
+    <div class="mg-bezel">${bezelScrews()}<div class="ck-scr-wrap"><div class="ck-scr mg-screen" style="--mg-sweep-h:200px">${scr}${crtOverlays()}</div><div class="ck-bigmsg" id="ck-bigmsg"></div></div></div>
+    ${deckStrip('ROTOR BUS', 'DRIFT')}
+    <div class="ck-status2" id="ck-status"><span class="ck-hint">${takeoff ? 'Raise the <b>COLLECTIVE</b> to lift off; hold it over the pad (◀ ▶) and climb out.' : 'Ease the <b>COLLECTIVE</b> down to settle gently onto the pad; stay centred (◀ ▶).'}</span></div>
+    <div class="ck-levers">
+      <button class="ck-btn ck-btn-l" style="flex:0.5">◀</button>
+      <div class="ck-lever" id="ck-coll"><div class="ck-lever-fill" id="ck-coll-fill" style="height:${coll * 100}%"></div><div class="ck-lever-v1" style="bottom:50%"></div><div class="ck-lever-knob" id="ck-coll-knob" style="bottom:${coll * 100}%"></div><div class="ck-lever-lbl">COLLECTIVE<b id="ck-coll-val">${Math.round(coll * 100)}%</b></div></div>
+      <button class="ck-btn ck-btn-r" style="flex:0.5">▶</button>
     </div>
+    <div class="ck-actions"><button class="ck-btn ck-btn-abort">Abort</button></div>
   </div>`;
 
   const mounted = mountOverlay({ id: 'cockpit-overlay', html, closeOnBackdrop: false,
     onClose: () => { if (raf) cancelAnimationFrame(raf); for (const [t, ty, fn, op] of listeners) t.removeEventListener(ty, fn, op); } });
   const overlay = mounted.overlay; const q = (s) => overlay.querySelector(s);
   const setStatus = (h) => { const el = q('#ck-status'); if (el) el.innerHTML = h; };
-  const setHold = (on) => { hold = on; q('.ck-btn-hold')?.classList.toggle('ck-down', on); };
-  const onGS = () => Math.abs(pos - 0.5) <= gate / 2 && Math.abs(loc - 0.5) <= gate / 2;
+  const big = (h, c) => { const el = q('#ck-bigmsg'); if (el) { el.innerHTML = h || ''; el.style.color = c || '#ffcf3e'; } };
 
-  const finish = (won) => {
+  const finish = (won, why) => {
     if (over) return; over = true; if (raf) cancelAnimationFrame(raf); raf = 0;
-    csfx(won ? 'flight-touchdown' : 'flight-crash', won ? 'hololock-win' : 'hololock-lose');
-    setStatus(won ? '<span class="ck-win">◇ TOUCHDOWN — mains, nose, brakes. Down safe.</span>' : '<span class="ck-lose">✕ Unstable at the threshold — hard arrival.</span>');
+    csfx(won ? (takeoff ? 'flight-rotate' : 'flight-touchdown') : 'flight-crash', won ? 'hololock-win' : 'hololock-lose');
+    if (!won) creak('stress'); else creak('gear');
+    big(won ? (takeoff ? '◇ AIRBORNE' : '◇ ON THE PAD') : '✕ ' + (why || 'CRASH'), won ? '#46e05a' : '#ff5b5b');
+    setStatus(won ? `<span class="ck-win">◇ ${takeoff ? 'Clean lift-off — climbing away.' : 'Soft touchdown — skids down.'}</span>` : `<span class="ck-lose">✕ ${why || 'CRASH'}.</span>`);
     setTimeout(() => { mounted.close(); if (o.onResult) o.onResult({ won }); }, 1100);
   };
 
-  const render = () => {
-    const pitch = (pos - 0.5) * 120, roll = clampNum((loc - 0.5) * 80 + vel * 20, -18, 18);
-    const hz = q('#ck-hz'); if (hz) hz.setAttribute('transform', `translate(0 ${pitch}) rotate(${roll} 100 125)`);
-    const gy = clampNum(125 + (pos - 0.5) * 340, 42, 210); const gsn = q('#ck-gs-need'); if (gsn) { gsn.setAttribute('y1', gy); gsn.setAttribute('y2', gy); gsn.setAttribute('stroke', Math.abs(pos - 0.5) <= gate / 2 ? '#46e05a' : '#ff8a3e'); }
-    const lx = clampNum(100 + (loc - 0.5) * 240, 40, 160); const lcn = q('#ck-loc-need'); if (lcn) { lcn.setAttribute('x1', lx); lcn.setAttribute('x2', lx); lcn.setAttribute('stroke', Math.abs(loc - 0.5) <= gate / 2 ? '#46e05a' : '#ff8a3e'); }
-    const g = Math.min(1, descent), half = 3 + g * 40, topY = 240 - g * 150, cx = 100 + (loc - 0.5) * 30;
-    const rw = q('#ck-runway'); if (rw) rw.setAttribute('points', `${cx - 3},240 ${cx + 3},240 ${cx + half},${topY} ${cx - half},${topY}`);
-    const cln = q('#ck-rw-cl'); if (cln) { cln.setAttribute('x1', cx); cln.setAttribute('x2', cx); cln.setAttribute('y2', topY); }
-    q('#ck-alt').textContent = `${Math.max(0, Math.round((1 - descent) * (o.emergency ? 300 : 600)))}ft`;
-    q('#ck-gs').textContent = onGS() ? 'ON' : (pos < 0.5 ? 'HIGH' : 'LOW');
-    setDeckLevel(overlay, Math.min(1, (Math.abs(pos - 0.5) + Math.abs(loc - 0.5)) / gate));
-  };
+  levDrag(overlay, add, 'ck-coll', (f) => { coll = f; q('#ck-coll-knob').style.bottom = `${f * 100}%`; q('#ck-coll-fill').style.height = `${f * 100}%`; const v = q('#ck-coll-val'); if (v) v.textContent = `${Math.round(f * 100)}%`; });
+  const lb = q('.ck-btn-l'), rb = q('.ck-btn-r');
+  add(lb, 'pointerdown', (e) => { e.preventDefault(); cyc = -1; }); add(lb, 'pointerup', () => cyc = 0);
+  add(rb, 'pointerdown', (e) => { e.preventDefault(); cyc = 1; }); add(rb, 'pointerup', () => cyc = 0);
+  add(window, 'keydown', (e) => { const k = e.key.toLowerCase(); if (k === 'a' || k === 'arrowleft') cyc = -1; else if (k === 'd' || k === 'arrowright') cyc = 1; });
+  add(window, 'keyup', (e) => { const k = e.key.toLowerCase(); if (['a', 'd', 'arrowleft', 'arrowright'].includes(k)) cyc = 0; });
+  q('.mg-close').addEventListener('click', () => finish(false, 'ABORT'));
+  q('.ck-btn-abort').addEventListener('click', () => finish(false, 'ABORT'));
 
   const tick = (t) => {
     if (over) return; const dt = Math.min(0.05, (t - last) / 1000 || 0); last = t;
-    vel = (vel + (hold ? -LIFT : GRAV) * dt) * DAMP; pos = clampNum(pos + vel * dt, 0.04, 0.96);
-    if (pos <= 0.04 || pos >= 0.96) vel = 0;
-    pos = clampNum(pos + (Math.random() - 0.5) * force * dt * 0.5, 0.04, 0.96);
-    locVel += ((Math.random() - 0.5) * force - steer * 1.6) * dt; locVel *= 0.9; loc = clampNum(loc + locVel * dt, 0.04, 0.96);
-    if (onGS()) inBand += dt;
-    descent = clampNum(descent + descentRate * dt, 0, 1);
-    if (descent >= 0.6 && !gearDown) setStatus('<span style="color:#ffb23e">GEAR — put it down.</span>');
-    if (descent >= 0.87 && !flareArmed) { flareArmed = true; q('.ck-btn-flare')?.classList.add('ck-armed'); csfx('flight-flare'); setStatus('<span class="ck-call">FLARE</span>'); }
-    render();
-    if (descent >= 1) { finish(onGS() && flareHit && gearDown && inBand > descent * 0.85); return; }
+    driftV += ((Math.random() - 0.5) * wind - cyc * 1.5) * dt; driftV *= 0.9; drift = clampNum(drift + driftV * dt, -1, 1);
+    vs = (coll - HOVER) * 1.3;
+    alt = clampNum(alt + vs * dt, 0, 1.05);
+    if (Math.abs(drift) >= 1) { finish(false, takeoff ? 'DRIFTED OFF — clipped something' : 'DRIFTED OFF the pad'); return; }
+    if (Math.abs(drift) > 0.55) big('DRIFTING — CENTRE IT', '#ff8a3e');
+    else if (!takeoff && alt < 0.25 && vs < -0.24) big('TOO FAST — RAISE COLLECTIVE', '#ff5b5b');
+    else big(takeoff ? (alt > 0.05 ? 'CLIMB' : '') : 'EASE IT DOWN', takeoff ? '#46e05a' : '#8fd0ff');
+    if (takeoff && alt >= 1) { finish(Math.abs(drift) < 0.5); return; }
+    if (!takeoff && alt <= 0.02) { finish(Math.abs(vs) < 0.2 && Math.abs(drift) < 0.4, Math.abs(vs) >= 0.2 ? 'HARD LANDING — dropped it on the pad' : 'OFF THE PAD'); return; }
+    // render
+    q('#ck-vt-craft').setAttribute('transform', `translate(${150 + drift * 90} ${180 - alt * 150})`);
+    q('#ck-vt-tape').setAttribute('height', `${alt * 158}`); q('#ck-vt-tape').setAttribute('y', `${180 - alt * 158}`);
+    q('#ck-vt-altn').textContent = `${Math.round(alt * 100)}%`;
+    q('#ck-vt-drift').textContent = Math.abs(drift) < 0.1 ? 'CTR' : (drift < 0 ? '◀' : '▶') + Math.round(Math.abs(drift) * 100);
+    q('#ck-vt-vs').textContent = (vs >= 0 ? '+' : '') + Math.round(vs * 500);
+    setDeckLevel(overlay, Math.abs(drift));
+    paintWindshield('ck-ws-vt', { pitch: vs * 30, bank: -drift * 10, height: alt, speed: 0.12, drift, hour: _target?.sky?.hour, weather: _target?.sky?.weather, wind: _target?.sky?.wind, phase: 'vtol' });
     raf = requestAnimationFrame(tick);
   };
-  const doGear = () => { if (over || gearDown) return; gearDown = true; q('#ck-gear').textContent = 'DOWN'; q('#ck-gear').style.color = '#46e05a'; q('.ck-btn-gear')?.classList.add('ck-lit'); creak('gear'); };
-  const doFlare = () => { if (over || flareHit) return; if (!flareArmed) { finish(false); return; } flareHit = true; q('.ck-btn-flare')?.classList.remove('ck-armed'); setStatus('<span style="color:#8fd0ff">Flared — hold it off…</span>'); };
+  window.AudioEngine?.init?.(); csfx(takeoff ? 'flight-roll' : 'flight-approach', 'hololock-entry');
+  last = performance.now(); raf = requestAnimationFrame(tick);
+}
 
-  q('.mg-close').addEventListener('click', () => finish(false));
-  const holdBtn = q('.ck-btn-hold');
-  add(holdBtn, 'pointerdown', (e) => { e.preventDefault(); setHold(true); }); add(window, 'pointerup', () => setHold(false)); add(window, 'pointercancel', () => setHold(false));
-  const lb = q('.ck-btn-l'), rb = q('.ck-btn-r');
-  add(lb, 'pointerdown', (e) => { e.preventDefault(); steer = -1; }); add(lb, 'pointerup', () => steer = 0);
-  add(rb, 'pointerdown', (e) => { e.preventDefault(); steer = 1; }); add(rb, 'pointerup', () => steer = 0);
-  add(q('.ck-btn-gear'), 'click', doGear); add(q('.ck-btn-flare'), 'click', doFlare);
-  add(window, 'keydown', (e) => { const k = e.key.toLowerCase();
-    if ((k === ' ' || k === 'spacebar') && !e.repeat) { e.preventDefault(); setHold(true); }
-    else if (k === 'a' || k === 'arrowleft') steer = -1; else if (k === 'd' || k === 'arrowright') steer = 1;
-    else if (k === 'g') doGear(); else if (k === 'f') doFlare(); });
-  add(window, 'keyup', (e) => { const k = e.key.toLowerCase(); if (k === ' ' || k === 'spacebar') setHold(false); else if (['a', 'd', 'arrowleft', 'arrowright'].includes(k)) steer = 0; });
+// ══════════════════════════════════════════════════════════════════════════════
+// 3. APPROACH — unified with takeoff: THROTTLE lever + CONTROL COLUMN, then flare
+// ══════════════════════════════════════════════════════════════════════════════
+export function openGlideslope(opts = {}) {
+  if (opts.vtol) return openVtolLift(opts, 'landing');   // helicopters set down vertically
+  ensureMgStyles(); ensureChassisStyles(); ensureTakeoffStyles(); ensureWindshieldStyles();
+  const o = { skill: 4, difficulty: 5, emergency: false, deviceName: 'FIELD', onResult: null, ...opts };
+  const edge = o.skill - o.difficulty;
+  const STALL_BAND = clampNum(0.58 - edge * 0.02, 0.46, 0.66);
+  const descentRate = o.emergency ? 0.10 : 0.075;    // approach clock 0→1
+  const gustF = clampNum(0.3 + o.difficulty * 0.04 - o.skill * 0.02 + (o.emergency ? 0.25 : 0), 0.1, 0.9);
+
+  let throttle = o.emergency ? 0 : 0.4, stick = 0, pitch = 0, height = 1, descent = 0, sink = 0.1, over = false, raf = 0, last = 0, dash = 0, flared = false;
+  const listeners = [];
+  const add = (t, ty, fn, op) => { t.addEventListener(ty, fn, op); listeners.push([t, ty, fn, op]); };
+
+  const scr = `<svg viewBox="0 0 300 170" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <linearGradient id="ck-la-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e4c78"/><stop offset="1" stop-color="#1a6fa8"/></linearGradient>
+      <linearGradient id="ck-la-gnd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f3a20"/><stop offset="1" stop-color="#161c10"/></linearGradient>
+    </defs>
+    <rect x="0" y="0" width="300" height="128" fill="url(#ck-la-sky)"/>
+    <rect x="0" y="128" width="300" height="42" fill="url(#ck-la-gnd)"/>
+    <polygon id="ck-la-rw" points="120,168 180,168 165,132 135,132" fill="#2a3420" stroke="#3f8a5c" stroke-width="1"/>
+    <line id="ck-la-cl" x1="150" y1="168" x2="150" y2="132" stroke="#cfe8d6" stroke-width="1.5" stroke-dasharray="8 8"/>
+    <!-- glideslope scale (right): keep the diamond centred -->
+    <line x1="284" y1="20" x2="284" y2="150" stroke="#2b4a60" stroke-width="1.5"/>
+    ${[20, 52, 85, 118, 150].map(y => `<circle cx="284" cy="${y}" r="3" fill="none" stroke="#5f8fa8" stroke-width="1"/>`).join('')}
+    <polygon id="ck-la-gs" points="284,78 290,85 284,92 278,85" fill="#4fb8e0"/>
+    <text x="284" y="14" fill="#5f8fa8" font-size="7" text-anchor="middle" font-family="monospace">G/S</text>
+    <g id="ck-la-plane" transform="translate(70 40)"><path d="M-16,2 L10,-1 L16,2 L10,5 L-16,3 Z M-4,-2 L2,-9 L4,-2 Z M-16,3 L-20,-3 L-13,0 Z" fill="#eaf6ff" stroke="#4fb8e0" stroke-width="0.8"/></g>
+  </svg>`;
+
+  const html = `<div class="ck-panel mg-chassis">
+    ${deviceHeader('&#128758;', o.emergency ? 'DEAD STICK' : 'APPROACH', 'LANDING &middot; ' + esc(o.deviceName).toUpperCase())}
+    <div class="ck-deck-canopy">${windshieldHTML('ck-ws-la', 'FWD VIEW')}</div>
+    <div class="ck-hud2"><span>ALT <b id="ck-la-alt">—</b></span><span>SINK <b id="ck-la-sink">0</b></span><span>G/S <b id="ck-la-gsr">—</b></span>
+      <span class="ck-asi-wrap">THR <span class="ck-asi-bar"><span class="ck-asi-fill" id="ck-la-thrbar" style="background:linear-gradient(90deg,#7a5310,#ffb23e)"></span></span></span></div>
+    <div class="mg-bezel">${bezelScrews()}<div class="ck-scr-wrap"><div class="ck-scr mg-screen" style="--mg-sweep-h:170px">${scr}${crtOverlays()}</div><div class="ck-bigmsg" id="ck-bigmsg"></div></div></div>
+    ${deckStrip('CONTROL BUS', 'DEVIATION')}
+    <div class="ck-status2" id="ck-status"><span class="ck-hint">${o.emergency ? 'No power — glide it down on the COLUMN.' : 'THROTTLE for energy, COLUMN for pitch. Hold the glidepath; FLARE at the threshold.'}</span></div>
+    <div class="ck-levers">
+      <div class="ck-lever" id="ck-la-thr"><div class="ck-lever-fill" id="ck-la-thrfill" style="height:${throttle * 100}%"></div><div class="ck-lever-knob" id="ck-la-thrknob" style="bottom:${throttle * 100}%"></div><div class="ck-lever-lbl">THROTTLE<b id="ck-la-thrval">${Math.round(throttle * 100)}%</b></div></div>
+      <div class="ck-lever" id="ck-la-col"><div class="ck-lever-mid"></div><div class="ck-lever-knob" id="ck-la-colknob" style="bottom:50%"></div><div class="ck-lever-lbl">COLUMN<b id="ck-la-colval">NEUTRAL</b></div></div>
+    </div>
+    <div class="ck-actions"><button class="ck-btn ck-btn-abort">${o.emergency ? 'Bail' : 'Go Around'}</button></div>
+  </div>`;
+
+  const mounted = mountOverlay({ id: 'cockpit-overlay', html, closeOnBackdrop: false,
+    onClose: () => { if (raf) cancelAnimationFrame(raf); for (const [t, ty, fn, op] of listeners) t.removeEventListener(ty, fn, op); } });
+  const overlay = mounted.overlay; const q = (s) => overlay.querySelector(s);
+  const setStatus = (h) => { const el = q('#ck-status'); if (el) el.innerHTML = h; };
+  const big = (h, c) => { const el = q('#ck-bigmsg'); if (el) { el.innerHTML = h || ''; el.style.color = c || '#ffcf3e'; } };
+
+  const finish = (won, why) => {
+    if (over) return; over = true; if (raf) cancelAnimationFrame(raf); raf = 0;
+    csfx(won ? 'flight-touchdown' : 'flight-crash', won ? 'hololock-win' : 'hololock-lose');
+    if (!won) creak('stress');
+    big(won ? '◇ TOUCHDOWN' : '✕ ' + (why || 'CRASH'), won ? '#46e05a' : '#ff5b5b');
+    setStatus(won ? '<span class="ck-win">◇ Mains, nose, brakes — down safe.</span>' : `<span class="ck-lose">✕ ${why || 'CRASH'}.</span>`);
+    setTimeout(() => { mounted.close(); if (o.onResult) o.onResult({ won }); }, 1150);
+  };
+
+  levDrag(overlay, add, 'ck-la-thr', (f) => { throttle = f; q('#ck-la-thrknob').style.bottom = `${f * 100}%`; q('#ck-la-thrfill').style.height = `${f * 100}%`; const v = q('#ck-la-thrval'); if (v) v.textContent = `${Math.round(f * 100)}%`; });
+  levDrag(overlay, add, 'ck-la-col', (f) => { stick = (f - 0.5) * 2; q('#ck-la-colknob').style.bottom = `${f * 100}%`; const v = q('#ck-la-colval'); if (v) v.textContent = stick > 0.1 ? `BACK ${Math.round(stick * 100)}%` : stick < -0.1 ? `FWD ${Math.round(-stick * 100)}%` : 'NEUTRAL'; });
+  q('.mg-close').addEventListener('click', () => finish(false, 'GO-AROUND'));
+  q('.ck-btn-abort').addEventListener('click', () => finish(false, 'GO-AROUND'));
+
+  const tick = (t) => {
+    if (over) return; const dt = Math.min(0.05, (t - last) / 1000 || 0); last = t;
+    pitch += (stick - pitch) * Math.min(1, dt * 7);
+    descent = clampNum(descent + descentRate * dt, 0, 1.05);
+    // Sink rate: pull back (pitch up) + power reduce it; nose-down + idle steepen it.
+    sink = clampNum(0.12 - stick * 0.10 - (throttle - 0.45) * 0.06 + (Math.random() - 0.5) * gustF * 0.03, 0, 0.30);
+    height = clampNum(height - sink * dt, 0, 1);
+    const dev = height - (1 - descent);   // >0 HIGH, <0 LOW
+    // Fail modes.
+    if (stick > STALL_BAND && throttle < 0.4) { big('STALL — NOSE DOWN, ADD POWER', '#ff5b5b'); if (height <= 0.5) { finish(false, 'STALL on final'); return; } }
+    else if (stick < -0.25 && height < 0.22) { big('NOSE DOWN — PULL UP', '#ff8a3e'); if (height <= 0.03) { finish(false, 'NOSE-FIRST into the threshold'); return; } }
+    else if (descent >= 0.85) { flared = flared || stick > 0.12; big('FLARE — EASE IT ON', '#ffcf3e'); }
+    else if (dev > 0.18) big('HIGH — reduce power / nose down', '#ffb23e');
+    else if (dev < -0.18) big('LOW — add power / nose up', '#ffb23e');
+    else big('ON GLIDEPATH', '#46e05a');
+    // Touchdown.
+    if (height <= 0.02 || descent >= 1) {
+      if (descent < 0.8) { finish(false, 'landed short — you dropped it in early'); return; }
+      const onGs = Math.abs(dev) < 0.16, soft = sink < 0.14, gentle = stick > 0.05 && stick <= STALL_BAND;
+      finish(onGs && soft && gentle && flared, !soft ? 'HARD LANDING — too much sink' : !onGs ? 'off the glidepath at the threshold' : 'you forgot to flare');
+      return;
+    }
+    // Render.
+    dash = (dash + (1 - descent) * 60 * dt) % 16;
+    const g = Math.min(1, descent), half = 15 + g * 40, topY = 132 - g * 24, cx = 150;
+    q('#ck-la-rw').setAttribute('points', `${cx - half},168 ${cx + half},168 ${cx + half * 0.55},${topY} ${cx - half * 0.55},${topY}`);
+    q('#ck-la-cl').setAttribute('y2', `${topY}`); q('#ck-la-cl').setAttribute('stroke-dashoffset', `${dash}`);
+    q('#ck-la-plane').setAttribute('transform', `translate(70 ${40 + (1 - height) * 78}) rotate(${-pitch * 20})`);
+    const gy = clampNum(85 - dev * 260, 20, 150); const gs = q('#ck-la-gs'); gs.setAttribute('points', `284,${gy - 7} 290,${gy} 284,${gy + 7} 278,${gy}`); gs.setAttribute('fill', Math.abs(dev) < 0.16 ? '#46e05a' : '#ff8a3e');
+    q('#ck-la-alt').textContent = `${Math.round(height * (o.emergency ? 300 : 600))}ft`;
+    q('#ck-la-sink').textContent = `-${Math.round(sink * 900)}`;
+    q('#ck-la-gsr').textContent = Math.abs(dev) < 0.16 ? 'ON' : dev > 0 ? 'HIGH' : 'LOW';
+    q('#ck-la-thrbar').style.width = `${Math.round(throttle * 100)}%`;
+    setDeckLevel(overlay, Math.min(1, Math.abs(dev) / 0.3));
+    paintWindshield('ck-ws-la', { pitch: pitch * 20, bank: 0, height, speed: 0.32 + throttle * 0.4, hour: _target?.sky?.hour, weather: _target?.sky?.weather, phase: 'landing' });
+    raf = requestAnimationFrame(tick);
+  };
   window.AudioEngine?.init?.(); csfx('flight-approach', 'hololock-entry');
   last = performance.now(); raf = requestAnimationFrame(tick);
 }

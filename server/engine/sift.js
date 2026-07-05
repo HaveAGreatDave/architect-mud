@@ -192,17 +192,21 @@ export function advanceSelectionState(playerId, input) {
 // Display helper
 // ---------------------------------------------------------------------------
 
+function siftLink(cmd, label) {
+  return `<span class="action-link" data-raw-cmd="${cmd}" title="${cmd}">${label}</span>`;
+}
+
 export function formatSelectionPage({ allCandidates, visibleIndex, pageSize }) {
   const page = allCandidates.slice(visibleIndex, visibleIndex + pageSize);
-  const lines = page.map((c, i) => `  [${i + 1}] ${c.name}`).join('\n');
+  const lines = page.map((c, i) => `  ${siftLink(String(i + 1), `[${i + 1}] ${c.name}`)}`).join('\n');
   const total = allCandidates.length;
   const hasNext = visibleIndex + pageSize < total;
   const hasPrev = visibleIndex > 0;
-  let nav = '';
-  if (hasPrev && hasNext) nav = '\n  [prev] / [next] / [cancel]';
-  else if (hasNext) nav = '\n  [next] / [cancel]';
-  else if (hasPrev) nav = '\n  [prev] / [cancel]';
-  else nav = '\n  [cancel]';
+  const navParts = [];
+  if (hasPrev) navParts.push(siftLink('prev', '[prev]'));
+  if (hasNext) navParts.push(siftLink('next', '[next]'));
+  navParts.push(siftLink('cancel', '[cancel]'));
+  const nav = `\n  ${navParts.join(' / ')}`;
   const showing = `${visibleIndex + 1}–${Math.min(visibleIndex + pageSize, total)} of ${total}`;
   return `Which one? (${showing})\n${lines}${nav}`;
 }

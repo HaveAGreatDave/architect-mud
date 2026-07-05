@@ -132,7 +132,7 @@ async function bcSuiteRefresh(focusTab) {
 }
 
 const BROADCAST_CATEGORIES = ['general','news','advertisement','entertainment','emergency','weather','sport','music','documentary','surveillance'];
-const BROADCAST_MODES      = ['scripted','dynamic_news','live','recorded','weather'];
+const BROADCAST_MODES      = ['scripted','dynamic_news','live','recorded','weather','sports'];
 
 const BC_CAT_COLOR = {
   entertainment: 'var(--cyan)',    news: 'var(--yellow)',
@@ -767,8 +767,9 @@ async function saveBroadcast() {
     enabled: document.getElementById('bc-enabled')?.checked ? 1 : 0,
     messages,
     broadcast_graph: graph,
-    // Preserve weather line pools on manual save — they're only authored via BSM import.
+    // Preserve weather/sports line pools on manual save — they're only authored via BSM import.
     weather_pools: _bcSelected?.weather_pools || null,
+    sports_pools: _bcSelected?.sports_pools || null,
     channel_id: document.getElementById('bc-channel')?.value || null,
     fallback_messages: (document.getElementById('bc-fallback-msgs')?.value || '').split('\n').map(s => s.trim()).filter(Boolean),
   };
@@ -1650,7 +1651,7 @@ async function _bcDepFinish() {
   if (_bcDepCompiled) await _bcImportSave(_bcDepCompiled);
 }
 
-async function _bcImportSave({ meta, broadcastGraph, weatherScript, messages, assets, cameras, actorIds, npcIds }) {
+async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript, messages, assets, cameras, actorIds, npcIds }) {
   // Apply zone ID remaps to camera_cut nodes (BSM ID → real interior zone ID)
   for (const node of Object.values(broadcastGraph?.nodes || {})) {
     if (node.type === 'camera_cut') {
@@ -1679,14 +1680,20 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, messages, as
 
   // @type weather → a line-library broadcast; the server assembles a fresh graph
   // from these pools + the live 7-day forecast each airing. Loop so it re-airs.
+  // @type sports → a line library + team/player pools; the server simulates a fresh
+  // game each airing. Like weather it loops; unlike weather it needs no host NPC — the
+  // announcer is a plain name spoken as narration, so no studio NPC is ever spawned.
   const isWeather = meta.type === 'weather';
+  const isSports  = meta.type === 'sports';
+  const isPool    = isWeather || isSports;
   const body = {
-    name: meta.name, category: meta.category || (isWeather ? 'weather' : 'general'),
-    playback_mode: isWeather ? 'weather' : 'scripted', message_interval: 5,
-    override_duration: meta.length || null, loop: isWeather ? 1 : 0, enabled: 1,
+    name: meta.name, category: meta.category || (isWeather ? 'weather' : isSports ? 'sport' : 'general'),
+    playback_mode: isWeather ? 'weather' : isSports ? 'sports' : 'scripted', message_interval: 5,
+    override_duration: meta.length || null, loop: isPool ? 1 : 0, enabled: 1,
     messages: messages.map(t => ({ text: t })),
     broadcast_graph: broadcastGraph,
     weather_pools: isWeather ? (weatherScript || { pools: {}, host: meta.host }) : null,
+    sports_pools: isSports ? (sportsScript || { sport: meta.sport || 'baseball', announcer: meta.announcer, teams: [], players: [], pools: {} }) : null,
     channel_id: channelId,
   };
   try {
@@ -1741,13 +1748,18 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, messages, as
             camsCreated = camsToCreate.length - camErrors.length;
           }
         }
-        // Place declared actors in studio zone — create if new, update zone if existing
+        // Place declared actors in studio zone — create if new, update zone if existing.
+        // ONLY live channels and weather forecasts actually put a host on-stage (they're
+        // presence-gated at runtime). Every other type — scripted, sports, commercial —
+        // speaks its lines directly with no NPC, so we never spawn or move one for them,
+        // even if the .bsm declares ::actors / SPEAKER lines.
+        const spawnsNpcs = meta.type === 'live' || meta.type === 'weather';
         let npcSpawnCount = 0, npcMoveCount = 0;
         const existingNpcIds = _bcExistingNpcIds instanceof Set ? _bcExistingNpcIds : new Set();
-        const actors = [...new Set([
+        const actors = spawnsNpcs ? [...new Set([
           ...(Array.isArray(actorIds) ? actorIds : []),
           ...(Array.isArray(npcIds)   ? npcIds   : []),
-        ])];
+        ])] : [];
         for (const npcId of actors) {
           try {
             if (existingNpcIds.has(npcId)) {

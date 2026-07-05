@@ -32,8 +32,8 @@ async function listTypes(kind) {
 }
 
 function typeLine(t, kind) {
-  const price = kind === 'buy' ? `${t.price_buy}c` : `${t.price_rent_hourly}c/charter`;
-  return `<b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${t.fuel_type})</span> — ${price} · <span class="action-link" data-action="cmd" data-cmd="${kind} ${t.id}">${kind === 'buy' ? 'buy' : 'charter'}</span>`;
+  const price = kind === 'buy' ? `${t.price_buy}c` : `${t.price_rent_hourly}c/hr`;
+  return `<b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${t.fuel_type})</span> — ${price} · <span class="action-link" data-action="cmd" data-cmd="${kind} ${t.id}">${kind}</span>`;
 }
 
 async function ownedCount(playerId) {
@@ -45,13 +45,13 @@ async function acquire(args, raw, player, kind) {
   const field = fieldOf(player);
   const flagKey = kind === 'buy' ? 'airfield_dealer' : 'airfield_charter';
   if (!field || !field.flags[flagKey])
-    return { type: 'emote', message: `There's no ${kind === 'buy' ? 'aircraft dealer' : 'charter desk'} here.` };
+    return { type: 'emote', message: `There's no ${kind === 'buy' ? 'aircraft dealer' : 'rental desk'} here.` };
 
   const types = await listTypes(kind);
   const wanted = (args[0] || '').toLowerCase();
   if (!wanted) {
     const lines = types.map(t => '· ' + typeLine(t, kind));
-    return { type: 'output', message: `<span class="text-cyan">${kind === 'buy' ? 'FOR SALE' : 'FOR CHARTER'} at ${field.flags.airfield_name || field.name}:</span>\n${lines.join('\n')}` };
+    return { type: 'output', message: `<span class="text-cyan">${kind === 'buy' ? 'FOR SALE' : 'FOR RENT (self-flown)'} at ${field.flags.airfield_name || field.name}:</span>\n${lines.join('\n')}` };
   }
   const t = types.find(x => x.id === wanted || x.name.toLowerCase() === wanted || x.id.endsWith(wanted));
   if (!t) return { type: 'emote', message: `They don't ${kind} a "${wanted}" here. Type <b>${kind}</b> to see the list.` };
@@ -72,7 +72,7 @@ async function acquire(args, raw, player, kind) {
   );
   return { type: 'output', message: kind === 'buy'
     ? `<span class="item-grant">Sold. A brand-new <b>${t.name}</b> (${tailNum}) is towed onto the ramp. It's yours — <b>embark</b> her.</span>`
-    : `<span class="item-grant">Chartered a <b>${t.name}</b> (${tailNum}), half a tank, parked and ready. <b>embark</b> her — bring her back in one piece.</span>` };
+    : `<span class="item-grant">Rented a <b>${t.name}</b> (${tailNum}), half a tank, parked and ready. <b>embark</b> her and fly it yourself — the meter's running, so bring her back in one piece.</span>` };
 }
 
 async function typeCap(typeId) {
@@ -120,7 +120,22 @@ async function cmdBuy(args, raw, player, broadcast) {
   return commerceCommands.buy(args, raw, player, broadcast);
 }
 
-// `charter` is now an NPC-pilot ride (see charter.js), not a self-flown rental.
+// `rent` router: at a charter field, `rent` lists / `rent <type>` rents a
+// self-flown aircraft (owned by you, rental=1). Anywhere else it falls through to
+// the engine's apartment-rent builtin (return undefined). Distinct from `charter`
+// (an NPC-pilot ride, see charter.js).
+async function cmdRent(args, raw, player) {
+  const field = fieldOf(player);
+  if (field?.flags?.airfield_charter) {
+    const types = await listTypes('rent');
+    const wanted = (args[0] || '').toLowerCase();
+    if (!wanted || types.some(t => t.id === wanted || t.name.toLowerCase() === wanted || t.id.endsWith(wanted)))
+      return acquire(args, raw, player, 'rent');
+  }
+  return undefined;   // → engine apartment-rent builtin
+}
+
 export const commands = {
   buy: cmdBuy,
+  rent: cmdRent,
 };
