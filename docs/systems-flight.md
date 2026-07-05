@@ -288,8 +288,14 @@ full map** (`flight_pick_dest` → `armMapPick` → `flyto`). A charter aircraft
 (`charterParkedAt` / `embarkCharter`, gated in `index.cmdBoard`). If nobody boards
 within **2 min** the pilot gives up and the craft despawns; orphaned charter rows are
 swept on plugin load.
-The pilot does everything (a server-driven autoflight tick, no minigames — the
-main physics tick skips `live.charter` craft); you have **no controls**. The pilot
+A booked charter is **reserved to the player who chartered it** (`ch.chartererId`):
+a second player can't `embark` it (they fall through to normal boarding, the charter
+invisible to them). It's **free to cancel before takeoff** — type **`cancel`** (as the
+charterer waiting or the boarded passenger) or simply **leave the airfield** (the tick
+sees the charterer is no longer at the field via `fieldFor` and scrubs it); the fare
+is only charged at takeoff, so a pre-flight cancel refunds anything taken (`ch.paid`,
+normally 0). The pilot does everything (a server-driven autoflight tick, no minigames —
+the main physics tick skips `live.charter` craft); you have **no controls**. The pilot
 **rides along as a real aircraft occupant** — `boardPilot` puts the NPC in
 `live.occupants` and pulls them out of the world at departure (so bystanders see
 them leave with the plane; the engine `npc._aboard` guard in `gameLoop` freezes

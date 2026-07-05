@@ -45,14 +45,21 @@ export const CRIME_DEFAULTS = {
 };
 
 let overrides = {}; // key → stars (from DB)
+let disabled = new Set(); // keys an admin has switched OFF (from DB)
 
 export async function reloadCrimes() {
+  overrides = {};
+  disabled = new Set();
   try {
-    const { rows } = await query('SELECT id, stars FROM crimes');
-    overrides = {};
-    for (const r of rows) overrides[r.id] = Number(r.stars);
+    const { rows } = await query('SELECT id, stars, enabled FROM crimes');
+    for (const r of rows) { overrides[r.id] = Number(r.stars); if (r.enabled === false) disabled.add(r.id); }
   } catch {
-    overrides = {}; // table not present yet — defaults stand
+    // Pre-migration DB (no `enabled` column yet) — fall back to stars-only so star
+    // overrides still apply; every crime stays enabled until db:schema adds the column.
+    try {
+      const { rows } = await query('SELECT id, stars FROM crimes');
+      for (const r of rows) overrides[r.id] = Number(r.stars);
+    } catch { /* table not present at all — engine defaults stand */ }
   }
 }
 
@@ -60,6 +67,12 @@ export async function reloadCrimes() {
 export function getCrimeStars(key) {
   if (key in overrides) return overrides[key];
   return CRIME_DEFAULTS[key]?.stars ?? 0;
+}
+
+// Whether a crime key is switched on. Admins toggle crimes in the Crime panel; a
+// disabled crime never charges stars/heat (raiseCrime short-circuits on it).
+export function isCrimeEnabled(key) {
+  return !disabled.has(key);
 }
 
 export function getCrimeWitness(key) {
@@ -78,6 +91,7 @@ export function getCrimeList() {
     stars: id in overrides ? overrides[id] : def.stars,
     description: def.description,
     witness: def.witness,
+    enabled: !disabled.has(id),
     is_default: !(id in overrides),
   }));
 }

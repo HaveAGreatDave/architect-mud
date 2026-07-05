@@ -39,3 +39,36 @@ export async function stainZone(zoneId, type) {
   zone.stains[type] = (zone.stains[type] || 0) + 1;
   await query('UPDATE zones SET stains=$1 WHERE id=$2', [JSON.stringify(zone.stains), zoneId]);
 }
+
+// A named body part maps to whichever equip slot would actually cover it, so
+// aiming at "face" or "chest" checks the same slot a hat/shirt occupies.
+const PART_TO_SLOT = {
+  face: 'head', hair: 'head', head: 'head', scalp: 'head',
+  chest: 'torso', torso: 'torso', back: 'torso', stomach: 'torso', belly: 'torso',
+  hands: 'hands', arms: 'hands', arm: 'hands',
+  legs: 'legs', leg: 'legs', thighs: 'legs', groin: 'legs', crotch: 'legs',
+  feet: 'feet', foot: 'feet', shoes: 'feet',
+};
+
+// Stain a specific body part on a player target: soaks the garment covering it
+// if one's worn there, otherwise leaves a visible residue note on bare skin
+// (rendered like ejaculate_state — see appearance.js). Always leaves a mark
+// somewhere on the target, never a no-op.
+export async function stainCreatureBodyPart(target, type, part) {
+  const label = (part || 'body').toLowerCase();
+  const slot = PART_TO_SLOT[label];
+  if (slot) {
+    const { rows } = await query(
+      `SELECT 1 FROM player_inventory WHERE player_id=$1 AND is_equipped=1 AND slot=$2 LIMIT 1`,
+      [target.id, slot]
+    );
+    if (rows.length) {
+      await stainClothing(target, [slot], type);
+      return;
+    }
+  }
+  if (!target.appearance_data) target.appearance_data = {};
+  target.appearance_data.soiled_state = { type, locations: [label] };
+  await query('UPDATE players SET appearance_data=$1 WHERE id=$2',
+    [JSON.stringify(target.appearance_data), target.id]);
+}

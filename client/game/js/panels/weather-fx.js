@@ -350,6 +350,13 @@ export function setWeatherFxEnabled(on) {
   else { refreshThemeColors(); startLoop(); }  // refresh even if already running (theme switch)
 }
 
+// Public: other panels (e.g. the cockpit windshield) that draw their own weather
+// flourishes gate on this so every visual effect — lightning included — lives
+// under the one WeatherFX toggle instead of having its own always-on switch.
+export function isWeatherFxEnabled() {
+  return enabled;
+}
+
 export function initWeatherFx() {
   document.addEventListener('visibilitychange', () => {
     if (shouldRun()) startLoop(); else stopLoop();

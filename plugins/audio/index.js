@@ -531,8 +531,19 @@ const STREAM_SURFACES = {
   soft:     { main: 1500, high: 2400, hiGain: 0.05, body: 160 }, // furniture
   body:     { main: 1200, high: 2000, hiGain: 0.04, body: 150 }, // a person
 };
-function makePeeStream(surface, withDrip) {
+function makePeeStream(surface, fading) {
   const s = STREAM_SURFACES[surface] || STREAM_SURFACES.water;
+  if (fading) {
+    // Tapering into a lull — no sustain plateau, a long soft release so the
+    // stream visibly (audibly) winds down instead of just stopping.
+    return {
+      id: 'sfx_pee_stream_fade', name: 'sfx_pee_stream_fade', category: 'sfx', priority: 3,
+      config: { duration: 1.3, layers: [
+        { noiseMix: 1, filter: { type: 'bandpass', freq: s.main, q: 0.55 }, adsr: { a: 0.05, d: 0.5, s: 0.15, r: 0.7 }, gain: 0.22 },
+        { noiseMix: 1, filter: { type: 'highpass', freq: s.high, q: 0.5 }, adsr: { a: 0.05, d: 0.5, s: 0.1, r: 0.7 }, gain: s.hiGain * 0.7 },
+      ] },
+    };
+  }
   const layers = [
     // Stream body — broad, low-Q noise held steady (sustain 0.95, no tremolo) so
     // it's a solid jet, not a spatter.
@@ -542,17 +553,21 @@ function makePeeStream(surface, withDrip) {
     // Low pressure of the stream hitting the surface.
     { waveform: 'sine', freq: s.body, adsr: { a: 0.12, d: 0.1, s: 0.9, r: 0.22 }, gain: 0.05 },
   ];
-  if (withDrip) {
-    // A single high droplet in the tail — lands as the stream falters, selling the
-    // "occasional breaks and drips" feel.
-    layers.push(
-      { waveform: 'sine', freq: s.body * 4, pitchBend: { to: s.body * 2, time: 0.12 }, delay: 1.35, adsr: { a: 0.003, d: 0.1, s: 0, r: 0.05 }, gain: 0.13 },
-      { noiseMix: 1, filter: { type: 'bandpass', freq: 1800, q: 1.3 }, delay: 1.36, adsr: { a: 0.003, d: 0.08, s: 0, r: 0.04 }, gain: 0.06 },
-    );
-  }
   return {
     id: 'sfx_pee_stream', name: 'sfx_pee_stream', category: 'sfx', priority: 3,
-    config: { duration: withDrip ? 1.7 : 1.6, layers },
+    config: { duration: 1.6, layers },
+  };
+}
+
+// A single soft droplet during a lull in the stream — quiet, brief, never abrupt.
+function makePeeDribble(surface) {
+  const s = STREAM_SURFACES[surface] || STREAM_SURFACES.water;
+  return {
+    id: 'sfx_pee_dribble', name: 'sfx_pee_dribble', category: 'sfx', priority: 3,
+    config: { duration: 0.3, layers: [
+      { waveform: 'sine', freq: s.body * 4, pitchBend: { to: s.body * 2, time: 0.12 }, adsr: { a: 0.003, d: 0.1, s: 0, r: 0.12 }, gain: 0.13 },
+      { noiseMix: 1, filter: { type: 'bandpass', freq: 1800, q: 1.3 }, adsr: { a: 0.003, d: 0.08, s: 0, r: 0.1 }, gain: 0.06 },
+    ] },
   };
 }
 
@@ -591,8 +606,12 @@ function makeFart(big, seedFreq) {
 
 on('bodily.sfx', ({ zoneId, playerId, cue, surface }) => {
   // The stream is personal; farts/plops/finale/flush carry to everyone in the room.
-  if (cue === 'stream') {
-    if (playerId) sendToPlayer(playerId, { type: 'audio_sfx', def: makePeeStream(surface, Math.random() < 0.4), gain: 0.9 });
+  if (cue === 'stream' || cue === 'stream_fade') {
+    if (playerId) sendToPlayer(playerId, { type: 'audio_sfx', def: makePeeStream(surface, cue === 'stream_fade'), gain: cue === 'stream_fade' ? 0.7 : 0.9 });
+    return;
+  }
+  if (cue === 'stream_dribble') {
+    if (playerId) sendToPlayer(playerId, { type: 'audio_sfx', def: makePeeDribble(surface), gain: 0.7 });
     return;
   }
   if (!zoneId) return;

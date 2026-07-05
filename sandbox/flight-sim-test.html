@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>MAYFLY · FLIGHT BENCH (test rig)</title>
+<style>
+/* ───────────────────────────────────────────────────────────────────────────
+   FLIGHT BENCH — standalone test harness for the continuous flight model.
+   Imports the REAL flight-model.js + windshield.js. No server, no build step.
+   Grab the yoke (mouse or touch) and fly the Mayfly; tune TYPES.mayfly live.
+   Ports onto the real cockpit pane later.
+   ─────────────────────────────────────────────────────────────────────────── */
+:root{
+  --cy:#8fd0ff;          /* cyan — primary avionics accent */
+  --cy-dim:#4f7f9f;
+  --grn:#5fe0a0;
+  --amber:#ffcf3e;
+  --red:#ff5a5b;
+  --ink:#cfe4f2;
+  --ink-dim:#6f8698;
+  --panel:#0b1219;
+  --font:'DejaVu Sans Mono','Consolas','Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:#04070c; color:var(--ink); font-family:var(--font);
+  overflow:hidden; letter-spacing:.3px; -webkit-font-smoothing:none;
+  display:flex; align-items:center; justify-content:center; gap:14px; padding:14px;
+}
+#deck{
+  position:relative; width:min(70vw,880px); aspect-ratio:16/11;
+  border-radius:14px; overflow:hidden; display:flex; flex-direction:column;
+  background:linear-gradient(180deg,#0c1219,#070b10 45%,#05080d);
+  border:1px solid #0a1219; box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 8px 30px rgba(0,0,0,.6);
+}
+/* forward view */
+#viewwrap{ position:relative; flex:1 1 auto; min-height:0; }
+#hud{ position:absolute; inset:0; pointer-events:none; }
+/* instrument strip */
+#strip{ display:flex; gap:8px; padding:8px; background:#070b10; border-top:1px solid #0f1a24; }
+.gauge{ flex:1; background:var(--panel); border:1px solid #14212d; border-radius:8px;
+  padding:6px 8px; display:flex; flex-direction:column; gap:2px; min-width:0; }
+.gauge .lbl{ font-size:9px; color:var(--ink-dim); letter-spacing:1.5px; }
+.gauge .val{ font-size:19px; color:var(--cy); font-variant-numeric:tabular-nums; line-height:1; }
+.gauge .unit{ font-size:9px; color:var(--ink-dim); }
+.gauge.warn .val{ color:var(--red); }
+/* attitude indicator */
+#adiBox{ flex:0 0 96px; padding:4px; }
+#adi{ width:100%; height:100%; display:block; }
+/* stall lamp */
+#lamp{ position:absolute; top:10px; left:50%; transform:translateX(-50%);
+  font-size:12px; letter-spacing:2px; color:var(--red); opacity:0;
+  background:rgba(40,4,6,.7); border:1px solid var(--red); border-radius:5px; padding:3px 10px; }
+
+/* control column (right) */
+#controls{ display:flex; flex-direction:column; gap:12px; width:210px; }
+.cbox{ background:var(--panel); border:1px solid #14212d; border-radius:12px; padding:10px; }
+.cbox h4{ font-size:10px; color:var(--ink-dim); letter-spacing:2px; margin-bottom:8px; font-weight:normal; }
+/* yoke pad */
+#yokePad{ position:relative; width:100%; aspect-ratio:1; background:radial-gradient(circle at 50% 45%,#101c26,#0a1017);
+  border:1px solid #16242f; border-radius:12px; touch-action:none; cursor:grab; overflow:hidden; }
+#yokePad.drag{ cursor:grabbing; }
+#yokeCross{ position:absolute; inset:0; }
+#yokeKnob{ position:absolute; width:34px; height:34px; margin:-17px 0 0 -17px; border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,#3a6f8f,#12303f); border:1px solid #5fd0ff;
+  box-shadow:0 2px 8px rgba(0,0,0,.6), inset 0 1px 2px rgba(255,255,255,.3); }
+.padhint{ position:absolute; font-size:8px; color:var(--ink-dim); letter-spacing:1px; pointer-events:none; }
+/* vertical levers */
+.lever{ position:relative; height:120px; width:46px; margin:0 auto; background:#0a1017;
+  border:1px solid #16242f; border-radius:9px; touch-action:none; cursor:ns-resize; }
+.lever .fill{ position:absolute; left:0; right:0; bottom:0; background:linear-gradient(180deg,#1c74a0,#0d3346); border-radius:0 0 8px 8px; }
+.lever .grip{ position:absolute; left:-3px; right:-3px; height:16px; margin-top:-8px;
+  background:linear-gradient(180deg,#3a6f8f,#12303f); border:1px solid #5fd0ff; border-radius:4px; box-shadow:0 2px 6px rgba(0,0,0,.5); }
+.pct{ text-align:center; font-size:15px; color:var(--cy); margin-top:6px; font-variant-numeric:tabular-nums; }
+/* flap notches */
+#flaps{ display:flex; gap:6px; }
+#flaps button{ flex:1; background:#0a1017; border:1px solid #16242f; color:var(--ink-dim);
+  border-radius:7px; padding:8px 0; font-family:var(--font); font-size:11px; cursor:pointer; }
+#flaps button.on{ border-color:var(--cy); color:var(--cy); background:#0f2231; }
+/* tuning */
+#tune{ width:230px; background:var(--panel); border:1px solid #14212d; border-radius:12px; padding:10px; font-size:10px;
+  max-height:86vh; overflow:auto; }
+#tune h4{ color:var(--amber); letter-spacing:2px; margin-bottom:8px; font-weight:normal; }
+.trow{ display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+.trow label{ flex:0 0 68px; color:var(--ink-dim); }
+.trow input{ flex:1; min-width:0; }
+.trow .tv{ flex:0 0 40px; text-align:right; color:var(--cy); font-variant-numeric:tabular-nums; }
+#tune .note{ color:var(--ink-dim); margin-top:8px; line-height:1.5; }
+#resetBtn{ width:100%; margin-top:8px; background:#0f2231; border:1px solid var(--cy-dim); color:var(--cy);
+  border-radius:7px; padding:6px; font-family:var(--font); cursor:pointer; }
+kbd{ background:#0f2231; border:1px solid #16242f; border-radius:3px; padding:0 4px; color:var(--cy); }
+</style>
+</head>
+<body>
+
+<div id="deck">
+  <div id="viewwrap">
+    <div id="wsmount" style="position:absolute;inset:0"></div>
+    <div id="hud">
+      <div id="lamp">⚠ STALL</div>
+    </div>
+  </div>
+  <div id="strip">
+    <div id="adiBox"><svg id="adi" viewBox="0 0 120 120"></svg></div>
+    <div class="gauge"><span class="lbl">IAS</span><span class="val" id="gIas">0</span><span class="unit">KTS</span></div>
+    <div class="gauge"><span class="lbl">ALT</span><span class="val" id="gAlt">0</span><span class="unit">FT AGL</span></div>
+    <div class="gauge"><span class="lbl">V/S</span><span class="val" id="gVs">0</span><span class="unit">FT/MIN</span></div>
+    <div class="gauge"><span class="lbl">HDG</span><span class="val" id="gHdg">000</span><span class="unit">°</span></div>
+    <div class="gauge"><span class="lbl">RPM</span><span class="val" id="gRpm">0</span><span class="unit">%</span></div>
+  </div>
+</div>
+
+<div id="controls">
+  <div class="cbox">
+    <h4>YOKE — drag (springs to centre)</h4>
+    <div id="yokePad">
+      <svg id="yokeCross" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <line x1="50" y1="6" x2="50" y2="94" stroke="#16242f"/><line x1="6" y1="50" x2="94" y2="50" stroke="#16242f"/>
+      </svg>
+      <div id="yokeKnob"></div>
+      <span class="padhint" style="top:4px;left:50%;transform:translateX(-50%)">PUSH · NOSE DN</span>
+      <span class="padhint" style="bottom:4px;left:50%;transform:translateX(-50%)">PULL · NOSE UP</span>
+      <span class="padhint" style="left:4px;top:50%;transform:translateY(-50%)">L</span>
+      <span class="padhint" style="right:4px;top:50%;transform:translateY(-50%)">R</span>
+    </div>
+  </div>
+  <div class="cbox">
+    <h4>THROTTLE</h4>
+    <div class="lever" id="thrLever"><div class="fill" id="thrFill"></div><div class="grip" id="thrGrip"></div></div>
+    <div class="pct" id="thrPct">0%</div>
+  </div>
+  <div class="cbox">
+    <h4>FLAPS</h4>
+    <div id="flaps">
+      <button data-f="0" class="on">UP</button>
+      <button data-f="0.5">½</button>
+      <button data-f="1">FULL</button>
+    </div>
+  </div>
+</div>
+
+<div id="tune">
+  <h4>TUNE · TYPES.mayfly</h4>
+  <div id="tuneRows"></div>
+  <button id="resetBtn">reset to defaults</button>
+  <div class="note">
+    Keys: <kbd>↑↓</kbd> pitch · <kbd>←→</kbd> roll · <kbd>W</kbd>/<kbd>S</kbd> throttle · <kbd>F</kbd> flaps · <kbd>R</kbd> respawn.<br>
+    Yoke springs to centre on release; throttle &amp; flaps hold.
+  </div>
+</div>
+
+<script type="module">
+import { createState, step, readout, TYPES } from '../client/game/js/panels/flight-model.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield } from '../client/game/js/panels/windshield.js';
+
+const clamp = (v,lo,hi)=>v<lo?lo:v>hi?hi:v;
+const lerp = (a,b,t)=>a+(b-a)*t;
+
+// ── Working copy of the params so the tuning sliders can mutate them live ──────
+const DEFAULTS = JSON.parse(JSON.stringify(TYPES.mayfly));
+let P = JSON.parse(JSON.stringify(TYPES.mayfly));
+let s = createState(P);
+
+// ── Forward view (the real windshield module) ─────────────────────────────────
+ensureWindshieldStyles();
+document.getElementById('wsmount').innerHTML = windshieldHTML('ws', 'FWD VIEW');
+// A small static world so cruise has something to look at: a scatter of buildings.
+function stubMap(){
+  const R=4, rows=[];
+  for(let y=-R;y<=R;y++){ const row=[]; for(let x=-R;x<=R;x++){
+    if(x===0&&y===0){ row.push({kind:'craft'}); continue; }
+    const n=Math.abs((x*7+y*13))%5; row.push({kind: n===0?'land':(n===1&&y<0?'land':'air')});
+  } rows.push(row); }
+  return rows;
+}
+const MAP = stubMap();
+
+// ── Control input state ───────────────────────────────────────────────────────
+const input = { elevator:0, aileron:0, throttle:0, flaps:0 };
+let yokeDrag=false, keyPitch=0, keyRoll=0;
+
+// ── Display easing (instruments lag slightly — "needles never snap") ───────────
+const disp = { ias:0, alt:0, vs:0, hdg:0, rpm:0, pitch:0, bank:0 };
+
+// ── Audio: a minimal stall horn (intermittent → continuous) ───────────────────
+let actx=null, hornOsc=null, hornGain=null, hornBeat=0;
+function audio(){ if(!actx){ actx=new (window.AudioContext||window.webkitAudioContext)();
+  hornOsc=actx.createOscillator(); hornGain=actx.createGain(); hornGain.gain.value=0;
+  hornOsc.type='square'; hornOsc.frequency.value=380; hornOsc.connect(hornGain).connect(actx.destination); hornOsc.start(); } return actx; }
+function stallHorn(margin, stalled, dt){
+  if(!actx) return;
+  let want=0;
+  if(stalled) want=0.06;                                   // continuous
+  else if(margin<0.35){ hornBeat=(hornBeat+dt*(2+ (0.35-margin)*10))%1; want = hornBeat<0.5?0.05:0; } // intermittent, faster as it worsens
+  hornGain.gain.setTargetAtTime(want, actx.currentTime, 0.02);
+}
+
+// ── Build the attitude indicator ──────────────────────────────────────────────
+const adi = document.getElementById('adi');
+adi.innerHTML = `
+  <defs><clipPath id="adiClip"><circle cx="60" cy="60" r="52"/></clipPath></defs>
+  <g clip-path="url(#adiClip)">
+    <g id="adiRoll">
+      <g id="adiPitch">
+        <rect x="-80" y="-140" width="280" height="200" fill="#2b7fb0"/>
+        <rect x="-80" y="60" width="280" height="220" fill="#6b5330"/>
+        <line x1="-80" y1="60" x2="200" y2="60" stroke="#e8f2fa" stroke-width="2"/>
+        ${[-30,-20,-10,10,20,30].map(p=>`<line x1="${60-(Math.abs(p)>15?16:10)}" y1="${60-p*1.6}" x2="${60+(Math.abs(p)>15?16:10)}" y2="${60-p*1.6}" stroke="#cfe4f2" stroke-width="1"/>`).join('')}
+      </g>
+    </g>
+  </g>
+  <circle cx="60" cy="60" r="52" fill="none" stroke="#16242f" stroke-width="3"/>
+  <path d="M32 60 L50 60 M60 60 L60 60 M70 60 L88 60" stroke="var(--amber)" stroke-width="2" fill="none" style="stroke:#ffcf3e"/>
+  <circle cx="60" cy="60" r="2.5" fill="#ffcf3e"/>
+  <polygon points="60,10 56,18 64,18" fill="#ffcf3e"/>
+`;
+const adiRoll = adi.querySelector('#adiRoll'), adiPitch = adi.querySelector('#adiPitch');
+
+// ── YOKE (2D pad, Pointer Events, springs to centre) ──────────────────────────
+const pad = document.getElementById('yokePad'), knob = document.getElementById('yokeKnob');
+function padTo(e){
+  const r = pad.getBoundingClientRect();
+  const nx = clamp(((e.clientX - r.left)/r.width)*2-1, -1, 1);
+  const ny = clamp(((e.clientY - r.top )/r.height)*2-1, -1, 1);
+  input.aileron = nx;            // right = bank right
+  input.elevator = ny;          // real yoke: pull toward you (drag DOWN) = nose up
+}
+pad.addEventListener('pointerdown', e=>{ yokeDrag=true; pad.classList.add('drag'); pad.setPointerCapture(e.pointerId); padTo(e); });
+pad.addEventListener('pointermove', e=>{ if(yokeDrag) padTo(e); });
+addEventListener('pointerup', ()=>{ yokeDrag=false; pad.classList.remove('drag'); });
+
+// ── THROTTLE (vertical lever, holds) ──────────────────────────────────────────
+const thr = document.getElementById('thrLever'), thrFill=document.getElementById('thrFill'), thrGrip=document.getElementById('thrGrip'), thrPct=document.getElementById('thrPct');
+let thrDrag=false;
+function thrTo(e){ const r=thr.getBoundingClientRect(); input.throttle = clamp(1-((e.clientY-r.top)/r.height),0,1); }
+thr.addEventListener('pointerdown', e=>{ thrDrag=true; audio(); thr.setPointerCapture(e.pointerId); thrTo(e); });
+thr.addEventListener('pointermove', e=>{ if(thrDrag) thrTo(e); });
+addEventListener('pointerup', ()=>{ thrDrag=false; });
+
+// ── FLAPS ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('#flaps button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#flaps button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); input.flaps=parseFloat(b.dataset.f);
+}));
+
+// ── Keyboard ──────────────────────────────────────────────────────────────────
+addEventListener('keydown', e=>{
+  if(e.key==='ArrowUp') keyPitch=1; else if(e.key==='ArrowDown') keyPitch=-1;
+  else if(e.key==='ArrowLeft') keyRoll=-1; else if(e.key==='ArrowRight') keyRoll=1;
+  else if(e.key==='w'||e.key==='W') input.throttle=clamp(input.throttle+0.08,0,1);
+  else if(e.key==='s'||e.key==='S') input.throttle=clamp(input.throttle-0.08,0,1);
+  else if(e.key==='f'||e.key==='F'){ input.flaps = input.flaps>=1?0:input.flaps+0.5; syncFlapBtns(); }
+  else if(e.key==='r'||e.key==='R'){ s=createState(P); }
+  else return; e.preventDefault();
+});
+addEventListener('keyup', e=>{ if(e.key==='ArrowUp'||e.key==='ArrowDown') keyPitch=0; if(e.key==='ArrowLeft'||e.key==='ArrowRight') keyRoll=0; });
+function syncFlapBtns(){ document.querySelectorAll('#flaps button').forEach(x=>x.classList.toggle('on', parseFloat(x.dataset.f)===input.flaps)); }
+
+// ── Tuning sliders ────────────────────────────────────────────────────────────
+const KNOBS = [
+  ['thrustMax',3,16,0.1],['vr',28,60,1],['vs0',20,44,1],['cruise',55,110,1],
+  ['pitchRate',8,40,1],['pitchTau',0.2,1.5,0.05],['rollRate',20,90,1],['rollTau',0.2,1.5,0.05],['engineLag',0.3,3,0.1],
+  ['pitchStable',0,3,0.1],['rollStable',0,3,0.1],['dragP',0.0005,0.003,0.00002],
+  ['vsGain',1000,6000,100],['vsMax',600,2500,50],['vsTau',0.4,3,0.1],['rollFric',0,4,0.1],
+];
+const rowsEl = document.getElementById('tuneRows');
+KNOBS.forEach(([k,lo,hi,st])=>{
+  const row=document.createElement('div'); row.className='trow';
+  row.innerHTML=`<label>${k}</label><input type="range" min="${lo}" max="${hi}" step="${st}" value="${P[k]}"><span class="tv"></span>`;
+  const inp=row.querySelector('input'), tv=row.querySelector('.tv');
+  const show=()=>tv.textContent = P[k]>=100?P[k].toFixed(0):P[k]>=1?P[k].toFixed(1):P[k].toFixed(5);
+  inp.addEventListener('input',()=>{ P[k]=parseFloat(inp.value); show(); }); show();
+  rowsEl.appendChild(row);
+});
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  P=JSON.parse(JSON.stringify(DEFAULTS));
+  document.querySelectorAll('#tuneRows .trow').forEach((row,i)=>{ const k=KNOBS[i][0]; row.querySelector('input').value=P[k]; row.querySelector('.tv').textContent = P[k]>=100?P[k].toFixed(0):P[k]>=1?P[k].toFixed(1):P[k].toFixed(5); });
+});
+
+// ── Main loop ─────────────────────────────────────────────────────────────────
+const lamp = document.getElementById('lamp');
+let last=performance.now();
+function frame(now){
+  let dt = clamp((now-last)/1000, 0, 0.05); last=now;
+
+  // Yoke springs back to centre when released; keyboard nudges add on top.
+  if(!yokeDrag){ input.elevator = lerp(input.elevator, 0, Math.min(1, dt*6)); input.aileron = lerp(input.aileron, 0, Math.min(1, dt*6)); }
+  if(keyPitch) input.elevator = clamp(input.elevator + keyPitch*dt*2.5, -1, 1);
+  if(keyRoll)  input.aileron  = clamp(input.aileron  + keyRoll*dt*2.5, -1, 1);
+
+  step(s, input, P, dt);
+
+  for(const e of s.events){ if(e.type==='touchdown'){ lamp.textContent = e.severity==='hard'?'⚠ HARD LANDING':'TOUCHDOWN'; lamp.style.color = e.severity==='hard'?'#ff5a5b':'#5fe0a0'; lamp.style.borderColor=lamp.style.color; lamp.style.opacity=1; setTimeout(()=>lamp.style.opacity=0,900); } }
+  stallHorn(s.stallMargin, s.stalled, dt);
+  if(s.stalled){ lamp.textContent='⚠ STALL'; lamp.style.color='#ff5a5b'; lamp.style.borderColor='#ff5a5b'; lamp.style.opacity=1; }
+  else if(!s.events.length && lamp.textContent==='⚠ STALL') lamp.style.opacity=0;
+
+  const r = readout(s, P);
+  // Ease the displayed instrument values toward the model (needles lag slightly).
+  disp.ias=lerp(disp.ias,r.airspeed,Math.min(1,dt*6)); disp.alt=lerp(disp.alt,r.altitude,Math.min(1,dt*5));
+  disp.vs=lerp(disp.vs,r.vs,Math.min(1,dt*4)); disp.rpm=lerp(disp.rpm,r.rpm,Math.min(1,dt*6));
+  disp.pitch=lerp(disp.pitch,r.pitch,Math.min(1,dt*10)); disp.bank=lerp(disp.bank,r.bank,Math.min(1,dt*10));
+  let dh=((r.heading-disp.hdg+540)%360)-180; disp.hdg=(disp.hdg+dh*Math.min(1,dt*6)+360)%360;
+
+  document.getElementById('gIas').textContent=Math.round(disp.ias);
+  document.getElementById('gAlt').textContent=Math.round(disp.alt);
+  const gvs=document.getElementById('gVs'); gvs.textContent=(disp.vs>=0?'+':'')+Math.round(disp.vs);
+  document.getElementById('gHdg').textContent=String(Math.round(disp.hdg)).padStart(3,'0');
+  document.getElementById('gRpm').textContent=Math.round(disp.rpm);
+  const iasG=document.getElementById('gIas').closest('.gauge'); iasG.classList.toggle('warn', r.stalled || s.stallMargin<0.35);
+
+  adiRoll.setAttribute('transform',`rotate(${-disp.bank} 60 60)`);
+  adiPitch.setAttribute('transform',`translate(0 ${disp.pitch*1.6})`);
+
+  // Throttle lever visual.
+  thrFill.style.height=(input.throttle*100)+'%'; thrGrip.style.bottom=`calc(${input.throttle*100}% - 8px)`; thrPct.textContent=Math.round(input.throttle*100)+'%';
+  // Yoke knob visual (follows the eased input).
+  const pr=pad.getBoundingClientRect(); knob.style.left=(50+input.aileron*42)+'%'; knob.style.top=(50+input.elevator*42)+'%';
+
+  // Forward view.
+  paintWindshield('ws', {
+    pitch:disp.pitch, bank:disp.bank,
+    height:clamp(r.altitude/1400,0,1), speed:clamp(r.airspeed/P.vne,0,1),
+    hour:14, weather:'clear', heading:disp.hdg,
+    phase: s.onGround ? 'ground' : 'cruise', airport:'city', map:MAP,
+  });
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

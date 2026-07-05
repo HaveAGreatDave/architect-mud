@@ -128,6 +128,25 @@ function renderEmergencyPanel(data) {
         <div id="crime-log-body"><div style="font-size:11px;color:var(--text-dim);padding:6px 0">Loading…</div></div>
       </div>
 
+      <!-- Penalties -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:12px">Penalties</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:11px;color:var(--text-dim)">Fine &amp; jail-time multiplier</span>
+          <input id="crime-mult" type="number" min="0" max="100" step="0.5" value="6" style="width:70px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
+          <span style="font-size:12px;color:var(--text-dim)">×</span>
+          <button class="action-btn" onclick="saveCrimeMult()">Save</button>
+        </div>
+        <div style="margin-top:10px;font-size:10px;color:var(--text-dim)">Scales every booking fine and jail sentence. Default 6 (6× the old baseline).</div>
+      </div>
+
+      <!-- Crime Registry -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:12px">Crime Registry — toggle enforcement</div>
+        <div id="crime-registry"><div style="font-size:11px;color:var(--text-dim);padding:6px 0">Loading…</div></div>
+        <div style="margin-top:10px;font-size:10px;color:var(--text-dim)">A disabled crime never charges wanted stars or heat when witnessed.</div>
+      </div>
+
       <!-- ESP Controls -->
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:14px">Controls</div>
@@ -189,9 +208,39 @@ function renderEmergencyPanel(data) {
     </div>`;
 
   _startCrimeLogPoll();
+  _loadCrimeConfig();
 }
 
 // ── ESP controls ──────────────────────────────────────────────────────────────
+
+// ── Crime config: penalty multiplier + per-crime on/off toggles ───────────────
+async function _loadCrimeConfig() {
+  const cfg = await directAPI('/crime-config');
+  const mi = document.getElementById('crime-mult');
+  if (mi && cfg && cfg.multiplier != null) mi.value = cfg.multiplier;
+  const crimes = await directAPI('/crimes');
+  const box = document.getElementById('crime-registry');
+  if (!box) return;
+  if (!Array.isArray(crimes)) { box.innerHTML = `<div style="font-size:11px;color:#ff6b6b">${_crimeEsc(crimes?.error || 'failed to load crimes')}</div>`; return; }
+  box.innerHTML = crimes.map(c => `
+    <div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)">
+      <label class="toggle-switch" style="flex-shrink:0"><input type="checkbox" ${c.enabled !== false ? 'checked' : ''} onchange="toggleCrime('${c.id}', this.checked)"><span class="toggle-slider"></span></label>
+      <span style="font-size:11px;color:var(--text);${c.enabled === false ? 'opacity:0.45;text-decoration:line-through' : ''}">${_crimeEsc(c.label)}</span>
+      <span style="font-size:10px;color:#ff6b6b;margin-left:auto;white-space:nowrap">${c.stars}★</span>
+      <span style="font-size:9px;color:var(--text-dim);text-transform:uppercase;min-width:52px;text-align:right">${_crimeEsc(c.witness)}</span>
+    </div>`).join('');
+}
+async function saveCrimeMult() {
+  const v = Number(document.getElementById('crime-mult').value);
+  const r = await directAPI('/crime-config', 'PUT', { multiplier: v });
+  if (r.error) { toast(r.error, true); return; }
+  toast(`Penalty multiplier set to ${r.multiplier}×`);
+}
+async function toggleCrime(id, enabled) {
+  const r = await directAPI(`/crimes/${id}`, 'PUT', { enabled });
+  if (r.error) { toast(r.error, true); return; }
+  _loadCrimeConfig();
+}
 
 async function espActivate() {
   const message = document.getElementById('esp-msg')?.value?.trim();

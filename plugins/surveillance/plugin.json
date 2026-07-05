@@ -2,7 +2,7 @@
   "name": "surveillance",
   "version": "0.6.0",
   "description": "SPECTER — player spy networks + a witnessed-crime wanted system. P1-5: plant/hub/record/counterplay/devices. P6: 0-5 star wanted, escalating police tiers up to Arbiters, evidence + bounties.",
-  "commands": ["plant", "retrieve", "sweep", "feed", "hub", "hubclose", "record", "clip", "clips", "replay", "smash", "hijack", "hijackresolve", "pilot", "submit", "wanted", "bribe", "scrub"],
+  "commands": ["plant", "retrieve", "sweep", "feed", "hub", "hubclose", "record", "clip", "clips", "replay", "smash", "hijack", "hijackresolve", "pilot", "submit", "wanted", "bribe", "scrub", "apprehendresolve"],
   "routePrefix": "/surveillance",
   "specializedActions": [
     { "verb": "use", "requiredTag": "spy_deck" },

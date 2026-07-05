@@ -28,8 +28,26 @@
 //               //   around the view (porthole / cabin pane / armoured port)
 // }
 
+import { isWeatherFxEnabled } from './weather-fx.js';
+
 const FOV = 58;                 // forward field of view, degrees, for projecting obstacles
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
+let _obsHgt = 0;                // current view altitude fraction — drawers show more of a roof/top as it climbs
+
+// Live render tuning — mutated by the in-cockpit tuning sliders, read every frame.
+export const RENDER_TUNE = {
+  worldPace: 0.001,   // MAX ground pace (at full speed). Effective pace ramps 0→0.0001(begin roll)→0.001(full)
+  eh: 0.05,           // Mode-7 eye height on the GROUND (near-0 spread-out look; a floor keeps the runway from collapsing)
+  climbLift: 7.0,     // eye-height ADDED per unit altitude: EH = max(floor, eh + climbLift*height). ~2 by 500ft → clears buildings
+  tile: 0.85,         // Mode-7 floor tile frequency (higher = smaller terrain tiles)
+  pixel: 4,           // Mode-7 render downscale → pixel chunkiness (higher = blockier/retro)
+  bldgH: 3.0,         // building height scale (from the user's tuned screenshot)
+  bldgFoot: 0.1,      // building footprint (width) scale (from the user's tuned screenshot)
+  texRes: 1.0,        // building texture resolution (higher = crisper, lower = chunkier)
+  haze: 2.2,          // how fast the floor fades into the horizon haze
+  rwl: 3.2,           // runway length (tiles)
+  rwyRecede: 4.0,     // how strongly climbing pushes the runway down/under
+};
 
 function angDelta(a, b) { let d = (b - a) % 360; if (d > 180) d -= 360; if (d < -180) d += 360; return d; }
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
@@ -74,6 +92,17 @@ const AIRPORT = {
 };
 const airportCfg = (theme) => AIRPORT[theme] || AIRPORT.default;
 
+// ── Biome ground tint (the near/mid ground colour when flying over a district) ──
+// Not the flat map colours — the material the ground reads as from the air: arid
+// desert over the badlands, dark water over the bay, ashen concrete over industry.
+const BIOME_GROUND = {
+  badlands: [150, 112, 72], water: [34, 62, 88], docks: [58, 70, 80],
+  ruins: [86, 82, 58], oldcoldwater: [58, 54, 50], industrial: [72, 66, 58],
+  infra: [70, 74, 80], freight: [74, 78, 84], marquee: [62, 52, 66],
+  citycore: [58, 60, 66], parkland: [58, 92, 54], uptown: [56, 62, 74], civic: [66, 66, 60],
+  airport: [60, 64, 60],
+};
+
 function sceneFor(id, W, H) {
   let st = _scenes.get(id);
   if (!st) {
@@ -92,18 +121,21 @@ function sceneFor(id, W, H) {
 
 // Project the server map window into obstacles in the direction we're looking.
 // `look` is the view bearing (heading, or heading±90 for a side window).
-function obstaclesFromMap(map, look) {
+function obstaclesFromMap(map, look, off) {
   if (!map || !map.length) return [];
   const R = (map.length - 1) / 2;
+  const ox = off ? off.x : 0, oy = off ? off.y : 0;   // sub-tile forward offset → things approach as we move
   const out = [];
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     const cell = map[ry][rx]; if (!cell || cell.kind === 'air' || cell.kind === 'craft') continue;
-    const dx = rx - R, dy = ry - R; if (dx === 0 && dy === 0) continue;
+    if (cell.biome === 'water') continue;   // water is flat — drawn by the ground plane, not a silhouette
+    const dx = (rx - R) - ox, dy = (ry - R) - oy;
+    const dd = Math.hypot(dx, dy); if (dd < 0.12) continue;   // essentially under us
     const bearing = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;   // 0=N, 90=E
     const rel = angDelta(look || 0, bearing);
     if (Math.abs(rel) > FOV / 2) continue;
-    const d = Math.hypot(dx, dy) / (R + 0.5);
-    out.push({ ang: rel, dist: clamp(d, 0.04, 1), kind: cell.kind });
+    const d = dd / (R + 0.5);
+    out.push({ ang: rel, dist: clamp(d, 0.04, 1), kind: cell.kind, biome: cell.biome, seed: (rx * 31 + ry * 17) });
   }
   out.sort((a, b) => b.dist - a.dist);   // far first, so near overdraws
   return out;
@@ -154,7 +186,7 @@ export function paintWindshield(id, view) {
   // On the deck (ground/takeoff/landing) we paint a real, terrain-themed airport.
   const onDeck = phase === 'ground' || phase === 'takeoff' || phase === 'landing';
   const airport = onDeck ? airportCfg(v.airport) : null;
-  st.scroll = (st.scroll + speed * dt * (1.1 - height * 0.4) * 2.4) % 1;
+  st.scroll = (st.scroll + speed * dt * (1.3 - height * 0.35) * 5.2) % 1;   // faster ground rush
   st.sideScroll = (st.sideScroll + speed * dt * 0.9) % 1;   // lateral drift for the side window
 
   ctx.save();
@@ -165,13 +197,23 @@ export function paintWindshield(id, view) {
   // climb away) and the airport sinks off the bottom until the view "levels out"
   // into open sky. Airborne, pitch/altitude nudge it as before.
   const reveal = onDeck ? clamp(1 - Math.max(0, v.pitch || 0) / 26 - height * 0.95, 0, 1) : 0;
-  const horizonY = onDeck
+  const rawHorizon = onDeck
     ? lerp(H * 1.08, H * 0.42, reveal)
-    : clamp(H * 0.46 - (v.pitch || 0) * H * 0.011 + (height - 0.2) * H * 0.09, H * 0.14, H * 0.84);
+    : clamp(H * 0.46 + (v.pitch || 0) * H * 0.016 + (height - 0.2) * H * 0.09, H * 0.14, H * 0.84);
+  // Ease the horizon across frames so the runway→sky handoff (ground phase → cruise,
+  // which swaps the formula) glides instead of snapping.
+  if (st.horizon == null) st.horizon = rawHorizon;
+  else st.horizon += (rawHorizon - st.horizon) * Math.min(1, dt * 5);
+  const horizonY = st.horizon;
   const bankRad = (v.bank || 0) * Math.PI / 180;
-  // Ground palette: airport terrain colours on the deck, else the sky's ground band.
-  const gTop = airport ? mix(airport.g1, [0, 0, 0], sky.night * 0.45) : sky.g1;
-  const gBot = airport ? mix(airport.g2, [0, 0, 0], sky.night * 0.5) : sky.g2;
+  // Ground palette: airport terrain colours on the deck; airborne, tint the sky's
+  // ground band toward the biome you're flying over (desert tan, bay blue, urban grey).
+  let gTop = airport ? mix(airport.g1, [0, 0, 0], sky.night * 0.45) : sky.g1;
+  let gBot = airport ? mix(airport.g2, [0, 0, 0], sky.night * 0.5) : sky.g2;
+  if (!airport && v.biomeBelow && BIOME_GROUND[v.biomeBelow]) {
+    const t = mix(BIOME_GROUND[v.biomeBelow], [0, 0, 0], sky.night * 0.5);
+    gTop = mix(gTop, t, 0.6); gBot = mix(gBot, mix(t, [0, 0, 0], 0.35), 0.6);
+  }
 
   // World (banks with the aircraft) — draw oversized so rotation never reveals edges.
   ctx.save();
@@ -229,7 +271,10 @@ export function paintWindshield(id, view) {
   haze.addColorStop(0, rgb(sky.hor, 0.55)); haze.addColorStop(1, rgb(sky.hor, 0));
   ctx.fillStyle = haze; ctx.fillRect(-OX, horizonY - 6, ex, 32);
 
-  const vx = W / 2, depthGround = H - horizonY;
+  // Perspective SCALE is a fixed focal length — independent of the horizon position,
+  // so pitching (which moves the horizon) only tilts the view and never squashes the
+  // world/buildings. depthGround stays for the older per-obstacle paths.
+  const vx = W / 2, depthGround = H - horizonY, focal = H * 0.55;
   ctx.lineWidth = 1;
   const gridCol = rgb(mix(gTop, [180, 220, 200], 0.5), 0.16 + speed * 0.12);
   ctx.strokeStyle = gridCol;
@@ -244,18 +289,25 @@ export function paintWindshield(id, view) {
     for (let k = 1; k <= 5; k++) { const y = horizonY + depthGround * (k / 5) * (k / 5); ctx.globalAlpha = 0.06; ctx.beginPath(); ctx.moveTo(-OX, y); ctx.lineTo(W + OX, y); ctx.stroke(); }
     ctx.globalAlpha = 1;
   } else if (!onDeck) {
-    // Perspective ground grid (forward view).
-    const near = 0.10 + height * 0.05;
-    for (let k = 1; k <= 12; k++) {
-      const d = k - st.scroll;
-      const y = horizonY + depthGround * (near / (d * near + near));
-      if (y <= horizonY + 1 || y >= H) continue;
-      ctx.globalAlpha = clamp((y - horizonY) / depthGround, 0.05, 1);
-      ctx.beginPath(); ctx.moveTo(-OX, y); ctx.lineTo(W + OX, y); ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-    for (let j = -6; j <= 6; j++) { if (j === 0) continue; const bx = vx + j * (W * 0.16); ctx.beginPath(); ctx.moveTo(vx, horizonY); ctx.lineTo(bx, H); ctx.stroke(); }
+    // Mode-7-inspired textured ground plane (forward view).
+    drawMode7Floor(ctx, W, H, horizonY, focal, v, sky, gTop);
   }
+
+  // Pilotwings horizon: distant rolling land + a soft hazy glow along the horizon.
+  if (!side && !onDeck) {
+    drawSkyline(ctx, W, H, horizonY, v, sky);
+    const glow = ctx.createLinearGradient(0, horizonY - 14, 0, horizonY + 10);
+    glow.addColorStop(0, rgb(sky.hor, 0));
+    glow.addColorStop(0.5, rgb(mix(sky.hor, [255, 255, 255], 0.5), 0.42 * (1 - sky.night * 0.5)));
+    glow.addColorStop(1, rgb(sky.hor, 0));
+    ctx.fillStyle = glow; ctx.fillRect(-OX, horizonY - 14, ex, 24);
+  }
+
+  // Atmospheric precipitation (snow/rain/ash in the air) is drawn HERE — after the sky
+  // and ground but BEFORE the world objects — so buildings pass in front of it and it
+  // reads as falling out in the scene, not plastered on the glass ("snowing inside").
+  // The close, on-the-canopy layer (drops + streaks) is drawGlass(), painted last.
+  drawWeather(ctx, W, H, wx, st, dt, speed);
 
   // The airport (themed scenery flanking a runway) on the deck; the pad for VTOL;
   // otherwise the zones/obstacles projected in the direction we're actually looking.
@@ -266,14 +318,14 @@ export function paintWindshield(id, view) {
   } else if (phase === 'vtol') {
     drawPad(ctx, W, H, horizonY, height, v.drift || 0);
   } else if (!onDeck) {
-    const look = ((v.heading || 0) + (side ? 90 : 0) + 360) % 360;   // side window looks 90° off the nose
-    const obs = v.obstacles || obstaclesFromMap(v.map, look);
-    for (const o of obs) {
-      const sx = vx + (o.ang / (FOV / 2)) * (W * 0.5);
-      const gy = horizonY + depthGround * (1 - o.dist);
-      const scale = clamp(1 - o.dist, 0.06, 1);
-      drawObstacle(ctx, sx, gy, scale, depthGround, o.kind, sky.night, now);
-    }
+    _obsHgt = clamp(v.height || 0, 0, 1);
+    // Textured 3-D world through the Mode-7 camera: roads + runway on the ground,
+    // then extruded building boxes on top (depth-sorted). Fixes the flat-billboard
+    // "strange perspective" and pop-in.
+    const cam = makeCam(W, horizonY, focal, v);
+    drawRoads(ctx, cam, v);
+    if (v.runway) drawRunwayTex(ctx, cam, v);
+    drawWorldObjects(ctx, cam, v, sky, now);
   }
 
   // Speed streaks (motion rush from the vanishing point) — forward view only.
@@ -287,8 +339,6 @@ export function paintWindshield(id, view) {
     }
   }
 
-  // Weather particles.
-  drawWeather(ctx, W, H, wx, st, dt, speed);
   ctx.restore();   // end banked world
 
   // Fog wash (unbanked, over everything) — a dense low bank thinning upward.
@@ -314,6 +364,7 @@ export function paintWindshield(id, view) {
   // On-glass weather (drops that cling to the canopy, lightning) + a WX badge.
   drawGlass(ctx, W, H, wx, st, dt, speed);
   if (!v.windowClass) drawWxBadge(ctx, W, wx, v.wind);
+  if (v.hud) drawHud(ctx, W, H, v);
   // Passenger cabin: cut the view into a window shaped to fit the aircraft.
   if (v.windowClass) drawWindowFrame(ctx, W, H, v.windowClass);
 
@@ -364,19 +415,35 @@ function drawWindowFrame(ctx, W, H, cls) {
 // banked world, so it reads as being *on* the canopy in front of you.
 function drawGlass(ctx, W, H, wx, st, dt, speed) {
   if (wx === 'rain' || wx === 'storm') {
+    // At rest a released drop runs straight DOWN the canopy under gravity. With airspeed
+    // the slipstream drags it back and sideways (away from centre), so the streak flattens
+    // toward HORIZONTAL and the beads race off to the edges. `flat` = 0 vertical → 1 flat.
+    const sp = clamp(speed, 0, 1), flat = sp * sp;
     for (const d of st.drops) {
-      d.life -= dt * (0.3 + speed * 0.4);
-      if (d.life <= 0) { d.life = 0.6 + (d.x * 7 % 1) * 1.6; d.streak = 0; d.y = (d.x * 13 % 1) * 0.5; }
-      // occasionally a drop lets go and streaks down
-      if (d.streak > 0 || (wx === 'storm' && d.life < 0.4)) { d.streak += dt * (0.10 + speed * 0.25); }
-      const x = d.x * W, y = (d.y + d.streak) * H;
+      d.life -= dt * (0.3 + sp * 0.5);
+      if (d.life <= 0) { d.life = 0.6 + (d.x * 7 % 1) * 1.6; d.streak = 0; d.y = (d.x * 13 % 1) * 0.6; }
+      // A drop lets go and streaks — sooner and faster at speed (wind strips the glass).
+      if (d.streak > 0 || (wx === 'storm' && d.life < 0.4) || (sp > 0.25 && d.life < 0.6)) d.streak += dt * (0.10 + sp * 0.7);
+      const sideDir = d.x < 0.5 ? -1 : 1;
+      // Streak direction: gravity (0,1) blended toward slipstream (sideDir, ~0) by `flat`.
+      const dirX = sideDir * flat * 1.7, dirY = 1 - flat * 0.92;
+      const len = d.streak * H;
+      const ax = d.x * W, ay = d.y * H;               // where the bead first clung
+      const x = ax + dirX * len, y = ay + dirY * len;  // current head, dragged along the streak
+      // Streak trail behind the head (up toward the anchor / back toward centre).
+      if (d.streak > 0.002) {
+        ctx.strokeStyle = `rgba(200,224,255,${0.10 + flat * 0.06})`; ctx.lineWidth = d.r * (0.7 - flat * 0.25);
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(x, y); ctx.stroke();
+      }
+      // The bead itself — stretched along its travel direction at speed.
       ctx.fillStyle = 'rgba(200,224,255,0.16)';
-      ctx.beginPath(); ctx.ellipse(x, y, d.r, d.r * 1.25, 0, 0, 7); ctx.fill();
+      ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(dirY, dirX));
+      ctx.beginPath(); ctx.ellipse(0, 0, d.r * (1.25 + flat * 1.1), d.r * (1 - flat * 0.4), 0, 0, 7); ctx.fill();
+      ctx.restore();
       ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.arc(x - d.r * 0.3, y - d.r * 0.4, d.r * 0.28, 0, 7); ctx.fill();
-      if (d.streak > 0) { ctx.strokeStyle = 'rgba(200,224,255,0.12)'; ctx.lineWidth = d.r * 0.7; ctx.beginPath(); ctx.moveTo(x, y - d.streak * H); ctx.lineTo(x, y); ctx.stroke(); }
     }
   }
-  if (wx === 'storm') {
+  if (wx === 'storm' && isWeatherFxEnabled()) {
     st.flash = Math.max(0, st.flash - dt * 2.6);
     st.boltT -= dt;
     if (st.boltT <= 0 && Math.random() < 0.04) {
@@ -407,6 +474,40 @@ function drawWxBadge(ctx, W, wx, wind) {
   ctx.fillText(txt, x + 7, y + h / 2 + 0.5); ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
 }
 
+// Forward-view HUD (opt-in via v.hud): a sliding heading tape across the top with N/E/S/W
+// letters + a fixed centre caret/readout, and an off-map "turn back" banner (v.navWarn).
+const HDG_NAMES = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
+function drawHud(ctx, W, H, v) {
+  const hdg = (((v.heading || 0) % 360) + 360) % 360;
+  const cx = W / 2, tapeY = 3, tapeH = 14, half = W * 0.34, ppd = half / 45;   // ±45° visible
+  ctx.save();
+  ctx.fillStyle = 'rgba(6,12,18,0.5)'; ctx.fillRect(cx - half, tapeY, half * 2, tapeH);
+  ctx.beginPath(); ctx.rect(cx - half, tapeY, half * 2, tapeH); ctx.clip();
+  ctx.font = '7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const base = Math.round(hdg / 10) * 10;
+  for (let d = -50; d <= 50; d += 10) {
+    const tv = base + d, disp = ((tv % 360) + 360) % 360, x = cx + (tv - hdg) * ppd, major = disp % 30 === 0;
+    ctx.strokeStyle = 'rgba(160,200,228,0.6)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, tapeY + tapeH - (major ? 8 : 5)); ctx.lineTo(x, tapeY + tapeH); ctx.stroke();
+    if (major) { ctx.fillStyle = '#a9d4ec'; ctx.fillText(HDG_NAMES[disp] || String(disp), x, tapeY + 4); }
+  }
+  ctx.restore();
+  // Fixed centre caret + boxed read-out.
+  ctx.fillStyle = '#ffcf3e'; ctx.beginPath(); ctx.moveTo(cx, tapeY + tapeH + 2); ctx.lineTo(cx - 4, tapeY + tapeH + 7); ctx.lineTo(cx + 4, tapeY + tapeH + 7); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#0b1219'; ctx.strokeStyle = '#ffcf3e'; ctx.lineWidth = 1;
+  ctx.fillRect(cx - 13, tapeY + tapeH + 7, 26, 12); ctx.strokeRect(cx - 13, tapeY + tapeH + 7, 26, 12);
+  ctx.fillStyle = '#ffcf3e'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(String(Math.round(hdg)).padStart(3, '0'), cx, tapeY + tapeH + 13.5);
+  // Off-map turn-back banner.
+  if (v.navWarn) {
+    const y = H * 0.34; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(v.navWarn).width + 18;
+    ctx.fillStyle = 'rgba(40,10,6,0.74)'; ctx.strokeStyle = '#ff8a3e'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx - w / 2, y - 11, w, 22, 5) : ctx.rect(cx - w / 2, y - 11, w, 22); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffb23e'; ctx.fillText(v.navWarn, cx, y + 0.5);
+  }
+}
+
 function drawRunway(ctx, W, H, horizonY, height, scroll, phase) {
   const t = clamp(height, 0, 1);
   // near edge: on the deck it fills the bottom; climbing/high it recedes to the horizon.
@@ -431,6 +532,60 @@ function drawRunway(ctx, W, H, horizonY, height, scroll, phase) {
     ctx.fillStyle = 'rgba(240,244,220,0.7)';
     for (let b = -3; b <= 3; b++) { const bw = nearHalf * 0.09; ctx.fillRect(cx + b * (nearHalf * 0.24) - bw / 2, nearY - 10, bw, 8); }
   }
+}
+
+// The departure runway laid on the WORLD ground (not a separate airport view): it
+// starts ahead of you, scrolls toward and PAST you as you roll (its near end drops
+// below the bottom edge = behind you), and lifts toward the horizon + fades as you
+// climb away. `rw = { roll: tiles rolled forward, alt: 0..1 climb }`.
+function drawGroundRunway(ctx, W, H, horizonY, depth, rw, scroll, night) {
+  const roll = rw.roll || 0, alt = clamp(rw.alt || 0, 0, 1);
+  // A long strip so it doesn't "run out" during the roll; the recede is driven mainly
+  // by ALTITUDE (you keep seeing runway ahead until you climb high enough), while roll
+  // only slides the near threshold slowly under/behind you.
+  const RWL = RENDER_TUNE.rwl, VR = 1.9, cx = W / 2;
+  const fade = clamp(1.5 - alt * 1.8 - Math.max(0, roll - RWL) * 0.4, 0, 1);
+  if (fade <= 0.01) return;
+  const eff = (d) => d - alt * RENDER_TUNE.rwyRecede;     // climbing pushes it DOWN and off the bottom (passes under you)
+  const e = (d) => clamp(eff(d) / VR, -0.6, 1);          // clamp at 1 so the far end never rises past the horizon
+  const projY = (d) => horizonY + depth * (1 - e(d));    // e<0 → below the bottom edge (behind/under us)
+  const wid = (d) => (W * 0.36) * clamp(1 - eff(d) / VR, 0.04, 1.4);
+  const nearD = -roll * 0.6, farD = RWL - roll * 0.6;
+  if (eff(farD) < -0.2) return;                           // whole strip is behind/under us
+  const nY = projY(nearD), fY = projY(farD), nW = wid(nearD), fW = wid(farD);
+  ctx.save(); ctx.globalAlpha = fade;
+  ctx.fillStyle = 'rgba(20,22,26,0.95)';
+  ctx.beginPath(); ctx.moveTo(cx - nW, nY); ctx.lineTo(cx + nW, nY); ctx.lineTo(cx + fW, fY); ctx.lineTo(cx - fW, fY); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(220,232,214,0.8)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cx - nW, nY); ctx.lineTo(cx - fW, fY); ctx.moveTo(cx + nW, nY); ctx.lineTo(cx + fW, fY); ctx.stroke();
+  // centreline dashes scrolling toward us
+  ctx.strokeStyle = 'rgba(230,240,220,0.85)';
+  for (let k = 0; k < 10; k++) {
+    const f0 = ((k + scroll) % 10) / 10, f1 = f0 + 0.045;
+    const y0 = lerp(fY, nY, f0 * f0), y1 = lerp(fY, nY, f1 * f1);
+    ctx.lineWidth = lerp(0.6, 4, f0); ctx.beginPath(); ctx.moveTo(cx, y0); ctx.lineTo(cx, y1); ctx.stroke();
+  }
+  // Painted markings — aiming-point blocks + touchdown-zone bar pairs at fixed points
+  // on the strip (they project + scroll with the runway).
+  ctx.fillStyle = 'rgba(236,240,226,0.82)';
+  const paint = (d, draw) => { const ed = eff(d); if (ed < -0.1 || ed > VR - 0.05) return; draw(projY(d), wid(d)); };
+  paint(RWL * 0.44 - roll * 0.6, (y, w) => { const bw = w * 0.09; ctx.fillRect(cx - w * 0.14 - bw, y - 4, bw, 8); ctx.fillRect(cx + w * 0.14, y - 4, bw, 8); });
+  for (const dd of [0.22, 0.30, 0.60, 0.68]) paint(RWL * dd - roll * 0.6, (y, w) => {
+    for (const sgn of [-1, 1]) { ctx.fillRect(cx + sgn * w * 0.30, y - 2, w * 0.075, 4); ctx.fillRect(cx + sgn * w * 0.42, y - 2, w * 0.075, 4); }
+  });
+  // edge lights (warm at night)
+  for (let k = 0; k <= 8; k++) {
+    const f = k / 8, y = lerp(fY, nY, f * f), w2 = lerp(fW, nW, f * f);
+    ctx.fillStyle = night > 0.35 ? 'rgba(255,240,180,0.9)' : 'rgba(210,220,210,0.5)';
+    ctx.beginPath(); ctx.arc(cx - w2, y, 1 + f * 1.5, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + w2, y, 1 + f * 1.5, 0, 7); ctx.fill();
+  }
+  // threshold bars at the far end while it's still ahead
+  if (eff(farD) > 0.1) {
+    ctx.fillStyle = 'rgba(240,244,220,0.7)';
+    for (let b = -3; b <= 3; b++) { const bw = fW * 0.12; ctx.fillRect(cx + b * (fW * 0.26) - bw / 2, fY - 5, bw, 5); }
+  }
+  ctx.restore();
 }
 
 function drawPad(ctx, W, H, horizonY, height, drift) {
@@ -536,7 +691,276 @@ function drawAirportFeature(ctx, type, x, gy, scale, depth, cfg, night, now, see
   ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x, gy - h * 0.85); ctx.stroke();
 }
 
-function drawObstacle(ctx, x, gy, scale, depth, kind, night, now) {
+// ── Mode-7-inspired ground plane ──────────────────────────────────────────────
+// A textured floor that recedes to the horizon: horizontal depth bands, perspective-
+// compressed (near tall, far thin), each coloured by the BIOME it samples AHEAD from
+// the map window — so the terrain you're flying toward shows on the ground (desert
+// giving way to city) — fading into distance haze, with a forward-scrolling stripe
+// texture + faint converging lines for motion. Not literal SNES Mode 7 — its
+// principles: perspective scaling, horizon compression, texture scaling, ground motion.
+// A reused low-res offscreen buffer for the Mode-7 floor.
+let _m7 = null;
+function m7buf(w, h) {
+  if (!_m7 || _m7.w !== w || _m7.h !== h) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const cx = c.getContext('2d');
+    _m7 = { c, cx, img: cx.createImageData(w, h), w, h };
+  }
+  return _m7;
+}
+
+function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop) {
+  if (depth <= 2) return;
+  // AUTHENTIC Mode 7: sample the ground PER PIXEL into a low-res buffer, then blit it
+  // up with nearest-neighbour — that's the chunky, shimmering look, most visible when
+  // you turn (the whole textured plane rotates around you). Each texel samples the
+  // biome ahead from the map window + a world-space terrain texture + distance haze.
+  // Eye height grows with altitude → the ground spreads and falls away as you climb.
+  const DS = Math.max(1, Math.round(RENDER_TUNE.pixel || 4));   // downscale = pixel chunkiness
+  const X0 = -W, spanX = 3 * W;
+  const bw = Math.max(2, Math.ceil(spanX / DS)), bhMax = Math.max(2, Math.ceil(H / DS));
+  const buf = m7buf(bw, bhMax), data = buf.img.data;
+  const Y1 = H + depth * 0.3;
+  const usedH = Math.min(bhMax, Math.max(1, Math.ceil((Y1 - horizonY) / DS)));
+  const EH = Math.max(0.05, RENDER_TUNE.eh + (v.height || 0) * RENDER_TUNE.climbLift);   // additive + floor: altitude adds real eye-height so you climb above buildings; floor keeps the runway/ground from collapsing at eh→0
+  const hd = (v.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
+  const off = v.mapOffset, ax = off ? off.x : 0, ay = off ? off.y : 0;
+  const map = v.map, R = map ? (map.length - 1) / 2 : 0;
+  const cx = W / 2, halfW = W / 2, LAT = 1.15, FREQ = RENDER_TUNE.tile;
+  const nm = 1 - sky.night * 0.42, hz = RENDER_TUNE.haze, hor = sky.hor;
+  for (let by = 0; by < usedH; by++) {
+    const p = Math.max(0.004, (horizonY + by * DS - horizonY) / depth);
+    const d = EH / p;
+    const haze = clamp(1 - p * hz, 0, 0.85), ih = 1 - haze;
+    const hr = hor[0] * haze, hg = hor[1] * haze, hb = hor[2] * haze;
+    let idx = by * bw * 4;
+    for (let bx = 0; bx < bw; bx++) {
+      const l = ((X0 + bx * DS - cx) / halfW) * d * LAT;
+      const wx = ax + d * sinh + l * cosh, wy = ay - d * cosh + l * sinh;
+      let base = BIOME_GROUND.badlands;   // off-map / open air reads as endless desert (no void border)
+      if (map) { const rx = Math.round(R + wx), ry = Math.round(R + wy); if (ry >= 0 && ry < map.length && rx >= 0 && rx < map[ry].length) { const c = map[ry][rx]; if (c && c.biome) base = BIOME_GROUND[c.biome] || gTop; } }
+      const wxf = wx * FREQ, wyf = wy * FREQ, tx = Math.floor(wxf * 2), ty = Math.floor(wyf * 2);
+      // subtle checker + a within-tile diagonal gradient so the ground reads as textured
+      const grad = ((wxf - Math.floor(wxf)) + (wyf - Math.floor(wyf))) * 0.05 - 0.05;
+      const tex = 1 + (((tx + ty) & 1) ? 0.06 : -0.06) + (((tx * 5 ^ ty * 3) & 3) === 0 ? 0.05 : 0) + grad;
+      data[idx] = (base[0] * tex * ih + hr) * nm; data[idx + 1] = (base[1] * tex * ih + hg) * nm; data[idx + 2] = (base[2] * tex * ih + hb) * nm; data[idx + 3] = 255;
+      idx += 4;
+    }
+  }
+  buf.cx.putImageData(buf.img, 0, 0, 0, 0, bw, usedH);
+  const sm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(buf.c, 0, 0, bw, usedH, X0, horizonY, spanX, usedH * DS);
+  ctx.imageSmoothingEnabled = sm;
+}
+
+// A soft, hazy band of distant rolling land at the horizon, parallax-scrolled by
+// heading — the Pilotwings far-terrain read (not hard mountains).
+function drawSkyline(ctx, W, H, horizonY, v, sky) {
+  const OX = W, shift = ((v.heading || 0) / 360) * W * 2.5;
+  const col = mix(mix(sky.hor, sky.g2 || [40, 50, 40], 0.5), [255, 255, 255], 0.08);
+  ctx.fillStyle = rgb(col, 0.42);
+  ctx.beginPath(); ctx.moveTo(-OX, horizonY + 1);
+  const stepx = W * 0.05;
+  for (let x = -OX; x <= 2 * W; x += stepx) {
+    const s = frac((x + shift) * 0.008) * 0.7 + frac((x + shift) * 0.021) * 0.3;
+    ctx.lineTo(x, horizonY - (2 + s * 12));
+  }
+  ctx.lineTo(2 * W, horizonY + 1); ctx.closePath(); ctx.fill();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TEXTURED 3-D WORLD (Mode-7 camera) — buildings as extruded boxes, PNG-swappable
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Texture registry. Procedural pixel-art now; `setObjectTexture(key, pngImage)` swaps
+// any key to a loaded PNG later (drawImage takes a canvas OR an Image identically).
+const _tex = new Map();
+export function setObjectTexture(key, img) { if (img) _tex.set(key, img); }
+function getTex(key, gen) { let t = _tex.get(key); if (!t) { t = gen(); _tex.set(key, t); } return t; }
+function texCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+
+const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56, 66], marquee: [56, 40, 66], freight: [62, 66, 74], industrial: [78, 66, 54], infra: [64, 68, 78], ruins: [56, 52, 44], oldcoldwater: [52, 48, 44], docks: [58, 66, 74], __nofly: [120, 40, 40] };
+const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
+
+const TR = () => Math.max(0.5, RENDER_TUNE.texRes || 1);
+function wallTex(biome, night) {
+  const tr = TR(), nite = night > 0.4;
+  return getTex('wall:' + biome + (nite ? ':n' : '') + ':' + tr, () => {
+    const W = Math.round(16 * tr), H = Math.round(32 * tr), c = texCanvas(W, H), g = c.getContext('2d');
+    const w = WALL_COL[biome] || [52, 56, 66];
+    g.fillStyle = `rgb(${w[0]},${w[1]},${w[2]})`; g.fillRect(0, 0, W, H);
+    const N = Math.round(60 * tr);
+    for (let i = 0; i < N; i++) { const rx = frac(i * 3.1) * W | 0, ry = frac(i * 5.7) * H | 0; g.fillStyle = `rgba(0,0,0,${0.05 + frac(i) * 0.06})`; g.fillRect(rx, ry, 1, 1); }
+    const xs = 4 * tr, ys = 5 * tr, ww = Math.max(1, 2 * tr), wh = Math.max(1, 3 * tr);
+    for (let y = 3 * tr; y < H - 2 * tr; y += ys) for (let x = 2 * tr; x < W - 2 * tr; x += xs) {
+      const lit = ((Math.round(x / tr) * 7 + Math.round(y / tr) * 13) % 5) < (nite ? 3 : 1);
+      g.fillStyle = nite ? (lit ? 'rgba(255,214,120,0.9)' : 'rgba(14,18,26,0.85)') : (lit ? 'rgba(160,200,230,0.55)' : 'rgba(26,32,42,0.7)');
+      g.fillRect(x, y, ww, wh);
+    }
+    return c;
+  });
+}
+function roofTex(biome, night) {
+  const tr = TR();
+  return getTex('roof:' + biome + ':' + tr, () => {
+    const S = Math.round(16 * tr), c = texCanvas(S, S), g = c.getContext('2d');
+    const w = WALL_COL[biome] || [52, 56, 66];
+    g.fillStyle = `rgb(${w[0] * 1.25 + 8 | 0},${w[1] * 1.25 + 8 | 0},${w[2] * 1.25 + 8 | 0})`; g.fillRect(0, 0, S, S);
+    const N = Math.round(30 * tr);
+    for (let i = 0; i < N; i++) { const rx = frac(i * 2.3) * S | 0, ry = frac(i * 4.1) * S | 0; g.fillStyle = `rgba(0,0,0,${0.06 + frac(i) * 0.08})`; g.fillRect(rx, ry, 1, 1); }
+    g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(4 * tr, 5 * tr, 6 * tr, 4 * tr);
+    g.fillStyle = 'rgba(150,180,200,0.3)'; g.fillRect(10 * tr, 10 * tr, 3 * tr, 3 * tr);
+    return c;
+  });
+}
+function roadTex() {
+  const tr = TR();
+  return getTex('road:' + tr, () => {
+    const S = Math.round(16 * tr), c = texCanvas(S, S), g = c.getContext('2d');
+    g.fillStyle = '#242830'; g.fillRect(0, 0, S, S);
+    const N = Math.round(24 * tr);
+    for (let i = 0; i < N; i++) { const rx = frac(i * 3.7) * S | 0, ry = frac(i * 6.1) * S | 0; g.fillStyle = `rgba(255,255,255,${0.02 + frac(i) * 0.03})`; g.fillRect(rx, ry, 1, 1); }
+    g.fillStyle = 'rgba(220,200,120,0.7)'; g.fillRect(S / 2 - tr, 3 * tr, 2 * tr, 6 * tr);
+    return c;
+  });
+}
+// Affine texture-mapped triangle (the Mode-7 warp). Maps texture-space triangle
+// (s0,s1,s2) onto screen triangle (d0,d1,d2). Composes with the current transform.
+function texTri(ctx, img, s0, s1, s2, d0, d1, d2) {
+  const sx1 = s1[0] - s0[0], sy1 = s1[1] - s0[1], sx2 = s2[0] - s0[0], sy2 = s2[1] - s0[1];
+  const det = sx1 * sy2 - sx2 * sy1; if (Math.abs(det) < 1e-6) return;
+  const dx1 = d1[0] - d0[0], dy1 = d1[1] - d0[1], dx2 = d2[0] - d0[0], dy2 = d2[1] - d0[1];
+  const a = (dx1 * sy2 - dx2 * sy1) / det, b = (dy1 * sy2 - dy2 * sy1) / det;
+  const cc = (dx2 * sx1 - dx1 * sx2) / det, d = (dy2 * sx1 - dy1 * sx2) / det;
+  const e = d0[0] - a * s0[0] - cc * s0[1], f = d0[1] - b * s0[0] - d * s0[1];
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(d0[0], d0[1]); ctx.lineTo(d1[0], d1[1]); ctx.lineTo(d2[0], d2[1]); ctx.closePath(); ctx.clip();
+  ctx.transform(a, b, cc, d, e, f); ctx.imageSmoothingEnabled = false; ctx.drawImage(img, 0, 0);
+  ctx.restore();
+}
+function drawTexQuad(ctx, img, P0, P1, P2, P3) {
+  const W = img.width, H = img.height;
+  texTri(ctx, img, [0, 0], [W, 0], [W, H], P0, P1, P2);
+  texTri(ctx, img, [0, 0], [W, H], [0, H], P0, P2, P3);
+}
+
+// The Mode-7 camera: world tile-offset (dx,dy from the craft) + height wz → screen.
+function makeCam(W, horizonY, depth, v) {
+  const R = v.map ? (v.map.length - 1) / 2 : 0;
+  const EH = Math.max(0.05, RENDER_TUNE.eh + (v.height || 0) * RENDER_TUNE.climbLift);   // additive + floor: altitude adds real eye-height so you climb above buildings; floor keeps the runway/ground from collapsing at eh→0
+  const hd = (v.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
+  const off = v.mapOffset, ox = off ? off.x : 0, oy = off ? off.y : 0;
+  const cx = W / 2, FL = (W / 2) / 1.15;
+  const proj = (dx, dy, wz) => { const f = Math.max(0.06, dx * sinh - dy * cosh), l = dx * cosh + dy * sinh; return { sx: cx + (l / f) * FL, sy: horizonY + depth * (EH - wz) / f, f }; };
+  const projFL = (aa, s, wz) => { const f = Math.max(0.06, aa); return { sx: cx + (s / f) * FL, sy: horizonY + depth * (EH - (wz || 0)) / f, f }; };
+  return { R, sinh, cosh, ox, oy, proj, projFL };
+}
+
+// One extruded, texture-mapped building box (painter's-sorted faces + roof).
+function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
+  const cs = [[-fh, -fh], [fh, -fh], [fh, fh], [-fh, fh]];
+  const b = cs.map(([a, c]) => cam.proj(dx + a, dy + c, 0));
+  const t = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz));
+  const wall = wallTex(biome, night), shade = [0.0, 0.16, 0.3, 0.12];
+  ctx.globalAlpha = alpha;
+  const faces = [];
+  for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; faces.push({ af: (b[i].f + b[j].f) / 2, i, j }); }
+  faces.sort((x, y) => y.af - x.af);
+  for (const fc of faces) {
+    const P0 = [t[fc.i].sx, t[fc.i].sy], P1 = [t[fc.j].sx, t[fc.j].sy], P2 = [b[fc.j].sx, b[fc.j].sy], P3 = [b[fc.i].sx, b[fc.i].sy];
+    drawTexQuad(ctx, wall, P0, P1, P2, P3);
+    if (shade[fc.i]) { ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.closePath(); ctx.fillStyle = `rgba(0,0,0,${shade[fc.i]})`; ctx.fill(); }
+  }
+  drawTexQuad(ctx, roofTex(biome, night), [t[0].sx, t[0].sy], [t[1].sx, t[1].sy], [t[2].sx, t[2].sy], [t[3].sx, t[3].sy]);
+  ctx.globalAlpha = 1;
+}
+
+function drawTreeBB(ctx, cam, dx, dy, night, seed, alpha) {
+  const p = cam.proj(dx, dy, 0), s = clamp(34 / p.f, 3, 64), n = 2 + (seed % 3);
+  ctx.globalAlpha = alpha;
+  for (let i = 0; i < n; i++) {
+    const ox = (frac(seed + i) - 0.5) * s * 1.1, r = s * (0.3 + frac(seed + i * 2) * 0.22), tx = p.sx + ox, ty = p.sy - r * 0.5;
+    ctx.fillStyle = 'rgb(28,56,30)'; ctx.beginPath(); ctx.ellipse(tx, ty, r, r * 0.9, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = `rgb(${56 + night * 0},${94},${50})`; ctx.beginPath(); ctx.ellipse(tx - r * 0.2 * (1 - _obsHgt), ty - r * 0.3 * (1 - _obsHgt), r * (0.55 + _obsHgt * 0.4), r * (0.5 + _obsHgt * 0.4), 0, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function drawRockBB(ctx, cam, dx, dy, night, seed, alpha) {
+  const p = cam.proj(dx, dy, 0), s = clamp(22 / p.f, 2, 40);
+  ctx.globalAlpha = alpha; ctx.fillStyle = 'rgb(120,92,60)';
+  ctx.beginPath(); ctx.moveTo(p.sx - s, p.sy); ctx.lineTo(p.sx - s * 0.3, p.sy - s * 0.7); ctx.lineTo(p.sx + s * 0.4, p.sy - s * 0.5); ctx.lineTo(p.sx + s, p.sy); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function drawRoads(ctx, cam, v) {
+  const map = v.map; if (!map || !map.length) return; const R = cam.R, tex = roadTex();
+  for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
+    const c = map[ry][rx]; if (!c || !c.road) continue;
+    const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
+    if (f <= 0.08 || f > 6.5) continue;
+    const P0 = cam.proj(dx - 0.5, dy - 0.5, 0), P1 = cam.proj(dx + 0.5, dy - 0.5, 0), P2 = cam.proj(dx + 0.5, dy + 0.5, 0), P3 = cam.proj(dx - 0.5, dy + 0.5, 0);
+    drawTexQuad(ctx, tex, [P0.sx, P0.sy], [P1.sx, P1.sy], [P2.sx, P2.sy], [P3.sx, P3.sy]);
+  }
+}
+
+// Departure runway drawn as clean world-space geometry: ONE straight-edged asphalt
+// trapezoid + world-locked centreline dashes that recede toward the horizon and slide
+// toward you as you roll. No stacked affine-textured segments (which warped into jagged
+// edges) and nothing behind the camera (which smeared into a ghost trail after takeoff).
+function drawRunwayTex(ctx, cam, v) {
+  const rw = v.runway, roll = rw.roll || 0, alt = clamp(rw.alt || 0, 0, 1);
+  const RWL = RENDER_TUNE.rwl, hw = 0.15, NEAR = 0.016;   // near edge past the bottom of the frame → no brown strip at all
+  const fade = clamp(1.35 - alt * 1.5, 0, 1); if (fade <= 0.02) return;
+  const farA = RWL - roll; if (farA <= NEAR + 0.02) return;   // whole strip is behind us now
+  ctx.save(); ctx.globalAlpha = fade;
+  // Asphalt slab — a single quad, so both edges are exactly straight lines to the vanishing point.
+  const NL = cam.projFL(NEAR, -hw, 0), NR = cam.projFL(NEAR, hw, 0);
+  const FL2 = cam.projFL(farA, -hw, 0), FR = cam.projFL(farA, hw, 0);
+  ctx.fillStyle = '#22262d';
+  ctx.beginPath(); ctx.moveTo(NL.sx, NL.sy); ctx.lineTo(FL2.sx, FL2.sy); ctx.lineTo(FR.sx, FR.sy); ctx.lineTo(NR.sx, NR.sy); ctx.closePath(); ctx.fill();
+  // Straight white edge lines.
+  ctx.strokeStyle = 'rgba(228,232,236,0.82)'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(NL.sx, NL.sy); ctx.lineTo(FL2.sx, FL2.sy); ctx.moveTo(NR.sx, NR.sy); ctx.lineTo(FR.sx, FR.sy); ctx.stroke();
+  // Centreline dashes fixed in the world (one per tile) → they recede and slide toward us.
+  const cw = 0.018;
+  ctx.fillStyle = 'rgba(236,214,120,0.85)';
+  for (let p = 0; p <= Math.ceil(RWL); p++) {
+    let lo = p - roll, hi = lo + 0.55;                 // this tile's dash, relative to us
+    if (hi <= NEAR || lo >= farA) continue;
+    lo = Math.max(NEAR, lo); hi = Math.min(farA, hi);
+    const A = cam.projFL(hi, -cw, 0), B = cam.projFL(hi, cw, 0), C = cam.projFL(lo, cw, 0), D = cam.projFL(lo, -cw, 0);
+    ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.lineTo(C.sx, C.sy); ctx.lineTo(D.sx, D.sy); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Collect visible tiles, sort far→near, draw each (textured box / billboard).
+function drawWorldObjects(ctx, cam, v, sky, now) {
+  const map = v.map; if (!map || !map.length) return; const R = cam.R, night = sky.night;
+  const items = [];
+  for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
+    const c = map[ry][rx]; if (!c || c.kind === 'air' || c.kind === 'craft' || c.kind === 'field' || c.biome === 'water') continue;
+    const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
+    if (f <= 0.05 || f > 6.5) continue;
+    // Keep the flight path ahead clear — never render anything in the corridor dead ahead
+    // (a building parked on the runway/centreline is what you'd fly straight into).
+    const lat = dx * cam.cosh + dy * cam.sinh;
+    if (f > 0.1 && Math.abs(lat) < 0.7) continue;
+    items.push({ dx, dy, f, c, seed: rx * 31 + ry * 17 });
+  }
+  items.sort((a, b) => b.f - a.f);
+  for (const it of items) {
+    const alpha = clamp((it.f - 0.06) / 0.4, 0, 1), bi = it.c.biome;
+    if (it.c.kind === 'nofly') { draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7); continue; }
+    if (bi === 'parkland') { drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
+    if (bi === 'badlands') { if ((it.seed % 3) === 0) drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
+    const h = (BLDG_H[bi] || 0.3) * (0.7 + frac(it.seed) * 0.6) * RENDER_TUNE.bldgH;
+    const fh = (0.3 + frac(it.seed + 2) * 0.08) * RENDER_TUNE.bldgFoot;
+    draw3DBox(ctx, cam, it.dx, it.dy, fh, h, bi, it.seed, night, alpha);
+  }
+}
+
+function drawObstacle(ctx, x, gy, scale, depth, kind, night, now, biome, seed) {
   if (kind === 'field') {
     const r = 8 + scale * 26;
     ctx.strokeStyle = 'rgba(70,224,90,0.85)'; ctx.lineWidth = 1.5;
@@ -555,20 +979,173 @@ function drawObstacle(ctx, x, gy, scale, depth, kind, night, now) {
     ctx.fillStyle = `rgba(255,80,80,${0.5 + 0.5 * Math.abs(Math.sin(now * 0.006))})`; ctx.beginPath(); ctx.arc(x, gy - h, 2.5 + scale * 2, 0, 7); ctx.fill();
     return;
   }
-  // land → a building/structure silhouette with a few lit windows
-  const bh = 24 + scale * depth * 0.85, bw = 14 + scale * 40;
-  ctx.fillStyle = `rgba(${18 + night * 6},${22 + night * 4},${28},0.92)`;
-  ctx.fillRect(x - bw / 2, gy - bh, bw, bh);
-  ctx.strokeStyle = 'rgba(120,150,170,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(x - bw / 2, gy - bh, bw, bh);
-  if (scale > 0.2) {
-    const cols = Math.max(2, Math.round(bw / 9)), rows = Math.max(2, Math.round(bh / 11));
-    for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) {
-      const lit = ((c * 7 + r * 13) % 5) < (night > 0.4 ? 3 : 1);
-      if (!lit) continue;
-      ctx.fillStyle = night > 0.4 ? 'rgba(255,214,120,0.85)' : 'rgba(150,180,200,0.5)';
-      ctx.fillRect(x - bw / 2 + 3 + c * (bw - 6) / cols, gy - bh + 3 + r * (bh - 6) / rows, Math.max(1.5, bw / cols - 3), Math.max(1.5, bh / rows - 3));
-    }
+  // land → the district biome's aerial silhouette (real Coldwater, not flat tiles).
+  drawBiome(ctx, x, gy, scale, depth, biome || 'citycore', night, now, seed | 0);
+}
+
+const bcol = (r, g, b, a = 1) => `rgba(${r | 0},${g | 0},${b | 0},${a})`;
+
+// A roof face receding up-and-back from a building's top edge, sized by the view
+// altitude (`_obsHgt`) — so you see more of the top as you climb. `seed` varies the
+// rooftop clutter so buildings don't all look identical.
+function boxRoof(ctx, x, topY, bw, base, seed) {
+  const rd = bw * (0.15 + 0.6 * _obsHgt);            // roof depth grows with altitude
+  if (rd < 2) return;
+  const sk = bw * 0.22 * _obsHgt;                    // slight 3/4-view skew
+  ctx.fillStyle = bcol(base[0] * 1.25 + 8, base[1] * 1.25 + 8, base[2] * 1.25 + 8, 0.96);
+  ctx.beginPath();
+  ctx.moveTo(x - bw / 2, topY); ctx.lineTo(x - bw / 2 + sk, topY - rd);
+  ctx.lineTo(x + bw / 2 + sk, topY - rd); ctx.lineTo(x + bw / 2, topY); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = bcol(0, 0, 0, 0.2); ctx.lineWidth = 1; ctx.stroke();
+  // rooftop clutter (HVAC unit / skylight), seeded so it varies per building
+  if (rd > 6) {
+    const kind = (seed | 0) % 3;
+    const ux = x + (frac(seed) - 0.5) * bw * 0.4 + sk * 0.5, uy = topY - rd * (0.4 + frac(seed + 3) * 0.3);
+    if (kind === 0) { ctx.fillStyle = bcol(0, 0, 0, 0.22); ctx.fillRect(ux - bw * 0.12, uy, bw * 0.24, rd * 0.28); }
+    else if (kind === 1) { ctx.fillStyle = bcol(140, 170, 200, 0.35); ctx.fillRect(ux - bw * 0.16, uy, bw * 0.32, rd * 0.2); }   // skylight glint
+    else { ctx.fillStyle = bcol(0, 0, 0, 0.2); ctx.beginPath(); ctx.arc(ux, uy, Math.min(bw, rd) * 0.14, 0, 7); ctx.fill(); }   // tank
   }
+}
+
+// A lit-window grid across a facade (warm sodium at night, cool glass by day).
+function litGrid(ctx, x, top, w, h, night, seed, warm) {
+  if (w < 8 || h < 8) return;
+  const cols = Math.max(2, Math.round(w / 8)), rows = Math.max(2, Math.round(h / 10));
+  for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) {
+    if (((c * 7 + r * 13 + (seed | 0)) % 5) >= (night > 0.4 ? 3 : 1)) continue;
+    ctx.fillStyle = night > 0.4 ? (warm ? 'rgba(255,214,120,0.85)' : 'rgba(150,200,255,0.7)') : 'rgba(150,180,200,0.42)';
+    ctx.fillRect(x + 3 + c * (w - 6) / cols, top + 3 + r * (h - 6) / rows, Math.max(1.3, (w - 6) / cols - 2), Math.max(1.3, (h - 6) / rows - 2));
+  }
+}
+
+// Route a tile's biome to its silhouette.
+function drawBiome(ctx, x, gy, scale, depth, biome, night, now, seed) {
+  switch (biome) {
+    case 'uptown': return drawTower(ctx, x, gy, scale, depth, night, seed);
+    case 'civic': return drawBlock(ctx, x, gy, scale, depth, night, now, seed, 'stone');
+    case 'marquee': return drawBlock(ctx, x, gy, scale, depth, night, now, seed, 'neon');
+    case 'oldcoldwater': return drawRuinBlock(ctx, x, gy, scale, depth, night, seed, false);
+    case 'ruins': return drawRuinBlock(ctx, x, gy, scale, depth, night, seed, true);
+    case 'freight': return drawWarehouse(ctx, x, gy, scale, depth, night, seed);
+    case 'industrial': return drawStackTank(ctx, x, gy, scale, depth, night, now, seed);
+    case 'infra': return drawCooling(ctx, x, gy, scale, depth, night, now, seed);
+    case 'docks': return drawDockCrane(ctx, x, gy, scale, depth, night, seed);
+    case 'parkland': return drawTrees(ctx, x, gy, scale, seed);
+    case 'badlands': return drawMesa(ctx, x, gy, scale, depth, seed);
+    default: return drawBlock(ctx, x, gy, scale, depth, night, now, seed, 'concrete');   // citycore
+  }
+}
+
+// Uptown — a tall glass tower with a rooftop beacon.
+function drawTower(ctx, x, gy, scale, depth, night, seed) {
+  const bw = 12 + scale * 26, bh = 40 + scale * depth * 1.3 * (0.7 + frac(seed) * 0.7);
+  const g = ctx.createLinearGradient(x - bw / 2, 0, x + bw / 2, 0);
+  g.addColorStop(0, bcol(20, 28, 40)); g.addColorStop(0.5, bcol(34, 48, 66)); g.addColorStop(1, bcol(16, 22, 32));
+  ctx.fillStyle = g; ctx.fillRect(x - bw / 2, gy - bh, bw, bh);
+  ctx.strokeStyle = bcol(120, 170, 210, 0.3); ctx.lineWidth = 1; ctx.strokeRect(x - bw / 2, gy - bh, bw, bh);
+  litGrid(ctx, x - bw / 2, gy - bh, bw, bh, night, seed, false);
+  boxRoof(ctx, x, gy - bh, bw, [34, 48, 66], seed);
+  if (scale > 0.3) { ctx.fillStyle = `rgba(255,80,80,${0.35 + 0.5 * Math.abs(Math.sin(seed + 1))})`; ctx.fillRect(x - 1, gy - bh - 3, 2, 3); }
+}
+
+// Civic (stone monumental) / City Core (concrete) / Marquee (neon-lit) blocks.
+function drawBlock(ctx, x, gy, scale, depth, night, now, seed, style) {
+  const bw = 18 + scale * 44, bh = 22 + scale * depth * 0.8 * (0.6 + frac(seed) * 0.6);
+  const base = style === 'stone' ? [46, 44, 40] : style === 'neon' ? [30, 20, 32] : [26, 30, 38];
+  ctx.fillStyle = bcol(base[0] + night * 4, base[1] + night * 3, base[2], 0.94);
+  ctx.fillRect(x - bw / 2, gy - bh, bw, bh);
+  ctx.strokeStyle = bcol(120, 150, 170, 0.28); ctx.lineWidth = 1; ctx.strokeRect(x - bw / 2, gy - bh, bw, bh);
+  litGrid(ctx, x - bw / 2, gy - bh, bw, bh, night, seed, style !== 'neon');
+  boxRoof(ctx, x, gy - bh, bw, base, seed);
+  if (style === 'neon' && night > 0.25) {
+    const hue = [[255, 60, 140], [120, 90, 255], [60, 200, 255]][(seed | 0) % 3];
+    const a = 0.45 + 0.35 * Math.abs(Math.sin(now * 0.004 + seed));
+    ctx.fillStyle = bcol(hue[0], hue[1], hue[2], a);
+    ctx.fillRect(x - bw / 2, gy - bh - 2, bw, 3);
+    ctx.shadowColor = bcol(hue[0], hue[1], hue[2], 0.8); ctx.shadowBlur = 8; ctx.fillRect(x - bw / 2, gy - bh - 2, bw, 2); ctx.shadowBlur = 0;
+  }
+}
+
+// Badlands — an arid rocky mesa with strata (the Arizona look).
+function drawMesa(ctx, x, gy, scale, depth, seed) {
+  const w = 20 + scale * 46, h = 8 + scale * depth * 0.4 * (0.6 + frac(seed) * 0.9), dim = 0.6 + scale * 0.4;
+  ctx.fillStyle = bcol(120 * dim, 88 * dim, 58 * dim, 0.95);
+  ctx.beginPath(); ctx.moveTo(x - w, gy); ctx.lineTo(x - w * 0.7, gy - h * 0.8); ctx.lineTo(x - w * 0.2, gy - h); ctx.lineTo(x + w * 0.5, gy - h * 0.9); ctx.lineTo(x + w, gy); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = bcol(152 * dim, 112 * dim, 72 * dim, 0.5);   // sunlit face
+  ctx.beginPath(); ctx.moveTo(x - w * 0.2, gy - h); ctx.lineTo(x + w * 0.5, gy - h * 0.9); ctx.lineTo(x + w, gy); ctx.lineTo(x + w * 0.2, gy); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = bcol(80, 58, 38, 0.4); ctx.lineWidth = 1;
+  for (let i = 1; i < 3; i++) { const yy = gy - h * i / 3; ctx.beginPath(); ctx.moveTo(x - w, yy + 2); ctx.lineTo(x + w, yy); ctx.stroke(); }
+}
+
+// Industrial — a tank + a venting stack with an ember crown and rising smoke.
+function drawStackTank(ctx, x, gy, scale, depth, night, now, seed) {
+  const dim = 0.55 + scale * 0.45, tw = 10 + scale * 20, th = 8 + scale * 16;
+  ctx.fillStyle = bcol(70 * dim, 72 * dim, 66 * dim, 0.92); ctx.fillRect(x - tw, gy - th, tw * 1.2, th);
+  ctx.strokeStyle = bcol(140, 150, 140, 0.3); ctx.strokeRect(x - tw, gy - th, tw * 1.2, th);
+  const sw = 5 + scale * 7, sh = 28 + scale * depth * 0.9, sx = x + tw * 0.2;
+  const g = ctx.createLinearGradient(sx, 0, sx + sw, 0);
+  g.addColorStop(0, bcol(40, 34, 30)); g.addColorStop(0.5, bcol(70 * dim, 56 * dim, 48 * dim)); g.addColorStop(1, bcol(30, 24, 22));
+  ctx.fillStyle = g; ctx.fillRect(sx, gy - sh, sw, sh);
+  const eg = ctx.createRadialGradient(sx + sw / 2, gy - sh, 1, sx + sw / 2, gy - sh, 8 + scale * 8);
+  eg.addColorStop(0, 'rgba(255,140,60,0.7)'); eg.addColorStop(1, 'rgba(255,90,40,0)');
+  ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(sx + sw / 2, gy - sh, 8 + scale * 8, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(60,54,50,0.2)';
+  for (let i = 0; i < 2; i++) { const t = (now * 0.0004 + frac(seed + i)) % 1; ctx.beginPath(); ctx.arc(sx + sw / 2 + Math.sin(now * 0.001 + i) * 5 * scale, gy - sh - 6 - t * 26 * scale, (2 + i * 2) * scale, 0, 7); ctx.fill(); }
+}
+
+// Infra — a hyperboloid cooling tower breathing steam.
+function drawCooling(ctx, x, gy, scale, depth, night, now, seed) {
+  const dim = 0.6 + scale * 0.4, w = 14 + scale * 22, h = 24 + scale * depth * 0.7;
+  ctx.fillStyle = bcol(70 * dim, 74 * dim, 80 * dim, 0.95);
+  ctx.beginPath(); ctx.moveTo(x - w / 2, gy); ctx.quadraticCurveTo(x - w * 0.22, gy - h * 0.6, x - w * 0.34, gy - h); ctx.lineTo(x + w * 0.34, gy - h); ctx.quadraticCurveTo(x + w * 0.22, gy - h * 0.6, x + w / 2, gy); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(220,224,230,0.18)';
+  for (let i = 0; i < 3; i++) { const t = (now * 0.0003 + frac(seed + i)) % 1; ctx.beginPath(); ctx.arc(x + Math.sin(now * 0.0008 + i) * 6 * scale, gy - h - 4 - t * 30 * scale, (4 + i * 2) * scale, 0, 7); ctx.fill(); }
+}
+
+// Freight — a long low warehouse with a gable roof and a stack of containers.
+function drawWarehouse(ctx, x, gy, scale, depth, night, seed) {
+  const dim = 0.6 + scale * 0.4, w = 26 + scale * 52, h = 12 + scale * 22;
+  ctx.fillStyle = bcol(48 * dim, 52 * dim, 58 * dim, 0.95); ctx.fillRect(x - w / 2, gy - h, w, h);
+  ctx.fillStyle = bcol(62 * dim, 66 * dim, 72 * dim, 0.9);
+  ctx.beginPath(); ctx.moveTo(x - w / 2, gy - h); ctx.lineTo(x, gy - h - 6 * scale - 3); ctx.lineTo(x + w / 2, gy - h); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = bcol(120, 140, 160, 0.25); ctx.strokeRect(x - w / 2, gy - h, w, h);
+  boxRoof(ctx, x, gy - h, w, [56, 60, 68], seed);
+  const cc = [[176, 92, 70], [70, 122, 160], [150, 150, 84], [90, 150, 110]];
+  for (let i = 0; i < 4; i++) { const c = cc[(seed + i) % 4]; ctx.fillStyle = bcol(c[0] * dim, c[1] * dim, c[2] * dim, 0.92); ctx.fillRect(x - w * 0.4 + i * (9 + scale * 4), gy - (5 + scale * 4), 8 + scale * 4, 5 + scale * 4); }
+}
+
+// Docks — a gantry crane over a few containers.
+function drawDockCrane(ctx, x, gy, scale, depth, night, seed) {
+  const dim = 0.6 + scale * 0.4, h0 = 24 + scale * depth * 0.7, w = 12 + scale * 18;
+  ctx.strokeStyle = bcol(150, 120, 90, 0.85); ctx.lineWidth = Math.max(1, scale * 2.2); ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(x - w, gy); ctx.lineTo(x - w * 0.3, gy - h0); ctx.moveTo(x + w, gy); ctx.lineTo(x + w * 0.3, gy - h0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - w * 0.5, gy - h0 * 0.92); ctx.lineTo(x + w * 1.6, gy - h0); ctx.stroke();
+  ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + w * 1.4, gy - h0); ctx.lineTo(x + w * 1.4, gy - h0 * 0.5); ctx.stroke();
+  const cc = [[176, 92, 70], [70, 122, 160], [150, 150, 84]];
+  for (let i = 0; i < 3; i++) { const c = cc[(seed + i) % 3]; ctx.fillStyle = bcol(c[0] * dim, c[1] * dim, c[2] * dim, 0.9); ctx.fillRect(x - w - 3 + i * (7 + scale * 3), gy - (6 + scale * 4), 8 + scale * 4, 6 + scale * 4); }
+}
+
+// Parkland — a cluster of feral tree canopies (the only real green).
+function drawTrees(ctx, x, gy, scale, seed) {
+  const n = 3 + Math.round(scale * 3);
+  for (let i = 0; i < n; i++) {
+    const tx = x + (frac(seed + i) - 0.5) * (20 + scale * 40), r = 4 + scale * 10 * (0.6 + frac(seed + i * 2) * 0.7), ty = gy - r * 0.4;
+    ctx.fillStyle = bcol(30, 60, 34, 0.9); ctx.beginPath(); ctx.ellipse(tx, ty, r, r * 0.9, 0, 0, 7); ctx.fill();
+    // Lit canopy top — grows and centres as you climb (you look down onto the crown).
+    ctx.fillStyle = bcol(60 + _obsHgt * 30, 100 + _obsHgt * 34, 54 + _obsHgt * 18, 0.7 + _obsHgt * 0.2);
+    ctx.beginPath(); ctx.ellipse(tx - r * 0.2 * (1 - _obsHgt), ty - r * 0.3 * (1 - _obsHgt), r * (0.6 + _obsHgt * 0.35), r * (0.5 + _obsHgt * 0.4), 0, 0, 7); ctx.fill();
+  }
+}
+
+// Ruins / old Coldwater — a broken building; the Redline variant carries a glow.
+function drawRuinBlock(ctx, x, gy, scale, depth, night, seed, radioactive) {
+  const dim = 0.5 + scale * 0.4, w = 16 + scale * 36, h = 18 + scale * depth * 0.6 * (0.6 + frac(seed) * 0.7);
+  ctx.fillStyle = bcol(32 * dim, 30 * dim, 26 * dim, 0.95);
+  ctx.beginPath(); ctx.moveTo(x - w / 2, gy); ctx.lineTo(x - w / 2, gy - h * 0.8); ctx.lineTo(x - w * 0.25, gy - h); ctx.lineTo(x - w * 0.05, gy - h * 0.7); ctx.lineTo(x + w * 0.2, gy - h * 0.95); ctx.lineTo(x + w * 0.5, gy - h * 0.6); ctx.lineTo(x + w / 2, gy); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = bcol(90, 90, 80, 0.25); ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  for (let i = 0; i < 3; i++) { const wx = x - w * 0.3 + i * w * 0.3; ctx.fillRect(wx, gy - h * 0.5, 3 + scale * 3, 4 + scale * 4); }
+  if (radioactive) { const g = ctx.createRadialGradient(x, gy - h * 0.3, 1, x, gy - h * 0.3, w * 0.8); g.addColorStop(0, 'rgba(150,220,80,0.26)'); g.addColorStop(1, 'rgba(150,220,80,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, gy - h * 0.3, w * 0.8, 0, 7); ctx.fill(); }
 }
 
 function drawWeather(ctx, W, H, wx, st, dt, speed) {

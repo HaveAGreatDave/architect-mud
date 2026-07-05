@@ -25,17 +25,18 @@ import { openDatachipReplay } from './panels/datachipreplay.js';
 import { openCircuitHack } from './panels/circuithack.js';
 import { openHololock } from './panels/hololock.js';
 import { openFishing } from './panels/fishing.js';
-import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting } from './panels/cockpit.js';
+import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, isFlightSimActive } from './panels/cockpit.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
 import { openSpliceSelect, openSpliceStages, applySplicePreview } from './panels/splicelab.js';
-import { updateWantedHud } from './panels/wanted.js';
+import { updateWantedHud, setWantedHeat } from './panels/wanted.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
 import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
 import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
 import { showConfirmDialog } from './panels/confirm.js';
 import { showArrestNotice } from './panels/arrest.js';
+import { openApprehendPrompt } from './panels/apprehend.js';
 import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
 
@@ -94,7 +95,7 @@ const handlers = {
 
   look: (msg) => {
     if (msg.notify) appendMsg(msg.notify, 'system');
-    setAreaPane(msg.message);
+    if (!isFlightSimActive()) setAreaPane(msg.message);   // don't clobber the live cockpit
     if (state.echoNextLook) { appendMsg('You look around.', 'system'); state.echoNextLook = false; }
     if (msg.zone) state.currentZone = msg.zone;
     parseZoneInfo(msg.message);
@@ -462,6 +463,7 @@ const handlers = {
   progress: (msg) => { if (msg.done) clearInlineProgress(); },
   confirm: (msg) => { showConfirmDialog(msg); },
   arrest_notice: (msg) => { showArrestNotice(msg); },
+  apprehend_prompt: (msg) => { openApprehendPrompt(msg); },
   poker_update: (msg) => { setAreaPane(msg.html); },
   poker_sfx: (msg) => { playPokerSfx(msg.cue); },
 
@@ -482,7 +484,8 @@ const handlers = {
   surveillance_hub: (msg) => { openSurveillanceHub(msg); },
   surveillance_hub_update: (msg) => { updateSurveillanceHub(msg); },
   datachip_replay: (msg) => { openDatachipReplay(msg); },
-  wanted_level: (msg) => { updateWantedHud(msg.stars || 0); refreshCustomPanels(); },
+  wanted_level: (msg) => { updateWantedHud(msg.stars || 0); if (msg.heat != null) setWantedHeat(msg.heat); refreshCustomPanels(); },
+  heat_level: (msg) => setWantedHeat(msg.heat || 0),
   camera_flash: () => {
     // A camera in the room caught a crime — flash the screen red. The room also
     // receives a zone_event line naming the suspect ("locking focus on …").
@@ -531,6 +534,9 @@ const handlers = {
   // ── Flight (cockpit HUD + takeoff/landing minigames) ─────────────────────
   cockpit_update: (msg) => { updateCockpit(msg.state); },
   cockpit_close: () => { closeCockpit(); sendCmdSilent('look'); },   // hand the area pane back to the room view
+  // Continuous cockpit (client-sim + server-reconcile) — the Mayfly slice.
+  flight_sim: (msg) => { openFlightSim(msg); },
+  flight_ctx: (msg) => { flightSimContext(msg); },
   flight_takeoff: (msg) => {
     openTakeoff({
       skill: msg.skill ?? 4,

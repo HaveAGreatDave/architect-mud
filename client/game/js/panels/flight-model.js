@@ -1,0 +1,245 @@
+// FLIGHT MODEL — the continuous fixed-wing energy simulation.
+//
+// A pure, dependency-free integrator: no DOM, no network, no plugin state. The
+// client sim loop drives it at 60fps (the source of "feel"); the same math can be
+// stepped headless in a test harness to validate behaviour in isolation. It is an
+// ARCADE energy model, not a 6-DOF aerodynamics sim — believable, consistent, and
+// tunable, per the Flight Feel doc: the player guides mass with momentum, controls
+// MODIFY behaviour (they never set state instantly), and a stall comes from
+// excessive pitch + insufficient airspeed, never from "throttle low".
+//
+// Units: airspeed/groundspeed in knots, altitude in feet (AGL), vertical speed in
+// ft/min, angles in degrees, time in seconds. All the coefficients are knobs — the
+// harness exists so we tune them by eye.
+//
+// createState(params) -> a fresh aircraft state, parked, engine off.
+// step(state, input, params, dt) -> mutates + returns state advanced by dt seconds.
+//   input  = { elevator:-1..1, aileron:-1..1, throttle:0..1, flaps:0..1 }
+//            elevator +1 = full pull (nose up), -1 = full push (nose down).
+//   params = a TYPES entry (per-airframe tuning).
+
+const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const G_KT = 19.06;               // gravity as a knots/second airspeed change (9.81 m/s²)
+const wrap360 = (d) => ((d % 360) + 360) % 360;
+
+// ── Per-airframe tuning ───────────────────────────────────────────────────────
+// The Mayfly is the Phase-1 reference: a light, forgiving fixed-wing. Heavier types
+// (added in Phase 3) scale mass up → slower rates, longer rolls, gentler handling,
+// which the Feel doc calls the "consistency" rule. Nothing here is authoritative
+// content; the real per-type numbers come from aircraft_types at wiring time. These
+// are the physics knobs the tuning maps onto.
+export const TYPES = {
+  mayfly: {
+    name: 'Mayfly',
+    mass: 1.0,            // relative inertia — scales every rate + the force→accel maps
+    thrustMax: 11.5,      // full-power airspeed authority (kt/s) — ample power to climb & hold speed
+    vr: 40,               // rotate speed (kt) — below this, pitch authority is mushy
+    vs0: 24,              // clean 1g stall speed (kt) — low = very stall-resistant trainer
+    vne: 120,             // never-exceed (kt) — the server envelope clamp
+    cruise: 80,           // trimmed level-flight speed (kt) — lift≈weight target (roomy stall margin)
+    pitchRate: 11,        // deg/s of pitch at full elevator & full authority — lower = best climb needs more back-pressure
+    pitchTau: 0.6,        // how long the yoke's pitch effect takes to build (s) — heavy control
+    rollRate: 52,         // deg/s of bank at full aileron & full authority
+    rollTau: 0.55,        // how long the yoke's roll effect takes to build (s) — heavy control
+    engineLag: 1.3,       // throttle→rpm time constant (s); turbines will be larger
+    pitchStable: 0.9,     // self-level rate when elevator released (seeks stability)
+    rollStable: 1.1,      // wings-level rate when aileron released
+    dragP: 0.00100,       // parasitic drag coeff (∝ airspeed²) — low, so it holds speed climbing
+    flapDrag: 0.55,       // extra drag per unit flap
+    flapLift: 0.35,       // extra lift per unit flap
+    flapVs: 0.18,         // stall-speed reduction per unit flap
+    rollFric: 1.6,        // ground rolling friction (kt/s) with throttle at idle
+    aoaCrit: 19,          // critical angle of attack (deg) — high = forgiving, resists the stall
+    liftScale: 1.0,       // scales the whole lift/weight pair (cancels; kept as a knob)
+    vsMax: 525,           // max sustained climb (ft/min) — scaled ~0.7× the Cessna 172 like our other numbers
+    vsGain: 1600,         // how hard excess lift converts to vertical speed
+    vsTau: 1.0,           // vertical inertia (s) — vs eases toward its target; lower = climbs out off the ground faster
+  },
+};
+
+// A stall-shaped lift-coefficient curve: rises with AoA to the critical angle, then
+// falls off hard (the wing lets go). CL0 gives a little lift at zero AoA.
+const CL0 = 0.28, CL_ALPHA = 0.09, STALL_FALLOFF = 0.09;
+const STALL_HOLD = 1.2;   // seconds below stall speed before lift actually collapses
+function liftCoef(aoa, aoaCrit, stalled) {
+  let cl = CL0 + CL_ALPHA * aoa;
+  if (aoa > aoaCrit) {
+    const clMax = CL0 + CL_ALPHA * aoaCrit;
+    // Past critical AoA lift only PLATEAUS (mushy handling); it collapses solely in a
+    // real, sustained stall — so a brief over-pull never dumps you out of the sky.
+    cl = stalled ? Math.max(0, clMax * (1 - (aoa - aoaCrit) * STALL_FALLOFF)) : clMax;
+  }
+  return Math.max(0, cl);
+}
+
+// Weight the model holds up. Anchored at the STALL point — at the clean stall speed
+// the wing at its max lift coefficient just holds the aircraft up. This makes the
+// envelope self-consistent: you can fly (barely) at Vr just above the stall, cruise
+// sits at a low trim AoA, and lift falls below weight only when you're too slow.
+function weightOf(p) { return 0.5 * p.vs0 * p.vs0 * (CL0 + CL_ALPHA * p.aoaCrit) * p.liftScale; }
+
+export function createState(p) {
+  return {
+    airspeed: 0, altitude: 0, pitch: 0, bank: 0, heading: 0,
+    vs: 0,                 // ft/min
+    rpm: 0,                // 0..1 (spooled fraction of throttle)
+    elevEff: 0,            // the yoke's built-up pitch effect (lags the raw input)
+    rollEff: 0,            // the yoke's built-up roll effect (lags the raw input)
+    aoa: 0, stallMargin: 1, stalled: false, stallTimer: 0, stallDir: 0,
+    onGround: true, groundSpeed: 0,
+    // last-frame events the audio/feedback layers read (cleared each step)
+    events: [],
+  };
+}
+
+export function step(state, input, p, dt) {
+  const s = state;
+  s.events = [];
+  const elevator = clamp(input.elevator || 0, -1, 1);
+  const aileron = clamp(input.aileron || 0, -1, 1);
+  const throttle = clamp(input.throttle || 0, 0, 1);
+  const flaps = clamp(input.flaps || 0, 0, 1);
+  const weight = weightOf(p);
+
+  // 1. Engine inertia — rpm eases toward the throttle lever, never snaps.
+  s.rpm += (throttle - s.rpm) * Math.min(1, dt / p.engineLag);
+  const thrust = s.rpm * p.thrustMax;
+
+  // 2. Control authority grows with airspeed. Below Vr the yoke is mushy — this is
+  //    what forces you to build speed on the roll before rotation does anything.
+  const auth = clamp(s.airspeed / p.vr, 0, 1.2);
+
+  // 3. Pitch: the yoke's effect BUILDS over ~pitchTau, so a quick jab does little —
+  //    it takes a firm, sustained pull to rotate or climb (heavy control). The
+  //    airframe also resists extreme attitudes: authority fades toward the pitch
+  //    limits, so it takes a lot of input to put yourself in danger. Released, it
+  //    self-levels toward stability.
+  s.elevEff += (elevator - s.elevEff) * Math.min(1, dt / p.pitchTau);
+  const pitchResist = 1 - 0.55 * Math.abs(s.pitch) / 35;
+  const pitchCmd = s.elevEff * p.pitchRate * auth * pitchResist;
+  s.pitch += (pitchCmd - p.pitchStable * s.pitch * (1 - Math.abs(s.elevEff))) * dt;
+  s.pitch = clamp(s.pitch, -35, 35);
+
+  // 4. Bank: like pitch, the roll effect BUILDS over ~rollTau and the airframe
+  //    resists toward full bank, so it takes a sustained full throw to reach the
+  //    limit. On the ground the gear holds the wings level — no roll until flying.
+  if (s.onGround) {
+    s.bank += (0 - s.bank) * Math.min(1, dt * 4);
+    s.rollEff += (0 - s.rollEff) * Math.min(1, dt / p.rollTau);
+  } else {
+    s.rollEff += (aileron - s.rollEff) * Math.min(1, dt / p.rollTau);
+    const rollResist = 1 - 0.4 * Math.abs(s.bank) / 70;
+    const rollCmd = s.rollEff * p.rollRate * auth * rollResist;
+    s.bank += (rollCmd - p.rollStable * s.bank * (1 - Math.abs(s.rollEff))) * dt;
+    s.bank = clamp(s.bank, -70, 70);
+  }
+
+  // 5. Heading: a coordinated turn from bank (rate ∝ tan(bank)/speed). No airspeed →
+  //    no turn (you can't steer a parked plane with the yoke).
+  if (s.airspeed > 1 && !s.onGround) {
+    const turnRate = (G_KT * Math.tan(s.bank * D2R)) / Math.max(p.vs0, s.airspeed) * R2D;
+    s.heading = wrap360(s.heading + turnRate * dt);
+  }
+
+  // 6. Angle of attack from the current flight path (uses last frame's vs — fine at
+  //    small dt). Pitch up faster than the plane can climb → AoA rises → toward stall.
+  //    Vertical speed is ft/min; 1 kt = 101.33 ft/min, so vs/101.33 is the vertical
+  //    component in knots against the horizontal airspeed.
+  const gamma = Math.atan2(s.vs / 101.33, Math.max(1, s.airspeed)) * R2D;
+  s.aoa = clamp(s.pitch - gamma, -25, 45);
+
+  // 6b. Stall requires a SUSTAINED hold below the (loaded, flap-adjusted) stall speed.
+  //     A momentary over-pull just mushes; you must hold a full pull (~5s) to stall.
+  //     The timer builds while too slow and recovers fast the instant you ease off.
+  const loadFactor = 1 / Math.max(0.35, Math.cos(s.bank * D2R));
+  const stallSpeed = p.vs0 * Math.sqrt(loadFactor) / (1 + flaps * p.flapVs);
+  s.stallMargin = clamp((s.airspeed / stallSpeed - 1) / 0.3, 0, 1);
+  const wasStalled = s.stalled;
+  // Stall needs slow AND high AoA (nose up). Nosing DOWN drops the AoA, so a dive
+  // always builds speed and recovers — it can never stall.
+  const preStall = !s.onGround && s.airspeed < stallSpeed && s.aoa > 4;
+  // Recovers FAST the instant you unload — level out with power (speed climbs back over
+  // the stall speed) or nose down (AoA drops below 4) and the timer bleeds off quickly.
+  s.stallTimer = preStall ? s.stallTimer + dt : Math.max(0, s.stallTimer - dt * 6);
+  s.stalled = s.stallTimer >= STALL_HOLD;
+  if (s.stalled && !wasStalled) {
+    s.events.push({ type: 'stall' });
+    // Which wing lets go first — follow any existing bank/aileron, else drop the left. Held for this stall.
+    s.stallDir = Math.abs(s.bank) > 1 ? Math.sign(s.bank) : (aileron !== 0 ? Math.sign(aileron) : -1);
+  }
+  // A stalled wing quits flying: the nose falls and a wing drops. KEEP hauling back and it
+  // deepens into a wing-over / incipient spin (rolls off and yaws around). EASE OFF or push
+  // and it just noses into a dive; once speed rebuilds the stall breaks and it self-levels.
+  if (s.stalled && !s.onGround) {
+    const held = s.elevEff > 0.3;
+    s.pitch = Math.max(held ? -55 : -35, s.pitch - (held ? 22 : 34) * dt);
+    if (held) {
+      s.bank = clamp(s.bank + s.stallDir * 52 * dt, -85, 85);       // a wing drops, rolls off
+      s.heading = wrap360(s.heading + s.stallDir * 42 * dt);         // yaws around the wing-over
+    } else {
+      s.bank += s.stallDir * 9 * dt;                                 // mild wing drop into the recovery dive
+    }
+  }
+
+  // 7. Lift vs weight → a bounded target vertical speed the aircraft eases toward
+  //    (vertical inertia — vs never jumps). Excess lift climbs; a deficit sinks.
+  const cl = liftCoef(s.aoa, p.aoaCrit, s.stalled) * (1 + flaps * p.flapLift);
+  const lift = 0.5 * s.airspeed * s.airspeed * cl * p.liftScale;
+  // Only the vertical component holds you up — in a steep bank the lift vector tilts,
+  // so a hard turn bleeds climb (add power or back-pressure to hold altitude).
+  const vLift = lift * Math.cos(s.bank * D2R);
+  // Release the yoke (centred) and the aircraft trims toward LEVEL flight — with power
+  // it holds altitude; small power differences give a gentle climb/descent, not a plunge.
+  const handsOff = clamp(1 - Math.abs(s.elevEff) * 3, 0, 1);
+  // A stall FALLS faster than it can climb — let the sink run well past the climb cap so the
+  // eye-height drops rapidly (the "falling out of the sky" feel). Held stalls sink hardest.
+  const sinkFloor = s.stalled ? -p.vsMax * 2.4 : -p.vsMax;
+  const vsTarget = clamp((vLift / weight - 1) * p.vsGain, sinkFloor, p.vsMax) * (1 - handsOff * 0.8);
+  if (s.onGround && vsTarget <= 0) {
+    s.vs = 0;                                 // sitting on the wheels — no lift to climb on
+  } else {
+    s.vs += (vsTarget - s.vs) * Math.min(1, dt / p.vsTau);
+    s.altitude += (s.vs / 60) * dt;
+  }
+
+  // 8. Airspeed: thrust − drag − the gravity component of pitch (climbing bleeds
+  //    speed) − ground friction while rolling.
+  const drag = (p.dragP + flaps * p.flapDrag * 0.0016) * s.airspeed * s.airspeed
+             + s.aoa * s.aoa * 0.0016 * s.airspeed;              // induced drag ∝ AoA² — a hard pull bleeds speed fast, a gentle climb barely at all
+  const grav = G_KT * Math.sin(s.pitch * D2R);
+  const fric = s.onGround ? p.rollFric * (1 - s.rpm) : 0;        // brakes off; idle drag rolls to a stop
+  s.airspeed = Math.max(0, s.airspeed + ((thrust - drag) / p.mass - grav - fric) * dt);
+  s.groundSpeed = s.airspeed;
+
+  // 9. Ground contact. Liftoff is emergent: once lift ≥ weight at rotation, altitude
+  //    climbs off zero. Coming back down, a hard arrival is flagged by sink rate.
+  if (s.altitude <= 0) {
+    if (!s.onGround && s.vs < -300) s.events.push({ type: 'touchdown', severity: s.vs < -700 ? 'hard' : 'firm', vs: s.vs });
+    s.altitude = 0;
+    s.onGround = true;
+    s.vs = Math.max(0, s.vs);
+  } else {
+    s.onGround = false;
+  }
+
+  return s;
+}
+
+// A convenience read-out the harness / HUD can format (the shared state contract).
+export function readout(s, p) {
+  return {
+    airspeed: Math.round(s.airspeed),
+    altitude: Math.round(s.altitude),
+    vs: Math.round(s.vs),
+    pitch: +s.pitch.toFixed(1),
+    bank: +s.bank.toFixed(1),
+    heading: Math.round(s.heading),
+    rpm: Math.round(s.rpm * 100),
+    aoa: +s.aoa.toFixed(1),
+    stallMargin: +s.stallMargin.toFixed(2),
+    stalled: s.stalled,
+    onGround: s.onGround,
+    vr: p.vr, vs0: p.vs0, vne: p.vne,
+  };
+}

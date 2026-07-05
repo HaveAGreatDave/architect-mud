@@ -50,10 +50,14 @@ export async function addHorniness(player, amount, broadcast) {
 
   const messages = [];
 
-  // First-cross threshold at 50
-  if (prev < 50 && player.horniness >= 50) {
-    messages.push(...pick(HORNY_MESSAGES));
+  // Escalating heat as horniness climbs past 50 — only the highest newly-crossed
+  // tier fires, so a big single jump (an active event's +18/+20) doesn't spam
+  // every message on the way up, just the one that matches how far it went.
+  let crossedTier = null;
+  for (const tier of HORNY_TIERS) {
+    if (prev < tier.at && player.horniness >= tier.at) crossedTier = tier;
   }
+  if (crossedTier) messages.push(...pick(crossedTier.messages));
 
   // Update erection for males
   if (player.biological_sex === 'male') {
@@ -63,6 +67,12 @@ export async function addHorniness(player, amount, broadcast) {
       player.erect = nowErect ? 1 : 0;
       await query('UPDATE players SET erect=$1 WHERE id=$2', [player.erect, player.id]);
     }
+  }
+
+  // The last beat before the edge — fires once per build-up, right before climax
+  // actually lands, so it reads as "this is your last chance to direct it."
+  if (prev < 97 && player.horniness >= 97) {
+    messages.push(...pick(HNNNG_MESSAGES));
   }
 
   // Climax at 100 — only triggered here for passive accumulation; active events handle their own
@@ -199,11 +209,38 @@ export function breastVisibilityNote(player, torsoLayerCount, outermostBulkiness
   return null;
 }
 
-const HORNY_MESSAGES = [
-  ['Something stirs in you. A familiar warmth, building quietly.'],
-  ['Your thoughts drift somewhere warmer. You push them aside — mostly.'],
-  ['A low heat settles in your body, patient and insistent.'],
-  ['You become aware of your body in a way you weren\'t a moment ago.'],
+// Escalating heat tiers — checked low-to-high in addHorniness, only the
+// highest newly-crossed tier's pool fires per call.
+const HORNY_TIERS = [
+  { at: 50, messages: [
+    ['Something stirs in you. A familiar warmth, building quietly.'],
+    ['Your thoughts drift somewhere warmer. You push them aside — mostly.'],
+    ['A low heat settles in your body, patient and insistent.'],
+    ['You become aware of your body in a way you weren\'t a moment ago.'],
+  ]},
+  { at: 65, messages: [
+    ['The heat is getting harder to ignore. It has your attention now.'],
+    [`Your pulse picks up for no reason you'd admit to out loud.`],
+    ['You catch yourself thinking about it. More than once.'],
+  ]},
+  { at: 80, messages: [
+    [`It's getting hard to think about anything else.`],
+    ['Your body is very clearly asking for something now.'],
+    [`The heat has stopped being subtle. You're squirming a little.`],
+  ]},
+  { at: 92, messages: [
+    [`You're right on the edge. It wouldn't take much at all.`],
+    ['Every nerve feels lit up. You could go any second.'],
+    [`You're teetering. One more push and you're gone.`],
+  ]},
+];
+
+// The final beat before climax — one last warning that this is the moment to
+// direct where it lands, before your body takes the decision out of your hands.
+const HNNNG_MESSAGES = [
+  [`HNNNNNNNNNGGGGGGGGG— you're seconds away. Last chance to choose where this goes.`],
+  [`HNNNGGGGGGH— it's right there. If you're going to aim, do it NOW.`],
+  [`HNNNNNGGGGGGG— your whole body has locked up. This is it.`],
 ];
 
 const CLIMAX_MESSAGES = [

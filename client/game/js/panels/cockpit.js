@@ -13,8 +13,21 @@
 
 import { setAreaPane } from '../render.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
-import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown } from './engine-audio.js';
-import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield } from './windshield.js';
+import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn } from './engine-audio.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE } from './windshield.js';
+import { createState, step, readout, TYPES } from './flight-model.js';
+import { sendCmdSilent } from '../net.js';
+
+// Theme accent for the canvas-drawn instruments (the CSS chrome uses var(--accent)
+// directly; canvas can't, so we sample it once when the cockpit opens).
+let ACCENT = '#8fd0ff', ACCENT_RGB = [143, 208, 255];
+function refreshAccent() {
+  try {
+    const c = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    if (c) { ACCENT = c; const m = c.match(/^#?([0-9a-fA-F]{6})$/); if (m) { const n = parseInt(m[1], 16); ACCENT_RGB = [(n >> 16) & 255, (n >> 8) & 255, n & 255]; } }
+  } catch {}
+}
+const accA = (a) => `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},${a})`;
 
 function csfx(id, fallback) {
   const cat = window.SFXCatalog;
@@ -52,6 +65,7 @@ let _sig = '';          // mounted layout signature (rebuild when capabilities c
 let _lastT = 0;
 
 export function updateCockpit(state) {
+  if (isFlightSimActive()) return;   // the continuous cockpit owns the pane — don't mount the glass HUD over it
   ensureHudStyles();
   _target = state || {};
   updateEngineAudio(_target);
@@ -78,6 +92,7 @@ export function updateCockpit(state) {
 }
 
 export function closeCockpit() {
+  closeFlightSim();       // the continuous cockpit, if it owns the pane
   if (_raf) cancelAnimationFrame(_raf); _raf = 0;
   _anim = null; _prev = null; _sig = '';
   stopEngineAudio();
@@ -129,7 +144,7 @@ function paintWindow(id, a, s) {
     pitch: a.pitch, bank: a.roll, height: heightFrac, speed: speedFrac,
     hour: s.sky?.hour, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
     map: s.map, phase: s.airborne ? 'cruise' : 'ground',
-    airport: s.ground?.theme,
+    airport: s.ground?.theme, biomeBelow: s.biomeBelow,
     side: pax, windowClass: pax ? (s.class || 'prop') : undefined,
   });
 }
@@ -590,6 +605,583 @@ function ensureTakeoffStyles() {
 // throttle's up; at 80% of runway with ≥60% throttle you get V1 — ROTATE, and a
 // GENTLE pull-back (≈20–30%) lifts you off. Over-rotate → STALL (level out or
 // crash); nose-down → crash nose-first; no rotation before the end → overrun.
+// ══════════════════════════════════════════════════════════════════════════════
+// 2.5. THE CONTINUOUS COCKPIT (client-sim + server-reconcile)  — Phase 1 slice
+// ══════════════════════════════════════════════════════════════════════════════
+// A persistent, always-live cockpit that runs the real flight-model.js physics at
+// 60fps in the area pane. Draggable yoke/throttle/flaps (Pointer Events, mouse +
+// touch). It streams state to the server via `flightsync`, reports wheels-up and
+// touchdown via `flightevent`, and consumes `flight_ctx` for authoritative fuel +
+// the world below. The yoke is physically inverted (pull DOWN = nose up). Retires
+// the modal takeoff/glideslope decks for continuous craft (currently the Mayfly).
+
+let _fsim = null;
+const lerpN = (a, b, t) => a + (b - a) * t;
+// Live-tunable render knobs exposed as in-cockpit sliders (⚙). RENDER_TUNE is shared
+// with windshield.js so a slider change takes effect on the very next frame.
+const FSIM_TUNE = [
+  ['worldPace', 'Ground speed', 0, 0.001, 0.00005],
+  ['eh', 'Horizon compress', 0, 1, 0.01],
+  ['climbLift', 'Climb lift', 0, 20, 0.5],
+  ['tile', 'Floor tiles', 0.1, 3, 0.05],
+  ['pixel', 'Pixel size', 1, 10, 1],
+  ['bldgH', 'Bldg height', 0.05, 3, 0.05],
+  ['bldgFoot', 'Bldg width', 0.05, 1.5, 0.05],
+  ['texRes', 'Texture res', 0.3, 4, 0.25],
+  ['haze', 'Distance haze', 0.3, 3, 0.05],
+  ['rwl', 'Runway length', 1, 8, 0.2],
+  ['rwyRecede', 'Runway recede', 0.5, 6, 0.2],
+];
+
+function ensureFlightSimStyles() {
+  if (document.getElementById('fsim-styles')) return;
+  const s = document.createElement('style'); s.id = 'fsim-styles';
+  s.textContent = `
+    .fsim{ display:flex; flex-direction:column; gap:6px; font-family:var(--font,monospace); --cy:var(--accent,#8fd0ff); --mg:#ff4a9a; --gr:#5fe0a0; }
+    .fsim-view{ position:relative; height:clamp(150px,26vh,300px); border-radius:8px; overflow:hidden; box-shadow:inset 0 0 0 2px #0f1c28, 0 0 12px rgba(0,0,0,.6); }
+    .fsim-lamp{ position:absolute; top:8px; left:50%; transform:translateX(-50%); font:11px/1 monospace; letter-spacing:2px; z-index:3;
+      color:#ff5a5b; background:rgba(40,4,6,.7); border:1px solid #ff5a5b; border-radius:5px; padding:3px 9px; opacity:0; transition:opacity .12s; }
+    /* glass panel row: PFD | MFD (Diamond DA42-inspired) */
+    .fsim-glass{ display:flex; gap:6px; height:clamp(150px,23vh,212px); }
+    .fsim-pfd,.fsim-mfd,.fsim-gauges{ position:relative; flex:1 1 0; background:#060c12; border:1px solid #16303f; border-radius:8px; overflow:hidden;
+      box-shadow:inset 0 0 10px rgba(0,0,0,.7), 0 0 0 1px rgba(95,208,255,.08); }
+    .fsim-pfd{ flex:0.6 1 0; }        /* left PFD */
+    .fsim-mfd{ flex:0.6 1 0; }        /* right MFD squeezed to the SAME width as the PFD */
+    .fsim-gauges{ flex:2 1 0; }       /* wide centre: gauges hug its edges, the yoke rises up its middle */
+    .fsim-rightctl{ flex:0 0 140px; display:flex; gap:6px; }   /* throttle + start + flaps, to the right of the MFD */
+    .fsim-pfd canvas,.fsim-mfd canvas,.fsim-gauges canvas{ width:100%; height:100%; display:block; image-rendering:pixelated; }
+    .fsim-mfd-tog{ position:absolute; top:5px; right:5px; z-index:2; background:rgba(6,14,22,.8); border:1px solid var(--cy); color:var(--cy);
+      border-radius:4px; font:8px monospace; padding:2px 5px; letter-spacing:1px; cursor:pointer; }
+    .fsim-mfd-lbl{ position:absolute; top:6px; left:7px; z-index:2; font:8px monospace; letter-spacing:1px; color:var(--cy); opacity:.85; }
+    /* controls: full yoke + throttle quadrant */
+    /* control row: badge (bottom-left) | YOKE (aligned under gauges) | transponder (bottom-right) */
+    .fsim-ctl{ display:flex; gap:6px; align-items:stretch; height:120px; }
+    .fsim-placard,.fsim-xpdr{ background:#04080c; border:1px solid #16303f; border-radius:8px; box-shadow:inset 0 0 12px rgba(0,0,0,.8); padding:9px 11px; display:flex; flex-direction:column; overflow:hidden; }
+    .fsim-placard{ flex:0.6 1 0; justify-content:center; gap:4px; }
+    .fsim-xpdr{ flex:1 1 0; gap:5px; justify-content:center; }
+    .fsim-plac-title,.fsim-xpdr-title{ font-size:8px; letter-spacing:2px; color:#4a5a68; }
+    .fsim-plac-reg{ font-size:16px; font-weight:bold; letter-spacing:2px; color:var(--cy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .fsim-plac-own{ font-size:10px; letter-spacing:1px; color:#8a9aa8; }
+    .fsim-plac-own.rented{ color:#ffb23e; }
+    .fsim-xpdr-sq{ font-size:19px; font-weight:bold; letter-spacing:4px; color:var(--gr); text-shadow:0 0 6px rgba(95,224,160,.4); }
+    .fsim-xpdr-row{ display:flex; justify-content:space-between; font-size:10px; color:#8a9aa8; letter-spacing:1px; }
+    .fsim-xpdr-row b{ color:var(--cy); }
+    .fsim-yoke{ position:relative; flex:2 1 0; background:radial-gradient(circle at 50% 26%,#0e1a24,#070d13); border:1px solid #16303f;
+      border-radius:12px; touch-action:none; cursor:grab; overflow:visible; perspective:1000px; box-shadow:inset 0 0 14px rgba(0,0,0,.7); }
+    .fsim-yoke.drag{ cursor:grabbing; }
+    /* Big yoke anchored HIGH: it rises up into the centre of the gauges panel (between the
+       edge gauges) and its pull-down never drags it off the bottom of the frame. */
+    .fsim-yoke-svg{ position:absolute; left:17%; top:-120%; width:66%; height:194%; transform-style:preserve-3d; will-change:transform;
+      transform-origin:50% 66%; pointer-events:none; filter:drop-shadow(0 7px 10px rgba(0,0,0,.65)); }
+    .fsim-climbmark{ position:absolute; left:10%; right:10%; top:66%; height:0; border-top:1px dashed rgba(95,224,160,0.55); pointer-events:none; }
+    .fsim-climbmark::after{ content:'BEST CLIMB'; position:absolute; right:1px; top:-9px; font-size:7px; letter-spacing:1px; color:var(--gr); }
+    .fsim-throttle{ position:relative; flex:0 0 56px; background:linear-gradient(180deg,#0c141c,#080e14); border:1px solid #16303f;
+      border-radius:10px; touch-action:none; cursor:ns-resize; overflow:hidden; }
+    .fsim-thr-slot{ position:absolute; left:50%; top:12px; bottom:22px; width:8px; margin-left:-4px; background:#04080c; border:1px solid #16303f; border-radius:4px; box-shadow:inset 0 0 4px #000; }
+    .fsim-thr-notch{ position:absolute; left:8px; width:7px; height:1px; background:rgba(120,150,175,.4); }
+    .fsim-thr-lever{ position:absolute; left:6px; right:6px; height:20px; }
+    .fsim-thr-grip{ position:absolute; inset:0; border-radius:6px; background:linear-gradient(180deg,#3a6f8f 0%,#1a3d52 55%,#0e2130 100%);
+      border:1px solid var(--cy); box-shadow:0 2px 6px rgba(0,0,0,.6), inset 0 1px 2px rgba(255,255,255,.35); }
+    .fsim-thr-grip::after{ content:''; position:absolute; left:22%; right:22%; top:8px; height:4px; background:repeating-linear-gradient(90deg,#0e2130 0 2px,rgba(95,208,255,.25) 2px 4px); }
+    .fsim-thr-val{ position:absolute; bottom:4px; left:0; right:0; text-align:center; font:9px monospace; color:var(--cy); }
+    .fsim-side{ flex:1 1 auto; display:flex; flex-direction:column; gap:8px; align-items:stretch; }
+    /* engine master: a round accent button with a power glyph that recesses when running */
+    .fsim-engbtn{ flex:0 0 auto; align-self:center; width:52px; height:52px; border-radius:50%; border:2px solid var(--cy); color:var(--cy);
+      background:radial-gradient(circle at 50% 34%,#0e2230,#06121c); font-size:22px; line-height:1; cursor:pointer; user-select:none;
+      display:flex; align-items:center; justify-content:center; box-shadow:0 3px 0 rgba(0,0,0,.55), 0 5px 9px rgba(0,0,0,.5); transition:transform .09s, box-shadow .09s, text-shadow .12s; }
+    .fsim-engbtn:active{ transform:translateY(2px); }
+    .fsim-engbtn.on{ transform:translateY(3px); box-shadow:inset 0 3px 9px rgba(0,0,0,.85); text-shadow:0 0 10px var(--cy); }
+    /* flaps: a 3-position switch (UP / ½ / FULL) — click the track to snap to a detent */
+    .fsim-flapsw{ flex:1 1 auto; display:flex; gap:7px; align-items:stretch; }
+    .fsim-flapsw-track{ position:relative; flex:0 0 20px; background:#04080c; border:1px solid #16303f; border-radius:6px; cursor:pointer; box-shadow:inset 0 0 5px #000; touch-action:none; }
+    .fsim-flapsw-knob{ position:absolute; left:2px; right:2px; height:28%; top:2%; border-radius:4px; background:linear-gradient(180deg,#d6e8f5,#7f9bb0); box-shadow:0 2px 5px rgba(0,0,0,.6); transition:top .12s; }
+    .fsim-flapsw-lbls{ flex:1 1 auto; display:flex; flex-direction:column; justify-content:space-between; font:9px monospace; letter-spacing:1px; color:#6f8698; padding:1px 0; }
+    .fsim-flapsw-lbls span.on{ color:var(--cy); text-shadow:0 0 5px var(--cy); }
+    .fsim-tunebtn{ position:absolute; top:6px; right:8px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
+      border-radius:6px; width:24px; height:22px; font-size:12px; line-height:1; cursor:pointer; }
+    .fsim-tune{ position:absolute; top:32px; right:8px; z-index:4; width:186px; background:rgba(8,14,20,.94); border:1px solid #14212d; border-radius:8px; padding:8px; }
+    .fsim-tune .trow{ display:flex; align-items:center; gap:5px; margin-bottom:5px; font-size:9px; }
+    .fsim-tune .trow label{ flex:0 0 64px; color:#6f8698; letter-spacing:.5px; }
+    .fsim-tune .trow input{ flex:1; min-width:0; }
+    .fsim-tune .tv{ flex:0 0 34px; text-align:right; color:var(--cy); font-variant-numeric:tabular-nums; }`;
+  document.head.appendChild(s);
+}
+
+// A full control yoke (cyberpunk-industrial): a horned control wheel with side grips
+// and a lit centre boss. It's transformed live (roll + a 3-D pull toward/away) in the
+// frame loop so the wheel feels like it's coming toward you as you pull back.
+const YOKE_SVG = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <linearGradient id="ykblk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a3d42"/><stop offset="0.16" stop-color="#191b1f"/><stop offset="0.6" stop-color="#0c0d10"/><stop offset="1" stop-color="#050506"/></linearGradient>
+    <linearGradient id="ykgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2e34"/><stop offset="0.14" stop-color="#131418"/><stop offset="1" stop-color="#040405"/></linearGradient>
+    <radialGradient id="ykgloss" cx="0.4" cy="0.18" r="0.75"><stop offset="0" stop-color="rgba(255,255,255,0.32)"/><stop offset="0.45" stop-color="rgba(255,255,255,0.04)"/><stop offset="1" stop-color="rgba(255,255,255,0)"/></radialGradient>
+    <radialGradient id="ykgreen" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#9dffc8"/><stop offset="0.5" stop-color="#3ad07a"/><stop offset="1" stop-color="#0d3a22"/></radialGradient>
+    <radialGradient id="ykred" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffb6b8"/><stop offset="0.5" stop-color="#e0403a"/><stop offset="1" stop-color="#3a0d0d"/></radialGradient>
+  </defs>
+  <rect x="44" y="42" width="12" height="30" rx="4" fill="url(#ykblk)" stroke="#000" stroke-width="0.5"/>
+  <path d="M12,46 Q8,22 24,18 Q37,13 50,15 Q63,13 76,18 Q92,22 88,46 L79,46 Q82,28 66,24 Q58,22 50,22 Q42,22 34,24 Q18,28 21,46 Z" fill="url(#ykblk)" stroke="#000" stroke-width="0.8"/>
+  <rect x="7" y="39" width="17" height="27" rx="8" fill="url(#ykgr)" stroke="#000" stroke-width="0.8"/>
+  <rect x="76" y="39" width="17" height="27" rx="8" fill="url(#ykgr)" stroke="#000" stroke-width="0.8"/>
+  <path d="M12,46 Q8,22 24,18 Q37,13 50,15 Q63,13 76,18 Q92,22 88,46 L79,46 Q82,28 66,24 Q58,22 50,22 Q42,22 34,24 Q18,28 21,46 Z" fill="url(#ykgloss)"/>
+  <rect x="38" y="30" width="24" height="13" rx="3" fill="#0a0b0d" stroke="#2a2d33" stroke-width="0.6"/>
+  <circle id="fsim-yk-green" cx="44.5" cy="36.5" r="3" fill="url(#ykgreen)" opacity="0.2"/>
+  <circle id="fsim-yk-red" cx="55.5" cy="36.5" r="3" fill="url(#ykred)" opacity="0.2"/>
+</svg>`;
+
+export function openFlightSim(opts = {}) {
+  closeFlightSim();          // clear any prior
+  closeCockpit();            // stop the glass HUD loop; the continuous cockpit owns the pane
+  ensureWindshieldStyles(); ensureFlightSimStyles(); refreshAccent();
+  const P = TYPES[opts.craftType] || TYPES.mayfly;
+  const s = createState(P);
+  s.heading = (((opts.heading || 0) % 360) + 360) % 360;
+
+  const F = {
+    P, s, cls: opts.craftClass || 'ultralight',
+    input: { elevator: 0, aileron: 0, throttle: 0, flaps: 0 },
+    pos: { x: opts.gx || 0, y: opts.gy || 0 },
+    mapCenter: { x: Math.round(opts.gx || 0), y: Math.round(opts.gy || 0) }, rollDist: 0, travel: 0,
+    airport: opts.airport || 'default',
+    reg: opts.registration || (opts.deviceName || 'MAYFLY').toUpperCase(), owner: opts.owner || 'RENTED',
+    fuel: opts.fuel ?? 100, fuelCap: opts.fuelCap || 100, warn: null,
+    map: opts.map || null, sky: opts.sky || { hour: 12, weather: 'clear', wind: 0 }, biomeBelow: opts.biomeBelow ?? null,
+    minimap: opts.minimap || null, mfdMode: 'local',
+    deadStick: false, reportedAirborne: false, over: false,
+    engineOn: !!opts.engineOn,
+    yokeDrag: false, thrDrag: false,
+    raf: 0, last: 0, syncAcc: 0, hornBeat: 0, audioAcc: 0,
+    temp: 40, battery: 100,          // cosmetic engine-temp (°C) + battery charge (%) for the gauge cluster
+
+    disp: { ias: 0, alt: 0, vs: 0, hdg: s.heading, rpm: 0, pitch: 0, bank: 0 },
+    listeners: [],
+  };
+  _fsim = F;
+
+  const html = `<div id="fsim-root" class="fsim">
+    <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div></div>
+    <div class="fsim-glass">
+      <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
+      <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
+      <div class="fsim-mfd"><canvas id="fsim-mfd"></canvas><span class="fsim-mfd-lbl" id="fsim-mfd-lbl">LOCAL</span><button class="fsim-mfd-tog" id="fsim-mfd-tog">NAV ▸</button></div>
+      <div class="fsim-rightctl">
+        <div class="fsim-throttle" id="fsim-thr">
+          <div class="fsim-thr-slot"></div>
+          <div class="fsim-thr-notch" style="top:16px"></div><div class="fsim-thr-notch" style="top:42%"></div><div class="fsim-thr-notch" style="bottom:28px"></div>
+          <div class="fsim-thr-lever" id="fsim-thr-lever"><div class="fsim-thr-grip"></div></div>
+          <span class="fsim-thr-val" id="fsim-thrv">0%</span>
+        </div>
+        <div class="fsim-side">
+          <button class="fsim-engbtn" id="fsim-eng" title="engine master">⏻</button>
+          <div class="fsim-flapsw">
+            <div class="fsim-flapsw-track" id="fsim-flapsw-track"><div class="fsim-flapsw-knob" id="fsim-flapsw-knob"></div></div>
+            <div class="fsim-flapsw-lbls"><span class="on">UP</span><span>½</span><span>FULL</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="fsim-ctl">
+      <div class="fsim-placard">
+        <div class="fsim-plac-title">◈ AIRCRAFT</div>
+        <div class="fsim-plac-reg" id="fsim-reg">—</div>
+        <div class="fsim-plac-own" id="fsim-own">—</div>
+      </div>
+      <div class="fsim-yoke" id="fsim-yoke">${YOKE_SVG}</div>
+      <div class="fsim-xpdr">
+        <div class="fsim-xpdr-title">XPDR · RADIO</div>
+        <div class="fsim-xpdr-sq" id="fsim-sq">1200</div>
+        <div class="fsim-xpdr-row"><span>COM</span><b>118.00</b></div>
+        <div class="fsim-xpdr-row"><span>NAV</span><b>112.30</b></div>
+      </div>
+    </div>
+  </div>`;
+  setAreaPane(html);
+  const root = document.getElementById('fsim-root');
+  if (!root) { _fsim = null; return; }
+  const q = (sel) => root.querySelector(sel);
+  const add = (t, ty, fn, op) => { if (!t) return; t.addEventListener(ty, fn, op); F.listeners.push([t, ty, fn, op]); };
+
+  // Yoke — 2D pad, springs to centre. Physically inverted: drag DOWN = pull = nose up.
+  const pad = q('#fsim-yoke');
+  const padTo = (e) => { const r = pad.getBoundingClientRect(); F.input.aileron = clampNum(((e.clientX - r.left) / r.width) * 2 - 1, -1, 1); F.input.elevator = clampNum(((e.clientY - r.top) / r.height) * 2 - 1, -1, 1); };
+  add(pad, 'pointerdown', (e) => { F.yokeDrag = true; pad.classList.add('drag'); try { pad.setPointerCapture(e.pointerId); } catch {} padTo(e); });
+  add(pad, 'pointermove', (e) => { if (F.yokeDrag) padTo(e); });
+  add(window, 'pointerup', () => { F.yokeDrag = false; pad.classList.remove('drag'); });
+
+  // Throttle — vertical lever, holds where you leave it.
+  const thr = q('#fsim-thr');
+  const thrTo = (e) => { const r = thr.getBoundingClientRect(); F.input.throttle = clampNum(1 - (e.clientY - r.top) / r.height, 0, 1); };
+  add(thr, 'pointerdown', (e) => { F.thrDrag = true; try { thr.setPointerCapture(e.pointerId); } catch {} thrTo(e); });
+  add(thr, 'pointermove', (e) => { if (F.thrDrag) thrTo(e); });
+  add(window, 'pointerup', () => { F.thrDrag = false; });
+
+  // Aircraft placard (bottom-left): registration + owner (RENTED if none).
+  const regEl = q('#fsim-reg'), ownEl = q('#fsim-own');
+  if (regEl) regEl.textContent = F.reg;
+  if (ownEl) { ownEl.textContent = F.owner; ownEl.classList.toggle('rented', F.owner === 'RENTED'); }
+
+  // Flaps — a 3-position switch (UP / ½ / FULL). Click the track to snap to the nearest detent.
+  const flapTrack = q('#fsim-flapsw-track'), flapKnob = q('#fsim-flapsw-knob');
+  const flapLbls = root.querySelectorAll('.fsim-flapsw-lbls span');
+  const FLAP_VAL = [0, 0.5, 1], FLAP_TOP = ['2%', '36%', '70%'];
+  const setFlap = (i) => { F.input.flaps = FLAP_VAL[i]; if (flapKnob) flapKnob.style.top = FLAP_TOP[i]; flapLbls.forEach((s2, j) => s2.classList.toggle('on', j === i)); };
+  add(flapTrack, 'pointerdown', (e) => { const r = flapTrack.getBoundingClientRect(); const f = (e.clientY - r.top) / r.height; const i = f < 0.34 ? 0 : f < 0.67 ? 1 : 2; if (FLAP_VAL[i] !== F.input.flaps) { setFlap(i); flapWhir(); } });
+  setFlap(0);
+
+  // Engine master — a round accent button that recesses while running. Off→on any time;
+  // on→off only parked and stopped (you can't kill the engine in the air).
+  const engBtn = q('#fsim-eng');
+  if (F.engineOn) engBtn.classList.add('on');
+  add(engBtn, 'click', () => {
+    if (!F.engineOn) {
+      F.engineOn = true; engBtn.classList.add('on');
+      try { spoolUp(F.cls); } catch {}
+      sendCmdSilent('flightevent engineon');
+    } else if (s.onGround && s.airspeed < 5) {
+      F.engineOn = false; engBtn.classList.remove('on');
+      try { spoolDown(F.cls); } catch {}
+      sendCmdSilent('flightevent engineoff');
+    }
+  });
+
+  // MFD map toggle — real local minimap ↔ aerial biome nav map.
+  const mfdTog = q('#fsim-mfd-tog'), mfdLbl = q('#fsim-mfd-lbl');
+  add(mfdTog, 'click', () => {
+    F.mfdMode = F.mfdMode === 'local' ? 'nav' : 'local';
+    if (mfdLbl) mfdLbl.textContent = F.mfdMode === 'local' ? 'LOCAL' : 'NAV';
+    if (mfdTog) mfdTog.textContent = F.mfdMode === 'local' ? 'NAV ▸' : '◂ LOCAL';
+  });
+
+  // Live render-tuning sliders (⚙) — mutate the shared RENDER_TUNE, effect is instant.
+  const tuneBtn = q('#fsim-tunebtn'), tunePanel = q('#fsim-tune');
+  const tvFmt = (n) => (n >= 1 ? n.toFixed(1) : n.toFixed(3));
+  tunePanel.innerHTML = FSIM_TUNE.map(([k, lbl, lo, hi, stp]) =>
+    `<div class="trow"><label>${lbl}</label><input type="range" data-k="${k}" min="${lo}" max="${hi}" step="${stp}" value="${RENDER_TUNE[k]}"><span class="tv" id="fsim-tv-${k}">${tvFmt(RENDER_TUNE[k])}</span></div>`).join('');
+  tunePanel.querySelectorAll('input').forEach((inp) => add(inp, 'input', () => {
+    RENDER_TUNE[inp.dataset.k] = parseFloat(inp.value);
+    const tv = document.getElementById('fsim-tv-' + inp.dataset.k); if (tv) tv.textContent = tvFmt(RENDER_TUNE[inp.dataset.k]);
+  }));
+  add(tuneBtn, 'click', () => { tunePanel.style.display = tunePanel.style.display === 'none' ? 'block' : 'none'; });
+
+  F.last = performance.now();
+  F.raf = requestAnimationFrame(fsimFrame);
+}
+
+// Off-map guard: if the tiles right under us are void (the endless-desert buffer beyond
+// the built world), return the compass heading back toward the centroid of real terrain
+// so the HUD can say "TURN xxx°". null = we're over the map, no warning. Heading convention
+// matches the renderer: 0°=−y (north), 90°=+x (east).
+function offMapHeading(F) {
+  const map = F.map; if (!map || !map.length) return null;
+  const R = (map.length - 1) / 2;
+  const cx = R + (F.pos.x - F.mapCenter.x), cy = R + (F.pos.y - F.mapCenter.y);
+  const at = (x, y) => { const row = map[Math.round(y)]; return row ? row[Math.round(x)] : null; };
+  const real = (c) => c && c.kind !== 'air' && c.biome && c.biome !== 'water';
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (real(at(cx + dx, cy + dy))) return null;  // still over the world
+  let sx = 0, sy = 0, n = 0;
+  for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) if (real(map[ry][rx])) { sx += rx; sy += ry; n++; }
+  if (!n) return null;
+  const bx = (sx / n) - cx, by = (sy / n) - cy;
+  return (Math.round(Math.atan2(bx, -by) * 180 / Math.PI) + 360) % 360;
+}
+
+function fsimFrame(now) {
+  const F = _fsim; if (!F) return;
+  const root = document.getElementById('fsim-root');
+  if (!root) { closeFlightSim(); return; }
+  const dt = clampNum((now - F.last) / 1000, 0, 0.05); F.last = now;
+  const { s, P, input } = F;
+
+  // Yoke springs to centre when released.
+  if (!F.yokeDrag) { input.elevator = lerpN(input.elevator, 0, Math.min(1, dt * 6)); input.aileron = lerpN(input.aileron, 0, Math.min(1, dt * 6)); }
+  // Effective throttle: the lever always moves, but there's no thrust unless the
+  // engine master switch is on and the tank isn't dry (dead stick).
+  const thr = (F.engineOn && !F.deadStick) ? input.throttle : 0;
+
+  step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, flaps: input.flaps }, P, dt);
+
+  // Move through the world whenever rolling or flying — the takeoff roll translates
+  // you forward down the runway (buildings grow and pass); liftoff just adds altitude.
+  if (s.airspeed > 0.5) {
+    // Ground pace scales with the speed fraction (0 stopped → worldPace at Vne), so the world
+    // creeps as you begin the roll (~0.0001) and only reaches the 0.001 max near full speed.
+    const pace = RENDER_TUNE.worldPace * clampNum(s.airspeed / (P.vne || 120), 0, 1);
+    const d = s.airspeed * pace * dt, hr = s.heading * Math.PI / 180;
+    F.pos.x += Math.sin(hr) * d; F.pos.y += -Math.cos(hr) * d;
+    F.travel += d;
+    if (F.engineOn) F.rollDist += d;
+  }
+
+  // Transitions → tell the server. Track descent rate while airborne so touchdown knows
+  // how hard the arrival was (soft squeak vs firm thump).
+  if (!s.onGround) F.touchVs = s.vs;
+  if (!s.onGround && !F.reportedAirborne) { F.reportedAirborne = true; groundFx('liftoff'); sendCmdSilent('flightevent takeoff'); }
+  if (s.onGround && F.reportedAirborne && !F.over) {
+    F.over = true;
+    groundFx((F.touchVs || 0) < -500 ? 'touchdownHard' : 'touchdown');   // tyre squeak on the numbers
+    // Report the exact touchdown tile first, then land — the server decides
+    // field-landing vs off-field crash from this position.
+    sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} 0 0 ${Math.round(s.heading)} 0 0 1 0`);
+    sendCmdSilent('flightevent land');
+    setTimeout(() => { closeFlightSim(); sendCmdSilent('look'); }, 500);
+  }
+
+  // Stall horn (intermittent → continuous).
+  fsimHorn(F, dt);
+
+  const r = readout(s, P), d = F.disp;
+  d.ias = lerpN(d.ias, r.airspeed, Math.min(1, dt * 6)); d.alt = lerpN(d.alt, r.altitude, Math.min(1, dt * 5));
+  d.vs = lerpN(d.vs, r.vs, Math.min(1, dt * 4)); d.rpm = lerpN(d.rpm, r.rpm, Math.min(1, dt * 6));
+  d.pitch = lerpN(d.pitch, r.pitch, Math.min(1, dt * 10)); d.bank = lerpN(d.bank, r.bank, Math.min(1, dt * 10));
+  const dh = ((r.heading - d.hdg + 540) % 360) - 180; d.hdg = (d.hdg + dh * Math.min(1, dt * 6) + 360) % 360;
+
+  // PFD (attitude + speed/altitude tapes + heading + VSI) and MFD (map).
+  paintPFD(document.getElementById('fsim-pfd'), {
+    pitch: d.pitch, bank: d.bank, ias: d.ias, alt: d.alt, vs: d.vs, hdg: d.hdg,
+    vr: P.vr, vne: P.vne, vs0: P.vs0, sm: s.stallMargin, fuelPct: Math.round(F.fuel / (F.fuelCap || 1) * 100),
+    warn: r.stalled || s.stallMargin < 0.35, bingo: F.fuel <= 0 || F.warn === 'BINGO',
+  });
+  paintMFD(document.getElementById('fsim-mfd'), F, d);
+
+  // Cosmetic engine gauges: temp eases with RPM (slow thermal lag); battery charges while
+  // the engine turns and trickles down otherwise. Neither feeds physics — dials only.
+  const tgtTemp = 40 + s.rpm * 175;
+  F.temp = lerpN(F.temp, tgtTemp, Math.min(1, dt * 0.35));
+  F.battery = clampNum(F.battery + ((F.engineOn && s.rpm > 0.2) ? 5 : -1.1) * dt, 0, 100);
+  paintGauges(document.getElementById('fsim-gauges'), {
+    rpm: s.rpm, temp: F.temp, ias: r.airspeed, vr: P.vr, vne: P.vne, vs0: P.vs0,
+    fuelPct: Math.round(F.fuel / (F.fuelCap || 1) * 100), battery: F.battery,
+    stall: r.stalled, warn: r.stalled || s.stallMargin < 0.35, hornBeat: F.hornBeat,
+  });
+
+  // Full yoke: roll with aileron + a 3-D pull toward/away with elevator (capped so it
+  // stays in frame). Green light glows near best-climb pull; red light glows on stall.
+  const yk = document.getElementById('fsim-yoke-svg');
+  if (yk) yk.style.transform = `translateX(${input.aileron * 7}px) translateY(${input.elevator * 18}px) rotateX(${-input.elevator * 34}deg) rotateZ(${input.aileron * 30}deg) scale(${1 + Math.max(0, input.elevator) * 0.2})`;
+  const gL = document.getElementById('fsim-yk-green'), rL = document.getElementById('fsim-yk-red');
+  const atClimb = input.elevator > 0.40 && input.elevator < 0.66;
+  const stalling = r.stalled || s.stallMargin < 0.35;
+  if (gL) { gL.style.opacity = atClimb ? '1' : '0.2'; gL.style.filter = atClimb ? 'drop-shadow(0 0 4px #3ad07a)' : 'none'; }
+  if (rL) { rL.style.opacity = stalling ? '1' : '0.2'; rL.style.filter = stalling ? 'drop-shadow(0 0 5px #e0403a)' : 'none'; }
+
+  // Throttle quadrant lever.
+  const lever = document.getElementById('fsim-thr-lever'), tv = document.getElementById('fsim-thrv');
+  if (lever) lever.style.bottom = (10 + input.throttle * 70) + '%';
+  if (tv) tv.textContent = Math.round(input.throttle * 100) + '%';
+
+  const back = F.reportedAirborne ? offMapHeading(F) : null;
+  paintWindshield('fsim-ws', {
+    pitch: d.pitch, bank: d.bank,
+    // Render height fraction (drives eye-height/compression). Referenced to 3000ft with a
+    // sqrt curve so it ramps HARD off the deck — by ~500ft you're visibly above the buildings.
+    height: Math.min(1, Math.sqrt(Math.max(0, r.altitude) / 3000)), speed: clampNum(r.airspeed / (P.vne || 120), 0, 1),
+    hour: F.sky?.hour, weather: F.sky?.weather, wind: F.sky?.wind, heading: d.hdg,
+    map: F.map, phase: 'cruise', airport: F.airport, biomeBelow: F.biomeBelow,
+    mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y }, travel: F.travel,
+    runway: { roll: F.rollDist, alt: clampNum(r.altitude / 320, 0, 1) },
+    hud: true, navWarn: back == null ? null : `⚠ TURN ${String(back).padStart(3, '0')}° — RETURN TO MAP`,
+  });
+
+  // Stream state to the server (~1.2s) once we're actually flying; ride the engine audio.
+  F.syncAcc += dt; F.audioAcc += dt;
+  if (F.reportedAirborne && F.syncAcc >= 1.2) {
+    F.syncAcc = 0;
+    sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} ${Math.round(s.altitude)} ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} ${Math.round(s.vs)} ${s.onGround ? 1 : 0} ${s.stalled ? 1 : 0}`);
+    F.mapCenter = { x: Math.round(F.pos.x), y: Math.round(F.pos.y) };   // server recenters the map window here
+  }
+  if (F.audioAcc >= 0.25) {
+    F.audioAcc = 0;
+    updateEngineAudio({ airborne: F.reportedAirborne, engineOn: F.engineOn, class: F.cls, throttle: Math.round(thr * 100), spd: Math.round(s.airspeed), engines: [{ pct: Math.round(s.rpm * 100) }], bandIndex: s.altitude > 500 ? 1 : 0, sky: F.sky });
+  }
+
+  F.raf = requestAnimationFrame(fsimFrame);
+}
+
+function fsimHorn(F, dt) {
+  const lamp = document.getElementById('fsim-lamp'); if (!lamp) return;
+  const { s } = F;
+  // The lamp + audible horn: continuous in the stall, pulsing on the approach, silent otherwise.
+  if (s.onGround) { lamp.style.opacity = 0; stallHorn(0); return; }   // no stall warning parked/rolling
+  if (s.stalled) { lamp.textContent = '⚠ STALL'; lamp.style.opacity = 1; stallHorn(0.6); }
+  else if (s.stallMargin < 0.35) { F.hornBeat = (F.hornBeat + dt * (2 + (0.35 - s.stallMargin) * 10)) % 1; const on = F.hornBeat < 0.5; lamp.style.opacity = on ? 1 : 0; stallHorn(on ? 0.4 : 0); }
+  else { lamp.style.opacity = 0; stallHorn(0); }
+}
+
+// ── PFD (attitude + speed/altitude tapes + heading + VSI) ─────────────────────
+function pfdTape(ctx, x, w, H, val, step, count, warn, marks) {
+  const cy = H / 2, ppu = (H * 0.9) / (step * count), left = x < 4;
+  ctx.save(); ctx.beginPath(); ctx.rect(x, 0, w, H); ctx.clip();
+  ctx.fillStyle = 'rgba(6,14,22,0.82)'; ctx.fillRect(x, 0, w, H);
+  ctx.font = '7px monospace'; ctx.textBaseline = 'middle';
+  const base = Math.round(val / step) * step;
+  for (let i = -count; i <= count; i++) {
+    const tv = base + i * step; if (tv < 0) continue;
+    const yy = cy - (tv - val) * ppu; if (yy < -4 || yy > H + 4) continue;
+    ctx.strokeStyle = 'rgba(150,190,220,0.5)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(left ? x + w - 4 : x, yy); ctx.lineTo(left ? x + w : x + 4, yy); ctx.stroke();
+    ctx.fillStyle = ACCENT; ctx.textAlign = left ? 'right' : 'left'; ctx.fillText(String(tv), left ? x + w - 6 : x + 6, yy);
+  }
+  if (marks) for (const m of marks) { const yy = cy - (m.v - val) * ppu; if (yy < 0 || yy > H) continue; ctx.strokeStyle = m.col; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(left ? x + w - 5 : x, yy); ctx.lineTo(left ? x + w : x + 5, yy); ctx.stroke(); }
+  ctx.fillStyle = '#0b1219'; ctx.strokeStyle = warn ? '#ff5a5b' : ACCENT; ctx.lineWidth = 1;
+  ctx.fillRect(x, cy - 8, w, 16); ctx.strokeRect(x, cy - 8, w, 16);
+  ctx.fillStyle = warn ? '#ff5a5b' : ACCENT; ctx.textAlign = 'center'; ctx.fillText(String(Math.round(val)), x + w / 2, cy);
+  ctx.restore();
+}
+
+function paintPFD(cv, s) {
+  if (!cv || !cv.getContext) return;
+  const cw = cv.clientWidth, ch = cv.clientHeight; if (!cw || !ch) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
+  const ctx = cv.getContext('2d'); ctx.save(); ctx.scale(dpr, dpr);
+  const W = cw, H = ch; ctx.clearRect(0, 0, W, H);
+  const TAPE = Math.min(30, W * 0.2), cx = W / 2, cy = H * 0.47, aL = TAPE, aR = W - TAPE, ppd = 2.0;
+  ctx.save(); ctx.beginPath(); ctx.rect(aL, 0, aR - aL, H); ctx.clip();
+  ctx.save(); ctx.translate((aL + aR) / 2, cy); ctx.rotate(-(s.bank || 0) * Math.PI / 180);
+  const ph = (s.pitch || 0) * ppd;
+  ctx.fillStyle = '#12466a'; ctx.fillRect(-W, -H * 2 + ph, W * 2, H * 2);
+  ctx.fillStyle = '#4a3720'; ctx.fillRect(-W, ph, W * 2, H * 2);
+  ctx.strokeStyle = '#dff0ff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-W, ph); ctx.lineTo(W, ph); ctx.stroke();
+  ctx.strokeStyle = 'rgba(200,230,255,0.6)'; ctx.font = '6px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let dd = -30; dd <= 30; dd += 10) { if (!dd) continue; const yy = ph - dd * ppd; const wln = Math.abs(dd) >= 20 ? 14 : 9; ctx.beginPath(); ctx.moveTo(-wln, yy); ctx.lineTo(wln, yy); ctx.stroke(); }
+  ctx.restore(); ctx.restore();
+  ctx.strokeStyle = '#ffcf3e'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx - 15, cy); ctx.lineTo(cx - 6, cy); ctx.lineTo(cx - 6, cy + 3); ctx.moveTo(cx + 15, cy); ctx.lineTo(cx + 6, cy); ctx.lineTo(cx + 6, cy + 3); ctx.stroke();
+  ctx.fillStyle = '#ffcf3e'; ctx.fillRect(cx - 1.5, cy - 1.5, 3, 3);
+  ctx.beginPath(); ctx.moveTo(cx, 5); ctx.lineTo(cx - 4, 11); ctx.lineTo(cx + 4, 11); ctx.closePath(); ctx.fillStyle = '#dff0ff'; ctx.fill();
+  pfdTape(ctx, 0, TAPE, H, s.ias || 0, 10, 5, s.warn, [{ v: s.vr, col: '#5fe0a0' }, { v: s.vne, col: '#ff5a5b' }, { v: s.vs0, col: '#ff5a5b' }]);
+  pfdTape(ctx, W - TAPE, TAPE, H, s.alt || 0, 100, 5, false, null);
+  ctx.fillStyle = '#0b1219'; ctx.strokeStyle = ACCENT; ctx.lineWidth = 1; ctx.fillRect(cx - 17, 0, 34, 12); ctx.strokeRect(cx - 17, 0, 34, 12);
+  ctx.fillStyle = ACCENT; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(Math.round(s.hdg || 0)).padStart(3, '0') + '°', cx, 6);
+  const vy = clampNum(cy - (s.vs || 0) / 2000 * (H * 0.42), 6, H - 6);
+  ctx.fillStyle = (s.vs || 0) >= 0 ? '#5fe0a0' : '#ffb23e'; ctx.fillRect(W - TAPE - 4, Math.min(cy, vy), 3, Math.abs(vy - cy));
+  ctx.fillStyle = s.bingo ? '#ff5a5b' : '#6f8698'; ctx.font = '7px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('FUEL ' + (s.fuelPct | 0) + '%', TAPE + 3, H - 2);
+  ctx.restore();
+}
+
+// ── Engine gauge cluster (RPM · temp · speed · fuel · battery + stall lamp) ────
+// A 270° arc dial: background arc, coloured zone marks, a filled value arc + needle,
+// with a short label above and a digital read-out below.
+function arcGauge(ctx, cx, cy, r, frac, label, val, opts) {
+  opts = opts || {};
+  const A0 = Math.PI * 0.75, A1 = Math.PI * 2.25, lw = Math.max(2, r * 0.18);
+  frac = clampNum(frac, 0, 1);
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(60,82,100,0.5)'; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.arc(cx, cy, r, A0, A1); ctx.stroke();
+  if (opts.marks) for (const m of opts.marks) { const a = A0 + (A1 - A0) * clampNum(m.v, 0, 1); ctx.strokeStyle = m.col; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(cx, cy, r, a - 0.06, a + 0.06); ctx.stroke(); }
+  const va = A0 + (A1 - A0) * frac;
+  ctx.strokeStyle = opts.col || '#5fe0a0'; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(cx, cy, r, A0, va); ctx.stroke();
+  ctx.strokeStyle = '#dff0ff'; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(va) * r * 0.82, cy + Math.sin(va) * r * 0.82); ctx.stroke();
+  ctx.fillStyle = '#dff0ff'; ctx.beginPath(); ctx.arc(cx, cy, 1.5, 0, 7); ctx.fill();
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#6f8698'; ctx.font = '6px monospace'; ctx.textBaseline = 'alphabetic'; ctx.fillText(label, cx, cy - r - 3);
+  ctx.fillStyle = opts.valcol || ACCENT; ctx.font = '7px monospace'; ctx.textBaseline = 'middle'; ctx.fillText(val, cx, cy + r * 0.56);
+}
+
+function paintGauges(cv, g) {
+  if (!cv || !cv.getContext) return;
+  const cw = cv.clientWidth, ch = cv.clientHeight; if (!cw || !ch) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
+  const ctx = cv.getContext('2d'); ctx.save(); ctx.scale(dpr, dpr);
+  const W = cw, H = ch; ctx.clearRect(0, 0, W, H);
+  // Two columns hugging the LEFT and RIGHT edges (middle left clear for the yoke that rises
+  // up through it), 3 rows each, dials sized as large as the panel allows for legibility.
+  const rows = 3, chd = H / rows, colL = W * 0.12, colR = W * 0.88, r = Math.min(W * 0.09, chd * 0.42);
+  const yAt = (i) => (i + 0.5) * chd;
+  const vne = g.vne || 120, tf = clampNum((g.temp - 40) / 175, 0, 1);
+  arcGauge(ctx, colL, yAt(0), r, g.rpm, 'RPM', Math.round(g.rpm * 100), { col: ACCENT, marks: [{ v: 0.92, col: '#ff5a5b' }] });
+  arcGauge(ctx, colL, yAt(1), r, g.ias / vne, 'SPD', Math.round(g.ias), { col: g.warn ? '#ff5a5b' : '#5fe0a0', valcol: g.warn ? '#ff5a5b' : ACCENT, marks: [{ v: g.vs0 / vne, col: '#ff5a5b' }, { v: g.vr / vne, col: '#5fe0a0' }, { v: 1, col: '#ff5a5b' }] });
+  arcGauge(ctx, colL, yAt(2), r, g.battery / 100, 'BATT', Math.round(g.battery) + '%', { col: g.battery <= 20 ? '#ff5a5b' : '#5fe0a0' });
+  arcGauge(ctx, colR, yAt(0), r, tf, 'TEMP', Math.round(g.temp) + '°', { col: tf > 0.82 ? '#ff5a5b' : tf > 0.6 ? '#ffb23e' : '#5fe0a0', marks: [{ v: 0.82, col: '#ff5a5b' }] });
+  arcGauge(ctx, colR, yAt(1), r, g.fuelPct / 100, 'FUEL', g.fuelPct + '%', { col: g.fuelPct <= 15 ? '#ff5a5b' : '#ffb23e', valcol: g.fuelPct <= 15 ? '#ff5a5b' : ACCENT, marks: [{ v: 0.15, col: '#ff5a5b' }] });
+  // Stall lamp — dim when clear, pulses with the horn on approach, solid on stall.
+  const c = { x: colR, y: yAt(2) };
+  const on = g.stall ? 1 : (g.warn ? (g.hornBeat < 0.5 ? 1 : 0.28) : 0.16);
+  if (on > 0.5) { ctx.shadowColor = '#e0403a'; ctx.shadowBlur = 10; }
+  ctx.fillStyle = `rgba(224,64,58,${on})`; ctx.beginPath(); ctx.arc(c.x, c.y, r * 0.82, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,120,116,0.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(c.x, c.y, r * 0.82, 0, 7); ctx.stroke();
+  ctx.fillStyle = on > 0.5 ? '#fff' : '#7a3a38'; ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('STALL', c.x, c.y);
+  ctx.restore();
+}
+
+// ── MFD (switchable: real local minimap ↔ aerial biome nav map) ───────────────
+const MFD_DCOL = { safe: '#2f6d4a', low: '#2b5f7a', medium: '#8a6a2a', high: '#8a4a2a', lethal: '#7a2a2a' };
+const MFD_BCOL = { water: '#22506e', badlands: '#8a6a48', industrial: '#484440', freight: '#4a4e56', ruins: '#5a6a3a', oldcoldwater: '#3a3632', uptown: '#38445a', civic: '#42423c', marquee: '#3e3242', citycore: '#3a3c42', parkland: '#3a5c34', docks: '#3c4850', infra: '#464a50', airport: '#3c403c' };
+
+function paintMFD(cv, F, d) {
+  if (!cv || !cv.getContext) return;
+  const cw = cv.clientWidth, ch = cv.clientHeight; if (!cw || !ch) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
+  const ctx = cv.getContext('2d'); ctx.save(); ctx.scale(dpr, dpr);
+  const W = cw, H = ch; ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#050a10'; ctx.fillRect(0, 0, W, H);
+  const ox = F.pos.x - F.mapCenter.x, oy = F.pos.y - F.mapCenter.y;
+  if (F.mfdMode === 'nav') paintNav(ctx, W, H, F, ox, oy); else paintLocal(ctx, W, H, F, ox, oy);
+  ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate((d.hdg || 0) * Math.PI / 180);
+  ctx.fillStyle = '#ffcf3e'; ctx.strokeStyle = '#1a1200'; ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5, 6); ctx.lineTo(0, 3); ctx.lineTo(-5, 6); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.restore(); ctx.restore();
+}
+
+// Full 5×5 tiles centred on the craft, straight from the always-complete map window —
+// no fog of war, every cell shown (off-window cells read as neutral, never blank).
+function paintLocal(ctx, W, H, F, ox, oy) {
+  const map = F.map;
+  if (!map || !map.length) { ctx.fillStyle = '#456'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('NO MAP', W / 2, H / 2); return; }
+  const R = (map.length - 1) / 2, N = 5, half = (N - 1) / 2, cell = Math.min(W, H) / N;
+  const ccx = R + ox, ccy = R + oy, bx = Math.round(ccx), by = Math.round(ccy);
+  const fx = ccx - bx, fy = ccy - by;                        // sub-tile offset → smooth scroll
+  for (let dy = -half; dy <= half; dy++) for (let dx = -half; dx <= half; dx++) {
+    const c = (map[by + dy] && map[by + dy][bx + dx]) || null;
+    const sx = W / 2 + (dx - fx) * cell, sy = H / 2 + (dy - fy) * cell;
+    const col = !c ? '#12202c' : c.kind === 'air' ? '#0a1119' : c.kind === 'field' ? '#5fe0a0' : c.kind === 'nofly' ? '#7a2a2a' : (MFD_BCOL[c.biome] || '#2a3540');
+    ctx.fillStyle = col; ctx.fillRect(sx - cell / 2, sy - cell / 2, cell - 1, cell - 1);
+    if (c && c.road) { ctx.fillStyle = 'rgba(150,150,120,0.5)'; ctx.fillRect(sx - cell / 2, sy - 1.5, cell - 1, 3); }
+    ctx.strokeStyle = accA(0.14); ctx.lineWidth = 1; ctx.strokeRect(sx - cell / 2, sy - cell / 2, cell - 1, cell - 1);
+  }
+}
+
+function paintNav(ctx, W, H, F, ox, oy) {
+  const map = F.map;
+  if (!map || !map.length) { ctx.fillStyle = '#456'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('NO MAP', W / 2, H / 2); return; }
+  const R = (map.length - 1) / 2, cell = Math.min(W, H) / map.length;
+  for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
+    const c = map[ry][rx]; if (!c) continue;
+    const sx = W / 2 + (rx - R - ox) * cell, sy = H / 2 + (ry - R - oy) * cell;
+    const col = c.kind === 'air' ? '#0a1119' : c.kind === 'field' ? '#5fe0a0' : c.kind === 'nofly' ? '#7a2a2a' : (MFD_BCOL[c.biome] || '#2a3540');
+    ctx.fillStyle = col; ctx.fillRect(sx - cell / 2, sy - cell / 2, cell, cell);
+    if (c.kind === 'nofly') { ctx.strokeStyle = '#ff5a5b'; ctx.lineWidth = 1; ctx.strokeRect(sx - cell / 2, sy - cell / 2, cell, cell); }
+  }
+  ctx.strokeStyle = accA(0.18); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(W / 2, H / 2, Math.min(W, H) * 0.32, 0, 7); ctx.stroke();
+}
+
+// Server context push (authoritative fuel + the world below).
+export function flightSimContext(msg) {
+  const F = _fsim; if (!F || !msg) return;
+  if (msg.fuel != null) F.fuel = msg.fuel;
+  if (msg.fuelCap != null) F.fuelCap = msg.fuelCap;
+  if (msg.map) F.map = msg.map;
+  if (msg.minimap) F.minimap = msg.minimap;
+  if (msg.sky) F.sky = msg.sky;
+  if ('biomeBelow' in msg) F.biomeBelow = msg.biomeBelow;
+  F.warn = msg.warn || null;
+  F.deadStick = F.fuel <= 0;   // dead-stick when dry; clears once refuelled
+}
+
+// True while the continuous cockpit owns the area pane — dispatch uses this to stop
+// room `look`/`move` renders from clobbering the cockpit out from under the pilot.
+export function isFlightSimActive() { return !!_fsim; }
+
+export function closeFlightSim() {
+  const F = _fsim; if (!F) return;
+  _fsim = null;
+  if (F.raf) cancelAnimationFrame(F.raf);
+  for (const [t, ty, fn, op] of F.listeners) { try { t.removeEventListener(ty, fn, op); } catch {} }
+  try { disposeWindshield('fsim-ws'); } catch {}
+  stopEngineAudio();
+}
+
 export function openTakeoff(opts = {}) {
   if (opts.vtol) return openVtolLift(opts, 'takeoff');   // helicopters lift vertically
   ensureMgStyles(); ensureChassisStyles(); ensureTakeoffStyles(); ensureWindshieldStyles();

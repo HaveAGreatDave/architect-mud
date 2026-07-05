@@ -18,16 +18,22 @@ have to source it off the black market, through a **fence**, and sneak it in.
    the conversation drops to a "come back with cash" node and nothing is charged).
 3. **Retrieve.** After ~3 minutes a **MULE drone** drops a **cipher-locked crate**
    (`item_mule_crate`) at **the Scald** (`zone_waste_scald`, a lawless Redline
-   airstrip). Travel out, `get` it, and **`unpack`** it. Only the buyer can open it.
-   Unpacking transfers the raw and **bumps your standing** (`bm_trust +1`) — the
-   "order **and** pickup" that widens the menu next time.
-4. **Smuggle in.** Carry the raw back past a **checkpoint** (any `flags.checkpoint`
-   zone, e.g. the Civic Steps). A scanner runs a **Deception** check at difficulty
-   `3 + cook_tier`:
-   - **Pass** → through clean.
-   - **Fail** → **WANTED_RAISE** for *Manufacturing*, bounced back, ~45s guard-heat
-     (no instant re-try). You keep the raw — seizure only happens the normal way if
-     the heat lands you in a cell (jail plugin).
+   airstrip). Travel out, `get` it (only the buyer can — it's owner-locked), and
+   **`unpack`** it to transfer the raw. Standing is **not** earned here — the safe
+   pickup doesn't count.
+4. **Smuggle in.** The wilderness funnels into the city through **one** scanned
+   gate: **Old Coldwater** (`zone_ruins`, `flags.checkpoint` — the two bypass
+   crossings are severed by `build-smuggle-funnel.js`). Carrying raw in runs a
+   **Deception** check at difficulty `3 + cook_tier`:
+   - **Pass** → through clean, and *this* is where you earn standing: `bm_trust`
+     rises by the raw's **tier** (tier-1 → +1 … tier-5 → +5), once per ~2-min
+     cooldown so back-and-forth can't farm it. Higher-tier runs build faster.
+   - **Fail** → **WANTED_RAISE** for *Manufacturing*, bounced back, ~45s guard-heat.
+     You keep the raw — seizure only happens the normal way if the heat lands you in
+     a cell (jail plugin).
+5. **Cook + sell.** Cook the raw (+ a reagent) at a lab. Sell finished product to a
+   **`drug_buyer`** (the Fixer or Sully) for `0.7 × value × potency` — an underworld
+   premium that scales with your Chemistry: a strong batch profits, a botch doesn't.
 
 ## Smuggler's notes
 
@@ -55,8 +61,13 @@ have to source it off the black market, through a **fence**, and sneak it in.
 ## Activate
 
 1. `npm run db:schema` — `smuggle_orders` (+ `vendor_id`).
-2. `node scripts/add-raw-supply.js` — raw items + reagents + cook recipes (Phase 1).
-3. `node scripts/add-smuggle-checkpoints.js` — flag the checkpoint zone(s).
-4. `node scripts/add-blackmarket-fence.js` — crate item, Fixer tip, Sully's branch
-   *(run after step 2 so the raw items exist)*.
-5. Restart the server.
+2. `node scripts/add-raw-supply.js` — raw items + dual-use reagents + cook recipes.
+3. `node scripts/add-reagent-supply.js` — stock the reagents at open vendors *(after 2)*.
+4. `node scripts/add-blackmarket-fence.js` — crate item, Fixer tip + `drug_buyer`,
+   Sully's branch + `drug_buyer` *(after 2; hard-fails if raw items are missing)*.
+5. `node scripts/build-smuggle-funnel.js` — sever the two bypass crossings + flag
+   Old Coldwater as the checkpoint *(`--dry` to preview; refuses to strand zones)*.
+6. Restart / world-reload the server.
+
+*(The old `add-smuggle-checkpoints.js` is gone — it flagged the wrong zone. Use
+`build-smuggle-funnel.js`.)*

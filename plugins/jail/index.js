@@ -20,13 +20,18 @@ import { query } from '../../server/models/db.js';
 import { world, getZone, getLivePlayer, getMinimapData } from '../../server/engine/world.js';
 import { getFlag } from '../../server/engine/flags.js';
 import { on } from '../../server/engine/events.js';
-import { dispatchAction } from '../../server/engine/actions.js';
+import { dispatchAction, registerAction } from '../../server/engine/actions.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { gameMsToReal, realMsToGame, getTimeScale } from '../../server/engine/gametime.js';
+import { getTunable } from '../../server/engine/tunables.js';
+
+// Global scalar on booking fines AND jail time. Default 6 (penalties are 6× the old
+// baseline); dev-editable in the Crime panel via the `crime_penalty_multiplier` tunable.
+const penaltyMult = () => Math.max(0, Number(getTunable('crime_penalty_multiplier', 6)) || 6);
 
 const CELL_ZONE = 'zone_mq_precinct_holding';   // the holding cell you wake in
 const RELEASE_ZONE = 'zone_mq_precinct_lobby';  // where the guard walks you out to
@@ -165,8 +170,13 @@ function syncShift() {
   }
 }
 
-// ── Jailing (the respawn hook) ───────────────────────────────────────────────
-async function onRespawnZone(player, killer) {
+// ── Booking (shared by the down-and-out respawn hook AND a live non-lethal arrest) ─
+// Books the player into Precinct 9: fine, confiscation, sentence, release timer,
+// booking popup. `teleport:false` (the death path) just returns {zone,message} for
+// the engine to respawn them; `teleport:true` (a cop apprehending you at ≤3.5★, no
+// death) walks them to the cell itself and clears their street heat (no player.death
+// fires to do it). Returns { booked, zone, message }.
+async function bookIntoCell(player, { teleport = false } = {}) {
   const current = parseFloat(await getFlag('player', 'wanted', player) || '0') || 0;
   // Book on the PEAK heat of this spree, not the current (possibly decayed) level:
   // run 5★ and whittle it down to ½★ and you're still charged for the full 5★.
@@ -176,21 +186,21 @@ async function onRespawnZone(player, killer) {
     if (typeof r?.peak === 'number') wanted = Math.max(wanted, r.peak);
   } catch { /* surveillance not loaded — fall back to the current flag */ }
   const stars = Math.floor(wanted);
-  if (stars < 1) return undefined;  // clean death → normal clone-vat respawn
+  if (stars < 1) return { booked: false };  // clean → normal respawn / no arrest
 
   // Booking fine — ₵50 per half wanted-star, collected on RELEASE. The desk empties
   // your pockets now: all on-hand cash is held (with your gear) and returned at
   // release minus the fine. A fine bigger than what you were carrying leaves you
   // owing (debt allowed). Escaping forfeits the held cash along with the gear.
+  const mult = penaltyMult();
   const halfStars = Math.round(wanted / 0.5);
-  const fine = halfStars * FINE_PER_HALF_STAR;
+  const fine = Math.round(halfStars * FINE_PER_HALF_STAR * mult);
   const cap = await query('SELECT credits FROM players WHERE id = $1', [player.id]).catch(() => null);
   const heldCredits = cap?.rows[0]?.credits ?? player.credits ?? 0;
   await query('UPDATE players SET credits = 0 WHERE id = $1', [player.id]).catch(() => {});
   player.credits = 0;
 
-  // Rap sheet for the booking record — read now, while surveillance still holds
-  // it (it clears the suspect's heat later in this same death, at player.death).
+  // Rap sheet for the booking record — read now, while surveillance still holds it.
   let charges = [];
   try {
     const r = await dispatchAction({ type: 'WANTED_CHARGES', actor: player });
@@ -209,7 +219,7 @@ async function onRespawnZone(player, killer) {
   // Sentence is stars base-minutes, scaled UP by the game-speed knob so a faster
   // world clock means a proportionally longer lockout (at 3× a 5★ stretch is 15
   // real minutes). release_at + the release timer both use this real duration.
-  const ms = realMsToGame(stars * MINUTE);
+  const ms = realMsToGame(stars * MINUTE * mult);
   await query(
     `INSERT INTO jail_prisoners (player_id, cell_zone, release_zone, release_at, stars, held_items, held_credits, fine)
      VALUES ($1,$2,$3, NOW() + ($4 || ' milliseconds')::interval, $5,$6,$7,$8)
@@ -222,11 +232,11 @@ async function onRespawnZone(player, killer) {
 
   // Label the sentence in the real minutes actually served (base stars × the
   // world-clock scale), so the desk sergeant and booking notice don't undersell it.
-  const realMins = Math.max(1, Math.round(stars * getTimeScale()));
+  const realMins = Math.max(1, Math.round(stars * mult * getTimeScale()));
   const mins = realMins === 1 ? '1 minute' : `${realMins} minutes`;
   // Booking record popup + keep the wanted HUD showing your stars (it decays over
-  // the sentence via the minute tick). Deferred so it lands after the death/
-  // respawn render and after surveillance zeroes the HUD at player.death.
+  // the sentence via the minute tick). Deferred so it lands after the render and
+  // after any HUD-zeroing (death, or WANTED_CLEAR below).
   setTimeout(() => {
     sendToPlayer(player.id, {
       type: 'arrest_notice',
@@ -235,9 +245,39 @@ async function onRespawnZone(player, killer) {
     sendToPlayer(player.id, { type: 'wanted_level', stars });
   }, 700);
 
-  const message = `<span class="clone-vat-message">You come to on a steel bench in Precinct 9's holding block — wrists zip-tied, pockets empty, a charge sheet taped to the bars. The desk sergeant doesn't look up: "${mins}. Sit tight." Anything the law calls contraband has been logged to evidence; you won't be seeing that again.</span>`;
-  return { zone: CELL_ZONE, message };
+  const message = teleport
+    ? `<span class="clone-vat-message">The cuffs bite in and a knee folds you down — then the cold steel bench of Precinct 9's holding block. Pockets empty, a charge sheet taped to the bars. "${mins}," the desk sergeant says, not looking up. Anything the law calls contraband has been logged to evidence; you won't be seeing that again.</span>`
+    : `<span class="clone-vat-message">You come to on a steel bench in Precinct 9's holding block — wrists zip-tied, pockets empty, a charge sheet taped to the bars. The desk sergeant doesn't look up: "${mins}. Sit tight." Anything the law calls contraband has been logged to evidence; you won't be seeing that again.</span>`;
+
+  if (teleport) {
+    // No death occurred, so nothing has moved them or cleared their heat — do both.
+    const bc = getBroadcast();
+    await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: CELL_ZONE }, context: { broadcast: bc } });
+    const zone = getZone(CELL_ZONE);
+    if (zone) sendToPlayer(player.id, { type: 'move', message: await describeZone(zone, player), zone: CELL_ZONE, minimap: getMinimapData(CELL_ZONE) });
+    try { await dispatchAction({ type: 'WANTED_CLEAR', actor: player }); } catch { /* surveillance not loaded */ }
+    sendToPlayer(player.id, { type: 'output', message });
+  }
+  return { booked: true, zone: CELL_ZONE, message };
 }
+
+// ── Jailing (the respawn hook) ───────────────────────────────────────────────
+async function onRespawnZone(player, killer) {
+  const r = await bookIntoCell(player, { teleport: false });
+  if (!r.booked) return undefined;   // clean death → normal clone-vat respawn
+  return { zone: r.zone, message: r.message };
+}
+
+// Cross-plugin seam: the surveillance apprehend engine books a *live* suspect (no
+// death) straight into the cell once they submit to a ≤3.5★ arrest.
+registerAction({
+  type: 'ARREST',
+  handler: async ({ actor }) => {
+    if (!actor?.id) return { type: 'arrest', booked: false };
+    const r = await bookIntoCell(actor, { teleport: true });
+    return { type: 'arrest', booked: r.booked };
+  },
+});
 
 // ── Release (guard walks you out) ────────────────────────────────────────────
 async function release(playerId) {

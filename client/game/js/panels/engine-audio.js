@@ -44,7 +44,12 @@ function buildLoops(cls, engines) {
     { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 620, q: 0.5 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.8 }, gain: 0.09 * p.wind },
     { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 300, q: 0.6 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.8 }, gain: 0.05 * p.wind },
   ] } };
-  return { IDLE, POWER, WIND };
+  // Ground roll — tyres rumbling over the strip; gain rides ground-speed (silent airborne).
+  const ROLL = { id: 'flt-roll', category: 'ambient', config: { gain: 1, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 230, q: 0.8 }, adsr: { a: 0.15, d: 0, s: 1, r: 0.3 }, gain: 0.11 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 540, q: 0.6 }, adsr: { a: 0.15, d: 0, s: 1, r: 0.3 }, gain: 0.05 },
+  ] } };
+  return { IDLE, POWER, WIND, ROLL };
 }
 
 let running = false, curClass = null;
@@ -104,16 +109,16 @@ function startLoops(cls, engines) {
   const ae = AE(); if (!ae) return;
   ae.init?.();
   const L = buildLoops(cls, engines);
-  try { ae.loopSound(L.IDLE); ae.loopSound(L.POWER); ae.loopSound(L.WIND); } catch { /* no audio */ }
-  ae.setLoopGain?.('flt-eng-idle', 0.0, 1.2); ae.setLoopGain?.('flt-eng-power', 0.0, 1.2); ae.setLoopGain?.('flt-wind', 0.0, 1.5);
+  try { ae.loopSound(L.IDLE); ae.loopSound(L.POWER); ae.loopSound(L.WIND); ae.loopSound(L.ROLL); } catch { /* no audio */ }
+  ae.setLoopGain?.('flt-eng-idle', 0.0, 1.2); ae.setLoopGain?.('flt-eng-power', 0.0, 1.2); ae.setLoopGain?.('flt-wind', 0.0, 1.5); ae.setLoopGain?.('flt-roll', 0.0, 0.3);
   running = true; curClass = cls;
 }
 function killLoops(fast) {
   const ae = AE(); if (!ae) return;
-  const ids = ['flt-eng-idle', 'flt-eng-power', 'flt-wind', 'flt-weather'];
+  const ids = ['flt-eng-idle', 'flt-eng-power', 'flt-wind', 'flt-roll', 'flt-stallhorn', 'flt-weather'];
   ids.forEach(id => ae.setLoopGain?.(id, 0, fast ? 0.15 : 0.6));
   setTimeout(() => { try { ids.forEach(id => ae.stopLoop(id)); } catch {} }, fast ? 200 : 800);
-  running = false; curClass = null; curWeather = null;
+  running = false; curClass = null; curWeather = null; _hornOn = false;
 }
 
 export function stopEngineAudio() { if (running) killLoops(false); }
@@ -122,12 +127,15 @@ export function stopEngineAudio() { if (running) killLoops(false); }
 export function updateEngineAudio(s) {
   const ae = AE(); if (!ae) return;
   if (!s || (!s.airborne && !s.engineOn)) { if (running) killLoops(false); return; }
-  if (!running || curClass !== s.class) { if (running) { try { ['flt-eng-idle', 'flt-eng-power', 'flt-wind'].forEach(id => ae.stopLoop(id)); } catch {} } startLoops(s.class, s.engines?.length || 1); }
+  if (!running || curClass !== s.class) { if (running) { try { ['flt-eng-idle', 'flt-eng-power', 'flt-wind', 'flt-roll'].forEach(id => ae.stopLoop(id)); } catch {} } startLoops(s.class, s.engines?.length || 1); }
   const thr = (s.throttle || 0) / 100, spd = Math.min(1, (s.spd || 0) / 300);
   _smoothThr += (thr - _smoothThr) * 0.5; _smoothSpd += (spd - _smoothSpd) * 0.4;
   ae.setLoopGain?.('flt-eng-idle', (s.engineOn ? 0.55 : 0.2), 0.25);
   ae.setLoopGain?.('flt-eng-power', Math.min(1, 0.25 + _smoothThr * 0.9) * (s.airborne ? 1 : 0.5), 0.25);
   ae.setLoopGain?.('flt-wind', s.airborne ? Math.min(1, 0.2 + _smoothSpd + (s.bandIndex || 0) * 0.12) : 0.0, 0.3);
+  // Ground roll — Mayfly only for now: rumble builds with taxi/roll speed, gone once airborne.
+  const rollG = (!s.airborne && s.class === 'ultralight' && (s.spd || 0) > 1) ? Math.min(0.7, 0.12 + (s.spd || 0) / 55) : 0;
+  ae.setLoopGain?.('flt-roll', rollG, 0.2);
   applyWeather(s.sky, !!s.airborne);
 }
 
@@ -203,4 +211,42 @@ const CREAKS = {
 export function creak(kind = 'creak') {
   const ae = AE(); const def = CREAKS[kind] || CREAKS.creak;
   try { ae?.playSfx?.(def); } catch { /* no audio */ }
+}
+
+// ── Ground contact + mechanical one-shots (Mayfly pass) ───────────────────────
+// liftoff: wheels unweight and the tyres spin down as the strip drops away.
+// touchdown: a rubber squeak/chirp as the wheels kiss the tarmac (+ a firmer thump on
+// a harder arrival). flapWhir: the little electric actuator running the flaps.
+const GROUND_FX = {
+  liftoff: { config: { duration: 0.7, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 680, q: 0.8 }, adsr: { a: 0.02, d: 0.5, s: 0.1, r: 0.15 }, gain: 0.09 },   // tyre spin-down
+    { waveform: 'sine', freq: 158, pitchBend: { to: 92, time: 0.5 }, adsr: { a: 0.03, d: 0.5, s: 0, r: 0.15 }, gain: 0.06 } ] } },                  // body unloads/floats
+  touchdown: { config: { duration: 0.55, layers: [
+    { waveform: 'sawtooth', freq: 840, pitchBend: { to: 430, time: 0.22 }, filter: { type: 'bandpass', freq: 1650, q: 7 }, adsr: { a: 0.006, d: 0.28, s: 0, r: 0.12 }, gain: 0.09 },  // squeak
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2500, q: 3 }, adsr: { a: 0.004, d: 0.18, s: 0, r: 0.08 }, gain: 0.045 },     // rubber scuff
+    { waveform: 'square', freq: 64, pitchBend: { to: 42, time: 0.2 }, adsr: { a: 0.002, d: 0.22, s: 0, r: 0.08 }, gain: 0.06 } ] } },                // gear kiss
+  touchdownHard: { config: { duration: 0.7, layers: [
+    { waveform: 'sawtooth', freq: 700, pitchBend: { to: 360, time: 0.2 }, filter: { type: 'bandpass', freq: 1400, q: 6 }, adsr: { a: 0.004, d: 0.24, s: 0, r: 0.1 }, gain: 0.08 },   // scuffed squeal
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 700, q: 1 }, adsr: { a: 0.002, d: 0.4, s: 0, r: 0.12 }, gain: 0.12 },          // thud
+    { waveform: 'square', freq: 54, pitchBend: { to: 34, time: 0.28 }, adsr: { a: 0.002, d: 0.3, s: 0, r: 0.1 }, gain: 0.11 } ] } },                  // gear slam
+};
+export function groundFx(kind) { const ae = AE(); const d = GROUND_FX[kind] || GROUND_FX.touchdown; try { ae?.init?.(); ae?.playSfx?.(d); } catch {} }
+
+const FLAP_FX = { config: { duration: 0.5, layers: [
+  { waveform: 'sawtooth', freq: 210, tremolo: { rate: 34, depth: 0.55 }, filter: { type: 'bandpass', freq: 880, q: 2 }, adsr: { a: 0.03, d: 0.42, s: 0.5, r: 0.1 }, gain: 0.05 },
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1200, q: 1.5 }, adsr: { a: 0.03, d: 0.42, s: 0.4, r: 0.1 }, gain: 0.022 } ] } };
+export function flapWhir() { const ae = AE(); try { ae?.playSfx?.(FLAP_FX); } catch {} }
+
+// Stall warning horn — a reedy buzzer that pulses on approach and goes continuous in the
+// stall (per the sound doc). `level` 0..1 rides its gain; 0 lets go and stops the loop.
+let _hornOn = false;
+export function stallHorn(level) {
+  const ae = AE(); if (!ae) return;
+  if (level > 0 && !_hornOn) {   // start the buzzer once; the loop stays alive (killLoops stops it on close)
+    try { ae.loopSound({ id: 'flt-stallhorn', category: 'ambient', config: { gain: 1, layers: [
+      { waveform: 'square', freq: 520, filter: { type: 'bandpass', freq: 940, q: 3 }, adsr: { a: 0.02, d: 0, s: 1, r: 0.06 }, gain: 0.08 },
+      { waveform: 'sawtooth', freq: 785, filter: { type: 'bandpass', freq: 1500, q: 4 }, adsr: { a: 0.02, d: 0, s: 1, r: 0.06 }, gain: 0.03 } ] } }); } catch {}
+    _hornOn = true;
+  }
+  if (_hornOn) ae.setLoopGain?.('flt-stallhorn', Math.max(0, Math.min(0.6, level)), 0.05);   // pulse/steady via gain (no restart churn)
 }

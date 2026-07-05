@@ -458,8 +458,10 @@ export const SCHEMA_SQL = `
     id TEXT PRIMARY KEY,
     label TEXT NOT NULL,
     stars REAL NOT NULL DEFAULT 1,
-    description TEXT DEFAULT ''
+    description TEXT DEFAULT '',
+    enabled BOOLEAN NOT NULL DEFAULT TRUE
   );
+  ALTER TABLE crimes ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE;
 
   CREATE TABLE IF NOT EXISTS mutations (
     id TEXT PRIMARY KEY,

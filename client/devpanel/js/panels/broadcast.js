@@ -351,6 +351,22 @@ function _bcCanvasHtml(rec, opts = {}) {
 
   const nodeCount = Object.keys(rec?.broadcast_graph?.nodes || {}).length;
 
+  // Weather + sports are live-assembled: the runtime builds a fresh graph from the
+  // broadcast's line pools every airing, so the stored graph is just the Start node.
+  // Say so, or an empty storyboard/VINE reads as broken.
+  const liveAssembled = rec?.playback_mode === 'weather' || rec?.playback_mode === 'sports';
+  const liveAssembledNotice = liveAssembled ? `
+      <div style="display:flex;gap:10px;padding:10px 12px;margin-bottom:12px;border:1px solid var(--accent2);border-left:3px solid var(--accent2);border-radius:0 3px 3px 0;background:var(--bg3)">
+        <span style="font-size:15px;line-height:1">🎲</span>
+        <div style="font-size:11px;color:var(--text);line-height:1.5">
+          <strong>Live-assembled ${rec.playback_mode} broadcast.</strong>
+          A fresh script is generated from this broadcast's line pools <em>every time it airs</em>
+          (${rec.playback_mode === 'weather' ? 'from the live 7-day forecast' : 'a newly simulated game each airing'}),
+          so the stored graph is only the <em>Start</em> node — the storyboard and ⬡ VINE view will look empty by design.
+          To change its content, edit the <code>::lines</code> pools in its <code>.bsm</code> and re-import.
+        </div>
+      </div>` : '';
+
   const newChForm = `
     <div id="bc-newch-form" style="display:${_bcNewChVisible ? 'flex' : 'none'};align-items:center;gap:8px;padding:8px 0;flex-wrap:wrap">
       <input id="bc-newch-name"   class="form-input" placeholder="Channel name"   style="width:160px;font-size:11px">
@@ -407,6 +423,8 @@ function _bcCanvasHtml(rec, opts = {}) {
         <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Fallback Messages — if NPC host doesn't arrive (one per line)</label>
         <textarea id="bc-fallback-msgs" class="form-input" rows="2" style="width:100%;font-size:11px;resize:vertical" placeholder="[TECHNICAL DIFFICULTIES] Please stand by.">${(rec?.fallback_messages || []).join('\n')}</textarea>
       </div>
+
+      ${liveAssembledNotice}
 
       <!-- Canvas toolbar -->
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">

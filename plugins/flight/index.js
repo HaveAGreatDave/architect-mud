@@ -22,6 +22,7 @@ import {
   parkAt, crash, setHeading, getZone, getLivePlayer, sendToZone, sendToPlayer, setPosture,
   advance, initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
   ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme,
+  isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude,
 } from './state.js';
 import { rollHazards, commands as hazardCommands } from './hazards.js';
 import { commands as acquisitionCommands, refuelAt, fieldStocks } from './acquisition.js';
@@ -135,10 +136,12 @@ async function cmdBoard(args, raw, player, broadcast) {
   } else {
     broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} climbs into the ${live.type.name}.` }, player.id);
   }
-  pushHud(live);
-  const hint = seat === 'pilot'
-    ? "You settle into the pilot's seat. <span class=\"text-dim\">startup</span>, set a <span class=\"text-dim\">throttle</span>, then <span class=\"text-dim\">takeoff</span>."
-    : 'You strap into a passenger seat and wait on the pilot.';
+  if (isContinuous(live)) sendFlightSim(player, live); else pushHud(live);
+  const hint = seat !== 'pilot'
+    ? 'You strap into a passenger seat and wait on the pilot.'
+    : isContinuous(live)
+      ? "You drop into the seat. <b>Flip the ENGINE switch</b>, ease the <b>THROTTLE</b> up, and at ~42kt <b>pull back</b> on the yoke to fly her off."
+      : "You settle into the pilot's seat. <span class=\"text-dim\">startup</span>, set a <span class=\"text-dim\">throttle</span>, then <span class=\"text-dim\">takeoff</span>.";
   const scramble = inCombat
     ? `<span class="text-green">You throw yourself aboard and slam the hatch — ${broke ? 'they lose you' : 'the fight breaks off'}.</span> `
     : '';
@@ -165,6 +168,7 @@ export function requirePilot(player) {
 
 async function cmdStartup(args, raw, player, broadcast) {
   const { live, err } = requirePilot(player); if (err) return err;
+  if (isContinuous(live)) return { type: 'emote', message: 'Flip the <b>ENGINE</b> switch on the cockpit panel.' };
   if (live.row.airborne) return { type: 'emote', message: "The engine's already running — you're flying it." };
   if (live.row.engine_on && enginesAllStable(live)) return { type: 'emote', message: 'Engines are lit and stable.' };
   if (live.row.engine_on && live.runup) return { type: 'emote', message: 'Already running up — watch the gauges settle.' };
@@ -270,6 +274,7 @@ async function cmdDive(args, raw, player) {
 // ── Takeoff / land (minigames) ────────────────────────────────────────────────
 async function cmdTakeoff(args, raw, player, broadcast) {
   const { live, err } = requirePilot(player); if (err) return err;
+  if (isContinuous(live)) return { type: 'emote', message: 'No command needed — <b>throttle up</b> in the cockpit and pull back at ~42kt to fly her off.' };
   if (live.row.airborne) return { type: 'emote', message: "You're already flying." };
   if (!live.row.engine_on) return { type: 'emote', message: 'Spin the engine up first — `startup`.' };
   const zone = getZone(live.row.parked_zone_id);
@@ -278,6 +283,7 @@ async function cmdTakeoff(args, raw, player, broadcast) {
     return { type: 'emote', message: 'Not enough fuel to safely take off. Refuel first.' };
   if (effStats(live).overweight)
     return { type: 'emote', message: `Overloaded — ${effStats(live).cargo}kg is over max takeoff weight. She won't fly. Shed cargo.` };
+
   // Throttle is now set during the takeoff run itself (the departure deck), not
   // as a precondition — you fly it off the runway.
 
@@ -320,7 +326,12 @@ async function cmdLand(args, raw, player, broadcast) {
 
 async function cmdRefuel(args, raw, player, broadcast) {
   if (!player.aircraftId) return generatorCommands.refuel(args, raw, player, broadcast);   // generator refuel
-  return refuelAt(args, raw, player);
+  const res = await refuelAt(args, raw, player);
+  // The continuous cockpit only gets fuel pushes while airborne — sync it now so a
+  // ground refuel actually reaches the client (clears dead-stick, restores thrust).
+  const live = liveAircraft.get(player.aircraftId);
+  if (live && isContinuous(live)) pushContext(live);
+  return res;
 }
 
 // ── Resolvers ─────────────────────────────────────────────────────────────────
@@ -373,6 +384,90 @@ async function cmdLandResolve(args, raw, player, broadcast) {
   await parkAt(live, fieldZoneId);
   out(player.id, '<span class="text-red">You slam it down hard — something in the airframe screams and gives. But you\'re down.</span>');
   broadcast(fieldZoneId, { type: 'zone_event', message: `The ${live.type.name} thumps down onto the field hard enough to bounce.`, refresh: true }, player.id);
+  return { type: 'noop' };
+}
+
+// ── Continuous flight (client-sim + server-reconcile) ─────────────────────────
+// The Mayfly (and, later, every generalized type) flies a continuous 60fps client
+// physics loop. The client streams state via `flightsync` and reports the discrete
+// transitions (wheels-up / touchdown / crash) via `flightevent`. The server clamps
+// the reported state to a sane envelope, owns fuel + all world consequences, and
+// pushes the world context back each tick. See docs/proposals/flight-overhaul.md.
+
+// Open the continuous cockpit on the client (parked, ready to fly). Sent on board —
+// the whole flight is flown from the cockpit UI (engine switch, throttle, yoke); no
+// startup/takeoff commands.
+function sendFlightSim(player, live) {
+  const zone = getZone(live.row.parked_zone_id);
+  const ctx = contextPayload(live);
+  sendToPlayer(player.id, {
+    type: 'flight_sim',
+    craftType: live.type.id.replace(/^ac_/, ''),
+    craftClass: live.type.class,
+    deviceName: live.type.name,
+    airport: groundTheme(zone),
+    gx: live.row.grid_x, gy: live.row.grid_y, heading: toDeg(live.row.heading),
+    engineOn: !!live.row.engine_on,
+    registration: String(live.row.name || live.type.name || 'MAYFLY').toUpperCase(),
+    owner: (live.row.rental || !live.row.owner_id) ? 'RENTED'
+      : (live.row.owner_id === player.id ? String(player.name || player.username || 'OWNER').toUpperCase() : 'PRIVATE'),
+    fuel: ctx.fuel, fuelCap: ctx.fuelCap, map: ctx.map, sky: ctx.sky, biomeBelow: ctx.biomeBelow, minimap: ctx.minimap,
+  });
+}
+
+async function cmdFlightSync(args, raw, player) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live || player.seat !== 'pilot' || !isContinuous(live)) return { type: 'noop' };
+  // packed: gx gy alt ias hdg thr vs onground stalled
+  const n = args.map(Number);
+  if (n.length < 9 || n.some(Number.isNaN)) return { type: 'noop' };
+  reconcile(live, { gx: n[0], gy: n[1], alt: n[2], ias: n[3], hdg: n[4], thr: n[5], vs: n[6], onGround: n[7] === 1, stalled: n[8] === 1 });
+  return { type: 'noop' };
+}
+
+async function cmdFlightEvent(args, raw, player, broadcast) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live || player.seat !== 'pilot' || !isContinuous(live)) return { type: 'noop' };
+  const ev = (args[0] || '').toLowerCase();
+
+  if (ev === 'takeoff') {
+    if (live.row.airborne) return { type: 'noop' };
+    const zone = getZone(live.row.parked_zone_id);
+    live.row.airborne = 1; live.row.parked_zone_id = null; live.starving = false; live.runup = false;
+    initFloat(live);
+    for (const pid of live.occupants) {
+      const p = getLivePlayer(pid); if (!p) continue;
+      getZone(p.current_zone)?.players.delete(pid);
+      setPosture(p, 'flying');
+    }
+    await persist(live);
+    if (zone) broadcast(zone.id, { type: 'zone_event', message: `The ${live.type.name} lifts off and climbs away.` }, player.id);
+    await awardSkillUse(player.id, 'piloting', 0);
+    out(player.id, '<span class="text-green">Wheels up — you claw into the sky.</span>');
+    return { type: 'noop' };
+  }
+
+  if (ev === 'land') {
+    if (!live.row.airborne) return { type: 'noop' };
+    const below = surfaceAt(live.row.grid_x, live.row.grid_y);
+    // Fixed-wing sets down on a real airfield; anything else is a crash.
+    if (!below?.flags?.airfield_id) { await crash(live, 'offfield'); return { type: 'noop' }; }
+    await parkAt(live, below.id);
+    out(player.id, '<span class="text-green">Down and rolling out. Welcome back.</span>');
+    await awardSkillUse(player.id, 'piloting', 0);
+    await checkContractDelivery(player, live, below.id);
+    return { type: 'noop' };
+  }
+
+  if (ev === 'crash') {
+    if (!liveAircraft.has(live.row.id)) return { type: 'noop' };
+    await crash(live, (args[1] || 'crash').slice(0, 24));
+    return { type: 'noop' };
+  }
+
+  // Engine master switch (the on-panel replacement for `startup`).
+  if (ev === 'engineon') { live.row.engine_on = 1; await persist(live); pushContext(live); return { type: 'noop' }; }
+  if (ev === 'engineoff') { if (!live.row.airborne) { live.row.engine_on = 0; live.row.throttle = 0; await persist(live); } return { type: 'noop' }; }
   return { type: 'noop' };
 }
 
@@ -467,6 +562,30 @@ async function flightTick() {
   try {
     for (const live of [...liveAircraft.values()]) {
       if (live.charter) continue;   // NPC-flown charters are driven by charter.js, not the physics tick
+
+      // Continuous craft (the Mayfly slice): the client owns motion/attitude, so we
+      // don't advance or run the deck hazards here — we burn fuel authoritatively,
+      // run the world consequences off the last reported position, and push context.
+      if (isContinuous(live)) {
+        if (!live.row.airborne || live.pending) continue;   // taxi/roll is client-side until wheels-up
+        const a = live.row, eff = effStats(live);
+        a.fuel = Math.max(0, a.fuel - eff.burn * (0.15 + (a.throttle / 100)) * (BAND_BURN[a.altitude_band] || 1));
+        if (a.fuel <= 0 && !live.starving) { live.starving = true; toOccupants(live, '<span class="text-red">⚠ ENGINE OUT — the tank\'s dry. Dead stick. Get it down.</span>'); }
+        await checkAirspace(live);
+        if (!liveAircraft.has(live.row.id)) continue;
+        await tickCombat(live);
+        if (!liveAircraft.has(live.row.id)) continue;
+        overflyNoise(live);
+        if (!liveAircraft.has(live.row.id)) continue;
+        // While airborne the pilot is in the AIRCRAFT, not the field — keep them out
+        // of the zone's player set so room ambience/banter/vendor chatter doesn't leak
+        // into the cockpit. (Belt-and-suspenders against anything re-adding them.)
+        for (const pid of live.occupants) { const p = getLivePlayer(pid); if (p) getZone(p.current_zone)?.players.delete(pid); }
+        pushContext(live);
+        if (++live.persistCtr % 4 === 0) await persist(live);
+        continue;
+      }
+
       if (!live.row.airborne || live.pending) continue;
       const a = live.row, eff = effStats(live);
 
@@ -594,8 +713,11 @@ async function cmdTestFly(args, raw, player) {
   );
   const live = await loadAircraft(id);
   live.occupants.add(player.id); player.aircraftId = id; player.seat = 'pilot';
-  pushHud(live);
-  return { type: 'emote', message: `<span class="text-green">[TEST] A free <b>${t.name}</b>, full tank, and you're in the pilot's seat. startup · throttle · takeoff. It's yours — scrap it when done.</span>` };
+  if (isContinuous(live)) sendFlightSim(player, live); else pushHud(live);
+  const how = isContinuous(live)
+    ? 'flip the <b>ENGINE</b> switch, throttle up, and pull back at ~42kt'
+    : 'startup · throttle · takeoff';
+  return { type: 'emote', message: `<span class="text-green">[TEST] A free <b>${t.name}</b>, full tank, and you're in the pilot's seat. ${how}. It's yours — scrap it when done.</span>` };
 }
 
 // ── flight / status — a text readout of the aircraft you're aboard ─────────────
@@ -622,6 +744,7 @@ export const commands = {
   heading: cmdHeading, climb: cmdClimb, dive: cmdDive,
   takeoff: cmdTakeoff, land: cmdLand, refuel: cmdRefuel,
   takeoffresolve: cmdTakeoffResolve, landresolve: cmdLandResolve,
+  flightsync: cmdFlightSync, flightevent: cmdFlightEvent,
   ...hazardCommands, ...acquisitionCommands, ...combatCommands, ...contractCommands, ...hangarCommands, ...charterCommands,
 };
 
@@ -637,6 +760,6 @@ export const routeHandler = async (path, method, body, auth) => {
   return null;
 };
 
-export const _test = { surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach };
+export const _test = { surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach, isContinuous, bandFromAltitude };
 
 console.log('[flight] Plugin loaded.');

@@ -45,7 +45,7 @@ import { handleBackupApi } from './backup.routes.js';
 import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
 import { reloadWindows as reloadWindowsEnv, recomputePower, getEnvironmentState } from '../engine/environment.js';
-import { ensureTunables } from '../engine/tunables.js';
+import { ensureTunables, getTunable, reloadTunables } from '../engine/tunables.js';
 import { startingIp, statCost, RAISABLE_STATS, getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
 import { SKILLS } from '../engine/skills.js';
 import { ownTags } from '../engine/supertags.js';
@@ -284,6 +284,8 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/drugs/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDrug(path.split('/')[2],body));
   if (path.startsWith('/drugs/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDrug(path.split('/')[2]));
   if (path==='/crimes' && method==='GET') return requireDev(auth, apiGetCrimes);
+  if (path==='/crime-config' && method==='GET') return requireDev(auth, apiGetCrimeConfig);
+  if (path==='/crime-config' && method==='PUT') return requireDev(auth, ()=>apiSetCrimeConfig(body));
   if (path.startsWith('/crimes/') && method==='PUT') return requireDev(auth, ()=>apiUpdateCrime(path.split('/')[2],body));
   if (path==='/command-aliases' && method==='GET') return requireDev(auth, apiGetAliases);
   if (path==='/command-aliases' && method==='POST') return requireDev(auth, ()=>apiUpsertAlias(body));
@@ -2009,16 +2011,41 @@ async function apiDeleteDrug(id) {
 async function apiGetCrimes() { return {status:200,body:getCrimeList()}; }
 async function apiUpdateCrime(id,body) {
   if (!(id in CRIME_DEFAULTS)) return {status:404,body:{error:`Unknown crime "${id}".`}};
-  const stars = Math.max(0, Math.min(5, Number(body.stars)));
+  const def = CRIME_DEFAULTS[id];
+  // Merge onto the current persisted row (if any) so a partial PUT — just the star
+  // weight, or just the on/off toggle — never clobbers the other field.
+  const { rows } = await query('SELECT stars, enabled, label, description FROM crimes WHERE id=$1', [id]).catch(() => ({ rows: [] }));
+  const cur = rows[0] || { stars: def.stars, enabled: true, label: def.label, description: def.description || '' };
+  const stars = body.stars != null ? Math.max(0, Math.min(5, Number(body.stars))) : Number(cur.stars);
   if (Number.isNaN(stars)) return {status:400,body:{error:'stars must be a number 0–5.'}};
+  const enabled = body.enabled != null ? !!body.enabled : (cur.enabled !== false);
+  const label = body.label || cur.label || def.label;
+  const description = body.description != null ? body.description : (cur.description || def.description || '');
   try {
     await query(
-      `INSERT INTO crimes (id,label,stars,description) VALUES ($1,$2,$3,$4)
-       ON CONFLICT (id) DO UPDATE SET label=$2, stars=$3, description=$4`,
-      [id, body.label || CRIME_DEFAULTS[id].label, stars, body.description || CRIME_DEFAULTS[id].description || '']
+      `INSERT INTO crimes (id,label,stars,description,enabled) VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (id) DO UPDATE SET label=$2, stars=$3, description=$4, enabled=$5`,
+      [id, label, stars, description, enabled]
     );
     await reloadCrimes();
-    return {status:200,body:{id,stars}};
+    return {status:200,body:{id,stars,enabled}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+
+// Crime penalty multiplier — one global scalar on booking fines + jail time (jail
+// plugin reads getTunable('crime_penalty_multiplier',6)). Stored in combat_config.
+async function apiGetCrimeConfig() { return {status:200,body:{ multiplier: Number(getTunable('crime_penalty_multiplier', 6)) || 6 }}; }
+async function apiSetCrimeConfig(body) {
+  const m = Math.max(0, Math.min(100, Number(body.multiplier)));
+  if (Number.isNaN(m)) return {status:400,body:{error:'multiplier must be a number.'}};
+  try {
+    await query(
+      `INSERT INTO combat_config (key,value,label,category) VALUES ('crime_penalty_multiplier',$1::jsonb,'Crime penalty ×','crime')
+       ON CONFLICT (key) DO UPDATE SET value=$1::jsonb`,
+      [JSON.stringify(m)]
+    );
+    await reloadTunables();
+    return {status:200,body:{ multiplier: m }};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 

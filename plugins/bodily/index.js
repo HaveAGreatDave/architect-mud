@@ -13,7 +13,7 @@
  * Actions (the builtin replay path can't reach plugin verbs).
  */
 import { query } from '../../server/models/db.js';
-import { stainClothing, stainZone } from '../../server/engine/bodily.js';
+import { stainClothing, stainZone, stainCreatureBodyPart } from '../../server/engine/bodily.js';
 import { isMisActive } from '../../server/engine/mis.js';
 import { getZonePlayers, getZoneEnemies, getZoneNpcs, getAllLivePlayers } from '../../server/engine/world.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
@@ -143,19 +143,22 @@ async function relieveBladder(player, hasFacility, broadcast, target = null) {
     return { ok: false, message: `You're too dehydrated. There's nothing to release.` };
   }
 
-  // Pissing on a creature (player / enemy / NPC)
+  // Pissing on a creature (player / enemy / NPC), optionally aimed at a body part
   if (target?.type === 'player') {
     const tp = target.target;
     const name = tp.handle || tp.name || 'them';
+    const part = target.part || null;
+    const where = part ? `${name}'s ${part}` : name;
     const reduction = 55;
     player.hydration_load = Math.max(0, (player.hydration_load || 0) - reduction);
     await query('UPDATE players SET hydration_load=$1 WHERE id=$2', [player.hydration_load, player.id]);
+    if (tp._bkind === 'player') await stainCreatureBodyPart(tp, 'urine', part);
     broadcast(player.current_zone, {
       type: 'zone_event',
-      message: `${player.handle} pisses on ${name}.`,
+      message: `${player.handle} pisses on ${where}.`,
     }, player.id, tp.id);
-    if (tp.handle) broadcast(null, { type: 'output', message: `${player.handle} pisses on you.` }, null, tp.id);
-    return { ok: true, message: `You piss on ${name}.` };
+    if (tp.handle) broadcast(null, { type: 'output', message: `${player.handle} pisses on your ${part || 'body'}.` }, null, tp.id);
+    return { ok: true, message: `You piss on ${where}.` };
   }
 
   // Pissing on furniture
@@ -202,19 +205,23 @@ async function relieveBowels(player, hasFacility, broadcast, target = null) {
     return { ok: false, message: `You haven't eaten enough to produce anything.` };
   }
 
-  // Shitting on a creature (player / enemy / NPC) — the lying gate is enforced upstream
+  // Shitting on a creature (player / enemy / NPC) — the lying gate is enforced
+  // upstream. Optionally aimed at a body part.
   if (target?.type === 'player') {
     const tp = target.target;
     const name = tp.handle || tp.name || 'them';
+    const part = target.part || null;
+    const where = part ? `${name}'s ${part}` : name;
     const reduction = 60;
     player.digestive_load = Math.max(0, (player.digestive_load || 0) - reduction);
     await query('UPDATE players SET digestive_load=$1 WHERE id=$2', [player.digestive_load, player.id]);
+    if (tp._bkind === 'player') await stainCreatureBodyPart(tp, 'feces', part);
     broadcast(player.current_zone, {
       type: 'zone_event',
-      message: `${player.handle} squats over ${name} and shits on them.`,
+      message: `${player.handle} squats over ${where} and shits on ${part ? 'it' : 'them'}.`,
     }, player.id, tp.id);
-    if (tp.handle) broadcast(null, { type: 'output', message: `${player.handle} squats over you and shits on you.` }, null, tp.id);
-    return { ok: true, message: `You squat over ${name} and do it. That's a statement.` };
+    if (tp.handle) broadcast(null, { type: 'output', message: `${player.handle} squats over you and shits on your ${part || 'body'}.` }, null, tp.id);
+    return { ok: true, message: `You squat over ${where} and do it. That's a statement.` };
   }
 
   // Shitting on furniture
@@ -301,10 +308,29 @@ function tickPlop(player, session) {
   session.timers.push(setTimeout(() => tickPlop(player, session), 5000 + Math.random() * 4000));
 }
 
-// Pee stream — near-constant bursts with fade-in/out gaps for the 10s hold. The
-// surface tag varies the splash: water (toilet), concrete, soft (furniture), body.
+// Pee stream — a steady flow for the 10s hold that never just cuts off: every so
+// often it tapers into a soft fade, dribbles a couple of times, then picks back
+// up. The surface tag varies the splash: water (toilet), concrete, soft
+// (furniture), body.
 function tickStream(player, session) {
   if (!toiletSessions.has(player.id) || !stillInPosition(player, session)) return;
+
+  // Taper into a lull instead of another steady pulse.
+  if (Math.random() < 0.3) {
+    emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'stream_fade', surface: session.streamSurface });
+    const dribbles = 1 + Math.floor(Math.random() * 3);
+    let delay = 500 + Math.random() * 300;
+    for (let i = 0; i < dribbles; i++) {
+      session.timers.push(setTimeout(() => {
+        if (!toiletSessions.has(player.id) || !stillInPosition(player, session)) return;
+        emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'stream_dribble', surface: session.streamSurface });
+      }, delay));
+      delay += 350 + Math.random() * 300;
+    }
+    session.timers.push(setTimeout(() => tickStream(player, session), delay + 400 + Math.random() * 500));
+    return;
+  }
+
   emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'stream', surface: session.streamSurface });
   session.timers.push(setTimeout(() => tickStream(player, session), 1800 + Math.random() * 900));
 }
@@ -385,7 +411,10 @@ async function startRelief(player, mode, target, broadcast) {
 function logErr(e) { console.error(`[bodily] relief error: ${e.message}`); }
 
 function targetLabel(target) {
-  if (target.kind === 'creature') return target.being.name || target.being.handle || 'them';
+  if (target.kind === 'creature') {
+    const name = target.being.name || target.being.handle || 'them';
+    return target.part ? `${name}'s ${target.part}` : name;
+  }
   if (target.kind === 'ground') return null;
   return target.furniture.name;
 }
@@ -420,7 +449,7 @@ async function finishRelief(player, session) {
   } else if (target.kind === 'furniture') {
     result = await relieve(player, false, broadcast, { type: 'furniture', name: target.furniture.name });
   } else if (target.kind === 'creature') {
-    result = await relieve(player, false, broadcast, { type: 'player', target: target.being });
+    result = await relieve(player, false, broadcast, { type: 'player', target: target.being, part: target.part });
     if (target.isNpc) antagonizeNpc(player, target.being, mode, broadcast);
   } else {
     result = await relieve(player, false, broadcast); // ground
@@ -471,8 +500,8 @@ function reactBystanderNpc(zoneId, mode, broadcast) {
 
 // ── Target resolution ────────────────────────────────────────────────────────
 
-function creatureTarget(being) {
-  return { kind: 'creature', being, isNpc: being._bkind === 'npc', isEnemy: being._bkind === 'enemy' };
+function creatureTarget(being, part = null) {
+  return { kind: 'creature', being, isNpc: being._bkind === 'npc', isEnemy: being._bkind === 'enemy', part };
 }
 
 async function defaultTarget(player) {
@@ -480,12 +509,18 @@ async function defaultTarget(player) {
   return toilet ? { kind: 'toilet', furniture: toilet } : { kind: 'ground' };
 }
 
-// Resolve "on <name>" / "in <name>" to a target descriptor. Returns null for no
-// args (caller falls back to the toilet-or-ground default), or a descriptor with
-// kind 'ambiguous' | 'notfound' | 'toilet' | 'furniture' | 'creature'.
+// Resolve "on <name>" / "in <name>" / "on <name>'s <part>" to a target
+// descriptor. Returns null for no args (caller falls back to the
+// toilet-or-ground default), or a descriptor with kind 'ambiguous' |
+// 'notfound' | 'toilet' | 'furniture' | 'creature'.
 async function resolveBodilyTarget(args, player, dispatchType) {
   const str = args.join(' ').replace(/^(?:on|in|at)\s+/i, '').trim();
   if (!str) return null;
+
+  // "<name>'s <part>" — aim at a specific body part (e.g. "alice's face").
+  const partMatch = str.match(/^(.+?)'s\s+(.+)$/i);
+  const searchStr = partMatch ? partMatch[1].trim() : str;
+  const part = partMatch ? partMatch[2].trim() : null;
 
   // Any creature in the zone — players, enemies, NPCs — in one SIFT pass.
   const candidates = [
@@ -494,19 +529,19 @@ async function resolveBodilyTarget(args, player, dispatchType) {
     ...getZoneEnemies(player.current_zone).map(e => ({ ...e, name: e.name, _bkind: 'enemy' })),
     ...getZoneNpcs(player.current_zone).filter(n => !n._dead).map(n => ({ ...n, name: n.name, _bkind: 'npc' })),
   ];
-  const r = siftResolve(str, candidates);
+  const r = siftResolve(searchStr, candidates);
   if (r.type === 'ambiguous') {
     createSelectionState(player.id, r.candidates, { dispatchType, dispatchParam: 'target' });
     return { kind: 'ambiguous', selection: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
-  if (r.type === 'match') return creatureTarget(r.candidate);
+  if (r.type === 'match') return creatureTarget(r.candidate, part);
 
   // Offline sleeping body (a valid poop victim).
   const { rows: sleepers } = await query(
     `SELECT * FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND offline_sleeping=TRUE LIMIT 1`,
-    [`%${str.toLowerCase()}%`, player.current_zone]
+    [`%${searchStr.toLowerCase()}%`, player.current_zone]
   );
-  if (sleepers.length) return creatureTarget({ ...sleepers[0], name: sleepers[0].handle, _bkind: 'player' });
+  if (sleepers.length) return creatureTarget({ ...sleepers[0], name: sleepers[0].handle, _bkind: 'player' }, part);
 
   // Furniture — a toilet gets the fouled/flush treatment; anything else is fair game.
   const { rows: furniture } = await query(

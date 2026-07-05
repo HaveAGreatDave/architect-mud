@@ -61,6 +61,16 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('takeoffresolve tok 1'); check('takeoffresolve unarmed no-ops', r?.type === 'noop', r?.type);
   r = await run('landresolve tok 1'); check('landresolve unarmed no-ops', r?.type === 'noop', r?.type);
 
+  // ── Continuous-flight seam (Mayfly slice) ───────────────────────────────────
+  check('continuous mode gated to the Mayfly', _test.isContinuous({ type: { id: 'ac_mayfly' } }) === true);
+  check('other aircraft keep the deck/band flow', _test.isContinuous({ type: { id: 'ac_mule' } }) === false);
+  check('bandFromAltitude: on the deck → ground', _test.bandFromAltitude(0, true) === 'ground');
+  check('bandFromAltitude: 300ft → low', _test.bandFromAltitude(300) === 'low');
+  check('bandFromAltitude: 800ft → cruise', _test.bandFromAltitude(800) === 'cruise');
+  check('bandFromAltitude: 2000ft → high', _test.bandFromAltitude(2000) === 'high');
+  r = await run('flightsync 0 0 0 0 0 0 0 1 0'); check('flightsync not aboard no-ops', r?.type === 'noop', r?.type);
+  r = await run('flightevent takeoff'); check('flightevent not aboard no-ops', r?.type === 'noop', r?.type);
+
   // ── Hazard / utility verbs gate when not aboard ─────────────────────────────
   r = await run('recover'); check('recover not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('hover'); check('hover not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);

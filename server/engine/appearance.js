@@ -184,3 +184,16 @@ export function ejaculateDescription(player, isSelf, coveredSlots) {
   const subject = isSelf ? 'You have' : `${player.handle} has`;
   return `${subject} dried fluid visible on ${visibleLocs.join(', ')}.`;
 }
+
+// Describe bare-skin urine/feces residue (bodily plugin's stainCreatureBodyPart
+// falls back to this when the targeted body part has no garment to soak).
+// Not MIS-gated — bodily functions aren't a sexual mechanic.
+export function soilDescription(player, isSelf, coveredSlots) {
+  const state = player.appearance_data?.soiled_state;
+  if (!state || !state.locations?.length) return null;
+  const visibleLocs = state.locations.filter(loc => !coveredSlots.has(loc));
+  if (!visibleLocs.length) return null;
+  const subject = isSelf ? 'You have' : `${player.handle} has`;
+  const noun = state.type === 'feces' ? 'a foul stain' : 'a wet stain';
+  return `${subject} ${noun} visible on ${visibleLocs.join(', ')}.`;
+}

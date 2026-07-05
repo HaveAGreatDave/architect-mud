@@ -6,6 +6,13 @@ export default async function regress({ run, check }) {
   const r = await run('wanted');
   check('wanted verb routed', /clean|WANTED/.test(r?.message || ''), r?.message);
 
+  // apprehendresolve is the silent client→server resolve for the arrest prompt.
+  // With no prompt live it must no-op cleanly (never throw / never mis-arrest).
+  const ar = await run('apprehendresolve submit');
+  check('apprehendresolve no-ops with no prompt', ar?.type === 'noop', ar?.type);
+  const ar2 = await run('apprehendresolve run');
+  check('apprehendresolve run no-ops with no prompt', ar2?.type === 'noop', ar2?.type);
+
   // Crime registry ships the five canonical acts with the spec'd star weights.
   check('drug_use default = 0.5 stars', getCrimeStars('drug_use') === 0.5, getCrimeStars('drug_use'));
   check('attack_player default = 3 stars', getCrimeStars('attack_player') === 3, getCrimeStars('attack_player'));

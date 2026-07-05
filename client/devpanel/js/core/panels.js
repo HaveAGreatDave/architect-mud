@@ -268,8 +268,8 @@ const PANELS = {
     render: renderBankPanel,
   },
   emergency: {
-    title: 'Emergency',
-    description: 'Configure emergency alert tiers, broadcast triggers, and server-wide response protocols.',
+    title: 'Crime',
+    description: 'Live crime log, the fine/jail penalty multiplier, per-crime enforcement toggles, the Emergency Security Protocol, and the Arbiter subsystem.',
     fetch: () => directAPI('/emergency/state'),
     noEdit: true,
     render: renderEmergencyPanel,

@@ -9,7 +9,7 @@ import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../world.
 import { allExits, exitTargets } from '../exits.js';
 import { statCost, raiseStat, RAISABLE_STATS, getNetXp } from '../ip.js';
 import { ensureTunables } from '../tunables.js';
-import { physicalDescription } from '../appearance.js';
+import { physicalDescription, soilDescription } from '../appearance.js';
 import { isMisActive } from '../mis.js';
 import { availableActions } from '../specializedActions.js';
 import { genericFurnitureLinks } from '../furnitureActions.js';
@@ -322,6 +322,11 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
       msg += `<span style="color:var(--yellow)">${line}</span>\n`;
     }
   }
+
+  // Bare-skin urine/feces residue — the fallback when a targeted body part had
+  // no garment to soak (stainCreatureBodyPart in engine/bodily.js).
+  const soilNote = soilDescription(target, isSelf, new Set(Object.keys(bySlot)));
+  if (soilNote) msg += `<span style="color:var(--yellow)">${soilNote}</span>\n`;
 
   if (!bodyPieces.length && !weapon && !accessories.length) {
     const nakedLines = isSelf

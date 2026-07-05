@@ -336,6 +336,47 @@ const _bcNodeDefs = {
       ${_bHelp(id,'Dismisses any active overlay on the TV panel immediately, for all current viewers. Continues to <em>next</em> without stopping the tick.')}
       <div style="color:var(--text-dim);font-size:12px">No properties.</div>`,
   },
+
+  // Overlay imported from the BSM OVERLAY / LOWER_THIRD directives. Distinct from
+  // Show Overlay above (which uses overlay_type); this one uses overlayType +
+  // graphic_id to match what the compiler emits and the runtime walker reads.
+  overlay: {
+    label: 'Overlay',
+    color: '#335544',
+    defaultData: { overlayType:'text_card', text:'', subtext:'', graphic_id:'', duration_s:6 },
+    renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escB(n.data.overlayType||'text_card')}: ${_escB((n.data.text||n.data.graphic_id||'').slice(0,40))}</div>`,
+    getOutPorts: () => [{ key:'next', label:'next' }],
+    renderProperties: (n, ed, id) => `
+      ${_bHelp(id,'Pushes an on-screen overlay graphic to every viewer (and mirrors to the media-deck preview). A <strong>text card</strong> takes over the screen; a <strong>lower third</strong> is a nameplate strip; an <strong>alert flash</strong> is a full-screen alert. Does not stop the tick — continues to <em>next</em>; auto-clears after <em>duration</em> seconds or on a Clear Overlay node. This is the node the BSM <code>OVERLAY</code> / <code>LOWER_THIRD</code> directives import as.')}
+      ${_bField('Type', _bSelect('data.overlayType', [['text_card','Text card (full screen)'],['lower_third','Lower third (nameplate)'],['alert_flash','Alert flash']], n.data.overlayType||'text_card'))}
+      ${_bField('Main text', _bTextarea('data.text', n.data.text, 2))}
+      ${_bField('Subtext (lower third)', _bInput('data.subtext', n.data.subtext, 'Chief Science Officer, NovaCorp'))}
+      ${_bField('Graphic ID (optional)', _bInput('data.graphic_id', n.data.graphic_id, 'graphic database id'))}
+      ${_bField('Duration (s)', `<input data-vine-field="data.duration_s" data-vine-type="number" type="number" min="1" step="1" value="${n.data.duration_s??6}" style="${_BS}">`)}`,
+  },
+
+  credits: {
+    label: 'Credits',
+    color: '#224455',
+    defaultData: { text:'', duration:10 },
+    renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escB((n.data.text||'').slice(0,50)) || '(credits)'}</div>`,
+    getOutPorts: () => [{ key:'next', label:'next' }],
+    renderProperties: (n, ed, id) => `
+      ${_bHelp(id,'A scrolling end-credits crawl shown for the given duration. Imported from the BSM <code>CREDITS … END_CREDITS</code> block.')}
+      ${_bField('Credits text', _bTextarea('data.text', n.data.text, 4))}
+      ${_bField('Duration (s)', `<input data-vine-field="data.duration" data-vine-type="number" type="number" min="1" step="1" value="${n.data.duration??10}" style="${_BS}">`)}`,
+  },
+
+  event: {
+    label: 'Event',
+    color: '#665533',
+    defaultData: { event_type:'APPLAUSE' },
+    renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">✦ ${_escB(n.data.event_type||'(event)')}</div>`,
+    getOutPorts: () => [{ key:'next', label:'next' }],
+    renderProperties: (n, ed, id) => `
+      ${_bHelp(id,'Fires a studio-audience beat — shown as a canned reaction line (and emoted in the studio zone on live channels). Imported from the BSM <code>EVENT</code> directive.')}
+      ${_bField('Event type', _bSelect('data.event_type', [['APPLAUSE','Applause'],['LAUGHTER','Laughter'],['CHEERING','Cheering'],['BOOING','Booing'],['GASPING','Gasping'],['MURMURING','Murmuring'],['SILENCE','Silence'],['FADE_OUT','Fade out'],['FADE_IN','Fade in'],['RETURN_FROM_BREAK','Return from break']], n.data.event_type||'APPLAUSE'))}`,
+  },
 };
 
 // ── Auto-layout ───────────────────────────────────────────────────────────────

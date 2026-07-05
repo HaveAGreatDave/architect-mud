@@ -1,0 +1,7 @@
+{
+  "name": "govgate",
+  "version": "1.0.0",
+  "description": "Government-quarter security checkpoint at The Steps (the NW North City enclave's front gate). Entering the `flags.gov_checkpoint` tile from outside the `flags.gov_enclave` quarter hard-blocks wanted players and runs a contraband scan (Deception check → `contraband_possession` bust on fail). The Under tunnel is deliberately left unguarded as the covert bypass. No verbs — a `registerMoveGate` law.",
+  "after": ["surveillance"],
+  "dataSchema": []
+}

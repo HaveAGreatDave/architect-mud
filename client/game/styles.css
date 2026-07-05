@@ -5441,11 +5441,20 @@ textarea {
 	box-shadow: 0 0 18px rgba(255, 40, 40, 0.18);
 }
 #wanted-hud.active { display: flex; }
+/* Invisible-heat flame — sits above the pill background but behind the star
+   text (z-index below .wanted-stars). Fixed 220×82 logical box, centred on the
+   stars in JS. Overflows the pill top so the fire can lick up past it. */
+.wanted-flame {
+	position: absolute; bottom: -6px; width: 220px; height: 82px;
+	transform: translateX(-50%); z-index: 0; pointer-events: none;
+}
 .wanted-label {
+	position: relative; z-index: 2;
 	font-size: 10px; letter-spacing: 3px; font-weight: bold;
 	color: #ff6a6a; text-shadow: 0 0 6px rgba(255, 60, 60, 0.6);
 }
 .wanted-stars {
+	position: relative; z-index: 2;
 	font-size: 18px; letter-spacing: 3px; line-height: 1;
 	color: var(--accent); text-shadow: 0 0 10px var(--accent), 0 0 3px #fff;
 }
@@ -8899,6 +8908,40 @@ body.esp-active #output {
 .arrest-val { flex: 1; color: var(--text); }
 .arrest-fine { color: var(--red); }
 .arrest-debt { color: var(--red); font-weight: bold; }
+
+/* Apprehend prompt — the submit-or-run countdown when a cop grabs you (≤3.5★). */
+.apprehend-window {
+	position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%);
+	z-index: 400; width: 340px; padding: 18px 20px 16px;
+	background: rgba(14, 5, 5, 0.96); border: 1px solid var(--red); border-radius: 6px;
+	box-shadow: 0 0 0 1px rgba(255, 60, 60, 0.25), 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 40, 40, 0.25);
+	font-family: var(--font-mono); text-align: center;
+	animation: apprehend-in 0.18s ease-out;
+}
+@keyframes apprehend-in {
+	from { opacity: 0; transform: translate(-50%, -50%) scale(0.94); }
+	to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.apprehend-badge {
+	font-size: 12px; letter-spacing: 3px; font-weight: bold; color: var(--red);
+	text-shadow: 0 0 10px rgba(255, 50, 50, 0.7); margin-bottom: 8px;
+	animation: apprehend-flash 1s steps(2) infinite;
+}
+@keyframes apprehend-flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+.apprehend-officer { font-size: 12px; color: var(--text); line-height: 1.5; margin-bottom: 14px; }
+.apprehend-bar { height: 8px; background: rgba(255, 255, 255, 0.08); border-radius: 4px; overflow: hidden; margin-bottom: 16px; }
+.apprehend-fill { height: 100%; width: 100%; background: linear-gradient(90deg, var(--red), #ffb14d); }
+.apprehend-actions { display: flex; gap: 10px; }
+.apprehend-actions button {
+	flex: 1; padding: 9px 0; font-family: var(--font-mono); font-size: 12px; font-weight: bold;
+	letter-spacing: 2px; border-radius: 4px; cursor: pointer; border: 1px solid;
+}
+.apprehend-submit { background: var(--bg3); color: var(--text); border-color: var(--border); }
+.apprehend-submit:hover { border-color: var(--text-dim); }
+.apprehend-run { background: #3a1410; color: #ff8a5a; border-color: #7a3016; }
+.apprehend-run:hover { background: #4a1a12; }
+.apprehend-hint { margin-top: 10px; font-size: 9px; letter-spacing: 1px; color: var(--text-dim); }
+.apprehend-keys { color: var(--accent-dim); }
 .confirm-input {
 	width: 100%;
 	box-sizing: border-box;

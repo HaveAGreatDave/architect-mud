@@ -921,35 +921,54 @@ function assembleSportsGraph(script, broadcastId, cycle) {
   say(sportsPick(pools, 'intro'), gameTok, pregameBug);
   say(sportsPick(pools, 'matchup'), gameTok, pregameBug);
 
-  const NARRATE_CAP = 2;               // routine (non-scoring) calls per half
-  let narratedThisHalf = 0;
+  // Group the flat beat list into halves so each half-inning can be narrated as a
+  // full "stage": EVERY one of the three outs is called, scoring plays are always
+  // called, and booth chatter is threaded between the outs. Baseball is long and dry,
+  // so we aim for ~6–8 spoken lines per half (the half framing counts as the first).
+  const halves = [];
+  let curHalf = null;
   for (const b of beats) {
-    if (b.type === 'half_start') {
-      narratedThisHalf = 0;
-      say(sportsPick(pools, `half.${b.half}`, 'half'), beatTok(b), beatBug(b));
-      continue;
+    if (b.type === 'half_start') { curHalf = { start: b, atbats: [], end: null }; halves.push(curHalf); }
+    else if (b.type === 'half_end') { if (curHalf) curHalf.end = b; }
+    else if (curHalf) curHalf.atbats.push(b);
+  }
+
+  for (const h of halves) {
+    say(sportsPick(pools, `half.${h.start.half}`, 'half'), beatTok(h.start), beatBug(h.start));
+
+    const target = 6 + Math.floor(Math.random() * 3);   // 6, 7, or 8 lines this half
+    let spoken = 1;                                      // the framing line above
+    let walkoffHalf = false;
+    const chatter = (b) => { const line = sportsPick(pools, 'chatter'); if (line) { say(line, beatTok(b), beatBug(b)); spoken++; } };
+
+    for (const b of h.atbats) {
+      const tok = beatTok(b), sb = beatBug(b);
+      if (b.kind === 'homerun') {
+        const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr');
+        say(sportsPick(pools, key, 'hr'), tok, sb); spoken++;
+        say(sportsPick(pools, 'score.update'), tok, sb); spoken++;
+        if (b.walkoff) { say(sportsPick(pools, 'walkoff'), tok, sb); spoken++; walkoffHalf = true; }
+      } else if (b.rbi > 0) {
+        say(sportsPick(pools, 'rbi'), tok, sb); spoken++;
+        say(sportsPick(pools, 'score.update'), tok, sb); spoken++;
+        if (b.walkoff) { say(sportsPick(pools, 'walkoff'), tok, sb); spoken++; walkoffHalf = true; }
+      } else if (b.out) {
+        // Call every out. Thread a chatter line between outs (never after the 3rd).
+        say(sportsPick(pools, `atbat.${b.kind}`, 'atbat.out'), tok, sb); spoken++;
+        if (b.outs < 3 && spoken < target) chatter(b);
+      } else if (spoken < target) {
+        // Non-scoring baserunner — colour, only when the half still needs lines.
+        say(sportsPick(pools, `atbat.${b.kind}`, 'atbat.single'), tok, sb); spoken++;
+      }
     }
-    if (b.type === 'half_end') {
-      // Sparse score checkpoints — end of every third full inning.
-      if (b.half === 'bottom' && b.inning % 3 === 0) say(sportsPick(pools, 'recap.half'), beatTok(b), beatBug(b));
-      continue;
-    }
-    // at-bat
-    const tok = beatTok(b), sb = beatBug(b);
-    if (b.kind === 'homerun') {
-      const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr');
-      say(sportsPick(pools, key, 'hr'), tok, sb);
-      say(sportsPick(pools, 'score.update'), tok, sb);
-      if (b.walkoff) say(sportsPick(pools, 'walkoff'), tok, sb);
-    } else if (b.rbi > 0) {
-      say(sportsPick(pools, 'rbi'), tok, sb);
-      say(sportsPick(pools, 'score.update'), tok, sb);
-      if (b.walkoff) say(sportsPick(pools, 'walkoff'), tok, sb);
-    } else if (narratedThisHalf < NARRATE_CAP && (narratedThisHalf === 0 || Math.random() < 0.4)) {
-      const key = `atbat.${b.kind}`;
-      say(sportsPick(pools, key, b.out ? 'atbat.out' : 'atbat.single'), tok, sb);
-      narratedThisHalf++;
-    }
+
+    // A dry half that came up short gets padded with booth chatter — but never after
+    // a walk-off, where the drama has already ended the game.
+    let guard = 0;
+    while (!walkoffHalf && spoken < target && guard++ < 8) chatter(h.end);
+
+    // Sparse score checkpoints — end of every third full inning.
+    if (h.start.half === 'bottom' && h.start.inning % 3 === 0) say(sportsPick(pools, 'recap.half'), beatTok(h.end), beatBug(h.end));
   }
 
   const finalTok = {
@@ -1162,34 +1181,92 @@ function restartChannelBroadcast(channelId) {
 
 // ── Media deck playback ───────────────────────────────────────────────────────
 
-// Cache: zoneId → { broadcastId, messages, message_interval, fetchedAt }
+// Cache: zoneId → { broadcastId, item, fetchedAt }. `item` is a runtime broadcast
+// object (same shape loadChannelRuntimes builds) so a loaded cassette can play ANY
+// broadcast type — flat, VINE graph, weather, or sports — not just flat messages.
 const _deckCache = new Map();
 const _DECK_CACHE_TTL = 10000; // 10s
 
-async function _getDeckMessage(zoneId, nowMs) {
+// Build a runtime item from a broadcast row so the deck can render it through the
+// same machinery the schedule uses (graph walker / weather + sports assemblers).
+function _deckItemFrom(broadcastId, bc) {
+  const parse = (v) => { if (typeof v !== 'string') return v; try { return JSON.parse(v); } catch { return null; } };
+  let graph = parse(bc.broadcast_graph);
+  const broadcastGraph = graph && typeof graph === 'object'
+    ? _normalizeBroadcastGraph({ ...graph, _broadcastId: `deck:${broadcastId}` }) : null;
+  const weatherScript = parse(bc.weather_pools);
+  const sportsScript  = parse(bc.sports_pools);
+  return {
+    broadcastId,
+    playback_mode: bc.playback_mode,
+    messages: Array.isArray(bc.messages) ? bc.messages : (parse(bc.messages) || []),
+    message_interval: bc.message_interval || 5,
+    broadcastGraph,
+    fallbackMessages: Array.isArray(bc.fallback_messages) ? bc.fallback_messages : (parse(bc.fallback_messages) || []),
+    weatherPools: weatherScript?.pools || null,
+    weatherHost:  weatherScript?.host || null,
+    weatherTitle: weatherScript?.title || '',
+    sportsScript: sportsScript || null,
+  };
+}
+
+async function _getDeckMessage(zoneId, nowMs, state) {
   let entry = _deckCache.get(zoneId);
   if (!entry || nowMs - entry.fetchedAt > _DECK_CACHE_TTL) {
+    // If a zone holds more than one deck, prefer the one linked to THIS channel so
+    // an orphaned/other-channel deck can't shadow the real transmitter.
     const { rows } = await query(
-      `SELECT flags FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%' LIMIT 1`,
-      [zoneId]
+      `SELECT flags FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%'
+        ORDER BY (flags->>'channel_id' = $2) DESC NULLS LAST LIMIT 1`,
+      [zoneId, state?.channelId || null]
     ).catch(() => ({ rows: [] }));
     const dflags = rows[0] ? (typeof rows[0].flags === 'object' ? rows[0].flags : JSON.parse(rows[0].flags || '{}')) : null;
     const activeId = dflags?.deck_active || null;
-    if (activeId) {
-      const { rows: bcRows } = await query('SELECT messages, message_interval FROM media_broadcasts WHERE id=$1', [activeId]).catch(() => ({ rows: [] }));
-      const bc = bcRows[0];
-      entry = bc
-        ? { broadcastId: activeId, messages: Array.isArray(bc.messages) ? bc.messages : (bc.messages ? JSON.parse(bc.messages) : []), message_interval: bc.message_interval || 5, fetchedAt: nowMs }
-        : { broadcastId: null, messages: [], message_interval: 5, fetchedAt: nowMs };
+    if (activeId && entry?.broadcastId === activeId && entry.item) {
+      // Same cassette still loaded — keep the built item so an assembled sports/
+      // weather graph (cached on the item) survives the TTL refresh instead of
+      // re-simulating a fresh game every 10 seconds.
+      entry.fetchedAt = nowMs;
+    } else if (activeId) {
+      const { rows: bcRows } = await query(
+        `SELECT playback_mode, messages, message_interval, broadcast_graph, fallback_messages, weather_pools, sports_pools
+           FROM media_broadcasts WHERE id=$1`, [activeId]
+      ).catch(() => ({ rows: [] }));
+      entry = bcRows[0]
+        ? { broadcastId: activeId, item: _deckItemFrom(activeId, bcRows[0]), fetchedAt: nowMs }
+        : { broadcastId: null, item: null, fetchedAt: nowMs };
     } else {
-      entry = { broadcastId: null, messages: [], message_interval: 5, fetchedAt: nowMs };
+      entry = { broadcastId: null, item: null, fetchedAt: nowMs };
     }
     _deckCache.set(zoneId, entry);
   }
-  if (!entry.broadcastId || !entry.messages.length) return null;
-  const elapsed = (nowMs / 1000) % (entry.messages.length * entry.message_interval);
-  const result = getScriptedMessage(entry.messages, entry.message_interval, elapsed);
-  return result ? { text: result.text, key: `deck:${entry.broadcastId}:${result.idx}` } : null;
+  const item = entry.item;
+  if (!item) return null;
+
+  // Graph / weather / sports cassettes are walked through the channel blackboard —
+  // exactly like the scheduled path — so a loaded Deadball or DOOMCAST tape actually
+  // plays. The deck override suppresses the schedule this tick, so sharing the
+  // blackboard is safe (only one of the two produces a message per tick).
+  if (state) {
+    state.currentFallbackMessages = item.fallbackMessages || [];
+    if (item.playback_mode === 'weather') {
+      const g = getWeatherGraph(item);
+      return g ? tickBroadcastGraph(state.channelId, g, state, nowMs) : null;
+    }
+    if (item.playback_mode === 'sports') {
+      const g = getSportsGraph(item, Math.floor(nowMs / 86400000));
+      return g ? tickBroadcastGraph(state.channelId, g, state, nowMs) : null;
+    }
+    if (item.broadcastGraph) {
+      return tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs);
+    }
+  }
+
+  // Flat message list (loops on its own duration).
+  if (!item.messages.length) return null;
+  const elapsed = (nowMs / 1000) % (item.messages.length * item.message_interval);
+  const result = getScriptedMessage(item.messages, item.message_interval, elapsed);
+  return result ? { text: result.text, key: `deck:${item.broadcastId}:${result.idx}` } : null;
 }
 
 // ── Broadcast tick ───────────────────────────────────────────────────────────
@@ -1261,7 +1338,7 @@ async function broadcastTick() {
       let result;
       try {
         // Media deck check: a loaded cassette in this zone overrides channel content
-        const deckResult = await _getDeckMessage(zoneId, nowMs);
+        const deckResult = await _getDeckMessage(zoneId, nowMs, state);
         result = deckResult || await getCurrentMessage(state, nowMs);
       } catch (err) {
         console.error(`[broadcast] tick error (${channelId}):`, err.message);
@@ -1350,7 +1427,7 @@ async function broadcastTick() {
     if (!state) continue;
     let result;
     try {
-      const deckResult = state.deckZoneId ? await _getDeckMessage(state.deckZoneId, nowMs) : null;
+      const deckResult = state.deckZoneId ? await _getDeckMessage(state.deckZoneId, nowMs, state) : null;
       result = deckResult || await getCurrentMessage(state, nowMs);
     } catch (err) {
       console.error(`[broadcast] deck-preview tick error (${channelId}):`, err.message);

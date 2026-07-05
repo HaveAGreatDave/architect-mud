@@ -18,8 +18,8 @@ import { getPowerMap } from '../../server/engine/environment.js';
 import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
-import { registerAction } from '../../server/engine/actions.js';
-import { getCrimeStars, getCrimeWitness, getCrimeLabel } from '../../server/engine/crimes.js';
+import { registerAction, dispatchAction } from '../../server/engine/actions.js';
+import { getCrimeStars, getCrimeWitness, getCrimeLabel, isCrimeEnabled } from '../../server/engine/crimes.js';
 
 const COMPASS = new Set(['north', 'south', 'east', 'west', 'up', 'down', 'n', 's', 'e', 'w', 'u', 'd']);
 
@@ -512,6 +512,14 @@ function logCrime(zoneId, tag) {
 on('player.death', async ({ player, killer }) => {
   // Getting downed clears the victim's own wanted level (death / arrest).
   if (player?.id && wantedRuntime.has(player.id)) await clearWanted(player.id, 'you were taken down');
+  // …and cools the invisible heat with it — a takedown resets the slow burn too.
+  if (player?.id && heatRuntime.has(player.id)) {
+    heatRuntime.delete(player.id);
+    await setFlag('player', 'heat', 0, player).catch(() => {});
+    sendHeatHud(player.id, 0);
+  }
+  // Drop any live arrest prompt — being downed supersedes it.
+  if (player?.id) { const ap = apprehending.get(player.id); if (ap?.timer) clearTimeout(ap.timer); apprehending.delete(player.id); }
 
   const zoneId = player?.current_zone;
   if (!zoneId) return;
@@ -1001,6 +1009,201 @@ registerAction({
   },
 });
 
+// ── Invisible heat (0–100) — the slow burn of being *noticed* ─────────────────
+// A second, quieter layer beside the acute stars. Every witnessed crime nudges
+// heat up; it bleeds off slowly while you lay low. Below the HUD threshold it's
+// invisible (the flame stays dark) — heat builds before you're ever "wanted".
+// Crossing 100 flares the burn into a real manhunt (min 3★) and spends back to 0.
+// Persisted per-player in the `heat` flag; pushed to the HUD as `heat_level`.
+// Lives in its OWN map, not wantedRuntime, which is deleted the moment stars hit 0.
+const HEAT_MAX = 100;
+const HEAT_IGNITE_STARS = 3;        // heat 100 → at least this many acute stars
+const HEAT_PER_STAR = 8;            // heat added per wanted-star of a witnessed crime
+const HEAT_DECAY_PER_TICK = 0.35;   // bleed per 6s tick (~30 min from 100 → cold)
+const heatRuntime = new Map();      // playerId -> { heat }
+
+function heatState(id) {
+  let s = heatRuntime.get(id);
+  if (!s) { s = { heat: 0 }; heatRuntime.set(id, s); }
+  return s;
+}
+function sendHeatHud(playerId, heat) { sendToPlayer(playerId, { type: 'heat_level', heat }); }
+
+// Crossing 100 dumps the invisible burn into a visible manhunt: raise to at least
+// 3★ (SPECTER-PD acts on the pattern — which auto-deploys hunters) and spend the
+// heat back to zero.
+async function igniteHeat(player) {
+  const s = heatState(player.id);
+  s.heat = 0;
+  await setFlag('player', 'heat', 0, player);
+  sendHeatHud(player.id, 0);
+  sendToPlayer(player.id, { type: 'system', message: `<span class="text-red">⚠ THEY'RE ONTO YOU</span> — SPECTER-PD flags a pattern. You're a person of interest now.` });
+  const cur = wantedState(player.id).stars;
+  if (cur < HEAT_IGNITE_STARS) await raiseWanted(player, HEAT_IGNITE_STARS - cur, 'a pattern of activity flagged by SPECTER-PD');
+}
+
+async function addHeat(player, amount, reason) {
+  if (!player?.id || !player.handle || !(amount > 0)) return;
+  const s = heatState(player.id);
+  const prev = Math.round(s.heat);
+  s.heat = Math.min(HEAT_MAX, s.heat + amount);
+  const now = Math.round(s.heat);
+  if (now !== prev) {
+    await setFlag('player', 'heat', now, player);
+    sendHeatHud(player.id, now);
+  }
+  if (s.heat >= HEAT_MAX) await igniteHeat(player);
+}
+
+// Cross-plugin seam: reagent buys, checkpoints, and other "suspicious but not yet
+// chargeable" acts nudge heat without importing surveillance internals.
+registerAction({
+  type: 'HEAT_RAISE',
+  handler: async ({ actor, params }) => {
+    await addHeat(actor, Number(params?.amount) || 0, params?.reason || 'suspicious activity');
+    return { type: 'heat', heat: Math.round(heatState(actor?.id)?.heat || 0) };
+  },
+});
+
+// ── "Being watched" cues ──────────────────────────────────────────────────────
+// The heat number is invisible by design — so it has to be *felt*. Above a floor,
+// each heat tick may whisper a private, atmospheric tell whose menace and cadence
+// climb with the burn: a prickle on the neck when you're warm, a drone at head
+// height when you're about to boil over. Only you feel it; it charges nothing.
+const CUE_MIN_HEAT = 25;   // below this you're cold enough that nothing stirs
+const WATCHED_CUES = {
+  faint: [   // 25–49: could be nerves, could be nothing
+    'The hair on the back of your neck lifts. Nothing there when you turn.',
+    'A camera lens somewhere whirs, tracking something. Maybe not you.',
+    'You catch your own reflection twice in one block of glass.',
+    'A patrol drone tone dopplers past, high overhead, and fades.',
+    'For a second it feels like the street got quieter around you.',
+  ],
+  watched: [ // 50–79: you're sure of it now
+    'Across the way, a figure looks away a half-second too late.',
+    'A comms speaker crackles in your direction, then goes dead.',
+    'Two cams pan to follow you down the block. You clock it this time.',
+    "Someone's been leaning on that wall the whole time you've been here.",
+    'A parked drone swivels its eye to you and just... watches.',
+  ],
+  closing: [ // 80–99: the net is drawing tight
+    'A drone drops to head height, red eye steady on you, and holds.',
+    'Boots scuff to a stop just out of sight. Waiting.',
+    "A dispatch voice, tinny and close: '…got eyes on the subject…'",
+    'Every lens on the block has found you. The air pulls tight.',
+    'Somewhere near, a lock disengages. Then another. They know where you are.',
+  ],
+};
+function cueBand(heat) { return heat >= 80 ? 'closing' : heat >= 50 ? 'watched' : 'faint'; }
+// Mean gap between cues shrinks as heat climbs: ~90s when barely warm, ~16s at a boil.
+function cueIntervalMs(heat) {
+  const t = Math.min(1, Math.max(0, (heat - CUE_MIN_HEAT) / (HEAT_MAX - CUE_MIN_HEAT)));
+  return (90 - 74 * t) * 1000;
+}
+function maybeWatchedCue(pid, s) {
+  if (s.heat < CUE_MIN_HEAT) return;
+  const now = Date.now();
+  const due = cueIntervalMs(s.heat) * (0.6 + Math.random() * 0.8);   // jitter so it never feels metronomic
+  if (now - (s.lastCueTs || 0) < due) return;
+  s.lastCueTs = now;
+  const pool = WATCHED_CUES[cueBand(s.heat)];
+  const msg = pool[Math.floor(Math.random() * pool.length)];
+  sendToPlayer(pid, { type: 'ambient', message: `<span class="text-dim">${msg}</span>` });
+}
+
+// Slow bleed while laying low. Independent of stars — you can carry heat with a
+// clean acute record (that's the point: it builds before you're ever "wanted").
+async function heatTick() {
+  for (const [pid, s] of [...heatRuntime]) {
+    if (s.heat <= 0) { heatRuntime.delete(pid); continue; }
+    const p = getLivePlayer(pid);
+    if (!p) continue;   // offline: freeze heat (the flag holds it) until they return
+    maybeWatchedCue(pid, s);
+    const before = Math.round(s.heat);
+    s.heat = Math.max(0, s.heat - HEAT_DECAY_PER_TICK);
+    const now = Math.round(s.heat);
+    if (now !== before) { await setFlag('player', 'heat', now, p); sendHeatHud(pid, now); }
+    if (s.heat <= 0) heatRuntime.delete(pid);
+  }
+}
+setInterval(() => heatTick().catch(e => console.error('[surveillance] heat tick error:', e.message)), 6000);
+
+// ── Apprehend engine (≤3.5★: non-lethal arrest, not a brawl) ──────────────────
+// When a hunting unit catches up to a suspect whose heat is petty-to-serious but
+// not a full manhunt, it doesn't open fire — it moves in to detain. The suspect
+// gets a reflex-scaled window (5s at max Reflexes → 1s at min) to submit or bolt:
+//   • submit / timeout → the jail plugin books them straight into Precinct 9.
+//   • run             → +2★ (which, if it tips them to 4★, flips the same units to
+//                        attack-on-sight next tick) and the pursuit rolls on.
+// At ≥4★ the units still attack outright (handled in searchAndPursue, unchanged).
+const APPREHEND_MAX = 3.5;            // at or under this, they detain rather than kill
+const APPREHEND_COOLDOWN_MS = 8000;  // grace after a break-away before they can re-grab
+const apprehending = new Map();       // suspectId -> { untilTs, officer, timer }
+
+// Reflexes 0 → 1s to react, 10 → 5s. Quick hands buy you a real chance to run.
+function reflexWindowMs(reflex) {
+  const r = Math.max(0, Math.min(10, Number(reflex) || 0));
+  return Math.round(1000 + 400 * r);
+}
+
+async function startApprehension(suspect, s, officer) {
+  const now = Date.now();
+  const ap = apprehending.get(suspect.id);
+  if (ap && now < ap.untilTs) return;                                       // a prompt is already live
+  if (s.apprehendCooldownUntil && now < s.apprehendCooldownUntil) return;   // just broke free — let them move
+  const windowMs = reflexWindowMs(suspect.stat_reflexes);
+  const graceMs = windowMs + 900;   // server safety net, fires just after the client auto-submits
+  const timer = setTimeout(() => resolveApprehension(suspect.id, 'submit').catch(() => {}), graceMs);
+  apprehending.set(suspect.id, { untilTs: now + graceMs, officer: officer.name, timer });
+  sendToPlayer(suspect.id, { type: 'apprehend_prompt', officer: officer.name, seconds: Math.round(windowMs / 100) / 10, stars: s.stars });
+  sendToZone(suspect.current_zone, { type: 'ambient', message: `${officer.name} moves in on ${suspect.handle}, cuffs out. "Hands where I can see them."` });
+}
+
+async function resolveApprehension(suspectId, choice) {
+  const ap = apprehending.get(suspectId);
+  if (!ap) return;                    // already resolved (idempotent — client + server timer race safely)
+  apprehending.delete(suspectId);
+  if (ap.timer) clearTimeout(ap.timer);
+  const suspect = getLivePlayer(suspectId);
+  if (!suspect) return;
+  const s = wantedState(suspectId);
+  if (choice === 'run') {
+    s.apprehendCooldownUntil = Date.now() + APPREHEND_COOLDOWN_MS;
+    sendToPlayer(suspectId, { type: 'system', message: `<span class="text-red">You wrench free and bolt — boots pounding after you.</span>` });
+    await raiseWanted(suspect, 2, 'fleeing a lawful detainment', suspect.current_zone);
+  } else {
+    sendToPlayer(suspectId, { type: 'system', message: `<span class="text-dim">You raise your hands. The cuffs go on.</span>` });
+    await dispatchAction({ type: 'ARREST', actor: suspect });
+  }
+}
+
+// apprehendresolve <run|submit> — silent; the client apprehend modal fires this.
+async function cmdApprehendResolve(args, raw, player) {
+  const choice = (args[0] || '').toLowerCase() === 'run' ? 'run' : 'submit';
+  await resolveApprehension(player.id, choice);
+  return { type: 'noop' };
+}
+
+// Cross-plugin seam: the jail plugin clears a suspect's heat when it books them via
+// a live (non-death) arrest — no player.death fires to do it. Zeroes stars AND heat.
+registerAction({
+  type: 'WANTED_CLEAR',
+  handler: async ({ actor }) => {
+    if (actor?.id) {
+      await setStars(actor, 0);
+      if (heatRuntime.has(actor.id)) {
+        heatRuntime.delete(actor.id);
+        await setFlag('player', 'heat', 0, actor).catch(() => {});
+        sendHeatHud(actor.id, 0);
+      }
+      const ap = apprehending.get(actor.id);
+      if (ap?.timer) clearTimeout(ap.timer);
+      apprehending.delete(actor.id);
+    }
+    return { type: 'cleared' };
+  },
+});
+
 // ── Crime → wanted routing ────────────────────────────────────────────────────
 // The data-driven path: a crime key (from crimes.js / the dev-panel `crimes`
 // table) is charged here — witness-gated, debounced, and (if a camera is live)
@@ -1115,6 +1318,7 @@ function flushCrimesToHistory(playerId, outcome) {
 
 async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
   if (!player?.id || !player.handle) return;
+  if (!isCrimeEnabled(key)) return; // admin switched this crime off in the Crime panel
   const stars = getCrimeStars(key);
   if (!stars) return;
 
@@ -1138,6 +1342,7 @@ async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
   if (onCamera) flashCamera(zoneId, suspectName || player.handle, label);
   logCrime(zoneId, key);
   await raiseWanted(player, stars, label.toLowerCase(), zoneId);
+  await addHeat(player, stars * HEAT_PER_STAR, `${label.toLowerCase()} on the wire`);
   logActiveCrime(player, key, zoneId, label);
   await logPoliceEvidence(zoneId, [key], player.handle);
   if (stars >= 1) {  // no sirens over a half-star puff
@@ -1196,6 +1401,16 @@ on('player.death', ({ killer }) => {
 // Relieving yourself anywhere but a toilet (bodily plugin) — indecent exposure.
 on('bodily.publicRelief', ({ player, zoneId }) => {
   if (player?.id) raiseCrime(player, 'indecent_exposure', zoneId || player.current_zone, player.handle);
+});
+// Bulk drug-making chemical buys are a quiet tell — SPECTER-PD data-mines the
+// vendor ledgers. NOT a witnessed crime (the reagents are dual-use, sold openly),
+// just invisible heat that stacks as you stockpile and bleeds off if you don't.
+// One-off industrial buys stay well under the HUD threshold; a hoarding run climbs.
+const REAGENT_HEAT_PER_UNIT = 3;
+on('vendor.purchase', ({ player, tags, quantity }) => {
+  if (!player?.id || !tags?.reagent) return;
+  const p = getLivePlayer(player.id);
+  if (p) addHeat(p, REAGENT_HEAT_PER_UNIT * (quantity || 1), 'a bulk chemical purchase');
 });
 
 // ── Time-variable camera detection (ongoing crimes) ──────────────────────────
@@ -1439,8 +1654,16 @@ async function searchAndPursue(suspectId, s) {
       huntStep(e, zone, bc);
     }
     if (e.zoneId === zone) {
-      e.targetId = suspectId;
-      if (!e.aggroedAt) e.aggroedAt = Date.now();
+      if (s.stars <= APPREHEND_MAX) {
+        // Petty-to-serious heat: detain, don't kill. Keep the unit non-hostile
+        // (no targetId → the hunter graph won't ATTACK) and run the arrest prompt.
+        e.targetId = null;
+        e.aggroedAt = null;
+        startApprehension(suspect, s, e).catch(err => console.error('[surveillance] apprehend error:', err.message));
+      } else {
+        e.targetId = suspectId;   // full manhunt (≥4★): attack on sight.
+        if (!e.aggroedAt) e.aggroedAt = Date.now();
+      }
     }
   }
 }
@@ -1481,8 +1704,14 @@ on('player.login', async ({ id }) => {
     s.crimeZone = p.current_zone || null;
     sendWantedHud(id, stars);
   }
+  const heat = parseFloat(await getFlag('player', 'heat', p) || '0') || 0;
+  if (heat > 0) { heatState(id).heat = heat; sendHeatHud(id, Math.round(heat)); }
 });
-on('player.logout', ({ id }) => { const s = wantedRuntime.get(id); if (s) despawnHunters(s); });
+on('player.logout', ({ id }) => {
+  const s = wantedRuntime.get(id); if (s) despawnHunters(s);
+  heatRuntime.delete(id);
+  const ap = apprehending.get(id); if (ap?.timer) clearTimeout(ap.timer); apprehending.delete(id);
+});
 
 // wanted — check your own heat.
 async function cmdWanted(args, raw, player) {
@@ -1595,6 +1824,7 @@ export const commands = {
   wanted: cmdWanted,
   bribe: cmdBribe,
   scrub: cmdScrub,
+  apprehendresolve: cmdApprehendResolve,
 };
 
 export const specializedActions = [

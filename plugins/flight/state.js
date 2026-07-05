@@ -9,6 +9,7 @@
 
 import { query } from '../../server/models/db.js';
 import { getZone, getAllZones, getLivePlayer, getMinimapData } from '../../server/engine/world.js';
+import { biomeOf, districtBiome } from './biomes.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
@@ -24,6 +25,24 @@ export const REFUEL_PRICE_PER_UNIT = 2;
 export const BANDS = ['ground', 'low', 'cruise', 'high'];
 export const BAND_LABEL = { ground: 'GND', low: 'LOW', cruise: 'CRUISE', high: 'HIGH' };
 export const BAND_BURN = { ground: 1, low: 1, cruise: 1.25, high: 1.6 };
+
+// ── Continuous-flight seam (Phase 1 slice) ────────────────────────────────────
+// The overhaul's continuous energy model runs client-side; the server reconciles
+// and owns the consequences. It's gated to ONE airframe (the Mayfly) for the slice
+// — every other type keeps the discrete band/deck flow untouched until Phase 3.
+export const CONTINUOUS_TYPES = new Set(['ac_mayfly']);
+export function isContinuous(live) { return !!live && CONTINUOUS_TYPES.has(live.type?.id); }
+
+// Continuous altitude (ft) → the legacy band the consequence systems still read
+// (noise / no-fly / combat branch on this). A derived shim so those systems don't
+// need rewriting for the slice.
+export const ALT_LOW = 500, ALT_CRUISE = 1200;
+export function bandFromAltitude(alt, onGround) {
+  if (onGround || alt < 15) return 'ground';
+  if (alt < ALT_LOW) return 'low';
+  if (alt < ALT_CRUISE) return 'cruise';
+  return 'high';
+}
 
 export const DIRS = {
   n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0],
@@ -68,7 +87,7 @@ export function buildCoordIndex() {
   let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
   for (const z of getAllZones()) {
     if (z.map_id !== 'map_world' || z.grid_x == null || z.grid_y == null) continue;
-    idx.set(`${z.grid_x},${z.grid_y}`, { id: z.id, name: z.name, flags: z.flags || {} });
+    idx.set(`${z.grid_x},${z.grid_y}`, { id: z.id, name: z.name, flags: z.flags || {}, danger: z.danger_rating });
     minx = Math.min(minx, z.grid_x); maxx = Math.max(maxx, z.grid_x);
     miny = Math.min(miny, z.grid_y); maxy = Math.max(maxy, z.grid_y);
   }
@@ -210,9 +229,12 @@ function mapWindow(a, radius = 4) {
       if (dx === 0 && dy === 0) { row.push({ kind: 'craft' }); continue; }
       const cell = surfaceAt(a.grid_x + dx, a.grid_y + dy);
       if (!cell) { row.push({ kind: 'air' }); continue; }
-      if (cell.flags?.airfield_id) row.push({ kind: 'field' });
-      else if (cell.flags?.airspace_restricted) row.push({ kind: 'nofly' });
-      else row.push({ kind: 'land' });
+      // Each surface cell carries its derived biome, whether a major road (artery)
+      // runs through it, and its danger tier — the windshield renders the real world.
+      const biome = biomeOf(cell);
+      const road = Array.isArray(cell.flags?.artery) && cell.flags.artery.length ? 1 : 0;
+      const kind = cell.flags?.airfield_id ? 'field' : cell.flags?.airspace_restricted ? 'nofly' : 'land';
+      row.push({ kind, biome, road, danger: cell.danger });
     }
     rows.push(row);
   }
@@ -263,6 +285,7 @@ export function gaugePayload(live) {
     cargo: eff.cargo, maxTOW: eff.maxTOW, cargoCap: t.cargo_capacity || 0,
     seats: t.seats || 1, vtol: t.takeoff_mode === 'vtol', hover: !!live.hover,
     map: a.airborne ? mapWindow(a) : null,
+    biomeBelow: a.airborne && below ? districtBiome(below) : null,
     minimap: a.airborne && below ? getMinimapData(below.id, 3) : null,
     guide: (a.airborne && fuelPct < 30) ? nearestField(a.grid_x, a.grid_y) : null,
     // Parked: the terrain look of the field, for the out-the-canopy airport scene.
@@ -287,6 +310,42 @@ export function pushHud(live) {
     sendToPlayer(pid, { type: 'cockpit_update', state: { ...payload, seat: p.seat } });
   }
 }
+// ── Continuous-flight reconcile (client sim → authoritative server state) ─────
+// The client runs the physics at 60fps and reports state; the server clamps it to
+// a sane envelope (anti-cheat) and writes it into the live row so every consequence
+// system reads current position / heading / throttle / band. The client owns
+// attitude + airspeed (feel); the server owns fuel and the world below.
+export function reconcile(live, d) {
+  const a = live.row, b = bounds();
+  const cl = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+  live.fx = cl(d.gx, b.minx, b.maxx); live.fy = cl(d.gy, b.miny, b.maxy);
+  a.grid_x = Math.round(live.fx); a.grid_y = Math.round(live.fy);
+  a.heading = String(((Math.round(d.hdg) % 360) + 360) % 360);
+  a.throttle = cl(Math.round(d.thr), 0, 100);
+  const alt = Math.max(0, d.alt || 0);
+  a.altitude_band = bandFromAltitude(alt, d.onGround);
+  live.cont = { altitude: alt, airspeed: Math.max(0, d.ias || 0), vs: d.vs || 0, onGround: !!d.onGround, stalled: !!d.stalled };
+}
+
+// The world context pushed back to the client sim each server tick: authoritative
+// fuel, the surface/obstacle window, sky/weather, and any warning.
+export function contextPayload(live) {
+  const a = live.row, eff = effStats(live), cap = eff.fuelCap || 1;
+  return {
+    type: 'flight_ctx',
+    fuel: Math.round(a.fuel), fuelCap: Math.round(cap), fuelPct: Math.max(0, Math.round(a.fuel / cap * 100)),
+    map: mapWindow(a), sky: skyState(),
+    surface: surfaceAt(a.grid_x, a.grid_y)?.name || 'open air',
+    biomeBelow: districtBiome(surfaceAt(a.grid_x, a.grid_y)),
+    minimap: (() => { const b = surfaceAt(a.grid_x, a.grid_y); return b ? getMinimapData(b.id, 3) : null; })(),
+    warn: a.fuel <= 0 ? 'STARVATION' : (a.fuel <= cap * BINGO_FRAC ? 'BINGO' : null),
+  };
+}
+export function pushContext(live) {
+  const payload = contextPayload(live);
+  for (const pid of live.occupants) { const p = getLivePlayer(pid); if (p) sendToPlayer(pid, payload); }
+}
+
 export function closeHud(pid) { sendToPlayer(pid, { type: 'cockpit_close' }); }
 export function out(pid, message) { sendToPlayer(pid, { type: 'output', message }); }
 export function toOccupants(live, message) { for (const pid of live.occupants) out(pid, message); }

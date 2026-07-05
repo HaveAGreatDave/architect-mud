@@ -173,6 +173,29 @@ Middle of the {inningOrd} behind us — now the {team} come up for their cuts.
 Bottom {inningOrd}, {team} at the plate.
 ::endlines
 
+# --- Booth chatter: filler BETWEEN outs — weather, the stadium, a raunchy aside,
+# --- an obscure stat, or something out of left field. Baseball is long and dry;
+# --- Chip fills the dead air. No score/plays here, pure colour. --------------------
+::lines chatter
+Not much doing out here. Wind's picking up off the flats — smells like a battery fire, which, to be fair, it usually is.
+You can see the haze rolling in over the left-field wall. They painted a distance marker on it once. Nobody's ever reached it. Nobody ever will.
+Fun fact: this ballpark was built on a landfill, and on humid nights you can still smell every decision that led us here.
+{pitcher} out there on the mound looking like a man who owes money to everyone in this stadium. Which, in fairness, he might.
+The grounds crew tried to reseed the infield last spring. It came up brown and angry and now they just rake it and apologize.
+I'm told the record for longest game at this park is fourteen hours. Seven people finished it. Two of them on purpose.
+Somebody in the bleachers just took their shirt off. It is nine degrees out. I'm not going to editorialize, but I have concerns.
+Weather's holding — which around here means the acid's only a light drizzle. Bring an umbrella, lose an umbrella. That's the deal.
+They sell a hot dog here called the Widowmaker. It comes with a waiver. I've had three.
+Little-known stat: no left-handed batter has hit safely at this park after sundown since the lights started flickering. Draw your own conclusions.
+The {team} bullpen's been quiet. Then again, half of them are asleep and one of them, I believe, is technically deceased.
+Quiet moment out here. Good time to mention the bathrooms are out of order. All of them. Have been since the last administration.
+You know, my ex-wife loved this game. Sat right there in section nine. Section nine is a crater now. Life comes at you fast.
+Ballpark organist is playing something in a minor key again. He only knows the one song. It's about drowning.
+Vendor just walked past selling something he called "meat adjacent." I did not follow up. I value what's left of me.
+The stadium clock froze at 6:66 four years ago and honestly it's never once been wrong about the mood.
+Somewhere out past the outfield wall a dog is howling in perfect rhythm with the crowd. Nobody brought a dog.
+They retired a number here once. Not for a player — for a guy who survived a full season in the cheap seats. Brave soul.
+
 # --- Routine outs -------------------------------------------------------------
 ::lines atbat.strikeout
 {batter} goes down swinging. {pitcher} blows it right past him. That's {outs} away.
