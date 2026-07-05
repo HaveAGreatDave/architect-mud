@@ -20,6 +20,18 @@ unless noted** — this is the report, not the patch.
 The allowlist omits entire authored subsystems. On a fresh restore from the git seed these come up
 empty. See `server/api/backup.routes.js:18–31` for the current list.
 
+**RESOLVED 2026-07-05 (root cause + tripwire).** The deeper cause was *two* hand-maintained
+`CONTENT_TABLES` lists: `backup.routes.js` (dev-panel export, kept current by this audit) and a
+second, badly-stale copy in `scripts/export-seed.mjs` — the **git-seed** path teammates actually
+publish through (`content:publish`). The stale copy lacked flight (`aircraft_types`/`aa_sites`),
+audio, media, security, scavenging, crimes, interface_sfx, atm_networks *and* `quests`, and ignored
+the row filters (leaking player crews/apartments into the shared seed). Fixes: (1) `export-seed.mjs`
+now reuses `buildDump()` — one list, one dump, for git seed + dev-panel + prod deploy alike;
+(2) added `quests` to `CONTENT_TABLES`; (3) added the explicit `EXCLUDED_TABLES` half of the
+partition and a **regress guard** (`tests/regress.js` layer 1a) that fails if any `SCHEMA_SQL` table
+isn't classified content-or-excluded — so this class can't silently recur. **Re-run
+`npm run content:publish` to regenerate `db/seed.sql` with the now-complete table set.**
+
 | Rank | Table(s) | Symptom on fresh restore | Fix |
 |---|---|---|---|
 | 🔴 1 | `aircraft_types`, `aa_sites` | Declared in flight's `plugin.json` `dataSchema` but never exported — the literal quests bug. Flight unusable: `aircraft.type_id` FK dangles, no AA emplacements. | Add both |

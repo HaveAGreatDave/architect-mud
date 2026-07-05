@@ -100,6 +100,7 @@ Most substrates live in memory (posture, protection). If yours needs a table:
 
 - Add idempotent DDL to `SCHEMA_SQL` in `server/models/schema.js`; `npm run db:schema` applies it to your **local** dev DB. **Never add a boot-time migration** — boot stays deliberate.
 - Production gets the schema through the **Relay deploy** (`npm run relay` → _Deploy content → Production_), which applies the full `SCHEMA_SQL` (embedded in the dump) + additive content in one regress-gated, backed-up transaction. Don't run `db:schema` against prod. Only *data transformations* on existing rows (backfills/rewrites the additive deploy can't do) need a hand-written prod one-shot.
+- **Classify the new table for the dump.** Every `CREATE TABLE` in `SCHEMA_SQL` must be listed in either `CONTENT_TABLES` (dumped world content) or `EXCLUDED_TABLES` (runtime/player data, never seeded) in `server/api/backup.routes.js` — `npm run test:regress` (layer 1a) fails until it is. A persisted substrate is almost always runtime → `EXCLUDED_TABLES`. See the plugin-builder skill's Phase 3 for the full rationale.
 
 ---
 

@@ -36,6 +36,8 @@ import { getRegisteredMoveGates } from '../server/engine/movement-gates.js';
 import { getRegisteredSpecializedActions } from '../server/engine/specializedActions.js';
 import { registerProtectionProvider, getZoneProtection, getRegisteredProtectionProviders } from '../server/engine/protection.js';
 import { stopAll } from '../server/engine/scheduler.js';
+import { CONTENT_TABLES, EXCLUDED_TABLES } from '../server/api/backup.routes.js';
+import { SCHEMA_SQL } from '../server/models/schema.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGINS_DIR = join(__dirname, '../plugins');
@@ -69,6 +71,27 @@ console.log('— layer 1: manifest contracts —');
     }
   }
   check(`manifest contracts hold for ${getLoadedPlugins().length} plugins`, drift.length === 0, drift.join('; '));
+}
+
+// ── Layer 1a: export-partition coverage (anti-drift for the seed/backup dump) ─
+// Every table in SCHEMA_SQL must be classified as either dumped world content
+// (CONTENT_TABLES) or deliberately-excluded runtime/player data (EXCLUDED_TABLES).
+// A table in neither is the silent bug class behind the flight + quests losses:
+// authored content that restores EMPTY on a fresh DB with no error, because the
+// dump's allowlist never learned about it. Adding a table now forces the author to
+// classify it. Both the git seed (export-seed.mjs) and the dev-panel/prod dump run
+// through the same buildDump() over CONTENT_TABLES, so this one check guards both.
+console.log('— layer 1a: export-partition coverage —');
+{
+  const contentNames = new Set(CONTENT_TABLES.map(e => typeof e === 'string' ? e : e.table));
+  const excludedNames = new Set(EXCLUDED_TABLES);
+  const schemaTables = [...SCHEMA_SQL.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/g)].map(m => m[1]);
+  const unclassified = schemaTables.filter(t => !contentNames.has(t) && !excludedNames.has(t));
+  const overlap = schemaTables.filter(t => contentNames.has(t) && excludedNames.has(t));
+  check(`every SCHEMA_SQL table is classified content-or-excluded (${schemaTables.length} tables)`,
+    unclassified.length === 0,
+    unclassified.length ? `UNCLASSIFIED (add to CONTENT_TABLES or EXCLUDED_TABLES in backup.routes.js): ${unclassified.join(', ')}` : '');
+  check('no table is both content and excluded', overlap.length === 0, overlap.join(', '));
 }
 
 // ── Layer 1b: object-gated verb discoverability ──────────────────────────────

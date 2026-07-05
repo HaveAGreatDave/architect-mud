@@ -25,7 +25,7 @@ import { SCHEMA_SQL } from '../models/schema.js';
 // media_channels.idle_broadcast_id). Those two constraints are now DEFERRABLE
 // (schema.js) and buildDump() emits SET CONSTRAINTS ALL DEFERRED, so the cycle
 // restores regardless of insert order — see docs/audits/findings-2026-07-content-shape.md.
-const CONTENT_TABLES = [
+export const CONTENT_TABLES = [
   // Audio must precede zones: zones.audio_theme_id → audio_songs(id). samples
   // first (audio_instruments/audio_event_routes.sample_id → audio_samples).
   'audio_samples', 'audio_songs', 'audio_instruments', 'audio_sfx', 'audio_ambient', 'audio_event_routes',
@@ -36,7 +36,7 @@ const CONTENT_TABLES = [
   // player-crew org that isn't exported, which would break the restore's FK.
   { table: 'apartments', where: "owner_type = 'player'" },
   'generators', 'power_zones', 'climate_profiles',
-  'scripts', 'npc_banter_threads',
+  'scripts', 'npc_banter_threads', 'quests',
   // NPC factions live in the unified orgs table (is_npc=1); their inter-org
   // stances live in org_relations. Player crews (is_npc=0) are runtime, excluded.
   { table: 'orgs', where: 'is_npc = 1' },
@@ -55,6 +55,34 @@ const CONTENT_TABLES = [
   // deck_units/playlist/cameras reference channels+broadcasts, so they come last.
   'media_themes', 'media_broadcasts', 'media_channels',
   'media_deck_units', 'media_channel_playlist', 'media_cameras', 'media_graphics',
+];
+
+// Every other table in SCHEMA_SQL is deliberately NOT dumped: player-owned rows,
+// per-player/world runtime state, dev-workflow bookkeeping, logs, and tokens.
+// This is the *explicit* other half of the partition so the split is auditable:
+// the regress harness (tests/regress.js) asserts every CREATE TABLE in SCHEMA_SQL
+// appears in exactly one of these two lists — so a newly-added table can't drift
+// into "restores empty, no error" (the flight/quests bug). When you add a table,
+// classify it here or in CONTENT_TABLES; the test fails until you do.
+export const EXCLUDED_TABLES = [
+  // Player-owned / per-player state.
+  'players', 'player_skills', 'player_inventory', 'player_faction_rep', 'player_corpses',
+  'player_deaths', 'player_drug_state', 'player_mutations', 'player_flags', 'player_quests',
+  // World/runtime state regenerated at play time.
+  'world_events', 'world_clock', 'world_flags', 'weather_forecast', 'lighting_states',
+  'zone_control', 'scavenging_zone_stock', 'scavenging_zone_state', 'security_clips',
+  // Auto-created-per-furniture / player-transacted content (rebuilt on demand, not seeded).
+  'atm_units', 'game_tables', 'hangars', 'aircraft', 'flight_contracts', 'smuggle_orders',
+  // Player orgs (crews) + their membership; only NPC factions (is_npc=1) are content.
+  'org_ranks', 'org_members',
+  // Sports league state — seasons/standings are generated, never authored (see schema.js note).
+  'sports_bets', 'sports_standings', 'sports_season',
+  // Jail / evidence runtime.
+  'jail_prisoners', 'police_evidence',
+  // Dev-workflow bookkeeping + logs + tokens (never world content, never leaked).
+  'staged_changes', 'deployments', 'server_settings', 'password_reset_tokens',
+  'channel_messages', 'server_activity_log', 'player_count_log',
+  'dev_notes', 'dev_identities', 'dev_commits', 'email_verification_tokens',
 ];
 
 export async function handleBackupApi(path, method, body, auth) {
