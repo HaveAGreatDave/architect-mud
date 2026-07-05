@@ -1,6 +1,30 @@
 // Sidebar minimap (5×5 BFS/grid) and the full-screen map popup.
 import { sendCmdSilent } from '../net.js';
 
+// Avenue View for the sidebar/HUD/mobile minimaps: a rendering toggle (not a
+// server round-trip) that strips room symbols down to "does a named artery run
+// through here" — || north/south, = east/west, + at a crossing. Persisted, and
+// the last node payload is cached so the toggle can re-render without a move.
+const MM_AVENUE_KEY = 'mm_avenue';
+let mmAvenueView = false;
+try { mmAvenueView = localStorage.getItem(MM_AVENUE_KEY) === '1'; } catch {}
+let _lastMinimapNodes = null;
+
+function wireMinimapAvenueToggle() {
+  const btn = document.getElementById('mm-avenue-toggle');
+  if (!btn || btn._wired) return;
+  btn._wired = true;
+  btn.classList.toggle('active', mmAvenueView);
+  btn.addEventListener('click', () => {
+    mmAvenueView = !mmAvenueView;
+    try { localStorage.setItem(MM_AVENUE_KEY, mmAvenueView ? '1' : '0'); } catch {}
+    btn.classList.toggle('active', mmAvenueView);
+    if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
+  });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireMinimapAvenueToggle);
+else wireMinimapAvenueToggle();
+
 function luminanceTextColor(hex) {
   const h = hex.replace('#', '');
   if (h.length !== 6) return null;
@@ -57,6 +81,7 @@ export function renderMinimap(nodes, direction) {
 
   const current = nodes.find(n => n.is_current);
   if (!current) { minimapMessage('(unmapped)'); return; }
+  _lastMinimapNodes = nodes; // cache so the Avenue View toggle can re-render in place
 
   const byId = new Map(nodes.map(n => [n.id, n]));
   const coords = new Map();
@@ -119,13 +144,25 @@ export function renderMinimap(nodes, direction) {
       if (cx < 0 || cx >= gCols || cy < 0 || cy >= gRows) continue;
       if (cell[cy][cx]?.kind === 'room') continue;
       const ch = (dx !== 0 && dy === 0) ? '─' : (dx === 0 && dy !== 0) ? '│' : (dx === dy ? '╲' : '╱');
-      cell[cy][cx] = { kind: 'link', ch };
+      // A major road (flags.artery): both endpoints must share a named artery,
+      // so a cross-street into an unrelated side street doesn't light up. Feeds
+      // Avenue View, which reads these to place ||/=/+ artery glyphs.
+      const tnode = byId.get(targetId);
+      const artery = !!(node.artery && tnode?.artery && node.artery.some(s => tnode.artery.includes(s)));
+      cell[cy][cx] = { kind: 'link', ch, artery };
     }
   }
 
   const symFor = (node) => node.marker
     ? (node.marker.length === 1 ? node.marker + ' ' : node.marker.slice(0, 2))
     : (node.is_safe_zone ? '◆ ' : (node.pvp_enabled ? '✕ ' : '○ '));
+  // Hover tooltip: zone name, plus any building(s) on the tile on a second line.
+  // Escaped so a name with quotes can't break out of the title attribute.
+  const titleFor = (node) => {
+    const parts = [node.name];
+    if (node.buildings?.length) parts.push(node.buildings.join(', '));
+    return escapeHtml(parts.join('\n'));
+  };
 
   let html = '';
   for (let r = 0; r < gRows; r++) {
@@ -135,15 +172,25 @@ export function renderMinimap(nodes, direction) {
       if (it.kind === 'link') { html += `<span class="mm-c mm-link">${it.ch}</span>`; continue; }
       const node = byId.get(it.id);
       if (!node) { html += `<span class="mm-c mm-void"></span>`; continue; }
-      if (node.is_current) { html += `<span class="mm-c mm-room mm-current" title="${node.name}"></span>`; continue; }
+      if (node.is_current) { html += `<span class="mm-c mm-room mm-current" title="${titleFor(node)}"></span>`; continue; }
       const styles = [];
       if (node.bg_color) styles.push(`background:${node.bg_color}`);
       const textColor = node.color || (node.bg_color ? luminanceTextColor(node.bg_color) : null);
       if (textColor) styles.push(`color:${textColor}`);
       const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
       const styled = (node.bg_color || node.color) ? ' mm-styled' : '';
-      const cls = `mm-c mm-room danger-${node.danger_rating || 'safe'}${styled}`;
-      html += `<span class="${cls}"${styleAttr} title="${node.name}">${symFor(node)}</span>`;
+      // Avenue View: strip room identity down to the artery glyph the crossing roads
+      // imply (|| N/S, = E/W, + a crossing); non-artery tiles render blank.
+      let sym, avenueCls = '';
+      if (mmAvenueView) {
+        const isArteryLink = (link) => link?.kind === 'link' && link.artery;
+        const hasNS = isArteryLink(cell[r - 1]?.[c]) || isArteryLink(cell[r + 1]?.[c]);
+        const hasEW = isArteryLink(cell[r]?.[c - 1]) || isArteryLink(cell[r]?.[c + 1]);
+        sym = hasNS && hasEW ? '+' : hasNS ? '||' : hasEW ? '=' : '';
+        if (sym) avenueCls = ' mm-avenue-road';
+      } else sym = symFor(node);
+      const cls = `mm-c mm-room danger-${node.danger_rating || 'safe'}${styled}${avenueCls}`;
+      html += `<span class="${cls}"${styleAttr} title="${titleFor(node)}">${sym}</span>`;
     }
   }
   for (const id of ['minimap-grid', 'minimap-grid-mob', 'minimap-grid-hud']) {
@@ -203,14 +250,17 @@ const POI_LEGEND = {
   police:  { icon: '★', label: 'Police station' },
   power:   { icon: '⚡', label: 'Power plant' },
   club:    { icon: '♥', label: 'Strip club' },
+  hotel:   { icon: '🏨', label: 'Hotel' },
+  bar:     { icon: '🍺', label: 'Bar' },
   vendor:  { icon: '$', label: 'Vendor / shop' },
+  home:    { icon: '⌂', label: 'Apartments / housing' },
   stairs:  { icon: '⇕', label: 'Stairs (up/down)' },
 };
 
 // ── Three-level map popup: interior → zone → regional ────────────────────────
 // Popup state, kept across re-opens so the tab buttons + wheel know the current
 // level and the tooltip can look tiles up by id.
-const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false };
+const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false, labelsView: false };
 let mapUiWired = false;
 // Pan offset of the grid within the fixed 11×11 viewport, and live drag state.
 const mapPan = { tx: 0, ty: 0 };
@@ -218,6 +268,15 @@ const mapDrag = { on: false };
 
 function twoLetterAbbrev(name) {
   return ((name || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 2) || '??');
+}
+// Avenue-View label: initials of the significant words ("Franchise Strip" → "FS",
+// "Muster Yard" → "MY"); a single word falls back to its first two letters. Drops
+// leading articles so "The Marquee" → "MA", not "TM".
+function streetAbbrev(name) {
+  const words = String(name || '').split(/\s+/).filter(w => w && !/^(the|of|and|at|a|an)$/i.test(w));
+  if (!words.length) return twoLetterAbbrev(name);
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return words.map(w => w[0]).join('').slice(0, 3).toUpperCase();
 }
 function escapeHtml(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
@@ -319,10 +378,21 @@ function wireMapUi() {
     if (level && level !== mapState.mode) sendCmdSilent(`map ${level}`);
   });
   // Avenue View: a rendering toggle, not a zoom level — swaps room symbols for
-  // a road-passage glyph (no server round-trip needed, just re-render).
+  // connected road icons (no server round-trip needed, just re-render).
   document.getElementById('map-avenue-toggle')?.addEventListener('click', () => {
     mapState.avenueView = !mapState.avenueView;
     document.getElementById('map-avenue-toggle')?.classList.toggle('active', mapState.avenueView);
+    renderMapGrid();
+  });
+  // Labels: overlay 2–3 letter tile abbreviations on the road icons. Only meaningful
+  // in Avenue View, so turning it on turns Avenue View on too.
+  document.getElementById('map-labels-toggle')?.addEventListener('click', () => {
+    mapState.labelsView = !mapState.labelsView;
+    if (mapState.labelsView && !mapState.avenueView) {
+      mapState.avenueView = true;
+      document.getElementById('map-avenue-toggle')?.classList.toggle('active', true);
+    }
+    document.getElementById('map-labels-toggle')?.classList.toggle('active', mapState.labelsView);
     renderMapGrid();
   });
   const vp = document.getElementById('map-viewport');
@@ -413,6 +483,7 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
     btn.disabled = (level === 'interior' && !insideInterior);
   }
   document.getElementById('map-avenue-toggle')?.classList.toggle('active', mapState.avenueView);
+  document.getElementById('map-labels-toggle')?.classList.toggle('active', mapState.labelsView);
 
   const tip = document.getElementById('map-tooltip');
   if (tip) tip.style.display = 'none';
@@ -425,7 +496,7 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
 // avenueView) without touching the server — used both by the initial open and by
 // the Avenue View toggle (a pure rendering-mode switch on already-fetched tiles).
 function renderMapGrid() {
-  const { tiles, mode, insideInterior, avenueView } = mapState;
+  const { tiles, mode, insideInterior, avenueView, labelsView } = mapState;
   const grid = document.getElementById('map-grid');
   const legend = document.getElementById('map-legend');
 
@@ -486,6 +557,9 @@ function renderMapGrid() {
 
   grid.style.gridTemplateColumns = Array.from({ length: gCols }, (_, c) =>
     c % 2 === 0 ? 'var(--map-room)' : 'var(--map-gap)').join(' ');
+  // Avenue View strips tile chrome to a road skeleton; Labels overlays abbrevs.
+  grid.classList.toggle('avenue', avenueView);
+  grid.classList.toggle('labels', avenueView && labelsView);
 
   let html = '';
   for (let r = 0; r < gRows; r++) {
@@ -522,15 +596,23 @@ function renderMapGrid() {
         (t.buildings && t.buildings.length ? ' map-has-building' : '') +
         (deg === 1 ? ' map-deadend' : '');
       const style = styles.length ? ` style="${styles.join(';')}"` : '';
-      // Avenue View strips room identity down to "does a named artery pass
-      // through here" — || north/south, = east/west, + at a crossing.
+      // Avenue View: draw a connected road icon whose arms point toward each
+      // grid-adjacent artery link — straight / corner / T / crossroads emerge
+      // from which arms are present, meeting the gap-cell bars seamlessly. With
+      // Labels on, the tile abbreviation overlays the (dimmed) road.
       let sym;
       if (t.isCurrent) sym = '';
       else if (avenueView) {
-        const isArteryLink = (link) => link?.kind === 'link' && link.artery;
-        const hasNS = isArteryLink(cell[r - 1]?.[c]) || isArteryLink(cell[r + 1]?.[c]);
-        const hasEW = isArteryLink(cell[r]?.[c - 1]) || isArteryLink(cell[r]?.[c + 1]);
-        sym = hasNS && hasEW ? '+' : hasNS ? '||' : hasEW ? '=' : '';
+        const arteryLink = (link) => link?.kind === 'link' && link.artery;
+        let arms = '';
+        if (arteryLink(cell[r - 1]?.[c])) arms += '<i class="av-arm-n"></i>';
+        if (arteryLink(cell[r + 1]?.[c])) arms += '<i class="av-arm-s"></i>';
+        if (arteryLink(cell[r]?.[c - 1])) arms += '<i class="av-arm-w"></i>';
+        if (arteryLink(cell[r]?.[c + 1])) arms += '<i class="av-arm-e"></i>';
+        if (arms) {
+          sym = `<span class="av-road"><i class="av-node"></i>${arms}</span>`;
+          if (labelsView) sym += `<span class="av-label">${escapeHtml(streetAbbrev(t.name))}</span>`;
+        } else sym = '';
       } else sym = symFor(t);
       html += `<span class="${cls}"${style} data-zone-id="${t.id}">${sym}</span>`;
     }

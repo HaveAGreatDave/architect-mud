@@ -7,7 +7,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, liveAircraft, out, effStats, persist } from './state.js';
+import { getZone, liveAircraft, out, effStats, persist, fieldFor as fieldOf } from './state.js';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
@@ -77,10 +77,6 @@ async function topUp(fieldZone, fields) {
   }
 }
 
-function fieldOf(player) {
-  const zone = getZone(player.current_zone);
-  return zone?.flags?.airfield_id ? zone : null;
-}
 
 const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
 
@@ -121,7 +117,9 @@ async function cmdAccept(args, raw, player) {
   if (!aircraftId) return { type: 'emote', message: 'You need an aircraft here to load the job onto. Charter or buy one first.' };
 
   const { rows: acRows } = await query('SELECT type_id, custom_data FROM aircraft WHERE id=$1', [aircraftId]);
+  if (!acRows[0]) return { type: 'emote', message: 'That aircraft is no longer here to load.' };
   const { rows: tRows } = await query('SELECT max_takeoff_weight, cargo_capacity FROM aircraft_types WHERE id=$1', [acRows[0].type_id]);
+  if (!tRows[0]) return { type: 'emote', message: "This aircraft's type registration is missing — can't load a job onto it." };
   if (c.kind === 'cargo' && c.weight > (tRows[0].cargo_capacity || 0))
     return { type: 'emote', message: `That's ${c.weight}kg — more than this aircraft's hold takes (${tRows[0].cargo_capacity}kg).` };
 

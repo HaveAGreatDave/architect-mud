@@ -14,7 +14,7 @@
 import { setAreaPane } from '../render.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown } from './engine-audio.js';
-import { ensureWindshieldStyles, windshieldHTML, paintWindshield } from './windshield.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield } from './windshield.js';
 
 function csfx(id, fallback) {
   const cat = window.SFXCatalog;
@@ -118,15 +118,19 @@ function hudFrame(t) {
   _raf = requestAnimationFrame(hudFrame);
 }
 
-// The out-the-front-window view — driven from the same eased HUD state.
+// The out-the-front-window view — driven from the same eased HUD state. The
+// passenger looks out the SIDE through a window shaped to their aircraft.
 function paintWindow(id, a, s) {
   if (!document.getElementById(id)) return;
   const heightFrac = s.airborne ? clampNum((s.bandIndex || 0) / 3, 0, 1) : 0;
   const speedFrac = clampNum((a.spd || 0) / 200, 0, 1);
+  const pax = s.seat === 'passenger';
   paintWindshield(id, {
     pitch: a.pitch, bank: a.roll, height: heightFrac, speed: speedFrac,
     hour: s.sky?.hour, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
     map: s.map, phase: s.airborne ? 'cruise' : 'ground',
+    airport: s.ground?.theme,
+    side: pax, windowClass: pax ? (s.class || 'prop') : undefined,
   });
 }
 
@@ -643,6 +647,7 @@ export function openTakeoff(opts = {}) {
   const finish = (won, why) => {
     if (over) return; over = true; if (raf) cancelAnimationFrame(raf); raf = 0;
     csfx(won ? 'flight-rotate' : 'flight-crash', won ? 'hololock-win' : 'hololock-lose');
+    disposeWindshield('ck-ws-to');
     if (!won) creak('stress');
     big(won ? '◇ AIRBORNE' : '✕ ' + (why || 'CRASH'), won ? '#46e05a' : '#ff5b5b');
     setStatus(won ? '<span class="ck-win">◇ POSITIVE RATE — gear up, climbing out.</span>' : `<span class="ck-lose">✕ ${why || 'CRASH'}.</span>`);
@@ -697,7 +702,7 @@ export function openTakeoff(opts = {}) {
     q('#ck-to-pit').textContent = `${Math.round(pitch * 22)}°`;
     q('#ck-to-thrbar').style.width = `${Math.round(throttle * 100)}%`;
     setDeckLevel(overlay, roll);
-    paintWindshield('ck-ws-to', { pitch: pitch * 22, bank: 0, height: alt, speed, hour: _target?.sky?.hour, weather: _target?.sky?.weather, wind: _target?.sky?.wind, phase: 'takeoff' });
+    paintWindshield('ck-ws-to', { pitch: pitch * 22, bank: 0, height: alt, speed, hour: _target?.sky?.hour, weather: _target?.sky?.weather, wind: _target?.sky?.wind, phase: 'takeoff', airport: o.airport || _target?.ground?.theme });
     raf = requestAnimationFrame(tick);
   };
 
@@ -772,6 +777,7 @@ export function openVtolLift(opts, mode) {
   const finish = (won, why) => {
     if (over) return; over = true; if (raf) cancelAnimationFrame(raf); raf = 0;
     csfx(won ? (takeoff ? 'flight-rotate' : 'flight-touchdown') : 'flight-crash', won ? 'hololock-win' : 'hololock-lose');
+    disposeWindshield('ck-ws-vt');
     if (!won) creak('stress'); else creak('gear');
     big(won ? (takeoff ? '◇ AIRBORNE' : '◇ ON THE PAD') : '✕ ' + (why || 'CRASH'), won ? '#46e05a' : '#ff5b5b');
     setStatus(won ? `<span class="ck-win">◇ ${takeoff ? 'Clean lift-off — climbing away.' : 'Soft touchdown — skids down.'}</span>` : `<span class="ck-lose">✕ ${why || 'CRASH'}.</span>`);
@@ -869,6 +875,7 @@ export function openGlideslope(opts = {}) {
   const finish = (won, why) => {
     if (over) return; over = true; if (raf) cancelAnimationFrame(raf); raf = 0;
     csfx(won ? 'flight-touchdown' : 'flight-crash', won ? 'hololock-win' : 'hololock-lose');
+    disposeWindshield('ck-ws-la');
     if (!won) creak('stress');
     big(won ? '◇ TOUCHDOWN' : '✕ ' + (why || 'CRASH'), won ? '#46e05a' : '#ff5b5b');
     setStatus(won ? '<span class="ck-win">◇ Mains, nose, brakes — down safe.</span>' : `<span class="ck-lose">✕ ${why || 'CRASH'}.</span>`);
@@ -914,7 +921,7 @@ export function openGlideslope(opts = {}) {
     q('#ck-la-gsr').textContent = Math.abs(dev) < 0.16 ? 'ON' : dev > 0 ? 'HIGH' : 'LOW';
     q('#ck-la-thrbar').style.width = `${Math.round(throttle * 100)}%`;
     setDeckLevel(overlay, Math.min(1, Math.abs(dev) / 0.3));
-    paintWindshield('ck-ws-la', { pitch: pitch * 20, bank: 0, height, speed: 0.32 + throttle * 0.4, hour: _target?.sky?.hour, weather: _target?.sky?.weather, phase: 'landing' });
+    paintWindshield('ck-ws-la', { pitch: pitch * 20, bank: 0, height, speed: 0.32 + throttle * 0.4, hour: _target?.sky?.hour, weather: _target?.sky?.weather, phase: 'landing', airport: o.airport });
     raf = requestAnimationFrame(tick);
   };
   window.AudioEngine?.init?.(); csfx('flight-approach', 'hololock-entry');

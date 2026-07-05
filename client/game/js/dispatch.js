@@ -28,7 +28,7 @@ import { openFishing } from './panels/fishing.js';
 import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting } from './panels/cockpit.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
-import { openSpliceSelect, openSpliceStages } from './panels/splicelab.js';
+import { openSpliceSelect, openSpliceStages, applySplicePreview } from './panels/splicelab.js';
 import { updateWantedHud } from './panels/wanted.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
 import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
@@ -537,6 +537,7 @@ const handlers = {
       difficulty: msg.difficulty ?? 5,
       vtol: !!msg.vtol,
       deviceName: msg.deviceName || 'CRAFT',
+      airport: msg.airport,
       onResult: ({ won }) => sendCmdSilent(`takeoffresolve ${msg.token} ${won ? 1 : 0}`),
     });
   },
@@ -547,6 +548,7 @@ const handlers = {
       emergency: !!msg.emergency,
       vtol: !!msg.vtol,
       deviceName: msg.deviceName || 'FIELD',
+      airport: msg.airport,
       onResult: ({ won }) => sendCmdSilent(`landresolve ${msg.token} ${won ? 1 : 0}`),
     });
   },
@@ -593,7 +595,7 @@ const handlers = {
         workspace: msg.workspace || '',
         onResult: ({ score }) => {
           if (msg.kind === 'test') return; // dev feel-test — verdict on-screen, no server resolve
-          sendCmdSilent(`synthresolve ${msg.recipeId} ${score}`);
+          sendCmdSilent(`synthresolve ${msg.recipeId} ${score} ${msg.nonce || ''}`); // nonce: server rejects a resolve that wasn't armed
         },
       });
     }
@@ -602,6 +604,8 @@ const handlers = {
   cook_menu: (msg) => { openCookMenu(msg); },
 
   splice_designer: (msg) => { openSpliceSelect(msg); },
+
+  splice_preview: (msg) => { applySplicePreview(msg); },
 
   esp_state:   (msg) => { applyEspState(msg); },
   esp_warning: (msg) => { handleEspWarning(msg); },

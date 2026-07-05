@@ -638,7 +638,7 @@
 						</div>
 						<div class="dpad-row">
 							<button class="dpad-btn" data-cmd="w" title="West">W</button>
-							<div class="dpad-center"></div>
+							<button class="dpad-center dpad-size-btn" id="mob-dpad-size" title="D-Pad size" aria-label="Change D-Pad size">⤢</button>
 							<button class="dpad-btn" data-cmd="e" title="East">E</button>
 						</div>
 						<div class="dpad-row">
@@ -666,6 +666,7 @@
 				</div>
 				<div class="sidebar-section" id="minimap-section">
 					<div class="sidebar-label">Map</div>
+					<button type="button" id="mm-avenue-toggle" class="mm-avenue-toggle" title="Avenue View — show major roads only">Avenue</button>
 					<div id="minimap-grid">—</div>
 				</div>
 
@@ -1734,6 +1735,7 @@
 						<button type="button" class="map-tab" data-level="zone">Zone</button>
 						<button type="button" class="map-tab" data-level="regional">Regional</button>
 						<button type="button" id="map-avenue-toggle" class="map-tab">Avenue View</button>
+						<button type="button" id="map-labels-toggle" class="map-tab">Labels</button>
 					</div>
 				</div>
 				<div id="map-body">

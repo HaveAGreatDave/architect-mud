@@ -278,7 +278,8 @@ function cloneZoneRow(id) {
 }
 
 const BUILDING_TYPES = [
-  { id: 'hotel', label: 'Hotel / Bar' },
+  { id: 'bar', label: 'Bar' },
+  { id: 'hotel', label: 'Hotel' },
   { id: 'apartment', label: 'Apartment Building' },
   { id: 'clinic', label: 'Clinic' },
   { id: 'store', label: 'Convenience Store' },

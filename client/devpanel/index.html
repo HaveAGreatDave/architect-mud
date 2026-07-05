@@ -288,14 +288,15 @@
   </div>
 </div>
 
-<div id="settings-overlay" onmousedown="backdropDown(event,this)" onclick="backdropClose(event,this,closeSettingsPanel)">
-  <div class="modal-card" style="width:360px">
+<div id="settings-overlay" onmousedown="backdropDown(event,this)" onclick="backdropClose(event,this,attemptCloseSettings)">
+  <div class="modal-card settings-card" style="width:360px;position:relative">
+    <button class="modal-x" onclick="attemptCloseSettings()" title="Close" aria-label="Close">✕</button>
     <h2 style="color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px;margin-bottom:18px">Settings</h2>
-    <div style="margin-bottom:18px">
+    <div class="settings-group">
       <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Theme</label>
       <button class="action-btn" onclick="openThemeEditor()" title="Choose or edit a theme" style="width:100%">🎨 Themes…</button>
     </div>
-    <div style="margin-bottom:18px">
+    <div class="settings-group">
       <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Contrast <span id="dev-contrast-label" style="text-transform:none;letter-spacing:0;color:var(--text-dim)">Base</span></label>
       <input type="range" id="dev-opt-contrast" min="0" max="100" step="1" value="0"
         style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 4px">
@@ -304,7 +305,7 @@
         <button id="dev-contrast-restore" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font);font-size:11px;padding:5px 0;cursor:pointer;border-radius:2px">Restore</button>
       </div>
     </div>
-    <div style="margin-bottom:18px">
+    <div class="settings-group">
       <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Font Size</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap" id="dev-opt-fontsize">
         <button class="dev-settings-opt" data-value="12">Small</button>
@@ -313,21 +314,21 @@
         <button class="dev-settings-opt" data-value="20">X-Large</button>
       </div>
     </div>
-    <div style="margin-bottom:18px">
+    <div class="settings-group">
       <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Display</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap" id="dev-opt-density">
         <button class="dev-settings-opt" data-value="comfortable">Comfortable (Desktop)</button>
         <button class="dev-settings-opt" data-value="compact">Compact (Mobile)</button>
       </div>
     </div>
-    <div style="margin-bottom:18px">
+    <div class="settings-group">
       <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Motion</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap" id="dev-opt-motion">
         <button class="dev-settings-opt" data-value="on">Movement Animations</button>
         <button class="dev-settings-opt" data-value="off">Off</button>
       </div>
     </div>
-    <div style="margin-bottom:18px">
+    <div class="settings-group">
       <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Temperature Units</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap" id="dev-opt-tempunit">
         <button class="dev-settings-opt" data-value="C">C°ommunism</button>

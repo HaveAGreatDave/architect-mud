@@ -1698,6 +1698,40 @@ textarea {
 	color: var(--text-dim);
 	opacity: 0.75;
 }
+/* Avenue View toggle sits in the minimap section's top-right corner (kept out of
+   the .sidebar-label so it doesn't leak into the section's reorder title). */
+#minimap-section { position: relative; }
+.mm-avenue-toggle {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	font-family: var(--font-mono);
+	font-size: 8px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	line-height: 1.4;
+	background: var(--bg);
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	border-radius: 2px;
+	padding: 1px 5px;
+	cursor: pointer;
+	z-index: 3;
+	transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.mm-avenue-toggle:hover { border-color: var(--accent); color: var(--text); }
+.mm-avenue-toggle.active {
+	border-color: var(--accent);
+	color: var(--accent);
+	background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+/* Avenue View artery glyph — the road running through a tile reads as the accent. */
+.mm-room.mm-avenue-road {
+	color: var(--accent);
+	font-weight: bold;
+	background: none;
+	border-color: transparent;
+}
 .mm-msg {
 	grid-column: 1 / -1;
 	color: var(--text-dim);
@@ -2067,13 +2101,36 @@ textarea {
 /* Dead-end (a single connector) reads slightly muted. */
 .map-room.map-deadend { opacity: 0.82; }
 
+/* ── Avenue View: connected road icons ───────────────────────────────────────
+   In Avenue View the tile chrome is stripped to a clean arterial skeleton; each
+   artery tile draws arms toward its connected sides (straight / corner / T /
+   crossroads), which meet the gap-cell artery bars for a seamless road network.
+   The current tile keeps an accent ring so you can still see where you are. */
+#map-grid.avenue .map-room:not(.map-current) { background: none; border-color: transparent; }
+#map-grid.avenue .map-room.map-current { border: 1px solid var(--accent); border-radius: 2px; background: none; }
+.av-road { position: absolute; inset: 0; pointer-events: none; }
+.av-road > i { position: absolute; background: var(--cyan); box-shadow: 0 0 3px var(--cyan); }
+.av-node  { left: 50%; top: 50%; width: 5px; height: 5px; border-radius: 1px; transform: translate(-50%, -50%); }
+.av-arm-n { left: 50%; top: 0; width: 3px; height: 50%; transform: translateX(-50%); }
+.av-arm-s { left: 50%; bottom: 0; width: 3px; height: 50%; transform: translateX(-50%); }
+.av-arm-e { top: 50%; right: 0; height: 3px; width: 50%; transform: translateY(-50%); }
+.av-arm-w { top: 50%; left: 0; height: 3px; width: 50%; transform: translateY(-50%); }
+/* Labels overlay: dim the road so the bold abbreviation stays legible on top. */
+.av-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-weight: bold; font-size: 11px; letter-spacing: -0.5px; color: var(--text);
+  text-shadow: 0 0 3px #000, 0 0 2px #000, 0 1px 2px #000; z-index: 2; }
+#map-grid.labels .av-road { opacity: 0.4; }
+
 /* Landmark POI icons — bold, colour-coded by category (airport, police, …). */
 .map-poi { font-weight: bold; }
 .map-poi-airport { color: #2fd0c0; }
 .map-poi-police  { color: #6a9bff; }
 .map-poi-power   { color: #ffd23a; }
 .map-poi-club    { color: #ff6ac1; }
+.map-poi-hotel   { color: #e0b56a; }
+.map-poi-bar     { color: #f0a838; }
 .map-poi-vendor  { color: #4bd07a; }
+.map-poi-home    { color: #c9a884; }
 .map-poi-stairs  { color: #c0a0ff; }
 .map-room.danger-safe {
 	background: rgba(35, 100, 55, 0.45);
@@ -4759,7 +4816,7 @@ textarea {
 	justify-content: center;
 	gap: 1px;
 	flex-shrink: 0;
-	padding: 4px 6px;
+	padding: 4px 4px;
 }
 
 @media (max-width: 720px) {
@@ -4780,18 +4837,43 @@ textarea {
 }
 
 .dpad-center {
-	width: 26px;
-	height: 26px;
+	width: 34px;
+	height: 34px;
+}
+
+/* The centre cell doubles as the size cycler — dim glyph, lights up on press. */
+.dpad-size-btn {
+	padding: 0;
+	background: transparent;
+	border: 1px solid transparent;
+	color: var(--text-dim);
+	opacity: 0.5;
+	font-family: var(--font-mono);
+	font-size: 13px;
+	line-height: 1;
+	border-radius: 2px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
+}
+.dpad-size-btn:hover,
+.dpad-size-btn:active {
+	opacity: 1;
+	color: var(--accent);
+	border-color: var(--accent);
 }
 
 .dpad-btn {
-	width: 26px;
-	height: 26px;
+	width: 34px;
+	height: 34px;
 	background: var(--bg3);
 	border: 1px solid var(--border);
 	color: var(--text-dim);
 	font-family: var(--font-mono);
-	font-size: 11px;
+	font-size: 13px;
 	font-weight: bold;
 	border-radius: 2px;
 	cursor: pointer;
@@ -4801,12 +4883,23 @@ textarea {
 	transition: border-color 0.1s, color 0.1s, background 0.1s;
 	-webkit-tap-highlight-color: transparent;
 	user-select: none;
+	/* Press is captured by JS (fire on release); don't let a drag scroll instead. */
+	touch-action: none;
 }
 
-.dpad-btn:active {
+.dpad-btn:active,
+.dpad-btn.dpad-pressing {
 	background: var(--accent-dim);
 	border-color: var(--accent);
 	color: var(--accent);
+}
+
+/* Held, but the finger has slid off — releasing now will NOT fire. */
+.dpad-btn.dpad-cancel {
+	background: var(--bg3);
+	border-color: var(--border);
+	color: var(--text-dim);
+	opacity: 0.45;
 }
 
 .dpad-btn.dpad-available {
@@ -4838,7 +4931,7 @@ textarea {
 
 .dpad-ud {
 	opacity: 0.6;
-	font-size: 10px;
+	font-size: 12px;
 }
 .dpad-ud.dpad-available {
 	opacity: 1;
@@ -4941,6 +5034,47 @@ textarea {
 	-webkit-tap-highlight-color: transparent;
 }
 .smart-sheet-item:active { background: var(--accent-dim); }
+/* Pager row: Prev / page indicator / Next — only shown when a list paginates. */
+.smart-sheet-pager {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.smart-sheet-page {
+	flex: 1;
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	color: var(--accent);
+	font-family: var(--font-mono);
+	font-size: 14px;
+	padding: 10px 14px;
+	min-height: 44px;
+	border-radius: 2px;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+}
+.smart-sheet-page:disabled {
+	color: var(--text-dim);
+	opacity: 0.4;
+	cursor: default;
+}
+.smart-sheet-page-ind {
+	font-family: var(--font-mono);
+	font-size: 13px;
+	color: var(--text-dim);
+	min-width: 40px;
+	text-align: center;
+}
+/* Nav row: Back (when drilled in) + Cancel, side by side. */
+.smart-sheet-nav {
+	display: flex;
+	gap: 6px;
+	margin-top: 4px;
+}
+.smart-sheet-nav .smart-sheet-cancel {
+	flex: 1;
+	margin-top: 0;
+}
 .smart-sheet-cancel {
 	background: transparent;
 	border: 1px solid var(--border);
@@ -4958,11 +5092,11 @@ textarea {
 /* D-pad size variants — driven by data-dpad-size on <html> */
 [data-dpad-size="medium"] .dpad-btn,
 [data-dpad-size="medium"] .dpad-center {
-	width: 38px;
-	height: 38px;
-	font-size: 15px;
+	width: 42px;
+	height: 42px;
+	font-size: 16px;
 }
-[data-dpad-size="medium"] .dpad-ud { font-size: 13px; }
+[data-dpad-size="medium"] .dpad-ud { font-size: 14px; }
 
 [data-dpad-size="large"] .dpad-btn,
 [data-dpad-size="large"] .dpad-center {
@@ -4971,6 +5105,19 @@ textarea {
 	font-size: 20px;
 }
 [data-dpad-size="large"] .dpad-ud { font-size: 17px; }
+
+/* Guard: on very narrow screens, cap "large" at the medium footprint so the
+   command input can't get cramped. Mirrors the medium tier; must follow the
+   large block to win on equal specificity. */
+@media (max-width: 360px) {
+	[data-dpad-size="large"] .dpad-btn,
+	[data-dpad-size="large"] .dpad-center {
+		width: 42px;
+		height: 42px;
+		font-size: 16px;
+	}
+	[data-dpad-size="large"] .dpad-ud { font-size: 14px; }
+}
 
 /* Hide d-pad size setting on non-touch (desktop) */
 @media (hover: hover) and (pointer: fine) {
@@ -6425,17 +6572,25 @@ textarea {
 #mediadeck-slot.loaded .mediadeck-tape-guide,
 #mediadeck-slot.loaded .mediadeck-tape-head {
 	opacity: 1;
-	transform: translateY(0) scaleY(1);
+	transform: translateY(-1px) scaleY(1);
 	filter: brightness(1);
-	box-shadow: 0 1px 2px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2), 0 0 5px rgba(0, 240, 255, 0.25);
+	/* Popped proud: real cast shadow BELOW the pin (it stands off the shell) +
+	   a crisp top-lit highlight lip, so it reads as extended toward you. A faint
+	   cyan glow keeps the deck's on-air identity. */
+	box-shadow:
+		0 3px 5px rgba(0,0,0,0.7),
+		0 1px 1px rgba(0,0,0,0.5),
+		inset 0 1.5px 0 rgba(255,255,255,0.55),
+		inset 0 -2px 3px rgba(0,0,0,0.30),
+		0 0 5px rgba(0, 240, 255, 0.35);
 }
 /* On eject the capstans sink back into their sockets FIRST (fast), so they're
    already recessed as the tape lifts away. Placed after the .loaded rule so it
    wins while .loaded is still set at the very start of the eject. */
 #mediadeck-slot.ejecting .mediadeck-tape-guide,
 #mediadeck-slot.ejecting .mediadeck-tape-head {
-	transform: translateY(4px) scaleY(0.42);
-	filter: brightness(0.5);
+	transform: translateY(3px) scaleY(0.4);
+	filter: brightness(0.55);
 	box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.85);
 	transition: transform 0.16s ease-in, filter 0.16s ease-in, box-shadow 0.16s ease-in;
 }
@@ -6513,17 +6668,18 @@ textarea {
 .mediadeck-tape-guide {
 	width: 4px;
 	height: 24px;
-	background: linear-gradient(to bottom, rgba(0, 240, 255, 0.5), rgba(0, 240, 255, 0.15));
+	/* Solid brushed-grey metal capstan at ALL times (not the deck's tinted fill) —
+	   top-lit machined pin; recessed vs proud is shading + scale, not fill swap. */
+	background: linear-gradient(to bottom, #c4c8cf 0%, #9a9ea7 42%, #6a6e77 100%);
 	border-radius: 2px;
 	transition: opacity 0.3s;
 }
 .mediadeck-tape-head {
 	width: 8px;
 	height: 18px;
-	background: linear-gradient(to bottom, rgba(0, 240, 255, 0.45), rgba(0, 240, 255, 0.12));
+	background: linear-gradient(to bottom, #c4c8cf 0%, #9a9ea7 42%, #6a6e77 100%);
 	border-radius: 2px;
-	border: 1px solid rgba(0, 240, 255, 0.45);
-	box-shadow: 0 0 5px rgba(0, 240, 255, 0.3);
+	border: 1px solid #565a63;
 	transition: opacity 0.3s;
 }
 /* Capstan/head sockets: a dark recessed cutout punched through the shell behind
@@ -6533,11 +6689,13 @@ textarea {
 .mediadeck-tape-guide,
 .mediadeck-tape-head {
 	position: relative;
-	/* Recessed by default: sunk down flush into their sockets and darkened, so an
-	   empty deck reads as bare holes with nothing standing proud until a tape
-	   seats and lifts them. */
-	transform: translateY(4px) scaleY(0.42);
-	filter: brightness(0.5);
+	/* Recessed by default: the grey pin sits sunk flush in its socket — short
+	   (grown from the base), dimmed into shadow, dark inner-bottom, NO cast shadow.
+	   Origin bottom means it grows UPWARD out of the socket when a tape seats, so
+	   .loaded reads as the pin extending toward you rather than lighting in place. */
+	transform-origin: bottom center;
+	transform: translateY(3px) scaleY(0.4);
+	filter: brightness(0.55);
 	box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.85);
 	transition: opacity 0.3s, transform 0.35s ease, box-shadow 0.35s ease, filter 0.35s ease;
 }
@@ -7494,18 +7652,25 @@ textarea {
    eject reverses it. */
 .amp-cassette-body.loaded ~ .amp-tape-center .amp-tape-guide,
 .amp-cassette-body.loaded ~ .amp-tape-center .amp-tape-head {
-	background: linear-gradient(to bottom, var(--text-dim), var(--bg3));
-	transform: translateY(0) scaleY(1);
+	transform: translateY(-1px) scaleY(1);
 	filter: brightness(1);
-	box-shadow: 0 1px 2px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.22);
+	/* Popped proud: a real cast shadow BELOW the pin (it stands off the shell) +
+	   a crisp top-lit highlight lip, so it reads as extended toward you rather
+	   than sunk. A faint accent glow says the transport is energised. */
+	box-shadow:
+		0 3px 5px rgba(0,0,0,0.75),
+		0 1px 1px rgba(0,0,0,0.5),
+		inset 0 1.5px 0 rgba(255,255,255,0.55),
+		inset 0 -2px 3px rgba(0,0,0,0.30),
+		0 0 5px var(--accent-dim);
 }
 /* On eject the capstans sink back into their sockets FIRST (fast), so they're
    already recessed as the tape lifts away. Same specificity as the .loaded rule
    above but placed after it, so it wins at the very start of the eject. */
 .amp-cassette-window.ejecting .amp-tape-center .amp-tape-guide,
 .amp-cassette-window.ejecting .amp-tape-center .amp-tape-head {
-	transform: translateY(4px) scaleY(0.42);
-	filter: brightness(0.5);
+	transform: translateY(3px) scaleY(0.4);
+	filter: brightness(0.55);
 	box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.85);
 	transition: transform 0.16s ease-in, filter 0.16s ease-in, box-shadow 0.16s ease-in;
 }
@@ -7601,20 +7766,20 @@ textarea {
 .amp-tape-guide {
 	width: 4px;
 	height: 28px;
-	/* Unloaded: reads as the recessed background so the empty slot shows nothing
-	   through the (absent) shell hole. On lock-in the .loaded rule below swaps this
-	   to the metallic capstan colour; eject reverses it. */
-	background: linear-gradient(to bottom, var(--bg2), var(--bg));
+	/* Solid brushed-grey metal capstan at ALL times (never the chassis colour) —
+	   top-lit so it reads as a real machined pin. Recessed vs proud is conveyed by
+	   shading + scale below, not by swapping the fill. */
+	background: linear-gradient(to bottom, #c4c8cf 0%, #9a9ea7 42%, #6a6e77 100%);
 	border-radius: 2px;
-	transition: opacity 0.3s, background 0.4s ease;
+	transition: opacity 0.3s;
 }
 .amp-tape-head {
 	width: 10px;
 	height: 20px;
-	background: linear-gradient(to bottom, var(--bg2), var(--bg));
+	background: linear-gradient(to bottom, #c4c8cf 0%, #9a9ea7 42%, #6a6e77 100%);
 	border-radius: 2px;
-	border: 1px solid var(--border);
-	transition: opacity 0.3s, background 0.4s ease;
+	border: 1px solid #565a63;
+	transition: opacity 0.3s;
 }
 /* Capstan/head sockets: a dark recessed cutout punched through the graphite
    shell behind each centre element, rimmed to match the shell border, so the
@@ -7623,13 +7788,16 @@ textarea {
 .amp-tape-guide,
 .amp-tape-head {
 	position: relative;
-	/* Recessed by default: the capstan/guides sit sunk down flush into their
-	   sockets (dropped + foreshortened + darkened) so an empty slot reads as bare
-	   holes until a tape locks in and lifts them proud. */
-	transform: translateY(4px) scaleY(0.42);
-	filter: brightness(0.5);
+	/* Recessed by default: the grey pin sits sunk flush down in its socket —
+	   short (grown from the base), dimmed into shadow, with a dark inner-bottom
+	   shade and NO cast shadow (nothing standing proud). It grows UPWARD out of
+	   the socket when a tape seats (origin bottom), so the .loaded rule reads as
+	   the pin extending toward you, not merely brightening in place. */
+	transform-origin: bottom center;
+	transform: translateY(3px) scaleY(0.4);
+	filter: brightness(0.55);
 	box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.85);
-	transition: opacity 0.3s, background 0.4s ease, transform 0.35s ease, box-shadow 0.35s ease, filter 0.35s ease;
+	transition: opacity 0.3s, transform 0.35s ease, box-shadow 0.35s ease, filter 0.35s ease;
 }
 .amp-tape-guide::before,
 .amp-tape-head::before {

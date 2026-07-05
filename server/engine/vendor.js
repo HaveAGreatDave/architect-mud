@@ -171,16 +171,18 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
 // discount buy applies, but here friendly rep pays *more* (1+discount) and hostile
 // rep pays less. Floored at 1. Single source of truth for the sell price so the
 // panel preview and the actual sale can't drift.
-export function computeSellUnitPrice(value, statCool, discount = 0) {
+export function computeSellUnitPrice(value, statCool, discount = 0, { potency = 1, drugBuyer = false } = {}) {
   const coolMult = 1 + (statCool || 0) * 0.05;
-  return Math.max(1, Math.floor((value || 0) * 0.4 * coolMult * (1 + discount)));
+  const rate = drugBuyer ? 0.7 : 0.4;                              // an underworld drug-buyer pays a premium; a legit vendor pays the flat 40%
+  const pot = Math.min(3, Math.max(0.1, Number(potency) || 1));    // strength scales the payout — a great cook is worth more than a botch
+  return Math.max(1, Math.floor((value || 0) * rate * pot * coolMult * (1 + discount)));
 }
 
 // List the player's sellable items (excludes equipped + quest items), each with the
 // sell price this vendor would pay. Drives the GUI shop's Sell tab.
 export async function getSellableInventory(player, npc) {
   const { rows } = await query(
-    `SELECT pi.id, pi.quantity, i.name, i.value, i.tags, i.description, i.weight, p.stat_cool
+    `SELECT pi.id, pi.quantity, pi.custom_data, i.name, i.value, i.tags, i.description, i.weight, p.stat_cool
      FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
      JOIN players p ON p.id = pi.player_id
@@ -188,16 +190,20 @@ export async function getSellableInventory(player, npc) {
     [player.id]
   );
   const discount = npc.faction ? await getFactionDiscount(player.id, npc.faction) : 0;
+  const isDrugBuyer = !!npc.flags?.drug_buyer;
   return rows
     .filter(r => !r.tags?.quest_item)
-    .map(r => ({
-      inventory_id: r.id,
-      name: r.name,
-      quantity: r.quantity,
-      description: r.tags?.description ?? r.description ?? '',
-      weight: r.weight,
-      price: computeSellUnitPrice(r.value, r.stat_cool, discount),
-    }));
+    .map(r => {
+      const cd = typeof r.custom_data === 'string' ? (() => { try { return JSON.parse(r.custom_data); } catch { return {}; } })() : (r.custom_data || {});
+      return {
+        inventory_id: r.id,
+        name: r.name,
+        quantity: r.quantity,
+        description: r.tags?.description ?? r.description ?? '',
+        weight: r.weight,
+        price: computeSellUnitPrice(r.value, r.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: isDrugBuyer && !!r.tags?.drug }),
+      };
+    });
 }
 
 export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
@@ -220,7 +226,8 @@ export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
 
   const sellQty = Math.min(quantity, invItem.quantity);
   const discount = npc.faction ? await getFactionDiscount(player.id, npc.faction) : 0;
-  const sellPrice = computeSellUnitPrice(invItem.value, invItem.stat_cool, discount) * sellQty;
+  const cd = typeof invItem.custom_data === 'string' ? (() => { try { return JSON.parse(invItem.custom_data); } catch { return {}; } })() : (invItem.custom_data || {});
+  const sellPrice = computeSellUnitPrice(invItem.value, invItem.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: !!npc.flags?.drug_buyer && !!invItem.tags?.drug }) * sellQty;
 
   // Pay out and remove the sold item together, so a crash can't credit the
   // player while leaving the item in their inventory (or vice versa).

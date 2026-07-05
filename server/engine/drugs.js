@@ -80,7 +80,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
 
   // Synthesis potency: a cooked drug carries a strength multiplier (custom_data.
   // potency) that scales its effects AND its overdose weight. 1 = stock strength.
-  const potencyMult = Math.max(0.1, Number(opts.potencyMult) || 1);
+  const potencyMult = Math.min(3, Math.max(0.1, Number(opts.potencyMult) || 1)); // clamp both ends — a stray custom_data.potency can't scale effects without limit
 
   // Inline drug: a spliced compound carries its whole composed effects blob on
   // the inventory item (custom_data.effects) rather than a DB drugs row. When
@@ -171,7 +171,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
       return { success: true, overdose_death: true, message: `${message}\n<span class="overdose-warning">⚠ ${odMsg}</span>` };
     }
     // Non-lethal overdose: burst of penalty (legacy behaviour + new overdose.mods).
-    const odEffects = drug.withdrawal_effects?.overdose || eff.overdose?.mods || {};
+    const odEffects = eff.overdose?.mods || drug.withdrawal_effects?.overdose || {}; // structured editor (effects.overdose.mods) is canonical; withdrawal_effects.overdose is legacy fallback
     return applyEffects(player, { ...scaleInstant(instant, potencyMult), ...odEffects, overdose: true }, `${message}\n<span class="overdose-warning">⚠ You've taken too much, too fast. Your body revolts.</span>`, diuretic);
   }
 
@@ -380,4 +380,18 @@ export async function tickDrugDecay(playerId) {
 export async function getPlayerDrugState(playerId) {
   const { rows } = await query('SELECT * FROM player_drug_state WHERE player_id=$1', [playerId]);
   return rows;
+}
+
+// Wipe the player's ACTIVE drug state on death: reverse every timed drug/withdrawal
+// buff (so the body resets to true base — no full-heal to a buffed cap, no free HP
+// loss on comedown), drop phased drugs, and clear doses-in-system + active windows
+// (so a respawn isn't left one dose from an instant re-overdose). Tolerance and
+// addiction persist — they're long-term, not an active-body state that a fresh clone
+// would shed. In-memory reversal is synchronous; the DB clear fires async.
+export function clearActiveDrugState(player) {
+  for (const source of Object.keys(player._modLedger || {}))
+    if (/^(drug|withdrawal):/.test(source)) reverseMods(player, source);
+  player.activeDrugs = [];
+  player._withdrawalActive?.clear?.();
+  query('UPDATE player_drug_state SET doses_in_system=0, active_until=0 WHERE player_id=$1', [player.id]).catch(() => {});
 }

@@ -89,6 +89,19 @@ export function openSpliceStages(opts) {
 // dispatch may call this to force-close on nav/logout
 export function closeSplice() { if (game && game.lab) game.lab.close(); }
 
+// Live risk readout on the SELECT screen, fed by the server's splice_preview.
+export function applySplicePreview(data) {
+  const s = STAGES.select;
+  if (!s || stage !== s || !s.risk) return;
+  if (!data || !data.ok) { s.risk.textContent = ''; return; }
+  const dw = data.doseWeight || 1;
+  const parts = [`difficulty ${data.difficulty} · counts as ${dw} dose${dw === 1 ? '' : 's'} (overdose at ${data.odThreshold})`];
+  if (data.instability >= 0.6) parts.push('⚠ HIGHLY UNSTABLE');
+  else if (data.instability > 0) parts.push(`instability ${Math.round(data.instability * 100)}%`);
+  for (const w of (data.warnings || [])) parts.push('⚠ ' + w);
+  s.risk.textContent = parts.join('\n');
+}
+
 function newSession(lab, mode) {
   return {
     lab, mode, closed: false,
@@ -398,9 +411,16 @@ STAGES.select = {
     this.clr = mkBtn('CLEAR', 'right:150px;bottom:44px', 'ghost');
     this.clr.onclick = () => { AX.click(); this.pkgs.forEach(p => p.inCradle = false); game.selected = []; this.sync(); };
     this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:1px;text-transform:uppercase;pointer-events:none;text-align:center;width:70%');
+    this.risk = mkEl('position:absolute;left:50%;top:58px;transform:translateX(-50%);color:#c9a06a;font-size:9px;letter-spacing:.5px;pointer-events:none;text-align:center;width:80%;white-space:pre-line;line-height:1.5');
   },
   sync() { const n = game.selected.length; this.splice.disabled = n < 2;
     this.hint.textContent = n ? `${game.selected[0].name} base${n > 1 ? ` · ${n - 1} graft${n - 1 === 1 ? '' : 's'}` : ''} — ${n >= 2 ? 'press SPLICE ▶ (or SPACE)' : 'drop one more'}` : 'drag two+ drugs into the cradle · tap to read · C clears';
+    // Live risk telegraph before you commit — server's authoritative composeSplice math.
+    if (game.mode !== 'test' && n >= 2) {
+      const base = game.selected[0].drug, grafts = [];
+      for (let i = 1; i < n; i++) for (const blk of Object.keys(game.selected[i].blocks || {})) grafts.push({ drug: game.selected[i].drug, block: blk });
+      sendCmdSilent('splicepreview ' + b64({ base, grafts }));
+    } else if (this.risk) this.risk.textContent = '';
   },
   commit() {
     const sel = game.selected.slice();

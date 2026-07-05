@@ -3,6 +3,7 @@
 // exercise the gated no-mutation paths across every submodule (verbs route, gate
 // correctly, and delegate to the shadowed owner off-context) plus pure helpers.
 import { _test } from './index.js';
+import { withinShift, pilotTarget, stepToward, charterCost } from './charter.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -21,6 +22,29 @@ export default async function regress({ run, check, getPlayer }) {
   const high = { type: { noise: 3, engines: 4, max_takeoff_weight: 1400 }, row: { throttle: 60, altitude_band: 'high' } };
   check('a big loud craft is heard farther than an ultralight', _test.noiseReach(loud) > _test.noiseReach(quiet), `${_test.noiseReach(loud)} vs ${_test.noiseReach(quiet)}`);
   check('high flight is inaudible from the ground', _test.noiseReach(high) === 0, String(_test.noiseReach(high)));
+
+  // ── Charter lifecycle cores (pure; content-independent state machine) ────────
+  check('shift wraps midnight: 16:00 start covers 20:00', withinShift(16, 20) === true);
+  check('shift wraps midnight: 16:00 start excludes 08:00', withinShift(16, 8) === false);
+  check('graveyard 00:00 start covers 04:00', withinShift(0, 4) === true);
+  check('graveyard 00:00 start excludes 23:00', withinShift(0, 23) === false);
+  check('shift end is exclusive at +8h', withinShift(8, 16) === false && withinShift(8, 15) === true);
+
+  const T = (o) => pilotTarget({ field: 'F', home: 'H', ...o });
+  check('free + on-shift + hangar → sits inside the hangar', T({ onShift: true, interior: 'I' }) === 'I');
+  check('free + on-shift + no hangar → the field tile', T({ onShift: true, interior: null }) === 'F');
+  check('free + off-shift → home', T({ onShift: false, interior: 'I' }) === 'H');
+  check('flying a run (enroute) → home', T({ busyPhase: 'enroute', onShift: true, interior: 'I' }) === 'H');
+  check('deadheading back (returning) → home', T({ busyPhase: 'returning', interior: 'I' }) === 'H');
+  check('readying on the ramp (boarding) → the field tile', T({ busyPhase: 'boarding', interior: 'I' }) === 'F');
+  check('picking a destination (choosing) → the field tile', T({ busyPhase: 'choosing', interior: 'I' }) === 'F');
+
+  const near = stepToward(0, 0, 1, 1, 2);
+  check('autoflight snaps to target within a cruise step', near.arrived === true && near.fx === 1 && near.fy === 1);
+  const far = stepToward(0, 0, 10, 0, 2);
+  check('autoflight advances one cruise step when far', far.arrived === false && Math.abs(far.fx - 2) < 1e-9 && far.fy === 0);
+  check('autoflight reports the remaining distance', Math.abs(far.d - 10) < 1e-9);
+  check('charter costs 10x hourly with a 200c floor', charterCost({ price_rent_hourly: 50 }) === 500 && charterCost({ price_rent_hourly: 5 }) === 200);
 
   const savedPosture = p.posture, savedCombat = p.npcCombatTargetId, savedAc = p.aircraftId;
   p.posture = 'standing'; p.npcCombatTargetId = null; delete p.aircraftId; delete p.seat;
@@ -54,6 +78,7 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('salvage'); check('salvage with no wreck reports it', /no wreck/i.test(r?.message || ''), r?.message);
   r = await run('modify'); check('modify requires an owned aircraft', /own|no aircraft of your own/i.test(r?.message || ''), r?.message);
   r = await run('flyto 1'); check('flyto with no charter reports it', /not waiting|charter destination/i.test(r?.message || ''), r?.message);
+  r = await run('cancel'); check('cancel with no charter is a clean no-op (falls through)', !/called off|refunded/i.test(r?.message || ''), r?.message);
   r = await run('testfly dragonfly'); check('testfly is admin-gated', /access denied/i.test(r?.message || ''), r?.message);
 
   // ── Collision routers fall through / delegate off-context ───────────────────

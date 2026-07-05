@@ -233,6 +233,23 @@ slam the hatch — `breakOffAttackers` drops every enemy `targetId` / NPC
 `_combatTargetId` locked on you and clears your combat state (6 s disengage grace),
 so **everything attacking you breaks off**. (Out of combat, boarding is free.)
 
+**Walk-in hangars** — every airfield has an enterable **hangar interior** off its
+exterior ramp tile: `look` at a field shows a clickable **`in`** ("step inside"),
+`out` returns. The interior carries `flags.hangar_interior + is_interior` (engine
+indoor contract; **never** `airfield_id`, so no airfield scan treats it as a flyable
+field) and `flags.hangar_ramp` pointing back to the ramp; the ramp carries
+`flags.hangar_interior_zone`. A single resolver **`fieldFor(player)`** (`state.js`)
+returns the exterior ramp whether you stand on it or inside its hangar, so **every
+service works from inside too** (hangar/repair/rebuild/tune/modify, buy/rent,
+charter, contracts — all four `fieldOf` copies now import `fieldFor`) and everything
+always parks/transacts against the ramp (aircraft never leave the `map_world` grid).
+The three **charter pilots sit at the ops desk inside** their hangar while on shift
+(`syncPilots` seats them via `setPosture(...,'sitting')`, `forceStand` on any move
+out); `inHangar` counts a pilot present at the ramp **or** the interior. Chartering
+from inside readies the plane on the ramp and tells you to step `out` and `embark`
+there. Content: `scripts/seed-hangar-interiors.js` (all 6 fields; idempotent).
+Room text: `describeAirfield`/`describeHangarInterior` share a `serviceBits` builder.
+
 **Phase D — ownership** (`hangars.js`). `hangar rent/store/pull` (stored = theft-
 proof; an owned craft on an open ramp can be stolen — grand theft, +3 stars);
 `repair` (Fabrication + credits); `salvage` a wreck for scrap; `rebuild` a Carcass
@@ -272,7 +289,11 @@ full map** (`flight_pick_dest` → `armMapPick` → `flyto`). A charter aircraft
 within **2 min** the pilot gives up and the craft despawns; orphaned charter rows are
 swept on plugin load.
 The pilot does everything (a server-driven autoflight tick, no minigames — the
-main physics tick skips `live.charter` craft); you have **no controls**. On arrival
+main physics tick skips `live.charter` craft); you have **no controls**. The pilot
+**rides along as a real aircraft occupant** — `boardPilot` puts the NPC in
+`live.occupants` and pulls them out of the world at departure (so bystanders see
+them leave with the plane; the engine `npc._aboard` guard in `gameLoop` freezes
+their AI), and `disembarkPilot` sets them back down at the home field on the return. On arrival
 they set you down and tell you to `disembark`; if you don't within **20 s** they put
 you out automatically, then the craft despawns and the pilot frees up. Payment is
 taken on departure; can't-afford cleanly cancels. **Admin:** `.testfly <type>`

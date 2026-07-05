@@ -21,7 +21,7 @@ import {
   pushHud, out, toOccupants, detach, takeoffDifficulty, landDifficulty,
   parkAt, crash, setHeading, getZone, getLivePlayer, sendToZone, sendToPlayer, setPosture,
   advance, initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
-  ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg,
+  ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme,
 } from './state.js';
 import { rollHazards, commands as hazardCommands } from './hazards.js';
 import { commands as acquisitionCommands, refuelAt, fieldStocks } from './acquisition.js';
@@ -77,9 +77,10 @@ async function cmdBoard(args, raw, player, broadcast) {
   if (player.aircraftId) return { type: 'emote', message: "You're already aboard." };
 
   // A chartered aircraft parked here → board as a passenger (the NPC pilot flies
-  // it). Gated on the pilot being aboard; without one the craft is locked.
+  // it). Only the player who chartered it may board; anyone else falls through to
+  // normal boarding (the reserved charter stays invisible to them).
   const parkedCharter = charterParkedAt(player.current_zone);
-  if (parkedCharter) {
+  if (parkedCharter && (!parkedCharter.chartererId || parkedCharter.chartererId === player.id)) {
     if ((player.posture || 'standing') !== 'standing')
       return { type: 'emote', message: 'You need to be on your feet to climb aboard.' };
     return embarkCharter(player, parkedCharter);
@@ -286,6 +287,7 @@ async function cmdTakeoff(args, raw, player, broadcast) {
   sendToPlayer(player.id, {
     type: 'flight_takeoff', token, vtol: isVtol,
     skill: await effectiveSkill(player, 'piloting'), difficulty: takeoffDifficulty(live), deviceName: live.type.name,
+    airport: groundTheme(zone),
   });
   broadcast(live.row.parked_zone_id, { type: 'zone_event', message: `The ${live.type.name} runs up its engine and ${isVtol ? 'lifts on its rotors' : 'begins its takeoff roll'}.` }, player.id);
   return { type: 'emote', message: isVtol
@@ -309,6 +311,7 @@ async function cmdLand(args, raw, player, broadcast) {
   sendToPlayer(player.id, {
     type: 'flight_land', token, emergency, vtol: isVtol,
     skill: await effectiveSkill(player, 'piloting'), difficulty: landDifficulty(live, emergency), deviceName: field.name,
+    airport: groundTheme(field),
   });
   return { type: 'emote', message: emergency
     ? '<span class="text-red">DEAD STICK — you get one pass. Fly the glideslope down.</span>'
@@ -518,29 +521,55 @@ registerInputMatcher(/^(n|s|e|w|ne|nw|se|sw|north|south|east|west|northeast|nort
     return { type: 'emote', message: `Coming around to ${d.toUpperCase()}.` };
   }, 'flight');
 
-// ── Airfield services line ────────────────────────────────────────────────────
+// ── Airfield / hangar services ────────────────────────────────────────────────
+// A clickable command link, and the shared "Services:" line built from a field's
+// flags — used identically on the exterior ramp and inside the walk-in hangar so
+// the two can't drift.
+const svcLink = (cmd, label) => `<span class="action-link" data-action="cmd" data-cmd="${cmd}" title="${label}">${label}</span>`;
+function serviceBits(field) {
+  const f = field.flags || {};
+  const bits = [svcLink('hangar', 'hangar')];
+  const stocks = fieldStocks(field);
+  if (stocks.length) bits.push(`${svcLink('refuel', 'refuel')} <span class="text-dim">(${stocks.join('/')})</span>`);
+  if (f.airfield_dealer) bits.push(svcLink('buy', 'buy'));
+  if (f.airfield_charter) bits.push(svcLink('rent', 'rent'), svcLink('charter', 'charter'));
+  return `<span class="furniture-label">Services:</span> ${bits.join('   ·   ')}`;
+}
+
+// Inside a walk-in hangar: the same services (they resolve to the ramp via
+// fieldFor), a way `out` to the aircraft on the ramp, and — when one's on shift —
+// the charter pilot at their desk. Embarking always happens outside on the ramp.
+function describeHangarInterior(zone) {
+  const ramp = getZone(zone.flags.hangar_ramp);
+  if (!ramp) return `<span class="furniture-label">Hangar:</span> ${svcLink('out', 'out')} <span class="text-dim">back out to the ramp</span>`;
+  let line = `${serviceBits(ramp)}\n<span class="furniture-label">Ramp:</span> ${svcLink('out', 'out')} <span class="text-dim">step out to the aircraft on the ramp (embark there)</span>`;
+  const pilot = getZoneNpcs(zone.id).find(n => n?.flags?.charter_pilot);
+  if (pilot) line += `\n<span class="text-dim">${pilot.name} sits at the ops desk, feet up, a mug going cold on the console.</span>`;
+  return line;
+}
+
 // Fires unconditionally per zone (unlike zone.furniturePanel, which only fires
 // when the zone has furniture rows) — several airfields have none, so this is
 // the only reliable way to surface "there's a hangar here" at every field.
 async function describeAirfield(zone) {
+  if (zone?.flags?.hangar_interior) return describeHangarInterior(zone);
   if (!zone?.flags?.airfield_id) return undefined;
   const f = zone.flags;
-  const link = (cmd, label) => `<span class="action-link" data-action="cmd" data-cmd="${cmd}" title="${label}">${label}</span>`;
-  const bits = [link('hangar', 'hangar')];
-  const stocks = fieldStocks(zone);
-  if (stocks.length) bits.push(`${link('refuel', 'refuel')} <span class="text-dim">(${stocks.join('/')})</span>`);
-  if (f.airfield_dealer) bits.push(link('buy', 'buy'));
-  if (f.airfield_charter) bits.push(link('rent', 'rent'), link('charter', 'charter'));
-  let line = `<span class="furniture-label">Services:</span> ${bits.join('   ·   ')}`;
+  let line = serviceBits(zone);
+  // The walk-in hangar entrance, if this field has one.
+  if (f.hangar_interior_zone) line += `\n<span class="furniture-label">Hangar:</span> ${svcLink('in', 'step inside')} <span class="text-dim">the hangar office — desk, tools, the charter pilot — is through the bay doors</span>`;
   // If there's a boardable aircraft parked here, offer a one-click embark.
   const { rows } = await query(
     "SELECT name FROM aircraft WHERE parked_zone_id=$1 AND is_wreck=0 AND (custom_data->>'charter') IS DISTINCT FROM 'true' LIMIT 1",
     [zone.id]
   ).catch(() => ({ rows: [] }));
-  if (rows.length) line += `\n<span class="furniture-label">On the ramp:</span> ${link('embark', 'embark')} <span class="text-dim">an aircraft is parked here</span>`;
-  // A chartered aircraft waiting for its passenger — pilot aboard, ready to board.
+  if (rows.length) line += `\n<span class="furniture-label">On the ramp:</span> ${svcLink('embark', 'embark')} <span class="text-dim">an aircraft is parked here</span>`;
+  // A chartered aircraft waiting for its passenger — held for whoever chartered it.
   const ch = charterParkedAt(zone.id);
-  if (ch) line += `\n<span class="furniture-label">Charter waiting:</span> ${link('embark', 'embark')} <span class="text-dim">${ch.pilotName}'s aircraft is on the ramp, pilot aboard</span>`;
+  if (ch) {
+    const who = getLivePlayer(ch.chartererId)?.handle;
+    line += `\n<span class="furniture-label">Charter waiting:</span> ${svcLink('embark', 'embark')} <span class="text-dim">${ch.pilotName}'s aircraft is on the ramp${who ? `, held for ${who}` : ''}</span>`;
+  }
   return line;
 }
 

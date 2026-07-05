@@ -29,7 +29,7 @@
  * black-market branch — so street dealing is the on-ramp to drug manufacture.
  */
 import { randomUUID } from 'crypto';
-import { query } from '../../server/models/db.js';
+import { query, withTransaction } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
@@ -47,9 +47,10 @@ const MARKUP = 2;                            // order cost = raw value × MARKUP
 const MAX_QTY = 10;
 const HEAT_MS = 45_000;                      // a botched checkpoint keeps the guards watching you this long
 const TRUST_FLAG = 'bm_trust';               // player's standing with the fence — gates his order menu (dialogue conditions)
-const TRUST_PER_SHIPMENT = 1;                // +standing per crate actually picked up (unpacked)
+const DELIVERY_COOLDOWN_MS = 2 * 60_000;     // standing/XP awarded at most once per this window — no back-and-forth checkpoint farming
 
 const heat = new Map();                      // playerId → epoch ms the checkpoint stays hot (transient; fine to lose on restart)
+const delivered = new Map();                 // playerId → epoch ms a successful raw run last paid out (anti-farm cooldown)
 
 // ── placing an order (shared by the dialogue action) ──────────────────────────
 // Debits credits and books a MULE drop. Server-authoritative: re-reads the raw's
@@ -61,11 +62,24 @@ async function placeOrder(player, itemId, qty, vendorId) {
   const item = rows[0];
   qty = Math.max(1, Math.min(MAX_QTY, Number(qty) || 1));
   const cost = Math.max(1, Math.round((item.value || 1) * MARKUP)) * qty;
-  if (!await adjustCredits(player, -cost)) return { ok: false, reason: 'broke', cost };
-  await query(
-    `INSERT INTO smuggle_orders (id, player_id, item_id, item_name, qty, drop_zone, deliver_at, status, vendor_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8)`,
-    [randomUUID(), player.id, item.id, item.name, qty, DROP_ZONE, Date.now() + DELIVERY_MS, vendorId || null]);
+  // Debit + book the order atomically: if the INSERT fails (e.g. the table isn't
+  // migrated yet) the credit charge rolls back too — no eating the player's money
+  // for an order that never lands.
+  const before = player.credits;
+  try {
+    await withTransaction(async (q) => {
+      if (!await adjustCredits(player, -cost, q)) throw new Error('broke');
+      await q(
+        `INSERT INTO smuggle_orders (id, player_id, item_id, item_name, qty, drop_zone, deliver_at, status, vendor_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8)`,
+        [randomUUID(), player.id, item.id, item.name, qty, DROP_ZONE, Date.now() + DELIVERY_MS, vendorId || null]);
+    });
+  } catch (e) {
+    player.credits = before; // tx rolled back — undo the in-memory debit adjustCredits applied
+    if (e.message === 'broke') return { ok: false, reason: 'broke', cost };
+    console.error('[smuggle] order failed, credits refunded:', e.message);
+    return { ok: false, reason: 'error', cost };
+  }
   return { ok: true, cost, name: item.name, qty };
 }
 
@@ -136,12 +150,9 @@ async function unpack(args, raw, player) {
   await query(`DELETE FROM player_inventory WHERE id=$1`, [crate.id]);
   if (cd.orderId) await query(`UPDATE smuggle_orders SET status='collected' WHERE id=$1`, [cd.orderId]).catch(() => {});
 
-  const next = (Number(await getFlag('player', TRUST_FLAG, player)) || 0) + TRUST_PER_SHIPMENT;
-  await setFlag('player', TRUST_FLAG, String(next), player);
-
   return {
     type: 'use',
-    message: `<span class="ambient">You crack the MULE crate open, transfer <b>${qty}× ${rawName}</b> into your kit and boot the empty shell off the pad. A clean pickup — word gets back to your fence.</span>\n<span class="text-dim">Black-market standing: ${next}.</span>`,
+    message: `<span class="ambient">You crack the MULE crate open, transfer <b>${qty}× ${rawName}</b> into your kit and boot the empty shell off the pad. Now get it home past the checkpoint — <b>that's</b> the run that earns your standing with the fence.</span>`,
   };
 }
 
@@ -171,8 +182,19 @@ registerMoveGate(async ({ player, to }) => {
   const diff = 3 + tier;                                   // tier 1 → 4 (easy), tier 5 → 8 (hard)
   const chk = await skillCheck(player, 'deception', diff);
   if (chk.success) {
-    await awardSkillUse(player.id, 'deception', chk.margin);
-    sendToPlayer(player.id, { type: 'output', message: `<span class="ambient">You keep your hands loose and your face bored. The scanner blinks green; the guard waves you through.</span>` });
+    const now = Date.now();
+    if (now >= (delivered.get(player.id) || 0)) {
+      // A genuine run into the city — pay standing (weighted by the raw's tier) +
+      // Deception XP, then start a cooldown so pacing back and forth can't farm it.
+      delivered.set(player.id, now + DELIVERY_COOLDOWN_MS);
+      await awardSkillUse(player.id, 'deception', chk.margin);
+      const gain = tier;
+      const next = (Number(await getFlag('player', TRUST_FLAG, player)) || 0) + gain;
+      await setFlag('player', TRUST_FLAG, String(next), player);
+      sendToPlayer(player.id, { type: 'output', message: `<span class="ambient">You keep your hands loose and your face bored. The scanner blinks green; the guard waves you through — and you're in with the goods.</span>\n<span class="text-dim">A clean delivery. Your fence hears about it. (standing +${gain} → ${next})</span>` });
+    } else {
+      sendToPlayer(player.id, { type: 'output', message: `<span class="ambient">You keep your hands loose and your face bored. The scanner blinks green; the guard waves you through.</span>` });
+    }
     return;                                                // pass
   }
 

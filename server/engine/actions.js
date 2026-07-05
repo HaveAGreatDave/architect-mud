@@ -51,6 +51,12 @@ registerAction({
   type: 'TAKE',
   handler: async ({ actor, params, context, emit }) => {
     const { row } = params;
+    // Owner-locked items (custom_data.ownerId — e.g. a cipher-locked MULE crate)
+    // can only be picked up by their owner; nobody else can pinch them off the ground.
+    const cd = typeof row.custom_data === 'string' ? (() => { try { return JSON.parse(row.custom_data); } catch { return {}; } })() : (row.custom_data || {});
+    if (cd.ownerId && cd.ownerId !== actor.id) {
+      return { type: 'error', message: `The ${row.name} is cipher-locked to someone else — it won't come with you.` };
+    }
     await inv.pickUp(row, actor);
     const displayName = row.name;
     const article = /^[aeiou]/i.test(displayName) ? 'an' : 'a';

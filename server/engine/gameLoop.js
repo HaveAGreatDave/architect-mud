@@ -15,7 +15,7 @@ import { setPosture, forceStand } from './posture.js';
 import { carryCapacity } from './commands/inventory.js';
 import { query, logActivity } from '../models/db.js';
 import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, recordLightningKill, getZoneStormIntensity } from './environment.js';
-import { tickDrugDecay, tickDrugs, tickWithdrawal } from './drugs.js';
+import { tickDrugDecay, tickDrugs, tickWithdrawal, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
 
 // HP restored per sitting tick (every 15 seconds)
@@ -58,6 +58,7 @@ async function forceNpcWorkRecheck() {
   try {
     for (const [, npc] of world.npcs) {
       if (npc._dead) continue;
+      if (npc._aboard) continue;   // riding aboard a vehicle (e.g. a charter pilot) — frozen
       const ai = npc._ai;
       if (!ai || !npc.behaviour_graph?._start) continue;
       ai.waitUntil = null; // drop any pending WAIT (work-wait, have-life, or sleep)
@@ -423,6 +424,11 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   const { corpseId, corpseName } = respawnOverride
     ? { corpseId: null, corpseName: null }
     : await spawnPlayerCorpse(player, deathZone);
+
+  // Shed active drug state BEFORE the restore: reverse every timed buff (so hp_max
+  // is the true base, not a drug-inflated cap), drop phased drugs, and clear
+  // doses-in-system (so a fresh clone isn't one dose from an instant re-overdose).
+  clearActiveDrugState(player);
 
   // Full restore on respawn — you come out of the vat whole, not wounded.
   // Skills/rank/xp live in a separate table untouched by any of this, so
@@ -950,6 +956,10 @@ async function npcWanderTick() {
       }
       continue;
     }
+
+    // Frozen while riding aboard a vehicle (e.g. a charter pilot flying a run) —
+    // no AI, no wander; the plugin restores them to the world when they land.
+    if (npc._aboard) continue;
 
     // Self-heal: legacy autonomous NPCs (vendor/employed/unemployed/actor) seeded
     // without a graph get their type default so they tick on VINE instead of the

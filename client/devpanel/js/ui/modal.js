@@ -1,6 +1,19 @@
 function openSettingsPanel() {
   document.getElementById('settings-overlay').classList.add('active');
   applyDevSettings();
+  snapshotDevSettings();
+}
+// Close via the X / backdrop: settings apply live, so "unsaved" means the panel
+// state differs from the snapshot taken on open. Save keeps the live changes;
+// Cancel Changes reverts to that snapshot. Both close the window.
+async function attemptCloseSettings() {
+  if (devSettingsChanged()) {
+    const save = await dpConfirm('You have unsaved changes to your settings.', {
+      title: 'Settings', okLabel: 'Save', cancelLabel: 'Cancel Changes',
+    });
+    if (!save) revertDevSettings();
+  }
+  closeSettingsPanel();
 }
 function closeSettingsPanel() {
   if (devSettings._contrastPreview != null) {
@@ -52,7 +65,7 @@ function toast(msg, isError = false) {
 // Promise-based, themed replacements for the native browser dialogs. Callers
 // `await` them: dpConfirm → bool, dpPrompt → string|null (null on cancel),
 // dpAlert → void. Only one shows at a time. Enter = OK, Escape/backdrop = cancel.
-function _dpDialog({ title, message, kind, defaultValue, okLabel, danger }) {
+function _dpDialog({ title, message, kind, defaultValue, okLabel, cancelLabel, danger }) {
   return new Promise((resolve) => {
     document.getElementById('dp-dialog')?.remove();
     const isPrompt = kind === 'prompt';
@@ -66,13 +79,15 @@ function _dpDialog({ title, message, kind, defaultValue, okLabel, danger }) {
         <div class="dp-dialog-msg"></div>
         ${isPrompt ? '<input class="dp-dialog-input" type="text">' : ''}
         <div class="dp-dialog-actions">
-          ${isAlert ? '' : '<button class="dp-dialog-cancel">Cancel</button>'}
+          ${isAlert ? '' : '<button class="dp-dialog-cancel"></button>'}
           <button class="dp-dialog-ok${danger ? ' danger' : ''}"></button>
         </div>
       </div>`;
     overlay.querySelector('.dp-dialog-title').textContent = title;
     overlay.querySelector('.dp-dialog-msg').textContent = message || '';
     overlay.querySelector('.dp-dialog-ok').textContent = okLabel || 'OK';
+    const cancelBtn = overlay.querySelector('.dp-dialog-cancel');
+    if (cancelBtn) cancelBtn.textContent = cancelLabel || 'Cancel';
     document.body.appendChild(overlay);
 
     const input = overlay.querySelector('.dp-dialog-input');
@@ -98,7 +113,7 @@ function _dpDialog({ title, message, kind, defaultValue, okLabel, danger }) {
 }
 
 function dpConfirm(message, opts = {}) {
-  return _dpDialog({ kind: 'confirm', message, title: opts.title || 'Confirm', okLabel: opts.okLabel || 'OK', danger: opts.danger });
+  return _dpDialog({ kind: 'confirm', message, title: opts.title || 'Confirm', okLabel: opts.okLabel || 'OK', cancelLabel: opts.cancelLabel, danger: opts.danger });
 }
 function dpPrompt(message, defaultValue = '', opts = {}) {
   return _dpDialog({ kind: 'prompt', message, defaultValue, title: opts.title || 'Input', okLabel: opts.okLabel || 'OK' });

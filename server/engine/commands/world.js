@@ -12,6 +12,7 @@ import { ensureTunables } from '../tunables.js';
 import { physicalDescription } from '../appearance.js';
 import { isMisActive } from '../mis.js';
 import { availableActions } from '../specializedActions.js';
+import { genericFurnitureLinks } from '../furnitureActions.js';
 import { statusLabels } from '../effects.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 import { carryCapacity, formatWeight } from './inventory.js';
@@ -449,18 +450,20 @@ async function cmdExamine(targetStr, player, broadcast) {
         msg += `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'lit' : 'dark'} — city-grid controlled, no switch out here.</span>`;
       } else {
         msg += `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'on' : 'off'}.</span>`;
+        const acts = [];
         if (interactions.includes('switch')) {
           const n = f.name.toLowerCase();
           const stateDir = f.light_on ? 'off' : 'on';
-          const switchLink = `<span class="action-link" data-action="switch" data-target="${stateDir} ${n}">switch ${stateDir}</span>`;
-          const turnLink = `<span class="action-link" data-action="turn" data-target="${stateDir} ${n}">turn ${stateDir}</span>`;
-          msg += `\n<span class="text-dim">Actions:</span> ${switchLink}  ${turnLink}`;
+          acts.push(`<span class="action-link" data-action="switch" data-target="${stateDir} ${n}">switch ${stateDir}</span>`);
+          acts.push(`<span class="action-link" data-action="turn" data-target="${stateDir} ${n}">turn ${stateDir}</span>`);
         }
+        acts.push(...genericFurnitureLinks(f, ['switch', 'flip', 'turn']));
+        if (acts.length) msg += `\n<span class="text-dim">Actions:</span> ${acts.join('  ')}`;
       }
     } else if (f.object_type === 'container') {
       const n = f.name.toLowerCase();
-      const openLink = `<span class="action-link" data-action="open" data-target="${n}">open</span>`;
-      msg += `\n<span class="text-dim">Actions:</span> ${openLink}`;
+      const acts = [`<span class="action-link" data-action="open" data-target="${n}">open</span>`, ...genericFurnitureLinks(f, ['open'])];
+      msg += `\n<span class="text-dim">Actions:</span> ${acts.join('  ')}`;
     } else if (f.object_type === 'media_deck' || f.flags?.media_deck) {
       const flags = f.flags || {};
       const channelId = flags.channel_id;
@@ -540,7 +543,9 @@ async function cmdExamine(targetStr, player, broadcast) {
 
       const useLink  = `<span class="action-link" data-action="use" data-target="${f.name.toLowerCase()}">use</span>`;
       const ejectLink = deckActive ? `  <span class="action-link" data-action="eject" data-target="">eject</span>` : '';
-      msg += `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${liveDot}${loadDot}</span>\n${statusLine}${cassetteList}\n<span class="text-dim">Actions:</span> ${useLink}${ejectLink}`;
+      const deckExtra = genericFurnitureLinks(f, ['use', 'eject']);
+      const deckExtraStr = deckExtra.length ? `  ${deckExtra.join('  ')}` : '';
+      msg += `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${liveDot}${loadDot}</span>\n${statusLine}${cassetteList}\n<span class="text-dim">Actions:</span> ${useLink}${ejectLink}${deckExtraStr}`;
     } else if (f.object_type === 'broadcast_camera') {
       const flags = f.flags || {};
       const camId = flags.camera_id;
@@ -567,7 +572,8 @@ async function cmdExamine(targetStr, player, broadcast) {
             : `<span style="color:var(--border)">○ REC</span>`;
           camStatus = `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${streamDot}${recDot}</span>`;
           if (chLabel) camStatus += `\n<span style="color:var(--text-dim)">→ ${chLabel}</span>`;
-          camStatus += `\n<span class="action-link" data-action="record" data-target="${f.name.toLowerCase()}">record</span>  <span class="action-link" data-action="stream" data-target="${f.name.toLowerCase()}">stream</span>`;
+          const camExtra = genericFurnitureLinks(f, ['record', 'stream']);
+          camStatus += `\n<span class="action-link" data-action="record" data-target="${f.name.toLowerCase()}">record</span>  <span class="action-link" data-action="stream" data-target="${f.name.toLowerCase()}">stream</span>${camExtra.length ? `  ${camExtra.join('  ')}` : ''}`;
         }
       }
       msg += camStatus;
@@ -598,19 +604,14 @@ async function cmdExamine(targetStr, player, broadcast) {
                  : '<span style="color:var(--yellow)">No power</span>';
       const attackLink = `<span class="action-link" data-action="attack" data-target="${n}">attack</span>`;
       const repairLink = destroyed ? `  <span class="action-link" data-action="repair" data-target="${n}">repair</span>` : '';
-      msg += `\n<span class="text-dim">Status:</span> ${stateLbl} · integrity ${integrityPct}%\n<span class="text-dim">Actions:</span> ${attackLink}${repairLink}`;
+      const genExtra = genericFurnitureLinks(f, ['attack', 'repair']);
+      const genExtraStr = genExtra.length ? `  ${genExtra.join('  ')}` : '';
+      msg += `\n<span class="text-dim">Status:</span> ${stateLbl} · integrity ${integrityPct}%\n<span class="text-dim">Actions:</span> ${attackLink}${repairLink}${genExtraStr}`;
     } else {
-      // Generic furniture: posture interactions (sit/lie/lean → "on <name>")
-      // plus capability verbs gated on flat tags (read/drink → "<name>"),
-      // discovered from the specialized-action registry.
-      const n = f.name.toLowerCase();
-      const links = [
-        ...interactions.map(ix =>
-          `<span class="action-link" data-action="${ix}" data-target="on ${n}">${ix}</span>`),
-        ...availableActions(f)
-          .filter(v => !interactions.includes(v) && !['switch','flip','turn','open'].includes(v))
-          .map(v => `<span class="action-link" data-action="${v}" data-target="${n}">${v}</span>`),
-      ];
+      // Generic furniture: every affordance the piece declares, from one source
+      // of truth — flags.interactions (sit/lie/lean → "on <name>") plus the
+      // tag-gated specialized-action registry (read/drink → "<name>").
+      const links = genericFurnitureLinks(f);
       if (links.length) msg += `\n<span class="text-dim">Actions:</span> ${links.join('  ')}`;
     }
     return { type:'examine', message: msg };

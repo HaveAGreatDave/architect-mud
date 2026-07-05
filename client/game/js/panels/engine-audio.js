@@ -132,25 +132,49 @@ export function updateEngineAudio(s) {
 }
 
 // ── Per-class start-up spool + shutdown spool-down ────────────────────────────
+// A start-up is a little arc, not one tone: a starter bites, the core catches and
+// lights off, then the whole thing winds up to idle. `pitchBend` sweeps (exp toward
+// the target), staggered `delay`s sequence the phases, and a rising airflow hiss
+// rides on top. Each class gets its own character — jet/turbine whine, turboshaft
+// + rotor chop, a piston crank-and-catch, a two-stroke zip, a wreck's rough light.
 const SPOOL_UP = {
-  heli:    { duration: 1.8, layers: [
-    { waveform: 'triangle', freq: 16, pitchBend: { to: 78, time: 1.5 }, filter: { type: 'lowpass', freq: 420, q: 1 }, adsr: { a: 0.2, d: 1.3, s: 0.5, r: 0.3 }, gain: 0.14 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 300, q: 0.6 }, adsr: { a: 0.3, d: 1.2, s: 0.3, r: 0.3 }, gain: 0.06 } ] },
-  heavy:   { duration: 2.0, layers: [
-    { waveform: 'sawtooth', freq: 55, pitchBend: { to: 330, time: 1.8 }, filter: { type: 'lowpass', freq: 2400, q: 1.5 }, adsr: { a: 0.15, d: 1.6, s: 0.5, r: 0.3 }, gain: 0.12 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 900, q: 0.8 }, adsr: { a: 0.2, d: 1.6, s: 0.3, r: 0.3 }, gain: 0.05 } ] },
-  gunship: { duration: 1.7, layers: [
-    { waveform: 'square', freq: 70, pitchBend: { to: 400, time: 1.5 }, filter: { type: 'lowpass', freq: 2800, q: 1.5 }, adsr: { a: 0.1, d: 1.4, s: 0.5, r: 0.25 }, gain: 0.11 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 1100, q: 0.8 }, adsr: { a: 0.15, d: 1.4, s: 0.3, r: 0.25 }, gain: 0.05 } ] },
-  prop:    { duration: 1.3, layers: [
-    { waveform: 'sawtooth', freq: 24, pitchBend: { to: 120, time: 1.1 }, filter: { type: 'lowpass', freq: 700, q: 1 }, adsr: { a: 0.05, d: 1.0, s: 0.4, r: 0.25 }, gain: 0.13 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 260, q: 1 }, adsr: { a: 0.02, d: 0.9, s: 0.2, r: 0.2 }, gain: 0.06 } ] },
-  ultralight: { duration: 1.0, layers: [
-    { waveform: 'sawtooth', freq: 60, pitchBend: { to: 240, time: 0.9 }, filter: { type: 'lowpass', freq: 1200, q: 1 }, adsr: { a: 0.03, d: 0.8, s: 0.4, r: 0.2 }, gain: 0.11 } ] },
-  wreck:   { duration: 1.5, layers: [
-    { waveform: 'sawtooth', freq: 26, pitchBend: { to: 110, time: 1.2 }, filter: { type: 'lowpass', freq: 620, q: 1 }, adsr: { a: 0.05, d: 1.1, s: 0.3, r: 0.3 }, gain: 0.12 },
-    { waveform: 'square', freq: 55, pitchBend: { to: 44, time: 0.6 }, adsr: { a: 0.02, d: 0.5, s: 0, r: 0.2 }, gain: 0.06 },   // misfire cough
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 240, q: 1 }, adsr: { a: 0.02, d: 1.0, s: 0.2, r: 0.2 }, gain: 0.06 } ] },
+  // Big turbofan: slow, heavy N2 whine climbing under a bright N1 whine, a low core
+  // rumble, a light-off whoosh partway in, and swelling bypass airflow.
+  heavy:   { duration: 2.8, layers: [
+    { waveform: 'triangle', freq: 38,  pitchBend: { to: 520, time: 2.4 }, filter: { type: 'lowpass', freq: 2600, q: 1.4 }, adsr: { a: 0.25, d: 2.3, s: 0.5, r: 0.4 }, gain: 0.11 },   // N2 spool whine
+    { waveform: 'sine',     freq: 140, pitchBend: { to: 880, time: 2.5 }, filter: { type: 'bandpass', freq: 1600, q: 1.2 }, adsr: { a: 0.5, d: 2.2, s: 0.5, r: 0.4 }, gain: 0.05 },    // N1 fan whine
+    { waveform: 'sawtooth', freq: 28,  pitchBend: { to: 96, time: 2.0 }, filter: { type: 'lowpass', freq: 300, q: 1 }, adsr: { a: 0.3, d: 2.0, s: 0.6, r: 0.4 }, gain: 0.09 },        // core rumble
+    { waveform: 'noise', noiseMix: 1, delay: 0.7, filter: { type: 'bandpass', freq: 700, q: 0.5 }, adsr: { a: 0.12, d: 0.7, s: 0.2, r: 0.4 }, gain: 0.08 },                          // light-off whoosh
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 1400, q: 0.7 }, adsr: { a: 0.9, d: 1.8, s: 0.4, r: 0.4 }, gain: 0.04 } ] },                                   // bypass airflow
+  // Military turboshaft: quicker, harder, higher-pitched, with a bite of grit.
+  gunship: { duration: 2.1, layers: [
+    { waveform: 'triangle', freq: 60,  pitchBend: { to: 640, time: 1.7 }, filter: { type: 'lowpass', freq: 3000, q: 1.5 }, adsr: { a: 0.12, d: 1.7, s: 0.5, r: 0.3 }, gain: 0.10 },
+    { waveform: 'square',   freq: 44,  pitchBend: { to: 150, time: 1.5 }, filter: { type: 'lowpass', freq: 900, q: 1.2 }, adsr: { a: 0.14, d: 1.5, s: 0.55, r: 0.3 }, gain: 0.06 },   // aggressive core
+    { waveform: 'noise', noiseMix: 1, delay: 0.5, filter: { type: 'bandpass', freq: 1000, q: 0.6 }, adsr: { a: 0.08, d: 0.6, s: 0.2, r: 0.3 }, gain: 0.07 },                         // light-off
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 1500, q: 0.7 }, adsr: { a: 0.7, d: 1.4, s: 0.4, r: 0.3 }, gain: 0.04 } ] },
+  // Helicopter: turboshaft whine winding up, and a rotor chop that fades in as the
+  // blades come up to speed (steady thud via tremolo on a low-passed noise bed).
+  heli:    { duration: 2.4, layers: [
+    { waveform: 'triangle', freq: 30, pitchBend: { to: 340, time: 2.0 }, filter: { type: 'lowpass', freq: 900, q: 1.2 }, adsr: { a: 0.25, d: 2.0, s: 0.5, r: 0.4 }, gain: 0.11 },    // turbine whine
+    { waveform: 'sine',     freq: 18, pitchBend: { to: 72, time: 2.1 }, adsr: { a: 0.4, d: 2.0, s: 0.5, r: 0.4 }, gain: 0.05 },                                                       // spool sub
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 380, q: 0.8 }, tremolo: { rate: 9, depth: 0.85 }, adsr: { a: 1.2, d: 1.4, s: 0.5, r: 0.5 }, gain: 0.08 } ] },  // rotor chop rising
+  // Piston single: starter cranks (chugging square), the engine catches after a
+  // beat, then revs up with an exhaust bark.
+  prop:    { duration: 1.9, layers: [
+    { waveform: 'square',   freq: 34, tremolo: { rate: 7, depth: 0.8 }, filter: { type: 'lowpass', freq: 380, q: 1 }, adsr: { a: 0.03, d: 0.6, s: 0.2, r: 0.15 }, gain: 0.10 },       // starter crank
+    { waveform: 'sawtooth', freq: 26, pitchBend: { to: 150, time: 1.2 }, delay: 0.55, filter: { type: 'lowpass', freq: 800, q: 1 }, adsr: { a: 0.06, d: 1.1, s: 0.45, r: 0.25 }, gain: 0.12 },  // catch + rev
+    { waveform: 'noise', noiseMix: 1, delay: 0.5, filter: { type: 'bandpass', freq: 280, q: 1 }, adsr: { a: 0.05, d: 1.0, s: 0.3, r: 0.25 }, gain: 0.06 } ] },                        // exhaust
+  // Two-stroke ultralight: a quick, buzzy zip up to a high idle.
+  ultralight: { duration: 1.1, layers: [
+    { waveform: 'sawtooth', freq: 60, pitchBend: { to: 300, time: 0.9 }, tremolo: { rate: 11, depth: 0.35 }, filter: { type: 'lowpass', freq: 1400, q: 1 }, adsr: { a: 0.03, d: 0.9, s: 0.5, r: 0.2 }, gain: 0.11 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 1600, q: 0.7 }, adsr: { a: 0.1, d: 0.8, s: 0.3, r: 0.2 }, gain: 0.03 } ] },
+  // Salvaged wreck: it doesn't want to start — a couple of dead coughs, then a
+  // rough, uneven catch.
+  wreck:   { duration: 2.0, layers: [
+    { waveform: 'square', freq: 48, pitchBend: { to: 30, time: 0.4 }, adsr: { a: 0.02, d: 0.35, s: 0, r: 0.1 }, gain: 0.08 },                                                        // cough 1
+    { waveform: 'square', freq: 54, delay: 0.55, pitchBend: { to: 34, time: 0.4 }, adsr: { a: 0.02, d: 0.35, s: 0, r: 0.1 }, gain: 0.08 },                                           // cough 2
+    { waveform: 'sawtooth', freq: 24, delay: 1.0, pitchBend: { to: 118, time: 1.0 }, tremolo: { rate: 6, depth: 0.4 }, filter: { type: 'lowpass', freq: 600, q: 1 }, adsr: { a: 0.06, d: 0.9, s: 0.4, r: 0.3 }, gain: 0.11 },  // rough catch
+    { waveform: 'noise', noiseMix: 1, delay: 1.0, filter: { type: 'bandpass', freq: 240, q: 1 }, adsr: { a: 0.05, d: 0.9, s: 0.2, r: 0.2 }, gain: 0.05 } ] },
 };
 export function spoolUp(cls) { const ae = AE(); const d = SPOOL_UP[cls] || SPOOL_UP.prop; try { ae?.init?.(); ae?.playSfx?.({ config: d }); } catch {} }
 export function spoolDown(cls) {

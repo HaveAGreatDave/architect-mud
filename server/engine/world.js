@@ -1,5 +1,5 @@
 import { query } from '../models/db.js';
-import { neighborZoneIds, primaryExits } from './exits.js';
+import { neighborZoneIds, primaryExits, allExits } from './exits.js';
 import { titleCaseName } from './text.js';
 
 // In-memory world state — same as before, DB is source of truth
@@ -274,9 +274,17 @@ export function getMinimapData(centerZoneId, depth = 4) {
   for (const [id] of visited) {
     const zone = world.zones.get(id);
     if (!zone) continue;
+    // Building name(s) reachable from this tile — for the hover tooltip (same rule
+    // as the full map's buildingsAt: an exit into an is_building zone).
+    const buildings = [];
+    for (const { target } of allExits(zone)) {
+      const t = world.zones.get(target);
+      if (t?.flags?.is_building) buildings.push(t.flags.building_name || t.name);
+    }
     nodes.push({
       id: zone.id,
       name: zone.name,
+      buildings,
       danger_rating: zone.danger_rating,
       is_safe_zone: !!zone.is_safe_zone,
       pvp_enabled: !!zone.pvp_enabled,
@@ -284,6 +292,7 @@ export function getMinimapData(centerZoneId, depth = 4) {
       map_id: zone.map_id || null,
       grid_x: zone.grid_x, grid_y: zone.grid_y, grid_z: zone.grid_z,
       marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,
+      artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
       is_current: zone.id === centerZoneId,
       player_count: zone.players.size,
     });

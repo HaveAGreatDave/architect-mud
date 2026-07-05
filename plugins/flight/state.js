@@ -15,6 +15,9 @@ import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 
 export const TICK_MS = 3000;
+// Overall traversal pace — a single knob that slows the flight down without
+// touching burn, so a leg reads a little more leisurely across the map.
+export const FLIGHT_PACE = 0.78;
 export const FUEL_RESERVE_FRAC = 0.10;
 export const BINGO_FRAC = 0.20;
 export const REFUEL_PRICE_PER_UNIT = 2;
@@ -78,6 +81,35 @@ export function surfaceAt(x, y) {
 }
 export function bounds() { if (!_bounds) buildCoordIndex(); return _bounds; }
 
+// The terrain "look" of a parked field, so the client can paint the right airport
+// backdrop out the canopy (city skyline, dock cranes, wasteland rock, …). Derived
+// from the zone — an explicit `flags.airfield_theme` wins, otherwise inferred from
+// the zone id so every field themes itself without extra authoring.
+export function groundTheme(zone) {
+  const f = zone?.flags || {};
+  if (f.airfield_theme) return f.airfield_theme;
+  const id = (zone?.id || '').toLowerCase();
+  if (/slag|ashway|foundry|smelt/.test(id)) return 'slag';
+  if (/waste|redline|red_|ashreach|cinder|scald|slop|ruin/.test(id)) return 'wastes';
+  if (/dock|bay|slip|boat|wharf|pier|harbor|quay/.test(id)) return 'docks';
+  if (/yard|freight|marshal|rail|depot|cargo/.test(id)) return 'yards';
+  if (/civ|city|mq_|downtown|threshold|outskirt|residential|gov|commons|market|plaza|precinct|steps|vellum/.test(id)) return 'city';
+  return 'default';
+}
+
+// The exterior airfield ("ramp") zone for the player's location — whether they're
+// standing on the ramp tile itself (flags.airfield_id) or inside its walk-in
+// hangar interior (flags.hangar_ramp → the ramp). Every flight service resolves
+// through this, so all of them work from inside the hangar too but always park /
+// transact against the exterior ramp (where the aircraft physically sit and fly).
+export function fieldFor(player) {
+  const z = getZone(player.current_zone);
+  if (!z) return null;
+  if (z.flags?.airfield_id) return z;                                      // on the ramp
+  if (z.flags?.hangar_ramp) return getZone(z.flags.hangar_ramp) || null;   // inside the hangar → its ramp
+  return null;
+}
+
 // ── Live aircraft registry (in-memory; the aircraft owns its occupant set) ────
 export const liveAircraft = new Map();   // id -> { row, type, occupants:Set<pid>, pending, starving, hazard, persistCtr }
 
@@ -110,7 +142,7 @@ export function effStats(live) {
   const loadFrac = cargo / maxTOW;                                  // 0..1+ (weight & balance)
   return {
     burn: t.fuel_burn_base * (1 + (tune.mixture || 0) * 0.15) * (1 + loadFrac * 0.5),  // lean burns cooler; cargo drinks
-    cruise: t.cruise_speed * (1 + (tune.pitch || 0) * 0.12),        // coarse pitch (+) = faster cruise
+    cruise: t.cruise_speed * FLIGHT_PACE * (1 + (tune.pitch || 0) * 0.12),  // coarse pitch (+) = faster cruise
     handling: (t.handling || 0) + (tune.cg || 0) * 0.5 + loadFrac * 3,  // heavy + tail-heavy = twitchier/harder
     heatBias: (tune.mixture || 0) * 14 + (tune.boost || 0) * 10,    // lean/boost run hot
     ceiling: Math.min(3, t.altitude_ceiling || 2),
@@ -202,6 +234,7 @@ export function gaugePayload(live) {
   const a = live.row, t = live.type, eff = effStats(live);
   const cap = eff.fuelCap;
   const below = a.airborne ? surfaceAt(a.grid_x, a.grid_y) : null;
+  const parkedZone = a.airborne ? null : getZone(a.parked_zone_id);
   const fuelPct = Math.max(0, Math.round((a.fuel / cap) * 100));
   const deg = toDeg(a.heading);
   let warn = null;
@@ -232,6 +265,8 @@ export function gaugePayload(live) {
     map: a.airborne ? mapWindow(a) : null,
     minimap: a.airborne && below ? getMinimapData(below.id, 3) : null,
     guide: (a.airborne && fuelPct < 30) ? nearestField(a.grid_x, a.grid_y) : null,
+    // Parked: the terrain look of the field, for the out-the-canopy airport scene.
+    ground: a.airborne ? null : { theme: groundTheme(parkedZone), field: parkedZone?.flags?.airfield_name || parkedZone?.name || null },
     sky: skyState(),
   };
 }

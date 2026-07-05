@@ -407,6 +407,17 @@
   .legend-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
 
   /* Settings */
+  .settings-group { margin-bottom: 18px; }
+  /* Top-right close affordance for themed modal cards (host card needs position:relative). */
+  .modal-x {
+    position: absolute; top: 10px; right: 10px;
+    width: 26px; height: 26px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    font-family: var(--font); font-size: 13px; cursor: pointer; border-radius: 2px;
+    transition: all 0.15s;
+  }
+  .modal-x:hover { border-color: var(--accent); color: var(--accent); }
   .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
   .settings-row:last-child { border-bottom: none; }
   .dev-settings-opt {
@@ -555,6 +566,17 @@
     /* Toolbar search wraps to its own full-width row */
     #toolbar { flex-wrap: wrap; }
     #toolbar #search-input { width: 100% !important; }
+
+    /* Settings: compress so the whole panel fits one phone screen without scrolling. */
+    #settings-overlay .settings-card {
+      width: min(360px, 94vw); padding: 14px 16px; max-height: 96vh;
+    }
+    #settings-overlay .settings-card > h2 { margin-bottom: 10px; }
+    #settings-overlay .settings-group { margin-bottom: 9px; }
+    #settings-overlay .settings-group > label { margin-bottom: 4px !important; }
+    #settings-overlay .settings-row { padding: 7px 0; }
+    #settings-overlay .dev-settings-opt { padding: 5px 9px; }
+    #settings-overlay .action-btn[onclick*="closeSettingsPanel"] { margin-top: 9px !important; }
   }
 
   /* ── Broadcast Suite ──────────────────────────────────────────────────────── */

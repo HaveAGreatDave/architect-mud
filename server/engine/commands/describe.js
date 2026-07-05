@@ -21,6 +21,7 @@ import {
 } from "../apartments.js";
 import { fireHook } from "../plugins.js";
 import { isStackable } from "../tags.js";
+import { furnitureVerbs } from "../furnitureActions.js";
 import { titleCaseName } from "../text.js";
 import { getLockTagPublic, checkLockAuth } from "./doors.js";
 
@@ -470,7 +471,11 @@ export async function describeZone(zone, player) {
 					f.object_type === "light"
 						? ` <span class="light-state ${f.light_on ? "light-on" : "light-off"}">(${f.light_on ? "on" : "off"})</span>`
 						: "";
-				return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${titleCaseName(f.name)}</span>${stateTag}`;
+				// Ship each piece's full affordance set so the mobile smart bar can
+				// surface exactly the verbs it supports (sit/switch/watch/…).
+				const verbs = furnitureVerbs(f);
+				const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
+				return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}"${actionsAttr} title="Examine ${f.name}">${titleCaseName(f.name)}</span>${stateTag}`;
 			});
 			desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
 		}

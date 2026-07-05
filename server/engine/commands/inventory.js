@@ -369,9 +369,11 @@ async function cmdUse(targetStr, player, broadcast) {
     const itemTags = typeof item.tags === 'string' ? (() => { try { return JSON.parse(item.tags); } catch { return {}; } })() : (item.tags || {});
     const burn = result.overdose_death ? { charged: false } : await burnCharge(item, itemTags);
     if (burn.charged) {
-      // A loose single (custom_data.loose — e.g. a bummed cigarette) was never a
-      // pack, so it gets its own end line instead of the "empty pack" one.
-      if (burn.destroyed && cd.loose) result.message += `\n<span class="msg-system">You take the last drag and grind out the butt.</span>`;
+      // A loose single (custom_data.loose — a hand-rolled or bummed cigarette) was
+      // never a pack, so it gets its own end line and never "N left in the pack".
+      if (cd.loose || burn.loose) {
+        if (burn.destroyed) result.message += `\n<span class="msg-system">You take the last drag and grind out the butt.</span>`;
+      }
       else if (burn.destroyed) result.message += `\n<span class="msg-system">That was the last one. You crush the empty pack and toss it.</span>`;
       else if (burn.opened)    result.message += `\n<span class="msg-system">That was the last one. You crush the empty pack and crack open a fresh one.</span>`;
       else                     result.message += `\n<span class="msg-system">${burn.remaining} left in the pack.</span>`;

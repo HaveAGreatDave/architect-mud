@@ -7,14 +7,13 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
-import { getZone, liveAircraft, persist, out, effStats } from './state.js';
+import { liveAircraft, persist, out, effStats, fieldFor as fieldOf } from './state.js';
 // `tune` also belongs to broadcast (tune a channel); flight wins it and hands
 // back when you're not tuning an aircraft. `repair` shadows the engine gear-repair
 // builtin — cmdRepair returns undefined out of aircraft context to fall through.
 import { commands as broadcastCommands } from '../broadcast/index.js';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
-function fieldOf(player) { const z = getZone(player.current_zone); return z?.flags?.airfield_id ? z : null; }
 
 // The aircraft the player is aboard, or their single parked craft here.
 async function targetCraft(player) {

@@ -15,11 +15,16 @@ import { query } from '../server/models/db.js';
 const TIER_PRICE = [0, 15, 40, 90, 180, 350];
 const COOK_FAMILY = { powder: 'solids', pill: 'solids', crystal: 'solids', liquid: 'wet', gel: 'wet', paste: 'wet', gas: 'gas', leaf: 'botanical', blotter: 'botanical' };
 const FAMILY_REAGENT = { solids: 'item_reagent_acid', wet: 'item_reagent_solvent', gas: 'item_reagent_feedstock', botanical: 'item_reagent_nutrient' };
+// The four cook reagents are deliberately DUAL-USE, legit industrial goods — sold
+// openly, NOT flagged contraband — so buying them isn't a tell that you cook. (A
+// full mechanical legal use — drain cleaner that unclogs, fuel that runs a
+// generator — is a nice future add; for now the cover is the name + description +
+// the open sale.)
 const REAGENTS = [
-  { id: 'item_reagent_acid', name: 'concentrated acid', desc: 'A carboy of concentrated acid — the harsh half of a solids cook.' },
-  { id: 'item_reagent_solvent', name: 'industrial solvent', desc: 'A jug of industrial solvent for wet cooks and cutting resins.' },
-  { id: 'item_reagent_feedstock', name: 'pressurised feedstock', desc: 'A bottle of pressurised feedstock gas — the base of a gas cook.' },
-  { id: 'item_reagent_nutrient', name: 'growth nutrient', desc: 'A sack of growth nutrient and curing salts for botanical cooks.' },
+  { id: 'item_reagent_acid', name: 'drain cleaner', desc: 'A jug of industrial drain cleaner — concentrated acid. Unclogs pipes, strips rust, eats through just about anything. On every hardware shelf; what you do with it is your business.' },
+  { id: 'item_reagent_solvent', name: 'industrial solvent', desc: 'A can of industrial solvent. Degreases engines, thins paint, lifts old adhesive. Every workshop keeps a shelf of it.' },
+  { id: 'item_reagent_feedstock', name: 'fuel cylinder', desc: 'A small pressurised fuel-gas cylinder — the kind that feeds a camp stove or a backup generator. Perfectly legal to carry, if you like your comforts.' },
+  { id: 'item_reagent_nutrient', name: 'growth nutrient', desc: 'A sack of hydroponic growth nutrient and curing salts. For the rooftop-garden crowd — and anyone else who needs to make things grow, or set.' },
 ];
 const REAGENT_NAME = Object.fromEntries(REAGENTS.map(r => [r.id, r.name]));
 const RAW = {
@@ -47,14 +52,17 @@ async function upsertItem(id, name, desc, type, subtype, weight, value, tags, fl
 }
 
 async function main() {
-  for (const r of REAGENTS) await upsertItem(r.id, r.name, r.desc, 'chemical', 'reagent', 30, 8, { reagent: true }, {});
-  console.log(`✓ ${REAGENTS.length} per-family reagents.`);
+  for (const r of REAGENTS) await upsertItem(r.id, r.name, r.desc, 'chemical', 'reagent', 30, 3, { reagent: true }, {}); // cheap, legit, openly-sold industrial goods (not contraband)
+  console.log(`✓ ${REAGENTS.length} dual-use reagents (openly sold; placement via scripts/add-reagent-supply.js).`);
 
   await query("DELETE FROM recipes WHERE skill_id='chemistry'"); // reset the cook set — one recipe per drug follows
   const { rows: drugs } = await query('SELECT id,name,item_id,effects,addiction_chance,flags FROM drugs');
   let n = 0;
   for (const d of drugs) {
-    if (d.id === 'drug_compound' || !d.item_id) continue;
+    // Skip drug_compound (splice carrier), itemless rows, AND legal drugs — coffee,
+    // beer, cigarettes, joints etc. must NOT get a contraband precursor or a
+    // Manufacturing felony for carrying their raw. Legal product is bought finished.
+    if (d.id === 'drug_compound' || !d.item_id || asObj(d.flags).legal) continue;
     const flags = asObj(d.flags), effects = asObj(d.effects);
     const form = flags.form || 'liquid', family = COOK_FAMILY[form] || 'wet', reagent = FAMILY_REAGENT[family];
     const set = Number(flags.cook_tier); const tier = (set >= 1 && set <= 5) ? Math.round(set) : deriveTier(effects, d.addiction_chance);

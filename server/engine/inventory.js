@@ -14,14 +14,27 @@ const groundOwner = zoneId => `_ground_${zoneId}`;
 // ones stack. The instance amount lives in custom_data.fluid_amount.
 const rowHasFluid = row => (row?.custom_data?.fluid_amount || 0) > 0;
 
+// Instance-distinguishing custom_data keys: a row carrying any of these is unique
+// and must NEVER be stack-merged. Merging keeps only the target row's custom_data
+// and deletes the incoming one — which would dupe or destroy a cooked drug's
+// potency, a spliced compound's effects blob, a cigarette pack's charge count, a
+// loose single's flag, or a crate's owner lock.
+const INSTANCE_KEYS = ['fluid_amount', 'potency', 'effects', 'spliced', 'charges', 'ownerId', 'loose'];
+const rowIsInstanced = row => {
+  const cd = typeof row?.custom_data === 'string' ? (() => { try { return JSON.parse(row.custom_data); } catch { return {}; } })() : (row?.custom_data || {});
+  return INSTANCE_KEYS.some(k => { const v = cd[k]; return v != null && v !== false && v !== 0; });
+};
+// SQL predicate: a stack row safe to merge into (carries none of the instance keys).
+const NOT_INSTANCED_SQL = `(custom_data IS NULL OR NOT jsonb_exists_any(custom_data, ARRAY['fluid_amount','potency','effects','spliced','charges','ownerId','loose']))`;
+
 // Move a ground inventory row into a player's inventory. Stacking-aware: a
 // stackable item merges into an existing unequipped stack the player already
 // holds. Returns the resulting row id.
 export async function pickUp(row, player) {
-  if (isStackable(row) && !rowHasFluid(row)) {
+  if (isStackable(row) && !rowIsInstanced(row)) {
     const { rows } = await query(
       `SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0
-         AND COALESCE((custom_data->>'fluid_amount')::int,0)=0`,
+         AND ${NOT_INSTANCED_SQL} LIMIT 1`,
       [player.id, row.item_id]
     );
     if (rows.length) {
@@ -59,6 +72,17 @@ export async function burnCharge(row, itemTags) {
   const cd = typeof row.custom_data === 'string'
     ? (() => { try { return JSON.parse(row.custom_data); } catch { return {}; } })()
     : (row.custom_data || {});
+  // A hand-rolled / bummed single (custom_data.loose) is NOT a pack: burn one unit
+  // of the stack, never the 10-charge pack accounting. (Reusing the packed
+  // item_cigarettes item id for loose singles is why this special-case exists.)
+  if (cd.loose) {
+    if (row.quantity > 1) {
+      await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [row.id]);
+      return { charged: true, remaining: 0, opened: false, destroyed: false, loose: true };
+    }
+    await query('DELETE FROM player_inventory WHERE id=$1', [row.id]);
+    return { charged: true, remaining: 0, opened: false, destroyed: true, loose: true };
+  }
   const remaining = (cd.charges != null ? Number(cd.charges) : packSize) - 1;
   if (remaining > 0) {
     cd.charges = remaining;
@@ -76,10 +100,10 @@ export async function burnCharge(row, itemTags) {
 
 // Hand a player's inventory row to another player. Stacking-aware, mirroring pickUp.
 export async function giveToPlayer(row, toPlayer) {
-  if (isStackable(row) && !rowHasFluid(row)) {
+  if (isStackable(row) && !rowIsInstanced(row)) {
     const { rows } = await query(
       `SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL
-         AND COALESCE((custom_data->>'fluid_amount')::int,0)=0 LIMIT 1`,
+         AND ${NOT_INSTANCED_SQL} LIMIT 1`,
       [toPlayer.id, row.item_id]
     );
     if (rows.length) {

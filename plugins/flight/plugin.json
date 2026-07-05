@@ -5,7 +5,7 @@
   "commands": [
     "embark", "board", "disembark", "deplane", "startup", "shutdown", "throttle", "heading", "climb", "dive", "takeoff", "land", "refuel", "takeoffresolve", "landresolve",
     "recover", "extinguish", "eject", "bail", "preflight", "hover", "spot", "scan", "chart", "squawk",
-    "buy", "rent", "charter", "flyto", "testfly", "flight", "fs",
+    "buy", "rent", "charter", "flyto", "cancel", "testfly", "flight", "fs",
     "arm", "safe", "evade", "strafe", "fire", "strafresolve",
     "contracts", "jobs", "accept", "manifest",
     "hangar", "repair", "salvage", "rebuild", "tune", "modify", "customize"

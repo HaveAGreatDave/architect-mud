@@ -49,18 +49,25 @@ async function main() {
        tags=EXCLUDED.tags, flags=EXCLUDED.flags`);
   console.log('✓ item_mule_crate');
 
-  // 2. The Fixer's tip — name the fence at inner circle.
+  // 2. The Fixer's tip + drug-buyer premium. Both the Fixer and Sully BUY finished
+  // drugs at an underworld premium (vendor.js drug_buyer → 0.7×value×potency) — the
+  // payoff that makes cooking worth the risk.
   const fx = DRY ? 1 : (await query(
     `UPDATE npcs SET flags = COALESCE(flags,'{}'::jsonb) || $1::jsonb WHERE id=$2`,
-    [JSON.stringify({ inner_circle_flag: 'dealer_inner_circle', inner_circle_line: DEALER_TIP }), DEALER_ID])).rowCount;
-  console.log(fx ? `✓ ${DEALER_ID}: inner-circle tip points at the fence` : `⚠ ${DEALER_ID} not found — no dealer tip wired`);
+    [JSON.stringify({ inner_circle_flag: 'dealer_inner_circle', inner_circle_line: DEALER_TIP, drug_buyer: true }), DEALER_ID])).rowCount;
+  console.log(fx ? `✓ ${DEALER_ID}: inner-circle tip + drug-buyer premium` : `⚠ ${DEALER_ID} not found — no dealer tip wired`);
+  if (!DRY) await query(`UPDATE npcs SET flags = COALESCE(flags,'{}'::jsonb) || '{"drug_buyer":true}'::jsonb WHERE id=$1`, [FENCE_ID]);
 
   // 3. Sully's black-market branch, generated from the live raw items.
   const { rows: raws } = await query(
     `SELECT id, name, value, flags FROM items
       WHERE jsonb_exists(tags,'raw_drug') AND id LIKE 'item_raw_%'
       ORDER BY COALESCE((flags->>'cook_tier')::int,1), name`);
-  if (!raws.length) console.warn('⚠ no item_raw_* found — run scripts/add-raw-supply.js first; writing an empty menu for now.');
+  if (!raws.length && !DRY) {
+    console.error('✗ no item_raw_* found — run scripts/add-raw-supply.js FIRST. Refusing to overwrite Sully with an empty back-room menu.');
+    process.exit(1);
+  }
+  if (!raws.length) console.warn('⚠ (dry) no item_raw_* found — the live run would abort here.');
 
   const { rows: fenceRows } = await query(`SELECT dialogue_tree FROM npcs WHERE id=$1`, [FENCE_ID]);
   if (!fenceRows.length) { console.error(`✗ fence ${FENCE_ID} not found`); process.exit(1); }

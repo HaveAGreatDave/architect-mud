@@ -5,17 +5,13 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, liveAircraft, persist, pushHud, REFUEL_PRICE_PER_UNIT, effStats } from './state.js';
+import { getZone, liveAircraft, persist, pushHud, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf } from './state.js';
 // `buy` belongs to commerce (shopping); flight wins it by load order (manifest
 // `after`) and delegates back unless you're buying an aircraft at a dealer field.
 import { commands as commerceCommands } from '../commerce/index.js';
 
 const MAX_OWNED = 8;   // anti-clutter cap per player
 
-function fieldOf(player) {
-  const zone = getZone(player.current_zone);
-  return zone?.flags?.airfield_id ? zone : null;
-}
 
 // Fuel types a field stocks (defaults to all if only the legacy bool is set).
 export function fieldStocks(zone) {
@@ -36,8 +32,14 @@ function typeLine(t, kind) {
   return `<b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${t.fuel_type})</span> — ${price} · <span class="action-link" data-action="cmd" data-cmd="${kind} ${t.id}">${kind}</span>`;
 }
 
-async function ownedCount(playerId) {
-  const { rows } = await query('SELECT COUNT(*)::int n FROM aircraft WHERE owner_id=$1 AND is_wreck=0', [playerId]);
+// Anti-clutter cap. Buying counts only aircraft you OWN outright (rental=0) so a
+// pile of rentals can never block a purchase; renting counts the total so rentals
+// can't be spammed without bound.
+async function ownedCount(playerId, ownedOnly) {
+  const sql = ownedOnly
+    ? 'SELECT COUNT(*)::int n FROM aircraft WHERE owner_id=$1 AND is_wreck=0 AND rental=0'
+    : 'SELECT COUNT(*)::int n FROM aircraft WHERE owner_id=$1 AND is_wreck=0';
+  const { rows } = await query(sql, [playerId]);
   return rows[0]?.n || 0;
 }
 
@@ -58,7 +60,9 @@ async function acquire(args, raw, player, kind) {
 
   const price = kind === 'buy' ? t.price_buy : t.price_rent_hourly;
   if ((player.credits || 0) < price) return { type: 'emote', message: `That's ${price}c — you're short.` };
-  if (await ownedCount(player.id) >= MAX_OWNED) return { type: 'emote', message: "You've got too many aircraft as it is. Sell or scrap one first." };
+  if (await ownedCount(player.id, kind === 'buy') >= MAX_OWNED) return { type: 'emote', message: kind === 'buy'
+    ? 'You already own the most aircraft you can. Sell or scrap one before buying another.'
+    : "You've got too many aircraft out as it is. Return or scrap one first." };
 
   player.credits -= price;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);

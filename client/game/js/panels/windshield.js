@@ -20,6 +20,12 @@
 //   map,        // optional server map window (rows[y][x] = {kind}) → obstacles ahead
 //   phase,      // 'cruise' | 'takeoff' | 'landing' | 'vtol' | 'ground'
 //   drift,      // VTOL only: -1..1 lateral offset off the pad
+//   airport,    // ground/takeoff/landing: terrain theme ('city'|'docks'|'yards'|
+//               //   'slag'|'wastes'|'default') → the flanking airport scenery
+//   side,       // passenger cabin: look out the SIDE (heading turned 90°), scenery
+//               //   sliding past the window rather than rushing at you
+//   windowClass,// passenger cabin: aircraft class → the window-frame shape cut
+//               //   around the view (porthole / cabin pane / armoured port)
 // }
 
 const FOV = 58;                 // forward field of view, degrees, for projecting obstacles
@@ -30,6 +36,7 @@ const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const lerp = (a, b, t) => a + (b - a) * t;
 const rgb = (c, a) => a == null ? `rgb(${c[0]|0},${c[1]|0},${c[2]|0})` : `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;
 const mix = (c1, c2, t) => [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t)];
+const frac = (n) => { const x = Math.sin((n + 1) * 12.9898) * 43758.5453; return x - Math.floor(x); };   // deterministic 0..1 scatter
 
 // ── Time-of-day sky keyframes (blended by hour) ───────────────────────────────
 const SKY = [
@@ -53,12 +60,26 @@ function skyAt(hour) {
   };
 }
 
+// ── Airport terrain themes ────────────────────────────────────────────────────
+// The look of the field out the canopy while you're on the deck: ground colour +
+// which silhouette flanks the runway (city towers, dock cranes, wasteland rock…).
+// `feat` names a drawer in drawAirportFeature; `g1/g2` are the near/far ground.
+const AIRPORT = {
+  city:    { g1: [60, 64, 72],  g2: [22, 25, 32],  feat: 'building', accent: [150, 180, 210] },
+  docks:   { g1: [50, 58, 64],  g2: [18, 24, 30],  feat: 'crane',    accent: [96, 158, 176] },
+  yards:   { g1: [62, 56, 46],  g2: [26, 23, 18],  feat: 'gantry',   accent: [186, 150, 88] },
+  slag:    { g1: [56, 46, 40],  g2: [22, 16, 13],  feat: 'stack',    accent: [255, 120, 60] },
+  wastes:  { g1: [96, 72, 48],  g2: [42, 30, 20],  feat: 'rock',     accent: [188, 138, 92] },
+  default: { g1: [52, 58, 52],  g2: [20, 25, 20],  feat: 'hangar',   accent: [150, 172, 150] },
+};
+const airportCfg = (theme) => AIRPORT[theme] || AIRPORT.default;
+
 function sceneFor(id, W, H) {
   let st = _scenes.get(id);
   if (!st) {
     // Deterministic-ish scatter without Math.random dependence on first frame.
     const rnd = (n) => { let x = Math.sin((n + 1) * 12.9898) * 43758.5453; return x - Math.floor(x); };
-    st = { scroll: 0, last: 0, w: 0, h: 0, flash: 0, bolt: null, boltT: 0,
+    st = { scroll: 0, sideScroll: 0, last: 0, w: 0, h: 0, flash: 0, bolt: null, boltT: 0,
       stars: Array.from({ length: 70 }, (_, i) => ({ x: rnd(i), y: rnd(i + 91) * 0.6, m: 0.4 + rnd(i + 7) * 0.6 })),
       clouds: Array.from({ length: 7 }, (_, i) => ({ x: rnd(i * 3), y: 0.12 + rnd(i * 5) * 0.4, s: 0.5 + rnd(i * 2) * 1.1, sp: 0.3 + rnd(i) * 0.9 })),
       parts: Array.from({ length: 90 }, (_, i) => ({ x: rnd(i * 7), y: rnd(i * 11), v: 0.5 + rnd(i) * 0.8 })),
@@ -69,8 +90,9 @@ function sceneFor(id, W, H) {
   return st;
 }
 
-// Project the server map window into obstacles ahead of the craft.
-function obstaclesFromMap(map, heading) {
+// Project the server map window into obstacles in the direction we're looking.
+// `look` is the view bearing (heading, or heading±90 for a side window).
+function obstaclesFromMap(map, look) {
   if (!map || !map.length) return [];
   const R = (map.length - 1) / 2;
   const out = [];
@@ -78,7 +100,7 @@ function obstaclesFromMap(map, heading) {
     const cell = map[ry][rx]; if (!cell || cell.kind === 'air' || cell.kind === 'craft') continue;
     const dx = rx - R, dy = ry - R; if (dx === 0 && dy === 0) continue;
     const bearing = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;   // 0=N, 90=E
-    const rel = angDelta(heading || 0, bearing);
+    const rel = angDelta(look || 0, bearing);
     if (Math.abs(rel) > FOV / 2) continue;
     const d = Math.hypot(dx, dy) / (R + 0.5);
     out.push({ ang: rel, dist: clamp(d, 0.04, 1), kind: cell.kind });
@@ -128,15 +150,28 @@ export function paintWindshield(id, view) {
   const phase = v.phase || 'cruise';
   const wx = (v.weather || 'clear').toLowerCase();
   const sky = skyAt(v.hour == null ? 12 : v.hour);
+  const side = !!v.side;                                    // passenger side window (looks 90° off the nose)
+  // On the deck (ground/takeoff/landing) we paint a real, terrain-themed airport.
+  const onDeck = phase === 'ground' || phase === 'takeoff' || phase === 'landing';
+  const airport = onDeck ? airportCfg(v.airport) : null;
   st.scroll = (st.scroll + speed * dt * (1.1 - height * 0.4) * 2.4) % 1;
+  st.sideScroll = (st.sideScroll + speed * dt * 0.9) % 1;   // lateral drift for the side window
 
   ctx.save();
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
 
-  // Horizon line: pitch drops it (nose-up shows more sky); altitude lifts it slightly (looking down).
-  const horizonY = clamp(H * 0.46 - (v.pitch || 0) * H * 0.011 + (height - 0.2) * H * 0.09, H * 0.14, H * 0.84);
+  // Horizon. On the deck it tracks how much field is in view: pull the nose up (or
+  // climb away) and the airport sinks off the bottom until the view "levels out"
+  // into open sky. Airborne, pitch/altitude nudge it as before.
+  const reveal = onDeck ? clamp(1 - Math.max(0, v.pitch || 0) / 26 - height * 0.95, 0, 1) : 0;
+  const horizonY = onDeck
+    ? lerp(H * 1.08, H * 0.42, reveal)
+    : clamp(H * 0.46 - (v.pitch || 0) * H * 0.011 + (height - 0.2) * H * 0.09, H * 0.14, H * 0.84);
   const bankRad = (v.bank || 0) * Math.PI / 180;
+  // Ground palette: airport terrain colours on the deck, else the sky's ground band.
+  const gTop = airport ? mix(airport.g1, [0, 0, 0], sky.night * 0.45) : sky.g1;
+  const gBot = airport ? mix(airport.g2, [0, 0, 0], sky.night * 0.5) : sky.g2;
 
   // World (banks with the aircraft) — draw oversized so rotation never reveals edges.
   ctx.save();
@@ -164,59 +199,85 @@ export function paintWindshield(id, view) {
     ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(sunX, sunY, 46, 0, 7); ctx.fill();
     ctx.fillStyle = rgb(disc, 0.95); ctx.beginPath(); ctx.arc(sunX, sunY, sky.night > 0.4 ? 12 : 15, 0, 7); ctx.fill();
   }
-  // Clouds (parallax; thinner/greyer in bad weather).
+  // Clouds — soft, layered puffs (a lit crown over a shaded, feathered base) that
+  // drift with parallax. Radial gradients feather the edges so they read as vapour
+  // rather than the flat hard discs they used to be. Greyer/heavier in bad weather.
   const cloudy = wx === 'cloudy' || wx === 'rain' || wx === 'storm' || wx === 'snow' || wx === 'fog';
-  const cloudAlpha = (wx === 'clear' ? 0.5 : cloudy ? 0.7 : 0.55) * (1 - sky.night * 0.5);
+  const cloudAlpha = (wx === 'clear' ? 0.42 : cloudy ? 0.64 : 0.5) * (1 - sky.night * 0.55);
+  const baseTint = cloudy ? [148, 156, 166] : mix([245, 248, 252], sky.hor, 0.22);
+  const litTint = cloudy ? [190, 196, 204] : mix([255, 255, 255], sky.sun || [255, 250, 240], 0.28);
   for (const c of st.clouds) {
-    c.x = (c.x + (0.004 + speed * 0.05) * c.sp * dt * 6) % 1.2;
-    const cy = c.y * horizonY * 0.85, cx = (c.x - 0.1) * W, cs = c.s * (W * 0.06);
-    const tint = cloudy ? [150, 158, 168] : mix([255, 255, 255], sky.hor, 0.25);
-    ctx.fillStyle = rgb(tint, cloudAlpha * clamp(c.s, 0.4, 1));
-    for (const [ox, oy, rr] of [[-cs, 4, cs * 0.9], [0, 0, cs * 1.15], [cs, 5, cs * 0.85], [cs * 0.4, -6, cs * 0.7]]) { ctx.beginPath(); ctx.ellipse(cx + ox, cy + oy, rr, rr * 0.55, 0, 0, 7); ctx.fill(); }
+    c.x = (c.x + (0.003 + speed * 0.04) * c.sp * dt * 6) % 1.28;
+    const cy = c.y * horizonY * 0.8, cx = (c.x - 0.14) * W, cs = c.s * (W * 0.07);
+    const a = cloudAlpha * clamp(c.s, 0.4, 1);
+    // grounding shadow first, then the feathered body
+    ctx.fillStyle = rgb(mix(baseTint, [36, 40, 50], 0.55), a * 0.22);
+    ctx.beginPath(); ctx.ellipse(cx + cs * 0.2, cy + cs * 0.52, cs * 1.7, cs * 0.26, 0, 0, 7); ctx.fill();
+    for (const [ox, oy, rr] of [[-cs * 1.1, 7, cs * 0.92], [-cs * 0.25, 1, cs * 1.28], [cs * 0.75, 6, cs * 0.9], [cs * 0.3, -9, cs * 0.78], [cs * 1.55, 10, cs * 0.6]]) {
+      const rg = ctx.createRadialGradient(cx + ox, cy + oy - rr * 0.35, rr * 0.15, cx + ox, cy + oy, rr);
+      rg.addColorStop(0, rgb(litTint, a)); rg.addColorStop(0.5, rgb(baseTint, a * 0.9)); rg.addColorStop(1, rgb(baseTint, 0));
+      ctx.fillStyle = rg; ctx.beginPath(); ctx.ellipse(cx + ox, cy + oy, rr, rr * 0.64, 0, 0, 7); ctx.fill();
+    }
   }
 
   // Ground.
   g = ctx.createLinearGradient(0, horizonY, 0, H + (H - horizonY));
-  g.addColorStop(0, rgb(sky.g1)); g.addColorStop(1, rgb(sky.g2));
+  g.addColorStop(0, rgb(gTop)); g.addColorStop(1, rgb(gBot));
   ctx.fillStyle = g; ctx.fillRect(-OX, horizonY, ex, (H - horizonY) + H);
   // atmospheric haze band at the horizon
   const haze = ctx.createLinearGradient(0, horizonY - 6, 0, horizonY + 26);
   haze.addColorStop(0, rgb(sky.hor, 0.55)); haze.addColorStop(1, rgb(sky.hor, 0));
   ctx.fillStyle = haze; ctx.fillRect(-OX, horizonY - 6, ex, 32);
 
-  // Perspective ground grid.
   const vx = W / 2, depthGround = H - horizonY;
   ctx.lineWidth = 1;
-  const gridCol = rgb(mix(sky.g1, [180, 220, 200], 0.5), 0.16 + speed * 0.12);
+  const gridCol = rgb(mix(gTop, [180, 220, 200], 0.5), 0.16 + speed * 0.12);
   ctx.strokeStyle = gridCol;
-  // horizontals (scroll toward viewer)
-  const near = 0.10 + height * 0.05;
-  for (let k = 1; k <= 12; k++) {
-    const d = k - st.scroll;
-    const y = horizonY + depthGround * (near / (d * near + near));
-    if (y <= horizonY + 1 || y >= H) continue;
-    ctx.globalAlpha = clamp((y - horizonY) / depthGround, 0.05, 1);
-    ctx.beginPath(); ctx.moveTo(-OX, y); ctx.lineTo(W + OX, y); ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-  // verticals (converge to vanishing point)
-  for (let j = -6; j <= 6; j++) { if (j === 0) continue; const bx = vx + j * (W * 0.16); ctx.beginPath(); ctx.moveTo(vx, horizonY); ctx.lineTo(bx, H); ctx.stroke(); }
-
-  // Runway (takeoff/landing) or landing pad (vtol).
-  if (phase === 'takeoff' || phase === 'landing') drawRunway(ctx, W, H, horizonY, height, st.scroll, phase);
-  else if (phase === 'vtol') drawPad(ctx, W, H, horizonY, height, v.drift || 0);
-
-  // Obstacles / zones ahead.
-  const obs = v.obstacles || obstaclesFromMap(v.map, v.heading);
-  for (const o of obs) {
-    const sx = vx + (o.ang / (FOV / 2)) * (W * 0.5);
-    const gy = horizonY + depthGround * (1 - o.dist);
-    const scale = clamp(1 - o.dist, 0.06, 1);
-    drawObstacle(ctx, sx, gy, scale, depthGround, o.kind, sky.night, now);
+  if (side && !onDeck) {
+    // Side window: the ground rushes past laterally — vertical hatching that
+    // scrolls sideways sells forward motion far better than a converging grid.
+    for (let k = 0; k < 24; k++) {
+      const f = ((k / 24) + st.sideScroll) % 1, x = -OX + f * ex;
+      ctx.globalAlpha = 0.09 + speed * 0.2;
+      ctx.beginPath(); ctx.moveTo(x, horizonY + depthGround * 0.03); ctx.lineTo(x - 46 - speed * 34, H); ctx.stroke();
+    }
+    for (let k = 1; k <= 5; k++) { const y = horizonY + depthGround * (k / 5) * (k / 5); ctx.globalAlpha = 0.06; ctx.beginPath(); ctx.moveTo(-OX, y); ctx.lineTo(W + OX, y); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  } else if (!onDeck) {
+    // Perspective ground grid (forward view).
+    const near = 0.10 + height * 0.05;
+    for (let k = 1; k <= 12; k++) {
+      const d = k - st.scroll;
+      const y = horizonY + depthGround * (near / (d * near + near));
+      if (y <= horizonY + 1 || y >= H) continue;
+      ctx.globalAlpha = clamp((y - horizonY) / depthGround, 0.05, 1);
+      ctx.beginPath(); ctx.moveTo(-OX, y); ctx.lineTo(W + OX, y); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    for (let j = -6; j <= 6; j++) { if (j === 0) continue; const bx = vx + j * (W * 0.16); ctx.beginPath(); ctx.moveTo(vx, horizonY); ctx.lineTo(bx, H); ctx.stroke(); }
   }
 
-  // Speed streaks (motion rush from the vanishing point).
-  if (speed > 0.12) {
+  // The airport (themed scenery flanking a runway) on the deck; the pad for VTOL;
+  // otherwise the zones/obstacles projected in the direction we're actually looking.
+  if (airport && reveal > 0.02) {
+    drawAirportScenery(ctx, W, H, horizonY, airport, sky.night, now);
+    if (phase === 'takeoff' || phase === 'landing') drawRunway(ctx, W, H, horizonY, height, st.scroll, phase);
+    else drawRunway(ctx, W, H, horizonY, 0, st.scroll, 'takeoff');   // parked: the strip laid out full-length
+  } else if (phase === 'vtol') {
+    drawPad(ctx, W, H, horizonY, height, v.drift || 0);
+  } else if (!onDeck) {
+    const look = ((v.heading || 0) + (side ? 90 : 0) + 360) % 360;   // side window looks 90° off the nose
+    const obs = v.obstacles || obstaclesFromMap(v.map, look);
+    for (const o of obs) {
+      const sx = vx + (o.ang / (FOV / 2)) * (W * 0.5);
+      const gy = horizonY + depthGround * (1 - o.dist);
+      const scale = clamp(1 - o.dist, 0.06, 1);
+      drawObstacle(ctx, sx, gy, scale, depthGround, o.kind, sky.night, now);
+    }
+  }
+
+  // Speed streaks (motion rush from the vanishing point) — forward view only.
+  if (speed > 0.12 && !side && !onDeck) {
     ctx.strokeStyle = rgb([210, 230, 255], 0.10 + speed * 0.18); ctx.lineWidth = 1;
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2 + st.scroll * 6;
@@ -252,9 +313,51 @@ export function paintWindshield(id, view) {
 
   // On-glass weather (drops that cling to the canopy, lightning) + a WX badge.
   drawGlass(ctx, W, H, wx, st, dt, speed);
-  drawWxBadge(ctx, W, wx, v.wind);
+  if (!v.windowClass) drawWxBadge(ctx, W, wx, v.wind);
+  // Passenger cabin: cut the view into a window shaped to fit the aircraft.
+  if (v.windowClass) drawWindowFrame(ctx, W, H, v.windowClass);
 
   ctx.restore();
+}
+
+// The passenger window: fills everything OUTSIDE a class-shaped pane with the dark
+// cabin interior, so the scene reads as glimpsed through a real window. Ultralights
+// and helis get a small bubble/porthole; a heavy freighter a tall airliner pane; a
+// gunship a squat armoured port; props/others a rounded cabin window.
+function windowShapeFor(cls, W, H) {
+  const cx = W / 2, cy = H / 2;
+  switch (cls) {
+    case 'ultralight': return { x: cx - W * 0.44, y: cy - H * 0.42, w: W * 0.88, h: H * 0.84, r: Math.min(W, H) * 0.42 };  // near-full bubble canopy
+    case 'heli':       return { x: cx - W * 0.42, y: cy - H * 0.40, w: W * 0.84, h: H * 0.80, r: Math.min(W, H) * 0.30 };
+    case 'heavy':      return { x: cx - W * 0.16, y: cy - H * 0.34, w: W * 0.32, h: H * 0.68, r: Math.min(W, H) * 0.16 };  // tall cabin pane
+    case 'gunship':    return { x: cx - W * 0.20, y: cy - H * 0.18, w: W * 0.40, h: H * 0.36, r: 6 };                      // small armoured port
+    default:           return { x: cx - W * 0.30, y: cy - H * 0.32, w: W * 0.60, h: H * 0.64, r: Math.min(W, H) * 0.18 };
+  }
+}
+function roundRectPath(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function drawWindowFrame(ctx, W, H, cls) {
+  const s = windowShapeFor(cls, W, H);
+  // Cabin wall = whole canvas minus the pane (even-odd fill).
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, W, H);
+  roundRectPath(ctx, s.x, s.y, s.w, s.h, s.r);
+  ctx.fillStyle = '#0c1116'; ctx.fill('evenodd');
+  ctx.restore();
+  // A little interior modelling on the wall + a bevelled window surround.
+  roundRectPath(ctx, s.x - 6, s.y - 6, s.w + 12, s.h + 12, s.r + 6);
+  ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(40,50,60,0.9)'; ctx.stroke();
+  roundRectPath(ctx, s.x, s.y, s.w, s.h, s.r);
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(150,180,205,0.28)'; ctx.stroke();
+  // Inner glass shading — a soft darkening toward the frame.
+  ctx.save(); roundRectPath(ctx, s.x, s.y, s.w, s.h, s.r); ctx.clip();
+  const ig = ctx.createRadialGradient(W / 2, H / 2, Math.min(s.w, s.h) * 0.3, W / 2, H / 2, Math.max(s.w, s.h) * 0.7);
+  ig.addColorStop(0, 'rgba(0,0,0,0)'); ig.addColorStop(1, 'rgba(6,10,14,0.5)');
+  ctx.fillStyle = ig; ctx.fillRect(s.x, s.y, s.w, s.h); ctx.restore();
 }
 
 // Water on the windscreen + storm lightning — drawn on the fixed glass, not the
@@ -341,6 +444,96 @@ function drawPad(ctx, W, H, horizonY, height, drift) {
   ctx.fillStyle = 'rgba(79,224,160,0.9)'; ctx.font = `bold ${Math.round(r * 0.5)}px monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('H', cx, cy);
   ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+}
+
+// The airport silhouette flanking the runway — depth layers of terrain-appropriate
+// structures on both sides, drawn far→near so nearer ones overlap. `cfg` is the
+// AIRPORT theme entry (which feature drawer + accent colour).
+function drawAirportScenery(ctx, W, H, horizonY, cfg, night, now) {
+  const cx = W / 2, depth = H - horizonY;
+  if (depth < 8) return;
+  const layers = [0.14, 0.30, 0.50, 0.74, 0.96];
+  for (let li = 0; li < layers.length; li++) {
+    const d = layers[li];
+    const y = horizonY + depth * Math.pow(d, 1.35);
+    if (y <= horizonY + 1) continue;
+    const scale = 0.10 + d * 1.0;
+    const spread = W * (0.16 + d * 0.5);   // flank distance off the runway centreline
+    for (const sgn of [-1, 1]) for (let n = 0; n < 2; n++) {
+      const seed = li * 9 + n * 17 + (sgn > 0 ? 101 : 0);
+      const jx = (frac(seed) - 0.5) * W * 0.14 * (0.4 + d);
+      const sz = scale * (0.85 + frac(seed + 5) * 0.5);
+      const x = cx + sgn * (spread + n * W * 0.13 * (0.4 + d)) + jx;
+      if (x < -W * 0.2 || x > W * 1.2) continue;
+      drawAirportFeature(ctx, cfg.feat, x, y, sz, depth, cfg, night, now, seed);
+    }
+  }
+}
+
+function drawAirportFeature(ctx, type, x, gy, scale, depth, cfg, night, now, seed) {
+  const acc = cfg.accent, dim = 0.55 + scale * 0.45;
+  const col = (r, g, b, a = 1) => `rgba(${r | 0},${g | 0},${b | 0},${a})`;
+  if (type === 'building') {
+    const bw = 16 + scale * 42, bh = 28 + scale * depth * 0.95 * (0.7 + frac(seed) * 0.6);
+    ctx.fillStyle = col(22 + night * 4, 26 + night * 3, 34, 0.95);
+    ctx.fillRect(x - bw / 2, gy - bh, bw, bh);
+    ctx.strokeStyle = col(acc[0], acc[1], acc[2], 0.2); ctx.lineWidth = 1; ctx.strokeRect(x - bw / 2, gy - bh, bw, bh);
+    if (scale > 0.25) {
+      const cols = Math.max(2, Math.round(bw / 9)), rows = Math.max(3, Math.round(bh / 11));
+      for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) {
+        if (((c * 7 + r * 13 + (seed | 0)) % 5) >= (night > 0.4 ? 3 : 1)) continue;
+        ctx.fillStyle = night > 0.4 ? 'rgba(255,214,120,0.8)' : 'rgba(150,180,205,0.4)';
+        ctx.fillRect(x - bw / 2 + 3 + c * (bw - 6) / cols, gy - bh + 3 + r * (bh - 6) / rows, Math.max(1.4, (bw - 6) / cols - 3), Math.max(1.4, (bh - 6) / rows - 3));
+      }
+    }
+    return;
+  }
+  if (type === 'crane') {
+    const h0 = 26 + scale * depth * 0.8, w = 10 + scale * 18, boom = w * 2.6;
+    ctx.strokeStyle = col(acc[0], acc[1], acc[2], 0.85); ctx.lineWidth = Math.max(1, scale * 2.2); ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(x - w, gy); ctx.lineTo(x - w * 0.25, gy - h0); ctx.moveTo(x + w, gy); ctx.lineTo(x + w * 0.25, gy - h0); ctx.stroke();     // legs
+    ctx.beginPath(); ctx.moveTo(x - boom * 0.45, gy - h0 * 0.92); ctx.lineTo(x + boom, gy - h0); ctx.stroke();                                            // boom
+    ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + boom, gy - h0); ctx.lineTo(x + boom, gy - h0 * 0.5); ctx.stroke();                                  // hoist cable
+    const cc = [[176, 92, 70], [70, 122, 160], [150, 150, 84]];
+    for (let i = 0; i < 3; i++) { const c = cc[(seed + i) % 3]; ctx.fillStyle = col(c[0] * dim, c[1] * dim, c[2] * dim, 0.92); ctx.fillRect(x - w - 4 + i * (7 + scale * 3), gy - (6 + scale * 4), 8 + scale * 4, 6 + scale * 4); }  // container stack
+    return;
+  }
+  if (type === 'gantry') {
+    const h0 = 20 + scale * depth * 0.6, w = 14 + scale * 22;
+    ctx.strokeStyle = col(acc[0], acc[1], acc[2], 0.8); ctx.lineWidth = Math.max(1, scale * 2);
+    ctx.strokeRect(x - w, gy - h0, w * 2, h0);
+    ctx.beginPath(); ctx.moveTo(x - w, gy - h0 * 0.5); ctx.lineTo(x + w, gy - h0 * 0.5); ctx.stroke();   // trolley beam
+    ctx.fillStyle = col(72 * dim, 66 * dim, 54 * dim, 0.9); ctx.fillRect(x - w * 0.7, gy - (8 * scale + 4), w * 1.4, 8 * scale + 4);   // freight car
+    return;
+  }
+  if (type === 'stack') {
+    const h0 = 34 + scale * depth * 1.0, w = 6 + scale * 9;
+    const gr = ctx.createLinearGradient(x - w, 0, x + w, 0);
+    gr.addColorStop(0, col(30, 24, 22)); gr.addColorStop(0.5, col(58 * dim, 46 * dim, 40 * dim)); gr.addColorStop(1, col(24, 18, 16));
+    ctx.fillStyle = gr; ctx.fillRect(x - w, gy - h0, w * 2, h0);
+    const eg = ctx.createRadialGradient(x, gy - h0, 1, x, gy - h0, 10 + scale * 8);
+    eg.addColorStop(0, 'rgba(255,140,60,0.8)'); eg.addColorStop(1, 'rgba(255,90,40,0)');
+    ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(x, gy - h0, 10 + scale * 8, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(58,52,48,0.22)';
+    for (let i = 0; i < 3; i++) { const t = (now * 0.0004 + frac(seed + i)) % 1; ctx.beginPath(); ctx.arc(x + Math.sin(now * 0.001 + i) * 6 * scale, gy - h0 - 6 - t * 30 * scale, (3 + i * 2) * scale, 0, 7); ctx.fill(); }
+    return;
+  }
+  if (type === 'rock') {
+    const h0 = 16 + scale * depth * 0.55, w = 14 + scale * 30;
+    ctx.fillStyle = col(80 * dim, 60 * dim, 42 * dim, 0.95);
+    ctx.beginPath(); ctx.moveTo(x - w, gy); ctx.lineTo(x - w * 0.4, gy - h0 * 0.7); ctx.lineTo(x - w * 0.05, gy - h0); ctx.lineTo(x + w * 0.4, gy - h0 * 0.6); ctx.lineTo(x + w, gy); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = col(116 * dim, 88 * dim, 60 * dim, 0.5);   // sunlit face
+    ctx.beginPath(); ctx.moveTo(x - w * 0.05, gy - h0); ctx.lineTo(x + w * 0.4, gy - h0 * 0.6); ctx.lineTo(x + w, gy); ctx.lineTo(x + w * 0.2, gy); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(96,84,52,0.5)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) { const sx = x + (frac(seed + i) - 0.5) * w * 1.4; ctx.beginPath(); ctx.moveTo(sx, gy); ctx.lineTo(sx - 2, gy - 4 * scale); ctx.moveTo(sx, gy); ctx.lineTo(sx + 2, gy - 4 * scale); ctx.stroke(); }
+    return;
+  }
+  // hangar (default) — a low arched shed with a door seam
+  const w = 24 + scale * 44, h = 14 + scale * 24;
+  ctx.fillStyle = col(40 * dim, 46 * dim, 44 * dim, 0.95);
+  ctx.beginPath(); ctx.moveTo(x - w / 2, gy); ctx.lineTo(x - w / 2, gy - h * 0.5); ctx.quadraticCurveTo(x, gy - h * 1.4, x + w / 2, gy - h * 0.5); ctx.lineTo(x + w / 2, gy); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = col(acc[0], acc[1], acc[2], 0.28); ctx.lineWidth = 1; ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x, gy - h * 0.85); ctx.stroke();
 }
 
 function drawObstacle(ctx, x, gy, scale, depth, kind, night, now) {

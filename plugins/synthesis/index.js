@@ -135,10 +135,11 @@ async function cmdCook(args, raw, player, broadcast) {
   }
 
   const drug = drugForOutput(recipe); const tier = cookTier(drug); const family = cookFamily(drug); const difficulty = cookDiff(tier);
-  pendingSynth.set(player.id, { recipeId: recipe.id, contextBonus: ws.contextBonus, mode: ws.mode, tier, family, difficulty, ts: Date.now() });
+  const nonce = randomUUID().slice(0, 8); // one-shot token: the client echoes it on resolve, so a cook can't be resolved without being armed here
+  pendingSynth.set(player.id, { recipeId: recipe.id, nonce, contextBonus: ws.contextBonus, mode: ws.mode, tier, family, difficulty, ts: Date.now() });
   return {
     type: 'synth_minigame',
-    recipeId: recipe.id,
+    recipeId: recipe.id, nonce,
     recipeName: drug?.name || recipe.name,
     family, tier, difficulty,
     workspace: ws.label,
@@ -148,9 +149,10 @@ async function cmdCook(args, raw, player, broadcast) {
 async function cmdSynthResolve(args, raw, player, broadcast) {
   const recipeId = args[0];
   const score = Math.max(0, Math.min(100, parseInt(args[1], 10) || 0));
+  const nonce = args[2];
   const pending = pendingSynth.get(player.id);
   pendingSynth.delete(player.id);
-  if (!pending || pending.recipeId !== recipeId || Date.now() - pending.ts > PENDING_TTL_MS) return { type: 'noop' };
+  if (!pending || pending.recipeId !== recipeId || pending.nonce !== nonce || Date.now() - pending.ts > PENDING_TTL_MS) return { type: 'noop' };
 
   const recipe = getRecipeCache()[recipeId];
   if (!recipe) return { type: 'error', message: 'The recipe slips out of your head.' };
@@ -162,7 +164,7 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
 
   const tier = pending.tier || 1;
   const skillResult = await skillCheck(player, SYNTH_SKILL, pending.difficulty ?? (recipe.base_difficulty ?? 5));
-  const minigameBonus = Math.round((score / 100 - 0.5) * 8); // -4..+4
+  const minigameBonus = Math.round((score / 100 - 0.5) * 4); // -2..+2 (bounded so skipping the minigame to claim max barely helps)
   const finalMargin = skillResult.margin + minigameBonus + pending.contextBonus;
   const success = finalMargin >= 0;
   const catastrophic = finalMargin < -5 && tier >= 3; // tier 1–2 drugs are cheap + safe to botch
@@ -192,7 +194,8 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
   }
 
   if (!success) {
-    return { type: 'error', message: `The cook doesn't take. The mixture goes inert and cloudy — a wasted run, but your reagents survive. (margin ${finalMargin})` };
+    await withTransaction(consume); // a failed cook still burns the materials — no free infinite retries
+    return { type: 'error', message: `The cook doesn't take. The mixture goes inert and cloudy — a wasted run, and the materials are spent. (margin ${finalMargin})` };
   }
 
   // Potency baked into the produced drug item — a great cook makes stronger product.
@@ -316,12 +319,13 @@ function composeSplice(baseEff, grafts, srcEffById, name) {
     }
   }
   const graftCount = grafts.length;
+  const distinctDrugs = new Set(grafts.map(g => g.drug)).size; // dose weight tracks source DRUGS, not effect-blocks
   const totalAbs = absSum(composed.phases?.peak_mods) + absSum(composed.instant);
   const hallCount = composed.hallucination ? 1 : 0;
   const difficulty = Math.round(SPLICE_BASE_DIFF + 1.5 * graftCount + 1.5 * antagonism + totalAbs / 12);
   const instability = Math.min(1, 0.12 * graftCount + 0.18 * antagonism + 0.12 * hallCount + totalAbs / 120);
-  const doseWeight = 1 + graftCount;
-  const odThreshold = Math.max(2, 3 - Math.max(0, graftCount - 1));
+  const doseWeight = 1 + distinctDrugs;   // a splice is "heavier" the more distinct drugs go into it
+  const odThreshold = doseWeight + 2;     // first dose is always usable; stacking doses ODs faster than a plain drug
   const warnings = [];
   if (antagonism > 0) warnings.push('Antagonistic effects fight each other — volatile.');
   if (graftCount >= 3) warnings.push('Overloaded — this will overdose fast.');
@@ -459,7 +463,7 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
   };
 
   const skillResult = await skillCheck(player, SYNTH_SKILL, p.comp.difficulty);
-  const minigameBonus = Math.round((score / 100 - 0.5) * 8);
+  const minigameBonus = Math.round((score / 100 - 0.5) * 4); // -2..+2 (bounded, see cook)
   const raw2 = skillResult.margin + minigameBonus + 2; // +2 real-lab bonus
   const effectiveMargin = raw2 - Math.round(p.comp.instability * 3); // instability makes it harder to land
   const success = effectiveMargin >= 0;
@@ -488,7 +492,7 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
 
   // Bad batch — you still bottle something, but it's degraded and nasty.
   if (!success) {
-    const cd = { synthesized: true, spliced: true, potency: 0.4, name: `unstable ${p.name}`, effects: badBatch(p.comp.effects), overdose_threshold: Math.max(2, p.comp.odThreshold - 1), dose_weight: p.comp.doseWeight + 1, duration_seconds: 300 };
+    const cd = { synthesized: true, spliced: true, potency: 0.4, name: `unstable ${p.name}`, effects: badBatch(p.comp.effects), overdose_threshold: Math.max(2, p.comp.odThreshold - 1), dose_weight: p.comp.doseWeight, duration_seconds: 300 };
     await withTransaction(async (q) => { await consume(q); await insertCompound(q, cd); });
     return { type: 'output', message: `<span class="msg-system">The splice curdles into something wrong — cloudy, and it smells of solvent and regret. You bottle the <span class="item">unstable ${p.name}</span> anyway. (margin ${effectiveMargin})</span>` };
   }

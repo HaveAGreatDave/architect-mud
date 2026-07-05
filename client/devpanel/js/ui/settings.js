@@ -3,6 +3,24 @@ function loadDevSettings() { try { return JSON.parse(localStorage.getItem(SHARED
 function saveDevSettings(s) { try { const merged = { ...loadDevSettings(), ...s }; localStorage.setItem(SHARED_SETTINGS_KEY, JSON.stringify(merged)); } catch {} }
 let devSettings = loadDevSettings();
 
+// Snapshot taken when the Settings panel opens, so an X/backdrop close can offer
+// Save vs. Cancel Changes. Settings apply live, so a revert restores this exact
+// blob. `_contrastPreview` is a transient live-preview key, not a saved change —
+// normalize it out so a mid-drag preview alone doesn't read as "dirty".
+let _settingsSnapshotRaw = null;
+function _normSettings(s) { const c = { ...s }; delete c._contrastPreview; return JSON.stringify(c); }
+function snapshotDevSettings() { _settingsSnapshotRaw = JSON.stringify(devSettings); }
+function devSettingsChanged() {
+  if (_settingsSnapshotRaw == null) return false;
+  return _normSettings(devSettings) !== _normSettings(JSON.parse(_settingsSnapshotRaw));
+}
+function revertDevSettings() {
+  if (_settingsSnapshotRaw == null) return;
+  localStorage.setItem(SHARED_SETTINGS_KEY, _settingsSnapshotRaw);
+  devSettings = JSON.parse(_settingsSnapshotRaw);
+  applyDevSettings();
+}
+
 const POWER_STATUS_RGBA = {
   powered:   [20,  200, 100, 0.22],
   overloaded:[255, 165, 0,   0.28],

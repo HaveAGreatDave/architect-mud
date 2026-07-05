@@ -523,11 +523,66 @@ document
 	.getElementById("mobile-chat-btn")
 	?.addEventListener("click", toggleWhisperPanel);
 
+// Fire a d-pad button's command on RELEASE, not press — and only if the finger
+// is still over the button it started on. Holding does nothing until you let
+// go; sliding off before releasing cancels, so a fat-finger misplacement can be
+// corrected by dragging away instead of committing to the wrong direction. A
+// quick tap still works (press + release on the same button). Pointer events
+// cover both touch and mouse; loc-dpad can show on desktop too.
+function wireDpadPressRelease(container) {
+	if (!container) return;
+	let active = null; // the button currently pressed
+	const isOver = (btn, x, y) => {
+		const el = document.elementFromPoint(x, y);
+		return !!el && (btn === el || btn.contains(el));
+	};
+	container.addEventListener("pointerdown", (e) => {
+		const btn = e.target.closest(".dpad-btn[data-cmd]");
+		if (!btn) return;
+		e.preventDefault();
+		active = btn;
+		btn.classList.add("dpad-pressing");
+		btn.setPointerCapture?.(e.pointerId);
+	});
+	container.addEventListener("pointermove", (e) => {
+		if (!active) return;
+		const on = isOver(active, e.clientX, e.clientY);
+		active.classList.toggle("dpad-pressing", on);
+		active.classList.toggle("dpad-cancel", !on);
+	});
+	const end = (e, commit) => {
+		if (!active) return;
+		const btn = active;
+		active = null;
+		btn.classList.remove("dpad-pressing", "dpad-cancel");
+		if (commit && isOver(btn, e.clientX, e.clientY)) sendCmd(btn.dataset.cmd);
+	};
+	container.addEventListener("pointerup", (e) => end(e, true));
+	container.addEventListener("pointercancel", (e) => end(e, false));
+}
+
 // Mobile dpad — send movement commands without opening the keyboard
-document.getElementById("mob-dpad")?.addEventListener("click", (e) => {
-	const btn = e.target.closest(".dpad-btn");
-	if (btn?.dataset.cmd) sendCmd(btn.dataset.cmd);
-});
+wireDpadPressRelease(document.getElementById("mob-dpad"));
+
+// The d-pad's centre cell cycles the button size small → medium → large,
+// resizing every button via [data-dpad-size] on <html>. Persisted per browser.
+const mobDpadSize = document.getElementById("mob-dpad-size");
+if (mobDpadSize) {
+	const SIZES = ["small", "medium", "large"];
+	const applyDpadSize = (size) => {
+		if (size === "small") delete document.documentElement.dataset.dpadSize;
+		else document.documentElement.dataset.dpadSize = size;
+		mobDpadSize.title = `D-Pad size: ${size} (tap to change)`;
+	};
+	const savedSize = localStorage.getItem("architect_dpad_size");
+	applyDpadSize(SIZES.includes(savedSize) ? savedSize : "small");
+	mobDpadSize.addEventListener("click", () => {
+		const cur = document.documentElement.dataset.dpadSize || "small";
+		const next = SIZES[(SIZES.indexOf(cur) + 1) % SIZES.length];
+		localStorage.setItem("architect_dpad_size", next);
+		applyDpadSize(next);
+	});
+}
 // Location d-pad — movement + size toggle (auto fills available space up to the
 // max; the resize button overrides with fixed 100% / 50% sizes)
 const locDpad = document.getElementById("loc-dpad");
@@ -549,10 +604,7 @@ if (locDpad) {
 		localStorage.setItem("architect_dpad_mode", next);
 		applyMode(next);
 	});
-	locDpad.addEventListener("click", (e) => {
-		const btn = e.target.closest(".dpad-btn");
-		if (btn?.dataset.cmd) sendCmd(btn.dataset.cmd);
-	});
+	wireDpadPressRelease(locDpad);
 }
 
 // Poker command bar — buttons live in the area pane (re-rendered on every poker
