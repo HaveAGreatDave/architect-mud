@@ -1466,6 +1466,12 @@ export async function tickEntityAI(entity, ctx) {
   const ai = entity._ai;
   if (!ai) return;
 
+  // Not placed in any zone — an unplaced entity has no room to act in. Ticking it
+  // anyway makes zone-scoped broadcasts (SAY/EMOTE/home-life) fall through to a
+  // null zone, which the server treats as a global send — so its lines leak to
+  // every connected player. Skip it until it's given a zone.
+  if (!entityZone(entity)) return;
+
   // A break-in alarm (burglary plugin) has taken this NPC over — it drives the
   // panic cop-call / flee sequence directly. Suspend the normal graph (and the
   // passive home-life below) until the plugin clears the flag.
