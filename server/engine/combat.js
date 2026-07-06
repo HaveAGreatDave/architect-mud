@@ -450,6 +450,11 @@ export async function playerAttackNpc(player, npcId, weaponStats) {
   if (!npc) return { success: false, message: "That target is gone." };
   if (npc.zone_id !== player.current_zone) return { success: false, message: "That target isn't here." };
   if (npc._dead) return { success: false, message: `${npc.name} is already dead.` };
+  // Some NPCs cannot be attacked at all (tutorial attendants, protected quest-givers).
+  // A general seam: flags.no_attack refuses combat; flags.no_attack_message flavors it.
+  if (npc.flags?.no_attack) {
+    return { success: false, message: npc.flags.no_attack_message || `Something stops you. ${npc.name} cannot be harmed.` };
+  }
 
   await ensureTunables();
   const weaponSkillId = weaponStats?.weapon_skill || 'fists';

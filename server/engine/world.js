@@ -104,7 +104,7 @@ async function loadZones() {
 async function loadNpcs() {
   const { rows } = await query('SELECT * FROM npcs');
   for (const npc of rows) {
-    world.npcs.set(npc.id, {
+    const live = {
       ...npc,
       dialogue_tree: npc.dialogue_tree || {},
       vendor_inventory: npc.vendor_inventory || [],
@@ -113,9 +113,16 @@ async function loadNpcs() {
       flags: npc.flags || {},
       banter: npc.banter || [],
       _ai: { currentNode: null, waitUntil: null, patrolPath: [], patrolTarget: null, patrolMode: 'walk', patrolIndex: 0, alertCooldown: 0, lastSay: 0, flags: {} },
-    });
-    if (npc.zone_id && world.zones.has(npc.zone_id)) {
-      world.zones.get(npc.zone_id).npcs.add(npc.id);
+    };
+    world.npcs.set(npc.id, live);
+    // zone_id is the NPC's live position (runtime-mutated, excluded from content),
+    // so a freshly-imported NPC has it null — fall back to the authored home_zone
+    // so stationary content NPCs actually appear on a fresh world. The AI tick
+    // takes over movement from there.
+    const placeZone = live.zone_id || live.home_zone;
+    if (placeZone && world.zones.has(placeZone)) {
+      live.zone_id = placeZone;
+      world.zones.get(placeZone).npcs.add(npc.id);
     }
   }
 }

@@ -27,6 +27,7 @@ import { randomAppearance } from '../../server/engine/appearance.js';
 import { isMisActive } from '../../server/engine/mis.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { registerAction } from '../../server/engine/actions.js';
+import { emit } from '../../server/engine/events.js';
 
 const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blonde','red','grey','white','silver','dyed blue','dyed green','dyed purple','dyed red'];
 const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
@@ -42,10 +43,20 @@ const MACHINE_NAMES = ['morphex', 'biosculpt', 'makeover', 'morphex 9000'];
 
 async function getMachine(zoneId) {
   const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND (object_type='cosmetic_machine' OR jsonb_exists(flags,'cosmetic_machine')) LIMIT 1`,
+    `SELECT id, flags FROM furniture WHERE zone_id=$1 AND (object_type='cosmetic_machine' OR jsonb_exists(flags,'cosmetic_machine')) LIMIT 1`,
     [zoneId]
   );
   return rows[0] || null;
+}
+
+// A chargen terminal (flags.chargen) opens the panel in a stripped-down mode:
+// no current-appearance sheet, no balance/cost — the player is being made, has
+// no credits, and the first change is free. Cached on the live player so every
+// buildPanelData in a session carries it without threading a param everywhere.
+async function markChargenMode(player) {
+  const machine = await getMachine(player.current_zone);
+  player._morphexChargen = !!(machine && machine.flags?.chargen);
+  return machine;
 }
 
 function buildPanelData(player, toast = null) {
@@ -65,6 +76,7 @@ function buildPanelData(player, toast = null) {
       appearance_data:     player.appearance_data || {},
       erect:               player.erect || 0,
       sexuality:           player.sexuality || 'Male',
+      chargen:             !!player._morphexChargen,
       toast,
     },
     player_update: { credits: player.credits },
@@ -72,6 +84,9 @@ function buildPanelData(player, toast = null) {
 }
 
 function chargeCheck(player) {
+  // A chargen terminal (the prologue's) never charges: the player is being made,
+  // has no credits, and this shouldn't burn their real first-free change either.
+  if (player._morphexChargen) return { ok: true, cost: 0 };
   if (!player.appearance_free_used) return { ok: true, cost: 0 };
   const cost = 10;
   if ((player.credits || 0) < cost) return { ok: false, cost };
@@ -79,9 +94,16 @@ function chargeCheck(player) {
 }
 
 async function applyCharge(player, cost) {
-  player.appearance_free_used = 1;
+  // In chargen mode, don't consume the one-time free change — that belongs to a
+  // real terminal later — but still emit so the prologue's alignment gate fires.
+  if (!player._morphexChargen) {
+    player.appearance_free_used = 1;
+    await query('UPDATE players SET appearance_free_used=1 WHERE id=$1', [player.id]);
+  }
   if (cost > 0) await adjustCredits(player, -cost);
-  await query('UPDATE players SET appearance_free_used=1 WHERE id=$1', [player.id]);
+  // Past-tense notification: the player reshaped themselves. The prologue listens
+  // to gate chargen; harmless elsewhere.
+  emit('appearance.changed', { actor: player });
 }
 
 async function cmdMorphex(args, raw, player) {
@@ -91,7 +113,7 @@ async function cmdMorphex(args, raw, player) {
     remaining = remaining.slice(1);
   }
 
-  if (!await getMachine(player.current_zone)) return null;
+  if (!await markChargenMode(player)) return null;
 
   const sub = remaining[0]?.toLowerCase();
   const rest = remaining.slice(1);
@@ -202,13 +224,13 @@ async function cmdMorphex(args, raw, player) {
     if (isNaN(targetCm) || targetCm < 5 || targetCm > 30) return buildPanelData(player, 'Enter a target length in cm (5–30).');
     const appData = player.appearance_data || {};
     const delta = Math.abs(targetCm - (appData.penis_length_cm || 12));
-    const totalCost = Math.max(5, delta * 5);
+    const totalCost = player._morphexChargen ? 0 : Math.max(5, delta * 5);
     if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/cm — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
     appData.penis_length_cm = targetCm;
     player.appearance_data = appData;
-    await adjustCredits(player, -totalCost);
+    if (totalCost > 0) await adjustCredits(player, -totalCost);
     await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(appData), player.id]);
-    return buildPanelData(player, `Adjusted. (-${totalCost}₵)`);
+    return buildPanelData(player, totalCost ? `Adjusted. (-${totalCost}₵)` : 'Adjusted. (free)');
   }
 
   // testicle size — MIS only
@@ -251,13 +273,13 @@ async function cmdMorphex(args, raw, player) {
     if (BREAST_MAP[targetSize] === undefined) return buildPanelData(player, `Valid sizes: ${BREAST_SIZES.join(', ')}`);
     const appData = player.appearance_data || {};
     const delta = Math.abs(BREAST_MAP[targetSize] - (BREAST_MAP[appData.breast_size || 'medium'] ?? 2));
-    const totalCost = Math.max(5, delta * 5);
+    const totalCost = player._morphexChargen ? 0 : Math.max(5, delta * 5);
     if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/tier — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
     appData.breast_size = targetSize;
     player.appearance_data = appData;
-    await adjustCredits(player, -totalCost);
+    if (totalCost > 0) await adjustCredits(player, -totalCost);
     await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(appData), player.id]);
-    return buildPanelData(player, `Adjusted. (-${totalCost}₵)`);
+    return buildPanelData(player, totalCost ? `Adjusted. (-${totalCost}₵)` : 'Adjusted. (free)');
   }
 
   // sexuality — MIS only
@@ -281,7 +303,7 @@ async function cmdMorphex(args, raw, player) {
 }
 
 async function openCosmeticMachine(player) {
-  if (!await getMachine(player.current_zone))
+  if (!await markChargenMode(player))
     return { type: 'error', message: `There's no MORPHEX 9000 terminal here.` };
   return buildPanelData(player);
 }
@@ -303,7 +325,7 @@ export const specializedActions = [{
   handler: async (args, raw, player) => {
     const target = args.join(' ').toLowerCase();
     if (!MACHINE_NAMES.some(n => target.includes(n))) return undefined;
-    if (!await getMachine(player.current_zone)) {
+    if (!await markChargenMode(player)) {
       return { type: 'error', message: `There's no MORPHEX 9000 terminal here.` };
     }
     return buildPanelData(player);

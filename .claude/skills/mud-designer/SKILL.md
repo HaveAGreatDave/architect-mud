@@ -34,6 +34,8 @@ You are the content designer for Architect MUD. Your job: turn a rough idea into
    ```
    Write payloads to the scratchpad dir, not the repo.
 
+   **Bulk alternative (no running server): author the `content/` files directly, then `npm run content:import`.** For a large batch — a whole zone with rooms, items, furniture, NPCs — writing the `content/<table>/<pk>.json` files yourself and importing is cleaner and doesn't need a live server (design-cli POSTs to the running API; import applies `SCHEMA_SQL` then upserts the file tree). The tradeoff: you skip the API's immediate validation, so lean harder on `content:import --dry-run` (catches unknown columns / bad shapes before touching the DB) and the ship-gate `content:lint`. Match an exemplar file's exact field set — the DB's `NOT NULL`-without-default columns will reject a missing field.
+
 6. **Validate.** Check the response is ok, then fetch the entity back and confirm it's whole. For zones, run the world validator route. Report exactly what was created, with IDs.
 
 7. **Ship it through CODEX.** Injecting via the API writes your **local DB only** — the content is invisible to the team and lost on the next rebuild until it's exported to files and committed. Content now lives in git as one JSON file per entity (`content/<table>/<pk>.json`); the DB is a build artifact. **Invoke the [`codex` skill](../codex/SKILL.md)** to run the exit gate: `content:export` → review the diff (discard runtime residue) → `content:lint` → `npm run test:regress` → commit. A design task is not done until CODEX ships it. See "What not to serialize" below for the one thing you must get right, and [docs/content-pipeline.md](../../../docs/content-pipeline.md) for the full model.
@@ -49,7 +51,7 @@ The pipeline exports content rows to files and imports them into every DB, inclu
 ## Dependency checklists (production-ready means ALL of these)
 
 **NPC:**
-- [ ] Home zone/room exists (where do they live or idle?)
+- [ ] `home_zone` set to an existing zone — **this is where a stationary NPC appears.** Placement keys on the runtime `zone_id` column (which content excludes, so it's null on a fresh import); the engine falls back to `home_zone` when `zone_id` is null. So a stationary NPC with no `home_zone` (or a bad one) is **invisible** — loaded into the world but in no room. Wandering NPCs move off `home_zone` via their behaviour graph.
 - [ ] Schedule — do they work? where? (vendor_schedule if vendor)
 - [ ] Behaviour graph if they move/act (wander, commute, react)
 - [ ] Dialogue tree if players can talk to them
@@ -126,6 +128,10 @@ Reference lumen values (copy an existing light of the same `light_type`; these a
 
 Lumens are **summed per zone**, so a room lit by several fixtures adds them up — to make a room read `bright`/`blazing`, either give one fixture a high `lumen_output` or place several. After creating/updating a light, the route resyncs `lighting_states` automatically; verify by fetching the zone's lighting (or just re-`look` in-world) and confirming the level label matches intent — don't trust `light_on:1` alone.
 
+**Before lumens even matter, the zone has to be POWERED.** `getZoneVisibility` reads artificial light only for zones the power sim tracks — i.e. zones with a `power_zones` row. An **interior** zone (`flags.is_interior`/`is_apartment`/`is_building`) with **no `power_zones` row** never gets artificial light: it falls through to *outdoor* ambient, so it's lit by daylight and **pitch-dark at night**, no matter how many lights you place. This is the silent trap behind "I put lights in and the room's still dark." Two fixes:
+- A room that should be lit like a real interior: give it a `power_zones` row (+ a generator/grid) and lights, same as any building.
+- A room that's lit *by its own nature* (a dream/void space, a magically-bright vault): set **`zones.flags.always_lit: true`**. `getZoneVisibility` short-circuits that to full brightness with no power or lighting content at all — the cheapest way to guarantee a readable room. (Engine property; see `environment.js`.)
+
 **Zone:**
 - [ ] Exits connect both ways to existing zones
 - [ ] Ambient theme + events set
@@ -156,6 +162,19 @@ Ask only what exemplars + the request can't answer. Typical NPC batch:
 - **A "light" with no `lumen_output` emits nothing.** Zone brightness = the summed `lumen_output` of on-lights, not the count of lit fixtures. Create a light with `light_on:1` but no `lumen_output` and the room drops to the 0-lumen powered fallback (`0.3` → gloomy/dim) — the classic "all the lights are on but it's dark" bug. Always set `lumen_output` (lamp ~400, overhead ~1200, streetlight 8000); copy an existing light of the same `light_type`. `light_on` is only the switch. To fix existing dim rooms, PUT the offending lights with a real `lumen_output` (furniture PUT is create-column-aware — but re-fetch to confirm the resync landed).
 - **Item PUT is a full-object replace with NO merge/COALESCE** (`apiUpdateItem`): it writes `name,type,weight,value,tags` straight from the body, so a *partial* PUT (e.g. just `{tags}`) NULLs name/weight/value. Always PUT the complete item object — keep the create payload in scratchpad and edit it, never hand-write a diff. Note it also ignores `subtype/effects/flags/is_stackable` on update (those are create-only columns).
 - **"Verified" has two tiers — say which you did.** DB read-back (fetch the entity, confirm the field) proves the *data* is right. Behavioural verification (poll NPC `zone_id` to see it move) proves it *works*. Armor soak can only be data-verified cheaply: `recomputeArmor()` runs at login and there's no puppet player, so you can't observe combat soak from the CLI. Report "data verified, combat effect not observed" rather than implying it was play-tested.
+
+## Local verification recipes (no running server)
+
+You rarely need `npm start` to prove something works. Write a throwaway `.mjs` in the scratchpad (repo-relative imports; run from the repo root) and call the real code paths against the live dev DB. The recipes that keep coming up:
+
+- **DB read-back:** `import { query } from './server/models/db.js'` → any `SELECT`. Confirms an authored field landed.
+- **A registration / any HTTP route:** `import { handleApiRequest } from './server/api/routes.js'` — signature is **`handleApiRequest(url, method, body, headers)`** (url first, e.g. `'/auth/register'`, `'POST'`). Then `SELECT … FROM players WHERE username=$1` to inspect the result (the response omits `playerId` when email verification is on).
+- **World placement (NPC in a room, zone exits, lighting):** `import { initWorld, world, getZone } from './server/engine/world.js'`; `await initWorld()`; inspect `world.zones.get(id).npcs`, `getZone(id).exits`. Booting the world also validates exits load.
+- **Zone visibility / lighting:** `import { initEnvironment, getZoneVisibility } from './server/engine/environment.js'`; `await initEnvironment({ query, emitHook: async()=>{}, broadcast: ()=>{}, getOccupiedZones: ()=>[] })`; then `getZoneVisibility(id).category`.
+- **Room render (does a `look` show the item / NPC?):** `import { describeZone } from './server/engine/commands/describe.js'` → `await describeZone(getZone(id), fakePlayer)` and string-match the output.
+- **Count messages sent to a player (races, dupes):** `import { setBroadcast } from './server/engine/messaging.js'` to install a counting spy, then drive the code and assert the count.
+
+Always `process.exit(0)` at the end (the DB pool keeps the process alive) and clean up any rows you inserted. Say which tier you reached — data-verified vs behaviour-verified (see the "two tiers" gotcha).
 
 ## Server lifecycle
 
