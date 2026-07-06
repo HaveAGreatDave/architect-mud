@@ -105,6 +105,9 @@ function _render(d) {
   const hc     = d.hair_color  || 'brown';
   const ec     = d.eye_color   || 'brown';
   const isFree = !d.appearance_free_used;
+  // Chargen terminals (the prologue's) drop the current-appearance sheet and the
+  // balance/cost box — the player is being made, has no credits, first change free.
+  const chargen = !!d.chargen;
 
   const imp = cmToImperial(h);
   const lbs = kgToLbs(w);
@@ -194,16 +197,16 @@ function _render(d) {
       <button id="mx-close" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0">✕</button>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;min-height:200px">
+    <div style="display:grid;grid-template-columns:${chargen ? '1fr' : '1fr 1fr'};min-height:200px">
 
-      <div style="padding:14px 16px;border-right:1px solid var(--border)">
+      ${chargen ? '' : `<div style="padding:14px 16px;border-right:1px solid var(--border)">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:8px">Current Appearance</div>
         ${sheet}
         <div style="margin-top:12px;padding:8px 10px;background:var(--bg3);border-radius:2px;font-size:11px;display:flex;justify-content:space-between;align-items:center">
           <span style="color:var(--text-dim)">Balance: <span style="color:${balanceColor}">${d.credits || 0}₵</span></span>
           ${freeTag}
         </div>
-      </div>
+      </div>`}
 
       <div style="padding:14px 16px">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:8px">Modifications</div>

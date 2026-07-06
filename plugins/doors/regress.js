@@ -123,6 +123,19 @@ export default async function regress({ run, check, getPlayer }) {
   check('privacy lock: credentialled locks stay passable', lockTypePassesWhileLocked('lock:hololock') === true);
 
   deleteDoorCache(privDoorId);
+
+  // Hololock auth: a plain player who owns no unit on either side of the door
+  // must NOT be able to unlock (or lock) it — only the owner's credentials work.
+  const holoDoorId = 'door_regress_holo_auth_' + p.id;
+  setDoorCache(holoDoorId, {
+    id: holoDoorId, zone_id: p.current_zone, exit_dir: dir, target_zone: null,
+    is_open: 0, hp: 100, hp_max: 100, lock_state: 'locked',
+    tags: { 'lock:hololock': { canHack: true, difficulty: 5, messages: { denied: 'not recognized', unlock: 'click' } } },
+  });
+  r = await run(`unlock ${dir}`);
+  check('hololock: non-owner cannot unlock', /not recognized/.test(r?.message || '') && r?.type === 'error', JSON.stringify(r)?.slice(0, 100));
+  deleteDoorCache(holoDoorId);
+
   p.role = savedRole;
 
   // The forced-charge path moved. Breaching a lock no longer auto-charges

@@ -283,8 +283,9 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
   // Physical appearance line (new)
   const physLine = physicalDescription(target, isSelf);
 
-  const DEFAULT_ORIGIN = 'A survivor. Still standing, somehow.';
-  let msg = `${origin || DEFAULT_ORIGIN}\n`;
+  // No canned filler when blank — an undescribed player (e.g. fresh out of the
+  // prologue, before ever using .describe) simply has no origin line at all.
+  let msg = origin ? `${origin}\n` : '';
   if (physLine) msg += `${physLine}\n`;
   if (target.posture === 'sitting') {
     const where = target.sittingOn ? `the ${target.sittingOn}` : 'the ground';

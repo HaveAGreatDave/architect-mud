@@ -176,7 +176,7 @@ async function saveOrigin(text) {
 		return false;
 	}
 	if (state.player)
-		state.player.origin_fragment = text || "A survivor. Still standing, somehow.";
+		state.player.origin_fragment = text;
 	return true;
 }
 

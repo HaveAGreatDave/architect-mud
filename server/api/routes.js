@@ -46,7 +46,7 @@ import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
 import { reloadWindows as reloadWindowsEnv, recomputePower, getEnvironmentState } from '../engine/environment.js';
 import { ensureTunables, getTunable, reloadTunables } from '../engine/tunables.js';
-import { startingIp, statCost, RAISABLE_STATS, getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
+import { startingIp, getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
 import { SKILLS } from '../engine/skills.js';
 import { ownTags } from '../engine/supertags.js';
 import { getMotd, saveMotd } from '../engine/motd.js';
@@ -421,42 +421,38 @@ export async function handleApiRequest(url, method, body, headers) {
 async function apiRegister(body) {
   const {username,password,handle,email} = body||{};
   if (!username||!password||!handle||!email) return {status:400,body:{error:'username, password, handle, email required'}};
-  // biological_sex & sexuality are chosen later in the chargen section; use safe
-  // placeholders here so the starting appearance/kit still generate. Chargen finalizes them.
-  const biological_sex = 'male';
+  // Starting appearance is fully randomized here (sex included) so the chargen
+  // terminal opens on a random look the player then reshapes — nothing is a fixed
+  // default. Sex and the rest are all finalized at the MORPHEX terminal.
+  const biological_sex = Math.random() < 0.5 ? 'male' : 'female';
   try {
     const id = randomUUID();
     await ensureTunables();
-    // Starting XP into bonus_xp: enough to raise all stats to the baseline target
-    // (startingIp), plus the cost of the five stats that begin at 1 — so Net XP
-    // after creation equals startingIp (the same spendable as the old IP grant).
-    const bonusXp = startingIp() + RAISABLE_STATS.length * statCost(0);
+    // Starting XP into bonus_xp: enough to raise all six stats from blank (0) to
+    // the baseline target — Net XP after creation equals startingIp exactly, no
+    // stats are pre-filled, so there's nothing to compensate for.
+    const bonusXp = startingIp();
     const app = randomAppearance(biological_sex);
-    // hp/hp_max derive from the starting endurance of 1 (see maxHpForEndurance).
-    const startHp = maxHpForEndurance(1);
+    // Stats start blank (0 — see stat_brawn etc. below); hp/hp_max derive from
+    // endurance 0 (see maxHpForEndurance). The prologue teaches growth from here.
+    const startHp = maxHpForEndurance(0);
+    // New souls spawn into the prologue (zone_the_inbetween), not the clone vat.
+    // anchor_zone is left to its schema DEFAULT ('zone_start'), so once they leave
+    // the prologue every death respawns them at the clone facility — the prologue
+    // is one-way and unreachable again (see plugins/prologue).
     await query(
       `INSERT INTO players
         (id,username,password_hash,handle,role,bonus_xp,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,stat_senses,
          biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data,email,sexuality,current_zone)
-       VALUES ($1,$2,$3,$4,'player',$5,${startHp},${startHp},1,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'zone_start')`,
+       VALUES ($1,$2,$3,$4,'player',$5,${startHp},${startHp},0,0,0,0,0,0,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'zone_the_inbetween')`,
       [id, username.toLowerCase(), hashPassword(password), handle, bonusXp,
        biological_sex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
        app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), email.toLowerCase().trim(),
        'Female']
     );
-    // Starting kit — bandages always
-    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,'item_bandage',3,1.0)`, [randomUUID(), id]);
-    // Underwear by sex
-    if (biological_sex === 'male') {
-      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'legs',1 FROM items i WHERE i.id='item_underwear_male'`, [randomUUID(), id]);
-    } else {
-      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'torso',1 FROM items i WHERE i.id='item_underwear_female_top'`, [randomUUID(), id]);
-      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'legs',1  FROM items i WHERE i.id='item_underwear_female_bottom'`, [randomUUID(), id]);
-    }
-    // T-shirt, pants, shoes for everyone — layer 2 over underwear
-    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'torso',2 FROM items i WHERE i.id='item_basic_shirt'`, [randomUUID(), id]);
-    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'legs',2  FROM items i WHERE i.id='item_basic_pants'`, [randomUUID(), id]);
-    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'feet',2  FROM items i WHERE i.id='item_basic_shoes'`, [randomUUID(), id]);
+    // No starting inventory — new souls arrive with nothing. The prologue is
+    // the only way into the world now, and it hands out gear on its own terms
+    // (see plugins/prologue's Broadcast-room kit drop).
     logActivity('char_created', handle);
     fireHook('player.create', { id, handle, username: username.toLowerCase(), role: 'player' }).catch(() => {});
     if (isEmailVerificationEnabled()) {
@@ -1857,7 +1853,7 @@ async function apiGetPlayers() {
 
 async function apiGetPlayerProgression(id) {
   await ensureTunables();
-  const {rows}=await query('SELECT id,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,stat_senses,COALESCE(bonus_xp,0) AS bonus_xp FROM players WHERE id=$1',[id]);
+  const {rows}=await query('SELECT id,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,stat_senses,COALESCE(gifted_stat_points,0) AS gifted_stat_points,COALESCE(bonus_xp,0) AS bonus_xp FROM players WHERE id=$1',[id]);
   if (!rows.length) return {status:404,body:{error:'Player not found'}};
   const p = rows[0];
   const {rows:skillRows}=await query('SELECT skill_id,ip FROM player_skills WHERE player_id=$1 ORDER BY ip DESC',[id]);
@@ -2027,7 +2023,7 @@ async function apiUpdateOwnProfile(auth, body) {
   const text = (body?.origin_fragment ?? '').toString().trim().slice(0, 200);
   await query('UPDATE players SET origin_fragment=$1 WHERE id=$2', [text || null, auth.playerId]);
   const live = getAllLivePlayers().find(p => p.id === auth.playerId);
-  if (live) live.origin_fragment = text || 'A survivor. Still standing, somehow.';
+  if (live) live.origin_fragment = text;
   return {status:200,body:{updated:true}};
 }
 

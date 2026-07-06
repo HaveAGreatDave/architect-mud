@@ -641,7 +641,7 @@ async function finishAuth(ws, session, player) {
 		id: player.id,
 		handle: player.handle,
 		role: player.role,
-		origin_fragment: player.origin_fragment || 'A survivor. Still standing, somehow.',
+		origin_fragment: player.origin_fragment || '',
 		archetype: player.archetype || null,
 		visibly_mutated: player.visibly_mutated || 0,
 		covered_in_blood: player.covered_in_blood || 0,
