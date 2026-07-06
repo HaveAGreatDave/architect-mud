@@ -1915,6 +1915,23 @@ export const routeHandler = async (path, method, body, auth) => {
     return { status: 200, body: { active, history: crimeHistory } };
   }
 
+  // Admin scrub: wipe both wanted stars AND the invisible heat meter for one
+  // suspect. Works online (live flags + HUD) or offline (direct flag rows).
+  if (path === '/surveillance/clear-slate' && method === 'POST') {
+    const playerId = body?.playerId;
+    if (!playerId) return { status: 400, body: { error: 'playerId required' } };
+    await clearWanted(playerId, 'admin cleared');
+    heatRuntime.delete(playerId);
+    const p = getLivePlayer(playerId);
+    if (p) {
+      await setFlag('player', 'heat', 0, p);
+      sendHeatHud(playerId, 0);
+    } else {
+      await query(`UPDATE player_flags SET flag_value='0' WHERE player_id=$1 AND flag_key='heat'`, [playerId]).catch(() => {});
+    }
+    return { status: 200, body: { ok: true } };
+  }
+
   return null;
 };
 

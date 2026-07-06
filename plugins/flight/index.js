@@ -22,7 +22,7 @@ import {
   parkAt, crash, setHeading, getZone, getLivePlayer, sendToZone, sendToZoneExcept, sendToPlayer, setPosture,
   advance, initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
   ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme,
-  isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude,
+  isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
 } from './state.js';
 import { rollHazards, commands as hazardCommands } from './hazards.js';
 import { commands as acquisitionCommands, refuelAt, fieldStocks } from './acquisition.js';
@@ -135,8 +135,8 @@ async function cmdBoard(args, raw, player, broadcast) {
   const live = await loadAircraft(found.id);
   if (!live) return { type: 'error', message: 'That aircraft is in no state to fly.' };
   const seat = pilotOf(live) ? 'passenger' : 'pilot';
-  if (seat === 'passenger' && live.occupants.size >= (live.type.seats || 1))
-    return { type: 'emote', message: `The ${live.type.name} is full.` };
+  if (seat === 'passenger' && live.occupants.size >= effLoadout(live.row, live.type).seats)
+    return { type: 'emote', message: `The ${live.type.name} is full${live.row.custom_data?.loadout ? ' — it\'s rigged for freight' : ''}.` };
 
   live.occupants.add(player.id);
   player.aircraftId = found.id;
@@ -149,7 +149,11 @@ async function cmdBoard(args, raw, player, broadcast) {
   } else {
     broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} climbs into the ${live.type.name}.` }, player.id);
   }
-  if (isContinuous(live)) sendFlightSim(player, live); else pushHud(live);
+  // A pilot flies the live cockpit sim; everyone else (passengers on any craft, and legacy
+  // craft occupants) rides the cabin-window HUD — they look out a window, nothing to fly.
+  if (seat === 'pilot' && isContinuous(live)) sendFlightSim(player, live); else pushHud(live);
+  // Refresh the cabin-occupancy readout on a seated pilot when a rider joins.
+  if (seat !== 'pilot' && isContinuous(live)) pushContext(live);
   const hint = seat !== 'pilot'
     ? 'You strap into a passenger seat and wait on the pilot.'
     : isContinuous(live)
@@ -167,6 +171,8 @@ async function cmdDisembark(args, raw, player, broadcast) {
   if (live.row.airborne) return { type: 'emote', message: "You can't step out — you're in the air." };
   const name = live.type.name;
   detach(player);
+  // A remaining pilot's cabin readout updates as riders leave.
+  if (liveAircraft.has(live.row.id) && isContinuous(live)) pushContext(live);
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} climbs down out of the ${name}.` }, player.id);
   return { type: 'emote', message: `You climb down out of the ${name}.` };
 }
@@ -426,6 +432,7 @@ function sendFlightSim(player, live) {
     owner: (live.row.rental || !live.row.owner_id) ? 'RENTED'
       : (live.row.owner_id === player.id ? String(player.name || player.username || 'OWNER').toUpperCase() : 'PRIVATE'),
     fuel: ctx.fuel, fuelCap: ctx.fuelCap, map: ctx.map, sky: ctx.sky, biomeBelow: ctx.biomeBelow, minimap: ctx.minimap, fields: ctx.fields,
+    engines: ctx.engines, seats: ctx.seats, occupants: ctx.occupants,   // gauge count + cabin-occupancy readout
     // Per-airframe capabilities the continuous cockpit adapts to (Phase 3): heavies +
     // gunships have retractable gear; hardpoints arm the weapons; cargo enables jettison.
     gearRetract: ['heavy', 'gunship'].includes(live.type.class),
@@ -615,6 +622,9 @@ async function flightTick() {
         // into the cockpit. (Belt-and-suspenders against anything re-adding them.)
         for (const pid of live.occupants) { const p = getLivePlayer(pid); if (p) getZone(p.current_zone)?.players.delete(pid); }
         pushContext(live);
+        // Passengers ride the cabin-window HUD (not the pilot's live sim) — refresh it each
+        // tick so their out-the-window scenery keeps pace with the flight.
+        for (const pid of live.occupants) { const p = getLivePlayer(pid); if (p && p.seat !== 'pilot') { pushHud(live); break; } }
         if (++live.persistCtr % 4 === 0) await persist(live);
         continue;
       }
@@ -700,7 +710,7 @@ async function describeHangarInterior(zone) {
     "SELECT name FROM aircraft WHERE parked_zone_id=$1 AND is_wreck=0 AND (custom_data->>'charter') IS DISTINCT FROM 'true' LIMIT 1",
     [ramp.id]
   ).catch(() => ({ rows: [] }));
-  if (rows.length) line += `\n<span class="furniture-label">On the ramp:</span> ${svcLink('embark', 'embark')} <span class="text-dim">an aircraft is parked outside — board it from here</span>`;
+  if (rows.length) line += `\n<span class="furniture-label">On the ramp:</span> ${svcLink('embark', 'embark')} <span class="text-dim">an aircraft is parked outside — board it from here</span> · ${svcLink('loadout', 'loadout')} <span class="text-dim">(seats ⇄ cargo)</span>`;
   const ch = charterParkedAt(ramp.id);
   if (ch) {
     const who = getLivePlayer(ch.chartererId)?.handle;

@@ -10,5 +10,5 @@
     "seasonDays": { "type": "int", "default": 30, "note": "in-game days per season before the World Series (SPORTS_SEASON_DAYS in index.js)" },
     "minWorldSeriesGames": { "type": "int", "default": 8, "note": "runner-up must have played this many before a Series can seed" }
   },
-  "dataSchema": ["sports_standings", "sports_season"]
+  "dataSchema": ["sports_standings", "sports_season", "sports_results"]
 }

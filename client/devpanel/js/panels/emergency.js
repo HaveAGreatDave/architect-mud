@@ -31,6 +31,7 @@ function _crimeRows(rows, isHistory) {
       <td style="padding:5px 12px 5px 0;color:var(--text-dim)">${_crimeEsc(c.crime)}</td>
       <td style="padding:5px 12px 5px 0;color:#ff6b6b;letter-spacing:1px;white-space:nowrap">${_starBar(c.wanted)}</td>
       <td style="padding:5px 0;color:var(--text-dim);text-align:right;white-space:nowrap">${isHistory ? `${_crimeEsc(c.outcome)} · ${_ago(c.clearedTs)} ago` : `${_ago(c.ts)} ago`}</td>
+      ${isHistory ? '' : `<td style="padding:5px 0 5px 12px;text-align:right;white-space:nowrap"><button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="clearWantedSlate('${_crimeEsc(c.playerId)}','${_crimeEsc(c.perpetrator)}')">Clear</button></td>`}
     </tr>`).join('');
 }
 
@@ -42,6 +43,7 @@ function _crimeTable(rows, isHistory) {
       <th style="text-align:left;padding:0 12px 6px 0;font-weight:700">Crime</th>
       <th style="text-align:left;padding:0 12px 6px 0;font-weight:700">Wanted</th>
       <th style="text-align:right;padding:0 0 6px 0;font-weight:700">${isHistory ? 'Outcome' : 'When'}</th>
+      ${isHistory ? '' : '<th style="padding:0 0 6px 12px;font-weight:700"></th>'}
     </tr></thead>
     <tbody>${_crimeRows(rows, isHistory)}</tbody>
   </table>`;
@@ -240,6 +242,16 @@ async function toggleCrime(id, enabled) {
   const r = await directAPI(`/crimes/${id}`, 'PUT', { enabled });
   if (r.error) { toast(r.error, true); return; }
   _loadCrimeConfig();
+}
+
+// Admin scrub: wipe a suspect's wanted stars + invisible heat in one shot.
+async function clearWantedSlate(playerId, perpetrator) {
+  if (!playerId) { toast('No player id for that row', true); return; }
+  if (!(await dpConfirm(`Clear ${perpetrator}'s wanted stars and heat? This wipes their entire slate.`, { danger: true }))) return;
+  const r = await directAPI('/surveillance/clear-slate', 'POST', { playerId });
+  if (r?.error) { toast(r.error, true); return; }
+  toast(`${perpetrator}'s slate cleared`);
+  _refreshCrimeLog();
 }
 
 async function espActivate() {

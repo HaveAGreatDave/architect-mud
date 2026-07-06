@@ -7,7 +7,8 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
-import { liveAircraft, persist, out, effStats, fieldFor as fieldOf } from './state.js';
+import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
+  SEAT_KG, isConfigurable, loadoutBudget, effLoadout } from './state.js';
 // `tune` also belongs to broadcast (tune a channel); flight wins it and hands
 // back when you're not tuning an aircraft. `repair` shadows the engine gear-repair
 // builtin — cmdRepair returns undefined out of aircraft context to fall through.
@@ -247,6 +248,61 @@ async function cmdTune(args, raw, player, broadcast) {
   return setCurve(player, tgt, param, args[1]);
 }
 
+// ── Cabin loadout — weight & balance (passengers ⇄ cargo) ─────────────────────
+// Works on a craft you own OR are renting, aboard or parked at this field. A configurable
+// hauler carries one fixed payload budget you split between seats (each SEAT_KG) and cargo,
+// so you can rig it for people or for freight. Reconfiguring is a ground/hangar job.
+async function loadoutTarget(player) {
+  if (player.aircraftId) { const l = liveAircraft.get(player.aircraftId); if (l) return { id: l.row.id, live: l, row: l.row, type: l.type }; }
+  const field = fieldOf(player);
+  if (!field) return null;
+  const { rows } = await query(
+    'SELECT * FROM aircraft WHERE parked_zone_id=$1 AND is_wreck=0 AND (owner_id=$2 OR rental=1) LIMIT 1',
+    [field.id, player.id]);
+  if (!rows.length) return null;
+  const { rows: t } = await query('SELECT * FROM aircraft_types WHERE id=$1', [rows[0].type_id]);
+  if (!t.length) return null;
+  return { id: rows[0].id, live: liveAircraft.get(rows[0].id) || null, row: rows[0], type: t[0] };
+}
+
+async function cmdLoadout(args, raw, player) {
+  const tgt = await loadoutTarget(player);
+  if (!tgt) return { type: 'emote', message: 'No aircraft of yours here to re-rig. Board or park one at a field first.' };
+  if ((tgt.live?.row || tgt.row)?.airborne) return { type: 'emote', message: 'Weight & balance is a ground job — land and shut down first.' };
+  if (!fieldOf(player)) return { type: 'emote', message: "Re-rigging the cabin needs a hangar's tools — do it at a field." };
+  if (!isConfigurable(tgt.type)) return { type: 'emote', message: `The ${tgt.type.name} has a fixed cabin — nothing to trade between seats and cargo.` };
+
+  const budget = loadoutBudget(tgt.type), maxSeats = Math.max(1, Math.floor(budget / SEAT_KG));
+  const cur = effLoadout(tgt.row, tgt.type);
+  const loaded = tgt.row.custom_data?.cargoWeight || 0;
+  const sub = (args[0] || '').toLowerCase();
+
+  const line = (lbl, seats) => {
+    const cargo = Math.max(0, budget - seats * SEAT_KG), on = seats === cur.seats;
+    return `· <b>${lbl}</b> — <b>${seats}</b> seat${seats > 1 ? 's' : ''} (incl. pilot) + <b>${cargo}kg</b> hold${on ? ' <span class="text-green">◄ current</span>' : ` · <span class="action-link" data-action="cmd" data-cmd="loadout ${lbl.toLowerCase()}">rig</span>`}`;
+  };
+  if (!sub) {
+    return { type: 'output', message:
+      `<span class="text-cyan">WEIGHT &amp; BALANCE — ${tgt.type.name}:</span> one payload budget of <b>${budget}kg</b>, split how you like.\n` +
+      `${line('Passenger', maxSeats)}\n${line('Combi', tgt.type.seats)}\n${line('Freight', 1)}\n` +
+      `<span class="text-dim">Now: ${cur.seats} seats + ${cur.cargoCap}kg hold${loaded ? ` (${loaded}kg loaded)` : ''}. Also <b>loadout &lt;1..${maxSeats}&gt;</b> for an exact seat count.</span>` };
+  }
+
+  let seats;
+  if (sub === 'passenger' || sub === 'pax') seats = maxSeats;
+  else if (sub === 'combi') seats = tgt.type.seats;
+  else if (sub === 'freight' || sub === 'cargo') seats = 1;
+  else { const n = parseInt(sub, 10); if (!Number.isFinite(n)) return { type: 'emote', message: `Rig her how? <b>loadout passenger|combi|freight</b> or <b>loadout &lt;1..${maxSeats}&gt;</b>.` }; seats = Math.max(1, Math.min(maxSeats, n)); }
+  const cargoCap = Math.max(0, budget - seats * SEAT_KG);
+  if (loaded > cargoCap) return { type: 'emote', message: `You've ${loaded}kg in the hold — that rig only takes ${cargoCap}kg. <b>jettison</b> or deliver the load first.` };
+
+  const cd = tgt.live ? (tgt.live.row.custom_data || {}) : (tgt.row.custom_data || {});
+  cd.loadout = { seats, cargoCap };
+  await query('UPDATE aircraft SET custom_data=$1 WHERE id=$2', [JSON.stringify(cd), tgt.id]);
+  if (tgt.live) tgt.live.row.custom_data = cd; else tgt.row.custom_data = cd;
+  return { type: 'output', message: `<span class="item-grant">Cabin re-rigged: <b>${seats}</b> seat${seats > 1 ? 's' : ''} + <b>${cargoCap}kg</b> of hold. The ${tgt.type.name} is set up for ${seats <= 1 ? 'pure freight' : cargoCap === 0 ? 'a full cabin' : 'a mixed load'}.</span>` };
+}
+
 export const commands = {
   hangar: cmdHangar,
   repair: cmdRepair,
@@ -255,4 +311,5 @@ export const commands = {
   tune: cmdTune,
   modify: cmdModify,
   customize: cmdModify,
+  loadout: cmdLoadout,
 };

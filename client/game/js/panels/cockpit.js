@@ -636,6 +636,48 @@ const FSIM_TUNE = [
   ['rwyRecede', 'Runway recede', 0.5, 6, 0.2],
 ];
 
+// Live-tunable FLIGHT-MODEL knobs — every per-airframe characteristic in flightmodel
+// TYPES. These mutate the current plane's params object (F.P), which step() reads fresh
+// every frame, so a drag re-tunes the feel on the next frame. Session-scoped, per plane.
+const PHYS_TUNE = [
+  ['mass', 'Mass', 0.5, 6, 0.1],
+  ['thrustMax', 'Thrust', 5, 60, 0.5],
+  ['engineLag', 'Engine lag', 0.5, 3, 0.1],
+  ['vr', 'Rotate spd', 25, 110, 1],
+  ['vs0', 'Stall spd', 18, 90, 1],
+  ['cruise', 'Cruise spd', 55, 220, 5],
+  ['vne', 'Never-exceed', 100, 360, 5],
+  ['pitchRate', 'Pitch rate', 3, 18, 0.5],
+  ['pitchTau', 'Pitch lag', 0.3, 1.5, 0.05],
+  ['pitchStable', 'Pitch stable', 0.4, 1.4, 0.05],
+  ['rollRate', 'Roll rate', 15, 110, 1],
+  ['rollTau', 'Roll lag', 0.3, 1.5, 0.05],
+  ['rollStable', 'Roll stable', 0.5, 1.4, 0.05],
+  ['dragP', 'Drag', 0.0005, 0.0016, 0.00005],
+  ['liftScale', 'Lift scale', 0.8, 1.2, 0.05],
+  ['aoaCrit', 'Crit AoA', 12, 24, 0.5],
+  ['flapDrag', 'Flap drag', 0.3, 0.9, 0.05],
+  ['flapLift', 'Flap lift', 0.2, 0.6, 0.05],
+  ['flapVs', 'Flap stall', 0.1, 0.3, 0.01],
+  ['vsMax', 'Climb rate', 300, 2500, 50],
+  ['vsGain', 'Climb gain', 1200, 2200, 50],
+  ['vsTau', 'Climb inertia', 0.6, 1.8, 0.05],
+  ['rollFric', 'Roll friction', 0.8, 2.5, 0.1],
+  ['brake', 'Brakes', 3, 9, 0.5],
+  ['groundSteer', 'Ground steer', 8, 40, 1],
+];
+// Value formatter: decimals inferred from the slider step (so 0.00005 shows 5 places).
+const decOf = (stp) => { const i = String(stp).indexOf('.'); return i < 0 ? 0 : String(stp).length - i - 1; };
+const fmtStp = (v, stp) => (+v).toFixed(decOf(stp));
+
+// Per-craft cockpit SKIN for the continuous sim. Sets a body class (`fsim-theme-<id>`,
+// styled below) plus the canvas-instrument accent (PFD/MFD/gauges can't read CSS vars),
+// so each airframe's flightdeck reads its own. No entry ⇒ the default light-cyan cabin
+// (the Mayfly). The Mule is a cyberpunk carbon-fibre freighter in violet/magenta neon.
+const FSIM_SKIN = {
+  mule: { id: 'mule', acc: '#a874ff', rgb: [168, 116, 255] },
+};
+
 function ensureFlightSimStyles() {
   if (document.getElementById('fsim-styles')) return;
   const s = document.createElement('style'); s.id = 'fsim-styles';
@@ -701,6 +743,10 @@ function ensureFlightSimStyles() {
     .fsim-plac-reg{ font-size:16px; font-weight:bold; letter-spacing:2px; color:#14181c; text-shadow:0 1px 0 rgba(255,255,255,.35); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .fsim-plac-own{ font-size:10px; letter-spacing:1px; color:#2a3037; text-shadow:0 1px 0 rgba(255,255,255,.25); }
     .fsim-plac-own.rented{ color:#7a3410; text-shadow:0 1px 0 rgba(255,255,255,.25); }
+    /* cabin-occupancy readout: engraved label + a row of seat "LED" pips on the plate */
+    .fsim-plac-seats{ display:flex; align-items:center; gap:3px; margin-top:3px; }
+    .fsim-plac-seats .lbl{ font-size:8px; letter-spacing:1px; color:#20262c; text-shadow:0 1px 0 rgba(255,255,255,.28); margin-right:2px; }
+    .fsim-plac-seats .pip{ width:8px; height:8px; border-radius:50%; box-shadow:inset 0 1px 1px rgba(255,255,255,.4), inset 0 -1px 1px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.5); }
     /* ── bottom-right radio: transponder + COM/NAV with an LCD, buttons and knobs ── */
     .fsim-xpdr{ flex:1 1 0; display:flex; flex-direction:column; gap:5px; padding:7px 9px; overflow:hidden;
       border-radius:8px; border:1px solid #161c22;
@@ -745,6 +791,8 @@ function ensureFlightSimStyles() {
        edge gauges) and its pull-down never drags it off the bottom of the frame. */
     .fsim-yoke-svg{ position:absolute; left:17%; top:-120%; width:66%; height:194%; transform-style:preserve-3d; will-change:transform;
       transform-origin:50% 66%; pointer-events:none; filter:drop-shadow(0 7px 10px rgba(0,0,0,.65)); }
+    /* aircraft name across the yoke hub, in the themed accent (per-craft, set on mount) */
+    .fsim-yoke-name{ fill:var(--cy); font:bold 8px monospace; letter-spacing:.5px; }
     .fsim-climbmark{ position:absolute; left:10%; right:10%; top:66%; height:0; border-top:1px dashed rgba(95,224,160,0.55); pointer-events:none; }
     .fsim-climbmark::after{ content:'BEST CLIMB'; position:absolute; right:1px; top:-9px; font-size:7px; letter-spacing:1px; color:var(--gr); }
     .fsim-throttle{ position:relative; flex:0 0 56px; background:linear-gradient(180deg,#0c141c,#080e14); border:1px solid #16303f;
@@ -771,40 +819,112 @@ function ensureFlightSimStyles() {
     .fsim-flapsw-lbls span.on{ color:var(--cy); text-shadow:0 0 5px var(--cy); }
     .fsim-tunebtn{ position:absolute; top:6px; right:8px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
       border-radius:6px; width:24px; height:22px; font-size:12px; line-height:1; cursor:pointer; }
-    .fsim-tune{ position:absolute; top:32px; right:8px; z-index:4; width:186px; background:rgba(8,14,20,.94); border:1px solid #14212d; border-radius:8px; padding:8px; }
+    .fsim-tune{ position:absolute; top:32px; right:8px; z-index:4; width:186px; max-height:72vh; overflow-y:auto; overscroll-behavior:contain; background:rgba(8,14,20,.94); border:1px solid #14212d; border-radius:8px; padding:8px; }
+    .fsim-tune .thdr{ font-size:9px; letter-spacing:1px; color:var(--cy); border-bottom:1px solid #16303f; padding-bottom:3px; margin:2px 0 6px; position:sticky; top:-8px; background:rgba(8,14,20,.98); }
+    .fsim-tune .thdr:not(:first-child){ margin-top:9px; }
     .fsim-tune .trow{ display:flex; align-items:center; gap:5px; margin-bottom:5px; font-size:9px; }
     .fsim-tune .trow label{ flex:0 0 64px; color:#6f8698; letter-spacing:.5px; }
     .fsim-tune .trow input{ flex:1; min-width:0; }
-    .fsim-tune .tv{ flex:0 0 34px; text-align:right; color:var(--cy); font-variant-numeric:tabular-nums; }`;
+    .fsim-tune .tv{ flex:0 0 34px; text-align:right; color:var(--cy); font-variant-numeric:tabular-nums; }
+
+    /* ══ MULE flightdeck skin — a Grand-Caravan-scale glass cockpit, but cyberpunk: ══
+       carbon-fibre chrome, violet+magenta neon, an aggressive glareshield. All the
+       var(--cy) chrome (radios, knobs, engine master, throttle, night wash, MFD labels)
+       retints for free; below we reskin the hard panels off the brushed-steel/tan look. */
+    .fsim-theme-mule{ --cy:#a874ff; --mg:#ff4a9a; --gr:#7dff9e; --cy-dim:rgba(168,116,255,.20); }
+    /* deeper glass bezels + a violet-lit windshield surround */
+    .fsim-theme-mule .fsim-view{ box-shadow:inset 0 0 0 2px #2a1840, inset 0 4px 20px rgba(168,116,255,.14), 0 0 14px rgba(0,0,0,.72); }
+    /* glareshield lip: a dark carbon brow across the top of the forward view */
+    .fsim-theme-mule .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:15px; z-index:2; pointer-events:none;
+      background:linear-gradient(180deg,#151019 0%,#0c0a10 58%,rgba(12,10,16,0) 100%); border-bottom:1px solid rgba(168,116,255,.4); box-shadow:0 1px 9px rgba(168,116,255,.28); }
+    .fsim-theme-mule .fsim-pfd,.fsim-theme-mule .fsim-mfd,.fsim-theme-mule .fsim-gauges{ border-color:#3a2a5a; box-shadow:inset 0 0 10px rgba(0,0,0,.78), 0 0 0 1px rgba(168,116,255,.16); }
+    /* maker's plate → carbon-fibre weave with a violet etch (kills the brushed-steel tan) */
+    .fsim-theme-mule .fsim-placard{ border-color:#241832;
+      background:
+        radial-gradient(circle at 10px 10px, #b79bff 0 1.4px, #6a52a0 1.4px 2.6px, #34285a 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) 10px, #b79bff 0 1.4px, #6a52a0 1.4px 2.6px, #34285a 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at 10px calc(100% - 10px), #b79bff 0 1.4px, #6a52a0 1.4px 2.6px, #34285a 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #b79bff 0 1.4px, #6a52a0 1.4px 2.6px, #34285a 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
+        repeating-linear-gradient(45deg, rgba(168,116,255,.06) 0 3px, rgba(0,0,0,.30) 3px 6px),
+        repeating-linear-gradient(-45deg, rgba(255,255,255,.03) 0 3px, rgba(0,0,0,.24) 3px 6px),
+        linear-gradient(157deg,#171122 0%,#241738 42%,#120c1c 100%);
+      box-shadow:inset 0 1px 0 rgba(168,116,255,.24), inset 0 -2px 6px rgba(0,0,0,.62), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-mule .fsim-plac-title{ color:#a874ff; text-shadow:0 0 6px rgba(168,116,255,.5); }
+    .fsim-theme-mule .fsim-plac-reg{ color:#ece2ff; text-shadow:0 0 9px rgba(168,116,255,.5); }
+    .fsim-theme-mule .fsim-plac-own{ color:#9686bc; text-shadow:none; }
+    .fsim-theme-mule .fsim-plac-own.rented{ color:#ff4a9a; text-shadow:0 0 6px rgba(255,74,154,.4); }
+    /* the day-sheen glint reads violet on the carbon */
+    .fsim-theme-mule .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(184,150,255,0) 30%, rgba(184,150,255,.42) 46%, rgba(184,150,255,.06) 52%, rgba(184,150,255,0) 66%); }
+    /* radio/transponder deck → carbon */
+    .fsim-theme-mule .fsim-xpdr{ border-color:#241832; background:linear-gradient(180deg,#1c1428 0%,#140e1e 48%,#0a0710 100%); box-shadow:inset 0 1px 0 rgba(168,116,255,.16), inset 0 -2px 6px rgba(0,0,0,.62), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-mule .fsim-xpdr-title{ color:#8a6ab0; }
+    /* yoke well + throttle body → carbon-violet, grip goes neon */
+    .fsim-theme-mule .fsim-yoke{ border-color:#3a2a5a; background:radial-gradient(circle at 50% 26%,#1b1230,#0a0712); }
+    .fsim-theme-mule .fsim-throttle{ border-color:#3a2a5a; background:linear-gradient(180deg,#161028,#0a0712); }
+    .fsim-theme-mule .fsim-thr-grip{ background:linear-gradient(180deg,#8a5ae0 0%,#3f1f74 55%,#1a0e30 100%); }
+    .fsim-theme-mule .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#1a0e30 0 2px,rgba(168,116,255,.32) 2px 4px); }`;
   document.head.appendChild(s);
 }
 
 // A full control yoke (cyberpunk-industrial): a horned control wheel with side grips
 // and a lit centre boss. It's transformed live (roll + a 3-D pull toward/away) in the
 // frame loop so the wheel feels like it's coming toward you as you pull back.
+// Cessna-Caravan-style control yoke: rounded ram-horn wheel sweeping out to two chunky
+// grips (PTT/trim nubs on top), a coiled cable dropping from the column, and a central
+// hub placard carrying the aircraft name in the themed accent colour (`#fsim-yoke-name`,
+// set per-craft on mount). The green/red centre LEDs (best-climb / stall) are retained.
 const YOKE_SVG = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
   <defs>
     <linearGradient id="ykblk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a3d42"/><stop offset="0.16" stop-color="#191b1f"/><stop offset="0.6" stop-color="#0c0d10"/><stop offset="1" stop-color="#050506"/></linearGradient>
     <linearGradient id="ykgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2e34"/><stop offset="0.14" stop-color="#131418"/><stop offset="1" stop-color="#040405"/></linearGradient>
+    <linearGradient id="ykhub" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2d33"/><stop offset="0.5" stop-color="#141519"/><stop offset="1" stop-color="#090a0c"/></linearGradient>
     <radialGradient id="ykgloss" cx="0.4" cy="0.18" r="0.75"><stop offset="0" stop-color="rgba(255,255,255,0.32)"/><stop offset="0.45" stop-color="rgba(255,255,255,0.04)"/><stop offset="1" stop-color="rgba(255,255,255,0)"/></radialGradient>
     <radialGradient id="ykgreen" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#9dffc8"/><stop offset="0.5" stop-color="#3ad07a"/><stop offset="1" stop-color="#0d3a22"/></radialGradient>
     <radialGradient id="ykred" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffb6b8"/><stop offset="0.5" stop-color="#e0403a"/><stop offset="1" stop-color="#3a0d0d"/></radialGradient>
   </defs>
-  <rect x="44" y="42" width="12" height="30" rx="4" fill="url(#ykblk)" stroke="#000" stroke-width="0.5"/>
-  <path d="M12,46 Q8,22 24,18 Q37,13 50,15 Q63,13 76,18 Q92,22 88,46 L79,46 Q82,28 66,24 Q58,22 50,22 Q42,22 34,24 Q18,28 21,46 Z" fill="url(#ykblk)" stroke="#000" stroke-width="0.8"/>
-  <rect x="7" y="39" width="17" height="27" rx="8" fill="url(#ykgr)" stroke="#000" stroke-width="0.8"/>
-  <rect x="76" y="39" width="17" height="27" rx="8" fill="url(#ykgr)" stroke="#000" stroke-width="0.8"/>
-  <path d="M12,46 Q8,22 24,18 Q37,13 50,15 Q63,13 76,18 Q92,22 88,46 L79,46 Q82,28 66,24 Q58,22 50,22 Q42,22 34,24 Q18,28 21,46 Z" fill="url(#ykgloss)"/>
-  <rect x="38" y="30" width="24" height="13" rx="3" fill="#0a0b0d" stroke="#2a2d33" stroke-width="0.6"/>
-  <circle id="fsim-yk-green" cx="44.5" cy="36.5" r="3" fill="url(#ykgreen)" opacity="0.2"/>
-  <circle id="fsim-yk-red" cx="55.5" cy="36.5" r="3" fill="url(#ykred)" opacity="0.2"/>
+  <!-- coiled control cable dropping from the column -->
+  <path d="M50,52 q7,3.5 0,7 q-7,3.5 0,7 q7,3.5 0,7" fill="none" stroke="#0b0c0f" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M50,52 q7,3.5 0,7 q-7,3.5 0,7 q7,3.5 0,7" fill="none" stroke="#22242a" stroke-width="1.1" stroke-linecap="round"/>
+  <!-- column stub -->
+  <rect x="45" y="44" width="10" height="12" rx="3.5" fill="url(#ykblk)" stroke="#000" stroke-width="0.5"/>
+  <!-- ram-horn wheel: sweeps up and out to the grips -->
+  <path d="M11,45 Q7,21 25,17 Q39,12 50,18 Q61,12 75,17 Q93,21 89,45 L80,45 Q83,27 66,23 Q58,20 50,26 Q42,20 34,23 Q17,27 20,45 Z" fill="url(#ykblk)" stroke="#000" stroke-width="0.8"/>
+  <!-- rounded grips + PTT/trim nubs on top -->
+  <rect x="6" y="38" width="17" height="29" rx="8" fill="url(#ykgr)" stroke="#000" stroke-width="0.8"/>
+  <rect x="77" y="38" width="17" height="29" rx="8" fill="url(#ykgr)" stroke="#000" stroke-width="0.8"/>
+  <rect x="9" y="33.5" width="11" height="6" rx="2" fill="#191b1f" stroke="#000" stroke-width="0.4"/>
+  <rect x="80" y="33.5" width="11" height="6" rx="2" fill="#191b1f" stroke="#000" stroke-width="0.4"/>
+  <path d="M11,45 Q7,21 25,17 Q39,12 50,18 Q61,12 75,17 Q93,21 89,45 L80,45 Q83,27 66,23 Q58,20 50,26 Q42,20 34,23 Q17,27 20,45 Z" fill="url(#ykgloss)"/>
+  <!-- centre hub placard: aircraft name (accent) over the status LEDs -->
+  <rect x="31" y="25" width="38" height="24" rx="4" fill="url(#ykhub)" stroke="#2c2f35" stroke-width="0.7"/>
+  <rect x="32" y="26" width="36" height="22" rx="3.4" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
+  <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="35.5" text-anchor="middle" textLength="30" lengthAdjust="spacingAndGlyphs">MULE</text>
+  <circle id="fsim-yk-green" cx="44.5" cy="43" r="2.7" fill="url(#ykgreen)" opacity="0.2"/>
+  <circle id="fsim-yk-red" cx="55.5" cy="43" r="2.7" fill="url(#ykred)" opacity="0.2"/>
 </svg>`;
+
+// Cabin-occupancy readout on the aircraft placard: one pip per seat — pilot in the accent,
+// riders in green, empty seats dim — with a hover title naming who's aboard.
+function renderSeats(F) {
+  const el = document.getElementById('fsim-seats'); if (!el) return;
+  const list = (F.occupants && F.occupants.length) ? F.occupants : new Array(Math.max(1, F.seats || 1)).fill(null);
+  const occ = list.filter(Boolean).length;
+  let html = `<span class="lbl">CABIN ${occ}/${list.length}</span>`;
+  list.forEach((seat, i) => {
+    const role = seat && seat.role, who = i === 0 ? 'Pilot' : 'Seat ' + (i + 1);
+    const col = role === 'pilot' ? 'var(--cy)' : role === 'pax' ? 'var(--gr)' : 'rgba(120,132,144,.28)';
+    html += `<span class="pip" style="background:${col}" title="${esc(who + ': ' + (seat ? seat.name : 'empty'))}"></span>`;
+  });
+  el.innerHTML = html;
+}
 
 export function openFlightSim(opts = {}) {
   closeFlightSim();          // clear any prior
   closeCockpit();            // stop the glass HUD loop; the continuous cockpit owns the pane
   suppressWeatherFx(true);   // kill the outdoor overlay immediately so rain never flashes over the cockpit on embark
   ensureWindshieldStyles(); ensureFlightSimStyles(); refreshAccent();
+  const skin = FSIM_SKIN[opts.craftType] || null;   // per-craft flightdeck theme
+  if (skin) { ACCENT = skin.acc; ACCENT_RGB = skin.rgb; }   // retint the canvas instruments to match the CSS chrome
   const P = TYPES[opts.craftType] || TYPES.mayfly;
   const s = createState(P);
   s.heading = (((opts.heading || 0) % 360) + 360) % 360;
@@ -829,13 +949,15 @@ export function openFlightSim(opts = {}) {
     nightLight: false,                               // instrument panel lights (PANEL switch)
     raf: 0, last: 0, syncAcc: 0, hornBeat: 0, audioAcc: 0,
     temp: 40, battery: 100,          // cosmetic engine-temp (°C) + battery charge (%) for the gauge cluster
+    engines: Math.max(1, opts.engines || 1), seats: Math.max(1, opts.seats || 1), occupants: opts.occupants || [],
+    temps: [], rpms: [], engWander: 0,   // per-engine gauge state (twins get 2 RPM + 2 temp dials)
 
     disp: { ias: 0, alt: 0, vs: 0, hdg: s.heading, rpm: 0, pitch: 0, bank: 0 },
     listeners: [],
   };
   _fsim = F;
 
-  const html = `<div id="fsim-root" class="fsim">
+  const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
     <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span></div><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div></div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
@@ -864,6 +986,7 @@ export function openFlightSim(opts = {}) {
         <div class="fsim-plac-title">◈ AIRCRAFT</div>
         <div class="fsim-plac-reg" id="fsim-reg">—</div>
         <div class="fsim-plac-own" id="fsim-own">—</div>
+        <div class="fsim-plac-seats" id="fsim-seats"></div>
       </div>
       <div class="fsim-yoke" id="fsim-yoke">${YOKE_SVG}</div>
       <div class="fsim-xpdr">
@@ -912,6 +1035,9 @@ export function openFlightSim(opts = {}) {
   const regEl = q('#fsim-reg'), ownEl = q('#fsim-own');
   if (regEl) regEl.textContent = F.reg;
   if (ownEl) { ownEl.textContent = F.owner; ownEl.classList.toggle('rented', F.owner === 'RENTED'); }
+  // Stamp the aircraft name across the yoke hub (themed accent via CSS) + the cabin readout.
+  const yokeName = q('#fsim-yoke-name'); if (yokeName) yokeName.textContent = String(opts.deviceName || P.name || 'AIRCRAFT').toUpperCase();
+  renderSeats(F);
 
   // Flaps — a 3-position switch (UP / ½ / FULL). Click the track to snap to the nearest detent.
   const flapTrack = q('#fsim-flapsw-track'), flapKnob = q('#fsim-flapsw-knob');
@@ -1040,14 +1166,24 @@ export function openFlightSim(opts = {}) {
     if (mfdTog) mfdTog.textContent = F.mfdMode === 'local' ? 'NAV ▸' : '◂ LOCAL';
   });
 
-  // Live render-tuning sliders (⚙) — mutate the shared RENDER_TUNE, effect is instant.
+  // Live tuning sliders (⚙). Two groups: the current plane's flight-model params (F.P,
+  // per-airframe feel) and the shared world-render knobs (RENDER_TUNE). Both take effect
+  // on the next frame. Physics changes are session-scoped to this plane's TYPES entry.
   const tuneBtn = q('#fsim-tunebtn'), tunePanel = q('#fsim-tune');
-  const tvFmt = (n) => (n >= 1 ? n.toFixed(1) : n.toFixed(3));
-  tunePanel.innerHTML = FSIM_TUNE.map(([k, lbl, lo, hi, stp]) =>
-    `<div class="trow"><label>${lbl}</label><input type="range" data-k="${k}" min="${lo}" max="${hi}" step="${stp}" value="${RENDER_TUNE[k]}"><span class="tv" id="fsim-tv-${k}">${tvFmt(RENDER_TUNE[k])}</span></div>`).join('');
-  tunePanel.querySelectorAll('input').forEach((inp) => add(inp, 'input', () => {
-    RENDER_TUNE[inp.dataset.k] = parseFloat(inp.value);
-    const tv = document.getElementById('fsim-tv-' + inp.dataset.k); if (tv) tv.textContent = tvFmt(RENDER_TUNE[inp.dataset.k]);
+  const physRow = ([k, lbl, lo, hi, stp]) =>
+    `<div class="trow"><label>${lbl}</label><input type="range" data-pk="${k}" min="${lo}" max="${hi}" step="${stp}" value="${F.P[k]}"><span class="tv" id="fsim-pv-${k}">${fmtStp(F.P[k], stp)}</span></div>`;
+  const rndRow = ([k, lbl, lo, hi, stp]) =>
+    `<div class="trow"><label>${lbl}</label><input type="range" data-k="${k}" min="${lo}" max="${hi}" step="${stp}" value="${RENDER_TUNE[k]}"><span class="tv" id="fsim-tv-${k}">${fmtStp(RENDER_TUNE[k], stp)}</span></div>`;
+  tunePanel.innerHTML =
+    `<div class="thdr">✈ ${esc(F.P.name || 'AIRCRAFT')} · FEEL</div>` + PHYS_TUNE.map(physRow).join('') +
+    `<div class="thdr">▦ WORLD RENDER</div>` + FSIM_TUNE.map(rndRow).join('');
+  tunePanel.querySelectorAll('input[data-pk]').forEach((inp) => add(inp, 'input', () => {
+    const k = inp.dataset.pk; F.P[k] = parseFloat(inp.value);
+    const tv = document.getElementById('fsim-pv-' + k); if (tv) tv.textContent = fmtStp(F.P[k], inp.step);
+  }));
+  tunePanel.querySelectorAll('input[data-k]').forEach((inp) => add(inp, 'input', () => {
+    const k = inp.dataset.k; RENDER_TUNE[k] = parseFloat(inp.value);
+    const tv = document.getElementById('fsim-tv-' + k); if (tv) tv.textContent = fmtStp(RENDER_TUNE[k], inp.step);
   }));
   add(tuneBtn, 'click', () => { tunePanel.style.display = tunePanel.style.display === 'none' ? 'block' : 'none'; });
 
@@ -1062,6 +1198,21 @@ export function openFlightSim(opts = {}) {
 
   F.last = performance.now();
   F.raf = requestAnimationFrame(fsimFrame);
+}
+
+// Sample the atmosphere at the aircraft from the live weather (the "wind is the foundation"
+// layer). Returns a steady-plus-gusting wind vector + a turbulence intensity, both scaled by
+// weather severity. The prevailing wind direction is derived deterministically from the hour
+// (no wind field in the world yet) so it's stable within a flight but varies across the day.
+const WX_SEV = { clear: 0, cloudy: 0.22, fog: 0.12, rain: 0.5, snow: 0.4, storm: 1.0 };
+function weatherAtmos(F, now) {
+  const wx = (F.sky?.weather || 'clear').toLowerCase();
+  const sev = WX_SEV[wx] ?? 0.2;
+  const t = now * 0.001;
+  const gust = 1 + 0.45 * sev * Math.sin(t * 0.6) + 0.2 * sev * Math.sin(t * 1.7 + 1.1);   // slow swell over the steady wind
+  const windKt = ((F.sky?.wind || 0) * 0.28 + sev * 13) * gust;   // reported windKph→kt + weather baseline
+  const windDir = (((F.sky?.hour || 12) * 17 + 40) % 360 + 360) % 360;
+  return { sev, windKt, windDir, turb: sev };
 }
 
 // Off-map guard: if the tiles right under us are void (the endless-desert buffer beyond
@@ -1099,6 +1250,19 @@ function fsimFrame(now) {
 
   step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, flaps: input.flaps }, P, dt);
 
+  // Sample the atmosphere from the live weather → wind vector + turbulence intensity.
+  const atmos = F.atmos = weatherAtmos(F, now);
+  // Turbulence: the air disturbs the AIRCRAFT (you correct it), it never cheats the physics.
+  // Deterministic summed-sine "noise" (no RNG) rolls/pitches you and bumps lift, ∝ severity.
+  if (atmos.turb > 0.01 && !s.onGround) {
+    const t = now * 0.001, g = atmos.turb;
+    const nRoll = Math.sin(t * 3.1) + 0.6 * Math.sin(t * 7.7 + 2) + 0.8 * Math.sin(t * 1.3);
+    const nPitch = Math.sin(t * 2.3 + 1.5) + 0.6 * Math.sin(t * 5.1 + 0.7);
+    s.bank = clampNum(s.bank + nRoll * g * 5.5 * dt, -70, 70);
+    s.pitch = clampNum(s.pitch + nPitch * g * 3.5 * dt, -35, 35);
+    s.vs += nRoll * g * 130 * dt;                              // gusty lift / ballooning
+  }
+
   // Move through the world whenever rolling or flying — the takeoff roll translates
   // you forward down the runway (buildings grow and pass); liftoff just adds altitude.
   if (s.airspeed > 0.5) {
@@ -1106,7 +1270,12 @@ function fsimFrame(now) {
     // (exp, groundDecay-ft e-fold) to the slow cruise pace (worldPace) so the sky doesn't rush past.
     const pace = RENDER_TUNE.worldPace * (1 + (RENDER_TUNE.groundBoost - 1) * Math.exp(-Math.max(0, s.altitude) / (RENDER_TUNE.groundDecay || 25)));
     const d = s.airspeed * pace * dt, hr = s.heading * Math.PI / 180;
-    F.pos.x += Math.sin(hr) * d; F.pos.y += -Math.cos(hr) * d;
+    // Ground track = air velocity + wind (airborne only — on the wheels the gear holds you to
+    // the ground). A crosswind drifts you off the runway centreline; a head/tailwind slows/speeds
+    // your progress over the ground while airspeed (through the air) is unchanged.
+    let vx = Math.sin(hr) * s.airspeed, vy = -Math.cos(hr) * s.airspeed;
+    if (!s.onGround && atmos.windKt > 0.2) { const wr = atmos.windDir * Math.PI / 180; vx += Math.sin(wr) * atmos.windKt; vy += -Math.cos(wr) * atmos.windKt; }
+    F.pos.x += vx * pace * dt; F.pos.y += vy * pace * dt;
     F.travel += d;
     if (F.engineOn) F.rollDist += d;
   }
@@ -1116,14 +1285,25 @@ function fsimFrame(now) {
   if (!s.onGround) F.touchVs = s.vs;
   if (!s.onGround && !F.reportedAirborne) { F.reportedAirborne = true; F.rolling = false; groundFx('liftoff'); sendCmdSilent('flightevent takeoff'); }
   if (s.onGround && F.reportedAirborne) {
-    // Touchdown → keep the sim open and ROLL OUT. We don't park yet: chop the throttle
-    // and hold the yoke back to brake to a stop, then cut the ENGINE to taxi into the
-    // hangar and disembark — or power back up for a touch-and-go. Report the tile so the
-    // server marks us grounded (no overfly noise / airspace rules while taxiing).
-    F.reportedAirborne = false; F.rolling = true; F.stopHinted = false;
-    groundFx((F.touchVs || 0) < -500 ? 'touchdownHard' : 'touchdown');   // tyre squeak on the numbers
+    F.reportedAirborne = false;
+    const sinkFpm = -(F.touchVs || 0);   // descent rate at contact (ft/min; +ve = sinking)
     sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} 0 ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} 0 1 0`);
-    if (F.toast) F.toast('ROLL OUT — brake to a stop, then cut the ENGINE to park');
+    if (sinkFpm > 600) {
+      // Slammed it in — a touchdown sinking faster than 600 fpm breaks the gear/airframe.
+      // Report a crash: the server destroys the craft and closes the sim (cockpit_close).
+      F.rolling = false;
+      groundFx('touchdownHard'); csfx('flight-crash', 'hololock-lose');
+      sendCmdSilent('flightevent crash hardlanding');
+      if (F.toast) F.toast('CRASH — you slammed it in too hard');
+    } else {
+      // Touchdown → keep the sim open and ROLL OUT. We don't park yet: chop the throttle
+      // and hold the yoke back to brake to a stop, then cut the ENGINE to taxi into the
+      // hangar and disembark — or power back up for a touch-and-go. The tile is reported
+      // above so the server marks us grounded (no overfly noise / airspace rules taxiing).
+      F.rolling = true; F.stopHinted = false;
+      groundFx((F.touchVs || 0) < -500 ? 'touchdownHard' : 'touchdown');   // tyre squeak on the numbers
+      if (F.toast) F.toast('ROLL OUT — brake to a stop, then cut the ENGINE to park');
+    }
   }
   // Rolled to a stop on the ground → prompt the shutdown that taxis you into the hangar.
   if (F.rolling && !F.stopHinted && s.onGround && s.airspeed < 5) { F.stopHinted = true; if (F.toast) F.toast('STOPPED — cut the ENGINE to shut down & park'); }
@@ -1155,13 +1335,24 @@ function fsimFrame(now) {
     root.style.setProperty('--sheen', (day * wxMul).toFixed(2));
   }
 
-  // Cosmetic engine gauges: temp eases with RPM (slow thermal lag); battery charges while
-  // the engine turns and trickles down otherwise. Neither feeds physics — dials only.
-  const tgtTemp = 40 + s.rpm * 175;
-  F.temp = lerpN(F.temp, tgtTemp, Math.min(1, dt * 0.35));
+  // Cosmetic engine gauges: the sim runs a single rpm, so fan it out across the airframe's
+  // engine count (a slow per-engine wander — real engines never sync perfectly) and give
+  // each its own thermal lag. Twins thus read two live RPM + two temp dials. Dials only.
+  const nEng = Math.max(1, F.engines || 1);
+  if (F.rpms.length !== nEng) F.rpms = new Array(nEng).fill(0);
+  if (F.temps.length !== nEng) F.temps = new Array(nEng).fill(F.temp || 40);
+  F.engWander += dt;
+  const engRunning = F.engineOn && s.rpm > 0.02;
+  for (let i = 0; i < nEng; i++) {
+    const wob = engRunning ? Math.sin(F.engWander * 1.3 + i * 2.2) * 0.02 : 0;
+    F.rpms[i] = clampNum(s.rpm * (1 + wob), 0, 1);
+    F.temps[i] = lerpN(F.temps[i], 40 + F.rpms[i] * 175 + i * 7, Math.min(1, dt * 0.35));   // downstream engines run a touch hotter
+  }
+  F.temp = F.temps[0];   // keep the single field in sync for legacy readers
   F.battery = clampNum(F.battery + ((F.engineOn && s.rpm > 0.2) ? 5 : -1.1) * dt, 0, 100);
   paintGauges(document.getElementById('fsim-gauges'), {
-    rpm: s.rpm, temp: F.temp, ias: r.airspeed, vr: P.vr, vne: P.vne, vs0: P.vs0,
+    engines: nEng, rpms: F.rpms, temps: F.temps,
+    rpm: F.rpms[0], temp: F.temps[0], ias: r.airspeed, vr: P.vr, vne: P.vne, vs0: P.vs0,
     fuelPct: Math.round(F.fuel / (F.fuelCap || 1) * 100), battery: F.battery,
     stall: r.stalled, warn: r.stalled || s.stallMargin < 0.35, hornBeat: F.hornBeat, night: F.nightLight,
   });
@@ -1200,6 +1391,10 @@ function fsimFrame(now) {
     landGuide,
     hud: true, navWarn: back == null ? null : `⚠ TURN ${String(back).padStart(3, '0')}° — RETURN TO MAP`,
     airports: F.fields, viewYaw: F.viewYaw,
+    // Looking off the nose (Q/E/S) → frame the view as a side cabin window instead of the
+    // forward windscreen. The real, rotated Mode-7 world still renders behind the pane.
+    windowClass: F.viewYaw ? F.cls : undefined,
+    windVec: (atmos.windKt > 1 && F.reportedAirborne) ? { dir: atmos.windDir, kt: atmos.windKt } : null,
   });
 
   // Stream state to the server (~1.2s) while flying AND during the ground roll-out — the
@@ -1213,7 +1408,7 @@ function fsimFrame(now) {
   }
   if (F.audioAcc >= 0.25) {
     F.audioAcc = 0;
-    updateEngineAudio({ continuous: true, airborne: F.reportedAirborne, engineOn: F.engineOn, class: F.cls, throttle: Math.round(thr * 100), spd: Math.round(s.airspeed), engines: [{ pct: Math.round(s.rpm * 100) }], bandIndex: s.altitude > 500 ? 1 : 0, sky: F.sky,
+    updateEngineAudio({ continuous: true, airborne: F.reportedAirborne, engineOn: F.engineOn, class: F.cls, throttle: Math.round(thr * 100), spd: Math.round(s.airspeed), engines: [{ pct: Math.round(s.rpm * 100) }], bandIndex: s.altitude > 500 ? 1 : 0, sky: F.sky, atmos: F.atmos,
       rpm: s.rpm, airspeed: s.airspeed, vs: s.vs, altitude: s.altitude, onGround: s.onGround, groundSpeed: s.onGround ? s.airspeed : 0,
       stallMargin: s.stallMargin, stalled: s.stalled, flaps: input.flaps });
   }
@@ -1299,23 +1494,63 @@ function paintPFD(cv, s) {
 }
 
 // ── Engine gauge cluster (RPM · temp · speed · fuel · battery + stall lamp) ────
-// A 270° arc dial: background arc, coloured zone marks, a filled value arc + needle,
-// with a short label above and a digital read-out below.
+// A high-fidelity 270° instrument dial: recessed face + machined bezel with a rim
+// catch-light, tick marks, coloured zone marks, a glowing value arc, a tapered white
+// needle on a metallic hub, a label above and a recessed digital read-out below.
 function arcGauge(ctx, cx, cy, r, frac, label, val, opts) {
   opts = opts || {};
-  const A0 = Math.PI * 0.75, A1 = Math.PI * 2.25, lw = Math.max(2, r * 0.18);
+  const A0 = Math.PI * 0.75, A1 = Math.PI * 2.25, sweep = A1 - A0, lw = Math.max(2, r * 0.16);
   frac = clampNum(frac, 0, 1);
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = 'rgba(60,82,100,0.5)'; ctx.lineWidth = lw;
-  ctx.beginPath(); ctx.arc(cx, cy, r, A0, A1); ctx.stroke();
-  if (opts.marks) for (const m of opts.marks) { const a = A0 + (A1 - A0) * clampNum(m.v, 0, 1); ctx.strokeStyle = m.col; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(cx, cy, r, a - 0.06, a + 0.06); ctx.stroke(); }
-  const va = A0 + (A1 - A0) * frac;
-  ctx.strokeStyle = opts.col || '#5fe0a0'; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(cx, cy, r, A0, va); ctx.stroke();
-  ctx.strokeStyle = '#dff0ff'; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(va) * r * 0.82, cy + Math.sin(va) * r * 0.82); ctx.stroke();
-  ctx.fillStyle = '#dff0ff'; ctx.beginPath(); ctx.arc(cx, cy, 1.5, 0, 7); ctx.fill();
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#6f8698'; ctx.font = '6px monospace'; ctx.textBaseline = 'alphabetic'; ctx.fillText(label, cx, cy - r - 3);
-  ctx.fillStyle = opts.valcol || ACCENT; ctx.font = '7px monospace'; ctx.textBaseline = 'middle'; ctx.fillText(val, cx, cy + r * 0.56);
+  const col = opts.col || '#5fe0a0';
+  ctx.lineCap = 'round'; ctx.textAlign = 'center';
+  // Recessed instrument face + machined bezel ring with a top rim catch-light.
+  const face = ctx.createRadialGradient(cx, cy - r * 0.35, r * 0.15, cx, cy, r * 1.25);
+  face.addColorStop(0, '#182028'); face.addColorStop(0.72, '#0b1218'); face.addColorStop(1, '#05090d');
+  ctx.fillStyle = face; ctx.beginPath(); ctx.arc(cx, cy, r * 1.2, 0, 7); ctx.fill();
+  ctx.lineWidth = Math.max(1.4, r * 0.1); ctx.strokeStyle = 'rgba(58,74,90,0.6)'; ctx.beginPath(); ctx.arc(cx, cy, r * 1.2, 0, 7); ctx.stroke();
+  ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(190,215,235,0.10)'; ctx.beginPath(); ctx.arc(cx, cy, r * 1.2, Math.PI * 1.12, Math.PI * 1.88); ctx.stroke();
+  // Background track.
+  ctx.strokeStyle = 'rgba(52,72,88,0.55)'; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(cx, cy, r, A0, A1); ctx.stroke();
+  // Tick marks (major every other) just outside the track.
+  for (let i = 0; i <= 8; i++) {
+    const a = A0 + sweep * (i / 8), major = i % 2 === 0, r0 = r + lw * 0.55, r1 = r0 + (major ? 3 : 1.6);
+    ctx.strokeStyle = major ? 'rgba(150,180,205,0.55)' : 'rgba(120,150,175,0.32)'; ctx.lineWidth = major ? 1.2 : 0.7;
+    ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); ctx.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); ctx.stroke();
+  }
+  // Coloured zone marks (redline / Vr / Vs0 …).
+  if (opts.marks) for (const m of opts.marks) { const a = A0 + sweep * clampNum(m.v, 0, 1); ctx.strokeStyle = m.col; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(cx, cy, r, a - 0.05, a + 0.05); ctx.stroke(); }
+  // Value arc with a soft glow in its own colour.
+  const va = A0 + sweep * frac;
+  ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = Math.max(2, r * 0.22); ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(cx, cy, r, A0, va); ctx.stroke(); ctx.restore();
+  // Tapered needle (dark underlay → bright top) on a metallic hub.
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(va);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.moveTo(-r * 0.17, -1.4); ctx.lineTo(r * 0.86, -0.2); ctx.lineTo(r * 0.86, 1.0); ctx.lineTo(-r * 0.17, 1.6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#eef4fb'; ctx.beginPath(); ctx.moveTo(-r * 0.17, -0.9); ctx.lineTo(r * 0.84, -0.4); ctx.lineTo(r * 0.84, 0.4); ctx.lineTo(-r * 0.17, 0.9); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  const hub = ctx.createRadialGradient(cx - 1, cy - 1, 0.4, cx, cy, 3.2);
+  hub.addColorStop(0, '#d2dde6'); hub.addColorStop(1, '#39454f');
+  ctx.fillStyle = hub; ctx.beginPath(); ctx.arc(cx, cy, 2.6, 0, 7); ctx.fill();
+  // Label above.
+  ctx.fillStyle = '#93a7b7'; ctx.font = '6px monospace'; ctx.textBaseline = 'alphabetic'; ctx.fillText(label, cx, cy - r - 5);
+  // Recessed digital read-out pill below the hub.
+  const vy = cy + r * 0.56, pw = Math.max(18, r), ph = 9, px0 = cx - pw / 2, py0 = vy - ph / 2, rr = 2;
+  ctx.beginPath(); ctx.moveTo(px0 + rr, py0); ctx.arcTo(px0 + pw, py0, px0 + pw, py0 + ph, rr); ctx.arcTo(px0 + pw, py0 + ph, px0, py0 + ph, rr); ctx.arcTo(px0, py0 + ph, px0, py0, rr); ctx.arcTo(px0, py0, px0 + pw, py0, rr); ctx.closePath();
+  ctx.fillStyle = 'rgba(3,8,12,0.85)'; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 0.6; ctx.stroke();
+  ctx.fillStyle = opts.valcol || ACCENT; ctx.font = 'bold 7px monospace'; ctx.textBaseline = 'middle'; ctx.fillText(String(val), cx, vy + 0.5);
+}
+
+// STALL annunciator — a red warning lamp in a matching bezel: dim when clear, pulses with
+// the horn on approach, solid + glowing in the stall.
+function stallLamp(ctx, x, y, r, g) {
+  const on = g.stall ? 1 : (g.warn ? (g.hornBeat < 0.5 ? 1 : 0.28) : 0.16);
+  const face = ctx.createRadialGradient(x, y - r * 0.3, r * 0.15, x, y, r * 1.2);
+  face.addColorStop(0, '#170b0b'); face.addColorStop(1, '#05090d');
+  ctx.fillStyle = face; ctx.beginPath(); ctx.arc(x, y, r * 1.2, 0, 7); ctx.fill();
+  ctx.lineWidth = Math.max(1.4, r * 0.1); ctx.strokeStyle = 'rgba(94,62,62,0.6)'; ctx.beginPath(); ctx.arc(x, y, r * 1.2, 0, 7); ctx.stroke();
+  if (on > 0.5) { ctx.shadowColor = '#e0403a'; ctx.shadowBlur = 12; }
+  ctx.fillStyle = `rgba(224,64,58,${on})`; ctx.beginPath(); ctx.arc(x, y, r * 0.82, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,120,116,0.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, r * 0.82, 0, 7); ctx.stroke();
+  ctx.fillStyle = on > 0.5 ? '#fff' : '#7a3a38'; ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('STALL', x, y);
 }
 
 function paintGauges(cv, g) {
@@ -1325,23 +1560,37 @@ function paintGauges(cv, g) {
   if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
   const ctx = cv.getContext('2d'); ctx.save(); ctx.scale(dpr, dpr);
   const W = cw, H = ch; ctx.clearRect(0, 0, W, H);
-  // Two columns hugging the LEFT and RIGHT edges (middle left clear for the yoke that rises
-  // up through it), 3 rows each, dials sized as large as the panel allows for legibility.
-  const rows = 3, chd = H / rows, colL = W * 0.12, colR = W * 0.88, r = Math.min(W * 0.09, chd * 0.42);
+  const colL = W * 0.12, colR = W * 0.88, vne = g.vne || 120;
+  const rpms = g.rpms || [g.rpm || 0], temps = g.temps || [g.temp || 40], nEng = Math.max(1, g.engines || 1);
+  const rpmSpec = (i) => ['rpm', rpms[i] || 0, nEng > 1 ? 'RPM ' + (i + 1) : 'RPM'];
+  const tempSpec = (i) => ['temp', temps[i] || 40, nEng > 1 ? 'TEMP ' + (i + 1) : 'TEMP'];
+  // Column layout: a single-engine craft keeps the classic Mayfly panel; twin+ splits the
+  // engines across the two edge columns (a 4-engine heavy fills both with two engines each —
+  // a real wing-by-wing cluster), with fuel + the stall lamp anchoring the column bottoms.
+  let leftCol, rightCol;
+  if (nEng === 1) {
+    leftCol = [rpmSpec(0), ['spd'], ['batt']];
+    rightCol = [tempSpec(0), ['fuel'], ['stall']];
+  } else {
+    const half = Math.ceil(nEng / 2);
+    leftCol = []; for (let i = 0; i < half; i++) leftCol.push(rpmSpec(i), tempSpec(i)); leftCol.push(['fuel']);
+    rightCol = []; for (let i = half; i < nEng; i++) rightCol.push(rpmSpec(i), tempSpec(i)); rightCol.push(['stall']);
+  }
+  const rows = Math.max(3, leftCol.length, rightCol.length), chd = H / rows;
+  const r = Math.min(W * 0.088, chd * 0.40, chd * 0.5 - 6);   // last term keeps the top label off the panel edge
   const yAt = (i) => (i + 0.5) * chd;
-  const vne = g.vne || 120, tf = clampNum((g.temp - 40) / 175, 0, 1);
-  arcGauge(ctx, colL, yAt(0), r, g.rpm, 'RPM', Math.round(g.rpm * 100), { col: ACCENT, marks: [{ v: 0.92, col: '#ff5a5b' }] });
-  arcGauge(ctx, colL, yAt(1), r, g.ias / vne, 'SPD', Math.round(g.ias), { col: g.warn ? '#ff5a5b' : '#5fe0a0', valcol: g.warn ? '#ff5a5b' : ACCENT, marks: [{ v: g.vs0 / vne, col: '#ff5a5b' }, { v: g.vr / vne, col: '#5fe0a0' }, { v: 1, col: '#ff5a5b' }] });
-  arcGauge(ctx, colL, yAt(2), r, g.battery / 100, 'BATT', Math.round(g.battery) + '%', { col: g.battery <= 20 ? '#ff5a5b' : '#5fe0a0' });
-  arcGauge(ctx, colR, yAt(0), r, tf, 'TEMP', Math.round(g.temp) + '°', { col: tf > 0.82 ? '#ff5a5b' : tf > 0.6 ? '#ffb23e' : '#5fe0a0', marks: [{ v: 0.82, col: '#ff5a5b' }] });
-  arcGauge(ctx, colR, yAt(1), r, g.fuelPct / 100, 'FUEL', g.fuelPct + '%', { col: g.fuelPct <= 15 ? '#ff5a5b' : '#ffb23e', valcol: g.fuelPct <= 15 ? '#ff5a5b' : ACCENT, marks: [{ v: 0.15, col: '#ff5a5b' }] });
-  // Stall lamp — dim when clear, pulses with the horn on approach, solid on stall.
-  const c = { x: colR, y: yAt(2) };
-  const on = g.stall ? 1 : (g.warn ? (g.hornBeat < 0.5 ? 1 : 0.28) : 0.16);
-  if (on > 0.5) { ctx.shadowColor = '#e0403a'; ctx.shadowBlur = 10; }
-  ctx.fillStyle = `rgba(224,64,58,${on})`; ctx.beginPath(); ctx.arc(c.x, c.y, r * 0.82, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(255,120,116,0.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(c.x, c.y, r * 0.82, 0, 7); ctx.stroke();
-  ctx.fillStyle = on > 0.5 ? '#fff' : '#7a3a38'; ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('STALL', c.x, c.y);
+  const draw = (spec, x, y) => {
+    switch (spec[0]) {
+      case 'rpm': arcGauge(ctx, x, y, r, spec[1], spec[2], Math.round(spec[1] * 100), { col: ACCENT, marks: [{ v: 0.92, col: '#ff5a5b' }] }); break;
+      case 'temp': { const tf = clampNum((spec[1] - 40) / 175, 0, 1); arcGauge(ctx, x, y, r, tf, spec[2], Math.round(spec[1]) + '°', { col: tf > 0.82 ? '#ff5a5b' : tf > 0.6 ? '#ffb23e' : '#5fe0a0', marks: [{ v: 0.82, col: '#ff5a5b' }] }); break; }
+      case 'spd': arcGauge(ctx, x, y, r, g.ias / vne, 'SPD', Math.round(g.ias), { col: g.warn ? '#ff5a5b' : '#5fe0a0', valcol: g.warn ? '#ff5a5b' : ACCENT, marks: [{ v: g.vs0 / vne, col: '#ff5a5b' }, { v: g.vr / vne, col: '#5fe0a0' }, { v: 1, col: '#ff5a5b' }] }); break;
+      case 'batt': arcGauge(ctx, x, y, r, g.battery / 100, 'BATT', Math.round(g.battery) + '%', { col: g.battery <= 20 ? '#ff5a5b' : '#5fe0a0' }); break;
+      case 'fuel': arcGauge(ctx, x, y, r, g.fuelPct / 100, 'FUEL', g.fuelPct + '%', { col: g.fuelPct <= 15 ? '#ff5a5b' : '#ffb23e', valcol: g.fuelPct <= 15 ? '#ff5a5b' : ACCENT, marks: [{ v: 0.15, col: '#ff5a5b' }] }); break;
+      case 'stall': stallLamp(ctx, x, y, r, g); break;
+    }
+  };
+  leftCol.forEach((s, i) => draw(s, colL, yAt(i)));
+  rightCol.forEach((s, i) => draw(s, colR, yAt(i)));
   if (g.night) nightGlow(ctx, W, H);
   ctx.restore();
 }
@@ -1419,6 +1668,7 @@ export function flightSimContext(msg) {
   if (msg.map) { F.map = msg.map; if (msg.mapX != null) F.mapCenter = { x: msg.mapX, y: msg.mapY }; }
   if (msg.minimap) F.minimap = msg.minimap;
   if (msg.fields) F.fields = msg.fields;
+  if (msg.occupants) { F.occupants = msg.occupants; if (msg.seats) F.seats = msg.seats; renderSeats(F); }   // cabin readout keeps pace with boarding
   if ('cargo' in msg) F.cargoKg = msg.cargo;   // current hold weight (drives the J jettison bind)
   if (msg.sky) F.sky = msg.sky;
   if ('biomeBelow' in msg) F.biomeBelow = msg.biomeBelow;

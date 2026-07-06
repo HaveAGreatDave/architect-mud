@@ -75,8 +75,8 @@ export const EXCLUDED_TABLES = [
   'atm_units', 'game_tables', 'hangars', 'aircraft', 'flight_contracts', 'smuggle_orders',
   // Player orgs (crews) + their membership; only NPC factions (is_npc=1) are content.
   'org_ranks', 'org_members',
-  // Sports league state — seasons/standings are generated, never authored (see schema.js note).
-  'sports_bets', 'sports_standings', 'sports_season',
+  // Sports league state — seasons/standings/results are generated, never authored (see schema.js note).
+  'sports_bets', 'sports_standings', 'sports_season', 'sports_results',
   // Jail / evidence runtime.
   'jail_prisoners', 'police_evidence',
   // Dev-workflow bookkeeping + logs + tokens (never world content, never leaked).

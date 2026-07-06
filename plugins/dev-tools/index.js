@@ -3,7 +3,9 @@ import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
 import { query } from '../../server/models/db.js';
-import { getLivePlayer, getAllLivePlayers } from '../../server/engine/world.js';
+import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData } from '../../server/engine/world.js';
+import { autoResolvePower, recalcZoneLoad, getZonePowerStatus } from '../../server/engine/environment.js';
+import { describeZone } from '../../server/engine/commands/describe.js';
 
 const OUTFIT_FILE = join(dirname(fileURLToPath(import.meta.url)), 'cyd-outfit.json');
 
@@ -79,8 +81,79 @@ async function cmdDressCyd(args, raw, player) {
   return { type: 'output', message: `Cyd is dressed. ${outfit.length} items equipped.` };
 }
 
+// .lettherebelight — drop an overhead fixture into the current room and wire the
+// room to the power grid so it actually lights up. Reuses the exact engine path a
+// light-switch uses (furniture row + lighting_states + recalcZoneLoad) and the
+// dev-panel's Auto-Resolve Power routine (city grid for outdoor tiles; a dug
+// utility room + junction box for interiors). Idempotent: won't stack duplicate
+// fixtures — if the room already has a light it just ensures it's on and powered.
+async function cmdLetThereBeLight(args, raw, player, broadcast) {
+  if (!['admin', 'dev'].includes(player.role)) {
+    return { type: 'error', message: 'Unknown command: ".lettherebelight".' };
+  }
+  const zoneId = player.current_zone;
+  const zone = getZone(zoneId);
+  if (!zone) return { type: 'error', message: 'You are nowhere the grid can reach.' };
+
+  // 1. Ensure the room has a lit overhead fixture.
+  const { rows: existing } = await query(
+    `SELECT id, name, light_on FROM furniture WHERE zone_id=$1 AND object_type='light' ORDER BY id LIMIT 1`,
+    [zoneId]
+  );
+  let lightName;
+  let created = false;
+  if (existing.length) {
+    lightName = existing[0].name;
+    if (!existing[0].light_on) {
+      await query(`UPDATE furniture SET light_on=1 WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
+    }
+  } else {
+    const id = `furn_light_${zoneId}_${randomUUID().slice(0, 8)}`;
+    lightName = 'overhead light';
+    const desc = 'A recessed overhead fixture bolted to the ceiling, throwing a clean, even wash across the room.';
+    await query(
+      `INSERT INTO furniture (id, zone_id, name, description, flags, light_on, light_type,
+                              power_draw_kw, light_on_intended, object_type, lumen_output, price, hp, hp_max)
+       VALUES ($1,$2,$3,$4,$5::jsonb,1,'overhead',0.02,1,'light',1200,NULL,NULL,NULL)`,
+      [id, zoneId, lightName, desc, JSON.stringify({ is_light: true, light_type: 'overhead' })]
+    );
+    created = true;
+  }
+
+  // 2. Resync the zone's lighting_states from its actual lit fixtures, and its load.
+  const { rows: lc } = await query(
+    `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm
+     FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`,
+    [zoneId]
+  );
+  await query(
+    `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count, total_lumens)
+     VALUES ($1, 0, 0, $2, $3)
+     ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2, total_lumens=$3`,
+    [zoneId, lc[0]?.cnt || 0, lc[0]?.lm || 0]
+  );
+  await recalcZoneLoad(query, zoneId).catch(() => {});
+
+  // 3. Reconnect power — wire this zone/building to the grid, then recompute
+  //    power + lighting so getZonePowerStatus/visibility reflect it immediately.
+  await autoResolvePower();
+
+  const powerStatus = getZonePowerStatus(zoneId);
+  const powered = powerStatus === 'powered' || powerStatus === 'overloaded';
+
+  const flavor = created
+    ? `A ${lightName} unfolds from the ceiling with a soft mechanical whir`
+    : `The ${lightName} flickers to life`;
+  const notify = powered
+    ? `${flavor} — power hums through the grid and the room floods with light.`
+    : `${flavor}, but no power reaches this room yet (status: ${powerStatus}).`;
+  if (broadcast) broadcast(zoneId, { type: 'zone_event', message: `The ${lightName} flickers on.`, refresh: true }, player.id);
+  return { type: 'look', message: await describeZone(zone, player), notify, zone: zoneId, minimap: getMinimapData(zoneId) };
+}
+
 export const commands = {
   // NB: register the BARE verb — the dispatcher strips a leading `.`/`/` before
   // matching, so a `.dresscyd` key would never fire.
   dresscyd: cmdDressCyd,
+  lettherebelight: cmdLetThereBeLight,
 };

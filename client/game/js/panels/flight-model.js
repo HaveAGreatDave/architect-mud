@@ -57,6 +57,7 @@ export const TYPES = {
     vsMax: 525,           // max sustained climb (ft/min) — scaled ~0.7× the Cessna 172 like our other numbers
     vsGain: 1600,         // how hard excess lift converts to vertical speed
     vsTau: 1.0,           // vertical inertia (s) — vs eases toward its target; lower = climbs out off the ground faster
+    ceiling: 7500,        // service ceiling (ft) — climb performance fades to zero here (thin air)
   },
 
   // ── Phase 3 fixed-wing fleet ────────────────────────────────────────────────
@@ -64,13 +65,15 @@ export const TYPES = {
   // higher speeds). All knobs — starting points for a by-ear tuning pass like the Mayfly.
   // The heli (Dragonfly, VTOL) is NOT here — it needs its own hover model (Phase 3b).
 
-  // Mule — twin-prop freight workhorse: heavier, stable, rough-strip capable.
+  // Mule — twin-TURBOPROP STOL hauler, a DHC-6 Twin Otter analogue: rugged, honest, a strong
+  // climber that gets in and out of short/rough strips. Fast cruise, powerful STOL flaps, low
+  // stall for its size. Ceiling 12000 (the real Otter goes ~25k; kept low for the world scale).
   mule: {
-    name: 'Mule', mass: 2.0, thrustMax: 20, vr: 52, vs0: 44, vne: 165, cruise: 110,
-    pitchRate: 8, pitchTau: 0.8, rollRate: 40, rollTau: 0.7, engineLag: 1.6,
-    pitchStable: 0.85, rollStable: 1.0, dragP: 0.00090, flapDrag: 0.6, flapLift: 0.4, flapVs: 0.2,
-    rollFric: 1.4, aoaCrit: 18, liftScale: 1.0, vsMax: 850, vsGain: 1600, vsTau: 1.2,
-    brake: 6.0, groundSteer: 26,
+    name: 'Mule', mass: 2.8, thrustMax: 31, vr: 65, vs0: 58, vne: 185, cruise: 165,
+    pitchRate: 8, pitchTau: 0.8, rollRate: 40, rollTau: 0.7, engineLag: 1.7,
+    pitchStable: 0.88, rollStable: 1.0, dragP: 0.00090, flapDrag: 0.65, flapLift: 0.5, flapVs: 0.24,
+    rollFric: 1.4, aoaCrit: 18, liftScale: 1.0, vsMax: 1600, vsGain: 1600, vsTau: 1.1,
+    brake: 6.0, groundSteer: 26, ceiling: 12000,
   },
   // Leviathan — 4-engine heavy: ponderous, fast, needs a real runway. Slow to rotate, long roll.
   leviathan: {
@@ -78,7 +81,7 @@ export const TYPES = {
     pitchRate: 5, pitchTau: 1.2, rollRate: 22, rollTau: 1.1, engineLag: 2.4,
     pitchStable: 0.7, rollStable: 0.85, dragP: 0.00070, flapDrag: 0.7, flapLift: 0.45, flapVs: 0.2,
     rollFric: 1.2, aoaCrit: 16, liftScale: 1.0, vsMax: 1400, vsGain: 1600, vsTau: 1.6,
-    brake: 5.0, groundSteer: 16,
+    brake: 5.0, groundSteer: 16, ceiling: 15000,
   },
   // Reaper — gunship: fast, powerful, twitchy-agile. Everyone hears it coming.
   reaper: {
@@ -86,7 +89,7 @@ export const TYPES = {
     pitchRate: 14, pitchTau: 0.5, rollRate: 95, rollTau: 0.45, engineLag: 1.1,
     pitchStable: 0.95, rollStable: 1.15, dragP: 0.00060, flapDrag: 0.5, flapLift: 0.3, flapVs: 0.16,
     rollFric: 1.5, aoaCrit: 20, liftScale: 1.0, vsMax: 2200, vsGain: 1800, vsTau: 0.85,
-    brake: 7.0, groundSteer: 30,
+    brake: 7.0, groundSteer: 30, ceiling: 18000,
   },
   // Carcass — salvaged wreck: underpowered, draggy, unstable. A junker you nurse into the air.
   carcass: {
@@ -94,7 +97,7 @@ export const TYPES = {
     pitchRate: 10, pitchTau: 0.5, rollRate: 50, rollTau: 0.5, engineLag: 1.5,
     pitchStable: 0.7, rollStable: 0.8, dragP: 0.00120, flapDrag: 0.55, flapLift: 0.32, flapVs: 0.17,
     rollFric: 1.7, aoaCrit: 17, liftScale: 0.95, vsMax: 480, vsGain: 1500, vsTau: 1.1,
-    brake: 5.0, groundSteer: 30,
+    brake: 5.0, groundSteer: 30, ceiling: 6000,
   },
 };
 
@@ -240,7 +243,11 @@ export function step(state, input, p, dt) {
   // A stall FALLS faster than it can climb — let the sink run well past the climb cap so the
   // eye-height drops rapidly (the "falling out of the sky" feel). Held stalls sink hardest.
   const sinkFloor = s.stalled ? -p.vsMax * 2.4 : -p.vsMax;
-  const vsTarget = clamp((vLift / weight - 1) * p.vsGain, sinkFloor, p.vsMax) * (1 - handsOff * 0.8);
+  // Service ceiling: full climb until the top ~40% of the envelope, then it tapers to zero at
+  // p.ceiling as the air thins — you can't climb past it (descent is unaffected). Emergent, no cap.
+  const ceil = p.ceiling || 20000;
+  const climbCap = p.vsMax * clamp((ceil - s.altitude) / (ceil * 0.4), 0, 1);
+  const vsTarget = clamp((vLift / weight - 1) * p.vsGain, sinkFloor, climbCap) * (1 - handsOff * 0.8);
   if (s.onGround && vsTarget <= 0) {
     s.vs = 0;                                 // sitting on the wheels — no lift to climb on
   } else {

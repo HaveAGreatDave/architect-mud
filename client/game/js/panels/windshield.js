@@ -518,6 +518,23 @@ function drawHud(ctx, W, H, v) {
   ctx.fillRect(cx - 13, tapeY + tapeH + 7, 26, 12); ctx.strokeRect(cx - 13, tapeY + tapeH + 7, 26, 12);
   ctx.fillStyle = '#ffcf3e'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(String(Math.round(hdg)).padStart(3, '0'), cx, tapeY + tapeH + 13.5);
+  // Wind indicator (bottom-left): an arrow showing which way the wind is blowing relative to
+  // the nose (up = ahead) plus its speed — so a crosswind you're crabbing into is legible.
+  if (v.windVec && v.windVec.kt > 1) {
+    const wx0 = 22, wy0 = H - 26, rr = 9, rel = (((v.windVec.dir - hdg) % 360) + 360) % 360 * Math.PI / 180;
+    ctx.save();
+    ctx.fillStyle = '#6f8698'; ctx.font = '7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('WIND', wx0, wy0 - rr - 6);
+    ctx.translate(wx0, wy0);
+    ctx.strokeStyle = 'rgba(150,190,220,0.45)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, rr, 0, 7); ctx.stroke();
+    ctx.rotate(rel);
+    ctx.strokeStyle = '#7ec8ff'; ctx.fillStyle = '#7ec8ff'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, rr); ctx.lineTo(0, -rr); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -rr); ctx.lineTo(-3, -rr + 5); ctx.lineTo(3, -rr + 5); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#9fd0ec'; ctx.font = '7px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(Math.round(v.windVec.kt) + 'kt', wx0 + rr + 4, wy0);
+  }
   // Airport bearing tags — a magenta diamond + name/dist under the tape, purely
   // distance-gated (shown at any altitude). Off the ±45° tape they pin to the edge as
   // a chevron so you always know which way to turn toward the field.

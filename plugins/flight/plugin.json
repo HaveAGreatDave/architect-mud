@@ -8,7 +8,7 @@
     "buy", "rent", "charter", "flyto", "cancel", "testfly", "flight", "fs",
     "arm", "safe", "evade", "strafe", "fire", "strafresolve",
     "contracts", "jobs", "accept", "manifest", "jettison",
-    "hangar", "repair", "salvage", "rebuild", "tune", "modify", "customize"
+    "hangar", "repair", "salvage", "rebuild", "tune", "modify", "customize", "loadout"
   ],
   "objectGatedCommands": {
     "board":     { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: boards a parked aircraft row (aircraft.parked_zone_id). Aircraft are DB rows, not furniture/items/NPCs, so they can never appear in an examine Actions line — discovered via airfield look/ambience text." },

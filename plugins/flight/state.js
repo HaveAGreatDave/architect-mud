@@ -46,6 +46,20 @@ export function bandFromAltitude(alt, onGround) {
   return 'high';
 }
 
+// ── Cabin loadout (weight & balance) ──────────────────────────────────────────
+// Configurable haulers (they have BOTH seats and cargo capacity) can be re-rigged in
+// the hangar between more passengers and more cargo, within one fixed payload budget.
+// The per-aircraft choice lives in custom_data.loadout = { seats, cargoCap }; unset =
+// the type's authored split. `seats` is total occupancy (pilot included).
+export const SEAT_KG = 90;
+export function isConfigurable(type) { return (type?.seats || 0) >= 2 && (type?.cargo_capacity || 0) > 0; }
+export function loadoutBudget(type) { return (type?.seats || 1) * SEAT_KG + (type?.cargo_capacity || 0); }
+export function effLoadout(row, type) {
+  const c = row?.custom_data?.loadout;
+  if (c && Number.isFinite(c.seats)) return { seats: Math.max(1, c.seats), cargoCap: Math.max(0, c.cargoCap || 0) };
+  return { seats: type?.seats || 1, cargoCap: type?.cargo_capacity || 0 };
+}
+
 export const DIRS = {
   n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0],
   ne: [1, -1], nw: [-1, -1], se: [1, 1], sw: [-1, 1],
@@ -357,8 +371,23 @@ export function contextPayload(live) {
     minimap: (() => { const b = surfaceAt(a.grid_x, a.grid_y); return b ? getMinimapData(b.id, 3) : null; })(),
     fields: nearbyFields(a.grid_x, a.grid_y),   // airport bearing tags for the heading tape
     cargo: a.custom_data?.cargoWeight || 0,     // current hold weight (drives the cockpit jettison bind)
+    engines: live.type.engines || 1, seats: live.type.seats || 1, occupants: seatList(live),   // gauge count + cabin readout
     warn: a.fuel <= 0 ? 'STARVATION' : (a.fuel <= cap * BINGO_FRAC ? 'BINGO' : null),
   };
+}
+// Who's in each seat, padded to the airframe's seat count: index 0 = the pilot, the rest
+// passengers in boarding order (null = empty). Feeds the cockpit's cabin-occupancy readout.
+export function seatList(live) {
+  const seats = Math.max(1, live.type.seats || 1);
+  const out = new Array(seats).fill(null);
+  let next = 1;
+  for (const pid of live.occupants) {
+    const p = getLivePlayer(pid); if (!p) continue;
+    const name = String(p.handle || p.name || p.username || '???').slice(0, 16);
+    if (p.seat === 'pilot') out[0] = { role: 'pilot', name };
+    else if (next < seats) out[next++] = { role: 'pax', name };
+  }
+  return out;
 }
 export function pushContext(live) {
   const payload = contextPayload(live);

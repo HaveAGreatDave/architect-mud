@@ -4,6 +4,10 @@
 > *as actually built*. The full locked design lives in the blueprint:
 > [docs/proposals/systems-flight.md](proposals/systems-flight.md). Read that for
 > intent; read this for what exists.
+>
+> Author-direction reference docs (the vision the continuous overhaul reconciles):
+> [Flight](reference/Flight_Implementation.md) · [Rendering](reference/Rendering_Implementation.md) ·
+> [Sound](reference/Sound_Implementation.md) · [Weather](reference/Weather_Implementation.md).
 
 ## Plugin layout (multi-file)
 

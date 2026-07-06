@@ -250,8 +250,12 @@ function weatherKey(w) {
   return null;   // clear / cloudy → silence
 }
 let curWeather = null, _stormT = 0;
-function applyWeather(sky, airborne) {
+// `s` = the cockpit state: { sky, airborne, spd, atmos:{windKt,turb} }. The bed is driven by
+// the SAME sampled atmosphere the flight model uses — so the precip hiss swells with the gusts
+// you feel and intensifies with airspeed (more weather hitting the canopy). Unified atmosphere.
+function applyWeather(s) {
   const ae = AE(); if (!ae) return;
+  const sky = s?.sky, airborne = !!s?.airborne;
   const key = airborne ? weatherKey(sky?.weather) : null;
   if (key !== curWeather) {
     if (curWeather) { ae.setLoopGain?.('flt-weather', 0, 0.7); setTimeout(() => { try { ae.stopLoop('flt-weather'); } catch {} }, 800); }
@@ -259,8 +263,10 @@ function applyWeather(sky, airborne) {
     if (key) { try { ae.loopSound({ id: 'flt-weather', category: 'ambient', config: { gain: 1, layers: WEATHER_LOOP[key].layers } }); } catch {} ae.setLoopGain?.('flt-weather', 0, 0.1); }
   }
   if (key) {
-    const wind = Math.min(1, (sky?.wind || 0) / 55);
-    ae.setLoopGain?.('flt-weather', Math.min(0.9, (0.28 + wind * 0.5) * WEATHER_LOOP[key].vol), 1.0);
+    const atmos = s.atmos || {};
+    const windN = Math.min(1, (atmos.windKt || sky?.wind || 0) / 40);   // gust-inclusive → the bed pulses with gusts
+    const spdN = Math.min(1, (s.spd || 0) / 200);                        // faster = more precip on the canopy
+    ae.setLoopGain?.('flt-weather', Math.min(0.95, (0.24 + windN * 0.5 + spdN * 0.3) * WEATHER_LOOP[key].vol), 0.6);
     // Occasional distant thunder in a storm.
     if (key === 'storm' && (_stormT = (_stormT + 1) % 5) === 0 && Math.random() < 0.5) {
       try { ae.playSfx?.({ config: { duration: 1.8, layers: [
@@ -299,7 +305,7 @@ export function updateEngineAudio(s) {
     if (running) killLoops(false);                 // ensure the generic loops aren't also playing
     if (!_fe || _fe.voiceCls !== s.class) { if (_fe) stopFlightEngine(true); _fe = createFlightEngine(s.class); }
     updateFlightEngine(s);
-    applyWeather(s.sky, !!s.airborne);
+    applyWeather(s);
     return;
   }
   if (_fe) stopFlightEngine(false);                // switched to a deck craft
@@ -311,7 +317,7 @@ export function updateEngineAudio(s) {
   ae.setLoopGain?.('flt-eng-power', Math.min(1, 0.25 + _smoothThr * 0.9) * (s.airborne ? 1 : 0.5), 0.25);
   ae.setLoopGain?.('flt-wind', s.airborne ? Math.min(1, 0.2 + _smoothSpd + (s.bandIndex || 0) * 0.12) : 0.0, 0.3);
   ae.setLoopGain?.('flt-roll', 0, 0.2);            // ground roll is handled by FlightEngine (Mayfly); loop path stays silent
-  applyWeather(s.sky, !!s.airborne);
+  applyWeather(s);
 }
 
 // ── Per-class start-up spool + shutdown spool-down ────────────────────────────

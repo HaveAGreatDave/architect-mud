@@ -1392,6 +1392,23 @@ export const SCHEMA_SQL = `
   );
   ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS start_date TEXT;
 
+  -- Staging for aired games so they book into the standings at END of their airing
+  -- window (resolve_at), not at air-start. The game_id primary key makes booking
+  -- idempotent + restart-safe: a mid-window restart re-sims the same slot but the
+  -- INSERT no-ops, so no double-count and no churn. Runtime (not exported).
+  CREATE TABLE IF NOT EXISTS sports_results (
+    game_id     TEXT PRIMARY KEY,
+    away_team   TEXT NOT NULL,
+    home_team   TEXT NOT NULL,
+    away_score  INTEGER NOT NULL,
+    home_score  INTEGER NOT NULL,
+    winner      TEXT NOT NULL,
+    resolve_at  TIMESTAMPTZ NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'pending',   -- pending | booked
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_sports_results_pending ON sports_results(resolve_at) WHERE status = 'pending';
+
   -- ── Flight system (flight plugin, docs/systems-flight.md) ──────────────────
   -- aircraft_types is CONTENT: one row per craft template (ultralight, scout
   -- heli, bush plane…), read by the flight plugin, editable via seed/dev panel.

@@ -1,23 +1,20 @@
-// Baseball league standings for the DEADBALL broadcast.
+// Baseball league for the DEADBALL broadcast: standings + monthly seasons + a World
+// Series.
 //
-// The broadcast plugin SIMULATES a fresh nine-inning game every airing and, the
-// instant a game starts airing on a channel, emits a `sports.game` event carrying
-// the already-decided result (teams, final score, winner). This plugin listens for
-// that event and books the result into the persistent `sports_standings` table —
-// one row per team, accumulating wins/losses plus runs-for/against (kept for
-// tiebreakers and future World Series seeding).
+// The broadcast plugin SIMULATES a fresh game every airing and, the instant one starts
+// airing, emits a `sports.game` event with the already-decided result and when its
+// airing window wraps (`endsAtMs`). Rather than book immediately, this plugin STAGES
+// the result as a pending row (`sports_results`, keyed by gameId) and a 1-minute sweep
+// books it into `sports_standings` once the window ends. That's:
+//   • end-of-game — a game only counts once its airing window completes;
+//   • restart-safe — pending rows live in the DB, and the sweep catches up after
+//     downtime, so nothing is lost;
+//   • churn-proof — the gameId is keyed to an absolute time-window (see broadcast), so a
+//     mid-window restart re-sims the same slot and the INSERT no-ops (no double-count).
 //
-// `standings` prints the league table, sorted by win percentage.
-//
-// Dedupe: the same game can be announced on more than one channel (same gameId),
-// so results are deduped by gameId in memory. A restart can't double-count — a game
-// re-airs under a new cycle id, so it's simply a new game. The record is booked at
-// air-start because the whole game is decided the moment it's assembled; the
-// play-by-play only reveals it.
-//
-// This is the foundation for seasons + a World Series (a season clock, top-two
-// seeding off this table, a scripted Series, champion, then reset) — those land in
-// later phases and will live here.
+// Seasons run SPORTS_SEASON_DAYS in-game days; at season's end the top two teams meet in
+// a single-game World Series (the finalists' game crowns a champion, resets standings,
+// opens the next season). Commands: `standings`, `worldseries`, `champions`.
 import { query } from '../../server/models/db.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerAction } from '../../server/engine/actions.js';
@@ -32,11 +29,6 @@ import { getEnvironmentState } from '../../server/engine/environment.js';
 // seeding a Series off a thin sample.
 const SPORTS_SEASON_DAYS = 30;   // in-game days per season
 const SPORTS_MIN_WS_GAMES = 8;   // the #2 team must have played at least this many
-
-// Bounded in-memory dedupe of already-booked game ids. Cleared when large — a
-// re-book after a clear is astronomically unlikely (a gameId won't re-emit once its
-// airing cycle has passed) and at worst adds one duplicate result.
-const _booked = new Set();
 
 // ── Season lifecycle ───────────────────────────────────────────────────────────
 
@@ -133,37 +125,58 @@ async function bumpTeam(team, w, l, rf, ra) {
   ).catch((e) => console.error('[sportsleague] record error:', e.message));
 }
 
-// Book one aired game into the standings. Guards against ties / missing data (the
-// sim guarantees a winner, so those never fire — but a malformed event is ignored
-// rather than corrupting a record).
-async function recordGame(g) {
-  if (!g?.gameId || _booked.has(g.gameId)) return;
-  const { away, home, awayScore, homeScore, winner } = g;
+// Stage an aired game as PENDING. It books into the standings only when its airing
+// window ends (resolve_at), via the sweep below — so a game that never finished airing
+// (mid-window restart) isn't counted. The game_id primary key makes this idempotent and
+// restart-safe: a re-simmed same-slot game (after a restart) INSERTs as a no-op, so no
+// double-count and no churn. No in-memory dedupe needed — the DB is the source of truth.
+async function stageResult(g) {
+  if (!g?.gameId) return;
+  const { away, home, awayScore, homeScore, winner, endsAtMs } = g;
   if (!winner || away == null || home == null || awayScore == null || homeScore == null) return;
   if (winner !== away && winner !== home) return;
+  const resolveAt = Number.isFinite(endsAtMs) ? endsAtMs : (Date.now() + 300000);
+  await query(
+    `INSERT INTO sports_results (game_id, away_team, home_team, away_score, home_score, winner, resolve_at)
+       VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7 / 1000.0))
+     ON CONFLICT (game_id) DO NOTHING`,
+    [g.gameId, away, home, awayScore, homeScore, winner, resolveAt],
+  ).catch((e) => console.error('[sportsleague] stage error:', e.message));
+}
 
-  _booked.add(g.gameId);
-  if (_booked.size > 2000) _booked.clear();
+on('sports.game', (g) => { stageResult(g).catch((e) => console.error('[sportsleague] event error:', e.message)); });
 
-  // If the World Series is on and this is the finalists' game, it's the championship —
-  // crown the winner and roll the season over instead of booking it to the standings.
+// Book one finished game. The World Series decider (the finalists' game while the
+// Series is on) crowns a champion and rolls the season; every other game goes to the
+// standings. Guards against ties / malformed rows (the sim guarantees a winner).
+async function bookResult(g) {
+  const { away, home, awayScore, homeScore, winner } = g;
+  if (!winner || winner !== away && winner !== home) return;
   const season = await currentSeason();
   if (season?.phase === 'worldseries') {
     const finalists = [season.finalist_a, season.finalist_b];
-    if (finalists.includes(away) && finalists.includes(home)) {
-      await crownChampion(season, g);
-      return;
-    }
+    if (finalists.includes(away) && finalists.includes(home)) { await crownChampion(season, g); return; }
   }
-
-  const loser      = winner === away ? home : away;
-  const winScore   = winner === away ? awayScore : homeScore;
-  const loseScore  = winner === away ? homeScore : awayScore;
+  const loser     = winner === away ? home : away;
+  const winScore  = winner === away ? awayScore : homeScore;
+  const loseScore = winner === away ? homeScore : awayScore;
   await bumpTeam(winner, 1, 0, winScore, loseScore);
   await bumpTeam(loser, 0, 1, loseScore, winScore);
 }
 
-on('sports.game', (g) => { recordGame(g).catch((e) => console.error('[sportsleague] event error:', e.message)); });
+// Sweep: book every pending game whose airing window has ended, oldest first, then mark
+// it booked. Restart-safe (no per-game timers; catches up rows that came due during
+// downtime) and idempotent (the status flip means a game is booked exactly once).
+async function settleResults() {
+  const { rows } = await query(
+    `SELECT * FROM sports_results WHERE status = 'pending' AND resolve_at <= NOW() ORDER BY resolve_at ASC`,
+  ).catch(() => ({ rows: [] }));
+  for (const row of rows) {
+    await bookResult({ away: row.away_team, home: row.home_team, awayScore: row.away_score, homeScore: row.home_score, winner: row.winner })
+      .catch((e) => console.error('[sportsleague] book error:', e.message));
+    await query(`UPDATE sports_results SET status = 'booked' WHERE game_id = $1`, [row.game_id]).catch(() => {});
+  }
+}
 
 // Pure formatter — a monospace league table. Rows are pre-sorted by the query.
 function formatStandings(rows) {
@@ -299,12 +312,17 @@ async function seasonTick() {
 schedule('1m', seasonTick);
 setTimeout(() => ensureSeason().catch((e) => console.error('[sportsleague] boot season error:', e.message)), 8000);
 
+// Book finished games once a minute (restart-safe; catches up rows that came due while
+// the server was down). A short post-boot pass settles anything already overdue.
+schedule('1m', settleResults);
+setTimeout(() => settleResults().catch((e) => console.error('[sportsleague] boot settle error:', e.message)), 9000);
+
 export const commands = {
   standings: () => cmdStandings(),
   worldseries: (args, raw, player) => cmdWorldSeries(args, raw, player),
   champions: () => cmdChampions(),
 };
 
-export const _test = { formatStandings, formatChampions, recordGame, daysBetween };
+export const _test = { formatStandings, formatChampions, bookResult, stageResult, settleResults, daysBetween };
 
 console.log('[sportsleague] Plugin loaded.');

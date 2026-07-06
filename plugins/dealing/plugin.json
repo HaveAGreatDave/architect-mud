@@ -1,0 +1,8 @@
+{
+  "name": "dealing",
+  "version": "1.0.0",
+  "description": "Player-to-player drug dealing. `peddle <drug> to <player> [for <price>]` opens a priced offer the buyer accepts with `acceptdeal` (or `declinedeal`); the seller can `canceldeal`. Price is hard-clamped to a potency-based fair value ±25% (no gouge, no dump). Atomic pay + hand-off at accept; emits `item.given` on the seller so surveillance witness-rolls the `drug_dealing` charge. Same-room, one dose per deal, 60s TTL.",
+  "after": ["surveillance", "commerce"],
+  "commands": ["peddle", "acceptdeal", "declinedeal", "canceldeal"],
+  "events": { "consumes": ["player.logout"], "emits": ["item.given"] }
+}

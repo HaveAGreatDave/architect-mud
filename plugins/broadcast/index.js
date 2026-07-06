@@ -1003,9 +1003,9 @@ function assembleSportsGraph(script, broadcastId, cycle, override) {
   // rides the say node exactly like the score-bug and is pushed to TV watchers when
   // the line airs; the client animates it. See _applySportsFx in tv.js.
   const say = (line, tok, sb, graphic) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}) }); };
-  const hrGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'homerun', batter: b.batter || '', team: b.battingName || '', grand: b.rbi >= 4, duration: 3.6 });
-  const walkoffGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'walkoff', batter: b.batter || '', team: b.battingName || '', home: home.name, away: away.name, homeScore: b.homeScore, awayScore: b.awayScore, duration: 4.3 });
-  const dpGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'doubleplay', batter: b.batter || '', duration: 2.0 });
+  const hrGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'homerun', batter: b.batter || '', team: b.battingName || '', grand: b.rbi >= 4, duration: 3.8 });
+  const walkoffGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'walkoff', batter: b.batter || '', team: b.battingName || '', home: home.name, away: away.name, homeScore: b.homeScore, awayScore: b.awayScore, duration: 4.4 });
+  const dpGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'doubleplay', batter: b.batter || '', duration: 2.4 });
 
   // Pre-game records from the live standings (module cache, refreshed before airing).
   // When either team has a record on the board, the announcer works it into the
@@ -1126,7 +1126,7 @@ function assembleSportsGraph(script, broadcastId, cycle, override) {
     loseScore: winName === away.name ? homeScore : awayScore,
     away: away.name, home: home.name, awayScore, homeScore,
     extras: game.innings > 9, inningOrd: sportsOrdinal(game.innings),
-    duration: ws ? 5.4 : 4.6,
+    duration: ws ? 5.4 : 4.4,
   };
   say(sportsPick(pools, ...(ws ? ['worldseries.final', 'final'] : ['final'])), finalTok, finalBug, winGraphic);
   say(sportsPick(pools, ...(ws ? ['worldseries.outro', 'outro'] : ['outro'])), finalTok, finalBug);
@@ -1161,6 +1161,12 @@ const STANDINGS_CACHE_MS = 30000;
 const STANDINGS_BUG_EVERY_MS = 45000;   // how often the standings graphic flashes up mid-game
 let _standingsCache = { at: 0, rows: [] };
 const _lastStandingsBug = new Map();    // channelId -> last push ms
+
+// Overheard background-TV lines are throttled so a chatty channel doesn't spam the
+// room feed with a `[TV]` line on every dialogue beat. TV *watchers* still get every
+// line in the panel; this only rate-limits the ambient overhear for non-watchers.
+const AMBIENT_LINE_EVERY_MS = 30000;    // min gap between overheard `[TV]` lines per zone+channel
+const _lastAmbientLine = new Map();     // `${zoneId}:${channelId}` -> last overhear ms
 async function refreshStandings(nowMs) {
   if (nowMs - _standingsCache.at < STANDINGS_CACHE_MS) return _standingsCache.rows;
   const res = await dispatchAction({ type: 'sportsleague.getStandings' }).catch(() => null);
@@ -1333,15 +1339,19 @@ async function getCurrentMessage(state, nowMs) {
           return tickBroadcastGraph(state.channelId, wxGraph, state, nowMs);
         }
       }
-      // Sports — simulate a fresh game per loop cycle, then walk the play-by-play graph
+      // Sports — a fresh game per cycle, walked as a play-by-play graph. The cycle is
+      // keyed to ABSOLUTE wall-clock time (not loopOriginMs, which resets on restart),
+      // so a given time-window always maps to the same game id — a mid-window restart
+      // re-sims the same slot instead of minting a brand-new game (keeps standings from
+      // being churned by restarts; see the sportsleague staging/sweep).
       if (item.playback_mode === 'sports') {
-        const cycle = Math.floor((nowMs - loopOriginMs) / 1000 / totalDuration);
+        const cycle = Math.floor(nowMs / 1000 / totalDuration);
         await refreshStandings(nowMs);   // warm the record cache before a fresh game assembles
         await refreshSeason(nowMs);      // is the World Series on? if so, run the finalists
         const spGraph = getSportsGraph(item, cycle, worldSeriesOverride());
         if (spGraph) {
-          // Announce the airing to the betting system, tagged with when it wraps.
-          announceSportsGame(state.channelId, spGraph, loopOriginMs + (cycle + 1) * totalDuration * 1000);
+          // Announce the airing to betting + standings, tagged with when the window wraps.
+          announceSportsGame(state.channelId, spGraph, (cycle + 1) * totalDuration * 1000);
           state.currentFallbackMessages = item.fallbackMessages || [];
           return tickBroadcastGraph(state.channelId, spGraph, state, nowMs);
         }
@@ -1623,6 +1633,12 @@ async function broadcastTick() {
         };
       }
 
+      // Rate-limit the overheard `[TV]` line for non-watchers so a talky channel
+      // doesn't flood the room feed. Decided once per zone+channel per tick.
+      const ambientKey = `${zoneId}:${channelId}`;
+      const ambientDue = result.speech && nowMs - (_lastAmbientLine.get(ambientKey) || 0) >= AMBIENT_LINE_EVERY_MS;
+      if (ambientDue) _lastAmbientLine.set(ambientKey, nowMs);
+
       for (const player of players) {
         if (tvWatchers.get(player.id) === channelId) {
           if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}) });
@@ -1630,7 +1646,7 @@ async function broadcastTick() {
           if (scorebugOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
           if (standingsOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: standingsOverlay });
           if (result.graphic) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: result.graphic });
-        } else if (result.speech) {
+        } else if (ambientDue) {
           sendToPlayer(player.id, { type: 'broadcast_ambient', speechText: result.speechText, channel: channelId });
         }
         // Deck preview — independent of TV panel subscription. (The score-bug is a
@@ -3090,10 +3106,12 @@ async function cmdTv(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
   const zoneMap = zoneTunings.get(player.current_zone);
 
+  // A tuned TV in the zone is already emitting a broadcast (the ambient noise the
+  // room overhears) — open the set straight onto that channel rather than dark.
   if (zoneMap) {
     for (const [channelId, deviceType] of zoneMap) {
       if (deviceType !== 'tv') continue;
-      if (channelRuntime.has(channelId)) return buildTvOffPanel(player);
+      if (channelRuntime.has(channelId)) return buildTvPanel(channelId, player);
     }
   }
 
