@@ -114,6 +114,8 @@ Engine changes get a heavier gate than plugins because the failure is silent.
 4. **Report both results** — audit findings (or "clean") + the regress count. Treat either failing as blocking.
 5. **Kill any background server you started.** The harness shares the Supabase pool (pool_size 15); orphaned `node server/index.js` processes exhaust it (`EMAXCONNSESSION`) and time out real users. Player stat columns are `stat_brawn`/`stat_reflexes`/… (not `brawn`).
 
+**This regress proves the *engine change* — it is not the ship regress.** Here you prove the substrate/law behaves and nothing that reads it broke. If the change also added an authored-content table (rare for engine work — most substrates are `runtime`, see Phase 3), the [`codex` skill](../codex/SKILL.md) runs `test:regress` a final time before commit to clear the *shipped world*. The source-of-truth audit above has no counterpart in codex — it's this skill's alone, and the reason engine work gates heavier than a plugin. Never let the codex ship-regress stand in for the audit.
+
 ---
 
 ## Hard-won gotchas

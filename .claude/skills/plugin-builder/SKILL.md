@@ -100,6 +100,8 @@ If a request wants dev-panel authoring for something that's really just *content
 3. **Report the result** in your summary — green count, or the failure and your fix. This is the pre-deploy gate; treat a red result as blocking.
 4. **Kill any background server you started** before finishing. The harness shares the Supabase pool (pool_size 15); orphaned `node server/index.js` processes exhaust it (`EMAXCONNSESSION`) and time out real users. If the harness dies with that error, hunt orphans or wait ~90s.
 
+**This is the *code* regress, not the ship regress — they answer different questions.** Here you prove your new *mechanic* works: routing, gating, state transitions, via the `regress.js` suite you just wrote. If this plugin also authored content (new rows), the [`codex` skill](../codex/SKILL.md) runs `test:regress` again as the final gate before commit — proving the *shipped world* still boots. Same command, different purpose, different moment. Run it here to prove the code; let codex run it to clear the ship. Don't skip either thinking it's a duplicate.
+
 Caveat: player stat columns are `stat_brawn`/`stat_reflexes`/… (not `brawn`) if your suite touches stats.
 
 ---

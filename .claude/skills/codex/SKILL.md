@@ -33,13 +33,15 @@ Run it in order. Do not skip the diff review — it is the step that catches the
    git diff content/           # read it
 3. <discard runtime residue>   # git checkout -- content/<table>/<file>  (see below)
 4. npm run content:lint        # JSON valid, real columns, no excluded cols, no dangling FKs
-5. npm run test:regress        # the world still boots + all suites green
+5. npm run test:regress        # the SHIP regress: the shipped world still boots, all suites green
 6. git add content/ [code]     # + any SCHEMA_SQL/registry/plugin code in the same commit
    git commit -m "…"
 7. report: what shipped (ids), lint/regress result, anything you discarded and why
 ```
 
 Pushing is the user's call unless they said otherwise. Tell them what a push will do (§Prod), don't do it silently.
+
+**Step 5 is the *ship* regress, not the *code* regress — and it does NOT replace the build skills' gates.** `codex` runs `test:regress` as the last gate before commit to prove the shipped world boots and every suite is green. It is not a substitute for what `plugin-builder`/`engine-change` do earlier: `plugin-builder` writes and runs the mechanic's own `regress.js` (proving routing/gating), and `engine-change` runs a **mandatory source-of-truth audit** that has no counterpart here. If you arrived from one of those skills, you've already done that work — codex is the final ship gate on top. If you arrive at codex with content that was authored but the code path wasn't gated (e.g. a raw dev-panel session), the ship regress still runs, but it only proves the world boots, not that a new mechanic is correct. Same command running here and there is intentional layering, not redundancy.
 
 ## Step 2–3: review the diff — discard runtime residue
 
