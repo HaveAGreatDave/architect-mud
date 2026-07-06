@@ -9,3 +9,11 @@ db/seed.sql text eol=lf
 # pure LF like seed.sql, but suppress diffs — rendering a 15 MB single-line change is
 # useless noise and slow. It changes only when audio content actually changes.
 db/audio-seed.sql text eol=lf -diff
+
+# Content pipeline files (one JSON file per world entity, git-as-source-of-truth).
+# Generated pure-LF with canonical serialization by scripts/content/export.mjs;
+# byte-identity across machines is what makes exports and merge conflicts sane,
+# so never let autocrlf touch them. audio_samples carry one-line base64 blobs —
+# same -diff treatment as audio-seed.sql.
+content/**/*.json text eol=lf
+content/audio_samples/*.json text eol=lf -diff

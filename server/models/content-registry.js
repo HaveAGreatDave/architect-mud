@@ -14,6 +14,18 @@
 //                                  (verified UPDATE sites, 2026-07-06 census).
 //                                  Never exported to files; never touched by an
 //                                  import's ON CONFLICT DO UPDATE.
+//                                  ONLY self-healing or ephemeral state qualifies:
+//                                  a fresh restore must be correct with the column
+//                                  at its schema default (recomputed next tick,
+//                                  cleared daily, rebuilt on demand…). A column
+//                                  carrying AUTHORED initial state (a door that
+//                                  ships locked, a generator's starting fuel, a
+//                                  destructible's hp) stays CONTENT even though
+//                                  runtime also mutates it — the churn shows up in
+//                                  exports as reviewable git diffs, which is the
+//                                  honest tradeoff. (Proven by regress: excluding
+//                                  doors.lock_state shipped every authored lock
+//                                  disengaged on a fresh import.)
 //                 runtimeInserts — note naming gameplay code that INSERTs rows into
 //                                  this table at runtime (2026-07-06 census). Those
 //                                  rows have no files; the pipeline's git-diff-driven
@@ -61,15 +73,19 @@ export const REGISTRY = [
     // vendor_*: sales balances + auto-managed shelf (vendor_inventory is the authored catalog).
     excludeColumns: ['zone_id', 'vendor_credits', 'vendor_stock', 'vendor_bank_credits'] },
   { table: 'furniture', class: 'content', pk: ['id'],
-    // light_on/light_on_intended: power system + player toggles; hp: damage/repair.
-    excludeColumns: ['light_on', 'light_on_intended', 'hp'],
+    // light_on/light_on_intended: self-healing — the power/day-night tick recomputes
+    // them. hp stays CONTENT (no schema default; authored destructibles need it).
+    excludeColumns: ['light_on', 'light_on_intended'],
     runtimeInserts: 'furniture-shop.js purchases; corps HQ furnishing; surveillance planted devices; posters; generator plugin; environment.js junction boxes' },
   { table: 'doors', class: 'content', pk: ['id'],
-    // is_open/lock_state: player+NPC actions; hp: destructible; forcefield_locked: apartment guard.
-    // tags stays CONTENT (authored locks/keycards) even though player lock kits also
-    // mutate it at runtime — an import that touches a door file reverts player-installed
-    // locks on that door. Known seam; surfaced by the drift report.
-    excludeColumns: ['is_open', 'lock_state', 'hp', 'forcefield_locked'] },
+    // is_open/lock_state/is_locked/hp/tags are CONTENT: they carry authored initial
+    // state (a vault ships locked; lock_state defaults to NULL = disengaged, which a
+    // fresh restore must not inflict on every authored lock). Runtime also mutates
+    // them (players open/lock/bash) — that churn appears in exports as reviewable
+    // diffs, and an import touching a door file resets that door's live state.
+    // Known seam; surfaced by the drift report. Only the apartment forcefield guard
+    // is ephemeral enough to exclude.
+    excludeColumns: ['forcefield_locked'] },
   { table: 'windows', class: 'content', pk: ['id'] },
   { table: 'sounds', class: 'content', pk: ['id'] },
   { table: 'interface_sfx', class: 'content', pk: ['id'] },
@@ -94,7 +110,10 @@ export const REGISTRY = [
     excludeColumns: ['owner_id', 'owner_handle', 'is_locked', 'purchased_at', 'date_rented', 'rent_due_date'],
     runtimeInserts: 'apartments.js renting (upsert); corps plugin org HQs (outside predicate)' },
   { table: 'generators', class: 'content', pk: ['id'],
-    excludeColumns: ['status', 'fuel_remaining', 'remaining_kw'], // power tick burns fuel / allocates
+    // status/remaining_kw: recomputed every power cycle (self-healing). fuel_remaining
+    // stays CONTENT: schema default is 0, so excluding it restores every authored
+    // generator dead. Burn-tick churn shows in exports as reviewable diffs.
+    excludeColumns: ['status', 'remaining_kw'],
     runtimeInserts: 'environment.js city/junction autobuild; generator plugin player-placed units' },
   { table: 'power_zones', class: 'content', pk: ['id'],
     excludeColumns: ['status', 'available_kw', 'current_load_kw'], // recomputed every power cycle

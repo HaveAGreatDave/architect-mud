@@ -23,7 +23,7 @@ import { readdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit } from '../server/engine/world.js';
+import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, getApartment } from '../server/engine/world.js';
 import { moveEntity } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove } from '../server/engine/commands/movement.js';
@@ -110,7 +110,7 @@ console.log('— layer 1a: content-registry coverage —');
         if (m && !['primary', 'foreign', 'unique', 'check', 'constraint'].includes(m[1])) cols.add(m[1]);
       }
     }
-    for (const m of SCHEMA_SQL.matchAll(new RegExp(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS (\\w+)`, 'g'))) {
+    for (const m of SCHEMA_SQL.matchAll(new RegExp(`ALTER TABLE ${table}\\s+ADD COLUMN IF NOT EXISTS (\\w+)`, 'g'))) {
       cols.add(m[1]);
     }
     return cols;
@@ -167,11 +167,17 @@ const zones = getAllZones();
 // trips the door-lock gate. Exclude any zone a real door touches, on either side
 // or via a neighbour. (Was: first zone with an exit, which broke when a locked
 // hololock door landed on zone_meridian_unit_104, the first such zone.)
+// Apartment zones are excluded too: hackDoor treats any door guarding an UNOWNED
+// apartment as "already disengaged" (doors.js), so a vacant unit poisons every
+// hololock fixture anchored there. Which zone the find() lands on depends on DB
+// row order — a freshly file-imported world orders differently than a grown one,
+// which is how this surfaced.
 const doorZones = new Set();
 for (const d of world.doors.values()) { if (d.zone_id) doorZones.add(d.zone_id); if (d.target_zone) doorZones.add(d.target_zone); }
 const zone = zones.find(z =>
   z.exits && Object.keys(z.exits).length > 0 &&
   !doorZones.has(z.id) &&
+  !getApartment(z.id) &&
   !neighborZoneIds(z).some(n => doorZones.has(n)));
 if (!zone) { console.error('No door-free zone with exits found; aborting.'); process.exit(1); }
 
