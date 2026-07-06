@@ -16,6 +16,7 @@
     "north": "zone_the_broadcast"
   },
   "flags": {
+    "always_lit": true,
     "building_name": "The Lattice",
     "is_building": false,
     "is_interior": true,

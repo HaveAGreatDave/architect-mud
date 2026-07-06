@@ -15,6 +15,7 @@
     "north": "zone_start"
   },
   "flags": {
+    "always_lit": true,
     "building_name": "The Collapse",
     "is_building": false,
     "is_interior": true,

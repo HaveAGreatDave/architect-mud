@@ -11,8 +11,8 @@
  * Everything here is content-driven and self-contained:
  *   - move gates hard-gate the three narrative doors (alignment, the holocaster,
  *     the finished broadcast);
- *   - a visibility.perceive hook lets these lightless void-rooms be seen ("there
- *     is no light, but you can see") without any power/lighting content;
+ *   - the lightless void-rooms are seen ("there is no light, but you can see")
+ *     via the engine's zones.flags.always_lit property — no lighting content;
  *   - `use holosign` grants the first Architect Interface IP + the tablet + the
  *     X-90 holocaster; `use holocaster` opens the broadcast door and is consumed;
  *   - sitting in The Broadcast plays the welcome script and drops the starter kit.
@@ -97,11 +97,8 @@ async function prologueMoveGate({ player, to }) {
 }
 registerMoveGate(prologueMoveGate, 'prologue');
 
-// ── Visibility: the void has no lights but can be seen ────────────────────────
-function onVisibilityPerceive(player, vis, zone) {
-  if (zone?.flags?.prologue) return { category: 'clear', visibility: 0.8 };
-  return undefined;
-}
+// (The void's "there is no light, but you can see" is now an engine property:
+// each prologue zone carries flags.always_lit, honored in getZoneVisibility.)
 
 // ── Specialized `use` handlers (self-gating; return undefined to fall through) ─
 async function useHolosign(args, raw, player) {
@@ -146,8 +143,6 @@ export const specializedActions = [
   { verb: 'use', requiredTag: 'prologue_holosign',   handler: useHolosign },
   { verb: 'use', requiredTag: 'prologue_holocaster', handler: useHolocaster },
 ];
-
-export const hooks = { 'visibility.perceive': onVisibilityPerceive };
 
 // ── Chargen alignment: the attendant "predicts" your answer ───────────────────
 on('appearance.changed', async ({ actor }) => {
@@ -215,7 +210,7 @@ function playBroadcast(player) {
 
 // Test surface for plugins/prologue/regress.js (never used in production).
 export const _test = {
-  prologueMoveGate, onVisibilityPerceive, useHolosign, useHolocaster,
+  prologueMoveGate, useHolosign, useHolocaster,
   grantFirstArchitectIp, isSet, raise,
   Z_INBETWEEN, Z_SYNAPSE, Z_LATTICE, Z_BROADCAST, Z_COLLAPSE,
   ITEM_HOLOCASTER, ITEM_TABLET,

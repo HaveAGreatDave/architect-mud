@@ -6,7 +6,7 @@ import { _test } from './index.js';
 
 export default async function regress({ check, getPlayer }) {
   const {
-    prologueMoveGate, onVisibilityPerceive, useHolosign, useHolocaster,
+    prologueMoveGate, useHolosign, useHolocaster,
     Z_INBETWEEN, Z_SYNAPSE, Z_LATTICE, Z_BROADCAST,
     ITEM_HOLOCASTER, ITEM_TABLET,
     F_ALIGNED, F_INTERFACED, F_BROADCAST,
@@ -31,10 +31,8 @@ export default async function regress({ check, getPlayer }) {
   // ── Move gate is wired ─────────────────────────────────────────────────────
   check('prologue move gate registered', getRegisteredMoveGates().includes('prologue'));
 
-  // ── Visibility hook: prologue zones are seen, others untouched ──────────────
-  const litVoid = onVisibilityPerceive(p, {}, { flags: { prologue: true } });
-  check('void rooms are forced visible', litVoid?.category === 'clear', JSON.stringify(litVoid));
-  check('non-prologue zones untouched by visibility hook', onVisibilityPerceive(p, {}, { flags: {} }) === undefined);
+  // (Void-room lighting is now an engine property — zones.flags.always_lit,
+  // honored in environment.js getZoneVisibility — not a plugin concern.)
 
   // ── Gate 1: north out of The Inbetween needs alignment ─────────────────────
   const g1blocked = await prologueMoveGate({ player: { ...p, current_zone: Z_INBETWEEN }, to: { id: Z_SYNAPSE } });

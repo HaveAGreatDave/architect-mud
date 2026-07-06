@@ -15,6 +15,7 @@
     "north": "zone_the_collapse"
   },
   "flags": {
+    "always_lit": true,
     "building_name": "The Broadcast",
     "is_building": false,
     "is_interior": true,

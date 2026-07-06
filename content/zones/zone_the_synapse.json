@@ -16,6 +16,7 @@
     "north": "zone_the_lattice"
   },
   "flags": {
+    "always_lit": true,
     "building_name": "The Synapse",
     "is_building": false,
     "is_interior": true,

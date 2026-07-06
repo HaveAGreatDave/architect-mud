@@ -339,6 +339,10 @@ export async function initEnvironment({ query, emitHook, broadcast, getOccupiedZ
   if (emitHook) await emitHook('environment.init', { setWeatherState, setCurrentPrecip, climateProfile: state.activeClimateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance, registerWeatherEventStep, registerWeatherEventTrigger });
 
   await loadZonePowerAndLighting(query);
+  // Self-luminous zones (flags.always_lit) — loaded independently of the power sim
+  // so getZoneVisibility can honor the property for zones with no power_zones row.
+  const { rows: alwaysLitRows } = await query("SELECT id FROM zones WHERE flags->>'always_lit' = 'true'");
+  state.alwaysLitZones = new Set(alwaysLitRows.map(r => r.id));
   await loadWindows(query);
   recalcAmbientAndVisibility();
   initIndoorTemps();
@@ -1329,6 +1333,19 @@ async function reconcileDevicePower(query) {
  * zero case the literal formula produces.
  */
 export function getZoneVisibility(zoneId) {
+  // Self-luminous zones (zones.flags.always_lit) are lit by their own nature, not
+  // by power, windows, or daylight — so they short-circuit BEFORE the power-sim
+  // lookup below (which only knows zones that have a power_zones row). Loaded once
+  // at init from the zones table, so it works for any zone, powered or not.
+  if (state.alwaysLitZones?.has(zoneId)) {
+    return {
+      visibility: 0.85, category: 'bright',
+      ambientLight: 0.85, artificialLight: 0.85, windowLight: 0,
+      outdoor: false, weatherType: state.weatherType,
+      precipType: 'none', precipRate: 0, cloudCover: 0,
+      windKph: state.forecast?.[0]?.windKph ?? 0,
+    };
+  }
   const zone = state.zones.get(zoneId);
   const artificial = zone ? zone.artificialLight : 0;
 

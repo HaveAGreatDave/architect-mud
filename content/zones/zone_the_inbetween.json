@@ -16,6 +16,7 @@
     "north": "zone_the_synapse"
   },
   "flags": {
+    "always_lit": true,
     "building_name": "The Inbetween",
     "is_building": false,
     "is_interior": true,
