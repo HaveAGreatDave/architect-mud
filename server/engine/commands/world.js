@@ -299,6 +299,9 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
   if (target.posture === 'fishing') {
     msg += `${isSelf ? 'You are' : `${handle} is`} fishing, line cast out over the water.\n`;
   }
+  if (target.posture === 'mining') {
+    msg += `${isSelf ? 'You are' : `${handle} is`} chipping at the rock face, mining the deposit.\n`;
+  }
   if (mutated) msg += `<span class="mutation-tag">Something about ${isSelf ? 'you' : 'them'} isn't quite human anymore.</span>\n`;
   if (target.covered_in_blood) msg += `<span style="color:var(--red)">${isSelf ? 'You are' : 'They are'} covered in blood.</span>\n`;
 
@@ -935,7 +938,7 @@ function cmdHelp(player) {
 <span class="help-category">OBSERVE</span>     look sky  |  look ground  |  look distance  |  examine surroundings
 <span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help`;
   if (player?.role === 'admin') {
-    msg += `\n<span class="help-category">ADMIN</span>      .admin   <span class="text-dim">— open the admin command reference (prefix admin verbs with . or /)</span>`;
+    msg += `\n<span class="help-category">ADMIN</span>      @admin   <span class="text-dim">— open the admin command reference (@ = admin · / = player · . = bookkeeping)</span>`;
   }
   return { type:'help', message: msg };
 }

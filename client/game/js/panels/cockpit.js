@@ -17,6 +17,7 @@ import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx
 import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
+import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
 import { sendCmdSilent } from '../net.js';
 
 // Theme accent for the canvas-drawn instruments (the CSS chrome uses var(--accent)
@@ -1556,6 +1557,9 @@ function fsimFrame(now) {
     hull: F.hull, hitFlash: F.hitFlashT ? clampNum(1 - (now - F.hitFlashT) / 400, 0, 1) : 0,
   });
 
+  // Drug/booze impairment: warp the out-the-window view if the pilot is flying loaded.
+  applyFlightDrugFx(root.querySelector('.fsim-view'), document.getElementById('fsim-ws'), dt);
+
   // Stream state to the server while flying AND during the ground roll-out — the server
   // needs the fresh onGround flag to suppress overfly noise / airspace rules as we taxi.
   // Cadence tightens to ~3 Hz when traffic is close (the dogfight bubble), 1.2s otherwise.
@@ -1940,6 +1944,7 @@ export function closeFlightSim() {
   if (F.toastT) clearTimeout(F.toastT);
   for (const [t, ty, fn, op] of F.listeners) { try { t.removeEventListener(ty, fn, op); } catch {} }
   try { disposeWindshield('fsim-ws'); } catch {}
+  try { clearFlightDrugFx(document.getElementById('fsim-root')?.querySelector('.fsim-view'), document.getElementById('fsim-ws')); } catch {}
   stopEngineAudio();
   suppressWeatherFx(false);   // back to the room view — let the outdoor overlay resume
 }

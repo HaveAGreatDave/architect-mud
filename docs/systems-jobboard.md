@@ -12,6 +12,21 @@ and keep you fed. Beauty and misery, and you wouldn't have it any other way.
     `gigs take <n>` (accept), `gigs claim <n>` (hand in for pay). Deliberately
     **not** `jobs`/`board`/`take`/`claim` — those are owned by flight/gametable/
     posters/corps.
+  - **The board is an actionable object.** The board furniture carries a `job_board`
+    tag; `read <board>` (a specialized action, also surfaced as a Read button on the
+    board's smart bar) lists the live postings. Every posting line has a **clickable**
+    `[Take]` / `[Hand in]` (an `action-link` with `data-raw-cmd="gigs take/claim <n>"`),
+    so the whole flow is point-and-click as well as typeable.
+  - **`OPEN_JOBBOARD` dialogue Action** — lets an NPC (Marta) *read you the postings*.
+    A static dialogue tree can't enumerate the rotating set, so her `work` node
+    dispatches this and the `{dialogue_line}` result (the same clickable listing) is
+    appended to her reply.
+  - **Greeter move gate** (`jobboard:greeter`) — content-driven: a zone
+    `flags.greeter = { npc_id, npc_name, met_flag, lines[] }`. The first time a player
+    who hasn't met the greeter tries to **leave** that zone, the greeter (if present)
+    hollers one of the lines and the move is blocked **once**; the `met_flag` is set so
+    the next step is free (talking to the NPC also sets it). Writing on the block path
+    follows the `govgate` checkpoint precedent.
   - Owns the **`job_boards`** config table (classified in `CONTENT_TABLES`).
   - Dev-panel **Job Boards** tab (`/job-boards` routes) picks which repeatable
     quests are in a board's pool, plus `rotation_size` (how many post at once) and
@@ -39,7 +54,16 @@ out of the current rotation automatically.
 - **`board_franchise_strip`** — pool of all five, 3 rotate, every 6h.
 - **`furn_fs_jobboard`** — the board itself (examine points you at `gigs`).
 - **Marta Kell** (`npc_fs_dispatcher`) — the dispatcher behind the wire mesh; her
-  dialogue is the first **philosophical encounter** (below).
+  dialogue is the first **philosophical encounter** (below), and she reads you the
+  postings (`OPEN_JOBBOARD` on her `work` node). She is **pinned to the strip**: no
+  `work_zone_id` (a work zone would make her an autonomous vendor that commutes
+  "home"), `home_zone` set to `zone_city_west`, and an explicit stationary behaviour
+  graph (occasional at-the-window flavour, no movement node) so `ensureBehaviourGraph`
+  never auto-assigns her a walking default.
+- **Marta is also the greeter** — `zone_city_west` carries `flags.greeter` pointing at
+  her with 6 varied barks. A new player's first attempt to leave the Strip (before
+  meeting her) is stopped once: she hollers ("you look desperate… check the board, come
+  back to me when it's done"), sets `fs_marta_met`, and the next step is free.
 - Extra desperation ambience on the zone.
 
 ## Philosophical encounters → alignment

@@ -174,11 +174,14 @@ function renderDetail() {
   let acts = '';
   if (t.isCurrent && _data.myOrgId) {
     if (!c.org_id && c.status === 'OPEN') acts = `<div class="cm-acts"><div class="cm-btn" data-act="claim">Claim</div></div>`;
-    else if (c.mine) acts = `<div class="cm-acts"><div class="cm-btn" data-act="reinforce">Reinforce</div></div>`;
+    else if (c.mine) acts = `<div class="cm-acts"><div class="cm-btn" data-act="reinforce">Reinforce</div><div class="cm-btn" data-act="build:extractor">+Extractor</div><div class="cm-btn" data-act="build:turret">+Turret</div></div>`;
     else if (c.org_id) acts = `<div class="cm-acts"><div class="cm-btn hot" data-act="contest">⚔ Contest</div></div>`;
   } else if (c.status === 'OPEN' || c.org_id) {
     acts = `<div class="cm-note">▸ Travel to <b>${esc(t.name)}</b> to act — the verbs work where you stand.</div>`;
   }
+  const assets = (c.assets && c.assets.length)
+    ? `<div class="cm-stat"><span class="dim">Assets</span><span class="v">${c.assets.map(a => `${a.type === 'extractor' ? '⛏' : '⌖'} ${esc(a.type)} L${a.level}`).join(' · ')}${c.defense ? ` · <span style="color:#7bffb0">def ${c.defense}</span>` : ''}</span></div>`
+    : (c.org_id ? '<div class="cm-stat"><span class="dim">Assets</span><span class="dim">none</span></div>' : '');
   const tug = c.org_id
     ? `<div class="cm-tug"><i style="width:${inf}%"></i></div>
        <div class="cm-tugrow"><span class="my">${esc(c.tag)} ${inf}%</span>${c.challenger ? `<span class="rv">${esc(c.challenger)} ${100 - inf}%</span>` : '<span class="dim">uncontested</span>'}</div>`
@@ -187,7 +190,7 @@ function renderDetail() {
     ? `<div class="cm-stat"><span class="dim">Income</span><span class="v up">+${c.income}/day</span></div>
        <div class="cm-stat"><span class="dim">Upkeep</span><span class="v down">−${c.upkeep}/day</span></div>` : '';
   const artery = Array.isArray(t.artery) && t.artery.length ? `<div class="cm-stat"><span class="dim">On</span><span class="v">${t.artery.map(esc).join(' · ')}</span></div>` : '';
-  return `<h3>${esc(t.name)}</h3><div class="cm-ctrl">${t.isCurrent ? '◉ you are here · ' : ''}${controller}${home}</div>${tug}${econ}${artery}${acts}`;
+  return `<h3>${esc(t.name)}</h3><div class="cm-ctrl">${t.isCurrent ? '◉ you are here · ' : ''}${controller}${home}</div>${tug}${econ}${assets}${artery}${acts}`;
 }
 
 function renderBody() {
@@ -230,7 +233,8 @@ function wire() {
         return;
       }
       sfx('hololock-set');
-      sendCmdSilent(`corp ${act}`);
+      const cmd = act.startsWith('build:') ? `corp build ${act.slice(6)}` : `corp ${act}`;
+      sendCmdSilent(cmd);
       setTimeout(() => sendCmdSilent('corp map'), 500);
     }));
 }

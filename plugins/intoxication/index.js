@@ -81,6 +81,15 @@ function addIntoxication(player, amount) {
   return player.intoxication;
 }
 
+// Stream the drunkenness level to the client (drives the drunk flight-view warp).
+// Change-gated so it's near-silent while sober or steady, then follows the meter.
+function pushIntoxFx(player) {
+  const lvl = Math.round(player?.intoxication || 0);
+  if (lvl === (player._intoxFxSent ?? -1)) return;
+  player._intoxFxSent = lvl;
+  sendToPlayer(player.id, { type: 'intox_fx', level: lvl });
+}
+
 on('player.drugUsed', ({ player, drug, potency }) => {
   if (!player || !drug?.flags) return;
   const p = Math.max(0.5, potency ?? 1);
@@ -88,6 +97,7 @@ on('player.drugUsed', ({ player, drug, potency }) => {
     const per = Number(drug.flags.intox_per_dose) || DEFAULT_INTOX_PER_DOSE;
     const lvl = addIntoxication(player, Math.round(per * p));
     narrateBand(player, lvl);
+    pushIntoxFx(player);
   } else if (drug.flags.sobering) {
     const amt = Number(drug.flags.sober_amount) || DEFAULT_SOBER_AMOUNT;
     const before = player.intoxication || 0;
@@ -95,6 +105,7 @@ on('player.drugUsed', ({ player, drug, potency }) => {
       const lvl = addIntoxication(player, -amt);
       sendToPlayer(player.id, { type: 'output', message: 'The caffeine cuts through the fog a little. You feel a touch more clear-headed.' });
       narrateBand(player, lvl);
+      pushIntoxFx(player);
     }
   }
 });
@@ -175,6 +186,7 @@ function clearAll(player) {
   if (player._blackoutActive) endBlackout(player);
   player.intoxication = 0;
   player._intoxBand = 0;
+  pushIntoxFx(player);   // → level 0, clears the drunk flight-view warp
 }
 
 on('player.death',  ({ player }) => clearAll(player));
@@ -196,6 +208,7 @@ function intoxTick() {
       const next = Math.max(0, lvl - DECAY_PER_TICK);
       player.intoxication = next;
       narrateBand(player, next);
+      pushIntoxFx(player);
     }
   } finally {
     ticking = false;

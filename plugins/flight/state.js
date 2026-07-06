@@ -15,6 +15,7 @@ import { sendToPlayer, sendToZone, sendToZoneExcept } from '../../server/engine/
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
 import { emit } from '../../server/engine/events.js';
+import { applyCrashCollateral, isSeverelyImpaired } from './collateral.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 
 export const TICK_MS = 3000;
@@ -171,6 +172,14 @@ export function fieldFor(player) {
   if (z.flags?.airfield_id) return z;                                      // on the ramp
   if (z.flags?.hangar_ramp) return getZone(z.flags.hangar_ramp) || null;   // inside the hangar → its ramp
   return null;
+}
+
+// True when the player is standing INSIDE a walk-in hangar interior (at the desk),
+// as opposed to out on the exterior ramp. Aircraft *requests* (buy/rent/charter) are
+// gated to inside the hangar — you deal with the desk indoors, then the machine is
+// out on the ramp to fly. Maintenance verbs stay usable from either.
+export function inHangarInterior(player) {
+  return !!getZone(player.current_zone)?.flags?.hangar_interior;
 }
 
 // ── Live aircraft registry (in-memory; the aircraft owns its occupant set) ────
@@ -531,6 +540,16 @@ export async function crash(live, reason = 'crash', byPlayer = null) {
   await persist(live);
   const downedBy = byPlayer ? ` — ${byPlayer.handle} splashes it` : '';
   sendToZone(wreckZone, { type: 'zone_event', message: `<span class="text-red">A ${live.type.name} screams down out of the sky and craters into the ground in a fireball${downedBy}.</span>`, refresh: true });
+  // Collateral: what the wreck does to the tile it hits (bystanders, damage bill, crimes).
+  // Charge the responsible pilot BEFORE the death loop detaches them; the wanted persists.
+  const pilot = [...live.occupants].map(getLivePlayer).find(p => p && p.seat === 'pilot') || null;
+  // Capture "was the pilot fit to fly?" now, while their impairment state is intact.
+  const impaired = isSeverelyImpaired(pilot);
+  if (pilot) pilot.current_zone = wreckZone;
+  // Never let collateral (NPC kills / crime charges) break the core crash path.
+  let liabilityBill = 0, casualties = 0;
+  try { ({ bill: liabilityBill, casualties } = await applyCrashCollateral(live, surface, pilot)); }
+  catch (e) { console.error(`[flight] crash collateral error: ${e.message}`); }
   const label = byPlayer ? `Shot down by ${byPlayer.handle}` : 'Died in an aircraft crash';
   const doomed = [...live.occupants];
   for (const pid of doomed) {
@@ -549,6 +568,11 @@ export async function crash(live, reason = 'crash', byPlayer = null) {
   emit('flight.crashed', {
     aircraftId: live.row.id, ownerId: live.row.owner_id, typeId: live.type.id,
     typeName: live.type.name, reason, wreckZone, rental: !!live.row.rental,
+    // Fault context for insurers: combat = shot down (not your fault); restricted =
+    // the loss happened in illegal/no-fly airspace (voids cover).
+    combat: !!byPlayer, restricted: !!surface?.flags?.airspace_restricted, impaired,
+    // Third-party damage the pilot is liable for (covered by liability insurance, else owed).
+    pilotId: pilot?.id || null, liabilityBill, casualties,
   });
   liveAircraft.delete(live.row.id);
 }

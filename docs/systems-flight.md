@@ -250,8 +250,10 @@ always parks/transacts against the ramp (aircraft never leave the `map_world` gr
 The three **charter pilots sit at the ops desk inside** their hangar while on shift
 (`syncPilots` seats them via `setPosture(...,'sitting')`, `forceStand` on any move
 out); `inHangar` counts a pilot present at the ramp **or** the interior. Chartering
-from inside readies the plane on the ramp and tells you to step `out` and `embark`
-there. Content: `scripts/seed-hangar-interiors.js` (all 6 fields; idempotent).
+happens **entirely from inside the hangar**: you book a ride and a destination at the
+desk, the pilot **taxis the machine up to the hangar door**, and `embark` (reachable
+from inside, resolved to the ramp aircraft) is what rolls it. Content:
+`scripts/seed-hangar-interiors.js` (all 6 fields; idempotent).
 Room text: `describeAirfield`/`describeHangarInterior` share a `serviceBits` builder.
 
 **Phase D — ownership** (`hangars.js`). `hangar rent/store/pull` (stored = theft-
@@ -283,22 +285,27 @@ go **home** (desk closed, "back at 08:00"); out on a run they're gone until they
 **return**. A flight that **overruns the shift** keeps them at work (flying) until
 they land — then the next sync sends them **home, off the clock**. A pilot already
 out means you **wait for their return**. `charter` lists **passenger-capable** aircraft (seats ≥ 2)
-at **10× the hourly rate**. Booking **generates the aircraft parked on the ramp and
-the pilot climbs into it**, then waves you aboard — you are *not* auto-boarded. You
-then **`embark`** it (boards you as a passenger) and pick a destination — a numbered
-**airport list**, or, for the VTOL **Dragonfly**, **any exterior tile clicked on the
-full map** (`flight_pick_dest` → `armMapPick` → `flyto`). A charter aircraft is
+at **10× the hourly rate**. **The destination is chosen up front, at the desk**:
+`charter <ride>` offers a numbered **airport list** (or, for the VTOL **Dragonfly**,
+**any exterior tile clicked on the full map** — `flight_pick_dest` carries a `cmd`
+the click completes as `charter <ride> <tile>`); `charter <ride> <dest>` (via
+`resolveDest`) **books it** — the aircraft is generated at the ramp (narratively
+taxied **up to the hangar door**), pilot aboard, bound for your destination and
+waiting in the **`boarding`** phase. You are *not* charged and *not* aboard yet.
+**`embark` is the trigger for both**: it charges the fare, seats you, and moves the
+charter to **`departing`** — the pilot taxis out on the ground for `TAXI_MS`, then
+the tick **rotates** her (→ `enroute`) and flies the leg. A charter aircraft is
 **locked without its pilot**: `embark` is refused unless the assigned pilot is aboard
-(`charterParkedAt` / `embarkCharter`, gated in `index.cmdBoard`). If nobody boards
+(`charterParkedAt` / `embarkCharter`, gated in `index.cmdBoard`). If nobody embarks
 within **2 min** the pilot gives up and the craft despawns; orphaned charter rows are
 swept on plugin load.
 A booked charter is **reserved to the player who chartered it** (`ch.chartererId`):
 a second player can't `embark` it (they fall through to normal boarding, the charter
-invisible to them). It's **free to cancel before takeoff** — type **`cancel`** (as the
-charterer waiting or the boarded passenger) or simply **leave the airfield** (the tick
-sees the charterer is no longer at the field via `fieldFor` and scrubs it); the fare
-is only charged at takeoff, so a pre-flight cancel refunds anything taken (`ch.paid`,
-normally 0). The pilot does everything (a server-driven autoflight tick, no minigames —
+invisible to them). It's **free to cancel before you embark** — type **`cancel`** or
+simply **leave the airfield** (the tick sees the charterer is no longer at the field
+via `fieldFor` and scrubs it); the fare is only charged at `embark`, so a pre-embark
+cancel refunds anything taken (`ch.paid`, normally 0). Once you've embarked she's
+committed — rolling. The pilot does everything (a server-driven autoflight tick, no minigames —
 the main physics tick skips `live.charter` craft); you have **no controls**. The pilot
 **rides along as a real aircraft occupant** — `boardPilot` puts the NPC in
 `live.occupants` and pulls them out of the world at departure (so bystanders see

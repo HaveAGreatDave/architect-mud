@@ -535,15 +535,28 @@ export async function describeZone(zone, player) {
 			const figures = npcs.map((n) => _vaguePresence(n));
 			desc += `\n<span class="npcs-label">Nearby:</span> <span style="color:var(--text-dim);font-style:italic">${figures.join(", ")}</span>`;
 		} else {
-			const npcLinks = npcs.map((n) => {
+			const npcLink = (n) => {
 				const postureTag = n._ai?.homeSleeping
 					? ` <span class="text-dim">(sleeping)</span>`
 					: n.posture === 'lying'
 						? ` <span class="text-dim">(lying down)</span>`
 						: '';
 				return `<span class="action-link npc-link" data-action="talk" data-target="${n.name}" title="Talk to ${n.name}">${n.name}</span>${postureTag}`;
-			});
-			desc += `\n<span class="npcs-label">NPCs here:</span> ${npcLinks.join(", ")}`;
+			};
+			// Vendors get their own section — but covert/trust-gated dealers stay
+			// camouflaged among the regular NPCs so their storefront isn't outed.
+			const isVendor = (n) =>
+				!n.flags?.trust_flag &&
+				((Array.isArray(n.vendor_inventory) && n.vendor_inventory.length > 0) ||
+					n.flags?.personality === 'vendor');
+			const vendors = npcs.filter(isVendor);
+			const regular = npcs.filter((n) => !isVendor(n));
+			if (vendors.length) {
+				desc += `\n<span class="vendors-label">Vendors here:</span> ${vendors.map(npcLink).join(", ")}`;
+			}
+			if (regular.length) {
+				desc += `\n<span class="npcs-label">NPCs here:</span> ${regular.map(npcLink).join(", ")}`;
+			}
 		}
 	}
 	if (enemies.length) {

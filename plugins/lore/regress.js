@@ -2,7 +2,7 @@
 import { _test } from './index.js';
 import { setFlag, clearFlag } from '../../server/engine/flags.js';
 
-export default async function regress({ check, getPlayer }) {
+export default async function regress({ run, check, getPlayer }) {
   const player = getPlayer();
   const zone = { id: 'zone_lore_test', flags: { intro_lore: 'The place has a history. None of it kind.' } };
   const bare = { id: 'zone_lore_bare', flags: {} };
@@ -43,6 +43,26 @@ export default async function regress({ check, getPlayer }) {
   await setFlag('player', _test.seenKey(zone.id), 'true', player);
   out = await _test.introLore(zone, player);
   check('lore not repeated after the visit ends', !out, String(out));
+
+  // ── lorereset admin command ────────────────────────────────────────────────
+  // Non-staff get the generic unknown-command reply — the verb stays hidden.
+  const prevRole = player.role;
+  player.role = 'player';
+  let r = await run('lorereset');
+  check('lorereset hidden from non-staff', /Unknown command/.test(r?.message || ''), r?.message);
+
+  // Staff can reset their own lore (clears seen markers + re-arms eligibility).
+  player.role = 'admin';
+  await setFlag('player', _test.seenKey(zone.id), 'true', player);
+  r = await run('lorereset');
+  check('lorereset runs for staff', /re-armed first-visit lore/.test(r?.message || ''), r?.message);
+  const clearedSelf = await _test.introLore(zone, player);
+  check('lorereset re-arms so lore shows again', /class="intro-lore"/.test(clearedSelf || ''), String(clearedSelf));
+
+  // An unknown target handle is reported, not silently ignored.
+  r = await run('lorereset nobody_xyz');
+  check('lorereset rejects unknown handle', /No player named/.test(r?.message || ''), r?.message);
+  player.role = prevRole;
 
   // Tidy up so re-runs start clean.
   await clearFlag('player', _test.ELIGIBLE_FLAG, player);

@@ -292,7 +292,30 @@ const POI_LEGEND = {
 const MAP_OVERLAY_KEY = 'map_overlay';
 let _savedOverlay = 'none';
 try { _savedOverlay = localStorage.getItem(MAP_OVERLAY_KEY) || 'none'; } catch {}
-const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false, avenueOverlay: _savedOverlay };
+// Territory overlay: tint held tiles by controlling org on top of the avenue+labels
+// view. Persisted like the other view toggles; the control layer itself is fetched
+// on demand from the corps plugin (`corp territory`) and cached here.
+const MAP_TERRITORY_KEY = 'map_territory';
+let _savedTerritory = false;
+try { _savedTerritory = localStorage.getItem(MAP_TERRITORY_KEY) === '1'; } catch {}
+let _territory = null; // last { control: {zoneId:{...}}, orgs, myOrgId } payload
+const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false, avenueOverlay: _savedOverlay, territoryView: _savedTerritory };
+
+// Black/white ink for legibility on a saturated org fill (mirrors corp-map.js inkFor).
+function contrastInk(hex) {
+  const h = (hex || '').replace('#', '');
+  if (h.length < 6) return '#08110d';
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#08110d' : '#eafffb';
+}
+
+// Store the fetched corp-control layer and re-tint the map if it's open.
+export function setMapTerritory(msg) {
+  _territory = msg || null;
+  if (document.getElementById('map-panel')?.classList.contains('active')) renderMapGrid();
+}
+// Ask the server for the current control layer (silent — routes back as map_territory).
+function fetchTerritory() { sendCmdSilent('corp territory'); }
 let mapUiWired = false;
 // Pan offset of the grid within the fixed 11×11 viewport, and live drag state.
 const mapPan = { tx: 0, ty: 0 };
@@ -420,6 +443,12 @@ function onMapHover(e) {
   if (!z) return;
   const t = mapTooltipEl();
   let html = `<div class="map-tt-name">${escapeHtml(z.name)}</div>`;
+  const terr = mapState.territoryView ? _territory?.control?.[z.id] : null;
+  if (terr) {
+    const contested = terr.status === 'CONTESTED'
+      ? ` · contested${terr.challenger ? ' by ' + escapeHtml(terr.challenger) : ''}` : '';
+    html += `<div class="map-tt-bld"><b>${escapeHtml(terr.tag)}</b> · ${terr.influence}% grip${contested}</div>`;
+  }
   if (z.description) html += `<div class="map-tt-desc">${escapeHtml(z.description)}</div>`;
   if (z.buildings && z.buildings.length)
     html += `<div class="map-tt-bld"><b>Buildings:</b> ${z.buildings.map(escapeHtml).join(', ')}</div>`;
@@ -474,6 +503,26 @@ function wireMapUi() {
     syncOverlaySlider();
     renderMapGrid();
     if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // reflect the setting on the sidebar minimap
+  });
+  // Territory: tint held tiles by controlling org. Turning it on implies the
+  // avenue+labels reading it's meant to sit on, and fetches a fresh control layer.
+  document.getElementById('map-territory-toggle')?.addEventListener('click', () => {
+    mapState.territoryView = !mapState.territoryView;
+    try { localStorage.setItem(MAP_TERRITORY_KEY, mapState.territoryView ? '1' : '0'); } catch {}
+    document.getElementById('map-territory-toggle')?.classList.toggle('active', mapState.territoryView);
+    if (mapState.territoryView) {
+      if (!mapState.avenueView) {
+        mapState.avenueView = true;
+        document.getElementById('map-avenue-toggle')?.classList.toggle('active', true);
+      }
+      if (mapState.avenueOverlay === 'none') {
+        mapState.avenueOverlay = 'labels';
+        try { localStorage.setItem(MAP_OVERLAY_KEY, 'labels'); } catch {}
+        syncOverlaySlider();
+      }
+      fetchTerritory();
+    }
+    renderMapGrid();
   });
   const vp = document.getElementById('map-viewport');
   if (vp) {
@@ -563,7 +612,9 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
     btn.disabled = (level === 'interior' && !insideInterior);
   }
   document.getElementById('map-avenue-toggle')?.classList.toggle('active', mapState.avenueView);
+  document.getElementById('map-territory-toggle')?.classList.toggle('active', mapState.territoryView);
   syncOverlaySlider();
+  if (mapState.territoryView) fetchTerritory(); // refresh the control layer each open
 
   const tip = document.getElementById('map-tooltip');
   if (tip) tip.style.display = 'none';
@@ -587,6 +638,9 @@ function renderMapGrid() {
   }
 
   const regional = mode === 'regional';
+  // Corp-control tint only applies on the overworld levels (zone/regional), never
+  // inside an interior. null = no tinting this pass.
+  const territory = (mapState.territoryView && mode !== 'interior') ? (_territory?.control || null) : null;
   const xs = tiles.map(t => t.x), ys = tiles.map(t => t.y);
   // Interior/Zone are 11×11 windows pre-centered on you (0,0) — force the extent so
   // you stay centered even when the window's edges are empty. Regional is dynamic.
@@ -665,22 +719,30 @@ function renderMapGrid() {
         continue;
       }
       const t = it.tile;
+      const terr = territory ? territory[t.id] : null; // controlling org, if any
       const funcColor = FUNC_LEGEND[t.func]?.color || FUNC_LEGEND.residential.color;
-      const bg = regional ? funcColor : t.bg_color;
+      const bg = terr ? terr.color : (regional ? funcColor : t.bg_color);
       const styles = [];
       if (bg) styles.push(`background:${bg}`);
       const isPoi = t.icon && !t.isCurrent; // POI icon gets its own colour via a class
-      const tColor = regional
-        ? luminanceTextColor(bg)
-        : (t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null));
+      const tColor = terr
+        ? contrastInk(terr.color)
+        : (regional
+          ? luminanceTextColor(bg)
+          : (t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null)));
       if (tColor && !isPoi) styles.push(`color:${tColor}`);
+      if (terr) {
+        // Org-colour glow (doubled for rival-held turf), dashed outline while contested.
+        styles.push(`box-shadow:inset 0 0 0 1px ${terr.color},0 0 8px ${terr.color}${terr.mine ? '' : ',0 0 4px ' + terr.color}`);
+        if (terr.status === 'CONTESTED') styles.push(`outline:1px dashed ${contrastInk(terr.color)};outline-offset:-3px`);
+      }
       // Dead-end = exactly one connector touching this room.
       let deg = 0;
       for (const [rr, cc] of [[r, c - 1], [r, c + 1], [r - 1, c], [r + 1, c]])
         if (cell[rr]?.[cc]?.kind === 'link') deg++;
       const cls = `map-c map-room danger-${t.danger || 'safe'}` +
         (t.isCurrent ? ' map-current' : '') +
-        (regional || t.bg_color || t.color ? ' map-styled' : '') +
+        (regional || t.bg_color || t.color || terr ? ' map-styled' : '') +
         (isPoi ? ` map-poi map-poi-${t.poi}` : '') +
         (t.buildings && t.buildings.length ? ' map-has-building' : '') +
         (deg === 1 ? ' map-deadend' : '');
@@ -720,6 +782,16 @@ function renderMapGrid() {
     if (!poiPresent.has(key)) continue;
     const p = POI_LEGEND[key];
     KEYS += `<div class="map-leg-row"><span class="map-leg-sym map-poi map-poi-${key}">${p.icon}</span> ${p.label}</div>`;
+  }
+  // Territory legend: which org each tint colour belongs to (only when the overlay
+  // is on and the fetched layer named some orgs). Appended after the shared keys.
+  if (territory && _territory?.orgs?.length) {
+    KEYS += `<div class="map-leg-row map-leg-head">Territory</div>`;
+    for (const o of _territory.orgs) {
+      const style = `background:${o.color};color:${contrastInk(o.color)}`;
+      const you = o.id === _territory.myOrgId ? ' (you)' : '';
+      KEYS += `<div class="map-leg-row"><span class="map-leg-sym map-styled" style="${style}">&nbsp;&nbsp;</span> ${escapeHtml(o.tag)} ${escapeHtml(o.name)}${you}</div>`;
+    }
   }
   if (regional) {
     let leg = `<div class="map-leg-row"><span class="map-leg-sym map-current"></span> You are here</div>` + KEYS;

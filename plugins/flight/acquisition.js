@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, liveAircraft, persist, pushHud, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf, rentalOpFee } from './state.js';
+import { getZone, liveAircraft, persist, pushHud, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf, inHangarInterior, rentalOpFee } from './state.js';
 // `buy` belongs to commerce (shopping); flight wins it by load order (manifest
 // `after`) and delegates back unless you're buying an aircraft at a dealer field.
 import { commands as commerceCommands } from '../commerce/index.js';
@@ -48,6 +48,9 @@ async function acquire(args, raw, player, kind) {
   const flagKey = kind === 'buy' ? 'airfield_dealer' : 'airfield_charter';
   if (!field || !field.flags[flagKey])
     return { type: 'emote', message: `There's no ${kind === 'buy' ? 'aircraft dealer' : 'rental desk'} here.` };
+  // The desk is INSIDE the hangar — you can't order a machine from out on the ramp.
+  if (field.flags.hangar_interior_zone && !inHangarInterior(player))
+    return { type: 'emote', message: `The ${kind === 'buy' ? 'dealer' : 'rental'} desk is inside the hangar — step <b>in</b> off the ramp to ${kind === 'buy' ? 'buy' : 'rent'} an aircraft.` };
 
   const types = await listTypes(kind);
   const wanted = (args[0] || '').toLowerCase();

@@ -28,7 +28,10 @@ const FIELDS = [
 const interiorDesc = (name) =>
   `The ${name} hangar: a cavernous prefab of corrugated steel, its floor a map of old oil stains and tyre scuffs. ` +
   `Tool racks and a battered workbench line one wall; a wheeled ops desk with a bank of flight monitors faces the other. ` +
-  `The big bay doors stand open to the west, framing the ramp and the aircraft parked out on it. It smells of avgas, hot metal and cold coffee.`;
+  `The big bay doors stand open to the west, framing the ramp and the aircraft parked out on it. ` +
+  `Beyond the apron a taxiway peels off and runs dead-straight to a long runway — a broad grey ribbon stretched to the horizon, ` +
+  `its dashed centreline dwindling to a pale seam, threshold numbers shimmering in the heat off the tarmac, a lone windsock snapping at the far end. ` +
+  `It smells of avgas, hot metal and cold coffee.`;
 
 for (const { ramp, pilot } of FIELDS) {
   const rz = await query("SELECT id, flags, exits FROM zones WHERE id=$1", [ramp]);
@@ -56,7 +59,10 @@ for (const { ramp, pilot } of FIELDS) {
   const flags = { hangar_interior: true, is_interior: true, hangar_ramp: ramp, airfield_name: afName };
   const exists = await query('SELECT id FROM zones WHERE id=$1', [interiorId]);
   if (exists.rows.length) {
-    console.log(`SKIP  ${interiorId} (exists)`);
+    // Zone already built — re-assert the description so prose edits (e.g. the
+    // taxiway/runway view) land on existing hangars without a rebuild.
+    await query('UPDATE zones SET description=$1 WHERE id=$2', [interiorDesc(afName), interiorId]);
+    console.log(`UPDATED ${interiorId} description`);
   } else {
     await query(
       `INSERT INTO zones (id, name, description, danger_rating, pvp_enabled, is_safe_zone, exits, flags, map_id, grid_x, grid_y, grid_z)

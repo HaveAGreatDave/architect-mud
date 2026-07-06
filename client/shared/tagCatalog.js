@@ -137,6 +137,8 @@
       help: 'Marks this item as a fishing rod. Carrying one (in hand, not in a container) is the tool gate for FISH at a water-adjacent zone. Pair with the Unique tag so each rod keeps its own condition — a botched reel can snap it.' },
     bait: { label: 'Bait', shape: 'flag', scope: 'class', group: 'Gear',
       help: 'Marks this item as fishing bait. Optional while FISHing: one is consumed per catch, shifting the odds toward better catches and unlocking bait-gated fish. A more specific sub-tag (e.g. bait_bloodworm) can gate particular catches.' },
+    mining_tool: { label: 'Mining Tool', shape: 'flag', scope: 'class', group: 'Gear',
+      help: 'Marks this item as a mining tool (pick, drill, breaker bar). Carrying one (in hand, not in a container) is the tool gate for MINE at a zone with an ore deposit. Pair with the Unique tag so each tool keeps its own condition.' },
 
     // --- Locks ---
     "lock:hololock": { label: 'Holographic Lock', shape: 'statmap', scope: 'class', group: 'Hardware', help: 'Electronic holographic authorization matrix.' },

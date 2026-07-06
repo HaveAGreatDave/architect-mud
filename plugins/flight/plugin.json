@@ -5,10 +5,10 @@
   "commands": [
     "embark", "board", "disembark", "deplane", "startup", "shutdown", "throttle", "heading", "climb", "dive", "takeoff", "land", "taxi", "refuel", "takeoffresolve", "landresolve", "flightsync", "flightevent",
     "recover", "extinguish", "eject", "bail", "preflight", "hover", "spot", "scan", "chart", "squawk",
-    "buy", "rent", "charter", "flyto", "cancel", "testfly", "flight", "fs",
+    "buy", "rent", "charter", "cancel", "testfly", "flight", "fs",
     "arm", "safe", "evade", "strafe", "fire", "strafresolve", "airfire",
     "contracts", "jobs", "accept", "manifest", "jettison",
-    "hangar", "hangaract", "paintset", "scheme", "repair", "salvage", "rebuild", "tune", "modify", "customize", "loadout",
+    "hangar", "showroom", "view", "hangaract", "paintset", "scheme", "repair", "salvage", "rebuild", "tune", "modify", "customize", "loadout",
     "examine", "look"
   ],
   "objectGatedCommands": {
@@ -20,6 +20,8 @@
     "jobs":      { "discoverVia": "zone:airfield_id", "exposed": false, "note": "KNOWN GAP: alias of contracts." },
     "accept":    { "discoverVia": "zone:airfield_id", "exposed": false, "note": "KNOWN GAP: zone-flag gate." },
     "hangar":    { "discoverVia": "zone:airfield_id", "exposed": false, "note": "KNOWN GAP: zone-flag gate." },
+    "showroom":  { "discoverVia": "zone:airfield_id", "exposed": false, "note": "Alias for `hangar` open — the 3D turntable view; surfaced via the hangar-interior room hint." },
+    "view":      { "discoverVia": "none", "exposed": false, "note": "`view <tail>` opens the showroom pre-selected on one craft; generic verb, returns undefined off-field to fall through rather than hijack it." },
     "repair":    { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: owned aircraft row + zone flag airfield_id; shadows the engine gear-repair builtin and falls through when no craft." },
     "salvage":   { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: wreck aircraft row (is_wreck=1) in zone; not examinable furniture." },
     "rebuild":   { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: wreck row + zone flag airfield_id." },

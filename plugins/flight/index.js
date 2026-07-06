@@ -733,6 +733,7 @@ async function describeHangarInterior(zone) {
   const ramp = getZone(zone.flags.hangar_ramp);
   if (!ramp) return `<span class="furniture-label">Hangar:</span> ${svcLink('out', 'out')} <span class="text-dim">back out to the ramp</span>`;
   let line = `${serviceBits(ramp)}\n<span class="furniture-label">Ramp:</span> ${svcLink('out', 'out')} <span class="text-dim">step back out onto the ramp</span>`;
+  line += `\n<span class="furniture-label">Showroom:</span> ${svcLink('showroom', 'showroom')} <span class="text-dim">walk the floor — your aircraft up close in 3D; repaint, store, roll out</span>`;
   // Board straight from the office — the aircraft on the linked ramp are in reach.
   const { rows } = await query(
     "SELECT name FROM aircraft WHERE parked_zone_id=$1 AND is_wreck=0 AND (custom_data->>'charter') IS DISTINCT FROM 'true' LIMIT 1",

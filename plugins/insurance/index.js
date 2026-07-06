@@ -22,6 +22,22 @@ const PAYOUT_FRAC = 0.60;            // a covered total loss pays 60% of agreed 
 const DEDUCTIBLE_FRAC = 0.12;        // …minus a 12% excess → net ~48% back. You still rebuy at full.
 const SURCHARGE_PER_CLAIM = 0.25;    // each prior paid claim adds 25% to future premiums…
 const SURCHARGE_CAP = 1.5;           // …up to +150% (×2.5) — repeat crashers get priced out.
+const PILOT_ERROR_MULT = 0.5;        // flew it into the ground yourself → half the settlement
+const FRAUD_WINDOW_SEC = 180;        // a total loss < 3 min after binding cover = denied (anti buy-then-crash)
+const LIABILITY_LIMIT = 8000;        // most Halcyon pays toward third-party damage; the pilot eats the overflow
+
+// Perils Halcyon covers in FULL: shot down, ground fire, weather, birds, engine fire —
+// "acts of the world" you insure against. Everything else (crash/offfield/stall/fuel/
+// hardlanding/abandoned/…) is ruled PILOT ERROR and pays reduced. Restricted-airspace or
+// too-soon losses are EXCLUDED outright. Pure so the regress can assert the tiers.
+const COVERED_REASONS = new Set(['shotdown', 'groundfire', 'weather', 'birdstrike', 'fire']);
+export function classifyLoss({ reason, restricted, combat, impaired, ageSec }) {
+  if (impaired) return { verdict: 'excluded_impaired', mult: 0 };   // flying under the influence voids cover
+  if (restricted) return { verdict: 'excluded_nofly', mult: 0 };
+  if (typeof ageSec === 'number' && ageSec < FRAUD_WINDOW_SEC) return { verdict: 'excluded_fraud', mult: 0 };
+  if (combat || COVERED_REASONS.has(reason)) return { verdict: 'covered', mult: 1 };
+  return { verdict: 'pilot_error', mult: PILOT_ERROR_MULT };
+}
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 const atDesk = (player) => !!getZone(player.current_zone)?.flags?.insurance_desk;
@@ -127,18 +143,63 @@ async function cmdPolicies(args, raw, player) {
   return { type: 'output', message: `<span class="text-cyan">YOUR HALCYON POLICIES:</span>\n${lines.join('\n')}` };
 }
 
-// ── React to crashes: file a claim if the downed craft was covered ─────────────
-on('flight.crashed', async ({ aircraftId, ownerId, typeId, typeName, reason, rental }) => {
-  if (rental || !ownerId || !aircraftId) return;   // rentals are the desk's problem, not a hull policy
-  const { rows } = await query('SELECT * FROM insurance_policies WHERE aircraft_id=$1 AND expires_at > $2 LIMIT 1', [aircraftId, nowSec()]);
-  const pol = rows[0];
-  if (!pol) return;   // uninsured, or the policy had lapsed — no cover
-  const { deductible, payout } = settlement(pol.insured_value);
-  await query('INSERT INTO insurance_claims (id, owner_id, aircraft_id, type_id, type_name, reason, payout, deductible, filed_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-    [`clm_${randomUUID().slice(0, 10)}`, ownerId, aircraftId, typeId, typeName || 'aircraft', reason, payout, deductible, nowSec()]);
-  await query('DELETE FROM insurance_policies WHERE id=$1', [pol.id]);   // the policy is spent
+// Deduct a bill from a (possibly offline) pilot's credits, floored at zero. Returns paid.
+async function chargePilot(pilotId, amount) {
+  if (!pilotId || amount <= 0) return 0;
+  const { rows } = await query('SELECT credits FROM players WHERE id=$1', [pilotId]);
+  if (!rows.length) return 0;
+  const paid = Math.min(rows[0].credits || 0, amount);
+  await query('UPDATE players SET credits = GREATEST(0, credits - $1) WHERE id=$2', [amount, pilotId]);
+  const p = getLivePlayer(pilotId);
+  if (p) { p.credits = Math.max(0, (p.credits || 0) - amount); sendToPlayer(pilotId, { type: 'player_update', credits: p.credits }); }
+  return paid;
+}
+
+// ── React to crashes: settle third-party LIABILITY, then the owner's HULL claim ──
+on('flight.crashed', async ({ aircraftId, ownerId, pilotId, typeId, typeName, reason, rental, restricted, combat, impaired, liabilityBill = 0, casualties = 0 }) => {
+  const now = nowSec();
+  const craft = typeName || 'aircraft';
+  // The craft's active hull policy (its liability rider covers third-party damage too).
+  const pol = (!rental && aircraftId)
+    ? (await query('SELECT * FROM insurance_policies WHERE aircraft_id=$1 AND expires_at > $2 LIMIT 1', [aircraftId, now])).rows[0]
+    : null;
+
+  // ── LIABILITY: someone pays for the ground damage, insured or not ─────────────
+  if (liabilityBill > 0) {
+    const who = casualties > 0 ? `${liabilityBill}c in third-party damage (incl. ${casualties} casualt${casualties > 1 ? 'ies' : 'y'})` : `${liabilityBill}c in third-party damage`;
+    if (pol) {
+      const covered = Math.min(liabilityBill, LIABILITY_LIMIT);
+      const overflow = liabilityBill - covered;
+      if (overflow > 0) await chargePilot(pilotId, overflow);
+      if (pilotId && getLivePlayer(pilotId)) sendToPlayer(pilotId, { type: 'output', message: `<span class="msg-system">📄 <b>HALCYON ASSURANCE — LIABILITY:</b> we settled <b>${covered}c</b> of ${who} on your behalf${overflow > 0 ? `; the <b>${overflow}c</b> over your ${LIABILITY_LIMIT}c limit is yours` : ''}. <span class="text-dim">The lawsuit, and the wanted level, remain your own.</span></span>` });
+    } else {
+      const paid = await chargePilot(pilotId, liabilityBill);
+      if (pilotId && getLivePlayer(pilotId)) sendToPlayer(pilotId, { type: 'output', message: `<span class="msg-system">⚖ <b>THIRD-PARTY LIABILITY:</b> uninsured, you are personally liable for <b>${liabilityBill}c</b> of ${who}. <b>${paid}c</b> has been garnished. <span class="text-dim">Halcyon would have covered most of it.</span></span>` });
+    }
+  }
+
+  // ── HULL: the owner's airframe claim (only if it carried an active policy) ────
+  if (rental || !ownerId || !aircraftId || !pol) return;
+
+  // Assess fault → how much the loss pays (if anything).
+  const { verdict, mult } = classifyLoss({ reason, restricted, combat, impaired, ageSec: now - (pol.created_at || 0) });
+  const { deductible, payout: full } = settlement(pol.insured_value);
+  const payout = Math.round(full * mult);
+  await query('INSERT INTO insurance_claims (id, owner_id, aircraft_id, type_id, type_name, reason, payout, deductible, status, filed_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+    [`clm_${randomUUID().slice(0, 10)}`, ownerId, aircraftId, typeId, craft, reason, payout, deductible, mult > 0 ? 'pending' : 'denied', now]);
+  await query('DELETE FROM insurance_policies WHERE id=$1', [pol.id]);   // the policy is spent either way
+
+  // Tell the owner the ruling straight away — the "why" for a reduced/denied claim.
   const p = getLivePlayer(ownerId);
-  if (p) sendToPlayer(ownerId, { type: 'output', message: `<span class="msg-system">📄 <b>HALCYON ASSURANCE:</b> we're sorry for the loss of your ${typeName || 'aircraft'}. A claim is open — <b>${payout}c</b> waits at the tower (we keep the ${deductible}c excess and the wreck). <span class="text-dim">Bring yourself in to the claims desk to settle.</span></span>` });
+  if (!p) return;
+  const msg = {
+    covered: `📄 <b>HALCYON ASSURANCE:</b> we're sorry for the loss of your ${craft}. Covered peril — a claim is open for <b>${payout}c</b> (we keep the ${deductible}c excess and the wreck). <span class="text-dim">Come in to the claims desk to settle.</span>`,
+    pilot_error: `📄 <b>HALCYON ASSURANCE:</b> our assessors ruled <b>pilot error</b> on the ${craft}, so cover is reduced. A claim is open for <b>${payout}c</b> — half the standard settlement, less your excess. <span class="text-dim">Fly it, don't wear it. Settle at the claims desk.</span>`,
+    excluded_nofly: `📄 <b>HALCYON ASSURANCE:</b> the ${craft} was lost in <b>restricted airspace</b> — an excluded, illegal flight. The claim is <b>denied</b> and the policy is void. <span class="text-dim">We did read the black box.</span>`,
+    excluded_fraud: `📄 <b>HALCYON ASSURANCE:</b> a total loss this soon after binding cover is... convenient. The claim is <b>denied</b> pending an investigation that will outlast your patience. <span class="text-dim">Halcyon was not born yesterday.</span>`,
+    excluded_impaired: `📄 <b>HALCYON ASSURANCE:</b> the tox panel came back — you were flying <b>impaired</b>. Operating an aircraft under the influence voids your cover outright. The claim is <b>denied</b> and the policy is void. <span class="text-dim">Fly sober, or fly uninsured.</span>`,
+  }[verdict];
+  sendToPlayer(ownerId, { type: 'output', message: `<span class="msg-system">${msg}</span>` });
 });
 
 export const commands = {
@@ -148,6 +209,6 @@ export const commands = {
   policy: cmdPolicies,
 };
 
-export const _test = { settlement, quotePremium, surchargeMult, PAYOUT_FRAC, DEDUCTIBLE_FRAC };
+export const _test = { settlement, quotePremium, surchargeMult, classifyLoss, PAYOUT_FRAC, DEDUCTIBLE_FRAC, PILOT_ERROR_MULT };
 
 console.log('[insurance] Plugin loaded.');

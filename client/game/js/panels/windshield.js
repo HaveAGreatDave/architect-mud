@@ -31,6 +31,7 @@
 // }
 
 import { isWeatherFxEnabled } from './weather-fx.js';
+import { aircraftFaces, liveryPalette, faceBaseRgb, shadeRgb } from './aircraft3d.js';
 
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
 let _obsHgt = 0;                // current view altitude fraction — drawers show more of a roof/top as it climbs
@@ -166,6 +167,11 @@ export function paintWindshield(id, view) {
   const wx = (v.weather || 'clear').toLowerCase();
   const sky = skyAt(v.hour == null ? 12 : v.hour);
   const side = !!v.side;                                    // passenger side window (looks 90° off the nose)
+  // "Framed" = the view is seen THROUGH a window punched in the hull (passenger cabin
+  // or the pilot's Q/E/S side-look), not the forward windscreen. Forward-only canopy
+  // flourishes (skyline glow, speed streaks, hero clouds, the canopy bow) are all
+  // suppressed so the scene reads as a porthole, and drawWindowFrame masks the hull skin.
+  const framed = side || !!v.windowClass;
   // On the deck (ground/takeoff/landing) we paint a real, terrain-themed airport.
   const onDeck = phase === 'ground' || phase === 'takeoff' || phase === 'landing';
   const airport = onDeck ? airportCfg(v.airport) : null;
@@ -247,7 +253,7 @@ export function paintWindshield(id, view) {
 
   // Pilotwings hero clouds — big, well-defined fluffy cumulus you sail past, ONLY when the
   // weather calls for cloud. Lazily seeded, drift horizontally with parallax off speed/heading.
-  if (cloudy && !side && !onDeck) {
+  if (cloudy && !framed && !onDeck) {
     if (!st.pwClouds) st.pwClouds = Array.from({ length: 5 }, (_, i) => ({ x: (i * 0.23 + 0.08) % 1, y: 0.1 + frac(i * 3.1) * 0.44, s: 0.72 + frac(i * 7.7) * 0.95, sp: 0.5 + frac(i * 2.3) * 0.8 }));
     for (const c of st.pwClouds) {
       c.x = (c.x + (0.004 + speed * 0.05) * c.sp * dt) % 1.3;
@@ -287,7 +293,7 @@ export function paintWindshield(id, view) {
   }
 
   // Pilotwings horizon: distant rolling land + a soft hazy glow along the horizon.
-  if (!side && !onDeck) {
+  if (!framed && !onDeck) {
     drawSkyline(ctx, W, H, horizonY, vw, sky);
     const glow = ctx.createLinearGradient(0, horizonY - 14, 0, horizonY + 10);
     glow.addColorStop(0, rgb(sky.hor, 0));
@@ -324,7 +330,7 @@ export function paintWindshield(id, view) {
   }
 
   // Speed streaks (motion rush from the vanishing point) — forward view only.
-  if (speed > 0.12 && !side && !onDeck) {
+  if (speed > 0.12 && !framed && !onDeck) {
     ctx.strokeStyle = rgb([210, 230, 255], 0.10 + speed * 0.18); ctx.lineWidth = 1;
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2 + st.scroll * 6;
@@ -390,30 +396,73 @@ function windowShapeFor(cls, W, H) {
     default:           return { x: cx - W * 0.30, y: cy - H * 0.32, w: W * 0.60, h: H * 0.64, r: Math.min(W, H) * 0.18 };
   }
 }
-function roundRectPath(ctx, x, y, w, h, r) {
+// Append a rounded-rect SUBpath to the current path (no beginPath — so it can be
+// combined with another shape for an even-odd fill/clip, e.g. hull-minus-window).
+function roundRectSub(ctx, x, y, w, h, r) {
   r = Math.min(r, w / 2, h / 2);
-  ctx.beginPath();
   ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
+function roundRectPath(ctx, x, y, w, h, r) { ctx.beginPath(); roundRectSub(ctx, x, y, w, h, r); }
+// Per-class exterior HULL SKIN the window is punched through (a sensible default when
+// no livery is supplied): ultralight/prop bright alloy, heli olive, heavy tan
+// freighter, gunship matte green, wreck weathered grey.
+const HULL_SKIN = {
+  ultralight: [190, 196, 202], heli: [96, 132, 110], prop: [172, 180, 190],
+  heavy: [158, 146, 120], gunship: [92, 100, 92], wreck: [120, 118, 106], default: [168, 176, 186],
+};
+
+// The passenger/side window: everything OUTSIDE a class-shaped pane is filled with the
+// aircraft's EXTERIOR SKIN, so the scene reads as glimpsed through a window cut in the
+// fuselage. The hull is shaded as a curved, top-lit body (rivet-lined skin panels), the
+// pane gets a raised metal bezel, and the glass carries a soft reflection.
 function drawWindowFrame(ctx, W, H, cls) {
   const s = windowShapeFor(cls, W, H);
-  // Cabin wall = whole canvas minus the pane (even-odd fill).
+  const base = HULL_SKIN[cls] || HULL_SKIN.default;
+
+  // 1. HULL — clip to the region OUTSIDE the pane (canvas rect ⊕ pane, even-odd) and
+  //    shade the exterior skin there. Building the compound path in one beginPath is
+  //    what actually masks the surround (roundRectSub adds no beginPath of its own).
   ctx.save();
-  ctx.beginPath(); ctx.rect(0, 0, W, H);
-  roundRectPath(ctx, s.x, s.y, s.w, s.h, s.r);
-  ctx.fillStyle = '#0c1116'; ctx.fill('evenodd');
+  ctx.beginPath(); ctx.rect(0, 0, W, H); roundRectSub(ctx, s.x, s.y, s.w, s.h, s.r);
+  ctx.clip('evenodd');
+  ctx.fillStyle = rgb(base); ctx.fillRect(0, 0, W, H);
+  // top-lit crown → shaded belly
+  let g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, rgb(mix(base, [255, 255, 255], 0.24), 0.9)); g.addColorStop(0.5, rgb(base, 0)); g.addColorStop(1, rgb(mix(base, [0, 0, 0], 0.5), 0.85));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // fuselage curvature: darker toward the far left & right edges
+  g = ctx.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0, rgb(mix(base, [0, 0, 0], 0.45), 0.6)); g.addColorStop(0.5, rgb(base, 0)); g.addColorStop(1, rgb(mix(base, [0, 0, 0], 0.45), 0.6));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // skin panel seams above & below the window, each with a rivet row
+  const seamC = rgb(mix(base, [0, 0, 0], 0.5), 0.5), rivC = rgb(mix(base, [0, 0, 0], 0.35), 0.7);
+  for (const sy of [s.y - 15, s.y + s.h + 15]) {
+    ctx.strokeStyle = seamC; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke();
+    ctx.fillStyle = rivC; for (let rx = 8; rx < W; rx += 16) { ctx.beginPath(); ctx.arc(rx, sy, 0.9, 0, 7); ctx.fill(); }
+  }
   ctx.restore();
-  // A little interior modelling on the wall + a bevelled window surround.
-  roundRectPath(ctx, s.x - 6, s.y - 6, s.w + 12, s.h + 12, s.r + 6);
-  ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(40,50,60,0.9)'; ctx.stroke();
+
+  // 2. WINDOW SURROUND — a raised metal bezel (lit top-left, shadowed bottom-right)
+  //    around the pane, then the thin glass edge.
+  roundRectPath(ctx, s.x - 5, s.y - 5, s.w + 10, s.h + 10, s.r + 5);
+  ctx.lineWidth = 7; ctx.strokeStyle = rgb(mix(base, [0, 0, 0], 0.55), 0.92); ctx.stroke();
+  const bev = ctx.createLinearGradient(s.x, s.y, s.x + s.w, s.y + s.h);
+  bev.addColorStop(0, 'rgba(255,255,255,0.5)'); bev.addColorStop(0.5, 'rgba(255,255,255,0)'); bev.addColorStop(1, 'rgba(0,0,0,0.45)');
+  roundRectPath(ctx, s.x - 5, s.y - 5, s.w + 10, s.h + 10, s.r + 5);
+  ctx.lineWidth = 3; ctx.strokeStyle = bev; ctx.stroke();
   roundRectPath(ctx, s.x, s.y, s.w, s.h, s.r);
-  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(150,180,205,0.28)'; ctx.stroke();
-  // Inner glass shading — a soft darkening toward the frame.
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(160,190,215,0.32)'; ctx.stroke();
+
+  // 3. GLASS — a soft darkening toward the frame + a diagonal reflection streak.
   ctx.save(); roundRectPath(ctx, s.x, s.y, s.w, s.h, s.r); ctx.clip();
-  const ig = ctx.createRadialGradient(W / 2, H / 2, Math.min(s.w, s.h) * 0.3, W / 2, H / 2, Math.max(s.w, s.h) * 0.7);
+  const ig = ctx.createRadialGradient(W / 2, H / 2, Math.min(s.w, s.h) * 0.3, W / 2, H / 2, Math.max(s.w, s.h) * 0.72);
   ig.addColorStop(0, 'rgba(0,0,0,0)'); ig.addColorStop(1, 'rgba(6,10,14,0.5)');
-  ctx.fillStyle = ig; ctx.fillRect(s.x, s.y, s.w, s.h); ctx.restore();
+  ctx.fillStyle = ig; ctx.fillRect(s.x, s.y, s.w, s.h);
+  const refl = ctx.createLinearGradient(s.x, s.y, s.x + s.w * 0.6, s.y + s.h);
+  refl.addColorStop(0, 'rgba(255,255,255,0)'); refl.addColorStop(0.5, 'rgba(210,230,255,0.06)'); refl.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = refl; ctx.fillRect(s.x, s.y, s.w, s.h);
+  ctx.restore();
 }
 
 // DA62-style curved windscreen header: a dark canopy frame across the top whose lower
@@ -1064,17 +1113,9 @@ function drawContacts(ctx, cam, v, W, H) {
 // The bogey's low-poly model, built nose-forward in ITS frame, oriented by its heading/
 // bank/pitch, then every vertex projected through the shared camera. Depth-sorted filled
 // faces (far first), painted in the craft's LIVERY (base/trim + finish sheen + pattern
-// accents). Returns the screen bbox for the designator.
-const AC_FACES = [
-  // [local verts (f=fwd, g=right, h=up), role, shade] — a compact jet.
-  { p: [[1.15, 0, 0.03], [0.05, 0.13, 0.05], [-1.05, 0, 0.08], [0.05, -0.13, 0.05]], role: 'body', sh: 1.0 },   // fuselage
-  { p: [[0.2, 0, 0], [-0.15, 1.0, -0.02], [-0.5, 0, 0], [-0.15, -1.0, -0.02]], role: 'wing', sh: 0.82 },        // wing
-  { p: [[-0.78, 0, 0.06], [-1.02, 0.42, 0.06], [-1.12, 0, 0.08], [-1.02, -0.42, 0.06]], role: 'stab', sh: 0.72 },// tailplane
-  { p: [[-0.72, 0, 0.06], [-0.98, 0, 0.55], [-1.08, 0, 0.09]], role: 'fin', sh: 0.9 },                          // vertical fin
-];
-const FINISH_MUL = { gloss: 1.06, satin: 1.0, matte: 0.88, weathered: 0.82 };
-const hex2rgb = (h) => { if (typeof h !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(h)) return null; const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
-const shadeRgb = (c, m) => `rgb(${clamp(c[0] * m, 0, 255) | 0},${clamp(c[1] * m, 0, 255) | 0},${clamp(c[2] * m, 0, 255) | 0})`;
+// accents). The per-class model + livery shading come from the shared aircraft3d
+// module — the same geometry the hangar spins on its turntable. Returns the screen
+// bbox for the designator.
 function drawAircraftModel(ctx, cam, c, baseWz) {
   const SIZE = CONTACT_SIZE[c.cls] || 0.11, VS = CONTACT_VS;
   const hr = (c.hdg || 0) * Math.PI / 180, roll = (c.bank || 0) * Math.PI / 180, pitch = (c.pitch || 0) * Math.PI / 180;
@@ -1086,27 +1127,24 @@ function drawAircraftModel(ctx, cam, c, baseWz) {
     const g2 = g * cr + h1 * sr, h2 = -g * sr + h1 * cr;            // roll (right wing down = +)
     return cam.proj(c.dx + SIZE * (f1 * fwdX + g2 * rgtX), c.dy + SIZE * (f1 * fwdY + g2 * rgtY), baseWz + SIZE * VS * h2);
   };
-  // Livery palette: base + trim, a finish sheen multiplier, and pattern-driven accents.
+  // Livery palette (shared with the hangar): base + trim, a finish sheen multiplier,
+  // and pattern-driven accents.
   const lv = c.livery || {};
-  let base = hex2rgb(lv.base) || [90, 95, 102], trim = hex2rgb(lv.trim) || [138, 144, 153];
-  const fmul = FINISH_MUL[lv.finish] ?? 1.0, pat = lv.pattern || 'bare';
-  if (pat === 'splinter') base = mix(base, [60, 64, 44], 0.35);    // camo pulls toward drab
-  // Which faces wear the trim colour vs the base, per pattern.
-  const trimFace = (role) => role === 'fin' || (pat === 'twotone' && (role === 'wing' || role === 'stab')) || (pat === 'stripes' && role === 'stab');
+  const pal = liveryPalette(lv);
   // Project every face; depth-sort by average forward distance (far first).
   const faces = [];
   let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9, drawn = 0;
-  for (const face of AC_FACES) {
+  for (const face of aircraftFaces(c.cls)) {
     const pts = face.p.map(P);
     if (pts.some(q => q.f <= 0.07)) continue;                       // vertex behind the lens → skip (avoids blow-up)
     let af = 0; for (const q of pts) { af += q.f; if (q.sx < minx) minx = q.sx; if (q.sx > maxx) maxx = q.sx; if (q.sy < miny) miny = q.sy; if (q.sy > maxy) maxy = q.sy; }
-    const col = shadeRgb(trimFace(face.role) ? trim : base, face.sh * fmul);
+    const col = shadeRgb(faceBaseRgb(face.role, pal), face.sh * pal.fmul);
     faces.push({ pts, af: af / pts.length, col, role: face.role }); drawn++;
   }
   if (!drawn) return null;
   faces.sort((a, b) => b.af - a.af);
   // Edge: hazard pattern flashes its trim; the designated target reads red; else a dark outline.
-  const edge = c.designated ? 'rgba(255,90,80,0.95)' : pat === 'hazard' ? shadeRgb(trim, 1.0) : 'rgba(8,10,14,0.7)';
+  const edge = c.designated ? 'rgba(255,90,80,0.95)' : pal.pat === 'hazard' ? shadeRgb(pal.trim, 1.0) : 'rgba(8,10,14,0.7)';
   ctx.lineJoin = 'round';
   for (const fc of faces) {
     ctx.beginPath(); ctx.moveTo(fc.pts[0].sx, fc.pts[0].sy);
@@ -1122,7 +1160,7 @@ function drawAircraftModel(ctx, cam, c, baseWz) {
   }
   // Very distant/edge-on: guarantee at least a visible pip so a far bogey never vanishes.
   if (maxx - minx < 4 && maxy - miny < 4) {
-    ctx.fillStyle = shadeRgb(base, 1.1); ctx.beginPath(); ctx.arc((minx + maxx) / 2, (miny + maxy) / 2, 2, 0, 7); ctx.fill();
+    ctx.fillStyle = shadeRgb(pal.base, 1.1); ctx.beginPath(); ctx.arc((minx + maxx) / 2, (miny + maxy) / 2, 2, 0, 7); ctx.fill();
   }
   return { minx, maxx, miny, maxy };
 }

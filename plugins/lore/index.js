@@ -31,9 +31,11 @@
 import { on } from '../../server/engine/events.js';
 import { getZone } from '../../server/engine/world.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { query } from '../../server/models/db.js';
 
 const ELIGIBLE_FLAG = 'lore_intro';
 const seenKey = (zoneId) => `lore_seen:${zoneId}`;
+const STAFF = new Set(['admin', 'dev', 'builder', 'designer']);
 
 const loreFor = (zone) => {
   const text = zone && zone.flags && zone.flags.intro_lore;
@@ -75,11 +77,44 @@ function onZoneEntered({ actor, from }) {
 
 on('zone.entered', onZoneEntered);
 
+// `lorereset [handle]` (staff only) — re-arm first-visit lore for yourself, or for
+// another player by handle (online or not). Clears their `lore_seen:*` markers and
+// (re)sets eligibility so the shimmering intros play again — the testing/QA lever.
+async function cmdLoreReset(argStr, player) {
+  if (!STAFF.has(player.role)) {
+    return { type: 'error', message: `Unknown command: "lorereset". Type HELP for commands.` };
+  }
+  const handle = (argStr || '').trim();
+  let targetId = player.id;
+  let label = 'you';
+  if (handle) {
+    const { rows } = await query('SELECT id, handle FROM players WHERE lower(handle)=lower($1)', [handle]);
+    if (!rows.length) return { type: 'error', message: `No player named "${handle}".` };
+    targetId = rows[0].id;
+    label = rows[0].handle;
+  }
+  const { rowCount } = await query(
+    "DELETE FROM player_flags WHERE player_id=$1 AND flag_key LIKE 'lore_seen:%'",
+    [targetId]
+  );
+  await setFlag('player', ELIGIBLE_FLAG, 'true', { id: targetId });
+  const tail = label === 'you' ? ' Re-look or re-enter a lore zone to see it again.' : '';
+  return {
+    type: 'system',
+    message: `<span class="msg-system">Lore reset for ${label}: cleared ${rowCount} seen-marker(s) and re-armed first-visit lore.${tail}</span>`,
+  };
+}
+
 export const hooks = {
   'player.create': onPlayerCreate,
   'zone.introLore': introLore,
 };
 
-export const _test = { introLore, onPlayerCreate, onZoneEntered, loreFor, ELIGIBLE_FLAG, seenKey };
+export const commands = {
+  lorereset: (args, _raw, player) => cmdLoreReset(args.join(' '), player),
+  resetlore: (args, _raw, player) => cmdLoreReset(args.join(' '), player),
+};
+
+export const _test = { introLore, onPlayerCreate, onZoneEntered, cmdLoreReset, loreFor, ELIGIBLE_FLAG, seenKey };
 
 console.log('[lore] Plugin loaded.');

@@ -397,6 +397,18 @@ export const SCHEMA_SQL = `
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS forcefield_locked INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS home_zone TEXT DEFAULT NULL;
 
+  -- NPC home occupancy — a SEPARATE tracker from the player apartments ledger.
+  -- One row per apartment unit an NPC calls home; the housing rent flow treats a
+  -- unit listed here as occupied (un-rentable) without ever writing to apartments.
+  -- zone_id is unique (one registered resident per unit); npc_id is the occupant.
+  -- Both FKs cascade so deleting a zone or NPC frees the unit automatically.
+  CREATE TABLE IF NOT EXISTS npc_residences (
+    zone_id TEXT PRIMARY KEY REFERENCES zones(id) ON DELETE CASCADE,
+    npc_id  TEXT NOT NULL REFERENCES npcs(id) ON DELETE CASCADE,
+    note    TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_npc_residences_npc ON npc_residences(npc_id);
+
   CREATE TABLE IF NOT EXISTS recipes (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -1307,6 +1319,24 @@ export const SCHEMA_SQL = `
     captured_at       BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
   CREATE INDEX IF NOT EXISTS idx_zone_control_org ON zone_control(org_id);
+
+  -- Corp investment tier (Phase 2): raised via 'corp invest'; gates member cap,
+  -- territory slots, and asset level.
+  ALTER TABLE orgs ADD COLUMN IF NOT EXISTS tier INTEGER NOT NULL DEFAULT 1;
+
+  -- Corp assets: buildable improvements on a controlled zone (extractor = +income,
+  -- turret = +defense). One of each type per zone, upgradeable up to the org's tier.
+  CREATE TABLE IF NOT EXISTS org_assets (
+    id           TEXT PRIMARY KEY,
+    org_id       TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    zone_id      TEXT NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+    type         TEXT NOT NULL,                 -- 'extractor' | 'turret'
+    level        INTEGER NOT NULL DEFAULT 1,
+    installed_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    UNIQUE (zone_id, type)
+  );
+  CREATE INDEX IF NOT EXISTS idx_org_assets_org ON org_assets(org_id);
+  CREATE INDEX IF NOT EXISTS idx_org_assets_zone ON org_assets(zone_id);
 
   -- ── Jail system (jail plugin) ──────────────────────────────────────────────
   -- Runtime tables: schema is exported, rows are not. Written by plugins/jail.

@@ -39,7 +39,7 @@ export function closeAdmin() { if (overlay) overlay.style.display = 'none'; }
 function run(verb, args) {
   if (!args) { sendCmdSilent(verb); closeAdmin(); return; }
   const input = document.getElementById('cmd-input');
-  if (input) { input.value = `${verb} `; input.focus(); }
+  if (input) { input.value = `@${verb} `; input.focus(); }
   closeAdmin();
 }
 
@@ -57,7 +57,7 @@ function render(commands) {
     <div class="adm-cat">${esc(g.name)}</div>
     ${g.items.map(c => `
       <button class="adm-cmd" data-verb="${esc(c.verb)}" data-args="${esc(c.args)}">
-        <span class="adm-syntax"><span class="adm-verb">.${esc(c.verb)}</span>${c.args ? ` <span class="adm-args">${esc(c.args)}</span>` : ''}</span>
+        <span class="adm-syntax"><span class="adm-verb">@${esc(c.verb)}</span>${c.args ? ` <span class="adm-args">${esc(c.args)}</span>` : ''}</span>
         <span class="adm-desc">${esc(c.desc)}</span>
         <span class="adm-go">${c.args ? '✎' : '▸'}</span>
       </button>`).join('')}`).join('');

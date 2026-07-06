@@ -77,10 +77,13 @@ export async function handleCommand(input, player, broadcast) {
   let raw = input.trim();
   if (!raw) return null;
 
-  // Admin/OOC command prefix — a leading `.` or `/` is stripped so admin verbs
-  // can be typed as a namespace (`.tp`, `/spawn`). Cosmetic: the bare verb still
-  // works, and the rest of the pipeline only ever sees the clean command.
-  if (raw[0] === '.' || raw[0] === '/') {
+  // Command-namespace sigils — a leading `@` (admin), `/` (player), or `.`
+  // (bookkeeping/OOC) is stripped so a verb can be typed with its namespace
+  // (`@tp`, `/sit`, `.status`). Cosmetic here: the bare verb still works and the
+  // rest of the pipeline only ever sees the clean command. The distinction is a
+  // typing convention — each command enforces its own role gate. (Client-side
+  // bookkeeping verbs like `.status`/`.describe` are intercepted before send.)
+  if (raw[0] === '@' || raw[0] === '/' || raw[0] === '.') {
     raw = raw.slice(1).trim();
     if (!raw) return null;
   }

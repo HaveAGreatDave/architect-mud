@@ -69,10 +69,10 @@ export const TYPES = {
   // climber that gets in and out of short/rough strips. Fast cruise, powerful STOL flaps, low
   // stall for its size. Ceiling 12000 (the real Otter goes ~25k; kept low for the world scale).
   mule: {
-    name: 'Mule', mass: 2.8, thrustMax: 31, vr: 65, vs0: 58, vne: 185, cruise: 165,
+    name: 'Mule', mass: 2.8, thrustMax: 31, vr: 65, vs0: 46, vne: 185, cruise: 165,
     pitchRate: 8, pitchTau: 0.8, rollRate: 40, rollTau: 0.7, engineLag: 1.7,
     pitchStable: 0.88, rollStable: 1.0, dragP: 0.00090, flapDrag: 0.65, flapLift: 0.5, flapVs: 0.24,
-    rollFric: 1.4, aoaCrit: 18, liftScale: 1.0, vsMax: 1600, vsGain: 1600, vsTau: 1.1,
+    rollFric: 1.4, aoaCrit: 18, liftScale: 1.0, vsMax: 1800, vsGain: 1600, vsTau: 0.95,
     brake: 6.0, groundSteer: 26, ceiling: 12000,
   },
   // Leviathan — 4-engine heavy-lift freighter, an ANTONOV AN-124 RUSLAN analogue: HEAVY first —
@@ -82,10 +82,10 @@ export const TYPES = {
   // holds real speed once it has momentum behind it in a dive. Strong brakes (biggest wheels),
   // but the ~95 kt touchdown still makes for a long rollout — it needs a real runway.
   leviathan: {
-    name: 'Leviathan', mass: 5.0, thrustMax: 40, vr: 95, vs0: 78, vne: 280, cruise: 170,
+    name: 'Leviathan', mass: 5.0, thrustMax: 40, vr: 95, vs0: 64, vne: 280, cruise: 170,
     pitchRate: 5, pitchTau: 1.2, rollRate: 22, rollTau: 1.1, engineLag: 2.4,
     pitchStable: 0.7, rollStable: 0.85, dragP: 0.00065, flapDrag: 0.7, flapLift: 0.45, flapVs: 0.2,
-    rollFric: 1.2, aoaCrit: 16, liftScale: 1.0, vsMax: 1400, vsGain: 1600, vsTau: 1.6,
+    rollFric: 1.2, aoaCrit: 16, liftScale: 1.0, vsMax: 1600, vsGain: 1600, vsTau: 1.35,
     brake: 8.0, groundSteer: 16, ceiling: 18000,   // cruises high, above the weather — the fleet's highest ceiling
   },
   // Reaper — a Fairchild A-10 WARTHOG analogue: the gun IS the plane. NOT a fighter —
@@ -93,10 +93,10 @@ export const TYPES = {
   // target and shrugs off ground fire. It can't run (high drag bleeds any dive), it just
   // keeps coming. Twin turbofans, forgiving low-speed handling, rough-field capable.
   reaper: {
-    name: 'Reaper', mass: 3.4, thrustMax: 26, vr: 62, vs0: 50, vne: 210, cruise: 150,
+    name: 'Reaper', mass: 3.4, thrustMax: 26, vr: 62, vs0: 40, vne: 210, cruise: 150,
     pitchRate: 9, pitchTau: 0.7, rollRate: 58, rollTau: 0.6, engineLag: 1.5,
     pitchStable: 1.1, rollStable: 1.3, dragP: 0.00110, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
-    rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 1200, vsGain: 1600, vsTau: 1.15,
+    rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 1500, vsGain: 1600, vsTau: 1.0,
     brake: 7.5, groundSteer: 28, ceiling: 12000,
   },
   // Dragonfly — a REVOLUTION MINI 500 analogue: a tiny single-rotor kit helicopter. Light,
@@ -115,17 +115,20 @@ export const TYPES = {
     cyclicThrust: 2.4,                    // disc-tilt → horizontal accel (kt/s per deg of lean)
     dragP: 0.0019,                        // draggy body: bleeds speed, modest top end
     liftMax: 2.7, hoverThrust: 1.0,       // collective×Nr vertical lift authority vs hover weight
-    vsGain: 1500, vsMax: 1300, vsTau: 0.65,
+    // Gentle vertical response so the hover isn't twitchy: a small collective error off the
+    // hover point gives a modest vs (low vsGain), and vs eases in with real inertia (higher
+    // vsTau) instead of snapping to the cap the instant you lift a skid off the ground.
+    vsGain: 850, vsMax: 1300, vsTau: 0.9,
     vrsVs: 480,                           // settling-with-power onset (fpm sink) when slow + powered
     rollFric: 3.2,                        // skid friction on the ground
     ceiling: 10000,
   },
   // Carcass — salvaged wreck: underpowered, draggy, unstable. A junker you nurse into the air.
   carcass: {
-    name: 'Carcass', mass: 1.4, thrustMax: 11, vr: 44, vs0: 32, vne: 115, cruise: 72,
+    name: 'Carcass', mass: 1.4, thrustMax: 11, vr: 44, vs0: 28, vne: 115, cruise: 72,
     pitchRate: 10, pitchTau: 0.5, rollRate: 50, rollTau: 0.5, engineLag: 1.5,
     pitchStable: 0.7, rollStable: 0.8, dragP: 0.00120, flapDrag: 0.55, flapLift: 0.32, flapVs: 0.17,
-    rollFric: 1.7, aoaCrit: 17, liftScale: 0.95, vsMax: 480, vsGain: 1500, vsTau: 1.1,
+    rollFric: 1.7, aoaCrit: 17, liftScale: 0.95, vsMax: 760, vsGain: 1500, vsTau: 1.0,
     brake: 5.0, groundSteer: 30, ceiling: 6000,
   },
 };
@@ -200,9 +203,13 @@ function stepHeli(state, input, p, dt) {
   }
 
   // 3. Yaw: pedals swing the nose with full authority in the hover, washing out with speed as
-  //    the fuselage weathervanes. Past ETL, bank also curves the flight path (a plane-like turn).
-  const pedalAuth = 1 - clamp(s.airspeed / p.cruise, 0, 0.85);
-  s.heading = wrap360(s.heading + pedal * (p.yawRate || 60) * pedalAuth * dt);
+  //    the fuselage weathervanes. On the skids the tail rotor can't pivot the airframe against
+  //    ground friction — pedals do nothing until the wheels/skids are light (airborne). Past ETL,
+  //    bank also curves the flight path (a plane-like turn).
+  if (!s.onGround) {
+    const pedalAuth = 1 - clamp(s.airspeed / p.cruise, 0, 0.85);
+    s.heading = wrap360(s.heading + pedal * (p.yawRate || 60) * pedalAuth * dt);
+  }
   if (!s.onGround && s.airspeed > p.vs0) {
     const turnRate = (G_KT * Math.tan(s.bank * D2R)) / Math.max(p.cruise, s.airspeed) * R2D;
     s.heading = wrap360(s.heading + turnRate * dt);

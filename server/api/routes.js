@@ -1334,6 +1334,21 @@ async function listVacantApartmentZones() {
   return rows.map(r => r.id);
 }
 
+// Keep the npc_residences tracker in step with an NPC's home_zone: if home is an
+// apartment unit, register this NPC as its resident (one per unit, so a re-home
+// reassigns); otherwise clear any residence it held. This is what makes a newly
+// housed NPC's unit un-rentable immediately, without touching the player ledger.
+async function syncNpcResidence(npcId, homeZone) {
+  await query('DELETE FROM npc_residences WHERE npc_id=$1', [npcId]);
+  if (!homeZone) return;
+  const { rows } = await query(
+    `SELECT 1 FROM zones WHERE id=$1 AND COALESCE((flags->>'is_apartment')::boolean,false)=true`, [homeZone]);
+  if (!rows.length) return;
+  await query(
+    `INSERT INTO npc_residences (zone_id, npc_id) VALUES ($1,$2)
+       ON CONFLICT (zone_id) DO UPDATE SET npc_id=$2`, [homeZone, npcId]);
+}
+
 export async function apiCreateNpc(body) {
   const id=body.id||`npc_${Date.now()}`;
   // Auto-house new NPCs in a vacant apartment when the caller didn't pick a home;
@@ -1380,6 +1395,7 @@ export async function apiCreateNpc(body) {
     const { initBlackboard } = await import('../engine/ai-behaviour.js');
     w.npcs.set(id, { id, name:body.name, description:body.description, sex, zone_id:body.zone_id||null, home_zone:homeZone, faction:body.faction||null, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags, behaviour_graph:rawGraph, chitchat, studio_zone_id:body.studio_zone_id||null, work_zone_id:body.work_zone_id||null, hp:hpMax, hp_max:hpMax, npc_type:npcType, vendor_schedule:vendorSchedule, vendor_bank_credits:0, vendor_shop_name:body.vendor_shop_name||null, home_activities:homeActivities, banter, _ai:initBlackboard() });
     if (body.zone_id) w.zones.get(body.zone_id)?.npcs.add(id);
+    await syncNpcResidence(id, homeZone);
     if (npcType === 'vendor' && body.work_zone_id) {
       const npcForBoard = { name: body.name, vendor_schedule: vendorSchedule, vendor_shop_name: body.vendor_shop_name||null };
       await query(`INSERT INTO furniture (id,zone_id,name,description,flags,object_type) VALUES ($1,$2,$3,$4,$5,'decoration') ON CONFLICT (id) DO NOTHING`,
@@ -1407,6 +1423,7 @@ export async function apiUpdateNpc(id,body) {
     const newZone = body.zone_id || null;
     const newHpMax = body.hp_max || 20;
     if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:newZone, home_zone:body.home_zone||null, faction:body.faction, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:rawGraph, work_zone_id:body.work_zone_id||null, chitchat:body.chitchat||[], hp_max:newHpMax, hp:Math.min(existing.hp??newHpMax, newHpMax), vendor_stock_size:body.vendor_stock_size||10, vendor_restock_rate:body.vendor_restock_rate||1, npc_type:npcType, vendor_schedule:body.vendor_schedule||{}, vendor_shop_name:body.vendor_shop_name||null, home_activities:body.home_activities||[], banter:Array.isArray(body.banter)?body.banter:[] });
+    await syncNpcResidence(id, body.home_zone||null);
     // Upsert/remove schedule board furniture based on current work zone
     if (npcType === 'vendor') {
       const boardId = `furn_schd_${id}`;
@@ -1507,6 +1524,7 @@ async function apiHouseUnhousedNpcs() {
       const zoneId = pool.shift();
       if (!zoneId) break; // no more vacant apartments
       await query('UPDATE npcs SET home_zone=$1 WHERE id=$2', [zoneId, npc.id]);
+      await syncNpcResidence(npc.id, zoneId);
       const live = w.npcs.get(npc.id);
       if (live) live.home_zone = zoneId;
       housed.push({ id: npc.id, name: npc.name, home: zoneId });

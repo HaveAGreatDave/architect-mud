@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
-import { renderMinimap, openMapPopup, refreshMapIfOpen, armMapPick } from './panels/minimap.js';
+import { renderMinimap, openMapPopup, refreshMapIfOpen, armMapPick, setMapTerritory } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut } from './panels/environment.js';
 import { setWeatherEventFx } from './panels/weather-fx.js';
 import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
@@ -26,6 +26,7 @@ import { openCircuitHack } from './panels/circuithack.js';
 import { openHololock } from './panels/hololock.js';
 import { openFishing } from './panels/fishing.js';
 import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAirHit, isFlightSimActive } from './panels/cockpit.js';
+import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
 import { openSpliceSelect, openSpliceStages, applySplicePreview } from './panels/splicelab.js';
@@ -291,6 +292,7 @@ const handlers = {
   corp_console_patch: (msg) => { updateCorpConsole(msg); },
   corp_map:           (msg) => { openCorpMap(msg); },
   corp_territory:     (msg) => { appendHtml(msg.message, 'help'); },
+  corp_invest:        (msg) => { appendHtml(msg.message, 'help'); },
   corp_info:        (msg) => { appendHtml(msg.message, 'help'); },
   corp_roster:      (msg) => { appendHtml(msg.message, 'help'); },
   corp_invite:      (msg) => { appendHtml(msg.message, 'help'); },
@@ -306,6 +308,7 @@ const handlers = {
   corp_disband:     (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
 
   map: (msg) => { openMapPopup(msg.tiles || [], msg.mode || 'zone', !!msg.insideInterior); },
+  map_territory:      (msg) => { setMapTerritory(msg); },
 
   equip: (msg) => {
     const invOpen = document.getElementById('equip-panel').classList.contains('active');
@@ -579,11 +582,14 @@ const handlers = {
       onResult: ({ won }) => sendCmdSilent(`strafresolve ${msg.token} ${won ? 1 : 0}`),
     });
   },
-  // Charter: a Dragonfly passenger picks any tile on the full map.
+  // Charter: booking a Dragonfly, the passenger picks any tile on the full map. The
+  // server names the command to complete (e.g. `charter ac_dragonfly`); the tile id
+  // is appended.
   flight_pick_dest: (msg) => {
     if (msg.message) appendHtml(msg.message, 'system');
     openMapPopup(msg.tiles || [], 'regional', false);
-    armMapPick((zoneId) => sendCmdSilent(`flyto ${zoneId}`));
+    const cmd = msg.cmd || 'flyto';
+    armMapPick((zoneId) => sendCmdSilent(`${cmd} ${zoneId}`));
   },
 
   vault_crack: (msg) => {
@@ -645,10 +651,13 @@ const handlers = {
 
   device_power_flash: (msg) => { flashPowerChange(msg.mode, msg.deviceType); },
 
-  trip_start: (msg) => { startTripFx(msg); },
-  trip_event: (msg) => { appendHtml(renderMarkup(msg.text || ''), 'trip'); if (msg.palette || msg.intensity != null) updateTripFx(msg); },
-  trip_fx:    (msg) => { updateTripFx(msg); },
-  trip_end:   () => { endTripFx(); },
+  trip_start: (msg) => { startTripFx(msg); setDrugFx('trip', msg.profile || 'psychedelic', msg.intensity ?? 0.6); },
+  trip_event: (msg) => { appendHtml(renderMarkup(msg.text || ''), 'trip'); if (msg.palette || msg.intensity != null) { updateTripFx(msg); if (msg.intensity != null) setDrugFx('trip', msg.profile || 'psychedelic', msg.intensity); } },
+  trip_fx:    (msg) => { updateTripFx(msg); if (msg.intensity != null) setDrugFx('trip', msg.profile || 'psychedelic', msg.intensity); },
+  trip_end:   () => { endTripFx(); clearDrugFx('trip'); },
+
+  // Drunkenness level stream (intoxication plugin) → drives the drunk flight-view warp.
+  intox_fx:   (msg) => { const lvl = Math.max(0, Math.min(100, Number(msg.level) || 0)); if (lvl <= 0) clearDrugFx('intox'); else setDrugFx('intox', 'drunk', lvl / 100); },
 
   blackout_start: () => { startBlackoutFx(); },
   blackout_end:   () => { endBlackoutFx(); },

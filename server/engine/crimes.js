@@ -41,6 +41,8 @@ export const CRIME_DEFAULTS = {
   contraband_possession: { label: 'Contraband possession',       stars: 1,   witness: 'any',    description: 'Carrying illicit goods past a checkpoint or scanner.' },
   manufacturing:       { label: 'Manufacturing a controlled substance', stars: 4, witness: 'any', description: 'Caught carrying raw drug material — precursors, feedstock, seeds. A manufacturing felony, well past mere possession.' },
   trespassing:         { label: 'Trespassing',                   stars: 0.5, witness: 'any',    description: 'Entering restricted or private property uninvited.' },
+  reckless_endangerment: { label: 'Reckless endangerment',       stars: 3,   witness: 'any',    description: 'Crashing or ditching an aircraft into an inhabited area.' },
+  manslaughter:        { label: 'Manslaughter',                  stars: 4,   witness: 'always', description: 'Killing bystanders through the reckless operation of an aircraft.' },
   jamming_signal:      { label: 'Signal jamming',                stars: 1.5, witness: 'camera', description: "Jamming a security network's transmission." },
   bribery_attempt:     { label: 'Attempted bribery',              stars: 0.5, witness: 'camera', description: 'Attempting to bribe an officer on camera.' },
 };

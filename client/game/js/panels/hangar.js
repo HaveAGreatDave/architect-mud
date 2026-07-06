@@ -1,7 +1,8 @@
 // The visual HANGAR — a centered modal (poker/trade "server renders the data,
 // client draws" pattern). The server (flight/hangars.js) pushes a roster of the
 // player's aircraft at this field plus the paint catalogs; this client draws each
-// as a tinted top-down silhouette and runs the paint bay: hex pickers + one-click
+// as a slowly-spinning 3D turntable (the same aircraft3d.js model the flight sim
+// draws for other planes) and runs the paint bay: hex pickers + one-click
 // presets for exterior (base/trim/pattern/finish) and interior (cabin/upholstery),
 // a live LOW↔HIGH signature meter, and per-craft embark/store/pull.
 //
@@ -9,11 +10,14 @@
 // `paintset` command. Signature is computed here from the catalog's sig weights so
 // the meter tracks the pickers with no round-trip.
 import { sendCmdSilent } from '../net.js';
+import { drawTurntable } from './aircraft3d.js';
 
 let overlay = null;
 let DATA = null;     // last server payload { field, hasBay, credits, craft[], catalog }
 let selId = null;    // selected aircraft id
 let work = null;     // working (uncommitted) livery copy for the selected craft
+let ttRAF = null;    // turntable animation frame handle
+let ttYaw = 0;       // shared spin angle (radians), advanced every frame
 
 export function initHangarPanel() {
   if (overlay) return;
@@ -31,8 +35,13 @@ export function updateHangar(data) {
   if (!overlay) initHangarPanel();
   DATA = data || {};
   const craft = DATA.craft || [];
-  // Keep the current selection if it survived; else pick the first paintable, else first.
-  if (!craft.find(c => c.id === selId)) {
+  // A `view <tail>` push names the craft to turn to — honour it over any prior pick.
+  const asked = DATA.select && craft.find(c => c.id === DATA.select);
+  if (asked) {
+    selId = asked.id;
+    work = { ...asked.livery };
+  } else if (!craft.find(c => c.id === selId)) {
+    // Keep the current selection if it survived; else pick the first paintable, else first.
     const first = craft.find(c => c.paintable) || craft[0];
     selId = first ? first.id : null;
     work = first ? { ...first.livery } : null;
@@ -82,94 +91,48 @@ function sigMult(lv) {
 }
 function sigScore(lv) { return Math.round((sigMult(lv) - 0.75) / 0.5 * 100); }
 
-// ── Silhouettes (top-down, nose up). Base = var(--b), trim = var(--t). ─────────
-// Pattern draws trim accents; finish is a CSS class on the wrapper (gloss adds a
-// highlight, matte flattens, weathered grimes + desaturates).
-// NB: SVG presentation attributes don't resolve CSS var() — so we interpolate the
-// literal hex straight into fill/stroke. Only the finish sheen/filter is CSS-driven.
-function pattern(lv) {
-  // Trim-accent overlay for a fixed-wing fuselage centered at x=100, spanning
-  // y≈40..150 with the wing box at y≈78..104. Generic across the fixed-wing classes.
-  const t = lv.trim;
-  switch (lv.pattern) {
-    case 'solid':    return `<rect x="92" y="34" width="16" height="14" rx="6" fill="${t}"/><rect x="70" y="140" width="60" height="9" rx="3" fill="${t}"/>`;
-    case 'twotone':  return `<path d="M100 30 L118 96 L82 96 Z" fill="${t}" opacity="0.9"/>`;
-    case 'stripes':  return `<rect x="94" y="34" width="4" height="120" fill="${t}"/><rect x="102" y="34" width="4" height="120" fill="${t}"/>`;
-    case 'splinter': return `<path d="M60 82 L92 78 L88 104 L58 100 Z" fill="${t}" opacity="0.85"/><path d="M140 82 L108 78 L112 104 L142 100 Z" fill="${t}" opacity="0.85"/><path d="M92 120 L108 120 L104 150 L96 150 Z" fill="${t}" opacity="0.7"/>`;
-    case 'hazard':   return `<g fill="${t}">${[0,1,2].map(i => `<path d="M${52+i*30} 84 l10 0 l-6 14 l-10 0 Z"/><path d="M${118-i*30} 84 l10 0 l-6 14 l-10 0 Z"/>`).join('')}</g>`;
-    default:         return '';   // bare
-  }
+// ── 3D craft view — canvas turntables sharing the flight-sim aircraft model ────
+// Each parked craft renders as a slowly-spinning ¾ hero shot of the very 3D model
+// the windshield draws for air-to-air contacts (aircraft3d.js). We emit a <canvas>
+// carrying its class + livery; one rAF loop (below) spins every visible canvas.
+// Preview canvases read the live `work` livery so paint edits update in real time;
+// roster cards carry their committed livery inline.
+function craftCanvas(cls, isWreck, size, opts = {}) {
+  const src = opts.live ? 'data-ac-src="work"' : `data-ac-livery="${esc(JSON.stringify(opts.livery || {}))}"`;
+  return `<canvas class="hg-ac" data-ac-cls="${esc(cls)}" data-ac-wreck="${isWreck ? 1 : 0}" ${src} style="width:${size}px;height:${size}px"></canvas>`;
 }
-function canopy(lv) {
-  // Glass reads dark; on 'solid' it takes the trim colour as a painted spine.
-  const fill = lv.pattern === 'solid' ? lv.trim : '#0e1a24';
-  return `<ellipse cx="100" cy="62" rx="7" ry="13" fill="${fill}" opacity="0.9"/>`;
+// Size each canvas for the device pixel ratio and stash its CSS dims + a spin-phase
+// offset (so the cards don't all rotate in lock-step), then ensure the loop runs.
+function initCanvases() {
+  if (!overlay) return;
+  overlay.querySelectorAll('canvas[data-ac-cls]').forEach((cv, i) => {
+    const dpr = window.devicePixelRatio || 1;
+    const cw = parseFloat(cv.style.width), ch = parseFloat(cv.style.height);
+    cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+    cv._dpr = dpr; cv._cw = cw; cv._ch = ch;
+    cv._phase = cv.getAttribute('data-ac-src') === 'work' ? 0 : 0.8 + i * 0.6;
+  });
+  startTurntable();
 }
-function fixedWing(lv, { span = 150, chord = 26, fLen = 110, fW = 20, engines = 0 } = {}) {
-  const b = lv.base, t = lv.trim;
-  const wingY = 82, x0 = 100 - span / 2, x1 = 100 + span / 2;
-  const nacX = engines <= 2 ? [100 - span * 0.24, 100 + span * 0.24].slice(0, engines)
-                            : [100 - span * 0.18, 100 - span * 0.34, 100 + span * 0.18, 100 + span * 0.34];
-  const nac = nacX.map(x => `<rect x="${x - 4}" y="${wingY - 4}" width="8" height="20" rx="2" fill="${t}"/>`).join('');
-  return `
-    <rect x="${100 - fW / 2}" y="${100 - fLen / 2}" width="${fW}" height="${fLen}" rx="${fW / 2}" fill="${b}"/>
-    <path d="M${x0} ${wingY + chord} L${x1} ${wingY + chord} L${100 + fW / 2 + 4} ${wingY - 4} L${100 - fW / 2 - 4} ${wingY - 4} Z" fill="${b}"/>
-    <path d="M74 148 L126 148 L112 136 L88 136 Z" fill="${b}"/>
-    <polygon points="100,30 ${100 - fW / 2 + 3},46 ${100 + fW / 2 - 3},46" fill="${b}"/>
-    ${nac}${pattern(lv)}${canopy(lv)}`;
-}
-function heli(lv) {
-  const b = lv.base, t = lv.trim;
-  return `
-    <circle cx="100" cy="92" r="82" fill="none" stroke="${t}" stroke-width="1.5" opacity="0.35"/>
-    <rect x="86" y="58" width="28" height="70" rx="14" fill="${b}"/>
-    <rect x="96" y="126" width="8" height="52" rx="4" fill="${b}"/>
-    <rect x="90" y="172" width="20" height="6" rx="3" fill="${t}"/>
-    <rect x="60" y="90" width="80" height="5" fill="${t}" opacity="0.9"/>
-    <rect x="97" y="52" width="6" height="80" fill="${t}" opacity="0.9" transform="rotate(58 100 92)"/>
-    ${pattern(lv)}
-    <ellipse cx="100" cy="72" rx="9" ry="11" fill="#0e1a24" opacity="0.9"/>`;
-}
-function wreck(lv) {
-  const b = lv.base;
-  return `<g opacity="0.75" filter="url(#hg-wreck)">
-    <rect x="90" y="48" width="20" height="96" rx="10" fill="${b}"/>
-    <path d="M34 96 L96 80 L104 80 L120 92 L96 100 Z" fill="${b}"/>
-    <path d="M108 84 L150 70 L146 92 Z" fill="${b}" opacity="0.5"/>
-    <path d="M74 148 L120 148 L110 138 L86 138 Z" fill="${b}"/>
-  </g><text x="100" y="180" fill="#9bd06a" font-size="9" text-anchor="middle" font-family="monospace" letter-spacing="2">WRECK</text>`;
-}
-function silhouette(cls, lv) {
-  switch (cls) {
-    case 'heli':       return heli(lv);
-    case 'wreck':      return wreck(lv);
-    case 'ultralight': return fixedWing(lv, { span: 160, chord: 12, fLen: 92, fW: 13, engines: 0 });
-    case 'heavy':      return fixedWing(lv, { span: 184, chord: 30, fLen: 140, fW: 30, engines: 4 });
-    case 'gunship':    return fixedWing(lv, { span: 128, chord: 22, fLen: 122, fW: 19, engines: 2 });
-    default:           return fixedWing(lv, { span: 150, chord: 26, fLen: 112, fW: 20, engines: 2 });   // prop
-  }
-}
-// Nose art / decals — a crisp top layer (drawn outside the finish-affected body).
-function decalLayer(lv) {
-  switch (lv.decal) {
-    case 'sharkmouth': return `<g>
-      <path d="M87 45 Q100 61 113 45 L113 51 Q100 65 87 51 Z" fill="#c0242a"/>
-      <path d="M88 49 l4 6 l4 -6 l4 6 l4 -6 l4 6 l4 -6 v-2 h-24 z" fill="#f2f4f6"/>
-      <circle cx="93" cy="43" r="2.2" fill="#f2f4f6"/><circle cx="107" cy="43" r="2.2" fill="#f2f4f6"/></g>`;
-    case 'killmarks':  return `<g fill="#e8e8e8">${[0, 1, 2, 3].map(i => `<rect x="113" y="${58 + i * 4}" width="6" height="2.4"/>`).join('')}</g>`;
-    case 'sigil':      return `<g transform="translate(100 142)"><circle r="7" fill="none" stroke="#ffcf3e" stroke-width="1.5"/>
-      <path d="M0 -5 L1.5 -1.5 L5 -1.5 L2 1 L3 5 L0 2.5 L-3 5 L-2 1 L-5 -1.5 L-1.5 -1.5 Z" fill="#ffcf3e"/></g>`;
-    default:           return '';
-  }
-}
-function craftSvg(cls, lv, size = 200) {
-  return `<svg viewBox="0 0 200 200" class="hg-svg hg-fin-${lv.finish}" style="width:${size}px;height:${size}px">
-    <defs><filter id="hg-wreck"><feColorMatrix type="saturate" values="0.4"/></filter>
-      <linearGradient id="hg-gloss" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="rgba(255,255,255,0.35)"/><stop offset="0.5" stop-color="rgba(255,255,255,0)"/></linearGradient></defs>
-    <g class="hg-body">${silhouette(cls, lv)}</g>
-    ${cls !== 'wreck' ? decalLayer(lv) : ''}
-    <rect class="hg-sheen" x="0" y="0" width="200" height="200" fill="url(#hg-gloss)"/>
-  </svg>`;
+function startTurntable() {
+  if (ttRAF) return;
+  let last = 0;
+  const step = (t) => {
+    if (!overlay || overlay.style.display === 'none') { ttRAF = null; return; }
+    if (last) ttYaw += Math.min(0.05, (t - last) / 1000) * 0.6;   // ~0.6 rad/s idle spin
+    last = t;
+    overlay.querySelectorAll('canvas[data-ac-cls]').forEach(cv => {
+      const ctx = cv.getContext('2d'); if (!ctx || !cv._cw) return;
+      ctx.setTransform(cv._dpr, 0, 0, cv._dpr, 0, 0);
+      let lv;
+      if (cv.getAttribute('data-ac-src') === 'work') lv = work || {};
+      else { try { lv = JSON.parse(cv.getAttribute('data-ac-livery') || '{}'); } catch { lv = {}; } }
+      drawTurntable(ctx, { cls: cv.getAttribute('data-ac-cls'), livery: lv,
+        yaw: ttYaw + (cv._phase || 0), w: cv._cw, h: cv._ch, wreck: cv.getAttribute('data-ac-wreck') === '1' });
+    });
+    ttRAF = requestAnimationFrame(step);
+  };
+  ttRAF = requestAnimationFrame(step);
 }
 
 // Interior cross-section: a cabin box + seats coloured by upholstery, panel in cabin colour.
@@ -198,7 +161,7 @@ function locBadge(c) {
 function card(c) {
   const sel = c.id === selId ? ' hg-card-sel' : '';
   return `<div class="hg-card${sel}" data-sel="${c.id}">
-    <div class="hg-card-art">${craftSvg(c.class, c.livery, 78)}</div>
+    <div class="hg-card-art">${craftCanvas(c.wreck ? 'wreck' : c.class, c.wreck, 78, { livery: c.livery })}</div>
     <div class="hg-card-meta">
       <div class="hg-card-tail">${esc(c.tail)}</div>
       <div class="hg-card-type">${esc(c.typeName)} ${locBadge(c)}</div>
@@ -233,7 +196,7 @@ function render() {
     const paintable = c.paintable;
     const dirty = JSON.stringify(work) !== JSON.stringify(c.livery);
     editor = `
-      <div class="hg-preview">${craftSvg(c.class, work, 190)}</div>
+      <div class="hg-preview">${craftCanvas(c.wreck ? 'wreck' : c.class, c.wreck, 190, { live: true })}</div>
       <div class="hg-sig">
         <div class="hg-sig-lbl">SIGNATURE <span class="hg-dim">how easily you're spotted</span></div>
         <div class="hg-sig-bar"><i style="left:${score}%"></i></div>
@@ -280,6 +243,7 @@ function render() {
       <div class="hg-editor">${editor}</div>
     </div>`;
   wire();
+  initCanvases();
 }
 
 function wire() {
@@ -340,7 +304,7 @@ function ensureStyles() {
   .hg-bar { flex:1; height:5px; background:#0a1620; border-radius:3px; overflow:hidden; }
   .hg-bar i { display:block; height:100%; }
   .hg-preview { display:flex; justify-content:center; padding:4px 0 8px; }
-  .hg-svg { display:block; }
+  .hg-svg, .hg-ac { display:block; }
   .hg-fin-matte .hg-sheen { display:none; }
   .hg-fin-satin .hg-sheen { opacity:0.35; }
   .hg-fin-gloss .hg-sheen { opacity:1; }

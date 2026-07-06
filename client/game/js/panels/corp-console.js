@@ -103,6 +103,15 @@ function renderBody() {
     ? d.relations.map(r => `<div class="cc-rel"><span>${esc(r.name)}</span><span class="${stanceClass(r.stance)}">${stanceLabel(r.stance)}</span></div>`).join('')
     : '<div class="cc-empty">No standing declarations.</div>';
 
+  const ti = d.tierInfo || {};
+  const tierBlock = ti.tier ? `
+      <h4>Investment</h4>
+      <div class="cc-card">
+        <div class="cc-flow"><span>Tier <b style="color:#eafffb">${ti.tier}</b></span>${ti.nextCost != null ? `<button class="cc-btn" data-act="invest">Invest ₵${(ti.nextCost).toLocaleString()}</button>` : '<span class="dim">max tier</span>'}</div>
+        <div class="cc-flow"><span class="dim">Members</span><span>${ti.members}/${ti.memberCap}</span></div>
+        <div class="cc-flow"><span class="dim">Territory</span><span>${ti.zones}/${ti.slots} zones</span></div>
+      </div>` : '';
+
   return `<div class="cc-body">
     <div>
       <h4>Treasury</h4>
@@ -115,6 +124,7 @@ function renderBody() {
           <button class="cc-btn" data-act="contribute">Contribute</button>
         </div>
       </div>
+      ${tierBlock}
       <h4>Operatives</h4>
       <div class="cc-card">${members}</div>
     </div>
@@ -142,6 +152,7 @@ function wireBody() {
   };
   _overlay.querySelector('[data-act="contribute"]')?.addEventListener('click', contribute);
   _overlay.querySelector('#cc-give-amt')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); contribute(); } });
+  _overlay.querySelector('[data-act="invest"]')?.addEventListener('click', () => { sfx('hololock-set'); sendCmdSilent('corp invest'); });
   _overlay.querySelector('[data-act="refresh"]')?.addEventListener('click', () => { sfx('hololock-entry'); sendCmdSilent('corp console'); });
 }
 
@@ -178,6 +189,7 @@ export function updateCorpConsole(patch) {
   if (patch.treasury) _data.treasury = patch.treasury;
   if (patch.members) _data.members = patch.members;
   if (patch.territory) _data.territory = patch.territory;
+  if (patch.tierInfo) _data.tierInfo = patch.tierInfo;
   if (patch.architectHeat != null) _data.architectHeat = patch.architectHeat;
   const screen = _overlay.querySelector('.cc-screen');
   if (screen) {

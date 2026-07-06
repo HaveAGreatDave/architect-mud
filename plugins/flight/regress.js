@@ -7,9 +7,22 @@ import { withinShift, pilotTarget, stepToward, charterCost } from './charter.js'
 import { signatureMult, signatureScore, colorName, describeExterior,
   normalizeLivery, sanitizeLivery, conspicuousnessMult, paintCost, isPaintable,
   readSchemes, schemeOf } from './livery.js';
+import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
+
+  // ── Crash collateral (pure) ─────────────────────────────────────────────────
+  check('crash severity scales with airframe', crashSeverity(8) === 1 && crashSeverity(30) === 2 && crashSeverity(85) === 3);
+  check('collateral bill rises with casualties', collateralBill(2, 3, true) > collateralBill(2, 1, true));
+  check('an empty tile has no cleanup charge', collateralBill(3, 0, false) === 0 && collateralBill(3, 0, true) > 0);
+
+  // ── Fit-to-fly: severe impairment (any kind) is detected ────────────────────
+  check('a sober pilot is not impaired', isSeverelyImpaired({ intoxication: 10, activeDrugs: [] }) === false);
+  check('blackout-drunk is impaired', isSeverelyImpaired({ intoxication: 70 }) === true);
+  check('a real active drug dose is impaired', isSeverelyImpaired({ activeDrugs: [{ potency: 0.9 }] }) === true);
+  check('a faded comedown tail is not severe', isSeverelyImpaired({ intoxication: 20, activeDrugs: [{ potency: 0.3 }] }) === false);
+  check('a null pilot is not impaired', isSeverelyImpaired(null) === false);
 
   // ── Pure helpers ────────────────────────────────────────────────────────────
   check('DIRS has all 8 compass steps', Object.keys(_test.DIRS).length === 8, Object.keys(_test.DIRS).join(','));
@@ -59,8 +72,8 @@ export default async function regress({ run, check, getPlayer }) {
   check('free + off-shift → home', T({ onShift: false, interior: 'I' }) === 'H');
   check('flying a run (enroute) → home', T({ busyPhase: 'enroute', onShift: true, interior: 'I' }) === 'H');
   check('deadheading back (returning) → home', T({ busyPhase: 'returning', interior: 'I' }) === 'H');
-  check('readying on the ramp (boarding) → the field tile', T({ busyPhase: 'boarding', interior: 'I' }) === 'F');
-  check('picking a destination (choosing) → the field tile', T({ busyPhase: 'choosing', interior: 'I' }) === 'F');
+  check('staged at the hangar (boarding) → the field tile', T({ busyPhase: 'boarding', interior: 'I' }) === 'F');
+  check('taxiing out (departing) → the field tile', T({ busyPhase: 'departing', interior: 'I' }) === 'F');
 
   const near = stepToward(0, 0, 1, 1, 2);
   check('autoflight snaps to target within a cruise step', near.arrived === true && near.fx === 1 && near.fy === 1);
@@ -110,6 +123,8 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('charter'); check('charter off-field reports no desk', /no .*(charter|dealer)/i.test(r?.message || ''), r?.message);
   r = await run('contracts'); check('contracts off-field reports the board is elsewhere', /board/i.test(r?.message || ''), r?.message);
   r = await run('hangar'); check('hangar off-field reports airfields', /airfield/i.test(r?.message || ''), r?.message);
+  r = await run('showroom'); check('showroom off-field points to the airfields', /airfield|showroom/i.test(r?.message || ''), r?.message);
+  r = await run('view mayfly'); check('view off-field falls through (does not hijack the generic verb)', r?.type === 'error' && /unknown command/i.test(r?.message || ''), `${r?.type}:${r?.message}`);
   r = await run('loadout'); check('loadout with no craft here reports it', /no aircraft of yours/i.test(r?.message || ''), r?.message);
   r = await run('salvage'); check('salvage with no wreck reports it', /no wreck/i.test(r?.message || ''), r?.message);
   r = await run('modify'); check('modify requires an owned aircraft', /own|no aircraft of your own/i.test(r?.message || ''), r?.message);
@@ -117,7 +132,8 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('scheme save fast'); check('scheme with no owned craft is refused', /no aircraft of your own|own/i.test(r?.message || ''), r?.message);
   r = await run('hangaract store x'); check('hangaract off-field reports airfields', /airfield/i.test(r?.message || ''), r?.message);
   r = await run('examine mayfly'); check('examine off-field delegates past the flight plugin', !/sits here/i.test(r?.message || ''), r?.message);
-  r = await run('flyto 1'); check('flyto with no charter reports it', /not waiting|charter destination/i.test(r?.message || ''), r?.message);
+  r = await run('charter mule 1'); check('charter <ride> <dest> off-field reports no desk', /no .*(charter|dealer|desk)/i.test(r?.message || ''), r?.message);
+  r = await run('flyto 1'); check('flyto is retired (destination is chosen at the desk now)', r?.type === 'error' && /unknown command/i.test(r?.message || ''), `${r?.type}:${r?.message}`);
   r = await run('cancel'); check('cancel with no charter is a clean no-op (falls through)', !/called off|refunded/i.test(r?.message || ''), r?.message);
   r = await run('testfly dragonfly'); check('testfly is admin-gated', /access denied/i.test(r?.message || ''), r?.message);
 

@@ -277,6 +277,19 @@ export function isApartmentZone(zone) {
 	return !!zone?.flags?.is_apartment;
 }
 
+// A unit an NPC calls home is occupied and can't be rented. Tracked in the separate
+// `npc_residences` registry (NOT the player `apartments` ledger), kept in sync with
+// npc.home_zone. Returns { npc_id, npc_name } for the resident, or null.
+export async function getNpcResidence(zoneId) {
+	if (!zoneId) return null;
+	const { rows } = await query(
+		`SELECT r.npc_id, n.name AS npc_name FROM npc_residences r
+		 LEFT JOIN npcs n ON n.id = r.npc_id WHERE r.zone_id=$1 LIMIT 1`,
+		[zoneId],
+	);
+	return rows[0] || null;
+}
+
 // Defensive invariant: an apartment's lock is meaningful only while the unit is
 // owned. Without an owner nobody holds lock auth, so a door left locked on an
 // unrented apartment (authored content, a stale admin lock, an eviction that
@@ -312,6 +325,13 @@ export async function cmdRent(player) {
 	const zone = getZone(player.current_zone);
 	if (!isApartmentZone(zone))
 		return { type: "error", message: "There is nothing to rent here." };
+
+	const resident = await getNpcResidence(zone.id);
+	if (resident)
+		return {
+			type: "error",
+			message: `${resident.npc_name || "Someone"} already lives here — this unit isn't for rent.`,
+		};
 
 	const apt = getApartment(zone.id);
 	if (apt?.owner_id) {
@@ -770,6 +790,10 @@ export function describeRentStatus(zone, player) {
 
 export async function describeApartmentStatus(zone) {
 	if (!isApartmentZone(zone)) return "";
+	const resident = await getNpcResidence(zone.id);
+	if (resident) {
+		return `\n<span class="apartment-label">This unit is a private residence${resident.npc_name ? ` — ${resident.npc_name} lives here` : ""}.</span> Not for rent.`;
+	}
 	const apt = getApartment(zone.id);
 	if (!apt?.owner_id) {
 		return `\n<span class="apartment-label">This unit is unowned.</span> (<span class="action-link" data-raw-cmd="rent" title="Rent this unit">RENT</span> to claim it for ${apt?.rent_cost ?? 100}c/week)`;

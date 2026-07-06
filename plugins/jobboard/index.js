@@ -18,8 +18,10 @@
  * are already owned by flight/gametable/posters/corps).
  */
 import { query } from '../../server/models/db.js';
-import { dispatchAction } from '../../server/engine/actions.js';
+import { registerAction, dispatchAction } from '../../server/engine/actions.js';
+import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { getFlag, setFlag, clearFlag } from '../../server/engine/flags.js';
+import { sendToZone } from '../../server/engine/messaging.js';
 
 const DEFAULT_PERIOD = 21600; // 6h
 
@@ -82,25 +84,50 @@ async function loadJobs(ids, playerId) {
 
 function creditsOf(quest) { return (quest.rewards && quest.rewards.credits) || 0; }
 
-async function listBoard(board, player) {
+// A clickable command link the game client understands (main.js handleActionLinkClick
+// → sendCmd(dataset.rawCmd)). Clicking [Take] submits `gigs take <n>`, etc.
+function cmdLink(cmd, label) {
+  return `<span class="action-link" data-raw-cmd="${cmd}" data-label="${label}">[${label}]</span>`;
+}
+
+function jobState(quest, pq) {
+  const prog = Array.isArray(pq?.progress) ? pq.progress : [];
+  if (!pq || pq.status === 'turned_in') return 'open';
+  if (pq.status === 'completed' || isComplete(quest, prog)) return 'ready';
+  return 'active';
+}
+
+// Aggregate progress across all objectives → {have, need} for the "in progress" tag.
+function progressTotals(quest, pq) {
+  const prog = Array.isArray(pq?.progress) ? pq.progress : [];
+  const objs = quest.objectives || [];
+  const need = objs.reduce((s, o) => s + (o.count || 1), 0);
+  const have = objs.reduce((s, o, i) => s + Math.min(prog[i] || 0, o.count || 1), 0);
+  return { have, need };
+}
+
+// The board's live postings as a message string, with a clickable [Take]/[Hand in]
+// on each line. Shared by `gigs`, `read <board>`, and Marta's OPEN_JOBBOARD.
+async function renderBoardText(board, player) {
   const jobs = await loadJobs(await activeJobIds(board), player.id);
   const lines = [`<span class="msg-system">${board.name}</span>`];
   if (board.description) lines.push(board.description);
   if (!jobs.length) {
     lines.push('The board is bare. Come back when someone needs something done.');
-    return { type: 'output', message: lines.join('\n') };
+    return lines.join('\n');
   }
-  jobs.forEach(({ quest, pq }, i) => {
-    const prog = Array.isArray(pq?.progress) ? pq.progress : [];
-    let tag;
-    if (!pq || pq.status === 'turned_in') tag = 'open';
-    else if (pq.status === 'completed' || isComplete(quest, prog)) tag = `READY — gigs claim ${i + 1}`;
-    else tag = 'taken';
-    lines.push(`  <span class="msg-system">${i + 1})</span> ${quest.name} — ${creditsOf(quest)}₵ [${tag}]`);
-    if (quest.description) lines.push(`     ${quest.description}`);
+  jobs.forEach(({ quest, pq }, idx) => {
+    const i = idx + 1;
+    const state = jobState(quest, pq);
+    let right;
+    if (state === 'ready') right = cmdLink(`gigs claim ${i}`, 'Hand in');
+    else if (state === 'active') { const { have, need } = progressTotals(quest, pq); right = `<span class="text-dim">in progress (${have}/${need})</span>`; }
+    else right = cmdLink(`gigs take ${i}`, 'Take');
+    lines.push(`  <span class="msg-system">${i})</span> ${quest.name} — ${creditsOf(quest)}₵ &nbsp;${right}`);
+    if (quest.description) lines.push(`     <span class="text-dim">${quest.description}</span>`);
   });
-  lines.push('Take one with <span class="msg-system">gigs take &lt;n&gt;</span>, hand it back with <span class="msg-system">gigs claim &lt;n&gt;</span>.');
-  return { type: 'output', message: lines.join('\n') };
+  lines.push('<span class="text-dim">Click a job, or type</span> <span class="msg-system">gigs take &lt;n&gt;</span> <span class="text-dim">/</span> <span class="msg-system">gigs claim &lt;n&gt;</span>.');
+  return lines.join('\n');
 }
 
 async function takeJob(board, player, n) {
@@ -141,7 +168,7 @@ async function gigs(args, raw, player) {
   const n = parseInt(tokens[1], 10);
   if (['take', 'accept', 'apply'].includes(sub)) return takeJob(board, player, n);
   if (['claim', 'handin', 'hand', 'collect', 'deliver', 'done'].includes(sub)) return claimJob(board, player, n);
-  return listBoard(board, player);
+  return { type: 'output', message: await renderBoardText(board, player) };
 }
 
 export const commands = {
@@ -149,6 +176,53 @@ export const commands = {
   postings: gigs,
   jobboard: gigs,
 };
+
+// --- Actionable board object: `read <board>` (surfaces on the board's smart bar) ---
+// Gated on the `job_board` furniture tag — the board itself becomes a clickable
+// notice board that lists the live rotating postings (same as `gigs`).
+async function readBoard(args, raw, player) {
+  const board = await boardInZone(player.current_zone);
+  if (!board) return { type: 'error', message: "There's nothing worth reading here." };
+  return { type: 'output', message: await renderBoardText(board, player) };
+}
+
+export const specializedActions = [
+  { verb: 'read', requiredTag: 'job_board', handler: readBoard },
+];
+
+// --- OPEN_JOBBOARD dialogue Action — lets an NPC (Marta) read you the postings ----
+// A static dialogue tree can't enumerate the rotating set, so her dialogue dispatches
+// this; the {dialogue_line} result is appended to her spoken reply (server/index.js).
+registerAction({
+  type: 'OPEN_JOBBOARD',
+  handler: async ({ actor }) => {
+    const board = await boardInZone(actor.current_zone);
+    if (!board) return { type: 'dialogue_line', text: "The board's bare today. Nothing worth your legs." };
+    return { type: 'dialogue_line', text: await renderBoardText(board, actor) };
+  },
+});
+
+// --- Greeter move gate: a first-time NPC stops you leaving, once --------------------
+// Driven by a zone flag (`flags.greeter = { npc_id, npc_name, met_flag, lines[] }`) set
+// in content — the hardcoded ids/lines stay out of the engine (the govgate principle).
+// When a player who hasn't met the greeter tries to LEAVE the zone, the greeter (if
+// present) hollers one of the lines and the move is blocked once; the met flag is set so
+// the next step is free and talking to them later still works. Writing on the block path
+// mirrors the govgate checkpoint precedent (a gate that has to react, not just veto).
+registerMoveGate(async ({ player, from }) => {
+  const g = from?.flags?.greeter;
+  if (!g || !g.npc_id) return;
+  const metFlag = g.met_flag || `met_${g.npc_id}`;
+  if (await getFlag('player', metFlag, player)) return;          // already met → free to go
+  if (!from.npcs || !from.npcs.has(g.npc_id)) return;            // greeter not here → no stop
+  const lines = Array.isArray(g.lines) ? g.lines.filter(Boolean) : [];
+  if (!lines.length) return;
+  const who = g.npc_name || 'Someone';
+  const line = lines[Math.floor(Math.random() * lines.length)];
+  await setFlag('player', metFlag, 'true', player);
+  sendToZone(from.id, { type: 'zone_event', message: `${who} throws up a hand and hollers at ${player.handle}.` }, player.id);
+  return { block: true, message: `${who} steps into your path, one hand up. <span class="ambient">"${line}"</span>` };
+}, 'jobboard:greeter');
 
 // --- Dev CRUD (devpanel Job Boards authoring) ------------------------------
 

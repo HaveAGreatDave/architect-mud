@@ -15,6 +15,7 @@ const world = {
   orgs: new Map(),       // orgId -> org row + { ranks: [...] }
   orgMembers: new Map(), // playerId -> { org_id, rank_id, permissions }  (one corp per player)
   zoneControl: new Map(),// zoneId -> zone_control row (territory: controller + influence grip)
+  orgAssets: new Map(),  // zoneId -> [org_assets rows] (corp investment: extractor/turret)
   maps: new Map(),       // mapId -> maps row (parent_zone_id links an interior to its overworld tile)
 };
 
@@ -42,6 +43,7 @@ export async function initWorld() {
   await loadDoors();
   await loadOrgs();
   await loadZoneControl();
+  await loadOrgAssets();
   await loadMaps();
   await loadPlayerCorpses();
   console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments, ${world.doors.size} doors, ${world.orgs.size} orgs`);
@@ -239,6 +241,25 @@ export function getZoneControl(zoneId) { return world.zoneControl.get(zoneId) ||
 export function setZoneControlCache(zoneId, row) { if (row) world.zoneControl.set(zoneId, row); else world.zoneControl.delete(zoneId); }
 export function getAllZoneControl() { return [...world.zoneControl.values()]; }
 export function getOrgZones(orgId) { return [...world.zoneControl.values()].filter(z => z.org_id === orgId); }
+
+// ─── Corp assets (Phase 2 investment) ────────────────────────────────────────
+// world.orgAssets: zoneId -> [org_assets rows]. Corp commands write DB then
+// reloadZoneAssets(zoneId) to re-sync a single zone's assets.
+async function loadOrgAssets() {
+  world.orgAssets.clear();
+  const { rows } = await query('SELECT * FROM org_assets').catch(() => ({ rows: [] }));
+  for (const r of rows) {
+    if (!world.orgAssets.has(r.zone_id)) world.orgAssets.set(r.zone_id, []);
+    world.orgAssets.get(r.zone_id).push(r);
+  }
+}
+export async function reloadZoneAssets(zoneId) {
+  const { rows } = await query('SELECT * FROM org_assets WHERE zone_id=$1', [zoneId]);
+  if (rows.length) world.orgAssets.set(zoneId, rows); else world.orgAssets.delete(zoneId);
+  return rows;
+}
+export function getZoneAssets(zoneId) { return world.orgAssets.get(zoneId) || []; }
+export function getOrgAssets(orgId) { return [...world.orgAssets.values()].flat().filter(a => a.org_id === orgId); }
 
 export function getZone(id) { return world.zones.get(id) || null; }
 

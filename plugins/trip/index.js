@@ -84,12 +84,15 @@ async function startTrip({ player, drug, potency, broadcast }) {
   const durationSec = hallu.duration_seconds || 120;
   const intensity = Math.max(0.1, Math.min(1, (hallu.intensity ?? 0.6) * (0.5 + 0.5 * (potency ?? 1))));
   const palette = hallu.palette || 'green';
+  // Visual FX profile the flight sim reads to warp the out-the-window view
+  // (authorable per drug; hallucinations default to the psychedelic treatment).
+  const profile = hallu.fx_profile || 'psychedelic';
   const realZone = player.current_zone;
 
   const state = { drugId: drug.id, name: drug.name, mode, endsAt: Date.now() + durationSec * 1000, realZone, phantomId: null, phantomPrevHp: 0, timers: [], intervals: [], broadcast };
   activeTrips.set(player.id, state);
 
-  sendToPlayer(player.id, { type: 'trip_start', mode, palette, intensity, duration_seconds: durationSec });
+  sendToPlayer(player.id, { type: 'trip_start', mode, palette, profile, intensity, duration_seconds: durationSec });
   sendToPlayer(player.id, { type: 'audio_sfx', def: TRIP_RUSH, gain: 0.8 });
   sendToPlayer(player.id, { type: 'audio_ambience', def: TRIP_BED });
 

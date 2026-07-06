@@ -47,6 +47,20 @@ export default async function regress({ check }) {
   const pokerCold = await dispatchAction({ type: 'BARTENDER_POKER', actor: { id: 'regress_bartender_poker', current_zone: 'zone_nonexistent' }, params: {}, context: {} });
   check('BARTENDER_POKER handles a cold table', pokerCold?.type === 'dialogue_line' && /cold/i.test(pokerCold.text), pokerCold?.text);
 
+  // Coworker banter (Lowry ⇄ Orion Dex): every thread is a well-formed two-hander —
+  // non-empty, only 'L'/'O' speakers, both voices present, quotes balanced per turn.
+  check('coworker banter has threads', Array.isArray(_test.COWORKER) && _test.COWORKER.length > 0, `${_test.COWORKER?.length}`);
+  let badThread = null;
+  for (const thread of _test.COWORKER) {
+    const whos = thread.map(t => t[0]);
+    const twoSpeakers = whos.includes('L') && whos.includes('O');
+    const validWhos = whos.every(w => w === 'L' || w === 'O');
+    const linesOk = thread.every(([, line]) => typeof line === 'string' && line.trim().length > 0
+      && (line.match(/"/g) || []).length % 2 === 0);
+    if (!(thread.length >= 2 && twoSpeakers && validWhos && linesOk)) { badThread = thread; break; }
+  }
+  check('coworker threads are well-formed two-handers', badThread === null, badThread ? JSON.stringify(badThread).slice(0, 120) : '');
+
   // Housekeeping — don't leave regress ids in the shared in-memory maps.
   _test.tipsGiven.delete('regress_bartender_new');
   _test.tipsGiven.delete('regress_bartender_advice');

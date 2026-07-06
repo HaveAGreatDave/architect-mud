@@ -35,12 +35,18 @@ const SPREAD_COOLDOWN_MS  = 60_000;   // between a player's own planted rumours
 
 const zn = (id) => getZone(id)?.name || 'somewhere';
 
-// Every DEADBALL team we've seen air a game, and each NPC's favourite among them.
-// The roster self-populates from `sports.game` events (no team list to hardcode),
-// filling toward the full league within a few airings. An NPC's allegiance is a
-// stable hash of its id into the sorted roster — deterministic across restarts,
-// uniform once the roster is full, no schema. Returns null before any game airs.
+// The DEADBALL roster each NPC's favourite team is drawn from. Pinned once at boot
+// from content (broadcast.getSportsTeams — the authoritative, complete team list),
+// so allegiances are drawn from a FIXED set: stable from the very first game and
+// never shifting as more matchups air. If content isn't reachable, it falls back to
+// self-populating from `sports.game` events until the pin lands (a bare/test world).
+//
+// An NPC's allegiance is a stable hash of its id into the sorted roster —
+// deterministic across restarts, uniform over the league, no schema. Because the
+// roster is fixed, `favTeam(npc)` returns the same team for the life of the world.
 const teamRoster = new Set();
+let rosterPinned = false;   // true once the full content roster is loaded
+
 function favTeam(npc) {
   if (!npc?.id || teamRoster.size === 0) return null;
   const teams = [...teamRoster].sort();
@@ -49,6 +55,20 @@ function favTeam(npc) {
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return teams[h % teams.length];
 }
+
+// Pin the full roster from content. Retried a few times post-boot because the
+// broadcast plugin (and its content) may not be ready the instant gossip loads.
+async function pinRoster(attempt = 0) {
+  const res = await dispatchAction({ type: 'broadcast.getSportsTeams' }).catch(() => null);
+  const teams = Array.isArray(res?.teams) ? res.teams : [];
+  if (teams.length) {
+    for (const t of teams) teamRoster.add(t);
+    rosterPinned = true;
+    return;
+  }
+  if (attempt < 5) setTimeout(() => pinRoster(attempt + 1).catch(() => {}), 10_000);
+}
+setTimeout(() => pinRoster().catch((e) => console.error('[gossip] roster pin:', e.message)), 7000);
 
 // Player handles are proper nouns that land mid-sentence in rumour templates —
 // capitalize the first letter so "dave" reads as "Dave". Idempotent on names
@@ -219,7 +239,9 @@ on('gossip.housing', ({ player, zoneId }) => {
 on('sports.game', ({ gameId, away, home, awayScore, homeScore, winner }) => {
   if (!away || !home || awayScore == null || homeScore == null) return;
   if (winner !== away && winner !== home) return;
-  teamRoster.add(away); teamRoster.add(home);
+  // Fallback only: until the content roster is pinned, learn teams from the games
+  // themselves so a bare world still has allegiances. Once pinned, the set is frozen.
+  if (!rosterPinned) { teamRoster.add(away); teamRoster.add(home); }
   add('sports_score', {
     coalesceKey: `sports|${gameId || `${away}|${home}`}`, capGroup: 'sports',
     vars: { away, home, awayScore, homeScore, winner },

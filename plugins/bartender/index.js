@@ -9,10 +9,18 @@
 //     and drips real survival tips one at a time over the night
 //   • a poker hand is running        → rail commentary that reads the actual pot
 //   • the TV is on                   → he comments on what's actually airing
+//   • Orion Dex is on the floor      → a rare, curated coworker back-and-forth
+//     between the two of them (the bartender and the Embassy's house card dealer)
 //   • otherwise                      → bar business: pouring, wiping, the patter
 //
 // It also registers three dialogue actions (BARTENDER_ADVICE / _TV / _POKER) so the
 // same live reads answer when a player `talk`s to him and picks the matching option.
+//
+// Why the coworker banter lives HERE and not in the shared npc-banter engine: that
+// engine excludes any NPC that's on-shift (isEligible → !vendor_was_working), and
+// Lowry works the Embassy 24/7 — so it would never pair him with anyone. This tick
+// is the one place that fires *while* he's behind the bar, which is exactly when the
+// two of them are both on the floor. The pairing is hard-wired to Orion Dex.
 //
 // Scope: any NPC with flags.personality === 'bartender' who is on-shift at their
 // bar with at least one player watching. Today that's Lowry at the Embassy; any
@@ -34,10 +42,17 @@ const AMBIENT_GAP_MS    = 45_000;                  // min gap between ambient li
 const WELCOME_MIN_GAP_MS = 8_000;                  // tiny anti-double-talk gap before a welcome
 const SPEAK_CHANCE      = 0.65;                     // an eligible tick where he just works quietly
 
+const ORION_ID          = 'npc_orion_dex';         // his coworker — the house card dealer
+const COWORKER_GAP_MS   = 5 * 60 * 1000;           // keep the two-hander a rare treat, not a loop
+const COWORKER_CHANCE   = 0.4;                      // ...and only sometimes when it's eligible
+const COWORKER_TURN_MS  = [4500, 8000];            // random delay between turns of the exchange
+
 // ── In-memory memory ──────────────────────────────────────────────────────────
 const lastSpoke   = new Map(); // npcId    -> ms of his last line (any kind)
 const welcomedAt  = new Map(); // playerId -> ms he last welcomed them
 const tipsGiven   = new Map(); // playerId -> Set(tip index)
+const coworkerAt  = new Map(); // npcId    -> ms the last coworker scene began
+const sceneZones  = new Set(); // zoneIds with a coworker scene currently running
 
 // ── Content ───────────────────────────────────────────────────────────────────
 // Fully-quoted lines render as a yellow "Lowry says:" bubble; unquoted lines
@@ -88,8 +103,82 @@ const IDLE = [
   `"Slow night. They're all slow nights. That's the business."`,
 ];
 
+// ── Coworker banter (Lowry ⇄ Orion Dex) ─────────────────────────────────────────
+// A curated back-and-forth between the bartender and the Embassy's house card
+// dealer — two old hands running the same little vice-lounge, Lowry pouring the
+// reasons to stay, Orion dealing the felt. Each thread is an ordered list of
+// [who, line] turns; who is 'L' (Lowry) or 'O' (Orion). Same render convention as
+// chitchat: a fully-"quoted" turn is a say bubble, an unquoted turn is an emote.
+// These are unique to this pair — nobody else gets them.
+const COWORKER = [
+  [
+    ['L', `"Slow night at the felt, Dex. You've dealt the same four regulars into the ground since sundown."`],
+    ['O', `"They keep sitting down. I keep dealing. The chairs do half my work."`],
+    ['L', `"The house takes its cut in blood, I take mine in drinks. Somewhere in the middle there's a living."`],
+  ],
+  [
+    ['O', `squares the deck without looking up. "You're telling that story too loud again, Lowry."`],
+    ['L', `"I tell it at the volume it's earned. You've worn the same face since this place had a roof worth the name."`],
+    ['O', `"It's the only thing in here that's never lost me money."`],
+  ],
+  [
+    ['L', `"Fresh one at the bar tonight, Dex. Green as they come."`],
+    ['O', `"Send them over when they've found their legs. Not before. I don't take milk money — bad for repeat business."`],
+  ],
+  [
+    ['L', `"How long's it been, you and me working this room?"`],
+    ['O', `riffles the deck, bridges it, snaps it flat. "Long enough that neither of us tells the truth about it anymore."`],
+    ['L', `"Valued colleague. Sincerity optional."`],
+  ],
+  [
+    ['L', `"Pour you something? On the house. The house being me."`],
+    ['O', `"Never on shift. A dealer with a drink in him is a dealer counting wrong."`],
+    ['L', `"That's the most honest thing said in this building all week."`],
+  ],
+  [
+    ['O', `"Two by the door have been nursing the same drink an hour. Watching the till, not the cards."`],
+    ['L', `polishes a glass, eyes flicking to the door. "Noted. You deal — I'll keep the bad thoughts warm."`],
+  ],
+  [
+    ['L', `"You deal them the cards, I pour them the reason to keep sitting there."`],
+    ['O', `"Two halves of the same robbery. Difference is I make them sign for it."`],
+  ],
+  [
+    ['O', `taps the felt twice, an old habit. "Quiet tonight."`],
+    ['L', `"They're all quiet, Dex. That's the business."`],
+    ['O', `"That's your line."`],
+    ['L', `"Everything in here's on loan. The lines included."`],
+  ],
+];
+
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const fmt  = (line, name) => line.replace(/\{name\}/g, name || 'guest');
+const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
+
+// Play a coworker exchange turn-by-turn, re-validating before each line: both must
+// still be on the floor, alive, and someone must still be around to witness it.
+// Shares Lowry's lastSpoke clock so his solo ambient tick won't talk over the scene.
+function playCoworkerScene(lowry, orion, zoneId, thread) {
+  sceneZones.add(zoneId);
+  let i = 0;
+  const step = () => {
+    const bothHere = lowry && orion && !lowry._dead && !orion._dead
+      && lowry.zone_id === zoneId && orion.zone_id === zoneId;
+    if (i >= thread.length || !bothHere || !getZonePlayers(zoneId).length) {
+      sceneZones.delete(zoneId);
+      return;
+    }
+    const [who, line] = thread[i++];
+    const speaker = who === 'O' ? orion : lowry;
+    sendToZone(zoneId, formatChitchat(speaker.name, line));
+    const now = Date.now();
+    lastSpoke.set(lowry.id, now);
+    if (speaker._ai) speaker._ai.lastSay = now;
+    if (i >= thread.length) { sceneZones.delete(zoneId); return; }
+    setTimeout(step, randInt(COWORKER_TURN_MS[0], COWORKER_TURN_MS[1]));
+  };
+  step();
+}
 
 // ── Live reads ────────────────────────────────────────────────────────────────
 function isNewPlayer(player) {
@@ -159,6 +248,21 @@ function bartenderTick() {
         continue;
       }
 
+      // 1.5) Coworker banter — a rare, curated two-hander with Orion Dex when the
+      // house dealer is on the same floor. Owns the tick when it fires; its own
+      // long cooldown keeps it special rather than a loop.
+      if (!sceneZones.has(zoneId) && now - spoke > AMBIENT_GAP_MS
+          && now - (coworkerAt.get(npc.id) || 0) > COWORKER_GAP_MS
+          && Math.random() < COWORKER_CHANCE) {
+        const orion = world.npcs.get(ORION_ID);
+        if (orion && !orion._dead && orion.zone_id === zoneId) {
+          coworkerAt.set(npc.id, now);
+          lastSpoke.set(npc.id, now);
+          playCoworkerScene(npc, orion, zoneId, pick(COWORKER));
+          continue;
+        }
+      }
+
       // 2) Ambient reaction — throttled, and sometimes he just works in silence.
       if (now - spoke < AMBIENT_GAP_MS) continue;
       if (Math.random() > SPEAK_CHANCE) continue;
@@ -226,4 +330,4 @@ registerAction({
 export const commands = {};
 
 // Exposed for the regress suite.
-export const _test = { isNewPlayer, nextTipFor, pokerLine, tvLine, bartenderTick, TIPS, tipsGiven, welcomedAt, lastSpoke };
+export const _test = { isNewPlayer, nextTipFor, pokerLine, tvLine, bartenderTick, TIPS, tipsGiven, welcomedAt, lastSpoke, COWORKER, ORION_ID };

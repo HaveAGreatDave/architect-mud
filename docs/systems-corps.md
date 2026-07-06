@@ -170,7 +170,7 @@ wants* is the deepest thread ([story.md](story.md)). Corps give it something to 
   **standalone strategic map** (`corp map` → `panels/corp-map.js`) tints the city grid by controlling org with
   per-zone influence, contested pulses, a legend, and a context-aware detail panel (claim/contest/reinforce
   where you stand). Verified: full loop DB test + regress 221/221.
-- **Phase 2 — Investment.** Org tiers, buy assets (vendors / ATMs / turrets / stations).
+- **Phase 2 — Investment. ✅ BUILT 2026-07-06.** `orgs.tier` (1–5, raised via **`corp invest`** — escalating treasury cost 2.5k/6k/12k/24k) gates **member cap** (5/10/20/35/50, enforced on invite/accept) + **territory slots** (2/4/7/11/16, enforced on claim) + the **asset level cap**. **`corp build extractor|turret`** installs/upgrades assets (`org_assets` table, one per type per zone, level ≤ tier): the **extractor** adds income (folded into the 24h tick + console/map), the **turret** is defence (blunts the grip lost to enemy `contest` *and* daily erosion, `max(1, erode − defence)`). Architect heat now also rises with tier + asset count. Client: console **Investment** block (tier · members/cap · zones/slots · Invest button) and the strategic-map detail panel shows assets + **+Extractor/+Turret** build buttons. Verified: DB loop (invest→tier, extractor income, turret defence) + regress 461/461.
 - **Phase 3 — Conflict & diplomacy.** War / raids, espionage / sabotage (SPECTER + Crime),
   treaties / relations.
 - **Phase 4 — NPC corp AI + the Architect reactive layer.**

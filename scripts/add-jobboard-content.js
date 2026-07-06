@@ -62,6 +62,8 @@ const creedGate = [{ flag: 'fs_creed', scope: 'player', op: 'unset' }];
 const MARTA_DIALOGUE = {
   root: {
     text: "The window's plexi is scratched to fog. Marta Kell slides a clipboard half an inch toward you without looking up. \"Board's on the wall. Take a tab, do the thing, bring it back, get paid. That's the whole religion.\" She finally lifts her eyes. \"You're new-made — I can always tell, they come out of that facility with the shine still on. So. What are you going to be?\"",
+    // Talking to her counts as having "run into her" — clears the greeter gate.
+    actions: [{ action: 'SET_FLAG', scope: 'player', flag: 'fs_marta_met', value: 'true' }],
     options: [
       {
         text: "\"Someone who eats. That's all.\"",
@@ -123,8 +125,34 @@ const MARTA_DIALOGUE = {
     options: [{ text: "\"So what's on it?\"", next: 'work' }],
   },
   work: {
-    text: "\"Postings are on the wall behind you. Read them — type gigs. Take a tab, run the errand, bring it back to me at the window.\" She's already looking past you, at the next face in a queue that isn't there.",
+    // OPEN_JOBBOARD appends the live rotating postings (with clickable Take/Hand-in)
+    // to her reply — a static tree can't list the rotating set itself.
+    actions: [{ action: 'OPEN_JOBBOARD' }],
+    text: "\"Here's what's going. Take a tab off it, or type gigs — run the errand, bring it back to me at the window.\" She taps the clipboard, then goes back to watching a queue that isn't there.",
     options: [{ text: "(Turn to the board.)", actions: [{ action: 'END_CONVERSATION' }] }],
+  },
+};
+
+// Stationary behaviour graph: Marta never leaves her window. Deliberately has NO
+// movement node (no GO_TO_WORK / GO_HOME / HAVE_LIFE) so she can't drift to the
+// Embassy — she waits, occasionally does a bit of at-the-desk flavour, and loops.
+// Giving her an explicit graph also means ensureBehaviourGraph never auto-assigns
+// her a walking default (vendor/unemployed), now or later. Dialogue is player-
+// initiated and independent of this, so she still talks when approached.
+const MARTA_BEHAVIOUR = {
+  _start: 'start',
+  nodes: {
+    start: { type: 'start', next: 'wait' },
+    wait: { type: 'wait', seconds: 90, next: 'pick' },
+    pick: {
+      type: 'random',
+      branches: [{ weight: 3 }, { weight: 1 }, { weight: 1 }, { weight: 1 }],
+      branch_0: 'loop', branch_1: 'e_ash', branch_2: 'e_clip', branch_3: 'e_cough',
+    },
+    e_ash: { type: 'action', action_type: 'EMOTE', params: { message: 'taps ash into a tin lid and watches a queue that isn\'t there.' }, next: 'loop' },
+    e_clip: { type: 'action', action_type: 'EMOTE', params: { message: 'runs a finger down the clipboard, crossing nothing out.' }, next: 'loop' },
+    e_cough: { type: 'action', action_type: 'EMOTE', params: { message: 'coughs, low and unbothered, and does not look up.' }, next: 'loop' },
+    loop: { type: 'loop', next: 'start' },
   },
 };
 
@@ -135,6 +163,7 @@ const MARTA = {
   sex: 'female',
   zone_id: ZONE,
   dialogue_tree: MARTA_DIALOGUE,
+  behaviour_graph: MARTA_BEHAVIOUR,
   flags: { clothing_layers: ['a shapeless municipal cardigan', 'fingerless gloves worn through at the tips'] },
 };
 
@@ -143,8 +172,10 @@ const BOARD_FURNITURE = {
   zone_id: ZONE,
   name: 'the job board',
   object_type: 'decoration',
-  description: "A slab of corkboard and warped ply bolted to a drive-through pillar, layered years deep in torn card, ration stubs, and hand-lettered work. Somewhere under all of it is a day's pay. A man in a paper coat is reading it for the third time. Type gigs to read what's posted.",
-  flags: {},
+  description: "A slab of corkboard and warped ply bolted to a drive-through pillar, layered years deep in torn card, ration stubs, and hand-lettered work. Somewhere under all of it is a day's pay. A man in a paper coat is reading it for the third time. Read the board (or type gigs) to see what's posted.",
+  // job_board tag makes `read <board>` list the live postings + surfaces a Read
+  // action on the board's smart bar (specializedActions in the jobboard plugin).
+  flags: { job_board: true },
 };
 
 const BOARD = {
@@ -162,6 +193,25 @@ const AMBIENCE = [
   'Someone has scratched HELP into the plexi of the dispatch window. Someone else has scratched WHO underneath it.',
   "The ration line down the block hasn't moved in an hour. Nobody leaves it anyway.",
 ];
+
+// The greeter gate (jobboard plugin move gate): the FIRST time a new player tries to
+// leave the Strip without having met Marta, she stops them once and hollers one of
+// these — pointing them at the board — then lets them go. Set as zone flags.greeter;
+// keyed to met_flag fs_marta_met (also set when they talk to her). Her voice: dry,
+// blunt, tired, kind under the ash.
+const GREETER = {
+  npc_id: MARTA.id,
+  npc_name: MARTA.name,
+  met_flag: 'fs_marta_met',
+  lines: [
+    "Hey — hey! Not so fast. You've got that fresh-decant shine and empty pockets, I can spot it blind. If you need money, that board's got work. Come back to me when it's done.",
+    "Whoa there. Where you off to in such a hurry, broke as you are? There's a board right there. Take a job, bring it back to me. Then you can go.",
+    "Hold up, shine. You look desperate, and that's alright — everybody does, first week. Work's on the board. See me after. That's the deal.",
+    "Hey! You. Yeah, you. Don't go wandering out there hungry. Check the board, do a job, come back to my window. Simple as that.",
+    "Slow down. Out there they don't hand out second chances. In here there's a board and there's me. Pick a tab, come back when it's done.",
+    "Easy, new blood. You've got 'desperate' written all over you — no shame in it. Money's on that board if you want it. Just come see me when you've earned it.",
+  ],
+};
 
 async function main() {
   // Quests
@@ -199,26 +249,33 @@ async function main() {
   );
   console.log(`  furn   ${BOARD_FURNITURE.id}`);
 
-  // Marta
+  // Marta — home_zone pinned to the strip, NO work_zone_id (a work_zone_id makes an
+  // NPC autonomous → default vendor commute → she'd walk "home" to the Embassy off-
+  // shift). Explicit stationary graph keeps her at the window. work_zone_id=NULL in
+  // the UPDATE repairs any earlier run that set it.
   await query(
-    `INSERT INTO npcs (id,name,description,zone_id,dialogue_tree,flags,sex,work_zone_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$4)
-     ON CONFLICT (id) DO UPDATE SET name=$2,description=$3,zone_id=$4,dialogue_tree=$5,flags=$6,sex=$7,work_zone_id=$4`,
+    `INSERT INTO npcs (id,name,description,zone_id,home_zone,dialogue_tree,behaviour_graph,flags,sex)
+     VALUES ($1,$2,$3,$4,$4,$5,$6,$7,$8)
+     ON CONFLICT (id) DO UPDATE SET name=$2,description=$3,zone_id=$4,home_zone=$4,dialogue_tree=$5,
+       behaviour_graph=$6,flags=$7,sex=$8,work_zone_id=NULL`,
     [MARTA.id, MARTA.name, MARTA.description, MARTA.zone_id, JSON.stringify(MARTA.dialogue_tree),
-     JSON.stringify(MARTA.flags), MARTA.sex]
+     JSON.stringify(MARTA.behaviour_graph), JSON.stringify(MARTA.flags), MARTA.sex]
   );
   console.log(`  npc    ${MARTA.id} (${MARTA.name})`);
 
-  // Ambience: merge our desperation lines into the zone's ambient_events (no dupes).
-  const { rows } = await query('SELECT ambient_events FROM zones WHERE id=$1', [ZONE]);
+  // Ambience + greeter: merge into the zone's ambient_events / flags (no clobber).
+  const { rows } = await query('SELECT ambient_events, flags FROM zones WHERE id=$1', [ZONE]);
   if (rows.length) {
     const existing = Array.isArray(rows[0].ambient_events) ? rows[0].ambient_events : [];
     const merged = existing.slice();
     for (const line of AMBIENCE) if (!merged.includes(line)) merged.push(line);
-    await query('UPDATE zones SET ambient_events=$1 WHERE id=$2', [JSON.stringify(merged), ZONE]);
-    console.log(`  zone   ${ZONE} ambience → ${merged.length} lines`);
+    const flags = (rows[0].flags && typeof rows[0].flags === 'object') ? rows[0].flags : {};
+    flags.greeter = GREETER;
+    await query('UPDATE zones SET ambient_events=$1, flags=$2 WHERE id=$3',
+      [JSON.stringify(merged), JSON.stringify(flags), ZONE]);
+    console.log(`  zone   ${ZONE} ambience → ${merged.length} lines, greeter → ${GREETER.npc_name}`);
   } else {
-    console.warn(`  WARN: zone ${ZONE} not found — ambience not applied.`);
+    console.warn(`  WARN: zone ${ZONE} not found — ambience/greeter not applied.`);
   }
 
   console.log('\nDone. Reload the world (/world/reload) or restart so the NPC, furniture, and board go live.');

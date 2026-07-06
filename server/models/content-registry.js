@@ -109,6 +109,10 @@ export const REGISTRY = [
     // rent_cost / lock_difficulty / building_name are authored and stay.
     excludeColumns: ['owner_id', 'owner_handle', 'is_locked', 'purchased_at', 'date_rented', 'rent_due_date'],
     runtimeInserts: 'apartments.js renting (upsert); corps plugin org HQs (outside predicate)' },
+  // Which apartment units NPCs live in — authored alongside npc.home_zone. Placed
+  // after npcs + zones (both FK'd). Kept in sync by the NPC create/edit/auto-house
+  // endpoints and the reconcile script.
+  { table: 'npc_residences', class: 'content', pk: ['zone_id'] },
   { table: 'generators', class: 'content', pk: ['id'],
     // status/remaining_kw: recomputed every power cycle (self-healing). fuel_remaining
     // stays CONTENT: schema default is 0, so excluding it restores every authored
@@ -182,6 +186,7 @@ export const REGISTRY = [
   { table: 'weather_forecast', class: 'runtime' },
   { table: 'lighting_states', class: 'runtime' },    // fully derived from furniture
   { table: 'zone_control', class: 'runtime' },
+  { table: 'org_assets', class: 'runtime' },          // player-crew territory assets (extractor/turret)
   { table: 'scavenging_zone_stock', class: 'runtime' },
   { table: 'scavenging_zone_state', class: 'runtime' },
   { table: 'security_clips', class: 'runtime' },

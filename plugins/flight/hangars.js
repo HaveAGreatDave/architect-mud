@@ -75,7 +75,7 @@ async function buildCards(player, field) {
   });
 }
 
-async function pushHangarPanel(player) {
+async function pushHangarPanel(player, selectId) {
   const field = fieldOf(player);
   if (!field) return { type: 'emote', message: 'Hangars are at the airfields.' };
   const { rows: mine } = await query('SELECT id FROM hangars WHERE field_zone=$1 AND owner_id=$2', [field.id, player.id]);
@@ -83,6 +83,7 @@ async function pushHangarPanel(player) {
   sendToPlayer(player.id, { type: 'hangar_update', data: {
     field: field.flags.airfield_name || field.name,
     hasBay: mine.length > 0, credits: player.credits || 0, craft,
+    select: selectId || null,   // client pre-selects this craft (from `view <tail>`)
     catalog: { patterns: PATTERNS, finishes: FINISHES, uphol: UPHOLSTERY, decals: DECALS, presets: PRESETS },
   } });
   return { type: 'noop' };
@@ -186,6 +187,36 @@ async function cmdHangarAct(args, raw, player) {
 }
 
 // ── Hangars ───────────────────────────────────────────────────────────────────
+// `showroom` is a friendlier alias for opening the visual hangar — the 3D turntable
+// view of your aircraft. Same panel as bare `hangar`; it just reads better for "let
+// me look at my planes" and is what the in-room hint points at.
+async function cmdShowroom(args, raw, player) {
+  const field = fieldOf(player);
+  if (!field) return { type: 'emote', message: 'Your aircraft are at the airfields — the showroom is there (or in a hangar).' };
+  return pushHangarPanel(player);
+}
+
+// `view <tail>` — open the showroom already turned to one aircraft, matched by tail/
+// name, type, or id among the craft here. Bare `view` just opens the floor. `view` is
+// a generic word, so away from a field we return undefined to fall through rather than
+// hijack it — flight only owns `view` when you're actually at an airfield/hangar.
+async function cmdView(args, raw, player) {
+  const field = fieldOf(player);
+  if (!field) return undefined;
+  const want = args.join(' ').trim().toLowerCase();
+  if (!want) return pushHangarPanel(player);
+  const cards = await buildCards(player, field);
+  if (!cards.length) return { type: 'emote', message: 'None of your aircraft are here to view.' };
+  const hit = cards.find(c => c.id === want)
+    || cards.find(c => (c.tail || '').toLowerCase() === want)
+    || cards.find(c => (c.tail || '').toLowerCase().includes(want) || (c.typeName || '').toLowerCase().includes(want) || c.id.includes(want));
+  if (!hit) {
+    const names = cards.map(c => `<b>${clean(c.tail)}</b>`).join(', ');
+    return { type: 'emote', message: `No aircraft here matches "${clean(want)}". On the floor: ${names}.` };
+  }
+  return pushHangarPanel(player, hit.id);
+}
+
 async function cmdHangar(args, raw, player) {
   const field = fieldOf(player);
   if (!field) return { type: 'emote', message: 'Hangars are at the airfields.' };
@@ -481,6 +512,8 @@ async function cmdLoadout(args, raw, player) {
 
 export const commands = {
   hangar: cmdHangar,
+  showroom: cmdShowroom,
+  view: cmdView,
   hangaract: cmdHangarAct,
   paintset: cmdPaintset,
   scheme: cmdScheme,

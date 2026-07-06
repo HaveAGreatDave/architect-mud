@@ -15,6 +15,7 @@ export const SKILLS = {
   navigation:  { id:'navigation',  name:'Navigation',  category:'survival', stats:['stat_brains','stat_reflexes'], desc:'Knowing where you are and where the exits went. Keeps you from dying lost.' },
   butchering:  { id:'butchering',  name:'Butchering',  category:'survival', stats:['stat_endurance','stat_cool'], desc:'Carving usable meat and parts off the dead. Strong stomach required, gloves optional.' },
   fishing:     { id:'fishing',     name:'Fishing',     category:'survival', stats:['stat_reflexes','stat_cool'], desc:'Coaxing something edible — or something with teeth — out of poisoned water. Patience with a hook on the end.' },
+  mining:      { id:'mining',      name:'Mining',      category:'survival', stats:['stat_brawn','stat_brains'], desc:'Reading a rock face and knowing where to swing. Prying ore, salvage, and buried worth out of stone and slag.' },
   hacking:     { id:'hacking',     name:'Hacking',     category:'tech',     stats:['stat_brains'], desc:'Talking computers into betraying their owners. Locks, terminals, and ATMs all listen eventually.' },
   electronics: { id:'electronics', name:'Electronics', category:'tech',     stats:['stat_brains'], desc:'Wiring, circuits, and salvaged tech. Making dead gadgets twitch back to life.' },
   fabrication: { id:'fabrication', name:'Fabrication', category:'tech',     stats:['stat_brains'], desc:'Crafting and repairing gear from raw parts. The backbone of building anything worth having.' },

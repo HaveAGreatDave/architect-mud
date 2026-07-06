@@ -12,6 +12,7 @@ import {
   getOrg, getOrgByName, getPlayerMembership, reloadOrg, removeOrgFromCache,
   getAllLivePlayers, getZone, getAllZones, getApartment, setApartmentCache,
   getZoneControl, setZoneControlCache, getOrgZones, getAllZoneControl,
+  getZoneAssets, getOrgAssets, reloadZoneAssets,
 } from '../../server/engine/world.js';
 import { PERM, PERM_ALL, hasPerm } from '../../server/engine/org-perms.js';
 import { releaseCorpHq } from '../../server/engine/apartments.js';
@@ -33,6 +34,29 @@ const CONTEST_COOLDOWN_MS = 30000; // per-player anti-spam on contesting
 const CONSOLIDATE_PER_DAY = 10;    // uncontested grip drift toward 100 / 24h tick
 const ERODE_PER_DAY = 8;           // contested grip decay toward 0 / 24h tick
 
+// ── Investment (Phase 2) tunables ──
+const MAX_TIER = 5;
+// Cost (from treasury) to REACH tier index; tier 1 is free (index 0/1 unused/0).
+const TIER_COST = [0, 0, 2500, 6000, 12000, 24000];
+const MEMBER_CAP = [0, 5, 10, 20, 35, 50];       // by tier
+const TERRITORY_SLOTS = [0, 2, 4, 7, 11, 16];    // max controlled zones by tier
+// Buildable assets. cost = base + level*perLevel; effect scales with level.
+const ASSETS = {
+  extractor: { name: 'extractor', label: 'Extractor', base: 400, perLevel: 250, income: 60 },   // +income/day per level
+  turret:    { name: 'turret',    label: 'Turret',    base: 500, perLevel: 300, defense: 3 },    // −grip lost per level (contest + tick)
+};
+const tierCap = (t) => Math.max(0, Math.min(MAX_TIER, t || 1));
+const memberCap = (t) => MEMBER_CAP[tierCap(t)];
+const territorySlots = (t) => TERRITORY_SLOTS[tierCap(t)];
+// Total turret defense on a zone (sum of turret levels × per-level).
+function zoneDefense(zoneId) {
+  return getZoneAssets(zoneId).filter(a => a.type === 'turret').reduce((s, a) => s + a.level * ASSETS.turret.defense, 0);
+}
+// Extractor income bonus for a zone.
+function zoneExtractorIncome(zoneId) {
+  return getZoneAssets(zoneId).filter(a => a.type === 'extractor').reduce((s, a) => s + a.level * ASSETS.extractor.income, 0);
+}
+
 // playerId -> timestamp of last contest (anti-spam)
 const contestCooldown = new Map();
 
@@ -46,11 +70,13 @@ function isClaimableZone(zone) {
 }
 
 // Architect attention 0..100 for an org — concentration of power (zones held +
-// treasury). A telegraph for now; "optimization" events come later.
-function architectHeat(org, zoneCount) {
+// treasury + tier + assets). A telegraph for now; "optimization" events come later.
+function architectHeat(org, zoneCount, assetCount = 0) {
   const byZones = (zoneCount || 0) * 12;
   const byTreasury = Math.floor((org?.treasury || 0) / 5000) * 5;
-  return Math.max(0, Math.min(100, byZones + byTreasury));
+  const byTier = ((org?.tier || 1) - 1) * 8;
+  const byAssets = (assetCount || 0) * 3;
+  return Math.max(0, Math.min(100, byZones + byTreasury + byTier + byAssets));
 }
 
 // targetPlayerId -> { orgId, orgName, expiresAt }
@@ -129,20 +155,23 @@ async function buildConsolePayload(player) {
   for (const zid of hqSet) if (!zones.find(z => z.zone_id === zid)) {
     territory.push({ zone: getZone(zid)?.name || zid, status: 'HQ', influence: 100, challenger: null });
   }
-  const income = zones.reduce((s, z) => s + (z.base_income || 0), 0);
+  const income = zones.reduce((s, z) => s + (z.base_income || 0) + zoneExtractorIncome(z.zone_id), 0);
   const upkeep = zones.reduce((s, z) => s + (z.base_upkeep || 0), 0);
+  const tier = tierCap(org.tier);
+  const assetCount = getOrgAssets(m.org_id).length;
 
   return {
     type: 'corp_console',
     accent: org.color || '#35e0c8',
-    org: { name: org.name, tag: deriveTag(org), tier: org.flags?.tier || 1 },
+    org: { name: org.name, tag: deriveTag(org), tier },
     you: { rank: myRank?.name || '—', permissions: m.permissions },
     treasury: { balance: org.treasury || 0, income, upkeep },
+    tierInfo: { tier, memberCap: memberCap(tier), members: members.length, slots: territorySlots(tier), zones: zones.length, nextCost: tier < MAX_TIER ? TIER_COST[tier + 1] : null },
     members,
     relations,
     territory,
     directives: [],
-    architectHeat: architectHeat(org, zones.length),
+    architectHeat: architectHeat(org, zones.length, assetCount),
   };
 }
 
@@ -154,7 +183,7 @@ async function pushConsole(orgId, broadcast) {
     if (getPlayerMembership(p.id)?.org_id !== orgId) continue;
     const payload = await buildConsolePayload(p);
     if (payload.type === 'corp_console') {
-      broadcast(null, { type: 'corp_console_patch', treasury: payload.treasury, architectHeat: payload.architectHeat, members: payload.members, territory: payload.territory }, null, p.id);
+      broadcast(null, { type: 'corp_console_patch', treasury: payload.treasury, architectHeat: payload.architectHeat, members: payload.members, territory: payload.territory, tierInfo: payload.tierInfo }, null, p.id);
     }
   }
 }
@@ -180,7 +209,8 @@ async function cmdCorpMap(player) {
         org_id: zc.org_id, tag: o ? deriveTag(o) : '?', color: o?.color || '#888',
         influence: zc.influence, status: zc.challenger_org_id ? 'CONTESTED' : 'HELD',
         challenger: ch?.name || null, mine: !!(m && zc.org_id === m.org_id),
-        income: zc.base_income, upkeep: zc.base_upkeep,
+        income: (zc.base_income || 0) + zoneExtractorIncome(z.id), upkeep: zc.base_upkeep,
+        assets: getZoneAssets(z.id).map(a => ({ type: a.type, level: a.level })), defense: zoneDefense(z.id),
       };
       if (o) orgsSeen.set(o.id, { id: o.id, tag: deriveTag(o), color: o.color || '#888', name: o.name });
       if (ch) orgsSeen.set(ch.id, { id: ch.id, tag: deriveTag(ch), color: ch.color || '#888', name: ch.name });
@@ -207,6 +237,40 @@ async function cmdCorpMap(player) {
     myTag: m ? deriveTag(getOrg(m.org_id)) : null,
     orgs: [...orgsSeen.values()],
     tiles,
+  };
+}
+
+// Lightweight territory layer for the big city map's "Territory" overlay: only the
+// per-zone control of *held* turf, keyed by zone id (colour/tag/influence/mine/
+// status), plus an org legend — for whatever map/floor the player's tile sits on.
+// The client merges this onto the engine `map` tiles, so the engine map payload
+// stays corp-free (unlike `corp map`, this returns no tiles/exits and opens nothing).
+async function cmdCorpTerritory(player) {
+  const m = getPlayerMembership(player.id);
+  const cur = getZone(player.current_zone);
+  const mapId = cur?.map_id || 'map_world';
+  const gz = cur?.grid_z ?? 0;
+  const orgsSeen = new Map();
+  const control = {};
+  for (const z of getAllZones()) {
+    if (z.map_id !== mapId || (z.grid_z ?? 0) !== gz) continue;
+    const zc = getZoneControl(z.id);
+    if (!zc?.org_id) continue; // only tint turf someone actually holds
+    const o = getOrg(zc.org_id);
+    const ch = zc.challenger_org_id ? getOrg(zc.challenger_org_id) : null;
+    control[z.id] = {
+      tag: o ? deriveTag(o) : '?', color: o?.color || '#888',
+      influence: zc.influence, status: zc.challenger_org_id ? 'CONTESTED' : 'HELD',
+      challenger: ch?.name || null, mine: !!(m && zc.org_id === m.org_id),
+    };
+    if (o) orgsSeen.set(o.id, { id: o.id, tag: deriveTag(o), color: o.color || '#888', name: o.name });
+    if (ch) orgsSeen.set(ch.id, { id: ch.id, tag: deriveTag(ch), color: ch.color || '#888', name: ch.name });
+  }
+  return {
+    type: 'map_territory',
+    myOrgId: m?.org_id || null,
+    orgs: [...orgsSeen.values()],
+    control,
   };
 }
 
@@ -279,6 +343,8 @@ async function cmdInvite(player, targetName, broadcast) {
   if (!target) return err(`No one online by the name "${esc(targetName)}".`);
   if (getPlayerMembership(target.id)) return err(`${esc(target.handle)} is already in a corp.`);
   const org = getOrg(m.org_id);
+  const { rows: [icnt] } = await query('SELECT COUNT(*)::int n FROM org_members WHERE org_id=$1', [org.id]);
+  if (icnt.n >= memberCap(org.tier)) return err(`Your corp is at its member cap (${memberCap(org.tier)} at tier ${tierCap(org.tier)}). Raise it with "corp invest".`);
   pendingInvites.set(target.id, { orgId: org.id, orgName: org.name, expiresAt: Date.now() + INVITE_TTL_MS });
   broadcast(null, { type: 'output', message: `<span class="msg-system">${esc(player.handle)} invites you to join ${esc(org.name)}. Type "corp accept" within 2 minutes.</span>` }, null, target.id);
   return { type: 'corp_invite', message: `You invite ${esc(target.handle)} to ${esc(org.name)}.` };
@@ -291,6 +357,8 @@ async function cmdAccept(player) {
   const org = getOrg(inv.orgId);
   pendingInvites.delete(player.id);
   if (!org) return err('That corp no longer exists.');
+  const { rows: [acnt] } = await query('SELECT COUNT(*)::int n FROM org_members WHERE org_id=$1', [org.id]);
+  if (acnt.n >= memberCap(org.tier)) return err(`${esc(org.name)} is full (${memberCap(org.tier)} members at tier ${tierCap(org.tier)}).`);
   const defRank = org.ranks.find(r => r.is_default) || [...org.ranks].sort((a, b) => a.rank_order - b.rank_order)[0];
   if (!defRank) return err('That corp has no joinable rank.');
   await query('INSERT INTO org_members (org_id, player_id, rank_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [org.id, player.id, defRank.id]);
@@ -531,6 +599,8 @@ async function cmdClaimTerritory(player, broadcast) {
     return err(`Held by a rival (grip ${zc.influence}%). Break it with 'corp contest'.`);
   }
   const org = getOrg(m.org_id);
+  const held = getOrgZones(m.org_id).length;
+  if (held >= territorySlots(org.tier)) return err(`Your corp holds its max ${territorySlots(org.tier)} zone(s) at tier ${tierCap(org.tier)}. Expand with "corp invest".`);
   if ((org.treasury || 0) < TERRITORY_CLAIM_FEE) return err(`Claiming territory costs ${TERRITORY_CLAIM_FEE}c from the treasury — it has ${org.treasury || 0}c.`);
   const now = Math.floor(Date.now() / 1000);
   const res = await withTransaction(async (q) => {
@@ -569,7 +639,10 @@ async function cmdContest(player, broadcast) {
     return { type: 'corp_territory', message: `You push against the hold on <b>${esc(zone.name)}</b> but make no headway. (${check.effective} vs ${check.difficulty})` };
   }
   await awardSkillUse(player.id, 'intimidate', check.margin);
-  const erosion = Math.max(4, 8 + check.margin * 2);
+  const rawErosion = Math.max(4, 8 + check.margin * 2);
+  const defense = zoneDefense(zone.id);            // turrets soak the assault
+  const erosion = Math.max(1, rawErosion - defense);
+  const absorbed = rawErosion - erosion;
   const now = Math.floor(Date.now() / 1000);
   const res = await withTransaction(async (q) => {
     const cur = await q('SELECT * FROM zone_control WHERE zone_id=$1 FOR UPDATE', [zone.id]);
@@ -593,7 +666,8 @@ async function cmdContest(player, broadcast) {
     broadcast?.(player.current_zone, { type: 'zone_event', message: `<span class="msg-system">${esc(org.name)} seizes ${esc(zone.name)}!</span>` }, player.id);
     return { type: 'corp_territory', message: `<b>${esc(org.name)}</b> breaks the last hold and <b>seizes ${esc(zone.name)}</b>! Grip ${res.row.influence}%.` };
   }
-  return { type: 'corp_territory', message: `You erode the hold on <b>${esc(zone.name)}</b> — grip down to ${res.row.influence}%. Keep the pressure on.` };
+  const defNote = absorbed > 0 ? ` <span class="dim">(turrets soaked ${absorbed})</span>` : '';
+  return { type: 'corp_territory', message: `You erode the hold on <b>${esc(zone.name)}</b> — grip down to ${res.row.influence}%.${defNote} Keep the pressure on.` };
 }
 
 async function cmdReinforce(player, amountStr, broadcast) {
@@ -622,14 +696,72 @@ async function cmdReinforce(player, amountStr, broadcast) {
   return { type: 'corp_territory', message: `You pour ${cost}c into holding <b>${esc(zone.name)}</b>. Grip ${res.row.influence}%.` };
 }
 
+// Phase 2 — invest treasury to raise the corp's tier (member cap / territory
+// slots / asset level cap all scale with it).
+async function cmdInvest(player, broadcast) {
+  const m = getPlayerMembership(player.id);
+  if (!m) return err("You're not in a corp.");
+  if (!hasPerm(player, PERM.EDIT_CORP)) return err("You don't have permission to invest in the corp.");
+  const org = getOrg(m.org_id);
+  const tier = tierCap(org.tier);
+  if (tier >= MAX_TIER) return err(`Your corp is already at the top tier (${MAX_TIER}).`);
+  const cost = TIER_COST[tier + 1];
+  if ((org.treasury || 0) < cost) return err(`Advancing to tier ${tier + 1} costs ${cost}c — the treasury has ${org.treasury || 0}c.`);
+  const res = await withTransaction(async (q) => {
+    const dec = await q('UPDATE orgs SET treasury=treasury-$1, tier=tier+1 WHERE id=$2 AND treasury>=$1 AND tier=$3 RETURNING treasury, tier', [cost, org.id, tier]);
+    return dec.rowCount ? dec.rows[0] : null;
+  });
+  if (!res) return err(`The treasury doesn't have ${cost}c.`);
+  await reloadOrg(m.org_id);
+  await pushConsole(m.org_id, broadcast);
+  return { type: 'corp_invest', message: `<b>${esc(org.name)}</b> advances to <b>Tier ${res.tier}</b> for ${cost}c. Member cap ${memberCap(res.tier)} · ${territorySlots(res.tier)} territory slots · assets to level ${res.tier}. Treasury: ${res.treasury}c.` };
+}
+
+// Phase 2 — build/upgrade an asset (extractor/turret) on a controlled zone.
+async function cmdBuild(player, typeArg, broadcast) {
+  const m = getPlayerMembership(player.id);
+  if (!m) return err("You're not in a corp.");
+  if (!hasPerm(player, PERM.MANAGE_HQ)) return err("You don't have permission to build here.");
+  const type = String(typeArg || '').toLowerCase();
+  const def = ASSETS[type];
+  if (!def) return err('Build what? Usage: corp build extractor|turret');
+  const zone = getZone(player.current_zone);
+  const zc = getZoneControl(zone?.id);
+  if (!zc || zc.org_id !== m.org_id) return err("Your corp must control this zone to build here.");
+  const org = getOrg(m.org_id);
+  const tier = tierCap(org.tier);
+  const existing = getZoneAssets(zone.id).find(a => a.type === type);
+  const curLevel = existing?.level || 0;
+  if (curLevel >= tier) return err(`Your ${def.label.toLowerCase()} here is at your tier cap (level ${tier}). Raise it with "corp invest".`);
+  const newLevel = curLevel + 1;
+  const cost = def.base + curLevel * def.perLevel;
+  if ((org.treasury || 0) < cost) return err(`${curLevel ? 'Upgrading' : 'Building'} a ${def.label.toLowerCase()} costs ${cost}c — the treasury has ${org.treasury || 0}c.`);
+  const treasury = await withTransaction(async (q) => {
+    const dec = await q('UPDATE orgs SET treasury=treasury-$1 WHERE id=$2 AND treasury>=$1 RETURNING treasury', [cost, org.id]);
+    if (!dec.rowCount) return null;
+    if (existing) await q('UPDATE org_assets SET level=$1 WHERE id=$2', [newLevel, existing.id]);
+    else await q('INSERT INTO org_assets (id, org_id, zone_id, type, level) VALUES ($1,$2,$3,$4,1)', [randomUUID(), org.id, zone.id, type]);
+    return dec.rows[0].treasury;
+  });
+  if (treasury == null) return err(`The treasury doesn't have ${cost}c.`);
+  await reloadZoneAssets(zone.id);
+  await reloadOrg(m.org_id);
+  await pushConsole(m.org_id, broadcast);
+  const effect = type === 'extractor' ? `+${newLevel * def.income}/day income` : `+${newLevel * def.defense} defence`;
+  return { type: 'corp_territory', message: `${curLevel ? 'You upgrade the' : 'You build a'} <b>${def.label}</b> in <b>${esc(zone.name)}</b> to level ${newLevel} — ${effect}. Treasury: ${treasury}c.` };
+}
+
 // 24h territory tick: settle income − upkeep to each controller's treasury, and
 // drift grip (uncontested consolidates toward 100; contested erodes toward a flip).
 async function runTerritoryTick() {
   const rows = getAllZoneControl().filter(z => z.org_id);
   const net = new Map();
   for (const z of rows) {
-    net.set(z.org_id, (net.get(z.org_id) || 0) + (z.base_income || 0) - (z.base_upkeep || 0));
-    let inf = z.challenger_org_id ? z.influence - ERODE_PER_DAY : Math.min(100, z.influence + CONSOLIDATE_PER_DAY);
+    // Extractors add income; turrets blunt the daily erosion of a contested zone.
+    const income = (z.base_income || 0) + zoneExtractorIncome(z.zone_id);
+    net.set(z.org_id, (net.get(z.org_id) || 0) + income - (z.base_upkeep || 0));
+    const erode = Math.max(1, ERODE_PER_DAY - zoneDefense(z.zone_id));
+    let inf = z.challenger_org_id ? z.influence - erode : Math.min(100, z.influence + CONSOLIDATE_PER_DAY);
     if (inf <= 0 && z.challenger_org_id) {
       const now = Math.floor(Date.now() / 1000);
       await query('UPDATE zone_control SET org_id=$1, influence=$2, challenger_org_id=NULL, captured_at=$3 WHERE zone_id=$4', [z.challenger_org_id, START_INFLUENCE, now, z.zone_id]);
@@ -718,6 +850,8 @@ const USAGE = [
   'corp claim                — claim where you stand (apartment → HQ ' + HQ_FEE + 'c; zone → territory ' + TERRITORY_CLAIM_FEE + 'c)',
   'corp contest              — erode a rival\'s grip on this zone (seize it at 0%)',
   'corp reinforce [pts]      — spend treasury to strengthen your grip here',
+  'corp invest               — raise your corp tier (member cap · territory slots · assets)',
+  'corp build extractor|turret — build/upgrade an asset on a zone you hold',
   'corp say <message>        — talk on your private corp channel',
   'corp disband              — dissolve the corp (owner only)',
 ].join('\n');
@@ -750,10 +884,13 @@ async function cmdCorp(args, raw, player, broadcast) {
     case 'promote':     return cmdSetRank(player, rest[0], rest[1]);
     case 'claim':       return cmdClaim(player, broadcast);
     case 'map':         return cmdCorpMap(player);
+    case 'territory':   return cmdCorpTerritory(player); // big-map overlay layer (client-internal)
     case 'contest':
     case 'raid':        return cmdContest(player, broadcast);
     case 'reinforce':
     case 'fortify':     return cmdReinforce(player, rest[0], broadcast);
+    case 'invest':      return cmdInvest(player, broadcast);
+    case 'build':       return cmdBuild(player, rest[0], broadcast);
     case 'say':
     case 'chat':        return cmdSay(player, rest.join(' '), broadcast);
     case 'disband':     return cmdDisband(player);
@@ -792,22 +929,18 @@ export const specializedActions = [
 
 // ── Corp recruitment posters ─────────────────────────────────────────────────
 // Furniture flagged `corp_poster` (placed near spawn — see scripts/seed-corp-posters.mjs)
-// carries the eye-catching Franchise-style propaganda in its own description; THIS
-// hook unfurls the actionable pitch beneath it: how to found a corp, the command
-// list, and a clickable link into the console. A few posters (`architect_wink`)
-// carry the fine print that only pays off once you learn what corps really serve.
+// carries the eye-catching Franchise-style propaganda in its own description. THIS
+// hook adds only the *ache* the poster is engineered to leave behind and a lead to
+// a person — deliberately NO command list. Learning how a corp actually works is a
+// conversation you have with Denny Corliss on the Strip (scripts/add-corp-recruiter.js),
+// not fine print you read off a wall. A few posters (`architect_wink`) carry the
+// license motif that only pays off once you learn what corps really serve.
 // Returns undefined for any other furniture so the posters plugin's own
 // `furniture.describe` still runs (last non-undefined wins).
 export const _corpPosterPitch = (f) => {
   if (f?.flags?.corp_poster !== true) return undefined;
-  const link = `<span class="action-link" data-action="corp" data-target="help" data-label="all corp commands" title="See every corp command">corp help</span>`;
   let out =
-    `<span class="text-dim">Along the bottom, where the ink's still glossy, the small type spells out how it's done:</span>\n` +
-    `  <b>STAKE YOUR CLAIM</b> — found your own outfit: <b>corp found &lt;name&gt;</b> <span class="text-dim">(${FOUND_FEE}₵)</span>\n` +
-    `  <b>BRING YOUR PEOPLE</b> — <b>corp invite &lt;who&gt;</b> · <b>corp roster</b>\n` +
-    `  <b>HOLD GROUND</b> — <b>corp claim</b> a zone, <b>corp contest</b> a rival's, <b>corp map</b> to see it all\n` +
-    `  <b>RUN THE BOOK</b> — <b>corp contribute</b> / <b>corp disburse</b> the shared treasury\n` +
-    `<span class="text-dim">Every headquarters gets its own ops terminal — <b>use</b> it, or just type <b>corp</b>, to open the console. (${link})</span>`;
+    `<span class="text-dim">There's no form on it, no number to call — just the want it's built to leave in you, and, in a corner, a line small enough to feel like a secret: <b>Sign-ups in person only.</b> Ask on the Franchise Strip. Word on the row is a smiling man named <b>Denny Corliss</b> keeps a folding table down there and will walk anyone who asks through starting an outfit of their own.</span>`;
   if (f.flags?.architect_wink === true) {
     out += `\n<span class="text-dim">Bottom corner, too small to be meant for you: "OPERATING UNDER LICENSE · NORTHERN ACCESS GRANTED WHERE PRODUCTIVITY IS OBSERVED · —A"</span>`;
   }

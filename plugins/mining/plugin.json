@@ -1,0 +1,6 @@
+{
+  "name": "mining",
+  "version": "1.0.0",
+  "description": "Mining — a perpetual, posture-based deposit-working action (scavenging's rock-face cousin). Zones opt into a reusable loot table via flags.mining_table_id; carrying a mining_tool is the gate; the Mining skill drives finds via the 2d8-2d8 check; per-zone ore stock depletes and lazily replenishes.",
+  "commands": ["mine"]
+}

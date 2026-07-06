@@ -415,6 +415,30 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   world.zones.delete(homeId);
 }
 
+// NPC-residence rental guard: a unit registered in npc_residences reads as an
+// occupied home and can't be rented. Fixture uses a real vacant apartment + a real
+// NPC (both FK targets), and is torn down in finally so the dev DB stays clean.
+{
+  const apt = await import('../server/engine/apartments.js');
+  const { query: q } = await import('../server/models/db.js');
+  const rgZone = 'zone_meridian_unit_301'; // real apartment unit, normally vacant + unowned
+  const rgNpc  = 'npc_embassy_barkeep';    // real NPC id (npc_residences.npc_id FK)
+  try {
+    await q(`INSERT INTO npc_residences (zone_id, npc_id) VALUES ($1,$2)
+             ON CONFLICT (zone_id) DO UPDATE SET npc_id=$2`, [rgZone, rgNpc]);
+    const hit = await apt.getNpcResidence(rgZone);
+    check('getNpcResidence returns the resident', hit?.npc_id === rgNpc, JSON.stringify(hit));
+    const miss = await apt.getNpcResidence('zone_not_a_home_' + process.pid);
+    check('getNpcResidence null when unregistered', miss === null, JSON.stringify(miss));
+    const renter = { id: 'rg_renter_' + process.pid, handle: 'Renter', current_zone: rgZone, credits: 99999 };
+    const blocked = await apt.cmdRent(renter);
+    check('rent blocked in an NPC residence',
+      blocked?.type === 'error' && /lives here/i.test(blocked.message || ''), blocked?.message);
+  } finally {
+    await q('DELETE FROM npc_residences WHERE zone_id=$1', [rgZone]);
+  }
+}
+
 // ── Layer 3: per-plugin suites (plugins/<name>/regress.js) ───────────────────
 console.log('— layer 3: plugin suites —');
 const dirs = (await readdir(PLUGINS_DIR, { withFileTypes: true })).filter(e => e.isDirectory());

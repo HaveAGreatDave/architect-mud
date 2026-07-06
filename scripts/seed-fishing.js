@@ -17,7 +17,7 @@ const MONSTER_ID = 'enemy_cable_eel';
 // ── Gear ──────────────────────────────────────────────────────────────────────
 const GEAR = [
   { id: 'item_fishing_rod', name: 'fishing rod', type: 'misc', weight: 1200, value: 40, stack: 0, unique: 1,
-    description: 'A battered telescopic rod, its guides furred with old salt and the reel gummy but turning. Good enough to pull something out of the bay — if the line holds.',
+    description: 'A battered telescopic rod, its guides furred with old salt and the reel gummy but turning. Good enough to pull something out of the bay — if the line holds. Stand at the water\'s edge and FISH; it takes it from there, right up until something bites back harder than you pull.',
     tags: { fishing_rod: true, unique: true } },
   { id: 'item_bloodworm_bait', name: 'bloodworm bait', type: 'misc', weight: 40, value: 5, stack: 1, unique: 0,
     description: 'A twist of waxed paper packed with fat, writhing bloodworms. The good stuff — the things down there can smell it through the murk.',

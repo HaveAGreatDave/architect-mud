@@ -2662,6 +2662,28 @@ registerAction({
   },
 });
 
+// The full DEADBALL roster — the union of team names across every sports broadcast's
+// pools. Content owns the roster (media_broadcasts.sports_pools.teams), so this is the
+// authoritative, complete list; the gossip plugin reads it through this seam to pin
+// each NPC's favourite team to a fixed set (no table coupling, mirrors getStandings).
+registerAction({
+  type: 'broadcast.getSportsTeams',
+  handler: async () => {
+    const { rows } = await query(
+      `SELECT sports_pools FROM media_broadcasts WHERE playback_mode='sports' AND sports_pools IS NOT NULL`,
+    ).catch(() => ({ rows: [] }));
+    const teams = new Set();
+    for (const r of rows) {
+      const sp = typeof r.sports_pools === 'string' ? (JSON.parse(r.sports_pools || '{}')) : (r.sports_pools || {});
+      for (const t of (Array.isArray(sp.teams) ? sp.teams : [])) {
+        const name = typeof t === 'string' ? t : t?.name;
+        if (name) teams.add(name);
+      }
+    }
+    return { teams: [...teams] };
+  },
+});
+
 // ── Media Deck: load/eject cassettes ─────────────────────────────────────────
 
 async function _findDeckInZone(zoneId) {
