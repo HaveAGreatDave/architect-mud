@@ -1,27 +1,45 @@
 {
-  "description": "Parcel out to the Threshold, empties back from the Loading Bay. In that order or not at all. 35₵.",
+  "description": "The full delivery loop: Threshold, Threshold East, Castoff Walk, and out to the Marquee — in that order or not at all. 20₵.",
   "id": "quest_fs_loop",
   "name": "The Loop",
   "objectives": [
     {
-      "desc": "Parcel to the Threshold",
+      "desc": "Threshold",
       "id": "o0",
       "type": "visit",
       "zone": "zone_threshold"
     },
     {
-      "desc": "Empties back from the Loading Bay",
+      "desc": "Threshold East",
       "id": "o1",
       "requires": [
         "o0"
       ],
       "type": "visit",
-      "zone": "zone_city_east"
+      "zone": "zone_thresholdeast"
+    },
+    {
+      "desc": "Castoff Walk",
+      "id": "o2",
+      "requires": [
+        "o1"
+      ],
+      "type": "visit",
+      "zone": "zone_velk_exterior"
+    },
+    {
+      "desc": "Out to the Marquee",
+      "id": "o3",
+      "requires": [
+        "o2"
+      ],
+      "type": "visit",
+      "zone": "zone_mq_marquee"
     }
   ],
   "repeatable": 1,
   "rewards": {
-    "credits": 35
+    "credits": 20
   },
-  "updated_at": "1783357094"
+  "updated_at": "1783369742"
 }

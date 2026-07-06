@@ -1,0 +1,31 @@
+{
+  "category": "musicians",
+  "enabled": true,
+  "id": "routine_musicians_9",
+  "interactive": "tip",
+  "lines": [
+    "A busker sets up on the corner and coaxes a slow tune from a scarred guitar, open case at her feet."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 9,
+  "themes": [],
+  "weather": [
+    "clear",
+    "cloudy",
+    "overcast",
+    "haze"
+  ],
+  "weight": 100,
+  "zones": [
+    "zone_city_west",
+    "zone_city_north",
+    "zone_mq_marquee",
+    "zone_civ_commons",
+    "zone_media_plaza"
+  ]
+}

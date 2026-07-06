@@ -20,4 +20,34 @@ export default async function regress({ run, check, getPlayer }) {
 
   r = await run('flush');
   check('flush verb routed', /flush|no toilet/i.test(r?.message || ''), r?.message);
+
+  // A toilet is recognised by name, not just object_type/flags — content
+  // routinely types toilets as 'furniture'/'fixture'. Without this, relief,
+  // flush, and the fouled/peed describe line all silently miss them.
+  const { isToilet } = await import('./index.js');
+  check('name-only toilet recognised', isToilet({ name: 'curtained toilet', object_type: 'fixture', flags: {} }) === true);
+  check('object_type toilet recognised', isToilet({ name: 'steel bowl', object_type: 'toilet', flags: {} }) === true);
+  check('non-toilet furniture ignored', isToilet({ name: 'a wooden chair', object_type: 'furniture', flags: {} }) === false);
+
+  // Contaminated-water seam: the water + fillable plugins ask over these actions.
+  const { dispatchAction } = await import('../../server/engine/actions.js');
+  const clean = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: 'no-such-toilet' } });
+  check('unfouled toilet reports clean', clean.fouled === false && clean.peed === false, JSON.stringify(clean));
+
+  p.statuses = [];
+  const foul = await dispatchAction({ type: 'bodily.drinkContaminated', actor: p, params: { fouled: true } });
+  check('drinking foul water returns a warning line', /fouled|regret|gag/i.test(foul.message || ''), foul.message);
+  check('drinking foul water applies the sick effect', (p.statuses || []).some(s => s.name === 'sick'));
+  p.statuses = [];
+
+  // Flush clears the filth: foul a toilet (both pee + poo), confirm it reports
+  // contaminated, clear it the way flush does, confirm contamination is gone.
+  const { foulToilet, clearToiletFilth } = await import('./index.js');
+  foulToilet('regress-bowl', 'poop');
+  foulToilet('regress-bowl', 'pee');
+  let s = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: 'regress-bowl' } });
+  check('fouled toilet reports contaminated', s.fouled === true && s.peed === true, JSON.stringify(s));
+  clearToiletFilth('regress-bowl');
+  s = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: 'regress-bowl' } });
+  check('flush clears pee, poo, and contamination', s.fouled === false && s.peed === false, JSON.stringify(s));
 }

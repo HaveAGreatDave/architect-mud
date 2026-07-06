@@ -23,7 +23,8 @@
       "Grand Avenue",
       "Cathode Street"
     ],
-    "scavenging_table_id": null
+    "scavenging_table_id": null,
+    "street_life": true
   },
   "grid_x": 3,
   "grid_y": 0,

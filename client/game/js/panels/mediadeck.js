@@ -148,7 +148,14 @@ export function updateMediaDeckBroadcast(msg) {
   const style = msg.style || 'raw';
   if (style === 'svg') {
     el.classList.add('mediadeck-preview-svg');
-    el.innerHTML = msg.message || ''; // dev-authored graphic — safe, same as TV panel
+    // A malformed graphic must never break the preview — drop this line on failure.
+    try {
+      el.innerHTML = msg.message || '';
+      if (!el.querySelector('svg')) return;
+    } catch (err) {
+      console.warn('[mediadeck] preview graphic failed to render, skipping:', err?.message || err);
+      return;
+    }
   } else if (style === 'ascii_art' || style === 'credits') {
     const pre = document.createElement('pre');
     pre.className = 'mediadeck-preview-ascii';

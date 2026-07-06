@@ -58,6 +58,7 @@ export const TYPES = {
     vsGain: 1600,         // how hard excess lift converts to vertical speed
     vsTau: 1.0,           // vertical inertia (s) — vs eases toward its target; lower = climbs out off the ground faster
     ceiling: 7500,        // service ceiling (ft) — climb performance fades to zero here (thin air)
+    bestGlide: 49,        // best-glide (max-range) speed (kt) — the yoke light glows BLUE here in a dead-stick glide
   },
 
   // ── Phase 3 fixed-wing fleet ────────────────────────────────────────────────
@@ -73,7 +74,7 @@ export const TYPES = {
     pitchRate: 8, pitchTau: 0.8, rollRate: 40, rollTau: 0.7, engineLag: 1.7,
     pitchStable: 0.88, rollStable: 1.0, dragP: 0.00090, flapDrag: 0.65, flapLift: 0.5, flapVs: 0.24,
     rollFric: 1.4, aoaCrit: 18, liftScale: 1.0, vsMax: 1800, vsGain: 1600, vsTau: 0.95,
-    brake: 6.0, groundSteer: 26, ceiling: 12000,
+    brake: 6.0, groundSteer: 26, ceiling: 12000, bestGlide: 65,
   },
   // Leviathan — 4-engine heavy-lift freighter, an ANTONOV AN-124 RUSLAN analogue: HEAVY first —
   // ponderous to accelerate and steer, a long roll, an unremarkable level cruise (no faster
@@ -87,6 +88,10 @@ export const TYPES = {
     pitchStable: 0.7, rollStable: 0.85, dragP: 0.00065, flapDrag: 0.7, flapLift: 0.45, flapVs: 0.2,
     rollFric: 1.2, aoaCrit: 16, liftScale: 1.0, vsMax: 1600, vsGain: 1600, vsTau: 1.35,
     brake: 8.0, groundSteer: 16, ceiling: 18000,   // cruises high, above the weather — the fleet's highest ceiling
+    // The slippery, low-drag airframe would otherwise float ~34:1 dead-stick (albatross-like for
+    // a heavy freighter). A touch of dead-stick induced drag brings the engine-out glide to a
+    // believable ~13:1 without touching its (powered) cruise or climb. Best glide ~89 kt.
+    glideDrag: 0.0019, bestGlide: 89,
   },
   // Reaper — a Fairchild A-10 WARTHOG analogue: the gun IS the plane. NOT a fighter —
   // slow, draggy and heavy, but a rock-stable low-level platform that loiters over the
@@ -97,7 +102,7 @@ export const TYPES = {
     pitchRate: 9, pitchTau: 0.7, rollRate: 58, rollTau: 0.6, engineLag: 1.5,
     pitchStable: 1.1, rollStable: 1.3, dragP: 0.00110, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
     rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 1500, vsGain: 1600, vsTau: 1.0,
-    brake: 7.5, groundSteer: 28, ceiling: 12000,
+    brake: 7.5, groundSteer: 28, ceiling: 12000, bestGlide: 69,
   },
   // Dragonfly — a REVOLUTION MINI 500 analogue: a tiny single-rotor kit helicopter. Light,
   // darty and gets into tight spots (huge cyclic + pedal authority, spins on the spot in a
@@ -129,7 +134,7 @@ export const TYPES = {
     pitchRate: 10, pitchTau: 0.5, rollRate: 50, rollTau: 0.5, engineLag: 1.5,
     pitchStable: 0.7, rollStable: 0.8, dragP: 0.00120, flapDrag: 0.55, flapLift: 0.32, flapVs: 0.17,
     rollFric: 1.7, aoaCrit: 17, liftScale: 0.95, vsMax: 760, vsGain: 1500, vsTau: 1.0,
-    brake: 5.0, groundSteer: 30, ceiling: 6000,
+    brake: 5.0, groundSteer: 30, ceiling: 6000, bestGlide: 45,
   },
 };
 
@@ -387,8 +392,9 @@ export function step(state, input, p, dt) {
 
   // 8. Airspeed: thrust − drag − the gravity component of pitch (climbing bleeds
   //    speed) − ground friction while rolling.
-  const drag = (p.dragP + flaps * p.flapDrag * 0.0016) * s.airspeed * s.airspeed
-             + s.aoa * s.aoa * 0.0016 * s.airspeed;              // induced drag ∝ AoA² — a hard pull bleeds speed fast, a gentle climb barely at all
+  const drag = (p.dragP + flaps * p.flapDrag * 0.0016) * s.airspeed * s.airspeed  // parasitic drag ∝ V²
+             + s.aoa * s.aoa * 0.0016 * s.airspeed                               // profile-drag rise with a hard pull
+             + (p.glideDrag || 0) * Math.max(0, 1 - s.rpm / 0.4) * (weight * weight) / (s.airspeed * s.airspeed + 40);   // DEAD-STICK induced drag (∝ 1/V²): engages only as the powerplant winds down toward idle (rpm below ~0.4), full at a stopped/windmilling engine. It penalises the SLOW end of a glide, so best-glide sits at a sensible speed with a realistic ratio instead of floating forever just above the stall — and because it's gated to low rpm it leaves ALL powered cruise/climb untouched. Per-type; unset ⇒ 0 (legacy floaty glide).
   const grav = G_KT * Math.sin(s.pitch * D2R);
   // Ground friction: idle rolling drag, plus wheel brakes from FORWARD pressure (push the
   // yoke, elevator < 0). Pushing also pins the nose to the runway, so braking never fights

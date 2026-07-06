@@ -8,7 +8,7 @@
     "buy", "rent", "charter", "cancel", "testfly", "flight", "fs",
     "arm", "safe", "evade", "strafe", "fire", "strafresolve", "airfire",
     "contracts", "jobs", "accept", "manifest", "jettison",
-    "hangar", "showroom", "view", "hangaract", "paintset", "scheme", "repair", "salvage", "rebuild", "tune", "modify", "customize", "loadout",
+    "hangar", "showroom", "fleet", "carousel", "view", "hangaract", "paintset", "scheme", "repair", "salvage", "rebuild", "tune", "modify", "customize", "loadout",
     "examine", "look"
   ],
   "objectGatedCommands": {
@@ -21,6 +21,8 @@
     "accept":    { "discoverVia": "zone:airfield_id", "exposed": false, "note": "KNOWN GAP: zone-flag gate." },
     "hangar":    { "discoverVia": "zone:airfield_id", "exposed": false, "note": "KNOWN GAP: zone-flag gate." },
     "showroom":  { "discoverVia": "zone:airfield_id", "exposed": false, "note": "Alias for `hangar` open — the 3D turntable view; surfaced via the hangar-interior room hint." },
+    "fleet":     { "discoverVia": "zone:airfield_id", "exposed": false, "note": "Full-pane 3D lazy-susan carousel of the aircraft you own at this field; own none at a dealer field and it shows the buy roster instead." },
+    "carousel":  { "discoverVia": "zone:airfield_id", "exposed": false, "note": "Alias of `fleet`." },
     "view":      { "discoverVia": "none", "exposed": false, "note": "`view <tail>` opens the showroom pre-selected on one craft; generic verb, returns undefined off-field to fall through rather than hijack it." },
     "repair":    { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: owned aircraft row + zone flag airfield_id; shadows the engine gear-repair builtin and falls through when no craft." },
     "salvage":   { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: wreck aircraft row (is_wreck=1) in zone; not examinable furniture." },

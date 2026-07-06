@@ -19,7 +19,8 @@
     "south": "zone_meat_ashpit"
   },
   "flags": {
-    "scavenging_table_id": null
+    "scavenging_table_id": null,
+    "street_life": true
   },
   "grid_x": 4,
   "grid_y": 1,

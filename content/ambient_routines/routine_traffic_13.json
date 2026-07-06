@@ -1,0 +1,16 @@
+{
+  "category": "traffic",
+  "enabled": true,
+  "id": "routine_traffic_13",
+  "interactive": null,
+  "lines": [
+    "A convoy of cargo haulers grinds past, tyres hissing on wet ferrocrete."
+  ],
+  "loudness": 1,
+  "phases": [],
+  "sort_order": 13,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": []
+}

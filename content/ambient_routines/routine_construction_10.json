@@ -1,0 +1,19 @@
+{
+  "category": "construction",
+  "enabled": true,
+  "id": "routine_construction_10",
+  "interactive": null,
+  "lines": [
+    "A rivet gun stutters somewhere overhead — three bursts, a pause, three more."
+  ],
+  "loudness": 1.2,
+  "phases": [
+    "day",
+    "dusk"
+  ],
+  "sort_order": 10,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": []
+}

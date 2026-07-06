@@ -1,0 +1,31 @@
+{
+  "category": "kids",
+  "enabled": true,
+  "id": "routine_kids_2",
+  "interactive": null,
+  "lines": [
+    "Two kids square off over the rules of a game only they understand.",
+    "One shoves the other; both are laughing again before the dust settles."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk"
+  ],
+  "sort_order": 2,
+  "themes": [],
+  "weather": [
+    "clear",
+    "cloudy",
+    "overcast",
+    "haze"
+  ],
+  "weight": 60,
+  "zones": [
+    "zone_city_west",
+    "zone_city_north",
+    "zone_mq_marquee",
+    "zone_civ_commons",
+    "zone_media_plaza"
+  ]
+}

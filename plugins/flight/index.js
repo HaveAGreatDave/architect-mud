@@ -23,7 +23,7 @@ import {
   advance, initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
   ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme,
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
-  RENTAL_BILL_MS, rentalOpFee, fieldFor,
+  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield,
 } from './state.js';
 import { describeExterior, rampColorWord, conspicuousnessMult } from './livery.js';
 import { rollHazards, commands as hazardCommands } from './hazards.js';
@@ -460,6 +460,29 @@ async function cmdFlightSync(args, raw, player) {
   return { type: 'noop' };
 }
 
+// Tow an off-strip landing home. The craft set down away from a field but under the
+// crash threshold, so she's fine — the hangar dispatches a recovery crew, parks her at
+// the field she flew out of (or the nearest one), and bills the pilot a retrieval fee
+// scaled to the airframe's value. Short on credits? We garnish what you have — the
+// aircraft still comes back; consider the rest a debt to your dignity.
+async function retrieveOffField(live, player) {
+  const spot = surfaceAt(live.row.grid_x, live.row.grid_y);
+  const home = (live.homeField && getZone(live.homeField)?.flags?.airfield_id)
+    ? { id: live.homeField, name: getZone(live.homeField).flags.airfield_name || getZone(live.homeField).name }
+    : nearestAirfield(live.row.grid_x, live.row.grid_y);
+  const fee = Math.max(120, Math.round((live.type.price_buy || 400) * 0.05));
+  const paid = Math.min(player.credits || 0, fee);
+  player.credits = Math.max(0, (player.credits || 0) - fee);
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  const where = spot?.name || 'open country';
+  // No airfield in the world to tow to (shouldn't happen) — just leave her parked where she sits.
+  const dest = home?.id || spot?.id || live.row.parked_zone_id;
+  await parkAt(live, dest);
+  out(player.id, `<span class="text-amber">You set the ${live.type.name} down clean, but this is no airstrip — you've put down in ${where}.</span> ` +
+    `<span class="item-grant">A hangar recovery crew tows her back to ${home?.name || 'the field'} and hands you the bill: <b>${fee}c</b> for the retrieval${paid < fee ? ` (only ${paid}c of it covered — the rest is owed)` : ''}.</span>`);
+}
+
 async function cmdFlightEvent(args, raw, player, broadcast) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
   if (!live || player.seat !== 'pilot' || !isContinuous(live)) return { type: 'noop' };
@@ -468,6 +491,9 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
   if (ev === 'takeoff') {
     if (live.row.airborne) return { type: 'noop' };
     const zone = getZone(live.row.parked_zone_id);
+    // Remember where she left from, so an off-strip landing can be towed home to a field
+    // the player actually uses (falls back to the nearest airfield if this is ever lost).
+    if (zone?.flags?.airfield_id) live.homeField = zone.id;
     live.row.airborne = 1; live.row.parked_zone_id = null; live.starving = false; live.runup = false; live.rolloutField = null;
     initFloat(live);
     for (const pid of live.occupants) {
@@ -489,18 +515,43 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     // fall back to the airfield we actually touched down on (recorded while grounded over it).
     if (!field?.flags?.airfield_id && live.rolloutField) field = getZone(live.rolloutField);
     // Fixed-wing sets down on a real airfield; a VTOL (the Dragonfly) can flare onto any
-    // cleared surface tile below it. Nothing solid below either way ⇒ a crash.
+    // cleared surface tile below it.
     const isVtol = live.type.takeoff_mode === 'vtol';
-    if (!(field?.flags?.airfield_id || (isVtol && field))) { await crash(live, 'offfield'); return { type: 'noop' }; }
-    await parkAt(live, field.id);
-    await awardSkillUse(player.id, 'piloting', 0);
-    await checkContractDelivery(player, live, field.id);
+    // Open water is no place to set her down — nothing in the fleet has floats, so ditching
+    // in the bay is a crash, not a courtesy tow (mirrors the `flags.water` "needs a boat"
+    // rule on the ground). An airfield tile is never water, so this only bites off-strip.
+    if (field && !field.flags?.airfield_id && field.flags?.water) { await crash(live, 'ditched'); return { type: 'noop' }; }
+    if (field?.flags?.airfield_id || (isVtol && field)) {
+      await parkAt(live, field.id);
+      await awardSkillUse(player.id, 'piloting', 0);
+      await checkContractDelivery(player, live, field.id);
+      return { type: 'noop' };
+    }
+    // Off-strip, but she made it down in one piece: the client only sends `land` for a
+    // survivable touchdown (a sink >600 fpm reports `crash hardlanding` instead). So a
+    // fixed-wing that put down in a field/street doesn't die — the hangar sends a crew to
+    // tow her back and bills you for the retrieval. Nothing solid below at all (open water/
+    // the void off the map edge) is still a crash — there's nowhere to set down.
+    if (field) { await retrieveOffField(live, player); return { type: 'noop' }; }
+    await crash(live, 'offfield');
     return { type: 'noop' };
   }
 
   if (ev === 'crash') {
     if (!liveAircraft.has(live.row.id)) return { type: 'noop' };
     await crash(live, (args[1] || 'crash').slice(0, 24));
+    return { type: 'noop' };
+  }
+
+  // A glancing building clip (survivable CFIT hit reported by the sim): real hull damage,
+  // and if it tips her past the edge she goes down as a controlled-flight-into-terrain loss.
+  if (ev === 'clip') {
+    if (!live.row.airborne) return { type: 'noop' };
+    live.row.damage = Math.min(1, (live.row.damage || 0) + 0.2);
+    out(player.id, '<span class="text-amber">You clip a rooftop — the airframe shudders and something tears.</span>');
+    if (live.row.damage >= 1) { await crash(live, 'cfit'); return { type: 'noop' }; }
+    await persist(live);
+    pushHud(live);
     return { type: 'noop' };
   }
 

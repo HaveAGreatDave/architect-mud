@@ -1,0 +1,19 @@
+{
+  "category": "construction",
+  "enabled": true,
+  "id": "routine_construction_11",
+  "interactive": null,
+  "lines": [
+    "Sparks rain from a scaffold as someone welds a plate back onto the world."
+  ],
+  "loudness": 1.2,
+  "phases": [
+    "day",
+    "dusk"
+  ],
+  "sort_order": 11,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": []
+}

@@ -1,0 +1,16 @@
+{
+  "category": "dogs",
+  "enabled": true,
+  "id": "routine_dogs_26",
+  "interactive": null,
+  "lines": [
+    "Something four-legged and unhappy howls in the middle distance."
+  ],
+  "loudness": 0.8,
+  "phases": [],
+  "sort_order": 26,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": []
+}

@@ -124,6 +124,21 @@ const FAMILIES = {
   },
 };
 
+// Dev form-changer (cooktest): every FORM maps to one of the four family minigames.
+const FORM_FAMILY = { liquid: 'wet', gel: 'wet', paste: 'wet', powder: 'solids', pill: 'solids', crystal: 'solids', gas: 'gas', leaf: 'botanical', blotter: 'botanical' };
+const TEST_FORMS = ['liquid', 'gel', 'paste', 'powder', 'pill', 'crystal', 'gas', 'leaf', 'blotter'];
+const DEFAULT_FORM = { wet: 'liquid', solids: 'powder', gas: 'gas', botanical: 'leaf' };
+// A bottom toolbar of the nine forms — click one to relaunch the test on its family
+// minigame. Present only in dev cooktest.
+function buildFormChanger(g) {
+  const cur = g.opts.form || DEFAULT_FORM[g.family];
+  const w = 66, gap = 6, n = TEST_FORMS.length, x0 = (W - (n * w + (n - 1) * gap)) / 2;
+  TEST_FORMS.forEach((f, i) => {
+    const b = g.lab.mkBtn(f, `left:${Math.round(x0 + i * (w + gap))}px;bottom:12px;min-width:${w}px;padding:5px 2px;font-size:9px`, f === cur ? '' : 'ghost');
+    b.onclick = () => { AX.click(); openSynthMinigame({ family: FORM_FAMILY[f], form: f, difficulty: g.difficulty, recipeName: 'TEST · ' + f.toUpperCase(), test: true, onResult: g.opts.onResult }); };
+  });
+}
+
 export function openSynthMinigame(opts = {}) {
   closeSynth();
   const family = FAMILIES[opts.family] ? opts.family : 'wet';
@@ -134,6 +149,7 @@ export function openSynthMinigame(opts = {}) {
     workScore: 0, quenchT: 0, quenchTapped: false, quenchDur: 1.4, result: null, resultT: 0, _resolved: false, _label: fam.label, beaker: { x: W / 2, y: H * 0.48, w: 120, h: 220 } };
   fam.init(_g);
   wireCook(_g);
+  if (opts.test) buildFormChanger(_g);
   _g.lab.ticker(fam.label);
   _g.raf = requestAnimationFrame(cookLoop);
 }
@@ -162,6 +178,7 @@ function cookLoop(now) {
     // the face that surfaces in the cook glass, and a CHIMERA-9 status readout
     ghostReflection(g.beaker.x, g.beaker.y - g.beaker.h * 0.16, 1.1, g.t, 1.1);
     drawLCD(W - 152, 18, 132, 24, (g._label || 'SYNTH').toUpperCase(), '#5fd0e0', 'CHIMERA-9');
+    if (g.opts.test) { G.save(); G.fillStyle = 'rgba(150,180,175,.55)'; G.font = '9px monospace'; G.textAlign = 'center'; G.fillText('DEV · CHANGE FORM ↓', W / 2, H - 40); G.restore(); }
   }
   if (g.phase === 'quench') drawQuench(g);
   if (g.phase === 'done') drawDone(g);
@@ -170,7 +187,9 @@ function cookLoop(now) {
 function update(g, dt) {
   if (g.phase === 'work') FAMILIES[g.family].update(g, dt);
   else if (g.phase === 'quench') { g.quenchT += dt; if (g.quenchT > g.quenchDur && !g.quenchTapped) finishCook(g, 'MISS', -0.08); }
-  else if (g.phase === 'done') { g.resultT += dt; if (g.resultT > 1.15 && !g._resolved) { g._resolved = true; const cb = g.opts.onResult, score = g.result.score; g.lab.close(); if (cb) cb({ score }); } }
+  else if (g.phase === 'done') { g.resultT += dt; if (g.resultT > 1.15 && !g._resolved) { g._resolved = true;
+    if (g.opts.test) { openSynthMinigame({ family: g.family, form: g.opts.form, difficulty: g.difficulty, recipeName: g.opts.recipeName, test: true, onResult: g.opts.onResult }); return; }  // dev loop — replay so you can keep switching forms
+    const cb = g.opts.onResult, score = g.result.score; g.lab.close(); if (cb) cb({ score }); } }
 }
 function quenchStrike(g) {
   if (g.quenchTapped || g.phase !== 'quench') return; g.quenchTapped = true;

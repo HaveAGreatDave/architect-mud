@@ -1,0 +1,20 @@
+{
+  "category": "vendors",
+  "enabled": true,
+  "id": "routine_vendors_20",
+  "interactive": null,
+  "lines": [
+    "Steam and the smell of scorched fat roll off a griddle cart down the way."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 20,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": []
+}

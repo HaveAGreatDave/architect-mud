@@ -1,0 +1,16 @@
+{
+  "category": "drones",
+  "enabled": true,
+  "id": "routine_drones_4",
+  "interactive": null,
+  "lines": [
+    "A delivery drone whirs low overhead, rotors buzzing, and banks away to the north."
+  ],
+  "loudness": 0.9,
+  "phases": [],
+  "sort_order": 4,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": []
+}

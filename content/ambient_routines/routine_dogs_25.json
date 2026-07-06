@@ -1,0 +1,16 @@
+{
+  "category": "dogs",
+  "enabled": true,
+  "id": "routine_dogs_25",
+  "interactive": null,
+  "lines": [
+    "A dog barks itself hoarse behind a fence, setting two more off streets away."
+  ],
+  "loudness": 0.8,
+  "phases": [],
+  "sort_order": 25,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": []
+}

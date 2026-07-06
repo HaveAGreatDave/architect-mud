@@ -1,0 +1,16 @@
+{
+  "category": "dogs",
+  "enabled": true,
+  "id": "routine_dogs_27",
+  "interactive": null,
+  "lines": [
+    "A pack of strays scatters through an alley, snarling over something not worth it."
+  ],
+  "loudness": 0.8,
+  "phases": [],
+  "sort_order": 27,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": []
+}

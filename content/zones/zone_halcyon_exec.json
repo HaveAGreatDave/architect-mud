@@ -6,23 +6,24 @@
   "color": "#eae6f0",
   "created_by": null,
   "danger_rating": "safe",
-  "description": "Below the lobby, behind a door that reads you before you reach it: the executive floor. Deep carpet, a bar no one is invited to, and a corner office with a view arranged so its occupant looks down on the whole arcology — which, one is reminded, they insure, and therefore in a sense own.",
+  "description": "The top of the tower, behind a door that reads you before you reach it: the executive floor. Deep carpet, a bar no one is invited to, and a corner office with a view arranged so its occupant looks down on the whole arcology — which, one is reminded, they insure, and therefore in a sense own.",
   "exits": {
-    "up": "zone_halcyon_lobby"
+    "in": "zone_halcyon_elevator"
   },
   "flags": {
-    "building_name": "Halcyon Assurance",
-    "building_type": "corporate_office"
+    "building_name": "Halcyon Towers",
+    "building_type": "corporate_office",
+    "is_interior": true
   },
-  "grid_x": -1,
-  "grid_y": -1,
-  "grid_z": 0,
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 6,
   "id": "zone_halcyon_exec",
   "is_safe_zone": 1,
   "map_id": "map_int_halcyon",
   "marker": "EX",
   "name": "Halcyon Assurance — Executive Floor",
-  "parent_zone": null,
+  "parent_zone": "zone_halcyon_lobby",
   "pvp_enabled": 0,
   "radiation_level": 0,
   "updated_at": "1783316802"

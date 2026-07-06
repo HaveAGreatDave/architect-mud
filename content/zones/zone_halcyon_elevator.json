@@ -1,0 +1,68 @@
+{
+  "ambient_events": [
+    "The floor-number display ticks over and resettles.",
+    "Somewhere in the shaft, a cable sings a single low note.",
+    "The doors twitch, reconsider, and stay shut."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2c2340",
+  "color": "#eae6f0",
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "The elevator car — a mirrored box of brushed steel and warm downlight, floor smelling faintly of citrus polish. A brass rail runs waist-high around three walls, and a column of numbered buttons glows beside the door, waiting for a floor. A small screen overhead reads HALCYON TOWERS and, below it, the current car position. Step <b>out</b> to return to the Grand Lobby.",
+  "exits": {
+    "out": "zone_halcyon_lobby",
+    "up": [
+      "zone_halcyon_concourse",
+      "zone_halcyon_underwriting",
+      "zone_halcyon_claims",
+      "zone_halcyon_residences",
+      "zone_halcyon_exec"
+    ]
+  },
+  "flags": {
+    "building_name": "Halcyon Towers",
+    "elevator": true,
+    "elevator_floors": [
+      {
+        "label": "Halcyon Arcade",
+        "n": 50,
+        "zone": "zone_halcyon_concourse"
+      },
+      {
+        "label": "Underwriting — Insurance",
+        "n": 51,
+        "zone": "zone_halcyon_underwriting"
+      },
+      {
+        "label": "Claims — Insurance",
+        "n": 52,
+        "zone": "zone_halcyon_claims"
+      },
+      {
+        "label": "Sky Hall Residences",
+        "n": 53,
+        "zone": "zone_halcyon_residences"
+      },
+      {
+        "label": "Executive Suite",
+        "n": 54,
+        "zone": "zone_halcyon_exec"
+      }
+    ],
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_halcyon_elevator",
+  "is_safe_zone": 1,
+  "map_id": "map_int_halcyon",
+  "marker": "EL",
+  "name": "Halcyon Towers — Elevator",
+  "parent_zone": "zone_halcyon_lobby",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783400000"
+}

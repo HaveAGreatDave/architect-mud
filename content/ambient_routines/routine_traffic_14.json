@@ -1,0 +1,16 @@
+{
+  "category": "traffic",
+  "enabled": true,
+  "id": "routine_traffic_14",
+  "interactive": null,
+  "lines": [
+    "An autocab slews around the corner, horn blaring at nothing, and is gone."
+  ],
+  "loudness": 1,
+  "phases": [],
+  "sort_order": 14,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": []
+}

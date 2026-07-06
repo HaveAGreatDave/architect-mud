@@ -21,7 +21,8 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "scavenging_table_id": "scav_consumer_trash"
+    "scavenging_table_id": "scav_consumer_trash",
+    "street_life": true
   },
   "grid_x": -3,
   "grid_y": -3,

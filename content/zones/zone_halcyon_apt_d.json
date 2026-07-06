@@ -16,14 +16,14 @@
     "is_interior": true
   },
   "grid_x": -1,
-  "grid_y": 1,
-  "grid_z": 0,
+  "grid_y": 0,
+  "grid_z": 4,
   "id": "zone_halcyon_apt_d",
   "is_safe_zone": 1,
   "map_id": "map_int_halcyon",
   "marker": "41",
   "name": "Halcyon Residence 41-D",
-  "parent_zone": null,
+  "parent_zone": "zone_halcyon_residences",
   "pvp_enabled": 0,
   "radiation_level": 0,
   "updated_at": "1783356329"

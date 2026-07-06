@@ -21,6 +21,7 @@
       "hunger": -6,
       "sanity": -6
     },
+    "onset_seconds": 25,
     "tolerance": {
       "gain_per_dose": 0.3,
       "max_reduction": 0.9

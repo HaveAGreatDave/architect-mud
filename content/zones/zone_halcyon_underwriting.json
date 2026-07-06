@@ -8,21 +8,22 @@
   "danger_rating": "safe",
   "description": "A long marble counter under recessed light, staffed by people trained to say no beautifully. Screens behind the desk cycle agreed values, premiums, and the small print no one reads until it is far too late. This is where you <b>insure</b> an aircraft.",
   "exits": {
-    "south": "zone_halcyon_lobby"
+    "in": "zone_halcyon_elevator"
   },
   "flags": {
-    "building_name": "Halcyon Assurance",
-    "insurance_desk": true
+    "building_name": "Halcyon Towers",
+    "insurance_desk": true,
+    "is_interior": true
   },
   "grid_x": 0,
-  "grid_y": -1,
-  "grid_z": 0,
+  "grid_y": 0,
+  "grid_z": 2,
   "id": "zone_halcyon_underwriting",
   "is_safe_zone": 1,
   "map_id": "map_int_halcyon",
   "marker": "UW",
   "name": "Halcyon Assurance — Underwriting",
-  "parent_zone": null,
+  "parent_zone": "zone_halcyon_lobby",
   "pvp_enabled": 0,
   "radiation_level": 0,
   "updated_at": "1783316802"

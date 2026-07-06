@@ -18,16 +18,39 @@ import { isMisActive } from '../../server/engine/mis.js';
 import { getZonePlayers, getZoneEnemies, getZoneNpcs, getAllLivePlayers } from '../../server/engine/world.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
+import { registerStatusEffect, applyEffect } from '../../server/engine/effects.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { setPosture } from '../../server/engine/posture.js';
 import { emit, on } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+
+// What counts as a toilet. Historically this only checked object_type==='toilet'
+// or a flags.toilet key, but most toilet furniture in content is typed 'furniture'
+// or 'fixture' with neither — so relief, flush, and the fouled/peed describe line
+// all silently missed them. Recognise a toilet by name too, so any furniture
+// named "…toilet…" just works whether or not the dev remembered to tag it.
+// SQL-side callers use TOILET_SQL to match the same three ways.
+export const isToilet = (f) =>
+  f?.object_type === 'toilet' || !!f?.flags?.toilet || /\btoilet\b/i.test(f?.name || '');
+const TOILET_SQL = `(object_type='toilet' OR jsonb_exists(flags,'toilet') OR name ILIKE '%toilet%')`;
 
 // Runtime-only state. A toilet stays fouled (poop) / full of piss until flushed;
 // toiletSessions guards against starting a toilet routine twice at once.
 const fouledToilets  = new Set(); // furniture id — unflushed poop
 const peedToilets    = new Set(); // furniture id — unflushed piss
 const toiletSessions = new Map(); // playerId -> { mode, target, zoneId, seated, sitOn, droppedLegs, timers }
+
+// Foul / un-foul a toilet by furniture id. finishRelief fouls it; flush clears
+// it. Contamination (the describe line + the water/fillable sickness) is derived
+// live from these two sets, so clearing them here removes the pee, the poo, and
+// thus the contamination in one shot. Exported so the round-trip is testable.
+export function foulToilet(id, mode) {
+  (mode === 'poop' ? fouledToilets : peedToilets).add(id);
+}
+export function clearToiletFilth(id) {
+  fouledToilets.delete(id);
+  peedToilets.delete(id);
+}
 
 // Disconnecting mid-routine cleanly cancels it: the live player object is about
 // to be dropped (removeLivePlayer), so the setTimeout closures would otherwise
@@ -268,7 +291,7 @@ async function relieveBowels(player, hasFacility, broadcast, target = null) {
 
 async function getToilet(zoneId) {
   const { rows } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND (object_type='toilet' OR jsonb_exists(flags,'toilet')) LIMIT 1`,
+    `SELECT * FROM furniture WHERE zone_id=$1 AND ${TOILET_SQL} LIMIT 1`,
     [zoneId]
   );
   return rows[0] || null;
@@ -460,7 +483,7 @@ async function finishRelief(player, session) {
 
   if (target.kind === 'toilet') {
     result = await relieve(player, true, broadcast);
-    (isPoop ? fouledToilets : peedToilets).add(target.furniture.id);
+    foulToilet(target.furniture.id, mode);
   } else if (target.kind === 'furniture') {
     result = await relieve(player, false, broadcast, { type: 'furniture', name: target.furniture.name });
   } else if (target.kind === 'creature') {
@@ -577,8 +600,7 @@ async function resolveBodilyTarget(args, player, dispatchType) {
   );
   if (furniture.length) {
     const f = furniture[0];
-    const isToilet = f.object_type === 'toilet' || f.flags?.toilet;
-    return { kind: isToilet ? 'toilet' : 'furniture', furniture: f };
+    return { kind: isToilet(f) ? 'toilet' : 'furniture', furniture: f };
   }
 
   return { kind: 'notfound', str };
@@ -600,27 +622,79 @@ const cmdPoop = (args, player, broadcast) => cmdRelief('poop', args, player, bro
 
 async function cmdFlush(args, player) {
   const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND (object_type='toilet' OR jsonb_exists(flags,'toilet')) LIMIT 1`,
+    `SELECT id FROM furniture WHERE zone_id=$1 AND ${TOILET_SQL}`,
     [player.current_zone]
   );
   if (!rows.length) return { type:'error', message:`There's no toilet here to flush.` };
-  fouledToilets.delete(rows[0].id);
-  peedToilets.delete(rows[0].id);
+  // Was any toilet here actually fouled? Clear every toilet in the room so none
+  // is left dirty — this wipes the pee, the poo, and thus the water contamination.
+  const wasDirty = rows.some(r => fouledToilets.has(r.id) || peedToilets.has(r.id));
+  for (const r of rows) clearToiletFilth(r.id);
   emit('bodily.sfx', { zoneId: player.current_zone, cue: 'flush' });
-  return { type:'output', message:`You flush. The sound is deeply satisfying.` };
+  return {
+    type: 'output',
+    message: wasDirty
+      ? `You flush. The mess swirls away and the water runs clean again.`
+      : `You flush. The sound is deeply satisfying.`,
+  };
 }
 
 // An unflushed toilet reads that way on a look, until someone flushes it.
 export const hooks = {
   'furniture.describe': (f) => {
-    const isToilet = f.object_type === 'toilet' || f.flags?.toilet;
-    if (!isToilet) return undefined;
+    if (!isToilet(f)) return undefined;
     const lines = [];
     if (fouledToilets.has(f.id)) lines.push(`Someone left a grim deposit behind and never flushed.`);
     if (peedToilets.has(f.id))   lines.push(`The bowl is full of stale, unflushed piss.`);
     return lines.length ? `<span style="color:var(--red)">${lines.join(' ')}</span>` : undefined;
   },
 };
+
+// ── Contaminated water ───────────────────────────────────────────────────────
+// A toilet keeps its water_source capability (you can still drink/fill from it),
+// but once it's been peed/pooped in and not flushed, that water is foul. The
+// fouled/peed state lives in the runtime Sets above; the water + fillable plugins
+// don't import them — they ask over the action registry. Drinking foul water
+// still slakes thirst (you did swallow it), but you catch something for it.
+
+// Dysentery from foul water: nausea saps stamina, then cramps bite HP. ~40s.
+registerStatusEffect({
+  name: 'sick',
+  label: 'Sick',
+  onTick(player) {
+    const cur = player.stamina ?? (player.stamina_max ?? 100);
+    if (cur > 0) { player.stamina = Math.max(0, cur - 3); return 'Your stomach churns violently. (-3 STA)'; }
+    player.hp = Math.max(0, player.hp - 1);
+    return 'You retch, doubled over with cramps. (-1 HP)';
+  },
+});
+
+// Query: is this toilet (by furniture id) currently fouled? Returns booleans so a
+// caller can tailor the flavour ("piss", "worse") without touching the Sets.
+registerAction({
+  type: 'bodily.toiletContamination',
+  handler: ({ params }) => {
+    const id = params.furnitureId;
+    return { type: 'data', fouled: fouledToilets.has(id), peed: peedToilets.has(id) };
+  },
+});
+
+// Effect: swallow foul water. Applies the sickness and returns the flavour line
+// (tailored by which contamination is present). Callers append it to their own
+// "you drink" message.
+registerAction({
+  type: 'bodily.drinkContaminated',
+  handler: ({ actor, params }) => {
+    applyEffect(actor, 'sick', 40);
+    const worse = params.fouled;
+    return {
+      type: 'data',
+      message: worse
+        ? `<span style="color:var(--red)">It's fouled with someone's leavings. You gag it down anyway. Your gut lurches in protest — this was a mistake.</span>`
+        : `<span style="color:var(--red)">The water is warm, stale, and reeks of piss. You drink it anyway, and immediately regret it.</span>`,
+    };
+  },
+});
 
 // SIFT selection replays for the on-creature variants (candidates are always
 // creatures — players/enemies/NPCs — so the pick is a creature target).
@@ -639,7 +713,7 @@ registerAction({
 
 async function cmdUseToilet(player) {
   const { rows } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND (object_type='toilet' OR jsonb_exists(flags,'toilet')) LIMIT 1`,
+    `SELECT * FROM furniture WHERE zone_id=$1 AND ${TOILET_SQL} LIMIT 1`,
     [player.current_zone]
   );
   if (!rows.length) return undefined;

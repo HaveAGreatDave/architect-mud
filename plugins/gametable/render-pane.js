@@ -183,8 +183,11 @@ export function renderPane(table, viewerId) {
       const canCheck = !!(myGs && game && myGs.bet >= game.currentBet);
       parts.push(pbtn('check', 'check', { disabled: !myTurn || !canCheck }));
       parts.push(pbtn('call',  'call',  { disabled: !myTurn || canCheck }));
-      parts.push(pbtn('bet',   'bet',   { fill: true, disabled: !myTurn }));
-      parts.push(pbtn('raise', 'raise', { fill: true, disabled: !myTurn }));
+      // One wager button: it's a "bet" when you're opening (nothing to call), a
+      // "raise" when facing a bet. The verb tracks the label so the action bubble
+      // reads correctly — the engine treats bet/raise identically.
+      const wager = canCheck ? 'bet' : 'raise';
+      parts.push(pbtn(wager, wager, { fill: true, disabled: !myTurn }));
       parts.push(pbtn('fold',  'fold',  { disabled: !myTurn }));
       parts.push(pbtn('all-in','allin', { disabled: !myTurn }));
       // One-click ways to fill the table: an AI opponent, or the dealer if he's stepped away.

@@ -1,0 +1,17 @@
+{
+  "category": "drones",
+  "enabled": true,
+  "id": "routine_drones_6",
+  "interactive": null,
+  "lines": [
+    "A delivery drone descends on a stuttering rotor, a parcel clutched underneath.",
+    "It drops the box on a doorstep, chirps once, and climbs back into the haze."
+  ],
+  "loudness": 0.9,
+  "phases": [],
+  "sort_order": 6,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}

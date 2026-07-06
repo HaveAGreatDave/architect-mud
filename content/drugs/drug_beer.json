@@ -9,6 +9,7 @@
       "sanity": 3,
       "thirst": 12
     },
+    "onset_seconds": 0,
     "overdose": {
       "lethal": true,
       "message": "You've had far too much, far too fast. The room spins hard, your stomach heaves, and then everything just… stops. Alcohol poisoning."

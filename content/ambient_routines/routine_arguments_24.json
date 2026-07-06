@@ -1,0 +1,19 @@
+{
+  "category": "arguments",
+  "enabled": true,
+  "id": "routine_arguments_24",
+  "interactive": null,
+  "lines": [
+    "Somewhere above, a window bangs open and someone screams a name into the street."
+  ],
+  "loudness": 0.6,
+  "phases": [
+    "dusk",
+    "night"
+  ],
+  "sort_order": 24,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": []
+}

@@ -1,0 +1,22 @@
+{
+  "category": "arguments",
+  "enabled": true,
+  "id": "routine_arguments_22",
+  "interactive": null,
+  "lines": [
+    "Two voices rise nearby — a disagreement finding its edge.",
+    "\"That's not what you said!\" one of them snaps. The other laughs, which helps nothing.",
+    "A door slams. The street pretends it heard nothing."
+  ],
+  "loudness": 0.5,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 22,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}

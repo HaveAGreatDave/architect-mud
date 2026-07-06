@@ -18,6 +18,7 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { tagValue } from '../../server/engine/tags.js';
 import { applyThirst } from '../../server/engine/bodily.js';
+import { dispatchAction } from '../../server/engine/actions.js';
 
 // Thirst restored per fluid unit, keyed by fluid type. Only water exists today.
 const FLUID_RATES = { water: 1 };
@@ -46,7 +47,7 @@ async function fill(args, raw, player) {
     `SELECT name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'fuel_source') LIMIT 1`,
     [player.current_zone]);
   const { rows: waterSrc } = await query(
-    `SELECT name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'water_source') LIMIT 1`,
+    `SELECT id, name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'water_source') LIMIT 1`,
     [player.current_zone]);
   if (!fuelSrc.length && !waterSrc.length)
     return { type:'error', message:`There's nothing here to fill the ${c.name} from.` };
@@ -69,6 +70,14 @@ async function fill(args, raw, player) {
 
   const cap = tagValue(c, 'fillable', 0);
 
+  // Water drawn from a fouled/peed toilet is foul — tag it so drinking it later
+  // sickens, instead of the fouling silently vanishing into a clean canteen.
+  let contaminated = false;
+  if (fluidType === 'water' && waterSrc.length) {
+    const contam = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: waterSrc[0].id } });
+    contaminated = !!(contam?.fouled || contam?.peed);
+  }
+
   // Filling makes the unit non-empty (unique). If it's part of a stack of
   // empties, split one off so only that unit gets filled.
   let invId = c.id;
@@ -79,9 +88,13 @@ async function fill(args, raw, player) {
       [invId, player.id, c.item_id]);
   }
   await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || $1::jsonb WHERE id=$2`,
-    [JSON.stringify({ fluid_amount: cap, fluid_type: fluidType }), invId]);
+    [JSON.stringify({ fluid_amount: cap, fluid_type: fluidType, contaminated }), invId]);
 
-  const flavour = fluidType === 'fuel' ? `Fuel sloshes to the brim, reeking of hydrocarbons.` : `It's full of water.`;
+  const flavour = fluidType === 'fuel'
+    ? `Fuel sloshes to the brim, reeking of hydrocarbons.`
+    : contaminated
+    ? `<span style="color:var(--red)">It fills with cloudy, foul-smelling water. You should not drink this.</span>`
+    : `It's full of water.`;
   return { type:'use', message:`You fill the ${c.name} from the ${srcName}. ${flavour}` };
 }
 
@@ -110,11 +123,22 @@ async function drink(args, raw, player) {
 
   const remaining = amount - fluidUsed;
   if (remaining <= 0) {
-    await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) - 'fluid_amount' - 'fluid_type' WHERE id=$1`,
+    await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) - 'fluid_amount' - 'fluid_type' - 'contaminated' WHERE id=$1`,
       [c.id]);
   } else {
     await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || $1::jsonb WHERE id=$2`,
       [JSON.stringify({ fluid_amount: remaining }), c.id]);
+  }
+
+  // Foul water (filled from a fouled toilet) still slakes thirst, but makes you
+  // sick — bodily owns the sickness effect + flavour.
+  if (c.custom_data?.contaminated) {
+    const foul = await dispatchAction({ type: 'bodily.drinkContaminated', actor: player, params: { fouled: true } });
+    return {
+      type:'use',
+      message:`You drink from the ${c.name}. (+${thirstGain} Thirst) ${foul.message}`,
+      player_update:{ thirst: player.thirst },
+    };
   }
 
   return {
@@ -131,7 +155,7 @@ async function empty(args, raw, player) {
   if ((c.custom_data?.fluid_amount || 0) <= 0)
     return { type:'error', message:`The ${c.name} is already empty.` };
 
-  await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) - 'fluid_amount' - 'fluid_type' WHERE id=$1`,
+  await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) - 'fluid_amount' - 'fluid_type' - 'contaminated' WHERE id=$1`,
     [c.id]);
   return { type:'use', message:`You empty the ${c.name} onto the ground.` };
 }

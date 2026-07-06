@@ -2156,6 +2156,15 @@ textarea {
 .av-rd  { fill: none; stroke: #fff; stroke-width: 8; stroke-linecap: butt; stroke-linejoin: round; }
 .av-hub { fill: #fff; }
 .av-cl  { fill: none; stroke: var(--cyan); stroke-width: 1.3; stroke-dasharray: 2.2 2.6; stroke-linecap: butt; }
+/* Route trace ("Route" toggle): a yellow road laid over the shortest walkable path
+   from your tile to a clicked one — same geometry as the avenues, recoloured and
+   drawn on top of whatever view is active so it reads as "follow this to get there". */
+.tr-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  pointer-events: none; z-index: 3; filter: drop-shadow(0 0 2px rgba(255,208,64,0.85)); }
+.tr-rd  { fill: none; stroke: #ffd23f; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.tr-hub { fill: #ffd23f; }
+/* The same route echoed on the sidebar/HUD/mobile minimaps. */
+.mm-c.mm-trace { position: relative; }
 /* Overlay glyph / abbrev ON TOP of the road. Icons ride bare (keep their POI
    colour); letters are white with a thin black outline for legibility. */
 .av-ov { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2; pointer-events: none; }

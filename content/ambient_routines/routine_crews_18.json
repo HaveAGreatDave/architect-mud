@@ -1,0 +1,21 @@
+{
+  "category": "crews",
+  "enabled": true,
+  "id": "routine_crews_18",
+  "interactive": null,
+  "lines": [
+    "A crew jacks open a manhole and feeds a cable reel down into the dark.",
+    "One of them calls a number up; another repeats it back, wrong, twice."
+  ],
+  "loudness": 0.6,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 18,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}

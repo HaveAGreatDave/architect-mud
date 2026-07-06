@@ -124,9 +124,9 @@
     }
   },
   "chitchat": [
-    "SORTING UNIT 9 stamps a parcel addressed to a crater.",
+    "stamps a parcel addressed to a crater.",
     "\"RETURN. TO. SENDER.\"",
-    "A belt of dead-letter parcels crawls past, endless."
+    "watches a belt of dead-letter parcels crawl past, endless."
   ],
   "description": "A belt-mounted sorting automaton, one optic cracked, that never received the order to stop. It stamps, routes, and returns to sender with tireless, pointless devotion.",
   "dialogue_tree": {

@@ -27,6 +27,7 @@
     "is_building": false,
     "is_interior": false,
     "scavenging_table_id": null,
+    "street_life": true,
     "world_exit_zone": null
   },
   "grid_x": 3,

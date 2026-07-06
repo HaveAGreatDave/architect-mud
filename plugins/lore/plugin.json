@@ -1,11 +1,11 @@
 {
   "name": "lore",
   "version": "1.0.0",
-  "description": "First-visit tone-setting lore: the first time a new account looks at a zone that carries authored flags.intro_lore, a deeper block about the place's history/control/dangers is woven into the room, shimmering in accent before settling to normal text. Once per zone per account; existing (pre-launch) accounts are opted out.",
-  "hooks": ["player.create", "zone.introLore"],
+  "description": "First-visit tone-setting lore: the first time any player looks at a zone that carries authored flags.intro_lore, a deeper block about the place's history/control/dangers is woven into the room, shimmering in accent before settling to normal text. The ONLY gate is the per-player lore_seen:<zone> marker (committed on departure); staff command lorereset clears it.",
+  "hooks": ["zone.introLore"],
   "commands": ["lorereset", "resetlore"],
   "events": {
-    "consumes": ["player.create", "zone.entered"]
+    "consumes": ["zone.entered"]
   },
   "extensionPoints": ["zones.flags.intro_lore"]
 }

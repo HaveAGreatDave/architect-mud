@@ -27,8 +27,13 @@ export function initHangarPanel() {
   overlay.innerHTML = '<div id="hangar-box"><div id="hangar-body"></div></div>';
   overlay.style.display = 'none';
   document.body.appendChild(overlay);
-  // Close on backdrop click.
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeHangar(); });
+  // Close on a genuine backdrop click only. A drag that STARTS on a control (a colour
+  // swatch, the yoke of the turntable, a slider) but releases out over the backdrop
+  // still fires a `click` whose target is the overlay — which used to dismiss the whole
+  // window mid-edit. Gate the close on the press having also started on the backdrop.
+  let downOnBackdrop = false;
+  overlay.addEventListener('pointerdown', (e) => { downOnBackdrop = e.target === overlay; });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay && downOnBackdrop) closeHangar(); });
 }
 
 export function updateHangar(data) {

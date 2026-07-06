@@ -145,6 +145,22 @@ export function surfaceAt(x, y) {
 }
 export function bounds() { if (!_bounds) buildCoordIndex(); return _bounds; }
 
+// Nearest airfield tile to a grid point (Chebyshev distance) — used to tow a craft
+// home after an off-strip landing. Returns { id, name, dist } or null if the world
+// somehow has no airfields.
+export function nearestAirfield(x, y) {
+  if (!_coordIndex) buildCoordIndex();
+  let best = null;
+  for (const cell of _coordIndex.values()) {
+    if (!cell.flags?.airfield_id) continue;
+    const z = getZone(cell.id);
+    if (z?.grid_x == null) continue;
+    const dist = Math.max(Math.abs(z.grid_x - x), Math.abs(z.grid_y - y));
+    if (!best || dist < best.dist) best = { id: cell.id, name: cell.flags.airfield_name || cell.name, dist };
+  }
+  return best;
+}
+
 // The terrain "look" of a parked field, so the client can paint the right airport
 // backdrop out the canopy (city skyline, dock cranes, wasteland rock, …). Derived
 // from the zone — an explicit `flags.airfield_theme` wins, otherwise inferred from

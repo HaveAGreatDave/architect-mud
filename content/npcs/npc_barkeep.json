@@ -5,14 +5,14 @@
     "nodes": {}
   },
   "chitchat": [
-    "Best prices in the district. That's not saying much.",
-    "You touch it, you bought it.",
-    "Everything's genuine. Genuinely acquired.",
-    "Trade you for it. Credits preferred. Bullets accepted.",
-    "Limited supply. Always limited. That's the pitch.",
-    "I don't know where it came from. That's not your business either.",
-    "Come back tomorrow — stock changes. If I'm still here.",
-    "Quality merchandise at prices that won't kill you. Probably."
+    "\"Best prices in the district. That's not saying much.\"",
+    "\"You touch it, you bought it.\"",
+    "\"Everything's genuine. Genuinely acquired.\"",
+    "\"Trade you for it. Credits preferred. Bullets accepted.\"",
+    "\"Limited supply. Always limited. That's the pitch.\"",
+    "\"I don't know where it came from. That's not your business either.\"",
+    "\"Come back tomorrow — stock changes. If I'm still here.\"",
+    "\"Quality merchandise at prices that won't kill you. Probably.\""
   ],
   "description": "Runs the bar out of a gutted delivery van. Pours with the bored precision of someone who has heard every sob story twice.",
   "dialogue_tree": {

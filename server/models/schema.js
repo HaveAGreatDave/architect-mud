@@ -206,6 +206,28 @@ export const SCHEMA_SQL = `
     sort_order INTEGER DEFAULT 0
   );
 
+  -- Ambient "routine" library (ambient-life plugin): scenery vignettes that make
+  -- opted-in street zones (flags.street_life) feel lived-in — kids playing,
+  -- delivery drones, buskers, traffic, dogs, etc. Each row is gated by day-phase,
+  -- ambient_theme, weather, and/or an explicit zone allowlist, and holds an ordered
+  -- \`lines\` array (one entry = a one-shot; several = a paced vignette). loudness>0
+  -- makes an audible routine bleed to neighbouring rooms via sound propagation;
+  -- \`interactive\` ('tip'|'order') arms a short-lived clickable opportunity.
+  CREATE TABLE IF NOT EXISTS ambient_routines (
+    id TEXT PRIMARY KEY,
+    category TEXT NOT NULL,
+    themes JSONB NOT NULL DEFAULT '[]',
+    zones JSONB NOT NULL DEFAULT '[]',
+    phases JSONB NOT NULL DEFAULT '[]',
+    weather JSONB NOT NULL DEFAULT '[]',
+    lines JSONB NOT NULL DEFAULT '[]',
+    loudness REAL NOT NULL DEFAULT 0,
+    interactive TEXT,
+    weight INTEGER NOT NULL DEFAULT 100,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    sort_order INTEGER NOT NULL DEFAULT 0
+  );
+
   -- Non-takeable scenery (bar counters, stools, beds, tables...). Distinct
   -- from items: items live in player_inventory (including the
   -- "_ground_<zoneId>" ground-item hack) and are takeable; furniture is

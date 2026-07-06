@@ -1,0 +1,26 @@
+{
+  "category": "vendors",
+  "enabled": true,
+  "id": "routine_vendors_21",
+  "interactive": "order",
+  "lines": [
+    "A food cart rattles up, griddle already smoking. \"Skewers! Hot skewers, three credits!\""
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 21,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": [
+    "zone_city_west",
+    "zone_city_north",
+    "zone_mq_marquee",
+    "zone_civ_commons",
+    "zone_media_plaza"
+  ]
+}

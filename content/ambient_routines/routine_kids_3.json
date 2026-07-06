@@ -1,0 +1,30 @@
+{
+  "category": "kids",
+  "enabled": true,
+  "id": "routine_kids_3",
+  "interactive": null,
+  "lines": [
+    "A child drags a length of scavenged cable behind them, pretending it's something alive."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk"
+  ],
+  "sort_order": 3,
+  "themes": [],
+  "weather": [
+    "clear",
+    "cloudy",
+    "overcast",
+    "haze"
+  ],
+  "weight": 100,
+  "zones": [
+    "zone_city_west",
+    "zone_city_north",
+    "zone_mq_marquee",
+    "zone_civ_commons",
+    "zone_media_plaza"
+  ]
+}

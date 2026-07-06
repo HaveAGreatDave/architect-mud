@@ -15,7 +15,7 @@ import { setPosture, forceStand } from './posture.js';
 import { carryCapacity } from './commands/inventory.js';
 import { query, logActivity } from '../models/db.js';
 import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, recordLightningKill, getZoneStormIntensity } from './environment.js';
-import { tickDrugDecay, tickDrugs, tickWithdrawal, clearActiveDrugState } from './drugs.js';
+import { tickDrugDecay, tickDrugs, tickOnsets, tickWithdrawal, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
 
 // HP restored per sitting tick (every 15 seconds)
@@ -294,7 +294,7 @@ async function tick() {
   for (const [playerId, player] of world.players) {
     const hpBefore = player.hp;
     const stamBefore = player.stamina;
-    const messages = [...tickEffects(player), ...tickDrugs(player)];
+    const messages = [...tickEffects(player), ...tickDrugs(player), ...tickOnsets(player)];
     if (messages.length) broadcastFn(null, { type:'status_tick', messages }, null, playerId);
     // Effects mutate hp/stamina in memory but this per-second tick historically
     // neither persisted nor pushed them — so effect damage was invisible on the

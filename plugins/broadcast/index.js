@@ -2467,12 +2467,13 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const graphic = gid ? graphicsCache.get(gid) : null;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + nodeHoldMs(node);
-        if (graphic) {
+        if (graphic && (graphic.content || '').trim()) {
           const caption = node.data?.caption ? `\n${node.data.caption}` : '';
           return { text: graphic.content + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphicStyle(graphic) };
         }
-        // Graphic not found — log it, show nothing, move on to the next node.
-        logBroadcast(channelId, 'warn', `Title-card graphic '${gid || '(none)'}' not found — skipped`, nodeId);
+        // Graphic missing or empty — log it and skip straight to the next card this
+        // tick (no dead 5s hold on a card that can't render).
+        logBroadcast(channelId, 'warn', `Title-card graphic '${gid || '(none)'}' ${graphic ? 'is empty' : 'not found'} — skipped to next card`, nodeId);
         nodeId = bb.currentNode;
         bb.waitUntil = null;
         break;
@@ -3343,6 +3344,24 @@ export const routeHandler = async (path, method, body, auth) => {
           for (const b of names) nameMap[b.id] = b;
         }
         return { status: 200, body: result.map(r => ({ ...r, broadcast_name: nameMap[r.broadcast_id]?.name || r.broadcast_id, broadcast_category: nameMap[r.broadcast_id]?.category || 'general' })) };
+      }
+
+      // Discard a ghost (ejected) slot — forget the saved schedule for a cassette
+      // that's no longer in the deck. Needs deck_id + broadcast_id in the body.
+      if (id && sub === 'ejected-slots' && method === 'DELETE') {
+        const deckId = body?.deck_id;
+        const broadcastId = body?.broadcast_id;
+        if (!deckId || !broadcastId) return { status: 400, body: { error: 'deck_id and broadcast_id required' } };
+        const { rows } = await query('SELECT flags FROM furniture WHERE id=$1', [deckId]);
+        if (!rows.length) return { status: 404, body: { error: 'Deck not found' } };
+        const df = typeof rows[0].flags === 'object' ? rows[0].flags : JSON.parse(rows[0].flags || '{}');
+        const ejected = typeof df.deck_ejected_slots === 'object' && !Array.isArray(df.deck_ejected_slots)
+          ? df.deck_ejected_slots : {};
+        if (!(broadcastId in ejected)) return { status: 200, body: { message: 'Nothing to remove' } };
+        delete ejected[broadcastId];
+        df.deck_ejected_slots = ejected;
+        await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(df), deckId]);
+        return { status: 200, body: { message: 'Removed' } };
       }
 
       // Playlist sub-resource

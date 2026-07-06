@@ -2,12 +2,12 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "Juno makes a note on her clipboard without looking up.",
-    "'Half of this came from a corporate office liquidated in forty-eight hours. Surprising what people leave behind when security cuts their badge.'",
-    "She straightens a price tag that didn't need straightening.",
-    "'The sleep pod's the best thing in here. I tested it myself. Didn't want to get up. That's a good sign.'",
-    "'Stock rotates every day. Yesterday I had three mag-lev chairs. Now I have one.'",
-    "'I'm not a decorator. I'm a vendor. If you want to know if it'll hold your weight, I can help.'"
+    "makes a note on her clipboard without looking up.",
+    "\"Half of this came from a corporate office liquidated in forty-eight hours. Surprising what people leave behind when security cuts their badge.\"",
+    "straightens a price tag that didn't need straightening.",
+    "\"The sleep pod's the best thing in here. I tested it myself. Didn't want to get up. That's a good sign.\"",
+    "\"Stock rotates every day. Yesterday I had three mag-lev chairs. Now I have one.\"",
+    "\"I'm not a decorator. I'm a vendor. If you want to know if it'll hold your weight, I can help.\""
   ],
   "description": "Juno Kael is tall and angular, her hair dye growing out in a gradient from platinum to black root. She wears a faded Dead Space Interiors polo shirt tucked into cargo trousers. She tracks you with the patient, evaluating attention of someone who has spent a lot of time waiting for browsers to become buyers.",
   "dialogue_tree": {

@@ -1,0 +1,30 @@
+{
+  "category": "kids",
+  "enabled": true,
+  "id": "routine_kids_1",
+  "interactive": null,
+  "lines": [
+    "A knot of kids tears past, shrieking, chasing a half-flat ball down the pavement."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk"
+  ],
+  "sort_order": 1,
+  "themes": [],
+  "weather": [
+    "clear",
+    "cloudy",
+    "overcast",
+    "haze"
+  ],
+  "weight": 100,
+  "zones": [
+    "zone_city_west",
+    "zone_city_north",
+    "zone_mq_marquee",
+    "zone_civ_commons",
+    "zone_media_plaza"
+  ]
+}

@@ -204,7 +204,7 @@ export class GameTable {
       seatIdx = this.seats.findIndex(s => s === null);
     }
 
-    this.seats[seatIdx] = { playerId: player.id, handle: player.handle, chips: buyIn, seatIdx };
+    this.seats[seatIdx] = { playerId: player.id, handle: player.handle, chips: buyIn, buyIn, seatIdx };
     this.spectators.delete(player.id);
 
     // Send credit update to client
@@ -345,11 +345,15 @@ export class GameTable {
       await query('UPDATE players SET credits = credits + $1 WHERE id = $2', [chips, playerId]);
       const { rows } = await query('SELECT credits FROM players WHERE id=$1', [playerId]);
       if (rows.length) sendToPlayer(playerId, { type: 'player_update', credits: rows[0].credits });
-      sendToPlayer(playerId, { type: 'output', message: `You cash out ₵ ${chips} from the table.` });
-      // A big cash-out is worth gossiping about (threshold, not net win — we don't track buy-in here).
-      if (chips >= 1000) {
+      const net = chips - (seat.buyIn || 0);
+      const msg = net > 0 ? `You leave the table up ₵ ${net.toLocaleString()}.`
+                : net < 0 ? `You leave the table down ₵ ${(-net).toLocaleString()}.`
+                :           'You leave the table even.';
+      sendToPlayer(playerId, { type: 'output', message: msg });
+      // A big win is worth gossiping about (net of the buy-in).
+      if (net >= 1000) {
         const { rows: pr } = await query('SELECT handle FROM players WHERE id=$1', [playerId]);
-        if (pr.length) emit('gossip.pokerWin', { player: { id: playerId, handle: pr[0].handle }, amount: chips, zoneId: this.zoneId });
+        if (pr.length) emit('gossip.pokerWin', { player: { id: playerId, handle: pr[0].handle }, amount: net, zoneId: this.zoneId });
       }
     }
 

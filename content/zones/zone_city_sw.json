@@ -21,7 +21,8 @@
     "is_building": false,
     "is_interior": false,
     "no_spawn": true,
-    "scavenging_table_id": "scav_roadside_junk"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true
   },
   "grid_x": -1,
   "grid_y": 1,

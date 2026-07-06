@@ -8,6 +8,7 @@
       "sanity": 4,
       "thirst": 15
     },
+    "onset_seconds": 0,
     "overdose": {
       "lethal": true,
       "message": "Your heart trips, stutters, and seizes. Too much caffeine, too fast — your chest goes tight and cold, and the world tips over."

@@ -152,39 +152,6 @@ async function saveDrug(existing) {
 }
 
 
-// --- Crime forms ---
-// Crime keys are engine constants (server/engine/crimes.js) — the panel only
-// tunes the star weight each act carries. Stars are additive across crimes and
-// capped at 5; how a crime is "caught" (camera / any witness / always) is fixed
-// in engine and shown read-only here.
-function crimeEditForm(rec) {
-  const caught = rec.witness === 'camera' ? 'a live camera only'
-    : rec.witness === 'always' ? 'always (self-reporting)'
-    : 'any witness — camera, on-duty cop, or another player';
-  return `
-    <div class="field"><label>Crime Key</label><input id="f-id" value="${rec.id||''}" readonly style="opacity:0.5"></div>
-    <div class="field"><label>Label</label><input id="f-label" value="${rec.label||''}"></div>
-    <div class="field"><label>Stars (0–5, half-steps allowed)</label><input type="number" id="f-stars" value="${rec.stars ?? 1}" min="0" max="5" step="0.5"></div>
-    <div class="field"><label>Description</label><textarea id="f-description" rows="2">${rec.description||''}</textarea></div>
-    <div class="hint" style="font-size:11px;opacity:0.75;line-height:1.5;margin-top:4px">
-      Caught by: <b>${caught}</b>.<br>
-      A camera that catches any crime flashes red and calls the suspect out to the whole room.<br>
-      Wanted stars are additive across crimes and capped at 5.
-    </div>
-  `;
-}
-
-async function saveCrime(existing) {
-  const id = existing?.id || document.getElementById('f-id').value.trim();
-  const body = {
-    label: document.getElementById('f-label').value,
-    stars: +document.getElementById('f-stars').value,
-    description: document.getElementById('f-description').value,
-  };
-  return API(`/crimes/${id}`, 'PUT', body);
-}
-
-
 function recipeEditForm(rec, isNew) {
   const skillReq = typeof rec.skill_req === 'object' ? rec.skill_req : JSON.parse(rec.skill_req||'{}');
   const ingredients = Array.isArray(rec.ingredients) ? rec.ingredients : JSON.parse(rec.ingredients||'[]');

@@ -10,7 +10,7 @@
   "light_type": "lamp",
   "lumen_output": 400,
   "name": "toilet",
-  "object_type": "furniture",
+  "object_type": "toilet",
   "power_draw_kw": 5,
   "price": 90,
   "zone_id": "zone_start"

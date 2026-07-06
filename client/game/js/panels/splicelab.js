@@ -61,7 +61,9 @@ const FORM_FLUID = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, v
 //     it out. The live STEADINESS meter shows sway so you can steer it.
 //   • rate     — how fast product bleeds once you're over.
 // All tunable — dial after feeling it in-game.
-const SWAY_SENS = 1.7;   // how hard movement/jerk builds sway (was 0.6) — very movement-sensitive now
+const SWAY_SENS = 1.7;     // JERK gain: a sudden change of speed slings the contents (a quick snatch spills it)
+const SWEEP_SPEED = 360;   // DEADZONE: below this carry speed, movement adds NO sway at all — slow is always safe
+const SWEEP_GAIN = 0.012;  // a sustained fast sweep past SWEEP_SPEED keeps pushing sway toward the edge
 const POUR_PHYS = {
   liquid:  { mode: 'slosh', swayMax: 1.22, tiltMax: 0.92, rate: 1.0 },
   gel:     { mode: 'slosh', swayMax: 1.36, tiltMax: 0.96, rate: 0.7 },   // viscous — forgiving
@@ -77,9 +79,9 @@ const POUR_PHYS = {
 // whether it's over. `level` drives the steadiness meter and the warn glow.
 function pourHazard(p, spd) {
   const cfg = POUR_PHYS[p.d.form] || POUR_PHYS.liquid;
-  const sway = Math.abs(p.slosh) / cfg.swayMax;                     // the main driver — jerky movement
-  const speedR = cfg.mode === 'vent' ? spd / (cfg.speedMax || 620) : 0;
-  const level = Math.max(sway, speedR, Math.abs(p.tilt) / cfg.tiltMax);
+  const sway = Math.abs(p.slosh) / cfg.swayMax;                     // the ONLY driver now — how far it's sloshed
+  const speedR = cfg.mode === 'vent' ? spd / (cfg.speedMax || 620) : 0;   // gas also vents from raw speed
+  const level = Math.max(sway, speedR);                            // NOTE: tilt is purely visual, never spills on its own
   return { hazard: level >= 1, level, sway, ventUp: !!cfg.ventUp, rate: cfg.rate || 1 };
 }
 // side-view drug table (far-left): drugs stand along the tabletop at y = H*0.60
@@ -666,12 +668,12 @@ STAGES.select = {
       const ax = (tx - p.x) * k - p.vx * p.c, ay = (ty - p.y) * k - p.vy * p.c; p.vx += ax * dt; p.vy += ay * dt;
       const sp = Math.hypot(p.vx, p.vy); if (sp > 1000) { p.vx *= 1000 / sp; p.vy *= 1000 / sp; }
       p.x += p.vx * dt; p.y += p.vy * dt;
-      p.tilt = lerp(p.tilt, clamp(-p.vx * 0.0018, -1, 1), dt * 10);
+      p.tilt = lerp(p.tilt, clamp(-p.vx * 0.0010, -0.7, 0.7), dt * 8);
       const dax = p.vx - p.pvx; p.pvx = p.vx;
-      p.sloshV += dax * p.fluid * SWAY_SENS; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
+      const _sp = Math.hypot(p.vx, p.vy), _over = Math.max(0, _sp - SWEEP_SPEED); p.sloshV += (dax * SWAY_SENS + Math.sign(p.vx || 1) * _over * SWEEP_GAIN) * p.fluid; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
       const speed = Math.hypot(p.vx, p.vy);
       const hz = this.drag === p ? pourHazard(p, speed) : null;
-      if (hz) { this._sway = hz.level; p.warn = clamp(hz.level, 0, 1); }   // warn glows AS sway builds (pre-spill feedback)
+      if (hz) { this._sway = hz.level; p.warn = hz.level > 0.5 ? clamp(hz.level, 0, 1) : 0; }   // warn glows AS sway builds (pre-spill feedback)
       if (hz && hz.hazard && hz.ventUp) { p.spill += dt * (speed / 600) * hz.rate; this.spillAlarm();
         if (Math.random() < 0.4) this.drips.push({ x: p.x + rnd(10, -10), y: p.y - 24, vy: -55, life: 0, col: shade(p.d.color, 80) });
         if (p.spill > 1.2) { p.spill = 0; this.lost += 4; addInstability(5, "the canister hisses — you're bleeding pressure."); AX.bad(); }
@@ -726,17 +728,17 @@ STAGES.charge = {
       const ax = (tx - p.x) * p.k - p.vx * p.c, ay = (ty - p.y) * p.k - p.vy * p.c; p.vx += ax * dt; p.vy += ay * dt;
       const spd = Math.hypot(p.vx, p.vy); if (spd > 1000) { p.vx *= 1000 / spd; p.vy *= 1000 / spd; }
       p.x += p.vx * dt; p.y += p.vy * dt;
-      const dax = p.vx - p.pvx; p.pvx = p.vx; p.sloshV += dax * p.fluid * SWAY_SENS; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
+      const dax = p.vx - p.pvx; p.pvx = p.vx; const _sp = Math.hypot(p.vx, p.vy), _over = Math.max(0, _sp - SWEEP_SPEED); p.sloshV += (dax * SWAY_SENS + Math.sign(p.vx || 1) * _over * SWEEP_GAIN) * p.fluid; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
       const inZone = Math.hypot(p.x - z.x, p.y - z.y) < z.r, steady = spd < 130 && Math.abs(p.slosh) < 0.55;
       if (this.drag === p && inZone && steady) {
         p.tilt = lerp(p.tilt, -0.7, dt * 4); p.poured = clamp(p.poured + dt * 0.7, 0, 1); this.fill = this.pouredFill();
         if (!p.pourSfx) { p.pourSfx = true; AX.pour(true); }
         if (p.poured >= 1 && !p.done) { p.done = true; this.pouredCount++; AX.pour(false); AX.drop(); this.drag = null; p.held = false; }
       } else {
-        p.tilt = lerp(p.tilt, clamp(-p.vx * 0.0018, -1, 1), dt * 10);
+        p.tilt = lerp(p.tilt, clamp(-p.vx * 0.0010, -0.7, 0.7), dt * 8);
         if (p.pourSfx) { p.pourSfx = false; AX.pour(false); }
         if (this.drag === p) { const hz = pourHazard(p, spd);
-          this._sway = hz.level; p.warn = clamp(hz.level, 0, 1);   // warn glows AS sway builds
+          this._sway = hz.level; p.warn = hz.level > 0.5 ? clamp(hz.level, 0, 1) : 0;   // warn glows AS sway builds
           if (hz.hazard) { p.spill += dt * (0.5 + hz.level) * hz.rate; this.spillAlarm();
             if (Math.random() < 0.35) this.drips.push({ x: p.x + rnd(12, -12), y: p.y + (hz.ventUp ? -22 : 12), vy: hz.ventUp ? -50 : 60, life: 0, col: hz.ventUp ? shade(p.d.color, 80) : p.d.color });
             if (p.spill > 1.0) { p.spill = 0; this.lost += 4; addInstability(5 * game.vol(), hz.ventUp ? 'it vents — you bleed pressure' : 'you sloshed it over'); AX.bad(); }

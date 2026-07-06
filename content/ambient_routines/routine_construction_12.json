@@ -1,0 +1,20 @@
+{
+  "category": "construction",
+  "enabled": true,
+  "id": "routine_construction_12",
+  "interactive": null,
+  "lines": [
+    "A crane groans as it swings a girder across the gap between two towers.",
+    "Chains snap taut; the girder settles with a boom you feel in your teeth."
+  ],
+  "loudness": 1.2,
+  "phases": [
+    "day",
+    "dusk"
+  ],
+  "sort_order": 12,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}

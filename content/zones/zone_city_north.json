@@ -23,7 +23,8 @@
     "is_building": false,
     "is_interior": false,
     "no_spawn": true,
-    "scavenging_table_id": "scav_consumer_trash"
+    "scavenging_table_id": "scav_consumer_trash",
+    "street_life": true
   },
   "grid_x": 0,
   "grid_y": -1,

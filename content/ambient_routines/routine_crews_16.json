@@ -1,0 +1,20 @@
+{
+  "category": "crews",
+  "enabled": true,
+  "id": "routine_crews_16",
+  "interactive": null,
+  "lines": [
+    "A maintenance crew in stained orange hunches over an open junction box, arguing about the wiring."
+  ],
+  "loudness": 0.6,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 16,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": []
+}

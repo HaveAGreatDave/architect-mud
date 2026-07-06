@@ -1,0 +1,20 @@
+{
+  "category": "arguments",
+  "enabled": true,
+  "id": "routine_arguments_23",
+  "interactive": null,
+  "lines": [
+    "A couple bicker in a doorway, low and vicious, not caring who hears.",
+    "It stops as suddenly as it started, both of them staring in different directions."
+  ],
+  "loudness": 0.5,
+  "phases": [
+    "dusk",
+    "night"
+  ],
+  "sort_order": 23,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}

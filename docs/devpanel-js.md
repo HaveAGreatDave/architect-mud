@@ -152,7 +152,6 @@ Thin editors for mutations, drugs, recipes, and crimes — all follow the same p
 - `mutationEditForm(rec, isNew)` / `saveMutation(existing)`
 - `drugEditForm(rec, isNew)` / `saveDrug(existing)` — the inline form keeps a raw-JSON `effects` fallback plus an **⚗ Open Structured Editor…** button → `openDrugEditorFromForm()` (see `drug-editor-modal.js`). A **Legality** dropdown sets `flags.legal` (legal drugs like coffee/beer sell at normal vendors and draw no police heat).
 - `recipeEditForm(rec, isNew)` / `saveRecipe(existing)`
-- `crimeEditForm(rec)` / `saveCrime(existing)` — the **Crimes** panel: tune the wanted-star weight per crime (`PUT /crimes/:id`). Crime keys + witness-mode are engine constants (`server/engine/crimes.js`); the panel is edit-only (New hidden), stars are additive and capped at 5.
 
 ### `drug-editor-modal.js`
 Pop-out structured editor for a drug's `effects` schema — sectioned controls (basics / instant / phases + peak-mod rows / tolerance / withdrawal + mod rows / overdose / hallucination + event rows) instead of raw JSON. Global-scope; self-builds its overlay (`.modal-overlay`/`.modal-card`). Seeds from the inline form's current field values, composes the `effects` object on save, and PUT/POSTs to `/drugs` via the shared `API` helper (staging applies), then `loadPanel('drugs')`.
@@ -233,6 +232,7 @@ The Emergency Services panel — Emergency Service Provider (ESP) alerts and Arb
 - **Panel render**: `renderEmergencyPanel(data)`, `_arbiterDot(arbiters)` (status indicator).
 - **ESP**: `espActivate()`, `espDeactivate()`, `espSaveMessage()`.
 - **Arbiters**: `arbitersActivate()`, `arbitersStandDown()`, `arbitersAdminProtection()`.
+- **Crime registry**: `_loadCrimeConfig()` builds the per-crime rows (enable toggle + inline wanted-star weight input + witness mode). `toggleCrime(id, enabled)` and `saveCrimeStars(id, value)` both `PUT /crimes/:id` (partial: just the toggle or just the stars, clamped 0–5, reloaded live). This is where star weights are tuned now — the standalone Crimes panel was removed.
 
 ### `broadcast.js`
 The Broadcasts panel — list and modal editor for `media_broadcasts` assets.

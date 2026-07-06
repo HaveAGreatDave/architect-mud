@@ -1,0 +1,31 @@
+{
+  "category": "musicians",
+  "enabled": true,
+  "id": "routine_musicians_7",
+  "interactive": null,
+  "lines": [
+    "Somewhere close, a busker works a slow, sad tune out of a battered guitar."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 7,
+  "themes": [],
+  "weather": [
+    "clear",
+    "cloudy",
+    "overcast",
+    "haze"
+  ],
+  "weight": 100,
+  "zones": [
+    "zone_city_west",
+    "zone_city_north",
+    "zone_mq_marquee",
+    "zone_civ_commons",
+    "zone_media_plaza"
+  ]
+}

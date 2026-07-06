@@ -14,6 +14,7 @@
 import { query } from '../../server/models/db.js';
 import { hasTag, tagValue } from '../../server/engine/tags.js';
 import { applyThirst } from '../../server/engine/bodily.js';
+import { dispatchAction } from '../../server/engine/actions.js';
 
 const DEFAULT_RESTORE = 25;
 
@@ -35,6 +36,19 @@ async function drinkFrom(args, raw, player) {
   applyThirst(player, amount);
   await query('UPDATE players SET thirst=$1, hydration_load=$2 WHERE id=$3',
     [player.thirst, player.hydration_load || 0, player.id]);
+
+  // A fouled/peed toilet still holds water_source, but that water is foul: you
+  // drink (thirst restored above) and catch something. bodily owns the filth
+  // state + the sickness — we just ask it over the action registry.
+  const contam = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: furniture.id } });
+  if (contam?.fouled || contam?.peed) {
+    const foul = await dispatchAction({ type: 'bodily.drinkContaminated', actor: player, params: { fouled: contam.fouled } });
+    return {
+      type: 'use',
+      message: `You drink from the ${furniture.name}. ${foul.message}`,
+      player_update: { thirst: player.thirst },
+    };
+  }
 
   return {
     type: 'use',

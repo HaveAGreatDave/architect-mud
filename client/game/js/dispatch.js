@@ -42,6 +42,7 @@ import { openApprehendPrompt } from './panels/apprehend.js';
 import { openConcealSearch } from './panels/conceal.js';
 import { updateTrade, closeTrade } from './panels/trade.js';
 import { updateHangar, closeHangar } from './panels/hangar.js';
+import { openFleet } from './panels/fleet.js';
 import { openAdminPanel } from './panels/admin.js';
 import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
@@ -338,7 +339,9 @@ const handlers = {
   },
 
   status_tick: (msg) => {
-    for (const m of msg.messages) appendMsg(m, 'combat-incoming');
+    // Status messages (drug phases, withdrawal, effects) are server-authored and
+    // carry HTML spans (msg-system, withdrawal-warning, …) — render, don't escape.
+    for (const m of msg.messages) appendHtml(m, 'combat-incoming');
   },
 
   resource_tick: (msg) => {
@@ -478,6 +481,7 @@ const handlers = {
   trade_update: (msg) => { updateTrade(msg.html); },
   trade_close: () => { closeTrade(); },
   hangar_update: (msg) => { updateHangar(msg.data); },
+  fleet_open: (msg) => { openFleet(msg.data); },   // the full-pane 3D lazy-susan carousel
   hangar_close: () => { closeHangar(); },
   admin_panel: (msg) => { openAdminPanel(msg.commands, msg.role); },
 
@@ -620,6 +624,7 @@ const handlers = {
         difficulty: msg.difficulty ?? 5,
         recipeName: msg.recipeName || 'COMPOUND',
         workspace: msg.workspace || '',
+        test: msg.kind === 'test',   // dev cooktest → show the form-changer toolbar + loop
         onResult: ({ score }) => {
           if (msg.kind === 'test') return; // dev feel-test — verdict on-screen, no server resolve
           sendCmdSilent(`synthresolve ${msg.recipeId} ${score} ${msg.nonce || ''}`); // nonce: server rejects a resolve that wasn't armed
@@ -738,7 +743,14 @@ function flashPowerChange(mode, deviceType) {
 
 export function handleServerMsg(msg) {
   const handler = handlers[msg.type];
-  if (handler) handler(msg);
+  if (!handler) return;
+  // Never let one bad message (e.g. a malformed broadcast graphic) throw and break
+  // the message stream — log it and carry on with the next server message.
+  try {
+    handler(msg);
+  } catch (err) {
+    console.error(`[dispatch] handler error for '${msg.type}':`, err);
+  }
 }
 
 // Inline countdown bar appended to a timed-action line (e.g. butchering),

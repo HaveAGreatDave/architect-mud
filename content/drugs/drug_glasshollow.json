@@ -3,6 +3,7 @@
   "description": "Architect-adjacent. Reality gets thin and strange. Sanity damage is real; so is whatever you see.",
   "duration_seconds": 180,
   "effects": {
+    "onset_seconds": 6,
     "radiation": 5,
     "sanity": -10
   },

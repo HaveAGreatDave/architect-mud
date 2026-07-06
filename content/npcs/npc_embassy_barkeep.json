@@ -124,16 +124,16 @@
     }
   },
   "chitchat": [
-    "What'll it be?",
-    "You look like you've had a rough one.",
-    "Pay first. Trust later. That's policy.",
-    "You're not the first person to cry at this bar. Won't be the last.",
-    "I've heard worse. Much worse.",
-    "Last call was three hours ago. I'm still here.",
-    "We're out of the good stuff. We were always out of the good stuff.",
-    "Tab's running. Keep drinking.",
-    "I don't ask questions. That's why people come here.",
-    "You want ice with that? Funny."
+    "\"What'll it be?\"",
+    "\"You look like you've had a rough one.\"",
+    "\"Pay first. Trust later. That's policy.\"",
+    "\"You're not the first person to cry at this bar. Won't be the last.\"",
+    "\"I've heard worse. Much worse.\"",
+    "\"Last call was three hours ago. I'm still here.\"",
+    "\"We're out of the good stuff. We were always out of the good stuff.\"",
+    "\"Tab's running. Keep drinking.\"",
+    "\"I don't ask questions. That's why people come here.\"",
+    "\"You want ice with that? Funny.\""
   ],
   "description": "A former concierge, still buttoned into a frayed Embassy vest, polishing a glass that was already clean. Calls every customer \"valued guest,\" sincerity optional.",
   "dialogue_tree": {

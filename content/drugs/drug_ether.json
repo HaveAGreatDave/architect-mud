@@ -20,6 +20,7 @@
     "instant": {
       "sanity": -10
     },
+    "onset_seconds": 2,
     "overdose": {
       "lethal": true,
       "message": "You breathe in one rag too many. The lights go out mid-thought."

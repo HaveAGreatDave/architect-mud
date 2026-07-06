@@ -186,6 +186,31 @@ async function cmdHangarAct(args, raw, player) {
   return pushHangarPanel(player);
 }
 
+// ── The FLEET carousel — a full-pane "lazy susan" ─────────────────────────────
+// A different screen from the paint showroom: one big, slowly-turning 3D hero shot of
+// an aircraft you own here, that you spin THROUGH with ‹ › (a lazy-susan of your fleet).
+// Mounts in the area (look) pane like the flight cockpit — the command pane stays live
+// beneath it. Own nothing here and it becomes the dealer's lot instead: the buy roster,
+// one click to purchase (which offers insurance on the spot). The client draws it all
+// from this one push (flight/panels/fleet.js), same "server owns the data" pattern as
+// the hangar panel.
+async function cmdFleet(args, raw, player) {
+  const field = fieldOf(player);
+  if (!field) return { type: 'emote', message: 'Your aircraft are at the airfields — head to a hangar to walk the fleet.' };
+  const craft = (await buildCards(player, field)).filter(c => !c.wreck);
+  const canBuy = !!field.flags.airfield_dealer;
+  let catalog = [];
+  if (!craft.length && canBuy) {
+    const { rows } = await query("SELECT id, name, class, seats, fuel_type, price_buy FROM aircraft_types WHERE class <> 'wreck' ORDER BY price_buy");
+    catalog = rows.map(r => ({ id: r.id, name: r.name, class: r.class, seats: r.seats, fuel: r.fuel_type, price: r.price_buy }));
+  }
+  sendToPlayer(player.id, { type: 'fleet_open', data: {
+    field: field.flags.airfield_name || field.name,
+    credits: player.credits || 0, canBuy, craft, catalog,
+  } });
+  return { type: 'noop' };
+}
+
 // ── Hangars ───────────────────────────────────────────────────────────────────
 // `showroom` is a friendlier alias for opening the visual hangar — the 3D turntable
 // view of your aircraft. Same panel as bare `hangar`; it just reads better for "let
@@ -513,6 +538,8 @@ async function cmdLoadout(args, raw, player) {
 export const commands = {
   hangar: cmdHangar,
   showroom: cmdShowroom,
+  fleet: cmdFleet,
+  carousel: cmdFleet,
   view: cmdView,
   hangaract: cmdHangarAct,
   paintset: cmdPaintset,

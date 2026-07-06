@@ -78,7 +78,7 @@ async function acquire(args, raw, player, kind) {
     [id, t.id, tailNum, player.id, field.grid_x, field.grid_y, field.id, Math.round((await typeCap(t.id)) * 0.5), kind === 'buy' ? 0 : 1]
   );
   return { type: 'output', message: kind === 'buy'
-    ? `<span class="item-grant">Sold. A brand-new <b>${t.name}</b> (${tailNum}) is towed onto the ramp — it's yours. <b>embark</b> her. <span class="text-dim">You own her now: you buy your own fuel and pay for your own <b>repair</b>s (DIY, or the hangar does it right for more).</span></span>`
+    ? `<span class="item-grant">Sold. A brand-new <b>${t.name}</b> (${tailNum}) is towed onto the ramp — it's yours. <b>embark</b> her. <span class="text-dim">You own her now: you buy your own fuel and pay for your own <b>repair</b>s (DIY, or the hangar does it right for more).</span></span>\n<span class="msg-system">📄 <b>HALCYON ASSURANCE</b> has a rep on the floor: cover her before her first flight — <span class="action-link" data-action="cmd" data-cmd="insurebind ${id}">insure her now</span>. <span class="text-dim">An uninsured write-off is a total loss.</span></span>`
     : `<span class="item-grant">Rented a <b>${t.name}</b> (${tailNum}), half a tank, parked and ready. <b>embark</b> her and fly it yourself. <span class="text-dim">Flat desk fee ${price}c paid; the meter then runs while you're airborne — ~${rentalOpFee(t)}c per 30 min for gas &amp; upkeep. Maintenance is on the desk, so just bring her back.</span></span>` };
 }
 

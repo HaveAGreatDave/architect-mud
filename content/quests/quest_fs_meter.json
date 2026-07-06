@@ -1,18 +1,27 @@
 {
-  "description": "Walk the row of dead meters at the Loading Bay and copy down numbers no one will ever read. 18₵.",
+  "description": "Read the dead meters at the Threshold, then the dead meters up at Plaza North, and copy down numbers no one will ever check. 10₵.",
   "id": "quest_fs_meter",
   "name": "Meter Reading",
   "objectives": [
     {
-      "desc": "Reach the Loading Bay",
+      "desc": "Read the meters at the Threshold",
       "id": "o0",
       "type": "visit",
-      "zone": "zone_city_east"
+      "zone": "zone_threshold"
+    },
+    {
+      "desc": "Read the meters at Plaza North",
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "type": "visit",
+      "zone": "zone_city_north"
     }
   ],
   "repeatable": 1,
   "rewards": {
-    "credits": 18
+    "credits": 10
   },
-  "updated_at": "1783357094"
+  "updated_at": "1783369742"
 }

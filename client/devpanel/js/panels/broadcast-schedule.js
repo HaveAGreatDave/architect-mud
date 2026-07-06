@@ -176,6 +176,7 @@ async function _schedLoadItems() {
           duration_override:  slot.duration_override || null,
           npc_staff:          [],
           missing_cassette:   true,
+          deck_id:            slot.deck_id || null,
         });
       }
     }
@@ -411,10 +412,14 @@ function _schedBuildTimeline() {
           style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
                     background:repeating-linear-gradient(135deg,var(--bg3) 0,var(--bg3) 6px,var(--bg2) 6px,var(--bg2) 12px);
                     border:1px dashed var(--border);border-radius:2px;box-sizing:border-box;
-                    overflow:hidden;opacity:0.7;cursor:not-allowed;pointer-events:none">
+                    overflow:hidden;opacity:0.7">
           <div style="padding:3px 5px;font-size:10px;font-weight:600;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">⚠ ${escHtml(item.broadcast_name)}</div>
           <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
           <div style="padding:0 5px;font-size:9px;color:var(--red);letter-spacing:1px;text-transform:uppercase">NO CASSETTE</div>
+          <div title="Discard this ghost slot" onclick="_schedRemoveEjected(${idx})"
+            style="position:absolute;top:2px;right:2px;width:16px;height:16px;line-height:15px;text-align:center;
+                   font-size:11px;color:var(--red);cursor:pointer;border:1px solid var(--border);border-radius:2px;
+                   background:var(--bg2)">✕</div>
         </div>`;
       return;
     }
@@ -618,10 +623,14 @@ function _schedRenderTimeline() {
           style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
                     background:repeating-linear-gradient(135deg,var(--bg3) 0,var(--bg3) 6px,var(--bg2) 6px,var(--bg2) 12px);
                     border:1px dashed var(--border);border-radius:2px;box-sizing:border-box;
-                    overflow:hidden;opacity:0.7;cursor:not-allowed;pointer-events:none">
+                    overflow:hidden;opacity:0.7">
           <div style="padding:3px 5px;font-size:10px;font-weight:600;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">⚠ ${escHtml(item.broadcast_name)}</div>
           <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
           <div style="padding:0 5px;font-size:9px;color:var(--red);letter-spacing:1px;text-transform:uppercase">NO CASSETTE</div>
+          <div title="Discard this ghost slot" onclick="_schedRemoveEjected(${idx})"
+            style="position:absolute;top:2px;right:2px;width:16px;height:16px;line-height:15px;text-align:center;
+                   font-size:11px;color:var(--red);cursor:pointer;border:1px solid var(--border);border-radius:2px;
+                   background:var(--bg2)">✕</div>
         </div>`;
       return;
     }
@@ -663,6 +672,22 @@ function _schedRenderTimeline() {
   }
 
   _schedUpdateNowLine();
+}
+
+// Discard a ghost (ejected) slot — the cassette is gone, so forget its saved
+// schedule on the server, then reload the timeline.
+async function _schedRemoveEjected(idx) {
+  const item = _schedItems[idx];
+  if (!item?.missing_cassette) return;
+  if (!item.deck_id) { toast('Cannot remove — unknown deck.', true); return; }
+  if (!(await dpConfirm(`Discard the ghost slot for "${item.broadcast_name}"?`))) return;
+  try {
+    const res = await directAPI(`/broadcast/channels/${_schedChannelId}/ejected-slots`, 'DELETE',
+      { deck_id: item.deck_id, broadcast_id: item.broadcast_id });
+    if (res?.error) { toast(res.error, true); return; }
+    await _schedLoadItems();
+    _schedRenderContent();
+  } catch (err) { toast(err.message, true); }
 }
 
 // ── Popover (click a block) ───────────────────────────────────────────────────

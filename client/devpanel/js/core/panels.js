@@ -135,20 +135,6 @@ const PANELS = {
     save: saveDrug,
     delete: id => API(`/drugs/${id}`, 'DELETE'),
   },
-  crimes: {
-    title: 'Crimes',
-    description: 'Wanted-star weight per crime. Stars are additive and capped at 5. Click a crime to tune how many stars it adds; a camera that catches a crime flashes red and calls the suspect out to the room.',
-    idPrefix: 'crime',
-    fetch: () => API('/crimes'),
-    columns: [
-      { key: 'label', label: 'Crime' },
-      { key: 'stars', label: 'Stars', render: v => `<span class="text-red">${'★'.repeat(Math.floor(v))}${(v%1)>=0.5?'½':''}</span> <span style="color:var(--text-dim)">(${v})</span>` },
-      { key: 'witness', label: 'Caught by', render: v => v==='camera'?'📷 camera only':v==='always'?'always':'any witness' },
-      { key: 'is_default', label: 'Source', render: v => v ? '<span style="color:var(--text-dim);font-size:11px">default</span>' : '<span style="color:var(--accent);font-size:11px">custom</span>' },
-    ],
-    editForm: crimeEditForm,
-    save: saveCrime,
-  },
   aliases: {
     title: 'Aliases',
     description: 'Verb shortcuts. The typed shortcut is rewritten to its canonical verb before the command runs — invisible to players. Engine-shipped defaults can be overridden; deleting an override restores the default.',
@@ -388,7 +374,7 @@ async function loadPanel(name) {
   if (!p) return;
   document.getElementById('panel-title').textContent = p.title;
   document.getElementById('panel-description').textContent = p.description || '';
-  document.getElementById('new-btn').style.display = p.noEdit || name === 'worldstate' || name === 'players' || name === 'crimes' ? 'none' : '';
+  document.getElementById('new-btn').style.display = p.noEdit || name === 'worldstate' || name === 'players' ? 'none' : '';
 
   let data;
   try {

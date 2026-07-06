@@ -1,0 +1,16 @@
+{
+  "category": "drones",
+  "enabled": true,
+  "id": "routine_drones_5",
+  "interactive": null,
+  "lines": [
+    "A courier drone drops altitude, rakes a doorway with a red needle of light, and moves on."
+  ],
+  "loudness": 0.9,
+  "phases": [],
+  "sort_order": 5,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": []
+}

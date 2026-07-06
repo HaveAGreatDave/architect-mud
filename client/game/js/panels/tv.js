@@ -731,9 +731,10 @@ export function appendTvMessage(text, style, duration) {
   const el = document.createElement(style === 'ascii_art' ? 'pre' : 'div');
   el.className = `tv-msg tv-msg-${style || 'raw'}`;
   if (style === 'svg') {
-    el.innerHTML = text;
-    const svg = el.querySelector('svg');
-    if (svg) {
+    try {
+      el.innerHTML = text;
+      const svg = el.querySelector('svg');
+      if (!svg) throw new Error('no <svg> root element');
       if (!svg.getAttribute('viewBox')) {
         const w = parseFloat(svg.getAttribute('width')) || 640;
         const h = parseFloat(svg.getAttribute('height')) || 360;
@@ -748,6 +749,11 @@ export function appendTvMessage(text, style, duration) {
       svg.style.height = 'auto';
       svg.style.display = 'block';
       svg.style.margin = '0 auto';
+    } catch (err) {
+      // A malformed graphic must never break the broadcast — drop this card and
+      // let the show carry on with the next message.
+      console.warn('[tv] title-card graphic failed to render, skipping card:', err?.message || err);
+      return;
     }
   } else if (style === 'ascii_art') {
     el.innerHTML = renderMarkup(text);

@@ -9,7 +9,7 @@
   "light_type": null,
   "lumen_output": null,
   "name": "curtained toilet",
-  "object_type": "fixture",
+  "object_type": "toilet",
   "power_draw_kw": null,
   "price": 30,
   "zone_id": "zone_apt_11"

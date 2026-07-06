@@ -936,6 +936,21 @@ function texCanvas(w, h) { const c = document.createElement('canvas'); c.width =
 const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56, 66], marquee: [56, 40, 66], freight: [62, 66, 74], industrial: [78, 66, 54], infra: [64, 68, 78], ruins: [56, 52, 44], oldcoldwater: [52, 48, 44], docks: [58, 66, 74], __nofly: [120, 40, 40] };
 const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
 
+// Deterministic building height (render world-z units) for a tile — the SAME value
+// drawWorldObjects paints (line ~1419), exposed so the flight sim can collision-check the
+// exact geometry that's on the glass. Returns 0 for tiles that carry no solid building to
+// fly into: open air, the runway/fields, water, the soft parkland/badlands billboards, and
+// the no-fly markers (the airspace system owns those, so we don't double-punish there).
+// `cell` is a map-window cell { kind, biome, ... }; wx,wy are its WORLD tile coords.
+export function buildingHeightZ(wx, wy, cell) {
+  if (!cell) return 0;
+  const k = cell.kind, bi = cell.biome;
+  if (k === 'air' || k === 'craft' || k === 'field' || k === 'nofly'
+      || !bi || bi === 'water' || bi === 'parkland' || bi === 'badlands') return 0;
+  const seed = (wx + 512) * 73 + (wy + 512) * 149;
+  return (BLDG_H[bi] || 0.3) * (0.7 + frac(seed) * 0.6) * RENDER_TUNE.bldgH;
+}
+
 const TR = () => Math.max(0.5, RENDER_TUNE.texRes || 1);
 function wallTex(biome, night) {
   const tr = TR(), nite = night > 0.4;

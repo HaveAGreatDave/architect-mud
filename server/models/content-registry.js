@@ -128,6 +128,7 @@ export const REGISTRY = [
   // ── content: scripting / quests / factions ──
   { table: 'scripts', class: 'content', pk: ['id'] },
   { table: 'npc_banter_threads', class: 'content', pk: ['id'] },
+  { table: 'ambient_routines', class: 'content', pk: ['id'] },
   { table: 'quests', class: 'content', pk: ['id'] },
   { table: 'job_boards', class: 'content', pk: ['id'] },
   // NPC factions live in the unified orgs table (is_npc=1); player crews are runtime.

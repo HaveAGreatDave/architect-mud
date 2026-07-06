@@ -14,7 +14,7 @@
 import { setAreaPane } from '../render.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn } from './engine-audio.js';
-import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE } from './windshield.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingHeightZ } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
@@ -630,6 +630,42 @@ const FAST_SYNC_RANGE = 5, CONTACT_DR_MAX = 2.0;
 // the alt→world-z scale (mirrors windshield CONTACT_ALT_K) for the vertical aim term, and
 // the burst cadence while the trigger's held (the server enforces its own harder cap).
 const GUN_RANGE = 2.2, GUN_CONE = 11, GUN_ALT_K = 1 / 600, GUN_FIRE_MS = 130;
+// ── Building collision (CFIT) ─────────────────────────────────────────────────
+// The windshield draws one deterministic building per built-up tile (buildingHeightZ in
+// windshield.js is the shared source of truth); the sim collision-checks that SAME geometry
+// so flying into a tower you can see out the glass hurts. Building heights are in the render's
+// world-z units — CFIT_FT_PER_Z converts to feet AGL (matched to the contact-altitude scale,
+// 1/600, so a rooftop sits at the height a contact aircraft would show at the same z). A shallow
+// clip of the roofline is survivable damage; going deep into the structure (or hitting fast) is a
+// write-off. All four are eyeball-tuning knobs for the live pass.
+const CFIT_FT_PER_Z = 600;    // render world-z → feet AGL
+const CFIT_FOOT = 0.22;       // building collision half-width around the tile centre (tile units)
+const CFIT_CRASH_PEN = 110;   // ft below the roofline that means you're INTO the structure → crash
+const CFIT_SWEEP = 4;         // sub-samples along the frame's ground track (anti-tunnel for fast craft)
+
+// Test the aircraft's path THIS frame against the buildings on the tiles it crosses. Returns
+// null (clear), or { severe, roofFt } — severe = a solid hit (write-off), else a survivable clip.
+function buildingCollisionAt(F, s) {
+  const map = F.map;
+  if (!map || !map.length || s.onGround) return null;
+  const R = (map.length - 1) / 2, mc = F.mapCenter || { x: 0, y: 0 };
+  const prev = F.cfitPrev || { x: F.pos.x, y: F.pos.y };
+  let worst = null;
+  for (let i = 1; i <= CFIT_SWEEP; i++) {
+    const t = i / CFIT_SWEEP;
+    const px = prev.x + (F.pos.x - prev.x) * t, py = prev.y + (F.pos.y - prev.y) * t;
+    const wx = Math.round(px), wy = Math.round(py);   // one building per tile, at integer coords
+    if (Math.abs(px - wx) > CFIT_FOOT || Math.abs(py - wy) > CFIT_FOOT) continue;   // outside the footprint
+    const rx = Math.round(wx - mc.x + R), ry = Math.round(wy - mc.y + R);
+    if (ry < 0 || ry >= map.length || rx < 0 || rx >= map[ry].length) continue;
+    const hz = buildingHeightZ(wx, wy, map[ry][rx]);
+    if (hz <= 0) continue;
+    const pen = hz * CFIT_FT_PER_Z - s.altitude;   // >0 ⇒ below the roofline ⇒ contact
+    if (pen > 0 && (!worst || pen > worst.pen)) worst = { pen, roofFt: hz * CFIT_FT_PER_Z };
+  }
+  if (!worst) return null;
+  return { severe: worst.pen >= CFIT_CRASH_PEN || s.airspeed >= (F.P?.vne || 200) * 0.6, roofFt: worst.roofFt };
+}
 // Live-tunable render knobs exposed as in-cockpit sliders (⚙). RENDER_TUNE is shared
 // with windshield.js so a slider change takes effect on the very next frame.
 const FSIM_TUNE = [
@@ -959,6 +995,7 @@ const YOKE_SVG = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100
     <linearGradient id="ykhub" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2d33"/><stop offset="0.5" stop-color="#141519"/><stop offset="1" stop-color="#090a0c"/></linearGradient>
     <radialGradient id="ykgloss" cx="0.4" cy="0.18" r="0.75"><stop offset="0" stop-color="rgba(255,255,255,0.32)"/><stop offset="0.45" stop-color="rgba(255,255,255,0.04)"/><stop offset="1" stop-color="rgba(255,255,255,0)"/></radialGradient>
     <radialGradient id="ykgreen" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#9dffc8"/><stop offset="0.5" stop-color="#3ad07a"/><stop offset="1" stop-color="#0d3a22"/></radialGradient>
+    <radialGradient id="ykblue" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#cfeeff"/><stop offset="0.5" stop-color="#3aa8e0"/><stop offset="1" stop-color="#0b2a3c"/></radialGradient>
     <radialGradient id="ykred" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffb6b8"/><stop offset="0.5" stop-color="#e0403a"/><stop offset="1" stop-color="#3a0d0d"/></radialGradient>
   </defs>
   <!-- coiled control cable dropping from the column -->
@@ -1380,6 +1417,32 @@ function fsimFrame(now) {
     if (F.engineOn) F.rollDist += d;
   }
 
+  // ── Building collision (CFIT) — flying into a tower you can see out the glass ─────
+  // Checks the aircraft's swept path this frame against the deterministic building geometry
+  // the windshield is drawing. A deep/fast hit writes her off (crash cfit); a shallow clip of
+  // the roofline is a hard jolt + real hull damage you fly out of (clip). Debounced so one
+  // rooftop doesn't bill every frame; suppressed once she's already gone in.
+  if (!s.onGround && !(F.cfitCd > 0)) {
+    const hit = buildingCollisionAt(F, s);
+    if (hit && hit.severe) {
+      F.cfitCd = 9999; F.reportedAirborne = false; F.rolling = false;
+      groundFx('touchdownHard'); csfx('flight-crash', 'hololock-lose');
+      sendCmdSilent('flightevent crash cfit');
+      if (F.toast) F.toast('CRASH — you flew into a building');
+    } else if (hit) {
+      // Glancing clip of the rooftops: real damage + a jolt, but you bounce off the top and fly out.
+      F.cfitCd = 1.6;
+      F.hull = Math.max(0, (F.hull || 100) - 20); F.hitFlashT = 0.5;
+      s.airspeed *= 0.72; s.altitude = hit.roofFt + 25; s.vs = Math.max(s.vs, 40);
+      s.bank = clampNum(s.bank + (s.bank >= 0 ? 14 : -14), -70, 70);
+      groundFx('touchdownHard'); csfx('flight-touchdown', 'hololock-lose');
+      sendCmdSilent('flightevent clip');
+      if (F.toast) F.toast('⚠ You clipped a rooftop!');
+    }
+  }
+  if (F.cfitCd > 0 && F.cfitCd < 9999) F.cfitCd = Math.max(0, F.cfitCd - dt);
+  F.cfitPrev = { x: F.pos.x, y: F.pos.y };
+
   // Transitions → tell the server. Track descent rate while airborne so touchdown knows
   // how hard the arrival was (soft squeak vs firm thump).
   if (!s.onGround) F.touchVs = s.vs;
@@ -1467,7 +1530,16 @@ function fsimFrame(now) {
   const gL = document.getElementById('fsim-yk-green'), rL = document.getElementById('fsim-yk-red');
   const atClimb = input.elevator > 0.40 && input.elevator < 0.66;
   const stalling = r.stalled || s.stallMargin < 0.35;
-  if (gL) { gL.style.opacity = atClimb ? '1' : '0.2'; gL.style.filter = atClimb ? 'drop-shadow(0 0 4px #3ad07a)' : 'none'; }
+  // The left LED does double duty: GREEN near a best-climb pull, and — when you're gliding
+  // dead-stick (little/no power, airborne) at the type's best-glide speed — it turns BLUE, so an
+  // engine-out pilot just flies the blue light for max range. Best-glide takes the LED when both apply.
+  const bg = P.bestGlide || 0;
+  const atGlide = !s.onGround && thr < 0.15 && bg > 0 && Math.abs(s.airspeed - bg) <= Math.max(3, bg * 0.06);
+  if (gL) {
+    if (atGlide) { gL.setAttribute('fill', 'url(#ykblue)'); gL.style.opacity = '1'; gL.style.filter = 'drop-shadow(0 0 5px #4fb8e0)'; }
+    else if (atClimb) { gL.setAttribute('fill', 'url(#ykgreen)'); gL.style.opacity = '1'; gL.style.filter = 'drop-shadow(0 0 4px #3ad07a)'; }
+    else { gL.setAttribute('fill', 'url(#ykgreen)'); gL.style.opacity = '0.2'; gL.style.filter = 'none'; }
+  }
   if (rL) { rL.style.opacity = stalling ? '1' : '0.2'; rL.style.filter = stalling ? 'drop-shadow(0 0 5px #e0403a)' : 'none'; }
 
   // Throttle quadrant lever.

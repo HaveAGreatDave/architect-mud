@@ -64,7 +64,15 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
 
 - **`instant`** — one-shot, clamped stat deltas (`hp`, `sanity`, `hunger`, `thirst`, `radiation`,
   `horniness_increase`). Restoring `hunger`/`thirst` applies `digestive_load`/`hydration_load` via
-  `foodLoad`/`drinkLoad`, exactly like the `consumable` path.
+  `foodLoad`/`drinkLoad`, exactly like the `consumable` path. **These are permanent — the body absorbed
+  the dose — and never reverse** (unlike `phases` buffs). This is the split that makes collapsing the two
+  a mistake: the ledger would *refund* an hp cost on comedown.
+- **`onset_seconds`** — how long the dose takes to HIT. `0` (default) = instant snap (the cocaine-type).
+  `>0` defers the **whole `instant` block AND the hallucination trigger** to land after N seconds via
+  `tickOnsets()` (1s loop, sibling to `tickDrugs`) — pushed onto `player.pendingOnsets`, cleared on death.
+  So most drugs "come on" instead of snapping, and a trip's come-up rides with the drug. The come-up ramp
+  of a *buff* still lives in `phases.comeup_scale`; `onset` is only the deferral of the one-shot hit.
+  Optional `comeon_message` (shown at use) and `onset_message` (shown on landing) narrate it.
 - **`phases`** — phased effects over time (come-up → peak → comedown), pushed onto `player.activeDrugs`
   and advanced by `tickDrugs()` in the 1s loop. `peak_mods` holds buff deltas (`stat_*`, `hp_max`,
   `sanity_max`) applied through the **reversible modifier ledger** in

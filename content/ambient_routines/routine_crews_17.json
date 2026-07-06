@@ -1,0 +1,20 @@
+{
+  "category": "crews",
+  "enabled": true,
+  "id": "routine_crews_17",
+  "interactive": null,
+  "lines": [
+    "Someone in a hardhat hoses grime off a camera housing, swearing steadily."
+  ],
+  "loudness": 0.6,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 17,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": []
+}

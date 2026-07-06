@@ -7,7 +7,8 @@
     "instant": {
       "hunger": -5,
       "stat_agi_temp": 2
-    }
+    },
+    "onset_seconds": 3
   },
   "flags": {},
   "id": "drug_buzz",

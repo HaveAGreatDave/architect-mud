@@ -1,0 +1,30 @@
+{
+  "category": "musicians",
+  "enabled": true,
+  "id": "routine_musicians_8",
+  "interactive": null,
+  "lines": [
+    "A street musician taps out a rhythm on an upturned bucket, nodding at no one."
+  ],
+  "loudness": 0,
+  "phases": [
+    "dusk",
+    "night"
+  ],
+  "sort_order": 8,
+  "themes": [],
+  "weather": [
+    "clear",
+    "cloudy",
+    "overcast",
+    "haze"
+  ],
+  "weight": 100,
+  "zones": [
+    "zone_city_west",
+    "zone_city_north",
+    "zone_mq_marquee",
+    "zone_civ_commons",
+    "zone_media_plaza"
+  ]
+}

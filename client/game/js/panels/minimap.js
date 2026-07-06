@@ -179,22 +179,37 @@ export function renderMinimap(nodes, direction) {
   // reflects the full map's saved overlay setting (mapState.avenueOverlay).
   const isArteryLink = (link) => link?.kind === 'link' && link.artery;
   const overlay = mapState.avenueOverlay;
+
+  // Route trace (shared with the full map): draw the yellow route over whatever slice
+  // of it falls inside this 5×5 window. Same coords model as the cell grid above —
+  // room at (y+R)*2,(x+R)*2 — so the overlay lines up with the tiles.
+  const tracePath = (mapState.routeMode ? effectiveTracePath(current.id) : null) || [];
+  const traceSet = new Set(tracePath);
+  const { gaps: traceGaps, dirs: traceDirs } = traceOverlay(tracePath, (id) => {
+    if (!coords.has(id)) return null;
+    const [x, y] = coords.get(id);
+    return [(x + R) * 2, (y + R) * 2];
+  });
+
   let html = '';
   for (let r = 0; r < gRows; r++) {
     for (let c = 0; c < gCols; c++) {
       const it = cell[r][c];
       if (!it) { html += `<span class="mm-c mm-void"></span>`; continue; }
       if (it.kind === 'link') {
+        const traceSvg = traceGaps.has(`${r},${c}`) ? traceGapSvg(traceGaps.get(`${r},${c}`)) : '';
         if (mmAvenueView) {
           if (it.artery && (it.ch === '─' || it.ch === '│'))
-            html += `<span class="mm-c av-gap" style="position:relative">${avGapSvg(it.ch === '─' ? 'h' : 'v')}</span>`;
-          else html += `<span class="mm-c mm-void"></span>`;
-        } else html += `<span class="mm-c mm-link">${it.ch}</span>`;
+            html += `<span class="mm-c av-gap" style="position:relative">${avGapSvg(it.ch === '─' ? 'h' : 'v')}${traceSvg}</span>`;
+          else html += traceSvg ? `<span class="mm-c mm-void" style="position:relative">${traceSvg}</span>` : `<span class="mm-c mm-void"></span>`;
+        } else html += traceSvg ? `<span class="mm-c mm-link" style="position:relative">${it.ch}${traceSvg}</span>` : `<span class="mm-c mm-link">${it.ch}</span>`;
         continue;
       }
       const node = byId.get(it.id);
       if (!node) { html += `<span class="mm-c mm-void"></span>`; continue; }
-      if (node.is_current) { html += `<span class="mm-c mm-room mm-current" title="${titleFor(node)}"></span>`; continue; }
+      const trDirs = traceSet.has(it.id) ? traceDirs.get(it.id) : null;
+      const traceRoad = trDirs ? traceRoadSvg([...trDirs]) : '';
+      if (node.is_current) { html += `<span class="mm-c mm-room mm-current${trDirs ? ' mm-trace' : ''}" title="${titleFor(node)}">${traceRoad}</span>`; continue; }
       // Tile keeps its danger-tinted / custom fill in both modes; Avenue View just
       // draws the SVG road + reflected overlay ON TOP of the coloured tile.
       const styles = [];
@@ -215,9 +230,10 @@ export function renderMinimap(nodes, direction) {
       } else {
         sym = symFor(node);
       }
+      if (trDirs && !extra) styles.push('position:relative'); // room needs relative for the overlay
       const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
-      const cls = `mm-c mm-room danger-${node.danger_rating || 'safe'}${styled}${extra}`;
-      html += `<span class="${cls}"${styleAttr} title="${titleFor(node)}">${sym}</span>`;
+      const cls = `mm-c mm-room danger-${node.danger_rating || 'safe'}${styled}${extra}${trDirs ? ' mm-trace' : ''}`;
+      html += `<span class="${cls}"${styleAttr} title="${titleFor(node)}">${sym}${traceRoad}</span>`;
     }
   }
   for (const id of ['minimap-grid', 'minimap-grid-mob', 'minimap-grid-hud']) {
@@ -299,7 +315,13 @@ const MAP_TERRITORY_KEY = 'map_territory';
 let _savedTerritory = false;
 try { _savedTerritory = localStorage.getItem(MAP_TERRITORY_KEY) === '1'; } catch {}
 let _territory = null; // last { control: {zoneId:{...}}, orgs, myOrgId } payload
-const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false, avenueOverlay: _savedOverlay, territoryView: _savedTerritory };
+// Route trace: click-a-tile-to-see-how-to-get-there. `routeMode` is the toggle
+// (persisted); `tracePath` is the current ordered list of tile ids, cleared on any
+// move/zoom (the current tile — the route's origin — changes when you walk).
+const MAP_ROUTE_KEY = 'map_route';
+let _savedRoute = false;
+try { _savedRoute = localStorage.getItem(MAP_ROUTE_KEY) === '1'; } catch {}
+const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false, avenueOverlay: _savedOverlay, territoryView: _savedTerritory, routeMode: _savedRoute, tracePath: null };
 
 // Black/white ink for legibility on a saturated org fill (mirrors corp-map.js inkFor).
 function contrastInk(hex) {
@@ -352,6 +374,93 @@ function avRoadSvg(dirs) {
     + (d ? `<path class="av-cl" d="${d}"/>` : '')
     + `</svg>`;
 }
+// Route trace: a yellow "avenue" laid down over the shortest walkable path from the
+// current tile to a clicked one. Same road geometry as the avenue view (arms toward
+// the connected sides + gap bands between tiles), recoloured yellow and drawn on top
+// of whatever view is active, so it reads as "follow this road to get there".
+function traceRoadSvg(dirs) {
+  let d = '';
+  for (const dir of dirs) d += `M11 8L${AV_END[dir]}`;
+  return `<svg class="tr-svg" viewBox="0 0 22 16" preserveAspectRatio="none" aria-hidden="true">`
+    + (d ? `<path class="tr-rd" d="${d}"/>` : '')
+    + `<circle class="tr-hub" cx="11" cy="8" r="3.4"/>`
+    + `</svg>`;
+}
+function traceGapSvg(orient) {
+  const vb = orient === 'h' ? '0 0 11 16' : '0 0 22 16';
+  const d = orient === 'h' ? 'M0 8L11 8' : 'M11 0L11 16';
+  return `<svg class="tr-svg" viewBox="${vb}" preserveAspectRatio="none" aria-hidden="true">`
+    + `<path class="tr-rd" d="${d}"/></svg>`;
+}
+
+// Shortest walkable route between two tiles over the currently-shown tiles, stepping
+// only through orthogonal grid-adjacent exits (so every leg can be drawn as a road
+// band). Returns an ordered array of tile ids from `fromId` to `toId`, or null if
+// there's no drawable path on this map level (e.g. only reachable via up/down/in/out).
+function traceRoute(fromId, toId, byId) {
+  if (!fromId || !toId || fromId === toId) return null;
+  const from = byId.get(fromId), to = byId.get(toId);
+  if (!from || !to || from.x == null || to.x == null) return null;
+  const prev = new Map([[fromId, null]]);
+  const queue = [fromId];
+  while (queue.length) {
+    const id = queue.shift();
+    if (id === toId) break;
+    const t = byId.get(id);
+    for (const targetId of Object.values(t?.exits || {})) {
+      if (prev.has(targetId)) continue;
+      const n = byId.get(targetId);
+      if (!n || n.x == null) continue;
+      const dx = Math.abs(n.x - t.x), dy = Math.abs(n.y - t.y);
+      if (dx + dy !== 1) continue; // orthogonal unit step only (drawable)
+      prev.set(targetId, id);
+      queue.push(targetId);
+    }
+  }
+  if (!prev.has(toId)) return null;
+  const path = [];
+  for (let id = toId; id != null; id = prev.get(id)) path.push(id);
+  return path.reverse();
+}
+
+// The still-relevant slice of the stored route, given where you are now: trimmed to
+// start at the current tile (so tiles already walked drop off), or the whole route if
+// you've stepped off it. Returns null once you've arrived (nothing left ahead) and
+// consumes the stored route at that point so it doesn't linger behind you.
+function effectiveTracePath(currentId) {
+  const p = mapState.tracePath;
+  if (!p || !p.length) return null;
+  const i = p.indexOf(currentId);
+  if (i === -1) return p;                 // stepped off-route — still show the corridor
+  const rest = p.slice(i);
+  if (rest.length <= 1) { mapState.tracePath = null; return null; } // arrived
+  return rest;
+}
+
+// Turn an ordered path of tile ids into draw instructions for a room/gap grid (even
+// index = room, odd = the connector between two rooms). `coordOf(id)` returns the
+// room cell's [gx,gy] or null if that tile isn't on this grid. Returns which gap cells
+// the route crosses (→ 'h'/'v' band) and which arm directions each room tile needs
+// (toward its path neighbours). Shared by the full map and the sidebar minimap.
+function traceOverlay(path, coordOf) {
+  const gaps = new Map();  // "gy,gx" -> 'h'|'v'
+  const dirs = new Map();  // id -> Set<'n'|'s'|'e'|'w'>
+  for (let i = 0; i + 1 < path.length; i++) {
+    const ca = coordOf(path[i]), cb = coordOf(path[i + 1]);
+    if (!ca || !cb) continue;
+    const dgx = cb[0] - ca[0], dgy = cb[1] - ca[1];
+    if ((Math.abs(dgx) === 2) === (Math.abs(dgy) === 2)) continue; // need exactly one axis ±2
+    const dirA = dgx === 2 ? 'e' : dgx === -2 ? 'w' : dgy === 2 ? 's' : 'n';
+    const dirB = dgx === 2 ? 'w' : dgx === -2 ? 'e' : dgy === 2 ? 'n' : 's';
+    if (!dirs.has(path[i])) dirs.set(path[i], new Set());
+    if (!dirs.has(path[i + 1])) dirs.set(path[i + 1], new Set());
+    dirs.get(path[i]).add(dirA);
+    dirs.get(path[i + 1]).add(dirB);
+    gaps.set(`${ca[1] + dgy / 2},${ca[0] + dgx / 2}`, dgx !== 0 ? 'h' : 'v');
+  }
+  return { gaps, dirs };
+}
+
 // Gap-cell road band matching the room roadway, so an avenue reads continuously
 // across the space between two road tiles. 'h' = horizontal gap, 'v' = vertical.
 function avGapSvg(orient) {
@@ -524,6 +633,17 @@ function wireMapUi() {
     }
     renderMapGrid();
   });
+  // Route: click-a-tile-to-trace toggle. Turning it off clears any drawn route.
+  document.getElementById('map-route-toggle')?.addEventListener('click', () => {
+    mapState.routeMode = !mapState.routeMode;
+    try { localStorage.setItem(MAP_ROUTE_KEY, mapState.routeMode ? '1' : '0'); } catch {}
+    document.getElementById('map-route-toggle')?.classList.toggle('active', mapState.routeMode);
+    if (!mapState.routeMode && mapState.tracePath) {
+      mapState.tracePath = null;
+      renderMapGrid();
+      if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // clear it off the minimap too
+    }
+  });
   const vp = document.getElementById('map-viewport');
   if (vp) {
     let lastWheel = 0;
@@ -536,9 +656,11 @@ function wireMapUi() {
     }, { passive: false });
 
     // Drag to pan the grid within the bounded viewport.
-    let dsx = 0, dsy = 0;
+    let dsx = 0, dsy = 0, downX = 0, downY = 0;
     vp.addEventListener('pointerdown', (e) => {
       mapDrag.on = true;
+      mapDrag.moved = false;
+      downX = e.clientX; downY = e.clientY;
       dsx = e.clientX - mapPan.tx;
       dsy = e.clientY - mapPan.ty;
       vp.classList.add('grabbing');
@@ -548,6 +670,8 @@ function wireMapUi() {
     });
     vp.addEventListener('pointermove', (e) => {
       if (!mapDrag.on) return;
+      // A few px of travel = a pan, not a click — so the ensuing click doesn't route.
+      if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 4) mapDrag.moved = true;
       mapPan.tx = e.clientX - dsx;
       mapPan.ty = e.clientY - dsy;
       applyMapPan();
@@ -567,15 +691,25 @@ function wireMapUi() {
     el.addEventListener('mouseover', onMapHover);
     el.addEventListener('mousemove', onMapMove);
     el.addEventListener('mouseout', onMapOut);
-    // Charter destination-pick: while armed, clicking a tile chooses it.
     el.addEventListener('click', (e) => {
-      if (!_pickCb) return;
       const cell = e.target.closest('[data-zone-id]');
       if (!cell) return;
       const zid = cell.getAttribute('data-zone-id');
-      const cb = _pickCb; _pickCb = null;
-      document.getElementById('map-panel')?.classList.remove('active');
-      cb(zid);
+      // Charter destination-pick takes precedence while armed.
+      if (_pickCb) {
+        const cb = _pickCb; _pickCb = null;
+        document.getElementById('map-panel')?.classList.remove('active');
+        cb(zid);
+        return;
+      }
+      // Route trace: draw a yellow road from the current tile to the clicked one.
+      // Ignore the click that ends a pan-drag (grid only; the legend can't be dragged).
+      if (!mapState.routeMode || (el.id === 'map-grid' && mapDrag.moved)) return;
+      const current = mapState.tiles.find(t => t.isCurrent);
+      const path = current ? traceRoute(current.id, zid, mapState.byId) : null;
+      mapState.tracePath = (path && path.length > 1) ? path : null;
+      renderMapGrid();
+      if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // mirror the route on the sidebar minimap
     });
   }
 }
@@ -598,6 +732,8 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
   mapState.insideInterior = !!insideInterior;
   mapState.byId = new Map(tiles.map(t => [t.id, t]));
   mapState.tiles = tiles;
+  // A stored route persists across moves/reopens; effectiveTracePath() trims it to the
+  // leg still ahead and drops it on arrival, so it never needs a blanket clear here.
 
   wireMapUi();
 
@@ -613,6 +749,7 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
   }
   document.getElementById('map-avenue-toggle')?.classList.toggle('active', mapState.avenueView);
   document.getElementById('map-territory-toggle')?.classList.toggle('active', mapState.territoryView);
+  document.getElementById('map-route-toggle')?.classList.toggle('active', mapState.routeMode);
   syncOverlaySlider();
   if (mapState.territoryView) fetchTerritory(); // refresh the control layer each open
 
@@ -689,6 +826,17 @@ function renderMapGrid() {
     }
   }
 
+  // Route trace geometry: the yellow road laid over the shortest walkable path to a
+  // clicked tile, trimmed to the leg still ahead of you. Drawn on top of the normal
+  // render below (see traceOverlay). Only when the Route toggle is on.
+  const curTile = tiles.find(t => t.isCurrent);
+  const tracePath = (mapState.routeMode ? effectiveTracePath(curTile?.id) : null) || [];
+  const traceSet = new Set(tracePath);
+  const { gaps: traceGaps, dirs: traceDirs } = traceOverlay(tracePath, (id) => {
+    const t = byId.get(id);
+    return t ? [(t.x - minX) * 2, (t.y - minY) * 2] : null;
+  });
+
   grid.style.gridTemplateColumns = Array.from({ length: gCols }, (_, c) =>
     c % 2 === 0 ? 'var(--map-room)' : 'var(--map-gap)').join(' ');
   // Avenue View strips tile chrome to an SVG road skeleton; overlay rides on top.
@@ -700,21 +848,24 @@ function renderMapGrid() {
       const it = cell[r][c];
       if (!it) { html += `<span class="map-c"></span>`; continue; }
       if (it.kind === 'link') {
+        const tg = traceGaps.get(`${r},${c}`);
+        const traceSvg = tg ? traceGapSvg(tg) : '';
+        const rel = tg ? ';position:relative' : '';
         if (avenueView) {
           // Avenue View: only artery gaps draw, as SVG road bands matching the
           // room roadway; everything else is blank so the skeleton reads clean.
           if (it.artery && (it.orient === 'h' || it.orient === 'v')) {
-            html += `<span class="map-c av-gap">${avGapSvg(it.orient)}</span>`;
+            html += `<span class="map-c av-gap"${tg ? ' style="position:relative"' : ''}>${avGapSvg(it.orient)}${traceSvg}</span>`;
           } else {
-            html += `<span class="map-c"></span>`;
+            html += `<span class="map-c"${tg ? ' style="position:relative"' : ''}>${traceSvg}</span>`;
           }
           continue;
         }
         if (it.orient === 'd1' || it.orient === 'd2') { // diagonals stay glyphs (rare)
-          html += `<span class="map-c map-link">${it.orient === 'd1' ? '╲' : '╱'}</span>`;
+          html += `<span class="map-c map-link"${tg ? ' style="position:relative"' : ''}>${it.orient === 'd1' ? '╲' : '╱'}${traceSvg}</span>`;
         } else {
           const scls = `map-c map-street map-street-${it.orient}${it.artery ? ' map-street-artery' : ''}${it.open ? ' map-street-open' : ''}`;
-          html += `<span class="${scls}" style="--street:${it.color}"></span>`;
+          html += `<span class="${scls}" style="--street:${it.color}${rel}">${traceSvg}</span>`;
         }
         continue;
       }
@@ -740,12 +891,14 @@ function renderMapGrid() {
       let deg = 0;
       for (const [rr, cc] of [[r, c - 1], [r, c + 1], [r - 1, c], [r + 1, c]])
         if (cell[rr]?.[cc]?.kind === 'link') deg++;
+      const trDirs = traceSet.has(t.id) ? traceDirs.get(t.id) : null;
       const cls = `map-c map-room danger-${t.danger || 'safe'}` +
         (t.isCurrent ? ' map-current' : '') +
         (regional || t.bg_color || t.color || terr ? ' map-styled' : '') +
         (isPoi ? ` map-poi map-poi-${t.poi}` : '') +
         (t.buildings && t.buildings.length ? ' map-has-building' : '') +
-        (deg === 1 ? ' map-deadend' : '');
+        (deg === 1 ? ' map-deadend' : '') +
+        (trDirs ? ' map-trace' : '');
       const style = styles.length ? ` style="${styles.join(';')}"` : '';
       // Avenue View: draw the tile as an SVG road whose arms point toward each
       // grid-adjacent artery link (straight / corner / T / crossroads / stub),
@@ -764,6 +917,8 @@ function renderMapGrid() {
         sym = dirs.length ? avRoadSvg(dirs) : '';
         sym += avOverlay(t, avenueOverlay);
       } else sym = symFor(t);
+      // Yellow route road on top (arms toward the prev/next tile on the traced path).
+      if (trDirs) sym += traceRoadSvg([...trDirs]);
       html += `<span class="${cls}"${style} data-zone-id="${t.id}">${sym}</span>`;
     }
   }

@@ -28,6 +28,7 @@ import { moveEntity } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove } from '../server/engine/commands/movement.js';
 import { resolveNamedDestination } from '../server/engine/commands/describe.js';
+import { tickOnsets } from '../server/engine/drugs.js';
 import { getSelectionState, clearSelectionState } from '../server/engine/sift.js';
 import { loadPlugins, getLoadedPlugins, getRegisteredCommands, getRegisteredHooks } from '../server/engine/plugins.js';
 import { loadMisSettings } from '../server/engine/mis.js';
@@ -261,6 +262,20 @@ check('stand resets posture', getPlayer().posture === 'standing', `posture=${get
 
 r = await run('stop');
 check('bare stop → nothing to stop', /aren't doing anything/.test(r?.message || ''), r?.message);
+
+// Drug onset (effects.onset_seconds): deferred instant hits land via tickOnsets.
+// Zero deltas keep applyEffects side-effect-free (no stat write, no DB) so this
+// checks purely the scheduling: elapsed timer lands + clears, future timer holds.
+{
+  const p = getPlayer();
+  p.pendingOnsets = [{ landAt: Date.now() - 1000, deltas: { sanity: 0 }, diuretic: 1, halluc: null, drug: {}, broadcast: () => {}, landMessage: 'LANDED' }];
+  const landed = tickOnsets(p);
+  check('onset lands once its timer elapses', landed.includes('LANDED') && p.pendingOnsets.length === 0, JSON.stringify(landed));
+  p.pendingOnsets = [{ landAt: Date.now() + 60000, deltas: { sanity: 0 }, diuretic: 1, halluc: null, drug: {}, broadcast: () => {}, landMessage: 'EARLY' }];
+  const held = tickOnsets(p);
+  check('onset holds until its timer elapses', held.length === 0 && p.pendingOnsets.length === 1, JSON.stringify(held));
+  p.pendingOnsets = [];
+}
 
 // Gear/equip wiring (DB writes are no-ops for the fake player, so this checks the
 // command surface: dispatch, argument guards, and the gear payload shape).

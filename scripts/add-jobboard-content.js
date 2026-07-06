@@ -22,34 +22,66 @@ import { query } from '../server/models/db.js';
 
 const ZONE = 'zone_city_west';
 
-// --- 5 gig quests (repeatable, visit-based so they work in a safe/no-spawn zone) ---
+// --- 6 gig quests (repeatable, visit-based so they work in safe/no-spawn zones) ----
+// Each is a legal, non-combat delivery CIRCUIT: a chain of ordered `visit` legs that
+// walks the player through the civilian core and back to Marta's window to claim.
+// Pay scales with the round-trip distance actually walked (~2.5₵ per tile, back to the
+// Strip included), so a longer run earns more — none of them is a one-hop payday. All
+// legs are safe zones (danger safe/low): easy work that simply takes some legwork.
+// Ordered via `requires` (a leg stays locked until its predecessor is stamped), so the
+// route is walked in sequence, not teleport-skipped.
 const QUESTS = [
   {
-    id: 'quest_fs_meter', name: 'Meter Reading', credits: 18,
-    description: 'Walk the row of dead meters at the Loading Bay and copy down numbers no one will ever read. 18₵.',
-    objectives: [{ id: 'o0', type: 'visit', zone: 'zone_city_east', desc: 'Reach the Loading Bay' }],
-  },
-  {
-    id: 'quest_fs_parcel', name: 'Parcel Run', credits: 25,
-    description: "Carry a sealed parcel to the Threshold. Don't shake it, don't open it, don't ask. 25₵.",
-    objectives: [{ id: 'o0', type: 'visit', zone: 'zone_threshold', desc: 'Deliver to the Threshold' }],
-  },
-  {
-    id: 'quest_fs_count', name: 'Shrinkage Count', credits: 15,
-    description: 'Count what is left in the Rust Quarter cache and report how much has walked off on its own. 15₵.',
-    objectives: [{ id: 'o0', type: 'visit', zone: 'zone_outskirts', desc: 'Reach the Rust Quarter cache' }],
-  },
-  {
-    id: 'quest_fs_line', name: 'Hold a Place', credits: 12,
-    description: "Stand in the ration line at the Embassy so someone who matters more doesn't have to. Bring back their ticket. 12₵.",
-    objectives: [{ id: 'o0', type: 'visit', zone: 'zone_residential_lobby', desc: 'Hold the place at the Embassy' }],
-  },
-  {
-    id: 'quest_fs_loop', name: 'The Loop', credits: 35,
-    description: 'Parcel out to the Threshold, empties back from the Loading Bay. In that order or not at all. 35₵.',
+    id: 'quest_fs_meter', name: 'Meter Reading', credits: 10,
+    description: 'Read the dead meters at the Threshold, then the dead meters up at Plaza North, and copy down numbers no one will ever check. 10₵.',
     objectives: [
-      { id: 'o0', type: 'visit', zone: 'zone_threshold', desc: 'Parcel to the Threshold' },
-      { id: 'o1', type: 'visit', zone: 'zone_city_east', desc: 'Empties back from the Loading Bay', requires: ['o0'] },
+      { id: 'o0', type: 'visit', zone: 'zone_threshold', desc: 'Read the meters at the Threshold' },
+      { id: 'o1', type: 'visit', zone: 'zone_city_north', desc: 'Read the meters at Plaza North', requires: ['o0'] },
+    ],
+  },
+  {
+    id: 'quest_fs_count', name: 'Shrinkage Count', credits: 10,
+    description: 'Count the Loading Bay stock, then walk the Rust Quarter cache and tally how much has walked off on its own. 10₵.',
+    objectives: [
+      { id: 'o0', type: 'visit', zone: 'zone_city_east', desc: 'Count stock at the Loading Bay' },
+      { id: 'o1', type: 'visit', zone: 'zone_outskirts', desc: 'Tally the Rust Quarter cache', requires: ['o0'] },
+    ],
+  },
+  {
+    id: 'quest_fs_line', name: 'Hold a Place', credits: 15,
+    description: "Hold a place in the line at the Sprawl Gate, then carry the ticket down to the Under Entrance for someone who matters more than you. 15₵.",
+    objectives: [
+      { id: 'o0', type: 'visit', zone: 'zone_city_south', desc: 'Hold the place at the Sprawl Gate' },
+      { id: 'o1', type: 'visit', zone: 'zone_city_sw', desc: 'Carry the ticket to the Under Entrance', requires: ['o0'] },
+    ],
+  },
+  {
+    id: 'quest_fs_parcel', name: 'Parcel Run', credits: 15,
+    description: "Carry a sealed parcel out through the Threshold and Threshold East to a drop on Castoff Walk. Don't shake it, don't open it, don't ask. 15₵.",
+    objectives: [
+      { id: 'o0', type: 'visit', zone: 'zone_threshold', desc: 'Through the Threshold' },
+      { id: 'o1', type: 'visit', zone: 'zone_thresholdeast', desc: 'Through Threshold East', requires: ['o0'] },
+      { id: 'o2', type: 'visit', zone: 'zone_velk_exterior', desc: 'Drop the parcel on Castoff Walk', requires: ['o1'] },
+    ],
+  },
+  {
+    id: 'quest_fs_loop', name: 'The Loop', credits: 20,
+    description: 'The full delivery loop: Threshold, Threshold East, Castoff Walk, and out to the Marquee — in that order or not at all. 20₵.',
+    objectives: [
+      { id: 'o0', type: 'visit', zone: 'zone_threshold', desc: 'Threshold' },
+      { id: 'o1', type: 'visit', zone: 'zone_thresholdeast', desc: 'Threshold East', requires: ['o0'] },
+      { id: 'o2', type: 'visit', zone: 'zone_velk_exterior', desc: 'Castoff Walk', requires: ['o1'] },
+      { id: 'o3', type: 'visit', zone: 'zone_mq_marquee', desc: 'Out to the Marquee', requires: ['o2'] },
+    ],
+  },
+  {
+    id: 'quest_fs_haul', name: 'The Long Haul', credits: 25,
+    description: "The long one nobody else wants: parcel through the Threshold to Castoff Walk, on to the Marquee, and all the way to Cathode Row before you turn back. It pays because it's a hike. 25₵.",
+    objectives: [
+      { id: 'o0', type: 'visit', zone: 'zone_threshold', desc: 'Through the Threshold' },
+      { id: 'o1', type: 'visit', zone: 'zone_velk_exterior', desc: 'On to Castoff Walk', requires: ['o0'] },
+      { id: 'o2', type: 'visit', zone: 'zone_mq_marquee', desc: 'On to the Marquee', requires: ['o1'] },
+      { id: 'o3', type: 'visit', zone: 'zone_mq_cathode', desc: 'All the way to Cathode Row', requires: ['o2'] },
     ],
   },
 ];

@@ -3,7 +3,7 @@ import { query, withTransaction } from '../../models/db.js';
 import { useDrug } from '../drugs.js';
 import { hasTag, tagValue, hasFlag, isStackable, TAG_CATALOG } from '../tags.js';
 import { foodLoad, applyThirst } from '../bodily.js';
-import { dispatchAction } from '../actions.js';
+import { dispatchAction, getRegisteredActions } from '../actions.js';
 import { burnCharge } from '../inventory.js';
 import { getZonePlayers, getZoneNpcs } from '../world.js';
 import { emit } from '../events.js';
@@ -347,6 +347,76 @@ async function cmdUseFurniture(targetStr, player, broadcast) {
   return { type:'error', message:`You can't use ${f.name} like that.` };
 }
 
+const parseCustomData = (v) => typeof v === 'string' ? (() => { try { return JSON.parse(v); } catch { return {}; } })() : (v || {});
+
+// Build the useDrug opts for a resolved drug row: synthesized drugs carry a
+// potency multiplier baked into the inventory row; spliced compounds also carry
+// their whole composed effects blob inline.
+function buildDrugOpts(cd, item) {
+  const opts = { potencyMult: Number(cd?.potency) || 1 };
+  if (cd && cd.effects) {
+    opts.inlineEffects = cd.effects;
+    opts.displayName = cd.name || item.name;
+    opts.overdoseThreshold = cd.overdose_threshold;
+    opts.durationSeconds = cd.duration_seconds;
+    opts.doseWeight = cd.dose_weight;
+  }
+  return opts;
+}
+
+// Run the drug effect and consume the item as one step: apply useDrug, burn a
+// pack charge (or decrement/delete the stack), and handle lethal overdose. Split
+// out of cmdUse so the consume plugin can call it when a timed consumption
+// finishes (effect lands at the end). `extraOpts` (takeLine, suppressComeupMessage)
+// merges into the useDrug opts. Returns a { type:'use', message, player_update }.
+export async function applyDrugUse(player, item, cd, opts, broadcast) {
+  const result = await useDrug(player, item.drug_id, broadcast, opts);
+  if (!result.success) return { type:'error', message: result.message };
+  // A charged pack (item tag `pack_size` > 1, e.g. cigarettes) burns one dose
+  // per use and is only destroyed once the last one is gone (burnCharge owns the
+  // charge bookkeeping). Everything else keeps the one-item-per-dose behaviour.
+  const itemTags = typeof item.tags === 'string' ? (() => { try { return JSON.parse(item.tags); } catch { return {}; } })() : (item.tags || {});
+  const burn = result.overdose_death ? { charged: false } : await burnCharge(item, itemTags);
+  if (burn.charged) {
+    // A loose single (custom_data.loose — a hand-rolled or bummed cigarette) was
+    // never a pack, so it gets its own end line and never "N left in the pack".
+    if (cd.loose || burn.loose) {
+      if (burn.destroyed) result.message += `\n<span class="msg-system">You take the last drag and grind out the butt.</span>`;
+    }
+    else if (burn.destroyed) result.message += `\n<span class="msg-system">That was the last one. You crush the empty pack and toss it.</span>`;
+    else if (burn.opened)    result.message += `\n<span class="msg-system">That was the last one. You crush the empty pack and crack open a fresh one.</span>`;
+    else                     result.message += `\n<span class="msg-system">${burn.remaining} left in the pack.</span>`;
+  } else if (item.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
+  else await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
+  if (result.overdose_death) {
+    // Lethal overdose: show the take message, then run the full death path.
+    broadcast(null, { type: 'output', message: result.message }, null, player.id);
+    const { handlePlayerDeath } = await import('../gameLoop.js');
+    await handlePlayerDeath(player, null, { type: 'drug', label: 'Overdose' });
+    return { type: 'use', message: '' };
+  }
+  return { type:'use', message: result.message, player_update: result.player_update };
+}
+
+// Re-resolve a drug inventory row by id and consume it now. Used by the consume
+// plugin when a timed consumption's timer fires — re-queried fresh so a row that
+// was dropped/traded during the ~15s consumption doesn't get applied off a stale
+// snapshot. Returns null if the row is gone. `extraOpts` = { takeLine, suppressComeupMessage }.
+export async function finishConsume(player, itemRowId, broadcast, extraOpts = {}) {
+  const { rows } = await query(
+    `SELECT pi.*, i.name, i.tags, d.id as drug_id FROM player_inventory pi
+     JOIN items i ON i.id = pi.item_id
+     JOIN drugs d ON d.item_id = i.id
+     WHERE pi.id=$1 AND pi.player_id=$2 LIMIT 1`,
+    [itemRowId, player.id]
+  );
+  if (!rows.length) return null;
+  const item = rows[0];
+  const cd = parseCustomData(item.custom_data);
+  const opts = { ...buildDrugOpts(cd, item), ...extraOpts };
+  return applyDrugUse(player, item, cd, opts, broadcast);
+}
+
 async function cmdUse(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Use what?' };
 
@@ -359,45 +429,20 @@ async function cmdUse(targetStr, player, broadcast) {
   );
   if (drugRows.length) {
     const item = drugRows[0];
-    // Synthesized drugs carry a potency multiplier baked into the inventory row;
-    // spliced compounds also carry their whole composed effects blob inline.
-    const cd = typeof item.custom_data === 'string' ? (() => { try { return JSON.parse(item.custom_data); } catch { return {}; } })() : (item.custom_data || {});
+    const cd = parseCustomData(item.custom_data);
     // Sealed in a climate crate — frozen and search-proof until you break the seal.
     if (cd && cd.packaged) return { type: 'error', message: `That's sealed in a climate crate. <span class="text-dim">unseal</span> it first.` };
-    const opts = { potencyMult: Number(cd?.potency) || 1 };
-    if (cd && cd.effects) {
-      opts.inlineEffects = cd.effects;
-      opts.displayName = cd.name || item.name;
-      opts.overdoseThreshold = cd.overdose_threshold;
-      opts.durationSeconds = cd.duration_seconds;
-      opts.doseWeight = cd.dose_weight;
+    const opts = buildDrugOpts(cd, item);
+    // Timed consumption: beer/cigarettes/joints are consumed over several seconds
+    // with the effect landing at the end. The consume plugin owns the sequencing —
+    // it decides by drug category whether to defer, returning a "You crack it open…"
+    // start message, or a { passthrough:true } sentinel to consume instantly here.
+    // Inline-splice compounds (cd.effects) are always instant.
+    if (!cd?.effects && getRegisteredActions().includes('consume.begin')) {
+      const r = await dispatchAction({ type: 'consume.begin', actor: player, params: { item, cd, opts }, context: { broadcast } });
+      if (r && !r.passthrough) return r;
     }
-    const result = await useDrug(player, item.drug_id, broadcast, opts);
-    if (!result.success) return { type:'error', message: result.message };
-    // A charged pack (item tag `pack_size` > 1, e.g. cigarettes) burns one dose
-    // per use and is only destroyed once the last one is gone (burnCharge owns the
-    // charge bookkeeping). Everything else keeps the one-item-per-dose behaviour.
-    const itemTags = typeof item.tags === 'string' ? (() => { try { return JSON.parse(item.tags); } catch { return {}; } })() : (item.tags || {});
-    const burn = result.overdose_death ? { charged: false } : await burnCharge(item, itemTags);
-    if (burn.charged) {
-      // A loose single (custom_data.loose — a hand-rolled or bummed cigarette) was
-      // never a pack, so it gets its own end line and never "N left in the pack".
-      if (cd.loose || burn.loose) {
-        if (burn.destroyed) result.message += `\n<span class="msg-system">You take the last drag and grind out the butt.</span>`;
-      }
-      else if (burn.destroyed) result.message += `\n<span class="msg-system">That was the last one. You crush the empty pack and toss it.</span>`;
-      else if (burn.opened)    result.message += `\n<span class="msg-system">That was the last one. You crush the empty pack and crack open a fresh one.</span>`;
-      else                     result.message += `\n<span class="msg-system">${burn.remaining} left in the pack.</span>`;
-    } else if (item.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
-    else await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
-    if (result.overdose_death) {
-      // Lethal overdose: show the take message, then run the full death path.
-      broadcast(null, { type: 'output', message: result.message }, null, player.id);
-      const { handlePlayerDeath } = await import('../gameLoop.js');
-      await handlePlayerDeath(player, null, { type: 'drug', label: 'Overdose' });
-      return { type: 'use', message: '' };
-    }
-    return { type:'use', message: result.message, player_update: result.player_update };
+    return applyDrugUse(player, item, cd, opts, broadcast);
   }
 
   const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND jsonb_exists(i.tags,'consumable') LIMIT 1`, [player.id, `%${targetStr}%`]);

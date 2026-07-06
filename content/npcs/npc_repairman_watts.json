@@ -124,12 +124,12 @@
     }
   },
   "chitchat": [
-    "Everything breaks. That's not pessimism, that's job security.",
-    "Don't kick it. Nothing in this city ever got fixed by kicking it.",
-    "I can hear a bad bearing three rooms off.",
-    "Bring me something dead. I like a challenge.",
-    "Solder's cheap. It's the patience that's expensive.",
-    "The machines remember who was gentle with them."
+    "\"Everything breaks. That's not pessimism, that's job security.\"",
+    "\"Don't kick it. Nothing in this city ever got fixed by kicking it.\"",
+    "\"I can hear a bad bearing three rooms off.\"",
+    "\"Bring me something dead. I like a challenge.\"",
+    "\"Solder's cheap. It's the patience that's expensive.\"",
+    "\"The machines remember who was gentle with them.\""
   ],
   "description": "A slab-shouldered man in a scorched welding apron, forearms roped with old burn scars and a brass-cased multimeter holstered at his hip like a sidearm. He talks to the dead machines while he works on them, low and patient, the way you'd gentle a spooked animal. When the grid drops and the whole block goes black, this is the man they pray walks through the door.",
   "dialogue_tree": {

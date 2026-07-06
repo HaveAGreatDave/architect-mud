@@ -23,6 +23,7 @@ import { applyMods, reverseMods } from './statmods.js';
 import { fireHook } from './plugins.js';
 import { emit } from './events.js';
 import { getTimeScale } from './gametime.js';
+import { sendToPlayer } from './messaging.js';
 
 let DRUG_CACHE = {};
 
@@ -150,7 +151,13 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   // substances do, but only if a camera actually catches it (raiseCrime gates).
   emit('player.drugUsed', { player, drug, potency: effPotency, illegal: !drug.flags?.legal, zoneId: player.current_zone });
 
-  let message = `You take ${displayName}. ${(opts.inlineEffects ? '' : drug.description) || ''}`.trim();
+  // `opts.takeLine` lets a caller supply the consumption sentence (e.g. the
+  // consume plugin's substance-appropriate "You drain the last of the beer…"),
+  // replacing the generic "You take X." + description. Drinks/smokes read better
+  // as an act than as a flat "take".
+  let message = opts.takeLine != null
+    ? opts.takeLine
+    : `You take ${displayName}. ${(opts.inlineEffects ? '' : drug.description) || ''}`.trim();
 
   // Diuretic factor (effects.diuretic): how the substance shifts water balance.
   // 1 = neutral (water). >1 diuretic (beer, coffee, stims) — pulls water into the
@@ -158,6 +165,14 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   // applyEffects. Structured & flat effects both keep it at the effects top level.
   const dv = Number(eff.diuretic);
   const diuretic = dv > 0 ? dv : 1;
+
+  // Onset (effects.onset_seconds): how long the dose takes to hit. 0 = instant
+  // (today's behaviour — a snap, for cocaine-types). >0 defers the instant block
+  // AND the hallucination trigger to land after N seconds, so most drugs "come on"
+  // instead of snapping. The come-up ramp of a *buff* lives in phases (comeup_scale);
+  // onset is the deferral of the one-shot instant hit + trip. Not applied to
+  // overdose (too-much-too-fast hits now, regardless).
+  const onset = Math.max(0, Number(eff.onset_seconds) || 0);
 
   // --- Overdose --------------------------------------------------------------
   if (overdosed) {
@@ -179,22 +194,61 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
     message += `\n<span class="addiction-warning">Something in you just changed. You'll want this again.</span>`;
   }
 
-  // --- Instant block (existing path) -----------------------------------------
-  const result = applyEffects(player, scaleInstant(instant, potencyMult), message, diuretic);
+  // --- Instant block ---------------------------------------------------------
+  const scaledInstant = scaleInstant(instant, potencyMult);
+  let result;
+  if (onset > 0) {
+    // Defer the hit: the instant block + hallucination land after `onset` seconds
+    // via tickOnsets. Nothing changes on the player yet, so player_update is empty.
+    result = { success: true, message, effects: scaledInstant, player_update: {}, overdose: false };
+    player.pendingOnsets = player.pendingOnsets || [];
+    player.pendingOnsets.push({
+      landAt: Date.now() + onset * 1000,
+      deltas: scaledInstant,
+      diuretic,
+      halluc: eff.hallucination ? { potency: effPotency } : null,
+      drug: drugForHooks,
+      broadcast,
+      landMessage: eff.onset_message || null,
+    });
+    if (eff.comeon_message) result.message += `\n${eff.comeon_message}`;
+  } else {
+    result = applyEffects(player, scaledInstant, message, diuretic);
+    if (eff.hallucination) {
+      fireHook('drug.used', { player, drug: drugForHooks, potency: effPotency, broadcast }).catch(() => {});
+    }
+  }
   if (potencyMult >= 1.25) result.message += `\n<span class="msg-system">This batch is strong. It hits harder than it should.</span>`;
 
   // --- Phased effects --------------------------------------------------------
   if (phases) {
     startPhasedDrug(player, drugForHooks, phases, effPotency);
-    if (phases.comeup_message) result.message += `\n${phases.comeup_message}`;
-  }
-
-  // --- Hallucination ---------------------------------------------------------
-  if (eff.hallucination) {
-    fireHook('drug.used', { player, drug: drugForHooks, potency: effPotency, broadcast }).catch(() => {});
+    // Timed-consumption callers (the consume plugin) narrate the whole physical
+    // act themselves and suppress the come-up line, which would otherwise read as
+    // "you light up" AFTER a 15-second smoke has already finished.
+    if (phases.comeup_message && !opts.suppressComeupMessage) result.message += `\n${phases.comeup_message}`;
   }
 
   return result;
+}
+
+// Called once per second from the game loop, alongside tickDrugs. Lands any
+// deferred (onset_seconds) instant hits whose timer has elapsed: applies the
+// stat block, fires the held-back hallucination hook, pushes the resource change
+// to the client, and returns the land message (if any) for broadcast.
+export function tickOnsets(player) {
+  const messages = [];
+  if (!player.pendingOnsets?.length) return messages;
+  const now = Date.now();
+  player.pendingOnsets = player.pendingOnsets.filter(o => {
+    if (now < o.landAt) return true;
+    const r = applyEffects(player, o.deltas, '', o.diuretic);
+    if (Object.keys(r.player_update).length) sendToPlayer(player.id, { type: 'player_update', ...r.player_update });
+    if (o.halluc) fireHook('drug.used', { player, drug: o.drug, potency: o.halluc.potency, broadcast: o.broadcast }).catch(() => {});
+    if (o.landMessage) messages.push(o.landMessage);
+    return false;
+  });
+  return messages;
 }
 
 // A diuretic factor of `d` pulls (d-1) worth of these into the bladder / out of
@@ -392,6 +446,7 @@ export function clearActiveDrugState(player) {
   for (const source of Object.keys(player._modLedger || {}))
     if (/^(drug|withdrawal):/.test(source)) reverseMods(player, source);
   player.activeDrugs = [];
+  player.pendingOnsets = [];   // drop any un-landed onset hits (no free effect after a fresh clone)
   player._withdrawalActive?.clear?.();
   query('UPDATE player_drug_state SET doses_in_system=0, active_until=0 WHERE player_id=$1', [player.id]).catch(() => {});
 }

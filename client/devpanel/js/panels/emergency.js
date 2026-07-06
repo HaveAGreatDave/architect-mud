@@ -155,9 +155,9 @@ function renderEmergencyPanel(data) {
 
       <!-- Crime Registry -->
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:12px">Crime Registry — toggle enforcement</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:12px">Crime Registry — enforcement &amp; wanted-star weight</div>
         <div id="crime-registry"><div style="font-size:11px;color:var(--text-dim);padding:6px 0">Loading…</div></div>
-        <div style="margin-top:10px;font-size:10px;color:var(--text-dim)">A disabled crime never charges wanted stars or heat when witnessed.</div>
+        <div style="margin-top:10px;font-size:10px;color:var(--text-dim)">A disabled crime never charges wanted stars or heat when witnessed. Stars are additive across crimes and capped at 5 (half-steps allowed).</div>
       </div>
 
       <!-- ESP Controls -->
@@ -245,9 +245,18 @@ async function _loadCrimeConfig() {
     <div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)">
       <label class="toggle-switch" style="flex-shrink:0"><input type="checkbox" ${c.enabled !== false ? 'checked' : ''} onchange="toggleCrime('${c.id}', this.checked)"><span class="toggle-slider"></span></label>
       <span style="font-size:11px;color:var(--text);${c.enabled === false ? 'opacity:0.45;text-decoration:line-through' : ''}">${_crimeEsc(c.label)}</span>
-      <span style="font-size:10px;color:#ff6b6b;margin-left:auto;white-space:nowrap">${c.stars}★</span>
+      <input type="number" min="0" max="5" step="0.5" value="${c.stars}" onchange="saveCrimeStars('${c.id}', this.value)" title="Wanted stars this crime adds" style="margin-left:auto;width:52px;background:var(--bg3);border:1px solid var(--border);color:#ff6b6b;font-family:var(--font);font-size:11px;padding:3px 6px;border-radius:2px;text-align:right">
+      <span style="font-size:10px;color:#ff6b6b">★</span>
       <span style="font-size:9px;color:var(--text-dim);text-transform:uppercase;min-width:52px;text-align:right">${_crimeEsc(c.witness)}</span>
     </div>`).join('');
+}
+
+async function saveCrimeStars(id, value) {
+  const stars = Number(value);
+  const r = await directAPI(`/crimes/${id}`, 'PUT', { stars });
+  if (r.error) { toast(r.error, true); return; }
+  toast(`Wanted weight set to ${stars}★`);
+  _loadCrimeConfig();
 }
 async function saveCrimeMult() {
   const v = Number(document.getElementById('crime-mult').value);

@@ -1,0 +1,16 @@
+{
+  "category": "traffic",
+  "enabled": true,
+  "id": "routine_traffic_15",
+  "interactive": null,
+  "lines": [
+    "Traffic thickens for a moment — engines, a horn, the whine of a bad bearing — then thins."
+  ],
+  "loudness": 1,
+  "phases": [],
+  "sort_order": 15,
+  "themes": [],
+  "weather": [],
+  "weight": 100,
+  "zones": []
+}

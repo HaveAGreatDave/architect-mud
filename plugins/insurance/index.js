@@ -132,6 +132,33 @@ async function cmdClaim(args, raw, player) {
   return { type: 'output', message: `<span class="item-grant">Settled. Halcyon pays out <b>${c.payout}c</b> on the ${c.type_name} — the ${c.deductible}c excess is yours to eat, and the wreck is ours now. <span class="text-dim">A pleasure doing business. Your next premium reflects today.</span></span>`, player_update: { credits: player.credits } };
 }
 
+// ── insurebind — point-of-sale cover, reachable at the dealer ─────────────────
+// The offer shown the instant you buy an aircraft: bind a fresh policy right there on
+// the dealer floor (or at the underwriting desk), so you can cover her before her first
+// flight without a trip across town. Same premium and terms as the desk — this is just
+// the desk coming to you at the moment of purchase. Targets one aircraft by id.
+const dealerHere = (z) => !!z && (z.flags?.airfield_dealer || getZone(z.flags?.hangar_ramp)?.flags?.airfield_dealer);
+async function cmdInsureBind(args, raw, player) {
+  const z = getZone(player.current_zone);
+  if (!z?.flags?.insurance_desk && !dealerHere(z)) return notHere;
+  const want = (args[0] || '').toLowerCase();
+  if (!want) return cmdInsure(args, raw, player);   // bare `insurebind` → the normal list, if at the desk
+  const fleet = await ownedFleet(player.id);
+  const craft = pickCraft(fleet, want);
+  if (!craft) return { type: 'emote', message: 'No aircraft of yours to cover here.' };
+  if (craft.policy_id) return { type: 'emote', message: `The ${craft.tname} is already covered — you're set.` };
+  const paid = await ownerPaidClaims(player.id);
+  const value = craft.price_buy;
+  const premium = quotePremium(value, paid);
+  if ((player.credits || 0) < premium) return { type: 'emote', message: `Cover on the ${craft.tname} runs ${premium}c — you're short right now. She'll fly uninsured; bind it later at the Halcyon desk.` };
+  player.credits -= premium;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  await query('INSERT INTO insurance_policies (id, owner_id, aircraft_id, insured_value, premium_paid, expires_at, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+    [`pol_${randomUUID().slice(0, 10)}`, player.id, craft.id, value, premium, nowSec() + PERIOD_SEC, nowSec()]);
+  const { deductible, payout } = settlement(value);
+  return { type: 'output', message: `<span class="item-grant">Bound on the spot. The <b>${craft.tname}</b> "${craft.name}" is covered for ${PERIOD_SEC / 86400} days — <b>${premium}c</b>. A covered write-off pays <b>${payout}c</b> after the ${deductible}c excess, and we keep the hull. <span class="text-dim">Fly safe — cover you never claim is the cheapest kind.</span></span>`, player_update: { credits: player.credits } };
+}
+
 // ── policies — what you currently carry ───────────────────────────────────────
 async function cmdPolicies(args, raw, player) {
   const { rows } = await query(
@@ -204,6 +231,7 @@ on('flight.crashed', async ({ aircraftId, ownerId, pilotId, typeId, typeName, re
 
 export const commands = {
   insure: cmdInsure,
+  insurebind: cmdInsureBind,
   claim: cmdClaim,
   policies: cmdPolicies,
   policy: cmdPolicies,
