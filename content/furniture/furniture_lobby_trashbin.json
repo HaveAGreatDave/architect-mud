@@ -1,0 +1,17 @@
+{
+  "description": "A battered plastic bin by the entrance. The lid is missing. Everything inside is gone within the hour — or whenever someone feels like it.",
+  "flags": {
+    "interactions": [],
+    "trash_bin": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_lobby_trashbin",
+  "light_type": "lamp",
+  "lumen_output": 400,
+  "name": "trash bin",
+  "object_type": "container",
+  "power_draw_kw": 5,
+  "price": 15,
+  "zone_id": "zone_residential_lobby"
+}

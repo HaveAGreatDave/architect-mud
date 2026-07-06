@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5400,
+  "flags": {},
+  "generator_id": "gen_zone_mq_chrome_util",
+  "id": "zone_mq_chrome_204",
+  "max_capacity_kw": 5400,
+  "name": "Unit 204",
+  "source_type": "junction_box"
+}

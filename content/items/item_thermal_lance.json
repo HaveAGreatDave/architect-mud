@@ -1,0 +1,38 @@
+{
+  "description": "An oxy-fuel cutting lance that spits a 3000°C jet. Chews through steel casing and busbars alike.",
+  "effects": {},
+  "flags": {},
+  "id": "item_thermal_lance",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 1,
+  "name": "thermal lance",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "tool",
+  "tags": {
+    "__own": {
+      "damage": {
+        "max": 100,
+        "min": 55
+      },
+      "damage_type": "fire",
+      "demolition": true
+    },
+    "__super": [
+      "weapon_science"
+    ],
+    "damage": {
+      "max": 100,
+      "min": 55
+    },
+    "damage_type": "fire",
+    "demolition": true,
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "science"
+  },
+  "type": "weapon",
+  "value": 1800,
+  "weight": 6000
+}

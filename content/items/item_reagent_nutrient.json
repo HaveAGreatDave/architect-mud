@@ -1,0 +1,19 @@
+{
+  "description": "A sack of hydroponic growth nutrient and curing salts. For the rooftop-garden crowd — and anyone else who needs to make things grow, or set.",
+  "effects": {},
+  "flags": {},
+  "id": "item_reagent_nutrient",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "growth nutrient",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "reagent",
+  "tags": {
+    "reagent": true
+  },
+  "type": "chemical",
+  "value": 3,
+  "weight": 30
+}

@@ -1,0 +1,256 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "root",
+    "nodes": {
+      "apostate_gate": {
+        "condition_type": "FLAG_SET",
+        "ifFalse": "apostate_mark",
+        "ifTrue": "flee_act",
+        "params": {
+          "flag": "apostate",
+          "scope": "self"
+        },
+        "type": "condition"
+      },
+      "apostate_mark": {
+        "action_type": "SET_FLAG",
+        "next": "apostate_say",
+        "params": {
+          "flag": "apostate",
+          "scope": "self",
+          "value": "1"
+        },
+        "type": "action"
+      },
+      "apostate_say": {
+        "action_type": "SAY",
+        "next": "flee_act",
+        "params": {
+          "cooldown_s": 0,
+          "message": "The hymn... the hymn LIED. There is no master. There is nothing!"
+        },
+        "type": "action"
+      },
+      "check_player": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "liturgy",
+        "ifTrue": "wary_gate",
+        "params": {
+          "min": 1
+        },
+        "type": "condition"
+      },
+      "check_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "check_player",
+        "ifTrue": "provoked_gate",
+        "type": "condition"
+      },
+      "escalate": {
+        "condition_type": "RANDOM_CHANCE",
+        "ifFalse": "wary_watch",
+        "ifTrue": "provoke_self",
+        "params": {
+          "chance": 0.25
+        },
+        "type": "condition"
+      },
+      "flee_act": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "greet_mark": {
+        "action_type": "SET_FLAG",
+        "next": "greet_say",
+        "params": {
+          "flag": "greeted",
+          "scope": "self",
+          "value": "1"
+        },
+        "type": "action"
+      },
+      "greet_say": {
+        "action_type": "SAY",
+        "next": "loop",
+        "params": {
+          "cooldown_s": 0,
+          "message": "You stand in the nave of the Choirmaster. Mind your tongue, pilgrim."
+        },
+        "type": "action"
+      },
+      "lit_emote": {
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "trims a guttering candle-wire and bows to the empty nave."
+        },
+        "type": "action"
+      },
+      "lit_say": {
+        "action_type": "SAY",
+        "next": "loop",
+        "params": {
+          "cooldown_s": 25,
+          "message": "murmurs a verse of the endless hymn."
+        },
+        "type": "action"
+      },
+      "liturgy": {
+        "branch_0": "lit_emote",
+        "branch_1": "lit_say",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "loop": {
+        "next": "root",
+        "type": "loop"
+      },
+      "provoke_self": {
+        "action_type": "ACQUIRE_TARGET",
+        "next": "provoked_gate",
+        "params": {
+          "prefer": "random"
+        },
+        "type": "action"
+      },
+      "provoked_gate": {
+        "condition_type": "FLAG_SET",
+        "ifFalse": "summon_mark",
+        "ifTrue": "zealot",
+        "params": {
+          "flag": "summoned",
+          "scope": "self"
+        },
+        "type": "condition"
+      },
+      "root": {
+        "next": "check_target",
+        "type": "start"
+      },
+      "summon_call": {
+        "action_type": "CALL_BACKUP",
+        "next": "loop",
+        "params": {
+          "faction_only": false,
+          "radius": 4
+        },
+        "type": "action"
+      },
+      "summon_cry": {
+        "action_type": "SAY",
+        "next": "summon_call",
+        "params": {
+          "cooldown_s": 0,
+          "message": "HERESY! MASTER — THE CHOIR HAS AN INTRUDER!"
+        },
+        "type": "action"
+      },
+      "summon_mark": {
+        "action_type": "SET_FLAG",
+        "next": "summon_cry",
+        "params": {
+          "flag": "summoned",
+          "scope": "self",
+          "value": "1"
+        },
+        "type": "action"
+      },
+      "wary_gate": {
+        "condition_type": "FLAG_SET",
+        "ifFalse": "greet_mark",
+        "ifTrue": "escalate",
+        "params": {
+          "flag": "greeted",
+          "scope": "self"
+        },
+        "type": "condition"
+      },
+      "wary_watch": {
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "watches you, unblinking, fingers working a string of wire beads."
+        },
+        "type": "action"
+      },
+      "zealot": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "zealot_act",
+        "ifTrue": "apostate_gate",
+        "params": {
+          "pct": 40
+        },
+        "type": "condition"
+      },
+      "zealot_act": {
+        "branch_0": "zealot_call",
+        "branch_1": "zealot_say",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "zealot_call": {
+        "action_type": "CALL_BACKUP",
+        "next": "loop",
+        "params": {
+          "faction_only": false,
+          "radius": 4
+        },
+        "type": "action"
+      },
+      "zealot_say": {
+        "action_type": "SAY",
+        "next": "loop",
+        "params": {
+          "cooldown_s": 7,
+          "message": "Sing, intruder! The Choirmaster loves a struggling voice!"
+        },
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [
+    "tends the shrine of silent speakers.",
+    "thumbs a bead of stripped wire."
+  ],
+  "description": "A stooped acolyte in a cassock stiff with candle-wax, a rosary of stripped copper wire looped through their knuckles. They tend a shrine of dead speakers and will not meet your eye — only your throat.",
+  "dialogue_tree": {},
+  "faction": "choir",
+  "flags": {
+    "battle_cries": [
+      "the Verger flinches toward every sound you make."
+    ]
+  },
+  "home_activities": [],
+  "home_zone": null,
+  "hp": 45,
+  "hp_max": 45,
+  "id": "npc_verger_demo",
+  "name": "the Verger",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

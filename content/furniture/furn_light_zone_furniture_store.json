@@ -1,0 +1,18 @@
+{
+  "description": "Recessed showroom track lights pick out each staged room-set in warm, salesman-friendly pools of light.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_furniture_store",
+  "light_type": "overhead",
+  "lumen_output": 1500,
+  "name": "showroom lighting",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_furniture_store"
+}

@@ -1,0 +1,8 @@
+{
+  "difficulty": 9,
+  "id": "sti_ind_12",
+  "item_id": "item_control_relay",
+  "max_qty": 1,
+  "table_id": "scav_industrial_salvage",
+  "weight": 4
+}

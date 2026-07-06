@@ -1,0 +1,38 @@
+{
+  "ambient_events": [
+    "A cabinet drawer rolls open on its own and hangs there, accusing.",
+    "The lone terminal chirps, prints a single blank slip, and sleeps again."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#7fda9a",
+  "color": "#111111",
+  "created_by": "phase2-build",
+  "danger_rating": "safe",
+  "description": "A municipal records office running on one flickering terminal and a clerk who outlived the department. Filing cabinets tower into the dark, alphabetised by a system since lost.",
+  "exits": {
+    "east": "zone_civ_steps",
+    "south": "zone_up_aid",
+    "west": "zone_civ_commons"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": -2,
+  "grid_y": -3,
+  "grid_z": 0,
+  "id": "zone_civ_ledger",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "LG",
+  "name": "Ledger Hall",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

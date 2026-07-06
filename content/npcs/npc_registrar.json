@@ -1,0 +1,223 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "The Registrar squares a stack of paper that is already square.",
+    "\"Everything is on file. Somewhere. In theory.\""
+  ],
+  "description": "A precise, papery woman who has outlasted the department she serves. She still stamps, files, and disapproves as if any of it will be audited.",
+  "dialogue_tree": {
+    "accepted": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_paper_trail"
+        }
+      ],
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Grime Row, The Bailey — the low, bad end of the wastes. Mind the ash, and mind the wight.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Do mind the filing.\""
+    },
+    "quest_offer": {
+      "options": [
+        {
+          "label": "I'll deal with it.",
+          "next": "accepted"
+        },
+        {
+          "label": "I've dealt with it. (report back)",
+          "next": "reported"
+        },
+        {
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Something's denning on a spool of lost citizen records out in the deep wastes — a slag wight, by the heat of it. Put it down so my people can recover the file, and I'll see you're paid and, more importantly, registered as helpful.\""
+    },
+    "reported": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_paper_trail"
+        }
+      ],
+      "options": [
+        {
+          "label": "Obliged.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"...Filed. Recovered. You're in the ledger now, for whatever that's worth. Take this for your trouble — and my thanks, off the record.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Anything I can do?",
+          "next": "quest_offer"
+        },
+        {
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "The Registrar peers over cracked spectacles. \"Records office. Mostly closed. Mostly. Was there something on file?\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a threadbare municipal blazer",
+      "a high-collared blouse",
+      "sensible, joyless underthings"
+    ],
+    "personality": "clerk"
+  },
+  "home_activities": [],
+  "home_zone": "zone_civ_ledger",
+  "hp": 16,
+  "hp_max": 16,
+  "id": "npc_registrar",
+  "name": "The Registrar",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": null,
+  "vendor_restock_rate": 1,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_civ_ledger"
+}

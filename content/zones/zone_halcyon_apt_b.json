@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2c2340",
+  "color": "#eae6f0",
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "The twin of 41-A across the hall — the same engineered calm, the same billed air, the same long drop past the glass. Empty, and expensive.",
+  "exits": {
+    "west": "zone_halcyon_residences"
+  },
+  "flags": {
+    "building_type": "residential",
+    "is_apartment": true,
+    "is_interior": true
+  },
+  "grid_x": 1,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_halcyon_apt_b",
+  "is_safe_zone": 1,
+  "map_id": "map_int_halcyon",
+  "marker": "41",
+  "name": "Halcyon Residence 41-B",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783316802"
+}

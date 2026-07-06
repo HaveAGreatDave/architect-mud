@@ -1,0 +1,18 @@
+{
+  "description": "Carry a sealed parcel to the Threshold. Don't shake it, don't open it, don't ask. 25₵.",
+  "id": "quest_fs_parcel",
+  "name": "Parcel Run",
+  "objectives": [
+    {
+      "desc": "Deliver to the Threshold",
+      "id": "o0",
+      "type": "visit",
+      "zone": "zone_threshold"
+    }
+  ],
+  "repeatable": 1,
+  "rewards": {
+    "credits": 25
+  },
+  "updated_at": "1783357094"
+}

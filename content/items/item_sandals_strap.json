@@ -1,0 +1,24 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_sandals_strap",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "cracked strap sandals",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 0,
+    "bulkiness": 1,
+    "description": "Flat rubber sandals with a strap repaired in wire and one sole worn to a slick. They flap when you walk and offer your toes to the world and its broken glass.",
+    "insulation": 0,
+    "layer": "outerwear",
+    "slot": "feet"
+  },
+  "type": null,
+  "value": 12,
+  "weight": 300
+}

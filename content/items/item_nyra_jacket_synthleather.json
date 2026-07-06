@@ -1,0 +1,24 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_nyra_jacket_synthleather",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "fitted synth-leather jacket",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 2,
+    "bulkiness": 3,
+    "description": "A close-cut black synthetic leather jacket designed for mobility and protection. Lightweight but durable, with reinforced seams and a matte finish that absorbs light rather than reflecting it.",
+    "insulation": 5,
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": "clothing",
+  "value": 1200,
+  "weight": 1400
+}

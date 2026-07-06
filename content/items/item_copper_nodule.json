@@ -1,0 +1,20 @@
+{
+  "description": "A knuckle of native copper, green-crusted on the outside and bright as a new coin where the pick broke it open. The wire-runners pay real money for clean copper.",
+  "effects": {},
+  "flags": {},
+  "id": "item_copper_nodule",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "copper nodule",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A knuckle of native copper, green-crusted on the outside and bright as a new coin where the pick broke it open. The wire-runners pay real money for clean copper.",
+    "material": true
+  },
+  "type": "material",
+  "value": 32,
+  "weight": 700
+}

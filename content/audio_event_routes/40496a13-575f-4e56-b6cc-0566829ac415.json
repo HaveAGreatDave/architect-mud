@@ -1,0 +1,10 @@
+{
+  "ambient_id": null,
+  "enabled": 1,
+  "event_name": "player.login",
+  "id": "40496a13-575f-4e56-b6cc-0566829ac415",
+  "sample_id": "smp_a3ddd5ae-ab44-4bea-bc88-cb684f4f712b",
+  "scope": "player",
+  "sfx_id": null,
+  "song_id": null
+}

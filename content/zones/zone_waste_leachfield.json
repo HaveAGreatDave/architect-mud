@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "A patch of ground fizzes gently as something leaches up through it.",
+    "The chemical weep has drawn a perfect dead circle in the ash. You step around it."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#be9d64",
+  "color": "#eeeeee",
+  "created_by": "phase6-build",
+  "danger_rating": "medium",
+  "description": "The buried leach-beds of the old city drain here, seeping a slow chemical weep to the surface that kills the ground in bright, geometric patches.",
+  "exits": {
+    "east": "zone_waste_ashensteppe",
+    "north": "zone_waste_scald",
+    "south": "zone_waste_sootbank",
+    "west": "zone_waste_scrapmesa"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -5,
+  "grid_y": -5,
+  "grid_z": 0,
+  "id": "zone_waste_leachfield",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "LF",
+  "name": "The Leachfield",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

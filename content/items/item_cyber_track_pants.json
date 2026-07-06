@@ -1,0 +1,24 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_cyber_track_pants",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "cyber track pants",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 0,
+    "bulkiness": 1,
+    "description": "Black athletic track pants with bold vertical Japanese lettering running down one leg in crisp white, accented by subtle reflective piping. The relaxed fit and tapered ankles give them a sleek cyberpunk streetwear silhouette.",
+    "insulation": 1.5,
+    "layer": "outerwear",
+    "slot": "legs"
+  },
+  "type": "clothing",
+  "value": 25,
+  "weight": 120
+}

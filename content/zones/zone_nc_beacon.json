@@ -1,0 +1,42 @@
+{
+  "ambient_events": [
+    "The beacon sweeps its cold light across Beacon Row and moves on.",
+    "A resident closes their blinds against the beacon they paid extra to live beside."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#8e8edd",
+  "color": "#eeeeee",
+  "created_by": "phase9-build",
+  "danger_rating": "safe",
+  "description": "A row crowned by an old harbour beacon, relit as a status symbol, that now warns ships away from a port that no longer wants them. The light sweeps the district all night.",
+  "exits": {
+    "east": "zone_nc_chancery",
+    "north": "zone_nc_ivory",
+    "south": "zone_waste_downwind",
+    "west": "zone_nc_palisade"
+  },
+  "flags": {
+    "artery": [
+      "Palisade Walk"
+    ],
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": 7,
+  "grid_y": -5,
+  "grid_z": 0,
+  "id": "zone_nc_beacon",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "Be",
+  "name": "Beacon Row",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

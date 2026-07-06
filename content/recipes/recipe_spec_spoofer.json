@@ -1,0 +1,31 @@
+{
+  "base_difficulty": 6,
+  "base_output": {
+    "item_id": "item_feed_spoofer",
+    "quantity": 1
+  },
+  "category": "tech",
+  "craft_time": 3,
+  "description": "Assemble a Feed Spoofer from salvaged parts.",
+  "id": "recipe_spec_spoofer",
+  "ingredients": [
+    {
+      "item_id": "item_optic_module",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_signal_board",
+      "quantity": 2
+    },
+    {
+      "item_id": "item_micro_cell",
+      "quantity": 1
+    }
+  ],
+  "name": "Feed Spoofer",
+  "requires_station": null,
+  "skill_id": "electronics",
+  "skill_req": {
+    "electronics": 4
+  }
+}

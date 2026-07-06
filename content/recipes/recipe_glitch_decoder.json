@@ -1,0 +1,30 @@
+{
+  "base_difficulty": 10,
+  "base_output": {
+    "item_id": "item_signal_decoder",
+    "quantity": 1
+  },
+  "category": "tech",
+  "craft_time": 3,
+  "description": "Assembles a device that can interpret Architect data fragments. Requires high skill and rare parts.",
+  "id": "recipe_glitch_decoder",
+  "ingredients": [
+    {
+      "item_id": "item_drone_core",
+      "min_quality": "common",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_architect_fragment",
+      "min_quality": "common",
+      "quantity": 1
+    }
+  ],
+  "name": "Architect Signal Decoder",
+  "requires_station": "architect_terminal",
+  "skill_id": "hacking",
+  "skill_req": {
+    "electronics": 4,
+    "hacking": 5
+  }
+}

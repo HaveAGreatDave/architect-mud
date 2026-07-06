@@ -1,0 +1,134 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 20
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 7,
+  "butcher_table": [],
+  "death_message": "The wight sags, its heat guttering out, and settles into the ash it came from.",
+  "description": "What's left of a work-crew that never clocked out — a husk of fused slag and old coveralls, radiant with a dry heat, moving with the patience of something that has already died once.",
+  "dodge": 2,
+  "faction": null,
+  "flags": {},
+  "hit": 5,
+  "hp_max": 34,
+  "id": "enemy_slag_wight",
+  "loot_table": [
+    {
+      "item": "item_glowing_scrap",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 16
+    },
+    {
+      "item": "item_cracked_capacitor",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 12
+    },
+    {
+      "item": "item_mutated_bone",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 10
+    }
+  ],
+  "name": "slag wight",
+  "weapon": [
+    {
+      "max": 7,
+      "min": 3,
+      "type": "kinetic"
+    }
+  ]
+}

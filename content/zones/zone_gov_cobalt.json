@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "A bailiff calls a case number that has not been reached in nine years.",
+    "Two advocates argue amicably over a docket neither expects to resolve."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#bca6a6",
+  "color": "#111111",
+  "created_by": "phase6-build",
+  "danger_rating": "safe",
+  "description": "A court of law tiled in cobalt, where cases are heard, adjourned, and inherited by the children of the original plaintiffs. Justice here is less blind than simply very, very slow.",
+  "exits": {
+    "east": "zone_gov_vantage",
+    "south": "zone_gov_mezzanine",
+    "west": "zone_gov_registry"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "gov_enclave": true,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": -3,
+  "grid_y": -6,
+  "grid_z": 0,
+  "id": "zone_gov_cobalt",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "CB",
+  "name": "Cobalt Court",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

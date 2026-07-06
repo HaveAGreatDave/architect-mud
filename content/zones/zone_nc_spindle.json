@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "The spindle's hum steps up a semitone, then settles.",
+    "Your gear chirps at signals it has no business receiving."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#bca6a6",
+  "color": "#111111",
+  "created_by": "phase5-build",
+  "danger_rating": "safe",
+  "description": "The base of a slender comms spindle that climbs out of sight, humming with the whole district's data. Standing near it makes your teeth ache and your deck light up with things it shouldn't.",
+  "exits": {
+    "west": "zone_nc_datum"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "gov_enclave": true,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": 0,
+  "grid_y": -5,
+  "grid_z": 0,
+  "id": "zone_nc_spindle",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "SP",
+  "name": "The Spindle",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

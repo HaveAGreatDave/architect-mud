@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "The wreck groans as the swell works at it, shedding a rain of rust.",
+    "Something large shifts deep in the flooded hold, and the whole hull shivers."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#71b1e6",
+  "color": "#eeeeee",
+  "created_by": "phase5-build",
+  "danger_rating": "medium",
+  "description": "A freighter died here decades ago and never fully sank, its rusted flank a cliff of riveted iron you can board at low swell. Deep in the flooded holds, things have made a home.",
+  "exits": {
+    "east": "zone_bay_mid",
+    "north": "zone_bay_slick",
+    "south": "zone_bay_sound",
+    "west": "zone_bay_buoy"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_harbor",
+    "water": true
+  },
+  "grid_x": 1,
+  "grid_y": -6,
+  "grid_z": 0,
+  "id": "zone_bay_wreck",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "WR",
+  "name": "The Wreck",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

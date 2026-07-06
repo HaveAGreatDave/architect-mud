@@ -1,0 +1,128 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 20
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "maw",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "body",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 44
+    },
+    {
+      "part": "tail",
+      "soak": {},
+      "weight": 16
+    },
+    {
+      "part": "left_fin",
+      "soak": {},
+      "weight": 14
+    },
+    {
+      "part": "right_fin",
+      "soak": {},
+      "weight": 14
+    }
+  ],
+  "butcher_difficulty": 4,
+  "butcher_table": [
+    {
+      "item": "item_fresh_catch",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 30
+    }
+  ],
+  "death_message": "The lurker thrashes once, sheeting the boards with black water, and sinks out of sight.",
+  "description": "A long, pale thing grown fat on the bay's runoff — part eel, part something that used to have legs. It hangs just under the surface and takes what strays too near the edge.",
+  "dodge": 4,
+  "faction": null,
+  "flags": {},
+  "hit": 5,
+  "hp_max": 20,
+  "id": "enemy_harbor_lurker",
+  "loot_table": [
+    {
+      "item": "item_fresh_catch",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 18
+    },
+    {
+      "item": "item_mutated_bone",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 14
+    },
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 10
+    }
+  ],
+  "name": "harbour lurker",
+  "weapon": [
+    {
+      "max": 6,
+      "min": 2,
+      "type": "kinetic"
+    }
+  ]
+}

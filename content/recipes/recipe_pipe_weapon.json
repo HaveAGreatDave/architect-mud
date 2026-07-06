@@ -1,0 +1,24 @@
+{
+  "base_difficulty": 3,
+  "base_output": {
+    "item_id": "item_pipe_wrench",
+    "quantity": 1
+  },
+  "category": "weapons",
+  "craft_time": 3,
+  "description": "Combine scrap metal into a crude but effective blunt weapon.",
+  "id": "recipe_pipe_weapon",
+  "ingredients": [
+    {
+      "item_id": "item_scrap_metal",
+      "min_quality": "scrap",
+      "quantity": 3
+    }
+  ],
+  "name": "Pipe Wrench",
+  "requires_station": null,
+  "skill_id": "fabrication",
+  "skill_req": {
+    "fabrication": 0
+  }
+}

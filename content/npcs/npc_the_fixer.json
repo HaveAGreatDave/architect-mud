@@ -1,0 +1,200 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "hours_check",
+    "nodes": {
+      "hours_check": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "vanish",
+        "ifTrue": "prowl",
+        "params": {
+          "from": 2,
+          "to": 6
+        },
+        "type": "condition"
+      },
+      "prowl": {
+        "action_type": "PATROL",
+        "next": "hours_check",
+        "params": {
+          "loop": true,
+          "mode": "walk",
+          "waypoints": [
+            "zone_city_west",
+            "zone_start",
+            "zone_threshold",
+            "zone_thresholdeast"
+          ]
+        },
+        "type": "action"
+      },
+      "vanish": {
+        "action_type": "GO_HOME",
+        "next": "hours_check",
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [
+    "doesn't look up.",
+    "murmurs a number under his breath, then loses it.",
+    "\"Wrong man. Keep moving.\"",
+    "watches the exit like it owes him money."
+  ],
+  "description": "A neat, unremarkable man in a good coat gone shabby, always half-turned toward the nearest exit. His fingers are stained blue-black with something like ink, and they never stop moving — counting, always counting, though there's nothing in his hands to count. He meets your eyes for exactly as long as it takes to price you, then finds the door again.",
+  "dialogue_tree": {},
+  "faction": "faction_franchise",
+  "flags": {
+    "covert": true,
+    "deal_from": 2,
+    "deal_to": 6,
+    "inner_circle_flag": "keller_inner_circle",
+    "passphrases": [
+      "clearance rack's open",
+      "you on the list",
+      "cash only after two"
+    ],
+    "trust_flag": "keller_trust",
+    "trust_max": 100,
+    "trust_per_buy": 8
+  },
+  "home_activities": [],
+  "home_zone": "zone_city_west",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_the_fixer",
+  "name": "Dov Keller",
+  "npc_type": "dealer",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_drug_buzz",
+      "min_trust": 0,
+      "price": 60
+    },
+    {
+      "item_id": "item_dreamsmoke",
+      "min_trust": 0,
+      "price": 70
+    },
+    {
+      "item_id": "item_lull",
+      "min_trust": 0,
+      "price": 100
+    },
+    {
+      "item_id": "item_static",
+      "min_trust": 25,
+      "price": 140
+    },
+    {
+      "item_id": "item_laughers",
+      "min_trust": 25,
+      "price": 120
+    },
+    {
+      "item_id": "item_mescaline",
+      "min_trust": 45,
+      "price": 150
+    },
+    {
+      "item_id": "item_redline",
+      "min_trust": 45,
+      "price": 175
+    },
+    {
+      "item_id": "item_coldfire",
+      "min_trust": 70,
+      "price": 360
+    },
+    {
+      "item_id": "item_threshold",
+      "min_trust": 90,
+      "price": 550
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 4
+      },
+      {
+        "from": 20,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 4
+      },
+      {
+        "from": 20,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 4
+      },
+      {
+        "from": 20,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 4
+      },
+      {
+        "from": 20,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 4
+      },
+      {
+        "from": 20,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 4
+      },
+      {
+        "from": 20,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 4
+      },
+      {
+        "from": 20,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [
+    "zone_city_west",
+    "zone_start",
+    "zone_threshold",
+    "zone_thresholdeast"
+  ],
+  "wanders": 0,
+  "work_zone_id": null
+}

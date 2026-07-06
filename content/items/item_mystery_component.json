@@ -1,0 +1,20 @@
+{
+  "description": "A sleek, unlabeled module of pre-Collapse make. You have no idea what it does, but someone will pay to find out.",
+  "effects": {},
+  "flags": {},
+  "id": "item_mystery_component",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "mystery component",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A sleek, unlabeled module of pre-Collapse make. You have no idea what it does, but someone will pay to find out.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 60,
+  "weight": 90
+}

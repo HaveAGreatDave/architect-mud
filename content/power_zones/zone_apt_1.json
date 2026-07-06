@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 4000,
+  "flags": {},
+  "generator_id": "gen_zone_residential_lobby_z-1_1782105292491_1782105308088",
+  "id": "zone_apt_1",
+  "max_capacity_kw": 4000,
+  "name": "Unit 1A",
+  "source_type": "building_generator"
+}

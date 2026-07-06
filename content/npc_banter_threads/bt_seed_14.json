@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_seed_14",
+  "lines": [
+    "\"{sports_leader} up top, {sports_cellar} face-down in the cellar. Same as ever.\"",
+    "\"Somebody's gotta lose. Might as well be {sports_cellar}.\"",
+    "\"Cold. True, but cold.\""
+  ],
+  "personality": null,
+  "sort_order": 14
+}

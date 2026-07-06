@@ -1,0 +1,39 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#c9a884",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "Floor 3 of The Meridian. A narrow corridor stretches between four unit doors — numbers 301, 302, 303, 304 — stamped in adhesive metal letters, most of which have survived. The walls are poured concrete behind a skim of paint that went off-white long ago, old marker tags bleeding through where the building manager gave up trying to buff them out. Synthetic carpet the color of old claret muffles every footfall. Sodium-orange emergency strips trace the baseboards. The recycled air carries the mingled residue of a dozen private lives: synthetic tobacco, mystery cooking, and the faint ionised bite of an ageing HVAC system.",
+  "exits": {
+    "down": "zone_meridian_floor_2",
+    "east": "zone_meridian_unit_302",
+    "north": "zone_meridian_unit_301",
+    "south": "zone_meridian_unit_303",
+    "up": "zone_meridian_floor_4",
+    "west": "zone_meridian_unit_304"
+  },
+  "flags": {
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": true,
+    "scavenging_table_id": null,
+    "world_exit_zone": null
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 3,
+  "id": "zone_meridian_floor_3",
+  "is_safe_zone": 0,
+  "map_id": "map_int_meridian",
+  "marker": null,
+  "name": "The Meridian — Floor 3 Hallway",
+  "parent_zone": "zone_meridian_lobby",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783112361"
+}

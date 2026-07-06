@@ -1,0 +1,25 @@
+{
+  "description": "A pinhead mic on a strip of gecko-tape. Deaf to nothing loud — a gunshot, a scream, breaking glass — and it snitches instantly.",
+  "effects": {},
+  "flags": {},
+  "id": "item_audio_sensor",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "Audio Bug",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "battery_max": 576,
+    "concealment_base": 6,
+    "device_kind": "audio_sensor",
+    "device_tier": 1,
+    "hack_difficulty": 4,
+    "security_gear": true,
+    "wired": false
+  },
+  "type": "device",
+  "value": 240,
+  "weight": 250
+}

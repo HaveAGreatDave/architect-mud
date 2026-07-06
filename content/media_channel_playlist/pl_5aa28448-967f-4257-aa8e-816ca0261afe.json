@@ -1,0 +1,12 @@
+{
+  "broadcast_id": "bc_1783047001982",
+  "channel_id": "ch_7_1782953079593",
+  "conditions": {
+    "npc_staff": []
+  },
+  "duration_override": 21600,
+  "id": "pl_5aa28448-967f-4257-aa8e-816ca0261afe",
+  "priority": 0,
+  "slot_type": "broadcast",
+  "start_time": 0
+}

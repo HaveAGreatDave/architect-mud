@@ -1,0 +1,23 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_onyx_malachite_bracelets",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "onyx and malachite bracelets",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 0,
+    "bulkiness": 1,
+    "description": "Several bracelets of polished black onyx and richly banded malachite beads wrapped around one wrist. The deep black stones contrast sharply with the swirling emerald-green patterns of the malachite, creating a rugged, eye-catching combination that blends natural materials with a futuristic aesthetic.",
+    "insulation": 0,
+    "slot": "accessory"
+  },
+  "type": "clothing",
+  "value": 220,
+  "weight": 180
+}

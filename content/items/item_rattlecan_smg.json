@@ -1,0 +1,38 @@
+{
+  "description": "A machine pistol held together with spray-paint and spite. Empties a mag before it decides to jam.",
+  "effects": {},
+  "flags": {},
+  "id": "item_rattlecan_smg",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "rattlecan SMG",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "firearm",
+  "tags": {
+    "__own": {
+      "damage": {
+        "max": 20,
+        "min": 10
+      },
+      "damage_type": "kinetic",
+      "description": "A machine pistol held together with spray-paint and spite. Empties a mag before it decides to jam."
+    },
+    "__super": [
+      "weapon_firearms"
+    ],
+    "damage": {
+      "max": 20,
+      "min": 10
+    },
+    "damage_type": "kinetic",
+    "description": "A machine pistol held together with spray-paint and spite. Empties a mag before it decides to jam.",
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "firearms"
+  },
+  "type": "weapon",
+  "value": 700,
+  "weight": 2600
+}

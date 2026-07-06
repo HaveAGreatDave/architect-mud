@@ -1,0 +1,223 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Consul Reyes greets someone she is currently undermining with genuine warmth.",
+    "\"Diplomacy is simply war with better catering.\""
+  ],
+  "description": "A career corporate diplomat who has negotiated three ceasefires and broken all of them personally. She is unfailingly gracious, which is how you know to be afraid.",
+  "dialogue_tree": {
+    "accepted": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_downwind"
+        }
+      ],
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Marvellous. Oxide Flats and the Downwind, just past the Manifold's edge. Do be discreet; the whole point of downwind is that no one sees it.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Do give my regards to no one in particular.\""
+    },
+    "quest_offer": {
+      "options": [
+        {
+          "label": "Consider it cleared.",
+          "next": "accepted"
+        },
+        {
+          "label": "It's handled. (report back)",
+          "next": "reported"
+        },
+        {
+          "label": "Find someone else.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"We dump our unpleasantness downwind, as one does, and something has moved into it — slag wights, fouling the very ground where a rather important accord is to be signed outdoors, for the optics. Clear two of them before the signing and the Concordat will remember you fondly, in bond form.\""
+    },
+    "reported": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_downwind"
+        }
+      ],
+      "options": [
+        {
+          "label": "Obliged.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"...The signing ground is clean, the delegates none the wiser, and everyone will take credit but you. Which is precisely why I'm paying you in a bond that names no one. We understand each other.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Go on.",
+          "next": "quest_offer"
+        },
+        {
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "Consul Reyes turns to you with a smile of flawless, weaponised courtesy. \"You have the look of someone who resolves things off the record. As it happens, I have a thing that requires resolving. Off the record.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "an immaculate consular coat with a discreet corporate pin",
+      "a high silk collar",
+      "the armour of the perfectly composed"
+    ],
+    "personality": "official"
+  },
+  "home_activities": [],
+  "home_zone": "zone_nc_consulate",
+  "hp": 18,
+  "hp_max": 18,
+  "id": "npc_consul",
+  "name": "Consul Reyes",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": null,
+  "vendor_restock_rate": 1,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_nc_consulate"
+}

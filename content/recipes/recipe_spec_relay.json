@@ -1,0 +1,27 @@
+{
+  "base_difficulty": 4,
+  "base_output": {
+    "item_id": "item_relay_node",
+    "quantity": 1
+  },
+  "category": "tech",
+  "craft_time": 3,
+  "description": "Assemble a Relay Node from salvaged parts.",
+  "id": "recipe_spec_relay",
+  "ingredients": [
+    {
+      "item_id": "item_signal_board",
+      "quantity": 2
+    },
+    {
+      "item_id": "item_micro_cell",
+      "quantity": 1
+    }
+  ],
+  "name": "Relay Node",
+  "requires_station": null,
+  "skill_id": "electronics",
+  "skill_req": {
+    "electronics": 2
+  }
+}

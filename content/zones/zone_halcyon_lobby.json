@@ -1,0 +1,34 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2c2340",
+  "color": "#eae6f0",
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "A cathedral of pale stone and cold light. The Halcyon Assurance seal — a calm eye over a city skyline — is inlaid ten metres wide in the floor, and a wall of frosted glass reads ASSURANCE FOR THE ASSURED in letters that cost more than you do. The air is filtered, climate-perfect, and billed. Directories point up to residences, down to the executive floor, and across to underwriting and claims.",
+  "exits": {
+    "down": "zone_halcyon_exec",
+    "east": "zone_halcyon_claims",
+    "north": "zone_halcyon_underwriting",
+    "out": "zone_nc_halcyon",
+    "up": "zone_halcyon_residences",
+    "west": "zone_halcyon_concourse"
+  },
+  "flags": {
+    "building_name": "Halcyon Assurance",
+    "building_type": "corporate_office"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_halcyon_lobby",
+  "is_safe_zone": 1,
+  "map_id": "map_int_halcyon",
+  "marker": "HA",
+  "name": "Halcyon Assurance — Grand Lobby",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783316802"
+}

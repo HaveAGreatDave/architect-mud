@@ -1,0 +1,9 @@
+{
+  "fishing_bait_catches": [],
+  "fishing_monsters": [],
+  "flags": {},
+  "id": "scav_roadside_junk",
+  "messages": {},
+  "name": "Roadside Junk",
+  "replenish_interval_seconds": 120
+}

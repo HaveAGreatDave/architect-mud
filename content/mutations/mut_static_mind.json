@@ -1,0 +1,17 @@
+{
+  "description": "Your thoughts are a white noise channel. Partial immunity to sanity loss. Architect signals are louder.",
+  "drawbacks": [
+    "Occasional intrusive Architect messages"
+  ],
+  "effects": {
+    "sanity_drain_reduction": 0.5
+  },
+  "id": "mut_static_mind",
+  "name": "Static Mind",
+  "polarity": "positive",
+  "radiation_threshold": 70,
+  "stat_modifiers": {
+    "stat_wil": 2
+  },
+  "visible": 0
+}

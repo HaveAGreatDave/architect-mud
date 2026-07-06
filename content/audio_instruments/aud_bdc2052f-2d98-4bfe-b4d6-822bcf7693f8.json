@@ -1,0 +1,9 @@
+{
+  "category": "misc",
+  "config": {},
+  "enabled": 1,
+  "id": "aud_bdc2052f-2d98-4bfe-b4d6-822bcf7693f8",
+  "name": "psychotech_i03",
+  "sample_id": "smp_740712dd-a8f1-4818-a1a1-f5fdc86f7b7f",
+  "waveform": "sine"
+}

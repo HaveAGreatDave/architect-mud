@@ -1,0 +1,8 @@
+{
+  "difficulty": 5,
+  "id": "sti_ind_4",
+  "item_id": "item_hydraulic_hose",
+  "max_qty": 2,
+  "table_id": "scav_industrial_salvage",
+  "weight": 12
+}

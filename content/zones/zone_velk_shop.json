@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "Something in a pile shifts and settles with a creak.",
+    "A lamp flickers, steadies, then flickers again.",
+    "A drawer slides open an inch on its own. The shop is just settling, probably.",
+    "The scent of lemon oil drifts through the crowded aisles.",
+    "A price tag twirls slowly on a hanging lamp."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#e08a4a",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "The shop is improbably full — every surface covered, every corner claimed. Chairs stacked on tables, lamps draped with fabric samples, shelves bowing under the weight of picture frames, drawer units, and objects with no obvious purpose but clear previous lives. It smells like oil soap and old wood. Somehow, it all feels livable.",
+  "exits": {
+    "down": "zone_velk_basement",
+    "out": "zone_velk_exterior"
+  },
+  "flags": {
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_velk_shop",
+  "is_safe_zone": 1,
+  "map_id": "map_int_velk",
+  "marker": null,
+  "name": "Velk's Pre-Owned Furnishings",
+  "parent_zone": "zone_velk_exterior",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1782918446"
+}

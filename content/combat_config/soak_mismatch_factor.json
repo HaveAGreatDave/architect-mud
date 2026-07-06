@@ -1,0 +1,6 @@
+{
+  "category": "combat",
+  "key": "soak_mismatch_factor",
+  "label": "Wrong-type soak factor",
+  "value": 0.25
+}

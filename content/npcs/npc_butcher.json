@@ -1,0 +1,229 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "A vast, unhurried man in an apron you try not to look at too closely, working the killing lane with a cleaver worn thin from sharpening. He sells meat, buys meat, and does not clarify the difference.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Everyone comes back hungry.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's fresh?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Lost my appetite.",
+          "next": "bye"
+        }
+      ],
+      "text": "The Butcher sets down his cleaver with unsettling gentleness. \"Meat. Fresh, mostly. Cheap, always. You bring me something with meat on it, I'll pay, and I won't ask what it was.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a rubber apron best left undescribed",
+      "a blood-stiff undershirt",
+      "waders and nothing to discuss"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meat_slaughter",
+  "hp": 22,
+  "hp_max": 22,
+  "id": "npc_butcher",
+  "name": "the Butcher",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_raw_meat",
+      "price": 6
+    },
+    {
+      "item_id": "item_bar_jerky",
+      "price": 6
+    },
+    {
+      "item_id": "item_ration",
+      "price": 10
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Slaughter Lane",
+  "vendor_stock_size": 8,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_meat_slaughter"
+}

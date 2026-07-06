@@ -1,0 +1,43 @@
+{
+  "description": "Heavy. Reliable. Pre-used.",
+  "effects": {
+    "damage_max": 9,
+    "damage_min": 4
+  },
+  "flags": {},
+  "id": "item_pipe_wrench",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "pipe wrench",
+  "requirements": {
+    "stat_str": 3
+  },
+  "stat_modifiers": {},
+  "subtype": "blunt",
+  "tags": {
+    "__own": {
+      "damage": {
+        "max": 9,
+        "min": 4
+      },
+      "damage_type": "kinetic",
+      "description": "Heavy. Reliable. Pre-used."
+    },
+    "__super": [
+      "weapon_clubs"
+    ],
+    "damage": {
+      "max": 9,
+      "min": 4
+    },
+    "damage_type": "kinetic",
+    "description": "Heavy. Reliable. Pre-used.",
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "clubs"
+  },
+  "type": null,
+  "value": 30,
+  "weight": 1500
+}

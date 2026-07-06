@@ -1,0 +1,31 @@
+{
+  "base_difficulty": 6,
+  "base_output": {
+    "item_id": "item_spy_drone",
+    "quantity": 1
+  },
+  "category": "tech",
+  "craft_time": 3,
+  "description": "Assemble a Recon Drone from salvaged parts.",
+  "id": "recipe_spec_drone",
+  "ingredients": [
+    {
+      "item_id": "item_optic_module",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_signal_board",
+      "quantity": 2
+    },
+    {
+      "item_id": "item_micro_cell",
+      "quantity": 2
+    }
+  ],
+  "name": "Recon Drone",
+  "requires_station": null,
+  "skill_id": "electronics",
+  "skill_req": {
+    "electronics": 3
+  }
+}

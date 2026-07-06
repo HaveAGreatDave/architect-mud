@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "The cold-store door seals shut with a sucking thud.",
+    "A pallet of cans ticks and shifts under its own weight.",
+    "The chained fire exit rattles as wind finds the gap beneath it."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#e85aa0",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "low",
+  "description": "A cramped stockroom walled with wire shelving and stacked pallets, the cold-store humming behind a heavy insulated door. Inventory sheets curl on a clipboard nobody has updated in weeks. It smells of cardboard, cold, and the sweetish edge of something in the back that turned before it sold. A fire exit is chained shut in flagrant violation of several dead safety codes.",
+  "exits": {
+    "north": "zone_mq_grocery_util",
+    "south": "zone_mq_grocery"
+  },
+  "flags": {
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_mq_grocery_stock",
+  "is_safe_zone": 0,
+  "map_id": "map_int_mq_grocery",
+  "marker": null,
+  "name": "Ration Nine — Stockroom",
+  "parent_zone": "zone_mq_grocery",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1782964407"
+}

@@ -1,0 +1,29 @@
+{
+  "category": "environment",
+  "config": {
+    "adsr": {
+      "a": 0.2,
+      "d": 0.1,
+      "r": 0.3,
+      "s": 1
+    },
+    "filter": {
+      "freq": 500,
+      "q": 1,
+      "type": "lowpass"
+    },
+    "freq": 55,
+    "gain": 0.2,
+    "noiseMix": 0.2,
+    "tremolo": {
+      "depth": 0.4,
+      "rate": 9
+    },
+    "waveform": "square"
+  },
+  "enabled": 1,
+  "id": "amb_generator",
+  "loop": 1,
+  "name": "amb_generator",
+  "priority": 1
+}

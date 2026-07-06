@@ -1,0 +1,16 @@
+{
+  "door_type": "reinforced",
+  "exit_dir": "in",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 2500,
+  "hp_max": 2500,
+  "id": "door_entrance_zone_mq_precinct",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": null,
+  "name": "Precinct 9 Station Doors",
+  "tags": {},
+  "target_zone": null,
+  "zone_id": "zone_mq_precinct"
+}

@@ -1,0 +1,129 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 20
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "crown",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 12
+    },
+    {
+      "part": "mass",
+      "soak": {
+        "kinetic": 3
+      },
+      "weight": 48
+    },
+    {
+      "part": "left_tendril",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 20
+    },
+    {
+      "part": "right_tendril",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 20
+    }
+  ],
+  "butcher_difficulty": 8,
+  "butcher_table": [
+    {
+      "item": "item_mutated_bone",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 30
+    }
+  ],
+  "death_message": "The horror sloughs apart into the tar it came from, and the seep drinks it back down.",
+  "description": "A slow-heaving mass of accreted tar, bone, and swallowed machinery that hauls itself up out of the seeps to feed. It is patient, nearly mindless, and very hard to convince to let go.",
+  "dodge": 1,
+  "faction": null,
+  "flags": {},
+  "hit": 4,
+  "hp_max": 42,
+  "id": "enemy_tar_horror",
+  "loot_table": [
+    {
+      "item": "item_mutated_bone",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 18
+    },
+    {
+      "item": "item_glowing_scrap",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 12
+    },
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 10
+    }
+  ],
+  "name": "tar-pit horror",
+  "weapon": [
+    {
+      "max": 8,
+      "min": 4,
+      "type": "kinetic"
+    }
+  ]
+}

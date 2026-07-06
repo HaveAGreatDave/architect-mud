@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 10000,
+  "flags": {},
+  "generator_id": "gen_zone_powerplantnew_1782069598190",
+  "id": "zone_nc_datum",
+  "max_capacity_kw": 10000,
+  "name": "Datum Court",
+  "source_type": "city_grid"
+}

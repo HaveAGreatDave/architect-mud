@@ -1,0 +1,50 @@
+{
+  "ambient_events": [
+    "Heat-haze rises off the scalded pan though the air itself is cold.",
+    "A brittle crust of bleached salts crunches to powder underfoot."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#be9d64",
+  "color": "#eeeeee",
+  "created_by": "phase6-build",
+  "danger_rating": "medium",
+  "description": "A field of blanched, chemically-burnt hardpan where nothing has grown since before the Handoff. The government pretends this is the edge of its jurisdiction, and the wastes agree.",
+  "exits": {
+    "in": "zone_hangar_waste_scald",
+    "north": "zone_waste_rusthollow",
+    "south": "zone_waste_leachfield",
+    "west": "zone_waste_tailings"
+  },
+  "flags": {
+    "airfield_charter": false,
+    "airfield_dealer": false,
+    "airfield_fuel": true,
+    "airfield_fuels": [
+      "biofuel"
+    ],
+    "airfield_id": "af_redline",
+    "airfield_lawless": true,
+    "airfield_name": "Redline Airstrip",
+    "building_name": "",
+    "building_type": null,
+    "hangar_interior_zone": "zone_hangar_waste_scald",
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -5,
+  "grid_y": -6,
+  "grid_z": 0,
+  "id": "zone_waste_scald",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "SC",
+  "name": "The Scald",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

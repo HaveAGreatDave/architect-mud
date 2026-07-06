@@ -1,0 +1,34 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2c2340",
+  "color": "#eae6f0",
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "A hushed residential floor above the offices: a curved hall of numbered doors, a concierge desk long automated, and windows framing the grey bay far below. The rent up here is quiet, and enormous.",
+  "exits": {
+    "down": "zone_halcyon_lobby",
+    "east": "zone_halcyon_apt_b",
+    "north": "zone_halcyon_apt_a",
+    "south": "zone_halcyon_apt_c",
+    "up": "zone_halcyon_apt_e",
+    "west": "zone_halcyon_apt_d"
+  },
+  "flags": {
+    "building_name": "Halcyon Assurance",
+    "building_type": "residential"
+  },
+  "grid_x": 0,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_halcyon_residences",
+  "is_safe_zone": 1,
+  "map_id": "map_int_halcyon",
+  "marker": "RS",
+  "name": "Halcyon Residences — Sky Hall",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783316802"
+}

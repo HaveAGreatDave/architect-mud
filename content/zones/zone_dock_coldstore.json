@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "A cold-store door sighs open, exhaling fog, and no one comes out.",
+    "Something shifts on a hook deeper in the cold, then stills."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#50e0d5",
+  "color": "#111111",
+  "created_by": "phase3-build",
+  "danger_rating": "low",
+  "description": "A refrigerated warehouse still running on stolen power, its doors breathing fog. Inside, racks of catch and less legal cargo hang in the cold dark.",
+  "exits": {
+    "north": "zone_bay_sound",
+    "south": "zone_dock_wharf"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_harbor"
+  },
+  "grid_x": 1,
+  "grid_y": -4,
+  "grid_z": 0,
+  "id": "zone_dock_coldstore",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "CS",
+  "name": "Cold Storage",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

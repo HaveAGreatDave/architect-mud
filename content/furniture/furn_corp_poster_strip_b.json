@@ -1,0 +1,17 @@
+{
+  "description": "A cheaper flyer stapled over the big banner's ankle by someone with a rougher agenda — same green, ragged edges, printed in a back room by the look of it. A gloved fist closes around a single city block. NORTH OF HERE, THE RENT IS BLOOD AND THE RETURN IS EVERYTHING. Below, hand-lettered: \"The good ground's already spoken for. Found a crew, take a corner, and maybe — maybe — earn a look at the north, where the real money sleeps.\"",
+  "flags": {
+    "architect_wink": true,
+    "corp_poster": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_corp_poster_strip_b",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "a hand-stapled corp recruitment flyer",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_city_west"
+}

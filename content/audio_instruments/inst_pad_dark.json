@@ -1,0 +1,25 @@
+{
+  "category": "misc",
+  "config": {
+    "adsr": {
+      "a": 0.5,
+      "d": 0.3,
+      "r": 0.8,
+      "s": 0.85
+    },
+    "filter": {
+      "freq": 1200,
+      "q": 0.8,
+      "type": "lowpass"
+    },
+    "vibrato": {
+      "depth": 8,
+      "rate": 1.5
+    }
+  },
+  "enabled": 1,
+  "id": "inst_pad_dark",
+  "name": "pad_dark",
+  "sample_id": null,
+  "waveform": "sine"
+}

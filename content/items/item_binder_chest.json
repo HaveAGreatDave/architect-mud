@@ -1,0 +1,24 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_binder_chest",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "chest binder",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 0,
+    "bulkiness": 1,
+    "description": "A flat compression top in medical grey that smooths the chest to a straight line. Practical, comfortable enough, and worth every credit to whoever needs it.",
+    "insulation": 0.5,
+    "layer": "underwear",
+    "slot": "torso"
+  },
+  "type": null,
+  "value": 60,
+  "weight": 160
+}

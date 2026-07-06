@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": null,
+  "danger_rating": "caution",
+  "description": "A shipping container welded to the underside of an overpass, curtained off with mylar. Every surface crawls with scavenged lenses and coiled cable. A wall of mismatched monitors flickers with feeds from rooms you can't place. It smells of hot solder and rain on concrete.",
+  "exits": {
+    "up": "zone_media_plaza"
+  },
+  "flags": {
+    "is_interior": true
+  },
+  "grid_x": null,
+  "grid_y": null,
+  "grid_z": -1,
+  "id": "zone_surveillance_market",
+  "is_safe_zone": 0,
+  "map_id": null,
+  "marker": null,
+  "name": "The Blindspot",
+  "parent_zone": "zone_media_plaza",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783355125"
+}

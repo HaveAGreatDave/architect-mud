@@ -1,0 +1,25 @@
+{
+  "description": "Pre-Handoff emergency ration. Flavor: SAVORY.",
+  "effects": {
+    "hunger": 25
+  },
+  "flags": {},
+  "id": "item_ration",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "vacuum ration",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "food",
+  "tags": {
+    "consumable": true,
+    "description": "Pre-Handoff emergency ration. Flavor: SAVORY.",
+    "restore_hunger": 25,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 8,
+  "weight": 300
+}

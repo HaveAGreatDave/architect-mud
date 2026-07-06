@@ -1,0 +1,10 @@
+{
+  "accuracy": 5,
+  "active": 1,
+  "damage": 0.18,
+  "faction": null,
+  "id": "aa_slag_flak",
+  "name": "a Slagworks flak gun",
+  "range": 1,
+  "zone_id": "zone_slag_flarestack"
+}

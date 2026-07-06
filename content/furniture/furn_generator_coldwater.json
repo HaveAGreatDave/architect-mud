@@ -1,0 +1,18 @@
+{
+  "description": "A colossal city-grade turbine generator, its armoured casing streaked with grime and hazard chevrons. Banks of indicator lights stutter across its control face; a heavy sealed hacking port is bolted shut beneath a cracked screen. It ROARS.",
+  "flags": {
+    "destructible": true,
+    "generator_id": "gen_zone_powerplantnew_1782069598190",
+    "requires_demolition": true
+  },
+  "hp": 5000,
+  "hp_max": 5000,
+  "id": "furn_generator_coldwater",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "coldwater main generator",
+  "object_type": "generator",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_coldwater_turbine_hall"
+}

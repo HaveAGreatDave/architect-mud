@@ -1,0 +1,37 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Nyla thumbs a lighter open and shut, open and shut.",
+    "\"Everything burns. Circuit boards just burn prettier.\""
+  ],
+  "description": "Nyla keeps a row of bottles racked on her hip, each stoppered with an oily rag, and the easy smile of someone who genuinely enjoys her work. The Breakers point her at anything with a screen and let her cook.",
+  "dialogue_tree": {},
+  "faction": "faction_breakers",
+  "flags": {
+    "clothing_layers": [
+      "a fireproof tabard scorched black at every hem",
+      "a soot-grey tank top",
+      "a plain sports bra and briefs"
+    ],
+    "faction_guard": true,
+    "personality": "lowlife"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meat_slaughter",
+  "hp": 90,
+  "hp_max": 90,
+  "id": "npc_breaker_nyla",
+  "name": "Nyla Sparks",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

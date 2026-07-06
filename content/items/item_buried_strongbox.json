@@ -1,0 +1,20 @@
+{
+  "description": "A dented alloy strongbox, packed in gravel and grit long enough that the pit swallowed it whole. Heavy with whatever someone thought worth burying out here.",
+  "effects": {},
+  "flags": {},
+  "id": "item_buried_strongbox",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "buried strongbox",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A dented alloy strongbox, packed in gravel and grit long enough that the pit swallowed it whole. Heavy with whatever someone thought worth burying out here.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 160,
+  "weight": 2200
+}

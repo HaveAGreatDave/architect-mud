@@ -1,0 +1,17 @@
+{
+  "category": "music",
+  "config": {
+    "adsr": {
+      "a": 0.01,
+      "d": 0.4,
+      "r": 0.6,
+      "s": 0.15
+    },
+    "gain": 0.7
+  },
+  "enabled": 1,
+  "id": "aud_inst_bell_sine",
+  "name": "Bell Sine",
+  "sample_id": null,
+  "waveform": "sine"
+}

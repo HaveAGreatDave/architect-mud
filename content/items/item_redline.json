@@ -1,0 +1,19 @@
+{
+  "description": "Military-grade cyber-amphetamine. The label is mostly warnings.",
+  "effects": {},
+  "flags": {},
+  "id": "item_redline",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "redline",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "drug",
+  "tags": {
+    "drug": true
+  },
+  "type": "consumable",
+  "value": 120,
+  "weight": 20
+}

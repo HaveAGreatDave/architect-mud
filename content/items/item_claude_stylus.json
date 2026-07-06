@@ -1,0 +1,49 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_claude_stylus",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "resonant stylus",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "__own": {
+      "damage": {
+        "max": 14,
+        "min": 7
+      },
+      "description": "A slender conductive rod that hums with an even, ordered light. It doesn't so much cut as persuade matter to come apart along the seams it can already see. Held loosely. Used precisely.",
+      "stat_bonus": {
+        "stat_brains": 2
+      },
+      "status_chance": {
+        "stunned": 0.25
+      }
+    },
+    "__super": [
+      "weapon_science"
+    ],
+    "damage": {
+      "max": 14,
+      "min": 7
+    },
+    "damage_type": "energy",
+    "description": "A slender conductive rod that hums with an even, ordered light. It doesn't so much cut as persuade matter to come apart along the seams it can already see. Held loosely. Used precisely.",
+    "slot": "weapon_hand",
+    "stat_bonus": {
+      "stat_brains": 2
+    },
+    "status_chance": {
+      "stunned": 0.25
+    },
+    "weapon": true,
+    "weapon_skill": "science"
+  },
+  "type": null,
+  "value": 2000,
+  "weight": 500
+}

@@ -1,0 +1,27 @@
+{
+  "description": "Parcel out to the Threshold, empties back from the Loading Bay. In that order or not at all. 35₵.",
+  "id": "quest_fs_loop",
+  "name": "The Loop",
+  "objectives": [
+    {
+      "desc": "Parcel to the Threshold",
+      "id": "o0",
+      "type": "visit",
+      "zone": "zone_threshold"
+    },
+    {
+      "desc": "Empties back from the Loading Bay",
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "type": "visit",
+      "zone": "zone_city_east"
+    }
+  ],
+  "repeatable": 1,
+  "rewards": {
+    "credits": 35
+  },
+  "updated_at": "1783357094"
+}

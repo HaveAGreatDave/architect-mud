@@ -1,0 +1,19 @@
+{
+  "description": "A folding aluminum lawn chair with half its nylon webbing replaced by cable ties, angled to face the skyline. Somebody comes up here to watch the city and pretend the light pollution is stars. Still takes a body's weight, mostly.",
+  "flags": {
+    "interactions": [
+      "sit",
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_lawnchair_zone_meridian_roof",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "salvaged lawn chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_meridian_roof"
+}

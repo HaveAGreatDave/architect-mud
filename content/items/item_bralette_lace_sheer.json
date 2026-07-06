@@ -1,0 +1,24 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_bralette_lace_sheer",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "sheer lace bralette",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 0,
+    "bulkiness": 1,
+    "description": "Delicate floral lace with no wire, no padding, and no interest in hiding anything. Soft as a rumour and about as supportive.",
+    "insulation": 0,
+    "layer": "underwear",
+    "slot": "torso"
+  },
+  "type": null,
+  "value": 55,
+  "weight": 60
+}

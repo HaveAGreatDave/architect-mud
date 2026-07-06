@@ -1,0 +1,19 @@
+{
+  "category": "ui",
+  "config": {
+    "adsr": {
+      "a": 0.001,
+      "d": 0.02,
+      "r": 0.015,
+      "s": 0
+    },
+    "duration": 0.03,
+    "freq": 1400,
+    "gain": 0.25,
+    "waveform": "sine"
+  },
+  "enabled": 1,
+  "id": "sfx_ui_hover",
+  "name": "ui_hover",
+  "priority": 1
+}

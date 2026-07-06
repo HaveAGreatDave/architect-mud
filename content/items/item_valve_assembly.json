@@ -1,0 +1,20 @@
+{
+  "description": "A heavy brass valve, seized shut. Reconditioned it is worth real credits; as-is, a paperweight.",
+  "effects": {},
+  "flags": {},
+  "id": "item_valve_assembly",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "valve assembly",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "metal",
+  "tags": {
+    "description": "A heavy brass valve, seized shut. Reconditioned it is worth real credits; as-is, a paperweight.",
+    "metal": true
+  },
+  "type": "misc",
+  "value": 16,
+  "weight": 1500
+}

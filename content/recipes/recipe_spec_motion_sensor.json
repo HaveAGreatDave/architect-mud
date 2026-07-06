@@ -1,0 +1,27 @@
+{
+  "base_difficulty": 2,
+  "base_output": {
+    "item_id": "item_motion_sensor",
+    "quantity": 1
+  },
+  "category": "tech",
+  "craft_time": 3,
+  "description": "Assemble a Motion Tripwire from salvaged parts.",
+  "id": "recipe_spec_motion_sensor",
+  "ingredients": [
+    {
+      "item_id": "item_signal_board",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_micro_cell",
+      "quantity": 1
+    }
+  ],
+  "name": "Motion Tripwire",
+  "requires_station": null,
+  "skill_id": "electronics",
+  "skill_req": {
+    "electronics": 1
+  }
+}

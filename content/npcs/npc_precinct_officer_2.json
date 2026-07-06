@@ -1,0 +1,38 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Pryce thumbs through a charge sheet without much interest.",
+    "\"Booking's backed up. Everybody's in a hurry to be somewhere worse.\""
+  ],
+  "description": "Wiry and unhurried, Pryce runs the holding block like a night-shift librarian — quiet, exact, and utterly unbothered by whatever you did to get here. A ring of mag-keys hangs off one hip; a lukewarm coffee never leaves the other hand.",
+  "dialogue_tree": {},
+  "faction": "SPECTER-PD",
+  "flags": {
+    "clothing_layers": [
+      "a surplus tac-vest stencilled POLICE",
+      "a navy uniform shirt",
+      "grey briefs"
+    ],
+    "essential": true,
+    "personality": "police",
+    "police": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_mq_precinct_lobby",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_precinct_officer_2",
+  "name": "Detention Officer Pryce",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

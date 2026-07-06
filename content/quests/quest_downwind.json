@@ -1,0 +1,32 @@
+{
+  "description": "Slag wights have moved into the wasteland the diplomatic quarter dumps downwind of itself, and an accord signing is days away. Consul Reyes needs the problem to not exist, discreetly.",
+  "id": "quest_downwind",
+  "name": "Downwind",
+  "objectives": [
+    {
+      "count": 2,
+      "desc": "Clear 2 slag wights from Oxide Flats and the Downwind",
+      "id": "o1",
+      "target": "slag wight",
+      "type": "kill"
+    }
+  ],
+  "repeatable": 0,
+  "rewards": {
+    "credits": 200,
+    "flags": [
+      {
+        "flag": "concordat_favor",
+        "scope": "player",
+        "value": "earned"
+      }
+    ],
+    "items": [
+      {
+        "item_id": "item_bearer_bond",
+        "quantity": 1
+      }
+    ]
+  },
+  "updated_at": "1783120109"
+}

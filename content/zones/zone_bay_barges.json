@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "A barge deck tilts under your weight and rights itself, unbothered.",
+    "Washing strung between two barges drips into the black water below."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#71b1e6",
+  "color": "#eeeeee",
+  "created_by": "phase3-build",
+  "danger_rating": "low",
+  "description": "A raft of dead barges lashed together into a floating slum-annex, rising and falling as one. You cross the harbour here by stepping from deck to swaying deck.",
+  "exits": {
+    "north": "zone_bay_fog"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_harbor",
+    "water": true
+  },
+  "grid_x": 3,
+  "grid_y": -4,
+  "grid_z": 0,
+  "id": "zone_bay_barges",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "MB",
+  "name": "Moored Barges",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

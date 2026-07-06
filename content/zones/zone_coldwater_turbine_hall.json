@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#9a8a4f",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "low",
+  "description": "A cavernous hall of throbbing turbines and grimy conduit. The city plant squats at the centre, roaring, its casing scabbed with warning decals and oil. The whole room shudders with the low churn of megawatts.",
+  "exits": {
+    "out": "zone_powerplantnew"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_powerplantnew"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_coldwater_turbine_hall",
+  "is_safe_zone": 0,
+  "map_id": "map_int_coldwater_power",
+  "marker": null,
+  "name": "Coldwater Power Plant — Turbine Hall",
+  "parent_zone": "zone_powerplantnew",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1782940278"
+}

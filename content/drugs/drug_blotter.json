@@ -1,0 +1,37 @@
+{
+  "addiction_chance": 0.01,
+  "description": "A single square of high-powered blotter acid, printed with a grinning sun.",
+  "duration_seconds": 600,
+  "effects": {
+    "hallucination": {
+      "duration_seconds": 600,
+      "eventEverySec": 14,
+      "eventPool": [
+        "[trip]The room inhales and the walls flow outward into cathedral vaults of liquid light.[/trip]",
+        "[trip]Fractal vines of every impossible colour crawl up from the floor and flower midair.[/trip]",
+        "[trip]Your own hands leave glowing trails, a hundred hands fanning out from your wrists.[/trip]",
+        "[trip]Sound has texture. A distant machine hum is velvet dragged across your teeth.[/trip]",
+        "[trip]The grinning sun from the tab is on the ceiling now, and it winks at you.[/trip]",
+        "[trip]You are absolutely certain, for one perfect second, that you understand it all.[/trip]",
+        "[trip]A stranger who is also you steps out of the wall, waves, and folds back in.[/trip]"
+      ],
+      "intensity": 0.8,
+      "mode": "overlay",
+      "palette": "magenta"
+    },
+    "instant": {
+      "sanity": -8
+    },
+    "tolerance": {
+      "gain_per_dose": 0.4,
+      "max_reduction": 0.95,
+      "recovery_per_sec": 0.0002
+    }
+  },
+  "flags": {},
+  "id": "drug_blotter",
+  "item_id": "item_blotter",
+  "name": "Blotter",
+  "overdose_threshold": 8,
+  "withdrawal_effects": {}
+}

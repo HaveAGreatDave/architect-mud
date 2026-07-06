@@ -1,0 +1,20 @@
+{
+  "fishing_bait_catches": [],
+  "fishing_monsters": [],
+  "flags": {},
+  "id": "mine_gravel_pit",
+  "messages": {
+    "broadcast": [
+      "sets to work on the gravel face, mining for anything worth hauling out."
+    ],
+    "player": [
+      "You set the pick and swing, chips of grey stone spitting off the face.",
+      "You lever a slab out of the gravel bank and let it crash aside.",
+      "You work the pick along a seam, grit boiling up in a dry cloud.",
+      "You crack a promising nodule open and turn the break to the light.",
+      "You hammer a wedge deep into the pit wall and rock it until it gives."
+    ]
+  },
+  "name": "Gravel Pit Mining",
+  "replenish_interval_seconds": 120
+}

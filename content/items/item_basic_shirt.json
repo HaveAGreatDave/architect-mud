@@ -1,0 +1,25 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_basic_shirt",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "basic t-shirt",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 1,
+    "bulkiness": 1,
+    "description": "Plain white cotton. Worn, faded, and slightly too large. Does almost nothing.",
+    "gets_wet": true,
+    "insulation": 1,
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": "clothing",
+  "value": 2,
+  "weight": 300
+}

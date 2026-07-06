@@ -1,0 +1,17 @@
+{
+  "description": "A third eye has opened on the back of your skull. You see things people don't.",
+  "drawbacks": [
+    "NPCs find you unsettling"
+  ],
+  "effects": {
+    "perception_bonus": 2
+  },
+  "id": "mut_extra_eye",
+  "name": "Extra Eye",
+  "polarity": "mixed",
+  "radiation_threshold": 60,
+  "stat_modifiers": {
+    "stat_agi": 1
+  },
+  "visible": 1
+}

@@ -1,0 +1,42 @@
+{
+  "ambient_events": [
+    "A gull and a pigeon dispute a chip wrapper on the steps.",
+    "Wind off the bay carries the smell of salt and diesel up the stair."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#7fda9a",
+  "color": "#111111",
+  "created_by": "phase3-build",
+  "danger_rating": "safe",
+  "description": "A broad municipal stair that once led somewhere that mattered. Now it just connects the records office to the water, and the pigeons have claimed the landings.",
+  "exits": {
+    "east": "zone_media_plaza",
+    "north": "zone_up_vellum",
+    "west": "zone_civ_ledger"
+  },
+  "flags": {
+    "artery": [
+      "Quay Road"
+    ],
+    "building_name": "",
+    "building_type": null,
+    "intro_lore": "These steps used to mean the city cared what happened to you — records, hearings, a stamp that said you existed. The office behind them still runs, after a fashion, but it works for whoever pays it now. Watch the landings. What looks like pigeons is sometimes lookouts, and the water at the bottom keeps its own secrets.",
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": -1,
+  "grid_y": -3,
+  "grid_z": 0,
+  "id": "zone_civ_steps",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "ST",
+  "name": "Civic Steps",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

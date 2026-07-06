@@ -1,0 +1,38 @@
+{
+  "description": "A brutal two-handed demolition hammer. Heavy enough to stove in armoured machinery — slowly.",
+  "effects": {},
+  "flags": {},
+  "id": "item_sledgehammer",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 1,
+  "name": "sledgehammer",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "melee",
+  "tags": {
+    "__own": {
+      "damage": {
+        "max": 70,
+        "min": 40
+      },
+      "damage_type": "kinetic",
+      "demolition": true
+    },
+    "__super": [
+      "weapon_clubs"
+    ],
+    "damage": {
+      "max": 70,
+      "min": 40
+    },
+    "damage_type": "kinetic",
+    "demolition": true,
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "clubs"
+  },
+  "type": "weapon",
+  "value": 650,
+  "weight": 8000
+}

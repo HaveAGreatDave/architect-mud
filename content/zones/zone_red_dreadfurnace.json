@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "The dread furnace breathes its red haze out through a hundred cracks and draws it back in.",
+    "Deep in the furnace's throat, far up in the dark, something shifts its weight and settles."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#efa2a2",
+  "color": "#eeeeee",
+  "created_by": "phase11-build",
+  "danger_rating": "high",
+  "description": "The last hard step of the neck before it meets the Reclaimer below — the cold hulk of a furnace so large it has its own weather inside, a slow red haze that never clears. What dens in it came down from the Redline, and stayed.",
+  "exits": {
+    "east": "zone_slag_flarestack",
+    "north": "zone_red_flensing",
+    "south": "zone_slag_reclaimer"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_irradiated_salvage"
+  },
+  "grid_x": -11,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_red_dreadfurnace",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "DF",
+  "name": "Dread Furnace",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 3,
+  "updated_at": "1783301927"
+}

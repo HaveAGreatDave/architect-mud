@@ -1,0 +1,41 @@
+{
+  "ambient_events": [
+    "Your reflection is handed off from one glass face to the next across the terrace.",
+    "A window-drone squeegees a pane that is already, impossibly, perfect."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#8e8edd",
+  "color": "#eeeeee",
+  "created_by": "phase9-build",
+  "danger_rating": "safe",
+  "description": "A terrace of mirror-glass towers that reflect only each other, so that from any point you see the district endlessly, and the grey city beyond it not at all.",
+  "exits": {
+    "east": "zone_nc_bourse",
+    "south": "zone_nc_ivory",
+    "west": "zone_nc_meridianheights"
+  },
+  "flags": {
+    "artery": [
+      "The Concourse"
+    ],
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": 7,
+  "grid_y": -7,
+  "grid_z": 0,
+  "id": "zone_nc_glass",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "GT",
+  "name": "Glass Terrace",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

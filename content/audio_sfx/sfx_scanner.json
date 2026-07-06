@@ -1,0 +1,26 @@
+{
+  "category": "cyberpunk",
+  "config": {
+    "adsr": {
+      "a": 0.01,
+      "d": 0.1,
+      "r": 0.1,
+      "s": 0.6
+    },
+    "duration": 0.35,
+    "freq": 900,
+    "tremolo": {
+      "depth": 0.6,
+      "rate": 12
+    },
+    "vibrato": {
+      "depth": 30,
+      "rate": 3
+    },
+    "waveform": "square"
+  },
+  "enabled": 1,
+  "id": "sfx_scanner",
+  "name": "scanner",
+  "priority": 3
+}

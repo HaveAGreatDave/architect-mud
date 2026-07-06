@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_seed_11",
+  "lines": [
+    "\"Forecast says {weather}. Forecast always says {weather}.\"",
+    "\"At least it's consistent. Nothing else out here is.\"",
+    "watches a scrap of trash cartwheel past."
+  ],
+  "personality": null,
+  "sort_order": 11
+}

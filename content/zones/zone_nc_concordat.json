@@ -1,0 +1,41 @@
+{
+  "ambient_events": [
+    "A delegation sweeps through the Concordat, flanked by lawyers like an honour guard.",
+    "The great handshake mural is being repainted, slightly, to reflect the new terms."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#8e8edd",
+  "color": "#eeeeee",
+  "created_by": "phase9-build",
+  "danger_rating": "safe",
+  "description": "The treaty hall where the corporations that own Coldwater sign the accords that carve it up, beneath a mural of a handshake so large and so insincere it loops in the mind for hours.",
+  "exits": {
+    "east": "zone_nc_meridianheights",
+    "south": "zone_bay_basin",
+    "west": "zone_bay_narrows"
+  },
+  "flags": {
+    "artery": [
+      "The Concourse"
+    ],
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": 5,
+  "grid_y": -7,
+  "grid_z": 0,
+  "id": "zone_nc_concordat",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "Co",
+  "name": "The Concordat",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5400,
+  "flags": {},
+  "generator_id": "gen_zone_mq_chrome_util",
+  "id": "zone_mq_chrome_lobby",
+  "max_capacity_kw": 5400,
+  "name": "Chrome Court — Lobby",
+  "source_type": "junction_box"
+}

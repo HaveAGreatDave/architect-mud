@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "The swell lifts the pontoon-walk and sets it down with a sigh.",
+    "Something surfaces far out on the reach, considers the distance, and sinks."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#71b1e6",
+  "color": "#eeeeee",
+  "created_by": "phase5-build",
+  "danger_rating": "low",
+  "description": "The long open reach toward the bay mouth, where the fog thins and the swell finally has room to build. The far shore is a rumour on the worst days and invisible on the rest.",
+  "exits": {
+    "east": "zone_bay_narrows",
+    "south": "zone_bay_deep",
+    "west": "zone_bay_deadwater"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_harbor",
+    "water": true
+  },
+  "grid_x": 3,
+  "grid_y": -7,
+  "grid_z": 0,
+  "id": "zone_bay_reach",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "RE",
+  "name": "The Reach",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

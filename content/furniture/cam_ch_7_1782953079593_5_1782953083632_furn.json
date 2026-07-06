@@ -1,0 +1,18 @@
+{
+  "description": "A broadcast-grade studio camera on a heavy-duty motorised mount. A small red light glows when streaming.",
+  "flags": {
+    "broadcast_transmitter": true,
+    "camera_id": "cam_ch_7_1782953079593_5_1782953083632",
+    "channel_id": "ch_7_1782953079593"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "cam_ch_7_1782953079593_5_1782953083632_furn",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "broadcast camera 5",
+  "object_type": "broadcast_camera",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_studio_1782953094650"
+}

@@ -1,0 +1,18 @@
+{
+  "description": "A riveted steel water tank up on timber cradle legs, its belly streaked with rust-bleed. Knuckle the side and the echo tells you it's about a third full of something you would not want to drink.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_watertank_zone_meridian_roof",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "rooftop water tank",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_meridian_roof"
+}

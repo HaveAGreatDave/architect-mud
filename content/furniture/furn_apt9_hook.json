@@ -1,0 +1,16 @@
+{
+  "description": "A steel hook screwed into a joist, once home to a fan, now to nothing. It turns a slow quarter-circle in the draft, as if weighing its options.",
+  "flags": {
+    "interactions": []
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt9_hook",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "ceiling hook",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_9"
+}

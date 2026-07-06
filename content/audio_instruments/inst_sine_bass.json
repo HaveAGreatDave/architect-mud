@@ -1,0 +1,21 @@
+{
+  "category": "misc",
+  "config": {
+    "adsr": {
+      "a": 0.01,
+      "d": 0.15,
+      "r": 0.2,
+      "s": 0.9
+    },
+    "filter": {
+      "freq": 600,
+      "q": 0.7,
+      "type": "lowpass"
+    }
+  },
+  "enabled": 1,
+  "id": "inst_sine_bass",
+  "name": "sine_bass",
+  "sample_id": null,
+  "waveform": "sine"
+}

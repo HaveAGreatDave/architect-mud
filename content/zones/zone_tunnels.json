@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "Someone is typing, fast, somewhere in the dark.",
+    "A train horn sounds in the distance. There are no trains.",
+    "Scratched into the wall, half-legible: \"when the static’s bad, ask the shadows.\""
+  ],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#cf6a2e",
+  "color": "#111111",
+  "created_by": null,
+  "danger_rating": "medium",
+  "description": "Pre-Handoff subway tunnels, now home to the Archivists. Emergency lighting casts everything amber. The walls are dense with salvaged text — newspaper fragments, printed articles, handwritten notes.",
+  "exits": {
+    "up": "zone_slums"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "intro_lore": "The Under belongs to the Archivists, and the Archivists belong to the dark. They keep the old words down here — newsprint, manuals, names of the dead — because up top nobody remembers on purpose. They'll trade in knowledge and let you pass for it. Break their peace and the tunnels close around you, and the amber light is a long way from the surface.",
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_roadside_junk"
+  },
+  "grid_x": 0,
+  "grid_y": 2,
+  "grid_z": -1,
+  "id": "zone_tunnels",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": null,
+  "name": "The Under",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783169469"
+}

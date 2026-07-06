@@ -1,0 +1,1307 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_1",
+        "type": "start"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "event_type": "FADE_IN",
+        "next": "bsm_2",
+        "type": "event"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "next": "bsm_11",
+        "npc_id": "npc_graham_mercer",
+        "type": "npc_anchor"
+      },
+      "bsm_100": {
+        "_vine": {
+          "x": 80,
+          "y": 3280
+        },
+        "event_type": "RETURN_FROM_BREAK",
+        "next": "bsm_101",
+        "type": "event"
+      },
+      "bsm_101": {
+        "_vine": {
+          "x": 300,
+          "y": 3280
+        },
+        "label": "CAM — 2 — MEDIUM john_akerson",
+        "next": "bsm_102",
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
+      },
+      "bsm_102": {
+        "_vine": {
+          "x": 520,
+          "y": 3280
+        },
+        "graphic_id": "",
+        "next": "bsm_103",
+        "overlayType": "lower_third",
+        "subtext": "",
+        "text": "",
+        "type": "overlay"
+      },
+      "bsm_103": {
+        "_vine": {
+          "x": 740,
+          "y": 3280
+        },
+        "next": "bsm_104",
+        "song": "tonight_theme",
+        "text": "♪ The Tonight Show theme begins playing. ♪",
+        "type": "music"
+      },
+      "bsm_104": {
+        "_vine": {
+          "x": 960,
+          "y": 3280
+        },
+        "next": "bsm_105",
+        "npc_id": "npc_john_akerson",
+        "type": "npc_anchor"
+      },
+      "bsm_105": {
+        "_vine": {
+          "x": 80,
+          "y": 3440
+        },
+        "next": "bsm_106",
+        "style": "raw",
+        "text": "That's all the time we've got tonight.",
+        "type": "say"
+      },
+      "bsm_106": {
+        "_vine": {
+          "x": 300,
+          "y": 3440
+        },
+        "next": "bsm_107",
+        "style": "raw",
+        "text": "Thanks to Lenny for joining us.",
+        "type": "say"
+      },
+      "bsm_107": {
+        "_vine": {
+          "x": 520,
+          "y": 3440
+        },
+        "next": "bsm_108",
+        "style": "raw",
+        "text": "Remember...",
+        "type": "say"
+      },
+      "bsm_108": {
+        "_vine": {
+          "x": 740,
+          "y": 3440
+        },
+        "next": "bsm_109",
+        "style": "raw",
+        "text": "If somebody offers you free cyberware in an alley..",
+        "type": "say"
+      },
+      "bsm_109": {
+        "_vine": {
+          "x": 960,
+          "y": 3440
+        },
+        "next": "bsm_110",
+        "style": "raw",
+        "text": "...at least ask if it comes with a warranty.",
+        "type": "say"
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "next": "bsm_12",
+        "style": "raw",
+        "text": "From somewhere above the smog and only slightly outside the blast radius...",
+        "type": "say"
+      },
+      "bsm_110": {
+        "_vine": {
+          "x": 80,
+          "y": 3600
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_111",
+        "type": "event"
+      },
+      "bsm_111": {
+        "_vine": {
+          "x": 300,
+          "y": 3600
+        },
+        "next": "bsm_112",
+        "style": "raw",
+        "text": "Good night, everybody!",
+        "type": "say"
+      },
+      "bsm_112": {
+        "_vine": {
+          "x": 520,
+          "y": 3600
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_113",
+        "type": "event"
+      },
+      "bsm_113": {
+        "_vine": {
+          "x": 740,
+          "y": 3600
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_114",
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
+      },
+      "bsm_114": {
+        "_vine": {
+          "x": 960,
+          "y": 3600
+        },
+        "next": "bsm_115",
+        "style": "narration",
+        "text": "The camera slowly pulls back as John waves to the audience. The Tonight Show band reprises the theme while the audience rises for a standing ovation beneath glowing neon studio lights.",
+        "type": "say"
+      },
+      "bsm_115": {
+        "_vine": {
+          "x": 80,
+          "y": 3760
+        },
+        "next": "bsm_116",
+        "text": "HOST\nJohn Akerson\n\nANNOUNCER\nGraham Mercer\n\nSPECIAL GUEST\nLenny \"Lucky\" Malone\n\nEXECUTIVE PRODUCER\nPatricia Holloway\n\nPRODUCER\nDennis Callow\n\nLINE PRODUCER\nRachel Kim\n\nDIRECTOR\nVictor Ellison\n\nASSOCIATE DIRECTOR\nMelissa Duarte\n\nHEAD WRITER\nEvan Prescott\n\nWRITERS\nNina Brooks\nOwen Fletcher\nHarper Singh\n\nMUSIC DIRECTOR\nMarcus Vale\n\nHOUSE BAND\nThe Neon Standard\n\nBAND LEADER\nFrank Delaney\n\nSTAGE MANAGER\nCarmen Ortiz\n\nFLOOR MANAGER\nDylan Hayes\n\nLIGHTING DIRECTOR\nSophie Bennett\n\nLIGHTING CREW\nIan Mercer\nLena Foster\n\nCAMERA SUPERVISOR\nTrevor Collins\n\nCAMERA OPERATORS\nMaya Rivers\nBen Hollow\nScott Ramsey\nAndrea Pierce\n\nTECHNICAL DIRECTOR\nNathan Bishop\n\nAUDIO ENGINEER\nColin Matthews\n\nBOOM OPERATOR\nJamie Ross\n\nVIDEO ENGINEER\nLaura Finch\n\nGRAPHICS\nNoah Whitaker\n\nLOWER THIRD DESIGN\nGrace Palmer\n\nTICKER OPERATIONS\nPeter Dawson\n\nSET DESIGN\nElaine Morgan\n\nPROP MASTER\nKevin Rhodes\n\nWARDROBE\nJessica Nolan\n\nMAKEUP\nAmber Wells\n\nHAIR\nTina Morales\n\nSCRIPT SUPERVISOR\nRebecca Holt\n\nPRODUCTION ASSISTANTS\nKyle Turner\nEmily Warren\nJoshua Dean\nNicole Foster\n\nAUDIENCE COORDINATOR\nSarah Whitmore\n\nSECURITY\nMartin Doyle\n\nLEGAL\nHarrison & Pike Media Counsel\n\nSPECIAL THANKS\nKSAB Studio Audience\nColdwater Basin Transit Authority\nAcid Cola™ Beverage Corporation\n\nA KSAB TELEVISION PRODUCTION",
+        "type": "credits"
+      },
+      "bsm_116": {
+        "_vine": {
+          "x": 300,
+          "y": 3760
+        },
+        "event_type": "FADE_OUT",
+        "type": "event"
+      },
+      "bsm_12": {
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "next": "bsm_13",
+        "style": "raw",
+        "text": "It's...",
+        "type": "say"
+      },
+      "bsm_13": {
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "next": "bsm_14",
+        "style": "raw",
+        "text": "The Tonight Show!",
+        "type": "say"
+      },
+      "bsm_14": {
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_15",
+        "type": "event"
+      },
+      "bsm_15": {
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "next": "bsm_16",
+        "style": "raw",
+        "text": "Tonight...",
+        "type": "say"
+      },
+      "bsm_16": {
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "next": "bsm_17",
+        "style": "raw",
+        "text": "Corporate executives explain why exploding vending machines are actually a premium feature.",
+        "type": "say"
+      },
+      "bsm_17": {
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "next": "bsm_18",
+        "style": "raw",
+        "text": "A local street chef prepares authentic mutant squid tacos.",
+        "type": "say"
+      },
+      "bsm_18": {
+        "_vine": {
+          "x": 740,
+          "y": 560
+        },
+        "next": "bsm_19",
+        "style": "raw",
+        "text": "And we'll meet a man who's legally declared his apartment to be an independent nation.",
+        "type": "say"
+      },
+      "bsm_19": {
+        "_vine": {
+          "x": 960,
+          "y": 560
+        },
+        "next": "bsm_20",
+        "style": "raw",
+        "text": "Ladies and gentlemen...",
+        "type": "say"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "tonight_show_logo",
+        "next": "bsm_3",
+        "type": "title_card"
+      },
+      "bsm_20": {
+        "_vine": {
+          "x": 80,
+          "y": 720
+        },
+        "next": "bsm_21",
+        "style": "raw",
+        "text": "JOOOOOHN AKERSON!",
+        "type": "say"
+      },
+      "bsm_21": {
+        "_vine": {
+          "x": 300,
+          "y": 720
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_22",
+        "type": "event"
+      },
+      "bsm_22": {
+        "_vine": {
+          "x": 520,
+          "y": 720
+        },
+        "next": "bsm_23",
+        "npc_id": "npc_john_akerson",
+        "type": "npc_anchor"
+      },
+      "bsm_23": {
+        "_vine": {
+          "x": 740,
+          "y": 720
+        },
+        "message": "enters the frame.",
+        "next": "bsm_24",
+        "type": "npc_action"
+      },
+      "bsm_24": {
+        "_vine": {
+          "x": 960,
+          "y": 720
+        },
+        "label": "CAM — 2 — TRACK john_akerson",
+        "next": "bsm_25",
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
+      },
+      "bsm_25": {
+        "_vine": {
+          "x": 80,
+          "y": 880
+        },
+        "next": "bsm_26",
+        "style": "narration",
+        "text": "The camera follows John Akerson as he jogs onto the stage, shaking hands with audience members before stopping behind his desk with a broad smile.",
+        "type": "say"
+      },
+      "bsm_26": {
+        "_vine": {
+          "x": 300,
+          "y": 880
+        },
+        "message": "waves to the crowd.",
+        "next": "bsm_27",
+        "type": "npc_action"
+      },
+      "bsm_27": {
+        "_vine": {
+          "x": 520,
+          "y": 880
+        },
+        "label": "CAM — 3 — CLOSEUP john_akerson",
+        "next": "bsm_28",
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
+      },
+      "bsm_28": {
+        "_vine": {
+          "x": 740,
+          "y": 880
+        },
+        "next": "bsm_29",
+        "style": "raw",
+        "text": "Thank you!",
+        "type": "say"
+      },
+      "bsm_29": {
+        "_vine": {
+          "x": 960,
+          "y": 880
+        },
+        "next": "bsm_30",
+        "style": "raw",
+        "text": "Thank you!",
+        "type": "say"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "song": "tonight_theme",
+        "text": "♪ The Tonight Show theme begins playing. ♪",
+        "type": "music"
+      },
+      "bsm_30": {
+        "_vine": {
+          "x": 80,
+          "y": 1040
+        },
+        "next": "bsm_31",
+        "style": "raw",
+        "text": "Sit down! We've got a fantastic show tonight!",
+        "type": "say"
+      },
+      "bsm_31": {
+        "_vine": {
+          "x": 300,
+          "y": 1040
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_32",
+        "type": "event"
+      },
+      "bsm_32": {
+        "_vine": {
+          "x": 520,
+          "y": 1040
+        },
+        "next": "bsm_33",
+        "style": "raw",
+        "text": "Did everyone survive the commute?",
+        "type": "say"
+      },
+      "bsm_33": {
+        "_vine": {
+          "x": 740,
+          "y": 1040
+        },
+        "next": "bsm_34",
+        "style": "raw",
+        "text": "Traffic was backed up six blocks after somebody hacked the crossing lights to advertise noodles.",
+        "type": "say"
+      },
+      "bsm_34": {
+        "_vine": {
+          "x": 960,
+          "y": 1040
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_35",
+        "type": "event"
+      },
+      "bsm_35": {
+        "_vine": {
+          "x": 80,
+          "y": 1200
+        },
+        "next": "bsm_36",
+        "style": "raw",
+        "text": "Corporate Security says crime is down.",
+        "type": "say"
+      },
+      "bsm_36": {
+        "_vine": {
+          "x": 300,
+          "y": 1200
+        },
+        "next": "bsm_37",
+        "style": "raw",
+        "text": "Apparently they stopped counting anything outside corporate property.",
+        "type": "say"
+      },
+      "bsm_37": {
+        "_vine": {
+          "x": 520,
+          "y": 1200
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_38",
+        "type": "event"
+      },
+      "bsm_38": {
+        "_vine": {
+          "x": 740,
+          "y": 1200
+        },
+        "next": "bsm_39",
+        "style": "raw",
+        "text": "I stopped by a pharmacy today.",
+        "type": "say"
+      },
+      "bsm_39": {
+        "_vine": {
+          "x": 960,
+          "y": 1200
+        },
+        "next": "bsm_40",
+        "style": "raw",
+        "text": "They've started locking up bottled water.",
+        "type": "say"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "next": "bsm_5",
+        "text": "ACID COLA REPORTS RECORD PROFITS • POLICE ADVISE CITIZENS TO AVOID DISTRICT 12 • CITY TRANSIT EXPECTS ONLY MODERATE EXPLOSIONS TODAY • BUY NEO-NOODLES: NOW 12% LESS SYNTHETIC •",
+        "type": "ticker"
+      },
+      "bsm_40": {
+        "_vine": {
+          "x": 80,
+          "y": 1360
+        },
+        "next": "bsm_41",
+        "style": "raw",
+        "text": "The cybernetic organs are still self-service though.",
+        "type": "say"
+      },
+      "bsm_41": {
+        "_vine": {
+          "x": 300,
+          "y": 1360
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_42",
+        "type": "event"
+      },
+      "bsm_42": {
+        "_vine": {
+          "x": 520,
+          "y": 1360
+        },
+        "next": "bsm_43",
+        "style": "raw",
+        "text": "You know times are tough when the mugger accepts store credit.",
+        "type": "say"
+      },
+      "bsm_43": {
+        "_vine": {
+          "x": 740,
+          "y": 1360
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_44",
+        "type": "event"
+      },
+      "bsm_44": {
+        "_vine": {
+          "x": 960,
+          "y": 1360
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_45",
+        "type": "event"
+      },
+      "bsm_45": {
+        "_vine": {
+          "x": 80,
+          "y": 1520
+        },
+        "next": "bsm_46",
+        "style": "raw",
+        "text": "Good news though...",
+        "type": "say"
+      },
+      "bsm_46": {
+        "_vine": {
+          "x": 300,
+          "y": 1520
+        },
+        "next": "bsm_47",
+        "style": "raw",
+        "text": "My landlord says the building is structurally sound.",
+        "type": "say"
+      },
+      "bsm_47": {
+        "_vine": {
+          "x": 520,
+          "y": 1520
+        },
+        "next": "bsm_48",
+        "style": "raw",
+        "text": "Apparently that's a completely different thing than \"safe.\"",
+        "type": "say"
+      },
+      "bsm_48": {
+        "_vine": {
+          "x": 740,
+          "y": 1520
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_49",
+        "type": "event"
+      },
+      "bsm_49": {
+        "_vine": {
+          "x": 960,
+          "y": 1520
+        },
+        "graphic_id": "",
+        "next": "bsm_50",
+        "overlayType": "lower_third",
+        "subtext": "Host",
+        "text": "John Akerson",
+        "type": "overlay"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "event_type": "DISSOLVE",
+        "next": "bsm_6",
+        "type": "event"
+      },
+      "bsm_50": {
+        "_vine": {
+          "x": 80,
+          "y": 1680
+        },
+        "next": "bsm_51",
+        "npc_id": "npc_lucky_malone",
+        "type": "npc_anchor"
+      },
+      "bsm_51": {
+        "_vine": {
+          "x": 300,
+          "y": 1680
+        },
+        "message": "enters the frame.",
+        "next": "bsm_52",
+        "type": "npc_action"
+      },
+      "bsm_52": {
+        "_vine": {
+          "x": 520,
+          "y": 1680
+        },
+        "graphic_id": "",
+        "next": "bsm_53",
+        "overlayType": "lower_third",
+        "subtext": "Professional Lottery Winner",
+        "text": "Lenny \"Lucky\" Malone",
+        "type": "overlay"
+      },
+      "bsm_53": {
+        "_vine": {
+          "x": 740,
+          "y": 1680
+        },
+        "label": "CAM — 4 — TWO_SHOT john_akerson lucky_malone",
+        "next": "bsm_54",
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
+      },
+      "bsm_54": {
+        "_vine": {
+          "x": 960,
+          "y": 1680
+        },
+        "next": "bsm_55",
+        "style": "narration",
+        "text": "The camera settles into a comfortable two-shot as John and tonight's guest sit beneath the warm studio lights.",
+        "type": "say"
+      },
+      "bsm_55": {
+        "_vine": {
+          "x": 80,
+          "y": 1840
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_56",
+        "type": "event"
+      },
+      "bsm_56": {
+        "_vine": {
+          "x": 300,
+          "y": 1840
+        },
+        "next": "bsm_57",
+        "npc_id": "npc_john_akerson",
+        "type": "npc_anchor"
+      },
+      "bsm_57": {
+        "_vine": {
+          "x": 520,
+          "y": 1840
+        },
+        "next": "bsm_58",
+        "style": "raw",
+        "text": "Lenny, welcome to the show.",
+        "type": "say"
+      },
+      "bsm_58": {
+        "_vine": {
+          "x": 740,
+          "y": 1840
+        },
+        "next": "bsm_59",
+        "npc_id": "npc_lucky_malone",
+        "type": "npc_anchor"
+      },
+      "bsm_59": {
+        "_vine": {
+          "x": 960,
+          "y": 1840
+        },
+        "next": "bsm_60",
+        "style": "raw",
+        "text": "Happy to be here.",
+        "type": "say"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_7",
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
+      },
+      "bsm_60": {
+        "_vine": {
+          "x": 80,
+          "y": 2000
+        },
+        "next": "bsm_61",
+        "npc_id": "npc_john_akerson",
+        "type": "npc_anchor"
+      },
+      "bsm_61": {
+        "_vine": {
+          "x": 300,
+          "y": 2000
+        },
+        "next": "bsm_62",
+        "style": "raw",
+        "text": "You won the city lottery seven times.",
+        "type": "say"
+      },
+      "bsm_62": {
+        "_vine": {
+          "x": 520,
+          "y": 2000
+        },
+        "next": "bsm_63",
+        "npc_id": "npc_lucky_malone",
+        "type": "npc_anchor"
+      },
+      "bsm_63": {
+        "_vine": {
+          "x": 740,
+          "y": 2000
+        },
+        "next": "bsm_64",
+        "style": "raw",
+        "text": "Eight.",
+        "type": "say"
+      },
+      "bsm_64": {
+        "_vine": {
+          "x": 960,
+          "y": 2000
+        },
+        "next": "bsm_65",
+        "npc_id": "npc_john_akerson",
+        "type": "npc_anchor"
+      },
+      "bsm_65": {
+        "_vine": {
+          "x": 80,
+          "y": 2160
+        },
+        "next": "bsm_66",
+        "style": "raw",
+        "text": "Eight?",
+        "type": "say"
+      },
+      "bsm_66": {
+        "_vine": {
+          "x": 300,
+          "y": 2160
+        },
+        "next": "bsm_67",
+        "npc_id": "npc_lucky_malone",
+        "type": "npc_anchor"
+      },
+      "bsm_67": {
+        "_vine": {
+          "x": 520,
+          "y": 2160
+        },
+        "next": "bsm_68",
+        "style": "raw",
+        "text": "The eighth time they stopped congratulating me and started interviewing me.",
+        "type": "say"
+      },
+      "bsm_68": {
+        "_vine": {
+          "x": 740,
+          "y": 2160
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_69",
+        "type": "event"
+      },
+      "bsm_69": {
+        "_vine": {
+          "x": 960,
+          "y": 2160
+        },
+        "next": "bsm_70",
+        "npc_id": "npc_john_akerson",
+        "type": "npc_anchor"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "narration",
+        "text": "The broadcast opens on a brightly lit studio bathed in neon blues and warm amber lights. A packed audience applauds enthusiastically while the Tonight Show band finishes the opening bars of the theme.",
+        "type": "say"
+      },
+      "bsm_70": {
+        "_vine": {
+          "x": 80,
+          "y": 2320
+        },
+        "next": "bsm_71",
+        "style": "raw",
+        "text": "What's your secret?",
+        "type": "say"
+      },
+      "bsm_71": {
+        "_vine": {
+          "x": 300,
+          "y": 2320
+        },
+        "next": "bsm_72",
+        "npc_id": "npc_lucky_malone",
+        "type": "npc_anchor"
+      },
+      "bsm_72": {
+        "_vine": {
+          "x": 520,
+          "y": 2320
+        },
+        "next": "bsm_73",
+        "style": "raw",
+        "text": "Always buy your ticket after surviving something that should've killed you.",
+        "type": "say"
+      },
+      "bsm_73": {
+        "_vine": {
+          "x": 740,
+          "y": 2320
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_74",
+        "type": "event"
+      },
+      "bsm_74": {
+        "_vine": {
+          "x": 960,
+          "y": 2320
+        },
+        "next": "bsm_75",
+        "npc_id": "npc_john_akerson",
+        "type": "npc_anchor"
+      },
+      "bsm_75": {
+        "_vine": {
+          "x": 80,
+          "y": 2480
+        },
+        "next": "bsm_76",
+        "style": "raw",
+        "text": "That's oddly specific.",
+        "type": "say"
+      },
+      "bsm_76": {
+        "_vine": {
+          "x": 300,
+          "y": 2480
+        },
+        "next": "bsm_77",
+        "npc_id": "npc_lucky_malone",
+        "type": "npc_anchor"
+      },
+      "bsm_77": {
+        "_vine": {
+          "x": 520,
+          "y": 2480
+        },
+        "next": "bsm_78",
+        "style": "raw",
+        "text": "I'm from Eastside.",
+        "type": "say"
+      },
+      "bsm_78": {
+        "_vine": {
+          "x": 740,
+          "y": 2480
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_79",
+        "type": "event"
+      },
+      "bsm_79": {
+        "_vine": {
+          "x": 960,
+          "y": 2480
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_80",
+        "type": "event"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "npc_id": "npc_graham_mercer",
+        "type": "npc_anchor"
+      },
+      "bsm_80": {
+        "_vine": {
+          "x": 80,
+          "y": 2640
+        },
+        "next": "bsm_81",
+        "npc_id": "npc_john_akerson",
+        "type": "npc_anchor"
+      },
+      "bsm_81": {
+        "_vine": {
+          "x": 300,
+          "y": 2640
+        },
+        "next": "bsm_82",
+        "style": "raw",
+        "text": "What's the first thing you bought?",
+        "type": "say"
+      },
+      "bsm_82": {
+        "_vine": {
+          "x": 520,
+          "y": 2640
+        },
+        "next": "bsm_83",
+        "npc_id": "npc_lucky_malone",
+        "type": "npc_anchor"
+      },
+      "bsm_83": {
+        "_vine": {
+          "x": 740,
+          "y": 2640
+        },
+        "next": "bsm_84",
+        "style": "raw",
+        "text": "A deluxe apartment.",
+        "type": "say"
+      },
+      "bsm_84": {
+        "_vine": {
+          "x": 960,
+          "y": 2640
+        },
+        "next": "bsm_85",
+        "npc_id": "npc_john_akerson",
+        "type": "npc_anchor"
+      },
+      "bsm_85": {
+        "_vine": {
+          "x": 80,
+          "y": 2800
+        },
+        "next": "bsm_86",
+        "style": "raw",
+        "text": "Nice!",
+        "type": "say"
+      },
+      "bsm_86": {
+        "_vine": {
+          "x": 300,
+          "y": 2800
+        },
+        "next": "bsm_87",
+        "npc_id": "npc_lucky_malone",
+        "type": "npc_anchor"
+      },
+      "bsm_87": {
+        "_vine": {
+          "x": 520,
+          "y": 2800
+        },
+        "next": "bsm_88",
+        "style": "raw",
+        "text": "The deluxe part is that only one wall leaks.",
+        "type": "say"
+      },
+      "bsm_88": {
+        "_vine": {
+          "x": 740,
+          "y": 2800
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_89",
+        "type": "event"
+      },
+      "bsm_89": {
+        "_vine": {
+          "x": 960,
+          "y": 2800
+        },
+        "event_type": "COMMERCIAL_BREAK",
+        "next": "bsm_90",
+        "type": "event"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10",
+        "npc_id": "npc_john_akerson",
+        "type": "npc_anchor"
+      },
+      "bsm_90": {
+        "_vine": {
+          "x": 80,
+          "y": 2960
+        },
+        "graphic_id": "acid_cola_logo",
+        "next": "bsm_91",
+        "type": "title_card"
+      },
+      "bsm_91": {
+        "_vine": {
+          "x": 300,
+          "y": 2960
+        },
+        "next": "bsm_92",
+        "style": "narration",
+        "text": "The broadcast abruptly transitions to an aggressively colorful commercial surrounded by flashing corporate branding.",
+        "type": "say"
+      },
+      "bsm_92": {
+        "_vine": {
+          "x": 520,
+          "y": 2960
+        },
+        "next": "bsm_93",
+        "song": "acid_cola_jingle",
+        "text": "",
+        "type": "music"
+      },
+      "bsm_93": {
+        "_vine": {
+          "x": 740,
+          "y": 2960
+        },
+        "next": "bsm_94",
+        "style": "ambient",
+        "text": "♪ An upbeat Acid Cola™ advertising jingle begins playing. ♪",
+        "type": "say"
+      },
+      "bsm_94": {
+        "_vine": {
+          "x": 960,
+          "y": 2960
+        },
+        "next": "bsm_95",
+        "npc_id": "npc_graham_mercer",
+        "type": "npc_anchor"
+      },
+      "bsm_95": {
+        "_vine": {
+          "x": 80,
+          "y": 3120
+        },
+        "next": "bsm_96",
+        "style": "raw",
+        "text": "Feeling tired?",
+        "type": "say"
+      },
+      "bsm_96": {
+        "_vine": {
+          "x": 300,
+          "y": 3120
+        },
+        "next": "bsm_97",
+        "style": "raw",
+        "text": "Feeling hopeless?",
+        "type": "say"
+      },
+      "bsm_97": {
+        "_vine": {
+          "x": 520,
+          "y": 3120
+        },
+        "next": "bsm_98",
+        "style": "raw",
+        "text": "Drink Acid Cola™.",
+        "type": "say"
+      },
+      "bsm_98": {
+        "_vine": {
+          "x": 740,
+          "y": 3120
+        },
+        "next": "bsm_99",
+        "style": "raw",
+        "text": "Because reality is easier to tolerate when it's carbonated.",
+        "type": "say"
+      },
+      "bsm_99": {
+        "_vine": {
+          "x": 960,
+          "y": 3120
+        },
+        "graphic_id": "commercial_offer",
+        "next": "bsm_100",
+        "text": "LIMITED TIME OFFER\nBUY TWO\nGET THE THIRD LEGALLY CLASSIFIED AS A BONUS",
+        "type": "overlay"
+      }
+    }
+  },
+  "category": "late_night",
+  "channel_id": "ch_7_1782953079593",
+  "created_by": "ab2d38d0-4f10-4187-8f53-298d61b525c3",
+  "description": "",
+  "enabled": 1,
+  "fallback_messages": [],
+  "id": "bc_1782963155450",
+  "loop": 0,
+  "message_interval": 5,
+  "messages": [
+    {
+      "text": "ACID COLA REPORTS RECORD PROFITS • POLICE ADVISE CITIZENS TO AVOID DISTRICT 12 • CITY TRANSIT EXPECTS ONLY MODERATE EXPLOSIONS TODAY • BUY NEO-NOODLES: NOW 12% LESS SYNTHETIC •"
+    },
+    {
+      "text": "The broadcast opens on a brightly lit studio bathed in neon blues and warm amber lights. A packed audience applauds enthusiastically while the Tonight Show band finishes the opening bars of the theme."
+    },
+    {
+      "text": "From somewhere above the smog and only slightly outside the blast radius..."
+    },
+    {
+      "text": "It's..."
+    },
+    {
+      "text": "The Tonight Show!"
+    },
+    {
+      "text": "Tonight..."
+    },
+    {
+      "text": "Corporate executives explain why exploding vending machines are actually a premium feature."
+    },
+    {
+      "text": "A local street chef prepares authentic mutant squid tacos."
+    },
+    {
+      "text": "And we'll meet a man who's legally declared his apartment to be an independent nation."
+    },
+    {
+      "text": "Ladies and gentlemen..."
+    },
+    {
+      "text": "JOOOOOHN AKERSON!"
+    },
+    {
+      "text": "The camera follows John Akerson as he jogs onto the stage, shaking hands with audience members before stopping behind his desk with a broad smile."
+    },
+    {
+      "text": "Thank you!"
+    },
+    {
+      "text": "Thank you!"
+    },
+    {
+      "text": "Sit down! We've got a fantastic show tonight!"
+    },
+    {
+      "text": "Did everyone survive the commute?"
+    },
+    {
+      "text": "Traffic was backed up six blocks after somebody hacked the crossing lights to advertise noodles."
+    },
+    {
+      "text": "Corporate Security says crime is down."
+    },
+    {
+      "text": "Apparently they stopped counting anything outside corporate property."
+    },
+    {
+      "text": "I stopped by a pharmacy today."
+    },
+    {
+      "text": "They've started locking up bottled water."
+    },
+    {
+      "text": "The cybernetic organs are still self-service though."
+    },
+    {
+      "text": "You know times are tough when the mugger accepts store credit."
+    },
+    {
+      "text": "Good news though..."
+    },
+    {
+      "text": "My landlord says the building is structurally sound."
+    },
+    {
+      "text": "Apparently that's a completely different thing than \"safe.\""
+    },
+    {
+      "text": "The camera settles into a comfortable two-shot as John and tonight's guest sit beneath the warm studio lights."
+    },
+    {
+      "text": "Lenny, welcome to the show."
+    },
+    {
+      "text": "Happy to be here."
+    },
+    {
+      "text": "You won the city lottery seven times."
+    },
+    {
+      "text": "Eight."
+    },
+    {
+      "text": "Eight?"
+    },
+    {
+      "text": "The eighth time they stopped congratulating me and started interviewing me."
+    },
+    {
+      "text": "What's your secret?"
+    },
+    {
+      "text": "Always buy your ticket after surviving something that should've killed you."
+    },
+    {
+      "text": "That's oddly specific."
+    },
+    {
+      "text": "I'm from Eastside."
+    },
+    {
+      "text": "What's the first thing you bought?"
+    },
+    {
+      "text": "A deluxe apartment."
+    },
+    {
+      "text": "Nice!"
+    },
+    {
+      "text": "The deluxe part is that only one wall leaks."
+    },
+    {
+      "text": "The broadcast abruptly transitions to an aggressively colorful commercial surrounded by flashing corporate branding."
+    },
+    {
+      "text": "Feeling tired?"
+    },
+    {
+      "text": "Feeling hopeless?"
+    },
+    {
+      "text": "Drink Acid Cola™."
+    },
+    {
+      "text": "Because reality is easier to tolerate when it's carbonated."
+    },
+    {
+      "text": "That's all the time we've got tonight."
+    },
+    {
+      "text": "Thanks to Lenny for joining us."
+    },
+    {
+      "text": "Remember..."
+    },
+    {
+      "text": "If somebody offers you free cyberware in an alley.."
+    },
+    {
+      "text": "...at least ask if it comes with a warranty."
+    },
+    {
+      "text": "Good night, everybody!"
+    },
+    {
+      "text": "The camera slowly pulls back as John waves to the audience. The Tonight Show band reprises the theme while the audience rises for a standing ovation beneath glowing neon studio lights."
+    }
+  ],
+  "name": "The Tonight Show with John Akerson",
+  "override_duration": null,
+  "playback_mode": "scripted",
+  "sports_pools": null,
+  "tags": [],
+  "updated_at": "1782963155",
+  "weather_pools": null
+}

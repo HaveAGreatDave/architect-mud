@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "Glass breaks in the alley behind you, followed by a tired curse.",
+    "The sodium lamp gutters, drowning the street in ember-red, then steadies.",
+    "Someone is being sick, thoroughly, out of sight.",
+    "A cat the size of a raccoon regards you from a dumpster lid and does not blink."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#ae9292",
+  "color": "#eeeeee",
+  "created_by": null,
+  "danger_rating": "low",
+  "description": "Where the Marquee's neon can't quite reach, the district goes to seed. Ember Alley is a slot of a street lit orange by a single working sodium lamp and the coal-glow of cigarettes in doorways. A dive bar exhales stale beer and old grease into the cold. The walls wear decades of paste-over posters, and somewhere behind them, the brick. People here mind their own business with a dedication that is itself a kind of threat.",
+  "exits": {
+    "in": "zone_mq_sump_bar",
+    "south": "zone_weapons_exterior"
+  },
+  "flags": {
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": null,
+    "world_exit_zone": null
+  },
+  "grid_x": 3,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_mq_ember",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "EM",
+  "name": "Ember Alley",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

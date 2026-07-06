@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_gutter_cat",
+  "id": "spawn_deep_waste_gutter_cat",
+  "max_count": 2,
+  "respawn_seconds": 150,
+  "spawn_weight": 25,
+  "zone_id": "zone_deep_waste"
+}

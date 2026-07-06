@@ -1,0 +1,25 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_reaper_tshirt",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "grim reaper tee",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 1,
+    "bulkiness": 1,
+    "description": "A fitted black T-shirt with a large grim reaper graphic dominating the back, rendered in faded monochrome with distressed details that give it the look of a well-worn band tee. From the front it is simple and understated, revealing its striking artwork only from behind.",
+    "gets_wet": true,
+    "insulation": 1,
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": "clothing",
+  "value": 60,
+  "weight": 300
+}

@@ -1,0 +1,20 @@
+{
+  "addiction_chance": 0.12,
+  "description": "Dulls pain and panic. Popular with people who have seen too much.",
+  "duration_seconds": 600,
+  "effects": {
+    "hp": 5,
+    "sanity": 15
+  },
+  "flags": {},
+  "id": "drug_slow",
+  "item_id": "item_drug_slow",
+  "name": "Slow",
+  "overdose_threshold": 2,
+  "withdrawal_effects": {
+    "overdose": {
+      "hp": -20,
+      "sanity": -15
+    }
+  }
+}

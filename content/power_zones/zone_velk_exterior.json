@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 50,
+  "flags": {},
+  "generator_id": "gen_zone_powerplantnew_1782069598190",
+  "id": "zone_velk_exterior",
+  "max_capacity_kw": 50,
+  "name": "Velk's Pre-Owned — Exterior",
+  "source_type": "city_grid"
+}

@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "The Slagworks Strip hangar: a cavernous prefab of corrugated steel, its floor a map of old oil stains and tyre scuffs. Tool racks and a battered workbench line one wall; a wheeled ops desk with a bank of flight monitors faces the other. The big bay doors stand open to the west, framing the ramp and the aircraft parked out on it. Beyond the apron a taxiway peels off and runs dead-straight to a long runway — a broad grey ribbon stretched to the horizon, its dashed centreline dwindling to a pale seam, threshold numbers shimmering in the heat off the tarmac, a lone windsock snapping at the far end. It smells of avgas, hot metal and cold coffee.",
+  "exits": {
+    "down": "zone_util_zone_hangar_slag_gate",
+    "out": "zone_slag_gate"
+  },
+  "flags": {
+    "airfield_name": "Slagworks Strip",
+    "hangar_interior": true,
+    "hangar_ramp": "zone_slag_gate",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hangar_slag_gate",
+  "is_safe_zone": 1,
+  "map_id": "map_int_hangar_slag_gate",
+  "marker": null,
+  "name": "Slagworks Strip Hangar",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783227243"
+}

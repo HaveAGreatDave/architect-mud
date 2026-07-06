@@ -1,0 +1,281 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "e_ash": {
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "taps ash into a tin lid and watches a queue that isn't there."
+        },
+        "type": "action"
+      },
+      "e_clip": {
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "runs a finger down the clipboard, crossing nothing out."
+        },
+        "type": "action"
+      },
+      "e_cough": {
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "coughs, low and unbothered, and does not look up."
+        },
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "pick": {
+        "branch_0": "loop",
+        "branch_1": "e_ash",
+        "branch_2": "e_clip",
+        "branch_3": "e_cough",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "pick",
+        "seconds": 90,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "A grey woman behind a wire-mesh window, older than the war and twice as tired. A cigarette burns unattended in a tin lid beside a clipboard of jobs nobody wants. She has the face of someone who stopped hoping on a schedule and found it restful.",
+  "dialogue_tree": {
+    "architect": {
+      "options": [
+        {
+          "next": "work",
+          "text": "\"...So what's on the board?\""
+        }
+      ],
+      "text": "Something in her face closes like a shop shutter. \"Custodian talk. There's a chapel two streets over that'd weep to hear it.\" A beat. \"The Architect doesn't need anything, kid. That's what makes it a god. It routes. You're a packet. So am I.\""
+    },
+    "breaker": {
+      "options": [
+        {
+          "next": "work",
+          "text": "\"So what's on it?\""
+        }
+      ],
+      "text": "She almost smiles. \"The Breakers say that too — right up until winter, when they come slinking back for the heaters they smashed.\" A shrug. \"Serve it or smash it, the board doesn't care. Neither do I. Pay's the same either way.\""
+    },
+    "eat": {
+      "options": [
+        {
+          "next": "work",
+          "text": "\"So what's on it?\""
+        }
+      ],
+      "text": "\"Honest.\" It isn't a compliment or an insult, just a reading. \"The ones who admit that outlast the ones with a cause. Causes get people killed for free. The board at least pays.\""
+    },
+    "remember": {
+      "options": [
+        {
+          "next": "work",
+          "text": "\"So what's on it?\""
+        }
+      ],
+      "text": "She exhales smoke through the mesh. \"An Archivist thing to say. They buy old stories down in the tunnels, if you ever get that curious or that hungry. Me, I try to forget on schedule.\""
+    },
+    "root": {
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "fs_marta_met",
+          "scope": "player",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 8,
+              "faction_id": "faction_franchise",
+              "reason": "creed:survival"
+            },
+            {
+              "action": "ADJUST_ARCHITECT",
+              "delta": -5
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "fs_creed",
+              "scope": "player",
+              "value": "survival"
+            }
+          ],
+          "conditions": [
+            {
+              "flag": "fs_creed",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "next": "eat",
+          "text": "\"Someone who eats. That's all.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 8,
+              "faction_id": "faction_archivists",
+              "reason": "creed:memory"
+            },
+            {
+              "action": "ADJUST_ARCHITECT",
+              "delta": -3
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "fs_creed",
+              "scope": "player",
+              "value": "memory"
+            }
+          ],
+          "conditions": [
+            {
+              "flag": "fs_creed",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "next": "remember",
+          "text": "\"Someone who remembers what all this was before.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 8,
+              "faction_id": "faction_custodians",
+              "reason": "creed:devotion"
+            },
+            {
+              "action": "ADJUST_ARCHITECT",
+              "delta": 12
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "fs_creed",
+              "scope": "player",
+              "value": "devotion"
+            }
+          ],
+          "conditions": [
+            {
+              "flag": "fs_creed",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "next": "architect",
+          "text": "\"Whatever the Architect needs me to be.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 8,
+              "faction_id": "faction_breakers",
+              "reason": "creed:ruin"
+            },
+            {
+              "action": "ADJUST_ARCHITECT",
+              "delta": -12
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "fs_creed",
+              "scope": "player",
+              "value": "ruin"
+            }
+          ],
+          "conditions": [
+            {
+              "flag": "fs_creed",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "next": "breaker",
+          "text": "\"The one who pulls the plug on all of it, eventually.\""
+        },
+        {
+          "next": "work",
+          "text": "\"What's on the board?\""
+        }
+      ],
+      "text": "The window's plexi is scratched to fog. Marta Kell slides a clipboard half an inch toward you without looking up. \"Board's on the wall. Take a tab, do the thing, bring it back, get paid. That's the whole religion.\" She finally lifts her eyes. \"You're new-made — I can always tell, they come out of that facility with the shine still on. So. What are you going to be?\""
+    },
+    "work": {
+      "actions": [
+        {
+          "action": "OPEN_JOBBOARD"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "text": "(Turn to the board.)"
+        }
+      ],
+      "text": "\"Here's what's going. Take a tab off it, or type gigs — run the errand, bring it back to me at the window.\" She taps the clipboard, then goes back to watching a queue that isn't there."
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a shapeless municipal cardigan",
+      "fingerless gloves worn through at the tips"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_city_west",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_fs_dispatcher",
+  "name": "Marta Kell",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

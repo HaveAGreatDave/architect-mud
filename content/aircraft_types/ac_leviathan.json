@@ -1,0 +1,24 @@
+{
+  "altitude_ceiling": 3,
+  "cargo_capacity": 600,
+  "class": "heavy",
+  "cruise_speed": 2,
+  "data": {
+    "feel": "Economy endgame; an Antonov An-124 Ruslan — heavy and ponderous, but builds real speed once it has momentum behind it in a dive. Hungry; needs a real runway."
+  },
+  "engines": 4,
+  "fuel_burn_base": 2.6,
+  "fuel_capacity": 160,
+  "fuel_type": "jet",
+  "handling": 3,
+  "hardpoints": 0,
+  "hull_hp": 55,
+  "id": "ac_leviathan",
+  "max_takeoff_weight": 1400,
+  "name": "Leviathan",
+  "noise": 3,
+  "price_buy": 60000,
+  "price_rent_hourly": 900,
+  "seats": 6,
+  "takeoff_mode": "strip"
+}

@@ -1,0 +1,174 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "go_home_ps",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Priya realigns a stack of policy folders that were already aligned.",
+    "\"The wind up here is clean, cold, and, yes, billed to your account.\""
+  ],
+  "description": "The receptionist at Halcyon Assurance, immaculate and unhurried, with a smile calibrated to the exact wattage your account balance deserves. She has directed the desperate and the diamond-plated with the same serene efficiency.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Fly carefully. Or don't — either way, we'll be here.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Welcome to Halcyon Assurance. Underwriting is to the north, claims to the east. However fortune finds you, we have a product for it.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a sharp charcoal blazer",
+      "a silk company scarf",
+      "a discreet earpiece"
+    ],
+    "personality": "professional"
+  },
+  "home_activities": [],
+  "home_zone": "zone_halcyon_apt_a",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_halcyon_reception",
+  "name": "Priya Anand",
+  "npc_type": "civilian",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "mon": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "sun": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_halcyon_lobby"
+}

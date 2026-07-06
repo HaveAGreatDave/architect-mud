@@ -1,0 +1,14 @@
+{
+  "description": "The calm-eye-over-a-skyline seal inlaid in the lobby floor, worn faintly bright down the middle where a decade of anxious claimants have crossed it.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_halcyon_seal",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "the Halcyon seal",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_halcyon_lobby"
+}

@@ -1,0 +1,24 @@
+{
+  "altitude_ceiling": 1,
+  "cargo_capacity": 0,
+  "class": "wreck",
+  "cruise_speed": 1,
+  "data": {
+    "feel": "Found downed; rebuild rolls a random type."
+  },
+  "engines": 1,
+  "fuel_burn_base": 2,
+  "fuel_capacity": 30,
+  "fuel_type": "biofuel",
+  "handling": 4,
+  "hardpoints": 0,
+  "hull_hp": 10,
+  "id": "ac_carcass",
+  "max_takeoff_weight": 300,
+  "name": "Carcass",
+  "noise": 2,
+  "price_buy": 400,
+  "price_rent_hourly": 0,
+  "seats": 1,
+  "takeoff_mode": "stol"
+}

@@ -1,0 +1,23 @@
+{
+  "description": "Military-spec display in matte black with rubber bumper surround. Screen scratched but perfectly legible. Rack has three bullet holes; the screen has none.",
+  "effects": {},
+  "flags": {
+    "interactions": [
+      "watch"
+    ]
+  },
+  "id": "item_furn_syntron_tv",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "Syntron TV",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "Military-spec display in matte black with rubber bumper surround. Screen scratched but perfectly legible. Rack has three bullet holes; the screen has none."
+  },
+  "type": "furniture",
+  "value": 2100,
+  "weight": 11000
+}

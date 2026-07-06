@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_scav",
+  "id": "0ab900eb-862b-4e1c-aaa2-22ff9a1f0f5a",
+  "max_count": 2,
+  "respawn_seconds": 210,
+  "spawn_weight": 65,
+  "zone_id": "zone_badland_sw_outer"
+}

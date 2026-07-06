@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "A groundskeeper drone skims a leaf from a pool that has never held a leaf.",
+    "The signage subtly rearranges to face whoever is richest."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#42c96a",
+  "color": "#eeeeee",
+  "created_by": "phase1-build",
+  "danger_rating": "safe",
+  "description": "A manicured processional toward the Halcyon spire — reflecting pools, engineered calm, and signage in a font that costs more than you do.",
+  "exits": {
+    "north": "zone_dock_quays",
+    "south": "zone_meridian"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": 2,
+  "grid_y": -2,
+  "grid_z": 0,
+  "id": "zone_up_approach",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "SA",
+  "name": "Spire Approach",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

@@ -1,0 +1,17 @@
+{
+  "description": "A single bare bulb on a cord. It works.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_velk_bsmt",
+  "light_type": "overhead",
+  "lumen_output": 800,
+  "name": "ceiling bulb",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 15,
+  "zone_id": "zone_velk_basement"
+}

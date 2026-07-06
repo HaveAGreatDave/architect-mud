@@ -1,0 +1,20 @@
+{
+  "description": "A chunk of alloy that sweats a sickly green light. Handling it too long is a decision, not an accident.",
+  "effects": {},
+  "flags": {},
+  "id": "item_glowing_scrap",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "glowing scrap",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A chunk of alloy that sweats a sickly green light. Handling it too long is a decision, not an accident.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 10,
+  "weight": 600
+}

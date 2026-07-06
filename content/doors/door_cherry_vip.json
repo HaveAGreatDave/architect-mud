@@ -1,0 +1,24 @@
+{
+  "door_type": "basic",
+  "exit_dir": "north",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 1000,
+  "hp_max": 1000,
+  "id": "door_cherry_vip",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "The VIP Door",
+  "tags": {
+    "lock:viplock": {
+      "messages": {
+        "denied": "The bouncer plants a hand on your chest. \"VIP only. Tip your way in.\"",
+        "lock": "The red light over the door steadies. VIP is sealed.",
+        "unlock": "The red light blinks to green. The VIP door releases."
+      }
+    }
+  },
+  "target_zone": "zone_mq_cherry_vip",
+  "zone_id": "zone_mq_cherry_floor"
+}

@@ -1,0 +1,20 @@
+{
+  "description": "A brass gauge, its needle jammed hard in the red. Whatever it measured, it lost.",
+  "effects": {},
+  "flags": {},
+  "id": "item_pressure_gauge",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "pressure gauge",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A brass gauge, its needle jammed hard in the red. Whatever it measured, it lost.",
+    "material": true
+  },
+  "type": "misc",
+  "value": 9,
+  "weight": 250
+}

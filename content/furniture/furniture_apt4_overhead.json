@@ -1,0 +1,18 @@
+{
+  "description": "A bare bulb on a pull-chain. Functional, nothing more.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_apt4_overhead",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "overhead light",
+  "object_type": "light",
+  "power_draw_kw": 20,
+  "price": 40,
+  "zone_id": "zone_apt_4"
+}

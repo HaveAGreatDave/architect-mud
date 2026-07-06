@@ -1,0 +1,9 @@
+{
+  "building_name": "the Embassy Hotel",
+  "forcefield_active": 1,
+  "lock_difficulty": 8,
+  "owner_org_id": null,
+  "owner_type": "player",
+  "rent_cost": 100,
+  "zone_id": "zone_apt_3"
+}

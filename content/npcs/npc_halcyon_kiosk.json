@@ -1,0 +1,181 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "go_home_ps",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Sef restocks a shelf that empties itself of everything but the overpriced water."
+  ],
+  "description": "A tired kiosk vendor working the arcade concourse, selling water and sundries to the staff and the strays at exactly the price the location commands. Sef has seen the executive floor exactly once, to fix its vending machine.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Suit yourself. The coffee bar's a robbery, just so you know.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Show me.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Later.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Arcade kiosk. Water's cold, prices aren't. Browse if you like.\" Sef gestures at the shelf."
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a branded kiosk polo",
+      "a fraying lanyard"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_halcyon_apt_e",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_halcyon_kiosk",
+  "name": "Sef",
+  "npc_type": "vendor",
+  "sex": "nonbinary",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_water_bottle",
+      "price": 6
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "mon": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "sun": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 1,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_halcyon_concourse"
+}

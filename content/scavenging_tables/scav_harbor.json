@@ -1,0 +1,9 @@
+{
+  "fishing_bait_catches": [],
+  "fishing_monsters": [],
+  "flags": {},
+  "id": "scav_harbor",
+  "messages": {},
+  "name": "Harbour Salvage & Catch",
+  "replenish_interval_seconds": 150
+}

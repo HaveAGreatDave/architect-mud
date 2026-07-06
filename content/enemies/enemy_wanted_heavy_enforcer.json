@@ -1,0 +1,96 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 20
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "energy": 5,
+        "kinetic": 8
+      },
+      "weight": 1
+    },
+    {
+      "part": "torso",
+      "soak": {
+        "energy": 5,
+        "kinetic": 8
+      },
+      "weight": 3
+    },
+    {
+      "part": "legs",
+      "soak": {
+        "energy": 5,
+        "kinetic": 8
+      },
+      "weight": 2
+    }
+  ],
+  "butcher_difficulty": 5,
+  "butcher_table": [],
+  "death_message": "The enforcer topples like a felled statue, hydraulics venting.",
+  "description": "A slab of ambulatory armor with a chaingun arm and a servo whine you feel in your teeth.",
+  "dodge": 2,
+  "faction": "police",
+  "flags": {},
+  "hit": 7,
+  "hp_max": 150,
+  "id": "enemy_wanted_heavy_enforcer",
+  "loot_table": [],
+  "name": "SPECTER-PD Heavy Enforcer",
+  "weapon": [
+    {
+      "max": 10,
+      "min": 6,
+      "type": "kinetic"
+    },
+    {
+      "max": 4,
+      "min": 2,
+      "type": "energy"
+    }
+  ]
+}

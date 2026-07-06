@@ -1,0 +1,21 @@
+{
+  "category": "misc",
+  "config": {
+    "adsr": {
+      "a": 0.005,
+      "d": 0.05,
+      "r": 0.1,
+      "s": 0.6
+    },
+    "filter": {
+      "freq": 6000,
+      "q": 1,
+      "type": "lowpass"
+    }
+  },
+  "enabled": 1,
+  "id": "inst_square_lead",
+  "name": "square_lead",
+  "sample_id": null,
+  "waveform": "square"
+}

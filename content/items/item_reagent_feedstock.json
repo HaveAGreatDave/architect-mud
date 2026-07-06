@@ -1,0 +1,19 @@
+{
+  "description": "A small pressurised fuel-gas cylinder — the kind that feeds a camp stove or a backup generator. Perfectly legal to carry, if you like your comforts.",
+  "effects": {},
+  "flags": {},
+  "id": "item_reagent_feedstock",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "fuel cylinder",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "reagent",
+  "tags": {
+    "reagent": true
+  },
+  "type": "chemical",
+  "value": 3,
+  "weight": 30
+}

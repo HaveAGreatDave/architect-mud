@@ -1,0 +1,20 @@
+{
+  "description": "A padded stool with a welded back — improvised, but it works. The cushion has seen better decades.",
+  "flags": {
+    "game_table_id": "gametable_embassy",
+    "interactions": [
+      "sit"
+    ],
+    "seat_idx": 1
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_embassy_chair_2",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Chair 2",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 45,
+  "zone_id": "zone_residential_lobby"
+}

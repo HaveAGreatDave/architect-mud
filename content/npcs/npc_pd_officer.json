@@ -1,0 +1,77 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Vale sips coffee and watches the street.",
+    "'Stay clean and we stay friendly.'"
+  ],
+  "description": "Sergeant Vale leans against the kiosk, coffee in one hand, the other never far from the sidearm. Their eyes do the arithmetic on everyone who walks past.",
+  "dialogue_tree": {
+    "bribe": {
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "end"
+        }
+      ],
+      "text": "'...Petty heat only. And it'll cost you. Don't make it weird.' (use: bribe)"
+    },
+    "end": {
+      "options": [],
+      "text": "'Move along.'"
+    },
+    "root": {
+      "options": [
+        {
+          "label": "I have footage to submit.",
+          "next": "sub"
+        },
+        {
+          "label": "How much to lose a charge?",
+          "next": "bribe"
+        },
+        {
+          "label": "Nothing.",
+          "next": "end"
+        }
+      ],
+      "text": "'SPECTER-PD. You got something for me, or you just loitering?'"
+    },
+    "sub": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "end"
+        }
+      ],
+      "text": "'Hand me the chip. If it's chargeable, there's a bounty in it for you.' (use: submit <datachip>)"
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a surplus tac-vest stencilled POLICE",
+      "a navy uniform shirt",
+      "a plain bra and panties"
+    ],
+    "personality": "police",
+    "police": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_apt_6",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_pd_officer",
+  "name": "Sergeant Vale",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

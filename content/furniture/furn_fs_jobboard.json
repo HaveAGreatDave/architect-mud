@@ -1,0 +1,16 @@
+{
+  "description": "A slab of corkboard and warped ply bolted to a drive-through pillar, layered years deep in torn card, ration stubs, and hand-lettered work. Somewhere under all of it is a day's pay. A man in a paper coat is reading it for the third time. Read the board (or type gigs) to see what's posted.",
+  "flags": {
+    "job_board": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_fs_jobboard",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "the job board",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_city_west"
+}

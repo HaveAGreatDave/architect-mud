@@ -1,0 +1,19 @@
+{
+  "description": "A broad bed under the window, wide enough for two who trust each other. The far side of the building from the bar — as quiet as the Embassy gets.",
+  "flags": {
+    "interactions": [
+      "sit",
+      "lie"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt12_bed",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "wide bed",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 120,
+  "zone_id": "zone_apt_12"
+}

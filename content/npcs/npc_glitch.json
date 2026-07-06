@@ -1,0 +1,111 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Glitch flips a dead datachip end over end across their knuckles.",
+    "'Everybody's got something they don't want seen. That's my whole business model.'",
+    "A bank of tiny monitors behind the counter shows six empty rooms, all slightly wrong.",
+    "'Wired cams are cheaper, but cut the power and they're paperweights. You get what you pay for.'",
+    "'Somebody hijacked my own street cam last week. Respect. Cost me a fortune to get it back.'"
+  ],
+  "description": "Glitch is a wiry fence draped in a hoodie threaded with dead fibre-optics that catch the monitor glow. Their fingers never stop moving — flipping a chip, coiling cable, tapping a keyboard you can't see. Their eyes flick to every camera in the room before they land on you.",
+  "dialogue_tree": {
+    "end": {
+      "options": [],
+      "text": "'Watch your back. Somebody always is.'"
+    },
+    "how": {
+      "options": [
+        {
+          "label": "Show me the rack.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Good to know.",
+          "next": "root"
+        }
+      ],
+      "text": "'Plant it where nobody looks. Pull the feed on a deck — that's `hub`. Cams see, sensors ping, jammers blind, spoofers lie. Somebody find yours? Smash it or hijack it. It's a whole food chain, kid.'"
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Show me the rack.",
+          "next": "__shop__"
+        },
+        {
+          "label": "What is this place?",
+          "next": "what"
+        },
+        {
+          "label": "How do I use this stuff?",
+          "next": "how"
+        },
+        {
+          "label": "Nothing. Later.",
+          "next": "end"
+        }
+      ],
+      "text": "A figure in a hood laced with dead fibre-optic strands looks up. 'Glitch. I move eyes and ears. You buying, or just casing the place?'"
+    },
+    "what": {
+      "options": [
+        {
+          "label": "Show me the rack.",
+          "next": "__shop__"
+        },
+        {
+          "label": "How do I use this stuff?",
+          "next": "how"
+        }
+      ],
+      "text": "'Off-books optics. Sticky cams, relays, sensors, the loud toys. All salvaged, all deniable. You didn't get it here, and I never saw your face.'"
+    }
+  },
+  "faction": null,
+  "flags": {
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_surveillance_market",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_glitch",
+  "name": "Glitch",
+  "npc_type": "npc",
+  "sex": "other",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_sticky_cam",
+      "price": 350
+    },
+    {
+      "item_id": "item_wired_cam",
+      "price": 260
+    },
+    {
+      "item_id": "item_spy_drone",
+      "price": 1200
+    },
+    {
+      "item_id": "item_signal_jammer",
+      "price": 800
+    },
+    {
+      "item_id": "item_feed_spoofer",
+      "price": 1400
+    },
+    {
+      "item_id": "item_spy_deck",
+      "price": 900
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 6,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

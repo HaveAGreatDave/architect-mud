@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "A planter mists itself and the ornamental basin, uselessly.",
+    "A resident hurries through, not looking at the water."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#bca6a6",
+  "color": "#111111",
+  "created_by": "phase3-build",
+  "danger_rating": "safe",
+  "description": "A pocket of would-be gentility at the water's edge — planters, a dry ornamental basin, and frontages that face away from the docks as if embarrassed by them. A security checkpoint straddles The Steps here — a scanner arch and a pair of unimpressed guards vetting everyone who climbs up into the government quarter.",
+  "exits": {
+    "north": "zone_nc_datum",
+    "south": "zone_civ_steps"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "gov_checkpoint": true,
+    "gov_enclave": true,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": -1,
+  "grid_y": -4,
+  "grid_z": 0,
+  "id": "zone_up_vellum",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "⛩",
+  "name": "Vellum Court",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

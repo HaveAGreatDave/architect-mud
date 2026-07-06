@@ -1,0 +1,42 @@
+{
+  "ambient_events": [
+    "Someone argues with the building's old intercom system, which only ever says \"PLEASE HOLD.\"",
+    "A hand-written sign reads: UNITS AVAILABLE. ASK ABOUT OUR LOCKS."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#c9a884",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "A converted hotel lobby, marble floors gone dull under a permanent film of dust, repurposed into the basin's closest thing to real estate. A corkboard by the door — bolted over what used to be the concierge desk — is covered in handwritten unit listings, half of them crossed out. Along one wall, a bar still operates under a brass sign reading THE EMBASSY LOUNGE — a half-dozen cracked vinyl stools lined up at the counter, free to sit if you don't mind the wobble. Lowry stands behind it, polishing a glass that was already clean. The building still has working locks upstairs, which around here makes it valuable.",
+  "exits": {
+    "down": "zone_residential_lobby_z-1_1782105292491",
+    "east": "zone_apt_3",
+    "north": "zone_apt_1",
+    "out": "zone_city_west",
+    "south": "zone_apt_2",
+    "up": "zone_embassy_floor2",
+    "west": "zone_apt_4"
+  },
+  "flags": {
+    "building_name": "Embassy Hotel & Bar",
+    "building_type": "hotel",
+    "is_apartment": false,
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_city_west"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_residential_lobby",
+  "is_safe_zone": 1,
+  "map_id": "map_interior_zone_residential_lobby",
+  "marker": "FS",
+  "name": "Embassy Hotel & Bar — Lobby",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1782356877"
+}

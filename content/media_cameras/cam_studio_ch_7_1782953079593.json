@@ -1,0 +1,11 @@
+{
+  "direction": "north",
+  "flags": {},
+  "id": "cam_studio_ch_7_1782953079593",
+  "is_damaged": 0,
+  "is_powered": 1,
+  "permissions": "public",
+  "storage_limit": 200,
+  "streaming_channel_id": "ch_7_1782953079593",
+  "zone_id": "zone_studio_1782953094650"
+}

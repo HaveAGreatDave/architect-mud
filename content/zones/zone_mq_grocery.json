@@ -1,0 +1,38 @@
+{
+  "ambient_events": [
+    "A fluorescent tube stutters over aisle two and gives up.",
+    "The cooler compressor kicks on with a shudder that rattles the cans.",
+    "A can rolls off a shelf somewhere and wobbles to a stop.",
+    "The register beeps, unprompted, and the clerk swears at it."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#e85aa0",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "A grocery in the loosest post-Collapse sense: three aisles of dented cans, vac-packed protein bricks, and produce grown under lamps somewhere and trucked in still faintly warm. RATION NINE, the sign says, though there is no Ration One through Eight that anyone can name. Fluorescent tubes hum over shelves stocked with the grim staples of survival and, incongruously, a rack of gum by the register. A camera and a clerk track your hands with equal suspicion.",
+  "exits": {
+    "north": "zone_mq_grocery_stock",
+    "out": "zone_mq_battery"
+  },
+  "flags": {
+    "building_name": "Ration Nine",
+    "building_type": "grocery",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_mq_battery"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_mq_grocery",
+  "is_safe_zone": 1,
+  "map_id": "map_int_mq_grocery",
+  "marker": null,
+  "name": "Ration Nine",
+  "parent_zone": "zone_mq_battery",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1782964407"
+}

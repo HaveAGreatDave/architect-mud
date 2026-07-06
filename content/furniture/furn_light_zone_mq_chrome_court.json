@@ -1,0 +1,18 @@
+{
+  "description": "A wall-mounted sodium floodlight throws a hard orange wash over the courtyard, catching the rain when it falls.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_mq_chrome_court",
+  "light_type": "overhead",
+  "lumen_output": 1600,
+  "name": "courtyard floodlight",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_mq_chrome_court"
+}

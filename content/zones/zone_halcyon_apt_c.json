@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2c2340",
+  "color": "#eae6f0",
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "A compact sky-apartment, twin to the others on this hall: a fold-away bed, a narrow galley, and the same floor-to-ceiling window selling the cold city back to you as a view. Sparsely fitted, waiting for a tenant.",
+  "exits": {
+    "north": "zone_halcyon_residences"
+  },
+  "flags": {
+    "building_type": "residential",
+    "is_apartment": true,
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_halcyon_apt_c",
+  "is_safe_zone": 1,
+  "map_id": "map_int_halcyon",
+  "marker": "41",
+  "name": "Halcyon Residence 41-C",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783356329"
+}

@@ -1,0 +1,17 @@
+{
+  "description": "A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.",
+  "flags": {
+    "destructible": true,
+    "generator_id": "gen_zone_velk_basement_1782918434158"
+  },
+  "hp": 1200,
+  "hp_max": 1200,
+  "id": "furn_jbox_zone_velk_basement",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "velk's junction box",
+  "object_type": "junction_box",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_velk_basement"
+}

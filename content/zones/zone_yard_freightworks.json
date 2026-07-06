@@ -1,0 +1,42 @@
+{
+  "ambient_events": [
+    "A sorting arm swings a crate down a chute chosen by nothing you can see.",
+    "The conveyors change direction all at once, for reasons, and change back."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#1eae5d",
+  "color": "#111111",
+  "created_by": "phase8-build",
+  "danger_rating": "low",
+  "description": "The mechanised heart of the Yards, a shed of conveyors and sorting arms that route freight by a logic no living person fully understands and nobody dares reboot.",
+  "exits": {
+    "east": "zone_yard_gantry",
+    "north": "zone_waste_downwind",
+    "south": "zone_yard_pallet",
+    "west": "zone_yard_container"
+  },
+  "flags": {
+    "artery": [
+      "Quay Road"
+    ],
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_roadside_junk"
+  },
+  "grid_x": 7,
+  "grid_y": -3,
+  "grid_z": 0,
+  "id": "zone_yard_freightworks",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "FW",
+  "name": "The Freightworks",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

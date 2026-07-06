@@ -1,0 +1,20 @@
+{
+  "description": "An old armchair with the arms sawn off to fit at the table. Surprisingly comfortable.",
+  "flags": {
+    "game_table_id": "gametable_embassy",
+    "interactions": [
+      "sit"
+    ],
+    "seat_idx": 2
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_embassy_chair_3",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Chair 3",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 45,
+  "zone_id": "zone_residential_lobby"
+}

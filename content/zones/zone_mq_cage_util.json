@@ -1,0 +1,29 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#e85aa0",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "low",
+  "description": "A steel-walled back room stinking of gun oil and solvent. The junction box hangs behind a padlocked expanded-metal grille, as caged as everything else in this shop, its breakers throwing a faint amber glow across racked ammo tins. A small sealed hacking port sits below its latch.",
+  "exits": {
+    "south": "zone_mq_cage_shop"
+  },
+  "flags": {
+    "is_building": false,
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_mq_cage_util",
+  "is_safe_zone": 0,
+  "map_id": "map_int_mq_cage",
+  "marker": null,
+  "name": "The Cage — Utility Room",
+  "parent_zone": "zone_mq_cage_shop",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783023540"
+}

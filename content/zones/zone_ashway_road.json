@@ -1,0 +1,42 @@
+{
+  "ambient_events": [
+    "A tanker's air-brake lets go somewhere down the line with a hiss, though nothing has moved here in years.",
+    "Grit pings off the guardrail in a gust, then goes still."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#b1bccd",
+  "color": "#111111",
+  "created_by": null,
+  "danger_rating": "low",
+  "description": "Six lanes of freight road run west out of Old Coldwater, expansion joints heaved into knee-high ridges by decades of frost. Dead haulers sit nose-to-tail in the breakdown lane, cabs stripped to the frame, waiting on a shift change that never came.",
+  "exits": {
+    "east": "zone_ruins",
+    "west": "zone_ashway_ashfall"
+  },
+  "flags": {
+    "artery": [
+      "The Haul Road"
+    ],
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_roadside_junk",
+    "world_exit_zone": null
+  },
+  "grid_x": -5,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_ashway_road",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "HR",
+  "name": "The Haul Road",
+  "parent_zone": null,
+  "pvp_enabled": 1,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

@@ -1,0 +1,25 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_basic_pants",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "basic pants",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 1,
+    "bulkiness": 1,
+    "description": "Gray work trousers, a little threadbare at the knees. They fit. That's about all they do.",
+    "gets_wet": true,
+    "insulation": 1.5,
+    "layer": "outerwear",
+    "slot": "legs"
+  },
+  "type": "clothing",
+  "value": 2,
+  "weight": 500
+}

@@ -1,0 +1,22 @@
+{
+  "category": "music",
+  "config": {
+    "adsr": {
+      "a": 0.01,
+      "d": 0.08,
+      "r": 0.15,
+      "s": 0.65
+    },
+    "filter": {
+      "freq": 2600,
+      "q": 1,
+      "type": "lowpass"
+    },
+    "gain": 0.85
+  },
+  "enabled": 1,
+  "id": "aud_inst_brass_saw",
+  "name": "Brass Saw",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}

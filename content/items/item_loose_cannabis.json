@@ -1,0 +1,19 @@
+{
+  "description": "A gram of dried, sticky cannabis flower in a little baggie. Useless as-is — roll it into a joint.",
+  "effects": {},
+  "flags": {},
+  "id": "item_loose_cannabis",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "loose cannabis",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "drug",
+  "tags": {
+    "drug": true
+  },
+  "type": "consumable",
+  "value": 10,
+  "weight": 1
+}

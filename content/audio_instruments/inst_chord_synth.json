@@ -1,0 +1,25 @@
+{
+  "category": "misc",
+  "config": {
+    "adsr": {
+      "a": 0.01,
+      "d": 0.2,
+      "r": 0.25,
+      "s": 0.4
+    },
+    "filter": {
+      "freq": 2200,
+      "q": 1.2,
+      "type": "lowpass"
+    },
+    "tremolo": {
+      "depth": 0,
+      "rate": 0
+    }
+  },
+  "enabled": 1,
+  "id": "inst_chord_synth",
+  "name": "chord_synth",
+  "sample_id": null,
+  "waveform": "square"
+}

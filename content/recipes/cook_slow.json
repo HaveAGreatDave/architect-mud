@@ -1,0 +1,27 @@
+{
+  "base_difficulty": 4,
+  "base_output": {
+    "item_id": "item_drug_slow",
+    "quantity": 1
+  },
+  "category": "synthesis",
+  "craft_time": 3,
+  "description": "Cook Slow from crude Slow + industrial solvent.",
+  "id": "cook_slow",
+  "ingredients": [
+    {
+      "item_id": "item_raw_slow",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_reagent_solvent",
+      "quantity": 1
+    }
+  ],
+  "name": "Cook Slow",
+  "requires_station": "chem_lab",
+  "skill_id": "chemistry",
+  "skill_req": {
+    "chemistry": 0
+  }
+}

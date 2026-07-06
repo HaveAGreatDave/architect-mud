@@ -1,0 +1,21 @@
+{
+  "description": "A heavy steel pick, one end a chisel and the other a spike, the haft wrapped in sweat-blackened tape. The head is chipped and rehardened a dozen times over. Stand at a deposit and MINE; it takes it from there.",
+  "effects": {},
+  "flags": {},
+  "id": "item_mining_pick",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 1,
+  "name": "mining pick",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A heavy steel pick, one end a chisel and the other a spike, the haft wrapped in sweat-blackened tape. The head is chipped and rehardened a dozen times over. Stand at a deposit and MINE; it takes it from there.",
+    "mining_tool": true,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 55,
+  "weight": 3200
+}

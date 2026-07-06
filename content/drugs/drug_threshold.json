@@ -1,0 +1,46 @@
+{
+  "addiction_chance": 0.01,
+  "description": "A single breath of vaporised DMT-analog. Ten thousand years in four hundred seconds.",
+  "duration_seconds": 200,
+  "effects": {
+    "hallucination": {
+      "dreamzone_id": "zone_dream_threshold",
+      "duration_seconds": 180,
+      "eventEverySec": 20,
+      "events": [
+        {
+          "atSec": 4,
+          "text": "[trip]The room peels away like wet paper and you fall UP through it.[/trip]"
+        },
+        {
+          "atSec": 30,
+          "text": "[trip]The machine-elves are showing you something. It is the most important thing there is.[/trip]"
+        },
+        {
+          "atSec": 80,
+          "text": "[trip]You have been here before. You have always been here. You live here.[/trip]"
+        },
+        {
+          "atSec": 140,
+          "text": "[trip]The cathedral begins, very gently, to fold you back up and post you home.[/trip]"
+        }
+      ],
+      "intensity": 1,
+      "mode": "dreamzone",
+      "palette": "magenta"
+    },
+    "instant": {
+      "sanity": -12
+    },
+    "tolerance": {
+      "gain_per_dose": 0.2,
+      "max_reduction": 0.6
+    }
+  },
+  "flags": {},
+  "id": "drug_threshold",
+  "item_id": "item_threshold",
+  "name": "The Threshold",
+  "overdose_threshold": 6,
+  "withdrawal_effects": {}
+}

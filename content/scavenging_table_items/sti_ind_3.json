@@ -1,0 +1,8 @@
+{
+  "difficulty": 5,
+  "id": "sti_ind_3",
+  "item_id": "item_steel_plate",
+  "max_qty": 3,
+  "table_id": "scav_industrial_salvage",
+  "weight": 13
+}

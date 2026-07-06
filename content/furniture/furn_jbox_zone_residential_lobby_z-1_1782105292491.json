@@ -1,0 +1,17 @@
+{
+  "description": "A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.",
+  "flags": {
+    "destructible": true,
+    "generator_id": "gen_zone_residential_lobby_z-1_1782105292491_1782105308088"
+  },
+  "hp": 1200,
+  "hp_max": 1200,
+  "id": "furn_jbox_zone_residential_lobby_z-1_1782105292491",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "embassy hotel & bar — lobby junction box",
+  "object_type": "junction_box",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_residential_lobby_z-1_1782105292491"
+}

@@ -1,0 +1,125 @@
+{
+  "behavior": "territorial",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 20
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 5,
+  "butcher_table": [],
+  "death_message": "Employee of the Month, the badge reads. Third quarter, four years running.",
+  "description": "Polo shirt. Khaki pants. Body armor under both. The most dangerous middle manager you'll ever meet.",
+  "dodge": 1,
+  "faction": "faction_custodians",
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "\"That’s a formal warning.\"",
+      "\"This is not optional anymore.\"",
+      "\"Documenting noncompliance.\"",
+      "\"Voice raised—last warning.\"",
+      "\"Escalation is now required.\"",
+      "\"Immediate compliance is expected.\""
+    ],
+    "first_strike_delay_ms": 1000
+  },
+  "hit": 1,
+  "hp_max": 55,
+  "id": "enemy_custodian_enforcer",
+  "loot_table": [
+    {
+      "item": "item_custodian_badge",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 80
+    },
+    {
+      "item": "item_credits_medium",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 60
+    }
+  ],
+  "name": "Custodian Enforcer",
+  "weapon": [
+    {
+      "max": 2,
+      "min": 1,
+      "type": "kinetic"
+    }
+  ]
+}

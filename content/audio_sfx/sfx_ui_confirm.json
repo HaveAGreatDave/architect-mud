@@ -1,0 +1,28 @@
+{
+  "category": "ui",
+  "config": {
+    "adsr": {
+      "a": 0.001,
+      "d": 0.08,
+      "r": 0.05,
+      "s": 0.3
+    },
+    "duration": 0.12,
+    "filter": {
+      "freq": 2600,
+      "q": 0.7,
+      "type": "lowpass"
+    },
+    "freq": 660,
+    "gain": 0.5,
+    "pitchBend": {
+      "time": 0.08,
+      "to": 990
+    },
+    "waveform": "triangle"
+  },
+  "enabled": 1,
+  "id": "sfx_ui_confirm",
+  "name": "ui_confirm",
+  "priority": 3
+}

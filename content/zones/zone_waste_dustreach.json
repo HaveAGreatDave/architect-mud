@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "A wall of grey dust marches across the reach and swallows the horizon whole.",
+    "The dust settles for a moment and shows a trail of prints leading west, and no one on it."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#bfa06b",
+  "color": "#eeeeee",
+  "created_by": "phase11-build",
+  "danger_rating": "low",
+  "description": "The last reach before the built wastes give out entirely, a plain of fine grey dust that the wind lifts into standing walls and marches across the frontier. Crossing it, you are always inside weather, and the weather is made of this place.",
+  "exits": {
+    "east": "zone_waste_hopper",
+    "north": "zone_waste_ashencut",
+    "west": "zone_waste_gantry"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -9,
+  "grid_y": 3,
+  "grid_z": 0,
+  "id": "zone_waste_dustreach",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "DR",
+  "name": "Dust Reach",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

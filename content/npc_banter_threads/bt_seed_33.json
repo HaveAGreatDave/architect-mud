@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_seed_33",
+  "lines": [
+    "\"We're making real progress. The data supports our approach.\"",
+    "\"The data says people are starving.\"",
+    "\"...We're exploring all options. Except, apparently, that one.\""
+  ],
+  "personality": "politician",
+  "sort_order": 33
+}

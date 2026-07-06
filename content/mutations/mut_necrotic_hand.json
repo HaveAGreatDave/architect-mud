@@ -1,0 +1,16 @@
+{
+  "description": "One hand has darkened and hardened. Melee attacks cause bleeding. You can't wear gloves.",
+  "drawbacks": [
+    "Cannot equip gloves"
+  ],
+  "effects": {
+    "chance": 0.3,
+    "status_on_hit": "bleeding"
+  },
+  "id": "mut_necrotic_hand",
+  "name": "Necrotic Hand",
+  "polarity": "mixed",
+  "radiation_threshold": 50,
+  "stat_modifiers": {},
+  "visible": 1
+}

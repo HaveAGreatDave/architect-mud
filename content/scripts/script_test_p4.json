@@ -1,0 +1,35 @@
+{
+  "description": "Phase 4 smoke-test script.",
+  "graph": {
+    "nodes": {
+      "check": {
+        "condition": {
+          "flag": "met_architect",
+          "op": "set"
+        },
+        "ifFalse": "stranger",
+        "ifTrue": "known",
+        "type": "condition"
+      },
+      "flag": {
+        "flag": "ran_test_script",
+        "scope": "player",
+        "type": "setflag",
+        "value": "true"
+      },
+      "known": {
+        "next": "flag",
+        "text": "The script confirms: the Architect already knows you.",
+        "type": "say"
+      },
+      "stranger": {
+        "text": "The script reports: you are a stranger here.",
+        "type": "say"
+      }
+    },
+    "start": "check"
+  },
+  "id": "script_test_p4",
+  "name": "P4 Test Diagnostic",
+  "updated_at": "1782470932"
+}

@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_gutter_cat",
+  "id": "spawn_badland_w_gate_gutter_cat",
+  "max_count": 2,
+  "respawn_seconds": 120,
+  "spawn_weight": 30,
+  "zone_id": "zone_badland_w_gate"
+}

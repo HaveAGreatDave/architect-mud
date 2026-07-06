@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_seed_31",
+  "lines": [
+    "\"You freelance, or you signed with somebody?\"",
+    "\"I keep my options open.\"",
+    "\"Options close fast out here. Pick a paymaster before one picks you.\""
+  ],
+  "personality": "mercenary",
+  "sort_order": 31
+}

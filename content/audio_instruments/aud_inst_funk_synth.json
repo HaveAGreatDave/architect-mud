@@ -1,0 +1,22 @@
+{
+  "category": "music",
+  "config": {
+    "adsr": {
+      "a": 0.005,
+      "d": 0.06,
+      "r": 0.07,
+      "s": 0.5
+    },
+    "filter": {
+      "freq": 1800,
+      "q": 3,
+      "type": "lowpass"
+    },
+    "gain": 0.85
+  },
+  "enabled": 1,
+  "id": "aud_inst_funk_synth",
+  "name": "Funk Synth",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}

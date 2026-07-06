@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 50,
+  "flags": {},
+  "generator_id": "gen_zone_powerplantnew_1782069598190",
+  "id": "zone_drum_exterior",
+  "max_capacity_kw": 50,
+  "name": "Drum's Fits — Exterior",
+  "source_type": "city_grid"
+}

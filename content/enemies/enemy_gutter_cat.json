@@ -1,0 +1,124 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 20
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 2,
+  "butcher_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 100
+    }
+  ],
+  "death_message": "The cat yowls once, indignant, and bolts its last.",
+  "description": "A feral tomcat gone ragged and mean, one ear chewed to a stub. It has ruled this stretch of gutter longer than you have been alive, and it knows it.",
+  "dodge": 3,
+  "faction": null,
+  "flags": {
+    "battle_cries": [
+      "$enemy flattens its ears and hisses at $player.",
+      "$enemy arches its back at $player.",
+      "$enemy yowls a warning at $player.",
+      "$enemy swipes a ragged paw at $player.",
+      "$enemy stares down $player, tail lashing."
+    ],
+    "first_strike_delay_ms": 5000
+  },
+  "hit": 1,
+  "hp_max": 9,
+  "id": "enemy_gutter_cat",
+  "loot_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 35
+    }
+  ],
+  "name": "Gutter Cat",
+  "weapon": [
+    {
+      "max": 2,
+      "min": 1,
+      "type": "kinetic"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "description": "A pale, waterlogged hand, severed clean at the wrist and gone soft at the edges. Someone, somewhere, is missing this. Best not to think about it.",
+  "effects": {},
+  "flags": {},
+  "id": "item_bloated_corpse_part",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "bloated hand",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A pale, waterlogged hand, severed clean at the wrist and gone soft at the edges. Someone, somewhere, is missing this. Best not to think about it.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 2,
+  "weight": 900
+}

@@ -1,0 +1,38 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Ferrin runs a white glove along a broken rail and studies the dust with quiet disappointment.",
+    "\"The Architect maintains. We merely file the paperwork.\"",
+    "\"This district is under Custodial care. Kindly do not deface the ruins.\""
+  ],
+  "description": "Deacon Ferrin tends the ruins of Old Coldwater the way a verger tends a cathedral — reverently, and with a clipboard. He believes the Architect maintains all things and that the Custodians are simply its middle management. He will explain this to you at length, whether or not you asked.",
+  "dialogue_tree": {},
+  "faction": "faction_custodians",
+  "flags": {
+    "clothing_layers": [
+      "a hi-vis vestment worn over a charcoal three-piece suit",
+      "a starched white shirt with a fraying collar",
+      "pressed grey briefs"
+    ],
+    "faction_guard": true,
+    "personality": "corporate"
+  },
+  "home_activities": [],
+  "home_zone": "zone_ruins",
+  "hp": 120,
+  "hp_max": 120,
+  "id": "npc_custodian_ferrin",
+  "name": "Deacon Aldous Ferrin",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

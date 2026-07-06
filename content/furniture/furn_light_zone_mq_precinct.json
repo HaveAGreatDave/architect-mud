@@ -1,0 +1,18 @@
+{
+  "description": "A floodlight bolted above the precinct steps, aimed square at anyone approaching. It does not blink.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_mq_precinct",
+  "light_type": "overhead",
+  "lumen_output": 1600,
+  "name": "entrance floodlight",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_mq_precinct"
+}

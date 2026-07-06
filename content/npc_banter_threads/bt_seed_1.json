@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_seed_1",
+  "lines": [
+    "\"Heard they found another body down by the transit line.\"",
+    "\"Ours or theirs?\"",
+    "\"Does it matter anymore?\"",
+    "\"...No. Suppose it doesn't.\""
+  ],
+  "personality": null,
+  "sort_order": 1
+}

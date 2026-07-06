@@ -1,0 +1,50 @@
+{
+  "addiction_chance": 0.45,
+  "description": "Synthetic morphine in a grey gelcap. The pain goes away. So does everything else.",
+  "duration_seconds": 420,
+  "effects": {
+    "diuretic": 0.5,
+    "instant": {
+      "sanity": 14
+    },
+    "overdose": {
+      "lethal": true,
+      "message": "Your breathing slows, and slows, and forgets how."
+    },
+    "phases": {
+      "comedown_scale": 0.5,
+      "comedown_seconds": 150,
+      "comeup_message": "<span class=\"msg-system\">A warm grey tide rolls up from your feet. Nothing hurts.</span>",
+      "comeup_scale": 0.5,
+      "comeup_seconds": 25,
+      "end_message": "<span class=\"msg-system\">The warmth recedes and leaves you cold and small on the shore.</span>",
+      "peak_message": "<span class=\"msg-system\">You are floating in warm water in a dark, kind room.</span>",
+      "peak_mods": {
+        "hp_regen_per_sec": 2,
+        "stat_cool": 2,
+        "stat_reflexes": -3
+      },
+      "peak_seconds": 240
+    },
+    "tolerance": {
+      "gain_per_dose": 0.14,
+      "max_reduction": 0.75,
+      "recovery_per_sec": 0.00015
+    },
+    "withdrawal": {
+      "message": "Your skin crawls, your bones ache, and the whole world is a hand held out for more grey.",
+      "mods": {
+        "hp_max": -15,
+        "stat_cool": -3,
+        "stat_endurance": -3
+      },
+      "onset_seconds": 600
+    }
+  },
+  "flags": {},
+  "id": "drug_grey",
+  "item_id": "item_grey",
+  "name": "Grey",
+  "overdose_threshold": 3,
+  "withdrawal_effects": {}
+}

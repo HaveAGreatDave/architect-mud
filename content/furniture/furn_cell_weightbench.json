@@ -1,0 +1,19 @@
+{
+  "description": "A slab of a bench welded from scrap rebar and a cracked vinyl pad, bolted to the floor so nobody gets ideas about swinging it. The plates are mismatched chunks of poured concrete on a bent bar, worn smooth by a thousand bored inmates. It is, somehow, the most honest thing in the building.",
+  "flags": {
+    "interactions": [
+      "lie",
+      "lift"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cell_weightbench",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "prison weight bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_precinct_holding"
+}

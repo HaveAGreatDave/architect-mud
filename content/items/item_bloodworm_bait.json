@@ -1,0 +1,21 @@
+{
+  "description": "A twist of waxed paper packed with fat, writhing bloodworms. The good stuff — the things down there can smell it through the murk.",
+  "effects": {},
+  "flags": {},
+  "id": "item_bloodworm_bait",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "bloodworm bait",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "bait": true,
+    "bait_bloodworm": true,
+    "description": "A twist of waxed paper packed with fat, writhing bloodworms. The good stuff — the things down there can smell it through the murk."
+  },
+  "type": "misc",
+  "value": 5,
+  "weight": 40
+}

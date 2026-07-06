@@ -1,0 +1,805 @@
+{
+  "category": "theme",
+  "channel_pan": [],
+  "channels": [
+    [
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "D5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "F4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "D5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "F4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "D5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "F4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "D5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "F4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "D5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "F4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "D5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "F4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "D5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "F4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "Bb4",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "D5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_funk_synth",
+        "note": "C5",
+        "vol": 1
+      }
+    ],
+    [
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F2",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F2",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F2",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F2",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F2",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F2",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "F2",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G2",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_bass_triangle",
+        "note": "G3",
+        "vol": 0.8
+      },
+      null
+    ]
+  ],
+  "enabled": 1,
+  "id": "aud_song_neighbors_theme",
+  "instrument_ids": [
+    "aud_inst_funk_synth",
+    "aud_inst_bass_triangle"
+  ],
+  "loop_end": 0,
+  "loop_start": 0,
+  "name": "neighbors_theme",
+  "priority": 5,
+  "tempo": 120
+}

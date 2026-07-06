@@ -1,0 +1,114 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 20
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 40
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "left_flank",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_flank",
+      "soak": {},
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 4,
+  "butcher_table": [],
+  "death_message": "The jackal yelps, folds, and its pack scatters into the grey.",
+  "description": "A lean scavenger stitched together from dog and junkyard — copper-whisker muzzle, a hide of wire and scab. Hunts the wastes in packs and pulls down anything slower than it.",
+  "dodge": 4,
+  "faction": null,
+  "flags": {},
+  "hit": 5,
+  "hp_max": 14,
+  "id": "enemy_wire_jackal",
+  "loot_table": [
+    {
+      "item": "item_salvaged_wiring",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 22
+    },
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 18
+    }
+  ],
+  "name": "wire jackal",
+  "weapon": [
+    {
+      "max": 5,
+      "min": 2,
+      "type": "kinetic"
+    }
+  ]
+}

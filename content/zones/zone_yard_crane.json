@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "A crane base ticks with heat as its motors idle down.",
+    "A control cable overhead twitches as someone, somewhere, takes the sticks."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#1eae5d",
+  "color": "#111111",
+  "created_by": "phase8-build",
+  "danger_rating": "low",
+  "description": "A narrow service alley threaded between the crane bases, hung with control cables and the occasional operator's washing. The machinery here is always warm and always listening.",
+  "exits": {
+    "north": "zone_yard_gantry",
+    "south": "zone_yard_reefer"
+  },
+  "flags": {
+    "artery": [
+      "Reefer Street"
+    ],
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_roadside_junk"
+  },
+  "grid_x": 8,
+  "grid_y": -2,
+  "grid_z": 0,
+  "id": "zone_yard_crane",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "Cr",
+  "name": "Crane Alley",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

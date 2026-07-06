@@ -1,0 +1,133 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 20
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 4,
+  "butcher_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 100
+    }
+  ],
+  "death_message": "The crawler curls into itself with a chitinous crackle and stops moving.",
+  "description": "A dog-sized arthropod fused out of ash and something that used to be a raccoon. Too many legs, all of them in a hurry.",
+  "dodge": 2,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy rears up, mandibles clicking at $player.",
+      "$enemy scuttles sideways around $player.",
+      "$enemy sprays a hiss of ash at $player.",
+      "$enemy's legs blur as it rushes $player.",
+      "$enemy drums its forelimbs against the ground at $player."
+    ],
+    "first_strike_delay_ms": 7000
+  },
+  "hit": 1,
+  "hp_max": 14,
+  "id": "enemy_ash_crawler",
+  "loot_table": [
+    {
+      "item": "item_mutated_bone",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 25
+    },
+    {
+      "item": "item_glowing_scrap",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 12
+    }
+  ],
+  "name": "Ash Crawler",
+  "weapon": [
+    {
+      "max": 3,
+      "min": 1,
+      "type": "kinetic"
+    }
+  ]
+}

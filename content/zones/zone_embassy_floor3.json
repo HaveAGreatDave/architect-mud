@@ -1,0 +1,41 @@
+{
+  "ambient_events": [
+    "The sagging ceiling tile releases a slow, deliberate drip.",
+    "The red emergency light buzzes, dims, and steadies again."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#c9a884",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "Top of the stairwell — the third-floor landing, closer to the roof and colder for it. Water stains bloom brown across the ceiling tiles, one sagging low enough to drip when it rains. Units 3A through 3D ring the landing, their doors heavier up here, the locks newer; people who climb this far want to stay lost. A single emergency light burns a weak red over the stairwell mouth, the only bulb on the floor that still works. The iron railing ends in a broken newel post someone's wrapped in duct tape.",
+  "exits": {
+    "down": "zone_embassy_floor2",
+    "east": "zone_apt_11",
+    "north": "zone_apt_9",
+    "south": "zone_apt_10",
+    "west": "zone_apt_12"
+  },
+  "flags": {
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": true,
+    "scavenging_table_id": null,
+    "world_exit_zone": null
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 2,
+  "id": "zone_embassy_floor3",
+  "is_safe_zone": 1,
+  "map_id": "map_interior_zone_residential_lobby",
+  "marker": null,
+  "name": "Embassy Hotel & Bar — Third Floor Landing",
+  "parent_zone": "zone_residential_lobby",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783112361"
+}

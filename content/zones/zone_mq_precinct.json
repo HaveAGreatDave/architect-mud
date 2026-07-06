@@ -1,0 +1,40 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#ae9292",
+  "color": "#eeeeee",
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "A hard-standing of cracked concrete and painted lines nobody parks between anymore. Floodlights — real, working ones — wash the whole yard in interrogation white, so there is nowhere to stand that isn't seen. Precinct 9 fronts the yard behind a caged sally-port, its charter placard swapped so many times the old bolt holes have merged into one long scar. A departmental drone idles on its pad, optics tracking anything that moves too fast.",
+  "exits": {
+    "east": "zone_yard_loadout",
+    "in": "zone_mq_precinct_lobby",
+    "south": "zone_mq_cage",
+    "west": "zone_mq_battery"
+  },
+  "flags": {
+    "artery": [
+      "Grand Avenue"
+    ],
+    "building_name": "Precinct 9",
+    "building_type": "police",
+    "is_apartment": false,
+    "is_building": true,
+    "is_interior": false,
+    "scavenging_table_id": null,
+    "world_exit_zone": "zone_mq_battery"
+  },
+  "grid_x": 5,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_mq_precinct",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "P9",
+  "name": "Muster Yard",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

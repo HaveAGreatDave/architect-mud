@@ -1,0 +1,16 @@
+{
+  "description": "Not a poster so much as a business card enlarged and taped crooked beside the decanting vats, where the newly-reprinted drip and blink at the light. A hand reaches out of the frame, offering a key. STEP ONE OF THE REST OF YOU: OWN SOMETHING. In tidy type beneath: \"You woke up with nothing and no one. That isn't a tragedy — it's an opening. Corps are hiring. Corps are founding. Be on the right side of the org chart.\"",
+  "flags": {
+    "corp_poster": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_corp_poster_start_b",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "a blown-up business card taped beside the vats",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_start"
+}

@@ -1,0 +1,19 @@
+{
+  "description": "A scavenged transceiver board, traces green with corrosion but still humming. The brains and the voice.",
+  "effects": {},
+  "flags": {},
+  "id": "item_signal_board",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "Signal Board",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "component": true
+  },
+  "type": "component",
+  "value": 45,
+  "weight": 150
+}

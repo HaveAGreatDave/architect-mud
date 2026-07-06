@@ -1,0 +1,25 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_tee_offbrand_security",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "SEKURITY tee",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 1,
+    "bulkiness": 1,
+    "description": "A black tee with SEKURITY across the back in reflective block caps, misspelled with the confidence of someone who was never going to be questioned about it. Works about 60% of the time.",
+    "gets_wet": true,
+    "insulation": 1,
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": null,
+  "value": 22,
+  "weight": 300
+}

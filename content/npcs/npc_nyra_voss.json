@@ -1,0 +1,82 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "have_life",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "have_life",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      }
+    }
+  },
+  "chitchat": [
+    "traces a finger along the edge of a nearby surface without looking at it.",
+    "glances toward the nearest data terminal, expression unreadable.",
+    "adjusts the interface contacts on her gloves with quiet precision.",
+    "appears to be processing something — her iris ring shifts almost imperceptibly.",
+    "is perfectly still, which somehow feels deliberate.",
+    "scans the room with the easy calm of someone who already knows every exit.",
+    "taps two fingers against her forearm, once.",
+    "exhales slowly, like she's filtering the air for useful information."
+  ],
+  "description": "Nyra Voss moves like she belongs to the city's electrical current rather than its streets. She is composed, precise, and unnervingly aware of everything around her without ever appearing distracted. Her presence is understated but magnetic — less about overt display and more about controlled integration with technology and environment.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a fraying interview blazer gone shapeless",
+      "a coffee-stained blouse",
+      "a plain bra and worn panties"
+    ],
+    "gift_trade": {
+      "accept_message": "Nyra takes the cigarette without a word. She sparks it, draws deep, and for the length of one exhale the controlled stillness cracks — shoulders dropping, iris ring dimming to something almost soft. \"You want to <em>feel</em> something in this city,\" she says, smoke leaking out around the words, \"you play this.\" A battered cassette turns up between her fingers and she presses it into your palm. \"<span class=\"msg-system\">PSYCHOTECH</span>. I wore three decks out on it. Gets in behind the ribs and rewires you — I felt it in my teeth the first time I heard it.\" The ring flickers, almost embarrassed at how much she meant that.",
+      "already_message": "Nyra exhales a thin line of smoke and shakes her head, the old calm back in place. \"Already hooked you up, sweetheart. One good song's enough to ruin a person. Go find your own frequencies now.\"",
+      "give_item": "item_cigarettes",
+      "once": true,
+      "reward_item": "item_amptape_psychotech"
+    },
+    "mis_willing": false,
+    "personality": "unemployed"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meridian_unit_103",
+  "hp": 50,
+  "hp_max": 50,
+  "id": "npc_nyra_voss",
+  "name": "Nyra Voss",
+  "npc_type": "unemployed",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

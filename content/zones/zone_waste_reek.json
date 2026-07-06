@@ -1,0 +1,38 @@
+{
+  "ambient_events": [
+    "The Reek shifts its skin of scum and lets up a bubble that pops with a sigh.",
+    "Runoff trickles in from the Sump above and the standing filth accepts it without a ripple."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#bfa06b",
+  "color": "#eeeeee",
+  "created_by": "phase11-build",
+  "danger_rating": "low",
+  "description": "The reek is exactly that — the low ground below the Slagworks where every runoff and effluent the works produces finally collects and stands and stinks. The Effluent Sump drains here. You smell the Reek long before you reach it.",
+  "exits": {
+    "east": "zone_waste_ashenverge",
+    "north": "zone_slag_gate"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_industrial_salvage"
+  },
+  "grid_x": -8,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_waste_reek",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "RE",
+  "name": "The Reek",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 1,
+  "updated_at": "1783301927"
+}

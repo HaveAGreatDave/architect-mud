@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "The taxidermied pigeon sheds a single feather onto the register.",
+    "Someone racks up a game in the corner; balls scatter with a crack.",
+    "The muted screen cuts to a test pattern and nobody notices.",
+    "A stool scrapes as a regular finds the exact spot they always sit.",
+    "Gouged into the bar-top with a knife: \"ask Marsh what's warm in back. words change — listen at the bar.\""
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#e85aa0",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "A long, low bar named for the taxidermied pigeon nailed over the register, wings spread in permanent, moth-eaten glory. The counter is a slab of reclaimed door on oil drums; the stools don't match and neither do the glasses. String lights and the blue flicker of a muted screen do all the lighting the place can afford. It smells of spilled synth-beer, cigarettes, and the particular warmth of a room where nobody is going to ask what you did today.",
+  "exits": {
+    "down": "zone_mq_pigeon_back",
+    "out": "zone_mq_marquee"
+  },
+  "flags": {
+    "building_name": "The Dead Pigeon",
+    "building_type": "bar",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_mq_marquee"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_mq_pigeon_bar",
+  "is_safe_zone": 1,
+  "map_id": "map_int_mq_pigeon",
+  "marker": null,
+  "name": "The Dead Pigeon",
+  "parent_zone": "zone_mq_marquee",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1782964407"
+}

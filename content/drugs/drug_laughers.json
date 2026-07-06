@@ -1,0 +1,34 @@
+{
+  "addiction_chance": 0.1,
+  "description": "Little yellow tabs that turn the apocalypse into the funniest thing you have ever seen.",
+  "duration_seconds": 240,
+  "effects": {
+    "hallucination": {
+      "duration_seconds": 240,
+      "eventEverySec": 12,
+      "eventPool": [
+        "[trip]The sheer absurdity of everything hits you and you have to lean on a wall, wheezing.[/trip]",
+        "[trip]That grim little machine in the corner looks, on reflection, deeply and hilariously stupid.[/trip]",
+        "[trip]Someone somewhere is taking all of this seriously and that is the funniest part.[/trip]",
+        "[trip]You catch your own reflection making a face and completely lose it.[/trip]",
+        "[trip]Even the dread feels like a joke with a punchline you already know.[/trip]"
+      ],
+      "intensity": 0.5,
+      "mode": "overlay",
+      "palette": "gold"
+    },
+    "instant": {
+      "sanity": 20
+    },
+    "tolerance": {
+      "gain_per_dose": 0.2,
+      "max_reduction": 0.8
+    }
+  },
+  "flags": {},
+  "id": "drug_laughers",
+  "item_id": "item_laughers",
+  "name": "Laughers",
+  "overdose_threshold": 5,
+  "withdrawal_effects": {}
+}

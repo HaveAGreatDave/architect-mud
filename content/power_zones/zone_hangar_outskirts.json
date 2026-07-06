@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_hangar_outskirts_1783296274628",
+  "id": "zone_hangar_outskirts",
+  "max_capacity_kw": 1000,
+  "name": "Coldwater Regional Hangar",
+  "source_type": "junction_box"
+}

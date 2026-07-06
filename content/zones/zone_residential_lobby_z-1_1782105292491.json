@@ -1,0 +1,33 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#c9a884",
+  "color": null,
+  "created_by": "94bb0948-c9cd-4d25-8d24-0a9788e75b6b",
+  "danger_rating": "safe",
+  "description": "Basement of Embassy Hotel & Bar — Lobby.",
+  "exits": {
+    "up": "zone_residential_lobby"
+  },
+  "flags": {
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": true,
+    "world_exit_zone": null
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_residential_lobby_z-1_1782105292491",
+  "is_safe_zone": 0,
+  "map_id": "map_interior_zone_residential_lobby",
+  "marker": null,
+  "name": "Embassy Hotel & Bar - Basement",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1782110526"
+}

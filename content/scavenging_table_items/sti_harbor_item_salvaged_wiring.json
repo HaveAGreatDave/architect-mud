@@ -1,0 +1,8 @@
+{
+  "difficulty": 4,
+  "id": "sti_harbor_item_salvaged_wiring",
+  "item_id": "item_salvaged_wiring",
+  "max_qty": 2,
+  "table_id": "scav_harbor",
+  "weight": 10
+}

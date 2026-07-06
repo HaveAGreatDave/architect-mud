@@ -1,0 +1,29 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#c9a884",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "Unit 402 on the fourth floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant's life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you're used to.",
+  "exits": {
+    "west": "zone_meridian_floor_4"
+  },
+  "flags": {
+    "is_apartment": true,
+    "is_interior": true
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 4,
+  "id": "zone_meridian_unit_402",
+  "is_safe_zone": 0,
+  "map_id": "map_int_meridian",
+  "marker": null,
+  "name": "Unit 402",
+  "parent_zone": "zone_meridian_floor_4",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1782898110"
+}

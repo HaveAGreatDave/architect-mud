@@ -1,0 +1,20 @@
+{
+  "description": "A folding chair that has been here so long it no longer folds. The hinge is fused shut with age.",
+  "flags": {
+    "game_table_id": "gametable_embassy",
+    "interactions": [
+      "sit"
+    ],
+    "seat_idx": 3
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_embassy_chair_4",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Chair 4",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 45,
+  "zone_id": "zone_residential_lobby"
+}

@@ -1,0 +1,20 @@
+{
+  "description": "A propaganda poster rolled into a tight tube for carrying, the printed side hidden on the inside. Find a wall and `putup` to hang it.",
+  "effects": {},
+  "flags": {},
+  "id": "item_poster_ocelot",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "rolled-up Ocelot poster",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A propaganda poster rolled into a tight tube for carrying, the printed side hidden on the inside. Find a wall and `putup` to hang it.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 0,
+  "weight": 200
+}

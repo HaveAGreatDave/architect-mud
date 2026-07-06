@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_feral_dog",
+  "id": "spawn_waste_drossworks_dog",
+  "max_count": 2,
+  "respawn_seconds": 220,
+  "spawn_weight": 50,
+  "zone_id": "zone_waste_drossworks"
+}

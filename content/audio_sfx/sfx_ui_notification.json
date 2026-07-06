@@ -1,0 +1,22 @@
+{
+  "category": "ui",
+  "config": {
+    "adsr": {
+      "a": 0.002,
+      "d": 0.15,
+      "r": 0.3,
+      "s": 0.4
+    },
+    "duration": 0.4,
+    "freq": 1100,
+    "vibrato": {
+      "depth": 8,
+      "rate": 6
+    },
+    "waveform": "triangle"
+  },
+  "enabled": 1,
+  "id": "sfx_ui_notification",
+  "name": "ui_notification",
+  "priority": 4
+}

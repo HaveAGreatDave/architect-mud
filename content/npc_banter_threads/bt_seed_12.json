@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_seed_12",
+  "lines": [
+    "\"Wind's doing {wind} down the canyon. Nearly took the sign off the wall.\"",
+    "\"Good. Maybe it takes the whole block next time.\"",
+    "\"You don't mean that.\"",
+    "\"...Ask me again at {temp}.\""
+  ],
+  "personality": null,
+  "sort_order": 12
+}

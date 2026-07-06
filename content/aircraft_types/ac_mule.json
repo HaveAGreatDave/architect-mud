@@ -1,0 +1,24 @@
+{
+  "altitude_ceiling": 2,
+  "cargo_capacity": 180,
+  "class": "prop",
+  "cruise_speed": 2,
+  "data": {
+    "feel": "Freight workhorse; rugged; rough-strip capable."
+  },
+  "engines": 2,
+  "fuel_burn_base": 1.3,
+  "fuel_capacity": 70,
+  "fuel_type": "avgas",
+  "handling": 0,
+  "hardpoints": 0,
+  "hull_hp": 30,
+  "id": "ac_mule",
+  "max_takeoff_weight": 620,
+  "name": "Mule",
+  "noise": 2,
+  "price_buy": 14000,
+  "price_rent_hourly": 220,
+  "seats": 3,
+  "takeoff_mode": "stol"
+}

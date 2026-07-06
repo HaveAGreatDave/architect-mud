@@ -1,0 +1,16 @@
+{
+  "description": "A hole in the plaster covered by a bent STOP sign screwed over the gap. When it rains you can hear the drip land behind it before it finds the bucket.",
+  "flags": {
+    "interactions": []
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt10_patch",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "road-sign patch",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_10"
+}

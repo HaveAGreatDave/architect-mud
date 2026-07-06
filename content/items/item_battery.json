@@ -1,0 +1,21 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_battery",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "battery",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "battery": true,
+    "description": "A stubby high-density power cell, warm to the touch. Snap it into a flashlight to bring it back to a full charge.",
+    "misc": true
+  },
+  "type": null,
+  "value": 10,
+  "weight": 80
+}

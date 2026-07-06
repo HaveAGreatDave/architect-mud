@@ -1,0 +1,23 @@
+{
+  "description": "A paper-thin floor-to-ceiling display laminated directly to wall surface. Immaculate image quality. When nothing is playing it drifts channel-art that costs more to licence than the room.",
+  "effects": {},
+  "flags": {
+    "interactions": [
+      "watch"
+    ]
+  },
+  "id": "item_furn_datavision_tv",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "DataVision TV",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A paper-thin floor-to-ceiling display laminated directly to wall surface. Immaculate image quality. When nothing is playing it drifts channel-art that costs more to licence than the room."
+  },
+  "type": "furniture",
+  "value": 3800,
+  "weight": 14000
+}

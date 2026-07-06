@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "A pale, wrong-jointed shape watches from a burrow-mouth and then draws silently back in.",
+    "The ground underfoot is undermined by the Warren; it gives a little, and something below resents it."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#e77474",
+  "color": "#eeeeee",
+  "created_by": "phase12-build",
+  "danger_rating": "lethal",
+  "description": "A warren of tunnels and burrows clawed into the poisoned ground by generations of the changed, who breed here in the dark faster than anything can cull them. To enter the Warren is to be outnumbered by definition and outmatched by the second turning.",
+  "exits": {
+    "east": "zone_red_radsink",
+    "north": "zone_red_redline",
+    "south": "zone_red_feralyard"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_irradiated_salvage"
+  },
+  "grid_x": -11,
+  "grid_y": -6,
+  "grid_z": 0,
+  "id": "zone_red_mutiewarren",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "MW",
+  "name": "Mutie Warren",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 4,
+  "updated_at": "1783301927"
+}

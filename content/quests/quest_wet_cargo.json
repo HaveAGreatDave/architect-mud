@@ -1,0 +1,32 @@
+{
+  "description": "Harbour lurkers have been taking dockhands and gnawing hulls in Coldwater Bay. The Harbourmaster wants them thinned out.",
+  "id": "quest_wet_cargo",
+  "name": "The Wet Cargo",
+  "objectives": [
+    {
+      "count": 3,
+      "desc": "Clear 3 harbour lurkers from Coldwater Bay",
+      "id": "o1",
+      "target": "harbour lurker",
+      "type": "kill"
+    }
+  ],
+  "repeatable": 0,
+  "rewards": {
+    "credits": 150,
+    "flags": [
+      {
+        "flag": "harbour_favor",
+        "scope": "player",
+        "value": "earned"
+      }
+    ],
+    "items": [
+      {
+        "item_id": "item_contraband_crate",
+        "quantity": 1
+      }
+    ]
+  },
+  "updated_at": "1783102160"
+}

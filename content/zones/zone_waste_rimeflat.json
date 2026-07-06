@@ -1,0 +1,38 @@
+{
+  "ambient_events": [
+    "The chemical rime crunches like frost and leaves a pale burn where it touches skin.",
+    "At the flat's edge the ground simply stops mattering, grey into grey into nothing."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#bfa06b",
+  "color": "#eeeeee",
+  "created_by": "phase11-build",
+  "danger_rating": "low",
+  "description": "The southwestern corner of the walkable world, a flat where a pale chemical rime crusts the ground like frost that never melts. It marks the edge; beyond it the map, and the wastes, and the will to go on, all give out.",
+  "exits": {
+    "east": "zone_waste_gantry",
+    "north": "zone_waste_culvert"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -11,
+  "grid_y": 3,
+  "grid_z": 0,
+  "id": "zone_waste_rimeflat",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "RF",
+  "name": "Rime Flat",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

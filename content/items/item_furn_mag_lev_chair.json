@@ -1,0 +1,23 @@
+{
+  "description": "A glossy white chair with no legs, held half a metre off the floor by a repulsion field embedded in the base plate.",
+  "effects": {},
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "item_furn_mag_lev_chair",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "mag-lev chair",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A glossy white chair with no legs, held half a metre off the floor by a repulsion field embedded in the base plate."
+  },
+  "type": "furniture",
+  "value": 2400,
+  "weight": 8000
+}

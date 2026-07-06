@@ -1,0 +1,19 @@
+{
+  "description": "A thin foam mattress directly on the floor, a single flat pillow crushed at one end. It's seen better decades. Still beats the street.",
+  "flags": {
+    "interactions": [
+      "sit",
+      "lie"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_apt1_mattress",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "worn mattress",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 30,
+  "zone_id": "zone_apt_1"
+}

@@ -1,0 +1,18 @@
+{
+  "description": "Track lighting angled down at the display cases, throwing hard little highlights off the glass and the merchandise.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_mq_amp_shop",
+  "light_type": "overhead",
+  "lumen_output": 1400,
+  "name": "display lighting",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_mq_amp_shop"
+}

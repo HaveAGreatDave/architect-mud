@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_seed_10",
+  "lines": [
+    "\"This {weather} again. When did the sky just give up?\"",
+    "\"{temp} out there. I remember when that was a cold snap, not a Tuesday.\"",
+    "\"Everything's a Tuesday now.\"",
+    "pulls their collar up against it."
+  ],
+  "personality": null,
+  "sort_order": 10
+}

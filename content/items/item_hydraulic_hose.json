@@ -1,0 +1,20 @@
+{
+  "description": "A length of armored hose weeping amber fluid from a cracked coupling.",
+  "effects": {},
+  "flags": {},
+  "id": "item_hydraulic_hose",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "hydraulic hose",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A length of armored hose weeping amber fluid from a cracked coupling.",
+    "material": true
+  },
+  "type": "misc",
+  "value": 6,
+  "weight": 400
+}

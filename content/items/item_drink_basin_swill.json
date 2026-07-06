@@ -1,0 +1,27 @@
+{
+  "description": "House drink. Nobody has ever asked what's in it twice.",
+  "effects": {
+    "sanity": 3,
+    "thirst": 15
+  },
+  "flags": {},
+  "id": "item_drink_basin_swill",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "basin swill",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "drink",
+  "tags": {
+    "consumable": true,
+    "description": "House drink. Nobody has ever asked what's in it twice.",
+    "hydrating": true,
+    "restore_sanity": 3,
+    "restore_thirst": 15,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 4,
+  "weight": 400
+}

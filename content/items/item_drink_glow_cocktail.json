@@ -1,0 +1,29 @@
+{
+  "description": "Faintly luminescent. The bartender swears the radiation is \"mostly cosmetic.\"",
+  "effects": {
+    "radiation": 4,
+    "sanity": 12,
+    "thirst": 12
+  },
+  "flags": {},
+  "id": "item_drink_glow_cocktail",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "glow cocktail",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "drink",
+  "tags": {
+    "consumable": true,
+    "description": "Faintly luminescent. The bartender swears the radiation is \"mostly cosmetic.\"",
+    "hydrating": true,
+    "restore_radiation": 4,
+    "restore_sanity": 12,
+    "restore_thirst": 12,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 14,
+  "weight": 400
+}

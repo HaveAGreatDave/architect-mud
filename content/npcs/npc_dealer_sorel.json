@@ -1,0 +1,136 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "hours_check",
+    "nodes": {
+      "hours_check": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "vanish",
+        "ifTrue": "prowl",
+        "params": {
+          "from": 8,
+          "to": 22
+        },
+        "type": "condition"
+      },
+      "prowl": {
+        "action_type": "PATROL",
+        "next": "hours_check",
+        "params": {
+          "loop": true,
+          "mode": "walk",
+          "waypoints": [
+            "zone_yard_depot",
+            "zone_yard_container",
+            "zone_yard_railhead",
+            "zone_yard_loadout",
+            "zone_yard_marshalling"
+          ]
+        },
+        "type": "action"
+      },
+      "vanish": {
+        "action_type": "GO_HOME",
+        "next": "hours_check",
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [
+    "taps his clipboard. \"You on the manifest?\"",
+    "mutters a consignment number into the dead intercom.",
+    "\"Nothing moves off this dock without paper.\"",
+    "checks a schedule that hasn't updated in years."
+  ],
+  "description": "Wick Sorel wears a hi-vis vest bleached grey with age and carries a clipboard no one has asked to see in years. He talks pallets and pickup windows into an intercom that stopped answering long before you got here, and he'll quote you a delivery schedule for anything — anything at all — if you know how to ask for it.",
+  "dialogue_tree": {},
+  "faction": "faction_glitch",
+  "flags": {
+    "covert": true,
+    "deal_from": 8,
+    "deal_to": 22,
+    "inner_circle_flag": "sorel_inner_circle",
+    "passphrases": [
+      "got a delivery for me",
+      "the intercom's dead",
+      "signing for a package"
+    ],
+    "trust_flag": "sorel_trust",
+    "trust_max": 100,
+    "trust_per_buy": 8
+  },
+  "home_activities": [],
+  "home_zone": "zone_yard_depot",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_dealer_sorel",
+  "name": "Wick Sorel",
+  "npc_type": "dealer",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_ether",
+      "min_trust": 0,
+      "price": 45
+    },
+    {
+      "item_id": "item_lull",
+      "min_trust": 0,
+      "price": 100
+    },
+    {
+      "item_id": "item_static",
+      "min_trust": 25,
+      "price": 140
+    },
+    {
+      "item_id": "item_mescaline",
+      "min_trust": 25,
+      "price": 150
+    },
+    {
+      "item_id": "item_blotter",
+      "min_trust": 45,
+      "price": 185
+    },
+    {
+      "item_id": "item_grey",
+      "min_trust": 45,
+      "price": 210
+    },
+    {
+      "item_id": "item_khole",
+      "min_trust": 70,
+      "price": 250
+    },
+    {
+      "item_id": "item_memhack",
+      "min_trust": 70,
+      "price": 300
+    },
+    {
+      "item_id": "item_voidwalk",
+      "min_trust": 90,
+      "price": 480
+    },
+    {
+      "item_id": "item_overclock",
+      "min_trust": 90,
+      "price": 500
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [
+    "zone_yard_depot",
+    "zone_yard_container",
+    "zone_yard_railhead",
+    "zone_yard_loadout",
+    "zone_yard_marshalling"
+  ],
+  "wanders": 0,
+  "work_zone_id": null
+}

@@ -1,0 +1,28 @@
+{
+  "category": "environment",
+  "config": {
+    "adsr": {
+      "a": 0.1,
+      "d": 0.1,
+      "r": 0.2,
+      "s": 1
+    },
+    "filter": {
+      "freq": 900,
+      "q": 1,
+      "type": "lowpass"
+    },
+    "freq": 110,
+    "gain": 0.18,
+    "tremolo": {
+      "depth": 0.7,
+      "rate": 5
+    },
+    "waveform": "square"
+  },
+  "enabled": 1,
+  "id": "amb_machinery",
+  "loop": 1,
+  "name": "amb_machinery",
+  "priority": 1
+}

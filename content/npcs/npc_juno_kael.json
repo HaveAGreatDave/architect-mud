@@ -1,0 +1,229 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Juno makes a note on her clipboard without looking up.",
+    "'Half of this came from a corporate office liquidated in forty-eight hours. Surprising what people leave behind when security cuts their badge.'",
+    "She straightens a price tag that didn't need straightening.",
+    "'The sleep pod's the best thing in here. I tested it myself. Didn't want to get up. That's a good sign.'",
+    "'Stock rotates every day. Yesterday I had three mag-lev chairs. Now I have one.'",
+    "'I'm not a decorator. I'm a vendor. If you want to know if it'll hold your weight, I can help.'"
+  ],
+  "description": "Juno Kael is tall and angular, her hair dye growing out in a gradient from platinum to black root. She wears a faded Dead Space Interiors polo shirt tucked into cargo trousers. She tracks you with the patient, evaluating attention of someone who has spent a lot of time waiting for browsers to become buyers.",
+  "dialogue_tree": {
+    "end": {
+      "options": [],
+      "text": "'Take your time.' She goes back to her clipboard."
+    },
+    "looking": {
+      "options": [
+        {
+          "label": "Show me what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "I'll look around.",
+          "next": "end"
+        }
+      ],
+      "text": "'Good. Everything in here is functional, everything has a story, and most of the stories are better than the things in the showroom right now.' She gestures at the vignettes behind her. 'Stock rotates. If you don't see what you want today, come back tomorrow.'"
+    },
+    "pricing": {
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        },
+        {
+          "label": "Let me see the inventory.",
+          "next": "__shop__"
+        }
+      ],
+      "text": "'Prices are what they are. The mag-lev stuff costs what it costs because the components aren't made anymore and the patent holders are suing each other into dust. The surplus cots are cheap because they're surplus. I don't negotiate down — I might negotiate trade.'"
+    },
+    "root": {
+      "options": [
+        {
+          "label": "I'm looking for furniture.",
+          "next": "looking"
+        },
+        {
+          "label": "What is this place?",
+          "next": "what_is_this"
+        },
+        {
+          "label": "How does pricing work?",
+          "next": "pricing"
+        },
+        {
+          "label": "Browse your wares.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Nothing, just looking.",
+          "next": "end"
+        }
+      ],
+      "text": "Juno looks up from a clipboard of handwritten inventory tallies. 'Browse or buy — I don't care which, as long as you don't sit on everything without committing. What can I do for you?'"
+    },
+    "what_is_this": {
+      "options": [
+        {
+          "label": "Sounds like my kind of place.",
+          "next": "root"
+        },
+        {
+          "label": "Show me what you've got.",
+          "next": "__shop__"
+        }
+      ],
+      "text": "'Dead Space Interiors. I took the name from the lease — the building code still says DEAD SPACE on the fire certificate. Seemed honest.' She taps the clipboard. 'I source from estate sales, corporate liquidations, lab clearances. If something's in here it works or it's interesting. Usually both.'"
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a many-pocketed utility coat",
+      "a faded company tee knotted at the waist",
+      "a worn bra and briefs"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_furniture_store",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_juno_kael",
+  "name": "Juno Kael",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_furn_mag_lev_chair",
+      "price": 2400
+    },
+    {
+      "item_id": "item_furn_haptic_throne",
+      "price": 4800
+    },
+    {
+      "item_id": "item_furn_corpcore_bench",
+      "price": 180
+    },
+    {
+      "item_id": "item_furn_diner_booth",
+      "price": 650
+    },
+    {
+      "item_id": "item_furn_barstool_wreck",
+      "price": 60
+    },
+    {
+      "item_id": "item_furn_pneumatic_stool",
+      "price": 320
+    },
+    {
+      "item_id": "item_furn_meditation_pod",
+      "price": 890
+    },
+    {
+      "item_id": "item_furn_neural_couch",
+      "price": 3200
+    },
+    {
+      "item_id": "item_furn_busted_sofa",
+      "price": 120
+    },
+    {
+      "item_id": "item_furn_sleep_pod",
+      "price": 6500
+    },
+    {
+      "item_id": "item_furn_mil_surplus_cot",
+      "price": 95
+    },
+    {
+      "item_id": "item_furn_pipe_railing",
+      "price": 75
+    },
+    {
+      "item_id": "item_furn_payphone_husk",
+      "price": 40
+    },
+    {
+      "item_id": "item_furn_counter_slab",
+      "price": 780
+    },
+    {
+      "item_id": "item_furn_nano_desk",
+      "price": 3600
+    },
+    {
+      "item_id": "item_furn_datavision_tv",
+      "price": 3800
+    },
+    {
+      "item_id": "item_furn_vidicron_tv",
+      "price": 220
+    },
+    {
+      "item_id": "item_furn_phantex_tv",
+      "price": 8500
+    },
+    {
+      "item_id": "item_furn_syntron_tv",
+      "price": 2100
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sun": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 50,
+  "flags": {},
+  "generator_id": "gen_zone_furniture_util",
+  "id": "zone_furniture_util",
+  "max_capacity_kw": 50,
+  "name": "zone_furniture_util",
+  "source_type": "junction_box"
+}

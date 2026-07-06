@@ -1,0 +1,290 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "type": "start"
+      }
+    }
+  },
+  "category": "sport",
+  "channel_id": "ch_7_1782953079593",
+  "created_by": "ab2d38d0-4f10-4187-8f53-298d61b525c3",
+  "description": "",
+  "enabled": 1,
+  "fallback_messages": [],
+  "id": "bc_1783289744953",
+  "loop": 1,
+  "message_interval": 5,
+  "messages": [],
+  "name": "Deadball — Coldwater League Baseball",
+  "override_duration": 300,
+  "playback_mode": "sports",
+  "sports_pools": {
+    "announcer": "Chip Vega",
+    "players": [
+      "Rodriguez",
+      "Okafor",
+      "Big\" Halvorsen",
+      "Bishop",
+      "Sato",
+      "Vance",
+      "Cruz",
+      "Doyle",
+      "Reyes",
+      "Park",
+      "Mundt",
+      "Nagy",
+      "Flynn",
+      "Ruiz",
+      "Abara",
+      "Cole",
+      "Voss",
+      "Dunn",
+      "Marsh",
+      "Kane",
+      "Petrova",
+      "Osei",
+      "Delacroix",
+      "Yamamoto",
+      "Boothe",
+      "Quist",
+      "Ferraro",
+      "Nkemelu",
+      "Sokolov",
+      "Wheels\" McGraw",
+      "Grimaldi",
+      "Achterberg"
+    ],
+    "pools": {
+      "atbat.double": [
+        "{batter} rips it down the line — into the corner, he's got two! Standing double.",
+        "{batter} laces one to the wall and pulls into second. Two-bagger.",
+        "A screamer off {batter}'s bat rolls to the gap — he cruises into second."
+      ],
+      "atbat.doubleplay": [
+        "Ground ball, and they turn TWO on {batter}! Around the horn — rally strangled in the crib. {outs} away.",
+        "{batter} raps into a tailor-made double play. {pitcher} exhales; the whole frame's undone in one pitch. {outs} down.",
+        "Two for the price of one — {batter} bounces into a double play. The {team} dugout deflates. {outs} gone.",
+        "{batter} chops it right at 'em and they flip it around for a double play. Cruel game. {outs} away."
+      ],
+      "atbat.flyout": [
+        "{batter} lifts it to the outfield — camped under it, squeezed. {outs} away.",
+        "Fly ball, {batter}, nothing on it. Caught. {outs} down.",
+        "{batter} gets air but not enough. Run-of-the-mill flyout. {outs} gone."
+      ],
+      "atbat.groundout": [
+        "{batter} chops it into the dirt — routine, throw across, he's out. {outs} away.",
+        "Ground ball off the bat of {batter}, easy play, one more gone. {outs} down.",
+        "{batter} rolls over on it. Grounder, out at first. {outs} in the books."
+      ],
+      "atbat.out": [
+        "{batter} is retired. {outs} away.",
+        "That's {batter} put out. {outs} down."
+      ],
+      "atbat.popout": [
+        "{batter} pops it straight up. Infielder circles, gloves it. {outs} away.",
+        "Little pop-up off {batter}'s bat, caught in fair territory. {outs} down.",
+        "{batter} skies one shallow — easy out. {outs} in the frame."
+      ],
+      "atbat.productout": [
+        "{batter} rolls out to the right side but pushes the runner up ninety feet. A productive out — if there's such a thing in this town. {outs} away.",
+        "Groundout by {batter}, does his job, moves the runner over. {outs} down.",
+        "{batter} grounds one that scoots the runner up. Nothing pretty, but it plays. {outs} in the frame."
+      ],
+      "atbat.sacfly": [
+        "Deep enough! {batter} lifts a sacrifice fly — the runner tags from third and scores. He's out, but it counts on the board. {outs} away.",
+        "{batter} gives himself up, fly ball to the track, the runner trots home. Traded an out for a run. {outs} down.",
+        "Sac fly off the bat of {batter}. {team} do it the ugly way — run's in, {outs} away."
+      ],
+      "atbat.single": [
+        "{batter} slaps a clean single into the gap and takes first.",
+        "Base hit, {batter}! He beats it out and stands on first.",
+        "{batter} punches one through the infield. Runner aboard."
+      ],
+      "atbat.triple": [
+        "{batter} drives it deep and wheels around — he's flying — slides into THIRD! Triple!",
+        "Way back, off the wall, {batter} is churning — a stand-up triple!",
+        "{batter} splits the outfielders and doesn't stop till third. What a leg on him."
+      ],
+      "atbat.walk": [
+        "{pitcher} loses the zone — {batter} takes ball four and trots to first.",
+        "Four wide ones, {batter} draws the walk. Free pass.",
+        "{batter} spits on a full count and takes his base. {pitcher} not happy about it."
+      ],
+      "chatter": [
+        "Not much doing out here. Wind's picking up off the flats — smells like a battery fire, which, to be fair, it usually is.",
+        "You can see the haze rolling in over the left-field wall. They painted a distance marker on it once. Nobody's ever reached it. Nobody ever will.",
+        "Fun fact: this ballpark was built on a landfill, and on humid nights you can still smell every decision that led us here.",
+        "{pitcher} out there on the mound looking like a man who owes money to everyone in this stadium. Which, in fairness, he might.",
+        "The grounds crew tried to reseed the infield last spring. It came up brown and angry and now they just rake it and apologize.",
+        "I'm told the record for longest game at this park is fourteen hours. Seven people finished it. Two of them on purpose.",
+        "Somebody in the bleachers just took their shirt off. It is nine degrees out. I'm not going to editorialize, but I have concerns.",
+        "Weather's holding — which around here means the acid's only a light drizzle. Bring an umbrella, lose an umbrella. That's the deal.",
+        "They sell a hot dog here called the Widowmaker. It comes with a waiver. I've had three.",
+        "Little-known stat: no left-handed batter has hit safely at this park after sundown since the lights started flickering. Draw your own conclusions.",
+        "The {team} bullpen's been quiet. Then again, half of them are asleep and one of them, I believe, is technically deceased.",
+        "Quiet moment out here. Good time to mention the bathrooms are out of order. All of them. Have been since the last administration.",
+        "You know, my ex-wife loved this game. Sat right there in section nine. Section nine is a crater now. Life comes at you fast.",
+        "Ballpark organist is playing something in a minor key again. He only knows the one song. It's about drowning.",
+        "Vendor just walked past selling something he called \"meat adjacent.\" I did not follow up. I value what's left of me.",
+        "The stadium clock froze at 6:66 four years ago and honestly it's never once been wrong about the mood.",
+        "Somewhere out past the outfield wall a dog is howling in perfect rhythm with the crowd. Nobody brought a dog.",
+        "They retired a number here once. Not for a player — for a guy who survived a full season in the cheap seats. Brave soul.",
+        "::lines atbat.strikeout",
+        "{batter} goes down swinging. {pitcher} blows it right past him. That's {outs} away.",
+        "Strike three, {batter}'s frozen. {pitcher} owns him. {outs} down.",
+        "{batter} waves at a nasty one from {pitcher} and sits. {outs} gone in the frame."
+      ],
+      "extras.bottom": [
+        "Bottom of the {inningOrd}, still knotted — the {team} get their cuts to end it right here.",
+        "Home half of the {inningOrd}. The {team} looking for the one run that sends everybody home."
+      ],
+      "extras.cut": [
+        "Extra innings roll on, and both dugouts smell blood."
+      ],
+      "extras.hold": [
+        "...and they go quietly. Still level. On we go — the bats getting meaner by the inning.",
+        "Nothing across. Still tied. Nobody said this town does mercy.",
+        "Three up, three down, and we're still deadlocked — {away} {awayScore}, {home} {homeScore}. Somebody end this."
+      ],
+      "extras.intro": [
+        "Nine wasn't enough. We're going to EXTRA INNINGS, folks — nobody in this crumbling barn gets to go home yet.",
+        "Tied after nine. Free baseball — and around here 'free' means it costs you your whole night and possibly a lung.",
+        "We spill into extras, dead even. Somewhere a generator groans. Bats are getting angry. This ends soon, one way or another."
+      ],
+      "extras.top": [
+        "We cut back in — top of the {inningOrd}, {team} up, still level. Everybody's swinging for keeps now.",
+        "Top of the {inningOrd}, extras, and the {team} are hacking at everything. Something's gotta give."
+      ],
+      "final": [
+        "That's the ballgame. Final score: {home} {homeScore}, {away} {awayScore}. {leader} take it by {lead}.",
+        "And it's over after {inningOrd}. {away} {awayScore}, {home} {homeScore} — {leader} on top.",
+        "Ballgame. {leader} win it, {homeScore} to {awayScore}. Somewhere, a bookie is smiling.",
+        "Final from the ballpark: {away} {awayScore}, {home} {homeScore}. {leader} get it done."
+      ],
+      "half.bottom": [
+        "Bottom of the {inningOrd}. The home side, the {team}, grab the bats.",
+        "Middle of the {inningOrd} behind us — now the {team} come up for their cuts.",
+        "Bottom {inningOrd}, {team} at the plate."
+      ],
+      "half.top": [
+        "Top of the {inningOrd}. The {team} step up to hit.",
+        "Here's the top of the {inningOrd} — {team} coming to bat, the home nine taking the field.",
+        "Top {inningOrd}. {team} due up. Let's see who's swinging."
+      ],
+      "hr": [
+        "{batter} crushes it — outta here! A {rbi}-run homer for the {team}!",
+        "Long gone! {batter} goes deep, {rbi} runs score for the {team}!",
+        "{batter} parks one over the fence — {rbi} in on the blast. {team} answer."
+      ],
+      "hr.grand": [
+        "{batter} unloads with the bases juiced — GRAND SLAM! Four runs! The {team} blow it open!",
+        "Get up, get outta here — {batter} just hit a GRAND SLAM! Bases cleared, {rbi} runs, {team} take over!",
+        "Bases loaded, and {batter} demolishes it! Grand slam! Four come around for the {team}!"
+      ],
+      "hr.solo": [
+        "{batter} turns on one and it is GONE! A solo shot, no doubt about it — {team} tack on a run!",
+        "SWING and a long drive by {batter}... see ya! Solo homer, over the wall for the {team}!",
+        "{batter} launches it into the dark. Solo bomb. One run in for the {team}."
+      ],
+      "intro": [
+        "Good evening, wasteland, and welcome to DEADBALL. Chip Vega in the booth, and we've got nine innings of ball for whoever's still got working eyes.",
+        "Chip Vega here at the ballpark, where the lights work maybe sixty percent of the time and the hot dogs are legally a dare. Let's play ball.",
+        "This is DEADBALL on Coldwater League radio. I'm Chip Vega. Somewhere out there the sun's setting on a stadium that has definitely, definitely been condemned.",
+        "Welcome back to the ballgame. Chip Vega, and I'll be your only friend for the next nine innings."
+      ],
+      "matchup": [
+        "Tonight it's the {away} in from out of town to face the {home} on their home dirt.",
+        "On the marquee: {away} versus {home}. Two rosters, one working scoreboard, no medical staff.",
+        "The {away} take the field against the {home}. Bad blood, worse plumbing. Here we go.",
+        "It's {home} hosting {away} under whatever's left of the stadium lights."
+      ],
+      "matchup.records": [
+        "Tonight the {away}, {awayRecord} on the season, roll into town to face the {home} at {homeRecord}.",
+        "On the marquee: {away} ({awayRecord}) versus {home} ({homeRecord}). Somebody's record gets worse tonight.",
+        "The {away} bring their {awayRecord} mark in against the {home}, sitting at {homeRecord}. Standings on the line, such as they are.",
+        "It's {home} ({homeRecord}) hosting {away} ({awayRecord}) — two clubs clawing up a league table nobody escapes."
+      ],
+      "outro": [
+        "That's DEADBALL. {leader} take the day. Chip Vega saying: go home, lock the door, and dream of extra innings.",
+        "For the {leader} and everyone still upright out there — this has been Chip Vega. Good night, and mind the radiation.",
+        "Chip Vega, signing off. Same dirt, same dread, tomorrow. Stay off the field."
+      ],
+      "rbi": [
+        "{batter} lines one into the gap and {rbi} come around to score! The {team} put it on the board.",
+        "Base knock for {batter}, {rbi} runs cross the plate! {team} cash in.",
+        "{batter} comes through with runners on — {rbi} in! Big swing for the {team}.",
+        "Clutch hit, {batter}! {rbi} runs score for the {team}. The dugout's on its feet.",
+        "{batter} drives {rbi} home with a shot to the corner. The {team} strike."
+      ],
+      "recap.half": [
+        "After {inningOrd}: {away} {awayScore}, {home} {homeScore}. Grab a beer, it won't help.",
+        "Three in the books at the turn of the {inningOrd} — {away} {awayScore}, {home} {homeScore}.",
+        "Where we stand through {inningOrd}: {home} {homeScore}, {away} {awayScore}."
+      ],
+      "score.update": [
+        "That makes it {away} {awayScore}, {home} {homeScore}.",
+        "Score check: {home} {homeScore}, {away} {awayScore}.",
+        "On the board: {away} {awayScore}, {home} {homeScore}. {leader} out in front by {lead}.",
+        "New numbers — {away} {awayScore}, {home} {homeScore}."
+      ],
+      "walkoff": [
+        "AND THAT'LL DO IT! {batter} wins it for the {home}! The crowd — the four of them — go absolutely feral!",
+        "WALK-OFF! {batter} sends everyone home! {home} take it, {homeScore} to {awayScore}!",
+        "Ballgame over! {batter} is a hero in a town that eats its heroes! {home} win it in walk-off fashion!"
+      ],
+      "winning.top": [
+        "The {leader} pushed across the go-ahead in the {inningOrd} and the home side had NOTHING in reply. That's your ballgame.",
+        "That run in the top of the {inningOrd} stands up — the {leader} steal it on the road and get out of town alive.",
+        "Go-ahead run in extras, home half comes up empty, and the {leader} make it stick. Ballgame."
+      ],
+      "worldseries.final": [
+        "IT'S OVER! The {leader} are your DEADBALL WORLD SERIES CHAMPIONS! {home} {homeScore}, {away} {awayScore} — carve it into whatever's still standing!",
+        "CHAMPIONS! The {leader} take the whole thing, {homeScore} to {awayScore}! A season of blood and rust, and they're the last ones grinning!",
+        "That's your ballgame and your SEASON — the {leader} win the World Series! {away} {awayScore}, {home} {homeScore}. Somewhere, a bookie weeps into his ledger."
+      ],
+      "worldseries.intro": [
+        "This is it. THE WORLD SERIES. One game, two clubs, and a whole miserable season of baseball comes down to the next nine innings. Chip Vega, and I have never been more awake.",
+        "Welcome to the DEADBALL WORLD SERIES — winner takes the crown, loser takes the long walk home. Chip Vega in the booth, gripping the desk so hard my knuckles went.",
+        "Nine innings from immortality. The World Series, folks — last game of the season, and somebody's about to become a legend in a town that forgets fast."
+      ],
+      "worldseries.matchup": [
+        "For all of it: the {away} versus the {home}. Two survivors, one trophy, no tomorrow.",
+        "The {away} ({awayRecord}) against the {home} ({homeRecord}) — the two best clubs left standing, playing for the only thing that ever mattered.",
+        "Winner takes the season, loser takes nothing. {away} and {home}. Let's settle it."
+      ],
+      "worldseries.outro": [
+        "The {leader} are champions. The rest of us go back to nothing. Chip Vega — good night, and long live the kings, however briefly.",
+        "Champions crowned, season buried. Chip Vega signing off on the World Series. Same dirt tomorrow, but tonight belongs to the {leader}."
+      ]
+    },
+    "sport": "baseball",
+    "teams": [
+      "Rustpile Rats",
+      "Coldwater Kingfishers",
+      "Neon District Wolves",
+      "Slagworks Slaggers",
+      "Ashway Ash-Kickers",
+      "Precinct 9 Enforcers",
+      "Undermarket Moles",
+      "Redline Radwolves",
+      "Docklands Drowners",
+      "Vellum Vultures",
+      "Chrome Row Chargers",
+      "Gutter City Ghouls",
+      "Yards Junkdogs",
+      "Meltdown Mudhens",
+      "Bunker Hill Bruisers",
+      "Static Saints"
+    ],
+    "title": "bb_deadball_title"
+  },
+  "tags": [],
+  "updated_at": "1783289745",
+  "weather_pools": null
+}

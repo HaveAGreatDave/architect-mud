@@ -1,0 +1,8 @@
+{
+  "difficulty": 3,
+  "id": "sti_ind_0",
+  "item_id": "item_bearing_grease",
+  "max_qty": 3,
+  "table_id": "scav_industrial_salvage",
+  "weight": 15
+}

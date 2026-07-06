@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "Behind the curtain, the sink drips rust-brown, then stops."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#c9a884",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "Unit 3C. The realtor — the corkboard downstairs, really — calls this one 'cozy.' It's small. A single room with a curtained-off toilet, a sink that runs rust for a minute before it runs clear, and a window painted shut and then painted again. But the lock is new, the floor is solid, and nobody up here asks questions.",
+  "exits": {
+    "west": "zone_embassy_floor3"
+  },
+  "flags": {
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": true,
+    "is_building": false,
+    "is_interior": false,
+    "world_exit_zone": null
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 2,
+  "id": "zone_apt_11",
+  "is_safe_zone": 0,
+  "map_id": "map_interior_zone_residential_lobby",
+  "marker": null,
+  "name": "Unit 3C",
+  "parent_zone": "zone_embassy_floor3",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783045464"
+}

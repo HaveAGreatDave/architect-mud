@@ -1,0 +1,18 @@
+{
+  "description": "Walk the row of dead meters at the Loading Bay and copy down numbers no one will ever read. 18₵.",
+  "id": "quest_fs_meter",
+  "name": "Meter Reading",
+  "objectives": [
+    {
+      "desc": "Reach the Loading Bay",
+      "id": "o0",
+      "type": "visit",
+      "zone": "zone_city_east"
+    }
+  ],
+  "repeatable": 1,
+  "rewards": {
+    "credits": 18
+  },
+  "updated_at": "1783357094"
+}

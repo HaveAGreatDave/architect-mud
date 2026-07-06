@@ -1,0 +1,23 @@
+{
+  "description": "A plain bra. It does what it's supposed to do.",
+  "effects": {},
+  "flags": {},
+  "id": "item_underwear_female_top",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "bra",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 0,
+    "bulkiness": 1,
+    "insulation": 0,
+    "layer": "underwear",
+    "slot": "torso"
+  },
+  "type": "clothing",
+  "value": 1,
+  "weight": 100
+}

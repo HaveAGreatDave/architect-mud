@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "Far out on the bay, a wake rises, crosses, and sinks without a source.",
+    "The jetty ends here in splintered wood and open, indifferent water."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#71b1e6",
+  "color": "#eeeeee",
+  "created_by": "phase3-build",
+  "danger_rating": "low",
+  "description": "The end of the last jetty, where the pilings give out and the grey water of Coldwater Bay just goes on. Something big moves out there, unhurried, patient.",
+  "exits": {
+    "east": "zone_bay_fog",
+    "north": "zone_bay_mid",
+    "south": "zone_bay_shallows",
+    "west": "zone_bay_sound"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_harbor",
+    "water": true
+  },
+  "grid_x": 2,
+  "grid_y": -5,
+  "grid_z": 0,
+  "id": "zone_bay_open",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "OB",
+  "name": "The Open Bay",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

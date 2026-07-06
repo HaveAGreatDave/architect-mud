@@ -1,0 +1,23 @@
+{
+  "category": "ui",
+  "config": {
+    "adsr": {
+      "a": 0.001,
+      "d": 0.1,
+      "r": 0.1,
+      "s": 0.2
+    },
+    "duration": 0.2,
+    "filter": {
+      "freq": 1000,
+      "q": 1,
+      "type": "lowpass"
+    },
+    "freq": 220,
+    "waveform": "sawtooth"
+  },
+  "enabled": 1,
+  "id": "sfx_ui_error",
+  "name": "ui_error",
+  "priority": 4
+}

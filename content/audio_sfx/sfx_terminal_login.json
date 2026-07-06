@@ -1,0 +1,28 @@
+{
+  "category": "cyberpunk",
+  "config": {
+    "adsr": {
+      "a": 0.005,
+      "d": 0.1,
+      "r": 0.1,
+      "s": 0.5
+    },
+    "duration": 0.3,
+    "filter": {
+      "freq": 2800,
+      "q": 0.7,
+      "type": "lowpass"
+    },
+    "freq": 660,
+    "gain": 0.5,
+    "pitchBend": {
+      "time": 0.25,
+      "to": 1320
+    },
+    "waveform": "triangle"
+  },
+  "enabled": 1,
+  "id": "sfx_terminal_login",
+  "name": "terminal_login",
+  "priority": 4
+}

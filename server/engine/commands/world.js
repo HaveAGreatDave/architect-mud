@@ -789,6 +789,28 @@ async function cmdSpawnEnemy(args, player, broadcast) {
   return { type: 'output', message: `Spawned ${instance.name} (${instance.instanceId}) in ${where}.` };
 }
 
+// Admin force-set of a player's home (the zone their `home` verb walks back to).
+// Bypasses the ownership gate the player-facing `home` bind enforces, and works
+// on an online or offline target. Sets home_zone only — anchor_zone (respawn) is
+// a separate seam. `here` (or omitted) = the admin's current zone.
+async function cmdAdminSetHome(args, player) {
+  if (player.role !== 'admin') return { type:'error', message:"You don't have the clearance for that." };
+  const [handle, zoneArg] = args;
+  if (!handle) return { type:'error', message:'Usage: sethome <player> [zone_id|here]' };
+  const zoneId = (!zoneArg || zoneArg === 'here') ? player.current_zone : zoneArg;
+  if (!getZone(zoneId)) return { type:'error', message:`No zone "${zoneId}".` };
+  const { rows } = await query('SELECT id, handle FROM players WHERE LOWER(handle)=$1 LIMIT 1', [handle.toLowerCase()]);
+  if (!rows.length) return { type:'error', message:`No player "${handle}".` };
+  const target = rows[0];
+  await query('UPDATE players SET home_zone=$1 WHERE id=$2', [zoneId, target.id]);
+  const live = world.players.get(target.id);
+  if (live) live.home_zone = zoneId;
+  const zoneName = getZone(zoneId)?.name;
+  const where = zoneName ? `${zoneName} (${zoneId})` : zoneId;
+  logActivity('admin_cmd', player.handle, null, `sethome ${target.handle} → ${where}`);
+  return { type:'output', message:`Set ${target.handle}'s home to ${where}.` };
+}
+
 async function applyLightSwitch(nameStr, dir, player, broadcast) {
   if (!nameStr) return { type:'error', message:'Specify a light name.' };
   const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${nameStr}%`]);
@@ -899,6 +921,7 @@ const ADMIN_COMMANDS = [
   { verb:'tp',              args:'<zone id>',              desc:'Teleport yourself to a zone.',                       roles:['admin'],                              cat:'World' },
   { verb:'corpses',         args:'',                       desc:'List every corpse currently on the map.',            roles:['admin'],                              cat:'World' },
   { verb:'purge',           args:'',                       desc:'Wipe your wanted stars + heat and combust every cop in the room.', roles:['admin'],                 cat:'World' },
+  { verb:'sethome',         args:'<player> [zone|here]',   desc:"Force-set a player's home zone (default: your current zone).",     roles:['admin'],                 cat:'World' },
   { verb:'lettherebelight', args:'',                       desc:'Add a lit, powered overhead fixture to this room.',  roles:['admin','dev'],                        cat:'World' },
   { verb:'spawn',           args:'<item id> [zone|here]',  desc:'Spawn an item (default: your current zone).',        roles:['admin','dev'],                        cat:'Spawning' },
   { verb:'spawnenemy',      args:'<enemy id> [zone|here]', desc:'Spawn an enemy (default: your current zone).',       roles:['admin','dev'],                        cat:'Spawning' },
@@ -993,6 +1016,7 @@ export const handlers = {
   raise:    (args, raw, player) => cmdRaise(args, player),
   spawn:    (args, raw, player, broadcast) => cmdSpawn(args, player, broadcast),
   spawnenemy: (args, raw, player, broadcast) => cmdSpawnEnemy(args, player, broadcast),
+  sethome:  (args, raw, player) => cmdAdminSetHome(args, player),
   admin:    (args, raw, player) => cmdAdmin(player),
 };
 

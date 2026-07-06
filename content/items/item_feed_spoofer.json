@@ -1,0 +1,25 @@
+{
+  "description": "A sleek relay that whispers a clean, empty-room loop into nearby cameras. The owner watches nothing happen while you work.",
+  "effects": {},
+  "flags": {},
+  "id": "item_feed_spoofer",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "Feed Spoofer",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "battery_max": 288,
+    "concealment_base": 4,
+    "device_kind": "spoofer",
+    "device_tier": 3,
+    "hack_difficulty": 7,
+    "security_gear": true,
+    "wired": false
+  },
+  "type": "device",
+  "value": 1400,
+  "weight": 700
+}

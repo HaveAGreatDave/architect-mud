@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "Two ice floes grind together with a sound like a slow scream.",
+    "A floe tips under your weight, rights itself, and drifts on, unbothered."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#71b1e6",
+  "color": "#eeeeee",
+  "created_by": "phase5-build",
+  "danger_rating": "low",
+  "description": "Runoff and cold have crusted this corner of the bay with rafts of grey ice that grind together and apart. You cross by timing the floes, which is exactly as advisable as it sounds.",
+  "exits": {
+    "east": "zone_bay_basin",
+    "north": "zone_bay_narrows",
+    "south": "zone_bay_breakwater",
+    "west": "zone_bay_deep"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_harbor",
+    "water": true
+  },
+  "grid_x": 4,
+  "grid_y": -6,
+  "grid_z": 0,
+  "id": "zone_bay_floes",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "FL",
+  "name": "The Floes",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783301927"
+}

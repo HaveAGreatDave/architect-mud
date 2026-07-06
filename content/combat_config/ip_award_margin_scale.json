@@ -1,0 +1,6 @@
+{
+  "category": "skills",
+  "key": "ip_award_margin_scale",
+  "label": "IP award chance falloff per margin",
+  "value": 2
+}
