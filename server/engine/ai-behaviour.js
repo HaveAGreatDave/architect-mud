@@ -317,7 +317,8 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
       const shopDoor = getDoorForExit(newZoneId, OPPOSITE_DIR[departDir], oldZoneId)
                     || getDoorForExit(oldZoneId, departDir, newZoneId)
                     || null;
-      if (shopDoor && shopDoor.hp > 0) {
+      if (shopDoor && shopDoor.hp > 0 &&
+          shopDoor.tags && Object.keys(shopDoor.tags).some(k => k.startsWith('lock:'))) {
         if (arrivingAtWork && shopDoor.lock_state === 'locked') {
           shopDoor.lock_state = null;
           setDoorCache(shopDoor.id, shopDoor);
