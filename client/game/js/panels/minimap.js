@@ -655,23 +655,30 @@ function wireMapUi() {
       stepMapLevel(e.deltaY < 0 ? 1 : -1); // up = zoom out, down = zoom in
     }, { passive: false });
 
-    // Drag to pan the grid within the bounded viewport.
-    let dsx = 0, dsy = 0, downX = 0, downY = 0;
+    // Drag to pan the grid within the bounded viewport. Pointer capture is deferred
+    // until movement actually crosses the drag threshold — capturing immediately on
+    // pointerdown redirects the subsequent 'click' event's target to `vp` itself
+    // (per the Pointer Events capture spec), which broke tile clicks (route trace,
+    // charter destination-pick) on every plain click, not just drags.
+    let dsx = 0, dsy = 0, downX = 0, downY = 0, pid = null;
     vp.addEventListener('pointerdown', (e) => {
       mapDrag.on = true;
       mapDrag.moved = false;
       downX = e.clientX; downY = e.clientY;
       dsx = e.clientX - mapPan.tx;
       dsy = e.clientY - mapPan.ty;
-      vp.classList.add('grabbing');
-      try { vp.setPointerCapture(e.pointerId); } catch {}
-      const t = document.getElementById('map-tooltip');
-      if (t) t.style.display = 'none';
+      pid = e.pointerId;
     });
     vp.addEventListener('pointermove', (e) => {
       if (!mapDrag.on) return;
-      // A few px of travel = a pan, not a click — so the ensuing click doesn't route.
-      if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 4) mapDrag.moved = true;
+      if (!mapDrag.moved && Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 4) {
+        mapDrag.moved = true;
+        vp.classList.add('grabbing');
+        try { vp.setPointerCapture(pid); } catch {}
+        const t = document.getElementById('map-tooltip');
+        if (t) t.style.display = 'none';
+      }
+      if (!mapDrag.moved) return;
       mapPan.tx = e.clientX - dsx;
       mapPan.ty = e.clientY - dsy;
       applyMapPan();
