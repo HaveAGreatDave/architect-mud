@@ -43,10 +43,20 @@ const MACHINE_NAMES = ['morphex', 'biosculpt', 'makeover', 'morphex 9000'];
 
 async function getMachine(zoneId) {
   const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND (object_type='cosmetic_machine' OR jsonb_exists(flags,'cosmetic_machine')) LIMIT 1`,
+    `SELECT id, flags FROM furniture WHERE zone_id=$1 AND (object_type='cosmetic_machine' OR jsonb_exists(flags,'cosmetic_machine')) LIMIT 1`,
     [zoneId]
   );
   return rows[0] || null;
+}
+
+// A chargen terminal (flags.chargen) opens the panel in a stripped-down mode:
+// no current-appearance sheet, no balance/cost — the player is being made, has
+// no credits, and the first change is free. Cached on the live player so every
+// buildPanelData in a session carries it without threading a param everywhere.
+async function markChargenMode(player) {
+  const machine = await getMachine(player.current_zone);
+  player._morphexChargen = !!(machine && machine.flags?.chargen);
+  return machine;
 }
 
 function buildPanelData(player, toast = null) {
@@ -66,6 +76,7 @@ function buildPanelData(player, toast = null) {
       appearance_data:     player.appearance_data || {},
       erect:               player.erect || 0,
       sexuality:           player.sexuality || 'Male',
+      chargen:             !!player._morphexChargen,
       toast,
     },
     player_update: { credits: player.credits },
@@ -95,7 +106,7 @@ async function cmdMorphex(args, raw, player) {
     remaining = remaining.slice(1);
   }
 
-  if (!await getMachine(player.current_zone)) return null;
+  if (!await markChargenMode(player)) return null;
 
   const sub = remaining[0]?.toLowerCase();
   const rest = remaining.slice(1);
@@ -285,7 +296,7 @@ async function cmdMorphex(args, raw, player) {
 }
 
 async function openCosmeticMachine(player) {
-  if (!await getMachine(player.current_zone))
+  if (!await markChargenMode(player))
     return { type: 'error', message: `There's no MORPHEX 9000 terminal here.` };
   return buildPanelData(player);
 }
@@ -307,7 +318,7 @@ export const specializedActions = [{
   handler: async (args, raw, player) => {
     const target = args.join(' ').toLowerCase();
     if (!MACHINE_NAMES.some(n => target.includes(n))) return undefined;
-    if (!await getMachine(player.current_zone)) {
+    if (!await markChargenMode(player)) {
       return { type: 'error', message: `There's no MORPHEX 9000 terminal here.` };
     }
     return buildPanelData(player);
