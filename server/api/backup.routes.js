@@ -12,91 +12,14 @@
 
 import { query } from '../models/db.js';
 import { SCHEMA_SQL } from '../models/schema.js';
+import { CONTENT_TABLES, EXCLUDED_TABLES, AUDIO_TABLES } from '../models/content-registry.js';
 
-// World/content tables whose rows are dumped, in FK-safe insertion order.
-// An entry may be a table name, or { table, where } to dump a filtered subset.
-//
-// Order matters: the whole dump is one BEGIN…COMMIT, and FKs are checked
-// immediately (none are DEFERRABLE), so any row that references a not-yet-
-// inserted parent aborts the ENTIRE restore, not just that table. When adding a
-// table, place it after everything it references.
-//
-// media_* has a true FK cycle (media_broadcasts.channel_id ↔
-// media_channels.idle_broadcast_id). Those two constraints are now DEFERRABLE
-// (schema.js) and buildDump() emits SET CONSTRAINTS ALL DEFERRED, so the cycle
-// restores regardless of insert order — see docs/audits/findings-2026-07-content-shape.md.
-export const CONTENT_TABLES = [
-  // Audio must precede zones: zones.audio_theme_id → audio_songs(id). samples
-  // first (audio_instruments/audio_event_routes.sample_id → audio_samples).
-  'audio_samples', 'audio_songs', 'audio_instruments', 'audio_sfx', 'audio_ambient', 'audio_event_routes',
-  'zones', 'maps', 'items', 'enemies', 'zone_spawns',
-  'npcs', 'furniture', 'doors', 'windows', 'sounds', 'interface_sfx', 'global_ambient_events',
-  'loot_tables', 'recipes', 'drugs', 'mutations', 'combat_config', 'command_aliases', 'crimes',
-  // Only personal apartments are content; corp HQs (owner_type='org') reference a
-  // player-crew org that isn't exported, which would break the restore's FK.
-  { table: 'apartments', where: "owner_type = 'player'" },
-  'generators', 'power_zones', 'climate_profiles',
-  'scripts', 'npc_banter_threads', 'quests', 'job_boards',
-  // NPC factions live in the unified orgs table (is_npc=1); their inter-org
-  // stances live in org_relations. Player crews (is_npc=0) are runtime, excluded.
-  { table: 'orgs', where: 'is_npc = 1' },
-  { table: 'org_relations', where: 'org_id IN (SELECT id FROM orgs WHERE is_npc = 1)' },
-  // Scavenging/fishing loot templates (items reference scavenging_tables).
-  'scavenging_tables', 'scavenging_table_items',
-  // NPC-police surveillance backbone only; player-planted nets/devices are runtime.
-  { table: 'security_networks', where: 'is_police = 1' },
-  { table: 'security_devices', where: 'network_id IN (SELECT id FROM security_networks WHERE is_police = 1)' },
-  'atm_networks',
-  // Flight content: aircraft_types + ground AA emplacements. aircraft itself is
-  // player/runtime. Declared in flight's plugin.json dataSchema but was unexported.
-  'aircraft_types', 'aa_sites',
-  // Broadcast/TV. themes first (channels.theme_id → media_themes); the
-  // broadcasts↔channels cycle is handled by deferred constraints (see header).
-  // deck_units/playlist/cameras reference channels+broadcasts, so they come last.
-  'media_themes', 'media_broadcasts', 'media_channels',
-  'media_deck_units', 'media_channel_playlist', 'media_cameras', 'media_graphics',
-];
-
-// A *subset tag* of CONTENT_TABLES — NOT a second master list. These six tables
-// carry base64 sample blobs + giant tracker-pattern JSON, ~92% of the dump's bytes.
-// export-seed.mjs uses this to split the git artifact into a bulky, rarely-changing
-// db/audio-seed.sql and a small, diff-readable db/seed.sql. Because it's a subset of
-// CONTENT_TABLES, the regress export-partition assertion is untouched. They sit first
-// in CONTENT_TABLES because zones.audio_theme_id → audio_songs is an IMMEDIATE FK:
-// audio must be committed before content, so on a split restore audio-seed loads first.
-export const AUDIO_TABLES = [
-  'audio_samples', 'audio_songs', 'audio_instruments', 'audio_sfx', 'audio_ambient', 'audio_event_routes',
-];
-
-// Every other table in SCHEMA_SQL is deliberately NOT dumped: player-owned rows,
-// per-player/world runtime state, dev-workflow bookkeeping, logs, and tokens.
-// This is the *explicit* other half of the partition so the split is auditable:
-// the regress harness (tests/regress.js) asserts every CREATE TABLE in SCHEMA_SQL
-// appears in exactly one of these two lists — so a newly-added table can't drift
-// into "restores empty, no error" (the flight/quests bug). When you add a table,
-// classify it here or in CONTENT_TABLES; the test fails until you do.
-export const EXCLUDED_TABLES = [
-  // Player-owned / per-player state.
-  'players', 'player_skills', 'player_inventory', 'player_faction_rep', 'player_corpses',
-  'player_deaths', 'player_drug_state', 'player_mutations', 'player_flags', 'player_quests',
-  // World/runtime state regenerated at play time.
-  'world_events', 'world_clock', 'world_flags', 'weather_forecast', 'lighting_states',
-  'zone_control', 'scavenging_zone_stock', 'scavenging_zone_state', 'security_clips',
-  // Auto-created-per-furniture / player-transacted content (rebuilt on demand, not seeded).
-  'atm_units', 'game_tables', 'hangars', 'aircraft', 'flight_contracts', 'smuggle_orders',
-  // Halcyon Assurance — player-bought policies + filed claims (per-player runtime, not content).
-  'insurance_policies', 'insurance_claims',
-  // Player orgs (crews) + their membership; only NPC factions (is_npc=1) are content.
-  'org_ranks', 'org_members',
-  // Sports league state — seasons/standings/results are generated, never authored (see schema.js note).
-  'sports_bets', 'sports_standings', 'sports_season', 'sports_results',
-  // Jail / evidence runtime.
-  'jail_prisoners', 'police_evidence',
-  // Dev-workflow bookkeeping + logs + tokens (never world content, never leaked).
-  'staged_changes', 'deployments', 'server_settings', 'password_reset_tokens',
-  'channel_messages', 'server_activity_log', 'player_count_log',
-  'dev_notes', 'dev_identities', 'dev_commits', 'email_verification_tokens',
-];
+// Table classification (what is content vs runtime vs player, FK order, filters,
+// runtime-mutated columns) lives in server/models/content-registry.js — the single
+// source of truth for table semantics. This module re-exports the legacy derived
+// shapes so existing consumers (regress, export-seed, content-pull/diff) keep
+// importing from here unchanged. New code should import the registry directly.
+export { CONTENT_TABLES, EXCLUDED_TABLES, AUDIO_TABLES };
 
 export async function handleBackupApi(path, method, body, auth) {
   if (path !== '/admin/export-dump') return null;

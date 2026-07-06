@@ -36,7 +36,7 @@ import { getRegisteredMoveGates } from '../server/engine/movement-gates.js';
 import { getRegisteredSpecializedActions } from '../server/engine/specializedActions.js';
 import { registerProtectionProvider, getZoneProtection, getRegisteredProtectionProviders } from '../server/engine/protection.js';
 import { stopAll } from '../server/engine/scheduler.js';
-import { CONTENT_TABLES, EXCLUDED_TABLES } from '../server/api/backup.routes.js';
+import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../server/models/schema.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -73,25 +73,57 @@ console.log('— layer 1: manifest contracts —');
   check(`manifest contracts hold for ${getLoadedPlugins().length} plugins`, drift.length === 0, drift.join('; '));
 }
 
-// ── Layer 1a: export-partition coverage (anti-drift for the seed/backup dump) ─
-// Every table in SCHEMA_SQL must be classified as either dumped world content
-// (CONTENT_TABLES) or deliberately-excluded runtime/player data (EXCLUDED_TABLES).
-// A table in neither is the silent bug class behind the flight + quests losses:
-// authored content that restores EMPTY on a fresh DB with no error, because the
-// dump's allowlist never learned about it. Adding a table now forces the author to
-// classify it. Both the git seed (export-seed.mjs) and the dev-panel/prod dump run
-// through the same buildDump() over CONTENT_TABLES, so this one check guards both.
-console.log('— layer 1a: export-partition coverage —');
+// ── Layer 1a: content-registry coverage (anti-drift for exports + the pipeline) ─
+// Every table in SCHEMA_SQL must be classified in server/models/content-registry.js
+// as content, runtime, or player. An unclassified table is the silent bug class
+// behind the flight + quests losses: authored content that restores EMPTY on a
+// fresh DB with no error, because the export allowlist never learned about it.
+// The registry also drives the file-based content pipeline, so its pk and
+// excludeColumns entries must name REAL columns — a typo there would silently
+// export wrong files or upsert the wrong column set.
+console.log('— layer 1a: content-registry coverage —');
 {
   const contentNames = new Set(CONTENT_TABLES.map(e => typeof e === 'string' ? e : e.table));
   const excludedNames = new Set(EXCLUDED_TABLES);
   const schemaTables = [...SCHEMA_SQL.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/g)].map(m => m[1]);
   const unclassified = schemaTables.filter(t => !contentNames.has(t) && !excludedNames.has(t));
   const overlap = schemaTables.filter(t => contentNames.has(t) && excludedNames.has(t));
-  check(`every SCHEMA_SQL table is classified content-or-excluded (${schemaTables.length} tables)`,
+  check(`every SCHEMA_SQL table is classified in the content registry (${schemaTables.length} tables)`,
     unclassified.length === 0,
-    unclassified.length ? `UNCLASSIFIED (add to CONTENT_TABLES or EXCLUDED_TABLES in backup.routes.js): ${unclassified.join(', ')}` : '');
+    unclassified.length ? `UNCLASSIFIED (add to server/models/content-registry.js): ${unclassified.join(', ')}` : '');
   check('no table is both content and excluded', overlap.length === 0, overlap.join(', '));
+
+  // Registry entries must not name tables that don't exist (catches renames/deletes).
+  const schemaSet = new Set(schemaTables);
+  const phantom = REGISTRY.map(e => e.table).filter(t => !schemaSet.has(t));
+  check('registry names no phantom tables', phantom.length === 0, phantom.join(', '));
+
+  // pk + excludeColumns must be real columns of their table. Columns come from the
+  // table's CREATE TABLE block plus any ADD COLUMN IF NOT EXISTS retrofits — the
+  // same regex-over-SCHEMA_SQL style as the table sweep above.
+  const columnsOf = (table) => {
+    const cols = new Set();
+    const block = SCHEMA_SQL.match(new RegExp(`CREATE TABLE IF NOT EXISTS ${table} \\(([\\s\\S]*?)\\n  \\);`, 'm'));
+    if (block) {
+      for (const line of block[1].split('\n')) {
+        const m = line.match(/^\s{4}"?([a-z_]+)"?\s/);
+        if (m && !['primary', 'foreign', 'unique', 'check', 'constraint'].includes(m[1])) cols.add(m[1]);
+      }
+    }
+    for (const m of SCHEMA_SQL.matchAll(new RegExp(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS (\\w+)`, 'g'))) {
+      cols.add(m[1]);
+    }
+    return cols;
+  };
+  const colErrors = [];
+  for (const e of REGISTRY.filter(e => e.class === 'content')) {
+    const cols = columnsOf(e.table);
+    if (!cols.size) { colErrors.push(`${e.table}: could not parse columns from SCHEMA_SQL`); continue; }
+    if (!e.pk || !e.pk.length) colErrors.push(`${e.table}: content entry has no pk`);
+    for (const c of e.pk || []) if (!cols.has(c)) colErrors.push(`${e.table}: pk column "${c}" not in SCHEMA_SQL`);
+    for (const c of e.excludeColumns || []) if (!cols.has(c)) colErrors.push(`${e.table}: excludeColumns "${c}" not in SCHEMA_SQL`);
+  }
+  check('registry pk/excludeColumns name real columns', colErrors.length === 0, colErrors.join('; '));
 }
 
 // ── Layer 1b: object-gated verb discoverability ──────────────────────────────
