@@ -4,9 +4,9 @@
  * New souls spawn into The Inbetween (see server/api/routes.js apiRegister) and
  * walk a one-way corridor of scripted rooms that (1) run chargen through the
  * existing (free) MORPHEX terminal, (2) at the holosign grant a permanent +1 to
- * every attribute — off the XP books — plus a primer tablet and the X-90
- * holocaster, and (3) close with an eerie broadcast before collapsing them into
- * the Coldwater clone vat (zone_start), their respawn point forever after.
+ * every attribute — off the XP books — plus a first Architect Interface point and
+ * the X-90 holocaster, and (3) close with an eerie broadcast before collapsing
+ * them into the Coldwater clone vat (zone_start), their respawn point forever after.
  *
  * Everything here is content-driven and self-contained:
  *   - move gates hard-gate the three narrative doors (alignment, the holocaster,
@@ -14,8 +14,9 @@
  *   - the lightless void-rooms are seen ("there is no light, but you can see")
  *     via the engine's zones.flags.always_lit property — no lighting content;
  *   - `use holosign` grants +1 to every stat (via gifted_stat_points, so it costs
- *     no XP) + the primer tablet + the X-90 holocaster; `use holocaster` opens the
- *     broadcast door and is consumed; sitting in The Broadcast drops the kit.
+ *     no XP) + a first point of Architect Interface IP (interfacing IS the skill) +
+ *     the X-90 holocaster; `use holocaster` opens the broadcast door and is
+ *     consumed; sitting in The Broadcast drops the kit.
  *
  * No engine files are imported in reverse; the only engine touch-points are the
  * generic seams (move gates, events, flags, specialized `use`, the no_attack NPC
@@ -38,7 +39,6 @@ const Z_COLLAPSE  = 'zone_the_collapse';
 const Z_CLONEVAT  = 'zone_start';
 const PROLOGUE_ZONES = new Set([Z_INBETWEEN, Z_LATTICE, Z_BROADCAST, Z_COLLAPSE]);
 
-const ITEM_TABLET     = 'item_prologue_tablet';
 const ITEM_HOLOCASTER = 'item_x90_holocaster';
 
 // The Broadcast-room starter kit — the ONLY starting gear (registration hands out
@@ -97,6 +97,19 @@ async function grantAllStatsPlusOne(player) {
   sendToPlayer(player.id, { type: 'player_update', hp: player.hp, hp_max: player.hp_max });
 }
 
+// Touching the holosign IS an act of Architect Interface — so the touch itself
+// teaches the skill. Grant a deterministic first point of IP (the normal use-path
+// award is probabilistic; this one moment is guaranteed), demonstrating live that
+// skills climb by use. Guarded by the players-row FK for the regress fake player.
+async function grantArchitectInterfaceIp(player) {
+  const { rowCount } = await query(
+    `INSERT INTO player_skills (player_id, skill_id, ip) VALUES ($1, 'architect_interface', 1)
+       ON CONFLICT (player_id, skill_id) DO UPDATE SET ip = player_skills.ip + 1`,
+    [player.id]
+  ).catch(() => ({ rowCount: 0 }));
+  return rowCount > 0;
+}
+
 // ── Move gates: the three narrative doors ────────────────────────────────────
 // Pure checks; a blocked move returns its in-fiction refusal. Non-prologue moves
 // short-circuit before any DB read.
@@ -132,17 +145,17 @@ async function useHolosign(args, raw, player) {
   if (player.current_zone !== Z_LATTICE) return undefined;
 
   if (await isSet(player, F_INTERFACED)) {
-    return { type: 'emote', message: `You reach into the holosign again. It has already given you what it had to give — strength, a tablet, and a way onward. The rest you take out there.` };
+    return { type: 'emote', message: `You reach into the holosign again. It has already given you what it had to give — strength, and a way onward. The rest you take out there.` };
   }
 
   await raise(player, F_INTERFACED);
   await grantAllStatsPlusOne(player);
-  await grantItem(player, ITEM_TABLET);
+  await grantArchitectInterfaceIp(player);
   await grantItem(player, ITEM_HOLOCASTER);
 
-  out(player, `<span class="ip-gain">The lattice pours into you and leaves you more than it found you. +1 to every attribute — brawn, reflexes, endurance, brains, cool, senses.</span>`);
-  out(player, `A warm glass tablet resolves in your hands, dense with text about what you are made of and how you grow. <span class="hint">(examine tablet to read it)</span>`);
-  out(player, `Something else settles into your inventory: an <span class="action-link" data-action="use" data-target="X-90 Sequence Holocaster" title="Use the X-90 Sequence Holocaster"><b>X-90 Sequence Holocaster</b></span>. <span class="hint">(open your inventory with 'i', then use it)</span>`);
+  out(player, `<span class="ip-gain">The lattice pours into you and leaves you more than it found you. +1 to every attribute — brawn, reflexes, endurance, brains, cool, senses.</span> <span class="hint">(that's your six STATS — buy more later with XP and RAISE)</span>`);
+  out(player, `<span class="ip-gain">+1 IP — Architect Interface</span> <span class="hint">(reaching into the lattice was itself a SKILL; skills climb every time you use them — 100 IP is a level)</span>`);
+  out(player, `Something settles into your inventory: an <span class="action-link" data-action="examine" data-target="X-90 Sequence Holocaster" title="Examine the X-90 Sequence Holocaster"><b>X-90 Sequence Holocaster</b></span>. <span class="hint">(open your inventory with 'i', examine it, then use it to go on)</span>`);
 
   return { type: 'emote', message: `You reach into the holosign and, impossibly, the lattice reaches back. For one bright second you are touching the thoughts of the thing that made you — and it does not leave you as it found you. Every sinew, every nerve, every thought sits a fraction sharper than before.` };
 }
@@ -252,7 +265,7 @@ export const _test = {
   prologueMoveGate, useHolosign, useHolocaster,
   grantAllStatsPlusOne, isSet, raise,
   Z_INBETWEEN, Z_LATTICE, Z_BROADCAST, Z_COLLAPSE,
-  ITEM_HOLOCASTER, ITEM_TABLET,
+  ITEM_HOLOCASTER,
   F_ALIGNED, F_INTERFACED, F_BROADCAST, F_COLLAPSE, F_PLAYED,
 };
 

@@ -21,6 +21,7 @@ export default async function regress({ check }) {
   const cleanup = async () => {
     await query('DELETE FROM player_inventory WHERE player_id=$1', [p.id]).catch(() => {});
     await query('DELETE FROM player_flags WHERE player_id=$1', [p.id]).catch(() => {});
+    await query('DELETE FROM player_skills WHERE player_id=$1', [p.id]).catch(() => {});
     await query('DELETE FROM players WHERE id=$1', [p.id]).catch(() => {});
   };
   const flags = [F_ALIGNED, F_INTERFACED, F_BROADCAST, 'prologue_collapse_open', 'prologue_broadcast_played'];
@@ -57,13 +58,19 @@ export default async function regress({ check }) {
   check('every stat raised by 1', ['brawn', 'reflexes', 'endurance', 'brains', 'cool', 'senses'].every(s => row[`stat_${s}`] === 1), JSON.stringify(row));
   check('six gifted stat points recorded', row.gifted_stat_points === 6, row.gifted_stat_points);
 
+  // The stat gift is off the XP books; the only XP delta is the +1 Architect
+  // Interface IP the touch legitimately earns (real skill practice IS XP).
   const netAfter = await getNetXp(p.id);
-  check('gift costs no Net XP (off the books)', netAfter.net === netBefore.net && netAfter.net === 1800, `${netBefore.net}→${netAfter.net}`);
-  check('gift costs no Total XP (off the books)', netAfter.total === 1800, netAfter.total);
+  check('stat gift is off the books; only +1 IP moves Net XP', netAfter.net === netBefore.net + 1 && netAfter.net === 1801, `${netBefore.net}→${netAfter.net}`);
+  check('stat gift is off the books; only +1 IP moves Total XP', netAfter.total === 1801, netAfter.total);
 
   const inv = await query('SELECT item_id FROM player_inventory WHERE player_id=$1', [p.id]);
   check('holocaster granted', inv.rows.some(r => r.item_id === ITEM_HOLOCASTER));
-  check('tablet granted', inv.rows.some(r => r.item_id === 'item_prologue_tablet'));
+  check('no tablet granted (removed)', !inv.rows.some(r => r.item_id === 'item_prologue_tablet'));
+
+  // The interface gift also teaches its own skill: a first point of Architect Interface IP.
+  const sk = await query('SELECT ip FROM player_skills WHERE player_id=$1 AND skill_id=$2', [p.id, 'architect_interface']);
+  check('architect interface IP granted (1)', sk.rows[0]?.ip === 1, JSON.stringify(sk.rows[0]));
 
   // Second touch is inert — no double gift.
   const again = await useHolosign(['holosign'], 'use holosign', lp);
