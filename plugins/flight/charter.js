@@ -35,7 +35,12 @@ const AUTO_DISEMBARK_MS = 20000;
 const BOARD_TIMEOUT_MS = 120000; // the pilot waits this long at the hangar for you to embark
 const TAXI_MS = 4500;            // taxi-out beat between embark and rotate (the "rolls, rotates" moment)
 const CHARTER_TICK_MS = 2500;
-const CRUISE_TILES = 2;          // tiles/tick the NPC covers
+// Tiles/tick the NPC covers. The world map is small (~11 tiles between the farthest
+// fields), so a "realistic" cruise speed used to cover it in 2-3 ticks — takeoff,
+// one glimpse of sky, landing, all inside ~10s. Charters are a scenic ride, not a
+// teleport: this is deliberately slow (~0.12 tiles/sec) so even the shortest hop
+// between adjacent fields runs a proper couple of dozen seconds of narrated flight.
+const CRUISE_TILES = 0.3;
 const CHARTER_ALT = 480;         // nominal 'low'-band cruise height for the synthesized attitude
 // The chair a pilot sits on inside the walk-in hangar. Must match the furniture
 // `name` seeded by scripts/seed-hangar-interiors.js.
@@ -484,6 +489,18 @@ async function arrive(ch, live) {
   ch.phase = 'arrived'; ch.disembarkAt = Date.now() + AUTO_DISEMBARK_MS;
   live.row.airborne = 0; live.row.altitude_band = 'ground'; live.row.throttle = 0; live.row.parked_zone_id = ch.destZone;
   live.cont = null;   // down — no airborne attitude to relay to other pilots
+  // Land the PASSENGER's location the moment wheels touch down — mirrors what
+  // parkAt() does for a self-flown landing. `disembark` is then just the "climb out
+  // of the parked aircraft" flavour text; without this the player's current_zone
+  // stayed pinned at the home field until the 20s auto-eject timeout caught up.
+  for (const pid of live.occupants) {
+    if (pid === ch.pilotId) continue;
+    const p = getLivePlayer(pid);
+    if (!p) continue;
+    if (p.posture === 'flying') forceStand(p, 'charter.arrive');
+    p.current_zone = ch.destZone;
+    getZone(ch.destZone)?.players.add(pid);
+  }
   await persist(live);
   pushHud(live);
   toOccupants(live, `<span class="text-green">${ch.pilotName} flares and sets you down. "Here we are — <b>${ch.destName}</b>. <b>disembark</b> when you're ready — I'm not waiting all day."</span>`);
