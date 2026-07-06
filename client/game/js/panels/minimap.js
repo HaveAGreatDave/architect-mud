@@ -183,7 +183,7 @@ export function renderMinimap(nodes, direction) {
   // Route trace (shared with the full map): draw the yellow route over whatever slice
   // of it falls inside this 5×5 window. Same coords model as the cell grid above —
   // room at (y+R)*2,(x+R)*2 — so the overlay lines up with the tiles.
-  const tracePath = (mapState.routeMode ? effectiveTracePath(current.id) : null) || [];
+  const tracePath = effectiveTracePath(current.id) || [];
   const traceSet = new Set(tracePath);
   const { gaps: traceGaps, dirs: traceDirs } = traceOverlay(tracePath, (id) => {
     if (!coords.has(id)) return null;
@@ -315,9 +315,10 @@ const MAP_TERRITORY_KEY = 'map_territory';
 let _savedTerritory = false;
 try { _savedTerritory = localStorage.getItem(MAP_TERRITORY_KEY) === '1'; } catch {}
 let _territory = null; // last { control: {zoneId:{...}}, orgs, myOrgId } payload
-// Route trace: click-a-tile-to-see-how-to-get-there. `routeMode` is the toggle
-// (persisted); `tracePath` is the current ordered list of tile ids, cleared on any
-// move/zoom (the current tile — the route's origin — changes when you walk).
+// Route trace: click-a-tile-to-see-how-to-get-there. `routeMode` is armed-to-place
+// (persisted; true only while waiting for the next tile click — placing one, or
+// clearing an existing route via the GPS button, both disarm it); `tracePath` is
+// the current ordered list of tile ids, cleared on arrival or by the GPS button.
 const MAP_ROUTE_KEY = 'map_route';
 let _savedRoute = false;
 try { _savedRoute = localStorage.getItem(MAP_ROUTE_KEY) === '1'; } catch {}
@@ -633,16 +634,23 @@ function wireMapUi() {
     }
     renderMapGrid();
   });
-  // Route: click-a-tile-to-trace toggle. Turning it off clears any drawn route.
+  // Route (GPS button): a route already drawn? click clears it. Otherwise the
+  // click arms the next tile click to place one (single-shot — placing a route
+  // disarms itself; see the grid click handler below).
   document.getElementById('map-route-toggle')?.addEventListener('click', () => {
-    mapState.routeMode = !mapState.routeMode;
-    try { localStorage.setItem(MAP_ROUTE_KEY, mapState.routeMode ? '1' : '0'); } catch {}
-    document.getElementById('map-route-toggle')?.classList.toggle('active', mapState.routeMode);
-    if (!mapState.routeMode && mapState.tracePath) {
+    const btn = document.getElementById('map-route-toggle');
+    if (mapState.tracePath) {
       mapState.tracePath = null;
+      mapState.routeMode = false;
+      try { localStorage.setItem(MAP_ROUTE_KEY, '0'); } catch {}
+      btn?.classList.remove('active', 'has-route');
       renderMapGrid();
       if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // clear it off the minimap too
+      return;
     }
+    mapState.routeMode = !mapState.routeMode;
+    try { localStorage.setItem(MAP_ROUTE_KEY, mapState.routeMode ? '1' : '0'); } catch {}
+    btn?.classList.toggle('active', mapState.routeMode);
   });
   const vp = document.getElementById('map-viewport');
   if (vp) {
@@ -715,6 +723,11 @@ function wireMapUi() {
       const current = mapState.tiles.find(t => t.isCurrent);
       const path = current ? traceRoute(current.id, zid, mapState.byId) : null;
       mapState.tracePath = (path && path.length > 1) ? path : null;
+      mapState.routeMode = false; // single-shot: placed, disarm until cleared + re-armed
+      try { localStorage.setItem(MAP_ROUTE_KEY, '0'); } catch {}
+      const rbtn = document.getElementById('map-route-toggle');
+      rbtn?.classList.remove('active');
+      rbtn?.classList.toggle('has-route', !!mapState.tracePath);
       renderMapGrid();
       if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // mirror the route on the sidebar minimap
     });
@@ -757,6 +770,7 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
   document.getElementById('map-avenue-toggle')?.classList.toggle('active', mapState.avenueView);
   document.getElementById('map-territory-toggle')?.classList.toggle('active', mapState.territoryView);
   document.getElementById('map-route-toggle')?.classList.toggle('active', mapState.routeMode);
+  document.getElementById('map-route-toggle')?.classList.toggle('has-route', !!mapState.tracePath);
   syncOverlaySlider();
   if (mapState.territoryView) fetchTerritory(); // refresh the control layer each open
 
@@ -835,9 +849,11 @@ function renderMapGrid() {
 
   // Route trace geometry: the yellow road laid over the shortest walkable path to a
   // clicked tile, trimmed to the leg still ahead of you. Drawn on top of the normal
-  // render below (see traceOverlay). Only when the Route toggle is on.
+  // render below (see traceOverlay). Shown whenever a route is stored, regardless of
+  // whether the GPS button is currently armed to place a new one.
   const curTile = tiles.find(t => t.isCurrent);
-  const tracePath = (mapState.routeMode ? effectiveTracePath(curTile?.id) : null) || [];
+  const tracePath = effectiveTracePath(curTile?.id) || [];
+  document.getElementById('map-route-toggle')?.classList.toggle('has-route', !!mapState.tracePath);
   const traceSet = new Set(tracePath);
   const { gaps: traceGaps, dirs: traceDirs } = traceOverlay(tracePath, (id) => {
     const t = byId.get(id);

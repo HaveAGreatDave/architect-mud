@@ -2064,6 +2064,19 @@ textarea {
 	border-color: var(--border);
 	color: var(--text-dim);
 }
+/* Route (GPS) button: icon-only, same height as the text tabs but narrower.
+   Lit cyan while armed (waiting for the next tile click); lit route-yellow
+   once a route is drawn (matches .tr-rd), so a click there reads as "clear". */
+.map-tab-icon {
+	padding: 5px 9px;
+	font-size: 15px;
+	line-height: 1;
+}
+#map-route-toggle.has-route {
+	background: #ffd23f;
+	border-color: #ffd23f;
+	color: var(--bg);
+}
 #map-body {
 	display: flex;
 	flex-direction: row;
