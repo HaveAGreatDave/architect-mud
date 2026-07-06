@@ -1,8 +1,0 @@
-{
-  "enemy_id": "enemy_architect_drone",
-  "id": "fbf74187-2c0e-4f1e-b9bc-c0630ccc4b46",
-  "max_count": 2,
-  "respawn_seconds": 400,
-  "spawn_weight": 30,
-  "zone_id": "zone_deep_waste"
-}

@@ -1,9 +1,0 @@
-{
-  "capacity_kw": 50,
-  "flags": {},
-  "generator_id": "gen_zone_util_zone_drum_basement_1783116357933",
-  "id": "zone_util_zone_drum_basement",
-  "max_capacity_kw": 50,
-  "name": "Second Skin — Utility Room — Utility Room",
-  "source_type": "junction_box"
-}

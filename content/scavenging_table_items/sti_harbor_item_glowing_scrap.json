@@ -1,8 +1,0 @@
-{
-  "difficulty": 6,
-  "id": "sti_harbor_item_glowing_scrap",
-  "item_id": "item_glowing_scrap",
-  "max_qty": 1,
-  "table_id": "scav_harbor",
-  "weight": 6
-}

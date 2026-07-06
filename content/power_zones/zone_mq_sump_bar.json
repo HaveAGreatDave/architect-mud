@@ -1,9 +1,0 @@
-{
-  "capacity_kw": 5400,
-  "flags": {},
-  "generator_id": "gen_zone_mq_sump_util",
-  "id": "zone_mq_sump_bar",
-  "max_capacity_kw": 5400,
-  "name": "Sump",
-  "source_type": "junction_box"
-}

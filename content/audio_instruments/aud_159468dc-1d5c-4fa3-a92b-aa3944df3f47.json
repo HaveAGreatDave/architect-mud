@@ -1,9 +1,0 @@
-{
-  "category": "misc",
-  "config": {},
-  "enabled": 1,
-  "id": "aud_159468dc-1d5c-4fa3-a92b-aa3944df3f47",
-  "name": "drifting_mix_i16",
-  "sample_id": "smp_b6af7ce8-5ef3-4225-a94d-11194e1ce2f4",
-  "waveform": "sine"
-}

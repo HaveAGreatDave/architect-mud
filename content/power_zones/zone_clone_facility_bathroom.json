@@ -1,9 +1,0 @@
-{
-  "capacity_kw": 4000,
-  "flags": {},
-  "generator_id": "gen_zone_start_z-1_1782276270002_1782276285855",
-  "id": "zone_clone_facility_bathroom",
-  "max_capacity_kw": 4000,
-  "name": "Coldwater Clone Facility - Bathroom",
-  "source_type": "building_generator"
-}

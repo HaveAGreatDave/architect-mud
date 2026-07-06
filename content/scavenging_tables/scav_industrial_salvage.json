@@ -1,9 +1,0 @@
-{
-  "fishing_bait_catches": [],
-  "fishing_monsters": [],
-  "flags": {},
-  "id": "scav_industrial_salvage",
-  "messages": {},
-  "name": "Industrial Salvage",
-  "replenish_interval_seconds": 120
-}

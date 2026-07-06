@@ -1,9 +1,0 @@
-{
-  "capacity_kw": 1000,
-  "flags": {},
-  "generator_id": "gen_zone_util_zone_hangar_waste_scald_1783296274964",
-  "id": "zone_hangar_waste_scald",
-  "max_capacity_kw": 1000,
-  "name": "Redline Airstrip Hangar",
-  "source_type": "junction_box"
-}

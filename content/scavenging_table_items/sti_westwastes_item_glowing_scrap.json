@@ -1,8 +1,0 @@
-{
-  "difficulty": 6,
-  "id": "sti_westwastes_item_glowing_scrap",
-  "item_id": "item_glowing_scrap",
-  "max_qty": 2,
-  "table_id": "scav_west_wastes",
-  "weight": 8
-}

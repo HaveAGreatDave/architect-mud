@@ -1,8 +1,0 @@
-{
-  "difficulty": 3,
-  "id": "sti_harbor_item_fresh_catch",
-  "item_id": "item_fresh_catch",
-  "max_qty": 3,
-  "table_id": "scav_harbor",
-  "weight": 22
-}

@@ -1,9 +1,0 @@
-{
-  "capacity_kw": 50,
-  "flags": {},
-  "generator_id": "gen_zone_util_zone_velk_basement_1783116356678",
-  "id": "zone_velk_shop",
-  "max_capacity_kw": 50,
-  "name": "Velk's Pre-Owned Furnishings",
-  "source_type": "junction_box"
-}

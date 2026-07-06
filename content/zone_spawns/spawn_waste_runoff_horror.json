@@ -1,8 +1,0 @@
-{
-  "enemy_id": "enemy_tar_horror",
-  "id": "spawn_waste_runoff_horror",
-  "max_count": 1,
-  "respawn_seconds": 320,
-  "spawn_weight": 45,
-  "zone_id": "zone_waste_runoff"
-}

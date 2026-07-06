@@ -1,9 +1,0 @@
-{
-  "capacity_kw": 50,
-  "flags": {},
-  "generator_id": "gen_zone_util_zone_meridian_lobby_1783116354849",
-  "id": "zone_meridian_unit_201",
-  "max_capacity_kw": 50,
-  "name": "Unit 201",
-  "source_type": "junction_box"
-}

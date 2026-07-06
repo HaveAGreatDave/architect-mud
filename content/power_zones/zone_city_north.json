@@ -1,9 +1,0 @@
-{
-  "capacity_kw": 4000,
-  "flags": {},
-  "generator_id": "gen_zone_powerplantnew_1782069598190",
-  "id": "zone_city_north",
-  "max_capacity_kw": 4000,
-  "name": "Threshold Plaza North",
-  "source_type": "city_grid"
-}

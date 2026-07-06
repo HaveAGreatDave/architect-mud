@@ -1,9 +1,0 @@
-{
-  "capacity_kw": 5400,
-  "flags": {},
-  "generator_id": "gen_zone_mq_precinct_util",
-  "id": "zone_mq_precinct_lobby",
-  "max_capacity_kw": 5400,
-  "name": "Precinct 9 — Lobby",
-  "source_type": "junction_box"
-}

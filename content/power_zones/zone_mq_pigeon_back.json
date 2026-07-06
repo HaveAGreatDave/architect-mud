@@ -1,9 +1,0 @@
-{
-  "capacity_kw": 5400,
-  "flags": {},
-  "generator_id": "gen_zone_mq_pigeon_util",
-  "id": "zone_mq_pigeon_back",
-  "max_capacity_kw": 5400,
-  "name": "The Dead Pigeon — Back Booth",
-  "source_type": "junction_box"
-}

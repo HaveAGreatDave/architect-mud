@@ -1,9 +1,0 @@
-{
-  "capacity_kw": 500,
-  "flags": {},
-  "generator_id": "gen_zone_util_1782953094650_1782953094650",
-  "id": "zone_studio_1782953094650",
-  "max_capacity_kw": 500,
-  "name": "KSAB-TV Studio Stage",
-  "source_type": "junction_box"
-}
