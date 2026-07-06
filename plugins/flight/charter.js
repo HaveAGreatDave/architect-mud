@@ -34,13 +34,15 @@ const SHIFT_HOURS = 8;
 const AUTO_DISEMBARK_MS = 20000;
 const BOARD_TIMEOUT_MS = 120000; // the pilot waits this long at the hangar for you to embark
 const TAXI_MS = 4500;            // taxi-out beat between embark and rotate (the "rolls, rotates" moment)
+const ROLL_MS = 6000;            // ground-roll acceleration after taxi — throttle ramps up over this span instead of snapping straight to cruise power
 const CHARTER_TICK_MS = 2500;
 // Tiles/tick the NPC covers. The world map is small (~11 tiles between the farthest
 // fields), so a "realistic" cruise speed used to cover it in 2-3 ticks — takeoff,
 // one glimpse of sky, landing, all inside ~10s. Charters are a scenic ride, not a
 // teleport: this is deliberately slow (~0.12 tiles/sec) so even the shortest hop
 // between adjacent fields runs a proper couple of dozen seconds of narrated flight.
-const CRUISE_TILES = 0.3;
+const CRUISE_TILES = 0.15;
+const CHATTER_MIN_GAP_MS = 10000; // pilot speaks at most once every 10s of flight
 const CHARTER_ALT = 480;         // nominal 'low'-band cruise height for the synthesized attitude
 // The chair a pilot sits on inside the walk-in hangar. Must match the furniture
 // `name` seeded by scripts/seed-hangar-interiors.js.
@@ -191,7 +193,7 @@ export async function cmdCharter(args, raw, player) {
       return { type: 'emote', message: busy.phase === 'boarding'
         ? "Your charter's already fuelled and waiting at the hangar — <b>embark</b> to go, or <b>cancel</b> to call it off (no charge)."
         : "You're already booked on a charter. Type <b>cancel</b> if you've changed your mind." };
-    if (busy.phase === 'boarding' || busy.phase === 'departing')
+    if (busy.phase === 'boarding' || busy.phase === 'departing' || busy.phase === 'rolling')
       return { type: 'emote', message: `${pilot.name} is readying a charter for someone else — wait your turn.` };
     return { type: 'emote', message: `${pilot.name} is out on a run to ${busy.destName}. Wait for them to get back.` };
   }
@@ -442,18 +444,31 @@ async function charterTick() {
         }
         continue;
       }
-      // Taxiing out after embark — hold on the ground until rollAt, then rotate away.
+      // Taxiing out after embark — hold on the ground until rollAt, then start the roll.
       if (ch.phase === 'departing') {
         if (Date.now() < ch.rollAt) { pushHud(live); continue; }
-        ch.phase = 'enroute';
-        live.row.airborne = 1; live.row.altitude_band = 'low'; live.row.parked_zone_id = null; live.row.throttle = 75;
-        live.fx = ch.fx; live.fy = ch.fy;
+        ch.phase = 'rolling';
+        ch.rollStartAt = Date.now();
         live.row.heading = String(Math.round(bearingDeg(ch.fx, ch.fy, ch.tx, ch.ty)));
+        toOccupants(live, `<span class="text-cyan">${ch.pilotName}: "Throttle up — rolling."</span>`);
+        sendToZone(ch.homeField, { type: 'zone_event', message: `${ch.pilotName}'s ${live.type.name} throttles up and starts rolling down the strip toward ${ch.destName}.`, refresh: true });
+        pushHud(live);
+        continue;
+      }
+      // Ground roll — throttle ramps up over a few ticks (ramp, not a snap) before rotate.
+      if (ch.phase === 'rolling') {
+        const t = Math.min(1, (Date.now() - ch.rollStartAt) / ROLL_MS);
+        live.row.throttle = Math.round(35 + t * 55);
+        pushHud(live);
+        if (t < 1) continue;
+        ch.phase = 'enroute';
+        live.row.airborne = 1; live.row.altitude_band = 'low'; live.row.parked_zone_id = null;
+        live.fx = ch.fx; live.fy = ch.fy;
         delete live._contHdg; live._contAlt = 0; chaseCont(live);   // climb out from the deck, wings-level off the mark
         await persist(live);
         pushHud(live);
-        toOccupants(live, `<span class="text-cyan">${ch.pilotName}: "Throttle up — rolling. V1, rotate. Positive rate, gear up. Straight line to ${ch.destName}."</span>`);
-        sendToZone(ch.homeField, { type: 'zone_event', message: `${ch.pilotName}'s ${live.type.name} rolls down the strip, rotates and climbs away toward ${ch.destName}.`, refresh: true });
+        toOccupants(live, `<span class="text-cyan">${ch.pilotName}: "V1, rotate. Positive rate, gear up. Straight line to ${ch.destName}."</span>`);
+        sendToZone(ch.homeField, { type: 'zone_event', message: `${ch.pilotName}'s ${live.type.name} rotates and climbs away toward ${ch.destName}.`, refresh: true });
         log({ player: getLivePlayer(ch.playerId)?.handle || '?', pilot: ch.pilotName, from: ch.homeName, to: ch.destName, status: 'en route' });
         continue;
       }
@@ -470,11 +485,12 @@ async function charterTick() {
         live.row.grid_x = Math.round(live.fx); live.row.grid_y = Math.round(live.fy);
         live.row.heading = String(Math.round(bearingDeg(live.fx, live.fy, ch.tx, ch.ty)));
         chaseCont(live, step.d);   // keep the air-to-air attitude in step with the leg (sink on short final)
-        if (!silent) {
+        if (!silent && Date.now() >= (ch._nextChatAt || 0)) {
           const below = surfaceAt(live.row.grid_x, live.row.grid_y);
           const roll = Math.random();
           if (roll < 0.34) toOccupants(live, `<span class="text-cyan">${ch.pilotName}: "${pilotChatter(ch, live, below)}"</span>`);
           else if (roll < 0.68) toOccupants(live, `<span class="text-dim">${below ? 'Below: ' + below.name + '.' : 'Open ground slides past below.'} ${Math.max(1, Math.round(step.d))} out.</span>`);
+          ch._nextChatAt = Date.now() + CHATTER_MIN_GAP_MS;
         }
         pushHud(live);
       } else if (ch.phase === 'arrived') {

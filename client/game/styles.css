@@ -6765,18 +6765,18 @@ textarea {
 .mediadeck-tape-guide {
 	width: 4px;
 	height: 24px;
-	/* Solid brushed-grey metal capstan at ALL times (not the deck's tinted fill) —
+	/* Accent-coloured capstan at ALL times (not the deck's tinted fill) —
 	   top-lit machined pin; recessed vs proud is shading + scale, not fill swap. */
-	background: linear-gradient(to bottom, #c4c8cf 0%, #9a9ea7 42%, #6a6e77 100%);
+	background: linear-gradient(to bottom, var(--accent) 0%, var(--accent) 42%, var(--accent-dim) 100%);
 	border-radius: 2px;
 	transition: opacity 0.3s;
 }
 .mediadeck-tape-head {
 	width: 8px;
 	height: 18px;
-	background: linear-gradient(to bottom, #c4c8cf 0%, #9a9ea7 42%, #6a6e77 100%);
+	background: linear-gradient(to bottom, var(--accent) 0%, var(--accent) 42%, var(--accent-dim) 100%);
 	border-radius: 2px;
-	border: 1px solid #565a63;
+	border: 1px solid var(--accent-dim);
 	transition: opacity 0.3s;
 }
 /* Capstan/head sockets: a dark recessed cutout punched through the shell behind
@@ -8218,19 +8218,19 @@ textarea {
 .amp-tape-guide {
 	width: 4px;
 	height: 28px;
-	/* Solid brushed-grey metal capstan at ALL times (never the chassis colour) —
+	/* Accent-coloured capstan at ALL times (never the chassis colour) —
 	   top-lit so it reads as a real machined pin. Recessed vs proud is conveyed by
 	   shading + scale below, not by swapping the fill. */
-	background: linear-gradient(to bottom, #c4c8cf 0%, #9a9ea7 42%, #6a6e77 100%);
+	background: linear-gradient(to bottom, var(--accent) 0%, var(--accent) 42%, var(--accent-dim) 100%);
 	border-radius: 2px;
 	transition: opacity 0.3s;
 }
 .amp-tape-head {
 	width: 10px;
 	height: 20px;
-	background: linear-gradient(to bottom, #c4c8cf 0%, #9a9ea7 42%, #6a6e77 100%);
+	background: linear-gradient(to bottom, var(--accent) 0%, var(--accent) 42%, var(--accent-dim) 100%);
 	border-radius: 2px;
-	border: 1px solid #565a63;
+	border: 1px solid var(--accent-dim);
 	transition: opacity 0.3s;
 }
 /* Capstan/head sockets: a dark recessed cutout punched through the graphite
