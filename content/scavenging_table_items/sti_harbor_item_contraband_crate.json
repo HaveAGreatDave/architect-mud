@@ -1,0 +1,8 @@
+{
+  "difficulty": 8,
+  "id": "sti_harbor_item_contraband_crate",
+  "item_id": "item_contraband_crate",
+  "max_qty": 1,
+  "table_id": "scav_harbor",
+  "weight": 4
+}

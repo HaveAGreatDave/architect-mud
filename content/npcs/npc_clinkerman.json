@@ -1,0 +1,119 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "A stooped scavenger-broker who works a cart of sorted salvage out here where the machine-shells den. Grease-black to the elbow, eyes like ball bearings.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Grey keeps. I'll be here.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let's trade.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Nothing today.",
+          "next": "bye"
+        }
+      ],
+      "text": "The Clinkerman spreads grease-black hands over a cart of sorted salvage. \"Buyin' scrap, sellin' worse. What're you carryin'?\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a coat of stitched tarp and wire",
+      "layers of grease-stiff rags",
+      "whatever was underneath, best not asked"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_waste_grit",
+  "hp": 22,
+  "hp_max": 22,
+  "id": "npc_clinkerman",
+  "name": "The Clinkerman",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_scrap_metal",
+      "price": 4
+    },
+    {
+      "item_id": "item_salvaged_wiring",
+      "price": 8
+    },
+    {
+      "item_id": "item_cracked_capacitor",
+      "price": 14
+    },
+    {
+      "item_id": "item_ration",
+      "price": 10
+    },
+    {
+      "item_id": "canteen",
+      "price": 15
+    },
+    {
+      "item_id": "item_rusty_knife",
+      "price": 28
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "The Clinkerman's Cart",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_waste_grit"
+}

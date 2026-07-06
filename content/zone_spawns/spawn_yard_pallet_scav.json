@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_scav",
+  "id": "spawn_yard_pallet_scav",
+  "max_count": 1,
+  "respawn_seconds": 240,
+  "spawn_weight": 45,
+  "zone_id": "zone_yard_pallet"
+}

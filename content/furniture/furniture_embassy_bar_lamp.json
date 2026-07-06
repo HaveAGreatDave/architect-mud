@@ -1,0 +1,18 @@
+{
+  "description": "A small brass lamp at the end of the counter — the one bit of lighting in the room that isn't fluorescent.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_embassy_bar_lamp",
+  "light_type": "lamp",
+  "lumen_output": 400,
+  "name": "bar lamp",
+  "object_type": "light",
+  "power_draw_kw": 5,
+  "price": 30,
+  "zone_id": "zone_residential_lobby"
+}

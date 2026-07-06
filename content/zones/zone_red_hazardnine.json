@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "A breached containment door hangs open on Hazard Nine, and the dark inside it breathes out.",
+    "Faded trefoil signs march away into the ruin, each one more emphatic and less obeyed than the last."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#ff0000",
+  "color": "#eeeeee",
+  "created_by": "phase12-build",
+  "danger_rating": "lethal",
+  "description": "A containment zone from the old world, numbered nine, breached decades ago and never resealed because no one who went to reseal it came back. The signage still insists, politely and in three languages, that you should not be reading it.",
+  "exits": {
+    "east": "zone_red_meltline",
+    "north": "zone_red_killingfloor",
+    "south": "zone_red_cullrow",
+    "west": "zone_red_radsink"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_irradiated_salvage"
+  },
+  "grid_x": -9,
+  "grid_y": -6,
+  "grid_z": 0,
+  "id": "zone_red_hazardnine",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "HN",
+  "name": "Hazard Nine",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 4,
+  "updated_at": "1783123886"
+}

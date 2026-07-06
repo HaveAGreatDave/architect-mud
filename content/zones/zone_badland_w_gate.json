@@ -1,0 +1,41 @@
+{
+  "ambient_events": [
+    "The ruins groan somewhere behind you. Structural settling, probably.",
+    "A long-dead cable sways and taps against a gantry.",
+    "Grit hisses across the cracked concrete and pools in the old wheel-ruts."
+  ],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#53565c",
+  "color": "#eeeeee",
+  "created_by": null,
+  "danger_rating": "low",
+  "description": "The processing yards peter out here into a maze of collapsed sheds and rusted-shut gantries. Everything worth stripping was stripped generations ago; what remains is too big or too broken to carry. The quiet has the particular weight of a place people simply stopped coming to.",
+  "exits": {
+    "east": "zone_outskirts",
+    "west": "zone_ruins"
+  },
+  "flags": {
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "no_spawn": true,
+    "scavenging_table_id": "scav_roadside_junk",
+    "world_exit_zone": null
+  },
+  "grid_x": -3,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_badland_w_gate",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "QW",
+  "name": "The Rust Quarter West",
+  "parent_zone": null,
+  "pvp_enabled": 1,
+  "radiation_level": 0,
+  "updated_at": "1783123848"
+}

@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "A consular flag — a logo, really — is lowered and a subtly different one raised.",
+    "Two rival consuls pass on the steps and exchange smiles like drawn blades."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#9b59b6",
+  "color": "#eeeeee",
+  "created_by": "phase9-build",
+  "danger_rating": "safe",
+  "description": "A cluster of corporate consulates flying flags that are really just logos, where the great powers of the city keep missions to one another and pretend at diplomacy between raids.",
+  "exits": {
+    "east": "zone_nc_ivory",
+    "north": "zone_nc_meridianheights",
+    "south": "zone_nc_palisade",
+    "west": "zone_bay_basin"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": 6,
+  "grid_y": -6,
+  "grid_z": 0,
+  "id": "zone_nc_consulate",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "Cs",
+  "name": "The Consulate",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

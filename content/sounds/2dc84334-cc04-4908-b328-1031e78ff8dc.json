@@ -1,0 +1,20 @@
+{
+  "category": "impact",
+  "descriptions": [
+    "Someone knocks on a door nearby.",
+    "A firm knock echoes through the wall.",
+    "Three sharp raps sound from close by.",
+    "A dull thud — someone knocking.",
+    "The hollow knock of knuckles on wood.",
+    "A polite double-knock, close by.",
+    "Knock knock. Whoever it is, they're persistent.",
+    "A single loud knock reverberates.",
+    "You hear someone rapping on a surface nearby.",
+    "A muffled knock — maybe a door, maybe not."
+  ],
+  "enabled": 1,
+  "id": "2dc84334-cc04-4908-b328-1031e78ff8dc",
+  "loudness": 1,
+  "name": "knock",
+  "propagation": "both"
+}

@@ -1,0 +1,16 @@
+{
+  "description": "A stacked containment system holding dormant Arbiter-Class Enforcement Units in sealed stasis bays. Each unit is suppressed into low-power readiness, retaining full combat cognition beneath enforced inactivity protocols.\n\n\n\n\n\n\n\n\n\nStatus indicators mark operational state: green (dormant), amber (simulation drift), white (recalibration), and red (Emergency Security Protocol—full combat cognition armed and deployment-ready).\n\n\n\n\n\n\n\n\n\nLinked to a central command core, the Array can reanimate individual units or entire enforcement lines within seconds. Even offline, it is not inert—only contained force waiting for release.",
+  "flags": {
+    "interactions": []
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_arbiter_array",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "arbiter array",
+  "object_type": "furniture",
+  "power_draw_kw": 5,
+  "price": 5000,
+  "zone_id": "zone_city_west"
+}

@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "A forklift alarm beeps its slow reverse into the flat and cuts out.",
+    "Two drivers argue over a charging cable with real, tired heat."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#007031",
+  "color": "#111111",
+  "created_by": "phase7-build",
+  "danger_rating": "low",
+  "description": "A concrete apron where the yard's forklifts are parked, charged, and fought over each shift. Tyre-black scuffs map a hundred near-misses across the slab.",
+  "exits": {
+    "north": "zone_yard_weighbridge",
+    "south": "zone_yard_railhead"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_roadside_junk"
+  },
+  "grid_x": 8,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_yard_forklift",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "FK",
+  "name": "Forklift Flat",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123886"
+}

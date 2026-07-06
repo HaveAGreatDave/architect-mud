@@ -1,0 +1,35 @@
+{
+  "addiction_chance": 0.02,
+  "description": "Seventy-five pellets rattle in a little tin. You only need a few.",
+  "duration_seconds": 480,
+  "effects": {
+    "hallucination": {
+      "duration_seconds": 480,
+      "eventEverySec": 13,
+      "eventPool": [
+        "[trip]Everything is edged in shimmering gold, as if the world were a coin held to the light.[/trip]",
+        "[trip]Geometric patterns bloom across every wall, precise and ancient and alive.[/trip]",
+        "[trip]Your stomach rolls, but the nausea is just the door you have to walk through.[/trip]",
+        "[trip]A desert wind you cannot feel moves the shadows in long slow waves.[/trip]",
+        "[trip]An old voice, patient as stone, tells you a story in a language you were born knowing.[/trip]"
+      ],
+      "intensity": 0.7,
+      "mode": "overlay",
+      "palette": "gold"
+    },
+    "instant": {
+      "hunger": -6,
+      "sanity": -6
+    },
+    "tolerance": {
+      "gain_per_dose": 0.3,
+      "max_reduction": 0.9
+    }
+  },
+  "flags": {},
+  "id": "drug_mescaline",
+  "item_id": "item_mescaline",
+  "name": "Mescaline",
+  "overdose_threshold": 6,
+  "withdrawal_effects": {}
+}

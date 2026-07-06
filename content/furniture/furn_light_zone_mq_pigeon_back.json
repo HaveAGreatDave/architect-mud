@@ -1,0 +1,18 @@
+{
+  "description": "A single caged bulb slung low over the back booth, throwing more shadow than light. Ideal for conversations nobody should overhear.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_mq_pigeon_back",
+  "light_type": "lamp",
+  "lumen_output": 600,
+  "name": "booth lamp",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_mq_pigeon_back"
+}

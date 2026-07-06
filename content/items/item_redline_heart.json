@@ -1,0 +1,26 @@
+{
+  "description": "A fist-sized nodule of fused, still-warm tissue and glass cut from the thing that rules the killing floor. It ticks. It is proof no one else has, and the only people who want it are the ones who never have to hold it.",
+  "effects": {},
+  "flags": {
+    "description": "A ticking, fused nodule cut from the Redline apex.",
+    "radiates": true,
+    "radiation_damage": 2
+  },
+  "id": "item_redline_heart",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 1,
+  "name": "Redline heart",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "trophy",
+  "tags": {
+    "description": "Proof of the killing floor.",
+    "radioactive": true,
+    "trophy": true,
+    "valuable": true
+  },
+  "type": null,
+  "value": 120,
+  "weight": 6
+}

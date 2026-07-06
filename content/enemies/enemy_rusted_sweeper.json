@@ -1,0 +1,81 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {},
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 5,
+  "butcher_table": [],
+  "death_message": "The sweeper grinds to a halt, brushes still twitching, and goes dark.",
+  "description": "A municipal street-sweeping drone from the city's better days, still trundling its route on three good wheels and one bad one. Its brushes are worn to nubs and its logic to nothing. It does not recognise you as pavement, which is the only good news.",
+  "dodge": 1,
+  "faction": null,
+  "flags": {
+    "battle_cries": [
+      "$enemy grinds its worn brushes at $player.",
+      "$enemy pivots toward $player with a squeal of bearings.",
+      "$enemy emits a garbled municipal chime at $player.",
+      "$enemy trundles a wobbling circle around $player.",
+      "$enemy flashes a cracked warning light at $player."
+    ],
+    "first_strike_delay_ms": 6000
+  },
+  "hit": 1,
+  "hp_max": 18,
+  "id": "enemy_rusted_sweeper",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 55
+    },
+    {
+      "item": "item_credits_small",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 30
+    }
+  ],
+  "name": "Rusted Sweeper",
+  "weapon": [
+    {
+      "max": 2,
+      "min": 1,
+      "type": "kinetic"
+    }
+  ]
+}

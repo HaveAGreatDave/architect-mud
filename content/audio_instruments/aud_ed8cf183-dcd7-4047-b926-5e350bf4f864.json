@@ -1,0 +1,9 @@
+{
+  "category": "misc",
+  "config": {},
+  "enabled": 1,
+  "id": "aud_ed8cf183-dcd7-4047-b926-5e350bf4f864",
+  "name": "aftermath_i22",
+  "sample_id": "smp_b3e22adb-0191-4caa-a49b-4ecfcece7fc4",
+  "waveform": "sine"
+}

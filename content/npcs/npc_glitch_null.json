@@ -1,0 +1,37 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Null's fingers twitch through a keystroke pattern in the empty air.",
+    "\"Access denied. You are not — hkkt — one of us yet.\""
+  ],
+  "description": "Null talks in the cadence of a dial-up handshake and answers questions you didn't ask. He runs the Under's makeshift relays and guards them like a dog guards a bone it can no longer taste.",
+  "dialogue_tree": {},
+  "faction": "faction_glitch",
+  "flags": {
+    "clothing_layers": [
+      "a taped-together longcoat bristling with dead antennas",
+      "a black tee showing a corrupted logo",
+      "grey trunks"
+    ],
+    "faction_guard": true,
+    "personality": "lowlife"
+  },
+  "home_activities": [],
+  "home_zone": "zone_tunnels",
+  "hp": 90,
+  "hp_max": 90,
+  "id": "npc_glitch_null",
+  "name": "Null",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

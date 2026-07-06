@@ -1,0 +1,38 @@
+{
+  "ambient_events": [
+    "A rag on a paling turns to face you, then turns away.",
+    "The palings creak in sequence down the line, as if counting you past."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#7c6a4a",
+  "color": "#eeeeee",
+  "created_by": "phase4-build",
+  "danger_rating": "low",
+  "description": "A fence-line of scrap palings marches across the flat, warning off nobody. Rags and older things hang from the pickets, turning slowly in the wind.",
+  "exits": {
+    "east": "zone_waste_slake",
+    "west": "zone_waste_rustmarsh"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -6,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_waste_palings",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "PL",
+  "name": "The Palings",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

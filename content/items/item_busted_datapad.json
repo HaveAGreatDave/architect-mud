@@ -1,0 +1,20 @@
+{
+  "description": "A shattered slab of a personal terminal. The screen is dead but the storage might not be.",
+  "effects": {},
+  "flags": {},
+  "id": "item_busted_datapad",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "busted datapad",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A shattered slab of a personal terminal. The screen is dead but the storage might not be.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 25,
+  "weight": 300
+}

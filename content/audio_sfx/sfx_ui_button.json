@@ -1,0 +1,24 @@
+{
+  "category": "ui",
+  "config": {
+    "adsr": {
+      "a": 0.002,
+      "d": 0.06,
+      "r": 0.04,
+      "s": 0
+    },
+    "duration": 0.07,
+    "filter": {
+      "freq": 2400,
+      "q": 0.7,
+      "type": "lowpass"
+    },
+    "freq": 880,
+    "gain": 0.5,
+    "waveform": "triangle"
+  },
+  "enabled": 1,
+  "id": "sfx_ui_button",
+  "name": "ui_button",
+  "priority": 3
+}

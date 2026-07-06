@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_seed_19",
+  "lines": [
+    "\"Don't sleep near the east wall. Trust me.\"",
+    "\"Why, what's at the east wall?\"",
+    "\"...You don't wanna know. I know. That's enough for both of us.\""
+  ],
+  "personality": "vagrant",
+  "sort_order": 19
+}

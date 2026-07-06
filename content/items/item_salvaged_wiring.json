@@ -1,0 +1,20 @@
+{
+  "description": "A hank of copper wiring stripped from a dead wall, kinked but conductive.",
+  "effects": {},
+  "flags": {},
+  "id": "item_salvaged_wiring",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "salvaged wiring",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "electronic",
+  "tags": {
+    "description": "A hank of copper wiring stripped from a dead wall, kinked but conductive.",
+    "material": true
+  },
+  "type": null,
+  "value": 4,
+  "weight": 60
+}

@@ -1,0 +1,41 @@
+{
+  "ambient_events": [
+    "Something crashes several floors above. Then laughter.",
+    "A wall-mounted screen plays a looping corporate training video on conflict resolution."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#cf6a2e",
+  "color": "#111111",
+  "created_by": null,
+  "danger_rating": "medium",
+  "description": "Dense, vertical, and loud. Pre-Handoff apartment complexes have been stacked with improvised floors. The streets below are narrow tunnels of laundry lines and extension cords.",
+  "exits": {
+    "down": "zone_tunnels",
+    "east": "zone_deep_scab",
+    "north": "zone_city_south",
+    "south": "zone_deep_maw"
+  },
+  "flags": {
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "no_spawn": true,
+    "scavenging_table_id": "scav_roadside_junk",
+    "world_exit_zone": null
+  },
+  "grid_x": 0,
+  "grid_y": 2,
+  "grid_z": 0,
+  "id": "zone_slums",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "SP",
+  "name": "The Sprawl",
+  "parent_zone": null,
+  "pvp_enabled": 1,
+  "radiation_level": 0,
+  "updated_at": "1783123886"
+}

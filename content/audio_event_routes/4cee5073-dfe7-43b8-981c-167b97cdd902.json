@@ -1,0 +1,10 @@
+{
+  "ambient_id": null,
+  "enabled": 1,
+  "event_name": "weather.thunder",
+  "id": "4cee5073-dfe7-43b8-981c-167b97cdd902",
+  "sample_id": "smp_9054b2bd-3791-4fe6-8d88-88781e8b4a57",
+  "scope": "zone",
+  "sfx_id": null,
+  "song_id": null
+}

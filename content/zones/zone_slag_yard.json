@@ -1,0 +1,41 @@
+{
+  "ambient_events": [
+    "A pipe fails somewhere overhead and vents a long, hoarse sigh of stale gas.",
+    "Your boots stick, then peel free of the tar-slicked decking with a wet tear."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#e5822a",
+  "color": "#111111",
+  "created_by": null,
+  "danger_rating": "low",
+  "description": "The heart of the works: a maze of pipework and catwalks around the base of the great cracking columns, everything furred with rust and dripping something that eats through your soles if you stand too long. Salvage crews got the easy metal years ago. What's left is buried, or guarded, or both.",
+  "exits": {
+    "east": "zone_slag_gate",
+    "north": "zone_slag_catalyst",
+    "south": "zone_slag_sump",
+    "west": "zone_slag_rail"
+  },
+  "flags": {
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_industrial_salvage",
+    "world_exit_zone": null
+  },
+  "grid_x": -9,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_slag_yard",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "CY",
+  "name": "The Cracking Yard",
+  "parent_zone": null,
+  "pvp_enabled": 1,
+  "radiation_level": 0,
+  "updated_at": "1783123886"
+}

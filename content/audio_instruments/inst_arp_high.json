@@ -1,0 +1,31 @@
+{
+  "category": "misc",
+  "config": {
+    "adsr": {
+      "a": 0.001,
+      "d": 0.04,
+      "r": 0.06,
+      "s": 0.3
+    },
+    "filter": {
+      "freq": 1500,
+      "q": 1,
+      "type": "highpass"
+    },
+    "gain": 1,
+    "noiseMix": 0,
+    "tremolo": {
+      "depth": 0,
+      "rate": 0
+    },
+    "vibrato": {
+      "depth": 0,
+      "rate": 0
+    }
+  },
+  "enabled": 1,
+  "id": "inst_arp_high",
+  "name": "arp_high",
+  "sample_id": null,
+  "waveform": "square"
+}

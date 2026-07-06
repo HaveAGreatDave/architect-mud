@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "A bubble the size of your head rises through the sludge and pops with a flat, wet cough.",
+    "Something breaks the surface of the far pond, then thinks better of it."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#e5822a",
+  "color": "#111111",
+  "created_by": null,
+  "danger_rating": "medium",
+  "description": "Settling ponds step down the slope, their surfaces skinned over in oily rainbows that don't move even when the wind does. Whatever the works couldn't burn, it dumped here. The smell gets into your clothes and stays for days.",
+  "exits": {
+    "north": "zone_slag_yard",
+    "south": "zone_waste_ashencut",
+    "west": "zone_slag_drums"
+  },
+  "flags": {
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_irradiated_salvage",
+    "world_exit_zone": null
+  },
+  "grid_x": -9,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_slag_sump",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "ES",
+  "name": "The Effluent Sump",
+  "parent_zone": null,
+  "pvp_enabled": 1,
+  "radiation_level": 0,
+  "updated_at": "1783123848"
+}

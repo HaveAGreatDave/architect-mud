@@ -1,0 +1,50 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "The Almoner ladles another grey portion and does not look up.",
+    "\"Everyone eats. That's the whole sermon.\""
+  ],
+  "description": "A tired man of no discernible faith who keeps the breadline moving. He ladles grey nutrient paste with the steadiness of someone who has stopped expecting thanks.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Move down.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "The Almoner ladles something grey into a dented cup and offers it without looking up. \"Everyone eats. Even you. Move down when you're done.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a stained volunteer's tabard",
+      "a shapeless grey sweater",
+      "long johns gone soft with age"
+    ],
+    "personality": "charity"
+  },
+  "home_activities": [],
+  "home_zone": "zone_civ_commons",
+  "hp": 16,
+  "hp_max": 16,
+  "id": "npc_almoner",
+  "name": "The Almoner",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": null,
+  "vendor_restock_rate": 1,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_civ_commons"
+}

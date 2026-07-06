@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 4000,
+  "flags": {},
+  "generator_id": "gen_zone_powerplantnew_1782069598190",
+  "id": "zone_thresholdeast",
+  "max_capacity_kw": 4000,
+  "name": "The Threshold East",
+  "source_type": "city_grid"
+}

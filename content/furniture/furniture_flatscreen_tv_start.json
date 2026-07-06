@@ -1,0 +1,20 @@
+{
+  "description": "A sleek wall-mounted flatscreen in a thin brushed-chrome bezel — a pre-Collapse luxury set, its flat glass free of the fishbowl bulge and phosphor lines of the salvaged CRTs everyone else watches. It still pulls a crisp signal.",
+  "flags": {
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_skin": "flatscreen"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_flatscreen_tv_start",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Chrome Flatscreen",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_residential_lobby"
+}

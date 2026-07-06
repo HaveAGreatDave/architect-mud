@@ -1,0 +1,9 @@
+{
+  "category": "misc",
+  "config": {},
+  "enabled": 1,
+  "id": "aud_3f72d68b-73c8-4b78-9d4e-f7bece10c2a7",
+  "name": "ooze_10second_trans_i01",
+  "sample_id": "smp_1dfa20a0-86b7-4c7d-aa41-65eaaeaa25a1",
+  "waveform": "sine"
+}

@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_seed_14",
+  "lines": [
+    "\"Move along. Nothing to see here.\"",
+    "\"I live here.\"",
+    "\"Then live somewhere I'm not standing. Keep it moving.\""
+  ],
+  "personality": "guard",
+  "sort_order": 14
+}

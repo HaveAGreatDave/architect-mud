@@ -1,0 +1,150 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_1",
+        "type": "start"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "graphic_id": "jackpot_protocol_logo",
+        "next": "bsm_2",
+        "type": "title_card"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "label": "CAM — 2 — Audience",
+        "next": "bsm_11",
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "style": "narration",
+        "text": "The packed audience erupts into applause as holographic spotlights dance across the studio. Giant displays shimmer with spinning credit symbols while cameras glide effortlessly above the crowd.\r\n\r\n4s\r\n\r\nCAM 1 Main Stage\r\n\r\nLANCE:\r\nWelcome to Jackpot Protocol, KSAB's biggest night of entertainment, where everyday people compete for prizes beyond their wildest dreams.\r\n\r\nCAM 3 Prize Display\r\n\r\nOVERLAY grand_prize\r\nTONIGHT'S GRAND PRIZE\r\n\r\n250,000 CREDITS\r\n\r\nLUXURY SKYLOFT\r\n\r\nONE YEAR CORPORATE PLATINUM STATUS\r\nOVERLAY_END\r\n\r\n5s\r\n\r\nCAM 1 Main Stage\r\n\r\nLANCE:\r\nThree contestants. Five rounds. Countless possibilities.\r\n\r\nLANCE:\r\nEvery question answered correctly brings them one step closer to a brand-new life.\r\n\r\n♪ Audience applause ♪\r\n\r\nCAM 2 Contestants\r\n\r\nSHOT\r\nThree illuminated podiums rise from beneath the stage floor as the contestants wave nervously to the roaring crowd.\r\n\r\n4s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nLet's meet tonight's challengers!\r\n\r\nACTION npc_stage_assistant walks confidently across the stage.\r\n\r\nASSISTANT:\r\nAt podium one, maintenance technician Kara Holt!\r\n\r\n♪ Audience cheers ♪\r\n\r\n2s\r\n\r\nASSISTANT:\r\nAt podium two, independent courier Devon Marsh!\r\n\r\n♪ Audience cheers ♪\r\n\r\n2s\r\n\r\nASSISTANT:\r\nAnd at podium three, systems analyst Mia Voss!\r\n\r\n♪ Audience cheers ♪\r\n\r\n3s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nContestants... welcome to Jackpot Protocol.\r\n\r\nLANCE:\r\nAre you ready to play?\r\n\r\n♪ Audience cheers loudly ♪\r\n\r\nCAM 3 Contestants\r\n\r\nSHOT\r\nAll three contestants nod as the audience begins chanting.\r\n\r\n3s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nThen let's begin.\r\n\r\nTITLE ROUND ONE\r\n\r\n2s\r\n\r\nOVERLAY\r\nROUND ONE\r\n\r\nGENERAL KNOWLEDGE\r\n\r\n100 CREDITS PER CORRECT ANSWER\r\nOVERLAY_END\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nHere's your first question.\r\n\r\nOVERLAY\r\nQUESTION ONE\r\n\r\nWhich corporation operates the majority of Coldwater Basin's maglev transit system?\r\nOVERLAY_END\r\n\r\n8s\r\n\r\nCAM 2 Contestants\r\n\r\nSHOT\r\nA countdown clock appears above the stage while contestants lock in their answers.\r\n\r\n5s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nTime's up...\r\n\r\n2s\r\n\r\nOVERLAY\r\nCORRECT ANSWER\r\n\r\nMETRODYNE TRANSIT\r\nOVERLAY_END\r\n\r\n♪ Audience applauds ♪\r\n\r\nCAM 3 Scoreboard\r\n\r\nOVERLAY\r\nCURRENT SCORES\r\n\r\nKARA      100\r\n\r\nDEVON       0\r\n\r\nMIA        100\r\nOVERLAY_END\r\n\r\n4s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nAn excellent start!\r\n\r\nLANCE:\r\nWhen we return, the stakes get even higher, and only one contestant can earn a place in the Jackpot Round.\r\n\r\nMUSIC commercial_sting\r\nAudience applause fades beneath an energetic synth bumper.\r\nMUSIC_END\r\n\r\nCREDITS 20\r\nJACKPOT PROTOCOL\r\n\r\nHosted by\r\nLance Kessler\r\n\r\nProduced by\r\nKSAB Entertainment\r\n\r\nRecorded Before a Live Studio Audience\r\n\r\nEND_CREDITS\r\n\r\nEND",
+        "type": "say"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "duration": 2,
+        "next": "bsm_3",
+        "type": "wait"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "song": "jackpot_theme",
+        "text": "Huge audience applause. Upbeat synth fanfare. Lights sweep across the studio.",
+        "type": "music"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "label": "CAM — 1 — Main Stage",
+        "next": "bsm_5",
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "graphic_id": "",
+        "next": "bsm_6",
+        "overlayType": "lower_third",
+        "subtext": "Hosted by Lance Kessler",
+        "text": "JACKPOT PROTOCOL",
+        "type": "overlay"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "npc_id": "npc_lance_kessler",
+        "type": "npc_anchor"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "raw",
+        "text": "Good evening, Coldwater Basin!",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "style": "ambient",
+        "text": "♪ Audience cheers ♪",
+        "type": "say"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10",
+        "style": "raw",
+        "text": "I'm Lance Kessler, and tonight somebody's life is about to change!",
+        "type": "say"
+      }
+    }
+  },
+  "category": "entertainment",
+  "channel_id": "ch_7_1782953079593",
+  "created_by": "ab2d38d0-4f10-4187-8f53-298d61b525c3",
+  "description": "",
+  "enabled": 1,
+  "fallback_messages": [],
+  "id": "bc_1783114654023",
+  "loop": 0,
+  "message_interval": 5,
+  "messages": [
+    {
+      "text": "Good evening, Coldwater Basin!"
+    },
+    {
+      "text": "I'm Lance Kessler, and tonight somebody's life is about to change!"
+    },
+    {
+      "text": "The packed audience erupts into applause as holographic spotlights dance across the studio. Giant displays shimmer with spinning credit symbols while cameras glide effortlessly above the crowd.\r\n\r\n4s\r\n\r\nCAM 1 Main Stage\r\n\r\nLANCE:\r\nWelcome to Jackpot Protocol, KSAB's biggest night of entertainment, where everyday people compete for prizes beyond their wildest dreams.\r\n\r\nCAM 3 Prize Display\r\n\r\nOVERLAY grand_prize\r\nTONIGHT'S GRAND PRIZE\r\n\r\n250,000 CREDITS\r\n\r\nLUXURY SKYLOFT\r\n\r\nONE YEAR CORPORATE PLATINUM STATUS\r\nOVERLAY_END\r\n\r\n5s\r\n\r\nCAM 1 Main Stage\r\n\r\nLANCE:\r\nThree contestants. Five rounds. Countless possibilities.\r\n\r\nLANCE:\r\nEvery question answered correctly brings them one step closer to a brand-new life.\r\n\r\n♪ Audience applause ♪\r\n\r\nCAM 2 Contestants\r\n\r\nSHOT\r\nThree illuminated podiums rise from beneath the stage floor as the contestants wave nervously to the roaring crowd.\r\n\r\n4s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nLet's meet tonight's challengers!\r\n\r\nACTION npc_stage_assistant walks confidently across the stage.\r\n\r\nASSISTANT:\r\nAt podium one, maintenance technician Kara Holt!\r\n\r\n♪ Audience cheers ♪\r\n\r\n2s\r\n\r\nASSISTANT:\r\nAt podium two, independent courier Devon Marsh!\r\n\r\n♪ Audience cheers ♪\r\n\r\n2s\r\n\r\nASSISTANT:\r\nAnd at podium three, systems analyst Mia Voss!\r\n\r\n♪ Audience cheers ♪\r\n\r\n3s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nContestants... welcome to Jackpot Protocol.\r\n\r\nLANCE:\r\nAre you ready to play?\r\n\r\n♪ Audience cheers loudly ♪\r\n\r\nCAM 3 Contestants\r\n\r\nSHOT\r\nAll three contestants nod as the audience begins chanting.\r\n\r\n3s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nThen let's begin.\r\n\r\nTITLE ROUND ONE\r\n\r\n2s\r\n\r\nOVERLAY\r\nROUND ONE\r\n\r\nGENERAL KNOWLEDGE\r\n\r\n100 CREDITS PER CORRECT ANSWER\r\nOVERLAY_END\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nHere's your first question.\r\n\r\nOVERLAY\r\nQUESTION ONE\r\n\r\nWhich corporation operates the majority of Coldwater Basin's maglev transit system?\r\nOVERLAY_END\r\n\r\n8s\r\n\r\nCAM 2 Contestants\r\n\r\nSHOT\r\nA countdown clock appears above the stage while contestants lock in their answers.\r\n\r\n5s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nTime's up...\r\n\r\n2s\r\n\r\nOVERLAY\r\nCORRECT ANSWER\r\n\r\nMETRODYNE TRANSIT\r\nOVERLAY_END\r\n\r\n♪ Audience applauds ♪\r\n\r\nCAM 3 Scoreboard\r\n\r\nOVERLAY\r\nCURRENT SCORES\r\n\r\nKARA      100\r\n\r\nDEVON       0\r\n\r\nMIA        100\r\nOVERLAY_END\r\n\r\n4s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nAn excellent start!\r\n\r\nLANCE:\r\nWhen we return, the stakes get even higher, and only one contestant can earn a place in the Jackpot Round.\r\n\r\nMUSIC commercial_sting\r\nAudience applause fades beneath an energetic synth bumper.\r\nMUSIC_END\r\n\r\nCREDITS 20\r\nJACKPOT PROTOCOL\r\n\r\nHosted by\r\nLance Kessler\r\n\r\nProduced by\r\nKSAB Entertainment\r\n\r\nRecorded Before a Live Studio Audience\r\n\r\nEND_CREDITS\r\n\r\nEND"
+    }
+  ],
+  "name": "Jackpot Protocol",
+  "override_duration": 600,
+  "playback_mode": "scripted",
+  "sports_pools": null,
+  "tags": [],
+  "updated_at": "1783114654",
+  "weather_pools": null
+}

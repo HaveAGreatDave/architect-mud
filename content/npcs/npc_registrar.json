@@ -1,0 +1,101 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "The Registrar squares a stack of paper that is already square.",
+    "\"Everything is on file. Somewhere. In theory.\""
+  ],
+  "description": "A precise, papery woman who has outlasted the department she serves. She still stamps, files, and disapproves as if any of it will be audited.",
+  "dialogue_tree": {
+    "accepted": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_paper_trail"
+        }
+      ],
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Grime Row, The Bailey — the low, bad end of the wastes. Mind the ash, and mind the wight.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Do mind the filing.\""
+    },
+    "quest_offer": {
+      "options": [
+        {
+          "label": "I'll deal with it.",
+          "next": "accepted"
+        },
+        {
+          "label": "I've dealt with it. (report back)",
+          "next": "reported"
+        },
+        {
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Something's denning on a spool of lost citizen records out in the deep wastes — a slag wight, by the heat of it. Put it down so my people can recover the file, and I'll see you're paid and, more importantly, registered as helpful.\""
+    },
+    "reported": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_paper_trail"
+        }
+      ],
+      "options": [
+        {
+          "label": "Obliged.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"...Filed. Recovered. You're in the ledger now, for whatever that's worth. Take this for your trouble — and my thanks, off the record.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Anything I can do?",
+          "next": "quest_offer"
+        },
+        {
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "The Registrar peers over cracked spectacles. \"Records office. Mostly closed. Mostly. Was there something on file?\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a threadbare municipal blazer",
+      "a high-collared blouse",
+      "sensible, joyless underthings"
+    ],
+    "personality": "clerk"
+  },
+  "home_activities": [],
+  "home_zone": "zone_civ_ledger",
+  "hp": 16,
+  "hp_max": 16,
+  "id": "npc_registrar",
+  "name": "The Registrar",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": null,
+  "vendor_restock_rate": 1,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_civ_ledger"
+}

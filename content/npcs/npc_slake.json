@@ -1,0 +1,213 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "A rad-scarred former smelter-hand who runs the last shop before the Redline out of a cracked kiln, selling the gear that keeps the counter quiet. Half her face is a burn map and all of her advice is worth taking.",
+  "dialogue_tree": {
+    "accepted": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_meltline"
+        }
+      ],
+      "options": [
+        {
+          "label": "Two it is.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"West, past the fused rail. You'll know the Meltline by the way your teeth start aching. Vex Hollow's just inside it — that's where they den thickest. Two's enough to make the rest reconsider. Don't be a hero; heroes glow.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Keep the counter in your ear and the wind at your back. West of here, neither's a suggestion.\""
+    },
+    "cap_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_redline_core"
+        }
+      ],
+      "options": [
+        {
+          "label": "Keep it lit.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then go up the neck, past Vex Hollow, past Marrow Row where the larder is, out onto the open floor. It holds court there over the bones of everyone who tried this before you. Kill it, cut the heart, come back. If you come back. Wear both bands and don't stop moving.\" She almost smiles. \"I'll keep the fire lit.\""
+    },
+    "cap_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_redline_core"
+        }
+      ],
+      "options": [
+        {
+          "label": "I spent it well.",
+          "next": "bye"
+        }
+      ],
+      "text": "Slake takes the heart in both hands — still ticking, still warm — and for a long moment says nothing at all, the burn-mapped half of her face unreadable and the rest of it something close to awe. \"Then it can be touched. After all of them. After all these years.\" She sets it reverently on the counter, where it ticks between you. \"Everything I've got, I said. Take it. And take this too: you're the only one I've ever had to pay. Go careful. You've spent enough.\""
+    },
+    "capstone": {
+      "options": [
+        {
+          "label": "I'll bring you its heart.",
+          "next": "cap_accept"
+        },
+        {
+          "label": "I've got it here. (report back)",
+          "next": "cap_report"
+        },
+        {
+          "label": "Not for all the credits out here.",
+          "next": "bye"
+        }
+      ],
+      "text": "Something shutters behind her working eye. \"The core. The killing floor, right at the top of the world. I've sold gear to every fool who went west to see it and I've inventory to spare because none of them came back to spend the rest. There's a thing up there — the Redline bred it to rule the place. It ticks. You can hear its heart from across the floor.\" She studies you. \"If you're set on dying, do it useful. Bring me that heart. Proof the floor can be touched. I'll pay what a thing like that is worth, which is: everything I've got and a debt besides.\""
+    },
+    "reported": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_meltline"
+        }
+      ],
+      "options": [
+        {
+          "label": "Obliged, Slake.",
+          "next": "bye"
+        }
+      ],
+      "text": "Slake nods slowly, the working half of her face almost approving. \"The counter's quieter tonight. Won't last, nothing does out here — but it'll last long enough. Here. Take the pills; you've earned the years they'll buy you back.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Show me the gear.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Anything need doing out here?",
+          "next": "work"
+        },
+        {
+          "label": "What’s in the core itself?",
+          "next": "capstone"
+        },
+        {
+          "label": "Just passing.",
+          "next": "bye"
+        }
+      ],
+      "text": "Slake looks you over with the eye that still works and reads your odds in a glance. \"You're either lost or you're going west. Either way you'll want what I sell before you do. Counters, RadAway, a kit for when the RadAway's too late. Buying, bleeding, or brave?\""
+    },
+    "work": {
+      "options": [
+        {
+          "label": "I'll thin them out.",
+          "next": "accepted"
+        },
+        {
+          "label": "Already done. (report back)",
+          "next": "reported"
+        },
+        {
+          "label": "Not my problem.",
+          "next": "bye"
+        }
+      ],
+      "text": "Her jaw tightens. \"As it happens. The muties den past the Meltline, always have — but lately they're coming this side of it, toward my kiln, toward my customers. Put two of them down out there, at the Meltline or in Vex Hollow, and I'll square you in the only currency that matters out here: something to keep you alive.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a lead-lined smelter's apron gone stiff with age",
+      "layered rags against the wind",
+      "a rad-band on each wrist, both ticking"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_waste_brokenkiln",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_slake",
+  "name": "Slake",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_rad_band",
+      "price": 25
+    },
+    {
+      "item_id": "item_rad_pills",
+      "price": 25
+    },
+    {
+      "item_id": "item_medkit",
+      "price": 55
+    },
+    {
+      "item_id": "item_precursor_stim",
+      "price": 70
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "The Last Kiln",
+  "vendor_stock_size": 8,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_waste_brokenkiln"
+}

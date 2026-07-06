@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "A tap coughs, spits brown, then runs clear to a small ragged cheer.",
+    "Someone loses their place in line and does not make that mistake twice."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#4bb36a",
+  "color": "#111111",
+  "created_by": "phase2-build",
+  "danger_rating": "low",
+  "description": "A municipal water point where a queue forms daily at a bank of hissing taps. The line has its own etiquette, its own enforcers, and a very long memory.",
+  "exits": {
+    "east": "zone_up_aid"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "no_spawn": true,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": -3,
+  "grid_y": -2,
+  "grid_z": 0,
+  "id": "zone_civ_meltwater",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "MT",
+  "name": "Meltwater Row",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

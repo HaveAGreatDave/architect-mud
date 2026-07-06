@@ -1,0 +1,32 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "A gaunt, grey old bird of a man who talks to his aircraft more than to people. He takes the evening shift off Smuggler's Slip, and he will fly you absolutely anywhere — he just won't ask why.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "charter_pilot": {
+      "field": "zone_dock_slip",
+      "shift_start": 16
+    },
+    "personality": "charter_pilot"
+  },
+  "home_activities": [],
+  "home_zone": "zone_residential_lobby",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_charter_kessler",
+  "name": "Old Kessler",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_dock_slip"
+}

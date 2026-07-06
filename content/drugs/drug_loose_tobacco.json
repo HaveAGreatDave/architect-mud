@@ -1,0 +1,21 @@
+{
+  "addiction_chance": 0,
+  "description": "A gram of shredded cured tobacco in a pouch. Roll it into a cigarette — or chew it, if you must.",
+  "duration_seconds": 60,
+  "effects": {
+    "instant": {
+      "sanity": 1
+    }
+  },
+  "flags": {
+    "color": "#8a6a3a",
+    "form": "leaf",
+    "legal": true,
+    "sub": "dried"
+  },
+  "id": "drug_loose_tobacco",
+  "item_id": "item_loose_tobacco",
+  "name": "loose tobacco",
+  "overdose_threshold": 5,
+  "withdrawal_effects": {}
+}

@@ -1,0 +1,66 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {},
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 20
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 60
+    },
+    {
+      "part": "tail",
+      "soak": {},
+      "weight": 20
+    }
+  ],
+  "butcher_difficulty": 4,
+  "butcher_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 100
+    }
+  ],
+  "death_message": "The eel thrashes itself still and lies steaming on the boards.",
+  "description": "A black, cable-thick eel as long as a man is tall, its hide studded with the barnacled remains of fibre-optic sheathing it has swallowed and grown around. Its jaw is a ring of glassy, back-curved teeth.",
+  "dodge": 3,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy coils and lunges at $player, jaws wide.",
+      "$enemy lashes a whipcrack of muscle across the dock at $player.",
+      "$enemy's glassy teeth snap shut a hand's breadth from $player."
+    ],
+    "first_strike_delay_ms": 3000
+  },
+  "hit": 3,
+  "hp_max": 16,
+  "id": "enemy_cable_eel",
+  "loot_table": [
+    {
+      "item": "item_fresh_catch",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 40
+    }
+  ],
+  "name": "Cable Eel",
+  "weapon": [
+    {
+      "max": 6,
+      "min": 2,
+      "type": "kinetic"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "description": "A chunky control relay in a scorched housing. The contacts are pitted, but the copper is good.",
+  "effects": {},
+  "flags": {},
+  "id": "item_control_relay",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "industrial relay",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A chunky control relay in a scorched housing. The contacts are pitted, but the copper is good.",
+    "material": true
+  },
+  "type": "misc",
+  "value": 18,
+  "weight": 350
+}

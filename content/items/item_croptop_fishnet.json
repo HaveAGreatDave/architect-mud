@@ -1,0 +1,24 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_croptop_fishnet",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "fishnet crop top",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 0,
+    "bulkiness": 1,
+    "description": "A cropped net shirt that stops well above the navel and hides absolutely nothing beneath it — that is the point. Layer it over something, or don't, and make it everyone's problem.",
+    "insulation": 0,
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": null,
+  "value": 50,
+  "weight": 120
+}

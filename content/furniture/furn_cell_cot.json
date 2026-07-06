@@ -1,0 +1,19 @@
+{
+  "description": "A steel shelf welded to the wall, topped with a vinyl pad the thickness of a sympathy card. It is not comfortable. It is, technically, a place to lie down until the clock lets you out.",
+  "flags": {
+    "interactions": [
+      "sit",
+      "lie"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cell_cot",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "bolted steel cot",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_precinct_holding"
+}

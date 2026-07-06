@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "A frosted door opens, exhales climate-controlled air, and closes on nothing.",
+    "Two security operators clock you, confer without words, and keep watching."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#ff5ea8",
+  "color": "#111111",
+  "created_by": "phase5-build",
+  "danger_rating": "safe",
+  "description": "A black-marble court ringed by frontages so exclusive they have no signage at all. If you have to ask what's sold here, a discreet security detail will ask you to leave.",
+  "exits": {
+    "west": "zone_nc_halcyon"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "gov_enclave": true,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": 0,
+  "grid_y": -7,
+  "grid_z": 0,
+  "id": "zone_nc_sable",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "SB",
+  "name": "Sable Court",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

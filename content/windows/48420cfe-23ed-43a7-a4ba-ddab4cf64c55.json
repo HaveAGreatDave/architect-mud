@@ -1,0 +1,13 @@
+{
+  "curtain_open": 1,
+  "description": "A window.",
+  "flags": {},
+  "glass_state": "intact",
+  "handle": "window",
+  "id": "48420cfe-23ed-43a7-a4ba-ddab4cf64c55",
+  "light_transmission": 0.8,
+  "name": "window",
+  "visibility_transmission": 0.8,
+  "zone_exterior": null,
+  "zone_interior": "zone_residential_lobby"
+}

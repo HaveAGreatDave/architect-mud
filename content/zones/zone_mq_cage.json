@@ -1,0 +1,37 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#e85aa0",
+  "color": "#eeeeee",
+  "created_by": null,
+  "danger_rating": "low",
+  "description": "A dogleg of a service lane roofed in corrugated tin that drums like gunfire whenever it rains, which is always. Every ground-floor window wears its own cage of rebar and welded mesh; commerce here is conducted through slots. The Cage anchors the lane — steel screen floor to ceiling, a clerk somewhere behind it, a shotgun somewhere behind the clerk. A hand-lettered sign promises OPEN and, unusually, means it.",
+  "exits": {
+    "in": "zone_mq_cage_shop",
+    "north": "zone_mq_precinct",
+    "south": "zone_meat_slaughter",
+    "west": "zone_mq_overpass"
+  },
+  "flags": {
+    "building_name": "The Cage",
+    "building_type": "shop",
+    "is_apartment": false,
+    "is_building": true,
+    "is_interior": false,
+    "scavenging_table_id": null,
+    "world_exit_zone": "zone_mq_overpass"
+  },
+  "grid_x": 5,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_mq_cage",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "CG",
+  "name": "Tin Lane",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123848"
+}

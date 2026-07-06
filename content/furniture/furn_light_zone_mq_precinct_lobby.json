@@ -1,0 +1,18 @@
+{
+  "description": "Banks of institutional fluorescents throw hard, shadowless light over the lobby. Everything looks guilty under them.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_mq_precinct_lobby",
+  "light_type": "overhead",
+  "lumen_output": 1600,
+  "name": "overhead fluorescents",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_mq_precinct_lobby"
+}

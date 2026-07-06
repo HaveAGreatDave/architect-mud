@@ -1,0 +1,8 @@
+{
+  "difficulty": 2,
+  "id": "sti_harbor_item_scrap_metal",
+  "item_id": "item_scrap_metal",
+  "max_qty": 3,
+  "table_id": "scav_harbor",
+  "weight": 16
+}

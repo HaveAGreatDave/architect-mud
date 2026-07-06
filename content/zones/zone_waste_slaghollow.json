@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "The pool in the hollow's bottom holds perfectly still, reflecting no sky.",
+    "Slag glass clinks and shifts on the hollow's slope, resettling."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#7c6a4a",
+  "color": "#eeeeee",
+  "created_by": "phase6-build",
+  "danger_rating": "low",
+  "description": "A hollow scooped from the flats where cooled slag was once dumped and forgotten. Rain has pooled in the bottom into something that reflects nothing.",
+  "exits": {
+    "east": "zone_waste_emberwaste",
+    "north": "zone_waste_ashensteppe",
+    "west": "zone_waste_sootbank"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -4,
+  "grid_y": -4,
+  "grid_z": 0,
+  "id": "zone_waste_slaghollow",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "Sw",
+  "name": "Slaghollow",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

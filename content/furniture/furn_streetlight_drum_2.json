@@ -1,0 +1,17 @@
+{
+  "description": "A second streetlight at the far end of the block. Someone has taped a flyer to the base that has since become illegible.",
+  "flags": {
+    "is_light": true,
+    "light_type": "streetlight"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_streetlight_drum_2",
+  "light_type": "streetlight",
+  "lumen_output": null,
+  "name": "streetlight",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 200,
+  "zone_id": "zone_drum_exterior"
+}

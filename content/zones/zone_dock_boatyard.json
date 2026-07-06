@@ -1,0 +1,38 @@
+{
+  "ambient_events": [
+    "A hull rings like a bell as the shipwright drives a rivet home.",
+    "A skeletal boat on its stand casts a cage of shadow across the yard."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#1fb5aa",
+  "color": "#111111",
+  "created_by": "phase3-build",
+  "danger_rating": "low",
+  "description": "A slipway of half-built and half-scrapped hulls, propped on stands, ribs bared to the weather. A shipwright works one of them with a heat-gun and a grudge.",
+  "exits": {
+    "east": "zone_nc_manifold",
+    "north": "zone_bay_breakwater",
+    "south": "zone_dock_slip"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_harbor"
+  },
+  "grid_x": 4,
+  "grid_y": -4,
+  "grid_z": 0,
+  "id": "zone_dock_boatyard",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "BY",
+  "name": "The Boat Yard",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

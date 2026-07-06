@@ -1,0 +1,20 @@
+{
+  "description": "A media cassette labeled \"Neighbors from 14B - Episode 12: The Loud Pipe (imported)\".",
+  "effects": {},
+  "flags": {},
+  "id": "item_cassette_neighbors_from_14b_episode_12_the_loud_pipe_imported",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 1,
+  "name": "Cassette: Neighbors from 14B - Episode 12: The Loud Pipe (imported)",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "cassette",
+  "tags": {
+    "broadcast_id": "bc_1783047062765",
+    "media_cassette": true
+  },
+  "type": "media",
+  "value": 0,
+  "weight": 100
+}

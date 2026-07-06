@@ -1,0 +1,42 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#4bb36a",
+  "color": "#111111",
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "The boulevard continues east as the buildings grow taller and crowd closer together, casting long shadows over the broken pavement. Collapsed skybridges hang between aging towers, their twisted steel frames silhouetted against flickering neon in the distance. Scattered barricades and burned-out vehicles narrow the roadway into a winding path through decades of neglect. Weathered signs advertise businesses that haven't existed in a generation, while loose cables sway overhead with a faint electrical buzz. Somewhere farther ahead, the city's heartbeat feels stronger, though whether it promises opportunity or danger is impossible to tell.",
+  "exits": {
+    "east": "zone_velk_exterior",
+    "in": "zone_furniture_store",
+    "south": "zone_city_se",
+    "west": "zone_threshold"
+  },
+  "flags": {
+    "airspace_restricted": true,
+    "artery": [
+      "Grand Avenue"
+    ],
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "no_spawn": true,
+    "scavenging_table_id": "scav_roadside_junk",
+    "world_exit_zone": null
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_thresholdeast",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "TE",
+  "name": "The Threshold East",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123848"
+}

@@ -1,0 +1,16 @@
+{
+  "description": "A knuckle-sized stainless basin jutting from the wall above the toilet. One push-button tap coughs out a thin stream of cold water — enough to drink, or to scrub the worst of the night off your hands.",
+  "flags": {
+    "water_source": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cell_sink",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "stainless cell sink",
+  "object_type": "sink",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_precinct_holding"
+}

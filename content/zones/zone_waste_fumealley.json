@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "Yellow fume pools in the alley and stirs, reluctantly, as you pass through it.",
+    "The air in Fume Alley thickens; your eyes water and the far end swims and vanishes."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#816e4d",
+  "color": "#eeeeee",
+  "created_by": "phase11-build",
+  "danger_rating": "medium",
+  "description": "A narrow alley between spoil-banks where the Slagworks' fumes pool when the wind drops, thick enough to lean on and yellow enough to taste. Nobody lingers in Fume Alley by choice, and few by accident survive it.",
+  "exits": {
+    "north": "zone_red_marrowrow",
+    "south": "zone_slag_catalyst",
+    "west": "zone_waste_cokeyard"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -9,
+  "grid_y": -2,
+  "grid_z": 0,
+  "id": "zone_waste_fumealley",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "FA",
+  "name": "Fume Alley",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 1,
+  "updated_at": "1783123886"
+}

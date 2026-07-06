@@ -1,0 +1,37 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Hex watches you with her head cocked, grinning at something only she can see.",
+    "\"Ooh. You've got such a pretty little password behind those eyes.\""
+  ],
+  "description": "Hex smiles too much and blinks too little, her skin traced with conductive ink that catches the tunnel-light like faint circuitry. She collects other people's passwords the way children collect shiny stones, for no reason she can explain.",
+  "dialogue_tree": {},
+  "faction": "faction_glitch",
+  "flags": {
+    "clothing_layers": [
+      "a hooded poncho of woven ribbon-cable",
+      "a cropped mesh top over circuit-inked skin",
+      "a black bra and boyshorts"
+    ],
+    "faction_guard": true,
+    "personality": "lowlife"
+  },
+  "home_activities": [],
+  "home_zone": "zone_tunnels",
+  "hp": 90,
+  "hp_max": 90,
+  "id": "npc_glitch_hex",
+  "name": "Hex",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

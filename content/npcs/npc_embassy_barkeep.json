@@ -1,0 +1,178 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "at_work": {
+        "action_type": "AT_WORK",
+        "next": "go_home",
+        "type": "action"
+      },
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "home_wait",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "at_work",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "go_to_work",
+        "type": "action"
+      },
+      "home_wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      }
+    }
+  },
+  "chitchat": [
+    "What'll it be?",
+    "You look like you've had a rough one.",
+    "Pay first. Trust later. That's policy.",
+    "You're not the first person to cry at this bar. Won't be the last.",
+    "I've heard worse. Much worse.",
+    "Last call was three hours ago. I'm still here.",
+    "We're out of the good stuff. We were always out of the good stuff.",
+    "Tab's running. Keep drinking.",
+    "I don't ask questions. That's why people come here.",
+    "You want ice with that? Funny."
+  ],
+  "description": "A former concierge, still buttoned into a frayed Embassy vest, polishing a glass that was already clean. Calls every customer \"valued guest,\" sincerity optional.",
+  "dialogue_tree": {
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "Lowry lowers his voice to something discreet."
+    },
+    "menu": {
+      "options": [
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "The Reserve is our signature pour — don't ask what's left to age it in. The Swill is also available, for guests with simpler tastes, or none. Canapés are complimentary with a drink. They are not actually complimentary."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's on the menu?",
+          "next": "menu"
+        },
+        {
+          "label": "Any news from the front desk?",
+          "next": "gossip"
+        },
+        {
+          "label": "Never mind.",
+          "next": null
+        }
+      ],
+      "text": "Welcome to the Embassy Lounge, valued guest. We maintain certain standards here, within reason. What can I get you?"
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a worn leather bar-apron",
+      "a tight black tee",
+      "black briefs"
+    ],
+    "mis_willing": false,
+    "personality": "bartender"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meridian_unit_102",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_embassy_barkeep",
+  "name": "Lowry Cormack",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_drink_embassy_reserve",
+      "price": 22,
+      "stock": 15
+    },
+    {
+      "item_id": "item_drink_basin_swill",
+      "price": 4,
+      "stock": 99
+    },
+    {
+      "item_id": "item_embassy_canapes",
+      "price": 9,
+      "stock": 25
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_residential_lobby"
+}

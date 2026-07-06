@@ -1,0 +1,17 @@
+{
+  "description": "A standard-issue institutional toilet. It works. That's the most you can say about it.",
+  "flags": {
+    "interactions": [],
+    "water_source": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_1782367480433",
+  "light_type": null,
+  "lumen_output": 400,
+  "name": "toilet",
+  "object_type": "furniture",
+  "power_draw_kw": 5,
+  "price": 90,
+  "zone_id": "zone_clone_facility_bathroom"
+}

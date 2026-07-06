@@ -1,0 +1,25 @@
+{
+  "description": "A slab of pale bay fish, still cold, faintly luminous where the scales catch the light. Best not to ask what it fed on.",
+  "effects": {
+    "hunger": 16
+  },
+  "flags": {},
+  "id": "item_fresh_catch",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "fresh catch",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "food",
+  "tags": {
+    "consumable": true,
+    "description": "A slab of pale bay fish, still cold.",
+    "restore_hunger": 16,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 7,
+  "weight": 250
+}

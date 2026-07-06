@@ -1,0 +1,23 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_nyra_iris_implant",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "augmented iris interface ring",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "bulkiness": 0,
+    "description": "A subtle cybernetic enhancement embedded in one eye. A thin golden ring floats within the iris, dynamically shifting as it tracks data — a quiet HUD embedded directly into vision.",
+    "insulation": 0,
+    "layer": "outerwear",
+    "slot": "head"
+  },
+  "type": "implant",
+  "value": 3500,
+  "weight": 0
+}

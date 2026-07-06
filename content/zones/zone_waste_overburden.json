@@ -1,0 +1,38 @@
+{
+  "ambient_events": [
+    "The overburden ridge sheds a slow trickle of spoil and settles a little lower.",
+    "Something small bolts across the overburden and vanishes into a gap in the spoil."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#e05555",
+  "color": "#eeeeee",
+  "created_by": "phase10-build",
+  "danger_rating": "low",
+  "description": "The overburden heap — the worthless top-layer stripped off to get at whatever was beneath — dumped and forgotten in a ridge that the wastes have claimed. It is, fittingly, the wastes made of the wastes' leftovers.",
+  "exits": {
+    "east": "zone_waste_tarseep",
+    "west": "zone_waste_pitnine"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -7,
+  "grid_y": -3,
+  "grid_z": 0,
+  "id": "zone_waste_overburden",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "TO",
+  "name": "The Overburden",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123886"
+}

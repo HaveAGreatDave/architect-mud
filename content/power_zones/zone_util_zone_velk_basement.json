@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 50,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_velk_basement_1783116356678",
+  "id": "zone_util_zone_velk_basement",
+  "max_capacity_kw": 50,
+  "name": "Velk's — Utility Room — Utility Room",
+  "source_type": "junction_box"
+}

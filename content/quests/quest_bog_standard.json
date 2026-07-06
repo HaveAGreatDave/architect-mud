@@ -1,0 +1,36 @@
+{
+  "description": "Tar-pit horrors have been dragging scavengers off the only clean water in the flats. Ma Cinder wants them dealt with.",
+  "id": "quest_bog_standard",
+  "name": "Bog Standard",
+  "objectives": [
+    {
+      "count": 2,
+      "desc": "Kill 2 tar-pit horrors in the flats (the seeps: Tar Seep, Rust Marsh, The Runoff)",
+      "id": "o1",
+      "target": "tar-pit horror",
+      "type": "kill"
+    }
+  ],
+  "repeatable": 0,
+  "rewards": {
+    "credits": 130,
+    "flags": [
+      {
+        "flag": "camp_favor",
+        "scope": "player",
+        "value": "earned"
+      }
+    ],
+    "items": [
+      {
+        "item_id": "item_water_bottle",
+        "quantity": 2
+      },
+      {
+        "item_id": "item_ration",
+        "quantity": 2
+      }
+    ]
+  },
+  "updated_at": "1783104890"
+}

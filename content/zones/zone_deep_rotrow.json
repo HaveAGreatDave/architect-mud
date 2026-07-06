@@ -1,0 +1,38 @@
+{
+  "ambient_events": [
+    "A drift of flies lifts, resettles, lifts again.",
+    "Something drips steadily from an awning that has no business being wet."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#cf6a2e",
+  "color": "#111111",
+  "created_by": "phase1-build",
+  "danger_rating": "medium",
+  "description": "The smell arrives before you do — a terrace of failed refrigeration and the produce it couldn't save. Flies the size of thumbnails work the air.",
+  "exits": {
+    "east": "zone_deep_wormtown",
+    "north": "zone_deep_warrens"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_roadside_junk"
+  },
+  "grid_x": -2,
+  "grid_y": 3,
+  "grid_z": 0,
+  "id": "zone_deep_rotrow",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "RR",
+  "name": "Rot Row",
+  "parent_zone": null,
+  "pvp_enabled": 1,
+  "radiation_level": 0,
+  "updated_at": "1783123846"
+}

@@ -1,0 +1,13 @@
+{
+  "category": "combat",
+  "key": "body_part_weights",
+  "label": "Body part hit weights",
+  "value": {
+    "head": 10,
+    "left_arm": 12,
+    "left_leg": 13,
+    "right_arm": 12,
+    "right_leg": 13,
+    "torso": 40
+  }
+}

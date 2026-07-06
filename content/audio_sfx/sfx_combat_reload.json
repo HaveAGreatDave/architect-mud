@@ -1,0 +1,18 @@
+{
+  "category": "combat",
+  "config": {
+    "adsr": {
+      "a": 0.0005,
+      "d": 0.015,
+      "r": 0.01,
+      "s": 0
+    },
+    "duration": 0.025,
+    "freq": 1500,
+    "waveform": "square"
+  },
+  "enabled": 1,
+  "id": "sfx_combat_reload",
+  "name": "combat_reload",
+  "priority": 3
+}

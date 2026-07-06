@@ -1,0 +1,107 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "A broad woman in a rubber apron who runs the taps like a border crossing. She has personally memorised who owes what, and to whom.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the queue.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Show me what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Later.",
+          "next": "bye"
+        }
+      ],
+      "text": "The Water Warden eyes your canteen. \"Clean water, five creds a bottle. Refills if you brought your own. Line forms behind you.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a heavy rubber apron",
+      "a patched utility jumpsuit",
+      "a sweat-grey undershirt"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_civ_meltwater",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_water_warden",
+  "name": "The Water Warden",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_water_bottle",
+      "price": 5
+    },
+    {
+      "item_id": "canteen",
+      "price": 15
+    },
+    {
+      "item_id": "item_ration",
+      "price": 10
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "The Meltwater Tap",
+  "vendor_stock_size": 8,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_civ_meltwater"
+}

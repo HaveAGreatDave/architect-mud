@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "A security operator paces the palisade, watching the yards below like weather.",
+    "The palisade wall is being raised another course, against nothing in particular."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#9b59b6",
+  "color": "#eeeeee",
+  "created_by": "phase9-build",
+  "danger_rating": "safe",
+  "description": "A rampart-walk along the district's edge, all defensive posturing and excellent sightlines, where private security patrol a wall that keeps out a threat the residents can't name.",
+  "exits": {
+    "east": "zone_nc_beacon",
+    "north": "zone_nc_consulate",
+    "south": "zone_waste_oxide",
+    "west": "zone_nc_highwater"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": 6,
+  "grid_y": -5,
+  "grid_z": 0,
+  "id": "zone_nc_palisade",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "Pa",
+  "name": "The Palisade",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

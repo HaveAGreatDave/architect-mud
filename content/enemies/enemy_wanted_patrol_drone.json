@@ -1,0 +1,49 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {},
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "energy": 2,
+        "kinetic": 1
+      },
+      "weight": 1
+    },
+    {
+      "part": "torso",
+      "soak": {
+        "energy": 2,
+        "kinetic": 1
+      },
+      "weight": 3
+    },
+    {
+      "part": "legs",
+      "soak": {
+        "energy": 2,
+        "kinetic": 1
+      },
+      "weight": 2
+    }
+  ],
+  "butcher_difficulty": 5,
+  "butcher_table": [],
+  "death_message": "The drone sparks, folds its legs, and goes dark.",
+  "description": "A knee-high quadruped drone with a strobing blue eye and a stun-lance. Fast and hard to swat.",
+  "dodge": 6,
+  "faction": "police",
+  "flags": {},
+  "hit": 4,
+  "hp_max": 30,
+  "id": "enemy_wanted_patrol_drone",
+  "loot_table": [],
+  "name": "SPECTER-PD Patrol Drone",
+  "weapon": [
+    {
+      "max": 4,
+      "min": 2,
+      "type": "energy"
+    }
+  ]
+}

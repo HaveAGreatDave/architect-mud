@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "Pipes knock somewhere in the walls. The building is old but it holds."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#e85aa0",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "A corner unit, which here means two windows instead of one and a draft to match. A bed, a footlocker, a sink that runs brown for a ten-count before it clears. The door is steel. The door is the point.",
+  "exits": {
+    "east": "zone_mq_chrome_f1"
+  },
+  "flags": {
+    "is_apartment": true
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_mq_chrome_104",
+  "is_safe_zone": 1,
+  "map_id": "map_int_mq_chrome",
+  "marker": null,
+  "name": "Unit 104",
+  "parent_zone": "zone_mq_chrome_lobby",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1782964408"
+}

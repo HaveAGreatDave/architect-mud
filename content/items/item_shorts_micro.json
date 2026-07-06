@@ -1,0 +1,25 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_shorts_micro",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "micro shorts",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 0,
+    "bulkiness": 1,
+    "description": "Denim shorts cut so high the pockets hang lower than the hem, pale threads fringing the edge. Technically legwear. Barely a technicality.",
+    "gets_wet": true,
+    "insulation": 0.5,
+    "layer": "outerwear",
+    "slot": "legs"
+  },
+  "type": null,
+  "value": 45,
+  "weight": 100
+}

@@ -1,0 +1,17 @@
+{
+  "description": "Your body has learned to metabolize radiation instead of being destroyed by it. Slowly.",
+  "drawbacks": [
+    "You glow faintly in the dark — stealth is harder"
+  ],
+  "effects": {
+    "rad_resistance": 0.3
+  },
+  "id": "mut_rad_absorption",
+  "name": "Rad Absorption",
+  "polarity": "positive",
+  "radiation_threshold": 80,
+  "stat_modifiers": {
+    "stat_end": 2
+  },
+  "visible": 1
+}

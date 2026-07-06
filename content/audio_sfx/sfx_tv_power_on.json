@@ -1,0 +1,29 @@
+{
+  "category": "tv",
+  "config": {
+    "adsr": {
+      "a": 0.005,
+      "d": 0.15,
+      "r": 0.15,
+      "s": 0.3
+    },
+    "duration": 0.35,
+    "filter": {
+      "freq": 3000,
+      "q": 1,
+      "type": "lowpass"
+    },
+    "freq": 40,
+    "gain": 0.4,
+    "noiseMix": 0.3,
+    "pitchBend": {
+      "time": 0.25,
+      "to": 600
+    },
+    "waveform": "sawtooth"
+  },
+  "enabled": 1,
+  "id": "sfx_tv_power_on",
+  "name": "tv_power_on",
+  "priority": 3
+}

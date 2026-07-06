@@ -1,0 +1,18 @@
+{
+  "description": "Floor-to-ceiling metal shelving, everything on it arranged by size. Whatever was here has been taken. The organisation left behind.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_apt3_shelves",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "metal shelving unit",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 120,
+  "zone_id": "zone_apt_3"
+}

@@ -1,0 +1,24 @@
+{
+  "category": "combat",
+  "config": {
+    "adsr": {
+      "a": 0.001,
+      "d": 0.08,
+      "r": 0.05,
+      "s": 0
+    },
+    "duration": 0.12,
+    "filter": {
+      "freq": 2500,
+      "q": 1,
+      "type": "lowpass"
+    },
+    "freq": 150,
+    "noiseMix": 0.8,
+    "waveform": "noise"
+  },
+  "enabled": 1,
+  "id": "sfx_combat_hit",
+  "name": "combat_hit",
+  "priority": 7
+}

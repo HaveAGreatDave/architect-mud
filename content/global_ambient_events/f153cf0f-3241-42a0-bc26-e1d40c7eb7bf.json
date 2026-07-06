@@ -1,0 +1,8 @@
+{
+  "enabled": 1,
+  "id": "f153cf0f-3241-42a0-bc26-e1d40c7eb7bf",
+  "loudness": 0.3,
+  "message": "Shapes in the fog resolve into buildings only when you're almost on top of them.",
+  "theme": "weather_fog",
+  "weight": 80
+}

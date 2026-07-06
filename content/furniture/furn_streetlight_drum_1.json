@@ -1,0 +1,17 @@
+{
+  "description": "A narrow streetlight with a cracked housing, buzzing softly. The neon sign from the shop is doing most of the actual illumination work.",
+  "flags": {
+    "is_light": true,
+    "light_type": "streetlight"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_streetlight_drum_1",
+  "light_type": "streetlight",
+  "lumen_output": null,
+  "name": "streetlight",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 200,
+  "zone_id": "zone_drum_exterior"
+}

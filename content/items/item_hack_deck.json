@@ -1,0 +1,21 @@
+{
+  "description": "A Nexis Systems 'IX' Breacher — mass-produced grey-market intrusion hardware, the housing stamped with a serial number someone filed half off. Clipped leads, a cracked case, a status LED that never quite goes dark.",
+  "effects": {},
+  "flags": {},
+  "id": "item_hack_deck",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "Nexus IX Infiltrator",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A Nexis Systems 'IX' Breacher — mass-produced grey-market intrusion hardware, the housing stamped with a serial number someone filed half off. Clipped leads, a cracked case, a status LED that never quite goes dark.",
+    "hack_device": true,
+    "misc": true
+  },
+  "type": "misc",
+  "value": 450,
+  "weight": 800
+}

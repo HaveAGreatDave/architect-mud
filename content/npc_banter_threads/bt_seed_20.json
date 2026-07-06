@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_seed_20",
+  "lines": [
+    "\"Pot's right. Cards are fair. Read your opponent, not your luck.\"",
+    "\"Easy for you to say. You deal them.\"",
+    "\"That's exactly why I say it.\"",
+    "squares the deck against the felt."
+  ],
+  "personality": "dealer",
+  "sort_order": 20
+}

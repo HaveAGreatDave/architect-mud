@@ -1,0 +1,38 @@
+{
+  "ambient_events": [
+    "Wind combs the ashen steppe into a new dune-line and erases your last step.",
+    "Far to the west, something red flickers on the horizon, and is gone."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#7c6a4a",
+  "color": "#eeeeee",
+  "created_by": "phase6-build",
+  "danger_rating": "low",
+  "description": "A wide grey steppe of drifted ash that runs west toward worse. The wind has combed it into long dunes that erase your trail as fast as you make it.",
+  "exits": {
+    "south": "zone_waste_slaghollow",
+    "west": "zone_waste_leachfield"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -4,
+  "grid_y": -5,
+  "grid_z": 0,
+  "id": "zone_waste_ashensteppe",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "AE",
+  "name": "Ashen Steppe",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

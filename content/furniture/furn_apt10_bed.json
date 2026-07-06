@@ -1,0 +1,19 @@
+{
+  "description": "A canvas camp bed under the low slope of the ceiling. Sit up too fast in the night and you'll learn exactly where the cornice cuts in.",
+  "flags": {
+    "interactions": [
+      "sit",
+      "lie"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt10_bed",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "camp bed",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 50,
+  "zone_id": "zone_apt_10"
+}

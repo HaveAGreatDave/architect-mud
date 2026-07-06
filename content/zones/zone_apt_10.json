@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "A single drip finds the bucket with a flat metallic tap."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#c9a884",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "Number 3B, back corner under the roof. The ceiling slopes where the building's cornice cuts in, low enough to crack your skull if you sit up wrong in the night. A camp bed, a footlocker, a hole in the plaster patched with a road sign. When it rains, the stain on the landing ceiling isn't the only one — you'll hear it here first, tapping the bucket someone thoughtfully left behind.",
+  "exits": {
+    "north": "zone_embassy_floor3"
+  },
+  "flags": {
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": true,
+    "is_building": false,
+    "is_interior": false,
+    "world_exit_zone": null
+  },
+  "grid_x": 0,
+  "grid_y": 1,
+  "grid_z": 2,
+  "id": "zone_apt_10",
+  "is_safe_zone": 0,
+  "map_id": "map_interior_zone_residential_lobby",
+  "marker": null,
+  "name": "Unit 3B",
+  "parent_zone": "zone_embassy_floor3",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783045464"
+}

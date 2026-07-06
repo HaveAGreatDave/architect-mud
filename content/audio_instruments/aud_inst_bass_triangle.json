@@ -1,0 +1,17 @@
+{
+  "category": "music",
+  "config": {
+    "adsr": {
+      "a": 0.005,
+      "d": 0.05,
+      "r": 0.12,
+      "s": 0.8
+    },
+    "gain": 0.85
+  },
+  "enabled": 1,
+  "id": "aud_inst_bass_triangle",
+  "name": "Bass Triangle",
+  "sample_id": null,
+  "waveform": "triangle"
+}

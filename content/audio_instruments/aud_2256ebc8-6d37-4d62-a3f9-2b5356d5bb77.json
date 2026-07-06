@@ -1,0 +1,9 @@
+{
+  "category": "misc",
+  "config": {},
+  "enabled": 1,
+  "id": "aud_2256ebc8-6d37-4d62-a3f9-2b5356d5bb77",
+  "name": "1st_fracture_i12",
+  "sample_id": "smp_9fbdbde2-cb1b-45ee-a404-eb3bc3e3a302",
+  "waveform": "sine"
+}

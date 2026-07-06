@@ -1,0 +1,36 @@
+{
+  "addiction_chance": 0.02,
+  "description": "A handful of wrinkled grey mushrooms grown in somebody's ventilation duct.",
+  "duration_seconds": 240,
+  "effects": {
+    "hallucination": {
+      "duration_seconds": 240,
+      "eventEverySec": 12,
+      "eventPool": [
+        "[trip]The walls take a slow, deliberate breath.[/trip]",
+        "[trip]The floor is a carpet of soft breathing moss now. It doesn't mind you standing on it.[/trip]",
+        "[trip]Every surface is faintly patterned with eyes, all of them kind.[/trip]",
+        "[trip]You can hear the colour green. It sounds like your grandmother's kitchen.[/trip]",
+        "[trip]Time pools in the corners of the room like warm honey.[/trip]",
+        "[trip]A shaft of light bends toward you and asks, without words, if you are okay.[/trip]"
+      ],
+      "intensity": 0.5,
+      "mode": "overlay",
+      "palette": "purple"
+    },
+    "instant": {
+      "sanity": -4
+    },
+    "tolerance": {
+      "gain_per_dose": 0.3,
+      "max_reduction": 0.9,
+      "recovery_per_sec": 0.0003
+    }
+  },
+  "flags": {},
+  "id": "drug_psilocybin",
+  "item_id": "item_psilocybin",
+  "name": "Psilocybin",
+  "overdose_threshold": 6,
+  "withdrawal_effects": {}
+}

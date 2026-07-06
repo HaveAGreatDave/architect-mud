@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "The grinning dead of Rictus Alley watch you pass with their fixed, patient, leather smiles.",
+    "A dried corpse propped against the wall has, you are almost certain, turned to follow you."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#ff0000",
+  "color": "#eeeeee",
+  "created_by": "phase12-build",
+  "danger_rating": "lethal",
+  "description": "A narrow alley where the dead lie where they fell, dried by the poisoned air into leather and locked, every one of them, into a wide fixed grin. They line the walls like an audience. They have been waiting a long time for the show, and you have just walked on.",
+  "exits": {
+    "east": "zone_red_slaughterworks",
+    "north": "zone_red_screaminglot",
+    "south": "zone_waste_chargully",
+    "west": "zone_red_bonepit"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_irradiated_salvage"
+  },
+  "grid_x": -10,
+  "grid_y": -4,
+  "grid_z": 0,
+  "id": "zone_red_rictusalley",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "RA",
+  "name": "Rictus Alley",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 4,
+  "updated_at": "1783123886"
+}

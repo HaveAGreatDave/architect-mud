@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "A wave slaps the breakwater and throws cold spray across the blocks.",
+    "Something withdraws into a gap in the concrete as your shadow falls on it."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#2f86cc",
+  "color": "#eeeeee",
+  "created_by": "phase3-build",
+  "danger_rating": "low",
+  "description": "A spine of tumbled concrete and rebar thrown out to break the bay's temper, walkable if you mind your footing. Things nest in the gaps between the blocks.",
+  "exits": {
+    "east": "zone_nc_highwater",
+    "north": "zone_bay_floes",
+    "south": "zone_dock_boatyard",
+    "west": "zone_bay_fog"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_harbor",
+    "water": true
+  },
+  "grid_x": 4,
+  "grid_y": -5,
+  "grid_z": 0,
+  "id": "zone_bay_breakwater",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "BW",
+  "name": "The Breakwater",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

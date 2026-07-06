@@ -1,0 +1,24 @@
+{
+  "category": "combat",
+  "config": {
+    "adsr": {
+      "a": 0.001,
+      "d": 0.07,
+      "r": 0.04,
+      "s": 0
+    },
+    "duration": 0.1,
+    "filter": {
+      "freq": 1200,
+      "q": 1,
+      "type": "lowpass"
+    },
+    "freq": 90,
+    "noiseMix": 0.3,
+    "waveform": "triangle"
+  },
+  "enabled": 1,
+  "id": "sfx_combat_punch",
+  "name": "combat_punch",
+  "priority": 6
+}

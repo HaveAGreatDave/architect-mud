@@ -1,0 +1,21 @@
+{
+  "description": "A mass-produced sleeping slab: a thin foam mattress sagging on a dented aluminium frame, stamped with a faded ARCOLOGY HOUSING lot number. The foam has long since taken the shape of everyone who slept here before you, and none of them slept well. Cheap, functional, and faintly institutional — but after a day in the sprawl, it might as well be a cloud.",
+  "flags": {
+    "bed": true,
+    "interactions": [
+      "sit",
+      "lie",
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bed_zone_meridian_unit_603",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "prefab bed",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 55,
+  "zone_id": "zone_meridian_unit_603"
+}

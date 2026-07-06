@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "The reclaimer's drum shifts on its bearings with a groan you feel in the fillings of your teeth.",
+    "For just a second the hum stops, and the silence is so total you can hear your own blood."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#e5822a",
+  "color": "#111111",
+  "created_by": null,
+  "danger_rating": "medium",
+  "description": "At the works' dead centre squats the reclaimer — a rotary furnace the size of a city block, its maw a black tunnel the wind pours into and never seems to come back out of. The richest salvage sits here, in the ash beds nobody sane will reach. The air hums, low, in your teeth.",
+  "exits": {
+    "east": "zone_slag_rail",
+    "north": "zone_red_dreadfurnace",
+    "south": "zone_waste_coldslag"
+  },
+  "flags": {
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_irradiated_salvage",
+    "world_exit_zone": null
+  },
+  "grid_x": -11,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_slag_reclaimer",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "RC",
+  "name": "The Reclaimer",
+  "parent_zone": null,
+  "pvp_enabled": 1,
+  "radiation_level": 0,
+  "updated_at": "1783123848"
+}

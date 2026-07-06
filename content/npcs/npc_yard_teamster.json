@@ -1,0 +1,51 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "The teamster bellows a forklift into a gap and it obeys.",
+    "\"You're standing in a load lane. Don't.\"",
+    "\"Everything in this yard is going somewhere. Are you?\""
+  ],
+  "description": "A rope-armed teamster with a manifest board and no patience, directing forklifts by bellowed insult and pointing with whatever's in her hand.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Then pass faster.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Just passing.",
+          "next": "bye"
+        }
+      ],
+      "text": "The teamster doesn't stop marking her board. \"If you're not freight and you're not crew, you're an obstacle. Which is it?\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a hi-vis vest over a thermal",
+      "cargo trousers with too many pockets",
+      "steel-caps worn to the steel"
+    ],
+    "personality": "labourer"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yard_transfer",
+  "hp": 18,
+  "hp_max": 18,
+  "id": "npc_yard_teamster",
+  "name": "a teamster",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": null,
+  "vendor_restock_rate": 1,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_yard_transfer"
+}

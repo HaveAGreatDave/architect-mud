@@ -1,0 +1,20 @@
+{
+  "description": "A sealed alloy lockbox, weed-strung and dripping, heavier than it has any right to be. Whatever the bay swallowed with it is still inside.",
+  "effects": {},
+  "flags": {},
+  "id": "item_drowned_lockbox",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "drowned lockbox",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A sealed alloy lockbox, weed-strung and dripping, heavier than it has any right to be. Whatever the bay swallowed with it is still inside.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 140,
+  "weight": 1800
+}

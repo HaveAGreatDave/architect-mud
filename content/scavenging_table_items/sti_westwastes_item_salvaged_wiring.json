@@ -1,0 +1,8 @@
+{
+  "difficulty": 3,
+  "id": "sti_westwastes_item_salvaged_wiring",
+  "item_id": "item_salvaged_wiring",
+  "max_qty": 3,
+  "table_id": "scav_west_wastes",
+  "weight": 16
+}

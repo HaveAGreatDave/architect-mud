@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 500,
+  "flags": {},
+  "generator_id": "gen_zone_powerplantnew_1782069598190",
+  "id": "zone_coldwater_turbine_hall",
+  "max_capacity_kw": 500,
+  "name": "Coldwater Turbine Hall",
+  "source_type": "city_plant"
+}

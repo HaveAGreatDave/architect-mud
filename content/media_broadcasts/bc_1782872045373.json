@@ -1,0 +1,199 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_1",
+        "type": "start"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "event_type": "FADE_IN",
+        "next": "bsm_2",
+        "type": "event"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "label": "CAM — 2 — CLOSEUP acid_cola_can",
+        "next": "bsm_11",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "next": "bsm_12",
+        "style": "narration",
+        "text": "The camera dramatically zooms toward an ice-cold can of Acid Cola™ as condensation glistens beneath brilliant studio lighting.",
+        "type": "say"
+      },
+      "bsm_12": {
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "next": "bsm_13",
+        "style": "raw",
+        "text": "Drink Acid Cola™.",
+        "type": "say"
+      },
+      "bsm_13": {
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "next": "bsm_14",
+        "style": "raw",
+        "text": "Because reality is easier to tolerate when it's carbonated.",
+        "type": "say"
+      },
+      "bsm_14": {
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "next": "bsm_15",
+        "overlayType": "text_card",
+        "text": "LIMITED TIME OFFER\r\n\r\nBUY TWO\r\n\r\nGET THE THIRD LEGALLY CLASSIFIED AS A BONUS",
+        "type": "overlay"
+      },
+      "bsm_15": {
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "event_type": "FADE_OUT",
+        "type": "event"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "acid_cola_logo",
+        "next": "bsm_3",
+        "type": "title_card"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "song": "acid_cola_jingle",
+        "text": "♪ An upbeat Acid Cola™ advertising jingle begins playing. ♪",
+        "type": "music"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_5",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "next": "bsm_6",
+        "style": "narration",
+        "text": "The camera sweeps across a dazzling futuristic city skyline as glowing Acid Cola™ signs illuminate the night.",
+        "type": "say"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "npc_id": "npc_narrator",
+        "type": "npc_anchor"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "raw",
+        "text": "Feeling tired?",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "style": "raw",
+        "text": "Feeling hopeless?",
+        "type": "say"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10",
+        "style": "raw",
+        "text": "Feeling like the world is slowly collapsing around you?",
+        "type": "say"
+      }
+    }
+  },
+  "category": "advertisement",
+  "channel_id": null,
+  "created_by": "ab2d38d0-4f10-4187-8f53-298d61b525c3",
+  "description": "",
+  "enabled": 1,
+  "fallback_messages": [],
+  "id": "bc_1782872045373",
+  "loop": 0,
+  "message_interval": 5,
+  "messages": [
+    {
+      "text": "The camera sweeps across a dazzling futuristic city skyline as glowing Acid Cola™ signs illuminate the night."
+    },
+    {
+      "text": "Feeling tired?"
+    },
+    {
+      "text": "Feeling hopeless?"
+    },
+    {
+      "text": "Feeling like the world is slowly collapsing around you?"
+    },
+    {
+      "text": "The camera dramatically zooms toward an ice-cold can of Acid Cola™ as condensation glistens beneath brilliant studio lighting."
+    },
+    {
+      "text": "Drink Acid Cola™."
+    },
+    {
+      "text": "Because reality is easier to tolerate when it's carbonated."
+    }
+  ],
+  "name": "Acid Cola™ - Reality Hurts",
+  "override_duration": 30,
+  "playback_mode": "scripted",
+  "sports_pools": null,
+  "tags": [],
+  "updated_at": "1782872045",
+  "weather_pools": null
+}

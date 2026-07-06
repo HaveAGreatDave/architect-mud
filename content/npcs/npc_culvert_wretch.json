@@ -1,0 +1,64 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "The culvert wretch feeds a splinter to her small fire and watches it go.",
+    "\"Don't go west. That's all. Don't.\"",
+    "\"I went west once. I came back less. Ask me nothing else.\""
+  ],
+  "description": "A wretch who lives deep in the culvert's mouth, wrapped in everything she owns, guarding a small fire and a smaller hope. She has been west, once, and it is the only thing she will talk about and the last thing she wants to.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "She turns back to her fire, done with you and with everything."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What’s west?",
+          "next": "west"
+        },
+        {
+          "label": "I’ll keep moving.",
+          "next": "bye"
+        }
+      ],
+      "text": "The wretch pulls her coats tighter and eyes you from beside her fire. \"You're headed west, I can see it on you, you've got the look — the not-yet-scared look. I had it too. Warm yourself if you want. Then turn around.\""
+    },
+    "west": {
+      "options": [
+        {
+          "label": "...I hear you.",
+          "next": "bye"
+        }
+      ],
+      "text": "Her eyes go somewhere else for a moment. \"The neck. The killing floor above it. The things the neck lets down. I went up it on a dare and a full stomach and came back on my hands. Left something up there I'm not getting back. Don't make it two of us.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a bundle of stolen coats worn all at once",
+      "rags bound at the wrist and ankle against the wind",
+      "a blanket that is more hole than blanket"
+    ],
+    "personality": "lowlife"
+  },
+  "home_activities": [],
+  "home_zone": "zone_waste_culvert",
+  "hp": 14,
+  "hp_max": 14,
+  "id": "npc_culvert_wretch",
+  "name": "a culvert wretch",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": null,
+  "vendor_restock_rate": 1,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_waste_culvert"
+}

@@ -1,0 +1,27 @@
+{
+  "addiction_chance": 0,
+  "description": "A mild buzz. Takes the edge off.",
+  "duration_seconds": 240,
+  "effects": {
+    "diuretic": 2,
+    "instant": {
+      "hunger": 3,
+      "sanity": 3,
+      "thirst": 12
+    },
+    "overdose": {
+      "lethal": true,
+      "message": "You've had far too much, far too fast. The room spins hard, your stomach heaves, and then everything just… stops. Alcohol poisoning."
+    }
+  },
+  "flags": {
+    "alcoholic": true,
+    "intox_per_dose": 22,
+    "legal": true
+  },
+  "id": "drug_beer",
+  "item_id": "item_drug_beer",
+  "name": "Beer",
+  "overdose_threshold": 8,
+  "withdrawal_effects": {}
+}

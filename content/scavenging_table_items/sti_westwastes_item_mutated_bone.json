@@ -1,0 +1,8 @@
+{
+  "difficulty": 4,
+  "id": "sti_westwastes_item_mutated_bone",
+  "item_id": "item_mutated_bone",
+  "max_qty": 3,
+  "table_id": "scav_west_wastes",
+  "weight": 10
+}

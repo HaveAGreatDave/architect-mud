@@ -1,0 +1,19 @@
+{
+  "description": "A sleek chrome kiosk humming with quiet menace. Its screen displays a rotating holographic body with the tagline: \"YOU, BUT BETTER. OR DIFFERENT. WE DON'T JUDGE.\" A small plaque reads: First session complimentary!",
+  "flags": {
+    "cosmetic_machine": true,
+    "interactions": [
+      "use"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_morphex_start",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "MORPHEX 9000 BioSculpt terminal",
+  "object_type": "cosmetic_machine",
+  "power_draw_kw": null,
+  "price": 8000,
+  "zone_id": "zone_start"
+}

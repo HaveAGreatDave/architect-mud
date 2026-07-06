@@ -1,0 +1,38 @@
+{
+  "ambient_events": [
+    "Cooled slag ticks and settles in a trough as if remembering being poured.",
+    "A heat-shimmer rises off dead metal though there is nothing to make it."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#7c6a4a",
+  "color": "#eeeeee",
+  "created_by": "phase4-build",
+  "danger_rating": "low",
+  "description": "A row of tapped-out smelter troughs, the slag in them cooled to glassy rope decades ago. Heat-ghosts still shimmer off the metal on the worst afternoons.",
+  "exits": {
+    "east": "zone_waste_windrow",
+    "west": "zone_waste_tarseep"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -5,
+  "grid_y": -3,
+  "grid_z": 0,
+  "id": "zone_waste_molten",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "MR",
+  "name": "Molten Row",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

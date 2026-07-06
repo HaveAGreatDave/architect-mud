@@ -1,0 +1,38 @@
+{
+  "ambient_events": [
+    "A butcher slaps down a cut you decide not to identify.",
+    "A vendor sweeps a tarp over her table the instant a patrol light sweeps the row."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#cf6a2e",
+  "color": "#111111",
+  "created_by": "phase1-build",
+  "danger_rating": "medium",
+  "description": "Trestle tables of salvaged meat, bruised pills, and dead men's boots. The vendors don't make eye contact and neither should you.",
+  "exits": {
+    "east": "zone_weapons_exterior",
+    "south": "zone_deep_gasp"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_roadside_junk"
+  },
+  "grid_x": 2,
+  "grid_y": 2,
+  "grid_z": 0,
+  "id": "zone_deep_gutter",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "GM",
+  "name": "Gutter Market",
+  "parent_zone": null,
+  "pvp_enabled": 1,
+  "radiation_level": 0,
+  "updated_at": "1783123846"
+}

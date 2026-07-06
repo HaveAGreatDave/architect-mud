@@ -1,0 +1,111 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "A narrow, still woman who runs the Slip's quiet trade. She never raises her voice and never forgets a face, and both facts should worry you equally.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Then you were never here.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let me see.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Wrong pier.",
+          "next": "bye"
+        }
+      ],
+      "text": "Sluice regards you without expression. \"You didn't see a shop. But since you're here — buying, or unloading something you'd rather not explain?\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a long oiled-canvas coat",
+      "dark, unremarkable clothes",
+      "nothing that would identify a body"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_dock_slip",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_fence",
+  "name": "Sluice",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_contraband_crate",
+      "price": 90
+    },
+    {
+      "item_id": "item_cracked_capacitor",
+      "price": 14
+    },
+    {
+      "item_id": "item_salvaged_wiring",
+      "price": 8
+    },
+    {
+      "item_id": "item_rusty_knife",
+      "price": 28
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "The Slip",
+  "vendor_stock_size": 8,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_dock_slip"
+}

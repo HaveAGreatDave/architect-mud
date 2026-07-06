@@ -1,0 +1,23 @@
+{
+  "category": "misc",
+  "config": {
+    "adsr": {
+      "a": 0.001,
+      "d": 0.18,
+      "r": 0.15,
+      "s": 0.1
+    },
+    "filter": {
+      "freq": 6000,
+      "q": 1,
+      "type": "highpass"
+    },
+    "gain": 0.7,
+    "noiseMix": 1
+  },
+  "enabled": 1,
+  "id": "inst_open_hat",
+  "name": "open_hat",
+  "sample_id": null,
+  "waveform": "noise"
+}

@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "\"CUSTOMER SATISFACTION IS OUR PRIORITY\" plays from overhead speakers. The voice sounds increasingly uncertain."
+  ],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#347b49",
+  "color": "#eeeeee",
+  "created_by": null,
+  "danger_rating": "low",
+  "description": "A vast warehouse complex that The Franchise faction uses as a distribution hub. Everything here has a SKU. Everything here is for sale.",
+  "exits": {
+    "north": "zone_up_aid",
+    "west": "zone_civ_sortation"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "no_spawn": true,
+    "scavenging_table_id": "scav_roadside_junk"
+  },
+  "grid_x": -2,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_warehouse",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "LW",
+  "name": "The Loading Bay West",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123848"
+}

@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "The old cull-barricade sags across the row, hung with things best not examined closely.",
+    "Something on the far side of the barricade tests it, gently, methodically, looking for the give."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#ff0000",
+  "color": "#eeeeee",
+  "created_by": "phase12-build",
+  "danger_rating": "lethal",
+  "description": "A row where, in the early days, they tried to hold the line — to cull the changed as they came, at a barricade of scrap and desperation. The barricade is still here. So, in a sense, are the people who manned it, though they are on the wrong side of it now.",
+  "exits": {
+    "east": "zone_waste_deadfurnace",
+    "north": "zone_red_hazardnine",
+    "south": "zone_red_slaughterworks",
+    "west": "zone_red_screaminglot"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_irradiated_salvage"
+  },
+  "grid_x": -9,
+  "grid_y": -5,
+  "grid_z": 0,
+  "id": "zone_red_cullrow",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "CR",
+  "name": "Cull Row",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 4,
+  "updated_at": "1783123886"
+}

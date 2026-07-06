@@ -1,0 +1,25 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_trousers_clown",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "patched motley trousers",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 0,
+    "bulkiness": 1,
+    "description": "Baggy trousers stitched from a dozen clashing fabrics in a riot of dead patterns, gathered at the ankle. Somewhere between salvage-chic and a birthday party nobody survived.",
+    "gets_wet": true,
+    "insulation": 1.5,
+    "layer": "outerwear",
+    "slot": "legs"
+  },
+  "type": null,
+  "value": 35,
+  "weight": 550
+}

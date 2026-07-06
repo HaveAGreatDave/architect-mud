@@ -1,0 +1,41 @@
+{
+  "addiction_chance": 0,
+  "description": "A hand-rolled joint, a little crooked, twisted off at the end. Smells like a greenhouse and bad decisions.",
+  "duration_seconds": 300,
+  "effects": {
+    "instant": {
+      "sanity": 6,
+      "thirst": -10
+    },
+    "overdose": {
+      "message": "You have smoked far too much. The room tilts, your heart hammers, and a cold wave of paranoid nausea rolls over you. You green out.",
+      "mods": {
+        "hp": -4,
+        "sanity": -12
+      }
+    },
+    "phases": {
+      "comedown_scale": 0.4,
+      "comedown_seconds": 60,
+      "comeup_message": "<span class=\"msg-system\">You spark it up and draw slow. The room exhales with you; the edges go soft and warm.</span>",
+      "comeup_scale": 0.5,
+      "comeup_seconds": 8,
+      "end_message": "<span class=\"msg-system\">The high tapers off. The colours go back to normal and you are suddenly, urgently thinking about a sandwich.</span>",
+      "peak_message": "<span class=\"msg-system\">You are extremely stoned. Everything is faintly hilarious and the music is <em>unbelievable</em>.</span>",
+      "peak_mods": {
+        "stat_reflexes": -1
+      },
+      "peak_seconds": 240
+    }
+  },
+  "flags": {
+    "cannabis": true,
+    "high_seconds": 300,
+    "legal": true
+  },
+  "id": "drug_joint",
+  "item_id": "item_joint",
+  "name": "joint",
+  "overdose_threshold": 5,
+  "withdrawal_effects": {}
+}

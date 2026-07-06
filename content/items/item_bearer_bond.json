@@ -1,0 +1,22 @@
+{
+  "description": "An engraved certificate payable to whoever holds it, no questions asked. It is worth a great deal to the right people and a knife in the ribs to the wrong ones.",
+  "effects": {},
+  "flags": {},
+  "id": "item_bearer_bond",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "bearer bond",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "document",
+  "tags": {
+    "description": "An engraved certificate payable to the bearer.",
+    "document": true,
+    "stackable": true,
+    "valuable": true
+  },
+  "type": null,
+  "value": 60,
+  "weight": 10
+}

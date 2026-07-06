@@ -1,0 +1,47 @@
+{
+  "addiction_chance": 0.3,
+  "description": "A blue benzo tab that files the sharp edges off a bad night.",
+  "duration_seconds": 360,
+  "effects": {
+    "diuretic": 0.7,
+    "instant": {
+      "sanity": 16
+    },
+    "overdose": {
+      "lethal": true,
+      "message": "You lie down to rest your eyes for just a second, and never open them."
+    },
+    "phases": {
+      "comedown_scale": 0.5,
+      "comedown_seconds": 90,
+      "comeup_scale": 0.5,
+      "comeup_seconds": 30,
+      "end_message": "<span class=\"msg-system\">The calm wears thin and the worries file back in.</span>",
+      "peak_message": "<span class=\"msg-system\">The panic unclenches. Whatever it was, it can wait.</span>",
+      "peak_mods": {
+        "sanity_regen_per_sec": 1,
+        "stat_cool": 3,
+        "stat_reflexes": -2
+      },
+      "peak_seconds": 240
+    },
+    "tolerance": {
+      "gain_per_dose": 0.12,
+      "max_reduction": 0.7
+    },
+    "withdrawal": {
+      "message": "Your nerves are live wires again. You remember exactly what fixes that.",
+      "mods": {
+        "sanity_regen_per_sec": -1,
+        "stat_cool": -3
+      },
+      "onset_seconds": 900
+    }
+  },
+  "flags": {},
+  "id": "drug_lull",
+  "item_id": "item_lull",
+  "name": "Lull",
+  "overdose_threshold": 3,
+  "withdrawal_effects": {}
+}

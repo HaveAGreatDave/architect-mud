@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "The glowfield casts your shadow in three directions at once, all of them wrong.",
+    "A pool of luminance shifts as something moves through it below the surface, unseen, unhurried."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#ff0000",
+  "color": "#eeeeee",
+  "created_by": "phase12-build",
+  "danger_rating": "lethal",
+  "description": "A field where the ground gives off a sick green-white light strong enough to read by, pooling in the low places like luminous water. The salvage here is fabulous and the price for taking it is measured in the years it quietly subtracts.",
+  "exits": {
+    "east": "zone_red_killingfloor",
+    "south": "zone_red_radsink",
+    "west": "zone_red_redline"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_irradiated_salvage"
+  },
+  "grid_x": -10,
+  "grid_y": -7,
+  "grid_z": 0,
+  "id": "zone_red_glowfield",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "GL",
+  "name": "Glowfield",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 5,
+  "updated_at": "1783123886"
+}

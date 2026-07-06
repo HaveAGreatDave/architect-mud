@@ -1,0 +1,6 @@
+{
+  "category": "combat",
+  "key": "to_hit_base",
+  "label": "Base to-hit target",
+  "value": 10
+}

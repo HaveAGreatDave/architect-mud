@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "A checkpoint at the Manifold turns someone back with a smile and a raised palm.",
+    "From the Manifold you can see the yards' grime start, one clean step down."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#9b59b6",
+  "color": "#eeeeee",
+  "created_by": "phase9-build",
+  "danger_rating": "safe",
+  "description": "The junction where the diplomatic quarter's clean marble finally meets the working city — the boat yard below, the boardrooms beside. A checkpoint here decides, quietly, who ascends.",
+  "exits": {
+    "east": "zone_waste_oxide",
+    "north": "zone_nc_highwater",
+    "south": "zone_corp_boardroom",
+    "west": "zone_dock_boatyard"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": 5,
+  "grid_y": -4,
+  "grid_z": 0,
+  "id": "zone_nc_manifold",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "Mf",
+  "name": "The Manifold",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

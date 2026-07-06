@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "Wind whistles through the split in the broken kiln and dies away inside it.",
+    "Old scorch-marks and newer bootprints share the floor of the kiln; you are not the first to almost rest here."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#e05555",
+  "color": "#eeeeee",
+  "created_by": "phase10-build",
+  "danger_rating": "medium",
+  "description": "The cracked shell of a brick kiln, split down one side so it gapes like a broken jaw. Inside, out of the wind, is one of the few places in the wastes a person can almost rest. Almost.",
+  "exits": {
+    "east": "zone_waste_greymile",
+    "north": "zone_waste_ferrouswash",
+    "west": "zone_red_vexhollow"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -7,
+  "grid_y": -4,
+  "grid_z": 0,
+  "id": "zone_waste_brokenkiln",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "BK",
+  "name": "Broken Kiln",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 1,
+  "updated_at": "1783123886"
+}

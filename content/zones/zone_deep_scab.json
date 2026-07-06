@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "A deal goes wrong two doorways down. Then very quiet.",
+    "Fresh graffiti drips over old graffiti over older blood."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#cf6a2e",
+  "color": "#111111",
+  "created_by": "phase1-build",
+  "danger_rating": "medium",
+  "description": "A knife-narrow cut between tenements, the floor slick with things best not named. Deals happen fast here, and so does everything else.",
+  "exits": {
+    "south": "zone_deep_bonepicker",
+    "west": "zone_slums"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "no_spawn": true,
+    "scavenging_table_id": "scav_roadside_junk"
+  },
+  "grid_x": 1,
+  "grid_y": 2,
+  "grid_z": 0,
+  "id": "zone_deep_scab",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "SC",
+  "name": "Scab Alley",
+  "parent_zone": null,
+  "pvp_enabled": 1,
+  "radiation_level": 0,
+  "updated_at": "1783123846"
+}

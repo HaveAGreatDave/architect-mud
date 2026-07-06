@@ -1,0 +1,33 @@
+{
+  "category": "environment",
+  "config": {
+    "adsr": {
+      "a": 1.5,
+      "d": 0.1,
+      "r": 1.5,
+      "s": 1
+    },
+    "filter": {
+      "freq": 600,
+      "q": 0.7,
+      "type": "lowpass"
+    },
+    "freq": 440,
+    "gain": 0.4,
+    "noiseMix": 1,
+    "tremolo": {
+      "depth": 0.4,
+      "rate": 0.3
+    },
+    "vibrato": {
+      "depth": 0,
+      "rate": 0
+    },
+    "waveform": "noise"
+  },
+  "enabled": 1,
+  "id": "amb_wind",
+  "loop": 1,
+  "name": "amb_wind",
+  "priority": 1
+}

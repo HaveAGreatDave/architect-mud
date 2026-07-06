@@ -1,0 +1,18 @@
+{
+  "description": "A curved reception desk in scuffed laminate, built to be manned around the clock. The chair behind it is long gone. A dead terminal cycles a screensaver of rolling static, throwing a faint grey flicker across the underside of the counter. A coffee ring older than most of the tenants has fossilized on the surface.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_secdesk_zone_meridian_lobby",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "security desk",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_meridian_lobby"
+}

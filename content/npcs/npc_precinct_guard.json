@@ -1,0 +1,29 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "A block of a man in Precinct 9 body armor, thumbs hooked in his belt beside a baton and a zip-tie dispenser. He watches the holding block on a bank of monitors and processes the overnight guests one at a time, without hurry and without interest.",
+  "dialogue_tree": {},
+  "faction": "SPECTER-PD",
+  "flags": {
+    "essential": true,
+    "police": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_mq_precinct_lobby",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_precinct_guard",
+  "name": "Detention Officer Kohl",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

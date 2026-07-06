@@ -1,0 +1,43 @@
+{
+  "ambient_events": [
+    "A fishmonger splits something long and pale with a single wet stroke.",
+    "Cats gather at the edge of the market, patient as debt collectors."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#1fb5aa",
+  "color": "#111111",
+  "created_by": "phase3-build",
+  "danger_rating": "low",
+  "description": "Trestle slabs of pale bay catch under a sagging awning, worked by fishmongers who gut and call and gut without pause. The runoff makes the boards treacherous.",
+  "exits": {
+    "east": "zone_dock_slip",
+    "south": "zone_up_skyway",
+    "west": "zone_dock_quays"
+  },
+  "flags": {
+    "artery": [
+      "Quay Road",
+      "Cathode Street"
+    ],
+    "building_name": "",
+    "building_type": null,
+    "fishing_table_id": "fish_coldwater_bay",
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_harbor"
+  },
+  "grid_x": 3,
+  "grid_y": -3,
+  "grid_z": 0,
+  "id": "zone_dock_fishmarket",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "FM",
+  "name": "Fishmarket Dock",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

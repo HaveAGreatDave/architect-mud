@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "Ash sifts from a murder-hole overhead in a thin grey thread.",
+    "Down a blind corner, something exhales and waits to see if you follow."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#7c6a4a",
+  "color": "#eeeeee",
+  "created_by": "phase2-build",
+  "danger_rating": "medium",
+  "description": "The broken ring-wall of some old containment yard, its bailey now a killing-floor of blind corners and drifted ash. Things nest in the wall.",
+  "exits": {
+    "east": "zone_deep_sink",
+    "north": "zone_waste_nadir",
+    "west": "zone_waste_grime"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -4,
+  "grid_y": 3,
+  "grid_z": 0,
+  "id": "zone_waste_bailey",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "BY",
+  "name": "The Bailey",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 1,
+  "updated_at": "1783123885"
+}

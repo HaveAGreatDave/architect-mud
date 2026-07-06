@@ -1,0 +1,41 @@
+{
+  "ambient_events": [
+    "A mooring line creaks taut, then slack, then taut.",
+    "A stevedore spits into the water and watches it a while."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#1fb5aa",
+  "color": "#111111",
+  "created_by": "phase3-build",
+  "danger_rating": "low",
+  "description": "A run of stone quays where the fishing boats tie up and the cargo dhows unload after dark. Everything smells of tar, brine, and old fish.",
+  "exits": {
+    "east": "zone_dock_fishmarket",
+    "south": "zone_up_approach",
+    "west": "zone_dock_wharf"
+  },
+  "flags": {
+    "artery": [
+      "Quay Road"
+    ],
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_roadside_junk"
+  },
+  "grid_x": 2,
+  "grid_y": -3,
+  "grid_z": 0,
+  "id": "zone_dock_quays",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "QY",
+  "name": "The Quays",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

@@ -1,0 +1,24 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_panties_crotchless_mesh",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "crotchless mesh panties",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 0,
+    "bulkiness": 1,
+    "description": "Fishnet mesh cut with a philosophy that the most important part of underwear is optional. Provides zero warmth, zero coverage, and one very specific message.",
+    "insulation": 0,
+    "layer": "underwear",
+    "slot": "legs"
+  },
+  "type": null,
+  "value": 55,
+  "weight": 35
+}

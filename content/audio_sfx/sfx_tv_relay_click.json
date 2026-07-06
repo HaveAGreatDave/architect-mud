@@ -1,0 +1,33 @@
+{
+  "category": "tv",
+  "config": {
+    "adsr": {
+      "a": 0.001,
+      "d": 0.02,
+      "r": 0.01,
+      "s": 0
+    },
+    "duration": 0.03,
+    "filter": {
+      "freq": 4000,
+      "q": 1,
+      "type": "lowpass"
+    },
+    "freq": 200,
+    "gain": 1,
+    "noiseMix": 0,
+    "tremolo": {
+      "depth": 0,
+      "rate": 0
+    },
+    "vibrato": {
+      "depth": 0,
+      "rate": 0
+    },
+    "waveform": "square"
+  },
+  "enabled": 1,
+  "id": "sfx_tv_relay_click",
+  "name": "tv_relay_click",
+  "priority": 2
+}

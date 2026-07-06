@@ -1,0 +1,16 @@
+{
+  "description": "A two-burner hotplate wired straight into the wall socket by someone who didn't respect electricity. One burner glows. The other waits.",
+  "flags": {
+    "interactions": []
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt5_hotplate",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "wall hotplate",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 45,
+  "zone_id": "zone_apt_5"
+}

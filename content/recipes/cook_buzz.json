@@ -1,0 +1,27 @@
+{
+  "base_difficulty": 4,
+  "base_output": {
+    "item_id": "item_drug_buzz",
+    "quantity": 1
+  },
+  "category": "synthesis",
+  "craft_time": 3,
+  "description": "Cook Buzz from crude Buzz + industrial solvent.",
+  "id": "cook_buzz",
+  "ingredients": [
+    {
+      "item_id": "item_raw_buzz",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_reagent_solvent",
+      "quantity": 1
+    }
+  ],
+  "name": "Cook Buzz",
+  "requires_station": "chem_lab",
+  "skill_id": "chemistry",
+  "skill_req": {
+    "chemistry": 0
+  }
+}

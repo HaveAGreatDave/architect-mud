@@ -1,0 +1,27 @@
+{
+  "base_difficulty": 10,
+  "base_output": {
+    "item_id": "item_grey",
+    "quantity": 1
+  },
+  "category": "synthesis",
+  "craft_time": 3,
+  "description": "Cook Grey from crude Grey + industrial solvent.",
+  "id": "cook_grey",
+  "ingredients": [
+    {
+      "item_id": "item_raw_grey",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_reagent_solvent",
+      "quantity": 1
+    }
+  ],
+  "name": "Cook Grey",
+  "requires_station": "chem_lab",
+  "skill_id": "chemistry",
+  "skill_req": {
+    "chemistry": 2
+  }
+}

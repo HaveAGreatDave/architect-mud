@@ -1,0 +1,24 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_thermal_parka",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "arctic-grade shellcoat",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "torso",
+  "tags": {
+    "armor": 1,
+    "bulkiness": 4,
+    "description": "A sealed thermal shellcoat with a powered filament liner that sips charge from a wrist-cell to hold body heat against the worst the arcology winters can muster. The outer skin is matte ripstop nanoweave, grease-black and beaded to shrug off sleet.",
+    "insulation": 8,
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": "clothing",
+  "value": 700,
+  "weight": 1800
+}

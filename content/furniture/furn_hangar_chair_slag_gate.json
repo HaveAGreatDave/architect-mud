@@ -1,0 +1,18 @@
+{
+  "description": "A wheeled ops chair, one armrest wrapped in duct tape, parked at a desk of flight monitors.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hangar_chair_slag_gate",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "the flight-ops desk chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hangar_slag_gate"
+}

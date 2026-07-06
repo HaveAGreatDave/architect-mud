@@ -1,0 +1,38 @@
+{
+  "addiction_chance": 0.18,
+  "description": "A nootropic mist for the overclocked mind. Clarity in a can, with interest.",
+  "duration_seconds": 360,
+  "effects": {
+    "diuretic": 1.4,
+    "instant": {
+      "sanity": 10
+    },
+    "overdose": {
+      "lethal": true,
+      "message": "Too much signal, no more silence. Your mind whites out and does not come back."
+    },
+    "phases": {
+      "comedown_scale": 0.5,
+      "comedown_seconds": 90,
+      "comeup_scale": 0.5,
+      "comeup_seconds": 30,
+      "end_message": "<span class=\"msg-system\">The signal degrades. Thoughts go grainy again.</span>",
+      "peak_message": "<span class=\"msg-system\">The static clears. You can see the shape of every problem at once.</span>",
+      "peak_mods": {
+        "sanity_regen_per_sec": 1,
+        "stat_brains": 4
+      },
+      "peak_seconds": 240
+    },
+    "tolerance": {
+      "gain_per_dose": 0.1,
+      "max_reduction": 0.6
+    }
+  },
+  "flags": {},
+  "id": "drug_static",
+  "item_id": "item_static",
+  "name": "Static",
+  "overdose_threshold": 4,
+  "withdrawal_effects": {}
+}

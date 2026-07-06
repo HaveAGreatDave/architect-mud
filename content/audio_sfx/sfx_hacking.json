@@ -1,0 +1,28 @@
+{
+  "category": "cyberpunk",
+  "config": {
+    "adsr": {
+      "a": 0.01,
+      "d": 0.2,
+      "r": 0.15,
+      "s": 0.5
+    },
+    "duration": 0.5,
+    "filter": {
+      "freq": 1800,
+      "q": 1.5,
+      "type": "bandpass"
+    },
+    "freq": 700,
+    "noiseMix": 0.4,
+    "tremolo": {
+      "depth": 0.7,
+      "rate": 18
+    },
+    "waveform": "square"
+  },
+  "enabled": 1,
+  "id": "sfx_hacking",
+  "name": "hacking",
+  "priority": 4
+}

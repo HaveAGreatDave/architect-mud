@@ -1,0 +1,22 @@
+{
+  "category": "misc",
+  "config": {
+    "adsr": {
+      "a": 0.002,
+      "d": 0.03,
+      "r": 0.08,
+      "s": 0.6
+    },
+    "filter": {
+      "freq": 1200,
+      "q": 2.5,
+      "type": "lowpass"
+    },
+    "gain": 0.8
+  },
+  "enabled": 1,
+  "id": "inst_pulse_narrow",
+  "name": "pulse_narrow",
+  "sample_id": null,
+  "waveform": "square"
+}

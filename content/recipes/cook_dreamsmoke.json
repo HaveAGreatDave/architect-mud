@@ -1,0 +1,27 @@
+{
+  "base_difficulty": 8,
+  "base_output": {
+    "item_id": "item_dreamsmoke",
+    "quantity": 1
+  },
+  "category": "synthesis",
+  "craft_time": 3,
+  "description": "Cook Dreamsmoke from crude Dreamsmoke + industrial solvent.",
+  "id": "cook_dreamsmoke",
+  "ingredients": [
+    {
+      "item_id": "item_raw_dreamsmoke",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_reagent_solvent",
+      "quantity": 1
+    }
+  ],
+  "name": "Cook Dreamsmoke",
+  "requires_station": "chem_lab",
+  "skill_id": "chemistry",
+  "skill_req": {
+    "chemistry": 1
+  }
+}

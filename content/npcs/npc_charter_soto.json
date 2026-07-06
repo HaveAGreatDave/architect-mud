@@ -1,0 +1,32 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "A stocky, quick-handed pilot with a magpie's eye for anything shiny and loose, forever chewing a toothpick. She flies the daylight run out of the Marshalling Yard freight field and swears she's never lost a passenger. On purpose.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "charter_pilot": {
+      "field": "zone_yard_marshalling",
+      "shift_start": 8
+    },
+    "personality": "charter_pilot"
+  },
+  "home_activities": [],
+  "home_zone": "zone_residential_lobby",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_charter_soto",
+  "name": "Magpie Soto",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_yard_marshalling"
+}

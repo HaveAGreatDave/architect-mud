@@ -1,0 +1,16 @@
+{
+  "description": "The iron railing ends in a newel post snapped off at an angle, the break wound in so much duct tape it's become a grey club. Hold the wall on the way down.",
+  "flags": {
+    "interactions": []
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_floor3_newel",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "broken newel post",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_embassy_floor3"
+}

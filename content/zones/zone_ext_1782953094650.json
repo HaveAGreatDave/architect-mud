@@ -1,0 +1,36 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#f5e642",
+  "color": "#111111",
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "A fenced service yard behind the broadcast blocks, floodlit at all hours by lights nobody remembers installing. Coax and power run overhead in fat looms, stapled to anything that will hold them, humming faintly in the wet. KSAB-TV's stage door sits under a dead awning, its ON AIR bulb burned out mid-word so it reads only ON. A satellite dish the size of a paddling pool tilts drunkenly on the roofline, still tracking a bird that stopped answering years ago.",
+  "exits": {
+    "in": "zone_studio_1782953094650",
+    "south": "zone_city_north"
+  },
+  "flags": {
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "no_spawn": true,
+    "scavenging_table_id": null,
+    "world_exit_zone": null
+  },
+  "grid_x": 0,
+  "grid_y": -2,
+  "grid_z": 0,
+  "id": "zone_ext_1782953094650",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "KS",
+  "name": "Limelight Lot",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123848"
+}

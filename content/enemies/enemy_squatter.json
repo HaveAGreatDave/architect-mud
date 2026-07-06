@@ -1,0 +1,99 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {},
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 5,
+  "butcher_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 100
+    }
+  ],
+  "death_message": "The squatter slumps against their doorway and stops guarding it.",
+  "description": "A gaunt vagrant who has made a home in the ruins and takes trespass personally: layers of salvaged coats, a length of pipe, and eyes that watched the neighbourhood empty out one window at a time.",
+  "dodge": 1,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "\"This is my block. Move on.\"",
+      "\"You don't belong here.\"",
+      "$enemy hefts the pipe at $player.",
+      "\"Nothing here for you. Go.\"",
+      "$enemy backs into the doorway, pipe raised at $player."
+    ],
+    "first_strike_delay_ms": 8000
+  },
+  "hit": 1,
+  "hp_max": 22,
+  "id": "enemy_squatter",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 60
+    },
+    {
+      "item": "item_credits_small",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 45
+    },
+    {
+      "item": "item_ration",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 25
+    }
+  ],
+  "name": "Squatter",
+  "weapon": [
+    {
+      "max": 3,
+      "min": 1,
+      "type": "kinetic"
+    }
+  ]
+}

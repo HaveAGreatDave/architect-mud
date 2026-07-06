@@ -1,0 +1,6 @@
+{
+  "category": "combat",
+  "key": "crit_threshold",
+  "label": "Crit roll margin",
+  "value": 8
+}

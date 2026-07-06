@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "A husk in the grime shifts its weight with a wet, deliberate creak.",
+    "Your handprint stays on the wall behind you, glistening."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#7c6a4a",
+  "color": "#eeeeee",
+  "created_by": "phase2-build",
+  "danger_rating": "medium",
+  "description": "A sunken lane filmed in decades of industrial grime, every surface tacky to the touch. The husks out here don't rust so much as fester.",
+  "exits": {
+    "east": "zone_waste_bailey",
+    "north": "zone_waste_coalsack",
+    "west": "zone_waste_runoff"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -5,
+  "grid_y": 3,
+  "grid_z": 0,
+  "id": "zone_waste_grime",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "GR",
+  "name": "Grime Row",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 1,
+  "updated_at": "1783123885"
+}

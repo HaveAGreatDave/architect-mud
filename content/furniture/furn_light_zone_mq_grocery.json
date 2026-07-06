@@ -1,0 +1,18 @@
+{
+  "description": "Rows of retail fluorescents drone overhead, flattening every colour to the same tired grey. One strip flickers on a dying ballast.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_mq_grocery",
+  "light_type": "overhead",
+  "lumen_output": 1600,
+  "name": "fluorescent strips",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_mq_grocery"
+}

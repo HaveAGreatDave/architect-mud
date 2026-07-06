@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "The wind combs across the gravel and lifts a spiral of old ash.",
+    "A pink neon glow pulses up from the street, painting the parapet.",
+    "Something flaps loose on an HVAC unit and slaps, slaps, slaps.",
+    "Far off, the precinct floodlight swings across the rooftops and moves on."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#e85aa0",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "The tar-and-gravel roof of Chrome Court, guarded by a knee-high parapet and the honor system. Someone hauled up a couple of ruined armchairs and a firepit made from a washing-machine drum; the ashes are days old but the intent is neighborly. From here the whole Marquee spreads out below in a grid of pink and cyan, the dead cinema marquee winking, the precinct floodlights sweeping. The wind up here has come a long way and has opinions.",
+  "exits": {
+    "down": "zone_mq_chrome_f3"
+  },
+  "flags": {
+    "open_sky": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 4,
+  "id": "zone_mq_chrome_roof",
+  "is_safe_zone": 1,
+  "map_id": "map_int_mq_chrome",
+  "marker": null,
+  "name": "Chrome Court — Roof",
+  "parent_zone": "zone_mq_chrome_lobby",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1782964410"
+}

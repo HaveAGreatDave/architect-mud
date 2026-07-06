@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "Something changes hands fast at the end of Carrion Way, and both parties leave quickly.",
+    "A crow the size of a cat works at a scrap in the gutter, unbothered by you."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#007031",
+  "color": "#111111",
+  "created_by": "phase7-build",
+  "danger_rating": "medium",
+  "description": "The far end of the market, where the meat is cheapest and the questions fewest. A dead-end way, which the scavengers and the desperate both find convenient for different reasons.",
+  "exits": {
+    "east": "zone_yard_skid",
+    "north": "zone_meat_slaughter",
+    "west": "zone_meat_offal"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_roadside_junk"
+  },
+  "grid_x": 5,
+  "grid_y": 3,
+  "grid_z": 0,
+  "id": "zone_meat_carrion",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "Cy",
+  "name": "Carrion Way",
+  "parent_zone": null,
+  "pvp_enabled": 1,
+  "radiation_level": 0,
+  "updated_at": "1783123886"
+}

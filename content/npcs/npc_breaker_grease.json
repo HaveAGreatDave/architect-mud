@@ -1,0 +1,37 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Grease spits, missing your boot on purpose.",
+    "\"Keep walking or start paying. Toll's whatever I say it is.\""
+  ],
+  "description": "Grease earned the name honestly — he's slick with it head to boot, and it never quite washes off. He guards the Lane's mouth, chewing something that used to be gum, cataloguing everyone who walks in by how much trouble they'll be.",
+  "dialogue_tree": {},
+  "faction": "faction_breakers",
+  "flags": {
+    "clothing_layers": [
+      "a sleeveless denim cut with the Breakers' broken-cog patch",
+      "an oil-slick thermal shirt",
+      "frayed boxer briefs"
+    ],
+    "faction_guard": true,
+    "personality": "lowlife"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meat_slaughter",
+  "hp": 90,
+  "hp_max": 90,
+  "id": "npc_breaker_grease",
+  "name": "Grease",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

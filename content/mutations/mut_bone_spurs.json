@@ -1,0 +1,18 @@
+{
+  "description": "Calcified projections have erupted through your knuckles. Unarmed attacks deal more damage and cause bleeding.",
+  "drawbacks": [
+    "Gloves don't fit"
+  ],
+  "effects": {
+    "unarmed_bleed_chance": 0.25,
+    "unarmed_damage_bonus": 3
+  },
+  "id": "mut_bone_spurs",
+  "name": "Bone Spurs",
+  "polarity": "mixed",
+  "radiation_threshold": 55,
+  "stat_modifiers": {
+    "stat_str": 1
+  },
+  "visible": 1
+}

@@ -1,0 +1,20 @@
+{
+  "description": "A single work boot, swollen and black with bilge water, something small and unhappy still living in the toe. Not what you hoped for.",
+  "effects": {},
+  "flags": {},
+  "id": "item_waterlogged_boot",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "waterlogged boot",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A single work boot, swollen and black with bilge water, something small and unhappy still living in the toe. Not what you hoped for.",
+    "material": true
+  },
+  "type": "material",
+  "value": 1,
+  "weight": 700
+}

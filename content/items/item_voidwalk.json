@@ -1,0 +1,19 @@
+{
+  "description": "A designer dissociative that drops you into the static between channels.",
+  "effects": {},
+  "flags": {},
+  "id": "item_voidwalk",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
+  "name": "voidwalk",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "drug",
+  "tags": {
+    "drug": true
+  },
+  "type": "consumable",
+  "value": 300,
+  "weight": 20
+}

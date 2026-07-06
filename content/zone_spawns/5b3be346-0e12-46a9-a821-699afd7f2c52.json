@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_architect_drone",
+  "id": "5b3be346-0e12-46a9-a821-699afd7f2c52",
+  "max_count": 1,
+  "respawn_seconds": 600,
+  "spawn_weight": 20,
+  "zone_id": "zone_ruins"
+}

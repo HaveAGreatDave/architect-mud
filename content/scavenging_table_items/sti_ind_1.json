@@ -1,0 +1,8 @@
+{
+  "difficulty": 4,
+  "id": "sti_ind_1",
+  "item_id": "item_scrap_metal",
+  "max_qty": 3,
+  "table_id": "scav_industrial_salvage",
+  "weight": 16
+}

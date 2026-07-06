@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "Cold slag crunches underfoot, dead and grey and finally, entirely done being hot.",
+    "At the field's western edge the ground takes on a wrong sheen, and you feel watched from it."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#816e4d",
+  "color": "#eeeeee",
+  "created_by": "phase11-build",
+  "danger_rating": "low",
+  "description": "A field of slag gone properly cold at last, the western frontier of walkable ground below the neck. Past it the wastes give way to the Redline's lower reach, and only the desperate and the changed go on.",
+  "exits": {
+    "east": "zone_slag_drums",
+    "north": "zone_slag_reclaimer",
+    "south": "zone_waste_culvert"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -11,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_waste_coldslag",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "CS",
+  "name": "Cold Slag",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123886"
+}

@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_sprawl_ganger",
+  "id": "spawn_deep_gasp_ganger",
+  "max_count": 2,
+  "respawn_seconds": 220,
+  "spawn_weight": 55,
+  "zone_id": "zone_deep_gasp"
+}

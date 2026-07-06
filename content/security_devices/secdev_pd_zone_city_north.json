@@ -1,0 +1,21 @@
+{
+  "battery": 1,
+  "battery_max": 1,
+  "concealment": 3,
+  "device_kind": "sticky_cam",
+  "direction": "north",
+  "hack_difficulty": 6,
+  "id": "secdev_pd_zone_city_north",
+  "is_damaged": 0,
+  "is_powered": 1,
+  "is_recording": 0,
+  "network_id": "net_police",
+  "owner_id": "faction_police",
+  "placed_at": "1782964657",
+  "recording_buffer": [],
+  "status_flags": {},
+  "storage_limit": 200,
+  "tier": 2,
+  "wired": 1,
+  "zone_id": "zone_city_north"
+}

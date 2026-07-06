@@ -1,0 +1,18 @@
+{
+  "description": "One buzzing sodium tube bolted to the ceiling, staining everything the colour of old piss. Nobody has ever asked for it to be brighter.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_mq_sump_bar",
+  "light_type": "overhead",
+  "lumen_output": 800,
+  "name": "sodium tube",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_mq_sump_bar"
+}

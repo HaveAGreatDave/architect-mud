@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5400,
+  "flags": {},
+  "generator_id": "gen_zone_mq_grocery_util",
+  "id": "zone_mq_grocery_stock",
+  "max_capacity_kw": 5400,
+  "name": "Ration Nine — Stockroom",
+  "source_type": "junction_box"
+}

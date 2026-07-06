@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "The wind funnels down the Flensing's neck, and it carries a fine red grit that stings where it lands.",
+    "Something drags itself down the neck from the north, leaving a wet trail, and does not slow when it sees you."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#e05555",
+  "color": "#eeeeee",
+  "created_by": "phase11-build",
+  "danger_rating": "high",
+  "description": "The neck of the Redline — a single hard column of poisoned ground threading down out of the killing floor in the north toward the Slagworks below. It earned its name honestly; things that come through it arrive short of skin.",
+  "exits": {
+    "east": "zone_waste_cokeyard",
+    "north": "zone_red_gnash",
+    "south": "zone_red_dreadfurnace"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_irradiated_salvage"
+  },
+  "grid_x": -11,
+  "grid_y": -2,
+  "grid_z": 0,
+  "id": "zone_red_flensing",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "FL",
+  "name": "The Flensing",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 3,
+  "updated_at": "1783123886"
+}

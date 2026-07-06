@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "A gust carries the Downwind's stink briefly uphill, and a dozen windows shut.",
+    "Something feeds in the Downwind's tip and does not look up as you pass."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#007031",
+  "color": "#111111",
+  "created_by": "phase9-build",
+  "danger_rating": "medium",
+  "description": "Set deliberately downwind of the heights so its stink never troubles them, this is where the quarter's waste and worse is quietly let go. Things thrive here that the district denies exist.",
+  "exits": {
+    "east": "zone_corp_argent",
+    "north": "zone_nc_beacon",
+    "south": "zone_yard_freightworks",
+    "west": "zone_waste_oxide"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": 7,
+  "grid_y": -4,
+  "grid_z": 0,
+  "id": "zone_waste_downwind",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "Dw",
+  "name": "The Downwind",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123886"
+}

@@ -1,0 +1,17 @@
+{
+  "description": "A dented metal waste bin bolted to the wall. Anything you put in it is gone. That's the point.",
+  "flags": {
+    "interactions": [],
+    "trash_bin": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_threshold_trashbin",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "trash bin",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 15,
+  "zone_id": "zone_threshold"
+}

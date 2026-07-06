@@ -1,0 +1,107 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "The senior clerk of the Prefecture, a small grey man who has turned the withholding of stamps into a martial art. He can end your day with a shrug and a form number.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Then you remain, officially, nobody. Next.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Show me the paperwork.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Never mind.",
+          "next": "bye"
+        }
+      ],
+      "text": "Prefect Aldous looks up over half-moon glasses, unimpressed in advance. \"The Prefecture issues permits, papers, and — occasionally — pardons. Which delay would you like to begin today?\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grey civil-service tunic pressed to a razor edge",
+      "an ink-cuffed shirt",
+      "regulation, joyless underthings"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_gov_prefect",
+  "hp": 18,
+  "hp_max": 18,
+  "id": "npc_prefect_clerk",
+  "name": "Prefect Aldous",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_travel_permit",
+      "price": 30
+    },
+    {
+      "item_id": "item_id_papers",
+      "price": 20
+    },
+    {
+      "item_id": "item_water_bottle",
+      "price": 5
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ]
+  },
+  "vendor_shop_name": "The Prefecture",
+  "vendor_stock_size": 8,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_gov_prefect"
+}

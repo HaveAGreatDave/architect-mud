@@ -1,0 +1,21 @@
+{
+  "category": "misc",
+  "config": {
+    "adsr": {
+      "a": 0.001,
+      "d": 0.12,
+      "r": 0.08,
+      "s": 0.2
+    },
+    "filter": {
+      "freq": 900,
+      "q": 2,
+      "type": "lowpass"
+    }
+  },
+  "enabled": 1,
+  "id": "inst_pluck_bass",
+  "name": "pluck_bass",
+  "sample_id": null,
+  "waveform": "triangle"
+}

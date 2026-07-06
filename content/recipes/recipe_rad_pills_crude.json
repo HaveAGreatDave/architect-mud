@@ -1,0 +1,25 @@
+{
+  "base_difficulty": 6,
+  "base_output": {
+    "item_id": "item_rad_pills",
+    "quantity": 2
+  },
+  "category": "medicine",
+  "craft_time": 3,
+  "description": "Improvised radiation treatment. Effective. Unpleasant.",
+  "id": "recipe_rad_pills_crude",
+  "ingredients": [
+    {
+      "item_id": "item_mutant_gland",
+      "min_quality": "common",
+      "quantity": 1
+    }
+  ],
+  "name": "Crude RadAway",
+  "requires_station": "chemistry_set",
+  "skill_id": "medicine",
+  "skill_req": {
+    "fabrication": 1,
+    "medicine": 3
+  }
+}

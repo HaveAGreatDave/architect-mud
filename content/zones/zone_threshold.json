@@ -1,0 +1,58 @@
+{
+  "ambient_events": [
+    "A drone hums overhead, its chassis stenciled with a faded corporate logo you half-recognize.",
+    "Somewhere in the plaza, a speaker plays a jingle for a fast food chain. Thirty seconds in, it loops.",
+    "A ragged NPC catches your eye and immediately looks away. Everyone here has learned not to be interesting.",
+    "The departure board flickers: COLDWATER → DENVER → SALT LAKE → [SIGNAL LOST]"
+  ],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#4bb36a",
+  "color": "#111111",
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "The fractured boulevard stretches east beneath leaning streetlights and sagging power lines. Rows of shuttered storefronts stare blankly across the cracked pavement, their windows painted over or shattered years ago. Rusted buses sit abandoned where traffic died, their interiors swallowed by dust and creeping vines. Faded evacuation signs still point deeper into the city, while countless layers of graffiti bury whatever messages came before. Every road seems to lead somewhere important, yet every direction feels equally forgotten.",
+  "exits": {
+    "east": "zone_thresholdeast",
+    "in": "zone_hangar_threshold",
+    "north": "zone_city_north",
+    "south": "zone_city_south",
+    "west": "zone_city_west"
+  },
+  "flags": {
+    "airfield_charter": true,
+    "airfield_dealer": false,
+    "airfield_fuel": true,
+    "airfield_fuels": [
+      "avgas",
+      "jet"
+    ],
+    "airfield_id": "af_helipad",
+    "airfield_lawless": false,
+    "airfield_name": "Threshold Helipad",
+    "artery": [
+      "Grand Avenue"
+    ],
+    "building_name": null,
+    "building_type": null,
+    "hangar_interior_zone": "zone_hangar_threshold",
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "no_spawn": true,
+    "scavenging_table_id": "scav_roadside_junk",
+    "world_exit_zone": null
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_threshold",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "TR",
+  "name": "The Threshold",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_seed_17",
+  "lines": [
+    "\"Repent. It won't help, but the gesture matters.\"",
+    "\"Repent for what?\"",
+    "\"You'll know. You always know.\""
+  ],
+  "personality": "preacher",
+  "sort_order": 17
+}

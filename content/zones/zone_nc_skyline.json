@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "The glass floor creaks reassuringly and shows you the long way down.",
+    "A resident jogs past on the skyline walk, eyes forward, seeing none of it."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#ff5ea8",
+  "color": "#111111",
+  "created_by": "phase5-build",
+  "danger_rating": "safe",
+  "description": "A glass promenade cantilevered out over the drop, the whole grey city and greyer bay laid out beneath your feet through the floor. Vertigo is included in the rent.",
+  "exits": {
+    "north": "zone_nc_halcyon",
+    "south": "zone_nc_datum",
+    "west": "zone_gov_vantage"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "gov_enclave": true,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": -1,
+  "grid_y": -6,
+  "grid_z": 0,
+  "id": "zone_nc_skyline",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "SK",
+  "name": "Skyline Walk",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "A patch of the sootbank glows dull orange, then darkens as you watch.",
+    "Your boots come away black, and stay black, no matter what you do."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#7c6a4a",
+  "color": "#eeeeee",
+  "created_by": "phase6-build",
+  "danger_rating": "low",
+  "description": "A long bank of packed soot heaped against a fallen retaining wall, black and greasy and warm in patches where something still smoulders beneath.",
+  "exits": {
+    "east": "zone_waste_slaghollow",
+    "north": "zone_waste_leachfield",
+    "west": "zone_waste_greymile"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "grid_x": -5,
+  "grid_y": -4,
+  "grid_z": 0,
+  "id": "zone_waste_sootbank",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "SB",
+  "name": "Sootbank",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

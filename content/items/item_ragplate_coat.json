@@ -1,0 +1,27 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_ragplate_coat",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "ragplate coat",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
+    "bulkiness": 3,
+    "description": "A heavy longcoat of quilted wadding with scavenged plate stitched into the panels over the ribs and spine. It hangs like it's carrying someone else's bad week, and mostly it is. Blunt hits sink into the padding instead of your bones.",
+    "insulation": 3,
+    "layer": "armor",
+    "slot": "torso"
+  },
+  "type": "armor",
+  "value": 55,
+  "weight": 2500
+}

@@ -1,0 +1,24 @@
+{
+  "description": null,
+  "effects": {},
+  "flags": {},
+  "id": "item_briefs_novelty_spareme",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "spare me briefs",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor": 0,
+    "bulkiness": 1,
+    "description": "Grey cotton briefs with SPARE ME printed across the waistband in a font that was funny to exactly one person: the person who ordered a warehouse of them. The elastic has surrendered.",
+    "insulation": 0.5,
+    "layer": "underwear",
+    "slot": "legs"
+  },
+  "type": null,
+  "value": 12,
+  "weight": 110
+}

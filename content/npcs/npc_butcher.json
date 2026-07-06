@@ -1,0 +1,107 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "A vast, unhurried man in an apron you try not to look at too closely, working the killing lane with a cleaver worn thin from sharpening. He sells meat, buys meat, and does not clarify the difference.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Everyone comes back hungry.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's fresh?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Lost my appetite.",
+          "next": "bye"
+        }
+      ],
+      "text": "The Butcher sets down his cleaver with unsettling gentleness. \"Meat. Fresh, mostly. Cheap, always. You bring me something with meat on it, I'll pay, and I won't ask what it was.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a rubber apron best left undescribed",
+      "a blood-stiff undershirt",
+      "waders and nothing to discuss"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meat_slaughter",
+  "hp": 22,
+  "hp_max": 22,
+  "id": "npc_butcher",
+  "name": "the Butcher",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_raw_meat",
+      "price": 6
+    },
+    {
+      "item_id": "item_bar_jerky",
+      "price": 6
+    },
+    {
+      "item_id": "item_ration",
+      "price": 10
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Slaughter Lane",
+  "vendor_stock_size": 8,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_meat_slaughter"
+}

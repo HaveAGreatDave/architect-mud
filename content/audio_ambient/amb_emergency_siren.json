@@ -1,0 +1,38 @@
+{
+  "category": "environment",
+  "config": {
+    "adsr": {
+      "a": 3,
+      "d": 0.1,
+      "r": 4,
+      "s": 1
+    },
+    "echo": {
+      "delay": 0.22,
+      "feedback": 0.4,
+      "mix": 0.18
+    },
+    "filter": {
+      "freq": 3500,
+      "q": 0.8,
+      "type": "lowpass"
+    },
+    "fm": {
+      "depth": 280,
+      "rate": 420
+    },
+    "freq": 600,
+    "gain": 0.8,
+    "noiseMix": 0.02,
+    "vibrato": {
+      "depth": 900,
+      "rate": 0.1
+    },
+    "waveform": "sine"
+  },
+  "enabled": 1,
+  "id": "amb_emergency_siren",
+  "loop": 1,
+  "name": "amb_emergency_siren",
+  "priority": 5
+}

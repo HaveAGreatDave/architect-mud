@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_scav",
+  "id": "8de00035-2ae8-48f1-a8a2-7c8d91b51c3a",
+  "max_count": 3,
+  "respawn_seconds": 200,
+  "spawn_weight": 60,
+  "zone_id": "zone_ruins"
+}

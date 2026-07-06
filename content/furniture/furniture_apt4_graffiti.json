@@ -1,0 +1,16 @@
+{
+  "description": "Scratched directly into the inside of the door, deep enough that it can't be painted over. COUNT YOUR DAYS. Below it, someone has scratched a smaller reply: I DID. STILL HERE.",
+  "flags": {
+    "interactions": []
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_apt4_graffiti",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "graffiti: COUNT YOUR DAYS",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_4"
+}

@@ -1,0 +1,27 @@
+{
+  "base_difficulty": 10,
+  "base_output": {
+    "item_id": "item_khole",
+    "quantity": 1
+  },
+  "category": "synthesis",
+  "craft_time": 3,
+  "description": "Cook K-Hole from crude K-Hole + industrial solvent.",
+  "id": "cook_khole",
+  "ingredients": [
+    {
+      "item_id": "item_raw_khole",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_reagent_solvent",
+      "quantity": 1
+    }
+  ],
+  "name": "Cook K-Hole",
+  "requires_station": "chem_lab",
+  "skill_id": "chemistry",
+  "skill_req": {
+    "chemistry": 2
+  }
+}

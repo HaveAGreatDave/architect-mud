@@ -1,0 +1,162 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Vane polishes a glass that was already clean and watches the door.",
+    "\"Up here, the weather is a rumour and so is everyone else.\"",
+    "\"A member once asked me the time. I told them it was whatever they preferred.\""
+  ],
+  "description": "A poised, unreadable bartender who runs the Aerie's floor like a chess clock. She remembers every drink, every debt, and every indiscretion, and files them all somewhere you will never reach.",
+  "dialogue_tree": {
+    "accepted": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_leviathan_bounty"
+        }
+      ],
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It sounds the deepest water — off The Wreck, out over The Deep. Go heavy, and come back, ideally. The members do so hate an anticlimax.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"The view's complimentary. Everything else is not.\""
+    },
+    "quest_offer": {
+      "options": [
+        {
+          "label": "I'll hunt it.",
+          "next": "accepted"
+        },
+        {
+          "label": "It's dead. (collect)",
+          "next": "reported"
+        },
+        {
+          "label": "Pass.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The members are bored, and bored money does harm. So we're... privately sponsoring a hunt. There's a thing in the deep water — the leviathan, the big one the lurkers come from. Bring me proof it's dead and the sponsors pay very, very well. Discretion included.\""
+    },
+    "reported": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_leviathan_bounty"
+        }
+      ],
+      "options": [
+        {
+          "label": "Obliged.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"...The deep's gone quiet. The members felt it from up here, believe it or not. Your fee — and a standing tab, which up here is the higher honour by far.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Something more interesting.",
+          "next": "quest_offer"
+        },
+        {
+          "label": "Just the view.",
+          "next": "bye"
+        }
+      ],
+      "text": "The bartender sets down a glass she was already polishing and takes your measure in one clean sweep. \"The Aerie. Members and their curiosities only — which, tonight, apparently means you. Drink? Or something more interesting?\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a sharply cut black bar-jacket",
+      "a crisp collarless shirt",
+      "tailored, invisible foundations"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_nc_halcyon",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_vane",
+  "name": "Vane",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_drink_glow_cocktail",
+      "price": 14
+    },
+    {
+      "item_id": "item_drink_embassy_reserve",
+      "price": 22
+    },
+    {
+      "item_id": "item_drink_rust_whiskey",
+      "price": 9
+    },
+    {
+      "item_id": "item_water_bottle",
+      "price": 5
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "The Aerie",
+  "vendor_stock_size": 8,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_nc_halcyon"
+}

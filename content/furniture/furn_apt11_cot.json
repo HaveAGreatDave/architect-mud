@@ -1,0 +1,19 @@
+{
+  "description": "A cot wedged along the one wall long enough to take it. 'Cozy,' the corkboard called it. It meant small.",
+  "flags": {
+    "interactions": [
+      "sit",
+      "lie"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt11_cot",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "narrow cot",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 45,
+  "zone_id": "zone_apt_11"
+}

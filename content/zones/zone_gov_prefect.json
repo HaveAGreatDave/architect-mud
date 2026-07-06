@@ -1,0 +1,38 @@
+{
+  "ambient_events": [
+    "The permit queue advances one place and a small cheer goes up.",
+    "A prefecture clerk stamps a document, considers it, and stamps it again."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#ff5ea8",
+  "color": "#111111",
+  "created_by": "phase6-build",
+  "danger_rating": "safe",
+  "description": "The plaza fronting the Prefecture, where the queue for permits, papers, and pardons wraps twice around a dry fountain. The Prefecture issues all three, at a price and a delay.",
+  "exits": {
+    "east": "zone_nc_halcyon",
+    "west": "zone_gov_assembly"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "gov_enclave": true,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_consumer_trash"
+  },
+  "grid_x": -2,
+  "grid_y": -7,
+  "grid_z": 0,
+  "id": "zone_gov_prefect",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "PF",
+  "name": "Prefect Plaza",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123885"
+}

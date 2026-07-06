@@ -1,0 +1,10 @@
+{
+  "accuracy": 7,
+  "active": 1,
+  "damage": 0.28,
+  "faction": "redline",
+  "id": "aa_redline_sam",
+  "name": "the Redline SAM nest",
+  "range": 1,
+  "zone_id": "zone_red_killingfloor"
+}

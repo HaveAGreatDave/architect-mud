@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_seed_5",
+  "lines": [
+    "\"Somebody's been through here. Look at the dust.\"",
+    "\"Everybody's been through here. It's a corridor.\"",
+    "\"No, recent. Boots, not drones.\"",
+    "glances toward the exit and lowers their voice."
+  ],
+  "personality": null,
+  "sort_order": 5
+}

@@ -1,0 +1,28 @@
+{
+  "category": "environment",
+  "config": {
+    "adsr": {
+      "a": 0.5,
+      "d": 0.1,
+      "r": 0.6,
+      "s": 1
+    },
+    "filter": {
+      "freq": 250,
+      "q": 1,
+      "type": "lowpass"
+    },
+    "gain": 0.3,
+    "noiseMix": 1,
+    "tremolo": {
+      "depth": 0.3,
+      "rate": 1.2
+    },
+    "waveform": "noise"
+  },
+  "enabled": 1,
+  "id": "amb_subway",
+  "loop": 1,
+  "name": "amb_subway",
+  "priority": 1
+}

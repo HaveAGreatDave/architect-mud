@@ -1,0 +1,90 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {},
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 5,
+  "butcher_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 100
+    }
+  ],
+  "death_message": "The dog goes down. You feel bad about it for approximately three seconds.",
+  "description": "Once someone's pet. Now a forty-pound argument for not going outside.",
+  "dodge": 1,
+  "faction": null,
+  "flags": {
+    "battle_cries": [
+      "$enemy coils, ready to spring at $player.",
+      "$enemy circles, silently eyeing up $player.",
+      "$enemy bares its teeth at $player.",
+      "$enemy stiffens as it watches $player.",
+      "$enemy creeps a step closer to $player.",
+      "$enemy paces around $player.",
+      "$enemy snaps its jaws at $player.",
+      "$enemy lowers its head toward $player.",
+      "$enemy's hackles rise at the sight of $player.",
+      "$enemy paws at the ground before $player.",
+      "$enemy glares at $player without blinking.",
+      "$enemy prowls around $player.",
+      "$enemy lets out a low snarl at $player."
+    ],
+    "first_strike_delay_ms": 10000
+  },
+  "hit": 1,
+  "hp_max": 25,
+  "id": "enemy_feral_dog",
+  "loot_table": [
+    {
+      "item": "trashbag",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 25
+    }
+  ],
+  "name": "Feral Dog",
+  "weapon": [
+    {
+      "max": 2,
+      "min": 1,
+      "type": "kinetic"
+    }
+  ]
+}

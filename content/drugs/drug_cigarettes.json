@@ -1,0 +1,52 @@
+{
+  "addiction_chance": 0.4,
+  "description": "A soft pack of cheap cigarettes. Each one shaves a little off your lungs and hands it to your image.",
+  "duration_seconds": 300,
+  "effects": {
+    "instant": {
+      "sanity": 3
+    },
+    "overdose": {
+      "mods": {
+        "hp": -5,
+        "sanity": -8
+      }
+    },
+    "phases": {
+      "comedown_scale": 0.5,
+      "comedown_seconds": 40,
+      "comeup_message": "<span class=\"msg-system\">You light up and draw deep. Your shoulders drop; the edge comes off your hunger.</span>",
+      "comeup_scale": 0.6,
+      "comeup_seconds": 4,
+      "end_message": "<span class=\"msg-system\">The cigarette burns down to the filter. The cool goes with it; the craving stays.</span>",
+      "peak_message": "<span class=\"msg-system\">Nicotine hums through you. You feel, briefly, extremely cool and very slightly winded.</span>",
+      "peak_mods": {
+        "stamina_max": -15,
+        "stat_cool": 2
+      },
+      "peak_seconds": 90
+    },
+    "tolerance": {
+      "gain_per_dose": 0.1,
+      "max_reduction": 0.5
+    },
+    "withdrawal": {
+      "message": "Your hands are restless and your mood is fraying. You would kill for a cigarette.",
+      "mods": {
+        "stamina_max": -10,
+        "stat_cool": -2
+      },
+      "onset_seconds": 600
+    }
+  },
+  "flags": {
+    "appetite_suppress_seconds": 900,
+    "legal": true,
+    "smokeable": true
+  },
+  "id": "drug_cigarettes",
+  "item_id": "item_cigarettes",
+  "name": "cigarettes",
+  "overdose_threshold": 12,
+  "withdrawal_effects": {}
+}

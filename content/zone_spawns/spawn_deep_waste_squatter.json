@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_squatter",
+  "id": "spawn_deep_waste_squatter",
+  "max_count": 2,
+  "respawn_seconds": 180,
+  "spawn_weight": 30,
+  "zone_id": "zone_deep_waste"
+}

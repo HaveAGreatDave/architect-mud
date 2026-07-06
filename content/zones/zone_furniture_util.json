@@ -1,0 +1,29 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#e08a4a",
+  "color": null,
+  "created_by": null,
+  "danger_rating": "low",
+  "description": "The showroom's backroom: plastic-shrouded sofas stacked to the ceiling, a graveyard of flat-pack and packing foam. Wedged between two wardrobes, the building's junction box hums, warm to the touch, its cabinet door held shut with a bungee cord. A small sealed hacking port sits below its latch.",
+  "exits": {
+    "south": "zone_furniture_store"
+  },
+  "flags": {
+    "is_building": false,
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_furniture_util",
+  "is_safe_zone": 0,
+  "map_id": "map_int_furniture",
+  "marker": null,
+  "name": "Dead Space Interiors — Utility Room",
+  "parent_zone": "zone_furniture_store",
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783023537"
+}

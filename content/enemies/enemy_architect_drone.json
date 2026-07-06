@@ -1,0 +1,86 @@
+{
+  "behavior": "patrol",
+  "behaviour_graph": {},
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 5,
+  "butcher_table": [],
+  "death_message": "The drone spirals down. Somewhere, something notices.",
+  "description": "A black hexagonal drone about the size of a dinner plate. No insignia. Watching.",
+  "dodge": 1,
+  "faction": null,
+  "flags": {
+    "architect_aligned": true,
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy emits sterile shifting hum.",
+      "$enemy produces thin scanning whine.",
+      "$enemy shifts pitch to signal awareness.",
+      "$enemy emits irregular digital beeps.",
+      "$enemy outputs fragmented speech echoes.",
+      "$enemy emits rising diagnostic tone.",
+      "$enemy produces sub-bass lock pulse."
+    ],
+    "first_strike_delay_ms": 1000,
+    "flies": true
+  },
+  "hit": 1,
+  "hp_max": 30,
+  "id": "enemy_architect_drone",
+  "loot_table": [
+    {
+      "item": "item_drone_core",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 40
+    },
+    {
+      "item": "item_architect_fragment",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 15
+    }
+  ],
+  "name": "Architect Scout Drone",
+  "weapon": [
+    {
+      "max": 2,
+      "min": 1,
+      "type": "kinetic"
+    }
+  ]
+}

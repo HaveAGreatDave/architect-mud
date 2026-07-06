@@ -1,0 +1,19 @@
+{
+  "description": "A salvaged shipping crate pressed into service as a side table and spare seat. FRAGILE is stenciled on the side, which stopped being relevant some time ago.",
+  "flags": {
+    "interactions": [
+      "sit",
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_apt1_crate",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "wooden crate",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 20,
+  "zone_id": "zone_apt_1"
+}

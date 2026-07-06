@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "The reflecting basin holds the towers upside-down, perfectly, until it doesn't.",
+    "A ripple crosses the still basin, from the middle, where nothing dropped."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#2f86cc",
+  "color": "#eeeeee",
+  "created_by": "phase9-build",
+  "danger_rating": "low",
+  "description": "A formal basin of still bay water set into the diplomatic quarter as a gesture toward serenity. The gesture is undercut by the things that occasionally surface in it.",
+  "exits": {
+    "east": "zone_nc_consulate",
+    "north": "zone_nc_concordat",
+    "south": "zone_nc_highwater",
+    "west": "zone_bay_floes"
+  },
+  "flags": {
+    "building_name": "",
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "scavenging_table_id": "scav_harbor",
+    "water": true
+  },
+  "grid_x": 5,
+  "grid_y": -6,
+  "grid_z": 0,
+  "id": "zone_bay_basin",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "Bn",
+  "name": "The Reflecting Basin",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783123886"
+}

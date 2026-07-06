@@ -1,0 +1,53 @@
+{
+  "ambient_events": [
+    "Loose sheet metal bangs somewhere in the wind, slow and hollow.",
+    "You find a paycheck stub from a company that no longer exists.",
+    "A pigeon clatters up out of a dead ventilation stack."
+  ],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#53565c",
+  "color": "#eeeeee",
+  "created_by": null,
+  "danger_rating": "low",
+  "description": "The industrial edge of the basin, decades past its last shift. Enormous processing facilities stand half-collapsed, their sheet-metal walls streaked orange with rust and peeling off the frames. Weeds have prised up the loading aprons; nothing here has drawn power in a very long time.",
+  "exits": {
+    "east": "zone_city_west",
+    "in": "zone_hangar_outskirts",
+    "west": "zone_badland_w_gate"
+  },
+  "flags": {
+    "airfield_charter": true,
+    "airfield_dealer": true,
+    "airfield_fuel": true,
+    "airfield_fuels": [
+      "avgas",
+      "jet",
+      "biofuel"
+    ],
+    "airfield_id": "af_regional",
+    "airfield_lawless": false,
+    "airfield_name": "Coldwater Regional",
+    "building_name": null,
+    "building_type": null,
+    "hangar_interior_zone": "zone_hangar_outskirts",
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "no_spawn": true,
+    "scavenging_table_id": "scav_roadside_junk",
+    "world_exit_zone": null
+  },
+  "grid_x": -2,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_outskirts",
+  "is_safe_zone": 1,
+  "map_id": "map_world",
+  "marker": "RQ",
+  "name": "The Rust Quarter",
+  "parent_zone": null,
+  "pvp_enabled": 1,
+  "radiation_level": 0,
+  "updated_at": "1783123848"
+}

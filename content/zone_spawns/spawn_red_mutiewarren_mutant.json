@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_rad_mutant",
+  "id": "spawn_red_mutiewarren_mutant",
+  "max_count": 2,
+  "respawn_seconds": 260,
+  "spawn_weight": 60,
+  "zone_id": "zone_red_mutiewarren"
+}

@@ -1,0 +1,14 @@
+{
+  "description": "A steel workbench strewn with torque wrenches, a part-gutted avionics box and a coffee ring or ten.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hangar_bench_waste_scald",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "a cluttered workbench",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hangar_waste_scald"
+}

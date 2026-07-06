@@ -1,0 +1,14 @@
+{
+  "description": "A hutch of scrap plywood and chicken wire lashed to the parapet, home to a dozen disreputable pigeons who watch you with the flat contempt of creatures who were here first and fully intend to be here last.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pigeoncoop_zone_meridian_roof",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "pigeon coop",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_meridian_roof"
+}

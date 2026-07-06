@@ -1,0 +1,50 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "The archivist reshelves a file with the tenderness of a burial.",
+    "\"Everyone is on record here. Being on record is not the same as being alive.\""
+  ],
+  "description": "A stooped archivist who has memorised the location of files for people who no longer exist, and treats each one as a small held breath.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "She has already returned to the dead."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Just looking.",
+          "next": "bye"
+        }
+      ],
+      "text": "The archivist does not look up from the stacks. \"If you seek a record, give me a name. If you seek a person, I cannot help you; we stopped stocking those.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a dust-grey archivist's smock",
+      "a high-buttoned blouse",
+      "sensible, forgotten underthings"
+    ],
+    "personality": "clerk"
+  },
+  "home_activities": [],
+  "home_zone": "zone_gov_registry",
+  "hp": 14,
+  "hp_max": 14,
+  "id": "npc_gov_archivist",
+  "name": "an archivist",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": null,
+  "vendor_restock_rate": 1,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_gov_registry"
+}

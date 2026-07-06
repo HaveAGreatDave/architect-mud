@@ -1,0 +1,39 @@
+{
+  "ambient_events": [
+    "Ash sifts down like dirty snow and coats your lips with the taste of burnt plastic.",
+    "The wind drops for a moment, and the silence has a weight to it."
+  ],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#8b9097",
+  "color": "#111111",
+  "created_by": null,
+  "danger_rating": "low",
+  "description": "The road gives up and the flats take over — a grey plain of settled ash that swallows your bootprints and hands them back to the wind. Somewhere upwind a stack is still venting; the sky here is the colour of an old bruise.",
+  "exits": {
+    "east": "zone_ashway_road",
+    "west": "zone_ashway_wash"
+  },
+  "flags": {
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
+    "is_interior": false,
+    "lawless": true,
+    "scavenging_table_id": "scav_roadside_junk",
+    "world_exit_zone": null
+  },
+  "grid_x": -6,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_ashway_ashfall",
+  "is_safe_zone": 0,
+  "map_id": "map_world",
+  "marker": "AF",
+  "name": "Ashfall Mile",
+  "parent_zone": null,
+  "pvp_enabled": 1,
+  "radiation_level": 0,
+  "updated_at": "1783123848"
+}

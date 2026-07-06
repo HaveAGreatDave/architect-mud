@@ -1,0 +1,77 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {},
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 5,
+  "butcher_table": [],
+  "death_message": "The mutant folds in on itself in a way that suggests the laws of anatomy were more like suggestions.",
+  "description": "Something that used to be human. The Bleed does this. The extra limb is load-bearing.",
+  "dodge": 1,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy emits wet ragged breathing.",
+      "$enemy produces uneven animalistic snarls.",
+      "$enemy shifts with bone crackling movement.",
+      "$enemy emits guttural choking growls.",
+      "$enemy outputs broken vocal screaming fragments.",
+      "$enemy emits rising fevered shriek."
+    ],
+    "first_strike_delay_ms": 1000,
+    "radiates": true,
+    "radiation_damage": 5
+  },
+  "hit": 1,
+  "hp_max": 65,
+  "id": "enemy_rad_mutant",
+  "loot_table": [
+    {
+      "item": "item_mutant_gland",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 50
+    }
+  ],
+  "name": "Rad Mutant",
+  "weapon": [
+    {
+      "max": 2,
+      "min": 1,
+      "type": "kinetic"
+    }
+  ]
+}

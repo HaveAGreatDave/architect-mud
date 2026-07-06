@@ -1,0 +1,51 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "The lookout sweeps his spyglass across the western wastes and holds his breath.",
+    "\"Something's always coming. Trick's calling it before it arrives.\"",
+    "\"You go west, I'll whistle for you. That's a promise and a warning both.\""
+  ],
+  "description": "A wiry scavenger perched high in the rusted gantry with a spyglass and a whistle, paid in salvage-shares to watch the western dark and call it when something comes out of it. He has good eyes and a worse imagination, and out here the imagination is usually right.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "He is already glassing the dark again, whistle between his teeth."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "I’ll keep to the bar.",
+          "next": "bye"
+        }
+      ],
+      "text": "The lookout doesn't lower his glass. \"Camp pays me to watch west and whistle when it moves, so that's what I do. You're going out there? Then do me the courtesy of being visible, so when you don't come back I can log why. Keep to the slag bar. Off it, the dust'll have you.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a wind-shredded scav coat lashed down with cable",
+      "goggles pushed up on a soot-black brow",
+      "fingerless gloves and a whistle on a cord"
+    ],
+    "personality": "lowlife"
+  },
+  "home_activities": [],
+  "home_zone": "zone_waste_gantry",
+  "hp": 16,
+  "hp_max": 16,
+  "id": "npc_gantry_lookout",
+  "name": "a gantry lookout",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": null,
+  "vendor_restock_rate": 1,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_waste_gantry"
+}
