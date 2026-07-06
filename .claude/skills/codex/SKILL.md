@@ -41,6 +41,8 @@ Run it in order. Do not skip the diff review — it is the step that catches the
 
 Pushing is the user's call unless they said otherwise. Tell them what a push will do (§Prod), don't do it silently.
 
+**After `content:export`, re-read any content file before you `Edit` it.** Export canonicalizes — it sorts JSON keys and adds runtime columns like `updated_at` — so an `Edit` whose `old_string` you remember from *before* the export will silently fail to match. This is the #1 cause of "why won't my edit apply" mid-ship: Read the file first, then edit.
+
 **Step 5 is the *ship* regress, not the *code* regress — and it does NOT replace the build skills' gates.** `codex` runs `test:regress` as the last gate before commit to prove the shipped world boots and every suite is green. It is not a substitute for what `plugin-builder`/`engine-change` do earlier: `plugin-builder` writes and runs the mechanic's own `regress.js` (proving routing/gating), and `engine-change` runs a **mandatory source-of-truth audit** that has no counterpart here. If you arrived from one of those skills, you've already done that work — codex is the final ship gate on top. If you arrive at codex with content that was authored but the code path wasn't gated (e.g. a raw dev-panel session), the ship regress still runs, but it only proves the world boots, not that a new mechanic is correct. Same command running here and there is intentional layering, not redundancy.
 
 ## Step 2–3: review the diff — discard runtime residue
@@ -85,6 +87,16 @@ When the ship includes a schema change, the SCHEMA_SQL edit, the registry classi
 - `git pull` → the post-merge hook auto-runs `content:import --guard-wip`. If it **aborts** naming an entity, you edited that entity locally without exporting — the pull would have stomped it. Resolve: `content:export` your version → `git diff` (you'll see both) → resolve like any git conflict → `git add` + commit → `content:import`.
 - Before pulling, `npm run content:status` tells you if you have unexported work sitting in your DB. Clean status = safe pull.
 - Merge conflicts in `content/*.json` are per-entity and small. When the JSON is fiddly, the escape hatch is: accept either side, import, re-make the change in the dev panel, re-export.
+
+## Deleting content locally — the two traps the deletion pass sets
+
+`content:import`'s deletion pass is **git-diff-driven**: it deletes rows for files removed between the last-imported marker and HEAD (`marker..HEAD`), not for files simply absent from disk. During local iteration that bites two ways:
+
+1. **`rm`-ing a content file does NOT remove its row from your local DB.** An uncommitted deletion isn't in `marker..HEAD`, so `content:import` leaves the row untouched (it only upserts files that still exist). To actually drop it while iterating: **commit the deletion, then `content:import`** — or delete the row directly (`DELETE FROM <table> WHERE id=…` via a scratchpad script; a data change, which is allowed).
+
+2. **Restoring a file you deleted-and-committed earlier on the SAME branch keeps getting re-deleted.** HEAD still shows it deleted, so every `content:import` inserts it from the working file *then the deletion pass removes it again* — the log reads `1 inserted, … 1 deleted` and the row ends up gone. Fix: **commit the restoration first**, then `content:import`. Now `marker..HEAD` no longer shows it deleted and the row sticks.
+
+Symptom of both: a content file exists on disk but its row is missing from the DB — which surfaces as a broken `examine`/`look`, a dangling inventory reference, or a lint FK warning. Confirm with `SELECT id FROM <table> WHERE id=…`; the fix is always commit-then-import.
 
 ## Prod: what a push means, and the cautions
 
