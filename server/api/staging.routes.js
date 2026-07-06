@@ -23,6 +23,12 @@ const DEV_ROLES = ['dev', 'admin', 'builder', 'designer'];
 
 export async function handleStagingApi(path, method, body, auth) {
   if (!path.startsWith('/staging')) return null;
+  // Defense-in-depth behind the CONTENT_READONLY gate in handleApiRequest: even
+  // if a future dispatch path reaches staging directly, prod content stays
+  // read-only. Git is the only writer of content to production.
+  if (process.env.CONTENT_READONLY && method !== 'GET') {
+    return { status: 403, body: { error: 'Content is read-only on production — author locally and ship via git.' } };
+  }
   if (!auth || !DEV_ROLES.includes(auth.role)) {
     return { status: 403, body: { error: 'Dev access required' } };
   }

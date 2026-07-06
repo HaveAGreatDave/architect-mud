@@ -26,6 +26,7 @@ is_zero() { case "$1" in *[!0]*) return 1 ;; *) return 0 ;; esac; }
 # decide whether any non-seed file is going out. Read directly (no pipe) so the
 # flag survives the loop.
 needs_regress=0
+needs_lint=0
 while read -r local_ref local_oid remote_ref remote_oid; do
   is_zero "$local_oid" && continue          # branch deletion — nothing to gate
   if is_zero "$remote_oid"; then
@@ -33,10 +34,26 @@ while read -r local_ref local_oid remote_ref remote_oid; do
     continue
   fi
   changed=$(git diff --name-only "$remote_oid" "$local_oid" 2>/dev/null)
-  # Anything in this push that ISN'T db/seed.sql means it's a code push.
-  other=$(printf '%s\n' "$changed" | grep -v '^db/seed\.sql$' | grep -v '^$')
+  # Content-only pushes (content/ files, or the legacy seed dumps) skip the local
+  # regress — CI regresses the merged main before anything reaches prod — but
+  # content files always get linted (cheap, and blocks broken JSON / dangling
+  # FKs from ever reaching the shared history).
+  printf '%s\n' "$changed" | grep -q '^content/' && needs_lint=1
+  other=$(printf '%s\n' "$changed" | grep -v '^db/seed\.sql$' | grep -v '^db/audio-seed\.sql$' | grep -v '^content/' | grep -v '^$')
   [ -n "$other" ] && needs_regress=1
 done
+
+if [ "$needs_lint" = 1 ]; then
+  echo "[content-gate] content files in this push — linting…"
+  if node scripts/content/lint.mjs </dev/null; then
+    echo "[content-gate] lint clean."
+  else
+    echo ""
+    echo "✗ [content-gate] content:lint FAILED — push BLOCKED."
+    echo "  Fix the files (or re-export from your DB), then push again."
+    exit 1
+  fi
+fi
 
 if [ "$needs_regress" = 1 ]; then
   echo "[relay-gate] code changes in this push — running regression gate…"
@@ -51,7 +68,7 @@ if [ "$needs_regress" = 1 ]; then
     exit 1
   fi
 else
-  echo "[relay-gate] content-only push (db/seed.sql) — regress skipped."
+  echo "[relay-gate] content-only push — regress skipped (CI regresses main)."
 fi
 
 # --- 2. Dev Log commit-history sync (best-effort) ----------------------------

@@ -130,9 +130,50 @@ function requireAdmin(auth, fn) {
   return fn();
 }
 
+// ── CONTENT_READONLY gate (set on Render; unset in dev) ──────────────────────
+// With CONTENT_READONLY=1, production accepts NO content writes over HTTP: git
+// is the only writer of world content to prod (CI applies content/ on push to
+// main). This single gate sits ahead of ALL dispatch — core routes, staging,
+// environment, worldvalidator, backup, and every plugin routeHandler — so a new
+// plugin's authoring routes are covered by default.
+//
+// Reads always pass. Writes pass only for OPS routes: live-server operations
+// that touch runtime/player state, not authored content (census 2026-07-06).
+// Gameplay itself is unaffected — player commands ride the WebSocket, not HTTP.
+const OPS_ROUTES = [
+  /^\/auth\//,                    // login/register/reset — blocking these bricks the game
+  /^\/players(\/|$)/,             // admin player ops + /players/me/profile
+  /^\/admin\/presence$/,
+  /^\/channels\//,                // dev-panel chat
+  /^\/ghost\/token$/,
+  /^\/mis\//, /^\/email-verification\//,
+  /^\/world\/reload$/,
+  /^\/motd(\/|$)/,
+  /^\/dev\//,                     // dev notes / identities / activity
+  /^\/spawn$/,                    // spawn an item for a player (ops, not authoring)
+  /^\/live-enemies\//,            // despawn a live enemy
+  /^\/zones\/[^/]+\/live-enemies$/, // spawn a live enemy (runtime, not zone_spawns)
+  /^\/npcs\/[^/]+\/(restock|place-safe)$/,
+  /^\/gametable(\/|$)/,           // poker tables — runtime game state
+  /^\/emergency(\/|$)/,           // crime-log ops
+  /^\/atm\/units(\/|$)/,          // ATM cash ops (atm_units is runtime; networks are content)
+];
+function contentReadonlyBlocks(path, method) {
+  if (!process.env.CONTENT_READONLY) return false;
+  if (method === 'GET' || method === 'HEAD') return false;
+  // Environment routes are live-ops (time/weather/power controls) — except the
+  // climate profile editor, which writes the climate_profiles content table.
+  if (path.startsWith('/environment/') && !path.startsWith('/environment/climate/')) return false;
+  return !OPS_ROUTES.some(re => re.test(path));
+}
+
 export async function handleApiRequest(url, method, body, headers) {
   const path = url.replace(/^\/api/,'').split('?')[0];
   const auth = verifyToken(headers);
+
+  if (contentReadonlyBlocks(path, method)) {
+    return { status: 403, body: { error: 'Content is read-only on production — author locally and ship via git (content:export → commit → push).' } };
+  }
 
   const envResult = await handleEnvironmentApi(path, method, body, auth);
   if (envResult) return envResult;

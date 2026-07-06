@@ -13,3 +13,9 @@ services:
         value: production
       - key: RENDER_EXTERNAL_URL
         sync: false           # paste your full Render URL e.g. architect-mud.onrender.com
+      # Uncomment at the content-pipeline cutover (after the git baseline lands and
+      # the deploy-content CI workflow is live): makes prod content read-only over
+      # HTTP — git becomes the only writer of world content to production. Ops
+      # tools (player admin, weather/power, live spawns…) stay live.
+      # - key: CONTENT_READONLY
+      #   value: "1"

@@ -38,6 +38,7 @@ import { registerProtectionProvider, getZoneProtection, getRegisteredProtectionP
 import { stopAll } from '../server/engine/scheduler.js';
 import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../server/models/schema.js';
+import { handleApiRequest } from '../server/api/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGINS_DIR = join(__dirname, '../plugins');
@@ -157,6 +158,50 @@ console.log('— layer 1b: object-gated verb discoverability —');
   }
   check('object-gated verbs are discoverable or logged', problems.length === 0, problems.join('; '));
   if (knownGaps.length) console.log(`    (known discoverability gaps, logged not enforced: ${knownGaps.join(', ')})`);
+}
+
+// ── Layer 1c: CONTENT_READONLY gate (prod content is git-only) ───────────────
+// With the env set, every HTTP content write — core routes, staging, plugin
+// routes — must 403 with the read-only message, while ops routes (auth, player
+// admin, environment controls…) must NOT be blocked BY THE GATE (they may still
+// 401/403 for auth reasons — that's the handler speaking, not the gate).
+console.log('— layer 1c: CONTENT_READONLY gate —');
+{
+  const READONLY_MSG = /read-only on production/;
+  const hitsGate = async (method, url) => {
+    try {
+      const r = await handleApiRequest(url, method, {}, {});
+      return r?.status === 403 && READONLY_MSG.test(r?.body?.error || '');
+    } catch {
+      return false; // reached a real handler and blew up on the empty body — not gated
+    }
+  };
+  process.env.CONTENT_READONLY = '1';
+  const mustBlock = [
+    ['PUT', '/api/zones/zone_regress_gate_probe'],
+    ['POST', '/api/staging/stage'],
+    ['PUT', '/api/npcs/npc_regress_gate_probe'],
+    ['PUT', '/api/audio/samples/smp_regress_gate_probe'],   // plugin route
+    ['POST', '/api/quests'],                                 // plugin route
+    ['POST', '/api/environment/climate/profiles'],           // climate = content
+  ];
+  const mustPass = [
+    ['POST', '/api/auth/login'],                             // blocking this bricks the game
+    ['POST', '/api/motd/push'],
+    ['POST', '/api/admin/presence'],
+    ['POST', '/api/environment/time/advance'],               // live-ops stay live
+  ];
+  const gateErrors = [];
+  for (const [method, url] of mustBlock) {
+    if (!(await hitsGate(method, url))) gateErrors.push(`${method} ${url} was NOT blocked`);
+  }
+  for (const [method, url] of mustPass) {
+    if (await hitsGate(method, url)) gateErrors.push(`${method} ${url} WAS blocked (ops route caught by the gate)`);
+  }
+  delete process.env.CONTENT_READONLY;
+  check('CONTENT_READONLY blocks content writes, passes ops routes', gateErrors.length === 0, gateErrors.join('; '));
+  // Gate off ⇒ fully inert: the same content write must not see the gate message.
+  check('gate is inert when CONTENT_READONLY is unset', !(await hitsGate('PUT', '/api/zones/zone_regress_gate_probe')));
 }
 
 // ── Fake player setup ─────────────────────────────────────────────────────────

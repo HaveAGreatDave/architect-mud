@@ -1,0 +1,143 @@
+# Content deploy — git is the source of truth for world content; this workflow is
+# the ONLY writer of content to the production database.
+#
+# Flow: regress the merged tree against a throwaway Postgres built purely from
+# content/ files → pg_dump prod (backup artifact) → drift report (surfaces manual
+# prod hotfixes this deploy would overwrite) → import (upserts + git-diff-driven
+# deletions) → record a deployments row → kick Render so the game server reboots
+# onto the new content.
+#
+# Rollback: `git revert` the bad content commit and push — the next run restores
+# everything (reverted values re-upsert, added rows delete, deletions restore).
+# Catastrophic: `psql -f` the pg_dump artifact from the run before the damage.
+#
+# ── ENABLING THE PUSH TRIGGER (the Phase-5 cutover gate) ──
+# This ships workflow_dispatch-only. After the content baseline lands on main,
+# rehearse first: restore the latest prod pg_dump into a scratch DB, point
+# PROD_DATABASE_URL at it (environment or temporary secret), dispatch this
+# workflow, and verify counts/drift/marker. Only then uncomment:
+#
+#   push:
+#     branches: [main]
+#
+# Required repo secrets:
+#   PROD_DATABASE_URL        — Supabase SESSION-mode connection string (port 5432,
+#                              NOT the transaction pooler: pg_dump and
+#                              SET CONSTRAINTS need session mode)
+#   RENDER_DEPLOY_HOOK_URL   — optional; Render → Settings → Deploy Hook. Restarts
+#                              the service after import so the in-memory world
+#                              cache is never stale.
+
+name: deploy-content
+
+on:
+  workflow_dispatch:
+  # push:                      # ← enable after the rehearsal (see header)
+  #   branches: [main]
+
+concurrency:
+  group: prod-content-deploy
+  cancel-in-progress: false    # serialize both devs' pushes; never kill a half-applied deploy
+
+jobs:
+  regress:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: architect
+          POSTGRES_PASSWORD: architect
+          POSTGRES_DB: architect_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U architect"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://architect:architect@localhost:5432/architect_ci
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # importer + deletion pass need history
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint content files
+        run: npm run content:lint
+      - name: Build the world from content files
+        run: npm run content:import
+      - name: Regression suite (world built purely from files)
+        run: npm run test:regress
+
+  deploy:
+    needs: regress
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse to run on a public repo
+        # The backup artifact contains player password hashes and emails.
+        if: ${{ github.event.repository.private != true }}
+        run: |
+          echo "::error::Repository is public — backup artifacts would leak player data. Aborting."
+          exit 1
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install postgresql-client 17
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq install -y postgresql-common
+          echo | sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get -qq install -y postgresql-client-17
+      - name: Backup production (pg_dump)
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          pg_dump "$PROD_DATABASE_URL" --no-owner --no-privileges -n public -f prod-backup.sql
+          ls -lh prod-backup.sql
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-backup-${{ github.run_number }}
+          path: prod-backup.sql
+          retention-days: 14
+      - name: Drift report (manual prod edits this deploy will overwrite)
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: node scripts/content/import.mjs --report-drift --prod --yes
+      - name: Deploy content to production
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: node scripts/content/import.mjs --prod --yes
+      - name: Record deployment
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          node --input-type=module -e "
+          import pg from 'pg';
+          const c = new pg.Client({ connectionString: process.env.PROD_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+          await c.connect();
+          await c.query(
+            'INSERT INTO deployments (deployed_by, change_count, changes_summary) VALUES (\$1, \$2, \$3)',
+            ['ci', 0, JSON.stringify({ source: 'github-actions', sha: process.env.GITHUB_SHA, run: process.env.GITHUB_RUN_NUMBER })]
+          );
+          await c.end();
+          console.log('deployments row recorded');
+          "
+      - name: Restart Render service (fresh world cache)
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$HOOK" ]; then
+            curl -fsS -X POST "$HOOK" > /dev/null && echo "Render restart triggered."
+          else
+            echo "::warning::RENDER_DEPLOY_HOOK_URL not set — the live server keeps its old in-memory world until its next restart."
+          fi

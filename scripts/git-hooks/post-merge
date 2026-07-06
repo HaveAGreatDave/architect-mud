@@ -1,11 +1,31 @@
 #!/bin/sh
-# After a merge/pull, if the shared world seed (db/seed.sql) changed, remind the
-# dev to rebuild their local database so their world matches. Reminder ONLY — it
-# never rebuilds automatically, because that would wipe any un-exported local
-# content. Enabled via core.hooksPath scripts/git-hooks (npm run hooks:install).
+# After a merge/pull:
+#
+#   1. If content/ files changed, import them into the local DB automatically.
+#      Safe by construction: the importer upserts only rows that have files,
+#      deletes only rows whose files were removed in committed history, and
+#      --guard-wip ABORTS the whole (transactional) import if a pulled change
+#      overlaps an entity you edited locally but haven't exported — turning a
+#      silent local-DB overwrite into a visible conflict you resolve in git.
+#
+#   2. Legacy lane (until the seed pipeline is retired): if db/seed.sql changed,
+#      remind the dev to content:sync. Reminder only.
+#
+# Enabled via core.hooksPath scripts/git-hooks (npm run hooks:install).
 
 root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 cd "$root" || exit 0
+
+if git diff --name-only ORIG_HEAD HEAD 2>/dev/null | grep -q '^content/'; then
+  echo ""
+  echo "📦 Content files changed in that pull — importing into your local DB…"
+  if npm run content:import -- --guard-wip; then
+    :
+  else
+    echo "   ⚠ Import did not complete (see above). Resolve, then run:  npm run content:import"
+  fi
+  echo ""
+fi
 
 if git diff --name-only ORIG_HEAD HEAD 2>/dev/null | grep -q '^db/seed\.sql$'; then
   echo ""
