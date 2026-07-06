@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, liveAircraft, persist, pushHud, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf } from './state.js';
+import { getZone, liveAircraft, persist, pushHud, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf, rentalOpFee } from './state.js';
 // `buy` belongs to commerce (shopping); flight wins it by load order (manifest
 // `after`) and delegates back unless you're buying an aircraft at a dealer field.
 import { commands as commerceCommands } from '../commerce/index.js';
@@ -75,8 +75,8 @@ async function acquire(args, raw, player, kind) {
     [id, t.id, tailNum, player.id, field.grid_x, field.grid_y, field.id, Math.round((await typeCap(t.id)) * 0.5), kind === 'buy' ? 0 : 1]
   );
   return { type: 'output', message: kind === 'buy'
-    ? `<span class="item-grant">Sold. A brand-new <b>${t.name}</b> (${tailNum}) is towed onto the ramp. It's yours — <b>embark</b> her.</span>`
-    : `<span class="item-grant">Rented a <b>${t.name}</b> (${tailNum}), half a tank, parked and ready. <b>embark</b> her and fly it yourself — the meter's running, so bring her back in one piece.</span>` };
+    ? `<span class="item-grant">Sold. A brand-new <b>${t.name}</b> (${tailNum}) is towed onto the ramp — it's yours. <b>embark</b> her. <span class="text-dim">You own her now: you buy your own fuel and pay for your own <b>repair</b>s (DIY, or the hangar does it right for more).</span></span>`
+    : `<span class="item-grant">Rented a <b>${t.name}</b> (${tailNum}), half a tank, parked and ready. <b>embark</b> her and fly it yourself. <span class="text-dim">Flat desk fee ${price}c paid; the meter then runs while you're airborne — ~${rentalOpFee(t)}c per 30 min for gas &amp; upkeep. Maintenance is on the desk, so just bring her back.</span></span>` };
 }
 
 async function typeCap(typeId) {

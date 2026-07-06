@@ -886,6 +886,35 @@ async function cmdTeleport(targetZoneId, player, broadcast) {
   return { type:'move', message: await describeZone(targetZone, player), zone: targetZoneId, minimap: getMinimapData(targetZoneId) };
 }
 
+// The `.admin` command reference. One hand-maintained catalog is the single
+// source of truth — admin verbs are role-gated inline in their own handlers
+// (scattered across the engine + plugins), so there's nothing to auto-derive
+// from. When you add a new admin/dev verb, add a line here. `roles` lists who
+// may run it; the panel only shows a viewer the verbs they can actually use.
+// `args` empty ⇒ the client runs it on click; otherwise it prefills the input.
+const ADMIN_COMMANDS = [
+  { verb:'tp',              args:'<zone id>',              desc:'Teleport yourself to a zone.',                       roles:['admin'],                              cat:'World' },
+  { verb:'corpses',         args:'',                       desc:'List every corpse currently on the map.',            roles:['admin'],                              cat:'World' },
+  { verb:'purge',           args:'',                       desc:'Wipe your wanted stars + heat and combust every cop in the room.', roles:['admin'],                 cat:'World' },
+  { verb:'lettherebelight', args:'',                       desc:'Add a lit, powered overhead fixture to this room.',  roles:['admin','dev'],                        cat:'World' },
+  { verb:'spawn',           args:'<item id> [zone|here]',  desc:'Spawn an item (default: your current zone).',        roles:['admin','dev'],                        cat:'Spawning' },
+  { verb:'spawnenemy',      args:'<enemy id> [zone|here]', desc:'Spawn an enemy (default: your current zone).',       roles:['admin','dev'],                        cat:'Spawning' },
+  { verb:'kamehameha',      args:'[target]',               desc:'Insta-kill a named enemy, NPC, or player — or every enemy in the room if none named.', roles:['admin'],  cat:'Combat' },
+  { verb:'dresscyd',        args:'[save]',                 desc:'Dress the Cyd NPC from the saved outfit (save = snapshot current).', roles:['admin','dev'],           cat:'Content' },
+  { verb:'cooktest',        args:'[difficulty] [hard]',    desc:'Open the cook minigame in test mode (no inventory).', roles:['admin','dev','builder','designer'],   cat:'Content' },
+  { verb:'splicetest',      args:'',                       desc:'Open the splice designer in test mode.',             roles:['admin','dev','builder','designer'],   cat:'Content' },
+];
+
+function cmdAdmin(player) {
+  if (player.role !== 'admin') {
+    return { type:'error', message:'Unknown command: "admin". Type HELP for commands.' };
+  }
+  const commands = ADMIN_COMMANDS
+    .filter(c => c.roles.includes(player.role))
+    .map(({ verb, args, desc, cat }) => ({ verb, args, desc, cat }));
+  return { type:'admin_panel', role: player.role, commands };
+}
+
 function cmdHelp(player) {
   let msg = `<span class="help-header">COMMANDS</span>
 
@@ -906,7 +935,7 @@ function cmdHelp(player) {
 <span class="help-category">OBSERVE</span>     look sky  |  look ground  |  look distance  |  examine surroundings
 <span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help`;
   if (player?.role === 'admin') {
-    msg += `\n<span class="help-category">ADMIN</span>      .tp &lt;zone id&gt;  |  .spawn &lt;item id&gt; [zone|here]  |  .spawnenemy &lt;enemy id&gt; [zone|here]  |  .corpses   <span class="text-dim">(prefix admin verbs with . or /)</span>`;
+    msg += `\n<span class="help-category">ADMIN</span>      .admin   <span class="text-dim">— open the admin command reference (prefix admin verbs with . or /)</span>`;
   }
   return { type:'help', message: msg };
 }
@@ -961,6 +990,7 @@ export const handlers = {
   raise:    (args, raw, player) => cmdRaise(args, player),
   spawn:    (args, raw, player, broadcast) => cmdSpawn(args, player, broadcast),
   spawnenemy: (args, raw, player, broadcast) => cmdSpawnEnemy(args, player, broadcast),
+  admin:    (args, raw, player) => cmdAdmin(player),
 };
 
 // Lighting controls are owned by the lighting plugin (registered as specialized

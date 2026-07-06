@@ -26,6 +26,8 @@
 //               //   sliding past the window rather than rushing at you
 //   windowClass,// passenger cabin: aircraft class → the window-frame shape cut
 //               //   around the view (porthole / cabin pane / armoured port)
+//   contacts,   // air-to-air traffic (Phase A): [{dx,dy,altDiff,rng,reg,hullPct,
+//               //   designated}] relative to us → aircraft blips + a target bracket
 // }
 
 import { isWeatherFxEnabled } from './weather-fx.js';
@@ -318,6 +320,7 @@ export function paintWindshield(id, view) {
     if (vw.runway) drawRunwayTex(ctx, cam, vw);
     drawWorldObjects(ctx, cam, vw, sky, now);
     if (vw.landGuide && vw.runway) drawGuideBoxes(ctx, cam, vw, now);
+    if (vw.contacts) drawContacts(ctx, cam, vw, W, H);   // air-to-air traffic (Phase A: see other craft)
   }
 
   // Speed streaks (motion rush from the vanishing point) — forward view only.
@@ -358,6 +361,15 @@ export function paintWindshield(id, view) {
   if (!v.windowClass) drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
   if (!v.windowClass) drawWxBadge(ctx, W, wx, v.wind);
   if (v.hud) drawHud(ctx, W, H, v);
+  // Guns (Phase B): forward tracer stream + muzzle flash while firing, screen-fixed.
+  if (v.firing || v.muzzle) drawGunfire(ctx, W, H, v);
+  // Battle damage: a red flash + edge pulse that fades after taking a hit.
+  if (v.hitFlash > 0) {
+    ctx.save();
+    ctx.fillStyle = `rgba(190,20,20,${0.26 * v.hitFlash})`; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = `rgba(255,60,60,${0.65 * v.hitFlash})`; ctx.lineWidth = 6; ctx.strokeRect(3, 3, W - 6, H - 6);
+    ctx.restore();
+  }
   // Passenger cabin: cut the view into a window shaped to fit the aircraft.
   if (v.windowClass) drawWindowFrame(ctx, W, H, v.windowClass);
 
@@ -560,6 +572,34 @@ function drawHud(ctx, W, H, v) {
     ctx.fillStyle = 'rgba(40,10,6,0.74)'; ctx.strokeStyle = '#ff8a3e'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx - w / 2, y - 11, w, 22, 5) : ctx.rect(cx - w / 2, y - 11, w, 22); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#ffb23e'; ctx.fillText(v.navWarn, cx, y + 0.5);
+  }
+  // AA threat telegraph: a pulsing red banner spelling out the escape drill while you're
+  // inside a ground-fire envelope, plus a red diamond on the tape pointing at the gun.
+  if (v.threat && v.threat.exposed) {
+    const t = v.threat, pulse = 0.55 + 0.45 * Math.sin(performance.now() * 0.008);
+    // directional marker on the heading tape (pins to the edge as a chevron when off-tape)
+    const delta = (((t.bearing - hdg) % 360) + 540) % 360 - 180;
+    const off = Math.abs(delta) > 45, mx = cx + clamp(delta, -45, 45) * ppd, my = tapeY + tapeH + 3;
+    ctx.fillStyle = `rgba(255,66,66,${0.6 + pulse * 0.4})`;
+    ctx.beginPath(); ctx.moveTo(mx, my + 5); ctx.lineTo(mx - 4, my); ctx.lineTo(mx + 4, my); ctx.closePath(); ctx.fill();
+    if (off) { ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(delta > 0 ? '›' : '‹', mx + (delta > 0 ? 8 : -8), my + 2); }
+    // banner (above the off-map banner slot so both can show)
+    const y = H * 0.21, line1 = `⚠ AA THREAT — ${(t.name || 'GROUND FIRE').toUpperCase()}`, line2 = 'CLIMB TO HIGH · or FIREWALL + EVADE';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = 'bold 12px monospace'; const w1 = ctx.measureText(line1).width;
+    ctx.font = 'bold 8px monospace'; const w2 = ctx.measureText(line2).width;
+    const w = Math.max(w1, w2) + 20;
+    ctx.fillStyle = 'rgba(52,6,6,0.78)'; ctx.strokeStyle = `rgba(255,80,80,${0.55 + pulse * 0.45})`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx - w / 2, y - 14, w, 34, 5) : ctx.rect(cx - w / 2, y - 14, w, 34); ctx.fill(); ctx.stroke();
+    const flare = (140 + pulse * 115) | 0;
+    ctx.font = 'bold 12px monospace'; ctx.fillStyle = `rgb(255,${flare},${flare})`; ctx.fillText(line1, cx, y - 3);
+    ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#ffd2d2'; ctx.fillText(line2, cx, y + 11);
+  }
+  // Hull integrity readout (bottom-right) — greens to reds as battle damage mounts.
+  if (typeof v.hull === 'number' && v.hull < 100) {
+    ctx.font = 'bold 9px monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = v.hull <= 25 ? '#ff5b5b' : v.hull <= 55 ? '#ffb23e' : '#7fd6a0';
+    ctx.fillText(`HULL ${v.hull}%`, W - 8, H - 11);
   }
 }
 
@@ -918,7 +958,7 @@ function makeCam(W, horizonY, depth, v) {
   const cx = W / 2, FL = (W / 2) / 1.15;
   const proj = (dx, dy, wz) => { const f = Math.max(0.06, dx * sinh - dy * cosh), l = dx * cosh + dy * sinh; return { sx: cx + (l / f) * FL, sy: horizonY + depth * (EH - wz) / f, f }; };
   const projFL = (aa, s, wz) => { const f = Math.max(0.06, aa); return { sx: cx + (s / f) * FL, sy: horizonY + depth * (EH - (wz || 0)) / f, f }; };
-  return { R, sinh, cosh, ox, oy, proj, projFL };
+  return { R, sinh, cosh, ox, oy, proj, projFL, EH };   // EH exposed so airborne traffic can be placed relative to eye height
 }
 
 // One extruded, texture-mapped box between two heights (base wz0 → top wz1): painter-sorted
@@ -983,6 +1023,148 @@ function drawRockBB(ctx, cam, dx, dy, night, seed, alpha) {
   ctx.globalAlpha = alpha; ctx.fillStyle = 'rgb(120,92,60)';
   ctx.beginPath(); ctx.moveTo(p.sx - s, p.sy); ctx.lineTo(p.sx - s * 0.3, p.sy - s * 0.7); ctx.lineTo(p.sx + s * 0.4, p.sy - s * 0.5); ctx.lineTo(p.sx + s, p.sy); ctx.closePath(); ctx.fill();
   ctx.globalAlpha = 1;
+}
+
+// ── Air-to-air traffic ────────────────────────────────────────────────────────
+// Each contact is { dx, dy, altDiff, rng, reg, hullPct, cls, hdg, bank, pitch, designated }
+// relative to us (world tiles + altitude delta in feet + the bogey's own attitude). We
+// build a low-poly aircraft model in the contact's local frame and project every vertex
+// through the SAME Mode-7 camera as the buildings — so aspect angle (which way it's
+// pointing), bank, pitch and perspective all come out physically correct for free.
+const CONTACT_ALT_K = 1 / 600;   // feet of altitude delta → world-z units (tune)
+const CONTACT_VS = 1.6;          // vertical exaggeration so the projected model isn't screen-squashed (tune)
+const CONTACT_SIZE = { ultralight: 0.085, heli: 0.11, prop: 0.11, heavy: 0.17, gunship: 0.13, wreck: 0.10 };
+function drawContacts(ctx, cam, v, W, H) {
+  const cs = v.contacts; if (!cs || !cs.length) return;
+  ctx.save();
+  for (const c of cs) {
+    // Camera-space forward (f) / lateral-right (l) — same basis cam.proj uses.
+    const f = c.dx * cam.sinh - c.dy * cam.cosh, l = c.dx * cam.cosh + c.dy * cam.sinh;
+    const baseWz = cam.EH + (c.altDiff || 0) * CONTACT_ALT_K;
+    const pc = cam.proj(c.dx, c.dy, baseWz);
+    const onScreen = pc.f > 0.12 && pc.sx >= -40 && pc.sx <= W + 40 && pc.sy >= -40 && pc.sy <= H + 40;
+    if (!onScreen) { drawContactChevron(ctx, c, f, l, W, H); continue; }
+    ctx.globalAlpha = clamp(1.5 - pc.f / 12, 0.35, 1);    // fade into the haze with distance
+    const bb = drawAircraftModel(ctx, cam, c, baseWz);
+    ctx.globalAlpha = 1;
+    if (c.designated && bb) {
+      const cx = (bb.minx + bb.maxx) / 2, cy = (bb.miny + bb.maxy) / 2;
+      const b = Math.max(11, Math.max(bb.maxx - bb.minx, bb.maxy - bb.miny) / 2 + 5);
+      ctx.strokeStyle = '#ff5b5b'; ctx.lineWidth = 1.3;
+      cornerBox(ctx, cx, cy, b);
+      ctx.fillStyle = '#ff8a80'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(c.reg || 'BOGEY', cx, cy - b - 11);
+      ctx.fillText(`${(Math.round((c.rng || 0) * 10) / 10)}mi · ${c.hullPct ?? 100}%`, cx, cy - b - 3);
+      const cue = c.altDiff > 120 ? '▲' : c.altDiff < -120 ? '▼' : '•';   // above / below / co-alt
+      ctx.fillText(cue, cx + b + 6, cy);
+    }
+  }
+  ctx.restore();
+}
+// The bogey's low-poly model, built nose-forward in ITS frame, oriented by its heading/
+// bank/pitch, then every vertex projected through the shared camera. Depth-sorted filled
+// faces (far first), painted in the craft's LIVERY (base/trim + finish sheen + pattern
+// accents). Returns the screen bbox for the designator.
+const AC_FACES = [
+  // [local verts (f=fwd, g=right, h=up), role, shade] — a compact jet.
+  { p: [[1.15, 0, 0.03], [0.05, 0.13, 0.05], [-1.05, 0, 0.08], [0.05, -0.13, 0.05]], role: 'body', sh: 1.0 },   // fuselage
+  { p: [[0.2, 0, 0], [-0.15, 1.0, -0.02], [-0.5, 0, 0], [-0.15, -1.0, -0.02]], role: 'wing', sh: 0.82 },        // wing
+  { p: [[-0.78, 0, 0.06], [-1.02, 0.42, 0.06], [-1.12, 0, 0.08], [-1.02, -0.42, 0.06]], role: 'stab', sh: 0.72 },// tailplane
+  { p: [[-0.72, 0, 0.06], [-0.98, 0, 0.55], [-1.08, 0, 0.09]], role: 'fin', sh: 0.9 },                          // vertical fin
+];
+const FINISH_MUL = { gloss: 1.06, satin: 1.0, matte: 0.88, weathered: 0.82 };
+const hex2rgb = (h) => { if (typeof h !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(h)) return null; const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const shadeRgb = (c, m) => `rgb(${clamp(c[0] * m, 0, 255) | 0},${clamp(c[1] * m, 0, 255) | 0},${clamp(c[2] * m, 0, 255) | 0})`;
+function drawAircraftModel(ctx, cam, c, baseWz) {
+  const SIZE = CONTACT_SIZE[c.cls] || 0.11, VS = CONTACT_VS;
+  const hr = (c.hdg || 0) * Math.PI / 180, roll = (c.bank || 0) * Math.PI / 180, pitch = (c.pitch || 0) * Math.PI / 180;
+  const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const fwdX = Math.sin(hr), fwdY = -Math.cos(hr), rgtX = Math.cos(hr), rgtY = Math.sin(hr);
+  const P = (lp) => {
+    const f = lp[0], g = lp[1], h = lp[2];
+    const f1 = f * cp - h * sp, h1 = f * sp + h * cp;               // pitch (nose up = +)
+    const g2 = g * cr + h1 * sr, h2 = -g * sr + h1 * cr;            // roll (right wing down = +)
+    return cam.proj(c.dx + SIZE * (f1 * fwdX + g2 * rgtX), c.dy + SIZE * (f1 * fwdY + g2 * rgtY), baseWz + SIZE * VS * h2);
+  };
+  // Livery palette: base + trim, a finish sheen multiplier, and pattern-driven accents.
+  const lv = c.livery || {};
+  let base = hex2rgb(lv.base) || [90, 95, 102], trim = hex2rgb(lv.trim) || [138, 144, 153];
+  const fmul = FINISH_MUL[lv.finish] ?? 1.0, pat = lv.pattern || 'bare';
+  if (pat === 'splinter') base = mix(base, [60, 64, 44], 0.35);    // camo pulls toward drab
+  // Which faces wear the trim colour vs the base, per pattern.
+  const trimFace = (role) => role === 'fin' || (pat === 'twotone' && (role === 'wing' || role === 'stab')) || (pat === 'stripes' && role === 'stab');
+  // Project every face; depth-sort by average forward distance (far first).
+  const faces = [];
+  let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9, drawn = 0;
+  for (const face of AC_FACES) {
+    const pts = face.p.map(P);
+    if (pts.some(q => q.f <= 0.07)) continue;                       // vertex behind the lens → skip (avoids blow-up)
+    let af = 0; for (const q of pts) { af += q.f; if (q.sx < minx) minx = q.sx; if (q.sx > maxx) maxx = q.sx; if (q.sy < miny) miny = q.sy; if (q.sy > maxy) maxy = q.sy; }
+    const col = shadeRgb(trimFace(face.role) ? trim : base, face.sh * fmul);
+    faces.push({ pts, af: af / pts.length, col, role: face.role }); drawn++;
+  }
+  if (!drawn) return null;
+  faces.sort((a, b) => b.af - a.af);
+  // Edge: hazard pattern flashes its trim; the designated target reads red; else a dark outline.
+  const edge = c.designated ? 'rgba(255,90,80,0.95)' : pat === 'hazard' ? shadeRgb(trim, 1.0) : 'rgba(8,10,14,0.7)';
+  ctx.lineJoin = 'round';
+  for (const fc of faces) {
+    ctx.beginPath(); ctx.moveTo(fc.pts[0].sx, fc.pts[0].sy);
+    for (let i = 1; i < fc.pts.length; i++) ctx.lineTo(fc.pts[i].sx, fc.pts[i].sy);
+    ctx.closePath();
+    ctx.fillStyle = fc.col; ctx.fill();
+    ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke();
+    // Gloss finish: a bright specular flick on the fuselage crown.
+    if (lv.finish === 'gloss' && fc.role === 'body') {
+      ctx.save(); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(fc.pts[0].sx, fc.pts[0].sy); ctx.lineTo(fc.pts[1].sx, fc.pts[1].sy); ctx.stroke(); ctx.restore();
+    }
+  }
+  // Very distant/edge-on: guarantee at least a visible pip so a far bogey never vanishes.
+  if (maxx - minx < 4 && maxy - miny < 4) {
+    ctx.fillStyle = shadeRgb(base, 1.1); ctx.beginPath(); ctx.arc((minx + maxx) / 2, (miny + maxy) / 2, 2, 0, 7); ctx.fill();
+  }
+  return { minx, maxx, miny, maxy };
+}
+// Off-screen / behind: a red chevron pinned to the view edge pointing the way to turn,
+// direction from the camera-space forward/lateral of the contact (banks with the world).
+function drawContactChevron(ctx, c, f, l, W, H) {
+  const cx = W / 2, cy = H * 0.46;
+  let dx = l, dy = -f;                                   // screen dir: ahead → up, right → right
+  const m = Math.hypot(dx, dy) || 1; dx /= m; dy /= m;
+  const rad = Math.min(W, H) * 0.42;
+  const ex = clamp(cx + dx * rad, 14, W - 14), ey = clamp(cy + dy * rad, 14, H - 14);
+  ctx.save(); ctx.globalAlpha = 0.9; ctx.translate(ex, ey); ctx.rotate(Math.atan2(dy, dx));
+  ctx.fillStyle = 'rgba(255,91,91,0.9)';
+  ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-5, -5); ctx.lineTo(-5, 5); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  if (c.designated) {
+    ctx.globalAlpha = 1; ctx.fillStyle = '#ff8a80'; ctx.font = '7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(c.reg || 'BOGEY', ex, ey - 9);
+  }
+}
+// Forward gun tracers + muzzle flash (screen-fixed — the guns are bolted to the nose).
+function drawGunfire(ctx, W, H, v) {
+  const cx = W / 2, aim = H * 0.46, t = _gunT();
+  ctx.save(); ctx.lineCap = 'round';
+  for (const sx of [W * 0.30, W * 0.70]) {
+    const jx = cx + (frac(t * 0.9 + sx) - 0.5) * 12, jy = aim + (frac(t * 1.3 + sx) - 0.5) * 9;
+    const g = ctx.createLinearGradient(sx, H, jx, jy);
+    g.addColorStop(0, 'rgba(255,180,90,0)'); g.addColorStop(0.6, 'rgba(255,200,110,0.5)'); g.addColorStop(1, 'rgba(255,244,190,0.9)');
+    ctx.strokeStyle = g; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx, H * 1.02); ctx.lineTo(jx, jy); ctx.stroke();
+  }
+  if (v.muzzle) { ctx.fillStyle = 'rgba(255,224,150,0.55)'; for (const sx of [W * 0.30, W * 0.70]) { ctx.beginPath(); ctx.arc(sx, H * 0.985, 5 + frac(t + sx) * 4, 0, 7); ctx.fill(); } }
+  ctx.restore();
+}
+const _gunT = () => { try { return performance.now() * 0.02; } catch { return 0; } };
+function cornerBox(ctx, cx, cy, r) {
+  const k = r * 0.4;
+  ctx.beginPath();
+  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    const x = cx + sx * r, y = cy + sy * r;
+    ctx.moveTo(x, y); ctx.lineTo(x - sx * k, y); ctx.moveTo(x, y); ctx.lineTo(x, y - sy * k);
+  }
+  ctx.stroke();
 }
 
 function drawRoads(ctx, cam, v) {

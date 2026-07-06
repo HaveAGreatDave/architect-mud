@@ -737,6 +737,21 @@ export const SCHEMA_SQL = `
     PRIMARY KEY (player_id, quest_id)
   );
 
+  -- Job board: a devpanel-authored pool of repeatable "gig" quests surfaced in a
+  -- zone as legal early-money work. The board row holds only config (which quests
+  -- are eligible, how many rotate, how often). The live rotation snapshot lives in
+  -- a world_flag (jobboard_rot_<id>) so it re-rolls on a cadence without a boot tick.
+  CREATE TABLE IF NOT EXISTS job_boards (
+    id TEXT PRIMARY KEY,
+    zone_id TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT 'Job Board',
+    description TEXT DEFAULT '',
+    quest_pool JSONB NOT NULL DEFAULT '[]',
+    rotation_size INTEGER NOT NULL DEFAULT 3,
+    rotation_period BIGINT NOT NULL DEFAULT 21600,
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
   -- Channel chat history (arcnet etc). Runtime data: schema is exported, rows are not.
   -- Only the most recent messages per channel are retained; older rows are pruned.
   CREATE TABLE IF NOT EXISTS channel_messages (
@@ -1526,6 +1541,36 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_hangars_field ON hangars(field_zone);
   CREATE INDEX IF NOT EXISTS idx_hangars_owner ON hangars(owner_id);
+
+  -- Halcyon Assurance: per-aircraft hull insurance. A policy is a fixed-term product bought
+  -- at the tower; on a covered crash it files a claim the owner collects (partial payout,
+  -- minus deductible) — softening the loss without erasing it. See plugins/insurance.
+  CREATE TABLE IF NOT EXISTS insurance_policies (
+    id            TEXT PRIMARY KEY,
+    owner_id      TEXT NOT NULL,
+    aircraft_id   TEXT NOT NULL,                 -- the insured craft (aircraft.id)
+    insured_value INTEGER NOT NULL,              -- agreed value, locked at purchase (type price_buy)
+    premium_paid  INTEGER NOT NULL DEFAULT 0,    -- last premium charged
+    expires_at    BIGINT NOT NULL,               -- epoch seconds; a lapsed policy pays nothing
+    created_at    BIGINT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_ins_pol_owner ON insurance_policies(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_ins_pol_craft ON insurance_policies(aircraft_id);
+
+  CREATE TABLE IF NOT EXISTS insurance_claims (
+    id            TEXT PRIMARY KEY,
+    owner_id      TEXT NOT NULL,
+    aircraft_id   TEXT,                          -- the wrecked craft (written off on payout)
+    type_id       TEXT,
+    type_name     TEXT,
+    reason        TEXT,
+    payout        INTEGER NOT NULL,              -- net credits to collect (payout − deductible)
+    deductible    INTEGER NOT NULL DEFAULT 0,
+    status        TEXT NOT NULL DEFAULT 'pending', -- pending | paid | denied
+    filed_at      BIGINT NOT NULL,
+    paid_at       BIGINT
+  );
+  CREATE INDEX IF NOT EXISTS idx_ins_claim_owner ON insurance_claims(owner_id, status);
 `;
 
 export async function applySchema() {

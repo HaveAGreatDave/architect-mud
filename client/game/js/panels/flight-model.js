@@ -75,21 +75,50 @@ export const TYPES = {
     rollFric: 1.4, aoaCrit: 18, liftScale: 1.0, vsMax: 1600, vsGain: 1600, vsTau: 1.1,
     brake: 6.0, groundSteer: 26, ceiling: 12000,
   },
-  // Leviathan — 4-engine heavy: ponderous, fast, needs a real runway. Slow to rotate, long roll.
+  // Leviathan — 4-engine heavy-lift freighter, an ANTONOV AN-124 RUSLAN analogue: HEAVY first —
+  // ponderous to accelerate and steer, a long roll, an unremarkable level cruise (no faster
+  // than the Mule despite its size).
+  // But it's a slippery, low-drag airframe with huge inertia and a high Vne, so it BUILDS and
+  // holds real speed once it has momentum behind it in a dive. Strong brakes (biggest wheels),
+  // but the ~95 kt touchdown still makes for a long rollout — it needs a real runway.
   leviathan: {
-    name: 'Leviathan', mass: 5.0, thrustMax: 40, vr: 95, vs0: 78, vne: 280, cruise: 190,
+    name: 'Leviathan', mass: 5.0, thrustMax: 40, vr: 95, vs0: 78, vne: 280, cruise: 170,
     pitchRate: 5, pitchTau: 1.2, rollRate: 22, rollTau: 1.1, engineLag: 2.4,
-    pitchStable: 0.7, rollStable: 0.85, dragP: 0.00070, flapDrag: 0.7, flapLift: 0.45, flapVs: 0.2,
+    pitchStable: 0.7, rollStable: 0.85, dragP: 0.00065, flapDrag: 0.7, flapLift: 0.45, flapVs: 0.2,
     rollFric: 1.2, aoaCrit: 16, liftScale: 1.0, vsMax: 1400, vsGain: 1600, vsTau: 1.6,
-    brake: 5.0, groundSteer: 16, ceiling: 15000,
+    brake: 8.0, groundSteer: 16, ceiling: 18000,   // cruises high, above the weather — the fleet's highest ceiling
   },
-  // Reaper — gunship: fast, powerful, twitchy-agile. Everyone hears it coming.
+  // Reaper — a Fairchild A-10 WARTHOG analogue: the gun IS the plane. NOT a fighter —
+  // slow, draggy and heavy, but a rock-stable low-level platform that loiters over the
+  // target and shrugs off ground fire. It can't run (high drag bleeds any dive), it just
+  // keeps coming. Twin turbofans, forgiving low-speed handling, rough-field capable.
   reaper: {
-    name: 'Reaper', mass: 2.2, thrustMax: 48, vr: 85, vs0: 66, vne: 340, cruise: 210,
-    pitchRate: 14, pitchTau: 0.5, rollRate: 95, rollTau: 0.45, engineLag: 1.1,
-    pitchStable: 0.95, rollStable: 1.15, dragP: 0.00060, flapDrag: 0.5, flapLift: 0.3, flapVs: 0.16,
-    rollFric: 1.5, aoaCrit: 20, liftScale: 1.0, vsMax: 2200, vsGain: 1800, vsTau: 0.85,
-    brake: 7.0, groundSteer: 30, ceiling: 18000,
+    name: 'Reaper', mass: 3.4, thrustMax: 26, vr: 62, vs0: 50, vne: 210, cruise: 150,
+    pitchRate: 9, pitchTau: 0.7, rollRate: 58, rollTau: 0.6, engineLag: 1.5,
+    pitchStable: 1.1, rollStable: 1.3, dragP: 0.00110, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
+    rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 1200, vsGain: 1600, vsTau: 1.15,
+    brake: 7.5, groundSteer: 28, ceiling: 12000,
+  },
+  // Dragonfly — a REVOLUTION MINI 500 analogue: a tiny single-rotor kit helicopter. Light,
+  // darty and gets into tight spots (huge cyclic + pedal authority, spins on the spot in a
+  // hover), but a twitchy, unforgiving handful: weak self-level, thin power margin, and it
+  // will settle-with-power (vortex ring) the instant you drop it into its own downwash. Flown
+  // by the heli branch below (collective + cyclic + pedals), NOT the fixed-wing integrator.
+  dragonfly: {
+    name: 'Dragonfly', heli: true, mass: 0.9,
+    vne: 100, cruise: 78, vs0: 14,        // vs0 doubles as the translational-lift (ETL) speed
+    vr: 0, aoaCrit: 90, liftScale: 1,
+    pitchRate: 30, pitchTau: 0.35, rollRate: 46, rollTau: 0.3,   // nimble, twitchy cyclic
+    pitchStable: 1.5, rollStable: 1.7,    // weak-ish self-level — needs constant small corrections
+    yawRate: 95,                          // pedal (tail-rotor) authority in the hover, deg/s
+    engineLag: 0.9,                       // rotor spool time
+    cyclicThrust: 2.4,                    // disc-tilt → horizontal accel (kt/s per deg of lean)
+    dragP: 0.0019,                        // draggy body: bleeds speed, modest top end
+    liftMax: 2.7, hoverThrust: 1.0,       // collective×Nr vertical lift authority vs hover weight
+    vsGain: 1500, vsMax: 1300, vsTau: 0.65,
+    vrsVs: 480,                           // settling-with-power onset (fpm sink) when slow + powered
+    rollFric: 3.2,                        // skid friction on the ground
+    ceiling: 10000,
   },
   // Carcass — salvaged wreck: underpowered, draggy, unstable. A junker you nurse into the air.
   carcass: {
@@ -136,7 +165,101 @@ export function createState(p) {
   };
 }
 
+// ── Helicopter integrator (Dragonfly / Mini 500) ─────────────────────────────
+// A separate arcade hover model — no Vr, no stall, no takeoff roll. The pilot flies
+// four axes: COLLECTIVE (throttle 0..1 → rotor thrust), CYCLIC (elevator/aileron →
+// disc tilt → horizontal accel), and PEDALS (yaw, tail rotor). The character comes
+// from three failure modes that punish mishandling: rotor-RPM (Nr) droop under a
+// greedy collective, settling-with-power (vortex ring state) in a slow powered
+// descent, and its own twitchiness. All knobs — tuned by eye like the fixed-wing set.
+function stepHeli(state, input, p, dt) {
+  const s = state;
+  s.events = [];
+  const cycP = clamp(input.elevator || 0, -1, 1);   // aft (+1) = nose up / decelerate
+  const cycR = clamp(input.aileron || 0, -1, 1);     // right (+1) = bank right
+  const coll = clamp(input.throttle || 0, 0, 1);     // collective (already engine-gated upstream)
+  const pedal = clamp(input.pedal || 0, -1, 1);
+
+  // 1. Rotor Nr eases toward the collective demand (engine off ⇒ coll 0 ⇒ it winds down).
+  //    A greedy collective outruns the little two-stroke, so Nr DROOPS at high pitch — the
+  //    classic low-rotor-RPM trap (less Nr → less thrust → you sink while pulling up).
+  const nrTarget = coll > 0.02 ? clamp(1 - Math.max(0, coll - 0.7) * 1.8, 0.4, 1) : 0;
+  s.rpm += (nrTarget - s.rpm) * Math.min(1, dt / p.engineLag);
+  const Nr = s.rpm;
+
+  // 2. Fuselage attitude from cyclic (builds over tau; weak self-level). Planted on the skids.
+  if (s.onGround) {
+    s.pitch += (0 - s.pitch) * Math.min(1, dt * 5); s.bank += (0 - s.bank) * Math.min(1, dt * 5);
+    s.elevEff += (cycP - s.elevEff) * Math.min(1, dt / p.pitchTau);
+    s.rollEff += (cycR - s.rollEff) * Math.min(1, dt / p.rollTau);
+  } else {
+    s.elevEff += (cycP - s.elevEff) * Math.min(1, dt / p.pitchTau);
+    s.rollEff += (cycR - s.rollEff) * Math.min(1, dt / p.rollTau);
+    s.pitch += (s.elevEff * p.pitchRate - p.pitchStable * s.pitch) * dt; s.pitch = clamp(s.pitch, -35, 35);
+    s.bank += (s.rollEff * p.rollRate - p.rollStable * s.bank) * dt; s.bank = clamp(s.bank, -60, 60);
+  }
+
+  // 3. Yaw: pedals swing the nose with full authority in the hover, washing out with speed as
+  //    the fuselage weathervanes. Past ETL, bank also curves the flight path (a plane-like turn).
+  const pedalAuth = 1 - clamp(s.airspeed / p.cruise, 0, 0.85);
+  s.heading = wrap360(s.heading + pedal * (p.yawRate || 60) * pedalAuth * dt);
+  if (!s.onGround && s.airspeed > p.vs0) {
+    const turnRate = (G_KT * Math.tan(s.bank * D2R)) / Math.max(p.cruise, s.airspeed) * R2D;
+    s.heading = wrap360(s.heading + turnRate * dt);
+  }
+
+  // 4. Horizontal accel: the tilted disc pushes you where the nose leans (nose down = forward).
+  const accel = (s.onGround ? 0 : -s.pitch * (p.cyclicThrust || 2) * Nr);
+  const drag = p.dragP * s.airspeed * Math.abs(s.airspeed);
+  s.airspeed = clamp(s.airspeed + (accel - drag) * dt, -0.18 * p.cruise, p.vne * 1.03);
+  if (s.onGround) s.airspeed -= Math.sign(s.airspeed) * Math.min(Math.abs(s.airspeed), p.rollFric * dt);
+  s.groundSpeed = Math.abs(s.airspeed);
+
+  // 5. Vertical: rotor thrust (collective × Nr) vs the hover weight, eased into a target vs.
+  //    Translational lift (ETL) makes the same collective bite harder in forward flight — drop
+  //    below it in a downwind hover and you sink. Settling-with-power: a slow, powered, fast
+  //    descent lets the disc eat its own vortex and lift collapses (deepens the sink → the trap).
+  let thrustV = coll * Nr * (p.liftMax || 2.6);
+  thrustV *= 1 + 0.18 * clamp(Math.abs(s.airspeed) / p.vs0, 0, 1);
+  // Settling-with-power (vortex ring): once you're SLOW and sinking FAST with power applied,
+  // the disc falls into its own downwash. Feeding in more collective only feeds the ring — so
+  // lift is CAPPED below the hover value and you can't climb out; the only escape is forward
+  // cyclic (build airspeed to fly out of your own wake). This is the killer for mishandling.
+  // Sticky envelope with hysteresis: you ENTER on a fast, slow, powered descent, and only
+  // LEAVE by flying out (forward airspeed past ETL) or lowering the collective — never by
+  // just pulling more pitch. That's what makes it a trap rather than a speed bump.
+  const slow = Math.abs(s.airspeed) < p.vs0 * 0.9;
+  if (!s.vrsState) {
+    if (!s.onGround && s.vs < -(p.vrsVs || 480) && slow && coll > 0.4) s.vrsState = true;
+  } else if (s.onGround || !slow || coll < 0.25) {
+    s.vrsState = false;
+  }
+  let vrs = 0;
+  if (s.vrsState) {
+    vrs = clamp((-s.vs - 200) / 700, 0.4, 1);
+    thrustV = Math.min(thrustV, (p.hoverThrust || 1) * (1 - 0.55 * vrs));
+    if (!s.vrsWarn) { s.events.push({ type: 'vrs' }); s.vrsWarn = true; }
+  } else s.vrsWarn = false;
+  const vsTarget = clamp((thrustV / (p.hoverThrust || 1) - 1) * p.vsGain, -p.vsMax * 1.8, p.vsMax);
+  if (s.onGround && vsTarget <= 0) s.vs = 0;
+  else { s.vs += (vsTarget - s.vs) * Math.min(1, dt / p.vsTau); s.altitude += (s.vs / 60) * dt; }
+
+  // 6. Warnings the HUD/horn read: low rotor RPM + settling. No aerodynamic stall on a heli.
+  s.aoa = 0; s.stalled = false;
+  s.lowNr = !s.onGround && Nr < 0.6;
+  s.vrs = vrs > 0.25;
+  s.stallMargin = clamp((Nr - 0.5) / 0.4, 0, 1);   // reuse the margin channel to drive the horn
+
+  // 7. Ground contact — set down vertically (no rollout). A hard arrival flags a heavy touchdown.
+  if (s.altitude <= 0) {
+    if (!s.onGround && s.vs < -300) s.events.push({ type: 'touchdown', severity: s.vs < -600 ? 'hard' : 'firm', vs: s.vs });
+    s.altitude = 0; s.onGround = true; s.vs = Math.max(0, s.vs);
+  } else s.onGround = false;
+  return s;
+}
+
 export function step(state, input, p, dt) {
+  if (p.heli) return stepHeli(state, input, p, dt);
   const s = state;
   s.events = [];
   const elevator = clamp(input.elevator || 0, -1, 1);

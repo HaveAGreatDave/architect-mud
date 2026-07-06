@@ -25,7 +25,7 @@ import { openDatachipReplay } from './panels/datachipreplay.js';
 import { openCircuitHack } from './panels/circuithack.js';
 import { openHololock } from './panels/hololock.js';
 import { openFishing } from './panels/fishing.js';
-import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, isFlightSimActive } from './panels/cockpit.js';
+import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAirHit, isFlightSimActive } from './panels/cockpit.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
 import { openSpliceSelect, openSpliceStages, applySplicePreview } from './panels/splicelab.js';
@@ -40,6 +40,8 @@ import { showArrestNotice } from './panels/arrest.js';
 import { openApprehendPrompt } from './panels/apprehend.js';
 import { openConcealSearch } from './panels/conceal.js';
 import { updateTrade, closeTrade } from './panels/trade.js';
+import { updateHangar, closeHangar } from './panels/hangar.js';
+import { openAdminPanel } from './panels/admin.js';
 import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
 
@@ -472,6 +474,9 @@ const handlers = {
   poker_sfx: (msg) => { playPokerSfx(msg.cue); },
   trade_update: (msg) => { updateTrade(msg.html); },
   trade_close: () => { closeTrade(); },
+  hangar_update: (msg) => { updateHangar(msg.data); },
+  hangar_close: () => { closeHangar(); },
+  admin_panel: (msg) => { openAdminPanel(msg.commands, msg.role); },
 
   online_change: () => { refreshOnlinePlayers(); },
   whisper: (msg) => { receiveWhisper(msg.from || 'Admin', msg.message); },
@@ -543,6 +548,8 @@ const handlers = {
   // Continuous cockpit (client-sim + server-reconcile) — the Mayfly slice.
   flight_sim: (msg) => { openFlightSim(msg); },
   flight_ctx: (msg) => { flightSimContext(msg); },
+  flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)
+  air_hit: (msg) => { flightSimAirHit(msg); },             // air-to-air gun hit feedback (Phase B)
   flight_takeoff: (msg) => {
     openTakeoff({
       skill: msg.skill ?? 4,

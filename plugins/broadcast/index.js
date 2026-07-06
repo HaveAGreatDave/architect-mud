@@ -1108,10 +1108,19 @@ function assembleSportsGraph(script, broadcastId, cycle, override) {
     say(sportsPick(pools, 'extras.intro'), gameTok, beatBug(extraHalves[0].start),
       { overlayType: 'sportsfx', kind: 'extras', inningOrd: sportsOrdinal(extraHalves[0].start.inning), duration: 3.2 });
     for (const h of extraHalves) {
-      say(sportsPick(pools, `extras.${h.start.half}`, 'extras.cut'), beatTok(h.start), beatBug(h.start));
+      // A top half always starts tied (the sim only continues on a tie); a bottom half
+      // can start with the away side already ahead, so the "still knotted" framing and
+      // the "still tied" hold line would be a lie. Frame the trailing home half as a
+      // last-licks answer instead, and let winning.top narrate the road win — don't
+      // claim it's still tied.
+      const trailingHome = h.start.half === 'bottom' && h.start.awayScore !== h.start.homeScore;
+      say(trailingHome
+        ? sportsPick(pools, 'extras.bottom.trail', 'extras.bottom', 'extras.cut')
+        : sportsPick(pools, `extras.${h.start.half}`, 'extras.cut'),
+        beatTok(h.start), beatBug(h.start));
       const scorers = h.atbats.filter(b => b.rbi > 0);
       if (scorers.length) for (const b of scorers) narrateScore(b);
-      else say(sportsPick(pools, 'extras.hold'), beatTok(h.end), beatBug(h.end));
+      else if (!trailingHome) say(sportsPick(pools, 'extras.hold'), beatTok(h.end), beatBug(h.end));
     }
     // A go-ahead run in the top that the home side couldn't answer = a road win in extras.
     if (winner() === away.name) say(sportsPick(pools, 'winning.top'), finalTok, finalBug);
@@ -3180,6 +3189,29 @@ async function cmdRestartBroadcast(args, raw, player) {
   return ok
     ? { type: 'output', message: 'Broadcast restarted from the top.' }
     : { type: 'error', message: 'Channel not found in runtime.' };
+}
+
+// Read-only peek at what a zone's TV is currently showing, for other plugins
+// (e.g. the bartender reacting to the set). Returns null when no TV in the zone
+// is tuned/on — a zone only appears in zoneTunings while a set is powered — so a
+// caller naturally stays quiet about a dark screen. Non-destructive: it reads the
+// program name the real broadcastTick already computed (never pops the news queue).
+export function getZoneNowPlaying(zoneId) {
+  const tunings = zoneTunings.get(zoneId);
+  if (!tunings || tunings.size === 0) return null;
+  let channelId = null;
+  for (const [cid, deviceType] of tunings) { if (deviceType === 'tv') { channelId = cid; break; } }
+  if (!channelId) channelId = [...tunings.keys()][0];
+  const state = channelRuntime.get(channelId);
+  if (!state) return null;
+  return {
+    channelId,
+    channelName: state.name || state.stationName || null,
+    stationName: state.stationName || null,
+    number: state.number ?? null,
+    channelType: state.channelType || null,
+    program: state.currentProgramName || null,
+  };
 }
 
 export const commands = {

@@ -327,6 +327,40 @@ export async function enemyAttackPlayer(enemy, player) {
   };
 }
 
+// Force-kill an enemy instance outright (e.g. an admin insta-gib), running the
+// same death bookkeeping a lethal swing does — kill credit, loot roll, despawn —
+// and returning the killed-result shape the corpse/loot pipeline consumes. No
+// to-hit, no damage roll, no message: the caller supplies the flavour.
+export function killEnemyInstance(player, enemyInstanceId) {
+  const enemy = getEnemyInstance(enemyInstanceId);
+  if (!enemy) return null;
+  player.mob_kills = (player.mob_kills || 0) + 1;
+  query('UPDATE players SET mob_kills=mob_kills+1 WHERE id=$1', [player.id]).catch(() => {});
+  const loot = resolveEnemyLoot(enemy);
+  removeEnemyInstance(enemyInstanceId);
+  return {
+    killed: true,
+    loot,
+    enemyId: enemyInstanceId,
+    butcher_table: enemy.butcher_table || [],
+    butcher_difficulty: enemy.butcher_difficulty ?? 5,
+  };
+}
+
+// Force-kill an NPC outright (e.g. an admin insta-gib). Mirrors the death
+// bookkeeping in playerAttackNpc: mark dead, schedule the 60s respawn, drop it
+// from the zone. Returns the NPC object (for events/messaging) or null if it's
+// already gone/dead. Caller emits npc.killed and supplies the flavour.
+export function killNpcInstance(npcId) {
+  const npc = world.npcs.get(npcId);
+  if (!npc || npc._dead) return null;
+  npc.hp = 0;
+  npc._dead = true;
+  npc._respawnAt = Date.now() + 60000;
+  world.zones.get(npc.zone_id)?.npcs.delete(npcId);
+  return npc;
+}
+
 function resolveEnemyLoot(enemy) {
   const drops = [];
   for (const entry of enemy.loot_table) {

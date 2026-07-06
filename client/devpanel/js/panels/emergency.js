@@ -142,6 +142,17 @@ function renderEmergencyPanel(data) {
         <div style="margin-top:10px;font-size:10px;color:var(--text-dim)">Scales every booking fine and jail sentence. Default 6 (6× the old baseline).</div>
       </div>
 
+      <!-- Surveillance -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:12px">Surveillance</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:11px;color:var(--text-dim);white-space:nowrap">Camera effectiveness</span>
+          <input id="cam-eff" type="range" min="0" max="100" step="5" value="50" oninput="camEffLabel(this.value)" onchange="saveCamEff(this.value)" style="flex:1;accent-color:var(--accent)">
+          <span id="cam-eff-val" style="font-size:12px;color:var(--text);font-weight:700;min-width:42px;text-align:right">50%</span>
+        </div>
+        <div style="margin-top:10px;font-size:10px;color:var(--text-dim)">Global scalar on every camera's chance to make a crime. 0% = lenses never catch you; 100% = full base→ceiling ramp. Cops and bystanders are unaffected.</div>
+      </div>
+
       <!-- Crime Registry -->
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:12px">Crime Registry — toggle enforcement</div>
@@ -220,6 +231,12 @@ async function _loadCrimeConfig() {
   const cfg = await directAPI('/crime-config');
   const mi = document.getElementById('crime-mult');
   if (mi && cfg && cfg.multiplier != null) mi.value = cfg.multiplier;
+  if (cfg && cfg.cameraEffectiveness != null) {
+    const pct = Math.round(cfg.cameraEffectiveness * 100);
+    const ce = document.getElementById('cam-eff');
+    if (ce) ce.value = pct;
+    camEffLabel(pct);
+  }
   const crimes = await directAPI('/crimes');
   const box = document.getElementById('crime-registry');
   if (!box) return;
@@ -237,6 +254,15 @@ async function saveCrimeMult() {
   const r = await directAPI('/crime-config', 'PUT', { multiplier: v });
   if (r.error) { toast(r.error, true); return; }
   toast(`Penalty multiplier set to ${r.multiplier}×`);
+}
+function camEffLabel(v) {
+  const el = document.getElementById('cam-eff-val');
+  if (el) el.textContent = `${Math.round(Number(v))}%`;
+}
+async function saveCamEff(v) {
+  const r = await directAPI('/crime-config', 'PUT', { cameraEffectiveness: Number(v) / 100 });
+  if (r.error) { toast(r.error, true); return; }
+  toast(`Camera effectiveness set to ${Math.round((r.cameraEffectiveness ?? 0) * 100)}%`);
 }
 async function toggleCrime(id, enabled) {
   const r = await directAPI(`/crimes/${id}`, 'PUT', { enabled });

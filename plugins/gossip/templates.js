@@ -111,6 +111,87 @@ export const TEMPLATES = {
     category: 'rumor', reach: 2, heat: 0.75,
     render: (v) => `"${v.text}"`,
   },
+  // First-time-in-the-world rumours — a newbie's first kill / first win / first
+  // spend rings louder and more personal than the everyday version, so the world
+  // starts saying their name within minutes. Fires once each (gated on a player
+  // flag in index.js), then normal service resumes.
+  first_blood: {
+    category: 'violence', reach: 'global', heat: 0.9,
+    render: (v) => pick([
+      `"New face in ${v.zone} — and already got blood on 'em. ${v.subject}. Remember the name."`,
+      `"Somebody nobody's heard of just dropped their first kill over in ${v.zone}. ${v.subject}. They fight back, that one."`,
+    ]),
+    renderYou: (v) => pick([
+      `"You're the new one. First blood already, ${v.zone} way. People remember a name that fights back."`,
+      `"Word's out about you — new face, first kill in ${v.zone}. You're on the board now, like it or not."`,
+    ]),
+  },
+  first_score: {
+    category: 'wealth', reach: 'global', heat: 0.8,
+    render: (v) => pick([
+      `"New face cleaned up at the table — ${v.subject}, ${v.amount} credits their first sit-down. Beginner's luck, or something worse."`,
+      `"${v.subject} walked in a nobody and walked out ${v.amount} up. First hand anyone's seen 'em play, too."`,
+    ]),
+    renderYou: (v) => pick([
+      `"You're the new one who walked off ${v.amount} up your first time at the table. Luck like that gets noticed. And remembered."`,
+      `"Heard you cleaned out the table your first sit-down, new blood. Someone's always watching who wins."`,
+    ]),
+  },
+  first_deal: {
+    category: 'wealth', reach: 2, heat: 0.4,
+    render: (v) => pick([
+      `"New face spending already — ${v.subject} did their first bit of business in ${v.zone}. Money moves, people notice."`,
+      `"Saw the new one, ${v.subject}, put money down in ${v.zone}. Word gets around fast here."`,
+    ]),
+    renderYou: (v) => pick([
+      `"Saw you spending, new one — first business in ${v.zone}. Word travels quick round here. You'll learn."`,
+      `"You're the new face throwing credits around in ${v.zone}. Somebody always clocks the newcomer with money."`,
+    ]),
+  },
+  // The turf war made audible — a corner changing hands ripples outward as street talk.
+  turf: {
+    category: 'crime', reach: 3, heat: 0.55,
+    render: (v) => pick([
+      `"Corners are moving. ${v.from} lost ${v.zone} to ${v.to}, just like that."`,
+      `"Word is ${v.to} runs ${v.zone} now. ${v.from} won't wear that quiet."`,
+    ]),
+  },
+  dealer_missing: {
+    category: 'crime', reach: 3, heat: 0.5,
+    render: (v) => pick([
+      `"Nobody's seen ${v.dealer} since ${v.zone} changed hands. Gone to ground, they reckon."`,
+      `"${v.dealer}'s corner got taken. Wouldn't go looking for 'em for a while, if I were you."`,
+    ]),
+  },
+  // A DEADBALL box score, spoken by an NPC who has a team. ctx.fav is the
+  // speaker's favourite team (a stable per-NPC allegiance): if they back the
+  // winner they gloat, the loser they grumble, otherwise they report it flat and
+  // name-drop their own club. That's "bring up the score" + "talk up their team"
+  // in one line. vars: away/home/awayScore/homeScore/winner (full team names).
+  sports_score: {
+    category: 'sports', reach: 'global', heat: 0.5,
+    render: (v, ctx = {}) => {
+      const winScore  = v.winner === v.away ? v.awayScore : v.homeScore;
+      const loseScore = v.winner === v.away ? v.homeScore : v.awayScore;
+      const loser     = v.winner === v.away ? v.home : v.away;
+      const fav = ctx.fav;
+      if (fav && fav === v.winner) return pick([
+        `"${v.winner} took ${loser} ${winScore}-${loseScore}. That's MY team — told you they'd bury 'em."`,
+        `grins. "You catch the DEADBALL game? ${v.winner} put ${loseScore} runs on ${loser} and rolled, ${winScore}-${loseScore}. About time."`,
+        `"${winScore}-${loseScore}, ${v.winner} over ${loser}. I've bled for that club all season and it finally paid off."`,
+      ]);
+      if (fav && fav === loser) return pick([
+        `spits. "${loser} blew it again — ${loseScore}-${winScore} to ${v.winner}. Every damn year with my team."`,
+        `"Don't talk to me about the DEADBALL score. ${v.winner} beat my ${loser} ${winScore}-${loseScore}. I need a drink."`,
+        `"${loser} choked, ${loseScore}-${winScore}. I keep backing 'em and they keep breaking my heart."`,
+      ]);
+      return pick([
+        `"${v.winner} beat ${loser} ${winScore}-${loseScore} in the DEADBALL. Neither's my club, mind — I'm ${fav ? fav : 'still deciding who to hate'}."`,
+        `"Box score's in: ${v.winner} ${winScore}, ${loser} ${loseScore}."${fav ? ` "Wake me when ${fav} play."` : ''}`,
+        `"Heard ${v.winner} handled ${loser}, ${winScore}-${loseScore}. Good for them.${fav ? ` My ${fav} are the ones I'm watching.` : ''}"`,
+      ]);
+    },
+  },
   // The shadow dealer's passphrase — a secret worth whispering. Ask-only (never
   // ambient), seeded rarely, so an NPC only lets it slip when a player pushes.
   dealer_phrase: {
@@ -125,9 +206,11 @@ export const TEMPLATES = {
 
 // aboutYou: the listener is this rumour's subject, so use the second-person
 // variant if the template has one (falls back to third person otherwise).
-export function renderItem(item, aboutYou = false) {
+// ctx carries speaker-dependent flavour (e.g. { fav } — the voicing NPC's
+// favourite sports team); templates that don't care simply ignore it.
+export function renderItem(item, aboutYou = false, ctx = {}) {
   const t = TEMPLATES[item.templateKey];
   if (!t) return null;
-  if (aboutYou && t.renderYou) return t.renderYou(item.vars || {});
-  return t.render(item.vars || {});
+  if (aboutYou && t.renderYou) return t.renderYou(item.vars || {}, ctx);
+  return t.render(item.vars || {}, ctx);
 }

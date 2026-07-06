@@ -93,6 +93,24 @@ window.VineActionTypes = [
     ],
   },
   {
+    type: 'ADJUST_REPUTATION',
+    label: 'Adjust Faction Rep',
+    params: [
+      { key: 'faction_id', type: 'select', label: 'Faction',
+        options: ['faction_custodians', 'faction_breakers', 'faction_archivists', 'faction_franchise', 'faction_glitch'],
+        required: true },
+      { key: 'delta', type: 'number', label: 'Change (±)', default: 10 },
+      { key: 'reason', type: 'text', label: 'Reason (optional)' },
+    ],
+  },
+  {
+    type: 'ADJUST_ARCHITECT',
+    label: 'Adjust Architect Axis',
+    // Hidden -100..100 axis (player flag architect_axis) — the machine noting how you
+    // answer. Negative = wary/defiant, positive = deferent/aligned. Never shown to the player.
+    params: [{ key: 'delta', type: 'number', label: 'Change (±)', default: 10 }],
+  },
+  {
     type: 'END_CONVERSATION',
     label: 'End Conversation',
     params: [{ key: 'message', type: 'text', label: 'Goodbye message (optional)' }],

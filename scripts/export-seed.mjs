@@ -17,7 +17,7 @@ import 'dotenv/config';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { buildDump } from '../server/api/backup.routes.js';
+import { buildDump, AUDIO_TABLES } from '../server/api/backup.routes.js';
 
 const url = process.env.DATABASE_URL;
 if (!url) { console.error('✗ DATABASE_URL is not set (check your .env).'); process.exit(1); }
@@ -33,12 +33,22 @@ try {
   // DEFERRED — the format setup-local-db.mjs / db:restore already load. Normalize to
   // pure LF: SCHEMA_SQL may be checked out CRLF on Windows, and mixing that with the
   // dump's LF drifts blank lines by a stray \r and defeats content-publish's change
-  // detection. The whole seed is written pure-LF.
-  const seed = (await buildDump()).replace(/\r\n?/g, '\n');
+  // detection. Both files are written pure-LF.
+  //
+  // The git seed is split in two so bulky base64 audio blobs (~92% of the bytes)
+  // stop drowning the content diff and re-bloating history on every world change:
+  //   db/audio-seed.sql — the 6 AUDIO_TABLES only (rarely changes)
+  //   db/seed.sql       — everything else (small, diff-readable)
+  // RESTORE ORDER IS LOAD-BEARING: audio-seed first, then seed. zones.audio_theme_id
+  // → audio_songs is an IMMEDIATE FK, so audio must be committed before content.
+  // Each file re-embeds the idempotent SCHEMA_SQL, so both are self-contained.
+  const audio = (await buildDump({ only: AUDIO_TABLES })).replace(/\r\n?/g, '\n');
+  const seed = (await buildDump({ skip: AUDIO_TABLES })).replace(/\r\n?/g, '\n');
 
-  const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'db', 'seed.sql');
-  writeFileSync(out, seed, 'utf8'); // pure LF, always
-  console.log(`✓ Wrote db/seed.sql (${(seed.length / 1024).toFixed(0)} KB). Commit it to share the world.`);
+  const dbDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'db');
+  writeFileSync(join(dbDir, 'audio-seed.sql'), audio, 'utf8'); // pure LF, always
+  writeFileSync(join(dbDir, 'seed.sql'), seed, 'utf8'); // pure LF, always
+  console.log(`✓ Wrote db/audio-seed.sql (${(audio.length / 1024).toFixed(0)} KB) + db/seed.sql (${(seed.length / 1024).toFixed(0)} KB). Commit both to share the world.`);
   process.exit(0);
 } catch (e) {
   console.error('✗ export-seed failed:', e.message);

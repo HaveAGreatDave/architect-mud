@@ -225,6 +225,22 @@ const PANELS = {
     save: saveQuest,
     delete: id => API(`/quests/${id}`, 'DELETE'),
   },
+  jobBoards: {
+    title: 'Job Boards',
+    description: 'Rotating job boards (jobboard plugin): pick which repeatable quests a zone posts as legal early-money gigs, and how many rotate / how often.',
+    idPrefix: 'board',
+    fetch: () => API('/job-boards'),
+    columns: [
+      { key: 'name', label: 'Name' },
+      { key: 'zone_id', label: 'Zone', render: v => `<code style="font-size:11px;color:var(--text-dim)">${v}</code>` },
+      { key: 'quest_pool', label: 'Pool', render: v => (Array.isArray(v) ? v : JSON.parse(v||'[]')).length },
+      { key: 'rotation_size', label: 'Shows' },
+      { key: 'rotation_period', label: 'Every', render: v => `${Math.round((v||21600)/3600*10)/10}h` },
+    ],
+    editForm: jobBoardEditForm,
+    save: saveJobBoard,
+    delete: id => API(`/job-boards/${id}`, 'DELETE'),
+  },
   scripts: {
     title: 'Scripts',
     description: 'VINE behaviour graphs for scripted events, branching dialogue, and quest logic.',

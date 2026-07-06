@@ -36,7 +36,7 @@ export const CONTENT_TABLES = [
   // player-crew org that isn't exported, which would break the restore's FK.
   { table: 'apartments', where: "owner_type = 'player'" },
   'generators', 'power_zones', 'climate_profiles',
-  'scripts', 'npc_banter_threads', 'quests',
+  'scripts', 'npc_banter_threads', 'quests', 'job_boards',
   // NPC factions live in the unified orgs table (is_npc=1); their inter-org
   // stances live in org_relations. Player crews (is_npc=0) are runtime, excluded.
   { table: 'orgs', where: 'is_npc = 1' },
@@ -57,6 +57,17 @@ export const CONTENT_TABLES = [
   'media_deck_units', 'media_channel_playlist', 'media_cameras', 'media_graphics',
 ];
 
+// A *subset tag* of CONTENT_TABLES — NOT a second master list. These six tables
+// carry base64 sample blobs + giant tracker-pattern JSON, ~92% of the dump's bytes.
+// export-seed.mjs uses this to split the git artifact into a bulky, rarely-changing
+// db/audio-seed.sql and a small, diff-readable db/seed.sql. Because it's a subset of
+// CONTENT_TABLES, the regress export-partition assertion is untouched. They sit first
+// in CONTENT_TABLES because zones.audio_theme_id → audio_songs is an IMMEDIATE FK:
+// audio must be committed before content, so on a split restore audio-seed loads first.
+export const AUDIO_TABLES = [
+  'audio_samples', 'audio_songs', 'audio_instruments', 'audio_sfx', 'audio_ambient', 'audio_event_routes',
+];
+
 // Every other table in SCHEMA_SQL is deliberately NOT dumped: player-owned rows,
 // per-player/world runtime state, dev-workflow bookkeeping, logs, and tokens.
 // This is the *explicit* other half of the partition so the split is auditable:
@@ -73,6 +84,8 @@ export const EXCLUDED_TABLES = [
   'zone_control', 'scavenging_zone_stock', 'scavenging_zone_state', 'security_clips',
   // Auto-created-per-furniture / player-transacted content (rebuilt on demand, not seeded).
   'atm_units', 'game_tables', 'hangars', 'aircraft', 'flight_contracts', 'smuggle_orders',
+  // Halcyon Assurance — player-bought policies + filed claims (per-player runtime, not content).
+  'insurance_policies', 'insurance_claims',
   // Player orgs (crews) + their membership; only NPC factions (is_npc=1) are content.
   'org_ranks', 'org_members',
   // Sports league state — seasons/standings/results are generated, never authored (see schema.js note).
@@ -95,7 +108,15 @@ export async function handleBackupApi(path, method, body, auth) {
   return { status: 200, body: { sql, filename: `architect-dump.sql` } };
 }
 
-export async function buildDump() {
+// opts.only  — dump only these tables (still schema-first, FK-safe order preserved).
+// opts.skip  — dump every content table EXCEPT these.
+// No opts → the full combined dump (unchanged) that Relay/dev-panel/db:restore use.
+// only/skip only filter which content rows are emitted; SCHEMA_SQL is always embedded
+// (idempotent), so a filtered file is still self-contained and restorable on its own.
+export async function buildDump(opts = {}) {
+  const { only, skip } = opts;
+  const onlySet = only ? new Set(only) : null;
+  const skipSet = skip ? new Set(skip) : null;
   const parts = [];
   parts.push('-- Architect MUD database dump');
   parts.push('-- Schema + world content. Player/runtime rows are intentionally excluded.');
@@ -113,6 +134,8 @@ export async function buildDump() {
 
   for (const entry of CONTENT_TABLES) {
     const table = typeof entry === 'string' ? entry : entry.table;
+    if (onlySet && !onlySet.has(table)) continue;
+    if (skipSet && skipSet.has(table)) continue;
     const where = typeof entry === 'string' ? '' : ` WHERE ${entry.where}`;
     const res = await query(`SELECT * FROM ${table}${where}`);
     const rows = res.rows;

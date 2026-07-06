@@ -1,0 +1,12 @@
+{
+  "name": "jobboard",
+  "version": "1.0.0",
+  "description": "Rotating job board: a discovery + rotation layer over the quests plugin. Surfaces a devpanel-authored pool of repeatable 'gig' quests in a zone as legal, low-pay early-money work; gigs/take/claim delegate to START_QUEST/TURN_IN.",
+  "commands": ["gigs", "postings", "jobboard"],
+  "hooks": [],
+  "routePrefix": "/job-boards",
+  "actions": { "registers": [], "tagGated": [] },
+  "events": { "emits": [], "consumes": [] },
+  "dependencies": ["quests"],
+  "dataSchema": ["job_boards"]
+}

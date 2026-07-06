@@ -10,9 +10,11 @@
 import { query } from '../../server/models/db.js';
 import { getZone, getAllZones, getLivePlayer, getMinimapData } from '../../server/engine/world.js';
 import { biomeOf, districtBiome } from './biomes.js';
+import { normalizeLivery } from './livery.js';
 import { sendToPlayer, sendToZone, sendToZoneExcept } from '../../server/engine/messaging.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
+import { emit } from '../../server/engine/events.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 
 export const TICK_MS = 3000;
@@ -26,13 +28,33 @@ export const BANDS = ['ground', 'low', 'cruise', 'high'];
 export const BAND_LABEL = { ground: 'GND', low: 'LOW', cruise: 'CRUISE', high: 'HIGH' };
 export const BAND_BURN = { ground: 1, low: 1, cruise: 1.25, high: 1.6 };
 
+// ── Air-to-air contacts (Phase A: see other airborne craft) ───────────────────
+// A pilot sees other airborne craft within CONTACT_RANGE tiles. When one is inside
+// FAST_SYNC_RANGE the client raises its own flightsync cadence (a client-side call)
+// so the mutual position picture stays fresh enough to fly formation — and, in the
+// later phases, to fight. Kept as one knob-pair so the netcode bubble is tunable.
+export const CONTACT_RANGE = 12;
+export const FAST_SYNC_RANGE = 5;
+
+// ── Air-to-air guns (Phase B) ─────────────────────────────────────────────────
+// The client owns aim (manual pipper tracking) and reports an aimQuality; the server
+// owns consequences. GUN_RANGE/CONE are the client's tight solution; the *_GATE pair
+// is the lenient server anti-spoof envelope (allows for ~sync lag). GUN_DMG is the hull
+// fraction a perfectly-aimed burst deals, before the defender's opposed jink reduces it.
+export const GUN_RANGE = 2.2;        // client effective gun range (tiles)
+export const GUN_RANGE_GATE = 3.4;   // server range gate (lenient for lag)
+export const GUN_CONE_GATE = 24;     // server bearing gate (deg off the shooter's nose)
+export const GUN_DMG = 0.16;         // hull fraction per solid burst at perfect aim
+export const GUN_COOLDOWN_MS = 550;  // min ms between bursts (server-enforced)
+
 // ── Continuous-flight seam (Phase 1 slice) ────────────────────────────────────
 // The overhaul's continuous energy model runs client-side; the server reconciles
 // and owns the consequences. It's gated to ONE airframe (the Mayfly) for the slice
 // — every other type keeps the discrete band/deck flow untouched until Phase 3.
-// Fixed-wing craft flown on the continuous cockpit sim. The heli (ac_dragonfly, VTOL)
-// stays on the modal decks until it gets its own hover model (Phase 3b).
-export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass']);
+// Craft flown on the continuous cockpit sim. The whole fleet is here now — the fixed-wing
+// set plus the Dragonfly (VTOL), which flies the client's dedicated hover model (collective
+// + cyclic + pedals) instead of the old modal VTOL-lift deck.
+export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass', 'ac_dragonfly']);
 export function isContinuous(live) { return !!live && CONTINUOUS_TYPES.has(live.type?.id); }
 
 // Continuous altitude (ft) → the legacy band the consequence systems still read
@@ -52,6 +74,12 @@ export function bandFromAltitude(alt, onGround) {
 // The per-aircraft choice lives in custom_data.loadout = { seats, cargoCap }; unset =
 // the type's authored split. `seats` is total occupancy (pilot included).
 export const SEAT_KG = 90;
+// Rental billing: a flat desk fee up front (charged at rent = price_rent_hourly), then a
+// running meter while airborne — an operating fee every RENTAL_BILL_MS of FLIGHT time that
+// bundles gas + upkeep, so a renter never pays at the pump or for repairs (the desk covers
+// maintenance). Buying instead makes you responsible for your own fuel and repairs.
+export const RENTAL_BILL_MS = 30 * 60 * 1000;   // bill per 30 min of flight
+export function rentalOpFee(type) { return Math.max(30, Math.round((type?.price_rent_hourly || 200) * 0.5)); }
 export function isConfigurable(type) { return (type?.seats || 0) >= 2 && (type?.cargo_capacity || 0) > 0; }
 export function loadoutBudget(type) { return (type?.seats || 1) * SEAT_KG + (type?.cargo_capacity || 0); }
 export function effLoadout(row, type) {
@@ -301,6 +329,7 @@ export function gaugePayload(live) {
 
   return {
     craft: t.name, tail: a.name || t.name, class: t.class,
+    livery: normalizeLivery(a.custom_data),   // interior (cabin/upholstery) shows in the cockpit chrome
     band: a.altitude_band, bandLabel: BAND_LABEL[a.altitude_band] || a.altitude_band,
     bandIndex: BANDS.indexOf(a.altitude_band), ceiling: eff.ceiling,
     heading: degToCardinal(deg), headingDeg: deg,
@@ -355,7 +384,9 @@ export function reconcile(live, d) {
   a.throttle = cl(Math.round(d.thr), 0, 100);
   const alt = Math.max(0, d.alt || 0);
   a.altitude_band = bandFromAltitude(alt, d.onGround);
-  live.cont = { altitude: alt, airspeed: Math.max(0, d.ias || 0), vs: d.vs || 0, onGround: !!d.onGround, stalled: !!d.stalled };
+  live.cont = { altitude: alt, airspeed: Math.max(0, d.ias || 0), vs: d.vs || 0,
+    bank: Number.isFinite(d.bank) ? d.bank : 0, pitch: Number.isFinite(d.pitch) ? d.pitch : 0,
+    onGround: !!d.onGround, stalled: !!d.stalled };
 }
 
 // The world context pushed back to the client sim each server tick: authoritative
@@ -373,6 +404,8 @@ export function contextPayload(live) {
     cargo: a.custom_data?.cargoWeight || 0,     // current hold weight (drives the cockpit jettison bind)
     engines: live.type.engines || 1, seats: live.type.seats || 1, occupants: seatList(live),   // gauge count + cabin readout
     warn: a.fuel <= 0 ? 'STARVATION' : (a.fuel <= cap * BINGO_FRAC ? 'BINGO' : null),
+    aa: live.aaThreat || null,                  // AA engagement-envelope telegraph (set by combat.tickCombat)
+    hull: Math.max(0, Math.round((1 - (a.damage || 0)) * 100)),   // for the cockpit hull readout / battle damage
   };
 }
 // Who's in each seat, padded to the airframe's seat count: index 0 = the pilot, the rest
@@ -392,6 +425,30 @@ export function seatList(live) {
 export function pushContext(live) {
   const payload = contextPayload(live);
   for (const pid of live.occupants) { const p = getLivePlayer(pid); if (p) sendToPlayer(pid, payload); }
+}
+
+// One airborne craft as another pilot's radar/windshield sees it: world position
+// (sub-tile float for smooth tracking), altitude/heading/speed for client-side
+// dead-reckoning between relays, hull, and a short tail readout. Built fresh each relay.
+export function airContact(live) {
+  const a = live.row;
+  const lv = normalizeLivery(a.custom_data);   // paint the viewer renders the bogey in
+  return {
+    id: a.id,
+    livery: { base: lv.base, trim: lv.trim, pattern: lv.pattern, finish: lv.finish },
+    x: live.fx ?? a.grid_x ?? 0,
+    y: live.fy ?? a.grid_y ?? 0,
+    alt: Math.max(0, Math.round(live.cont?.altitude ?? 0)),
+    hdg: toDeg(a.heading),
+    ias: Math.max(0, Math.round(live.cont?.airspeed ?? 0)),
+    bank: Math.round(live.cont?.bank ?? 0),      // attitude → viewers render true orientation
+    pitch: Math.round(live.cont?.pitch ?? 0),
+    vs: Math.round(live.cont?.vs ?? 0),
+    band: a.altitude_band,
+    hullPct: Math.max(0, Math.round((1 - (a.damage || 0)) * 100)),
+    reg: String(a.name || live.type?.name || '???').toUpperCase().slice(0, 8),
+    cls: live.type?.class || 'prop',
+  };
 }
 
 export function closeHud(pid) { sendToPlayer(pid, { type: 'cockpit_close' }); }
@@ -429,6 +486,8 @@ export async function parkAt(live, zoneId) {
   live.row.engine_on = 0;
   live.starving = false;
   live.hazard = null;
+  live.aaThreat = null;
+  live.aaWarned = false;
   live.runup = false;
   live.engines = null;
   live.coldStart = 0;
@@ -453,7 +512,9 @@ export async function parkAt(live, zoneId) {
 }
 
 // ── Turn the craft into a salvageable wreck + kill everyone aboard ────────────
-export async function crash(live, reason = 'crash') {
+// `byPlayer` (optional) is the pilot who shot it down — used for the kill feed + the
+// death label so an air-to-air kill reads as a kill, not a solo crash.
+export async function crash(live, reason = 'crash', byPlayer = null) {
   const surface = surfaceAt(live.row.grid_x, live.row.grid_y);
   const wreckZone = surface?.id || live.row.parked_zone_id || 'zone_start';
   live.row.airborne = 0;
@@ -465,17 +526,30 @@ export async function crash(live, reason = 'crash') {
   live.row.altitude_band = 'ground';
   live.row.parked_zone_id = wreckZone;
   live.hazard = null;
+  live.aaThreat = null;
+  live.aaWarned = false;
   await persist(live);
-  sendToZone(wreckZone, { type: 'zone_event', message: `<span class="text-red">A ${live.type.name} screams down out of the sky and craters into the ground in a fireball.</span>`, refresh: true });
+  const downedBy = byPlayer ? ` — ${byPlayer.handle} splashes it` : '';
+  sendToZone(wreckZone, { type: 'zone_event', message: `<span class="text-red">A ${live.type.name} screams down out of the sky and craters into the ground in a fireball${downedBy}.</span>`, refresh: true });
+  const label = byPlayer ? `Shot down by ${byPlayer.handle}` : 'Died in an aircraft crash';
   const doomed = [...live.occupants];
   for (const pid of doomed) {
     const p = getLivePlayer(pid);
     if (!p) continue;
     detach(p, { restore: true });
     p.current_zone = wreckZone;
-    out(pid, '<span class="text-red">The ground comes up to meet you. There is a noise, and then there is nothing.</span>');
-    await handlePlayerDeath(p, null, { type: reason, label: 'Died in an aircraft crash' });
+    out(pid, byPlayer
+      ? '<span class="text-red">Rounds find something vital — the controls go dead and the world tips up. There is a noise, and then nothing.</span>'
+      : '<span class="text-red">The ground comes up to meet you. There is a noise, and then there is nothing.</span>');
+    await handlePlayerDeath(p, byPlayer || null, { type: reason, label });
   }
+  if (byPlayer) out(byPlayer.id, `<span class="text-green">★ SPLASH ONE — you shot down the ${live.type.name}.</span>`);
+  // Notify listeners (Halcyon Assurance files a claim if the craft was insured). Past-tense,
+  // fire-and-forget — insurance reads the wreck row it just persisted above.
+  emit('flight.crashed', {
+    aircraftId: live.row.id, ownerId: live.row.owner_id, typeId: live.type.id,
+    typeName: live.type.name, reason, wreckZone, rental: !!live.row.rental,
+  });
   liveAircraft.delete(live.row.id);
 }
 

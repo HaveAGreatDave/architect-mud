@@ -18,6 +18,7 @@ import { getPowerMap } from '../../server/engine/environment.js';
 import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { getTunable } from '../../server/engine/tunables.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { getCrimeStars, getCrimeWitness, getCrimeLabel, isCrimeEnabled } from '../../server/engine/crimes.js';
 
@@ -1487,7 +1488,10 @@ const BYSTANDER_REPORT = 0.12;    // another player rarely bothers to phone it i
 
 function camCatchChance(elapsedMs) {
   const t = Math.min(1, Math.max(0, elapsedMs) / CAM_CATCH_RAMP_MS);
-  return CAM_CATCH_BASE + (CAM_CATCH_MAX - CAM_CATCH_BASE) * t;
+  const raw = CAM_CATCH_BASE + (CAM_CATCH_MAX - CAM_CATCH_BASE) * t;
+  // Global lens-effectiveness scalar, dev-tunable in the Crime panel (0 = cameras
+  // never make you, 1 = full base/max ramp). Default 0.5 — cameras at half strength.
+  return raw * Math.max(0, Math.min(1, Number(getTunable('camera_effectiveness', 0.5))));
 }
 
 // The single probabilistic witness gate for every crime. A live camera rolls
@@ -1736,7 +1740,12 @@ async function wantedTick() {
   for (const [pid, s] of wantedRuntime) {
     if (s.stars <= 0) { despawnHunters(s); wantedRuntime.delete(pid); continue; }
     const suspect = getLivePlayer(pid);
-    if (!suspect) { despawnHunters(s); continue; }   // offline: hold stars (flag), drop units
+    if (!suspect) { despawnHunters(s); s.offline = true; continue; }   // offline: hold stars (flag), drop units
+    // Just came back: don't count the offline stretch as "unseen" time. Reset the
+    // decay/pursuit clocks now — this tick can fire before the player.login handler
+    // does (the player is live from setLivePlayer well before login emits), so we
+    // can't rely on that handler alone to freeze the stars across offline time.
+    if (s.offline) { s.offline = false; s.lastSeenTs = Date.now(); s.pursuitStartTs = Date.now(); }
 
     if (await isWitnessed(suspect.current_zone)) s.lastSeenTs = Date.now();
 
@@ -1869,6 +1878,42 @@ setInterval(() => batteryTick().catch(e => console.error('[surveillance] battery
 
 // ── Plugin exports ────────────────────────────────────────────────────────────
 
+// Admin toy: wipe the caller's own heat (acute stars + the invisible meter) and
+// make every cop in the room — pursuit hunters AND beat-cop NPCs — spontaneously
+// combust. The heat-clear mirrors the /surveillance/clear-slate route; the burn is
+// a runtime-only despawn (no DB delete), so torched NPCs return on a world reload.
+async function cmdPurge(args, raw, player, broadcast) {
+  if (player.role !== 'admin') {
+    return { type: 'error', message: `Unknown command: "purge". Type HELP for commands.` };
+  }
+  const zoneId = player.current_zone;
+
+  // 1. Burn the law in the room — dramatic, per-unit, seen by everyone present.
+  const hunters = getZoneEnemies(zoneId).filter(e => e.flags?.hunter);
+  const copNpcs = getZoneNpcs(zoneId).filter(n => n.flags?.police);
+  let burned = 0;
+  for (const e of hunters) {
+    if (broadcast) broadcast(zoneId, { type: 'zone_event', message: `<span class="text-red">🔥 ${e.name} shudders, servos screaming — then erupts in a pillar of flame and slumps into molten slag.</span>` });
+    removeEnemyInstance(e.instanceId);
+    burned++;
+  }
+  for (const n of copNpcs) {
+    if (broadcast) broadcast(zoneId, { type: 'zone_event', message: `<span class="text-red">🔥 ${n.name} spontaneously combusts — a whump of blue fire, a shriek, and a greasy scorch where they stood.</span>` });
+    world.zones.get(n.zone_id)?.npcs.delete(n.id);
+    world.npcs.delete(n.id);
+    burned++;
+  }
+
+  // 2. Scrub the heat — stars + invisible meter (see /surveillance/clear-slate).
+  await clearWanted(player.id, 'admin purge');
+  heatRuntime.delete(player.id);
+  await setFlag('player', 'heat', 0, player).catch(() => {});
+  sendHeatHud(player.id, 0);
+
+  const tally = burned ? `${burned} officer${burned === 1 ? '' : 's'} reduced to ash.` : 'No police here to burn.';
+  return { type: 'system', message: `<span class="text-dim">Slate wiped. ${tally}</span>` };
+}
+
 export const commands = {
   plant: cmdPlant,
   retrieve: cmdRetrieve,
@@ -1889,6 +1934,7 @@ export const commands = {
   bribe: cmdBribe,
   scrub: cmdScrub,
   apprehendresolve: cmdApprehendResolve,
+  purge: cmdPurge,
 };
 
 export const specializedActions = [
@@ -1907,11 +1953,51 @@ export const routeHandler = async (path, method, body, auth) => {
   if (!_devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
 
   if (path === '/surveillance/crime-log' && method === 'GET') {
-    // Active rows carry the suspect's *live* heat so the panel reflects rises and
-    // decay between polls; history keeps the level captured at clear time.
-    const active = crimeBoard
-      .map(c => ({ ...c, wanted: wantedRuntime.get(c.playerId)?.stars ?? c.wanted }))
-      .sort((a, b) => b.ts - a.ts);
+    // The in-memory crimeBoard only holds crimes caught by a witness roll (raiseCrime),
+    // and it's wiped on restart — but wanted stars persist in player_flags and can also
+    // be raised directly (witnessed homicide, PD-unit kills, the WANTED_RAISE action
+    // from jail/flight, heat ignition, fleeing detainment) without ever logging a board
+    // row. So the board alone silently drops wanted suspects. Anchor the active list on
+    // the persisted `wanted` flag (source of truth for who's wanted right now), keep each
+    // suspect's logged crime rows where we have them, and synthesize a single row for any
+    // wanted player the board never captured. Live star count comes from wantedRuntime so
+    // the panel reflects rises/decay between polls; history keeps the clear-time level.
+    const { rows: wantedRows } = await query(
+      `SELECT pf.player_id, p.handle, p.current_zone, pf.flag_value AS stars
+         FROM player_flags pf JOIN players p ON p.id = pf.player_id
+        WHERE pf.flag_key = 'wanted' AND pf.flag_value <> '0'`
+    ).catch(() => ({ rows: [] }));
+
+    const boardByPlayer = new Map();
+    for (const c of crimeBoard) {
+      if (!boardByPlayer.has(c.playerId)) boardByPlayer.set(c.playerId, []);
+      boardByPlayer.get(c.playerId).push(c);
+    }
+
+    const active = [];
+    for (const w of wantedRows) {
+      const stars = wantedRuntime.get(w.player_id)?.stars ?? (parseFloat(w.stars) || 0);
+      if (!(stars > 0)) continue;
+      const rows = boardByPlayer.get(w.player_id);
+      if (rows?.length) {
+        for (const c of rows) active.push({ ...c, wanted: stars });
+      } else {
+        const s = wantedRuntime.get(w.player_id);
+        const zoneId = s?.crimeZone || w.current_zone;
+        active.push({
+          id: `w:${w.player_id}`,
+          playerId: w.player_id,
+          perpetrator: w.handle || w.player_id,
+          zoneId,
+          zone: getZone(zoneId)?.name || zoneId || 'unknown',
+          crimeKey: null,
+          crime: s?.charges?.[s.charges.length - 1] || 'outstanding warrant',
+          wanted: stars,
+          ts: s?.lastCrimeTs || Date.now(),
+        });
+      }
+    }
+    active.sort((a, b) => b.ts - a.ts);
     return { status: 200, body: { active, history: crimeHistory } };
   }
 

@@ -483,6 +483,25 @@ textarea {
 	text-decoration: underline;
 }
 
+/* First-visit tone-setting lore (server injects on the genuine first visit for
+   new accounts). It shimmers in with an accent glow, then settles to normal
+   prose so it reads as part of the room afterward. One-shot: the animation
+   plays once as the line is inserted into the log and comes to rest at the
+   normal text color. */
+.intro-lore {
+	display: block;
+	margin: 5px 0 3px;
+	color: inherit;
+	animation: intro-lore-shimmer 5s ease-out 1 both;
+}
+@keyframes intro-lore-shimmer {
+	0%   { color: var(--accent); text-shadow: 0 0 10px var(--accent-dim); }
+	8%   { color: #ffe6fb;       text-shadow: 0 0 12px var(--accent); }
+	18%  { color: var(--accent); text-shadow: 0 0 9px var(--accent-dim); }
+	32%  { color: #ffe6fb;       text-shadow: 0 0 11px var(--accent); }
+	100% { color: inherit;       text-shadow: none; }
+}
+
 #area-pane::-webkit-scrollbar {
 	width: 6px;
 }

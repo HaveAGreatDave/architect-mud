@@ -1,0 +1,12 @@
+{
+  "name": "insurance",
+  "version": "0.1.0",
+  "description": "Halcyon Assurance — per-aircraft hull insurance run out of the Halcyon tower. Buy a fixed-term policy at the underwriting desk (`insure`); a covered crash files a claim you collect at the claims desk (`claim`) for a PARTIAL payout (fraction of agreed value, minus a fat excess) with the insurer keeping the wreck. Every paid claim surcharges your future premiums — softens a crash without making planes disposable (anti-kamikaze). Reacts to the flight plugin's `flight.crashed` event. Later: property + other assets.",
+  "commands": ["insure", "claim", "policies", "policy"],
+  "objectGatedCommands": {
+    "insure":   { "discoverVia": "zone:insurance_desk", "exposed": false, "note": "KNOWN GAP: desk is a zone flag, not an examinable object." },
+    "claim":    { "discoverVia": "zone:insurance_desk", "exposed": false, "note": "KNOWN GAP: zone-flag gate; also filed automatically on a covered crash." },
+    "policies": { "discoverVia": "none", "exposed": false, "note": "read-only status readout of your own policies." }
+  },
+  "dataSchema": ["insurance_policies", "insurance_claims"]
+}

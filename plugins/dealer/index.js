@@ -43,6 +43,12 @@ function poolFor(npc) {
     ? npc.flags.passphrases : DEFAULT_PASSPHRASES;
 }
 
+// First-contact is per-dealer: meeting Keller doesn't introduce you to Marsh.
+// Keyed on the NPC id so each dealer gates independently (there are three now).
+function metFlag(npc) {
+  return `${npc.id}_met`;
+}
+
 // His dealing hours (wraps midnight like the AI's HOUR_RANGE). Defaults to night.
 function isDealingHour(npc) {
   const from = npc.flags?.deal_from ?? 21;
@@ -60,6 +66,57 @@ function matchesPassphrase(npc, text) {
   return normalize(text).includes(normalize(active));
 }
 
+// ── Trust & wrong-passphrase penalty ──────────────────────────────────────────
+// Try the WRONG words on a dealer and he sours: trust drops, and once it goes
+// negative he won't deal at all. It keeps dropping if you keep fumbling, floored
+// so it can't spiral forever, and rebounds on its own back to 0 (where he'll deal
+// again). The rebound only heals the *negative* part — botching does not restore
+// standing you'd genuinely earned, it just wipes down to a cold zero.
+const WRONG_PENALTY = 20;      // trust lost per wrong passphrase
+const TRUST_FLOOR = -60;       // how low a sour streak can push it
+const RECOVER_PER_MIN = 10;    // negative trust healed back toward 0, per real minute
+
+// Pure: heal a negative balance toward 0 by elapsed minutes since the last
+// offence. Positive (earned) trust is never touched. Exported for regress.
+export function recoverTrust(stored, negTs, now, perMin = RECOVER_PER_MIN) {
+  if (stored >= 0 || !negTs) return stored;
+  const minutes = (now - negTs) / 60000;
+  return Math.min(0, stored + Math.floor(minutes * perMin));
+}
+// Pure: one wrong-passphrase hit, clamped at the floor. Exported for regress.
+export function penalize(current, penalty = WRONG_PENALTY, floor = TRUST_FLOOR) {
+  return Math.max(floor, current - penalty);
+}
+
+function negTsFlag(npc) { return `${npc.flags?.trust_flag || 'dealer_trust'}_negts`; }
+
+// Read the player's trust with this dealer, lazily healing any negative balance
+// toward 0 and persisting it so vendor.js tiering sees the recovered value.
+async function readTrust(npc, player) {
+  const flag = npc.flags?.trust_flag || 'dealer_trust';
+  let trust = Number(await getFlag('player', flag, player)) || 0;
+  if (trust < 0) {
+    const ts = Number(await getFlag('player', negTsFlag(npc), player)) || 0;
+    const healed = recoverTrust(trust, ts, Date.now());
+    if (healed !== trust) {
+      await setFlag('player', flag, String(healed), player);
+      if (healed === 0) await setFlag('player', negTsFlag(npc), '0', player);
+      trust = healed;
+    }
+  }
+  return trust;
+}
+
+// Apply a wrong-passphrase penalty (after healing pending recovery first), and
+// restart the rebound clock from now.
+async function penalizeTrust(npc, player) {
+  const flag = npc.flags?.trust_flag || 'dealer_trust';
+  const next = penalize(await readTrust(npc, player));
+  await setFlag('player', flag, String(next), player);
+  await setFlag('player', negTsFlag(npc), String(Date.now()), player);
+  return next;
+}
+
 // The reward for being known: he murmurs the phrase that takes over when this one
 // dies, so a regular is never shut out by the rotation. Silent if it isn't rotating.
 function nextPhraseMurmur(npc) {
@@ -73,17 +130,38 @@ async function onSay({ player, text, zoneId, broadcast }) {
   if (!player || !text) return;
   const dealer = (getZoneNpcs(zoneId) || []).find(n => n.npc_type === 'dealer' && n.flags?.covert);
   if (!dealer) return;                       // no dealer here — stay silent
-  if (!matchesPassphrase(dealer, text)) return;
+
+  // Wrong words. If it's a real passphrase — this dealer's stale one, or another
+  // crew's — said in his hearing during dealing hours, he takes it badly. Trust
+  // drops; once negative, no deal until it rebounds. Random chatter that matches
+  // no known phrase is just ignored (he never heard a thing).
+  if (!matchesPassphrase(dealer, text)) {
+    if (isDealingHour(dealer) && looksLikePassphrase(text)) {
+      const trust = await penalizeTrust(dealer, player);
+      const msg = trust < 0
+        ? `The wrong words. His face shuts like a door. "...No. Not that, not from you, not tonight." You've soured something you hadn't even earned yet — leave it a while.`
+        : `The wrong words. Something cold crosses his face. "...That's not it. Careful who you try that on." He doesn't move to help you.`;
+      sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">${msg}</span>` });
+    }
+    return;
+  }
 
   if (!isDealingHour(dealer)) {
     sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">The figure doesn't so much as glance at you.</span>` });
     return;
   }
 
+  // Right words — but a soured customer gets the cold shoulder until the rebound
+  // brings them back to zero.
+  if ((await readTrust(dealer, player)) < 0) {
+    sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">He looks through you like glass. Whatever you pulled last time hasn't worn off. Not yet.</span>` });
+    return;
+  }
+
   const trustFlag = dealer.flags?.trust_flag || 'dealer_trust';
-  const met = await getFlag('player', 'dealer_met', player);
+  const met = await getFlag('player', metFlag(dealer), player);
   if (!met) {
-    await setFlag('player', 'dealer_met', 'true', player);
+    await setFlag('player', metFlag(dealer), 'true', player);
     if ((await getFlag('player', trustFlag, player)) === undefined) {
       await setFlag('player', trustFlag, '0', player);
     }
@@ -102,10 +180,13 @@ async function onSay({ player, text, zoneId, broadcast }) {
 // the first time is still to say the words.
 async function onTalk({ player, npc, broadcast }) {
   if (!player || npc?.npc_type !== 'dealer' || !npc.flags?.covert) return undefined;
-  if (!(await getFlag('player', 'dealer_met', player))) return undefined;
+  if (!(await getFlag('player', metFlag(npc), player))) return undefined;
 
   if (!isDealingHour(npc)) {
     return { type: 'output', message: `<span class="msg-system">The figure doesn't so much as glance at you.</span>` };
+  }
+  if ((await readTrust(npc, player)) < 0) {
+    return { type: 'output', message: `<span class="msg-system">He looks through you like glass. Whatever you pulled last time hasn't worn off. Not yet.</span>` };
   }
   await dispatchAction({ type: 'OPEN_SHOP', actor: player, params: { npcId: npc.id }, context: { broadcast } });
   return { type: 'output', message: `<span class="msg-system">The figure gives an almost imperceptible nod. "Back again. What do you need?"${nextPhraseMurmur(npc)}</span>` };
@@ -114,6 +195,21 @@ async function onTalk({ player, npc, broadcast }) {
 // All covert dealers currently in the live world.
 function covertDealers() {
   return [...world.npcs.values()].filter(n => n?.npc_type === 'dealer' && n.flags?.covert);
+}
+
+// Does the text contain any known dealer passphrase (any crew, active or stale)?
+// Used to tell a genuine wrong-passphrase attempt from innocent chatter, so only
+// the former burns trust. A wild made-up guess that matches nothing is ignored.
+function looksLikePassphrase(text) {
+  const t = normalize(text);
+  if (!t) return false;
+  for (const d of covertDealers()) {
+    for (const p of poolFor(d)) {
+      const n = normalize(p);
+      if (n && t.includes(n)) return true;
+    }
+  }
+  return false;
 }
 
 // Rotating graffiti — his haunt (home zone, or wherever he's standing) carries a

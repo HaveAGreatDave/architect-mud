@@ -23,10 +23,12 @@ import {
   advance, initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
   ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme,
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
+  RENTAL_BILL_MS, rentalOpFee, fieldFor,
 } from './state.js';
+import { describeExterior, rampColorWord, conspicuousnessMult } from './livery.js';
 import { rollHazards, commands as hazardCommands } from './hazards.js';
 import { commands as acquisitionCommands, refuelAt, fieldStocks } from './acquisition.js';
-import { commands as combatCommands, tickCombat } from './combat.js';
+import { commands as combatCommands, tickCombat, relayContacts } from './combat.js';
 import { commands as contractCommands, checkContractDelivery } from './contracts.js';
 import { commands as hangarCommands } from './hangars.js';
 import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter } from './charter.js';
@@ -35,6 +37,7 @@ import { commands as charterCommands, charterDebug, charterParkedAt, embarkChart
 // and delegates to the prior owner by context.
 import { commands as gametableCommands } from '../gametable/index.js';
 import { commands as generatorCommands } from '../generator/index.js';
+import { commands as interactionsCommands } from '../interactions/index.js';
 
 // ── Boarding under fire ───────────────────────────────────────────────────────
 // Getting into the cockpit mid-fight is a scramble: a Reflexes check (harder the
@@ -444,13 +447,16 @@ function sendFlightSim(player, live) {
 async function cmdFlightSync(args, raw, player) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
   if (!live || player.seat !== 'pilot' || !isContinuous(live)) return { type: 'noop' };
-  // packed: gx gy alt ias hdg thr vs onground stalled
+  // packed: gx gy alt ias hdg thr vs onground stalled [bank pitch]
   const n = args.map(Number);
   if (n.length < 9 || n.some(Number.isNaN)) return { type: 'noop' };
-  reconcile(live, { gx: n[0], gy: n[1], alt: n[2], ias: n[3], hdg: n[4], thr: n[5], vs: n[6], onGround: n[7] === 1, stalled: n[8] === 1 });
+  reconcile(live, { gx: n[0], gy: n[1], alt: n[2], ias: n[3], hdg: n[4], thr: n[5], vs: n[6], onGround: n[7] === 1, stalled: n[8] === 1, bank: n[9], pitch: n[10] });
   // While rolling out on the ground over an airfield, remember it — the shutdown `land`
   // parks here even if the roll drifts a tile off the runway before the engine's cut.
   if (n[7] === 1) { const b = surfaceAt(live.row.grid_x, live.row.grid_y); if (b?.flags?.airfield_id) live.rolloutField = b.id; }
+  // Event-driven air-to-air contact relay: this craft just moved, so refresh its own
+  // traffic picture and push its fresh position to nearby pilots (Phase A: see-only).
+  if (live.row.airborne && !live.cont?.onGround) relayContacts(live);
   return { type: 'noop' };
 }
 
@@ -482,8 +488,10 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     // A long roll-out can drift the plane a tile off the runway before you shut down —
     // fall back to the airfield we actually touched down on (recorded while grounded over it).
     if (!field?.flags?.airfield_id && live.rolloutField) field = getZone(live.rolloutField);
-    // Fixed-wing sets down on a real airfield; anything else is a crash.
-    if (!field?.flags?.airfield_id) { await crash(live, 'offfield'); return { type: 'noop' }; }
+    // Fixed-wing sets down on a real airfield; a VTOL (the Dragonfly) can flare onto any
+    // cleared surface tile below it. Nothing solid below either way ⇒ a crash.
+    const isVtol = live.type.takeoff_mode === 'vtol';
+    if (!(field?.flags?.airfield_id || (isVtol && field))) { await crash(live, 'offfield'); return { type: 'noop' }; }
     await parkAt(live, field.id);
     await awardSkillUse(player.id, 'piloting', 0);
     await checkContractDelivery(player, live, field.id);
@@ -540,6 +548,7 @@ function noiseReach(live) {
   const t = live.type, a = live.row;
   let loud = (t.noise || 2) + Math.max(0, (t.engines || 1) - 1) * 0.4 + ((t.max_takeoff_weight || 0) > 800 ? 1 : 0);
   loud += (a.throttle - 50) / 60;                       // firewalled = louder; idling = quieter
+  loud *= conspicuousnessMult(live);                    // paint: dark/matte/camo hides, bright/gloss/hazard shouts
   if (a.altitude_band === 'high') return 0;             // too high to hear
   if (a.altitude_band === 'cruise') loud -= 2;          // muffled by altitude
   return Math.max(0, Math.min(4, Math.round(loud)));
@@ -589,12 +598,31 @@ async function groundReact(live, zoneId, loud) {
 
 // ── The airborne tick loop ────────────────────────────────────────────────────
 let ticking = false;
+// The rental meter: a self-flown rental (rental=1, owner_id=the renter) racks up an
+// operating fee every RENTAL_BILL_MS of FLIGHT time — gas + upkeep bundled, so the renter
+// never pays at the pump or for repairs. Only ticks while airborne; parked time is free.
+async function billRental(live) {
+  if (!live.row.rental || !live.row.airborne) return;
+  live.rentalMs = (live.rentalMs || 0) + TICK_MS;
+  if (live.rentalMs < RENTAL_BILL_MS) return;
+  live.rentalMs -= RENTAL_BILL_MS;
+  const renter = getLivePlayer(live.row.owner_id);
+  if (!renter) return;   // renter offline — skip this window (no debt modelled)
+  const fee = rentalOpFee(live.type);
+  const pay = Math.min(fee, renter.credits || 0);
+  renter.credits = (renter.credits || 0) - pay;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [renter.credits, renter.id]);
+  sendToPlayer(renter.id, { type: 'player_update', credits: renter.credits });
+  out(renter.id, `<span class="text-amber">⏱ Rental meter: <b>${fee}c</b> for the last half-hour aloft (gas &amp; upkeep).${pay < fee ? ' <span class="text-red">You couldn\'t cover it — the desk will settle up when you return her.</span>' : ''} Balance ${renter.credits}c.</span>`);
+}
+
 async function flightTick() {
   if (ticking) return;
   ticking = true;
   try {
     for (const live of [...liveAircraft.values()]) {
       if (live.charter) continue;   // NPC-flown charters are driven by charter.js, not the physics tick
+      await billRental(live);       // self-flown rentals: the airborne operating meter (gas + upkeep)
 
       // Continuous craft (the Mayfly slice): the client owns motion/attitude, so we
       // don't advance or run the deck hazards here — we burn fuel authoritatively,
@@ -735,12 +763,17 @@ async function describeAirfield(zone) {
     line += `\n<span class="furniture-label">Hangar:</span> ${svcLink('in', 'step inside')} <span class="text-dim">desk, tools, the charter pilot — and where you board your aircraft; through the bay doors</span>`;
     return line;
   }
-  // No walk-in hangar here → board straight off the ramp.
+  // No walk-in hangar here → board straight off the ramp. Name each craft by its
+  // livery colour so the paint reads at a glance; `examine` gives the full look.
   const { rows } = await query(
-    "SELECT name FROM aircraft WHERE parked_zone_id=$1 AND is_wreck=0 AND (custom_data->>'charter') IS DISTINCT FROM 'true' LIMIT 1",
+    "SELECT a.name, a.custom_data, t.name tname FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.parked_zone_id=$1 AND a.is_wreck=0 AND (a.custom_data->>'charter') IS DISTINCT FROM 'true' ORDER BY a.name LIMIT 4",
     [zone.id]
   ).catch(() => ({ rows: [] }));
-  if (rows.length) line += `\n<span class="furniture-label">On the ramp:</span> ${svcLink('embark', 'embark')} <span class="text-dim">an aircraft is parked here</span>`;
+  if (rows.length) {
+    const names = rows.map(r => { const c = rampColorWord(r.custom_data?.livery); return `a ${c ? c + ' ' : ''}${r.tname}`; });
+    const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+    line += `\n<span class="furniture-label">On the ramp:</span> ${svcLink('embark', 'embark')} <span class="text-dim">${list} parked here — <b>examine</b> to look one over</span>`;
+  }
   // A chartered aircraft waiting for its passenger — held for whoever chartered it.
   const ch = charterParkedAt(zone.id);
   if (ch) {
@@ -754,8 +787,13 @@ async function describeAirfield(zone) {
 async function cmdTestFly(args, raw, player) {
   if (!['admin', 'dev'].includes(player.role)) return { type: 'error', message: 'Access denied.' };
   if (player.aircraftId) return { type: 'emote', message: 'Disembark first.' };
+  // The hangar counts as its field: conjure from inside the walk-in hangar too,
+  // resolving the exterior ramp via fieldFor. Standing in the hangar spawns her "in
+  // the garage" — you `taxi` her out onto the runway before she'll fly (see cmdTaxi).
   const zone = getZone(player.current_zone);
-  if (!zone?.flags?.airfield_id) return { type: 'emote', message: 'Stand at an airfield to conjure a test aircraft.' };
+  const field = fieldFor(player);
+  if (!field) return { type: 'emote', message: 'Stand at an airfield (or in its hangar) to conjure a test aircraft.' };
+  const inHangar = !!zone?.flags?.hangar_interior;
   const wanted = (args[0] || '').toLowerCase();
   const { rows } = await query("SELECT id, name, fuel_capacity FROM aircraft_types WHERE (id=$1 OR lower(name)=$1) AND class <> 'wreck'", [wanted]);
   if (!rows.length) {
@@ -763,19 +801,58 @@ async function cmdTestFly(args, raw, player) {
     return { type: 'output', message: `Usage: <b>.testfly &lt;type&gt;</b>. Types: ${all.rows.map(r => r.id.replace('ac_', '')).join(', ')}` };
   }
   const t = rows[0];
+  // She always sits on the map_world grid at the ramp's coords; parked_zone_id is the
+  // garage (interior) when conjured inside, else the ramp — that's what gates takeoff.
+  const parkZone = inHangar ? zone.id : field.id;
   const id = `aircraft_test_${player.id.slice(0, 6)}_${randomUUID().slice(0, 6)}`;
   await query(
     `INSERT INTO aircraft (id,type_id,name,owner_id,map_id,grid_x,grid_y,altitude_band,parked_zone_id,fuel,engine_temp,rental)
      VALUES ($1,$2,$3,$4,'map_world',$5,$6,'ground',$7,$8,20,0)`,
-    [id, t.id, `TEST ${t.name}`, player.id, zone.grid_x, zone.grid_y, zone.id, t.fuel_capacity]
+    [id, t.id, `TEST ${t.name}`, player.id, field.grid_x, field.grid_y, parkZone, t.fuel_capacity]
   );
   const live = await loadAircraft(id);
   live.occupants.add(player.id); player.aircraftId = id; player.seat = 'pilot';
+  if (inHangar) {
+    // In the garage: no cockpit yet — she has to be taxied out onto the runway first.
+    return { type: 'emote', message: `<span class="text-green">[TEST] A free <b>${t.name}</b>, full tank, waits in the hangar with you at the controls. <b>taxi</b> her out of the garage onto the runway before you fly. It's yours — scrap it when done.</span>` };
+  }
   if (isContinuous(live)) sendFlightSim(player, live); else pushHud(live);
   const how = isContinuous(live)
     ? 'flip the <b>ENGINE</b> switch, throttle up, and pull back as she comes alive'
     : 'startup · throttle · takeoff';
   return { type: 'emote', message: `<span class="text-green">[TEST] A free <b>${t.name}</b>, full tank, and you're in the pilot's seat. ${how}. It's yours — scrap it when done.</span>` };
+}
+
+// Taxi a craft out of the walk-in hangar (the "garage") onto the exterior ramp (the
+// runway) — the gate between sitting in the garage and flying. Only meaningful when
+// she's parked inside a hangar interior; out on the ramp already there's nothing to
+// taxi out of. Rolling her out is what starts the cockpit and clears her to take off.
+async function cmdTaxi(args, raw, player, broadcast) {
+  const { live, err } = requirePilot(player); if (err) return err;
+  if (live.row.airborne) return { type: 'emote', message: "You're already flying." };
+  const here = getZone(live.row.parked_zone_id);
+  const ramp = here?.flags?.hangar_interior ? getZone(here.flags.hangar_ramp) : null;
+  if (!ramp) return { type: 'emote', message: "She's already out on the ramp — nothing to taxi out of." };
+
+  // Roll her out: park on the ramp at its map_world coords, and walk the crew out with her.
+  live.row.parked_zone_id = ramp.id;
+  live.row.grid_x = ramp.grid_x; live.row.grid_y = ramp.grid_y;
+  for (const pid of live.occupants) {
+    const p = getLivePlayer(pid); if (!p) continue;
+    getZone(p.current_zone)?.players.delete(pid);
+    p.current_zone = ramp.id;
+    ramp.players?.add(pid);
+  }
+  await persist(live);
+  broadcast(ramp.id, { type: 'zone_event', message: `A ${live.type.name} noses out of the hangar and onto the ramp.`, refresh: true }, player.id);
+
+  // On the runway now — bring the cockpit alive.
+  const pilot = pilotOf(live) || player;
+  if (isContinuous(live)) sendFlightSim(pilot, live); else pushHud(live);
+  const how = isContinuous(live)
+    ? 'Flip the <b>ENGINE</b> switch, throttle up, and pull back as she comes alive.'
+    : '<span class="text-dim">startup · throttle · takeoff</span>.';
+  return { type: 'emote', message: `<span class="text-green">You ease her out of the garage and onto the runway. ${how}</span>` };
 }
 
 // ── flight / status — a text readout of the aircraft you're aboard ─────────────
@@ -795,8 +872,37 @@ async function cmdFlightStatus(args, raw, player) {
   return { type: 'output', message: lines.join('\n') };
 }
 
+// Room examine of a parked aircraft. Flight shadows `examine` (owned by interactions)
+// and `look` (owned by gametable); on anything that ISN'T naming a craft on the ramp
+// here we DELEGATE to that prior owner (never just return undefined — that would skip
+// them and drop straight to the engine, killing `examine surroundings` / the poker
+// table view). The description reads the livery live, so it reflects a repaint at once.
+async function craftDescHere(args, player) {
+  const arg = args.join(' ').toLowerCase().trim();
+  if (!arg) return null;
+  const field = fieldFor(player);
+  if (!field) return null;
+  const { rows } = await query(
+    "SELECT a.name, a.custom_data, t.name tname FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.parked_zone_id=$1 AND a.is_wreck=0 AND (a.custom_data->>'charter') IS DISTINCT FROM 'true'",
+    [field.id]);
+  const generic = ['aircraft', 'plane', 'craft', 'jet', 'chopper', 'heli'].includes(arg);
+  const m = rows.find(r => generic || (r.name || '').toLowerCase().includes(arg) || (r.tname || '').toLowerCase().includes(arg));
+  return m ? describeExterior(m.custom_data?.livery, m.tname, m.name) : null;
+}
+async function cmdExamineCraft(args, raw, player, broadcast) {
+  const desc = await craftDescHere(args, player);
+  if (desc) return { type: 'examine', message: desc };
+  return interactionsCommands.examine(args, raw, player, broadcast);   // prior owner → engine
+}
+async function cmdLookCraft(args, raw, player, broadcast) {
+  const desc = await craftDescHere(args, player);
+  if (desc) return { type: 'examine', message: desc };
+  return gametableCommands.look(args, raw, player, broadcast);         // prior owner → engine
+}
+
 export const commands = {
-  embark: cmdBoard, board: cmdBoard, disembark: cmdDisembark, deplane: cmdDisembark, testfly: cmdTestFly,
+  examine: cmdExamineCraft, look: cmdLookCraft,
+  embark: cmdBoard, board: cmdBoard, disembark: cmdDisembark, deplane: cmdDisembark, testfly: cmdTestFly, taxi: cmdTaxi,
   flight: cmdFlightStatus, fs: cmdFlightStatus,
   startup: cmdStartup, shutdown: cmdShutdown, throttle: cmdThrottle,
   heading: cmdHeading, climb: cmdClimb, dive: cmdDive,

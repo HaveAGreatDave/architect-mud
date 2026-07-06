@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>CANOPY GLASS LAB · flight-sim glass + night-panel bench</title>
+<style>
+/* ───────────────────────────────────────────────────────────────────────────
+   CANOPY GLASS LAB — a standalone tuning rig for the "over the top" layer:
+   the near-field CANOPY GLASS (sun glare + lens flare, rain beads/streaks,
+   frost/ash creep, and the warm reflection of a NIGHT-LIT instrument panel).
+
+   Self-contained — no imports, no server, no build step. Open it in a browser,
+   drag the dials, judge the look over any time-of-day / weather / heading.
+   Once the numbers feel right, they port into windshield.js (glass pass) and
+   cockpit.js (panel backlight), the way the Flame Lab ported into wanted.js.
+   ─────────────────────────────────────────────────────────────────────────── */
+:root{
+  --cy:#8fd0ff; --cy-dim:#4f7f9f; --grn:#5fe0a0; --amber:#ffcf3e; --red:#ff5a5b;
+  --ink:#cfe4f2; --ink-dim:#6f8698; --panel:#0b1219;
+  --font:'DejaVu Sans Mono','Consolas','Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{ background:#04070c; color:var(--ink); font-family:var(--font); overflow:hidden;
+  letter-spacing:.3px; display:flex; align-items:center; justify-content:center; gap:14px; padding:14px; }
+
+/* the aircraft "deck": forward view canvas + the physical instrument panel below */
+#deck{ position:relative; width:min(66vw,860px); aspect-ratio:16/12; border-radius:14px; overflow:hidden;
+  display:flex; flex-direction:column; background:#05080d; border:1px solid #0a1219;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 8px 30px rgba(0,0,0,.6); }
+#viewwrap{ position:relative; flex:1 1 auto; min-height:0; }
+#view{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+
+/* ── the instrument panel that lights up at night ──────────────────────────── */
+#panel{ --pb:0; /* panel backlight 0..1, set by JS */ --pg:255,207,62; /* glow rgb */
+  flex:0 0 116px; display:flex; gap:8px; padding:9px; position:relative;
+  background:linear-gradient(180deg,#0a0f15,#06090e); border-top:1px solid #0d1620;
+  transition:background .4s; }
+#panel.lit{ background:linear-gradient(180deg, rgba(var(--pg),calc(.05*var(--pb))), #06090e 70%); }
+.inst{ flex:1; position:relative; background:linear-gradient(160deg,#0d141b,#080c11);
+  border:1px solid #131e28; border-radius:9px; padding:7px 9px; display:flex; flex-direction:column;
+  gap:3px; min-width:0; overflow:hidden; }
+.inst .lbl{ font-size:8.5px; color:var(--ink-dim); letter-spacing:2px; }
+.inst .val{ font-size:21px; line-height:1; color:#33424f; font-variant-numeric:tabular-nums;
+  transition:color .3s, text-shadow .3s; }
+.inst .unit{ font-size:8.5px; color:var(--ink-dim); }
+/* when lit: the digits glow with the backlight colour, the bezel warms, a faint wash fills the face */
+#panel.lit .inst{ border-color:rgba(var(--pg),calc(.35*var(--pb)));
+  box-shadow:inset 0 0 18px rgba(var(--pg),calc(.10*var(--pb))), 0 0 8px rgba(var(--pg),calc(.06*var(--pb))); }
+#panel.lit .inst .val{ color:rgb(var(--pg));
+  text-shadow:0 0 calc(9px*var(--pb)) rgba(var(--pg),calc(.9*var(--pb))), 0 0 2px rgba(var(--pg),var(--pb)); }
+#panel.lit .inst .lbl{ color:rgba(var(--pg),calc(.55+.35*var(--pb))); }
+/* a mini attitude ball on the left of the panel */
+#adiBox{ flex:0 0 92px; padding:4px; display:flex; align-items:center; justify-content:center; }
+#adi{ width:100%; height:100%; display:block; }
+/* the little AUTO/ON/OFF panel-lights lamp, sitting on the panel */
+#lampTag{ position:absolute; top:6px; right:10px; font-size:8px; letter-spacing:2px; color:#33424f;
+  border:1px solid #182430; border-radius:4px; padding:2px 7px; transition:all .3s; }
+#panel.lit #lampTag{ color:rgb(var(--pg)); border-color:rgba(var(--pg),.5);
+  box-shadow:0 0 8px rgba(var(--pg),calc(.4*var(--pb))); }
+
+/* ── control column ────────────────────────────────────────────────────────── */
+#controls{ display:flex; flex-direction:column; gap:10px; width:250px; max-height:94vh; overflow-y:auto;
+  padding-right:4px; }
+.cbox{ background:var(--panel); border:1px solid #14212d; border-radius:12px; padding:10px 11px; }
+.cbox h4{ font-size:10px; color:var(--cy); letter-spacing:2px; margin-bottom:9px; font-weight:normal;
+  border-bottom:1px solid #14212d; padding-bottom:6px; }
+.row{ display:flex; align-items:center; gap:8px; margin-bottom:7px; font-size:10px; color:var(--ink-dim); }
+.row label{ flex:0 0 74px; }
+.row input[type=range]{ flex:1; height:3px; -webkit-appearance:none; appearance:none;
+  background:#1a2833; border-radius:2px; outline:none; }
+.row input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:12px; height:12px;
+  border-radius:50%; background:var(--cy); cursor:pointer; box-shadow:0 0 6px rgba(143,208,255,.6); }
+.row .num{ flex:0 0 34px; text-align:right; color:var(--ink); font-variant-numeric:tabular-nums; }
+.seg{ display:flex; gap:4px; }
+.seg button{ flex:1; font:inherit; font-size:9px; letter-spacing:1px; padding:5px 0; cursor:pointer;
+  background:#0c141c; color:var(--ink-dim); border:1px solid #1a2833; border-radius:6px; transition:all .2s; }
+.seg button.on{ background:rgba(143,208,255,.14); color:var(--cy); border-color:var(--cy); }
+select{ width:100%; font:inherit; font-size:10px; background:#0c141c; color:var(--ink);
+  border:1px solid #1a2833; border-radius:6px; padding:5px; }
+#dump{ width:100%; height:96px; font:inherit; font-size:9px; background:#070c11; color:var(--grn);
+  border:1px solid #14212d; border-radius:8px; padding:7px; resize:none; }
+.hint{ font-size:9px; color:#42566a; line-height:1.5; margin-top:2px; }
+h1{ font-size:12px; letter-spacing:3px; color:var(--cy); font-weight:normal; }
+h1 span{ color:var(--ink-dim); letter-spacing:1px; }
+</style>
+</head>
+<body>
+
+<div id="deck">
+  <div id="viewwrap"><canvas id="view"></canvas></div>
+  <div id="panel">
+    <div id="adiBox"><canvas id="adi" width="160" height="160"></canvas></div>
+    <div class="inst"><span class="lbl">ASPD</span><span class="val" id="i-spd">082</span><span class="unit">kt</span></div>
+    <div class="inst"><span class="lbl">ALT</span><span class="val" id="i-alt">1200</span><span class="unit">ft</span></div>
+    <div class="inst"><span class="lbl">HDG</span><span class="val" id="i-hdg">090</span><span class="unit">deg</span></div>
+    <div class="inst"><span class="lbl">FUEL</span><span class="val" id="i-fuel">74</span><span class="unit">%</span></div>
+    <div id="lampTag">PANEL · OFF</div>
+  </div>
+</div>
+
+<div id="controls">
+  <h1>CANOPY GLASS LAB <span>· glass + night panel</span></h1>
+
+  <div class="cbox">
+    <h4>WORLD</h4>
+    <div class="row"><label>Time of day</label><input type="range" id="c-hour" min="0" max="24" step="0.25" value="17.5"><span class="num" id="n-hour">17.5</span></div>
+    <div class="row"><label>Look (sun→edge)</label><input type="range" id="c-look" min="-90" max="90" step="1" value="-18"><span class="num" id="n-look">-18</span></div>
+    <div class="row"><label>Airspeed</label><input type="range" id="c-spd" min="0" max="1" step="0.01" value="0.55"><span class="num" id="n-spd">.55</span></div>
+    <div class="row"><label>Bank</label><input type="range" id="c-bank" min="-45" max="45" step="1" value="0"><span class="num" id="n-bank">0</span></div>
+    <div class="row"><label>Weather</label><select id="c-wx">
+      <option value="clear">clear</option><option value="rain">rain</option><option value="storm">storm</option>
+      <option value="snow">snow (frost)</option><option value="ash">ash</option></select></div>
+  </div>
+
+  <div class="cbox">
+    <h4>PANEL LIGHTS <span style="color:var(--ink-dim)">(the ask)</span></h4>
+    <div class="seg" id="c-plmode">
+      <button data-v="auto" class="on">AUTO</button><button data-v="on">ON</button><button data-v="off">OFF</button>
+    </div>
+    <div class="row" style="margin-top:8px"><label>Brightness</label><input type="range" id="c-pb" min="0" max="1" step="0.02" value="0.85"><span class="num" id="n-pb">.85</span></div>
+    <div class="row"><label>Night onset</label><input type="range" id="c-onset" min="0.2" max="0.9" step="0.02" value="0.42"><span class="num" id="n-onset">.42</span></div>
+    <div class="row"><label>Glow tint</label><select id="c-glow">
+      <option value="255,207,62">warm amber (classic)</option>
+      <option value="95,224,160">NVG green</option>
+      <option value="143,208,255">ice cyan</option>
+      <option value="255,120,90">red (night-vision safe)</option></select></div>
+    <div class="row"><label>Glass reflection</label><input type="range" id="c-refl" min="0" max="1" step="0.02" value="0.5"><span class="num" id="n-refl">.50</span></div>
+    <div class="hint">AUTO: lights fade up as dusk crosses the onset threshold. Reflection = how much the lit panel washes up onto the lower glass (the presence cue).</div>
+  </div>
+
+  <div class="cbox">
+    <h4>SUN GLARE + FLARE</h4>
+    <div class="row"><label>Glare</label><input type="range" id="c-glare" min="0" max="1.5" step="0.02" value="0.9"><span class="num" id="n-glare">.90</span></div>
+    <div class="row"><label>Streak len</label><input type="range" id="c-streak" min="0" max="1" step="0.02" value="0.6"><span class="num" id="n-streak">.60</span></div>
+    <div class="row"><label>Flare ghosts</label><input type="range" id="c-ghost" min="0" max="1" step="0.02" value="0.55"><span class="num" id="n-ghost">.55</span></div>
+    <div class="row"><label>Warmth</label><input type="range" id="c-warm" min="0" max="1" step="0.02" value="0.7"><span class="num" id="n-warm">.70</span></div>
+  </div>
+
+  <div class="cbox">
+    <h4>GLASS SURFACE</h4>
+    <div class="row"><label>Rain amount</label><input type="range" id="c-rain" min="0" max="1" step="0.02" value="0.7"><span class="num" id="n-rain">.70</span></div>
+    <div class="row"><label>Frost/ash creep</label><input type="range" id="c-frost" min="0" max="1" step="0.02" value="0.6"><span class="num" id="n-frost">.60</span></div>
+    <div class="row"><label>Sheen</label><input type="range" id="c-sheen" min="0" max="0.2" step="0.005" value="0.06"><span class="num" id="n-sheen">.06</span></div>
+    <div class="row"><label>Vignette</label><input type="range" id="c-vig" min="0" max="0.9" step="0.02" value="0.5"><span class="num" id="n-vig">.50</span></div>
+  </div>
+
+  <div class="cbox">
+    <h4>TUNING → port into windshield.js</h4>
+    <textarea id="dump" readonly></textarea>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// Controls plumbing
+// ═══════════════════════════════════════════════════════════════════════════
+const T = {}; // live tuning, mirrored from the sliders
+let ready = false; // suppress dumpTune() until every slider has initialised
+function bind(id, key, fmt){ const el=document.getElementById(id), n=document.getElementById('n-'+id.slice(2));
+  const upd=()=>{ T[key]=parseFloat(el.value); if(n) n.textContent=(fmt?fmt(T[key]):el.value); dumpTune(); };
+  el.addEventListener('input',upd); upd(); }
+const f2=(v)=>v.toFixed(2).replace(/^0/,'');
+bind('c-hour','hour',v=>v.toFixed(2)); bind('c-look','look',v=>v.toFixed(0)); bind('c-spd','speed',f2);
+bind('c-bank','bank',v=>v.toFixed(0)); bind('c-pb','pb',f2); bind('c-onset','onset',f2);
+bind('c-refl','refl',f2); bind('c-glare','glare',f2); bind('c-streak','streak',f2);
+bind('c-ghost','ghost',f2); bind('c-warm','warm',f2); bind('c-rain','rain',f2);
+bind('c-frost','frost',f2); bind('c-sheen','sheen',f2); bind('c-vig','vig',f2);
+document.getElementById('c-wx').addEventListener('change',e=>{ T.wx=e.target.value; });  T.wx='clear';
+document.getElementById('c-glow').addEventListener('change',e=>{ T.glow=e.target.value; dumpTune(); }); T.glow='255,207,62';
+let plMode='auto';
+document.querySelectorAll('#c-plmode button').forEach(b=>b.addEventListener('click',()=>{
+  plMode=b.dataset.v; document.querySelectorAll('#c-plmode button').forEach(x=>x.classList.toggle('on',x===b)); dumpTune(); }));
+ready = true; dumpTune();
+
+function dumpTune(){
+  if(!ready) return;
+  document.getElementById('dump').value = JSON.stringify({
+    panelLights:{ mode:plMode, brightness:+T.pb.toFixed(2), nightOnset:+T.onset.toFixed(2), glow:T.glow, glassReflect:+T.refl.toFixed(2) },
+    sunGlare:{ glare:+T.glare.toFixed(2), streak:+T.streak.toFixed(2), ghosts:+T.ghost.toFixed(2), warmth:+T.warm.toFixed(2) },
+    glass:{ rain:+T.rain.toFixed(2), frost:+T.frost.toFixed(2), sheen:+T.sheen.toFixed(3), vignette:+T.vig.toFixed(2) },
+  }, null, 1);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Small helpers (mirrors of windshield.js math so the port is 1:1)
+// ═══════════════════════════════════════════════════════════════════════════
+const clamp=(v,lo,hi)=>v<lo?lo:v>hi?hi:v, lerp=(a,b,t)=>a+(b-a)*t;
+const mix=(c1,c2,t)=>[lerp(c1[0],c2[0],t),lerp(c1[1],c2[1],t),lerp(c1[2],c2[2],t)];
+const rgb=(c,a)=>a==null?`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`:`rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;
+const smooth=(e0,e1,x)=>{ const t=clamp((x-e0)/(e1-e0),0,1); return t*t*(3-2*t); };
+const frnd=(n)=>{ const x=Math.sin((n+1)*12.9898)*43758.5453; return x-Math.floor(x); };
+
+// time-of-day sky (same keyframe shape as windshield.js SKY[])
+const SKY=[
+  {h:0,top:[6,8,18],hor:[20,22,40],night:1,sun:null},
+  {h:5.5,top:[40,46,84],hor:[206,122,84],night:.5,sun:[255,176,116]},
+  {h:8,top:[26,108,166],hor:[156,196,216],night:0,sun:[255,246,214]},
+  {h:16,top:[26,108,166],hor:[156,196,216],night:0,sun:[255,246,214]},
+  {h:18.5,top:[44,48,92],hor:[228,118,56],night:.5,sun:[255,146,84]},
+  {h:21,top:[6,8,18],hor:[20,22,40],night:1,sun:null},
+];
+function skyAt(hour){ const h=((hour%24)+24)%24; let a=SKY[0],b=SKY[SKY.length-1];
+  for(let i=0;i<SKY.length-1;i++){ if(h>=SKY[i].h&&h<=SKY[i+1].h){a=SKY[i];b=SKY[i+1];break;} }
+  const t=b.h===a.h?0:(h-a.h)/(b.h-a.h);
+  return { top:mix(a.top,b.top,t), hor:mix(a.hor,b.hor,t), night:lerp(a.night,b.night,t),
+    sun:a.sun&&b.sun?mix(a.sun,b.sun,t):(t<.5?a.sun:b.sun) }; }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Scene backdrop — deliberately simple: enough sky/ground/skyline to judge glass
+// ═══════════════════════════════════════════════════════════════════════════
+const buildings = Array.from({length:9},(_,i)=>({ x:frnd(i*3.1), w:.05+frnd(i*7)*.06, h:.14+frnd(i*5)*.34, lit:frnd(i*2)>.35 }));
+let scroll=0;
+function drawWorld(ctx,W,H,sky,speed){
+  const horizonY=H*0.52;
+  // sky
+  let g=ctx.createLinearGradient(0,0,0,horizonY);
+  g.addColorStop(0,rgb(sky.top)); g.addColorStop(1,rgb(sky.hor));
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,horizonY);
+  // stars
+  if(sky.night>.15){ for(let i=0;i<70;i++){ const sx=frnd(i)*W, sy=frnd(i+91)*horizonY*.9;
+    const tw=.5+.5*Math.sin(performance.now()*.002+i); ctx.fillStyle=rgb([230,236,255],sky.night*.7*tw);
+    ctx.fillRect(sx,sy,1.4,1.4); } }
+  // ground
+  g=ctx.createLinearGradient(0,horizonY,0,H);
+  const gTop=mix([60,64,72],[0,0,0],sky.night*.5), gBot=mix([22,25,32],[0,0,0],sky.night*.6);
+  g.addColorStop(0,rgb(gTop)); g.addColorStop(1,rgb(gBot));
+  ctx.fillStyle=g; ctx.fillRect(0,horizonY,W,H-horizonY);
+  // haze band
+  const hz=ctx.createLinearGradient(0,horizonY-8,0,horizonY+30);
+  hz.addColorStop(0,rgb(sky.hor,.5)); hz.addColorStop(1,rgb(sky.hor,0));
+  ctx.fillStyle=hz; ctx.fillRect(0,horizonY-8,W,40);
+  // skyline silhouette sitting on the horizon (+ lit windows at night)
+  scroll=(scroll+speed*.002)%1;
+  for(const b of buildings){
+    const bx=(((b.x-scroll)%1)+1)%1*W, bw=b.w*W, bh=b.h*H;
+    const by=horizonY-bh;
+    ctx.fillStyle=rgb(mix([40,46,54],[8,10,16],sky.night*.7)); ctx.fillRect(bx,by,bw,bh);
+    if(sky.night>.3 && b.lit){ // window lights
+      for(let wy=by+6;wy<horizonY-4;wy+=8) for(let wx=bx+3;wx<bx+bw-3;wx+=7){
+        if(frnd(wx*wy)>.5) continue;
+        ctx.fillStyle=rgb([255,214,140],sky.night*(.5+frnd(wx+wy)*.5)); ctx.fillRect(wx,wy,2.5,3); }
+    }
+  }
+  return horizonY;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE STAR: the on-glass light layer (this is what ports into windshield.js)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// where the sun sits on screen given hour + look offset; returns {x,y,vis} (vis 0..1, 0 = not in view / night)
+function sunScreen(W,H,horizonY,hour,look,sky){
+  const day = 1 - sky.night;                       // no solar glare at night
+  const dayFrac = clamp((hour-6)/12,0,1);
+  // relative bearing of the sun off the nose: `look` slides it across the glass
+  const rel = look;                                // deg off centre (-left / +right)
+  const x = W*0.5 + (rel/60)*W*0.5;
+  const y = horizonY*(0.30+0.34*Math.sin(dayFrac*Math.PI)) - (sky.night*40);
+  const inView = smooth(75,35,Math.abs(rel));      // fades out as the sun swings behind the pillar
+  const lowSun = 0.5 + 0.5*Math.sin(dayFrac*Math.PI); // brighter glare when the sun is low (dawn/dusk rake)
+  return { x, y, vis: day*inView, low: 1-Math.abs(dayFrac-0.5)*2 };
+}
+
+// Sun glare bloom + anamorphic streak + lens-flare ghost chain, additive on the glass.
+function drawSunGlare(ctx,W,H,sun,tune,warm){
+  if(sun.vis<=0.01 || tune<=0) return;
+  const cx=W/2, cy=H/2;
+  const warmC=[255, lerp(232,150,warm), lerp(210,70,warm)];  // warmth pushes toward orange
+  const A = sun.vis*tune;
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  // 1. core bloom
+  const bloom=ctx.createRadialGradient(sun.x,sun.y,2,sun.x,sun.y,W*0.34*(0.6+A*0.6));
+  bloom.addColorStop(0,rgb(warmC,0.55*A)); bloom.addColorStop(0.25,rgb(warmC,0.28*A));
+  bloom.addColorStop(1,rgb(warmC,0));
+  ctx.fillStyle=bloom; ctx.fillRect(0,0,W,H);
+  // 2. anamorphic horizontal streak (thin, wide) — the signature lens flare bar
+  const sl = T.streak*W*0.9;
+  if(sl>2){ const str=ctx.createLinearGradient(sun.x-sl,0,sun.x+sl,0);
+    str.addColorStop(0,rgb(warmC,0)); str.addColorStop(.5,rgb(warmC,0.5*A)); str.addColorStop(1,rgb(warmC,0));
+    ctx.fillStyle=str; ctx.fillRect(sun.x-sl,sun.y-2.2,sl*2,4.4);
+    // faint vertical companion
+    ctx.fillStyle=`rgba(${warmC[0]|0},${warmC[1]|0},${warmC[2]|0},${0.16*A})`;
+    ctx.fillRect(sun.x-1.2,sun.y-sl*0.5,2.4,sl); }
+  // 3. lens-flare ghosts marching along the sun→centre axis, out the far side
+  const ng = Math.round(T.ghost*6);
+  const dx=cx-sun.x, dy=cy-sun.y;
+  const ghostCols=[[150,200,255],[255,200,150],[180,255,200],[255,170,210],[200,220,255]];
+  for(let i=0;i<ng;i++){
+    const t = -0.35 + i*(1.9/Math.max(1,ng));       // positions from just behind the sun out past centre
+    const gx=sun.x+dx*t, gy=sun.y+dy*t;
+    const r=(6+((i*53)%40))*(0.6+A);
+    const col=ghostCols[i%ghostCols.length];
+    const gg=ctx.createRadialGradient(gx,gy,0,gx,gy,r);
+    const ga=0.10*A*T.ghost;
+    gg.addColorStop(0,rgb(col,ga)); gg.addColorStop(0.7,rgb(col,ga*0.4)); gg.addColorStop(1,rgb(col,0));
+    ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(gx,gy,r,0,7); ctx.fill();
+    // occasional thin ring ghost
+    if(i%2){ ctx.strokeStyle=rgb(col,ga*0.8); ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(gx,gy,r*0.8,0,7); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+
+// Rain beads clinging to the glass, streaking BACK with airspeed (port of drawGlass()).
+const drops=Array.from({length:34},(_,i)=>({x:frnd(i*4),y:frnd(i*6)*.6,r:1.4+frnd(i*2)*3,life:frnd(i),streak:0}));
+function drawRain(ctx,W,H,wx,speed,amt,dt){
+  if((wx!=='rain'&&wx!=='storm')||amt<=0) return;
+  const sp=clamp(speed,0,1), flat=sp*sp, n=Math.round(drops.length*amt);
+  for(let i=0;i<n;i++){ const d=drops[i];
+    d.life-=dt*(0.3+sp*0.5);
+    if(d.life<=0){ d.life=0.6+(d.x*7%1)*1.6; d.streak=0; d.y=(d.x*13%1)*0.6; }
+    if(d.streak>0||(wx==='storm'&&d.life<0.4)||(sp>0.25&&d.life<0.6)) d.streak+=dt*(0.10+sp*0.7);
+    const sideDir=d.x<0.5?-1:1, dirX=sideDir*flat*1.7, dirY=1-flat*0.92, len=d.streak*H;
+    const ax=d.x*W, ay=d.y*H, x=ax+dirX*len, y=ay+dirY*len;
+    if(d.streak>0.002){ ctx.strokeStyle=`rgba(200,224,255,${0.10+flat*0.06})`; ctx.lineWidth=d.r*(0.7-flat*0.25);
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(x,y); ctx.stroke(); }
+    ctx.fillStyle='rgba(200,224,255,0.16)';
+    ctx.save(); ctx.translate(x,y); ctx.rotate(Math.atan2(dirY,dirX));
+    ctx.beginPath(); ctx.ellipse(0,0,d.r*(1.25+flat*1.1),d.r*(1-flat*0.4),0,0,7); ctx.fill(); ctx.restore();
+    ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.arc(x-d.r*0.3,y-d.r*0.4,d.r*0.28,0,7); ctx.fill();
+  }
+}
+
+// Frost (snow) / ash creeping in from the canopy corners — a feathered rime that eats the view edges.
+function drawCreep(ctx,W,H,wx,amt){
+  if((wx!=='snow'&&wx!=='ash')||amt<=0) return;
+  const frost=wx==='snow', col=frost?[228,240,255]:[70,60,52];
+  const reach=Math.max(W,H)*(0.28+amt*0.34);
+  const corners=[[0,0],[W,0],[0,H],[W,H]];
+  ctx.save();
+  for(const [ox,oy] of corners){
+    const g=ctx.createRadialGradient(ox,oy,0,ox,oy,reach);
+    g.addColorStop(0,rgb(col,frost?0.7*amt:0.6*amt)); g.addColorStop(0.55,rgb(col,frost?0.28*amt:0.3*amt)); g.addColorStop(1,rgb(col,0));
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  }
+  // crystalline speckle at the fringe (frost only) — scattered inward from each corner
+  if(frost){ ctx.fillStyle=rgb([255,255,255],0.5*amt);
+    for(let i=0;i<120;i++){ if(frnd(i*3)>0.6) continue;
+      const c=corners[i%4];
+      const px=c[0] + (c[0]?-1:1)*frnd(i+1)*reach, py=c[1] + (c[1]?-1:1)*frnd(i+2)*reach;
+      ctx.fillRect(px,py,1.3,1.3); } }
+  ctx.restore();
+}
+
+// The warm reflection the LIT PANEL throws up onto the lower canopy glass at night —
+// the presence cue that says "I'm strapped into a lit cockpit, looking out through glass".
+function drawPanelReflection(ctx,W,H,glow,lit,refl){
+  if(lit<=0||refl<=0) return;
+  const c=glow.split(',').map(Number), A=lit*refl;
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  // broad wash rising from the bottom edge
+  const g=ctx.createLinearGradient(0,H,0,H*0.55);
+  g.addColorStop(0,rgb(c,0.22*A)); g.addColorStop(1,rgb(c,0));
+  ctx.fillStyle=g; ctx.fillRect(0,H*0.55,W,H*0.45);
+  // a few soft blobs = smeared reflections of the individual gauges
+  for(let i=0;i<5;i++){ const gx=W*(0.16+i*0.17), gy=H*(0.9-frnd(i)*0.06), r=W*0.09;
+    const bg=ctx.createRadialGradient(gx,gy,0,gx,gy,r);
+    bg.addColorStop(0,rgb(c,0.16*A)); bg.addColorStop(1,rgb(c,0));
+    ctx.fillStyle=bg; ctx.beginPath(); ctx.ellipse(gx,gy,r,r*0.5,0,0,7); ctx.fill(); }
+  ctx.restore();
+}
+
+// static sheen + vignette (already in windshield.js; kept so the layer reads complete)
+function drawSheenVignette(ctx,W,H,bank,sheenA,vigA){
+  const so=clamp(0.5+bank/120,0.1,0.9);
+  const sheen=ctx.createLinearGradient(0,0,W,H);
+  sheen.addColorStop(clamp(so-0.18,0,1),'rgba(255,255,255,0)');
+  sheen.addColorStop(so,`rgba(255,255,255,${sheenA})`);
+  sheen.addColorStop(clamp(so+0.18,0,1),'rgba(255,255,255,0)');
+  ctx.fillStyle=sheen; ctx.fillRect(0,0,W,H);
+  const vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.7);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,`rgba(0,0,0,${vigA})`);
+  ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+}
+
+// the curved canopy header (port of drawCanopy())
+function drawCanopy(ctx,W,H){
+  const midY=H*0.055, cornerY=H*0.20;
+  ctx.save(); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(W,0); ctx.lineTo(W,cornerY);
+  ctx.quadraticCurveTo(W*0.5,midY,0,cornerY); ctx.closePath();
+  const g=ctx.createLinearGradient(0,0,0,cornerY);
+  g.addColorStop(0,'rgba(9,14,20,0.94)'); g.addColorStop(0.62,'rgba(9,14,20,0.9)'); g.addColorStop(1,'rgba(9,14,20,0)');
+  ctx.fillStyle=g; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0,cornerY); ctx.quadraticCurveTo(W*0.5,midY,W,cornerY);
+  ctx.strokeStyle='rgba(150,185,215,0.10)'; ctx.lineWidth=1; ctx.stroke(); ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Mini attitude ball on the panel (so "panel lights up" has something to light)
+// ═══════════════════════════════════════════════════════════════════════════
+function drawAdi(lit,glow){
+  const cv=document.getElementById('adi'), ctx=cv.getContext('2d'), W=160,H=160, cx=80,cy=80,r=66;
+  ctx.clearRect(0,0,W,H);
+  ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.clip();
+  const p=Math.sin(performance.now()*0.0006)*12, roll=T.bank||0;
+  ctx.translate(cx,cy); ctx.rotate(-roll*Math.PI/180); ctx.translate(-cx,-cy);
+  const hy=cy+p;
+  ctx.fillStyle=lit?`rgba(${glow},0.20)`:'#12304a'; ctx.fillRect(-40,-40,W+80,hy+40);
+  ctx.fillStyle=lit?`rgba(${glow},0.06)`:'#1a1206'; ctx.fillRect(-40,hy,W+80,H+80);
+  ctx.strokeStyle=lit?`rgb(${glow})`:'#7fa8c4'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-40,hy); ctx.lineTo(W+40,hy); ctx.stroke();
+  ctx.restore();
+  ctx.strokeStyle=lit?`rgba(${glow},0.8)`:'#33424f'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.stroke();
+  // fixed aircraft reference
+  ctx.strokeStyle=lit?`rgb(${glow})`:'#5a6a78'; ctx.lineWidth=3; ctx.beginPath();
+  ctx.moveTo(cx-26,cy); ctx.lineTo(cx-8,cy); ctx.moveTo(cx+8,cy); ctx.lineTo(cx+26,cy);
+  ctx.moveTo(cx,cy-8); ctx.lineTo(cx,cy+2); ctx.stroke();
+  if(lit){ ctx.shadowColor=`rgb(${glow})`; ctx.shadowBlur=8; ctx.stroke(); ctx.shadowBlur=0; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Main loop
+// ═══════════════════════════════════════════════════════════════════════════
+const view=document.getElementById('view'), panel=document.getElementById('panel'), lampTag=document.getElementById('lampTag');
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000||0.016); last=now;
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const cw=view.clientWidth, ch=view.clientHeight;
+  if(view.width!==Math.round(cw*dpr)){ view.width=Math.round(cw*dpr); view.height=Math.round(ch*dpr); }
+  const ctx=view.getContext('2d'); ctx.save(); ctx.scale(dpr,dpr);
+  const W=cw,H=ch;
+  const sky=skyAt(T.hour);
+
+  // ── panel-lights state: AUTO fades up across the night-onset threshold ──
+  const night=sky.night;
+  let auto = smooth(T.onset, T.onset+0.15, night);
+  let lit = plMode==='off' ? 0 : plMode==='on' ? T.pb : auto*T.pb;
+  // drive the physical HTML panel
+  panel.style.setProperty('--pb', lit.toFixed(3));
+  panel.style.setProperty('--pg', T.glow);
+  panel.classList.toggle('lit', lit>0.02);
+  lampTag.textContent = 'PANEL · ' + (plMode==='off'?'OFF': lit>0.02 ? (plMode==='auto'?'AUTO ●':'ON ●') : 'AUTO ○');
+
+  // ── world backdrop ──
+  ctx.clearRect(0,0,W,H);
+  const horizonY=drawWorld(ctx,W,H,sky,T.speed);
+
+  // ── THE GLASS LAYER (draw order matters) ──
+  const sun=sunScreen(W,H,horizonY,T.hour,T.look,sky);
+  drawSunGlare(ctx,W,H,sun,T.glare,T.warm);
+  drawRain(ctx,W,H,T.wx,T.speed,T.rain,dt);
+  drawCreep(ctx,W,H,T.wx,T.frost);
+  drawSheenVignette(ctx,W,H,T.bank,T.sheen,T.vig);
+  drawPanelReflection(ctx,W,H,T.glow,lit,T.refl);
+  drawCanopy(ctx,W,H);
+
+  ctx.restore();
+
+  // panel instruments
+  drawAdi(lit>0.02, T.glow);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

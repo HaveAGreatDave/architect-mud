@@ -203,6 +203,7 @@ Vendor just walked past selling something he called "meat adjacent." I did not f
 The stadium clock froze at 6:66 four years ago and honestly it's never once been wrong about the mood.
 Somewhere out past the outfield wall a dog is howling in perfect rhythm with the crowd. Nobody brought a dog.
 They retired a number here once. Not for a player — for a guy who survived a full season in the cheap seats. Brave soul.
+::endlines
 
 # --- Routine outs -------------------------------------------------------------
 ::lines atbat.strikeout
@@ -345,6 +346,13 @@ Top of the {inningOrd}, extras, and the {team} are hacking at everything. Someth
 ::lines extras.bottom
 Bottom of the {inningOrd}, still knotted — the {team} get their cuts to end it right here.
 Home half of the {inningOrd}. The {team} looking for the one run that sends everybody home.
+::endlines
+
+# --- Home half in extras while TRAILING: they must answer or it's over ------------
+::lines extras.bottom.trail
+The {leader} grabbed the lead up top — bottom of the {inningOrd}, and the {team} are down to their last cuts to answer it.
+Home half of the {inningOrd}, {team} trailing by {lead}. Answer now or the season ends here — for tonight, anyway.
+Bottom {inningOrd}, backs to the wall. The {team} need {lead} just to breathe, or it's over.
 ::endlines
 
 ::lines extras.cut

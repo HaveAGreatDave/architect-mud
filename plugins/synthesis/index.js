@@ -613,27 +613,32 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
   };
 }
 
-// Dev-only: launch the cook/splice minigame straight away with no recipe,
-// reagents, skill, or lab — just to see/feel it. The on-screen verdict shows
-// your score; the resolve is a harmless no-op (no pending entry).
-//   .cooktest            → normal cook minigame, difficulty 6
-//   .cooktest 12         → difficulty 12
-//   .cooktest 14 hard    → the harder splice-style minigame
+// Dev-only: feel a cook FAMILY minigame (the current work-phase + QUENCH beat)
+// straight away — no recipe, reagents, skill, or lab. Verdict on-screen; the
+// resolve is a harmless no-op. Pick any of the four families to exercise each.
+//   .cooktest              → wet family, difficulty 6
+//   .cooktest solids       → the press minigame
+//   .cooktest gas 9        → gas (pressure-vent) at difficulty 9
+//   families: wet · solids · gas · botanical
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
+const COOK_FAMILIES = ['wet', 'solids', 'gas', 'botanical'];
 function cmdCookTest(args, raw, player) {
   if (!DEV_ROLES.includes(player.role)) return { type: 'error', message: 'Dev command.' };
-  const hard = /\b(hard|splice)\b/i.test(raw);
-  const difficulty = Math.max(1, Math.min(hard ? 16 : 10, parseInt(args[0], 10) || (hard ? 12 : 6)));
-  return {
-    type: 'synth_minigame', kind: 'test', recipeId: '__test__',
-    difficulty, hard, recipeName: hard ? 'TEST SPLICE' : 'TEST COOK', workspace: 'test bench',
-  };
+  let family = 'wet', difficulty = null;
+  for (const t of args.filter(Boolean)) {
+    if (/^\d+$/.test(t)) difficulty = parseInt(t, 10);
+    else if (COOK_FAMILIES.includes(t.toLowerCase())) family = t.toLowerCase();
+  }
+  const diff = Math.max(1, Math.min(10, difficulty || 6));
+  return { type: 'synth_minigame', kind: 'test', family, difficulty: diff, recipeName: `TEST COOK · ${family.toUpperCase()}`, workspace: 'test bench' };
 }
 
-// Dev-only: open the SPLICE designer seeded from real drugs (so the live
-// preview computes for real), in test mode — "Synthesize" launches the hard
-// minigame client-side without needing inventory / a Stabilizer / a lab, and
-// produces nothing. Requires ≥2 drugs with effects in the cache (seed-drugs).
+// Dev-only: open the FULL splice designer seeded from real drugs (live preview
+// computes for real) in test mode — the whole current experience: base+splice(+2)
+// picker panels, per-slot quantity/batching (test drugs are stackable), the full
+// DECANT→MIX→POUR→STIR→HEAT→SET orchestra, and the A+…F report-card verdict at the
+// end. Runs client-side with no inventory / Stabilizer / lab, and produces nothing.
+// Requires ≥2 drugs with effects in the cache (seed-drugs).
 function cmdSpliceTest(args, raw, player) {
   if (!DEV_ROLES.includes(player.role)) return { type: 'error', message: 'Dev command.' };
   const cache = getDrugCache();
@@ -645,7 +650,7 @@ function cmdSpliceTest(args, raw, player) {
     if (Object.keys(e.instant).length) blocks.instant = summariseInstant(e.instant);
     if (e.phases) blocks.phases = summarisePhases(e.phases);
     if (e.hallucination) blocks.hallucination = summariseHall(e.hallucination);
-    if (Object.keys(blocks).length) drugs.push({ drug: d.id, name: d.name, blocks, ...drugVisual(d.id, d), known: 0.85 });
+    if (Object.keys(blocks).length) drugs.push({ drug: d.id, name: d.name, blocks, ...drugVisual(d.id, d), known: 0.85, count: 20 });
     if (drugs.length >= 6) break;
   }
   if (drugs.length < 2) return { type: 'error', message: 'Need ≥2 drugs with effects in the cache — run seed-drugs.js first.' };

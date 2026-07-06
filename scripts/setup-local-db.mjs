@@ -8,7 +8,7 @@
 //
 // Safety: refuses to run against a remote host — this only ever touches localhost.
 import 'dotenv/config';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import pg from 'pg';
@@ -28,8 +28,15 @@ if (!/^(localhost|127\.0\.0\.1|::1)$/.test(host)) {
 const dbName = decodeURIComponent(target.pathname.replace(/^\//, '')) || 'architect_dev';
 const ident = (n) => '"' + n.replace(/"/g, '""') + '"';
 
-const seedPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'db', 'seed.sql');
-const seed = readFileSync(seedPath, 'utf8');
+// The world snapshot is two files: audio-seed.sql (bulky base64 audio, loaded FIRST
+// because zones.audio_theme_id → audio_songs is an immediate FK) then seed.sql (the
+// rest). See scripts/export-seed.mjs. audio-seed.sql predates neither — fall back to
+// a legacy single seed.sql if the audio file isn't present.
+const dbDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'db');
+const audioSeed = existsSync(join(dbDir, 'audio-seed.sql'))
+  ? readFileSync(join(dbDir, 'audio-seed.sql'), 'utf8')
+  : null;
+const seed = readFileSync(join(dbDir, 'seed.sql'), 'utf8');
 
 const adminUrl = new URL(url);
 adminUrl.pathname = '/postgres'; // maintenance DB — can't DROP the DB you're connected to
@@ -101,6 +108,8 @@ async function main() {
 
   const db = new pg.Client({ connectionString: url });
   await db.connect();
+  // Audio first (committed) so content's zones.audio_theme_id FK resolves.
+  if (audioSeed) await db.query(audioSeed);
   await db.query(seed); // schema + content in one batch
   if (preserved.length) {
     await db.query(preserved.join('\n'));

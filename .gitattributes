@@ -3,3 +3,9 @@
 # Windows checkout, and the mixed line endings defeat content:publish's
 # change-detection (spurious "Update world seed" commits).
 db/seed.sql text eol=lf
+
+# audio-seed.sql is ~15 MB of base64 sample blobs + tracker JSON (the audio half of
+# the world snapshot, split out of seed.sql so content diffs stay readable). Keep it
+# pure LF like seed.sql, but suppress diffs — rendering a 15 MB single-line change is
+# useless noise and slow. It changes only when audio content actually changes.
+db/audio-seed.sql text eol=lf -diff

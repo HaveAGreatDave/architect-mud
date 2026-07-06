@@ -4,6 +4,6 @@
   "critical": true,
   "description": "Player-initiated combat: attack target resolution, the player swing (kill handling, corpse+loot creation, enemy.killed/enemy.attacked), sleep-kills. Registers the ATTACK Action and the gameLoop auto-attack provider.",
   "hooks": [],
-  "commands": [],
+  "commands": ["kamehameha"],
   "specializedActions": ["attack", "kill", "k"]
 }

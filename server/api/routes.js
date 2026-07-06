@@ -397,7 +397,7 @@ async function apiRegister(body) {
       `INSERT INTO players
         (id,username,password_hash,handle,role,bonus_xp,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,stat_senses,
          biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data,email,sexuality,current_zone)
-       VALUES ($1,$2,$3,$4,'player',$5,${startHp},${startHp},1,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'zone_the_inbetween')`,
+       VALUES ($1,$2,$3,$4,'player',$5,${startHp},${startHp},1,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'zone_start')`,
       [id, username.toLowerCase(), hashPassword(password), handle, bonusXp,
        biological_sex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
        app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), email.toLowerCase().trim(),
@@ -2036,18 +2036,37 @@ async function apiUpdateCrime(id,body) {
 
 // Crime penalty multiplier — one global scalar on booking fines + jail time (jail
 // plugin reads getTunable('crime_penalty_multiplier',6)). Stored in combat_config.
-async function apiGetCrimeConfig() { return {status:200,body:{ multiplier: Number(getTunable('crime_penalty_multiplier', 6)) || 6 }}; }
+async function apiGetCrimeConfig() {
+  return {status:200,body:{
+    multiplier: Number(getTunable('crime_penalty_multiplier', 6)) || 6,
+    cameraEffectiveness: Number(getTunable('camera_effectiveness', 0.5)),
+  }};
+}
 async function apiSetCrimeConfig(body) {
-  const m = Math.max(0, Math.min(100, Number(body.multiplier)));
-  if (Number.isNaN(m)) return {status:400,body:{error:'multiplier must be a number.'}};
+  // Partial update: each control (penalty multiplier / camera effectiveness) saves
+  // on its own without clobbering the other. Only keys present in the body change.
+  const writes = [];
+  if (body.multiplier != null) {
+    const m = Math.max(0, Math.min(100, Number(body.multiplier)));
+    if (Number.isNaN(m)) return {status:400,body:{error:'multiplier must be a number.'}};
+    writes.push(['crime_penalty_multiplier', m, 'Crime penalty ×']);
+  }
+  if (body.cameraEffectiveness != null) {
+    const c = Math.max(0, Math.min(1, Number(body.cameraEffectiveness)));
+    if (Number.isNaN(c)) return {status:400,body:{error:'cameraEffectiveness must be a number.'}};
+    writes.push(['camera_effectiveness', c, 'Camera effectiveness']);
+  }
+  if (!writes.length) return {status:400,body:{error:'nothing to update.'}};
   try {
-    await query(
-      `INSERT INTO combat_config (key,value,label,category) VALUES ('crime_penalty_multiplier',$1::jsonb,'Crime penalty ×','crime')
-       ON CONFLICT (key) DO UPDATE SET value=$1::jsonb`,
-      [JSON.stringify(m)]
-    );
+    for (const [key, val, label] of writes) {
+      await query(
+        `INSERT INTO combat_config (key,value,label,category) VALUES ($1,$2::jsonb,$3,'crime')
+         ON CONFLICT (key) DO UPDATE SET value=$2::jsonb`,
+        [key, JSON.stringify(val), label]
+      );
+    }
     await reloadTunables();
-    return {status:200,body:{ multiplier: m }};
+    return await apiGetCrimeConfig();
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 

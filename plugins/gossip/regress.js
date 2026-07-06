@@ -1,5 +1,6 @@
 // Gossip plugin regression suite — run by tests/regress.js (never loaded in production).
 import * as pool from './pool.js';
+import { renderItem } from './templates.js';
 import { emit } from '../../server/engine/events.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 
@@ -42,6 +43,20 @@ export default async function regress({ run, check, getPlayer }) {
   const asked = pool.recall(p.current_zone, { n: 50 });
   check('ask-only gossip surfaces when asked', asked.some(i => i.id === secret.id), 'secret must appear in unfiltered recall');
 
+  // sports: an aired game becomes a capped, global 'sports' rumour
+  emit('sports.game', { gameId: 'gtest-game-1', away: 'Rustpile Rats', home: 'Coldwater Kingfishers', awayScore: 7, homeScore: 4, winner: 'Rustpile Rats' });
+  await Promise.resolve();
+  const sportsItem = pool.all().find(i => i.category === 'sports');
+  check('sports.game creates a sports item', !!sportsItem, `categories: ${[...new Set(pool.all().map(i => i.category))].join(',')}`);
+  check('sports item is capped in the sports group', sportsItem?.capGroup === 'sports', `capGroup ${sportsItem?.capGroup}`);
+  // render is speaker-aware: a fan of the winner should name their team in the line
+  if (sportsItem) {
+    const line = renderItem(sportsItem, false, { fav: 'Rustpile Rats' });
+    check('sports line names the speaker\'s winning team', /Rustpile Rats/.test(line || ''), (line || '').slice(0, 120));
+    const neutral = renderItem(sportsItem, false, { fav: null });
+    check('sports line renders without a favourite team', !!neutral && /7|4/.test(neutral), (neutral || '').slice(0, 120));
+  }
+
   // gc prunes an item aged well past its half-life
   const stale = pool.addItem({ templateKey: 'storm', category: 'world', heat: 0.45, reach: 3, ts: Date.now() - 6 * 60 * 60 * 1000, zoneId: p.current_zone, vars: { zone: 'nowhere' } });
   pool.gc();
@@ -58,4 +73,10 @@ export default async function regress({ run, check, getPlayer }) {
   check('GOSSIP_TELL goes dry on cooldown (same NPC)', t2?.type === 'dialogue_line' && !t2.text.includes('COOLDOWN-PROBE'), JSON.stringify(t2)?.slice(0, 120));
   const t3 = await tell('gtest-b');
   check('GOSSIP_TELL cooldown is per-NPC (fresh NPC delivers)', t3?.type === 'dialogue_line' && t3.text.includes('COOLDOWN-PROBE'), JSON.stringify(t3)?.slice(0, 120));
+
+  // A drug-war turf flip becomes propagating street talk (drugwar plugin emits it).
+  pool.clear();
+  emit('drugwar.flip', { zoneId: p.current_zone, fromOrg: 'faction_franchise', toOrg: 'faction_breakers' });
+  await Promise.resolve();
+  check('drugwar.flip seeds a turf rumour', pool.all().some(i => i.templateKey === 'turf'), `templates: ${[...new Set(pool.all().map(i => i.templateKey))].join(',')}`);
 }

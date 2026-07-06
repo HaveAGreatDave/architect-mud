@@ -16,7 +16,7 @@
 import { randomUUID } from 'crypto';
 import { query, logActivity } from '../../server/models/db.js';
 import { getZoneEnemies, getZonePlayers, getZoneNpcs, getLivePlayer, createCorpse } from '../../server/engine/world.js';
-import { playerAttackEnemy, playerAttackNpc, isOnCooldown, getCooldownRemaining, pvpSwingSleeping, registerPlayerCombat } from '../../server/engine/combat.js';
+import { playerAttackEnemy, playerAttackNpc, isOnCooldown, getCooldownRemaining, pvpSwingSleeping, registerPlayerCombat, killEnemyInstance, killNpcInstance } from '../../server/engine/combat.js';
 import { resolveForCommand, resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { awardSkillUse } from '../../server/engine/skills.js';
 import { tagValue } from '../../server/engine/tags.js';
@@ -31,6 +31,30 @@ import { getZoneProtection } from '../../server/engine/protection.js';
 const COMBAT_WEAPON_SKILLS = new Set(['fists', 'blades', 'clubs', 'firearms', 'science']);
 function weaponSkillId(wskill) {
 	return COMBAT_WEAPON_SKILLS.has(wskill) ? wskill : 'fists';
+}
+
+// Turn a killed-result (from playerAttackEnemy or killEnemyInstance) into a
+// lootable corpse: loot rides on the corpse (owner = corpseId) until looted, not
+// dropped to the ground. Returns the clickable corpse link. Caller broadcasts.
+async function spawnEnemyCorpse(player, targetName, result) {
+	const corpseId = `corpse_${result.enemyId || randomUUID()}`;
+	if (result.loot?.length) {
+		for (const drop of result.loot) {
+			await query(
+				"INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,0.8)",
+				[randomUUID(), corpseId, drop.item_id, drop.quantity],
+			);
+		}
+	}
+	createCorpse({
+		id: corpseId,
+		name: `${targetName}'s corpse`,
+		zoneId: player.current_zone,
+		expiresAt: Date.now() + 60 * 60 * 1000,
+		butcher_table: result.butcher_table || [],
+		butcher_difficulty: result.butcher_difficulty ?? 5,
+	});
+	return `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${targetName}'s corpse" title="Loot ${targetName}'s corpse">${targetName}'s corpse</span>`;
 }
 
 export async function resolveAttack(player, target, broadcast) {
@@ -77,26 +101,7 @@ export async function resolveAttack(player, target, broadcast) {
 
 	if (result.killed) {
 		player.combatTargetId = null;
-		const corpseId = `corpse_${result.enemyId || randomUUID()}`;
-		// Loot now stays ON the corpse (owner = corpseId) until a player loots it,
-		// instead of dropping to the zone ground.
-		if (result.loot?.length) {
-			for (const drop of result.loot) {
-				await query(
-					"INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,0.8)",
-					[randomUUID(), corpseId, drop.item_id, drop.quantity],
-				);
-			}
-		}
-		createCorpse({
-			id: corpseId,
-			name: `${target.name}'s corpse`,
-			zoneId: player.current_zone,
-			expiresAt: Date.now() + 60 * 60 * 1000,
-			butcher_table: result.butcher_table || [],
-			butcher_difficulty: result.butcher_difficulty ?? 5,
-		});
-		const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${target.name}'s corpse" title="Loot ${target.name}'s corpse">${target.name}'s corpse</span>`;
+		const corpseLink = await spawnEnemyCorpse(player, target.name, result);
 		broadcast(
 			player.current_zone,
 			{
@@ -339,6 +344,80 @@ export async function offlineSleepSwing(attacker, targetId, broadcast) {
 	}
 }
 
+// Admin toy: a screen-clearing energy beam that instantly kills through the real
+// death paths — enemies (kill credit + loot + lootable corpse), NPCs (dead +
+// 60s respawn), and players (the canonical handlePlayerDeath: corpse + respawn).
+// `kamehameha <name>` targets one of any type (resolved enemy→NPC→player, exactly
+// like `attack`); a bare `kamehameha` blasts every ENEMY in the room (it won't
+// mass-wipe NPCs/players — name them to gib those). Emits the same kill events a
+// real swing does, so quest tracking / audio / gossip / crime-witnessing fire.
+// Admin-only.
+const siftPick = (r) => r.type === 'match' ? r.candidate : r.type === 'ambiguous' ? r.candidates[0] : null;
+
+export async function cmdKamehameha(targetStr, player, broadcast) {
+	if (player.role !== 'admin') {
+		return { type: 'error', message: `Unknown command: "kamehameha". Type HELP for commands.` };
+	}
+	const zoneId = player.current_zone;
+	const enemies = getZoneEnemies(zoneId);
+
+	let enemyTargets = [];
+	let npcTarget = null;
+	let playerTarget = null;
+
+	if (targetStr) {
+		// Same precedence as `attack`: enemy → NPC → live player in the room.
+		const er = enemies.length ? resolveForCommand(targetStr, enemies, player, { verb: 'kamehameha', combatScope: true }) : { type: 'none' };
+		if (er.type !== 'none') {
+			enemyTargets = [er.candidate];
+		} else {
+			const npcs = getZoneNpcs(zoneId).filter(n => !n._dead);
+			npcTarget = npcs.length ? siftPick(siftResolve(targetStr, npcs)) : null;
+			if (!npcTarget) {
+				const others = getZonePlayers(zoneId).filter(p => p.id !== player.id).map(p => ({ ...p, name: p.handle }));
+				const cand = others.length ? siftPick(siftResolve(targetStr, others)) : null;
+				if (cand) playerTarget = getLivePlayer(cand.id) || null;
+			}
+		}
+		if (!enemyTargets.length && !npcTarget && !playerTarget) {
+			return { type: 'error', message: `Nothing here matches "${targetStr}".` };
+		}
+	} else {
+		if (!enemies.length) return { type: 'error', message: 'Nothing here to obliterate.' };
+		enemyTargets = enemies;
+	}
+
+	// Charge-up, seen by the whole room (caller included).
+	broadcast(zoneId, {
+		type: 'zone_event',
+		message: `<span class="battle-cry">${player.handle} draws both hands back — a sphere of blue-white light screams into being. KA…ME…HA…ME…</span>`,
+	});
+
+	const corpseLinks = [];
+	for (const target of enemyTargets) {
+		const kill = killEnemyInstance(player, target.instanceId);
+		if (!kill) continue;
+		emit('enemy.killed', { actor: player, enemy: target });
+		corpseLinks.push(await spawnEnemyCorpse(player, target.name, kill));
+	}
+	if (npcTarget) {
+		const npc = killNpcInstance(npcTarget.id);
+		if (npc) emit('npc.killed', { actor: player, npc });
+	}
+	if (playerTarget) {
+		// The canonical player-death path (corpse + respawn + death signals). killer
+		// null + an admin cause, so it isn't logged as a PvP kill.
+		const { handlePlayerDeath } = await import('../../server/engine/gameLoop.js');
+		await handlePlayerDeath(playerTarget, null, { type: 'admin', label: 'Erased by a kamehameha' });
+	}
+	player.combatTargetId = null;
+
+	const blast = `<span class="crit-tag">HAAAAAAA!</span> A pillar of light tears through the room.${corpseLinks.length ? ' ' + corpseLinks.join(' ') : ''}`;
+	broadcast(zoneId, { type: 'zone_event', message: blast, refresh: true }, player.id);
+
+	return { type: 'combat', message: blast, killed: true };
+}
+
 // The auto-attack tick in gameLoop.js sustains combat through these — raw
 // function references, never the Action dispatcher (ADR-0001 hot path).
 registerPlayerCombat({ resolveAttack, resolveAttackNpc, offlineSleepSwing });
@@ -363,5 +442,9 @@ export const specializedActions = [
 	{ verb: 'kill',   handler: attack },
 	{ verb: 'k',      handler: attack },
 ];
+
+export const commands = {
+	kamehameha: (args, raw, player, broadcast) => cmdKamehameha(args.join(' '), player, broadcast),
+};
 
 console.log('[weapon] Plugin loaded.');

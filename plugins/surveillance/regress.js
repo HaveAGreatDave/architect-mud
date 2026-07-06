@@ -2,7 +2,7 @@
 // in production). Verb routing plus the crime→star registry defaults/cap.
 import { CRIME_DEFAULTS, getCrimeStars, getCrimeList } from '../../server/engine/crimes.js';
 
-export default async function regress({ run, check }) {
+export default async function regress({ run, check, getPlayer }) {
   const r = await run('wanted');
   check('wanted verb routed', /clean|WANTED/.test(r?.message || ''), r?.message);
 
@@ -12,6 +12,17 @@ export default async function regress({ run, check }) {
   check('apprehendresolve no-ops with no prompt', ar?.type === 'noop', ar?.type);
   const ar2 = await run('apprehendresolve run');
   check('apprehendresolve run no-ops with no prompt', ar2?.type === 'noop', ar2?.type);
+
+  // purge is admin-only: a normal player gets the generic unknown-command reply
+  // (the verb stays hidden); an admin runs it clean with no police in the room.
+  const denied = await run('purge');
+  check('purge denied for non-admin', /Unknown command/.test(denied?.message || ''), denied?.message);
+  const p = getPlayer();
+  const prevRole = p.role;
+  p.role = 'admin';
+  const purged = await run('purge');
+  check('purge clears cleanly for admin', purged?.type === 'system' && /Slate wiped/.test(purged?.message || ''), purged?.message);
+  p.role = prevRole;
 
   // Crime registry ships the five canonical acts with the spec'd star weights.
   check('drug_use default = 0.5 stars', getCrimeStars('drug_use') === 0.5, getCrimeStars('drug_use'));

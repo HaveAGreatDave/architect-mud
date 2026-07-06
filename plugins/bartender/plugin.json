@@ -1,0 +1,9 @@
+{
+  "name": "bartender",
+  "version": "1.0.0",
+  "description": "Brings bartender-personality NPCs to life behind the bar. A ~30s tick reads the live room the bartender is standing in and reacts in character: first-week players get clocked, welcomed by name, and dripped real survival tips; a running poker hand gets rail commentary that reads the actual pot; the TV gets commented on by what's actually airing; otherwise it's bar business (pouring, wiping, the patter). Also registers BARTENDER_ADVICE / BARTENDER_TV / BARTENDER_POKER dialogue actions so the same live reads answer when a player talks to him.",
+  "hooks": [],
+  "commands": [],
+  "actions": { "registers": ["BARTENDER_ADVICE", "BARTENDER_TV", "BARTENDER_POKER"] },
+  "ticks": ["30s"]
+}

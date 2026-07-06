@@ -369,6 +369,14 @@ export async function describeZone(zone, player) {
 	}
 	// Prose paragraph wrapped so the client can collapse/expand it independently.
 	desc += `\n<span class="room-desc">${zoneDesc}${weatherLine}${describeBuildingDiscovery(buildings)}${cameraAside}</span>`;
+	// First-visit tone-setting lore (per-player, new-account-only) — a plugin
+	// decides whether this player has earned an introduction to this zone and
+	// returns the shimmering block, or nothing. Player is passed so eligibility
+	// and "already seen" can be resolved per account.
+	if (!isDark) {
+		const introLore = await fireHook("zone.introLore", zone, player);
+		if (introLore) desc += `\n${introLore}`;
+	}
 	desc += await describeApartmentStatus(zone);
 	desc += describeRentStatus(zone, player);
 

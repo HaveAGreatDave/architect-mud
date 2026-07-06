@@ -25,10 +25,25 @@ const GENERIC = [
   ['"Curfew drone came by twice already. Nervous night."', '"Something\'s got them spooked."', '"Something\'s always got them spooked. That\'s the job."', 'nods slowly, watching the ceiling.'],
 ];
 
+// Topical threads (generic). These embed {tokens} the runtime resolves against live
+// world state — weather ({weather}/{temp}/{wind}) and the DEADBALL standings
+// ({sports_leader}/{sports_record}/{sports_cellar}). A thread only airs when its
+// tokens have data (sports lines wait for a season; wind lines wait for a windy day),
+// so idle chatter reacts to what's actually happening in the world right now.
+const TOPICAL = [
+  ['"This {weather} again. When did the sky just give up?"', '"{temp} out there. I remember when that was a cold snap, not a Tuesday."', '"Everything\'s a Tuesday now."', 'pulls their collar up against it.'],
+  ['"Forecast says {weather}. Forecast always says {weather}."', '"At least it\'s consistent. Nothing else out here is."', 'watches a scrap of trash cartwheel past.'],
+  ['"Wind\'s doing {wind} down the canyon. Nearly took the sign off the wall."', '"Good. Maybe it takes the whole block next time."', '"You don\'t mean that."', '"...Ask me again at {temp}."'],
+  ['"You catch the DEADBALL table? {sports_leader} are top of the pile — {sports_record}."', '"Front-runners. I\'ll believe it when the season ends."', '"Money says they choke before the World Series."', 'spits, unimpressed.'],
+  ['"{sports_leader} up top, {sports_cellar} face-down in the cellar. Same as ever."', '"Somebody\'s gotta lose. Might as well be {sports_cellar}."', '"Cold. True, but cold."'],
+  ['"Put a few credits on {sports_leader} this week. {sports_record} — can\'t argue with form."', '"You always bet the favourite. That\'s how you stay broke."', '"...Fair."', 'laughs it off.'],
+];
+
 const BY_PERSONALITY = {
   bartender: [
     ['"You want the usual, or are we pretending you have options?"', '"...The usual."', '"Thought so. Pay first."', 'wipes down the counter without looking up.'],
     ['"Third one tonight crying into their drink. Full moon or something."', '"There\'s no moon anymore. Just the haze."', '"Then it\'s just people. Even worse."'],
+    ['"Whole bar\'s betting {sports_leader} at {sports_record}. Wanna get in?"', '"I don\'t gamble on things that can lose."', '"Then you\'re in the wrong city, friend."', 'slides a glass down the bar.'],
   ],
   thug: [
     ['"This block\'s ours. You standing in it means something."', '"I\'m just passing through."', '"Nobody just passes through. Remember the face."', 'cracks their knuckles, slow.'],
@@ -37,6 +52,7 @@ const BY_PERSONALITY = {
   guard: [
     ['"Move along. Nothing to see here."', '"I live here."', '"Then live somewhere I\'m not standing. Keep it moving."'],
     ['"Long shift. Two more like it before I sleep."', '"They working you to death?"', '"Death\'d be a day off. Eyes forward."'],
+    ['"{temp} and {weather}. Whose idea was an outdoor post?"', '"Somebody warm, that\'s for sure."', '"Somebody warm and far away. Eyes forward."', 'stamps their feet against the cold.'],
   ],
   preacher: [
     ['"The end was promised, friend. And the end delivered."', '"I\'m not interested."', '"Nobody is. That never stopped it coming."', 'raises a hand in something between blessing and warning.'],
@@ -92,12 +108,14 @@ try {
   };
 
   for (const lines of GENERIC) await insert(null, lines);
+  for (const lines of TOPICAL) await insert(null, lines);
   for (const [slug, threads] of Object.entries(BY_PERSONALITY)) {
     for (const lines of threads) await insert(slug, lines);
   }
 
   await client.query('COMMIT');
-  console.log(`Seeded ${i} banter thread(s) (${GENERIC.length} generic + ${i - GENERIC.length} personality).`);
+  const plainGeneric = GENERIC.length + TOPICAL.length;
+  console.log(`Seeded ${i} banter thread(s) (${GENERIC.length} generic + ${TOPICAL.length} topical + ${i - plainGeneric} personality).`);
 } catch (e) {
   await client.query('ROLLBACK');
   console.error('ROLLED BACK:', e.message);

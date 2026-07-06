@@ -25,11 +25,13 @@ import { world } from './world.js';
 import { query } from '../models/db.js';
 import { isNpcScheduledNow, isZoneWatched } from './broadcast-bridge.js';
 import { formatChitchat } from './ai-behaviour.js';
+import { getEnvironmentState } from './environment.js';
+import { dispatchAction } from './actions.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
-const START_CHANCE    = 0.20;          // per eligible zone, per initiation tick
+const START_CHANCE    = 0.33;          // per eligible zone, per initiation tick
 const TURN_GAP_MS      = [4500, 8000]; // random delay between turns
-const ZONE_COOLDOWN_MS = [3, 6];       // minutes of quiet after a scene ends (min..max)
+const ZONE_COOLDOWN_MS = [2, 4];       // minutes of quiet after a scene ends (min..max)
 const MAX_TURNS        = 8;            // cap however long a chosen thread runs
 const OWN_POOL_BIAS    = 0.7;          // chance to draw from per-NPC + personality pool over generic
 
@@ -94,6 +96,64 @@ function eligibleNpcs(zoneId) {
   return out;
 }
 
+// ── Topical tokens (weather & sports) ──────────────────────────────────────────
+// Banter lines may embed {tokens} that resolve to live world state, so idle chatter
+// reacts to the day's weather and the DEADBALL standings. Tokens are snapshotted ONCE
+// when a scene starts, so a multi-turn exchange stays internally consistent. A thread
+// that references a token with no data right now (e.g. a sports line before any game
+// has been played, or a wind line on a calm day) is skipped in favour of a plain one —
+// so topical lines only air when the thing they're about is actually happening.
+const HAS_TOKEN = /\{[a-z_]+\}/;
+const TOKEN_RE  = /\{([a-z_]+)\}/g;
+
+// Casual words an NPC would actually use for each forecast type.
+const WEATHER_WORD = {
+  clear: 'clear skies', cloudy: 'this grey sky', overcast: 'this gloom',
+  rain: 'this rain', sleet: 'this sleet', thunderstorm: 'this storm',
+  storm: 'this wind', snow: 'the snow', blizzard: 'this blizzard',
+  fog: 'this fog', haze: 'the haze', ash: 'the ashfall',
+};
+
+// Snapshot the live values behind every supported token. Values that aren't
+// meaningful right now are left unset so threads that need them get skipped:
+//   • wind is unset on a calm day (so "wind's doing {wind}" only airs when it is)
+//   • sports tokens are unset until games have been played
+async function getTopicContext() {
+  const tokens = {};
+  try {
+    const env = getEnvironmentState();
+    if (env) {
+      tokens.weather = WEATHER_WORD[env.weatherType] || 'the weather';
+      tokens.temp = `${Math.round(env.feelsLikeC ?? env.tempC ?? 0)}°`;
+      const wind = Math.round(env.windKph ?? 0);
+      if (wind >= 5) tokens.wind = `${wind} kph`;
+    }
+  } catch { /* environment not ready — weather tokens stay unset */ }
+  try {
+    const res = await dispatchAction({ type: 'sportsleague.getStandings' });
+    const rows = Array.isArray(res?.rows) ? res.rows : [];
+    if (rows.length) {
+      tokens.sports_leader = rows[0].team;
+      tokens.sports_record = `${rows[0].wins}-${rows[0].losses}`;
+      if (rows.length >= 2) tokens.sports_cellar = rows[rows.length - 1].team;
+    }
+  } catch { /* sportsleague plugin absent — sports tokens stay unset */ }
+  return tokens;
+}
+
+// Substitute a thread's tokens against the snapshot. Returns the resolved lines, or
+// null if the thread references a token with no current value (caller picks another).
+function resolveThread(thread, tokens) {
+  let ok = true;
+  const out = thread.map(line => line.replace(TOKEN_RE, (m, key) => {
+    const v = tokens[key];
+    if (v == null) { ok = false; return m; }
+    return v;
+  }));
+  return ok ? out : null;
+}
+const threadHasTokens = (thread) => thread.some(line => HAS_TOKEN.test(line));
+
 // Pick a thread for a scene the initiator starts. Biased toward the initiator's
 // own scripts + its personality's flavour threads; falls back to the generic pool.
 function pickThread(initiator) {
@@ -135,13 +195,29 @@ function runTurn(zoneId, broadcast) {
   scene.timer = setTimeout(() => runTurn(zoneId, broadcast), randInt(TURN_GAP_MS[0], TURN_GAP_MS[1]));
 }
 
-function startScene(zoneId, npcs, broadcast) {
+async function startScene(zoneId, npcs, broadcast) {
   // Two speakers keeps the exchange coherent; alternate A/B/A/B.
   const shuffled = [...npcs].sort(() => Math.random() - 0.5);
-  const thread = pickThread(shuffled[0]);
-  if (!thread) return; // nothing authored yet — no scene
+  const initiator = shuffled[0];
+
+  // Pick a thread. Topical threads resolve their {tokens} against a one-time weather/
+  // sports snapshot; if the data isn't there right now, try again for a plain thread.
+  let turns = null, tokens = null;
+  for (let attempt = 0; attempt < 5 && !turns; attempt++) {
+    const thread = pickThread(initiator);
+    if (!thread) break;                                   // nothing authored yet
+    if (!threadHasTokens(thread)) { turns = thread; break; }
+    if (!tokens) tokens = await getTopicContext();        // fetch once, lazily
+    turns = resolveThread(thread, tokens);                // null → unresolvable, loop
+  }
+
+  // The reservation may have been cleared while we awaited (zone emptied, etc.).
+  if (!activeScenes.get(zoneId)?.pending) return;
+  if (!turns) { endScene(zoneId); return; }
+  if (eligibleNpcs(zoneId).length < 2 || !hasWitness(zoneId)) { endScene(zoneId); return; }
+
   const participants = shuffled.slice(0, 2).map(n => n.id);
-  activeScenes.set(zoneId, { participants, turns: thread.slice(0, MAX_TURNS), index: 0, timer: null });
+  activeScenes.set(zoneId, { participants, turns: turns.slice(0, MAX_TURNS), index: 0, timer: null });
   runTurn(zoneId, broadcast);
 }
 
@@ -165,6 +241,9 @@ export function npcBanterTick({ broadcast }) {
     if (Math.random() > START_CHANCE) continue;
     const npcs = eligibleNpcs(zoneId);
     if (npcs.length < 2) continue;
-    startScene(zoneId, npcs, broadcast);
+    // Reserve the zone synchronously so a second tick can't double-start while
+    // startScene awaits its topical snapshot; startScene fills or clears the slot.
+    activeScenes.set(zoneId, { pending: true, participants: [], turns: [], index: 0, timer: null });
+    startScene(zoneId, npcs, broadcast).catch(() => endScene(zoneId));
   }
 }

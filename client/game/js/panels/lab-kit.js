@@ -211,6 +211,52 @@ export function drawBeaker(b, fillFn) {
   G.strokeStyle = 'rgba(150,235,255,.4)'; G.lineWidth = 1.4; G.beginPath(); G.arc(x + r, y + h - r, r - 5, Math.PI * -0.02, Math.PI * 0.22); G.stroke();
   G.restore();
 }
+
+// A recessed digital readout — machined dark inset + emissive segment glow + faint
+// off-segment ghosting, matching the ATM / flight-sim instrument quality.
+export function drawLCD(x, y, w, h, text, color = '#4fe08a', label) {
+  G.save();
+  roundRect(x, y, w, h, 4); const bg = G.createLinearGradient(x, y, x, y + h);
+  bg.addColorStop(0, '#04080a'); bg.addColorStop(1, '#0a1517'); G.fillStyle = bg; G.fill();
+  G.strokeStyle = 'rgba(0,0,0,.65)'; G.lineWidth = 1.5; roundRect(x, y, w, h, 4); G.stroke();
+  G.strokeStyle = 'rgba(150,205,215,.14)'; G.lineWidth = 1; roundRect(x + 1.2, y + 1.2, w - 2.4, h - 2.4, 3); G.stroke();
+  G.textAlign = 'center'; G.textBaseline = 'middle';
+  const str = String(text ?? '');
+  G.font = `bold ${Math.round(h * 0.52)}px 'DejaVu Sans Mono','Consolas','Courier New',monospace`;
+  G.fillStyle = 'rgba(120,170,160,.05)'; G.fillText('8'.repeat(Math.max(1, str.length)), x + w / 2, y + h / 2 + 1);
+  G.shadowColor = color; G.shadowBlur = 9; G.fillStyle = color; G.fillText(str, x + w / 2, y + h / 2 + 1); G.shadowBlur = 0;
+  if (label) { G.font = "7px 'DejaVu Sans Mono',monospace"; G.textAlign = 'left'; G.textBaseline = 'top'; G.fillStyle = 'rgba(150,180,175,.55)'; G.fillText(label, x + 3, y - 9); }
+  G.restore();
+}
+
+// The thing in the third beaker. A gaunt face surfaces in the glass on a slow
+// cycle — hollow sockets, two wet glints that find you, a grim line of a mouth —
+// then sinks back. Draw it inside a beaker's clip (over the liquid) so it reads as
+// a reflection behind the surface. `intensity` scales how boldly it comes through.
+export function ghostReflection(cx, cy, scale, t, intensity = 1, tint = '208,236,242') {
+  const cyc = (t % 8.5) / 8.5;                                  // one surfacing every ~8.5s
+  const vis = cyc < 0.20 ? Math.sin((cyc / 0.20) * Math.PI) : 0;
+  if (vis < 0.02) return;
+  const a = vis * 0.62 * intensity;                            // noticeable at the peak
+  G.save();
+  G.translate(cx + Math.sin(t * 22) * 0.5, cy + Math.sin(t * 1.7) * 1.2);
+  G.scale(scale, scale);
+  const fg = G.createRadialGradient(0, -1, 2, 0, 2, 24);
+  fg.addColorStop(0, `rgba(${tint},${a * 0.55})`); fg.addColorStop(0.7, `rgba(${tint},${a * 0.12})`); fg.addColorStop(1, `rgba(${tint},0)`);
+  G.fillStyle = fg; G.beginPath(); G.ellipse(0, 1, 15, 22, 0, 0, 7); G.fill();
+  G.fillStyle = `rgba(3,9,9,${a})`;                            // sunken sockets
+  G.beginPath(); G.ellipse(-6, -3, 3.6, 4.8, 0.22, 0, 7); G.fill();
+  G.beginPath(); G.ellipse(6, -3, 3.6, 4.8, -0.22, 0, 7); G.fill();
+  G.fillStyle = `rgba(${tint},${Math.min(1, a * 1.5)})`;      // the eyes that find you
+  G.beginPath(); G.arc(-5.4, -2.2, 1.0, 0, 7); G.fill();
+  G.beginPath(); G.arc(6.6, -2.2, 1.0, 0, 7); G.fill();
+  G.strokeStyle = `rgba(3,9,9,${a * 0.85})`; G.lineWidth = 1.5; // grim mouth
+  G.beginPath(); G.moveTo(-4.5, 9); G.quadraticCurveTo(0, 7, 4.5, 9); G.stroke();
+  G.strokeStyle = `rgba(5,12,12,${a * 0.45})`; G.lineWidth = 1; // hollow cheeks
+  G.beginPath(); G.moveTo(-9, 1); G.lineTo(-5, 9.5); G.moveTo(9, 1); G.lineTo(5, 9.5); G.stroke();
+  G.restore();
+}
+
 export function drawBurner(b, heat, t) {
   const cx = b.x, baseY = b.y + b.h / 2 + 40;
   const flick = .85 + .15 * Math.sin(t * 22) + rnd(.06, -.06);

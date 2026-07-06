@@ -21,6 +21,7 @@ import {
   clamp, lerp, rnd, ease, shade, mixColors, avgColor,
   G, W, H, roundRect, blob, fillLiquid, drawSteam,
   drawBench, drawBeaker, drawBurner, flame, dustMotes, lightShaft, condensation, drawLabProps, drawSideTable,
+  drawLCD, ghostReflection,
   AX, mountLab, evPos,
 } from './lab-kit.js';
 
@@ -50,30 +51,36 @@ function redact(s, known) { if (known >= .75) return esc(s); if (known < .25) re
 const FORM_FREQ = { liquid: 2.0, gel: 2.1, powder: 2.4, pill: 2.8, gas: 2.3, crystal: 2.9, blotter: 3.2, paste: 1.7, leaf: 2.6 };
 const FORM_FLUID = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, viscous: .55, tablet: .06, pressurized: .5, shard: .05, sheet: .04, tar: .35, dried: .08 };
 
-// Per-form spill/vent physics — how each form punishes a heavy hand. `tiltMax` is
-// the tip angle it tolerates before it starts losing product (every form is now
-// tip-sensitive; the carry-tilt clamp caps at ±0.42, so a tiltMax below that can
-// actually trigger). mode picks the *primary* failure: liquids slosh, gas vents
-// (upward), solids/botanical scatter on tilt. `rate` scales how fast it bleeds.
+// Per-form pour physics — the SECOND phase's whole skill is keeping a HELD
+// container STEADY. Two knobs per form:
+//   • tiltMax  — it takes an ALMOST-FULL tip (near the ±1.0 tilt clamp) to spill
+//     from angle alone, so you never lose product just by tilting a little.
+//   • swayMax  — but the contents SWAY, and sway builds fast from jerky movement
+//     (SWAY_SENS). Let the sway cross swayMax (of the ±1.5 slosh range) and it
+//     goes over the side. Smooth hands keep it flat; snatching it around sloshes
+//     it out. The live STEADINESS meter shows sway so you can steer it.
+//   • rate     — how fast product bleeds once you're over.
 // All tunable — dial after feeling it in-game.
+const SWAY_SENS = 1.7;   // how hard movement/jerk builds sway (was 0.6) — very movement-sensitive now
 const POUR_PHYS = {
-  liquid:  { mode: 'slosh', sloshMax: 0.82, tiltMax: 0.30, rate: 1.0 },
-  gel:     { mode: 'slosh', sloshMax: 1.10, tiltMax: 0.40, rate: 0.7 },   // viscous — forgiving
-  paste:   { mode: 'slosh', sloshMax: 1.25, tiltMax: 0.46, rate: 0.6 },   // tar-thick — hardest to slop
-  gas:     { mode: 'vent',  speedMax: 420,  tiltMax: 0.24, rate: 1.25, ventUp: true },  // pressurised — very tip-sensitive, vents up
-  powder:  { mode: 'tilt',  tiltMax: 0.32, rate: 0.9 },   // fine — scatters when tipped
-  crystal: { mode: 'tilt',  tiltMax: 0.38, rate: 0.8 },
-  pill:    { mode: 'tilt',  tiltMax: 0.50, rate: 0.5 },   // tablets — rattle but rarely lost
-  leaf:    { mode: 'tilt',  tiltMax: 0.28, rate: 1.0 },   // light — blows out of the mouth
-  blotter: { mode: 'tilt',  tiltMax: 0.54, rate: 0.4 },   // paper tabs — very stable
+  liquid:  { mode: 'slosh', swayMax: 1.22, tiltMax: 0.92, rate: 1.0 },
+  gel:     { mode: 'slosh', swayMax: 1.36, tiltMax: 0.96, rate: 0.7 },   // viscous — forgiving
+  paste:   { mode: 'slosh', swayMax: 1.46, tiltMax: 1.00, rate: 0.6 },   // tar-thick — hardest to slop
+  gas:     { mode: 'vent',  swayMax: 1.14, tiltMax: 0.85, speedMax: 620, rate: 1.2, ventUp: true },  // pressurised — vents up if snatched
+  powder:  { mode: 'slosh', swayMax: 1.20, tiltMax: 0.90, rate: 0.9 },   // fine — puffs out if jostled
+  crystal: { mode: 'slosh', swayMax: 1.34, tiltMax: 0.95, rate: 0.8 },
+  pill:    { mode: 'slosh', swayMax: 1.50, tiltMax: 1.00, rate: 0.5 },   // tablets — rattle but rarely lost
+  leaf:    { mode: 'slosh', swayMax: 1.16, tiltMax: 0.90, rate: 1.0 },   // light — sloshes over easily
+  blotter: { mode: 'slosh', swayMax: 1.50, tiltMax: 1.00, rate: 0.4 },   // paper tabs — very stable
 };
-// Is a held container spilling/venting right now, given its speed, slosh and tilt?
+// How close a held container is to losing product (0..1+ of its tolerance) and
+// whether it's over. `level` drives the steadiness meter and the warn glow.
 function pourHazard(p, spd) {
   const cfg = POUR_PHYS[p.d.form] || POUR_PHYS.liquid;
-  let hazard = Math.abs(p.tilt) > cfg.tiltMax;                       // every form: over-tip → loss
-  if (cfg.mode === 'slosh') hazard = hazard || Math.abs(p.slosh) > cfg.sloshMax;
-  else if (cfg.mode === 'vent') hazard = hazard || spd > cfg.speedMax;
-  return { hazard, ventUp: !!cfg.ventUp, rate: cfg.rate || 1 };
+  const sway = Math.abs(p.slosh) / cfg.swayMax;                     // the main driver — jerky movement
+  const speedR = cfg.mode === 'vent' ? spd / (cfg.speedMax || 620) : 0;
+  const level = Math.max(sway, speedR, Math.abs(p.tilt) / cfg.tiltMax);
+  return { hazard: level >= 1, level, sway, ventUp: !!cfg.ventUp, rate: cfg.rate || 1 };
 }
 // side-view drug table (far-left): drugs stand along the tabletop at y = H*0.60
 function tableHomes(n) { const x0 = W * 0.06, x1 = W * 0.46, top = H * 0.60, pad = 40, usable = (x1 - x0) - pad * 2, step = n > 1 ? Math.min(58, usable / (n - 1)) : 0, first = (x0 + x1) / 2 - step * (n - 1) / 2;
@@ -86,8 +93,29 @@ function bigWarn(text, tint, alpha) {
   G.shadowColor = `rgba(${tint},.9)`; G.shadowBlur = 20; G.fillStyle = `rgb(${tint})`; G.fillText(text, W / 2, y); G.shadowBlur = 0; G.restore();
 }
 function drawCarryWarn(s) {
+  // Live STEADINESS meter — the obvious feedback. Sway fills the bar toward the red
+  // spill line; keep it left of amber and you lose nothing. It decays as you settle.
+  if (!s.drag) s._sway = Math.max(0, (s._sway || 0) - 0.035);
+  const sway = clamp(s._sway || 0, 0, 1.12);
+  if (sway > 0.015 || s.drag) {
+    const bw = 240, bh = 13, bx = W / 2 - bw / 2, by = H * 0.115;
+    G.save();
+    G.fillStyle = 'rgba(6,12,10,.72)'; roundRect(bx - 4, by - 4, bw + 8, bh + 8, 5); G.fill();
+    G.strokeStyle = 'rgba(120,150,140,.4)'; G.lineWidth = 1; roundRect(bx - 4, by - 4, bw + 8, bh + 8, 5); G.stroke();
+    G.fillStyle = 'rgba(79,224,138,.10)'; roundRect(bx, by, bw * 0.55, bh, 3); G.fill();
+    G.fillStyle = 'rgba(255,178,62,.10)'; G.fillRect(bx + bw * 0.55, by, bw * 0.30, bh);
+    G.fillStyle = 'rgba(255,74,91,.12)'; G.fillRect(bx + bw * 0.85, by, bw * 0.15, bh);
+    const col = sway < 0.55 ? '#4fe08a' : sway < 0.85 ? '#ffb23e' : '#ff4a5b';
+    G.fillStyle = col; G.shadowColor = col; G.shadowBlur = sway > 0.85 ? 12 : 4;
+    roundRect(bx, by, bw * clamp(sway, 0, 1), bh, 3); G.fill(); G.shadowBlur = 0;
+    G.strokeStyle = 'rgba(255,74,91,.85)'; G.lineWidth = 2; G.beginPath(); G.moveTo(bx + bw, by - 3); G.lineTo(bx + bw, by + bh + 3); G.stroke();
+    G.font = '8px monospace'; G.textAlign = 'left'; G.fillStyle = 'rgba(150,180,170,.75)'; G.fillText('STEADINESS', bx, by - 7);
+    G.textAlign = 'right'; G.font = 'bold 8px monospace'; G.fillStyle = col;
+    G.fillText(sway >= 0.98 ? 'OVER!' : sway > 0.85 ? 'SLOSHING' : sway > 0.55 ? 'careful' : 'steady', bx + bw, by - 7);
+    G.restore();
+  }
   if (s._spillT > 0) bigWarn('⚠ SPILLING — LOSING PRODUCT ⚠', '255,74,91', .7 + .3 * Math.sin(s.t * 14));
-  else if (s.t < s.carefulUntil) bigWarn('⚠ CARRY IT STEADY ⚠', '255,178,62', clamp(s.carefulUntil - s.t, 0, 1));
+  else if (s.t < s.carefulUntil) bigWarn('⚠ CARRY IT STEADY — WATCH THE SWAY ⚠', '255,178,62', clamp(s.carefulUntil - s.t, 0, 1));
   if (s.lost > 0) { G.save(); G.textAlign = 'center'; G.globalAlpha = .85; G.fillStyle = '#ff6a6a'; G.font = 'bold 12px monospace'; G.fillText(`PRODUCT LOST: ${Math.round(s.lost)}%`, W / 2, H * 0.13 + 26); G.restore(); }
 }
 
@@ -379,10 +407,10 @@ const STAGES = {};
 STAGES.title = {
   enter() {
     const g = game; this.t = 0; this.pw = 0; this.spin = 0; this.titleA = 0; this.flick = 1; this.btnShown = false; this.ready = false; this._begun = false;
-    this.quip = ['this bench has killed better chemists than you.', 'ventilation nominal. conscience optional.', 'everything on this table is technically evidence.', 'mind the third beaker. it bites.'][Math.floor(rnd(4))];
+    this.quip = ['this bench has killed better chemists than you.', 'ventilation nominal. conscience optional.', 'everything on this table is technically evidence.', 'mind the third beaker. it bites.', "wash your hands. it won't help.", 'the last operator is still in here somewhere.', "don't taste to check. we mean it this time.", 'the fumes only sound like voices at first.'][Math.floor(rnd(8))];
     const homes = tableHomes(g.drugs.length);
     this.scatter = g.drugs.map((d, i) => ({ d, x: homes[i].x, y: homes[i].y, bob: rnd(7) }));
-    g.lab.setTop('SPLICE BENCH'); g.lab.ticker('');
+    g.lab.setTop('CHIMERA-9 · GENESPLICER'); g.lab.ticker('');
     AX.loop('hood', { freq: 54, type: 'sawtooth', gain: 0, filt: 320, tremRate: 7, tremDepth: .25 });
   },
   exit() { AX.stop('hood'); },
@@ -417,11 +445,34 @@ STAGES.title = {
     this.drawFlask(cx + 120, benchY + 16, pw);
     this.drawCondenser(cx + 250, benchY - 8, pw);
     this.scatter.forEach(s => drawPackage(s.d, s.x, s.y + Math.sin(this.t * 1.2 + s.bob) * 1, false, false, this.t * .4 + s.bob, { tilt: 0, slosh: 0, noName: true }));
-    G.save(); G.globalAlpha = this.titleA; G.textAlign = 'center'; G.font = 'bold 38px monospace';
-    G.fillStyle = 'rgba(255,74,91,.45)'; G.fillText('SPLICE BENCH', cx - 2, H * 0.33 + 12);
-    G.fillStyle = 'rgba(95,208,224,.45)'; G.fillText('SPLICE BENCH', cx + 2, H * 0.33 + 12);
-    G.shadowColor = 'rgba(79,224,138,.8)'; G.shadowBlur = 22 * pw; G.fillStyle = '#dffbe9'; G.fillText('SPLICE BENCH', cx, H * 0.33 + 12); G.shadowBlur = 0;
-    G.font = '11px monospace'; G.fillStyle = 'rgba(159,199,172,.7)'; G.fillText('CHIMERA-9 · GENESPLICER', cx, H * 0.33 + 32);
+    // ── unkempt: a dried smear that might be blood, hairline scratches, and a
+    //    sickly red pulse so the reward reads "wrong" without ever shouting ──
+    G.save(); G.globalAlpha = this.titleA;
+    const smx = cx - 214, smy = benchY - 30;
+    G.fillStyle = 'rgba(84,10,12,.5)';
+    G.beginPath(); G.moveTo(smx, smy); G.bezierCurveTo(smx + 20, smy - 7, smx + 44, smy + 4, smx + 60, smy - 2);
+    G.bezierCurveTo(smx + 70, smy + 9, smx + 42, smy + 16, smx + 22, smy + 11); G.bezierCurveTo(smx + 6, smy + 9, smx - 3, smy + 6, smx, smy); G.closePath(); G.fill();
+    G.strokeStyle = 'rgba(92,12,14,.4)'; G.lineWidth = 5; G.lineCap = 'round'; G.beginPath(); G.moveTo(smx + 58, smy - 2); G.lineTo(smx + 104, smy + 7); G.stroke();
+    G.fillStyle = 'rgba(70,8,10,.55)'; for (const d of [[14, 11], [36, 17], [54, 9]]) { G.beginPath(); G.ellipse(smx + d[0], smy + d[1], 2, 5.5, 0, 0, 7); G.fill(); }
+    G.strokeStyle = 'rgba(200,230,235,.10)'; G.lineWidth = 1; G.beginPath(); G.moveTo(cx - 120, 40); G.lineTo(cx - 60, 70); G.moveTo(cx + 92, 34); G.lineTo(cx + 42, 74); G.stroke();
+    G.restore();
+    const sick = clamp(0.05 + 0.045 * Math.sin(this.t * 1.3), 0, 0.12) * this.titleA;
+    const vg = G.createRadialGradient(cx, H * 0.42, H * 0.3, cx, H * 0.42, H * 0.78);
+    vg.addColorStop(0, 'rgba(120,0,10,0)'); vg.addColorStop(1, `rgba(120,0,12,${sick})`);
+    G.fillStyle = vg; G.fillRect(0, 0, W, H);
+
+    G.save(); G.globalAlpha = this.titleA; G.textAlign = 'center';
+    const ty = H * 0.30, rw = 210 * pw;
+    // clearance rules framing the logo — reward-screen chrome
+    G.strokeStyle = `rgba(79,224,138,${.32 * this.titleA})`; G.lineWidth = 1;
+    G.beginPath(); G.moveTo(cx - rw, ty - 30); G.lineTo(cx + rw, ty - 30); G.moveTo(cx - rw, ty + 46); G.lineTo(cx + rw, ty + 46); G.stroke();
+    // CHIMERA-9 hero — chromatic split + green bloom (the reward for climbing the ladder)
+    G.font = "900 52px 'DejaVu Sans Mono','Consolas',monospace";
+    G.fillStyle = 'rgba(255,74,91,.42)'; G.fillText('CHIMERA-9', cx - 2.5, ty);
+    G.fillStyle = 'rgba(95,208,224,.42)'; G.fillText('CHIMERA-9', cx + 2.5, ty);
+    G.shadowColor = 'rgba(79,224,138,.9)'; G.shadowBlur = 30 * pw * fl; G.fillStyle = '#eafff2'; G.fillText('CHIMERA-9', cx, ty); G.shadowBlur = 0;
+    G.font = "12px 'DejaVu Sans Mono',monospace"; G.fillStyle = 'rgba(159,199,172,.9)'; G.fillText('G E N E S P L I C E R', cx, ty + 26);
+    if (this.titleA > 0.5) { drawLCD(cx - 148, ty + 56, 96, 22, 'ONLINE', '#4fe08a', 'CHIMERA-9'); drawLCD(cx + 52, ty + 56, 96, 22, `${game.drugs.length} RGT`, '#5fd0e0', 'REAGENTS'); }
     G.globalAlpha = this.titleA * .7 * (0.6 + 0.4 * Math.sin(this.t * 2)); G.fillStyle = '#7f9a8c'; G.font = 'italic 11px monospace';
     G.fillText(this.quip, cx, benchY - 16); G.restore();
     if (this.ready) { G.save(); G.globalAlpha = .55 + .45 * Math.sin(this.t * 4); G.fillStyle = '#4fe08a'; G.font = 'bold 13px monospace'; G.textAlign = 'center'; G.shadowColor = 'rgba(79,224,138,.7)'; G.shadowBlur = 12; G.fillText('▶ CLICK or SPACE to begin', cx, H * 0.44); G.restore(); }
@@ -615,17 +666,18 @@ STAGES.select = {
       const ax = (tx - p.x) * k - p.vx * p.c, ay = (ty - p.y) * k - p.vy * p.c; p.vx += ax * dt; p.vy += ay * dt;
       const sp = Math.hypot(p.vx, p.vy); if (sp > 1000) { p.vx *= 1000 / sp; p.vy *= 1000 / sp; }
       p.x += p.vx * dt; p.y += p.vy * dt;
-      p.tilt = lerp(p.tilt, clamp(-p.vx * 0.0016, -0.42, 0.42), dt * 9);
+      p.tilt = lerp(p.tilt, clamp(-p.vx * 0.0018, -1, 1), dt * 10);
       const dax = p.vx - p.pvx; p.pvx = p.vx;
-      p.sloshV += dax * p.fluid * 0.6; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
+      p.sloshV += dax * p.fluid * SWAY_SENS; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
       const speed = Math.hypot(p.vx, p.vy);
       const hz = this.drag === p ? pourHazard(p, speed) : null;
-      if (hz && hz.hazard && hz.ventUp) { p.warn = 1; p.spill += dt * (speed / 600) * hz.rate; this.spillAlarm();
+      if (hz) { this._sway = hz.level; p.warn = clamp(hz.level, 0, 1); }   // warn glows AS sway builds (pre-spill feedback)
+      if (hz && hz.hazard && hz.ventUp) { p.spill += dt * (speed / 600) * hz.rate; this.spillAlarm();
         if (Math.random() < 0.4) this.drips.push({ x: p.x + rnd(10, -10), y: p.y - 24, vy: -55, life: 0, col: shade(p.d.color, 80) });
         if (p.spill > 1.2) { p.spill = 0; this.lost += 4; addInstability(5, "the canister hisses — you're bleeding pressure."); AX.bad(); }
-      } else if (hz && hz.hazard) { p.warn = 1; p.spill += dt * Math.max(Math.abs(p.slosh), Math.abs(p.tilt) * 2) * hz.rate; this.spillAlarm();
-        if (Math.random() < 0.35) this.drips.push({ x: p.x + rnd(15, -15), y: p.y + 12, vy: 50, life: 0, col: p.d.color });
-        if (p.spill > 1.3) { p.spill = 0; this.lost += 4; addInstability(6, 'you tipped it — you just lost product.'); AX.bad(); }
+      } else if (hz && hz.hazard) { p.spill += dt * (0.5 + hz.level) * hz.rate; this.spillAlarm();
+        if (Math.random() < 0.4) this.drips.push({ x: p.x + rnd(15, -15) * Math.sign(p.slosh || 1), y: p.y + 12, vy: 50, life: 0, col: p.d.color });
+        if (p.spill > 1.3) { p.spill = 0; this.lost += 4; addInstability(6, 'you sloshed it over the side.'); AX.bad(); }
       } else { p.warn = lerp(p.warn, 0, dt * 4); p.spill = Math.max(0, p.spill - dt * 0.5); }
     });
     this.drips.forEach(d => { d.life += dt; d.y += d.vy * dt; d.vy += 400 * dt; }); this.drips = this.drips.filter(d => d.life < 0.6);
@@ -674,20 +726,21 @@ STAGES.charge = {
       const ax = (tx - p.x) * p.k - p.vx * p.c, ay = (ty - p.y) * p.k - p.vy * p.c; p.vx += ax * dt; p.vy += ay * dt;
       const spd = Math.hypot(p.vx, p.vy); if (spd > 1000) { p.vx *= 1000 / spd; p.vy *= 1000 / spd; }
       p.x += p.vx * dt; p.y += p.vy * dt;
-      const dax = p.vx - p.pvx; p.pvx = p.vx; p.sloshV += dax * p.fluid * 0.6; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
+      const dax = p.vx - p.pvx; p.pvx = p.vx; p.sloshV += dax * p.fluid * SWAY_SENS; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
       const inZone = Math.hypot(p.x - z.x, p.y - z.y) < z.r, steady = spd < 130 && Math.abs(p.slosh) < 0.55;
       if (this.drag === p && inZone && steady) {
         p.tilt = lerp(p.tilt, -0.7, dt * 4); p.poured = clamp(p.poured + dt * 0.7, 0, 1); this.fill = this.pouredFill();
         if (!p.pourSfx) { p.pourSfx = true; AX.pour(true); }
         if (p.poured >= 1 && !p.done) { p.done = true; this.pouredCount++; AX.pour(false); AX.drop(); this.drag = null; p.held = false; }
       } else {
-        p.tilt = lerp(p.tilt, clamp(-p.vx * 0.0016, -0.42, 0.42), dt * 9);
+        p.tilt = lerp(p.tilt, clamp(-p.vx * 0.0018, -1, 1), dt * 10);
         if (p.pourSfx) { p.pourSfx = false; AX.pour(false); }
         if (this.drag === p) { const hz = pourHazard(p, spd);
-          if (hz.hazard) { p.warn = 1; p.spill += dt * hz.rate; this.spillAlarm();
-            if (Math.random() < 0.3) this.drips.push({ x: p.x + rnd(12, -12), y: p.y + (hz.ventUp ? -22 : 12), vy: hz.ventUp ? -50 : 60, life: 0, col: hz.ventUp ? shade(p.d.color, 80) : p.d.color });
-            if (p.spill > 1.0) { p.spill = 0; this.lost += 4; addInstability(5 * game.vol(), hz.ventUp ? 'it vents — you bleed pressure' : 'you tipped it — lost product'); AX.bad(); }
-          } else p.warn = lerp(p.warn, 0, dt * 4);
+          this._sway = hz.level; p.warn = clamp(hz.level, 0, 1);   // warn glows AS sway builds
+          if (hz.hazard) { p.spill += dt * (0.5 + hz.level) * hz.rate; this.spillAlarm();
+            if (Math.random() < 0.35) this.drips.push({ x: p.x + rnd(12, -12), y: p.y + (hz.ventUp ? -22 : 12), vy: hz.ventUp ? -50 : 60, life: 0, col: hz.ventUp ? shade(p.d.color, 80) : p.d.color });
+            if (p.spill > 1.0) { p.spill = 0; this.lost += 4; addInstability(5 * game.vol(), hz.ventUp ? 'it vents — you bleed pressure' : 'you sloshed it over'); AX.bad(); }
+          }
         } else p.warn = lerp(p.warn, 0, dt * 4);
       }
     });
@@ -937,7 +990,8 @@ STAGES.rhythm = {
   },
   draw() { const b = this.beaker; G.save(); if (this.shake > .3) G.translate(rnd(this.shake, -this.shake), rnd(this.shake, -this.shake));
     drawBeaker(b, () => { const col = avgColor(game.selected), top = b.y - b.h * 0.1, glow = .6 + .4 * Math.sin(this.t * 6) + this.flashT * 3;
-      fillLiquid(b.x - b.w / 2, b.w, top, b.y + b.h / 2, shade(col, 20 + this.flashT * 60), col, this.t, 0.15, clamp(glow * .3, 0, .6)); });
+      fillLiquid(b.x - b.w / 2, b.w, top, b.y + b.h / 2, shade(col, 20 + this.flashT * 60), col, this.t, 0.15, clamp(glow * .3, 0, .6));
+      ghostReflection(b.x, b.y - b.h * 0.22, 1.1, this.t, 1.15); });   // mind the third beaker. it bites.
     const cy = b.y - b.h / 2 - 70, cx = b.x, R = 40;
     G.strokeStyle = this.flashT > 0 ? '#4fe08a' : 'rgba(120,150,140,.5)'; G.lineWidth = 3; G.beginPath(); G.arc(cx, cy, R, 0, 7); G.stroke();
     G.strokeStyle = 'rgba(79,224,138,.3)'; G.lineWidth = 1; G.beginPath(); G.arc(cx, cy, R + 6, 0, 7); G.stroke();
@@ -966,12 +1020,19 @@ function catastrophe(reason) { const g = game; g.blown = true; AX.klaxon(); AX.s
   setTimeout(() => showResult(true), 700);
 }
 function computePotency() { const s = game.scores; const avg = (s.mix + s.pour + s.stir + s.heat + s.rhythm) / 5; return clamp(0.55 + avg * 0.9 - game.instability / 100 * 0.5, 0.3, 1.7); }
+// A+…F from the averaged run — mirrors the server's report-card bands so the dev
+// test verdict reads like the real end card.
+function gradeForAvg(avg) { return avg >= 0.90 ? 'A+' : avg >= 0.78 ? 'A' : avg >= 0.64 ? 'B' : avg >= 0.50 ? 'C' : avg >= 0.35 ? 'D' : 'F'; }
+const GRADE_COL = { 'A+': '#39ff9e', 'A': '#39ff9e', 'B': '#ffc24d', 'C': '#ffb14d', 'D': '#ff8a5a', 'F': '#ff4a5b' };
 function showResult(blown) {
   const g = game; const potency = blown ? 0 : computePotency();
+  const s = g.scores; const avg = (s.mix + s.pour + s.stir + s.heat + s.rhythm) / 5;
+  const grade = blown ? 'F' : gradeForAvg(avg); const gcol = GRADE_COL[grade];
   const card = document.createElement('div');
   card.setAttribute('style', 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:radial-gradient(120% 90% at 50% 40%,rgba(4,8,6,.6),rgba(2,4,3,.94));pointer-events:auto');
   const rows = ['mix|MIX', 'pour|POUR', 'stir|AGITATION', 'heat|STABILITY', 'rhythm|SET'].map(r => { const [k, lbl] = r.split('|'); const p = Math.round(g.scores[k] * 100); return `<div style="display:flex;justify-content:space-between;font-size:10px;color:#6f8a7c;margin:4px 24px"><span>${lbl}</span><b style="color:${p >= 75 ? '#4fe08a' : p >= 45 ? '#ffb23e' : '#ff4a5b'}">${p}%</b></div>`; }).join('');
   card.innerHTML = `<div style="width:360px;padding:22px;background:linear-gradient(180deg,#0e1512,#070b09);border:1px solid rgba(79,224,138,.4);border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.9)">
+    <div style="font-family:monospace;font-size:52px;font-weight:bold;line-height:1;color:${gcol};text-shadow:0 0 18px ${gcol}66;margin-bottom:2px">${grade}</div>
     <div style="font-size:19px;letter-spacing:3px;color:${blown ? '#ff4a5b' : '#4fe08a'};font-weight:bold">${blown ? 'BATCH LOST' : 'UNKNOWN COMPOUND'}</div>
     <div style="font-size:9px;letter-spacing:3px;color:#6f8a7c;text-transform:uppercase;margin:4px 0 14px">${blown ? 'CATASTROPHIC FAILURE' : (potency > 1.3 ? 'POTENT · VOLATILE' : 'TEST BATCH')}</div>
     ${rows}

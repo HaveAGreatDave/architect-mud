@@ -593,6 +593,7 @@ let mapPaintColor = '#e05555';    // the colour currently loaded on the brush
 let mapPainting = false;          // mouse down, dragging a brush stroke
 let mapPaintPending = new Set();  // zoneIds with an in-flight bg_color save
 let mapLumBase = null;            // Map(zoneId->hex) snapshot taken at slider drag start
+let mapSatBase = null;            // Map(zoneId->hex) snapshot taken at saturation slider drag start
 
 const PAINT_SWATCHES = [
   '#2f86cc','#1fb5aa','#d9a83a','#b56fbf','#4bb36a','#c9a884','#e08a4a','#e85aa0',
@@ -733,6 +734,43 @@ async function mapLumCommit() {
   if (!mapLumBase) return;
   const ids = [...mapLumBase.keys()];
   mapLumBase = null;
+  renderMapOverview(); // resets slider + refreshes Undo/Redo state
+  await _saveColorsBulk(ids);
+}
+
+// Shift a hex's HSL saturation by delta (clamped), returning a new hex.
+function adjustHexSaturation(hex, delta) {
+  const rgb = hexToRgbArr(hex); if (!rgb) return hex;
+  const [h, s, l] = rgbToHsl(rgb);
+  return rgbArrToHex(hslToRgbArr(h, Math.max(0, Math.min(1, s + delta)), l));
+}
+
+// Whole-map saturation slider. Mirrors the luminance slider: live-previews
+// against a snapshot taken at drag start, commits + resets on release.
+function mapSatInput(val) {
+  if (!mapOverview) return;
+  const delta = parseInt(val, 10) / 200; // -100..100 → -0.5..+0.5 saturation
+  const z0 = mapOverview.z;
+  if (!mapSatBase) {
+    _pushUndo();
+    mapSatBase = new Map();
+    for (const z of mapOverview.zones.values())
+      if ((z.grid_z ?? 0) === z0 && z.grid_x != null && z.grid_y != null && z.bg_color)
+        mapSatBase.set(z.id, z.bg_color);
+  }
+  for (const [id, base] of mapSatBase) {
+    const z = mapOverview.zones.get(id); if (!z) continue;
+    const hex = adjustHexSaturation(base, delta);
+    z.bg_color = hex;
+    const el = _tileEl(z); if (el) _applyTileColor(el, hex);
+  }
+  const lbl = document.getElementById('map-sat-val');
+  if (lbl) lbl.textContent = (delta >= 0 ? '+' : '') + Math.round(delta * 100);
+}
+async function mapSatCommit() {
+  if (!mapSatBase) return;
+  const ids = [...mapSatBase.keys()];
+  mapSatBase = null;
   renderMapOverview(); // resets slider + refreshes Undo/Redo state
   await _saveColorsBulk(ids);
 }
@@ -910,6 +948,8 @@ function paintPanelHtml() {
     <div style="border-top:1px solid var(--border);padding-top:9px">
       <label style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:2px"><span>Map luminance</span><span id="map-lum-val" style="color:var(--text)">0</span></label>
       <input id="map-lum-slider" type="range" min="-100" max="100" value="0" oninput="mapLumInput(this.value)" onchange="mapLumCommit()" style="width:100%">
+      <label style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-top:9px;margin-bottom:2px"><span>Map saturation</span><span id="map-sat-val" style="color:var(--text)">0</span></label>
+      <input id="map-sat-slider" type="range" min="-100" max="100" value="0" oninput="mapSatInput(this.value)" onchange="mapSatCommit()" style="width:100%">
       <button onclick="mapNormalizeLum()" title="Pull every tile to the map's mean lightness (keeps hue)" style="width:100%;margin-top:9px;font-size:11px;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer">⚖ Normalise luminance</button>
       <button onclick="mapRecalcText()" title="Set every tile's text colour to readable black/white by its background luminance" style="width:100%;margin-top:6px;font-size:11px;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer">🔤 Recalc text colours</button>
       <button onclick="mapRandomizeColors()" title="Give each used colour a fresh, mutually-distinct random hue at one shared random saturation (whole map)" style="width:100%;margin-top:6px;font-size:11px;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer">🎲 Randomize palette</button>

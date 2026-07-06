@@ -13,7 +13,7 @@
 
 import { setAreaPane } from '../render.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
-import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx } from './engine-audio.js';
+import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn } from './engine-audio.js';
 import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
@@ -207,6 +207,9 @@ function applyText(s) {
   set('ck-surface', s.surface || (s.airborne ? 'open air' : '—'));
   set('ck-tail', s.tail || 'CRAFT');
   set('ck-class', (s.class || '').toUpperCase());
+  // Interior livery: a cabin-trim swatch in the titlebar (paint you only see aboard).
+  const cab = $('ck-cabin');
+  if (cab) { if (s.livery) { cab.style.display = ''; cab.style.background = s.livery.cabin; cab.title = `cabin · ${s.livery.uphol}`; } else cab.style.display = 'none'; }
   // Status line + phase.
   const phase = !s.airborne
     ? (s.runup ? '<span class="ck-amber">RUN-UP — warming engines</span>' : s.engineOn ? '<span class="ck-green">READY — throttle up &amp; takeoff</span>' : '<span class="ck-dim">COLD — startup to begin</span>')
@@ -353,7 +356,7 @@ function mountPassenger(s) {
   const html = `<div id="ck-hud-root" class="ck-hud ck-pax ck-chrome-${th.chrome}" style="--acc:${th.acc}">
     <div class="ck-titlebar">
       <span class="ck-tmark">✈</span><span class="ck-t-name" id="ck-tail">CABIN</span>
-      <span class="ck-t-class" id="ck-class"></span>
+      <span class="ck-t-class" id="ck-class"></span><span class="ck-cabin" id="ck-cabin" title="cabin"></span>
       <span class="ck-phase" id="ck-phase">Enjoy the flight.</span>
     </div>
     <div class="ck-pax-window">${windshieldHTML('ck-ws', 'CABIN WINDOW')}</div>
@@ -384,7 +387,7 @@ function mountHud(s) {
   const html = `<div id="ck-hud-root" class="ck-hud ck-chrome-${th.chrome}" style="--acc:${th.acc}">
     <div class="ck-titlebar">
       <span class="ck-tmark">✈</span><span class="ck-t-name" id="ck-tail">CRAFT</span>
-      <span class="ck-t-class" id="ck-class"></span>
+      <span class="ck-t-class" id="ck-class"></span><span class="ck-cabin" id="ck-cabin" title="cabin"></span>
       <span class="ck-phase" id="ck-phase"></span>
       <span class="ck-pip ck-dim" id="ck-arm" style="display:none"></span>
       <span class="ck-pip ck-dim" id="ck-cargo" style="display:none"></span>
@@ -444,6 +447,7 @@ function ensureHudStyles() {
     @keyframes ck-br { 50% { text-shadow:0 0 18px rgba(79,184,224,1); } }
     .ck-t-name { color:#eaf6ff; font-weight:bold; letter-spacing:2px; }
     .ck-t-class { color:#5f8299; font-size:10px; }
+    .ck-cabin { display:inline-block; width:12px; height:12px; border-radius:3px; border:1px solid rgba(0,0,0,0.45); box-shadow:inset 0 0 3px rgba(0,0,0,0.6); vertical-align:middle; }
     .ck-phase { margin-left:auto; font-size:11px; letter-spacing:1px; }
     .ck-pip { font-size:10px; padding:1px 6px; border:1px solid #2a3540; border-radius:3px; background:rgba(0,0,0,0.3); }
     /* Out-the-window canopy band (pilot) — sits above the instrument grid. */
@@ -618,6 +622,13 @@ function ensureTakeoffStyles() {
 
 let _fsim = null;
 const lerpN = (a, b, t) => a + (b - a) * t;
+// Air-to-air (Phase A): tighten flightsync when traffic is within this many tiles,
+// and dead-reckon a contact's position at most this long before its next relay.
+const FAST_SYNC_RANGE = 5, CONTACT_DR_MAX = 2.0;
+// Air-to-air guns (Phase B): the client's gun-solution envelope (tiles + half-cone deg),
+// the alt→world-z scale (mirrors windshield CONTACT_ALT_K) for the vertical aim term, and
+// the burst cadence while the trigger's held (the server enforces its own harder cap).
+const GUN_RANGE = 2.2, GUN_CONE = 11, GUN_ALT_K = 1 / 600, GUN_FIRE_MS = 130;
 // Live-tunable render knobs exposed as in-cockpit sliders (⚙). RENDER_TUNE is shared
 // with windshield.js so a slider change takes effect on the very next frame.
 const FSIM_TUNE = [
@@ -676,6 +687,9 @@ const fmtStp = (v, stp) => (+v).toFixed(decOf(stp));
 // (the Mayfly). The Mule is a cyberpunk carbon-fibre freighter in violet/magenta neon.
 const FSIM_SKIN = {
   mule: { id: 'mule', acc: '#a874ff', rgb: [168, 116, 255] },
+  leviathan: { id: 'leviathan', acc: '#3fd6c0', rgb: [63, 214, 192] },   // Soviet An-124 turquoise flightdeck
+  reaper: { id: 'reaper', acc: '#ff9a38', rgb: [255, 154, 56] },   // A-10 Warthog: olive-drab armour + gunsight amber
+  dragonfly: { id: 'dragonfly', acc: '#8fe36b', rgb: [143, 227, 107] },   // Mini 500: a light, exposed kit-heli bubble
 };
 
 function ensureFlightSimStyles() {
@@ -707,6 +721,9 @@ function ensureFlightSimStyles() {
     .fsim-weap-pips{ font-size:10px; color:#c8b070; letter-spacing:2px; }
     .fsim-reticle{ position:absolute; left:50%; top:46%; width:34px; height:34px; margin:-17px 0 0 -17px; z-index:4; opacity:0; transition:opacity .15s; pointer-events:none; }
     .fsim-reticle.on{ opacity:.85; }
+    /* firing solution up → the pipper flips from amber to a green lock */
+    .fsim-reticle.lock svg{ filter:drop-shadow(0 0 5px rgba(80,255,140,.9)) hue-rotate(96deg) saturate(1.5); }
+    .fsim-reticle.lock{ opacity:1; }
     .fsim-reticle svg{ width:100%; height:100%; filter:drop-shadow(0 0 3px rgba(255,106,58,.6)); }
     /* glass panel row: PFD | MFD (Diamond DA42-inspired) */
     .fsim-glass{ display:flex; gap:6px; height:clamp(150px,23vh,212px); }
@@ -862,7 +879,68 @@ function ensureFlightSimStyles() {
     .fsim-theme-mule .fsim-yoke{ border-color:#3a2a5a; background:radial-gradient(circle at 50% 26%,#1b1230,#0a0712); }
     .fsim-theme-mule .fsim-throttle{ border-color:#3a2a5a; background:linear-gradient(180deg,#161028,#0a0712); }
     .fsim-theme-mule .fsim-thr-grip{ background:linear-gradient(180deg,#8a5ae0 0%,#3f1f74 55%,#1a0e30 100%); }
-    .fsim-theme-mule .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#1a0e30 0 2px,rgba(168,116,255,.32) 2px 4px); }`;
+    .fsim-theme-mule .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#1a0e30 0 2px,rgba(168,116,255,.32) 2px 4px); }
+
+    /* ══ LEVIATHAN flightdeck skin — an Antonov An-124 Ruslan: the iconic Soviet turquoise ══
+       instrument panels, riveted alloy plates, a deep teal glow. Utilitarian, vast, brutal. */
+    .fsim-theme-leviathan{ --cy:#3fd6c0; --mg:#ff8a3a; --gr:#8dffb4; --cy-dim:rgba(63,214,192,.20); }
+    .fsim-theme-leviathan .fsim-view{ box-shadow:inset 0 0 0 2px #123a34, inset 0 4px 20px rgba(63,214,192,.13), 0 0 14px rgba(0,0,0,.72); }
+    /* glareshield lip: a dark brow with a teal-lit sill */
+    .fsim-theme-leviathan .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:15px; z-index:2; pointer-events:none;
+      background:linear-gradient(180deg,#0e1a18 0%,#081210 58%,rgba(8,18,16,0) 100%); border-bottom:1px solid rgba(63,214,192,.4); box-shadow:0 1px 9px rgba(63,214,192,.26); }
+    .fsim-theme-leviathan .fsim-pfd,.fsim-theme-leviathan .fsim-mfd,.fsim-theme-leviathan .fsim-gauges{ border-color:#1f4a43; box-shadow:inset 0 0 10px rgba(0,0,0,.78), 0 0 0 1px rgba(63,214,192,.16); }
+    /* maker's plate → riveted turquoise alloy (a stamped Soviet data plate) */
+    .fsim-theme-leviathan .fsim-placard{ border-color:#123330;
+      background:
+        radial-gradient(circle at 10px 10px, #cdd6d2 0 1.4px, #8f9a96 1.4px 2.6px, #4a5652 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) 10px, #cdd6d2 0 1.4px, #8f9a96 1.4px 2.6px, #4a5652 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at 10px calc(100% - 10px), #cdd6d2 0 1.4px, #8f9a96 1.4px 2.6px, #4a5652 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #cdd6d2 0 1.4px, #8f9a96 1.4px 2.6px, #4a5652 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        repeating-linear-gradient(92deg, rgba(190,230,220,.05) 0 1px, rgba(0,0,0,.06) 1px 2px),
+        linear-gradient(157deg,#264c46 0%,#315a52 22%,#1e3d38 46%,#2b514a 68%,#173029 100%);
+      box-shadow:inset 0 1px 0 rgba(190,230,220,.22), inset 0 -2px 5px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-leviathan .fsim-plac-title{ color:#0c211d; text-shadow:0 1px 0 rgba(180,230,220,.32); }
+    .fsim-theme-leviathan .fsim-plac-reg{ color:#08110f; text-shadow:0 1px 0 rgba(180,230,220,.38); }
+    .fsim-theme-leviathan .fsim-plac-own{ color:#1c3833; text-shadow:0 1px 0 rgba(180,230,220,.22); }
+    .fsim-theme-leviathan .fsim-plac-own.rented{ color:#b0500f; text-shadow:0 1px 0 rgba(180,230,220,.22); }
+    .fsim-theme-leviathan .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(180,240,228,0) 30%, rgba(180,240,228,.4) 46%, rgba(180,240,228,.06) 52%, rgba(180,240,228,0) 66%); }
+    /* radio/transponder deck → turquoise alloy */
+    .fsim-theme-leviathan .fsim-xpdr{ border-color:#123330; background:linear-gradient(180deg,#274c46 0%,#1a3833 48%,#0e211d 100%); box-shadow:inset 0 1px 0 rgba(63,214,192,.16), inset 0 -2px 6px rgba(0,0,0,.6), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-leviathan .fsim-xpdr-title{ color:#5aa89a; }
+    /* yoke well + throttle body → turquoise-grey, grip goes teal */
+    .fsim-theme-leviathan .fsim-yoke{ border-color:#1f4a43; background:radial-gradient(circle at 50% 26%,#173832,#0a1210); }
+    .fsim-theme-leviathan .fsim-throttle{ border-color:#1f4a43; background:linear-gradient(180deg,#153230,#0a1210); }
+    .fsim-theme-leviathan .fsim-thr-grip{ background:linear-gradient(180deg,#3fd6c0 0%,#1d7a6c 55%,#0e302b 100%); }
+    .fsim-theme-leviathan .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#0e302b 0 2px,rgba(63,214,192,.32) 2px 4px); }
+
+    /* ══ REAPER flightdeck skin — a Fairchild A-10 Warthog: olive-drab armour plate, ══
+       gunmetal, gunsight-amber instruments, a red master-arm. Built around the gun. */
+    .fsim-theme-reaper{ --cy:#ff9a38; --mg:#ff4a3a; --gr:#8de24a; --cy-dim:rgba(255,154,56,.20); }
+    .fsim-theme-reaper .fsim-view{ box-shadow:inset 0 0 0 2px #2e2a16, inset 0 4px 20px rgba(255,154,56,.12), 0 0 14px rgba(0,0,0,.72); }
+    .fsim-theme-reaper .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:15px; z-index:2; pointer-events:none;
+      background:linear-gradient(180deg,#171509 0%,#0f0d06 58%,rgba(15,13,6,0) 100%); border-bottom:1px solid rgba(255,154,56,.4); box-shadow:0 1px 9px rgba(255,154,56,.26); }
+    .fsim-theme-reaper .fsim-pfd,.fsim-theme-reaper .fsim-mfd,.fsim-theme-reaper .fsim-gauges{ border-color:#4a4426; box-shadow:inset 0 0 10px rgba(0,0,0,.78), 0 0 0 1px rgba(255,154,56,.16); }
+    /* maker's plate → olive-drab armour plate w/ steel bolts (mil-spec stencil) */
+    .fsim-theme-reaper .fsim-placard{ border-color:#33301a;
+      background:
+        radial-gradient(circle at 10px 10px, #cdd0c2 0 1.4px, #909480 1.4px 2.6px, #52543e 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) 10px, #cdd0c2 0 1.4px, #909480 1.4px 2.6px, #52543e 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at 10px calc(100% - 10px), #cdd0c2 0 1.4px, #909480 1.4px 2.6px, #52543e 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #cdd0c2 0 1.4px, #909480 1.4px 2.6px, #52543e 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        repeating-linear-gradient(92deg, rgba(210,220,180,.04) 0 1px, rgba(0,0,0,.06) 1px 2px),
+        linear-gradient(157deg,#3a3a22 0%,#454528 22%,#2c2c18 46%,#3f3f24 68%,#212112 100%);
+      box-shadow:inset 0 1px 0 rgba(210,220,180,.18), inset 0 -2px 5px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-reaper .fsim-plac-title{ color:#1a1808; text-shadow:0 1px 0 rgba(210,220,180,.28); }
+    .fsim-theme-reaper .fsim-plac-reg{ color:#100e04; text-shadow:0 1px 0 rgba(210,220,180,.32); }
+    .fsim-theme-reaper .fsim-plac-own{ color:#33301a; text-shadow:0 1px 0 rgba(210,220,180,.2); }
+    .fsim-theme-reaper .fsim-plac-own.rented{ color:#b03010; text-shadow:0 1px 0 rgba(210,220,180,.2); }
+    .fsim-theme-reaper .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(255,210,150,0) 30%, rgba(255,210,150,.36) 46%, rgba(255,210,150,.06) 52%, rgba(255,210,150,0) 66%); }
+    .fsim-theme-reaper .fsim-xpdr{ border-color:#33301a; background:linear-gradient(180deg,#3a3a22 0%,#26260f 48%,#141406 100%); box-shadow:inset 0 1px 0 rgba(255,154,56,.14), inset 0 -2px 6px rgba(0,0,0,.6), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-reaper .fsim-xpdr-title{ color:#b08a4a; }
+    .fsim-theme-reaper .fsim-yoke{ border-color:#4a4426; background:radial-gradient(circle at 50% 26%,#2a2814,#0f0d06); }
+    .fsim-theme-reaper .fsim-throttle{ border-color:#4a4426; background:linear-gradient(180deg,#26260f,#0f0d06); }
+    .fsim-theme-reaper .fsim-thr-grip{ background:linear-gradient(180deg,#ff9a38 0%,#8a5210 55%,#301c08 100%); }
+    .fsim-theme-reaper .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#301c08 0 2px,rgba(255,154,56,.32) 2px 4px); }`;
   document.head.appendChild(s);
 }
 
@@ -931,7 +1009,12 @@ export function openFlightSim(opts = {}) {
 
   const F = {
     P, s, cls: opts.craftClass || 'ultralight',
-    input: { elevator: 0, aileron: 0, throttle: 0, flaps: 0 },
+    input: { elevator: 0, aileron: 0, throttle: 0, flaps: 0, pedal: 0 },
+    // A helicopter (Dragonfly/Mini 500) flies the hover model: the throttle lever is the
+    // COLLECTIVE, the yoke is the CYCLIC, and Q/E work the tail-rotor PEDALS (yaw). heli flag
+    // drives the control remap + instrument set below.
+    heli: opts.craftClass === 'heli' || !!(TYPES[opts.craftType] && TYPES[opts.craftType].heli),
+    pedalKey: 0,
     pos: { x: opts.gx || 0, y: opts.gy || 0 },
     mapCenter: { x: Math.round(opts.gx || 0), y: Math.round(opts.gy || 0) }, rollDist: 0, travel: 0,
     rwOrigin: { x: opts.gx || 0, y: opts.gy || 0 }, rwHdg: (((opts.heading || 0) % 360) + 360) % 360,   // world-fixed departure runway anchor
@@ -950,9 +1033,14 @@ export function openFlightSim(opts = {}) {
     raf: 0, last: 0, syncAcc: 0, hornBeat: 0, audioAcc: 0,
     temp: 40, battery: 100,          // cosmetic engine-temp (°C) + battery charge (%) for the gauge cluster
     engines: Math.max(1, opts.engines || 1), seats: Math.max(1, opts.seats || 1), occupants: opts.occupants || [],
+    // Powerplant class → engine-instrument labelling/scales (piston RPM · turboprop TQ/ITT ·
+    // turbofan N1/EGT). Mule = twin turboprop; Reaper (A-10/TF34) + Leviathan (An-124) = jets.
+    engStyle: { mule: 'turboprop', reaper: 'turbofan', leviathan: 'turbofan', dragonfly: 'heli' }[opts.craftType] || 'piston',
     temps: [], rpms: [], engWander: 0,   // per-engine gauge state (twins get 2 RPM + 2 temp dials)
 
     disp: { ias: 0, alt: 0, vs: 0, hdg: s.heading, rpm: 0, pitch: 0, bank: 0 },
+    contacts: [],   // air-to-air traffic, refreshed by flight_contacts
+    gunSolution: null, firing: false, hull: 100, hitFlashT: 0,   // Phase B: guns + battle damage
     listeners: [],
   };
   _fsim = F;
@@ -1087,21 +1175,25 @@ export function openFlightSim(opts = {}) {
     switch (k) {
       case 'a': F.throttleKey = 1; break;
       case 'z': F.throttleKey = -1; break;
-      case 'q': setView(-90); break;
-      case 'e': setView(90); break;
+      // On the heli, Q/E are the tail-rotor PEDALS (yaw) — you pedal-turn to point the nose,
+      // so side-look is dropped; S still looks back. Fixed-wing keeps Q/E as hold-to-look.
+      case 'q': if (F.heli) F.pedalKey = -1; else setView(-90); break;
+      case 'e': if (F.heli) F.pedalKey = 1; else setView(90); break;
       case 's': setView(180); break;
       case 'w': setView(0); break;
       case 'r': if (!e.repeat) stepFlap(1); break;
       case 'f': if (!e.repeat) stepFlap(-1); break;
       case 'g': if (!e.repeat) toggleGear(); break;
       case 'j': if (!e.repeat) jettison(); break;
-      case ' ': if (!e.repeat && F.doFire) F.doFire(); break;   // fire guns (gunship)
+      case ' ': F.firing = true; break;   // hold to fire guns (frame loop squirts bursts)
     }
   };
   const onKeyUp = (e) => {
     const k = (e.key || '').toLowerCase();
     if (k === 'a' || k === 'z') F.throttleKey = 0;
-    else if (k === 'q' || k === 'e' || k === 's') setView(0);   // release hold-to-look → forward
+    else if ((k === 'q' || k === 'e') && F.heli) F.pedalKey = 0;   // release pedal → centres
+    else if (k === 'q' || k === 'e' || k === 's') setView(0);      // release hold-to-look → forward
+    else if (k === ' ') F.firing = false;                         // release trigger
   };
   add(window, 'keydown', onKeyDown);
   add(window, 'keyup', onKeyUp);
@@ -1154,8 +1246,13 @@ export function openFlightSim(opts = {}) {
       if (reticleEl) reticleEl.classList.toggle('on', on);
     };
     add(armBtn, 'click', () => { setArmed(!F.armed); sendCmdSilent(F.armed ? 'arm' : 'safe'); });
-    F.doFire = () => { if (F.armed) { sendCmdSilent('fire'); if (F.toast) F.toast('GUNS · GUNS'); } };
-    add(fireBtn, 'click', F.doFire);
+    // FIRE is a HELD trigger (touch/mouse): the frame loop squirts bursts while down.
+    const holdFire = (on) => (e) => { if (e) e.preventDefault(); F.firing = on; };
+    if (fireBtn) {
+      add(fireBtn, 'pointerdown', holdFire(true));
+      add(window, 'pointerup', holdFire(false));
+      add(fireBtn, 'pointerleave', holdFire(false));
+    }
   }
 
   // MFD map toggle — real local minimap ↔ aerial biome nav map.
@@ -1244,11 +1341,13 @@ function fsimFrame(now) {
   if (!F.yokeDrag) { input.elevator = lerpN(input.elevator, 0, Math.min(1, dt * 6)); input.aileron = lerpN(input.aileron, 0, Math.min(1, dt * 6)); }
   // Keyboard throttle (A/Z held) ramps the lever ~2s full-sweep.
   if (F.throttleKey) input.throttle = clampNum(input.throttle + F.throttleKey * dt * 0.5, 0, 1);
+  // Heli tail-rotor pedals (Q/E held): ramp toward the held side, spring to centre on release.
+  if (F.heli) input.pedal = F.pedalKey ? clampNum(input.pedal + F.pedalKey * dt * 3, -1, 1) : lerpN(input.pedal, 0, Math.min(1, dt * 8));
   // Effective throttle: the lever always moves, but there's no thrust unless the
   // engine master switch is on and the tank isn't dry (dead stick).
   const thr = (F.engineOn && !F.deadStick) ? input.throttle : 0;
 
-  step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, flaps: input.flaps }, P, dt);
+  step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, flaps: input.flaps, pedal: input.pedal }, P, dt);
 
   // Sample the atmosphere from the live weather → wind vector + turbulence intensity.
   const atmos = F.atmos = weatherAtmos(F, now);
@@ -1300,9 +1399,11 @@ function fsimFrame(now) {
       // and hold the yoke back to brake to a stop, then cut the ENGINE to taxi into the
       // hangar and disembark — or power back up for a touch-and-go. The tile is reported
       // above so the server marks us grounded (no overfly noise / airspace rules taxiing).
-      F.rolling = true; F.stopHinted = false;
-      groundFx((F.touchVs || 0) < -500 ? 'touchdownHard' : 'touchdown');   // tyre squeak on the numbers
-      if (F.toast) F.toast('ROLL OUT — brake to a stop, then cut the ENGINE to park');
+      // Reuse the same park-on-shutdown flow. A heli sets down vertically (no rollout), so it's
+      // already "stopped" — hint the shutdown straight away; a fixed-wing rolls out first.
+      F.rolling = true; F.stopHinted = !!F.heli;
+      groundFx((F.touchVs || 0) < -500 ? 'touchdownHard' : 'touchdown');   // squeak/thump on contact
+      if (F.toast) F.toast(F.heli ? 'DOWN — cut the ENGINE to shut down & park' : 'ROLL OUT — brake to a stop, then cut the ENGINE to park');
     }
   }
   // Rolled to a stop on the ground → prompt the shutdown that taxis you into the hangar.
@@ -1351,10 +1452,11 @@ function fsimFrame(now) {
   F.temp = F.temps[0];   // keep the single field in sync for legacy readers
   F.battery = clampNum(F.battery + ((F.engineOn && s.rpm > 0.2) ? 5 : -1.1) * dt, 0, 100);
   paintGauges(document.getElementById('fsim-gauges'), {
-    engines: nEng, rpms: F.rpms, temps: F.temps,
+    engines: nEng, rpms: F.rpms, temps: F.temps, eng: F.engStyle,
     rpm: F.rpms[0], temp: F.temps[0], ias: r.airspeed, vr: P.vr, vne: P.vne, vs0: P.vs0,
     fuelPct: Math.round(F.fuel / (F.fuelCap || 1) * 100), battery: F.battery,
     stall: r.stalled, warn: r.stalled || s.stallMargin < 0.35, hornBeat: F.hornBeat, night: F.nightLight,
+    lowNr: !!s.lowNr, vrs: !!s.vrs,   // heli: low-rotor-RPM + settling-with-power annunciators
   });
 
   // Full yoke: roll with aileron + a 3-D pull toward/away with elevator (capped so it
@@ -1377,6 +1479,57 @@ function fsimFrame(now) {
   // departure runway (so it appears as you turn back to land).
   const rwDist = Math.hypot(F.rwOrigin.x - F.pos.x, F.rwOrigin.y - F.pos.y);
   const landGuide = (F.reportedAirborne && r.altitude < 1600 && rwDist < 16) ? { alt: r.altitude } : null;
+
+  // ── Air-to-air traffic (Phase A: see-only) ──────────────────────────────────
+  // Dead-reckon each relayed contact from its last-known heading/speed, express it
+  // relative to us (world tiles + altitude delta), and designate the one nearest the
+  // boresight so the windshield can bracket it. `contactNear` drives the sync cadence.
+  let contactView = null, designated = null, contactNear = Infinity;
+  if (F.contacts && F.contacts.length && F.reportedAirborne) {
+    contactView = [];
+    let bestBore = Infinity;
+    for (const c of F.contacts) {
+      const drS = Math.min(CONTACT_DR_MAX, (now - (c.t || now)) / 1000);
+      const spd = (c.ias || 0) * RENDER_TUNE.worldPace, hr = (c.hdg || 0) * Math.PI / 180;
+      const cx = c.x + Math.sin(hr) * spd * drS, cy = c.y - Math.cos(hr) * spd * drS;
+      const dx = cx - F.pos.x, dy = cy - F.pos.y, rng = Math.hypot(dx, dy);
+      if (rng < contactNear) contactNear = rng;
+      const brg = Math.atan2(dx, -dy) * 180 / Math.PI;                    // bearing to contact
+      const bore = Math.abs(((brg - s.heading + 540) % 360) - 180);       // off our nose
+      const cv = { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery };
+      contactView.push(cv);
+      if (bore < bestBore) { bestBore = bore; designated = cv; }
+    }
+    if (designated) designated.designated = true;
+  }
+  F.designatedId = designated ? designated.id : null;   // so the MFD can ring the same contact
+
+  // Gun solution (Phase B, manual pipper): how close the designated bogey is to the
+  // boresight (horizontal bore + vertical elevation off our own nose) inside gun range.
+  // aimQuality 0..1 falls off with the total cone angle; the server takes it on faith
+  // within its own lenient gate and rolls the defender's jink against it.
+  F.gunSolution = null;
+  if (designated && F.hardpoints > 0 && F.armed) {
+    const elev = Math.atan2((designated.altDiff || 0) * GUN_ALT_K, Math.max(0.1, designated.rng)) * 180 / Math.PI;
+    const totalOff = Math.hypot(designated.bore, elev - (s.pitch || 0));
+    const inRange = designated.rng <= GUN_RANGE;
+    const aimQ = inRange ? Math.max(0, 1 - totalOff / GUN_CONE) : 0;
+    F.gunSolution = { id: designated.id, aimQuality: aimQ, ready: inRange && aimQ > 0.02 };
+  }
+  const solReady = !!(F.gunSolution && F.gunSolution.ready);
+
+  // Trigger held → squirt cannon bursts at the client cadence (the server enforces its
+  // own harder cap + validates the shot). With a solution it's air-to-air; without one,
+  // an armed craft still falls back to the ground-AA strafe pass.
+  if (F.firing && F.armed && F.reportedAirborne && (!F.lastFireMs || now - F.lastFireMs >= GUN_FIRE_MS)) {
+    F.lastFireMs = now;
+    if (solReady) { sendCmdSilent(`airfire guns ${F.gunSolution.id} ${F.gunSolution.aimQuality.toFixed(2)}`); F.muzzleT = now; try { gunFx(); } catch {} }
+    else if (F.hardpoints > 0) { sendCmdSilent('fire'); try { gunFx(); } catch {} }
+  }
+  // Reticle turns from amber (armed) to a green lock when a firing solution is up.
+  const retEl = document.getElementById('fsim-reticle');
+  if (retEl) retEl.classList.toggle('lock', solReady);
+
   paintWindshield('fsim-ws', {
     pitch: d.pitch, bank: d.bank,
     // Render height fraction (drives eye-height/compression). Referenced to 3000ft with a
@@ -1390,19 +1543,27 @@ function fsimFrame(now) {
     runway: { ox: F.rwOrigin.x - F.pos.x, oy: F.rwOrigin.y - F.pos.y, hdg: F.rwHdg, alt: clampNum(r.altitude / 320, 0, 1) },
     landGuide,
     hud: true, navWarn: back == null ? null : `⚠ TURN ${String(back).padStart(3, '0')}° — RETURN TO MAP`,
+    threat: (F.aa && F.reportedAirborne) ? F.aa : null,   // AA envelope telegraph → pulsing banner + tape chevron
     airports: F.fields, viewYaw: F.viewYaw,
     // Looking off the nose (Q/E/S) → frame the view as a side cabin window instead of the
     // forward windscreen. The real, rotated Mode-7 world still renders behind the pane.
     windowClass: F.viewYaw ? F.cls : undefined,
     windVec: (atmos.windKt > 1 && F.reportedAirborne) ? { dir: atmos.windDir, kt: atmos.windKt } : null,
+    contacts: contactView, designated,
+    // Phase B guns: tracer/muzzle when firing on solution, a hull readout, and a red
+    // battle-damage flash that fades over ~0.4s after taking a hit.
+    firing: !!(F.firing && solReady), muzzle: F.muzzleT && (now - F.muzzleT < 90),
+    hull: F.hull, hitFlash: F.hitFlashT ? clampNum(1 - (now - F.hitFlashT) / 400, 0, 1) : 0,
   });
 
-  // Stream state to the server (~1.2s) while flying AND during the ground roll-out — the
-  // server needs the fresh onGround flag to suppress overfly noise / airspace rules as we taxi.
+  // Stream state to the server while flying AND during the ground roll-out — the server
+  // needs the fresh onGround flag to suppress overfly noise / airspace rules as we taxi.
+  // Cadence tightens to ~3 Hz when traffic is close (the dogfight bubble), 1.2s otherwise.
+  const syncEvery = contactNear <= FAST_SYNC_RANGE ? 0.33 : 1.2;
   F.syncAcc += dt; F.audioAcc += dt;
-  if ((F.reportedAirborne || F.rolling) && F.syncAcc >= 1.2) {
+  if ((F.reportedAirborne || F.rolling) && F.syncAcc >= syncEvery) {
     F.syncAcc = 0;
-    sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} ${Math.round(s.altitude)} ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} ${Math.round(s.vs)} ${s.onGround ? 1 : 0} ${s.stalled ? 1 : 0}`);
+    sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} ${Math.round(s.altitude)} ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} ${Math.round(s.vs)} ${s.onGround ? 1 : 0} ${s.stalled ? 1 : 0} ${Math.round(s.bank || 0)} ${Math.round(s.pitch || 0)}`);
     // NB: mapCenter is NOT advanced here — it stays paired with the map the server sends back
     // (updated in flightSimContext), so buildings never jump/re-seed on a window recenter.
   }
@@ -1420,7 +1581,15 @@ function fsimHorn(F, dt) {
   const lamp = document.getElementById('fsim-lamp'); if (!lamp) return;
   const { s } = F;
   // The lamp + audible horn: continuous in the stall, pulsing on the approach, silent otherwise.
-  if (s.onGround) { lamp.style.opacity = 0; stallHorn(0); return; }   // no stall warning parked/rolling
+  if (s.onGround) { lamp.style.opacity = 0; stallHorn(0); return; }   // no warning parked/rolling
+  // On the heli the same lamp/horn channel warns of low rotor RPM + settling-with-power; the
+  // fixed-wing uses it for the stall. stallMargin carries the danger level for either.
+  if (F.heli) {
+    if (s.lowNr || s.vrs) { lamp.textContent = s.vrs ? '⚠ SETTLING WITH POWER' : '⚠ LOW ROTOR RPM'; lamp.style.opacity = 1; stallHorn(0.6); }
+    else if (s.stallMargin < 0.35) { F.hornBeat = (F.hornBeat + dt * (2 + (0.35 - s.stallMargin) * 10)) % 1; const on = F.hornBeat < 0.5; lamp.textContent = '⚠ LOW ROTOR RPM'; lamp.style.opacity = on ? 1 : 0; stallHorn(on ? 0.4 : 0); }
+    else { lamp.style.opacity = 0; stallHorn(0); }
+    return;
+  }
   if (s.stalled) { lamp.textContent = '⚠ STALL'; lamp.style.opacity = 1; stallHorn(0.6); }
   else if (s.stallMargin < 0.35) { F.hornBeat = (F.hornBeat + dt * (2 + (0.35 - s.stallMargin) * 10)) % 1; const on = F.hornBeat < 0.5; lamp.style.opacity = on ? 1 : 0; stallHorn(on ? 0.4 : 0); }
   else { lamp.style.opacity = 0; stallHorn(0); }
@@ -1542,7 +1711,11 @@ function arcGauge(ctx, cx, cy, r, frac, label, val, opts) {
 // STALL annunciator — a red warning lamp in a matching bezel: dim when clear, pulses with
 // the horn on approach, solid + glowing in the stall.
 function stallLamp(ctx, x, y, r, g) {
-  const on = g.stall ? 1 : (g.warn ? (g.hornBeat < 0.5 ? 1 : 0.28) : 0.16);
+  // On a heli there's no aerodynamic stall: this bezel becomes the LOW-Nr / settling lamp.
+  const heli = g.eng === 'heli';
+  const label = heli ? (g.vrs ? 'SETTLE' : 'LO NR') : 'STALL';
+  const alarm = heli ? (g.lowNr || g.vrs) : g.stall;
+  const on = alarm ? 1 : (g.warn ? (g.hornBeat < 0.5 ? 1 : 0.28) : 0.16);
   const face = ctx.createRadialGradient(x, y - r * 0.3, r * 0.15, x, y, r * 1.2);
   face.addColorStop(0, '#170b0b'); face.addColorStop(1, '#05090d');
   ctx.fillStyle = face; ctx.beginPath(); ctx.arc(x, y, r * 1.2, 0, 7); ctx.fill();
@@ -1550,7 +1723,7 @@ function stallLamp(ctx, x, y, r, g) {
   if (on > 0.5) { ctx.shadowColor = '#e0403a'; ctx.shadowBlur = 12; }
   ctx.fillStyle = `rgba(224,64,58,${on})`; ctx.beginPath(); ctx.arc(x, y, r * 0.82, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
   ctx.strokeStyle = 'rgba(255,120,116,0.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, r * 0.82, 0, 7); ctx.stroke();
-  ctx.fillStyle = on > 0.5 ? '#fff' : '#7a3a38'; ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('STALL', x, y);
+  ctx.fillStyle = on > 0.5 ? '#fff' : '#7a3a38'; ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, x, y);
 }
 
 function paintGauges(cv, g) {
@@ -1562,8 +1735,12 @@ function paintGauges(cv, g) {
   const W = cw, H = ch; ctx.clearRect(0, 0, W, H);
   const colL = W * 0.12, colR = W * 0.88, vne = g.vne || 120;
   const rpms = g.rpms || [g.rpm || 0], temps = g.temps || [g.temp || 40], nEng = Math.max(1, g.engines || 1);
-  const rpmSpec = (i) => ['rpm', rpms[i] || 0, nEng > 1 ? 'RPM ' + (i + 1) : 'RPM'];
-  const tempSpec = (i) => ['temp', temps[i] || 40, nEng > 1 ? 'TEMP ' + (i + 1) : 'TEMP'];
+  // spec[2] carries the engine index (1-based; 0 = single-engine, no suffix) — the draw
+  // cases below label it per powerplant (piston RPM/TEMP · turboprop TQ/ITT · jet N1/EGT).
+  const rpmSpec = (i) => ['rpm', rpms[i] || 0, nEng > 1 ? i + 1 : 0];
+  const tempSpec = (i) => ['temp', temps[i] || 40, nEng > 1 ? i + 1 : 0];
+  const eng = g.eng || 'piston';
+  const suffix = (n) => (n ? ' ' + n : '');
   // Column layout: a single-engine craft keeps the classic Mayfly panel; twin+ splits the
   // engines across the two edge columns (a 4-engine heavy fills both with two engines each —
   // a real wing-by-wing cluster), with fuel + the stall lamp anchoring the column bottoms.
@@ -1581,8 +1758,25 @@ function paintGauges(cv, g) {
   const yAt = (i) => (i + 0.5) * chd;
   const draw = (spec, x, y) => {
     switch (spec[0]) {
-      case 'rpm': arcGauge(ctx, x, y, r, spec[1], spec[2], Math.round(spec[1] * 100), { col: ACCENT, marks: [{ v: 0.92, col: '#ff5a5b' }] }); break;
-      case 'temp': { const tf = clampNum((spec[1] - 40) / 175, 0, 1); arcGauge(ctx, x, y, r, tf, spec[2], Math.round(spec[1]) + '°', { col: tf > 0.82 ? '#ff5a5b' : tf > 0.6 ? '#ffb23e' : '#5fe0a0', marks: [{ v: 0.82, col: '#ff5a5b' }] }); break; }
+      case 'rpm': {
+        // Primary power dial, labelled + scaled per powerplant: piston reads RPM (×100),
+        // turboprop reads TORQUE %, turbofan/jet reads N1 % (fan speed). Same 0..1 frac.
+        const lbl = (eng === 'turboprop' ? 'TQ' : eng === 'turbofan' ? 'N1' : eng === 'heli' ? 'ROTOR' : 'RPM') + suffix(spec[2]);
+        const val = eng === 'piston' ? Math.round(spec[1] * 100) : Math.round(spec[1] * 100) + '%';
+        // A heli's rotor RPM has a green governed band and reds at BOTH ends (droop + overspeed).
+        const marks = eng === 'heli' ? [{ v: 0.55, col: '#ff5a5b' }, { v: 0.6, col: '#5fe0a0' }, { v: 1, col: '#5fe0a0' }] : [{ v: 0.92, col: '#ff5a5b' }];
+        arcGauge(ctx, x, y, r, spec[1], lbl, val, { col: eng === 'heli' && spec[1] < 0.6 ? '#ff5a5b' : ACCENT, marks }); break;
+      }
+      case 'temp': {
+        // Thermal dial: piston oil TEMP, turboprop ITT, turbofan EGT — turbines run far
+        // hotter, so map the same 0..1 thermal frac onto realistic turbine-gas ranges.
+        const tf = clampNum((spec[1] - 40) / 175, 0, 1);
+        const lbl = (eng === 'turboprop' ? 'ITT' : eng === 'turbofan' ? 'EGT' : eng === 'heli' ? 'CHT' : 'TEMP') + suffix(spec[2]);
+        const val = eng === 'turboprop' ? Math.round(300 + tf * 520) + '°'
+          : eng === 'turbofan' ? Math.round(380 + tf * 470) + '°'
+            : Math.round(spec[1]) + '°';
+        arcGauge(ctx, x, y, r, tf, lbl, val, { col: tf > 0.82 ? '#ff5a5b' : tf > 0.6 ? '#ffb23e' : '#5fe0a0', marks: [{ v: 0.82, col: '#ff5a5b' }] }); break;
+      }
       case 'spd': arcGauge(ctx, x, y, r, g.ias / vne, 'SPD', Math.round(g.ias), { col: g.warn ? '#ff5a5b' : '#5fe0a0', valcol: g.warn ? '#ff5a5b' : ACCENT, marks: [{ v: g.vs0 / vne, col: '#ff5a5b' }, { v: g.vr / vne, col: '#5fe0a0' }, { v: 1, col: '#ff5a5b' }] }); break;
       case 'batt': arcGauge(ctx, x, y, r, g.battery / 100, 'BATT', Math.round(g.battery) + '%', { col: g.battery <= 20 ? '#ff5a5b' : '#5fe0a0' }); break;
       case 'fuel': arcGauge(ctx, x, y, r, g.fuelPct / 100, 'FUEL', g.fuelPct + '%', { col: g.fuelPct <= 15 ? '#ff5a5b' : '#ffb23e', valcol: g.fuelPct <= 15 ? '#ff5a5b' : ACCENT, marks: [{ v: 0.15, col: '#ff5a5b' }] }); break;
@@ -1611,6 +1805,9 @@ function paintMFD(cv, F, d) {
   // the aircraft marker stays fixed pointing up. A north pointer swings round to show North.
   ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(-hdgRad); ctx.translate(-W / 2, -H / 2);
   if (F.mfdMode === 'nav') paintNav(ctx, W, H, F, ox, oy); else paintLocal(ctx, W, H, F, ox, oy);
+  // Air-to-air traffic blips, plotted north-up inside the track-up frame (Phase A).
+  const cellPx = F.mfdMode === 'nav' ? Math.hypot(W, H) / ((F.map?.length || 9)) * 1.1 : Math.min(W, H) / 5;
+  paintMfdContacts(ctx, W, H, F, cellPx);
   ctx.restore();
   // Fixed aircraft marker — always points up (= where you're heading).
   ctx.save(); ctx.translate(W / 2, H / 2);
@@ -1643,6 +1840,34 @@ function paintLocal(ctx, W, H, F, ox, oy) {
   }
 }
 
+// Traffic blips on the track-up MFD: each contact is a red dart pointing along its own
+// heading (relative to ours, since the frame is already track-up rotated), dead-reckoned
+// like the windshield. Off-panel contacts clamp to the edge as a hollow marker. Drawn
+// inside the rotated frame, so north-up tile offsets land track-up automatically.
+function paintMfdContacts(ctx, W, H, F, cell) {
+  const cs = F.contacts; if (!cs || !cs.length) return;
+  const now = performance.now(), lim = Math.min(W, H) * 0.46;
+  for (const c of cs) {
+    const drS = Math.min(CONTACT_DR_MAX, (now - (c.t || now)) / 1000);
+    const spd = (c.ias || 0) * RENDER_TUNE.worldPace, hr = (c.hdg || 0) * Math.PI / 180;
+    const cx = c.x + Math.sin(hr) * spd * drS, cy = c.y - Math.cos(hr) * spd * drS;
+    let px = (cx - F.pos.x) * cell, py = (cy - F.pos.y) * cell;
+    const mag = Math.hypot(px, py); let edge = false;
+    if (mag > lim) { const k = lim / mag; px *= k; py *= k; edge = true; }
+    const des = c.id && c.id === F.designatedId;
+    // Fill the dart in the bogey's livery base (paint identification); a thin red edge +
+    // red designator ring keep hostility legible on the radar.
+    const baseHex = c.livery && /^#[0-9a-fA-F]{6}$/.test(c.livery.base || '') ? c.livery.base : '#c85050';
+    ctx.save(); ctx.translate(W / 2 + px, H / 2 + py);
+    if (des) { ctx.strokeStyle = '#ff5b5b'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, 5.5, 0, 7); ctx.stroke(); }
+    ctx.rotate(hr);   // world heading; the frame's -ownHdg rotation makes it read track-up
+    ctx.globalAlpha = edge ? 0.55 : 1;
+    ctx.fillStyle = baseHex; ctx.strokeStyle = 'rgba(255,91,91,0.85)'; ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(3, 4); ctx.lineTo(0, 2); ctx.lineTo(-3, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+}
+
 function paintNav(ctx, W, H, F, ox, oy) {
   const map = F.map;
   if (!map || !map.length) { ctx.fillStyle = '#456'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('NO MAP', W / 2, H / 2); return; }
@@ -1672,8 +1897,36 @@ export function flightSimContext(msg) {
   if ('cargo' in msg) F.cargoKg = msg.cargo;   // current hold weight (drives the J jettison bind)
   if (msg.sky) F.sky = msg.sky;
   if ('biomeBelow' in msg) F.biomeBelow = msg.biomeBelow;
+  if (typeof msg.hull === 'number') F.hull = msg.hull;   // authoritative hull for the cockpit readout
   F.warn = msg.warn || null;
+  const wasExposed = !!(F.aa && F.aa.exposed);
+  F.aa = msg.aa || null;       // AA engagement-envelope telegraph (drives the windshield threat banner)
+  if (F.aa && F.aa.exposed && !wasExposed) aaWarn();   // RWR "deedle" the instant you enter the envelope
   F.deadStick = F.fuel <= 0;   // dead-stick when dry; clears once refuelled
+}
+
+// Air-to-air hit feedback (Phase B). `taken` → red battle-damage flash + hull update +
+// warning toast; `dealt` → a brief hit confirmation. Purely feedback; the hull/kill
+// consequences are already authoritative on the server.
+export function flightSimAirHit(msg) {
+  const F = _fsim; if (!F || !msg) return;
+  if (msg.role === 'taken') {
+    F.hitFlashT = performance.now();
+    if (typeof msg.hullPct === 'number') F.hull = msg.hullPct;
+    if (F.toast) F.toast(`⚠ TAKING FIRE${msg.by ? ' · ' + msg.by : ''} — HULL ${msg.hullPct}%`);
+    try { csfx('flight-hit', 'hololock-lose'); } catch {}
+  } else if (msg.role === 'dealt') {
+    if (F.toast) F.toast('GUNS · HITS');
+  }
+}
+
+// Air-to-air traffic relay (Phase A: see-only). Each contact carries world position +
+// heading/speed so the frame loop can dead-reckon it smoothly between relays. Stamped
+// with receipt time for the dead-reckon window.
+export function flightSimContacts(msg) {
+  const F = _fsim; if (!F || !msg) return;
+  const now = performance.now();
+  F.contacts = (msg.contacts || []).map(c => ({ ...c, t: now }));
 }
 
 // True while the continuous cockpit owns the area pane — dispatch uses this to stop

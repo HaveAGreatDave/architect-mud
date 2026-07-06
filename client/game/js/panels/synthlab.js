@@ -9,7 +9,7 @@
 // server-side. On finish, opts.onResult({score}) → `synthresolve <recipeId> <score>`.
 
 import { sendCmd } from '../net.js';
-import { clamp, rnd, shade, G, W, H, roundRect, drawBench, drawBeaker, drawBurner, fillLiquid, drawSteam, AX, mountLab } from './lab-kit.js';
+import { clamp, rnd, shade, G, W, H, roundRect, drawBench, drawBeaker, drawBurner, fillLiquid, drawSteam, drawLCD, ghostReflection, AX, mountLab } from './lab-kit.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -54,7 +54,7 @@ export function openCookMenu(msg) {
     </div>`;
   }).join('') || '<div style="padding:22px;text-align:center;color:#6f8a7c">You know no cooks yet.</div>';
   overlay.innerHTML = `<div class="cm-panel">
-    <div class="cm-head"><span>⚗ <b>COOK</b> — pick a batch</span><span class="cm-close" title="close">✕</span></div>
+    <div class="cm-head"><span>⚗ <b>CHIMERA-9</b> · SYNTHESIZER — pick a batch</span><span class="cm-close" title="close">✕</span></div>
     <div class="cm-list">${rows}</div>
     <div class="cm-foot">${msg.hasLab ? 'chem lab detected — full potency.' : 'no chem lab here — a cook kit works at a penalty.'}<br>tier = intensity · harder drugs are pricier and dangerous to botch.</div>
   </div>`;
@@ -158,6 +158,11 @@ function cookLoop(now) {
   update(g, dt);
   G.clearRect(0, 0, W, H); drawBench();
   FAMILIES[g.family].draw(g);
+  if (g.phase !== 'done') {
+    // the face that surfaces in the cook glass, and a CHIMERA-9 status readout
+    ghostReflection(g.beaker.x, g.beaker.y - g.beaker.h * 0.16, 1.1, g.t, 1.1);
+    drawLCD(W - 152, 18, 132, 24, (g._label || 'SYNTH').toUpperCase(), '#5fd0e0', 'CHIMERA-9');
+  }
   if (g.phase === 'quench') drawQuench(g);
   if (g.phase === 'done') drawDone(g);
   g.raf = requestAnimationFrame(cookLoop);

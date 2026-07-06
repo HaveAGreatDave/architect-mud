@@ -1,0 +1,8 @@
+{
+  "name": "drugwar",
+  "version": "1.0.0",
+  "description": "The street-level drug war: a self-running turf tick where the Franchise, the Breakers, and the Glitch push zone_control influence back and forth across the Core, the Marquee, and the Yards on their own — the visible, low-stakes microcosm of the corp territory meta. Writes the shared zone_control substrate; emits drugwar.flip on a seizure. Home for the ambient 'living world' reactions that hang off those flips.",
+  "commands": [],
+  "hooks": [],
+  "events": { "emits": ["drugwar.flip"], "consumes": ["drugwar.flip", "zone.entered", "vendor.purchase", "npc.killed"] }
+}

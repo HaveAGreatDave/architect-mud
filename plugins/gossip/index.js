@@ -35,6 +35,21 @@ const SPREAD_COOLDOWN_MS  = 60_000;   // between a player's own planted rumours
 
 const zn = (id) => getZone(id)?.name || 'somewhere';
 
+// Every DEADBALL team we've seen air a game, and each NPC's favourite among them.
+// The roster self-populates from `sports.game` events (no team list to hardcode),
+// filling toward the full league within a few airings. An NPC's allegiance is a
+// stable hash of its id into the sorted roster — deterministic across restarts,
+// uniform once the roster is full, no schema. Returns null before any game airs.
+const teamRoster = new Set();
+function favTeam(npc) {
+  if (!npc?.id || teamRoster.size === 0) return null;
+  const teams = [...teamRoster].sort();
+  const s = String(npc.id);
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return teams[h % teams.length];
+}
+
 // Player handles are proper nouns that land mid-sentence in rumour templates —
 // capitalize the first letter so "dave" reads as "Dave". Idempotent on names
 // that are already cased; returns falsy input untouched so `pc(x) || 'someone'`
@@ -95,9 +110,16 @@ on('player.death', ({ player, killer }) => {
   });
 });
 
-on('enemy.killed', ({ actor, enemy }) => {
+on('enemy.killed', async ({ actor, enemy }) => {
   if (!actor?.handle || !enemy) return;
   const zoneId = actor.current_zone;
+  // A newbie's very first kill is news — louder, global, and about them by name.
+  if (actor.id && !(await getFlag('player', 'gossip_first_kill', actor))) {
+    await setFlag('player', 'gossip_first_kill', 'true', actor);
+    add('first_blood', { zoneId, subjectName: actor.handle, subjectId: actor.id,
+      vars: { subject: pc(actor.handle), zone: zn(zoneId) } });
+    return;
+  }
   add('kill_enemy', { zoneId, subjectName: actor.handle,
     vars: { killer: pc(actor.handle), victim: enemy.name, zone: zn(zoneId) } });
 });
@@ -135,10 +157,46 @@ on('player.drugUsed', ({ player, illegal, zoneId }) => {
     vars: { suspect: pc(player.handle), label: 'using out in the open', zone: zn(z) } });
 });
 
-on('gossip.pokerWin', ({ player, amount, zoneId }) => {
+on('gossip.pokerWin', async ({ player, amount, zoneId }) => {
   if (!player?.id) return;
+  // First win at the table gets the newcomer named across town.
+  if (!(await getFlag('player', 'gossip_first_pokerwin', player))) {
+    await setFlag('player', 'gossip_first_pokerwin', 'true', player);
+    add('first_score', { zoneId, subjectName: player.handle, subjectId: player.id,
+      vars: { subject: pc(player.handle), amount, zone: zn(zoneId) } });
+    return;
+  }
   add('poker_win', { zoneId, subjectName: player.handle, subjectId: player.id,
     vars: { subject: pc(player.handle), amount, zone: zn(zoneId) } });
+});
+
+// A newbie's FIRST purchase (any price) ripples — even a quiet player gets seen.
+// Everyday big spends stay gated at ≥500c via the separate gossip.bigBuy path.
+on('vendor.purchase', async ({ player, zoneId }) => {
+  if (!player?.id) return;
+  if (await getFlag('player', 'gossip_first_buy', player)) return;
+  await setFlag('player', 'gossip_first_buy', 'true', player);
+  const z = zoneId || player.current_zone;
+  add('first_deal', { zoneId: z, subjectName: player.handle, subjectId: player.id,
+    vars: { subject: pc(player.handle), zone: zn(z) } });
+});
+
+// The turf war made audible — a corner flip (drugwar plugin) becomes street talk,
+// and a dealer whose home corner was taken is whispered to have gone to ground.
+const TURF_DEALER_HOME = {
+  zone_city_west: { dealer: 'Keller', faction: 'faction_franchise' },
+  zone_mq_pigeon_bar: { dealer: 'Marsh', faction: 'faction_breakers' },
+  zone_yard_depot: { dealer: 'Sorel', faction: 'faction_glitch' },
+};
+const TURF_LABEL = { faction_franchise: 'the Franchise', faction_breakers: 'the Breakers', faction_glitch: 'the Glitch' };
+on('drugwar.flip', ({ zoneId, fromOrg, toOrg }) => {
+  add('turf', { zoneId, coalesceKey: `turf|${zoneId}`,
+    vars: { zone: zn(zoneId), from: TURF_LABEL[fromOrg] || 'someone', to: TURF_LABEL[toOrg] || 'someone' } });
+  const home = TURF_DEALER_HOME[zoneId];
+  if (home && home.faction === fromOrg) {
+    add('dealer_missing', { zoneId, coalesceKey: `missing|${home.dealer}`,
+      vars: { dealer: home.dealer, zone: zn(zoneId) } });
+  }
 });
 
 on('gossip.bigBuy', ({ player, itemName, price, zoneId }) => {
@@ -151,6 +209,21 @@ on('gossip.housing', ({ player, zoneId }) => {
   if (!player?.id) return;
   add('housing', { zoneId, subjectName: player.handle, subjectId: player.id,
     vars: { subject: pc(player.handle), zone: zn(zoneId) } });
+});
+
+// A DEADBALL game just aired (broadcast sims one every airing and emits the
+// decided result). Drop the box score into the pool as global, mid-heat sports
+// talk — capped as its own group so a busy schedule can't bury real news. Every
+// game keyed by gameId so a mid-window re-sim (restart) coalesces, not piles.
+// Each team seen feeds the roster that NPC allegiances (favTeam) are drawn from.
+on('sports.game', ({ gameId, away, home, awayScore, homeScore, winner }) => {
+  if (!away || !home || awayScore == null || homeScore == null) return;
+  if (winner !== away && winner !== home) return;
+  teamRoster.add(away); teamRoster.add(home);
+  add('sports_score', {
+    coalesceKey: `sports|${gameId || `${away}|${home}`}`, capGroup: 'sports',
+    vars: { away, home, awayScore, homeScore, winner },
+  });
 });
 
 on('weather.thunder', ({ zoneId }) => {
@@ -172,9 +245,11 @@ function gossipNpcs(zoneId) {
 
 // listener (optional): the player hearing the line. When they ARE the rumour's
 // subject, the NPC turns it on them — second person, to their face.
-function spokenLine(item, listener = null) {
+// speaker (optional): the NPC voicing the line — its favourite team colours
+// sports gossip (gloat / grumble / neutral). Other templates ignore the ctx.
+function spokenLine(item, listener = null, speaker = null) {
   const aboutYou = !!(item.subjectId && listener && listener.id === item.subjectId);
-  let line = renderItem(item, aboutYou);
+  let line = renderItem(item, aboutYou, { fav: favTeam(speaker) });
   if (!line) return null;
   // A poorly-planted (low-truth) rumour is repeated with an audible shrug.
   if (item.planted && item.truth < 0.5) line = `"Somebody's been saying ${stripQuotes(line)}. Could be nothing."`;
@@ -196,7 +271,7 @@ function speakGossip(player, npc, broadcast) {
     broadcast?.(zoneId, shrug, player.id);
     return shrug;
   }
-  const line = spokenLine(item, player);
+  const line = spokenLine(item, player, npc);
   const msg = formatChitchat(npc.name, line);
   broadcast?.(zoneId, msg, player.id);
   const hint = leadHint(item);
@@ -302,7 +377,7 @@ registerAction({
       return { type: 'dialogue_line', text: pickDry() };
     }
     const [item] = pool.recall(actor?.current_zone, { n: 1, distanceFn: hopDistance });
-    const line = item && spokenLine(item, actor);
+    const line = item && spokenLine(item, actor, context?.npc);
     if (!line) return { type: 'dialogue_line', text: `"Quiet, for once. Nothing worth passing on."` };
     if (npcId) tellCooldowns.set(key, now + GOSSIP_TELL_COOLDOWN_MS);
     return { type: 'dialogue_line', text: line };
@@ -360,8 +435,10 @@ function gossipTick() {
     if (!npcs.length) continue;
     const [item] = pool.recall(zoneId, { n: 1, distanceFn: hopDistance, filter: (i) => !i.askOnly });
     if (!item) continue;
-    const line = spokenLine(item);
-    if (line) sendToZone(zoneId, formatChitchat(npcs[Math.floor(Math.random() * npcs.length)].name, line));
+    // Pick the speaker first — their favourite team colours a sports box score.
+    const speaker = npcs[Math.floor(Math.random() * npcs.length)];
+    const line = spokenLine(item, null, speaker);
+    if (line) sendToZone(zoneId, formatChitchat(speaker.name, line));
   }
 }
 

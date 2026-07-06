@@ -187,7 +187,18 @@ async function cmdCorpMap(player) {
     } else {
       control = { org_id: null, status: isClaimableZone(z) ? 'OPEN' : 'SAFE' };
     }
-    tiles.push({ id: z.id, x: z.grid_x, y: z.grid_y, name: z.name, danger: z.danger_rating || 'safe', isCurrent: z.id === player.current_zone, control });
+    // Cardinal exits to neighbours (for the road/avenue network) + artery streets.
+    const exits = {};
+    for (const dir of ['north', 'south', 'east', 'west']) {
+      const e = z.exits?.[dir];
+      const tgt = Array.isArray(e) ? e[0] : e;
+      if (tgt) exits[dir] = tgt;
+    }
+    tiles.push({
+      id: z.id, x: z.grid_x, y: z.grid_y, name: z.name, danger: z.danger_rating || 'safe',
+      isCurrent: z.id === player.current_zone, isStart: z.id === 'zone_city_west',
+      artery: z.flags?.artery || null, exits, control,
+    });
   }
   return {
     type: 'corp_map',
@@ -778,6 +789,34 @@ export const commands = {
 export const specializedActions = [
   { verb: 'use', requiredTag: 'corp_terminal', handler: doUseCorpTerminal },
 ];
+
+// ── Corp recruitment posters ─────────────────────────────────────────────────
+// Furniture flagged `corp_poster` (placed near spawn — see scripts/seed-corp-posters.mjs)
+// carries the eye-catching Franchise-style propaganda in its own description; THIS
+// hook unfurls the actionable pitch beneath it: how to found a corp, the command
+// list, and a clickable link into the console. A few posters (`architect_wink`)
+// carry the fine print that only pays off once you learn what corps really serve.
+// Returns undefined for any other furniture so the posters plugin's own
+// `furniture.describe` still runs (last non-undefined wins).
+export const _corpPosterPitch = (f) => {
+  if (f?.flags?.corp_poster !== true) return undefined;
+  const link = `<span class="action-link" data-action="corp" data-target="help" data-label="all corp commands" title="See every corp command">corp help</span>`;
+  let out =
+    `<span class="text-dim">Along the bottom, where the ink's still glossy, the small type spells out how it's done:</span>\n` +
+    `  <b>STAKE YOUR CLAIM</b> — found your own outfit: <b>corp found &lt;name&gt;</b> <span class="text-dim">(${FOUND_FEE}₵)</span>\n` +
+    `  <b>BRING YOUR PEOPLE</b> — <b>corp invite &lt;who&gt;</b> · <b>corp roster</b>\n` +
+    `  <b>HOLD GROUND</b> — <b>corp claim</b> a zone, <b>corp contest</b> a rival's, <b>corp map</b> to see it all\n` +
+    `  <b>RUN THE BOOK</b> — <b>corp contribute</b> / <b>corp disburse</b> the shared treasury\n` +
+    `<span class="text-dim">Every headquarters gets its own ops terminal — <b>use</b> it, or just type <b>corp</b>, to open the console. (${link})</span>`;
+  if (f.flags?.architect_wink === true) {
+    out += `\n<span class="text-dim">Bottom corner, too small to be meant for you: "OPERATING UNDER LICENSE · NORTHERN ACCESS GRANTED WHERE PRODUCTIVITY IS OBSERVED · —A"</span>`;
+  }
+  return out;
+};
+
+export const hooks = {
+  'furniture.describe': (f) => _corpPosterPitch(f),
+};
 
 // Exported for tests/ops (the verify harness drives it without waiting 24h).
 export { runTerritoryTick };

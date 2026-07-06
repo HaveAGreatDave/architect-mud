@@ -45,8 +45,8 @@ const _cl = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const FE_VOICE = {
   ultralight: { coreB: 38, coreS: 46, wave: 'sawtooth', pulseB: 28, pulseS: 22, pDep: [0.30, 0.35], biteB: 700,  biteS: 300,  biteM: 1.0, subB: 22, subM: 1.0, lpB: 220, lpS: 900,  crk: 1.0,  det: 1.007, mas: 1.0 },
   prop:       { coreB: 32, coreS: 58, wave: 'sawtooth', pulseB: 22, pulseS: 26, pDep: [0.24, 0.30], biteB: 600,  biteS: 340,  biteM: 1.1, subB: 19, subM: 1.3, lpB: 200, lpS: 1000, crk: 1.15, det: 1.008, mas: 1.05 },
-  heavy:      { coreB: 24, coreS: 42, wave: 'sawtooth', pulseB: 34, pulseS: 34, pDep: [0.12, 0.18], biteB: 950,  biteS: 1500, biteM: 1.7, subB: 15, subM: 2.0, lpB: 240, lpS: 1300, crk: 0.5,  det: 1.005, mas: 1.1 },
-  gunship:    { coreB: 50, coreS: 96, wave: 'square',   pulseB: 40, pulseS: 44, pDep: [0.09, 0.16], biteB: 1150, biteS: 1800, biteM: 2.0, subB: 20, subM: 1.2, lpB: 320, lpS: 2000, crk: 0.4,  det: 1.006, mas: 1.0 },
+  heavy:      { coreB: 20, coreS: 50, wave: 'sawtooth', pulseB: 30, pulseS: 30, pDep: [0.09, 0.14], biteB: 1050, biteS: 1700, biteM: 2.2, subB: 12, subM: 2.8, lpB: 260, lpS: 1700, crk: 0.4,  det: 1.005, mas: 1.3 },   // An-124: 4 D-18T turbofans — deep roar, huge lows, big turbine whine
+  gunship:    { coreB: 30, coreS: 70, wave: 'sawtooth', pulseB: 36, pulseS: 40, pDep: [0.10, 0.15], biteB: 900,  biteS: 1400, biteM: 1.4, subB: 14, subM: 2.0, lpB: 300, lpS: 1500, crk: 0.45, det: 1.006, mas: 1.15 },   // A-10: twin TF34 turbofans — deep hum-growl + big lows, not a fighter scream
   wreck:      { coreB: 35, coreS: 40, wave: 'sawtooth', pulseB: 18, pulseS: 16, pDep: [0.34, 0.42], biteB: 540,  biteS: 260,  biteM: 0.9, subB: 23, subM: 1.0, lpB: 175, lpS: 680,  crk: 1.4,  det: 1.016, mas: 0.95 },
 };
 const voiceOf = (cls) => FE_VOICE[cls] || FE_VOICE.prop;
@@ -327,14 +327,14 @@ export function updateEngineAudio(s) {
 // rides on top. Each class gets its own character — jet/turbine whine, turboshaft
 // + rotor chop, a piston crank-and-catch, a two-stroke zip, a wreck's rough light.
 const SPOOL_UP = {
-  // Big turbofan: slow, heavy N2 whine climbing under a bright N1 whine, a low core
-  // rumble, a light-off whoosh partway in, and swelling bypass airflow.
-  heavy:   { duration: 2.8, layers: [
-    { waveform: 'triangle', freq: 38,  pitchBend: { to: 520, time: 2.4 }, filter: { type: 'lowpass', freq: 2600, q: 1.4 }, adsr: { a: 0.25, d: 2.3, s: 0.5, r: 0.4 }, gain: 0.11 },   // N2 spool whine
-    { waveform: 'sine',     freq: 140, pitchBend: { to: 880, time: 2.5 }, filter: { type: 'bandpass', freq: 1600, q: 1.2 }, adsr: { a: 0.5, d: 2.2, s: 0.5, r: 0.4 }, gain: 0.05 },    // N1 fan whine
-    { waveform: 'sawtooth', freq: 28,  pitchBend: { to: 96, time: 2.0 }, filter: { type: 'lowpass', freq: 300, q: 1 }, adsr: { a: 0.3, d: 2.0, s: 0.6, r: 0.4 }, gain: 0.09 },        // core rumble
-    { waveform: 'noise', noiseMix: 1, delay: 0.7, filter: { type: 'bandpass', freq: 700, q: 0.5 }, adsr: { a: 0.12, d: 0.7, s: 0.2, r: 0.4 }, gain: 0.08 },                          // light-off whoosh
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 1400, q: 0.7 }, adsr: { a: 0.9, d: 1.8, s: 0.4, r: 0.4 }, gain: 0.04 } ] },                                   // bypass airflow
+  // Big turbofan (An-124 D-18T): a slow, massive N2 whine climbing under a bright N1
+  // whine, a deep core rumble, a light-off whoosh partway in, and swelling bypass airflow.
+  heavy:   { duration: 3.4, layers: [
+    { waveform: 'triangle', freq: 34,  pitchBend: { to: 520, time: 3.0 }, filter: { type: 'lowpass', freq: 2600, q: 1.4 }, adsr: { a: 0.3, d: 2.9, s: 0.5, r: 0.5 }, gain: 0.12 },    // N2 spool whine
+    { waveform: 'sine',     freq: 130, pitchBend: { to: 900, time: 3.1 }, filter: { type: 'bandpass', freq: 1600, q: 1.2 }, adsr: { a: 0.6, d: 2.8, s: 0.5, r: 0.5 }, gain: 0.06 },    // N1 fan whine
+    { waveform: 'sawtooth', freq: 22,  pitchBend: { to: 92, time: 2.6 }, filter: { type: 'lowpass', freq: 280, q: 1 }, adsr: { a: 0.35, d: 2.6, s: 0.6, r: 0.5 }, gain: 0.13 },       // deep core rumble
+    { waveform: 'noise', noiseMix: 1, delay: 0.9, filter: { type: 'bandpass', freq: 640, q: 0.5 }, adsr: { a: 0.14, d: 0.9, s: 0.2, r: 0.4 }, gain: 0.09 },                          // light-off whoosh
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 1400, q: 0.7 }, adsr: { a: 1.1, d: 2.3, s: 0.45, r: 0.5 }, gain: 0.05 } ] },                                  // bypass airflow
   // Military turboshaft: quicker, harder, higher-pitched, with a bite of grit.
   gunship: { duration: 2.1, layers: [
     { waveform: 'triangle', freq: 60,  pitchBend: { to: 640, time: 1.7 }, filter: { type: 'lowpass', freq: 3000, q: 1.5 }, adsr: { a: 0.12, d: 1.7, s: 0.5, r: 0.3 }, gain: 0.10 },
@@ -455,6 +455,25 @@ const GEAR_FX = {
     { waveform: 'square', freq: 760, fm: { rate: 1690, depth: 240 }, delay: 1.55, filter: { type: 'bandpass', freq: 1600, q: 2.5 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.04 }, gain: 0.05 } ] } },                                                 // uplock clack
 };
 export function gearFx(kind) { const ae = AE(); const d = GEAR_FX[kind] || GEAR_FX.extend; try { ae?.init?.(); ae?.playSfx?.(d); } catch {} }
+
+// The GAU-8 Avenger "BRRRT" — a ~65 rounds/sec cannon burst: a low buzz-saw growl and a
+// deep muzzle sub, both chopped by a fast tremolo (the individual rounds), a high muzzle
+// sizzle on top, and a quick barrel spin-up at the front. Unmistakable, and terrifying.
+const GUN_FX = { config: { duration: 0.9, layers: [
+  { waveform: 'sawtooth', freq: 68, tremolo: { rate: 66, depth: 0.95 }, filter: { type: 'lowpass', freq: 520, q: 1.2 }, adsr: { a: 0.04, d: 0.72, s: 0.7, r: 0.12 }, gain: 0.13 },   // buzz-saw growl (the "BRRRT")
+  { waveform: 'noise', noiseMix: 1, tremolo: { rate: 66, depth: 0.9 }, filter: { type: 'bandpass', freq: 360, q: 0.8 }, adsr: { a: 0.04, d: 0.72, s: 0.7, r: 0.12 }, gain: 0.10 },     // chopped noise = the rounds
+  { waveform: 'sine', freq: 44, tremolo: { rate: 66, depth: 0.5 }, filter: { type: 'lowpass', freq: 120, q: 1 }, adsr: { a: 0.05, d: 0.72, s: 0.7, r: 0.15 }, gain: 0.12 },           // deep muzzle sub / recoil
+  { waveform: 'noise', noiseMix: 1, tremolo: { rate: 66, depth: 0.85 }, filter: { type: 'highpass', freq: 2600, q: 0.7 }, adsr: { a: 0.02, d: 0.6, s: 0.5, r: 0.1 }, gain: 0.035 },    // high muzzle sizzle
+  { waveform: 'sawtooth', freq: 38, pitchBend: { to: 68, time: 0.12 }, filter: { type: 'lowpass', freq: 400, q: 1 }, adsr: { a: 0.02, d: 0.12, s: 0, r: 0.05 }, gain: 0.05 } ] } };   // barrel spin-up
+export function gunFx() { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(GUN_FX); } catch {} }
+
+// AA / radar-warning-receiver tone — the insistent launch-warning "deedle-deedle": a bright
+// square lead chopped by a fast tremolo with a fifth under it, cutting through the engine
+// drone. One-shot, fired the moment you enter a ground-fire envelope.
+const AA_WARN_FX = { config: { duration: 0.85, layers: [
+  { waveform: 'square', freq: 990, tremolo: { rate: 16, depth: 0.9 }, filter: { type: 'bandpass', freq: 1300, q: 3 }, adsr: { a: 0.01, d: 0, s: 1, r: 0.08 }, gain: 0.07 },
+  { waveform: 'sawtooth', freq: 660, tremolo: { rate: 16, depth: 0.85 }, filter: { type: 'bandpass', freq: 1000, q: 3 }, adsr: { a: 0.01, d: 0, s: 1, r: 0.08 }, gain: 0.035 } ] } };
+export function aaWarn() { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(AA_WARN_FX); } catch {} }
 
 // Stall warning horn — a reedy buzzer that pulses on approach and goes continuous in the
 // stall (per the sound doc). `level` 0..1 rides its gain; 0 lets go and stops the loop.
