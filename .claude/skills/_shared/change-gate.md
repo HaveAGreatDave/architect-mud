@@ -42,3 +42,11 @@ so the skills can't drift apart. Basis: [engine-plugin-boundary.md](../../../doc
 silently disagreeing on a field). Cheap to prevent, expensive to find. When the request spans layers
 (a plugin that needs a new substrate), split it: do the `engine-change` for the substrate first, then the
 `plugin-builder` for the system on top.
+
+## The exit gate
+
+This gate decides *what to build*; it has a counterpart that decides *whether it's safe to ship*. Any route
+that produces **content or a schema change** ends by shipping it through the [`codex` skill](../codex/SKILL.md) —
+export to files, review the diff for runtime residue, classify any new table in the content registry, lint,
+regress, commit. Content sitting in a local DB is invisible to the team and lost on the next rebuild until
+CODEX ships it. Don't call a content task done without it.

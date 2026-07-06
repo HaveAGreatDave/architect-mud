@@ -36,6 +36,16 @@ You are the content designer for Architect MUD. Your job: turn a rough idea into
 
 6. **Validate.** Check the response is ok, then fetch the entity back and confirm it's whole. For zones, run the world validator route. Report exactly what was created, with IDs.
 
+7. **Ship it through CODEX.** Injecting via the API writes your **local DB only** — the content is invisible to the team and lost on the next rebuild until it's exported to files and committed. Content now lives in git as one JSON file per entity (`content/<table>/<pk>.json`); the DB is a build artifact. **Invoke the [`codex` skill](../codex/SKILL.md)** to run the exit gate: `content:export` → review the diff (discard runtime residue) → `content:lint` → `npm run test:regress` → commit. A design task is not done until CODEX ships it. See "What not to serialize" below for the one thing you must get right, and [docs/content-pipeline.md](../../../docs/content-pipeline.md) for the full model.
+
+### What not to serialize (read before you ship a new content *type*)
+
+The pipeline exports content rows to files and imports them into every DB, including prod. For the entity **types you already work with** (npcs, items, zones, furniture, doors, generators…) the [content registry](../../../server/models/content-registry.js) already knows which columns are runtime-mutated and omits them — you don't hand-manage this. Your two responsibilities:
+
+1. **Review the export diff for runtime *rows*** (the `codex` skill walks this). The registry excludes runtime *columns* of existing rows, but whole rows the running game created — furniture you bought while testing, `gen_*`/junction-box rows the power sim built, recorded tapes, cut keycards — surface as new files. Discard them; commit only what you authored.
+
+2. **If you introduce a NEW content type** (a new table — you're really doing `plugin-builder`/`engine-change` too), classify it in the registry and flag its runtime-mutated columns as `excludeColumns`. **The rule:** exclude a column only if a fresh production DB would be *correct* with it blank (the engine recomputes/clears/rebuilds it) — e.g. a live `current_charge`, a `last_fired` timestamp, a recomputed load. **Do NOT exclude a column that carries authored initial state**, even if gameplay also mutates it: `doors.lock_state` looks like runtime state but its authored value is what ships a vault *locked* — excluding it unlocks every authored door on a fresh world. Same trap as `generators.fuel_remaining` (default 0) and `furniture.hp`. When unsure, **keep it content** (over-exclusion is silent data loss; over-inclusion is only reviewable diff noise). The `codex` skill and the registry header state this rule in full.
+
 ## Dependency checklists (production-ready means ALL of these)
 
 **NPC:**
