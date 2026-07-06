@@ -145,11 +145,20 @@ export const specializedActions = [
 ];
 
 // ── Chargen alignment: the attendant "predicts" your answer ───────────────────
+// A single "Apply Changes" click can fire several morphex sub-commands back to
+// back (one per changed attribute), each emitting appearance.changed. emit()
+// doesn't await its subscribers, so without a guard all of them can race past
+// the `isSet` check before the first one's flag write commits — five identical
+// alignment lines. actor._prologueAligning claims the moment SYNCHRONOUSLY
+// (before any await), so whichever invocation runs first wins and every other
+// invocation from the same burst short-circuits immediately.
 on('appearance.changed', async ({ actor }) => {
   if (!actor || actor.current_zone !== Z_INBETWEEN) return;
+  if (actor._prologueAligning) return;
+  actor._prologueAligning = true;
   if (await isSet(actor, F_ALIGNED)) return;
   await raise(actor, F_ALIGNED);
-  out(actor, `The attendant studies the new shape of you for a long, unhurried moment. "Yes," it says. "This is exactly how I predicted you would answer. You are in alignment." It sounds pleased. The certainty of it crawls up the back of your neck. <span class="hint">(the way north is open)</span>`);
+  out(actor, `The attendant studies the new shape of you for a long, unhurried moment. "Yes," it says. "This is exactly how I predicted you would answer. You are in alignment." It sounds pleased. The certainty of it crawls up the back of your neck. It adds, almost as an afterthought: "If that shape isn't the whole of you, there is a word for the rest. Type .describe and whatever you write, others will see when they look at you." <span class="hint">(the way north is open)</span>`);
 });
 
 // ── The Broadcast: sitting plays the welcome, once ────────────────────────────

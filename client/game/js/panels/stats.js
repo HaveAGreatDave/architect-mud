@@ -64,9 +64,13 @@ export function renderStatsPanel(s) {
     const block = document.createElement('div');
     block.className = 'stats-stat-block';
     block.dataset.lrKey = stat.key;
+    // A never-raised stat (0 — see raiseStat: current = p[col] || 0) reads as
+    // blank rather than a literal "0", so a freshly-made character's sheet
+    // doesn't show six zeroes before they've grown into anything.
+    const statVal = s[stat.key] ? s[stat.key] : '—';
     const row = document.createElement('div');
     row.className = 'stats-row';
-    row.innerHTML = `<span class="stats-label">${stat.label}</span><span class="stats-val">${s[stat.key]}</span>`;
+    row.innerHTML = `<span class="stats-label">${stat.label}</span><span class="stats-val">${statVal}</span>`;
     const btn = document.createElement('button');
     btn.className = 'stats-raise-btn';
     btn.textContent = '+';
