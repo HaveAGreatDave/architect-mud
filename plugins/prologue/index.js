@@ -83,15 +83,15 @@ async function prologueMoveGate({ player, to }) {
   if (!to || !PROLOGUE_ZONES.has(to.id)) return undefined;
 
   if (to.id === Z_SYNAPSE && !(await isSet(player, F_ALIGNED))) {
-    return { block: true, message: `The way north will not open. The attendant does not move. "First, be certain of your shape," it says. "Use the terminal. Tell it what you are." <span class="hint">(try: use terminal)</span>` };
+    return { block: true, message: `The way north will not open. The attendant does not move. "First, be certain of your shape," it says. "Use the terminal. Tell it what you are." (try: use terminal)` };
   }
   if (to.id === Z_BROADCAST && !(await isSet(player, F_BROADCAST))) {
-    return { block: true, message: `There is no door here yet — only lattice, waiting for you to make one. <span class="hint">(the X-90 in your inventory is meant to be used: try 'use holocaster')</span>` };
+    return { block: true, message: `There is no door here yet — only lattice, waiting for you to make one. (the X-90 in your inventory is meant to be used: try 'use holocaster')` };
   }
   if (to.id === Z_COLLAPSE && !(await isSet(player, F_COLLAPSE))) {
     return { block: true, message: (await isSet(player, F_PLAYED))
       ? `Not yet. The broadcast has not finished with you.`
-      : `You cannot leave. The chair is the only way onward, and it is still waiting. <span class="hint">(try: sit)</span>` };
+      : `You cannot leave. The chair is the only way onward, and it is still waiting. (try: sit)` };
   }
   return undefined;
 }
