@@ -4,9 +4,9 @@
  * New souls spawn into The Inbetween (see server/api/routes.js apiRegister) and
  * walk a one-way corridor of scripted rooms that (1) run chargen through the
  * existing (free) MORPHEX terminal, (2) at the holosign grant a permanent +1 to
- * every attribute — off the XP books — plus the X-90 holocaster, and (3) close
- * with an eerie broadcast before collapsing them into the Coldwater clone vat
- * (zone_start), which is their respawn point forever after.
+ * every attribute — off the XP books — plus a primer tablet and the X-90
+ * holocaster, and (3) close with an eerie broadcast before collapsing them into
+ * the Coldwater clone vat (zone_start), their respawn point forever after.
  *
  * Everything here is content-driven and self-contained:
  *   - move gates hard-gate the three narrative doors (alignment, the holocaster,
@@ -14,8 +14,8 @@
  *   - the lightless void-rooms are seen ("there is no light, but you can see")
  *     via the engine's zones.flags.always_lit property — no lighting content;
  *   - `use holosign` grants +1 to every stat (via gifted_stat_points, so it costs
- *     no XP) + the X-90 holocaster; `use holocaster` opens the broadcast door and
- *     is consumed; sitting in The Broadcast plays the welcome and drops the kit.
+ *     no XP) + the primer tablet + the X-90 holocaster; `use holocaster` opens the
+ *     broadcast door and is consumed; sitting in The Broadcast drops the kit.
  *
  * No engine files are imported in reverse; the only engine touch-points are the
  * generic seams (move gates, events, flags, specialized `use`, the no_attack NPC
@@ -38,6 +38,7 @@ const Z_COLLAPSE  = 'zone_the_collapse';
 const Z_CLONEVAT  = 'zone_start';
 const PROLOGUE_ZONES = new Set([Z_INBETWEEN, Z_LATTICE, Z_BROADCAST, Z_COLLAPSE]);
 
+const ITEM_TABLET     = 'item_prologue_tablet';
 const ITEM_HOLOCASTER = 'item_x90_holocaster';
 
 // The Broadcast-room starter kit — the ONLY starting gear (registration hands out
@@ -123,19 +124,25 @@ registerMoveGate(prologueMoveGate, 'prologue');
 // ── Specialized `use` handlers (self-gating; return undefined to fall through) ─
 async function useHolosign(args, raw, player) {
   const target = args.join(' ').toLowerCase();
-  if (!target.includes('holosign') && !target.includes('holo sign') && !target.includes('sign')) return undefined;
+  // Match the holosign — including a bare "holo" — but NOT the similarly-named
+  // holocaster (its own handler owns those terms, and "holocaster" contains "holo").
+  const holocasterTerm = target.includes('holocaster') || target.includes('caster') || target.includes('x-90') || target.includes('x90') || target.includes('sequence');
+  const holosignTerm = !holocasterTerm && (target.includes('holosign') || target.includes('holo') || target.includes('sign'));
+  if (!holosignTerm) return undefined;
   if (player.current_zone !== Z_LATTICE) return undefined;
 
   if (await isSet(player, F_INTERFACED)) {
-    return { type: 'emote', message: `You reach into the holosign again. It has already given you what it had to give — strength, and a way onward. The rest you take out there.` };
+    return { type: 'emote', message: `You reach into the holosign again. It has already given you what it had to give — strength, a tablet, and a way onward. The rest you take out there.` };
   }
 
   await raise(player, F_INTERFACED);
   await grantAllStatsPlusOne(player);
+  await grantItem(player, ITEM_TABLET);
   await grantItem(player, ITEM_HOLOCASTER);
 
   out(player, `<span class="ip-gain">The lattice pours into you and leaves you more than it found you. +1 to every attribute — brawn, reflexes, endurance, brains, cool, senses.</span>`);
-  out(player, `Something settles into your inventory: an <b>X-90 Sequence Holocaster</b>. <span class="hint">(open your inventory with 'i', then: use holocaster)</span>`);
+  out(player, `A warm glass tablet resolves in your hands, dense with text about what you are made of and how you grow. <span class="hint">(examine tablet to read it)</span>`);
+  out(player, `Something else settles into your inventory: an <span class="action-link" data-action="use" data-target="X-90 Sequence Holocaster" title="Use the X-90 Sequence Holocaster"><b>X-90 Sequence Holocaster</b></span>. <span class="hint">(open your inventory with 'i', then use it)</span>`);
 
   return { type: 'emote', message: `You reach into the holosign and, impossibly, the lattice reaches back. For one bright second you are touching the thoughts of the thing that made you — and it does not leave you as it found you. Every sinew, every nerve, every thought sits a fraction sharper than before.` };
 }
@@ -213,7 +220,7 @@ function playBroadcast(player) {
     `<span class="broadcast-line">The screen holds on that a beat too long. Then it goes dark, and takes the wall with it.</span>`,
   ];
   let t = 1200;
-  const step = 3200;
+  const step = 6400; // per-line interval; halved playback speed (was 3200)
   for (const line of lines) {
     setTimeout(() => out(player, line), t);
     t += step;
@@ -245,7 +252,7 @@ export const _test = {
   prologueMoveGate, useHolosign, useHolocaster,
   grantAllStatsPlusOne, isSet, raise,
   Z_INBETWEEN, Z_LATTICE, Z_BROADCAST, Z_COLLAPSE,
-  ITEM_HOLOCASTER,
+  ITEM_HOLOCASTER, ITEM_TABLET,
   F_ALIGNED, F_INTERFACED, F_BROADCAST, F_COLLAPSE, F_PLAYED,
 };
 

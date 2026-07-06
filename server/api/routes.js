@@ -421,9 +421,10 @@ export async function handleApiRequest(url, method, body, headers) {
 async function apiRegister(body) {
   const {username,password,handle,email} = body||{};
   if (!username||!password||!handle||!email) return {status:400,body:{error:'username, password, handle, email required'}};
-  // biological_sex & sexuality are chosen later in the chargen section; use safe
-  // placeholders here so the starting appearance/kit still generate. Chargen finalizes them.
-  const biological_sex = 'male';
+  // Starting appearance is fully randomized here (sex included) so the chargen
+  // terminal opens on a random look the player then reshapes — nothing is a fixed
+  // default. Sex and the rest are all finalized at the MORPHEX terminal.
+  const biological_sex = Math.random() < 0.5 ? 'male' : 'female';
   try {
     const id = randomUUID();
     await ensureTunables();

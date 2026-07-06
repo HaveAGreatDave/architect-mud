@@ -1,0 +1,20 @@
+{
+  "description": "A thin slate of black glass, still faintly warm from the lattice. Text crawls across it in a hand you somehow recognize as your own:\n\n— YOU ARE MADE OF NUMBERS NOW —\nSix STATS shape the clay of you: Brawn, Reflexes, Endurance, Brains, Cool, Senses. The lattice just lifted every one of them by a point, free of charge. The rest you buy with XP — spend it with RAISE.\nSKILLS are what you practice. They climb by USE — every attempt, win or lose, teaches the hand. A hundred points of practice is one level.\nThe more you do a thing, the better you become at it. There is no ceiling the world will hand you. There is only what you take.\nYOU MUST GROW.\nIt does not say why.",
+  "effects": {},
+  "flags": {},
+  "id": "item_prologue_tablet",
+  "is_quest_item": 1,
+  "is_stackable": 0,
+  "is_unique": 1,
+  "name": "warm glass tablet",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "description": "A thin slate of black glass that told you what you are made of, and that you must grow. It did not say why.",
+    "prologue_tablet": true
+  },
+  "type": "misc",
+  "value": 0,
+  "weight": 200
+}

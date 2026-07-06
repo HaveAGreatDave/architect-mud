@@ -44,8 +44,10 @@ export default async function regress({ check }) {
   // ── The gift beat: +1 to every stat (free of XP) + the holocaster ──────────
   const netBefore = await getNetXp(p.id);
   const lp = { ...p, current_zone: Z_LATTICE };
-  const interfaced = await useHolosign(['holosign'], 'use holosign', lp);
-  check('use holosign returns an emote', interfaced?.type === 'emote', interfaced?.type);
+  // Drive it with the bare "holo" to prove that abbreviation matches the holosign
+  // (and is not swallowed by the holocaster's handler).
+  const interfaced = await useHolosign(['holo'], 'use holo', lp);
+  check('use holo (abbrev) matches the holosign', interfaced?.type === 'emote', interfaced?.type);
 
   const g = await query(
     'SELECT stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool, stat_senses, gifted_stat_points FROM players WHERE id=$1',
@@ -61,7 +63,7 @@ export default async function regress({ check }) {
 
   const inv = await query('SELECT item_id FROM player_inventory WHERE player_id=$1', [p.id]);
   check('holocaster granted', inv.rows.some(r => r.item_id === ITEM_HOLOCASTER));
-  check('no tablet granted (removed)', !inv.rows.some(r => r.item_id === 'item_prologue_tablet'));
+  check('tablet granted', inv.rows.some(r => r.item_id === 'item_prologue_tablet'));
 
   // Second touch is inert — no double gift.
   const again = await useHolosign(['holosign'], 'use holosign', lp);
