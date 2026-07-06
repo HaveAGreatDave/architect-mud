@@ -84,6 +84,9 @@ function buildPanelData(player, toast = null) {
 }
 
 function chargeCheck(player) {
+  // A chargen terminal (the prologue's) never charges: the player is being made,
+  // has no credits, and this shouldn't burn their real first-free change either.
+  if (player._morphexChargen) return { ok: true, cost: 0 };
   if (!player.appearance_free_used) return { ok: true, cost: 0 };
   const cost = 10;
   if ((player.credits || 0) < cost) return { ok: false, cost };
@@ -91,9 +94,13 @@ function chargeCheck(player) {
 }
 
 async function applyCharge(player, cost) {
-  player.appearance_free_used = 1;
+  // In chargen mode, don't consume the one-time free change — that belongs to a
+  // real terminal later — but still emit so the prologue's alignment gate fires.
+  if (!player._morphexChargen) {
+    player.appearance_free_used = 1;
+    await query('UPDATE players SET appearance_free_used=1 WHERE id=$1', [player.id]);
+  }
   if (cost > 0) await adjustCredits(player, -cost);
-  await query('UPDATE players SET appearance_free_used=1 WHERE id=$1', [player.id]);
   // Past-tense notification: the player reshaped themselves. The prologue listens
   // to gate chargen; harmless elsewhere.
   emit('appearance.changed', { actor: player });
@@ -217,13 +224,13 @@ async function cmdMorphex(args, raw, player) {
     if (isNaN(targetCm) || targetCm < 5 || targetCm > 30) return buildPanelData(player, 'Enter a target length in cm (5–30).');
     const appData = player.appearance_data || {};
     const delta = Math.abs(targetCm - (appData.penis_length_cm || 12));
-    const totalCost = Math.max(5, delta * 5);
+    const totalCost = player._morphexChargen ? 0 : Math.max(5, delta * 5);
     if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/cm — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
     appData.penis_length_cm = targetCm;
     player.appearance_data = appData;
-    await adjustCredits(player, -totalCost);
+    if (totalCost > 0) await adjustCredits(player, -totalCost);
     await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(appData), player.id]);
-    return buildPanelData(player, `Adjusted. (-${totalCost}₵)`);
+    return buildPanelData(player, totalCost ? `Adjusted. (-${totalCost}₵)` : 'Adjusted. (free)');
   }
 
   // testicle size — MIS only
@@ -266,13 +273,13 @@ async function cmdMorphex(args, raw, player) {
     if (BREAST_MAP[targetSize] === undefined) return buildPanelData(player, `Valid sizes: ${BREAST_SIZES.join(', ')}`);
     const appData = player.appearance_data || {};
     const delta = Math.abs(BREAST_MAP[targetSize] - (BREAST_MAP[appData.breast_size || 'medium'] ?? 2));
-    const totalCost = Math.max(5, delta * 5);
+    const totalCost = player._morphexChargen ? 0 : Math.max(5, delta * 5);
     if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/tier — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
     appData.breast_size = targetSize;
     player.appearance_data = appData;
-    await adjustCredits(player, -totalCost);
+    if (totalCost > 0) await adjustCredits(player, -totalCost);
     await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(appData), player.id]);
-    return buildPanelData(player, `Adjusted. (-${totalCost}₵)`);
+    return buildPanelData(player, totalCost ? `Adjusted. (-${totalCost}₵)` : 'Adjusted. (free)');
   }
 
   // sexuality — MIS only

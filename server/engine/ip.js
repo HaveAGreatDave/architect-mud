@@ -71,6 +71,12 @@ export function statSpent(p) {
     const cur = p[`stat_${stat}`] || 0;
     for (let v = 0; v < cur; v++) total += statCost(v);
   }
+  // Gifted stat points (the prologue's free +1-to-all) raise the floor WITHOUT
+  // spending XP — refund their cost so they touch neither Net nor Total XP. By
+  // convention the free points are the cheapest levels (statCost(0) each), so on
+  // the flat curve this exactly cancels the +1s the gift added to the columns.
+  const gifted = Number(p.gifted_stat_points) || 0;
+  if (gifted > 0) total = Math.max(0, total - gifted * statCost(0));
   return total;
 }
 
@@ -93,6 +99,7 @@ export async function getNetXp(playerId) {
   await ensureTunables();
   const { rows } = await query(
     `SELECT stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool, stat_senses,
+            COALESCE(gifted_stat_points, 0) AS gifted_stat_points,
             COALESCE(bonus_xp, 0) AS bonus_xp,
             COALESCE((SELECT SUM(ip) FROM player_skills WHERE player_id=$1), 0) AS skill_ip
      FROM players WHERE id=$1`,
@@ -129,6 +136,7 @@ export async function raiseStat(playerId, statName) {
   const col = `stat_${statName}`;
   const { rows } = await query(
     `SELECT stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool, stat_senses,
+            COALESCE(gifted_stat_points, 0) AS gifted_stat_points,
             COALESCE(bonus_xp, 0) AS bonus_xp,
             COALESCE((SELECT SUM(ip) FROM player_skills WHERE player_id=$1), 0) AS skill_ip
      FROM players WHERE id=$1`,

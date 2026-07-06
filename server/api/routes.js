@@ -1852,7 +1852,7 @@ async function apiGetPlayers() {
 
 async function apiGetPlayerProgression(id) {
   await ensureTunables();
-  const {rows}=await query('SELECT id,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,stat_senses,COALESCE(bonus_xp,0) AS bonus_xp FROM players WHERE id=$1',[id]);
+  const {rows}=await query('SELECT id,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,stat_senses,COALESCE(gifted_stat_points,0) AS gifted_stat_points,COALESCE(bonus_xp,0) AS bonus_xp FROM players WHERE id=$1',[id]);
   if (!rows.length) return {status:404,body:{error:'Player not found'}};
   const p = rows[0];
   const {rows:skillRows}=await query('SELECT skill_id,ip FROM player_skills WHERE player_id=$1 ORDER BY ip DESC',[id]);

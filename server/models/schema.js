@@ -513,6 +513,9 @@ export const SCHEMA_SQL = `
   ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_brains INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_cool INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_senses INTEGER DEFAULT 0;
+  -- Free stat points gifted outside the XP economy (e.g. the prologue's +1-to-all).
+  -- statSpent() refunds their cost so they touch neither Net nor Total XP.
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS gifted_stat_points INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS bonus_xp INTEGER DEFAULT 0;
   ALTER TABLE player_skills ADD COLUMN IF NOT EXISTS trained REAL DEFAULT 0;
   ALTER TABLE player_corpses ADD COLUMN IF NOT EXISTS capacity INTEGER;

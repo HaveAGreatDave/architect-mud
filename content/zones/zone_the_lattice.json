@@ -11,7 +11,7 @@
   "color": null,
   "created_by": null,
   "danger_rating": "safe",
-  "description": "The wires resolve here into a lattice — a vast blue framework receding in every direction, humming with orderly intent. At its center floats a holosign, a slab of soft light turning slowly on nothing. You have never seen a holosign. You know, without being told, exactly how to read it. That should frighten you more than it does. The lattice seems to be waiting to see what you'll do with the knowing.",
+  "description": "A vast blue lattice recedes in every direction here, a framework of light humming with orderly intent. At its center floats a holosign, a slab of soft light turning slowly on nothing. You have never seen a holosign. You know, without being told, exactly how to read it. That should frighten you more than it does. The lattice seems to be waiting to see what you'll do with the knowing.",
   "exits": {
     "north": "zone_the_broadcast"
   },

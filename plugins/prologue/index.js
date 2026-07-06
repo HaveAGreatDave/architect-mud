@@ -3,8 +3,8 @@
  *
  * New souls spawn into The Inbetween (see server/api/routes.js apiRegister) and
  * walk a one-way corridor of scripted rooms that (1) run chargen through the
- * existing MORPHEX terminal, (2) teach commands/hotlinks + the skill/IP loop via
- * the holosign and the player's first point of Architect Interface, and (3) close
+ * existing (free) MORPHEX terminal, (2) at the holosign grant a permanent +1 to
+ * every attribute — off the XP books — plus the X-90 holocaster, and (3) close
  * with an eerie broadcast before collapsing them into the Coldwater clone vat
  * (zone_start), which is their respawn point forever after.
  *
@@ -13,9 +13,9 @@
  *     the finished broadcast);
  *   - the lightless void-rooms are seen ("there is no light, but you can see")
  *     via the engine's zones.flags.always_lit property — no lighting content;
- *   - `use holosign` grants the first Architect Interface IP + the tablet + the
- *     X-90 holocaster; `use holocaster` opens the broadcast door and is consumed;
- *   - sitting in The Broadcast plays the welcome script and drops the starter kit.
+ *   - `use holosign` grants +1 to every stat (via gifted_stat_points, so it costs
+ *     no XP) + the X-90 holocaster; `use holocaster` opens the broadcast door and
+ *     is consumed; sitting in The Broadcast plays the welcome and drops the kit.
  *
  * No engine files are imported in reverse; the only engine touch-points are the
  * generic seams (move gates, events, flags, specialized `use`, the no_attack NPC
@@ -27,17 +27,29 @@ import { on } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
+import { maxHpForEndurance } from '../../server/engine/ip.js';
+import { getZone, getMinimapData } from '../../server/engine/world.js';
+import { describeZone } from '../../server/engine/commands/describe.js';
 
 const Z_INBETWEEN = 'zone_the_inbetween';
-const Z_SYNAPSE   = 'zone_the_synapse';
 const Z_LATTICE   = 'zone_the_lattice';
 const Z_BROADCAST = 'zone_the_broadcast';
 const Z_COLLAPSE  = 'zone_the_collapse';
 const Z_CLONEVAT  = 'zone_start';
-const PROLOGUE_ZONES = new Set([Z_INBETWEEN, Z_SYNAPSE, Z_LATTICE, Z_BROADCAST, Z_COLLAPSE]);
+const PROLOGUE_ZONES = new Set([Z_INBETWEEN, Z_LATTICE, Z_BROADCAST, Z_COLLAPSE]);
 
-const ITEM_TABLET     = 'item_prologue_tablet';
 const ITEM_HOLOCASTER = 'item_x90_holocaster';
+
+// The Broadcast-room starter kit — the ONLY starting gear (registration hands out
+// nothing). Order = drop order. Names must match the items rows so the take-links
+// and the look refresh resolve.
+const KIT = [
+  { id: 'item_bat',             name: 'aluminum bat',      qty: 1 },
+  { id: 'item_football_helmet', name: 'football helmet',   qty: 1 },
+  { id: 'item_credit_chip_100', name: 'credit chip (100₵)', qty: 1 },
+  { id: 'item_ration',          name: 'vacuum ration',     qty: 5 },
+  { id: 'canteen',              name: 'canteen',           qty: 1 },
+];
 
 // Flags (player scope, string values via the flag store).
 const F_ALIGNED     = 'prologue_aligned';        // chargen applied at the terminal
@@ -57,23 +69,31 @@ async function grantItem(player, itemId, quantity = 1, owner = player.id) {
   );
 }
 
-// One guaranteed point of Architect Interface — the tutorial's demonstration of
-// the skill/IP loop. Mirrors ip.js's insert-or-increment (no probabilistic roll).
-async function grantFirstArchitectIp(player) {
-  // Guard the FK the way ip.js does: a transient/corpse actor (or the regress
-  // harness's in-memory player) has no players row, and the skill insert would
-  // violate player_skills_player_id_fkey. Real players always exist here.
-  const { rows: exists } = await query('SELECT 1 FROM players WHERE id=$1', [player.id]);
-  if (!exists.length) return;
-  const { rows } = await query(
-    'SELECT ip FROM player_skills WHERE player_id=$1 AND skill_id=$2',
-    [player.id, 'architect_interface']
-  );
-  if (!rows.length) {
-    await query('INSERT INTO player_skills (player_id, skill_id, ip) VALUES ($1,$2,1)', [player.id, 'architect_interface']);
-  } else {
-    await query('UPDATE player_skills SET ip = ip + 1 WHERE player_id=$1 AND skill_id=$2', [player.id, 'architect_interface']);
+// The holosign's gift: a permanent +1 to every attribute, FREE of the XP economy.
+// The +1s land on the stat columns (so combat/skills/carry all see them), and
+// gifted_stat_points records them so statSpent() refunds their cost — the boost
+// touches neither Net nor Total XP. Endurance +1 also lifts the HP cap by 2.
+async function grantAllStatsPlusOne(player) {
+  // Guard the players-row FK / the regress harness's in-memory player.
+  const { rows } = await query('SELECT stat_endurance, hp FROM players WHERE id=$1', [player.id]);
+  if (!rows.length) return;
+  await query(`UPDATE players SET
+      stat_brawn = stat_brawn + 1, stat_reflexes = stat_reflexes + 1,
+      stat_endurance = stat_endurance + 1, stat_brains = stat_brains + 1,
+      stat_cool = stat_cool + 1, stat_senses = stat_senses + 1,
+      gifted_stat_points = COALESCE(gifted_stat_points, 0) + 6
+    WHERE id = $1`, [player.id]);
+  const newHpMax = maxHpForEndurance((Number(rows[0].stat_endurance) || 0) + 1);
+  await query('UPDATE players SET hp_max = $1, hp = LEAST(COALESCE(hp, 0) + 2, $1) WHERE id = $2', [newHpMax, player.id]);
+  // Mirror onto the live player so combat/skills read the boost immediately, and
+  // push the HP cap change to the HUD.
+  for (const s of ['brawn', 'reflexes', 'endurance', 'brains', 'cool', 'senses']) {
+    player[`stat_${s}`] = (Number(player[`stat_${s}`]) || 0) + 1;
   }
+  player.gifted_stat_points = (Number(player.gifted_stat_points) || 0) + 6;
+  player.hp_max = newHpMax;
+  player.hp = Math.min((Number(player.hp) || newHpMax) + 2, newHpMax);
+  sendToPlayer(player.id, { type: 'player_update', hp: player.hp, hp_max: player.hp_max });
 }
 
 // ── Move gates: the three narrative doors ────────────────────────────────────
@@ -82,7 +102,7 @@ async function grantFirstArchitectIp(player) {
 async function prologueMoveGate({ player, to }) {
   if (!to || !PROLOGUE_ZONES.has(to.id)) return undefined;
 
-  if (to.id === Z_SYNAPSE && !(await isSet(player, F_ALIGNED))) {
+  if (to.id === Z_LATTICE && !(await isSet(player, F_ALIGNED))) {
     return { block: true, message: `The way north will not open. The attendant does not move. "First, be certain of your shape," it says. "Use the terminal. Tell it what you are." (try: use terminal)` };
   }
   if (to.id === Z_BROADCAST && !(await isSet(player, F_BROADCAST))) {
@@ -107,19 +127,17 @@ async function useHolosign(args, raw, player) {
   if (player.current_zone !== Z_LATTICE) return undefined;
 
   if (await isSet(player, F_INTERFACED)) {
-    return { type: 'emote', message: `You reach into the holosign again. It has already given you what it had to give — a first taste of practice, and a tool. The rest you take out there.` };
+    return { type: 'emote', message: `You reach into the holosign again. It has already given you what it had to give — strength, and a way onward. The rest you take out there.` };
   }
 
   await raise(player, F_INTERFACED);
-  await grantFirstArchitectIp(player);
-  await grantItem(player, ITEM_TABLET);
+  await grantAllStatsPlusOne(player);
   await grantItem(player, ITEM_HOLOCASTER);
 
-  out(player, `<span class="ip-gain">+1 IP — Architect Interface</span>`);
-  out(player, `A warm glass tablet resolves in your hands. It reads: you are made of six stats and the skills you practice; skills climb by USE; <b>you must grow</b>. It does not say why. <span class="hint">(examine tablet to read it again)</span>`);
-  out(player, `Something else settles into your inventory: an <b>X-90 Sequence Holocaster</b>. <span class="hint">(open your inventory with 'i', then: use holocaster)</span>`);
+  out(player, `<span class="ip-gain">The lattice pours into you and leaves you more than it found you. +1 to every attribute — brawn, reflexes, endurance, brains, cool, senses.</span>`);
+  out(player, `Something settles into your inventory: an <b>X-90 Sequence Holocaster</b>. <span class="hint">(open your inventory with 'i', then: use holocaster)</span>`);
 
-  return { type: 'emote', message: `You reach into the holosign and, impossibly, the lattice reaches back. For one bright second you are touching the thoughts of the thing that made you — and something in you learns the shape of learning itself.` };
+  return { type: 'emote', message: `You reach into the holosign and, impossibly, the lattice reaches back. For one bright second you are touching the thoughts of the thing that made you — and it does not leave you as it found you. Every sinew, every nerve, every thought sits a fraction sharper than before.` };
 }
 
 async function useHolocaster(args, raw, player) {
@@ -204,13 +222,18 @@ function playBroadcast(player) {
   setTimeout(async () => {
     try {
       const ground = `_ground_${Z_BROADCAST}`;
-      await grantItem(player, 'item_bat', 1, ground);
-      await grantItem(player, 'item_football_helmet', 1, ground);
-      await grantItem(player, 'item_credit_chip_100', 1, ground);
-      await grantItem(player, 'item_ration', 5, ground);
-      await grantItem(player, 'canteen', 1, ground);
+      for (const { id, qty } of KIT) await grantItem(player, id, qty, ground);
       await raise(player, F_COLLAPSE);
-      out(player, `<span class="ambient">Objects thud onto the invisible floor in front of you, one after another, as if the dark is emptying its pockets: a bat, a helmet, a credit chip, rations, a canteen.</span> <span class="hint">(take them or leave them — then go north to the collapse)</span>`);
+      // Highlight each dropped item as a clickable take-link (same convention as
+      // the room's "Lying here:" list), then refresh the room so the ground items
+      // are actually visible without the player having to look again.
+      const mentions = KIT.map(({ name, qty }) => {
+        const label = qty > 1 ? `${qty}x ${name}` : name;
+        return `<span class="action-link room-item" data-action="take" data-target="${name}" title="Take ${name}">${label}</span>`;
+      }).join(', ');
+      out(player, `<span class="ambient">Objects thud onto the invisible floor in front of you, one after another, as if the dark is emptying its pockets:</span> ${mentions}. <span class="hint">(take them or leave them — then go north to the collapse)</span>`);
+      const zone = getZone(Z_BROADCAST);
+      if (zone) sendToPlayer(player.id, { type: 'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(zone.id) });
     } catch (e) {
       console.error('[prologue] broadcast kit drop failed:', e.message);
     }
@@ -220,9 +243,9 @@ function playBroadcast(player) {
 // Test surface for plugins/prologue/regress.js (never used in production).
 export const _test = {
   prologueMoveGate, useHolosign, useHolocaster,
-  grantFirstArchitectIp, isSet, raise,
-  Z_INBETWEEN, Z_SYNAPSE, Z_LATTICE, Z_BROADCAST, Z_COLLAPSE,
-  ITEM_HOLOCASTER, ITEM_TABLET,
+  grantAllStatsPlusOne, isSet, raise,
+  Z_INBETWEEN, Z_LATTICE, Z_BROADCAST, Z_COLLAPSE,
+  ITEM_HOLOCASTER,
   F_ALIGNED, F_INTERFACED, F_BROADCAST, F_COLLAPSE, F_PLAYED,
 };
 
