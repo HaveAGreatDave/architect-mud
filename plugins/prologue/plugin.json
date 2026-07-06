@@ -1,0 +1,10 @@
+{
+  "name": "prologue",
+  "version": "1.0.0",
+  "description": "The pre-world tutorial: new souls spawn in The Inbetween and walk a one-way corridor (chargen at the MORPHEX terminal → first Architect Interface IP + tablet + holocaster at the holosign → an eerie welcome broadcast) before collapsing into the Coldwater clone vat. Move gates hard-gate the three narrative doors; a visibility hook lets the lightless void be seen.",
+  "after": ["cosmetic-machine", "interactions"],
+  "commands": [],
+  "hooks": ["visibility.perceive"],
+  "specializedActions": ["use"],
+  "events": { "consumes": ["appearance.changed", "posture.changed", "zone.entered"], "emits": [] }
+}

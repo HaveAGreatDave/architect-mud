@@ -1,0 +1,27 @@
+{
+  "description": "A scuffed football helmet, facemask bent, one earhole padded with duct tape. Faded Coldwater colors under the grime. It will not make you look tough. It will keep your skull a skull.",
+  "effects": {},
+  "flags": {},
+  "id": "item_football_helmet",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
+  "name": "football helmet",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
+  "tags": {
+    "armor_soak": {
+      "edged": 3,
+      "kinetic": 5
+    },
+    "bulkiness": 2,
+    "description": "A battered Coldwater football helmet. Ugly, and between your brain and the world.",
+    "insulation": 1,
+    "layer": "armor",
+    "slot": "head"
+  },
+  "type": "clothing",
+  "value": 60,
+  "weight": 900
+}

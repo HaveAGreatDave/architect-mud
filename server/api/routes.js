@@ -434,11 +434,15 @@ async function apiRegister(body) {
     const app = randomAppearance(biological_sex);
     // hp/hp_max derive from the starting endurance of 1 (see maxHpForEndurance).
     const startHp = maxHpForEndurance(1);
+    // New souls spawn into the prologue (zone_the_inbetween), not the clone vat.
+    // anchor_zone is left to its schema DEFAULT ('zone_start'), so once they leave
+    // the prologue every death respawns them at the clone facility — the prologue
+    // is one-way and unreachable again (see plugins/prologue).
     await query(
       `INSERT INTO players
         (id,username,password_hash,handle,role,bonus_xp,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,stat_senses,
          biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data,email,sexuality,current_zone)
-       VALUES ($1,$2,$3,$4,'player',$5,${startHp},${startHp},1,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'zone_start')`,
+       VALUES ($1,$2,$3,$4,'player',$5,${startHp},${startHp},1,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'zone_the_inbetween')`,
       [id, username.toLowerCase(), hashPassword(password), handle, bonusXp,
        biological_sex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
        app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), email.toLowerCase().trim(),

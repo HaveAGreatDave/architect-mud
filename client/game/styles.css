@@ -793,6 +793,18 @@ textarea {
 	color: var(--orange);
 	font-style: italic;
 }
+/* Prologue tutorial (plugins/prologue): parenthetical control hints + the
+   Broadcast-room welcome script rendered as a "screen" of text. */
+.hint {
+	color: var(--text-dim);
+	font-style: italic;
+	font-size: 0.9em;
+}
+.broadcast-line {
+	color: var(--green);
+	font-family: var(--font-mono, monospace);
+	text-shadow: 0 0 6px rgba(80, 255, 140, 0.35);
+}
 /* Inline combat markup (see server/engine/combat.js) */
 .hit-part {
 	color: var(--cyan);

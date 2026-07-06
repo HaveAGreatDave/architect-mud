@@ -27,6 +27,7 @@ import { randomAppearance } from '../../server/engine/appearance.js';
 import { isMisActive } from '../../server/engine/mis.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { registerAction } from '../../server/engine/actions.js';
+import { emit } from '../../server/engine/events.js';
 
 const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blonde','red','grey','white','silver','dyed blue','dyed green','dyed purple','dyed red'];
 const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
@@ -82,6 +83,9 @@ async function applyCharge(player, cost) {
   player.appearance_free_used = 1;
   if (cost > 0) await adjustCredits(player, -cost);
   await query('UPDATE players SET appearance_free_used=1 WHERE id=$1', [player.id]);
+  // Past-tense notification: the player reshaped themselves. The prologue listens
+  // to gate chargen; harmless elsewhere.
+  emit('appearance.changed', { actor: player });
 }
 
 async function cmdMorphex(args, raw, player) {
