@@ -19,6 +19,7 @@ import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
 import { sendCmdSilent } from '../net.js';
+import { hex2rgb } from './aircraft3d.js';
 
 // Theme accent for the canvas-drawn instruments (the CSS chrome uses var(--accent)
 // directly; canvas can't, so we sample it once when the cockpit opens).
@@ -55,6 +56,21 @@ const CLASS_THEME = {
 };
 const themeFor = (cls) => CLASS_THEME[cls] || CLASS_THEME.prop;
 
+// The cockpit's accent colour — normally just the class theme above — becomes a
+// blend of the craft's own paint-bay livery when one's on file: primary (base),
+// secondary (trim), and the cabin/upholstery colour, so a paint job actually reads
+// inside the cockpit chrome instead of only on the hangar model. Falls back to the
+// class theme accent if no livery is present.
+function liveryAccent(livery, fallbackHex) {
+  const b = livery && hex2rgb(livery.base), t = livery && hex2rgb(livery.trim), c = livery && hex2rgb(livery.cabin);
+  if (!b && !t && !c) return fallbackHex;
+  const mix = (i, w) => (b ? b[i] * w.b : 0) + (t ? t[i] * w.t : 0) + (c ? c[i] * w.c : 0);
+  const w = { b: b ? 0.5 : 0, t: t ? 0.3 : 0, c: c ? 0.2 : 0 };
+  const wsum = w.b + w.t + w.c || 1;
+  const rgb = [0, 1, 2].map(i => Math.round(mix(i, w) / wsum));
+  return '#' + rgb.map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // 1. THE GLASS COCKPIT (area-pane HUD)
 // ══════════════════════════════════════════════════════════════════════════════
@@ -65,10 +81,29 @@ let _anim = null;       // eased animation values
 let _raf = 0;
 let _sig = '';          // mounted layout signature (rebuild when capabilities change)
 let _lastT = 0;
+// Server-tick aircraft (charter autopilot, ordinary piloted flight) push a new
+// world position every couple of seconds rather than streaming it — without help
+// the world would visibly jump on every push. `_moveFrom` interpolates the
+// displayed position across the gap between the last two pushes (estimating the
+// gap's length from how far apart they actually landed) so it reads as continuous
+// travel, the same way heading/pitch/bank are already eased below.
+let _moveFrom = null;   // { fx, fy, t, dur, toFx, toFy }
+let _lastPushT = 0;
+// The ground scene (airport/runway) and the airborne Mode-7 world are two entirely
+// different renderers; the server only tells us which one applies via a boolean
+// (`airborne`) that flips the instant the wheels leave/touch the strip. Cutting
+// straight to that boolean reads as a jump-cut mid-takeoff/landing. Instead we
+// ease a continuous "height" and only swap scenes once it's climbed clear of the
+// ground (or sunk back down to it) — so the swap lands during the climb-out/flare,
+// not the instant of liftoff/touchdown. `_lastGround`/`_lastMap`/`_lastBiome` cache
+// the last real values so the lingering scene has something to draw with during
+// the brief window where the server's payload has already moved on.
+let _lastGround = null, _lastMap = null, _lastBiome = null;
 
 export function updateCockpit(state) {
   if (isFlightSimActive()) return;   // the continuous cockpit owns the pane — don't mount the glass HUD over it
   ensureHudStyles();
+  const now = performance.now();
   _target = state || {};
   updateEngineAudio(_target);
 
@@ -82,13 +117,20 @@ export function updateCockpit(state) {
     if (_prev.engineOn && !_target.engineOn) spoolDown(_target.class);   // shutdown spool-down
   } else if (_target.runup) spoolUp(_target.class);
   _prev = _target;
+  if (_target.ground) _lastGround = _target.ground;
+  if (_target.map) _lastMap = _target.map;
+  if (_target.biomeBelow) _lastBiome = _target.biomeBelow;
 
   // Rebuild the panel only when the aircraft's capability layout (or seat) changes.
   const sig = `${_target.seat}|${_target.class}|${_target.engines?.length || 1}|${(_target.hardpoints || 0) > 0}|${(_target.cargoCap || 0) > 0}|${!!_target.vtol}`;
   const root = document.getElementById('ck-hud-root');
   if (!root || _sig !== sig) { mountHud(_target); _sig = sig; }
 
-  if (!_anim) _anim = { hdg: _target.headingDeg || 0, pitch: 0, roll: 0, sweep: 0, eng: _target.engines?.map(e => e.pct) || [0], fuel: _target.fuelPct || 0, thr: _target.throttle || 0, hull: _target.hullPct || 100, spd: _target.spd || 0 };
+  if (!_anim) _anim = { hdg: _target.headingDeg || 0, pitch: 0, roll: 0, sweep: 0, eng: _target.engines?.map(e => e.pct) || [0], fuel: _target.fuelPct || 0, thr: _target.throttle || 0, hull: _target.hullPct || 100, spd: _target.spd || 0, fx: _target.fx ?? 0, fy: _target.fy ?? 0 };
+  else if (_target.fx != null && _target.fy != null) {
+    _moveFrom = { fx: _anim.fx, fy: _anim.fy, t: now, dur: _lastPushT ? clampNum(now - _lastPushT, 400, 6000) : 3000, toFx: _target.fx, toFy: _target.fy };
+  }
+  _lastPushT = now;
   if (!_raf) { _lastT = performance.now(); _raf = requestAnimationFrame(hudFrame); }
   applyText(_target);
 }
@@ -96,7 +138,8 @@ export function updateCockpit(state) {
 export function closeCockpit() {
   closeFlightSim();       // the continuous cockpit, if it owns the pane
   if (_raf) cancelAnimationFrame(_raf); _raf = 0;
-  _anim = null; _prev = null; _sig = '';
+  _anim = null; _prev = null; _sig = ''; _moveFrom = null; _lastPushT = 0;
+  _lastGround = null; _lastMap = null; _lastBiome = null;
   stopEngineAudio();
 }
 
@@ -123,6 +166,25 @@ function hudFrame(t) {
   a.thr += ((s.throttle || 0) - a.thr) * Math.min(1, dt * 6);
   a.hull += ((s.hullPct ?? 100) - a.hull) * Math.min(1, dt * 4);
   a.spd += ((s.spd || 0) - a.spd) * Math.min(1, dt * 4);
+  // Height — eased rather than snapped to the (stepped) band index, so climbing
+  // through a band boundary reads as continuous rise instead of a jump. Drives
+  // both the runway-recede/obstacle-scale math and, below, which scene renders.
+  const targetHeight = s.airborne ? clampNum((s.bandIndex || 0) / 3, 0, 1) : 0;
+  a.height = (a.height ?? 0) + (targetHeight - (a.height ?? 0)) * Math.min(1, dt * 1.6);
+  // Scene swap — hysteresis around the ground/airborne cut so it lands once the
+  // eased height has actually cleared the deck (climb-out) or sunk back to it
+  // (flare), not the instant the server toggles `airborne`.
+  if (a._scenePhase == null) a._scenePhase = s.airborne ? 'cruise' : 'ground';
+  else if (a._scenePhase === 'ground' && a.height > 0.06) a._scenePhase = 'cruise';
+  else if (a._scenePhase === 'cruise' && a.height < 0.025) a._scenePhase = 'ground';
+  // Position: linear interpolation across the last push-to-push gap (not an ease-
+  // decay like the needles above) so ground speed reads constant instead of
+  // slowing into each new push.
+  if (_moveFrom) {
+    const mt = Math.min(1, (t - _moveFrom.t) / _moveFrom.dur);
+    a.fx = _moveFrom.fx + (_moveFrom.toFx - _moveFrom.fx) * mt;
+    a.fy = _moveFrom.fy + (_moveFrom.toFy - _moveFrom.fy) * mt;
+  }
   const engs = s.engines || [{ pct: 0 }];
   for (let i = 0; i < engs.length; i++) { a.eng[i] = (a.eng[i] ?? 0) + ((engs[i].pct || 0) - (a.eng[i] ?? 0)) * Math.min(1, dt * 3); }
 
@@ -139,15 +201,26 @@ function hudFrame(t) {
 // passenger looks out the SIDE through a window shaped to their aircraft.
 function paintWindow(id, a, s) {
   if (!document.getElementById(id)) return;
-  const heightFrac = s.airborne ? clampNum((s.bandIndex || 0) / 3, 0, 1) : 0;
   const speedFrac = clampNum((a.spd || 0) / 200, 0, 1);
   const pax = s.seat === 'passenger';
+  const onGround = (a._scenePhase || (s.airborne ? 'cruise' : 'ground')) === 'ground';
+  // Fractional world offset from the eased position above vs. the map window's
+  // (integer) centre — slides the Mode-7 camera smoothly between pushes instead
+  // of snapping a tile at a time.
+  const mapOffset = !onGround && a.fx != null ? { x: a.fx - (s.x ?? a.fx), y: a.fy - (s.y ?? a.fy) } : undefined;
   paintWindshield(id, {
-    pitch: a.pitch, bank: a.roll, height: heightFrac, speed: speedFrac,
+    pitch: a.pitch, bank: a.roll, height: a.height ?? 0, speed: speedFrac,
     hour: s.sky?.hour, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
-    map: s.map, phase: s.airborne ? 'cruise' : 'ground',
-    airport: s.ground?.theme, biomeBelow: s.biomeBelow,
+    // During the brief lag between the server's airborne flip and the eased scene
+    // swap, the payload for the OTHER scene has already gone null — fall back to
+    // the last real values so the lingering view still has something to draw.
+    map: onGround ? null : (s.map || _lastMap),
+    phase: onGround ? 'ground' : 'cruise',
+    airport: onGround ? (s.ground?.theme || _lastGround?.theme) : undefined,
+    biomeBelow: onGround ? undefined : (s.biomeBelow ?? _lastBiome),
     side: pax, windowClass: pax ? (s.class || 'prop') : undefined,
+    livery: pax ? s.livery : undefined,   // hull skin punched by the window = the craft's own paint
+    mapOffset,
   });
 }
 
@@ -354,7 +427,8 @@ function cargoInst() {
 // ── The passenger cabin: a big window + a slim readout strip, nothing to fly ──
 function mountPassenger(s) {
   const th = themeFor(s.class);
-  const html = `<div id="ck-hud-root" class="ck-hud ck-pax ck-chrome-${th.chrome}" style="--acc:${th.acc}">
+  const acc = liveryAccent(s.livery, th.acc);
+  const html = `<div id="ck-hud-root" class="ck-hud ck-pax ck-chrome-${th.chrome}" style="--acc:${acc}">
     <div class="ck-titlebar">
       <span class="ck-tmark">✈</span><span class="ck-t-name" id="ck-tail">CABIN</span>
       <span class="ck-t-class" id="ck-class"></span><span class="ck-cabin" id="ck-cabin" title="cabin"></span>
@@ -378,6 +452,7 @@ function mountHud(s) {
   if (s.seat === 'passenger') return mountPassenger(s);
   const n = Math.max(1, s.engines?.length || 1);
   const th = themeFor(s.class);
+  const acc = liveryAccent(s.livery, th.acc);
   const hasWpn = (s.hardpoints || 0) > 0, hasCargo = (s.cargoCap || 0) > 0, isVtol = !!s.vtol;
 
   // Row 2: compass + engines, plus a hover tape for VTOL.
@@ -385,7 +460,7 @@ function mountHud(s) {
   // Row 3: the minimap, plus capability panels (cargo / weapons).
   const row3 = [miniInst(), hasCargo ? cargoInst() : '', hasWpn ? wpnInst(s.hardpoints) : ''].filter(Boolean).join('');
 
-  const html = `<div id="ck-hud-root" class="ck-hud ck-chrome-${th.chrome}" style="--acc:${th.acc}">
+  const html = `<div id="ck-hud-root" class="ck-hud ck-chrome-${th.chrome}" style="--acc:${acc}">
     <div class="ck-titlebar">
       <span class="ck-tmark">✈</span><span class="ck-t-name" id="ck-tail">CRAFT</span>
       <span class="ck-t-class" id="ck-class"></span><span class="ck-cabin" id="ck-cabin" title="cabin"></span>

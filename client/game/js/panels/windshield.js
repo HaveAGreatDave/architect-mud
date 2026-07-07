@@ -31,7 +31,7 @@
 // }
 
 import { isWeatherFxEnabled } from './weather-fx.js';
-import { aircraftFaces, liveryPalette, faceBaseRgb, shadeRgb } from './aircraft3d.js';
+import { aircraftFaces, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb } from './aircraft3d.js';
 
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
 let _obsHgt = 0;                // current view altitude fraction — drawers show more of a roof/top as it climbs
@@ -280,9 +280,12 @@ export function paintWindshield(id, view) {
   ctx.lineWidth = 1;
   const gridCol = rgb(mix(gTop, [180, 220, 200], 0.5), 0.16 + speed * 0.12);
   ctx.strokeStyle = gridCol;
-  if (side && !onDeck) {
+  if (side) {
     // Side window: the ground rushes past laterally — vertical hatching that
     // scrolls sideways sells forward motion far better than a converging grid.
+    // Runs on the deck too (taxi/rotate/roll-out) — the passenger's view stays
+    // perpendicular to travel the whole time, never swapping to a forward look
+    // down the runway.
     for (let k = 0; k < 24; k++) {
       const f = ((k / 24) + st.sideScroll) % 1, x = -OX + f * ex;
       ctx.globalAlpha = 0.09 + speed * 0.2;
@@ -313,7 +316,10 @@ export function paintWindshield(id, view) {
 
   // The airport (themed scenery flanking a runway) on the deck; the pad for VTOL;
   // otherwise the zones/obstacles projected in the direction we're actually looking.
-  if (airport && reveal > 0.02) {
+  // Skipped for the passenger's side window — that's a forward-looking scene (the
+  // strip receding to a vanishing point ahead) and would break the "always
+  // perpendicular" view the side hatching above already draws.
+  if (airport && reveal > 0.02 && !side) {
     drawAirportScenery(ctx, W, H, horizonY, airport, sky.night, now);
     if (phase === 'takeoff' || phase === 'landing') drawRunway(ctx, W, H, horizonY, height, st.scroll, phase);
     else drawRunway(ctx, W, H, horizonY, 0, st.scroll, 'takeoff');   // parked: the strip laid out full-length
@@ -380,7 +386,7 @@ export function paintWindshield(id, view) {
     ctx.restore();
   }
   // Passenger cabin: cut the view into a window shaped to fit the aircraft.
-  if (v.windowClass) drawWindowFrame(ctx, W, H, v.windowClass);
+  if (v.windowClass) drawWindowFrame(ctx, W, H, v.windowClass, v.livery);
 
   ctx.restore();
 }
@@ -419,9 +425,12 @@ const HULL_SKIN = {
 // aircraft's EXTERIOR SKIN, so the scene reads as glimpsed through a window cut in the
 // fuselage. The hull is shaded as a curved, top-lit body (rivet-lined skin panels), the
 // pane gets a raised metal bezel, and the glass carries a soft reflection.
-function drawWindowFrame(ctx, W, H, cls) {
+function drawWindowFrame(ctx, W, H, cls, livery) {
   const s = windowShapeFor(cls, W, H);
-  const base = HULL_SKIN[cls] || HULL_SKIN.default;
+  // The exterior skin is the craft's own PRIMARY paint (base) when a livery is on
+  // file — same colour you picked in the paint bay — falling back to the generic
+  // per-class alloy/olive/etc. only when there's none to read.
+  const base = (livery && hex2rgb(livery.base)) || HULL_SKIN[cls] || HULL_SKIN.default;
 
   // 1. HULL — clip to the region OUTSIDE the pane (canvas rect ⊕ pane, even-odd) and
   //    shade the exterior skin there. Building the compound path in one beginPath is
