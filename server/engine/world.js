@@ -144,6 +144,27 @@ async function loadSpawnTemplates() {
   }
 }
 
+// Refresh (or insert) one spawn template in the live cache straight from the
+// DB, keyed exactly as loadSpawnTemplates does (zs.id → { ...enemy, spawn_id,
+// zone_id, counts, nextSpawn }). The dev-panel spawn routes call this after a
+// mutation so tickSpawns can iterate world.spawnTimers instead of re-querying
+// the zone_spawns⋈enemies join every 10s. Preserves an existing timer's
+// nextSpawn so an edit doesn't reset the respawn clock.
+export async function reloadSpawn(spawnId) {
+  const { rows } = await query(`
+    SELECT e.*, zs.id as spawn_id, zs.zone_id, zs.max_count, zs.spawn_weight, zs.respawn_seconds
+    FROM zone_spawns zs JOIN enemies e ON e.id = zs.enemy_id WHERE zs.id = $1
+  `, [spawnId]);
+  const t = rows[0];
+  if (!t) { world.spawnTimers.delete(spawnId); return; }
+  const prev = world.spawnTimers.get(spawnId);
+  world.spawnTimers.set(spawnId, { ...t, nextSpawn: prev?.nextSpawn ?? Date.now() });
+}
+
+export function removeSpawn(spawnId) {
+  world.spawnTimers.delete(spawnId);
+}
+
 async function loadApartments() {
   const { rows } = await query('SELECT * FROM apartments');
   for (const apt of rows) {
@@ -468,13 +489,12 @@ export function spawnEnemySync(template, zoneId) {
 
 export async function tickSpawns(broadcast) {
   const now = Date.now();
-  const { rows } = await query(`
-    SELECT e.*, zs.id as spawn_id, zs.zone_id, zs.max_count, zs.spawn_weight, zs.respawn_seconds
-    FROM zone_spawns zs JOIN enemies e ON e.id = zs.enemy_id
-  `);
-  for (const t of rows) {
-    const timer = world.spawnTimers.get(t.spawn_id);
-    if (!timer || now < timer.nextSpawn) continue;
+  // Iterate the in-memory cache — zone_spawns/enemies are static content the
+  // dev-panel routes keep in sync via reloadSpawn/removeSpawn, so there's no
+  // need to re-query the join every 10s. Each cached entry carries both the
+  // enemy template and its nextSpawn clock.
+  for (const t of world.spawnTimers.values()) {
+    if (now < t.nextSpawn) continue;
     const zone = world.zones.get(t.zone_id);
     if (!zone) continue;
     const count = [...zone.enemies].filter(eid => world.enemies.get(eid)?.templateId === t.id).length;
@@ -484,7 +504,7 @@ export async function tickSpawns(broadcast) {
         broadcast(t.zone_id, { type: 'zone_event', message: pickSpawnMessage(instance.name), refresh: true });
       }
     }
-    world.spawnTimers.set(t.spawn_id, { ...timer, nextSpawn: now + t.respawn_seconds * 1000 });
+    t.nextSpawn = now + t.respawn_seconds * 1000;
   }
 }
 

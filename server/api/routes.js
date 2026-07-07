@@ -1,5 +1,5 @@
 import { query, logActivity } from '../models/db.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn } from '../engine/world.js';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { allExits } from '../engine/exits.js';
 import { detectBathroomSide } from '../engine/commands/doors.js';
@@ -1100,6 +1100,7 @@ async function apiAddZoneSpawn(zoneId, body) {
       `INSERT INTO zone_spawns (id,zone_id,enemy_id,max_count,spawn_weight,respawn_seconds) VALUES ($1,$2,$3,$4,$5,$6)`,
       [id, zoneId, body.enemy_id, body.max_count??1, body.spawn_weight??100, body.respawn_seconds??300]
     );
+    await reloadSpawn(id);
     return { status:201, body:{ id } };
   } catch(e) { return { status:400, body:{ error:e.message } }; }
 }
@@ -1113,7 +1114,7 @@ export async function apiCreateSpawn(body) {
       [id, zone_id, enemy_id, max_count, spawn_weight, respawn_seconds]
     );
     // Register in world spawn timers so the enemy respawns without a server restart
-    world.spawnTimers.set(id, { id, zone_id, enemy_id, max_count, spawn_weight, respawn_seconds, nextSpawn: Date.now() });
+    await reloadSpawn(id);
     const { rows } = await query(`SELECT zs.*, e.name AS enemy_name FROM zone_spawns zs JOIN enemies e ON e.id=zs.enemy_id WHERE zs.id=$1`, [id]);
     return { status:201, body: rows[0] || { id } };
   } catch(e) { return { status:400, body:{ error:e.message } }; }
@@ -1129,15 +1130,14 @@ async function apiUpdateSpawn(id, body) {
       [max_count, respawn_seconds, id]
     );
     if (!rows.length) return { status:404, body:{ error:'Spawn not found' } };
-    const timer = world.spawnTimers.get(id);
-    if (timer) world.spawnTimers.set(id, { ...timer, max_count, respawn_seconds });
+    await reloadSpawn(id);
     return { status:200, body: rows[0] };
   } catch(e) { return { status:400, body:{ error:e.message } }; }
 }
 export async function apiDeleteZoneSpawn(id) {
   try {
     await query('DELETE FROM zone_spawns WHERE id=$1', [id]);
-    world.spawnTimers.delete(id);
+    removeSpawn(id);
     return { status:200, body:{ message:'Spawn removed' } };
   } catch(e) { return { status:400, body:{ error:e.message } }; }
 }
