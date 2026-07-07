@@ -221,6 +221,12 @@ let stormFaultActive = false;
 // Diagnostic (Commit 2): why did simulatePowerNetwork run? reason → count.
 // Reset only on boot; purely observational, surfaced via getHUDPayload().
 const powerSimCounts = new Map();
+// Continuous-overload tracking (Commit 3, prep only): wall-clock ms when the
+// grid first went into a continuously-overloaded state, or null when nothing is
+// overloaded. Keyed globally to match `anyOverloaded`'s .some() semantics. NOT
+// yet wired into any gate — this just makes sustained-overload duration
+// observable so a later commit can decide whether a duration gate is warranted.
+let overloadSince = null;
 
 // Deterministic weather generation (seedFromString, mulberry32, generateWeatherForDate)
 // has moved to plugins/weather/index.js.
@@ -489,6 +495,11 @@ async function loadZonePowerAndLighting(query) {
       mapId: z.map_id,
     });
   }
+  // Commit 3 prep: stamp/clear the continuous-overload clock off the same live
+  // state the 5-minute schedule's `anyOverloaded` check reads from.
+  const anyOverloaded = [...state.zones.values()].some(z => z.powerStatus === 'overloaded');
+  if (anyOverloaded) overloadSince ??= Date.now();
+  else overloadSince = null;
 }
 
 export async function loadWindows(query) {
@@ -1483,6 +1494,7 @@ export function getHUDPayload() {
       : (PRECIP_FORECAST_TYPES.has(state.weatherType) ? 'cloudy' : state.weatherType)],
     currentIntensity: currentIntensityLabel(),
     powerSimCounts: Object.fromEntries(powerSimCounts),
+    overloadSince,
   };
 }
 
