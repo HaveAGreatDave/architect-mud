@@ -691,9 +691,17 @@ function handleActionLinkClick(e) {
 	// name so SIFT reaches the specific location even when several exits share a
 	// direction. data-target stays the raw direction for the dpad highlight.
 	const dest = el.dataset.dest;
-	const cmd = dest ? `go ${dest.toLowerCase()}` : `${action} ${target.toLowerCase()}`;
+	// Enemy links carry a unique instance id so clicking a specific enemy targets
+	// exactly that one — the only way to reach the second of two same-named enemies
+	// (the typed "attack <name>" path can only ever hit the FATE default).
+	const instanceId = el.dataset.instanceId;
+	const cmd = dest
+		? `go ${dest.toLowerCase()}`
+		: instanceId
+			? `${action} ${instanceId}`
+			: `${action} ${target.toLowerCase()}`;
 	const label = el.dataset.label;
-	sendCmd(cmd, label ? `${action} ${label}` : (dest ? `go ${dest}` : undefined));
+	sendCmd(cmd, label ? `${action} ${label}` : (dest ? `go ${dest}` : `${action} ${target.toLowerCase()}`));
 }
 document
 	.getElementById("output")

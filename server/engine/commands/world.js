@@ -450,7 +450,7 @@ async function cmdExamine(targetStr, player, broadcast) {
       }
       if (fr.type === 'match') f = fr.candidate;
     }
-    let msg = `${f.name}\n${f.description}`;
+    let msg = `<span class="zone-name">${f.name}</span>\n${f.description}`;
     const furnitureExtra = await fireHook('furniture.describe', f, player);
     if (furnitureExtra) msg += `\n${furnitureExtra}`;
     const interactions = f.flags?.interactions || [];

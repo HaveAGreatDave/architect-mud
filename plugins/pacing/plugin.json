@@ -1,0 +1,10 @@
+{
+  "name": "pacing",
+  "version": "1.0.0",
+  "description": "Stamina-gated movement pacing. A walk cadence (short per-step cooldown via a registerMoveGate veto) throttles direction-spamming so the large map feels large, while a `sprint` toggle spends stamina per step for a faster burst cadence and drops you to 'winded' below a floor. System moves (opts.bypassEncumbrance) are exempt. Spend + HUD push happen on the zone.entered event.",
+  "commands": ["sprint"],
+  "events": {
+    "consumes": ["zone.entered"]
+  },
+  "dataSchema": []
+}

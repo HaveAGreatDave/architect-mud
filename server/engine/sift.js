@@ -51,6 +51,12 @@ const tieBreakers = [
 
 function fateResolve(query, candidates, context = {}) {
   if (!candidates.length) return { type: 'none' };
+  // Exact instance-id match — clicking a specific enemy link sends its unique
+  // instanceId, which lets the player target the second of two same-named enemies
+  // (name-based scoring alone can only ever reach the FATE default).
+  const q = query.trim();
+  const byId = candidates.find(c => String(c.instanceId) === q);
+  if (byId) return { type: 'auto_target', candidate: byId, score: 100 };
   const scored = candidates
     .map(c => ({ candidate: c, score: scoreCandidate(c.name, query) }))
     .filter(s => s.score > 0);

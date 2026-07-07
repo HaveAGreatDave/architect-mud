@@ -55,7 +55,7 @@ function scanRoom(area) {
     const label = el.dataset.label || el.textContent.trim();
     const cls = el.classList;
 
-    if (cls.contains('enemy-link')) m.enemies.push({ target, label });
+    if (cls.contains('enemy-link')) m.enemies.push({ target, label, id: el.dataset.instanceId || '' });
     else if (cls.contains('npc-link')) m.npcs.push({ target, label });
     else if (cls.contains('player-link')) m.players.push({ target, label });
     else if (cls.contains('room-item')) m.items.push({ target, label });
@@ -90,7 +90,7 @@ function scanRoom(area) {
 const CATALOG = [
   // Combat / social — single target, fires immediately when there's just one.
   { build: (m) => pick('Attack', 'Attack what?', m.enemies,
-      (e) => ({ label: e.label, cmd: `attack ${e.target.toLowerCase()}`, logLabel: `attack ${e.label}` })) },
+      (e) => ({ label: e.label, cmd: `attack ${e.id || e.target.toLowerCase()}`, logLabel: `attack ${e.label}` })) },
   { build: (m) => pick('Talk', 'Talk to whom?', m.npcs,
       (n) => ({ label: n.label, cmd: `talk ${n.target.toLowerCase()}`, logLabel: `talk ${n.label}` })) },
 

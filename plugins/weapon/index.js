@@ -418,6 +418,23 @@ export async function cmdKamehameha(targetStr, player, broadcast) {
 	return { type: 'combat', message: blast, killed: true };
 }
 
+// Admin self-kill: run yourself through the canonical death path (corpse +
+// clone-vat respawn + all death signals), killer null so it isn't a PvP kill.
+// A quick way to test the respawn flow without lining up a fight.
+export async function cmdSeppuku(player, broadcast) {
+	if (player.role !== 'admin') {
+		return { type: 'error', message: `Unknown command: "seppuku". Type HELP for commands.` };
+	}
+	broadcast(player.current_zone, {
+		type: 'zone_event',
+		message: `<span class="crit-tag">${player.handle} kneels, draws a blade, and commits an act of profound administrative honor.</span>`,
+		refresh: true,
+	}, player.id);
+	const { handlePlayerDeath } = await import('../../server/engine/gameLoop.js');
+	await handlePlayerDeath(player, null, { type: 'admin', label: 'Ritual suicide' });
+	return { type: 'combat', message: '', killed: true };
+}
+
 // The auto-attack tick in gameLoop.js sustains combat through these — raw
 // function references, never the Action dispatcher (ADR-0001 hot path).
 registerPlayerCombat({ resolveAttack, resolveAttackNpc, offlineSleepSwing });
@@ -445,6 +462,7 @@ export const specializedActions = [
 
 export const commands = {
 	kamehameha: (args, raw, player, broadcast) => cmdKamehameha(args.join(' '), player, broadcast),
+	seppuku: (args, raw, player, broadcast) => cmdSeppuku(player, broadcast),
 };
 
 console.log('[weapon] Plugin loaded.');

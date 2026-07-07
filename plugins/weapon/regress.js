@@ -15,4 +15,9 @@ export default async function regress({ run, check, getPlayer }) {
   const fired = await run('@kamehameha');
   check('@kamehameha runs for admin', !/Unknown command/.test(fired?.message || ''), fired?.message);
   p.role = prevRole;
+
+  // seppuku shares the same admin gate. Only the denial is asserted — firing it
+  // would run the fake test player through the real death/respawn path.
+  const seppukuDenied = await run('@seppuku');
+  check('seppuku denied for non-admin', /Unknown command/.test(seppukuDenied?.message || ''), seppukuDenied?.message);
 }
