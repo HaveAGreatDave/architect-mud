@@ -133,7 +133,7 @@ so you perform the rites. The full runbook lives in
 <a href="content-pipeline.md">docs/content-pipeline.md</a> (bottom section). The shape of it:</p>
 <ol class="arch">
   <li><b>Freeze.</b> Both of you stop content edits. Run the OLD pipeline end-to-end one
-      final time (publish + Relay deploy) so prod ≈ seed ≈ both locals. The Relay's last act.</li>
+      final time (publish + deploy to prod) so prod ≈ seed ≈ both locals.</li>
   <li><b>Baseline.</b> On a branch: <code>node scripts/content/export.mjs --prod --yes</code> —
       the file tree is born from production, the live truth.</li>
   <li><b>Reconcile.</b> You and John each run <code>npm run content:status</code> against the
@@ -151,9 +151,10 @@ so you perform the rites. The full runbook lives in
   <li><b>Throw the switches.</b> Uncomment the <code>push:</code> trigger in
       <code>.github/workflows/deploy-content.yml</code>. Uncomment <code>CONTENT_READONLY</code>
       in <code>render.yaml</code> (or set it in the Render dashboard). Then
-      <code>git rm</code> the old machinery: relay-server, content-publish/sync,
+      <code>git rm</code> the old machinery: content-publish/sync,
       export-seed, setup-local-db, deploy-content-to-prod, the content-pull/diff/merge
-      scripts, both seed files, the relay docs. <code>backup-prod.mjs</code> and
+      scripts, both seed files. (The Relay console and its docs are already gone.)
+      <code>backup-prod.mjs</code> and
       <code>db:restore</code> survive — the escape hatches remain.</li>
 </ol>
 </div>

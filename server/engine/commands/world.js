@@ -420,7 +420,7 @@ async function cmdExamine(targetStr, player, broadcast) {
   const { rows } = await query(`SELECT pi.id AS inv_id, pi.custom_data, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (rows.length) {
     const it = rows[0];
-    let msg = `${it.name}\n${it.tags?.description ?? it.description}`;
+    let msg = `<span class="zone-name">${it.name}</span>\n${it.tags?.description ?? it.description}`;
     if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'container')) {
       const { describeContainer } = await import('./inventory.js');
       msg += `\n\n${await describeContainer({ id: it.inv_id, name: it.name, tags: it.tags })}`;

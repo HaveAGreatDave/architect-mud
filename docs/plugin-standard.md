@@ -70,9 +70,9 @@ here records ownership; it does **not** add the table's DDL to `SCHEMA_SQL`, nor
 seed. Both are separate, deliberate steps:
 
 - **Schema:** add the idempotent DDL to `SCHEMA_SQL` in `server/models/schema.js`; `npm run db:schema`
-  applies it to your **local** dev DB. Production gets it through the **Relay deploy** — the
-  _Deploy content → Production_ lane (`npm run relay`) applies the full `SCHEMA_SQL` embedded in the
-  dump + additive content in one regress-gated, backed-up transaction. Don't run `db:schema` against
+  applies it to your **local** dev DB. Production gets it through the **CODEX deploy** — a push to
+  `main`, where CI applies the full `SCHEMA_SQL` + additive content in one regress-gated, backed-up
+  transaction (see [content-pipeline.md](content-pipeline.md)). Don't run `db:schema` against
   prod, and don't hand-write a prod one-shot for plain schema DDL. Never a boot-time migration.
 - **Content rows:** if the table holds *authored world content* (not per-player runtime state), add it
   to `CONTENT_TABLES` in `server/api/backup.routes.js`, in FK-safe insertion order. This allowlist is

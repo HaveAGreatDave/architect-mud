@@ -33,7 +33,7 @@ export async function handleBackupApi(path, method, body, auth) {
 
 // opts.only  — dump only these tables (still schema-first, FK-safe order preserved).
 // opts.skip  — dump every content table EXCEPT these.
-// No opts → the full combined dump (unchanged) that Relay/dev-panel/db:restore use.
+// No opts → the full combined dump (unchanged) that dev-panel/db:restore use.
 // only/skip only filter which content rows are emitted; SCHEMA_SQL is always embedded
 // (idempotent), so a filtered file is still self-contained and restorable on its own.
 export async function buildDump(opts = {}) {
