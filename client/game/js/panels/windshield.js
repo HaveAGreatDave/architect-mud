@@ -321,8 +321,12 @@ export function paintWindshield(id, view) {
   // perpendicular" view the side hatching above already draws.
   if (airport && reveal > 0.02 && !side) {
     drawAirportScenery(ctx, W, H, horizonY, airport, sky.night, now);
-    if (phase === 'takeoff' || phase === 'landing') drawRunway(ctx, W, H, horizonY, height, st.scroll, phase);
-    else drawRunway(ctx, W, H, horizonY, 0, st.scroll, 'takeoff');   // parked: the strip laid out full-length
+    // World-anchored strip: `roll` (tiles rolled forward) slides it toward and past
+    // you — the horizontal "racing down the runway" read — while `alt` (climb
+    // fraction) is a SEPARATE axis that lifts/recedes it toward the horizon as you
+    // rotate and climb away, so takeoff/landing reads as a shallow forward+up
+    // diagonal instead of the strip just shrinking straight up in place.
+    drawGroundRunway(ctx, W, H, horizonY, depthGround, { roll: v.roll || 0, alt: height }, st.scroll, sky.night);
   } else if (phase === 'vtol') {
     drawPad(ctx, W, H, horizonY, height, v.drift || 0);
   } else if (!onDeck) {
@@ -661,32 +665,6 @@ function drawHud(ctx, W, H, v) {
     ctx.font = 'bold 9px monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     ctx.fillStyle = v.hull <= 25 ? '#ff5b5b' : v.hull <= 55 ? '#ffb23e' : '#7fd6a0';
     ctx.fillText(`HULL ${v.hull}%`, W - 8, H - 11);
-  }
-}
-
-function drawRunway(ctx, W, H, horizonY, height, scroll, phase) {
-  const t = clamp(height, 0, 1);
-  // near edge: on the deck it fills the bottom; climbing/high it recedes to the horizon.
-  const nearY = horizonY + (H - horizonY) * (1 - t * 0.92);
-  const nearHalf = (W * 0.42) * (1 - t * 0.72);
-  const farHalf = Math.max(3, nearHalf * 0.10);
-  const cx = W / 2;
-  ctx.fillStyle = 'rgba(18,22,26,0.92)';
-  ctx.beginPath(); ctx.moveTo(cx - nearHalf, nearY); ctx.lineTo(cx + nearHalf, nearY); ctx.lineTo(cx + farHalf, horizonY); ctx.lineTo(cx - farHalf, horizonY); ctx.closePath(); ctx.fill();
-  // edge lines
-  ctx.strokeStyle = 'rgba(220,232,214,0.8)'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(cx - nearHalf, nearY); ctx.lineTo(cx - farHalf, horizonY); ctx.moveTo(cx + nearHalf, nearY); ctx.lineTo(cx + farHalf, horizonY); ctx.stroke();
-  // centreline dashes (scroll)
-  ctx.strokeStyle = 'rgba(230,240,220,0.85)';
-  for (let k = 0; k < 8; k++) {
-    const f0 = ((k + scroll) % 8) / 8, f1 = f0 + 0.045; if (f1 > 1) continue;
-    const y0 = lerp(horizonY, nearY, f0 * f0), y1 = lerp(horizonY, nearY, f1 * f1);
-    ctx.lineWidth = lerp(0.6, 4, f0); ctx.beginPath(); ctx.moveTo(cx, y0); ctx.lineTo(cx, y1); ctx.stroke();
-  }
-  // threshold bars near the touchdown zone when low (landing) / at the start (takeoff)
-  if (t < 0.5) {
-    ctx.fillStyle = 'rgba(240,244,220,0.7)';
-    for (let b = -3; b <= 3; b++) { const bw = nearHalf * 0.09; ctx.fillRect(cx + b * (nearHalf * 0.24) - bw / 2, nearY - 10, bw, 8); }
   }
 }
 
@@ -1427,10 +1405,12 @@ function drawWorldObjects(ctx, cam, v, sky, now) {
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     if (f <= 0.05 || f > FAR) continue;
     const lat = dx * cam.cosh + dy * cam.sinh;
-    // Keep the flight path ahead clear (a building on the centreline is what you'd fly into),
-    // but FADE across the corridor edge rather than hard-skip so nothing pops in/out.
     let alpha = clamp((f - 0.06) / 0.4, 0, 1) * clamp((FAR - f) / 1.6, 0, 1);   // near pass-under + soft far fade-in
-    if (f > 0.1) { const corr = clamp((Math.abs(lat) - 0.45) / 0.35, 0, 1); if (corr <= 0) continue; alpha *= corr; }
+    // Keep the CLIMB-OUT path ahead clear (a building dead ahead reads as something
+    // you'd fly into right off the runway) — but only while still low/climbing.
+    // Once settled into cruise, buildings ahead stay fully visible the whole time;
+    // this fade is a takeoff flourish, not a permanent no-fly corridor.
+    if (f > 0.1 && (v.height || 0) < 0.2) { const corr = clamp((Math.abs(lat) - 0.45) / 0.35, 0, 1); if (corr <= 0) continue; alpha *= corr; }
     if (alpha <= 0.02) continue;
     // Seed from the WORLD tile (stable), NOT the array index — so a building keeps its shape
     // when the server recenters the map window (was the main "popping in and out" cause).

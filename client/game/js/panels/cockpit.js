@@ -154,29 +154,71 @@ function hudFrame(t) {
   const hd = angDelta(a.hdg, s.headingDeg || 0);
   const turnRate = hd * Math.min(1, dt * 3.2);
   a.hdg = (a.hdg + turnRate + 360) % 360;
-  // Bank into the turn; level out when settled.
-  const targetRoll = clampNum(hd * 0.5, -22, 22);
-  a.roll += (targetRoll - a.roll) * Math.min(1, dt * 4);
-  // Pitch from altitude band (climb attitude higher up).
-  const targetPitch = s.airborne ? ((s.bandIndex ?? 1) - 1) * 8 : 0;
-  a.pitch += (targetPitch - a.pitch) * Math.min(1, dt * 3);
   a.sweep = (a.sweep + dt * 55) % 360;
   // Eased needles.
   a.fuel += ((s.fuelPct || 0) - a.fuel) * Math.min(1, dt * 4);
   a.thr += ((s.throttle || 0) - a.thr) * Math.min(1, dt * 6);
   a.hull += ((s.hullPct ?? 100) - a.hull) * Math.min(1, dt * 4);
   a.spd += ((s.spd || 0) - a.spd) * Math.min(1, dt * 4);
-  // Height — eased rather than snapped to the (stepped) band index, so climbing
-  // through a band boundary reads as continuous rise instead of a jump. Drives
-  // both the runway-recede/obstacle-scale math and, below, which scene renders.
-  const targetHeight = s.airborne ? clampNum((s.bandIndex || 0) / 3, 0, 1) : 0;
-  a.height = (a.height ?? 0) + (targetHeight - (a.height ?? 0)) * Math.min(1, dt * 1.6);
+
+  // ── Takeoff/landing choreography ──────────────────────────────────────────
+  // A fixed, scripted sequence — NOT tied to real altitude bands — timed off the
+  // moment the server flips `airborne`:
+  //   ground (GROUND_LEAD, flat, throttle winding up) → climb (CLIMB_SEC, held
+  //   bank+diagonal climb) → level cruise, and the mirror on the way down. Bank —
+  //   not pitch — is the dominant "climb" tilt: it rotates the WHOLE scene
+  //   (paintWindshield rotates the canvas by `bank`), so the passenger's SIDE
+  //   window shows the horizon tilt over just as clearly as the pilot's forward
+  //   view does, banked toward the direction of travel. The climb and the
+  //   descent bank opposite ways ("reverse on the other side").
+  const GROUND_LEAD = 3.5, CLIMB_SEC = 5, BANK_ANGLE = 25, CLIMB_PITCH = 10;
+  if (a._wasAirborne == null) a._wasAirborne = !!s.airborne;
+  if (!a._wasAirborne && s.airborne) { a._liftT = t; a._landT = null; }
+  if (a._wasAirborne && !s.airborne) { a._landT = t; a._liftT = null; }
+  a._wasAirborne = !!s.airborne;
+
+  let targetBank = 0, targetPitch = 0, targetHeight = a.height ?? (s.airborne ? 1 : 0);
+  if (a._liftT != null) {
+    const el = (t - a._liftT) / 1000;
+    if (el < GROUND_LEAD) { targetHeight = 0; }
+    else if (el < GROUND_LEAD + CLIMB_SEC) {
+      targetBank = BANK_ANGLE; targetPitch = CLIMB_PITCH;
+      targetHeight = clampNum((el - GROUND_LEAD) / CLIMB_SEC, 0, 1);
+    } else { targetHeight = 1; a._liftT = null; }   // sequence done — level cruise
+  } else if (a._landT != null) {
+    const el = (t - a._landT) / 1000;
+    if (el < CLIMB_SEC) { targetBank = -BANK_ANGLE; targetPitch = -CLIMB_PITCH; targetHeight = clampNum(1 - el / CLIMB_SEC, 0, 1); }
+    else if (el < CLIMB_SEC + GROUND_LEAD) { targetHeight = 0; }
+    else { targetHeight = 0; a._landT = null; }     // sequence done — settled on the deck
+  } else {
+    targetHeight = s.airborne ? 1 : 0;   // steady state, no sequence running
+  }
+  // Turning bank still applies OUTSIDE a scripted sequence (ordinary cruise turns).
+  if (a._liftT == null && a._landT == null) targetBank = clampNum(hd * 0.5, -22, 22);
+  // Bank/pitch ease in (a real bank isn't instant) then HOLD — slower than the
+  // instrument needles above ("slow down the pace") so rolling into the climb
+  // bank takes the better part of a second rather than snapping.
+  a.roll += (targetBank - a.roll) * Math.min(1, dt * 2.2);
+  a.pitch += (targetPitch - a.pitch) * Math.min(1, dt * 2.2);
+  // Height is NOT eased — `targetHeight` above is already the exact scripted ramp
+  // (flat / linear climb / flat), so assigning it directly is what keeps the
+  // profile's corners sharp ( ___/‾‾‾\___ ) instead of rounding them off.
+  a.height = targetHeight;
+
   // Scene swap — hysteresis around the ground/airborne cut so it lands once the
   // eased height has actually cleared the deck (climb-out) or sunk back to it
   // (flare), not the instant the server toggles `airborne`.
   if (a._scenePhase == null) a._scenePhase = s.airborne ? 'cruise' : 'ground';
   else if (a._scenePhase === 'ground' && a.height > 0.06) a._scenePhase = 'cruise';
   else if (a._scenePhase === 'cruise' && a.height < 0.025) a._scenePhase = 'ground';
+  // Ground-roll distance (cosmetic — the server doesn't track it): while the deck
+  // scene is up, accumulate "how far down the strip" from throttle (a proxy for
+  // ground speed, since `s.spd` reads 0 until wheels-up). Resets at the start of
+  // each fresh on-deck episode — a takeoff roll or a landing roll-out — so the
+  // strip is never picked up mid-slide from the PREVIOUS episode. Rate is a
+  // quarter of what it was ("slow down the pace... by 400%") for a slower roll.
+  if (a._prevScenePhase !== a._scenePhase) { if (a._scenePhase === 'ground') a.rwyRoll = 0; a._prevScenePhase = a._scenePhase; }
+  if (a._scenePhase === 'ground') a.rwyRoll = (a.rwyRoll || 0) + (a.thr / 100) * dt * 0.225;
   // Position: linear interpolation across the last push-to-push gap (not an ease-
   // decay like the needles above) so ground speed reads constant instead of
   // slowing into each new push.
@@ -218,6 +260,7 @@ function paintWindow(id, a, s) {
     phase: onGround ? 'ground' : 'cruise',
     airport: onGround ? (s.ground?.theme || _lastGround?.theme) : undefined,
     biomeBelow: onGround ? undefined : (s.biomeBelow ?? _lastBiome),
+    roll: a.rwyRoll || 0,   // ground-roll distance — how far down the strip you've travelled
     side: pax, windowClass: pax ? (s.class || 'prop') : undefined,
     livery: pax ? s.livery : undefined,   // hull skin punched by the window = the craft's own paint
     mapOffset,
