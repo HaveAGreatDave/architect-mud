@@ -743,8 +743,10 @@ function wireMapUi() {
 
 // Server-driven route (the `gps` command): the path can span the whole map, not
 // just whatever's currently on screen, so it's set directly rather than via
-// traceRoute's on-screen BFS. Mirrors onto the sidebar minimap immediately and
-// pops the full map open on the regional (bigmap) view so the whole route shows.
+// traceRoute's on-screen BFS. Mirrors onto the sidebar minimap immediately;
+// doesn't pop the full map open — if it's already open, refresh it in place
+// (regional, so the whole route is visible) rather than disturbing the player
+// with an unrequested popup.
 export function setGpsRoute(path) {
   mapState.tracePath = (path && path.length > 1) ? path : null;
   mapState.routeMode = false;
@@ -753,7 +755,7 @@ export function setGpsRoute(path) {
   rbtn?.classList.remove('active');
   rbtn?.classList.toggle('has-route', !!mapState.tracePath);
   if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
-  sendCmdSilent('map regional');
+  if (document.getElementById('map-panel')?.classList.contains('active')) sendCmdSilent('map regional');
 }
 
 // Arm the map popup so the next tile click selects a destination (charter). The

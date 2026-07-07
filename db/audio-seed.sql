@@ -193,6 +193,28 @@ CREATE TABLE IF NOT EXISTS players (
     sort_order INTEGER DEFAULT 0
   );
 
+  -- Ambient "routine" library (ambient-life plugin): scenery vignettes that make
+  -- opted-in street zones (flags.street_life) feel lived-in — kids playing,
+  -- delivery drones, buskers, traffic, dogs, etc. Each row is gated by day-phase,
+  -- ambient_theme, weather, and/or an explicit zone allowlist, and holds an ordered
+  -- `lines` array (one entry = a one-shot; several = a paced vignette). loudness>0
+  -- makes an audible routine bleed to neighbouring rooms via sound propagation;
+  -- `interactive` ('tip'|'order') arms a short-lived clickable opportunity.
+  CREATE TABLE IF NOT EXISTS ambient_routines (
+    id TEXT PRIMARY KEY,
+    category TEXT NOT NULL,
+    themes JSONB NOT NULL DEFAULT '[]',
+    zones JSONB NOT NULL DEFAULT '[]',
+    phases JSONB NOT NULL DEFAULT '[]',
+    weather JSONB NOT NULL DEFAULT '[]',
+    lines JSONB NOT NULL DEFAULT '[]',
+    loudness REAL NOT NULL DEFAULT 0,
+    interactive TEXT,
+    weight INTEGER NOT NULL DEFAULT 100,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    sort_order INTEGER NOT NULL DEFAULT 0
+  );
+
   -- Non-takeable scenery (bar counters, stools, beds, tables...). Distinct
   -- from items: items live in player_inventory (including the
   -- "_ground_<zoneId>" ground-item hack) and are takeable; furniture is
@@ -384,6 +406,18 @@ CREATE TABLE IF NOT EXISTS players (
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS forcefield_locked INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS home_zone TEXT DEFAULT NULL;
 
+  -- NPC home occupancy — a SEPARATE tracker from the player apartments ledger.
+  -- One row per apartment unit an NPC calls home; the housing rent flow treats a
+  -- unit listed here as occupied (un-rentable) without ever writing to apartments.
+  -- zone_id is unique (one registered resident per unit); npc_id is the occupant.
+  -- Both FKs cascade so deleting a zone or NPC frees the unit automatically.
+  CREATE TABLE IF NOT EXISTS npc_residences (
+    zone_id TEXT PRIMARY KEY REFERENCES zones(id) ON DELETE CASCADE,
+    npc_id  TEXT NOT NULL REFERENCES npcs(id) ON DELETE CASCADE,
+    note    TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_npc_residences_npc ON npc_residences(npc_id);
+
   CREATE TABLE IF NOT EXISTS recipes (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -488,6 +522,9 @@ CREATE TABLE IF NOT EXISTS players (
   ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_brains INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_cool INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_senses INTEGER DEFAULT 0;
+  -- Free stat points gifted outside the XP economy (e.g. the prologue's +1-to-all).
+  -- statSpent() refunds their cost so they touch neither Net nor Total XP.
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS gifted_stat_points INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS bonus_xp INTEGER DEFAULT 0;
   ALTER TABLE player_skills ADD COLUMN IF NOT EXISTS trained REAL DEFAULT 0;
   ALTER TABLE player_corpses ADD COLUMN IF NOT EXISTS capacity INTEGER;
@@ -1294,6 +1331,24 @@ CREATE TABLE IF NOT EXISTS players (
     captured_at       BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
   CREATE INDEX IF NOT EXISTS idx_zone_control_org ON zone_control(org_id);
+
+  -- Corp investment tier (Phase 2): raised via 'corp invest'; gates member cap,
+  -- territory slots, and asset level.
+  ALTER TABLE orgs ADD COLUMN IF NOT EXISTS tier INTEGER NOT NULL DEFAULT 1;
+
+  -- Corp assets: buildable improvements on a controlled zone (extractor = +income,
+  -- turret = +defense). One of each type per zone, upgradeable up to the org's tier.
+  CREATE TABLE IF NOT EXISTS org_assets (
+    id           TEXT PRIMARY KEY,
+    org_id       TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    zone_id      TEXT NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+    type         TEXT NOT NULL,                 -- 'extractor' | 'turret'
+    level        INTEGER NOT NULL DEFAULT 1,
+    installed_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    UNIQUE (zone_id, type)
+  );
+  CREATE INDEX IF NOT EXISTS idx_org_assets_org ON org_assets(org_id);
+  CREATE INDEX IF NOT EXISTS idx_org_assets_zone ON org_assets(zone_id);
 
   -- ── Jail system (jail plugin) ──────────────────────────────────────────────
   -- Runtime tables: schema is exported, rows are not. Written by plugins/jail.
