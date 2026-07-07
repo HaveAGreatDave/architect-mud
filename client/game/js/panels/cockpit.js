@@ -177,6 +177,13 @@ function hudFrame(t) {
   if (a._scenePhase == null) a._scenePhase = s.airborne ? 'cruise' : 'ground';
   else if (a._scenePhase === 'ground' && a.height > 0.06) a._scenePhase = 'cruise';
   else if (a._scenePhase === 'cruise' && a.height < 0.025) a._scenePhase = 'ground';
+  // Ground-roll distance (cosmetic — the server doesn't track it): while the deck
+  // scene is up, accumulate "how far down the strip" from throttle (a proxy for
+  // ground speed, since `s.spd` reads 0 until wheels-up). Resets at the start of
+  // each fresh on-deck episode — a takeoff roll or a landing roll-out — so the
+  // strip is never picked up mid-slide from the PREVIOUS episode.
+  if (a._prevScenePhase !== a._scenePhase) { if (a._scenePhase === 'ground') a.rwyRoll = 0; a._prevScenePhase = a._scenePhase; }
+  if (a._scenePhase === 'ground') a.rwyRoll = (a.rwyRoll || 0) + (a.thr / 100) * dt * 0.9;
   // Position: linear interpolation across the last push-to-push gap (not an ease-
   // decay like the needles above) so ground speed reads constant instead of
   // slowing into each new push.
@@ -218,6 +225,7 @@ function paintWindow(id, a, s) {
     phase: onGround ? 'ground' : 'cruise',
     airport: onGround ? (s.ground?.theme || _lastGround?.theme) : undefined,
     biomeBelow: onGround ? undefined : (s.biomeBelow ?? _lastBiome),
+    roll: a.rwyRoll || 0,   // ground-roll distance — how far down the strip you've travelled
     side: pax, windowClass: pax ? (s.class || 'prop') : undefined,
     livery: pax ? s.livery : undefined,   // hull skin punched by the window = the craft's own paint
     mapOffset,
