@@ -657,8 +657,13 @@ const FLICKER_MSGS = [
 async function flickerOverloadedZones() {
   const { broadcast, query } = deps;
   if (!broadcast || !query) return;
+  // Only overloaded zones a player is actually standing in produce an observable
+  // flicker (Phase 8) — skip the furniture query for empty zones. Same source of
+  // truth broadcastZoneWeather uses one function away; don't re-derive occupancy.
+  const occupied = deps.getOccupiedZones ? new Set(deps.getOccupiedZones()) : null;
   for (const [zoneId, z] of state.zones) {
     if (z.powerStatus !== 'overloaded') continue;
+    if (occupied && !occupied.has(zoneId)) continue;
     const { rows } = await query(
       `SELECT name FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1 LIMIT 3`,
       [zoneId]
@@ -707,8 +712,11 @@ async function tick1m() {
   stepIndoorTemps();
   if (broadcast) {
     broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes), tempC: state.tempC + diurnalOffset(state.minutes), currentWeatherType: state.currentPrecip !== 'none' ? state.currentPrecip : (PRECIP_FORECAST_TYPES.has(state.weatherType) ? 'cloudy' : state.weatherType), currentIntensity: currentIntensityLabel() });
-    // Per-zone indoor temp broadcasts so indoor HUDs stay current.
+    // Per-zone indoor temp broadcasts so indoor HUDs stay current — only for
+    // zones a player is in (Phase 8); an empty zone has no HUD to update.
+    const occupiedTemp = deps.getOccupiedZones ? new Set(deps.getOccupiedZones()) : null;
     for (const [zoneId, tempC] of state.zoneTemps) {
+      if (occupiedTemp && !occupiedTemp.has(zoneId)) continue;
       broadcast(zoneId, { type: 'environment.zoneTempTick', tempC });
     }
   }
