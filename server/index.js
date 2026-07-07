@@ -696,6 +696,12 @@ async function finishAuth(ws, session, player) {
 	const { total: totalXp, net: netXp } = await getNetXp(player.id);
 	livePlayer.xp = Math.floor(netXp);
 	livePlayer.total_xp = totalXp;
+	// Seed the resource diff-gate stamp (Phase 6) from the freshly-loaded row so
+	// the first resourceTick after login doesn't write values that never changed.
+	livePlayer._lastSavedResources = {
+		hunger: livePlayer.hunger, thirst: livePlayer.thirst, hp: livePlayer.hp,
+		stamina: livePlayer.stamina, body_temp_c: livePlayer.body_temp_c,
+	};
 	setLivePlayer(player.id, livePlayer);
 	logActivity('connect', player.handle);
 	broadcast(null, { type: 'online_change' });

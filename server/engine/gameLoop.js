@@ -636,6 +636,9 @@ async function stormTick() {
 // the brief's explicit ordering.
 const THIRST_DECAY_INTERVAL_MIN = 3;  // 1 point per 3 min → 100 pts / 5 hours
 const HUNGER_DECAY_INTERVAL_MIN = 4;  // 1 point per 4 min → 100 pts / ~6.7 hours
+// Diff-gate tripwire (Phase 6): thirst forces a write every 3 active game-minutes,
+// so this many consecutive game-time-elapsing ticks with no write is anomalous.
+const RESOURCE_NOWRITE_TRIPWIRE_TICKS = 6;
 
 // Returns a multiplier (0.0–1.0) for stamina regen based on body temperature.
 // Comfortable range (36–38°C) = full regen; further from it = reduced regen.
@@ -938,8 +941,32 @@ async function resourceTick() {
       if (regen > 0) player.stamina = Math.min(staminaMax, player.stamina + regen);
     }
 
-    await query('UPDATE players SET hunger=$1,thirst=$2,hp=$3,stamina=$4,body_temp_c=$5 WHERE id=$6',
-      [player.hunger, player.thirst, player.hp, player.stamina, player.body_temp_c, playerId]);
+    // Diff-gate the write (Phase 6): only persist when one of the five tracked
+    // values actually changed since the last successful write in this process.
+    // Basis is the in-memory stamp, never a DB re-read — avoids a round-trip and
+    // any write-vs-read float drift, same rationale as the power-zone fix. An
+    // idle player at full stats in a comfort zone now writes nothing.
+    const last = player._lastSavedResources;
+    const changed = !last
+      || last.hunger !== player.hunger || last.thirst !== player.thirst
+      || last.hp !== player.hp || last.stamina !== player.stamina
+      || last.body_temp_c !== player.body_temp_c;
+    if (changed) {
+      await query('UPDATE players SET hunger=$1,thirst=$2,hp=$3,stamina=$4,body_temp_c=$5 WHERE id=$6',
+        [player.hunger, player.thirst, player.hp, player.stamina, player.body_temp_c, playerId]);
+      player._lastSavedResources = { hunger: player.hunger, thirst: player.thirst, hp: player.hp, stamina: player.stamina, body_temp_c: player.body_temp_c };
+      player._resourceNoWriteTicks = 0;
+      player._resourceTripwireWarned = false;
+    } else if (gm > 0) {
+      // Tripwire: with game-time elapsing, thirst trends down (and forces a
+      // write) within a few minutes — a long dry spell means the diff above is
+      // wrongly reading "unchanged". Warn once rather than silently never saving.
+      player._resourceNoWriteTicks = (player._resourceNoWriteTicks || 0) + 1;
+      if (player._resourceNoWriteTicks >= RESOURCE_NOWRITE_TRIPWIRE_TICKS && !player._resourceTripwireWarned) {
+        player._resourceTripwireWarned = true;
+        console.warn(`[resourceTick] ${playerId}: no resource write in ${player._resourceNoWriteTicks} active ticks — diff-gate may be stuck "unchanged".`);
+      }
+    }
 
     const bodyTempChanged = player.body_temp_c !== prevBodyTemp;
     if (messages.length || bodyTempChanged) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c} }, null, playerId);
