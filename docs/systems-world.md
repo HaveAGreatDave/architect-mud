@@ -81,6 +81,33 @@ danger/RAD/PVP tags, building-discovery flavour, apartment status, the Custodian
 response, ground items, furniture, windows, exits, other players, NPCs, enemies, and corpses. It fires
 the `zone.describeRoom` plugin hook for optional injected prose.
 
+### Movement pacing (stamina) — the `pacing` plugin
+
+Movement is paced so the large map feels large, via the **pacing** plugin (see
+[plugins.md](plugins.md)) — attached at the move seams, not baked into `cmdMove`. Two layers:
+a **walk cadence** (a per-step cooldown, the `pacing:cadence` move gate — tuned so reading pace
+never trips it but direction-spamming is paced; walking costs no stamina), and a **`sprint` toggle**
+that spends stamina per step for a faster burst cadence, auto-dropping to "winded" below a floor
+(hysteresis: can't re-enable until stamina recovers).
+
+**Steps queue, they don't bounce.** When a step arrives before the cadence elapses, the gate doesn't
+reject it — it enqueues `{direction, opts}` (up to a cap) and returns a **silent** block
+(`{block:true, silent:true}`; `cmdMove` then returns `null` instead of an error line — the one small
+engine seam this needs, see [movement-gates.js](../server/engine/movement-gates.js)). A
+self-scheduling drain replays each queued step through `cmdMove` exactly when the cooldown clears,
+pushing the result to the player's own socket via `sendToPlayer`. So `n n n e` walks you along at
+cadence instead of throwing a wall of "catch your breath" errors; a wall (locked door, encumbrance)
+ends the run and drops the rest of the queue. System moves (`opts.bypassEncumbrance` — shove,
+`.gohome`, follower drags) and drained steps (`opts._pacingDrain`) skip the queue. The sprint spend +
+`sta` HUD push + cadence-clock stamp happen on the `zone.entered` event (gates can't broadcast).
+
+The plugin holds these **transient** (in-memory, never-persisted) fields on the live player, in the
+same spirit as `player.posture`: `player._lastStepAt` (epoch ms of the last committed step — the
+cadence clock), `player._sprinting` (the toggle), `player._winded` (set on auto-drop; blocks
+re-enabling sprint until stamina recovers), `player._moveQueue` (pending steps), and
+`player._moveTimer` (the armed drain handle). Only `cmdMove` threads `opts` into its `zone.entered`
+emit; scripted/elevator moves emit without it and so read as normal (non-exempt) steps.
+
 ## Ambient events & sound
 
 ### Ambient pool

@@ -199,11 +199,22 @@ on('appearance.changed', async ({ actor }) => {
   out(actor, `The attendant studies the new shape of you for a long, unhurried moment. "Yes," it says. "This is exactly how I predicted you would answer. You are in alignment." It sounds pleased. The certainty of it crawls up the back of your neck. It adds, almost as an afterthought: "If that shape isn't the whole of you, there is a word for the rest. Type .describe and whatever you write, others will see when they look at you." <span class="hint">(the way north is open)</span>`);
 });
 
-// ── The Broadcast: sitting plays the welcome, once ────────────────────────────
+// ── The Broadcast: sitting plays the welcome ──────────────────────────────────
+// Guarded by a per-player in-memory cooldown rather than the permanent F_PLAYED
+// flag. The completion beat (kit drop + F_COLLAPSE door) only fires from the
+// final setTimeout, so a player who disconnects mid-playback would otherwise be
+// left with F_PLAYED set but F_COLLAPSE never raised — permanently soft-locked,
+// since re-sitting was blocked and the door never opened. Now: once the door is
+// open we're done for good (F_COLLAPSE); otherwise a re-sit after the cooldown
+// (which the disconnect clears) replays the welcome and can finish it properly.
+const BROADCAST_COOLDOWN_MS = 60000; // longer than one full playback (~45s)
 on('posture.changed', async ({ player, to }) => {
   if (!player || to !== 'sitting' || player.current_zone !== Z_BROADCAST) return;
-  if (await isSet(player, F_PLAYED)) return;
-  await raise(player, F_PLAYED);
+  if (await isSet(player, F_COLLAPSE)) return; // already finished it — door is open
+  const now = Date.now();
+  if (player._prologueBroadcastAt && now - player._prologueBroadcastAt < BROADCAST_COOLDOWN_MS) return;
+  player._prologueBroadcastAt = now;
+  await raise(player, F_PLAYED); // marks "has begun" for the move-gate message; no longer gates replay
   playBroadcast(player);
 });
 
@@ -216,8 +227,28 @@ on('zone.entered', async ({ actor, zone, from }) => {
     out(actor, `<span class="ambient">The chair is the only thing here, and it is unmistakably for you.</span> <span class="hint">(try: sit)</span>`);
   } else if (zone === Z_CLONEVAT && from === Z_COLLAPSE) {
     out(actor, `<span class="clone-vat-message">You wake. There is a floor now, cold and real, and a body on it that is yours, and it already aches. The vat behind you hisses shut. The between is gone as if it never was. Somewhere far above, an algorithm notes that its very large number is, once again, correct.</span>`);
+    firstClothing(actor);
   }
 });
+
+// The first emergence from the vat plays the same body-assimilation and dressing-
+// robot beats a respawn gets (see scheduleVatEmergence in gameLoop.js) — but the
+// very first clone is on the house, so no cloning bill prints. Timings mirror the
+// respawn sequence so the two feel like the same machine.
+function firstClothing(actor) {
+  setTimeout(() => {
+    out(actor, `<span class="clone-vat-message">Your new body reports in, one seam at a time. Nerve endings find their sockets and announce themselves — cold, ache, the dumb weight of your own hands. Muscle remembers what muscle is for. You are, unmistakably, meat again.</span>`);
+  }, 2600);
+  setTimeout(async () => {
+    try {
+      const { equipStarterOutfit } = await import('../../server/engine/gameLoop.js');
+      equipStarterOutfit(actor.id, actor.biological_sex || 'male');
+    } catch (e) {
+      console.error('[prologue] starter outfit failed:', e.message);
+    }
+    out(actor, `<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you — underwear, pants, a t-shirt, a pair of shoes — with the tenderness of an industrial press. No invoice prints. The first clone, it seems, is free.</span>`);
+  }, 5200);
+}
 
 // The welcome script — timed, styled, and unstoppable: it runs on its own timers,
 // so standing up doesn't halt it (per design). Ends by dropping the starter kit
@@ -241,6 +272,7 @@ function playBroadcast(player) {
   // After the last line: the kit hits the floor and the way opens.
   setTimeout(async () => {
     try {
+      if (await isSet(player, F_COLLAPSE)) return; // a prior playback already finished — don't re-drop the kit
       const ground = `_ground_${Z_BROADCAST}`;
       for (const { id, qty } of KIT) await grantItem(player, id, qty, ground);
       await raise(player, F_COLLAPSE);

@@ -337,7 +337,10 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   // before anything mutates. Previously the door opened before the encumbrance
   // check could veto, leaving it standing open on a blocked move.
   const veto = await runMoveGates({ player, from: zone, to: targetZone, direction, door, opts });
-  if (veto) return { type:'error', message: veto.message };
+  // A gate may block silently (veto.silent) — e.g. the pacing plugin deferring a
+  // too-fast step into its move queue — in which case no error line is shown; the
+  // step is simply not executed now.
+  if (veto) return veto.silent ? null : { type:'error', message: veto.message };
 
   let doorWasClosed = false;
   let doorWasLocked = false;
@@ -358,7 +361,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   removePlayerFromZone(player.id, player.current_zone);
   addPlayerToZone(player.id, targetId);
   player.current_zone = targetId;
-  emit('zone.entered', { actor: player, zone: targetId, from: oldZoneId });
+  emit('zone.entered', { actor: player, zone: targetId, from: oldZoneId, opts });
   player.combatTargetId = null;
   const interrupted = forceStand(player, 'moved');
   if (interrupted === 'sitting') {
@@ -472,6 +475,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
 // `fromZoneId` in `direction`, mirroring the leader's move. Used by cmdMove
 // (player leaders) and by ai-behaviour's moveEntity (NPC leaders).
 export async function dragFollowers(leaderId, fromZoneId, direction, broadcast) {
+  if (leaderId == null) return; // enemies key on instanceId, so entity.id is undefined — never drag on a nullish leader (would match every non-following player)
   const followers = getAllLivePlayers().filter(p => p.following === leaderId && p.current_zone === fromZoneId);
   for (const follower of followers) {
     const followerResult = await cmdMove(direction, follower, broadcast);

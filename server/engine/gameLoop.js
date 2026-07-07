@@ -17,9 +17,17 @@ import { query, logActivity } from '../models/db.js';
 import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, recordLightningKill, getZoneStormIntensity } from './environment.js';
 import { tickDrugDecay, tickDrugs, tickOnsets, tickWithdrawal, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
+import { getTotalXp } from './ip.js';
 
 // HP restored per sitting tick (every 15 seconds)
 const SIT_REGEN_HP = 5;
+
+// Cloning-vat emergence beats (ms after respawn), played only on the normal vat
+// path: consciousness arrives immediately, the body reports in, then a dressing
+// robot clothes you and bills your account. A jail override takes custody of the
+// body instead and runs none of this.
+const VAT_ASSIMILATE_MS = 2600;
+const VAT_DRESS_MS = 5200;
 
 let broadcastFn = null;
 let lastNoCombatWarn = 0;
@@ -377,6 +385,36 @@ export function equipStarterOutfit(victimId, sex) {
   for (const [itemId, slot] of [['item_basic_shirt','torso'],['item_basic_pants','legs'],['item_basic_shoes','feet']]) equip(itemId, slot, 2);
 }
 
+// The clone-vat emergence sequence for a normal respawn, played on timers after
+// the initial death/consciousness message: the body assimilates, then a dressing
+// robot clothes you and bills your account. The bill is Total XP earned / 3,
+// rounded up to the nearest credit — and it is the one credit path allowed to
+// push a balance negative (a debt owed to the vat), so it writes the debit
+// directly rather than through adjustCredits' non-negative guard.
+function scheduleVatEmergence(player) {
+  const send = (message) => broadcastFn(null, { type: 'output', message }, null, player.id);
+
+  setTimeout(() => {
+    send(`<span class="clone-vat-message">Your new body reports in, one seam at a time. Nerve endings find their sockets and announce themselves — cold, ache, the dumb weight of your own hands. Muscle remembers what muscle is for. You are, unmistakably, meat again.</span>`);
+  }, VAT_ASSIMILATE_MS);
+
+  setTimeout(async () => {
+    equipStarterOutfit(player.id, player.biological_sex || 'male');
+    let cost = 0;
+    try { cost = Math.ceil((await getTotalXp(player.id)) / 3); } catch { cost = 0; }
+    if (cost > 0) {
+      const { rows } = await query(
+        'UPDATE players SET credits = credits - $1 WHERE id=$2 RETURNING credits',
+        [cost, player.id]
+      ).catch(() => ({ rows: [] }));
+      if (rows.length) player.credits = Number(rows[0].credits);
+    }
+    const balance = player.credits ?? 0;
+    send(`<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you — underwear, pants, a t-shirt, a pair of shoes — with the tenderness of an industrial press, then prints an invoice against your account: <span class="credits">₵${cost}</span> for cloning, tailoring, and incidental resurrection. Balance: <span class="credits">₵${balance}</span>.</span>`);
+    broadcastFn(null, { type: 'player_update', credits: balance }, null, player.id);
+  }, VAT_DRESS_MS);
+}
+
 export async function handlePlayerDeath(player, killer, cause = null) {
   // Re-entrancy guard: several attacks can resolve in the same tick and each land a
   // "killing" blow on an already-dead player. Without this, each call inserts another
@@ -449,7 +487,7 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   player.offlinePvpTargetId = null;
 
   const vatLine = respawnOverride?.message
-    || `<span class="clone-vat-message">A vending-machine-shaped cloning vat hums, dispenses a fresh you, and prints a receipt nobody asked for. Everything you knew, you still know. Everything that hurt, doesn't anymore.</span>`;
+    || `<span class="clone-vat-message">Nothing. Then less than nothing — a dark so total it has weight. Then, without ceremony, you: consciousness arrives the way a switch does, no dimmer and no warning, just ON, a self where a moment ago there was only the Architect's arithmetic.</span>`;
   broadcastFn(null, {
     type:'player_death',
     message:`\n<span class="death-message">☠ ${msg}${killerMsg}</span>\n${vatLine}`,
@@ -474,8 +512,12 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   world.zones.get(respawnZone)?.players.add(player.id);
   player.current_zone = respawnZone;
 
-  // Equip fresh underwear (layer 1) and basic clothing (layer 2) on respawn
-  equipStarterOutfit(player.id, player.biological_sex || 'male');
+  // Equip fresh underwear (layer 1) and basic clothing (layer 2) on respawn.
+  // On a jail override the body is already in custody, so dress it immediately;
+  // on the normal vat path the dressing robot does it on a timed beat, along
+  // with the assimilation narration and the cloning bill.
+  if (respawnOverride) equipStarterOutfit(player.id, player.biological_sex || 'male');
+  else scheduleVatEmergence(player);
 
   logActivity('death', player.handle);
   fireHook('player.death', player, killer).catch(()=>{});

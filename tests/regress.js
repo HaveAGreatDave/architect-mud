@@ -26,7 +26,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, getApartment } from '../server/engine/world.js';
 import { moveEntity } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
-import { cmdMove } from '../server/engine/commands/movement.js';
+import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
 import { resolveNamedDestination } from '../server/engine/commands/describe.js';
 import { tickOnsets } from '../server/engine/drugs.js';
 import { getSelectionState, clearSelectionState } from '../server/engine/sift.js';
@@ -368,6 +368,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     // no picker needed. #1 is the alphabetically-first destination.
     const ordered = [A, B].map(z => ({ id: z.id, name: z.name })).sort((a, b) => a.name.localeCompare(b.name));
     mover.current_zone = originId;
+    mover._lastStepAt = 0; // clear the pacing plugin's cadence clock — this test drives back-to-back moves to check exit indexing, not movement pacing
     const idx1 = await cmdMove('north', mover, broadcast, { exitIndex: 1 });
     check('inline index moves to Nth exit', idx1?.type === 'move' && mover.current_zone === ordered[0].id, `zone=${mover.current_zone} want=${ordered[0].id}`);
     check('inline index opens no picker', !getSelectionState(mover.id), JSON.stringify(getSelectionState(mover.id)));
@@ -428,6 +429,33 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   deleteDoorCache(doorId);
   world.zones.delete(hallId);
   world.zones.delete(homeId);
+}
+
+// dragFollowers leader-identity guard: an enemy keys on instanceId, so its
+// entity.id is undefined. moveEntity passes that undefined to dragFollowers, and
+// a non-following player's `following` is also undefined — so a naive
+// `following === leaderId` check dragged every bystander after any moving enemy.
+// The guard must ignore a nullish leader and drag only genuine followers.
+{
+  const dfZone = 'zone_regress_drag_' + process.pid;
+  world.zones.set(dfZone, { id: dfZone, name: 'Drag Origin', flags: {}, exits: {}, players: new Set(), npcs: new Set(), enemies: new Set() });
+
+  const bystanderId = 'rg_drag_bystander_' + process.pid;
+  const bystander = { id: bystanderId, handle: 'Bystander', current_zone: dfZone }; // no `following` — undefined
+  setLivePlayer(bystanderId, bystander);
+  addPlayerToZone(bystanderId, dfZone);
+
+  // The bug: nullish leader (an enemy's undefined id) must not drag a non-follower.
+  await dragFollowers(undefined, dfZone, 'north', broadcast);
+  check('dragFollowers ignores a nullish leader (enemy id)', bystander.current_zone === dfZone, `zone=${bystander.current_zone}`);
+
+  // Filter integrity: a real leader id still doesn't drag someone not following it.
+  await dragFollowers('some_other_leader_id', dfZone, 'north', broadcast);
+  check('dragFollowers spares a non-follower for a real leader', bystander.current_zone === dfZone, `zone=${bystander.current_zone}`);
+
+  removeLivePlayer(bystanderId);
+  removePlayerFromZone(bystanderId, dfZone);
+  world.zones.delete(dfZone);
 }
 
 // NPC-residence rental guard: a unit registered in npc_residences reads as an

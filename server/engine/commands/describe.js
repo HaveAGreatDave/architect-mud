@@ -562,7 +562,7 @@ export async function describeZone(zone, player) {
 	if (enemies.length) {
 		const enemyLinks = enemies.map(
 			(e) =>
-				`<span class="action-link enemy-link" data-action="attack" data-target="${e.name}" title="Attack ${e.name}">${e.name}</span> (${e.hp}/${e.hp_max}HP)`,
+				`<span class="action-link enemy-link" data-action="attack" data-target="${e.name}" data-instance-id="${e.instanceId}" title="Attack ${e.name}">${e.name}</span> (${e.hp}/${e.hp_max}HP)`,
 		);
 		desc += `\n<span class="enemies-label">Hostiles:</span> ${enemyLinks.join(", ")}`;
 	}
