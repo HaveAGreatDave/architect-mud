@@ -157,20 +157,31 @@ function hudFrame(t) {
   // Bank into the turn; level out when settled.
   const targetRoll = clampNum(hd * 0.5, -22, 22);
   a.roll += (targetRoll - a.roll) * Math.min(1, dt * 4);
-  // Pitch from altitude band (climb attitude higher up).
-  const targetPitch = s.airborne ? ((s.bandIndex ?? 1) - 1) * 8 : 0;
-  a.pitch += (targetPitch - a.pitch) * Math.min(1, dt * 3);
   a.sweep = (a.sweep + dt * 55) % 360;
   // Eased needles.
   a.fuel += ((s.fuelPct || 0) - a.fuel) * Math.min(1, dt * 4);
   a.thr += ((s.throttle || 0) - a.thr) * Math.min(1, dt * 6);
   a.hull += ((s.hullPct ?? 100) - a.hull) * Math.min(1, dt * 4);
   a.spd += ((s.spd || 0) - a.spd) * Math.min(1, dt * 4);
-  // Height — eased rather than snapped to the (stepped) band index, so climbing
-  // through a band boundary reads as continuous rise instead of a jump. Drives
-  // both the runway-recede/obstacle-scale math and, below, which scene renders.
+  // Height — a flat/diagonal/flat trapezoid ( ___/‾‾‾\___ ), not a curve: ramps at a
+  // CONSTANT rate (not an ease-decay) while it's short of the target band, so the
+  // climb/descent reads as one straight diagonal leg, then holds level the instant
+  // it arrives — instead of the old exponential-decay ease, which shot up fast and
+  // trailed off into a curve that read as "goes vertical" rather than a clean climb.
+  const CLIMB_RATE = 0.28;   // height-fraction per second
   const targetHeight = s.airborne ? clampNum((s.bandIndex || 0) / 3, 0, 1) : 0;
-  a.height = (a.height ?? 0) + (targetHeight - (a.height ?? 0)) * Math.min(1, dt * 1.6);
+  if (a.height == null) a.height = targetHeight;   // first frame: snap, no phantom climb/descent
+  const hDiff = targetHeight - a.height;
+  if (Math.abs(hDiff) > 0.001) {
+    const step = Math.sign(hDiff) * CLIMB_RATE * dt;
+    a.height = Math.abs(step) >= Math.abs(hDiff) ? targetHeight : a.height + step;
+  }
+  // Pitch follows the SAME climbing/level/descending state — a fixed climb angle
+  // while a diagonal leg is in progress, wings-level the rest of the time. This is
+  // what actually reads as "flat, then a 25° diagonal, then flat" out the window.
+  const CLIMB_ANGLE = 25;
+  const targetPitch = Math.abs(hDiff) > 0.001 ? Math.sign(hDiff) * CLIMB_ANGLE : 0;
+  a.pitch += (targetPitch - a.pitch) * Math.min(1, dt * 4);
   // Scene swap — hysteresis around the ground/airborne cut so it lands once the
   // eased height has actually cleared the deck (climb-out) or sunk back to it
   // (flare), not the instant the server toggles `airborne`.
