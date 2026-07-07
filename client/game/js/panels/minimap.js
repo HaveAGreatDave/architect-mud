@@ -331,6 +331,13 @@ function contrastInk(hex) {
   const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
   return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#08110d' : '#eafffb';
 }
+// hex -> rgba(...) string at a given alpha, for the territory overlay tint.
+function hexA(hex, a) {
+  const h = (hex || '').replace('#', '');
+  if (h.length < 6) return `rgba(0,0,0,${a})`;
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
 
 // Store the fetched corp-control layer and re-tint the map if it's open.
 export function setMapTerritory(msg) {
@@ -895,17 +902,25 @@ function renderMapGrid() {
       const t = it.tile;
       const terr = territory ? territory[t.id] : null; // controlling org, if any
       const funcColor = FUNC_LEGEND[t.func]?.color || FUNC_LEGEND.residential.color;
-      const bg = terr ? terr.color : (regional ? funcColor : t.bg_color);
+      // Whatever the active map mode paints this tile — territory rides on top of
+      // this as a translucent tint, it never replaces it.
+      const bg = regional ? funcColor : t.bg_color;
       const styles = [];
       if (bg) styles.push(`background:${bg}`);
       const isPoi = t.icon && !t.isCurrent; // POI icon gets its own colour via a class
-      const tColor = terr
-        ? contrastInk(terr.color)
-        : (regional
-          ? luminanceTextColor(bg)
-          : (t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null)));
+      const tColor = regional
+        ? luminanceTextColor(bg)
+        : (t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null));
       if (tColor && !isPoi) styles.push(`color:${tColor}`);
       if (terr) {
+        // Territory tint: a 75%-opacity layer over whatever's already painted below
+        // (danger colour, land-use colour, or nothing) — background-image composites
+        // above background-color, and inline styles beat the avenue-view "background:
+        // none" stripper, so the tint survives every map mode. Labels/icons are DOM
+        // content of this same tile, painted after its background by the cascade, so
+        // they stay legible on top without any extra stacking work.
+        styles.push(`background-image:linear-gradient(${hexA(terr.color, 0.75)},${hexA(terr.color, 0.75)})`);
+        if (!isPoi) styles.push(`color:${contrastInk(terr.color)}`);
         // Org-colour glow (doubled for rival-held turf), dashed outline while contested.
         styles.push(`box-shadow:inset 0 0 0 1px ${terr.color},0 0 8px ${terr.color}${terr.mine ? '' : ',0 0 4px ' + terr.color}`);
         if (terr.status === 'CONTESTED') styles.push(`outline:1px dashed ${contrastInk(terr.color)};outline-offset:-3px`);
@@ -917,7 +932,7 @@ function renderMapGrid() {
       const trDirs = traceSet.has(t.id) ? traceDirs.get(t.id) : null;
       const cls = `map-c map-room danger-${t.danger || 'safe'}` +
         (t.isCurrent ? ' map-current' : '') +
-        (regional || t.bg_color || t.color || terr ? ' map-styled' : '') +
+        (regional || t.bg_color || t.color ? ' map-styled' : '') +
         (isPoi ? ` map-poi map-poi-${t.poi}` : '') +
         (t.buildings && t.buildings.length ? ' map-has-building' : '') +
         (deg === 1 ? ' map-deadend' : '') +
