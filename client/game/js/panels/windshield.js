@@ -1405,10 +1405,12 @@ function drawWorldObjects(ctx, cam, v, sky, now) {
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     if (f <= 0.05 || f > FAR) continue;
     const lat = dx * cam.cosh + dy * cam.sinh;
-    // Keep the flight path ahead clear (a building on the centreline is what you'd fly into),
-    // but FADE across the corridor edge rather than hard-skip so nothing pops in/out.
     let alpha = clamp((f - 0.06) / 0.4, 0, 1) * clamp((FAR - f) / 1.6, 0, 1);   // near pass-under + soft far fade-in
-    if (f > 0.1) { const corr = clamp((Math.abs(lat) - 0.45) / 0.35, 0, 1); if (corr <= 0) continue; alpha *= corr; }
+    // Keep the CLIMB-OUT path ahead clear (a building dead ahead reads as something
+    // you'd fly into right off the runway) — but only while still low/climbing.
+    // Once settled into cruise, buildings ahead stay fully visible the whole time;
+    // this fade is a takeoff flourish, not a permanent no-fly corridor.
+    if (f > 0.1 && (v.height || 0) < 0.2) { const corr = clamp((Math.abs(lat) - 0.45) / 0.35, 0, 1); if (corr <= 0) continue; alpha *= corr; }
     if (alpha <= 0.02) continue;
     // Seed from the WORLD tile (stable), NOT the array index — so a building keeps its shape
     // when the server recenters the map window (was the main "popping in and out" cause).
