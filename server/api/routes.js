@@ -46,7 +46,7 @@ import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
 import { reloadWindows as reloadWindowsEnv, recomputePower, getEnvironmentState } from '../engine/environment.js';
 import { ensureTunables, getTunable, reloadTunables } from '../engine/tunables.js';
-import { startingIp, getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
+import { getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
 import { SKILLS } from '../engine/skills.js';
 import { ownTags } from '../engine/supertags.js';
 import { getMotd, saveMotd } from '../engine/motd.js';
@@ -428,10 +428,10 @@ async function apiRegister(body) {
   try {
     const id = randomUUID();
     await ensureTunables();
-    // Starting XP into bonus_xp: enough to raise all six stats from blank (0) to
-    // the baseline target — Net XP after creation equals startingIp exactly, no
-    // stats are pre-filled, so there's nothing to compensate for.
-    const bonusXp = startingIp();
+    // No starting XP. Fresh souls carry bonus_xp = 0; the chargen holosign hands
+    // out the free +1-to-all stats (refunded in statSpent), so Total XP stays a
+    // pure count of earned IP and bonus_xp is reserved for future non-skill grants.
+    const bonusXp = 0;
     const app = randomAppearance(biological_sex);
     // Stats start blank (0 — see stat_brawn etc. below); hp/hp_max derive from
     // endurance 0 (see maxHpForEndurance). The prologue teaches growth from here.
