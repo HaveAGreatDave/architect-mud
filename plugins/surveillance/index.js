@@ -163,6 +163,7 @@ async function cmdRetrieve(args, raw, player) {
   const itemId = furn.flags?.security_item_id;
   await query('DELETE FROM security_devices WHERE id=$1', [furn.id]);
   await query('DELETE FROM furniture WHERE id=$1', [furn.id]);
+  cameraBuffers.delete(furn.id);   // drop any in-memory rolling buffer for the pulled device
 
   if (itemId) {
     const { rows: ex } = await query(
@@ -515,6 +516,9 @@ function logCrime(zoneId, tag) {
   ring.push({ ts: Date.now(), tag });
   while (ring.length > 50) ring.shift();
   crimeLog.set(zoneId, ring);
+  // Fire-and-forget: bank evidence on any camera recording this zone. Kept off
+  // the caller's path so crime handling never blocks on clip I/O.
+  autoClipZone(zoneId).catch(() => {});
 }
 on('player.death', async ({ player, killer }) => {
   // Getting downed clears the victim's own wanted level (death / arrest).
@@ -555,55 +559,65 @@ function parseBuffer(raw) {
   try { return JSON.parse(raw || '[]'); } catch { return []; }
 }
 
-// Recording-buffer batching: capture stays on the 5s tick, but the JSON buffer
-// (up to storage_limit ≈ 200 frames) is only rewritten to Postgres every
-// REC_FLUSH_MS or once REC_FLUSH_FRAMES fresh frames accumulate — cutting a
-// per-5s full-array rewrite down to roughly one per minute. The shadow is
-// seeded from the DB on first sight and is thereafter the authoritative
-// superset (it only grows), so gameplay reads (cmdClip) pull from it directly.
-// Trade-off: a server crash loses at most one flush window of footage.
-const REC_FLUSH_MS = 45_000;
-const REC_FLUSH_FRAMES = 12;
-const recBuffers = new Map(); // deviceId → { buf, dirty, lastFlush, limit }
+// Camera rolling buffer lives in memory, not Postgres (Phase 4). The old design
+// rewrote the entire security_devices.recording_buffer JSON array every 5s per
+// recording camera — time passing treated as a database mutation. Frames are
+// lightweight text (see feedSnapshot), so the whole rolling window fits in RAM;
+// the only durable artifact is a clip, which is already event-driven (cmdClip /
+// auto-clip → security_clips + a datachip item). Nothing else reads the column.
+const MAX_CAMERA_BUFFER = 500;       // hard ceiling regardless of storage_limit's configured value
+const AUTO_CLIP_DEBOUNCE_MS = 60_000; // one auto-clip per camera per minute, so a shootout isn't a clip flood
 
-async function flushRecBuffer(id) {
-  const s = recBuffers.get(id);
-  if (!s || !s.dirty) return;
-  await query('UPDATE security_devices SET recording_buffer=$1 WHERE id=$2', [JSON.stringify(s.buf), id]);
-  s.dirty = 0;
-  s.lastFlush = Date.now();
+class CameraBuffer {
+  constructor(limit) {
+    this.limit = Math.max(1, Math.min(limit, MAX_CAMERA_BUFFER));
+    this.frames = [];
+    this.zoneId = null;       // refreshed each capture — used to route auto-clips
+    this.ownerId = null;      // "
+    this.lastAutoClip = 0;
+  }
+  push(frame) {               // frame.ts is stamped by the caller at capture time — never later,
+    this.frames.push(frame);  // or a delayed clip would shift the window under the timestamps
+    while (this.frames.length > this.limit) this.frames.shift();
+  }
 }
+const cameraBuffers = new Map(); // deviceId → CameraBuffer, created lazily on first capture
 
 async function captureRecordings() {
   const { rows } = await query(
-    `SELECT id, device_kind, zone_id, battery, battery_max, wired, is_damaged, status_flags,
-            recording_buffer, storage_limit
+    `SELECT id, device_kind, zone_id, owner_id, battery, battery_max, wired, is_damaged,
+            status_flags, storage_limit
        FROM security_devices WHERE is_recording = 1`
   );
-  const fx = rows.length ? await getInterferenceZones() : null;
-  const seen = new Set();
+  if (!rows.length) return;
+  const fx = await getInterferenceZones();
   for (const d of rows) {
     if (!CAM_KINDS.has(d.device_kind)) continue;
-    seen.add(d.id);
-    let s = recBuffers.get(d.id);
-    if (!s) {
-      s = { buf: parseBuffer(d.recording_buffer), dirty: 0, lastFlush: Date.now(), limit: d.storage_limit || 200 };
-      recBuffers.set(d.id, s);
-    }
+    let buf = cameraBuffers.get(d.id);
+    if (!buf) { buf = new CameraBuffer(d.storage_limit || 200); cameraBuffers.set(d.id, buf); }
+    buf.zoneId = d.zone_id;
+    buf.ownerId = d.owner_id;
     const status = deviceStatus(d, fx);
     const frame = deviceFrame(d, status);      // null when offline/jammed → records nothing
     if (!frame) continue;                       // a spoofed cam banks the clean fake frame
-    s.buf.push({ t: clock(), ts: Date.now(), text: frame });
-    while (s.buf.length > s.limit) s.buf.shift();
-    s.dirty++;
-    if (s.dirty >= REC_FLUSH_FRAMES || Date.now() - s.lastFlush >= REC_FLUSH_MS) await flushRecBuffer(d.id);
+    buf.push({ t: clock(), ts: Date.now(), text: frame });
   }
-  // Devices that stopped recording (or vanished) since last tick: flush any
-  // pending frames to the DB and drop the shadow so it can't leak memory.
-  for (const id of [...recBuffers.keys()]) {
-    if (seen.has(id)) continue;
-    await flushRecBuffer(id);
-    recBuffers.delete(id);
+}
+
+// A crime raised in a zone auto-banks a durable evidence record for every
+// actively-recording camera watching it (Phase 4b) — a security_clips row only,
+// no automatic item, so it works even if the owner is offline or has no room in
+// their kit. They pull the physical datachip later with `collect`. Debounced per
+// camera so a burst of crimes doesn't spawn a burst of clips.
+async function autoClipZone(zoneId) {
+  const now = Date.now();
+  for (const [id, buf] of cameraBuffers) {
+    if (buf.zoneId !== zoneId || !buf.ownerId || !buf.frames.length) continue;
+    if (now - buf.lastAutoClip < AUTO_CLIP_DEBOUNCE_MS) continue;
+    buf.lastAutoClip = now;
+    const clip = await createSecurityClip(id, buf.frames.slice(), zoneId, buf.ownerId).catch(() => null);
+    if (clip) sendToPlayer(buf.ownerId, { type: 'system', message:
+      `<span class="text-red">⚠ EVIDENCE</span> — your camera banked a clip. Use "collect" to pull the datachip.` });
   }
 }
 
@@ -611,7 +625,8 @@ async function captureRecordings() {
 async function cmdRecord(args, raw, player) {
   const nameHint = args.join(' ').trim();
   const params = [player.id];
-  let sql = `SELECT d.id, d.is_recording, f.name FROM security_devices d JOIN furniture f ON f.id=d.id
+  let sql = `SELECT d.id, d.is_recording, f.name, n.is_police FROM security_devices d JOIN furniture f ON f.id=d.id
+             LEFT JOIN security_networks n ON n.id=d.network_id
              WHERE d.owner_id=$1`;
   if (nameHint) { sql += ` AND (d.id=$2 OR f.name ILIKE $3)`; params.push(nameHint, `%${nameHint}%`); }
   sql += ` ORDER BY f.name LIMIT 1`;
@@ -619,17 +634,63 @@ async function cmdRecord(args, raw, player) {
   const dev = rows[0];
   if (!dev) return { type: 'error', message: nameHint ? `You have no deployed device matching "${nameHint}".` : "You have no deployed devices to record." };
   const next = dev.is_recording ? 0 : 1;
+  // Police-network invariant (Phase 4c): observation is allowed, recording is
+  // not. Enforced on network authority, not device kind — holds even if some
+  // future system tries to arm recording on a PD unit. Ownership gating already
+  // keeps players off org devices today; this is defence in depth.
+  if (next && dev.is_police) return { type: 'error', message: 'Recording capability unavailable on this network.' };
   await query('UPDATE security_devices SET is_recording=$1 WHERE id=$2', [next, dev.id]);
   return { type: 'output', message: next
     ? `<span class="text-red">●REC</span> ${dev.name} is now recording.`
     : `Recording stopped on ${dev.name}.` };
 }
 
-// clip [name] — burn the current buffer to a datachip in your inventory.
+// Durable evidence, step 1: persist the frames to a security_clips row and stamp
+// any overlapping crimes. No item is created — that's physicalizeClip's job.
+// The datachip item id is derived from the clip id, so physicalization is
+// idempotent (a clip maps to exactly one datachip).
+async function createSecurityClip(deviceId, frames, zoneId, ownerId) {
+  const clipId = `clip_${Date.now()}_${randomUUID().slice(0, 4)}`;
+  const firstTs = frames[0]?.ts || 0;
+  const crimeTags = [...new Set((crimeLog.get(zoneId) || []).filter(c => c.ts >= firstTs).map(c => c.tag))];
+  const capturedAt = Math.floor(Date.now() / 1000);
+  await query(
+    `INSERT INTO security_clips (id, device_id, zone_id, owner_id, frames, captured_at, crime_tags)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [clipId, deviceId, zoneId, ownerId, JSON.stringify(frames), capturedAt, JSON.stringify(crimeTags)]
+  );
+  return { id: clipId, device_id: deviceId, zone_id: zoneId, owner_id: ownerId, frames, captured_at: capturedAt, crime_tags: crimeTags };
+}
+
+// Durable evidence, step 2: mint the physical datachip item + inventory row for
+// an existing clip. ON CONFLICT makes a second call a no-op, so collecting an
+// already-collected clip can't spawn a duplicate item.
+async function physicalizeClip(clipRow, player) {
+  const itemId = `item_datachip_${clipRow.id}`;
+  const zoneName = clipRow.zone_name || clipRow.zone_id || 'UNKNOWN';
+  const crimeTags = Array.isArray(clipRow.crime_tags) ? clipRow.crime_tags : parseBuffer(clipRow.crime_tags);
+  const frames = Array.isArray(clipRow.frames) ? clipRow.frames : parseBuffer(clipRow.frames);
+  const evidenceTag = crimeTags.length ? ` [EVIDENCE: ${crimeTags.join(', ').toUpperCase()}]` : '';
+  await query(
+    `INSERT INTO items (id, name, description, type, weight, value, tags)
+     VALUES ($1,$2,$3,'evidence',60,$4,$5) ON CONFLICT (id) DO NOTHING`,
+    [itemId, `Datachip — ${zoneName}`,
+     `A slab of black storage glass, edge-lit amber. Holds ${frames.length} frames of surveillance footage from ${zoneName}.${evidenceTag}`,
+     crimeTags.length ? 250 : 40,
+     JSON.stringify({ datachip: true, clip_id: clipRow.id })]
+  );
+  await query(
+    `INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`,
+    [randomUUID(), player.id, itemId]
+  );
+  return { itemId, zoneName, frameCount: frames.length, evidenceTag };
+}
+
+// clip [name] — burn the current live buffer to a datachip in your inventory.
 async function cmdClip(args, raw, player) {
   const nameHint = args.join(' ').trim();
   const params = [player.id];
-  let sql = `SELECT d.id, d.zone_id, d.recording_buffer, f.name, z.name AS zone_name
+  let sql = `SELECT d.id, d.zone_id, f.name, z.name AS zone_name
              FROM security_devices d JOIN furniture f ON f.id=d.id
              LEFT JOIN zones z ON z.id=d.zone_id WHERE d.owner_id=$1`;
   if (nameHint) { sql += ` AND (d.id=$2 OR f.name ILIKE $3)`; params.push(nameHint, `%${nameHint}%`); }
@@ -638,41 +699,34 @@ async function cmdClip(args, raw, player) {
   const dev = rows[0];
   if (!dev) return { type: 'error', message: nameHint ? `You have no deployed device matching "${nameHint}".` : "You have no deployed devices." };
 
-  // The in-memory shadow (if this device is actively recording) holds frames
-  // not yet flushed to the DB column — prefer it so a clip never misses the
-  // most-recent footage. Falls back to the persisted buffer otherwise.
-  const frames = recBuffers.get(dev.id)?.buf ?? parseBuffer(dev.recording_buffer);
+  // Frames live only in memory now (Phase 4) — never undefined, so an empty
+  // buffer falls through to the "nothing recorded" message, not a crash.
+  const frames = cameraBuffers.get(dev.id)?.frames ?? [];
   if (!frames.length) return { type: 'error', message: `${dev.name} has nothing recorded. Try "record" first.` };
 
-  const firstTs = frames[0].ts || 0;
-  const crimeTags = [...new Set((crimeLog.get(dev.zone_id) || []).filter(c => c.ts >= firstTs).map(c => c.tag))];
+  const clip = await createSecurityClip(dev.id, frames.slice(), dev.zone_id, player.id);
+  clip.zone_name = dev.zone_name;
+  const { frameCount, zoneName, evidenceTag } = await physicalizeClip(clip, player);
 
-  const clipId = `clip_${Date.now()}_${randomUUID().slice(0, 4)}`;
-  const itemId = `item_datachip_${clipId}`;
-  const nowSec = Math.floor(Date.now() / 1000);
-  const zoneName = dev.zone_name || dev.zone_id || 'UNKNOWN';
+  return { type: 'output', message: `You burn the feed to a datachip — ${frameCount} frames from ${zoneName}.${evidenceTag ? ` <span class="text-red">${evidenceTag.trim()}</span>` : ''}\n<span class="text-dim">(use the datachip to replay it.)</span>` };
+}
 
-  await query(
-    `INSERT INTO security_clips (id, device_id, zone_id, owner_id, frames, captured_at, crime_tags)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-    [clipId, dev.id, dev.zone_id, player.id, JSON.stringify(frames), nowSec, JSON.stringify(crimeTags)]
-  );
-
-  const evidenceTag = crimeTags.length ? ` [EVIDENCE: ${crimeTags.join(', ').toUpperCase()}]` : '';
-  await query(
-    `INSERT INTO items (id, name, description, type, weight, value, tags)
-     VALUES ($1,$2,$3,'evidence',60,$4,$5)`,
-    [itemId, `Datachip — ${zoneName}`,
-     `A slab of black storage glass, edge-lit amber. Holds ${frames.length} frames of surveillance footage from ${zoneName}.${evidenceTag}`,
-     crimeTags.length ? 250 : 40,
-     JSON.stringify({ datachip: true, clip_id: clipId })]
-  );
-  await query(
-    `INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`,
-    [randomUUID(), player.id, itemId]
-  );
-
-  return { type: 'output', message: `You burn the feed to a datachip — ${frames.length} frames from ${zoneName}.${evidenceTag ? ` <span class="text-red">${evidenceTag.trim()}</span>` : ''}\n<span class="text-dim">(use the datachip to replay it.)</span>` };
+// collect [zone] — pull a physical datachip for an evidence clip a camera banked
+// automatically (Phase 4b). Surfaces only clips that don't already have a chip.
+async function cmdCollect(args, raw, player) {
+  const nameHint = args.join(' ').trim();
+  const params = [player.id];
+  let sql = `SELECT c.*, z.name AS zone_name FROM security_clips c
+             LEFT JOIN zones z ON z.id=c.zone_id
+             LEFT JOIN items i ON i.id = 'item_datachip_' || c.id
+             WHERE c.owner_id=$1 AND i.id IS NULL`;
+  if (nameHint) { sql += ` AND z.name ILIKE $2`; params.push(`%${nameHint}%`); }
+  sql += ` ORDER BY c.captured_at DESC LIMIT 1`;
+  const { rows } = await query(sql, params);
+  const clip = rows[0];
+  if (!clip) return { type: 'error', message: nameHint ? `No un-collected evidence clips from "${nameHint}".` : 'No un-collected evidence clips on record.' };
+  const { frameCount, zoneName, evidenceTag } = await physicalizeClip(clip, player);
+  return { type: 'output', message: `You pull the banked clip to a datachip — ${frameCount} frames from ${zoneName}.${evidenceTag ? ` <span class="text-red">${evidenceTag.trim()}</span>` : ''}\n<span class="text-dim">(use the datachip to replay it.)</span>` };
 }
 
 async function buildReplayPayload(clipRow) {
@@ -753,6 +807,7 @@ async function cmdSmash(args, raw, player) {
   tamperPing(dev.owner_id, player.id, dev.name, dev.zone_name || dev.zone_id, 'was destroyed.');
   await query('DELETE FROM security_devices WHERE id=$1', [dev.id]);
   await query('DELETE FROM furniture WHERE id=$1', [dev.id]);
+  cameraBuffers.delete(dev.id);    // drop any in-memory rolling buffer for the smashed device
   if (dev.is_police) {
     await raiseWanted(player, 1, 'destroying a PD unit');
     dispatchPolice(dev.zone_id, 'vandalism of PD property', player.handle);
@@ -1958,6 +2013,7 @@ export const commands = {
   hubclose: cmdHubClose,
   record: cmdRecord,
   clip: cmdClip,
+  collect: cmdCollect,
   clips: cmdClips,
   replay: cmdReplay,
   smash: cmdSmash,
@@ -1986,6 +2042,15 @@ function _devOk(auth) {
 export const routeHandler = async (path, method, body, auth) => {
   if (!path.startsWith('/surveillance')) return null;
   if (!_devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
+
+  // RAM-side equivalent of a pg_stat audit (Phase 4): surfaces in-memory camera
+  // buffer count + total buffered frames so stale-buffer accumulation over long
+  // uptime is visible rather than silent.
+  if (path === '/surveillance/buffers' && method === 'GET') {
+    let totalBufferedFrames = 0;
+    for (const b of cameraBuffers.values()) totalBufferedFrames += b.frames.length;
+    return { status: 200, body: { activeCameraBuffers: cameraBuffers.size, totalBufferedFrames } };
+  }
 
   if (path === '/surveillance/crime-log' && method === 'GET') {
     // The in-memory crimeBoard only holds crimes caught by a witness roll (raiseCrime),

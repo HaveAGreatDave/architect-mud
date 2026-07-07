@@ -13,6 +13,15 @@ export default async function regress({ run, check, getPlayer }) {
   const ar2 = await run('apprehendresolve run');
   check('apprehendresolve run no-ops with no prompt', ar2?.type === 'noop', ar2?.type);
 
+  // collect physicalizes an auto-banked evidence clip; with none on record for
+  // the fake player it must report cleanly rather than throw.
+  const col = await run('collect');
+  check('collect with no clips errors cleanly', col?.type === 'error' && /no un-collected evidence/i.test(col?.message || ''), col?.message);
+
+  // clip needs a deployed device; the fake player owns none.
+  const clip = await run('clip');
+  check('clip with no device errors cleanly', clip?.type === 'error' && /no deployed device/i.test(clip?.message || ''), clip?.message);
+
   // purge is admin-only: a normal player gets the generic unknown-command reply
   // (the verb stays hidden); an admin runs it clean with no police in the room.
   const denied = await run('purge');
