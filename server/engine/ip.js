@@ -63,6 +63,12 @@ export function statCost(currentValue) {
 
 export const RAISABLE_STATS = ['brawn', 'reflexes', 'endurance', 'brains', 'cool', 'senses'];
 
+// Every survivor starts with chargen's free +1 to all six stats (the prologue
+// holosign gift). Those six points cost no XP, so the "spent" side always refunds
+// the six cheapest levels — universally, for everyone, not keyed off any per-row
+// column. Six free points on the flat curve is exactly 6 × statCost(0) = 600 XP.
+export const STARTING_FREE_STAT_POINTS = RAISABLE_STATS.length;
+
 // Total XP cost to reach a player's current stat levels, on the current curve.
 // This is the implicit "spent" side of Net XP — it grows when a stat is raised.
 export function statSpent(p) {
@@ -71,13 +77,9 @@ export function statSpent(p) {
     const cur = p[`stat_${stat}`] || 0;
     for (let v = 0; v < cur; v++) total += statCost(v);
   }
-  // Gifted stat points (the prologue's free +1-to-all) raise the floor WITHOUT
-  // spending XP — refund their cost so they touch neither Net nor Total XP. By
-  // convention the free points are the cheapest levels (statCost(0) each), so on
-  // the flat curve this exactly cancels the +1s the gift added to the columns.
-  const gifted = Number(p.gifted_stat_points) || 0;
-  if (gifted > 0) total = Math.max(0, total - gifted * statCost(0));
-  return total;
+  // Refund the free starting stats so they touch neither Net nor Total XP. Clamp
+  // at 0 so a survivor who hasn't raised past the free floor never goes negative.
+  return Math.max(0, total - STARTING_FREE_STAT_POINTS * statCost(0));
 }
 
 // Lifetime XP is never stored: it aggregates SUM(player_skills.ip) (which only
@@ -99,7 +101,6 @@ export async function getNetXp(playerId) {
   await ensureTunables();
   const { rows } = await query(
     `SELECT stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool, stat_senses,
-            COALESCE(gifted_stat_points, 0) AS gifted_stat_points,
             COALESCE(bonus_xp, 0) AS bonus_xp,
             COALESCE((SELECT SUM(ip) FROM player_skills WHERE player_id=$1), 0) AS skill_ip
      FROM players WHERE id=$1`,
@@ -136,7 +137,6 @@ export async function raiseStat(playerId, statName) {
   const col = `stat_${statName}`;
   const { rows } = await query(
     `SELECT stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool, stat_senses,
-            COALESCE(gifted_stat_points, 0) AS gifted_stat_points,
             COALESCE(bonus_xp, 0) AS bonus_xp,
             COALESCE((SELECT SUM(ip) FROM player_skills WHERE player_id=$1), 0) AS skill_ip
      FROM players WHERE id=$1`,
