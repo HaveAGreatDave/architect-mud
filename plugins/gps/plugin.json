@@ -1,0 +1,10 @@
+{
+  "name": "gps",
+  "version": "1.0.0",
+  "description": "Resolve a location by (partial) name via SIFT and plot a route to it, drawn on the minimap/bigmap via the existing route-trace overlay.",
+  "hooks": [],
+  "commands": ["gps"],
+  "actions": {
+    "registers": ["gps.navigate"]
+  }
+}

@@ -741,6 +741,21 @@ function wireMapUi() {
   }
 }
 
+// Server-driven route (the `gps` command): the path can span the whole map, not
+// just whatever's currently on screen, so it's set directly rather than via
+// traceRoute's on-screen BFS. Mirrors onto the sidebar minimap immediately and
+// pops the full map open on the regional (bigmap) view so the whole route shows.
+export function setGpsRoute(path) {
+  mapState.tracePath = (path && path.length > 1) ? path : null;
+  mapState.routeMode = false;
+  try { localStorage.setItem(MAP_ROUTE_KEY, '0'); } catch {}
+  const rbtn = document.getElementById('map-route-toggle');
+  rbtn?.classList.remove('active');
+  rbtn?.classList.toggle('has-route', !!mapState.tracePath);
+  if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
+  sendCmdSilent('map regional');
+}
+
 // Arm the map popup so the next tile click selects a destination (charter). The
 // callback receives the clicked zone id; picking closes the map.
 let _pickCb = null;

@@ -132,6 +132,7 @@ const target = result.candidate; // auto-selected by FATE, no UI
 | `inventory.js` | Items (take, drop) | SIFT via `dispatchType/dispatchParam`; `drop all` → `confirm` result (`drop __allconfirm`, sheds everything incl. equipped); `drop all <filter>` → `matchAll`, drops every match with no prompt. Equipped items are included and `recomputeArmor`/`recomputeInsulation` re-run if any dropped item was equipped |
 | `inventory.js` | Players (give) | SIFT scoring only, error on ambiguous |
 | `housing.js` | Windows (open, close) | SIFT with disambiguation UI |
+| `plugins/gps` | Zones/locations (`gps <name>`) | SIFT UI over `getAllZones()`; replay via `dispatchType: 'gps.navigate'` |
 
 ---
 
