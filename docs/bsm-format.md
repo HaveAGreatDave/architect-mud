@@ -51,7 +51,7 @@ Pre-scanned before the main pass, so actors/aliases can be referenced anywhere i
 ```
 
 - `@actor <entity_id>` — registers an exact NPC entity ID, added to `actorIds` (declaration order) and `npcIds`.
-- `@alias <entity_id> <LABEL>` (or `alias` without the `@`) — maps `LABEL` (case-insensitive, stored uppercase) to `entity_id`. Used to resolve bare `SPEAKER:` lines later.
+- `@alias <entity_id> <LABEL>` (or `alias` without the `@`) — maps `LABEL` (case-insensitive, stored uppercase) to `entity_id`. `LABEL` may be multiple words (e.g. `Captain Nguyen`, `NARRATOR`) — everything after the entity id is the label. Used to resolve bare `SPEAKER:` lines later; an actor can have several aliases (e.g. a formal name plus `NARRATOR`), all resolving to the same entity id so only one NPC is ever created.
 - Any other `::xxx` line ends the actors block.
 
 ## Structural Markers (`::`)
@@ -79,7 +79,7 @@ Processed top to bottom, building a linked chain of VINE nodes (`node.next` poin
 | `SHOT` ... `SHOT_END` | `{ type: 'say', text, style: 'narration' }` | text also pushed to `messages` |
 | `CREDITS [seconds]` ... `END_CREDITS` | `{ type: 'credits', text, duration? }` | block content is the credits text; optional duration in seconds on the same line as `CREDITS` |
 | `NPC <npc_id>` | `{ type: 'npc_anchor', npc_id }` | only emitted if it changes the active speaker; sets `activeNpc` |
-| `SPEAKER:` (e.g. `JOHN:`) followed by a line of dialogue | `npc_anchor` (if speaker changed) + `{ type: 'say', text, style: 'raw' }` | label resolved via `::actors` aliases (uppercase match), else falls back to `npc_<label_lowercased>`; unresolved labels recorded in `_debug.unresolvedSpeakers`; dialogue text also pushed to `messages` |
+| `SPEAKER:` (e.g. `JOHN:`, or a multi-word Title Case label like `Captain Nguyen:`) followed by a line of dialogue | `npc_anchor` (if speaker changed) + `{ type: 'say', text, style: 'raw' }` | label resolved via `::actors` aliases (uppercase match), else falls back to `npc_<label_lowercased_with_underscores>`; unresolved labels recorded in `_debug.unresolvedSpeakers`; dialogue text also pushed to `messages`. A second-or-later word in the label must be Title Case (like a surname) so a plain sentence ending in `:` isn't mistaken for a speaker line |
 | bare duration: `8`, `8s`, `1.5s` | `{ type: 'wait', duration }` | matches `^\d+(\.\d+)?s?$` |
 | `MUSIC` or `MUSIC <song>` ... `MUSIC_END` | `{ type: 'music', song, text: body }` (only if `song` or body non-empty) | `song` must match an `audio_songs.name` row to actually play; if no such song exists the node falls back to showing `body` as plain text (`style: 'raw'`) — see [systems-broadcast.md](systems-broadcast.md#music-cues) |
 | `ENTER <npc>` | `npc_anchor` (if changed) + `{ type: 'npc_action', message: 'enters the frame.' }` | `npc` auto-prefixed with `npc_` if missing |

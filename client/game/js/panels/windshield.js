@@ -160,8 +160,11 @@ export function paintWindshield(id, view) {
   const v = view || {};
   // Look direction: Q/E/S swivel the camera off the nose (viewYaw ≠ 0) while the aircraft
   // keeps flying straight ahead — the WORLD renders in the look direction, but the HUD
-  // (heading tape, airport tags) always reads true heading. Everything else is shared.
-  const vw = v.viewYaw ? { ...v, heading: (v.heading || 0) + v.viewYaw } : v;
+  // (heading tape, airport tags) always reads true heading. The passenger cabin (side)
+  // is a fixed 90° off the nose — always perpendicular to the direction of travel, even
+  // down the runway on takeoff. Everything else is shared.
+  const yawOff = v.viewYaw || (v.side ? 90 : 0);
+  const vw = yawOff ? { ...v, heading: (v.heading || 0) + yawOff } : v;
   const W = cw, H = ch, speed = clamp(v.speed || 0, 0, 1), height = clamp(v.height || 0, 0, 1);
   const phase = v.phase || 'cruise';
   const wx = (v.weather || 'clear').toLowerCase();

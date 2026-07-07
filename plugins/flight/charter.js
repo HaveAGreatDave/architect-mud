@@ -35,6 +35,7 @@ const AUTO_DISEMBARK_MS = 20000;
 const BOARD_TIMEOUT_MS = 120000; // the pilot waits this long at the hangar for you to embark
 const TAXI_MS = 4500;            // taxi-out beat between embark and rotate (the "rolls, rotates" moment)
 const ROLL_MS = 6000;            // ground-roll acceleration after taxi — throttle ramps up over this span instead of snapping straight to cruise power
+const LANDING_ROLL_MS = 6000;    // ground-roll deceleration after touchdown — throttle bleeds off over this span instead of snapping straight to a dead stop, mirroring the takeoff roll
 const CHARTER_TICK_MS = 2500;
 // Tiles/tick the NPC covers. The world map is small (~11 tiles between the farthest
 // fields), so a "realistic" cruise speed used to cover it in 2-3 ticks — takeoff,
@@ -53,7 +54,7 @@ export const DESK_CHAIR = 'the flight-ops desk chair';
 query("DELETE FROM aircraft WHERE (custom_data->>'charter')='true'").catch(() => {});
 
 // aircraftId -> { typeId, class, pilotId, pilotName, chartererId, playerId, homeField,
-//   homeName, phase:'boarding'|'departing'|'enroute'|'arrived'|'returning',
+//   homeName, phase:'boarding'|'departing'|'rolling'|'enroute'|'landing'|'arrived'|'returning',
 //   destZone, destName, fx, fy, tx, ty, anyTile, fare, paid, boardExpiry, rollAt,
 //   disembarkAt }
 export const activeCharters = new Map();
@@ -479,7 +480,7 @@ async function charterTick() {
         live.fx = step.fx; live.fy = step.fy;
         if (step.arrived) {
           live.row.grid_x = ch.tx; live.row.grid_y = ch.ty;
-          if (silent) { await finishReturn(ch, live); } else { await arrive(ch, live); }
+          if (silent) { await finishReturn(ch, live); } else { await touchdown(ch, live); }
           continue;
         }
         live.row.grid_x = Math.round(live.fx); live.row.grid_y = Math.round(live.fy);
@@ -493,7 +494,18 @@ async function charterTick() {
           ch._nextChatAt = Date.now() + CHATTER_MIN_GAP_MS;
         }
         pushHud(live);
-      } else if (ch.phase === 'arrived') {
+      }
+      // Touched down — brake to a stop over a few ticks before the "arrived" narration
+      // (mirrors the takeoff roll: throttle bleeds off instead of snapping to idle).
+      if (ch.phase === 'landing') {
+        const t = Math.min(1, (Date.now() - ch.rollStartAt) / LANDING_ROLL_MS);
+        live.row.throttle = Math.round((1 - t) * (ch.landThrottle ?? 90));
+        pushHud(live);
+        if (t < 1) continue;
+        await arrive(ch, live);
+        continue;
+      }
+      if (ch.phase === 'arrived') {
         if (!live.occupants.size || Date.now() >= ch.disembarkAt) await dropoffReturn(ch, live);
       }
     }
@@ -501,9 +513,12 @@ async function charterTick() {
 }
 setInterval(() => charterTick().catch(e => console.error('[flight/charter] tick error:', e.message)), CHARTER_TICK_MS);
 
-async function arrive(ch, live) {
-  ch.phase = 'arrived'; ch.disembarkAt = Date.now() + AUTO_DISEMBARK_MS;
-  live.row.airborne = 0; live.row.altitude_band = 'ground'; live.row.throttle = 0; live.row.parked_zone_id = ch.destZone;
+// Wheels touch down — grounds the aircraft and lands the passenger's location, then
+// starts a braking roll-out (LANDING_ROLL_MS) before the "arrived" narration, mirroring
+// the takeoff's taxi-out + ground-roll beat instead of snapping straight to a dead stop.
+async function touchdown(ch, live) {
+  ch.phase = 'landing'; ch.rollStartAt = Date.now(); ch.landThrottle = live.row.throttle || 90;
+  live.row.airborne = 0; live.row.altitude_band = 'ground'; live.row.parked_zone_id = ch.destZone;
   live.cont = null;   // down — no airborne attitude to relay to other pilots
   // Land the PASSENGER's location the moment wheels touch down — mirrors what
   // parkAt() does for a self-flown landing. `disembark` is then just the "climb out
@@ -519,8 +534,16 @@ async function arrive(ch, live) {
   }
   await persist(live);
   pushHud(live);
-  toOccupants(live, `<span class="text-green">${ch.pilotName} flares and sets you down. "Here we are — <b>${ch.destName}</b>. <b>disembark</b> when you're ready — I'm not waiting all day."</span>`);
-  sendToZone(ch.destZone, { type: 'zone_event', message: `An aircraft settles onto the ground.`, refresh: true });
+  toOccupants(live, `<span class="text-cyan">${ch.pilotName}: "Touchdown — brakes, rolling out."</span>`);
+  sendToZone(ch.destZone, { type: 'zone_event', message: `An aircraft touches down and rolls out toward the hangar.`, refresh: true });
+}
+
+async function arrive(ch, live) {
+  ch.phase = 'arrived'; ch.disembarkAt = Date.now() + AUTO_DISEMBARK_MS;
+  live.row.throttle = 0;
+  await persist(live);
+  pushHud(live);
+  toOccupants(live, `<span class="text-green">${ch.pilotName} taxis to a stop. "Here we are — <b>${ch.destName}</b>. <b>disembark</b> when you're ready — I'm not waiting all day."</span>`);
   log({ player: getLivePlayer(ch.playerId)?.handle || '?', pilot: ch.pilotName, from: ch.homeName, to: ch.destName, status: 'arrived' });
 }
 

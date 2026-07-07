@@ -23,8 +23,8 @@ function compileBsm(text) {
     if (!_inActors) continue;
     const mActor = t.match(/^@actor\s+(\S+)/);
     if (mActor) { actorIds.push(mActor[1]); continue; }
-    const mAlias = t.match(/^@?alias\s+(\S+)\s+(\S+)/);
-    if (mAlias) aliases[mAlias[2].toUpperCase()] = mAlias[1];
+    const mAlias = t.match(/^@?alias\s+(\S+)\s+(.+)$/);
+    if (mAlias) aliases[mAlias[2].trim().toUpperCase()] = mAlias[1];
   }
 
   const nodes = {};
@@ -59,9 +59,11 @@ function compileBsm(text) {
   // Entry point
   makeNode({ type: 'start' });
 
-  // Word followed immediately by colon on its own line: JOHN:  Lucky:  announcer:
-  // Case-insensitive; alias lookup normalises to uppercase.
-  const SPEAKER_RE = /^([A-Za-z][A-Za-z0-9_]*):\s*$/;
+  // Word(s) followed immediately by colon on its own line: JOHN:  Lucky:  Captain Nguyen:
+  // Case-insensitive; alias lookup normalises to uppercase. A second+ word must be
+  // Title Case (like a surname) so plain sentences ending in ":" aren't mistaken
+  // for a multi-word speaker label.
+  const SPEAKER_RE = /^([A-Za-z][A-Za-z0-9_]*(?:\s[A-Z][A-Za-z0-9_]*)*):\s*$/;
 
   const DIRECTIVE_PREFIXES = [
     '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY',
@@ -292,10 +294,11 @@ function compileBsm(text) {
     if (speakerMatch) {
       const speaker = speakerMatch[1].toUpperCase();
       const resolved = aliases[speaker];
+      const fallbackId = `npc_${speaker.toLowerCase().replace(/\s+/g, '_')}`;
       if (!resolved && !_debug.unresolvedSpeakers.some(u => u.label === speaker)) {
-        _debug.unresolvedSpeakers.push({ label: speaker, fallback: `npc_${speaker.toLowerCase()}` });
+        _debug.unresolvedSpeakers.push({ label: speaker, fallback: fallbackId });
       }
-      const npcId = resolved ?? `npc_${speaker.toLowerCase()}`;
+      const npcId = resolved ?? fallbackId;
       i++;
       let text = '';
       while (i < lines.length) {
