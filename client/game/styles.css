@@ -1750,6 +1750,15 @@ textarea {
 	color: var(--text-dim);
 	opacity: 0.75;
 }
+/* Nearby-but-unreachable tiles (beyond the reachable BFS) render faint so it's
+   clear there are tiles there you just can't reach; their connectors dim too. */
+.mm-room.mm-unreachable {
+	opacity: 0.3;
+	filter: grayscale(0.55);
+}
+.mm-link.mm-dim {
+	opacity: 0.25;
+}
 /* Avenue View toggle sits in the minimap section's top-right corner (kept out of
    the .sidebar-label so it doesn't leak into the section's reorder title). */
 #minimap-section { position: relative; }
@@ -2143,6 +2152,10 @@ textarea {
 .map-street-open::before { background: var(--accent); box-shadow: 0 0 4px var(--accent); }
 .map-street-h.map-street-open::before { height: 3px; }
 .map-street-v.map-street-open::before { width: 3px; }
+/* Out-of-reach (beyond the regional reachability BFS): the tile and any street
+   touching it fade back so you can see there's more city there you can't reach. */
+.map-room.map-unreachable { opacity: 0.32; filter: grayscale(0.55); }
+.map-street.map-dim::before, .map-link.map-dim { opacity: 0.25; }
 .map-room {
 	position: relative;
 	font-weight: bold;

@@ -298,8 +298,24 @@ export function getMinimapData(centerZoneId, depth = 4) {
     }
   }
 
+  // Beyond the reachable set, also surface the nearby-but-unreachable tiles that
+  // fall inside the client's 5×5 render window (Chebyshev radius 2, same map/floor).
+  // They render dimmed so it's clear there are tiles there you just can't reach in
+  // `depth` hops. Only possible when the map is grid-placed.
+  const WIN = 2;
+  const ids = new Set(visited.keys());
+  if (centerMapId && centerZone.grid_x != null && centerZone.grid_y != null) {
+    const cx = centerZone.grid_x, cy = centerZone.grid_y, cz = centerZone.grid_z ?? 0;
+    for (const [id, zone] of world.zones) {
+      if (ids.has(id)) continue;
+      if (zone.map_id !== centerMapId || (zone.grid_z ?? 0) !== cz) continue;
+      if (zone.grid_x == null || zone.grid_y == null) continue;
+      if (Math.abs(zone.grid_x - cx) <= WIN && Math.abs(zone.grid_y - cy) <= WIN) ids.add(id);
+    }
+  }
+
   const nodes = [];
-  for (const [id] of visited) {
+  for (const id of ids) {
     const zone = world.zones.get(id);
     if (!zone) continue;
     // Building name(s) reachable from this tile — for the hover tooltip (same rule
@@ -322,6 +338,7 @@ export function getMinimapData(centerZoneId, depth = 4) {
       marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,
       artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
       is_current: zone.id === centerZoneId,
+      reachable: visited.has(zone.id),
       player_count: zone.players.size,
     });
   }

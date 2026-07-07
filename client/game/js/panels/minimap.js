@@ -160,7 +160,9 @@ export function renderMinimap(nodes, direction) {
       // Avenue View, which reads these to place ||/=/+ artery glyphs.
       const tnode = byId.get(targetId);
       const artery = !!(node.artery && tnode?.artery && node.artery.some(s => tnode.artery.includes(s)));
-      cell[cy][cx] = { kind: 'link', ch, artery };
+      // Dim the connector if either tile it joins is out of reach (BFS depth).
+      const dim = node.reachable === false || tnode?.reachable === false;
+      cell[cy][cx] = { kind: 'link', ch, artery, dim };
     }
   }
 
@@ -202,7 +204,7 @@ export function renderMinimap(nodes, direction) {
           if (it.artery && (it.ch === '─' || it.ch === '│'))
             html += `<span class="mm-c av-gap" style="position:relative">${avGapSvg(it.ch === '─' ? 'h' : 'v')}${traceSvg}</span>`;
           else html += traceSvg ? `<span class="mm-c mm-void" style="position:relative">${traceSvg}</span>` : `<span class="mm-c mm-void"></span>`;
-        } else html += traceSvg ? `<span class="mm-c mm-link" style="position:relative">${it.ch}${traceSvg}</span>` : `<span class="mm-c mm-link">${it.ch}</span>`;
+        } else { const dc = it.dim ? ' mm-dim' : ''; html += traceSvg ? `<span class="mm-c mm-link${dc}" style="position:relative">${it.ch}${traceSvg}</span>` : `<span class="mm-c mm-link${dc}">${it.ch}</span>`; }
         continue;
       }
       const node = byId.get(it.id);
@@ -232,7 +234,8 @@ export function renderMinimap(nodes, direction) {
       }
       if (trDirs && !extra) styles.push('position:relative'); // room needs relative for the overlay
       const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
-      const cls = `mm-c mm-room danger-${node.danger_rating || 'safe'}${styled}${extra}${trDirs ? ' mm-trace' : ''}`;
+      const unreach = node.reachable === false ? ' mm-unreachable' : '';
+      const cls = `mm-c mm-room danger-${node.danger_rating || 'safe'}${styled}${extra}${unreach}${trDirs ? ' mm-trace' : ''}`;
       html += `<span class="${cls}"${styleAttr} title="${titleFor(node)}">${sym}${traceRoad}</span>`;
     }
   }
@@ -867,7 +870,9 @@ function renderMapGrid() {
       // than one), so a cross-street segment into an unrelated side street
       // doesn't light up.
       const artery = !!(t.artery && n.artery && t.artery.some(s => n.artery.includes(s)));
-      cell[cy][cx] = { kind: 'link', orient, color: streetColor(t, n, regional), open, artery };
+      // Regional only: dim a street when either tile it joins is out of reach.
+      const dim = regional && (t.reachable === false || n.reachable === false);
+      cell[cy][cx] = { kind: 'link', orient, color: streetColor(t, n, regional), open, artery, dim };
     }
   }
 
@@ -908,10 +913,11 @@ function renderMapGrid() {
           }
           continue;
         }
+        const dimCls = it.dim ? ' map-dim' : '';
         if (it.orient === 'd1' || it.orient === 'd2') { // diagonals stay glyphs (rare)
-          html += `<span class="map-c map-link"${tg ? ' style="position:relative"' : ''}>${it.orient === 'd1' ? '╲' : '╱'}${traceSvg}</span>`;
+          html += `<span class="map-c map-link${dimCls}"${tg ? ' style="position:relative"' : ''}>${it.orient === 'd1' ? '╲' : '╱'}${traceSvg}</span>`;
         } else {
-          const scls = `map-c map-street map-street-${it.orient}${it.artery ? ' map-street-artery' : ''}${it.open ? ' map-street-open' : ''}`;
+          const scls = `map-c map-street map-street-${it.orient}${it.artery ? ' map-street-artery' : ''}${it.open ? ' map-street-open' : ''}${dimCls}`;
           html += `<span class="${scls}" style="--street:${it.color}${rel}">${traceSvg}</span>`;
         }
         continue;
@@ -953,6 +959,7 @@ function renderMapGrid() {
         (isPoi ? ` map-poi map-poi-${t.poi}` : '') +
         (t.buildings && t.buildings.length ? ' map-has-building' : '') +
         (deg === 1 ? ' map-deadend' : '') +
+        (regional && t.reachable === false ? ' map-unreachable' : '') +
         (trDirs ? ' map-trace' : '');
       const style = styles.length ? ` style="${styles.join(';')}"` : '';
       // Avenue View: draw the tile as an SVG road whose arms point toward each
