@@ -73,6 +73,16 @@ let _lastT = 0;
 // travel, the same way heading/pitch/bank are already eased below.
 let _moveFrom = null;   // { fx, fy, t, dur, toFx, toFy }
 let _lastPushT = 0;
+// The ground scene (airport/runway) and the airborne Mode-7 world are two entirely
+// different renderers; the server only tells us which one applies via a boolean
+// (`airborne`) that flips the instant the wheels leave/touch the strip. Cutting
+// straight to that boolean reads as a jump-cut mid-takeoff/landing. Instead we
+// ease a continuous "height" and only swap scenes once it's climbed clear of the
+// ground (or sunk back down to it) — so the swap lands during the climb-out/flare,
+// not the instant of liftoff/touchdown. `_lastGround`/`_lastMap`/`_lastBiome` cache
+// the last real values so the lingering scene has something to draw with during
+// the brief window where the server's payload has already moved on.
+let _lastGround = null, _lastMap = null, _lastBiome = null;
 
 export function updateCockpit(state) {
   if (isFlightSimActive()) return;   // the continuous cockpit owns the pane — don't mount the glass HUD over it
@@ -91,6 +101,9 @@ export function updateCockpit(state) {
     if (_prev.engineOn && !_target.engineOn) spoolDown(_target.class);   // shutdown spool-down
   } else if (_target.runup) spoolUp(_target.class);
   _prev = _target;
+  if (_target.ground) _lastGround = _target.ground;
+  if (_target.map) _lastMap = _target.map;
+  if (_target.biomeBelow) _lastBiome = _target.biomeBelow;
 
   // Rebuild the panel only when the aircraft's capability layout (or seat) changes.
   const sig = `${_target.seat}|${_target.class}|${_target.engines?.length || 1}|${(_target.hardpoints || 0) > 0}|${(_target.cargoCap || 0) > 0}|${!!_target.vtol}`;
@@ -110,6 +123,7 @@ export function closeCockpit() {
   closeFlightSim();       // the continuous cockpit, if it owns the pane
   if (_raf) cancelAnimationFrame(_raf); _raf = 0;
   _anim = null; _prev = null; _sig = ''; _moveFrom = null; _lastPushT = 0;
+  _lastGround = null; _lastMap = null; _lastBiome = null;
   stopEngineAudio();
 }
 
@@ -136,6 +150,17 @@ function hudFrame(t) {
   a.thr += ((s.throttle || 0) - a.thr) * Math.min(1, dt * 6);
   a.hull += ((s.hullPct ?? 100) - a.hull) * Math.min(1, dt * 4);
   a.spd += ((s.spd || 0) - a.spd) * Math.min(1, dt * 4);
+  // Height — eased rather than snapped to the (stepped) band index, so climbing
+  // through a band boundary reads as continuous rise instead of a jump. Drives
+  // both the runway-recede/obstacle-scale math and, below, which scene renders.
+  const targetHeight = s.airborne ? clampNum((s.bandIndex || 0) / 3, 0, 1) : 0;
+  a.height = (a.height ?? 0) + (targetHeight - (a.height ?? 0)) * Math.min(1, dt * 1.6);
+  // Scene swap — hysteresis around the ground/airborne cut so it lands once the
+  // eased height has actually cleared the deck (climb-out) or sunk back to it
+  // (flare), not the instant the server toggles `airborne`.
+  if (a._scenePhase == null) a._scenePhase = s.airborne ? 'cruise' : 'ground';
+  else if (a._scenePhase === 'ground' && a.height > 0.06) a._scenePhase = 'cruise';
+  else if (a._scenePhase === 'cruise' && a.height < 0.025) a._scenePhase = 'ground';
   // Position: linear interpolation across the last push-to-push gap (not an ease-
   // decay like the needles above) so ground speed reads constant instead of
   // slowing into each new push.
@@ -160,18 +185,23 @@ function hudFrame(t) {
 // passenger looks out the SIDE through a window shaped to their aircraft.
 function paintWindow(id, a, s) {
   if (!document.getElementById(id)) return;
-  const heightFrac = s.airborne ? clampNum((s.bandIndex || 0) / 3, 0, 1) : 0;
   const speedFrac = clampNum((a.spd || 0) / 200, 0, 1);
   const pax = s.seat === 'passenger';
+  const onGround = (a._scenePhase || (s.airborne ? 'cruise' : 'ground')) === 'ground';
   // Fractional world offset from the eased position above vs. the map window's
   // (integer) centre — slides the Mode-7 camera smoothly between pushes instead
   // of snapping a tile at a time.
-  const mapOffset = s.airborne && a.fx != null ? { x: a.fx - (s.x ?? a.fx), y: a.fy - (s.y ?? a.fy) } : undefined;
+  const mapOffset = !onGround && a.fx != null ? { x: a.fx - (s.x ?? a.fx), y: a.fy - (s.y ?? a.fy) } : undefined;
   paintWindshield(id, {
-    pitch: a.pitch, bank: a.roll, height: heightFrac, speed: speedFrac,
+    pitch: a.pitch, bank: a.roll, height: a.height ?? 0, speed: speedFrac,
     hour: s.sky?.hour, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
-    map: s.map, phase: s.airborne ? 'cruise' : 'ground',
-    airport: s.ground?.theme, biomeBelow: s.biomeBelow,
+    // During the brief lag between the server's airborne flip and the eased scene
+    // swap, the payload for the OTHER scene has already gone null — fall back to
+    // the last real values so the lingering view still has something to draw.
+    map: onGround ? null : (s.map || _lastMap),
+    phase: onGround ? 'ground' : 'cruise',
+    airport: onGround ? (s.ground?.theme || _lastGround?.theme) : undefined,
+    biomeBelow: onGround ? undefined : (s.biomeBelow ?? _lastBiome),
     side: pax, windowClass: pax ? (s.class || 'prop') : undefined,
     mapOffset,
   });
