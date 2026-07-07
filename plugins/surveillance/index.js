@@ -555,23 +555,55 @@ function parseBuffer(raw) {
   try { return JSON.parse(raw || '[]'); } catch { return []; }
 }
 
+// Recording-buffer batching: capture stays on the 5s tick, but the JSON buffer
+// (up to storage_limit ≈ 200 frames) is only rewritten to Postgres every
+// REC_FLUSH_MS or once REC_FLUSH_FRAMES fresh frames accumulate — cutting a
+// per-5s full-array rewrite down to roughly one per minute. The shadow is
+// seeded from the DB on first sight and is thereafter the authoritative
+// superset (it only grows), so gameplay reads (cmdClip) pull from it directly.
+// Trade-off: a server crash loses at most one flush window of footage.
+const REC_FLUSH_MS = 45_000;
+const REC_FLUSH_FRAMES = 12;
+const recBuffers = new Map(); // deviceId → { buf, dirty, lastFlush, limit }
+
+async function flushRecBuffer(id) {
+  const s = recBuffers.get(id);
+  if (!s || !s.dirty) return;
+  await query('UPDATE security_devices SET recording_buffer=$1 WHERE id=$2', [JSON.stringify(s.buf), id]);
+  s.dirty = 0;
+  s.lastFlush = Date.now();
+}
+
 async function captureRecordings() {
   const { rows } = await query(
     `SELECT id, device_kind, zone_id, battery, battery_max, wired, is_damaged, status_flags,
             recording_buffer, storage_limit
        FROM security_devices WHERE is_recording = 1`
   );
-  if (!rows.length) return;
-  const fx = await getInterferenceZones();
+  const fx = rows.length ? await getInterferenceZones() : null;
+  const seen = new Set();
   for (const d of rows) {
     if (!CAM_KINDS.has(d.device_kind)) continue;
+    seen.add(d.id);
+    let s = recBuffers.get(d.id);
+    if (!s) {
+      s = { buf: parseBuffer(d.recording_buffer), dirty: 0, lastFlush: Date.now(), limit: d.storage_limit || 200 };
+      recBuffers.set(d.id, s);
+    }
     const status = deviceStatus(d, fx);
     const frame = deviceFrame(d, status);      // null when offline/jammed → records nothing
     if (!frame) continue;                       // a spoofed cam banks the clean fake frame
-    const buf = parseBuffer(d.recording_buffer);
-    buf.push({ t: clock(), ts: Date.now(), text: frame });
-    while (buf.length > (d.storage_limit || 200)) buf.shift();
-    await query('UPDATE security_devices SET recording_buffer=$1 WHERE id=$2', [JSON.stringify(buf), d.id]);
+    s.buf.push({ t: clock(), ts: Date.now(), text: frame });
+    while (s.buf.length > s.limit) s.buf.shift();
+    s.dirty++;
+    if (s.dirty >= REC_FLUSH_FRAMES || Date.now() - s.lastFlush >= REC_FLUSH_MS) await flushRecBuffer(d.id);
+  }
+  // Devices that stopped recording (or vanished) since last tick: flush any
+  // pending frames to the DB and drop the shadow so it can't leak memory.
+  for (const id of [...recBuffers.keys()]) {
+    if (seen.has(id)) continue;
+    await flushRecBuffer(id);
+    recBuffers.delete(id);
   }
 }
 
@@ -606,7 +638,10 @@ async function cmdClip(args, raw, player) {
   const dev = rows[0];
   if (!dev) return { type: 'error', message: nameHint ? `You have no deployed device matching "${nameHint}".` : "You have no deployed devices." };
 
-  const frames = parseBuffer(dev.recording_buffer);
+  // The in-memory shadow (if this device is actively recording) holds frames
+  // not yet flushed to the DB column — prefer it so a clip never misses the
+  // most-recent footage. Falls back to the persisted buffer otherwise.
+  const frames = recBuffers.get(dev.id)?.buf ?? parseBuffer(dev.recording_buffer);
   if (!frames.length) return { type: 'error', message: `${dev.name} has nothing recorded. Try "record" first.` };
 
   const firstTs = frames[0].ts || 0;
