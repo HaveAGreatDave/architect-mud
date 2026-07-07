@@ -65,10 +65,19 @@ let _anim = null;       // eased animation values
 let _raf = 0;
 let _sig = '';          // mounted layout signature (rebuild when capabilities change)
 let _lastT = 0;
+// Server-tick aircraft (charter autopilot, ordinary piloted flight) push a new
+// world position every couple of seconds rather than streaming it — without help
+// the world would visibly jump on every push. `_moveFrom` interpolates the
+// displayed position across the gap between the last two pushes (estimating the
+// gap's length from how far apart they actually landed) so it reads as continuous
+// travel, the same way heading/pitch/bank are already eased below.
+let _moveFrom = null;   // { fx, fy, t, dur, toFx, toFy }
+let _lastPushT = 0;
 
 export function updateCockpit(state) {
   if (isFlightSimActive()) return;   // the continuous cockpit owns the pane — don't mount the glass HUD over it
   ensureHudStyles();
+  const now = performance.now();
   _target = state || {};
   updateEngineAudio(_target);
 
@@ -88,7 +97,11 @@ export function updateCockpit(state) {
   const root = document.getElementById('ck-hud-root');
   if (!root || _sig !== sig) { mountHud(_target); _sig = sig; }
 
-  if (!_anim) _anim = { hdg: _target.headingDeg || 0, pitch: 0, roll: 0, sweep: 0, eng: _target.engines?.map(e => e.pct) || [0], fuel: _target.fuelPct || 0, thr: _target.throttle || 0, hull: _target.hullPct || 100, spd: _target.spd || 0 };
+  if (!_anim) _anim = { hdg: _target.headingDeg || 0, pitch: 0, roll: 0, sweep: 0, eng: _target.engines?.map(e => e.pct) || [0], fuel: _target.fuelPct || 0, thr: _target.throttle || 0, hull: _target.hullPct || 100, spd: _target.spd || 0, fx: _target.fx ?? 0, fy: _target.fy ?? 0 };
+  else if (_target.fx != null && _target.fy != null) {
+    _moveFrom = { fx: _anim.fx, fy: _anim.fy, t: now, dur: _lastPushT ? clampNum(now - _lastPushT, 400, 6000) : 3000, toFx: _target.fx, toFy: _target.fy };
+  }
+  _lastPushT = now;
   if (!_raf) { _lastT = performance.now(); _raf = requestAnimationFrame(hudFrame); }
   applyText(_target);
 }
@@ -96,7 +109,7 @@ export function updateCockpit(state) {
 export function closeCockpit() {
   closeFlightSim();       // the continuous cockpit, if it owns the pane
   if (_raf) cancelAnimationFrame(_raf); _raf = 0;
-  _anim = null; _prev = null; _sig = '';
+  _anim = null; _prev = null; _sig = ''; _moveFrom = null; _lastPushT = 0;
   stopEngineAudio();
 }
 
@@ -123,6 +136,14 @@ function hudFrame(t) {
   a.thr += ((s.throttle || 0) - a.thr) * Math.min(1, dt * 6);
   a.hull += ((s.hullPct ?? 100) - a.hull) * Math.min(1, dt * 4);
   a.spd += ((s.spd || 0) - a.spd) * Math.min(1, dt * 4);
+  // Position: linear interpolation across the last push-to-push gap (not an ease-
+  // decay like the needles above) so ground speed reads constant instead of
+  // slowing into each new push.
+  if (_moveFrom) {
+    const mt = Math.min(1, (t - _moveFrom.t) / _moveFrom.dur);
+    a.fx = _moveFrom.fx + (_moveFrom.toFx - _moveFrom.fx) * mt;
+    a.fy = _moveFrom.fy + (_moveFrom.toFy - _moveFrom.fy) * mt;
+  }
   const engs = s.engines || [{ pct: 0 }];
   for (let i = 0; i < engs.length; i++) { a.eng[i] = (a.eng[i] ?? 0) + ((engs[i].pct || 0) - (a.eng[i] ?? 0)) * Math.min(1, dt * 3); }
 
@@ -142,12 +163,17 @@ function paintWindow(id, a, s) {
   const heightFrac = s.airborne ? clampNum((s.bandIndex || 0) / 3, 0, 1) : 0;
   const speedFrac = clampNum((a.spd || 0) / 200, 0, 1);
   const pax = s.seat === 'passenger';
+  // Fractional world offset from the eased position above vs. the map window's
+  // (integer) centre — slides the Mode-7 camera smoothly between pushes instead
+  // of snapping a tile at a time.
+  const mapOffset = s.airborne && a.fx != null ? { x: a.fx - (s.x ?? a.fx), y: a.fy - (s.y ?? a.fy) } : undefined;
   paintWindshield(id, {
     pitch: a.pitch, bank: a.roll, height: heightFrac, speed: speedFrac,
     hour: s.sky?.hour, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
     map: s.map, phase: s.airborne ? 'cruise' : 'ground',
     airport: s.ground?.theme, biomeBelow: s.biomeBelow,
     side: pax, windowClass: pax ? (s.class || 'prop') : undefined,
+    mapOffset,
   });
 }
 

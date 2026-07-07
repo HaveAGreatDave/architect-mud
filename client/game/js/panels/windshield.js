@@ -280,9 +280,12 @@ export function paintWindshield(id, view) {
   ctx.lineWidth = 1;
   const gridCol = rgb(mix(gTop, [180, 220, 200], 0.5), 0.16 + speed * 0.12);
   ctx.strokeStyle = gridCol;
-  if (side && !onDeck) {
+  if (side) {
     // Side window: the ground rushes past laterally — vertical hatching that
     // scrolls sideways sells forward motion far better than a converging grid.
+    // Runs on the deck too (taxi/rotate/roll-out) — the passenger's view stays
+    // perpendicular to travel the whole time, never swapping to a forward look
+    // down the runway.
     for (let k = 0; k < 24; k++) {
       const f = ((k / 24) + st.sideScroll) % 1, x = -OX + f * ex;
       ctx.globalAlpha = 0.09 + speed * 0.2;
@@ -313,7 +316,10 @@ export function paintWindshield(id, view) {
 
   // The airport (themed scenery flanking a runway) on the deck; the pad for VTOL;
   // otherwise the zones/obstacles projected in the direction we're actually looking.
-  if (airport && reveal > 0.02) {
+  // Skipped for the passenger's side window — that's a forward-looking scene (the
+  // strip receding to a vanishing point ahead) and would break the "always
+  // perpendicular" view the side hatching above already draws.
+  if (airport && reveal > 0.02 && !side) {
     drawAirportScenery(ctx, W, H, horizonY, airport, sky.night, now);
     if (phase === 'takeoff' || phase === 'landing') drawRunway(ctx, W, H, horizonY, height, st.scroll, phase);
     else drawRunway(ctx, W, H, horizonY, 0, st.scroll, 'takeoff');   // parked: the strip laid out full-length

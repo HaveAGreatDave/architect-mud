@@ -6,18 +6,16 @@
 @length 1800
 
 ::actors
-@actor npc_neil_mcmanistan
-@alias npc_neil_mcmanistan Neil McManistan
+@actor npc_neil_mcmanistan Neil McManistan
 @alias npc_neil_mcmanistan NEIL
 
-@actor npc_captain_nguyen
-@alias npc_captain_nguyen Captain Nguyen
+@actor npc_captain_nguyen Captain Nguyen
 @alias npc_captain_nguyen Nguyen
+@alias npc_captain_nguyen NARRATOR
 
-@actor npc_jerry_rosenberg
+@actor npc_jerry_rosenberg Jerry Rosenberg
 @alias npc_jerry_rosenberg LAWYER
 
-@alias npc_captain_nguyen NARRATOR
 
 ::endactors
 
