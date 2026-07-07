@@ -19,6 +19,7 @@ import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
 import { sendCmdSilent } from '../net.js';
+import { hex2rgb } from './aircraft3d.js';
 
 // Theme accent for the canvas-drawn instruments (the CSS chrome uses var(--accent)
 // directly; canvas can't, so we sample it once when the cockpit opens).
@@ -54,6 +55,21 @@ const CLASS_THEME = {
   wreck:      { acc: '#9bd06a', chrome: 'degraded',    radar: 'sm' },
 };
 const themeFor = (cls) => CLASS_THEME[cls] || CLASS_THEME.prop;
+
+// The cockpit's accent colour — normally just the class theme above — becomes a
+// blend of the craft's own paint-bay livery when one's on file: primary (base),
+// secondary (trim), and the cabin/upholstery colour, so a paint job actually reads
+// inside the cockpit chrome instead of only on the hangar model. Falls back to the
+// class theme accent if no livery is present.
+function liveryAccent(livery, fallbackHex) {
+  const b = livery && hex2rgb(livery.base), t = livery && hex2rgb(livery.trim), c = livery && hex2rgb(livery.cabin);
+  if (!b && !t && !c) return fallbackHex;
+  const mix = (i, w) => (b ? b[i] * w.b : 0) + (t ? t[i] * w.t : 0) + (c ? c[i] * w.c : 0);
+  const w = { b: b ? 0.5 : 0, t: t ? 0.3 : 0, c: c ? 0.2 : 0 };
+  const wsum = w.b + w.t + w.c || 1;
+  const rgb = [0, 1, 2].map(i => Math.round(mix(i, w) / wsum));
+  return '#' + rgb.map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 1. THE GLASS COCKPIT (area-pane HUD)
@@ -203,6 +219,7 @@ function paintWindow(id, a, s) {
     airport: onGround ? (s.ground?.theme || _lastGround?.theme) : undefined,
     biomeBelow: onGround ? undefined : (s.biomeBelow ?? _lastBiome),
     side: pax, windowClass: pax ? (s.class || 'prop') : undefined,
+    livery: pax ? s.livery : undefined,   // hull skin punched by the window = the craft's own paint
     mapOffset,
   });
 }
@@ -410,7 +427,8 @@ function cargoInst() {
 // ── The passenger cabin: a big window + a slim readout strip, nothing to fly ──
 function mountPassenger(s) {
   const th = themeFor(s.class);
-  const html = `<div id="ck-hud-root" class="ck-hud ck-pax ck-chrome-${th.chrome}" style="--acc:${th.acc}">
+  const acc = liveryAccent(s.livery, th.acc);
+  const html = `<div id="ck-hud-root" class="ck-hud ck-pax ck-chrome-${th.chrome}" style="--acc:${acc}">
     <div class="ck-titlebar">
       <span class="ck-tmark">✈</span><span class="ck-t-name" id="ck-tail">CABIN</span>
       <span class="ck-t-class" id="ck-class"></span><span class="ck-cabin" id="ck-cabin" title="cabin"></span>
@@ -434,6 +452,7 @@ function mountHud(s) {
   if (s.seat === 'passenger') return mountPassenger(s);
   const n = Math.max(1, s.engines?.length || 1);
   const th = themeFor(s.class);
+  const acc = liveryAccent(s.livery, th.acc);
   const hasWpn = (s.hardpoints || 0) > 0, hasCargo = (s.cargoCap || 0) > 0, isVtol = !!s.vtol;
 
   // Row 2: compass + engines, plus a hover tape for VTOL.
@@ -441,7 +460,7 @@ function mountHud(s) {
   // Row 3: the minimap, plus capability panels (cargo / weapons).
   const row3 = [miniInst(), hasCargo ? cargoInst() : '', hasWpn ? wpnInst(s.hardpoints) : ''].filter(Boolean).join('');
 
-  const html = `<div id="ck-hud-root" class="ck-hud ck-chrome-${th.chrome}" style="--acc:${th.acc}">
+  const html = `<div id="ck-hud-root" class="ck-hud ck-chrome-${th.chrome}" style="--acc:${acc}">
     <div class="ck-titlebar">
       <span class="ck-tmark">✈</span><span class="ck-t-name" id="ck-tail">CRAFT</span>
       <span class="ck-t-class" id="ck-class"></span><span class="ck-cabin" id="ck-cabin" title="cabin"></span>

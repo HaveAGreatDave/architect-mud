@@ -31,7 +31,7 @@
 // }
 
 import { isWeatherFxEnabled } from './weather-fx.js';
-import { aircraftFaces, liveryPalette, faceBaseRgb, shadeRgb } from './aircraft3d.js';
+import { aircraftFaces, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb } from './aircraft3d.js';
 
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
 let _obsHgt = 0;                // current view altitude fraction — drawers show more of a roof/top as it climbs
@@ -386,7 +386,7 @@ export function paintWindshield(id, view) {
     ctx.restore();
   }
   // Passenger cabin: cut the view into a window shaped to fit the aircraft.
-  if (v.windowClass) drawWindowFrame(ctx, W, H, v.windowClass);
+  if (v.windowClass) drawWindowFrame(ctx, W, H, v.windowClass, v.livery);
 
   ctx.restore();
 }
@@ -425,9 +425,12 @@ const HULL_SKIN = {
 // aircraft's EXTERIOR SKIN, so the scene reads as glimpsed through a window cut in the
 // fuselage. The hull is shaded as a curved, top-lit body (rivet-lined skin panels), the
 // pane gets a raised metal bezel, and the glass carries a soft reflection.
-function drawWindowFrame(ctx, W, H, cls) {
+function drawWindowFrame(ctx, W, H, cls, livery) {
   const s = windowShapeFor(cls, W, H);
-  const base = HULL_SKIN[cls] || HULL_SKIN.default;
+  // The exterior skin is the craft's own PRIMARY paint (base) when a livery is on
+  // file — same colour you picked in the paint bay — falling back to the generic
+  // per-class alloy/olive/etc. only when there's none to read.
+  const base = (livery && hex2rgb(livery.base)) || HULL_SKIN[cls] || HULL_SKIN.default;
 
   // 1. HULL — clip to the region OUTSIDE the pane (canvas rect ⊕ pane, even-odd) and
   //    shade the exterior skin there. Building the compound path in one beginPath is
