@@ -1,4 +1,4 @@
-import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache } from './world.js';
+import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache, hasActivePlayers } from './world.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry, getPlayerCombat } from './combat.js';
@@ -770,6 +770,10 @@ function tempFlavorMessage(tempC, tick) {
 }
 
 async function resourceTick() {
+  // Idle short-circuit (Phase 7c): the loop below already no-ops with zero
+  // players — this just makes idle-safety explicit so future pre-loop work
+  // doesn't silently start running against an empty server.
+  if (!hasActivePlayers()) return;
   for (const [playerId, player] of world.players) {
     if (player.sleeping) {
       const result = await tickSleep(player, broadcastFn);

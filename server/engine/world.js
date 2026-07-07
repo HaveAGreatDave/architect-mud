@@ -425,6 +425,11 @@ export function getLivePlayer(pid) { return world.players.get(pid) || null; }
 export function getAllLivePlayers() { return [...world.players.values()]; }
 export function removeLivePlayer(pid) { world.players.delete(pid); }
 
+// True while at least one session is connected. O(1) — world.players is filled
+// at login (setLivePlayer) and cleared at logout (removeLivePlayer). The shared
+// idle gate for schedule-driven ticks that only matter when players are online.
+export function hasActivePlayers() { return world.players.size > 0; }
+
 export function getEnemyInstance(id) { return world.enemies.get(id) || null; }
 export function removeEnemyInstance(id) {
   const e = world.enemies.get(id);
@@ -488,6 +493,10 @@ export function spawnEnemySync(template, zoneId) {
 }
 
 export async function tickSpawns(broadcast) {
+  // Skip entirely while idle (Phase 7b). nextSpawn timers are wall-clock based,
+  // so due respawns simply fire on the next pass once a player reconnects — the
+  // existing timer design catches up for free, no accumulation math needed.
+  if (!hasActivePlayers()) return;
   const now = Date.now();
   // Iterate the in-memory cache — zone_spawns/enemies are static content the
   // dev-panel routes keep in sync via reloadSpawn/removeSpawn, so there's no

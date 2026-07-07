@@ -9,7 +9,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, world } from '../../server/engine/world.js';
+import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, hasActivePlayers, world } from '../../server/engine/world.js';
 import { exitTargets, neighborZoneIds } from '../../server/engine/exits.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
@@ -460,8 +460,12 @@ async function doUseConsole(args, raw, player) {
 // the operator is away.
 async function surveillanceTick() {
   await captureRecordings();
-  await pollSensors();
-  await scanActiveCrimes();
+  // Capture keeps running (records NPC-only activity), but sensor alerts and
+  // crime detection only matter relative to live players (Phase 7a).
+  if (hasActivePlayers()) {
+    await pollSensors();
+    await scanActiveCrimes();
+  }
   for (const playerId of hubViewers) {
     const { rows } = await query('SELECT id, handle FROM players WHERE id=$1', [playerId]);
     if (!rows.length) { hubViewers.delete(playerId); continue; }
@@ -577,6 +581,14 @@ class CameraBuffer {
     this.lastAutoClip = 0;
   }
   push(frame) {               // frame.ts is stamped by the caller at capture time — never later,
+    // Content-diff (Phase 7a): if the room looks identical to the last banked
+    // frame, don't churn the ring. An NPC entering/leaving/acting changes the
+    // visible-actor text → a new frame lands whether or not a player is online,
+    // so NPC-only history stays accurate; a genuinely static room banks nothing.
+    // Also stops duplicate frames from eating the fixed buffer ceiling, so the
+    // capped history covers more real events.
+    const last = this.frames[this.frames.length - 1];
+    if (last && last.text === frame.text) return;
     this.frames.push(frame);  // or a delayed clip would shift the window under the timestamps
     while (this.frames.length > this.limit) this.frames.shift();
   }
