@@ -4,9 +4,8 @@
 #   1. Regression gate — if the push contains any CODE change, run the full
 #      regress suite and BLOCK the push if it's red. Content-only pushes (just
 #      db/seed.sql) skip it — that's the World lane, and regress can't tell you
-#      anything about a seed dump. This is the same gate Relay's "Ship" button
-#      used to run, moved here so it fires no matter how you push (terminal,
-#      Relay, IDE) and can never race a second tool mutating the working tree.
+#      anything about a seed dump. This gate fires no matter how you push
+#      (terminal, IDE) and can never race a second tool mutating the working tree.
 #      Bypass in a genuine emergency with:  git push --no-verify
 #
 #   2. Dev Log sync — the deployed host has a shallow clone and can't rebuild the
@@ -56,19 +55,19 @@ if [ "$needs_lint" = 1 ]; then
 fi
 
 if [ "$needs_regress" = 1 ]; then
-  echo "[relay-gate] code changes in this push — running regression gate…"
+  echo "[regress-gate] code changes in this push — running regression gate…"
   node scripts/kill-orphans.js >/dev/null 2>&1   # sweep orphaned pool connections first
   if node tests/regress.js </dev/null; then
-    echo "[relay-gate] regress green — push allowed."
+    echo "[regress-gate] regress green — push allowed."
   else
     echo ""
-    echo "✗ [relay-gate] Regression suite FAILED — push BLOCKED."
+    echo "✗ [regress-gate] Regression suite FAILED — push BLOCKED."
     echo "  Fix the failures, then push again."
     echo "  (Real emergency only:  git push --no-verify)"
     exit 1
   fi
 else
-  echo "[relay-gate] content-only push — regress skipped (CI regresses main)."
+  echo "[regress-gate] content-only push — regress skipped (CI regresses main)."
 fi
 
 # --- 2. Dev Log commit-history sync (best-effort) ----------------------------

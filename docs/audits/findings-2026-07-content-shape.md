@@ -47,7 +47,7 @@ and a fresh from-empty restore verified to COMMIT (333 zones, 6 aircraft_types, 
 | Rank | Table(s) | Symptom on fresh restore | Fix |
 |---|---|---|---|
 | 🔴 1 | `aircraft_types`, `aa_sites` | Declared in flight's `plugin.json` `dataSchema` but never exported — the literal quests bug. Flight unusable: `aircraft.type_id` FK dangles, no AA emplacements. | Add both |
-| 🔴 2 | `media_broadcasts`, `media_channels`, `media_channel_playlist`, `media_themes`, `media_graphics`, `media_deck_units`, `media_cameras` | Entire TV/broadcast subsystem gone — no shows, no channels, blank title cards, unbound TVs. | **DONE** — all 7 added; the FK cycle handled by making the two cyclic FKs `DEFERRABLE` in `SCHEMA_SQL` + `SET CONSTRAINTS ALL DEFERRED` in the dump. The Relay deploy applies the `SCHEMA_SQL` change to prod (no separate one-shot needed). |
+| 🔴 2 | `media_broadcasts`, `media_channels`, `media_channel_playlist`, `media_themes`, `media_graphics`, `media_deck_units`, `media_cameras` | Entire TV/broadcast subsystem gone — no shows, no channels, blank title cards, unbound TVs. | **DONE** — all 7 added; the FK cycle handled by making the two cyclic FKs `DEFERRABLE` in `SCHEMA_SQL` + `SET CONSTRAINTS ALL DEFERRED` in the dump. The CODEX deploy applies the `SCHEMA_SQL` change to prod (no separate one-shot needed). |
 | 🔴 3 | `audio_instruments`, `audio_songs`, `audio_sfx`, `audio_ambient`, `audio_event_routes`, `audio_samples` | Entire procedural-audio subsystem gone; `zones.audio_theme_id` dangles. | Add all 6 (⚠ ordering) |
 | 🔴 4 | `security_networks` (+ filtered `security_devices`) | NPC police surveillance backbone gone → witnessed-crime/wanted loses its seeded police nets. `security_devices` is mixed: player-planted rows are runtime, so filter to seeded/police. | Add networks; filter devices |
 | 🟠 5 | `scavenging_tables`, `scavenging_table_items` | All scavenging loot templates gone → scavenging yields nothing until re-authored. | Add both |
@@ -119,7 +119,7 @@ path at all (seed-script only), compounding finding B.
    **Verified 2026-07-04:** a local round-trip test (seed a worst-case `broadcast↔channel` cycle →
    `buildDump()` → restore into a fresh DB) COMMITs cleanly with the deferred-constraint dump; the
    `broadcasts` INSERT precedes `channels` and the cycle survives to COMMIT. The deferrable-constraint
-   change lives in `SCHEMA_SQL`, so the Relay's _Deploy content → Production_ lane applies it to prod
+   change lives in `SCHEMA_SQL`, so the CODEX deploy (push to `main`) applies it to prod
    as part of a normal deploy — no separate schema one-shot needed.
 3. **B** (fishing) — do the architectural fix (own the content), not just the save patch.
 4. **C–E**, then cleanups **F/G**.

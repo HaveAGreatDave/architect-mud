@@ -8,9 +8,9 @@ becomes an ordinary, visible git conflict instead of a silent overwrite.
 
 > **MIGRATION STATUS (2026-07-06):** the pipeline is built and verified, but the
 > cutover has NOT happened yet. The old seed pipeline (db/seed.sql +
-> content:publish/sync + Relay) is still authoritative until the [cutover
+> content:publish/sync) is still authoritative until the [cutover
 > runbook](#cutover-runbook) below is executed. Do not run both pipelines side
-> by side beyond the cutover window.
+> by side beyond the cutover window. (The Relay deploy console has been retired.)
 
 ## The one table that rules them all
 
@@ -139,7 +139,7 @@ prod — content reaches prod through git only.
 Executed once, deliberately, with both devs available:
 
 1. **Freeze content edits.** Both devs run the OLD pipeline end-to-end one last
-   time (export-seed → content:publish; Relay deploy to prod) so prod ≈ seed ≈
+   time (export-seed → content:publish → deploy to prod) so prod ≈ seed ≈
    both locals.
 2. **Baseline from prod** (on a branch):
    `node scripts/content/export.mjs --prod --yes` → commit `content/` —
@@ -157,10 +157,10 @@ Executed once, deliberately, with both devs available:
    the secret at real prod and dispatch once more — the real first deploy.
 6. **Enable the push trigger** (uncomment in deploy-content.yml), **flip
    `CONTENT_READONLY=1`** on Render (uncomment in render.yaml / set in
-   dashboard), and **retire the old pipeline**: `git rm` relay-server.mjs,
+   dashboard), and **retire the old pipeline**: `git rm`
    content-publish/sync, export-seed, setup-local-db, deploy-content-to-prod,
    content-pull/diff-prod, content-merge-media, db/seed.sql, db/audio-seed.sql,
-   their npm scripts, and the relay docs. `backup-prod.mjs`, `db:restore`, and
+   and their npm scripts. `backup-prod.mjs`, `db:restore`, and
    the dev-panel export button stay (self-contained-SQL escape hatch).
 7. **Docs sweep**: update CLAUDE.md, README, architecture.md, plugin-standard.md
    and the skills to point here.

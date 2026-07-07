@@ -6,7 +6,7 @@
 //
 // SINGLE SOURCE OF TRUTH: this reuses buildDump() from server/api/backup.routes.js
 // — the exact same schema + filtered-content dump the dev-panel "Database Backup →
-// Export" button and the Relay's prod deploy produce. There is intentionally NO
+// Export" button produces. There is intentionally NO
 // second CONTENT_TABLES list here anymore: a duplicate list silently drifted and
 // dropped whole subsystems (flight's aircraft_types/aa_sites, audio, media, …)
 // from the git seed while the dev-panel path stayed current. One list, one dump.

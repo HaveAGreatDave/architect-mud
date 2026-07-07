@@ -10,8 +10,8 @@
 //
 // Guards: refuses unless DATABASE_URL is local (so we're reading local content)
 // and PROD_DATABASE_URL is remote (so we're writing production). Requires --yes
-// to run — the Relay passes it after a typed confirmation. Take a prod backup
-// first (npm run db:backup-prod); the Relay lane does this automatically.
+// to run — pass it after a typed confirmation. Take a prod backup
+// first (npm run db:backup-prod).
 import 'dotenv/config';
 import pg from 'pg';
 import { buildDump } from '../server/api/backup.routes.js';

@@ -219,7 +219,7 @@ secondary control path, remapped to drive the continuous model.
 - **`npm run test:regress` is the gate.** Every phase touches verbs, the tick, move
   gates, and/or posture — all covered. Run it after each phase and before any push.
 - **No startup migrations.** Any schema change (unlikely; the tables already exist)
-  goes through `SCHEMA_SQL` + Relay deploy, never boot.
+  goes through `SCHEMA_SQL` + the CODEX deploy (push to `main`), never boot.
 - **UTF-8, no BOM** — the cockpit/client files use box glyphs; preserve them.
 - Update [docs/systems-flight.md](../systems-flight.md) as each phase lands (as-built),
   keeping this proposal as the intent-of-record.
