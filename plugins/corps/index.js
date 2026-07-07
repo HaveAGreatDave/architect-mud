@@ -861,11 +861,17 @@ const USAGE = [
 async function cmdCorp(args, raw, player, broadcast) {
   const sub = (args[0] || '').toLowerCase();
   const rest = args.slice(1);
+  // `args`/`rest` come pre-lowercased from the command dispatcher (it lowercases
+  // the whole line to parse verbs). Free-text arguments — corp names, edit
+  // values, chat — must keep the player's original casing, so re-derive them
+  // from `raw` (same split, positionally aligned with `args` since only case
+  // differs) instead of `rest`.
+  const rawRest = raw.trim().split(/\s+/).slice(2);
   switch (sub) {
     case '':
     case 'console':     return buildConsolePayload(player);
     case 'help':        return { type: 'output', message: USAGE };
-    case 'found':       return cmdFound(player, rest.join(' '));
+    case 'found':       return cmdFound(player, rawRest.join(' '));
     case 'info':        return cmdInfo(player);
     case 'roster':
     case 'who':         return cmdRoster(player);
@@ -878,7 +884,7 @@ async function cmdCorp(args, raw, player, broadcast) {
     case 'deposit':     return cmdContribute(player, rest[0], broadcast);
     case 'disburse':
     case 'withdraw':    return cmdDisburse(player, rest[0], rest[1], broadcast);
-    case 'edit':        return cmdEdit(player, rest[0], rest.slice(1).join(' '));
+    case 'edit':        return cmdEdit(player, rest[0], rawRest.slice(1).join(' '));
     case 'rank':        return cmdRank(player, rest);
     case 'setrank':
     case 'promote':     return cmdSetRank(player, rest[0], rest[1]);
@@ -892,7 +898,7 @@ async function cmdCorp(args, raw, player, broadcast) {
     case 'invest':      return cmdInvest(player, broadcast);
     case 'build':       return cmdBuild(player, rest[0], broadcast);
     case 'say':
-    case 'chat':        return cmdSay(player, rest.join(' '), broadcast);
+    case 'chat':        return cmdSay(player, rawRest.join(' '), broadcast);
     case 'disband':     return cmdDisband(player);
     default:            return err(`Unknown corp command "${esc(sub)}". Try "corp help".`);
   }
