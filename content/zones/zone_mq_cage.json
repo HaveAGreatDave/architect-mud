@@ -14,10 +14,10 @@
     "west": "zone_mq_overpass"
   },
   "flags": {
-    "building_name": "The Cage",
-    "building_type": "shop",
+    "building_name": "",
+    "building_type": null,
     "is_apartment": false,
-    "is_building": true,
+    "is_building": false,
     "is_interior": false,
     "scavenging_table_id": null,
     "world_exit_zone": "zone_mq_overpass"

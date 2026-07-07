@@ -14,10 +14,10 @@
     "south": "zone_mq_battery"
   },
   "flags": {
-    "building_name": "Chrome Court",
-    "building_type": "apartment",
+    "building_name": "",
+    "building_type": null,
     "is_apartment": false,
-    "is_building": true,
+    "is_building": false,
     "is_interior": false,
     "scavenging_table_id": null,
     "world_exit_zone": "zone_mq_cathode"
