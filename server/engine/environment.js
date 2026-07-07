@@ -218,6 +218,9 @@ let ticksScheduled = false;
 // True while at least one generator is inside a storm-fault recovery window. Keeps
 // the 5-minute power tick running until the grid recovers, then lets it go quiet.
 let stormFaultActive = false;
+// Diagnostic (Commit 2): why did simulatePowerNetwork run? reason → count.
+// Reset only on boot; purely observational, surfaced via getHUDPayload().
+const powerSimCounts = new Map();
 
 // Deterministic weather generation (seedFromString, mulberry32, generateWeatherForDate)
 // has moved to plugins/weather/index.js.
@@ -407,7 +410,9 @@ function scheduleTicks() {
     // still recovering — so blackouts trigger and clear on a 5-minute cadence
     // rather than waiting for the daily tick.
     const severity = weatherFieldSnapshot ? (weatherFieldSnapshot()?.baseSeverity ?? 0) : 0;
-    if (anyOverloaded || stormFaultActive || severity >= STORM_FAULT_SEVERITY) tick5m().catch(logError);
+    const storm = stormFaultActive || severity >= STORM_FAULT_SEVERITY;
+    // storm takes priority over overload when both trip (see Commit 2 plan).
+    if (anyOverloaded || storm) tick5m(storm ? 'storm' : 'overload').catch(logError);
   });
 
   // 30-second flicker: pure broadcast to overloaded zones — no DB writes,
@@ -599,9 +604,9 @@ function stepIndoorTemps() {
 // 5-Minute Brownout Rotation Tick (only active when grid is overloaded)
 // ---------------------------------------------------------------------------
 
-async function tick5m() {
+async function tick5m(reason = 'overload') {
   const { query } = deps;
-  await simulatePowerNetwork(query, { weatherType: state.weatherType });
+  await simulatePowerNetwork(query, { weatherType: state.weatherType, reason });
   await loadZonePowerAndLighting(query);
 }
 
@@ -852,7 +857,7 @@ async function tick24h(fromCatchup = false) {
   // via setWeatherState() BEFORE simulatePowerNetwork reads weatherType for
   // snow-load calculations.
   if (emitHook) await emitHook('environment.advanceWeather', { setWeatherState, rollAndSetCurrentPrecip, getHUDPayload, broadcast, currentForecast: state.forecast, currentDate: state.date, climateProfile: state.activeClimateProfile });
-  await simulatePowerNetwork(query, { weatherType: state.weatherType });
+  await simulatePowerNetwork(query, { weatherType: state.weatherType, reason: 'daily' });
   await loadZonePowerAndLighting(query);
   recalcAmbientAndVisibility();
 
@@ -991,7 +996,24 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
   }
 }
 
-async function simulatePowerNetwork(query, { weatherType }) {
+// Diff-gated writer for a power_zones row. The comparison basis is the row we
+// SELECTed at the top of this same tick (the `zone` object) — the live DB
+// state — so we only issue the UPDATE when the newly computed status/available/
+// capacity actually differ. On a healthy grid nothing changes tick-to-tick, so
+// this drops the write volume to zero. Because the basis is re-read from the DB
+// every tick, a skipped write can never leave the row permanently stale: any
+// real divergence is re-detected next tick. REAL columns come back as native JS
+// numbers, so Number()-wrapped !== is exact.
+async function writeZonePower(query, zone, status, availableKw, capacityKw) {
+  if (zone.status === status
+      && Number(zone.available_kw) === Number(availableKw)
+      && Number(zone.capacity_kw) === Number(capacityKw)) return;
+  await query(`UPDATE power_zones SET status=$1, available_kw=$2, capacity_kw=$3 WHERE id=$4`,
+    [status, availableKw, capacityKw, zone.id]);
+}
+
+async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } = {}) {
+  powerSimCounts.set(reason, (powerSimCounts.get(reason) || 0) + 1);
   const { rows: allGenerators } = await query('SELECT * FROM generators');
   const loadMultiplier = weatherType === 'snow' ? SNOW_LOAD_MULTIPLIER : 1.0;
   // Global outdoor severity, defined once in the weather plugin and read here via
@@ -1162,7 +1184,7 @@ async function simulatePowerNetwork(query, { weatherType }) {
       await query(`UPDATE generators SET remaining_kw=0 WHERE id=$1`, [cp.id]);
       for (const z of directZones) {
         const cap = z.max_capacity_kw ?? 1000;
-        await query(`UPDATE power_zones SET status='offline', available_kw=0, capacity_kw=$1 WHERE id=$2`, [cap, z.id]);
+        await writeZonePower(query, z, 'offline', 0, cap);
         await applyPowerLightEffects(query, z.id, z.status, 'offline', 0, cap);
       }
       for (const jb of connectedJBs) {
@@ -1203,8 +1225,7 @@ async function simulatePowerNetwork(query, { weatherType }) {
           : alloc <= 0 ? 'offline'
           : alloc < demand ? 'overloaded'
           : 'powered';
-        await query(`UPDATE power_zones SET status=$1, available_kw=$2, capacity_kw=$3 WHERE id=$4`,
-          [status, alloc, ceiling, zone.id]);
+        await writeZonePower(query, zone, status, alloc, ceiling);
         await applyPowerLightEffects(query, zone.id, zone.status, status, alloc, ceiling);
       } else {
         jbAlloc.set(c.id, alloc);
@@ -1247,7 +1268,7 @@ async function simulatePowerNetwork(query, { weatherType }) {
     if (cityDown && !onBackup) {
       for (const z of jbZones) {
         const cap = z.max_capacity_kw ?? 1000;
-        await query(`UPDATE power_zones SET status='offline', available_kw=0, capacity_kw=$1 WHERE id=$2`, [cap, z.id]);
+        await writeZonePower(query, z, 'offline', 0, cap);
         await applyPowerLightEffects(query, z.id, z.status, 'offline', 0, cap);
       }
       if (jbSt) await query(`UPDATE generators SET remaining_kw=0 WHERE id=$1`, [gen.id]);
@@ -1270,8 +1291,7 @@ async function simulatePowerNetwork(query, { weatherType }) {
         : alloc <= 0 ? 'offline'
         : alloc < demand ? 'overloaded'
         : 'powered';
-      await query(`UPDATE power_zones SET status=$1, capacity_kw=$2, available_kw=$3 WHERE id=$4`,
-        [status, ceiling, alloc, zone.id]);
+      await writeZonePower(query, zone, status, alloc, ceiling);
       await applyPowerLightEffects(query, zone.id, zone.status, status, alloc, ceiling);
     }
     await query(`UPDATE generators SET remaining_kw=$1 WHERE id=$2`, [Math.max(0, pool), gen.id]);
@@ -1280,7 +1300,7 @@ async function simulatePowerNetwork(query, { weatherType }) {
   // ── Phase 6: Orphan zones (no valid generator_id) go offline ────────────
   for (const z of (zonesByGen.get('__orphan__') || [])) {
     const cap = z.max_capacity_kw ?? 1000;
-    await query(`UPDATE power_zones SET status='offline', available_kw=0, capacity_kw=$1 WHERE id=$2`, [cap, z.id]);
+    await writeZonePower(query, z, 'offline', 0, cap);
     await applyPowerLightEffects(query, z.id, z.status, 'offline', 0, cap);
   }
 
@@ -1462,6 +1482,7 @@ export function getHUDPayload() {
       ? state.currentPrecip
       : (PRECIP_FORECAST_TYPES.has(state.weatherType) ? 'cloudy' : state.weatherType)],
     currentIntensity: currentIntensityLabel(),
+    powerSimCounts: Object.fromEntries(powerSimCounts),
   };
 }
 
@@ -1919,7 +1940,7 @@ export function devFreeze(frozen) {
   return { frozen: state.frozen };
 }
 
-export async function devForceTick5()  { await tick5m();  return getHUDPayload(); }
+export async function devForceTick5()  { await tick5m('dev_action');  return getHUDPayload(); }
 export async function devForceTick30() { await tick30m(); return getHUDPayload(); }
 export async function devForceTick24() { await tick24h(); return { ...getHUDPayload(), forecast: state.forecast }; }
 
@@ -2076,7 +2097,7 @@ export async function devSpawnGenerator({ id, zoneId, generatorType, capacityKw,
 export async function devModifyLoad(zoneId, loadKw) {
   const { query } = deps;
   await query(`UPDATE power_zones SET current_load_kw = $1 WHERE id = $2`, [Number(loadKw) || 0, zoneId]);
-  await simulatePowerNetwork(query, { weatherType: state.weatherType });
+  await simulatePowerNetwork(query, { weatherType: state.weatherType, reason: 'dev_action' });
   await loadZonePowerAndLighting(query);
   return getPowerMap();
 }
@@ -2084,7 +2105,7 @@ export async function devModifyLoad(zoneId, loadKw) {
 export async function devSimulateFailure(generatorId) {
   const { query } = deps;
   await query(`UPDATE generators SET status = 'offline' WHERE id = $1`, [generatorId]);
-  await simulatePowerNetwork(query, { weatherType: state.weatherType });
+  await simulatePowerNetwork(query, { weatherType: state.weatherType, reason: 'dev_action' });
   await loadZonePowerAndLighting(query);
   return getPowerMap();
 }
@@ -2706,7 +2727,7 @@ export async function resyncAllLightingStates() {
 // any live "look at generator" reflect the change right away.
 export async function recomputePower() {
   const { query } = deps;
-  await simulatePowerNetwork(query, { weatherType: state.weatherType });
+  await simulatePowerNetwork(query, { weatherType: state.weatherType, reason: 'generator_change' });
   await loadZonePowerAndLighting(query);
   return getPowerMap();
 }
