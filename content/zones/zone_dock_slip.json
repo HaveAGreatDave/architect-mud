@@ -18,7 +18,7 @@
   },
   "flags": {
     "airfield_charter": true,
-    "airfield_dealer": false,
+    "airfield_dealer": true,
     "airfield_fuel": true,
     "airfield_fuels": [
       "avgas",
