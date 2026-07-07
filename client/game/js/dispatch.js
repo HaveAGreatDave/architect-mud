@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
-import { renderMinimap, openMapPopup, refreshMapIfOpen, armMapPick, setMapTerritory } from './panels/minimap.js';
+import { renderMinimap, openMapPopup, refreshMapIfOpen, armMapPick, setMapTerritory, setGpsRoute } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut } from './panels/environment.js';
 import { setWeatherEventFx } from './panels/weather-fx.js';
 import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
@@ -455,6 +455,7 @@ const handlers = {
   'lightning': () => { triggerLightningFlash(); },
 
   output: (msg) => { appendHtml(msg.message, 'help'); },
+  gps_route: (msg) => { appendHtml(msg.message, 'help'); if (msg.path) setGpsRoute(msg.path); },
 
   // `.debug` reveal — state lives only in localStorage. debug_toggle flips it;
   // debug_roll lines are always sent by the server but rendered only when on.
