@@ -10,7 +10,7 @@ becomes an ordinary, visible git conflict instead of a silent overwrite.
 > cutover has NOT happened yet. The old seed pipeline (db/seed.sql +
 > content:publish/sync) is still authoritative until the [cutover
 > runbook](#cutover-runbook) below is executed. Do not run both pipelines side
-> by side beyond the cutover window. (The Relay deploy console has been retired.)
+> by side beyond the cutover window.
 
 ## The one table that rules them all
 
