@@ -16,7 +16,21 @@
 // (Tablet has no proactive multi-client push to patch against).
 import { sfx, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays } from './minigame-common.js';
 import { sendCmdSilent } from '../net.js';
-import { loadSettings, saveSettings, applySettings, openThemeEditor, DARK_THEMES, LIGHT_THEMES } from '/shared/settings.js';
+import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES } from '/shared/settings.js';
+
+// Tablet's theme can be independent of the shared UI theme ("unlinked") —
+// its own tiny localStorage record, separate from architect_settings, so
+// switching it never touches the player's actual page theme.
+const TABLET_THEME_KEY = 'architect_tablet_theme';
+function loadTabletTheme() {
+  try {
+    const raw = localStorage.getItem(TABLET_THEME_KEY);
+    return { linked: true, theme: 'dark', ...(raw ? JSON.parse(raw) : {}) };
+  } catch { return { linked: true, theme: 'dark' }; }
+}
+function saveTabletTheme(t) {
+  try { localStorage.setItem(TABLET_THEME_KEY, JSON.stringify(t)); } catch {}
+}
 
 let _overlay = null;
 let _close = null;
@@ -32,7 +46,7 @@ function ensureStyles() {
        container lets clicks reach the game everywhere except the panel itself. */
     #tablet-os-overlay { --mg-accent: var(--accent, #35e0c8); position:fixed; inset:0; z-index:9200; pointer-events:none; font-family:'Courier New',monospace;
       /* --tos-fg is set inline by JS (luminance-contrast against --bg2, see
-         applyContrastColors); the dim tiers are derived from it in pure CSS. */
+         applyTabletTheme); the dim tiers are derived from it in pure CSS. */
       --tos-fg-dim: color-mix(in srgb, var(--tos-fg, var(--mg-accent)) 62%, var(--bg2, #12181b));
       --tos-fg-dim2: color-mix(in srgb, var(--tos-fg, var(--mg-accent)) 40%, var(--bg2, #12181b)); }
     /* Anchor handles centering/dragging; .tos-panel is scaled by the CRT boot
@@ -40,11 +54,36 @@ function ensureStyles() {
     #tablet-os-overlay .tos-anchor { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); pointer-events:auto; }
     /* Fixed panel size regardless of content — a long list scrolls inside
        .tos-scroll instead of growing the chassis. flex column so .tos-bezel
-       (the screen) fills whatever's left under the fixed-height device header. */
+       (the screen) fills whatever's left under the fixed-height device header.
+       Hard-plastic-shell look (not just a flat --bg2 fill) so the case reads
+       as a physical device sitting over the game instead of blending into a
+       dark backdrop: a raised bevel edge, an embossed inset/outset shadow
+       stack, and a diagonal gloss sweep + fine grain texture via ::after/::before. */
     #tablet-os-overlay .tos-panel { width:min(760px,96vw); height:600px; max-height:90vh; display:flex; flex-direction:column;
-      color:var(--mg-accent); background:var(--bg2, #1a2226); transform-origin:center center;
-      box-shadow:0 12px 40px rgba(0,0,0,0.65), 0 0 0 1px color-mix(in srgb, var(--mg-accent) 25%, transparent);
+      position:relative; overflow:hidden; color:var(--mg-accent); transform-origin:center center;
+      background:
+        linear-gradient(160deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.02) 14%, transparent 30%),
+        var(--bg2, #1a2226);
+      border:2px solid color-mix(in srgb, var(--bg2, #1a2226) 35%, #000 65%);
+      box-shadow:
+        0 16px 46px rgba(0,0,0,0.75),
+        0 0 0 1px rgba(0,0,0,0.6),
+        0 0 30px color-mix(in srgb, var(--mg-accent) 14%, transparent),
+        inset 0 1px 0 rgba(255,255,255,0.14),
+        inset 0 -4px 8px rgba(0,0,0,0.45);
       padding:14px 16px 16px; }
+    /* Fine plastic grain — an SVG feTurbulence noise tile, low opacity, blended in. */
+    #tablet-os-overlay .tos-panel::before { content:''; position:absolute; inset:0; pointer-events:none; z-index:1;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity:.05; mix-blend-mode:overlay; }
+    /* Diagonal gloss sweep near the top, like curved hard plastic catching light. */
+    #tablet-os-overlay .tos-panel::after { content:''; position:absolute; z-index:1; pointer-events:none;
+      left:4%; right:4%; top:-6%; height:34%; border-radius:50%;
+      background:linear-gradient(180deg, rgba(255,255,255,0.20), rgba(255,255,255,0) 75%); opacity:.6; }
+    /* .mg-head/.tos-bezel are position:static by default — a static element
+       always paints below a positioned sibling regardless of z-index, so
+       without this the gloss/grain layers above would cover the real content. */
+    #tablet-os-overlay .tos-panel > .mg-head, #tablet-os-overlay .tos-panel > .tos-bezel { position:relative; z-index:2; }
     /* CRT power-on/off: reuses the TV's own collapse-to-a-line keyframes
        (@keyframes tv-crt-poweron / tv-crt-shutoff, styles.css) — same effect,
        no duplication. */
@@ -180,16 +219,35 @@ function luminanceTextColor(hex) {
   return `rgb(${t},${t},${t})`;
 }
 
-// Body/label text is read against the panel's own --bg2 (sets --tos-fg; the
-// dim tiers are derived from it in CSS). Buttons are a solid accent fill now,
-// so their text is a separate contrast check against the accent color itself
-// (--tos-btn-fg) — a bright theme accent needs dark text, a dark one needs light.
-function applyContrastColors() {
+// Resolves the effective --bg/--bg2/--border/--accent for this open (either
+// the shared page theme, or Tablet's own independent one when unlinked), sets
+// them as overrides on the overlay root, then derives the luminance-contrast
+// text colors from those effective values (not always the page's). Body/label
+// text (--tos-fg) is checked against --bg2; button text (--tos-btn-fg) is a
+// separate check against --accent, since buttons are a solid accent fill.
+function applyTabletTheme() {
   if (!_overlay) return;
-  const bg2 = getComputedStyle(document.documentElement).getPropertyValue('--bg2');
-  _overlay.style.setProperty('--tos-fg', luminanceTextColor(bg2) || 'var(--mg-accent)');
+  const t = loadTabletTheme();
+  let bg2, accent;
 
-  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent');
+  if (t.linked) {
+    // Inherit the page's own theme — clear any leftover unlinked override.
+    _overlay.style.removeProperty('--bg');
+    _overlay.style.removeProperty('--bg2');
+    _overlay.style.removeProperty('--border');
+    _overlay.style.removeProperty('--accent');
+    bg2 = getComputedStyle(document.documentElement).getPropertyValue('--bg2');
+    accent = getComputedStyle(document.documentElement).getPropertyValue('--accent');
+  } else {
+    const colors = probeBuiltinThemeColors(t.theme || 'dark');
+    bg2 = colors['--bg2']; accent = colors['--accent'];
+    _overlay.style.setProperty('--bg', colors['--bg']);
+    _overlay.style.setProperty('--bg2', colors['--bg2']);
+    _overlay.style.setProperty('--border', colors['--border']);
+    _overlay.style.setProperty('--accent', colors['--accent']);
+  }
+
+  _overlay.style.setProperty('--tos-fg', luminanceTextColor(bg2) || 'var(--mg-accent)');
   _overlay.style.setProperty('--tos-btn-fg', luminanceTextColor(accent) || '#04120f');
 }
 
@@ -281,15 +339,25 @@ function renderDetailRows(rows) {
 // option is the theme: a compact inline picker for quick swaps, plus a link
 // out to the full theme editor (client/shared/settings.js) for custom colors.
 function renderTabletSettings() {
-  const settings = loadSettings();
-  const active = settings.theme || 'dark';
+  const tt = loadTabletTheme();
+  const linked = tt.linked !== false;
+  // Linked: the swatch grid picks/previews the shared page theme (settings.js
+  // theme id). Unlinked: it picks Tablet's own independent theme id instead —
+  // the page's actual theme is untouched either way.
+  const active = linked ? (loadSettings().theme || 'dark') : (tt.theme || 'dark');
   const swatch = ([id, label]) => `<div class="tos-theme-btn${id === active ? ' selected' : ''}" data-theme-pick="${esc(id)}">${esc(label)}</div>`;
+
   return `
     <div class="tos-detail-name">Tablet Theme</div>
-    <div class="tos-detail-desc">This is the shared UI theme — picking one here applies everywhere, not just the Tablet.</div>
+    <div class="tos-detail-desc">${linked
+      ? 'Linked to the shared UI theme — picking one below applies everywhere, not just the Tablet.'
+      : 'Unlinked — the Tablet has its own theme now, independent of the shared UI theme.'}</div>
+    <div class="tos-actions">
+      <button class="tos-btn" data-toggle-link="1">${linked ? 'Unlink from UI Theme' : 'Relink to UI Theme'}</button>
+      ${linked ? '<button class="tos-btn" data-open-theme-editor="1">Full Theme Editor&hellip;</button>' : ''}
+    </div>
     ${renderSection('Dark', `<div class="tos-theme-grid">${DARK_THEMES.map(swatch).join('')}</div>`)}
     ${renderSection('Light', `<div class="tos-theme-grid">${LIGHT_THEMES.map(swatch).join('')}</div>`)}
-    <div class="tos-actions"><button class="tos-btn" data-open-theme-editor="1">Full Theme Editor&hellip;</button></div>
   `;
 }
 
@@ -446,17 +514,36 @@ function wireBody() {
   });
 
   // Settings theme picking is entirely client-side — no server round trip.
+  // When linked, a pick applies the shared page theme (matches the main
+  // settings panel exactly). When unlinked, it only sets Tablet's own
+  // independent theme record — the page's actual theme is never touched.
   _overlay.querySelectorAll('[data-theme-pick]').forEach(el => {
     el.addEventListener('click', () => {
       sfx('hololock-set');
-      const settings = loadSettings();
-      settings.theme = el.getAttribute('data-theme-pick');
-      settings.customColors = {}; // matches the main settings panel's theme-grid click (drops any in-progress custom edit)
-      saveSettings(settings);
-      applySettings(settings);
-      applyContrastColors(); // --tos-fg/--tos-btn-fg are baked inline; recompute against the new --bg2/--accent
+      const id = el.getAttribute('data-theme-pick');
+      const tt = loadTabletTheme();
+      if (tt.linked !== false) {
+        const settings = loadSettings();
+        settings.theme = id;
+        settings.customColors = {}; // matches the main settings panel's theme-grid click (drops any in-progress custom edit)
+        saveSettings(settings);
+        applySettings(settings);
+      } else {
+        saveTabletTheme({ ...tt, theme: id });
+      }
+      applyTabletTheme(); // --tos-fg/--tos-btn-fg are baked inline; recompute against the new --bg2/--accent
       render(); // re-render so the .selected highlight follows the new pick
     });
+  });
+  _overlay.querySelector('[data-toggle-link]')?.addEventListener('click', () => {
+    sfx('hololock-set');
+    const tt = loadTabletTheme();
+    const linked = tt.linked !== false;
+    // Relinking: drop the unlinked theme id so a future unlink starts fresh
+    // from whatever the page theme is at the time, rather than an odd default.
+    saveTabletTheme(linked ? { linked: false, theme: tt.theme || 'dark' } : { linked: true });
+    applyTabletTheme();
+    render();
   });
   _overlay.querySelector('[data-open-theme-editor]')?.addEventListener('click', () => {
     const settings = loadSettings();
@@ -545,7 +632,7 @@ export function openTabletPanel(msg) {
     _close = mounted.close;
     _overlay.querySelector('.mg-close').addEventListener('click', shutdownTablet);
     makeDraggable(_overlay.querySelector('.tos-anchor'), _overlay.querySelector('.mg-head'));
-    applyContrastColors();
+    applyTabletTheme();
     window.AudioEngine?.init?.();
     window.AudioEngine?.playSfx(CRT_POWER_ON_DEF);
     // CRT expands (0.6s), "ARCHITECT OS" holds for ~1s, then the real screen
@@ -563,7 +650,7 @@ function render() {
   scroll.innerHTML = renderBody();
   scroll.scrollTop = 0; // fresh screen always starts at the top, not wherever the last one left off
   wireBody();
-  applyContrastColors();
+  applyTabletTheme();
 }
 
 export function closeTabletPanel() { shutdownTablet(); }
