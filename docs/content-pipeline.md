@@ -85,12 +85,27 @@ added, and resurrects the rows it deleted. Verified in the Phase-2 drill.
 - The **only** writer of content to prod is
   [.github/workflows/deploy-content.yml](../.github/workflows/deploy-content.yml),
   on push to main: regress against a throwaway Postgres built purely from
-  `content/` → `pg_dump` backup (14-day artifact) → drift report (surfaces any
-  manual prod edits the deploy is about to overwrite) → `content:import --prod`
-  → `deployments` row → Render deploy-hook restart (fresh world cache).
-- Secrets: `PROD_DATABASE_URL` (Supabase **session-mode**, port 5432 — pg_dump
-  and `SET CONSTRAINTS` don't work through the transaction pooler),
+  `content/` → **prune old Neon snapshot branches** (keep newest 5) → **Neon
+  snapshot branch** `predeploy-<run>-<sha>` (instant copy-on-write, self-expiring
+  in 14 days; the catastrophe net — recovery = Neon instant-restore from it) →
+  drift report (surfaces any manual prod edits the deploy is about to overwrite)
+  → `content:import --prod` → `deployments` row → Render deploy-hook restart
+  (fresh world cache).
+- The snapshot replaced the old `pg_dump`-to-artifact backup when prod moved to
+  Neon. Branches are near-free (data-only, no compute endpoint) but count against
+  the project's branch cap — hence the prune step. `expires_at` alone was not
+  enough: at any real deploy cadence 14 days of snapshots pile up past the cap
+  before any expire, so the deploy actively deletes all but the newest 5 *before*
+  taking the new one (its own branch never counts against the keep-5). A prune
+  failure is `continue-on-error` — it must never block a deploy.
+- Secrets: `PROD_DATABASE_URL` (Neon **direct/unpooled** endpoint, not `-pooler`
+  — the import runs one transaction with `SET CONSTRAINTS ALL DEFERRED`, which the
+  transaction pooler breaks), `NEON_API_KEY` (creates/prunes snapshot branches;
+  project id is read from the committed `.neon` file, not a secret),
   `RENDER_DEPLOY_HOOK_URL` (optional but recommended).
+- **Reading live prod state (FKs, drifted rows) during an incident needs explicit
+  approval** — the auto-mode classifier blocks direct `PROD_DATABASE_URL` reads
+  unless the user has named prod as a read target. Ask first.
 - Emergency prod work stays possible: one-shot scripts via
   `node --env-file=.env.prod` (data transformations, incident response). If you
   hand-edit prod content in an emergency, export it back into git afterwards or
@@ -127,6 +142,45 @@ in the registry — regress is red until you do.
   That's the review step's job: `git diff content/` before committing, drop
   what isn't content. On prod these rows are safe regardless (deletion needs a
   git-tracked file).
+
+## Deploy lessons (hard-won 2026-07-08, the first real prod deploys)
+
+The first deploys to exercise the deletion pass against prod surfaced a chain of
+issues. All are fixed on main; documented here so they don't get relearned:
+
+- **Content-parent FKs must be `DEFERRABLE` with an ownership-correct `ON DELETE`.**
+  The deletion pass removes content rows (zones, furniture, media/audio catalog,
+  aircraft/atm/security defs) that child rows still reference. A child FK left at
+  the inline-created default (`ON DELETE NO ACTION`, non-deferrable) aborts that
+  delete the instant a child exists. `SCHEMA_SQL` re-asserts every content-parent
+  FK idempotently (`DROP CONSTRAINT IF EXISTS` + `ADD … DEFERRABLE INITIALLY
+  DEFERRED`) with `ON DELETE CASCADE` for **owned** children (a camera lives in its
+  zone; a deck unit *is* a furniture row; an audio route/instrument is meaningless
+  without its sample) and `ON DELETE SET NULL` for **loose** references (a player's
+  aircraft/apartment/spy-device outlives the retired type/zone it pointed at). When
+  you add a content table with children, add its swap to that block at the end of
+  `SCHEMA_SQL` (after every table exists).
+- **`CREATE TABLE IF NOT EXISTS` never alters a *drifted existing* table.** If prod's
+  table predates a clause you later added inline (e.g. `ON DELETE SET NULL`), the
+  idempotent create won't fix it — you must re-assert via `DROP CONSTRAINT` +
+  `ADD CONSTRAINT`. This is why the FK swaps above exist as explicit `ALTER`s.
+- **Never write the literal `CREATE TABLE IF NOT EXISTS <word>` inside a SCHEMA_SQL
+  comment.** The registry-classification regress test parses that pattern out of
+  `SCHEMA_SQL` and will flag a phantom unclassified table. Reword the prose.
+- **The additive import cannot reconcile rows that were never git-tracked.** If
+  `content/` was seeded from a local DB whose ids diverge from prod's (same logical
+  entity, different PK — e.g. the same TV channel under two timestamped ids), the
+  id-keyed upsert can't match them and collides on a secondary unique key. The
+  git-diff deletion pass won't remove prod's stray row either (no file was ever
+  removed). Fix is a deliberate one-shot data transformation — the sanctioned path
+  for rows the additive deploy can't touch — deleting prod's non-git rows so git's
+  authoritative set lands ("git wins"). Dry-run it first.
+- **A `deadlock detected` (`40P01`) mid-import is transient — just retry the deploy.**
+  It's the live Render game server mutating content rows while the import holds locks
+  on the same rows; a second dispatch with different timing succeeds. Retrying the
+  deploy is preferred over pausing the server (no added Neon egress, no Render
+  rebuild); a deadlock-retry wrapper around the import transaction is the standing
+  fix if it recurs.
 
 ## One-off authoring scripts
 
