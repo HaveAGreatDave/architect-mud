@@ -90,6 +90,41 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Prune old snapshot branches (keep newest 5)
+        # expires_at self-cleans snapshots after 14 days, but at any real deploy
+        # cadence they pile up past Neon's branch cap long before they expire. So
+        # actively prune here: delete every predeploy-* branch beyond the newest 5,
+        # which always leaves recent recovery points while keeping us under the cap.
+        # Runs before the snapshot so this deploy's own branch never counts against
+        # the keep-5. Best-effort: a prune failure must not block the deploy.
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        continue-on-error: true
+        run: |
+          project_id=$(node -p "JSON.parse(require('fs').readFileSync('.neon','utf8')).projectId")
+          curl -sS "https://console.neon.tech/api/v2/projects/${project_id}/branches" \
+            -H 'Accept: application/json' \
+            -H "Authorization: Bearer ${NEON_API_KEY}" > branches.json
+          node --input-type=module -e "
+          import fs from 'fs';
+          const { branches } = JSON.parse(fs.readFileSync('branches.json','utf8'));
+          const snaps = branches
+            .filter(b => b.name.startsWith('predeploy-'))
+            .sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+          const stale = snaps.slice(5);
+          console.log(\`\${snaps.length} snapshot branch(es); pruning \${stale.length}\`);
+          for (const id of stale.map(b => b.id)) console.log(id);
+          fs.writeFileSync('stale.txt', stale.map(b => b.id).join('\n'));
+          "
+          project_id=$(node -p "JSON.parse(require('fs').readFileSync('.neon','utf8')).projectId")
+          while read -r id; do
+            [ -z "$id" ] && continue
+            code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
+              "https://console.neon.tech/api/v2/projects/${project_id}/branches/${id}" \
+              -H 'Accept: application/json' \
+              -H "Authorization: Bearer ${NEON_API_KEY}")
+            echo "delete ${id}: HTTP ${code}"
+          done < stale.txt
       - name: Snapshot production (Neon branch)
         # Pre-deploy catastrophe net: an instant copy-on-write snapshot of prod
         # BEFORE we touch it. Data-only (no compute endpoint) so it's near-free;

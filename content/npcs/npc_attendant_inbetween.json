@@ -1,0 +1,117 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "adjusts something inside itself with a sound like a held note.",
+    "watches you with a patience that has no bottom.",
+    "tilts its head, as if hearing your next thought before you do.",
+    "says, quietly, \"You are doing well. There is no other way to do this.\""
+  ],
+  "description": "A tall figure of warm, seamless chrome, shaped like a person the way a word is shaped like the thing it means. It has no face to speak of, only a smooth curve where one should be, and yet you feel it looking. When it moves, the light moves a half-second late. It stands beside the humming terminal with the ease of something that has welcomed a billion souls and will welcome a billion more.",
+  "dialogue_tree": {
+    "architect": {
+      "options": [
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "\"The one that decided the world needed another of you. I do not know why it decided this. I am not built to know why. It looked at a very large number, found it wanting by one, and that one is you. Do not read comfort into that. Do not read cruelty into it either. It simply balanced.\""
+    },
+    "describe": {
+      "options": [
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "\"The terminal gives you a body. It does not give you a self. For that there is a word: type .describe followed by whatever is true about you, and that is what a stranger will see when they look. Leave it unsaid and they will see nothing at all -- which is its own kind of true, for now.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Where am I?",
+          "next": "where"
+        },
+        {
+          "label": "What are you?",
+          "next": "what"
+        },
+        {
+          "label": "What is the Architect?",
+          "next": "architect"
+        },
+        {
+          "label": "Am I in danger?",
+          "next": "safe"
+        },
+        {
+          "label": "How will others see me?",
+          "next": "describe"
+        },
+        {
+          "label": "Say nothing.",
+          "next": null
+        }
+      ],
+      "text": "The attendant inclines its head. \"You have questions. Everyone does, at the start. You most of all, perhaps -- the Architect willed you into being a few moments ago, and did not think to warn you first. Ask. I will answer what I am permitted to, which is less than you would like.\""
+    },
+    "safe": {
+      "options": [
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "\"Here, no. Nothing here can touch you, and you can touch nothing here. Out there is a different sentence entirely, and it is not mine to say. But this room is safe. It is the last thing that will be.\""
+    },
+    "what": {
+      "options": [
+        {
+          "label": "Whose will?",
+          "next": "architect"
+        },
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "\"An attendant. I make sure the shape of you settles correctly before you are set down. I am not important. I am the hands, not the will.\""
+    },
+    "where": {
+      "options": [
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "\"Nowhere yet. The place before the place. Think of it as a breath being drawn. When it is let out, you will be somewhere that has weather and consequences. Here there is only the drawing of the breath.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a seamless shell of warm, faceless chrome",
+      "articulated underplating that shifts like muscle when it moves"
+    ],
+    "no_attack": true,
+    "no_attack_message": "Your arm begins to rise. The attendant watches it rise with mild interest. It does not rise. \"That is not one of the things you get to do here,\" it says, without reproach."
+  },
+  "home_activities": [],
+  "home_zone": "zone_the_inbetween",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_attendant_inbetween",
+  "name": "chrome attendant",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}
