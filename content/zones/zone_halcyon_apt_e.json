@@ -8,10 +8,7 @@
   "danger_rating": "safe",
   "description": "The hall’s top unit, a half-floor above its neighbours: a fold-away bed, a slim galley, and a window that turns the basin into weather you watch from above. Quiet, expensive, and empty until now.",
   "exits": {
-    "down": [
-      "zone_halcyon_residences",
-      "zone_util_zone_halcyon_apt_e"
-    ]
+    "down": "zone_halcyon_residences"
   },
   "flags": {
     "building_type": "residential",
@@ -19,14 +16,14 @@
     "is_interior": true
   },
   "grid_x": 0,
-  "grid_y": 1,
-  "grid_z": 1,
+  "grid_y": 0,
+  "grid_z": 5,
   "id": "zone_halcyon_apt_e",
   "is_safe_zone": 1,
   "map_id": "map_int_halcyon",
   "marker": "41",
   "name": "Halcyon Residence 41-E",
-  "parent_zone": null,
+  "parent_zone": "zone_halcyon_residences",
   "pvp_enabled": 0,
   "radiation_level": 0,
   "updated_at": "1783356329"

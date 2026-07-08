@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#816e4d",
+  "bg_color": "#bfa06b",
   "color": "#eeeeee",
   "created_by": "phase11-build",
   "danger_rating": "medium",
@@ -22,6 +22,7 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
   "grid_x": -10,
@@ -35,5 +36,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 1,
-  "updated_at": "1783126562"
+  "updated_at": "1783301927"
 }

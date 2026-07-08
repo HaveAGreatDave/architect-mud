@@ -13,7 +13,7 @@
   "flags": {
     "building_name": null,
     "building_type": null,
-    "is_apartment": false,
+    "is_apartment": true,
     "is_building": false,
     "is_interior": true,
     "scavenging_table_id": null,

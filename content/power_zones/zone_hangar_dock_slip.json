@@ -1,9 +1,9 @@
 {
-  "capacity_kw": 50,
+  "capacity_kw": 1000,
   "flags": {},
-  "generator_id": "gen_zone_util_zone_hangar_dock_slip_1783294934594",
+  "generator_id": "gen_zone_util_zone_hangar_dock_slip_1783296275077",
   "id": "zone_hangar_dock_slip",
-  "max_capacity_kw": 50,
-  "name": "zone_dock_slip Hangar",
+  "max_capacity_kw": 1000,
+  "name": "Smuggler's Slip Pad Hangar",
   "source_type": "junction_box"
 }

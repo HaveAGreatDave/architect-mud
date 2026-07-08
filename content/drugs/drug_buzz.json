@@ -3,8 +3,12 @@
   "description": "A jittery, short-lived stimulant. Common in the Franchise Strip.",
   "duration_seconds": 240,
   "effects": {
-    "hunger": -5,
-    "stat_agi_temp": 2
+    "diuretic": 1.5,
+    "instant": {
+      "hunger": -5,
+      "stat_agi_temp": 2
+    },
+    "onset_seconds": 3
   },
   "flags": {},
   "id": "drug_buzz",

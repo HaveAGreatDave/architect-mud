@@ -5,15 +5,13 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#8b9097",
+  "bg_color": "#b1bccd",
   "color": "#111111",
   "created_by": null,
   "danger_rating": "low",
   "description": "A concrete drainage channel cuts across the flats, its floor crazed and stained the rust-black of old runoff. A collapsed checkpoint booth leans over the lip, its boom gate frozen halfway down like it's still trying to stop you.",
   "exits": {
     "east": "zone_ashway_ashfall",
-    "north": "zone_waste_rustmarsh",
-    "south": "zone_waste_ashenverge",
     "west": "zone_slag_gate"
   },
   "flags": {
@@ -25,6 +23,7 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
     "scavenging_table_id": "scav_roadside_junk",
     "world_exit_zone": null
   },
@@ -39,5 +38,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

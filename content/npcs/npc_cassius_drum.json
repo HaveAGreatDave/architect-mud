@@ -418,6 +418,22 @@
     {
       "item_id": "item_tote_canvas",
       "price": 20
+    },
+    {
+      "item_id": "item_reagent_acid",
+      "price": 6
+    },
+    {
+      "item_id": "item_reagent_solvent",
+      "price": 6
+    },
+    {
+      "item_id": "item_reagent_feedstock",
+      "price": 6
+    },
+    {
+      "item_id": "item_reagent_nutrient",
+      "price": 6
     }
   ],
   "vendor_restock_rate": 3,

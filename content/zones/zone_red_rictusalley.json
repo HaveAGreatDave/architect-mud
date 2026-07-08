@@ -5,13 +5,14 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#ff0000",
+  "bg_color": "#e77474",
   "color": "#eeeeee",
   "created_by": "phase12-build",
   "danger_rating": "lethal",
   "description": "A narrow alley where the dead lie where they fell, dried by the poisoned air into leather and locked, every one of them, into a wide fixed grin. They line the walls like an audience. They have been waiting a long time for the show, and you have just walked on.",
   "exits": {
     "east": "zone_red_slaughterworks",
+    "north": "zone_red_screaminglot",
     "south": "zone_waste_chargully",
     "west": "zone_red_bonepit"
   },
@@ -21,6 +22,7 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
     "scavenging_table_id": "scav_irradiated_salvage"
   },
   "grid_x": -10,
@@ -34,5 +36,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 4,
-  "updated_at": "1783126562"
+  "updated_at": "1783301927"
 }

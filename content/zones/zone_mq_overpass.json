@@ -7,8 +7,8 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#c8c8c8",
-  "color": "#111111",
+  "bg_color": "#ae9292",
+  "color": "#eeeeee",
   "created_by": null,
   "danger_rating": "low",
   "description": "A stub of collapsed elevated roadway roofs this block in permanent shadow, its underside a cathedral of rebar and pigeon filth. Someone strung work-lights along the girders and called it commerce. An electronics stall glows under the deck; a stairwell drops into a basement lit by a single sign. Water finds its way down through the concrete no matter the weather, ticking into puddles that never dry.",
@@ -16,11 +16,11 @@
     "east": "zone_mq_cage",
     "in": "zone_mq_amp_shop",
     "north": "zone_mq_battery",
-    "south": "zone_meat_ashpit",
-    "west": "zone_mq_ember"
+    "south": "zone_meat_ashpit"
   },
   "flags": {
-    "scavenging_table_id": null
+    "scavenging_table_id": null,
+    "street_life": true
   },
   "grid_x": 4,
   "grid_y": 1,
@@ -33,5 +33,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126563"
+  "updated_at": "1783301927"
 }

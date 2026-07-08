@@ -5,14 +5,13 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#7c6a4a",
+  "bg_color": "#be9d64",
   "color": "#eeeeee",
   "created_by": "phase6-build",
   "danger_rating": "low",
   "description": "A stretch of ground that burned so long ago and so completely that it still, on cold nights, remembers the fire — a faint orange breathing deep in the cracks.",
   "exits": {
     "east": "zone_waste_cull",
-    "south": "zone_civ_commons",
     "west": "zone_waste_slaghollow"
   },
   "flags": {
@@ -21,6 +20,7 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
   "grid_x": -3,
@@ -34,5 +34,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126562"
+  "updated_at": "1783301927"
 }

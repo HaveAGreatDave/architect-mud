@@ -5,14 +5,13 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#816e4d",
+  "bg_color": "#bfa06b",
   "color": "#eeeeee",
   "created_by": "phase11-build",
   "danger_rating": "low",
   "description": "The dross-works, where the skimmings off molten metal were once cast into pigs and stacked to sell. The stacks are still here, grown over with rust, a maze of worthless iron that squatters and worse have made a warren of.",
   "exits": {
     "east": "zone_waste_ferro",
-    "north": "zone_waste_reek",
     "south": "zone_waste_hopper",
     "west": "zone_waste_ashencut"
   },
@@ -22,6 +21,7 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
     "scavenging_table_id": "scav_industrial_salvage"
   },
   "grid_x": -8,
@@ -35,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126562"
+  "updated_at": "1783301927"
 }

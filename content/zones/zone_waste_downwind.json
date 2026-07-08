@@ -5,8 +5,8 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#585858",
-  "color": "#eeeeee",
+  "bg_color": "#1eae5d",
+  "color": "#111111",
   "created_by": "phase9-build",
   "danger_rating": "medium",
   "description": "Set deliberately downwind of the heights so its stink never troubles them, this is where the quarter's waste and worse is quietly let go. Things thrive here that the district denies exist.",
@@ -22,6 +22,7 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
   "grid_x": 7,
@@ -35,5 +36,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126562"
+  "updated_at": "1783301927"
 }

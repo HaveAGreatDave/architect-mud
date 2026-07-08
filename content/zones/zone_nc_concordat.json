@@ -5,8 +5,8 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#f4dcfe",
-  "color": "#111111",
+  "bg_color": "#8e8edd",
+  "color": "#eeeeee",
   "created_by": "phase9-build",
   "danger_rating": "safe",
   "description": "The treaty hall where the corporations that own Coldwater sign the accords that carve it up, beneath a mural of a handshake so large and so insincere it loops in the mind for hours.",
@@ -37,5 +37,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126562"
+  "updated_at": "1783301927"
 }

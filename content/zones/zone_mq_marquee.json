@@ -7,8 +7,8 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#c8c8c8",
-  "color": "#111111",
+  "bg_color": "#ae9292",
+  "color": "#eeeeee",
   "created_by": null,
   "danger_rating": "safe",
   "description": "The Marquee was a theater district before the Collapse and never entirely stopped pretending. A dead cinema marquee juts over the intersection, its plastic letters half-looted so the last feature reads simply NO ONE. Rain-slick asphalt throws back the pink and cyan of a dozen bar signs still drawing power from god-knows-where. Foot traffic here is the closest thing the basin has to a nightlife, and everyone walks like they're being watched, because they are.",
@@ -16,14 +16,15 @@
     "east": "zone_mq_battery",
     "in": "zone_mq_pigeon_bar",
     "north": "zone_mq_cathode",
-    "south": "zone_mq_ember",
     "west": "zone_velk_exterior"
   },
   "flags": {
     "artery": [
-      "The Strip"
+      "Grand Avenue",
+      "Cathode Street"
     ],
-    "scavenging_table_id": null
+    "scavenging_table_id": null,
+    "street_life": true
   },
   "grid_x": 3,
   "grid_y": 0,
@@ -36,5 +37,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126563"
+  "updated_at": "1783301927"
 }

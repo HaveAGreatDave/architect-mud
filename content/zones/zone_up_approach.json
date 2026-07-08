@@ -5,16 +5,14 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#909090",
-  "color": "#111111",
+  "bg_color": "#42c96a",
+  "color": "#eeeeee",
   "created_by": "phase1-build",
   "danger_rating": "safe",
   "description": "A manicured processional toward the Halcyon spire — reflecting pools, engineered calm, and signage in a font that costs more than you do.",
   "exits": {
-    "east": "zone_up_skyway",
     "north": "zone_dock_quays",
-    "south": "zone_meridian",
-    "west": "zone_up_gate"
+    "south": "zone_meridian"
   },
   "flags": {
     "building_name": "",
@@ -35,5 +33,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

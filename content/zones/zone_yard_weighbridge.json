@@ -5,8 +5,8 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#585858",
-  "color": "#eeeeee",
+  "bg_color": "#1eae5d",
+  "color": "#111111",
   "created_by": "phase7-build",
   "danger_rating": "low",
   "description": "A truck weighbridge where every load in and out of the Yards is tallied by a scale that hasn't been calibrated since the Handoff and a clerk who rounds in the company's favour.",
@@ -17,7 +17,8 @@
   },
   "flags": {
     "artery": [
-      "Main Haul"
+      "Grand Avenue",
+      "Reefer Street"
     ],
     "building_name": "",
     "building_type": null,
@@ -37,5 +38,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126563"
+  "updated_at": "1783301927"
 }

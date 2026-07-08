@@ -5,14 +5,13 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#7c6a4a",
+  "bg_color": "#be9d64",
   "color": "#eeeeee",
   "created_by": "phase2-build",
   "danger_rating": "medium",
   "description": "A slag pit gone black and glassy, so dark it drinks the light. The counter on anything you carry ticks a little faster here.",
   "exits": {
     "east": "zone_waste_nadir",
-    "north": "zone_waste_verge",
     "south": "zone_waste_grime",
     "west": "zone_waste_tipple"
   },
@@ -22,6 +21,7 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
   "grid_x": -5,
@@ -35,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 1,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#1fb5aa",
+  "bg_color": "#50e0d5",
   "color": "#111111",
   "created_by": "phase3-build",
   "danger_rating": "low",
@@ -25,7 +25,8 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "scavenging_table_id": "scav_roadside_junk"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true
   },
   "grid_x": 1,
   "grid_y": -3,
@@ -38,5 +39,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

@@ -8,21 +8,22 @@
   "danger_rating": "safe",
   "description": "A quieter, colder room. The chairs are comfortable in the way a dentist's are, and a single adjuster works a terminal with the patience of someone who has already decided your excess. This is where you <b>claim</b> against a covered loss.",
   "exits": {
-    "west": "zone_halcyon_lobby"
+    "in": "zone_halcyon_elevator"
   },
   "flags": {
-    "building_name": "Halcyon Assurance",
-    "insurance_desk": true
+    "building_name": "Halcyon Towers",
+    "insurance_desk": true,
+    "is_interior": true
   },
-  "grid_x": 1,
+  "grid_x": 0,
   "grid_y": 0,
-  "grid_z": 0,
+  "grid_z": 3,
   "id": "zone_halcyon_claims",
   "is_safe_zone": 1,
   "map_id": "map_int_halcyon",
   "marker": "CL",
   "name": "Halcyon Assurance — Claims",
-  "parent_zone": null,
+  "parent_zone": "zone_halcyon_lobby",
   "pvp_enabled": 0,
   "radiation_level": 0,
   "updated_at": "1783316802"

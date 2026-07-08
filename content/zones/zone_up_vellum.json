@@ -5,21 +5,20 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#f1ccff",
+  "bg_color": "#bca6a6",
   "color": "#111111",
   "created_by": "phase3-build",
   "danger_rating": "safe",
-  "description": "A pocket of would-be gentility at the water's edge — planters, a dry ornamental basin, and frontages that face away from the docks as if embarrassed by them.",
+  "description": "A pocket of would-be gentility at the water's edge — planters, a dry ornamental basin, and frontages that face away from the docks as if embarrassed by them. A security checkpoint straddles The Steps here — a scanner arch and a pair of unimpressed guards vetting everyone who climbs up into the government quarter.",
   "exits": {
     "north": "zone_nc_datum",
     "south": "zone_civ_steps"
   },
   "flags": {
-    "artery": [
-      "The Axis"
-    ],
     "building_name": "",
     "building_type": null,
+    "gov_checkpoint": true,
+    "gov_enclave": true,
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
@@ -36,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126563"
+  "updated_at": "1783301927"
 }

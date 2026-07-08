@@ -7,7 +7,7 @@
   "ambient_theme": "city",
   "audio_theme_id": null,
   "bg_color": "#cf6a2e",
-  "color": null,
+  "color": "#111111",
   "created_by": null,
   "danger_rating": "medium",
   "description": "Pre-Handoff subway tunnels, now home to the Archivists. Emergency lighting casts everything amber. The walls are dense with salvaged text — newspaper fragments, printed articles, handwritten notes.",
@@ -17,9 +17,11 @@
   "flags": {
     "building_name": "",
     "building_type": null,
+    "intro_lore": "The Under belongs to the Archivists, and the Archivists belong to the dark. They keep the old words down here — newsprint, manuals, names of the dead — because up top nobody remembers on purpose. They'll trade in knowledge and let you pass for it. Break their peace and the tunnels close around you, and the amber light is a long way from the surface.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
     "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": 0,
@@ -33,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1781980620"
+  "updated_at": "1783169469"
 }

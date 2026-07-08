@@ -5,15 +5,14 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#585858",
-  "color": "#eeeeee",
+  "bg_color": "#1eae5d",
+  "color": "#111111",
   "created_by": "phase7-build",
   "danger_rating": "low",
   "description": "A concrete apron where the yard's forklifts are parked, charged, and fought over each shift. Tyre-black scuffs map a hundred near-misses across the slab.",
   "exits": {
     "north": "zone_yard_weighbridge",
-    "south": "zone_yard_railhead",
-    "west": "zone_yard_transfer"
+    "south": "zone_yard_railhead"
   },
   "flags": {
     "building_name": "",
@@ -34,5 +33,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

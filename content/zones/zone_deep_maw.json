@@ -5,15 +5,13 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#dfbc9a",
-  "color": "#eeeeee",
+  "bg_color": "#e69e73",
+  "color": "#111111",
   "created_by": "phase1-build",
   "danger_rating": "medium",
   "description": "The Sprawl opens its throat here: a downward-sloping plaza where the Undermarket swallows anyone with nothing left to trade but themselves.",
   "exits": {
-    "east": "zone_deep_bonepicker",
-    "north": "zone_slums",
-    "west": "zone_deep_wormtown"
+    "north": "zone_slums"
   },
   "flags": {
     "building_name": "",
@@ -21,6 +19,7 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
     "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": 0,
@@ -34,5 +33,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

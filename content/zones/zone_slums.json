@@ -4,8 +4,8 @@
     "A wall-mounted screen plays a looping corporate training video on conflict resolution."
   ],
   "ambient_theme": "outdoors",
-  "audio_theme_id": "aud_497cdcea-97e4-4e1a-99da-24e01577a849",
-  "bg_color": "#dfbc9a",
+  "audio_theme_id": null,
+  "bg_color": "#e69e73",
   "color": "#111111",
   "created_by": null,
   "danger_rating": "medium",
@@ -14,15 +14,16 @@
     "down": "zone_tunnels",
     "east": "zone_deep_scab",
     "north": "zone_city_south",
-    "south": "zone_deep_maw",
-    "west": "zone_deep_cardboard"
+    "south": "zone_deep_maw"
   },
   "flags": {
     "building_name": null,
     "building_type": null,
+    "intro_lore": "Pre-Handoff apartment towers stacked with improvised floors until they groan — loud, dense, vertical, and home to most of the basin that isn't dead yet. The Sprawl polices itself in ways you won't understand until you've broken one of its rules. Rent is cheap; the neighbors are the price.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk",
     "world_exit_zone": null
   },
@@ -37,5 +38,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783126579"
+  "updated_at": "1783301927"
 }

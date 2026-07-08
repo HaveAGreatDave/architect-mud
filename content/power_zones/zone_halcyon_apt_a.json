@@ -1,9 +1,9 @@
 {
-  "capacity_kw": 50,
+  "capacity_kw": 1000,
   "flags": {},
-  "generator_id": "gen_zone_util_zone_halcyon_apt_a_1783387728218",
+  "generator_id": "gen_zone_util_zone_halcyon_lobby_1783455594534",
   "id": "zone_halcyon_apt_a",
-  "max_capacity_kw": 50,
+  "max_capacity_kw": 1000,
   "name": "Halcyon Residence 41-A",
   "source_type": "junction_box"
 }

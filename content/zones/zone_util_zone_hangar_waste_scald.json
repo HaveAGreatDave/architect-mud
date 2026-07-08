@@ -21,9 +21,9 @@
   "is_safe_zone": 0,
   "map_id": "map_int_hangar_waste_scald",
   "marker": null,
-  "name": "zone_waste_scald Hangar — Utility Room",
+  "name": "Redline Airstrip Hangar — Utility Room",
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783294934"
+  "updated_at": "1783296275"
 }

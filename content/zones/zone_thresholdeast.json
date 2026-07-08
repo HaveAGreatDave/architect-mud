@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#909090",
+  "bg_color": "#7fda9a",
   "color": "#111111",
   "created_by": null,
   "danger_rating": "safe",
@@ -15,11 +15,16 @@
   },
   "flags": {
     "airspace_restricted": true,
+    "artery": [
+      "Grand Avenue"
+    ],
     "building_name": null,
     "building_type": null,
+    "intro_lore": "East, the buildings lean in and the sky gets rationed between them. That crowding is a kind of ownership — someone up in those windows watches this stretch and taxes it in ways you won't see coming. Move like you're expected and you might just be left alone.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk",
     "world_exit_zone": null
   },
@@ -34,5 +39,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

@@ -21,9 +21,9 @@
   "is_safe_zone": 0,
   "map_id": "map_int_hangar_dock_slip",
   "marker": null,
-  "name": "zone_dock_slip Hangar — Utility Room",
+  "name": "Smuggler's Slip Pad Hangar — Utility Room",
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783294935"
+  "updated_at": "1783296275"
 }

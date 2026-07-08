@@ -2,8 +2,8 @@
   "ambient_events": [],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#585858",
-  "color": "#eeeeee",
+  "bg_color": "#edbd99",
+  "color": "#111111",
   "created_by": null,
   "danger_rating": "low",
   "description": "A shipping container grafted onto the alley wall, its roll-door cut down to a service hatch and barred with rebar. A stencilled sign — a rifle crossed with a wrench — hangs over the entrance. Somebody has scratched PRICES ARE FIRM into the paint, then, beneath it, SO AM I.",
@@ -32,5 +32,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

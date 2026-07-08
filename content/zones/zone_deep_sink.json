@@ -5,13 +5,12 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#dfbc9a",
+  "bg_color": "#e69e73",
   "color": "#111111",
   "created_by": "phase2-build",
   "danger_rating": "medium",
   "description": "The lowest drain of the Sprawl, where everything the Undermarket can't sell finally settles. The smell has a shape you can lean on.",
   "exits": {
-    "east": "zone_deep_rotrow",
     "north": "zone_deep_tarpit",
     "west": "zone_waste_bailey"
   },
@@ -21,6 +20,7 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
     "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": -3,
@@ -34,5 +34,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783126579"
+  "updated_at": "1783301927"
 }

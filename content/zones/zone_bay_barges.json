@@ -5,16 +5,13 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#2f86cc",
+  "bg_color": "#71b1e6",
   "color": "#eeeeee",
   "created_by": "phase3-build",
   "danger_rating": "low",
   "description": "A raft of dead barges lashed together into a floating slum-annex, rising and falling as one. You cross the harbour here by stepping from deck to swaying deck.",
   "exits": {
-    "east": "zone_dock_boatyard",
-    "north": "zone_bay_fog",
-    "south": "zone_dock_fishmarket",
-    "west": "zone_bay_shallows"
+    "north": "zone_bay_fog"
   },
   "flags": {
     "building_name": "",
@@ -22,7 +19,8 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "scavenging_table_id": "scav_harbor"
+    "scavenging_table_id": "scav_harbor",
+    "water": true
   },
   "grid_x": 3,
   "grid_y": -4,
@@ -35,5 +33,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

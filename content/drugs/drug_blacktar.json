@@ -3,6 +3,7 @@
   "description": "Heavy tar opioid, cut with whatever was nearby. The deepest nod there is.",
   "duration_seconds": 480,
   "effects": {
+    "diuretic": 0.4,
     "instant": {
       "hunger": -6,
       "sanity": 18

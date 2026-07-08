@@ -3,6 +3,7 @@
   "description": "A blue benzo tab that files the sharp edges off a bad night.",
   "duration_seconds": 360,
   "effects": {
+    "diuretic": 0.7,
     "instant": {
       "sanity": 16
     },

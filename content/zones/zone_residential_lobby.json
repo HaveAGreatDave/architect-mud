@@ -26,7 +26,6 @@
     "is_apartment": false,
     "is_building": true,
     "is_interior": true,
-    "scavenging_table_id": null,
     "world_exit_zone": "zone_city_west"
   },
   "grid_x": 0,
@@ -40,5 +39,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783373336"
+  "updated_at": "1782356877"
 }

@@ -4,6 +4,7 @@
   "duration_seconds": 600,
   "effects": {
     "hp": 5,
+    "onset_seconds": 8,
     "sanity": 15
   },
   "flags": {},

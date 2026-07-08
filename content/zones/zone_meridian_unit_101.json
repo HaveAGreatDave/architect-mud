@@ -11,6 +11,7 @@
     "south": "zone_meridian_floor_1"
   },
   "flags": {
+    "is_apartment": true,
     "is_interior": true
   },
   "grid_x": 0,

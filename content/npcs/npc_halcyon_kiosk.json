@@ -83,7 +83,7 @@
     }
   },
   "chitchat": [
-    "Sef restocks a shelf that empties itself of everything but the overpriced water."
+    "restocks a shelf that empties itself of everything but the overpriced water."
   ],
   "description": "A tired kiosk vendor working the arcade concourse, selling water and sundries to the staff and the strays at exactly the price the location commands. Sef has seen the executive floor exactly once, to fix its vending machine.",
   "dialogue_tree": {

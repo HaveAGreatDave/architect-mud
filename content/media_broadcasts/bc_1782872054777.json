@@ -1,0 +1,273 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_1",
+        "type": "start"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "event_type": "FADE_IN",
+        "next": "bsm_2",
+        "type": "event"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "next": "bsm_11",
+        "style": "narration",
+        "text": "The camera slowly circles the glowing sleep pod as soft blue lights pulse across its polished surface.",
+        "type": "say"
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "next": "bsm_12",
+        "style": "raw",
+        "text": "SleepRight™ monitors your dreams...",
+        "type": "say"
+      },
+      "bsm_12": {
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "next": "bsm_13",
+        "style": "raw",
+        "text": "...your heart...",
+        "type": "say"
+      },
+      "bsm_13": {
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "next": "bsm_14",
+        "style": "raw",
+        "text": "...and your productivity.",
+        "type": "say"
+      },
+      "bsm_14": {
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "event_type": "CHIME",
+        "next": "bsm_15",
+        "type": "event"
+      },
+      "bsm_15": {
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "next": "bsm_16",
+        "style": "raw",
+        "text": "Wake refreshed.",
+        "type": "say"
+      },
+      "bsm_16": {
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "next": "bsm_17",
+        "style": "raw",
+        "text": "Wake focused.",
+        "type": "say"
+      },
+      "bsm_17": {
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "next": "bsm_18",
+        "style": "raw",
+        "text": "Wake ready to exceed quarterly expectations.",
+        "type": "say"
+      },
+      "bsm_18": {
+        "_vine": {
+          "x": 740,
+          "y": 560
+        },
+        "next": "bsm_19",
+        "overlayType": "text_card",
+        "text": "SLEEPRIGHT™ EXECUTIVE POD\n\nNOW AVAILABLE WITH\n\nOPTIONAL LUNG FILTRATION PACKAGE",
+        "type": "overlay"
+      },
+      "bsm_19": {
+        "_vine": {
+          "x": 960,
+          "y": 560
+        },
+        "next": "bsm_20",
+        "style": "raw",
+        "text": "SleepRight™.",
+        "type": "say"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "sleepright_logo",
+        "next": "bsm_3",
+        "type": "title_card"
+      },
+      "bsm_20": {
+        "_vine": {
+          "x": 80,
+          "y": 720
+        },
+        "next": "bsm_21",
+        "style": "raw",
+        "text": "Because unconscious employees can't miss deadlines.",
+        "type": "say"
+      },
+      "bsm_21": {
+        "_vine": {
+          "x": 300,
+          "y": 720
+        },
+        "event_type": "FADE_OUT",
+        "type": "event"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "song": "corporate_chime",
+        "text": "♪ A soothing corporate melody begins playing. ♪",
+        "type": "music"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_5",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "next": "bsm_6",
+        "style": "narration",
+        "text": "The camera glides through a spotless luxury apartment where a citizen sleeps peacefully inside a sleek chrome SleepRight™ pod.",
+        "type": "say"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "npc_id": "npc_narrator",
+        "type": "npc_anchor"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "raw",
+        "text": "Still sleeping in a bed?",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "style": "raw",
+        "text": "How twentieth century.",
+        "type": "say"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "label": "CAM — 2 — CLOSEUP sleep_pod",
+        "next": "bsm_10",
+        "type": "camera_cut",
+        "zone_id": ""
+      }
+    }
+  },
+  "category": "advertisement",
+  "channel_id": null,
+  "created_by": "ab2d38d0-4f10-4187-8f53-298d61b525c3",
+  "description": "",
+  "enabled": 1,
+  "fallback_messages": [],
+  "id": "bc_1782872054777",
+  "loop": 0,
+  "message_interval": 5,
+  "messages": [
+    {
+      "text": "The camera glides through a spotless luxury apartment where a citizen sleeps peacefully inside a sleek chrome SleepRight™ pod."
+    },
+    {
+      "text": "Still sleeping in a bed?"
+    },
+    {
+      "text": "How twentieth century."
+    },
+    {
+      "text": "The camera slowly circles the glowing sleep pod as soft blue lights pulse across its polished surface."
+    },
+    {
+      "text": "SleepRight™ monitors your dreams..."
+    },
+    {
+      "text": "...your heart..."
+    },
+    {
+      "text": "...and your productivity."
+    },
+    {
+      "text": "Wake refreshed."
+    },
+    {
+      "text": "Wake focused."
+    },
+    {
+      "text": "Wake ready to exceed quarterly expectations."
+    },
+    {
+      "text": "SleepRight™."
+    },
+    {
+      "text": "Because unconscious employees can't miss deadlines."
+    }
+  ],
+  "name": "SleepRight™ Sleep Pods - Wake Better.",
+  "override_duration": 30,
+  "playback_mode": "scripted",
+  "sports_pools": null,
+  "tags": [],
+  "updated_at": "1782872055",
+  "weather_pools": null
+}

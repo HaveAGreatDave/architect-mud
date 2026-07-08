@@ -5,18 +5,19 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#585858",
-  "color": "#eeeeee",
+  "bg_color": "#1eae5d",
+  "color": "#111111",
   "created_by": "phase8-build",
   "danger_rating": "low",
   "description": "A tangle of rail sidings where flatcars wait, loaded and forgotten, for engines that are always about to come. The scavengers know the timetable better than the railway does.",
   "exits": {
-    "east": "zone_yard_pallet",
     "north": "zone_yard_container",
-    "south": "zone_yard_boxcar",
-    "west": "zone_corp_investor"
+    "south": "zone_yard_boxcar"
   },
   "flags": {
+    "artery": [
+      "Boxcar Street"
+    ],
     "building_name": "",
     "building_type": null,
     "is_apartment": false,
@@ -35,5 +36,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126562"
+  "updated_at": "1783301927"
 }

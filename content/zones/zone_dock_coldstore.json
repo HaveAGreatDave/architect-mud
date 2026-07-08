@@ -5,16 +5,14 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#1fb5aa",
+  "bg_color": "#50e0d5",
   "color": "#111111",
   "created_by": "phase3-build",
   "danger_rating": "low",
   "description": "A refrigerated warehouse still running on stolen power, its doors breathing fog. Inside, racks of catch and less legal cargo hang in the cold dark.",
   "exits": {
-    "east": "zone_bay_shallows",
     "north": "zone_bay_sound",
-    "south": "zone_dock_wharf",
-    "west": "zone_waste_rebar"
+    "south": "zone_dock_wharf"
   },
   "flags": {
     "building_name": "",
@@ -35,5 +33,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

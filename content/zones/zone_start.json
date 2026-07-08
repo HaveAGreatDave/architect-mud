@@ -19,6 +19,7 @@
   "flags": {
     "building_name": "Coldwater Clone Facility",
     "building_type": null,
+    "intro_lore": "Welcome to the only birth you'll get. The vat behind you printed you off a backup nobody bothered to keep current, and the receipt it spat out is the closest thing you have to family. Coldwater doesn't care that you're new — the second you step outside you're just another mouth the basin didn't ask for. What you can carry, you keep. Everything else was always going to be somebody else's.",
     "is_apartment": false,
     "is_building": true,
     "is_interior": true,

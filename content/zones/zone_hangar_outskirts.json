@@ -6,23 +6,17 @@
   "color": null,
   "created_by": null,
   "danger_rating": "safe",
-  "description": "The zone_outskirts hangar: a cavernous prefab of corrugated steel, its floor a map of old oil stains and tyre scuffs. Tool racks and a battered workbench line one wall; a wheeled ops desk with a bank of flight monitors faces the other. The big bay doors stand open to the west, framing the ramp and the aircraft parked out on it. It smells of avgas, hot metal and cold coffee.",
+  "description": "The Coldwater Regional hangar: a cavernous prefab of corrugated steel, its floor a map of old oil stains and tyre scuffs. Tool racks and a battered workbench line one wall; a wheeled ops desk with a bank of flight monitors faces the other. The big bay doors stand open to the west, framing the ramp and the aircraft parked out on it. Beyond the apron a taxiway peels off and runs dead-straight to a long runway — a broad grey ribbon stretched to the horizon, its dashed centreline dwindling to a pale seam, threshold numbers shimmering in the heat off the tarmac, a lone windsock snapping at the far end. It smells of avgas, hot metal and cold coffee.",
   "exits": {
     "down": "zone_util_zone_hangar_outskirts",
     "out": "zone_outskirts"
   },
   "flags": {
-    "airfield_name": "zone_outskirts",
-    "building_name": null,
-    "building_type": null,
+    "airfield_name": "Coldwater Regional",
     "hangar_interior": true,
     "hangar_ramp": "zone_outskirts",
     "intro_lore": "Coldwater Regional keeps its runway going for the same stubborn reason the whole city does anything: because stopping is worse. The tool racks, the ops desk, the coffee nobody remembers brewing — all of it holds the shape of a working airfield long after the airline it served stopped existing. Somebody still tops off the avgas. Nobody's asked who pays for it.",
-    "is_apartment": false,
-    "is_building": true,
-    "is_interior": true,
-    "scavenging_table_id": null,
-    "world_exit_zone": null
+    "is_interior": true
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -35,5 +29,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783376174"
+  "updated_at": "1783227243"
 }

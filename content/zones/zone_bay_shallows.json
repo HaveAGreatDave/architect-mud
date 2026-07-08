@@ -5,16 +5,13 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#2f86cc",
+  "bg_color": "#71b1e6",
   "color": "#eeeeee",
   "created_by": "phase3-build",
   "danger_rating": "low",
   "description": "A boardwalk on rotting pilings runs out over the shallows, where the bay goes brown and thick with runoff. You can see shapes moving under the skin of the water.",
   "exits": {
-    "east": "zone_bay_barges",
-    "north": "zone_bay_open",
-    "south": "zone_dock_quays",
-    "west": "zone_dock_coldstore"
+    "north": "zone_bay_open"
   },
   "flags": {
     "building_name": "",
@@ -22,7 +19,8 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "scavenging_table_id": "scav_harbor"
+    "scavenging_table_id": "scav_harbor",
+    "water": true
   },
   "grid_x": 2,
   "grid_y": -4,
@@ -35,5 +33,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

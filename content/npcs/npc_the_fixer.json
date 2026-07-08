@@ -1,27 +1,28 @@
 {
   "banter": [],
   "behaviour_graph": {
-    "_start": "night_check",
+    "_start": "hours_check",
     "nodes": {
-      "night_check": {
+      "hours_check": {
         "condition_type": "HOUR_RANGE",
         "ifFalse": "vanish",
         "ifTrue": "prowl",
         "params": {
-          "from": 21,
-          "to": 5
+          "from": 2,
+          "to": 6
         },
         "type": "condition"
       },
       "prowl": {
         "action_type": "PATROL",
-        "next": "night_check",
+        "next": "hours_check",
         "params": {
           "loop": true,
           "mode": "walk",
           "waypoints": [
-            "zone_tunnels",
-            "zone_city_sw",
+            "zone_city_west",
+            "zone_start",
+            "zone_threshold",
             "zone_thresholdeast"
           ]
         },
@@ -29,65 +30,58 @@
       },
       "vanish": {
         "action_type": "GO_HOME",
-        "next": "night_check",
+        "next": "hours_check",
         "type": "action"
       }
     }
   },
   "chitchat": [
     "doesn't look up.",
-    "keeps to the shadows, watching the exits.",
-    "\"Wrong guy. Keep moving.\"",
-    "says nothing, but you feel watched.",
-    "melts a little further into the dark."
+    "murmurs a number under his breath, then loses it.",
+    "\"Wrong man. Keep moving.\"",
+    "watches the exit like it owes him money."
   ],
-  "description": "A lean man in his early forties with short dark hair touched by gray and tired hazel eyes that seem to take in everything around him. He wears a faded bomber jacket over a plain hoodie, worn jeans, and scuffed work boots. His expression is calm and unreadable, and while he doesn't draw attention to himself, he gives the impression that very little escapes his notice.",
+  "description": "A neat, unremarkable man in a good coat gone shabby, always half-turned toward the nearest exit. His fingers are stained blue-black with something like ink, and they never stop moving — counting, always counting, though there's nothing in his hands to count. He meets your eyes for exactly as long as it takes to price you, then finds the door again.",
   "dialogue_tree": {},
-  "faction": null,
+  "faction": "faction_franchise",
   "flags": {
     "covert": true,
-    "deal_from": 21,
-    "deal_to": 5,
-    "inner_circle_flag": "dealer_inner_circle",
-    "mis_willing": false,
+    "deal_from": 2,
+    "deal_to": 6,
+    "inner_circle_flag": "keller_inner_circle",
     "passphrases": [
-      "the static's bad tonight",
-      "you holding",
-      "ask the shadows"
+      "clearance rack's open",
+      "you on the list",
+      "cash only after two"
     ],
-    "trust_flag": "dealer_trust",
+    "trust_flag": "keller_trust",
     "trust_max": 100,
     "trust_per_buy": 8
   },
   "home_activities": [],
-  "home_zone": "zone_tunnels",
+  "home_zone": "zone_city_west",
   "hp": 40,
   "hp_max": 40,
   "id": "npc_the_fixer",
-  "name": "Vincent Crowe",
-  "npc_type": "npc",
+  "name": "Dov Keller",
+  "npc_type": "dealer",
   "sex": "male",
   "studio_zone_id": null,
   "vendor_inventory": [
+    {
+      "item_id": "item_drug_buzz",
+      "min_trust": 0,
+      "price": 60
+    },
     {
       "item_id": "item_dreamsmoke",
       "min_trust": 0,
       "price": 70
     },
     {
-      "item_id": "item_buzz",
-      "min_trust": 0,
-      "price": 60
-    },
-    {
       "item_id": "item_lull",
       "min_trust": 0,
       "price": 100
-    },
-    {
-      "item_id": "item_ether",
-      "min_trust": 0,
-      "price": 45
     },
     {
       "item_id": "item_static",
@@ -100,14 +94,9 @@
       "price": 120
     },
     {
-      "item_id": "item_psilocybin",
-      "min_trust": 25,
-      "price": 90
-    },
-    {
-      "item_id": "item_amyls",
-      "min_trust": 25,
-      "price": 40
+      "item_id": "item_mescaline",
+      "min_trust": 45,
+      "price": 150
     },
     {
       "item_id": "item_redline",
@@ -115,59 +104,14 @@
       "price": 175
     },
     {
-      "item_id": "item_grey",
-      "min_trust": 45,
-      "price": 210
-    },
-    {
-      "item_id": "item_mescaline",
-      "min_trust": 45,
-      "price": 150
-    },
-    {
-      "item_id": "item_blotter",
-      "min_trust": 45,
-      "price": 185
-    },
-    {
-      "item_id": "item_screamers",
-      "min_trust": 45,
-      "price": 145
-    },
-    {
       "item_id": "item_coldfire",
       "min_trust": 70,
       "price": 360
     },
     {
-      "item_id": "item_blacktar",
-      "min_trust": 70,
-      "price": 300
-    },
-    {
-      "item_id": "item_khole",
-      "min_trust": 70,
-      "price": 250
-    },
-    {
-      "item_id": "item_memhack",
-      "min_trust": 70,
-      "price": 300
-    },
-    {
       "item_id": "item_threshold",
       "min_trust": 90,
       "price": 550
-    },
-    {
-      "item_id": "item_voidwalk",
-      "min_trust": 90,
-      "price": 480
-    },
-    {
-      "item_id": "item_overclock",
-      "min_trust": 90,
-      "price": 500
     }
   ],
   "vendor_restock_rate": 1,
@@ -244,10 +188,11 @@
     ]
   },
   "vendor_shop_name": null,
-  "vendor_stock_size": 10,
+  "vendor_stock_size": 0,
   "wander_zones": [
-    "zone_tunnels",
-    "zone_city_sw",
+    "zone_city_west",
+    "zone_start",
+    "zone_threshold",
     "zone_thresholdeast"
   ],
   "wanders": 0,

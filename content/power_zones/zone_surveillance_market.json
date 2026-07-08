@@ -1,9 +1,9 @@
 {
-  "capacity_kw": 50,
+  "capacity_kw": 1000,
   "flags": {},
-  "generator_id": "gen_zone_util_zone_surveillance_market_1783387730742",
+  "generator_id": "gen_zone_util_zone_surveillance_market_1783455594652",
   "id": "zone_surveillance_market",
-  "max_capacity_kw": 50,
+  "max_capacity_kw": 1000,
   "name": "The Blindspot",
   "source_type": "junction_box"
 }

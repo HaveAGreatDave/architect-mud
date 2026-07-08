@@ -2,13 +2,12 @@
   "ambient_events": [],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#c8c8c8",
-  "color": "#111111",
+  "bg_color": "#ae9292",
+  "color": "#eeeeee",
   "created_by": null,
   "danger_rating": "low",
   "description": "A dogleg of a service lane roofed in corrugated tin that drums like gunfire whenever it rains, which is always. Every ground-floor window wears its own cage of rebar and welded mesh; commerce here is conducted through slots. The Cage anchors the lane — steel screen floor to ceiling, a clerk somewhere behind it, a shotgun somewhere behind the clerk. A hand-lettered sign promises OPEN and, unusually, means it.",
   "exits": {
-    "east": "zone_yard_chassis",
     "in": "zone_mq_cage_shop",
     "north": "zone_mq_precinct",
     "south": "zone_meat_slaughter",
@@ -34,5 +33,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126563"
+  "updated_at": "1783301927"
 }

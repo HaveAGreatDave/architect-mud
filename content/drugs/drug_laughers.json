@@ -20,6 +20,7 @@
     "instant": {
       "sanity": 20
     },
+    "onset_seconds": 0,
     "tolerance": {
       "gain_per_dose": 0.2,
       "max_reduction": 0.8

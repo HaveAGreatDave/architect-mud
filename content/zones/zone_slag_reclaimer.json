@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#e5822a",
+  "bg_color": "#e9b282",
   "color": "#111111",
   "created_by": null,
   "danger_rating": "medium",
@@ -21,6 +21,7 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
     "scavenging_table_id": "scav_irradiated_salvage",
     "world_exit_zone": null
   },
@@ -35,5 +36,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

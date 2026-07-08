@@ -2,17 +2,16 @@
   "description": "A wheat-pasted propaganda poster, two meters tall, gone soft and rippled at the edges. A man is rendered in heroic gold-leaf halftone, chin lifted to a sunburst, a monumental bong cradled in both arms like a martyr's relic. Sacred smoke coils up to spell one word: PEACE. The caption reads: BONGHITZ — HE INHALED YOUR FEAR SO YOU WOULDN'T HAVE TO. Someone has scrawled \"still owes me 40 credits\" across his glowing forehead in marker.",
   "flags": {
     "hero_poster": true,
-    "interactions": [],
     "poster_key": "bonghitz"
   },
   "hp": null,
   "hp_max": null,
   "id": "furn_hero_poster_bonghitz",
   "light_type": "lamp",
-  "lumen_output": 400,
+  "lumen_output": null,
   "name": "hero poster: BONGHITZ, THE UNCLOUDED MIND",
   "object_type": "decoration",
-  "power_draw_kw": 5,
+  "power_draw_kw": null,
   "price": 0,
-  "zone_id": "zone_velk_shop"
+  "zone_id": "__posters_test_apt__"
 }

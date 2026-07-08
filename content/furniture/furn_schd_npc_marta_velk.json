@@ -1,5 +1,5 @@
 {
-  "description": "Marta Velk's Schedule\nVelk's Pre-Owned Furnishings\n\nMon: 10:00-22:00\nTue: 10:00-22:00\nWed: 10:00-22:00\nThu: 10:00-22:00\nFri: 10:00-22:00\nSat: 10:00-22:00\nSun: 10:00-22:00",
+  "description": "Marta Velk's Schedule\n\n\n\n\nVelk's Pre-Owned Furnishings\n\n\n\n\n\n\n\n\n\nMon: 10:00-22:00\n\n\n\n\nTue: 10:00-22:00\n\n\n\n\nWed: 10:00-22:00\n\n\n\n\nThu: 10:00-22:00\n\n\n\n\nFri: 10:00-22:00\n\n\n\n\nSat: 10:00-22:00\n\n\n\n\nSun: 10:00-22:00",
   "flags": {
     "vendor_npc_id": "npc_marta_velk",
     "vendor_schedule_board": true

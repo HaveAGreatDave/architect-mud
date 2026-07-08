@@ -1,0 +1,40 @@
+{
+  "description": "Broadcast transmission hardware. Plays cassettes and routes live camera feeds.",
+  "flags": {
+    "channel_id": "ch_7_1782953079593",
+    "deck_active": "bc_1783289744953",
+    "deck_cassettes": [
+      "bc_1783114654023",
+      "bc_1783289744953"
+    ],
+    "deck_ejected_slots": {
+      "bc_1782967762998": [
+        {
+          "conditions": {
+            "npc_staff": [
+              "npc_frank",
+              "npc_donna",
+              "npc_maintenance_bot"
+            ]
+          },
+          "duration_override": 10800,
+          "slot_type": "broadcast",
+          "start_time": 43200
+        }
+      ]
+    },
+    "interactions": [],
+    "media_deck": true,
+    "tv_dial_freq": 7
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_deck_ch_7_1782953079593_1782953098571",
+  "light_type": "lamp",
+  "lumen_output": 400,
+  "name": "Media Deck",
+  "object_type": "furniture",
+  "power_draw_kw": 2,
+  "price": 0,
+  "zone_id": "zone_prod_1782953094650"
+}

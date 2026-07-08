@@ -8,7 +8,7 @@
   "id": "door_entrance_zone_velk_exterior",
   "is_locked": 0,
   "is_open": 0,
-  "lock_state": "unlocked",
+  "lock_state": "locked",
   "name": "Velk’s Shop Door",
   "tags": {
     "lock:hololock": {

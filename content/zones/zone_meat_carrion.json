@@ -5,8 +5,8 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#585858",
-  "color": "#eeeeee",
+  "bg_color": "#1eae5d",
+  "color": "#111111",
   "created_by": "phase7-build",
   "danger_rating": "medium",
   "description": "The far end of the market, where the meat is cheapest and the questions fewest. A dead-end way, which the scavengers and the desperate both find convenient for different reasons.",
@@ -21,6 +21,7 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
     "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": 5,
@@ -34,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

@@ -1,7 +1,7 @@
 {
   "enemy_id": "enemy_feral_dog",
   "id": "spawn_red_feralyard_dog",
-  "max_count": 3,
+  "max_count": 2,
   "respawn_seconds": 220,
   "spawn_weight": 60,
   "zone_id": "zone_red_feralyard"

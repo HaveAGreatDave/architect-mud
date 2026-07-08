@@ -6,15 +6,13 @@
   ],
   "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#53565c",
+  "bg_color": "#6d7c9e",
   "color": "#eeeeee",
   "created_by": null,
   "danger_rating": "low",
   "description": "The processing yards peter out here into a maze of collapsed sheds and rusted-shut gantries. Everything worth stripping was stripped generations ago; what remains is too big or too broken to carry. The quiet has the particular weight of a place people simply stopped coming to.",
   "exits": {
     "east": "zone_outskirts",
-    "north": "zone_civ_sortation",
-    "south": "zone_deep_waste",
     "west": "zone_ruins"
   },
   "flags": {
@@ -23,9 +21,12 @@
     ],
     "building_name": null,
     "building_type": null,
+    "intro_lore": "The old processing yards die here in a maze of collapsed sheds and gantries rusted shut mid-motion. It's quiet, which in Coldwater is never good news — quiet means nobody's found a reason to be here, or everyone who did is under the rust. Watch your footing and your back; the Quarter keeps what falls into it.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
+    "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk",
     "world_exit_zone": null
   },
@@ -40,5 +41,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

@@ -5,22 +5,24 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#dfbc9a",
-  "color": "#eeeeee",
+  "bg_color": "#e69e73",
+  "color": "#111111",
   "created_by": "phase1-build",
   "danger_rating": "medium",
   "description": "A knife-narrow cut between tenements, the floor slick with things best not named. Deals happen fast here, and so does everything else.",
   "exits": {
-    "east": "zone_deep_gutter",
     "south": "zone_deep_bonepicker",
     "west": "zone_slums"
   },
   "flags": {
     "building_name": "",
     "building_type": null,
+    "intro_lore": "A knife-narrow cut between tenements, the floor slick with the aftermath of deals that went the usual way. This is where you buy what the Strip won't sell you, and where you learn the buyer and the mark are the same chair. Walk it fast, walk it once, and never count your money where the walls can see.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
+    "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": 1,
@@ -34,5 +36,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

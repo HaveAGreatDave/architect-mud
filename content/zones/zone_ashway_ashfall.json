@@ -5,15 +5,13 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#8b9097",
+  "bg_color": "#b1bccd",
   "color": "#111111",
   "created_by": null,
   "danger_rating": "low",
   "description": "The road gives up and the flats take over — a grey plain of settled ash that swallows your bootprints and hands them back to the wind. Somewhere upwind a stack is still venting; the sky here is the colour of an old bruise.",
   "exits": {
     "east": "zone_ashway_road",
-    "north": "zone_waste_palings",
-    "south": "zone_waste_deadflat",
     "west": "zone_ashway_wash"
   },
   "flags": {
@@ -25,6 +23,7 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
     "scavenging_table_id": "scav_roadside_junk",
     "world_exit_zone": null
   },
@@ -39,5 +38,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

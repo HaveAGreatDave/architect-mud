@@ -2,10 +2,10 @@
   "enabled": true,
   "id": "bt_seed_11",
   "lines": [
-    "\"Third one tonight crying into their drink. Full moon or something.\"",
-    "\"There's no moon anymore. Just the haze.\"",
-    "\"Then it's just people. Even worse.\""
+    "\"Forecast says {weather}. Forecast always says {weather}.\"",
+    "\"At least it's consistent. Nothing else out here is.\"",
+    "watches a scrap of trash cartwheel past."
   ],
-  "personality": "bartender",
+  "personality": null,
   "sort_order": 11
 }

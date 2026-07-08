@@ -5,12 +5,13 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#dfbc9a",
-  "color": "#eeeeee",
+  "bg_color": "#e69e73",
+  "color": "#111111",
   "created_by": "phase1-build",
   "danger_rating": "high",
   "description": "A sunken hollow where the air goes thin and chemical. Regulars breathe through rags; newcomers cough up their welcome.",
   "exits": {
+    "east": "zone_deep_deepmaw",
     "north": "zone_deep_gutter",
     "west": "zone_deep_bonepicker"
   },
@@ -20,6 +21,7 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
     "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": 2,
@@ -33,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783283228"
+  "updated_at": "1783301927"
 }

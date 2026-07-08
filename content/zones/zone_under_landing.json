@@ -11,7 +11,9 @@
     "south": "zone_under_deep",
     "up": "zone_gov_mezzanine"
   },
-  "flags": {},
+  "flags": {
+    "lawless": true
+  },
   "grid_x": -3,
   "grid_y": -5,
   "grid_z": -1,
@@ -23,5 +25,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783197585"
+  "updated_at": "1783137464"
 }

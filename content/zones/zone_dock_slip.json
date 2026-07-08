@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#1fb5aa",
+  "bg_color": "#50e0d5",
   "color": "#111111",
   "created_by": "phase3-build",
   "danger_rating": "medium",
@@ -14,7 +14,6 @@
     "east": "zone_corp_boardroom",
     "in": "zone_hangar_dock_slip",
     "north": "zone_dock_boatyard",
-    "south": "zone_up_chrome",
     "west": "zone_dock_fishmarket"
   },
   "flags": {
@@ -50,5 +49,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783126562"
+  "updated_at": "1783301927"
 }

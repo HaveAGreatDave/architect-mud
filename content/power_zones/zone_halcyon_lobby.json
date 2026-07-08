@@ -1,9 +1,9 @@
 {
-  "capacity_kw": 10000,
+  "capacity_kw": 1000,
   "flags": {},
-  "generator_id": "gen_zone_powerplantnew_1782069598190",
+  "generator_id": "gen_zone_util_zone_halcyon_lobby_1783455594534",
   "id": "zone_halcyon_lobby",
-  "max_capacity_kw": 10000,
-  "name": "Halcyon Assurance — Grand Lobby",
-  "source_type": "city_grid"
+  "max_capacity_kw": 1000,
+  "name": "Halcyon Towers — Grand Lobby",
+  "source_type": "junction_box"
 }

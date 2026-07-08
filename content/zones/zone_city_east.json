@@ -5,24 +5,25 @@
   ],
   "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#909090",
+  "bg_color": "#7fda9a",
   "color": "#111111",
   "created_by": null,
   "danger_rating": "safe",
   "description": "A vast warehouse complex The Franchise uses as a distribution hub. Forklifts move between shelves stacked to the ceiling. Everything here has a SKU.",
   "exits": {
-    "east": "zone_city_north",
     "north": "zone_powerplantnew",
-    "south": "zone_city_west",
-    "west": "zone_warehouse"
+    "south": "zone_city_west"
   },
   "flags": {
     "building_name": null,
     "building_type": null,
+    "intro_lore": "More Franchise distribution, more forklifts hauling pallets between men who'd sell each other for the manifest. Honest work, if you can stomach who you're working for; dishonest opportunity, if you're quicker than their bookkeeping. Either way the Franchise sees the numbers before you do.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
     "world_exit_zone": null
   },
   "grid_x": -1,
@@ -36,5 +37,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

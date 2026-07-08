@@ -2,10 +2,11 @@
   "enabled": true,
   "id": "bt_seed_15",
   "lines": [
-    "\"Long shift. Two more like it before I sleep.\"",
-    "\"They working you to death?\"",
-    "\"Death'd be a day off. Eyes forward.\""
+    "\"Put a few credits on {sports_leader} this week. {sports_record} — can't argue with form.\"",
+    "\"You always bet the favourite. That's how you stay broke.\"",
+    "\"...Fair.\"",
+    "laughs it off."
   ],
-  "personality": "guard",
+  "personality": null,
   "sort_order": 15
 }

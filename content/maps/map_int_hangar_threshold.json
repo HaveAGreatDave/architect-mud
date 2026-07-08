@@ -2,7 +2,7 @@
   "created_by": null,
   "entry_zone_id": "zone_hangar_threshold",
   "id": "map_int_hangar_threshold",
-  "name": "zone_threshold — Hangar",
+  "name": "Threshold Helipad — Hangar",
   "parent_zone_id": "zone_threshold",
-  "updated_at": "1783294784"
+  "updated_at": "1783227243"
 }

@@ -5,8 +5,8 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#585858",
-  "color": "#eeeeee",
+  "bg_color": "#1eae5d",
+  "color": "#111111",
   "created_by": "phase7-build",
   "danger_rating": "low",
   "description": "An open bulk yard heaped with aggregate, scrap, and materials too cheap to steal but too useful to bin. A grab-crane picks at the heaps with idiot patience.",
@@ -33,5 +33,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

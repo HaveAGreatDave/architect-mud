@@ -8,7 +8,6 @@
   "danger_rating": "safe",
   "description": "A compact sky-apartment: engineered calm, a fold-away bed, and a floor-to-ceiling window that turns the whole cold city into a view you are paying for. Sparsely fitted, waiting for a tenant.",
   "exits": {
-    "down": "zone_util_zone_halcyon_apt_a",
     "south": "zone_halcyon_residences"
   },
   "flags": {
@@ -17,14 +16,14 @@
     "is_interior": true
   },
   "grid_x": 0,
-  "grid_y": 2,
-  "grid_z": 0,
+  "grid_y": -1,
+  "grid_z": 4,
   "id": "zone_halcyon_apt_a",
   "is_safe_zone": 1,
   "map_id": "map_int_halcyon",
   "marker": "41",
   "name": "Halcyon Residence 41-A",
-  "parent_zone": null,
+  "parent_zone": "zone_halcyon_residences",
   "pvp_enabled": 0,
   "radiation_level": 0,
   "updated_at": "1783316802"

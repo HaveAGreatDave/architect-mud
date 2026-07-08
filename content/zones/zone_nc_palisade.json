@@ -5,8 +5,8 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#f4dcfe",
-  "color": "#111111",
+  "bg_color": "#8e8edd",
+  "color": "#eeeeee",
   "created_by": "phase9-build",
   "danger_rating": "safe",
   "description": "A rampart-walk along the district's edge, all defensive posturing and excellent sightlines, where private security patrol a wall that keeps out a threat the residents can't name.",
@@ -38,5 +38,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126562"
+  "updated_at": "1783301927"
 }

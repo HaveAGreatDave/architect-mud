@@ -1,5 +1,5 @@
 {
-  "description": "A battered telescopic rod, its guides furred with old salt and the reel gummy but turning. Good enough to pull something out of the bay — if the line holds.",
+  "description": "A battered telescopic rod, its guides furred with old salt and the reel gummy but turning. Good enough to pull something out of the bay — if the line holds. Stand at the water's edge and FISH; it takes it from there, right up until something bites back harder than you pull.",
   "effects": {},
   "flags": {},
   "id": "item_fishing_rod",
@@ -11,7 +11,7 @@
   "stat_modifiers": {},
   "subtype": null,
   "tags": {
-    "description": "A battered telescopic rod, its guides furred with old salt and the reel gummy but turning. Good enough to pull something out of the bay — if the line holds.",
+    "description": "A battered telescopic rod, its guides furred with old salt and the reel gummy but turning. Good enough to pull something out of the bay — if the line holds. Stand at the water's edge and FISH; it takes it from there, right up until something bites back harder than you pull.",
     "fishing_rod": true,
     "unique": true
   },

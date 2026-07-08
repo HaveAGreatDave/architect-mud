@@ -2,11 +2,10 @@
   "enabled": true,
   "id": "bt_seed_20",
   "lines": [
-    "\"Pot's right. Cards are fair. Read your opponent, not your luck.\"",
-    "\"Easy for you to say. You deal them.\"",
-    "\"That's exactly why I say it.\"",
-    "squares the deck against the felt."
+    "\"Nice gear. Real nice. Be a shame.\"",
+    "\"...Is that a threat?\"",
+    "\"It's an observation. For now.\""
   ],
-  "personality": "dealer",
+  "personality": "thug",
   "sort_order": 20
 }

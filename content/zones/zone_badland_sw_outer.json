@@ -6,7 +6,7 @@
   ],
   "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#53565c",
+  "bg_color": "#6d7c9e",
   "color": "#eeeeee",
   "created_by": null,
   "danger_rating": "low",
@@ -17,9 +17,12 @@
   "flags": {
     "building_name": "",
     "building_type": null,
+    "intro_lore": "A municipal park gone feral, its trees grown into crooked shapes over something in the soil that hums when it rains. People slip into the Static Wood for privacy and a surprising number don't come back out with all of it. It's beautiful, in the wrong light. That's usually the last thing they think.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
+    "lawless": true,
+    "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": -2,
@@ -33,5 +36,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783228317"
+  "updated_at": "1783301927"
 }

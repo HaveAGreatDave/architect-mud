@@ -1,10 +1,10 @@
 {
-  "altitude_ceiling": 2,
+  "altitude_ceiling": 3,
   "cargo_capacity": 600,
   "class": "heavy",
-  "cruise_speed": 1,
+  "cruise_speed": 2,
   "data": {
-    "feel": "Economy endgame; slow, hungry, needs real runways."
+    "feel": "Economy endgame; an Antonov An-124 Ruslan — heavy and ponderous, but builds real speed once it has momentum behind it in a dive. Hungry; needs a real runway."
   },
   "engines": 4,
   "fuel_burn_base": 2.6,

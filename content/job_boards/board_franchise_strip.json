@@ -4,13 +4,14 @@
   "name": "Franchise Strip — Day Work",
   "quest_pool": [
     "quest_fs_meter",
-    "quest_fs_parcel",
     "quest_fs_count",
     "quest_fs_line",
-    "quest_fs_loop"
+    "quest_fs_parcel",
+    "quest_fs_loop",
+    "quest_fs_haul"
   ],
   "rotation_period": "21600",
   "rotation_size": 3,
-  "updated_at": "1783357094",
+  "updated_at": "1783369742",
   "zone_id": "zone_city_west"
 }

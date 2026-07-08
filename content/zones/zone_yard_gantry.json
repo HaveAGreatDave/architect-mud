@@ -5,8 +5,8 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#585858",
-  "color": "#eeeeee",
+  "bg_color": "#1eae5d",
+  "color": "#111111",
   "created_by": "phase8-build",
   "danger_rating": "low",
   "description": "A forest of gantry cranes straddles the tracks here, lifting and placing with slow enormous care. Standing beneath them is a trust exercise the Yards runs on you daily.",
@@ -16,6 +16,10 @@
     "west": "zone_yard_freightworks"
   },
   "flags": {
+    "artery": [
+      "Quay Road",
+      "Reefer Street"
+    ],
     "building_name": "",
     "building_type": null,
     "is_apartment": false,
@@ -34,5 +38,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126563"
+  "updated_at": "1783301927"
 }

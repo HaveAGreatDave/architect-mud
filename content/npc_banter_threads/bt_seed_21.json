@@ -2,10 +2,10 @@
   "enabled": true,
   "id": "bt_seed_21",
   "lines": [
-    "\"You're favouring that leg. Old wound?\"",
-    "\"It's nothing.\"",
-    "\"It's never nothing. Sign the waiver and I'll take a look.\""
+    "\"Move along. Nothing to see here.\"",
+    "\"I live here.\"",
+    "\"Then live somewhere I'm not standing. Keep it moving.\""
   ],
-  "personality": "doctor",
+  "personality": "guard",
   "sort_order": 21
 }

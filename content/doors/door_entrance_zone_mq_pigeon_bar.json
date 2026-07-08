@@ -7,7 +7,7 @@
   "hp_max": 1000,
   "id": "door_entrance_zone_mq_pigeon_bar",
   "is_locked": 0,
-  "is_open": 1,
+  "is_open": 0,
   "lock_state": null,
   "name": "The Dead Pigeon",
   "tags": {

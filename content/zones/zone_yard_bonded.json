@@ -5,16 +5,14 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#585858",
-  "color": "#eeeeee",
+  "bg_color": "#1eae5d",
+  "color": "#111111",
   "created_by": "phase7-build",
   "danger_rating": "low",
   "description": "A caged bonded warehouse for goods that are in the country but not yet, legally, anywhere. The padlocks are new; the paperwork authorising them is not.",
   "exits": {
-    "east": "zone_yard_tare",
     "north": "zone_yard_chassis",
-    "south": "zone_yard_skid",
-    "west": "zone_meat_slaughter"
+    "south": "zone_yard_skid"
   },
   "flags": {
     "building_name": "",
@@ -35,5 +33,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

@@ -21,9 +21,9 @@
   "is_safe_zone": 0,
   "map_id": "map_int_hangar_slag_gate",
   "marker": null,
-  "name": "zone_slag_gate Hangar — Utility Room",
+  "name": "Slagworks Strip Hangar — Utility Room",
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783294933"
+  "updated_at": "1783296275"
 }

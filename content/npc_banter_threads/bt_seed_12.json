@@ -2,11 +2,11 @@
   "enabled": true,
   "id": "bt_seed_12",
   "lines": [
-    "\"This block's ours. You standing in it means something.\"",
-    "\"I'm just passing through.\"",
-    "\"Nobody just passes through. Remember the face.\"",
-    "cracks their knuckles, slow."
+    "\"Wind's doing {wind} down the canyon. Nearly took the sign off the wall.\"",
+    "\"Good. Maybe it takes the whole block next time.\"",
+    "\"You don't mean that.\"",
+    "\"...Ask me again at {temp}.\""
   ],
-  "personality": "thug",
+  "personality": null,
   "sort_order": 12
 }

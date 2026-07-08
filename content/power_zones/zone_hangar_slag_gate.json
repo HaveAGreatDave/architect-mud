@@ -1,9 +1,9 @@
 {
-  "capacity_kw": 50,
+  "capacity_kw": 1000,
   "flags": {},
-  "generator_id": "gen_zone_util_zone_hangar_slag_gate_1783294932628",
+  "generator_id": "gen_zone_util_zone_hangar_slag_gate_1783296274854",
   "id": "zone_hangar_slag_gate",
-  "max_capacity_kw": 50,
-  "name": "zone_slag_gate Hangar",
+  "max_capacity_kw": 1000,
+  "name": "Slagworks Strip Hangar",
   "source_type": "junction_box"
 }

@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#4bb36a",
+  "bg_color": "#7fda9a",
   "color": "#111111",
   "created_by": "phase2-build",
   "danger_rating": "safe",
@@ -13,8 +13,6 @@
   "exits": {
     "down": "zone_under_commons",
     "east": "zone_civ_ledger",
-    "north": "zone_waste_emberwaste",
-    "south": "zone_civ_meltwater",
     "west": "zone_waste_windrow"
   },
   "flags": {
@@ -23,7 +21,8 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "scavenging_table_id": "scav_consumer_trash"
+    "scavenging_table_id": "scav_consumer_trash",
+    "street_life": true
   },
   "grid_x": -3,
   "grid_y": -3,
@@ -36,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

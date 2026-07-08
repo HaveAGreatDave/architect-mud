@@ -13,6 +13,7 @@
   "flags": {
     "building_name": null,
     "building_type": null,
+    "intro_lore": "A clone-facility bathroom, which means it works about as well as everything else Coldwater kept running out of habit. The mirror's been scratched half-blind by a hundred other versions of somebody working out what they look like now. Wash up if you want — the water's real, mostly. Nobody's coming to check on you, and this is the last privacy you'll get for free.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": true,

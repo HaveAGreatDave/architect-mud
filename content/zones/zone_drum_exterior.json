@@ -2,16 +2,14 @@
   "ambient_events": [],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#909090",
-  "color": "#111111",
+  "bg_color": "#42c96a",
+  "color": "#eeeeee",
   "created_by": null,
   "danger_rating": "low",
   "description": "A slim pedestrian cut that somehow keeps its dignity in a city this far gone — swept, even, the puddles smaller here than they have any right to be. Storefront glass runs its length, most of it soaped over, one window still dressed and lit. Drum's Fits shows two mannequins in loud, layered outfits that dare you to walk past without looking, a neon thread-spool buzzing pink above the door. The rest of the frontage waits for tenants who aren't coming.",
   "exits": {
-    "east": "zone_mq_ember",
     "in": "zone_drum_shop",
-    "north": "zone_velk_exterior",
-    "west": "zone_city_se"
+    "north": "zone_velk_exterior"
   },
   "flags": {
     "building_name": null,
@@ -33,5 +31,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783126561"
+  "updated_at": "1783301927"
 }

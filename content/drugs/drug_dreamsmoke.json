@@ -3,6 +3,7 @@
   "description": "Two bags of engineered grass. Mellow, hungry, harmless-ish.",
   "duration_seconds": 300,
   "effects": {
+    "diuretic": 0.85,
     "hallucination": {
       "duration_seconds": 300,
       "eventEverySec": 20,

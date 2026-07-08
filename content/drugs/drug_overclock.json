@@ -3,6 +3,7 @@
   "description": "A lace-booster that runs your wetware past the red line. Smoke may be metaphorical.",
   "duration_seconds": 240,
   "effects": {
+    "diuretic": 1.7,
     "instant": {
       "sanity": -6
     },
