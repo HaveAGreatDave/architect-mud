@@ -31,6 +31,26 @@ export async function boardInZone(zoneId) {
   return rows[0] || null;
 }
 
+// Which NPC hands a job-board quest in — the dispatcher standing at that board's
+// zone, found the same way any other NPC "owns" a board: their dialogue tree reads
+// it (an OPEN_JOBBOARD action), same signal Marta's `work` node already fires. This
+// mirrors the quests plugin's findTurnInNpc (a dialogue-authored TURN_IN action)
+// without requiring the board's rotating quest_pool to be hand-authored onto her
+// tree one quest at a time — any board's dispatcher is discovered automatically.
+// Called from plugins/quests/index.js via a dynamic import (same cross-plugin
+// pattern jobboard itself uses for tablet), so quests stays jobboard-agnostic.
+export async function turnInNpcForQuest(questId) {
+  const { rows: boards } = await query('SELECT id, zone_id, quest_pool FROM job_boards');
+  const board = boards.find((b) => Array.isArray(b.quest_pool) && b.quest_pool.includes(questId));
+  if (!board) return null;
+  const { rows: npcs } = await query(
+    "SELECT id, name, zone_id FROM npcs WHERE zone_id=$1 AND dialogue_tree::text LIKE '%OPEN_JOBBOARD%' LIMIT 1",
+    [board.zone_id]
+  );
+  const npc = npcs[0];
+  return npc ? { npcId: npc.id, npcName: npc.name, zone: npc.zone_id } : null;
+}
+
 function nowSec() { return Math.floor(Date.now() / 1000); }
 
 function isComplete(quest, progress) {

@@ -103,6 +103,17 @@ function routeToObjective(actor, quest, progress) {
   });
 }
 
+// The bottom-pane "you're done, go here" line on quest completion — names the
+// turn-in NPC (and their zone) when findTurnInNpc resolves one (any dialogue-
+// authored TURN_IN, or a job-board posting's dispatcher), else the old generic
+// nudge for quests turned in some other way (flight contracts land themselves).
+async function turnInHint(questId) {
+  const npc = await findTurnInNpc(questId);
+  if (!npc) return 'Return to turn it in.';
+  const zone = npc.zone && getZone(npc.zone);
+  return `Bring it to ${npc.npcName}${zone ? ` at ${zone.name}` : ''} to turn it in.`;
+}
+
 function objectiveLine(obj, done, locked) {
   // 'deliver' (flight pilot contracts, plugins/flight/contracts.js) is never
   // auto-tracked here — see the trackEvent comment below for why.
@@ -150,7 +161,7 @@ async function trackEvent(actor, predicate) {
     emit('quest.advanced', { actor, quest_id: quest.id, progress });
     if (done) {
       await setQuestFlag(actor, quest.id, 'completed');
-      msg(actor.id, `<span class="msg-system">Quest complete: ${quest.name}. Return to turn it in.</span>`);
+      msg(actor.id, `<span class="msg-system">Quest complete: ${quest.name}. ${await turnInHint(quest.id)}</span>`);
       emit('quest.completed', { actor, quest_id: quest.id });
     } else {
       msg(actor.id, `<span class="msg-system">Quest updated: ${quest.name}.</span>`);
@@ -342,9 +353,13 @@ registerAction({
 // to) and used at runtime by Tablet OS to route/hand off the player instead of
 // just authoring-time discovery. A TURN_IN action can be authored either on a
 // dialogue option itself or on the node it leads to (see engine/dialogue.js's
-// turnInQuestId for why both are checked). Returns null for quests with no
-// dialogue-authored turn-in (flight contracts, job-board postings turned in at
-// the physical board) — callers fall back to the direct grant for those.
+// turnInQuestId for why both are checked). Falls back to jobboard's own dispatcher
+// lookup (dynamic import — quests stays jobboard-agnostic, same cross-plugin
+// pattern jobboard uses to reach tablet) for postings with no dialogue-authored
+// TURN_IN of their own, so job-board jobs route/announce through their board's
+// dispatcher NPC (Marta at the Franchise Strip) exactly like any other quest.
+// Still returns null for quests with no NPC at all tied to them (flight
+// contracts) — callers fall back to the direct grant for those.
 export async function findTurnInNpc(questId) {
   const { rows } = await query(
     "SELECT id, name, home_zone, work_zone_id, dialogue_tree FROM npcs WHERE dialogue_tree::text LIKE '%TURN_IN%'"
@@ -355,7 +370,10 @@ export async function findTurnInNpc(questId) {
     const found = Object.values(tree).some((node) => hasTurnIn(node.actions) || (node.options || []).some((o) => hasTurnIn(o.actions)));
     if (found) return { npcId: npc.id, npcName: npc.name, zone: npc.work_zone_id || npc.home_zone };
   }
-  return null;
+  try {
+    const { turnInNpcForQuest } = await import('../jobboard/index.js');
+    return await turnInNpcForQuest(questId);
+  } catch { return null; }
 }
 
 // --- Player command: quest log ---------------------------------------------

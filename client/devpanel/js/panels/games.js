@@ -43,8 +43,13 @@ function renderGamesPanel(data) {
             <input type="number" id="bb-${t.id}" value="${t.bigBlind}" min="1" style="width:70px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
             <button class="action-btn" style="font-size:10px;padding:5px 10px" onclick="saveBlinds('${t.id}')">Save</button>
           </div>
-          <div style="font-size:11px;color:var(--text-dim);margin-top:10px">Buy-in: ₵ ${t.buyIn.toLocaleString()}</div>
-          <div style="font-size:11px;color:var(--text-dim)">Spectators: ${t.spectatorCount}</div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-top:10px;margin-bottom:6px">Buy-in</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="color:var(--text-dim)">₵</span>
+            <input type="number" id="bi-${t.id}" value="${t.buyIn}" min="1" style="width:90px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
+            <button class="action-btn" style="font-size:10px;padding:5px 10px" onclick="saveBuyIn('${t.id}')">Save</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:10px">Spectators: ${t.spectatorCount}</div>
         </div>
       </div>
     </div>`;
@@ -58,6 +63,14 @@ async function saveBlinds(tableId) {
   const r = await directAPI(`/gametable/tables/${tableId}/blinds`, 'POST', { smallBlind, bigBlind });
   if (r.error) { toast(r.error, true); return; }
   toast(`Blinds updated: ₵ ${smallBlind} / ₵ ${bigBlind}`);
+  loadPanel('games');
+}
+
+async function saveBuyIn(tableId) {
+  const buyIn = Number(document.getElementById(`bi-${tableId}`).value);
+  const r = await directAPI(`/gametable/tables/${tableId}/buyin`, 'POST', { buyIn });
+  if (r.error) { toast(r.error, true); return; }
+  toast(`Buy-in updated: ₵ ${buyIn}`);
   loadPanel('games');
 }
 

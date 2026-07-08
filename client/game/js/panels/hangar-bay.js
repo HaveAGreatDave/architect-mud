@@ -537,11 +537,11 @@ function wire() {
     if (act === 'embark') { sendCmdSilent(`embark ${e.currentTarget.getAttribute('data-tail')}`); closeHangarBay(); return; }
     if (act === 'store') { sendCmdSilent(`hangaract store ${B.selId}`); return; }
     if (act === 'pull') { sendCmdSilent(`hangaract pull ${B.selId}`); return; }
-    if (act === 'repair') { sendCmdSilent('repair'); refetch(); return; }
-    if (act === 'repair-pro') { sendCmdSilent('repair hangar'); refetch(); return; }
+    if (act === 'repair') { sendCmdSilent(`repair ${B.selId}`); refetch(); return; }
+    if (act === 'repair-pro') { sendCmdSilent(`repair ${B.selId} hangar`); refetch(); return; }
     if (act === 'paint-apply') { const c = (B.data.craft || []).find(x => x.id === B.selId); if (c) sendCmdSilent(`paintset ${c.id} ${B.work.base} ${B.work.trim} ${B.work.pattern} ${B.work.finish} ${B.work.cabin} ${B.work.uphol} ${B.work.decal || 'none'}`); return; }
     if (act === 'paint-revert') { const c = (B.data.craft || []).find(x => x.id === B.selId); if (c) { B.work = { ...c.livery }; render(); } return; }
-    if (act === 'scheme-save') { const n = (document.getElementById('hb-scheme-name')?.value || '').trim(); if (n) sendCmdSilent(`scheme save ${n}`); return; }
+    if (act === 'scheme-save') { const n = (document.getElementById('hb-scheme-name')?.value || '').trim(); if (n) sendCmdSilent(`scheme ${B.selId} save ${n}`); return; }
   });
   on('[data-cp]', 'click', (e) => { e.stopPropagation(); openColorPopover(e.currentTarget.getAttribute('data-cp'), e.currentTarget); });
   on('[data-sel-field]', 'change', (e) => { B.work[e.currentTarget.getAttribute('data-sel-field')] = e.currentTarget.value; render(); });
@@ -549,10 +549,10 @@ function wire() {
     const p = (B.data.catalog?.presets || []).find(x => x.id === e.currentTarget.getAttribute('data-preset'));
     if (p) { B.work = { ...B.work, base: p.base, trim: p.trim, pattern: p.pattern, finish: p.finish, cabin: p.cabin, uphol: p.uphol }; render(); }
   });
-  on('[data-scheme-load]', 'click', (e) => sendCmdSilent(`scheme load ${e.currentTarget.getAttribute('data-scheme-load')}`));
-  on('[data-scheme-del]', 'click', (e) => sendCmdSilent(`scheme delete ${e.currentTarget.getAttribute('data-scheme-del')}`));
-  on('[data-tune]', 'click', (e) => { sendCmdSilent(`modify ${e.currentTarget.getAttribute('data-tune')} ${e.currentTarget.getAttribute('data-next')}`); refetch(); });
-  on('[data-loadout]', 'click', (e) => { sendCmdSilent(`loadout ${e.currentTarget.getAttribute('data-loadout')}`); refetch(); });
+  on('[data-scheme-load]', 'click', (e) => sendCmdSilent(`scheme ${B.selId} load ${e.currentTarget.getAttribute('data-scheme-load')}`));
+  on('[data-scheme-del]', 'click', (e) => sendCmdSilent(`scheme ${B.selId} delete ${e.currentTarget.getAttribute('data-scheme-del')}`));
+  on('[data-tune]', 'click', (e) => { sendCmdSilent(`modify ${B.selId} ${e.currentTarget.getAttribute('data-tune')} ${e.currentTarget.getAttribute('data-next')}`); refetch(); });
+  on('[data-loadout]', 'click', (e) => { sendCmdSilent(`loadout ${B.selId} ${e.currentTarget.getAttribute('data-loadout')}`); refetch(); });
   on('[data-hb-buy]', 'click', (e) => { sendCmdSilent(`buy ${e.currentTarget.getAttribute('data-hb-buy')}`); refetch(); });
   on('[data-hb-rent]', 'click', (e) => { sendCmdSilent(`rent ${e.currentTarget.getAttribute('data-hb-rent')}`); refetch(); });
 }
