@@ -19,6 +19,8 @@ import { findPath } from '../../server/engine/pathfinding.js';
 import { getZone } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { registerTabletApp, normScreen } from './registry.js';
+import { findTurnInNpc } from '../quests/index.js';
+import { renderDialogueNode } from '../../server/engine/dialogue.js';
 
 function defaultCategory(quest) {
   if (quest.quest_type === 'flight') return 'Pilot Contracts';
@@ -247,6 +249,37 @@ async function handleAction(player, actionId, params) {
   }
 
   if (actionId === 'turnin') {
+    // A quest turned in through an NPC's dialogue (as opposed to a physical
+    // job board or a flight contract's landing check) has to actually be
+    // handed to that NPC — respect that instead of instant-granting from the
+    // tablet: route the player there if they're elsewhere, or hand off into
+    // the NPC's real dialogue (which now hides "report back" until the quest
+    // Flag says 'completed' — see engine/dialogue.js) if they're already here.
+    const npcInfo = await findTurnInNpc(questId);
+    if (npcInfo) {
+      if (player.current_zone !== npcInfo.zone) {
+        const destZone = getZone(npcInfo.zone);
+        const path = destZone ? findPath(player.current_zone, npcInfo.zone) : null;
+        if (path && path.length >= 2) {
+          sendToPlayer(player.id, { type: 'gps_route', message: `GPS locked: ${destZone.name}. Route plotted on the map.`, path });
+        }
+        return { view: 'error', message: `${npcInfo.npcName} is the one who needs this — head to ${destZone?.name || npcInfo.zone} to turn it in.` };
+      }
+      const { rows: npcRows } = await query('SELECT * FROM npcs WHERE id=$1', [npcInfo.npcId]);
+      const npc = npcRows[0];
+      const rendered = npc && await renderDialogueNode(npc, 'root', player, { broadcast: null, npc });
+      if (rendered) {
+        // Known limitation: this bypasses server/index.js's WS dialogue session
+        // (it has no cross-module accessor), so the player's *first* click here
+        // won't resolve option-level actions (only node-level ones — which is
+        // what TURN_IN is authored as on every quest-giving NPC today). The
+        // session self-heals on that first click regardless.
+        sendToPlayer(player.id, { type: 'dialogue', npcId: npc.id, npcName: npc.name, node: 'root', text: rendered.text, options: rendered.options });
+        return { type: 'tablet_close' };
+      }
+      // Fall through to the direct grant if the NPC/root node has since vanished.
+    }
+
     const res = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: questId } });
     if (res?.type === 'error') return { view: 'error', message: res.message };
     if (player.tracked_quest_id === questId) {

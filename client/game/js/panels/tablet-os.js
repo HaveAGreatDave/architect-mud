@@ -48,7 +48,18 @@ function ensureStyles() {
       /* --tos-fg is set inline by JS (luminance-contrast against --bg2, see
          applyTabletTheme); the dim tiers are derived from it in pure CSS. */
       --tos-fg-dim: color-mix(in srgb, var(--tos-fg, var(--mg-accent)) 62%, var(--bg2, #12181b));
-      --tos-fg-dim2: color-mix(in srgb, var(--tos-fg, var(--mg-accent)) 40%, var(--bg2, #12181b)); }
+      --tos-fg-dim2: color-mix(in srgb, var(--tos-fg, var(--mg-accent)) 40%, var(--bg2, #12181b));
+      /* Every "box" surface (tiles, list rows, summary strip, theme swatches)
+         used to be a flat near-black rgba — reads as dead grey against a light
+         theme's cream/paper background. Instead every surface is the current
+         --bg2 tinted with the live accent, light and dark ends for a pseudo-3D
+         bevel gradient, plus matching highlight/shadow bevel edges — so "grey"
+         is always a light tint of the accent color, in any theme. */
+      --tos-surface-hi: color-mix(in srgb, var(--mg-accent) 18%, var(--bg2, #1a2226));
+      --tos-surface-lo: color-mix(in srgb, var(--mg-accent) 6%, var(--bg2, #1a2226));
+      --tos-surface: color-mix(in srgb, var(--mg-accent) 12%, var(--bg2, #1a2226));
+      --tos-bevel-hi: color-mix(in srgb, white 55%, transparent);
+      --tos-bevel-lo: color-mix(in srgb, black 45%, transparent); }
     /* Anchor handles centering/dragging; .tos-panel is scaled by the CRT boot
        animation, so the two transforms don't fight each other on the same node. */
     #tablet-os-overlay .tos-anchor { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); pointer-events:auto; }
@@ -101,7 +112,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-scroll::-webkit-scrollbar-track { background:var(--bg2); }
     #tablet-os-overlay .tos-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
     #tablet-os-overlay .tos-scroll { scrollbar-width:thin; scrollbar-color:var(--border) var(--bg2); }
-    #tablet-os-overlay .tos-body { padding:14px 13px; font-size:12px; }
+    #tablet-os-overlay .tos-body { padding:14px 13px; font-size:13.5px; }
 
     /* Boot screen: logo + "ARCHITECT OS" hold for ~1s once the CRT has
        expanded, before the real Home/app screen renders underneath it. */
@@ -114,84 +125,106 @@ function ensureStyles() {
       margin-bottom:2px; animation:tos-boot-flicker .9s ease-in-out; }
     #tablet-os-overlay .tos-boot-title { font-size:20px; letter-spacing:8px; color:var(--mg-accent);
       text-shadow:0 0 14px color-mix(in srgb, var(--mg-accent) 65%, transparent); animation:tos-boot-flicker .9s ease-in-out; }
-    #tablet-os-overlay .tos-boot-sub { font-size:9px; letter-spacing:3px; color:var(--mg-accent); opacity:.55; text-transform:uppercase; }
+    #tablet-os-overlay .tos-boot-sub { font-size:10px; letter-spacing:3px; color:var(--mg-accent); opacity:.55; text-transform:uppercase; }
     @keyframes tos-boot-flicker { 0%{opacity:0} 10%{opacity:1} 14%{opacity:.25} 18%{opacity:1} 100%{opacity:1} }
 
     /* Header strip: time / location, persistent regardless of screen */
-    #tablet-os-overlay .tos-hdr { display:flex; justify-content:space-between; font-size:10px; letter-spacing:1px; color:var(--tos-fg-dim); margin-bottom:8px; text-transform:uppercase; }
+    #tablet-os-overlay .tos-hdr { display:flex; justify-content:space-between; font-size:11px; letter-spacing:1px; color:var(--tos-fg-dim); margin-bottom:8px; text-transform:uppercase; }
     #tablet-os-overlay .tos-hdr b { color:var(--mg-accent); }
 
-    /* Player summary strip: persistent across every screen */
-    #tablet-os-overlay .tos-summary { display:flex; justify-content:space-between; gap:10px; background:rgba(4,10,12,0.5);
-      border:1px solid color-mix(in srgb, var(--mg-accent) 22%, #0a1418); border-radius:6px; padding:8px 10px; margin-bottom:11px; font-size:11px; flex-wrap:wrap; }
+    /* Player summary strip: persistent across every screen. Pseudo-3D raised
+       bevel: light-accent gradient + inset highlight/shadow + a soft drop
+       shadow, instead of a flat near-black box. */
+    #tablet-os-overlay .tos-summary { display:flex; justify-content:space-between; gap:10px;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent); border-radius:6px; padding:9px 11px; margin-bottom:11px; font-size:12.5px; flex-wrap:wrap;
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 3px var(--tos-bevel-lo), 0 2px 5px rgba(0,0,0,0.2); }
     #tablet-os-overlay .tos-summary span { color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-summary b { color:var(--tos-fg); }
 
     /* Breadcrumb + back */
-    #tablet-os-overlay .tos-crumb { display:flex; align-items:center; gap:8px; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); margin-bottom:9px; }
-    #tablet-os-overlay .tos-crumb .tos-back { cursor:pointer; color:var(--mg-accent); border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent); border-radius:3px; padding:1px 7px; }
-    #tablet-os-overlay .tos-crumb .tos-back:hover { background:color-mix(in srgb, var(--mg-accent) 15%, transparent); }
+    #tablet-os-overlay .tos-crumb { display:flex; align-items:center; gap:8px; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); margin-bottom:9px; }
+    #tablet-os-overlay .tos-crumb .tos-back { cursor:pointer; color:var(--mg-accent); border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent); border-radius:3px; padding:2px 8px;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-crumb .tos-back:hover { filter:brightness(1.15); }
+    #tablet-os-overlay .tos-crumb .tos-back:active { transform:translateY(1px); box-shadow:inset 0 1px 3px var(--tos-bevel-lo); }
 
-    /* App grid (home) */
-    #tablet-os-overlay .tos-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:9px; }
-    #tablet-os-overlay .tos-tile { cursor:pointer; text-align:center; padding:12px 6px; border-radius:6px; background:rgba(4,10,12,0.5);
-      border:1px solid color-mix(in srgb, var(--mg-accent) 20%, #0a1418); transition:filter .12s, box-shadow .12s; }
-    #tablet-os-overlay .tos-tile:hover { filter:brightness(1.25); box-shadow:0 0 14px color-mix(in srgb, var(--mg-accent) 30%, transparent); }
-    #tablet-os-overlay .tos-tile .tos-icon { font-size:22px; display:block; margin-bottom:5px; }
-    #tablet-os-overlay .tos-tile .tos-name { font-size:10px; letter-spacing:.5px; color:var(--tos-fg); }
+    /* App grid (home) — raised tile: light-accent gradient + bevel edge, lifts
+       on hover, presses in on click (pseudo-3D, not a flat grey fill). */
+    #tablet-os-overlay .tos-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+    #tablet-os-overlay .tos-tile { cursor:pointer; text-align:center; padding:14px 6px; border-radius:7px;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 3px var(--tos-bevel-lo), 0 2px 5px rgba(0,0,0,0.22);
+      transition:filter .12s, box-shadow .12s, transform .05s; }
+    #tablet-os-overlay .tos-tile:hover { filter:brightness(1.15);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 3px var(--tos-bevel-lo), 0 3px 8px rgba(0,0,0,0.28), 0 0 14px color-mix(in srgb, var(--mg-accent) 30%, transparent); }
+    #tablet-os-overlay .tos-tile:active { transform:translateY(1px); box-shadow:inset 0 2px 4px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-tile .tos-icon { font-size:24px; display:block; margin-bottom:6px; }
+    #tablet-os-overlay .tos-tile .tos-name { font-size:11.5px; letter-spacing:.5px; color:var(--tos-fg); }
 
-    /* List view */
-    #tablet-os-overlay .tos-list-item { display:flex; flex-direction:column; gap:2px; cursor:pointer; padding:8px 10px; border-radius:5px;
-      background:rgba(4,10,12,0.4); border:1px solid color-mix(in srgb, var(--mg-accent) 15%, #0a1418); margin-bottom:6px; transition:filter .12s; }
-    #tablet-os-overlay .tos-list-item:hover { filter:brightness(1.2); }
-    #tablet-os-overlay .tos-list-item .tos-li-label { color:var(--tos-fg); font-size:12px; display:flex; justify-content:space-between; gap:8px; }
-    #tablet-os-overlay .tos-list-item .tos-li-sub { color:var(--tos-fg-dim); font-size:10.5px; }
-    #tablet-os-overlay .tos-badge { font-size:9px; letter-spacing:1px; padding:1px 5px; border-radius:3px; text-transform:uppercase; }
+    /* List view — same raised-bevel treatment as tiles, just row-shaped. */
+    #tablet-os-overlay .tos-list-item { display:flex; flex-direction:column; gap:3px; cursor:pointer; padding:9px 11px; border-radius:6px;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); margin-bottom:7px;
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 2px var(--tos-bevel-lo), 0 1px 4px rgba(0,0,0,0.18);
+      transition:filter .12s, box-shadow .12s, transform .05s; }
+    #tablet-os-overlay .tos-list-item:hover { filter:brightness(1.12); box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 2px var(--tos-bevel-lo), 0 2px 6px rgba(0,0,0,0.22); }
+    #tablet-os-overlay .tos-list-item:active { transform:translateY(1px); box-shadow:inset 0 2px 3px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-list-item .tos-li-label { color:var(--tos-fg); font-size:13.5px; display:flex; justify-content:space-between; gap:8px; }
+    #tablet-os-overlay .tos-list-item .tos-li-sub { color:var(--tos-fg-dim); font-size:12px; }
+    #tablet-os-overlay .tos-badge { font-size:10.5px; letter-spacing:1px; padding:2px 6px; border-radius:3px; text-transform:uppercase; }
     #tablet-os-overlay .tos-badge.ready { color:#7bffb0; border:1px solid #244; background:#0c1a15; }
     #tablet-os-overlay .tos-badge.active { color:#ffcf4a; border:1px solid #3a3018; background:#1a150a; }
-    #tablet-os-overlay .tos-badge.open, #tablet-os-overlay .tos-badge.legal { color:var(--mg-accent); border:1px solid color-mix(in srgb,var(--mg-accent) 30%,transparent); background:#0a1418; }
+    #tablet-os-overlay .tos-badge.open, #tablet-os-overlay .tos-badge.legal { color:var(--mg-accent); border:1px solid color-mix(in srgb,var(--mg-accent) 30%,transparent); background:var(--tos-surface); }
     #tablet-os-overlay .tos-badge.illegal { color:#ff7a86; border:1px solid #4a1a1e; background:#1a0a0c; }
-    #tablet-os-overlay .tos-empty { color:var(--tos-fg-dim2); font-size:11px; line-height:1.5; padding:20px 4px; text-align:center; }
+    #tablet-os-overlay .tos-empty { color:var(--tos-fg-dim2); font-size:12.5px; line-height:1.5; padding:20px 4px; text-align:center; }
 
     /* Detail view */
-    #tablet-os-overlay .tos-detail-name { font-size:16px; color:var(--tos-fg); margin-bottom:3px; }
-    #tablet-os-overlay .tos-detail-desc { font-size:11px; color:var(--tos-fg-dim); margin-bottom:11px; line-height:1.5; }
-    #tablet-os-overlay .tos-row { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 10%, transparent); font-size:11.5px; }
+    #tablet-os-overlay .tos-detail-name { font-size:18px; color:var(--tos-fg); margin-bottom:4px; }
+    #tablet-os-overlay .tos-detail-desc { font-size:12.5px; color:var(--tos-fg-dim); margin-bottom:11px; line-height:1.5; }
+    #tablet-os-overlay .tos-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 12%, transparent); font-size:13px; }
     #tablet-os-overlay .tos-row span:first-child { color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-row span:last-child { color:var(--tos-fg); }
 
     /* Objective checkboxes (quest detail) */
-    #tablet-os-overlay .tos-obj { display:flex; gap:7px; align-items:baseline; padding:3px 0; font-size:11.5px; }
+    #tablet-os-overlay .tos-obj { display:flex; gap:7px; align-items:baseline; padding:3px 0; font-size:13px; }
     #tablet-os-overlay .tos-obj .tos-check { color:#7bffb0; }
     #tablet-os-overlay .tos-obj.pending .tos-check { color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-obj.pending { color:var(--tos-fg-dim); }
 
-    /* Action buttons — solid accent fill so they read as the brightest thing
-       on the screen (not a low-opacity tint blending into the panel). Text
-       color is computed against the accent itself (--tos-btn-fg), not --bg2. */
-    #tablet-os-overlay .tos-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
-    #tablet-os-overlay .tos-btn { padding:6px 10px; border-radius:4px; font-family:'Courier New',monospace; font-size:10.5px; font-weight:bold; letter-spacing:1.5px; text-transform:uppercase; cursor:pointer;
+    /* Action buttons — solid accent fill, raised bevel, so they read as the
+       brightest / most "pressable" thing on the screen. Text color is computed
+       against the accent itself (--tos-btn-fg), not --bg2. */
+    #tablet-os-overlay .tos-actions { display:flex; gap:9px; margin-top:12px; flex-wrap:wrap; }
+    #tablet-os-overlay .tos-btn { padding:8px 13px; border-radius:5px; font-family:'Courier New',monospace; font-size:12px; font-weight:bold; letter-spacing:1.5px; text-transform:uppercase; cursor:pointer;
       color:var(--tos-btn-fg, #04120f); border:1px solid color-mix(in srgb, var(--mg-accent) 85%, black);
-      background:linear-gradient(180deg, color-mix(in srgb, var(--mg-accent) 100%, white 12%), var(--mg-accent));
-      box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 45%, transparent), inset 0 -2px 0 rgba(0,0,0,0.25); transition:filter .12s, box-shadow .12s, transform .05s; }
-    #tablet-os-overlay .tos-btn:hover { filter:brightness(1.15); box-shadow:0 0 18px color-mix(in srgb, var(--mg-accent) 65%, transparent), inset 0 -2px 0 rgba(0,0,0,0.25); }
-    #tablet-os-overlay .tos-btn:active { transform:translateY(1px); }
+      background:linear-gradient(165deg, color-mix(in srgb, var(--mg-accent) 100%, white 20%), var(--mg-accent) 55%, color-mix(in srgb, var(--mg-accent) 100%, black 15%));
+      box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 45%, transparent), inset 0 1px 0 var(--tos-bevel-hi), inset 0 -3px 3px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.25);
+      transition:filter .12s, box-shadow .12s, transform .05s; }
+    #tablet-os-overlay .tos-btn:hover { filter:brightness(1.12); box-shadow:0 0 18px color-mix(in srgb, var(--mg-accent) 65%, transparent), inset 0 1px 0 var(--tos-bevel-hi), inset 0 -3px 3px rgba(0,0,0,0.3), 0 3px 6px rgba(0,0,0,0.3); }
+    #tablet-os-overlay .tos-btn:active { transform:translateY(1px); box-shadow:inset 0 2px 4px rgba(0,0,0,0.35); }
 
-    #tablet-os-overlay .tos-error { color:#ff7a86; font-size:11.5px; padding:16px 4px; text-align:center; }
+    #tablet-os-overlay .tos-error { color:#ff7a86; font-size:13px; padding:16px 4px; text-align:center; }
 
     /* Page nav (Skills & Stats — fixed-size pages instead of a growing list) */
-    #tablet-os-overlay .tos-page-nav { display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:10px; letter-spacing:1px; color:var(--tos-fg-dim); text-transform:uppercase; }
-    #tablet-os-overlay .tos-page-btn { cursor:pointer; color:var(--mg-accent); border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent); border-radius:3px; padding:3px 9px; }
-    #tablet-os-overlay .tos-page-btn:hover { background:color-mix(in srgb, var(--mg-accent) 15%, transparent); }
+    #tablet-os-overlay .tos-page-nav { display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:11px; letter-spacing:1px; color:var(--tos-fg-dim); text-transform:uppercase; }
+    #tablet-os-overlay .tos-page-btn { cursor:pointer; color:var(--mg-accent); border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent); border-radius:3px; padding:4px 10px;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-page-btn:hover { filter:brightness(1.15); }
     #tablet-os-overlay .tos-page-btn.disabled { opacity:.35; pointer-events:none; }
 
     /* Settings — the Tablet's own theme picker (not the full game settings
        panel), plus a link out to the full theme editor for deep customization. */
-    #tablet-os-overlay .tos-theme-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:6px; }
-    #tablet-os-overlay .tos-theme-btn { cursor:pointer; text-align:center; padding:7px 4px; border-radius:5px; font-size:10.5px;
-      background:rgba(4,10,12,0.4); border:1px solid color-mix(in srgb, var(--mg-accent) 15%, #0a1418); color:var(--tos-fg); transition:filter .12s, box-shadow .12s; }
-    #tablet-os-overlay .tos-theme-btn:hover { filter:brightness(1.2); }
-    #tablet-os-overlay .tos-theme-btn.selected { border-color:var(--mg-accent); box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 40%, transparent); color:var(--mg-accent); font-weight:bold; }
+    #tablet-os-overlay .tos-theme-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:6px; }
+    #tablet-os-overlay .tos-theme-btn { cursor:pointer; text-align:center; padding:8px 5px; border-radius:6px; font-size:12px;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent); color:var(--tos-fg);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 2px var(--tos-bevel-lo), 0 1px 3px rgba(0,0,0,0.18);
+      transition:filter .12s, box-shadow .12s, transform .05s; }
+    #tablet-os-overlay .tos-theme-btn:hover { filter:brightness(1.15); }
+    #tablet-os-overlay .tos-theme-btn:active { transform:translateY(1px); box-shadow:inset 0 2px 3px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-theme-btn.selected { border-color:var(--mg-accent); box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 40%, transparent), inset 0 1px 0 var(--tos-bevel-hi); color:var(--mg-accent); font-weight:bold; }
   `;
   document.head.appendChild(s);
 }

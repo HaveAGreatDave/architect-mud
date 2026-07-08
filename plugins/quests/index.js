@@ -335,6 +335,29 @@ registerAction({
   },
 });
 
+// Reverse-scan: which NPC's dialogue actually turns this quest in? Mirrors the
+// devpanel VINE quest editor's "Offered by" reverse-link (client/devpanel/js/
+// vine/vine-schema-quest.js _questReferencedIn) but narrowed to TURN_IN
+// specifically (an NPC can offer a quest without being the one it's handed back
+// to) and used at runtime by Tablet OS to route/hand off the player instead of
+// just authoring-time discovery. A TURN_IN action can be authored either on a
+// dialogue option itself or on the node it leads to (see engine/dialogue.js's
+// turnInQuestId for why both are checked). Returns null for quests with no
+// dialogue-authored turn-in (flight contracts, job-board postings turned in at
+// the physical board) — callers fall back to the direct grant for those.
+export async function findTurnInNpc(questId) {
+  const { rows } = await query(
+    "SELECT id, name, home_zone, work_zone_id, dialogue_tree FROM npcs WHERE dialogue_tree::text LIKE '%TURN_IN%'"
+  );
+  for (const npc of rows) {
+    const tree = npc.dialogue_tree || {};
+    const hasTurnIn = (acts) => (acts || []).some((a) => a?.action === 'TURN_IN' && a.quest_id === questId);
+    const found = Object.values(tree).some((node) => hasTurnIn(node.actions) || (node.options || []).some((o) => hasTurnIn(o.actions)));
+    if (found) return { npcId: npc.id, npcName: npc.name, zone: npc.work_zone_id || npc.home_zone };
+  }
+  return null;
+}
+
 // --- Player command: quest log ---------------------------------------------
 
 async function questLog(args, raw, player) {

@@ -18,7 +18,7 @@ import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
-import { openTabletPanel } from './panels/tablet-os.js';
+import { openTabletPanel, closeTabletPanel } from './panels/tablet-os.js';
 import { openCorpMap } from './panels/corp-map.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
@@ -310,6 +310,9 @@ const handlers = {
   // Architect Tablet OS — one shared shell for Quests/Skills/Bank/Weather/
   // Vehicles/Properties/Settings (+ a pass-through tile to Corporation below).
   tablet_panel: (msg) => { openTabletPanel(msg); },
+  // An app handed off to another UI (e.g. quests-app.js "Turn In" opening the
+  // turn-in NPC's dialogue) — close the shell instead of re-rendering it.
+  tablet_close: () => { closeTabletPanel(); },
 
   // Corps (org) command results. Most just render text; the ones that move the
   // player's own credits also refresh the vitals HUD.
