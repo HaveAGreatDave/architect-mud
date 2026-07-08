@@ -88,7 +88,7 @@ function npcClothingLine(npc, viewer) {
   return `\n<span class="text-dim">${npc.name} is wearing ${visible[0]}.</span>`;
 }
 
-async function cmdStats(player) {
+export async function cmdStats(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
   const p = rows[0];
   if (!p) return { type:'error', message:'Could not load stats.' };
@@ -132,7 +132,7 @@ async function cmdStats(player) {
   };
 }
 
-async function cmdSkills(player) {
+export async function cmdSkills(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
   const p = rows[0];
   if (!p) return { type:'error', message:'Could not load skills.' };

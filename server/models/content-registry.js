@@ -172,6 +172,7 @@ export const REGISTRY = [
   { table: 'player_mutations', class: 'player' },
   { table: 'player_flags', class: 'player' },
   { table: 'player_quests', class: 'player' },
+  { table: 'bank_transactions', class: 'player' },   // Tablet OS Bank app deposit ledger
   { table: 'insurance_policies', class: 'player' },  // Halcyon Assurance — bought policies
   { table: 'insurance_claims', class: 'player' },    // …and filed claims
   { table: 'org_ranks', class: 'player' },           // player-crew org structure

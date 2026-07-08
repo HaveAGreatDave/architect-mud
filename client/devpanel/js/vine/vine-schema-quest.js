@@ -62,29 +62,43 @@ function _questReferencedIn(obj, questId) {
 }
 
 // The single target field's label + placeholder depend on the objective kind.
-const _Q_KINDS = [['kill', 'Kill'], ['give', 'Give / turn in'], ['visit', 'Visit']];
+const _Q_KINDS = [['kill', 'Kill'], ['give', 'Give / turn in'], ['visit', 'Visit'], ['deliver', 'Deliver (flight)']];
 function _qTargetLabel(kind) {
   if (kind === 'give') return ['Item ID', 'medkit'];
-  if (kind === 'visit') return ['Zone ID', 'zone_downtown_alley'];
+  if (kind === 'visit' || kind === 'deliver') return ['Zone ID', 'zone_downtown_alley'];
   return ['Enemy target', 'sewer_rat'];
+}
+
+// Flight-template meta — only relevant/shown when the quest node's questType is
+// 'flight_template'. A single JSON blob (the vine-core field binder only supports
+// one-level "data.<key>" paths, same as the reward node's items/flags fields) —
+// drives plugins/flight/contracts.js's board generator (topUp). Shape:
+//   { kind:'cargo'|'passenger', legal, payMult, riskBase, wMin, wMax, deadlineMins, names:[...] }
+// See scripts/migrate-flight-job-types.js for the seed shape.
+function _qFlightMetaField(meta) {
+  const example = { kind: 'cargo', legal: true, payMult: 1.0, riskBase: 0, wMin: 40, wMax: 100, deadlineMins: 20, names: ['a sealed crate'] };
+  return _qField('Flight template settings (JSON)', _qTextarea('data.meta', JSON.stringify(meta || example, null, 2), 8, true));
 }
 
 const _questNodeDefs = {
   quest: {
     label: 'Quest',
     color: '#a04488',
-    defaultData: { name: '', description: '', repeatable: false },
+    defaultData: { name: '', description: '', repeatable: false, questType: 'standard', meta: {} },
     renderBody: (n) => `<div style="font-size:11px;color:var(--accent)">${_escQ(n.data.name || '(unnamed quest)')}</div>
+      ${n.data.questType === 'flight_template' ? '<div style="font-size:10px;color:var(--text-dim)">✈ flight template</div>' : ''}
       ${n.data.repeatable ? '<div style="font-size:10px;color:var(--text-dim)">repeatable</div>' : ''}`,
     getOutPorts: () => [{ key: 'start', label: 'available' }],
     renderProperties: (n, ed, id) => `
       ${_qHelp(id,
-        'The quest itself. Objectives wired to the "available" port are active from the moment the quest starts. This is the single start node — one per graph.',
+        'The quest itself. Objectives wired to the "available" port are active from the moment the quest starts. This is the single start node — one per graph. Quest Type "Flight Contract Template" makes this an authored pilot-contract archetype (plugins/flight/contracts.js rolls concrete board postings from it) — fill in the Flight template settings JSON below for those; ignored otherwise.',
         'name: Pest Control\ndescription: The super wants the sewer rats gone.'
       )}
       ${_qField('Name', _qInput('data.name', n.data.name, 'Pest Control'))}
       ${_qField('Description', _qTextarea('data.description', n.data.description, 3))}
       ${_qField('Repeatable?', _qSelect('data.repeatable', [[false, 'One-time'], [true, 'Repeatable']], !!n.data.repeatable))}
+      ${_qField('Quest Type', _qSelect('data.questType', [['standard', 'Standard (incl. job board)'], ['flight_template', 'Flight Contract Template']], n.data.questType || 'standard'))}
+      ${_qFlightMetaField(n.data.meta)}
       <div id="q-offered-by-${id}"></div>
     `,
     // Reverse cross-link: list NPCs whose dialogue offers this quest, each a jump into
@@ -214,7 +228,7 @@ window.VineQuestSchema = {
 
     // `_questId` is a non-persisted hint (toQuest ignores it) so the quest node can
     // reverse-scan NPC dialogue for "offered by" links. Absent for brand-new quests.
-    nodes.quest = { type: 'quest', x: 40, y: 40, data: { name: rec.name || '', description: rec.description || '', repeatable: !!rec.repeatable, _questId: rec.id || '' } };
+    nodes.quest = { type: 'quest', x: 40, y: 40, data: { name: rec.name || '', description: rec.description || '', repeatable: !!rec.repeatable, questType: rec.quest_type || 'standard', meta: (rec.meta && typeof rec.meta === 'object') ? rec.meta : {}, _questId: rec.id || '' } };
 
     // Objective nodes + gating edges.
     const dependedOn = new Set();
@@ -255,7 +269,7 @@ window.VineQuestSchema = {
         .filter(e => e.toNode === id && vnodes[e.fromNode] && vnodes[e.fromNode].type === 'objective')
         .map(e => e.fromNode);
       const kind = node.data.kind || 'kill';
-      const key = kind === 'give' ? 'item_id' : kind === 'visit' ? 'zone' : 'target';
+      const key = kind === 'give' ? 'item_id' : (kind === 'visit' || kind === 'deliver') ? 'zone' : 'target';
       const obj = {
         id,
         type: kind,
@@ -279,6 +293,8 @@ window.VineQuestSchema = {
       name: questNode ? (questNode.data.name || '') : '',
       description: questNode ? (questNode.data.description || '') : '',
       repeatable: questNode ? !!questNode.data.repeatable : false,
+      quest_type: questNode ? (questNode.data.questType || 'standard') : 'standard',
+      meta: (questNode && questNode.data.meta && typeof questNode.data.meta === 'object') ? questNode.data.meta : {},
       objectives,
       rewards,
     };

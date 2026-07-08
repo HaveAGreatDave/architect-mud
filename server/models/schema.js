@@ -761,9 +761,18 @@ export const SCHEMA_SQL = `
     repeatable INTEGER NOT NULL DEFAULT 0,
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+  -- quest_type: 'standard' (hand-authored quests, incl. jobboard postings — a
+  -- jobboard just pools ordinary quest ids) | 'flight_template' (an authored
+  -- pilot-contract archetype) | 'flight' (a generated, non-repeatable contract
+  -- instance). 'meta' carries type-specific config/state that doesn't fit
+  -- objectives/rewards (route rules for templates; origin/dest/weight/risk/
+  -- deadline/bound-aircraft for instances).
+  ALTER TABLE quests ADD COLUMN IF NOT EXISTS quest_type TEXT NOT NULL DEFAULT 'standard';
+  ALTER TABLE quests ADD COLUMN IF NOT EXISTS meta JSONB NOT NULL DEFAULT '{}';
 
   -- Per-player quest state. 'progress' is an integer array index-aligned to the
-  -- quest's objectives. status: active → completed (all objectives met) → turned_in.
+  -- quest's objectives. status: active → completed (all objectives met) → turned_in
+  -- → (or) abandoned (player bailed — e.g. jettisoned a flight contract's cargo).
   CREATE TABLE IF NOT EXISTS player_quests (
     player_id TEXT NOT NULL,
     quest_id TEXT NOT NULL,
@@ -788,6 +797,29 @@ export const SCHEMA_SQL = `
     rotation_period BIGINT NOT NULL DEFAULT 21600,
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+
+  -- Tablet OS (Phase 1): 'category' groups quests for the Quests app's list view
+  -- (Job Board / Pilot Contracts / Main Story / ...) — distinct from quest_type,
+  -- which is mechanical (standard vs. flight_template vs. flight instance). Falls
+  -- back to a sensible default per quest_type at read time when unset on older rows.
+  ALTER TABLE quests ADD COLUMN IF NOT EXISTS category TEXT;
+  -- Single tracked quest, surfaced by the Tablet Quests app's "Track" button —
+  -- driving the existing gps_route push (plugins/quests routeToObjective).
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS tracked_quest_id TEXT;
+
+  -- Tablet OS Bank app: a minimal deposit ledger. ATM deposits are otherwise
+  -- immediate and unlogged; this table exists purely to back the app's
+  -- Transaction History screen. Written from the same deposit path the ATM
+  -- plugin and the Tablet Bank app both call.
+  CREATE TABLE IF NOT EXISTS bank_transactions (
+    id BIGSERIAL PRIMARY KEY,
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    balance_after INTEGER NOT NULL,
+    created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+  CREATE INDEX IF NOT EXISTS idx_bank_transactions_player ON bank_transactions(player_id, created_at DESC);
 
   -- Channel chat history (arcnet etc). Runtime data: schema is exported, rows are not.
   -- Only the most recent messages per channel are retained; older rows are pruned.

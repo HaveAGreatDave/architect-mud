@@ -2,14 +2,17 @@
 // The fake player isn't guaranteed to stand in a job-board zone, so these assert the
 // verbs/actions route and return the right shape; accept/turn-in is exercised by the
 // quests plugin's own suite (jobboard just delegates to START_QUEST/TURN_IN).
+import { query } from '../../server/models/db.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const player = getPlayer();
 
+  // Bare `gigs` now opens Tablet OS pre-navigated to Quests → Job Board (no
+  // duplicate text UI) instead of rendering board text.
   let r = await run('gigs');
-  check('gigs verb routed', typeof (r?.message) === 'string', r?.message);
+  check('gigs verb opens tablet at Job Board', r?.type === 'tablet_panel' && r?.appId === 'quests', JSON.stringify(r));
 
   r = await run('gigs take 1');
   check('gigs take routed', typeof (r?.message) === 'string', r?.message);
@@ -17,8 +20,22 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('gigs claim 1');
   check('gigs claim routed', typeof (r?.message) === 'string', r?.message);
 
+  // `gigs take <n>` actually has to reach takeJob() — args arrives as an array from
+  // the dispatcher, and a prior String(args) bug joined it with commas ("take,1"),
+  // so the sub-command never matched and this silently fell through to re-printing
+  // the board. Prove the fix by standing at a real board and checking a
+  // player_quests row actually gets created.
+  const home = player.current_zone;
+  player.current_zone = 'zone_city_west'; // Franchise Strip — board_franchise_strip
+  r = await run('gigs take 1');
+  const { rows: taken } = await query(
+    "SELECT 1 FROM player_quests WHERE player_id=$1 AND status='active'", [player.id]
+  );
+  check('gigs take 1 actually starts a quest (args-array parsing)', taken.length > 0, r?.message);
+  player.current_zone = home;
+
   r = await run('postings');
-  check('postings alias routed', typeof (r?.message) === 'string', r?.message);
+  check('postings alias opens tablet', r?.type === 'tablet_panel' && r?.appId === 'quests', JSON.stringify(r));
 
   // OPEN_JOBBOARD (Marta's dialogue) returns a dialogue_line — bare board when none here.
   r = await dispatchAction({ type: 'OPEN_JOBBOARD', actor: player, params: {} });

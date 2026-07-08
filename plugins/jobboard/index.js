@@ -25,7 +25,7 @@ import { sendToZone } from '../../server/engine/messaging.js';
 
 const DEFAULT_PERIOD = 21600; // 6h
 
-async function boardInZone(zoneId) {
+export async function boardInZone(zoneId) {
   if (!zoneId) return null;
   const { rows } = await query('SELECT * FROM job_boards WHERE zone_id=$1 ORDER BY id LIMIT 1', [zoneId]);
   return rows[0] || null;
@@ -49,7 +49,7 @@ function sample(pool, n) {
 
 // The board's currently-posted quest ids, re-rolling into a world_flag snapshot
 // when the rotation period has elapsed (or the snapshot is missing/stale).
-async function activeJobIds(board) {
+export async function activeJobIds(board) {
   const pool = Array.isArray(board.quest_pool) ? board.quest_pool : [];
   const size = board.rotation_size || 3;
   const period = Number(board.rotation_period) || DEFAULT_PERIOD;
@@ -69,7 +69,7 @@ async function activeJobIds(board) {
 
 // Join the active ids to their quest rows + the player's per-quest state, preserving
 // rotation order and skipping ids whose quest row has vanished.
-async function loadJobs(ids, playerId) {
+export async function loadJobs(ids, playerId) {
   if (!ids.length) return [];
   const { rows: quests } = await query('SELECT * FROM quests WHERE id = ANY($1)', [ids]);
   const byId = new Map(quests.map((q) => [q.id, q]));
@@ -82,7 +82,7 @@ async function loadJobs(ids, playerId) {
     .map((q) => ({ quest: q, pq: pqById.get(q.id) || null }));
 }
 
-function creditsOf(quest) { return (quest.rewards && quest.rewards.credits) || 0; }
+export function creditsOf(quest) { return (quest.rewards && quest.rewards.credits) || 0; }
 
 // A clickable command link the game client understands (main.js handleActionLinkClick
 // → sendCmd(dataset.rawCmd)). Clicking [Take] submits `gigs take <n>`, etc.
@@ -90,7 +90,7 @@ function cmdLink(cmd, label) {
   return `<span class="action-link" data-raw-cmd="${cmd}" data-label="${label}">[${label}]</span>`;
 }
 
-function jobState(quest, pq) {
+export function jobState(quest, pq) {
   const prog = Array.isArray(pq?.progress) ? pq.progress : [];
   if (!pq || pq.status === 'turned_in') return 'open';
   if (pq.status === 'completed' || isComplete(quest, prog)) return 'ready';
@@ -98,7 +98,7 @@ function jobState(quest, pq) {
 }
 
 // Aggregate progress across all objectives → {have, need} for the "in progress" tag.
-function progressTotals(quest, pq) {
+export function progressTotals(quest, pq) {
   const prog = Array.isArray(pq?.progress) ? pq.progress : [];
   const objs = quest.objectives || [];
   const need = objs.reduce((s, o) => s + (o.count || 1), 0);
@@ -130,7 +130,7 @@ async function renderBoardText(board, player) {
   return lines.join('\n');
 }
 
-async function takeJob(board, player, n) {
+export async function takeJob(board, player, n) {
   const jobs = await loadJobs(await activeJobIds(board), player.id);
   const job = jobs[(n || 0) - 1];
   if (!job) return { type: 'error', message: 'No posting by that number. Type `gigs` to read the board.' };
@@ -145,7 +145,7 @@ async function takeJob(board, player, n) {
   return { type: 'output', message: `You tear the tab off the board. Work taken: ${quest.name}.` };
 }
 
-async function claimJob(board, player, n) {
+export async function claimJob(board, player, n) {
   const jobs = await loadJobs(await activeJobIds(board), player.id);
   const job = jobs[(n || 0) - 1];
   if (!job) return { type: 'error', message: 'No posting by that number. Type `gigs` to read the board.' };
@@ -158,17 +158,31 @@ async function claimJob(board, player, n) {
   return { type: 'output', message: 'You hand it back. The credits change hands without ceremony.' };
 }
 
+// Bare `gigs`/`postings`/`jobboard` opens Tablet OS pre-navigated to Quests → Job
+// Board (the "no duplicate UI" ask) instead of text-rendering the board. `take`/
+// `claim` subcommands still work as chat shortcuts (dispatch straight to the
+// quest actions) so a player who already knows the numbers doesn't need the panel.
 async function gigs(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
-  const board = await boardInZone(player.current_zone);
-  if (!board) return { type: 'output', message: "There's no work posted here." };
 
-  const tokens = String(args || '').trim().split(/\s+/).filter(Boolean);
+  // args arrives as an array (server/engine/plugins.js dispatch contract) — a prior
+  // String(args) here joined it with commas ("take,1"), so `gigs take 1` never matched.
+  const tokens = (args || []).filter(Boolean);
   const sub = (tokens[0] || '').toLowerCase();
   const n = parseInt(tokens[1], 10);
+  const needsBoard = ['take', 'accept', 'apply', 'claim', 'handin', 'hand', 'collect', 'deliver', 'done'].includes(sub);
+
+  // Bare `gigs` opens Tablet OS at Quests → Job Board regardless of whether a
+  // physical board is in this zone — the app aggregates postings itself.
+  if (!needsBoard) {
+    const { commands: tabletCommands } = await import('../tablet/index.js');
+    return tabletCommands.tabletnav(['quests', 'Job Board'], raw, player);
+  }
+
+  const board = await boardInZone(player.current_zone);
+  if (!board) return { type: 'output', message: "There's no work posted here." };
   if (['take', 'accept', 'apply'].includes(sub)) return takeJob(board, player, n);
-  if (['claim', 'handin', 'hand', 'collect', 'deliver', 'done'].includes(sub)) return claimJob(board, player, n);
-  return { type: 'output', message: await renderBoardText(board, player) };
+  return claimJob(board, player, n);
 }
 
 export const commands = {
@@ -183,7 +197,8 @@ export const commands = {
 async function readBoard(args, raw, player) {
   const board = await boardInZone(player.current_zone);
   if (!board) return { type: 'error', message: "There's nothing worth reading here." };
-  return { type: 'output', message: await renderBoardText(board, player) };
+  const { commands: tabletCommands } = await import('../tablet/index.js');
+  return tabletCommands.tabletnav(['quests', 'Job Board'], raw, player);
 }
 
 export const specializedActions = [

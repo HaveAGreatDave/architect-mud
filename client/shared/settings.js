@@ -41,6 +41,11 @@ const DARK_THEMES = [
 ];
 const BUILTIN_THEMES = [...LIGHT_THEMES, ...DARK_THEMES];
 
+// Exported for anything that wants to build its own compact theme picker
+// without pulling in the full swatch-grid/theme-editor DOM (e.g. the Tablet
+// OS Settings app, which reads this to render its own list of theme buttons).
+export { LIGHT_THEMES, DARK_THEMES };
+
 const THEME_COLOR_VARS = [
   { v: '--bg',          label: 'Background (deep)',      desc: 'Page / outermost background' },
   { v: '--bg2',         label: 'Background (panels)',    desc: 'Cards, modals, sidebar' },

@@ -104,6 +104,8 @@ function routeToObjective(actor, quest, progress) {
 }
 
 function objectiveLine(obj, done, locked) {
+  // 'deliver' (flight pilot contracts, plugins/flight/contracts.js) is never
+  // auto-tracked here — see the trackEvent comment below for why.
   const label = obj.desc || `${obj.type} ${obj.target || obj.item_id || obj.zone || ''}`.trim();
   const need = obj.count || 1;
   const have = Math.min(done, need);
@@ -173,6 +175,12 @@ on('item.given', ({ recipient, item }) => {
 on('zone.entered', ({ actor, zone }) => {
   return trackEvent(actor, (obj) => obj.type === 'visit' && obj.zone === zone);
 });
+
+// Note: 'deliver' objectives (flight pilot contracts) are deliberately NOT wired to
+// zone.entered — a delivery has to be verified as an actual landing with the right
+// cargo aboard (plugins/flight/contracts.js checkContractDelivery), not just the
+// player entering the zone on foot. That plugin advances/turns in those quests by
+// dispatching ADVANCE/TURN_IN directly once it has confirmed the landing.
 
 // --- Lifecycle Actions -----------------------------------------------------
 
@@ -307,6 +315,26 @@ registerAction({
   },
 });
 
+// Player bailed on an active quest (e.g. jettisoned a flight contract's cargo
+// mid-flight). Distinct from 'turned_in' so it never pays out and drops off the
+// quest log, but the row (and its history) stays for reference.
+registerAction({
+  type: 'ABANDON_QUEST',
+  handler: async ({ actor, params }) => {
+    const { quest_id } = params;
+    if (!quest_id) return { type: 'error', message: 'ABANDON_QUEST requires quest_id.' };
+    const pq = await loadPlayerQuest(actor.id, quest_id);
+    if (!pq || pq.status === 'turned_in' || pq.status === 'abandoned') return { type: 'error', message: 'No active quest to abandon.' };
+    await query(
+      "UPDATE player_quests SET status='abandoned', updated_at=EXTRACT(EPOCH FROM NOW()) WHERE player_id=$1 AND quest_id=$2",
+      [actor.id, quest_id]
+    );
+    await setQuestFlag(actor, quest_id, 'abandoned');
+    emit('quest.abandoned', { actor, quest_id });
+    return { type: 'quest', quest_id, abandoned: true };
+  },
+});
+
 // --- Player command: quest log ---------------------------------------------
 
 async function questLog(args, raw, player) {
@@ -314,7 +342,7 @@ async function questLog(args, raw, player) {
   const { rows } = await query(
     `SELECT pq.*, q.name, q.objectives FROM player_quests pq
      JOIN quests q ON q.id = pq.quest_id
-     WHERE pq.player_id=$1 AND pq.status <> 'turned_in'
+     WHERE pq.player_id=$1 AND pq.status NOT IN ('turned_in', 'abandoned')
      ORDER BY pq.started_at`,
     [player.id]
   );
@@ -356,19 +384,21 @@ export const routeHandler = async (path, method, body, auth) => {
     if (path === '/quests' && method === 'POST') {
       const qid = body.id || `quest_${Date.now()}`;
       await query(
-        `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,EXTRACT(EPOCH FROM NOW()))`,
+        `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,EXTRACT(EPOCH FROM NOW()))`,
         [qid, body.name || 'Untitled Quest', body.description || '',
-         JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0]
+         JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
+         body.quest_type || 'standard', JSON.stringify(body.meta || {})]
       );
       return { status: 201, body: { id: qid } };
     }
     if (id && method === 'PUT') {
       await query(
-        `UPDATE quests SET name=$1,description=$2,objectives=$3,rewards=$4,repeatable=$5,
-         updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$6`,
+        `UPDATE quests SET name=$1,description=$2,objectives=$3,rewards=$4,repeatable=$5,quest_type=$6,meta=$7,
+         updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$8`,
         [body.name || 'Untitled Quest', body.description || '',
-         JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0, id]
+         JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
+         body.quest_type || 'standard', JSON.stringify(body.meta || {}), id]
       );
       return { status: 200, body: { id } };
     }

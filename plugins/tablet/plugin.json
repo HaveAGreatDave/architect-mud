@@ -1,0 +1,12 @@
+{
+  "name": "tablet",
+  "version": "1.0.0",
+  "description": "Architect Tablet OS — unified in-world app shell (Quests, Skills, Bank, Weather, Vehicles, Properties, Settings, Corporation link-out).",
+  "hooks": [],
+  "commands": ["tablet", "os", "tabletnav", "tabletaction"],
+  "actions": {
+    "registers": []
+  },
+  "dataSchema": ["bank_transactions"],
+  "extensionPoints": ["registerTabletApp(appDef) — other plugins add a Home-screen app tile"]
+}

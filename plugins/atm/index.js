@@ -41,6 +41,17 @@ async function damageHackDevice(playerId) {
   return ` Your hack deck takes damage (${Math.round(newCond * 100)}% integrity).`;
 }
 
+// Tablet OS Bank app: a minimal deposit ledger (bank_transactions). Written
+// from every successful deposit, whichever path it came through (ATM's own
+// `deposit` command or Tablet's "Deposit All"/"Transfer to Bank" actions), so
+// the app's Transaction History screen has one consistent source.
+export async function logBankTx(playerId, type, amount, balanceAfter) {
+  await query(
+    'INSERT INTO bank_transactions (player_id, type, amount, balance_after) VALUES ($1,$2,$3,$4)',
+    [playerId, type, amount, balanceAfter]
+  );
+}
+
 async function findAtmById(id) {
   const { rows } = await query(`
     SELECT f.id, f.name, f.zone_id,
@@ -151,6 +162,7 @@ async function cmdDeposit(args, raw, player) {
     const amount = amountStr === 'all' ? (player.credits || 0) : parseInt(amountStr, 10);
     if (!amount || amount <= 0) return { type: 'error', message: 'Deposit how much? Try "deposit 50" or "deposit all".' };
     if (!await transferCredits(player, amount, 'deposit')) return { type: 'error', message: `You only have ${player.credits || 0}c on you.` };
+    await logBankTx(player.id, 'deposit', amount, player.bank_credits);
     return { type: 'deposit', message: `You deposit ${amount}c. Carried: ${player.credits}c · Banked: ${player.bank_credits}c`, player_update: { credits: player.credits, bank_credits: player.bank_credits } };
   }
 
@@ -169,6 +181,7 @@ async function cmdDeposit(args, raw, player) {
     return true;
   });
   if (!moved) return { type: 'error', message: `You only have ${player.credits || 0}c on you.` };
+  await logBankTx(player.id, 'deposit', amount, player.bank_credits);
 
   return {
     type: 'deposit',

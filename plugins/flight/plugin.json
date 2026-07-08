@@ -31,7 +31,8 @@
     "rebuild":   { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: wreck row + zone flag airfield_id." },
     "tune":      { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: owned aircraft row + zone flag airfield_id (distinct from broadcast's tune)." }
   },
-  "after": ["gametable", "generator", "commerce", "broadcast", "interactions"],
+  "after": ["gametable", "generator", "commerce", "broadcast", "interactions", "quests"],
   "routePrefix": "/flight",
-  "dataSchema": ["aircraft", "aircraft_types", "flight_contracts", "aa_sites", "hangars"]
+  "dependencies": ["quests"],
+  "dataSchema": ["aircraft", "aircraft_types", "aa_sites", "hangars"]
 }

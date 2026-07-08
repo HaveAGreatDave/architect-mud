@@ -11,7 +11,6 @@
 
 @actor npc_captain_nguyen Captain Nguyen
 @alias npc_captain_nguyen Nguyen
-@alias npc_captain_nguyen NARRATOR
 
 @actor npc_jerry_rosenberg Jerry Rosenberg
 @alias npc_jerry_rosenberg LAWYER
@@ -35,12 +34,10 @@
 ║      ██╔████╔██║███████║██╔██╗ ██║                                           ║
 ║      ██║╚██╔╝██║██╔══██║██║╚██╗██║                                           ║
 ║      ██║ ╚═╝ ██║██║  ██║██║ ╚████║                                           ║
-║      ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝                                           ║
-║                                                                              ║
+║      ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝                                           ║                                                                             
 ║  ╔══════════════════════════════════════════════════════════════════════╗    ║
 ║  ║    ▶  J U S T   T H E   M E A T S ™                                  ║    ║
-║  ╚══════════════════════════════════════════════════════════════════════╝    ║
-║                                                                              ║
+║  ╚══════════════════════════════════════════════════════════════════════╝    ║                                                                           
 ║          "She can't control you anymore, king."                              ║
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
@@ -63,12 +60,10 @@
 ║  ██████╔╝██║   ██║███████╗█████╗  ██╔██╗██║██████╔╝█████╗  ██████╔╝██║  ███╗ ║
 ║  ██╔══██╗██║   ██║╚════██║██╔══╝  ██║╚████f██╔══██╔══╝ ██╔══██╗██║ ██║ ║ ██║ ║
 ║  ██║  ██║╚██████╔╝███████║███████╗██║ ╚███║██████╔╝███████╗██║  ██║╚██████ ║ ║
-║  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚══╝╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝  ║
-║                                                                              ║
+║  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚══╝╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝  ║                                                                              
 ║              ═══  F A M I L Y   L A W  ═══                                   ║
 ║                                                                              ║
-║                       "divorce attorney"                                     ║
-║                                                                              ║
+║                       "divorce attorney"                                     ║                                                                              
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 ::endasset
@@ -499,7 +494,6 @@ SHOT
 The camera — which has been lying on the floor of the basement at a forty-five-degree angle for the duration of the break — is picked up by an unseen hand and levelled. It finds Neil already mid-sentence, microphone apparently reinstated.
 SHOT_END
 
-CAM 1 MEDIUM on Neil McManistan
 Neil Mcmanistan:
 Who makes an ad like that? That's like three antisemitic self-burns in a row. He looks like Jude Süss up there. This is egregious! I'm too riled up to continue. Nguyen, roll the credits!
 

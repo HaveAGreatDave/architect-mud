@@ -960,6 +960,11 @@ export const hooks = {
 // Exported for tests/ops (the verify harness drives it without waiting 24h).
 export { runTerritoryTick };
 
+// Exported for the Tablet OS Corporation app (plugins/tablet/corp-app.js) —
+// same payload the `corp console` command itself returns, reused rather than
+// rebuilt so the two surfaces can never drift.
+export { buildConsolePayload };
+
 // Settle territory income/upkeep + grip drift once a day.
 schedule('24h', () => runTerritoryTick().catch(e => console.error('[corps] territory tick error:', e.message)));
 

@@ -200,10 +200,14 @@ const PANELS = {
     title: 'Quests',
     description: 'Multi-step player objectives with triggers, conditions, and rewards.',
     idPrefix: 'quest',
-    fetch: () => API('/quests'),
+    // Hide auto-generated 'flight' contract instances by default — they're ephemeral
+    // board postings (plugins/flight/contracts.js topUp), not authored content. Their
+    // 'flight_template' archetypes (and ordinary/jobboard quests) still show.
+    fetch: () => API('/quests').then(rows => (Array.isArray(rows) ? rows : []).filter(r => r.quest_type !== 'flight')),
     columns: [
       { key: 'name', label: 'Name' },
       { key: 'id', label: 'Quest ID', render: v => `<code style="font-size:11px;color:var(--text-dim)">${v}</code>` },
+      { key: 'quest_type', label: 'Type', render: v => v === 'flight_template' ? '✈ Flight Template' : 'Standard' },
       { key: 'objectives', label: 'Objectives', render: v => (Array.isArray(v) ? v : JSON.parse(v||'[]')).length },
       { key: 'repeatable', label: 'Repeatable', render: v => v ? '↻' : '' },
     ],
