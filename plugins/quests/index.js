@@ -27,7 +27,7 @@
 import { query } from '../../server/models/db.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { on, emit } from '../../server/engine/events.js';
-import { sendToPlayer } from '../../server/engine/messaging.js';
+import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { findPath } from '../../server/engine/pathfinding.js';
@@ -124,12 +124,29 @@ function objectiveLine(obj, done, locked) {
   return `  [${have >= need ? 'X' : ' '}] ${label}${need > 1 ? ` (${have}/${need})` : ''}`;
 }
 
+function objectiveDesc(obj) {
+  return obj.desc || `${obj.type} ${obj.target || obj.item_id || obj.zone || ''}`.trim();
+}
+
+// A per-objective flavour line ("reads the meter", "hauls the load") authored on
+// the objective itself (`obj.emote`, `{who}` token → the player's handle) — shown
+// to the whole zone (including the actor, same as a typed `emote`) every time that
+// objective's counter ticks, not just when it finally completes. Purely cosmetic;
+// objectives with no `emote` authored fire nothing.
+function fireObjectiveEmote(actor, obj) {
+  if (!obj.emote) return;
+  sendToZone(actor.current_zone, { type: 'zone_event', message: obj.emote.replace(/\{who\}/g, actor.handle) });
+}
+
 // --- Objective tracking (event subscribers) --------------------------------
 //
 // trackEvent walks a player's active quests and bumps any objective the predicate
 // matches. When all objectives are met the quest flips to 'completed' (ready to
 // turn in). One UPDATE per affected quest; no-op when nothing matches.
-async function trackEvent(actor, predicate) {
+// Exported only so regress.js can await a deterministic tick instead of racing
+// the fire-and-forget event bus (emit() doesn't await subscribers) — never called
+// directly outside the on(...) subscribers below in production.
+export async function trackEvent(actor, predicate) {
   if (!actor?.id) return;
   const { rows } = await query(
     "SELECT * FROM player_quests WHERE player_id=$1 AND status='active'",
@@ -144,11 +161,17 @@ async function trackEvent(actor, predicate) {
 
     let changed = false;
     const before = progress.slice(); // judge gating against pre-tick state
+    const justFinished = []; // objectives whose count was reached this tick
     objectives.forEach((obj, i) => {
       const need = obj.count || 1;
       if ((progress[i] || 0) >= need) return;
       if (!requiresMet(objectives, obj, before)) return; // locked until prerequisites done
-      if (predicate(obj)) { progress[i] = (progress[i] || 0) + 1; changed = true; }
+      if (predicate(obj)) {
+        progress[i] = (progress[i] || 0) + 1;
+        changed = true;
+        fireObjectiveEmote(actor, obj);
+        if (progress[i] >= need) justFinished.push(obj);
+      }
     });
     if (!changed) continue;
 
@@ -164,7 +187,14 @@ async function trackEvent(actor, predicate) {
       msg(actor.id, `<span class="msg-system">Quest complete: ${quest.name}. ${await turnInHint(quest.id)}</span>`);
       emit('quest.completed', { actor, quest_id: quest.id });
     } else {
-      msg(actor.id, `<span class="msg-system">Quest updated: ${quest.name}.</span>`);
+      // Names the objective(s) that just finished and reads out whatever's next,
+      // instead of a bare "quest updated" — the bottom-pane progress line the
+      // player actually wants mid-quest.
+      const next = objectives.find((obj, i) => (progress[i] || 0) < (obj.count || 1) && requiresMet(objectives, obj, progress));
+      const parts = [];
+      if (justFinished.length) parts.push(`Done: ${justFinished.map(objectiveDesc).join(', ')}.`);
+      parts.push(next ? `Next: ${objectiveDesc(next)}.` : `Quest updated: ${quest.name}.`);
+      msg(actor.id, `<span class="msg-system">${parts.join(' ')}</span>`);
       routeToObjective(actor, quest, progress);
     }
   }

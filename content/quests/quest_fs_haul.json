@@ -7,12 +7,14 @@
   "objectives": [
     {
       "desc": "Through the Threshold",
+      "emote": "{who} hauls the load through the Threshold, arms already burning.",
       "id": "o0",
       "type": "visit",
       "zone": "zone_threshold"
     },
     {
       "desc": "On to Castoff Walk",
+      "emote": "{who} keeps hauling on to Castoff Walk, cursing whoever decided this needed doing on foot.",
       "id": "o1",
       "requires": [
         "o0"
@@ -22,6 +24,7 @@
     },
     {
       "desc": "On to the Marquee",
+      "emote": "{who} drags the load past the Marquee, sweating, refusing to put it down.",
       "id": "o2",
       "requires": [
         "o1"
@@ -31,6 +34,7 @@
     },
     {
       "desc": "All the way to Cathode Row",
+      "emote": "{who} finally hauls it all the way to Cathode Row and drops it with a groan.",
       "id": "o3",
       "requires": [
         "o2"

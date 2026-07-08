@@ -7,12 +7,14 @@
   "objectives": [
     {
       "desc": "Read the meters at the Threshold",
+      "emote": "{who} crouches by the meter box and squints at the dial like it owes money.",
       "id": "o0",
       "type": "visit",
       "zone": "zone_threshold"
     },
     {
       "desc": "Read the meters at Plaza North",
+      "emote": "{who} jots a number off the meter, taps the glass twice, and writes down a different number instead.",
       "id": "o1",
       "requires": [
         "o0"

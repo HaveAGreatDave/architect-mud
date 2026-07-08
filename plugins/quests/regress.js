@@ -5,7 +5,7 @@ import { query } from '../../server/models/db.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { renderDialogueNode } from '../../server/engine/dialogue.js';
-import { findTurnInNpc } from './index.js';
+import { findTurnInNpc, trackEvent } from './index.js';
 
 const TEST_QUEST_ID = 'quest_regress_smoke';
 const TEST_NPC_ID = 'npc_regress_turnin';
@@ -90,4 +90,32 @@ export default async function regress({ run, check, getPlayer }) {
   await query('DELETE FROM npcs WHERE id=$1', [TEST_NPC_ID]);
   await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TEST_QUEST_ID]);
   await query('DELETE FROM quests WHERE id=$1', [TEST_QUEST_ID]);
+
+  // ── Per-objective emotes + progress tick via real zone.entered events ──────
+  const TWO_STEP_QUEST_ID = 'quest_regress_emote';
+  await query(
+    `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
+     VALUES ($1,'Regress Emote','',$2,'{}',0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+     ON CONFLICT (id) DO UPDATE SET objectives=$2`,
+    [TWO_STEP_QUEST_ID, JSON.stringify([
+      { id: 'o0', type: 'visit', zone: 'zone_regress_nowhere_a', count: 1, desc: 'Step one', emote: '{who} does the first thing.' },
+      { id: 'o1', type: 'visit', zone: 'zone_regress_nowhere_b', count: 1, desc: 'Step two', requires: ['o0'], emote: '{who} does the second thing.' },
+    ])]
+  );
+  await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TWO_STEP_QUEST_ID]);
+  await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: TWO_STEP_QUEST_ID } });
+
+  // Calls trackEvent directly (same predicate the real on('zone.entered', ...)
+  // subscriber uses) rather than emit() — the event bus is fire-and-forget and
+  // doesn't await subscribers, which would race these assertions.
+  await trackEvent(player, (obj) => obj.type === 'visit' && obj.zone === 'zone_regress_nowhere_a');
+  ({ rows } = await query('SELECT status, progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TWO_STEP_QUEST_ID]));
+  check('first objective ticks progress without finishing the quest', rows[0]?.status === 'active' && rows[0]?.progress?.[0] === 1 && (rows[0]?.progress?.[1] || 0) === 0, JSON.stringify(rows[0]));
+
+  await trackEvent(player, (obj) => obj.type === 'visit' && obj.zone === 'zone_regress_nowhere_b');
+  ({ rows } = await query('SELECT status, progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TWO_STEP_QUEST_ID]));
+  check('second objective completes the quest', rows[0]?.status === 'completed' && rows[0]?.progress?.[1] === 1, JSON.stringify(rows[0]));
+
+  await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TWO_STEP_QUEST_ID]);
+  await query('DELETE FROM quests WHERE id=$1', [TWO_STEP_QUEST_ID]);
 }

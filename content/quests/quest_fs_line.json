@@ -7,12 +7,14 @@
   "objectives": [
     {
       "desc": "Hold the place at the Sprawl Gate",
+      "emote": "{who} plants both feet at the Sprawl Gate and glares at anyone who even thinks about cutting the line.",
       "id": "o0",
       "type": "visit",
       "zone": "zone_city_south"
     },
     {
       "desc": "Carry the ticket to the Under Entrance",
+      "emote": "{who} hustles the ticket over to the Under Entrance, muttering the number over and over so it doesn't slip their mind.",
       "id": "o1",
       "requires": [
         "o0"
