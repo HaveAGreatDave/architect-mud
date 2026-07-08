@@ -1045,6 +1045,14 @@ export const SCHEMA_SQL = `
   ALTER TABLE generators DROP CONSTRAINT IF EXISTS generators_city_generator_id_fkey;
   ALTER TABLE generators ADD CONSTRAINT generators_city_generator_id_fkey
     FOREIGN KEY (city_generator_id) REFERENCES generators(id) DEFERRABLE INITIALLY DEFERRED;
+  -- power_zones.generator_id → generators.id. The deletion pass removes runtime
+  -- power-sim rows (junction generators) whose power_zones still reference them;
+  -- an immediate RESTRICT check aborts the delete. A pre-existing prod table drifted
+  -- from the inline ON DELETE SET NULL above (an idempotent create clause won't alter
+  -- an existing table), so re-assert both the cascade and deferral idempotently here.
+  ALTER TABLE power_zones DROP CONSTRAINT IF EXISTS power_zones_generator_id_fkey;
+  ALTER TABLE power_zones ADD CONSTRAINT power_zones_generator_id_fkey
+    FOREIGN KEY (generator_id) REFERENCES generators(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
 
   -- Broadcast graphics library. ASCII art referenced by VINE title_card nodes.
   -- type: 'ascii' | 'svg'; tags: JSONB array of labels for dev-panel filtering.
