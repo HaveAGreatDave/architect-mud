@@ -32,8 +32,8 @@ name: deploy-content
 
 on:
   workflow_dispatch:
-  # push:                      # ← enable after the rehearsal (see header)
-  #   branches: [main]
+  push:
+    branches: [main]
 
 concurrency:
   group: prod-content-deploy
