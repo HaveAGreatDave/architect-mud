@@ -1031,9 +1031,23 @@ async function writeZonePower(query, zone, status, availableKw, capacityKw) {
     [status, availableKw, capacityKw, zone.id]);
 }
 
+// Diff-gated writer for a generator's remaining_kw (the sibling of writeZonePower
+// for the generators table). Compares against the row read this tick and skips an
+// unchanged write; on a stable grid the plant/junction-box allocations don't move
+// tick-to-tick, so nothing is written. Mutates genRow.remaining_kw after a write
+// so a generator written twice in one pass (a JB gets a Phase-4 city allocation
+// and a Phase-5 leftover) compares the second write against the first, not the
+// original DB value.
+async function writeGeneratorRemaining(query, genRow, remainingKw) {
+  if (!genRow || Number(genRow.remaining_kw) === Number(remainingKw)) return;
+  await query(`UPDATE generators SET remaining_kw=$1 WHERE id=$2`, [remainingKw, genRow.id]);
+  genRow.remaining_kw = remainingKw;
+}
+
 async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } = {}) {
   powerSimCounts.set(reason, (powerSimCounts.get(reason) || 0) + 1);
   const { rows: allGenerators } = await query('SELECT * FROM generators');
+  const genById = new Map(allGenerators.map(g => [g.id, g])); // for diff-gated remaining_kw writes
   const loadMultiplier = weatherType === 'snow' ? SNOW_LOAD_MULTIPLIER : 1.0;
   // Global outdoor severity, defined once in the weather plugin and read here via
   // the field snapshot (no duplicated thresholds). Drives storm faults below.
@@ -1055,7 +1069,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
     // regardless of type — this is what cuts power to everything downstream.
     if (gen.flags?.destroyed) {
       updatedStatus.set(gen.id, { ...gen, status: 'offline' });
-      await query(`UPDATE generators SET status=$1 WHERE id=$2`, ['offline', gen.id]);
+      if (gen.status !== 'offline') await query(`UPDATE generators SET status=$1 WHERE id=$2`, ['offline', gen.id]);
       continue;
     }
     let status = (gen.generator_type === 'player') ? gen.status : 'online';
@@ -1108,9 +1122,16 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
     }
 
     updatedStatus.set(gen.id, { ...gen, status, fuel_remaining: fuelRemaining, flags });
+    // Diff-gate: city plants and junction boxes are permanent (status always
+    // 'online', no fuel), so their status/fuel write is pure churn on a stable
+    // grid. flagsChanged means the flags object was rebuilt (storm scar or
+    // player-gen battery drift) — still only persist if it actually differs.
+    const stateChanged = gen.status !== status || Number(gen.fuel_remaining) !== Number(fuelRemaining);
     if (flagsChanged) {
-      await query(`UPDATE generators SET status=$1, fuel_remaining=$2, flags=$3 WHERE id=$4`, [status, fuelRemaining, JSON.stringify(flags), gen.id]);
-    } else {
+      if (stateChanged || JSON.stringify(gen.flags ?? {}) !== JSON.stringify(flags ?? {})) {
+        await query(`UPDATE generators SET status=$1, fuel_remaining=$2, flags=$3 WHERE id=$4`, [status, fuelRemaining, JSON.stringify(flags), gen.id]);
+      }
+    } else if (stateChanged) {
       await query(`UPDATE generators SET status=$1, fuel_remaining=$2 WHERE id=$3`, [status, fuelRemaining, gen.id]);
     }
   }
@@ -1200,7 +1221,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
 
     if (!cpSt || cpSt.status === 'offline' || Number(cpSt.capacity_kw) === 0) {
       // City plant down — kill everything it feeds.
-      await query(`UPDATE generators SET remaining_kw=0 WHERE id=$1`, [cp.id]);
+      await writeGeneratorRemaining(query, cp, 0);
       for (const z of directZones) {
         const cap = z.max_capacity_kw ?? 1000;
         await writeZonePower(query, z, 'offline', 0, cap);
@@ -1208,7 +1229,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
       }
       for (const jb of connectedJBs) {
         jbAlloc.set(jb.id, 0);
-        await query(`UPDATE generators SET remaining_kw=0 WHERE id=$1`, [jb.id]);
+        await writeGeneratorRemaining(query, jb, 0);
       }
       continue;
     }
@@ -1248,10 +1269,10 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
         await applyPowerLightEffects(query, zone.id, zone.status, status, alloc, ceiling);
       } else {
         jbAlloc.set(c.id, alloc);
-        await query(`UPDATE generators SET remaining_kw=$1 WHERE id=$2`, [alloc, c.id]);
+        await writeGeneratorRemaining(query, genById.get(c.id), alloc);
       }
     }
-    await query(`UPDATE generators SET remaining_kw=$1 WHERE id=$2`, [Math.max(0, pool), cp.id]);
+    await writeGeneratorRemaining(query, cp, Math.max(0, pool));
   }
 
   // ── Phase 5: Junction boxes distribute their city-plant allocation ───────
@@ -1290,7 +1311,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
         await writeZonePower(query, z, 'offline', 0, cap);
         await applyPowerLightEffects(query, z.id, z.status, 'offline', 0, cap);
       }
-      if (jbSt) await query(`UPDATE generators SET remaining_kw=0 WHERE id=$1`, [gen.id]);
+      if (jbSt) await writeGeneratorRemaining(query, gen, 0);
       continue;
     }
 
@@ -1313,7 +1334,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
       await writeZonePower(query, zone, status, alloc, ceiling);
       await applyPowerLightEffects(query, zone.id, zone.status, status, alloc, ceiling);
     }
-    await query(`UPDATE generators SET remaining_kw=$1 WHERE id=$2`, [Math.max(0, pool), gen.id]);
+    await writeGeneratorRemaining(query, gen, Math.max(0, pool));
   }
 
   // ── Phase 6: Orphan zones (no valid generator_id) go offline ────────────

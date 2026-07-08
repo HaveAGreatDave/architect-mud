@@ -1961,17 +1961,22 @@ async function cmdSubmit(args, raw, player) {
 // ── Battery / power tick ─────────────────────────────────────────────────────
 async function batteryTick() {
   const { rows } = await query(
-    'SELECT id, device_kind, wired, battery, is_damaged, zone_id FROM security_devices'
+    'SELECT id, device_kind, wired, battery, is_powered, is_damaged, zone_id FROM security_devices'
   );
   for (const d of rows) {
     if (d.wired) {
+      // Wired devices track their zone's power, which rarely flips — only write
+      // is_powered when it actually changed, not every 5-minute tick.
       const powered = isZonePowered(d.zone_id) && !d.is_damaged ? 1 : 0;
-      await query('UPDATE security_devices SET is_powered=$1 WHERE id=$2', [powered, d.id]);
+      if (powered !== d.is_powered) await query('UPDATE security_devices SET is_powered=$1 WHERE id=$2', [powered, d.id]);
     } else {
       const drain = DRAIN[d.device_kind] ?? 1;
       const battery = Math.max(0, (d.battery || 0) - drain);
       const powered = battery > 0 && !d.is_damaged ? 1 : 0;
-      await query('UPDATE security_devices SET battery=$1, is_powered=$2 WHERE id=$3', [battery, powered, d.id]);
+      // A fully-drained device holds at battery=0/is_powered=0 — skip the write
+      // once nothing moves; only persist while battery is actually draining.
+      if (battery !== d.battery || powered !== d.is_powered)
+        await query('UPDATE security_devices SET battery=$1, is_powered=$2 WHERE id=$3', [battery, powered, d.id]);
     }
   }
 }
