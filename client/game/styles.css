@@ -1759,13 +1759,19 @@ textarea {
 .mm-link.mm-dim {
 	opacity: 0.25;
 }
-/* Avenue View toggle sits in the minimap section's top-right corner (kept out of
-   the .sidebar-label so it doesn't leak into the section's reorder title). */
+/* Avenue View / Auto-walk toggles sit in the minimap section's top-right corner
+   (kept out of the .sidebar-label so it doesn't leak into the section's reorder
+   title), side by side in a small flex row. */
 #minimap-section { position: relative; }
-.mm-avenue-toggle {
+.mm-toggle-row {
 	position: absolute;
 	top: 8px;
 	right: 8px;
+	display: flex;
+	gap: 4px;
+	z-index: 3;
+}
+.mm-avenue-toggle {
 	font-family: var(--font-mono);
 	font-size: 8px;
 	letter-spacing: 1px;
@@ -1777,7 +1783,6 @@ textarea {
 	border-radius: 2px;
 	padding: 1px 5px;
 	cursor: pointer;
-	z-index: 3;
 	transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 .mm-avenue-toggle:hover { border-color: var(--accent); color: var(--text); }
@@ -6067,6 +6072,132 @@ textarea {
 	93% { opacity: 0.7; }
 	95% { opacity: 0.9; }
 }
+
+/* ── Halcyon Assurance Panel — same CRT chassis language as the ATM, own dedicated
+   markup/CSS (see atm.js's header comment for why: distinct machines, not shared
+   classes), themed in the insurer's amber. ── */
+#insurance-panel {
+	display: none;
+	position: fixed;
+	inset: 0;
+	background: transparent;
+	z-index: 200;
+	align-items: center;
+	justify-content: center;
+}
+#insurance-panel.active { display: flex; }
+#ins-box {
+	--ins-accent: var(--yellow);
+	width: 360px;
+	background: linear-gradient(180deg, #2a2622 0%, #1c1a17 7%, #14120f 12%, #0d0c0a 100%);
+	border: 1px solid #05070a;
+	border-radius: 20px;
+	box-shadow:
+		inset 0 1px 0 rgba(255,255,255,0.06),
+		inset 0 0 0 1px rgba(0,0,0,0.5),
+		0 18px 50px rgba(0,0,0,0.7),
+		0 0 40px color-mix(in srgb, var(--ins-accent) 18%, transparent);
+	font-family: 'Courier New', Courier, monospace;
+	color: var(--ins-accent);
+	padding: 14px 16px 16px;
+	position: relative;
+}
+#ins-chassis-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 12px;
+	padding: 2px 2px 0;
+}
+.ins-brandplate { display: flex; align-items: center; gap: 8px; }
+.ins-brand-mark { font-size: 15px; color: var(--ins-accent); text-shadow: 0 0 8px color-mix(in srgb, var(--ins-accent) 70%, transparent); }
+.ins-brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+#ins-network-name { font-size: 12px; font-weight: bold; letter-spacing: 2px; color: var(--ins-accent); text-shadow: 0 0 6px color-mix(in srgb, var(--ins-accent) 45%, transparent); }
+.ins-subtitle { font-size: 8px; letter-spacing: 2px; opacity: 0.45; margin-top: 3px; }
+#ins-close { background: none; border: none; color: var(--text-dim, #7a8a83); font-size: 14px; cursor: pointer; padding: 0 2px; line-height: 1; font-family: inherit; }
+#ins-close:hover { color: #ff4444; }
+
+#ins-crt-bezel {
+	position: relative;
+	background: linear-gradient(160deg, #0a0806, #07050a);
+	border-radius: 14px;
+	padding: 16px;
+	box-shadow: inset 0 2px 6px rgba(0,0,0,0.9), inset 0 0 0 1px rgba(255,255,255,0.03);
+}
+#ins-crt {
+	position: relative;
+	max-height: 70vh;
+	overflow-y: auto;
+	border-radius: 26px / 18px;
+	background: radial-gradient(130% 130% at 50% 42%, color-mix(in srgb, var(--ins-accent) 9%, #0a0703) 55%, #060402 100%);
+	box-shadow:
+		inset 0 0 30px rgba(0,0,0,0.95),
+		inset 0 0 6px color-mix(in srgb, var(--ins-accent) 30%, transparent),
+		0 0 0 1px rgba(0,0,0,0.8);
+}
+#ins-crt-screen {
+	position: relative;
+	z-index: 2;
+	padding: 14px 16px;
+	color: var(--ins-accent);
+	text-shadow: 0 0 5px color-mix(in srgb, var(--ins-accent) 55%, transparent);
+}
+.ins-crt-scanlines {
+	position: absolute; inset: 0; z-index: 3; border-radius: inherit; pointer-events: none;
+	background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.16) 2px 3px);
+}
+.ins-crt-glass {
+	position: absolute; inset: 0; z-index: 4; border-radius: inherit; pointer-events: none;
+	background:
+		linear-gradient(115deg, transparent 0 40%, rgba(255,240,220,0.10) 47%, rgba(255,240,220,0.03) 52%, transparent 60% 100%),
+		radial-gradient(80% 55% at 26% 18%, rgba(255,255,255,0.12), transparent 60%),
+		radial-gradient(120% 120% at 50% 50%, transparent 62%, rgba(0,0,0,0.55) 100%);
+	box-shadow: inset 0 0 22px rgba(0,0,0,0.6);
+}
+
+.ins-top { display: flex; align-items: center; justify-content: space-between; font-size: 10px; letter-spacing: 1px; margin-bottom: 6px; }
+.ins-title { font-weight: bold; letter-spacing: 2px; font-size: 11px; }
+.ins-sub { font-size: 8px; letter-spacing: 1px; opacity: 0.85; }
+.ins-wfstage { display: flex; justify-content: center; margin-bottom: 6px; }
+#ins-wf { display: block; }
+.ins-sel {
+	border-top: 1px dashed color-mix(in srgb, var(--ins-accent) 30%, transparent);
+	border-bottom: 1px dashed color-mix(in srgb, var(--ins-accent) 30%, transparent);
+	padding: 8px 0; margin-bottom: 10px;
+}
+.ins-sel-name { font-size: 12px; margin-bottom: 3px; }
+.ins-sel-status { font-size: 9px; letter-spacing: 1px; margin-bottom: 5px; }
+.ins-sel-premium { font-size: 10px; letter-spacing: 1px; opacity: 0.8; margin-bottom: 8px; }
+.ins-ok { color: var(--green); }
+.ins-off { color: color-mix(in srgb, var(--ins-accent) 55%, transparent); }
+.ins-section { font-size: 9px; letter-spacing: 3px; opacity: 0.6; margin: 8px 0 5px; }
+.ins-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 4px; }
+.ins-row {
+	display: flex; align-items: center; justify-content: space-between; gap: 8px;
+	background: color-mix(in srgb, var(--ins-accent) 6%, transparent);
+	border: 1px solid color-mix(in srgb, var(--ins-accent) 25%, transparent);
+	border-radius: 4px; color: var(--ins-accent); font-family: inherit; font-size: 10px;
+	letter-spacing: 0.5px; padding: 6px 10px; cursor: pointer; text-align: left; text-shadow: inherit;
+	transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.ins-row:hover { background: color-mix(in srgb, var(--ins-accent) 14%, transparent); border-color: var(--ins-accent); }
+.ins-row-sel { border-color: var(--ins-accent); box-shadow: 0 0 12px color-mix(in srgb, var(--ins-accent) 30%, transparent); }
+.ins-row-name i { opacity: 0.7; font-style: normal; }
+.ins-row-status { font-size: 8px; letter-spacing: 1px; white-space: nowrap; }
+.ins-empty { font-size: 11px; opacity: 0.6; padding: 8px 0; }
+.ins-claims { display: flex; flex-direction: column; gap: 6px; }
+.ins-claim { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10px; }
+.ins-dim { opacity: 0.55; }
+.ins-btn {
+	background: linear-gradient(180deg, color-mix(in srgb, var(--ins-accent) 22%, transparent), color-mix(in srgb, var(--ins-accent) 8%, transparent));
+	border: 1px solid var(--ins-accent); color: var(--ins-accent); font-family: inherit; font-size: 10px;
+	letter-spacing: 1px; padding: 5px 10px; border-radius: 4px; cursor: pointer;
+	box-shadow: inset 0 -2px 0 rgba(0,0,0,0.4); transition: filter 0.12s, box-shadow 0.12s;
+}
+.ins-btn:hover { filter: brightness(1.2); box-shadow: 0 0 12px color-mix(in srgb, var(--ins-accent) 40%, transparent); }
+.ins-accent {}
+.ins-warn { font-size: 9px; letter-spacing: 0.5px; color: var(--orange); margin-top: 8px; }
+.ins-note { font-size: 9px; letter-spacing: 0.5px; opacity: 0.55; margin-top: 8px; line-height: 1.4; }
 .atm-status-row {
 	display: flex;
 	align-items: center;

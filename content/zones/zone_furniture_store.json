@@ -14,6 +14,7 @@
   "flags": {
     "building_name": null,
     "building_type": null,
+    "intro_lore": "Somebody looked at a gutted industrial unit and saw a showroom, which is either vision or denial — out here it's hard to tell the difference. The neon flickers on a schedule because someone wired it that way on purpose, which almost makes the burnt coffee and outgassing plastic smell like ambiance instead of a warning.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": true,

@@ -418,20 +418,19 @@ export async function cmdKamehameha(targetStr, player, broadcast) {
 	return { type: 'combat', message: blast, killed: true };
 }
 
-// Admin self-kill: run yourself through the canonical death path (corpse +
+// Universal self-kill: run yourself through the canonical death path (corpse +
 // clone-vat respawn + all death signals), killer null so it isn't a PvP kill.
-// A quick way to test the respawn flow without lining up a fight.
+// No item, target, or role required — an escape hatch for a player wedged in a
+// broken state (e.g. a stuck flight session) as much as it is a quick way to
+// test the respawn flow.
 export async function cmdSeppuku(player, broadcast) {
-	if (player.role !== 'admin') {
-		return { type: 'error', message: `Unknown command: "seppuku". Type HELP for commands.` };
-	}
 	broadcast(player.current_zone, {
 		type: 'zone_event',
-		message: `<span class="crit-tag">${player.handle} kneels, draws a blade, and commits an act of profound administrative honor.</span>`,
+		message: `<span class="crit-tag">${player.handle} kneels, draws a blade, and commits seppuku.</span>`,
 		refresh: true,
 	}, player.id);
 	const { handlePlayerDeath } = await import('../../server/engine/gameLoop.js');
-	await handlePlayerDeath(player, null, { type: 'admin', label: 'Ritual suicide' });
+	await handlePlayerDeath(player, null, { type: 'suicide', label: 'Seppuku' });
 	return { type: 'combat', message: '', killed: true };
 }
 

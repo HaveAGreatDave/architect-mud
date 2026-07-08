@@ -8,7 +8,7 @@
   },
   "engines": 1,
   "fuel_burn_base": 2,
-  "fuel_capacity": 30,
+  "fuel_capacity": 340,
   "fuel_type": "biofuel",
   "handling": 4,
   "hardpoints": 0,

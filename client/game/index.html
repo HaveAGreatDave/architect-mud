@@ -584,7 +584,10 @@
 				</div>
 				<div class="sidebar-section" id="minimap-section">
 					<div class="sidebar-label">Map</div>
-					<button type="button" id="mm-avenue-toggle" class="mm-avenue-toggle" title="Avenue View — show major roads only">Avenue</button>
+					<div class="mm-toggle-row">
+						<button type="button" id="mm-avenue-toggle" class="mm-avenue-toggle" title="Avenue View — show major roads only">Avenue</button>
+						<button type="button" id="mm-auto-toggle" class="mm-avenue-toggle" title="Auto-walk the plotted GPS route (max 1s per step). Click again to stop.">Auto ▶</button>
+					</div>
 					<div id="minimap-grid">—</div>
 				</div>
 
@@ -1922,6 +1925,30 @@
 					</div>
 					<div class="atm-cardslot"><span class="atm-cardslot-lip"></span>INSERT CARD</div>
 					<div class="atm-cashtray">CASH</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Halcyon Assurance — insurance popup (insure/policies/claim), same CRT
+		     chassis language as the ATM but its own dedicated markup/CSS. -->
+		<div id="insurance-panel">
+			<div id="ins-box">
+				<div id="ins-chassis-head">
+					<div class="ins-brandplate">
+						<span class="ins-brand-mark">◈</span>
+						<div class="ins-brand-text">
+							<div id="ins-network-name">HALCYON ASSURANCE</div>
+							<div class="ins-subtitle">UNDERWRITING TERMINAL</div>
+						</div>
+					</div>
+					<button id="ins-close" aria-label="Close">✕</button>
+				</div>
+				<div id="ins-crt-bezel">
+					<div id="ins-crt">
+						<div id="ins-crt-screen"></div>
+						<div class="ins-crt-scanlines"></div>
+						<div class="ins-crt-glass"></div>
+					</div>
 				</div>
 			</div>
 		</div>

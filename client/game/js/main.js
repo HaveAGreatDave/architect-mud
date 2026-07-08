@@ -45,6 +45,7 @@ import { initCustomPanelButton } from "./panels/custom/builder.js";
 import { refreshTempDisplay } from "./panels/environment.js";
 import { initWeatherFx, setWeatherFxEnabled } from "./panels/weather-fx.js";
 import { initAtmPanel } from "./panels/atm.js";
+import { initInsurancePanel } from "./panels/insurance.js";
 import { initSurveillanceHub } from "./panels/surveillancehub.js";
 import { initDatachipReplay } from "./panels/datachipreplay.js";
 import { initWantedHud } from "./panels/wanted.js";
@@ -52,6 +53,7 @@ import { initTvPanel } from "./panels/tv.js";
 import { initMediaDeckPanel } from "./panels/mediadeck.js";
 import { initAudio } from "./panels/audio.js";
 import { initMusicPlayerPanel, openMusicPlayerPanel, stopMusicPlayer } from "./panels/musicplayer.js";
+import { stopEngineAudio } from "./panels/engine-audio.js";
 
 // Settings
 const settings = loadSettings();
@@ -433,6 +435,7 @@ initForecast();
 initWhisperPanel();
 initWho();
 initAtmPanel();
+initInsurancePanel();
 initSurveillanceHub();
 initDatachipReplay();
 initWantedHud();
@@ -440,7 +443,12 @@ initTvPanel();
 initMediaDeckPanel();
 initMusicPlayerPanel();
 
-window.addEventListener('game-disconnect', () => stopMusicPlayer());
+window.addEventListener('game-disconnect', () => {
+	stopMusicPlayer();
+	stopEngineAudio();
+	window.AudioEngine?.stop('music');
+	window.AudioEngine?.stop('ambience');
+});
 
 // Wire signout
 function doSignout() {

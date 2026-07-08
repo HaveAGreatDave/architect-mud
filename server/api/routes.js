@@ -157,6 +157,7 @@ const OPS_ROUTES = [
   /^\/gametable(\/|$)/,           // poker tables — runtime game state
   /^\/emergency(\/|$)/,           // crime-log ops
   /^\/atm\/units(\/|$)/,          // ATM cash ops (atm_units is runtime; networks are content)
+  /^\/flight\/aircraft(\/|$)/,    // aircraft instances are runtime (test/owned/rental rows), not content
 ];
 function contentReadonlyBlocks(path, method) {
   if (!process.env.CONTENT_READONLY) return false;
@@ -1243,7 +1244,13 @@ export async function apiDeleteItem(id) {
     return {status:200,body:{deleted:id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiGetNpcs() { const {rows}=await query('SELECT * FROM npcs'); return {status:200,body:rows}; }
+async function apiGetNpcs() {
+  const {rows}=await query(`
+    SELECT n.*, COALESCE((z.flags->>'is_apartment')::boolean, false) AS home_is_apartment
+    FROM npcs n
+    LEFT JOIN zones z ON z.id = n.home_zone`);
+  return {status:200,body:rows};
+}
 
 // Derive an NPC's work hours from the broadcast schedule (daily-mode channels only).
 // A studio/broadcast NPC's real "at work" state is driven by whether it appears in a
@@ -1509,9 +1516,11 @@ async function apiHouseUnhousedNpcs() {
   try {
     const { world: w } = await import('../engine/world.js');
     const { rows: unhoused } = await query(
-      `SELECT id, name FROM npcs
-        WHERE home_zone IS NULL OR home_zone = '' OR home_zone = 'zone_residential_lobby'
-        ORDER BY id`);
+      `SELECT n.id, n.name FROM npcs n
+       LEFT JOIN zones z ON z.id = n.home_zone
+        WHERE n.home_zone IS NULL OR n.home_zone = '' OR n.home_zone = 'zone_residential_lobby'
+           OR COALESCE((z.flags->>'is_apartment')::boolean, false) = false
+        ORDER BY n.id`);
     if (!unhoused.length) return { status: 200, body: { housed: [], count: 0, remaining: 0 } };
 
     const pool = await listVacantApartmentZones();

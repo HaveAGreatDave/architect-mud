@@ -278,8 +278,8 @@ const PANELS = {
   },
   flight: {
     title: 'Flight',
-    description: 'Charter-pilot work status (shifts / on duty / out flying) and the log of requested charter flights.',
-    fetch: () => directAPI('/flight/debug'),
+    description: 'Charter-pilot work status, the flight request log, and every aircraft instance (test-flight conjures, player buy/rent, wrecks) — delete stale ones from here.',
+    fetch: () => Promise.resolve({}),
     noEdit: true,
     render: renderFlightPanel,
   },

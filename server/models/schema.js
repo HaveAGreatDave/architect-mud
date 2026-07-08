@@ -1567,6 +1567,31 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_flight_contracts_origin ON flight_contracts(origin_zone, status);
   CREATE INDEX IF NOT EXISTS idx_flight_contracts_player ON flight_contracts(player_id, status);
 
+  -- Home cargo drops (flight contracts.js) — a standing crate at an airport,
+  -- offered as a "load cargo" option on embark rather than browsed off a board.
+  -- dest_zone is computed per-player at load time (nearest airfield to THEIR
+  -- home_zone via the zone-graph, not a fixed authored destination) and landing
+  -- there completes it — the last mile home is implied, not flown.
+  CREATE TABLE IF NOT EXISTS cargo_drops (
+    id          TEXT PRIMARY KEY,
+    label       TEXT NOT NULL,
+    weight_kg   INTEGER NOT NULL DEFAULT 60,
+    reward      INTEGER NOT NULL DEFAULT 200,
+    origin_zone TEXT NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'waiting',   -- waiting | loaded | delivered | lost
+    owner_id    TEXT,
+    aircraft_id TEXT,
+    dest_zone   TEXT,
+    created_at  BIGINT NOT NULL
+  );
+  -- kind='fence': the fence's unlock-gated raw-drug pallets (flight/contracts.js
+  -- UNLOCK_AIR_CARGO) — personal to owner_id from creation, paid in raws (contents)
+  -- on delivery rather than credits.
+  ALTER TABLE cargo_drops ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'standard';
+  ALTER TABLE cargo_drops ADD COLUMN IF NOT EXISTS contents JSONB;
+  CREATE INDEX IF NOT EXISTS idx_cargo_drops_origin ON cargo_drops(origin_zone, status);
+  CREATE INDEX IF NOT EXISTS idx_cargo_drops_owner ON cargo_drops(owner_id, kind, status);
+
   -- Ground anti-aircraft emplacements (flight combat.js). Fire on low/slow craft
   -- overflying within range. CONTENT: seeded, editable.
   CREATE TABLE IF NOT EXISTS aa_sites (

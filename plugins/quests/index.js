@@ -14,6 +14,13 @@
  *   { type:'kill',  target:'rat', count:3, desc:'Kill 3 rats' }
  *   { type:'give',  item_id:'pie', count:1, desc:'Hand over the pie' }
  *   { type:'visit', zone:'zone_sewers',     desc:'Reach the sewers' }
+ * Any objective (any type) may also carry a `zone`. Whenever the current
+ * objective changes — quest started, ADVANCE'd, or ticked forward by
+ * trackEvent — the player's first incomplete zone-bearing objective is
+ * auto-piped to the client as a gps_route (see routeToObjective below),
+ * which the minimap/bigmap render as a route trace, same as the `gps` command.
+ * Jobs (plugins/jobboard) are just quest rows started via START_QUEST/TURN_IN,
+ * so they get this for free.
  * Reward shape (quests.rewards JSONB):
  *   { credits:50, items:[{item_id,quantity}], flags:[{scope,flag,value}] }
  */
@@ -23,6 +30,8 @@ import { on, emit } from '../../server/engine/events.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { adjustCredits } from '../../server/engine/economy.js';
+import { findPath } from '../../server/engine/pathfinding.js';
+import { getZone } from '../../server/engine/world.js';
 
 // Mirror a quest's status into a player Flag (`quest_<id>` = active|completed|
 // turned_in) so Dialogue/Script Conditions can gate options on quest state through
@@ -70,6 +79,28 @@ function requiresMet(objectives, obj, progress) {
 
 function msg(playerId, text) {
   sendToPlayer(playerId, { type: 'output', message: text });
+}
+
+// Auto-GPS: point the player's minimap/bigmap at whatever zone their next
+// incomplete objective needs them at (any objective type carrying a `zone`,
+// not just 'visit' — e.g. a 'kill' objective authored with a hunting-ground
+// zone). Reuses the same gps_route message plugins/gps/index.js sends, which
+// the client already renders as a route trace (client/game/js/panels/minimap.js).
+function routeToObjective(actor, quest, progress) {
+  const objectives = quest.objectives || [];
+  const next = objectives.find((obj, i) => obj.zone && (progress[i] || 0) < (obj.count || 1));
+  if (!next) return;
+  if (next.zone === actor.current_zone) return;
+  const destZone = getZone(next.zone);
+  if (!destZone) return;
+  const path = findPath(actor.current_zone, next.zone);
+  if (!path || path.length < 2) return;
+  const hops = path.length - 1;
+  sendToPlayer(actor.id, {
+    type: 'gps_route',
+    message: `GPS locked: ${destZone.name} (${hops} stop${hops === 1 ? '' : 's'} away). Route plotted on the map.`,
+    path,
+  });
 }
 
 function objectiveLine(obj, done, locked) {
@@ -121,6 +152,7 @@ async function trackEvent(actor, predicate) {
       emit('quest.completed', { actor, quest_id: quest.id });
     } else {
       msg(actor.id, `<span class="msg-system">Quest updated: ${quest.name}.</span>`);
+      routeToObjective(actor, quest, progress);
     }
   }
 }
@@ -172,6 +204,7 @@ registerAction({
     await setQuestFlag(actor, quest_id, 'active');
     msg(actor.id, `<span class="msg-system">New quest: ${quest.name}.</span>\n${quest.description || ''}`);
     emit('quest.started', { actor, quest_id });
+    routeToObjective(actor, quest, freshProgress(quest));
     return { type: 'quest', quest_id, started: true, name: quest.name };
   },
 });
@@ -200,6 +233,7 @@ registerAction({
     );
     emit('quest.advanced', { actor, quest_id, progress });
     if (done) { await setQuestFlag(actor, quest_id, 'completed'); emit('quest.completed', { actor, quest_id }); }
+    else routeToObjective(actor, quest, progress);
     return { type: 'quest', quest_id, progress, completed: done };
   },
 });

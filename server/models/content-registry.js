@@ -196,6 +196,7 @@ export const REGISTRY = [
   { table: 'hangars', class: 'runtime' },
   { table: 'aircraft', class: 'runtime' },
   { table: 'flight_contracts', class: 'runtime' },
+  { table: 'cargo_drops', class: 'runtime' },
   { table: 'smuggle_orders', class: 'runtime' },
   { table: 'sports_season', class: 'runtime' },      // generated, never authored
   { table: 'sports_standings', class: 'runtime' },

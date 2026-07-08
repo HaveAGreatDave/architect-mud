@@ -18,6 +18,7 @@
     "out": "zone_velk_exterior"
   },
   "flags": {
+    "intro_lore": "Every stick of furniture in here belonged to somebody who isn't coming back for it — evicted, printed over, or worse — and Velk sells it all with the same brisk cheer, like provenance is a feature and not a warning. Buy the chair. Don't ask whose it was.",
     "is_interior": true
   },
   "grid_x": 0,

@@ -17,6 +17,7 @@
   "flags": {
     "building_name": null,
     "building_type": null,
+    "intro_lore": "Everything discarded in Coldwater ends up somewhere, and a lot of it ends up here, chained to a wall like it might still be worth stealing. Castoff Walk is narrow enough to be private and public at once — you can hear your neighbors argue through both walls, and Velk will happily sell you the chair to sit through it.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,

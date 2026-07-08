@@ -15,7 +15,7 @@ const LOBBY_ZONE = 'zone_mq_precinct_lobby';
 
 // ── Cell door ────────────────────────────────────────────────────────────────
 const DOOR_ID = 'door_precinct_cell';
-const lockTag = {
+const doorTags = {
   'lock:hololock': {
     difficulty: 10,          // "very high" — moot while canHack is false, kept for record
     canHack: false,          // police-only: no deck can bypass it; you leave when the guard walks you out
@@ -25,6 +25,7 @@ const lockTag = {
       denied: 'The cell hololock flatly refuses your credentials. You are not going anywhere.',
     },
   },
+  unbreakable: true,          // can't be bashed down either — no player bypass, period
 };
 
 const door = await query('SELECT id FROM doors WHERE id=$1', [DOOR_ID]);
@@ -34,7 +35,7 @@ if (door.rows.length) {
   await query(
     `INSERT INTO doors (id, zone_id, exit_dir, target_zone, door_type, is_open, hp, hp_max, lock_state, name, tags)
      VALUES ($1,$2,'up',$3,'reinforced',0,2000,2000,'locked',$4,$5)`,
-    [DOOR_ID, CELL_ZONE, LOBBY_ZONE, 'reinforced cell door', JSON.stringify(lockTag)]
+    [DOOR_ID, CELL_ZONE, LOBBY_ZONE, 'reinforced cell door', JSON.stringify(doorTags)]
   );
   console.log(`CREATED ${DOOR_ID} (hololock difficulty 10, locked)`);
 }

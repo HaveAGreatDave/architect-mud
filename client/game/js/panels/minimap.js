@@ -1,5 +1,6 @@
 // Sidebar minimap (5×5 BFS/grid) and the full-screen map popup.
-import { sendCmdSilent } from '../net.js';
+import { sendCmd, sendCmdSilent } from '../net.js';
+import { appendMsg } from '../render.js';
 
 // Avenue View for the sidebar/HUD/mobile minimaps: a rendering toggle (not a
 // server round-trip) that strips room symbols down to "does a named artery run
@@ -22,6 +23,52 @@ function wireMinimapAvenueToggle() {
     if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
   });
 }
+// Auto-walk: steps the player toward the plotted GPS route (mapState.tracePath,
+// set by the `gps` command or a clicked map route) one hop at a time, at most
+// once per second, until arrival, the route runs out, or the user stops it.
+const DIR_CMDS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out'];
+let autoWalkTimer = null;
+
+function autoWalkBtn() { return document.getElementById('mm-auto-toggle'); }
+
+function stopAutoWalk(message) {
+  if (autoWalkTimer) { clearTimeout(autoWalkTimer); autoWalkTimer = null; }
+  autoWalkBtn()?.classList.remove('active');
+  if (message) appendMsg(message, 'system');
+}
+
+function isAutoWalking() { return autoWalkTimer !== null; }
+
+function autoWalkStep() {
+  autoWalkTimer = null;
+  const current = (_lastMinimapNodes || []).find(n => n.is_current);
+  if (!current) { stopAutoWalk('Auto-walk stopped — lost track of where you are.'); return; }
+  const path = effectiveTracePath(current.id);
+  if (!path || path.length < 2) { stopAutoWalk('Auto-walk: arrived.'); return; }
+  const nextId = path[1];
+  const dir = Object.entries(current.exits || {}).find(([, id]) => id === nextId)?.[0];
+  if (!dir || !DIR_CMDS.includes(dir)) { stopAutoWalk("Auto-walk stopped — can't step off the route from here."); return; }
+  sendCmd(dir);
+  autoWalkTimer = setTimeout(autoWalkStep, 1000);
+}
+
+function startAutoWalk() {
+  const current = (_lastMinimapNodes || []).find(n => n.is_current);
+  const path = current ? effectiveTracePath(current.id) : null;
+  if (!path || path.length < 2) { appendMsg('Auto-walk: no GPS route plotted.', 'system'); return; }
+  autoWalkBtn()?.classList.add('active');
+  autoWalkStep();
+}
+
+function wireMinimapAutoToggle() {
+  const btn = autoWalkBtn();
+  if (!btn || btn._wired) return;
+  btn._wired = true;
+  btn.addEventListener('click', () => {
+    if (isAutoWalking()) stopAutoWalk('Auto-walk stopped.');
+    else startAutoWalk();
+  });
+}
 // Double-clicking any minimap (sidebar / HUD / mobile) opens the full-screen map.
 // Delegated on document so it works no matter when the grids are created.
 let _mmDblWired = false;
@@ -32,7 +79,7 @@ function wireMinimapDblClick() {
     if (e.target?.closest?.('#minimap-grid, #minimap-grid-hud, #minimap-grid-mob')) sendCmdSilent('map');
   });
 }
-function wireMinimap() { wireMinimapAvenueToggle(); wireMinimapDblClick(); }
+function wireMinimap() { wireMinimapAvenueToggle(); wireMinimapAutoToggle(); wireMinimapDblClick(); }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireMinimap);
 else wireMinimap();
 
@@ -654,6 +701,7 @@ function wireMapUi() {
       mapState.routeMode = false;
       try { localStorage.setItem(MAP_ROUTE_KEY, '0'); } catch {}
       btn?.classList.remove('active', 'has-route');
+      if (isAutoWalking()) stopAutoWalk('Auto-walk stopped — route cleared.');
       renderMapGrid();
       if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // clear it off the minimap too
       return;
@@ -757,6 +805,7 @@ export function setGpsRoute(path) {
   const rbtn = document.getElementById('map-route-toggle');
   rbtn?.classList.remove('active');
   rbtn?.classList.toggle('has-route', !!mapState.tracePath);
+  if (!mapState.tracePath && isAutoWalking()) stopAutoWalk('Auto-walk stopped — route cleared.');
   if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
   if (document.getElementById('map-panel')?.classList.contains('active')) sendCmdSilent('map regional');
 }

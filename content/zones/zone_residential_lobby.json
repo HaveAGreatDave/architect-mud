@@ -22,6 +22,7 @@
   "flags": {
     "building_name": "Embassy Hotel & Bar",
     "building_type": "hotel",
+    "intro_lore": "The Embassy was a hotel before the Handoff, and it never got the memo that its guests aren't coming back. Now it's the basin's most sought-after slum — floors of hollowed rooms behind locks that still, miraculously, lock. Lowry keeps the bar running on spite and a working tap, which is more stability than most of Coldwater can claim. If you can afford a room here, you've already won more of this life than the Strip regulars outside.",
     "is_apartment": false,
     "is_building": true,
     "is_interior": true,

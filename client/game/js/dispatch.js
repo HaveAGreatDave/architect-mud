@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
-import { renderMinimap, openMapPopup, refreshMapIfOpen, armMapPick, setMapTerritory, setGpsRoute } from './panels/minimap.js';
+import { renderMinimap, openMapPopup, refreshMapIfOpen, setMapTerritory, setGpsRoute } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut } from './panels/environment.js';
 import { setWeatherEventFx } from './panels/weather-fx.js';
 import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
@@ -16,6 +16,7 @@ import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
+import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
 import { openCorpMap } from './panels/corp-map.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
@@ -25,7 +26,7 @@ import { openDatachipReplay } from './panels/datachipreplay.js';
 import { openCircuitHack } from './panels/circuithack.js';
 import { openHololock } from './panels/hololock.js';
 import { openFishing } from './panels/fishing.js';
-import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAirHit, isFlightSimActive } from './panels/cockpit.js';
+import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAirHit, flightSimAaTracer, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
@@ -41,8 +42,7 @@ import { showArrestNotice } from './panels/arrest.js';
 import { openApprehendPrompt } from './panels/apprehend.js';
 import { openConcealSearch } from './panels/conceal.js';
 import { updateTrade, closeTrade } from './panels/trade.js';
-import { updateHangar, closeHangar } from './panels/hangar.js';
-import { openFleet } from './panels/fleet.js';
+import { openHangarBay, openCharterScreen, closeHangarBay, isHangarBayActive } from './panels/hangar-bay.js';
 import { openAdminPanel } from './panels/admin.js';
 import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
@@ -102,7 +102,10 @@ const handlers = {
 
   look: (msg) => {
     if (msg.notify) appendMsg(msg.notify, 'system');
-    if (!isFlightSimActive()) setAreaPane(msg.message);   // don't clobber the live cockpit
+    // Don't clobber the live cockpit (either the continuous sim or the discrete
+    // passenger HUD) or an open hangar bay panel — all replace the plain-text room
+    // description with their own app in the same area-pane.
+    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive()) setAreaPane(msg.message);
     if (state.echoNextLook) { appendMsg('You look around.', 'system'); state.echoNextLook = false; }
     if (msg.zone) state.currentZone = msg.zone;
     parseZoneInfo(msg.message);
@@ -111,7 +114,11 @@ const handlers = {
   },
 
   move: (msg) => {
-    setAreaPane(msg.message, msg.direction);
+    // Walking into a walk-in hangar races the server's `hangar_bay_open` push
+    // against this plain-text room description — whichever lands second wins.
+    // If the bay panel already won that race, don't stomp it; it owns the pane
+    // until the player actually leaves (hangar_close triggers a fresh look).
+    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive()) setAreaPane(msg.message, msg.direction);
     if (msg.narration) appendHtml(msg.narration, 'move');
     state.currentZone = msg.zone;
     parseZoneInfo(msg.message);
@@ -145,6 +152,18 @@ const handlers = {
   player_death: (msg) => {
     appendHtml(msg.message, 'death');
     if (state.player && msg.player_update) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
+    // Death can land while any sticky area-pane app is open (flight cockpit, hangar
+    // bay) or a modal overlay is up (dialogue/shop, trade, ATM, loot) — none of these
+    // tear themselves down on their own for a death from an unrelated cause (combat,
+    // radiation, seppuku, ...), and the flight/hangar panes explicitly block the
+    // room `look` below from repainting over them. Force them all closed so death
+    // always hands the screen back to the room.
+    closeCockpit();
+    closeHangarBay();
+    closeDialogue();
+    closeTrade();
+    closeAtmPanel();
+    closeLootPanel();
     setTimeout(() => { sendCmd('look'); }, 1500);
   },
 
@@ -481,9 +500,15 @@ const handlers = {
   poker_sfx: (msg) => { playPokerSfx(msg.cue); },
   trade_update: (msg) => { updateTrade(msg.html); },
   trade_close: () => { closeTrade(); },
-  hangar_update: (msg) => { updateHangar(msg.data); },
-  fleet_open: (msg) => { openFleet(msg.data); },   // the full-pane 3D lazy-susan carousel
-  hangar_close: () => { closeHangar(); },
+  // The unified 3D hangar-bay app (flight/hangars.js pushHangarBay) — floor +
+  // charter/buy-rent/maintenance sub-screens, replacing the old paint modal +
+  // fleet carousel.
+  hangar_bay_open: (msg) => { openHangarBay(msg.data); },
+  charter_open: (msg) => { if (msg.message) appendHtml(msg.message, 'system'); openCharterScreen(msg.data); },
+  // Fires when the player walks out of a walk-in hangar (server-side zone.entered
+  // listener). closeHangarBay() only tears down JS state — it doesn't repaint the
+  // pane — so follow up with a silent look now that isHangarBayActive() is false.
+  hangar_close: () => { closeHangarBay(); sendCmdSilent('look'); },
   admin_panel: (msg) => { openAdminPanel(msg.commands, msg.role); },
 
   online_change: () => { refreshOnlinePlayers(); },
@@ -496,6 +521,12 @@ const handlers = {
   lightview: (msg) => { openLightViewDialog(msg); refreshZoneVisibility(); },
   morphex_panel: (msg) => { openMorphexPanel(msg.data); },
   atm_panel: (msg) => { openAtmPanel(msg); },
+  insurance_panel: (msg) => { openInsurancePanel(msg); },
+  insurance_action: (msg) => {
+    appendHtml(msg.message, 'loot');
+    if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
+    if (msg.panel) updateInsurancePanel(msg.panel);
+  },
   mediadeck_panel: (msg) => { openMediaDeckPanel(msg); },
   device_inspect_panel: (msg) => { openDeviceInspectPanel(msg); },
   deck_broadcast:  (msg) => { updateMediaDeckBroadcast(msg); },
@@ -558,6 +589,7 @@ const handlers = {
   flight_ctx: (msg) => { flightSimContext(msg); },
   flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)
   air_hit: (msg) => { flightSimAirHit(msg); },             // air-to-air gun hit feedback (Phase B)
+  aa_tracer: (msg) => { flightSimAaTracer(msg); },         // incoming ground-AA tracer streak
   flight_takeoff: (msg) => {
     openTakeoff({
       skill: msg.skill ?? 4,
@@ -586,15 +618,6 @@ const handlers = {
       deviceName: msg.deviceName || 'TARGET',
       onResult: ({ won }) => sendCmdSilent(`strafresolve ${msg.token} ${won ? 1 : 0}`),
     });
-  },
-  // Charter: booking a Dragonfly, the passenger picks any tile on the full map. The
-  // server names the command to complete (e.g. `charter ac_dragonfly`); the tile id
-  // is appended.
-  flight_pick_dest: (msg) => {
-    if (msg.message) appendHtml(msg.message, 'system');
-    openMapPopup(msg.tiles || [], 'regional', false);
-    const cmd = msg.cmd || 'flyto';
-    armMapPick((zoneId) => sendCmdSilent(`${cmd} ${zoneId}`));
   },
 
   vault_crack: (msg) => {
