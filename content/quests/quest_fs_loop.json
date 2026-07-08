@@ -1,6 +1,8 @@
 {
+  "category": null,
   "description": "The full delivery loop: Threshold, Threshold East, Castoff Walk, and out to the Marquee — in that order or not at all. 20₵.",
   "id": "quest_fs_loop",
+  "meta": {},
   "name": "The Loop",
   "objectives": [
     {
@@ -37,6 +39,7 @@
       "zone": "zone_mq_marquee"
     }
   ],
+  "quest_type": "standard",
   "repeatable": 1,
   "rewards": {
     "credits": 20

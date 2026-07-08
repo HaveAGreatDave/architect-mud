@@ -1,6 +1,8 @@
 {
+  "category": null,
   "description": "Tar-pit horrors have been dragging scavengers off the only clean water in the flats. Ma Cinder wants them dealt with.",
   "id": "quest_bog_standard",
+  "meta": {},
   "name": "Bog Standard",
   "objectives": [
     {
@@ -11,6 +13,7 @@
       "type": "kill"
     }
   ],
+  "quest_type": "standard",
   "repeatable": 0,
   "rewards": {
     "credits": 130,

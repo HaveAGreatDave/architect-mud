@@ -1,0 +1,25 @@
+{
+  "category": null,
+  "description": "Legal charter/freight work.",
+  "id": "quest_flight_pharma",
+  "meta": {
+    "deadlineMins": 18,
+    "kind": "cargo",
+    "legal": true,
+    "names": [
+      "a refrigerated medcrate",
+      "temperature-locked antivirals",
+      "a chilled organ box"
+    ],
+    "payMult": 1.4,
+    "riskBase": 1,
+    "wMax": 160,
+    "wMin": 60
+  },
+  "name": "Cold-Chain Meds",
+  "objectives": [],
+  "quest_type": "flight_template",
+  "repeatable": 1,
+  "rewards": {},
+  "updated_at": "1783541702"
+}

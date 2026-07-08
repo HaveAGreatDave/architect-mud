@@ -1,0 +1,24 @@
+{
+  "category": null,
+  "description": "Legal charter/freight work.",
+  "id": "quest_flight_medevac",
+  "meta": {
+    "deadlineMins": 11,
+    "kind": "passenger",
+    "legal": true,
+    "names": [
+      "a wounded runner bleeding out",
+      "a crash survivor who needs a real clinic"
+    ],
+    "payMult": 1.7,
+    "riskBase": 1,
+    "wMax": 90,
+    "wMin": 90
+  },
+  "name": "Medevac (URGENT)",
+  "objectives": [],
+  "quest_type": "flight_template",
+  "repeatable": 1,
+  "rewards": {},
+  "updated_at": "1783541702"
+}

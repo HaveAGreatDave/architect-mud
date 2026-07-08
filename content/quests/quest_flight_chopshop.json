@@ -1,0 +1,25 @@
+{
+  "category": null,
+  "description": "Contraband — fly it dark.",
+  "id": "quest_flight_chopshop",
+  "meta": {
+    "deadlineMins": 20,
+    "kind": "cargo",
+    "legal": false,
+    "names": [
+      "stripped, still-warm cyberware",
+      "a VIN-scrubbed drive core",
+      "boxed black-market implants"
+    ],
+    "payMult": 2.1,
+    "riskBase": 2,
+    "wMax": 100,
+    "wMin": 40
+  },
+  "name": "Chop-Shop Parts",
+  "objectives": [],
+  "quest_type": "flight_template",
+  "repeatable": 1,
+  "rewards": {},
+  "updated_at": "1783541702"
+}

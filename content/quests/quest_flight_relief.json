@@ -1,0 +1,25 @@
+{
+  "category": null,
+  "description": "Legal charter/freight work.",
+  "id": "quest_flight_relief",
+  "meta": {
+    "deadlineMins": 30,
+    "kind": "cargo",
+    "legal": true,
+    "names": [
+      "crates of relief supplies",
+      "water and rations for the wastes",
+      "a mobile clinic in flatpack"
+    ],
+    "payMult": 1.5,
+    "riskBase": 2,
+    "wMax": 300,
+    "wMin": 120
+  },
+  "name": "Relief Run",
+  "objectives": [],
+  "quest_type": "flight_template",
+  "repeatable": 1,
+  "rewards": {},
+  "updated_at": "1783541702"
+}

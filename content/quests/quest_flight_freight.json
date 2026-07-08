@@ -1,0 +1,27 @@
+{
+  "category": null,
+  "description": "Legal charter/freight work.",
+  "id": "quest_flight_freight",
+  "meta": {
+    "deadlineMins": 30,
+    "kind": "cargo",
+    "legal": true,
+    "names": [
+      "a pallet of machine parts",
+      "crated electronics",
+      "a container of dry goods",
+      "a load of milled alloy",
+      "baled textiles"
+    ],
+    "payMult": 1,
+    "riskBase": 0,
+    "wMax": 260,
+    "wMin": 60
+  },
+  "name": "Freight",
+  "objectives": [],
+  "quest_type": "flight_template",
+  "repeatable": 1,
+  "rewards": {},
+  "updated_at": "1783541702"
+}

@@ -1,0 +1,25 @@
+{
+  "category": null,
+  "description": "Legal charter/freight work.",
+  "id": "quest_flight_charter",
+  "meta": {
+    "deadlineMins": 30,
+    "kind": "passenger",
+    "legal": true,
+    "names": [
+      "a corporate auditor",
+      "an off-duty ripperdoc",
+      "a family relocating out of the sprawl"
+    ],
+    "payMult": 1.1,
+    "riskBase": 0,
+    "wMax": 80,
+    "wMin": 80
+  },
+  "name": "Passenger Charter",
+  "objectives": [],
+  "quest_type": "flight_template",
+  "repeatable": 1,
+  "rewards": {},
+  "updated_at": "1783541702"
+}

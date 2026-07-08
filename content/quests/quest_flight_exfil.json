@@ -1,0 +1,24 @@
+{
+  "category": null,
+  "description": "Contraband — fly it dark.",
+  "id": "quest_flight_exfil",
+  "meta": {
+    "deadlineMins": 20,
+    "kind": "passenger",
+    "legal": false,
+    "names": [
+      "a fugitive who can't use the front door",
+      "a witness who needs to vanish tonight"
+    ],
+    "payMult": 2.7,
+    "riskBase": 4,
+    "wMax": 90,
+    "wMin": 90
+  },
+  "name": "Exfil (HOT)",
+  "objectives": [],
+  "quest_type": "flight_template",
+  "repeatable": 1,
+  "rewards": {},
+  "updated_at": "1783541702"
+}

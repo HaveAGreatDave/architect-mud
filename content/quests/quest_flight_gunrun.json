@@ -1,0 +1,25 @@
+{
+  "category": null,
+  "description": "Contraband — fly it dark.",
+  "id": "quest_flight_gunrun",
+  "meta": {
+    "deadlineMins": 24,
+    "kind": "cargo",
+    "legal": false,
+    "names": [
+      "a crate of hot iron",
+      "oiled rifles in a fish shipment",
+      "a pallet of \"agricultural parts\""
+    ],
+    "payMult": 2.3,
+    "riskBase": 3,
+    "wMax": 200,
+    "wMin": 80
+  },
+  "name": "Gun-Running",
+  "objectives": [],
+  "quest_type": "flight_template",
+  "repeatable": 1,
+  "rewards": {},
+  "updated_at": "1783541702"
+}

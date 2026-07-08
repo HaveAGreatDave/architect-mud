@@ -1,0 +1,25 @@
+{
+  "category": null,
+  "description": "Legal charter/freight work.",
+  "id": "quest_flight_survey",
+  "meta": {
+    "deadlineMins": 26,
+    "kind": "cargo",
+    "legal": true,
+    "names": [
+      "sensor pods for recovery",
+      "a survey drone package",
+      "seismic charges (permitted)"
+    ],
+    "payMult": 1.2,
+    "riskBase": 1,
+    "wMax": 80,
+    "wMin": 40
+  },
+  "name": "Survey Drop",
+  "objectives": [],
+  "quest_type": "flight_template",
+  "repeatable": 1,
+  "rewards": {},
+  "updated_at": "1783541702"
+}

@@ -1,6 +1,8 @@
 {
+  "category": null,
   "description": "Read the dead meters at the Threshold, then the dead meters up at Plaza North, and copy down numbers no one will ever check. 10₵.",
   "id": "quest_fs_meter",
+  "meta": {},
   "name": "Meter Reading",
   "objectives": [
     {
@@ -19,6 +21,7 @@
       "zone": "zone_city_north"
     }
   ],
+  "quest_type": "standard",
   "repeatable": 1,
   "rewards": {
     "credits": 10

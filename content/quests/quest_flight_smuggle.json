@@ -1,0 +1,25 @@
+{
+  "category": null,
+  "description": "Contraband — fly it dark.",
+  "id": "quest_flight_smuggle",
+  "meta": {
+    "deadlineMins": 24,
+    "kind": "cargo",
+    "legal": false,
+    "names": [
+      "an unmarked crate that ticks",
+      "sealed bricks of something illegal",
+      "a case nobody will describe"
+    ],
+    "payMult": 2.1,
+    "riskBase": 2,
+    "wMax": 120,
+    "wMin": 40
+  },
+  "name": "Smuggling",
+  "objectives": [],
+  "quest_type": "flight_template",
+  "repeatable": 1,
+  "rewards": {},
+  "updated_at": "1783541702"
+}

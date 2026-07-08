@@ -1,6 +1,8 @@
 {
+  "category": null,
   "description": "The rad mutants denning past the Meltline have started pushing east into Slake's patch, and a fringe outfitter with a shop full of people to protect can't have that. Two of them, dropped, buys her breathing room and buys you a fistful of RadAway.",
   "id": "quest_meltline",
+  "meta": {},
   "name": "Over the Meltline",
   "objectives": [
     {
@@ -11,6 +13,7 @@
       "type": "kill"
     }
   ],
+  "quest_type": "standard",
   "repeatable": 1,
   "rewards": {
     "credits": 180,

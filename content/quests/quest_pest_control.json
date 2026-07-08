@@ -1,6 +1,8 @@
 {
+  "category": null,
   "description": "The Scavengers out past the gate have been picking the facility clean. Thin them out.",
   "id": "quest_pest_control",
+  "meta": {},
   "name": "Pest Control",
   "objectives": [
     {
@@ -10,6 +12,7 @@
       "type": "kill"
     }
   ],
+  "quest_type": "standard",
   "repeatable": 0,
   "rewards": {
     "credits": 50,

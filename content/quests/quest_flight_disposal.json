@@ -1,0 +1,24 @@
+{
+  "category": null,
+  "description": "Contraband — fly it dark.",
+  "id": "quest_flight_disposal",
+  "meta": {
+    "deadlineMins": 30,
+    "kind": "cargo",
+    "legal": false,
+    "names": [
+      "a body that needs to disappear",
+      "a rolled tarp you were told not to open"
+    ],
+    "payMult": 2.4,
+    "riskBase": 3,
+    "wMax": 90,
+    "wMin": 90
+  },
+  "name": "Disposal",
+  "objectives": [],
+  "quest_type": "flight_template",
+  "repeatable": 1,
+  "rewards": {},
+  "updated_at": "1783541702"
+}

@@ -1,6 +1,8 @@
 {
+  "category": null,
   "description": "Carry a sealed parcel out through the Threshold and Threshold East to a drop on Castoff Walk. Don't shake it, don't open it, don't ask. 15₵.",
   "id": "quest_fs_parcel",
+  "meta": {},
   "name": "Parcel Run",
   "objectives": [
     {
@@ -28,6 +30,7 @@
       "zone": "zone_velk_exterior"
     }
   ],
+  "quest_type": "standard",
   "repeatable": 1,
   "rewards": {
     "credits": 15

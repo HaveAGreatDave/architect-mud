@@ -1,0 +1,24 @@
+{
+  "category": null,
+  "description": "Contraband — fly it dark.",
+  "id": "quest_flight_datamule",
+  "meta": {
+    "deadlineMins": 16,
+    "kind": "passenger",
+    "legal": false,
+    "names": [
+      "a courier wired with a case they can't open",
+      "a decker running from their last client"
+    ],
+    "payMult": 2.4,
+    "riskBase": 3,
+    "wMax": 85,
+    "wMin": 85
+  },
+  "name": "Data Mule",
+  "objectives": [],
+  "quest_type": "flight_template",
+  "repeatable": 1,
+  "rewards": {},
+  "updated_at": "1783541702"
+}

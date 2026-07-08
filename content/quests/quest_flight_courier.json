@@ -1,0 +1,25 @@
+{
+  "category": null,
+  "description": "Legal charter/freight work.",
+  "id": "quest_flight_courier",
+  "meta": {
+    "deadlineMins": 14,
+    "kind": "cargo",
+    "legal": true,
+    "names": [
+      "a bonded document pouch",
+      "a sealed courier case",
+      "a signature-only parcel"
+    ],
+    "payMult": 1.4,
+    "riskBase": 0,
+    "wMax": 55,
+    "wMin": 15
+  },
+  "name": "Priority Courier",
+  "objectives": [],
+  "quest_type": "flight_template",
+  "repeatable": 1,
+  "rewards": {},
+  "updated_at": "1783541702"
+}

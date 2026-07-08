@@ -1,6 +1,8 @@
 {
+  "category": null,
   "description": "Harbour lurkers have been taking dockhands and gnawing hulls in Coldwater Bay. The Harbourmaster wants them thinned out.",
   "id": "quest_wet_cargo",
+  "meta": {},
   "name": "The Wet Cargo",
   "objectives": [
     {
@@ -11,6 +13,7 @@
       "type": "kill"
     }
   ],
+  "quest_type": "standard",
   "repeatable": 0,
   "rewards": {
     "credits": 150,

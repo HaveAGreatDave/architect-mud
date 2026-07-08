@@ -7,7 +7,7 @@
   "hp_max": 300,
   "id": "door_5",
   "is_locked": 0,
-  "is_open": 1,
+  "is_open": 0,
   "lock_state": null,
   "name": null,
   "tags": {},
