@@ -220,10 +220,17 @@ const zones = getAllZones();
 // which is how this surfaced.
 const doorZones = new Set();
 for (const d of world.doors.values()) { if (d.zone_id) doorZones.add(d.zone_id); if (d.target_zone) doorZones.add(d.target_zone); }
+// Prologue zones (flags.prologue) gate their one exit behind a story flag
+// (plugins/prologue/index.js's prologueMoveGate) that this fake player never
+// has, so an unconditional "move succeeds when gates pass" fails there — same
+// content-drift class as the door/apartment exclusions above (a freshly
+// file-imported world orders DB rows differently than a grown one, and can
+// land find() on a zone with special move-gating instead of an ordinary one).
 const zone = zones.find(z =>
   z.exits && Object.keys(z.exits).length > 0 &&
   !doorZones.has(z.id) &&
   !getApartment(z.id) &&
+  !z.flags?.prologue &&
   !neighborZoneIds(z).some(n => doorZones.has(n)));
 if (!zone) { console.error('No door-free zone with exits found; aborting.'); process.exit(1); }
 
@@ -340,7 +347,11 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check('removeExit: empties the direction', !('north' in m));
 
   // Behavioural: a synthetic origin with two "north" exits to real interior zones.
-  const interiors = zones.filter(z => (z.flags?.is_interior || z.flags?.is_apartment) && z.name);
+  // Excludes prologue zones same as the fake player's home zone above — actually
+  // moving into one (this fixture drives a real cmdMove, not just an exits-map
+  // read) hits prologueMoveGate's story-flag block regardless of where the move
+  // originates from.
+  const interiors = zones.filter(z => (z.flags?.is_interior || z.flags?.is_apartment) && z.name && !z.flags?.prologue);
   const uniqByName = [...new Map(interiors.map(z => [z.name.toLowerCase(), z])).values()];
   if (uniqByName.length >= 2) {
     const [A, B] = uniqByName;

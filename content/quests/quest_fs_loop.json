@@ -7,12 +7,14 @@
   "objectives": [
     {
       "desc": "Threshold",
+      "emote": "{who} jogs through the Threshold, already regretting agreeing to this.",
       "id": "o0",
       "type": "visit",
       "zone": "zone_threshold"
     },
     {
       "desc": "Threshold East",
+      "emote": "{who} pushes on through Threshold East, counting the stops left out loud.",
       "id": "o1",
       "requires": [
         "o0"
@@ -22,6 +24,7 @@
     },
     {
       "desc": "Castoff Walk",
+      "emote": "{who} cuts across Castoff Walk without breaking stride.",
       "id": "o2",
       "requires": [
         "o1"
@@ -31,6 +34,7 @@
     },
     {
       "desc": "Out to the Marquee",
+      "emote": "{who} staggers out to the Marquee, done running errands for one day.",
       "id": "o3",
       "requires": [
         "o2"

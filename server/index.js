@@ -29,7 +29,7 @@ import { getNetXp, maxHpForEndurance } from "./engine/ip.js";
 import { dispatchAction } from "./engine/actions.js";
 // Side-effect imports: register the Flag store and graph-engine Actions
 // (SET_FLAG, CLEAR_FLAG, GRANT_ITEM, TELEPORT, EXECUTE_SCRIPT, …) at boot.
-import { evalConditions } from "./engine/flags.js";
+import { filterDialogueOptions, renderDialogueNode } from "./engine/dialogue.js";
 import "./engine/graph.js";
 import { loadRecipes } from "./engine/crafting.js";
 import { loadDrugs } from "./engine/drugs.js";
@@ -936,11 +936,7 @@ async function handleDialogue(ws, session, msg) {
 		const prevNode = (npc.dialogue_tree || {})[session.dialogueNode];
 		if (prevNode) {
 			// Re-filter previous node's options to match what the client saw.
-			const filteredOpts = [];
-			for (const opt of prevNode.options || []) {
-				if (!(await evalConditions(opt.conditions || opt.condition, player))) continue;
-				filteredOpts.push(opt);
-			}
+			const filteredOpts = await filterDialogueOptions(prevNode.options, npc.dialogue_tree, player);
 			const clickedOpt = filteredOpts[msg.optionIndex];
 			if (clickedOpt?.actions?.length) {
 				for (const a of clickedOpt.actions) {
@@ -967,8 +963,11 @@ async function handleDialogue(ws, session, msg) {
 		}
 	}
 
-	const node = (npc.dialogue_tree || {})[msg.choice];
-	if (!node) {
+	// Runs the node's Actions (Phase 4; `grants_item` legacy GRANT_ITEM shorthand
+	// included) and Condition/quest-completion-gates its options — see
+	// engine/dialogue.js (shared with Tablet OS's "Turn In" NPC hand-off).
+	const rendered = await renderDialogueNode(npc, msg.choice, player, { broadcast, npc });
+	if (!rendered) {
 		ws.send(
 			JSON.stringify({
 				type: "dialogue_end",
@@ -976,42 +975,6 @@ async function handleDialogue(ws, session, msg) {
 			}),
 		);
 		return;
-	}
-
-	// Run the node's Actions (Phase 4). Each is dispatched through the canonical
-	// Action path; `grants_item` is kept as a legacy shorthand for GRANT_ITEM.
-	const actions = [...(node.actions || [])];
-	if (node.grants_item?.item_id) {
-		actions.push({ action: "GRANT_ITEM", params: { item_id: node.grants_item.item_id, quantity: node.grants_item.quantity || 1 } });
-	}
-	if (player) {
-		for (const a of actions) {
-			if (!a?.action) continue;
-			const result = await dispatchAction({
-				type: a.action,
-				actor: player,
-				// Dialogue actions are authored FLAT ({action, quest_id, …}) by the VINE
-				// dialogue editor, so fall back to the action object itself as the params
-				// bag (AI/script graphs nest under .params — hence the `|| a`).
-				params: a.params || a,
-				context: { broadcast, npc },
-			});
-			if (result?.type === "grant" && result.granted) {
-				appendMessage += `\n\n<span class="item-grant">You receive: ${result.name}${result.quantity > 1 ? ` x${result.quantity}` : ""}.</span>`;
-			} else if (result?.type === "dialogue_line" && result.text) {
-				// e.g. GOSSIP_TELL: surface a live rumour as the NPC's spoken reply.
-				appendMessage += `\n\n${result.text}`;
-			} else if (result?.type === "error") {
-				console.warn(`[dialogue] action ${a.action} failed: ${result.message}`);
-			}
-		}
-	}
-
-	// Condition-gate options against the player's Flags.
-	const options = [];
-	for (const opt of node.options || []) {
-		if (player && !(await evalConditions(opt.conditions || opt.condition, player))) continue;
-		options.push(opt);
 	}
 
 	// Track the current node in session so option-level actions can be resolved
@@ -1024,8 +987,8 @@ async function handleDialogue(ws, session, msg) {
 			npcId: msg.npcId,
 			npcName: npc.name,
 			node: msg.choice,
-			text: node.text + appendMessage,
-			options,
+			text: appendMessage ? rendered.text + appendMessage : rendered.text,
+			options: rendered.options,
 		}),
 	);
 }

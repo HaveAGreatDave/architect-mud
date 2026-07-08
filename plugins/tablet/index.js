@@ -121,6 +121,12 @@ async function cmdTabletAction(args, raw, player, broadcast) {
   if (typeof app.handleAction === 'function') {
     try {
       const result = await app.handleAction(player, actionId, params, broadcast);
+      // An app can hand off to another client UI (e.g. quests-app.js routing
+      // "Turn In" into an NPC's dialogue) by returning { type: 'tablet_close' }
+      // instead of a screen payload — passed through as-is so the client closes
+      // the tablet shell rather than re-rendering it on top of whatever the app
+      // just opened.
+      if (result?.type === 'tablet_close') return result;
       if (result) return { type: 'tablet_panel', screen: 'app', appId: app.id, appName: app.name, ...result };
     } catch (e) {
       return { type: 'tablet_panel', screen: 'app', appId: app.id, appName: app.name, error: e.message || 'Action failed.' };

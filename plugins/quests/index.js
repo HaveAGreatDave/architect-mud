@@ -27,7 +27,7 @@
 import { query } from '../../server/models/db.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { on, emit } from '../../server/engine/events.js';
-import { sendToPlayer } from '../../server/engine/messaging.js';
+import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { findPath } from '../../server/engine/pathfinding.js';
@@ -103,6 +103,17 @@ function routeToObjective(actor, quest, progress) {
   });
 }
 
+// The bottom-pane "you're done, go here" line on quest completion — names the
+// turn-in NPC (and their zone) when findTurnInNpc resolves one (any dialogue-
+// authored TURN_IN, or a job-board posting's dispatcher), else the old generic
+// nudge for quests turned in some other way (flight contracts land themselves).
+async function turnInHint(questId) {
+  const npc = await findTurnInNpc(questId);
+  if (!npc) return 'Return to turn it in.';
+  const zone = npc.zone && getZone(npc.zone);
+  return `Bring it to ${npc.npcName}${zone ? ` at ${zone.name}` : ''} to turn it in.`;
+}
+
 function objectiveLine(obj, done, locked) {
   // 'deliver' (flight pilot contracts, plugins/flight/contracts.js) is never
   // auto-tracked here — see the trackEvent comment below for why.
@@ -113,12 +124,29 @@ function objectiveLine(obj, done, locked) {
   return `  [${have >= need ? 'X' : ' '}] ${label}${need > 1 ? ` (${have}/${need})` : ''}`;
 }
 
+function objectiveDesc(obj) {
+  return obj.desc || `${obj.type} ${obj.target || obj.item_id || obj.zone || ''}`.trim();
+}
+
+// A per-objective flavour line ("reads the meter", "hauls the load") authored on
+// the objective itself (`obj.emote`, `{who}` token → the player's handle) — shown
+// to the whole zone (including the actor, same as a typed `emote`) every time that
+// objective's counter ticks, not just when it finally completes. Purely cosmetic;
+// objectives with no `emote` authored fire nothing.
+function fireObjectiveEmote(actor, obj) {
+  if (!obj.emote) return;
+  sendToZone(actor.current_zone, { type: 'zone_event', message: obj.emote.replace(/\{who\}/g, actor.handle) });
+}
+
 // --- Objective tracking (event subscribers) --------------------------------
 //
 // trackEvent walks a player's active quests and bumps any objective the predicate
 // matches. When all objectives are met the quest flips to 'completed' (ready to
 // turn in). One UPDATE per affected quest; no-op when nothing matches.
-async function trackEvent(actor, predicate) {
+// Exported only so regress.js can await a deterministic tick instead of racing
+// the fire-and-forget event bus (emit() doesn't await subscribers) — never called
+// directly outside the on(...) subscribers below in production.
+export async function trackEvent(actor, predicate) {
   if (!actor?.id) return;
   const { rows } = await query(
     "SELECT * FROM player_quests WHERE player_id=$1 AND status='active'",
@@ -133,11 +161,17 @@ async function trackEvent(actor, predicate) {
 
     let changed = false;
     const before = progress.slice(); // judge gating against pre-tick state
+    const justFinished = []; // objectives whose count was reached this tick
     objectives.forEach((obj, i) => {
       const need = obj.count || 1;
       if ((progress[i] || 0) >= need) return;
       if (!requiresMet(objectives, obj, before)) return; // locked until prerequisites done
-      if (predicate(obj)) { progress[i] = (progress[i] || 0) + 1; changed = true; }
+      if (predicate(obj)) {
+        progress[i] = (progress[i] || 0) + 1;
+        changed = true;
+        fireObjectiveEmote(actor, obj);
+        if (progress[i] >= need) justFinished.push(obj);
+      }
     });
     if (!changed) continue;
 
@@ -150,10 +184,17 @@ async function trackEvent(actor, predicate) {
     emit('quest.advanced', { actor, quest_id: quest.id, progress });
     if (done) {
       await setQuestFlag(actor, quest.id, 'completed');
-      msg(actor.id, `<span class="msg-system">Quest complete: ${quest.name}. Return to turn it in.</span>`);
+      msg(actor.id, `<span class="msg-system">Quest complete: ${quest.name}. ${await turnInHint(quest.id)}</span>`);
       emit('quest.completed', { actor, quest_id: quest.id });
     } else {
-      msg(actor.id, `<span class="msg-system">Quest updated: ${quest.name}.</span>`);
+      // Names the objective(s) that just finished and reads out whatever's next,
+      // instead of a bare "quest updated" — the bottom-pane progress line the
+      // player actually wants mid-quest.
+      const next = objectives.find((obj, i) => (progress[i] || 0) < (obj.count || 1) && requiresMet(objectives, obj, progress));
+      const parts = [];
+      if (justFinished.length) parts.push(`Done: ${justFinished.map(objectiveDesc).join(', ')}.`);
+      parts.push(next ? `Next: ${objectiveDesc(next)}.` : `Quest updated: ${quest.name}.`);
+      msg(actor.id, `<span class="msg-system">${parts.join(' ')}</span>`);
       routeToObjective(actor, quest, progress);
     }
   }
@@ -334,6 +375,36 @@ registerAction({
     return { type: 'quest', quest_id, abandoned: true };
   },
 });
+
+// Reverse-scan: which NPC's dialogue actually turns this quest in? Mirrors the
+// devpanel VINE quest editor's "Offered by" reverse-link (client/devpanel/js/
+// vine/vine-schema-quest.js _questReferencedIn) but narrowed to TURN_IN
+// specifically (an NPC can offer a quest without being the one it's handed back
+// to) and used at runtime by Tablet OS to route/hand off the player instead of
+// just authoring-time discovery. A TURN_IN action can be authored either on a
+// dialogue option itself or on the node it leads to (see engine/dialogue.js's
+// turnInQuestId for why both are checked). Falls back to jobboard's own dispatcher
+// lookup (dynamic import — quests stays jobboard-agnostic, same cross-plugin
+// pattern jobboard uses to reach tablet) for postings with no dialogue-authored
+// TURN_IN of their own, so job-board jobs route/announce through their board's
+// dispatcher NPC (Marta at the Franchise Strip) exactly like any other quest.
+// Still returns null for quests with no NPC at all tied to them (flight
+// contracts) — callers fall back to the direct grant for those.
+export async function findTurnInNpc(questId) {
+  const { rows } = await query(
+    "SELECT id, name, home_zone, work_zone_id, dialogue_tree FROM npcs WHERE dialogue_tree::text LIKE '%TURN_IN%'"
+  );
+  for (const npc of rows) {
+    const tree = npc.dialogue_tree || {};
+    const hasTurnIn = (acts) => (acts || []).some((a) => a?.action === 'TURN_IN' && a.quest_id === questId);
+    const found = Object.values(tree).some((node) => hasTurnIn(node.actions) || (node.options || []).some((o) => hasTurnIn(o.actions)));
+    if (found) return { npcId: npc.id, npcName: npc.name, zone: npc.work_zone_id || npc.home_zone };
+  }
+  try {
+    const { turnInNpcForQuest } = await import('../jobboard/index.js');
+    return await turnInNpcForQuest(questId);
+  } catch { return null; }
+}
 
 // --- Player command: quest log ---------------------------------------------
 

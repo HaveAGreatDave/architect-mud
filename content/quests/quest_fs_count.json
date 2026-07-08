@@ -7,12 +7,14 @@
   "objectives": [
     {
       "desc": "Count stock at the Loading Bay",
+      "emote": "{who} taps each crate at the Loading Bay, counting under their breath, and loses track twice.",
       "id": "o0",
       "type": "visit",
       "zone": "zone_city_east"
     },
     {
       "desc": "Tally the Rust Quarter cache",
+      "emote": "{who} pokes through the Rust Quarter cache, tallying like their life depends on getting the same number twice.",
       "id": "o1",
       "requires": [
         "o0"

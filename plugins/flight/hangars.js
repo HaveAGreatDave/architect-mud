@@ -20,8 +20,24 @@ import { commands as broadcastCommands } from '../broadcast/index.js';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 
-// The aircraft the player is aboard, or their single parked craft here.
-async function targetCraft(player) {
+// The hangar-bay panel always knows exactly which craft is selected — its action
+// buttons put that craft's real id as the FIRST token of the command they send
+// (`repair <id>`, `modify <id> mixture 1`, …). Typed commands never do (a player
+// never types a UUID), so this is invisible outside the panel: pop it off the
+// front when present, leaving the rest of args exactly as a typed command would
+// have produced them.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function popCraftId(args) {
+  return UUID_RE.test(args[0] || '') ? { id: args[0], rest: args.slice(1) } : { id: undefined, rest: args };
+}
+
+// The aircraft the player is aboard, or (given an explicit id) that exact craft —
+// otherwise their single parked craft here.
+async function targetCraft(player, id) {
+  if (id) {
+    const { rows } = await query('SELECT id FROM aircraft WHERE id=$1 AND owner_id=$2 AND is_wreck=0', [id, player.id]);
+    return rows[0] ? { id: rows[0].id, live: liveAircraft.get(rows[0].id) || null } : null;
+  }
   if (player.aircraftId) { const l = liveAircraft.get(player.aircraftId); if (l) return { id: l.row.id, live: l }; }
   const { rows } = await query('SELECT id FROM aircraft WHERE parked_zone_id=$1 AND owner_id=$2 AND is_wreck=0 LIMIT 1', [player.current_zone, player.id]);
   return rows[0] ? { id: rows[0].id, live: liveAircraft.get(rows[0].id) || null } : null;
@@ -30,7 +46,13 @@ async function targetCraft(player) {
 // Customisation is OWNER-ONLY: the craft the player is aboard or parked here that
 // they actually own outright (not a charter rental). { notOwned:true } means
 // they're near/aboard something that isn't theirs to modify.
-async function ownedCraft(player) {
+async function ownedCraft(player, id) {
+  if (id) {
+    const { rows } = await query('SELECT id, owner_id, rental FROM aircraft WHERE id=$1 AND is_wreck=0', [id]);
+    const ac = rows[0];
+    if (!ac) return null;
+    return (ac.owner_id === player.id && !ac.rental) ? { id: ac.id, live: liveAircraft.get(ac.id) || null } : { notOwned: true };
+  }
   if (player.aircraftId) {
     const l = liveAircraft.get(player.aircraftId);
     if (l) return (l.row.owner_id === player.id && !l.row.rental) ? { id: l.row.id, live: l } : { notOwned: true };
@@ -173,9 +195,10 @@ async function cmdPaintset(args, raw, player) {
 // Saving stashes the craft's CURRENT paint; loading swaps to a saved look for FREE (you paid to
 // design it once) — so you can keep several liveries and change on a whim.
 async function cmdScheme(args, raw, player) {
-  const sub = (args[0] || '').toLowerCase();
-  const name = clean(args.slice(1).join(' ')).toLowerCase().slice(0, 16);
-  const owned = await ownedCraft(player);
+  const { id, rest: a } = popCraftId(args);
+  const sub = (a[0] || '').toLowerCase();
+  const name = clean(a.slice(1).join(' ')).toLowerCase().slice(0, 16);
+  const owned = await ownedCraft(player, id);
   if (owned?.notOwned) return { type: 'emote', message: 'You can only manage schemes on an aircraft you own.' };
   if (!owned) return { type: 'emote', message: 'No aircraft of your own here.' };
   if (owned.live?.row.airborne) return { type: 'emote', message: 'Land first.' };
@@ -310,8 +333,11 @@ async function cmdHangar(args, raw, player) {
 async function cmdRepair(args, raw, player) {
   // `repair` shadows the engine gear-repair builtin. Only claim it when there's an
   // aircraft to work on; otherwise return undefined so the builtin repairs gear.
-  const tgt = await targetCraft(player);
-  if (!tgt) return undefined;
+  // The panel names its craft explicitly (see popCraftId) — if it does, a miss is
+  // a real error, not a silent fall-through to gear repair.
+  const { id, rest: a } = popCraftId(args);
+  const tgt = await targetCraft(player, id);
+  if (!tgt) return id ? { type: 'emote', message: 'No such aircraft of yours to repair.' } : undefined;
   const field = fieldOf(player);
   if (!field) return { type: 'emote', message: 'Aircraft repairs happen at a field with tools.' };
   const { rows } = await query('SELECT a.damage, a.rental, t.name, t.hull_hp FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1', [tgt.id]);
@@ -328,7 +354,7 @@ async function cmdRepair(args, raw, player) {
 
   // You OWN her → you pay. Two ways: DIY (Fabrication-checked, cheaper, botchable) or pay the
   // hangar to do it right (dear, but a guaranteed full fix — no skill roll, no botch).
-  const pro = /^(pay|hangar|pro|full|shop)$/.test((args[0] || '').toLowerCase());
+  const pro = /^(pay|hangar|pro|full|shop)$/.test((a[0] || '').toLowerCase());
   if (pro) {
     const cost = Math.ceil(ac.damage * ac.hull_hp * 15);   // ~2.5× DIY — you pay for certainty
     if ((player.credits || 0) < cost) return { type: 'emote', message: `The hangar wants ${cost}c for a full shop repair — you're short. (Or <b>repair</b> her yourself for less.)` };
@@ -414,8 +440,8 @@ async function setCurve(player, tgt, param, valRaw) {
 }
 
 // Gate every customisation path: must own the craft, at a field, on the ground.
-async function requireOwned(player) {
-  const tgt = await ownedCraft(player);
+async function requireOwned(player, id) {
+  const tgt = await ownedCraft(player, id);
   if (tgt?.notOwned) return { err: { type: 'emote', message: 'You can only modify an aircraft you <b>own</b> — this one isn\'t yours.' } };
   if (!tgt) return { err: { type: 'emote', message: 'No aircraft of your own here to modify. Buy one at a dealer field.' } };
   if (tgt.live?.row.airborne) return { err: { type: 'emote', message: 'Land first — you can\'t work on her in the air.' } };
@@ -445,12 +471,13 @@ async function showSheet(player, tgt) {
 
 // Umbrella customisation verb — everything adjustable on a craft you own.
 async function cmdModify(args, raw, player) {
-  const { tgt, err } = await requireOwned(player); if (err) return err;
-  const sub = (args[0] || '').toLowerCase();
-  const rest = clean(raw.split(/\s+/).slice(2).join(' ')).slice(0, 40);
+  const { id, rest: a } = popCraftId(args);
+  const { tgt, err } = await requireOwned(player, id); if (err) return err;
+  const sub = (a[0] || '').toLowerCase();
+  const rest = clean(a.slice(1).join(' ')).slice(0, 40);
 
   if (!sub) return showSheet(player, tgt);
-  if (TUNE_PARAMS[sub]) return setCurve(player, tgt, sub, args[1]);
+  if (TUNE_PARAMS[sub]) return setCurve(player, tgt, sub, a[1]);
 
   if (sub === 'name' || sub === 'tail') {
     if (!rest) return { type: 'emote', message: 'Re-letter her to what? <b>modify name &lt;text&gt;</b>' };
@@ -469,12 +496,12 @@ async function cmdModify(args, raw, player) {
     return { type: 'output', message: rest ? `<span class="item-grant">Markings noted: ${rest}.</span>` : 'You scrub off the custom markings.' };
   }
   if (sub === 'save') {
-    const pname = clean(args[1] || 'default').toLowerCase().slice(0, 16);
+    const pname = clean(a[1] || 'default').toLowerCase().slice(0, 16);
     const cd = await loadCd(tgt); cd.profiles = { ...(cd.profiles || {}), [pname]: { ...(cd.tune || {}) } }; await saveCd(tgt, cd);
     return { type: 'output', message: `<span class="item-grant">Saved tune profile "${pname}".</span>` };
   }
   if (sub === 'load') {
-    const pname = clean(args[1] || 'default').toLowerCase().slice(0, 16);
+    const pname = clean(a[1] || 'default').toLowerCase().slice(0, 16);
     const cd = await loadCd(tgt); const p = cd.profiles?.[pname];
     if (!p) return { type: 'emote', message: `No saved profile "${pname}". Save one with <b>modify save &lt;name&gt;</b>.` };
     cd.tune = { ...p }; await saveCd(tgt, cd);
@@ -501,7 +528,14 @@ async function cmdTune(args, raw, player, broadcast) {
 // Works on a craft you own OR are renting, aboard or parked at this field. A configurable
 // hauler carries one fixed payload budget you split between seats (each SEAT_KG) and cargo,
 // so you can rig it for people or for freight. Reconfiguring is a ground/hangar job.
-async function loadoutTarget(player) {
+async function loadoutTarget(player, id) {
+  if (id) {
+    const { rows } = await query('SELECT * FROM aircraft WHERE id=$1 AND is_wreck=0 AND (owner_id=$2 OR rental=1)', [id, player.id]);
+    if (!rows.length) return null;
+    const { rows: t } = await query('SELECT * FROM aircraft_types WHERE id=$1', [rows[0].type_id]);
+    if (!t.length) return null;
+    return { id: rows[0].id, live: liveAircraft.get(rows[0].id) || null, row: rows[0], type: t[0] };
+  }
   if (player.aircraftId) { const l = liveAircraft.get(player.aircraftId); if (l) return { id: l.row.id, live: l, row: l.row, type: l.type }; }
   const field = fieldOf(player);
   if (!field) return null;
@@ -515,7 +549,8 @@ async function loadoutTarget(player) {
 }
 
 async function cmdLoadout(args, raw, player) {
-  const tgt = await loadoutTarget(player);
+  const { id, rest: a } = popCraftId(args);
+  const tgt = await loadoutTarget(player, id);
   if (!tgt) return { type: 'emote', message: 'No aircraft of yours here to re-rig. Board or park one at a field first.' };
   if ((tgt.live?.row || tgt.row)?.airborne) return { type: 'emote', message: 'Weight & balance is a ground job — land and shut down first.' };
   if (!fieldOf(player)) return { type: 'emote', message: "Re-rigging the cabin needs a hangar's tools — do it at a field." };
@@ -524,7 +559,7 @@ async function cmdLoadout(args, raw, player) {
   const budget = loadoutBudget(tgt.type), maxSeats = Math.max(1, Math.floor(budget / SEAT_KG));
   const cur = effLoadout(tgt.row, tgt.type);
   const loaded = tgt.row.custom_data?.cargoWeight || 0;
-  const sub = (args[0] || '').toLowerCase();
+  const sub = (a[0] || '').toLowerCase();
 
   const line = (lbl, seats) => {
     const cargo = Math.max(0, budget - seats * SEAT_KG), on = seats === cur.seats;

@@ -7,12 +7,14 @@
   "objectives": [
     {
       "desc": "Through the Threshold",
+      "emote": "{who} shoulders the parcel through the Threshold, very carefully not looking inside it.",
       "id": "o0",
       "type": "visit",
       "zone": "zone_threshold"
     },
     {
       "desc": "Through Threshold East",
+      "emote": "{who} keeps the parcel moving through Threshold East, doing their best to ignore the funny smell coming from it.",
       "id": "o1",
       "requires": [
         "o0"
@@ -22,6 +24,7 @@
     },
     {
       "desc": "Drop the parcel on Castoff Walk",
+      "emote": "{who} sets the parcel down on Castoff Walk and steps back fast, like it might go off.",
       "id": "o2",
       "requires": [
         "o1"

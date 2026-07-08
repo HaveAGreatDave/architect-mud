@@ -707,6 +707,17 @@ export async function routeHandler(path, method, body, auth) {
     return { status: 200, body: { ok: true } };
   }
 
+  const buyInMatch = path.match(/^\/gametable\/tables\/([^/]+)\/buyin$/);
+  if (buyInMatch && method === 'POST') {
+    if (!auth || auth.role !== 'admin') return { status: 403, body: { error: 'Admin access required' } };
+    const t = activeTables.get(buyInMatch[1]);
+    if (!t) return { status: 404, body: { error: 'Table not found' } };
+    const buyIn = parseInt(body?.buyIn, 10);
+    if (!Number.isFinite(buyIn) || buyIn <= 0) return { status: 400, body: { error: 'Invalid buy-in' } };
+    await t.setConfig({ buyIn });
+    return { status: 200, body: { ok: true } };
+  }
+
   return null;
 }
 
