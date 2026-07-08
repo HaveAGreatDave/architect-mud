@@ -17,6 +17,7 @@
     "building_type": null,
     "hangar_interior": true,
     "hangar_ramp": "zone_outskirts",
+    "intro_lore": "Coldwater Regional keeps its runway going for the same stubborn reason the whole city does anything: because stopping is worse. The tool racks, the ops desk, the coffee nobody remembers brewing — all of it holds the shape of a working airfield long after the airline it served stopped existing. Somebody still tops off the avgas. Nobody's asked who pays for it.",
     "is_apartment": false,
     "is_building": true,
     "is_interior": true,

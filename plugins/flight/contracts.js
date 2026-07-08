@@ -8,6 +8,9 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getZone, liveAircraft, out, effStats, persist, fieldFor as fieldOf, isContinuous, pushContext, effLoadout } from './state.js';
+import { findPath } from '../../server/engine/pathfinding.js';
+import { registerAction } from '../../server/engine/actions.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
@@ -172,6 +175,190 @@ export async function checkContractDelivery(player, live, fieldZoneId) {
   }
 }
 
+// ── Home cargo drops — a standing crate at an airport, offered on embark ──────
+// Unlike the job board (random churn, fixed authored destinations), a drop sits
+// waiting at one origin field until someone loads it. The destination isn't
+// authored — it's the airfield nearest the LOADING PLAYER's own home, found by
+// walking the zone-exit graph (interiors have no map_world grid position, so a
+// straight-line distance can't reach them; hop-count via the same pathfinder
+// `pinch.js` uses to walk NPCs/players home does).
+async function airfieldZones() {
+  const { rows } = await query("SELECT id FROM zones WHERE map_id='map_world' AND flags ? 'airfield_id'");
+  return rows.map(r => r.id);
+}
+async function nearestAirfieldToHome(homeZoneId) {
+  const fields = await airfieldZones();
+  let best = null, bestHops = Infinity;
+  for (const zoneId of fields) {
+    const path = findPath(homeZoneId, zoneId, { maxDistance: 80 });
+    if (path && path.length - 1 < bestHops) { bestHops = path.length - 1; best = zoneId; }
+  }
+  return best;
+}
+
+// The waiting drop(s) at a zone the boarding player can see — public 'standard'
+// jobs plus their own personal 'fence' pallets (never someone else's).
+async function waitingDropsAt(zoneId, playerId) {
+  const { rows } = await query(
+    "SELECT * FROM cargo_drops WHERE origin_zone=$1 AND status='waiting' AND (kind='standard' OR owner_id=$2) ORDER BY kind ASC",
+    [zoneId, playerId || null]);
+  return rows;
+}
+// What the embark hint checks for — just needs to know if there's anything at all.
+export async function waitingDropAt(zoneId, playerId) {
+  const rows = await waitingDropsAt(zoneId, playerId);
+  return rows[0] || null;
+}
+
+// ── Fence-unlocked raw-drug air pallets ────────────────────────────────────────
+// A step beyond the ground MULE-crate raw run (smuggle plugin's checkpoint dodge):
+// once the fence trusts you enough to open this branch of his dialogue
+// (UNLOCK_AIR_CARGO sets AIR_UNLOCK_FLAG), a standing pool of sealed pallets waits
+// at the Scald — no MULE roll, no checkpoint, because it never touches the ground
+// in the city at all; you fly it straight home. Too heavy to hand-carry: it only
+// ever exists as a cargo_drops row (no ground item), loaded the same `loadcargo`
+// way as an honest freight job. Every pallet weighs exactly SLOT_KG, so an
+// aircraft's hold naturally caps you at floor(cargoCap / SLOT_KG) of them —
+// "one per cargo slot" falls straight out of the existing weight math.
+const FENCE_ORIGIN = 'zone_waste_scald';     // the Scald — same lawless drop the smuggle plugin uses
+const SLOT_KG = 100;
+const AIR_UNLOCK_FLAG = 'air_cargo_unlocked';
+const MAX_FENCE_WAITING = 6;                 // the standing pool size, topped up as pallets get flown out
+const TIER_BUCKETS = { low: [1, 2], mid: [3, 3], high: [4, 5] };
+
+const randInt = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
+
+async function rawsByTier() {
+  const { rows } = await query(
+    `SELECT id, name, COALESCE((flags->>'cook_tier')::int, 1) tier FROM items WHERE jsonb_exists(tags, 'raw_drug')`);
+  const bucket = ([lo, hi]) => rows.filter(r => r.tier >= lo && r.tier <= hi);
+  return { low: bucket(TIER_BUCKETS.low), mid: bucket(TIER_BUCKETS.mid), high: bucket(TIER_BUCKETS.high) };
+}
+
+// A pallet is mostly low-tier bulk, a handful of mid-tier, and a rare shot of
+// something high-tier — never all one grade, never mostly the rare stuff.
+async function rollFenceManifest() {
+  const { low, mid, high } = await rawsByTier();
+  const manifest = [];
+  for (let i = 0; i < randInt(3, 5) && low.length; i++) {
+    const it = pick(low); manifest.push({ itemId: it.id, name: it.name, qty: randInt(4, 10), tier: it.tier });
+  }
+  for (let i = 0; i < randInt(1, 2) && mid.length; i++) {
+    const it = pick(mid); manifest.push({ itemId: it.id, name: it.name, qty: randInt(2, 5), tier: it.tier });
+  }
+  if (high.length && Math.random() < 0.3) {
+    const it = pick(high); manifest.push({ itemId: it.id, name: it.name, qty: randInt(1, 2), tier: it.tier });
+  }
+  return manifest;
+}
+
+export async function isAirCargoUnlocked(player) {
+  const v = await getFlag('player', AIR_UNLOCK_FLAG, player);
+  return v === '1' || v === 1 || v === true;
+}
+
+// Tops the unlocked player's standing pool back up to MAX_FENCE_WAITING — a cheap
+// no-op for anyone who hasn't unlocked it. Called on every embark (see index.js
+// boardFound) so the pool is always current by the time `loadcargo` looks for it.
+export async function ensureFenceDrops(player) {
+  if (!player?.id || !(await isAirCargoUnlocked(player))) return;
+  const { rows } = await query("SELECT COUNT(*)::int n FROM cargo_drops WHERE owner_id=$1 AND kind='fence' AND status='waiting'", [player.id]);
+  for (let i = rows[0]?.n || 0; i < MAX_FENCE_WAITING; i++) {
+    const manifest = await rollFenceManifest();
+    if (!manifest.length) break;
+    await query(
+      `INSERT INTO cargo_drops (id, label, weight_kg, reward, origin_zone, status, kind, contents, owner_id, created_at)
+       VALUES ($1,$2,$3,0,$4,'waiting','fence',$5::jsonb,$6,$7)`,
+      [`cargo_fence_${randomUUID().slice(0, 8)}`, 'A sealed pallet (unmarked)', SLOT_KG, FENCE_ORIGIN, JSON.stringify(manifest), player.id, nowSec()]);
+  }
+}
+
+// The fence's unlock — fired from Sully's dialogue (bm_menu → "bigger hauls",
+// gated behind bm_trust like his top drug tier; see scripts/add-fence-air-unlock.js
+// for the node itself). One-time; a repeat visit routes to a "already sorted" node.
+registerAction({
+  type: 'UNLOCK_AIR_CARGO',
+  handler: async ({ actor }) => {
+    if (await isAirCargoUnlocked(actor)) return { type: 'goto_node', node: 'bm_air_already' };
+    await setFlag('player', AIR_UNLOCK_FLAG, '1', actor);
+    return { type: 'ok' };
+  },
+});
+
+// Loads EVERY waiting drop that fits the hold, one at a time (heaviest constraint
+// first isn't needed — a fence pallet is a flat SLOT_KG, so it's just "as many as
+// fit"), rather than a single job per call — a big enough hauler clears the whole
+// pool in one visit.
+async function cmdLoadCargo(args, raw, player) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live) return { type: 'emote', message: "You're not aboard an aircraft." };
+  if (player.seat !== 'pilot') return { type: 'emote', message: "Only the pilot can take on cargo." };
+  if (live.row.airborne) return { type: 'emote', message: "Land first — you can't load cargo in the air." };
+  await ensureFenceDrops(player);
+  const waiting = await waitingDropsAt(live.row.parked_zone_id, player.id);
+  if (!waiting.length) return { type: 'emote', message: 'No cargo waiting here.' };
+  if (!player.home_zone) return { type: 'emote', message: "You've nowhere to haul it to — you don't have a home set. Rent an apartment first." };
+
+  const { rows: tRows } = await query('SELECT seats, max_takeoff_weight, cargo_capacity FROM aircraft_types WHERE id=$1', [live.type.id]);
+  const holdCap = tRows[0] ? effLoadout(live.row, tRows[0]).cargoCap : 0;
+  let already = live.row.custom_data?.cargoWeight || 0;
+  const dest = await nearestAirfieldToHome(player.home_zone);
+  if (!dest) return { type: 'emote', message: "Can't find a route from your home to any airfield — the delivery falls through." };
+
+  const loaded = [];
+  for (const drop of waiting) {
+    if (drop.weight_kg > holdCap - already) continue;
+    already += drop.weight_kg;
+    loaded.push(drop);
+  }
+  if (!loaded.length) return { type: 'emote', message: `Nothing here fits your hold (${holdCap - already}kg free).` };
+
+  const cd = live.row.custom_data || {};
+  cd.cargoWeight = already;
+  await query('UPDATE aircraft SET custom_data=$1 WHERE id=$2', [JSON.stringify(cd), live.row.id]);
+  live.row.custom_data = cd;
+  for (const drop of loaded) {
+    await query("UPDATE cargo_drops SET status='loaded', owner_id=$1, aircraft_id=$2, dest_zone=$3 WHERE id=$4", [player.id, live.row.id, dest, drop.id]);
+  }
+  if (isContinuous(live)) pushContext(live);
+
+  const destName = getZone(dest)?.flags?.airfield_name || getZone(dest)?.name || dest;
+  const weight = loaded.reduce((s, d) => s + d.weight_kg, 0);
+  return { type: 'output', message: `<span class="item-grant">${loaded.map(d => d.label).join(', ')} loaded (${weight}kg, ${loaded.length} load${loaded.length > 1 ? 's' : ''}). Fly it to <b>${destName}</b> — the last leg home is on the courier once it's on the ground there.</span>` };
+}
+
+// Called from index.cmdLandResolve on a successful landing, alongside checkContractDelivery.
+export async function checkCargoDropDelivery(player, live, fieldZoneId) {
+  const { rows } = await query(
+    "SELECT * FROM cargo_drops WHERE aircraft_id=$1 AND owner_id=$2 AND status='loaded' AND dest_zone=$3",
+    [live.row.id, player.id, fieldZoneId]);
+  for (const d of rows) {
+    await query("UPDATE cargo_drops SET status='delivered' WHERE id=$1", [d.id]);
+    const cd = live.row.custom_data || {};
+    cd.cargoWeight = Math.max(0, (cd.cargoWeight || 0) - d.weight_kg);
+    live.row.custom_data = cd;
+    await persist(live);
+
+    if (d.kind === 'fence') {
+      const manifest = d.contents || [];
+      for (const m of manifest) {
+        const ex = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1', [player.id, m.itemId]);
+        if (ex.rows.length) await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [m.qty, ex.rows[0].id]);
+        else await query('INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ($1,$2,$3,$4)', [randomUUID(), player.id, m.itemId, m.qty]);
+      }
+      const trustGain = Math.max(1, Math.round(manifest.reduce((s, m) => s + (m.tier || 1) * m.qty, 0) / 6));
+      const next = (Number(await getFlag('player', 'bm_trust', player)) || 0) + trustGain;
+      await setFlag('player', 'bm_trust', String(next), player);
+      const list = manifest.map(m => `${m.qty}× ${m.name}`).join(', ');
+      out(player.id, `<span class="item-grant">The pallet's waiting when you touch down — ${list}, quietly moved into your kit. <span class="text-dim">The fence hears about a clean run this size. (standing +${trustGain} → ${next})</span></span>`);
+    } else {
+      player.credits = (player.credits || 0) + d.reward;
+      await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+      out(player.id, `<span class="item-grant">${d.label} handed off to a courier here — it'll be waiting at home. Paid <b>${d.reward}c</b>.</span>`);
+    }
+  }
+}
+
 // ── jettison — blow the cargo doors and dump the hold (fails the active job) ───
 // Bound to the cockpit's J key. Useful to shed weight (climb/handle better) or ditch
 // contraband before a checkpoint — at the cost of the contract and its payout.
@@ -189,6 +376,9 @@ async function cmdJettison(args, raw, player) {
   const names = rows.map(c => c.cargo_name);
   const contraband = rows.some(c => c.contraband);
   for (const c of rows) await query("UPDATE flight_contracts SET status='failed' WHERE id=$1", [c.id]);
+  // A home drop dumped overboard doesn't quietly keep counting toward a payout.
+  const { rows: drops } = await query("SELECT id, label FROM cargo_drops WHERE aircraft_id=$1 AND owner_id=$2 AND status='loaded'", [live.row.id, player.id]);
+  for (const d of drops) { names.push(d.label); await query("UPDATE cargo_drops SET status='lost' WHERE id=$1", [d.id]); }
 
   cd.cargoWeight = 0; delete cd.contractId;
   live.row.custom_data = cd;
@@ -209,4 +399,5 @@ export const commands = {
   accept: cmdAccept,
   manifest: cmdManifest,
   jettison: cmdJettison,
+  loadcargo: cmdLoadCargo,
 };

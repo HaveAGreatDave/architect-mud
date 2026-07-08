@@ -13,8 +13,8 @@
 
 import { setAreaPane } from '../render.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
-import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn } from './engine-audio.js';
-import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingHeightZ } from './windshield.js';
+import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn, tracerFx, hitFx } from './engine-audio.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingHeightZ, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
@@ -100,6 +100,53 @@ let _lastPushT = 0;
 // the brief window where the server's payload has already moved on.
 let _lastGround = null, _lastMap = null, _lastBiome = null;
 
+// Passenger cabin choreography (bank/pitch/height ramp on climb-out and descent).
+// Vertical-motion tuning: CLIMB_SEC governs how long the climb/descent portion of
+// that choreography runs — bumped a couple of times per later requests to let the
+// nose-up/nose-down segment breathe instead of rushing past in a few seconds.
+const GROUND_LEAD = 3.5, CLIMB_SEC = 9, BANK_ANGLE = 25, CLIMB_PITCH = 6, CRUISE_HEIGHT = 0.35;
+
+// Passenger cabin look direction — Q/E hold-to-look forward (into the cockpit, past
+// the charter pilot at the yoke) / rear, mirroring the pilot's own Q/E/S scheme.
+// Release either key and the view drops back to the default side window.
+let _paxView = 'side';       // 'side' | 'forward' | 'rear'
+let _paxKeyHandlers = null;  // [onKeyDown, onKeyUp] once bound, so we can unbind cleanly
+
+function updatePaxViewTag() {
+  const tag = document.getElementById('ck-pax-viewtag'); if (!tag) return;
+  const cockpit = document.getElementById('ck-pax-cockpit');
+  if (cockpit) cockpit.classList.toggle('show', _paxView === 'forward');
+  const LABEL = { forward: '▲ COCKPIT VIEW', rear: '▼ REAR VIEW' };
+  tag.textContent = LABEL[_paxView] || '';
+  tag.classList.toggle('show', _paxView !== 'side');
+}
+function bindPaxKeys() {
+  if (_paxKeyHandlers) return;
+  const onKeyDown = (e) => {
+    const tg = (e.target && e.target.tagName) || '';
+    if (tg === 'INPUT' || tg === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+    const k = (e.key || '').toLowerCase();
+    if (k !== 'q' && k !== 'e') return;
+    e.preventDefault();
+    _paxView = k === 'q' ? 'forward' : 'rear';
+    updatePaxViewTag();
+  };
+  const onKeyUp = (e) => {
+    const k = (e.key || '').toLowerCase();
+    if (k === 'q' || k === 'e') { _paxView = 'side'; updatePaxViewTag(); }
+  };
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
+  _paxKeyHandlers = [onKeyDown, onKeyUp];
+}
+function unbindPaxKeys() {
+  if (!_paxKeyHandlers) return;
+  const [onKeyDown, onKeyUp] = _paxKeyHandlers;
+  window.removeEventListener('keydown', onKeyDown);
+  window.removeEventListener('keyup', onKeyUp);
+  _paxKeyHandlers = null; _paxView = 'side';
+}
+
 export function updateCockpit(state) {
   if (isFlightSimActive()) return;   // the continuous cockpit owns the pane — don't mount the glass HUD over it
   ensureHudStyles();
@@ -140,6 +187,7 @@ export function closeCockpit() {
   if (_raf) cancelAnimationFrame(_raf); _raf = 0;
   _anim = null; _prev = null; _sig = ''; _moveFrom = null; _lastPushT = 0;
   _lastGround = null; _lastMap = null; _lastBiome = null;
+  unbindPaxKeys();
   stopEngineAudio();
 }
 
@@ -171,35 +219,44 @@ function hudFrame(t) {
   //   window shows the horizon tilt over just as clearly as the pilot's forward
   //   view does, banked toward the direction of travel. The climb and the
   //   descent bank opposite ways ("reverse on the other side").
-  const GROUND_LEAD = 3.5, CLIMB_SEC = 5, BANK_ANGLE = 25, CLIMB_PITCH = 10;
+  // CRUISE_HEIGHT caps how "high" the scene ever reads as. The Mode-7 camera adds
+  // eye-height as height*climbLift (climbLift=7 — a steep multiplier tuned for
+  // real high-altitude flight), so ramping height all the way to 1 made the climb
+  // read as shooting straight up. A shallow cruise height keeps the eye-height
+  // rise modest, so it's forward motion + bank that sell the climb, not a
+  // near-vertical camera lift.
+  const vtol = !!s.vtol;   // helicopters lift straight up to altitude, THEN go forward — no bank/dive climb-out
   if (a._wasAirborne == null) a._wasAirborne = !!s.airborne;
   if (!a._wasAirborne && s.airborne) { a._liftT = t; a._landT = null; }
   if (a._wasAirborne && !s.airborne) { a._landT = t; a._liftT = null; }
   a._wasAirborne = !!s.airborne;
 
-  let targetBank = 0, targetPitch = 0, targetHeight = a.height ?? (s.airborne ? 1 : 0);
+  let targetBank = 0, targetPitch = 0, targetHeight = a.height ?? (s.airborne ? CRUISE_HEIGHT : 0);
   if (a._liftT != null) {
     const el = (t - a._liftT) / 1000;
     if (el < GROUND_LEAD) { targetHeight = 0; }
     else if (el < GROUND_LEAD + CLIMB_SEC) {
-      targetBank = BANK_ANGLE; targetPitch = CLIMB_PITCH;
-      targetHeight = clampNum((el - GROUND_LEAD) / CLIMB_SEC, 0, 1);
-    } else { targetHeight = 1; a._liftT = null; }   // sequence done — level cruise
+      if (!vtol) { targetBank = BANK_ANGLE; targetPitch = CLIMB_PITCH; }
+      targetHeight = clampNum((el - GROUND_LEAD) / CLIMB_SEC, 0, 1) * CRUISE_HEIGHT;
+    } else { targetHeight = CRUISE_HEIGHT; a._liftT = null; }   // sequence done — level cruise
   } else if (a._landT != null) {
     const el = (t - a._landT) / 1000;
-    if (el < CLIMB_SEC) { targetBank = -BANK_ANGLE; targetPitch = -CLIMB_PITCH; targetHeight = clampNum(1 - el / CLIMB_SEC, 0, 1); }
+    if (el < CLIMB_SEC) {
+      if (!vtol) { targetBank = -BANK_ANGLE; targetPitch = -CLIMB_PITCH; }
+      targetHeight = clampNum(1 - el / CLIMB_SEC, 0, 1) * CRUISE_HEIGHT;
+    }
     else if (el < CLIMB_SEC + GROUND_LEAD) { targetHeight = 0; }
     else { targetHeight = 0; a._landT = null; }     // sequence done — settled on the deck
   } else {
-    targetHeight = s.airborne ? 1 : 0;   // steady state, no sequence running
+    targetHeight = s.airborne ? CRUISE_HEIGHT : 0;   // steady state, no sequence running
   }
   // Turning bank still applies OUTSIDE a scripted sequence (ordinary cruise turns).
   if (a._liftT == null && a._landT == null) targetBank = clampNum(hd * 0.5, -22, 22);
-  // Bank/pitch ease in (a real bank isn't instant) then HOLD — slower than the
-  // instrument needles above ("slow down the pace") so rolling into the climb
-  // bank takes the better part of a second rather than snapping.
-  a.roll += (targetBank - a.roll) * Math.min(1, dt * 2.2);
-  a.pitch += (targetPitch - a.pitch) * Math.min(1, dt * 2.2);
+  // Bank/pitch ease in GRADUALLY (a real bank takes a couple of seconds to roll
+  // into, not half a second) then hold — this is the slow, deliberate roll-in
+  // the passenger actually sees, rather than a quick snap to 25°.
+  a.roll += (targetBank - a.roll) * Math.min(1, dt * 0.8);
+  a.pitch += (targetPitch - a.pitch) * Math.min(1, dt * 0.8);
   // Height is NOT eased — `targetHeight` above is already the exact scripted ramp
   // (flat / linear climb / flat), so assigning it directly is what keeps the
   // profile's corners sharp ( ___/‾‾‾\___ ) instead of rounding them off.
@@ -240,31 +297,55 @@ function hudFrame(t) {
 }
 
 // The out-the-front-window view — driven from the same eased HUD state. The
-// passenger looks out the SIDE through a window shaped to their aircraft.
+// passenger looks out the SIDE by default, or holds Q/E to look forward (into
+// the cockpit, past the charter pilot) / rear.
 function paintWindow(id, a, s) {
   if (!document.getElementById(id)) return;
   const speedFrac = clampNum((a.spd || 0) / 200, 0, 1);
   const pax = s.seat === 'passenger';
+  const paxView = pax ? _paxView : 'side';
   const onGround = (a._scenePhase || (s.airborne ? 'cruise' : 'ground')) === 'ground';
+  // Continuous ground↔air crossfade weight, straight off the same eased `a.height` the
+  // scene-phase hysteresis above already tracks — so the airport scenery and the Mode-7
+  // world actually blend across the climb-out/flare instead of swapping in one frame the
+  // instant `_scenePhase` flips.
+  const worldBlend = clampNum(((a.height ?? 0) - 0.02) / 0.08, 0, 1);
   // Fractional world offset from the eased position above vs. the map window's
   // (integer) centre — slides the Mode-7 camera smoothly between pushes instead
   // of snapping a tile at a time.
-  const mapOffset = !onGround && a.fx != null ? { x: a.fx - (s.x ?? a.fx), y: a.fy - (s.y ?? a.fy) } : undefined;
+  const mapOffset = worldBlend > 0 && a.fx != null ? { x: a.fx - (s.x ?? a.fx), y: a.fy - (s.y ?? a.fy) } : undefined;
   paintWindshield(id, {
     pitch: a.pitch, bank: a.roll, height: a.height ?? 0, speed: speedFrac,
     hour: s.sky?.hour, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
-    // During the brief lag between the server's airborne flip and the eased scene
-    // swap, the payload for the OTHER scene has already gone null — fall back to
-    // the last real values so the lingering view still has something to draw.
-    map: onGround ? null : (s.map || _lastMap),
+    // Both scenes' data are passed unconditionally (falling back to the last real values
+    // once the server's own payload has moved on) — `worldBlend` above decides how much
+    // of each windshield.js actually paints, not which one is available.
+    map: s.map || _lastMap,
     phase: onGround ? 'ground' : 'cruise',
-    airport: onGround ? (s.ground?.theme || _lastGround?.theme) : undefined,
-    biomeBelow: onGround ? undefined : (s.biomeBelow ?? _lastBiome),
+    worldBlend,
+    airport: s.ground?.theme || _lastGround?.theme,
+    biomeBelow: s.biomeBelow ?? _lastBiome,
     roll: a.rwyRoll || 0,   // ground-roll distance — how far down the strip you've travelled
-    side: pax, windowClass: pax ? (s.class || 'prop') : undefined,
+    side: paxView === 'side', viewYaw: paxView === 'rear' ? 180 : 0,
+    windowClass: pax ? (s.class || 'prop') : undefined,
     livery: pax ? s.livery : undefined,   // hull skin punched by the window = the craft's own paint
     mapOffset,
   });
+  if (pax) paintPaxControls(a);
+}
+
+// Forward view (Q, held): the charter pilot's own yoke + throttle, worked by the
+// same choreography that banks/pitches the cabin — so the passenger watches the
+// controls move on their own, flown by nobody they can see. Reuses the pilot
+// cockpit's yoke art; harmless to share DOM ids with the real flight-sim cockpit
+// since the two panels are never mounted at the same time.
+function paintPaxControls(a) {
+  const yk = document.getElementById('fsim-yoke-svg');
+  const aileronEq = clampNum((a.roll || 0) / BANK_ANGLE, -1, 1);
+  const elevatorEq = clampNum((a.pitch || 0) / CLIMB_PITCH, -1, 1);
+  if (yk) yk.style.transform = `translateX(${aileronEq * 7}px) translateY(${elevatorEq * 18}px) rotateX(${-elevatorEq * 34}deg) rotateZ(${aileronEq * 30}deg)`;
+  const lever = document.getElementById('ck-pax-thr-lever');
+  if (lever) lever.style.bottom = (10 + clampNum((a.thr || 0) / 100, 0, 1) * 70) + '%';
 }
 
 const $ = (id) => document.getElementById(id);
@@ -477,7 +558,14 @@ function mountPassenger(s) {
       <span class="ck-t-class" id="ck-class"></span><span class="ck-cabin" id="ck-cabin" title="cabin"></span>
       <span class="ck-phase" id="ck-phase">Enjoy the flight.</span>
     </div>
-    <div class="ck-pax-window">${windshieldHTML('ck-ws', 'CABIN WINDOW')}</div>
+    <div class="ck-pax-window">${windshieldHTML('ck-ws', 'CABIN WINDOW')}
+      <div class="ck-pax-viewtag" id="ck-pax-viewtag"></div>
+      <div class="ck-pax-cockpit" id="ck-pax-cockpit">
+        <div class="ck-pax-yoke">${YOKE_SVG}</div>
+        <div class="ck-pax-thr"><div class="ck-pax-thr-track"></div><div class="ck-pax-thr-lever" id="ck-pax-thr-lever"></div></div>
+        <span class="ck-pax-yoke-lbl">${esc((s.tail || s.craft || 'THE PILOT').toUpperCase())} FLIES HANDS-ON</span>
+      </div>
+    </div>
     <div class="ck-pax-strip">
       <span>◈ <b id="ck-pax-dest">—</b></span>
       <span>ALT <b id="ck-pax-alt">GND</b></span>
@@ -485,8 +573,10 @@ function mountPassenger(s) {
       <span>HDG <b id="ck-pax-hdg">000°</b></span>
     </div>
     <div class="ck-warn" id="ck-warn" style="display:none"></div>
+    <div class="ck-pax-hint">Hold <b>Q</b> for the cockpit view · <b>E</b> for rear</div>
   </div>`;
   setAreaPane(html);
+  bindPaxKeys();
 }
 
 // ── Compose the DOM from the aircraft's capabilities + size ───────────────────
@@ -573,10 +663,30 @@ function ensureHudStyles() {
     .ck-canopy { flex:1.15 1 0; min-height:82px; margin:8px 2px 0; }
     .ck-canopy .ws-wrap { height:100%; }
     /* Passenger cabin: the window IS the panel. */
-    .ck-pax .ck-pax-window { flex:1 1 auto; min-height:0; margin:8px 4px 0; }
+    .ck-pax .ck-pax-window { flex:1 1 auto; min-height:0; margin:8px 4px 0; position:relative; }
     .ck-pax .ck-pax-window .ws-wrap { height:100%; }
     .ck-pax-strip { display:flex; justify-content:space-around; gap:10px; padding:8px 6px 4px; font-size:11px; letter-spacing:1px; color:#7fae99; }
     .ck-pax-strip b { color:#eaf6ff; }
+    .ck-pax-hint { text-align:center; font-size:9px; letter-spacing:1px; color:#4d6a76; padding:0 6px 4px; }
+    .ck-pax-hint b { color:#7fae99; }
+    /* Q/E look-direction tag — mirrors the pilot's own fsim-viewtag styling. */
+    .ck-pax-viewtag { position:absolute; top:8px; left:50%; transform:translateX(-50%); font:10px monospace;
+      letter-spacing:2px; color:#ffcf3e; background:rgba(6,12,18,0.6); border:1px solid rgba(255,207,62,0.4);
+      padding:2px 10px; border-radius:3px; opacity:0; pointer-events:none; transition:opacity .15s; z-index:2; }
+    .ck-pax-viewtag.show { opacity:1; }
+    /* Forward view (Q held): the pilot's own yoke + throttle, worked by nobody the
+       passenger can see — the charter autopilot flying the choreography above. */
+    .ck-pax-cockpit { position:absolute; left:0; right:0; bottom:6px; display:flex; align-items:flex-end;
+      justify-content:center; gap:10px; opacity:0; pointer-events:none; transition:opacity .2s; z-index:2; }
+    .ck-pax-cockpit.show { opacity:1; }
+    .ck-pax-yoke { width:78px; filter:drop-shadow(0 3px 6px rgba(0,0,0,0.6)); }
+    .ck-pax-yoke svg { width:100%; display:block; transition:transform .1s linear; }
+    .ck-pax-thr { position:relative; width:14px; height:60px; }
+    .ck-pax-thr-track { position:absolute; inset:0; border-radius:4px; background:linear-gradient(180deg,#171b20,#0a0c0e); border:1px solid #2a3540; }
+    .ck-pax-thr-lever { position:absolute; left:-3px; right:-3px; height:9px; bottom:10%; border-radius:2px;
+      background:linear-gradient(180deg,#3aa8e0,#0b2a3c); border:1px solid #05121a; transition:bottom .1s linear; }
+    .ck-pax-yoke-lbl { position:absolute; bottom:-13px; left:0; right:0; text-align:center; font-size:8px;
+      letter-spacing:1px; color:#4d6a76; white-space:nowrap; }
     /* Capability-driven flex layout: rows of instrument cards. Which cards exist,
        and the radar's size, are chosen per aircraft in mountHud(). */
     .ck-grid { display:flex; flex-direction:column; gap:8px; padding:8px 2px 2px; flex:1 1 auto; min-height:0; }
@@ -757,7 +867,7 @@ const GUN_RANGE = 2.2, GUN_CONE = 11, GUN_ALT_K = 1 / 600, GUN_FIRE_MS = 130;
 // clip of the roofline is survivable damage; going deep into the structure (or hitting fast) is a
 // write-off. All four are eyeball-tuning knobs for the live pass.
 const CFIT_FT_PER_Z = 600;    // render world-z → feet AGL
-const CFIT_FOOT = 0.22;       // building collision half-width around the tile centre (tile units)
+const CFIT_FOOT = 0.12;       // building collision half-width around the tile centre (tile units) — tight, pixel-precise
 const CFIT_CRASH_PEN = 110;   // ft below the roofline that means you're INTO the structure → crash
 const CFIT_SWEEP = 4;         // sub-samples along the frame's ground track (anti-tunnel for fast craft)
 
@@ -768,6 +878,8 @@ function buildingCollisionAt(F, s) {
   if (!map || !map.length || s.onGround) return null;
   const R = (map.length - 1) / 2, mc = F.mapCenter || { x: 0, y: 0 };
   const prev = F.cfitPrev || { x: F.pos.x, y: F.pos.y };
+  const hd = (s.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
+  const height = Math.min(1, Math.sqrt(Math.max(0, s.altitude) / 3000));   // matches windshield's v.height
   let worst = null;
   for (let i = 1; i <= CFIT_SWEEP; i++) {
     const t = i / CFIT_SWEEP;
@@ -778,6 +890,13 @@ function buildingCollisionAt(F, s) {
     if (ry < 0 || ry >= map.length || rx < 0 || rx >= map[ry].length) continue;
     const hz = buildingHeightZ(wx, wy, map[ry][rx]);
     if (hz <= 0) continue;
+    const dx = wx - px, dy = wy - py, f = dx * sinh - dy * cosh, lat = dx * cosh + dy * sinh;
+    // Must be inside the renderer's own near/far visibility window — a building the windshield
+    // wouldn't actually be drawing (too close under the nose, or still fading in from FAR out)
+    // can't hurt you either. Same climb-out corridor rule on top of that: a building the
+    // windshield culls dead-ahead-and-low right off the runway can't be collided with.
+    if (f <= VISIBLE_NEAR_F || f > VISIBLE_FAR_F) continue;
+    if (!climbOutClear(f, lat, height)) continue;
     const pen = hz * CFIT_FT_PER_Z - s.altitude;   // >0 ⇒ below the roofline ⇒ contact
     if (pen > 0 && (!worst || pen > worst.pen)) worst = { pen, roofFt: hz * CFIT_FT_PER_Z };
   }
@@ -1239,6 +1358,7 @@ export function openFlightSim(opts = {}) {
           <div class="fsim-radio-frow"><span class="k">COM</span><b>118.00</b><i>121.50</i></div>
           <div class="fsim-radio-frow"><span class="k">NAV</span><b>112.30</b><i>110.90</i></div>
           <div class="fsim-radio-frow sq"><span class="k">SQWK</span><b id="fsim-sq">1200</b><i class="mode">ALT</i></div>
+          <div class="fsim-radio-frow"><span class="k">TILE</span><b id="fsim-tile" style="font-size:9px;letter-spacing:0;">—</b></div>
         </div>
         <div class="fsim-radio-deck">
           <div class="fsim-radio-btns">
@@ -1550,7 +1670,7 @@ function fsimFrame(now) {
     } else if (hit) {
       // Glancing clip of the rooftops: real damage + a jolt, but you bounce off the top and fly out.
       F.cfitCd = 1.6;
-      F.hull = Math.max(0, (F.hull || 100) - 20); F.hitFlashT = 0.5;
+      F.hull = Math.max(0, (F.hull || 100) - 20); F.hitFlashT = performance.now();
       s.airspeed *= 0.72; s.altitude = hit.roofFt + 25; s.vs = Math.max(s.vs, 40);
       s.bank = clampNum(s.bank + (s.bank >= 0 ? 14 : -14), -70, 70);
       groundFx('touchdownHard'); csfx('flight-touchdown', 'hololock-lose');
@@ -1563,13 +1683,18 @@ function fsimFrame(now) {
 
   // Transitions → tell the server. Track descent rate while airborne so touchdown knows
   // how hard the arrival was (soft squeak vs firm thump).
-  if (!s.onGround) F.touchVs = s.vs;
-  if (!s.onGround && !F.reportedAirborne) { F.reportedAirborne = true; F.rolling = false; groundFx('liftoff'); sendCmdSilent('flightevent takeoff'); }
+  if (!s.onGround) { F.touchVs = s.vs; F.peakAltSinceLift = Math.max(F.peakAltSinceLift || 0, s.altitude); }
+  if (!s.onGround && !F.reportedAirborne) { F.reportedAirborne = true; F.rolling = false; F.peakAltSinceLift = s.altitude; groundFx('liftoff'); sendCmdSilent('flightevent takeoff'); }
   if (s.onGround && F.reportedAirborne) {
     F.reportedAirborne = false;
     const sinkFpm = -(F.touchVs || 0);   // descent rate at contact (ft/min; +ve = sinking)
+    // A shaky rotation can hop the aircraft a few feet up and straight back down before it's
+    // really established a climb — that's a rejected-takeoff bounce, not a hard landing, so
+    // don't let its (very real, very fast) sink rate write the plane off. Only arm the
+    // hard-landing crash check once she's actually climbed clear of the ground.
+    const establishedClimb = (F.peakAltSinceLift || 0) >= 25;
     sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} 0 ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} 0 1 0`);
-    if (sinkFpm > 600) {
+    if (sinkFpm > 600 && establishedClimb) {
       // Slammed it in — a touchdown sinking faster than 600 fpm breaks the gear/airframe.
       // Report a crash: the server destroys the craft and closes the sim (cockpit_close).
       F.rolling = false;
@@ -1745,6 +1870,10 @@ function fsimFrame(now) {
     // battle-damage flash that fades over ~0.4s after taking a hit.
     firing: !!(F.firing && solReady), muzzle: F.muzzleT && (now - F.muzzleT < 90),
     hull: F.hull, hitFlash: F.hitFlashT ? clampNum(1 - (now - F.hitFlashT) / 400, 0, 1) : 0,
+    // Incoming ground-AA tracer: bearing it's arriving from + a 0..1 progress fraction
+    // (streak animates in over AA_TRACER_MS, then clears).
+    aaTracer: (F.aaTracerT && (now - F.aaTracerT) < AA_TRACER_MS)
+      ? { bearing: F.aaTracerBearing, t: (now - F.aaTracerT) / AA_TRACER_MS } : null,
   });
 
   // Drug/booze impairment: warp the out-the-window view if the pilot is flying loaded.
@@ -2091,6 +2220,7 @@ export function flightSimContext(msg) {
   if ('cargo' in msg) F.cargoKg = msg.cargo;   // current hold weight (drives the J jettison bind)
   if (msg.sky) F.sky = msg.sky;
   if ('biomeBelow' in msg) F.biomeBelow = msg.biomeBelow;
+  if ('surface' in msg) { F.surface = msg.surface; const tEl = document.getElementById('fsim-tile'); if (tEl) tEl.textContent = (msg.surface || '—').toUpperCase(); }
   if (typeof msg.hull === 'number') F.hull = msg.hull;   // authoritative hull for the cockpit readout
   F.warn = msg.warn || null;
   const wasExposed = !!(F.aa && F.aa.exposed);
@@ -2108,10 +2238,20 @@ export function flightSimAirHit(msg) {
     F.hitFlashT = performance.now();
     if (typeof msg.hullPct === 'number') F.hull = msg.hullPct;
     if (F.toast) F.toast(`⚠ TAKING FIRE${msg.by ? ' · ' + msg.by : ''} — HULL ${msg.hullPct}%`);
-    try { csfx('flight-hit', 'hololock-lose'); } catch {}
+    try { hitFx(); } catch {}
   } else if (msg.role === 'dealt') {
     if (F.toast) F.toast('GUNS · HITS');
   }
+}
+
+// Incoming ground-AA tracer: purely visual, no damage here (that's the `air_hit` push if it
+// connects) — just draws where the fire is coming from so it isn't invisible/undodgeable.
+const AA_TRACER_MS = 550;
+export function flightSimAaTracer(msg) {
+  const F = _fsim; if (!F || !msg) return;
+  F.aaTracerT = performance.now();
+  F.aaTracerBearing = msg.bearing || 0;
+  try { tracerFx(msg.near ?? 0.5); } catch {}
 }
 
 // Air-to-air traffic relay (Phase A: see-only). Each contact carries world position +
@@ -2126,6 +2266,13 @@ export function flightSimContacts(msg) {
 // True while the continuous cockpit owns the area pane — dispatch uses this to stop
 // room `look`/`move` renders from clobbering the cockpit out from under the pilot.
 export function isFlightSimActive() { return !!_fsim; }
+
+// True while the discrete cockpit HUD (charter passengers, and any non-continuous
+// aircraft occupant) owns the area pane — same purpose as isFlightSimActive() above,
+// for the OTHER cockpit renderer. Without this, a `refresh`-flagged zone_event (e.g.
+// touchdown landing the passenger's zone before they've disembarked) schedules a
+// debounced silent `look` that clobbers the HUD with plain room text mid-landing.
+export function isCockpitHudActive() { return !!document.getElementById('ck-hud-root'); }
 
 export function closeFlightSim() {
   const F = _fsim; if (!F) return;

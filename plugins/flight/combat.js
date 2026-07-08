@@ -58,12 +58,12 @@ export function relayContacts(live) {
 // Apply cannon damage to a target craft: hull ladder → crash (attributed to the
 // shooter) on hull-out, else battle-damage feedback + a fresh hull readout. Returns
 // true if the target was killed.
-async function applyAirDamage(targetLive, amount, byPlayer, reason = 'shotdown') {
+async function applyAirDamage(targetLive, amount, byPlayer, reason = 'shotdown', message) {
   const t = targetLive.row;
   t.damage = Math.min(1, (t.damage || 0) + amount);
   if (t.damage >= 1) { await crash(targetLive, reason, byPlayer); return true; }
   const hullPct = Math.round((1 - t.damage) * 100);
-  toOccupants(targetLive, `<span class="text-red">⚠ TAKING FIRE — cannon rounds rake the airframe. Hull ${hullPct}%.</span>`);
+  toOccupants(targetLive, message || `<span class="text-red">⚠ TAKING FIRE — cannon rounds rake the airframe. Hull ${hullPct}%.</span>`);
   for (const pid of targetLive.occupants) {
     const p = getLivePlayer(pid);
     if (p && p.seat === 'pilot') sendToPlayer(pid, { type: 'air_hit', role: 'taken', hullPct, by: byPlayer?.handle || null });
@@ -139,6 +139,19 @@ function threatFrom(a, sites, bandIdx) {
   };
 }
 
+// A visible tracer streak from the AA site's bearing, converging on the cockpit — purely
+// client-side feedback (no damage/state here, that's resolved by the caller). Sent to the
+// pilot only; the windshield has no forward-firing gun deck for passengers to render it on.
+// `near` (0..1) rides the crack/whiz SFX's volume+pitch — a shot from right on the edge of
+// the site's engagement ring is a faint distant whiz, one from point-blank is a sharp crack.
+function sendAaTracer(live, site, bearing, dist) {
+  const near = 1 - Math.max(0, Math.min(1, dist / Math.max(1, site.range)));
+  for (const pid of live.occupants) {
+    const p = getLivePlayer(pid);
+    if (p && p.seat === 'pilot') sendToPlayer(pid, { type: 'aa_tracer', bearing, near, by: site.name });
+  }
+}
+
 // ── AA + air-to-air, run each airborne tick from index.flightTick ─────────────
 export async function tickCombat(live) {
   const a = live.row;
@@ -178,13 +191,19 @@ export async function tickCombat(live) {
     if (evading) hitChance -= 0.3;
     // A skilled pilot instinctively jinks.
     if (pilot) { const chk = await skillCheck(pilot, 'piloting', s.accuracy); if (chk.success) hitChance -= 0.25; }
+    // Show the pilot where it's coming from — a tracer streak from the gun's bearing,
+    // converging on the cockpit whether it hits or not (misses arc past just as visibly).
+    sendAaTracer(live, s, Math.round(bearingDeg(a.grid_x, a.grid_y, s.grid_x, s.grid_y)), cheb(a.grid_x, a.grid_y, s.grid_x, s.grid_y));
     if (Math.random() < Math.max(0.05, hitChance)) {
       // Armoured gun platforms (the A-10-style Reaper) shrug off ground fire — their
       // titanium tub soaks half the hit, so they can loiter over a target and survive.
       const armor = live.type.class === 'gunship' ? 0.5 : 1;
-      a.damage = Math.min(1, a.damage + s.damage * armor);
-      toOccupants(live, `<span class="text-red">💥 ${s.name} opens up — rounds walk across the airframe. Hull ${Math.round((1 - a.damage) * 100)}%.</span>`);
-      if (a.damage >= 1) { await crash(live, 'shotdown'); return; }
+      // Reuse the PvP damage path so ground AA gets the same client feedback a gun hit
+      // does — red screen flash, hit sound, and an immediate hull-gauge refresh — instead
+      // of just a text log line.
+      const killed = await applyAirDamage(live, s.damage * armor, null, 'shotdown',
+        `<span class="text-red">💥 ${s.name} opens up — rounds walk across the airframe. Hull ${Math.round((1 - Math.min(1, a.damage + s.damage * armor)) * 100)}%.</span>`);
+      if (killed) return;
     } else {
       toOccupants(live, `<span class="text-amber">Tracer arcs past from ${s.name} below — a near miss.</span>`);
     }

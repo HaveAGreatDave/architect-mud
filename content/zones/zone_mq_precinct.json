@@ -19,10 +19,10 @@
       "Main Haul",
       "The Strip"
     ],
-    "building_name": "",
-    "building_type": null,
+    "building_name": "Precinct 9",
+    "building_type": "police",
     "is_apartment": false,
-    "is_building": false,
+    "is_building": true,
     "is_interior": false,
     "scavenging_table_id": null,
     "world_exit_zone": "zone_mq_battery"

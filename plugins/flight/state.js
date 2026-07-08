@@ -207,12 +207,20 @@ export async function loadAircraft(id) {
   if (!rows.length) return null;
   const { rows: tRows } = await query('SELECT * FROM aircraft_types WHERE id=$1', [rows[0].type_id]);
   if (!tRows.length) return null;
-  const live = { row: rows[0], type: tRows[0], occupants: new Set(), pending: null, starving: false, hazard: null, persistCtr: 0 };
+  const live = { row: rows[0], type: tRows[0], occupants: new Set(), pilotId: null, pending: null, starving: false, hazard: null, persistCtr: 0 };
   liveAircraft.set(id, live);
   return live;
 }
 
+// `pilotId` is the durable source of truth (survives a pilot's hard refresh, which
+// tears down and rebuilds their in-memory player object — see the flight `player.login`
+// reconnect-resume hook in index.js). Fall back to scanning occupants' `.seat` for any
+// craft that predates the field (shouldn't happen once everything sets it on boarding).
 export function pilotOf(live) {
+  if (live.pilotId) {
+    const p = getLivePlayer(live.pilotId);
+    if (p) return p;
+  }
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
     if (p && p.seat === 'pilot') return p;
@@ -379,8 +387,10 @@ export function gaugePayload(live) {
   };
 }
 
-// Time-of-day + weather for the client windshield's out-the-window scene.
-function skyState() {
+// Time-of-day + weather for the client windshield's out-the-window scene (also
+// reused by the hangar-bay floor, which shows the same sky through its open bay
+// door).
+export function skyState() {
   try {
     const env = getEnvironmentState();
     return { hour: env.hour, weather: env.currentWeatherType || env.weatherType || 'clear', wind: env.windKph || 0 };
@@ -418,11 +428,20 @@ export function reconcile(live, d) {
 // fuel, the surface/obstacle window, sky/weather, and any warning.
 export function contextPayload(live) {
   const a = live.row, eff = effStats(live), cap = eff.fuelCap || 1;
+  // Grounded at a field, the "surface" readout should read as the airfield you're
+  // sitting at, not whatever zone the grid rounds to — a landing/taxi roll-out can
+  // drift the float position (live.fx/fy → rounded grid_x/grid_y) a tile or two off
+  // the ramp's exact cell before it settles, coincidentally landing on a neighboring
+  // zone's tile (e.g. reporting "Aid Station" while still physically on the strip).
+  // parked_zone_id is the actual field you're at while grounded (null mid-flight —
+  // takeoff clears it, parkAt sets it on landing), so it's the authoritative answer.
+  const groundedField = !a.airborne && a.parked_zone_id ? getZone(a.parked_zone_id) : null;
+  const surfaceZone = groundedField?.flags?.airfield_id ? groundedField : surfaceAt(a.grid_x, a.grid_y);
   return {
     type: 'flight_ctx',
     fuel: Math.round(a.fuel), fuelCap: Math.round(cap), fuelPct: Math.max(0, Math.round(a.fuel / cap * 100)),
     map: mapWindow(a), mapX: a.grid_x, mapY: a.grid_y, sky: skyState(),   // window centre → client keeps map+centre paired (no recenter pop)
-    surface: surfaceAt(a.grid_x, a.grid_y)?.name || 'open air',
+    surface: surfaceZone?.flags?.airfield_name || surfaceZone?.name || 'open air',
     biomeBelow: districtBiome(surfaceAt(a.grid_x, a.grid_y)),
     minimap: (() => { const b = surfaceAt(a.grid_x, a.grid_y); return b ? getMinimapData(b.id, 3) : null; })(),
     fields: nearbyFields(a.grid_x, a.grid_y),   // airport bearing tags for the heading tape
@@ -483,7 +502,10 @@ export function toOccupants(live, message) { for (const pid of live.occupants) o
 // ── Attach / detach ───────────────────────────────────────────────────────────
 export function detach(player, { restore = true } = {}) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
-  if (live) live.occupants.delete(player.id);
+  if (live) {
+    live.occupants.delete(player.id);
+    if (live.pilotId === player.id) live.pilotId = null;
+  }
   if (player.posture === 'flying') forceStand(player, 'flight.detach');
   delete player.aircraftId;
   delete player.seat;

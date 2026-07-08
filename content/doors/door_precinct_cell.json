@@ -19,7 +19,8 @@
         "lock": "The cell hololock slams shut with a heavy magnetic clunk.",
         "unlock": "The cell hololock disengages."
       }
-    }
+    },
+    "unbreakable": true
   },
   "target_zone": "zone_mq_precinct_lobby",
   "zone_id": "zone_mq_precinct_holding"

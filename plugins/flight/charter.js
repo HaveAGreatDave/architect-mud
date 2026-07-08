@@ -22,6 +22,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getZoneNpcs, getAllZones, getNpcsByFlag, moveNpcToZone } from '../../server/engine/world.js';
+import { regionalTiles } from '../../server/engine/commands/movement.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import {
   getZone, liveAircraft, loadAircraft, persist, detach, out, toOccupants, pushHud,
@@ -29,10 +30,8 @@ import {
   fieldFor as fieldOf, inHangarInterior,
 } from './state.js';
 
-const CHARTER_MULT = 10;
 const SHIFT_HOURS = 8;
 const AUTO_DISEMBARK_MS = 20000;
-const BOARD_TIMEOUT_MS = 120000; // the pilot waits this long at the hangar for you to embark
 const TAXI_MS = 4500;            // taxi-out beat between embark and rotate (the "rolls, rotates" moment)
 const ROLL_MS = 6000;            // ground-roll acceleration after taxi — throttle ramps up over this span instead of snapping straight to cruise power
 const LANDING_ROLL_MS = 6000;    // ground-roll deceleration after touchdown — throttle bleeds off over this span instead of snapping straight to a dead stop, mirroring the takeoff roll
@@ -42,12 +41,37 @@ const CHARTER_TICK_MS = 2500;
 // one glimpse of sky, landing, all inside ~10s. Charters are a scenic ride, not a
 // teleport: this is deliberately slow (~0.12 tiles/sec) so even the shortest hop
 // between adjacent fields runs a proper couple of dozen seconds of narrated flight.
-const CRUISE_TILES = 0.15;
+// 3x'd per a later request — the enroute leg was dragging.
+const CRUISE_TILES = 0.45;
 const CHATTER_MIN_GAP_MS = 10000; // pilot speaks at most once every 10s of flight
 const CHARTER_ALT = 480;         // nominal 'low'-band cruise height for the synthesized attitude
+const HELD_EXPIRY_MS = 30 * 60 * 1000;  // a booked-and-paid charter waits this long for you to embark before it auto-cancels + refunds
+// Charter aircraft. The Mule is the standard airfield-to-airfield ride; the VTOL
+// Dragonfly is the pricier "set me down anywhere" option (off-airfield tiles).
+const MULE_ID = 'ac_mule';
+const DRAGONFLY_ID = 'ac_dragonfly';
 // The chair a pilot sits on inside the walk-in hangar. Must match the furniture
 // `name` seeded by scripts/seed-hangar-interiors.js.
 export const DESK_CHAIR = 'the flight-ops desk chair';
+
+// Each charter pilot flies in a signature colour — the tint on their "CHARTER" Mule
+// in the hangar view + the accent on the charter dialog, so the three read as
+// distinct operators. Keyed by pilot id; falls back to a neutral amber.
+const PILOT_COLORS = {
+  npc_charter_doyle: '#e2701e',    // Ratchet Doyle — burnt orange
+  npc_charter_kessler: '#4fb8e0',  // Old Kessler — cold blue
+  npc_charter_soto: '#c03b8f',     // Magpie Soto — magpie magenta
+};
+export function pilotColor(pilotId) { return PILOT_COLORS[pilotId] || '#f2b01e'; }
+
+// Distance-scaled fare: a flat-ish ~100c base plus a little per tile of straight-line
+// distance, doubled for the Dragonfly's land-anywhere premium. Rounded to 5c so the
+// pilot can quote a clean number. `dist` is tiles (Chebyshev — matches how the map reads).
+export function charterFare(fx, fy, tx, ty, anywhere = false) {
+  const dist = Math.max(Math.abs((tx ?? fx) - fx), Math.abs((ty ?? fy) - fy));
+  const base = 90 + 6 * dist;
+  return Math.round((base * (anywhere ? 2 : 1)) / 5) * 5;
+}
 
 // Charter aircraft are ephemeral (they despawn on delivery). Clear any that a
 // crash/restart orphaned in the table so we never board a pilotless ghost.
@@ -113,6 +137,15 @@ function available(pilot) { return inHangar(pilot) && !pilotBusy(pilot.id); }
 
 const pilotById = (id) => getNpcsByFlag('charter_pilot').find(n => n.id === id) || null;
 
+// For the hangar-bay floor: is there a pilot to charter from here right now, and
+// what's their name/colour (for the tinted "CHARTER" Mule)? `present` means a new
+// booking can be taken now — off-shift or already flying both read as absent.
+export function pilotStatusForField(fieldZoneId) {
+  const pilot = pilotForField(fieldZoneId);
+  if (!pilot) return { present: false };
+  return { present: available(pilot), name: pilot.name, color: pilotColor(pilot.id) };
+}
+
 // The pilot climbs aboard for the flight as a real occupant that rides along:
 // pulled out of the world (no zone) and frozen from the AI (`_aboard`, honoured by
 // the engine game loop) until they set the aircraft back down.
@@ -171,73 +204,89 @@ function openDeskElsewhere(exceptField) {
   return null;
 }
 
-async function paxTypes() {
-  const { rows } = await query("SELECT id, name, class, seats, price_rent_hourly FROM aircraft_types WHERE class <> 'wreck' AND seats >= 2 ORDER BY price_rent_hourly");
-  return rows;
-}
-export const charterCost = (t) => Math.max(200, Math.round((t.price_rent_hourly || 100) * CHARTER_MULT));
-
-// ── charter ───────────────────────────────────────────────────────────────────
-export async function cmdCharter(args, raw, player) {
+// ── Availability gate ─────────────────────────────────────────────────────────
+// Shared by the dialog opener and the booking action: are we somewhere we can
+// charter, with a free on-duty pilot? Returns { field, pilot } or { err }.
+function charterGate(player) {
   const field = fieldOf(player);
-  if (!field || !field.flags.airfield_charter) return { type: 'emote', message: "There's no charter desk here." };
-  // The charter desk (and the pilot) are INSIDE the hangar — book it there, not on the ramp.
+  if (!field || !field.flags.airfield_charter) return { err: { type: 'emote', message: "There's no charter desk here." } };
   if (field.flags.hangar_interior_zone && !inHangarInterior(player))
-    return { type: 'emote', message: 'The charter desk is inside the hangar — step <b>in</b> off the ramp to book a flight.' };
-  if (player.aircraftId) return { type: 'emote', message: "You're already aboard something — disembark first." };
+    return { err: { type: 'emote', message: 'The charter desk is inside the hangar — step <b>in</b> off the ramp to book a flight.' } };
+  if (player.aircraftId) return { err: { type: 'emote', message: "You're already aboard something — disembark first." } };
 
   const pilot = pilotForField(field.id);
-  if (!pilot) return { type: 'emote', message: 'No charter pilot works out of this field.' };
+  if (!pilot) return { err: { type: 'emote', message: 'No charter pilot works out of this field.' } };
   const busy = pilotBusy(pilot.id);
   if (busy) {
     if (busy.chartererId === player.id)
-      return { type: 'emote', message: busy.phase === 'boarding'
-        ? "Your charter's already fuelled and waiting at the hangar — <b>embark</b> to go, or <b>cancel</b> to call it off (no charge)."
-        : "You're already booked on a charter. Type <b>cancel</b> if you've changed your mind." };
+      return { err: { type: 'emote', message: busy.phase === 'boarding'
+        ? "Your charter's already fuelled and waiting at the hangar — <b>embark</b> to go, or <b>cancel</b> for a refund."
+        : "You're already booked on a charter. Type <b>cancel</b> if you've changed your mind." } };
     if (busy.phase === 'boarding' || busy.phase === 'departing' || busy.phase === 'rolling')
-      return { type: 'emote', message: `${pilot.name} is readying a charter for someone else — wait your turn.` };
-    return { type: 'emote', message: `${pilot.name} is out on a run to ${busy.destName}. Wait for them to get back.` };
+      return { err: { type: 'emote', message: `${pilot.name} is readying a charter for someone else — wait your turn.` } };
+    return { err: { type: 'emote', message: `${pilot.name} is out on a run to ${busy.destName}. Wait for them to get back.` } };
   }
   if (!inHangar(pilot)) {   // off the clock and gone home
     const other = openDeskElsewhere(field.id);
-    return { type: 'output', message: `<span class="text-amber">The charter desk is closed — ${pilot.name} flies the ${shiftLabel(pilot)} shift and isn't here.</span>` +
-      (other ? `\nOn duty right now: <b>${other.pilot}</b> at <b>${other.field}</b>.` : '') };
+    return { err: { type: 'output', message: `<span class="text-amber">The charter desk is closed — ${pilot.name} flies the ${shiftLabel(pilot)} shift and isn't here.</span>` +
+      (other ? `\nOn duty right now: <b>${other.pilot}</b> at <b>${other.field}</b>.` : '') } };
   }
+  return { field, pilot };
+}
 
-  const types = await paxTypes();
-  const wanted = (args[0] || '').toLowerCase();
-  if (!wanted) {
-    const lines = types.map(t => `· <b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats - 1} pax)</span> — <span class="text-green">${charterCost(t)}c</span>${t.id === 'ac_dragonfly' ? ' <span class="text-cyan">· sets down anywhere</span>' : ''} · <span class="action-link" data-action="cmd" data-cmd="charter ${t.id}">charter</span>`);
-    return { type: 'output', message: `<span class="text-cyan">${pilot.name}:</span> "Where you headed? Pick your ride — I'll fly it."\n${lines.join('\n')}` };
-  }
-  const t = types.find(x => x.id === wanted || x.name.toLowerCase() === wanted || x.id.endsWith(wanted));
-  if (!t) return { type: 'emote', message: `${pilot.name} doesn't fly a "${wanted}". Type <b>charter</b> for the list.` };
-  const anyTile = t.id === 'ac_dragonfly';
-
-  // Destination is chosen up front, at the desk. No destination yet → offer the list
-  // (or the "anywhere" map-picker for the VTOL Dragonfly); the choice re-invokes this
-  // command as `charter <ride> <dest>`.
-  const destArg = args.slice(1);
-  if (!destArg.length) {
-    if (anyTile) {
-      const tiles = getAllZones()
-        .filter(z => z.map_id === 'map_world' && (z.grid_z == null || z.grid_z === 0) && z.grid_x != null)
-        .map(z => ({ ...z, is_current: z.id === field.id }));
-      return { type: 'flight_pick_dest', cmd: `charter ${t.id}`, tiles,
-        message: `<span class="text-green">${pilot.name}: "The ${t.name}'ll set you down anywhere. Click a spot on the map, or name a place — <b>charter ${t.id} &lt;place&gt;</b>."</span>` };
-    }
-    const fields = await airfieldList(field.id);
-    if (!fields.length) return { type: 'emote', message: `${pilot.name}: "Nowhere else to fly you from here right now."` };
-    const lines = fields.map((f, i) => `  <b>[${i + 1}]</b> ${f.name} <span class="text-dim">(${f.dist} out)</span> · <span class="action-link" data-action="cmd" data-cmd="charter ${t.id} ${i + 1}">go</span>`);
-    return { type: 'output', message: `<span class="text-green">${pilot.name}: "Where to in the ${t.name}?"</span>\n${lines.join('\n')}\nType <b>charter ${t.id} &lt;n&gt;</b>. <span class="text-dim">${charterCost(t)}c, charged when you embark.</span>` };
-  }
-
-  const { dest, err } = await resolveDest(field, anyTile, destArg);
+// ── charter — open the destination dialog ─────────────────────────────────────
+// Bare `charter` (or the hangar's CHARTER Mule) opens the visual dialog: the pilot,
+// the full regional map with every reachable AIRFIELD highlighted + priced (the Mule
+// run), plus an "off-airfield" toggle that unlocks every tile for the pricier
+// Dragonfly. Booking a destination is `charterbook`, dispatched by the dialog.
+export async function cmdCharter(args, raw, player) {
+  const { field, pilot, err } = charterGate(player);
   if (err) return err;
+  return openCharterDialog(player, field, pilot);
+}
+export const cmdCharterInfo = cmdCharter;
 
-  // Book it: generate the chartered aircraft (staged on the ramp, narratively taxied
-  // up to the hangar door), pilot in it, bound for the chosen destination. You are NOT
-  // aboard yet and NOT charged yet — `embark` is the trigger for both.
+function openCharterDialog(player, field, pilot) {
+  // Every overworld tile, positioned in absolute regional coords (same schema the
+  // client map draws), each annotated with its Mule fare and whether it's a valid
+  // airfield destination. The client dims non-airfields until "off-airfield" is on.
+  const tiles = regionalTiles(field.id).map(t => {
+    const airfield = !!getZone(t.id)?.flags?.airfield_id && t.id !== field.id;
+    const zone = getZone(t.id);
+    const fareMule = zone && zone.grid_x != null ? charterFare(field.grid_x, field.grid_y, zone.grid_x, zone.grid_y, false) : null;
+    const fareAny = zone && zone.grid_x != null ? charterFare(field.grid_x, field.grid_y, zone.grid_x, zone.grid_y, true) : null;
+    return { ...t, charterAirfield: airfield, charterFareMule: fareMule, charterFareAny: fareAny, charterHere: t.id === field.id };
+  });
+  return { type: 'charter_open', data: {
+    pilotName: pilot.name, pilotColor: pilotColor(pilot.id),
+    fieldName: field.flags.airfield_name || field.name,
+    muleName: 'Mule', anyName: 'Dragonfly',
+    credits: player.credits || 0, tiles,
+  } };
+}
+
+// ── charterbook <destZoneId> [any] — book + charge, then offer embark now/later ─
+// Dispatched by the dialog (or typed). `any` = the off-airfield Dragonfly run (any
+// tile, ~2× fare); otherwise the Mule to an airfield. The fare is charged HERE (at
+// booking); the aircraft then waits on the ramp until you `embark` (now or later).
+export async function cmdCharterBook(args, raw, player) {
+  const { field, pilot, err } = charterGate(player);
+  if (err) return err;
+  const anywhere = args.some(a => a.toLowerCase() === 'any' || a.toLowerCase() === 'anywhere');
+  const destId = args.find(a => a && a.toLowerCase() !== 'any' && a.toLowerCase() !== 'anywhere');
+  const { dest, err: derr } = resolveDest(field, anywhere, destId);
+  if (derr) return derr;
+
+  const typeId = anywhere ? DRAGONFLY_ID : MULE_ID;
+  const { rows: tr } = await query('SELECT id, name, class FROM aircraft_types WHERE id=$1', [typeId]);
+  const t = tr[0];
+  if (!t) return { type: 'emote', message: 'That aircraft is out of service right now.' };
+
+  const fare = charterFare(field.grid_x, field.grid_y, dest.grid_x, dest.grid_y, anywhere);
+  if ((player.credits || 0) < fare)
+    return { type: 'emote', message: `That run runs <b>${fare}c</b> — you're short. ${pilot.name} can't roll without the fare.` };
+
+  const destName = dest.flags?.airfield_name || dest.name;
   const acId = `aircraft_charter_${randomUUID().slice(0, 10)}`;
   await query(
     `INSERT INTO aircraft (id,type_id,name,owner_id,map_id,grid_x,grid_y,altitude_band,heading,parked_zone_id,fuel,engine_temp,rental,custom_data)
@@ -247,41 +296,44 @@ export async function cmdCharter(args, raw, player) {
   const live = await loadAircraft(acId);
   live.charter = true;
 
-  const destName = dest.flags?.airfield_name || dest.name;
+  // Charge NOW (at booking). The pilot readies the machine and holds it on the ramp.
+  player.credits -= fare;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+
   const ch = {
     aircraftId: acId, typeId: t.id, class: t.class, pilotId: pilot.id, pilotName: pilot.name,
-    chartererId: player.id, playerId: null, paid: 0, fare: charterCost(t),
+    chartererId: player.id, playerId: null, paid: fare, fare,
     homeField: field.id, homeName: field.flags.airfield_name || field.name,
-    phase: 'boarding', anyTile, fx: field.grid_x, fy: field.grid_y,
+    phase: 'boarding', anyTile: anywhere, fx: field.grid_x, fy: field.grid_y,
     destZone: dest.id, destName, tx: dest.grid_x, ty: dest.grid_y,
-    boardExpiry: Date.now() + BOARD_TIMEOUT_MS,
+    holdOpen: true, boardExpiry: Date.now() + HELD_EXPIRY_MS,
   };
   activeCharters.set(acId, ch);
   sendToZone(field.id, { type: 'zone_event', message: `${pilot.name} runs ${t.name} up and taxis it over to the hangar.`, refresh: true }, player.id);
-  log({ player: player.handle, pilot: pilot.name, from: ch.homeName, to: destName, status: 'boarding' });
-  return { type: 'output', message: `<span class="text-green">${pilot.name} taxis the <b>${t.name}</b> up to the hangar door, fuelled and bound for <b>${destName}</b>, and leans out the hatch: "Climb aboard when you're set — <b>embark</b> and we'll roll."</span>\n<span class="text-dim">${ch.fare}c, charged when you embark. Back out free until then: <b>cancel</b>, or just walk away.</span>` };
+  log({ player: player.handle, pilot: pilot.name, from: ch.homeName, to: destName, status: 'booked' });
+  const dist = Math.max(Math.abs(dest.grid_x - field.grid_x), Math.abs(dest.grid_y - field.grid_y));
+  const fareLine = anywhere
+    ? `${pilot.name} pockets the <b>${fare}c</b>: "Off-airfield drop's double — I've got to find somewhere to put her down, and get myself back out. ${dist} out, that's the number."`
+    : `${pilot.name} pockets the <b>${fare}c</b>: "Flat hundred to get airborne, few credits a mile after — ${dist} out to ${destName}, so ${fare}. Fair's fair."`;
+  return { type: 'output', message:
+    `<span class="text-green">${pilot.name} taxis the <b>${t.name}</b> up to the hangar door, fuelled and bound for <b>${destName}</b>.</span>\n` +
+    `<span class="text-dim">${fareLine}</span>\n` +
+    `Climb aboard whenever you like: <span class="action-link" data-action="cmd" data-cmd="embark">embark now</span>, or come back and type <b>embark</b> when you're ready. Changed your mind? <span class="action-link" data-action="cmd" data-cmd="cancel">cancel</span> for a refund.` };
 }
 
-// Resolve a destination argument at booking time. Non-VTOL rides land only at
-// airfields (pick by list index, id, or name); the Dragonfly takes any map tile
-// (a "x y" from the map click, or a zone id/name).
-async function resolveDest(field, anyTile, args) {
-  const a0 = (args[0] || '');
-  let dest = null;
-  if (!anyTile) {
-    const fields = await airfieldList(field.id);
-    if (/^\d+$/.test(a0)) { const f = fields[parseInt(a0, 10) - 1]; dest = f ? getZone(f.id) : null; }
-    else { const key = args.join(' ').toLowerCase(); const m = fields.find(f => f.id.toLowerCase() === a0.toLowerCase() || f.name.toLowerCase() === key || f.name.toLowerCase().includes(key)); dest = m ? getZone(m.id) : null; }
-  } else if (/^-?\d+$/.test(a0) && /^-?\d+$/.test(args[1] || '')) {
-    const cell = surfaceAt(parseInt(a0, 10), parseInt(args[1], 10));
-    dest = cell ? getZone(cell.id) : null;
-  } else {
-    const key = args.join(' ').toLowerCase();
-    dest = getZone(a0) || getAllZones().find(z => z.map_id === 'map_world' && z.grid_x != null && (z.name || '').toLowerCase() === key) || null;
+// Resolve a destination for a charter. Airfield runs (Mule) land only at airfields;
+// the off-airfield Dragonfly run takes any map tile. Accepts a zone id or name.
+function resolveDest(field, anywhere, destId) {
+  const a0 = (destId || '').toString();
+  let dest = getZone(a0);
+  if (!dest) {
+    const key = a0.toLowerCase();
+    dest = getAllZones().find(z => z.map_id === 'map_world' && z.grid_x != null && ((z.name || '').toLowerCase() === key || (z.flags?.airfield_name || '').toLowerCase() === key)) || null;
   }
-  if (!dest || dest.map_id !== 'map_world' || dest.grid_x == null) return { err: { type: 'emote', message: "That's not a place they can set down. Pick another." } };
+  if (!dest || dest.map_id !== 'map_world' || dest.grid_x == null || (dest.grid_z ?? 0) !== 0)
+    return { err: { type: 'emote', message: "That's not a place they can set down. Pick another." } };
   if (dest.id === field.id) return { err: { type: 'emote', message: "You're already here." } };
-  if (!anyTile && !dest.flags?.airfield_id) return { err: { type: 'emote', message: 'That aircraft needs a proper airfield to land. Pick an airfield.' } };
+  if (!anywhere && !dest.flags?.airfield_id) return { err: { type: 'emote', message: 'The Mule needs a proper airfield to land. Pick an airfield, or ask for the off-airfield drop.' } };
   return { dest };
 }
 
@@ -310,13 +362,7 @@ export async function embarkCharter(player, ch) {
   if (!pilot || !inHangar(pilot))
     return { type: 'emote', message: `The ${live.type.name} is locked up tight and dark — ${ch.pilotName || 'the pilot'} isn't in it. Without a pilot, you're not taking it anywhere.` };
 
-  // Fare is due now — this is the takeoff commit.
-  const cost = ch.fare ?? 200;
-  if ((player.credits || 0) < cost)
-    return { type: 'emote', message: `That run to ${ch.destName} is <b>${cost}c</b> — you're short. ${ch.pilotName} won't roll without the fare (type <b>cancel</b> to call it off).` };
-  player.credits -= cost;
-  ch.paid = cost;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  // The fare was already charged at booking (cmdCharterBook) — embarking just goes.
 
   // Aboard as passenger; the pilot climbs in. She stays on the ground taxiing until
   // the tick rotates her at ch.rollAt.
@@ -337,17 +383,7 @@ export async function embarkCharter(player, ch) {
   toOccupants(live, `<span class="text-green">You climb into the cabin and pull the harness on. ${ch.pilotName}: "Doors closed, avionics up — cleared to taxi. Sit back, ${ch.destName} coming up."</span>`);
   sendToZone(ch.homeField, { type: 'zone_event', message: `${ch.pilotName}'s ${live.type.name} taxis out of the hangar toward the active, ${player.handle} aboard.`, refresh: true }, player.id);
   log({ player: player.handle, pilot: ch.pilotName, from: ch.homeName, to: ch.destName, status: 'departing' });
-  return { type: 'noop', player_update: { credits: player.credits } };
-}
-
-async function airfieldList(exceptZone) {
-  const origin = getZone(exceptZone);
-  const out = [];
-  for (const z of getAllZones()) {
-    if (z.id === exceptZone || z.map_id !== 'map_world' || !z.flags?.airfield_id || z.grid_x == null) continue;
-    out.push({ id: z.id, name: z.flags.airfield_name || z.name, dist: Math.max(Math.abs(z.grid_x - origin.grid_x), Math.abs(z.grid_y - origin.grid_y)) });
-  }
-  return out.sort((a, b) => a.dist - b.dist);
+  return { type: 'noop' };
 }
 
 // Synthesize the continuous attitude (live.cont) the new flight model reads, so a
@@ -367,19 +403,27 @@ function chaseCont(live, remaining = Infinity) {
   // Altitude ramp: climb toward cruise, sink to the deck once on short final.
   const targetAlt = remaining <= 5 ? 0 : CHARTER_ALT;
   const prevAlt = live._contAlt ?? 0;
-  const STEP = 140;   // ft of altitude change per tick
+  const STEP = CHARTER_ALT / 7;   // ft of altitude change per tick — 7 ticks (~17.5s) to reach cruise altitude; lengthened again per a later request so the climb/descent doesn't rush past the enroute leg (which was itself sped up above)
   const alt = prevAlt < targetAlt ? Math.min(targetAlt, prevAlt + STEP)
             : prevAlt > targetAlt ? Math.max(targetAlt, prevAlt - STEP) : targetAlt;
   const dAlt = alt - prevAlt;
   live._contAlt = alt;
   const vs = Math.max(-2000, Math.min(2000, Math.round(dAlt * (60 / (CHARTER_TICK_MS / 1000)))));
 
+  // Displayed pitch eases toward its target (2s time constant) instead of snapping — a
+  // proper nose-up rotation attitude on climb-out that settles in rather than jump-cutting.
+  const pitchTarget = dAlt > 5 ? 35 : dAlt < -5 ? -5 : 0;
+  const prevPitch = live._contPitch ?? 0;
+  const pitchK = 1 - Math.exp(-(CHARTER_TICK_MS / 1000) / 2);
+  const pitch = prevPitch + (pitchTarget - prevPitch) * pitchK;
+  live._contPitch = pitch;
+
   const cruise = effStats(live).cruise || 3;
   live.cont = {
     altitude: alt,
     airspeed: Math.round(cruise * (live.row.throttle / 100) * 84),
     vs,
-    pitch: dAlt > 5 ? 7 : dAlt < -5 ? -5 : 0,
+    pitch,
     bank: Math.max(-25, Math.min(25, turn * 1.5)),
     onGround: false, stalled: false,
   };
@@ -430,18 +474,21 @@ async function charterTick() {
       const live = liveAircraft.get(ch.aircraftId);
       if (!live) { activeCharters.delete(ch.aircraftId); continue; }
 
-      // Staged at the hangar, waiting for the charterer to embark.
+      // Staged at the hangar, waiting for the charterer to embark. A HELD charter
+      // (booked + paid, "embark later") stays put even if you wander off — you paid
+      // for it, so it waits until you come back to embark, you cancel, or the long
+      // hold expiry lapses (then it auto-cancels + refunds). A non-held charter (the
+      // legacy free-hold path) still auto-cancels the moment you leave the field.
       if (ch.phase === 'boarding') {
-        // The charterer walked off (or logged off) without boarding → free cancel.
         const charterer = getLivePlayer(ch.chartererId);
-        if (!charterer || fieldOf(charterer)?.id !== ch.homeField) {
+        if (!ch.holdOpen && (!charterer || fieldOf(charterer)?.id !== ch.homeField)) {
           out(ch.chartererId, '<span class="text-dim">You leave the charter behind — cancelled, no charge.</span>');
           sendToZone(ch.homeField, { type: 'zone_event', message: `${ch.pilotName} shuts the ${live.type.name} back down — the fare never showed.`, refresh: true });
           await cancelCharter(ch, null);
         } else if (Date.now() >= ch.boardExpiry) {
-          out(ch.chartererId, '<span class="text-dim">The pilot gave up waiting — charter cancelled, no charge.</span>');
+          out(ch.chartererId, `<span class="text-dim">The pilot gave up waiting${ch.paid ? ' — your fare is refunded' : ''}.</span>`);
           sendToZone(ch.homeField, { type: 'zone_event', message: `${ch.pilotName} gives up waiting, shuts the ${live.type.name} down and climbs out.`, refresh: true });
-          await cancelCharter(ch, null);
+          await cancelCharter(ch, null);   // cancelCharter refunds ch.paid
         }
         continue;
       }
@@ -465,7 +512,7 @@ async function charterTick() {
         ch.phase = 'enroute';
         live.row.airborne = 1; live.row.altitude_band = 'low'; live.row.parked_zone_id = null;
         live.fx = ch.fx; live.fy = ch.fy;
-        delete live._contHdg; live._contAlt = 0; chaseCont(live);   // climb out from the deck, wings-level off the mark
+        delete live._contHdg; live._contAlt = 0; delete live._contPitch; chaseCont(live);   // climb out from the deck, wings-level off the mark
         await persist(live);
         pushHud(live);
         toOccupants(live, `<span class="text-cyan">${ch.pilotName}: "V1, rotate. Positive rate, gear up. Straight line to ${ch.destName}."</span>`);
@@ -565,7 +612,7 @@ async function dropoffReturn(ch, live) {
   live.fx = live.row.grid_x; live.fy = live.row.grid_y;
   live.row.airborne = 1; live.row.altitude_band = 'low'; live.row.parked_zone_id = null; live.row.throttle = 75;
   live.row.heading = String(Math.round(bearingDeg(live.fx, live.fy, ch.tx, ch.ty)));
-  delete live._contHdg; live._contAlt = 0; chaseCont(live);   // deadhead leg: climb out from the deck
+  delete live._contHdg; live._contAlt = 0; delete live._contPitch; chaseCont(live);   // deadhead leg: climb out from the deck
   await persist(live);
 }
 
@@ -641,4 +688,4 @@ export function isCharterPassenger(player) {
   return !!(player.aircraftId && activeCharters.has(player.aircraftId) && player.seat === 'passenger');
 }
 
-export const commands = { charter: cmdCharter, cancel: cmdCancel };
+export const commands = { charter: cmdCharter, charterinfo: cmdCharterInfo, charterbook: cmdCharterBook, cancel: cmdCancel };

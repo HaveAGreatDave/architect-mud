@@ -8,10 +8,11 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
-  SEAT_KG, isConfigurable, loadoutBudget, effLoadout, sendToPlayer } from './state.js';
+  SEAT_KG, isConfigurable, loadoutBudget, effLoadout, sendToPlayer, skyState, inHangarInterior } from './state.js';
 import { normalizeLivery, sanitizeLivery, signatureScore, describeExterior,
   paintCost, isPaintable, readSchemes, schemeOf,
   PATTERNS, FINISHES, UPHOLSTERY, DECALS, PRESETS } from './livery.js';
+import { pilotStatusForField, charterParkedAt } from './charter.js';
 // `tune` also belongs to broadcast (tune a channel); flight wins it and hands
 // back when you're not tuning an aircraft. `repair` shadows the engine gear-repair
 // builtin — cmdRepair returns undefined out of aircraft context to fall through.
@@ -48,15 +49,17 @@ async function saveCd(tgt, cd) {
 }
 const clean = (s) => String(s || '').replace(/[<>]/g, '').trim();
 
-// ── The visual hangar panel (client renders; server owns the data) ────────────
+// ── The unified 3D hangar-bay (client renders; server owns the data) ──────────
 // One card per aircraft of the player's parked at this field (owned on the ramp,
-// stored in a bay, or a rental), plus any wreck sitting here. The livery + paint
-// catalogs ride along so the client draws the tinted silhouette and the paint
-// editor from a single source of truth.
+// stored in a bay, or a rental), plus any wreck sitting here. Livery, tune curves,
+// and the loadout/repair numbers all ride along so a single push can drive the
+// floor (turntables side-by-side), the paint bay, and the mechanics-bench readouts
+// without a round trip per screen.
 async function buildCards(player, field) {
   const { rows } = await query(
     `SELECT a.id, a.name, a.rental, a.is_wreck, a.hangar_id, a.damage, a.fuel, a.custom_data,
-            a.owner_id, t.name tname, t.class, t.fuel_capacity, t.seats, t.hardpoints
+            a.owner_id, t.id type_id, t.name tname, t.class, t.fuel_capacity, t.seats, t.hardpoints,
+            t.hull_hp, t.cargo_capacity
      FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id
      WHERE a.parked_zone_id=$1 AND ((a.owner_id=$2 AND a.is_wreck=0) OR a.is_wreck=1)
      ORDER BY a.is_wreck, a.rental, t.price_buy`,
@@ -64,27 +67,61 @@ async function buildCards(player, field) {
   return rows.map(r => {
     const lv = normalizeLivery(r.custom_data), cap = r.fuel_capacity || 1;
     const schemes = Object.entries(readSchemes(r.custom_data)).map(([name, s]) => ({ name, base: s.base, trim: s.trim }));
+    const cd = r.custom_data || {};
+    const type = { class: r.class, seats: r.seats, cargo_capacity: r.cargo_capacity };
+    const configurable = isConfigurable(type);
+    const budget = configurable ? loadoutBudget(type) : 0;
+    const cur = configurable ? effLoadout({ custom_data: cd }, type) : null;
     return {
-      id: r.id, tail: r.name || r.tname, typeName: r.tname, class: r.class, seats: r.seats,
-      hullPct: Math.max(0, Math.round((1 - r.damage) * 100)),
+      id: r.id, tail: r.name || r.tname, typeName: r.tname, typeId: r.type_id, class: r.class, seats: r.seats,
+      damage: r.damage, hullPct: Math.max(0, Math.round((1 - r.damage) * 100)),
       fuelPct: Math.max(0, Math.min(100, Math.round((r.fuel / cap) * 100))),
       location: r.is_wreck ? 'wreck' : (r.hangar_id ? 'hangar' : 'ramp'),
       rental: !!r.rental, wreck: !!r.is_wreck, paintable: isPaintable(r),
       livery: lv, schemes, signature: signatureScore(lv), paintCost: paintCost({ class: r.class }),
+      // Repair (mechanics bench): what a DIY vs. shop fix would cost right now.
+      diyCost: r.rental ? 0 : Math.ceil(r.damage * r.hull_hp * 6),
+      shopCost: r.rental ? 0 : Math.ceil(r.damage * r.hull_hp * 15),
+      // Tuning curves (−2..2 each) — see hangars.js TUNE_PARAMS for descriptions.
+      tune: { mixture: 0, pitch: 0, boost: 0, cg: 0, ...(cd.tune || {}) },
+      // Cabin loadout (weight & balance) — only meaningful on configurable haulers.
+      configurable, loadoutBudget: budget, maxSeats: configurable ? Math.max(1, Math.floor(budget / SEAT_KG)) : r.seats,
+      seatsNow: cur?.seats ?? r.seats, cargoCapNow: cur?.cargoCap ?? 0, cargoLoaded: cd.cargoWeight || 0,
     };
   });
 }
 
-async function pushHangarPanel(player, selectId) {
+export async function pushHangarBay(player, selectId) {
   const field = fieldOf(player);
   if (!field) return { type: 'emote', message: 'Hangars are at the airfields.' };
   const { rows: mine } = await query('SELECT id FROM hangars WHERE field_zone=$1 AND owner_id=$2', [field.id, player.id]);
   const craft = await buildCards(player, field);
-  sendToPlayer(player.id, { type: 'hangar_update', data: {
+  // A charter this player already booked shows as a fuelled, boarding-ready CHARTER
+  // Mule on the floor (not "off shift") — the pilot's busy precisely because it's
+  // held for them; clicking it embarks instead of opening the booking dialog.
+  const parked = charterParkedAt(field.id);
+  const charterWaiting = parked && parked.chartererId === player.id ? { destName: parked.destName } : null;
+  const canBuy = !!field.flags.airfield_dealer, canRent = !!field.flags.airfield_charter;
+  let buyCatalog = [], rentCatalog = [];
+  if (canBuy || canRent) {
+    const { rows: types } = await query("SELECT id, name, class, seats, fuel_type, price_buy, price_rent_hourly FROM aircraft_types WHERE class <> 'wreck' ORDER BY price_buy");
+    if (canBuy) buyCatalog = types.map(t => ({ id: t.id, name: t.name, class: t.class, seats: t.seats, fuel: t.fuel_type, price: t.price_buy }));
+    if (canRent) rentCatalog = types.map(t => ({ id: t.id, name: t.name, class: t.class, seats: t.seats, fuel: t.fuel_type, price: t.price_rent_hourly }));
+  }
+  sendToPlayer(player.id, { type: 'hangar_bay_open', data: {
     field: field.flags.airfield_name || field.name,
+    // Tells the client whether "Close" also has to walk the player back out to
+    // the ramp (standing inside the walk-in hangar) or just dismisses the panel
+    // (opened from the open ramp itself, where there's no interior to leave).
+    inHangar: inHangarInterior(player),
     hasBay: mine.length > 0, credits: player.credits || 0, craft,
     select: selectId || null,   // client pre-selects this craft (from `view <tail>`)
+    pilot: pilotStatusForField(field.id),
+    charterWaiting,
+    sky: skyState(),   // time-of-day + weather, visible through the open bay door
+    canBuy, canRent, buyCatalog, rentCatalog,
     catalog: { patterns: PATTERNS, finishes: FINISHES, uphol: UPHOLSTERY, decals: DECALS, presets: PRESETS },
+    tuneParams: Object.entries(TUNE_PARAMS).map(([id, desc]) => ({ id, desc })),
   } });
   return { type: 'noop' };
 }
@@ -122,14 +159,14 @@ async function cmdPaintset(args, raw, player) {
   const next = { ...sanitizeLivery({ base, trim, pattern, finish, cabin, uphol, decal }, prev), text: prev.text };
   if (JSON.stringify(next) !== JSON.stringify(prev)) {
     const fee = paintCost({ class: ac.class });
-    if ((player.credits || 0) < fee) { await pushHangarPanel(player); return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}c — you're short.` }; }
+    if ((player.credits || 0) < fee) { await pushHangarBay(player); return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}c — you're short.` }; }
     player.credits -= fee;
     await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
     await writeLivery(ac, next);
     sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
     out(player.id, `<span class="item-grant">The ${ac.tname} rolls out of the paint bay in fresh colours — ${fee}c.</span>`);
   }
-  return pushHangarPanel(player);
+  return pushHangarBay(player);
 }
 
 // Saved paint schemes (like tune profiles, but for the whole look): scheme <save|load|delete> <name>.
@@ -153,20 +190,20 @@ async function cmdScheme(args, raw, player) {
     await query('UPDATE aircraft SET custom_data=$1 WHERE id=$2', [JSON.stringify({ ...cd, livery: { ...normalizeLivery(cd), schemes } }), owned.id]);
     if (owned.live) owned.live.row.custom_data = { ...cd, livery: { ...normalizeLivery(cd), schemes } };
     out(player.id, `<span class="item-grant">Saved this look as scheme "${name}".</span>`);
-    return pushHangarPanel(player);
+    return pushHangarBay(player);
   }
   if (sub === 'load') {
     if (!schemes[name]) return { type: 'emote', message: `No saved scheme "${name}".` };
     await writeLivery({ id: owned.id, custom_data: cd }, sanitizeLivery(schemes[name], normalizeLivery(cd)));
     out(player.id, `<span class="item-grant">Swapped to scheme "${name}" — no charge.</span>`);
-    return pushHangarPanel(player);
+    return pushHangarBay(player);
   }
   if (sub === 'delete' || sub === 'del') {
     if (!schemes[name]) return { type: 'emote', message: `No saved scheme "${name}".` };
     delete schemes[name];
     await query('UPDATE aircraft SET custom_data=$1 WHERE id=$2', [JSON.stringify({ ...cd, livery: { ...normalizeLivery(cd), schemes } }), owned.id]);
     if (owned.live) owned.live.row.custom_data = { ...cd, livery: { ...normalizeLivery(cd), schemes } };
-    return pushHangarPanel(player);
+    return pushHangarBay(player);
   }
   return { type: 'emote', message: 'scheme <save|load|delete> &lt;name&gt;' };
 }
@@ -177,39 +214,19 @@ async function cmdHangarAct(args, raw, player) {
   const field = fieldOf(player);
   if (!field) return { type: 'emote', message: 'Hangars are at the airfields.' };
   const { rows: mine } = await query('SELECT id FROM hangars WHERE field_zone=$1 AND owner_id=$2', [field.id, player.id]);
-  if ((op === 'store' || op === 'pull') && !mine.length) { await pushHangarPanel(player); return { type: 'emote', message: 'You need to <b>hangar rent</b> a bay here first.' }; }
+  if ((op === 'store' || op === 'pull') && !mine.length) { await pushHangarBay(player); return { type: 'emote', message: 'You need to <b>hangar rent</b> a bay here first.' }; }
   if (op === 'store' && id) {
     await query('UPDATE aircraft SET hangar_id=$1 WHERE id=$2 AND owner_id=$3 AND parked_zone_id=$4 AND is_wreck=0 AND hangar_id IS NULL', [mine[0].id, id, player.id, field.id]);
   } else if (op === 'pull' && id) {
     await query('UPDATE aircraft SET hangar_id=NULL, parked_zone_id=$1 WHERE id=$2 AND hangar_id=$3', [field.id, id, mine[0].id]);
   }
-  return pushHangarPanel(player);
+  return pushHangarBay(player);
 }
 
-// ── The FLEET carousel — a full-pane "lazy susan" ─────────────────────────────
-// A different screen from the paint showroom: one big, slowly-turning 3D hero shot of
-// an aircraft you own here, that you spin THROUGH with ‹ › (a lazy-susan of your fleet).
-// Mounts in the area (look) pane like the flight cockpit — the command pane stays live
-// beneath it. Own nothing here and it becomes the dealer's lot instead: the buy roster,
-// one click to purchase (which offers insurance on the spot). The client draws it all
-// from this one push (flight/panels/fleet.js), same "server owns the data" pattern as
-// the hangar panel.
-async function cmdFleet(args, raw, player) {
-  const field = fieldOf(player);
-  if (!field) return { type: 'emote', message: 'Your aircraft are at the airfields — head to a hangar to walk the fleet.' };
-  const craft = (await buildCards(player, field)).filter(c => !c.wreck);
-  const canBuy = !!field.flags.airfield_dealer;
-  let catalog = [];
-  if (!craft.length && canBuy) {
-    const { rows } = await query("SELECT id, name, class, seats, fuel_type, price_buy FROM aircraft_types WHERE class <> 'wreck' ORDER BY price_buy");
-    catalog = rows.map(r => ({ id: r.id, name: r.name, class: r.class, seats: r.seats, fuel: r.fuel_type, price: r.price_buy }));
-  }
-  sendToPlayer(player.id, { type: 'fleet_open', data: {
-    field: field.flags.airfield_name || field.name,
-    credits: player.credits || 0, canBuy, craft, catalog,
-  } });
-  return { type: 'noop' };
-}
+// `fleet`/`carousel` are legacy aliases for the same unified hangar-bay — kept as
+// commands (so old muscle memory and any linked text still works) but they open
+// the identical floor pushHangarBay already builds (craft + buy/rent catalogs).
+const cmdFleet = (args, raw, player) => pushHangarBay(player);
 
 // ── Hangars ───────────────────────────────────────────────────────────────────
 // `showroom` is a friendlier alias for opening the visual hangar — the 3D turntable
@@ -218,7 +235,7 @@ async function cmdFleet(args, raw, player) {
 async function cmdShowroom(args, raw, player) {
   const field = fieldOf(player);
   if (!field) return { type: 'emote', message: 'Your aircraft are at the airfields — the showroom is there (or in a hangar).' };
-  return pushHangarPanel(player);
+  return pushHangarBay(player);
 }
 
 // `view <tail>` — open the showroom already turned to one aircraft, matched by tail/
@@ -229,7 +246,7 @@ async function cmdView(args, raw, player) {
   const field = fieldOf(player);
   if (!field) return undefined;
   const want = args.join(' ').trim().toLowerCase();
-  if (!want) return pushHangarPanel(player);
+  if (!want) return pushHangarBay(player);
   const cards = await buildCards(player, field);
   if (!cards.length) return { type: 'emote', message: 'None of your aircraft are here to view.' };
   const hit = cards.find(c => c.id === want)
@@ -239,7 +256,7 @@ async function cmdView(args, raw, player) {
     const names = cards.map(c => `<b>${clean(c.tail)}</b>`).join(', ');
     return { type: 'emote', message: `No aircraft here matches "${clean(want)}". On the floor: ${names}.` };
   }
-  return pushHangarPanel(player, hit.id);
+  return pushHangarBay(player, hit.id);
 }
 
 async function cmdHangar(args, raw, player) {
@@ -249,7 +266,7 @@ async function cmdHangar(args, raw, player) {
   const { rows: mine } = await query('SELECT * FROM hangars WHERE field_zone=$1 AND owner_id=$2', [field.id, player.id]);
 
   // Bare `hangar` opens the visual hangar. `hangar list` keeps the old text view.
-  if (!sub || sub === 'open' || sub === 'panel') return pushHangarPanel(player);
+  if (!sub || sub === 'open' || sub === 'panel') return pushHangarBay(player);
 
   if (sub === 'list') {
     const { rows: stored } = await query('SELECT a.name, t.name tname FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.hangar_id IN (SELECT id FROM hangars WHERE field_zone=$1 AND owner_id=$2)', [field.id, player.id]);

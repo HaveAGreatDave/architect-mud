@@ -3,7 +3,7 @@
 // exercise the gated no-mutation paths across every submodule (verbs route, gate
 // correctly, and delegate to the shadowed owner off-context) plus pure helpers.
 import { _test } from './index.js';
-import { withinShift, pilotTarget, stepToward, charterCost } from './charter.js';
+import { withinShift, pilotTarget, stepToward, charterFare, pilotColor } from './charter.js';
 import { signatureMult, signatureScore, colorName, describeExterior,
   normalizeLivery, sanitizeLivery, conspicuousnessMult, paintCost, isPaintable,
   readSchemes, schemeOf } from './livery.js';
@@ -80,7 +80,11 @@ export default async function regress({ run, check, getPlayer }) {
   const far = stepToward(0, 0, 10, 0, 2);
   check('autoflight advances one cruise step when far', far.arrived === false && Math.abs(far.fx - 2) < 1e-9 && far.fy === 0);
   check('autoflight reports the remaining distance', Math.abs(far.d - 10) < 1e-9);
-  check('charter costs 10x hourly with a 200c floor', charterCost({ price_rent_hourly: 50 }) === 500 && charterCost({ price_rent_hourly: 5 }) === 200);
+  check('charter fare is ~100c for a short hop', charterFare(0, 0, 1, 1) === 95, charterFare(0, 0, 1, 1));
+  check('charter fare rises with distance', charterFare(0, 0, 10, 0) > charterFare(0, 0, 1, 1));
+  check('off-airfield (anywhere) fare is a premium over the same-distance Mule fare', charterFare(0, 0, 5, 0, true) > charterFare(0, 0, 5, 0, false));
+  check('a zero-distance fare is still the flat base', charterFare(0, 0, 0, 0) === 90);
+  check('pilotColor gives every known pilot a distinct hex, and a sane fallback for unknowns', /^#[0-9a-f]{6}$/i.test(pilotColor('npc_charter_doyle')) && pilotColor('npc_charter_doyle') !== pilotColor('npc_charter_kessler') && /^#[0-9a-f]{6}$/i.test(pilotColor('nobody')));
 
   const savedPosture = p.posture, savedCombat = p.npcCombatTargetId, savedAc = p.aircraftId;
   p.posture = 'standing'; p.npcCombatTargetId = null; delete p.aircraftId; delete p.seat;
@@ -133,6 +137,10 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('hangaract store x'); check('hangaract off-field reports airfields', /airfield/i.test(r?.message || ''), r?.message);
   r = await run('examine mayfly'); check('examine off-field delegates past the flight plugin', !/sits here/i.test(r?.message || ''), r?.message);
   r = await run('charter mule 1'); check('charter <ride> <dest> off-field reports no desk', /no .*(charter|dealer|desk)/i.test(r?.message || ''), r?.message);
+  r = await run('charterinfo'); check('charterinfo (dialog alias) off-field reports no desk', /no .*(charter|dealer)/i.test(r?.message || ''), r?.message);
+  r = await run('charterbook zone_outskirts'); check('charterbook off-field reports no desk', /no .*(charter|dealer)/i.test(r?.message || ''), r?.message);
+  r = await run('fleet'); check('fleet (hangar-bay alias) off-field reports airfields', /airfield/i.test(r?.message || ''), r?.message);
+  r = await run('carousel'); check('carousel (hangar-bay alias) off-field reports airfields', /airfield/i.test(r?.message || ''), r?.message);
   r = await run('flyto 1'); check('flyto is retired (destination is chosen at the desk now)', r?.type === 'error' && /unknown command/i.test(r?.message || ''), `${r?.type}:${r?.message}`);
   r = await run('cancel'); check('cancel with no charter is a clean no-op (falls through)', !/called off|refunded/i.test(r?.message || ''), r?.message);
   r = await run('testfly dragonfly'); check('testfly is admin-gated', /access denied/i.test(r?.message || ''), r?.message);

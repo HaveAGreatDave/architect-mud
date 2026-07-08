@@ -13,6 +13,7 @@
   "flags": {
     "building_name": null,
     "building_type": null,
+    "intro_lore": "Every building this old keeps something in the basement it'd rather not explain, and the Embassy is no exception — pipework nobody traces to a source, a smell nobody names, a stairwell nobody uses without a reason. Guests upstairs prefer to imagine the hotel starts at the lobby.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": true,

@@ -57,7 +57,7 @@ function settlement(value) {
 // The player's owned, flyable (non-wreck, non-rental) aircraft + their live policy state.
 async function ownedFleet(playerId) {
   const { rows } = await query(
-    `SELECT a.id, a.name, t.name tname, t.price_buy,
+    `SELECT a.id, a.name, t.name tname, t.class tclass, t.price_buy,
             p.id policy_id, p.insured_value, p.expires_at
      FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id
      LEFT JOIN insurance_policies p ON p.aircraft_id=a.id AND p.expires_at > $2
@@ -65,6 +65,31 @@ async function ownedFleet(playerId) {
      ORDER BY t.price_buy`,
     [playerId, nowSec()]);
   return rows;
+}
+
+// The popup shown on the underwriting-floor desk (insure her now, right there —
+// no chat-scrollback list to parse). One screen: your fleet + any open claims.
+async function buildInsurancePanel(player) {
+  const fleet = await ownedFleet(player.id);
+  const paid = await ownerPaidClaims(player.id);
+  const daysLeft = (e) => Math.max(0, Math.ceil((e - nowSec()) / 86400));
+  const { rows: claims } = await query(
+    "SELECT id, type_name, payout, deductible FROM insurance_claims WHERE owner_id=$1 AND status='pending' ORDER BY filed_at",
+    [player.id]);
+  return {
+    type: 'insurance_panel',
+    periodDays: PERIOD_SEC / 86400,
+    payoutPct: Math.round(PAYOUT_FRAC * 100),
+    deductiblePct: Math.round(DEDUCTIBLE_FRAC * 100),
+    paidClaims: paid,
+    fleet: fleet.map(r => ({
+      id: r.id, name: r.name, typeName: r.tname, class: r.tclass,
+      insured: !!r.policy_id, daysLeft: r.policy_id ? daysLeft(r.expires_at) : 0,
+      premium: quotePremium(r.price_buy, paid), value: r.price_buy,
+    })),
+    claims: claims.map(c => ({ id: c.id, typeName: c.type_name, payout: c.payout, deductible: c.deductible })),
+    player: { credits: player.credits || 0 },
+  };
 }
 
 function pickCraft(fleet, want) {
@@ -80,16 +105,9 @@ async function cmdInsure(args, raw, player) {
   const paid = await ownerPaidClaims(player.id);
   const want = (args[0] || '').toLowerCase();
 
-  if (!want) {
-    const daysLeft = (e) => Math.max(0, Math.ceil((e - nowSec()) / 86400));
-    const lines = fleet.map(r => {
-      const prem = quotePremium(r.price_buy, paid);
-      const covered = r.policy_id ? `<span class="text-green">COVERED · ${daysLeft(r.expires_at)}d left</span>` : '<span class="text-dim">uninsured</span>';
-      return `· <b>${r.tname}</b> "${r.name}" — ${covered} · premium <b>${prem}c</b>/${PERIOD_SEC / 86400}d · <span class="action-link" data-action="cmd" data-cmd="insure ${r.id}">${r.policy_id ? 'renew' : 'insure'}</span>`;
-    });
-    const surcharge = paid ? ` <span class="text-amber">(your ${paid} prior claim${paid > 1 ? 's' : ''} surcharge these premiums)</span>` : '';
-    return { type: 'output', message: `<span class="text-cyan">HALCYON ASSURANCE — HULL COVER:</span>${surcharge}\n${lines.join('\n')}\n<span class="text-dim">A covered total loss pays ${Math.round(PAYOUT_FRAC * 100)}% of agreed value, less a ${Math.round(DEDUCTIBLE_FRAC * 100)}% excess; we retain the wreck. Fly carefully — we do read the black box.</span>` };
-  }
+  // Bare `insure` — pop the underwriting-floor terminal instead of dumping a
+  // chat-scrollback list; you insure her right there, not by re-typing ids.
+  if (!want) return await buildInsurancePanel(player);
 
   const craft = pickCraft(fleet, want);
   if (!craft) return { type: 'emote', message: `No aircraft of yours by "${want}". Type <b>insure</b> for the list.` };
@@ -107,7 +125,12 @@ async function cmdInsure(args, raw, player) {
       [`pol_${randomUUID().slice(0, 10)}`, player.id, craft.id, value, premium, expires, nowSec()]);
   }
   const { deductible, payout } = settlement(value);
-  return { type: 'output', message: `<span class="item-grant">Bound. The <b>${craft.tname}</b> "${craft.name}" is covered for ${PERIOD_SEC / 86400} days — <b>${premium}c</b>. Agreed value ${value}c; a covered write-off pays <b>${payout}c</b> after the ${deductible}c excess, and we keep the hull. <span class="text-dim">Renew before it lapses — a lapsed policy pays nothing.</span></span>`, player_update: { credits: player.credits } };
+  return {
+    type: 'insurance_action',
+    message: `<span class="item-grant">Bound. The <b>${craft.tname}</b> "${craft.name}" is covered for ${PERIOD_SEC / 86400} days — <b>${premium}c</b>. Agreed value ${value}c; a covered write-off pays <b>${payout}c</b> after the ${deductible}c excess, and we keep the hull. <span class="text-dim">Renew before it lapses — a lapsed policy pays nothing.</span></span>`,
+    player_update: { credits: player.credits },
+    panel: await buildInsurancePanel(player),
+  };
 }
 
 // ── claim — collect a filed claim ─────────────────────────────────────────────
@@ -117,10 +140,7 @@ async function cmdClaim(args, raw, player) {
   if (!rows.length) return { type: 'output', message: '<span class="text-cyan">HALCYON ASSURANCE — CLAIMS:</span> you have no open claims. Try not to change that.' };
 
   const want = (args[0] || '').toLowerCase();
-  if (!want && rows.length > 1) {
-    const lines = rows.map(c => `· claim on a <b>${c.type_name}</b> — pays <b>${c.payout}c</b> (after ${c.deductible}c excess) · <span class="action-link" data-action="cmd" data-cmd="claim ${c.id}">collect</span>`);
-    return { type: 'output', message: `<span class="text-cyan">HALCYON ASSURANCE — OPEN CLAIMS:</span>\n${lines.join('\n')}` };
-  }
+  if (!want && rows.length > 1) return await buildInsurancePanel(player);
   const c = want ? rows.find(r => r.id === want || r.id.endsWith(want) || (r.type_name || '').toLowerCase().includes(want)) : rows[0];
   if (!c) return { type: 'emote', message: `No open claim matches "${want}". Type <b>claim</b> to list them.` };
 
@@ -129,7 +149,12 @@ async function cmdClaim(args, raw, player) {
   await query("UPDATE insurance_claims SET status='paid', paid_at=$1 WHERE id=$2", [nowSec(), c.id]);
   // The insurer keeps the wreck: mark it written-off so the ex-owner can't also rebuild it.
   if (c.aircraft_id) await query("UPDATE aircraft SET custom_data = jsonb_set(COALESCE(custom_data,'{}'), '{stripped}', 'true') WHERE id=$1", [c.aircraft_id]);
-  return { type: 'output', message: `<span class="item-grant">Settled. Halcyon pays out <b>${c.payout}c</b> on the ${c.type_name} — the ${c.deductible}c excess is yours to eat, and the wreck is ours now. <span class="text-dim">A pleasure doing business. Your next premium reflects today.</span></span>`, player_update: { credits: player.credits } };
+  return {
+    type: 'insurance_action',
+    message: `<span class="item-grant">Settled. Halcyon pays out <b>${c.payout}c</b> on the ${c.type_name} — the ${c.deductible}c excess is yours to eat, and the wreck is ours now. <span class="text-dim">A pleasure doing business. Your next premium reflects today.</span></span>`,
+    player_update: { credits: player.credits },
+    panel: await buildInsurancePanel(player),
+  };
 }
 
 // ── insurebind — point-of-sale cover, reachable at the dealer ─────────────────
@@ -161,13 +186,9 @@ async function cmdInsureBind(args, raw, player) {
 
 // ── policies — what you currently carry ───────────────────────────────────────
 async function cmdPolicies(args, raw, player) {
-  const { rows } = await query(
-    `SELECT p.insured_value, p.premium_paid, p.expires_at, t.name tname, a.name aname
-     FROM insurance_policies p JOIN aircraft a ON a.id=p.aircraft_id JOIN aircraft_types t ON t.id=a.type_id
-     WHERE p.owner_id=$1 AND p.expires_at > $2 ORDER BY p.expires_at`, [player.id, nowSec()]);
-  if (!rows.length) return { type: 'output', message: '<span class="text-cyan">HALCYON ASSURANCE:</span> you carry no active cover.' };
-  const lines = rows.map(r => `· <b>${r.tname}</b> "${r.aname}" — value ${r.insured_value}c · <b>${Math.max(0, Math.ceil((r.expires_at - nowSec()) / 86400))}d</b> left`);
-  return { type: 'output', message: `<span class="text-cyan">YOUR HALCYON POLICIES:</span>\n${lines.join('\n')}` };
+  const fleet = await ownedFleet(player.id);
+  if (!fleet.length) return { type: 'output', message: '<span class="text-cyan">HALCYON ASSURANCE:</span> our records show no aircraft in your name.' };
+  return await buildInsurancePanel(player);
 }
 
 // Deduct a bill from a (possibly offline) pilot's credits, floored at zero. Returns paid.

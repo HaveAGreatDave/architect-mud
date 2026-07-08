@@ -283,9 +283,7 @@ function bankCreateAtm() {
         <input id="batm-desc" type="text" value="A cash dispensing terminal." placeholder="A cash dispensing terminal." style="${fieldStyle}">
       </div>
       <div class="field"><label>Zone</label>
-        <select id="batm-zone" style="${fieldStyle}">
-          <option value="">— Unplaced —</option>${zoneOpts}
-        </select>
+        <select id="batm-zone" style="${fieldStyle}">${zoneOpts}</select>
       </div>
       <div class="field"><label>Network</label>
         <select id="batm-network" style="${fieldStyle}">
@@ -312,13 +310,14 @@ function bankCreateAtm() {
 async function bankCreateAtmSave() {
   const name    = document.getElementById('batm-name').value.trim();
   const desc    = document.getElementById('batm-desc').value.trim();
-  const zoneId  = document.getElementById('batm-zone').value || null;
+  const zoneId  = document.getElementById('batm-zone').value;
   const network = document.getElementById('batm-network').value || null;
   const cashMax = parseInt(document.getElementById('batm-cashmax').value, 10) || 10000;
   const interval = parseInt(document.getElementById('batm-interval').value, 10) || 6;
   const diff    = parseInt(document.getElementById('batm-diff').value, 10) || 5;
 
   if (!name) { toast('Terminal name is required.', true); return; }
+  if (!zoneId) { toast('A zone is required — furniture cannot be created unplaced.', true); return; }
 
   // Create the furniture — server auto-creates atm_units row when flags.atm is set
   const fur = await API('/furniture', 'POST', {

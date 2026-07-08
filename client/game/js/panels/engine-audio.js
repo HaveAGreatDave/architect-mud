@@ -475,6 +475,25 @@ const AA_WARN_FX = { config: { duration: 0.85, layers: [
   { waveform: 'sawtooth', freq: 660, tremolo: { rate: 16, depth: 0.85 }, filter: { type: 'bandpass', freq: 1000, q: 3 }, adsr: { a: 0.01, d: 0, s: 1, r: 0.08 }, gain: 0.035 } ] } };
 export function aaWarn() { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(AA_WARN_FX); } catch {} }
 
+// Incoming AA tracer — proximity-scaled: a round passing right on top of you cracks sharp,
+// loud and bright (the supersonic snap); one from a distant/marginal shot is a duller,
+// quieter whiz that barely cuts through the engine. `near` is 0..1 (1 = point-blank).
+function tracerFxDef(near) {
+  const n = Math.max(0, Math.min(1, near));
+  return { config: { duration: 0.28 + n * 0.14, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1300 + n * 2700, q: 2 + n * 2.2 }, adsr: { a: 0.001, d: 0.05 + n * 0.05, s: 0, r: 0.05 + n * 0.1 }, gain: 0.02 + n * 0.16 },
+    { waveform: 'sawtooth', freq: 850 + n * 1500, pitchBend: { to: 260 + n * 320, time: 0.12 }, filter: { type: 'bandpass', freq: 1100 + n * 2100, q: 3 }, adsr: { a: 0.001, d: 0.08, s: 0, r: 0.08 }, gain: 0.01 + n * 0.09 } ] } };
+}
+export function tracerFx(near) { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(tracerFxDef(near)); } catch {} }
+
+// Rounds striking the airframe — an impact crack, a short metallic ring off the skin, and a
+// low structural thud. Fires on any confirmed air hit (AA or air-to-air guns) via air_hit.
+const HIT_FX = { config: { duration: 0.5, layers: [
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1800, q: 1.4 }, adsr: { a: 0.001, d: 0.1, s: 0, r: 0.12 }, gain: 0.15 },                                                          // impact crack
+  { waveform: 'triangle', freq: 1100, pitchBend: { to: 380, time: 0.2 }, filter: { type: 'bandpass', freq: 1400, q: 4 }, adsr: { a: 0.001, d: 0.25, s: 0, r: 0.15 }, gain: 0.06 },                       // metallic ring off the skin
+  { waveform: 'sine', freq: 58, adsr: { a: 0.002, d: 0.22, s: 0, r: 0.1 }, gain: 0.13 } ] } };                                                                                                            // low structural thud
+export function hitFx() { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(HIT_FX); } catch {} }
+
 // Stall warning horn — a reedy buzzer that pulses on approach and goes continuous in the
 // stall (per the sound doc). `level` 0..1 rides its gain; 0 lets go and stops the loop.
 let _hornOn = false;

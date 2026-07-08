@@ -681,7 +681,7 @@ function regionalReachable(startId) {
 }
 
 // Full overworld (map_world, floor 0), absolute coords — the regional land-use view.
-function regionalTiles(currentOverworldId) {
+export function regionalTiles(currentOverworldId) {
   const onMap = getAllZones().filter(z =>
     z.map_id === 'map_world' && (z.grid_z ?? 0) === 0 &&
     z.grid_x != null && z.grid_y != null);

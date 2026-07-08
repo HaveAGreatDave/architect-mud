@@ -252,6 +252,12 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
   if (doorForcefieldActive(door))
     return { type:'error', message:'A quantum forcefield sheathes the door — your blows just wash off it in blue ripples.' };
 
+  // A door tagged unbreakable (e.g. the jail cell) can't be bashed down at all —
+  // there is no player bypass, by design. Without this, enough hits eventually
+  // zero its HP and leave lock_state permanently NULL with no repair path.
+  if (tagValue(door, 'unbreakable'))
+    return { type:'error', message:'The door barely rattles under the blow — this one isn\'t coming down.' };
+
   if (isOnCooldown(player.id, 'attack')) {
     const remaining = getCooldownRemaining(player.id, 'attack');
     return { type:'error', message:`Not yet. (${(remaining/1000).toFixed(1)}s)` };

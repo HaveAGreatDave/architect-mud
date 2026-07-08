@@ -13,7 +13,9 @@ import { query } from '../../server/models/db.js';
 import { effectiveSkill, awardSkillUse, skillCheck } from '../../server/engine/skills.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { registerInputMatcher } from '../../server/engine/plugins.js';
-import { dispatchAction } from '../../server/engine/actions.js';
+import { on } from '../../server/engine/events.js';
+import { dispatchAction, registerAction } from '../../server/engine/actions.js';
+import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { getZoneEnemies, getZoneNpcs } from '../../server/engine/world.js';
 import {
   TICK_MS, FUEL_RESERVE_FRAC, BANDS, BAND_LABEL, BAND_BURN, DIRS, DIR_ALIASES,
@@ -29,9 +31,9 @@ import { describeExterior, rampColorWord, conspicuousnessMult } from './livery.j
 import { rollHazards, commands as hazardCommands } from './hazards.js';
 import { commands as acquisitionCommands, refuelAt, fieldStocks } from './acquisition.js';
 import { commands as combatCommands, tickCombat, relayContacts } from './combat.js';
-import { commands as contractCommands, checkContractDelivery } from './contracts.js';
-import { commands as hangarCommands } from './hangars.js';
-import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter } from './charter.js';
+import { commands as contractCommands, checkContractDelivery, checkCargoDropDelivery, waitingDropAt, ensureFenceDrops } from './contracts.js';
+import { commands as hangarCommands, pushHangarBay } from './hangars.js';
+import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter, activeCharters } from './charter.js';
 
 // Verb-collision routers (see plugin.json `after`): flight wins `board`/`refuel`
 // and delegates to the prior owner by context.
@@ -68,13 +70,28 @@ function breakOffAttackers(player) {
 }
 
 // ── Boarding ──────────────────────────────────────────────────────────────────
-async function findParkedHere(zoneId, nameArg) {
-  const { rows } = await query('SELECT id, name, type_id, is_wreck, owner_id, hangar_id, rental, custom_data FROM aircraft WHERE parked_zone_id=$1', [zoneId]);
-  // Charter craft are the NPC pilot's — never boardable as a normal aircraft.
-  const flyable = rows.filter(r => !r.is_wreck && (r.custom_data?.charter !== true));
-  if (!flyable.length) return null;
-  if (nameArg) return flyable.find(r => (r.name || '').toLowerCase().includes(nameArg) || r.id.includes(nameArg)) || null;
-  return flyable[0];
+// Every flyable (non-wreck, non-charter) aircraft parked here, named for SIFT —
+// `name` falls back to the type name so "embark mule" matches an unlettered craft.
+async function parkedPool(zoneId) {
+  const { rows } = await query(
+    `SELECT a.id, a.name, a.type_id, a.is_wreck, a.owner_id, a.hangar_id, a.rental, a.custom_data, t.name tname
+     FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.parked_zone_id=$1`, [zoneId]);
+  return rows.filter(r => !r.is_wreck && r.custom_data?.charter !== true)
+    .map(r => ({ ...r, name: r.name || r.tname }));
+}
+
+// Resolve which parked craft `embark`/`board` means: bare (no name arg) with
+// exactly one candidate auto-picks it; otherwise SIFT scores the name against the
+// pool, prompting a disambiguation page (replayed via the `flight.board` Action)
+// when more than one is a close match.
+async function resolveBoard(zoneId, nameArg) {
+  const pool = await parkedPool(zoneId);
+  if (!pool.length) return { none: true };
+  if (!nameArg) return pool.length === 1 ? { found: pool[0] } : { ambiguous: pool };
+  const r = siftResolve(nameArg, pool);
+  if (r.type === 'match') return { found: r.candidate };
+  if (r.type === 'ambiguous') return { ambiguous: r.candidates };
+  return { none: true };
 }
 
 async function cmdBoard(args, raw, player, broadcast) {
@@ -103,15 +120,24 @@ async function cmdBoard(args, raw, player, broadcast) {
     return embarkCharter(player, parkedCharter);
   }
 
-  const found = await findParkedHere(parkZoneId, args.join(' ').trim().toLowerCase());
-  if (!found) {
+  const { found, ambiguous, none } = await resolveBoard(parkZoneId, args.join(' ').trim().toLowerCase());
+  if (ambiguous) {
+    createSelectionState(player.id, ambiguous, { dispatchType: 'flight.board', dispatchParam: 'target' });
+    return { type: 'output', message: formatSelectionPage({ allCandidates: ambiguous, visibleIndex: 0, pageSize: 5 }) };
+  }
+  if (none || !found) {
     // `embark` is aircraft-only; the `board` backup still delegates to poker's
     // community-board when there's no aircraft here.
     const verb = (raw || '').trim().toLowerCase().split(/\s+/)[0];
     if (verb === 'board') return gametableCommands.board(args, raw, player, broadcast);
     return { type: 'emote', message: "There's no aircraft here to embark." };
   }
+  return boardFound(found, player, broadcast);
+}
 
+// The actual boarding — shared by the direct-match path above and the SIFT
+// disambiguation replay (registerAction('flight.board') below).
+async function boardFound(found, player, broadcast) {
   if ((player.posture || 'standing') !== 'standing')
     return { type: 'emote', message: 'You need to be on your feet to climb aboard.' };
 
@@ -144,6 +170,7 @@ async function cmdBoard(args, raw, player, broadcast) {
   live.occupants.add(player.id);
   player.aircraftId = found.id;
   player.seat = seat;
+  if (seat === 'pilot') live.pilotId = player.id;
   // Made it in under fire — slam the hatch and everything on you loses its lock.
   let broke = 0;
   if (inCombat) {
@@ -165,7 +192,18 @@ async function cmdBoard(args, raw, player, broadcast) {
   const scramble = inCombat
     ? `<span class="text-green">You throw yourself aboard and slam the hatch — ${broke ? 'they lose you' : 'the fight breaks off'}.</span> `
     : '';
-  return { type: 'emote', message: `${scramble}You climb aboard the ${live.type.name}. ${hint}` };
+  // A standing cargo drop at this field only comes up for the pilot, and only
+  // once there's actually one waiting here — see contracts.js `waitingDropAt`.
+  // `ensureFenceDrops` is a cheap no-op for anyone who hasn't unlocked the fence's
+  // air-cargo branch; for those who have, it tops their pallet pool back up first.
+  let drop = null;
+  if (seat === 'pilot') { await ensureFenceDrops(player); drop = await waitingDropAt(player.current_zone, player.id); }
+  const cargoHint = drop
+    ? drop.kind === 'fence'
+      ? `\n<span class="text-cyan">📦 A sealed shipment is waiting on the ramp — <span class="action-link" data-action="cmd" data-cmd="loadcargo">load it</span> and fly it home.</span>`
+      : `\n<span class="text-cyan">📦 ${drop.label} (${drop.weight_kg}kg) is waiting on the ramp — <span class="action-link" data-action="cmd" data-cmd="loadcargo">load it</span> and fly it home for ${drop.reward}c.</span>`
+    : '';
+  return { type: 'emote', message: `${scramble}You climb aboard the ${live.type.name}. ${hint}${cargoHint}` };
 }
 
 async function cmdDisembark(args, raw, player, broadcast) {
@@ -400,6 +438,7 @@ async function cmdLandResolve(args, raw, player, broadcast) {
     out(player.id, '<span class="text-green">You grease it on. Wheels down, throttle back — you\'re on the ground.</span>');
     await awardSkillUse(player.id, 'piloting', Math.max(0, (await effectiveSkill(player, 'piloting')) - landDifficulty(live, emergency)));
     await checkContractDelivery(player, live, fieldZoneId);
+    await checkCargoDropDelivery(player, live, fieldZoneId);
     return { type: 'noop' };
   }
   live.row.damage = Math.min(1, live.row.damage + (emergency ? 0.5 : 0.35));
@@ -525,6 +564,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
       await parkAt(live, field.id);
       await awardSkillUse(player.id, 'piloting', 0);
       await checkContractDelivery(player, live, field.id);
+      await checkCargoDropDelivery(player, live, field.id);
       return { type: 'noop' };
     }
     // Off-strip, but she made it down in one piece: the client only sends `land` for a
@@ -762,6 +802,13 @@ registerInputMatcher(/^(n|s|e|w|ne|nw|se|sw|north|south|east|west|northeast|nort
     return { type: 'emote', message: `Coming around to ${d.toUpperCase()}.` };
   }, 'flight');
 
+// SIFT disambiguation replay for `embark`/`board` (docs/commands.md — plugin verbs
+// can't reach the builtin replay path, so ambiguous picks go through an Action).
+registerAction({
+  type: 'flight.board',
+  handler: ({ actor, params, context }) => boardFound(params.target, actor, context.broadcast),
+});
+
 // ── Airfield / hangar services ────────────────────────────────────────────────
 // A clickable command link, and the shared "Services:" line built from a field's
 // flags — used identically on the exterior ramp and inside the walk-in hangar so
@@ -784,7 +831,7 @@ async function describeHangarInterior(zone) {
   const ramp = getZone(zone.flags.hangar_ramp);
   if (!ramp) return `<span class="furniture-label">Hangar:</span> ${svcLink('out', 'out')} <span class="text-dim">back out to the ramp</span>`;
   let line = `${serviceBits(ramp)}\n<span class="furniture-label">Ramp:</span> ${svcLink('out', 'out')} <span class="text-dim">step back out onto the ramp</span>`;
-  line += `\n<span class="furniture-label">Showroom:</span> ${svcLink('showroom', 'showroom')} <span class="text-dim">walk the floor — your aircraft up close in 3D; repaint, store, roll out</span>`;
+  line += `\n<span class="furniture-label">Hangar bay:</span> ${svcLink('hangar', 'hangar')} <span class="text-dim">walk the floor — your aircraft up close in 3D; charter, buy/rent, maintenance</span>`;
   // Board straight from the office — the aircraft on the linked ramp are in reach.
   const { rows } = await query(
     "SELECT name FROM aircraft WHERE parked_zone_id=$1 AND is_wreck=0 AND (custom_data->>'charter') IS DISTINCT FROM 'true' LIMIT 1",
@@ -812,7 +859,7 @@ async function describeAirfield(zone) {
   // If this field has a walk-in hangar, boarding is done INSIDE it (less ambiguity) —
   // point players in through the bay doors; the embark links live in the office.
   if (f.hangar_interior_zone) {
-    line += `\n<span class="furniture-label">Hangar:</span> ${svcLink('in', 'step inside')} <span class="text-dim">desk, tools, the charter pilot — and where you board your aircraft; through the bay doors</span>`;
+    line += `\n<span class="furniture-label">${svcLink('in', 'Hangar')}:</span> <span class="text-dim">desk, tools, the charter pilot — and where you board your aircraft; through the bay doors</span>`;
     return line;
   }
   // No walk-in hangar here → board straight off the ramp. Name each craft by its
@@ -834,6 +881,52 @@ async function describeAirfield(zone) {
   }
   return line;
 }
+
+// Walking into a walk-in hangar drops you straight at the ops desk — auto-open the
+// bay panel instead of making them type `hangar`. Walking back out (to anywhere,
+// not just the ramp) closes it client-side; re-entering re-opens fresh.
+on('zone.entered', async ({ actor, zone: zoneId, from }) => {
+  if (getZone(zoneId)?.flags?.hangar_interior) { await pushHangarBay(actor); return; }
+  if (from && getZone(from)?.flags?.hangar_interior) sendToPlayer(actor.id, { type: 'hangar_close' });
+});
+
+// Reconnect resume — a hard refresh (or any dropped connection) tears down the
+// in-memory live player entirely (server/index.js's ws `close` handler), which
+// loses `player.aircraftId`/`seat` even though the aircraft's own `occupants` set
+// (and, for whoever was flying it, `live.pilotId` — the durable seat marker that
+// survives exactly this teardown) still lists them as aboard. The fresh login
+// snapshot would otherwise show whatever their stale pre-flight zone renders as.
+// Re-attach + push the SAME panel they'd get boarding fresh — the continuous
+// cockpit for a reconnecting pilot on a continuous airframe, the cabin-window HUD
+// for everyone else — the instant they log back in. Mounting either replaces the
+// area pane outright, so it overrides the plain look/whatever already went out
+// ahead of this.
+// A death from any cause (combat, radiation, seppuku, ...) while aboard leaves
+// `player.aircraftId` dangling — death teleports to the respawn zone without
+// firing `zone.entered`, so the usual disembark path never runs. Detach so the
+// aircraft's occupant set and the player's flying posture don't stay stale.
+on('player.death', ({ player }) => {
+  if (player.aircraftId) detach(player);
+});
+
+on('player.login', ({ id }) => {
+  const player = getLivePlayer(id);
+  if (!player) return;
+  // Any aircraft (owner/rental-flown, or an NPC-piloted charter) that still lists
+  // this player as aboard. `live.pilotId` is null on a charter (an NPC flies it),
+  // so a charter passenger correctly falls to the `else` (cabin-window HUD) below.
+  for (const live of liveAircraft.values()) {
+    if (!live.occupants.has(id)) continue;
+    const seat = live.pilotId === id ? 'pilot' : 'passenger';
+    player.aircraftId = live.row.id;
+    player.seat = seat;
+    getZone(player.current_zone)?.players.delete(id);
+    setPosture(player, 'flying');
+    if (seat === 'pilot' && isContinuous(live)) sendFlightSim(player, live);
+    else pushHud(live);
+    return;
+  }
+});
 
 // ── Admin: free test-fly any aircraft from a field ────────────────────────────
 async function cmdTestFly(args, raw, player) {
@@ -863,7 +956,7 @@ async function cmdTestFly(args, raw, player) {
     [id, t.id, `TEST ${t.name}`, player.id, field.grid_x, field.grid_y, parkZone, t.fuel_capacity]
   );
   const live = await loadAircraft(id);
-  live.occupants.add(player.id); player.aircraftId = id; player.seat = 'pilot';
+  live.occupants.add(player.id); player.aircraftId = id; player.seat = 'pilot'; live.pilotId = player.id;
   if (inHangar) {
     // In the garage: no cockpit yet — she has to be taxied out onto the runway first.
     return { type: 'emote', message: `<span class="text-green">[TEST] A free <b>${t.name}</b>, full tank, waits in the hangar with you at the controls. <b>taxi</b> her out of the garage onto the runway before you fly. It's yours — scrap it when done.</span>` };
@@ -968,11 +1061,57 @@ export const hooks = {
   'zone.describeRoom': describeAirfield,
 };
 
-// ── Dev-panel debug route (GET /flight/debug) — charter pilot status + flight log
+// ── Dev-panel routes ────────────────────────────────────────────────────────
+// GET /flight/debug — charter pilot status + flight log.
+// GET /flight/aircraft — every aircraft row (owned/rental/test/charter/wreck),
+//   for the dev panel's cleanup table. DELETE /flight/aircraft/:id removes one —
+//   this is the ONLY way to delete an aircraft instance (test-flight conjures and
+//   player buy/rent purchases otherwise just accumulate forever). Deleting one
+//   that's currently airborne/occupied first detaches any rider and clears it out
+//   of the live in-memory state, so it can't leave a player's aircraftId dangling.
+function devOk(auth) { return auth && ['dev', 'admin', 'builder', 'designer'].includes(auth.role); }
+const AIRCRAFT_KIND = (r) => {
+  if (r.id.startsWith('aircraft_test_')) return 'test';
+  if (r.id.startsWith('aircraft_charter_') || r.custom_data?.charter) return 'charter';
+  if (r.is_wreck) return 'wreck';
+  if (r.rental) return 'rental';
+  return r.owner_id ? 'owned' : 'stock';
+};
 export const routeHandler = async (path, method, body, auth) => {
   if (!path.startsWith('/flight')) return null;
+  if (method !== 'GET' && !devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
   const parts = path.split('/').filter(Boolean);
   if (parts[1] === 'debug' && method === 'GET') return { status: 200, body: await charterDebug() };
+
+  if (parts[1] === 'aircraft') {
+    const id = parts[2];
+    if (!id && method === 'GET') {
+      const { rows } = await query(`
+        SELECT a.id, a.name, a.type_id, t.name AS type_name, t.class,
+               a.owner_id, p.handle AS owner_handle,
+               a.parked_zone_id, z.name AS zone_name,
+               a.is_wreck, a.rental, a.damage, a.fuel, a.custom_data
+        FROM aircraft a
+        LEFT JOIN aircraft_types t ON t.id = a.type_id
+        LEFT JOIN players p ON p.id = a.owner_id
+        LEFT JOIN zones z ON z.id = a.parked_zone_id
+        ORDER BY a.id`);
+      return { status: 200, body: rows.map(r => ({ ...r, kind: AIRCRAFT_KIND(r), live: liveAircraft.has(r.id) })) };
+    }
+    if (id && method === 'DELETE') {
+      const live = liveAircraft.get(id);
+      if (live) {
+        for (const pid of [...live.occupants]) {
+          const p = getLivePlayer(pid);
+          if (p) detach(p);
+        }
+        liveAircraft.delete(id);
+      }
+      activeCharters.delete(id);   // in case a ghost charter row still pointed at it
+      const { rowCount } = await query('DELETE FROM aircraft WHERE id=$1', [id]);
+      return rowCount ? { status: 200, body: { ok: true } } : { status: 404, body: { error: 'No such aircraft.' } };
+    }
+  }
   return null;
 };
 

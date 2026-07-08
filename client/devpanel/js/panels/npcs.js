@@ -130,7 +130,7 @@ function renderNpcsPanel(data) {
 
   const lateCount = records.filter(r => r._work_status.includes('>late<')).length;
   const lateLabel = lateCount ? `Send to Work (${lateCount} late)` : 'Send to Work';
-  const unhousedCount = records.filter(r => !r.home_zone || r.home_zone === 'zone_residential_lobby').length;
+  const unhousedCount = records.filter(r => !r.home_zone || r.home_zone === 'zone_residential_lobby' || !r.home_is_apartment).length;
   const houseLabel = unhousedCount ? `🏠 House Unhoused (${unhousedCount})` : '🏠 House Unhoused';
   const toolbar = `<div style="padding:6px 12px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:8px">
     <button class="action-btn" style="font-size:11px;padding:3px 10px" onclick="npcSendToWork(this)"
@@ -138,7 +138,7 @@ function renderNpcsPanel(data) {
     ${lateCount ? `<span style="font-size:11px;color:var(--text-dim)">${lateCount} NPC${lateCount !== 1 ? 's' : ''} scheduled but not at work</span>` : '<span style="font-size:11px;color:var(--text-dim)">All scheduled NPCs at work</span>'}
     <button class="action-btn" style="font-size:11px;padding:3px 10px" onclick="npcHouseUnhoused(this)"
       ${unhousedCount ? '' : 'disabled'}
-      title="Give every unhoused NPC (no home, or still on the default lobby) a vacant apartment to live in">${houseLabel}</button>
+      title="Give every unhoused NPC (no home, still on the default lobby, or homed on a non-apartment/exterior tile) a vacant apartment to live in">${houseLabel}</button>
     <button class="action-btn" style="font-size:11px;padding:3px 10px;margin-left:auto" onclick="blOpen()"
       title="Edit the shared pool of NPC-to-NPC banter scenes">🗣 Banter Library</button>
   </div>`;

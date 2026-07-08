@@ -19,6 +19,9 @@
 //   heading,    // deg (to orient the map obstacles)
 //   map,        // optional server map window (rows[y][x] = {kind}) → obstacles ahead
 //   phase,      // 'cruise' | 'takeoff' | 'landing' | 'vtol' | 'ground'
+//   worldBlend, // optional 0..1 ground↔air crossfade weight (only the charter/passenger
+//               //   HUD sends this) — when set, overrides the hard cut on `phase`/onDeck
+//               //   so the airport scenery and the Mode-7 world actually blend
 //   drift,      // VTOL only: -1..1 lateral offset off the pad
 //   airport,    // ground/takeoff/landing: terrain theme ('city'|'docks'|'yards'|
 //               //   'slag'|'wastes'|'default') → the flanking airport scenery
@@ -177,7 +180,13 @@ export function paintWindshield(id, view) {
   const framed = side || !!v.windowClass;
   // On the deck (ground/takeoff/landing) we paint a real, terrain-themed airport.
   const onDeck = phase === 'ground' || phase === 'takeoff' || phase === 'landing';
-  const airport = onDeck ? airportCfg(v.airport) : null;
+  // Continuous ground↔air crossfade weight (0 = fully on the deck, 1 = fully airborne).
+  // Every other caller (takeoff/landing/vtol decks, the self-flown continuous sim) leaves
+  // `worldBlend` unset and gets the old hard cut on `onDeck`; the charter/passenger HUD
+  // passes a real fractional value so the airport scenery and the Mode-7 world actually
+  // blend across the climb-out/flare instead of swapping in a single frame.
+  const worldBlend = v.worldBlend != null ? clamp(v.worldBlend, 0, 1) : (onDeck ? 0 : 1);
+  const airport = worldBlend < 1 ? airportCfg(v.airport) : null;
   st.scroll = (st.scroll + speed * dt * (1.3 - height * 0.35) * 5.2) % 1;   // faster ground rush
   st.sideScroll = (st.sideScroll + speed * dt * 0.9) % 1;   // lateral drift for the side window
 
@@ -188,7 +197,7 @@ export function paintWindshield(id, view) {
   // Horizon. On the deck it tracks how much field is in view: pull the nose up (or
   // climb away) and the airport sinks off the bottom until the view "levels out"
   // into open sky. Airborne, pitch/altitude nudge it as before.
-  const reveal = onDeck ? clamp(1 - Math.max(0, v.pitch || 0) / 26 - height * 0.95, 0, 1) : 0;
+  const reveal = (1 - worldBlend) * clamp(1 - Math.max(0, v.pitch || 0) / 26 - height * 0.95, 0, 1);
   const rawHorizon = onDeck
     ? lerp(H * 1.08, H * 0.42, reveal)
     : clamp(H * 0.46 + (v.pitch || 0) * H * 0.016 + (height - 0.2) * H * 0.09, H * 0.14, H * 0.84);
@@ -256,11 +265,11 @@ export function paintWindshield(id, view) {
 
   // Pilotwings hero clouds — big, well-defined fluffy cumulus you sail past, ONLY when the
   // weather calls for cloud. Lazily seeded, drift horizontally with parallax off speed/heading.
-  if (cloudy && !framed && !onDeck) {
+  if (cloudy && !framed && worldBlend > 0.02) {
     if (!st.pwClouds) st.pwClouds = Array.from({ length: 5 }, (_, i) => ({ x: (i * 0.23 + 0.08) % 1, y: 0.1 + frac(i * 3.1) * 0.44, s: 0.72 + frac(i * 7.7) * 0.95, sp: 0.5 + frac(i * 2.3) * 0.8 }));
     for (const c of st.pwClouds) {
       c.x = (c.x + (0.004 + speed * 0.05) * c.sp * dt) % 1.3;
-      drawPuff(ctx, (c.x - 0.15) * W, c.y * horizonY + 4, c.s * W * 0.11, litTint, baseTint, cloudAlpha * 1.05);
+      drawPuff(ctx, (c.x - 0.15) * W, c.y * horizonY + 4, c.s * W * 0.11, litTint, baseTint, cloudAlpha * 1.05 * worldBlend);
     }
   }
 
@@ -293,19 +302,24 @@ export function paintWindshield(id, view) {
     }
     for (let k = 1; k <= 5; k++) { const y = horizonY + depthGround * (k / 5) * (k / 5); ctx.globalAlpha = 0.06; ctx.beginPath(); ctx.moveTo(-OX, y); ctx.lineTo(W + OX, y); ctx.stroke(); }
     ctx.globalAlpha = 1;
-  } else if (!onDeck) {
-    // Mode-7-inspired textured ground plane (forward view).
+  } else if (worldBlend > 0.02) {
+    // Mode-7-inspired textured ground plane (forward view) — faded in by worldBlend so
+    // it crossfades against the airport/runway rather than popping in with it.
+    ctx.save(); ctx.globalAlpha = worldBlend;
     drawMode7Floor(ctx, W, H, horizonY, focal, vw, sky, gTop);
+    ctx.restore();
   }
 
   // Pilotwings horizon: distant rolling land + a soft hazy glow along the horizon.
-  if (!framed && !onDeck) {
+  if (!framed && worldBlend > 0.02) {
+    ctx.save(); ctx.globalAlpha = worldBlend;
     drawSkyline(ctx, W, H, horizonY, vw, sky);
     const glow = ctx.createLinearGradient(0, horizonY - 14, 0, horizonY + 10);
     glow.addColorStop(0, rgb(sky.hor, 0));
     glow.addColorStop(0.5, rgb(mix(sky.hor, [255, 255, 255], 0.5), 0.42 * (1 - sky.night * 0.5)));
     glow.addColorStop(1, rgb(sky.hor, 0));
     ctx.fillStyle = glow; ctx.fillRect(-OX, horizonY - 14, ex, 24);
+    ctx.restore();
   }
 
   // Atmospheric precipitation (snow/rain/ash in the air) is drawn HERE — after the sky
@@ -320,31 +334,38 @@ export function paintWindshield(id, view) {
   // strip receding to a vanishing point ahead) and would break the "always
   // perpendicular" view the side hatching above already draws.
   if (airport && reveal > 0.02 && !side) {
-    drawAirportScenery(ctx, W, H, horizonY, airport, sky.night, now);
+    // `reveal` already folds in (1 - worldBlend), so this fades out in step with the
+    // Mode-7 world fading in below — a real crossfade instead of a hard swap.
+    drawAirportScenery(ctx, W, H, horizonY, airport, sky.night, now, reveal);
     // World-anchored strip: `roll` (tiles rolled forward) slides it toward and past
     // you — the horizontal "racing down the runway" read — while `alt` (climb
     // fraction) is a SEPARATE axis that lifts/recedes it toward the horizon as you
     // rotate and climb away, so takeoff/landing reads as a shallow forward+up
     // diagonal instead of the strip just shrinking straight up in place.
-    drawGroundRunway(ctx, W, H, horizonY, depthGround, { roll: v.roll || 0, alt: height }, st.scroll, sky.night);
-  } else if (phase === 'vtol') {
+    drawGroundRunway(ctx, W, H, horizonY, depthGround, { roll: v.roll || 0, alt: height }, st.scroll, sky.night, reveal);
+  }
+  if (phase === 'vtol') {
     drawPad(ctx, W, H, horizonY, height, v.drift || 0);
-  } else if (!onDeck) {
+  } else if (worldBlend > 0.02) {
     _obsHgt = clamp(v.height || 0, 0, 1);
     // Textured 3-D world through the Mode-7 camera: roads + runway on the ground,
     // then extruded building boxes on top (depth-sorted). Fixes the flat-billboard
-    // "strange perspective" and pop-in.
+    // "strange perspective" and pop-in. Fades in with worldBlend so it crossfades
+    // against the airport scenery above instead of popping in the instant the
+    // ground/airborne phase flips.
     const cam = makeCam(W, horizonY, focal, vw);
+    ctx.save(); ctx.globalAlpha = worldBlend;
     drawRoads(ctx, cam, vw);
-    if (vw.runway) drawRunwayTex(ctx, cam, vw);
+    ctx.restore();
+    if (vw.runway) drawRunwayTex(ctx, cam, vw, worldBlend);
     drawWorldObjects(ctx, cam, vw, sky, now);
     if (vw.landGuide && vw.runway) drawGuideBoxes(ctx, cam, vw, now);
     if (vw.contacts) drawContacts(ctx, cam, vw, W, H);   // air-to-air traffic (Phase A: see other craft)
   }
 
   // Speed streaks (motion rush from the vanishing point) — forward view only.
-  if (speed > 0.12 && !framed && !onDeck) {
-    ctx.strokeStyle = rgb([210, 230, 255], 0.10 + speed * 0.18); ctx.lineWidth = 1;
+  if (speed > 0.12 && !framed && worldBlend > 0.02) {
+    ctx.strokeStyle = rgb([210, 230, 255], (0.10 + speed * 0.18) * worldBlend); ctx.lineWidth = 1;
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2 + st.scroll * 6;
       const len = 14 + speed * 46, r0 = 30 + ((i * 53 + st.scroll * 200) % 120);
@@ -382,6 +403,8 @@ export function paintWindshield(id, view) {
   if (v.hud) drawHud(ctx, W, H, v);
   // Guns (Phase B): forward tracer stream + muzzle flash while firing, screen-fixed.
   if (v.firing || v.muzzle) drawGunfire(ctx, W, H, v);
+  // Incoming ground-AA tracer: shows the pilot which way the guns below are actually firing.
+  if (v.aaTracer) drawAATracer(ctx, W, H, v);
   // Battle damage: a red flash + edge pulse that fades after taking a hit.
   if (v.hitFlash > 0) {
     ctx.save();
@@ -672,13 +695,13 @@ function drawHud(ctx, W, H, v) {
 // starts ahead of you, scrolls toward and PAST you as you roll (its near end drops
 // below the bottom edge = behind you), and lifts toward the horizon + fades as you
 // climb away. `rw = { roll: tiles rolled forward, alt: 0..1 climb }`.
-function drawGroundRunway(ctx, W, H, horizonY, depth, rw, scroll, night) {
+function drawGroundRunway(ctx, W, H, horizonY, depth, rw, scroll, night, outerFade = 1) {
   const roll = rw.roll || 0, alt = clamp(rw.alt || 0, 0, 1);
   // A long strip so it doesn't "run out" during the roll; the recede is driven mainly
   // by ALTITUDE (you keep seeing runway ahead until you climb high enough), while roll
   // only slides the near threshold slowly under/behind you.
   const RWL = RENDER_TUNE.rwl, VR = 1.9, cx = W / 2;
-  const fade = clamp(1.5 - alt * 1.8 - Math.max(0, roll - RWL) * 0.4, 0, 1);
+  const fade = clamp(1.5 - alt * 1.8 - Math.max(0, roll - RWL) * 0.4, 0, 1) * outerFade;
   if (fade <= 0.01) return;
   const eff = (d) => d - alt * RENDER_TUNE.rwyRecede;     // climbing pushes it DOWN and off the bottom (passes under you)
   const e = (d) => clamp(eff(d) / VR, -0.6, 1);          // clamp at 1 so the far end never rises past the horizon
@@ -738,10 +761,11 @@ function drawPad(ctx, W, H, horizonY, height, drift) {
 // The airport silhouette flanking the runway — depth layers of terrain-appropriate
 // structures on both sides, drawn far→near so nearer ones overlap. `cfg` is the
 // AIRPORT theme entry (which feature drawer + accent colour).
-function drawAirportScenery(ctx, W, H, horizonY, cfg, night, now) {
+function drawAirportScenery(ctx, W, H, horizonY, cfg, night, now, fade = 1) {
   const cx = W / 2, depth = H - horizonY;
   if (depth < 8) return;
   const layers = [0.14, 0.30, 0.50, 0.74, 0.96];
+  ctx.save(); ctx.globalAlpha = fade;
   for (let li = 0; li < layers.length; li++) {
     const d = layers[li];
     const y = horizonY + depth * Math.pow(d, 1.35);
@@ -757,6 +781,7 @@ function drawAirportScenery(ctx, W, H, horizonY, cfg, night, now) {
       drawAirportFeature(ctx, cfg.feat, x, y, sz, depth, cfg, night, now, seed);
     }
   }
+  ctx.restore();
 }
 
 function drawAirportFeature(ctx, type, x, gy, scale, depth, cfg, night, now, seed) {
@@ -940,6 +965,33 @@ export function buildingHeightZ(wx, wy, cell) {
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
   return (BLDG_H[bi] || 0.3) * (0.7 + frac(seed) * 0.6) * RENDER_TUNE.bldgH;
 }
+
+// Shared climb-out corridor test: a building dead ahead and low, right off the runway, is
+// culled from the render entirely (see drawWorldObjects) so it never draws — and per the
+// "must be visible to collide" rule, the CFIT sweep in cockpit.js skips the exact same tiles
+// via this helper, so a building that isn't drawn can't hurt you either. f = forward distance,
+// lat = lateral offset from the flight-path centerline (both in tile units), height = 0..1
+// eye-height fraction. Returns false when the renderer would have culled it (corr <= 0).
+// Capped to CLIMBOUT_MAX_F tiles ahead so this only shields the immediate runway departure —
+// NOT any low pass elsewhere in the city, where buildings must render (and collide) normally.
+// These three numbers are the ONLY place the corridor is defined — drawWorldObjects' soft
+// edge-fade reuses them directly (see climbOutFade below) instead of a second hand-copied
+// formula, so the render and the CFIT collision sweep can never drift out of sync again.
+// 4.5 tiles covers a heavy/jet ground roll (Leviathan, Reaper) — a light Mayfly is airborne
+// and climbing well inside this, so widening it doesn't cost the lighter craft anything.
+export const CLIMBOUT_MAX_F = 4.5, CLIMBOUT_LAT_IN = 0.3, CLIMBOUT_LAT_OUT = 0.2;
+// The renderer's own near/far visibility window (drawWorldObjects) — a building this close
+// (about to pass under/behind you) or this far (still fading in) isn't really "on the glass"
+// yet. Collision must never fire on a tile outside this window, or a hit can land on
+// something the player couldn't actually have seen.
+export const VISIBLE_NEAR_F = 0.05, VISIBLE_FAR_F = 7.5;
+export function climbOutClear(f, lat, height) {
+  if (!(f > 0.1 && f < CLIMBOUT_MAX_F && height < 0.2)) return true;
+  return clamp((Math.abs(lat) - CLIMBOUT_LAT_IN) / CLIMBOUT_LAT_OUT, 0, 1) > 0;
+}
+// The matching soft-edge fade (same corridor, same numbers) for the render's alpha ramp —
+// only meaningful inside the same f/height window climbOutClear gates on.
+function climbOutFade(lat) { return clamp((Math.abs(lat) - CLIMBOUT_LAT_IN) / CLIMBOUT_LAT_OUT, 0, 1); }
 
 const TR = () => Math.max(0.5, RENDER_TUNE.texRes || 1);
 function wallTex(biome, night) {
@@ -1200,6 +1252,31 @@ function drawGunfire(ctx, W, H, v) {
   ctx.restore();
 }
 const _gunT = () => { try { return performance.now() * 0.02; } catch { return 0; } };
+
+// Incoming ground-AA tracer — enters from below-and-toward the gun's bearing (relative to
+// heading) and arcs up across the glass toward/past the cockpit, so fire from an emplacement
+// you can't see is still visible and gives you a direction to break away from. `v.aaTracer`
+// = { bearing, t } where t is 0..1 progress over the streak's short flight. At night the
+// tracer round glows (a real tracer's phosphorus burns bright against a dark sky) — in
+// daylight it's still visible but doesn't bloom.
+function drawAATracer(ctx, W, H, v) {
+  const tr = v.aaTracer; if (!tr) return;
+  const rel = ((tr.bearing - (v.heading || 0) + 540) % 360) - 180;   // -180..180, 0 = dead ahead
+  const edgeFrac = clamp(rel / 120, -1, 1);
+  const enterX = W * (0.5 + edgeFrac * 0.68), enterY = H * 1.12;
+  const exitX = W * (0.5 - edgeFrac * 0.5), exitY = -H * 0.18;   // arcs up and across as it passes
+  const t = clamp(tr.t, 0, 1), ease = t * t * (3 - 2 * t);
+  const hx = enterX + (exitX - enterX) * ease, hy = enterY + (exitY - enterY) * ease;
+  const tailFrac = 0.22;
+  const tx = enterX + (exitX - enterX) * Math.max(0, ease - tailFrac), ty = enterY + (exitY - enterY) * Math.max(0, ease - tailFrac);
+  const night = v.sky?.night || 0;
+  ctx.save(); ctx.lineCap = 'round';
+  if (night > 0.3) { ctx.shadowColor = 'rgba(255,140,50,0.95)'; ctx.shadowBlur = 8 + night * 12; }
+  const g = ctx.createLinearGradient(tx, ty, hx, hy);
+  g.addColorStop(0, 'rgba(255,110,30,0)'); g.addColorStop(0.55, `rgba(255,150,60,${0.55 + night * 0.25})`); g.addColorStop(1, 'rgba(255,236,190,0.95)');
+  ctx.strokeStyle = g; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
+  ctx.restore();
+}
 function cornerBox(ctx, cx, cy, r) {
   const k = r * 0.4;
   ctx.beginPath();
@@ -1225,11 +1302,11 @@ function drawRoads(ctx, cam, v) {
 // camera as the buildings — so it stays put on the ground and recedes/rotates as you fly
 // away instead of tracking the nose. `rw = { ox, oy, hdg, alt }` = the runway origin's
 // world offset from the craft (tiles), its heading, and the climb-fade level.
-function drawRunwayTex(ctx, cam, v) {
+function drawRunwayTex(ctx, cam, v, outerFade = 1) {
   const rw = v.runway; if (!rw) return;
   const alt = clamp(rw.alt || 0, 0, 1);
   const RWL = RENDER_TUNE.rwl, hw = 0.15, BACK = 0.6, fMin = 0.06;
-  const fade = clamp(1.4 - alt * 1.5, 0, 1); if (fade <= 0.02) return;
+  const fade = clamp(1.4 - alt * 1.5, 0, 1) * outerFade; if (fade <= 0.02) return;
   const hr = (rw.hdg || 0) * Math.PI / 180;
   const dx0 = Math.sin(hr), dy0 = -Math.cos(hr);      // along-runway unit (world)
   const pxu = Math.cos(hr), pyu = Math.sin(hr);       // across-runway unit (world)
@@ -1398,19 +1475,25 @@ function drawBuilding(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
 // Collect visible tiles, sort far→near, draw each (textured box / billboard).
 function drawWorldObjects(ctx, cam, v, sky, now) {
   const map = v.map; if (!map || !map.length) return; const R = cam.R, night = sky.night;
-  const FAR = 7.5, wcx = v.mapCenter ? v.mapCenter.x : 0, wcy = v.mapCenter ? v.mapCenter.y : 0;
+  const FAR = VISIBLE_FAR_F, wcx = v.mapCenter ? v.mapCenter.x : 0, wcy = v.mapCenter ? v.mapCenter.y : 0;
   const items = [];
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     const c = map[ry][rx]; if (!c || c.kind === 'air' || c.kind === 'craft' || c.kind === 'field' || c.biome === 'water') continue;
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
-    if (f <= 0.05 || f > FAR) continue;
+    if (f <= VISIBLE_NEAR_F || f > FAR) continue;
     const lat = dx * cam.cosh + dy * cam.sinh;
-    let alpha = clamp((f - 0.06) / 0.4, 0, 1) * clamp((FAR - f) / 1.6, 0, 1);   // near pass-under + soft far fade-in
+    let alpha = clamp((f - 0.06) / 0.4, 0, 1) * clamp((FAR - f) / 1.6, 0, 1) * (v.worldBlend ?? 1);   // near pass-under + soft far fade-in, crossfaded in over the ground/air blend
     // Keep the CLIMB-OUT path ahead clear (a building dead ahead reads as something
-    // you'd fly into right off the runway) — but only while still low/climbing.
-    // Once settled into cruise, buildings ahead stay fully visible the whole time;
-    // this fade is a takeoff flourish, not a permanent no-fly corridor.
-    if (f > 0.1 && (v.height || 0) < 0.2) { const corr = clamp((Math.abs(lat) - 0.45) / 0.35, 0, 1); if (corr <= 0) continue; alpha *= corr; }
+    // you'd fly into right off the runway) — but only while still low/climbing AND only
+    // within CLIMBOUT_MAX_F tiles of the departure (see climbOutClear). Once past that
+    // window OR settled into cruise, buildings ahead stay fully visible; this is a takeoff
+    // flourish, not a permanent no-fly corridor. Gated identically to (and reusing the same
+    // numbers as) the CFIT collision sweep in cockpit.js, so nothing can go invisible here
+    // while still being solid there, or vice versa.
+    if (f > 0.1 && f < CLIMBOUT_MAX_F && (v.height || 0) < 0.2) {
+      if (!climbOutClear(f, lat, v.height || 0)) continue;
+      alpha *= climbOutFade(lat);
+    }
     if (alpha <= 0.02) continue;
     // Seed from the WORLD tile (stable), NOT the array index — so a building keeps its shape
     // when the server recenters the map window (was the main "popping in and out" cause).

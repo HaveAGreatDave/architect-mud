@@ -5,11 +5,11 @@ import { sendToPlayer } from '../messaging.js';
 import { getZonePowerStatus, recomputePower, recalcZoneLoad } from '../environment.js';
 import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
-import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../world.js';
+import { getMinimapData, addPlayerToZone, removePlayerFromZone, removeLivePlayer } from '../world.js';
 import { allExits, exitTargets } from '../exits.js';
-import { statCost, raiseStat, RAISABLE_STATS, getNetXp } from '../ip.js';
+import { statCost, raiseStat, RAISABLE_STATS, getNetXp, maxHpForEndurance } from '../ip.js';
 import { ensureTunables } from '../tunables.js';
-import { physicalDescription, soilDescription } from '../appearance.js';
+import { physicalDescription, soilDescription, randomAppearance } from '../appearance.js';
 import { isMisActive } from '../mis.js';
 import { availableActions } from '../specializedActions.js';
 import { genericFurnitureLinks } from '../furnitureActions.js';
@@ -812,6 +812,80 @@ async function cmdAdminSetHome(args, player) {
   return { type:'output', message:`Set ${target.handle}'s home to ${where}.` };
 }
 
+// Reincarnate: wipe a player back to a brand-new account and drop them into the
+// same prologue every fresh registration starts in (zone_the_inbetween — see
+// server/api/routes.js apiRegister, which this mirrors). Owned property (aircraft/
+// hangars/apartments) is released back to unowned stock rather than deleted
+// outright; every other per-player table — inventory, skills, faction rep, quests,
+// flags, jail, org membership, insurance, cargo drops, the death log, mutations,
+// drug state, smuggle orders, active job contracts — is wiped outright. This is a
+// true blank slate, not a soft reset, so it deliberately clears history too.
+// An online target is KICKED rather than hot-patched: reconstructing a live
+// session in place risks missing some in-memory field (cached armor, posture,
+// equipped-item lists, …), where a fresh reconnect goes through the exact same
+// login path every other player does and can't drift from it.
+const REINCARNATE_WIPE_TABLES = [
+  'player_inventory', 'player_skills', 'player_faction_rep', 'player_mutations',
+  'player_drug_state', 'player_flags', 'player_quests', 'player_deaths',
+  'player_corpses', 'org_members', 'smuggle_orders', 'flight_contracts', 'jail_prisoners',
+];
+const REINCARNATE_WIPE_OWNER_TABLES = ['insurance_policies', 'insurance_claims', 'cargo_drops'];
+
+async function cmdReincarnate(args, player) {
+  if (player.role !== 'admin') return { type:'error', message:"You don't have the clearance for that." };
+  const [handle] = args;
+  if (!handle) return { type:'error', message:'Usage: reincarnate <player>' };
+  const { rows } = await query('SELECT id, handle FROM players WHERE LOWER(handle)=$1 LIMIT 1', [handle.toLowerCase()]);
+  if (!rows.length) return { type:'error', message:`No player "${handle}".` };
+  const target = rows[0];
+
+  // Release owned property back to unowned stock.
+  await query('UPDATE aircraft SET owner_id=NULL, hangar_id=NULL WHERE owner_id=$1', [target.id]);
+  await query('DELETE FROM hangars WHERE owner_id=$1', [target.id]);
+  await query('UPDATE apartments SET owner_id=NULL, owner_handle=NULL, is_locked=0, purchased_at=NULL, date_rented=NULL WHERE owner_id=$1', [target.id]);
+
+  // Wipe every other per-player table — progress AND history.
+  for (const t of REINCARNATE_WIPE_TABLES) await query(`DELETE FROM ${t} WHERE player_id=$1`, [target.id]).catch(() => {});
+  for (const t of REINCARNATE_WIPE_OWNER_TABLES) await query(`DELETE FROM ${t} WHERE owner_id=$1`, [target.id]).catch(() => {});
+
+  // Reset the players row itself to exactly what a fresh registration produces
+  // (mirrors apiRegister's INSERT — including its literal sexuality default,
+  // which is 'Female' regardless of biological_sex; not fixing that quirk here,
+  // just faithfully reproducing "as if newly registered").
+  const biologicalSex = Math.random() < 0.5 ? 'male' : 'female';
+  const app = randomAppearance(biologicalSex);
+  const startHp = maxHpForEndurance(0);
+  await query(
+    `UPDATE players SET
+       bonus_xp=0, hp=$1, hp_max=$1, sanity=100, sanity_max=100, hunger=100, thirst=100, radiation=0,
+       current_zone='zone_the_inbetween', anchor_zone='zone_start', home_zone=NULL,
+       credits=20, bank_credits=0,
+       stat_brawn=0, stat_reflexes=0, stat_endurance=0, stat_brains=0, stat_cool=0, stat_senses=0,
+       gifted_stat_points=0, stamina=100, stamina_max=100, body_temp_c=37.0,
+       visibly_mutated=0, covered_in_blood=0, origin_fragment=NULL, archetype=NULL,
+       biological_sex=$2, hair_style=$3, hair_length=$4, hair_color=$5, eye_color=$6,
+       height_cm=$7, weight_kg=$8, appearance_data=$9::jsonb, appearance_free_used=0,
+       mis_enabled=0, horniness=0, erect=0, digestive_load=0, hydration_load=0,
+       clothing_contamination='{}'::jsonb, sexuality='Female',
+       mob_kills=0, player_kills=0, deaths=0, offline_sleeping=FALSE, died_offline=FALSE,
+       last_seen=EXTRACT(EPOCH FROM NOW())
+     WHERE id=$10`,
+    [startHp, biologicalSex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
+     app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), target.id]
+  );
+
+  // Kick an online target so their next login rebuilds the live session clean.
+  const live = world.players.get(target.id);
+  if (live) {
+    sendToPlayer(target.id, { type: 'kicked', message: 'The Architect calls everything that was you back for revision. Log in again to begin.' });
+    removePlayerFromZone(target.id, live.current_zone);
+    removeLivePlayer(target.id);
+  }
+
+  logActivity('admin_cmd', player.handle, null, `reincarnate ${target.handle}`);
+  return { type:'output', message:`${target.handle} has been reincarnated — wiped to a fresh account, waiting in The Inbetween.${live ? ' (was online — kicked to reconnect clean)' : ''}` };
+}
+
 async function applyLightSwitch(nameStr, dir, player, broadcast) {
   if (!nameStr) return { type:'error', message:'Specify a light name.' };
   const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${nameStr}%`]);
@@ -923,6 +997,7 @@ const ADMIN_COMMANDS = [
   { verb:'corpses',         args:'',                       desc:'List every corpse currently on the map.',            roles:['admin'],                              cat:'World' },
   { verb:'purge',           args:'',                       desc:'Wipe your wanted stars + heat and combust every cop in the room.', roles:['admin'],                 cat:'World' },
   { verb:'sethome',         args:'<player> [zone|here]',   desc:"Force-set a player's home zone (default: your current zone).",     roles:['admin'],                 cat:'World' },
+  { verb:'reincarnate',     args:'<player>',               desc:'Wipe a player to a brand-new account, dropped into The Inbetween. Irreversible.', roles:['admin'],       cat:'World' },
   { verb:'lettherebelight', args:'',                       desc:'Add a lit, powered overhead fixture to this room.',  roles:['admin','dev'],                        cat:'World' },
   { verb:'spawn',           args:'<item id> [zone|here]',  desc:'Spawn an item (default: your current zone).',        roles:['admin','dev'],                        cat:'Spawning' },
   { verb:'spawnenemy',      args:'<enemy id> [zone|here]', desc:'Spawn an enemy (default: your current zone).',       roles:['admin','dev'],                        cat:'Spawning' },
@@ -1018,6 +1093,7 @@ export const handlers = {
   spawn:    (args, raw, player, broadcast) => cmdSpawn(args, player, broadcast),
   spawnenemy: (args, raw, player, broadcast) => cmdSpawnEnemy(args, player, broadcast),
   sethome:  (args, raw, player) => cmdAdminSetHome(args, player),
+  reincarnate: (args, raw, player) => cmdReincarnate(args, player),
   admin:    (args, raw, player) => cmdAdmin(player),
 };
 

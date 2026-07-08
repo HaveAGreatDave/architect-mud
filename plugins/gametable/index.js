@@ -28,6 +28,17 @@ on('zone.entered', ({ actor, zone }) => {
   }
 });
 
+// A death from any cause (combat, radiation, seppuku, ...) teleports the player to
+// the respawn zone without firing zone.entered, so the auto-leave above never runs.
+// Drop them from the table the same way.
+on('player.death', ({ player }) => {
+  for (const t of activeTables.values()) {
+    if (t.seatedIndex(player.id) >= 0 || t.spectators.has(player.id)) {
+      t.leaveTable(player.id).catch(e => console.error('[gametable] death-leave:', e.message));
+    }
+  }
+});
+
 // A dropped connection shouldn't leave a ghost frozen in a seat. Drop them as a
 // spectator at once (nothing to hold there) and put any seat on the retention
 // timer, which cashes them out if they don't reconnect in time.

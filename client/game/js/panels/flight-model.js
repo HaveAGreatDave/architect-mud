@@ -70,10 +70,10 @@ export const TYPES = {
   // climber that gets in and out of short/rough strips. Fast cruise, powerful STOL flaps, low
   // stall for its size. Ceiling 12000 (the real Otter goes ~25k; kept low for the world scale).
   mule: {
-    name: 'Mule', mass: 2.8, thrustMax: 31, vr: 65, vs0: 46, vne: 185, cruise: 165,
-    pitchRate: 8, pitchTau: 0.8, rollRate: 40, rollTau: 0.7, engineLag: 1.7,
+    name: 'Mule', mass: 2.8, thrustMax: 36, vr: 65, vs0: 46, vne: 185, cruise: 165,
+    pitchRate: 9, pitchTau: 0.8, rollRate: 40, rollTau: 0.7, engineLag: 1.7,
     pitchStable: 0.88, rollStable: 1.0, dragP: 0.00090, flapDrag: 0.65, flapLift: 0.5, flapVs: 0.24,
-    rollFric: 1.4, aoaCrit: 18, liftScale: 1.0, vsMax: 1800, vsGain: 1600, vsTau: 0.95,
+    rollFric: 1.4, aoaCrit: 18, liftScale: 1.0, vsMax: 1800, vsGain: 1800, vsTau: 0.95,
     brake: 6.0, groundSteer: 26, ceiling: 12000, bestGlide: 65,
   },
   // Leviathan — 4-engine heavy-lift freighter, an ANTONOV AN-124 RUSLAN analogue: HEAVY first —
@@ -83,10 +83,18 @@ export const TYPES = {
   // holds real speed once it has momentum behind it in a dive. Strong brakes (biggest wheels),
   // but the ~95 kt touchdown still makes for a long rollout — it needs a real runway.
   leviathan: {
-    name: 'Leviathan', mass: 5.0, thrustMax: 40, vr: 95, vs0: 64, vne: 280, cruise: 170,
-    pitchRate: 5, pitchTau: 1.2, rollRate: 22, rollTau: 1.1, engineLag: 2.4,
+    // thrustMax doubled (52→104) so she actually accelerates hard enough to reach her high
+    // (95kt) rotation speed before running off the end of the strip — was ponderous to the
+    // point of not getting off the runway at all. vsMax/vsGain still cap climb performance
+    // separately, so this mainly shortens the ground roll rather than inflating in-air punch.
+    name: 'Leviathan', mass: 5.0, thrustMax: 104, vr: 95, vs0: 64, vne: 280, cruise: 170,
+    pitchRate: 6, pitchTau: 1.0, rollRate: 22, rollTau: 1.1, engineLag: 2.4,
     pitchStable: 0.7, rollStable: 0.85, dragP: 0.00065, flapDrag: 0.7, flapLift: 0.45, flapVs: 0.2,
-    rollFric: 1.2, aoaCrit: 16, liftScale: 1.0, vsMax: 1600, vsGain: 1600, vsTau: 1.35,
+    // Climb bumped (1900→2700 vsMax, 1800→2500 vsGain, 1.35→1.05 vsTau) — she's 4 turbofans,
+    // not a piston hauler, and needs to actually climb AWAY from the field fast once she's
+    // finally rolling, not just accelerate down it. Faster vsTau also means she responds to
+    // that excess lift sooner instead of lagging into it.
+    rollFric: 1.2, aoaCrit: 16, liftScale: 1.0, vsMax: 2700, vsGain: 2500, vsTau: 1.05,
     brake: 8.0, groundSteer: 16, ceiling: 18000,   // cruises high, above the weather — the fleet's highest ceiling
     // The slippery, low-drag airframe would otherwise float ~34:1 dead-stick (albatross-like for
     // a heavy freighter). A touch of dead-stick induced drag brings the engine-out glide to a
@@ -98,10 +106,13 @@ export const TYPES = {
   // target and shrugs off ground fire. It can't run (high drag bleeds any dive), it just
   // keeps coming. Twin turbofans, forgiving low-speed handling, rough-field capable.
   reaper: {
-    name: 'Reaper', mass: 3.4, thrustMax: 26, vr: 62, vs0: 40, vne: 210, cruise: 150,
-    pitchRate: 9, pitchTau: 0.7, rollRate: 58, rollTau: 0.6, engineLag: 1.5,
+    name: 'Reaper', mass: 3.4, thrustMax: 32, vr: 62, vs0: 40, vne: 210, cruise: 150,
+    pitchRate: 10, pitchTau: 0.7, rollRate: 58, rollTau: 0.6, engineLag: 1.5,
     pitchStable: 1.1, rollStable: 1.3, dragP: 0.00110, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
-    rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 1500, vsGain: 1600, vsTau: 1.0,
+    // Climb bumped (1700→2400 vsMax, 1800→2200 vsGain) — twin turbofans, per her own doc
+    // comment above, so getting off the deck should feel like it, even though she's draggy
+    // and won't hold speed the way the Leviathan does.
+    rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 2400, vsGain: 2200, vsTau: 1.0,
     brake: 7.5, groundSteer: 28, ceiling: 12000, bestGlide: 69,
   },
   // Dragonfly — a REVOLUTION MINI 500 analogue: a tiny single-rotor kit helicopter. Light,
@@ -130,10 +141,10 @@ export const TYPES = {
   },
   // Carcass — salvaged wreck: underpowered, draggy, unstable. A junker you nurse into the air.
   carcass: {
-    name: 'Carcass', mass: 1.4, thrustMax: 11, vr: 44, vs0: 28, vne: 115, cruise: 72,
-    pitchRate: 10, pitchTau: 0.5, rollRate: 50, rollTau: 0.5, engineLag: 1.5,
+    name: 'Carcass', mass: 1.4, thrustMax: 14, vr: 44, vs0: 28, vne: 115, cruise: 72,
+    pitchRate: 11, pitchTau: 0.5, rollRate: 50, rollTau: 0.5, engineLag: 1.5,
     pitchStable: 0.7, rollStable: 0.8, dragP: 0.00120, flapDrag: 0.55, flapLift: 0.32, flapVs: 0.17,
-    rollFric: 1.7, aoaCrit: 17, liftScale: 0.95, vsMax: 760, vsGain: 1500, vsTau: 1.0,
+    rollFric: 1.7, aoaCrit: 17, liftScale: 0.95, vsMax: 900, vsGain: 1650, vsTau: 1.0,
     brake: 5.0, groundSteer: 30, ceiling: 6000, bestGlide: 45,
   },
 };
@@ -297,7 +308,12 @@ export function step(state, input, p, dt) {
   const pitchResist = 1 - 0.55 * Math.abs(s.pitch) / 35;
   const pitchCmd = s.elevEff * p.pitchRate * auth * pitchResist;
   s.pitch += (pitchCmd - p.pitchStable * s.pitch * (1 - Math.abs(s.elevEff))) * dt;
-  s.pitch = clamp(s.pitch, -35, 35);
+  // Rotation attitude is gear-limited while the mains are still down — without this a held
+  // back-pressure keeps pitching (and AoA) up toward the full airborne limit before liftoff,
+  // and since the airborne stall-collapse never engages on the ground, the AoA² drag term
+  // below climbs unbounded and can pin airspeed short of flying speed forever. 15° is a
+  // generous real-world rotation attitude; airborne keeps the full ±35° envelope.
+  s.pitch = clamp(s.pitch, s.onGround ? -5 : -35, s.onGround ? 15 : 35);
 
   // 4. Bank: like pitch, the roll effect BUILDS over ~rollTau and the airframe
   //    resists toward full bank, so it takes a sustained full throw to reach the
