@@ -113,10 +113,18 @@ jobs:
             -d "{\"branch\":{\"name\":\"${name}\",\"expires_at\":\"${expires_at}\"}}")
           echo "snapshot branch: ${name} (expires ${expires_at})"
           cat resp.json
-          if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
-            echo "::error::Neon snapshot failed (HTTP ${code}) — aborting before touching prod."
-            exit 1
+          if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
+            exit 0
           fi
+          # A 409 BRANCH_ALREADY_EXISTS means a prior attempt of this same run+sha
+          # already created the snapshot — the recovery point exists, so this is not
+          # a failure. Any other error means we have no snapshot: abort before prod.
+          if [ "$code" = "409" ] && grep -q BRANCH_ALREADY_EXISTS resp.json; then
+            echo "Snapshot branch already exists from a prior attempt — recovery point is in place."
+            exit 0
+          fi
+          echo "::error::Neon snapshot failed (HTTP ${code}) — aborting before touching prod."
+          exit 1
       - name: Drift report (manual prod edits this deploy will overwrite)
         env:
           PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
