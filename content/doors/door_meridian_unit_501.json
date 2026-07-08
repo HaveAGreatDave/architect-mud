@@ -8,7 +8,7 @@
   "id": "door_meridian_unit_501",
   "is_locked": 0,
   "is_open": 0,
-  "lock_state": null,
+  "lock_state": "locked",
   "name": "Unit 501 Door",
   "tags": {
     "lock:hololock": {
