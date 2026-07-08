@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": null,
+  "danger_rating": "safe",
+  "description": "Utility room housing the building junction box.",
+  "exits": {
+    "up": "zone_studio_1782953094650"
+  },
+  "flags": {
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_1783381828554",
+  "is_safe_zone": 0,
+  "map_id": "map_int_1782953094650",
+  "marker": null,
+  "name": "KSAB-TV Studio — Power Room",
+  "parent_zone": null,
+  "pvp_enabled": 0,
+  "radiation_level": 0,
+  "updated_at": "1783381829"
+}

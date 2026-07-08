@@ -5,18 +5,21 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#1eae5d",
-  "color": "#111111",
+  "bg_color": "#585858",
+  "color": "#eeeeee",
   "created_by": "phase8-build",
   "danger_rating": "low",
   "description": "The great marshalling yard where trains are assembled car by car, a slow ballet of shunting and coupling conducted by a lone yard pilot with a flag and a death wish.",
   "exits": {
+    "east": "zone_yard_reefer",
     "in": "zone_hangar_yard_marshalling",
-    "north": "zone_yard_pallet"
+    "north": "zone_yard_pallet",
+    "south": "zone_yard_dray",
+    "west": "zone_yard_boxcar"
   },
   "flags": {
     "airfield_charter": true,
-    "airfield_dealer": true,
+    "airfield_dealer": false,
     "airfield_fuel": true,
     "airfield_fuels": [
       "avgas",
@@ -25,6 +28,9 @@
     "airfield_id": "af_marshalling",
     "airfield_lawless": false,
     "airfield_name": "Marshalling Field",
+    "artery": [
+      "North Head"
+    ],
     "building_name": "",
     "building_type": null,
     "hangar_interior_zone": "zone_hangar_yard_marshalling",
@@ -44,5 +50,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126563"
 }

@@ -1,128 +1,6 @@
 {
   "banter": [],
-  "behaviour_graph": {
-    "_start": "start",
-    "nodes": {
-      "atm_emote": {
-        "action_type": "EMOTE",
-        "next": "atm_wait",
-        "params": {
-          "message": "steps up to the ATM terminal and makes a deposit."
-        },
-        "type": "action"
-      },
-      "atm_wait": {
-        "next": "deposit",
-        "seconds": 10,
-        "type": "wait"
-      },
-      "check_work": {
-        "action_type": "CHECK_VENDOR_WORK",
-        "endShift": "collect_safe",
-        "goToWork": "go_to_work",
-        "haveLife": "have_life",
-        "offWork": "off_home_check",
-        "type": "action"
-      },
-      "collect_safe": {
-        "action_type": "VENDOR_COLLECT_SAFE",
-        "next": "go_to_atm",
-        "type": "action"
-      },
-      "deposit": {
-        "action_type": "VENDOR_DEPOSIT",
-        "next": "post_shift",
-        "type": "action"
-      },
-      "go_home_off": {
-        "action_type": "GO_HOME",
-        "next": "check_work",
-        "type": "action"
-      },
-      "go_home_ps": {
-        "action_type": "GO_HOME",
-        "next": "home_life_ps",
-        "type": "action"
-      },
-      "go_to_atm": {
-        "action_type": "VENDOR_GO_TO_ATM",
-        "next": "atm_emote",
-        "type": "action"
-      },
-      "go_to_work": {
-        "action_type": "GO_TO_WORK",
-        "next": "work_wait",
-        "type": "action"
-      },
-      "have_life": {
-        "action_type": "HAVE_LIFE",
-        "next": "check_work",
-        "type": "action"
-      },
-      "home_idle": {
-        "action_type": "AT_HOME_LIFE",
-        "next": "check_work",
-        "type": "action"
-      },
-      "home_life_ps": {
-        "action_type": "AT_HOME_LIFE",
-        "next": "check_work",
-        "type": "action"
-      },
-      "off_home_check": {
-        "condition_type": "AT_HOME",
-        "ifFalse": "off_random",
-        "ifTrue": "home_idle",
-        "type": "condition"
-      },
-      "off_random": {
-        "branch_0": "have_life",
-        "branch_1": "go_home_off",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 5
-          }
-        ],
-        "type": "random"
-      },
-      "player_check": {
-        "condition_type": "PLAYER_IN_ZONE",
-        "ifFalse": "check_work",
-        "ifTrue": "work_say",
-        "type": "condition"
-      },
-      "post_shift": {
-        "branch_0": "have_life",
-        "branch_1": "go_home_ps",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 5
-          }
-        ],
-        "type": "random"
-      },
-      "start": {
-        "next": "check_work",
-        "type": "start"
-      },
-      "work_say": {
-        "action_type": "VENDOR_CHITCHAT",
-        "next": "check_work",
-        "type": "action"
-      },
-      "work_wait": {
-        "next": "player_check",
-        "seconds": 60,
-        "type": "wait"
-      }
-    }
-  },
+  "behaviour_graph": {},
   "chitchat": [],
   "description": "A stocky, quick-handed pilot with a magpie's eye for anything shiny and loose, forever chewing a toothpick. She flies the daylight run out of the Marshalling Yard freight field and swears she's never lost a passenger. On purpose.",
   "dialogue_tree": {},
@@ -135,7 +13,7 @@
     "personality": "charter_pilot"
   },
   "home_activities": [],
-  "home_zone": "zone_meridian_unit_101",
+  "home_zone": "zone_residential_lobby",
   "hp": 24,
   "hp_max": 24,
   "id": "npc_charter_soto",

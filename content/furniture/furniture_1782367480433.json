@@ -10,7 +10,7 @@
   "light_type": null,
   "lumen_output": 400,
   "name": "toilet",
-  "object_type": "toilet",
+  "object_type": "furniture",
   "power_draw_kw": 5,
   "price": 90,
   "zone_id": "zone_clone_facility_bathroom"

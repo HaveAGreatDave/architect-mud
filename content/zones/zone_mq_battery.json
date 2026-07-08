@@ -7,8 +7,8 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#ae9292",
-  "color": "#eeeeee",
+  "bg_color": "#c8c8c8",
+  "color": "#111111",
   "created_by": null,
   "danger_rating": "safe",
   "description": "The civic heart of the district, such as it is — a paved square built around a dry fountain someone has repurposed as a communal firepit. A grocery holds down one side, a police precinct scowls from another, and a public notice pillar wears a thick scab of flyers: rooms to let, people gone missing, curfews rescinded and reinstated. It is, by local standards, safe. The precinct's floodlights see to that.",
@@ -21,7 +21,7 @@
   },
   "flags": {
     "artery": [
-      "Grand Avenue"
+      "The Strip"
     ],
     "scavenging_table_id": null
   },
@@ -36,5 +36,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126563"
 }

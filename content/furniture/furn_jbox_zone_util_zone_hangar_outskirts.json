@@ -2,7 +2,7 @@
   "description": "A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.",
   "flags": {
     "destructible": true,
-    "generator_id": "gen_zone_util_zone_hangar_outskirts_1783296274628"
+    "generator_id": "gen_zone_util_zone_hangar_outskirts_1783294930904"
   },
   "hp": 1200,
   "hp_max": 1200,

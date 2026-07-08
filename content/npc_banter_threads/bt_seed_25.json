@@ -2,10 +2,10 @@
   "enabled": true,
   "id": "bt_seed_25",
   "lines": [
-    "\"Repent. It won't help, but the gesture matters.\"",
-    "\"Repent for what?\"",
-    "\"You'll know. You always know.\""
+    "\"We're making real progress. The data supports our approach.\"",
+    "\"The data says people are starving.\"",
+    "\"...We're exploring all options. Except, apparently, that one.\""
   ],
-  "personality": "preacher",
+  "personality": "politician",
   "sort_order": 25
 }

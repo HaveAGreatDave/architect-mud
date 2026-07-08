@@ -20,7 +20,6 @@
     "instant": {
       "sanity": -8
     },
-    "onset_seconds": 8,
     "overdose": {
       "lethal": true,
       "message": "You go so far down the hole that you forget the way back, and your body forgets to breathe."

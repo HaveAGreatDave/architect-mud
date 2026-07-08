@@ -3,7 +3,6 @@
   "description": "A pint of raw ether and a rag. Not the smart choice, but here we are.",
   "duration_seconds": 120,
   "effects": {
-    "diuretic": 1.2,
     "hallucination": {
       "duration_seconds": 120,
       "eventEverySec": 10,
@@ -20,7 +19,6 @@
     "instant": {
       "sanity": -10
     },
-    "onset_seconds": 2,
     "overdose": {
       "lethal": true,
       "message": "You breathe in one rag too many. The lights go out mid-thought."

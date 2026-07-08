@@ -12,6 +12,7 @@
   "danger_rating": "safe",
   "description": "The elevator car — a mirrored box of brushed steel and warm downlight, floor smelling faintly of citrus polish. A brass rail runs waist-high around three walls, and a column of numbered buttons glows beside the door, waiting for a floor. A small screen overhead reads HALCYON TOWERS and, below it, the current car position. Step <b>out</b> to return to the Grand Lobby.",
   "exits": {
+    "down": "zone_util_zone_halcyon_elevator",
     "out": "zone_halcyon_lobby",
     "up": [
       "zone_halcyon_concourse",

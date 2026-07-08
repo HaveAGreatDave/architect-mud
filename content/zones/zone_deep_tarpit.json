@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#e69e73",
+  "bg_color": "#dfbc9a",
   "color": "#111111",
   "created_by": "phase2-build",
   "danger_rating": "medium",
@@ -19,12 +19,9 @@
   "flags": {
     "building_name": "",
     "building_type": null,
-    "intro_lore": "Where the Undermarket's runoff pools into a black seep of tar and worse, worked by people with nothing left to ruin. Whatever the market upstream won't touch ends up down here, sometimes including people. The fumes lie to you slowly and the diggers lie to you fast. Bring a reason to leave before you arrive.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "lawless": true,
-    "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": -3,
@@ -38,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126579"
 }

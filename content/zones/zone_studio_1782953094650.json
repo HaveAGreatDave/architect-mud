@@ -8,9 +8,9 @@
   "danger_rating": "safe",
   "description": "Broadcast stage for KSAB-TV Studio.",
   "exits": {
-    "down": "zone_util_1782953094650",
+    "down": "zone_util_1783381828554",
     "out": "zone_ext_1782953094650",
-    "up": "zone_prod_1782953094650"
+    "up": "zone_prod_1783381828554"
   },
   "flags": {
     "is_building": true,

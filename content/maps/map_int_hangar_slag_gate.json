@@ -2,7 +2,7 @@
   "created_by": null,
   "entry_zone_id": "zone_hangar_slag_gate",
   "id": "map_int_hangar_slag_gate",
-  "name": "Slagworks Strip — Hangar",
+  "name": "zone_slag_gate — Hangar",
   "parent_zone_id": "zone_slag_gate",
-  "updated_at": "1783227243"
+  "updated_at": "1783294785"
 }

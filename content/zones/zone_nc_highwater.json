@@ -5,8 +5,8 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#8e8edd",
-  "color": "#eeeeee",
+  "bg_color": "#f4dcfe",
+  "color": "#111111",
   "created_by": "phase9-build",
   "danger_rating": "safe",
   "description": "A residential court set at the district's high-water mark, named for a flood that the owners have been assured, at great expense, will never reach them. The assurance is framed on a wall.",
@@ -38,5 +38,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126562"
 }

@@ -1,9 +1,9 @@
 {
-  "capacity_kw": 1000,
+  "capacity_kw": 50,
   "flags": {},
-  "generator_id": "gen_zone_util_zone_hangar_threshold_1783296274514",
+  "generator_id": "gen_zone_util_zone_hangar_threshold_1783294929332",
   "id": "zone_hangar_threshold",
-  "max_capacity_kw": 1000,
-  "name": "Threshold Helipad Hangar",
+  "max_capacity_kw": 50,
+  "name": "zone_threshold Hangar",
   "source_type": "junction_box"
 }

@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 50,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_halcyon_elevator_1783387734862",
+  "id": "zone_halcyon_elevator",
+  "max_capacity_kw": 50,
+  "name": "Halcyon Towers — Elevator",
+  "source_type": "junction_box"
+}

@@ -16,7 +16,7 @@
       "comedown_seconds": 26,
       "comeup_message": "<span class=\"msg-system\">A hot rush slams up the back of your neck and the room goes bright and loud.</span>",
       "comeup_scale": 0.8,
-      "comeup_seconds": 2,
+      "comeup_seconds": 4,
       "end_message": "<span class=\"msg-system\">The rush drops out from under you as fast as it came.</span>",
       "peak_mods": {
         "stat_brawn": 2,

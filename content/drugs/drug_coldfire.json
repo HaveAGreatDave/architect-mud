@@ -3,7 +3,6 @@
   "description": "A combat stim that turns fear into fuel. Frontline mercs swear by it, and at it.",
   "duration_seconds": 240,
   "effects": {
-    "diuretic": 1.5,
     "instant": {
       "hunger": -12,
       "sanity": 6

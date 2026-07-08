@@ -1,27 +1,18 @@
 {
-  "description": "Hold a place in the line at the Sprawl Gate, then carry the ticket down to the Under Entrance for someone who matters more than you. 15₵.",
+  "description": "Stand in the ration line at the Embassy so someone who matters more doesn't have to. Bring back their ticket. 12₵.",
   "id": "quest_fs_line",
   "name": "Hold a Place",
   "objectives": [
     {
-      "desc": "Hold the place at the Sprawl Gate",
+      "desc": "Hold the place at the Embassy",
       "id": "o0",
       "type": "visit",
-      "zone": "zone_city_south"
-    },
-    {
-      "desc": "Carry the ticket to the Under Entrance",
-      "id": "o1",
-      "requires": [
-        "o0"
-      ],
-      "type": "visit",
-      "zone": "zone_city_sw"
+      "zone": "zone_residential_lobby"
     }
   ],
   "repeatable": 1,
   "rewards": {
-    "credits": 15
+    "credits": 12
   },
-  "updated_at": "1783369742"
+  "updated_at": "1783357094"
 }

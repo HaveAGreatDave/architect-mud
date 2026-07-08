@@ -5,8 +5,8 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#8e8edd",
-  "color": "#eeeeee",
+  "bg_color": "#f4dcfe",
+  "color": "#111111",
   "created_by": "phase9-build",
   "danger_rating": "safe",
   "description": "The junction where the diplomatic quarter's clean marble finally meets the working city — the boat yard below, the boardrooms beside. A checkpoint here decides, quietly, who ascends.",
@@ -35,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126562"
 }

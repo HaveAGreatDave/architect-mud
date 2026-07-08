@@ -2,8 +2,8 @@
   "ambient_events": [],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#ae9292",
-  "color": "#eeeeee",
+  "bg_color": "#c8c8c8",
+  "color": "#111111",
   "created_by": null,
   "danger_rating": "safe",
   "description": "A short cut between two boom-era towers, narrow enough that the wind funnels through hard enough to sting. Brushed-metal cladding sheets the walls, half of it peeled back to the rust beneath. Chrome Court's entrance stands at the far end — steel letters over the doors, three fallen and re-inked on cardboard — beside a solid brick of painted-over intercoms. The gutter runs with something that was recently oil.",
@@ -11,7 +11,8 @@
     "east": "zone_yard_depot",
     "in": "zone_mq_chrome_lobby",
     "north": "zone_up_chrome",
-    "south": "zone_mq_battery"
+    "south": "zone_mq_battery",
+    "west": "zone_mq_cathode"
   },
   "flags": {
     "building_name": "",
@@ -33,5 +34,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126563"
 }

@@ -5,13 +5,15 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#6d7c9e",
+  "bg_color": "#53565c",
   "color": "#eeeeee",
   "created_by": null,
   "danger_rating": "medium",
-  "description": "What remains of the actual city. Glass and rebar and the occasional wall of a building that still looks like it meant something once. At the center, the old city hall stands largely untouched — the Architect's infrastructure runs through its foundation. A Precinct checkpoint straddles the old haul road here — a scanner arch, a bored guard, and a queue: the one way the wastes bleed into the city.",
+  "description": "What remains of the actual city. Glass and rebar and the occasional wall of a building that still looks like it meant something once. At the center, the old city hall stands largely untouched — the Architect's infrastructure runs through its foundation.",
   "exits": {
     "east": "zone_badland_w_gate",
+    "north": "zone_waste_endcut",
+    "south": "zone_waste_grit",
     "west": "zone_ashway_road"
   },
   "flags": {
@@ -20,8 +22,6 @@
     ],
     "building_name": null,
     "building_type": null,
-    "checkpoint": true,
-    "intro_lore": "Old Coldwater was a real city once — banks, permits, people who thought the lights would stay on. The Handoff ended all of that in an afternoon. Now the towers are quarries and the only law is whoever's standing over you. Salvage what you can carry, trust no promise made in daylight, and never assume an empty street is empty.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
@@ -39,5 +39,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126561"
 }

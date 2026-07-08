@@ -2,7 +2,7 @@
   "created_by": null,
   "entry_zone_id": "zone_hangar_yard_marshalling",
   "id": "map_int_hangar_yard_marshalling",
-  "name": "Marshalling Field — Hangar",
+  "name": "zone_yard_marshalling — Hangar",
   "parent_zone_id": "zone_yard_marshalling",
-  "updated_at": "1783227243"
+  "updated_at": "1783294785"
 }

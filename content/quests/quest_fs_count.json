@@ -1,27 +1,18 @@
 {
-  "description": "Count the Loading Bay stock, then walk the Rust Quarter cache and tally how much has walked off on its own. 10₵.",
+  "description": "Count what is left in the Rust Quarter cache and report how much has walked off on its own. 15₵.",
   "id": "quest_fs_count",
   "name": "Shrinkage Count",
   "objectives": [
     {
-      "desc": "Count stock at the Loading Bay",
+      "desc": "Reach the Rust Quarter cache",
       "id": "o0",
-      "type": "visit",
-      "zone": "zone_city_east"
-    },
-    {
-      "desc": "Tally the Rust Quarter cache",
-      "id": "o1",
-      "requires": [
-        "o0"
-      ],
       "type": "visit",
       "zone": "zone_outskirts"
     }
   ],
   "repeatable": 1,
   "rewards": {
-    "credits": 10
+    "credits": 15
   },
-  "updated_at": "1783369742"
+  "updated_at": "1783357094"
 }

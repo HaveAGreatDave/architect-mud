@@ -5,14 +5,16 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#bfa06b",
+  "bg_color": "#816e4d",
   "color": "#eeeeee",
   "created_by": "phase11-build",
   "danger_rating": "low",
   "description": "The sinter beds beside the Slagworks Gate, where fines were once fused into clinker in long shallow trays now cracked and cold. Salvagers work the trays for the metal the process left behind, and the Gate watches them do it.",
   "exits": {
+    "east": "zone_waste_rustmarsh",
     "north": "zone_waste_blight",
-    "south": "zone_slag_gate"
+    "south": "zone_slag_gate",
+    "west": "zone_slag_catalyst"
   },
   "flags": {
     "building_name": "",
@@ -20,7 +22,6 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "lawless": true,
     "scavenging_table_id": "scav_industrial_salvage"
   },
   "grid_x": -8,
@@ -34,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 1,
-  "updated_at": "1783301927"
+  "updated_at": "1783126562"
 }

@@ -5,12 +5,13 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#1eae5d",
-  "color": "#111111",
+  "bg_color": "#585858",
+  "color": "#eeeeee",
   "created_by": "phase8-build",
   "danger_rating": "safe",
   "description": "A colonnade where freight futures are traded on the strength of ships that may or may not exist. Fortunes are made and unmade here on cargo that is still, technically, at sea.",
   "exits": {
+    "east": "zone_yard_sidings",
     "north": "zone_corp_boardroom",
     "south": "zone_yard_depot",
     "west": "zone_up_chrome"
@@ -34,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126561"
 }

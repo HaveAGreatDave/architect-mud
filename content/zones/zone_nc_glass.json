@@ -5,8 +5,8 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#8e8edd",
-  "color": "#eeeeee",
+  "bg_color": "#f4dcfe",
+  "color": "#111111",
   "created_by": "phase9-build",
   "danger_rating": "safe",
   "description": "A terrace of mirror-glass towers that reflect only each other, so that from any point you see the district endlessly, and the grey city beyond it not at all.",
@@ -37,5 +37,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126562"
 }

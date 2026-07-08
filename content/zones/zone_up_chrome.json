@@ -5,14 +5,16 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#42c96a",
-  "color": "#eeeeee",
+  "bg_color": "#909090",
+  "color": "#111111",
   "created_by": "phase1-build",
   "danger_rating": "safe",
   "description": "Mirror-glass frontages and valet drones. The Heights look down on the Marquee's neon like it's a stain they've already hired someone to remove.",
   "exits": {
     "east": "zone_corp_investor",
-    "south": "zone_mq_chrome_court"
+    "north": "zone_dock_slip",
+    "south": "zone_mq_chrome_court",
+    "west": "zone_up_skyway"
   },
   "flags": {
     "building_name": "",
@@ -33,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126561"
 }

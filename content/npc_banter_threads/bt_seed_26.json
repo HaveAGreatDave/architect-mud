@@ -2,11 +2,11 @@
   "enabled": true,
   "id": "bt_seed_26",
   "lines": [
-    "\"You got a smoke? Just one, I'm good for it.\"",
-    "\"You said that yesterday.\"",
-    "\"And I was good for it. Wasn't I still here?\"",
-    "holds out a hopeful hand."
+    "\"You hiring? No? Figured. Nobody is.\"",
+    "\"Times are hard for everyone.\"",
+    "\"Some of us are just more thorough about it.\"",
+    "kicks at a loose bit of rubble."
   ],
-  "personality": "vagrant",
+  "personality": "unemployed",
   "sort_order": 26
 }

@@ -1,0 +1,27 @@
+{
+  "base_difficulty": 5,
+  "base_output": {
+    "item_id": "item_redline",
+    "quantity": 1
+  },
+  "category": "synthesis",
+  "craft_time": 3,
+  "description": "A fast, dirty stimulant cook. Entry-level chemistry.",
+  "id": "synth_redline",
+  "ingredients": [
+    {
+      "item_id": "item_precursor_stim",
+      "quantity": 2
+    },
+    {
+      "item_id": "item_solvent",
+      "quantity": 1
+    }
+  ],
+  "name": "Cook Redline",
+  "requires_station": "chem_lab",
+  "skill_id": "chemistry",
+  "skill_req": {
+    "chemistry": 1
+  }
+}

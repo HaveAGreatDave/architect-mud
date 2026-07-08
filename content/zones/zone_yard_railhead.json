@@ -5,14 +5,15 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#1eae5d",
-  "color": "#111111",
+  "bg_color": "#585858",
+  "color": "#eeeeee",
   "created_by": "phase7-build",
   "danger_rating": "low",
   "description": "The Yards' rail terminus, where a single working locomotive shunts flatcars of scrap and cargo out to wherever rails still run. The yardmaster keeps his office in a dead signal box here.",
   "exits": {
     "north": "zone_yard_forklift",
-    "south": "zone_yard_bulk"
+    "south": "zone_yard_bulk",
+    "west": "zone_yard_tare"
   },
   "flags": {
     "building_name": "",
@@ -33,5 +34,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126562"
 }

@@ -5,14 +5,16 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#1eae5d",
-  "color": "#111111",
+  "bg_color": "#585858",
+  "color": "#eeeeee",
   "created_by": "phase8-build",
   "danger_rating": "low",
   "description": "Wooden pallets stacked into unstable ziggurats, splintered, stained, and endlessly recirculated. The whole row smells of wet timber and the ghost of whatever they last carried.",
   "exits": {
+    "east": "zone_yard_crane",
     "north": "zone_yard_freightworks",
-    "south": "zone_yard_marshalling"
+    "south": "zone_yard_marshalling",
+    "west": "zone_yard_sidings"
   },
   "flags": {
     "building_name": "",
@@ -33,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126562"
 }

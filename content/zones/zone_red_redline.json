@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#e77474",
+  "bg_color": "#ff0000",
   "color": "#eeeeee",
   "created_by": "phase12-build",
   "danger_rating": "lethal",
@@ -17,11 +17,9 @@
   "flags": {
     "building_name": "",
     "building_type": null,
-    "intro_lore": "This is where the map gives up. Past the skull-stakes the readings climb until they lie, and everything that still moves out here has decided to. The Redline doesn't have owners; it has victims and the things that made them. There's a reason it's the corner of the world nobody claims. If you're standing here without a plan to leave, you already made a mistake.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "lawless": true,
     "scavenging_table_id": "scav_irradiated_salvage"
   },
   "grid_x": -11,
@@ -35,5 +33,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 5,
-  "updated_at": "1783301927"
+  "updated_at": "1783126562"
 }

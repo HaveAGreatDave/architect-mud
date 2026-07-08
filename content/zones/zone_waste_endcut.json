@@ -5,13 +5,15 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#be9d64",
+  "bg_color": "#7c6a4a",
   "color": "#eeeeee",
   "created_by": "phase2-build",
   "danger_rating": "low",
   "description": "Where the paved city simply ends — a ragged cut of exposed foundations and severed pipes bleeding rust down onto the wastes below.",
   "exits": {
+    "east": "zone_civ_sortation",
     "north": "zone_waste_gravel",
+    "south": "zone_ruins",
     "west": "zone_waste_slake"
   },
   "flags": {
@@ -20,7 +22,6 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
   "grid_x": -4,
@@ -34,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126562"
 }

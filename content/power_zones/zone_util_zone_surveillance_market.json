@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 50,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_surveillance_market_1783387730742",
+  "id": "zone_util_zone_surveillance_market",
+  "max_capacity_kw": 50,
+  "name": "The Blindspot — Utility Room",
+  "source_type": "junction_box"
+}

@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#be9d64",
+  "bg_color": "#7c6a4a",
   "color": "#eeeeee",
   "created_by": "phase6-build",
   "danger_rating": "low",
@@ -13,6 +13,7 @@
   "exits": {
     "east": "zone_waste_slaghollow",
     "north": "zone_waste_leachfield",
+    "south": "zone_waste_molten",
     "west": "zone_waste_greymile"
   },
   "flags": {
@@ -21,7 +22,6 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
   "grid_x": -5,
@@ -35,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126563"
 }

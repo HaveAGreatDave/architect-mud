@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#50e0d5",
+  "bg_color": "#1fb5aa",
   "color": "#111111",
   "created_by": "phase3-build",
   "danger_rating": "low",
@@ -13,7 +13,8 @@
   "exits": {
     "east": "zone_nc_manifold",
     "north": "zone_bay_breakwater",
-    "south": "zone_dock_slip"
+    "south": "zone_dock_slip",
+    "west": "zone_bay_barges"
   },
   "flags": {
     "building_name": "",
@@ -34,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126561"
 }

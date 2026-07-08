@@ -2,11 +2,10 @@
   "enabled": true,
   "id": "bt_seed_23",
   "lines": [
-    "\"{temp} and {weather}. Whose idea was an outdoor post?\"",
-    "\"Somebody warm, that's for sure.\"",
-    "\"Somebody warm and far away. Eyes forward.\"",
-    "stamps their feet against the cold."
+    "\"You freelance, or you signed with somebody?\"",
+    "\"I keep my options open.\"",
+    "\"Options close fast out here. Pick a paymaster before one picks you.\""
   ],
-  "personality": "guard",
+  "personality": "mercenary",
   "sort_order": 23
 }

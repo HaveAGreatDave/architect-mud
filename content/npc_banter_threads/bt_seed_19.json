@@ -2,11 +2,10 @@
   "enabled": true,
   "id": "bt_seed_19",
   "lines": [
-    "\"This block's ours. You standing in it means something.\"",
-    "\"I'm just passing through.\"",
-    "\"Nobody just passes through. Remember the face.\"",
-    "cracks their knuckles, slow."
+    "\"Don't sleep near the east wall. Trust me.\"",
+    "\"Why, what's at the east wall?\"",
+    "\"...You don't wanna know. I know. That's enough for both of us.\""
   ],
-  "personality": "thug",
+  "personality": "vagrant",
   "sort_order": 19
 }

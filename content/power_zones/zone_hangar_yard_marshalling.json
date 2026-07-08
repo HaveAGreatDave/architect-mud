@@ -1,9 +1,9 @@
 {
-  "capacity_kw": 1000,
+  "capacity_kw": 50,
   "flags": {},
-  "generator_id": "gen_zone_util_zone_hangar_yard_marshalling_1783296274744",
+  "generator_id": "gen_zone_util_zone_hangar_yard_marshalling_1783294932069",
   "id": "zone_hangar_yard_marshalling",
-  "max_capacity_kw": 1000,
-  "name": "Marshalling Field Hangar",
+  "max_capacity_kw": 50,
+  "name": "zone_yard_marshalling Hangar",
   "source_type": "junction_box"
 }

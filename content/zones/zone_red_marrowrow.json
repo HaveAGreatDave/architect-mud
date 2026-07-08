@@ -5,12 +5,13 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#efa2a2",
+  "bg_color": "#e05555",
   "color": "#eeeeee",
   "created_by": "phase12-build",
   "danger_rating": "lethal",
   "description": "The eastern edge of the core where it presses against the fringe, a row of gnawed and hollowed ruins that the changed use as a larder and a lair both. It is the closest a living person can stand to the Redline's heart and still, sometimes, walk away.",
   "exits": {
+    "east": "zone_waste_pitnine",
     "north": "zone_red_slaughterworks",
     "south": "zone_waste_fumealley",
     "west": "zone_waste_chargully"
@@ -21,7 +22,6 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "lawless": true,
     "scavenging_table_id": "scav_irradiated_salvage"
   },
   "grid_x": -9,
@@ -35,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 4,
-  "updated_at": "1783301927"
+  "updated_at": "1783126562"
 }

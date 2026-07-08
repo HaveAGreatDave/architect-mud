@@ -1,0 +1,27 @@
+{
+  "base_difficulty": 7,
+  "base_output": {
+    "item_id": "item_blacktar",
+    "quantity": 1
+  },
+  "category": "synthesis",
+  "craft_time": 3,
+  "description": "Deep, heavy opioid cook. Not for the squeamish or the shaky-handed.",
+  "id": "synth_blacktar",
+  "ingredients": [
+    {
+      "item_id": "item_precursor_opioid",
+      "quantity": 3
+    },
+    {
+      "item_id": "item_catalyst",
+      "quantity": 1
+    }
+  ],
+  "name": "Cook Blacktar",
+  "requires_station": "chem_lab",
+  "skill_id": "chemistry",
+  "skill_req": {
+    "chemistry": 3
+  }
+}

@@ -5,22 +5,23 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#bca6a6",
+  "bg_color": "#f1ccff",
   "color": "#111111",
   "created_by": "phase6-build",
   "danger_rating": "safe",
   "description": "The plaza fronting the Prefecture, where the queue for permits, papers, and pardons wraps twice around a dry fountain. The Prefecture issues all three, at a price and a delay.",
   "exits": {
     "east": "zone_nc_halcyon",
+    "south": "zone_gov_vantage",
     "west": "zone_gov_assembly"
   },
   "flags": {
     "artery": [
+      "The Mall",
       "The Ministerial Mile"
     ],
     "building_name": "",
     "building_type": null,
-    "gov_enclave": true,
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
@@ -37,5 +38,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126563"
 }

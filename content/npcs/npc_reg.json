@@ -1,15 +1,48 @@
 {
   "banter": [],
-  "behaviour_graph": null,
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "at_work": {
+        "action_type": "AT_WORK",
+        "next": "go_home",
+        "type": "action"
+      },
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "home_wait",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "at_work",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "go_to_work",
+        "type": "action"
+      },
+      "home_wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      }
+    }
+  },
   "chitchat": [
-    "\"Another quiet night, too quiet...\"",
-    "\"Inventory’s running low again, like always.\"",
-    "\"Everything here has a price, even silence.\"",
-    "\"That shipment wasn’t supposed to be late...\"",
-    "\"Funny how the same items keep coming back with different stories.\"",
-    "\"The terminal's logging phantom transactions\"",
-    "\"Somebody’s been through here, can still feel it.\"",
-    "\"City chews through stock, I can't keep up!\""
+    "Another quiet night, too quiet...",
+    "Inventory’s running low again, like always.",
+    "Everything here has a price, even silence.",
+    "That shipment wasn’t supposed to be late...",
+    "Funny how the same items keep coming back with different stories.",
+    "The terminal's logging phantom transactions",
+    "Somebody’s been through here, can still feel it.",
+    "City chews through stock, I can't keep up!"
   ],
   "description": "A heavyset person behind a scratched counter. Apron: CERTIFIED SURVIVOR.",
   "dialogue_tree": {

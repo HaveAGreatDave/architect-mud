@@ -3,158 +3,51 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "atm_emote": {
-        "action_type": "EMOTE",
-        "next": "atm_wait",
-        "params": {
-          "message": "steps up to the ATM terminal and makes a deposit."
-        },
+      "at_work": {
+        "action_type": "AT_WORK",
+        "next": "go_home",
         "type": "action"
       },
-      "atm_wait": {
-        "next": "deposit",
-        "seconds": 10,
-        "type": "wait"
-      },
-      "check_work": {
-        "action_type": "CHECK_VENDOR_WORK",
-        "endShift": "collect_safe",
-        "goToWork": "go_to_work",
-        "haveLife": "have_life",
-        "offWork": "off_home_check",
-        "type": "action"
-      },
-      "collect_safe": {
-        "action_type": "VENDOR_COLLECT_SAFE",
-        "next": "go_to_atm",
-        "type": "action"
-      },
-      "deposit": {
-        "action_type": "VENDOR_DEPOSIT",
-        "next": "post_shift",
-        "type": "action"
-      },
-      "go_home_off": {
+      "go_home": {
         "action_type": "GO_HOME",
-        "next": "check_work",
-        "type": "action"
-      },
-      "go_home_ps": {
-        "action_type": "GO_HOME",
-        "next": "home_life_ps",
-        "type": "action"
-      },
-      "go_to_atm": {
-        "action_type": "VENDOR_GO_TO_ATM",
-        "next": "atm_emote",
+        "next": "home_wait",
         "type": "action"
       },
       "go_to_work": {
         "action_type": "GO_TO_WORK",
-        "next": "work_wait",
+        "next": "at_work",
         "type": "action"
       },
       "have_life": {
         "action_type": "HAVE_LIFE",
-        "next": "check_work",
+        "next": "go_to_work",
         "type": "action"
       },
-      "home_idle": {
-        "action_type": "AT_HOME_LIFE",
-        "next": "check_work",
-        "type": "action"
-      },
-      "home_life_ps": {
-        "action_type": "AT_HOME_LIFE",
-        "next": "check_work",
-        "type": "action"
-      },
-      "off_home_check": {
-        "condition_type": "AT_HOME",
-        "ifFalse": "off_random",
-        "ifTrue": "home_idle",
-        "type": "condition"
-      },
-      "off_random": {
-        "branch_0": "have_life",
-        "branch_1": "go_home_off",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 5
-          }
-        ],
-        "type": "random"
-      },
-      "player_check": {
-        "condition_type": "PLAYER_IN_ZONE",
-        "ifFalse": "check_work",
-        "ifTrue": "work_say",
-        "type": "condition"
-      },
-      "post_shift": {
-        "branch_0": "have_life",
-        "branch_1": "go_home_ps",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 5
-          }
-        ],
-        "type": "random"
-      },
-      "start": {
-        "next": "check_work",
-        "type": "start"
-      },
-      "work_say": {
-        "action_type": "VENDOR_CHITCHAT",
-        "next": "check_work",
-        "type": "action"
-      },
-      "work_wait": {
-        "next": "player_check",
+      "home_wait": {
+        "next": "start",
         "seconds": 60,
         "type": "wait"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
       }
     }
   },
   "chitchat": [
-    "\"What'll it be?\"",
-    "\"You look like you've had a rough one.\"",
-    "\"Pay first. Trust later. That's policy.\"",
-    "\"You're not the first person to cry at this bar. Won't be the last.\"",
-    "\"I've heard worse. Much worse.\"",
-    "\"Last call was three hours ago. I'm still here.\"",
-    "\"We're out of the good stuff. We were always out of the good stuff.\"",
-    "\"Tab's running. Keep drinking.\"",
-    "\"I don't ask questions. That's why people come here.\"",
-    "\"You want ice with that? Funny.\""
+    "What'll it be?",
+    "You look like you've had a rough one.",
+    "Pay first. Trust later. That's policy.",
+    "You're not the first person to cry at this bar. Won't be the last.",
+    "I've heard worse. Much worse.",
+    "Last call was three hours ago. I'm still here.",
+    "We're out of the good stuff. We were always out of the good stuff.",
+    "Tab's running. Keep drinking.",
+    "I don't ask questions. That's why people come here.",
+    "You want ice with that? Funny."
   ],
   "description": "A former concierge, still buttoned into a frayed Embassy vest, polishing a glass that was already clean. Calls every customer \"valued guest,\" sincerity optional.",
   "dialogue_tree": {
-    "advice": {
-      "actions": [
-        {
-          "action": "BARTENDER_ADVICE"
-        }
-      ],
-      "options": [
-        {
-          "label": "Anything else?",
-          "next": "advice"
-        },
-        {
-          "label": "Back",
-          "next": "root"
-        }
-      ],
-      "text": "Lowry leans on the bar and sizes you up."
-    },
     "gossip": {
       "actions": [
         {
@@ -178,37 +71,11 @@
       ],
       "text": "The Reserve is our signature pour — don't ask what's left to age it in. The Swill is also available, for guests with simpler tastes, or none. Canapés are complimentary with a drink. They are not actually complimentary."
     },
-    "poker": {
-      "actions": [
-        {
-          "action": "BARTENDER_POKER"
-        }
-      ],
-      "options": [
-        {
-          "label": "Back",
-          "next": "root"
-        }
-      ],
-      "text": "Lowry nods toward the card table."
-    },
     "root": {
       "options": [
         {
           "label": "What's on the menu?",
           "next": "menu"
-        },
-        {
-          "label": "Any advice for someone new?",
-          "next": "advice"
-        },
-        {
-          "label": "What's on the tube?",
-          "next": "tv"
-        },
-        {
-          "label": "Who's up at the table?",
-          "next": "poker"
         },
         {
           "label": "Any news from the front desk?",
@@ -220,20 +87,6 @@
         }
       ],
       "text": "Welcome to the Embassy Lounge, valued guest. We maintain certain standards here, within reason. What can I get you?"
-    },
-    "tv": {
-      "actions": [
-        {
-          "action": "BARTENDER_TV"
-        }
-      ],
-      "options": [
-        {
-          "label": "Back",
-          "next": "root"
-        }
-      ],
-      "text": "Lowry glances up at the set."
     }
   },
   "faction": null,
@@ -247,7 +100,7 @@
     "personality": "bartender"
   },
   "home_activities": [],
-  "home_zone": "zone_apt_9",
+  "home_zone": "zone_meridian_unit_102",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_embassy_barkeep",
@@ -277,70 +130,42 @@
     "fri": [
       {
         "from": 0,
-        "to": 4
-      },
-      {
-        "from": 8,
         "to": 24
       }
     ],
     "mon": [
       {
         "from": 0,
-        "to": 4
-      },
-      {
-        "from": 8,
         "to": 24
       }
     ],
     "sat": [
       {
         "from": 0,
-        "to": 4
-      },
-      {
-        "from": 8,
         "to": 24
       }
     ],
     "sun": [
       {
         "from": 0,
-        "to": 4
-      },
-      {
-        "from": 8,
         "to": 24
       }
     ],
     "thu": [
       {
         "from": 0,
-        "to": 4
-      },
-      {
-        "from": 8,
         "to": 24
       }
     ],
     "tue": [
       {
         "from": 0,
-        "to": 4
-      },
-      {
-        "from": 8,
         "to": 24
       }
     ],
     "wed": [
       {
         "from": 0,
-        "to": 4
-      },
-      {
-        "from": 8,
         "to": 24
       }
     ]

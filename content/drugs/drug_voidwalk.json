@@ -20,7 +20,6 @@
     "instant": {
       "sanity": -14
     },
-    "onset_seconds": 8,
     "overdose": {
       "lethal": true,
       "message": "The static pulls you all the way under and keeps the channel dark."

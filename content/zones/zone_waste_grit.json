@@ -5,13 +5,15 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#be9d64",
+  "bg_color": "#7c6a4a",
   "color": "#eeeeee",
   "created_by": "phase2-build",
   "danger_rating": "medium",
   "description": "A row of half-buried machine shells, their guts long picked over, their shadows the only shade for a mile. Something dens in the biggest of them.",
   "exits": {
     "east": "zone_deep_waste",
+    "north": "zone_ruins",
+    "south": "zone_waste_nadir",
     "west": "zone_waste_verge"
   },
   "flags": {
@@ -20,7 +22,6 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
   "grid_x": -4,
@@ -34,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126561"
 }

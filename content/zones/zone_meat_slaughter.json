@@ -5,12 +5,13 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#1eae5d",
-  "color": "#111111",
+  "bg_color": "#585858",
+  "color": "#eeeeee",
   "created_by": "phase7-build",
   "danger_rating": "medium",
   "description": "The killing lane of the meat market, gutters running to a central drain, hooks swinging empty between the stalls. The butchers here work fast and ask nothing.",
   "exits": {
+    "east": "zone_yard_bonded",
     "north": "zone_mq_cage",
     "south": "zone_meat_carrion",
     "west": "zone_meat_ashpit"
@@ -21,7 +22,6 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "lawless": true,
     "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": 5,
@@ -35,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126562"
 }

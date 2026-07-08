@@ -3,7 +3,6 @@
   "description": "Synthetic morphine in a grey gelcap. The pain goes away. So does everything else.",
   "duration_seconds": 420,
   "effects": {
-    "diuretic": 0.5,
     "instant": {
       "sanity": 14
     },

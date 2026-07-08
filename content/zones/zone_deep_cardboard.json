@@ -5,23 +5,22 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#e69e73",
+  "bg_color": "#dfbc9a",
   "color": "#111111",
   "created_by": "phase1-build",
   "danger_rating": "medium",
   "description": "A gutter of flattened appliance boxes and pallet-wood shanties. Cook-fires gutter in oil drums and the greasy smoke never quite clears.",
   "exits": {
-    "south": "zone_deep_wormtown"
+    "east": "zone_slums",
+    "south": "zone_deep_wormtown",
+    "west": "zone_deep_warrens"
   },
   "flags": {
     "building_name": "",
     "building_type": null,
-    "intro_lore": "A gutter of flattened appliance boxes and pallet-wood shanties, cook-fires guttering in oil drums, everyone one bad night from the tarpit. Nobody here has anything, which is exactly what makes the little they do have worth killing over. Charity is a con and pity is a tell — on Cardboard Row, both get you emptied.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "lawless": true,
-    "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": -1,
@@ -35,5 +34,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126579"
 }

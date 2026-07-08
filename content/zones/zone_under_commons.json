@@ -11,9 +11,7 @@
     "north": "zone_under_deep",
     "up": "zone_civ_commons"
   },
-  "flags": {
-    "lawless": true
-  },
+  "flags": {},
   "grid_x": -3,
   "grid_y": -3,
   "grid_z": -1,
@@ -25,5 +23,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783137464"
+  "updated_at": "1783197585"
 }

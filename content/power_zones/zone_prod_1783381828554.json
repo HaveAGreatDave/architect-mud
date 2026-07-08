@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 500,
+  "flags": {},
+  "generator_id": "gen_zone_util_1783381828554_1783381828554",
+  "id": "zone_prod_1783381828554",
+  "max_capacity_kw": 500,
+  "name": "Production",
+  "source_type": "junction_box"
+}

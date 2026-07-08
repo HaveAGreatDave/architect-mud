@@ -1,15 +1,11 @@
 {
   "ambient_events": [
     "A vendor shouts: \"AUTHENTIC PRE-HANDOFF CANNED GOODS. ONLY SLIGHTLY EXPIRED.\"",
-    "Two people argue about whether the Architect controls the weather.",
-    "Scratched low on the wall, half-legible: \"after two, ask the man who counts. read the wall for the words.\"",
-    "A man in a paper coat reads the job board top to bottom, then reads it again, as if a posting he can live on might appear if he wants it badly enough.",
-    "Someone has scratched HELP into the plexi of the dispatch window. Someone else has scratched WHO underneath it.",
-    "The ration line down the block hasn't moved in an hour. Nobody leaves it anyway."
+    "Two people argue about whether the Architect controls the weather."
   ],
   "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#7fda9a",
+  "bg_color": "#909090",
   "color": "#111111",
   "created_by": null,
   "danger_rating": "safe",
@@ -25,31 +21,14 @@
   },
   "flags": {
     "artery": [
-      "Grand Avenue",
       "The Haul Road"
     ],
     "building_name": null,
     "building_type": null,
-    "greeter": {
-      "lines": [
-        "Hey — hey! Not so fast. You've got that fresh-decant shine and empty pockets, I can spot it blind. If you need money, that board's got work. Come back to me when it's done.",
-        "Whoa there. Where you off to in such a hurry, broke as you are? There's a board right there. Take a job, bring it back to me. Then you can go.",
-        "Hold up, shine. You look desperate, and that's alright — everybody does, first week. Work's on the board. See me after. That's the deal.",
-        "Hey! You. Yeah, you. Don't go wandering out there hungry. Check the board, do a job, come back to my window. Simple as that.",
-        "Slow down. Out there they don't hand out second chances. In here there's a board and there's me. Pick a tab, come back when it's done.",
-        "Easy, new blood. You've got 'desperate' written all over you — no shame in it. Money's on that board if you want it. Just come see me when you've earned it."
-      ],
-      "met_flag": "fs_marta_met",
-      "npc_id": "npc_fs_dispatcher",
-      "npc_name": "Marta Kell"
-    },
-    "intro_lore": "Big-box skeletons and pre-Handoff storefronts, fought over so long that the fighting became the economy. The Franchise runs the Strip the way rot runs a wound: thoroughly, and like it belongs there. It's the safest place a new print will find to earn their first honest credits — which should tell you everything about how the rest of the basin goes.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "no_spawn": true,
     "scavenging_table_id": "scav_consumer_trash",
-    "street_life": true,
     "world_exit_zone": null
   },
   "grid_x": -1,
@@ -63,5 +42,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783378024"
 }

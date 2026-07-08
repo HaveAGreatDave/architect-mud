@@ -2,11 +2,11 @@
   "enabled": true,
   "id": "bt_seed_18",
   "lines": [
-    "\"Whole bar's betting {sports_leader} at {sports_record}. Wanna get in?\"",
-    "\"I don't gamble on things that can lose.\"",
-    "\"Then you're in the wrong city, friend.\"",
-    "slides a glass down the bar."
+    "\"You got a smoke? Just one, I'm good for it.\"",
+    "\"You said that yesterday.\"",
+    "\"And I was good for it. Wasn't I still here?\"",
+    "holds out a hopeful hand."
   ],
-  "personality": "bartender",
+  "personality": "vagrant",
   "sort_order": 18
 }

@@ -5,23 +5,24 @@
   ],
   "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#42c96a",
+  "bg_color": "#347b49",
   "color": "#eeeeee",
   "created_by": null,
   "danger_rating": "safe",
   "description": "A flat apron of stained concrete where the ground still runs warm underfoot, waste heat bleeding up from whatever's left alive below. Fat coolant mains arc overhead on their gantries, weeping rust-orange at every joint, and the air tastes of hot metal and pond scum. The Coldwater Power Plant looms at the apron's edge behind chain-link and faded RADIATION placards, a turbine somewhere inside grinding on out of sheer habit. Steam ghosts up from a grate and refuses to disperse.",
   "exits": {
+    "east": "zone_ext_1782953094650",
     "in": "zone_coldwater_turbine_hall",
-    "south": "zone_city_east"
+    "north": "zone_civ_steps",
+    "south": "zone_city_east",
+    "west": "zone_up_aid"
   },
   "flags": {
     "building_name": null,
     "building_type": null,
-    "intro_lore": "The ground here still runs warm, bleeding heat off something underneath that nobody ever shut down. People sleep on the Flats in winter and some of them don't wake up — the warmth lies about how much it's taking back. The Franchise claims the output; you're welcome to the runoff and whatever it does to you.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk",
     "world_exit_zone": null
   },
@@ -36,5 +37,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126563"
 }

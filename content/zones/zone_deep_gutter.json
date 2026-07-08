@@ -5,14 +5,15 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#e69e73",
-  "color": "#111111",
+  "bg_color": "#dfbc9a",
+  "color": "#eeeeee",
   "created_by": "phase1-build",
   "danger_rating": "medium",
   "description": "Trestle tables of salvaged meat, bruised pills, and dead men's boots. The vendors don't make eye contact and neither should you.",
   "exits": {
     "east": "zone_weapons_exterior",
-    "south": "zone_deep_gasp"
+    "south": "zone_deep_gasp",
+    "west": "zone_deep_scab"
   },
   "flags": {
     "building_name": "",
@@ -20,7 +21,6 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "lawless": true,
     "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": 2,
@@ -34,5 +34,5 @@
   "parent_zone": null,
   "pvp_enabled": 1,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126561"
 }

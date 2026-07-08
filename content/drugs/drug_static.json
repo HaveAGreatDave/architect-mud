@@ -3,7 +3,6 @@
   "description": "A nootropic mist for the overclocked mind. Clarity in a can, with interest.",
   "duration_seconds": 360,
   "effects": {
-    "diuretic": 1.4,
     "instant": {
       "sanity": 10
     },

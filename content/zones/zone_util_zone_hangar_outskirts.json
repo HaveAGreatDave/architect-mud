@@ -11,8 +11,14 @@
     "up": "zone_hangar_outskirts"
   },
   "flags": {
+    "building_name": null,
+    "building_type": null,
+    "is_apartment": false,
+    "is_building": false,
     "is_interior": true,
-    "utility_room": true
+    "scavenging_table_id": null,
+    "utility_room": true,
+    "world_exit_zone": null
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -21,9 +27,9 @@
   "is_safe_zone": 0,
   "map_id": "map_int_hangar_outskirts",
   "marker": null,
-  "name": "Coldwater Regional Hangar — Utility Room",
+  "name": "Coldwater Regional — Utility Room",
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783296275"
+  "updated_at": "1783376046"
 }

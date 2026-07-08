@@ -5,28 +5,28 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#efe8a4",
+  "bg_color": "#f5e642",
   "color": "#111111",
   "created_by": "phase3-build",
   "danger_rating": "safe",
   "description": "A hard-surfaced plaza dominated by a three-storey media wall that loops harbour-safety propaganda to an audience of nobody. A camera drone tracks anything that moves.",
   "exits": {
-    "down": "zone_surveillance_market",
     "east": "zone_dock_wharf",
     "north": "zone_waste_rebar",
+    "south": "zone_ext_1782953094650",
     "west": "zone_civ_steps"
   },
   "flags": {
     "artery": [
-      "Quay Road"
+      "Quay Road",
+      "Grand Avenue"
     ],
     "building_name": "",
     "building_type": null,
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "scavenging_table_id": "scav_consumer_trash",
-    "street_life": true
+    "scavenging_table_id": "scav_consumer_trash"
   },
   "grid_x": 0,
   "grid_y": -3,
@@ -39,5 +39,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126562"
 }

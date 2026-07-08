@@ -3,7 +3,6 @@
   "description": "Military-grade cyber-amphetamine. The label is mostly warnings.",
   "duration_seconds": 300,
   "effects": {
-    "diuretic": 1.6,
     "instant": {
       "hunger": -8,
       "sanity": 12,

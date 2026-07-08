@@ -233,11 +233,12 @@
   "faction": "choir",
   "flags": {
     "battle_cries": [
-      "the Verger flinches toward every sound you make."
-    ]
+      "$enemy flinches toward every sound you make"
+    ],
+    "mis_willing": false
   },
   "home_activities": [],
-  "home_zone": null,
+  "home_zone": "zone_slag_reclaimer",
   "hp": 45,
   "hp_max": 45,
   "id": "npc_verger_demo",
@@ -247,7 +248,15 @@
   "studio_zone_id": null,
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
-  "vendor_schedule": {},
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
   "vendor_shop_name": null,
   "vendor_stock_size": 10,
   "wander_zones": [],

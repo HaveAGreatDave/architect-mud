@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#7fda9a",
+  "bg_color": "#909090",
   "color": "#111111",
   "created_by": null,
   "danger_rating": "safe",
@@ -16,13 +16,10 @@
   "flags": {
     "building_name": "",
     "building_type": null,
-    "intro_lore": "A guarded stairwell down into the old subway, where the Archivists keep the real vault — everything the surface agreed to forget. They'll let you descend if you've got something worth trading, and what they trade in is knowledge, always knowledge. Come empty-handed or come armed and you'll find the dark down there has staff.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "no_spawn": true,
-    "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true
+    "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": -1,
   "grid_y": 1,
@@ -35,5 +32,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126561"
 }

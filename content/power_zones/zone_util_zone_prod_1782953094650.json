@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 50,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_prod_1782953094650_1783387725054",
+  "id": "zone_util_zone_prod_1782953094650",
+  "max_capacity_kw": 50,
+  "name": "KSAB-TV Studio — Production — Utility Room",
+  "source_type": "junction_box"
+}

@@ -5,14 +5,16 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#bfa06b",
+  "bg_color": "#816e4d",
   "color": "#eeeeee",
   "created_by": "phase11-build",
   "danger_rating": "low",
   "description": "A blighted flat above the Slagworks Gate where nothing that tries to grow gets past a hand's height before it blackens and gives up. The salvage here is good; the ground insists you earn it.",
   "exits": {
     "east": "zone_waste_cindersteps",
-    "south": "zone_waste_sinter"
+    "north": "zone_waste_pitnine",
+    "south": "zone_waste_sinter",
+    "west": "zone_waste_fumealley"
   },
   "flags": {
     "building_name": "",
@@ -20,7 +22,6 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "lawless": true,
     "scavenging_table_id": "scav_industrial_salvage"
   },
   "grid_x": -8,
@@ -34,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 1,
-  "updated_at": "1783301927"
+  "updated_at": "1783126562"
 }

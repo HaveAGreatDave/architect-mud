@@ -42,7 +42,7 @@
   "dialogue_tree": {},
   "faction": null,
   "flags": {
-    "poker_bankroll": 3180,
+    "poker_bankroll": 3170,
     "poker_persona": {
       "aggression": 0.7,
       "betSizing": 0.6,
@@ -56,7 +56,7 @@
     "poker_player": true
   },
   "home_activities": [],
-  "home_zone": "zone_apt_5",
+  "home_zone": "zone_apt_1",
   "hp": 25,
   "hp_max": 25,
   "id": "npc_cash_vane",

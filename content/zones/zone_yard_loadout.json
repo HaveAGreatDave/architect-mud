@@ -5,8 +5,8 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#1eae5d",
-  "color": "#111111",
+  "bg_color": "#585858",
+  "color": "#eeeeee",
   "created_by": "phase8-build",
   "danger_rating": "low",
   "description": "The southern loadout bays where trucks back up to the docks and freight crosses from rail to road under the eye of a tally clerk who trusts absolutely no one, correctly.",
@@ -18,8 +18,7 @@
   },
   "flags": {
     "artery": [
-      "Grand Avenue",
-      "Boxcar Street"
+      "Main Haul"
     ],
     "building_name": "",
     "building_type": null,
@@ -39,5 +38,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126563"
 }

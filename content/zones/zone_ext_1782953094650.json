@@ -2,23 +2,25 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
-  "bg_color": "#efe8a4",
+  "bg_color": "#f5e642",
   "color": "#111111",
   "created_by": null,
   "danger_rating": "safe",
   "description": "A fenced service yard behind the broadcast blocks, floodlit at all hours by lights nobody remembers installing. Coax and power run overhead in fat looms, stapled to anything that will hold them, humming faintly in the wet. KSAB-TV's stage door sits under a dead awning, its ON AIR bulb burned out mid-word so it reads only ON. A satellite dish the size of a paddling pool tilts drunkenly on the roofline, still tracking a bird that stopped answering years ago.",
   "exits": {
-    "in": "zone_studio_1782953094650",
-    "south": "zone_city_north"
+    "north": "zone_media_plaza",
+    "south": "zone_city_north",
+    "west": "zone_powerplantnew"
   },
   "flags": {
+    "artery": [
+      "Grand Avenue"
+    ],
     "building_name": null,
     "building_type": null,
-    "intro_lore": "Floodlit at all hours by lights nobody remembers installing, this yard sits behind the broadcast blocks like a stage waiting on a crime. The cameras here actually work, which is rarer than it ought to be. Do your worst somewhere darker — on the Limelight Lot the whole city is a witness, and half of them are for sale.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "no_spawn": true,
     "scavenging_table_id": null,
     "world_exit_zone": null
   },
@@ -33,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126561"
 }

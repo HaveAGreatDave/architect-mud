@@ -5,22 +5,23 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#7fda9a",
+  "bg_color": "#4bb36a",
   "color": "#111111",
   "created_by": "phase2-build",
   "danger_rating": "low",
   "description": "A municipal water point where a queue forms daily at a bank of hissing taps. The line has its own etiquette, its own enforcers, and a very long memory.",
   "exits": {
-    "east": "zone_up_aid"
+    "east": "zone_up_aid",
+    "north": "zone_civ_commons",
+    "south": "zone_civ_sortation",
+    "west": "zone_waste_gravel"
   },
   "flags": {
     "building_name": "",
     "building_type": null,
-    "intro_lore": "Clean water is the one thing the basin can't fake, so every morning a line forms at these taps and holds its own small court. The queue has rules older than the Handoff and enforces them without a single guard in sight. Cut it, and you'll find out that dying of thirst is the slow option.",
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "no_spawn": true,
     "scavenging_table_id": "scav_consumer_trash"
   },
   "grid_x": -3,
@@ -34,5 +35,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126562"
 }

@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#71b1e6",
+  "bg_color": "#2f86cc",
   "color": "#eeeeee",
   "created_by": "phase5-build",
   "danger_rating": "low",
@@ -21,8 +21,7 @@
     "is_apartment": false,
     "is_building": false,
     "is_interior": false,
-    "scavenging_table_id": "scav_harbor",
-    "water": true
+    "scavenging_table_id": "scav_harbor"
   },
   "grid_x": 1,
   "grid_y": -5,
@@ -35,5 +34,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126563"
 }

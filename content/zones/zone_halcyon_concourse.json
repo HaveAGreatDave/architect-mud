@@ -8,22 +8,21 @@
   "danger_rating": "safe",
   "description": "A retail concourse ringed with frosted-glass storefronts — a jeweller, a tailor, a coffee bar, a newsstand, all catering to people who own the floors above. A kiosk near the fountain sells the essentials to everyone else at a markup that is itself a kind of insurance.",
   "exits": {
-    "in": "zone_halcyon_elevator"
+    "east": "zone_halcyon_lobby"
   },
   "flags": {
-    "building_name": "Halcyon Towers",
-    "building_type": "shop",
-    "is_interior": true
+    "building_name": "Halcyon Assurance",
+    "building_type": "shop"
   },
-  "grid_x": 0,
+  "grid_x": -1,
   "grid_y": 0,
-  "grid_z": 1,
+  "grid_z": 0,
   "id": "zone_halcyon_concourse",
   "is_safe_zone": 1,
   "map_id": "map_int_halcyon",
   "marker": "AR",
   "name": "Halcyon Arcade",
-  "parent_zone": "zone_halcyon_lobby",
+  "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
   "updated_at": "1783316802"

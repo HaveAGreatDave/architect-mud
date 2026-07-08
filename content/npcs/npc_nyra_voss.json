@@ -3,21 +3,30 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
+      "at_work": {
+        "action_type": "AT_WORK",
+        "next": "go_home",
+        "type": "action"
+      },
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "home_wait",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "at_work",
+        "type": "action"
+      },
       "have_life": {
         "action_type": "HAVE_LIFE",
-        "next": "home_check",
+        "next": "go_to_work",
         "type": "action"
       },
-      "home_check": {
-        "condition_type": "AT_HOME",
-        "ifFalse": "have_life",
-        "ifTrue": "home_idle",
-        "type": "condition"
-      },
-      "home_idle": {
-        "action_type": "AT_HOME_LIFE",
-        "next": "have_life",
-        "type": "action"
+      "home_wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
       },
       "start": {
         "next": "have_life",
@@ -44,13 +53,6 @@
       "a coffee-stained blouse",
       "a plain bra and worn panties"
     ],
-    "gift_trade": {
-      "accept_message": "Nyra takes the cigarette without a word. She sparks it, draws deep, and for the length of one exhale the controlled stillness cracks — shoulders dropping, iris ring dimming to something almost soft. \"You want to <em>feel</em> something in this city,\" she says, smoke leaking out around the words, \"you play this.\" A battered cassette turns up between her fingers and she presses it into your palm. \"<span class=\"msg-system\">PSYCHOTECH</span>. I wore three decks out on it. Gets in behind the ribs and rewires you — I felt it in my teeth the first time I heard it.\" The ring flickers, almost embarrassed at how much she meant that.",
-      "already_message": "Nyra exhales a thin line of smoke and shakes her head, the old calm back in place. \"Already hooked you up, sweetheart. One good song's enough to ruin a person. Go find your own frequencies now.\"",
-      "give_item": "item_cigarettes",
-      "once": true,
-      "reward_item": "item_amptape_psychotech"
-    },
     "mis_willing": false,
     "personality": "unemployed"
   },

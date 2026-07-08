@@ -1,0 +1,19 @@
+{
+  "description": "Broadcast transmission hardware. Plays cassettes and routes live camera feeds.",
+  "flags": {
+    "channel_id": "ch_7_1783381814870",
+    "deck_active": null,
+    "deck_cassettes": [],
+    "media_deck": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_deck_ch_7_1783381814870_1783381834727",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Media Deck",
+  "object_type": "media_deck",
+  "power_draw_kw": 2,
+  "price": 0,
+  "zone_id": "zone_prod_1783381828554"
+}

@@ -2,11 +2,11 @@
   "enabled": true,
   "id": "bt_seed_24",
   "lines": [
-    "\"The end was promised, friend. And the end delivered.\"",
-    "\"I'm not interested.\"",
-    "\"Nobody is. That never stopped it coming.\"",
-    "raises a hand in something between blessing and warning."
+    "\"He is coming. He is always coming. Can you feel it?\"",
+    "\"I feel a draft, mostly.\"",
+    "\"That is how it begins. The cold. The certainty.\"",
+    "smiles with unsettling patience."
   ],
-  "personality": "preacher",
+  "personality": "cult_member",
   "sort_order": 24
 }

@@ -1,0 +1,27 @@
+{
+  "base_difficulty": 9,
+  "base_output": {
+    "item_id": "item_threshold",
+    "quantity": 1
+  },
+  "category": "synthesis",
+  "craft_time": 3,
+  "description": "Vaporised dissociative synthesis at the edge of what a home lab can do.",
+  "id": "synth_threshold",
+  "ingredients": [
+    {
+      "item_id": "item_reagent_psycho",
+      "quantity": 3
+    },
+    {
+      "item_id": "item_catalyst",
+      "quantity": 2
+    }
+  ],
+  "name": "Synthesize the Threshold",
+  "requires_station": "chem_lab",
+  "skill_id": "chemistry",
+  "skill_req": {
+    "chemistry": 5
+  }
+}

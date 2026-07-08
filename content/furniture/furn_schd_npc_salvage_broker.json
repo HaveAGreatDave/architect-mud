@@ -1,5 +1,5 @@
 {
-  "description": "Voss Iyaka's Schedule\n\n\n\n\nVoss's Weigh Station\n\n\n\n\n\n\n\n\n\nMon: 0:00-24:00\n\n\n\n\nTue: 0:00-24:00\n\n\n\n\nWed: 0:00-24:00\n\n\n\n\nThu: 0:00-24:00\n\n\n\n\nFri: 0:00-24:00\n\n\n\n\nSat: 0:00-24:00\n\n\n\n\nSun: 0:00-24:00",
+  "description": "Voss Iyaka's Schedule\nVoss's Weigh Station\n\nMon: 0:00-24:00\nTue: 0:00-24:00\nWed: 0:00-24:00\nThu: 0:00-24:00\nFri: 0:00-24:00\nSat: 0:00-24:00\nSun: 0:00-24:00",
   "flags": {
     "vendor_npc_id": "npc_salvage_broker",
     "vendor_schedule_board": true

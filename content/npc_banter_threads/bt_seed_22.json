@@ -2,10 +2,11 @@
   "enabled": true,
   "id": "bt_seed_22",
   "lines": [
-    "\"Long shift. Two more like it before I sleep.\"",
-    "\"They working you to death?\"",
-    "\"Death'd be a day off. Eyes forward.\""
+    "\"The readings from last night were... statistically unusual.\"",
+    "\"Unusual how?\"",
+    "\"The kind of unusual I'd rather not write down. Officially.\"",
+    "adjusts a cracked instrument and frowns."
   ],
-  "personality": "guard",
+  "personality": "scientist",
   "sort_order": 22
 }

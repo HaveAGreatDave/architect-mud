@@ -6,28 +6,29 @@
   "color": "#eae6f0",
   "created_by": null,
   "danger_rating": "safe",
-  "description": "A cathedral of pale stone and cold light. The Halcyon seal — a calm eye over a city skyline — is inlaid ten metres wide in the floor, and a wall of frosted glass reads ASSURANCE FOR THE ASSURED in letters that cost more than you do. The air is filtered, climate-perfect, and billed. A bank of brushed-steel elevators stands off to one side, its call panel glowing with floors in the fifties and above — the arcade, the underwriting and claims halls, the sky residences, and the executive suite crowning the tower. Step <b>in</b> to ride.",
+  "description": "A cathedral of pale stone and cold light. The Halcyon Assurance seal — a calm eye over a city skyline — is inlaid ten metres wide in the floor, and a wall of frosted glass reads ASSURANCE FOR THE ASSURED in letters that cost more than you do. The air is filtered, climate-perfect, and billed. Directories point up to residences, down to the executive floor, and across to underwriting and claims.",
   "exits": {
-    "in": "zone_halcyon_elevator",
-    "out": "zone_nc_halcyon"
+    "down": "zone_halcyon_exec",
+    "east": "zone_halcyon_claims",
+    "north": "zone_halcyon_underwriting",
+    "out": "zone_nc_halcyon",
+    "up": "zone_halcyon_residences",
+    "west": "zone_halcyon_concourse"
   },
   "flags": {
-    "building_name": "Halcyon Towers",
-    "building_type": "corporate_office",
-    "is_building": true,
-    "is_interior": true,
-    "world_exit_zone": "zone_nc_halcyon"
+    "building_name": "Halcyon Assurance",
+    "building_type": "corporate_office"
   },
   "grid_x": 0,
-  "grid_y": 0,
-  "grid_z": 0,
+  "grid_y": 1,
+  "grid_z": -1,
   "id": "zone_halcyon_lobby",
   "is_safe_zone": 1,
   "map_id": "map_int_halcyon",
   "marker": "HA",
-  "name": "Halcyon Towers — Grand Lobby",
+  "name": "Halcyon Assurance — Grand Lobby",
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783316802"
+  "updated_at": "1783376046"
 }

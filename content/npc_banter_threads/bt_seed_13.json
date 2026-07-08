@@ -2,11 +2,10 @@
   "enabled": true,
   "id": "bt_seed_13",
   "lines": [
-    "\"You catch the DEADBALL table? {sports_leader} are top of the pile — {sports_record}.\"",
-    "\"Front-runners. I'll believe it when the season ends.\"",
-    "\"Money says they choke before the World Series.\"",
-    "spits, unimpressed."
+    "\"Nice gear. Real nice. Be a shame.\"",
+    "\"...Is that a threat?\"",
+    "\"It's an observation. For now.\""
   ],
-  "personality": null,
+  "personality": "thug",
   "sort_order": 13
 }

@@ -1,21 +1,25 @@
 {
   "ambient_events": [
     "A crew clocks on at the depot, reads the whiteboard, and gives up interpreting it.",
-    "A dispatcher shouts a truck number into the din and something, eventually, moves.",
-    "Stencilled on a container, then keyed over: \"off-manifest pickups — say the right consignment. it changes. check the crate.\""
+    "A dispatcher shouts a truck number into the din and something, eventually, moves."
   ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#1eae5d",
-  "color": "#111111",
+  "bg_color": "#585858",
+  "color": "#eeeeee",
   "created_by": "phase8-build",
   "danger_rating": "low",
   "description": "The Yards' main depot and muster point, where crews clock on, trucks queue, and the day's chaos is dispatched from a whiteboard nobody can read. The gateway between the yards and the city proper.",
   "exits": {
+    "east": "zone_yard_boxcar",
     "north": "zone_corp_investor",
+    "south": "zone_mq_precinct",
     "west": "zone_mq_chrome_court"
   },
   "flags": {
+    "artery": [
+      "North Head"
+    ],
     "building_name": "",
     "building_type": null,
     "is_apartment": false,
@@ -34,5 +38,5 @@
   "parent_zone": null,
   "pvp_enabled": 0,
   "radiation_level": 0,
-  "updated_at": "1783301927"
+  "updated_at": "1783126563"
 }

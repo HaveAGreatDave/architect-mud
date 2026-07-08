@@ -1,6 +1,6 @@
 {
   "building_name": null,
-  "forcefield_active": 0,
+  "forcefield_active": 1,
   "lock_difficulty": 4,
   "owner_org_id": null,
   "owner_type": "player",

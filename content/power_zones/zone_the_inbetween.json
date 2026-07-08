@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 50,
+  "flags": {},
+  "generator_id": "gen_zone_start_z-1_1782276270002_1782276285855",
+  "id": "zone_the_inbetween",
+  "max_capacity_kw": 50,
+  "name": "The Inbetween",
+  "source_type": "building_generator"
+}
