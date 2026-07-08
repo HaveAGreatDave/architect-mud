@@ -2,14 +2,15 @@
 # the ONLY writer of content to the production database.
 #
 # Flow: regress the merged tree against a throwaway Postgres built purely from
-# content/ files → pg_dump prod (backup artifact) → drift report (surfaces manual
-# prod hotfixes this deploy would overwrite) → import (upserts + git-diff-driven
-# deletions) → record a deployments row → kick Render so the game server reboots
-# onto the new content.
+# content/ files → snapshot prod (instant Neon branch, self-expiring) → drift
+# report (surfaces manual prod hotfixes this deploy would overwrite) → import
+# (upserts + git-diff-driven deletions) → record a deployments row → kick Render
+# so the game server reboots onto the new content.
 #
 # Rollback: `git revert` the bad content commit and push — the next run restores
 # everything (reverted values re-upsert, added rows delete, deletions restore).
-# Catastrophic: `psql -f` the pg_dump artifact from the run before the damage.
+# Catastrophic: Neon instant-restore prod's default branch from the
+# `predeploy-<run>-<sha>` snapshot branch created before the damaging run.
 #
 # ── ENABLING THE PUSH TRIGGER (the Phase-5 cutover gate) ──
 # This ships workflow_dispatch-only. After the content baseline lands on main,
@@ -21,9 +22,13 @@
 #     branches: [main]
 #
 # Required repo secrets:
-#   PROD_DATABASE_URL        — Supabase SESSION-mode connection string (port 5432,
-#                              NOT the transaction pooler: pg_dump and
-#                              SET CONSTRAINTS need session mode)
+#   PROD_DATABASE_URL        — Neon connection string. Use the DIRECT (unpooled)
+#                              endpoint, not the -pooler host: the import runs one
+#                              transaction with SET CONSTRAINTS ALL DEFERRED.
+#   NEON_API_KEY             — Neon API key (Account/Project settings → API keys).
+#                              Used to create the pre-deploy snapshot branch. The
+#                              project id is read from the committed `.neon` file,
+#                              not a secret (it isn't sensitive).
 #   RENDER_DEPLOY_HOOK_URL   — optional; Render → Settings → Deploy Hook. Restarts
 #                              the service after import so the in-memory world
 #                              cache is never stale.
@@ -77,12 +82,6 @@ jobs:
     needs: regress
     runs-on: ubuntu-latest
     steps:
-      - name: Refuse to run on a public repo
-        # The backup artifact contains player password hashes and emails.
-        if: ${{ github.event.repository.private != true }}
-        run: |
-          echo "::error::Repository is public — backup artifacts would leak player data. Aborting."
-          exit 1
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -91,24 +90,33 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Install postgresql-client 17
-        run: |
-          sudo apt-get -qq update
-          sudo apt-get -qq install -y postgresql-common
-          echo | sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
-          sudo apt-get -qq install -y postgresql-client-17
-      - name: Backup production (pg_dump)
+      - name: Snapshot production (Neon branch)
+        # Pre-deploy catastrophe net: an instant copy-on-write snapshot of prod
+        # BEFORE we touch it. Data-only (no compute endpoint) so it's near-free;
+        # expires_at self-cleans it after 14 days (mirrors the old artifact
+        # retention). Recovery = Neon instant-restore prod's default branch from
+        # this branch's history. Nothing sensitive ever leaves Neon, so — unlike
+        # the old pg_dump-to-artifact — this runs safely on a public repo. Fail
+        # the deploy if the snapshot can't be taken: never touch prod without a
+        # recovery point.
         env:
-          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: |
-          pg_dump "$PROD_DATABASE_URL" --no-owner --no-privileges -n public -f prod-backup.sql
-          ls -lh prod-backup.sql
-      - name: Upload backup artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: prod-backup-${{ github.run_number }}
-          path: prod-backup.sql
-          retention-days: 14
+          project_id=$(node -p "JSON.parse(require('fs').readFileSync('.neon','utf8')).projectId")
+          expires_at=$(date -u -d '+14 days' +%Y-%m-%dT%H:%M:%SZ)
+          name="predeploy-${GITHUB_RUN_NUMBER}-$(git rev-parse --short HEAD)"
+          code=$(curl -sS -o resp.json -w '%{http_code}' \
+            "https://console.neon.tech/api/v2/projects/${project_id}/branches" \
+            -H 'Accept: application/json' \
+            -H "Authorization: Bearer ${NEON_API_KEY}" \
+            -H 'Content-Type: application/json' \
+            -d "{\"branch\":{\"name\":\"${name}\",\"expires_at\":\"${expires_at}\"}}")
+          echo "snapshot branch: ${name} (expires ${expires_at})"
+          cat resp.json
+          if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+            echo "::error::Neon snapshot failed (HTTP ${code}) — aborting before touching prod."
+            exit 1
+          fi
       - name: Drift report (manual prod edits this deploy will overwrite)
         env:
           PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}

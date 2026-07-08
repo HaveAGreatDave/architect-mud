@@ -1,21 +1,21 @@
 services:
-  - type: web
-    name: architect-mud
-    runtime: node
-    plan: free
-    buildCommand: npm install
-    startCommand: npm start
-    healthCheckPath: /health
-    envVars:
-      - key: DATABASE_URL
-        sync: false           # paste your Supabase URL in the Render dashboard
-      - key: NODE_ENV
-        value: production
-      - key: RENDER_EXTERNAL_URL
-        sync: false           # paste your full Render URL e.g. architect-mud.onrender.com
-      # Uncomment at the content-pipeline cutover (after the git baseline lands and
-      # the deploy-content CI workflow is live): makes prod content read-only over
-      # HTTP — git becomes the only writer of world content to production. Ops
-      # tools (player admin, weather/power, live spawns…) stay live.
-      # - key: CONTENT_READONLY
-      #   value: "1"
+    - type: web
+      name: architect-mud
+      runtime: node
+      plan: free
+      buildCommand: npm install
+      startCommand: npm start
+      healthCheckPath: /health
+      envVars:
+          - key: DATABASE_URL
+            sync: false # paste your Neon URL in the Render dashboard
+          - key: NODE_ENV
+            value: production
+          - key: RENDER_EXTERNAL_URL
+            sync: false # paste your full Render URL e.g. architect-mud.onrender.com
+          # Cutover done (2026-07-08): prod content is read-only over HTTP — git is the
+          # only writer of world content to production (deploy-content CI applies
+          # content/ on push to main). Ops tools (player admin, weather/power, live
+          # spawns…) stay live.
+          - key: CONTENT_READONLY
+            value: "1"

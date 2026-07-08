@@ -1604,9 +1604,9 @@
       "a road-worn wool jumper",
       "long johns and boxers"
     ],
+    "drug_buyer": true,
     "mis_willing": false,
-    "personality": "travelling_vendor",
-    "drug_buyer": true
+    "personality": "travelling_vendor"
   },
   "home_activities": [],
   "home_zone": "zone_mq_pigeon_bar",
