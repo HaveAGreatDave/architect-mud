@@ -1024,7 +1024,7 @@ export const SCHEMA_SQL = `
   -- (the inline/ALTER-added FKs above are auto-named <table>_<column>_fkey).
   ALTER TABLE media_channels DROP CONSTRAINT IF EXISTS media_channels_idle_broadcast_id_fkey;
   ALTER TABLE media_channels ADD CONSTRAINT media_channels_idle_broadcast_id_fkey
-    FOREIGN KEY (idle_broadcast_id) REFERENCES media_broadcasts(id) DEFERRABLE INITIALLY DEFERRED;
+    FOREIGN KEY (idle_broadcast_id) REFERENCES media_broadcasts(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
   ALTER TABLE media_broadcasts DROP CONSTRAINT IF EXISTS media_broadcasts_channel_id_fkey;
   ALTER TABLE media_broadcasts ADD CONSTRAINT media_broadcasts_channel_id_fkey
     FOREIGN KEY (channel_id) REFERENCES media_channels(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
@@ -1041,10 +1041,10 @@ export const SCHEMA_SQL = `
   -- idempotent; the inline/ALTER-added FKs are auto-named <table>_<column>_fkey.)
   ALTER TABLE zones DROP CONSTRAINT IF EXISTS zones_parent_zone_fkey;
   ALTER TABLE zones ADD CONSTRAINT zones_parent_zone_fkey
-    FOREIGN KEY (parent_zone) REFERENCES zones(id) DEFERRABLE INITIALLY DEFERRED;
+    FOREIGN KEY (parent_zone) REFERENCES zones(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
   ALTER TABLE generators DROP CONSTRAINT IF EXISTS generators_city_generator_id_fkey;
   ALTER TABLE generators ADD CONSTRAINT generators_city_generator_id_fkey
-    FOREIGN KEY (city_generator_id) REFERENCES generators(id) DEFERRABLE INITIALLY DEFERRED;
+    FOREIGN KEY (city_generator_id) REFERENCES generators(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
   -- power_zones.generator_id → generators.id. The deletion pass removes runtime
   -- power-sim rows (junction generators) whose power_zones still reference them;
   -- an immediate RESTRICT check aborts the delete. A pre-existing prod table drifted
@@ -1691,6 +1691,57 @@ export const SCHEMA_SQL = `
     paid_at       BIGINT
   );
   CREATE INDEX IF NOT EXISTS idx_ins_claim_owner ON insurance_claims(owner_id, status);
+
+  -- ── Content-parent FK deferral + ON DELETE, applied last (every table exists) ──
+  -- The content deletion pass removes rows in content tables (zones, furniture,
+  -- audio/media catalog, aircraft/atm/security definitions, …). Any child FK left
+  -- at the inline-created default (ON DELETE NO ACTION, non-deferrable) aborts that
+  -- delete the instant a child still references the parent. Re-assert each such FK
+  -- idempotently: DEFERRABLE INITIALLY DEFERRED so the check holds to COMMIT, and an
+  -- ON DELETE that matches ownership — CASCADE for rows that belong to the parent
+  -- (a camera lives in its zone; a deck unit IS a furniture row; an audio route/
+  -- instrument is meaningless without its sample), SET NULL for loose references
+  -- (a player's aircraft/apartment/spy-device outlives the retired type/zone it
+  -- pointed at; a channel just loses its theme). Drop-then-add keeps it idempotent.
+  ALTER TABLE aircraft DROP CONSTRAINT IF EXISTS aircraft_type_id_fkey;
+  ALTER TABLE aircraft ADD CONSTRAINT aircraft_type_id_fkey
+    FOREIGN KEY (type_id) REFERENCES aircraft_types(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
+  ALTER TABLE atm_units DROP CONSTRAINT IF EXISTS atm_units_network_id_fkey;
+  ALTER TABLE atm_units ADD CONSTRAINT atm_units_network_id_fkey
+    FOREIGN KEY (network_id) REFERENCES atm_networks(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
+  ALTER TABLE audio_event_routes DROP CONSTRAINT IF EXISTS audio_event_routes_sample_id_fkey;
+  ALTER TABLE audio_event_routes ADD CONSTRAINT audio_event_routes_sample_id_fkey
+    FOREIGN KEY (sample_id) REFERENCES audio_samples(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+  ALTER TABLE audio_instruments DROP CONSTRAINT IF EXISTS audio_instruments_sample_id_fkey;
+  ALTER TABLE audio_instruments ADD CONSTRAINT audio_instruments_sample_id_fkey
+    FOREIGN KEY (sample_id) REFERENCES audio_samples(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+  ALTER TABLE zones DROP CONSTRAINT IF EXISTS zones_audio_theme_id_fkey;
+  ALTER TABLE zones ADD CONSTRAINT zones_audio_theme_id_fkey
+    FOREIGN KEY (audio_theme_id) REFERENCES audio_songs(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
+  ALTER TABLE media_deck_units DROP CONSTRAINT IF EXISTS media_deck_units_id_fkey;
+  ALTER TABLE media_deck_units ADD CONSTRAINT media_deck_units_id_fkey
+    FOREIGN KEY (id) REFERENCES furniture(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+  ALTER TABLE media_deck_units DROP CONSTRAINT IF EXISTS media_deck_units_channel_id_fkey;
+  ALTER TABLE media_deck_units ADD CONSTRAINT media_deck_units_channel_id_fkey
+    FOREIGN KEY (channel_id) REFERENCES media_channels(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
+  ALTER TABLE media_channels DROP CONSTRAINT IF EXISTS media_channels_theme_id_fkey;
+  ALTER TABLE media_channels ADD CONSTRAINT media_channels_theme_id_fkey
+    FOREIGN KEY (theme_id) REFERENCES media_themes(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
+  ALTER TABLE media_cameras DROP CONSTRAINT IF EXISTS media_cameras_streaming_channel_id_fkey;
+  ALTER TABLE media_cameras ADD CONSTRAINT media_cameras_streaming_channel_id_fkey
+    FOREIGN KEY (streaming_channel_id) REFERENCES media_channels(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
+  ALTER TABLE media_cameras DROP CONSTRAINT IF EXISTS media_cameras_zone_id_fkey;
+  ALTER TABLE media_cameras ADD CONSTRAINT media_cameras_zone_id_fkey
+    FOREIGN KEY (zone_id) REFERENCES zones(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+  ALTER TABLE security_devices DROP CONSTRAINT IF EXISTS security_devices_network_id_fkey;
+  ALTER TABLE security_devices ADD CONSTRAINT security_devices_network_id_fkey
+    FOREIGN KEY (network_id) REFERENCES security_networks(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
+  ALTER TABLE security_devices DROP CONSTRAINT IF EXISTS security_devices_zone_id_fkey;
+  ALTER TABLE security_devices ADD CONSTRAINT security_devices_zone_id_fkey
+    FOREIGN KEY (zone_id) REFERENCES zones(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
+  ALTER TABLE apartments DROP CONSTRAINT IF EXISTS apartments_zone_id_fkey;
+  ALTER TABLE apartments ADD CONSTRAINT apartments_zone_id_fkey
+    FOREIGN KEY (zone_id) REFERENCES zones(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
 `;
 
 export async function applySchema() {
