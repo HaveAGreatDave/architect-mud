@@ -157,6 +157,11 @@ function _getBuiltinThemeColors(themeId) {
   return colors;
 }
 
+// Exported so a panel can preview/apply a built-in theme's actual colors
+// without switching the page's own active theme (e.g. Tablet OS's independent
+// "unlinked" theme — client/game/js/panels/tablet-os.js).
+export { _getBuiltinThemeColors as probeBuiltinThemeColors };
+
 function _activeThemeName(settings) {
   const id = settings.theme || 'dark';
   const builtin = BUILTIN_THEMES.find(([v]) => v === id);
