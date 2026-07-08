@@ -2,19 +2,29 @@
   "category": null,
   "description": "The full delivery loop: Threshold, Threshold East, Castoff Walk, and out to the Marquee — in that order or not at all. 20₵.",
   "id": "quest_fs_loop",
-  "meta": {},
+  "meta": {
+    "taskSeconds": 5
+  },
   "name": "The Loop",
   "objectives": [
     {
       "desc": "Threshold",
-      "emote": "{who} jogs through the Threshold, already regretting agreeing to this.",
+      "emotes": [
+        "{who} jogs through the Threshold, already regretting agreeing to this.",
+        "{who} picks up the pace through the Threshold, checking the time.",
+        "{who} ducks through the Threshold at a dead sprint."
+      ],
       "id": "o0",
       "type": "visit",
       "zone": "zone_threshold"
     },
     {
       "desc": "Threshold East",
-      "emote": "{who} pushes on through Threshold East, counting the stops left out loud.",
+      "emotes": [
+        "{who} pushes on through Threshold East, counting the stops left out loud.",
+        "{who} keeps jogging, sweat starting to show.",
+        "{who} weaves through Threshold East without breaking pace."
+      ],
       "id": "o1",
       "requires": [
         "o0"
@@ -24,7 +34,11 @@
     },
     {
       "desc": "Castoff Walk",
-      "emote": "{who} cuts across Castoff Walk without breaking stride.",
+      "emotes": [
+        "{who} cuts across Castoff Walk without breaking stride.",
+        "{who} barely slows down crossing Castoff Walk.",
+        "{who} vaults a low railing on Castoff Walk, showing off a little."
+      ],
       "id": "o2",
       "requires": [
         "o1"
@@ -34,7 +48,11 @@
     },
     {
       "desc": "Out to the Marquee",
-      "emote": "{who} staggers out to the Marquee, done running errands for one day.",
+      "emotes": [
+        "{who} staggers out to the Marquee, done running errands for one day.",
+        "{who} slows to a walk as the Marquee comes into view, thank god.",
+        "{who} bends over, hands on knees, finally at the Marquee."
+      ],
       "id": "o3",
       "requires": [
         "o2"

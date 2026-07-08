@@ -6,11 +6,12 @@
 // "everything I own" list; the formula itself (round((1-damage)*100) etc.) is
 // duplicated here rather than the query.
 import { query } from '../../server/models/db.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
 import { registerTabletApp } from './registry.js';
 
 async function myAircraft(playerId) {
   const { rows } = await query(
-    `SELECT a.id, a.name, a.damage, a.fuel, a.parked_zone_id, a.airborne, a.insured, a.custom_data,
+    `SELECT a.id, a.name, a.damage, a.fuel, a.parked_zone_id, a.airborne, a.insured, a.rental, a.custom_data,
             t.name AS type_name, t.fuel_capacity
      FROM aircraft a JOIN aircraft_types t ON t.id = a.type_id
      WHERE a.owner_id=$1 AND a.is_wreck=0
@@ -23,6 +24,8 @@ async function myAircraft(playerId) {
     fuelPct: Math.max(0, Math.min(100, Math.round((r.fuel / (r.fuel_capacity || 1)) * 100))),
     location: r.airborne ? 'Airborne' : (r.parked_zone_id || 'Unknown'),
     insured: !!r.insured,
+    rental: !!r.rental,
+    airborne: !!r.airborne,
   }));
 }
 
@@ -38,6 +41,12 @@ async function buildScreen(player, screenId, params) {
   if (id) {
     const v = list.find(x => x.id === id);
     if (!v) return { view: 'error', message: 'Vehicle not found.' };
+    // Sell (owned outright) or Cancel Rental — remote fleet management, no need
+    // to trek to wherever she's parked. Hidden while airborne (the action itself
+    // also refuses, but there's no point showing a button that'll just bounce).
+    const actions = v.airborne ? [] : v.rental
+      ? [{ id: 'cancel_rental', label: 'Cancel Rental' }]
+      : [{ id: 'sell', label: 'Sell' }];
     return {
       view: 'detail',
       breadcrumb: [v.tail],
@@ -50,9 +59,10 @@ async function buildScreen(player, screenId, params) {
           { label: 'Fuel', value: `${v.fuelPct}%` },
           { label: 'Location', value: v.location },
           { label: 'Insured', value: v.insured ? 'Yes' : 'No' },
+          { label: 'Rental', value: v.rental ? 'Yes' : 'No' },
         ],
       },
-      actions: [],
+      actions,
     };
   }
 
@@ -63,7 +73,27 @@ async function buildScreen(player, screenId, params) {
   };
 }
 
+// Sell / Cancel Rental — the actual ownership logic (and the ID-based, land-
+// anywhere gating) lives in plugins/flight/hangars.js; dynamically imported
+// (same cross-plugin pattern quests-app.js uses to call into flight/contracts.js)
+// so this app doesn't have to know anything about aircraft internals beyond
+// "call this function with an id." Bottom-pane message either way, then stay on
+// this vehicle's screen on failure or fall back to the fleet list once she's gone.
+async function handleAction(player, actionId, params) {
+  const aircraftId = (params || '').trim();
+  if (!aircraftId || (actionId !== 'sell' && actionId !== 'cancel_rental')) return buildScreen(player, null, aircraftId);
+
+  const { sellAircraft, cancelRental } = await import('../flight/hangars.js');
+  const res = actionId === 'sell' ? await sellAircraft(player, aircraftId) : await cancelRental(player, aircraftId);
+
+  const failed = res?.type === 'error';
+  sendToPlayer(player.id, { type: 'output', message: failed ? `<span class="msg-system">${res.message}</span>` : (res?.message || '') });
+  if (failed) return buildScreen(player, null, aircraftId);
+  if (res?.player_update) sendToPlayer(player.id, { type: 'player_update', ...res.player_update });
+  return buildScreen(player, null, '');
+}
+
 registerTabletApp({
   id: 'vehicles', name: 'Vehicles', icon: '✈', category: 'Assets',
-  buildHome, buildScreen,
+  buildHome, buildScreen, handleAction,
 });

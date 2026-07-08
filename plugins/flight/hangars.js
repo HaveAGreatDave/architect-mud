@@ -587,6 +587,58 @@ async function cmdLoadout(args, raw, player) {
   return { type: 'output', message: `<span class="item-grant">Cabin re-rigged: <b>${seats}</b> seat${seats > 1 ? 's' : ''} + <b>${cargoCap}kg</b> of hold. The ${tgt.type.name} is set up for ${seats <= 1 ? 'pure freight' : cargoCap === 0 ? 'a full cabin' : 'a mixed load'}.</span>` };
 }
 
+// ── Sell / cancel rental — Tablet OS "Vehicles" app ─────────────────────────
+// Deliberately ID-based rather than location-gated like the rest of this file:
+// the whole point of managing your fleet from the tablet is not having to trek
+// to wherever a craft happens to be parked. Both are called directly by
+// plugins/tablet/vehicles-app.js (player, aircraftId) — not chat commands.
+
+// Outright sale of an owned (non-rental) aircraft: deletes the instance for a
+// refund. Half of buy price, discounted further by hull damage — more generous
+// than cmdSalvage's wreck-scrap payout (~5% of price_buy) since this one still
+// flies; a write-off should be insured or salvaged, not sold (wrecks are
+// excluded below, and the tablet's own aircraft list already filters them out).
+// Drops any insurance policy on her too — nothing left to insure.
+export async function sellAircraft(player, aircraftId) {
+  const { rows } = await query(
+    `SELECT a.id, a.owner_id, a.rental, a.is_wreck, a.damage, a.airborne, t.price_buy, t.name tname
+     FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1`, [aircraftId]);
+  const ac = rows[0];
+  if (!ac) return { type: 'error', message: 'No such aircraft.' };
+  if (ac.owner_id !== player.id || ac.rental) return { type: 'error', message: 'You can only sell an aircraft you own outright.' };
+  if (ac.is_wreck) return { type: 'error', message: 'Nothing to sell — salvage a wreck instead.' };
+  if (ac.airborne) return { type: 'error', message: "Land her first — can't sell an aircraft in the air." };
+  const live = liveAircraft.get(aircraftId);
+  if (live?.occupants?.size) return { type: 'error', message: 'Clear everyone out of her first.' };
+
+  const value = Math.max(1, Math.round((ac.price_buy || 0) * 0.5 * (1 - (ac.damage || 0) * 0.5)));
+  if (live) liveAircraft.delete(aircraftId);
+  await query('DELETE FROM aircraft WHERE id=$1', [aircraftId]);
+  await query('DELETE FROM insurance_policies WHERE aircraft_id=$1', [aircraftId]);
+  player.credits = (player.credits || 0) + value;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  return { type: 'output', message: `<span class="item-grant">Sold the ${clean(ac.tname)} for ${value}c.</span>`, player_update: { credits: player.credits } };
+}
+
+// Hand back a rental outright: deletes the instance. No refund — the flat desk
+// fee already bought the use you got out of it (matches the rental desk's own
+// "just bring her back" framing; this is the remote version of that walk).
+export async function cancelRental(player, aircraftId) {
+  const { rows } = await query(
+    `SELECT a.id, a.owner_id, a.rental, a.airborne, t.name tname
+     FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1`, [aircraftId]);
+  const ac = rows[0];
+  if (!ac) return { type: 'error', message: 'No such aircraft.' };
+  if (ac.owner_id !== player.id || !ac.rental) return { type: 'error', message: "That's not a rental of yours." };
+  if (ac.airborne) return { type: 'error', message: "Land her first — can't return a rental in the air." };
+  const live = liveAircraft.get(aircraftId);
+  if (live?.occupants?.size) return { type: 'error', message: 'Clear everyone out of her first.' };
+
+  if (live) liveAircraft.delete(aircraftId);
+  await query('DELETE FROM aircraft WHERE id=$1', [aircraftId]);
+  return { type: 'output', message: `<span class="item-grant">Returned the ${clean(ac.tname)} — the rental slot is free.</span>` };
+}
+
 export const commands = {
   hangar: cmdHangar,
   showroom: cmdShowroom,

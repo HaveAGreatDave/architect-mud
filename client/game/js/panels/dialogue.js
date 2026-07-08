@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { sendDialogue, buyFromNpc, sellToNpc, sellAllToNpc, sendRaw } from '../net.js';
+import { sendDialogue, sendCmd, buyFromNpc, sellToNpc, sellAllToNpc, sendRaw } from '../net.js';
 
 const ITEMS_PER_PAGE = 10;
 let shopState = null; // { msg, page, mode, sort }
@@ -51,7 +51,7 @@ export function openDialogue(msg) {
   opts.innerHTML = '';
   for (let i = 0; i < (msg.options || []).length; i++) {
     const opt = msg.options[i];
-    if (!opt.next) continue;
+    if (!opt.next && !opt.cmd) continue;
     const rawLabel = opt.text || opt.label || '';
     const { label, gated } = formatOptionLabel(rawLabel);
     const btn = document.createElement('button');
@@ -61,7 +61,11 @@ export function openDialogue(msg) {
     } else {
       btn.textContent = label;
     }
-    btn.onclick = () => sendDialogue(state.currentNpcId, opt.next, i);
+    // A `cmd`-carrying option (e.g. "What's on the board?") jumps straight to
+    // another UI (Tablet OS) instead of the next dialogue screen — close this
+    // panel and run the command like any other action-link, rather than
+    // round-tripping through sendDialogue.
+    btn.onclick = opt.cmd ? () => { closeDialogue(); sendCmd(opt.cmd, label); } : () => sendDialogue(state.currentNpcId, opt.next, i);
     opts.appendChild(btn);
   }
   document.getElementById('dialogue-panel').classList.add('active');

@@ -8,6 +8,8 @@ import { signatureMult, signatureScore, colorName, describeExterior,
   normalizeLivery, sanitizeLivery, conspicuousnessMult, paintCost, isPaintable,
   readSchemes, schemeOf } from './livery.js';
 import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.js';
+import { sellAircraft, cancelRental } from './hangars.js';
+import { query } from '../../server/models/db.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -147,6 +149,50 @@ export default async function regress({ run, check, getPlayer }) {
 
   // ── Collision routers fall through / delegate off-context ───────────────────
   r = await run('repair'); check('repair off-context falls through to gear repair', !/aircraft/i.test(r?.message || ''), r?.message);
+
+  // ── Sell / cancel rental (Tablet OS "Vehicles" app) ──────────────────────────
+  const { rows: types } = await query("SELECT id, price_buy FROM aircraft_types WHERE class <> 'wreck' ORDER BY price_buy LIMIT 1");
+  const acType = types[0];
+  if (acType) {
+    const soldId = 'aircraft_regress_sell';
+    const rentedId = 'aircraft_regress_rental';
+    const strangerId = 'aircraft_regress_stranger';
+    await query('DELETE FROM aircraft WHERE id = ANY($1)', [[soldId, rentedId, strangerId]]);
+
+    await query(
+      `INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,damage) VALUES ($1,$2,'REGR-01',$3,0,0,0,0.2)`,
+      [soldId, acType.id, p.id]
+    );
+    const before = p.credits || 0;
+    let sr = await sellAircraft(p, soldId);
+    check('sellAircraft pays out and reports the aircraft', sr?.type === 'output' && /Sold/.test(sr.message || ''), JSON.stringify(sr));
+    check('sellAircraft credits the expected refund (50% of price, damage-scaled)', p.credits === before + Math.max(1, Math.round(acType.price_buy * 0.5 * (1 - 0.2 * 0.5))), `before=${before} after=${p.credits}`);
+    let { rows: gone } = await query('SELECT 1 FROM aircraft WHERE id=$1', [soldId]);
+    check('sellAircraft deletes the aircraft row', gone.length === 0, JSON.stringify(gone));
+
+    await query(
+      `INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,damage) VALUES ($1,$2,'REGR-02',$3,1,0,0,0)`,
+      [rentedId, acType.id, p.id]
+    );
+    const beforeCredits = p.credits || 0;
+    let cr = await cancelRental(p, rentedId);
+    check('cancelRental reports the aircraft returned', cr?.type === 'output' && /Returned/.test(cr.message || ''), JSON.stringify(cr));
+    check('cancelRental gives no refund', p.credits === beforeCredits, `before=${beforeCredits} after=${p.credits}`);
+    ({ rows: gone } = await query('SELECT 1 FROM aircraft WHERE id=$1', [rentedId]));
+    check('cancelRental deletes the aircraft row', gone.length === 0, JSON.stringify(gone));
+
+    // Ownership + airborne gating, both entry points.
+    await query(
+      `INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,damage) VALUES ($1,$2,'REGR-03','someone_else',0,0,0,0)`,
+      [strangerId, acType.id]
+    );
+    sr = await sellAircraft(p, strangerId);
+    check('sellAircraft refuses an aircraft you do not own', sr?.type === 'error', JSON.stringify(sr));
+    await query('UPDATE aircraft SET owner_id=$1, airborne=1 WHERE id=$2', [p.id, strangerId]);
+    sr = await sellAircraft(p, strangerId);
+    check('sellAircraft refuses an airborne aircraft', sr?.type === 'error' && /air/i.test(sr.message || ''), JSON.stringify(sr));
+    await query('DELETE FROM aircraft WHERE id=$1', [strangerId]);
+  }
 
   p.posture = savedPosture; p.npcCombatTargetId = savedCombat;
   if (savedAc) p.aircraftId = savedAc; else { delete p.aircraftId; delete p.seat; }

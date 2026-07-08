@@ -2,19 +2,29 @@
   "category": null,
   "description": "The long one nobody else wants: parcel through the Threshold to Castoff Walk, on to the Marquee, and all the way to Cathode Row before you turn back. It pays because it's a hike. 25₵.",
   "id": "quest_fs_haul",
-  "meta": {},
+  "meta": {
+    "taskSeconds": 5
+  },
   "name": "The Long Haul",
   "objectives": [
     {
       "desc": "Through the Threshold",
-      "emote": "{who} hauls the load through the Threshold, arms already burning.",
+      "emotes": [
+        "{who} hauls the load through the Threshold, arms already burning.",
+        "{who} grunts, hikes the load higher, and keeps moving.",
+        "{who} pauses at the Threshold just long enough to resettle the load."
+      ],
       "id": "o0",
       "type": "visit",
       "zone": "zone_threshold"
     },
     {
       "desc": "On to Castoff Walk",
-      "emote": "{who} keeps hauling on to Castoff Walk, cursing whoever decided this needed doing on foot.",
+      "emotes": [
+        "{who} keeps hauling on to Castoff Walk, cursing whoever decided this needed doing on foot.",
+        "{who} switches the load to the other shoulder without breaking stride.",
+        "{who} trudges toward Castoff Walk, sweat running into their eyes."
+      ],
       "id": "o1",
       "requires": [
         "o0"
@@ -24,7 +34,11 @@
     },
     {
       "desc": "On to the Marquee",
-      "emote": "{who} drags the load past the Marquee, sweating, refusing to put it down.",
+      "emotes": [
+        "{who} drags the load past the Marquee, sweating, refusing to put it down.",
+        "{who} staggers past the Marquee, arms shaking.",
+        "{who} mutters that this is the last job board gig they ever take."
+      ],
       "id": "o2",
       "requires": [
         "o1"
@@ -34,7 +48,11 @@
     },
     {
       "desc": "All the way to Cathode Row",
-      "emote": "{who} finally hauls it all the way to Cathode Row and drops it with a groan.",
+      "emotes": [
+        "{who} finally hauls it all the way to Cathode Row and drops it with a groan.",
+        "{who} sets the load down at Cathode Row and doesn't move for a second.",
+        "{who} collapses against a wall at Cathode Row, load finally delivered."
+      ],
       "id": "o3",
       "requires": [
         "o2"

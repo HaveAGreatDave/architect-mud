@@ -260,10 +260,15 @@ async function handleAction(player, actionId, params) {
       if (player.current_zone !== npcInfo.zone) {
         const destZone = getZone(npcInfo.zone);
         const path = destZone ? findPath(player.current_zone, npcInfo.zone) : null;
+        const dest = destZone?.name || npcInfo.zone;
         if (path && path.length >= 2) {
-          sendToPlayer(player.id, { type: 'gps_route', message: `GPS locked: ${destZone.name}. Route plotted on the map.`, path });
+          sendToPlayer(player.id, { type: 'gps_route', message: `GPS locked: ${dest}. Route plotted on the map.`, path });
         }
-        return { view: 'error', message: `${npcInfo.npcName} is the one who needs this — head to ${destZone?.name || npcInfo.zone} to turn it in.` };
+        // Bottom-pane note, not a screen swap — the player is still looking at
+        // this quest's detail (objectives/actions) and should stay there rather
+        // than land on a bare error screen that loses that context.
+        sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">${npcInfo.npcName} is the one who needs this — head to ${dest} to turn it in.</span>` });
+        return buildScreen(player, null, questId);
       }
       const { rows: npcRows } = await query('SELECT * FROM npcs WHERE id=$1', [npcInfo.npcId]);
       const npc = npcRows[0];
