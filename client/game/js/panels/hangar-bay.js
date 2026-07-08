@@ -639,7 +639,7 @@ function ensureStyles() {
     font-family:'Courier New',monospace;
     background:linear-gradient(175deg,color-mix(in srgb, var(--border) 55%, var(--bg3)) 0%,var(--bg3) 8%,var(--bg2) 50%),
       radial-gradient(140% 100% at 50% 0%,color-mix(in srgb, var(--border) 40%, var(--bg3)),var(--bg) 75%);
-    border:1px solid var(--border); border-radius:10px; overflow:hidden;
+    border:1px solid var(--hb-black2); border-radius:10px; overflow:hidden;
     box-shadow:inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 1px rgba(0,0,0,0.3), 0 14px 34px rgba(0,0,0,0.5); }
   /* A faint brushed-plastic grain over the shell — two crossed diagonal hairline
      sets at very low opacity, purely decorative (z-index:0, sits under every
@@ -727,11 +727,10 @@ function ensureStyles() {
   #hb-root .hb-b-rent { background:#7a6a1e; color:#f2e0a0; } #hb-root .hb-b-wreck { background:#7a3a2a; color:#f2b8a0; }
 
   /* Every button in the hangar — toolbar, floor info panel, bench controls,
-     charter — uses the exact same "ATM-recipe" a single accent, gradient-filled,
-     glowing on hover (see atm.js .atm-confirm / corp-console.js .cc-btn, the
-     reference this now matches instead of the old flat blue-grey slabs with a
-     colored outline). One consistent accent throughout, not a different neon
-     per screen — the only deviation is red, reserved for destructive/close. */
+     charter — uses the exact same "ATM-recipe" single accent, gradient-filled,
+     glowing on hover (see atm.js .atm-confirm / corp-console.js .cc-btn). Fully
+     monochrome: even Exit Hangar/close uses the SAME accent as everything else
+     now, no red exception — the whole console reads as one machine, one colour. */
   #hb-root .hb-btn { font-family:inherit; font-size:10.5px; font-weight:bold; letter-spacing:1.5px; text-transform:uppercase; cursor:pointer; padding:7px 13px; border-radius:4px;
     color:var(--hb-atm-accent); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 55%, transparent);
     background:linear-gradient(180deg, color-mix(in srgb, var(--hb-atm-accent) 20%, transparent), color-mix(in srgb, var(--hb-atm-accent) 7%, transparent));
@@ -740,15 +739,14 @@ function ensureStyles() {
   #hb-root .hb-btn:hover:not(:disabled) { filter:brightness(1.2); box-shadow:0 0 14px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent), inset 0 -2px 0 rgba(0,0,0,0.4); }
   #hb-root .hb-btn:active:not(:disabled) { transform:translateY(1px); }
   #hb-root .hb-btn:disabled { opacity:0.4; cursor:default; }
-  #hb-root .hb-accent, #hb-root .hb-go { /* same recipe, same accent — kept as distinct classnames for callers, not a distinct color */ }
-  #hb-root .hb-close { color:var(--red); border-color:color-mix(in srgb, var(--red) 55%, transparent);
-    background:linear-gradient(180deg, color-mix(in srgb, var(--red) 20%, transparent), color-mix(in srgb, var(--red) 7%, transparent));
-    text-shadow:0 0 4px color-mix(in srgb, var(--red) 40%, transparent); }
-  #hb-root .hb-close:hover:not(:disabled) { box-shadow:0 0 14px color-mix(in srgb, var(--red) 40%, transparent), inset 0 -2px 0 rgba(0,0,0,0.4); }
 
   /* Bottom pane — same ATM chassis deck as the head bar; buttons here are the
-     shared .hb-btn recipe above, no toolbar-specific override needed anymore. */
+     shared .hb-btn recipe above, no toolbar-specific override needed anymore.
+     position:sticky pins it to the bottom of the scrolling body — Buy/Rent and
+     Exit Hangar stay on-screen even when a tall floor/info panel makes .hb-body
+     scroll, instead of needing to be scrolled down to. */
   #hb-root .hb-toolbar { display:flex; gap:8px; flex-wrap:wrap; flex:0 0 auto; padding:10px 14px; margin-top:auto;
+    position:sticky; bottom:0; z-index:5;
     background:radial-gradient(160% 220% at 50% 160%,color-mix(in srgb, var(--hb-atm-accent) 20%, var(--hb-black)) 0%,var(--hb-black2) 80%); border-top:1px solid var(--hb-black2);
     box-shadow:inset 0 0 22px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.05), 0 -2px 10px rgba(0,0,0,0.4); }
 

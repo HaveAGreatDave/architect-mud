@@ -41,6 +41,18 @@ let _obsHgt = 0;                // current view altitude fraction — drawers sh
 
 // Live render tuning — mutated by the in-cockpit tuning sliders, read every frame.
 export const RENDER_TUNE = {
+  // Reverted to the original 0.001 — turns out this ISN'T purely a render/visual
+  // knob: cockpit.js's tick loop uses this exact pace to advance F.pos, the same
+  // position buildingCollisionAt() (CFIT) reads to measure how far forward of the
+  // runway you are. climbOutClear()'s departure-corridor shield is calibrated
+  // against that pace (CLIMBOUT_MAX_F tiles, height<0.2) — slow the pace down
+  // without touching the shield window and altitude (gained on a real clock,
+  // untouched) outruns forward tile-progress (now paced 3.3x slower), so the
+  // shield drops from the altitude side while you're still geographically right
+  // on top of the departure airport's buildings → an every-time CFIT crash a few
+  // hundred feet up. Don't change this again without also re-deriving
+  // CLIMBOUT_MAX_F/VISIBLE_NEAR_F/VISIBLE_FAR_F (windshield.js) to match, or
+  // decoupling collision position tracking from the visual scroll entirely.
   worldPace: 0.001,   // cruise/air pace (tiles per knot per second)
   groundBoost: 8,     // pace multiplier at zero altitude → quick down the runway
   groundDecay: 18,    // altitude e-fold (ft) for the boost → smaller = drops to cruise pace sooner after liftoff
