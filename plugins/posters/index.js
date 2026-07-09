@@ -128,13 +128,14 @@ async function cmdPutup(args, raw, player, broadcast) {
 
   // Exactly one instance of each poster exists in the world; move it here.
   await query(
-    `INSERT INTO furniture (id, zone_id, name, description, object_type, flags)
-     VALUES ($1,$2,$3,$4,'decoration',$5)
+    `INSERT INTO furniture (id, zone_id, name, description, object_type, flags, origin, owner_id)
+     VALUES ($1,$2,$3,$4,'decoration',$5,'player',$6)
      ON CONFLICT (id) DO UPDATE SET
        zone_id=EXCLUDED.zone_id, name=EXCLUDED.name, description=EXCLUDED.description,
-       object_type='decoration', flags=EXCLUDED.flags`,
+       object_type='decoration', flags=EXCLUDED.flags,
+       origin='player', owner_id=EXCLUDED.owner_id`,
     [`furn_hero_poster_${key}`, player.current_zone, cd.name, cd.description,
-     JSON.stringify({ hero_poster: true, poster_key: key })]
+     JSON.stringify({ hero_poster: true, poster_key: key }), player.id]
   );
   await query('DELETE FROM player_inventory WHERE id=$1', [r.id]);
 

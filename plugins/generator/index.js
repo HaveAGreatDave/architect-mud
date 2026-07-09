@@ -87,11 +87,11 @@ async function deploy(args, raw, player, broadcast) {
     [genId, player.current_zone, row.name, capacity, startFuel, burn,
      JSON.stringify({ tank, item_id: row.item_id, owner_id: player.id, owner_handle: player.handle })]);
   await query(
-    `INSERT INTO furniture (id, zone_id, name, description, object_type, flags)
-     VALUES ($1,$2,$3,$4,'generator_portable',$5)`,
+    `INSERT INTO furniture (id, zone_id, name, description, object_type, flags, origin, owner_id)
+     VALUES ($1,$2,$3,$4,'generator_portable',$5,'player',$6)`,
     [furnId, player.current_zone, row.name,
      row.description || 'A squat, fuel-fed portable generator, all cage-frame and grab-handle.',
-     JSON.stringify({ generator_id: genId })]);
+     JSON.stringify({ generator_id: genId }), player.id]);
 
   await recomputePower().catch(() => {}); // fire up the battery work light right away
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} sets down a ${row.name}; its work light flickers on.`, refresh: true }, player.id);

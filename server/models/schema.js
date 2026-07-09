@@ -253,6 +253,15 @@ export const SCHEMA_SQL = `
   -- Destructible furniture HP (NULL = indestructible room dressing).
   ALTER TABLE furniture ADD COLUMN IF NOT EXISTS hp INTEGER;
   ALTER TABLE furniture ADD COLUMN IF NOT EXISTS hp_max INTEGER;
+  -- Provenance: 'authored' rows belong to the content pipeline (exported to
+  -- git, upserted/deleted by deploys); 'player' rows are runtime property
+  -- (purchases, planted devices, posters, portable generators, corp gear) the
+  -- pipeline must never touch. The content registry scopes furniture to
+  -- origin='authored'. owner_id: the placing player (or org) where known.
+  ALTER TABLE furniture ADD COLUMN IF NOT EXISTS origin TEXT NOT NULL DEFAULT 'authored';
+  ALTER TABLE furniture ADD COLUMN IF NOT EXISTS owner_id TEXT;
+  ALTER TABLE furniture DROP CONSTRAINT IF EXISTS furniture_origin_check;
+  ALTER TABLE furniture ADD CONSTRAINT furniture_origin_check CHECK (origin IN ('authored','player'));
 
   -- Triggered sound definitions (gunshot, explosion, bark, etc.).
   -- Associated with objects/events via tags; loudness determines tile range.

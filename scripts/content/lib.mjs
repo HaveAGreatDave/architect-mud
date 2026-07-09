@@ -123,6 +123,14 @@ export async function exportContent(client, targetDir) {
     const { rows } = await client.query(`SELECT * FROM ${entry.table}${where} ORDER BY ${orderBy}`);
     const files = new Map();
     for (const row of rows) {
+      // Player-purchased furniture (furniture-shop.js mints furn_<8-hex-uuid>)
+      // is runtime state living in a content table — it must NEVER become a
+      // git file, or git starts owning a player's property (deploys would
+      // overwrite it; a file deletion would delete it). Skip it at the source.
+      if (isPlayerFurnitureId(entry.table, row.id)) {
+        console.warn(`  ⚠ ${entry.table}/${row.id}: player-furniture id shape — runtime row, not exported.`);
+        continue;
+      }
       const name = fileNameForRow(entry, row);
       if (files.has(name)) {
         throw new Error(`${entry.table}: filename collision "${name}" — two rows sanitize to the same file. Rename one id.`);
@@ -146,13 +154,13 @@ export async function exportContent(client, targetDir) {
       } else {
         writeFileSync(path, json);
         created++;
-        // Runtime code creates rows in some content tables under its own id
-        // shapes (player-bought furniture furn_<8-hex-uuid>, system
-        // furn_light_*/furn_sl_*/furn_jbox_*/furn_schd_*, keycard_*). A local
-        // export picks those up as new files — usually NOT content you meant
-        // to author. (Authored furniture uses descriptive furn_/furniture_
-        // slugs, which don't match these shapes.)
-        if (/^(furn_[0-9a-f]{8}\.json$|furn_(light|sl|jbox|schd)_|keycard_)/.test(name)) {
+        // System code creates rows in content tables under these id shapes
+        // (furn_light_*/furn_sl_*/furn_jbox_* power autobuild, furn_schd_*
+        // schedule boards, keycard_* lock installs). Sometimes that IS content
+        // (a studio built in dev), sometimes runtime residue — a new file
+        // here deserves a look before committing. (Player-bought furniture
+        // furn_<8-hex-uuid> is excluded from export entirely, above.)
+        if (/^(furn_(light|sl|jbox|schd)_|keycard_)/.test(name)) {
           console.warn(`  ⚠ ${entry.table}/${name}: runtime-prefixed id — likely a runtime row, review before committing.`);
         }
       }
@@ -164,6 +172,13 @@ export async function exportContent(client, targetDir) {
     stats.push({ table: entry.table, rows: files.size, created, updated, unchanged, removed });
   }
   return stats;
+}
+
+// Player-purchased furniture id shape (furniture-shop.js: `furn_${uuid8}`).
+// Shared by export (never emit a file) and the import deletion pass (never
+// delete the prod row even if a leaked file is removed from git).
+export function isPlayerFurnitureId(table, id) {
+  return table === 'furniture' && /^furn_[0-9a-f]{8}$/.test(String(id ?? ''));
 }
 
 // ── File-tree reading (import / lint side) ───────────────────────────────────

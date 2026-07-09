@@ -149,14 +149,23 @@ in the registry — regress is red until you do.
   what isn't content. On prod these rows are safe regardless (deletion needs a
   git-tracked file). `content:export` now warns on new files matching the
   runtime id shapes so they're hard to miss.
-- **Furniture id provenance (namespace convention).** Authored furniture uses
-  descriptive slugs (`furniture_apt1_crate`, `furn_apt10_bed`,
-  `furniture_<Date.now()>` from the dev panel). Runtime code owns these shapes:
-  `furn_<8-hex-uuid>` (player purchases, `furniture-shop.js`),
-  `furn_light_*` / `furn_sl_*` / `furn_jbox_*` (power/environment autobuild),
-  `furn_schd_*` (vendor schedule boards), and `keycard_*` in items. Never
-  author content under those shapes — the deploy can't distinguish origin by
-  anything except the id, and export review relies on it.
+- **Furniture provenance is a column, not a convention.** `furniture.origin`
+  (`'authored'` | `'player'`, CHECK-constrained) plus `owner_id` make furniture
+  a **mixed table** like apartments/orgs: the registry scopes it to
+  `origin='authored'`, so export never emits player property and the deletion
+  pass can never delete it — structurally, not by id-shape luck. Every
+  play-time placement writer stamps `origin='player'` (+ the placing player in
+  `owner_id`): furniture-shop purchases, planted surveillance devices, hung
+  posters, portable generators, corp HQ terminals. `origin`/`owner_id` are
+  excludeColumns — files never carry them; imported content lands on the
+  `'authored'` default. Backfill for pre-column rows:
+  `scripts/backfill-furniture-origin.mjs` (run on prod once, after the push
+  that adds the column). Two id-shape guards remain as defense-in-depth
+  tripwires for a writer that forgets to stamp origin: export warns-and-skips
+  `furn_<8-hex-uuid>` rows, and the import deletion pass refuses to delete
+  them. Environment junction-box autobuild rows stay `authored` deliberately —
+  their ids are deterministic, so a dev-authored power fix and a prod-side
+  self-heal converge on the same row instead of forking.
 
 ## Deploy lessons (hard-won 2026-07-08, the first real prod deploys)
 

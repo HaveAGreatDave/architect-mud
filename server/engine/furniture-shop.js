@@ -67,13 +67,13 @@ function deliveryLine(npc, item, aptName, buildingName) {
 }
 
 // Insert a placed furniture piece from an item definition into a zone.
-async function placeFurniture(item, base, zoneId) {
+async function placeFurniture(item, base, zoneId, ownerId) {
   const flags = { interactions: furnitureInteractions(item) };
   const id = `furn_${randomUUID().slice(0, 8)}`;
   await query(
-    `INSERT INTO furniture (id, zone_id, name, description, flags, object_type, price)
-     VALUES ($1,$2,$3,$4,$5::jsonb,'furniture',$6)`,
-    [id, zoneId, item.name, item.description, JSON.stringify(flags), base]
+    `INSERT INTO furniture (id, zone_id, name, description, flags, object_type, price, origin, owner_id)
+     VALUES ($1,$2,$3,$4,$5::jsonb,'furniture',$6,'player',$7)`,
+    [id, zoneId, item.name, item.description, JSON.stringify(flags), base, ownerId ?? null]
   );
   return id;
 }
@@ -83,7 +83,7 @@ async function finalizePurchase(player, npc, item, price, base, aptZone, aptName
   if (!await adjustCredits(player, -price)) {
     return { type: 'error', message: `You can't afford that. Need ${price} credits, have ${player.credits || 0}.\n${vendorBuyReaction(npc, 'poor')}` };
   }
-  await placeFurniture(item, base, aptZone);
+  await placeFurniture(item, base, aptZone, player.id);
   if (npc?.id) await query('UPDATE npcs SET vendor_credits = vendor_credits + $1 WHERE id = $2', [price, npc.id]);
   return {
     type: 'buy',

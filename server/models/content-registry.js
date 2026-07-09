@@ -73,10 +73,16 @@ export const REGISTRY = [
     // vendor_*: sales balances + auto-managed shelf (vendor_inventory is the authored catalog).
     excludeColumns: ['zone_id', 'vendor_credits', 'vendor_stock', 'vendor_bank_credits'] },
   { table: 'furniture', class: 'content', pk: ['id'],
+    // MIXED table: origin='authored' rows are content; origin='player' rows are
+    // runtime property (purchases, planted devices, posters, portable
+    // generators, corp gear) — never exported, never deleted by the pipeline.
+    where: "origin = 'authored'",
     // light_on/light_on_intended: self-healing — the power/day-night tick recomputes
     // them. hp stays CONTENT (no schema default; authored destructibles need it).
-    excludeColumns: ['light_on', 'light_on_intended'],
-    runtimeInserts: 'furniture-shop.js purchases; corps HQ furnishing; surveillance planted devices; posters; generator plugin; environment.js junction boxes' },
+    // origin/owner_id: provenance columns, never carried in files (fresh
+    // inserts default to 'authored', which is correct for imported content).
+    excludeColumns: ['light_on', 'light_on_intended', 'origin', 'owner_id'],
+    runtimeInserts: 'environment.js junction-box autobuild (kept authored: deterministic ids, converges with dev-authored fixes); origin=player writers: furniture-shop.js, corps HQ terminal, surveillance planted devices, posters, generator plugin' },
   { table: 'doors', class: 'content', pk: ['id'],
     // is_open/lock_state/is_locked/hp/tags are CONTENT: they carry authored initial
     // state (a vault ships locked; lock_state defaults to NULL = disengaged, which a

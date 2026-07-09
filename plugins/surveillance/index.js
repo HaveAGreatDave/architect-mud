@@ -127,12 +127,12 @@ async function cmdPlant(args, raw, player) {
   );
 
   await query(
-    `INSERT INTO furniture (id, zone_id, name, description, object_type, flags)
-     VALUES ($1,$2,$3,$4,'security_device',$5)`,
+    `INSERT INTO furniture (id, zone_id, name, description, object_type, flags, origin, owner_id)
+     VALUES ($1,$2,$3,$4,'security_device',$5,'player',$6)`,
     [id, player.current_zone, gear.name,
      gear.description || 'A discreet surveillance device.',
      JSON.stringify({ security_device: true, device_id: id, concealed: true,
-                      security_item_id: gear.item_id, device_kind: kind })]
+                      security_item_id: gear.item_id, device_kind: kind }), player.id]
   );
 
   if (gear.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [gear.inv_id]);

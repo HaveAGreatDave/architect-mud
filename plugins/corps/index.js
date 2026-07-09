@@ -787,8 +787,8 @@ async function ensureCorpTerminal(zoneId) {
   const { rows } = await query(`SELECT 1 FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'corp_terminal') LIMIT 1`, [zoneId]);
   if (rows.length) return;
   await query(
-    `INSERT INTO furniture (id, zone_id, name, description, flags, object_type)
-       VALUES ($1,$2,$3,$4,$5,'terminal')`,
+    `INSERT INTO furniture (id, zone_id, name, description, flags, object_type, origin)
+       VALUES ($1,$2,$3,$4,$5,'terminal','player')`,
     [randomUUID(), zoneId, 'corp ops terminal',
      'A wall-mounted command terminal, its screen aglow with the corp sigil. USE it to open the ops console.',
      JSON.stringify({ corp_terminal: true, interactions: ['use'] })]);
