@@ -129,20 +129,107 @@ function objectiveDesc(obj) {
 }
 
 // A per-objective flavour line ("reads the meter", "hauls the load") authored on
-// the objective itself (`obj.emote`, `{who}` token → the player's handle) — shown
-// to the whole zone (including the actor, same as a typed `emote`) every time that
-// objective's counter ticks, not just when it finally completes. Purely cosmetic;
-// objectives with no `emote` authored fire nothing.
+// the objective itself (`obj.emotes`, an array — `{who}` token → the player's
+// handle — or the older singular `obj.emote`) — shown to the whole zone
+// (including the actor, same as a typed `emote`) every time that objective's
+// counter ticks, not just when it finally completes. Purely cosmetic;
+// objectives with none authored fire nothing.
+function objectiveEmotes(obj) {
+  if (Array.isArray(obj.emotes) && obj.emotes.length) return obj.emotes;
+  if (obj.emote) return [obj.emote];
+  return [];
+}
+
 function fireObjectiveEmote(actor, obj) {
-  if (!obj.emote) return;
-  sendToZone(actor.current_zone, { type: 'zone_event', message: obj.emote.replace(/\{who\}/g, actor.handle) });
+  const pool = objectiveEmotes(obj);
+  if (!pool.length) return;
+  const line = pool[Math.floor(Math.random() * pool.length)];
+  sendToZone(actor.current_zone, { type: 'zone_event', message: line.replace(/\{who\}/g, actor.handle) });
+}
+
+// --- Timed tasks (job board "the work takes a few seconds") ----------------
+// A 'visit' objective normally completes the instant the player steps into the
+// zone. A quest can opt into a delay instead via `meta.taskSeconds` — set "by
+// mission" in content (the 6 Franchise Strip jobs default to 5s) — so it reads
+// as actually DOING something there: a random line from the objective's
+// `emotes` fires every couple of seconds while the countdown runs, and the
+// objective only really advances once it elapses. Leaving the zone before then
+// cancels the task outright — no partial credit for wandering off mid-task.
+const pendingTasks = new Map(); // key -> { playerId, zone, emoteTimer, doneTimer }
+const taskKey = (playerId, questId, objIndex) => `${playerId}:${questId}:${objIndex}`;
+
+// Exported alongside trackEvent for regress.js only — same reasoning (nothing
+// outside the on('zone.entered', ...) subscriber below calls it in production).
+export function cancelTasksLeavingZone(playerId, zoneId) {
+  for (const [key, t] of pendingTasks) {
+    if (t.playerId === playerId && t.zone === zoneId) {
+      clearTimeout(t.emoteTimer);
+      clearTimeout(t.doneTimer);
+      pendingTasks.delete(key);
+    }
+  }
+}
+
+function scheduleTask(actor, quest, objIndex, obj, seconds) {
+  const key = taskKey(actor.id, quest.id, objIndex);
+  if (pendingTasks.has(key)) return; // already working it
+  const entry = { playerId: actor.id, zone: obj.zone, emoteTimer: null, doneTimer: null };
+  pendingTasks.set(key, entry);
+
+  const tickEmote = () => {
+    fireObjectiveEmote(actor, obj);
+    entry.emoteTimer = setTimeout(tickEmote, 1500 + Math.random() * 1000); // "randomly every few seconds"
+  };
+  tickEmote();
+
+  entry.doneTimer = setTimeout(() => {
+    clearTimeout(entry.emoteTimer);
+    pendingTasks.delete(key);
+    finishObjectiveTick(actor, quest, objIndex).catch((e) => console.error('[quests] finishObjectiveTick error:', e.message));
+  }, seconds * 1000);
+}
+
+// Advances exactly ONE objective and runs the completion messaging — reloads
+// player_quests fresh so a task finishing seconds later never clobbers progress
+// made elsewhere meanwhile (or fires against a quest since abandoned/turned in).
+async function finishObjectiveTick(actor, quest, objIndex) {
+  const pq = await loadPlayerQuest(actor.id, quest.id);
+  if (!pq || pq.status !== 'active') return;
+  const objectives = quest.objectives || [];
+  const obj = objectives[objIndex];
+  if (!obj) return;
+  const progress = Array.isArray(pq.progress) ? pq.progress.slice() : [];
+  while (progress.length < objectives.length) progress.push(0);
+  const need = obj.count || 1;
+  if ((progress[objIndex] || 0) >= need) return;
+  progress[objIndex] += 1;
+
+  const done = isComplete(quest, progress);
+  await query(
+    `UPDATE player_quests SET progress=$1, status=$2, updated_at=EXTRACT(EPOCH FROM NOW())
+     WHERE player_id=$3 AND quest_id=$4`,
+    [JSON.stringify(progress), done ? 'completed' : 'active', actor.id, quest.id]
+  );
+  emit('quest.advanced', { actor, quest_id: quest.id, progress });
+  if (done) {
+    await setQuestFlag(actor, quest.id, 'completed');
+    msg(actor.id, `<span class="msg-system">Quest complete: ${quest.name}. ${await turnInHint(quest.id)}</span>`);
+    emit('quest.completed', { actor, quest_id: quest.id });
+  } else {
+    const next = objectives.find((o, i) => (progress[i] || 0) < (o.count || 1) && requiresMet(objectives, o, progress));
+    const parts = [`Done: ${objectiveDesc(obj)}.`, next ? `Next: ${objectiveDesc(next)}.` : `Quest updated: ${quest.name}.`];
+    msg(actor.id, `<span class="msg-system">${parts.join(' ')}</span>`);
+    routeToObjective(actor, quest, progress);
+  }
 }
 
 // --- Objective tracking (event subscribers) --------------------------------
 //
 // trackEvent walks a player's active quests and bumps any objective the predicate
 // matches. When all objectives are met the quest flips to 'completed' (ready to
-// turn in). One UPDATE per affected quest; no-op when nothing matches.
+// turn in). One UPDATE per affected quest; no-op when nothing matches. A 'visit'
+// objective on a quest with meta.taskSeconds set is deferred to scheduleTask
+// instead of completing in this same tick — see above.
 // Exported only so regress.js can await a deterministic tick instead of racing
 // the fire-and-forget event bus (emit() doesn't await subscribers) — never called
 // directly outside the on(...) subscribers below in production.
@@ -158,20 +245,25 @@ export async function trackEvent(actor, predicate) {
     const objectives = quest.objectives || [];
     const progress = Array.isArray(pq.progress) ? pq.progress.slice() : [];
     while (progress.length < objectives.length) progress.push(0);
+    const taskSeconds = Number(quest.meta?.taskSeconds) > 0 ? Number(quest.meta.taskSeconds) : 0;
 
     let changed = false;
     const before = progress.slice(); // judge gating against pre-tick state
-    const justFinished = []; // objectives whose count was reached this tick
+    const justFinished = []; // objectives whose count was reached this tick (instant path only)
     objectives.forEach((obj, i) => {
       const need = obj.count || 1;
       if ((progress[i] || 0) >= need) return;
       if (!requiresMet(objectives, obj, before)) return; // locked until prerequisites done
-      if (predicate(obj)) {
-        progress[i] = (progress[i] || 0) + 1;
-        changed = true;
-        fireObjectiveEmote(actor, obj);
-        if (progress[i] >= need) justFinished.push(obj);
+      if (!predicate(obj)) return;
+
+      if (obj.type === 'visit' && taskSeconds > 0) {
+        scheduleTask(actor, quest, i, obj, taskSeconds); // completes later, on its own timer
+        return;
       }
+      progress[i] = (progress[i] || 0) + 1;
+      changed = true;
+      fireObjectiveEmote(actor, obj);
+      if (progress[i] >= need) justFinished.push(obj);
     });
     if (!changed) continue;
 
@@ -213,7 +305,8 @@ on('item.given', ({ recipient, item }) => {
     obj.type === 'give' && obj.item_id && item?.item_id === obj.item_id);
 });
 
-on('zone.entered', ({ actor, zone }) => {
+on('zone.entered', ({ actor, zone, from }) => {
+  if (from) cancelTasksLeavingZone(actor.id, from);
   return trackEvent(actor, (obj) => obj.type === 'visit' && obj.zone === zone);
 });
 

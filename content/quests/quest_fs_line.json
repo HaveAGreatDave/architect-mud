@@ -2,19 +2,29 @@
   "category": null,
   "description": "Hold a place in the line at the Sprawl Gate, then carry the ticket down to the Under Entrance for someone who matters more than you. 15₵.",
   "id": "quest_fs_line",
-  "meta": {},
+  "meta": {
+    "taskSeconds": 5
+  },
   "name": "Hold a Place",
   "objectives": [
     {
       "desc": "Hold the place at the Sprawl Gate",
-      "emote": "{who} plants both feet at the Sprawl Gate and glares at anyone who even thinks about cutting the line.",
+      "emotes": [
+        "{who} plants both feet at the Sprawl Gate and glares at anyone who even thinks about cutting the line.",
+        "{who} leans against the gate, arms crossed, holding the spot like it's sacred ground.",
+        "{who} shuffles forward an inch and calls it progress."
+      ],
       "id": "o0",
       "type": "visit",
       "zone": "zone_city_south"
     },
     {
       "desc": "Carry the ticket to the Under Entrance",
-      "emote": "{who} hustles the ticket over to the Under Entrance, muttering the number over and over so it doesn't slip their mind.",
+      "emotes": [
+        "{who} hustles the ticket over to the Under Entrance, muttering the number over and over so it doesn't slip their mind.",
+        "{who} jogs the ticket toward the Under Entrance, checking it hasn't smudged.",
+        "{who} waves the ticket like it's a passport to somewhere important."
+      ],
       "id": "o1",
       "requires": [
         "o0"

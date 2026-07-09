@@ -15,6 +15,7 @@ import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
 import { drawHangarFloorBay, drawHangarScene } from './aircraft3d.js';
 import { drawWireframe3D, drawEngineWireframe, themeColor } from './wireframe-plane.js';
+import { showConfirmDialog } from './confirm.js';
 
 let B = null;       // { data, screen, selId, work (paint edit copy) }
 let raf = null;      // shared spin/scene-draw loop
@@ -110,6 +111,8 @@ function floorScreen() {
         ${!sel.wreck ? `<button class="hb-btn" data-act="bench">Maintenance</button>` : ''}
         ${d.hasBay && !sel.wreck && sel.location === 'ramp' ? `<button class="hb-btn" data-act="store">Store in bay</button>` : ''}
         ${d.hasBay && sel.location === 'hangar' ? `<button class="hb-btn" data-act="pull">Roll out</button>` : ''}
+        ${!sel.wreck && !sel.rental ? `<button class="hb-btn" data-act="sell">Sell</button>` : ''}
+        ${!sel.wreck && sel.rental ? `<button class="hb-btn" data-act="cancel_rental">Cancel Rental</button>` : ''}
       </div>
     </div>` : empty
       ? `<div class="hb-hint">No aircraft of yours are here yet.${d.canBuy || d.canRent ? '' : ' There\'s no dealer or rental desk at this field either.'}</div>`
@@ -539,6 +542,16 @@ function wire() {
     if (act === 'pull') { sendCmdSilent(`hangaract pull ${B.selId}`); return; }
     if (act === 'repair') { sendCmdSilent(`repair ${B.selId}`); refetch(); return; }
     if (act === 'repair-pro') { sendCmdSilent(`repair ${B.selId} hangar`); refetch(); return; }
+    if (act === 'sell') {
+      const c = (B.data.craft || []).find(x => x.id === B.selId);
+      if (c) showConfirmDialog({ title: 'Sell Aircraft', prompt: `Sell the ${c.tail} outright? This deletes her — cannot be undone.`, command: `sell ${c.id}`, confirmLabel: 'Sell' });
+      return;
+    }
+    if (act === 'cancel_rental') {
+      const c = (B.data.craft || []).find(x => x.id === B.selId);
+      if (c) showConfirmDialog({ title: 'Cancel Rental', prompt: `Hand back the ${c.tail}? This deletes the rental — cannot be undone.`, command: `cancelrental ${c.id}`, confirmLabel: 'Return' });
+      return;
+    }
     if (act === 'paint-apply') { const c = (B.data.craft || []).find(x => x.id === B.selId); if (c) sendCmdSilent(`paintset ${c.id} ${B.work.base} ${B.work.trim} ${B.work.pattern} ${B.work.finish} ${B.work.cabin} ${B.work.uphol} ${B.work.decal || 'none'}`); return; }
     if (act === 'paint-revert') { const c = (B.data.craft || []).find(x => x.id === B.selId); if (c) { B.work = { ...c.livery }; render(); } return; }
     if (act === 'scheme-save') { const n = (document.getElementById('hb-scheme-name')?.value || '').trim(); if (n) sendCmdSilent(`scheme ${B.selId} save ${n}`); return; }

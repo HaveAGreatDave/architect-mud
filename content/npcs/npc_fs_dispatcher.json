@@ -69,7 +69,7 @@
     "architect": {
       "options": [
         {
-          "next": "work",
+          "cmd": "gigs",
           "text": "\"...So what's on the board?\""
         }
       ],
@@ -78,7 +78,7 @@
     "breaker": {
       "options": [
         {
-          "next": "work",
+          "cmd": "gigs",
           "text": "\"So what's on it?\""
         }
       ],
@@ -87,7 +87,7 @@
     "eat": {
       "options": [
         {
-          "next": "work",
+          "cmd": "gigs",
           "text": "\"So what's on it?\""
         }
       ],
@@ -96,7 +96,7 @@
     "remember": {
       "options": [
         {
-          "next": "work",
+          "cmd": "gigs",
           "text": "\"So what's on it?\""
         }
       ],
@@ -229,29 +229,11 @@
           "text": "\"The one who pulls the plug on all of it, eventually.\""
         },
         {
-          "next": "work",
+          "cmd": "gigs",
           "text": "\"What's on the board?\""
         }
       ],
       "text": "The window's plexi is scratched to fog. Marta Kell slides a clipboard half an inch toward you without looking up. \"Board's on the wall. Take a tab, do the thing, bring it back, get paid. That's the whole religion.\" She finally lifts her eyes. \"You're new-made — I can always tell, they come out of that facility with the shine still on. So. What are you going to be?\""
-    },
-    "work": {
-      "actions": [
-        {
-          "action": "OPEN_JOBBOARD"
-        }
-      ],
-      "options": [
-        {
-          "actions": [
-            {
-              "action": "END_CONVERSATION"
-            }
-          ],
-          "text": "(Turn to the board.)"
-        }
-      ],
-      "text": "\"Here's what's going. Take a tab off it, or type gigs — run the errand, bring it back to me at the window.\" She taps the clipboard, then goes back to watching a queue that isn't there."
     }
   },
   "faction": null,
@@ -259,7 +241,8 @@
     "clothing_layers": [
       "a shapeless municipal cardigan",
       "fingerless gloves worn through at the tips"
-    ]
+    ],
+    "job_board_dispatcher": true
   },
   "home_activities": [],
   "home_zone": "zone_mq_chrome_304",

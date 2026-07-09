@@ -486,8 +486,9 @@ function renderBody() {
   }
   if (d.view === 'detail') {
     const det = d.detail || d.quest || {};
-    const params = (d.quest && d.quest.id) || '';
+    const params = det.id || '';
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}
+      ${d.notice ? `<div class="tos-error" style="text-align:left;padding:0 0 10px">${esc(d.notice)}</div>` : ''}
       <div class="tos-detail-name">${esc(det.name || '')}</div>
       ${det.desc ? `<div class="tos-detail-desc">${esc(det.desc)}</div>` : ''}
       ${renderObjectives(d.quest?.objectives)}

@@ -17,6 +17,9 @@ import { pilotStatusForField, charterParkedAt } from './charter.js';
 // back when you're not tuning an aircraft. `repair` shadows the engine gear-repair
 // builtin — cmdRepair returns undefined out of aircraft context to fall through.
 import { commands as broadcastCommands } from '../broadcast/index.js';
+// `sell` belongs to commerce (selling inventory items); flight wins it by load
+// order and delegates back unless the leading token is a real aircraft id.
+import { commands as commerceCommands } from '../commerce/index.js';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 
@@ -587,6 +590,90 @@ async function cmdLoadout(args, raw, player) {
   return { type: 'output', message: `<span class="item-grant">Cabin re-rigged: <b>${seats}</b> seat${seats > 1 ? 's' : ''} + <b>${cargoCap}kg</b> of hold. The ${tgt.type.name} is set up for ${seats <= 1 ? 'pure freight' : cargoCap === 0 ? 'a full cabin' : 'a mixed load'}.</span>` };
 }
 
+// ── Sell / cancel rental — Tablet OS "Vehicles" app ─────────────────────────
+// Deliberately ID-based rather than location-gated like the rest of this file:
+// the whole point of managing your fleet from the tablet is not having to trek
+// to wherever a craft happens to be parked. Both are called directly by
+// plugins/tablet/vehicles-app.js (player, aircraftId) — not chat commands.
+
+// Outright sale of an owned (non-rental) aircraft: deletes the instance for a
+// refund. Half of buy price, discounted further by hull damage — more generous
+// than cmdSalvage's wreck-scrap payout (~5% of price_buy) since this one still
+// flies; a write-off should be insured or salvaged, not sold (wrecks are
+// excluded below, and the tablet's own aircraft list already filters them out).
+// Drops any insurance policy on her too — nothing left to insure.
+export async function sellAircraft(player, aircraftId) {
+  const { rows } = await query(
+    `SELECT a.id, a.owner_id, a.rental, a.is_wreck, a.damage, a.airborne, t.price_buy, t.name tname
+     FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1`, [aircraftId]);
+  const ac = rows[0];
+  if (!ac) return { type: 'error', message: 'No such aircraft.' };
+  if (ac.owner_id !== player.id || ac.rental) return { type: 'error', message: 'You can only sell an aircraft you own outright.' };
+  if (ac.is_wreck) return { type: 'error', message: 'Nothing to sell — salvage a wreck instead.' };
+  // A "live" (currently loaded) aircraft's in-memory row is the source of truth
+  // for airborne/damage — the DB column only gets flushed by persist() on its own
+  // schedule, so checking it directly can see a stale airborne=1 for a plane
+  // that already landed (same reason requireOwned above checks tgt.live?.row,
+  // not a fresh SELECT).
+  const live = liveAircraft.get(aircraftId);
+  const airborne = live ? !!live.row.airborne : !!ac.airborne;
+  const damage = live ? live.row.damage : ac.damage;
+  if (airborne) return { type: 'error', message: "Land her first — can't sell an aircraft in the air." };
+  if (live?.occupants?.size) return { type: 'error', message: 'Clear everyone out of her first.' };
+
+  const value = Math.max(1, Math.round((ac.price_buy || 0) * 0.5 * (1 - (damage || 0) * 0.5)));
+  if (live) liveAircraft.delete(aircraftId);
+  await query('DELETE FROM aircraft WHERE id=$1', [aircraftId]);
+  await query('DELETE FROM insurance_policies WHERE aircraft_id=$1', [aircraftId]);
+  player.credits = (player.credits || 0) + value;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  return { type: 'output', message: `<span class="item-grant">Sold the ${clean(ac.tname)} for ${value}c.</span>`, player_update: { credits: player.credits } };
+}
+
+// Hand back a rental outright: deletes the instance. No refund — the flat desk
+// fee already bought the use you got out of it (matches the rental desk's own
+// "just bring her back" framing; this is the remote version of that walk).
+export async function cancelRental(player, aircraftId) {
+  const { rows } = await query(
+    `SELECT a.id, a.owner_id, a.rental, a.airborne, t.name tname
+     FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1`, [aircraftId]);
+  const ac = rows[0];
+  if (!ac) return { type: 'error', message: 'No such aircraft.' };
+  if (ac.owner_id !== player.id || !ac.rental) return { type: 'error', message: "That's not a rental of yours." };
+  // See sellAircraft's comment — check the live in-memory row, not the DB
+  // column, which only gets flushed by persist() on its own schedule.
+  const live = liveAircraft.get(aircraftId);
+  const airborne = live ? !!live.row.airborne : !!ac.airborne;
+  if (airborne) return { type: 'error', message: "Land her first — can't return a rental in the air." };
+  if (live?.occupants?.size) return { type: 'error', message: 'Clear everyone out of her first.' };
+
+  if (live) liveAircraft.delete(aircraftId);
+  await query('DELETE FROM aircraft WHERE id=$1', [aircraftId]);
+  return { type: 'output', message: `<span class="item-grant">Returned the ${clean(ac.tname)} — the rental slot is free.</span>` };
+}
+
+// `sell <id>` (hangar-bay panel) / `cancelrental <id>` — the chat-command
+// wrappers around sellAircraft/cancelRental for the hangar-bay UI, which
+// (unlike the tablet) refreshes the whole floor rather than round-tripping a
+// screen payload. `sell` is claimed only when the leading token is a real
+// aircraft id (popCraftId); anything else is ordinary item-selling → commerce.
+async function cmdSell(args, raw, player, broadcast) {
+  const { id } = popCraftId(args);
+  if (!id) return commerceCommands.sell(args, raw, player, broadcast);
+  const res = await sellAircraft(player, id);
+  out(player.id, res.message);
+  if (res.player_update) sendToPlayer(player.id, { type: 'player_update', ...res.player_update });
+  return pushHangarBay(player);
+}
+
+async function cmdCancelRental(args, raw, player) {
+  const { id } = popCraftId(args);
+  if (!id) return { type: 'emote', message: "Cancel which rental? Use the hangar bay panel." };
+  const res = await cancelRental(player, id);
+  out(player.id, res.message);
+  return pushHangarBay(player);
+}
+
 export const commands = {
   hangar: cmdHangar,
   showroom: cmdShowroom,
@@ -603,4 +690,6 @@ export const commands = {
   modify: cmdModify,
   customize: cmdModify,
   loadout: cmdLoadout,
+  sell: cmdSell,
+  cancelrental: cmdCancelRental,
 };

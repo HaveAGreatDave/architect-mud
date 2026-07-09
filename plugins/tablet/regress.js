@@ -1,7 +1,9 @@
 // Tablet OS plugin regression suite — run by tests/regress.js (never loaded in
 // production). The fake player's id matches no players row, so DB writes are
 // no-ops; this asserts routing + payload shape, not real data.
-export default async function regress({ run, check }) {
+import { query } from '../../server/models/db.js';
+
+export default async function regress({ run, check, getPlayer }) {
   let r = await run('tablet');
   check('tablet verb opens home screen', r?.type === 'tablet_panel' && r?.screen === 'home', JSON.stringify(r));
   check('home screen carries player summary', !!r?.player && typeof r.player.credits === 'number', JSON.stringify(r?.player));
@@ -42,4 +44,38 @@ export default async function regress({ run, check }) {
   // itself returns for `corp console` with no membership.
   r = await run('tabletnav corp');
   check('corp app (no membership) reports not-in-a-corp cleanly', r?.view === 'error' && /not in a corp/i.test(r?.message || ''), JSON.stringify(r));
+
+  // Turn-in, wrong zone: stays on the quest's own detail screen (objectives/
+  // actions intact) instead of swapping to a bare error screen — the "head to
+  // X" nudge goes out as a bottom-pane message instead.
+  const TQ = 'quest_regress_tabletturnin';
+  const TN = 'npc_regress_tabletturnin';
+  await query(
+    `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
+     VALUES ($1,'Regress Tablet Turn-In','',$2,'{}',0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+     ON CONFLICT (id) DO UPDATE SET objectives=$2`,
+    [TQ, JSON.stringify([{ type: 'visit', zone: 'zone_regress_tabletturnin_elsewhere', count: 1, desc: 'Go elsewhere' }])]
+  );
+  await query(
+    `INSERT INTO npcs (id,name,description,zone_id,dialogue_tree,home_zone)
+     VALUES ($1,'Regress Tablet Turn-In NPC','','zone_regress_tabletturnin_npc',$2,'zone_regress_tabletturnin_npc')
+     ON CONFLICT (id) DO UPDATE SET dialogue_tree=$2, zone_id=$3`,
+    [TN, JSON.stringify({ root: { text: 'Hi.', actions: [{ action: 'TURN_IN', quest_id: TQ }], options: [] } }), 'zone_regress_tabletturnin_npc']
+  );
+  const player = getPlayer();
+  const savedZone = player.current_zone;
+  await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TQ]);
+  await query(
+    "INSERT INTO player_quests (player_id,quest_id,status,progress) VALUES ($1,$2,'completed','[1]')",
+    [player.id, TQ]
+  );
+  player.current_zone = 'zone_regress_tabletturnin_somewhere_else';
+
+  r = await run(`tabletaction quests turnin ${TQ}`);
+  check('failed turn-in stays on the quest detail screen', r?.view === 'detail' && (r?.quest?.id === TQ || r?.detail?.id === TQ), JSON.stringify(r)?.slice(0, 200));
+
+  player.current_zone = savedZone;
+  await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TQ]);
+  await query('DELETE FROM npcs WHERE id=$1', [TN]);
+  await query('DELETE FROM quests WHERE id=$1', [TQ]);
 }

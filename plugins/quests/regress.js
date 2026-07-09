@@ -5,7 +5,9 @@ import { query } from '../../server/models/db.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { renderDialogueNode } from '../../server/engine/dialogue.js';
-import { findTurnInNpc, trackEvent } from './index.js';
+import { findTurnInNpc, trackEvent, cancelTasksLeavingZone } from './index.js';
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const TEST_QUEST_ID = 'quest_regress_smoke';
 const TEST_NPC_ID = 'npc_regress_turnin';
@@ -118,4 +120,36 @@ export default async function regress({ run, check, getPlayer }) {
 
   await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TWO_STEP_QUEST_ID]);
   await query('DELETE FROM quests WHERE id=$1', [TWO_STEP_QUEST_ID]);
+
+  // ── Timed tasks (meta.taskSeconds) — job board's "the work takes a moment" ─
+  const TIMED_QUEST_ID = 'quest_regress_timed';
+  await query(
+    `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
+     VALUES ($1,'Regress Timed','',$2,'{}',0,'standard',$3,EXTRACT(EPOCH FROM NOW()))
+     ON CONFLICT (id) DO UPDATE SET objectives=$2, meta=$3`,
+    [TIMED_QUEST_ID,
+      JSON.stringify([{ id: 'o0', type: 'visit', zone: 'zone_regress_timed_spot', count: 1, desc: 'Do the thing', emotes: ['{who} does the thing.', '{who} keeps doing the thing.'] }]),
+      JSON.stringify({ taskSeconds: 0.2 })]
+  );
+  await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TIMED_QUEST_ID]);
+  await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: TIMED_QUEST_ID } });
+
+  await trackEvent(player, (obj) => obj.type === 'visit' && obj.zone === 'zone_regress_timed_spot');
+  ({ rows } = await query('SELECT status, progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TIMED_QUEST_ID]));
+  check('timed objective does not complete instantly', rows[0]?.status === 'active' && (rows[0]?.progress?.[0] || 0) === 0, JSON.stringify(rows[0]));
+
+  await sleep(400);
+  ({ rows } = await query('SELECT status, progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TIMED_QUEST_ID]));
+  check('timed objective completes once its countdown elapses', rows[0]?.status === 'completed' && rows[0]?.progress?.[0] === 1, JSON.stringify(rows[0]));
+
+  // Leaving the zone mid-task cancels it outright — no partial credit.
+  await query("UPDATE player_quests SET status='active', progress='[0]' WHERE player_id=$1 AND quest_id=$2", [player.id, TIMED_QUEST_ID]);
+  await trackEvent(player, (obj) => obj.type === 'visit' && obj.zone === 'zone_regress_timed_spot');
+  cancelTasksLeavingZone(player.id, 'zone_regress_timed_spot');
+  await sleep(400);
+  ({ rows } = await query('SELECT status, progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TIMED_QUEST_ID]));
+  check('leaving the zone cancels the pending task', rows[0]?.status === 'active' && (rows[0]?.progress?.[0] || 0) === 0, JSON.stringify(rows[0]));
+
+  await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TIMED_QUEST_ID]);
+  await query('DELETE FROM quests WHERE id=$1', [TIMED_QUEST_ID]);
 }

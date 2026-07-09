@@ -47,8 +47,8 @@ export default async function regress({ run, check, getPlayer }) {
   check('greeter move gate registered', getRegisteredMoveGates().includes('jobboard:greeter'), getRegisteredMoveGates().join(','));
 
   // Job-board postings turn in with their board's dispatcher NPC (Marta Kell at
-  // the Franchise Strip) — discovered by scanning for the OPEN_JOBBOARD action on
-  // an NPC standing in the board's zone, not a hand-authored per-quest link, so it
+  // the Franchise Strip) — discovered by flags.job_board_dispatcher on an NPC
+  // standing in the board's zone, not a hand-authored per-quest link, so it
   // holds for any quest in the board's pool.
   const { rows: board } = await query('SELECT quest_pool FROM job_boards WHERE id=$1', ['board_franchise_strip']);
   const poolQuestId = board[0]?.quest_pool?.[0];
