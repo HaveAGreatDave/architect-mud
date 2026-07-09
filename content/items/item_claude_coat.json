@@ -1,15 +1,8 @@
 {
   "description": null,
-  "effects": {},
   "flags": {},
   "id": "item_claude_coat",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "long analyst's coat",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "armor": 4,
     "description": "A floor-skimming coat in charcoal so dark it reads as absence. The lining is a quiet lattice of conductive thread that catches neon and lets it go. Cut for someone who arrives having already understood the room.",

@@ -1,15 +1,8 @@
 {
   "description": "A vortex head that shears every solid down to a clean liquid on its own. Automates the MIX stage of a splice.",
-  "effects": {},
   "flags": {},
   "id": "item_auto_mix",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "auto-mixer",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "automates": "mix",
     "lab_upgrade": true

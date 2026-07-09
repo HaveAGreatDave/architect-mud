@@ -1,17 +1,8 @@
 {
   "description": "Franchise-issued digital credit chips.",
-  "effects": {
-    "credits": 10
-  },
   "flags": {},
   "id": "item_credits_small",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "credits (small)",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "credits",
   "tags": {
     "currency": true,
     "description": "Franchise-issued digital credit chips.",

@@ -1,17 +1,8 @@
 {
   "description": "Bright orange pills. Tastes like failure and citrus.",
-  "effects": {
-    "radiation": -20
-  },
   "flags": {},
   "id": "item_rad_pills",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "RadAway™",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "medicine",
   "tags": {
     "consumable": true,
     "description": "Bright orange pills. Tastes like failure and citrus.",

@@ -11,7 +11,7 @@
   "polarity": "positive",
   "radiation_threshold": 80,
   "stat_modifiers": {
-    "stat_end": 2
+    "stat_endurance": 2
   },
   "visible": 1
 }

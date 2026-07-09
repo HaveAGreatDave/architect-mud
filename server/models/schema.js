@@ -27,12 +27,6 @@ export const SCHEMA_SQL = `
     handle TEXT UNIQUE NOT NULL,
     origin_fragment TEXT,
     archetype TEXT,
-    stat_str INTEGER DEFAULT 5,
-    stat_agi INTEGER DEFAULT 5,
-    stat_int INTEGER DEFAULT 5,
-    stat_wil INTEGER DEFAULT 5,
-    stat_end INTEGER DEFAULT 5,
-    stat_cha INTEGER DEFAULT 5,
     hp INTEGER DEFAULT 100,
     hp_max INTEGER DEFAULT 100,
     sanity INTEGER DEFAULT 100,
@@ -99,20 +93,18 @@ export const SCHEMA_SQL = `
   ALTER TABLE zones ADD COLUMN IF NOT EXISTS marker TEXT;
   ALTER TABLE zones ADD COLUMN IF NOT EXISTS color TEXT;
   ALTER TABLE zones ADD COLUMN IF NOT EXISTS bg_color TEXT;
+  -- Behavior lives in tags (see docs/tags.md); the legacy behavior columns
+  -- (subtype, is_stackable/is_unique/is_quest_item, effects/stat_modifiers/
+  -- requirements) were dropped 2026-07. type/description/flags remain: vendor
+  -- and commerce read type, vendor lists read description, and a few dual-read
+  -- fallbacks still consult flags.
   CREATE TABLE IF NOT EXISTS items (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT NOT NULL,
     type TEXT NOT NULL,
-    subtype TEXT,
     weight REAL DEFAULT 1000,
     value INTEGER DEFAULT 0,
-    is_stackable INTEGER DEFAULT 0,
-    is_unique INTEGER DEFAULT 0,
-    is_quest_item INTEGER DEFAULT 0,
-    effects JSONB DEFAULT '{}',
-    stat_modifiers JSONB DEFAULT '{}',
-    requirements JSONB DEFAULT '{}',
     flags JSONB DEFAULT '{}'
   );
 
@@ -1742,6 +1734,31 @@ export const SCHEMA_SQL = `
   ALTER TABLE apartments DROP CONSTRAINT IF EXISTS apartments_zone_id_fkey;
   ALTER TABLE apartments ADD CONSTRAINT apartments_zone_id_fkey
     FOREIGN KEY (zone_id) REFERENCES zones(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
+
+  -- Runtime exit wiring layered over authored zones.exits (merged at world
+  -- load). zones.exits is a content column — a zone re-deploy resets it, so
+  -- play-time systems that wire exits (generator install creating a utility
+  -- room) record the wiring here instead, where the deploy can't touch it.
+  CREATE TABLE IF NOT EXISTS zone_exit_overrides (
+    zone_id TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    target_zone TEXT NOT NULL,
+    source TEXT,
+    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (zone_id, direction, target_zone)
+  );
+
+  -- Hot-path indexes: per-zone entity fetches (room render), container lookups,
+  -- and jsonb tag gates. Kept at the end of the script — some indexed columns
+  -- (items.tags, doors.tags) are added by ALTERs above, so a fresh DB must
+  -- create the tables/columns first.
+  CREATE INDEX IF NOT EXISTS idx_furniture_zone ON furniture(zone_id);
+  CREATE INDEX IF NOT EXISTS idx_doors_zone ON doors(zone_id);
+  CREATE INDEX IF NOT EXISTS idx_windows_interior ON windows(zone_interior);
+  CREATE INDEX IF NOT EXISTS idx_npcs_zone ON npcs(zone_id);
+  CREATE INDEX IF NOT EXISTS idx_npcs_home_zone ON npcs(home_zone);
+  CREATE INDEX IF NOT EXISTS idx_player_inventory_container ON player_inventory(container_id);
+  CREATE INDEX IF NOT EXISTS idx_items_tags_gin ON items USING GIN (tags);
 `;
 
 export async function applySchema() {

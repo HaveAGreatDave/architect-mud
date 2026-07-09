@@ -1,15 +1,8 @@
 {
   "description": "A roll of tough grey composite that snaps taut into a one-person dinghy when you yank the inflation cord. Light enough to carry folded; just enough boat to get you across open water.",
-  "effects": {},
   "flags": {},
   "id": "item_dinghy",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "packable dinghy",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "watercraft",
   "tags": {
     "boat": true
   },

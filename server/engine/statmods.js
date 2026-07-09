@@ -16,7 +16,7 @@
 // value can never be persisted as base — the source of R1 in the plan.
 //
 // Usage:
-//   applyMods(player, 'drug:redline', { stat_str: 3, hp_max: 20 });
+//   applyMods(player, 'drug:redline', { stat_brawn: 3, hp_max: 20 });
 //   reverseMods(player, 'drug:redline');
 
 // Fields whose current-value counterpart must be clamped down when the cap drops.

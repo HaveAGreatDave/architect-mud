@@ -349,9 +349,10 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     doorWasLocked = door.lock_state === 'locked';
     if (!door.is_open) {
       doorWasClosed = true;
+      // RAM-only: the door closes again below, so the DB resting state never
+      // changes during a transit. Explicit open/close verbs still persist.
       door.is_open = 1;
       setDoorCache(door.id, door);
-      await query('UPDATE doors SET is_open=1 WHERE id=$1', [door.id]);
     }
   }
 
@@ -400,12 +401,10 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     if (doorWasLocked) {
       door.lock_state = 'locked';
       setDoorCache(door.id, door);
-      await query('UPDATE doors SET is_open=0,lock_state=\'locked\' WHERE id=$1', [door.id]);
       broadcast(zone.id, { type:'zone_event', message:'The door swings closed and locks.' }, player.id);
       broadcast(targetId, { type:'zone_event', message:'The door swings closed and locks.' }, player.id);
     } else {
       setDoorCache(door.id, door);
-      await query('UPDATE doors SET is_open=0 WHERE id=$1', [door.id]);
       broadcast(zone.id, { type:'zone_event', message:'The door swings closed.' }, player.id);
       broadcast(targetId, { type:'zone_event', message:'The door swings closed.' }, player.id);
     }

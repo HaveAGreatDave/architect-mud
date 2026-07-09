@@ -1,15 +1,8 @@
 {
   "description": "A dented aluminum baseball bat, taped at the grip with something dark and flaking. Deadball Coldwater League stamped near the barrel, half worn off. It has hit more than baseballs.",
-  "effects": {},
   "flags": {},
   "id": "item_bat",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "aluminum bat",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "melee",
   "tags": {
     "damage": {
       "max": 16,

@@ -1,15 +1,8 @@
 {
   "description": "A PID-controlled burner that pins the reaction in its thermal window. Automates the HEAT stage of a splice.",
-  "effects": {},
   "flags": {},
   "id": "item_auto_heat",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "thermal regulator",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "automates": "heat",
     "lab_upgrade": true

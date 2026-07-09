@@ -1,19 +1,12 @@
 {
   "description": "A hovering display unit kept aloft by a low-power gravity field. The projection leans three degrees left. The patch bricked the others.",
-  "effects": {},
   "flags": {
     "interactions": [
       "watch"
     ]
   },
   "id": "item_furn_holo_projector",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "ghost screen TV",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "description": "A hovering display unit kept aloft by a low-power gravity field. The projection leans three degrees left. The patch bricked the others."
   },

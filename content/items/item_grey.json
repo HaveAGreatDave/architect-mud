@@ -1,15 +1,8 @@
 {
   "description": "Synthetic morphine in a grey gelcap. The pain goes away. So does everything else.",
-  "effects": {},
   "flags": {},
   "id": "item_grey",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "grey",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "drug",
   "tags": {
     "drug": true
   },

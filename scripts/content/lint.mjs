@@ -13,6 +13,7 @@
 //     enemy that has no file would restore broken on a fresh DB)
 import { contentEntries } from '../../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../../server/models/schema.js';
+import { validateTags } from '../../server/engine/tags.js';
 import { readContentTree, fileNameForRow } from './lib.mjs';
 
 // ── SCHEMA_SQL parsing (columns + content→content FKs), no DB required ───────
@@ -97,6 +98,13 @@ export function lintContentTree(baseDir) {
         if (refSet && !refSet.has(String(v))) {
           errors.push(`${label}: ${fk.col}="${v}" references ${fk.refTable}.${fk.refCol} but no such content file exists (dangling FK — would break a fresh restore)`);
         }
+      }
+      // Item tags must exist in the tag catalog with the right value shape —
+      // the engine gates on tag names, so a typo here is silently inert in prod.
+      if (entry.table === 'items' && f.data.tags) {
+        const tv = validateTags(f.data.tags);
+        for (const k of tv.unknown) errors.push(`${label}: tag "${k}" is not in the tag catalog (client/shared/tagCatalog.js)`);
+        for (const s of tv.badShape) errors.push(`${label}: tag value shape — ${s}`);
       }
     }
   }

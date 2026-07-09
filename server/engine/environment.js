@@ -28,7 +28,7 @@ import { schedule } from './scheduler.js';
 import { setTimeScale, getTimeScale } from './gametime.js';
 import { logActivity } from '../models/db.js';
 import { emit } from './events.js';
-import { world } from './world.js';
+import { world, addExitOverride, removeExitOverride } from './world.js';
 import { neighborZoneIds, allExits, addExit } from './exits.js';
 
 // ---------------------------------------------------------------------------
@@ -702,10 +702,15 @@ async function tick1m() {
     const dayCrosses = Math.floor(sum / 1440);
     state.minutes = sum % 1440;
     state.lastTick1m += elapsedMin * msPerGameMin;
-    await query(
-      `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = to_timestamp($2) WHERE id = 1`,
-      [state.minutes, state.lastTick1m / 1000]
-    );
+    // Persist the anchor only on 30-game-minute/day boundaries — the boot
+    // catch-up math reconstructs exact time from any anchor, so a finer
+    // anchor buys nothing and costs a write every minute forever.
+    if (crossed30 || dayCrosses > 0) {
+      await query(
+        `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = to_timestamp($2) WHERE id = 1`,
+        [state.minutes, state.lastTick1m / 1000]
+      );
+    }
     for (let i = 0; i < dayCrosses; i++) await tick24h().catch(logError);
     if (crossed30) await tick30m().catch(logError);
   }
@@ -1156,20 +1161,25 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
   // demand to 0, causing the zone to flip to 'powered' and back on every tick.
   const isDark = state.phase === 'night' || state.phase === 'dusk';
   await query(`
-    UPDATE power_zones pz SET current_load_kw = (
-      SELECT COALESCE(SUM(CASE
-        WHEN f.power_draw_kw IS NOT NULL THEN f.power_draw_kw
-        WHEN f.light_type = 'overhead'    THEN ${DRAW_OVERHEAD_W}
-        WHEN f.light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_W}
-        WHEN f.light_type = 'lamp'        THEN ${DRAW_LAMP_W}
-        ELSE ${DRAW_DEFAULT_W}
-      END), 0)
-      FROM furniture f WHERE f.zone_id = pz.id AND (
-        (f.object_type = 'light' AND COALESCE(f.light_on_intended, f.light_on) = 1 AND f.light_type != 'streetlight') OR
-        (f.object_type = 'light' AND f.light_type = 'streetlight' AND $1) OR
-        (f.object_type != 'light' AND f.power_draw_kw > 0)
-      )
-    )
+    UPDATE power_zones pz SET current_load_kw = sub.load
+    FROM (
+      SELECT pz2.id, (
+        SELECT COALESCE(SUM(CASE
+          WHEN f.power_draw_kw IS NOT NULL THEN f.power_draw_kw
+          WHEN f.light_type = 'overhead'    THEN ${DRAW_OVERHEAD_W}
+          WHEN f.light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_W}
+          WHEN f.light_type = 'lamp'        THEN ${DRAW_LAMP_W}
+          ELSE ${DRAW_DEFAULT_W}
+        END), 0)
+        FROM furniture f WHERE f.zone_id = pz2.id AND (
+          (f.object_type = 'light' AND COALESCE(f.light_on_intended, f.light_on) = 1 AND f.light_type != 'streetlight') OR
+          (f.object_type = 'light' AND f.light_type = 'streetlight' AND $1) OR
+          (f.object_type != 'light' AND f.power_draw_kw > 0)
+        )
+      ) AS load
+      FROM power_zones pz2
+    ) sub
+    WHERE pz.id = sub.id AND pz.current_load_kw IS DISTINCT FROM sub.load
   `, [isDark]);
   // Sync fixture counts and total lumens so visibility is always based on current light_on state.
   await query(`
@@ -1185,6 +1195,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
       GROUP BY zone_id
     ) sub
     WHERE ls.zone_id = sub.zone_id
+      AND (ls.fixture_count IS DISTINCT FROM sub.cnt OR ls.total_lumens IS DISTINCT FROM sub.lm)
   `).catch(() => {});
   const { rows: allZones } = await query('SELECT * FROM power_zones');
   const zonesByGen = new Map();
@@ -2280,6 +2291,12 @@ export async function removeGenerator(generatorId) {
     const isInterior = zoneRow.rows[0]?.flags?.is_interior;
     if (isInterior && !npcs.rows.length && !furn.rows.length && !otherGen.rows.length) {
       // Remove exit from parent zones pointing at this room, then delete it.
+      // New wiring lives in zone_exit_overrides; the authored-exits sweep below
+      // handles rooms wired before overrides existed (legacy installs wrote
+      // zones.exits directly).
+      const { rows: ovr } = await query('SELECT * FROM zone_exit_overrides WHERE target_zone=$1', [zoneId]);
+      for (const o of ovr) await removeExitOverride(o.zone_id, o.direction, o.target_zone);
+      await query('DELETE FROM zone_exit_overrides WHERE zone_id=$1', [zoneId]);
       const { rows: parents } = await query(
         `SELECT id, exits FROM zones WHERE exits::text LIKE $1`, [`%${zoneId}%`]
       );
@@ -2396,10 +2413,10 @@ async function createUtilityRoomWithJunctionBox(query, network, root) {
      JSON.stringify({ up: anchor.id })]
   );
 
-  // Wire the anchor down into the utility room (preserve its existing exits).
-  const { rows: aRows } = await query('SELECT exits FROM zones WHERE id=$1', [anchor.id]);
-  const anchorExits = addExit(aRows[0]?.exits || {}, 'down', utilId);
-  await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(anchorExits), anchor.id]);
+  // Wire the anchor down into the utility room. The anchor is an AUTHORED zone
+  // whose exits column a content re-deploy overwrites — record the wiring as a
+  // runtime override so the deploy can never orphan the utility room.
+  await addExitOverride(anchor.id, 'down', utilId, 'power');
 
   // A worklight, so the room reads and has a load to power.
   await query(

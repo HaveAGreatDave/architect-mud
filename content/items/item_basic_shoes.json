@@ -1,15 +1,8 @@
 {
   "description": null,
-  "effects": {},
   "flags": {},
   "id": "item_basic_shoes",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "basic shoes",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "armor": 1,
     "bulkiness": 1,

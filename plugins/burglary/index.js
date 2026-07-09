@@ -188,9 +188,7 @@ function stepFlee(npc, state) {
   const path = findPath(npc.zone_id, state.intr.entranceZoneId);
   const next = path && path.length >= 2 ? path[1] : null;
   if (!next) return;
-  if (moveEntity(npc, next, fleeBroadcast, query)) {
-    query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [npc.zone_id, npc.id]).catch(() => {});
-  }
+  moveEntity(npc, next, fleeBroadcast, query);
 }
 
 // Release the NPC back to its normal AI graph (graph restarts from _start).

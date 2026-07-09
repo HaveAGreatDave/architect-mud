@@ -47,12 +47,21 @@ export async function turnInNpcForQuest(questId) {
   const { rows: boards } = await query('SELECT id, zone_id, quest_pool FROM job_boards');
   const board = boards.find((b) => Array.isArray(b.quest_pool) && b.quest_pool.includes(questId));
   if (!board) return null;
+  // The dispatcher is usually the board zone's greeter (Marta Kell), who is placed
+  // dynamically and so carries a null npcs.zone_id — resolve her through the zone's
+  // greeter link first, then fall back to a statically-placed flagged NPC in the zone.
   const { rows: npcs } = await query(
-    "SELECT id, name, zone_id FROM npcs WHERE zone_id=$1 AND flags->>'job_board_dispatcher' = 'true' LIMIT 1",
+    `SELECT n.id, n.name, n.zone_id
+       FROM npcs n
+       JOIN zones z ON z.id = $1
+      WHERE (n.id = z.flags->'greeter'->>'npc_id' OR n.zone_id = $1)
+        AND n.flags->>'job_board_dispatcher' = 'true'
+      ORDER BY (n.id = z.flags->'greeter'->>'npc_id') DESC
+      LIMIT 1`,
     [board.zone_id]
   );
   const npc = npcs[0];
-  return npc ? { npcId: npc.id, npcName: npc.name, zone: npc.zone_id } : null;
+  return npc ? { npcId: npc.id, npcName: npc.name, zone: board.zone_id } : null;
 }
 
 function nowSec() { return Math.floor(Date.now() / 1000); }

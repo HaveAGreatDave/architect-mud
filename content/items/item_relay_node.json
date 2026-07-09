@@ -1,15 +1,8 @@
 {
   "description": "A ruggedized signal repeater. Powered up, it punches your feeds through interference — deploy one where somebody likes to run a jammer.",
-  "effects": {},
   "flags": {},
   "id": "item_relay_node",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "Relay Node",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "battery_max": 576,
     "concealment_base": 3,

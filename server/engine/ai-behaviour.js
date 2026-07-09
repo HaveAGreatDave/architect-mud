@@ -677,9 +677,6 @@ async function execAction(node, entity, ctx) {
         moveEntity(entity, target, broadcast); // teleport ignores doors
         ai.patrolTarget = null;
         ai.patrolPath = [];
-        if (isEnemy(entity) === false && query) {
-          query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [target, entity.id]).catch(() => {});
-        }
         break;
       }
 
@@ -701,9 +698,6 @@ async function execAction(node, entity, ctx) {
           ai.patrolTarget = null;
           break;
         }
-        if (!isEnemy(entity) && query) {
-          query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
-        }
         return 'RUNNING'; // still en route — stay at PATROL node next tick
       }
       break;
@@ -724,9 +718,6 @@ async function execAction(node, entity, ctx) {
 
       const moved = moveEntity(entity, dest, broadcast, query);
       if (!moved) break; // locked door — stay put
-      if (!isEnemy(entity) && query) {
-        query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
-      }
       // Clear target after fleeing
       entity.targetId = null;
       entity.aggroedAt = null;
@@ -829,9 +820,6 @@ async function execAction(node, entity, ctx) {
       const dest = params.zone_id;
       if (!dest) break;
       moveEntity(entity, dest, broadcast);
-      if (!isEnemy(entity) && query) {
-        query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [dest, entity.id]).catch(() => {});
-      }
       if (ai) { ai.patrolPath = []; ai.patrolTarget = null; }
       break;
     }
@@ -876,9 +864,6 @@ async function execAction(node, entity, ctx) {
         const nextZone = ai.patrolPath.shift();
         const moved = moveEntity(entity, nextZone, broadcast, query);
         if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; break; }
-        if (!isEnemy(entity) && query) {
-          query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
-        }
         if (entityZone(entity) === workZone) break; // arrived — let the graph advance
       }
       return 'RUNNING';
@@ -928,9 +913,6 @@ async function execAction(node, entity, ctx) {
       if (!nextZone) return 'RUNNING';
       const moved = moveEntity(entity, nextZone, broadcast, query);
       if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
-      else if (!isEnemy(entity) && query) {
-        query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
-      }
       return 'RUNNING';
     }
 
@@ -984,9 +966,6 @@ async function execAction(node, entity, ctx) {
             if (exitNext) {
               const moved = moveEntity(entity, exitNext, broadcast, query);
               if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
-              else if (!isEnemy(entity) && query) {
-                query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
-              }
               ai._lifeActivity = null; // re-roll wander once clear of the building
               break; // still exiting — don't start a life activity this tick
             }
@@ -1048,9 +1027,6 @@ async function execAction(node, entity, ctx) {
       if (hlife_next) {
         const moved = moveEntity(entity, hlife_next, broadcast, query);
         if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; ai._lifeActivity = null; }
-        else if (!isEnemy(entity) && query) {
-          query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
-        }
       }
       break; // does NOT return RUNNING — graph continues to GO_TO_WORK each tick
     }
@@ -1241,9 +1217,6 @@ async function execAction(node, entity, ctx) {
       if (!nextZone) return 'RUNNING';
       const moved = moveEntity(entity, nextZone, broadcast, query);
       if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
-      else if (query) {
-        query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
-      }
       return 'RUNNING';
     }
 
@@ -1284,9 +1257,6 @@ async function execAction(node, entity, ctx) {
       if (!nextZone) return 'RUNNING';
       const moved = moveEntity(entity, nextZone, broadcast, query);
       if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
-      else if (!isEnemy(entity) && query) {
-        query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
-      }
       return 'RUNNING';
     }
 
@@ -1512,7 +1482,6 @@ export async function tickEntityAI(entity, ctx) {
       if (next) {
         const moved = moveEntity(entity, next, ctx.broadcast, ctx.query);
         if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
-        else if (ctx.query) ctx.query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
       }
     }
     return;
@@ -1545,7 +1514,6 @@ export async function tickEntityAI(entity, ctx) {
           if (next) {
             const moved = moveEntity(entity, next, ctx.broadcast, ctx.query);
             if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
-            else if (ctx.query) ctx.query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
           }
           return; // evacuating — skip the graph this tick
         }

@@ -1,5 +1,5 @@
 import { query } from '../models/db.js';
-import { neighborZoneIds, primaryExits, allExits } from './exits.js';
+import { neighborZoneIds, primaryExits, allExits, addExit, removeExit } from './exits.js';
 import { titleCaseName } from './text.js';
 
 // In-memory world state — same as before, DB is source of truth
@@ -36,6 +36,7 @@ const battleCryZoneCooldowns = new Map(); // zoneId -> timestamp
 
 export async function initWorld() {
   await loadZones();
+  await applyExitOverrides();
   await loadNpcs();
   await loadSpawnTemplates();
   await loadApartments();
@@ -84,6 +85,46 @@ export async function reloadGlobalAmbients() {
   await loadGlobalAmbients();
 }
 
+// ── Exit overrides ───────────────────────────────────────────────────────────
+// zones.exits is authored content — a content re-deploy overwrites it, which
+// used to orphan exits wired at play time (generator installs creating utility
+// rooms). Play-time wiring lives in zone_exit_overrides and is merged over the
+// authored exits here (and in reloadZone), so a re-deploy can never unwire it.
+
+async function applyExitOverrides(onlyZoneId = null) {
+  const { rows } = onlyZoneId
+    ? await query('SELECT * FROM zone_exit_overrides WHERE zone_id=$1', [onlyZoneId])
+    : await query('SELECT * FROM zone_exit_overrides');
+  for (const r of rows) {
+    const z = world.zones.get(r.zone_id);
+    if (!z || !world.zones.has(r.target_zone)) continue; // target gone — stale override, harmless
+    z.exits = addExit(z.exits, r.direction, r.target_zone);
+  }
+}
+
+// Wire an exit at play time: persists the override and updates the live zone.
+export async function addExitOverride(zoneId, direction, targetZone, source = null) {
+  await query(
+    `INSERT INTO zone_exit_overrides (zone_id, direction, target_zone, source)
+     VALUES ($1,$2,$3,$4) ON CONFLICT (zone_id, direction, target_zone) DO NOTHING`,
+    [zoneId, direction, targetZone, source]
+  );
+  const z = world.zones.get(zoneId);
+  if (z) z.exits = addExit(z.exits, direction, targetZone);
+}
+
+// Unwire: deletes the override row and removes the exit from the live zone.
+// Also strips a matching AUTHORED exit if one exists (legacy installs wrote
+// zones.exits directly) so removal works for pre-override wiring too.
+export async function removeExitOverride(zoneId, direction, targetZone) {
+  await query(
+    'DELETE FROM zone_exit_overrides WHERE zone_id=$1 AND direction=$2 AND target_zone=$3',
+    [zoneId, direction, targetZone]
+  );
+  const z = world.zones.get(zoneId);
+  if (z) z.exits = removeExit(z.exits, direction, targetZone);
+}
+
 async function loadZones() {
   const { rows } = await query('SELECT * FROM zones');
   for (const zone of rows) {
@@ -115,11 +156,12 @@ async function loadNpcs() {
       _ai: { currentNode: null, waitUntil: null, patrolPath: [], patrolTarget: null, patrolMode: 'walk', patrolIndex: 0, alertCooldown: 0, lastSay: 0, flags: {} },
     };
     world.npcs.set(npc.id, live);
-    // zone_id is the NPC's live position (runtime-mutated, excluded from content),
-    // so a freshly-imported NPC has it null — fall back to the authored home_zone
-    // so stationary content NPCs actually appear on a fresh world. The AI tick
-    // takes over movement from there.
-    const placeZone = live.zone_id || live.home_zone;
+    // Position is RAM-only at runtime (autonomous movement never persists
+    // zone_id) — the DB value is either the last deliberate placement
+    // (dev-panel move) or null on a freshly-imported NPC. Place there if the
+    // zone still exists, else fall back to the authored home_zone so a stale
+    // zone_id pointing at a deleted zone can't make the NPC invisible.
+    const placeZone = (live.zone_id && world.zones.has(live.zone_id)) ? live.zone_id : live.home_zone;
     if (placeZone && world.zones.has(placeZone)) {
       live.zone_id = placeZone;
       world.zones.get(placeZone).npcs.add(npc.id);
@@ -631,6 +673,7 @@ export async function reloadZone(zoneId) {
     npcs: existing.npcs,
     corpses: existing.corpses,
   });
+  await applyExitOverrides(zoneId);
 }
 
 // Returns true and records the cooldown if this enemy type can shout; false if suppressed.

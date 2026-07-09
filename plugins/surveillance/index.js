@@ -1242,8 +1242,10 @@ async function heatTick() {
     const before = Math.round(s.heat);
     s.heat = Math.max(0, s.heat - HEAT_DECAY_PER_TICK);
     const now = Math.round(s.heat);
-    if (now !== before) { await setFlag('player', 'heat', now, p); sendHeatHud(pid, now); }
-    if (s.heat <= 0) heatRuntime.delete(pid);
+    // Decay is RAM-only; the flag is written on raise, on zero, and at logout.
+    // A crash restores the last raised value — slightly high, never laundered.
+    if (now !== before) sendHeatHud(pid, now);
+    if (s.heat <= 0) { heatRuntime.delete(pid); await setFlag('player', 'heat', 0, p); }
   }
 }
 setInterval(() => heatTick().catch(e => console.error('[surveillance] heat tick error:', e.message)), 6000);
@@ -1884,6 +1886,9 @@ on('player.login', async ({ id }) => {
 });
 on('player.logout', ({ id }) => {
   const s = wantedRuntime.get(id); if (s) despawnHunters(s);
+  // Checkpoint the decayed heat so login hydration resumes from here.
+  const h = heatRuntime.get(id);
+  if (h) setFlag('player', 'heat', Math.round(h.heat), { id }).catch(() => {});
   heatRuntime.delete(id);
   const ap = apprehending.get(id); if (ap?.timer) clearTimeout(ap.timer); apprehending.delete(id);
 });

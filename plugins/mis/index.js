@@ -78,7 +78,6 @@ function fleeNpcToHome(npc, broadcast) {
   world.zones.get(dest)?.npcs.add(npc.id);
   broadcast(from, { type: 'zone_event', message: `${npc.name} hurries away.`, refresh: true });
   broadcast(dest, { type: 'zone_event', message: `${npc.name} hurries in, flustered.`, refresh: true });
-  query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [dest, npc.id]).catch(() => {});
 }
 
 // Shared NPC MIS reaction handler. verb is the action name for actor message copy.

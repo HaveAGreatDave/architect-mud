@@ -1,19 +1,12 @@
 {
   "description": "A chrome-and-rubber height-adjustable stool, the kind found in clinical spaces from clinics to interrogation rooms.",
-  "effects": {},
   "flags": {
     "interactions": [
       "sit"
     ]
   },
   "id": "item_furn_pneumatic_stool",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "pneumatic lab stool",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "description": "A chrome-and-rubber height-adjustable stool, the kind found in clinical spaces from clinics to interrogation rooms."
   },

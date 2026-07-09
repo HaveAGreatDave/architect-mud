@@ -50,6 +50,7 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
     - **Running a one-shot against prod:** `node --env-file=.env.prod scripts/<name>.mjs` (the git-ignored `.env.prod` holds the prod `DATABASE_URL`). `db.js` enables SSL by **host** — remote ⇒ TLS, localhost ⇒ none — so this needs no `NODE_ENV` juggling and any `query()`-based script works against prod this way. Omit the flag to go back to local.
     - The export deliberately excludes player/runtime rows (accounts, inventory, password hashes); it carries schema + world content only.
 - **Plugins for extensibility.** New behavior hooks belong in `/plugins/`, not in engine files, unless they're genuinely core.
+- **No new sparse columns on `players` (or `npcs`).** New per-player scalar state goes in `player_flags` or its own feature table — never another `players` column. Same for per-tick/derived state: check the persistence tiers in [docs/architecture.md](docs/architecture.md#persistence-tiers-when-to-write-the-db) before adding a runtime DB write.
 - **UTF-8, always.** Several files (especially `client/game/index.html`) use Unicode glyphs and box-drawing chars (`₵ ⚙ ⏻ ╱ █ ☢`). When editing, preserve UTF-8 without a BOM — never let a tool re-save as Windows-1252 or it double-encodes everything into `â•±â•²` mojibake. After editing such files, sanity-check that the glyphs are still intact.
 
 ## Regression Testing — run it, and recommend it

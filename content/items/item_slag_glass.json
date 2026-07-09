@@ -1,15 +1,8 @@
 {
   "description": "A knot of black volcanic-looking glass, fused out of whatever the foundries dumped here and left to cool. Sharp, dense, and oddly beautiful in the light.",
-  "effects": {},
   "flags": {},
   "id": "item_slag_glass",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "lump of slag glass",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "description": "A knot of black volcanic-looking glass, fused out of whatever the foundries dumped here and left to cool. Sharp, dense, and oddly beautiful in the light.",
     "material": true

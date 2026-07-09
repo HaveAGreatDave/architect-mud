@@ -49,6 +49,7 @@ import { ensureTunables, getTunable, reloadTunables } from '../engine/tunables.j
 import { getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
 import { SKILLS } from '../engine/skills.js';
 import { ownTags } from '../engine/supertags.js';
+import { validateTags } from '../engine/tags.js';
 import { getMotd, saveMotd } from '../engine/motd.js';
 import { isMisServerEnabled, setServerMisEnabled } from '../engine/mis.js';
 import { canAccessChannel, sendToChatChannel, getChannelMessagesSince } from '../engine/channels.js';
@@ -1221,7 +1222,18 @@ async function apiGetItems() { const {rows}=await query('SELECT * FROM items'); 
 // dev-panel-only template now (see server/engine/supertags.js) — the client
 // sends flat authored tags, this just guards against stray leftovers.
 function itemTagsFor(body) {
-  return ownTags(body.tags);
+  const tags = ownTags(body.tags);
+  // Reject uncatalogued/misshapen tags loudly — a typo'd tag is silently inert
+  // forever otherwise (the recurring bug class in docs/audits/). Add new tags
+  // to client/shared/tagCatalog.js first, then attach them here.
+  const v = validateTags(tags);
+  if (!v.ok) {
+    const parts = [];
+    if (v.unknown.length) parts.push(`unknown tag(s) not in the catalog: ${v.unknown.join(', ')}`);
+    if (v.badShape.length) parts.push(`wrong value shape: ${v.badShape.join('; ')}`);
+    throw new Error(`Tag validation failed — ${parts.join(' | ')}`);
+  }
+  return tags;
 }
 export async function apiCreateItem(body) {
   const id=body.id||`item_${Date.now()}`;
@@ -2497,9 +2509,9 @@ async function apiCreateKeycard(doorId, body) {
   const description = `A slim obsidian card, its surface threaded with bioluminescent circuitry that pulses faintly when held. The access signature encoded in its memory is keyed exclusively to the reader on ${zoneName}'s door — swipe it anywhere else and it's just a pretty piece of plastic.`;
   try {
     await query(
-      `INSERT INTO items (id, name, description, type, subtype, weight, value, is_stackable, is_unique, flags)
-       VALUES ($1,$2,$3,'key','keycard',0.05,0,0,1,$4)`,
-      [id, name, description, JSON.stringify({ keycard_for_door: doorId, unique: true })]
+      `INSERT INTO items (id, name, description, type, weight, value, tags)
+       VALUES ($1,$2,$3,'key',0.05,0,$4)`,
+      [id, name, description, JSON.stringify({ unique: true })]
     );
     return { status:201, body:{ id } };
   } catch(e) { return { status:400, body:{ error:e.message } }; }

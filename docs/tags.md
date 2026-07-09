@@ -18,6 +18,15 @@
 > The catalog (`client/shared/tagCatalog.js`), helpers (`server/engine/tags.js`),
 > and the Tag→Action registry (`server/engine/specializedActions.js`) are all live
 > and are the parts to build on.
+>
+> **Write-time validation (2026-07).** Item tag writes are validated against the
+> catalog: the dev-panel item API rejects uncatalogued keys / wrong value shapes
+> (`validateTags` in `server/engine/tags.js`, enforced in `itemTagsFor`), and
+> `content:lint` applies the same check to `content/items/*.json`. Add a new tag
+> to the catalog **first**, then attach it to items. Drift check:
+> `node scripts/report-tag-keys.mjs`. The uncatalogued `flags` bags on
+> zones/npcs/furniture are documented (not validated) in
+> [flags-keys.md](flags-keys.md), swept by `scripts/report-flag-keys.mjs`.
 
 ## Context
 

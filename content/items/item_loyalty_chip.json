@@ -1,15 +1,8 @@
 {
   "description": "A consumer rewards chip, cracked but not wiped. There might still be points on it. There might still be debt.",
-  "effects": {},
   "flags": {},
   "id": "item_loyalty_chip",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "cracked loyalty chip",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "description": "A consumer rewards chip, cracked but not wiped. There might still be points on it. There might still be debt.",
     "misc": true

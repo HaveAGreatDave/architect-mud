@@ -1,15 +1,8 @@
 {
   "description": "A phase-locked pulse driver that sets the compound's lattice on the beat, hands-free. Automates the SET (rhythm) stage of a splice.",
-  "effects": {},
   "flags": {},
   "id": "item_auto_rhythm",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "lattice sequencer",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "automates": "rhythm",
     "lab_upgrade": true

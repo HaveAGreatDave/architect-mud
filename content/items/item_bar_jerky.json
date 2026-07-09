@@ -1,17 +1,8 @@
 {
   "description": "Labeled \"MEAT-ADJACENT.\" Surprisingly not the worst thing on the menu.",
-  "effects": {
-    "hunger": 18
-  },
   "flags": {},
   "id": "item_bar_jerky",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "mystery jerky",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "food",
   "tags": {
     "consumable": true,
     "description": "Labeled \"MEAT-ADJACENT.\" Surprisingly not the worst thing on the menu.",

@@ -950,11 +950,15 @@ async function resourceTick() {
     // Basis is the in-memory stamp, never a DB re-read — avoids a round-trip and
     // any write-vs-read float drift, same rationale as the power-zone fix. An
     // idle player at full stats in a comfort zone now writes nothing.
+    // body_temp_c is compared at 0.5°C granularity — it drifts a fraction of a
+    // degree every outdoor tick, which would defeat the gate for every outdoor
+    // player. The exact value is still written whenever any write happens; a
+    // crash loses at most half a degree.
     const last = player._lastSavedResources;
     const changed = !last
       || last.hunger !== player.hunger || last.thirst !== player.thirst
       || last.hp !== player.hp || last.stamina !== player.stamina
-      || last.body_temp_c !== player.body_temp_c;
+      || Math.round(last.body_temp_c * 2) !== Math.round(player.body_temp_c * 2);
     if (changed) {
       await query('UPDATE players SET hunger=$1,thirst=$2,hp=$3,stamina=$4,body_temp_c=$5 WHERE id=$6',
         [player.hunger, player.thirst, player.hp, player.stamina, player.body_temp_c, playerId]);
@@ -1025,7 +1029,8 @@ async function npcWanderTick() {
         npc.zone_id = dest;
         world.zones.get(dest)?.npcs.add(id);
         broadcastFn(dest, { type: 'zone_event', message: `${npc.name} returns.`, refresh: true });
-        query('UPDATE npcs SET zone_id=$1, hp=$2 WHERE id=$3', [dest, npc.hp, id]).catch(() => {});
+        // Position is RAM-only (boot places NPCs at home_zone); persist only hp.
+        query('UPDATE npcs SET hp=$1 WHERE id=$2', [npc.hp, id]).catch(() => {});
       }
       continue;
     }
@@ -1060,11 +1065,9 @@ async function npcWanderTick() {
     if (!candidates.length) continue;
     const dest = candidates[Math.floor(Math.random() * candidates.length)];
     // moveEntity handles the zone-set swap, door passage, and depart/arrive
-    // announcements (same path as graph-driven NPCs). Returns false if blocked
-    // by a locked door — only persist the new position if the move happened.
-    if (moveEntity(npc, dest, broadcastFn, query)) {
-      await query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [dest, id]).catch(() => {});
-    }
+    // announcements (same path as graph-driven NPCs). Position is RAM-only —
+    // boot places NPCs back at home_zone.
+    moveEntity(npc, dest, broadcastFn, query);
   }
 }
 

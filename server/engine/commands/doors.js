@@ -585,11 +585,11 @@ async function cmdInstallLock(args, raw, player, broadcast) {
       const zone = getZone(door.zone_id);
       const zoneName = zone?.name || door.zone_id;
       await query(
-        `INSERT INTO items (id,name,description,type,subtype,weight,value,is_stackable,is_unique,flags)
-         VALUES ($1,$2,$3,'key','keycard',0.05,0,0,1,$4)`,
+        `INSERT INTO items (id,name,description,type,weight,value,tags)
+         VALUES ($1,$2,$3,'key',0.05,0,$4)`,
         [keycardId, `Keycard — ${zoneName}`,
          `A slim obsidian card threaded with bioluminescent circuitry. Its access signature is keyed exclusively to the reader on ${zoneName}'s door.`,
-         JSON.stringify({ keycard_for_door: door.id, unique: true })]
+         JSON.stringify({ unique: true })]
       );
     }
     lockData.keyItemId = keycardId;

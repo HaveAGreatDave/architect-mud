@@ -5,10 +5,19 @@
   "effects": {
     "diuretic": 1.5,
     "instant": {
-      "hunger": -5,
-      "stat_agi_temp": 2
+      "hunger": -5
     },
-    "onset_seconds": 3
+    "onset_seconds": 3,
+    "phases": {
+      "comedown_message": "The jitter drains out of you.",
+      "comedown_seconds": 50,
+      "comeup_message": "Your hands stop feeling like yours — everything speeds up.",
+      "comeup_seconds": 10,
+      "peak_mods": {
+        "stat_reflexes": 2
+      },
+      "peak_seconds": 180
+    }
   },
   "flags": {},
   "id": "drug_buzz",

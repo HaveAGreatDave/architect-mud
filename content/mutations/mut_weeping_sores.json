@@ -9,7 +9,7 @@
   "polarity": "negative",
   "radiation_threshold": 45,
   "stat_modifiers": {
-    "stat_cha": -2
+    "stat_cool": -2
   },
   "visible": 1
 }

@@ -1,15 +1,8 @@
 {
   "description": "A fat cylindrical capacitor, casing split, still holding a spiteful little charge.",
-  "effects": {},
   "flags": {},
   "id": "item_cracked_capacitor",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "cracked capacitor",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "electronic",
   "tags": {
     "description": "A fat cylindrical capacitor, casing split, still holding a spiteful little charge.",
     "material": true

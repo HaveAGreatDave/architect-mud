@@ -187,6 +187,7 @@ export const REGISTRY = [
   { table: 'world_flags', class: 'runtime' },
   { table: 'weather_forecast', class: 'runtime' },
   { table: 'lighting_states', class: 'runtime' },    // fully derived from furniture
+  { table: 'zone_exit_overrides', class: 'runtime' }, // play-time exit wiring merged over authored zones.exits at load
   { table: 'zone_control', class: 'runtime' },
   { table: 'org_assets', class: 'runtime' },          // player-crew territory assets (extractor/turret)
   { table: 'scavenging_zone_stock', class: 'runtime' },

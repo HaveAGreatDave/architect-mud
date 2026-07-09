@@ -130,10 +130,16 @@ in the registry — regress is red until you do.
 
 ## Known seams (accepted, documented)
 
-- **zones.exits / zones.tags** are authored content that runtime systems also
-  wire (power rooms, studio construction attach exits to authored zones). An
-  import that changes an authored zone's file resets that zone's exits, which
-  can orphan a runtime-wired connection. The CI drift report surfaces it.
+- **zones.exits / zones.tags** are authored content that runtime systems used
+  to wire directly. **Play-time exit wiring now goes through the
+  `zone_exit_overrides` runtime table** (merged over authored exits at world
+  load — `addExitOverride`/`removeExitOverride` in `server/engine/world.js`),
+  so a zone re-deploy can no longer orphan generator utility rooms. Legacy
+  wiring written into `zones.exits` before the override table existed keeps
+  working (and `removeGenerator` still cleans it up); studio construction is
+  dev-panel authoring (blocked on prod by CONTENT_READONLY) and legitimately
+  writes authored exits. The CI drift report still surfaces any residual direct
+  writes.
 - **doors.\*** (is_open, lock_state, tags…) are authored initial state that
   players also mutate; an import touching a door's file resets that door's
   live state. Bounded: only doors whose files changed in the deployed range.
@@ -141,7 +147,16 @@ in the registry — regress is red until you do.
   system built in YOUR local world shows up in `content:export` as new files.
   That's the review step's job: `git diff content/` before committing, drop
   what isn't content. On prod these rows are safe regardless (deletion needs a
-  git-tracked file).
+  git-tracked file). `content:export` now warns on new files matching the
+  runtime id shapes so they're hard to miss.
+- **Furniture id provenance (namespace convention).** Authored furniture uses
+  descriptive slugs (`furniture_apt1_crate`, `furn_apt10_bed`,
+  `furniture_<Date.now()>` from the dev panel). Runtime code owns these shapes:
+  `furn_<8-hex-uuid>` (player purchases, `furniture-shop.js`),
+  `furn_light_*` / `furn_sl_*` / `furn_jbox_*` (power/environment autobuild),
+  `furn_schd_*` (vendor schedule boards), and `keycard_*` in items. Never
+  author content under those shapes — the deploy can't distinguish origin by
+  anything except the id, and export review relies on it.
 
 ## Deploy lessons (hard-won 2026-07-08, the first real prod deploys)
 

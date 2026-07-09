@@ -1,15 +1,8 @@
 {
   "description": "A slim panel camera that splices straight into a room's power feed. Never needs charging — but dies the instant the grid does.",
-  "effects": {},
   "flags": {},
   "id": "item_wired_cam",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "Tap Cam",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "battery_max": 864,
     "concealment_base": 3,

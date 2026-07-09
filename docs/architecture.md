@@ -294,6 +294,25 @@ Each zone in the network gets a `power_zones` row and a `lighting_states` row. S
 
 ---
 
+## Persistence Tiers (When to Write the DB)
+
+The engine keeps live state in RAM (`world.js` Maps, `environment.js` `state`) and writes Postgres selectively. Every field a system mutates belongs to exactly one tier — decide the tier **before** adding a write:
+
+| Tier | Meaning | Write policy | On crash |
+|---|---|---|---|
+| **Durable** | must survive any death | write-through at the mutation site (as most code does today) | intact |
+| **Checkpoint** | must survive a clean restart; bounded loss on a crash is fine | write at logout/despawn and coarse event boundaries — never per-tick | loses ≤ one interval, always in a benign direction |
+| **Derived / ephemeral** | recomputed or irrelevant at boot | never written from ticks or transits | recomputed / reset at boot |
+
+Examples as built: **durable** — credits/bank, inventory moves, deaths/kills, door `lock_state`/`hp`/installed-lock `tags`, `generators.fuel_remaining` + wiring/destroyed/recover flags, `furniture.hp`, apartments/rent. **Checkpoint** — surveillance heat (written on raise, on zero, and at logout; decay is RAM-only), `body_temp_c` (0.5 °C write granularity). **Derived** — door `is_open` during movement transits (DB always holds the resting state; explicit `open`/`close` verbs still persist), NPC live position (`npcs.zone_id` — boot places at last deliberate placement or `home_zone`; permanent relocation = edit `home_zone` or use the dev-panel move), power-derived columns (`power_zones.status/available_kw/current_load_kw`, `generators.remaining_kw`, `lighting_states` counts — all diff-gated and rebuilt by `recomputePower()` at boot), `zoneTemps`, the moving weather field, and the `world_clock` anchor (persisted only on 30-game-minute/day boundaries; boot catch-up math reconstructs exact time from any anchor).
+
+Rules of thumb:
+- **New per-tick or per-transit state starts at derived/checkpoint unless it's money or inventory.** A decaying meter never needs a per-tick write — write it where it's raised, zeroed, and at logout.
+- There is deliberately **no** generic dirty-flag/flush framework and **no** shutdown flush: every checkpoint/derived field must be *crash-benign by construction* (restored slightly stale in a direction that doesn't reward crashing). If a field can't tolerate crash loss, it's durable — write it through.
+- Diff-gate any recurring bulk UPDATE (`IS DISTINCT FROM` in SQL, or a last-saved stamp in JS) so a stable world writes nothing.
+
+---
+
 ## Lessons Learned (Worth Reading Before Changing Infra)
 
 These are real bugs hit during deployment, kept here so they don't get relearned:

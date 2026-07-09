@@ -1,17 +1,10 @@
 {
   "description": "A motorcycle helmet with extra rivets. Visor status: optimistic.",
-  "effects": {},
   "flags": {
     "slot": "head"
   },
   "id": "item_scrap_helmet",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "scrap helmet",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "head",
   "tags": {
     "armor": 2,
     "bulkiness": 3,

@@ -12,7 +12,7 @@
   "polarity": "mixed",
   "radiation_threshold": 55,
   "stat_modifiers": {
-    "stat_str": 1
+    "stat_brawn": 1
   },
   "visible": 1
 }

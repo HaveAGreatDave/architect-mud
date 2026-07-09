@@ -1,15 +1,8 @@
 {
   "description": null,
-  "effects": {},
   "flags": {},
   "id": "item_shirt_flannel",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "flannel work shirt",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "armor": 1,
     "bulkiness": 2,

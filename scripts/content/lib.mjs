@@ -146,6 +146,15 @@ export async function exportContent(client, targetDir) {
       } else {
         writeFileSync(path, json);
         created++;
+        // Runtime code creates rows in some content tables under its own id
+        // shapes (player-bought furniture furn_<8-hex-uuid>, system
+        // furn_light_*/furn_sl_*/furn_jbox_*/furn_schd_*, keycard_*). A local
+        // export picks those up as new files — usually NOT content you meant
+        // to author. (Authored furniture uses descriptive furn_/furniture_
+        // slugs, which don't match these shapes.)
+        if (/^(furn_[0-9a-f]{8}\.json$|furn_(light|sl|jbox|schd)_|keycard_)/.test(name)) {
+          console.warn(`  ⚠ ${entry.table}/${name}: runtime-prefixed id — likely a runtime row, review before committing.`);
+        }
       }
     }
     for (const stale of existing) {

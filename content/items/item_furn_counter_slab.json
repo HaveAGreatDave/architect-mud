@@ -1,19 +1,12 @@
 {
   "description": "A poured-concrete service counter, surface scarred with knife gouges and ring stains.",
-  "effects": {},
   "flags": {
     "interactions": [
       "lean"
     ]
   },
   "id": "item_furn_counter_slab",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "concrete counter",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "description": "A poured-concrete service counter, surface scarred with knife gouges and ring stains."
   },

@@ -54,3 +54,46 @@ export function tagValue(item, name, fallback = undefined) {
 export function hasFlag(invRow, name) {
   return invRow?.custom_data?.[name] === true;
 }
+
+// Write-time validation of an item tag bag against the catalog. The engine
+// gates behavior on tag names — a typo'd key is silently inert forever, so
+// writes must fail loudly instead. Returns { ok, unknown, badShape }.
+// Carve-outs: supertag bookkeeping (__super/__own, stripped by ownTags anyway)
+// and parameterized families containing ':' (e.g. door lock:* tags).
+export function validateTags(bag) {
+  const unknown = [];
+  const badShape = [];
+  for (const [key, value] of Object.entries(bag || {})) {
+    if (key === '__super' || key === '__own' || key.includes(':')) continue;
+    if (key.startsWith('bait_')) continue; // open-ended bait sub-tag family (fishing)
+    const def = TAG_CATALOG[key];
+    if (!def) { unknown.push(key); continue; }
+    switch (def.shape) {
+      case 'flag':
+        // false is tolerated (legacy rows carry it) but reads as PRESENT to
+        // hasTag — presence is the signal, not the boolean.
+        if (typeof value !== 'boolean' && value !== 1) badShape.push(`${key} (flag: expected true)`);
+        break;
+      case 'int':
+        if (!Number.isFinite(Number(value))) badShape.push(`${key} (int: got ${JSON.stringify(value)})`);
+        break;
+      case 'enum':
+        if (Array.isArray(def.options) && !def.options.includes(value)) badShape.push(`${key} (enum: "${value}" not in ${def.options.join('/')})`);
+        break;
+      case 'range':
+        if (typeof value !== 'object' || value === null || !Number.isFinite(Number(value.min)) || !Number.isFinite(Number(value.max))) badShape.push(`${key} (range: expected {min,max})`);
+        break;
+      case 'statmap':
+        if (typeof value !== 'object' || value === null || Array.isArray(value) || Object.values(value).some(v => !Number.isFinite(Number(v)))) badShape.push(`${key} (statmap: expected {key:number,...})`);
+        break;
+      case 'hot':
+        if (typeof value !== 'object' || value === null || !Number.isFinite(Number(value.amount)) || !Number.isFinite(Number(value.duration_seconds))) badShape.push(`${key} (hot: expected {amount,duration_seconds})`);
+        break;
+      case 'list':
+        if (!Array.isArray(value)) badShape.push(`${key} (list: expected array)`);
+        break;
+      // 'text' and unrecognized shapes: any value accepted
+    }
+  }
+  return { ok: unknown.length === 0 && badShape.length === 0, unknown, badShape };
+}
