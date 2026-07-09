@@ -8,7 +8,7 @@
     "buy", "rent", "charter", "charterinfo", "charterbook", "cancel", "testfly", "flight", "fs",
     "arm", "safe", "evade", "strafe", "fire", "strafresolve", "airfire",
     "contracts", "jobs", "accept", "manifest", "jettison",
-    "hangar", "showroom", "fleet", "carousel", "view", "hangaract", "paintset", "scheme", "repair", "salvage", "rebuild", "tune", "modify", "customize", "loadout",
+    "hangar", "showroom", "fleet", "carousel", "view", "hangaract", "paintset", "scheme", "repair", "salvage", "rebuild", "tune", "modify", "customize", "loadout", "sell", "cancelrental",
     "examine", "look"
   ],
   "objectGatedCommands": {
@@ -29,7 +29,9 @@
     "repair":    { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: owned aircraft row + zone flag airfield_id; shadows the engine gear-repair builtin and falls through when no craft." },
     "salvage":   { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: wreck aircraft row (is_wreck=1) in zone; not examinable furniture." },
     "rebuild":   { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: wreck row + zone flag airfield_id." },
-    "tune":      { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: owned aircraft row + zone flag airfield_id (distinct from broadcast's tune)." }
+    "tune":      { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: owned aircraft row + zone flag airfield_id (distinct from broadcast's tune)." },
+    "sell":      { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: owned aircraft row, id-based (hangar-bay panel / Tablet Vehicles app); shadows commerce's item-sell and falls through when the leading token isn't an aircraft id." },
+    "cancelrental": { "discoverVia": "none", "exposed": false, "note": "Rental aircraft row, id-based (hangar-bay panel / Tablet Vehicles app); not typed directly." }
   },
   "after": ["gametable", "generator", "commerce", "broadcast", "interactions", "quests"],
   "routePrefix": "/flight",

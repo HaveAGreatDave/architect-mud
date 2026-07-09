@@ -17,6 +17,9 @@ import { pilotStatusForField, charterParkedAt } from './charter.js';
 // back when you're not tuning an aircraft. `repair` shadows the engine gear-repair
 // builtin — cmdRepair returns undefined out of aircraft context to fall through.
 import { commands as broadcastCommands } from '../broadcast/index.js';
+// `sell` belongs to commerce (selling inventory items); flight wins it by load
+// order and delegates back unless the leading token is a real aircraft id.
+import { commands as commerceCommands } from '../commerce/index.js';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 
@@ -639,6 +642,28 @@ export async function cancelRental(player, aircraftId) {
   return { type: 'output', message: `<span class="item-grant">Returned the ${clean(ac.tname)} — the rental slot is free.</span>` };
 }
 
+// `sell <id>` (hangar-bay panel) / `cancelrental <id>` — the chat-command
+// wrappers around sellAircraft/cancelRental for the hangar-bay UI, which
+// (unlike the tablet) refreshes the whole floor rather than round-tripping a
+// screen payload. `sell` is claimed only when the leading token is a real
+// aircraft id (popCraftId); anything else is ordinary item-selling → commerce.
+async function cmdSell(args, raw, player, broadcast) {
+  const { id } = popCraftId(args);
+  if (!id) return commerceCommands.sell(args, raw, player, broadcast);
+  const res = await sellAircraft(player, id);
+  out(player.id, res.message);
+  if (res.player_update) sendToPlayer(player.id, { type: 'player_update', ...res.player_update });
+  return pushHangarBay(player);
+}
+
+async function cmdCancelRental(args, raw, player) {
+  const { id } = popCraftId(args);
+  if (!id) return { type: 'emote', message: "Cancel which rental? Use the hangar bay panel." };
+  const res = await cancelRental(player, id);
+  out(player.id, res.message);
+  return pushHangarBay(player);
+}
+
 export const commands = {
   hangar: cmdHangar,
   showroom: cmdShowroom,
@@ -655,4 +680,6 @@ export const commands = {
   modify: cmdModify,
   customize: cmdModify,
   loadout: cmdLoadout,
+  sell: cmdSell,
+  cancelrental: cmdCancelRental,
 };

@@ -486,7 +486,7 @@ function renderBody() {
   }
   if (d.view === 'detail') {
     const det = d.detail || d.quest || {};
-    const params = (d.quest && d.quest.id) || '';
+    const params = det.id || '';
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}
       <div class="tos-detail-name">${esc(det.name || '')}</div>
       ${det.desc ? `<div class="tos-detail-desc">${esc(det.desc)}</div>` : ''}

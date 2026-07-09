@@ -51,7 +51,7 @@ async function buildScreen(player, screenId, params) {
       view: 'detail',
       breadcrumb: [v.tail],
       detail: {
-        name: v.tail, desc: v.typeName,
+        id: v.id, name: v.tail, desc: v.typeName,
         rows: [
           { label: 'Registration', value: v.tail },
           { label: 'Type', value: v.typeName },
@@ -67,8 +67,14 @@ async function buildScreen(player, screenId, params) {
   }
 
   return {
+    // A non-empty breadcrumb matters beyond display here: the client's list-item
+    // click handler resends the CURRENT breadcrumb's last entry as the screenId
+    // token alongside the clicked id as params (client/game/js/panels/tablet-os.js
+    // wireBody's [data-open-item] handler) — an empty breadcrumb makes it send
+    // screenId:null, which shoves the aircraft id into the wrong argument slot
+    // and buildScreen never sees an id (silently re-renders this same list).
     view: 'list',
-    breadcrumb: [],
+    breadcrumb: ['Fleet'],
     items: list.map(v => ({ id: v.id, label: v.tail, sub: `${v.typeName} · Hull ${v.hullPct}% · Fuel ${v.fuelPct}% · ${v.location}` })),
   };
 }
