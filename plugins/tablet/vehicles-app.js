@@ -94,7 +94,10 @@ async function handleAction(player, actionId, params) {
 
   const failed = res?.type === 'error';
   sendToPlayer(player.id, { type: 'output', message: failed ? `<span class="msg-system">${res.message}</span>` : (res?.message || '') });
-  if (failed) return buildScreen(player, null, aircraftId);
+  // On failure the error also renders inline on this screen (not just the chat
+  // log behind the tablet overlay, easy to miss) — same buildScreen result, one
+  // extra field spread on top.
+  if (failed) return { ...(await buildScreen(player, null, aircraftId)), notice: res.message };
   if (res?.player_update) sendToPlayer(player.id, { type: 'player_update', ...res.player_update });
   return buildScreen(player, null, '');
 }

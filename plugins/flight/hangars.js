@@ -610,11 +610,18 @@ export async function sellAircraft(player, aircraftId) {
   if (!ac) return { type: 'error', message: 'No such aircraft.' };
   if (ac.owner_id !== player.id || ac.rental) return { type: 'error', message: 'You can only sell an aircraft you own outright.' };
   if (ac.is_wreck) return { type: 'error', message: 'Nothing to sell — salvage a wreck instead.' };
-  if (ac.airborne) return { type: 'error', message: "Land her first — can't sell an aircraft in the air." };
+  // A "live" (currently loaded) aircraft's in-memory row is the source of truth
+  // for airborne/damage — the DB column only gets flushed by persist() on its own
+  // schedule, so checking it directly can see a stale airborne=1 for a plane
+  // that already landed (same reason requireOwned above checks tgt.live?.row,
+  // not a fresh SELECT).
   const live = liveAircraft.get(aircraftId);
+  const airborne = live ? !!live.row.airborne : !!ac.airborne;
+  const damage = live ? live.row.damage : ac.damage;
+  if (airborne) return { type: 'error', message: "Land her first — can't sell an aircraft in the air." };
   if (live?.occupants?.size) return { type: 'error', message: 'Clear everyone out of her first.' };
 
-  const value = Math.max(1, Math.round((ac.price_buy || 0) * 0.5 * (1 - (ac.damage || 0) * 0.5)));
+  const value = Math.max(1, Math.round((ac.price_buy || 0) * 0.5 * (1 - (damage || 0) * 0.5)));
   if (live) liveAircraft.delete(aircraftId);
   await query('DELETE FROM aircraft WHERE id=$1', [aircraftId]);
   await query('DELETE FROM insurance_policies WHERE aircraft_id=$1', [aircraftId]);
@@ -633,8 +640,11 @@ export async function cancelRental(player, aircraftId) {
   const ac = rows[0];
   if (!ac) return { type: 'error', message: 'No such aircraft.' };
   if (ac.owner_id !== player.id || !ac.rental) return { type: 'error', message: "That's not a rental of yours." };
-  if (ac.airborne) return { type: 'error', message: "Land her first — can't return a rental in the air." };
+  // See sellAircraft's comment — check the live in-memory row, not the DB
+  // column, which only gets flushed by persist() on its own schedule.
   const live = liveAircraft.get(aircraftId);
+  const airborne = live ? !!live.row.airborne : !!ac.airborne;
+  if (airborne) return { type: 'error', message: "Land her first — can't return a rental in the air." };
   if (live?.occupants?.size) return { type: 'error', message: 'Clear everyone out of her first.' };
 
   if (live) liveAircraft.delete(aircraftId);
