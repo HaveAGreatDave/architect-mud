@@ -131,7 +131,7 @@ function drawCarryWarn(s) {
 // ── entry points ─────────────────────────────────────────────────────────────
 export function openSpliceSelect(msg) {
   closeSplice();
-  const lab = mountLab({ title: 'CHIMERA-9', subtitle: 'SPLICE · SELECT', accent: '#4fe08a', showInsta: true });
+  const lab = mountLab({ title: 'CHIMERA-9', subtitle: 'SPLICE · SELECT', accent: '#4fe08a', showInsta: true, test: !!msg.test });
   ensureLabelStyle();
   game = newSession(lab, msg.test ? 'test' : 'real');
   game.drugs = (msg.drugs || []).map(d => ({
@@ -560,7 +560,7 @@ STAGES.select = {
     this.nameEl.oninput = () => { game.compoundName = this.nameEl.value.replace(/\s+/g, ' ').trimStart().slice(0, 28); this.sync(); };
     this.nameEl.onkeydown = (e) => { if (e.key !== 'Escape') e.stopPropagation(); if (e.key === 'Enter' && this.canCommit()) { AX.confirm(); this.commit(); } };
     game.lab.ui.appendChild(this.nameEl);
-    this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:1px;text-transform:uppercase;pointer-events:none;text-align:center;width:70%');
+    this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:var(--fgdim);font-size:11px;letter-spacing:1px;text-transform:uppercase;pointer-events:none;text-align:center;width:70%;text-shadow:0 0 6px rgba(0,0,0,.9)');
     // Persistent picker panels: BASE + SPLICE (+ SPLICE 2 when unlocked), each with
     // a colour-swatch "raw graphic", effect readout, and a quantity stepper, plus a
     // projected OUTPUT. Layout tightens to four columns when the 3rd slot is open.
@@ -578,19 +578,19 @@ STAGES.select = {
     const el = mkEl(`position:absolute;left:${leftPx}px;bottom:74px;width:${wd}px;background:linear-gradient(180deg,var(--surf-hi),var(--surf-lo));border:1px solid color-mix(in srgb,var(--A) 32%,transparent);border-radius:8px;box-shadow:inset 0 1px 0 var(--bevhi),0 6px 18px rgba(0,0,0,.5);padding:9px 11px;font-family:inherit;pointer-events:auto;box-sizing:border-box`);
     el.innerHTML =
       `<div style="display:flex;align-items:center;justify-content:space-between">` +
-        `<span style="font-size:9px;letter-spacing:2px;color:var(--fgdim)">${role}</span>` +
-        `<button class="cx" title="clear" style="background:none;border:none;color:var(--fgdim);font-size:12px;cursor:pointer;padding:0">✕</button></div>` +
+        `<span style="font-size:10px;letter-spacing:2px;color:var(--fgdim);font-weight:bold">${role}</span>` +
+        `<button class="cx" title="clear" style="background:none;border:none;color:var(--fgdim);font-size:13px;cursor:pointer;padding:0">✕</button></div>` +
       `<div style="display:flex;align-items:center;gap:8px;margin-top:5px">` +
         `<div class="sw" style="width:30px;height:30px;border-radius:6px;background:var(--bg,#1a2a22);border:1px solid #0007;flex:none;box-shadow:inset 0 0 6px #0008"></div>` +
-        `<div class="nm" style="font-size:11px;color:var(--fgdim);line-height:1.25;flex:1;min-width:0">— empty —</div></div>` +
-      `<div class="fm" style="font-size:8px;color:var(--fgdim);margin-top:5px;text-transform:uppercase;letter-spacing:1px;min-height:10px"></div>` +
-      `<div class="ef" style="font-size:8px;color:color-mix(in srgb,var(--A) 45%,#fff);margin-top:4px;line-height:1.45;white-space:pre-line;min-height:22px">drop a drug into the cradle</div>` +
-      `<div class="qr" style="display:flex;align-items:center;gap:7px;margin-top:6px;opacity:.4">` +
-        `<span style="font-size:8px;color:var(--fgdim);letter-spacing:1px">QTY</span>` +
+        `<div class="nm" style="font-size:13px;color:var(--fgdim);line-height:1.25;flex:1;min-width:0">— empty —</div></div>` +
+      `<div class="fm" style="font-size:9px;color:var(--fgdim);margin-top:5px;text-transform:uppercase;letter-spacing:1px;min-height:11px"></div>` +
+      `<div class="ef" style="font-size:10px;color:color-mix(in srgb,var(--A) 68%,#fff);margin-top:4px;line-height:1.45;white-space:pre-line;min-height:26px">drop a drug into the cradle</div>` +
+      `<div class="qr" style="display:flex;align-items:center;gap:7px;margin-top:6px;opacity:.55">` +
+        `<span style="font-size:9px;color:var(--fgdim);letter-spacing:1px">QTY</span>` +
         `<button class="qm" style="${STEP}">−</button>` +
-        `<span class="qn" style="font-size:13px;color:var(--A);min-width:26px;text-align:center;font-weight:bold">×1</span>` +
+        `<span class="qn" style="font-size:15px;color:var(--A);min-width:26px;text-align:center;font-weight:bold">×1</span>` +
         `<button class="qp" style="${STEP}">+</button>` +
-        `<span class="av" style="font-size:8px;color:var(--fgdim);margin-left:auto"></span></div>`;
+        `<span class="av" style="font-size:9px;color:var(--fgdim);margin-left:auto"></span></div>`;
     const p = { el, sw: el.querySelector('.sw'), nm: el.querySelector('.nm'), fm: el.querySelector('.fm'), ef: el.querySelector('.ef'), qn: el.querySelector('.qn'), qr: el.querySelector('.qr'), av: el.querySelector('.av') };
     el.querySelector('.cx').onclick = () => { const d = game.selected[idx]; if (!d) return; const pk = this.pkgs.find(x => x.d === d); if (pk) pk.inCradle = false; game.selected = game.selected.filter(x => x !== d); AX.click(); this.sync(); };
     el.querySelector('.qm').onclick = () => { game[qtyKey]--; AX.tick(); this.sync(); };
@@ -600,12 +600,12 @@ STAGES.select = {
   mkOutPanel(leftPx, wd) {
     const el = mkEl(`position:absolute;left:${leftPx}px;bottom:74px;width:${wd}px;background:linear-gradient(180deg,var(--surf-hi),var(--surf-lo));border:1px solid color-mix(in srgb,var(--A) 34%,transparent);border-radius:8px;box-shadow:inset 0 1px 0 var(--bevhi),0 6px 18px rgba(0,0,0,.5);padding:9px 11px;font-family:inherit;pointer-events:none;box-sizing:border-box`);
     el.innerHTML =
-      `<div style="font-size:9px;letter-spacing:2px;color:var(--fgdim)">OUTPUT</div>` +
+      `<div style="font-size:10px;letter-spacing:2px;color:var(--fgdim);font-weight:bold">OUTPUT</div>` +
       `<div style="display:flex;align-items:center;gap:8px;margin-top:5px">` +
         `<div class="sw" style="width:30px;height:30px;border-radius:6px;background:var(--bg,#1a2a22);border:1px solid #0007;flex:none;box-shadow:inset 0 0 6px #0008"></div>` +
-        `<div class="nm" style="font-size:11px;color:var(--fgdim);line-height:1.25">— nothing yet —</div></div>` +
-      `<div class="ds" style="font-size:9px;color:var(--A);margin-top:5px;letter-spacing:1px;min-height:11px"></div>` +
-      `<div class="risk" style="font-size:8px;color:var(--orange,#c9a06a);margin-top:5px;line-height:1.5;white-space:pre-line;min-height:30px"></div>`;
+        `<div class="nm" style="font-size:13px;color:var(--fgdim);line-height:1.25">— nothing yet —</div></div>` +
+      `<div class="ds" style="font-size:10px;color:var(--A);margin-top:5px;letter-spacing:1px;min-height:12px"></div>` +
+      `<div class="risk" style="font-size:9px;color:var(--orange,#e0b878);margin-top:5px;line-height:1.5;white-space:pre-line;min-height:32px"></div>`;
     return { el, sw: el.querySelector('.sw'), nm: el.querySelector('.nm'), ds: el.querySelector('.ds'), risk: el.querySelector('.risk') };
   },
   refreshPanels() {

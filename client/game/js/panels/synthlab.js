@@ -134,7 +134,7 @@ function buildFormChanger(g) {
   const cur = g.opts.form || DEFAULT_FORM[g.family];
   const w = 66, gap = 6, n = TEST_FORMS.length, x0 = (W - (n * w + (n - 1) * gap)) / 2;
   TEST_FORMS.forEach((f, i) => {
-    const b = g.lab.mkBtn(f, `left:${Math.round(x0 + i * (w + gap))}px;bottom:12px;min-width:${w}px;padding:5px 2px;font-size:9px`, f === cur ? '' : 'ghost');
+    const b = g.lab.mkBtn(f, `left:${Math.round(x0 + i * (w + gap))}px;bottom:40px;min-width:${w}px;padding:5px 2px;font-size:9px`, f === cur ? '' : 'ghost');
     b.onclick = () => { AX.click(); openSynthMinigame({ family: FORM_FAMILY[f], form: f, difficulty: g.difficulty, recipeName: 'TEST · ' + f.toUpperCase(), test: true, onResult: g.opts.onResult }); };
   });
 }
@@ -143,7 +143,7 @@ export function openSynthMinigame(opts = {}) {
   closeSynth();
   const family = FAMILIES[opts.family] ? opts.family : 'wet';
   const fam = FAMILIES[family];
-  const lab = mountLab({ title: 'CHIMERA-9', subtitle: 'COOK · ' + String(opts.recipeName || 'BATCH').toUpperCase(), accent: fam.accent, showInsta: false });
+  const lab = mountLab({ title: 'CHIMERA-9', subtitle: 'COOK · ' + String(opts.recipeName || 'BATCH').toUpperCase(), accent: fam.accent, showInsta: false, test: !!opts.test });
   const d = clamp(opts.difficulty || 5, 1, 14);
   _g = { lab, opts, family, closed: false, phase: 'work', t: 0, last: performance.now(), raf: null, difficulty: d,
     workScore: 0, quenchT: 0, quenchTapped: false, quenchDur: 1.4, result: null, resultT: 0, _resolved: false, _label: fam.label, beaker: { x: W / 2, y: H * 0.48, w: 120, h: 220 } };
@@ -177,7 +177,7 @@ function cookLoop(now) {
   if (g.phase !== 'done') {
     // CHIMERA-9 status readout
     drawLCD(W - 152, 18, 132, 24, (g._label || 'SYNTH').toUpperCase(), '#5fd0e0', 'CHIMERA-9');
-    if (g.opts.test) { G.save(); G.fillStyle = 'rgba(150,180,175,.55)'; G.font = '9px monospace'; G.textAlign = 'center'; G.fillText('DEV · CHANGE FORM ↓', W / 2, H - 40); G.restore(); }
+    if (g.opts.test) { G.save(); G.fillStyle = 'rgba(207,233,216,.8)'; G.font = '9px monospace'; G.textAlign = 'center'; G.fillText('DEV · CHANGE FORM ↓', W / 2, H - 76); G.restore(); }
   }
   if (g.phase === 'quench') drawQuench(g);
   if (g.phase === 'done') drawDone(g);
