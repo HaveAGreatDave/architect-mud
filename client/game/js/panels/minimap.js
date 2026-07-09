@@ -144,6 +144,16 @@ export function renderMinimap(nodes, direction) {
   const byId = new Map(nodes.map(n => [n.id, n]));
   const coords = new Map();
 
+  // District clipping: the sidebar shows only YOUR district plus the doors out of
+  // it. Any tile in a different district is dropped, except the ones you can step
+  // straight into — those render as "gateway" edge markers (see below). This
+  // sharpens the sense of crossing between neighborhoods. `gateways` collects the
+  // foreign tiles that sit one step across a boundary. (Interiors share one prefix,
+  // so inside a building everything is same-district and nothing clips.)
+  const curDistrict = current.district?.key || null;
+  const inDist = (n) => !curDistrict || n?.district?.key === curDistrict;
+  const gateways = new Set();
+
   if (current.map_id && current.grid_x != null && current.grid_y != null) {
     for (const n of nodes) {
       if (n.map_id === current.map_id && n.grid_z === current.grid_z && n.grid_x != null && n.grid_y != null) {
@@ -206,20 +216,31 @@ export function renderMinimap(nodes, direction) {
       // so a cross-street into an unrelated side street doesn't light up. Feeds
       // Avenue View, which reads these to place ||/=/+ artery glyphs.
       const tnode = byId.get(targetId);
+      // District clip: a connector between two tiles that are BOTH in another
+      // district is off your map — don't draw it. A connector with exactly one
+      // foot in your district is a door out: keep it, and mark the far (foreign)
+      // tile as a gateway so it renders as an edge marker.
+      const nIn = inDist(node), tIn = inDist(tnode);
+      if (!nIn && !tIn) continue;
+      if (nIn !== tIn) gateways.add(nIn ? targetId : id);
       const artery = !!(node.artery && tnode?.artery && node.artery.some(s => tnode.artery.includes(s)));
       // Dim the connector if either tile it joins is out of reach (BFS depth).
       const dim = node.reachable === false || tnode?.reachable === false;
-      cell[cy][cx] = { kind: 'link', ch, artery, dim };
+      // Boundary: the connector spans two different districts — drawn faded so
+      // neighborhood edges read as edges, not seamless grid.
+      const boundary = !!(node.district?.key && tnode?.district?.key && node.district.key !== tnode.district.key);
+      cell[cy][cx] = { kind: 'link', ch, artery, dim, boundary };
     }
   }
 
   const symFor = (node) => node.marker
     ? (node.marker.length === 1 ? node.marker + ' ' : node.marker.slice(0, 2))
     : (node.is_safe_zone ? '◆ ' : (node.pvp_enabled ? '✕ ' : '○ '));
-  // Hover tooltip: zone name, plus any building(s) on the tile on a second line.
+  // Hover tooltip: zone name, its district, plus any building(s) on the tile.
   // Escaped so a name with quotes can't break out of the title attribute.
   const titleFor = (node) => {
     const parts = [node.name];
+    if (node.district?.name) parts.push(node.district.name);
     if (node.buildings?.length) parts.push(node.buildings.join(', '));
     return escapeHtml(parts.join('\n'));
   };
@@ -251,7 +272,13 @@ export function renderMinimap(nodes, direction) {
           if (it.artery && (it.ch === '─' || it.ch === '│'))
             html += `<span class="mm-c av-gap" style="position:relative">${avGapSvg(it.ch === '─' ? 'h' : 'v')}${traceSvg}</span>`;
           else html += traceSvg ? `<span class="mm-c mm-void" style="position:relative">${traceSvg}</span>` : `<span class="mm-c mm-void"></span>`;
-        } else { const dc = it.dim ? ' mm-dim' : ''; html += traceSvg ? `<span class="mm-c mm-link${dc}" style="position:relative">${it.ch}${traceSvg}</span>` : `<span class="mm-c mm-link${dc}">${it.ch}</span>`; }
+        } else {
+          // Boundary divider runs perpendicular to the connector: an east-west
+          // connector (─) gets a vertical divider, a north-south one (│) a horizontal.
+          const bd = it.boundary ? (' mm-boundary' + (it.ch === '─' ? ' mm-boundary-v' : it.ch === '│' ? ' mm-boundary-h' : '')) : '';
+          const dc = (it.dim ? ' mm-dim' : '') + bd;
+          html += traceSvg ? `<span class="mm-c mm-link${dc}" style="position:relative">${it.ch}${traceSvg}</span>` : `<span class="mm-c mm-link${dc}">${it.ch}</span>`;
+        }
         continue;
       }
       const node = byId.get(it.id);
@@ -259,10 +286,28 @@ export function renderMinimap(nodes, direction) {
       const trDirs = traceSet.has(it.id) ? traceDirs.get(it.id) : null;
       const traceRoad = trDirs ? traceRoadSvg([...trDirs]) : '';
       if (node.is_current) { html += `<span class="mm-c mm-room mm-current${trDirs ? ' mm-trace' : ''}" title="${titleFor(node)}">${traceRoad}</span>`; continue; }
+      // Foreign tile: only the ones one step across a boundary survive, as a
+      // gateway edge marker (the district's initials in its colour, on a dashed
+      // hollow cell that reads as "another place lies this way"). Deeper foreign
+      // tiles are dropped to void so the sidebar stays scoped to your district.
+      if (!inDist(node)) {
+        if (gateways.has(node.id)) {
+          const g = node.district || {};
+          const gs = [];
+          if (g.color) { const [r0, g0, b0] = hexToRgb(g.color); gs.push(`background:rgba(${r0},${g0},${b0},0.12)`, `color:${g.color}`, `border-color:${g.color}`); }
+          html += `<span class="mm-c mm-room mm-gateway" style="${gs.join(';')}" title="→ ${escapeHtml(g.name || node.name)}">${streetAbbrev(g.name || node.name)}</span>`;
+        } else {
+          html += `<span class="mm-c mm-void"></span>`;
+        }
+        continue;
+      }
       // Tile keeps its danger-tinted / custom fill in both modes; Avenue View just
       // draws the SVG road + reflected overlay ON TOP of the coloured tile.
       const styles = [];
+      // Authored bg wins; otherwise fall back to a faint district tint so the
+      // sidebar reads as coloured neighborhood regions, not a uniform code-grid.
       if (node.bg_color) styles.push(`background:${node.bg_color}`);
+      else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); styles.push(`background:rgba(${dr},${dg},${db},0.20)`); }
       const textColor = node.color || (node.bg_color ? luminanceTextColor(node.bg_color) : null);
       if (textColor) styles.push(`color:${textColor}`);
       const styled = (node.bg_color || node.color) ? ' mm-styled' : '';
@@ -310,6 +355,7 @@ const FUNC_LEGEND = {
   wasteland:   { label: 'Wasteland / ruins',     color: '#7c6a4a' },
   ashway:      { label: 'The Ashway',            color: '#8b9097' },
   slum:        { label: 'Slum / Undermarket',    color: '#cf6a2e' },
+  redline:     { label: 'Redline / Slaughterworks', color: '#c0392b' },
   hazard:      { label: 'Hazard / lethal',       color: '#e05555' },
 };
 
@@ -610,6 +656,8 @@ function onMapHover(e) {
   if (!z) return;
   const t = mapTooltipEl();
   let html = `<div class="map-tt-name">${escapeHtml(z.name)}</div>`;
+  const district = FUNC_LEGEND[z.func];
+  if (district) html += `<div class="map-tt-district" style="color:${district.color}">${escapeHtml(district.label)}</div>`;
   const terr = mapState.territoryView ? _territory?.control?.[z.id] : null;
   if (terr) {
     const contested = terr.status === 'CONTESTED'

@@ -221,6 +221,44 @@ corpses past their `expiresAt`.
 markers, colours, danger, player counts) for the client's 5×5 ASCII grid. `cmdMap` returns the full
 same-`map_id`/same-`grid_z` tile set for the full-screen map popup.
 
+## Districts (sense of place)
+
+[districts.js](../server/engine/districts.js) is the **district registry** — the substrate that
+gives every zone a felt neighborhood identity. A district is the coarse land-use category **derived
+from the zone id prefix** (`zone_<prefix>_<name>`) via `DISTRICT_PREFIX`; `districtFor(zone)` returns
+the matching `DISTRICTS` entry (precedence: a `flags.district` override → the prefix table → a
+lethal-zone `hazard` fallback → the `residential` default, never null). Each entry carries
+`key` / `name` / `color` (the client `FUNC_LEGEND` in
+[minimap.js](../client/game/js/panels/minimap.js) is a separate-runtime mirror — keep its keys/colors
+in sync; `scripts/landuse-zone-colors.js` now imports `districtFor` directly), plus `blurb`,
+`landmark` (a zone id) + `skyline` phrase, and a `signature` sensory pool. `mapFunc` in [movement.js](../server/engine/commands/movement.js) is now a thin
+wrapper over `districtFor(z).key`.
+
+Four surfaces consume it:
+
+- **Header tag** — `describeZone` ([describe.js](../server/engine/commands/describe.js)) prints a
+  district line (`· The Franchise — Commercial Strip ·`) in the district colour under the zone name.
+- **Boundary crossing** — `cmdMove` appends `"You cross into <district>."` to the move narration when
+  the district key changes, plus the district `blurb` once per district per player (gated in
+  `player_flags` as `district_seen_<key>`).
+- **Skyline landmark** — `describeZone` appends a light-gated, **outdoor-only** compass line
+  (`To the north, the Spindle needles up into the haze`), bearing computed by `skylineBearing` off
+  the grid deltas to the district's `landmark` zone. Never fires indoors, in the dark, or when you're
+  standing in the landmark zone.
+- **Minimap** — `getMinimapData` ([world.js](../server/engine/world.js)) adds `district{key,name,color}`
+  to each node; the client tints tiles with the district colour when they have no authored `bg_color`,
+  fades cross-district connectors (`.mm-boundary`), and names the district in the tooltip. The **sidebar
+  minimap is clipped to your own district**: `renderMinimap` drops tiles in other districts and instead
+  renders the one-step-across-a-boundary tiles as **gateway markers** (`.mm-gateway` — the target
+  district's initials in its colour on a dashed hollow cell, tooltip `→ <District>`). The full-screen
+  map (`renderMapGrid`) is *not* clipped — it's the cross-district overview.
+
+**Sensory signatures** are a plugin, not engine: [district-ambience](../plugins/district-ambience/)
+answers the `zone.describeAmbient` tick (~35% of outdoor ambient ticks) with a random `signature`
+line, abstaining with `undefined` the rest of the time so hand-authored `ambient_events` and the
+global pool still carry most of the atmosphere. Interiors are hard-excluded
+(`is_interior`/`is_apartment`/`is_building`).
+
 ## Scheduler
 
 [scheduler.js](../server/engine/scheduler.js) is the single interval dispatcher. Named cadences

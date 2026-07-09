@@ -14,6 +14,7 @@ import {
 } from "../environment.js";
 import { getCustodianOutcastResponse } from "../mutations.js";
 import { allExits } from "../exits.js";
+import { districtFor } from "../districts.js";
 import {
 	describeApartmentStatus,
 	describeRentStatus,
@@ -245,6 +246,23 @@ const LIGHT_GATE = {
 	murk:    { dark: true, hideNpcs: true, line: ["light-murk", "It is nearly black — only the vaguest shapes register."] },
 };
 
+// Compass bearing from a zone to its district landmark, off grid deltas. grid_y
+// increases southward, so north is −dy. The minor axis is dropped when it's much
+// smaller than the major, so a landmark nearly due north reads "north" not
+// "northeast". Returns null when the two share a cell.
+function skylineBearing(dx, dy) {
+	const ns = dy < 0 ? "north" : dy > 0 ? "south" : "";
+	const ew = dx > 0 ? "east" : dx < 0 ? "west" : "";
+	if (!ns && !ew) return null;
+	if (ns && ew) {
+		const ax = Math.abs(dx), ay = Math.abs(dy);
+		if (ax > ay * 2) return ew;
+		if (ay > ax * 2) return ns;
+		return ns + ew; // northeast / southwest / …
+	}
+	return ns || ew;
+}
+
 export async function describeZone(zone, player) {
 	const vis = getZoneVisibility(zone.id);
 	// Per-player perception seam: a carried light source (e.g. a lit flashlight)
@@ -348,6 +366,10 @@ export async function describeZone(zone, player) {
 	if (zone.radiation_level > 0)
 		desc += ` <span class="rad-warning">☢ RAD:${zone.radiation_level}</span>`;
 	if (zone.pvp_enabled) desc += ` <span class="pvp-warning">⚔ PVP</span>`;
+	// District tag: roots which neighborhood this room belongs to, coloured to
+	// match the map's land-use key. Cheap, constant, always shown.
+	const district = districtFor(zone);
+	desc += `\n<span class="zone-district" style="color:${district.color}">· ${district.name} ·</span>`;
 	if (gate.line) {
 		desc += `\n<span class="light-level ${gate.line[0]}">${gate.line[1]}</span>`;
 	}
@@ -367,8 +389,23 @@ export async function describeZone(zone, player) {
 		const wd = getWeatherDescription();
 		if (wd) weatherLine = ` ${wd}`;
 	}
+	// Skyline landmark: a fixed compass for the district. Outdoor + lit only (you
+	// can't sight a landmark indoors or in the dark), and not when you're standing
+	// in the landmark zone itself. Bearing is read off the grid coords.
+	let skylineLine = "";
+	if (!isInteriorZone(zone) && !isDark && district.landmark && district.skyline && zone.id !== district.landmark) {
+		const lm = getZone(district.landmark);
+		if (
+			lm && lm.map_id === zone.map_id &&
+			lm.grid_x != null && zone.grid_x != null &&
+			(lm.grid_z ?? 0) === (zone.grid_z ?? 0)
+		) {
+			const dir = skylineBearing(lm.grid_x - zone.grid_x, lm.grid_y - zone.grid_y);
+			if (dir) skylineLine = ` <span class="text-dim">To the ${dir}, ${district.skyline}.</span>`;
+		}
+	}
 	// Prose paragraph wrapped so the client can collapse/expand it independently.
-	desc += `\n<span class="room-desc">${zoneDesc}${weatherLine}${describeBuildingDiscovery(buildings)}${cameraAside}</span>`;
+	desc += `\n<span class="room-desc">${zoneDesc}${weatherLine}${skylineLine}${describeBuildingDiscovery(buildings)}${cameraAside}</span>`;
 	// First-visit tone-setting lore (per-player, new-account-only) — a plugin
 	// decides whether this player has earned an introduction to this zone and
 	// returns the shimmering block, or nothing. Player is passed so eligibility

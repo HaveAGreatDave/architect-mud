@@ -14,6 +14,8 @@ import { forceStand } from '../posture.js';
 import { registerMoveGate, runMoveGates } from '../movement-gates.js';
 import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
 import { createSelectionState, getSelectionState, formatSelectionPage } from '../sift.js';
+import { districtFor } from '../districts.js';
+import { getFlag, setFlag } from '../flags.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
 
@@ -467,6 +469,19 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
 
   await dragFollowers(player.id, oldZoneId, direction, broadcast);
 
+  // District boundary crossing — turn an invisible neighborhood edge into a felt
+  // threshold. Fires only when the district key actually changes; the one-line
+  // mood blurb is shown once per district per player (gated in player_flags).
+  const fromDistrict = districtFor(zone), toDistrict = districtFor(targetZone);
+  if (toDistrict.key !== fromDistrict.key) {
+    narration += `\n\nYou cross into ${toDistrict.name}.`;
+    const seenKey = `district_seen_${toDistrict.key}`;
+    if (toDistrict.blurb && !(await getFlag('player', seenKey, player))) {
+      narration += ` ${toDistrict.blurb}`;
+      await setFlag('player', seenKey, 'true', player);
+    }
+  }
+
   return { type:'move', message:zoneDesc, narration, zone:targetId, direction, radiation_gain:radGain, minimap: getMinimapData(targetId), tempC: getZoneTemperature(targetId) };
 }
 
@@ -505,28 +520,11 @@ function cmdUnfollow(player, broadcast) {
 
 const MAP_DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
 
-// Coarse land-use / function category for a zone, derived from its id prefix
-// (zone_<cat>_<name>). Mirrors scripts/landuse-zone-colors.js and the client
-// FUNC_LEGEND in minimap.js — keep the three in sync. Drives the "function"
-// colouring of the full-screen map.
-const MAP_FUNC_PREFIX = {
-  bay: 'water', dock: 'docks', nc: 'northcity', up: 'northcity', gov: 'government',
-  civ: 'civic', city: 'civic', clone: 'civic', start: 'civic', threshold: 'civic', thresholdeast: 'civic',
-  apt: 'residential', meridian: 'residential', embassy: 'residential', residential: 'residential',
-  drum: 'commercial', velk: 'commercial', weapons: 'commercial', furniture: 'commercial',
-  mq: 'nightlife',
-  media: 'media', prod: 'media', studio: 'media', util: 'media', ext: 'media',
-  coldwater: 'industrial', powerplantnew: 'industrial', warehouse: 'industrial',
-  slag: 'slaglands',
-  waste: 'wasteland', badland: 'wasteland', outskirts: 'wasteland', ruins: 'wasteland',
-  ashway: 'ashway',
-  deep: 'slum', slums: 'slum', tunnels: 'slum',
-};
+// Coarse land-use / function category for a zone — the district key, derived from
+// its id prefix. The mapping + metadata now live in the district registry
+// (server/engine/districts.js); this thin wrapper keeps the map's `func` field.
 function mapFunc(z) {
-  const p = (z.id || '').match(/^zone_([a-z0-9]+)/)?.[1] || '';
-  if (MAP_FUNC_PREFIX[p]) return MAP_FUNC_PREFIX[p];
-  if (z.danger_rating === 'lethal') return 'hazard';
-  return 'residential'; // non-grey urban default for any unknown prefix
+  return districtFor(z).key;
 }
 
 const MAP_WINDOW_HALF = 5; // 11×11 window: dx,dy ∈ −5..+5

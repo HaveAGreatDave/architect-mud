@@ -645,6 +645,14 @@ textarea {
 	text-transform: uppercase;
 	letter-spacing: 2px;
 }
+/* District tag under the room name — the neighborhood this room belongs to.
+   Colour is set inline per-district; this just sizes it as a quiet subheading. */
+.zone-district {
+	font-size: 11px;
+	font-style: italic;
+	letter-spacing: 1px;
+	opacity: 0.85;
+}
 .zone-danger {
 	font-size: 11px;
 	padding: 1px 5px;
@@ -1759,6 +1767,30 @@ textarea {
 .mm-link.mm-dim {
 	opacity: 0.25;
 }
+/* District boundary connector — the street between two neighborhoods, faded and
+   dashed so district edges read as edges rather than a seamless grid. */
+.mm-link.mm-boundary {
+	opacity: 0.35;
+}
+/* The divider runs perpendicular to the street it crosses: an east-west connector
+   gets a vertical bar between the two tiles; a north-south one a horizontal bar. */
+.mm-link.mm-boundary-v {
+	border-left: 1px dashed var(--text-dim);
+}
+.mm-link.mm-boundary-h {
+	border-bottom: 1px dashed var(--text-dim);
+}
+/* Gateway tile — a door out of your district into an adjacent one. The sidebar
+   scopes to your own neighborhood, so instead of the real foreign room you see a
+   dashed, hollow marker carrying that district's initials (coloured inline), a
+   signpost that reads "another place lies this way". */
+.mm-gateway {
+	border: 1px dashed currentColor;
+	border-radius: 2px;
+	font-size: 8px;
+	font-style: italic;
+	opacity: 0.7;
+}
 /* Avenue View / Auto-walk toggles sit in the minimap section's top-right corner
    (kept out of the .sidebar-label so it doesn't leak into the section's reorder
    title), side by side in a small flex row. */
@@ -2348,6 +2380,11 @@ textarea {
 #map-tooltip .map-tt-name {
 	color: var(--accent);
 	font-weight: bold;
+	margin-bottom: 4px;
+}
+#map-tooltip .map-tt-district {
+	font-size: 11px;
+	font-style: italic;
 	margin-bottom: 4px;
 }
 #map-tooltip .map-tt-desc {

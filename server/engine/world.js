@@ -1,6 +1,7 @@
 import { query } from '../models/db.js';
 import { neighborZoneIds, primaryExits, allExits, addExit, removeExit } from './exits.js';
 import { titleCaseName } from './text.js';
+import { districtFor } from './districts.js';
 
 // In-memory world state — same as before, DB is source of truth
 const world = {
@@ -399,6 +400,7 @@ export function getMinimapData(centerZoneId, depth = 4) {
       map_id: zone.map_id || null,
       grid_x: zone.grid_x, grid_y: zone.grid_y, grid_z: zone.grid_z,
       marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,
+      district: (() => { const d = districtFor(zone); return { key: d.key, name: d.name, color: d.color }; })(),
       artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
       is_current: zone.id === centerZoneId,
       reachable: visited.has(zone.id),

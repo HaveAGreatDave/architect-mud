@@ -160,7 +160,10 @@ function ensureStyles() {
     #tablet-os-overlay .tos-tile:hover { filter:brightness(1.15);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 3px var(--tos-bevel-lo), 0 3px 8px rgba(0,0,0,0.28), 0 0 14px color-mix(in srgb, var(--mg-accent) 30%, transparent); }
     #tablet-os-overlay .tos-tile:active { transform:translateY(1px); box-shadow:inset 0 2px 4px var(--tos-bevel-lo); }
-    #tablet-os-overlay .tos-tile .tos-icon { font-size:24px; display:block; margin-bottom:6px; }
+    #tablet-os-overlay .tos-tile .tos-icon { font-size:24px; display:block; margin-bottom:6px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-tile .tos-icon svg { width:26px; height:26px; display:inline-block; vertical-align:middle; }
+    /* Two-tone: primary uses currentColor (theme fg); the .dim parts pick up a muted derived tone. */
+    #tablet-os-overlay .tos-tile .tos-icon svg .dim { color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-tile .tos-name { font-size:11.5px; letter-spacing:.5px; color:var(--tos-fg); }
 
     /* List view — same raised-bevel treatment as tiles, just row-shaped. */
@@ -320,11 +323,27 @@ function renderHeader(d) {
   return `<div class="tos-hdr"><span>${esc(d.time?.date || '')} <b>${esc(d.time?.time || '')}</b></span><span>${esc(d.location || '')}</span></div>`;
 }
 
+/* Theme-aware app icons, keyed by app id. Primary strokes use currentColor (inherits
+   the tablet's computed foreground); .dim elements pick up a muted derived tone. Falls
+   back to each app's emoji when no SVG is mapped. viewBox 0 0 24 24. */
+const TOS_APP_ICONS = {
+  corp: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M4 21V6h7v15"/><path class="dim" d="M11 9h8v12h-8z" fill="currentColor" fill-opacity=".25" stroke="none"/><path d="M11 9h8v12"/><path d="M2 21h20"/><path d="M6 8h2M6 11h2M6 14h2M6 17h2M14 12h2M14 15h2M14 18h2"/></svg>`,
+  bank: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M12 3l9 5H3z"/><path class="dim" d="M12 3l9 5H3z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M5 8v8M9 8v8M15 8v8M19 8v8"/><path d="M3 20h18"/><path d="M4 17h16"/></svg>`,
+  properties: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M3 11l9-8 9 8"/><path d="M5 10v11h14V10"/><path class="dim" d="M10 21v-6h4v6z" fill="currentColor" fill-opacity=".28" stroke="none"/><path d="M10 21v-6h4v6"/></svg>`,
+  quests: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><rect x="5" y="4" width="14" height="17"/><path class="dim" d="M9 3h6v3H9z" fill="currentColor" fill-opacity=".3"/><path d="M9 3h6v3H9z"/><path d="M8 11l2 2 4-4"/><path d="M8.5 17h7"/></svg>`,
+  settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="miter"><path d="M10.4 2.5h3.2l.5 2.6 2 1.15 2.5-.95 1.6 2.77-2 1.65V13.3l2 1.65-1.6 2.77-2.5-.95-2 1.15-.5 2.6h-3.2l-.5-2.6-2-1.15-2.5.95-1.6-2.77 2-1.65v-2.6l-2-1.65 1.6-2.77 2.5.95 2-1.15z"/><circle class="dim" cx="12" cy="12" r="3" fill="currentColor" fill-opacity=".3" stroke="none"/><circle cx="12" cy="12" r="3"/></svg>`,
+  skills: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 2.5l2.6 5.3 5.9.9-4.25 4.15 1 5.75L12 15.9 6.75 18.6l1-5.75L3.5 8.7l5.9-.9z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M12 2.5l2.6 5.3 5.9.9-4.25 4.15 1 5.75L12 15.9 6.75 18.6l1-5.75L3.5 8.7l5.9-.9z"/></svg>`,
+  weather: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="8" cy="8" r="3" fill="currentColor" fill-opacity=".3"/><circle cx="8" cy="8" r="3"/><path d="M8 2.2v1.6M8 12.2v1.6M2.2 8h1.6M12.2 8h1.6M4.1 4.1l1.1 1.1M10.8 10.8l1.1 1.1M11.9 4.1l-1.1 1.1M5.2 10.8l-1.1 1.1"/><path d="M9 18a3.5 3.5 0 0 1 .5-6.96A4.5 4.5 0 0 1 18 12.5a3 3 0 0 1-.4 5.5z" fill="currentColor" fill-opacity=".12"/></svg>`,
+  vehicles: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 2l2.5 6.5L21 12v2l-6.5-2v4l2.5 2v1.5L12 18l-5 1.5V18l2.5-2v-4L3 14v-2l6.5-3.5z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M12 2l2.5 6.5L21 12v2l-6.5-2v4l2.5 2v1.5L12 18l-5 1.5V18l2.5-2v-4L3 14v-2l6.5-3.5z"/></svg>`,
+};
+
 function renderHomeApps(apps) {
   if (!apps || !apps.length) return '<div class="tos-empty">No applications registered.</div>';
-  return `<div class="tos-grid">${apps.map(a =>
-    `<div class="tos-tile" data-nav-app="${esc(a.id)}"><span class="tos-icon">${esc(a.icon || '▫')}</span><span class="tos-name">${esc(a.name)}</span></div>`
-  ).join('')}</div>`;
+  return `<div class="tos-grid">${apps.map(a => {
+    const svg = TOS_APP_ICONS[a.id];
+    const icon = svg ? svg : esc(a.icon || '▫');
+    return `<div class="tos-tile" data-nav-app="${esc(a.id)}"><span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
+  }).join('')}</div>`;
 }
 
 function renderBreadcrumb(appId, crumb) {
