@@ -1,0 +1,17 @@
+{
+  "description": "A cash dispensing terminal.",
+  "flags": {
+    "atm": true,
+    "interactions": []
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_1783521389502",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Citadel Financial ATM Terminal",
+  "object_type": "terminal",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_residential_lobby"
+}
