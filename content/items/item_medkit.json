@@ -1,20 +1,8 @@
 {
   "description": "Real medical supplies. Increasingly rare, increasingly suspicious about why someone is selling them.",
-  "effects": {
-    "hp_over_time": {
-      "amount": 50,
-      "duration_seconds": 300
-    }
-  },
   "flags": {},
   "id": "item_medkit",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "trauma kit",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "medicine",
   "tags": {
     "consumable": true,
     "description": "Real medical supplies. Increasingly rare, increasingly suspicious about why someone is selling them.",

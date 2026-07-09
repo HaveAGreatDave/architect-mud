@@ -1,15 +1,8 @@
 {
   "description": "A media cassette labeled \"DOOMCAST — Seven-Day Outlook\".",
-  "effects": {},
   "flags": {},
   "id": "item_cassette_doomcast_seven_day_outlook",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 1,
   "name": "Cassette: DOOMCAST — Seven-Day Outlook",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "cassette",
   "tags": {
     "broadcast_id": "bc_1783060890362",
     "media_cassette": true

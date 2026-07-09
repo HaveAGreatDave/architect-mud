@@ -1,17 +1,10 @@
 {
   "description": "A scuffed airdrop crate, still warm from the drone. A cipher-lock winks on the lid — keyed to whoever placed the order. Crack it open (unpack) to get at what's inside.",
-  "effects": {},
   "flags": {
     "cook_tier": 5
   },
   "id": "item_mule_crate",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "a sealed MULE crate",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "crate",
   "tags": {
     "contraband": true,
     "mule_crate": true,

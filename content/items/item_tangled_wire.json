@@ -1,15 +1,8 @@
 {
   "description": "A fist-sized snarl of copper wire, half its insulation cracked away. Worth untangling.",
-  "effects": {},
   "flags": {},
   "id": "item_tangled_wire",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "tangled wire",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "description": "A fist-sized snarl of copper wire, half its insulation cracked away. Worth untangling.",
     "misc": true

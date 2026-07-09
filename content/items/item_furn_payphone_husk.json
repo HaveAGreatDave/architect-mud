@@ -1,17 +1,10 @@
 {
   "description": "A payphone booth stripped of everything useful. The coin slot is blocked with concrete. Good for decoration.",
-  "effects": {},
   "flags": {
     "interactions": []
   },
   "id": "item_furn_payphone_husk",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "dead payphone",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "description": "A payphone booth stripped of everything useful. The coin slot is blocked with concrete. Good for decoration."
   },

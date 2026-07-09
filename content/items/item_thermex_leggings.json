@@ -1,15 +1,8 @@
 {
   "description": null,
-  "effects": {},
   "flags": {},
   "id": "item_thermex_leggings",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "thermex underlayer leggings",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "legs",
   "tags": {
     "bulkiness": 1,
     "description": "Matching thermex base-layer leggings. Seamless, static-clingy, and frequently the only thing standing between your legs and a hypothermic diagnosis.",

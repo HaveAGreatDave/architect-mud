@@ -1,15 +1,8 @@
 {
   "description": null,
-  "effects": {},
   "flags": {},
   "id": "item_claude_trousers",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "graphite field trousers",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "armor": 3,
     "description": "Reinforced graphite-grey trousers, seams taped, knees quietly armored. Built to move without asking permission.",

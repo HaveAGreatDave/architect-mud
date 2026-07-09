@@ -1,15 +1,8 @@
 {
   "description": "A brutal two-handed demolition hammer. Heavy enough to stove in armoured machinery — slowly.",
-  "effects": {},
   "flags": {},
   "id": "item_sledgehammer",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 1,
   "name": "sledgehammer",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "melee",
   "tags": {
     "__own": {
       "damage": {

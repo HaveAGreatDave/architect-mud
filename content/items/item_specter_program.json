@@ -1,15 +1,8 @@
 {
   "description": "",
-  "effects": {},
   "flags": {},
   "id": "item_specter_program",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "SPECTER Install Chip",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "specter_program": true
   },

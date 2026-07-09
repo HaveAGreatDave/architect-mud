@@ -1,15 +1,8 @@
 {
   "description": "Pulses faint blue. Three factions want this.",
-  "effects": {},
   "flags": {},
   "id": "item_architect_fragment",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "architect data fragment",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "artifact",
   "tags": {
     "description": "Pulses faint blue. Three factions want this.",
     "misc": true

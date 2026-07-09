@@ -1,15 +1,8 @@
 {
   "description": "A palm-sized quadrotor that folds into a matte-black wafer. Thirsty on power — hours, not days — but it can be flown into places you can't reach.",
-  "effects": {},
   "flags": {},
   "id": "item_spy_drone",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "Recon Drone",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "battery_max": 864,
     "concealment_base": 6,

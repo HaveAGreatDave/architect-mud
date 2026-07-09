@@ -1,19 +1,12 @@
 {
   "description": "A broad desk surface with embedded touchpads and holographic emitters projecting a ghost workspace thirty centimetres above the surface.",
-  "effects": {},
   "flags": {
     "interactions": [
       "lean"
     ]
   },
   "id": "item_furn_nano_desk",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "self-organizing desk",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "description": "A broad desk surface with embedded touchpads and holographic emitters projecting a ghost workspace thirty centimetres above the surface."
   },

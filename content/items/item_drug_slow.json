@@ -1,15 +1,8 @@
 {
   "description": "A thick blue syrup. Time gets soft.",
-  "effects": {},
   "flags": {},
   "id": "item_drug_slow",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "slow",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "description": "A thick blue syrup. Time gets soft.",
     "drug": true,

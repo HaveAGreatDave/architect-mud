@@ -1,20 +1,8 @@
 {
   "description": "Something used to own this. Cook before eating.",
-  "effects": {
-    "hunger": 15,
-    "status_chance": {
-      "food_poisoning": 0.6
-    }
-  },
   "flags": {},
   "id": "item_raw_meat",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "raw meat",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "food_raw",
   "tags": {
     "consumable": true,
     "description": "Something used to own this. Cook before eating.",

@@ -1,15 +1,8 @@
 {
   "description": null,
-  "effects": {},
   "flags": {},
   "id": "item_thermex_top",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "thermex underlayer top",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "torso",
   "tags": {
     "bulkiness": 1,
     "description": "A skin-tight base layer of thermex mesh that traps a thin cushion of warm air against the body. Cheap, reactive, and worn under everything by anyone who's spent one night outdoors and learned the lesson.",

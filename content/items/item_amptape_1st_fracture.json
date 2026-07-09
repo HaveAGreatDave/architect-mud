@@ -1,15 +1,8 @@
 {
   "description": "A cracked-case cassette, FIRST FRACTURE hand-lettered in silver marker. Breakbeat built over the sound of something load-bearing finally giving way. Side B is the same track, slower and sadder.",
-  "effects": {},
   "flags": {},
   "id": "item_amptape_1st_fracture",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "First Fracture — cassette tape",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "cassette",
   "tags": {
     "amp_cassette": true,
     "song_id": "aud_9ea4d6ed-85b8-49c7-bf65-2fc38c8ca00b"

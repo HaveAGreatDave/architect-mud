@@ -1,17 +1,8 @@
 {
   "description": "A Franchise-issue credit chip, this one heavier in the denomination than the fistfuls of shrapnel most survivors carry. Cracks it open worth a hundred.",
-  "effects": {
-    "credits": 100
-  },
   "flags": {},
   "id": "item_credit_chip_100",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "credit chip (100₵)",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "credits",
   "tags": {
     "currency": true,
     "description": "A Franchise-issue credit chip worth a hundred.",

@@ -1,15 +1,8 @@
 {
   "description": "A thumb-sized adhesive camera the colour of dead concrete. Runs off an internal cell for days and squirts its feed to a paired deck.",
-  "effects": {},
   "flags": {},
   "id": "item_sticky_cam",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "Sticky Cam",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "battery_max": 864,
     "concealment_base": 4,

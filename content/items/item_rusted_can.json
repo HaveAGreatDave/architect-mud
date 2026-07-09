@@ -1,15 +1,8 @@
 {
   "description": "A dented steel can, label long gone to rust. Empty, but the metal is still good for something.",
-  "effects": {},
   "flags": {},
   "id": "item_rusted_can",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "rusted can",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "description": "A dented steel can, label long gone to rust. Empty, but the metal is still good for something.",
     "misc": true

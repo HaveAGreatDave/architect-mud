@@ -1,19 +1,12 @@
 {
   "description": "A 24-inch cathode-ray tube set propped on a milk crate. Channel dial missing; previous owner used needle-nose pliers. Scan lines visible in strong light. Picture is warm and slightly wrong in a way that feels human.",
-  "effects": {},
   "flags": {
     "interactions": [
       "watch"
     ]
   },
   "id": "item_furn_vidicron_tv",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "Vidicron TV",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "description": "A 24-inch cathode-ray tube set propped on a milk crate. Channel dial missing; previous owner used needle-nose pliers. Scan lines visible in strong light. Picture is warm and slightly wrong in a way that feels human."
   },

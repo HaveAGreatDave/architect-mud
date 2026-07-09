@@ -1,15 +1,8 @@
 {
   "description": null,
-  "effects": {},
   "flags": {},
   "id": "item_nyra_briefs_adaptive",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "adaptive bio-regulating briefs",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "bulkiness": 1,
     "description": "Lightweight, breathable undergarments engineered for comfort and temperature regulation. The material adjusts to movement and humidity, designed for long-term wear in dense urban environments.",

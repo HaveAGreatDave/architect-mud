@@ -1,15 +1,8 @@
 {
   "description": "A dissociative dust that unplugs you from your own body for a while.",
-  "effects": {},
   "flags": {},
   "id": "item_khole",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "k-hole",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "drug",
   "tags": {
     "drug": true
   },

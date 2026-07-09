@@ -1,15 +1,8 @@
 {
   "description": "A slim rechargeable cell, the kind that keeps a bug alive for days. The heartbeat.",
-  "effects": {},
   "flags": {},
   "id": "item_micro_cell",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "Micro Cell",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "component": true
   },

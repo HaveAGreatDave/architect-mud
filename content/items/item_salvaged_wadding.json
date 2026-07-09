@@ -1,15 +1,8 @@
 {
   "description": null,
-  "effects": {},
   "flags": {},
   "id": "item_salvaged_wadding",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "salvaged wadding",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "description": "A compressed brick of stitched rag, seat-foam and blanket scraps, bound with fray-tape. Smells faintly of the car it was torn out of.",
     "material": true

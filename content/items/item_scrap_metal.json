@@ -1,15 +1,8 @@
 {
   "description": "Bent rebar and sheet aluminum.",
-  "effects": {},
   "flags": {},
   "id": "item_scrap_metal",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "scrap metal",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "metal",
   "tags": {
     "description": "Bent rebar and sheet aluminum.",
     "material": true

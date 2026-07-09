@@ -1,18 +1,11 @@
 {
   "description": "A jerrycan of crude The Threshold. Titrate and stabilise into the finished liquid. Raw material — contraband; carrying it is manufacturing.",
-  "effects": {},
   "flags": {
     "cook_tier": 2,
     "raw_of": "drug_threshold"
   },
   "id": "item_raw_threshold",
-  "is_quest_item": 0,
-  "is_stackable": 1,
-  "is_unique": 0,
   "name": "crude The Threshold",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "raw",
   "tags": {
     "contraband": true,
     "raw_drug": true

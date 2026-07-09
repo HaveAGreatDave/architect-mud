@@ -1,15 +1,8 @@
 {
   "description": "Useful for bluffing Custodian checkpoints.",
-  "effects": {},
   "flags": {},
   "id": "item_custodian_badge",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "custodian ID badge",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": "key_item",
   "tags": {
     "description": "Useful for bluffing Custodian checkpoints.",
     "misc": true

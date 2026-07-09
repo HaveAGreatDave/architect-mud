@@ -1,15 +1,8 @@
 {
   "description": null,
-  "effects": {},
   "flags": {},
   "id": "item_duct_tape",
-  "is_quest_item": 0,
-  "is_stackable": 0,
-  "is_unique": 0,
   "name": "roll of duct tape",
-  "requirements": {},
-  "stat_modifiers": {},
-  "subtype": null,
   "tags": {
     "description": "A fat roll of silver duct tape, industrial grade, the cardboard core crushed flat. Fixes wiring, boots, ductwork, wounds, and the occasional argument. The universal solvent of the working man.",
     "misc": true
