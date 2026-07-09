@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Coldwater — wristpad scan</title>
+<style>
+  :root{
+    --grn:#2ecc40; --grn-t:#06210a;
+    --cyn:#39cccc; --cyn-t:#042120;
+    --yel:#ffd21f; --yel-t:#2a2400;
+    --red:#ff4136; --red-t:#ffffff;
+    --blu:#2b7fff; --blu-t:#ffffff;
+    --mag:#c026d3; --mag-t:#ffffff;
+    --gry:#8a9a97; --gry-t:#0b1110;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#000}
+  body{
+    min-height:100vh;padding:18px 14px 26px;
+    font-family:"Cascadia Mono","DejaVu Sans Mono","Consolas",ui-monospace,monospace;
+    color:#c7d0cd;font-size:15px;line-height:1.34;
+    -webkit-font-smoothing:none;
+  }
+  .wrap{max-width:900px;margin:0 auto}
+  .desc b{color:#fff;font-weight:700}
+  .desc .say{color:#39cccc}
+  .desc .dim{color:#6d7a77}
+  .room{color:#fff;font-weight:700;margin-top:1.1em}
+  .exits{color:#7f8c8d}
+  .exits .x{color:#2ecc40;font-weight:700}
+  .exits .xd{color:#ffd21f;font-weight:700}
+  .exits .xi{color:#2b7fff;font-weight:700}
+  .sys{color:#6d7a77}
+
+  .scanrow{display:flex;flex-wrap:wrap;gap:6px 28px;margin:.5em 0 .2em}
+  pre.map{margin:0;white-space:pre;color:#5b6a67;overflow-x:auto;max-width:100%}
+  pre.map .brk{color:#9aa7a3}
+  pre.map .rd{color:#3f4c4a}
+  pre.map .con{color:#63726f}
+  pre.map .you{color:#eafff4;font-weight:700}
+  pre.map .dia{color:#ff4136;font-weight:700}
+  .chip{padding:0 1px;border-radius:2px;font-weight:700}
+  .grn{background:var(--grn);color:var(--grn-t)}
+  .cyn{background:var(--cyn);color:var(--cyn-t)}
+  .yel{background:var(--yel);color:var(--yel-t)}
+  .red{background:var(--red);color:var(--red-t)}
+  .blu{background:var(--blu);color:var(--blu-t)}
+  .mag{background:var(--mag);color:var(--mag-t)}
+  .gry{background:var(--gry);color:var(--gry-t)}
+
+  .legend{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;align-content:start;font-size:14px}
+  .legend .lc{text-align:right;white-space:nowrap}
+  .legend .ln{color:#c7d0cd}
+  .legend .sep{grid-column:1/3;height:5px}
+
+  .events{margin-top:1.1em;color:#c7d0cd}
+  .events .r{color:#ff6b6b}
+  .events .g{color:#6ee06e}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="desc">
+An <b>FCPD cam</b> peers down from a utility pole.  <span class="say">A helpful sign</span> <span class="dim">is posted here.</span>  A
+<b>soylent dispenser</b> is bolted to the shutter of the recycling center.  A puddle of
+foul-smelling <b>coolant</b> is slowly soaking into the crete.
+  </div>
+
+  <div class="room">The Threshold.</div>
+  <div class="exits">[ Exits:  <span class="x">north</span>  <span class="xd">east</span><span class="dim">(door)</span>  <span class="x">south</span>  <span class="x">west</span>  <span class="xi">+in</span><span class="dim">(suicide booth)</span> ]</div>
+  <div class="sys">It's a bit chilly.</div>
+  <div class="sys">You call up an in-depth wristpad scan...</div>
+
+  <div class="scanrow">
+    <pre class="map" id="map"></pre>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="events">
+<span class="g">Flowman</span> shuffles out of the Sprawl Gate.
+A red light blinks on the <b>FCPD cam</b> as it swivels toward <span class="g">Flowman</span>.
+<span class="g">Flowman</span> heads south down the street.
+<span class="g">Mex_Cassidy</span> comes up the street from the south.
+  </div>
+</div>
+
+<script>
+// ---- map model -------------------------------------------------------------
+// cell codes: 'x' void, '.' dot, 'r' [||], 'h' [==], 'p' [##], 'd' [<>], 'you'
+// building: {c:'BS', k:'<', col:'mag'}   k = '[' or '<'
+const B = (c,col,k='[')=>({c,col,k});
+const GRID = [
+  ['x','r','.', B('Fm','cyn'),'h','r','.','x','x'],
+  ['r', B('BS','mag','<'),'r','r', B('TV','yel'),'r', B('AS','blu','<'),'r','x'],
+  ['p','h','h','h','p','h','h','h','p'],
+  ['r', B('Me','blu'),'r', B('PP','yel'),'r', B('Ch','blu'),'r', B('Yd','gry'),'x'],
+  [B('CF','blu','<'),'r', B('Em','blu'),'r','you','r', B('Am','grn'), B('Yd','gry'),'x'],
+  ['p','h','h','h','p','h','h','h','p'],
+  ['r', B('DP','mag','<'), B('Su','mag','<'),'r', B('R9','grn'),'r', B('P9','red','<'), B('Cg','red'),'x'],
+  [B('Vk','grn'),'r', B('DS','grn'), B('Cl','grn'),'r', B('GM','grn'),'r', B('Un','red','<'),'x'],
+  ['x','d','x','x','d','x','x','x','x'],
+];
+// horizontal connectors (8 per row): '-', '+', ' '
+const HC = [
+  "   --   ",
+  "-- ---- ",
+  "--------",
+  "------- ",
+  "------- ",
+  "--------",
+  "------- ",
+  "------- ",
+  "        ",
+];
+// vertical connectors between rows (9 cols): '|','+',' '
+const VC = [
+  " | |||   ",
+  "|||||||| ",
+  "|||||||| ",
+  "|||||||| ",
+  "|||||||| ",
+  "|||||||| ",
+  "|||||||| ",
+  " |  |    ",
+];
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function cellHTML(cell){
+  if(cell==='x') return '    ';
+  if(cell==='.') return ' <span class="rd">.</span>  ';
+  if(cell==='r') return '<span class="brk">[</span><span class="rd">||</span><span class="brk">]</span>';
+  if(cell==='h') return '<span class="brk">[</span><span class="rd">==</span><span class="brk">]</span>';
+  if(cell==='p') return '<span class="brk">[</span><span class="rd">##</span><span class="brk">]</span>';
+  if(cell==='d') return '<span class="brk">[</span><span class="dia">&lt;&gt;</span><span class="brk">]</span>';
+  if(cell==='you') return ' <span class="you">()</span> ';
+  const close = cell.k==='<' ? '>' : ']';
+  return '<span class="brk">'+cell.k+'</span><span class="chip '+cell.col+'">'+cell.c+'</span><span class="brk">'+close+'</span>';
+}
+const map=document.getElementById('map');
+let out='';
+for(let r=0;r<GRID.length;r++){
+  let line='';
+  for(let c=0;c<9;c++){
+    line+=cellHTML(GRID[r][c]);
+    if(c<8) line+='<span class="con">'+esc(HC[r][c])+'</span>';
+  }
+  out+=line;
+  if(r<GRID.length-1){
+    let v='';
+    for(let c=0;c<9;c++){
+      const ch=VC[r][c]||' ';
+      v+=' <span class="con">'+esc(ch)+'</span>  ';
+      if(c<8) v+=' ';
+    }
+    out+='\n'+v+'\n';
+  }
+}
+map.innerHTML=out;
+
+// ---- legend ----------------------------------------------------------------
+const LEG=[
+  ['()','you','YOU ARE HERE'],
+  ['Fm','cyn',"Fishmarket Dock"],
+  ['BS','mag','The Blindspot'],
+  ['TV','yel','KSAB-TV Studio'],
+  ['AS','blu','The Assembly'],
+  ['Me','blu','The Meridian'],
+  ['Ch','blu','Chrome Court'],
+  ['PP','yel','Coldwater Power Plant'],
+  ['CF','blu','Clone Facility'],
+  ['Em','blu','Embassy Hotel'],
+  ['DP','mag','The Dead Pigeon'],
+  ['Su','mag','Sump'],
+  ['R9','grn','Ration Nine'],
+  ['P9','red','Precinct 9'],
+  ['Cg','red','The Cage'],
+  ['Vk','grn',"Velk's Furnishings"],
+  ['DS','grn','Dead Space Interiors'],
+  ['Am','grn','Ampersand Electronics'],
+  ['Cl','grn','The Clinic'],
+  ['GM','grn','Gutter Market'],
+  ['Yd','gry','The Yards'],
+  ['Un','red','To The Under'],
+  ['sep'],
+  ['[||]','rd','street'],
+  ['[##]','rd','junction'],
+  ['[<>]','dia','landmark'],
+];
+const leg=document.getElementById('legend');
+let lh='';
+for(const e of LEG){
+  if(e[0]==='sep'){ lh+='<div class="sep"></div>'; continue; }
+  const [code,col,name]=e;
+  let chip;
+  if(col==='you') chip='<span class="you">'+code+'</span>';
+  else if(col==='rd') chip='<span class="brk">'+code.replace(/[|#]/g,m=>'<span class="rd">'+m+'</span>')+'</span>';
+  else if(col==='dia') chip='<span class="brk">[</span><span class="dia">&lt;&gt;</span><span class="brk">]</span>';
+  else chip='<span class="chip '+col+'">'+code+'</span>';
+  lh+='<div class="lc">'+chip+'</div><div class="ln">'+name+'</div>';
+}
+leg.innerHTML=lh;
+</script>
+</body>
+</html>
