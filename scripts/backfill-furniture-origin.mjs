@@ -16,6 +16,21 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { query } from '../server/models/db.js';
 
+// Preflight: the origin column reaches this DB via SCHEMA_SQL — on prod that
+// means the CODEX deploy (push to main), never a manual db:schema. Running the
+// backfill first is a harmless ordering mistake; explain it instead of crashing.
+const { rows: colCheck } = await query(
+  `SELECT 1 FROM information_schema.columns WHERE table_name='furniture' AND column_name='origin'`);
+if (!colCheck.length) {
+  console.error(
+    '✗ furniture.origin does not exist in this DB yet.\n' +
+    '  This backfill runs AFTER the push that ships the column:\n' +
+    '    1. push to main (CI applies SCHEMA_SQL + deploys the origin-stamping code)\n' +
+    '    2. re-run this script.\n' +
+    '  (On a local dev DB: npm run db:schema, then re-run.)');
+  process.exit(1);
+}
+
 const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'content', 'furniture');
 const fileIds = new Set();
 for (const f of readdirSync(dir).filter(f => f.endsWith('.json'))) {
