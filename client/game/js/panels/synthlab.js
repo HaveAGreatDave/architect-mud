@@ -9,7 +9,12 @@
 // server-side. On finish, opts.onResult({score}) → `synthresolve <recipeId> <score>`.
 
 import { sendCmd } from '../net.js';
-import { clamp, rnd, shade, G, W, H, roundRect, drawBench, drawBeaker, drawBurner, fillLiquid, drawSteam, drawLCD, AX, mountLab } from './lab-kit.js';
+import { clamp, rnd, shade, G, W, H, roundRect, drawBench, drawBeaker, drawBurner, fillLiquid, drawSteam, drawLCD, AX, mountLab, labBgLight } from './lab-kit.js';
+
+// canvas text assumes a dark backdrop by default; cooktest can sit on a light theme
+// (see lab-kit's labBgLight), so flip these two hardcoded HUD palettes when it does.
+const dimCol = () => labBgLight ? '#3f5148' : '#6f8a7c';
+const brightCol = () => labBgLight ? '#173226' : '#cfe9d8';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -177,7 +182,7 @@ function cookLoop(now) {
   if (g.phase !== 'done') {
     // CHIMERA-9 status readout
     drawLCD(W - 152, 18, 132, 24, (g._label || 'SYNTH').toUpperCase(), '#5fd0e0', 'CHIMERA-9');
-    if (g.opts.test) { G.save(); G.fillStyle = 'rgba(207,233,216,.8)'; G.font = '9px monospace'; G.textAlign = 'center'; G.fillText('DEV · CHANGE FORM ↓', W / 2, H - 76); G.restore(); }
+    if (g.opts.test) { G.save(); G.fillStyle = brightCol(); G.font = 'bold 11px monospace'; G.textAlign = 'center'; G.fillText('DEV · CHANGE FORM ↓', W / 2, H - 76); G.restore(); }
   }
   if (g.phase === 'quench') drawQuench(g);
   if (g.phase === 'done') drawDone(g);
@@ -200,18 +205,18 @@ function quenchStrike(g) {
 function finishCook(g, grade, bonus) { if (g.phase === 'done') return; const score = clamp(Math.round((g.workScore + bonus) * 100), 0, 100); g.result = { grade, score }; g.phase = 'done'; g.resultT = 0; AX.tone(score >= 60 ? 520 : 200, .3, { type: 'triangle', gain: .2, to: score >= 60 ? 760 : 120 }); }
 
 // ── shared HUD + finish overlays ─────────────────────────────────────────────
-function hud(g, text) { G.save(); G.textAlign = 'center'; G.fillStyle = '#6f8a7c'; G.font = '10px monospace'; G.fillText(g._label || '', W / 2, 50); G.fillStyle = '#cfe9d8'; G.font = 'bold 12px monospace'; G.fillText(text, W / 2, 66); G.restore(); }
+function hud(g, text) { G.save(); G.textAlign = 'center'; G.fillStyle = dimCol(); G.font = 'bold 11px monospace'; G.fillText(g._label || '', W / 2, 50); G.fillStyle = brightCol(); G.font = 'bold 13px monospace'; G.fillText(text, W / 2, 66); G.restore(); }
 function drawQuench(g) {
   const cx = W / 2, cy = H * 0.44, R0 = 150, Rt = 34, R = R0 * (1 - clamp(g.quenchT / g.quenchDur, 0, 1));
   G.strokeStyle = 'rgba(79,224,138,.8)'; G.lineWidth = 3; G.beginPath(); G.arc(cx, cy, Rt, 0, 7); G.stroke();
   if (R > 2 && !g.quenchTapped) { G.strokeStyle = `rgba(95,208,224,${clamp(R / R0 + .2, .3, 1)})`; G.lineWidth = 2.5; G.beginPath(); G.arc(cx, cy, R, 0, 7); G.stroke(); }
-  G.fillStyle = '#6f8a7c'; G.font = '9px monospace'; G.textAlign = 'center'; G.fillText('◄ SET ON THE MARK ►', cx, cy - Rt - 12);
+  G.fillStyle = brightCol(); G.font = 'bold 11px monospace'; G.textAlign = 'center'; G.fillText('◄ SET ON THE MARK ►', cx, cy - Rt - 12);
 }
 function drawDone(g) {
   const win = g.result.score >= 60; G.save(); G.textAlign = 'center';
   G.fillStyle = win ? '#4fe08a' : '#e0b64f'; G.font = 'bold 18px monospace'; G.shadowColor = win ? 'rgba(79,224,138,.7)' : 'rgba(224,182,79,.6)'; G.shadowBlur = 14;
   G.fillText(`${g.result.grade} — ${g.result.score}%`, W / 2, H * 0.2); G.shadowBlur = 0;
-  G.fillStyle = '#6f8a7c'; G.font = '9px monospace'; G.fillText(g.result.score >= 75 ? 'CLEAN BATCH' : g.result.score >= 45 ? 'PASSABLE' : 'MESSY', W / 2, H * 0.2 + 16); G.restore();
+  G.fillStyle = dimCol(); G.font = 'bold 10px monospace'; G.fillText(g.result.score >= 75 ? 'CLEAN BATCH' : g.result.score >= 45 ? 'PASSABLE' : 'MESSY', W / 2, H * 0.2 + 16); G.restore();
 }
 
 // ── per-family renderers ─────────────────────────────────────────────────────
@@ -244,7 +249,7 @@ function drawSolidsGame(g) {
   const by0 = gy + gh * (1 - (g.target + g.band)), bh = gh * g.band * 2;
   G.fillStyle = 'rgba(255,178,62,.28)'; G.fillRect(gx, by0, 16, bh); G.strokeStyle = 'rgba(255,178,62,.8)'; G.strokeRect(gx, by0, 16, bh);
   const ny = gy + gh * (1 - clamp(g.force, 0, 1)); G.fillStyle = Math.abs(g.force - g.target) < g.band ? '#4fe08a' : g.force > g.target ? '#ff4a5b' : '#5fd0e0'; G.fillRect(gx - 4, ny - 2, 24, 4);
-  G.fillStyle = '#6f8a7c'; G.font = '8px monospace'; G.textAlign = 'center'; G.fillText('FORCE', gx + 8, gy - 6);
+  G.fillStyle = dimCol(); G.font = 'bold 9px monospace'; G.textAlign = 'center'; G.fillText('FORCE', gx + 8, gy - 6);
   hud(g, `PRESS ${Math.min(g.pressIdx + 1, g.presses)} / ${g.presses}`);
 }
 function drawGasGame(g) {
