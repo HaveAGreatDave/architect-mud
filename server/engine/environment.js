@@ -1490,6 +1490,18 @@ export function floorVisibility(vis, floorCategory) {
   return { ...vis, category: floorCategory, visibility: Math.max(vis.visibility || 0, CATEGORY_MIN_VIS[floorCategory]) };
 }
 
+// To-hit penalty from darkness: every ladder step dimmer than `clear` is −1,
+// bottoming out at −5 in pitch dark. Brighter-than-clear rooms give no bonus —
+// darkness only ever hurts. Combat reads this per-attacker (combat.js), using
+// the attacker's own perceived light (a carried flashlight can lift it).
+const LIGHT_HIT_BASELINE = 'clear';
+export function lightHitPenalty(category) {
+  const base = LIGHT_LADDER.indexOf(LIGHT_HIT_BASELINE);
+  const idx = LIGHT_LADDER.indexOf(category);
+  if (idx < 0 || base < 0) return 0;
+  return Math.min(0, idx - base);
+}
+
 // GDD §7.2 feedback lines, for room-description injection on a visibility
 // category change (wire into commands.js room rendering / zone.describeAmbient).
 export function describeVisibilityTransition(prevCategory, nextCategory) {

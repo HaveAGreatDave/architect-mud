@@ -2,7 +2,23 @@ import { world, getEnemyInstance, removeEnemyInstance, getLivePlayer, getZonePla
 import { getNpcCombatLine } from './npc-personality.js';
 import { effectiveSkill, awardSkillUse } from './skills.js';
 import { ensureTunables, getTunable } from './tunables.js';
+import { getZoneVisibility, lightHitPenalty } from './environment.js';
+import { fireHook } from './plugins.js';
 import { query } from '../models/db.js';
+
+// Darkness to-hit penalty for an attacker swinging in `zoneId`, from the
+// attacker's OWN perceived light. Pass the attacking player as `perceiver` so a
+// carried light source (lit flashlight, via the visibility.perceive hook) can
+// lift the room out of darkness for them; monsters pass none and eat the raw
+// zone darkness. Returns 0 or a negative number to add straight onto the margin.
+async function darknessHitPenalty(zoneId, perceiver = null) {
+  const vis = getZoneVisibility(zoneId);
+  if (perceiver) {
+    const perceived = await fireHook('visibility.perceive', perceiver, vis);
+    if (perceived) vis.category = perceived.category;
+  }
+  return lightHitPenalty(vis.category);
+}
 
 // Quoted cry  → speech:  Name says: "..."   (name prepended as speaker)
 // Unquoted cry → emote:   raw text as-is    ($enemy token already substituted in)
@@ -194,7 +210,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   const attackSkill = await effectiveSkill(player, weaponSkillId);
 
   const enemyDodge = enemy.dodge ?? 1;
-  const margin = (attackSkill - enemyDodge) + rollSwing();
+  const margin = (attackSkill - enemyDodge) + rollSwing() + await darknessHitPenalty(enemy.zoneId, player);
   const hit = margin >= 0;
 
   setCooldown(player.id, 'attack');
@@ -278,7 +294,7 @@ export async function enemyAttackPlayer(enemy, player) {
 
   const enemyHit = enemy.hit ?? 1;
   const playerDodge = await effectiveSkill(player, 'dodge');
-  const margin = (enemyHit - playerDodge) + rollSwing();
+  const margin = (enemyHit - playerDodge) + rollSwing() + await darknessHitPenalty(enemy.zoneId);
   const hit = margin >= 0;
 
   const cries = enemy.flags?.battle_cries;
@@ -399,7 +415,7 @@ export async function pvpSwing(attacker, defender) {
 
   const attackSkill = await effectiveSkill(attacker, weaponSkill);
   const defDodge = await effectiveSkill(defender, 'dodge');
-  const margin = (attackSkill - defDodge) + rollSwing();
+  const margin = (attackSkill - defDodge) + rollSwing() + await darknessHitPenalty(attacker.current_zone, attacker);
   const hit = margin >= 0;
 
   if (!hit) {
@@ -460,7 +476,7 @@ export async function playerAttackNpc(player, npcId, weaponStats) {
   const weaponSkillId = weaponStats?.weapon_skill || 'fists';
   const attackSkill = await effectiveSkill(player, weaponSkillId);
   const npcDodge = npc.flags?.dodge ?? 1;
-  const margin = (attackSkill - npcDodge) + rollSwing();
+  const margin = (attackSkill - npcDodge) + rollSwing() + await darknessHitPenalty(npc.zone_id, player);
   const hit = margin >= 0;
   setCooldown(player.id, 'attack');
 
@@ -517,7 +533,7 @@ export async function enemyAttackNpc(enemy, npc) {
   if (now - enemy.lastAttack < attackInterval) return null;
   enemy.lastAttack = now;
 
-  const margin = (enemy.hit ?? 1) - (npc.flags?.dodge ?? 1) + rollSwing();
+  const margin = (enemy.hit ?? 1) - (npc.flags?.dodge ?? 1) + rollSwing() + await darknessHitPenalty(npc.zone_id);
   const hit = margin >= 0;
   if (!hit) {
     return { hit: false, killed: false, npcId: npc.id, message: `${enemy.name} attacks ${npc.name} and misses.` };
@@ -566,7 +582,7 @@ export async function enemyAttackEnemy(attacker, defender) {
   if (now - attacker.lastAttack < attackInterval) return null;
   attacker.lastAttack = now;
 
-  const margin = (attacker.hit ?? 1) - (defender.flags?.dodge ?? 1) + rollSwing();
+  const margin = (attacker.hit ?? 1) - (defender.flags?.dodge ?? 1) + rollSwing() + await darknessHitPenalty(defender.zoneId);
   const hit = margin >= 0;
   if (!hit) {
     return { hit: false, killed: false, message: `${attacker.name} attacks ${defender.name} and misses.` };
@@ -613,7 +629,7 @@ export async function npcAttackPlayer(npc, player) {
 
   const npcHit = npc.flags?.hit ?? 1;
   const playerDodge = await effectiveSkill(player, 'dodge');
-  const margin = (npcHit - playerDodge) + rollSwing();
+  const margin = (npcHit - playerDodge) + rollSwing() + await darknessHitPenalty(npc.zone_id);
   const hit = margin >= 0;
 
   if (!hit) {

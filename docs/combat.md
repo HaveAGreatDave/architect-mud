@@ -20,12 +20,24 @@ plus a symmetric dice swing.
 
 ```
 swing = 2d8 − 2d8 (range −14..+14; ~40% within ±2)
-margin = (attackerHit − defenderDodge) + swing
+margin = (attackerHit − defenderDodge) + swing + darknessPenalty
 hit = margin >= 0
 ```
 
 - **Player → enemy:** `attackerHit = effectiveSkill(player, weaponSkill)`; `defenderDodge = enemy.dodge`.
 - **Enemy → player:** `attackerHit = enemy.hit`; `defenderDodge = effectiveSkill(player, 'dodge')`.
+
+### Darkness penalty
+
+`darknessHitPenalty` (`combat.js`) subtracts **1 to-hit per light-ladder step dimmer than `clear`**,
+bottoming out at −5 in pitch dark; `clear`/`bright`/`blazing` give no penalty (and no bonus — darkness
+only ever hurts). The step comes from `getZoneVisibility(zone).category` on the 8-step ladder
+(`pitch_dark→murk→dark→gloomy→dim→clear→bright→blazing`) via `lightHitPenalty` (`environment.js`). It is
+applied **from the attacker's own perceived light**: player-initiated swings (`playerAttackEnemy`,
+`playerAttackNpc`, `pvpSwing`) run the `visibility.perceive` hook first, so a lit flashlight cancels the
+penalty for that attacker; monster/NPC swings (`enemyAttackPlayer`, `npcAttackPlayer`) eat the raw zone
+darkness. Mob-vs-mob paths (`enemyAttackNpc`/`enemyAttackEnemy`) apply the raw zone darkness too, so
+every combat direction respects the light level.
 
 `effectiveSkill = skill level (floor(player_skills.ip/100), 0–10) + average of the skill's governing stats` (`skills.js`). It can exceed 10.
 There is no `dodge_base` term any more — `dodge`/`effectiveSkill('dodge')` is the whole defense value.
