@@ -9,7 +9,7 @@
 // server-side. On finish, opts.onResult({score}) → `synthresolve <recipeId> <score>`.
 
 import { sendCmd } from '../net.js';
-import { clamp, rnd, shade, G, W, H, roundRect, drawBench, drawBeaker, drawBurner, fillLiquid, drawSteam, drawLCD, ghostReflection, AX, mountLab } from './lab-kit.js';
+import { clamp, rnd, shade, G, W, H, roundRect, drawBench, drawBeaker, drawBurner, fillLiquid, drawSteam, drawLCD, AX, mountLab } from './lab-kit.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -175,8 +175,7 @@ function cookLoop(now) {
   G.clearRect(0, 0, W, H); drawBench();
   FAMILIES[g.family].draw(g);
   if (g.phase !== 'done') {
-    // the face that surfaces in the cook glass, and a CHIMERA-9 status readout
-    ghostReflection(g.beaker.x, g.beaker.y - g.beaker.h * 0.16, 1.1, g.t, 1.1);
+    // CHIMERA-9 status readout
     drawLCD(W - 152, 18, 132, 24, (g._label || 'SYNTH').toUpperCase(), '#5fd0e0', 'CHIMERA-9');
     if (g.opts.test) { G.save(); G.fillStyle = 'rgba(150,180,175,.55)'; G.font = '9px monospace'; G.textAlign = 'center'; G.fillText('DEV · CHANGE FORM ↓', W / 2, H - 40); G.restore(); }
   }

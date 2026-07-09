@@ -10,7 +10,9 @@
     "restore_radiation": 4,
     "restore_sanity": 12,
     "restore_thirst": 12,
-    "stackable": true
+    "stackable": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.1
   },
   "type": "consumable",
   "value": 14,

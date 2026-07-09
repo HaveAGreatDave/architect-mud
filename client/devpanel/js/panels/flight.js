@@ -95,7 +95,8 @@ function _flRenderBody() {
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
         <div style="font-weight:700;letter-spacing:1px;color:var(--accent)">AIRCRAFT INSTANCES</div>
         <button class="action-btn" onclick="renderFlightPanel()" style="padding:3px 10px;font-size:10px">⟳ Refresh</button>
-        <button class="action-btn danger" onclick="_flDeleteAllTest()" style="padding:3px 10px;font-size:10px">Delete all TEST aircraft</button>
+        <button class="action-btn danger" onclick="_flDeleteAllKind('test')" style="padding:3px 10px;font-size:10px">Delete all TEST aircraft</button>
+        <button class="action-btn danger" onclick="_flDeleteAllKind('wreck')" style="padding:3px 10px;font-size:10px">Clear all WRECK aircraft</button>
       </div>
       <div style="color:var(--text-dim);font-size:11px;margin-bottom:10px">Test-flight conjures (<b>.testfly</b>) and player buy/rent purchases never expire on their own — clean up stale ones here. A <b>live</b> instance currently has a player aboard or is mid-flight; deleting one detaches its rider first.</div>
       <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
@@ -118,15 +119,16 @@ async function _flDeleteAircraft(id, name) {
   renderFlightPanel();
 }
 
-async function _flDeleteAllTest() {
-  const targets = _flAircraft.filter(a => a.kind === 'test');
-  if (!targets.length) { toast('No test aircraft to delete.'); return; }
-  if (!(await dpConfirm(`Delete all ${targets.length} TEST aircraft? This can't be undone.`, { danger: true }))) return;
+async function _flDeleteAllKind(kind) {
+  const targets = _flAircraft.filter(a => a.kind === kind);
+  const label = _FL_KIND_LABEL[kind] || kind;
+  if (!targets.length) { toast(`No ${label.toLowerCase()} aircraft to delete.`); return; }
+  if (!(await dpConfirm(`Delete all ${targets.length} ${label} aircraft? This can't be undone.`, { danger: true }))) return;
   let ok = 0;
   for (const a of targets) {
     const res = await directAPI(`/flight/aircraft/${a.id}`, 'DELETE');
     if (!res || !res.error) ok++;
   }
-  toast(`Deleted ${ok}/${targets.length} test aircraft.`);
+  toast(`Deleted ${ok}/${targets.length} ${label.toLowerCase()} aircraft.`);
   renderFlightPanel();
 }

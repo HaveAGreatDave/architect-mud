@@ -81,6 +81,10 @@ initWeatherFx();
 window._applyWeatherFx = setWeatherFxEnabled;
 
 applySettings(settings);
+// Mobile vs. desktop layout is auto-detected per device at launch — there is no
+// user toggle. Touch/handheld gets the mobile "smart UI" contextual command bar;
+// desktop keeps the full desktop layout.
+document.documentElement.setAttribute("data-smart-ui", _isMobile ? "on" : "off");
 applyMobileScale();
 window.addEventListener("resize", applyMobileScale);
 

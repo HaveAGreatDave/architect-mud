@@ -487,6 +487,23 @@ async function cmdUse(targetStr, player, broadcast) {
     if (item.quantity > 1) await q('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
     else await q('DELETE FROM player_inventory WHERE id=$1', [item.id]);
   });
+
+  // Laced consumable: a drink or food that carries a drug (`tags.laced_drug`,
+  // optional `tags.laced_potency`). The item's own restores are already applied
+  // above; the drug adds its systemic effects (intox meter, phases, overdose) via
+  // useDrug with skipInstant, so its resource block doesn't double the restores.
+  // This is the general "drugged drink/food" path — alcohol is just its first user.
+  if (t.laced_drug) {
+    const laced = await useDrug(player, t.laced_drug, broadcast, { potencyMult: Number(t.laced_potency) || 1, skipInstant: true, takeLine: '' });
+    if (laced?.overdose_death) {
+      broadcast(null, { type: 'output', message: messages.join('\n') }, null, player.id);
+      const { handlePlayerDeath } = await import('../gameLoop.js');
+      await handlePlayerDeath(player, null, { type: 'drug', label: 'Overdose' });
+      return { type: 'use', message: '' };
+    }
+    if (laced?.message) messages.push(laced.message);
+  }
+
   return { type:'use', message:messages.join('\n'), player_update:{hp:player.hp,hunger:player.hunger,thirst:player.thirst,radiation:player.radiation,sanity:player.sanity,credits:player.credits} };
 }
 

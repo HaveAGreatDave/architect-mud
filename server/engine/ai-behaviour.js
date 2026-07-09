@@ -928,10 +928,10 @@ async function execAction(node, entity, ctx) {
     case 'EMOTE': {
       const msg = params.message || '';
       if (!msg) break;
-      broadcast(zoneId, {
-        type: 'output',
-        message: `<span style="color:var(--yellow)">${entity.name} ${msg}</span>`,
-      });
+      // Emit the same shape as every other emote (formatChitchat, home-life) so
+      // it renders in the shared dim-italic .msg-zone-event colour — not a
+      // one-off inline yellow that made VINE emotes stand out from the rest.
+      broadcast(zoneId, { type: 'zone_event', message: `${entity.name} ${msg}` });
       break;
     }
 

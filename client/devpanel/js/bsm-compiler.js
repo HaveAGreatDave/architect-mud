@@ -65,6 +65,13 @@ function compileBsm(text) {
   // for a multi-word speaker label.
   const SPEAKER_RE = /^([A-Za-z][A-Za-z0-9_]*(?:\s[A-Z][A-Za-z0-9_]*)*):\s*$/;
 
+  // Reserved speaker labels for an unseen off-screen announcer — NOT a real NPC.
+  // Regardless of broadcast type, a NARRATOR:/ANNOUNCER: line becomes a narration
+  // say node with no npc_anchor (so nothing is added to npcIds, no studio NPC is
+  // spawned); the runner plays it on TV and over the studio speakers. An explicit
+  // @alias mapping the label to an actor still wins, for back-compat.
+  const ANNOUNCER_LABELS = new Set(['NARRATOR', 'ANNOUNCER']);
+
   const DIRECTIVE_PREFIXES = [
     '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY',
     'SHOT', 'SHOT_END', 'TICKER_END', 'OVERLAY_END', 'LOWER_THIRD_END', 'MUSIC_END', 'END', 'CAM ', 'ROOM ', 'LOWER_THIRD',
@@ -294,8 +301,10 @@ function compileBsm(text) {
     if (speakerMatch) {
       const speaker = speakerMatch[1].toUpperCase();
       const resolved = aliases[speaker];
+      // Unseen announcer — no NPC, no anchor. (An explicit @alias still wins.)
+      const isAnnouncer = ANNOUNCER_LABELS.has(speaker) && !resolved;
       const fallbackId = `npc_${speaker.toLowerCase().replace(/\s+/g, '_')}`;
-      if (!resolved && !_debug.unresolvedSpeakers.some(u => u.label === speaker)) {
+      if (!resolved && !isAnnouncer && !_debug.unresolvedSpeakers.some(u => u.label === speaker)) {
         _debug.unresolvedSpeakers.push({ label: speaker, fallback: fallbackId });
       }
       const npcId = resolved ?? fallbackId;
@@ -308,6 +317,13 @@ function compileBsm(text) {
         text = tl; i++; break;
       }
       if (!text) continue;
+      if (isAnnouncer) {
+        // Narration style: played by no one on stage — over the studio speakers
+        // and on TV as a bare line, never attributed to an NPC.
+        makeNode({ type: 'say', text, style: 'narration' });
+        messages.push(text);
+        continue;
+      }
       if (npcId !== activeNpc) {
         makeNode({ type: 'npc_anchor', npc_id: npcId });
         activeNpc = npcId;

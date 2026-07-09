@@ -34,6 +34,16 @@ export default async function regress({ run, check, getPlayer }) {
   const after = await run('look');
   check('commands work once blackout lifts', after?.type !== 'error' || !/black/i.test(after?.message || ''), after?.message);
 
+  // --- band stat impairment (reversible ledger) ------------------------------
+  player.intoxication = 0; player._intoxBand = 0;
+  const baseRef = player.stat_reflexes || 0;
+  _test.narrateBand(player, 50);   // crosses into the "drunk" band (≥45)
+  check('drunk impairs reflexes', (player.stat_reflexes || 0) === baseRef + _test.BAND_MODS.drunk.stat_reflexes, `ref=${player.stat_reflexes} base=${baseRef}`);
+  _test.narrateBand(player, 80);   // "wasted" — deeper penalty replaces the drunk one
+  check('wasted deepens the penalty', (player.stat_reflexes || 0) === baseRef + _test.BAND_MODS.wasted.stat_reflexes, `ref=${player.stat_reflexes}`);
+  _test.narrateBand(player, 0);    // sober — ledger reverses
+  check('sobering restores reflexes exactly', (player.stat_reflexes || 0) === baseRef, `ref=${player.stat_reflexes} base=${baseRef}`);
+
   // Leave the fake player sober for any later suites.
   player.intoxication = 0; player._intoxBand = 0;
 }

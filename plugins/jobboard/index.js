@@ -61,7 +61,11 @@ export async function turnInNpcForQuest(questId) {
     [board.zone_id]
   );
   const npc = npcs[0];
-  return npc ? { npcId: npc.id, npcName: npc.name, zone: board.zone_id } : null;
+  // `node: 'job_turnin'` tells Tablet OS to hand the quest in at the dispatcher's
+  // dedicated hand-in dialogue node (which fires a context-driven TURN_IN and pays
+  // out) rather than her root — the board's rotating pool is never authored onto her
+  // tree one TURN_IN-per-quest, so a single generic hand-in branch stands in for all.
+  return npc ? { npcId: npc.id, npcName: npc.name, zone: board.zone_id, node: 'job_turnin' } : null;
 }
 
 function nowSec() { return Math.floor(Date.now() / 1000); }
@@ -269,7 +273,7 @@ registerMoveGate(async ({ player, from }) => {
   const line = lines[Math.floor(Math.random() * lines.length)];
   await setFlag('player', metFlag, 'true', player);
   sendToZone(from.id, { type: 'zone_event', message: `${who} throws up a hand and hollers at ${player.handle}.` }, player.id);
-  return { block: true, message: `${who} steps into your path, one hand up. <span class="ambient">"${line}"</span>` };
+  return { block: true, html: true, message: `${who} steps into your path, one hand up. <span class="ambient">"${line}"</span>` };
 }, 'jobboard:greeter');
 
 // --- Dev CRUD (devpanel Job Boards authoring) ------------------------------

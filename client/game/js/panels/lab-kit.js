@@ -229,34 +229,6 @@ export function drawLCD(x, y, w, h, text, color = '#4fe08a', label) {
   G.restore();
 }
 
-// The thing in the third beaker. A gaunt face surfaces in the glass on a slow
-// cycle — hollow sockets, two wet glints that find you, a grim line of a mouth —
-// then sinks back. Draw it inside a beaker's clip (over the liquid) so it reads as
-// a reflection behind the surface. `intensity` scales how boldly it comes through.
-export function ghostReflection(cx, cy, scale, t, intensity = 1, tint = '208,236,242') {
-  const cyc = (t % 8.5) / 8.5;                                  // one surfacing every ~8.5s
-  const vis = cyc < 0.20 ? Math.sin((cyc / 0.20) * Math.PI) : 0;
-  if (vis < 0.02) return;
-  const a = vis * 0.62 * intensity;                            // noticeable at the peak
-  G.save();
-  G.translate(cx + Math.sin(t * 22) * 0.5, cy + Math.sin(t * 1.7) * 1.2);
-  G.scale(scale, scale);
-  const fg = G.createRadialGradient(0, -1, 2, 0, 2, 24);
-  fg.addColorStop(0, `rgba(${tint},${a * 0.55})`); fg.addColorStop(0.7, `rgba(${tint},${a * 0.12})`); fg.addColorStop(1, `rgba(${tint},0)`);
-  G.fillStyle = fg; G.beginPath(); G.ellipse(0, 1, 15, 22, 0, 0, 7); G.fill();
-  G.fillStyle = `rgba(3,9,9,${a})`;                            // sunken sockets
-  G.beginPath(); G.ellipse(-6, -3, 3.6, 4.8, 0.22, 0, 7); G.fill();
-  G.beginPath(); G.ellipse(6, -3, 3.6, 4.8, -0.22, 0, 7); G.fill();
-  G.fillStyle = `rgba(${tint},${Math.min(1, a * 1.5)})`;      // the eyes that find you
-  G.beginPath(); G.arc(-5.4, -2.2, 1.0, 0, 7); G.fill();
-  G.beginPath(); G.arc(6.6, -2.2, 1.0, 0, 7); G.fill();
-  G.strokeStyle = `rgba(3,9,9,${a * 0.85})`; G.lineWidth = 1.5; // grim mouth
-  G.beginPath(); G.moveTo(-4.5, 9); G.quadraticCurveTo(0, 7, 4.5, 9); G.stroke();
-  G.strokeStyle = `rgba(5,12,12,${a * 0.45})`; G.lineWidth = 1; // hollow cheeks
-  G.beginPath(); G.moveTo(-9, 1); G.lineTo(-5, 9.5); G.moveTo(9, 1); G.lineTo(5, 9.5); G.stroke();
-  G.restore();
-}
-
 export function drawBurner(b, heat, t) {
   const cx = b.x, baseY = b.y + b.h / 2 + 40;
   const flick = .85 + .15 * Math.sin(t * 22) + rnd(.06, -.06);
@@ -304,36 +276,54 @@ export const AX = (() => {
 function ensureLabStyles() {
   if (document.getElementById('lab-kit-styles')) return;
   const s = document.createElement('style'); s.id = 'lab-kit-styles';
+  // Chrome borrows the ArchitectOS tablet's token system: the player's --accent drives
+  // everything (falling back to the passed lab colour, then green), surfaces are the
+  // accent color-mixed into --bg2, with white/black bevels for the hard-plastic look.
   s.textContent = `
-  .lab-overlay{position:fixed;inset:0;z-index:9996;display:flex;align-items:center;justify-content:center;background:rgba(2,5,4,.86);backdrop-filter:blur(3px);font-family:var(--font-mono,monospace)}
-  .lab-rig{position:relative;width:min(94vw,940px);aspect-ratio:960/604;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,#0c1116,#070b0f 40%,#04070a);border:1px solid #05070a;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 24px 70px rgba(0,0,0,.8),0 0 50px color-mix(in srgb,var(--acc,#4fe08a) 12%,transparent)}
+  .lab-overlay{position:fixed;inset:0;z-index:9996;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg,#05050a) 82%,transparent);backdrop-filter:blur(4px);font-family:'Courier New',var(--font-mono,monospace)}
+  .lab-rig{--A:var(--accent,var(--acc,#4fe08a));
+    --surf:color-mix(in srgb,var(--A) 12%,var(--bg2,#0d0d16));
+    --surf-hi:color-mix(in srgb,var(--A) 20%,var(--bg2,#0d0d16));
+    --surf-lo:color-mix(in srgb,var(--A) 7%,var(--bg2,#0d0d16));
+    --bevhi:color-mix(in srgb,#fff 55%,transparent);--bevlo:color-mix(in srgb,#000 45%,transparent);
+    --fgdim:color-mix(in srgb,var(--A) 60%,var(--bg2,#0d0d16));
+    position:relative;width:min(94vw,940px);aspect-ratio:960/604;border-radius:18px;overflow:hidden;
+    background:linear-gradient(180deg,color-mix(in srgb,var(--A) 6%,var(--bg2,#0d0d16)),var(--bg,#05050a) 55%);
+    border:2px solid color-mix(in srgb,var(--bg2,#0d0d16) 30%,#000 70%);
+    box-shadow:inset 0 2px 0 var(--bevhi),inset 0 -3px 8px var(--bevlo),0 24px 70px rgba(0,0,0,.85),0 0 40px color-mix(in srgb,var(--A) 16%,transparent)}
   .lab-rig canvas.lab-stage{position:absolute;inset:0;width:100%;height:100%;display:block}
   .lab-fx{position:absolute;inset:0;pointer-events:none;z-index:5}
-  .lab-fx.scan{background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.16) 2px 3px);opacity:.5;mix-blend-mode:multiply}
-  .lab-fx.vig{box-shadow:inset 0 0 140px rgba(0,0,0,.75),inset 0 0 40px rgba(0,0,0,.5)}
-  .lab-fx.grid{opacity:.09;background-image:linear-gradient(rgba(79,224,138,.5) 1px,transparent 1px),linear-gradient(90deg,rgba(79,224,138,.5) 1px,transparent 1px);background-size:30px 30px;animation:lab-drift 8s linear infinite}
+  .lab-fx.scan{background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.18) 2px 3px);opacity:.5;mix-blend-mode:multiply}
+  .lab-fx.vig{box-shadow:inset 0 0 140px rgba(0,0,0,.78),inset 0 0 40px rgba(0,0,0,.5)}
+  .lab-fx.grid{opacity:.08;background-image:linear-gradient(color-mix(in srgb,var(--A) 50%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--A) 50%,transparent) 1px,transparent 1px);background-size:30px 30px;animation:lab-drift 8s linear infinite}
   @keyframes lab-drift{to{background-position:0 30px,30px 0}}
-  .lab-grain{position:absolute;inset:0;z-index:6;pointer-events:none;opacity:.06;mix-blend-mode:screen;image-rendering:pixelated;width:100%;height:100%}
-  .lab-top{position:absolute;top:0;left:0;right:0;height:32px;z-index:8;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:11px;text-transform:uppercase;pointer-events:none;background:linear-gradient(180deg,rgba(6,10,8,.9),transparent)}
-  .lab-top .mk{color:var(--acc,#4fe08a);font-size:14px;text-shadow:0 0 10px var(--acc,#4fe08a)}
-  .lab-top b{letter-spacing:2px;color:var(--acc,#4fe08a);font-size:12px;text-shadow:1px 0 #ff4a5b,-1px 0 #5fd0e0}
-  .lab-top small{opacity:.45;letter-spacing:2px;font-size:8px;color:#9fb8ac}
-  .lab-top .close{margin-left:auto;pointer-events:auto;cursor:pointer;color:#8496a8;font-size:13px}
-  .lab-top .close:hover{color:#ff4a5b}
+  .lab-grain{position:absolute;inset:0;z-index:6;pointer-events:none;opacity:.05;mix-blend-mode:screen;image-rendering:pixelated;width:100%;height:100%}
+  .lab-top{position:absolute;top:0;left:0;right:0;height:34px;z-index:8;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:11px;text-transform:uppercase;pointer-events:none;background:linear-gradient(180deg,color-mix(in srgb,var(--A) 10%,var(--bg,#05050a)),transparent);border-bottom:1px solid color-mix(in srgb,var(--A) 22%,transparent)}
+  .lab-top .mk{color:var(--A);font-size:14px;text-shadow:0 0 10px var(--A)}
+  .lab-top b{letter-spacing:3px;color:var(--A);font-size:12px;text-shadow:0 0 10px color-mix(in srgb,var(--A) 65%,transparent)}
+  .lab-top small{opacity:.5;letter-spacing:2px;font-size:8px;color:var(--fgdim)}
+  .lab-top .close{margin-left:auto;pointer-events:auto;cursor:pointer;color:var(--fgdim);font-size:13px}
+  .lab-top .close:hover{color:var(--red,#ff4a5b)}
   .lab-ui{position:absolute;inset:0;z-index:7;pointer-events:none}
-  .lab-btn{position:absolute;pointer-events:auto;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#04120b;background:linear-gradient(180deg,var(--acc,#4fe08a),#2f8a56);border:none;padding:9px 20px;border-radius:4px;font-weight:bold;box-shadow:0 0 18px rgba(79,224,138,.4),inset 0 1px 0 rgba(255,255,255,.4)}
-  .lab-btn:hover{filter:brightness(1.14)} .lab-btn:active{transform:translateY(1px)}
-  .lab-btn.ghost{background:none;color:#8496a8;border:1px solid rgba(132,150,168,.35);box-shadow:none}
-  .lab-btn.ghost:hover{color:var(--acc,#4fe08a);border-color:var(--acc,#4fe08a)}
+  .lab-btn{position:absolute;pointer-events:auto;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--bg,#05050a);background:linear-gradient(180deg,color-mix(in srgb,var(--A) 88%,#fff),var(--A));border:1px solid color-mix(in srgb,var(--A) 55%,#000);padding:9px 20px;border-radius:6px;font-weight:bold;box-shadow:inset 0 1px 0 var(--bevhi),0 0 16px color-mix(in srgb,var(--A) 40%,transparent)}
+  .lab-btn:hover{filter:brightness(1.12)} .lab-btn:active{transform:translateY(1px)}
+  .lab-btn.ghost{background:var(--surf-lo);color:var(--fgdim);border:1px solid color-mix(in srgb,var(--A) 30%,transparent);box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 12%,transparent)}
+  .lab-btn.ghost:hover{color:var(--A);border-color:var(--A)}
   .lab-btn[disabled]{opacity:.35;cursor:not-allowed;filter:grayscale(.6)}
   .lab-insta{position:absolute;right:12px;bottom:12px;width:170px;z-index:8;pointer-events:none}
-  .lab-insta .lb{font-size:8px;letter-spacing:2px;color:#6f8a7c;display:flex;justify-content:space-between;margin-bottom:3px}
-  .lab-insta .bar{height:8px;border:1px solid #05070a;border-radius:3px;background:#0a0f0c;overflow:hidden}
-  .lab-insta .fill{height:100%;width:0%;background:linear-gradient(90deg,#4fe08a,#ffb23e 60%,#ff4a5b);box-shadow:0 0 8px rgba(255,74,91,.5);transition:width .18s}
-  .lab-ticker{position:absolute;left:12px;bottom:12px;right:196px;z-index:8;pointer-events:none;font-size:10px;color:#6f8a7c;text-shadow:0 0 6px rgba(0,0,0,.9);min-height:14px}
-  .lab-ticker b{color:#4fe08a} .lab-ticker .r{color:#ff4a5b} .lab-ticker .a{color:#ffb23e}
+  .lab-insta .lb{font-size:8px;letter-spacing:2px;color:var(--fgdim);display:flex;justify-content:space-between;margin-bottom:3px}
+  .lab-insta .bar{height:8px;border:1px solid color-mix(in srgb,#000 50%,var(--A));border-radius:4px;background:var(--surf-lo);overflow:hidden}
+  .lab-insta .fill{height:100%;width:0%;background:linear-gradient(90deg,var(--A),var(--orange,#ffb23e) 60%,var(--red,#ff4a5b));box-shadow:0 0 8px rgba(255,74,91,.5);transition:width .18s}
+  .lab-ticker{position:absolute;left:12px;bottom:12px;right:196px;z-index:8;pointer-events:none;font-size:10px;color:var(--fgdim);text-shadow:0 0 6px rgba(0,0,0,.9);min-height:14px}
+  .lab-ticker b{color:var(--A)} .lab-ticker .r{color:var(--red,#ff4a5b)} .lab-ticker .a{color:var(--orange,#ffb23e)}
   .lab-flash{position:absolute;inset:0;z-index:20;pointer-events:none;background:#fff;opacity:0}
   .lab-hidden{display:none!important}
+  .lab-card{width:360px;padding:22px;border-radius:12px;background:linear-gradient(180deg,var(--surf-hi),var(--surf-lo));border:1px solid color-mix(in srgb,var(--A) 34%,transparent);box-shadow:inset 0 1px 0 var(--bevhi),inset 0 -3px 10px var(--bevlo),0 20px 60px rgba(0,0,0,.9);font-family:inherit}
+  .lab-field{width:100%;box-sizing:border-box;background:var(--bg,#05050a);border:1px solid color-mix(in srgb,var(--A) 40%,transparent);border-radius:6px;color:var(--A);font-family:inherit;font-size:14px;letter-spacing:1px;padding:9px 11px;text-align:center;outline:none;box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}
+  .lab-field:focus{border-color:var(--A);box-shadow:inset 0 2px 6px rgba(0,0,0,.6),0 0 12px color-mix(in srgb,var(--A) 40%,transparent)}
+  .lab-field::placeholder{color:var(--fgdim);opacity:.7}
+  .lab-shake{animation:lab-shake .4s cubic-bezier(.36,.07,.19,.97) both;border-color:var(--red,#ff4a5b)!important}
+  @keyframes lab-shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
   `;
   document.head.appendChild(s);
 }

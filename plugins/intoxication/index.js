@@ -26,6 +26,7 @@
 import { getAllLivePlayers } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
+import { applyMods, reverseMods } from '../../server/engine/statmods.js';
 
 // --- tunables ----------------------------------------------------------------
 const SLUR_MIN     = 30;   // speech starts slurring at/above this
@@ -55,6 +56,14 @@ const BAND_FALL = {
   drunk:  "The worst of the spins eases off. Still drunk, though.",
   tipsy:  "You're mostly steady again — just a warm buzz left.",
   sober:  "Your head clears. You're sober.",
+};
+// Mechanical weight of each band, applied through the reversible modifier ledger
+// (source 'intox') so it backs out cleanly as you sober up. Early drinks loosen
+// you (a little Cool); deeper in, coordination and judgement go. Sober = no mods.
+const BAND_MODS = {
+  tipsy:  { stat_cool: 1 },
+  drunk:  { stat_cool: 1, stat_reflexes: -2, stat_brains: -1 },
+  wasted: { stat_reflexes: -4, stat_brains: -3, stat_endurance: -2 },
 };
 
 const SELF_WOBBLE = [
@@ -118,6 +127,9 @@ function narrateBand(player, lvl) {
   const name = BANDS[idx].name;
   const line = idx > prev ? BAND_RISE[name] : BAND_FALL[name];
   player._intoxBand = idx;
+  // Impairment tracks the band, through the ledger so it reverses on the way down.
+  if (BAND_MODS[name]) applyMods(player, 'intox', BAND_MODS[name]);
+  else reverseMods(player, 'intox');   // sober
   if (line) sendToPlayer(player.id, { type: 'output', message: line });
 }
 
@@ -186,6 +198,7 @@ function clearAll(player) {
   if (player._blackoutActive) endBlackout(player);
   player.intoxication = 0;
   player._intoxBand = 0;
+  reverseMods(player, 'intox');   // drop any drunk stat impairment
   pushIntoxFx(player);   // → level 0, clears the drunk flight-view warp
 }
 
@@ -218,4 +231,4 @@ function intoxTick() {
 setInterval(() => { try { intoxTick(); } catch (e) { console.error('[intoxication] tick error:', e.message); } }, TICK_MS);
 
 // Exposed for the regression suite.
-export const _test = { slur, addIntoxication, blackoutChance, SLUR_MIN, BLACKOUT_MIN };
+export const _test = { slur, addIntoxication, narrateBand, blackoutChance, BAND_MODS, SLUR_MIN, BLACKOUT_MIN };

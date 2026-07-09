@@ -263,12 +263,43 @@ proof; an owned craft on an open ramp can be stolen — grand theft, +3 stars);
 
 **Customisation is owner-only** — the umbrella verb `modify` (alias `customize`)
 adjusts everything on a craft you *own outright* (not a charter rental), at a field,
-on the ground: the **tune curves** (mixture / pitch / boost / CG, Fabrication widens
-the safe range, feeding `effStats` → the tick-loop hazard math + HUD), the **tail
+on the ground: the **tune curves** (mixture / pitch / boost / CG), the **tail
 name**, the **livery**, and **saveable tune profiles** (`modify save/load <name>`).
 `modify` with no argument prints the full customisation sheet. `tune` remains the
 quick curve shortcut, now equally owner-gated (`ownedCraft`); rentals and
 other people's aircraft can't be modified.
+
+**The tuning model (one source of truth).** `state.computeStats(type, tune, cargo,
+kits)` is the single function that bends a template's base numbers by the four
+continuous knobs, the cabin load, and any fitted kits — and **both** the flight
+systems (`effStats` → tick loop, hazards, HUD) **and** the bench graphs
+(`perfAxes`) read it, so the dyno can never disagree with how she flies. Signs are
+internally coherent: **lean** (+mixture) saves fuel but runs hot and sheds a little
+power; **coarse pitch** and **boost** buy cruise speed (boost also drinks fuel,
+heats, and twitches the handling — previously boost was a strict-loss no-op);
+**tail-heavy CG** trades stability for agility. Each knob is a signed float; how far
+it turns (its "reasonable range") is `tuneRange(fabSkill, kits)` — a base band
+widened smoothly by Fabrication and by range-widening kits, hard-capped at
+`TUNE_DIAL_MAX`. The dials clamp to that range server-side; `tuneset <id> <mixture>
+<pitch> <boost> <cg>` commits all four floats from the panel at once.
+
+**Upgrade kits** (`state.KITS`, an authored catalogue like the contracts'
+`JOB_TYPES` — a mechanic, not DB content) are bought and fitted per-craft via
+`installkit <id> <kitId>`, stored on `custom_data.kits`. Two ship today: the
+**Precision Tuning Kit** (`rangeBonus` — widens every dial) and the **Intercooler &
+Oil Cooler** (`coolMult` — halves the heat cost of lean/boost). New kits are one
+entry in the map (`rangeBonus` to widen the dials, or a coefficient read in
+`computeStats` to bend the physics).
+
+**The maintenance bench (client).** The hangar-bay's TUNING tab is a live tuning
+rig, not a stack of cycle buttons: four **rotary drag knobs** (mixture / pitch /
+boost / CG) feed a **performance graph** — the bench stage becomes a five-axis
+**radar** (SPEED · ECON · RANGE · COOL · AGILITY) that morphs against a stock ghost
+as you turn a knob, with a row of **delta bars** underneath reading the ± vs stock.
+The axis math is mirrored client-side (`hangar-bay.js computeAxesClient`, kept in
+sync with `state.perfAxes`) so the graph responds instantly to a drag; **Apply**
+commits via `tuneset` and the server re-pushes the authoritative numbers (any drift
+self-corrects). The **UPGRADE KITS** shop is folded into the same tab.
 
 **Acquisition** (`acquisition.js`). `buy <type>` purchases at a dealer field (`buy`
 routes back to commerce for ordinary shopping).

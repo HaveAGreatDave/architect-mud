@@ -10,7 +10,9 @@
     "restore_hp": -2,
     "restore_sanity": 8,
     "restore_thirst": 10,
-    "stackable": true
+    "stackable": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.6
   },
   "type": "consumable",
   "value": 9,

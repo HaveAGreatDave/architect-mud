@@ -1,10 +1,11 @@
-// Tablet OS — Settings app. Scoped to Tablet-relevant settings only (not the
-// full game settings panel — density/motion/audio/etc. aren't Tablet's
-// business). The only thing Tablet's own look depends on is the shared UI
-// theme (--accent/--bg/--bg2), so this screen is a theme picker: entirely
-// client-side, reads/writes the existing `architect_settings` localStorage
-// key the rest of the client already uses (client/game/js/panels/
-// tablet-os.js renders it natively — no server-authoritative state here).
+// Tablet OS — Settings app. The full game settings surface, rendered natively
+// in the Tablet (theme + contrast, font/display/layout/motion/weather/temp/
+// D-Pad, poker felt, and audio), plus the Tablet's own theme link/unlink
+// "locker". Entirely client-side: it reads/writes the existing
+// `architect_settings` localStorage key via client/shared/settings.js, so the
+// Tablet and the legacy settings panel stay in sync while both exist
+// (client/game/js/panels/tablet-os.js renders it — no server-authoritative
+// state here; this screen just signals the view).
 import { registerTabletApp } from './registry.js';
 
 async function buildScreen() {

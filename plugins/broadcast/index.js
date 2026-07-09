@@ -2290,7 +2290,14 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const isNarration = style_say === 'narration';
         const isAmbient   = style_say === 'ambient';
         if (liveActed && state.studioZoneId) {
-          if (!isNarration && !isAmbient && bb.npcAnchor) {
+          if (isNarration) {
+            // Unseen announcer — no one is on stage saying this, so it comes over
+            // the studio speakers (a NARRATOR:/ANNOUNCER: line, or a SHOT block).
+            sendToZone(state.studioZoneId, {
+              type: 'output',
+              message: `<span style="color:var(--yellow)">The studio speakers announce, "${raw}"</span>`,
+            });
+          } else if (!isAmbient && bb.npcAnchor) {
             sendToZone(state.studioZoneId, {
               type: 'output',
               message: `<span style="color:var(--yellow)">${bb.npcAnchor} says, "${raw}"</span>`,
@@ -2712,8 +2719,10 @@ async function cmdLoadCassette(args, raw, player) {
   );
   if (!invRows.length) return { type: 'output', message: 'You have no cassette to load.' };
 
-  // Strip the leading "cassette" keyword from args to get an optional name filter.
-  const nameFilter = args.filter(a => a.toLowerCase() !== 'cassette').join(' ').trim().toLowerCase();
+  // Strip the media-format keywords to get an optional name filter, so both
+  // `load cassette <show>` and `load chip <zone>` narrow to the right item.
+  const FORMAT_WORDS = new Set(['cassette', 'chip', 'datachip', 'footage']);
+  const nameFilter = args.filter(a => !FORMAT_WORDS.has(a.toLowerCase())).join(' ').trim().toLowerCase();
 
   if (invRows.length > 1 && !nameFilter) {
     const lines = invRows.map((r, i) =>
@@ -2798,6 +2807,24 @@ async function _ensureCassetteItem(broadcastId, broadcastName) {
      JSON.stringify({ media_cassette: true, broadcast_id: broadcastId, unique: true })]
   );
   return itemId;
+}
+
+// Materialize a surveillance clip as a hidden, loop-playing scripted broadcast so
+// its datachip doubles as a "mini-cassette": loadable in any media deck and played
+// on the zone's TVs. enabled=0 keeps it out of the scheduled library — it only
+// airs when someone physically loads the chip. Called from the surveillance
+// plugin (physicalizeClip) via dynamic import; idempotent per clip.
+export async function ensureClipBroadcast(broadcastId, name, frames, intervalSec = 4) {
+  const messages = (frames || [])
+    .map(f => ({ text: typeof f === 'string' ? f : f?.text }))
+    .filter(m => m.text);
+  if (!messages.length) return;
+  await query(
+    `INSERT INTO media_broadcasts (id, name, description, category, playback_mode, messages, message_interval, loop, enabled)
+     VALUES ($1,$2,$3,'surveillance','scripted',$4::jsonb,$5,1,0)
+     ON CONFLICT (id) DO UPDATE SET name=$2, messages=$4::jsonb, message_interval=$5`,
+    [broadcastId, name, 'Recovered surveillance footage.', JSON.stringify(messages), intervalSec]
+  );
 }
 
 async function cmdEjectCassette(args, raw, player) {
@@ -2915,7 +2942,11 @@ async function buildMediaDeckPanel(deckId, player) {
     );
     cassettes = cassetteIds
       .map(id => bcRows.find(b => b.id === id))
-      .filter(Boolean);
+      .filter(Boolean)
+      // A surveillance clip loaded as a cassette is a MicroReel — a compact tape
+      // that seats inside a full shell. The client renders it as a nested
+      // mini-cassette. Flagged by the clip broadcast id/category, not the name.
+      .map(b => ({ ...b, mini: String(b.id).startsWith('bc_clip_') || b.category === 'surveillance' }));
     // Prune dangling cassette ids whose broadcast was deleted, so stale
     // raw ids (e.g. "bc_1234567890") don't linger in the deck's library.
     if (cassettes.length !== cassetteIds.length) {
@@ -3243,7 +3274,11 @@ export const commands = {
   listen: cmdWatch,
   tv:    cmdTv,
   load:  (args, raw, player) => {
-    if (raw.toLowerCase().includes('cassette')) return cmdLoadCassette(args, raw, player);
+    // A surveillance chip is a mini-cassette (media_cassette tag + a hidden
+    // scripted broadcast of its footage), so `load chip`/`load footage …` plays a
+    // clip on the zone's TVs the same way `load cassette …` plays a show.
+    const r = raw.toLowerCase();
+    if (r.includes('cassette') || r.includes('chip') || r.includes('footage')) return cmdLoadCassette(args, raw, player);
     return null; // pass to next handler
   },
   eject: cmdEjectCassette,

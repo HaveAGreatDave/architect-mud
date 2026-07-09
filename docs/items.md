@@ -109,6 +109,8 @@ tag model and the rationale behind it.
 | `heal_over_time` | hot | Gradual heal `{ amount, duration_seconds }`, ticks once/min, stacks. |
 | `well_fed` | flag | Grants the Well-Fed buff (faster HP regen), 10 min. |
 | `hydrating` | flag | Grants the Hydrated buff (faster radiation decay), 10 min. |
+| `laced_drug` | drug id | Consumable applies this drug on use (systemic effects only — meter/phases/OD, not its instant restores). The "drugged drink/food" path; alcohol uses `"drug_alcohol"`. See [systems-survival.md](systems-survival.md). |
+| `laced_potency` | number | Strength multiplier for `laced_drug` (default 1). Alcohol: scales `intox_per_dose` per drink. |
 | `container` | int | Marks the item as a container; value is the max total weight it can hold. See **Containers** below. |
 
 ### Name-collision note

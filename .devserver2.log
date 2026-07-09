@@ -1,0 +1,120 @@
+
+⚙  Booting ARCHITECT MUD...
+✓ World loaded: 358 zones, 84 NPCs, 46 apartments, 62 doors, 6 orgs
+  ✓ Plugin: strippers v1.0.0
+[ambient-life] Plugin loaded.
+  ✓ Plugin: ambient-life v1.0.0
+  ✓ Plugin: amp v1.0.0
+[atm] Plugin loaded.
+  ✓ Plugin: atm v1.0.0
+  ✓ Plugin: audio v1.0.0
+[broadcast] Plugin loaded. 1 channel(s), 0 tuned zone(s), 12 graphic(s).
+  ✓ Plugin: bartender v1.0.0
+[bodily] Plugin loaded.
+  ✓ Plugin: bodily v1.0.0
+  ✓ Plugin: broadcast v1.0.0
+[bulletin] Plugin loaded.
+  ✓ Plugin: bulletin v1.0.0
+  ✓ Plugin: burglary v1.0.0
+[butchering] Plugin loaded.
+  ✓ Plugin: butchering v1.0.0
+  ✓ Plugin: cannabis v1.0.0
+  ✓ Plugin: clothing-wetness v1.0.0
+[commerce] Plugin loaded.
+  ✓ Plugin: commerce v1.0.0
+  ✓ Plugin: consume v1.0.0
+  ✓ Plugin: container v1.0.0
+[corps] Plugin loaded.
+  ✓ Plugin: corps v1.0.0
+[cosmetic-machine] Plugin loaded.
+  ✓ Plugin: cosmetic-machine v1.0.0
+  ✓ Plugin: crafting v1.0.0
+  ✓ Plugin: dealer v1.0.0
+[surveillance] Plugin loaded.
+  ✓ Plugin: surveillance v0.6.0
+[dealing] Plugin loaded.
+  ✓ Plugin: dealing v1.0.0
+  ✓ Plugin: deaths v1.0.0
+  ✓ Plugin: debug v1.0.0
+  ✓ Plugin: dev-tools v1.0.0
+[district-ambience] Plugin loaded.
+  ✓ Plugin: district-ambience v1.0.0
+  ✓ Plugin: doors v1.0.0
+  ✓ Plugin: drugs v1.0.0
+[drugwar] Plugin loaded.
+[elevator] Plugin loaded.
+  ✓ Plugin: elevator v1.0.0
+  ✓ Plugin: emergency v1.0.0
+  ✓ Plugin: factions v1.1.0
+  ✓ Plugin: fillable v1.0.0
+[fishing] Plugin loaded.
+  ✓ Plugin: fishing v1.0.0
+  ✓ Plugin: flashlight v1.0.0
+  ✓ Plugin: interactions v1.0.0
+[gametable] Plugin loaded.
+  ✓ Plugin: gametable v1.0.0
+  ✓ Plugin: generator v1.0.0
+  ✓ Plugin: quests v1.0.0
+[flight] Plugin loaded.
+  ✓ Plugin: flight v0.3.0
+  ✓ Plugin: food v1.0.0
+  ✓ Plugin: gossip v1.0.0
+  ✓ Plugin: gps v1.0.0
+[insurance] Plugin loaded.
+  ✓ Plugin: insurance v0.1.0
+  ✓ Plugin: intoxication v1.0.0
+[jail] Plugin loaded.
+  ✓ Plugin: jail v1.0.0
+  ✓ Plugin: jobboard v1.1.0
+  ✓ Plugin: knock v1.0.0
+  ✓ Plugin: lighting v1.0.0
+[lore] Plugin loaded.
+  ✓ Plugin: lore v1.0.0
+[mining] Plugin loaded.
+  ✓ Plugin: mining v1.0.0
+[mis] Plugin loaded.
+  ✓ Plugin: mis v1.0.0
+  ✓ Plugin: mutations v1.0.0
+  ✓ Plugin: pacing v1.0.0
+[pay] Plugin loaded.
+  ✓ Plugin: pay v1.0.0
+  ✓ Plugin: pinch v1.0.0
+  ✓ Plugin: posters v1.0.0
+[prologue] Plugin loaded.
+  ✓ Plugin: prologue v1.0.0
+  ✓ Plugin: rolling v1.0.0
+[scavenging] Plugin loaded.
+  ✓ Plugin: scavenging v1.0.0
+  ✓ Plugin: shove v1.0.0
+  ✓ Plugin: smoking v1.0.0
+  ✓ Plugin: smuggle v2.0.0
+[sportsbet] Plugin loaded.
+  ✓ Plugin: sportsbet v1.0.0
+[sportsleague] Plugin loaded.
+  ✓ Plugin: sportsleague v1.0.0
+  ✓ Plugin: synthesis v1.0.0
+[tablet] Plugin loaded.
+  ✓ Plugin: tablet v1.0.0
+[thievery] Plugin loaded.
+  ✓ Plugin: thievery v1.0.0
+[trade] Plugin loaded.
+  ✓ Plugin: trade v1.0.0
+  ✓ Plugin: trip v1.0.0
+  ✓ Plugin: vale-apology v1.0.0
+  ✓ Plugin: vendor-safe v1.0.0
+  ✓ Plugin: water v1.0.0
+[weapon] Plugin loaded.
+  ✓ Plugin: weapon v1.1.0
+  ✓ Plugin: weather v1.0.0
+[weightbench] Plugin loaded.
+  ✓ Plugin: weightbench v1.0.0
+  ✓ Plugin: zone-validator v1.0.0
+✓ Loaded 76 plugin(s)
+  ℹ Plugin verbs shadowing engine builtins (builtin is dead code): follow, examine, say, look, help, raise, rent, repair, take
+✓ Game loop started
+
+🏚  Running on http://localhost:3000
+   Player:  http://localhost:3000
+   Dev:     http://localhost:3000/dev
+   Health:  http://localhost:3000/health
+

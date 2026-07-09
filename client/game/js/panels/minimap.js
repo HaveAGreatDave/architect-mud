@@ -1,6 +1,7 @@
 // Sidebar minimap (5×5 BFS/grid) and the full-screen map popup.
 import { sendCmd, sendCmdSilent } from '../net.js';
 import { appendMsg } from '../render.js';
+import { state } from '../state.js';
 
 // Avenue View for the sidebar/HUD/mobile minimaps: a rendering toggle (not a
 // server round-trip) that strips room symbols down to "does a named artery run
@@ -23,9 +24,31 @@ function wireMinimapAvenueToggle() {
     if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
   });
 }
+// Run mode mirrors the server's player.running (source of truth). The Run toggle
+// and the `run` command both round-trip through the server, which echoes a
+// `run_state` message back into setRunState() to light the button and re-pace
+// auto-walk. Kept in sync with the client's cached stamina so auto-walk can tell
+// when a runner has gone too winded to keep the pace.
+let runMode = false;
+const RUN_STEP_STAMINA = 4;        // must match movement.js RUN_STEP_STAMINA
+const WALK_STEP_MS = 1000;         // relaxed walking cadence
+const RUN_STEP_MS  = 480;          // brisk running cadence
+// Delay before the next auto-walk step: run cadence only while running AND with
+// stamina left to spend — otherwise a winded runner auto-drops to the walk pace.
+function autoWalkDelay() {
+  const sta = state.player?.stamina ?? 100;
+  return (runMode && sta >= RUN_STEP_STAMINA) ? RUN_STEP_MS : WALK_STEP_MS;
+}
+function runBtn() { return document.getElementById('mm-run-toggle'); }
+// Called from dispatch on a `run_state` message (the server's answer to `run`).
+export function setRunState(running) {
+  runMode = !!running;
+  runBtn()?.classList.toggle('active', runMode);
+}
+
 // Auto-walk: steps the player toward the plotted GPS route (mapState.tracePath,
-// set by the `gps` command or a clicked map route) one hop at a time, at most
-// once per second, until arrival, the route runs out, or the user stops it.
+// set by the `gps` command or a clicked map route) one hop at a time, until
+// arrival, the route runs out, or the user stops it. Cadence follows run/walk mode.
 const DIR_CMDS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out'];
 let autoWalkTimer = null;
 
@@ -49,7 +72,7 @@ function autoWalkStep() {
   const dir = Object.entries(current.exits || {}).find(([, id]) => id === nextId)?.[0];
   if (!dir || !DIR_CMDS.includes(dir)) { stopAutoWalk("Auto-walk stopped — can't step off the route from here."); return; }
   sendCmd(dir);
-  autoWalkTimer = setTimeout(autoWalkStep, 1000);
+  autoWalkTimer = setTimeout(autoWalkStep, autoWalkDelay());
 }
 
 function startAutoWalk() {
@@ -60,14 +83,18 @@ function startAutoWalk() {
   autoWalkStep();
 }
 
+// `auto` command / Auto button: toggle the route walk.
+export function toggleAutoWalk() {
+  if (isAutoWalking()) stopAutoWalk('Auto-walk stopped.');
+  else startAutoWalk();
+}
+
 function wireMinimapAutoToggle() {
   const btn = autoWalkBtn();
-  if (!btn || btn._wired) return;
-  btn._wired = true;
-  btn.addEventListener('click', () => {
-    if (isAutoWalking()) stopAutoWalk('Auto-walk stopped.');
-    else startAutoWalk();
-  });
+  if (btn && !btn._wired) { btn._wired = true; btn.addEventListener('click', toggleAutoWalk); }
+  // Run toggle: let the server flip player.running (it echoes run_state back).
+  const rbtn = runBtn();
+  if (rbtn && !rbtn._wired) { rbtn._wired = true; rbtn.addEventListener('click', () => sendCmd('run')); }
 }
 // Double-clicking any minimap (sidebar / HUD / mobile) opens the full-screen map.
 // Delegated on document so it works no matter when the grids are created.
@@ -1032,18 +1059,18 @@ function renderMapGrid() {
         ? luminanceTextColor(bg)
         : (t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null));
       if (tColor && !isPoi) styles.push(`color:${tColor}`);
+      let terrOv = '';
       if (terr) {
-        // Territory tint: a 75%-opacity layer over whatever's already painted below
-        // (danger colour, land-use colour, or nothing) — background-image composites
-        // above background-color, and inline styles beat the avenue-view "background:
-        // none" stripper, so the tint survives every map mode. Labels/icons are DOM
-        // content of this same tile, painted after its background by the cascade, so
-        // they stay legible on top without any extra stacking work.
-        styles.push(`background-image:linear-gradient(${hexA(terr.color, 0.75)},${hexA(terr.color, 0.75)})`);
-        if (!isPoi) styles.push(`color:${contrastInk(terr.color)}`);
-        // Org-colour glow (doubled for rival-held turf), dashed outline while contested.
+        // Territory overlay: a 90%-opacity org-colour layer painted ABOVE the tile's
+        // own icons/labels (a positioned .map-terr-ov child, not a background), so
+        // control reads at a glance and dominates POI icons, abbreviations, and the
+        // avenue-road overlay. The tile goes position:relative so the layer clips to it.
+        styles.push('position:relative');
+        // Org-colour glow (doubled for rival-held turf) sits outside the fill; dashed
+        // outline while contested rings the tile.
         styles.push(`box-shadow:inset 0 0 0 1px ${terr.color},0 0 8px ${terr.color}${terr.mine ? '' : ',0 0 4px ' + terr.color}`);
         if (terr.status === 'CONTESTED') styles.push(`outline:1px dashed ${contrastInk(terr.color)};outline-offset:-3px`);
+        terrOv = `<span class="map-terr-ov" style="background:${hexA(terr.color, 0.9)}"></span>`;
       }
       // Dead-end = exactly one connector touching this room.
       let deg = 0;
@@ -1078,7 +1105,7 @@ function renderMapGrid() {
       } else sym = symFor(t);
       // Yellow route road on top (arms toward the prev/next tile on the traced path).
       if (trDirs) sym += traceRoadSvg([...trDirs]);
-      html += `<span class="${cls}"${style} data-zone-id="${t.id}">${sym}</span>`;
+      html += `<span class="${cls}"${style} data-zone-id="${t.id}">${sym}${terrOv}</span>`;
     }
   }
   grid.innerHTML = html;

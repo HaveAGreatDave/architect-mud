@@ -204,6 +204,71 @@ function _isSystemOnly(tabKey) {
 	return _channels.has(tabKey) && _channels.get(tabKey).systemOnly;
 }
 
+// Display label for a channel — the server-supplied '#<corp name>' etc., falling
+// back to the raw id (which is still the routing key everywhere).
+function _channelLabel(id) {
+	const ch = _channels.get(id);
+	return (ch && ch.label) || id;
+}
+
+// ── Embeddable chat API ────────────────────────────────────────────────────
+// Lets another surface (the Tablet OS Chat app) present the same conversations
+// this floating panel owns, without duplicating the chat state. Subscribers are
+// notified whenever a message arrives/sends or the tab set changes, so they can
+// re-render live (the tablet has no server push of its own).
+const _chatListeners = new Set();
+export function onChatUpdate(cb) {
+	_chatListeners.add(cb);
+	return () => _chatListeners.delete(cb);
+}
+function _emitChatUpdate() {
+	for (const cb of _chatListeners) {
+		try { cb(); } catch (e) { console.error("[chat] listener failed:", e); }
+	}
+}
+
+// Channels then open PM conversations (the USERS hub isn't a real tab). Each:
+// { key (routing id), label, kind: 'channel'|'pm', unread, systemOnly }.
+export function getChatTabs() {
+	const out = [];
+	for (const [id, ch] of _channels) {
+		const convo = _whisperConvos.get(id);
+		out.push({ key: id, label: _channelLabel(id), kind: "channel", unread: convo?.unread || 0, systemOnly: !!ch.systemOnly });
+	}
+	for (const [handle, convo] of _whisperConvos) {
+		if (_channels.has(handle) || handle === USERS_TAB) continue;
+		out.push({ key: handle, label: handle, kind: "pm", unread: convo.unread || 0, systemOnly: false });
+	}
+	return out;
+}
+
+export function getChatMessages(key) {
+	const convo = _whisperConvos.get(key);
+	if (!convo) return [];
+	return convo.messages.map((m) => ({ from: m.from, message: m.message, isMe: !!m.isMe, isHtml: !!m.isHtml }));
+}
+
+// Clear a conversation's unread count (the embedder is actively showing it).
+// Deliberately does NOT emit an update — it's a read side-effect, not new data,
+// and emitting here would loop a subscriber that calls this on every render.
+export function markChatRead(key) {
+	const convo = _whisperConvos.get(key);
+	if (convo && convo.unread) {
+		convo.unread = 0;
+		_updateChatBadge();
+		if (_whisperPanelVisible) _refreshWhisperTabs();
+	}
+}
+
+// Send to a channel/PM tab (mirrors sendWhisperReply's send path for one tab).
+export function sendChatMessage(key, text) {
+	const msg = (text || "").trim();
+	if (!msg || !key || key === USERS_TAB || _isSystemOnly(key)) return;
+	const expanded = expandTokens(msg);
+	_echoOwnMessage(key, expanded);
+	sendCmdSilent(`whisper ${key} ${expanded}`);
+}
+
 // ── MOTD ──────────────────────────────────────────────────────────────────────
 
 function _selectMotdSize() {
@@ -483,6 +548,7 @@ export function openWhisperTab(handle) {
 	if (!_isSystemOnly(handle))
 		document.getElementById("whisper-reply-input")?.focus();
 	_updateChatBadge();
+	_emitChatUpdate();
 }
 
 function _switchToTab(key) {
@@ -524,6 +590,7 @@ function _closeWhisperTab(handle) {
 		_refreshWhisperTabs();
 		_updateChatBadge();
 	}
+	_emitChatUpdate();
 }
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
@@ -583,13 +650,13 @@ function _refreshWhisperTabs() {
 		if (ch.permanent) {
 			const t = document.createElement("button");
 			t.className = `whisper-tab${active ? " active tab-yellow" : ""}`;
-			t.textContent = id;
+			t.textContent = _channelLabel(id);
 			t.onclick = () => _switchToTab(id);
 			if (convo?.unread > 0) t.appendChild(mkPip());
 			tabs.appendChild(t);
 		} else {
 			mkClosableTab(
-				id,
+				_channelLabel(id),
 				id,
 				active,
 				() => openWhisperTab(id),
@@ -671,7 +738,7 @@ function _renderUsersTab(log) {
 			'<div style="padding:8px 10px 4px;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Channels</div>';
 		for (const [id] of _channels) {
 			const h = id.replace(/"/g, "&quot;");
-			html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--yellow)">${id}</span><button data-channel="${h}" style="background:transparent;border:1px solid var(--border);color:var(--accent);font-family:var(--font-mono);font-size:9px;padding:2px 6px;cursor:pointer;border-radius:2px">open</button></div>`;
+			html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--yellow)">${_esc(_channelLabel(id))}</span><button data-channel="${h}" style="background:transparent;border:1px solid var(--border);color:var(--accent);font-family:var(--font-mono);font-size:9px;padding:2px 6px;cursor:pointer;border-radius:2px">open</button></div>`;
 		}
 	}
 
@@ -719,6 +786,24 @@ function _renderUsersTab(log) {
 
 export async function refreshOnlinePlayers() {
 	await _fetchOnlinePlayers();
+}
+
+// Last-fetched online players (excludes self) — for embedders (Tablet Chat app)
+// that render their own "start a new message" list. Call refreshOnlinePlayers()
+// to update it first.
+export function getOnlinePlayers() {
+	return _onlinePlayers.slice();
+}
+
+// Ensure a PM conversation exists (restoring saved history if any) WITHOUT
+// opening or focusing the floating panel — for embedders that own their own
+// view. Returns the conversation key (the handle).
+export function ensureChatConversation(handle) {
+	if (!handle) return null;
+	if (!_whisperConvos.has(handle))
+		_whisperConvos.set(handle, _restoreOrCreate(handle));
+	_emitChatUpdate();
+	return handle;
 }
 
 async function _fetchOnlinePlayers() {
@@ -796,6 +881,7 @@ function _echoOwnMessage(tab, message) {
 	_pendingSelfEchoes.push({ tab, message, ts: Date.now() });
 	_saveConvos();
 	if (_whisperPanelVisible && _activeWhisperTab === tab) _renderWhisperLog();
+	_emitChatUpdate();
 }
 
 export function sentWhisper(handle, message) {
@@ -809,6 +895,7 @@ export function sentWhisper(handle, message) {
 	convo.stickBottom = true; // sending your own line re-pins to the bottom
 	_saveConvos();
 	openWhisperTab(handle);
+	_emitChatUpdate();
 }
 
 // A whisper we optimistically rendered turned out to be undeliverable (the
@@ -833,6 +920,7 @@ export function rollbackSelfEcho(attempted) {
 	_saveConvos();
 	if (_whisperPanelVisible && _activeWhisperTab === pending.tab)
 		_renderWhisperLog();
+	_emitChatUpdate();
 }
 
 export function receiveWhisper(from, message) {
@@ -857,6 +945,7 @@ export function receiveWhisper(from, message) {
 				_renderUsersTab(document.getElementById("whisper-log"));
 		}
 	}
+	_emitChatUpdate();
 }
 
 // Replay stored channel history on login. history: { channelId: [{from, message, ts}, ...] }
@@ -877,6 +966,7 @@ export function initChannelHistory(history) {
 		}));
 		if (_activeWhisperTab === channelId) _renderWhisperLog();
 	}
+	_emitChatUpdate();
 }
 
 export function receiveChannelMsg(channelId, from, message) {
@@ -900,6 +990,7 @@ export function receiveChannelMsg(channelId, from, message) {
 		_updateChatBadge();
 		if (_whisperPanelVisible) _refreshWhisperTabs();
 	}
+	_emitChatUpdate();
 }
 
 // ── BADGE ─────────────────────────────────────────────────────────────────────

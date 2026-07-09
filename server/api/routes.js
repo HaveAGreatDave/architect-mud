@@ -2116,6 +2116,7 @@ async function apiGetCrimeConfig() {
   return {status:200,body:{
     multiplier: Number(getTunable('crime_penalty_multiplier', 6)) || 6,
     cameraEffectiveness: Number(getTunable('camera_effectiveness', 0.5)),
+    cameraBufferLines: Number(getTunable('camera_buffer_lines', 25)) || 25,
   }};
 }
 async function apiSetCrimeConfig(body) {
@@ -2131,6 +2132,11 @@ async function apiSetCrimeConfig(body) {
     const c = Math.max(0, Math.min(1, Number(body.cameraEffectiveness)));
     if (Number.isNaN(c)) return {status:400,body:{error:'cameraEffectiveness must be a number.'}};
     writes.push(['camera_effectiveness', c, 'Camera effectiveness']);
+  }
+  if (body.cameraBufferLines != null) {
+    const n = Math.round(Math.max(1, Math.min(500, Number(body.cameraBufferLines))));
+    if (Number.isNaN(n)) return {status:400,body:{error:'cameraBufferLines must be a number.'}};
+    writes.push(['camera_buffer_lines', n, 'Camera buffer (lines)']);
   }
   if (!writes.length) return {status:400,body:{error:'nothing to update.'}};
   try {

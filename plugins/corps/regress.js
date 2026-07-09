@@ -2,7 +2,7 @@
 // Covers the corp-recruitment-poster `furniture.describe` branch: it claims only
 // `corp_poster` furniture and returns undefined for everything else, so the
 // posters plugin's own hook still runs (hook contract: last non-undefined wins).
-import { _corpPosterPitch } from './index.js';
+import { _corpPosterPitch, colorDistance, MIN_COLOR_DISTANCE } from './index.js';
 
 export default async function regress({ run, check }) {
   // `corp territory` — the big-map overlay layer: a corp-free control projection
@@ -20,6 +20,13 @@ export default async function regress({ run, check }) {
   const wink = _corpPosterPitch({ name: 'a poster', flags: { corp_poster: true, architect_wink: true } });
   check('architect-wink poster → adds the fine-print motif', /NORTHERN ACCESS|—A/.test(wink || ''));
   check('plain corp poster → no wink motif', !/NORTHERN ACCESS/.test(poster || ''));
+
+  // `corp edit color` distinctness gate — corps must keep a visibly different map
+  // colour. colorDistance is the pure perceptual check the command guards on.
+  check('color: identical colours have zero distance', colorDistance('#3366ff', '#3366ff') === 0);
+  check('color: near-identical shades are below the distinct threshold', colorDistance('#ff2020', '#ff0000') < MIN_COLOR_DISTANCE);
+  check('color: red vs green are comfortably distinct', colorDistance('#ff0000', '#00ff00') >= MIN_COLOR_DISTANCE);
+  check('color: adjacent greys are too close', colorDistance('#888888', '#999999') < MIN_COLOR_DISTANCE);
 
   check('non-corp furniture → undefined (yields to other hooks)', _corpPosterPitch({ name: 'a chair', flags: { hero_poster: true } }) === undefined);
   check('flagless furniture → undefined', _corpPosterPitch({ name: 'a crate', flags: {} }) === undefined);

@@ -152,4 +152,42 @@ export default async function regress({ run, check, getPlayer }) {
 
   await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TIMED_QUEST_ID]);
   await query('DELETE FROM quests WHERE id=$1', [TIMED_QUEST_ID]);
+
+  // ── Retrieve objective — auto-spawns the item, completes on pickup ──────────
+  const RETRIEVE_QUEST_ID = 'quest_regress_retrieve';
+  const RETRIEVE_ZONE = 'zone_regress_retrieve_spot';
+  const GROUND = `_ground_${RETRIEVE_ZONE}`;
+  const { rows: itemRows } = await query('SELECT id FROM items LIMIT 1');
+  const RETRIEVE_ITEM = itemRows[0]?.id;
+  if (RETRIEVE_ITEM) {
+    await query('DELETE FROM player_inventory WHERE player_id=$1', [GROUND]);
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress Retrieve','',$2,'{}',0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2`,
+      [RETRIEVE_QUEST_ID, JSON.stringify([{ id: 'o0', type: 'retrieve', item_id: RETRIEVE_ITEM, zone: RETRIEVE_ZONE, spawn: true, count: 1, desc: 'Recover the item' }])]
+    );
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, RETRIEVE_QUEST_ID]);
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: RETRIEVE_QUEST_ID } });
+
+    ({ rows } = await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE player_id=$1 AND item_id=$2', [GROUND, RETRIEVE_ITEM]));
+    check('retrieve objective auto-spawns its item onto the zone ground', rows[0]?.n >= 1, JSON.stringify(rows[0]));
+
+    // Same predicate the real on('item.taken', ...) subscriber uses.
+    await trackEvent(player, (obj) => obj.type === 'retrieve' && obj.item_id === RETRIEVE_ITEM);
+    ({ rows } = await query('SELECT status, progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, RETRIEVE_QUEST_ID]));
+    check('retrieve objective completes when the item is picked up', rows[0]?.status === 'completed' && rows[0]?.progress?.[0] === 1, JSON.stringify(rows[0]));
+
+    // spawn:false must place nothing (the item is expected to already be in the world).
+    await query('UPDATE quests SET objectives=$2 WHERE id=$1', [RETRIEVE_QUEST_ID, JSON.stringify([{ id: 'o0', type: 'retrieve', item_id: RETRIEVE_ITEM, zone: RETRIEVE_ZONE, spawn: false, count: 1, desc: 'Recover the item' }])]);
+    await query('DELETE FROM player_inventory WHERE player_id=$1', [GROUND]);
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, RETRIEVE_QUEST_ID]);
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: RETRIEVE_QUEST_ID } });
+    ({ rows } = await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE player_id=$1 AND item_id=$2', [GROUND, RETRIEVE_ITEM]));
+    check('retrieve with spawn:false places nothing', rows[0]?.n === 0, JSON.stringify(rows[0]));
+
+    await query('DELETE FROM player_inventory WHERE player_id=$1', [GROUND]);
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, RETRIEVE_QUEST_ID]);
+    await query('DELETE FROM quests WHERE id=$1', [RETRIEVE_QUEST_ID]);
+  }
 }

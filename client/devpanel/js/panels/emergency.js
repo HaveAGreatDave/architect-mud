@@ -151,6 +151,12 @@ function renderEmergencyPanel(data) {
           <span id="cam-eff-val" style="font-size:12px;color:var(--text);font-weight:700;min-width:42px;text-align:right">50%</span>
         </div>
         <div style="margin-top:10px;font-size:10px;color:var(--text-dim)">Global scalar on every camera's chance to make a crime. 0% = lenses never catch you; 100% = full base→ceiling ramp. Cops and bystanders are unaffected.</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:16px">
+          <span style="font-size:11px;color:var(--text-dim);white-space:nowrap">Camera buffer (lines/clip)</span>
+          <input id="cam-buf" type="number" min="1" max="500" step="1" value="25" style="width:70px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
+          <button class="action-btn" onclick="saveCamBuffer()">Save</button>
+        </div>
+        <div style="margin-top:10px;font-size:10px;color:var(--text-dim)">Rolling number of activity lines (speech, arrivals/exits, actions) a recording sticky-cam keeps per clip. Default 25.</div>
       </div>
 
       <!-- Crime Registry -->
@@ -237,6 +243,8 @@ async function _loadCrimeConfig() {
     if (ce) ce.value = pct;
     camEffLabel(pct);
   }
+  const cb = document.getElementById('cam-buf');
+  if (cb && cfg && cfg.cameraBufferLines != null) cb.value = cfg.cameraBufferLines;
   const crimes = await directAPI('/crimes');
   const box = document.getElementById('crime-registry');
   if (!box) return;
@@ -272,6 +280,12 @@ async function saveCamEff(v) {
   const r = await directAPI('/crime-config', 'PUT', { cameraEffectiveness: Number(v) / 100 });
   if (r.error) { toast(r.error, true); return; }
   toast(`Camera effectiveness set to ${Math.round((r.cameraEffectiveness ?? 0) * 100)}%`);
+}
+async function saveCamBuffer() {
+  const v = Number(document.getElementById('cam-buf').value);
+  const r = await directAPI('/crime-config', 'PUT', { cameraBufferLines: v });
+  if (r.error) { toast(r.error, true); return; }
+  toast(`Camera buffer set to ${r.cameraBufferLines} lines`);
 }
 async function toggleCrime(id, enabled) {
   const r = await directAPI(`/crimes/${id}`, 'PUT', { enabled });

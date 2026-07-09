@@ -93,6 +93,20 @@
       ],
       "text": "\"Honest.\" It isn't a compliment or an insult, just a reading. \"The ones who admit that outlast the ones with a cause. Causes get people killed for free. The board at least pays.\""
     },
+    "job_turnin": {
+      "actions": [
+        {
+          "action": "TURN_IN"
+        }
+      ],
+      "options": [
+        {
+          "cmd": "gigs",
+          "text": "\"What else is on the board?\""
+        }
+      ],
+      "text": "Marta glances at the tab, then at you. \"{quest}. Done, then.\" She thumbs a worn stamp onto the clipboard and the credits clear before the ink's dry. \"Pay's logged. Take a tab, do the thing, bring it back — that's the whole religion.\" A drag on the cigarette. \"Come back when you're hungry again.\""
+    },
     "remember": {
       "options": [
         {

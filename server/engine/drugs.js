@@ -197,7 +197,16 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   // --- Instant block ---------------------------------------------------------
   const scaledInstant = scaleInstant(instant, potencyMult);
   let result;
-  if (onset > 0) {
+  if (opts.skipInstant) {
+    // A laced carrier (a drink/food that applies this drug via tags.laced_drug)
+    // provides its OWN restores on the item, so skip the drug's instant resource
+    // block — but still run its systemic effects: the meter (via the player.drugUsed
+    // event already emitted above), overdose, phases, and hallucination.
+    result = { success: true, message, effects: {}, player_update: {}, overdose: false };
+    if (eff.hallucination) {
+      fireHook('drug.used', { player, drug: drugForHooks, potency: effPotency, broadcast }).catch(() => {});
+    }
+  } else if (onset > 0) {
     // Defer the hit: the instant block + hallucination land after `onset` seconds
     // via tickOnsets. Nothing changes on the player yet, so player_update is empty.
     result = { success: true, message, effects: scaledInstant, player_update: {}, overdose: false };

@@ -31,7 +31,7 @@ import { describeExterior, rampColorWord, conspicuousnessMult } from './livery.j
 import { rollHazards, commands as hazardCommands } from './hazards.js';
 import { commands as acquisitionCommands, refuelAt, fieldStocks } from './acquisition.js';
 import { commands as combatCommands, tickCombat, relayContacts } from './combat.js';
-import { commands as contractCommands, checkContractDelivery, checkCargoDropDelivery, waitingDropAt, ensureFenceDrops } from './contracts.js';
+import { commands as contractCommands, checkContractDelivery, checkCargoDropDelivery, waitingDropAt, ensureFenceDrops, ensureFreightDrops, isFreightLicensed } from './contracts.js';
 import { commands as hangarCommands, pushHangarBay } from './hangars.js';
 import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter, activeCharters } from './charter.js';
 
@@ -197,13 +197,17 @@ async function boardFound(found, player, broadcast) {
   // `ensureFenceDrops` is a cheap no-op for anyone who hasn't unlocked the fence's
   // air-cargo branch; for those who have, it tops their pallet pool back up first.
   let drop = null;
-  if (seat === 'pilot') { await ensureFenceDrops(player); drop = await waitingDropAt(player.current_zone, player.id); }
+  if (seat === 'pilot') { await ensureFenceDrops(player); await ensureFreightDrops(player, player.current_zone); drop = await waitingDropAt(player.current_zone, player.id); }
   const cargoHint = drop
     ? drop.kind === 'fence'
       ? `\n<span class="text-cyan">📦 A sealed shipment is waiting on the ramp — <span class="action-link" data-action="cmd" data-cmd="loadcargo">load it</span> and fly it home.</span>`
       : `\n<span class="text-cyan">📦 ${drop.label} (${drop.weight_kg}kg) is waiting on the ramp — <span class="action-link" data-action="cmd" data-cmd="loadcargo">load it</span> and fly it home for ${drop.reward}c.</span>`
     : '';
-  return { type: 'emote', message: `${scramble}You climb aboard the ${live.type.name}. ${hint}${cargoHint}` };
+  // Nudge unlicensed pilots toward the licence that turns those standing loads on.
+  const licenseHint = (seat === 'pilot' && !drop && !(await isFreightLicensed(player)))
+    ? `\n<span class="text-dim">An air-freight licence (<b>freightlicense</b>) puts standing cargo loads on the ramp wherever you board.</span>`
+    : '';
+  return { type: 'emote', message: `${scramble}You climb aboard the ${live.type.name}. ${hint}${cargoHint}${licenseHint}` };
 }
 
 async function cmdDisembark(args, raw, player, broadcast) {
@@ -783,6 +787,47 @@ async function flightTick() {
 }
 setInterval(() => flightTick().catch(e => console.error('[flight] tick error:', e.message)), TICK_MS);
 
+// ── Delete one aircraft instance for good ─────────────────────────────────────
+// The shared teardown used by the dev-panel DELETE route AND the wreck-maintenance
+// sweep: detach any live occupant, drop it from in-memory flight/charter state (so no
+// player's aircraftId is left dangling), then remove the row. Returns the DB rowCount.
+async function deleteAircraft(id) {
+  const live = liveAircraft.get(id);
+  if (live) {
+    for (const pid of [...live.occupants]) {
+      const p = getLivePlayer(pid);
+      if (p) detach(p);
+    }
+    liveAircraft.delete(id);
+  }
+  activeCharters.delete(id);   // in case a ghost charter row still pointed at it
+  const { rowCount } = await query('DELETE FROM aircraft WHERE id=$1', [id]);
+  return rowCount;
+}
+
+// ── Wreck-maintenance sweep ───────────────────────────────────────────────────
+// A crash drops a salvageable wreck row on the tile it hit. Those are meant to be
+// picked over (salvage/rebuild), but otherwise they linger forever and clutter the
+// map. This periodic sweep clears wrecks that have sat untouched past WRECK_TTL_MS,
+// leaving players a window to salvage first. Legacy wrecks with no crash timestamp are
+// stamped on first pass (given the full window) rather than all vanishing at once.
+const WRECK_TTL_MS = 20 * 60 * 1000;    // untouched wreck lifespan before auto-clear
+const WRECK_SWEEP_MS = 5 * 60 * 1000;   // how often the sweep runs
+async function wreckSweep() {
+  const { rows } = await query("SELECT id, custom_data FROM aircraft WHERE is_wreck=1");
+  const now = Date.now();
+  for (const r of rows) {
+    if (liveAircraft.has(r.id)) continue;   // mid-interaction in memory — leave it
+    const at = r.custom_data?.crashed_at;
+    if (!at) {
+      await query("UPDATE aircraft SET custom_data = jsonb_set(custom_data, '{crashed_at}', to_jsonb($1::bigint)) WHERE id=$2", [now, r.id]);
+      continue;
+    }
+    if (now - at >= WRECK_TTL_MS) await deleteAircraft(r.id);
+  }
+}
+setInterval(() => wreckSweep().catch(e => console.error('[flight] wreck sweep error:', e.message)), WRECK_SWEEP_MS);
+
 // ── Move gate: can't walk while aboard ────────────────────────────────────────
 registerMoveGate(({ player }) => {
   if (player.aircraftId) {
@@ -1099,16 +1144,7 @@ export const routeHandler = async (path, method, body, auth) => {
       return { status: 200, body: rows.map(r => ({ ...r, kind: AIRCRAFT_KIND(r), live: liveAircraft.has(r.id) })) };
     }
     if (id && method === 'DELETE') {
-      const live = liveAircraft.get(id);
-      if (live) {
-        for (const pid of [...live.occupants]) {
-          const p = getLivePlayer(pid);
-          if (p) detach(p);
-        }
-        liveAircraft.delete(id);
-      }
-      activeCharters.delete(id);   // in case a ghost charter row still pointed at it
-      const { rowCount } = await query('DELETE FROM aircraft WHERE id=$1', [id]);
+      const rowCount = await deleteAircraft(id);
       return rowCount ? { status: 200, body: { ok: true } } : { status: 404, body: { error: 'No such aircraft.' } };
     }
   }

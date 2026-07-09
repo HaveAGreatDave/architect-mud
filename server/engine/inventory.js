@@ -60,6 +60,17 @@ export async function dropToGround(row, zoneId, qty) {
   return dropQty;
 }
 
+// Spawn a fresh copy of an item onto a zone's ground, with no source inventory
+// row — used by quest auto-spawn to seed a retrievable objective item into the
+// world so it's there to be found. Bare row (item_id + qty); the look/take path
+// enriches it from `items` like any other ground drop.
+export async function spawnOnGround(itemId, zoneId, qty = 1) {
+  await query(
+    'INSERT INTO player_inventory (id,player_id,item_id,quantity,is_equipped) VALUES ($1,$2,$3,$4,0)',
+    [randomUUID(), groundOwner(zoneId), itemId, Math.max(1, Number(qty) || 1)]
+  );
+}
+
 // Burn one charge from a charged-pack row (item tag `pack_size` > 1, e.g. a pack
 // of cigarettes). Remaining charges ride on the row's custom_data.charges; a
 // sealed pack (no `charges` key) counts as full. The row is destroyed only on the

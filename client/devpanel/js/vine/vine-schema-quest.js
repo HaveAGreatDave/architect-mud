@@ -62,43 +62,76 @@ function _questReferencedIn(obj, questId) {
 }
 
 // The single target field's label + placeholder depend on the objective kind.
-const _Q_KINDS = [['kill', 'Kill'], ['give', 'Give / turn in'], ['visit', 'Visit'], ['deliver', 'Deliver (flight)']];
+const _Q_KINDS = [['kill', 'Kill'], ['give', 'Give / turn in'], ['visit', 'Visit'], ['deliver', 'Deliver (flight)'], ['retrieve', 'Retrieve item (spawns)']];
 function _qTargetLabel(kind) {
-  if (kind === 'give') return ['Item ID', 'medkit'];
+  if (kind === 'give' || kind === 'retrieve') return ['Item ID', 'medkit'];
   if (kind === 'visit' || kind === 'deliver') return ['Zone ID', 'zone_downtown_alley'];
   return ['Enemy target', 'sewer_rat'];
 }
 
-// Flight-template meta — only relevant/shown when the quest node's questType is
-// 'flight_template'. A single JSON blob (the vine-core field binder only supports
-// one-level "data.<key>" paths, same as the reward node's items/flags fields) —
-// drives plugins/flight/contracts.js's board generator (topUp). Shape:
-//   { kind:'cargo'|'passenger', legal, payMult, riskBase, wMin, wMax, deadlineMins, names:[...] }
-// See scripts/migrate-flight-job-types.js for the seed shape.
-function _qFlightMetaField(meta) {
-  const example = { kind: 'cargo', legal: true, payMult: 1.0, riskBase: 0, wMin: 40, wMax: 100, deadlineMins: 20, names: ['a sealed crate'] };
-  return _qField('Flight template settings (JSON)', _qTextarea('data.meta', JSON.stringify(meta || example, null, 2), 8, true));
+// Flight-template settings — only shown when the quest node's questType is
+// 'flight_template'. Drives plugins/flight/contracts.js's board generator (topUp).
+// Broken out of the old single JSON blob into first-class fields (the vine-core
+// binder only supports one-level "data.<key>" paths, so each field binds to a flat
+// `fm*` key; fromQuest seeds them off the row's meta and toQuest reassembles the
+// meta object). Shape rebuilt: { kind, legal, payMult, riskBase, wMin, wMax,
+// deadlineMins, names:[...], destZone? }. See scripts/migrate-flight-job-types.js
+// for the seed shape.
+const _FM_KIND = [['cargo', 'Cargo haul'], ['passenger', 'Passenger charter']];
+const _FM_LEGAL = [['legal', 'Legal'], ['illegal', 'Contraband (fly dark)']];
+function _qFlightMetaFields(d) {
+  const names = d.fmNames != null ? d.fmNames : '';
+  return `
+    <div style="margin:10px 0 6px;padding-top:8px;border-top:1px solid var(--border)">
+      <label style="${_QL};color:var(--accent)">✈ Flight template settings</label>
+    </div>
+    ${_qField('Job kind', _qSelect('data.fmKind', _FM_KIND, d.fmKind || 'cargo'))}
+    ${_qField('Legality', _qSelect('data.fmLegal', _FM_LEGAL, d.fmLegal || 'legal'))}
+    ${_qField('Land at (fixed destination airfield — blank = random)', _qInput('data.fmDest', d.fmDest, 'zone_slag_gate'))}
+    ${_qField('Pay multiplier', _qInput('data.fmPayMult', d.fmPayMult ?? 1.0, '1.0', 'number'))}
+    ${_qField('Risk base (0–5)', _qInput('data.fmRisk', d.fmRisk ?? 0, '0', 'number'))}
+    ${_qField('Cargo weight min (kg)', _qInput('data.fmWMin', d.fmWMin ?? 40, '40', 'number'))}
+    ${_qField('Cargo weight max (kg)', _qInput('data.fmWMax', d.fmWMax ?? 100, '100', 'number'))}
+    ${_qField('Deadline (minutes)', _qInput('data.fmDeadline', d.fmDeadline ?? 20, '20', 'number'))}
+    ${_qField('Cargo / passenger descriptions (one per line)', _qTextarea('data.fmNames', names, 4))}`;
+}
+// Seed the flat fm* editing fields off a row's meta (round-trips even if untouched).
+function _fmFromMeta(m) {
+  m = (m && typeof m === 'object') ? m : {};
+  return {
+    fmKind: m.kind || 'cargo',
+    fmLegal: m.legal === false ? 'illegal' : 'legal',
+    fmDest: m.destZone || '',
+    fmPayMult: m.payMult ?? 1.0,
+    fmRisk: m.riskBase ?? 0,
+    fmWMin: m.wMin ?? 40,
+    fmWMax: m.wMax ?? 100,
+    fmDeadline: m.deadlineMins ?? 20,
+    fmNames: Array.isArray(m.names) ? m.names.join('\n') : '',
+  };
 }
 
 const _questNodeDefs = {
   quest: {
     label: 'Quest',
     color: '#a04488',
-    defaultData: { name: '', description: '', repeatable: false, questType: 'standard', meta: {} },
+    defaultData: { name: '', description: '', repeatable: false, questType: 'standard', meta: {}, ..._fmFromMeta({}) },
     renderBody: (n) => `<div style="font-size:11px;color:var(--accent)">${_escQ(n.data.name || '(unnamed quest)')}</div>
       ${n.data.questType === 'flight_template' ? '<div style="font-size:10px;color:var(--text-dim)">✈ flight template</div>' : ''}
       ${n.data.repeatable ? '<div style="font-size:10px;color:var(--text-dim)">repeatable</div>' : ''}`,
     getOutPorts: () => [{ key: 'start', label: 'available' }],
     renderProperties: (n, ed, id) => `
       ${_qHelp(id,
-        'The quest itself. Objectives wired to the "available" port are active from the moment the quest starts. This is the single start node — one per graph. Quest Type "Flight Contract Template" makes this an authored pilot-contract archetype (plugins/flight/contracts.js rolls concrete board postings from it) — fill in the Flight template settings JSON below for those; ignored otherwise.',
+        'The quest itself. Objectives wired to the "available" port are active from the moment the quest starts. This is the single start node — one per graph. Quest Type "Flight Contract Template" makes this an authored pilot-contract archetype (plugins/flight/contracts.js rolls concrete board postings from it) — the ✈ Flight template settings appear below for those. Re-open this panel after changing Quest Type to reveal/hide them.',
         'name: Pest Control\ndescription: The super wants the sewer rats gone.'
       )}
       ${_qField('Name', _qInput('data.name', n.data.name, 'Pest Control'))}
       ${_qField('Description', _qTextarea('data.description', n.data.description, 3))}
       ${_qField('Repeatable?', _qSelect('data.repeatable', [[false, 'One-time'], [true, 'Repeatable']], !!n.data.repeatable))}
       ${_qField('Quest Type', _qSelect('data.questType', [['standard', 'Standard (incl. job board)'], ['flight_template', 'Flight Contract Template']], n.data.questType || 'standard'))}
-      ${_qFlightMetaField(n.data.meta)}
+      ${n.data.questType === 'flight_template'
+        ? _qFlightMetaFields(n.data)
+        : _qField('Advanced meta (JSON)', _qTextarea('data.meta', JSON.stringify(n.data.meta || {}, null, 2), 4, true))}
       <div id="q-offered-by-${id}"></div>
     `,
     // Reverse cross-link: list NPCs whose dialogue offers this quest, each a jump into
@@ -128,7 +161,7 @@ const _questNodeDefs = {
   objective: {
     label: 'Objective',
     color: '#4477aa',
-    defaultData: { kind: 'kill', target: '', count: 1, desc: '' },
+    defaultData: { kind: 'kill', target: '', count: 1, desc: '', spawnZone: '', spawn: 'spawn' },
     renderBody: (n) => {
       const tgt = _escQ(n.data.target || '?');
       const c = Number(n.data.count) || 1;
@@ -140,14 +173,18 @@ const _questNodeDefs = {
       const [tlabel, tph] = _qTargetLabel(n.data.kind);
       return `
       ${_qHelp(id,
-        'One goal that advances by world events. Kind picks the event: kill an enemy, give/turn in an item, or visit a zone. Draw an edge from another objective\'s "unlocks" port into this one to gate it — it stays hidden until the prerequisite is done. No incoming objective edge = available from quest start.',
-        'kind: kill\ntarget: sewer_rat\ncount: 5\ndesc: Exterminate the sewer rats'
+        'One goal that advances by world events. Kind picks the event: kill an enemy, give/turn in an item, visit a zone, or retrieve an item. "Retrieve item" completes when the player picks up the named item, and (unless auto-spawn is off) drops a fresh copy into the spawn zone the moment the quest starts, so it is always there to find. Draw an edge from another objective\'s "unlocks" port into this one to gate it — it stays hidden until the prerequisite is done. No incoming objective edge = available from quest start.',
+        'kind: retrieve\ntarget: ancient_relic\nspawnZone: zone_sewers\ncount: 1\ndesc: Recover the ancient relic from the sewers'
       )}
       ${_qField('Kind', _qSelect('data.kind', _Q_KINDS, n.data.kind))}
       ${_qField(tlabel, _qInput('data.target', n.data.target, tph))}
+      ${n.data.kind === 'retrieve' ? `
+      ${_qField('Spawn / find zone', _qInput('data.spawnZone', n.data.spawnZone, 'zone_sewers'))}
+      ${_qField('Auto-spawn the item?', _qSelect('data.spawn', [['spawn', 'Yes — drop it in that zone on quest start'], ['nospawn', 'No — it already exists in the world']], n.data.spawn || 'spawn'))}
+      ` : ''}
       ${_qField('Count', _qInput('data.count', n.data.count ?? 1, '1', 'number'))}
       ${_qField('Description', _qTextarea('data.desc', n.data.desc, 2))}
-      <div style="font-size:10px;color:var(--text-dim);line-height:1.4">Re-open this panel after changing Kind to relabel the target field.</div>
+      <div style="font-size:10px;color:var(--text-dim);line-height:1.4">Re-open this panel after changing Kind to relabel the target field${' '}and reveal retrieve options.</div>
     `;
     },
   },
@@ -216,6 +253,10 @@ window.VineQuestSchema = {
         kind, target,
         count: o.count ?? 1,
         desc: o.desc || '',
+        // retrieve carries a spawn/find zone alongside its item target, and a
+        // toggle for whether the engine drops the item in on quest start.
+        spawnZone: kind === 'retrieve' ? (o.zone || '') : '',
+        spawn: o.spawn === false ? 'nospawn' : 'spawn',
         requires: Array.isArray(o.requires) ? o.requires : [],
         _vine: o._vine,
       };
@@ -228,14 +269,14 @@ window.VineQuestSchema = {
 
     // `_questId` is a non-persisted hint (toQuest ignores it) so the quest node can
     // reverse-scan NPC dialogue for "offered by" links. Absent for brand-new quests.
-    nodes.quest = { type: 'quest', x: 40, y: 40, data: { name: rec.name || '', description: rec.description || '', repeatable: !!rec.repeatable, questType: rec.quest_type || 'standard', meta: (rec.meta && typeof rec.meta === 'object') ? rec.meta : {}, _questId: rec.id || '' } };
+    nodes.quest = { type: 'quest', x: 40, y: 40, data: { name: rec.name || '', description: rec.description || '', repeatable: !!rec.repeatable, questType: rec.quest_type || 'standard', meta: (rec.meta && typeof rec.meta === 'object') ? rec.meta : {}, _questId: rec.id || '', ..._fmFromMeta(rec.meta) } };
 
     // Objective nodes + gating edges.
     const dependedOn = new Set();
     objs.forEach(o => o.requires.forEach(r => dependedOn.add(r)));
     objs.forEach(o => {
       const p = o._vine || pos[o.id] || { x: 340, y: 60 };
-      nodes[o.id] = { type: 'objective', x: p.x, y: p.y, data: { kind: o.kind, target: o.target, count: o.count, desc: o.desc } };
+      nodes[o.id] = { type: 'objective', x: p.x, y: p.y, data: { kind: o.kind, target: o.target, count: o.count, desc: o.desc, spawnZone: o.spawnZone, spawn: o.spawn } };
       if (o.requires.length) {
         o.requires.forEach(r => { if (byId[r]) edges.push({ fromNode: r, fromPort: 'unlocks', toNode: o.id }); });
       } else {
@@ -269,7 +310,7 @@ window.VineQuestSchema = {
         .filter(e => e.toNode === id && vnodes[e.fromNode] && vnodes[e.fromNode].type === 'objective')
         .map(e => e.fromNode);
       const kind = node.data.kind || 'kill';
-      const key = kind === 'give' ? 'item_id' : (kind === 'visit' || kind === 'deliver') ? 'zone' : 'target';
+      const key = (kind === 'give' || kind === 'retrieve') ? 'item_id' : (kind === 'visit' || kind === 'deliver') ? 'zone' : 'target';
       const obj = {
         id,
         type: kind,
@@ -278,6 +319,12 @@ window.VineQuestSchema = {
         desc: node.data.desc || '',
         _vine: { x: node.x, y: node.y },
       };
+      // retrieve: the item lives in item_id (above); the zone it spawns/is-found
+      // in is a separate field, plus the auto-spawn toggle the engine reads.
+      if (kind === 'retrieve') {
+        obj.zone = node.data.spawnZone || '';
+        obj.spawn = node.data.spawn !== 'nospawn';
+      }
       if (requires.length) obj.requires = requires;
       objectives.push(obj);
     }
@@ -289,12 +336,33 @@ window.VineQuestSchema = {
       _vine: { x: rewardNode[1].x, y: rewardNode[1].y },
     } : {};
 
+    const questType = questNode ? (questNode.data.questType || 'standard') : 'standard';
+    // Flight templates rebuild their meta from the first-class fm* fields; every
+    // other quest type keeps whatever meta it carried (e.g. job-board taskSeconds).
+    let meta = (questNode && questNode.data.meta && typeof questNode.data.meta === 'object') ? questNode.data.meta : {};
+    if (questType === 'flight_template' && questNode) {
+      const d = questNode.data;
+      const num = (v, def) => { const x = Number(v); return Number.isFinite(x) ? x : def; };
+      const names = String(d.fmNames || '').split('\n').map(s => s.trim()).filter(Boolean);
+      meta = {
+        kind: d.fmKind || 'cargo',
+        legal: (d.fmLegal || 'legal') !== 'illegal',
+        payMult: num(d.fmPayMult, 1.0),
+        riskBase: num(d.fmRisk, 0),
+        wMin: num(d.fmWMin, 40),
+        wMax: num(d.fmWMax, 100),
+        deadlineMins: num(d.fmDeadline, 20),
+        names: names.length ? names : ['a shipment'],
+      };
+      if (d.fmDest) meta.destZone = String(d.fmDest).trim();
+    }
+
     return {
       name: questNode ? (questNode.data.name || '') : '',
       description: questNode ? (questNode.data.description || '') : '',
       repeatable: questNode ? !!questNode.data.repeatable : false,
-      quest_type: questNode ? (questNode.data.questType || 'standard') : 'standard',
-      meta: (questNode && questNode.data.meta && typeof questNode.data.meta === 'object') ? questNode.data.meta : {},
+      quest_type: questType,
+      meta,
       objectives,
       rewards,
     };

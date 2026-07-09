@@ -586,8 +586,9 @@
 				<div class="sidebar-section" id="minimap-section">
 					<div class="sidebar-label">Map</div>
 					<div class="mm-toggle-row">
-						<button type="button" id="mm-avenue-toggle" class="mm-avenue-toggle" title="Avenue View — show major roads only">Avenue</button>
-						<button type="button" id="mm-auto-toggle" class="mm-avenue-toggle" title="Auto-walk the plotted GPS route (max 1s per step). Click again to stop.">Auto ▶</button>
+						<button type="button" id="mm-run-toggle" class="mm-avenue-toggle mm-icon-btn" title="Run — faster movement, burns stamina. Click to toggle walk / run.">🏃</button>
+						<button type="button" id="mm-avenue-toggle" class="mm-avenue-toggle mm-icon-btn" title="Avenue View — show major roads only.">🛣️</button>
+						<button type="button" id="mm-auto-toggle" class="mm-avenue-toggle mm-icon-btn" title="Auto-walk the plotted GPS route. Click again to stop.">👣</button>
 					</div>
 					<div id="minimap-grid">—</div>
 				</div>
@@ -1248,14 +1249,6 @@
 					</div>
 				</div>
 
-				<div class="settings-group">
-					<label class="group-label">Smart UI</label>
-					<div class="settings-options" id="opt-smartui">
-						<button class="settings-opt" data-value="on" title="Show the mobile-style quick-command bar and D-Pad on desktop too">📲</button>
-						<button class="settings-opt" data-value="off" title="Desktop layout only">🖱️</button>
-					</div>
-				</div>
-
 				<div class="settings-group mobile-only-setting">
 					<label class="group-label">D-Pad Size</label>
 					<div class="settings-options" id="opt-dpadsize">
@@ -1656,9 +1649,10 @@
 						<button type="button" class="map-tab" data-level="interior">Interior</button>
 						<button type="button" class="map-tab" data-level="zone">Zone</button>
 						<button type="button" class="map-tab" data-level="regional">Regional</button>
-						<button type="button" id="map-territory-toggle" class="map-tab">Territory</button>
-						<button type="button" id="map-route-toggle" class="map-tab map-tab-icon" aria-label="Route" title="Route: click to arm, then click a tile to trace a route from where you are. Click again to clear it.">⌖</button>
-						<button type="button" id="map-avenue-toggle" class="map-tab">Avenue View</button>
+						<span class="map-tab-sep" aria-hidden="true"></span>
+						<button type="button" id="map-route-toggle" class="map-tab map-tab-icon" aria-label="GPS route" title="GPS route — click, then click a tile to plot a route from where you are. Click again to clear it.">🧭</button>
+						<button type="button" id="map-avenue-toggle" class="map-tab map-tab-icon" aria-label="Avenue View" title="Avenue View — show major roads only.">🛣️</button>
+						<button type="button" id="map-territory-toggle" class="map-tab map-tab-icon" aria-label="Territory" title="Territory — tint tiles by their controlling org.">🚩</button>
 						<div id="map-overlay-slider" class="map-overlay-slider" data-ov="none" role="group" aria-label="Overlay on roads">
 							<button type="button" class="mo-seg active" data-ov="none">None</button>
 							<button type="button" class="mo-seg" data-ov="icons">Icons</button>
@@ -2021,6 +2015,12 @@
 				<div id="mediadeck-slot">
 					<div class="mediadeck-cassette-body" id="mediadeck-cassette-body">
 						<div class="mediadeck-cassette-label-strip" id="mediadeck-cassette-label-strip"></div>
+						<div class="mediadeck-mini-insert" id="mediadeck-mini-insert">
+							<div class="mediadeck-mini-reel"></div>
+							<div class="mediadeck-mini-window"></div>
+							<div class="mediadeck-mini-reel"></div>
+							<div class="mediadeck-mini-label">µREEL</div>
+						</div>
 					</div>
 					<div class="mediadeck-reel mediadeck-reel-l" id="mediadeck-reel-l">
 						<div class="mediadeck-reel-hub"></div>

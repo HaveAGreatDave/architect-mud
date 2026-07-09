@@ -9,6 +9,9 @@ import { signatureMult, signatureScore, colorName, describeExterior,
   readSchemes, schemeOf } from './livery.js';
 import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.js';
 import { sellAircraft, cancelRental } from './hangars.js';
+import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX } from './state.js';
+import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
+import { setFlag } from '../../server/engine/flags.js';
 import { query } from '../../server/models/db.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -40,6 +43,24 @@ export default async function regress({ run, check, getPlayer }) {
   const high = { type: { noise: 3, engines: 4, max_takeoff_weight: 1400 }, row: { throttle: 60, altitude_band: 'high' } };
   check('a big loud craft is heard farther than an ultralight', _test.noiseReach(loud) > _test.noiseReach(quiet), `${_test.noiseReach(loud)} vs ${_test.noiseReach(quiet)}`);
   check('high flight is inaudible from the ground', _test.noiseReach(high) === 0, String(_test.noiseReach(high)));
+
+  // ── Tuning model (pure; SSOT for flight + bench graphs) ─────────────────────
+  const TT = { max_takeoff_weight: 300, fuel_burn_base: 2, cruise_speed: 4, handling: 0, altitude_ceiling: 2, fuel_capacity: 40 };
+  const stock = computeStats(TT, {}), lean = computeStats(TT, { mixture: 1 }), boosted = computeStats(TT, { boost: 1 });
+  check('lean mixture saves fuel', lean.burn < stock.burn, `${lean.burn} vs ${stock.burn}`);
+  check('lean mixture runs hotter', lean.heatBias > stock.heatBias);
+  check('boost buys cruise speed (was a no-op before)', boosted.cruise > stock.cruise, `${boosted.cruise} vs ${stock.cruise}`);
+  check('boost costs heat', boosted.heatBias > stock.heatBias);
+  check('intercooler kit cuts the heat penalty', computeStats(TT, { boost: 1 }, 0, ['kit_intercooler']).heatBias < boosted.heatBias);
+  check('installedKits filters unknown ids', installedKits({ kits: ['kit_precision', 'lolnope'] }).length === 1);
+  check('tuneRange widens with Fabrication', tuneRange(20, []) > tuneRange(0, []));
+  check('a range-widening kit widens the dials', tuneRange(0, ['kit_precision']) > tuneRange(0, []));
+  check('tuneRange never exceeds the hard dial cap', tuneRange(999, ['kit_precision', 'kit_intercooler']) <= TUNE_DIAL_MAX);
+  const axStock = perfAxes(TT, {}), axBoost = perfAxes(TT, { boost: 1 }), axLean = perfAxes(TT, { mixture: 1 });
+  check('perfAxes reads 50 (=stock) on every axis at zero tune', Object.values(axStock).every(v => v === 50), JSON.stringify(axStock));
+  check('boost lifts the SPEED axis above stock', axBoost.speed > 50);
+  check('lean lifts ECON but drops COOL', axLean.economy > 50 && axLean.cool < 50, JSON.stringify(axLean));
+  check('every kit in the catalogue has a name + price', Object.values(KITS).every(k => k.name && k.price > 0));
 
   // ── Livery / paint signature (pure) ─────────────────────────────────────────
   const darkLv = { base: '#111214', trim: '#111214', pattern: 'splinter', finish: 'matte' };
@@ -134,6 +155,8 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('loadout'); check('loadout with no craft here reports it', /no aircraft of yours/i.test(r?.message || ''), r?.message);
   r = await run('salvage'); check('salvage with no wreck reports it', /no wreck/i.test(r?.message || ''), r?.message);
   r = await run('modify'); check('modify requires an owned aircraft', /own|no aircraft of your own/i.test(r?.message || ''), r?.message);
+  r = await run('tuneset 0 0 0 0'); check('tuneset requires an owned aircraft', /own|no aircraft of your own/i.test(r?.message || ''), r?.message);
+  r = await run('installkit x kit_precision'); check('installkit requires an owned aircraft', /own|no aircraft of your own/i.test(r?.message || ''), r?.message);
   r = await run('paintset nope #111111 #222222 solid matte #333333 standard none'); check('paintset on an unknown craft is refused', /no such aircraft/i.test(r?.message || ''), r?.message);
   r = await run('scheme save fast'); check('scheme with no owned craft is refused', /no aircraft of your own|own/i.test(r?.message || ''), r?.message);
   r = await run('hangaract store x'); check('hangaract off-field reports airfields', /airfield/i.test(r?.message || ''), r?.message);
@@ -193,6 +216,28 @@ export default async function regress({ run, check, getPlayer }) {
     check('sellAircraft refuses an airborne aircraft', sr?.type === 'error' && /air/i.test(sr.message || ''), JSON.stringify(sr));
     await query('DELETE FROM aircraft WHERE id=$1', [strangerId]);
   }
+
+  // ── Licensed freight drops (air-freight licence gate + pool top-up) ─────────
+  r = await run('freightlicense'); check('freightlicense off-field points to the airfields', /airfield/i.test(r?.message || ''), r?.message);
+
+  const FREIGHT_FIELD = 'zone_regress_freight_field';
+  await query("DELETE FROM cargo_drops WHERE owner_id=$1 AND kind='freight'", [p.id]);
+  await setFlag('player', 'air_freight_licensed', '0', p);
+  check('isFreightLicensed false before licensing', (await isFreightLicensed(p)) === false);
+  await ensureFreightDrops(p, FREIGHT_FIELD);
+  let { rows: fd } = await query("SELECT COUNT(*)::int n FROM cargo_drops WHERE owner_id=$1 AND kind='freight' AND origin_zone=$2", [p.id, FREIGHT_FIELD]);
+  check('ensureFreightDrops is a no-op for the unlicensed', fd[0]?.n === 0, JSON.stringify(fd[0]));
+
+  await setFlag('player', 'air_freight_licensed', '1', p);
+  check('isFreightLicensed true once the flag is set', (await isFreightLicensed(p)) === true);
+  await ensureFreightDrops(p, FREIGHT_FIELD);
+  ({ rows: fd } = await query("SELECT COUNT(*)::int n FROM cargo_drops WHERE owner_id=$1 AND kind='freight' AND origin_zone=$2 AND status='waiting'", [p.id, FREIGHT_FIELD]));
+  check('ensureFreightDrops tops the licensed pilot pool up', fd[0]?.n === 4, JSON.stringify(fd[0]));
+  await ensureFreightDrops(p, FREIGHT_FIELD); // idempotent — already at the cap
+  ({ rows: fd } = await query("SELECT COUNT(*)::int n FROM cargo_drops WHERE owner_id=$1 AND kind='freight' AND origin_zone=$2 AND status='waiting'", [p.id, FREIGHT_FIELD]));
+  check('ensureFreightDrops holds the pool at the cap (no runaway)', fd[0]?.n === 4, JSON.stringify(fd[0]));
+  await query("DELETE FROM cargo_drops WHERE owner_id=$1 AND kind='freight'", [p.id]);
+  await setFlag('player', 'air_freight_licensed', '0', p);
 
   p.posture = savedPosture; p.npcCombatTargetId = savedCombat;
   if (savedAc) p.aircraftId = savedAc; else { delete p.aircraftId; delete p.seat; }

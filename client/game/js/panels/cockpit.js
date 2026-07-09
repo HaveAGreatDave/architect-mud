@@ -14,7 +14,7 @@
 import { setAreaPane } from '../render.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn, tracerFx, hitFx } from './engine-audio.js';
-import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingHeightZ, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F } from './windshield.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingHeightZ, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
@@ -897,6 +897,16 @@ function buildingCollisionAt(F, s) {
     // windshield culls dead-ahead-and-low right off the runway can't be collided with.
     if (f <= VISIBLE_NEAR_F || f > VISIBLE_FAR_F) continue;
     if (!climbOutClear(f, lat, height)) continue;
+    // Departure climb-out: while still within the takeoff corridor (CLIMBOUT_MAX_F tiles of
+    // where we lifted off), a building we haven't yet out-climbed is flown THROUGH, not hit.
+    // The visual world-scroll deliberately stalls forward tile-progress as altitude builds, so
+    // a weak climber off a field boxed in by towers (the Mayfly at Coldwater Regional) reaches
+    // an adjacent rooftop still far below it — every time. climbOutClear's fixed <120ft/f>0.1
+    // window releases right at that moment; this covers the rest of the low climb-out. Anchored
+    // to F.depPos (set at liftoff), so CFIT is untouched for any low pass elsewhere in the city.
+    if (F.depPos && Math.hypot(F.pos.x - F.depPos.x, F.pos.y - F.depPos.y) < CLIMBOUT_MAX_F
+        && f > 0 && f < CLIMBOUT_MAX_F && Math.abs(lat) < CLIMBOUT_LAT_IN + CLIMBOUT_LAT_OUT
+        && s.altitude < hz * CFIT_FT_PER_Z) continue;
     const pen = hz * CFIT_FT_PER_Z - s.altitude;   // >0 ⇒ below the roofline ⇒ contact
     if (pen > 0 && (!worst || pen > worst.pen)) worst = { pen, roofFt: hz * CFIT_FT_PER_Z };
   }
@@ -1684,9 +1694,10 @@ function fsimFrame(now) {
   // Transitions → tell the server. Track descent rate while airborne so touchdown knows
   // how hard the arrival was (soft squeak vs firm thump).
   if (!s.onGround) { F.touchVs = s.vs; F.peakAltSinceLift = Math.max(F.peakAltSinceLift || 0, s.altitude); }
-  if (!s.onGround && !F.reportedAirborne) { F.reportedAirborne = true; F.rolling = false; F.peakAltSinceLift = s.altitude; groundFx('liftoff'); sendCmdSilent('flightevent takeoff'); }
+  if (!s.onGround && !F.reportedAirborne) { F.reportedAirborne = true; F.rolling = false; F.peakAltSinceLift = s.altitude; F.depPos = { x: F.pos.x, y: F.pos.y }; groundFx('liftoff'); sendCmdSilent('flightevent takeoff'); }
   if (s.onGround && F.reportedAirborne) {
     F.reportedAirborne = false;
+    F.depPos = null;   // climb-out over — a later low pass gets normal CFIT
     const sinkFpm = -(F.touchVs || 0);   // descent rate at contact (ft/min; +ve = sinking)
     // A shaky rotation can hop the aircraft a few feet up and straight back down before it's
     // really established a climb — that's a rejected-takeoff bounce, not a hard landing, so

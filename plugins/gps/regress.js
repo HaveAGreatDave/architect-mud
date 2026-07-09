@@ -27,5 +27,18 @@ export default async function regress({ run, check, getPlayer }) {
     );
   }
 
+  // Run mode: a bare `run` toggles player.running; `run on/off` and `walk` are explicit.
+  const savedRunning = p.running;
+  p.running = false;
+  r = await run('run');
+  check('bare run toggles running on', r?.type === 'run_state' && r.running === true && p.running === true, JSON.stringify(r));
+  r = await run('run');
+  check('bare run toggles running off', r?.type === 'run_state' && r.running === false && p.running === false, JSON.stringify(r));
+  r = await run('run on');
+  check('run on forces running', r?.running === true && p.running === true, JSON.stringify(r));
+  r = await run('walk');
+  check('walk clears running', r?.type === 'run_state' && r.running === false && p.running === false, JSON.stringify(r));
+  p.running = savedRunning;
+
   p.current_zone = savedZone;
 }

@@ -228,22 +228,84 @@ export function pilotOf(live) {
   return null;
 }
 
-// Effective tuning-adjusted numbers: a craft's installed tune (custom_data.tune)
-// nudges the base template values. Kept here so the tick loop, hazards, and the
-// HUD all read one consistent set of "effective" stats.
-export function effStats(live) {
-  const t = live.type, cd = live.row.custom_data || {}, tune = cd.tune || {};
-  const cargo = cd.cargoWeight || 0;
-  const maxTOW = t.max_takeoff_weight || 300;
-  const loadFrac = cargo / maxTOW;                                  // 0..1+ (weight & balance)
+// ── Tuning model (continuous knobs) ───────────────────────────────────────────
+// Four knobs, each a signed float. How far a knob turns (its "reasonable range") is
+// gated by Fabrication skill + installed kits and capped at TUNE_DIAL_MAX — you
+// can't push a curve past what your hands and your gear allow. Every knob trades
+// one thing for another; the bench graphs read straight off computeStats below, so
+// the picture the player sees is exactly how she'll fly.
+export const TUNE_DIAL_MAX = 2.0;      // absolute knob travel (±), even fully kitted
+const TUNE_SAFE_BASE = 0.8;            // reachable ± at zero Fabrication, no kits
+export const TUNE_KEYS = ['mixture', 'pitch', 'boost', 'cg'];
+
+// Bolt-on kits — bought and installed at a hangar, stored on the craft as
+// custom_data.kits. A kit either widens the tuning range (rangeBonus) or bends the
+// physics (read in computeStats). Deliberately a small authored catalogue (like the
+// contracts' JOB_TYPES), not DB content: a kit is a mechanic, not world content.
+export const KITS = {
+  kit_precision: { name: 'Precision Tuning Kit', price: 850, rangeBonus: 0.6,
+    blurb: 'Machined linkages and a wideband sensor — every knob turns further before she bites.' },
+  kit_intercooler: { name: 'Intercooler & Oil Cooler', price: 1200, coolMult: 0.6,
+    blurb: 'Sheds heat, so lean mixtures and boost cost far less temperature and reliability.' },
+};
+export function installedKits(cd) { return Array.isArray(cd?.kits) ? cd.kits.filter(k => KITS[k]) : []; }
+// The reachable ± for every knob: a base band, widened smoothly by Fabrication and
+// by any range-widening kits, hard-capped at TUNE_DIAL_MAX.
+export function tuneRange(fabSkill, kits) {
+  const kitBonus = (kits || []).reduce((s, k) => s + (KITS[k]?.rangeBonus || 0), 0);
+  const r = TUNE_SAFE_BASE + Math.min(0.6, (fabSkill || 0) * 0.045) + kitBonus;
+  return Math.round(Math.min(TUNE_DIAL_MAX, r) * 100) / 100;
+}
+
+// The SINGLE source of truth for how tune + load + kits bend a template's base
+// numbers. effStats (the tick loop / hazards / HUD) and perfAxes (the bench graphs)
+// both go through here, so a change can never look one way on the dyno and fly
+// another. Signs are internally coherent: lean (+mixture) saves fuel but runs hot
+// and sheds a little power; coarse pitch and boost buy speed; boost also drinks and
+// heats; tail-heavy CG trades stability for agility.
+export function computeStats(type, tune = {}, cargo = 0, kits = []) {
+  const mix = tune.mixture || 0, pitch = tune.pitch || 0, boost = tune.boost || 0, cg = tune.cg || 0;
+  const maxTOW = type.max_takeoff_weight || 300;
+  const loadFrac = cargo / maxTOW;                                 // 0..1+ (weight & balance)
+  const coolMult = kits.includes('kit_intercooler') ? KITS.kit_intercooler.coolMult : 1;
   return {
-    burn: t.fuel_burn_base * (1 + (tune.mixture || 0) * 0.15) * (1 + loadFrac * 0.5),  // lean burns cooler; cargo drinks
-    cruise: t.cruise_speed * FLIGHT_PACE * (1 + (tune.pitch || 0) * 0.12),  // coarse pitch (+) = faster cruise
-    handling: (t.handling || 0) + (tune.cg || 0) * 0.5 + loadFrac * 3,  // heavy + tail-heavy = twitchier/harder
-    heatBias: (tune.mixture || 0) * 14 + (tune.boost || 0) * 10,    // lean/boost run hot
-    ceiling: Math.min(3, t.altitude_ceiling || 2),
-    fuelCap: t.fuel_capacity || 1,
+    burn: type.fuel_burn_base * (1 - mix * 0.12 + boost * 0.06) * (1 + loadFrac * 0.5),   // lean saves fuel; boost drinks; cargo drinks
+    cruise: type.cruise_speed * FLIGHT_PACE * (1 + pitch * 0.12 + boost * 0.10 - mix * 0.03),  // coarse pitch + boost = faster; lean sheds a little power
+    handling: (type.handling || 0) + cg * 0.5 + Math.abs(boost) * 0.2 + loadFrac * 3,    // tail-heavy + boost = twitchier; heavy = harder
+    heatBias: (mix * 13 + Math.abs(boost) * 11) * coolMult,        // lean & boost run hot (intercooler tames it)
+    ceiling: Math.min(3, type.altitude_ceiling || 2),
+    fuelCap: type.fuel_capacity || 1,
     cargo, maxTOW, overweight: cargo > maxTOW,
+  };
+}
+export function effStats(live) {
+  const cd = live.row.custom_data || {};
+  return computeStats(live.type, cd.tune || {}, cd.cargoWeight || 0, installedKits(cd));
+}
+
+// Five performance axes for the bench radar/delta-bars, each 0..100 with 50 = stock.
+// SPEED/ECON/RANGE/COOL come straight off computeStats (so the graph can't lie about
+// how she flies); AGILITY is read off the knobs directly (the CG/pitch handling feel,
+// which isn't a single computeStats scalar). Mirrored client-side in hangar-bay.js —
+// keep the two in sync.
+export const PERF_AXES = [
+  { id: 'speed', label: 'SPEED' },
+  { id: 'economy', label: 'ECON' },
+  { id: 'range', label: 'RANGE' },
+  { id: 'cool', label: 'COOL' },
+  { id: 'agility', label: 'AGILITY' },
+];
+export function perfAxes(type, tune = {}, cargo = 0, kits = []) {
+  const cur = computeStats(type, tune, cargo, kits), stk = computeStats(type, {}, cargo, kits);
+  const cl = v => Math.max(2, Math.min(100, Math.round(v)));
+  const rangeOf = s => s.cruise / s.burn;
+  const cg = tune.cg || 0, pitch = tune.pitch || 0, loadFrac = cargo / (type.max_takeoff_weight || 300);
+  return {
+    speed: cl(50 + (cur.cruise / stk.cruise - 1) * 300),
+    economy: cl(50 + (stk.burn / cur.burn - 1) * 300),
+    range: cl(50 + (rangeOf(cur) / rangeOf(stk) - 1) * 260),
+    cool: cl(50 - cur.heatBias * 1.6),
+    agility: cl(50 + cg * 16 - pitch * 8 - loadFrac * 22),
   };
 }
 
@@ -572,6 +634,9 @@ export async function crash(live, reason = 'crash', byPlayer = null) {
   live.row.weapons_hot = 0;
   live.row.altitude_band = 'ground';
   live.row.parked_zone_id = wreckZone;
+  // Stamp when it went down so the flight plugin's wreck-maintenance sweep can age it
+  // out (players get a salvage window first; see wreckSweep in index.js).
+  live.row.custom_data = { ...(live.row.custom_data || {}), crashed_at: Date.now() };
   live.hazard = null;
   live.aaThreat = null;
   live.aaWarned = false;

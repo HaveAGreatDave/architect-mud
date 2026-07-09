@@ -27,6 +27,13 @@ const WIND_MOVE_SEVERITY = 0.4;   // min local severity before a move costs extr
 const WIND_MOVE_BASE     = 4;
 const WIND_MOVE_SPAN     = 16;    // → ~10 stamina at sev 0.4, ~20 at sev 1.0
 
+// Run mode (the `run` command / minimap Run toggle → player.running, a runtime-only
+// live-player flag). Each step taken while running costs stamina; when you're too
+// winded to pay the toll the step still happens, but as a free walk — that's the
+// "stamina gate". GPS auto-walk sends real moves down this same path, so its
+// stamina loss matches a manual run exactly.
+const RUN_STEP_STAMINA = 4;
+
 // ── Engine move gates (the law layer) ────────────────────────────────────────
 // Registered through the same chain plugins use (registerMoveGate), so engine
 // laws and plugin gates run in one ordered, listable pipeline. Gates are pure;
@@ -342,7 +349,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   // A gate may block silently (veto.silent) — e.g. the pacing plugin deferring a
   // too-fast step into its move queue — in which case no error line is shown; the
   // step is simply not executed now.
-  if (veto) return veto.silent ? null : { type:'error', message: veto.message };
+  if (veto) return veto.silent ? null : { type:'error', message: veto.message, html: veto.html };
 
   let doorWasClosed = false;
   let doorWasLocked = false;
@@ -454,6 +461,19 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
       narration += sev >= 0.75
         ? ' Forcing your way through the brutal weather leaves you gasping.'
         : ' You struggle against the weather the whole way; it wears at you.';
+    }
+  }
+
+  // Run-mode stamina toll — pay per step while running. System-driven relocations
+  // (shove, .gohome, follow-drag) pass bypassEncumbrance and never charge it. If
+  // you can't afford the toll you walk the step for free — the gate that drops a
+  // runner back to a jog when the tank hits empty.
+  if (player.running && !opts.bypassEncumbrance) {
+    const before = player.stamina ?? (player.stamina_max ?? 100);
+    if (before >= RUN_STEP_STAMINA) {
+      player.stamina = before - RUN_STEP_STAMINA;
+      await query('UPDATE players SET stamina=$1 WHERE id=$2', [player.stamina, player.id]);
+      broadcast(null, { type:'resource_tick', messages:[], player_update:{ stamina: player.stamina } }, null, player.id);
     }
   }
 
