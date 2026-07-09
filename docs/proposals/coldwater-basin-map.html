@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Coldwater Basin — Map</title>
+<style>
+  :root{
+    --bg:#0a0e0f;
+    --panel:#0d1315;
+    --frame:#1b2528;
+    --ink:#8fb3ad;
+    --label:#6f8a86;
+    --head:#5fe3c0;
+    --hairline:#222e31;
+    /* tile palette */
+    --void:#0b1112;
+    --road:#39484b;      /* pavement */
+    --road-edge:#4c5f63;
+    --water:#123845;
+    --water-ink:#48c3e0;
+    --waste:#2a1417;
+    --waste-ink:#d1495b;
+    --amber:#f2b134;
+    --green:#7fd67f;
+    --blue:#59a5e0;
+    --violet:#b98cff;
+    --pink:#ff77b0;
+    --steel:#9fb0b3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0}
+  .screen{
+    min-height:100vh;
+    background:radial-gradient(120% 80% at 50% -10%,#10191b 0%,var(--bg) 60%) fixed;
+    color:var(--ink);
+    font-family:ui-monospace,"Cascadia Code","JetBrains Mono","DejaVu Sans Mono",Consolas,monospace;
+    display:flex;justify-content:center;
+    padding:clamp(12px,4vw,48px);
+  }
+  .console{
+    width:100%;max-width:820px;background:var(--panel);
+    border:1px solid var(--frame);border-radius:8px;
+    box-shadow:0 24px 70px -30px #000, inset 0 0 120px -60px var(--head);
+    overflow:hidden;
+  }
+  .bar{
+    display:flex;align-items:center;gap:9px;padding:10px 14px;
+    background:linear-gradient(#111a1c,#0c1214);border-bottom:1px solid var(--frame);
+    font-size:12px;letter-spacing:.06em;color:var(--label);
+  }
+  .dot{width:10px;height:10px;border-radius:50%;border:1px solid var(--road-edge)}
+  .dot.g{background:#2a3a2a;border-color:#3f6b3f}
+  .bar .path{margin-left:auto;color:var(--road-edge)}
+  .body{padding:clamp(16px,3.5vw,32px)}
+  header h1{
+    margin:0;font-size:clamp(20px,4.5vw,30px);letter-spacing:.14em;
+    color:var(--head);text-shadow:0 0 18px #5fe3c055;font-weight:600;
+  }
+  header .sub{margin:.4em 0 0;color:var(--label);font-size:12.5px;letter-spacing:.04em}
+
+  /* the tile map */
+  .mapwrap{
+    margin:22px 0 6px;border:1px solid var(--hairline);border-radius:6px;
+    background:var(--void);padding:14px;overflow-x:auto;position:relative;
+  }
+  .mapwrap::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(#0000 0 3px,#00000030 3px 4px);
+    mix-blend-mode:overlay;opacity:.5;
+  }
+  #map{
+    display:grid;gap:0;width:100%;min-width:340px;
+    grid-template-columns:repeat(20,1fr);
+    border:1px solid #000;
+  }
+  .t{
+    position:relative;aspect-ratio:1/1;
+    display:flex;align-items:center;justify-content:center;
+    font-size:clamp(9px,2.1vw,15px);line-height:1;
+    background:var(--void);color:#0000;user-select:none;
+  }
+  .t.void{background:var(--void)}
+  .t.road{background:var(--road)}
+  .t.water{background:var(--water);color:var(--water-ink);opacity:.9}
+  .t.waste{background:var(--waste);color:var(--waste-ink)}
+  /* buildings: a tile that sits on pavement, with a colored glyph */
+  .t.b{background:#141c1e;color:var(--amber);box-shadow:inset 0 0 0 1px #ffffff10;font-weight:700}
+  .t.b.green{color:var(--green)}
+  .t.b.blue{color:var(--blue)}
+  .t.b.violet{color:var(--violet)}
+  .t.b.pink{color:var(--pink)}
+  .t.b.red{color:var(--waste-ink)}
+  .t.b.cyan{color:var(--water-ink);background:var(--water)}
+  .t.b.steel{color:var(--steel)}
+  .t.b.red.stair{background:#1c1113}
+  .t:hover{outline:1px solid var(--head);outline-offset:-1px;z-index:2}
+  .t[data-n]:hover::after{
+    content:attr(data-n);position:absolute;bottom:105%;left:50%;
+    transform:translateX(-50%);white-space:nowrap;
+    background:#05090a;border:1px solid var(--frame);color:var(--ink);
+    font-size:11px;letter-spacing:.03em;padding:2px 7px;border-radius:4px;z-index:5;
+  }
+
+  /* compass edge tags */
+  .edges{display:flex;justify-content:space-between;color:var(--label);
+    font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;margin:6px 2px 0}
+
+  .legend{margin-top:22px}
+  .legend h2{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--label);margin:0 0 12px;font-weight:600}
+  .grid{display:grid;gap:8px 16px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+  .item{display:flex;gap:9px;align-items:baseline;font-size:12.5px}
+  .item .ic{flex:0 0 1.4em;text-align:center;font-weight:700;color:var(--amber)}
+  .ic.green{color:var(--green)}.ic.blue{color:var(--blue)}.ic.violet{color:var(--violet)}
+  .ic.pink{color:var(--pink)}.ic.red{color:var(--waste-ink)}.ic.cyan{color:var(--water-ink)}
+  .ic.steel{color:var(--steel)}.ic.road{color:var(--road-edge)}
+  .item .nm{color:var(--ink)}.item .ty{color:var(--label)}
+  footer{margin-top:22px;padding-top:14px;border-top:1px solid var(--hairline);color:var(--label);font-size:11.5px;line-height:1.6}
+</style>
+</head>
+<body>
+
+
+<div class="screen">
+  <div class="console">
+    <div class="bar">
+      <span class="dot"></span><span class="dot"></span><span class="dot g"></span>
+      <span>coldwater.map</span><span class="path">/dev/ttyS0 · surface · z0</span>
+    </div>
+    <div class="body">
+      <header>
+        <h1>COLDWATER BASIN</h1>
+        <p class="sub">Every tile is one step. Streets connect · buildings sit one to a tile · hover a tile for its name.</p>
+      </header>
+
+      <div class="edges"><span>◄ the wastes</span><span>coldwater bay ▲</span><span>the yards ►</span></div>
+      <div class="mapwrap"><div id="map" role="img" aria-label="Tile map of Coldwater Basin"></div></div>
+      <div class="edges"><span>&nbsp;</span><span>▼ the sprawl / the under</span><span>&nbsp;</span></div>
+
+      <section class="legend">
+        <h2>Legend</h2>
+        <div class="grid" id="legend"></div>
+      </section>
+
+      <footer>
+        Pavement (<span style="color:var(--road-edge)">grey</span>) is walkable and continuous — every street tile connects to its neighbours.
+        A reimagining: adjacency is stylized for legibility, not traced to the live coordinate grid.
+      </footer>
+    </div>
+  </div>
+</div>
+
+<script>
+const MAP = [
+  "~~~~~~~~~~~~~~~~~~~~",
+  "~~~~~~~~~f~~~~~~~~~~",
+  "%%E...T..#..A....YY.",
+  "%%###############YY.",
+  "%%L#....M#....C#.YY.",
+  "%%.#....P#.....#.YY.",
+  "%%W#....&#.....#.YY.",
+  "%##################.",
+  "%%B#....G#....9#.YY.",
+  "%%S#....K#....+#.YY.",
+  "%%F#.....#....D#....",
+  "%%###############...",
+  "%%.......v.........%",
+  "%%%%%%%%%%%%%%%%%%%%"
+];
+
+// char -> tile definition
+const T = {
+  '~':{c:'water'},
+  '%':{c:'waste'},
+  '#':{c:'road'},
+  '.':{c:'void'},
+  'f':{c:'b cyan',  g:'⚓', n:'Fishmarket Dock'},
+  'E':{c:'b violet',g:'◉', n:'The Blindspot — spy market'},
+  'T':{c:'b',       g:'▶', n:'KSAB-TV Studio'},
+  'A':{c:'b green', g:'¶', n:'The Assembly — civic'},
+  'L':{c:'b green', g:'⚑', n:'Clone Bay / Embassy Hotel'},
+  'M':{c:'b',       g:'▲', n:'The Meridian — apartments'},
+  'C':{c:'b',       g:'▲', n:'Chrome Court — apartments'},
+  'P':{c:'b',       g:'⚡', n:'Coldwater Power Plant'},
+  '&':{c:'b',       g:'&', n:'Ampersand Electronics'},
+  'W':{c:'b red',   g:'†', n:'The Cage — weapons'},
+  'B':{c:'b pink',  g:'♪', n:'The Dead Pigeon — bar'},
+  'S':{c:'b pink',  g:'♪', n:'Sump — bar'},
+  'G':{c:'b',       g:'$', n:'Ration Nine — grocery'},
+  'K':{c:'b',       g:'$', n:'Gutter Market'},
+  '9':{c:'b blue',  g:'★', n:'Precinct 9 — police & jail'},
+  '+':{c:'b green', g:'✚', n:'The Clinic'},
+  'F':{c:'b',       g:'▤', n:"Velk's — furniture"},
+  'D':{c:'b',       g:'▤', n:'Dead Space — furniture'},
+  'Y':{c:'b steel', g:'▦', n:'The Yards — freight'},
+  'v':{c:'b red stair', g:'▼', n:'Down to The Under'}
+};
+
+const map = document.getElementById('map');
+for (const row of MAP){
+  for (const ch of row){
+    const d = T[ch] || T['.'];
+    const cell = document.createElement('div');
+    cell.className = 't ' + d.c;
+    if (d.g){ cell.textContent = d.g; cell.setAttribute('data-n', d.n); }
+    map.appendChild(cell);
+  }
+}
+
+// legend, in reading order, de-duplicated by name-root
+const legendOrder = ['f','E','T','A','L','M','P','&','W','B','G','9','+','F','Y','v'];
+const seen = new Set();
+const leg = document.getElementById('legend');
+for (const ch of legendOrder){
+  const d = T[ch];
+  const cls = d.c.replace('b','').trim();
+  const [nm, ty] = d.n.split(' — ');
+  const el = document.createElement('div');
+  el.className = 'item';
+  el.innerHTML = `<span class="ic ${cls}">${d.g}</span><span><span class="nm">${nm}</span>${ty?` <span class="ty">— ${ty}</span>`:''}</span>`;
+  leg.appendChild(el);
+}
+</script>
+
+</body>
+</html>
