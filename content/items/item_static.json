@@ -1,8 +1,15 @@
 {
   "description": "A nootropic mist for the overclocked mind. Clarity in a can, with interest.",
+  "effects": {},
   "flags": {},
   "id": "item_static",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "static",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "drug",
   "tags": {
     "drug": true
   },

@@ -1,8 +1,15 @@
 {
   "description": "A flattened can of something that was 90% sweetener and 10% legal threat. The aluminum still counts.",
+  "effects": {},
   "flags": {},
   "id": "item_crushed_soda",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "crushed soda can",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "description": "A flattened can of something that was 90% sweetener and 10% legal threat. The aluminum still counts.",
     "misc": true

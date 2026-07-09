@@ -1,8 +1,15 @@
 {
   "description": "A gram of shredded cured tobacco in a pouch. Roll it into a cigarette — or chew it, if you must.",
+  "effects": {},
   "flags": {},
   "id": "item_loose_tobacco",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "loose tobacco",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "drug",
   "tags": {
     "drug": true
   },

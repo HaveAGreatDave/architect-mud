@@ -1,8 +1,15 @@
 {
   "description": null,
+  "effects": {},
   "flags": {},
   "id": "item_claude_band",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "constellation wristband",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "description": "A slim band of dark alloy set with pinpoint amber lights that drift and re-cluster, mapping something only the wearer can read. It is always, faintly, paying attention.",
     "slot": "accessory"

@@ -1,18 +1,29 @@
 {
   "description": "Tastes like it was filtered through the pipe it's named after. Probably was.",
+  "effects": {
+    "hp": -2,
+    "sanity": 8,
+    "thirst": 10
+  },
   "flags": {},
   "id": "item_drink_rust_whiskey",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "rust whiskey",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "drink",
   "tags": {
     "consumable": true,
     "description": "Tastes like it was filtered through the pipe it's named after. Probably was.",
     "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.6,
     "restore_hp": -2,
     "restore_sanity": 8,
     "restore_thirst": 10,
-    "stackable": true,
-    "laced_drug": "drug_alcohol",
-    "laced_potency": 1.6
+    "stackable": true
   },
   "type": "consumable",
   "value": 9,

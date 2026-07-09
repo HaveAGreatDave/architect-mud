@@ -1,8 +1,15 @@
 {
   "description": "A pea of pure isotope in a lead bead. The bead is not thick enough. Nothing is thick enough.",
+  "effects": {},
   "flags": {},
   "id": "item_hot_isotope",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "hot isotope pellet",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "description": "A pea of pure isotope in a lead bead. The bead is not thick enough. Nothing is thick enough.",
     "misc": true

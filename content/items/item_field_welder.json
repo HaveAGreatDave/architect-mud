@@ -1,8 +1,15 @@
 {
   "description": null,
+  "effects": {},
   "flags": {},
   "id": "item_field_welder",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "field welding torch",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "demolition": true,
     "description": "A dented handheld oxy-fuel torch with a piezo striker and a half-spent gas bottle gaffer-taped to the grip. It won't cut a bank vault, but it'll weld a busbar, throw a seized breaker, and coax a dead junction box back to life. Hold one and you can REPAIR wrecked machinery."

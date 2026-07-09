@@ -1,8 +1,15 @@
 {
   "description": "A translucent ribbon of an eel, its organs a faint glowing knot behind glassy skin. Rare, delicate, and worth real money to the right buyer — it only ever takes live bait.",
+  "effects": {},
   "flags": {},
   "id": "item_glass_eel",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "glass eel",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "description": "A translucent ribbon of an eel, its organs a faint glowing knot behind glassy skin. Rare, delicate, and worth real money to the right buyer — it only ever takes live bait.",
     "misc": true

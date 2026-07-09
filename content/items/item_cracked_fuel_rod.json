@@ -1,8 +1,15 @@
 {
   "description": "A stubby reactor rod, hairline-fractured and leaking. Absurdly valuable, mildly homicidal.",
+  "effects": {},
   "flags": {},
   "id": "item_cracked_fuel_rod",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "cracked fuel rod",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "description": "A stubby reactor rod, hairline-fractured and leaking. Absurdly valuable, mildly homicidal.",
     "misc": true

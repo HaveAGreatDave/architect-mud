@@ -1,8 +1,15 @@
 {
   "description": "A squat black puck bristling with stubby antennae. Plant it and every camera in the sector chokes on static. Hungry on power, and hard to hide.",
+  "effects": {},
   "flags": {},
   "id": "item_signal_jammer",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "Signal Jammer",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "battery_max": 288,
     "concealment_base": 2,

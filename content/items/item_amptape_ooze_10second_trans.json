@@ -1,8 +1,15 @@
 {
   "description": "A squat little cassette that feels faintly tacky to the touch. OOZE / TEN-SECOND TRANSMISSION. Short, wet and hypnotic — over before you're sure it began, and lodged in your skull for a week.",
+  "effects": {},
   "flags": {},
   "id": "item_amptape_ooze_10second_trans",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "Ooze — cassette tape",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "cassette",
   "tags": {
     "amp_cassette": true,
     "song_id": "aud_fdda115a-835e-4413-9ad5-426671597272"

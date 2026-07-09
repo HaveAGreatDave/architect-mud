@@ -6,6 +6,7 @@
     "interactions": [
       "watch"
     ],
+    "tuned_channel": 7,
     "tv": true,
     "tv_dial_freq": 7
   },

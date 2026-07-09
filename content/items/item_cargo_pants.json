@@ -1,10 +1,17 @@
 {
   "description": "Pockets for days. Knees patched twice over.",
+  "effects": {},
   "flags": {
     "slot": "legs"
   },
   "id": "item_cargo_pants",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "reinforced cargo pants",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "legs",
   "tags": {
     "armor": 1,
     "bulkiness": 2,

@@ -1,8 +1,15 @@
 {
   "description": null,
+  "effects": {},
   "flags": {},
   "id": "item_insulated_gloves",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "insulated gauntlets",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "armor_soak": {
       "energy": 5,

@@ -1,8 +1,15 @@
 {
   "description": "A pint of raw ether and a rag. Not the smart choice, but here we are.",
+  "effects": {},
   "flags": {},
   "id": "item_ether",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "ether",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "drug",
   "tags": {
     "drug": true
   },

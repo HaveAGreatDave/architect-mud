@@ -1,8 +1,23 @@
 {
   "description": "Corporate-issue stun weapon.",
+  "effects": {
+    "damage_max": 8,
+    "damage_min": 5,
+    "status_chance": {
+      "stunned": 0.3
+    }
+  },
   "flags": {},
   "id": "item_taser",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "custodian taser",
+  "requirements": {
+    "stat_agi": 4
+  },
+  "stat_modifiers": {},
+  "subtype": "energy",
   "tags": {
     "__own": {
       "damage": {

@@ -1,8 +1,15 @@
 {
   "description": "Still warm. Still probably logging.",
+  "effects": {},
   "flags": {},
   "id": "item_drone_core",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "drone processing core",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "tech",
   "tags": {
     "description": "Still warm. Still probably logging.",
     "material": true

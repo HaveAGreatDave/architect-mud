@@ -1,8 +1,15 @@
 {
   "description": null,
+  "effects": {},
   "flags": {},
   "id": "item_sweatpants_grey",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "grey sweatpants",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "armor": 0,
     "bulkiness": 1,

@@ -1,8 +1,15 @@
 {
   "description": "A battered cassette worn pale at the corners, PSYCHOTECH in faded dot-matrix. Relentless, surgical and euphoric at once — the kind of track people say they \"felt in their teeth\". Somebody loved this tape very much before you got it.",
+  "effects": {},
   "flags": {},
   "id": "item_amptape_psychotech",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "Psychotech — cassette tape",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "cassette",
   "tags": {
     "amp_cassette": true,
     "song_id": "aud_9a92d9c3-53ec-457b-974f-5bc3bfce4d7c"

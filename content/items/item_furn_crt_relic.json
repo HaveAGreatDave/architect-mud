@@ -1,12 +1,19 @@
 {
   "description": "A 24-inch cathode-ray tube set from the 2010s. The picture is warm and slightly wrong in a way that feels human.",
+  "effects": {},
   "flags": {
     "interactions": [
       "watch"
     ]
   },
   "id": "item_furn_crt_relic",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "cathode box TV",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "description": "A 24-inch cathode-ray tube set from the 2010s. The picture is warm and slightly wrong in a way that feels human."
   },

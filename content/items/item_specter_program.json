@@ -1,19 +1,19 @@
 {
-  "description": null,
+  "description": "",
   "effects": {},
   "flags": {},
-  "id": "item_biglazergun",
+  "id": "item_specter_program",
   "is_quest_item": 0,
   "is_stackable": 0,
   "is_unique": 0,
-  "name": "biglazergun",
+  "name": "SPECTER Install Chip",
   "requirements": {},
   "stat_modifiers": {},
   "subtype": null,
   "tags": {
-    "description": "test"
+    "specter_program": true
   },
-  "type": "weapon",
-  "value": 0,
-  "weight": 1000
+  "type": "device",
+  "value": 1500,
+  "weight": 100
 }

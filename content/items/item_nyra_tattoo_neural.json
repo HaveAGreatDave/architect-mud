@@ -1,8 +1,15 @@
 {
   "description": null,
+  "effects": {},
   "flags": {},
   "id": "item_nyra_tattoo_neural",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "neural interface tattoo",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "bulkiness": 0,
     "description": "A thin glowing circuit-like pattern running up one wrist and forearm. It fades under clothing, suggesting deeper system integration beneath the skin.",

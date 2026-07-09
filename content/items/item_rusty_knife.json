@@ -1,8 +1,18 @@
 {
   "description": "A kitchen knife that has seen things.",
+  "effects": {
+    "damage_max": 7,
+    "damage_min": 3
+  },
   "flags": {},
   "id": "item_rusty_knife",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "rusty knife",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "bladed",
   "tags": {
     "__own": {
       "butchering": true,

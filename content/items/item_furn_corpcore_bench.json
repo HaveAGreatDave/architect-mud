@@ -1,12 +1,19 @@
 {
   "description": "Stamped aluminium, no back support, uncomfortable by design. A small pressure sensor on the seat surface logs duration of occupancy.",
+  "effects": {},
   "flags": {
     "interactions": [
       "sit"
     ]
   },
   "id": "item_furn_corpcore_bench",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "corp-issue bench",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "description": "Stamped aluminium, no back support, uncomfortable by design. A small pressure sensor on the seat surface logs duration of occupancy."
   },

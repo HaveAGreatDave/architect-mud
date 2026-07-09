@@ -1,8 +1,15 @@
 {
   "description": null,
+  "effects": {},
   "flags": {},
   "id": "item_nyra_harness_utility",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "modular utility harness",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "bulkiness": 2,
     "description": "A sleek shoulder-and-chest harness with configurable attachment points for compact tools and data modules. Clean, expensive-looking hardware designed for quick swaps and silent operation.",

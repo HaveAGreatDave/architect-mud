@@ -1,8 +1,15 @@
 {
   "description": "A fist of rust-streaked ore, heavy and cold, veins of dull metal threading the stone. Worth something melted down — worth more if you find a buyer who does the melting.",
+  "effects": {},
   "flags": {},
   "id": "item_scrap_ore",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "chunk of scrap ore",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "description": "A fist of rust-streaked ore, heavy and cold, veins of dull metal threading the stone. Worth something melted down — worth more if you find a buyer who does the melting.",
     "material": true

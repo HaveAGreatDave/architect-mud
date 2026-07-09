@@ -1,8 +1,15 @@
 {
   "description": null,
+  "effects": {},
   "flags": {},
   "id": "item_watch_cap",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "heat-wick watch cap",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "head",
   "tags": {
     "bulkiness": 1,
     "description": "A snug knit cap threaded with heat-wick filament that pulls warmth up from your collar and pins it to your scalp — where, the packaging insists, forty percent of it was getting away.",

@@ -1,8 +1,15 @@
 {
   "description": "A blue benzo tab that files the sharp edges off a bad night.",
+  "effects": {},
   "flags": {},
   "id": "item_lull",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "lull",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "drug",
   "tags": {
     "drug": true
   },

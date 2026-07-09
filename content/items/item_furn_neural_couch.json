@@ -1,5 +1,6 @@
 {
   "description": "Long enough to lie flat in, upholstered in smart-foam that tracks your body temperature. Three data ports run along the headrest.",
+  "effects": {},
   "flags": {
     "interactions": [
       "sit",
@@ -7,7 +8,13 @@
     ]
   },
   "id": "item_furn_neural_couch",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "neural interface couch",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "description": "Long enough to lie flat in, upholstered in smart-foam that tracks your body temperature. Three data ports run along the headrest."
   },

@@ -1,5 +1,6 @@
 {
   "description": "Cracked pleather in a brown that was probably beige originally. There is a spring that will find you.",
+  "effects": {},
   "flags": {
     "interactions": [
       "sit",
@@ -7,7 +8,13 @@
     ]
   },
   "id": "item_furn_busted_sofa",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "busted sofa",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "description": "Cracked pleather in a brown that was probably beige originally. There is a spring that will find you."
   },

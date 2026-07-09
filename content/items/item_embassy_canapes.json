@@ -1,8 +1,18 @@
 {
   "description": "Bite-sized, garnished, served on an actual plate. Nobody asks what's in them; the presentation is doing all the work.",
+  "effects": {
+    "hunger": 14,
+    "sanity": 5
+  },
   "flags": {},
   "id": "item_embassy_canapes",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "embassy canapés",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "food",
   "tags": {
     "consumable": true,
     "description": "Bite-sized, garnished, served on an actual plate. Nobody asks what's in them; the presentation is doing all the work.",

@@ -1,8 +1,15 @@
 {
   "description": "A metering pump that hits each pour level dead-on, every time. Automates the POUR stage of a splice.",
+  "effects": {},
   "flags": {},
   "id": "item_auto_pour",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "auto-pour rig",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "automates": "pour",
     "lab_upgrade": true

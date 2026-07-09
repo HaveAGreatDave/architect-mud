@@ -1,10 +1,17 @@
 {
   "description": "Standard issue, several owners ago.",
+  "effects": {},
   "flags": {
     "slot": "feet"
   },
   "id": "item_steel_boots",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "steel-toed boots",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "feet",
   "tags": {
     "armor": 1,
     "bulkiness": 3,

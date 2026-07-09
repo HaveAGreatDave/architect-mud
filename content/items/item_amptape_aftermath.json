@@ -1,8 +1,15 @@
 {
   "description": "A cassette that runs hot — 250 BPM of scorched-earth gabber. The label just says AFTERMATH over a smear of red marker you choose to read as marker. Not for weak speakers or weak hearts.",
+  "effects": {},
   "flags": {},
   "id": "item_amptape_aftermath",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "Aftermath — cassette tape",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "cassette",
   "tags": {
     "amp_cassette": true,
     "song_id": "aud_f26a116d-e95c-4109-97ce-79bcdb36c460"

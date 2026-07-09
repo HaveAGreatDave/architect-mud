@@ -1,8 +1,15 @@
 {
   "description": "A hand-span of sheared ship steel. Heavy, honest, and worth something to anyone who welds.",
+  "effects": {},
   "flags": {},
   "id": "item_steel_plate",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "steel plate",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "metal",
   "tags": {
     "description": "A hand-span of sheared ship steel. Heavy, honest, and worth something to anyone who welds.",
     "metal": true

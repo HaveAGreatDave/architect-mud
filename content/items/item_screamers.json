@@ -1,8 +1,15 @@
 {
   "description": "A designer psychedelic that does not do gentle. Roll the dice.",
+  "effects": {},
   "flags": {},
   "id": "item_screamers",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "screamers",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "drug",
   "tags": {
     "drug": true
   },

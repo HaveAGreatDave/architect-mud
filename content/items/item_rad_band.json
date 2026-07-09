@@ -1,10 +1,17 @@
 {
   "description": "Clicks faster the worse your day is going.",
+  "effects": {},
   "flags": {
     "slot": "accessory"
   },
   "id": "item_rad_band",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "rad-counter wristband",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "accessory",
   "tags": {
     "description": "Clicks faster the worse your day is going.",
     "misc": true,

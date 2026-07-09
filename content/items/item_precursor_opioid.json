@@ -1,8 +1,15 @@
 {
   "description": "A tar-dark paste that smells of poppies and industrial solvent.",
+  "effects": {},
   "flags": {},
   "id": "item_precursor_opioid",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "opioid base paste",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "reagent",
   "tags": {
     "reagent": true
   },

@@ -1,8 +1,15 @@
 {
   "description": "A soft pack of cheap cigarettes. Each one shaves a little off your lungs and hands it to your image.",
+  "effects": {},
   "flags": {},
   "id": "item_cigarettes",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "cigarettes",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "drug",
   "tags": {
     "drug": true
   },

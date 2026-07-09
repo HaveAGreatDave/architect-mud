@@ -1,8 +1,17 @@
 {
   "description": "Aggressively filtered water.",
+  "effects": {
+    "thirst": 40
+  },
   "flags": {},
   "id": "item_water_bottle",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "filtered water",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "drink",
   "tags": {
     "consumable": true,
     "description": "Aggressively filtered water.",

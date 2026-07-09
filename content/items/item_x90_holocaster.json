@@ -1,8 +1,15 @@
 {
   "description": "A palm-sized wedge of warm ceramic that isn't quite any color. A single unlabeled stud sits under your thumb. You have no idea what it is, and yet your thumb already knows the weight of pressing it. A hairline seam runs around its middle, as if it is only ever meant to be used once.",
+  "effects": {},
   "flags": {},
   "id": "item_x90_holocaster",
+  "is_quest_item": 1,
+  "is_stackable": 0,
+  "is_unique": 1,
   "name": "X-90 Sequence Holocaster",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "description": "A palm-sized wedge of warm ceramic that isn't quite any color. One stud, one seam, one use.",
     "interactions": [

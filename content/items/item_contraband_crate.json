@@ -1,8 +1,15 @@
 {
   "description": "A nailed-shut crate with the stencils sanded off. Heavy, illegal, and worth more than you if the wrong person opens it.",
+  "effects": {},
   "flags": {},
   "id": "item_contraband_crate",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "contraband crate",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "contraband": true,
     "description": "A nailed-shut crate with the stencils sanded off.",

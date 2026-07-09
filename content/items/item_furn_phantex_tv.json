@@ -1,12 +1,19 @@
 {
   "description": "A gravity-field display unit. Crisp and vivid but three degrees off-true. Never connected to the patch server. One of three thousand that survived the bricking.",
+  "effects": {},
   "flags": {
     "interactions": [
       "watch"
     ]
   },
   "id": "item_furn_phantex_tv",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "Phantex TV",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "description": "A gravity-field display unit. Crisp and vivid but three degrees off-true. Never connected to the patch server. One of three thousand that survived the bricking."
   },

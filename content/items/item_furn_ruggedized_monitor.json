@@ -1,12 +1,19 @@
 {
   "description": "A military-spec portable display, matte black, bolted to a repurposed equipment rack. The screen is scratched but perfectly legible.",
+  "effects": {},
   "flags": {
     "interactions": [
       "watch"
     ]
   },
   "id": "item_furn_ruggedized_monitor",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "chrome feed TV",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "description": "A military-spec portable display, matte black, bolted to a repurposed equipment rack. The screen is scratched but perfectly legible."
   },

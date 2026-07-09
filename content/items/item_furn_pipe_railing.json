@@ -1,12 +1,19 @@
 {
   "description": "A length of galvanised steel pipe for bolting along a wall at hip height. The welds are lumpy and oxidised. It holds.",
+  "effects": {},
   "flags": {
     "interactions": [
       "lean"
     ]
   },
   "id": "item_furn_pipe_railing",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "pipe railing",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": null,
   "tags": {
     "description": "A length of galvanised steel pipe for bolting along a wall at hip height. The welds are lumpy and oxidised. It holds."
   },

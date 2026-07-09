@@ -1,8 +1,15 @@
 {
   "description": "A can of industrial solvent. Degreases engines, thins paint, lifts old adhesive. Every workshop keeps a shelf of it.",
+  "effects": {},
   "flags": {},
   "id": "item_reagent_solvent",
+  "is_quest_item": 0,
+  "is_stackable": 1,
+  "is_unique": 0,
   "name": "industrial solvent",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "reagent",
   "tags": {
     "reagent": true
   },

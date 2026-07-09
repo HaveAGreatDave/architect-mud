@@ -1,8 +1,15 @@
 {
   "description": "A zip gun welded from pipe, spring, and optimism. Fires once reliably, twice if you pray.",
+  "effects": {},
   "flags": {},
   "id": "item_scrap_pistol",
+  "is_quest_item": 0,
+  "is_stackable": 0,
+  "is_unique": 0,
   "name": "scrap-iron pistol",
+  "requirements": {},
+  "stat_modifiers": {},
+  "subtype": "firearm",
   "tags": {
     "__own": {
       "damage": {
