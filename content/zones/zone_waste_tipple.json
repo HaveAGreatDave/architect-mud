@@ -8,7 +8,6 @@
   "bg_color": "#be9d64",
   "color": "#eeeeee",
   "created_by": "phase4-build",
-  "danger_rating": "medium",
   "description": "The skeleton of an ore tipple leans over the flat, its chutes long empty, its gantries a roost for things with too many legs. Rust rains down whenever the wind leans on it.",
   "exits": {
     "east": "zone_waste_coalsack",
@@ -16,11 +15,6 @@
     "west": "zone_waste_ferro"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
@@ -28,12 +22,9 @@
   "grid_y": 2,
   "grid_z": 0,
   "id": "zone_waste_tipple",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "TT",
   "name": "The Tipple",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

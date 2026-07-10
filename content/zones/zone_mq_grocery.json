@@ -10,7 +10,6 @@
   "bg_color": "#e85aa0",
   "color": null,
   "created_by": null,
-  "danger_rating": "safe",
   "description": "A grocery in the loosest post-Collapse sense: three aisles of dented cans, vac-packed protein bricks, and produce grown under lamps somewhere and trucked in still faintly warm. RATION NINE, the sign says, though there is no Ration One through Eight that anyone can name. Fluorescent tubes hum over shelves stocked with the grim staples of survival and, incongruously, a rack of gum by the register. A camera and a clerk track your hands with equal suspicion.",
   "exits": {
     "north": "zone_mq_grocery_stock",
@@ -27,12 +26,9 @@
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_mq_grocery",
-  "is_safe_zone": 1,
   "map_id": "map_int_mq_grocery",
   "marker": null,
   "name": "Ration Nine",
   "parent_zone": "zone_mq_battery",
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1782964407"
 }

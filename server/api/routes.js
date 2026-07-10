@@ -1,5 +1,5 @@
 import { query, logActivity } from '../models/db.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps } from '../engine/world.js';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { allExits } from '../engine/exits.js';
 import { detectBathroomSide } from '../engine/commands/doors.js';
@@ -257,6 +257,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/zones/') && path.endsWith('/live-enemies') && method==='GET')  return requireDev(auth,   ()=>apiGetZoneLiveEnemies(_zoneIdSub(path)));
   if (path.startsWith('/zones/') && path.endsWith('/live-enemies') && method==='POST') return requireDev(auth,   ()=>apiSpawnLiveEnemy(_zoneIdSub(path), body));
   if (path.startsWith('/zones/') && path.endsWith('/doors')        && method==='GET')  return requireDev(auth,   ()=>apiGetZoneDoors(_zoneIdSub(path)));
+  if (path.startsWith('/zones/') && path.endsWith('/tag')          && method==='PATCH') return requireDev(auth,  ()=>apiPatchZoneTag(_zoneIdSub(path),body));
   if (path.startsWith('/zones/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteZone(_zoneId(path)));
   if (path.startsWith('/zones/') && method==='PUT')    return requireDev(auth,   ()=>apiUpdateZone(_zoneId(path),body));
   if (path.startsWith('/zones/') && method==='GET')    return apiGetZone(_zoneId(path));
@@ -584,11 +585,25 @@ async function ensureApartmentRow(zoneId) {
   );
 }
 
+// zones.flags is the catalog-validated zone tag bag (scope 'zone') — reject
+// uncatalogued/misshapen keys loudly, same rationale as itemTagsFor: a typo'd
+// flag key is silently inert forever otherwise.
+function zoneFlagsError(flags) {
+  const v = validateTags(flags || {});
+  if (v.ok) return null;
+  const parts = [];
+  if (v.unknown.length) parts.push(`unknown zone flag(s) not in the tag catalog: ${v.unknown.join(', ')}`);
+  if (v.badShape.length) parts.push(`wrong value shape: ${v.badShape.join('; ')}`);
+  return `Zone flag validation failed — ${parts.join(' | ')}`;
+}
+
 export async function apiCreateZone(body,auth) {
   const id = body.id||`zone_${Date.now()}`;
+  const flagsErr = zoneFlagsError(body.flags);
+  if (flagsErr) return { status:400, body:{ error: flagsErr } };
   try {
-    await query(`INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,ambient_theme,flags,created_by,map_id,grid_x,grid_y,grid_z,marker,color,bg_color,audio_theme_id,parent_zone) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
-      [id,body.name||'Unnamed Zone',body.description||'An empty place.',body.danger_rating||'medium',body.pvp_enabled?1:0,body.radiation_level||0,body.is_safe_zone?1:0,JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),body.ambient_theme||'indoors',JSON.stringify(body.flags||{}),auth?.playerId,body.map_id||null,body.grid_x??null,body.grid_y??null,body.grid_z??0,body.marker||null,body.color||null,body.bg_color||null,body.audio_theme_id||null,body.parent_zone||null]);
+    await query(`INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,created_by,map_id,grid_x,grid_y,grid_z,marker,color,bg_color,audio_theme_id,parent_zone) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+      [id,body.name||'Unnamed Zone',body.description||'An empty place.',JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),body.ambient_theme||'indoors',JSON.stringify(body.flags||{}),auth?.playerId,body.map_id||null,body.grid_x??null,body.grid_y??null,body.grid_z??0,body.marker||null,body.color||null,body.bg_color||null,body.audio_theme_id||null,body.parent_zone||null]);
     if (body.flags?.is_apartment) await ensureApartmentRow(id);
     await reloadZone(id);
     fireHook('zone.create', id, body).catch(() => {});
@@ -596,16 +611,17 @@ export async function apiCreateZone(body,auth) {
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateZone(id,body) {
+  if (body.flags !== undefined) {
+    const flagsErr = zoneFlagsError(body.flags);
+    if (flagsErr) return { status:400, body:{ error: flagsErr } };
+  }
   const sets=[]; const vals=[];
   let i=1;
-  const boolFields = ['pvp_enabled','is_safe_zone'];
-  const simple=['name','description','danger_rating','pvp_enabled','radiation_level','is_safe_zone','map_id','grid_x','grid_y','grid_z','marker','color','bg_color','audio_theme_id','parent_zone'];
+  const simple=['name','description','map_id','grid_x','grid_y','grid_z','marker','color','bg_color','audio_theme_id','parent_zone'];
   for (const f of simple) {
     if (body[f]!==undefined) {
       sets.push(`${f}=$${i++}`);
-      // pvp_enabled / is_safe_zone are INTEGER columns (0/1) — coerce
-      // booleans from the client instead of letting pg choke on "false"/"true"
-      vals.push(boolFields.includes(f) ? (body[f] ? 1 : 0) : body[f]);
+      vals.push(body[f]);
     }
   }
   if (body.exits!==undefined) { sets.push(`exits=$${i++}`); vals.push(JSON.stringify(body.exits)); }
@@ -624,6 +640,30 @@ export async function apiUpdateZone(id,body) {
     return {status:400,body:{error:e.message}};
   }
 }
+// Set or clear ONE tag in a zone's flags bag atomically (jsonb merge/delete
+// server-side). Quick toggles and the maps.js paint tools use this instead of
+// PUTting a whole read-merged flags object, which races during drag strokes.
+// body: { name, value } — value null/undefined clears the tag.
+export async function apiPatchZoneTag(id, body) {
+  const { name, value } = body || {};
+  if (!name || typeof name !== 'string') return { status:400, body:{ error:'name is required' } };
+  const clearing = value === null || value === undefined;
+  if (!clearing) {
+    const flagsErr = zoneFlagsError({ [name]: value });
+    if (flagsErr) return { status:400, body:{ error: flagsErr } };
+  }
+  try {
+    const { rowCount } = clearing
+      ? await query(`UPDATE zones SET flags = flags - $1, updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$2`, [name, id])
+      : await query(`UPDATE zones SET flags = flags || $1::jsonb, updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$2`,
+          [JSON.stringify({ [name]: value }), id]);
+    if (!rowCount) return { status:404, body:{ error:`No zone "${id}"` } };
+    await reloadZone(id);
+    fireHook('zone.update', id, { flags: { [name]: clearing ? null : value } }).catch(() => {});
+    return { status:200, body:{ id, name, value: clearing ? null : value } };
+  } catch(e) { return { status:400, body:{ error:e.message } }; }
+}
+
 // Adds a single is_interior room branching off an existing zone — the
 // single-room counterpart to apiBuildApartmentBlock's 4-unit version.
 // Used by the Zone Editor's "+ Add Room" button.
@@ -666,10 +706,13 @@ async function apiAddRoom(parentZoneId, body) {
       isFirstRoom = true;
     }
 
+    // No safety default: is_safe_zone used to be stamped on every added room,
+    // which is how 61% of the world ended up "safe". Sanctuary is a deliberate
+    // tag now, and danger is inferred from spawns.
     await query(
-      `INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags,map_id,grid_x,grid_y,grid_z)
-       VALUES ($1,$2,$3,$4,0,0,1,$5,$6,$7,$8,$9,$10,$11)`,
-      [roomId, name, description || 'A small room.', parent.danger_rating || 'safe',
+      `INSERT INTO zones (id,name,description,exits,ambient_events,flags,map_id,grid_x,grid_y,grid_z)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [roomId, name, description || 'A small room.',
        JSON.stringify(roomExits), JSON.stringify([]), JSON.stringify(is_building ? { is_building: true } : { is_interior: true }),
        mapId, isFirstRoom ? 0 : null, isFirstRoom ? 0 : null, 0]
     );
@@ -678,6 +721,7 @@ async function apiAddRoom(parentZoneId, body) {
 
     await reloadZone(parentZoneId);
     await reloadZone(roomId);
+    await reloadMaps(); // a new interior map may make the parent an enterable facade
 
     return { status:201, body:{ id: roomId, message:`${is_building ? 'Building' : 'Room'} "${name}" added ${direction} of ${parent.name}` } };
   } catch(e) { return { status:400, body:{error:e.message} }; }
@@ -712,7 +756,7 @@ async function apiGetMap(id) {
   const { rows: mapRows } = await query('SELECT * FROM maps WHERE id=$1', [id]);
   if (!mapRows.length) return { status:404, body:{error:'Not found'} };
   const { rows: zones } = await query(
-    `SELECT id, name, danger_rating, grid_x, grid_y, grid_z, marker, color, bg_color, exits, flags, map_id, is_safe_zone
+    `SELECT id, name, grid_x, grid_y, grid_z, marker, color, bg_color, exits, flags, map_id
      FROM zones WHERE map_id=$1`, [id]
   );
   // Interior maps that hang off any of this map's zones, so the editor can
@@ -727,7 +771,7 @@ async function apiGetMap(id) {
   // children of another zone (parent_zone IS NOT NULL) or building roots
   // (have children referencing them via parent_zone — those go to unplacedInterior).
   const { rows: unplaced } = await query(
-    `SELECT id, name, danger_rating, exits, flags FROM zones
+    `SELECT id, name, exits, flags FROM zones
      WHERE (map_id IS NULL OR map_id != $1)
        AND COALESCE((flags->>'is_interior')::boolean, false) = false
        AND COALESCE((flags->>'is_apartment')::boolean, false) = false
@@ -740,7 +784,7 @@ async function apiGetMap(id) {
   // (zones whose children reference them via parent_zone, or is_building flag)
   // that are not yet reachable from any exterior zone.
   const { rows: unplacedInterior } = await query(`
-    SELECT z.id, z.name, z.danger_rating, z.exits, z.flags,
+    SELECT z.id, z.name, z.exits, z.flags,
            z.parent_zone,
            p.name AS parent_zone_name,
            CASE WHEN COALESCE((z.flags->>'is_building')::boolean, false) = true
@@ -754,7 +798,7 @@ async function apiGetMap(id) {
         OR z.parent_zone IS NOT NULL)
     UNION
     -- Building roots (have children or is_building) that no exterior zone exits to
-    SELECT z.id, z.name, z.danger_rating, z.exits, z.flags,
+    SELECT z.id, z.name, z.exits, z.flags,
            NULL AS parent_zone, NULL AS parent_zone_name, true AS is_building_root
     FROM zones z
     WHERE z.map_id IS NULL
@@ -817,6 +861,7 @@ async function apiLinkInterior(body, auth) {
   await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(exits), exteriorZoneId]);
   await query('UPDATE zones SET map_id=$1, grid_x=0, grid_y=0, grid_z=0, flags=$2, exits=$3 WHERE id=$4', [interiorMap.id, intFlags, intExits, interiorZoneId]);
   await Promise.all([reloadZone(exteriorZoneId), reloadZone(interiorZoneId)]);
+  await reloadMaps(); // the exterior zone may just have become an enterable facade
 
   // Auto-layout children if a hallway stacking direction was provided.
   const { hallwayDir } = body || {};
@@ -1096,6 +1141,7 @@ async function apiGetZoneSpawns(zoneId) {
 }
 async function apiAddZoneSpawn(zoneId, body) {
   if (!body?.enemy_id) return { status:400, body:{ error:'enemy_id is required' } };
+  if (isEnterableFacade(getZone(zoneId))) return { status:400, body:{ error:'That zone is a building facade (players auto-forward through it) — put the spawn in an interior room or on the street instead.' } };
   const id = `spawn_${zoneId}_${body.enemy_id}_${Date.now()}`;
   try {
     await query(
@@ -1108,6 +1154,7 @@ async function apiAddZoneSpawn(zoneId, body) {
 }
 export async function apiCreateSpawn(body) {
   if (!body?.enemy_id || !body?.zone_id) return { status:400, body:{ error:'enemy_id and zone_id are required' } };
+  if (isEnterableFacade(getZone(body.zone_id))) return { status:400, body:{ error:'That zone is a building facade (players auto-forward through it) — put the spawn in an interior room or on the street instead.' } };
   const { zone_id, enemy_id, max_count=1, spawn_weight=100, respawn_seconds=300 } = body;
   const id = `spawn_${zone_id}_${enemy_id}_${Date.now()}`;
   try {
@@ -1671,7 +1718,7 @@ async function apiBulkAddStreetlights(auth) {
     WHERE NOT COALESCE((z.flags->>'is_interior')::boolean, false)
       AND NOT COALESCE((z.flags->>'is_apartment')::boolean, false)
       AND NOT COALESCE((z.flags->>'is_building')::boolean, false)
-      AND z.is_safe_zone = 1
+      AND jsonb_exists(z.flags, 'sanctuary')
       AND z.id NOT IN (
         SELECT DISTINCT zone_id FROM furniture WHERE light_type='streetlight'
       )
@@ -1992,8 +2039,8 @@ async function apiKickPlayer(id, body) {
 }
 
 async function apiTeleportPlayer(id, body) {
-  const {zoneId}=body||{};
-  if (!zoneId) return {status:400,body:{error:'zoneId required'}};
+  if (!body?.zoneId) return {status:400,body:{error:'zoneId required'}};
+  const zoneId = resolveLanding(body.zoneId); // facades forward into their interior
   const zone = getZone(zoneId);
   if (!zone) return {status:404,body:{error:'Zone not found'}};
   const {rows}=await query('SELECT handle,current_zone FROM players WHERE id=$1',[id]);
@@ -2251,7 +2298,6 @@ async function apiBuildApartmentBlock(body) {
     attach_to_zone_id, attach_direction = 'down',
     building_name = 'Residential Block', lobby_description,
     unit_count = 4, unit_name_prefix = 'Unit', rent_cost = 100,
-    danger_rating = 'safe',
   } = body || {};
 
   if (!attach_to_zone_id) return { status:400, body:{error:'attach_to_zone_id is required'} };
@@ -2275,10 +2321,11 @@ async function apiBuildApartmentBlock(body) {
   unitDirs.forEach((dir, i) => { lobbyExits[dir] = unitIds[i]; });
 
   try {
-    // Create the lobby
+    // Create the lobby. Sleep-safety inside the building comes from renting a
+    // unit (the apartment substrate), not a zone-level safety column.
     await query(
-      `INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags) VALUES ($1,$2,$3,$4,0,0,1,$5,$6,'{}')`,
-      [lobbyId, building_name, lobby_description || `A converted lobby. A corkboard by the door lists available units.`, danger_rating, JSON.stringify(lobbyExits), JSON.stringify([])]
+      `INSERT INTO zones (id,name,description,exits,ambient_events,flags) VALUES ($1,$2,$3,$4,$5,'{}')`,
+      [lobbyId, building_name, lobby_description || `A converted lobby. A corkboard by the door lists available units.`, JSON.stringify(lobbyExits), JSON.stringify([])]
     );
 
     // Create each unit, register it in apartments as unowned
@@ -2286,8 +2333,8 @@ async function apiBuildApartmentBlock(body) {
       const unitId = unitIds[i];
       const unitLabel = `${unit_name_prefix} ${i + 1}`;
       await query(
-        `INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags) VALUES ($1,$2,$3,$4,0,0,1,$5,$6,$7)`,
-        [unitId, unitLabel, 'A small, plain room. Yours, if you want it.', danger_rating, JSON.stringify({ [OPPOSITE[unitDirs[i]]]: lobbyId }), JSON.stringify([]), JSON.stringify({ is_apartment: true })]
+        `INSERT INTO zones (id,name,description,exits,ambient_events,flags) VALUES ($1,$2,$3,$4,$5,$6)`,
+        [unitId, unitLabel, 'A small, plain room. Yours, if you want it.', JSON.stringify({ [OPPOSITE[unitDirs[i]]]: lobbyId }), JSON.stringify([]), JSON.stringify({ is_apartment: true })]
       );
       await query(
         `INSERT INTO apartments (zone_id, owner_id, is_locked, lock_difficulty, rent_cost) VALUES ($1,NULL,0,4,$2)`,

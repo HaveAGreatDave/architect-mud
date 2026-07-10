@@ -9,7 +9,6 @@
   "bg_color": "#000000",
   "color": null,
   "created_by": null,
-  "danger_rating": "safe",
   "description": "Black. Complete, felted black, the kind that presses on your eyes. A single metal chair sits in a pool of nothing, bolted to a floor you can feel but not see, facing a wall that hasn't decided to exist yet. There is nothing else. There is nowhere else to look. The chair is, unmistakably, for you.",
   "exits": {
     "north": "zone_the_collapse"
@@ -17,7 +16,6 @@
   "flags": {
     "always_lit": true,
     "building_name": "The Broadcast",
-    "is_building": false,
     "is_interior": true,
     "prologue": true
   },
@@ -25,12 +23,9 @@
   "grid_y": 3,
   "grid_z": 0,
   "id": "zone_the_broadcast",
-  "is_safe_zone": 1,
   "map_id": null,
   "marker": null,
   "name": "The Broadcast",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783364988"
 }

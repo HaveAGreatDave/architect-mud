@@ -8,7 +8,6 @@
   "bg_color": "#71b1e6",
   "color": "#eeeeee",
   "created_by": "phase3-build",
-  "danger_rating": "low",
   "description": "A permanent bank of cold fog sits over this stretch of the bay, thick enough to lose a boat in. Sound comes strangely here — near things far, far things near.",
   "exits": {
     "east": "zone_bay_breakwater",
@@ -17,11 +16,6 @@
     "west": "zone_bay_open"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "scavenging_table_id": "scav_harbor",
     "water": true
   },
@@ -29,12 +23,9 @@
   "grid_y": -5,
   "grid_z": 0,
   "id": "zone_bay_fog",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "FB",
   "name": "The Fog Bank",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

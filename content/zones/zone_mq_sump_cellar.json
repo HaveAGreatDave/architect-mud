@@ -9,7 +9,6 @@
   "bg_color": "#e85aa0",
   "color": null,
   "created_by": null,
-  "danger_rating": "low",
   "description": "A brick cellar that predates everything above it, stacked with kegs, crates, and the accumulated evidence of a bar that never throws anything away. A bare bulb on a cord. Damp that has soaked so deep into the mortar the walls sweat. The drain from upstairs terminates somewhere down here, and you'd rather not learn exactly where.",
   "exits": {
     "north": "zone_mq_sump_util",
@@ -22,12 +21,9 @@
   "grid_y": 0,
   "grid_z": -1,
   "id": "zone_mq_sump_cellar",
-  "is_safe_zone": 0,
   "map_id": "map_int_mq_sump",
   "marker": null,
   "name": "Sump — Cellar",
   "parent_zone": "zone_mq_sump_bar",
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1782964407"
 }

@@ -8,7 +8,6 @@
   "bg_color": "#bfa06b",
   "color": "#eeeeee",
   "created_by": "phase11-build",
-  "danger_rating": "low",
   "description": "A great cracked concrete culvert that once carried the works' floodwater away and now carries nothing but wind and the occasional person with nowhere better to shelter. Its mouth gapes westward, into the dark under the wastes.",
   "exits": {
     "east": "zone_waste_slagbar",
@@ -16,11 +15,6 @@
     "south": "zone_waste_rimeflat"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
@@ -28,12 +22,9 @@
   "grid_y": 2,
   "grid_z": 0,
   "id": "zone_waste_culvert",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "CV",
   "name": "The Culvert",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

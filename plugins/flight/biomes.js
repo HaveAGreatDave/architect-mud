@@ -1,12 +1,12 @@
 // BIOMES — the district/biome derivation service.
 //
 // The world has no `district`/`terrain`/`biome` field; this infers one per tile from
-// the zone id-prefix + a few flags + danger_rating, matching Coldwater's authored
+// the zone id-prefix + a few flags + the inferred danger, matching Coldwater's authored
 // geography. It's a pure classifier (no imports, no state) shared by the flight
 // renderer (what the ground looks like from the air) and, later, the audio ambience
 // (what you hear over each district). Rendering-only — it must never affect gameplay.
 //
-// biomeOf(zone) where zone = { id, flags, danger_rating } → a biome key (below).
+// biomeOf(zone) where zone = { id, flags, danger } → a biome key (below).
 //
 // The map (west→east, north→south): Redline radioactive ruins in the NW; a desert
 // badlands belt across the west/centre; the Slagworks/Ashway old-industrial in the
@@ -34,7 +34,7 @@ export function districtBiome(zone) {
   if (!zone) return null;
   const f = zone.flags || {};
   const id = (zone.id || '').toLowerCase();
-  const dr = zone.danger_rating ?? zone.danger;
+  const dr = zone.danger;
   const pre = (/^zone_([a-z0-9]+)/.exec(id) || [])[1] || '';
 
   if (f.water || pre === 'bay') return 'water';                        // Coldwater Bay

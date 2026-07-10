@@ -2,6 +2,10 @@ import { query } from '../models/db.js';
 import { neighborZoneIds, primaryExits, allExits, addExit, removeExit } from './exits.js';
 import { titleCaseName } from './text.js';
 import { districtFor } from './districts.js';
+import { isSanctuary, getZoneRadiation } from './zone-tags.js';
+import { hasTag } from './tags.js';
+import { registerProtectionProvider } from './protection.js';
+import { zoneDanger, enemyThreat, bucketThreat } from './danger.js';
 
 // In-memory world state — same as before, DB is source of truth
 const world = {
@@ -35,11 +39,21 @@ const battleCryTypeCooldowns = new Map(); // templateId -> timestamp
 // Battlecry zone cooldown: if any enemy in a zone shouts, suppress all zone battle cries for 30 s.
 const battleCryZoneCooldowns = new Map(); // zoneId -> timestamp
 
+// Sanctuary zones are combat-protected — published through the generic
+// protection substrate so the attack/loot/steal/shove laws never know the
+// source (same seam housing forcefields use). This is the enforced PvP law:
+// PvP is on everywhere, sanctuary carves out civilization.
+registerProtectionProvider((zoneId) => {
+  const z = world.zones.get(zoneId);
+  if (z && isSanctuary(z)) return { reason: 'sanctuary' };
+}, 'engine:sanctuary');
+
 export async function initWorld() {
   await loadZones();
   await applyExitOverrides();
   await loadNpcs();
   await loadSpawnTemplates();
+  computeAllZoneDanger();
   await loadApartments();
   await loadGlobalAmbients();
   await loadDoors();
@@ -58,6 +72,41 @@ async function loadMaps() {
 }
 
 export function getMap(mapId) { return world.maps.get(mapId) || null; }
+
+// Maps are loaded at boot; the dev-panel routes that create interior maps
+// (add-room, link-interior) call this so a new building becomes enterable
+// without a reboot.
+export async function reloadMaps() { await loadMaps(); }
+
+// The interior map whose parent tile is this zone (i.e. this zone is a
+// building facade). Linear scan — the maps table is tiny.
+export function getMapByParentZone(zoneId) {
+  for (const m of world.maps.values()) if (m.parent_zone_id === zoneId) return m;
+  return null;
+}
+
+// A building tile players never stand on: moving onto it auto-forwards into
+// its interior map's entry zone (zone redesign Phase 5). OPT-IN via the
+// `facade` zone tag — deliberately not inferred from is_building + interior
+// map, because every existing building tile in the world is a real street
+// zone that HOSTS a building (Tin Lane, Muster Yard, Foundry Cut…); inferring
+// would sever the street network. The zone planner stamps `facade` on the
+// building tiles it generates; hand-built ones opt in through the Zone Tags
+// editor. A facade tag without a linked interior map stays standable.
+export function isEnterableFacade(zone) {
+  if (!hasTag(zone, 'facade')) return false;
+  const m = getMapByParentZone(zone.id);
+  return !!(m?.entry_zone_id && world.zones.has(m.entry_zone_id));
+}
+
+// Where a direct landing (teleport, respawn, .gohome, NPC placement) actually
+// puts an actor: enterable facades forward to their interior entry zone;
+// everything else lands as-is.
+export function resolveLanding(zoneId) {
+  const z = world.zones.get(zoneId);
+  if (z && isEnterableFacade(z)) return getMapByParentZone(z.id).entry_zone_id;
+  return zoneId;
+}
 
 export async function loadPlayerCorpses() {
   const now = Date.now();
@@ -178,7 +227,7 @@ async function loadSpawnTemplates() {
   const now = Date.now();
   for (const t of rows) {
     const zone = world.zones.get(t.zone_id);
-    if (zone?.flags?.no_spawn) continue;
+    if (zone?.flags?.no_spawn || isSanctuary(zone)) continue;
     if (zone) {
       const count = [...zone.enemies].filter(eid => world.enemies.get(eid)?.templateId === t.id).length;
       for (let i = count; i < t.max_count; i++) spawnEnemySync(t, t.zone_id);
@@ -194,18 +243,47 @@ async function loadSpawnTemplates() {
 // the zone_spawns⋈enemies join every 10s. Preserves an existing timer's
 // nextSpawn so an edit doesn't reset the respawn clock.
 export async function reloadSpawn(spawnId) {
+  const prev = world.spawnTimers.get(spawnId);
   const { rows } = await query(`
     SELECT e.*, zs.id as spawn_id, zs.zone_id, zs.max_count, zs.spawn_weight, zs.respawn_seconds
     FROM zone_spawns zs JOIN enemies e ON e.id = zs.enemy_id WHERE zs.id = $1
   `, [spawnId]);
   const t = rows[0];
-  if (!t) { world.spawnTimers.delete(spawnId); return; }
-  const prev = world.spawnTimers.get(spawnId);
+  if (!t) {
+    world.spawnTimers.delete(spawnId);
+    if (prev?.zone_id) computeZoneDanger(prev.zone_id);
+    return;
+  }
   world.spawnTimers.set(spawnId, { ...t, nextSpawn: prev?.nextSpawn ?? Date.now() });
+  computeZoneDanger(t.zone_id);
+  // If the spawn moved zones, the old zone's inference changes too.
+  if (prev?.zone_id && prev.zone_id !== t.zone_id) computeZoneDanger(prev.zone_id);
 }
 
 export function removeSpawn(spawnId) {
+  const prev = world.spawnTimers.get(spawnId);
   world.spawnTimers.delete(spawnId);
+  if (prev?.zone_id) computeZoneDanger(prev.zone_id);
+}
+
+// Inferred danger: max threat among the zone's spawn templates, bucketed.
+// Cached on the world zone object; zoneDanger() (danger.js) reads the cache
+// under its tag-override/sanctuary precedence. Recomputed at boot (initWorld)
+// and by the reloadSpawn/removeSpawn hooks above — never per-tick.
+export function computeZoneDanger(zoneId) {
+  const zone = world.zones.get(zoneId);
+  if (!zone) return;
+  let maxThreat = 0, hasSpawn = false;
+  for (const t of world.spawnTimers.values()) {
+    if (t.zone_id !== zoneId) continue;
+    hasSpawn = true;
+    maxThreat = Math.max(maxThreat, enemyThreat(t));
+  }
+  zone._dangerInferred = hasSpawn ? bucketThreat(maxThreat) : 'safe';
+}
+
+function computeAllZoneDanger() {
+  for (const zoneId of world.zones.keys()) computeZoneDanger(zoneId);
 }
 
 async function loadApartments() {
@@ -336,7 +414,7 @@ export function getZone(id) { return world.zones.get(id) || null; }
 
 // Build a small graph snapshot for the minimap: current zone + everything
 // reachable within `depth` hops, with enough info to render an ASCII grid.
-export function getMinimapData(centerZoneId, depth = 4) {
+export function getMinimapData(centerZoneId, depth = 8) {
   const centerZone = world.zones.get(centerZoneId);
   const centerMapId = centerZone?.map_id || null;
 
@@ -363,10 +441,11 @@ export function getMinimapData(centerZoneId, depth = 4) {
   }
 
   // Beyond the reachable set, also surface the nearby-but-unreachable tiles that
-  // fall inside the client's 5×5 render window (Chebyshev radius 2, same map/floor).
+  // fall inside the client's 9×9 render window (Chebyshev radius 4, same map/floor).
   // They render dimmed so it's clear there are tiles there you just can't reach in
-  // `depth` hops. Only possible when the map is grid-placed.
-  const WIN = 2;
+  // `depth` hops. Only possible when the map is grid-placed. Keep WIN = the
+  // client's R in minimap.js.
+  const WIN = 4;
   const ids = new Set(visited.keys());
   if (centerMapId && centerZone.grid_x != null && centerZone.grid_y != null) {
     const cx = centerZone.grid_x, cy = centerZone.grid_y, cz = centerZone.grid_z ?? 0;
@@ -393,13 +472,17 @@ export function getMinimapData(centerZoneId, depth = 4) {
       id: zone.id,
       name: zone.name,
       buildings,
-      danger_rating: zone.danger_rating,
-      is_safe_zone: !!zone.is_safe_zone,
-      pvp_enabled: !!zone.pvp_enabled,
+      danger: zoneDanger(zone),
+      sanctuary: isSanctuary(zone),
+      radiation: getZoneRadiation(zone),
+      // Pass-through building tile: rendered as an enterable marker, not a room.
+      enterable: isEnterableFacade(zone),
+      building_name: zone.flags?.building_name || null,
       exits: primaryExits(zone),
       map_id: zone.map_id || null,
       grid_x: zone.grid_x, grid_y: zone.grid_y, grid_z: zone.grid_z,
       marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,
+      icon_svg: zone.flags?.icon || null, // named SVG in client/game/assets/zone-icons/ (distinct from avenue POI glyph)
       district: (() => { const d = districtFor(zone); return { key: d.key, name: d.name, color: d.color }; })(),
       artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
       is_current: zone.id === centerZoneId,
@@ -413,8 +496,7 @@ export function getMinimapData(centerZoneId, depth = 4) {
 export function getAllZones() {
   return [...world.zones.values()].map(z => ({
     id: z.id, name: z.name, description: z.description,
-    danger_rating: z.danger_rating, pvp_enabled: z.pvp_enabled,
-    radiation_level: z.radiation_level, is_safe_zone: z.is_safe_zone,
+    sanctuary: isSanctuary(z), radiation: getZoneRadiation(z), danger: zoneDanger(z),
     exits: z.exits, ambient_events: z.ambient_events, ambient_theme: z.ambient_theme, flags: z.flags,
     map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,
     marker: z.marker, color: z.color, bg_color: z.bg_color,
@@ -550,6 +632,9 @@ export async function tickSpawns(broadcast) {
     if (now < t.nextSpawn) continue;
     const zone = world.zones.get(t.zone_id);
     if (!zone) continue;
+    // Sanctuary carve-out: no hostile spawns (checked per-tick, not just at
+    // load, so tagging a zone takes effect without a reboot).
+    if (zone.flags?.no_spawn || isSanctuary(zone)) { t.nextSpawn = now + t.respawn_seconds * 1000; continue; }
     const count = [...zone.enemies].filter(eid => world.enemies.get(eid)?.templateId === t.id).length;
     if (count < t.max_count && Math.random() * 100 < t.spawn_weight) {
       const instance = spawnEnemySync(t, t.zone_id);
@@ -674,6 +759,10 @@ export async function reloadZone(zoneId) {
     enemies: existing.enemies,
     npcs: existing.npcs,
     corpses: existing.corpses,
+    // Carry the inferred-danger cache forward — it's derived from spawnTimers,
+    // not the zones row, and recomputed only at boot and on spawn edits. A
+    // zone save must not zero it until the next reboot.
+    _dangerInferred: existing._dangerInferred,
   });
   await applyExitOverrides(zoneId);
 }

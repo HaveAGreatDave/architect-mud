@@ -8,7 +8,6 @@
   "bg_color": "#e9b282",
   "color": "#111111",
   "created_by": null,
-  "danger_rating": "low",
   "description": "The heart of the works: a maze of pipework and catwalks around the base of the great cracking columns, everything furred with rust and dripping something that eats through your soles if you stand too long. Salvage crews got the easy metal years ago. What's left is buried, or guarded, or both.",
   "exits": {
     "east": "zone_slag_gate",
@@ -17,25 +16,16 @@
     "west": "zone_slag_rail"
   },
   "flags": {
-    "building_name": null,
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
-    "scavenging_table_id": "scav_industrial_salvage",
-    "world_exit_zone": null
+    "scavenging_table_id": "scav_industrial_salvage"
   },
   "grid_x": -9,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_slag_yard",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "CY",
   "name": "The Cracking Yard",
   "parent_zone": null,
-  "pvp_enabled": 1,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

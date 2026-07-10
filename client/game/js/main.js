@@ -715,6 +715,11 @@ document
 document
 	.getElementById("area-pane")
 	.addEventListener("click", handleActionLinkClick);
+// Minimap mounts: enterable-building tiles render as action-links (go <name>).
+// Delegated on the containers so the constant innerHTML re-renders keep working.
+for (const id of ["minimap-grid", "minimap-grid-mob", "minimap-grid-hud"]) {
+	document.getElementById(id)?.addEventListener("click", handleActionLinkClick);
+}
 
 // Look pane / output pane resize handle
 (function () {

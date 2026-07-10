@@ -719,6 +719,10 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	color: var(--red);
 	font-size: 11px;
 }
+.safe-warning {
+	color: var(--cyan, #59c2d6);
+	font-size: 11px;
+}
 .light-level {
 	display: block;
 	font-size: 11px;
@@ -1824,16 +1828,17 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 #minimap-grid-hud,
 #minimap-grid-mob {
 	display: grid;
-	grid-template-columns: var(--mm-room) var(--mm-gap) var(--mm-room) var(--mm-gap) var(--mm-room) var(--mm-gap) var(--mm-room) var(--mm-gap) var(--mm-room);
-	grid-template-rows: var(--mm-room) var(--mm-gap) var(--mm-room) var(--mm-gap) var(--mm-room) var(--mm-gap) var(--mm-room) var(--mm-gap) var(--mm-room);
+	/* 9×9 room window (R=4 in minimap.js) ⇒ 17 tracks: 9 rooms + 8 gaps. */
+	grid-template-columns: repeat(8, var(--mm-room) var(--mm-gap)) var(--mm-room);
+	grid-template-rows: repeat(8, var(--mm-room) var(--mm-gap)) var(--mm-room);
 	justify-content: center;
 	align-content: center;
 	line-height: 1;
 }
 #minimap-grid {
-	--mm-room: 1.5em;
-	--mm-gap: 0.72em;
-	font-size: 15px;
+	--mm-room: 1.3em;
+	--mm-gap: 0.55em;
+	font-size: 10px;
 }
 .mm-c {
 	display: flex;
@@ -1848,6 +1853,25 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 .mm-link {
 	color: var(--text-dim);
 	opacity: 0.75;
+}
+/* Named zone-icon SVG on a minimap tile (symFor → flags.icon). Drawn as a mask
+   filled with currentColor, so the icon takes the tile's text colour. */
+.mm-icon {
+	width: 82%;
+	height: 82%;
+	background: currentColor;
+	-webkit-mask: var(--zi) center / contain no-repeat;
+	mask: var(--zi) center / contain no-repeat;
+	pointer-events: none;
+}
+/* Enterable building tile — a door you step through, not a room you stand in.
+   Clickable (go <building>); glyph ▣ from symFor. */
+.mm-room.mm-building {
+	cursor: pointer;
+	color: var(--accent, #59c2d6);
+	border: 1px solid currentColor;
+	border-radius: 2px;
+	opacity: 0.9;
 }
 /* Nearby-but-unreachable tiles (beyond the reachable BFS) render faint so it's
    clear there are tiles there you just can't reach; their connectors dim too. */
@@ -4006,9 +4030,9 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 
 /* Compact HUD minimap — same room+gap grid, smaller tracks. */
 #minimap-grid-hud {
-	--mm-room: 1em;
-	--mm-gap: 0.5em;
-	font-size: 12px;
+	--mm-room: 1.05em;
+	--mm-gap: 0.42em;
+	font-size: 8px;
 	font-family: var(--font-mono);
 	background: var(--bg);
 	border: 1px solid var(--border);
@@ -5061,9 +5085,9 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 }
 
 #minimap-grid-mob {
-	--mm-room: 1.5em;
-	--mm-gap: 0.72em;
-	font-size: 15px;
+	--mm-room: 1.4em;
+	--mm-gap: 0.6em;
+	font-size: 11px;
 	font-family: var(--font-mono);
 }
 

@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -16,6 +16,8 @@ import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
 import { createSelectionState, getSelectionState, formatSelectionPage } from '../sift.js';
 import { districtFor } from '../districts.js';
 import { getFlag, setFlag } from '../flags.js';
+import { getZoneRadiation } from '../zone-tags.js';
+import { zoneDanger } from '../danger.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
 
@@ -295,6 +297,30 @@ function exitIndexOpts(args) {
   return args?.length && /^\d+$/.test(args[0]) ? { exitIndex: Number(args[0]) } : {};
 }
 
+// The facade pass-through (zone redesign Phase 5). Returns null when `to`
+// isn't an enterable facade — or when it is one but has no usable street tile
+// to spill onto (legacy fallback: the facade stays standable rather than
+// walling the player in).
+function resolveFacadeTransit(from, to) {
+  if (!isEnterableFacade(to)) return null;
+  const interior = getMapByParentZone(to.id);
+  if (from.map_id === interior.id) {
+    // Exiting: interior → facade → the building's front-door street tile.
+    const street = to.flags?.world_exit_zone ? getZone(to.flags.world_exit_zone) : null;
+    if (!street || street.id === from.id) {
+      console.warn(`[facade] ${to.id} has no usable world_exit_zone — landing on the facade (legacy)`);
+      return null;
+    }
+    return { finalId: street.id, finalZone: street, frontDoor: null }; // exit-side door already found by the standard lookup
+  }
+  // Entering: anywhere else → facade → interior entry zone. The front door
+  // lives on the facade↔interior 'in'/'out' exit, so surface it for the gate
+  // chain (the street→facade hop has no door of its own).
+  const entryId = interior.entry_zone_id;
+  const frontDoor = getDoorForExit(to.id, 'in', entryId) || getDoorForExit(entryId, 'out', to.id) || null;
+  return { finalId: entryId, finalZone: getZone(entryId), frontDoor };
+}
+
 export async function cmdMove(direction, player, broadcast, opts = {}) {
   if (!direction) return { type:'error', message:'Go where? (north, south, east, west, up, down)' };
   const zone = getZone(player.current_zone);
@@ -343,11 +369,24 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
       };
     }
   }
-  const targetZone = getZone(targetId);
+  let targetZone = getZone(targetId);
   if (!targetZone) return { type:'error', message:'That exit leads nowhere yet.' };
 
   // Door may be on either side: in this zone going out, or in the target zone going back
   let door = getDoorForExit(zone.id, direction, targetId) || getDoorForExit(targetId, OPPOSITE[direction], zone.id) || null;
+
+  // Revolving-door seam: an enterable facade is never stood on. Stepping onto
+  // it from the street forwards straight into the interior entry zone; walking
+  // out of the interior onto it lands on its front-door street tile
+  // (flags.world_exit_zone). The swap happens BEFORE the gate chain, so gates
+  // run exactly once with from=origin, to=final destination, door=front door —
+  // no pacing double-charge, and the lock law is checked on the real door.
+  const transit = resolveFacadeTransit(zone, targetZone);
+  if (transit) {
+    if (!door) door = transit.frontDoor;
+    targetId = transit.finalId;
+    targetZone = transit.finalZone;
+  }
 
   // Gate chain: pure vetoes (engine laws below + plugin-registered gates) run
   // before anything mutates. Previously the door opened before the encumbrance
@@ -431,8 +470,9 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   }
 
   let radGain = 0;
-  if (targetZone.radiation_level > 0) {
-    radGain = Math.floor(targetZone.radiation_level * 0.1);
+  const zoneRad = getZoneRadiation(targetZone);
+  if (zoneRad > 0) {
+    radGain = Math.floor(zoneRad * 0.1);
     if (radGain > 0) {
       player.radiation = Math.min(100, (player.radiation||0) + radGain);
       await query('UPDATE players SET radiation=$1 WHERE id=$2', [player.radiation, player.id]);
@@ -619,7 +659,7 @@ function mapTile(zone, x, y, placed, currentId) {
   const poi = mapPoi(zone);
   return {
     id: zone.id, x, y, name: zone.name,
-    danger: zone.danger_rating || null, marker: zone.marker || null,
+    danger: zoneDanger(zone), marker: zone.marker || null,
     color: zone.color || null, bg_color: zone.bg_color || null,
     func: mapFunc(zone),
     description: zone.description || '',

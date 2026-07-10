@@ -341,7 +341,11 @@ async function hasHackDevice(playerId) {
 // forcefield gate (a sleeping owner's quantum shield makes the lock unhackable).
 function doorForcefieldActive(door) {
   for (const zid of [door.zone_id, ...doorFarZoneIds(door)]) {
-    if (zid && getZoneProtection(zid)) return true;
+    // Only the forcefield fiction makes a lock unhackable. Zone-level
+    // sanctuary protection gates hostile PLAYER interactions, not lockpicking —
+    // without this reason check, every unit door bordering a sanctuary zone
+    // would be unhackable and burglary dies there.
+    if (zid && getZoneProtection(zid)?.reason === 'forcefield') return true;
   }
   return false;
 }

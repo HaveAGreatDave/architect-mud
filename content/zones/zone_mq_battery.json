@@ -10,7 +10,6 @@
   "bg_color": "#ae9292",
   "color": "#eeeeee",
   "created_by": null,
-  "danger_rating": "safe",
   "description": "The civic heart of the district, such as it is — a paved square built around a dry fountain someone has repurposed as a communal firepit. A grocery holds down one side, a police precinct scowls from another, and a public notice pillar wears a thick scab of flyers: rooms to let, people gone missing, curfews rescinded and reinstated. It is, by local standards, safe. The precinct's floodlights see to that.",
   "exits": {
     "east": "zone_mq_precinct",
@@ -22,19 +21,15 @@
   "flags": {
     "artery": [
       "Grand Avenue"
-    ],
-    "scavenging_table_id": null
+    ]
   },
   "grid_x": 4,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_mq_battery",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "BS",
   "name": "Battery Square",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

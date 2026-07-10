@@ -1,4 +1,4 @@
-import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache, hasActivePlayers } from './world.js';
+import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache, hasActivePlayers, resolveLanding } from './world.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry, getPlayerCombat } from './combat.js';
@@ -452,7 +452,9 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   // strips it — so it can confiscate rather than drop into a lootable corpse.
   // A truthy return { zone, message } routes respawn there and skips the corpse.
   const respawnOverride = await fireHook('player.respawnZone', player, killer);
-  const respawnZone = respawnOverride?.zone || player.anchor_zone || 'zone_start';
+  // resolveLanding: an anchor pointing at an enterable building facade lands
+  // the respawn inside the building, never on the pass-through tile.
+  const respawnZone = resolveLanding(respawnOverride?.zone || player.anchor_zone || 'zone_start');
 
   // Resolve the cause the systems broadcast to any listeners (e.g. the deaths
   // catalogue). A caller that knows the specific cause passes it explicitly;

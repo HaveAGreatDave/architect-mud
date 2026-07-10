@@ -77,9 +77,21 @@ is that **every** arrival/departure — player, NPC, or enemy, including spawn/r
 the only silent path is corpse/enemy *expiry* (cleanup, not a move).
 
 `describeZone` is the heavy renderer: light level gating (8-step ladder blazing→bright→clear→dim→gloomy→dark→murk→pitch-dark; darker levels degrade what's visible — gloomy drops ground items, dark hides creatures/items, murk also hides NPCs, pitch-dark leaves only feel-for-exits — via the `LIGHT_GATE` table),
-danger/RAD/PVP tags, building-discovery flavour, apartment status, the Custodian outcast/turret
+danger/RAD/SANCTUARY tags, building-discovery flavour, apartment status, the Custodian outcast/turret
 response, ground items, furniture, windows, exits, other players, NPCs, enemies, and corpses. It fires
 the `zone.describeRoom` plugin hook for optional injected prose.
+
+**Zone properties are tags, danger is inferred (2026-07).** `zones.flags` is the catalog-validated
+zone tag bag (see [tags.md](tags.md)); the legacy `danger_rating`/`pvp_enabled`/`radiation_level`/
+`is_safe_zone` columns are gone. The header's `[SAFE]…[LETHAL]` chip is **inferred** by
+`engine/danger.js` — max enemy threat among the zone's `zone_spawns` (`hp_max + 8 × avg weapon dmg`,
+bucketed at 60/100/180), floored by heavy `radiation` (≥25 → high, ≥40 → lethal), overridable with a
+`danger` tag, forced `safe` by `sanctuary`. The inference is cached on the world zone object at boot
+and recomputed on spawn edits (`computeZoneDanger` in `world.js`). PvP is the default law everywhere;
+the `sanctuary` tag registers zone protection through the protection substrate (`engine:sanctuary`
+provider) and additionally grants safe sleep, AI safe-flee targeting, and spawn suppression. NPC
+wanderers avoid zones whose inferred danger is high+ (this also fixed lethal zones never being
+avoided — the old set checked values that didn't exist).
 
 ### Movement pacing (stamina) — the `pacing` plugin
 

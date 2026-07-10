@@ -8,18 +8,12 @@
   "bg_color": "#7fda9a",
   "color": "#111111",
   "created_by": null,
-  "danger_rating": "safe",
   "description": "One of the only reliably staffed medical points in the basin. People are polite here. Nobody wants to be the reason it closes.",
   "exits": {
     "north": "zone_thresholdeast"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
     "intro_lore": "One of the few medical points in the basin that's actually staffed, which makes it holy ground: people are polite here because everyone eventually bleeds and nobody's above needing it. Start something on the Clinic Block and the whole block finishes it. It's the closest thing to law you'll find, and it stops at the sidewalk.",
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "no_spawn": true,
     "scavenging_table_id": "scav_consumer_trash",
     "street_life": true
@@ -28,12 +22,9 @@
   "grid_y": 1,
   "grid_z": 0,
   "id": "zone_city_se",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "CB",
   "name": "The Clinic Block",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

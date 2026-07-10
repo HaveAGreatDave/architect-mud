@@ -8,18 +8,12 @@
   "bg_color": "#e69e73",
   "color": "#111111",
   "created_by": "phase1-build",
-  "danger_rating": "medium",
   "description": "A gutter of flattened appliance boxes and pallet-wood shanties. Cook-fires gutter in oil drums and the greasy smoke never quite clears.",
   "exits": {
     "south": "zone_deep_wormtown"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
     "intro_lore": "A gutter of flattened appliance boxes and pallet-wood shanties, cook-fires guttering in oil drums, everyone one bad night from the tarpit. Nobody here has anything, which is exactly what makes the little they do have worth killing over. Charity is a con and pity is a tell — on Cardboard Row, both get you emptied.",
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk"
@@ -28,12 +22,9 @@
   "grid_y": 2,
   "grid_z": 0,
   "id": "zone_deep_cardboard",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "CD",
   "name": "Cardboard Row",
   "parent_zone": null,
-  "pvp_enabled": 1,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

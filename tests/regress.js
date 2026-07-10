@@ -36,10 +36,11 @@ import { handleCommand } from '../server/engine/commands/index.js';
 import { getRegisteredMoveGates } from '../server/engine/movement-gates.js';
 import { getRegisteredSpecializedActions } from '../server/engine/specializedActions.js';
 import { registerProtectionProvider, getZoneProtection, getRegisteredProtectionProviders } from '../server/engine/protection.js';
+import { validateTags } from '../server/engine/tags.js';
 import { stopAll } from '../server/engine/scheduler.js';
 import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../server/models/schema.js';
-import { handleApiRequest } from '../server/api/routes.js';
+import { handleApiRequest, apiUpdateZone, apiPatchZoneTag } from '../server/api/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGINS_DIR = join(__dirname, '../plugins');
@@ -203,6 +204,34 @@ console.log('— layer 1c: CONTENT_READONLY gate —');
   check('CONTENT_READONLY blocks content writes, passes ops routes', gateErrors.length === 0, gateErrors.join('; '));
   // Gate off ⇒ fully inert: the same content write must not see the gate message.
   check('gate is inert when CONTENT_READONLY is unset', !(await hitsGate('PUT', '/api/zones/zone_regress_gate_probe')));
+}
+
+// ── Layer 1d: zone tag substrate ──────────────────────────────────────────────
+// zones.flags is the catalog-validated zone tag bag (scope 'zone'). Every live
+// bag must validate (catches uncatalogued keys / junk values drifting back in),
+// and the API write paths must reject bad bags loudly.
+console.log('— layer 1d: zone tag substrate —');
+{
+  const bagErrors = [];
+  for (const z of world.zones.values()) {
+    const v = validateTags(z.flags || {});
+    if (!v.ok) bagErrors.push(`${z.id}: ${[...v.unknown, ...v.badShape].join(', ')}`);
+  }
+  check(`every live zone flags bag passes validateTags (${world.zones.size} zones)`,
+    bagErrors.length === 0, bagErrors.slice(0, 5).join(' | '));
+
+  const bad = validateTags({ radation: 5, danger: 'extreme' });
+  check('validateTags rejects a typo\'d key and a bad enum value',
+    !bad.ok && bad.unknown.includes('radation') && bad.badShape.length === 1);
+
+  const rPut = await apiUpdateZone('zone_regress_tag_probe', { flags: { radation: 5 } });
+  check('apiUpdateZone rejects an uncatalogued zone flag with 400',
+    rPut?.status === 400 && /radation/.test(rPut?.body?.error || ''), JSON.stringify(rPut?.body).slice(0, 120));
+
+  const rPatchBad = await apiPatchZoneTag('zone_regress_tag_probe', { name: 'radation', value: 5 });
+  check('apiPatchZoneTag rejects an uncatalogued tag with 400', rPatchBad?.status === 400);
+  const rPatchMissing = await apiPatchZoneTag('zone_regress_tag_probe', { name: 'radiation', value: 5 });
+  check('apiPatchZoneTag 404s on a missing zone (validation passed, no write)', rPatchMissing?.status === 404);
 }
 
 // ── Fake player setup ─────────────────────────────────────────────────────────
@@ -494,6 +523,177 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
       blocked?.type === 'error' && /lives here/i.test(blocked.message || ''), blocked?.message);
   } finally {
     await q('DELETE FROM npc_residences WHERE zone_id=$1', [rgZone]);
+  }
+}
+
+// Sanctuary + radiation zone tags (Phase 2 of the zone redesign). All fixtures
+// are in-memory mutations of live world zone objects — no DB writes — and are
+// torn down in finally.
+{
+  const { getZoneRadiation, isSanctuary } = await import('../server/engine/zone-tags.js');
+  const { getSleepEligibility } = await import('../server/engine/apartments.js');
+  const { tickSpawns, getZoneEnemies } = await import('../server/engine/world.js');
+  const p = getPlayer();
+  const homeZone = world.zones.get(p.current_zone);
+
+  // Protection substrate: the sanctuary tag claims the zone; untagged doesn't.
+  check('sanctuary provider registered', getRegisteredProtectionProviders().includes('engine:sanctuary'));
+  check('untagged zone has no sanctuary protection', getZoneProtection(homeZone.id)?.reason !== 'sanctuary');
+  try {
+    homeZone.flags.sanctuary = true;
+    check('sanctuary tag grants zone protection', getZoneProtection(homeZone.id)?.reason === 'sanctuary');
+    // The dropped is_safe_zone column must never grant anything, even if a
+    // stale object still carries the field (61% of the world had it).
+    check('isSanctuary ignores legacy is_safe_zone', !isSanctuary({ is_safe_zone: 1, flags: {} }));
+    // Sleep: a sanctuary tag is sleepable.
+    const elig = getSleepEligibility(p, { id: 'z_synth', flags: { sanctuary: true } });
+    check('sleep allowed in a tag-only sanctuary', elig.canSleep === true && elig.reason === 'safe_zone', JSON.stringify(elig));
+
+    // Spawn suppression: a due, weight-100 spawn in a sanctuary zone must not fire.
+    const anyTimer = [...world.spawnTimers.values()][0];
+    if (anyTimer) {
+      const synthId = 'regress_sanctuary_spawn';
+      world.spawnTimers.set(synthId, { ...anyTimer, spawn_id: synthId, zone_id: homeZone.id, max_count: 50, spawn_weight: 100, respawn_seconds: 9999, nextSpawn: 0 });
+      const before = getZoneEnemies(homeZone.id).length;
+      await tickSpawns(null);
+      const after = getZoneEnemies(homeZone.id).length;
+      // The skip path still advances the timer — proves the tick processed the
+      // entry rather than early-returning (which would make this test vacuous).
+      const processed = (world.spawnTimers.get(synthId)?.nextSpawn ?? 0) > 0;
+      world.spawnTimers.delete(synthId);
+      check('spawn tick skips a sanctuary zone', processed && after === before, `processed=${processed} enemies ${before} -> ${after}`);
+    }
+  } finally {
+    delete homeZone.flags.sanctuary;
+  }
+
+  // Radiation comes from the tag alone (entry formula: floor(rad/10)).
+  check('getZoneRadiation reads the tag', getZoneRadiation({ flags: { radiation: 30 } }) === 30);
+  check('getZoneRadiation ignores the dropped column', getZoneRadiation({ radiation_level: 20, flags: {} }) === 0);
+  const exit0 = allExits(world.zones.get(p.current_zone))[0];
+  if (exit0) {
+    const destZone = world.zones.get(exit0.target);
+    const radBefore = p.radiation || 0;
+    try {
+      destZone.flags.radiation = 30;
+      p._lastStepAt = 0; // clear the pacing plugin's cadence clock (same as the layer-2 move fixtures)
+      const mv = await cmdMove(exit0.dir, p, broadcast, { targetZoneId: exit0.target });
+      check('moving into a tag-radiation zone applies rad gain',
+        mv?.type !== 'error' && (getPlayer().radiation || 0) >= radBefore + 3,
+        `rad ${radBefore} -> ${getPlayer().radiation} (${JSON.stringify(mv?.message ?? mv).slice(0, 80)})`);
+    } finally {
+      delete destZone.flags.radiation;
+      getPlayer().radiation = radBefore;
+      // Walk back so later suites see the player where earlier layers left them.
+      const back = allExits(destZone).find(e => e.target === homeZone.id);
+      if (getPlayer().current_zone === destZone.id && back) {
+        getPlayer()._lastStepAt = 0;
+        await cmdMove(back.dir, getPlayer(), broadcast, { targetZoneId: homeZone.id });
+      }
+    }
+  }
+}
+
+// Danger inference (Phase 3 of the zone redesign): spawn-derived, cached on the
+// world zone object, tag override > sanctuary > radiation floor > inference.
+{
+  const { zoneDanger, enemyThreat, bucketThreat, DANGER_RANK } = await import('../server/engine/danger.js');
+  const { computeZoneDanger, removeSpawn } = await import('../server/engine/world.js');
+  const p = getPlayer();
+  const homeZone = world.zones.get(p.current_zone);
+  const savedInferred = homeZone._dangerInferred;
+
+  check('enemyThreat scales with hp + damage',
+    enemyThreat({ hp_max: 100, weapon: [{ min: 10, max: 20 }] }) === 220);
+  check('bucketThreat rank order holds',
+    bucketThreat(20) === 'low' && bucketThreat(70) === 'medium' && bucketThreat(120) === 'high' && bucketThreat(220) === 'lethal');
+  check('danger tag override wins', zoneDanger({ flags: { danger: 'lethal' }, _dangerInferred: 'low' }) === 'lethal');
+  check('sanctuary forces safe', zoneDanger({ flags: { sanctuary: true }, _dangerInferred: 'high' }) === 'safe');
+  check('radiation floors danger (lethal at 40+)', zoneDanger({ flags: { radiation: 45 }, _dangerInferred: 'low' }) === 'lethal');
+  check('inference cache read', zoneDanger({ flags: {}, _dangerInferred: 'medium' }) === 'medium');
+
+  // Cache recompute: a synthetic beefy spawn raises the zone; removing it recomputes.
+  try {
+    const synthId = 'regress_danger_spawn';
+    world.spawnTimers.set(synthId, { spawn_id: synthId, zone_id: homeZone.id, hp_max: 100, weapon: [{ min: 10, max: 20 }], max_count: 0, spawn_weight: 0, respawn_seconds: 9999, nextSpawn: Number.MAX_SAFE_INTEGER });
+    computeZoneDanger(homeZone.id);
+    check('computeZoneDanger caches inferred danger from spawns', homeZone._dangerInferred === 'lethal', homeZone._dangerInferred);
+    removeSpawn(synthId);
+    check('removeSpawn recomputes the zone danger', homeZone._dangerInferred !== 'lethal', homeZone._dangerInferred);
+  } finally {
+    world.spawnTimers.delete('regress_danger_spawn');
+    homeZone._dangerInferred = savedInferred;
+  }
+  check('DANGER_RANK exports a total order', DANGER_RANK.safe < DANGER_RANK.low && DANGER_RANK.high < DANGER_RANK.lethal);
+}
+
+// Non-standable facades (Phase 5 of the zone redesign): a facade-tagged
+// building tile auto-forwards movement into its interior entry zone; OUT from
+// inside lands on the front-door street tile. Entirely synthetic in-memory
+// fixture (street ↔ facade ↔ lobby + an interior map row), torn down in finally.
+{
+  const { isEnterableFacade, resolveLanding, getMapByParentZone } = await import('../server/engine/world.js');
+  const mk = (id, name, extra = {}) => ({ id, name, description: '.', exits: {}, flags: {}, ambient_events: [],
+    players: new Set(), enemies: new Set(), npcs: new Set(), corpses: new Set(), map_id: 'map_world', grid_z: 0, ...extra });
+  const street = mk('rg_street', 'Regress Street');
+  const facade = mk('rg_facade', 'Regress Tower', { flags: { is_building: true, facade: true, building_name: 'Regress Tower', world_exit_zone: 'rg_street' } });
+  const lobby  = mk('rg_lobby', 'Regress Lobby', { flags: { is_interior: true }, map_id: 'map_rg_int' });
+  street.exits = { north: 'rg_facade' };
+  facade.exits = { south: 'rg_street', in: 'rg_lobby' };
+  lobby.exits  = { out: 'rg_facade' };
+  const p = getPlayer();
+  const savedZone = p.current_zone;
+  try {
+    world.zones.set(street.id, street); world.zones.set(facade.id, facade); world.zones.set(lobby.id, lobby);
+    world.maps.set('map_rg_int', { id: 'map_rg_int', name: 'RG Interior', parent_zone_id: 'rg_facade', entry_zone_id: 'rg_lobby' });
+
+    check('isEnterableFacade: facade tag + interior map', isEnterableFacade(facade));
+    check('isEnterableFacade: tag required (Tin Lane stays standable)', !isEnterableFacade({ flags: { is_building: true } }));
+    check('resolveLanding forwards facades', resolveLanding('rg_facade') === 'rg_lobby');
+    check('resolveLanding passes normal zones through', resolveLanding('rg_street') === 'rg_street');
+    check('getMapByParentZone finds the interior', getMapByParentZone('rg_facade')?.id === 'map_rg_int');
+
+    // Walk in: street --north--> facade ⇒ land in the lobby, one move result.
+    removePlayerFromZone(p.id, p.current_zone);
+    p.current_zone = 'rg_street';
+    addPlayerToZone(p.id, 'rg_street');
+    p._lastStepAt = 0;
+    const inMove = await cmdMove('north', p, broadcast);
+    check('moving onto a facade lands in the interior entry zone',
+      inMove?.type === 'move' && p.current_zone === 'rg_lobby', `zone=${p.current_zone} type=${inMove?.type}`);
+    check('facade holds no players after transit', facade.players.size === 0);
+
+    // Walk out: lobby --out--> facade ⇒ land on the front-door street tile.
+    p._lastStepAt = 0;
+    const outMove = await cmdMove('out', p, broadcast);
+    check('OUT from the interior lands on the front-door street tile',
+      outMove?.type === 'move' && p.current_zone === 'rg_street', `zone=${p.current_zone} type=${outMove?.type}`);
+
+    // NPC path-through: moveEntity onto the facade forwards to the lobby.
+    const npc = { id: 'rg_npc', name: 'Regress Wanderer', zone_id: 'rg_street', flags: {} };
+    world.zones.get('rg_street').npcs.add('rg_npc');
+    world.npcs.set('rg_npc', npc);
+    const moved = moveEntity(npc, 'rg_facade', broadcast, null);
+    check('moveEntity forwards NPCs through the facade',
+      moved === true && npc.zone_id === 'rg_lobby', `moved=${moved} zone=${npc.zone_id}`);
+
+    // Locked front door blocks the transit at the gate (player stays outside).
+    setDoorCache('rg_door', { id: 'rg_door', zone_id: 'rg_facade', exit_dir: 'in', target_zone: 'rg_lobby', door_type: 'standard', is_open: 0, hp: 10, hp_max: 10, lock_state: 'locked', flags: {}, tags: { 'lock:hololock': { difficulty: 5 } } });
+    removePlayerFromZone(p.id, p.current_zone);
+    p.current_zone = 'rg_street';
+    addPlayerToZone(p.id, 'rg_street');
+    p._lastStepAt = 0;
+    const blocked = await cmdMove('north', p, broadcast);
+    check('a locked front door blocks the facade transit on the street side',
+      blocked?.type === 'error' && p.current_zone === 'rg_street', `zone=${p.current_zone} type=${blocked?.type} ${String(blocked?.message).slice(0, 60)}`);
+  } finally {
+    deleteDoorCache('rg_door');
+    world.npcs.delete('rg_npc');
+    world.zones.delete('rg_street'); world.zones.delete('rg_facade'); world.zones.delete('rg_lobby');
+    world.maps.delete('map_rg_int');
+    removePlayerFromZone(p.id, p.current_zone);
+    p.current_zone = savedZone;
+    addPlayerToZone(p.id, savedZone);
   }
 }
 

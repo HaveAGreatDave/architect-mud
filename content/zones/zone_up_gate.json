@@ -8,19 +8,13 @@
   "bg_color": "#42c96a",
   "color": "#eeeeee",
   "created_by": "phase1-build",
-  "danger_rating": "safe",
   "description": "The clean edge of the city. A corporate checkpoint of brushed steel and polite menace sorts the paying customers from the rest. Cameras track the way you walk.",
   "exits": {
     "north": "zone_dock_wharf",
     "south": "zone_city_ne"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
     "intro_lore": "This is where the money starts, and money in Coldwater means a wall, a checkpoint, and men paid to make you feel the difference. Uptown keeps its lights on and its problems out, and you are, unmistakably, a problem. Have your reasons ready and your hands where they can be seen — the politeness here is a countdown.",
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "no_spawn": true,
     "scavenging_table_id": "scav_consumer_trash"
   },
@@ -28,12 +22,9 @@
   "grid_y": -2,
   "grid_z": 0,
   "id": "zone_up_gate",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "UG",
   "name": "Uptown Gate",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

@@ -5,7 +5,6 @@
   "bg_color": null,
   "color": null,
   "created_by": null,
-  "danger_rating": "safe",
   "description": "The Marshalling Field hangar: a cavernous prefab of corrugated steel, its floor a map of old oil stains and tyre scuffs. Tool racks and a battered workbench line one wall; a wheeled ops desk with a bank of flight monitors faces the other. The big bay doors stand open to the west, framing the ramp and the aircraft parked out on it. Beyond the apron a taxiway peels off and runs dead-straight to a long runway — a broad grey ribbon stretched to the horizon, its dashed centreline dwindling to a pale seam, threshold numbers shimmering in the heat off the tarmac, a lone windsock snapping at the far end. It smells of avgas, hot metal and cold coffee.",
   "exits": {
     "down": "zone_util_zone_hangar_yard_marshalling",
@@ -21,12 +20,9 @@
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_hangar_yard_marshalling",
-  "is_safe_zone": 1,
   "map_id": "map_int_hangar_yard_marshalling",
   "marker": null,
   "name": "Marshalling Field Hangar",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783227243"
 }

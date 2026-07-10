@@ -8,7 +8,6 @@
   "bg_color": "#be9d64",
   "color": "#eeeeee",
   "created_by": "phase6-build",
-  "danger_rating": "low",
   "description": "A hollow scooped from the flats where cooled slag was once dumped and forgotten. Rain has pooled in the bottom into something that reflects nothing.",
   "exits": {
     "east": "zone_waste_emberwaste",
@@ -16,11 +15,6 @@
     "west": "zone_waste_sootbank"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
@@ -28,12 +22,9 @@
   "grid_y": -4,
   "grid_z": 0,
   "id": "zone_waste_slaghollow",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "Sw",
   "name": "Slaghollow",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

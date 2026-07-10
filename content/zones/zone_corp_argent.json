@@ -8,7 +8,6 @@
   "bg_color": "#8e8edd",
   "color": "#eeeeee",
   "created_by": "phase8-build",
-  "danger_rating": "safe",
   "description": "A silver-fronted terrace of freight-finance offices overlooking the Yards, where the people who own the cargo watch it move without once touching it. The view is of money becoming more money.",
   "exits": {
     "north": "zone_nc_chancery",
@@ -19,23 +18,15 @@
     "artery": [
       "Exchange Street"
     ],
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "scavenging_table_id": "scav_consumer_trash"
   },
   "grid_x": 8,
   "grid_y": -4,
   "grid_z": 0,
   "id": "zone_corp_argent",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "Ar",
   "name": "Argent Row",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

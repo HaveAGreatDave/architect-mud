@@ -10,7 +10,6 @@
   "bg_color": "#e69e73",
   "color": "#111111",
   "created_by": null,
-  "danger_rating": "medium",
   "description": "This is where the city simply gives up. The last blocks of Old Coldwater sag into their own flooded basements, streets dead-ending in dust, rebar, and drifts of shattered glass. Nobody has lived out here in a very long time — you can read it in every caved roofline and every door left standing open on nothing.",
   "exits": {
     "east": "zone_badland_sw_outer",
@@ -19,26 +18,18 @@
   },
   "flags": {
     "building_name": "BL",
-    "building_type": null,
     "intro_lore": "This is the edge past which Coldwater stopped pretending. The last blocks of Old Coldwater have folded into their own basements, and whatever lives down in the crease has no interest in your credits. There's salvage here for the desperate, and the desperate are the only ones who come — work out what that makes you.",
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "no_spawn": true,
-    "scavenging_table_id": "scav_roadside_junk",
-    "world_exit_zone": null
+    "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": -3,
   "grid_y": 1,
   "grid_z": 0,
   "id": "zone_deep_waste",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "BL",
   "name": "The Falloff",
   "parent_zone": null,
-  "pvp_enabled": 1,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

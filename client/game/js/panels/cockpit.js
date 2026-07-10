@@ -456,7 +456,10 @@ function renderMini(nodes) {
   let minx = 99, maxx = -99, miny = 99, maxy = -99;
   for (const n of nodes) { if (n.grid_x == null) continue; minx = Math.min(minx, n.grid_x); maxx = Math.max(maxx, n.grid_x); miny = Math.min(miny, n.grid_y); maxy = Math.max(maxy, n.grid_y); }
   const byXY = new Map(nodes.filter(n => n.grid_x != null).map(n => [`${n.grid_x},${n.grid_y}`, n]));
-  const danger = (d) => d >= 5 ? '#ff5b5b' : d >= 3 ? '#ffb23e' : d >= 1 ? '#8fd0ff' : '#46e05a';
+  // Inferred danger enum → tint. (Was a numeric compare against the old string
+  // rating — dead logic that always fell through to green.)
+  const DANGER_TINT = { lethal: '#ff5b5b', high: '#ff5b5b', medium: '#ffb23e', low: '#8fd0ff', safe: '#46e05a' };
+  const danger = (d) => DANGER_TINT[d] || '#46e05a';
   let rows = '';
   for (let y = miny; y <= maxy; y++) {
     let cells = '';
@@ -464,7 +467,7 @@ function renderMini(nodes) {
       const n = byXY.get(`${x},${y}`);
       if (!n) { cells += '<span class="ck-mini-c"></span>'; continue; }
       const isC = n.is_current;
-      cells += `<span class="ck-mini-c" style="color:${isC ? '#ffcf3e' : danger(n.danger_rating || 0)}" title="${esc(n.name)}">${isC ? '◉' : (n.marker || '▪')}</span>`;
+      cells += `<span class="ck-mini-c" style="color:${isC ? '#ffcf3e' : danger(n.danger)}" title="${esc(n.name)}">${isC ? '◉' : (n.marker || '▪')}</span>`;
     }
     rows += `<div class="ck-mini-row">${cells}</div>`;
   }

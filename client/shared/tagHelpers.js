@@ -15,10 +15,11 @@
     if (!def) return [];
     if (Array.isArray(def.targets) && def.targets.length) return def.targets;
     if (def.scope === 'furniture') return ['furniture'];
+    if (def.scope === 'zone') return ['zone'];
     if (def.scope === 'instance') return [];
     return ['item'];
   }
-  // surface is 'item' or 'furniture'.
+  // surface is 'item', 'furniture', or 'zone'.
   function tagAppliesTo(def, surface) {
     if (!def) return false;
     if (def.scope === 'instance') return false; // instance flags are never builder-attached

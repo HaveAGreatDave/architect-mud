@@ -5,7 +5,6 @@
   "bg_color": "#e08a4a",
   "color": null,
   "created_by": null,
-  "danger_rating": "safe",
   "description": "A cramped basement room packed with bolts of fabric stored upright along one wall — Cassius's off-season overflow. The junction box on the opposite wall has been labelled in marker: LIGHTS, SIGN, MISC. A tangle of extension cords snakes toward a power strip that is doing entirely too much work.",
   "exits": {
     "down": "zone_util_zone_drum_basement",
@@ -18,12 +17,9 @@
   "grid_y": 0,
   "grid_z": -1,
   "id": "zone_drum_basement",
-  "is_safe_zone": 1,
   "map_id": "map_int_drum",
   "marker": null,
   "name": "Second Skin — Utility Room",
   "parent_zone": "zone_drum_exterior",
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783059649"
 }

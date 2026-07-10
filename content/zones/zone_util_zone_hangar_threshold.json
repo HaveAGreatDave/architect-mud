@@ -5,7 +5,6 @@
   "bg_color": null,
   "color": null,
   "created_by": null,
-  "danger_rating": "safe",
   "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
   "exits": {
     "up": "zone_hangar_threshold"
@@ -18,12 +17,9 @@
   "grid_y": 0,
   "grid_z": -1,
   "id": "zone_util_zone_hangar_threshold",
-  "is_safe_zone": 0,
   "map_id": "map_int_hangar_threshold",
   "marker": null,
   "name": "Threshold Helipad Hangar — Utility Room",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783296275"
 }

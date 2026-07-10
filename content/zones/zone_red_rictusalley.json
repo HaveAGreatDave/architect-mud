@@ -8,7 +8,6 @@
   "bg_color": "#e77474",
   "color": "#eeeeee",
   "created_by": "phase12-build",
-  "danger_rating": "lethal",
   "description": "A narrow alley where the dead lie where they fell, dried by the poisoned air into leather and locked, every one of them, into a wide fixed grin. They line the walls like an audience. They have been waiting a long time for the show, and you have just walked on.",
   "exits": {
     "east": "zone_red_slaughterworks",
@@ -17,24 +16,17 @@
     "west": "zone_red_bonepit"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
+    "radiation": 40,
     "scavenging_table_id": "scav_irradiated_salvage"
   },
   "grid_x": -10,
   "grid_y": -4,
   "grid_z": 0,
   "id": "zone_red_rictusalley",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "RA",
   "name": "Rictus Alley",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 4,
   "updated_at": "1783301927"
 }

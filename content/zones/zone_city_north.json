@@ -8,7 +8,6 @@
   "bg_color": "#7fda9a",
   "color": "#111111",
   "created_by": null,
-  "danger_rating": "safe",
   "description": "A cracked concrete plaza ringed by dead streetlights still standing at attention. This is the northern gate into Coldwater proper — the LED departure boards here flicker through routes that no longer run anywhere.",
   "exits": {
     "north": "zone_ext_1782953094650",
@@ -16,12 +15,7 @@
   },
   "flags": {
     "airspace_restricted": true,
-    "building_name": "",
-    "building_type": null,
     "intro_lore": "Dead streetlights stand at attention over a plaza that hasn't hosted anything but muggings in years. This is where a lot of fresh prints wander first, blinking in the light — which is exactly why the people who feed on fresh prints wait here. Keep moving. Standing still on the Threshold reads as an invitation.",
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "no_spawn": true,
     "scavenging_table_id": "scav_consumer_trash",
     "street_life": true
@@ -30,12 +24,9 @@
   "grid_y": -1,
   "grid_z": 0,
   "id": "zone_city_north",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "TN",
   "name": "Threshold Plaza North",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

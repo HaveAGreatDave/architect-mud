@@ -5,7 +5,6 @@
   "bg_color": null,
   "color": null,
   "created_by": null,
-  "danger_rating": "low",
   "description": "A grimy stairwell bottoms out into a low concrete tunnel, tiled long ago and now furred with damp. Cold air moves from the north. A stair climbs back up to the Commons.",
   "exits": {
     "north": "zone_under_deep",
@@ -18,12 +17,9 @@
   "grid_y": -3,
   "grid_z": -1,
   "id": "zone_under_commons",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": null,
   "name": "The Under — Commons Stair",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783137464"
 }

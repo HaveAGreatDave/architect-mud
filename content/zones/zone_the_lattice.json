@@ -10,7 +10,6 @@
   "bg_color": "#0d1a1e",
   "color": null,
   "created_by": null,
-  "danger_rating": "safe",
   "description": "A vast blue lattice recedes in every direction here, a framework of light humming with orderly intent. At its center floats a holosign, a slab of soft light turning slowly on nothing. You have never seen a holosign. You know, without being told, exactly how to read it. That should frighten you more than it does. The lattice seems to be waiting to see what you'll do with the knowing.",
   "exits": {
     "north": "zone_the_broadcast"
@@ -18,7 +17,6 @@
   "flags": {
     "always_lit": true,
     "building_name": "The Lattice",
-    "is_building": false,
     "is_interior": true,
     "prologue": true
   },
@@ -26,12 +24,9 @@
   "grid_y": 2,
   "grid_z": 0,
   "id": "zone_the_lattice",
-  "is_safe_zone": 1,
   "map_id": null,
   "marker": null,
   "name": "The Lattice",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783364988"
 }

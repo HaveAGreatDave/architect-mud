@@ -106,6 +106,33 @@ export function lintContentTree(baseDir) {
         for (const k of tv.unknown) errors.push(`${label}: tag "${k}" is not in the tag catalog (client/shared/tagCatalog.js)`);
         for (const s of tv.badShape) errors.push(`${label}: tag value shape — ${s}`);
       }
+      // Zone flags are the catalog-validated zone tag bag (scope 'zone') —
+      // same silent-typo bug class as item tags.
+      if (entry.table === 'zones' && f.data.flags) {
+        const tv = validateTags(f.data.flags);
+        for (const k of tv.unknown) errors.push(`${label}: zone flag "${k}" is not in the tag catalog (client/shared/tagCatalog.js)`);
+        for (const s of tv.badShape) errors.push(`${label}: zone flag value shape — ${s}`);
+      }
+    }
+  }
+
+  // Facade invariants: a `facade`-tagged zone must have an interior map
+  // parented on it with a real entry zone, plus a real world_exit_zone — the
+  // auto-forward seam's dependencies (tools/zone-planner/lint.mjs checks the
+  // live DB; this covers hand-authored content files in CI).
+  {
+    const zoneFiles = entries.find(e => e.entry.table === 'zones')?.files || [];
+    const mapFiles = entries.find(e => e.entry.table === 'maps')?.files || [];
+    const zoneIds = new Set(zoneFiles.map(f => f.data.id));
+    const mapByParent = new Map(mapFiles.filter(f => f.data.parent_zone_id).map(f => [f.data.parent_zone_id, f.data]));
+    for (const f of zoneFiles) {
+      if (!f.data.flags?.facade) continue;
+      const label = `zones/${f.name}`;
+      const m = mapByParent.get(f.data.id);
+      if (!m) errors.push(`${label}: facade tag but no interior map file with parent_zone_id="${f.data.id}" (tile would stay standable)`);
+      else if (!m.entry_zone_id || !zoneIds.has(m.entry_zone_id)) errors.push(`${label}: interior map ${m.id} has no valid entry_zone_id`);
+      const wez = f.data.flags?.world_exit_zone;
+      if (!wez || !zoneIds.has(wez)) errors.push(`${label}: facade needs a valid world_exit_zone (got "${wez ?? ''}")`);
     }
   }
   return errors;

@@ -8,7 +8,6 @@
   "bg_color": "#7fda9a",
   "color": "#111111",
   "created_by": null,
-  "danger_rating": "safe",
   "description": "Where the dense vertical Sprawl tapers into the rest of the city. Laundry lines and extension cords crisscross overhead like a second sky.",
   "exits": {
     "north": "zone_threshold",
@@ -16,12 +15,7 @@
     "west": "zone_city_sw"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
     "intro_lore": "The chokepoint where the vertical Sprawl bleeds into the rest of the city, strung with laundry lines and extension cords stealing power off the grid. Everyone passing through is either going home to the Sprawl or running from it, and both kinds are watching their pockets. The Gate remembers faces — give it a forgettable one.",
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true
@@ -30,12 +24,9 @@
   "grid_y": 1,
   "grid_z": 0,
   "id": "zone_city_south",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "SG",
   "name": "The Sprawl Gate",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

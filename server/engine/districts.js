@@ -20,6 +20,8 @@
 //   signature — sensory leitmotif pool (smell/sound/air), surfaced OUTDOORS only
 //               by the district-ambience plugin. Empty = no sensory layer.
 
+import { zoneDanger } from './danger.js';
+
 // Zone id prefix → district key. Mirrors the client FUNC_LEGEND keys.
 export const DISTRICT_PREFIX = {
   bay: 'water', dock: 'docks', nc: 'northcity', up: 'northcity', gov: 'government',
@@ -223,6 +225,6 @@ export function districtFor(zone) {
   const override = zone.flags?.district;
   if (override && DISTRICTS[override]) return DISTRICTS[override];
   const p = (zone.id || '').match(/^zone_([a-z0-9]+)/)?.[1] || '';
-  const key = DISTRICT_PREFIX[p] || (zone.danger_rating === 'lethal' ? 'hazard' : 'residential');
+  const key = DISTRICT_PREFIX[p] || (zoneDanger(zone) === 'lethal' ? 'hazard' : 'residential');
   return DISTRICTS[key];
 }

@@ -10,7 +10,6 @@
   "bg_color": "#ae9292",
   "color": "#eeeeee",
   "created_by": null,
-  "danger_rating": "safe",
   "description": "A narrow run of frontage where every third storefront sells some flavor of skin, chrome, or forgetting. The signage competes for attention until it all blurs into one continuous migraine of light. A tattoo parlor, two shuttered clinics, and a club with a cherry blinking over the door. The gutter runs with meltwater and the confetti of a hundred torn wristbands.",
   "exits": {
     "in": "zone_mq_cherry_floor",
@@ -21,25 +20,15 @@
     "artery": [
       "Cathode Street"
     ],
-    "building_name": null,
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
-    "scavenging_table_id": null,
-    "street_life": true,
-    "world_exit_zone": null
+    "street_life": true
   },
   "grid_x": 3,
   "grid_y": -1,
   "grid_z": 0,
   "id": "zone_mq_cathode",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "CT",
   "name": "Cathode Row",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

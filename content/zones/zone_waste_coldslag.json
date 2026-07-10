@@ -8,7 +8,6 @@
   "bg_color": "#bfa06b",
   "color": "#eeeeee",
   "created_by": "phase11-build",
-  "danger_rating": "low",
   "description": "A field of slag gone properly cold at last, the western frontier of walkable ground below the neck. Past it the wastes give way to the Redline's lower reach, and only the desperate and the changed go on.",
   "exits": {
     "east": "zone_slag_drums",
@@ -16,11 +15,6 @@
     "south": "zone_waste_culvert"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
@@ -28,12 +22,9 @@
   "grid_y": 1,
   "grid_z": 0,
   "id": "zone_waste_coldslag",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "CS",
   "name": "Cold Slag",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

@@ -8,7 +8,6 @@
   "bg_color": "#bca6a6",
   "color": "#111111",
   "created_by": "phase5-build",
-  "danger_rating": "safe",
   "description": "A glass promenade cantilevered out over the drop, the whole grey city and greyer bay laid out beneath your feet through the floor. Vertigo is included in the rent.",
   "exits": {
     "north": "zone_nc_halcyon",
@@ -19,24 +18,16 @@
     "artery": [
       "Sable Walk"
     ],
-    "building_name": "",
-    "building_type": null,
     "gov_enclave": true,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "scavenging_table_id": "scav_consumer_trash"
   },
   "grid_x": -1,
   "grid_y": -6,
   "grid_z": 0,
   "id": "zone_nc_skyline",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "SK",
   "name": "Skyline Walk",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

@@ -8,7 +8,6 @@
   "bg_color": "#b1bccd",
   "color": "#111111",
   "created_by": null,
-  "danger_rating": "low",
   "description": "A concrete drainage channel cuts across the flats, its floor crazed and stained the rust-black of old runoff. A collapsed checkpoint booth leans over the lip, its boom gate frozen halfway down like it's still trying to stop you.",
   "exits": {
     "east": "zone_ashway_ashfall",
@@ -18,25 +17,16 @@
     "artery": [
       "The Haul Road"
     ],
-    "building_name": null,
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
-    "scavenging_table_id": "scav_roadside_junk",
-    "world_exit_zone": null
+    "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": -7,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_ashway_wash",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "DW",
   "name": "The Dry Wash",
   "parent_zone": null,
-  "pvp_enabled": 1,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

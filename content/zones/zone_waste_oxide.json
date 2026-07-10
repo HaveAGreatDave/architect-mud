@@ -8,7 +8,6 @@
   "bg_color": "#1eae5d",
   "color": "#111111",
   "created_by": "phase9-build",
-  "danger_rating": "medium",
   "description": "A rust-red flat where the district's runoff bleeds out onto open ground, staining everything the colour of a wound. The quarter looks the other way; the wastes do not.",
   "exits": {
     "east": "zone_waste_downwind",
@@ -17,11 +16,6 @@
     "west": "zone_nc_manifold"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
@@ -29,12 +23,9 @@
   "grid_y": -4,
   "grid_z": 0,
   "id": "zone_waste_oxide",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "Ox",
   "name": "Oxide Flats",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

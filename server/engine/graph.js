@@ -28,7 +28,7 @@ import { query } from '../models/db.js';
 import { registerAction, dispatchAction } from './actions.js';
 import { emit } from './events.js';
 import { evalConditions } from './flags.js';
-import { getZone, addPlayerToZone, removePlayerFromZone } from './world.js';
+import { getZone, addPlayerToZone, removePlayerFromZone, resolveLanding } from './world.js';
 import { openShopSession } from './vendor-session.js';
 
 const MAX_STEPS = 100; // cycle / runaway-graph backstop
@@ -206,9 +206,9 @@ registerAction({
 registerAction({
   type: 'TELEPORT',
   handler: async ({ actor, params, context, emit }) => {
-    const { zone_id } = params;
+    const zone_id = resolveLanding(params.zone_id); // facades forward into their interior
     const target = getZone(zone_id);
-    if (!target) return { type: 'error', message: `Unknown zone: ${zone_id}` };
+    if (!target) return { type: 'error', message: `Unknown zone: ${params.zone_id}` };
     const from = actor.current_zone;
     if (from) {
       removePlayerFromZone(actor.id, from);

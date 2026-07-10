@@ -8,7 +8,6 @@
   "bg_color": "#e9b282",
   "color": "#111111",
   "created_by": null,
-  "danger_rating": "low",
   "description": "A rail siding chokes on its own collapse here — tanker cars derailed and stacked, spines snapped, spilling decades-dry chemical crust across the ballast. The rolling stock is a mountain of salvage nobody's been desperate enough to climb. Yet.",
   "exits": {
     "east": "zone_slag_yard",
@@ -17,25 +16,16 @@
     "west": "zone_slag_reclaimer"
   },
   "flags": {
-    "building_name": null,
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
-    "scavenging_table_id": "scav_industrial_salvage",
-    "world_exit_zone": null
+    "scavenging_table_id": "scav_industrial_salvage"
   },
   "grid_x": -10,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_slag_rail",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "RT",
   "name": "The Rail Throat",
   "parent_zone": null,
-  "pvp_enabled": 1,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

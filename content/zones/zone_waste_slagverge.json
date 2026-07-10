@@ -8,7 +8,6 @@
   "bg_color": "#efa2a2",
   "color": "#eeeeee",
   "created_by": "phase10-build",
-  "danger_rating": "medium",
   "description": "The western verge of the wastes, where the ground goes from merely poisoned to something worse a few strides further on. A hand-painted sign, riddled and unreadable, still manages to communicate: no further.",
   "exits": {
     "east": "zone_waste_cinderflat",
@@ -16,24 +15,17 @@
     "west": "zone_red_killingfloor"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
+    "radiation": 10,
     "scavenging_table_id": "scav_west_wastes"
   },
   "grid_x": -8,
   "grid_y": -7,
   "grid_z": 0,
   "id": "zone_waste_slagverge",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "SV",
   "name": "Slag Verge",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 1,
   "updated_at": "1783301927"
 }

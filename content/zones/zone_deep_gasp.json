@@ -8,7 +8,6 @@
   "bg_color": "#e69e73",
   "color": "#111111",
   "created_by": "phase1-build",
-  "danger_rating": "high",
   "description": "A sunken hollow where the air goes thin and chemical. Regulars breathe through rags; newcomers cough up their welcome.",
   "exits": {
     "east": "zone_deep_deepmaw",
@@ -16,11 +15,6 @@
     "west": "zone_deep_bonepicker"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "scavenging_table_id": "scav_roadside_junk"
   },
@@ -28,12 +22,9 @@
   "grid_y": 3,
   "grid_z": 0,
   "id": "zone_deep_gasp",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "GH",
   "name": "Gasp Hollow",
   "parent_zone": null,
-  "pvp_enabled": 1,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

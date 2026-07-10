@@ -8,7 +8,6 @@
   "bg_color": "#be9d64",
   "color": "#eeeeee",
   "created_by": "phase4-build",
-  "danger_rating": "low",
   "description": "The only clean-ish water for a mile, and so the only thing out here worth defending. A ragged scavenger camp rings the pond — lean-tos, a cook-fire, and eyes that track every newcomer.",
   "exits": {
     "east": "zone_waste_endcut",
@@ -16,11 +15,6 @@
     "west": "zone_waste_palings"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
@@ -28,12 +22,9 @@
   "grid_y": -1,
   "grid_z": 0,
   "id": "zone_waste_slake",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "SL",
   "name": "Slake Pond",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

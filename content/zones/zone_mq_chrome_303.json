@@ -7,7 +7,6 @@
   "bg_color": "#e85aa0",
   "color": null,
   "created_by": null,
-  "danger_rating": "safe",
   "description": "Bare walls the color of old teeth, a mattress, and a radiator that either roars or sulks with nothing between. Someone before you left a nail in the wall and the pale ghost of whatever hung on it.",
   "exits": {
     "north": "zone_mq_chrome_f3"
@@ -19,12 +18,9 @@
   "grid_y": 1,
   "grid_z": 3,
   "id": "zone_mq_chrome_303",
-  "is_safe_zone": 1,
   "map_id": "map_int_mq_chrome",
   "marker": null,
   "name": "Unit 303",
   "parent_zone": "zone_mq_chrome_lobby",
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1782964410"
 }

@@ -7,7 +7,6 @@
   "bg_color": "#e85aa0",
   "color": null,
   "created_by": null,
-  "danger_rating": "safe",
   "description": "A single room with a bed frame, a hot plate, and a window that frames a brick wall four feet away. The lock works. That is the entire pitch, and around here it closes the sale.",
   "exits": {
     "south": "zone_mq_chrome_f2"
@@ -19,12 +18,9 @@
   "grid_y": -1,
   "grid_z": 2,
   "id": "zone_mq_chrome_201",
-  "is_safe_zone": 1,
   "map_id": "map_int_mq_chrome",
   "marker": null,
   "name": "Unit 201",
   "parent_zone": "zone_mq_chrome_lobby",
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1782964408"
 }

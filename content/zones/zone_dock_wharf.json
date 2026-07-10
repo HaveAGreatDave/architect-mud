@@ -8,7 +8,6 @@
   "bg_color": "#50e0d5",
   "color": "#111111",
   "created_by": "phase3-build",
-  "danger_rating": "low",
   "description": "The working face of Coldwater Docks: bollards worn smooth, cargo nets stiff with salt, and the whole thing groaning gently on its pilings with the swell.",
   "exits": {
     "east": "zone_dock_quays",
@@ -20,11 +19,6 @@
     "artery": [
       "Quay Road"
     ],
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true
   },
@@ -32,12 +26,9 @@
   "grid_y": -3,
   "grid_z": 0,
   "id": "zone_dock_wharf",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "WH",
   "name": "The Wharf",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

@@ -10,7 +10,6 @@
   "bg_color": "#ae9292",
   "color": "#eeeeee",
   "created_by": null,
-  "danger_rating": "low",
   "description": "A stub of collapsed elevated roadway roofs this block in permanent shadow, its underside a cathedral of rebar and pigeon filth. Someone strung work-lights along the girders and called it commerce. An electronics stall glows under the deck; a stairwell drops into a basement lit by a single sign. Water finds its way down through the concrete no matter the weather, ticking into puddles that never dry.",
   "exits": {
     "east": "zone_mq_cage",
@@ -19,19 +18,15 @@
     "south": "zone_meat_ashpit"
   },
   "flags": {
-    "scavenging_table_id": null,
     "street_life": true
   },
   "grid_x": 4,
   "grid_y": 1,
   "grid_z": 0,
   "id": "zone_mq_overpass",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "OP",
   "name": "The Overpass",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

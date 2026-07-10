@@ -93,7 +93,8 @@ checks.
 
 ## Theft
 
-`steal` ([commands/combat.js](../server/engine/commands/combat.js)): blocked in safe zones, 60-second
+`steal` ([commands/combat.js](../server/engine/commands/combat.js)): blocked in protected zones
+(the protection substrate — housing forcefields and `sanctuary`-tagged zones), 60-second
 per-player cooldown. A `deception` check vs difficulty 7; success lifts 10–30% of the target's carried
 credits, failure broadcasts a public "caught red-handed" event. Uses `adjustCredits` both directions.
 

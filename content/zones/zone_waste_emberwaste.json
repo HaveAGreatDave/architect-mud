@@ -8,18 +8,12 @@
   "bg_color": "#be9d64",
   "color": "#eeeeee",
   "created_by": "phase6-build",
-  "danger_rating": "low",
   "description": "A stretch of ground that burned so long ago and so completely that it still, on cold nights, remembers the fire — a faint orange breathing deep in the cracks.",
   "exits": {
     "east": "zone_waste_cull",
     "west": "zone_waste_slaghollow"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
@@ -27,12 +21,9 @@
   "grid_y": -4,
   "grid_z": 0,
   "id": "zone_waste_emberwaste",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "EW",
   "name": "Ember Waste",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }
