@@ -100,6 +100,8 @@
       help: 'Marks a heavy tool/weapon (sledgehammer, cutting torch, breaching charge) capable of damaging armoured industrial infrastructure — generators and junction boxes. The main power plant can ONLY be damaged by an equipped item with this tag.' },
 
     // --- Consumable effects ---
+    use_message: { label: 'Use Message', shape: 'text', scope: 'class', group: 'Consumable',
+      help: 'Flavour line shown when the item is consumed via use / eat / drink; falls back to a plain default.' },
     restore_hp: { label: 'Restore HP', shape: 'int', scope: 'class', group: 'Consumable',
       help: 'Instant HP change (can be negative).' },
     restore_hunger: { label: 'Restore Hunger', shape: 'int', scope: 'class', group: 'Consumable',
