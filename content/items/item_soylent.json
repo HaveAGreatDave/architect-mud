@@ -6,9 +6,9 @@
   "tags": {
     "consumable": true,
     "description": "A silver foil drink pouch, taut and cold, sloshing faintly when you tilt it. A cartoon sun with a dead-eyed smile beams off the front above the words SOYLENT — SUNSHINE IN A POUCH! A rigid straw is glued to the side in shrink-wrap, its tip filed to a point sharp enough to stab the foil.",
-    "use_message": "You tear the straw free, punch it through the foil, and slurp. It comes up body-warm and thick, and for one lurching second it tastes almost like a person you used to know — a mouthful of somebody's memory, chalky and salt and gone. You suck the pouch flat with a wet crackle and try very hard not to think about where the sunshine comes from.",
     "restore_hunger": 10,
-    "stackable": true
+    "stackable": true,
+    "use_message": "You tear the straw free, punch it through the foil, and slurp. It comes up body-warm and thick, and for one lurching second it tastes almost like a person you used to know — a mouthful of somebody's memory, chalky and salt and gone. You suck the pouch flat with a wet crackle and try very hard not to think about where the sunshine comes from."
   },
   "type": "consumable",
   "value": 2,
