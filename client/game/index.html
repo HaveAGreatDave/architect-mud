@@ -1455,48 +1455,9 @@
 			</div>
 		</div>
 
-		<!-- INVENTORY PANEL -->
-		<div id="equip-panel">
-			<div id="equip-box">
-				<div id="equip-header">
-					<h2>Inventory</h2>
-					<button id="equip-close" aria-label="Close">✕</button>
-				</div>
-				<div id="equip-body">
-					<div id="equip-backpack-col">
-						<div id="equip-inv-list"></div>
-					</div>
-				</div>
-				<div id="equip-credits">
-					Weight: <span id="equip-weight-val">—</span> · Credits: <span id="equip-credits-val">0</span>
-				</div>
-			</div>
-		</div>
-
-		<!-- GEAR PANEL -->
-		<div id="gear-panel">
-			<div id="gear-box">
-				<div id="gear-header">
-					<h2>Gear</h2>
-					<button id="gear-close" aria-label="Close">✕</button>
-				</div>
-				<div id="gear-body">
-					<div id="gear-viewbar"></div>
-					<div id="gear-layout"></div>
-					<div class="gear-section-label">Equipment</div>
-					<div id="gear-filters"></div>
-					<div id="gear-inv-list"></div>
-					<div class="gear-collapse collapsed" data-collapse="armor">
-						<button class="gear-collapse-head"><span class="gcl-caret">▸</span> Armor</button>
-						<div id="gear-armor" class="gear-collapse-body"></div>
-					</div>
-					<div class="gear-collapse collapsed" data-collapse="effects">
-						<button class="gear-collapse-head"><span class="gcl-caret">▸</span> Insulation &amp; effects</button>
-						<div id="gear-effects" class="gear-collapse-body"></div>
-					</div>
-				</div>
-			</div>
-		</div>
+		<!-- Inventory + Gear now live in the tablet OS Gear app (plugins/tablet/gear-app.js
+		     + panels/tablet-os.js renderGear). The desktop #equip-panel / #gear-panel
+		     popups were retired in the tablet-only consolidation pass. -->
 
 		<!-- RECIPES PANEL -->
 		<div id="recipes-panel">
@@ -1682,57 +1643,10 @@
 		<!-- Wanted-level HUD — server-driven star readout (wanted.js) -->
 		<div id="wanted-hud"></div>
 
-		<!-- SPECTER Surveillance Hub — multi-feed monitor (surveillancehub.js) -->
-		<div id="shub-panel">
-			<div id="shub-box">
-				<div id="shub-head">
-					<span id="shub-netname">SPECTER</span>
-					<span id="shub-count" class="shub-count">0/0 LIVE</span>
-					<button id="shub-close" aria-label="Close">✕</button>
-				</div>
-				<div id="shub-focus"></div>
-				<div id="shub-grid"></div>
-				<div id="shub-alerts"></div>
-			</div>
-		</div>
-
-		<!-- Datachip Replay Deck — VHS/cyberdeck footage playback (datachipreplay.js) -->
-		<div id="chip-panel">
-			<div id="chip-box">
-				<div id="chip-head">
-					<span class="chip-brand">◈ SPECTER-VTR</span>
-					<span id="chip-zone" class="chip-zone">UNKNOWN</span>
-					<button id="chip-close" aria-label="Close">✕</button>
-				</div>
-				<div id="chip-crt">
-					<div id="chip-crt-inner">
-						<div class="chip-osd chip-osd-tl"><span id="chip-mode">▶ PLAY</span></div>
-						<div class="chip-osd chip-osd-tr"><span id="chip-tc">SP  00:00:00</span></div>
-						<div id="chip-screen-text"></div>
-						<div id="chip-evidence" class="chip-evidence" style="display:none"></div>
-						<div class="chip-osd chip-osd-br"><span id="chip-date">--·--·--</span></div>
-						<div class="chip-tracking"></div>
-						<div class="chip-scanlines"></div>
-					</div>
-				</div>
-				<div id="chip-deck">
-					<div class="chip-reels">
-						<span class="chip-reel"></span>
-						<span class="chip-tape-lbl">DATA</span>
-						<span class="chip-reel"></span>
-					</div>
-					<div class="chip-transport">
-						<button id="chip-rew" class="chip-tbtn" title="Rewind">⏮</button>
-						<button id="chip-prev" class="chip-tbtn" title="Step back">◀◀</button>
-						<button id="chip-playpause" class="chip-tbtn chip-tbtn-main" title="Play/Pause">▶</button>
-						<button id="chip-next" class="chip-tbtn" title="Step forward">▶▶</button>
-						<button id="chip-ff" class="chip-tbtn" title="To end">⏭</button>
-						<span id="chip-counter" class="chip-counter">000 / 000</span>
-					</div>
-					<input id="chip-scrub" class="chip-scrub" type="range" min="0" max="0" value="0">
-				</div>
-			</div>
-		</div>
+		<!-- SPECTER's surveillance hub, datachip replay, and firmware-install ceremony
+		     now all live in the tablet OS Surveillance app (plugins/tablet/surveillance-app.js
+		     + panels/tablet-os.js renderSurveillance). The standalone #shub-panel /
+		     #chip-panel popups + the install overlay were retired in the tablet-only pass. -->
 
 		<div id="mediadeck-panel">
 			<div id="mediadeck-box">

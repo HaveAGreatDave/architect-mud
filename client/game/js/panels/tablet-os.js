@@ -4087,6 +4087,187 @@ export function openTabletToInventory() {
   sendCmdSilent('tabletnav gear');
 }
 
+// Open the tablet Gear app on the Loadout tab (the paperdoll) — the replacement
+// for the retired desktop `#gear-panel`. Same skip-boot fast-path as Inventory.
+export function openTabletToLoadout() {
+  _gearTab = 'loadout';
+  _skipBoot = true;
+  sendCmdSilent('tabletnav gear');
+}
+
+// If the tablet is open on the Gear app, silently re-fetch it so an equip/unequip
+// that happened elsewhere (a typed command, a macro, a script) reflects on the
+// paperdoll. Returns whether it refreshed, so the caller can fall back to printing
+// the feedback line when the Gear screen isn't up.
+export function refreshTabletGearIfOpen() {
+  if (_overlay && _overlay.isConnected && _data?.appId === 'gear') {
+    sendCmdSilent('tabletnav gear');
+    return true;
+  }
+  return false;
+}
+
+// ── SPECTER entry points (replace the retired surveillancehub.js / datachipreplay.js
+// / specterinstall.js popups; the surveillance plugin is untouched) ─────────────
+
+// Open the tablet Surveillance (SPECTER) app on its live hub — the replacement for
+// the standalone `#shub-panel`. Fired when the server would have pushed a
+// surveillance_hub (i.e. on `hub` / `use spy_deck`).
+export function openTabletToSpecter() {
+  _skipBoot = true;
+  sendCmdSilent('tabletnav specter');
+}
+
+// Play a datachip clip in the tablet's own reel viewer. The server already
+// authorised this (the player is carrying the chip) and hands us the full frames,
+// so we render the payload directly rather than re-fetching through the owner-gated
+// Microreels path — that keeps replay working for traded/found evidence chips whose
+// clip the viewer doesn't own. Mirrors the retired datachipreplay.js overlay.
+export function openTabletToReel(clip) {
+  if (!clip) return;
+  _skipBoot = true;
+  openTabletPanel({
+    type: 'tablet_panel', screen: 'app',
+    appId: 'specter', appName: 'Surveillance',
+    view: 'reel',
+    breadcrumb: ['Surveillance', 'Microreels', clip.zone || 'UNKNOWN'],
+    reel: clip,
+  });
+}
+
+// The SPECTER firmware-install ceremony, folded into the tablet shell. The install
+// already happened server-side (the flag is set, the program burned) before the
+// `specter_install` push arrives; this is purely the cosmetic flash. We open the
+// tablet straight to Surveillance and overlay a firmware-flasher inside the CRT
+// screen, then fade it to reveal the (now-installed) hub underneath. Ported from
+// the retired specterinstall.js, retinted to the tablet's own accent tokens.
+export function openTabletSpecterInstall(msg) {
+  openTabletToSpecter();          // tablet → Surveillance (installed) underneath
+  mountSpecterInstallFlash(msg, 0);
+}
+
+const SI_LOG_LINES = [
+  { t: '> mounting firmware image … SPECTER-6.rom', c: '' },
+  { t: '> handshake … vendor:GHOST  sig:0x9F3A-BADC0DE', c: '' },
+  { t: '> bypassing tablet signature check', c: 'warn' },
+  { t: '  [OK] bootloader unlocked', c: 'ok' },
+  { t: '> erasing partition tos.specter …', c: '' },
+  { t: '  wiping blocks 0x0000 … 0x7FFF', c: '' },
+  { t: '> writing firmware image', c: '' },
+  { t: '  ####################  hash verify … PASS', c: 'ok' },
+  { t: '> patching Tablet OS app registry', c: '' },
+  { t: '  + specter.app  + hooks:surveillance', c: '' },
+  { t: '> injecting counter-forensics stub', c: 'warn' },
+  { t: '  scrubbing install trace …', c: '' },
+  { t: '> sealing firmware … reboot daemon', c: '' },
+  { t: '  [OK] SPECTER online', c: 'ok' },
+];
+const SI_STAGES = ['ERASING', 'WRITING BLOCKS', 'VERIFYING', 'PATCHING TABLET OS', 'FINALIZING'];
+
+function ensureSpecterInstallStyles() {
+  if (document.getElementById('tos-si-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'tos-si-styles';
+  s.textContent = `
+    #tablet-os-overlay .tos-si { position:absolute; inset:0; z-index:60; display:flex; flex-direction:column; padding:16px 17px;
+      background:radial-gradient(120% 120% at 50% 35%, color-mix(in srgb, var(--mg-accent) 12%, #03070a), #02050700 140%), #03070a;
+      color:var(--mg-accent); font-family:var(--font-mono,'Courier New',monospace); text-shadow:0 0 5px color-mix(in srgb,var(--mg-accent) 45%,transparent);
+      opacity:0; transition:opacity .3s; }
+    #tablet-os-overlay .tos-si.on { opacity:1; }
+    #tablet-os-overlay .tos-si.si-glitch { animation:tos-si-glitch .18s steps(2) 3; }
+    @keyframes tos-si-glitch { 0%{transform:translate(0,0)} 25%{transform:translate(-2px,1px)} 50%{transform:translate(2px,-1px)} 75%{transform:translate(-1px,0)} 100%{transform:translate(0,0)} }
+    #tablet-os-overlay .tos-si-hdr { display:flex; justify-content:space-between; align-items:baseline; font-size:11px; letter-spacing:2px; text-transform:uppercase;
+      border-bottom:1px solid color-mix(in srgb,var(--mg-accent) 30%,transparent); padding-bottom:6px; margin-bottom:8px; }
+    #tablet-os-overlay .tos-si-hdr b { font-size:13px; }
+    #tablet-os-overlay .tos-si-log { flex:1; overflow:hidden; font-size:11px; line-height:1.42; white-space:pre-wrap; }
+    #tablet-os-overlay .tos-si-log .warn { color:#ffd85a; text-shadow:0 0 5px rgba(255,216,90,0.4); }
+    #tablet-os-overlay .tos-si-log .ok { color:color-mix(in srgb,var(--mg-accent) 70%,#fff); }
+    #tablet-os-overlay .tos-si-stage { margin-top:8px; font-size:10px; letter-spacing:2px; text-transform:uppercase; opacity:.8; min-height:13px; }
+    #tablet-os-overlay .tos-si-barwrap { margin-top:6px; height:14px; border:1px solid color-mix(in srgb,var(--mg-accent) 40%,transparent); border-radius:3px; overflow:hidden; }
+    #tablet-os-overlay .tos-si-bar { height:100%; width:0%; background:var(--mg-accent); box-shadow:0 0 12px color-mix(in srgb,var(--mg-accent) 70%,transparent); transition:width .18s linear; }
+    #tablet-os-overlay .tos-si-pct { text-align:right; font-size:10px; margin-top:3px; letter-spacing:1px; opacity:.85; }
+    #tablet-os-overlay .tos-si-done { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+      background:radial-gradient(80% 80% at 50% 45%, color-mix(in srgb,var(--mg-accent) 16%,#02110b), rgba(2,8,6,0.97)); opacity:0; pointer-events:none; transition:opacity .4s; }
+    #tablet-os-overlay .tos-si.done .tos-si-done { opacity:1; pointer-events:auto; }
+    #tablet-os-overlay .tos-si-check { font-size:40px; text-shadow:0 0 18px color-mix(in srgb,var(--mg-accent) 80%,transparent); animation:tos-si-pop .5s cubic-bezier(.2,1.4,.4,1); }
+    @keyframes tos-si-pop { 0%{transform:scale(0.3);opacity:0} 100%{transform:scale(1);opacity:1} }
+    #tablet-os-overlay .tos-si-title { font-size:16px; letter-spacing:3px; }
+    #tablet-os-overlay .tos-si-sub { font-size:11px; letter-spacing:1px; opacity:.75; }
+    #tablet-os-overlay .tos-si-close { margin-top:6px; cursor:pointer; font-size:11px; letter-spacing:2px; text-transform:uppercase; color:#03110b;
+      background:var(--mg-accent); border:none; border-radius:4px; padding:8px 18px; }
+    #tablet-os-overlay .tos-si-skip { position:absolute; bottom:9px; right:14px; font-size:9px; letter-spacing:1px; opacity:.4; }
+  `;
+  document.head.appendChild(s);
+}
+
+// Mount the flasher inside the tablet's CRT screen once the shell exists (the
+// tabletnav open is async, so retry briefly). Self-removes when done or dismissed.
+function mountSpecterInstallFlash(msg, tries) {
+  const screen = _overlay?.querySelector('#tos-screen-inner');
+  if (!screen) {
+    if (tries > 40) return;   // ~2s — give up quietly; the install already succeeded
+    setTimeout(() => mountSpecterInstallFlash(msg, tries + 1), 50);
+    return;
+  }
+  if (screen.querySelector('.tos-si')) return;   // already flashing
+  ensureSpecterInstallStyles();
+
+  const item = (msg && msg.item) ? String(msg.item).replace(/[<>&]/g, '') : 'FIRMWARE DRIVE';
+  const layer = document.createElement('div');
+  layer.className = 'tos-si';
+  layer.innerHTML = `
+    <div class="tos-si-hdr"><b>SPECTER FLASHER</b><span>fw 6.0 · ${item}</span></div>
+    <div class="tos-si-log"></div>
+    <div class="tos-si-stage">AWAITING MEDIA…</div>
+    <div class="tos-si-barwrap"><div class="tos-si-bar"></div></div>
+    <div class="tos-si-pct">0%</div>
+    <div class="tos-si-skip">esc / tap to skip</div>
+    <div class="tos-si-done">
+      <div class="tos-si-check">✓</div>
+      <div class="tos-si-title">SPECTER INSTALLED</div>
+      <div class="tos-si-sub">Surveillance is now on your tablet.</div>
+      <button class="tos-si-close">Done</button>
+    </div>`;
+  screen.appendChild(layer);
+
+  const logEl = layer.querySelector('.tos-si-log');
+  const barEl = layer.querySelector('.tos-si-bar');
+  const pctEl = layer.querySelector('.tos-si-pct');
+  const stageEl = layer.querySelector('.tos-si-stage');
+
+  const timers = [];
+  const after = (ms, fn) => timers.push(setTimeout(fn, ms));
+  const done = () => { timers.forEach(clearTimeout); layer.remove(); };   // fade already showed the hub
+  layer.querySelector('.tos-si-close').addEventListener('click', done);
+  layer.addEventListener('click', e => { if (e.target === layer) done(); });
+
+  requestAnimationFrame(() => layer.classList.add('on'));
+  after(120, () => layer.classList.add('si-glitch'));
+  window.AudioEngine?.init?.();
+
+  const flashStart = 350, flashDur = 2800;
+  SI_LOG_LINES.forEach((ln, i) => {
+    after(flashStart + Math.round((i / SI_LOG_LINES.length) * flashDur), () => {
+      const div = document.createElement('div');
+      if (ln.c) div.className = ln.c;
+      div.textContent = ln.t;
+      logEl.appendChild(div);
+      logEl.scrollTop = logEl.scrollHeight;
+    });
+  });
+  const steps = 40;
+  for (let i = 0; i <= steps; i++) {
+    after(flashStart + Math.round((i / steps) * flashDur), () => {
+      const pct = Math.round((i / steps) * 100);
+      barEl.style.width = pct + '%';
+      pctEl.textContent = pct + '%';
+      stageEl.textContent = SI_STAGES[Math.min(SI_STAGES.length - 1, Math.floor((i / steps) * SI_STAGES.length))];
+    });
+  }
+  after(flashStart + flashDur + 220, () => layer.classList.add('done'));
+  after(flashStart + flashDur + 4200, done);   // auto-dismiss backstop
+}
+
 // Read-only snapshot of the last-loaded inventory payload (populated when the
 // player opens their Gear/Inventory). Used by smartbar macros for item-action
 // hints and "do I have X" checks. It's a snapshot, not a live mirror — empty

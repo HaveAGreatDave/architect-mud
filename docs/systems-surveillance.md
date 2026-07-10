@@ -357,6 +357,24 @@ bystander (human eyes) still sees you at their usual odds.
 The SPECTER **tablet app** ([`plugins/tablet/surveillance-app.js`](../plugins/tablet/surveillance-app.js))
 became self-contained, and "clipping" was re-pointed at reels rather than physical chips.
 
+> **Update — tablet-only retirement + possession model (2026-07-10).** The three standalone client
+> panels — `surveillancehub.js` (`#shub-panel`), `datachipreplay.js` (`#chip-panel`), and
+> `specterinstall.js` — were **deleted**. SPECTER's UI is now **tablet-only**; the server plugin is
+> unchanged, so `hub` / `use spy_deck` / `use datachip` / `replay` and the `use <specter program>`
+> install still fire the same pushes — `dispatch.js` just **reroutes** them into the tablet
+> Surveillance app: `surveillance_hub` → open the tablet hub (+ `hubclose` to stop the 5 s update
+> push; the tablet self-polls), `datachip_replay` → the tablet reel viewer rendered **directly from
+> the pushed payload** (already authorised by carrying the chip — no owner-gated refetch, so traded
+> evidence still plays), and `specter_install` → the firmware-flash **folded into the tablet shell**
+> (`openTabletSpecterInstall` / `mountSpecterInstallFlash` in `tablet-os.js`, retinted to `--mg-accent`).
+> **Microreels are now possession-gated and clip mints the chip:** a microreel **is** the datachip you
+> carry. `clip` now calls `physicalizeClip` to drop the reel's `item_datachip_<id>` straight into your
+> kit; `microreelList` + `getMicroreel` key on **carrying** that chip (not `owner_id`); `deleteMicroreel`
+> crushes the carried chip. Net: reels are tradeable — hand someone the chip and the reel goes with it,
+> and you lose access. (`collect` remains for **auto-banked evidence** clips a camera captured on its
+> own, which still have no chip until pulled.) The bullets below describe the prior owner-backed,
+> clip-≠-datachip model and are superseded on those points.
+
 - **Clip → microreel, not datachip.** `clip` now writes a `security_clips` row (a **microreel**) and
   **clears** the camera's live buffer so it records again — it no longer mints an `item_datachip_<id>`.
   Physical **datachips** stay a separate, deliberate export: `collect` (or the crime auto-bank) still

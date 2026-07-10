@@ -6,7 +6,7 @@
 //   parseMarkup(raw)   — expandTokens + BBCode → safe HTML (call at render time)
 
 import { state } from './state.js';
-import { getEquippedWeaponName } from './panels/equipment.js';
+import { getEquippedWeaponName } from './panels/inventory-state.js';
 
 // ── Token map ──────────────────────────────────────────────────────────────────
 

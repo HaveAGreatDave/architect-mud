@@ -5,7 +5,7 @@ import { renderMinimap, openMapPopup, refreshMapIfOpen, setMapTerritory, setGpsR
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut } from './panels/environment.js';
 import { setWeatherEventFx } from './panels/weather-fx.js';
 import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
-import { renderEquipPanel, renderGearPanel, consumeSilentInventory } from './panels/equipment.js';
+import { updateInventoryCache, consumeSilentInventory } from './panels/inventory-state.js';
 import { renderRecipesPanel } from './panels/recipes.js';
 import { renderStatsPanel } from './panels/stats.js';
 import { renderSkillsPanel } from './panels/skills.js';
@@ -18,13 +18,10 @@ import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
-import { openTabletPanel, closeTabletPanel, tabletQuestUpdate } from './panels/tablet-os.js';
+import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen } from './panels/tablet-os.js';
 import { openCorpMap } from './panels/corp-map.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
-import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillancehub.js';
-import { openDatachipReplay } from './panels/datachipreplay.js';
-import { openSpecterInstall } from './panels/specterinstall.js';
 import { openCircuitHack } from './panels/circuithack.js';
 import { openHololock } from './panels/hololock.js';
 import { openFishing } from './panels/fishing.js';
@@ -234,14 +231,17 @@ const handlers = {
   say: (msg) => { appendMsg(msg.message, 'say'); },
 
   inventory: (msg) => {
-    renderEquipPanel(msg.items || [], msg.weight, msg.capacity);
-    // A silent macro-driven refresh updates the data but must not pop the panel open.
-    if (!consumeSilentInventory()) document.getElementById('equip-panel').classList.add('active');
+    updateInventoryCache(msg.items || [], msg.weight, msg.capacity);
+    // A silent macro-driven refresh updates the cache only; a real `inventory`
+    // (typed, or the quick-cmd) opens the tablet Gear app on its Inventory tab.
+    if (!consumeSilentInventory()) import('./panels/tablet-os.js').then(m => m.openTabletToInventory());
   },
 
-  gear: (msg) => {
-    renderGearPanel(msg);
-    document.getElementById('gear-panel').classList.add('active');
+  gear: () => {
+    // The gear payload carries only the equippable subset, not the full carried list,
+    // so it must NOT feed the shared inventory cache (that's the `inventory` payload's
+    // job — it backs smartbar has/lacks). Just open the tablet Gear loadout.
+    import('./panels/tablet-os.js').then(m => m.openTabletToLoadout());
   },
 
   container_view: (msg) => {
@@ -262,14 +262,14 @@ const handlers = {
     appendHtml(msg.message, 'help');
     const cid = getActiveContainerId();
     if (cid) sendCmdSilent(`opencontainer ${cid}`);
-    else if (document.getElementById('equip-panel').classList.contains('active')) sendCmdSilent('inventory');
+    else refreshTabletGearIfOpen();
   },
 
   pull: (msg) => {
     appendHtml(msg.message, 'help');
     const cid = getActiveContainerId();
     if (cid) sendCmdSilent(`opencontainer ${cid}`);
-    else if (document.getElementById('equip-panel').classList.contains('active')) sendCmdSilent('inventory');
+    else refreshTabletGearIfOpen();
   },
 
   stats: (msg) => {
@@ -293,9 +293,7 @@ const handlers = {
   drop: (msg) => {
     appendHtml(msg.message, 'help');
     sendCmdSilent('look');
-    if (document.getElementById('equip-panel').classList.contains('active')) {
-      sendCmdSilent('inventory');
-    }
+    refreshTabletGearIfOpen();
   },
   action: (msg) => {
     appendHtml(msg.message, 'help');
@@ -345,11 +343,9 @@ const handlers = {
   map_territory:      (msg) => { setMapTerritory(msg); },
 
   equip: (msg) => {
-    const invOpen = document.getElementById('equip-panel').classList.contains('active');
-    const gearOpen = document.getElementById('gear-panel').classList.contains('active');
-    if (gearOpen) sendCmdSilent('gear');
-    if (invOpen) sendCmdSilent('inventory');
-    if (!invOpen && !gearOpen) appendHtml(msg.message, 'help');
+    // Desktop inventory/gear popups are retired. If the tablet Gear app is open,
+    // refresh it so the change shows on the paperdoll; otherwise print the feedback.
+    if (!refreshTabletGearIfOpen()) appendHtml(msg.message, 'help');
   },
 
   use: (msg) => {
@@ -562,10 +558,15 @@ const handlers = {
   device_inspect_panel: (msg) => { openDeviceInspectPanel(msg); },
   deck_broadcast:  (msg) => { updateMediaDeckBroadcast(msg); },
   deck_overlay:    (msg) => { applyMediaDeckOverlay(msg.overlay); },
-  surveillance_hub: (msg) => { openSurveillanceHub(msg); },
-  surveillance_hub_update: (msg) => { updateSurveillanceHub(msg); },
-  datachip_replay: (msg) => { openDatachipReplay(msg); },
-  specter_install: (msg) => { openSpecterInstall(msg); },
+  // SPECTER's live hub, datachip replay, and firmware-install now open the tablet
+  // Surveillance app (the standalone popups were retired). The server plugin is
+  // unchanged, so `hub` / `use spy_deck` / `use datachip` still push these — we just
+  // redirect them into the tablet. `hubclose` stops the server's 5s update stream
+  // (the tablet self-polls), so the follow-up hub_update pushes are ignored.
+  surveillance_hub: () => { openTabletToSpecter(); import('./net.js').then(m => m.sendCmdSilent('hubclose')); },
+  surveillance_hub_update: () => { /* tablet self-polls; server push ignored */ },
+  datachip_replay: (msg) => { openTabletToReel(msg.clip); },
+  specter_install: (msg) => { openTabletSpecterInstall(msg); },
   wanted_level: (msg) => { updateWantedHud(msg.stars || 0); if (msg.heat != null) setWantedHeat(msg.heat); refreshCustomPanels(); },
   heat_level: (msg) => setWantedHeat(msg.heat || 0),
   camera_flash: () => {

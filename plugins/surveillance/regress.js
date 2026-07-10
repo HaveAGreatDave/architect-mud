@@ -129,13 +129,14 @@ export default async function regress({ run, check, getPlayer }) {
     [CAM_ID, CAM_ZONE, JSON.stringify({ security_device: true, device_id: CAM_ID, concealed: true }), p.id]
   );
   await query('DELETE FROM security_clips WHERE owner_id=$1', [p.id]);
+  await query("DELETE FROM player_inventory pi USING items i WHERE pi.item_id=i.id AND pi.player_id=$1 AND jsonb_exists(i.tags,'datachip')", [p.id]);
   const clipRes = await run('clip Regress Cam');
-  check('clip saves a microreel (not a datachip)', clipRes?.type === 'output' && /microreel/i.test(clipRes?.message || ''), JSON.stringify(clipRes)?.slice(0, 160));
+  check('clip saves a microreel + mints its datachip', clipRes?.type === 'output' && /microreel/i.test(clipRes?.message || ''), JSON.stringify(clipRes)?.slice(0, 160));
   check('clip clears the buffer so the cam records again', __cameraFrames(CAM_ID).length === 0 && __cameraFull(CAM_ID) === false, `len=${__cameraFrames(CAM_ID).length} full=${__cameraFull(CAM_ID)}`);
   const reels = await microreelList(p);
-  check('clipped microreel appears in the owner reel list', reels.length >= 1 && reels[0].frames === 25, JSON.stringify(reels[0])?.slice(0, 160));
+  check('clipped microreel appears in the carried reel list', reels.length >= 1 && reels[0].frames === 25, JSON.stringify(reels[0])?.slice(0, 160));
   const { rows: chipItems } = await query("SELECT 1 FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'datachip')", [p.id]);
-  check('clipping does NOT mint a physical datachip', chipItems.length === 0, `chips=${chipItems.length}`);
+  check('clipping mints exactly one physical datachip (the reel is the chip)', chipItems.length === 1, `chips=${chipItems.length}`);
 
   // Refill, then wipe: buffer clears without saving another reel.
   __captureZoneLine(CAM_ZONE, { type: 'say', message: 'one more for the tape' });

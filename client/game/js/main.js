@@ -23,7 +23,6 @@ import {
 import { handleServerMsg } from "./dispatch.js";
 import { state } from "./state.js";
 import { initInput } from "./input.js";
-import { initEquipPanel } from "./panels/equipment.js";
 import { initTradePanel } from "./panels/trade.js";
 import { initRecipesPanel } from "./panels/recipes.js";
 import { initStatsPanel } from "./panels/stats.js";
@@ -47,8 +46,6 @@ import { refreshTempDisplay } from "./panels/environment.js";
 import { initWeatherFx, setWeatherFxEnabled } from "./panels/weather-fx.js";
 import { initAtmPanel } from "./panels/atm.js";
 import { initInsurancePanel } from "./panels/insurance.js";
-import { initSurveillanceHub } from "./panels/surveillancehub.js";
-import { initDatachipReplay } from "./panels/datachipreplay.js";
 import { initWantedHud } from "./panels/wanted.js";
 import { initTvPanel } from "./panels/tv.js";
 import { initMediaDeckPanel } from "./panels/mediadeck.js";
@@ -432,7 +429,6 @@ document.getElementById("verify-back-link").addEventListener("click", () => {
 initInput({ saveOrigin, notify: (msg) => appendMsg(msg, "system") });
 
 // Panels
-initEquipPanel();
 initTradePanel();
 initRecipesPanel();
 initStatsPanel();
@@ -446,8 +442,6 @@ initWho();
 initPlayersPanel();
 initAtmPanel();
 initInsurancePanel();
-initSurveillanceHub();
-initDatachipReplay();
 initWantedHud();
 initTvPanel();
 initMediaDeckPanel();
@@ -510,12 +504,12 @@ document.querySelectorAll(".qcmd[data-cmd]").forEach((btn) => {
 document
 	.querySelector(".qcmd[data-open-equip]")
 	?.addEventListener("click", () => {
-		import("./panels/equipment.js").then((m) => m.openEquipPanel());
+		import("./panels/tablet-os.js").then((m) => m.openTabletToInventory());
 	});
 document
 	.querySelector(".qcmd[data-open-gear]")
 	?.addEventListener("click", () => {
-		import("./panels/equipment.js").then((m) => m.openGearPanel());
+		import("./panels/tablet-os.js").then((m) => m.openTabletToLoadout());
 	});
 document
 	.getElementById("debug-whisper-btn")

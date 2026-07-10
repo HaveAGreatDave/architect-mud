@@ -93,21 +93,37 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('tabletnav specter chips');
   check('specter microreels is a list view with no error', r?.view === 'list' && !r?.error && Array.isArray(r?.items), JSON.stringify(r)?.slice(0, 200));
 
-  // Microreels list is now backed by the owner's security_clips (decoupled from
-  // physical datachips), and a reel opens the app's OWN inline viewer (view: reel).
+  // Microreels are possession-gated: a reel is the datachip you carry. Seed a clip
+  // row + its datachip in the player's kit; a reel opens the app's OWN inline viewer
+  // (view: reel).
   const REEL_ID = 'clip_regress_tablet';
+  const CHIP_ID = `item_datachip_${REEL_ID}`;
   await query('DELETE FROM security_clips WHERE id=$1', [REEL_ID]);
+  await query('DELETE FROM player_inventory WHERE item_id=$1', [CHIP_ID]);
+  await query('DELETE FROM items WHERE id=$1', [CHIP_ID]);
   await query(
     `INSERT INTO security_clips (id, device_id, zone_id, owner_id, frames, captured_at, crime_tags)
      VALUES ($1,'dev_x','zone_x',$2,$3,0,'[]')`,
     [REEL_ID, sp.id, JSON.stringify([{ t: '00:00:00', text: 'Kaz says hi', kind: 'say' }, { t: '00:00:05', text: 'Vann leaves', kind: 'event' }])]
   );
+  await query(
+    `INSERT INTO items (id, name, description, type, weight, value, tags)
+     VALUES ($1,'Datachip — Regress','','evidence',60,40,$2) ON CONFLICT (id) DO NOTHING`,
+    [CHIP_ID, JSON.stringify({ datachip: true, clip_id: REEL_ID })]
+  );
+  await query(
+    `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition)
+     VALUES ('11111111-1111-1111-1111-111111111111',$1,$2,1,1.0)`,
+    [sp.id, CHIP_ID]
+  );
   r = await run('tabletnav specter chips');
-  check('microreels list surfaces the owner reel', r?.view === 'list' && r.items.some(it => it.id === REEL_ID), JSON.stringify(r?.items)?.slice(0, 200));
+  check('microreels list surfaces the carried reel', r?.view === 'list' && r.items.some(it => it.id === REEL_ID), JSON.stringify(r?.items)?.slice(0, 200));
   r = await run(`tabletnav specter microreels ${REEL_ID}`);
   check('opening a reel routes to the inline reel viewer', r?.view === 'reel' && Array.isArray(r?.reel?.frames) && r.reel.frames.length === 2, JSON.stringify(r)?.slice(0, 200));
   check('reel frames carry kind for speech/emote colouring', r?.reel?.frames?.[0]?.kind === 'say' && r?.reel?.frames?.[1]?.kind === 'event', JSON.stringify(r?.reel?.frames)?.slice(0, 160));
   await query('DELETE FROM security_clips WHERE id=$1', [REEL_ID]);
+  await query('DELETE FROM player_inventory WHERE item_id=$1', [CHIP_ID]);
+  await query('DELETE FROM items WHERE id=$1', [CHIP_ID]);
 
   // The Clear action delegates to the `wipe` verb and re-renders the hub — even
   // with no deployed cam it returns a surveillance view without throwing.

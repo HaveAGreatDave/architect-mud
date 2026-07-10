@@ -809,10 +809,12 @@ async function physicalizeClip(clipRow, player) {
   return { itemId, zoneName, frameCount: frames.length, evidenceTag };
 }
 
-// clip [name] — burn the current live buffer to a saved MICROREEL (a security_clips
-// row you replay in SPECTER → Microreels) and CLEAR the buffer so the cam records
-// again. Clipping no longer mints a physical datachip — that's the separate `collect`
-// export path (deliberate: keeps evidence chips off the routine buffer-reset action).
+// clip [name] — burn the current live buffer to a saved MICROREEL and CLEAR the
+// buffer so the cam records again. The reel is minted as a physical datachip in your
+// kit (folding in what `collect` does): a microreel IS the chip you hold, so it's a
+// tradeable object — hand someone the chip and the reel goes with it. SPECTER →
+// Microreels lists the chips you carry. (`collect` remains for auto-banked evidence
+// clips a camera captured on its own, which have no chip until pulled.)
 async function cmdClip(args, raw, player) {
   const nameHint = args.join(' ').trim();
   const params = [player.id];
@@ -837,7 +839,11 @@ async function cmdClip(args, raw, player) {
   const evidenceTag = crimeTags.length ? `[EVIDENCE: ${crimeTags.join(', ').toUpperCase()}]` : '';
   buf.reset();   // clear the tape so the camera resumes recording
 
-  return { type: 'output', message: `You burn the feed to a microreel — ${frameCount} frame${frameCount === 1 ? '' : 's'} from ${dev.zone_name || dev.zone_id}.${evidenceTag ? ` <span class="text-red">${evidenceTag}</span>` : ''}\n<span class="text-dim">(open SPECTER → Microreels to view it. The buffer is cleared — the camera is recording again.)</span>` };
+  // Mint the reel's physical datachip straight into the operator's kit — the reel is
+  // the chip (possession is what SPECTER → Microreels lists and what makes it tradeable).
+  await physicalizeClip({ ...clip, zone_name: dev.zone_name || dev.zone_id, frames }, player);
+
+  return { type: 'output', message: `You burn the feed to a microreel — ${frameCount} frame${frameCount === 1 ? '' : 's'} from ${dev.zone_name || dev.zone_id}.${evidenceTag ? ` <span class="text-red">${evidenceTag}</span>` : ''}\n<span class="text-dim">(a datachip drops into your kit — open SPECTER → Microreels to view it, or trade the chip to hand the reel off. The buffer is cleared — the camera is recording again.)</span>` };
 }
 
 // wipe [name] — clear a camera's live buffer WITHOUT saving a microreel, so it can
@@ -2204,15 +2210,18 @@ export async function cameraBufferLines(player, deviceId) {
 }
 
 // Every microreel the player owns (a security_clips row — a saved recording), with
-// metadata for the tablet's Microreels list. Decoupled from physical datachips:
-// clipping banks a reel here; a datachip is a separate `collect` export.
+// metadata for the tablet's Microreels list. Possession-gated: a microreel is the
+// datachip you carry, so the list is the reels whose chip is in your kit (regardless
+// of who first recorded it) — that's what makes reels tradeable.
 export async function microreelList(player) {
   const { rows } = await query(
     `SELECT c.id, c.zone_id, z.name AS zone_name, c.captured_at, c.crime_tags,
             COALESCE(jsonb_array_length(c.frames), 0) AS frame_count
-       FROM security_clips c
+       FROM player_inventory pi
+       JOIN items i ON i.id = pi.item_id
+       JOIN security_clips c ON c.id::text = i.tags->>'clip_id'
        LEFT JOIN zones z ON z.id = c.zone_id
-      WHERE c.owner_id=$1
+      WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'datachip')
       ORDER BY c.captured_at DESC NULLS LAST`,
     [player.id]
   );
@@ -2226,13 +2235,18 @@ export async function microreelList(player) {
   }));
 }
 
-// One microreel's full contents for the in-app inline viewer — owner-checked. Frames
-// carry { t, text, kind } so the tablet can colour speech apart from narration.
+// One microreel's full contents for the in-app inline viewer — possession-checked
+// (the player must carry the reel's datachip). Frames carry { t, text, kind } so the
+// tablet can colour speech apart from narration.
 export async function getMicroreel(player, clipId) {
   if (!clipId) return null;
   const { rows } = await query(
     `SELECT c.*, z.name AS zone_name FROM security_clips c
-       LEFT JOIN zones z ON z.id=c.zone_id WHERE c.id=$1 AND c.owner_id=$2`,
+       LEFT JOIN zones z ON z.id=c.zone_id
+      WHERE c.id=$1 AND EXISTS (
+        SELECT 1 FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+         WHERE pi.player_id=$2 AND jsonb_exists(i.tags,'datachip') AND i.tags->>'clip_id'=$1
+      )`,
     [clipId, player.id]
   );
   if (!rows.length) return null;
@@ -2246,15 +2260,18 @@ export async function getMicroreel(player, clipId) {
   };
 }
 
-// Permanently destroy one of the player's microreels — owner-checked. Drops the
-// security_clips row (the reel's only durable copy; a physically `collect`ed datachip
-// is a separate artifact and is deliberately left alone). Flavoured as the operator
-// ejecting the reel sliver from their tablet and crushing it — broadcast to the room.
+// Permanently destroy one of the player's microreels — possession-checked. The reel
+// is the datachip, so this crushes the chip in the operator's kit (any copy another
+// player holds is untouched). Flavoured as ejecting the reel sliver from the tablet
+// and crushing it — broadcast to the room.
 export async function deleteMicroreel(player, clipId) {
   if (!clipId) return { ok: false };
   const { rows } = await query(
-    'DELETE FROM security_clips WHERE id=$1 AND owner_id=$2 RETURNING id',
-    [clipId, player.id]
+    `DELETE FROM player_inventory pi USING items i
+       WHERE pi.item_id=i.id AND pi.player_id=$1
+         AND jsonb_exists(i.tags,'datachip') AND i.tags->>'clip_id'=$2
+     RETURNING pi.id`,
+    [player.id, clipId]
   );
   if (!rows.length) return { ok: false };
   sendToPlayer(player.id, { type: 'output', message:
