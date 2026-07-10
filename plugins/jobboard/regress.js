@@ -56,6 +56,15 @@ export default async function regress({ run, check, getPlayer }) {
     const dispatcher = await turnInNpcForQuest(poolQuestId);
     check('turnInNpcForQuest resolves the Franchise Strip dispatcher', dispatcher?.npcId === 'npc_fs_dispatcher', JSON.stringify(dispatcher));
 
+    // The dispatcher hands in at a dedicated `job_turnin` node (Tablet OS renders
+    // it to fire a context-driven TURN_IN + pay out) rather than her root — the
+    // fix for job-board quests opening dialogue but never completing. Assert both
+    // the routing hint and that Marta actually has that node authored.
+    check('dispatcher advertises the job_turnin hand-in node', dispatcher?.node === 'job_turnin', JSON.stringify(dispatcher));
+    const { rows: mrows } = await query("SELECT dialogue_tree->'job_turnin' AS node FROM npcs WHERE id='npc_fs_dispatcher'");
+    const jt = mrows[0]?.node;
+    check('Marta has a job_turnin node with a TURN_IN action', !!jt && (jt.actions || []).some(a => a.action === 'TURN_IN'), JSON.stringify(jt)?.slice(0, 160));
+
     // quests' findTurnInNpc falls back to jobboard's dispatcher lookup for
     // postings with no dialogue-authored TURN_IN of their own — this is what
     // drives both Tablet's route-to-Marta hand-off and the bottom-pane

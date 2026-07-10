@@ -14,7 +14,7 @@ import { exitTargets, neighborZoneIds } from '../../server/engine/exits.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
-import { getPowerMap } from '../../server/engine/environment.js';
+import { getPowerMap, getZoneVisibility, LIGHT_LADDER } from '../../server/engine/environment.js';
 import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
@@ -406,6 +406,37 @@ async function playerHasSpyDeck(playerId) {
   return rows.length > 0;
 }
 
+// ── SPECTER install (the hack-deck program) ──────────────────────────────────
+// Access to SPECTER on the tablet is bought as a one-shot install program (an
+// item tagged `specter_program`): `use` it and it flashes SPECTER onto the tablet
+// (a player flag) and burns itself out. Distinct from the carried spy_deck the
+// standalone hub still uses — the tablet app gates on this flag instead.
+const SPECTER_FLAG = 'specter_installed';
+export async function isSpecterInstalled(player) {
+  const v = await getFlag('player', SPECTER_FLAG, player);
+  return v === '1' || v === 1 || v === true;
+}
+
+// use <specter program> — install SPECTER onto the tablet, consuming the item.
+async function doInstallSpecter(args, raw, player) {
+  const nameHint = args.join(' ').trim().toLowerCase();
+  const params = [player.id];
+  let sql = `SELECT pi.id AS inv_id, pi.quantity, i.name FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+             WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'specter_program')`;
+  if (nameHint) { sql += ` AND i.name ILIKE $2`; params.push(`%${nameHint}%`); }
+  sql += ' LIMIT 1';
+  const { rows } = await query(sql, params);
+  if (!rows.length) return undefined; // named something else / not carrying one — let other handlers try
+  if (await isSpecterInstalled(player)) {
+    return { type: 'error', message: 'SPECTER is already installed on your tablet — this program has nothing left to do.' };
+  }
+  const it = rows[0];
+  if (it.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [it.inv_id]);
+  else await query('DELETE FROM player_inventory WHERE id=$1', [it.inv_id]);
+  await setFlag('player', SPECTER_FLAG, '1', player);
+  return { type: 'output', message: `The ${it.name} boots, floods your tablet with a scrolling install log, then goes inert — a scorched sliver of dead plastic. <span class="item-grant">SPECTER is now installed. Open your <b>tablet</b> → Surveillance.</span>` };
+}
+
 // Register the player as a hub viewer and return the open payload. The command
 // pipeline delivers the return value to the client, so we don't also sendToPlayer
 // here (that would double-open); the tick uses sendToPlayer for live updates.
@@ -459,7 +490,7 @@ async function doUseConsole(args, raw, player) {
 // to open hubs. Runs every 5s regardless of viewers so recording continues while
 // the operator is away.
 async function surveillanceTick() {
-  await captureRecordings();
+  await refreshRecordingCams();
   // Capture keeps running (records NPC-only activity), but sensor alerts and
   // crime detection only matter relative to live players (Phase 7a).
   if (hasActivePlayers()) {
@@ -593,28 +624,74 @@ class CameraBuffer {
     while (this.frames.length > this.limit) this.frames.shift();
   }
 }
-const cameraBuffers = new Map(); // deviceId → CameraBuffer, created lazily on first capture
+const cameraBuffers = new Map(); // deviceId → CameraBuffer, created lazily on first line
 
-async function captureRecordings() {
+// Zone → [{ id, ownerId }] of the 'ok' recording cameras there, refreshed each
+// tick so the (frequent) zone.broadcast line-capture never touches the DB.
+let recordingCamsByZone = new Map();
+// The zone-message types a camera logs as a line: speech (`say`) and everything
+// the room narrates (`zone_event` — arrivals, exits, emotes, actions). Ambience,
+// weather, TV, system lines are deliberately excluded.
+const CAM_LINE_TYPES = new Set(['say', 'zone_event']);
+
+// The rolling per-clip line budget — a global tunable editable in the devpanel
+// Crime tab (camera_buffer_lines), default 25, hard-capped at MAX_CAMERA_BUFFER.
+function currentBufferLimit() {
+  const v = Number(getTunable('camera_buffer_lines', 25));
+  if (!Number.isFinite(v) || v < 1) return 25;
+  return Math.min(Math.round(v), MAX_CAMERA_BUFFER);
+}
+function stripTags(s) { return String(s || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim(); }
+
+// Refresh the zone→recording-cams index (drives the event-line capture below) and
+// keep every live buffer's rolling limit in step with the devpanel tunable.
+// Cameras no longer snapshot the room on a timer — they log real zone activity
+// (speech, arrivals, exits, emotes, actions) as it happens, via zone.broadcast.
+async function refreshRecordingCams() {
   const { rows } = await query(
-    `SELECT id, device_kind, zone_id, owner_id, battery, battery_max, wired, is_damaged,
-            status_flags, storage_limit
+    `SELECT id, device_kind, zone_id, owner_id, battery, battery_max, wired, is_damaged, status_flags
        FROM security_devices WHERE is_recording = 1`
   );
-  if (!rows.length) return;
   const fx = await getInterferenceZones();
+  const map = new Map();
+  const limit = currentBufferLimit();
   for (const d of rows) {
     if (!CAM_KINDS.has(d.device_kind)) continue;
-    let buf = cameraBuffers.get(d.id);
-    if (!buf) { buf = new CameraBuffer(d.storage_limit || 200); cameraBuffers.set(d.id, buf); }
-    buf.zoneId = d.zone_id;
-    buf.ownerId = d.owner_id;
-    const status = deviceStatus(d, fx);
-    const frame = deviceFrame(d, status);      // null when offline/jammed → records nothing
-    if (!frame) continue;                       // a spoofed cam banks the clean fake frame
-    buf.push({ t: clock(), ts: Date.now(), text: frame });
+    if (deviceStatus(d, fx) !== 'ok') continue;   // offline/jammed/spoofed → records nothing
+    let arr = map.get(d.zone_id);
+    if (!arr) { arr = []; map.set(d.zone_id, arr); }
+    arr.push({ id: d.id, ownerId: d.owner_id });
+    const buf = cameraBuffers.get(d.id);
+    if (buf) { buf.limit = limit; buf.zoneId = d.zone_id; buf.ownerId = d.owner_id; while (buf.frames.length > limit) buf.frames.shift(); }
+  }
+  recordingCamsByZone = map;
+}
+
+// Every zone-wide message (server/index.js emits zone.broadcast for each) is a
+// candidate CCTV line. Cheap: reads the in-memory cam index, never the DB, and
+// only for whitelisted activity types.
+function captureZoneLine(zoneId, msg) {
+  if (!zoneId || !msg || !CAM_LINE_TYPES.has(msg.type)) return;
+  const cams = recordingCamsByZone.get(zoneId);
+  if (!cams || !cams.length) return;
+  const text = stripTags(msg.message);
+  if (!text) return;
+  const line = { t: clock(), ts: Date.now(), text };
+  const limit = currentBufferLimit();
+  for (const cam of cams) {
+    let buf = cameraBuffers.get(cam.id);
+    if (!buf) { buf = new CameraBuffer(limit); cameraBuffers.set(cam.id, buf); }
+    buf.limit = limit; buf.zoneId = zoneId; buf.ownerId = cam.ownerId;
+    buf.push(line);
   }
 }
+on('zone.broadcast', ({ zoneId, msg }) => captureZoneLine(zoneId, msg));
+
+// Regress-only seams (nothing else calls these in production): drive a cam-index
+// refresh + a synthetic zone line, and read a device's rolling buffer.
+export async function __refreshRecordingCams() { return refreshRecordingCams(); }
+export function __captureZoneLine(zoneId, msg) { return captureZoneLine(zoneId, msg); }
+export function __cameraFrames(deviceId) { return (cameraBuffers.get(deviceId)?.frames || []).slice(); }
 
 // A crime raised in a zone auto-banks a durable evidence record for every
 // actively-recording camera watching it (Phase 4b) — a security_clips row only,
@@ -683,18 +760,28 @@ async function physicalizeClip(clipRow, player) {
   const crimeTags = Array.isArray(clipRow.crime_tags) ? clipRow.crime_tags : parseBuffer(clipRow.crime_tags);
   const frames = Array.isArray(clipRow.frames) ? clipRow.frames : parseBuffer(clipRow.frames);
   const evidenceTag = crimeTags.length ? ` [EVIDENCE: ${crimeTags.join(', ').toUpperCase()}]` : '';
+  // A chip is a mini-cassette: it also carries a hidden scripted broadcast of its
+  // footage (media_cassette + broadcast_id), so it can be `load`ed into any media
+  // deck and aired on the zone's TVs — as well as replayed privately with `use`.
+  const broadcastId = `bc_clip_${clipRow.id}`;
   await query(
     `INSERT INTO items (id, name, description, type, weight, value, tags)
      VALUES ($1,$2,$3,'evidence',60,$4,$5) ON CONFLICT (id) DO NOTHING`,
     [itemId, `Datachip — ${zoneName}`,
-     `A slab of black storage glass, edge-lit amber. Holds ${frames.length} frames of surveillance footage from ${zoneName}.${evidenceTag}`,
+     `A slab of black storage glass, edge-lit amber. Holds ${frames.length} frames of surveillance footage from ${zoneName}.${evidenceTag} <span class="text-dim">(use it to replay, or load it into a media deck to broadcast it.)</span>`,
      crimeTags.length ? 250 : 40,
-     JSON.stringify({ datachip: true, clip_id: clipRow.id })]
+     JSON.stringify({ datachip: true, clip_id: clipRow.id, media_cassette: true, broadcast_id: broadcastId })]
   );
   await query(
     `INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`,
     [randomUUID(), player.id, itemId]
   );
+  // Build (or refresh) the chip's playable broadcast. Kept off the critical path —
+  // a chip still works as evidence even if the broadcast build hiccups.
+  try {
+    const { ensureClipBroadcast } = await import('../broadcast/index.js');
+    await ensureClipBroadcast(broadcastId, `Footage: ${zoneName}`, frames, 4);
+  } catch (e) { console.error('[surveillance] clip broadcast build failed:', e.message); }
   return { itemId, zoneName, frameCount: frames.length, evidenceTag };
 }
 
@@ -1598,6 +1685,24 @@ function camCatchChance(elapsedMs) {
   return raw * Math.max(0, Math.min(1, Number(getTunable('camera_effectiveness', 0.5))));
 }
 
+// A camera's catch rate is calibrated for CLEAR conditions; low visibility (night
+// blackout, storm, fog, ash) blinds the lens the same way it blinds a fighter's
+// aim (combat.js darknessHitPenalty). Every visibility band dimmer than `clear`
+// shaves the catch chance by CAM_VIS_STEP, floored at CAM_VIS_FLOOR so a
+// pitch-black street still isn't a literal free pass. `clear` and brighter → 1.0
+// (default detection). A lower per-roll chance also stretches time-to-detection
+// for ongoing offences, since scanActiveCrimes re-rolls this each tick.
+const CAM_VIS_BASELINE = 'clear';
+const CAM_VIS_STEP = 0.18;   // catch-rate lost per ladder step below `clear`
+const CAM_VIS_FLOOR = 0.1;   // cameras never drop below 10% of their clear-air rate
+export function visFactorForCategory(category) {
+  const base = LIGHT_LADDER.indexOf(CAM_VIS_BASELINE);
+  const idx = LIGHT_LADDER.indexOf(category);
+  if (idx < 0 || base < 0 || idx >= base) return 1;   // clear+ or unknown → full rate
+  return Math.max(CAM_VIS_FLOOR, 1 + (idx - base) * CAM_VIS_STEP);
+}
+const cameraVisibilityFactor = (zoneId) => visFactorForCategory(getZoneVisibility(zoneId)?.category);
+
 // The single probabilistic witness gate for every crime. A live camera rolls
 // `camChance` (flat for a one-shot act; time-ramped for an ongoing one). For an
 // `any`-witnessed crime an on-scene cop is very likely to catch it, while a mere
@@ -1606,7 +1711,7 @@ function camCatchChance(elapsedMs) {
 async function witnessRoll(zoneId, witness, onCamera, camChance) {
   if (!zoneId) return false;
   if (witness === 'always') return true;
-  if (onCamera && Math.random() < camChance) return true;
+  if (onCamera && Math.random() < camChance * cameraVisibilityFactor(zoneId)) return true;
   if (witness === 'camera') return false;
   if ((getZoneNpcs(zoneId) || []).some(n => n.flags?.police) && Math.random() < COP_CATCH) return true;
   if ((getZonePlayers(zoneId) || []).length > 1 && Math.random() < BYSTANDER_REPORT) return true;
@@ -2026,6 +2131,64 @@ async function cmdPurge(args, raw, player, broadcast) {
   return { type: 'system', message: `<span class="text-dim">Slate wiped. ${tally}</span>` };
 }
 
+// ── Tablet OS bridge ─────────────────────────────────────────────────────────
+// The Surveillance app (plugins/tablet/surveillance-app.js) reshapes this data
+// into the tablet shell, the way corp-app.js wraps buildConsolePayload. Nothing
+// authoritative lives here beyond a read + a replay push — the live hub, record/
+// clip, and chip replay all stay in their own commands, which the app delegates
+// straight into, so the tablet can't drift from the standalone deck's behaviour.
+export async function hubDataFor(player) {
+  const p = await buildHubPayload(player, true);
+  return { net: p.net, tiles: p.tiles, alerts: p.alerts };
+}
+export function hasSpyDeck(playerId) { return playerHasSpyDeck(playerId); }
+
+// The rolling event-line buffer for one of the player's own cameras — what the
+// tablet shows in the focused-cam pane so you can read what's recorded before you
+// clip it. Owner-checked; newest last, capped to a readable tail.
+export async function cameraBufferLines(player, deviceId) {
+  if (!deviceId) return [];
+  const { rows } = await query('SELECT 1 FROM security_devices WHERE id=$1 AND owner_id=$2', [deviceId, player.id]);
+  if (!rows.length) return [];
+  return (cameraBuffers.get(deviceId)?.frames || []).slice(-40).map(f => ({ t: f.t, text: f.text }));
+}
+
+// Every datachip the player carries, with its clip metadata for a tablet list view.
+export async function datachipList(player) {
+  const { rows } = await query(
+    `SELECT i.name, i.tags->>'clip_id' AS clip_id, c.zone_id, z.name AS zone_name,
+            c.captured_at, c.crime_tags, COALESCE(jsonb_array_length(c.frames), 0) AS frame_count
+       FROM player_inventory pi
+       JOIN items i ON i.id = pi.item_id
+       LEFT JOIN security_clips c ON c.id = i.tags->>'clip_id'
+       LEFT JOIN zones z ON z.id = c.zone_id
+      WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'datachip')
+      ORDER BY c.captured_at DESC NULLS LAST, i.name`,
+    [player.id]
+  );
+  return rows.map(r => ({
+    clipId: r.clip_id,
+    name: r.name,
+    zone: r.zone_name || r.zone_id || 'UNKNOWN',
+    capturedAt: r.captured_at ? Number(r.captured_at) : null,
+    crimeTags: parseBuffer(r.crime_tags),
+    frames: Number(r.frame_count) || 0,
+  }));
+}
+
+// Push the datachip replay overlay for a clip id — the tablet chip list hands off
+// to the same replay deck `use <datachip>` opens.
+export async function openReplayFor(player, clipId) {
+  if (!clipId) return false;
+  const { rows } = await query(
+    `SELECT c.*, z.name AS zone_name FROM security_clips c LEFT JOIN zones z ON z.id=c.zone_id WHERE c.id=$1`,
+    [clipId]
+  );
+  if (!rows.length) return false;
+  sendToPlayer(player.id, await buildReplayPayload(rows[0]));
+  return true;
+}
+
 export const commands = {
   plant: cmdPlant,
   retrieve: cmdRetrieve,
@@ -2051,6 +2214,7 @@ export const commands = {
 };
 
 export const specializedActions = [
+  { verb: 'use', requiredTag: 'specter_program', handler: doInstallSpecter },
   { verb: 'use', requiredTag: 'spy_deck', handler: doUseSpyDeck },
   { verb: 'use', requiredTag: 'security_console', handler: doUseConsole },
   { verb: 'use', requiredTag: 'datachip', handler: doUseDatachip },

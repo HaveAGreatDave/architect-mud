@@ -2,14 +2,15 @@
 // production). The fake player's id matches no players row, so DB writes are
 // no-ops; this asserts routing + payload shape, not real data.
 import { query } from '../../server/models/db.js';
+import { setFlag } from '../../server/engine/flags.js';
 
 export default async function regress({ run, check, getPlayer }) {
   let r = await run('tablet');
   check('tablet verb opens home screen', r?.type === 'tablet_panel' && r?.screen === 'home', JSON.stringify(r));
   check('home screen carries player summary', !!r?.player && typeof r.player.credits === 'number', JSON.stringify(r?.player));
-  check('home screen lists apps', Array.isArray(r?.apps) && r.apps.length >= 8, `apps=${r?.apps?.length}`);
-  check('home screen apps include quests/skills/bank/weather/vehicles/properties/settings/corp',
-    ['quests', 'skills', 'bank', 'weather', 'vehicles', 'properties', 'settings', 'corp']
+  check('home screen lists apps', Array.isArray(r?.apps) && r.apps.length >= 9, `apps=${r?.apps?.length}`);
+  check('home screen apps include quests/skills/bank/weather/vehicles/properties/settings/corp/specter',
+    ['quests', 'skills', 'bank', 'weather', 'vehicles', 'properties', 'settings', 'corp', 'specter']
       .every(id => r.apps.some(a => a.id === id)),
     JSON.stringify(r?.apps?.map(a => a.id)));
 
@@ -40,10 +41,32 @@ export default async function regress({ run, check, getPlayer }) {
 
   // Corp app now renders natively (reshapes plugins/corps' own
   // buildConsolePayload()). The fake player has no corp membership, so this
-  // exercises the "not in a corp" path — same message buildConsolePayload
-  // itself returns for `corp console` with no membership.
+  // exercises the founding screen (cost warning + name prompt), not an error.
   r = await run('tabletnav corp');
-  check('corp app (no membership) reports not-in-a-corp cleanly', r?.view === 'error' && /not in a corp/i.test(r?.message || ''), JSON.stringify(r));
+  check('corp app (no membership) shows the founding screen', r?.view === 'corp_found', JSON.stringify(r));
+  check('founding screen states the one-time fee', typeof r?.foundFee === 'number' && r.foundFee > 0, JSON.stringify(r));
+
+  // Corp Territory Map sub-screen: cmdCorpMap works with or without a corp, so
+  // even the no-membership fake player gets a corp_map view + a tiles array.
+  r = await run('tabletnav corp map');
+  check('corp map sub-screen signals corp_map view', r?.view === 'corp_map' && Array.isArray(r?.tiles), JSON.stringify(r)?.slice(0, 200));
+  check('corp map sub-screen has no error', !r?.error, r?.error);
+
+  // Surveillance (SPECTER) app: the fake player hasn't installed SPECTER, so the
+  // hub screen is the locked state (view surveillance, live:false); installing it
+  // (the flag the hack-deck program sets) unlocks the live hub. Microreels is the
+  // install-free list path (empty, no error). All must route without throwing.
+  const sp = getPlayer();
+  await setFlag('player', 'specter_installed', '0', sp);
+  r = await run('tabletnav specter');
+  check('specter app routes to a surveillance view', r?.type === 'tablet_panel' && r?.appId === 'specter' && r?.view === 'surveillance', JSON.stringify(r)?.slice(0, 200));
+  check('specter hub is locked until SPECTER is installed', r?.locked === true && r?.live !== true, JSON.stringify(r)?.slice(0, 200));
+  await setFlag('player', 'specter_installed', '1', sp);
+  r = await run('tabletnav specter');
+  check('specter hub unlocks once SPECTER is installed', r?.view === 'surveillance' && r?.locked !== true && r?.live === true, JSON.stringify(r)?.slice(0, 200));
+  await setFlag('player', 'specter_installed', '0', sp);
+  r = await run('tabletnav specter chips');
+  check('specter microreels is a list view with no error', r?.view === 'list' && !r?.error && Array.isArray(r?.items), JSON.stringify(r)?.slice(0, 200));
 
   // Turn-in, wrong zone: stays on the quest's own detail screen (objectives/
   // actions intact) instead of swapping to a bare error screen — the "head to

@@ -1823,6 +1823,24 @@ textarea {
 	color: var(--accent);
 	background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
+/* Icon variant of the minimap toggles (Run / Avenue / Auto-walk): square, with the
+   glyph sized up from the 8px text label and the uppercase/letter-spacing (meant
+   for words) neutralised so the emoji sits centered. */
+.mm-icon-btn {
+	font-size: 12px;
+	line-height: 1;
+	letter-spacing: 0;
+	padding: 3px 4px;
+	min-width: 24px;
+	text-align: center;
+}
+/* Run mode gets its own warm "exertion" tint so it reads distinctly from the
+   accent-cyan Avenue/Auto active states. */
+#mm-run-toggle.active {
+	border-color: #ffb454;
+	color: #ffb454;
+	background: color-mix(in srgb, #ffb454 16%, transparent);
+}
 /* Avenue View on the minimap draws the SVG road (shared .av-* classes with the
    full map) ON TOP of the tile's normal danger/custom fill, so tile colours still
    read at a glance. Overflow is allowed so road arms can meet the gap bands. */
@@ -2082,7 +2100,17 @@ textarea {
 #map-tabs {
 	flex: 0 0 auto;
 	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	align-items: center;
 	gap: 6px;
+}
+/* Thin divider between the zoom-level tabs and the compact icon toggles. */
+.map-tab-sep {
+	width: 1px;
+	align-self: stretch;
+	margin: 2px 1px;
+	background: var(--border);
 }
 .map-tab {
 	font-family: "Courier New", monospace;
@@ -2169,6 +2197,17 @@ textarea {
 }
 .map-link {
 	color: var(--text-dim);
+}
+/* Territory overlay layer — org-colour fill painted OVER the tile's own icons/
+   labels (at 90% opacity, set inline) when the Territory view is on, so control
+   dominates POI icons, abbreviations and the avenue-road overlay. pointer-events
+   off so tile clicks still land. */
+.map-terr-ov {
+	position: absolute;
+	inset: 0;
+	z-index: 3;
+	border-radius: inherit;
+	pointer-events: none;
 }
 /* Drawn streets: a connector is a bar filling its gap cell, tinted (via inline
    --street) by the danger (zone) or land-use (regional) of the tiles it joins. */
@@ -4968,8 +5007,7 @@ textarea {
 	}
 }
 
-[data-density="compact"] #mob-dpad,
-[data-smart-ui="on"] #mob-dpad {
+[data-density="compact"] #mob-dpad {
 	display: flex;
 }
 
@@ -6784,6 +6822,60 @@ textarea {
 }
 #mediadeck-slot.inserting .mediadeck-empty-hint,
 #mediadeck-slot.ejecting .mediadeck-empty-hint { opacity: 0; }
+
+/* ── MicroReel ──────────────────────────────────────────────────────────────
+   A surveillance clip loaded as a cassette is a MicroReel — a compact tape that
+   seats inside a full cassette shell (VHS-C style). When one is loaded, the
+   amber shell reads as an adapter bay: its full-size internals give way to a
+   smaller nested cassette in SPECTER green. */
+.mediadeck-mini-insert { display: none; }
+#mediadeck-slot.mini.loaded .mediadeck-reel,
+#mediadeck-slot.mini.loaded .mediadeck-tape-center,
+#mediadeck-slot.mini.loaded .mediadeck-cassette-label-strip { opacity: 0 !important; }
+#mediadeck-slot.mini.loaded .mediadeck-cassette-body {
+	background: linear-gradient(180deg, #2a1710 0%, #170c06 100%);
+	box-shadow:
+		inset 0 2px 0 rgba(255, 210, 150, 0.10),
+		inset 0 0 0 3px rgba(0, 0, 0, 0.4),
+		inset 0 0 18px rgba(0, 0, 0, 0.78),
+		0 5px 7px rgba(0, 0, 0, 0.55);
+}
+#mediadeck-slot.mini.loaded .mediadeck-mini-insert {
+	display: flex; align-items: center; justify-content: center; gap: 8px;
+	position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+	width: 60%; height: 58%; border-radius: 3px;
+	background: linear-gradient(180deg, #0e2c25 0%, #071a15 100%);
+	border: 1px solid rgba(57, 255, 158, 0.5);
+	box-shadow:
+		inset 0 2px 0 rgba(57, 255, 158, 0.16),
+		inset 0 -3px 5px rgba(0, 0, 0, 0.6),
+		0 3px 6px rgba(0, 0, 0, 0.55),
+		0 0 9px rgba(57, 255, 158, 0.2);
+	z-index: 5;
+}
+.mediadeck-mini-reel {
+	width: 15px; height: 15px; border-radius: 50%;
+	background: radial-gradient(circle at 50% 42%, #0a1512 42%, #05201a 60%);
+	border: 2px solid rgba(57, 255, 158, 0.55);
+	box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.8);
+}
+.mediadeck-mini-reel.spinning { animation: mediadeck-reel-spin 1.4s linear infinite; }
+.mediadeck-mini-window {
+	width: 22px; height: 9px; border-radius: 2px;
+	background: repeating-linear-gradient(90deg, #10352b 0 2px, #0a241d 2px 4px);
+	border: 1px solid rgba(57, 255, 158, 0.35);
+}
+.mediadeck-mini-label {
+	position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
+	font-size: 7px; letter-spacing: 2px; color: rgba(57, 255, 158, 0.9);
+	text-shadow: 0 0 4px rgba(57, 255, 158, 0.5); font-family: 'Courier New', monospace;
+}
+/* MicroReel badge on the cartridge label + library rows */
+.mediadeck-micro-badge {
+	display: inline-block; font-size: 8px; letter-spacing: 1px; padding: 0 3px;
+	border: 1px solid rgba(57, 255, 158, 0.55); border-radius: 2px;
+	color: #39ff9e; margin-right: 5px; vertical-align: middle;
+}
 /* Glass cover lid for mediadeck — hinge at bottom, top tilts toward viewer.
    deck-opening swings fully open; reels always visible through transparent glass. */
 .mediadeck-glass-cover {

@@ -21,7 +21,7 @@ import {
   clamp, lerp, rnd, ease, shade, mixColors, avgColor,
   G, W, H, roundRect, blob, fillLiquid, drawSteam,
   drawBench, drawBeaker, drawBurner, flame, dustMotes, lightShaft, condensation, drawLabProps, drawSideTable,
-  drawLCD, ghostReflection,
+  drawLCD,
   AX, mountLab, evPos,
 } from './lab-kit.js';
 
@@ -51,38 +51,65 @@ function redact(s, known) { if (known >= .75) return esc(s); if (known < .25) re
 const FORM_FREQ = { liquid: 2.0, gel: 2.1, powder: 2.4, pill: 2.8, gas: 2.3, crystal: 2.9, blotter: 3.2, paste: 1.7, leaf: 2.6 };
 const FORM_FLUID = { thin: 1, oil: 1, solvent: 1, fine: .28, crystalline: .22, viscous: .55, tablet: .06, pressurized: .5, shard: .05, sheet: .04, tar: .35, dried: .08 };
 
-// Per-form pour physics — the SECOND phase's whole skill is keeping a HELD
-// container STEADY. Two knobs per form:
-//   • tiltMax  — it takes an ALMOST-FULL tip (near the ±1.0 tilt clamp) to spill
-//     from angle alone, so you never lose product just by tilting a little.
-//   • swayMax  — but the contents SWAY, and sway builds fast from jerky movement
-//     (SWAY_SENS). Let the sway cross swayMax (of the ±1.5 slosh range) and it
-//     goes over the side. Smooth hands keep it flat; snatching it around sloshes
-//     it out. The live STEADINESS meter shows sway so you can steer it.
-//   • rate     — how fast product bleeds once you're over.
+// Per-form pour physics — the DECANT/carry phase is about keeping a held vessel
+// UPRIGHT. You never lose product just by sloshing in place; product only leaves
+// when the vessel is TIPPED far enough that its contents climb over the lip. Tilt
+// tracks how fast you sling it around (a hard snatch tips it near-horizontal → it
+// dumps), so slow hands stay upright and lose nothing, a medium sweep tips it a
+// little and bleeds a little, a fast yank pours it out. Sway rides the contents a
+// bit higher up the wall on top of that. Two knobs per form:
+//   • lip   — crest tolerance: how far the contents can climb the tipped wall
+//     before they crest the rim (fuller/runnier = smaller lip = spills sooner).
+//   • rate  — how fast it bleeds once it's over the lip.
+// Gas is pressurised: it ALSO vents up out of the valve if you sling it past speedMax.
 // All tunable — dial after feeling it in-game.
-const SWAY_SENS = 1.7;     // JERK gain: a sudden change of speed slings the contents (a quick snatch spills it)
-const SWEEP_SPEED = 360;   // DEADZONE: below this carry speed, movement adds NO sway at all — slow is always safe
-const SWEEP_GAIN = 0.012;  // a sustained fast sweep past SWEEP_SPEED keeps pushing sway toward the edge
+const SWAY_SENS = 1.7;      // JERK gain: a sudden change of speed slings the contents (mostly VISUAL slosh now)
+const SWEEP_SPEED = 360;    // DEADZONE: below this carry speed, movement adds NO sway at all — slow is always safe
+const SWEEP_GAIN = 0.012;   // a sustained fast sweep past SWEEP_SPEED keeps pushing sway up
+const TILT_GAIN = 0.0016;   // how hard carry-speed tips the vessel — leans readily now, but still maxes at 0.7 (< any lip)
+const TILT_CREST = 1.0;     // how much a full tip raises the contents at the lip
+const SWAY_CREST = 0.28;    // sway barely counts toward crest now — you have to REALLY fling it
+const POUR_DRAIN = 0.28;    // and even over the lip it only trickles out
+const SPILL_INSTAB = 0.35;  // instability added per % of product lost
+// Lips sit ABOVE the max reachable crest (tilt caps at 0.7), so a normal carry never
+// spills — only a violent yank that pins full tilt AND slings heavy sway at once crosses,
+// and then it bleeds slowly. Orders of magnitude more forgiving than a real vial.
 const POUR_PHYS = {
-  liquid:  { mode: 'slosh', swayMax: 1.22, tiltMax: 0.92, rate: 1.0 },
-  gel:     { mode: 'slosh', swayMax: 1.36, tiltMax: 0.96, rate: 0.7 },   // viscous — forgiving
-  paste:   { mode: 'slosh', swayMax: 1.46, tiltMax: 1.00, rate: 0.6 },   // tar-thick — hardest to slop
-  gas:     { mode: 'vent',  swayMax: 1.14, tiltMax: 0.85, speedMax: 620, rate: 1.2, ventUp: true },  // pressurised — vents up if snatched
-  powder:  { mode: 'slosh', swayMax: 1.20, tiltMax: 0.90, rate: 0.9 },   // fine — puffs out if jostled
-  crystal: { mode: 'slosh', swayMax: 1.34, tiltMax: 0.95, rate: 0.8 },
-  pill:    { mode: 'slosh', swayMax: 1.50, tiltMax: 1.00, rate: 0.5 },   // tablets — rattle but rarely lost
-  leaf:    { mode: 'slosh', swayMax: 1.16, tiltMax: 0.90, rate: 1.0 },   // light — sloshes over easily
-  blotter: { mode: 'slosh', swayMax: 1.50, tiltMax: 1.00, rate: 0.4 },   // paper tabs — very stable
+  liquid:  { lip: 1.05, rate: 1.0 },                                // runniest — the least forgiving, but still needs a hard fling
+  gel:     { lip: 1.28, rate: 0.6 },                                // viscous — clings to the glass
+  paste:   { lip: 1.45, rate: 0.5 },                                // tar-thick — practically won't pour
+  gas:     { lip: 1.10, rate: 1.2, ventUp: true, speedMax: 900 },   // pressurised — only vents if truly whipped around
+  powder:  { lip: 1.18, rate: 0.9 },                                // fine — puffs over only on a hard jolt
+  crystal: { lip: 1.35, rate: 0.7 },
+  pill:    { lip: 1.60, rate: 0.5 },                                // tablets — rattle but essentially never spill
+  leaf:    { lip: 1.08, rate: 1.0 },                                // light
+  blotter: { lip: 1.65, rate: 0.4 },                                // paper tabs — rock stable
 };
-// How close a held container is to losing product (0..1+ of its tolerance) and
-// whether it's over. `level` drives the steadiness meter and the warn glow.
+// Is the held vessel tipped past the point its contents crest the lip? `level` (the
+// steadiness meter) reads crest/lip — 1.0 is right at the rim; `over` is how far past.
 function pourHazard(p, spd) {
   const cfg = POUR_PHYS[p.d.form] || POUR_PHYS.liquid;
-  const sway = Math.abs(p.slosh) / cfg.swayMax;                     // the ONLY driver now — how far it's sloshed
-  const speedR = cfg.mode === 'vent' ? spd / (cfg.speedMax || 620) : 0;   // gas also vents from raw speed
-  const level = Math.max(sway, speedR);                            // NOTE: tilt is purely visual, never spills on its own
-  return { hazard: level >= 1, level, sway, ventUp: !!cfg.ventUp, rate: cfg.rate || 1 };
+  const crest = Math.abs(p.tilt) * TILT_CREST + Math.abs(p.slosh) * SWAY_CREST;
+  const tipR = crest / cfg.lip;
+  const vent = cfg.ventUp ? Math.max(0, spd - (cfg.speedMax || 620)) / 260 : 0;   // gas also vents from raw speed
+  const level = Math.max(tipR, vent);
+  return { hazard: level > 1, over: Math.max(0, level - 1), level: clamp(level, 0, 1.3), ventUp: !!cfg.ventUp && vent > tipR, rate: cfg.rate || 1 };
+}
+// Bleed product out over the tipped lip (or up out of a vented valve). Shared by the
+// SELECT cradle-carry and the DECANT carry — drains the vessel, streams drips from the
+// lip, and books the loss + instability. `stage` supplies drips/lost/spillAlarm.
+function bleedFromLip(stage, p, hz, dt) {
+  const drain = hz.over * hz.rate * POUR_DRAIN * dt;              // fraction of the vessel out this frame
+  const before = p.remaining ?? 1; p.remaining = Math.max(0, before - drain);
+  const lost = (before - p.remaining) * 100;
+  stage.lost += lost; addInstability(lost * SPILL_INSTAB, null);
+  stage.spillAlarm();
+  if (Math.random() < 0.6) {
+    const dir = Math.sign(p.slosh || p.tilt || 1);
+    stage.drips.push(hz.ventUp
+      ? { x: p.x + rnd(10, -10), y: p.y - 26, vy: -55, life: 0, col: shade(p.d.color, 80) }
+      : { x: p.x + dir * 14 + rnd(4, -4), y: p.y - 14, vy: 40, life: 0, col: p.d.color });
+  }
 }
 // side-view drug table (far-left): drugs stand along the tabletop at y = H*0.60
 function tableHomes(n) { const x0 = W * 0.06, x1 = W * 0.46, top = H * 0.60, pad = 40, usable = (x1 - x0) - pad * 2, step = n > 1 ? Math.min(58, usable / (n - 1)) : 0, first = (x0 + x1) / 2 - step * (n - 1) / 2;
@@ -95,36 +122,16 @@ function bigWarn(text, tint, alpha) {
   G.shadowColor = `rgba(${tint},.9)`; G.shadowBlur = 20; G.fillStyle = `rgb(${tint})`; G.fillText(text, W / 2, y); G.shadowBlur = 0; G.restore();
 }
 function drawCarryWarn(s) {
-  // Live STEADINESS meter — the obvious feedback. Sway fills the bar toward the red
-  // spill line; keep it left of amber and you lose nothing. It decays as you settle.
-  if (!s.drag) s._sway = Math.max(0, (s._sway || 0) - 0.035);
-  const sway = clamp(s._sway || 0, 0, 1.12);
-  if (sway > 0.015 || s.drag) {
-    const bw = 240, bh = 13, bx = W / 2 - bw / 2, by = H * 0.115;
-    G.save();
-    G.fillStyle = 'rgba(6,12,10,.72)'; roundRect(bx - 4, by - 4, bw + 8, bh + 8, 5); G.fill();
-    G.strokeStyle = 'rgba(120,150,140,.4)'; G.lineWidth = 1; roundRect(bx - 4, by - 4, bw + 8, bh + 8, 5); G.stroke();
-    G.fillStyle = 'rgba(79,224,138,.10)'; roundRect(bx, by, bw * 0.55, bh, 3); G.fill();
-    G.fillStyle = 'rgba(255,178,62,.10)'; G.fillRect(bx + bw * 0.55, by, bw * 0.30, bh);
-    G.fillStyle = 'rgba(255,74,91,.12)'; G.fillRect(bx + bw * 0.85, by, bw * 0.15, bh);
-    const col = sway < 0.55 ? '#4fe08a' : sway < 0.85 ? '#ffb23e' : '#ff4a5b';
-    G.fillStyle = col; G.shadowColor = col; G.shadowBlur = sway > 0.85 ? 12 : 4;
-    roundRect(bx, by, bw * clamp(sway, 0, 1), bh, 3); G.fill(); G.shadowBlur = 0;
-    G.strokeStyle = 'rgba(255,74,91,.85)'; G.lineWidth = 2; G.beginPath(); G.moveTo(bx + bw, by - 3); G.lineTo(bx + bw, by + bh + 3); G.stroke();
-    G.font = '8px monospace'; G.textAlign = 'left'; G.fillStyle = 'rgba(150,180,170,.75)'; G.fillText('STEADINESS', bx, by - 7);
-    G.textAlign = 'right'; G.font = 'bold 8px monospace'; G.fillStyle = col;
-    G.fillText(sway >= 0.98 ? 'OVER!' : sway > 0.85 ? 'SLOSHING' : sway > 0.55 ? 'careful' : 'steady', bx + bw, by - 7);
-    G.restore();
-  }
+  // No steadiness meter — you carry by feel. Only the consequence shows: a flash while
+  // it's actually spilling, and the running product-loss tally.
   if (s._spillT > 0) bigWarn('⚠ SPILLING — LOSING PRODUCT ⚠', '255,74,91', .7 + .3 * Math.sin(s.t * 14));
-  else if (s.t < s.carefulUntil) bigWarn('⚠ CARRY IT STEADY — WATCH THE SWAY ⚠', '255,178,62', clamp(s.carefulUntil - s.t, 0, 1));
   if (s.lost > 0) { G.save(); G.textAlign = 'center'; G.globalAlpha = .85; G.fillStyle = '#ff6a6a'; G.font = 'bold 12px monospace'; G.fillText(`PRODUCT LOST: ${Math.round(s.lost)}%`, W / 2, H * 0.13 + 26); G.restore(); }
 }
 
 // ── entry points ─────────────────────────────────────────────────────────────
 export function openSpliceSelect(msg) {
   closeSplice();
-  const lab = mountLab({ title: 'CHIMERA-9', subtitle: 'SPLICE · SELECT', accent: '#4fe08a', showInsta: true });
+  const lab = mountLab({ title: 'CHIMERA-9', subtitle: 'SPLICE · SELECT', accent: '#4fe08a', showInsta: true, test: !!msg.test });
   ensureLabelStyle();
   game = newSession(lab, msg.test ? 'test' : 'real');
   game.drugs = (msg.drugs || []).map(d => ({
@@ -135,6 +142,7 @@ export function openSpliceSelect(msg) {
   game.stabilizerCount = msg.stabilizerCount ?? (msg.hasStabilizer ? 99 : 0);
   game.allow3way = !!msg.allow3way;
   game.qtyBase = 1; game.qtySplice = 1; game.qtySplice2 = 1;
+  game.compoundName = '';
   game.difficulty = msg.baseDifficulty || 8;
   wireInput(game);
   go(game, 'title');
@@ -148,6 +156,7 @@ export function openSpliceStages(opts) {
   const sel = (_stash && _stash.selection) || [];
   game.drugs = sel; game.selected = sel.slice();
   game.instability = (_stash && _stash.instability) || 0;
+  game.compoundName = (_stash && _stash.name) || '';
   game.difficulty = opts.difficulty || 8;
   game.onResolve = opts.onResult || null;
   game.automated = new Set(opts.automated || []);   // stage keys an automation rig handles
@@ -261,13 +270,13 @@ function ensureLabelStyle() {
   if (document.getElementById('splice-label-styles')) return;
   const s = document.createElement('style'); s.id = 'splice-label-styles';
   s.textContent = `
-  .splice-label{position:absolute;z-index:9;width:200px;pointer-events:none;background:linear-gradient(180deg,#0e1512,#080c0a);border:1px solid rgba(79,224,138,.4);border-radius:5px;padding:9px 10px;box-shadow:0 10px 30px rgba(0,0,0,.8);font-size:10px;font-family:var(--font-mono,monospace)}
-  .splice-label .nm{font-size:13px;letter-spacing:2px;color:#4fe08a;font-weight:bold;text-transform:uppercase}
-  .splice-label .row{display:flex;justify-content:space-between;color:#6f8a7c;margin:2px 0;text-transform:uppercase;font-size:8px;letter-spacing:1px}
-  .splice-label .row b{color:#cfe9d8}
-  .splice-label .blk{border-top:1px dashed rgba(79,224,138,.25);padding-top:5px;margin-top:5px;color:#cfe9d8;line-height:1.4}
+  .splice-label{position:absolute;z-index:9;width:200px;pointer-events:none;background:linear-gradient(180deg,color-mix(in srgb,var(--A,#4fe08a) 16%,var(--bg2,#0d0d16)),color-mix(in srgb,var(--A,#4fe08a) 6%,var(--bg2,#0d0d16)));border:1px solid color-mix(in srgb,var(--A,#4fe08a) 40%,transparent);border-radius:6px;padding:9px 10px;box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 45%,transparent),0 10px 30px rgba(0,0,0,.8);font-size:10px;font-family:'Courier New',var(--font-mono,monospace)}
+  .splice-label .nm{font-size:13px;letter-spacing:2px;color:var(--A,#4fe08a);font-weight:bold;text-transform:uppercase}
+  .splice-label .row{display:flex;justify-content:space-between;color:var(--fgdim,#6f8a7c);margin:2px 0;text-transform:uppercase;font-size:8px;letter-spacing:1px}
+  .splice-label .row b{color:color-mix(in srgb,var(--A,#4fe08a) 55%,#fff)}
+  .splice-label .blk{border-top:1px dashed color-mix(in srgb,var(--A,#4fe08a) 25%,transparent);padding-top:5px;margin-top:5px;color:color-mix(in srgb,var(--A,#4fe08a) 55%,#fff);line-height:1.4}
   .splice-label .redact{color:#3a4a42;background:#111}
-  .splice-label .known{position:absolute;top:8px;right:10px;font-size:7px;color:#6f8a7c;letter-spacing:1px}`;
+  .splice-label .known{position:absolute;top:8px;right:10px;font-size:7px;color:var(--fgdim,#6f8a7c);letter-spacing:1px}`;
   document.head.appendChild(s);
 }
 function showLabel(d, lx, ly) {
@@ -289,55 +298,66 @@ function hideLabel() { if (_labelEl) { _labelEl.remove(); _labelEl = null; } _la
 // ── drug package (by FORM, physics-tilted, sloshing) ─────────────────────────
 function drawPackage(d, x, y, inCradle, hi, t, phys) {
   phys = phys || {}; const tilt = phys.tilt || 0, slosh = phys.slosh || 0, warn = phys.warn || 0, held = phys.held, c = d.color;
+  const fill = clamp(phys.fill ?? 1, 0, 1);
+  // light from upper-left: a curved wall tint + two specular streaks give the glass volume
+  const glassLit = (w, h, r) => { const g = G.createLinearGradient(-w / 2, 0, w / 2, 0); g.addColorStop(0, 'rgba(150,180,190,.20)'); g.addColorStop(.42, 'rgba(205,228,236,.05)'); g.addColorStop(1, 'rgba(70,100,110,.24)'); G.fillStyle = g; roundRect(-w / 2, -h / 2, w, h, r); G.fill(); };
+  const glassSheen = (w, h) => { const sp = G.createLinearGradient(-w / 2 + 3, 0, -w / 2 + 9, 0); sp.addColorStop(0, 'rgba(255,255,255,.55)'); sp.addColorStop(1, 'rgba(255,255,255,0)'); G.fillStyle = sp; roundRect(-w / 2 + 3, -h / 2 + 7, 5, h - 16, 2); G.fill(); G.fillStyle = 'rgba(255,255,255,.12)'; roundRect(w / 2 - 5, -h / 2 + 12, 2, h - 26, 1); G.fill(); };
   G.save(); G.translate(x, y); G.rotate(tilt);
   if (hi || inCradle || warn > 0.05) { G.shadowColor = warn > 0.1 ? `rgba(255,90,90,${clamp(warn, 0, 1)})` : c; G.shadowBlur = held ? 26 : (inCradle ? 18 : 12); }
   if (d.form === 'liquid') {
     const gw = 26, gh = 62;
-    G.fillStyle = 'rgba(200,225,235,.10)'; roundRect(-gw / 2, -gh / 2, gw, gh, 8); G.fill();
+    glassLit(gw, gh, 8);
     G.save(); roundRect(-gw / 2 + 2, -gh / 2 + 3, gw - 4, gh - 6, 6); G.clip();
-    const fillTop = 6, s = -tilt;
+    // surface drops as the vial empties; `lean` piles the liquid to the side OPPOSITE the
+    // carry (inertia lag), on top of the gravity-leveling slope and a live ripple.
+    const fillTop = 6 + (1 - fill) * (gh - 18), s = -tilt + slosh * 0.42, wob = slosh * 2.4;
+    const surfY = px => fillTop + s * px + Math.sin(px * 0.35 + t * 7) * wob;
     G.beginPath(); G.moveTo(-gw / 2, gh / 2);
-    for (let px = -gw / 2; px <= gw / 2; px += 3) G.lineTo(px, fillTop + s * px + Math.sin(px * 0.35 + t * 7) * slosh * 2.4);
+    for (let px = -gw / 2; px <= gw / 2; px += 3) G.lineTo(px, surfY(px));
     G.lineTo(gw / 2, gh / 2); G.closePath();
-    const lg = G.createLinearGradient(0, fillTop - 6, 0, gh / 2); lg.addColorStop(0, shade(c, 42)); lg.addColorStop(.2, c); lg.addColorStop(1, shade(c, -46));
+    const lg = G.createLinearGradient(-gw / 2, fillTop - 8, gw / 2, gh / 2); lg.addColorStop(0, shade(c, 60)); lg.addColorStop(.28, shade(c, 14)); lg.addColorStop(1, shade(c, -52));
     G.fillStyle = lg; G.fill();
-    G.strokeStyle = shade(c, 72); G.lineWidth = 1.3; G.beginPath();
-    for (let px = -gw / 2; px <= gw / 2; px += 3) { const yy = fillTop + s * px + Math.sin(px * 0.35 + t * 7) * slosh * 2.4; px === -gw / 2 ? G.moveTo(px, yy) : G.lineTo(px, yy); } G.stroke();
-    for (let i = 0; i < 3; i++) { G.fillStyle = 'rgba(255,255,255,.22)'; G.beginPath(); G.arc(Math.sin(t * 2 + i + slosh) * 5, 16 + Math.cos(t * 1.7 + i) * 7, 1.5, 0, 7); G.fill(); }
+    G.strokeStyle = shade(c, 88); G.lineWidth = 1.4; G.globalAlpha = .85; G.beginPath();
+    for (let px = -gw / 2; px <= gw / 2; px += 3) { const yy = surfY(px); px === -gw / 2 ? G.moveTo(px, yy) : G.lineTo(px, yy); } G.stroke(); G.globalAlpha = 1;
+    for (let i = 0; i < 3; i++) { G.fillStyle = 'rgba(255,255,255,.22)'; G.beginPath(); G.arc(Math.sin(t * 2 + i + slosh) * 5, fillTop + 14 + Math.cos(t * 1.7 + i) * 7, 1.5, 0, 7); G.fill(); }
     G.restore();
-    G.strokeStyle = 'rgba(215,240,245,.55)'; G.lineWidth = 1.6; roundRect(-gw / 2, -gh / 2, gw, gh, 8); G.stroke();
-    G.fillStyle = 'rgba(255,255,255,.16)'; G.fillRect(-gw / 2 + 4, -gh / 2 + 8, 3, gh - 18);
-    G.fillStyle = '#2a343a'; roundRect(-8, -gh / 2 - 8, 16, 10, 2); G.fill(); G.fillStyle = '#1a2024'; G.fillRect(-6, -gh / 2 - 1, 12, 3);
+    G.strokeStyle = 'rgba(225,245,250,.6)'; G.lineWidth = 1.6; roundRect(-gw / 2, -gh / 2, gw, gh, 8); G.stroke();
+    glassSheen(gw, gh);
+    G.fillStyle = '#2a343a'; roundRect(-8, -gh / 2 - 8, 16, 10, 2); G.fill(); G.fillStyle = 'rgba(255,255,255,.14)'; G.fillRect(-7, -gh / 2 - 7, 14, 2); G.fillStyle = '#1a2024'; G.fillRect(-6, -gh / 2 - 1, 12, 3);
   } else if (d.form === 'powder') {
     const bw = 42, bh = 58;
-    G.fillStyle = 'rgba(200,220,230,.10)'; roundRect(-bw / 2, -bh / 2, bw, bh, 4); G.fill();
+    glassLit(bw, bh, 4);
     G.save(); roundRect(-bw / 2 + 3, -bh / 2 + 10, bw - 6, bh - 16, 3); G.clip();
-    const shift = slosh * 6;
-    G.fillStyle = shade(c, -6); G.beginPath(); G.moveTo(-bw / 2, bh / 2);
-    for (let px = -bw / 2; px <= bw / 2; px += 4) G.lineTo(px, bh / 2 - 14 - Math.cos(px * 0.11) * 4 - px * 0.02 * shift);
+    const shift = slosh * 6, heapH = (bh - 26) * fill, heapTop = bh / 2 - 4 - heapH;
+    const pg = G.createLinearGradient(0, heapTop - 4, 0, bh / 2); pg.addColorStop(0, shade(c, 18)); pg.addColorStop(1, shade(c, -24));
+    G.fillStyle = pg; G.beginPath(); G.moveTo(-bw / 2, bh / 2);
+    for (let px = -bw / 2; px <= bw / 2; px += 4) G.lineTo(px, heapTop - Math.cos(px * 0.11) * 4 - px * 0.02 * shift);
     G.lineTo(bw / 2, bh / 2); G.closePath(); G.fill();
-    for (let i = 0; i < 26; i++) { G.fillStyle = i % 3 ? shade(c, 22) : shade(c, -28); G.fillRect(-bw / 2 + 2 + Math.random() * (bw - 4), bh / 2 - 2 - Math.random() * 20, 1.4, 1.4); }
-    if (d.sub === 'crystalline') { G.fillStyle = 'rgba(255,255,255,.45)'; for (let i = 0; i < 6; i++) { G.save(); G.translate(-12 + Math.random() * 24, bh / 2 - 4 - Math.random() * 14); G.rotate(Math.random() * 3); G.fillRect(-1, -3, 2, 6); G.restore(); } }
+    for (let i = 0; i < 26; i++) { G.fillStyle = i % 3 ? shade(c, 26) : shade(c, -30); G.fillRect(-bw / 2 + 2 + Math.random() * (bw - 4), bh / 2 - 2 - Math.random() * Math.max(4, heapH - 2), 1.4, 1.4); }
+    if (d.sub === 'crystalline') { G.fillStyle = 'rgba(255,255,255,.5)'; for (let i = 0; i < 6; i++) { G.save(); G.translate(-12 + Math.random() * 24, bh / 2 - 4 - Math.random() * Math.max(6, heapH - 4)); G.rotate(Math.random() * 3); G.fillRect(-1, -3, 2, 6); G.restore(); } }
     G.restore();
-    G.strokeStyle = 'rgba(210,230,240,.4)'; G.lineWidth = 1.2; roundRect(-bw / 2, -bh / 2, bw, bh, 4); G.stroke();
-    G.fillStyle = 'rgba(232,242,246,.7)'; G.fillRect(-bw / 2, -bh / 2, bw, 7);
+    G.strokeStyle = 'rgba(210,230,240,.42)'; G.lineWidth = 1.2; roundRect(-bw / 2, -bh / 2, bw, bh, 4); G.stroke();
+    const cap = G.createLinearGradient(0, -bh / 2, 0, -bh / 2 + 7); cap.addColorStop(0, 'rgba(240,248,250,.8)'); cap.addColorStop(1, 'rgba(190,205,212,.55)');
+    G.fillStyle = cap; G.fillRect(-bw / 2, -bh / 2, bw, 7);
     G.strokeStyle = 'rgba(120,140,150,.5)'; G.lineWidth = 1; for (let i = -bw / 2 + 2; i < bw / 2; i += 3) { G.beginPath(); G.moveTo(i, -bh / 2); G.lineTo(i, -bh / 2 + 6); G.stroke(); }
-    G.fillStyle = 'rgba(255,255,255,.10)'; G.fillRect(-bw / 2 + 4, -bh / 2 + 10, 3, bh - 22);
+    glassSheen(bw, bh);
   } else if (d.form === 'gel') {
-    const amp = 1 + Math.abs(slosh) * 0.5;
-    const gg = G.createRadialGradient(-4, -4, 3, 0, 4, 26 * amp); gg.addColorStop(0, shade(c, 72)); gg.addColorStop(1, shade(c, -18));
+    const amp = (1 + Math.abs(slosh) * 0.5) * (0.62 + 0.38 * fill);   // blob shrinks as it drains
+    const gg = G.createRadialGradient(-5, -6, 3, 0, 5, 28 * amp); gg.addColorStop(0, shade(c, 84)); gg.addColorStop(.5, c); gg.addColorStop(1, shade(c, -30));
     G.fillStyle = gg; blob(0, 0, 24 * amp, 20 / amp, t * 1.6 + slosh * 3); G.fill();
     G.strokeStyle = 'rgba(255,255,255,.5)'; G.lineWidth = 1.4; blob(0, 0, 24 * amp, 20 / amp, t * 1.6 + slosh * 3); G.stroke();
-    G.fillStyle = 'rgba(255,255,255,.4)'; G.beginPath(); G.arc(Math.sin(t * 1.3) * 5 + slosh * 6, Math.cos(t * 1.1) * 4, 4, 0, 7); G.fill();
-    G.globalAlpha = .5; G.fillStyle = shade(c, 90); G.beginPath(); G.arc(slosh * 4, 2, 8, 0, 7); G.fill(); G.globalAlpha = 1;
+    G.globalAlpha = .5; G.strokeStyle = shade(c, -40); G.lineWidth = 2.4; blob(1, 2, 22 * amp, 18 / amp, t * 1.6 + slosh * 3); G.stroke(); G.globalAlpha = 1;   // lower-right core shadow = volume
+    G.fillStyle = 'rgba(255,255,255,.45)'; G.beginPath(); G.arc(Math.sin(t * 1.3) * 5 + slosh * 6 - 4, Math.cos(t * 1.1) * 4 - 5, 4, 0, 7); G.fill();
+    G.globalAlpha = .5; G.fillStyle = shade(c, 95); G.beginPath(); G.arc(slosh * 4, 2, 8, 0, 7); G.fill(); G.globalAlpha = 1;
   } else if (d.form === 'gas') {
     const cw = 26, ch = 60;
-    const bg = G.createLinearGradient(-cw / 2, 0, cw / 2, 0); bg.addColorStop(0, '#3a444c'); bg.addColorStop(.5, '#8a97a2'); bg.addColorStop(1, '#2a3138');
+    const bg = G.createLinearGradient(-cw / 2, 0, cw / 2, 0); bg.addColorStop(0, '#2a333b'); bg.addColorStop(.32, '#9aa7b2'); bg.addColorStop(.5, '#c4d0d8'); bg.addColorStop(.7, '#7a8792'); bg.addColorStop(1, '#232a30');
     G.fillStyle = bg; roundRect(-cw / 2, -ch / 2 + 6, cw, ch - 6, 6); G.fill();
-    G.globalAlpha = .8; G.fillStyle = c; G.fillRect(-cw / 2 + 2, ch / 2 - 20, cw - 4, 14); G.globalAlpha = 1;
-    G.strokeStyle = shade(c, 60); G.lineWidth = 1; G.strokeRect(-cw / 2 + 2, ch / 2 - 20, cw - 4, 14);
+    const band = 22 * fill; G.globalAlpha = .82; G.fillStyle = c; G.fillRect(-cw / 2 + 2, ch / 2 - 2 - band, cw - 4, band); G.globalAlpha = 1;
+    G.strokeStyle = shade(c, 60); G.lineWidth = 1; G.strokeRect(-cw / 2 + 2, ch / 2 - 2 - band, cw - 4, band);
     G.strokeStyle = 'rgba(220,235,240,.5)'; G.lineWidth = 1.4; roundRect(-cw / 2, -ch / 2 + 6, cw, ch - 6, 6); G.stroke();
-    G.fillStyle = 'rgba(255,255,255,.25)'; G.fillRect(-cw / 2 + 4, -ch / 2 + 10, 3, ch - 20);
+    G.fillStyle = 'rgba(255,255,255,.35)'; G.fillRect(-cw / 2 + 4, -ch / 2 + 10, 3, ch - 22);
+    G.fillStyle = 'rgba(255,255,255,.12)'; G.fillRect(cw / 2 - 5, -ch / 2 + 14, 2, ch - 30);
     G.fillStyle = '#20262b'; G.fillRect(-4, -ch / 2 - 4, 8, 12); G.fillStyle = '#4a545c'; G.fillRect(-6, -ch / 2 - 6, 12, 4);
     G.save(); G.translate(0, -ch / 2 + 18);
     G.fillStyle = '#0c1114'; G.beginPath(); G.arc(0, 0, 7, 0, 7); G.fill(); G.strokeStyle = 'rgba(200,220,225,.5)'; G.lineWidth = 1; G.stroke();
@@ -347,51 +367,61 @@ function drawPackage(d, x, y, inCradle, hi, t, phys) {
   } else if (d.form === 'crystal') {
     G.fillStyle = 'rgba(180,190,200,.3)'; G.beginPath(); G.ellipse(0, 14, 22, 7, 0, 0, 7); G.fill();
     G.strokeStyle = 'rgba(210,220,230,.4)'; G.lineWidth = 1; G.stroke();
-    const cg = G.createLinearGradient(0, -24, 0, 14); cg.addColorStop(0, shade(c, 80)); cg.addColorStop(.5, c); cg.addColorStop(1, shade(c, -30));
+    const cg = G.createLinearGradient(-13, -26, 13, 14); cg.addColorStop(0, shade(c, 94)); cg.addColorStop(.45, c); cg.addColorStop(1, shade(c, -38));
     G.fillStyle = cg; G.beginPath(); G.moveTo(0, -26); G.lineTo(-13, -2); G.lineTo(-7, 14); G.lineTo(7, 14); G.lineTo(13, -2); G.closePath(); G.fill();
+    G.fillStyle = 'rgba(0,0,0,.22)'; G.beginPath(); G.moveTo(0, -26); G.lineTo(13, -2); G.lineTo(7, 14); G.lineTo(0, 8); G.closePath(); G.fill();   // shaded right facets = volume
     G.strokeStyle = 'rgba(255,255,255,.5)'; G.lineWidth = 1; G.beginPath(); G.moveTo(0, -26); G.lineTo(-7, 14); G.moveTo(0, -26); G.lineTo(7, 14); G.moveTo(-13, -2); G.lineTo(13, -2); G.stroke();
-    G.shadowColor = c; G.shadowBlur = hi || inCradle ? 18 : 10; G.strokeStyle = shade(c, 50); G.beginPath(); G.moveTo(0, -26); G.lineTo(-13, -2); G.lineTo(-7, 14); G.lineTo(7, 14); G.lineTo(13, -2); G.closePath(); G.stroke(); G.shadowBlur = 0;
-    G.fillStyle = 'rgba(255,255,255,.8)'; G.beginPath(); G.arc(-3, -8, 1.5, 0, 7); G.fill();
-    G.fillStyle = 'rgba(255,255,255,.5)'; G.beginPath(); G.arc(4, 2, 1, 0, 7); G.fill();
+    G.shadowColor = c; G.shadowBlur = hi || inCradle ? 18 : 10; G.strokeStyle = shade(c, 55); G.beginPath(); G.moveTo(0, -26); G.lineTo(-13, -2); G.lineTo(-7, 14); G.lineTo(7, 14); G.lineTo(13, -2); G.closePath(); G.stroke(); G.shadowBlur = 0;
+    G.fillStyle = 'rgba(255,255,255,.85)'; G.beginPath(); G.arc(-4, -10, 1.6, 0, 7); G.fill();
+    G.fillStyle = 'rgba(255,255,255,.5)'; G.beginPath(); G.arc(3, 1, 1, 0, 7); G.fill();
   } else if (d.form === 'blotter') {
     const bw = 44, bh = 44, cell = bw / 4;
-    G.fillStyle = 'rgba(232,227,212,.92)'; roundRect(-bw / 2, -bh / 2, bw, bh, 2); G.fill();
+    const pg = G.createLinearGradient(-bw / 2, -bh / 2, bw / 2, bh / 2); pg.addColorStop(0, 'rgba(244,240,228,.95)'); pg.addColorStop(1, 'rgba(206,200,182,.9)');
+    G.fillStyle = pg; roundRect(-bw / 2, -bh / 2, bw, bh, 2); G.fill();
     for (let r = 0; r < 4; r++) for (let cc = 0; cc < 4; cc++) { const px = -bw / 2 + cc * cell, py = -bh / 2 + r * cell;
-      G.globalAlpha = .85; G.fillStyle = ((r + cc) % 2) ? shade(c, 10) : shade(c, -15); G.fillRect(px + 1, py + 1, cell - 2, cell - 2); G.globalAlpha = 1;
-      G.fillStyle = shade(c, 60); G.beginPath(); G.arc(px + cell / 2, py + cell / 2, 1.4, 0, 7); G.fill(); }
+      G.globalAlpha = .85; G.fillStyle = ((r + cc) % 2) ? shade(c, 12) : shade(c, -16); G.fillRect(px + 1, py + 1, cell - 2, cell - 2); G.globalAlpha = 1;
+      G.fillStyle = shade(c, 64); G.beginPath(); G.arc(px + cell / 2, py + cell / 2, 1.4, 0, 7); G.fill(); }
     G.strokeStyle = 'rgba(120,110,90,.4)'; G.lineWidth = .5; G.setLineDash([1, 2]);
     for (let i = 1; i < 4; i++) { G.beginPath(); G.moveTo(-bw / 2 + i * cell, -bh / 2); G.lineTo(-bw / 2 + i * cell, bh / 2); G.moveTo(-bw / 2, -bh / 2 + i * cell); G.lineTo(bw / 2, -bh / 2 + i * cell); G.stroke(); }
     G.setLineDash([]); G.strokeStyle = 'rgba(120,110,90,.5)'; G.lineWidth = 1; roundRect(-bw / 2, -bh / 2, bw, bh, 2); G.stroke();
+    G.fillStyle = 'rgba(255,255,255,.3)'; G.beginPath(); G.moveTo(-bw / 2, -bh / 2); G.lineTo(-bw / 2 + 14, -bh / 2); G.lineTo(-bw / 2, -bh / 2 + 14); G.closePath(); G.fill();
   } else if (d.form === 'paste') {
+    const amp = 0.66 + 0.34 * fill;
     G.fillStyle = 'rgba(200,195,180,.25)'; roundRect(-24, -18, 48, 36, 4); G.fill();
-    const tg = G.createRadialGradient(-5, -5, 3, 0, 3, 24); tg.addColorStop(0, shade(c, 30)); tg.addColorStop(.6, shade(c, -40)); tg.addColorStop(1, shade(c, -70));
-    G.fillStyle = tg; blob(0, 0, 22, 15, t * 0.6 + slosh * 1.5); G.fill();
-    G.fillStyle = 'rgba(255,255,255,.3)'; G.beginPath(); G.ellipse(-5, -5, 7, 3, -0.4, 0, 7); G.fill();
+    const tg = G.createRadialGradient(-6, -6, 3, 0, 3, 26); tg.addColorStop(0, shade(c, 40)); tg.addColorStop(.6, shade(c, -42)); tg.addColorStop(1, shade(c, -72));
+    G.fillStyle = tg; blob(0, 0, 22 * amp, 15 * amp, t * 0.6 + slosh * 1.5); G.fill();
+    G.fillStyle = 'rgba(255,255,255,.32)'; G.beginPath(); G.ellipse(-5, -5, 7, 3, -0.4, 0, 7); G.fill();
     G.fillStyle = 'rgba(255,255,255,.15)'; G.beginPath(); G.ellipse(6, 3, 4, 2, 0.3, 0, 7); G.fill();
     G.strokeStyle = 'rgba(200,195,180,.4)'; G.lineWidth = 1; roundRect(-24, -18, 48, 36, 4); G.stroke();
+    G.fillStyle = 'rgba(255,255,255,.14)'; G.fillRect(-22, -16, 3, 30);
   } else if (d.form === 'leaf') {
     const bw = 42, bh = 56;
-    G.fillStyle = 'rgba(200,220,230,.10)'; roundRect(-bw / 2, -bh / 2, bw, bh, 4); G.fill();
+    glassLit(bw, bh, 4);
     G.save(); roundRect(-bw / 2 + 3, -bh / 2 + 10, bw - 6, bh - 16, 3); G.clip();
-    const shift = slosh * 5;
-    for (let i = 0; i < 22; i++) { G.save(); G.translate(-bw / 2 + 5 + Math.random() * (bw - 10) - shift * 0.3, bh / 2 - 5 - Math.random() * 24); G.rotate(Math.random() * 3);
-      G.fillStyle = i % 3 ? shade(c, 10) : shade(c, -24); G.beginPath(); G.moveTo(0, -2.5); G.lineTo(2, 0); G.lineTo(0, 2.5); G.lineTo(-2, 0); G.closePath(); G.fill(); G.restore(); }
-    for (let k = 0; k < 2; k++) { G.save(); G.translate(-7 + k * 14, 8); G.rotate(0.4 - k * 0.8);
-      G.fillStyle = shade(c, k ? 24 : -8); G.beginPath(); G.ellipse(0, 0, 3, 8, 0, 0, 7); G.fill();
+    const shift = slosh * 5, spread = Math.max(6, (bh - 22) * fill);
+    for (let i = 0; i < 22; i++) { G.save(); G.translate(-bw / 2 + 5 + Math.random() * (bw - 10) - shift * 0.3, bh / 2 - 5 - Math.random() * spread); G.rotate(Math.random() * 3);
+      G.fillStyle = i % 3 ? shade(c, 12) : shade(c, -24); G.beginPath(); G.moveTo(0, -2.5); G.lineTo(2, 0); G.lineTo(0, 2.5); G.lineTo(-2, 0); G.closePath(); G.fill(); G.restore(); }
+    for (let k = 0; k < 2; k++) { G.save(); G.translate(-7 + k * 14, bh / 2 - 5 - Math.min(14, spread * 0.5)); G.rotate(0.4 - k * 0.8);
+      G.fillStyle = shade(c, k ? 26 : -8); G.beginPath(); G.ellipse(0, 0, 3, 8, 0, 0, 7); G.fill();
       G.strokeStyle = shade(c, -30); G.lineWidth = 0.6; G.beginPath(); G.moveTo(0, -7); G.lineTo(0, 7); G.stroke(); G.restore(); }
     G.restore();
-    G.strokeStyle = 'rgba(210,230,240,.4)'; G.lineWidth = 1.2; roundRect(-bw / 2, -bh / 2, bw, bh, 4); G.stroke();
-    G.fillStyle = 'rgba(232,242,246,.7)'; G.fillRect(-bw / 2, -bh / 2, bw, 7);
+    G.strokeStyle = 'rgba(210,230,240,.42)'; G.lineWidth = 1.2; roundRect(-bw / 2, -bh / 2, bw, bh, 4); G.stroke();
+    const capL = G.createLinearGradient(0, -bh / 2, 0, -bh / 2 + 7); capL.addColorStop(0, 'rgba(240,248,250,.8)'); capL.addColorStop(1, 'rgba(190,205,212,.55)');
+    G.fillStyle = capL; G.fillRect(-bw / 2, -bh / 2, bw, 7);
     G.strokeStyle = 'rgba(120,140,150,.5)'; G.lineWidth = 1; for (let i = -bw / 2 + 2; i < bw / 2; i += 3) { G.beginPath(); G.moveTo(i, -bh / 2); G.lineTo(i, -bh / 2 + 6); G.stroke(); }
+    glassSheen(bw, bh);
   } else {
     const bw = 46, bh = 40;
-    G.fillStyle = 'rgba(180,190,200,.32)'; roundRect(-bw / 2, -bh / 2, bw, bh, 4); G.fill();
+    const pk = G.createLinearGradient(-bw / 2, -bh / 2, bw / 2, bh / 2); pk.addColorStop(0, 'rgba(198,208,218,.4)'); pk.addColorStop(1, 'rgba(150,160,172,.3)');
+    G.fillStyle = pk; roundRect(-bw / 2, -bh / 2, bw, bh, 4); G.fill();
     for (let r = 0; r < 2; r++) for (let cc = 0; cc < 3; cc++) { const px = -14 + cc * 14, py = -8 + r * 16 + slosh * 1.4 * (r ? 1 : -1);
-      G.fillStyle = 'rgba(230,235,240,.5)'; G.beginPath(); G.arc(px, py, 6, 0, 7); G.fill();
-      G.fillStyle = c; G.beginPath(); G.arc(px, py, 4.4, 0, 7); G.fill();
-      G.fillStyle = 'rgba(255,255,255,.5)'; G.fillRect(px - 3, py - .5, 6, 1); }
-    G.strokeStyle = 'rgba(200,210,220,.4)'; G.lineWidth = 1; roundRect(-bw / 2, -bh / 2, bw, bh, 4); G.stroke();
-    G.fillStyle = 'rgba(255,255,255,.10)'; roundRect(-bw / 2 + 3, -bh / 2 + 3, bw - 6, 5, 2); G.fill();
+      G.fillStyle = 'rgba(20,26,30,.4)'; G.beginPath(); G.arc(px + 1, py + 1.5, 6, 0, 7); G.fill();
+      G.fillStyle = 'rgba(235,240,245,.55)'; G.beginPath(); G.arc(px, py, 6, 0, 7); G.fill();
+      const pil = G.createRadialGradient(px - 2, py - 2, 1, px, py, 5); pil.addColorStop(0, shade(c, 55)); pil.addColorStop(1, shade(c, -18));
+      G.fillStyle = pil; G.beginPath(); G.arc(px, py, 4.4, 0, 7); G.fill();
+      G.fillStyle = 'rgba(255,255,255,.7)'; G.beginPath(); G.arc(px - 1.6, py - 1.6, 1.4, 0, 7); G.fill(); }
+    G.strokeStyle = 'rgba(210,220,230,.45)'; G.lineWidth = 1; roundRect(-bw / 2, -bh / 2, bw, bh, 4); G.stroke();
+    G.fillStyle = 'rgba(255,255,255,.14)'; roundRect(-bw / 2 + 3, -bh / 2 + 3, bw - 6, 5, 2); G.fill();
   }
   G.shadowBlur = 0; G.restore();
   if (phys.noName) return; // scattered title-screen packages carry no label
@@ -509,10 +539,10 @@ STAGES.select = {
   enter() {
     const g = game; const homes = tableHomes(g.drugs.length);
     this.pkgs = g.drugs.map((d, i) => { const hx = homes[i].x, hy = homes[i].y, w = 2 * Math.PI * (FORM_FREQ[d.form] || 2.2), k = w * w, c = 2 * 0.62 * w;
-      return { d, home: { x: hx, y: hy }, x: hx, y: hy, vx: 0, vy: 0, pvx: 0, tilt: 0, slosh: 0, sloshV: 0, held: false, inCradle: false, gdx: 0, gdy: 0, k, c, fluid: FORM_FLUID[d.sub] ?? .3, spill: 0, warn: 0 }; });
+      return { d, home: { x: hx, y: hy }, x: hx, y: hy, vx: 0, vy: 0, pvx: 0, tilt: 0, slosh: 0, sloshV: 0, held: false, inCradle: false, gdx: 0, gdy: 0, k, c, fluid: FORM_FLUID[d.sub] ?? .3, remaining: 1, warn: 0 }; });
     this.cradle = { x: W * 0.73, y: H * 0.60, r: 58 };
     this.drag = null; this.pressP = null; this.pressT = 0; this.moved = false; this.hover = null; this.t = 0; this.drips = [];
-    this.everGrabbed = false; this.carefulUntil = 0; this._spillT = 0; this._alarmT = 0; this.lost = 0;
+    this._spillT = 0; this._alarmT = 0; this.lost = 0;
     this.mkBtns(); g.selected = []; this.sync();
     g.lab.ticker('drag a drug from the table into the reaction cradle. carry it steady. tap one to read its label.');
     AX.loop('hood', { freq: 60, type: 'sawtooth', gain: .03, filt: 340, tremRate: 7, tremDepth: .3 });
@@ -520,10 +550,17 @@ STAGES.select = {
   exit() { AX.stop('hood'); game.lab.canvas.style.cursor = 'default'; },
   mkBtns() {
     this.splice = mkBtn('SPLICE ▶', 'right:22px;bottom:44px'); this.splice.disabled = true;
-    this.splice.onclick = () => { if (game.selected.length >= 2) { AX.confirm(); this.commit(); } };
+    this.splice.onclick = () => { if (this.canCommit()) { AX.confirm(); this.commit(); } else if (!game.compoundName) { this.nameEl.focus(); this.nameEl.classList.add('lab-shake'); setTimeout(() => this.nameEl.classList.remove('lab-shake'), 400); } };
     this.clr = mkBtn('CLEAR', 'right:150px;bottom:44px', 'ghost');
     this.clr.onclick = () => { AX.click(); this.pkgs.forEach(p => p.inCradle = false); game.selected = []; this.sync(); };
-    this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:1px;text-transform:uppercase;pointer-events:none;text-align:center;width:70%');
+    // Required naming — you label the compound before you can splice it.
+    this.nameEl = document.createElement('input'); this.nameEl.className = 'lab-field'; this.nameEl.maxLength = 28;
+    this.nameEl.placeholder = 'NAME YOUR COMPOUND…'; this.nameEl.value = game.compoundName || '';
+    this.nameEl.setAttribute('style', 'position:absolute;left:22px;bottom:44px;width:300px;pointer-events:auto');
+    this.nameEl.oninput = () => { game.compoundName = this.nameEl.value.replace(/\s+/g, ' ').trimStart().slice(0, 28); this.sync(); };
+    this.nameEl.onkeydown = (e) => { if (e.key !== 'Escape') e.stopPropagation(); if (e.key === 'Enter' && this.canCommit()) { AX.confirm(); this.commit(); } };
+    game.lab.ui.appendChild(this.nameEl);
+    this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:var(--fgdim);font-size:13px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;pointer-events:none;text-align:center;width:70%;text-shadow:0 0 6px color-mix(in srgb,var(--bg,#05050a) 85%,transparent)');
     // Persistent picker panels: BASE + SPLICE (+ SPLICE 2 when unlocked), each with
     // a colour-swatch "raw graphic", effect readout, and a quantity stepper, plus a
     // projected OUTPUT. Layout tightens to four columns when the 3rd slot is open.
@@ -537,23 +574,23 @@ STAGES.select = {
     this.risk = this.pOut.risk;   // the live splice_preview readout feeds the OUTPUT panel
   },
   mkSlotPanel(role, idx, qtyKey, leftPx, wd) {
-    const STEP = 'width:22px;height:22px;border-radius:4px;background:#12241b;border:1px solid rgba(79,224,138,.4);color:#4fe08a;font-size:15px;line-height:1;cursor:pointer;padding:0';
-    const el = mkEl(`position:absolute;left:${leftPx}px;bottom:74px;width:${wd}px;background:rgba(9,18,14,.88);border:1px solid rgba(79,224,138,.3);border-radius:7px;padding:9px 11px;font-family:monospace;pointer-events:auto;box-sizing:border-box`);
+    const STEP = 'width:22px;height:22px;border-radius:4px;background:var(--surf-lo);border:1px solid color-mix(in srgb,var(--A) 42%,transparent);color:var(--A);font-size:15px;line-height:1;cursor:pointer;padding:0';
+    const el = mkEl(`position:absolute;left:${leftPx}px;bottom:74px;width:${wd}px;background:linear-gradient(180deg,var(--surf-hi),var(--surf-lo));border:1px solid color-mix(in srgb,var(--A) 32%,transparent);border-radius:8px;box-shadow:inset 0 1px 0 var(--bevhi),0 6px 18px rgba(0,0,0,.5);padding:9px 11px;font-family:inherit;pointer-events:auto;box-sizing:border-box`);
     el.innerHTML =
       `<div style="display:flex;align-items:center;justify-content:space-between">` +
-        `<span style="font-size:9px;letter-spacing:2px;color:#6f8a7c">${role}</span>` +
-        `<button class="cx" title="clear" style="background:none;border:none;color:#6f8a7c;font-size:12px;cursor:pointer;padding:0">✕</button></div>` +
+        `<span style="font-size:11px;letter-spacing:2px;color:var(--fgdim);font-weight:bold">${role}</span>` +
+        `<button class="cx" title="clear" style="background:none;border:none;color:var(--fgdim);font-size:14px;font-weight:bold;cursor:pointer;padding:0">✕</button></div>` +
       `<div style="display:flex;align-items:center;gap:8px;margin-top:5px">` +
-        `<div class="sw" style="width:30px;height:30px;border-radius:6px;background:#1a2a22;border:1px solid #0007;flex:none;box-shadow:inset 0 0 6px #0008"></div>` +
-        `<div class="nm" style="font-size:11px;color:#6f8a7c;line-height:1.25;flex:1;min-width:0">— empty —</div></div>` +
-      `<div class="fm" style="font-size:8px;color:#7f9a8c;margin-top:5px;text-transform:uppercase;letter-spacing:1px;min-height:10px"></div>` +
-      `<div class="ef" style="font-size:8px;color:#9fc7ac;margin-top:4px;line-height:1.45;white-space:pre-line;min-height:22px">drop a drug into the cradle</div>` +
-      `<div class="qr" style="display:flex;align-items:center;gap:7px;margin-top:6px;opacity:.4">` +
-        `<span style="font-size:8px;color:#6f8a7c;letter-spacing:1px">QTY</span>` +
+        `<div class="sw" style="width:30px;height:30px;border-radius:6px;background:var(--bg,#1a2a22);border:1px solid #0007;flex:none;box-shadow:inset 0 0 6px #0008"></div>` +
+        `<div class="nm" style="font-size:14px;font-weight:bold;color:var(--fgdim);line-height:1.25;flex:1;min-width:0">— empty —</div></div>` +
+      `<div class="fm" style="font-size:10px;font-weight:bold;color:var(--fgdim);margin-top:5px;text-transform:uppercase;letter-spacing:1px;min-height:12px"></div>` +
+      `<div class="ef" style="font-size:11px;font-weight:bold;color:var(--fgdim);margin-top:4px;line-height:1.45;white-space:pre-line;min-height:28px">drop a drug into the cradle</div>` +
+      `<div class="qr" style="display:flex;align-items:center;gap:7px;margin-top:6px;opacity:.55">` +
+        `<span style="font-size:10px;font-weight:bold;color:var(--fgdim);letter-spacing:1px">QTY</span>` +
         `<button class="qm" style="${STEP}">−</button>` +
-        `<span class="qn" style="font-size:13px;color:#4fe08a;min-width:26px;text-align:center;font-weight:bold">×1</span>` +
+        `<span class="qn" style="font-size:16px;color:var(--A);min-width:26px;text-align:center;font-weight:bold">×1</span>` +
         `<button class="qp" style="${STEP}">+</button>` +
-        `<span class="av" style="font-size:8px;color:#6f8a7c;margin-left:auto"></span></div>`;
+        `<span class="av" style="font-size:10px;font-weight:bold;color:var(--fgdim);margin-left:auto"></span></div>`;
     const p = { el, sw: el.querySelector('.sw'), nm: el.querySelector('.nm'), fm: el.querySelector('.fm'), ef: el.querySelector('.ef'), qn: el.querySelector('.qn'), qr: el.querySelector('.qr'), av: el.querySelector('.av') };
     el.querySelector('.cx').onclick = () => { const d = game.selected[idx]; if (!d) return; const pk = this.pkgs.find(x => x.d === d); if (pk) pk.inCradle = false; game.selected = game.selected.filter(x => x !== d); AX.click(); this.sync(); };
     el.querySelector('.qm').onclick = () => { game[qtyKey]--; AX.tick(); this.sync(); };
@@ -561,23 +598,23 @@ STAGES.select = {
     return p;
   },
   mkOutPanel(leftPx, wd) {
-    const el = mkEl(`position:absolute;left:${leftPx}px;bottom:74px;width:${wd}px;background:rgba(9,18,14,.88);border:1px solid rgba(95,208,224,.32);border-radius:7px;padding:9px 11px;font-family:monospace;pointer-events:none;box-sizing:border-box`);
+    const el = mkEl(`position:absolute;left:${leftPx}px;bottom:74px;width:${wd}px;background:linear-gradient(180deg,var(--surf-hi),var(--surf-lo));border:1px solid color-mix(in srgb,var(--A) 34%,transparent);border-radius:8px;box-shadow:inset 0 1px 0 var(--bevhi),0 6px 18px rgba(0,0,0,.5);padding:9px 11px;font-family:inherit;pointer-events:none;box-sizing:border-box`);
     el.innerHTML =
-      `<div style="font-size:9px;letter-spacing:2px;color:#6f8a7c">OUTPUT</div>` +
+      `<div style="font-size:11px;letter-spacing:2px;color:var(--fgdim);font-weight:bold">OUTPUT</div>` +
       `<div style="display:flex;align-items:center;gap:8px;margin-top:5px">` +
-        `<div class="sw" style="width:30px;height:30px;border-radius:6px;background:#1a2a22;border:1px solid #0007;flex:none;box-shadow:inset 0 0 6px #0008"></div>` +
-        `<div class="nm" style="font-size:11px;color:#6f8a7c;line-height:1.25">— nothing yet —</div></div>` +
-      `<div class="ds" style="font-size:9px;color:#5fd0e0;margin-top:5px;letter-spacing:1px;min-height:11px"></div>` +
-      `<div class="risk" style="font-size:8px;color:#c9a06a;margin-top:5px;line-height:1.5;white-space:pre-line;min-height:30px"></div>`;
+        `<div class="sw" style="width:30px;height:30px;border-radius:6px;background:var(--bg,#1a2a22);border:1px solid #0007;flex:none;box-shadow:inset 0 0 6px #0008"></div>` +
+        `<div class="nm" style="font-size:14px;font-weight:bold;color:var(--fgdim);line-height:1.25">— nothing yet —</div></div>` +
+      `<div class="ds" style="font-size:11px;font-weight:bold;color:var(--A);margin-top:5px;letter-spacing:1px;min-height:13px"></div>` +
+      `<div class="risk" style="font-size:10px;font-weight:bold;color:var(--orange,#e0b878);margin-top:5px;line-height:1.5;white-space:pre-line;min-height:34px"></div>`;
     return { el, sw: el.querySelector('.sw'), nm: el.querySelector('.nm'), ds: el.querySelector('.ds'), risk: el.querySelector('.risk') };
   },
   refreshPanels() {
     const g = game;
     const fill = (p, drug, qty) => {
       if (!p) return;
-      if (!drug) { p.sw.style.background = '#1a2a22'; p.sw.style.boxShadow = 'inset 0 0 6px #0008'; p.nm.textContent = '— empty —'; p.nm.style.color = '#6f8a7c'; p.fm.textContent = ''; p.ef.textContent = 'drop a drug into the cradle'; p.qn.textContent = '×1'; p.av.textContent = ''; p.qr.style.opacity = '.4'; return; }
+      if (!drug) { p.sw.style.background = 'var(--bg,#1a2a22)'; p.sw.style.boxShadow = 'inset 0 0 6px #0008'; p.nm.textContent = '— empty —'; p.nm.style.color = 'var(--fgdim)'; p.fm.textContent = ''; p.ef.textContent = 'drop a drug into the cradle'; p.qn.textContent = '×1'; p.av.textContent = ''; p.qr.style.opacity = '.4'; return; }
       p.sw.style.background = drug.color; p.sw.style.boxShadow = `inset 0 0 6px #0008, 0 0 10px ${drug.color}66`;
-      p.nm.textContent = drug.name; p.nm.style.color = '#dffbe9';
+      p.nm.textContent = drug.name; p.nm.style.color = 'var(--fgbright)';
       p.fm.textContent = `${drug.form} · ${drug.sub}`;
       p.ef.textContent = effText(drug);
       p.qn.textContent = '×' + qty; p.av.textContent = `have ${drug.count || 1}`; p.qr.style.opacity = '1';
@@ -590,11 +627,11 @@ STAGES.select = {
       const out = Math.max(...sel.map((_, i) => qtys[i])), col = avgColor(sel);
       let fi = 0; for (let i = 1; i < sel.length; i++) if (qtys[i] > qtys[fi]) fi = i;
       o.sw.style.background = col; o.sw.style.boxShadow = `inset 0 0 6px #0008, 0 0 12px ${col}77`;
-      o.nm.textContent = sel.length >= 3 ? 'triple-spliced compound' : 'spliced compound'; o.nm.style.color = '#dffbe9';
+      o.nm.textContent = sel.length >= 3 ? 'triple-spliced compound' : 'spliced compound'; o.nm.style.color = 'var(--fgbright)';
       o.ds.textContent = `${out} dose${out === 1 ? '' : 's'} · ${sel[fi].form}`;
     } else {
-      o.sw.style.background = '#1a2a22'; o.sw.style.boxShadow = 'inset 0 0 6px #0008';
-      o.nm.textContent = '— nothing yet —'; o.nm.style.color = '#6f8a7c'; o.ds.textContent = '';
+      o.sw.style.background = 'var(--bg,#1a2a22)'; o.sw.style.boxShadow = 'inset 0 0 6px #0008';
+      o.nm.textContent = '— nothing yet —'; o.nm.style.color = 'var(--fgdim)'; o.ds.textContent = '';
       if (o.risk) o.risk.textContent = '';
     }
   },
@@ -614,11 +651,13 @@ STAGES.select = {
     if (s[2]) o.splice2 = { drug: s[2].drug, qty: game.qtySplice2 };
     return o;
   },
-  sync() { const n = game.selected.length; this.splice.disabled = n < 2;
+  canCommit() { return game.selected.length >= 2 && !!(game.compoundName || '').trim(); },
+  sync() { const n = game.selected.length; this.splice.disabled = n < 2;   // enabled at 2 drugs; click shakes the name field until it's filled
     if (n >= 2) this.clampQtys();
     this.hint.textContent = n === 0 ? `drag a drug into the cradle — BASE first, then SPLICE${game.allow3way ? ' (3rd slot open)' : ''}`
       : n === 1 ? 'now drop the splice drug in too'
-        : 'set quantities below · SPLICE ▶ or SPACE to begin';
+        : !(game.compoundName || '').trim() ? 'name your compound (left) — then SPLICE ▶'
+          : 'set quantities below · SPLICE ▶ or SPACE to begin';
     this.refreshPanels();
     // Live risk telegraph before you commit — server's authoritative composeSplice math.
     if (game.mode !== 'test' && n >= 2) sendCmdSilent('splicepreview ' + b64(this.slots()));
@@ -626,9 +665,10 @@ STAGES.select = {
   },
   commit() {
     const sel = game.selected.slice();
-    _stash = { selection: sel, instability: game.instability };
+    const name = (game.compoundName || '').trim();
+    _stash = { selection: sel, instability: game.instability, name };
     if (game.mode === 'test') { transit(game, 'charge'); return; }
-    sendCmdSilent('splicebegin ' + b64({ ...this.slots(), name: '' }));
+    sendCmdSilent('splicebegin ' + b64({ ...this.slots(), name }));
     game.lab.close();
   },
   topAt(p) { for (let i = this.pkgs.length - 1; i >= 0; i--) { const k = this.pkgs[i]; if (Math.hypot(p.x - k.x, p.y - k.y) < 44) return k; } return null; },
@@ -638,7 +678,7 @@ STAGES.select = {
     this.drag = k; k.held = true; k.gdx = k.x - p.x; k.gdy = k.y - p.y; this.pressP = { x: p.x, y: p.y }; this.pressT = this.t; this.moved = false;
     this.pkgs.splice(this.pkgs.indexOf(k), 1); this.pkgs.push(k);
     if (k.inCradle) { k.inCradle = false; game.selected = game.selected.filter(d => d !== k.d); this.sync(); }
-    AX.clink(); if (!this.everGrabbed) { this.everGrabbed = true; this.carefulUntil = this.t + 3.5; } },
+    AX.clink(); },
   up() { const k = this.drag; if (!k) return; this.drag = null; k.held = false;
     if (!this.moved && (this.t - this.pressT) < 0.25) { if (_labelFor === k.d && _labelEl) hideLabel(); else showLabel(k.d, k.home.x, k.home.y); return; }
     if (Math.hypot(k.x - this.cradle.x, k.y - this.cradle.y) < this.cradle.r + 12) {
@@ -656,7 +696,7 @@ STAGES.select = {
       else if (e.key === '[' || e.key === '{') game.qtySplice--;
       AX.tick(); this.sync(); return;
     }
-    if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); if (game.selected.length >= 2) { AX.confirm(); this.commit(); } }
+    if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); if (this.canCommit()) { AX.confirm(); this.commit(); } else if (game.selected.length >= 2) { this.nameEl.focus(); } }
     else if (e.key === 'c' || e.key === 'C') { AX.click(); this.pkgs.forEach(p => p.inCradle = false); game.selected = []; this.sync(); }
   },
   spillAlarm() { this._spillT = 0.35; if (this.t - this._alarmT > 0.55) { AX.alarm(); this._alarmT = this.t; } },
@@ -668,19 +708,15 @@ STAGES.select = {
       const ax = (tx - p.x) * k - p.vx * p.c, ay = (ty - p.y) * k - p.vy * p.c; p.vx += ax * dt; p.vy += ay * dt;
       const sp = Math.hypot(p.vx, p.vy); if (sp > 1000) { p.vx *= 1000 / sp; p.vy *= 1000 / sp; }
       p.x += p.vx * dt; p.y += p.vy * dt;
-      p.tilt = lerp(p.tilt, clamp(-p.vx * 0.0010, -0.7, 0.7), dt * 8);
+      p.tilt = lerp(p.tilt, clamp(-p.vx * TILT_GAIN, -0.7, 0.7), dt * 8);
       const dax = p.vx - p.pvx; p.pvx = p.vx;
       const _sp = Math.hypot(p.vx, p.vy), _over = Math.max(0, _sp - SWEEP_SPEED); p.sloshV += (dax * SWAY_SENS + Math.sign(p.vx || 1) * _over * SWEEP_GAIN) * p.fluid; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
       const speed = Math.hypot(p.vx, p.vy);
       const hz = this.drag === p ? pourHazard(p, speed) : null;
-      if (hz) { this._sway = hz.level; p.warn = hz.level > 0.5 ? clamp(hz.level, 0, 1) : 0; }   // warn glows AS sway builds (pre-spill feedback)
-      if (hz && hz.hazard && hz.ventUp) { p.spill += dt * (speed / 600) * hz.rate; this.spillAlarm();
-        if (Math.random() < 0.4) this.drips.push({ x: p.x + rnd(10, -10), y: p.y - 24, vy: -55, life: 0, col: shade(p.d.color, 80) });
-        if (p.spill > 1.2) { p.spill = 0; this.lost += 4; addInstability(5, "the canister hisses — you're bleeding pressure."); AX.bad(); }
-      } else if (hz && hz.hazard) { p.spill += dt * (0.5 + hz.level) * hz.rate; this.spillAlarm();
-        if (Math.random() < 0.4) this.drips.push({ x: p.x + rnd(15, -15) * Math.sign(p.slosh || 1), y: p.y + 12, vy: 50, life: 0, col: p.d.color });
-        if (p.spill > 1.3) { p.spill = 0; this.lost += 4; addInstability(6, 'you sloshed it over the side.'); AX.bad(); }
-      } else { p.warn = lerp(p.warn, 0, dt * 4); p.spill = Math.max(0, p.spill - dt * 0.5); }
+      if (hz) {
+        p.warn = hz.level > 0.55 ? clamp(hz.level, 0, 1) : 0;   // the vessel itself glows as its contents near the lip
+        if (hz.hazard) bleedFromLip(this, p, hz, dt);
+      } else p.warn = lerp(p.warn, 0, dt * 4);
     });
     this.drips.forEach(d => { d.life += dt; d.y += d.vy * dt; d.vy += 400 * dt; }); this.drips = this.drips.filter(d => d.life < 0.6);
   },
@@ -695,7 +731,7 @@ STAGES.select = {
     this.drips.forEach(d => { G.globalAlpha = 1 - d.life / 0.6; G.fillStyle = d.col; G.beginPath(); G.arc(d.x, d.y, 2.2, 0, 7); G.fill(); }); G.globalAlpha = 1;
     this.pkgs.forEach(p => { const groundY = p.inCradle ? cr.y + 26 : H * 0.60, lift = clamp((groundY - p.y) / 120, 0, 1);
       G.save(); G.globalAlpha = .42 * (1 - lift * .5); G.fillStyle = '#000'; G.beginPath(); G.ellipse(p.x, groundY, 20 + lift * 8, 5, 0, 0, 7); G.fill(); G.restore();
-      drawPackage(p.d, p.x, p.y, p.inCradle, this.hover === p || this.drag === p, this.t, { tilt: p.tilt, slosh: p.slosh, warn: p.warn, held: this.drag === p }); });
+      drawPackage(p.d, p.x, p.y, p.inCradle, this.hover === p || this.drag === p, this.t, { tilt: p.tilt, slosh: p.slosh, warn: p.warn, held: this.drag === p, fill: p.remaining }); });
     drawCarryWarn(this);
   },
 };
@@ -706,12 +742,12 @@ STAGES.select = {
 STAGES.charge = {
   enter() {
     const g = game; this.t = 0; this.hover = null; this.drag = null; this.fill = 0; this.pouredCount = 0; this.drips = []; this._done = false;
-    this.everGrabbed = false; this.carefulUntil = 0; this._spillT = 0; this._alarmT = 0; this.lost = 0;
+    this._spillT = 0; this._alarmT = 0; this.lost = 0;
     this.beaker = { x: W * 0.73, y: H * 0.52, w: 140, h: 200 };
     this.zone = { x: this.beaker.x, y: this.beaker.y - this.beaker.h / 2 - 34, r: 46 };
     const homes = tableHomes(g.selected.length);
     this.cans = g.selected.map((d, i) => { const hx = homes[i].x, hy = homes[i].y, w = 2 * Math.PI * (FORM_FREQ[d.form] || 2.2), k = w * w, c = 2 * 0.62 * w;
-      return { d, home: { x: hx, y: hy }, x: hx, y: hy, vx: 0, vy: 0, pvx: 0, tilt: 0, slosh: 0, sloshV: 0, held: false, gdx: 0, gdy: 0, k, c, fluid: FORM_FLUID[d.sub] ?? .3, poured: 0, done: false, spill: 0, warn: 0, pourSfx: false }; });
+      return { d, home: { x: hx, y: hy }, x: hx, y: hy, vx: 0, vy: 0, pvx: 0, tilt: 0, slosh: 0, sloshV: 0, held: false, gdx: 0, gdy: 0, k, c, fluid: FORM_FLUID[d.sub] ?? .3, poured: 0, done: false, remaining: 1, warn: 0, pourSfx: false }; });
     g.lab.ticker('DECANT — carry each drug from the table to the POUR ZONE and hold it steady to decant. jostle it and it slops.');
     this.hint = mkEl('position:absolute;left:50%;top:40px;transform:translateX(-50%);color:#6f8a7c;font-size:9px;letter-spacing:2px;text-transform:uppercase;pointer-events:none');
   },
@@ -719,7 +755,7 @@ STAGES.charge = {
   topAt(p) { for (let i = this.cans.length - 1; i >= 0; i--) { const k = this.cans[i]; if (!k.done && Math.hypot(p.x - k.x, p.y - k.y) < 44) return k; } return null; },
   move(p) { this.hover = this.drag || this.topAt(p); game.lab.canvas.style.cursor = this.hover ? (this.drag ? 'grabbing' : 'grab') : 'default'; },
   down(p) { const k = this.topAt(p); if (!k) return; this.drag = k; k.held = true; k.gdx = k.x - p.x; k.gdy = k.y - p.y; this.cans.splice(this.cans.indexOf(k), 1); this.cans.push(k);
-    AX.clink(); if (!this.everGrabbed) { this.everGrabbed = true; this.carefulUntil = this.t + 3.5; } },
+    AX.clink(); },
   up() { const k = this.drag; if (!k) return; this.drag = null; k.held = false; if (k.pourSfx) { k.pourSfx = false; AX.pour(false); } },
   spillAlarm() { this._spillT = 0.35; if (this.t - this._alarmT > 0.55) { AX.alarm(); this._alarmT = this.t; } },
   update(dt) { this.t += dt; this._spillT = Math.max(0, this._spillT - dt); const z = this.zone;
@@ -731,18 +767,15 @@ STAGES.charge = {
       const dax = p.vx - p.pvx; p.pvx = p.vx; const _sp = Math.hypot(p.vx, p.vy), _over = Math.max(0, _sp - SWEEP_SPEED); p.sloshV += (dax * SWAY_SENS + Math.sign(p.vx || 1) * _over * SWEEP_GAIN) * p.fluid; p.sloshV += (-p.slosh * 38 - p.sloshV * 3.6) * dt; p.slosh = clamp(p.slosh + p.sloshV * dt, -1.5, 1.5);
       const inZone = Math.hypot(p.x - z.x, p.y - z.y) < z.r, steady = spd < 130 && Math.abs(p.slosh) < 0.55;
       if (this.drag === p && inZone && steady) {
-        p.tilt = lerp(p.tilt, -0.7, dt * 4); p.poured = clamp(p.poured + dt * 0.7, 0, 1); this.fill = this.pouredFill();
+        p.tilt = lerp(p.tilt, -0.7, dt * 4); p.poured = clamp(p.poured + dt * 0.7, 0, 1); p.remaining = 1 - p.poured; this.fill = this.pouredFill();
         if (!p.pourSfx) { p.pourSfx = true; AX.pour(true); }
         if (p.poured >= 1 && !p.done) { p.done = true; this.pouredCount++; AX.pour(false); AX.drop(); this.drag = null; p.held = false; }
       } else {
-        p.tilt = lerp(p.tilt, clamp(-p.vx * 0.0010, -0.7, 0.7), dt * 8);
+        p.tilt = lerp(p.tilt, clamp(-p.vx * TILT_GAIN, -0.7, 0.7), dt * 8);
         if (p.pourSfx) { p.pourSfx = false; AX.pour(false); }
         if (this.drag === p) { const hz = pourHazard(p, spd);
-          this._sway = hz.level; p.warn = hz.level > 0.5 ? clamp(hz.level, 0, 1) : 0;   // warn glows AS sway builds
-          if (hz.hazard) { p.spill += dt * (0.5 + hz.level) * hz.rate; this.spillAlarm();
-            if (Math.random() < 0.35) this.drips.push({ x: p.x + rnd(12, -12), y: p.y + (hz.ventUp ? -22 : 12), vy: hz.ventUp ? -50 : 60, life: 0, col: hz.ventUp ? shade(p.d.color, 80) : p.d.color });
-            if (p.spill > 1.0) { p.spill = 0; this.lost += 4; addInstability(5 * game.vol(), hz.ventUp ? 'it vents — you bleed pressure' : 'you sloshed it over'); AX.bad(); }
-          }
+          p.warn = hz.level > 0.55 ? clamp(hz.level, 0, 1) : 0;   // the vessel itself glows as its contents near the lip
+          if (hz.hazard) bleedFromLip(this, p, hz, dt);
         } else p.warn = lerp(p.warn, 0, dt * 4);
       }
     });
@@ -763,7 +796,7 @@ STAGES.charge = {
       if (this.drag === p && p.poured > 0 && p.poured < 1) { G.strokeStyle = p.d.color; G.globalAlpha = .7; G.lineWidth = 3; G.beginPath(); G.moveTo(p.x, p.y + 6); G.lineTo(b.x + rnd(4, -4), b.y - b.h / 2 + 10); G.stroke(); G.globalAlpha = 1; }
       const groundY = H * 0.60, lift = clamp((groundY - p.y) / 140, 0, 1);
       G.save(); G.globalAlpha = .4 * (1 - lift * .5); G.fillStyle = '#000'; G.beginPath(); G.ellipse(p.x, groundY, 20 + lift * 8, 5, 0, 0, 7); G.fill(); G.restore();
-      drawPackage(p.d, p.x, p.y, false, this.hover === p || this.drag === p, this.t, { tilt: p.tilt, slosh: p.slosh, warn: p.warn, held: this.drag === p });
+      drawPackage(p.d, p.x, p.y, false, this.hover === p || this.drag === p, this.t, { tilt: p.tilt, slosh: p.slosh, warn: p.warn, held: this.drag === p, fill: p.remaining });
     });
     drawCarryWarn(this);
   },
@@ -992,8 +1025,7 @@ STAGES.rhythm = {
   },
   draw() { const b = this.beaker; G.save(); if (this.shake > .3) G.translate(rnd(this.shake, -this.shake), rnd(this.shake, -this.shake));
     drawBeaker(b, () => { const col = avgColor(game.selected), top = b.y - b.h * 0.1, glow = .6 + .4 * Math.sin(this.t * 6) + this.flashT * 3;
-      fillLiquid(b.x - b.w / 2, b.w, top, b.y + b.h / 2, shade(col, 20 + this.flashT * 60), col, this.t, 0.15, clamp(glow * .3, 0, .6));
-      ghostReflection(b.x, b.y - b.h * 0.22, 1.1, this.t, 1.15); });   // mind the third beaker. it bites.
+      fillLiquid(b.x - b.w / 2, b.w, top, b.y + b.h / 2, shade(col, 20 + this.flashT * 60), col, this.t, 0.15, clamp(glow * .3, 0, .6)); });
     const cy = b.y - b.h / 2 - 70, cx = b.x, R = 40;
     G.strokeStyle = this.flashT > 0 ? '#4fe08a' : 'rgba(120,150,140,.5)'; G.lineWidth = 3; G.beginPath(); G.arc(cx, cy, R, 0, 7); G.stroke();
     G.strokeStyle = 'rgba(79,224,138,.3)'; G.lineWidth = 1; G.beginPath(); G.arc(cx, cy, R + 6, 0, 7); G.stroke();
@@ -1006,13 +1038,56 @@ STAGES.rhythm = {
   },
 };
 
+// PACKAGE — the closing beat (test flow): the stable batch pours into a jar, you
+// stamp the label with the name you gave it, and it's logged. Then the result card.
+STAGES.package = {
+  enter() { const g = game; this.t = 0; this.fill = 0; this.sealed = false; this.stampA = 0;
+    this.beaker = { x: W / 2, y: H * 0.52, w: 130, h: 200 };
+    this.col = avgColor(g.selected); this.potency = computePotency();
+    this.grade = gradeForAvg((g.scores.mix + g.scores.pour + g.scores.stir + g.scores.heat + g.scores.rhythm) / 5);
+    g.lab.ticker('PACKAGE — the batch is stable. jar it and stamp the label.');
+    this.b = mkBtn('SEAL & LABEL', 'left:50%;bottom:40px;transform:translateX(-50%)'); this.b.disabled = true;
+    this.b.onclick = () => this.seal();
+    AX.loop('hood', { freq: 58, type: 'sawtooth', gain: .03, filt: 340, tremRate: 7, tremDepth: .25 });
+  },
+  exit() { AX.stop('hood'); },
+  seal() { if (this.sealed || this.b.disabled) return; this.sealed = true; this.b.disabled = true; AX.confirm(); AX.drop();
+    game.lab.flash(mixColors(this.col, '#ffffff', .3)); game.lab.ticker('logged to the chem-lab vault.', 'b');
+    setTimeout(() => { if (game && !game.closed) showResult(false); }, 800); },
+  down() { this.seal(); },
+  key(e) { if (e.code === 'Space' || e.key === 'Enter') { e.preventDefault(); this.seal(); } },
+  update(dt) { this.t += dt;
+    if (this.fill < 1) { this.fill = clamp(this.fill + dt * 0.7, 0, 1); if (this.fill >= 1 && this.b.disabled && !this.sealed) { this.b.disabled = false; AX.good(); } }
+    if (this.sealed) this.stampA = clamp(this.stampA + dt * 4, 0, 1);
+  },
+  draw() { const b = this.beaker;
+    drawBeaker(b, () => { const base = b.y + b.h / 2, top = base - (b.h * 0.66) * this.fill; if (this.fill > 0.001) fillLiquid(b.x - b.w / 2, b.w, top, base, this.col, this.col, this.t, 0.12, 0.25); });
+    drawSteam(b.x, b.y - b.h * 0.22, (1 - this.fill) * 0.4 + 0.08, this.t, '210,235,225');
+    if (this.fill < 1) { G.strokeStyle = this.col; G.globalAlpha = .8; G.lineWidth = 3; G.beginPath(); G.moveTo(b.x, b.y - b.h / 2 - 60); G.lineTo(b.x + Math.sin(this.t * 30) * 2, b.y - b.h / 2 - 4); G.stroke(); G.globalAlpha = 1; }
+    // adhesive label on the glass
+    const lx = b.x - 58, ly = b.y - 4, lw = 116, lh = 56;
+    G.save(); G.fillStyle = 'rgba(242,246,250,.94)'; roundRect(lx, ly, lw, lh, 4); G.fill();
+    G.strokeStyle = shade(this.col, -20); G.lineWidth = 1.5; roundRect(lx, ly, lw, lh, 4); G.stroke();
+    G.fillStyle = this.col; G.fillRect(lx, ly, lw, 4);
+    G.textAlign = 'center'; G.fillStyle = '#0c1114'; G.font = 'bold 13px monospace';
+    G.fillText((game.compoundName || 'UNNAMED').toUpperCase().slice(0, 16), b.x, ly + 24);
+    G.font = '8px monospace'; G.fillStyle = '#3a4a52';
+    G.fillText('CHIMERA-9 · ' + this.potency.toFixed(2) + '× POTENCY', b.x, ly + 38);
+    G.fillText('BATCH GRADE ' + this.grade, b.x, ly + 50);
+    if (this.stampA > 0.02) { G.save(); G.globalAlpha = this.stampA * (0.7 + 0.3 * Math.sin(this.t * 18)); G.translate(b.x + 40, ly + 34); G.rotate(-0.28); G.scale(2 - this.stampA, 2 - this.stampA);
+      G.strokeStyle = '#b3122a'; G.lineWidth = 2.5; roundRect(-32, -12, 64, 24, 3); G.stroke(); G.fillStyle = '#b3122a'; G.font = 'bold 12px monospace'; G.textAlign = 'center'; G.fillText('SEALED', 0, 4); G.restore(); }
+    G.restore();
+    G.fillStyle = '#6f8a7c'; G.font = '10px monospace'; G.textAlign = 'center'; G.fillText(this.fill < 1 ? 'JARRING THE BATCH…' : (this.sealed ? 'LOGGED' : 'STAMP THE LABEL'), b.x, b.y - b.h / 2 - 12);
+  },
+};
+
 // ── resolve ──────────────────────────────────────────────────────────────────
 function aggScore() { const s = game.scores; const avg = (s.mix + s.pour + s.stir + s.heat + s.rhythm) / 5; return clamp(Math.round(avg * 100 - game.instability * 0.3), 0, 100); }
 function resolveReal() { const score = aggScore(); game.lab.ticker('sequence complete — resolving…', ''); AX.good();
   const cb = game.onResolve; setTimeout(() => { const g = game; if (g) g.lab.close(); if (cb) cb({ score }); }, 850); }
 
-// test-mode only: client-side catastrophe + result card (dev feel-test)
-function finalizeTest() { if (!game.blown && Math.random() < catastropheChance()) { catastrophe('the final set'); return; } showResult(false); }
+// test-mode only: client-side catastrophe, then the packaging beat → result card (dev feel-test)
+function finalizeTest() { if (!game.blown && Math.random() < catastropheChance()) { catastrophe('the final set'); return; } transit(game, 'package'); }
 function catastrophe(reason) { const g = game; g.blown = true; AX.klaxon(); AX.shatter(); g.lab.flash('#ff4a5b');
   const parts = []; for (let i = 0; i < 60; i++) parts.push({ x: W / 2, y: H / 2, vx: rnd(400, -400), vy: rnd(-100, -460), life: 0, col: Math.random() < .5 ? avgColor(g.selected) : '#dfeef0' });
   let pt = performance.now();
@@ -1030,16 +1105,17 @@ function showResult(blown) {
   const g = game; const potency = blown ? 0 : computePotency();
   const s = g.scores; const avg = (s.mix + s.pour + s.stir + s.heat + s.rhythm) / 5;
   const grade = blown ? 'F' : gradeForAvg(avg); const gcol = GRADE_COL[grade];
+  const nm = (g.compoundName || '').trim().toUpperCase() || 'UNNAMED COMPOUND';
   const card = document.createElement('div');
-  card.setAttribute('style', 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:radial-gradient(120% 90% at 50% 40%,rgba(4,8,6,.6),rgba(2,4,3,.94));pointer-events:auto');
-  const rows = ['mix|MIX', 'pour|POUR', 'stir|AGITATION', 'heat|STABILITY', 'rhythm|SET'].map(r => { const [k, lbl] = r.split('|'); const p = Math.round(g.scores[k] * 100); return `<div style="display:flex;justify-content:space-between;font-size:10px;color:#6f8a7c;margin:4px 24px"><span>${lbl}</span><b style="color:${p >= 75 ? '#4fe08a' : p >= 45 ? '#ffb23e' : '#ff4a5b'}">${p}%</b></div>`; }).join('');
-  card.innerHTML = `<div style="width:360px;padding:22px;background:linear-gradient(180deg,#0e1512,#070b09);border:1px solid rgba(79,224,138,.4);border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.9)">
-    <div style="font-family:monospace;font-size:52px;font-weight:bold;line-height:1;color:${gcol};text-shadow:0 0 18px ${gcol}66;margin-bottom:2px">${grade}</div>
-    <div style="font-size:19px;letter-spacing:3px;color:${blown ? '#ff4a5b' : '#4fe08a'};font-weight:bold">${blown ? 'BATCH LOST' : 'UNKNOWN COMPOUND'}</div>
-    <div style="font-size:9px;letter-spacing:3px;color:#6f8a7c;text-transform:uppercase;margin:4px 0 14px">${blown ? 'CATASTROPHIC FAILURE' : (potency > 1.3 ? 'POTENT · VOLATILE' : 'TEST BATCH')}</div>
+  card.setAttribute('style', 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:radial-gradient(120% 90% at 50% 40%,color-mix(in srgb,var(--bg,#05050a) 55%,transparent),color-mix(in srgb,var(--bg,#05050a) 94%,transparent));pointer-events:auto');
+  const rows = ['mix|MIX', 'pour|POUR', 'stir|AGITATION', 'heat|STABILITY', 'rhythm|SET'].map(r => { const [k, lbl] = r.split('|'); const p = Math.round(g.scores[k] * 100); return `<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--fgdim);margin:4px 24px"><span>${lbl}</span><b style="color:${p >= 75 ? 'var(--A)' : p >= 45 ? 'var(--orange,#ffb23e)' : 'var(--red,#ff4a5b)'}">${p}%</b></div>`; }).join('');
+  card.innerHTML = `<div class="lab-card">
+    <div style="font-size:52px;font-weight:bold;line-height:1;color:${gcol};text-shadow:0 0 18px ${gcol}66;margin-bottom:2px">${grade}</div>
+    <div style="font-size:19px;letter-spacing:2px;color:${blown ? 'var(--red,#ff4a5b)' : 'var(--A)'};font-weight:bold">${blown ? 'BATCH LOST' : esc(nm)}</div>
+    <div style="font-size:9px;letter-spacing:3px;color:var(--fgdim);text-transform:uppercase;margin:4px 0 14px">${blown ? 'CATASTROPHIC FAILURE' : (potency > 1.3 ? 'POTENT · VOLATILE' : 'CHIMERA-9 · SEALED')}</div>
     ${rows}
-    <div style="display:flex;justify-content:space-between;font-size:10px;color:#6f8a7c;margin:8px 24px 0;padding-top:8px;border-top:1px solid rgba(79,224,138,.2)"><span>POTENCY</span><b style="color:${blown ? '#ff4a5b' : '#4fe08a'}">${blown ? '—' : potency.toFixed(2) + '×'}</b></div>
-    <div style="font-size:10px;color:#9db8ab;font-style:italic;margin:14px 20px">${blown ? "It's gone. Glass everywhere, and the smell will linger." : 'A clean run. On the real bench, the server decides how it lands.'}</div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--fgdim);margin:8px 24px 0;padding-top:8px;border-top:1px solid color-mix(in srgb,var(--A) 22%,transparent)"><span>POTENCY</span><b style="color:${blown ? 'var(--red,#ff4a5b)' : 'var(--A)'}">${blown ? '—' : potency.toFixed(2) + '×'}</b></div>
+    <div style="font-size:10px;color:var(--fgdim);font-style:italic;margin:14px 20px">${blown ? "It's gone. Glass everywhere, and the smell will linger." : 'Logged to the chem-lab vault. On the real bench, the server decides how it lands.'}</div>
     <button class="lab-btn" style="position:static;margin-top:6px">✕ CLOSE</button></div>`;
   g.lab.ui.appendChild(card);
   card.querySelector('button').onclick = () => g.lab.close();

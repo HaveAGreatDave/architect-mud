@@ -5,10 +5,13 @@ import { MARKUP_HELP_HTML, STATUS_TEMPLATE } from './markup.js';
 import { appendToWhisperLog, sendToActiveTab } from './panels/whisper.js';
 import { openMusicPlayerPanel } from './panels/musicplayer.js';
 import { isFlightSimActive } from './panels/cockpit.js';
+import { toggleAutoWalk } from './panels/minimap.js';
 
 function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
   const lower = cmd.toLowerCase();
   if (lower === 'music') { openMusicPlayerPanel(); return true; }
+  // `auto` toggles GPS route auto-walk (a client-side stepper, not a server verb).
+  if (lower === 'auto') { toggleAutoWalk(); return true; }
   if (lower === '.markup') {
     const whisperShown = appendToWhisperLog(MARKUP_HELP_HTML);
     if (!whisperShown) appendHtml(MARKUP_HELP_HTML);

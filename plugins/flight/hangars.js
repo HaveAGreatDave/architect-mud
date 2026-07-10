@@ -8,7 +8,8 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
-  SEAT_KG, isConfigurable, loadoutBudget, effLoadout, sendToPlayer, skyState, inHangarInterior } from './state.js';
+  SEAT_KG, isConfigurable, loadoutBudget, effLoadout, sendToPlayer, skyState, inHangarInterior,
+  FLIGHT_PACE, tuneRange, installedKits, KITS, perfAxes } from './state.js';
 import { normalizeLivery, sanitizeLivery, signatureScore, describeExterior,
   paintCost, isPaintable, readSchemes, schemeOf,
   PATTERNS, FINISHES, UPHOLSTERY, DECALS, PRESETS } from './livery.js';
@@ -84,19 +85,27 @@ async function buildCards(player, field) {
   const { rows } = await query(
     `SELECT a.id, a.name, a.rental, a.is_wreck, a.hangar_id, a.damage, a.fuel, a.custom_data,
             a.owner_id, t.id type_id, t.name tname, t.class, t.fuel_capacity, t.seats, t.hardpoints,
-            t.hull_hp, t.cargo_capacity
+            t.hull_hp, t.cargo_capacity, t.cruise_speed, t.fuel_burn_base, t.max_takeoff_weight,
+            t.handling, t.altitude_ceiling
      FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id
      WHERE a.parked_zone_id=$1 AND ((a.owner_id=$2 AND a.is_wreck=0) OR a.is_wreck=1)
      ORDER BY a.is_wreck, a.rental, t.price_buy`,
     [field.id, player.id]);
+  // Range widens with the pilot's own Fabrication (same for every card) + per-craft kits.
+  const fab = await effectiveSkill(player, 'fabrication');
   return rows.map(r => {
     const lv = normalizeLivery(r.custom_data), cap = r.fuel_capacity || 1;
     const schemes = Object.entries(readSchemes(r.custom_data)).map(([name, s]) => ({ name, base: s.base, trim: s.trim }));
     const cd = r.custom_data || {};
-    const type = { class: r.class, seats: r.seats, cargo_capacity: r.cargo_capacity };
+    // Full template numbers the performance model reads (state.computeStats/perfAxes).
+    const type = { class: r.class, seats: r.seats, cargo_capacity: r.cargo_capacity,
+      cruise_speed: r.cruise_speed, fuel_burn_base: r.fuel_burn_base, max_takeoff_weight: r.max_takeoff_weight || 300,
+      handling: r.handling, altitude_ceiling: r.altitude_ceiling, fuel_capacity: cap };
     const configurable = isConfigurable(type);
     const budget = configurable ? loadoutBudget(type) : 0;
     const cur = configurable ? effLoadout({ custom_data: cd }, type) : null;
+    const tune = { mixture: 0, pitch: 0, boost: 0, cg: 0, ...(cd.tune || {}) };
+    const kits = installedKits(cd), cargoNow = cd.cargoWeight || 0;
     return {
       id: r.id, tail: r.name || r.tname, typeName: r.tname, typeId: r.type_id, class: r.class, seats: r.seats,
       damage: r.damage, hullPct: Math.max(0, Math.round((1 - r.damage) * 100)),
@@ -107,8 +116,14 @@ async function buildCards(player, field) {
       // Repair (mechanics bench): what a DIY vs. shop fix would cost right now.
       diyCost: r.rental ? 0 : Math.ceil(r.damage * r.hull_hp * 6),
       shopCost: r.rental ? 0 : Math.ceil(r.damage * r.hull_hp * 15),
-      // Tuning curves (−2..2 each) — see hangars.js TUNE_PARAMS for descriptions.
-      tune: { mixture: 0, pitch: 0, boost: 0, cg: 0, ...(cd.tune || {}) },
+      // Tuning: continuous knob values, the reachable ± the dials clamp to, the base
+      // numbers the client mirrors for live-drag preview, and the authoritative
+      // performance snapshot the graph shows for the committed tune.
+      tune, tuneRange: tuneRange(fab, kits),
+      perfBase: { cruise: r.cruise_speed, burn: r.fuel_burn_base, maxTOW: r.max_takeoff_weight || 300, pace: FLIGHT_PACE },
+      cargoNow, kitsInstalled: kits,
+      kitCatalog: Object.entries(KITS).map(([id, k]) => ({ id, name: k.name, price: k.price, blurb: k.blurb, owned: kits.includes(id) })),
+      perfNow: perfAxes(type, tune, cargoNow, kits),
       // Cabin loadout (weight & balance) — only meaningful on configurable haulers.
       configurable, loadoutBudget: budget, maxSeats: configurable ? Math.max(1, Math.floor(budget / SEAT_KG)) : r.seats,
       seatsNow: cur?.seats ?? r.seats, cargoCapNow: cur?.cargoCap ?? 0, cargoLoaded: cd.cargoWeight || 0,
@@ -146,7 +161,7 @@ export async function pushHangarBay(player, selectId) {
     sky: skyState(),   // time-of-day + weather, visible through the open bay door
     canBuy, canRent, buyCatalog, rentCatalog,
     catalog: { patterns: PATTERNS, finishes: FINISHES, uphol: UPHOLSTERY, decals: DECALS, presets: PRESETS },
-    tuneParams: Object.entries(TUNE_PARAMS).map(([id, desc]) => ({ id, desc })),
+    tuneParams: Object.entries(TUNE_PARAMS).map(([id, p]) => ({ id, label: p.label, lo: p.lo, hi: p.hi, desc: p.desc })),
   } });
   return { type: 'noop' };
 }
@@ -421,25 +436,80 @@ async function cmdRebuild(args, raw, player) {
 }
 
 // ── Tuning ────────────────────────────────────────────────────────────────────
+// Each knob carries a label, the two dial poles (lo = −, hi = +), and a plain-English
+// description. The physics of these curves live in state.computeStats (one source of
+// truth for flight + graphs); this is just how the bench presents them.
 const TUNE_PARAMS = {
-  mixture: 'lean(+) burns cooler on economy but stall-prone; rich(−) cooler, thirstier, more power',
-  pitch:   'coarse(+) faster cruise, sluggish climb; fine(−) better climb/takeoff',
-  boost:   'raise(+) the power ceiling for speed at overheat/damage risk',
-  cg:      'tail-heavy(+) agile but stall-prone; nose-heavy(−) stable but sluggish',
+  mixture: { label: 'Mixture',     lo: 'RICH',  hi: 'LEAN',   desc: 'Lean (+) saves fuel but runs hot and sheds a little power; rich (−) runs cool and thirsty with more low-end grunt.' },
+  pitch:   { label: 'Prop Pitch',  lo: 'FINE',  hi: 'COARSE', desc: 'Coarse (+) cruises faster but climbs poorly; fine (−) climbs and takes off better for less top speed.' },
+  boost:   { label: 'Boost',       lo: 'LOW',   hi: 'HIGH',   desc: 'More power for speed (+) — paid for in heat, fuel and a twitchier, less reliable machine.' },
+  cg:      { label: 'Balance / CG', lo: 'NOSE', hi: 'TAIL',   desc: 'Tail-heavy (+) is agile but stall-prone; nose-heavy (−) is stable and forgiving but sluggish.' },
 };
 
-// Shared: set one tuning curve. Mechanics (Fabrication) sets how far you can push.
+// Clamp a knob value to the reachable range (Fabrication + installed kits) and round
+// to a clean two decimals for storage. Shared by the chat shortcut and the dial panel.
+function clampTune(val, range) {
+  const n = typeof val === 'number' ? val : parseFloat(val);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(Math.max(-range, Math.min(range, n)) * 100) / 100;
+}
+
+// Shared: set one tuning curve (chat shortcut — the panel uses cmdTuneset to commit
+// all four dials at once). Mechanics (Fabrication) + kits set how far you can push.
 async function setCurve(player, tgt, param, valRaw) {
-  let val = parseInt(valRaw, 10);
-  if (Number.isNaN(val)) return { type: 'emote', message: `Set it to what? e.g. <b>modify ${param} 1</b> (−2..+2).` };
-  const eff = await effectiveSkill(player, 'fabrication');
-  const range = Math.min(2, 1 + Math.floor(eff / 4));
-  val = Math.max(-range, Math.min(range, val));
   const cd = await loadCd(tgt);
+  const eff = await effectiveSkill(player, 'fabrication');
+  const range = tuneRange(eff, installedKits(cd));
+  const val = clampTune(valRaw, range);
+  if (val == null) return { type: 'emote', message: `Set it to what? e.g. <b>modify ${param} 1</b> (−${range}..+${range}).` };
   cd.tune = { ...(cd.tune || {}), [param]: val };
   await saveCd(tgt, cd);
   await awardSkillUse(player.id, 'fabrication', 0);
-  return { type: 'output', message: `<span class="item-grant">Set ${param} to ${val > 0 ? '+' : ''}${val}.</span>${eff < 4 ? ' <span class="text-dim">(Your hands aren\'t steady enough to push it harder yet.)</span>' : ''}` };
+  const capped = Math.abs(val) >= range;
+  return { type: 'output', message: `<span class="item-grant">Set ${param} to ${val > 0 ? '+' : ''}${val}.</span>${capped ? ' <span class="text-dim">(That\'s as far as your hands and gear will take it — fit a kit to push further.)</span>' : ''}` };
+}
+
+// Commit all four dials at once from the bench panel: tuneset <id> <mixture> <pitch>
+// <boost> <cg> (floats). Owner-gated, at a field, on the ground — then re-pushes the
+// hangar bay so the graph shows the now-authoritative numbers.
+async function cmdTuneset(args, raw, player) {
+  const { id, rest: a } = popCraftId(args);
+  const { tgt, err } = await requireOwned(player, id); if (err) return err;
+  const cd = await loadCd(tgt);
+  const eff = await effectiveSkill(player, 'fabrication');
+  const range = tuneRange(eff, installedKits(cd));
+  const [m, p, b, c] = a;
+  cd.tune = {
+    mixture: clampTune(m, range) ?? 0, pitch: clampTune(p, range) ?? 0,
+    boost: clampTune(b, range) ?? 0, cg: clampTune(c, range) ?? 0,
+  };
+  await saveCd(tgt, cd);
+  await awardSkillUse(player.id, 'fabrication', 0);
+  out(player.id, '<span class="item-grant">Tune dialed in and committed to the aircraft.</span>');
+  return pushHangarBay(player);
+}
+
+// Buy + fit an upgrade kit from the bench panel: installkit <id> <kitId>. Owner-gated,
+// at a field, on the ground; charges the kit price and re-pushes (its effect widens
+// the dials / bends the physics via state.KITS).
+async function cmdInstallKit(args, raw, player) {
+  const { id, rest: a } = popCraftId(args);
+  const { tgt, err } = await requireOwned(player, id); if (err) return err;
+  const kitId = (a[0] || '').toLowerCase();
+  const kit = KITS[kitId];
+  if (!kit) return { type: 'emote', message: 'No such kit.' };
+  const cd = await loadCd(tgt);
+  const kits = installedKits(cd);
+  if (kits.includes(kitId)) { await pushHangarBay(player); return { type: 'emote', message: `The ${kit.name} is already fitted.` }; }
+  if ((player.credits || 0) < kit.price) { await pushHangarBay(player); return { type: 'emote', message: `The ${kit.name} runs ${kit.price}c — you're short.` }; }
+  player.credits -= kit.price;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  cd.kits = [...kits, kitId];
+  await saveCd(tgt, cd);
+  await awardSkillUse(player.id, 'fabrication', 0);
+  out(player.id, `<span class="item-grant">Fitted the ${kit.name} — ${kit.price}c.</span>`);
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  return pushHangarBay(player);
 }
 
 // Gate every customisation path: must own the craft, at a field, on the ground.
@@ -459,7 +529,7 @@ async function showSheet(player, tgt) {
   const ac = rows[0] || {};
   const curves = Object.entries(TUNE_PARAMS).map(([k, d]) => {
     const v = tune[k] ?? 0, next = v >= 2 ? -2 : v + 1;
-    return `· <b>${k}</b> [${v > 0 ? '+' : ''}${v}] — ${d} · <span class="action-link" data-action="cmd" data-cmd="modify ${k} ${next}">cycle</span>`;
+    return `· <b>${k}</b> [${v > 0 ? '+' : ''}${v}] — ${d.desc} · <span class="action-link" data-action="cmd" data-cmd="modify ${k} ${next}">cycle</span>`;
   });
   const profs = Object.keys(cd.profiles || {});
   const lv = normalizeLivery(cd);
@@ -687,6 +757,8 @@ export const commands = {
   salvage: cmdSalvage,
   rebuild: cmdRebuild,
   tune: cmdTune,
+  tuneset: cmdTuneset,
+  installkit: cmdInstallKit,
   modify: cmdModify,
   customize: cmdModify,
   loadout: cmdLoadout,

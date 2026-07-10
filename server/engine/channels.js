@@ -1,4 +1,4 @@
-import { getAllLivePlayers, getPlayerMembership } from './world.js';
+import { getAllLivePlayers, getPlayerMembership, getOrg } from './world.js';
 import { query } from '../models/db.js';
 
 // A player's private corp channel id, or null if they're not in a corp.
@@ -7,6 +7,15 @@ import { query } from '../models/db.js';
 function corpChannelIdFor(player) {
   const m = getPlayerMembership(player.id);
   return m ? `#corp:${m.org_id}` : null;
+}
+
+// Human-readable display label for the corp channel — '#<corp name>'. Purely
+// cosmetic: the id stays '#corp:<orgId>' (stable DB key + whisper routing),
+// so renames/spaces/name-collisions never break message delivery.
+function corpChannelLabel(player) {
+  const m = getPlayerMembership(player.id);
+  const org = m ? getOrg(m.org_id) : null;
+  return org ? `#${org.name}` : null;
 }
 
 // How many recent messages to retain/replay per channel.
@@ -36,7 +45,7 @@ export function getPlayerChannels(player) {
     .filter(c => c.isMember(player))
     .map(c => ({ id: c.id, permanent: c.permanent, systemOnly: c.systemOnly || false }));
   const corpId = corpChannelIdFor(player);
-  if (corpId) list.push({ id: corpId, permanent: true, systemOnly: false });
+  if (corpId) list.push({ id: corpId, permanent: true, systemOnly: false, label: corpChannelLabel(player) || corpId });
   return list;
 }
 

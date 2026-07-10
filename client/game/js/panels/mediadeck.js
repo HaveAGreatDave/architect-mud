@@ -268,15 +268,20 @@ function renderMediaDeckPanel(data) {
   document.getElementById('mediadeck-reel-l')?.classList.toggle('spinning', isPlaying);
   document.getElementById('mediadeck-reel-r')?.classList.toggle('spinning', isPlaying);
   const labelStrip = document.getElementById('mediadeck-cassette-label-strip');
+  // A MicroReel (surveillance clip) seats as a smaller nested cassette in the shell.
+  const miniActive = !!activeCassette?.mini;
+  slotEl.classList.toggle('mini', miniActive);
   if (activeCassette) {
     slotEl.classList.add('loaded');
-    cartridgeEl.innerHTML = `<span class="mediadeck-cartridge-label">${escapeHtml(activeCassette.name)}</span>`;
+    const badge = miniActive ? '<span class="mediadeck-micro-badge">MICROREEL</span>' : '';
+    cartridgeEl.innerHTML = `<span class="mediadeck-cartridge-label">${badge}${escapeHtml(activeCassette.name)}</span>`;
     if (labelStrip) labelStrip.textContent = activeCassette.name;
   } else {
     slotEl.classList.remove('loaded');
     cartridgeEl.innerHTML = '<span class="mediadeck-cartridge-label">— EMPTY —</span>';
     if (labelStrip) labelStrip.textContent = '';
   }
+  slotEl.querySelectorAll('.mediadeck-mini-reel').forEach(r => r.classList.toggle('spinning', isPlaying && miniActive));
 
   const listEl = document.getElementById('mediadeck-cassette-list');
   listEl.innerHTML = '';
@@ -289,6 +294,7 @@ function renderMediaDeckPanel(data) {
       row.className = 'mediadeck-cassette-row' + (isActive ? ' active' : '');
       row.innerHTML = `<span class="mediadeck-track-num">${String(i + 1).padStart(2, '0')}</span>
         <span class="mediadeck-cassette-spool${isActive ? ' spinning' : ''}"></span>
+        ${c.mini ? '<span class="mediadeck-micro-badge">µ</span>' : ''}
         <span class="mediadeck-cassette-name">${escapeHtml(c.name)}</span>
         <span class="mediadeck-cassette-cat">${escapeHtml(c.category || '')}</span>
         ${isActive ? '<span class="mediadeck-playing-tag">▶ PLAY</span>' : ''}`;

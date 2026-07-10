@@ -21,6 +21,7 @@ import { getZone, liveAircraft, out, persist, fieldFor as fieldOf, isContinuous,
 import { findPath } from '../../server/engine/pathfinding.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
@@ -94,7 +95,11 @@ export async function topUp(fieldZone, fields) {
     if (!candidates.length) break;
     const tmpl = pick(candidates);
     const m = tmpl.meta || {};
-    const dest = (!m.legal && lawlessDests.length) ? pick(lawlessDests) : pick(others);
+    // A template may pin its destination (meta.destZone, authored in VINE) — land
+    // at that specific airfield rather than a random one. Only honoured when it's a
+    // real other field on the map; otherwise falls back to the random pick.
+    const fixed = m.destZone && others.find(f => f.id === m.destZone);
+    const dest = fixed || ((!m.legal && lawlessDests.length) ? pick(lawlessDests) : pick(others));
     const dist = cheb(fieldZone.grid_x, fieldZone.grid_y, dest.grid_x, dest.grid_y) || 1;
     const wMin = m.wMin || 40, wMax = Math.max(wMin, m.wMax || wMin);
     const weight = wMin + Math.floor(Math.random() * (wMax - wMin + 1));
@@ -353,6 +358,58 @@ registerAction({
   },
 });
 
+// ── Licensed freight drops — legit standing air-cargo work, bought once ──────
+// The honest cousin of the fence pallets: buy an air-freight licence at any
+// airfield (`freightlicense`) and a standing pool of legit cargo drops waits at
+// the fields you embark from, flown to the airfield nearest your home for a flat
+// fee — the same load/deliver machinery as the fence run, minus the crime.
+// Owner-scoped ('freight' kind) so it's your pool, never the public board and
+// never visible to anyone else. Delivery falls through checkCargoDropDelivery's
+// standard (non-'fence') branch, so it pays out and unloads like any drop.
+const FREIGHT_LICENSE_FLAG = 'air_freight_licensed';
+const FREIGHT_LICENSE_PRICE = 2500;
+const MAX_FREIGHT_WAITING = 4;
+const FREIGHT_LOADS = [
+  ['A sealed freight pallet', 60], ['A shrink-wrapped skid of dry goods', 90],
+  ['A crate of machine parts', 120], ['A bonded cargo container', 150],
+];
+
+export async function isFreightLicensed(player) {
+  const v = await getFlag('player', FREIGHT_LICENSE_FLAG, player);
+  return v === '1' || v === 1 || v === true;
+}
+
+// Tops the licensed pilot's standing freight pool back up at the field they're at
+// — a cheap no-op for the unlicensed. Called on embark and in loadcargo, mirroring
+// ensureFenceDrops.
+export async function ensureFreightDrops(player, originZone) {
+  if (!player?.id || !originZone || !(await isFreightLicensed(player))) return;
+  const { rows } = await query(
+    "SELECT COUNT(*)::int n FROM cargo_drops WHERE owner_id=$1 AND kind='freight' AND status='waiting' AND origin_zone=$2",
+    [player.id, originZone]);
+  for (let i = rows[0]?.n || 0; i < MAX_FREIGHT_WAITING; i++) {
+    const [label, weight] = pick(FREIGHT_LOADS);
+    const reward = 120 + weight * 2 + Math.floor(Math.random() * 80);
+    await query(
+      `INSERT INTO cargo_drops (id, label, weight_kg, reward, origin_zone, status, kind, owner_id, created_at)
+       VALUES ($1,$2,$3,$4,$5,'waiting','freight',$6,$7)`,
+      [`cargo_freight_${randomUUID().slice(0, 8)}`, label, weight, reward, originZone, player.id, nowSec()]);
+  }
+}
+
+// Buy the licence — once, at any airfield. Charged atomically; the flag is what
+// ensureFreightDrops gates on.
+async function cmdFreightLicense(args, raw, player) {
+  const field = fieldOf(player);
+  if (!field) return { type: 'emote', message: 'Air-freight licences are issued at the airfields.' };
+  if (await isFreightLicensed(player))
+    return { type: 'emote', message: "You already hold an air-freight licence. Board an aircraft — there'll be loads waiting." };
+  if (!(await adjustCredits(player, -FREIGHT_LICENSE_PRICE)))
+    return { type: 'emote', message: `An air-freight licence runs ${FREIGHT_LICENSE_PRICE}c — you can't cover it.` };
+  await setFlag('player', FREIGHT_LICENSE_FLAG, '1', player);
+  return { type: 'output', message: `<span class="item-grant">Air-freight licence issued (−${FREIGHT_LICENSE_PRICE}c). Standing cargo loads will be on the ramp whenever you board — <b>loadcargo</b> to haul them home.</span>` };
+}
+
 // Loads EVERY waiting drop that fits the hold, one at a time (heaviest constraint
 // first isn't needed — a fence pallet is a flat SLOT_KG, so it's just "as many as
 // fit"), rather than a single job per call — a big enough hauler clears the whole
@@ -363,6 +420,7 @@ async function cmdLoadCargo(args, raw, player) {
   if (player.seat !== 'pilot') return { type: 'emote', message: "Only the pilot can take on cargo." };
   if (live.row.airborne) return { type: 'emote', message: "Land first — you can't load cargo in the air." };
   await ensureFenceDrops(player);
+  await ensureFreightDrops(player, live.row.parked_zone_id);
   const waiting = await waitingDropsAt(live.row.parked_zone_id, player.id);
   if (!waiting.length) return { type: 'emote', message: 'No cargo waiting here.' };
   if (!player.home_zone) return { type: 'emote', message: "You've nowhere to haul it to — you don't have a home set. Rent an apartment first." };
@@ -469,4 +527,6 @@ export const commands = {
   manifest: cmdManifest,
   jettison: cmdJettison,
   loadcargo: cmdLoadCargo,
+  freightlicense: cmdFreightLicense,
+  cargolicense: cmdFreightLicense,
 };

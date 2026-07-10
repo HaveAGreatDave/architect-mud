@@ -272,14 +272,27 @@ async function handleAction(player, actionId, params) {
       }
       const { rows: npcRows } = await query('SELECT * FROM npcs WHERE id=$1', [npcInfo.npcId]);
       const npc = npcRows[0];
-      const rendered = npc && await renderDialogueNode(npc, 'root', player, { broadcast: null, npc });
+      // A dispatcher (job board) hands in at a dedicated `job_turnin` node whose
+      // context-driven TURN_IN action pays out the moment it renders; a per-quest
+      // giver has no such node, so land on `root` and let the player click through
+      // its (completion-gated) "report back" option as before.
+      const node = npcInfo.node || 'root';
+      const { rows: qn } = await query('SELECT name FROM quests WHERE id=$1', [questId]);
+      const rendered = npc && await renderDialogueNode(npc, node, player, { broadcast: null, npc, quest_id: questId, quest_name: qn[0]?.name || 'the job' });
       if (rendered) {
+        // If we landed on a dedicated hand-in node, TURN_IN already fired and paid
+        // out during render — clear tracking to match. (The `root` path defers the
+        // turn-in to the player's click, so it must NOT clear here.)
+        if (node !== 'root' && player.tracked_quest_id === questId) {
+          player.tracked_quest_id = null;
+          await query('UPDATE players SET tracked_quest_id=NULL WHERE id=$1', [player.id]);
+        }
         // Known limitation: this bypasses server/index.js's WS dialogue session
         // (it has no cross-module accessor), so the player's *first* click here
         // won't resolve option-level actions (only node-level ones — which is
         // what TURN_IN is authored as on every quest-giving NPC today). The
         // session self-heals on that first click regardless.
-        sendToPlayer(player.id, { type: 'dialogue', npcId: npc.id, npcName: npc.name, node: 'root', text: rendered.text, options: rendered.options });
+        sendToPlayer(player.id, { type: 'dialogue', npcId: npc.id, npcName: npc.name, node, text: rendered.text, options: rendered.options });
         return { type: 'tablet_close' };
       }
       // Fall through to the direct grant if the NPC/root node has since vanished.

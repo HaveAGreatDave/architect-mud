@@ -24,6 +24,16 @@ export function avgColor(list) { let r = 0, g = 0, bb = 0; list.forEach(d => { c
 export let G = null, W = 0, H = 0;
 export function useCanvas(ctx, w, h) { G = ctx; W = w; H = h; }
 
+// dev test windows (splicetest/cooktest) paint the canvas backdrop from the
+// player's active theme instead of the fixed dark medlab gradient, so it
+// reads white on light themes and black on dark ones. null = default dark art.
+export let labBg = null, labBgLight = false;
+export function setLabBg(themed) {
+  if (!themed) { labBg = null; labBgLight = false; return; }
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#05050a';
+  labBg = raw; const c = hexToRgb(raw); labBgLight = (c.r * .299 + c.g * .587 + c.b * .114) > 150;
+}
+
 // ── shapes ───────────────────────────────────────────────────────────────────
 export function roundRect(x, y, w, h, r) { G.beginPath(); G.moveTo(x + r, y); G.arcTo(x + w, y, x + w, y + h, r); G.arcTo(x + w, y + h, x, y + h, r); G.arcTo(x, y + h, x, y, r); G.arcTo(x, y, x + w, y, r); G.closePath(); }
 export function blob(cx, cy, rx, ry, t) { G.beginPath(); for (let a = 0; a <= Math.PI * 2 + .01; a += .4) { const r = 1 + Math.sin(a * 3 + t * 1.5) * .08; const px = cx + Math.cos(a) * rx * r, py = cy + Math.sin(a) * ry * r; a === 0 ? G.moveTo(px, py) : G.lineTo(px, py); } G.closePath(); }
@@ -164,18 +174,22 @@ export function drawSideTable(x0, x1, topY, accent) {
 let _benchT = 0;
 export function drawBench() {
   _benchT += .016;
-  const bg = G.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0a0f12'); bg.addColorStop(.55, '#070b0e'); bg.addColorStop(1, '#04070a');
+  const bg = G.createLinearGradient(0, 0, 0, H);
+  if (labBg) { bg.addColorStop(0, shade(labBg, labBgLight ? 6 : 14)); bg.addColorStop(.55, labBg); bg.addColorStop(1, shade(labBg, labBgLight ? -10 : -8)); }
+  else { bg.addColorStop(0, '#0a0f12'); bg.addColorStop(.55, '#070b0e'); bg.addColorStop(1, '#04070a'); }
   G.fillStyle = bg; G.fillRect(0, 0, W, H);
   const by = H * 0.62;
-  const steel = G.createLinearGradient(0, by, 0, H); steel.addColorStop(0, '#161c21'); steel.addColorStop(1, '#0c1114');
+  const steel = G.createLinearGradient(0, by, 0, H);
+  if (labBg) { steel.addColorStop(0, shade(labBg, labBgLight ? -14 : 24)); steel.addColorStop(1, shade(labBg, labBgLight ? -26 : 10)); }
+  else { steel.addColorStop(0, '#161c21'); steel.addColorStop(1, '#0c1114'); }
   G.fillStyle = steel; G.fillRect(0, by, W, H - by);
-  G.strokeStyle = 'rgba(0,0,0,.6)'; G.lineWidth = 2; G.beginPath(); G.moveTo(0, by); G.lineTo(W, by); G.stroke();
-  G.strokeStyle = 'rgba(120,150,140,.06)'; G.lineWidth = 1;
+  G.strokeStyle = labBgLight ? 'rgba(0,0,0,.25)' : 'rgba(0,0,0,.6)'; G.lineWidth = 2; G.beginPath(); G.moveTo(0, by); G.lineTo(W, by); G.stroke();
+  G.strokeStyle = labBgLight ? 'rgba(60,80,70,.10)' : 'rgba(120,150,140,.06)'; G.lineWidth = 1;
   for (let x = 0; x < W; x += 6) { G.beginPath(); G.moveTo(x, by + 2); G.lineTo(x - 14, H); G.stroke(); }
-  G.fillStyle = 'rgba(40,60,30,.06)';
+  G.fillStyle = labBgLight ? 'rgba(40,60,30,.05)' : 'rgba(40,60,30,.06)';
   G.beginPath(); G.ellipse(W * .2, by + 40, 120, 30, 0, 0, 7); G.fill();
   G.beginPath(); G.ellipse(W * .8, by + 60, 160, 40, 0, 0, 7); G.fill();
-  G.save(); G.globalAlpha = .05; G.font = 'bold 120px monospace'; G.fillStyle = '#ffb23e'; G.textAlign = 'center';
+  G.save(); G.globalAlpha = labBgLight ? .08 : .05; G.font = 'bold 120px monospace'; G.fillStyle = labBgLight ? '#b8651f' : '#ffb23e'; G.textAlign = 'center';
   G.fillText('☣', W * .5, H * .4); G.restore();
 }
 
@@ -229,34 +243,6 @@ export function drawLCD(x, y, w, h, text, color = '#4fe08a', label) {
   G.restore();
 }
 
-// The thing in the third beaker. A gaunt face surfaces in the glass on a slow
-// cycle — hollow sockets, two wet glints that find you, a grim line of a mouth —
-// then sinks back. Draw it inside a beaker's clip (over the liquid) so it reads as
-// a reflection behind the surface. `intensity` scales how boldly it comes through.
-export function ghostReflection(cx, cy, scale, t, intensity = 1, tint = '208,236,242') {
-  const cyc = (t % 8.5) / 8.5;                                  // one surfacing every ~8.5s
-  const vis = cyc < 0.20 ? Math.sin((cyc / 0.20) * Math.PI) : 0;
-  if (vis < 0.02) return;
-  const a = vis * 0.62 * intensity;                            // noticeable at the peak
-  G.save();
-  G.translate(cx + Math.sin(t * 22) * 0.5, cy + Math.sin(t * 1.7) * 1.2);
-  G.scale(scale, scale);
-  const fg = G.createRadialGradient(0, -1, 2, 0, 2, 24);
-  fg.addColorStop(0, `rgba(${tint},${a * 0.55})`); fg.addColorStop(0.7, `rgba(${tint},${a * 0.12})`); fg.addColorStop(1, `rgba(${tint},0)`);
-  G.fillStyle = fg; G.beginPath(); G.ellipse(0, 1, 15, 22, 0, 0, 7); G.fill();
-  G.fillStyle = `rgba(3,9,9,${a})`;                            // sunken sockets
-  G.beginPath(); G.ellipse(-6, -3, 3.6, 4.8, 0.22, 0, 7); G.fill();
-  G.beginPath(); G.ellipse(6, -3, 3.6, 4.8, -0.22, 0, 7); G.fill();
-  G.fillStyle = `rgba(${tint},${Math.min(1, a * 1.5)})`;      // the eyes that find you
-  G.beginPath(); G.arc(-5.4, -2.2, 1.0, 0, 7); G.fill();
-  G.beginPath(); G.arc(6.6, -2.2, 1.0, 0, 7); G.fill();
-  G.strokeStyle = `rgba(3,9,9,${a * 0.85})`; G.lineWidth = 1.5; // grim mouth
-  G.beginPath(); G.moveTo(-4.5, 9); G.quadraticCurveTo(0, 7, 4.5, 9); G.stroke();
-  G.strokeStyle = `rgba(5,12,12,${a * 0.45})`; G.lineWidth = 1; // hollow cheeks
-  G.beginPath(); G.moveTo(-9, 1); G.lineTo(-5, 9.5); G.moveTo(9, 1); G.lineTo(5, 9.5); G.stroke();
-  G.restore();
-}
-
 export function drawBurner(b, heat, t) {
   const cx = b.x, baseY = b.y + b.h / 2 + 40;
   const flick = .85 + .15 * Math.sin(t * 22) + rnd(.06, -.06);
@@ -304,36 +290,61 @@ export const AX = (() => {
 function ensureLabStyles() {
   if (document.getElementById('lab-kit-styles')) return;
   const s = document.createElement('style'); s.id = 'lab-kit-styles';
+  // Chrome borrows the ArchitectOS tablet's token system: the player's --accent drives
+  // everything (falling back to the passed lab colour, then green), surfaces are the
+  // accent color-mixed into --bg2, with white/black bevels for the hard-plastic look.
   s.textContent = `
-  .lab-overlay{position:fixed;inset:0;z-index:9996;display:flex;align-items:center;justify-content:center;background:rgba(2,5,4,.86);backdrop-filter:blur(3px);font-family:var(--font-mono,monospace)}
-  .lab-rig{position:relative;width:min(94vw,940px);aspect-ratio:960/604;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,#0c1116,#070b0f 40%,#04070a);border:1px solid #05070a;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 24px 70px rgba(0,0,0,.8),0 0 50px color-mix(in srgb,var(--acc,#4fe08a) 12%,transparent)}
+  .lab-overlay{position:fixed;inset:0;z-index:9996;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg,#05050a) 82%,transparent);backdrop-filter:blur(4px);font-family:'Courier New',var(--font-mono,monospace);pointer-events:none}
+  .lab-overlay.lab-nodim{background:color-mix(in srgb,var(--bg,#05050a) 30%,transparent);backdrop-filter:none}
+  .lab-rig{pointer-events:auto;--A:var(--accent,var(--acc,#4fe08a));
+    --surf:color-mix(in srgb,var(--A) 12%,var(--bg2,#0d0d16));
+    --surf-hi:color-mix(in srgb,var(--A) 20%,var(--bg2,#0d0d16));
+    --surf-lo:color-mix(in srgb,var(--A) 7%,var(--bg2,#0d0d16));
+    --bevhi:color-mix(in srgb,#fff 55%,transparent);--bevlo:color-mix(in srgb,#000 45%,transparent);
+    --fgdim:color-mix(in srgb,var(--A) 70%,#fff);
+    --fgbright:color-mix(in srgb,var(--A) 20%,#fff);
+    position:relative;width:min(94vw,940px);aspect-ratio:960/604;border-radius:18px;overflow:hidden;
+    background:linear-gradient(180deg,color-mix(in srgb,var(--A) 6%,var(--bg2,#0d0d16)),var(--bg,#05050a) 55%);
+    border:2px solid color-mix(in srgb,var(--bg2,#0d0d16) 30%,#000 70%);
+    box-shadow:inset 0 2px 0 var(--bevhi),inset 0 -3px 8px var(--bevlo),0 24px 70px rgba(0,0,0,.85),0 0 40px color-mix(in srgb,var(--A) 16%,transparent)}
   .lab-rig canvas.lab-stage{position:absolute;inset:0;width:100%;height:100%;display:block}
   .lab-fx{position:absolute;inset:0;pointer-events:none;z-index:5}
-  .lab-fx.scan{background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.16) 2px 3px);opacity:.5;mix-blend-mode:multiply}
-  .lab-fx.vig{box-shadow:inset 0 0 140px rgba(0,0,0,.75),inset 0 0 40px rgba(0,0,0,.5)}
-  .lab-fx.grid{opacity:.09;background-image:linear-gradient(rgba(79,224,138,.5) 1px,transparent 1px),linear-gradient(90deg,rgba(79,224,138,.5) 1px,transparent 1px);background-size:30px 30px;animation:lab-drift 8s linear infinite}
+  .lab-fx.scan{background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.18) 2px 3px);opacity:.5;mix-blend-mode:multiply}
+  .lab-fx.vig{box-shadow:inset 0 0 140px rgba(0,0,0,.78),inset 0 0 40px rgba(0,0,0,.5)}
+  .lab-fx.grid{opacity:.08;background-image:linear-gradient(color-mix(in srgb,var(--A) 50%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--A) 50%,transparent) 1px,transparent 1px);background-size:30px 30px;animation:lab-drift 8s linear infinite}
   @keyframes lab-drift{to{background-position:0 30px,30px 0}}
-  .lab-grain{position:absolute;inset:0;z-index:6;pointer-events:none;opacity:.06;mix-blend-mode:screen;image-rendering:pixelated;width:100%;height:100%}
-  .lab-top{position:absolute;top:0;left:0;right:0;height:32px;z-index:8;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:11px;text-transform:uppercase;pointer-events:none;background:linear-gradient(180deg,rgba(6,10,8,.9),transparent)}
-  .lab-top .mk{color:var(--acc,#4fe08a);font-size:14px;text-shadow:0 0 10px var(--acc,#4fe08a)}
-  .lab-top b{letter-spacing:2px;color:var(--acc,#4fe08a);font-size:12px;text-shadow:1px 0 #ff4a5b,-1px 0 #5fd0e0}
-  .lab-top small{opacity:.45;letter-spacing:2px;font-size:8px;color:#9fb8ac}
-  .lab-top .close{margin-left:auto;pointer-events:auto;cursor:pointer;color:#8496a8;font-size:13px}
-  .lab-top .close:hover{color:#ff4a5b}
+  .lab-grain{position:absolute;inset:0;z-index:6;pointer-events:none;opacity:.05;mix-blend-mode:screen;image-rendering:pixelated;width:100%;height:100%}
+  .lab-top{position:absolute;top:0;left:0;right:0;height:34px;z-index:8;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:12px;font-weight:bold;text-transform:uppercase;pointer-events:auto;cursor:grab;user-select:none;background:linear-gradient(180deg,color-mix(in srgb,var(--A) 10%,var(--bg,#05050a)),transparent);border-bottom:1px solid color-mix(in srgb,var(--A) 22%,transparent)}
+  .lab-top.dragging{cursor:grabbing}
+  .lab-top .mk{color:var(--A);font-size:15px;text-shadow:0 0 10px var(--A)}
+  .lab-top b{letter-spacing:3px;color:var(--A);font-size:13px;text-shadow:0 0 10px color-mix(in srgb,var(--A) 65%,transparent)}
+  .lab-top small{opacity:.9;letter-spacing:2px;font-size:9px;font-weight:bold;color:var(--fgdim)}
+  .lab-top .close{margin-left:auto;pointer-events:auto;cursor:pointer;color:var(--fgdim);font-size:13px}
+  .lab-top .close:hover{color:var(--red,#ff4a5b)}
   .lab-ui{position:absolute;inset:0;z-index:7;pointer-events:none}
-  .lab-btn{position:absolute;pointer-events:auto;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#04120b;background:linear-gradient(180deg,var(--acc,#4fe08a),#2f8a56);border:none;padding:9px 20px;border-radius:4px;font-weight:bold;box-shadow:0 0 18px rgba(79,224,138,.4),inset 0 1px 0 rgba(255,255,255,.4)}
-  .lab-btn:hover{filter:brightness(1.14)} .lab-btn:active{transform:translateY(1px)}
-  .lab-btn.ghost{background:none;color:#8496a8;border:1px solid rgba(132,150,168,.35);box-shadow:none}
-  .lab-btn.ghost:hover{color:var(--acc,#4fe08a);border-color:var(--acc,#4fe08a)}
+  .lab-btn{position:absolute;z-index:12;pointer-events:auto;cursor:pointer;font-family:inherit;font-size:14px;letter-spacing:2px;text-transform:uppercase;color:#0a0a0a;background:linear-gradient(180deg,color-mix(in srgb,var(--A) 88%,#fff),var(--A));border:1px solid color-mix(in srgb,var(--A) 55%,#000);padding:11px 24px;border-radius:6px;font-weight:bold;
+    box-shadow:inset 0 1px 0 var(--bevhi),0 4px 0 color-mix(in srgb,var(--A) 65%,#000),0 8px 18px rgba(0,0,0,.6),0 0 16px color-mix(in srgb,var(--A) 40%,transparent)}
+  .lab-btn:hover{filter:brightness(1.12);transform:translateY(-1px);box-shadow:inset 0 1px 0 var(--bevhi),0 5px 0 color-mix(in srgb,var(--A) 65%,#000),0 10px 20px rgba(0,0,0,.6),0 0 20px color-mix(in srgb,var(--A) 50%,transparent)}
+  .lab-btn:active{transform:translateY(3px);box-shadow:inset 0 1px 0 var(--bevhi),0 1px 0 color-mix(in srgb,var(--A) 65%,#000),0 2px 8px rgba(0,0,0,.6)}
+  .lab-btn.ghost{background:linear-gradient(180deg,color-mix(in srgb,var(--A) 22%,var(--surf-hi)),var(--surf-lo));color:var(--fgdim);border:1px solid color-mix(in srgb,var(--A) 45%,transparent);
+    box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 16%,transparent),0 4px 0 rgba(0,0,0,.55),0 8px 16px rgba(0,0,0,.5)}
+  .lab-btn.ghost:hover{color:var(--A);border-color:var(--A)}
+  .lab-btn.ghost:active{box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 16%,transparent),0 1px 0 rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.5)}
   .lab-btn[disabled]{opacity:.35;cursor:not-allowed;filter:grayscale(.6)}
   .lab-insta{position:absolute;right:12px;bottom:12px;width:170px;z-index:8;pointer-events:none}
-  .lab-insta .lb{font-size:8px;letter-spacing:2px;color:#6f8a7c;display:flex;justify-content:space-between;margin-bottom:3px}
-  .lab-insta .bar{height:8px;border:1px solid #05070a;border-radius:3px;background:#0a0f0c;overflow:hidden}
-  .lab-insta .fill{height:100%;width:0%;background:linear-gradient(90deg,#4fe08a,#ffb23e 60%,#ff4a5b);box-shadow:0 0 8px rgba(255,74,91,.5);transition:width .18s}
-  .lab-ticker{position:absolute;left:12px;bottom:12px;right:196px;z-index:8;pointer-events:none;font-size:10px;color:#6f8a7c;text-shadow:0 0 6px rgba(0,0,0,.9);min-height:14px}
-  .lab-ticker b{color:#4fe08a} .lab-ticker .r{color:#ff4a5b} .lab-ticker .a{color:#ffb23e}
+  .lab-insta .lb{font-size:10px;font-weight:bold;letter-spacing:2px;color:var(--fgdim);display:flex;justify-content:space-between;margin-bottom:3px;text-shadow:0 0 5px color-mix(in srgb,var(--bg,#05050a) 85%,transparent)}
+  .lab-insta .bar{height:8px;border:1px solid color-mix(in srgb,#000 50%,var(--A));border-radius:4px;background:var(--surf-lo);overflow:hidden}
+  .lab-insta .fill{height:100%;width:0%;background:linear-gradient(90deg,var(--A),var(--orange,#ffb23e) 60%,var(--red,#ff4a5b));box-shadow:0 0 8px rgba(255,74,91,.5);transition:width .18s}
+  .lab-ticker{position:absolute;left:12px;bottom:12px;right:196px;z-index:8;pointer-events:none;font-size:13px;font-weight:bold;color:var(--fgdim);text-shadow:0 0 5px color-mix(in srgb,var(--bg,#05050a) 85%,transparent),0 0 2px color-mix(in srgb,var(--bg,#05050a) 85%,transparent);min-height:17px}
+  .lab-ticker b{color:var(--A)} .lab-ticker .r{color:var(--red,#ff4a5b)} .lab-ticker .a{color:var(--orange,#ffb23e)}
   .lab-flash{position:absolute;inset:0;z-index:20;pointer-events:none;background:#fff;opacity:0}
   .lab-hidden{display:none!important}
+  .lab-card{width:360px;padding:22px;border-radius:12px;background:linear-gradient(180deg,var(--surf-hi),var(--surf-lo));border:1px solid color-mix(in srgb,var(--A) 34%,transparent);box-shadow:inset 0 1px 0 var(--bevhi),inset 0 -3px 10px var(--bevlo),0 20px 60px rgba(0,0,0,.9);font-family:inherit}
+  .lab-field{width:100%;box-sizing:border-box;background:var(--bg,#05050a);border:1px solid color-mix(in srgb,var(--A) 40%,transparent);border-radius:6px;color:var(--A);font-family:inherit;font-size:14px;letter-spacing:1px;padding:9px 11px;text-align:center;outline:none;box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}
+  .lab-field:focus{border-color:var(--A);box-shadow:inset 0 2px 6px rgba(0,0,0,.6),0 0 12px color-mix(in srgb,var(--A) 40%,transparent)}
+  .lab-field::placeholder{color:var(--fgdim);opacity:.7}
+  .lab-shake{animation:lab-shake .4s cubic-bezier(.36,.07,.19,.97) both;border-color:var(--red,#ff4a5b)!important}
+  @keyframes lab-shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
   `;
   document.head.appendChild(s);
 }
@@ -347,12 +358,17 @@ export function evPos(canvas, e) {
 
 // Mount a fullscreen minigame overlay: centred rig + canvas + grit + HUD.
 // Returns an API; call api.close() to tear down. useCanvas() is pointed here.
-export function mountLab({ title = 'CHIMERA-9', subtitle = 'GENESPLICER', accent = '#4fe08a', showInsta = true } = {}) {
+export function mountLab({ title = 'CHIMERA-9', subtitle = 'GENESPLICER', accent = '#4fe08a', showInsta = true, test = false } = {}) {
   ensureLabStyles();
+  setLabBg(test);
   const overlay = document.createElement('div');
-  overlay.className = 'lab-overlay';
+  overlay.className = 'lab-overlay' + (test ? ' lab-nodim' : '');
+  // on a light-theme test window the default --fgdim (accent mixed toward WHITE) washes
+  // out against the now-light canvas; flip the mix target toward black so dim/secondary
+  // text stays readable regardless of which theme is behind it.
+  const fgdimOverride = (test && labBgLight) ? `--fgdim:color-mix(in srgb,var(--A) 65%,#000);--fgbright:color-mix(in srgb,var(--A) 20%,#000);` : '';
   overlay.innerHTML = `
-    <div class="lab-rig" style="--acc:${accent}">
+    <div class="lab-rig" style="--acc:${accent};${fgdimOverride}">
       <canvas class="lab-stage" width="960" height="604"></canvas>
       <div class="lab-fx grid"></div><div class="lab-fx scan"></div>
       <canvas class="lab-grain" width="240" height="151"></canvas>
@@ -370,8 +386,26 @@ export function mountLab({ title = 'CHIMERA-9', subtitle = 'GENESPLICER', accent
   const grainTimer = setInterval(() => { const id = gg.createImageData(gcv.width, gcv.height); const d = id.data; for (let i = 0; i < d.length; i += 4) { const v = Math.random() * 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = Math.random() < .5 ? 40 : 0; } gg.putImageData(id, 0, 0); }, 90);
 
   let closed = false; const closeCbs = [];
-  function close() { if (closed) return; closed = true; clearInterval(grainTimer); AX.stopAll(); closeCbs.forEach(fn => { try { fn(); } catch (e) { } }); if (overlay.parentNode) overlay.remove(); }
+  function close() { if (closed) return; closed = true; clearInterval(grainTimer); AX.stopAll(); closeCbs.forEach(fn => { try { fn(); } catch (e) { } }); window.removeEventListener('pointermove', onDragMove); window.removeEventListener('pointerup', onDragEnd); if (overlay.parentNode) overlay.remove(); }
   overlay.querySelector('.close').addEventListener('click', close);
+
+  // draggable rig — grab the titlebar (not the close button) and slide the window
+  // around by CSS transform, independent of layout so the centred flex box holds.
+  const rig = overlay.querySelector('.lab-rig'), top = overlay.querySelector('.lab-top');
+  let dragX = 0, dragY = 0, dragging = false, startX = 0, startY = 0;
+  function onDragStart(e) {
+    if (e.target.closest('.close')) return;
+    dragging = true; top.classList.add('dragging');
+    startX = e.clientX - dragX; startY = e.clientY - dragY;
+    window.addEventListener('pointermove', onDragMove); window.addEventListener('pointerup', onDragEnd);
+  }
+  function onDragMove(e) {
+    if (!dragging) return;
+    dragX = e.clientX - startX; dragY = e.clientY - startY;
+    rig.style.transform = `translate(${dragX}px,${dragY}px)`;
+  }
+  function onDragEnd() { dragging = false; top.classList.remove('dragging'); window.removeEventListener('pointermove', onDragMove); window.removeEventListener('pointerup', onDragEnd); }
+  top.addEventListener('pointerdown', onDragStart);
 
   return {
     overlay, canvas, ctx,

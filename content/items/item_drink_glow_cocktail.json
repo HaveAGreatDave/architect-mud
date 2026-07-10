@@ -7,6 +7,8 @@
     "consumable": true,
     "description": "Faintly luminescent. The bartender swears the radiation is \"mostly cosmetic.\"",
     "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.1,
     "restore_radiation": 4,
     "restore_sanity": 12,
     "restore_thirst": 12,

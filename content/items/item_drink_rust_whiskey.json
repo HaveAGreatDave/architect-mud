@@ -7,6 +7,8 @@
     "consumable": true,
     "description": "Tastes like it was filtered through the pipe it's named after. Probably was.",
     "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.6,
     "restore_hp": -2,
     "restore_sanity": 8,
     "restore_thirst": 10,

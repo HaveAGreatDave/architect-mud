@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
-import { renderMinimap, openMapPopup, refreshMapIfOpen, setMapTerritory, setGpsRoute } from './panels/minimap.js';
+import { renderMinimap, openMapPopup, refreshMapIfOpen, setMapTerritory, setGpsRoute, setRunState } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut } from './panels/environment.js';
 import { setWeatherEventFx } from './panels/weather-fx.js';
 import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
@@ -371,6 +371,11 @@ const handlers = {
     for (const m of msg.messages) appendHtml(m, 'combat-incoming');
   },
 
+  run_state: (msg) => {
+    if (msg.message) appendMsg(msg.message, 'system');
+    setRunState(msg.running);
+  },
+
   resource_tick: (msg) => {
     for (const m of msg.messages) appendMsg(m, 'system');
     if (msg.player_update && state.player) {
@@ -398,7 +403,7 @@ const handlers = {
     // A whisper we already echoed optimistically was rejected — pull it back out.
     if (msg.whisperFailed) rollbackSelfEcho(msg.whisperFailed);
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
-    appendMsg(msg.message, 'error');
+    if (msg.html) appendHtml(msg.message, 'error'); else appendMsg(msg.message, 'error');
     if (document.getElementById('recipes-panel').classList.contains('active')) sendCmdSilent('recipes');
   },
 

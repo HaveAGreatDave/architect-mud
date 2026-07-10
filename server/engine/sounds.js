@@ -131,7 +131,7 @@ export function propagateAudio(originZoneId, sfxDef, loudness, broadcastFn) {
 // harder across a closed, intact door — so closing a door significantly cuts
 // the weather noise, and a couple of rooms behind a shut door is barely audible.
 const WEATHER_ROOM_DECAY = 0.55;       // per room hop, walls alone
-const WEATHER_DOOR_DECAY = 0.15;       // extra multiplier crossing a closed, intact door
+const WEATHER_DOOR_DECAY = 0.05;       // extra multiplier crossing a closed, intact door (3× the deadening of the old 0.15)
 const WEATHER_LEAK_MAX_HOPS = 6;
 const WEATHER_LEAK_STOP_THRESHOLD = 0.02;
 

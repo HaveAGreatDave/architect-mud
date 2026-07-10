@@ -39,6 +39,8 @@ import './vehicles-app.js';
 import './properties-app.js';
 import './settings-app.js';
 import './corp-app.js';
+import './surveillance-app.js';
+import './chat-app.js';
 
 export { registerTabletApp, getTabletApps } from './registry.js';
 
@@ -113,10 +115,12 @@ async function cmdTabletNav(args, raw, player) {
 // which is the zone-visible-effects contract those commands expect.
 async function cmdTabletAction(args, raw, player, broadcast) {
   if (!player) return { type: 'noop' };
-  const [appId, actionId, ...rest] = args || [];
+  const [appId, actionId] = args || [];
   const app = findTabletApp(appId);
   if (!app) return buildHomePayload(player);
-  const params = rest.join(' ');
+  // Re-derive params from `raw` (not the pre-lowercased `args`) so free-text
+  // input keeps the player's casing — e.g. a corp name founded from the app.
+  const params = raw.trim().split(/\s+/).slice(3).join(' ');
 
   if (typeof app.handleAction === 'function') {
     try {

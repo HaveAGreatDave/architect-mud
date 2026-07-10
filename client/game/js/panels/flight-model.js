@@ -106,12 +106,16 @@ export const TYPES = {
   // target and shrugs off ground fire. It can't run (high drag bleeds any dive), it just
   // keeps coming. Twin turbofans, forgiving low-speed handling, rough-field capable.
   reaper: {
-    name: 'Reaper', mass: 3.4, thrustMax: 32, vr: 62, vs0: 40, vne: 210, cruise: 150,
-    pitchRate: 10, pitchTau: 0.7, rollRate: 58, rollTau: 0.6, engineLag: 1.5,
+    // thrustMax 32→50 + engineLag 1.5→1.3 + vr 62→52 + vs0 40→34: she's a JET and was
+    // flying like a laden prop — worst thrust-to-mass in the fleet (9.4 kt/s) grinding
+    // toward the highest rotate speed, then bleeding straight back toward the stall on
+    // climb-out. Real turbofan thrust now shoves her off the deck, she rotates sooner,
+    // and the fatter stall margin + power reserve stops the climb-out stall. She stays
+    // DRAGGY (dragP 0.0011 unchanged) so drag still pins her top speed near vne — a
+    // jet that gets airborne fast and holds its energy, but still can't run away.
+    name: 'Reaper', mass: 3.4, thrustMax: 50, vr: 52, vs0: 34, vne: 210, cruise: 150,
+    pitchRate: 10, pitchTau: 0.7, rollRate: 58, rollTau: 0.6, engineLag: 1.3,
     pitchStable: 1.1, rollStable: 1.3, dragP: 0.00110, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
-    // Climb bumped (1700→2400 vsMax, 1800→2200 vsGain) — twin turbofans, per her own doc
-    // comment above, so getting off the deck should feel like it, even though she's draggy
-    // and won't hold speed the way the Leviathan does.
     rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 2400, vsGain: 2200, vsTau: 1.0,
     brake: 7.5, groundSteer: 28, ceiling: 12000, bestGlide: 69,
   },

@@ -80,6 +80,15 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   `comedown_scale` and **cleanly reversed** on expiry (the ledger never bakes a buff into a base stat).
   `*_regen_per_sec` keys in `peak_mods` are per-second drip regen (fractional accumulator, like
   heal-over-time). Optional `comeup/peak/comedown/end_message` lines narrate each transition.
+- **Laced consumables** (`tags.laced_drug` + optional `tags.laced_potency`) — any **consumable** item
+  (a drink or food, not a `drug`-type item) can carry a drug that fires when it's used: the consumable
+  path applies the item's own restores, then calls `useDrug(laced_drug, { potencyMult: laced_potency,
+  skipInstant: true })`. `skipInstant` runs the drug's *systemic* effects (the meter via `player.drugUsed`,
+  phases, overdose) but **skips its instant resource block**, so the drug's restores don't double the
+  item's. This is the general "drugged drink/food" path. **Alcohol** is its first user: `drug_alcohol`
+  (`flags.alcoholic`) is one shared drug — beer is a drug item linked to it; the bar drinks are laced
+  consumables at per-drink `laced_potency` — so all drinks share one BAC pool, tolerance and
+  alcohol-poisoning OD. A non-alcohol laced item just points `laced_drug` at any other drug.
 - **Tolerance** (`tolerance` block) — each dose raises `player_drug_state.tolerance`; it recovers lazily
   off `last_used_at`. Potency (locked into the active-drug entry) is `1 − tolerance × max_reduction`,
   scaling both phased buff magnitude and hallucination intensity.

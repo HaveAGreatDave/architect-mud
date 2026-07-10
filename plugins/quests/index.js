@@ -14,6 +14,10 @@
  *   { type:'kill',  target:'rat', count:3, desc:'Kill 3 rats' }
  *   { type:'give',  item_id:'pie', count:1, desc:'Hand over the pie' }
  *   { type:'visit', zone:'zone_sewers',     desc:'Reach the sewers' }
+ *   { type:'retrieve', item_id:'relic', zone:'zone_sewers', spawn:true, count:1, desc:'Recover the relic' }
+ * A 'retrieve' objective advances when the player picks up its item_id (item.taken),
+ * and — unless spawn===false — the engine drops `count` copies of that item onto the
+ * `zone`'s ground the moment the quest starts, so it's always there to be found.
  * Any objective (any type) may also carry a `zone`. Whenever the current
  * objective changes — quest started, ADVANCE'd, or ticked forward by
  * trackEvent — the player's first incomplete zone-bearing objective is
@@ -25,6 +29,7 @@
  *   { credits:50, items:[{item_id,quantity}], flags:[{scope,flag,value}] }
  */
 import { query } from '../../server/models/db.js';
+import { spawnOnGround } from '../../server/engine/inventory.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { on, emit } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
@@ -59,6 +64,21 @@ async function loadPlayerQuest(playerId, questId) {
 
 function freshProgress(quest) {
   return (quest.objectives || []).map(() => 0);
+}
+
+// Auto-spawn: drop a fresh copy of each 'retrieve' objective's item onto its zone's
+// ground when the quest starts, unless the objective opts out (spawn===false, i.e.
+// the item is already placed in the world). A bad item_id/zone is logged, never
+// allowed to break quest start.
+async function spawnRetrieveItems(quest) {
+  for (const obj of (quest.objectives || [])) {
+    if (obj.type !== 'retrieve' || obj.spawn === false || !obj.item_id || !obj.zone) continue;
+    try {
+      await spawnOnGround(obj.item_id, obj.zone, obj.count || 1);
+    } catch (e) {
+      console.error('[quests] retrieve auto-spawn failed:', obj.item_id, '→', obj.zone, e.message);
+    }
+  }
 }
 
 function isComplete(quest, progress) {
@@ -310,6 +330,13 @@ on('zone.entered', ({ actor, zone, from }) => {
   return trackEvent(actor, (obj) => obj.type === 'visit' && obj.zone === zone);
 });
 
+on('item.taken', ({ actor, item }) => {
+  // A 'retrieve' objective completes when the player picks the item up. Matches on
+  // item_id like 'give' — any copy counts (the auto-spawned one, or a pre-placed one).
+  return trackEvent(actor, (obj) =>
+    obj.type === 'retrieve' && obj.item_id && item?.item_id === obj.item_id);
+});
+
 // Note: 'deliver' objectives (flight pilot contracts) are deliberately NOT wired to
 // zone.entered — a delivery has to be verified as an actual landing with the right
 // cargo aboard (plugins/flight/contracts.js checkContractDelivery), not just the
@@ -344,6 +371,7 @@ registerAction({
       );
     }
     await setQuestFlag(actor, quest_id, 'active');
+    await spawnRetrieveItems(quest);
     msg(actor.id, `<span class="msg-system">New quest: ${quest.name}.</span>\n${quest.description || ''}`);
     emit('quest.started', { actor, quest_id });
     routeToObjective(actor, quest, freshProgress(quest));
@@ -404,7 +432,10 @@ registerAction({
 registerAction({
   type: 'TURN_IN',
   handler: async ({ actor, params, context }) => {
-    const { quest_id } = params;
+    // A generic hand-in dialogue node (Marta's job_turnin) authors no quest_id —
+    // the quest being turned in rides in on the dialogue context instead (set by
+    // Tablet OS's turn-in routing). Per-quest TURN_IN nodes still pass it in params.
+    const quest_id = params.quest_id || context?.quest_id;
     if (!quest_id) return { type: 'error', message: 'TURN_IN requires quest_id.' };
     const quest = await loadQuest(quest_id);
     const pq = quest && await loadPlayerQuest(actor.id, quest_id);

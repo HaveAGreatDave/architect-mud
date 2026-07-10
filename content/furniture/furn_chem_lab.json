@@ -10,7 +10,7 @@
   "light_type": "lamp",
   "lumen_output": null,
   "name": "chem lab",
-  "object_type": "appliance",
+  "object_type": "container",
   "power_draw_kw": null,
   "price": 0,
   "zone_id": "zone_drum_basement"

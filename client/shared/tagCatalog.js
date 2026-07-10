@@ -119,6 +119,10 @@
       help: 'Grants the Well-Fed buff (faster HP regen) for 10 minutes.' },
     hydrating: { label: 'Hydrating', shape: 'flag', scope: 'class', group: 'Consumable',
       help: 'Grants the Hydrated buff (faster radiation decay) for 10 minutes.' },
+    laced_drug: { label: 'Laced Drug', shape: 'text', scope: 'class', group: 'Consumable',
+      help: 'Drug id (e.g. drug_alcohol) this consumable applies as a carrier — the drug\'s onset/effects run, but its own instant restores are skipped in favor of this item\'s restore_* tags.' },
+    laced_potency: { label: 'Laced Potency', shape: 'int', scope: 'class', group: 'Consumable',
+      help: 'Multiplier applied to the laced drug\'s potency (e.g. 1.6 for a strong pour). Pairs with laced_drug.' },
 
     // --- Container ---
     container: { label: 'Container Capacity', shape: 'int', scope: 'class', group: 'Container',
@@ -230,6 +234,8 @@
       help: 'Plantable surveillance gear (surveillance plugin).' },
     song_id: { label: 'Song ID', shape: 'text', scope: 'class', group: 'Systems',
       help: 'audio_samples row this music item plays (audio plugin).' },
+    specter_program: { label: 'SPECTER Program', shape: 'flag', scope: 'class', group: 'Systems',
+      help: 'The SPECTER surveillance tablet-app item (surveillance plugin).' },
     spy_deck: { label: 'Spy Deck', shape: 'flag', scope: 'class', group: 'Systems',
       help: 'Surveillance hub deck — reviews planted-device feeds.' },
     stackable: { label: 'Stackable (legacy)', shape: 'flag', scope: 'class', group: 'Systems',

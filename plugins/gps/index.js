@@ -41,4 +41,28 @@ registerAction({
   handler: ({ actor, params }) => plotRoute(actor, params.destination),
 });
 
-export const commands = { gps: cmdGps };
+// Run mode: a runtime-only flag on the live player (never a DB column — it's
+// transient movement state, resets to walk on relog). movement.js reads it to
+// charge the per-step stamina toll; the client mirrors `running` onto the minimap
+// Run button and paces GPS auto-walk off it. Bare `run` toggles; `run on|off` and
+// the `walk` alias set it explicitly.
+function setRunning(player, running) {
+  player.running = running;
+  return {
+    type: 'run_state',
+    running,
+    message: running
+      ? 'You break into a run — faster, but it burns stamina.'
+      : 'You slow to a walk.',
+  };
+}
+function cmdRun(args, raw, player) {
+  const arg = (args || [])[0]?.toLowerCase();
+  const running = arg === 'on' || arg === 'start' ? true
+    : arg === 'off' || arg === 'stop' ? false
+    : !player.running;
+  return setRunning(player, running);
+}
+function cmdWalk(args, raw, player) { return setRunning(player, false); }
+
+export const commands = { gps: cmdGps, run: cmdRun, walk: cmdWalk };

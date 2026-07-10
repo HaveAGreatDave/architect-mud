@@ -339,6 +339,19 @@ the 12s debounce covers a resumed streak). Leaving the zone ends the offence. Tw
 `isWitnessed(zone)` stays deterministic — it now serves only heat-decay/visibility (wanted tick,
 witnessed-homicide gate), not the catch roll.
 
+### Cameras see worse in low visibility (2026-07-09)
+
+A PD/player camera's catch rate is calibrated for **clear conditions**; darkness (night blackout,
+storm, fog, ash) blinds the lens the same way it blinds a fighter's aim (combat's
+`darknessHitPenalty`). `witnessRoll`'s camera branch multiplies `camChance` by
+`cameraVisibilityFactor(zone)` = `getZoneVisibility(zone).category` mapped through the shared
+`LIGHT_LADDER`: `clear` and brighter → **1.0** (full default rate); each band dimmer than `clear`
+loses `CAM_VIS_STEP` (0.18) — `dim` 0.82, `gloomy` 0.64, `dark` 0.46, `murk` 0.28 — floored at
+`CAM_VIS_FLOOR` (0.10) so a pitch-dark street still isn't a guaranteed free pass. Because
+`scanActiveCrimes` re-rolls this each 5s tick, a lower per-roll chance also **lengthens
+time-to-detection** for ongoing offences. Only the camera witness is degraded — an on-scene cop or
+bystander (human eyes) still sees you at their usual odds.
+
 ## Resolved forks
 
 All settled 2026-07-01 — see the two decision tables above. No open questions remain; ready for Phase 1.

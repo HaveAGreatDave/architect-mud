@@ -657,15 +657,29 @@ export const hooks = {
 // don't import them — they ask over the action registry. Drinking foul water
 // still slakes thirst (you did swallow it), but you catch something for it.
 
-// Dysentery from foul water: nausea saps stamina, then cramps bite HP. ~40s.
+// Dysentery from foul water: nausea comes in waves, not a per-second drip.
+// Every ~20s a bout hits, draining stamina AND HP together. It's miserable but
+// never lethal on its own — cramps leave you doubled over, not dead.
 registerStatusEffect({
   name: 'sick',
   label: 'Sick',
   onTick(player) {
-    const cur = player.stamina ?? (player.stamina_max ?? 100);
-    if (cur > 0) { player.stamina = Math.max(0, cur - 3); return 'Your stomach churns violently. (-3 STA)'; }
-    player.hp = Math.max(0, player.hp - 1);
-    return 'You retch, doubled over with cramps. (-1 HP)';
+    // Hold off ~20s between bouts so the log isn't spammed every tick.
+    player._sickWaveIn = (player._sickWaveIn ?? 20) - 1;
+    if (player._sickWaveIn > 0) return undefined;
+    player._sickWaveIn = 20;
+
+    const parts = [];
+    const staBefore = player.stamina ?? (player.stamina_max ?? 100);
+    const sta = Math.max(0, staBefore - 15);
+    if (sta < staBefore) { parts.push(`-${staBefore - sta} STA`); player.stamina = sta; }
+
+    // Floor at 1 — sickness can lay you low but won't be the thing that kills you.
+    const hp = Math.max(1, player.hp - 6);
+    if (hp < player.hp) { parts.push(`-${player.hp - hp} HP`); player.hp = hp; }
+
+    if (!parts.length) return undefined;
+    return `A wave of nausea doubles you over — your stomach cramps and heaves. (${parts.join(', ')})`;
   },
 });
 

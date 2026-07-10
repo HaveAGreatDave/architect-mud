@@ -32,7 +32,7 @@ const ONSET = {
   drug_psilocybin: 30,   // slowest come-up
 };
 // Explicit onset 0 (instant) — documented so the intent is on the record, not absence.
-const INSTANT = ['drug_laughers', 'drug_threshold', 'drug_beer', 'drug_coffee'];
+const INSTANT = ['drug_laughers', 'drug_threshold', 'drug_alcohol', 'drug_coffee'];
 
 // Also tighten poppers: a 4s come-up reads slow for a nitrite rush.
 const COMEUP_FIX = { drug_amyls: 2 };

@@ -77,5 +77,9 @@ export async function renderDialogueNode(npc, nodeKey, player, context) {
   }
 
   const options = await filterDialogueOptions(node.options, tree, player);
-  return { text: node.text + appendMessage, options };
+  // `{quest}` in a node's text resolves to the quest name a generic hand-in node is
+  // turning in (context.quest_name, set by Tablet OS) so the NPC can name the job.
+  let text = node.text + appendMessage;
+  if (context?.quest_name) text = text.replace(/\{quest\}/g, context.quest_name);
+  return { text, options };
 }

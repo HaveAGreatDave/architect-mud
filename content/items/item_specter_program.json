@@ -1,0 +1,12 @@
+{
+  "description": "",
+  "flags": {},
+  "id": "item_specter_program",
+  "name": "SPECTER Install Chip",
+  "tags": {
+    "specter_program": true
+  },
+  "type": "device",
+  "value": 1500,
+  "weight": 100
+}

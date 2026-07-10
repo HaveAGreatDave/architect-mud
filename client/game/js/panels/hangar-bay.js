@@ -14,7 +14,7 @@
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
 import { drawHangarFloorBay, drawHangarScene } from './aircraft3d.js';
-import { drawWireframe3D, drawEngineWireframe, themeColor } from './wireframe-plane.js';
+import { drawWireframe3D, drawKnob, drawPerfRadar, themeColor } from './wireframe-plane.js';
 import { showConfirmDialog } from './confirm.js';
 
 let B = null;       // { data, screen, selId, work (paint edit copy) }
@@ -74,6 +74,12 @@ function go(screen) { cleanupPopover(); B.screen = screen; render(); }
 // short delayed re-fetch — the same trick fleet.js used for `buy`.
 function refetch() { setTimeout(() => sendCmdSilent('hangar'), 450); }
 
+// Every toolbar button is an icon + label chip (tablet-style 3D control). One
+// helper so the floor, bench, charter and dealer action bars all match.
+function tbtn(icon, label, attrs = '', cls = '') {
+  return `<button class="hb-btn${cls ? ' ' + cls : ''}" ${attrs}><span class="hb-ico">${icon}</span>${label}</button>`;
+}
+
 // ── Floor ───────────────────────────────────────────────────────────────────
 function bayCanvas(id, cls, livery, tint, size, extra = '') {
   return `<canvas class="hb-bay" id="${id}" data-hb-cls="${esc(cls || '')}" data-hb-livery="${esc(JSON.stringify(livery || {}))}" data-hb-tint="${esc(tint || '')}" style="width:${size}px;height:${Math.round(size * 0.78)}px" ${extra}></canvas>`;
@@ -99,6 +105,8 @@ function floorScreen() {
   const mulePrompt = d.charterWaiting
     ? `, or the ${esc(pilot.name)}-coloured Mule — it's fuelled and waiting for you`
     : pilot.present ? `, or the ${esc(pilot.name)}-coloured Mule to charter a ride` : '';
+  // The info panel is now a pure read-out (name + bars) — every action moved down
+  // to the dedicated toolbar so the buttons live in one separate control tray.
   const info = sel ? `
     <div class="hb-info">
       <div class="hb-info-name">${esc(sel.tail)} <span class="hb-info-type">${esc(sel.typeName)}</span> ${locBadge(sel)}</div>
@@ -106,24 +114,30 @@ function floorScreen() {
         <span class="hb-bl">HULL</span><span class="hb-bar"><i style="width:${sel.hullPct}%;background:${barCol(sel.hullPct)}"></i></span>
         <span class="hb-bl">FUEL</span><span class="hb-bar"><i style="width:${sel.fuelPct}%;background:#4fb8e0"></i></span>
       </div>
-      <div class="hb-info-actions">
-        ${!sel.wreck ? `<button class="hb-btn hb-go" data-act="embark" data-tail="${esc(sel.tail)}">Fly</button>` : ''}
-        ${!sel.wreck ? `<button class="hb-btn" data-act="bench">Maintenance</button>` : ''}
-        ${d.hasBay && !sel.wreck && sel.location === 'ramp' ? `<button class="hb-btn" data-act="store">Store in bay</button>` : ''}
-        ${d.hasBay && sel.location === 'hangar' ? `<button class="hb-btn" data-act="pull">Roll out</button>` : ''}
-        ${!sel.wreck && !sel.rental ? `<button class="hb-btn" data-act="sell">Sell</button>` : ''}
-        ${!sel.wreck && sel.rental ? `<button class="hb-btn" data-act="cancel_rental">Cancel Rental</button>` : ''}
-      </div>
     </div>` : empty
       ? `<div class="hb-hint">No aircraft of yours are here yet.${d.canBuy || d.canRent ? '' : ' There\'s no dealer or rental desk at this field either.'}</div>`
       : hasCharterTile ? `<div class="hb-hint">Click a plane to select it${mulePrompt}.</div>` : '';
+
+  // Left group = the selected craft's actions (only when one's picked); right
+  // group = the always-present field actions (Buy/Rent, Exit).
+  const craftActs = sel ? [
+    !sel.wreck ? tbtn('✈', 'Fly', `data-act="embark" data-tail="${esc(sel.tail)}"`, 'hb-accent hb-go') : '',
+    !sel.wreck ? tbtn('⚙', 'Maintenance', 'data-act="bench"') : '',
+    d.hasBay && !sel.wreck && sel.location === 'ramp' ? tbtn('⤓', 'Store', 'data-act="store"') : '',
+    d.hasBay && sel.location === 'hangar' ? tbtn('⤒', 'Roll Out', 'data-act="pull"') : '',
+    !sel.wreck && !sel.rental ? tbtn('₵', 'Sell', 'data-act="sell"') : '',
+    !sel.wreck && sel.rental ? tbtn('✕', 'Cancel Rental', 'data-act="cancel_rental"') : '',
+  ].join('') : '';
 
   return `
     <div class="hb-floor">${stage}</div>
     ${info}
     <div class="hb-toolbar">
-      ${d.canBuy || d.canRent ? `<button class="hb-btn hb-accent" data-act="buyrent">Buy / Rent</button>` : ''}
-      <button class="hb-btn hb-close" data-act="close">${d.inHangar ? 'Exit Hangar' : 'Close'}</button>
+      <div class="hb-tb-group">${craftActs}</div>
+      <div class="hb-tb-group hb-tb-right">
+        ${d.canBuy || d.canRent ? tbtn('⊕', 'Buy / Rent', 'data-act="buyrent"', 'hb-accent') : ''}
+        ${tbtn('⏻', d.inHangar ? 'Exit Hangar' : 'Close', 'data-act="close"', 'hb-close')}
+      </div>
     </div>`;
 }
 // The scene's entries: your craft (livery as-is) plus, when a pilot's on duty,
@@ -194,8 +208,8 @@ function charterScreen() {
       </div>
     </div>
     <div class="hb-toolbar">
-      <button class="hb-btn${charterAny ? ' hb-accent' : ''}" data-act="charter-any">${charterAny ? '✓ ' : ''}Off-airfield drop (Dragonfly)</button>
-      <button class="hb-btn" data-act="back">Back</button>
+      <div class="hb-tb-group">${tbtn('⛟', `${charterAny ? '✓ ' : ''}Off-airfield drop (Dragonfly)`, 'data-act="charter-any"', charterAny ? 'hb-accent' : '')}</div>
+      <div class="hb-tb-group hb-tb-right">${tbtn('‹', 'Back', 'data-act="back"')}</div>
     </div>`;
 }
 
@@ -216,7 +230,7 @@ function buyRentScreen() {
   const buy = d.canBuy ? `<div class="hb-section">BUY</div><div class="hb-lotgrid">${(d.buyCatalog || []).map(t => lotCard(t, 'buy')).join('')}</div>` : '';
   const rent = d.canRent ? `<div class="hb-section">RENT (self-flown)</div><div class="hb-lotgrid">${(d.rentCatalog || []).map(t => lotCard(t, 'rent')).join('')}</div>` : '';
   return `<div class="hb-dealer-crt"><div class="hb-scroll">${buy}${rent}</div><div class="hb-dealer-scanlines"></div><div class="hb-crt-glass"></div></div>
-    <div class="hb-toolbar"><button class="hb-btn" data-act="back">Back</button></div>`;
+    <div class="hb-toolbar"><div class="hb-tb-group hb-tb-right">${tbtn('‹', 'Back', 'data-act="back"')}</div></div>`;
 }
 
 // ── Mechanics bench (maintenance: paint + repair + tune + loadout) ─────────
@@ -400,19 +414,139 @@ function hullTabHtml(c) {
       </div>`;
 }
 
-// Tuning is owner-only (matches the server's requireOwned/ownedCraft gate in
-// hangars.js — a rental flies stock, no tune curves to push) — a rental
-// previously showed the same cycle buttons as an owned craft, which the server
-// silently rejected on click. Gated here so it never renders in the first place.
-function tuningTabHtml(c, tuneParams) {
+// ── Tuning: continuous dials + a live performance graph ───────────────────────
+// The five perf axes, in radar-ring order. MIRROR of state.js PERF_AXES — the axis
+// math below (computeAxesClient) mirrors state.perfAxes/computeStats so the graph
+// morphs instantly as you drag, before the server round-trip. On Apply the server
+// recomputes authoritatively and re-pushes, so any drift self-corrects.
+const PERF_LABELS = [
+  { id: 'speed', label: 'SPEED' }, { id: 'economy', label: 'ECON' }, { id: 'range', label: 'RANGE' },
+  { id: 'cool', label: 'COOL' }, { id: 'agility', label: 'AGILITY' },
+];
+const TUNE_KEYS = ['mixture', 'pitch', 'boost', 'cg'];
+function computeStatsClient(c, tune) {
+  const b = c.perfBase || { cruise: 1, burn: 1, maxTOW: 300, pace: 1 };
+  const mix = tune.mixture || 0, pitch = tune.pitch || 0, boost = tune.boost || 0;
+  const loadFrac = (c.cargoNow || 0) / (b.maxTOW || 300);
+  const cool = (c.kitsInstalled || []).includes('kit_intercooler') ? 0.6 : 1;
+  return {
+    burn: b.burn * (1 - mix * 0.12 + boost * 0.06) * (1 + loadFrac * 0.5),
+    cruise: b.cruise * b.pace * (1 + pitch * 0.12 + boost * 0.10 - mix * 0.03),
+    heatBias: (mix * 13 + Math.abs(boost) * 11) * cool,
+  };
+}
+function computeAxesClient(c, tune) {
+  const cur = computeStatsClient(c, tune), stk = computeStatsClient(c, {});
+  const cl = v => Math.max(2, Math.min(100, Math.round(v)));
+  const rng = s => s.cruise / s.burn;
+  const cg = tune.cg || 0, pitch = tune.pitch || 0, loadFrac = (c.cargoNow || 0) / ((c.perfBase?.maxTOW) || 300);
+  return {
+    speed: cl(50 + (cur.cruise / stk.cruise - 1) * 300),
+    economy: cl(50 + (stk.burn / cur.burn - 1) * 300),
+    range: cl(50 + (rng(cur) / rng(stk) - 1) * 260),
+    cool: cl(50 - cur.heatBias * 1.6),
+    agility: cl(50 + cg * 16 - pitch * 8 - loadFrac * 22),
+  };
+}
+const STOCK_AXES = { speed: 50, economy: 50, range: 50, cool: 50, agility: 50 };
+
+// Init/keep the working tune copy the dials write into, keyed to the selected craft.
+function ensureTuneWork(c) {
+  if (!B.tune || B.tuneFor !== c.id) { B.tune = { ...(c.tune || {}) }; B.tuneFor = c.id; }
+}
+const curCraft = () => (B.data.craft || []).find(x => x.id === B.selId) || null;
+
+// Owner-only (matches hangars.js requireOwned — rentals fly stock). Renders the four
+// rotary knobs, the delta bars, Apply/Reset, the plain-English key, and the kit shop.
+// The radar lives on the bench stage; paintTuning() draws it + the knobs + the bars.
+function tuningTabHtml(c) {
   if (c.wreck) return '<div class="hb-note">A wreck — nothing to tune.</div>';
   if (c.rental) return '<div class="hb-note">You can only tune an aircraft you <b>own</b> — rentals fly stock.</div>';
-  return `<div class="hb-tune">${tuneParams.map(p => {
-    const v = c.tune?.[p.id] ?? 0, next = v >= 2 ? -2 : v + 1;
-    return `<div class="hb-tune-row"><b>${esc(p.id)}</b> <span class="hb-tune-val">[${v > 0 ? '+' : ''}${v}]</span>
-      <span class="hb-tune-desc">${esc(p.desc)}</span>
-      <button class="hb-btn hb-tune-cycle" data-tune="${p.id}" data-next="${next}">cycle</button></div>`;
-  }).join('')}</div>`;
+  ensureTuneWork(c);
+  const params = (B.data.tuneParams || []).filter(p => TUNE_KEYS.includes(p.id));
+  const knobs = params.map(p => `
+    <div class="hb-knob-cell">
+      <canvas class="hb-knob" data-knob="${p.id}" width="76" height="76"></canvas>
+      <div class="hb-knob-label">${esc(p.label || p.id)}</div>
+      <div class="hb-knob-val" data-knobval="${p.id}">0.00</div>
+      <div class="hb-knob-poles"><span>${esc(p.lo || '−')}</span><span>${esc(p.hi || '+')}</span></div>
+    </div>`).join('');
+  const bars = PERF_LABELS.map(a => `
+    <div class="hb-pbar-row"><span class="hb-pbar-l">${a.label}</span>
+      <span class="hb-pbar"><i data-pbar="${a.id}"></i></span>
+      <b class="hb-pbar-d" data-pbard="${a.id}"></b></div>`).join('');
+  const key = params.map(p => `<div class="hb-tune-key"><b>${esc(p.label || p.id)}</b> — ${esc(p.desc || '')}</div>`).join('');
+  return `
+    <div class="hb-knobs">${knobs}</div>
+    <div class="hb-perf-bars" title="Change vs. this airframe's stock tune">${bars}</div>
+    <div class="hb-apply-row">
+      <button class="hb-btn hb-accent" data-act="tune-apply">Apply Tune</button>
+      <button class="hb-btn" data-act="tune-reset">Reset to stock</button>
+    </div>
+    <div class="hb-tune-note">Range set by your <b>Fabrication</b> and any fitted kits — dials stop at ±${c.tuneRange ?? 1}.</div>
+    <div class="hb-tune-keys">${key}</div>
+    ${kitSectionHtml(c)}`;
+}
+
+// The upgrade-kit shop, folded into the tuning tab (kits are what widen the dials /
+// tame the heat). Owned kits show FITTED; the rest are one-click buy+install.
+function kitSectionHtml(c) {
+  const cat = c.kitCatalog || [];
+  if (!cat.length) return '';
+  return `<div class="hb-kits"><div class="hb-kits-head">UPGRADE KITS</div>${cat.map(k => `
+    <div class="hb-kit${k.owned ? ' hb-kit-owned' : ''}">
+      <div class="hb-kit-top"><span class="hb-kit-name">${esc(k.name)}</span>${k.owned
+        ? '<span class="hb-kit-tag">FITTED</span>'
+        : `<button class="hb-btn hb-kit-buy" data-kit="${esc(k.id)}">Install · ${k.price}c</button>`}</div>
+      <div class="hb-kit-blurb">${esc(k.blurb)}</div>
+    </div>`).join('')}</div>`;
+}
+
+// Draw everything that reflects the live working tune: the stage radar, the four
+// knob faces, the numeric read-outs, and the delta bars. Called after each render
+// and on every knob drag (cheap; only redraws canvases + a few text/width writes).
+function paintTuning() {
+  const root = document.getElementById('hb-root'); if (!root) return;
+  const c = curCraft(); if (!c || !B.tune) return;
+  const accent = themeColor('--accent', '#5fd6ff');
+  const axes = computeAxesClient(c, B.tune);
+  const radar = root.querySelector('#hb-perf-radar');
+  if (radar) drawPerfRadar(radar.getContext('2d'), { w: radar.width, h: radar.height, axes, stock: STOCK_AXES, labels: PERF_LABELS, accent });
+  const range = c.tuneRange || 1;
+  root.querySelectorAll('[data-knob]').forEach(cv => {
+    const p = cv.getAttribute('data-knob');
+    drawKnob(cv.getContext('2d'), { w: cv.width, h: cv.height, value: B.tune[p] || 0, range, accent });
+  });
+  root.querySelectorAll('[data-knobval]').forEach(el => {
+    const v = B.tune[el.getAttribute('data-knobval')] || 0;
+    el.textContent = (v > 0 ? '+' : '') + v.toFixed(2);
+  });
+  PERF_LABELS.forEach(a => {
+    const bar = root.querySelector(`[data-pbar="${a.id}"]`), dl = root.querySelector(`[data-pbard="${a.id}"]`);
+    const val = axes[a.id], delta = val - 50;
+    if (bar) { const lo = Math.min(50, val), hi = Math.max(50, val); bar.style.left = lo + '%'; bar.style.width = (hi - lo) + '%'; bar.style.background = delta >= 0 ? accent : '#e0894f'; }
+    if (dl) { dl.textContent = (delta > 0 ? '+' : '') + delta; dl.style.color = delta >= 0 ? '#9fe0b0' : '#e0894f'; }
+  });
+}
+
+// Vertical drag on a knob sets its curve (up = more). Writes B.tune live and repaints
+// the graph each move; nothing is committed until Apply (tuneset). ~120px of travel
+// spans one full side of the reachable range.
+function startKnobDrag(e) {
+  const cv = e.currentTarget, param = cv.getAttribute('data-knob');
+  const c = curCraft(); if (!c || !B.tune) return;
+  const range = c.tuneRange || 1, startY = e.clientY, startV = B.tune[param] || 0;
+  cv.setPointerCapture(e.pointerId);
+  const move = (ev) => {
+    let v = startV + (startY - ev.clientY) * (range / 120);
+    v = Math.round(Math.max(-range, Math.min(range, v)) * 100) / 100;
+    B.tune[param] = v;
+    paintTuning();
+  };
+  const up = () => { cv.removeEventListener('pointermove', move); cv.removeEventListener('pointerup', up); cv.removeEventListener('pointercancel', up); };
+  cv.addEventListener('pointermove', move);
+  cv.addEventListener('pointerup', up, { once: true });
+  cv.addEventListener('pointercancel', up, { once: true });
 }
 
 function weightTabHtml(c) {
@@ -425,15 +559,14 @@ function weightTabHtml(c) {
 
 // ATM-style terminal: tabbed so no section needs its own scrollbar — PAINT/HULL/
 // TUNING/WEIGHT each get the full panel to themselves instead of stacking. The
-// stage swaps to a wireframe engine schematic (drawEngineWireframe, animated in
-// startSpin) while on the TUNING tab; every other tab keeps the real 3D plane.
+// stage swaps to the live performance radar (drawn by paintTuning) while on the
+// TUNING tab; every other tab keeps the real 3D plane.
 function benchScreen() {
   const c = (B.data.craft || []).find(x => x.id === B.selId);
   if (!c) return '<div class="hb-empty">Pick an aircraft on the floor first.</div><div class="hb-toolbar"><button class="hb-btn" data-act="back">Back</button></div>';
   if (!B.work) B.work = { ...c.livery };
   const cat = B.data.catalog || { patterns: [], finishes: [], uphol: [], presets: [] };
   const dirty = JSON.stringify(B.work) !== JSON.stringify(c.livery);
-  const tuneParams = B.data.tuneParams || [];
   const canTune = !c.wreck && !c.rental;
 
   const tabs = [
@@ -448,12 +581,14 @@ function benchScreen() {
     `<button class="hb-tab${t.id === B.benchTab ? ' hb-tab-active' : ''}" data-bench-tab="${t.id}">${t.label}</button>`).join('')}</div>`;
 
   const body = B.benchTab === 'hull' ? hullTabHtml(c)
-    : B.benchTab === 'tuning' ? tuningTabHtml(c, tuneParams)
+    : B.benchTab === 'tuning' ? tuningTabHtml(c)
     : B.benchTab === 'weight' ? weightTabHtml(c)
     : paintTabHtml(c, cat, dirty);
 
+  // On the TUNING tab the stage becomes the live performance radar (drawn by
+  // paintTuning); every other tab keeps the real 3D turntable.
   const stage = B.benchTab === 'tuning'
-    ? `<canvas id="hb-engine-wf" width="260" height="230"></canvas>`
+    ? `<canvas id="hb-perf-radar" width="300" height="280"></canvas>`
     : bayCanvas('hb-bench-hero', c.wreck ? 'wreck' : c.class, B.work, null, 340, 'data-hb-src="work" data-hb-zoom="1.4"');
 
   return `
@@ -467,8 +602,8 @@ function benchScreen() {
       <div class="hb-crt-glass"></div>
     </div>
     <div class="hb-toolbar">
-      ${!c.wreck ? `<button class="hb-btn hb-go" data-act="embark" data-tail="${esc(c.tail)}">Fly</button>` : ''}
-      <button class="hb-btn" data-act="back">Back</button>
+      <div class="hb-tb-group">${!c.wreck ? tbtn('✈', 'Fly', `data-act="embark" data-tail="${esc(c.tail)}"`, 'hb-accent hb-go') : ''}</div>
+      <div class="hb-tb-group hb-tb-right">${tbtn('‹', 'Back', 'data-act="back"')}</div>
     </div>`;
 }
 
@@ -488,6 +623,9 @@ function render() {
   </div>`);
   wire();
   startSpin();
+  // The tuning radar/knobs/bars aren't part of startSpin's canvas set — draw them
+  // once here after the DOM is built; knob drags repaint them on the fly.
+  if (B.screen === 'bench' && B.benchTab === 'tuning') paintTuning();
 }
 
 function wire() {
@@ -542,6 +680,14 @@ function wire() {
     if (act === 'pull') { sendCmdSilent(`hangaract pull ${B.selId}`); return; }
     if (act === 'repair') { sendCmdSilent(`repair ${B.selId}`); refetch(); return; }
     if (act === 'repair-pro') { sendCmdSilent(`repair ${B.selId} hangar`); refetch(); return; }
+    if (act === 'tune-apply') {
+      const t = B.tune || {}; const f = (v) => (v || 0).toFixed(2);
+      sendCmdSilent(`tuneset ${B.selId} ${f(t.mixture)} ${f(t.pitch)} ${f(t.boost)} ${f(t.cg)}`);
+      // Drop the working copy so the server's re-push reseeds it from the committed tune.
+      B.tune = null; B.tuneFor = null;
+      return;
+    }
+    if (act === 'tune-reset') { B.tune = { mixture: 0, pitch: 0, boost: 0, cg: 0 }; paintTuning(); return; }
     if (act === 'sell') {
       const c = (B.data.craft || []).find(x => x.id === B.selId);
       if (c) showConfirmDialog({ title: 'Sell Aircraft', prompt: `Sell the ${c.tail} outright? This deletes her — cannot be undone.`, command: `sell ${c.id}`, confirmLabel: 'Sell' });
@@ -564,7 +710,8 @@ function wire() {
   });
   on('[data-scheme-load]', 'click', (e) => sendCmdSilent(`scheme ${B.selId} load ${e.currentTarget.getAttribute('data-scheme-load')}`));
   on('[data-scheme-del]', 'click', (e) => sendCmdSilent(`scheme ${B.selId} delete ${e.currentTarget.getAttribute('data-scheme-del')}`));
-  on('[data-tune]', 'click', (e) => { sendCmdSilent(`modify ${B.selId} ${e.currentTarget.getAttribute('data-tune')} ${e.currentTarget.getAttribute('data-next')}`); refetch(); });
+  on('[data-knob]', 'pointerdown', startKnobDrag);
+  on('[data-kit]', 'click', (e) => sendCmdSilent(`installkit ${B.selId} ${e.currentTarget.getAttribute('data-kit')}`));
   on('[data-loadout]', 'click', (e) => { sendCmdSilent(`loadout ${B.selId} ${e.currentTarget.getAttribute('data-loadout')}`); refetch(); });
   on('[data-hb-buy]', 'click', (e) => { sendCmdSilent(`buy ${e.currentTarget.getAttribute('data-hb-buy')}`); refetch(); });
   on('[data-hb-rent]', 'click', (e) => { sendCmdSilent(`rent ${e.currentTarget.getAttribute('data-hb-rent')}`); refetch(); });
@@ -611,13 +758,6 @@ function startSpin() {
       if (cv._phase == null) cv._phase = Math.random() * 6.28;
       drawWireframe3D(cv.getContext('2d'), { cls: cv.getAttribute('data-wf-cls'), w: cv.width, h: cv.height, accent: themeColor('--accent', '#39ff9e'), yaw: yaw + cv._phase });
     });
-    // Tuning tab's engine schematic — spins the prop-hub in step with the shared
-    // yaw clock, needles read live off the selected craft's current tune curves.
-    const engineCv = root.querySelector('#hb-engine-wf');
-    if (engineCv) {
-      const c = (B.data.craft || []).find(x => x.id === B.selId);
-      drawEngineWireframe(engineCv.getContext('2d'), { w: engineCv.width, h: engineCv.height, tune: c?.tune || {}, spin: yaw, accent: themeColor('--accent', '#5fd6ff') });
-    }
     raf = requestAnimationFrame(loop);
   };
   raf = requestAnimationFrame(loop);
@@ -641,14 +781,19 @@ function ensureStyles() {
   if (document.getElementById('hb-styles')) return;
   const st = document.createElement('style'); st.id = 'hb-styles';
   st.textContent = `
-  #area-content:has(#hb-root) { height:100%; }
+  /* The hangar fills its pane exactly (flex column), so the pane itself never
+     scrolls the whole tablet — only .hb-body (the middle) does, between the two
+     pinned bars. Without the pane's overflow:hidden a tall body would spill past
+     the 65% cap and #area-pane's own scrollbar would drag the bars out of view. */
+  #area-pane:has(#hb-root) { overflow:hidden; }
+  #area-content:has(#hb-root) { height:100%; min-height:0; display:flex; flex-direction:column; }
   /* The shell — a moulded chassis (not a flat panel): a top sheen, a deep outer
      shadow, and a subtle edge highlight, the same "real object" cues the ATM's
      own #atm-box uses. Tinted off the theme's own bg/border palette (not a fixed
      blue-grey) so the casing itself follows whatever theme is active — only the
      CRT tubes' phosphor glow (green/cyan/yellow above) stays dark glass regardless
      of theme, the same way a real screen doesn't relight for your desktop wallpaper. */
-  #hb-root { position:relative; display:flex; flex-direction:column; height:100%; min-height:460px; color:var(--text-bright, #dcecf8);
+  #hb-root { position:relative; display:flex; flex-direction:column; flex:1 1 auto; min-height:0; color:var(--text-bright, #dcecf8);
     font-family:'Courier New',monospace;
     background:linear-gradient(175deg,color-mix(in srgb, var(--border) 55%, var(--bg3)) 0%,var(--bg3) 8%,var(--bg2) 50%),
       radial-gradient(140% 100% at 50% 0%,color-mix(in srgb, var(--border) 40%, var(--bg3)),var(--bg) 75%);
@@ -674,21 +819,17 @@ function ensureStyles() {
   #hb-root { --hb-atm-accent:var(--accent);
     --hb-black:color-mix(in srgb, var(--hb-atm-accent) 20%, #060809);
     --hb-black2:color-mix(in srgb, var(--hb-atm-accent) 11%, #020304); }
-  /* Head/toolbar CRT glass via ::before/::after (not extra markup, since each
-     screen builds its own toolbar) — scanlines + a diagonal sheen painted OVER
-     the bar, same as a real tube's glass sits in front of the phosphor; buttons
-     underneath stay clickable (pointer-events:none on both pseudo-layers). */
-  #hb-root .hb-head, #hb-root .hb-toolbar { position:relative; overflow:hidden; }
-  #hb-root .hb-head::before, #hb-root .hb-toolbar::before {
-    content:''; position:absolute; inset:0; pointer-events:none; z-index:1;
-    background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,0.22) 2px 3px); }
-  #hb-root .hb-head::after, #hb-root .hb-toolbar::after {
-    content:''; position:absolute; inset:0; pointer-events:none; z-index:1;
-    background:linear-gradient(115deg, transparent 0 40%, rgba(220,255,245,0.07) 47%, rgba(220,255,245,0.02) 52%, transparent 60% 100%); }
-  #hb-root .hb-head > *, #hb-root .hb-toolbar > * { position:relative; z-index:2; }
-  #hb-root .hb-head { display:flex; align-items:center; gap:12px; padding:10px 14px; flex:0 0 auto;
-    background:radial-gradient(160% 220% at 50% -60%,color-mix(in srgb, var(--hb-atm-accent) 20%, var(--hb-black)) 0%,var(--hb-black2) 80%); border-bottom:1px solid var(--hb-black2);
-    box-shadow:inset 0 0 22px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 10px rgba(0,0,0,0.4); }
+  /* Top status bar + bottom action tray are flat, frosted tablet chrome now
+     — no CRT scanlines or tube sheen. Each is a slim accent-tinted glass slab
+     with a single hairline edge; backdrop-filter blurs the chassis behind the
+     head and whatever scrolls beneath the tray, the "glass over content" cue a
+     tablet's bars give. Both backgrounds are semi-transparent so the blur reads. */
+  #hb-root .hb-head, #hb-root .hb-toolbar { position:relative;
+    -webkit-backdrop-filter:blur(11px) saturate(1.15); backdrop-filter:blur(11px) saturate(1.15); }
+  #hb-root .hb-head { display:flex; align-items:center; gap:12px; padding:0 16px; height:48px; flex:0 0 auto;
+    background:color-mix(in srgb, var(--hb-black) 60%, transparent);
+    border-bottom:1px solid color-mix(in srgb, var(--hb-atm-accent) 26%, transparent);
+    box-shadow:0 1px 0 rgba(255,255,255,0.05); }
   #hb-root .hb-title { color:var(--hb-atm-accent); font-weight:bold; letter-spacing:2px; text-shadow:0 0 6px color-mix(in srgb, var(--hb-atm-accent) 55%, transparent); }
   /* Credits/price numbers read as bright emphasis, not a separate gold — same
      convention as the corp console's balance figure (.cc-bal, a fixed near-white
@@ -732,36 +873,50 @@ function ensureStyles() {
   #hb-root .hb-info > * { position:relative; z-index:2; }
   #hb-root .hb-info-name { color:#ffffff; font-weight:bold; font-size:14px; }
   #hb-root .hb-info-type { color:#a8c6d8; font-weight:normal; font-size:11px; margin-left:6px; }
-  #hb-root .hb-info-actions { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
   #hb-root .hb-bars { display:inline-grid; grid-template-columns:auto 140px; gap:4px 8px; align-items:center; font-size:9px; letter-spacing:1px; color:#b8cede; margin-top:6px; }
   #hb-root .hb-bar { height:6px; background:rgba(0,0,0,0.3); border-radius:3px; overflow:hidden; } #hb-root .hb-bar i { display:block; height:100%; }
   #hb-root .hb-badge { font-size:8px; letter-spacing:1px; padding:1px 5px; border-radius:3px; margin-left:6px; vertical-align:middle; }
   #hb-root .hb-b-ramp { background:#2a5f8a; color:#bfe4ff; } #hb-root .hb-b-bay { background:#2a7a52; color:#b8f2cf; }
   #hb-root .hb-b-rent { background:#7a6a1e; color:#f2e0a0; } #hb-root .hb-b-wreck { background:#7a3a2a; color:#f2b8a0; }
 
-  /* Every button in the hangar — toolbar, floor info panel, bench controls,
-     charter — uses the exact same "ATM-recipe" single accent, gradient-filled,
-     glowing on hover (see atm.js .atm-confirm / corp-console.js .cc-btn). Fully
-     monochrome: even Exit Hangar/close uses the SAME accent as everything else
-     now, no red exception — the whole console reads as one machine, one colour. */
-  #hb-root .hb-btn { font-family:inherit; font-size:10.5px; font-weight:bold; letter-spacing:1.5px; text-transform:uppercase; cursor:pointer; padding:7px 13px; border-radius:4px;
-    color:var(--hb-atm-accent); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 55%, transparent);
-    background:linear-gradient(180deg, color-mix(in srgb, var(--hb-atm-accent) 20%, transparent), color-mix(in srgb, var(--hb-atm-accent) 7%, transparent));
-    text-shadow:0 0 4px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent);
-    box-shadow:inset 0 -2px 0 rgba(0,0,0,0.4); transition:filter .12s, box-shadow .12s, transform .05s; }
-  #hb-root .hb-btn:hover:not(:disabled) { filter:brightness(1.2); box-shadow:0 0 14px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent), inset 0 -2px 0 rgba(0,0,0,0.4); }
-  #hb-root .hb-btn:active:not(:disabled) { transform:translateY(1px); }
+  /* Tactile 3D chip — borrows the Architect OS tablet's bevel language
+     (client/game/js/panels/tablet-os.js .tos-btn): a raised accent-tinted cap
+     with a bright top highlight + dark bottom bevel that PRESSES IN to a deep
+     inset recess on :active, so every press feels like a physical key. Icon +
+     label sit side by side. Used everywhere in the hangar (toolbar, bench,
+     charter) so the whole console reads as one device. */
+  #hb-root .hb-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; cursor:pointer; padding:9px 15px; border-radius:9px;
+    color:var(--hb-atm-accent); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 42%, #000);
+    background:linear-gradient(180deg, color-mix(in srgb, var(--hb-atm-accent) 26%, var(--hb-black)), color-mix(in srgb, var(--hb-atm-accent) 8%, var(--hb-black2)));
+    text-shadow:0 0 5px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent);
+    box-shadow:inset 0 1px 0 color-mix(in srgb, var(--hb-atm-accent) 30%, rgba(255,255,255,0.18)), inset 0 -3px 5px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.45);
+    transition:filter .12s, box-shadow .12s, transform .05s; }
+  #hb-root .hb-btn:hover:not(:disabled) { filter:brightness(1.18);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.2), inset 0 -3px 5px rgba(0,0,0,0.5), 0 3px 9px rgba(0,0,0,0.45), 0 0 14px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); }
+  #hb-root .hb-btn:active:not(:disabled) { transform:translateY(1px); box-shadow:inset 0 2px 7px rgba(0,0,0,0.75); }
   #hb-root .hb-btn:disabled { opacity:0.4; cursor:default; }
+  #hb-root .hb-ico { font-size:14px; line-height:1; opacity:0.95; }
+  /* Accent (Fly / Buy-Rent / Apply) — same 3D chip, lit brighter so it reads as
+     the primary key, but still accent-on-dark so the label stays legible in any
+     theme (no solid fill that could clash with a dark accent). */
+  #hb-root .hb-accent { border-color:var(--hb-atm-accent);
+    background:linear-gradient(180deg, color-mix(in srgb, var(--hb-atm-accent) 44%, var(--hb-black)), color-mix(in srgb, var(--hb-atm-accent) 16%, var(--hb-black2)));
+    box-shadow:inset 0 1px 0 color-mix(in srgb, var(--hb-atm-accent) 45%, rgba(255,255,255,0.25)), inset 0 -3px 5px rgba(0,0,0,0.5), 0 2px 5px rgba(0,0,0,0.45), 0 0 14px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
+  #hb-root .hb-accent:active:not(:disabled) { box-shadow:inset 0 2px 7px rgba(0,0,0,0.75); }
 
-  /* Bottom pane — same ATM chassis deck as the head bar; buttons here are the
-     shared .hb-btn recipe above, no toolbar-specific override needed anymore.
-     position:sticky pins it to the bottom of the scrolling body — Buy/Rent and
-     Exit Hangar stay on-screen even when a tall floor/info panel makes .hb-body
-     scroll, instead of needing to be scrolled down to. */
-  #hb-root .hb-toolbar { display:flex; gap:8px; flex-wrap:wrap; flex:0 0 auto; padding:10px 14px; margin-top:auto;
+  /* Bottom action tray — the buttons' own separate area: a recessed well (deep
+     inset shadow) sunk into the chassis, with the 3D chips sitting proud of it.
+     Left group = context actions, right group (.hb-tb-right) is pushed to the
+     far edge. position:sticky pins the whole tray to the bottom of the scrolling
+     body so the controls never scroll out of reach. */
+  #hb-root .hb-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex:0 0 auto; padding:12px 14px; margin-top:auto;
     position:sticky; bottom:0; z-index:5;
-    background:radial-gradient(160% 220% at 50% 160%,color-mix(in srgb, var(--hb-atm-accent) 20%, var(--hb-black)) 0%,var(--hb-black2) 80%); border-top:1px solid var(--hb-black2);
-    box-shadow:inset 0 0 22px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.05), 0 -2px 10px rgba(0,0,0,0.4); }
+    background:color-mix(in srgb, var(--hb-black2) 78%, transparent);
+    border-top:1px solid color-mix(in srgb, var(--hb-atm-accent) 25%, transparent);
+    box-shadow:inset 0 3px 9px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04), 0 -2px 10px rgba(0,0,0,0.4); }
+  #hb-root .hb-tb-group { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  #hb-root .hb-tb-right { margin-left:auto; }
 
   /* Charter — the whole screen sits in one CRT tube, same language as buy/rent. */
   #hb-root .hb-charter-crt { position:relative; overflow:hidden; padding:12px; border-radius:20px/14px;
@@ -844,7 +999,7 @@ function ensureStyles() {
     background:radial-gradient(130% 130% at 50% 42%,color-mix(in srgb, var(--hb-atm-accent) 22%, var(--hb-black2)) 55%,var(--hb-black2) 100%);
     box-shadow:inset 0 0 30px rgba(0,0,0,0.9), inset 0 0 8px color-mix(in srgb, var(--hb-atm-accent) 25%, transparent); }
   #hb-root .hb-bench-crt .hb-note, #hb-root .hb-bench-crt .hb-dim { color:color-mix(in srgb, var(--hb-atm-accent) 55%, white); }
-  #hb-root #hb-engine-wf { display:block; margin:0 auto; }
+  #hb-root #hb-perf-radar { display:block; margin:0 auto; }
   #hb-root .hb-bench-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
   #hb-root .hb-tab { font-family:inherit; font-size:10px; letter-spacing:1.5px; color:var(--hb-atm-accent); cursor:pointer;
     background:color-mix(in srgb, var(--hb-atm-accent) 6%, transparent); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:5px; padding:6px 11px;
@@ -859,10 +1014,35 @@ function ensureStyles() {
   #hb-root .hb-subtab:hover { border-color:var(--hb-atm-accent); color:var(--hb-atm-accent); }
   #hb-root .hb-subtab-active { color:var(--hb-atm-accent); border-color:var(--hb-atm-accent); background:color-mix(in srgb, var(--hb-atm-accent) 12%, transparent); }
   #hb-root .hb-repair-row { display:flex; gap:8px; flex-wrap:wrap; }
-  #hb-root .hb-tune-row { display:flex; align-items:center; gap:8px; font-size:11px; padding:3px 0; }
-  #hb-root .hb-tune-val { color:#eafffb; min-width:32px; }
-  #hb-root .hb-tune-desc { color:#a8c6d8; font-size:10px; flex:1; }
-  #hb-root .hb-tune-cycle { padding:3px 8px; font-size:9px; }
+  /* Tuning — rotary dials + a delta-bar readout + the kit shop. */
+  #hb-root .hb-knobs { display:flex; gap:6px; justify-content:space-between; flex-wrap:wrap; margin-bottom:12px; }
+  #hb-root .hb-knob-cell { display:flex; flex-direction:column; align-items:center; flex:1 1 62px; min-width:62px; }
+  #hb-root .hb-knob { display:block; cursor:ns-resize; touch-action:none; }
+  #hb-root .hb-knob-label { font-size:8.5px; letter-spacing:1px; color:color-mix(in srgb, var(--hb-atm-accent) 60%, white); margin-top:2px; text-align:center; }
+  #hb-root .hb-knob-val { font-size:11px; color:#eafffb; letter-spacing:1px; }
+  #hb-root .hb-knob-poles { display:flex; justify-content:space-between; width:100%; font-size:7px; letter-spacing:1px; color:#7d92a1; margin-top:1px; }
+  #hb-root .hb-perf-bars { display:grid; grid-template-columns:52px 1fr 34px; gap:4px 8px; align-items:center; margin-bottom:10px; }
+  #hb-root .hb-pbar-row { display:contents; }
+  #hb-root .hb-pbar-l { font-size:8.5px; letter-spacing:1px; color:color-mix(in srgb, var(--hb-atm-accent) 55%, white); text-align:right; }
+  #hb-root .hb-pbar { position:relative; height:8px; background:rgba(0,0,0,0.35); border-radius:4px; overflow:hidden; box-shadow:inset 0 0 4px rgba(0,0,0,0.6); }
+  /* The 50% mark = stock; bars grow from there both ways so a swing reads as +/-. */
+  #hb-root .hb-pbar::before { content:''; position:absolute; left:50%; top:0; bottom:0; width:1px; background:rgba(255,255,255,0.28); z-index:1; }
+  #hb-root .hb-pbar i { position:absolute; top:0; bottom:0; left:50%; width:0; border-radius:4px; transition:left .06s linear, width .06s linear, background .06s linear; }
+  #hb-root .hb-pbar-d { font-size:9px; letter-spacing:0.5px; text-align:left; min-width:30px; }
+  #hb-root .hb-tune-note { font-size:9.5px; color:color-mix(in srgb, var(--hb-atm-accent) 50%, white); margin:4px 0 8px; }
+  #hb-root .hb-tune-keys { display:flex; flex-direction:column; gap:3px; margin-bottom:10px; }
+  #hb-root .hb-tune-key { font-size:10px; color:#a8c6d8; line-height:1.35; }
+  #hb-root .hb-tune-key b { color:color-mix(in srgb, var(--hb-atm-accent) 70%, white); }
+  /* Upgrade kits */
+  #hb-root .hb-kits { border-top:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); padding-top:8px; }
+  #hb-root .hb-kits-head { font-size:9px; letter-spacing:3px; color:color-mix(in srgb, var(--hb-atm-accent) 60%, white); margin-bottom:6px; }
+  #hb-root .hb-kit { padding:6px 0; border-bottom:1px solid color-mix(in srgb, var(--hb-atm-accent) 12%, transparent); }
+  #hb-root .hb-kit-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  #hb-root .hb-kit-name { font-size:11px; color:#eafffb; letter-spacing:0.5px; }
+  #hb-root .hb-kit-tag { font-size:8px; letter-spacing:1px; color:#9fe0b0; border:1px solid #3a6a4a; border-radius:3px; padding:1px 5px; }
+  #hb-root .hb-kit-buy { padding:4px 9px; font-size:9px; }
+  #hb-root .hb-kit-blurb { font-size:9.5px; color:#9db5c6; margin-top:2px; line-height:1.35; }
+  #hb-root .hb-kit-owned .hb-kit-name { color:color-mix(in srgb, var(--hb-atm-accent) 65%, white); }
   #hb-root .hb-loadout-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
   #hb-root .hb-presets { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
   #hb-root .hb-preset { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:1px; color:#dcecf8; cursor:pointer;

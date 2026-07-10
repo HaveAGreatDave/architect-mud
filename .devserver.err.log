@@ -1,0 +1,13 @@
+  ⚠ Verb collision: "tip" (ambient-life) overrides plugin strippers
+  Plugin drugwar: no hooks, commands, routeHandler, or specializedActions export, skipping
+  ⚠ Verb collision: "watch" (interactions) overrides plugin broadcast — declare after:["broadcast"] to make the order explicit
+  ⚠ Verb collision: "watch" (gametable) overrides plugin interactions
+  ⚠ Verb collision: "board" (flight) overrides plugin gametable
+  ⚠ Verb collision: "refuel" (flight) overrides plugin generator
+  ⚠ Verb collision: "eject" (flight) overrides plugin broadcast
+  ⚠ Verb collision: "buy" (flight) overrides plugin commerce
+  ⚠ Verb collision: "tune" (flight) overrides plugin broadcast
+  ⚠ Verb collision: "sell" (flight) overrides plugin commerce
+  ⚠ Verb collision: "examine" (flight) overrides plugin interactions
+  ⚠ Verb collision: "look" (flight) overrides plugin gametable
+  Plugin govgate: no hooks, commands, routeHandler, or specializedActions export, skipping
