@@ -2246,6 +2246,25 @@ export async function getMicroreel(player, clipId) {
   };
 }
 
+// Permanently destroy one of the player's microreels — owner-checked. Drops the
+// security_clips row (the reel's only durable copy; a physically `collect`ed datachip
+// is a separate artifact and is deliberately left alone). Flavoured as the operator
+// ejecting the reel sliver from their tablet and crushing it — broadcast to the room.
+export async function deleteMicroreel(player, clipId) {
+  if (!clipId) return { ok: false };
+  const { rows } = await query(
+    'DELETE FROM security_clips WHERE id=$1 AND owner_id=$2 RETURNING id',
+    [clipId, player.id]
+  );
+  if (!rows.length) return { ok: false };
+  sendToPlayer(player.id, { type: 'output', message:
+    'You thumb the microreel out of your tablet — a sliver of black storage glass — and crush it between finger and thumb. It cracks with a dry snap; you flick the dead shard aside.' });
+  sendToZone(player.current_zone, { type: 'zone_event', message:
+    `<span class="text-dim">${player.handle || 'Someone'} ejects a sliver of storage glass from their tablet, snaps it between two fingers, and flicks the dead shard away.</span>` },
+    player.id);
+  return { ok: true };
+}
+
 // How many of the player's cameras have unclipped footage on tape right now — drives
 // the SPECTER home-screen notification badge (a reel waiting to be clipped).
 export async function pendingClipCount(player) {

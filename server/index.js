@@ -866,11 +866,44 @@ async function handleMisToggle(ws, session, msg) {
 	emit('mis.toggled', { player, enabled: enable });
 }
 
+// Per-connection command rate limit (token bucket). The only sustained legitimate
+// sources are macros (~2.9 cmd/s at the 350ms stagger), auto-walk (self-paced),
+// and a person clicking (bursts to ~8-10/s in combat), so 5/s sustained with a
+// 15-command burst clears every real player while throttling a runaway client
+// loop. Extra commands are dropped, not queued, and a throttled error tells the
+// player. Client-side verbs never reach here, so this only sees real commands.
+const CMD_BUCKET_CAP = 15;       // burst allowance (tokens)
+const CMD_REFILL_PER_SEC = 5;    // sustained refill rate
+const CMD_NOTICE_COOLDOWN_MS = 2000; // min gap between "slow down" errors
+
+function commandAllowed(session) {
+	const now = Date.now();
+	const b = session.cmdBucket || (session.cmdBucket = { tokens: CMD_BUCKET_CAP, last: now, notifiedAt: 0 });
+	b.tokens = Math.min(CMD_BUCKET_CAP, b.tokens + ((now - b.last) / 1000) * CMD_REFILL_PER_SEC);
+	b.last = now;
+	if (b.tokens < 1) return false;
+	b.tokens -= 1;
+	return true;
+}
+
 async function handleGameCommand(ws, session, msg) {
 	if (!session.playerId) {
 		ws.send(
 			JSON.stringify({ type: "error", message: "Not authenticated." }),
 		);
+		return;
+	}
+	if (!commandAllowed(session)) {
+		// Throttle the error itself so a fast loop doesn't get a flood of toasts.
+		const now = Date.now();
+		if (now - (session.cmdBucket.notifiedAt || 0) > CMD_NOTICE_COOLDOWN_MS) {
+			session.cmdBucket.notifiedAt = now;
+			ws.send(JSON.stringify({
+				type: "error",
+				code: "rate_limit",
+				message: "⚠ Slow down — you're sending commands too fast. Extra commands are being dropped.",
+			}));
+		}
 		return;
 	}
 	const player = getLivePlayer(session.playerId);

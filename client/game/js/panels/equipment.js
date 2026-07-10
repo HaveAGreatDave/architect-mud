@@ -8,6 +8,34 @@ let dragHandled = false;
 let lastItems = [];
 let lastWeight = null;
 let lastCapacity = null;
+let _invWaiters = []; // resolvers awaiting the next inventory payload
+let _silentPending = 0; // count of in-flight silent refreshes (responses shouldn't open the panel)
+
+// Read-only snapshot of the last inventory payload (id/name/tags/actions per item).
+export function getEquipInventory() { return lastItems; }
+
+// The next inventory response is a silent refresh iff a token is pending — the
+// dispatch handler calls this to decide whether to auto-open the equip panel.
+export function consumeSilentInventory() {
+  if (_silentPending > 0) { _silentPending--; return true; }
+  return false;
+}
+
+// Silently ask the server for a fresh inventory and resolve once it arrives (or
+// after a short timeout, so callers never hang). Used by smartbar macros to make
+// `has`/`lacks` reliable without the player having opened any panel — and without
+// the response popping the inventory panel open.
+export function refreshInventory() {
+  return new Promise((resolve) => {
+    _invWaiters.push(resolve);
+    _silentPending++;
+    sendCmdSilent('inventory');
+    setTimeout(() => {
+      const i = _invWaiters.indexOf(resolve);
+      if (i >= 0) { _invWaiters.splice(i, 1); if (_silentPending > 0) _silentPending--; resolve(lastItems); }
+    }, 1500);
+  });
+}
 
 function formatWeight(g) {
   g = Number(g) || 0;
@@ -52,6 +80,8 @@ export function renderEquipPanel(items, weight, capacity) {
   lastItems = items;
   if (weight !== undefined) lastWeight = weight;
   if (capacity !== undefined) lastCapacity = capacity;
+  // Wake anyone awaiting a fresh inventory (refreshInventory).
+  if (_invWaiters.length) { const ws = _invWaiters; _invWaiters = []; for (const r of ws) r(lastItems); }
 
   const list = document.getElementById('equip-inv-list');
   list.innerHTML = '';
@@ -288,6 +318,10 @@ function loadDefaultView() {
 }
 let gearView = loadDefaultView();
 let gearDollLayer = GEAR_LAYERS.length - 1; // default to Armor (top layer)
+// A garment occupies its own slot plus every slot in its `covers` tag (a jumpsuit
+// worn on the torso also fills the legs), so one piece reads as worn on — and
+// protects — both body parts in the grid, paperdoll, and armor table.
+const occupiesSlot = (i, slot) => i.slot === slot || (Array.isArray(i.tags?.covers) && i.tags.covers.includes(slot));
 // Show per-part armor/insulation ratings on the paperdoll chips.
 let gearShowRatings = localStorage.getItem('gearShowRatings') === '1';
 
@@ -313,7 +347,7 @@ export function renderGearPanel(msg) {
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
   const slotSoak = (slot) => {
     const totals = {};
-    for (const p of equipped.filter(i => i.slot === slot)) {
+    for (const p of equipped.filter(i => occupiesSlot(i, slot))) {
       const soak = p.tags?.armor_soak || {};
       for (const t of DAMAGE_TYPES) totals[t] = (totals[t] || 0) + (Number(soak[t]) || 0);
     }
@@ -370,7 +404,7 @@ function renderGearLayout() {
 
 // Grid view: body slots × layers table, then a weapon + accessories strip.
 function renderGearGrid(layout, equipped) {
-  const cellItem = (slot, n) => equipped.find(i => i.slot === slot && (i.layer || 1) === n);
+  const cellItem = (slot, n) => equipped.find(i => occupiesSlot(i, slot) && (i.layer || 1) === n);
   let html = '<table class="gear-grid"><thead><tr><th></th>' +
     GEAR_LAYERS.map(l => `<th data-cat="${l.key}">${l.label}</th>`).join('') + '</tr></thead><tbody>';
   for (const slot of GEAR_BODY_SLOTS) {
@@ -401,13 +435,13 @@ function renderGearGrid(layout, equipped) {
 // accessories (which aren't layered) always show.
 function renderPaperdoll(layout, equipped) {
   const layer = GEAR_LAYERS[gearDollLayer];
-  const bodyItem = (slot) => equipped.find(i => i.slot === slot && (i.layer || 1) === layer.n);
+  const bodyItem = (slot) => equipped.find(i => occupiesSlot(i, slot) && (i.layer || 1) === layer.n);
   // Per-part protection, summed across every worn layer on that slot (not just the
   // displayed one) — shown under the chip name when "Ratings" is on.
   const ratingRow = (slot) => {
     if (!gearShowRatings || !GEAR_BODY_SLOTS.includes(slot)) return '';
     let armor = 0, insul = 0;
-    for (const p of equipped.filter(i => i.slot === slot)) {
+    for (const p of equipped.filter(i => occupiesSlot(i, slot))) {
       armor += Number(p.tags?.armor) || 0;
       insul += Number(p.tags?.insulation) || 0;
     }

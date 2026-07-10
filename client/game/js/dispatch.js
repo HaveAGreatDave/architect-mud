@@ -1,11 +1,11 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
-import { renderMinimap, openMapPopup, refreshMapIfOpen, setMapTerritory, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed } from './panels/minimap.js';
+import { renderMinimap, openMapPopup, refreshMapIfOpen, setMapTerritory, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, isAutoWalking, cancelAutoWalk, resolveAutoWalkPicker } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut } from './panels/environment.js';
 import { setWeatherEventFx } from './panels/weather-fx.js';
 import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
-import { renderEquipPanel, renderGearPanel } from './panels/equipment.js';
+import { renderEquipPanel, renderGearPanel, consumeSilentInventory } from './panels/equipment.js';
 import { renderRecipesPanel } from './panels/recipes.js';
 import { renderStatsPanel } from './panels/stats.js';
 import { renderSkillsPanel } from './panels/skills.js';
@@ -28,6 +28,7 @@ import { openSpecterInstall } from './panels/specterinstall.js';
 import { openCircuitHack } from './panels/circuithack.js';
 import { openHololock } from './panels/hololock.js';
 import { openFishing } from './panels/fishing.js';
+import { abortMacros } from './panels/smartbar-macros.js';
 import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAirHit, flightSimAaTracer, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
@@ -234,7 +235,8 @@ const handlers = {
 
   inventory: (msg) => {
     renderEquipPanel(msg.items || [], msg.weight, msg.capacity);
-    document.getElementById('equip-panel').classList.add('active');
+    // A silent macro-driven refresh updates the data but must not pop the panel open.
+    if (!consumeSilentInventory()) document.getElementById('equip-panel').classList.add('active');
   },
 
   gear: (msg) => {
@@ -381,7 +383,7 @@ const handlers = {
   },
 
   resource_tick: (msg) => {
-    for (const m of msg.messages) appendMsg(m, 'system');
+    for (const m of msg.messages) appendHtml(m, 'system');
     if (msg.player_update && state.player) {
       Object.assign(state.player, msg.player_update);
       updateVitals(state.player);
@@ -401,6 +403,10 @@ const handlers = {
       attemptAutoReauth();
       return;
     }
+    // The server dropped a command for exceeding its rate limit — a macro loop
+    // outran the throttle. Abort running macros so the loop stops rather than
+    // keep firing commands the server will only keep rejecting.
+    if (msg.code === 'rate_limit') abortMacros();
     // A `leave` issued from the poker bar when the server has no table for us:
     // the pane is stale, so drop it and re-show the room instead of the error.
     if (msg.closePoker) { sendCmdSilent('look'); return; }
@@ -408,6 +414,9 @@ const handlers = {
     if (msg.whisperFailed) rollbackSelfEcho(msg.whisperFailed);
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
     if (msg.html) appendHtml(msg.message, 'error'); else appendMsg(msg.message, 'error');
+    // A blocked auto-walk step (locked door, encumbrance, water — anything the
+    // move gates veto) comes back as an error. Stop rather than hammer the wall.
+    if (isAutoWalking()) cancelAutoWalk('Auto-walk stopped — the way ahead is blocked.');
     if (document.getElementById('recipes-panel').classList.contains('active')) sendCmdSilent('recipes');
   },
 
@@ -490,7 +499,12 @@ const handlers = {
   'weather_event': (msg) => { setWeatherEventFx(msg.eventType, msg.phase); },
   'lightning': () => { triggerLightningFlash(); },
 
-  output: (msg) => { appendHtml(msg.message, 'help'); },
+  output: (msg) => {
+    // A GPS auto-walk that hit a numbered exit picker answers it itself (matching
+    // its known target zone) — swallow the picker text rather than spam the log.
+    if (msg.movePicker && resolveAutoWalkPicker(msg.movePicker)) return;
+    appendHtml(msg.message, 'help');
+  },
   gps_route: (msg) => { appendHtml(msg.message, 'help'); if (msg.path) setGpsRoute(msg.path); if (msg.autostart) startAutoWalk(); else if (msg.resumeAuto) resumeAutoWalkIfArmed(); },
 
   // `.debug` reveal — state lives only in localStorage. debug_toggle flips it;

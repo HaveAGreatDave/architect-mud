@@ -1,21 +1,24 @@
 /**
- * Content: Denny Corliss, the Franchise corp recruiter on the Strip.
+ * Content: Denny Corliss, the Franchise corp recruiter — now working the gates of
+ * the Yards.
  *
  * The corp recruitment posters (scripts/seed-corp-posters.mjs) glow up the *idea*
  * of owning an outfit but deliberately no longer print the command list — the
  * corps `furniture.describe` hook now just points a fresh clone toward "a smiling
- * man on the Strip." This is that man. Every mechanic a beginner needs — founding,
- * recruiting, holding ground, the treasury, the ops console — is taught here, in
- * his mouth, in character, earned through the conversation instead of stamped on a
- * wall. He's the natural, human on-ramp the posters advertise.
+ * man down at the Yards." This is that man. Every mechanic a beginner needs —
+ * founding, recruiting, holding ground, the treasury, and (now) reaching the whole
+ * corp interface straight from the tablet Corporation app — is taught here, in his
+ * mouth, in character, earned through the conversation instead of stamped on a wall.
  *
- * He shares the Franchise Strip (zone_city_west) with Marta Kell's grey job-board
- * window — the two are deliberate opposites: she sells you a day's bread, he sells
- * you the dream of never needing the window again. Stationary behaviour graph so he
- * never leaves his folding table (same pattern as Marta).
+ * Placement: he sets up his folding table at The Depot (zone_yard_depot), the
+ * westernmost yard zone — the entrance to the Yards from the Marquee District. He
+ * still keeps his own apartment (zone_meridian_unit_601) and commutes: a round-the-
+ * clock schedule + the standard vendor commute graph keep him at the table whenever
+ * a player is likely to be around, while home_zone gives him a real place to belong.
  *
  * Idempotent: ON CONFLICT DO UPDATE, so re-running re-applies edits. One-shot
- * content seed, NOT a boot migration.
+ * content seed, NOT a boot migration. The authoritative copy of this NPC lives at
+ * content/npcs/npc_corp_recruiter.json (the CODEX deploy path); keep the two in sync.
  *
  *   Local:  node scripts/add-corp-recruiter.js
  *   Prod:   node --env-file=.env.prod scripts/add-corp-recruiter.js
@@ -24,7 +27,8 @@
  */
 import { query } from '../server/models/db.js';
 
-const ZONE = 'zone_city_west';
+const WORK_ZONE = 'zone_yard_depot';          // his folding table — the Yards' gate
+const HOME_ZONE = 'zone_meridian_unit_601';   // his apartment; he commutes from here
 const FOUND_FEE = 1000; // keep in sync with FOUND_FEE in plugins/corps/index.js
 
 // Denny teaches the ropes. Each topic node loops back to `menu` so a player can
@@ -64,7 +68,7 @@ const DIALOGUE = {
     ],
   },
   treasury: {
-    text: "\"A shared pot — that's what makes it a *corp* and not just friends,\" he says. \"<b>corp contribute &lt;amount&gt;</b> feeds the treasury; <b>corp disburse</b> pays it back out when your people earn it. Territory pays rent into it, upkeep bleeds out of it, and the whole thing runs off a console.\" He jerks a thumb vaguely northward. \"Every headquarters gets its own ops terminal — <b>use</b> it when you've got one. Or, right now, anywhere: just type <b>corp</b> and it opens for you. Go on. Poke it. It won't bite till you've got something to lose.\"",
+    text: "\"A shared pot — that's what makes it a *corp* and not just friends,\" he says. \"<b>corp contribute &lt;amount&gt;</b> feeds the treasury; <b>corp disburse</b> pays it back out when your people earn it. Territory pays rent into it, upkeep bleeds out of it, and the whole thing runs off a console.\" He nods at the slab in your pocket like he put it there himself. \"And here's the part they bury — you're *carrying* the console. Pull up your <b>tablet</b>, tap the <b>Corporation</b> app, and the treasury, the roster, the whole map open right there in your hand, anywhere in the basin. No headquarters, no terminal, no waiting. Or just type <b>corp</b> — same door. Go on. Poke it. It won't bite till you've got something to lose.\"",
     options: [
       { text: "\"Alright — what else?\"", next: 'menu' },
       { text: "\"That's enough for now.\"", actions: [{ action: 'END_CONVERSATION' }] },
@@ -91,23 +95,58 @@ const DIALOGUE = {
   },
 };
 
-// Stationary behaviour graph (same shape as Marta Kell's): NO movement node, so
-// ensureBehaviourGraph never auto-assigns him a walking default and he can't drift
-// off the Strip. He waits, does a bit of salesman flavour, and loops.
+// Round-the-clock schedule: with every day open 0–24, isVendorWorkTime always
+// reports "working", so the commute graph parks him at the Depot table whenever a
+// player might wander in. home_zone is still his — the graph would send him there
+// off-shift, he just never is.
+const SCHEDULE = {
+  mon: [{ from: 0, to: 24 }], tue: [{ from: 0, to: 24 }], wed: [{ from: 0, to: 24 }],
+  thu: [{ from: 0, to: 24 }], fri: [{ from: 0, to: 24 }], sat: [{ from: 0, to: 24 }],
+  sun: [{ from: 0, to: 24 }],
+};
+
+// His salesman flavour, delivered by VENDOR_CHITCHAT (work_say) when a player is in
+// zone. A line wrapped end-to-end in quotes reads as a says-bubble; the rest emote.
+const CHITCHAT = [
+  'fans a brochure at a passerby who does not slow down, and keeps smiling anyway.',
+  '"Own a piece! No charge for talk!"',
+  'polishes his laminated name badge on a green sleeve until it squeaks.',
+];
+
+// Standard vendor commute graph (buildDefaultVendorGraph, alphabetised): CHECK_VENDOR_WORK
+// routes him from the apartment to the Depot on shift, holds him at the table (work_say),
+// and would walk him home off-shift. The safe/ATM/deposit steps no-op harmlessly for a
+// non-selling recruiter with no linked safe.
 const BEHAVIOUR = {
   _start: 'start',
   nodes: {
-    start: { type: 'start', next: 'wait' },
-    wait: { type: 'wait', seconds: 75, next: 'pick' },
-    pick: {
-      type: 'random',
-      branches: [{ weight: 3 }, { weight: 1 }, { weight: 1 }, { weight: 1 }],
-      branch_0: 'loop', branch_1: 'e_fan', branch_2: 'e_pitch', branch_3: 'e_badge',
-    },
-    e_fan: { type: 'action', action_type: 'EMOTE', params: { message: 'fans a brochure at a passerby who does not slow down, and keeps smiling anyway.' }, next: 'loop' },
-    e_pitch: { type: 'action', action_type: 'EMOTE', params: { message: 'calls out, "Own a piece! No charge for talk!" to the middle distance.' }, next: 'loop' },
-    e_badge: { type: 'action', action_type: 'EMOTE', params: { message: 'polishes his laminated name badge on a green sleeve until it squeaks.' }, next: 'loop' },
-    loop: { type: 'loop', next: 'start' },
+    start:          { type: 'start', next: 'check_work' },
+    check_work:     { type: 'action', action_type: 'CHECK_VENDOR_WORK',
+                      goToWork: 'go_to_work', haveLife: 'have_life',
+                      endShift: 'collect_safe', offWork: 'off_home_check' },
+    go_to_work:     { type: 'action', action_type: 'GO_TO_WORK', next: 'work_wait' },
+    work_wait:      { type: 'wait', seconds: 60, next: 'player_check' },
+    player_check:   { type: 'condition', condition_type: 'PLAYER_IN_ZONE',
+                      ifTrue: 'work_say', ifFalse: 'check_work' },
+    work_say:       { type: 'action', action_type: 'VENDOR_CHITCHAT', next: 'check_work' },
+    have_life:      { type: 'action', action_type: 'HAVE_LIFE', next: 'check_work' },
+    collect_safe:   { type: 'action', action_type: 'VENDOR_COLLECT_SAFE', next: 'go_to_atm' },
+    go_to_atm:      { type: 'action', action_type: 'VENDOR_GO_TO_ATM', next: 'atm_emote' },
+    atm_emote:      { type: 'action', action_type: 'EMOTE',
+                      params: { message: 'steps up to the ATM terminal and makes a deposit.' },
+                      next: 'atm_wait' },
+    atm_wait:       { type: 'wait', seconds: 10, next: 'deposit' },
+    deposit:        { type: 'action', action_type: 'VENDOR_DEPOSIT', next: 'post_shift' },
+    post_shift:     { type: 'random', branches: [{ weight: 1 }, { weight: 5 }],
+                      branch_0: 'have_life', branch_1: 'go_home_ps' },
+    go_home_ps:     { type: 'action', action_type: 'GO_HOME', next: 'home_life_ps' },
+    home_life_ps:   { type: 'action', action_type: 'AT_HOME_LIFE', next: 'check_work' },
+    off_home_check: { type: 'condition', condition_type: 'AT_HOME',
+                      ifTrue: 'home_idle', ifFalse: 'off_random' },
+    home_idle:      { type: 'action', action_type: 'AT_HOME_LIFE', next: 'check_work' },
+    off_random:     { type: 'random', branches: [{ weight: 1 }, { weight: 5 }],
+                      branch_0: 'have_life', branch_1: 'go_home_off' },
+    go_home_off:    { type: 'action', action_type: 'GO_HOME', next: 'check_work' },
   },
 };
 
@@ -116,27 +155,32 @@ const DENNY = {
   name: 'Denny Corliss',
   description: "A bright, tireless man working a folding card table like it's a stage. His Franchise-green blazer is a half-size too eager and pressed within an inch of its life; a laminated badge reads DENNY CORLISS · ONBOARDING. The brochures fanned in front of him have clearly never left the table, but his smile keeps selling anyway — the practised warmth of someone who's decided, on purpose, to be the only good news on the street.",
   sex: 'male',
-  zone_id: ZONE,
+  work_zone: WORK_ZONE,
+  home_zone: HOME_ZONE,
   dialogue_tree: DIALOGUE,
   behaviour_graph: BEHAVIOUR,
+  chitchat: CHITCHAT,
+  vendor_schedule: SCHEDULE,
   flags: { clothing_layers: ['a too-green Franchise blazer, pressed sharp', 'a laminated ONBOARDING name badge', 'scuffed dress shoes hidden behind the table'] },
 };
 
 async function main() {
-  const { rows } = await query('SELECT id FROM zones WHERE id=$1', [ZONE]);
-  if (!rows.length) { console.error(`✗ zone ${ZONE} not found — is the world seeded?`); process.exit(1); }
+  const { rows } = await query('SELECT id FROM zones WHERE id=$1', [WORK_ZONE]);
+  if (!rows.length) { console.error(`✗ zone ${WORK_ZONE} not found — is the world seeded?`); process.exit(1); }
 
-  // work_zone_id=NULL keeps an earlier run from making him autonomous (which would
-  // send him commuting off the Strip). home_zone pinned to the Strip; stationary graph.
+  // home_zone = apartment, work_zone_id = Depot: he commutes on his round-the-clock
+  // schedule via the vendor graph, parking at the table whenever players are about.
   await query(
-    `INSERT INTO npcs (id,name,description,zone_id,home_zone,dialogue_tree,behaviour_graph,flags,sex)
-     VALUES ($1,$2,$3,$4,$4,$5,$6,$7,$8)
-     ON CONFLICT (id) DO UPDATE SET name=$2,description=$3,zone_id=$4,home_zone=$4,dialogue_tree=$5,
-       behaviour_graph=$6,flags=$7,sex=$8,work_zone_id=NULL`,
-    [DENNY.id, DENNY.name, DENNY.description, DENNY.zone_id, JSON.stringify(DENNY.dialogue_tree),
-     JSON.stringify(DENNY.behaviour_graph), JSON.stringify(DENNY.flags), DENNY.sex]
+    `INSERT INTO npcs (id,name,description,zone_id,home_zone,work_zone_id,dialogue_tree,behaviour_graph,chitchat,vendor_schedule,flags,sex)
+     VALUES ($1,$2,$3,$4,$5,$4,$6,$7,$8,$9,$10,$11)
+     ON CONFLICT (id) DO UPDATE SET name=$2,description=$3,zone_id=$4,home_zone=$5,work_zone_id=$4,
+       dialogue_tree=$6,behaviour_graph=$7,chitchat=$8,vendor_schedule=$9,flags=$10,sex=$11`,
+    [DENNY.id, DENNY.name, DENNY.description, DENNY.work_zone, DENNY.home_zone,
+     JSON.stringify(DENNY.dialogue_tree), JSON.stringify(DENNY.behaviour_graph),
+     JSON.stringify(DENNY.chitchat), JSON.stringify(DENNY.vendor_schedule),
+     JSON.stringify(DENNY.flags), DENNY.sex]
   );
-  console.log(`✓ npc ${DENNY.id} (${DENNY.name}) → ${ZONE}`);
+  console.log(`✓ npc ${DENNY.id} (${DENNY.name}) → work ${WORK_ZONE}, home ${HOME_ZONE}`);
   console.log('\nDone. Reload the world (/world/reload) or restart so Denny goes live.');
   process.exit(0);
 }

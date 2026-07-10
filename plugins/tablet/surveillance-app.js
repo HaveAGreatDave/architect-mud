@@ -85,6 +85,13 @@ async function handleAction(player, actionId, params, broadcast) {
   const s = await surv();
   const focus = (params || '').trim();
 
+  // delete — permanently destroy a saved microreel (the clip id arrives as params),
+  // then drop back to the Microreels list so the deleted reel is gone from view.
+  if (actionId === 'delete') {
+    if (focus) await s.deleteMicroreel(player, focus);
+    return buildScreen(player, 'microreels', '');
+  }
+
   // record/clip/wipe run the plugin's own verbs (same behaviour as the standalone
   // hub buttons): record toggles the tape, clip saves a microreel + clears the
   // buffer, clear (wipe) discards it. Then re-render the hub focused on the cam.

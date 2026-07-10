@@ -223,12 +223,16 @@ const taskKey = (playerId, questId, objIndex) => `${playerId}:${questId}:${objIn
 
 // How long a 'visit' objective's task takes: the objective's own `taskSeconds`,
 // else the legacy quest-level `meta.taskSeconds` fallback (pre per-objective
-// authoring), else 0 = instant.
+// authoring), else DEFAULT_VISIT_SECONDS — so a bare 'visit' still lands on the
+// tile, holds a beat "doing the work", and only then advances, instead of
+// completing the instant the player (or an auto-walk) arrives. Author 0 explicitly
+// to opt a specific objective back into instant completion.
+const DEFAULT_VISIT_SECONDS = 3;
 function taskSecondsFor(quest, obj) {
-  const o = Number(obj?.taskSeconds);
-  if (o > 0) return o;
+  if (obj && obj.taskSeconds != null) return Math.max(0, Number(obj.taskSeconds) || 0);
   const m = Number(quest?.meta?.taskSeconds);
-  return m > 0 ? m : 0;
+  if (m > 0) return m;
+  return DEFAULT_VISIT_SECONDS;
 }
 
 // Exported alongside trackEvent for regress.js only — same reasoning (nothing

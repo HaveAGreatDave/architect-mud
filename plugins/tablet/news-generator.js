@@ -116,6 +116,20 @@ const TABLOID = [
   '{profession} Sets Personal Record: {number} {object}s Stolen Before Noon',
 ];
 
+// Body copy for the tabloid story — the "mini story" the reader opens from a
+// headline. One is drawn per headline and filled from the SAME memo as the
+// headline (see tabloidStories), so any slot the headline named ({zone},
+// {object}, …) reads back with the same value in the body — the detail stays
+// grounded in the headline it expands.
+const TABLOID_BODY = [
+  'Sources close to {zone} describe the scene as "exactly what everyone expected, only louder." {org} declined to comment, a silence residents took as a full confession.',
+  'The {object} at the centre of it all could not be reached for comment. Authorities have urged the people of {zone} to "remain calm and, above all, keep purchasing."',
+  'Witnesses agree it was the worst thing to happen in {zone} since the last worst thing. An investigation has been ruled out on the grounds of "general futility."',
+  'Officials confirmed the report, then confirmed they would confirm nothing further. A {profession} in {zone} called it "about right, honestly."',
+  'The Machine logged the incident under "statistically inevitable" and moved on. {org} is reportedly "monetising the coverage as we speak."',
+  'Reached at length, a bystander in {zone} offered a lengthy statement about a {object}, most of which cannot be printed. The rest simply said: "typical."',
+];
+
 // Fill {slot} tokens. Repeated tokens resolve to the SAME value within one
 // headline (so "Marries Own {object} — {object} Files for Divorce" names one
 // object) — that's why templates use a numbered variant ({org2}, {zone2}) when
@@ -155,7 +169,11 @@ async function tabloidStories(count) {
   const out = [];
   for (const idx of order) {
     if (out.length >= count) break;
-    out.push({ headline: fill(TABLOID[idx], pick, rng), byline: outlet(), tag: 'tabloid' });
+    // Fill headline + body TOGETHER (joined on a sentinel) through one fill()
+    // call so a shared slot resolves to the same value in both, then split.
+    const bodyTpl = TABLOID_BODY[Math.floor(rng() * TABLOID_BODY.length)];
+    const [headline, body] = fill(`${TABLOID[idx]}␞${bodyTpl}`, pick, rng).split('␞');
+    out.push({ headline, body, byline: outlet(), tag: 'tabloid' });
   }
   return out;
 }
@@ -229,9 +247,26 @@ on('weather.event', ({ type, phase }) => {
   ]));
 });
 
+// Body copy for a LIVE story. The ring only keeps the headline (news is
+// ephemeral), so the "detail" is a wry editorial follow-up rather than fresh
+// facts. Picked deterministically off the headline so a refresh doesn't reshuffle
+// the story a reader is looking at.
+const LIVE_BODIES = [
+  'Details remain scarce and are expected to stay that way. The Machine has flagged further questions as "unproductive" and closed the thread.',
+  'City officials confirmed the incident, then confirmed they would not be confirming anything further. The Sentinel stands by the part it made up.',
+  'Eyewitnesses were plentiful, articulate, and immediately contradicted one another. An update will follow the moment it becomes convenient.',
+  'The story is developing, in the sense that everything is, technically, always developing. Readers are advised to feel whatever they were already feeling.',
+];
+function liveBody(headline) {
+  const h = normHeadline(headline);
+  let n = 0;
+  for (let i = 0; i < h.length; i++) n = (n * 31 + h.charCodeAt(i)) >>> 0;
+  return LIVE_BODIES[n % LIVE_BODIES.length];
+}
+
 // ── Public seam ───────────────────────────────────────────────────────────────
 // Up to `total` stories: the freshest live ones first, padded with today's
-// tabloid edition. Returns [{ headline, byline?, tag }].
+// tabloid edition. Returns [{ headline, body, byline?, tag }].
 export async function getStories(total = 6) {
   const seen = new Set();
   const out = [];
@@ -242,7 +277,7 @@ export async function getStories(total = 6) {
     const k = normHeadline(s.headline);
     if (seen.has(k)) continue;
     seen.add(k);
-    out.push({ headline: s.headline, tag: 'live' });
+    out.push({ headline: s.headline, body: liveBody(s.headline), tag: 'live' });
   }
   // Pad with today's tabloid edition, skipping any headline already shown (a live
   // story can coincide with a filler one). Over-draw all templates so removing a

@@ -23,6 +23,7 @@ import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpda
 import { showPromptDialog, showConfirmDialog, showSelectDialog } from './confirm.js';
 import { parseMarkup } from '../markup.js';
 import { openMusicPlayerPanel } from './musicplayer.js';
+import { resetOrder } from './sidebar-order.js';
 
 // Tablet's theme can be independent of the shared UI theme ("unlinked") —
 // its own tiny localStorage record, separate from architect_settings, so
@@ -62,13 +63,18 @@ let _tosCorpSel = null; // Corp Territory Map: selected zone id (client-side, no
 let _tosCorpPage = 0; // Corp dashboard: current page (Overview/Operatives/Territory/Diplomacy), client-side
 let _tosMapSel = null; // Map app: tapped/destination zone id (client-side, drives the GPS route)
 let _gearLayer = 2; // Gear app: displayed body layer (0 skin / 1 clothes / 2 armor), client-side
-let _gearDragId = null;      // Gear app: inventory-row id currently being dragged
-let _gearDragSlot = null;    // its equip slot (tags.slot), or null if not equippable
-let _gearDragHandled = false; // a valid drop consumed the drag (else drag-to-nowhere = drop)
-let _gearDragBound = false;  // document dragend bound once
+let _gearTab = 'inventory';  // Gear app primary tab: 'inventory' (full paged pack) or 'loadout' (paperdoll)
+let _gearTrayPage = 0;       // Gear app: current page of the loadout carried tray
+let _gearInvPage = 0;        // Gear app: current page of the Inventory tab
+let _gearIdp = null;         // Gear app: open item-detail modal element (Inventory tab)
+let _gearTipEl = null;       // Gear app: shared hover tooltip element (quick stats)
+let _gearFbTimer = null;     // Gear app: auto-clear timer for the below-feet feedback line
+let _skipBoot = false;       // one-shot: open the tablet with no CRT boot animation (Smart bar "Inv")
 let _keepGearScroll = false; // one-shot: preserve scroll across an equip/unequip/drop refresh
 let _keepNewsScroll = false; // one-shot: preserve scroll when the News weather widget expands/collapses
 let _newsWeatherOpen = false; // News app: is the weather widget's 7-day forecast expanded?
+let _newsStories = [];  // News app: the current headline feed, so a tapped headline can open its full story
+let _newsWin = null;    // News app: the open "browser window" story popup element, if any
 let _backReturn = null; // { appId, screen }: the list/board a detail was drilled into from, so Back
                         // returns there (e.g. Quests → Job Board → posting → Back = Job Board) instead
                         // of the app root. Set on item-open; cleared by any other explicit nav/home.
@@ -145,6 +151,9 @@ function ensureStyles() {
        it (siblings), so scanlines/sweep/reticles stay pinned to the screen
        instead of scrolling away with the content. */
     #tablet-os-overlay .tos-scroll { position:relative; z-index:2; height:100%; overflow-y:auto; overflow-x:hidden; }
+    /* While a drag-scroll gesture is live, show the grabbing hand and kill text
+       selection so dragging pans the screen instead of highlighting content. */
+    #tablet-os-overlay .tos-scroll.tos-drag-scrolling { cursor:grabbing; user-select:none; }
     #tablet-os-overlay .tos-scroll::-webkit-scrollbar { width:6px; }
     #tablet-os-overlay .tos-scroll::-webkit-scrollbar-track { background:var(--bg2); }
     #tablet-os-overlay .tos-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
@@ -188,8 +197,8 @@ function ensureStyles() {
 
     /* App grid (home) — raised tile: light-accent gradient + bevel edge, lifts
        on hover, presses in on click (pseudo-3D, not a flat grey fill). */
-    #tablet-os-overlay .tos-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
-    #tablet-os-overlay .tos-tile { position:relative; cursor:pointer; text-align:center; padding:14px 6px; border-radius:7px;
+    #tablet-os-overlay .tos-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+    #tablet-os-overlay .tos-tile { position:relative; cursor:pointer; text-align:center; padding:9px 5px; border-radius:7px;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
       border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 3px var(--tos-bevel-lo), 0 2px 5px rgba(0,0,0,0.22);
@@ -209,18 +218,18 @@ function ensureStyles() {
     .tos-tile-drag { position:fixed; z-index:9300; pointer-events:none; box-sizing:border-box; text-align:center;
       display:flex; flex-direction:column; align-items:center; justify-content:center; margin:0;
       transform:scale(1.07); opacity:.96; box-shadow:0 8px 22px rgba(0,0,0,.5); }
-    .tos-tile-drag .tos-icon { font-size:24px; display:block; margin-bottom:6px; }
-    .tos-tile-drag .tos-icon svg { width:26px; height:26px; }
-    .tos-tile-drag .tos-name { font-size:11.5px; letter-spacing:.5px; }
-    #tablet-os-overlay .tos-tile .tos-icon { font-size:24px; display:block; margin-bottom:6px; color:var(--tos-fg); }
-    #tablet-os-overlay .tos-tile .tos-icon svg { width:26px; height:26px; display:inline-block; vertical-align:middle; }
+    .tos-tile-drag .tos-icon { font-size:21px; display:block; margin-bottom:4px; }
+    .tos-tile-drag .tos-icon svg { width:22px; height:22px; }
+    .tos-tile-drag .tos-name { font-size:11px; letter-spacing:.5px; }
+    #tablet-os-overlay .tos-tile .tos-icon { font-size:21px; display:block; margin-bottom:4px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-tile .tos-icon svg { width:22px; height:22px; display:inline-block; vertical-align:middle; }
     /* Two-tone: primary uses currentColor (theme fg); the .dim parts pick up a muted derived tone. */
     #tablet-os-overlay .tos-tile .tos-icon svg .dim { color:var(--tos-fg-dim2); }
-    #tablet-os-overlay .tos-tile .tos-name { font-size:11.5px; letter-spacing:.5px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-tile .tos-name { font-size:11px; letter-spacing:.5px; color:var(--tos-fg); }
     /* Arcade tile icon: the circled-"A" ARCHITECT logo — the same mark as the
        tablet's boot screen (.tos-boot-logo), sized to the tile icon slot. */
-    #tablet-os-overlay .tos-tile .tos-icon .tos-ic-a { width:26px; height:26px; border-radius:50%; box-sizing:border-box;
-      display:inline-flex; align-items:center; justify-content:center; font-size:15px; font-weight:bold; line-height:1;
+    #tablet-os-overlay .tos-tile .tos-icon .tos-ic-a { width:22px; height:22px; border-radius:50%; box-sizing:border-box;
+      display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:bold; line-height:1;
       color:var(--mg-accent); border:2px solid var(--mg-accent);
       text-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 70%, transparent);
       box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 40%, transparent), inset 0 0 7px color-mix(in srgb, var(--mg-accent) 22%, transparent); }
@@ -287,6 +296,10 @@ function ensureStyles() {
       border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); background:var(--tos-surface-lo); }
     #tablet-os-overlay .tos-card-h { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--mg-accent); opacity:.9; margin-bottom:5px; }
     #tablet-os-overlay .tos-card .tos-row:last-child { border-bottom:none; }
+    /* Corp view: full-height flex column so the page nav always pins to the
+       bottom of the screen (fixed location on every corp page). */
+    #tablet-os-overlay .tos-corp-view { display:flex; flex-direction:column; min-height:100%; }
+    #tablet-os-overlay .tos-corp-scroll { flex:1 1 auto; }
 
     /* Corp: founding-cost warning */
     #tablet-os-overlay .tos-founding-warn { margin:12px 0; font-size:12px; line-height:1.5; color:var(--tos-fg-dim);
@@ -483,10 +496,10 @@ function ensureStyles() {
        arms-out / legs-spread silhouette, whose regions light up for every covered
        slot. A layer selector swaps which layer the body boxes show; the soak table
        + effect chips sit below. Uses the shared tos theme tokens so it re-skins. */
-    #tablet-os-overlay .tos-gear { display:flex; flex-direction:column; gap:13px; }
+    #tablet-os-overlay .tos-gear { display:flex; flex-direction:column; gap:9px; }
     #tablet-os-overlay .tos-gear-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
     #tablet-os-overlay .tos-gl-group { display:inline-flex; border-radius:6px; overflow:hidden; border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
-    #tablet-os-overlay .tos-gl { cursor:pointer; padding:6px 14px; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:none; border-right:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent); }
+    #tablet-os-overlay .tos-gl { cursor:pointer; padding:5px 10px; font-size:10.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--tos-fg-dim); background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:none; border-right:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent); }
     #tablet-os-overlay .tos-gl:last-child { border-right:none; }
     #tablet-os-overlay .tos-gl:hover { filter:brightness(1.14); }
     #tablet-os-overlay .tos-gl.active { color:var(--mg-accent); font-weight:bold; background:color-mix(in srgb, var(--mg-accent) 16%, var(--tos-surface-lo)); box-shadow:inset 0 0 11px color-mix(in srgb, var(--mg-accent) 26%, transparent); }
@@ -495,37 +508,86 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gear-bar span { display:block; height:100%; background:var(--mg-accent); box-shadow:0 0 6px var(--mg-accent); }
     #tablet-os-overlay .tos-gear-carry-txt { font-size:10px; letter-spacing:.5px; color:var(--tos-fg-dim); }
 
-    /* The doll is a fixed-aspect stage: the Vitruvian silhouette fills it, and each
-       slot box is absolutely anchored over its body part. Percentage anchors track
-       the SVG's part positions at any width. */
-    #tablet-os-overlay .tos-doll { position:relative; width:100%; max-width:340px; margin:2px auto 0; aspect-ratio:300 / 340; }
-    #tablet-os-overlay .tos-doll-svg { position:absolute; inset:0; width:100%; height:100%; }
-    #tablet-os-overlay .tos-doll-ring { fill:none; stroke:color-mix(in srgb, var(--mg-accent) 12%, transparent); stroke-width:1.5; stroke-dasharray:3 6; }
-    #tablet-os-overlay .tos-doll-struct { fill:none; stroke:color-mix(in srgb, var(--mg-accent) 20%, transparent); stroke-width:16; stroke-linecap:round; }
-    #tablet-os-overlay .tos-doll-region { fill:color-mix(in srgb, var(--mg-accent) 9%, transparent); stroke:color-mix(in srgb, var(--mg-accent) 28%, transparent); stroke-width:2; stroke-linecap:round; transition:fill .2s, stroke .2s; }
-    #tablet-os-overlay .tos-doll-trunk { fill:none; stroke-width:44; }
-    #tablet-os-overlay .tos-doll-limb { fill:none; stroke-width:22; }
-    #tablet-os-overlay .tos-doll-region.covered { fill:color-mix(in srgb, var(--mg-accent) 34%, transparent); stroke:var(--mg-accent); filter:drop-shadow(0 0 4px color-mix(in srgb, var(--mg-accent) 45%, transparent)); }
+    /* The doll is a fixed-aspect stage matching the paperdoll PNG (242×540), so the
+       masked figure fills it edge-to-edge and each slot box's percentage anchor lands
+       over the right body part. The figure is the alpha mask tinted to the live accent
+       colour (white → accent, black → transparent), with a soft accent glow. */
+    /* Height-driven so the whole figure (incl. the feet box at 94%) always fits the
+       screen without scrolling — width derives from the 242/540 aspect. */
+    #tablet-os-overlay .tos-doll { position:relative; height:min(46vh, 336px); width:auto; max-width:46vw; margin:0 auto; aspect-ratio:242 / 540; }
+    /* Loadout: inventory list on the LEFT (col 1), the layer selector + paperdoll
+       centred in the middle (col 2), an empty right spacer (col 3) balancing the left
+       so the doll stays centred. Both list and doll are on one screen for drag/drop;
+       the whole left column is the unequip drop-zone. */
+    #tablet-os-overlay .tos-gload { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:10px; align-items:start; margin-top:2px; }
+    #tablet-os-overlay .tos-gload-side { grid-column:1; justify-self:start; width:100%; max-width:186px; min-width:0; display:flex; flex-direction:column; gap:7px; }
+    #tablet-os-overlay .tos-gload-doll { grid-column:2; display:flex; flex-direction:column; align-items:center; gap:4px; }
+    /* Below-feet feedback line (equip errors), accent, hidden until it has a message. */
+    #tablet-os-overlay .tos-gload-fb { min-height:15px; font-size:11px; letter-spacing:.4px; text-align:center; color:var(--mg-accent); opacity:0; transition:opacity .15s; text-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
+    #tablet-os-overlay .tos-gload-fb.show { opacity:1; }
+    /* Top-right cluster (col 3): layer selector + carry + total-armor + insulation. */
+    #tablet-os-overlay .tos-gload-far { grid-column:3; justify-self:end; align-self:start; display:flex; flex-direction:column; align-items:flex-end; gap:9px; padding-top:2px; }
+    #tablet-os-overlay .tos-gstat { display:flex; align-items:center; gap:5px; color:var(--mg-accent); font-size:14px; font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-gstat svg { width:17px; height:17px; flex:0 0 auto; filter:drop-shadow(0 0 3px color-mix(in srgb, var(--mg-accent) 40%, transparent)); }
+    #tablet-os-overlay .tos-gstat-armor { cursor:pointer; border-radius:5px; padding:2px 4px; margin:-2px -4px; transition:background .12s; }
+    #tablet-os-overlay .tos-gstat-armor:hover { background:color-mix(in srgb, var(--mg-accent) 16%, transparent); }
 
-    #tablet-os-overlay .tos-gslot { position:absolute; z-index:2; display:flex; flex-direction:column; gap:1px; padding:5px 8px; min-width:78px; max-width:40%; border-radius:5px;
+    /* Hover quick-stats tooltip — monochrome accent, floats above everything. */
+    #tablet-os-overlay .tos-gtip { position:fixed; z-index:9500; pointer-events:none; min-width:132px; max-width:220px; padding:9px 11px; border-radius:8px;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:1px solid color-mix(in srgb, var(--mg-accent) 45%, transparent);
+      box-shadow:0 6px 22px rgba(0,0,0,0.5), inset 0 1px 0 var(--tos-bevel-hi); color:var(--mg-accent); }
+    #tablet-os-overlay .tos-gtip-name { font-size:12.5px; color:var(--mg-accent); }
+    #tablet-os-overlay .tos-gtip-slot { font-size:8.5px; letter-spacing:1px; text-transform:uppercase; color:color-mix(in srgb, var(--mg-accent) 60%, transparent); margin-bottom:4px; }
+    #tablet-os-overlay .tos-gtip-sec { font-size:8.5px; letter-spacing:1.5px; text-transform:uppercase; color:color-mix(in srgb, var(--mg-accent) 62%, transparent); margin:4px 0 2px; }
+    #tablet-os-overlay .tos-gtip-row { display:flex; justify-content:space-between; gap:12px; font-size:11px; padding:1.5px 0; }
+    #tablet-os-overlay .tos-gtip-row > span:first-child { color:color-mix(in srgb, var(--mg-accent) 66%, transparent); }
+    #tablet-os-overlay .tos-gtip-row.tos-gtip-dim { color:color-mix(in srgb, var(--mg-accent) 55%, transparent); }
+    #tablet-os-overlay .tos-gtip-type { display:inline-flex; align-items:center; gap:4px; }
+    #tablet-os-overlay .tos-gtip-type svg { width:13px; height:13px; }
+    #tablet-os-overlay .tos-gtip-soak { display:flex; align-items:center; gap:6px; font-size:11px; padding:1.5px 0; }
+    #tablet-os-overlay .tos-gtip-ico { display:inline-flex; }
+    #tablet-os-overlay .tos-gtip-ico svg { width:14px; height:14px; }
+    #tablet-os-overlay .tos-gtip-soak .tos-gtip-val { margin-left:auto; font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-gtip-hint { margin-top:6px; padding-top:5px; border-top:1px solid color-mix(in srgb, var(--mg-accent) 20%, transparent); font-size:9px; letter-spacing:.4px; color:color-mix(in srgb, var(--mg-accent) 55%, transparent); }
+
+    /* Armor breakdown popup — reuses the .tos-idp shell; per-type rows with icons. */
+    #tablet-os-overlay .tos-gbrk { max-width:250px; }
+    #tablet-os-overlay .tos-gbrk-list { display:flex; flex-direction:column; gap:2px; }
+    #tablet-os-overlay .tos-gbrk-row { display:flex; align-items:center; gap:9px; font-size:13px; padding:5px 4px; border-top:1px solid color-mix(in srgb, var(--mg-accent) 14%, transparent); color:var(--mg-accent); }
+    #tablet-os-overlay .tos-gbrk-row.zero { color:color-mix(in srgb, var(--mg-accent) 40%, transparent); }
+    #tablet-os-overlay .tos-gbrk-ico { display:inline-flex; flex:0 0 auto; }
+    #tablet-os-overlay .tos-gbrk-ico svg { width:19px; height:19px; }
+    #tablet-os-overlay .tos-gbrk-name { flex:1; }
+    #tablet-os-overlay .tos-gbrk-val { font-size:15px; font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-gbrk-foot { margin-top:8px; font-size:10.5px; color:color-mix(in srgb, var(--mg-accent) 62%, transparent); }
+    #tablet-os-overlay .tos-doll-fig { position:absolute; inset:0; background:var(--mg-accent);
+      -webkit-mask:url('/assets/paperdoll-mask.png') center / contain no-repeat;
+      mask:url('/assets/paperdoll-mask.png') center / contain no-repeat;
+      filter:drop-shadow(0 0 6px color-mix(in srgb, var(--mg-accent) 38%, transparent)); }
+
+    #tablet-os-overlay .tos-gslot { position:absolute; z-index:2; display:flex; flex-direction:column; gap:1px; padding:4px 6px; min-width:56px; max-width:47%; border-radius:5px; user-select:none; touch-action:none;
       background:color-mix(in srgb, var(--tos-surface-lo) 88%, transparent); border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo), 0 2px 6px rgba(0,0,0,0.35); backdrop-filter:blur(1px); transition:border-color .15s, box-shadow .15s; }
-    #tablet-os-overlay .tos-gslot-label { font-size:8.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--tos-fg-dim2); }
-    #tablet-os-overlay .tos-gslot-item { font-size:11.5px; color:var(--tos-fg-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #tablet-os-overlay .tos-gslot-label { font-size:8px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-gslot-item { font-size:10.5px; color:var(--tos-fg-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     #tablet-os-overlay .tos-gslot.filled { border-color:color-mix(in srgb, var(--mg-accent) 50%, transparent); box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 22%, transparent), inset 0 1px 0 var(--tos-bevel-hi), 0 2px 6px rgba(0,0,0,0.35); }
     #tablet-os-overlay .tos-gslot.filled .tos-gslot-item { color:var(--tos-fg); }
     #tablet-os-overlay .tos-gslot.filled .tos-gslot-label { color:var(--mg-accent); }
     /* Anchor each box over its body part (percentages of the doll stage). */
-    #tablet-os-overlay .tos-gslot--head { left:50%; top:11%; transform:translate(-50%,-50%); text-align:center; }
-    #tablet-os-overlay .tos-gslot--torso { left:50%; top:40%; transform:translate(-50%,-50%); text-align:center; }
-    #tablet-os-overlay .tos-gslot--legs { left:50%; top:71%; transform:translate(-50%,-50%); text-align:center; }
-    #tablet-os-overlay .tos-gslot--feet { left:50%; top:93%; transform:translate(-50%,-50%); text-align:center; }
-    #tablet-os-overlay .tos-gslot--hands { left:0; top:45%; transform:translateY(-50%); text-align:left; }
-    #tablet-os-overlay .tos-gslot--weapon_hand { right:0; top:45%; transform:translateY(-50%); text-align:right; }
-    #tablet-os-overlay .tos-gslot--accessory { right:0; top:3%; text-align:right; }
+    #tablet-os-overlay .tos-gslot--head { left:50%; top:8%; transform:translate(-50%,-50%); text-align:center; }
+    #tablet-os-overlay .tos-gslot--torso { left:50%; top:33%; transform:translate(-50%,-50%); text-align:center; }
+    #tablet-os-overlay .tos-gslot--legs { left:50%; top:64%; transform:translate(-50%,-50%); text-align:center; }
+    #tablet-os-overlay .tos-gslot--feet { left:50%; top:96%; transform:translate(-50%,-50%); text-align:center; }
+    #tablet-os-overlay .tos-gslot--hands { left:0; top:55%; transform:translateY(-50%); text-align:left; }
+    #tablet-os-overlay .tos-gslot--weapon_hand { right:0; top:55%; transform:translateY(-50%); text-align:right; }
+    #tablet-os-overlay .tos-gslot--accessory { right:-56px; top:20%; transform:translateY(-50%); text-align:right; }
     /* Filled boxes are tap-to-unequip; every box is a drag-to-equip target. */
     #tablet-os-overlay .tos-gslot.filled { cursor:pointer; }
     #tablet-os-overlay .tos-gslot.filled:hover { border-color:var(--mg-accent); }
+    /* Sub-line under a slot box's item: names the layer when the shown piece isn't on
+       the layer currently selected (so a filled box that fell back to another layer's
+       gear still reads clearly). */
+    #tablet-os-overlay .tos-gslot-sub { font-size:8px; letter-spacing:.5px; text-transform:uppercase; color:color-mix(in srgb, var(--mg-accent) 58%, transparent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     #tablet-os-overlay .tos-gslot-over { border-color:var(--mg-accent) !important; box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 55%, transparent) !important; }
 
     #tablet-os-overlay .tos-gear-stats { display:flex; flex-direction:column; gap:5px; }
@@ -541,9 +603,9 @@ function ensureStyles() {
 
     /* Carried tray + drop-off zone. Cards drag onto the doll (equip) or the drop
        zone (drop); the ⤓ button drops directly. */
-    #tablet-os-overlay .tos-gtray { display:flex; flex-direction:column; gap:5px; }
-    #tablet-os-overlay .tos-gtray-empty { color:var(--tos-fg-dim2); font-size:11.5px; padding:4px 2px; }
-    #tablet-os-overlay .tos-gcard { display:flex; align-items:center; gap:8px; padding:6px 9px; border-radius:5px;
+    #tablet-os-overlay .tos-gtray { display:flex; flex-direction:column; gap:5px; min-height:72px; padding:4px; border-radius:6px; border:1px dashed color-mix(in srgb, var(--mg-accent) 16%, transparent); }
+    #tablet-os-overlay .tos-gtray-empty { color:var(--tos-fg-dim2); font-size:11.5px; padding:4px 2px; display:flex; align-items:center; justify-content:center; min-height:60px; text-align:center; }
+    #tablet-os-overlay .tos-gcard { display:flex; align-items:center; gap:8px; padding:6px 9px; border-radius:5px; user-select:none; touch-action:none;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); transition:filter .12s, border-color .12s, opacity .12s; }
     #tablet-os-overlay .tos-gcard.equippable { cursor:pointer; }
@@ -551,11 +613,64 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gcard.dragging { opacity:.45; }
     #tablet-os-overlay .tos-gcard-name { flex:1; min-width:0; font-size:12.5px; color:var(--tos-fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     #tablet-os-overlay .tos-gcard-meta { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
-    #tablet-os-overlay .tos-gcard-drop { flex:0 0 auto; cursor:pointer; font-size:14px; line-height:1; color:var(--tos-fg-dim); background:transparent; border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); border-radius:4px; padding:2px 7px; transition:color .12s, border-color .12s, background .12s; }
-    #tablet-os-overlay .tos-gcard-drop:hover { color:#fff; border-color:var(--red, #e0413a); background:color-mix(in srgb, var(--red, #e0413a) 28%, transparent); }
-    #tablet-os-overlay .tos-gear-drop { margin-top:2px; text-align:center; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--tos-fg-dim); padding:8px; border-radius:6px;
+    #tablet-os-overlay .tos-gcard-drop { flex:0 0 auto; cursor:pointer; font-size:14px; line-height:1; color:color-mix(in srgb, var(--mg-accent) 60%, transparent); background:transparent; border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); border-radius:4px; padding:2px 7px; transition:color .12s, border-color .12s, background .12s; }
+    #tablet-os-overlay .tos-gcard-drop:hover { color:var(--mg-accent); border-color:var(--mg-accent); background:color-mix(in srgb, var(--mg-accent) 20%, transparent); }
+    #tablet-os-overlay .tos-gear-drop { margin-top:2px; text-align:center; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:color-mix(in srgb, var(--mg-accent) 55%, transparent); padding:8px; border-radius:6px;
       border:1px dashed color-mix(in srgb, var(--mg-accent) 30%, transparent); background:color-mix(in srgb, var(--tos-surface-lo) 60%, transparent); transition:border-color .12s, color .12s, background .12s; }
-    #tablet-os-overlay .tos-gear-drop-over { border-color:var(--red, #e0413a); border-style:solid; color:#fff; background:color-mix(in srgb, var(--red, #e0413a) 22%, transparent); }
+    #tablet-os-overlay .tos-gear-drop-over { border-color:var(--mg-accent); border-style:solid; color:var(--mg-accent); background:color-mix(in srgb, var(--mg-accent) 18%, transparent); }
+    /* Tray highlights when a worn slot box is dragged over it (unequip target). */
+    #tablet-os-overlay .tos-gtray-over { outline:1px dashed var(--mg-accent); outline-offset:3px; border-radius:6px; }
+
+    /* Gear tabs (Loadout / Inventory). */
+    #tablet-os-overlay .tos-gtabs { display:inline-flex; align-self:flex-end; border-radius:7px; overflow:hidden; border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-gtab { cursor:pointer; padding:7px 20px; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--tos-fg-dim); background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:none; border-right:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent); }
+    #tablet-os-overlay .tos-gtab:last-child { border-right:none; }
+    #tablet-os-overlay .tos-gtab:hover { filter:brightness(1.14); }
+    #tablet-os-overlay .tos-gtab.active { color:var(--mg-accent); font-weight:bold; background:color-mix(in srgb, var(--mg-accent) 16%, var(--tos-surface-lo)); box-shadow:inset 0 0 11px color-mix(in srgb, var(--mg-accent) 26%, transparent); }
+
+    /* Pager (◂ n/m ▸), shared by the loadout tray + Inventory tab. */
+    #tablet-os-overlay .tos-gpager { display:flex; align-items:center; justify-content:center; gap:14px; padding:4px 0 2px; font-size:11px; letter-spacing:1px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-gpg { cursor:pointer; min-width:30px; padding:3px 9px; font-size:13px; line-height:1; color:var(--mg-accent); background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); border-radius:5px; box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-gpg:hover:not([disabled]) { filter:brightness(1.16); }
+    #tablet-os-overlay .tos-gpg[disabled] { opacity:.35; cursor:default; }
+
+    /* Inventory tab: full paged pack, one tappable row per item. */
+    #tablet-os-overlay .tos-ginv-title { font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--mg-accent); }
+    #tablet-os-overlay .tos-ginv-list { display:flex; flex-direction:column; gap:4px; margin-top:4px; }
+    #tablet-os-overlay .tos-ginv-row { display:flex; align-items:center; gap:8px; cursor:pointer; padding:8px 10px; border-radius:5px;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); transition:filter .12s, border-color .12s; }
+    #tablet-os-overlay .tos-ginv-row:hover { border-color:color-mix(in srgb, var(--mg-accent) 48%, transparent); filter:brightness(1.08); }
+    #tablet-os-overlay .tos-ginv-name { flex:1; min-width:0; font-size:12.5px; color:var(--tos-fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #tablet-os-overlay .tos-ginv-slot { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
+    #tablet-os-overlay .tos-ginv-eq { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--mg-accent); white-space:nowrap; }
+    #tablet-os-overlay .tos-ginv-chev { flex:0 0 auto; font-size:15px; color:var(--tos-fg-dim2); }
+
+    /* Item-detail sheet (tap a row on the Inventory tab). */
+    /* pointer-events:auto — the overlay container is pointer-events:none (clicks pass
+       through to the game); the popup must re-enable them or its X/backdrop do nothing.
+       z-index above the chassis (9300) so it sits on top, not behind the glass. */
+    #tablet-os-overlay .tos-idp-overlay { position:absolute; inset:0; z-index:9400; pointer-events:auto; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(0,0,0,0.6); backdrop-filter:blur(2px); }
+    #tablet-os-overlay .tos-idp { width:100%; max-width:300px; display:flex; flex-direction:column; gap:10px; padding:15px; border-radius:9px;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent);
+      box-shadow:0 8px 30px rgba(0,0,0,0.55), inset 0 1px 0 var(--tos-bevel-hi); }
+    /* Monochrome: everything is a tint of the accent (no grays, no red). */
+    #tablet-os-overlay .tos-idp-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    #tablet-os-overlay .tos-idp-name { font-size:14px; color:var(--mg-accent); }
+    #tablet-os-overlay .tos-idp-qty { color:color-mix(in srgb, var(--mg-accent) 60%, transparent); font-size:12px; }
+    #tablet-os-overlay .tos-idp-x { cursor:pointer; font-size:13px; line-height:1; color:var(--mg-accent); background:transparent; border:1px solid color-mix(in srgb, var(--mg-accent) 45%, transparent); border-radius:4px; padding:3px 8px; }
+    #tablet-os-overlay .tos-idp-x:hover { background:color-mix(in srgb, var(--mg-accent) 20%, transparent); border-color:var(--mg-accent); }
+    #tablet-os-overlay .tos-idp-desc { font-size:11.5px; line-height:1.45; color:color-mix(in srgb, var(--mg-accent) 72%, transparent); }
+    #tablet-os-overlay .tos-idp-stats { display:flex; flex-direction:column; gap:2px; }
+    #tablet-os-overlay .tos-idp-stat { display:flex; justify-content:space-between; gap:10px; font-size:11.5px; padding:3px 0; border-top:1px solid color-mix(in srgb, var(--mg-accent) 16%, transparent); }
+    #tablet-os-overlay .tos-idp-stat span:first-child { color:color-mix(in srgb, var(--mg-accent) 58%, transparent); text-transform:uppercase; letter-spacing:.5px; font-size:9.5px; align-self:center; }
+    #tablet-os-overlay .tos-idp-stat span:last-child { color:var(--mg-accent); text-align:right; }
+    #tablet-os-overlay .tos-idp-verbs { display:flex; flex-wrap:wrap; gap:7px; margin-top:2px; }
+    #tablet-os-overlay .tos-idp-verb { cursor:pointer; flex:1 1 auto; padding:8px 12px; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--mg-accent);
+      background:color-mix(in srgb, var(--mg-accent) 14%, var(--tos-surface-lo)); border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent); border-radius:6px; }
+    #tablet-os-overlay .tos-idp-verb:hover { filter:brightness(1.15); }
+    /* Drop stays monochrome but reads as the "outer" action — hollow, brighter border. */
+    #tablet-os-overlay .tos-idp-verb.danger { background:transparent; border-color:color-mix(in srgb, var(--mg-accent) 60%, transparent); }
 
     /* ── Chat app ─────────────────────────────────────────────────────────────
        The same conversations as the floating chat window (corp #<name>, #arcnet,
@@ -573,7 +688,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-chat-tab.sel { border-color:var(--mg-accent); color:var(--mg-accent); font-weight:bold; box-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 35%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-chat-pip { margin-left:6px; font-size:9.5px; font-weight:bold; color:#fff; background:var(--red,#e0413a); border-radius:8px; padding:0 5px; line-height:15px; display:inline-block; vertical-align:middle; }
     #tablet-os-overlay .tos-chat-x { margin-left:7px; font-size:10px; line-height:1; color:var(--tos-fg-dim2); border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); border-radius:3px; padding:1px 4px; vertical-align:middle; }
-    #tablet-os-overlay .tos-chat-x:hover { color:#fff; border-color:var(--red,#e0413a); background:color-mix(in srgb, var(--red,#e0413a) 30%, transparent); }
+    #tablet-os-overlay .tos-chat-x:hover { color:var(--accent-ink,#fff); border-color:var(--mg-accent); background:color-mix(in srgb, var(--mg-accent) 30%, transparent); }
     #tablet-os-overlay .tos-chat-log { height:320px; max-height:44vh; overflow-y:auto; padding:9px 10px; border-radius:6px;
       background:var(--bg, #0c1114); border:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent);
       box-shadow:inset 0 1px 3px rgba(0,0,0,0.35); font-size:13px; line-height:1.45; }
@@ -731,7 +846,7 @@ function ensureStyles() {
        "article" blocks with kicker headers. */
     #tablet-os-overlay .tos-newspaper {
       --tos-fg:#1c1811; --tos-fg-dim:#4b4237; --tos-fg-dim2:#7a7060;
-      --mg-accent:#7d1c12; --tos-surface:#efe8d5; --tos-surface-hi:#f6f0e0; --tos-surface-lo:#e8e0ca;
+      --mg-accent:color-mix(in srgb, var(--accent, #7d1c12) 45%, #1c1811); --tos-surface:#efe8d5; --tos-surface-hi:#f6f0e0; --tos-surface-lo:#e8e0ca;
       --tos-bevel-hi:rgba(255,255,255,0.55); --tos-bevel-lo:rgba(0,0,0,0.05);
       padding:15px 15px 6px; border-radius:4px; color:var(--tos-fg);
       font-family:Georgia,'Times New Roman','Times',serif;
@@ -819,13 +934,61 @@ function ensureStyles() {
     #tablet-os-overlay .tos-newspaper .tos-news-list { padding:2px 0; }
     #tablet-os-overlay .tos-newspaper .tos-headline { padding:6px 2px; font-size:12.5px; }
     #tablet-os-overlay .tos-newspaper .tos-hl-tag { border-radius:0; padding:1px 4px; letter-spacing:1.5px; }
-    #tablet-os-overlay .tos-newspaper .tos-hl-tag.live { color:#7d1c12; border:1px solid #7d1c12; background:transparent; }
+    #tablet-os-overlay .tos-newspaper .tos-hl-tag.live { color:var(--mg-accent); border:1px solid var(--mg-accent); background:transparent; }
     #tablet-os-overlay .tos-newspaper .tos-hl-tag.tabloid { color:var(--tos-fg-dim); border:1px solid color-mix(in srgb, var(--tos-fg) 30%, transparent); background:transparent; }
-    #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline:first-child { display:block; font-size:16px; line-height:1.42; padding-top:0; }
-    #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline:first-child .tos-hl-tag { margin-bottom:5px; }
+    /* Every wire/live story reads at the front-page splash size, not just the
+       lead — stacked, large serif, and tappable. The drop-cap stays exclusive to
+       the very first story so the page still has one clear lead. */
+    #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline { display:block; font-size:16px; line-height:1.42; cursor:pointer; }
+    #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline:hover .tos-hl-text { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline:first-child { padding-top:0; }
+    #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline .tos-hl-tag { margin-bottom:5px; }
     #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline:first-child .tos-hl-text::first-letter {
       float:left; font-size:40px; line-height:0.72; font-weight:bold; padding:4px 7px 0 0; color:var(--mg-accent); }
-    #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline:first-child .tos-hl-by { display:inline; white-space:normal; }
+    #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline .tos-hl-by { display:inline; white-space:normal; }
+
+    /* Story popup — a little reader window that opens over the tablet when a
+       headline is tapped: a tablet-OS chrome bar (accent app-mark + a padlocked
+       address pill + accent close button) atop a newsprint page carrying the full
+       mini-story. The bar wears the OS's own surface/bevel/accent skin, not a Mac
+       title bar, so the popup reads as part of the tablet. */
+    #tablet-os-overlay .tos-newswin-back { position:absolute; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
+      padding:18px; background:rgba(10,8,6,0.55); backdrop-filter:blur(1.5px); pointer-events:auto; }
+    #tablet-os-overlay .tos-newswin { width:min(340px, 94%); max-height:88%; display:flex; flex-direction:column; overflow:hidden;
+      border-radius:8px; border:1px solid color-mix(in srgb, var(--mg-accent) 45%, transparent);
+      box-shadow:0 14px 40px rgba(0,0,0,0.6), 0 0 20px color-mix(in srgb, var(--mg-accent) 22%, transparent);
+      font-family:Georgia,'Times New Roman','Times',serif; animation:tos-nw-in 140ms ease-out; }
+    @keyframes tos-nw-in { from { opacity:0; transform:translateY(8px) scale(0.97); } to { opacity:1; transform:none; } }
+    #tablet-os-overlay .tos-nw-chrome { display:flex; align-items:center; gap:9px; padding:7px 9px;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 3px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-nw-mark { flex:0 0 auto; font-size:13px; line-height:1; color:var(--mg-accent);
+      text-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 60%, transparent); }
+    #tablet-os-overlay .tos-nw-url { flex:1; min-width:0; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      font-family:var(--font-mono,monospace); font-size:10.5px; letter-spacing:.3px; color:var(--tos-fg);
+      background:linear-gradient(165deg, var(--tos-surface-lo), var(--tos-surface));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); border-radius:11px; padding:3px 10px;
+      box-shadow:inset 0 1px 2px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-nw-x { flex:0 0 auto; width:22px; height:22px; line-height:1; cursor:pointer;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent); border-radius:4px;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); color:var(--mg-accent); font-size:12px;
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-nw-x:hover { color:var(--tos-fg); box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 0 10px color-mix(in srgb, var(--mg-accent) 40%, transparent); }
+    #tablet-os-overlay .tos-nw-x:active { transform:translateY(1px); box-shadow:inset 0 2px 4px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-nw-page { overflow-y:auto; padding:16px 18px 18px; color:#1c1811;
+      background:#f4eede; background-image:linear-gradient(0deg, rgba(120,100,60,0.05), rgba(120,100,60,0.05)); }
+    #tablet-os-overlay .tos-nw-kicker { display:flex; align-items:center; gap:9px; margin-bottom:9px; }
+    #tablet-os-overlay .tos-nw-tag { font-size:8.5px; font-weight:bold; letter-spacing:1.5px; padding:1px 5px;
+      color:#4b4237; border:1px solid rgba(0,0,0,0.35); }
+    #tablet-os-overlay .tos-nw-tag.live { color:#7d1c12; border-color:#7d1c12; }
+    #tablet-os-overlay .tos-nw-by { font-size:11px; font-style:italic; color:#7a7060; }
+    #tablet-os-overlay .tos-nw-headline { margin:0 0 10px; font-size:21px; line-height:1.24; font-weight:bold; color:#1c1811;
+      border-bottom:2px solid #7d1c12; padding-bottom:9px; }
+    #tablet-os-overlay .tos-nw-story { margin:0; font-size:14px; line-height:1.62; color:#2a251c; }
+    #tablet-os-overlay .tos-nw-story::first-letter { float:left; font-size:38px; line-height:0.74; font-weight:bold; padding:3px 7px 0 0; color:#7d1c12; }
+    #tablet-os-overlay .tos-nw-foot { margin-top:14px; padding-top:9px; border-top:1px solid rgba(0,0,0,0.18);
+      font-size:9.5px; font-style:italic; letter-spacing:.4px; color:#7a7060; text-align:center; }
     /* Boxed items — weather and sports read as ruled front-page boxes. */
     #tablet-os-overlay .tos-newspaper .tos-wx-now,
     #tablet-os-overlay .tos-newspaper .tos-standings { border:1px solid color-mix(in srgb, var(--tos-fg) 22%, transparent); }
@@ -916,20 +1079,60 @@ function ensureStyles() {
     @keyframes tos-fk-pulse { 0%,100%{box-shadow:0 0 8px color-mix(in srgb, var(--accent) 25%, transparent)} 50%{box-shadow:0 0 18px color-mix(in srgb, var(--accent) 60%, transparent)} }
 
     /* Mini tablet — a shrunk recreation floating over the fake game (theme-tinted). */
-    #tablet-os-overlay .tos-fk-mini-scrim { position:absolute; inset:0; z-index:8; display:flex; align-items:center; justify-content:center;
+    #tablet-os-overlay .tos-fk-mini-scrim { position:absolute; inset:0; z-index:8;
       background:rgba(0,0,0,.55); animation:tos-fk-fade .18s ease-out; }
     @keyframes tos-fk-fade { from{opacity:0} to{opacity:1} }
-    #tablet-os-overlay .tos-fk-mini { position:relative; width:210px; border-radius:16px; padding:12px 10px 16px; color:var(--accent);
+    /* Shaky "oh no" banner across the top of the REAL tablet, once you've gone one
+       ARCHITECT-tap deep. Sits on the (unscaled) scrim so it stays put and legible. */
+    #tablet-os-overlay .tos-fk-caption { position:absolute; top:9px; left:0; right:0; z-index:12; text-align:center; pointer-events:none;
+      padding:0 14px; line-height:1.25; font-family:var(--font-mono,'Courier New',monospace); font-size:15px; font-weight:bold; font-style:italic;
+      letter-spacing:.5px; color:var(--accent); text-shadow:0 0 6px #000, 0 0 14px color-mix(in srgb, var(--accent) 70%, transparent);
+      animation:tos-fk-shake .17s infinite, tos-fk-fade .25s ease-out; }
+    @keyframes tos-fk-shake {
+      0%   { transform:translate(0,0) rotate(0deg); }
+      20%  { transform:translate(-2px,1px) rotate(-.7deg); }
+      40%  { transform:translate(2px,-1px) rotate(.6deg); }
+      60%  { transform:translate(-1px,-2px) rotate(.5deg); }
+      80%  { transform:translate(1px,2px) rotate(-.6deg); }
+      100% { transform:translate(0,0) rotate(0deg); }
+    }
+    /* Each nested tablet lives in a full-scrim centring layer, scaled down per depth
+       (inline transform). pointer-events:none lets taps fall through the empty space
+       to the tablet (or backdrop) below; the tablet re-enables them. */
+    #tablet-os-overlay .tos-fk-mini-layer { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      transform-origin:center center; pointer-events:none; }
+    /* Wide, landscape tablet (matches the desktop tablet's rectangular shape). */
+    #tablet-os-overlay .tos-fk-mini { position:relative; pointer-events:auto; width:360px; border-radius:16px; padding:12px 14px 14px; color:var(--accent);
       background:linear-gradient(160deg, rgba(255,255,255,0.07), transparent 30%), var(--bg2, #0d0d16);
       border:2px solid #000; box-shadow:0 12px 30px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.12), 0 0 18px color-mix(in srgb, var(--accent) 20%, transparent);
       animation:tos-fk-pop .22s cubic-bezier(.2,1.3,.5,1); }
     @keyframes tos-fk-pop { from{transform:scale(.6); opacity:0} to{transform:scale(1); opacity:1} }
+    /* A fake game screen (the terminal look pane) that a tablet pops up over — the
+       recurring backdrop each ARCHITECT tap drops you into. Sized landscape; the
+       tablet centres on top of it (flex), game text peeking around the edges. */
+    #tablet-os-overlay .tos-fk-gamewrap { position:relative; pointer-events:auto; width:440px; height:274px;
+      display:flex; align-items:center; justify-content:center; animation:tos-fk-pop .22s cubic-bezier(.2,1.3,.5,1); }
+    #tablet-os-overlay .tos-fk-gamewrap .tos-fk-mini { position:relative; z-index:1; animation:none; }
+    #tablet-os-overlay .tos-fk-gamescreen { position:absolute; inset:0; box-sizing:border-box; overflow:hidden;
+      border-radius:8px; border:1px solid var(--border, #2a2a40); background:var(--bg, #05050a);
+      font-family:var(--font-mono,'Courier New',monospace); font-size:9px; line-height:1.5; padding:10px 12px;
+      box-shadow:inset 0 0 26px rgba(0,0,0,.6); }
+    #tablet-os-overlay .tos-fk-gs-hud { display:flex; gap:9px; flex-wrap:wrap; color:var(--text-dim); border-bottom:1px solid var(--border, #2a2a40); padding-bottom:5px; margin-bottom:6px; }
+    #tablet-os-overlay .tos-fk-gs-hud .hp { color:var(--green, #39ff8f); }
+    #tablet-os-overlay .tos-fk-gs-hud .cr { color:var(--accent); }
+    #tablet-os-overlay .tos-fk-gs-room { color:var(--accent); font-weight:bold; letter-spacing:1px; text-transform:uppercase; }
+    #tablet-os-overlay .tos-fk-gs-safe { margin-left:5px; font-size:8px; padding:0 4px; border-radius:2px; color:var(--green, #39ff8f); border:1px solid var(--green, #39ff8f); }
+    #tablet-os-overlay .tos-fk-gs-dist { color:var(--text-dim); font-style:italic; }
+    #tablet-os-overlay .tos-fk-gs-desc { color:var(--text, #e8e8f5); margin-top:3px; }
+    #tablet-os-overlay .tos-fk-gs-exits { margin-top:3px; }
+    #tablet-os-overlay .tos-fk-gs-exits .l { color:var(--text-dim); }
+    #tablet-os-overlay .tos-fk-gs-exits .ex { color:var(--cyan, #28e5ff); }
     #tablet-os-overlay .tos-fk-mini-hd { display:flex; justify-content:space-between; align-items:center; font-size:8.5px; letter-spacing:2px; text-transform:uppercase; color:var(--accent); opacity:.85; margin-bottom:8px; padding:0 3px; }
     #tablet-os-overlay .tos-fk-mini-x { cursor:pointer; font-size:12px; opacity:.8; line-height:1; }
     #tablet-os-overlay .tos-fk-mini-x:hover { opacity:1; color:var(--text-bright, #fff); }
-    #tablet-os-overlay .tos-fk-mini-screen { background:var(--bg, #05050a); border-radius:8px; padding:9px 8px; box-shadow:inset 0 0 12px rgba(0,0,0,.6); }
+    #tablet-os-overlay .tos-fk-mini-screen { position:relative; background:var(--bg, #05050a); border-radius:8px; padding:9px 8px; box-shadow:inset 0 0 12px rgba(0,0,0,.6); }
     #tablet-os-overlay .tos-fk-mini-time { display:flex; justify-content:space-between; font-size:7px; letter-spacing:1px; text-transform:uppercase; color:var(--accent); opacity:.6; margin-bottom:7px; }
-    #tablet-os-overlay .tos-fk-mini-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+    #tablet-os-overlay .tos-fk-mini-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; }
     #tablet-os-overlay .tos-fk-app { cursor:pointer; text-align:center; padding:7px 2px; border-radius:6px;
       background:color-mix(in srgb, var(--accent) 12%, var(--bg2, #0d0d16));
       border:1px solid color-mix(in srgb, var(--accent) 28%, transparent); box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
@@ -944,41 +1147,6 @@ function ensureStyles() {
     #tablet-os-overlay .tos-fk-mini-toast.show { opacity:.9; }
     #tablet-os-overlay .tos-fk-mini-home { width:26px; height:26px; border-radius:50%; margin:9px auto 0; border:2px solid color-mix(in srgb, var(--accent) 40%, transparent); cursor:pointer; }
     #tablet-os-overlay .tos-fk-mini-home:hover { border-color:var(--accent); box-shadow:0 0 8px color-mix(in srgb, var(--accent) 50%, transparent); }
-    /* ── Infinite recursion — tap the ARCHITECT app in the mini tablet ──────────
-       Alternating tablet↔game layers stacked concentrically (deeper = smaller,
-       higher z-index, drawn over the centre of the one below), and the whole
-       stage is zoomed scale(1→4) forever. Each layer is half its parent (f=0.5)
-       and content repeats every 2 layers, so a 4× zoom (=1/f²) lands on an
-       identical frame — the loop is seamless and reads as an endless fall inward,
-       though it's just ~10 static layers on a CSS loop. */
-    #tablet-os-overlay .tos-fk-rec { position:absolute; inset:0; z-index:10; overflow:hidden; cursor:pointer;
-      background:var(--bg, #05050a); animation:tos-fk-fade .2s ease-out; }
-    #tablet-os-overlay .tos-fk-rec-stage { position:absolute; inset:0; transform-origin:center center;
-      animation:tos-fk-zoom 3.4s linear infinite; }
-    @keyframes tos-fk-zoom { from{transform:scale(1)} to{transform:scale(4)} }
-    #tablet-os-overlay .tos-fk-rl { position:absolute; inset:0; transform-origin:center center; overflow:hidden; }
-    #tablet-os-overlay .tos-fk-rl-screen { position:absolute; inset:0; box-sizing:border-box; border:2px solid var(--border, #2a2a40);
-      font-family:var(--font-mono,'Courier New',monospace); overflow:hidden; }
-    #tablet-os-overlay .tos-fk-rl-tab { background:var(--bg2, #0d0d16); padding:6% 7%; display:flex; flex-direction:column; gap:6%; }
-    #tablet-os-overlay .tos-fk-rl-hd { display:flex; align-items:center; gap:6px; font-size:13px; letter-spacing:2px; text-transform:uppercase; color:var(--accent); }
-    #tablet-os-overlay .tos-fk-rl-hd .a { width:18px; height:18px; border-radius:50%; border:2px solid var(--accent); display:inline-flex; align-items:center; justify-content:center; font-weight:bold; font-size:11px; }
-    #tablet-os-overlay .tos-fk-rl-grid { flex:1; display:grid; grid-template-columns:repeat(4,1fr); grid-auto-rows:1fr; gap:6%; }
-    #tablet-os-overlay .tos-fk-rl-app { border-radius:16%; background:color-mix(in srgb, var(--accent) 12%, var(--bg2, #0d0d16));
-      border:1px solid color-mix(in srgb, var(--accent) 26%, transparent); display:flex; align-items:center; justify-content:center; font-size:15px; }
-    #tablet-os-overlay .tos-fk-rl-app.arch { border-color:var(--accent); box-shadow:0 0 10px color-mix(in srgb, var(--accent) 55%, transparent); }
-    #tablet-os-overlay .tos-fk-rl-app.arch .a { width:56%; height:56%; border-radius:50%; border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-weight:bold; color:var(--accent); }
-    #tablet-os-overlay .tos-fk-rl-game { background:var(--bg, #05050a); padding:5% 6%; display:flex; flex-direction:column; gap:3%; font-size:12px; line-height:1.4; }
-    #tablet-os-overlay .tos-fk-rl-game .rt { color:var(--accent); font-weight:bold; letter-spacing:1.5px; text-transform:uppercase; }
-    #tablet-os-overlay .tos-fk-rl-game .rt .sf { margin-left:6px; font-size:.8em; padding:0 4px; border:1px solid var(--green, #39ff8f); color:var(--green, #39ff8f); border-radius:2px; }
-    #tablet-os-overlay .tos-fk-rl-game .rd { color:var(--text, #e8e8f5); }
-    #tablet-os-overlay .tos-fk-rl-game .rd .cam { color:var(--orange, #ff9a3c); text-decoration:underline; }
-    #tablet-os-overlay .tos-fk-rl-game .rx { color:var(--text-dim, #8888a8); }
-    #tablet-os-overlay .tos-fk-rl-game .rx b { color:var(--cyan, #28e5ff); font-weight:600; }
-    #tablet-os-overlay .tos-fk-rl-game .rp { margin-top:auto; color:var(--accent); }
-    #tablet-os-overlay .tos-fk-rec-hint { position:absolute; left:0; right:0; bottom:12px; z-index:2; text-align:center; pointer-events:none;
-      font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--text-bright, #fff); opacity:.72;
-      font-family:var(--font-mono,'Courier New',monospace); text-shadow:0 0 8px #000, 0 0 14px var(--accent); animation:tos-fk-hint 2.4s ease-in-out infinite; }
-    @keyframes tos-fk-hint { 0%,100%{opacity:.35} 50%{opacity:.85} }
 
   `;
   document.head.appendChild(s);
@@ -1155,6 +1323,9 @@ const TOS_APP_ICONS = {
   vehicles: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 2l2.5 6.5L21 12v2l-6.5-2v4l2.5 2v1.5L12 18l-5 1.5V18l2.5-2v-4L3 14v-2l6.5-3.5z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M12 2l2.5 6.5L21 12v2l-6.5-2v4l2.5 2v1.5L12 18l-5 1.5V18l2.5-2v-4L3 14v-2l6.5-3.5z"/></svg>`,
   specter: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M3 7l13-3 1.2 4.4-13 3z" fill="currentColor" fill-opacity=".25" stroke="none"/><path d="M3 7l13-3 1.2 4.4-13 3z"/><path d="M17.6 6.2l3.4-1 .7 2.6-3.4 1"/><path d="M6 11.2V15a2 2 0 0 0 2 2h1"/><circle cx="9" cy="20" r="2"/><path d="M12.5 9.5l2.5 3.5"/></svg>`,
   chat: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M4 4h16v11H8l-4 4z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M4 4h16v11H8l-4 4z"/><path d="M8 8h8M8 11h5"/></svg>`,
+  // News = "The Coldwater Sentinel" newsprint sheet: a folded broadsheet with a
+  // masthead band and columns, monochrome like the rest so it drops the 📰 emoji.
+  news: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M4 4h16v16l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2z" fill="currentColor" fill-opacity=".2" stroke="none"/><path d="M4 4h16v16l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2z"/><path d="M7 7h10"/><path d="M7 10.5h4.5v4H7z"/><path d="M13.5 10.5H17M13.5 13H17M7 16.5h10"/></svg>`,
   // Not an SVG glyph — the circled-"A" ARCHITECT logo (same mark as the tablet's
   // own boot screen, .tos-boot-logo), so the tile reads as the game itself.
   arcade: `<span class="tos-ic-a">A</span>`,
@@ -1290,6 +1461,57 @@ function wireAppGridDrag(grid) {
     const tile = e.target.closest('.tos-tile');
     if (!tile) return;
     press = { tile, x: e.clientX, y: e.clientY, timer: setTimeout(begin, LIFT_MS) };
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  });
+}
+
+// Drag-to-scroll (grab-and-pan) for any tablet screen that overflows. Wired once
+// on the persistent #tos-scroll container (only its innerHTML swaps per render).
+// A press that starts on an interactive control — an input the player is typing
+// in, or a home tile that owns its own long-press reorder — is left alone; the
+// gesture only engages once the finger moves past a threshold, and it suppresses
+// the trailing click so a drag never doubles as a tap-open.
+function wireDragScroll(scroll) {
+  const THRESH = 6; // px of movement before a press becomes a pan (below this = a tap)
+  let start = null; // { y, top, dragging }
+
+  const isInteractive = (el) =>
+    el.closest('input, textarea, select, button, [contenteditable], .tos-tile, .tos-color, input[type=range]');
+
+  const onMove = (e) => {
+    if (!start) return;
+    const dy = e.clientY - start.y;
+    if (!start.dragging) {
+      if (Math.abs(dy) < THRESH) return;
+      start.dragging = true;
+      scroll.classList.add('tos-drag-scrolling');
+    }
+    e.preventDefault();
+    scroll.scrollTop = start.top - dy;
+  };
+
+  const end = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    if (start?.dragging) {
+      scroll.classList.remove('tos-drag-scrolling');
+      // Swallow the click that fires at the end of the drag so the pan doesn't
+      // also open whatever list item / tile the finger lifted over.
+      const kill = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+      scroll.addEventListener('click', kill, { capture: true, once: true });
+      setTimeout(() => scroll.removeEventListener('click', kill, { capture: true }), 0);
+    }
+    start = null;
+  };
+
+  scroll.addEventListener('pointerdown', (e) => {
+    if (e.button > 0) return;
+    if (scroll.scrollHeight <= scroll.clientHeight) return; // nothing to pan
+    if (isInteractive(e.target)) return;                    // let controls/tiles handle it
+    start = { y: e.clientY, top: scroll.scrollTop, dragging: false };
     window.addEventListener('pointermove', onMove, { passive: false });
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
@@ -1536,6 +1758,8 @@ function renderTabletSettings() {
       feltRow +
       renderMisSection(),
     Layout: (layoutRows || '') +
+      `<div class="tos-set-row"><span class="tos-set-label">Sidebar Order<span class="tos-set-val">Drag order &amp; hidden panels</span></span>
+        <span class="tos-btn-sub" data-reset-sidebar="1" style="margin:0">Reset to Default</span></div>` +
       `<div class="tos-set-row"><span class="tos-set-label">Home App Layout<span class="tos-set-val">Your dragged tile order</span></span>
         <span class="tos-btn-sub" data-reset-apps="1" style="margin:0">Reset to Default</span></div>`,
     Sound: soundRow + audioToggleRows + volRows +
@@ -1656,7 +1880,10 @@ function renderCorpScreen(d) {
     body = renderCorpCard('Diplomacy', relations);
   }
 
-  return `${body}${renderCorpPageNav(page)}`;
+  // Wrap the page body in a flex:1 region so the Prev/Next nav is pinned to the
+  // bottom of the tablet screen — same location on every page, regardless of how
+  // much (or little) content that page holds.
+  return `<div class="tos-corp-scroll">${body}</div>${renderCorpPageNav(page)}`;
 }
 
 // Territory Map — the `corp map` overlay's strategic grid ported into the Tablet.
@@ -1959,64 +2186,132 @@ function renderBufferLog(buffer, recording, full) {
 }
 
 // ── Gear app ─────────────────────────────────────────────────────────────
-// A paperdoll over a human silhouette: five body slots (each showing the piece
-// worn in the selected layer), plus weapon and accessory. The silhouette's body
-// regions light up for any slot that's covered by an equipped piece. Below sits
-// the per-region soak table and the summed passive effects — the same data the
-// desktop Gear panel shows, reformatted for the tablet.
+// A paperdoll over a human silhouette (the stored PNG, accent-tinted): five body
+// slots (each showing the piece worn in the selected layer), plus weapon and
+// accessory, anchored over the figure. Below sits the per-region soak table and the
+// summed passive effects — the same data the desktop Gear panel shows, reformatted
+// for the tablet.
 const GEAR_LAYER_DEFS = [{ n: 1, label: 'Under' }, { n: 2, label: 'Over' }, { n: 3, label: 'Armor' }];
 const GEAR_SLOT_LABEL = { head: 'Head', torso: 'Torso', hands: 'Hands', legs: 'Legs', feet: 'Feet', weapon_hand: 'Weapon', accessory: 'Accessory' };
 const GEAR_DMG = ['kinetic', 'edged', 'energy', 'fire', 'radiation'];
 const GEAR_ARMOR_SLOTS = ['head', 'torso', 'hands', 'legs', 'feet'];
+// Monochrome line icons (stroke = currentColor → tinted to the theme accent) for
+// the far-right loadout readouts: total worn armor + insulation temperature.
+const GEAR_SHIELD_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 2.5v5.6c0 4.4-3 7.4-7 9.4-4-2-7-5-7-9.4V5.5z"/></svg>`;
+const GEAR_THERMO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a3.5 3.5 0 1 0 4 0z"/><path d="M12 9v6.2"/></svg>`;
+// One monochrome line-icon per damage type (stroke/fill = currentColor → theme accent),
+// shared by the hover tooltips and the armor-breakdown popup.
+const GEAR_DMG_ICON = {
+  kinetic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M6 18l2-2"/></svg>`,
+  edged: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l10-10"/><path d="M14 10l5-6 1 1-5 6z"/><path d="M4.5 17.5l2 2"/></svg>`,
+  energy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L5 13h5l-1 9 9-12h-5z"/></svg>`,
+  fire: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c3 4 4.5 6 4.5 9a4.5 4.5 0 0 1-9 0c0-1.6.6-2.9 1.7-3.9.1 1 .8 1.9 1.8 2.2-.7-2.3-.4-4.7 1-7.3z"/></svg>`,
+  radiation: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><circle cx="12" cy="12" r="2.1"/><path d="M12 9.6 16.4 4 7.6 4Z"/><path d="M13.5 12.8 18.4 15.8 15.4 20.5Z"/><path d="M10.5 12.8 8.6 20.5 5.6 15.8Z"/></svg>`,
+};
 
 function gearWeight(g) {
   g = Number(g) || 0;
   return g < 1000 ? `${Math.round(g)}g` : `${(Math.round(g / 100) / 10)}kg`;
 }
 
-// The silhouette — a Vitruvian pose (arms outstretched, legs spread) built from
-// round-capped capsule limbs, so every body part reaches its own clear anchor and
-// a gear box can overlay it as a positional guide. Each region carries a class
-// that lights when that slot is covered (any equipped layer). The arms are
-// neutral structure — no slot maps to them, so they stay dim. A faint reference
-// circle (the Vitruvian ring) frames the pose.
-function gearDoll(covered) {
-  const cl = (slot) => 'tos-doll-region' + (covered(slot) ? ' covered' : '');
-  return `<svg class="tos-doll-svg" viewBox="0 0 300 340" aria-hidden="true">
-    <circle class="tos-doll-ring" cx="150" cy="176" r="150"/>
-    <line class="tos-doll-struct" x1="134" y1="102" x2="42" y2="150"/>
-    <line class="tos-doll-struct" x1="166" y1="102" x2="258" y2="150"/>
-    <line class="${cl('legs')} tos-doll-limb" x1="141" y1="182" x2="94" y2="308"/>
-    <line class="${cl('legs')} tos-doll-limb" x1="159" y1="182" x2="206" y2="308"/>
-    <line class="${cl('torso')} tos-doll-trunk" x1="150" y1="80" x2="150" y2="188"/>
-    <circle class="${cl('head')}" cx="150" cy="46" r="27"/>
-    <circle class="${cl('hands')}" cx="42" cy="150" r="14"/>
-    <circle class="${cl('hands')}" cx="258" cy="150" r="14"/>
-    <ellipse class="${cl('feet')}" cx="94" cy="312" rx="18" ry="9"/>
-    <ellipse class="${cl('feet')}" cx="206" cy="312" rx="18" ry="9"/>
-  </svg>`;
+// Layer name → stored integer, so an item's single allowed `layer` tag can be
+// compared against the layer the doll is currently showing (a body-slot drop only
+// takes when the piece's layer matches the chosen one). Mirrors the engine's LAYERS.
+const GEAR_LAYER_N = { underwear: 1, outerwear: 2, armor: 3 };
+const GEAR_VERB_LABELS = { eat: 'Eat', drink: 'Drink', use: 'Use', open: 'Open', read: 'Read' };
+const GEAR_TRAY_PAGE = 6;   // loadout carried-tray page size
+const GEAR_INV_PAGE = 8;    // Inventory-tab page size
+const gcap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// The silhouette — the stored paperdoll PNG (client/game/assets/paperdoll.png),
+// baked once into a transparent-background alpha mask (paperdoll-mask.png via
+// scripts) and tinted to the live accent colour by CSS: white → accent, black →
+// transparent. A single figure (per-part coverage lighting isn't possible from one
+// flat image — the slot boxes carry which piece sits where), anchored so the
+// .tos-gslot--<slot> boxes land over its head/torso/hands/legs/feet.
+function gearDoll() {
+  return `<div class="tos-doll-fig" role="img" aria-label="Body silhouette"></div>`;
 }
 
+// A ◂ n/m ▸ pager, client-side. `kind` ('tray'|'inv') tells wireGear which page
+// counter to step. Renders nothing when a single page holds everything.
+function gearPager(kind, page, pages) {
+  if (pages <= 1) return '';
+  return `<div class="tos-gpager" data-gpager="${kind}">
+    <button class="tos-gpg" data-gpg="prev"${page <= 0 ? ' disabled' : ''}>◂</button>
+    <span>${page + 1} / ${pages}</span>
+    <button class="tos-gpg" data-gpg="next"${page >= pages - 1 ? ' disabled' : ''}>▸</button></div>`;
+}
+
+// A draggable carried-item card for the loadout tray. Equippable cards drag onto
+// their body slot (or tap) to equip; the ⤓ button — or dragging off the tray —
+// drops a piece on the ground.
+function gearCard(it) {
+  const slot = it.tags?.slot || '';
+  const qty = it.quantity > 1 ? ` ×${it.quantity}` : '';
+  const meta = slot ? esc(slot.replace('_', ' ')) : (it.tags?.container != null ? 'container' : '');
+  return `<div class="tos-gcard${slot ? ' equippable' : ''}" data-gid="${it.id}" data-gslot="${slot}">` +
+    `<span class="tos-gcard-name">${esc(it.name)}${qty}</span>` +
+    (meta ? `<span class="tos-gcard-meta">${meta}</span>` : '') +
+    `<button class="tos-gcard-drop" data-gdrop="${it.id}" title="Drop on ground">⤓</button></div>`;
+}
+
+// The Gear app is two tabs: Inventory (the full paged pack, the primary tab,
+// mirroring the game's inventory — tap a row for the detail sheet with its actions)
+// and Loadout (the paperdoll + carried tray).
 function renderGear(d) {
+  const tabs =
+    `<div class="tos-gtabs">
+       <button class="tos-gtab${_gearTab === 'inventory' ? ' active' : ''}" data-gtab="inventory">Inventory</button>
+       <button class="tos-gtab${_gearTab === 'loadout' ? ' active' : ''}" data-gtab="loadout">Loadout</button>
+     </div>`;
+  return `<div class="tos-gear">${tabs}${_gearTab === 'inventory' ? renderGearInventory(d) : renderGearLoadout(d)}</div>`;
+}
+
+function renderGearLoadout(d) {
   const items = d.items || [];
   const equipped = items.filter(i => i.is_equipped);
   const layerN = GEAR_LAYER_DEFS[_gearLayer].n;
-  const bodyItem = (slot) => equipped.find(i => i.slot === slot && (i.layer || 1) === layerN);
-  const covered = (slot) => equipped.some(i => i.slot === slot);
+  // A garment occupies its own slot plus every slot in its `covers` tag (a jumpsuit
+  // worn on the torso also fills the legs), so one piece reads as worn on both body
+  // parts on the doll and in the per-region soak.
+  const occupies = (i, slot) => i.slot === slot || (Array.isArray(i.tags?.covers) && i.tags.covers.includes(slot));
+  const bodyItem = (slot) => equipped.find(i => occupies(i, slot) && (i.layer || 1) === layerN);
+  // Body-slot pieces worn on a layer OTHER than the one on show — hidden from the
+  // doll right now. An empty box whose slot has such gear becomes a "reveal" control
+  // (tap → jump the doll to that layer) so every layer's piece stays reachable, and
+  // thus unequippable, without hunting the stepper. Outermost hidden layer first.
+  const hiddenPieces = (slot) => GEAR_ARMOR_SLOTS.includes(slot)
+    ? equipped.filter(i => occupies(i, slot) && (i.layer || 1) !== layerN).sort((a, b) => (b.layer || 1) - (a.layer || 1))
+    : [];
 
-  // Each box is absolutely positioned (via .tos-gslot--<slot> in CSS) over the
-  // body part it protects, so the doll reads as a guide: "this gear sits here."
-  // It's also a drop target (data-gslot → drop a matching item here to equip) and,
-  // when filled, a tap-to-unequip source (data-geq = the equipped row id).
-  const box = (slot, it) =>
-    `<div class="tos-gslot tos-gslot--${slot}${it ? ' filled' : ''}" data-gslot="${slot}"` +
-      `${it ? ` data-geq="${it.id}" title="Tap to unequip ${esc(it.name)}"` : ''}>` +
+  // Each box is absolutely positioned (via .tos-gslot--<slot> in CSS) over the body
+  // part it protects. It shows the piece on the selected layer; if that layer is
+  // empty but the slot has gear on ANOTHER layer, it falls back to the outermost worn
+  // piece so an equipped item ALWAYS reads as a filled panel on the body. Either way a
+  // filled box is a drop target (equip) AND a drag/tap-to-unequip source (data-geq),
+  // so any layer's piece can be taken off straight into the carried list. A small
+  // sub-line names the layer when the shown piece isn't on the one currently selected.
+  const box = (slot, it) => {
+    let sub = '';
+    if (!it) {
+      const hidden = hiddenPieces(slot);
+      if (hidden.length) {
+        it = hidden[0];
+        const idx = GEAR_LAYER_DEFS.findIndex(l => l.n === (it.layer || 1));
+        const more = hidden.length > 1 ? ` +${hidden.length - 1}` : '';
+        sub = `<span class="tos-gslot-sub">${esc(GEAR_LAYER_DEFS[idx]?.label || '')}${more}</span>`;
+      }
+    }
+    return `<div class="tos-gslot tos-gslot--${slot}${it ? ' filled' : ''}" data-gslot="${slot}"` +
+      `${it ? ` data-geq="${it.id}"` : ''}>` +
       `<span class="tos-gslot-label">${esc(GEAR_SLOT_LABEL[slot] || slot)}</span>` +
-      `<span class="tos-gslot-item">${it ? esc(it.name) : '—'}</span></div>`;
+      `<span class="tos-gslot-item">${it ? esc(it.name) : '—'}</span>${sub}</div>`;
+  };
 
   const acc = equipped.filter(i => i.slot === 'accessory').sort((a, b) => (a.layer || 0) - (b.layer || 0))[0];
   const doll =
-    `<div class="tos-doll">${gearDoll(covered)}` +
+    `<div class="tos-doll">${gearDoll()}` +
       box('head', bodyItem('head')) +
       box('accessory', acc) +
       box('hands', bodyItem('hands')) +
@@ -2026,30 +2321,27 @@ function renderGear(d) {
       box('feet', bodyItem('feet')) +
     `</div>`;
 
-  // Header: layer selector + carry weight.
+  // Layer selector (Under/Over/Armor) + carry weight — live in the top-right cluster
+  // (with the armor/insulation readouts) so the doll gets the whole middle.
   const layers = GEAR_LAYER_DEFS.map((l, i) =>
     `<button class="tos-gl${i === _gearLayer ? ' active' : ''}" data-glayer="${i}">${l.label}</button>`).join('');
   const wPct = d.capacity ? Math.min(100, Math.round((d.weight / d.capacity) * 100)) : 0;
-  const head =
-    `<div class="tos-gear-head">
-      <div class="tos-gl-group">${layers}</div>
-      <div class="tos-gear-carry" title="Carried weight">
-        <div class="tos-gear-bar"><span style="width:${wPct}%"></span></div>
-        <span class="tos-gear-carry-txt">${gearWeight(d.weight)} / ${gearWeight(d.capacity)}</span>
-      </div>
-    </div>`;
+  const carry =
+    `<div class="tos-gear-carry" title="Carried weight">
+       <div class="tos-gear-bar"><span style="width:${wPct}%"></span></div>
+       <span class="tos-gear-carry-txt">${gearWeight(d.weight)} / ${gearWeight(d.capacity)}</span>
+     </div>`;
 
   // Per-region soak, summed across worn layers.
-  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
   const slotSoak = (slot) => {
     const t = {};
-    for (const p of equipped.filter(i => i.slot === slot)) {
+    for (const p of equipped.filter(i => occupies(i, slot))) {
       const soak = p.tags?.armor_soak || {};
       for (const dt of GEAR_DMG) t[dt] = (t[dt] || 0) + (Number(soak[dt]) || 0);
     }
     return t;
   };
-  let soak = `<table class="tos-gear-soak"><thead><tr><th></th>${GEAR_DMG.map(t => `<th>${esc(cap(t).slice(0, 3))}</th>`).join('')}</tr></thead><tbody>`;
+  let soak = `<table class="tos-gear-soak"><thead><tr><th></th>${GEAR_DMG.map(t => `<th>${esc(gcap(t).slice(0, 3))}</th>`).join('')}</tr></thead><tbody>`;
   for (const slot of GEAR_ARMOR_SLOTS) {
     const t = slotSoak(slot);
     soak += `<tr><td>${esc(GEAR_SLOT_LABEL[slot])}</td>${GEAR_DMG.map(dt => `<td class="${t[dt] ? 'has' : ''}">${t[dt] || 0}</td>`).join('')}</tr>`;
@@ -2067,33 +2359,243 @@ function renderGear(d) {
     ? `<div class="tos-gear-fx">${parts.map(p => `<span>${esc(p)}</span>`).join('')}</div>`
     : '<div class="tos-gear-fx empty">No passive effects.</div>';
 
-  // Carried-item tray: every loose (unequipped) item. Equippable cards can be
-  // dragged onto their body slot (or tapped) to equip; the ⤓ button — or dragging
-  // to the drop zone / off the tray — drops a piece on the ground.
-  const tray = (d.inventory || []).filter(i => !i.is_equipped);
-  const card = (it) => {
-    const slot = it.tags?.slot || '';
-    const qty = it.quantity > 1 ? ` ×${it.quantity}` : '';
-    const meta = slot ? esc(slot.replace('_', ' ')) : (it.tags?.container != null ? 'container' : '');
-    return `<div class="tos-gcard${slot ? ' equippable' : ''}" draggable="true" data-gid="${it.id}" data-gslot="${slot}"` +
-      `${slot ? ' title="Tap to equip"' : ''}>` +
-      `<span class="tos-gcard-name">${esc(it.name)}${qty}</span>` +
-      (meta ? `<span class="tos-gcard-meta">${meta}</span>` : '') +
-      `<button class="tos-gcard-drop" data-gdrop="${it.id}" title="Drop on ground">⤓</button></div>`;
-  };
+  // Top-right cluster: layer selector, carry weight, then the cumulative-armor (shield)
+  // + insulation (thermometer) readouts. All monochrome; icons stroke in the accent.
+  const totalArmor = equipped.reduce((s, i) => s + (Number(i.tags?.armor) || 0), 0);
+  const far =
+    `<div class="tos-gload-far">
+       <div class="tos-gl-group">${layers}</div>
+       ${carry}
+       <div class="tos-gstat tos-gstat-armor" data-armor-break title="Total armor — click for the per-type breakdown">${GEAR_SHIELD_SVG}<span>${totalArmor}</span></div>
+       <div class="tos-gstat" title="Insulation">${GEAR_THERMO_SVG}<span>${Math.round(fx.insulation || 0)}°</span></div>
+     </div>`;
+
+  // Carried-item tray, paged. Only equippable pieces (a `slot` tag) — this is the
+  // kit-building drag source, so loose non-gear (food, etc.) stays out (it's still
+  // on the Inventory tab). Drag a card onto a slot to equip, a filled slot onto this
+  // tray to unequip; the ⤓ button / dragging off drops on the ground.
+  const tray = (d.inventory || []).filter(i => !i.is_equipped && i.tags?.slot);
+  const pages = Math.max(1, Math.ceil(tray.length / GEAR_TRAY_PAGE));
+  _gearTrayPage = Math.min(Math.max(0, _gearTrayPage), pages - 1);
+  const slice = tray.slice(_gearTrayPage * GEAR_TRAY_PAGE, _gearTrayPage * GEAR_TRAY_PAGE + GEAR_TRAY_PAGE);
   const trayHtml =
-    `<div class="tos-gear-sec">Carried</div>
-     <div class="tos-gtray">${tray.length ? tray.map(card).join('') : '<div class="tos-gtray-empty">Nothing loose in your pack.</div>'}</div>
+    `<div class="tos-gtray">${slice.length ? slice.map(gearCard).join('') : '<div class="tos-gtray-empty">Nothing loose in your pack.</div>'}</div>
+     ${gearPager('tray', _gearTrayPage, pages)}
      <div class="tos-gear-drop" data-gdropzone title="Drop an item here to leave it on the ground">⤓ Drop to ground</div>`;
 
-  return `<div class="tos-gear">${head}${doll}
+  // Inventory list left, big centred doll in the middle, controls/readouts top-right.
+  // The whole left column is the unequip drop-zone. A feedback line sits below the
+  // doll's feet (equip errors show there). Soak/effects full-width below.
+  return `
+    <div class="tos-gload">
+      <div class="tos-gload-side" data-gtray-zone>${trayHtml}</div>
+      <div class="tos-gload-doll">${doll}<div class="tos-gload-fb" id="tos-gear-fb"></div></div>
+      ${far}
+    </div>
     <div class="tos-gear-stats"><div class="tos-gear-sec">Protection</div>${soak}
-      <div class="tos-gear-sec">Effects</div>${fxHtml}</div>
-    ${trayHtml}</div>`;
+      <div class="tos-gear-sec">Effects</div>${fxHtml}</div>`;
 }
 
-// Layer selector is client-side — re-render the gear root without a round trip.
+// The Inventory tab: the whole pack (worn pieces included), paged, mirroring the
+// game's inventory. A tap opens the item-detail sheet with the piece's actions.
+function renderGearInventory(d) {
+  const all = d.inventory || [];
+  const pages = Math.max(1, Math.ceil(all.length / GEAR_INV_PAGE));
+  _gearInvPage = Math.min(Math.max(0, _gearInvPage), pages - 1);
+  const slice = all.slice(_gearInvPage * GEAR_INV_PAGE, _gearInvPage * GEAR_INV_PAGE + GEAR_INV_PAGE);
+  const wPct = d.capacity ? Math.min(100, Math.round((d.weight / d.capacity) * 100)) : 0;
+  const head =
+    `<div class="tos-gear-head">
+       <div class="tos-ginv-title">Inventory</div>
+       <div class="tos-gear-carry" title="Carried weight">
+         <div class="tos-gear-bar"><span style="width:${wPct}%"></span></div>
+         <span class="tos-gear-carry-txt">${gearWeight(d.weight)} / ${gearWeight(d.capacity)}</span>
+       </div>
+     </div>`;
+  const row = (it) => {
+    const qty = it.quantity > 1 ? ` ×${it.quantity}` : '';
+    const slot = it.tags?.slot || '';
+    const badge = it.is_equipped ? '<span class="tos-ginv-eq">equipped</span>'
+      : (slot ? `<span class="tos-ginv-slot">${esc(slot.replace('_', ' '))}</span>` : '');
+    return `<div class="tos-ginv-row" data-ginv="${it.id}">
+      <span class="tos-ginv-name">${esc(it.name)}${qty}</span>${badge}
+      <span class="tos-ginv-chev">›</span></div>`;
+  };
+  const list = all.length
+    ? `<div class="tos-ginv-list">${slice.map(row).join('')}</div>`
+    : '<div class="tos-gtray-empty">Your pack is empty.</div>';
+  return `${head}${list}${gearPager('inv', _gearInvPage, pages)}`;
+}
+
+// A tablet-native item-detail sheet — the tap target from the Inventory tab. Shows
+// the piece's stats and its verb buttons (equip/unequip, consumable actions, drop),
+// mirroring the desktop inventory's detail modal.
+function showGearItemDetail(it) {
+  closeGearItemDetail();
+  const t = it.tags || {};
+  const rows = [];
+  rows.push(['Weight', gearWeight(it.weight) + (it.quantity > 1 ? ' (each)' : '')]);
+  if (it.sell_value != null) rows.push(['Sell value', `₵${it.sell_value}${it.quantity > 1 ? ' each' : ''}`]);
+  if (t.slot) rows.push(['Slot', GEAR_SLOT_LABEL[t.slot] || t.slot.replace('_', ' ')]);
+  if (t.layer && GEAR_ARMOR_SLOTS.includes(t.slot)) rows.push(['Layer', gcap(t.layer)]);
+  if (t.armor != null) {
+    let s = '';
+    if (t.armor_soak && typeof t.armor_soak === 'object') {
+      const p = Object.entries(t.armor_soak).map(([k, v]) => `${k} ${v}`);
+      if (p.length) s = ` (${p.join(', ')})`;
+    }
+    rows.push(['Armor', `${t.armor}${s}`]);
+  }
+  if (t.container != null) rows.push(['Capacity', gearWeight(t.container)]);
+  if (t.stat_bonus && typeof t.stat_bonus === 'object') {
+    const p = Object.entries(t.stat_bonus).map(([k, v]) => `${k.replace('stat_', '')} ${v > 0 ? '+' : ''}${v}`);
+    if (p.length) rows.push(['Bonus', p.join(', ')]);
+  }
+  if (t.requires && typeof t.requires === 'object') {
+    const p = Object.entries(t.requires).map(([k, v]) => `${k.replace('stat_', '')} ${v}`);
+    if (p.length) rows.push(['Requires', p.join(', ')]);
+  }
+
+  const verbs = [];
+  if (t.slot && !it.is_equipped) verbs.push({ label: 'Equip', kind: 'equip' });
+  if (t.slot && it.is_equipped) verbs.push({ label: 'Unequip', kind: 'unequip' });
+  for (const v of (it.actions || [])) {
+    if (['drop', 'equip', 'unequip', 'wear', 'wield'].includes(v)) continue;
+    verbs.push({ label: GEAR_VERB_LABELS[v] || gcap(v), kind: 'verb', verb: v });
+  }
+  verbs.push({ label: 'Drop', kind: 'drop' });
+
+  const el = document.createElement('div');
+  el.className = 'tos-idp-overlay';
+  el.innerHTML = `<div class="tos-idp">
+    <div class="tos-idp-head"><span class="tos-idp-name">${esc(it.name)}${it.quantity > 1 ? ` <span class="tos-idp-qty">×${it.quantity}</span>` : ''}</span>
+      <button class="tos-idp-x" title="Close">✕</button></div>
+    ${t.description ? `<div class="tos-idp-desc">${esc(t.description)}</div>` : ''}
+    <div class="tos-idp-stats">${rows.map(([k, v]) => `<div class="tos-idp-stat"><span>${esc(k)}</span><span>${esc(v)}</span></div>`).join('')}</div>
+    <div class="tos-idp-verbs">${verbs.map((v, i) => `<button class="tos-idp-verb${v.kind === 'drop' ? ' danger' : ''}" data-vi="${i}">${esc(v.label)}</button>`).join('')}</div>
+  </div>`;
+  el.addEventListener('click', (e) => { if (e.target === el) closeGearItemDetail(); });
+  el.querySelector('.tos-idp-x').addEventListener('click', closeGearItemDetail);
+  el.querySelectorAll('.tos-idp-verb').forEach(b => {
+    b.addEventListener('click', () => {
+      const v = verbs[+b.getAttribute('data-vi')];
+      closeGearItemDetail();
+      if (v.kind === 'equip') gearEquipShowLayer(it.id);
+      else if (v.kind === 'unequip') gearAct('unequip', it.id);
+      else if (v.kind === 'drop') gearDrop(it);
+      else gearVerb(v.verb, it.name);
+    });
+  });
+  _overlay.appendChild(el);
+  _gearIdp = el;
+}
+
+function closeGearItemDetail() { _gearIdp?.remove(); _gearIdp = null; }
+
+// ── Hover tooltip (fast kit-building) ────────────────────────────────────────
+// A monochrome quick-stats card shown on hover over a tray item or a worn slot:
+// armor → per-type soak (0s excluded) + flat armor + insulation; weapon → damage
+// range + type. Only equippable items (a `slot` tag) get one.
+function gearTipHtml(it, hint) {
+  const t = it.tags || {};
+  const rows = [];
+  const isWeapon = !!t.weapon || t.slot === 'weapon_hand' || (t.damage && (t.damage.min != null || t.damage.max != null));
+  if (isWeapon) {
+    const d = t.damage || {};
+    if (d.min != null || d.max != null) rows.push(`<div class="tos-gtip-row"><span>Damage</span><span>${d.min ?? '?'}–${d.max ?? '?'}</span></div>`);
+    const dt = t.damage_type || 'kinetic';
+    rows.push(`<div class="tos-gtip-row"><span>Type</span><span class="tos-gtip-type">${GEAR_DMG_ICON[dt] || ''}${esc(gcap(dt))}</span></div>`);
+    if (t.weapon_skill) rows.push(`<div class="tos-gtip-row"><span>Skill</span><span>${esc(gcap(t.weapon_skill))}</span></div>`);
+  } else {
+    const soak = t.armor_soak || {};
+    const soakRows = GEAR_DMG.filter(k => Number(soak[k]) > 0)
+      .map(k => `<div class="tos-gtip-soak"><span class="tos-gtip-ico">${GEAR_DMG_ICON[k] || ''}</span><span>${esc(gcap(k))}</span><span class="tos-gtip-val">${soak[k]}</span></div>`);
+    if (soakRows.length) rows.push(`<div class="tos-gtip-sec">Soak</div>${soakRows.join('')}`);
+    if (Number(t.armor) > 0) rows.push(`<div class="tos-gtip-row"><span>Armor</span><span>${t.armor}</span></div>`);
+    if (t.insulation) rows.push(`<div class="tos-gtip-row"><span>Insulation</span><span>${t.insulation}°</span></div>`);
+    if (t.sealed) rows.push(`<div class="tos-gtip-row"><span>Sealed airway</span><span>✓</span></div>`);
+    if (!rows.length) rows.push(`<div class="tos-gtip-row tos-gtip-dim"><span>No protection</span></div>`);
+  }
+  if (t.stat_bonus && typeof t.stat_bonus === 'object') {
+    const p = Object.entries(t.stat_bonus).map(([k, v]) => `${k.replace('stat_', '')} ${v > 0 ? '+' : ''}${v}`);
+    if (p.length) rows.push(`<div class="tos-gtip-row"><span>Bonus</span><span>${esc(p.join(', '))}</span></div>`);
+  }
+  if (it.weight != null) rows.push(`<div class="tos-gtip-row"><span>Weight</span><span>${gearWeight(it.weight)}</span></div>`);
+  const slotLbl = t.slot
+    ? `<div class="tos-gtip-slot">${esc(GEAR_SLOT_LABEL[t.slot] || t.slot)}${t.layer && GEAR_ARMOR_SLOTS.includes(t.slot) ? ` · ${esc(gcap(t.layer))}` : ''}</div>`
+    : '';
+  return `<div class="tos-gtip-name">${esc(it.name)}</div>${slotLbl}${rows.join('')}${hint ? `<div class="tos-gtip-hint">${esc(hint)}</div>` : ''}`;
+}
+
+function ensureGearTip() {
+  if (_gearTipEl && _gearTipEl.isConnected) return _gearTipEl;
+  const el = document.createElement('div');
+  el.className = 'tos-gtip';
+  el.style.display = 'none';
+  _overlay.appendChild(el);
+  _gearTipEl = el;
+  return el;
+}
+
+function showGearTip(anchor, it, hint) {
+  if (!it?.tags?.slot) return; // only equippable pieces get the stats card
+  const el = ensureGearTip();
+  el.innerHTML = gearTipHtml(it, hint);
+  el.style.display = 'block';
+  const r = anchor.getBoundingClientRect();
+  const tw = el.offsetWidth, th = el.offsetHeight;
+  let left = r.right + 10;
+  if (left + tw > globalThis.innerWidth - 8) left = r.left - tw - 10; // flip to the left
+  left = Math.max(8, Math.min(left, globalThis.innerWidth - tw - 8));
+  let top = r.top + r.height / 2 - th / 2;
+  top = Math.max(8, Math.min(top, globalThis.innerHeight - th - 8));
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
+}
+
+function hideGearTip() { if (_gearTipEl) _gearTipEl.style.display = 'none'; }
+
+// Transient feedback line under the doll's feet (accent) — e.g. an equip that
+// landed on the wrong body part. Written directly (no re-render), auto-clears.
+function gearFeedback(msg) {
+  const el = _overlay?.querySelector('#tos-gear-fb');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  if (_gearFbTimer) clearTimeout(_gearFbTimer);
+  _gearFbTimer = setTimeout(() => { el.classList.remove('show'); }, 2600);
+}
+
+// The armor readout's click-through: total soak per damage type across all worn
+// gear, each with its icon (monochrome). Shows every type so gaps read as clearly
+// as coverage; flat (untyped) armor is footnoted.
+function showArmorBreakdown() {
+  closeGearItemDetail();
+  const equipped = (_data?.items || []).filter(i => i.is_equipped);
+  const soak = {}; for (const k of GEAR_DMG) soak[k] = 0;
+  let flat = 0;
+  for (const it of equipped) {
+    const s = it.tags?.armor_soak || {};
+    for (const k of GEAR_DMG) soak[k] += Number(s[k]) || 0;
+    flat += Number(it.tags?.armor) || 0;
+  }
+  const rows = GEAR_DMG.map(k =>
+    `<div class="tos-gbrk-row${soak[k] ? '' : ' zero'}"><span class="tos-gbrk-ico">${GEAR_DMG_ICON[k]}</span><span class="tos-gbrk-name">${esc(gcap(k))}</span><span class="tos-gbrk-val">${soak[k]}</span></div>`).join('');
+  const el = document.createElement('div');
+  el.className = 'tos-idp-overlay';
+  el.innerHTML = `<div class="tos-idp tos-gbrk">
+    <div class="tos-idp-head"><span class="tos-idp-name">Protection</span><button class="tos-idp-x" title="Close">✕</button></div>
+    <div class="tos-gbrk-list">${rows}</div>
+    ${flat ? `<div class="tos-gbrk-foot">+${flat} flat armor · reduces every type</div>` : ''}</div>`;
+  el.addEventListener('click', (e) => { if (e.target === el) closeGearItemDetail(); });
+  el.querySelector('.tos-idp-x').addEventListener('click', closeGearItemDetail);
+  _overlay.appendChild(el);
+  _gearIdp = el;
+}
+
+// Layer/tab/page changes are client-side — re-render the gear root without a round trip.
 function rebuildGear() {
+  hideGearTip();
   const root = _overlay?.querySelector('#tos-gear-root');
   if (root && _data) { root.innerHTML = renderGear(_data); wireGear(); }
 }
@@ -2108,6 +2610,27 @@ function gearTrayItem(id) {
 function gearAct(actionId, params) {
   _keepGearScroll = true;
   act('gear', actionId, String(params));
+}
+
+// Equip a piece and, when it's a body-slot item, switch the doll to that piece's
+// layer so the newly-worn item is the one shown.
+function gearEquipShowLayer(id) {
+  const it = gearTrayItem(id);
+  const slot = it?.tags?.slot;
+  if (it && GEAR_ARMOR_SLOTS.includes(slot)) {
+    const n = GEAR_LAYER_N[it.tags?.layer] || GEAR_LAYER_N.outerwear;
+    const idx = GEAR_LAYER_DEFS.findIndex(l => l.n === n);
+    if (idx >= 0) _gearLayer = idx;
+  }
+  gearAct('equip', id);
+}
+
+// A consumable/readable verb (eat/drink/use/read/open) — run the real game command
+// by name, then silently re-open the Gear app so its tray reflects the change.
+function gearVerb(verb, name) {
+  _keepGearScroll = true;
+  sendCmdSilent(`${verb} ${name}`);
+  sendCmdSilent('tabletnav gear');
 }
 
 // Drop-off. Stacks prompt for a quantity (mirrors the desktop drop dialog).
@@ -2126,6 +2649,51 @@ function gearDrop(item) {
 function wireGear() {
   if (!_overlay || _data?.view !== 'gear') return;
 
+  // Tabs (client-side, no round trip).
+  _overlay.querySelectorAll('[data-gtab]').forEach(el => {
+    el.addEventListener('click', () => {
+      const t = el.getAttribute('data-gtab');
+      if (t === _gearTab) return;
+      _gearTab = t; sfx(TOS_SELECT_DEF); rebuildGear();
+    });
+  });
+
+  // Pagers (client-side).
+  _overlay.querySelectorAll('.tos-gpager').forEach(pg => {
+    const kind = pg.getAttribute('data-gpager');
+    pg.querySelectorAll('[data-gpg]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (b.disabled) return;
+        const dir = b.getAttribute('data-gpg') === 'next' ? 1 : -1;
+        if (kind === 'inv') _gearInvPage += dir; else _gearTrayPage += dir;
+        sfx(TOS_SELECT_DEF); rebuildGear();
+      });
+    });
+  });
+
+  // Inventory-tab rows → item-detail sheet.
+  _overlay.querySelectorAll('[data-ginv]').forEach(el => {
+    el.addEventListener('click', () => {
+      const it = gearTrayItem(el.getAttribute('data-ginv'));
+      if (it) showGearItemDetail(it);
+    });
+  });
+
+  // Hover quick-stats tooltip on tray items (data-gid) and worn slots (data-geq),
+  // plus the Inventory-tab rows (data-ginv) — fast kit-building without opening.
+  _overlay.querySelectorAll('.tos-gcard[data-gid], .tos-gslot[data-geq], [data-ginv]').forEach(el => {
+    const id = el.getAttribute('data-gid') || el.getAttribute('data-geq') || el.getAttribute('data-ginv');
+    const hint = el.hasAttribute('data-geq') ? 'Tap or drag to the list to unequip'
+      : el.hasAttribute('data-gid') ? 'Tap or drag onto the doll to equip' : '';
+    el.addEventListener('mouseenter', () => showGearTip(el, gearTrayItem(id), hint));
+    el.addEventListener('mouseleave', hideGearTip);
+    el.addEventListener('dragstart', hideGearTip);
+  });
+
+  // Armor readout → per-type protection breakdown.
+  const armorStat = _overlay.querySelector('[data-armor-break]');
+  if (armorStat) armorStat.addEventListener('click', showArmorBreakdown);
+
   // Layer selector (client-side, no round trip).
   _overlay.querySelectorAll('[data-glayer]').forEach(el => {
     el.addEventListener('click', () => {
@@ -2135,7 +2703,7 @@ function wireGear() {
     });
   });
 
-  // Tap a filled slot box → unequip the piece shown there.
+  // Tap a filled slot box → unequip the piece shown there (any layer → into the list).
   _overlay.querySelectorAll('.tos-gslot[data-geq]').forEach(el => {
     el.addEventListener('click', () => gearAct('unequip', el.getAttribute('data-geq')));
   });
@@ -2144,7 +2712,7 @@ function wireGear() {
   _overlay.querySelectorAll('.tos-gcard.equippable').forEach(el => {
     el.addEventListener('click', (e) => {
       if (e.target.closest('[data-gdrop]')) return; // drop button handles itself
-      gearAct('equip', el.getAttribute('data-gid'));
+      gearEquipShowLayer(el.getAttribute('data-gid'));
     });
   });
 
@@ -2153,53 +2721,120 @@ function wireGear() {
     el.addEventListener('click', (e) => { e.stopPropagation(); gearDrop(gearTrayItem(el.getAttribute('data-gdrop'))); });
   });
 
-  // ── Drag/drop (mouse) — mirrors the desktop Inventory/Gear panels ──────────
-  _overlay.querySelectorAll('.tos-gcard').forEach(el => {
-    el.addEventListener('dragstart', (e) => {
-      _gearDragId = el.getAttribute('data-gid');
-      _gearDragSlot = el.getAttribute('data-gslot') || null;
-      _gearDragHandled = false;
-      el.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      try { e.dataTransfer.setData('text/plain', _gearDragId); } catch {}
-    });
-    el.addEventListener('dragend', () => el.classList.remove('dragging'));
-  });
+  // ── Drag/drop (pointer-based) ──────────────────────────────────────────────
+  // Native HTML5 drag-and-drop is swallowed inside this fixed + transformed CRT
+  // overlay (dragstart/drop never fire reliably), so we hand-roll it with pointer
+  // events, mirroring the home-screen tile rearrange. Drag a tray card onto its
+  // body slot (or anywhere on the doll) to equip; drag a worn slot box onto the
+  // list to unequip; drop a card on the ⤓ zone to leave it on the ground. A press
+  // that never moves past LIFT falls through to the tap-to-equip/unequip clicks.
+  const gload = _overlay.querySelector('.tos-gload');
+  if (gload) {
+    const LIFT = 6;   // px of travel before a press becomes a drag (below = a tap)
+    let press = null; // { kind:'equip'|'unequip', id, slot, srcEl, x, y }
+    let drag = null;  // { ghost, offX, offY } once the press lifts into a real drag
 
-  // Slot boxes: drop a matching item → equip.
-  _overlay.querySelectorAll('.tos-gslot[data-gslot]').forEach(el => {
-    const slot = el.getAttribute('data-gslot');
-    el.addEventListener('dragover', (e) => {
-      if (_gearDragId && _gearDragSlot === slot) { e.preventDefault(); el.classList.add('tos-gslot-over'); }
-    });
-    el.addEventListener('dragleave', () => el.classList.remove('tos-gslot-over'));
-    el.addEventListener('drop', (e) => {
-      el.classList.remove('tos-gslot-over');
-      if (!_gearDragId || _gearDragSlot !== slot) return;
-      e.preventDefault(); _gearDragHandled = true;
-      gearAct('equip', _gearDragId);
-    });
-  });
+    const clearHi = () => _overlay.querySelectorAll('.tos-gslot-over, .tos-gtray-over, .tos-gear-drop-over')
+      .forEach(el => el.classList.remove('tos-gslot-over', 'tos-gtray-over', 'tos-gear-drop-over'));
 
-  // Drop zone: drop any item → leave it on the ground.
-  const zone = _overlay.querySelector('[data-gdropzone]');
-  if (zone) {
-    zone.addEventListener('dragover', (e) => { if (_gearDragId) { e.preventDefault(); zone.classList.add('tos-gear-drop-over'); } });
-    zone.addEventListener('dragleave', () => zone.classList.remove('tos-gear-drop-over'));
-    zone.addEventListener('drop', (e) => {
-      zone.classList.remove('tos-gear-drop-over');
-      if (!_gearDragId) return;
-      e.preventDefault(); _gearDragHandled = true;
-      gearDrop(gearTrayItem(_gearDragId));
-    });
-  }
+    // Highlight the drop target under the pointer (the ghost is pointer-events:none,
+    // so elementFromPoint sees through it to the real target).
+    const hover = (x, y) => {
+      clearHi();
+      const t = document.elementFromPoint(x, y);
+      if (!t) return;
+      if (press.kind === 'equip') {
+        const slotEl = t.closest('.tos-gslot[data-gslot]');
+        const zone = t.closest('[data-gdropzone]');
+        if (slotEl && slotEl.getAttribute('data-gslot') === press.slot) slotEl.classList.add('tos-gslot-over');
+        else if (zone) zone.classList.add('tos-gear-drop-over');
+      } else {
+        const z = t.closest('[data-gtray-zone]');
+        if (z) z.classList.add('tos-gtray-over');
+      }
+    };
 
-  // Drag-to-nowhere → drop on the ground (bound once; mirrors the desktop panel).
-  if (!_gearDragBound) {
-    _gearDragBound = true;
-    document.addEventListener('dragend', () => {
-      if (_data?.view === 'gear' && _gearDragId && !_gearDragHandled) gearDrop(gearTrayItem(_gearDragId));
-      _gearDragId = null; _gearDragSlot = null; _gearDragHandled = false;
+    const begin = () => {
+      const r = press.srcEl.getBoundingClientRect();
+      const ghost = press.srcEl.cloneNode(true);
+      Object.assign(ghost.style, {
+        position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px',
+        height: r.height + 'px', margin: '0', pointerEvents: 'none', zIndex: '9300',
+        opacity: '0.9', transform: 'scale(1.04)', boxShadow: '0 8px 22px rgba(0,0,0,.5)',
+      });
+      // Append inside the overlay, NOT document.body — the gear styles are scoped as
+      // `#tablet-os-overlay .tos-gcard/.tos-gslot`, so a ghost outside that subtree loses
+      // every rule and collapses to bare text. The overlay root has no transform, so the
+      // ghost's position:fixed still maps to viewport clientX/Y. z-index 9300 keeps it above
+      // the panel (9200) but under the item-detail modal (9400).
+      _overlay.appendChild(ghost);
+      press.srcEl.classList.add('dragging');
+      drag = { ghost, offX: press.x - r.left, offY: press.y - r.top };
+      sfx(TOS_SELECT_DEF);
+    };
+
+    const onMove = (e) => {
+      if (!press) return;
+      if (!drag && Math.hypot(e.clientX - press.x, e.clientY - press.y) > LIFT) begin();
+      if (drag) {
+        e.preventDefault();
+        drag.ghost.style.left = (e.clientX - drag.offX) + 'px';
+        drag.ghost.style.top = (e.clientY - drag.offY) + 'px';
+        hover(e.clientX, e.clientY);
+      }
+    };
+
+    const end = (e) => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      const wasDrag = !!drag;
+      if (drag) {
+        drag.ghost.remove();
+        press.srcEl.classList.remove('dragging');
+        clearHi();
+        const t = document.elementFromPoint(e.clientX, e.clientY);
+        if (press.kind === 'equip') {
+          const slotEl = t && t.closest('.tos-gslot[data-gslot]');
+          if (slotEl || (t && t.closest('.tos-gload-doll'))) {
+            // Each piece equips on its own inherent slot/layer; landing on the wrong
+            // box still equips it correctly, with a note about where it actually went.
+            if (slotEl && slotEl.getAttribute('data-gslot') !== press.slot) {
+              const s = slotEl.getAttribute('data-gslot');
+              const it = gearTrayItem(press.id);
+              gearFeedback(`${it?.name || 'That'} goes on ${GEAR_SLOT_LABEL[press.slot] || press.slot}, not ${GEAR_SLOT_LABEL[s] || s}`);
+            }
+            gearEquipShowLayer(press.id);
+          } else if (t && t.closest('[data-gdropzone]')) {
+            gearDrop(gearTrayItem(press.id));
+          }
+          // Released off every target → no-op; the piece stays in the pack.
+        } else if (t && t.closest('[data-gtray-zone]')) {
+          gearAct('unequip', press.id);
+        }
+        // Unequip released off the list → no-op; the piece stays worn.
+      }
+      press = null; drag = null;
+      // A completed drag can emit a trailing click on the source — swallow the next
+      // one so tap-to-equip/unequip doesn't fire a duplicate action.
+      if (wasDrag) {
+        const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+        window.addEventListener('click', swallow, { capture: true, once: true });
+        setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
+      }
+    };
+
+    gload.addEventListener('pointerdown', (e) => {
+      if (e.button > 0) return;
+      if (e.target.closest('[data-gdrop]')) return; // the per-card ⤓ button handles itself
+      const card = e.target.closest('.tos-gcard[data-gid]');
+      const slotBox = e.target.closest('.tos-gslot[data-geq]');
+      if (card) press = { kind: 'equip', id: card.getAttribute('data-gid'), slot: card.getAttribute('data-gslot') || null, srcEl: card, x: e.clientX, y: e.clientY };
+      else if (slotBox) press = { kind: 'unequip', id: slotBox.getAttribute('data-geq'), srcEl: slotBox, x: e.clientX, y: e.clientY };
+      else return;
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup', end);
+      window.addEventListener('pointercancel', end);
     });
   }
 }
@@ -2581,10 +3216,50 @@ function dayLabel(f) {
 
 function renderHeadlinesWidget(stories) {
   if (!stories || !stories.length) return '<div class="tos-empty" style="padding:14px 4px">Quiet news day. Too quiet.</div>';
-  return `<div class="tos-news-list">${stories.map(s => `<div class="tos-headline">
+  // Stash the feed so a tapped headline can open its full mini-story client-side
+  // (the body rides in the payload — no round trip). Index-keyed so no per-story
+  // attribute escaping is needed.
+  _newsStories = stories;
+  return `<div class="tos-news-list">${stories.map((s, i) => `<div class="tos-headline" data-news-idx="${i}" role="button" tabindex="0">
     <span class="tos-hl-tag ${s.tag === 'live' ? 'live' : 'tabloid'}">${s.tag === 'live' ? 'LIVE' : 'WIRE'}</span>
     <span class="tos-hl-text">${esc(s.headline)}${s.byline ? ` <span class="tos-hl-by">— ${esc(s.byline)}</span>` : ''}</span>
   </div>`).join('')}</div>`;
+}
+
+// Tapping a headline opens its full story in a little "browser window" popup —
+// the paper's website, mid-collapse. All client-side: the body rode down in the
+// News payload, so there's no round trip. Rendered above the tablet inside the
+// overlay; a re-render (or a second tap) dismisses it.
+function openNewsStory(story) {
+  closeNewsStory();
+  if (!story) return;
+  const live = story.tag === 'live';
+  const url = live ? 'sentinel.cw/wire/live' : 'sentinel.cw/edition/today';
+  const win = document.createElement('div');
+  win.className = 'tos-newswin-back';
+  win.innerHTML = `<div class="tos-newswin" role="dialog" aria-modal="true">
+    <div class="tos-nw-chrome">
+      <span class="tos-nw-mark">📰</span>
+      <span class="tos-nw-url">🔒 ${esc(url)}</span>
+      <button class="tos-nw-x" type="button" aria-label="Close">✕</button>
+    </div>
+    <div class="tos-nw-page">
+      <div class="tos-nw-kicker">
+        <span class="tos-nw-tag ${live ? 'live' : ''}">${live ? 'LIVE WIRE' : 'THE WIRE'}</span>
+        ${story.byline ? `<span class="tos-nw-by">${esc(story.byline)}</span>` : ''}
+      </div>
+      <h2 class="tos-nw-headline">${esc(story.headline || '')}</h2>
+      <p class="tos-nw-story">${esc(story.body || 'The story ends here. The rest was classified, redacted, or never true to begin with.')}</p>
+      <div class="tos-nw-foot">The Coldwater Sentinel — all the truth the Architect permits.</div>
+    </div>
+  </div>`;
+  win.addEventListener('click', (e) => { if (e.target === win) closeNewsStory(); });
+  win.querySelector('.tos-nw-x').addEventListener('click', closeNewsStory);
+  _overlay.appendChild(win);
+  _newsWin = win;
+}
+function closeNewsStory() {
+  if (_newsWin) { _newsWin.remove(); _newsWin = null; }
 }
 
 function renderStandingsWidget(teams) {
@@ -2639,7 +3314,7 @@ function renderBody() {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(null, [d.appName])}${renderTabletSettings()}</div>`;
   }
   if (d.view === 'corp') {
-    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+    return `<div class="tos-body tos-corp-view">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       ${d.notice ? `<div class="tos-error" style="text-align:left;padding:0 0 10px">${esc(d.notice)}</div>` : ''}
       ${renderCorpScreen(d)}
     </div>`;
@@ -2672,8 +3347,12 @@ function renderBody() {
     </div>`;
   }
   if (d.view === 'reel') {
+    const reelActions = d.reel?.id
+      ? renderActions(d.appId, [{ id: 'delete', label: '🗑 Destroy Reel', confirm: 'Permanently destroy this microreel? This cannot be undone.' }], d.reel.id)
+      : '';
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       ${renderReel(d)}
+      ${reelActions}
     </div>`;
   }
   if (d.view === 'chat') {
@@ -2806,6 +3485,13 @@ function wireBody() {
       sfx(TOS_SELECT_DEF);
       _keepNewsScroll = true;
       render();
+    });
+  });
+  // News headline — tap to pop its full mini-story in a little browser window.
+  _overlay.querySelectorAll('[data-news-idx]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      openNewsStory(_newsStories[+el.getAttribute('data-news-idx')]);
     });
   });
   _overlay.querySelectorAll('[data-act-id]').forEach(el => {
@@ -3172,6 +3858,18 @@ function wireTabletSettings() {
     setTimeout(() => { if (btn.isConnected) btn.textContent = 'Reset to Default'; }, 1400);
   });
 
+  // Reset the desktop sidebar's drag order / hidden / collapsed / sized state
+  // back to default. resetOrder() operates on the live #sidebar behind the
+  // Tablet overlay, so it works while Settings is open. (Ported from the retired
+  // settings-panel's ↺ button.)
+  _overlay.querySelector('[data-reset-sidebar]')?.addEventListener('click', (e) => {
+    sfx(TOS_SELECT_DEF);
+    resetOrder();
+    const btn = e.currentTarget;
+    btn.textContent = '✓ Reset';
+    setTimeout(() => { if (btn.isConnected) btn.textContent = 'Reset to Default'; }, 1400);
+  });
+
   // Sound master + per-channel toggles. Use a fresh settings copy (not main.js's
   // _setAudioEnabled, which would save its own stale snapshot and clobber volume
   // edits made here) — commit() already runs applySettings, which drives the
@@ -3324,6 +4022,9 @@ export function openTabletPanel(msg) {
   ensureChassisStyles();
   ensureStyles();
   _data = msg;
+  // Consume the one-shot boot-skip flag on every open so it can't leak into a
+  // later normal open (it only actually changes anything on a first/fresh open).
+  const skip = _skipBoot; _skipBoot = false;
 
   // Keep the Settings screen's MIS toggle in step with the server (player_update
   // dispatches mis_state_update). Bound once; harmless when Settings isn't shown.
@@ -3340,11 +4041,13 @@ export function openTabletPanel(msg) {
   if (_overlay && !_overlay.isConnected) { close(); }
 
   if (!_overlay) {
-    const html = `<div class="tos-anchor"><div class="tos-panel mg-chassis tos-powering-on">
+    // "Inv" shortcut (and any other fast-open path) skips the CRT power-on + boot
+    // hold: no powering-on animation, no boot screen, render the real screen at once.
+    const html = `<div class="tos-anchor"><div class="tos-panel mg-chassis${skip ? '' : ' tos-powering-on'}">
       ${deviceHeader('&#9635;', 'ARCHITECT OS', 'Tablet Interface')}
       <div class="tos-bezel mg-bezel">${bezelScrews()}<div class="tos-screen mg-screen" style="--mg-sweep-h:420px" id="tos-screen-inner">
         <div class="tos-scroll" id="tos-scroll">
-          <div class="tos-boot" id="tos-boot"><div class="tos-boot-logo">A</div><div class="tos-boot-title">ARCHITECT OS</div><div class="tos-boot-sub">Booting Tablet Interface&hellip;</div></div>
+          ${skip ? '' : '<div class="tos-boot" id="tos-boot"><div class="tos-boot-logo">A</div><div class="tos-boot-title">ARCHITECT OS</div><div class="tos-boot-sub">Booting Tablet Interface&hellip;</div></div>'}
         </div>
         ${crtOverlays()}
       </div></div>
@@ -3358,15 +4061,37 @@ export function openTabletPanel(msg) {
     _close = mounted.close;
     _overlay.querySelector('.mg-close').addEventListener('click', shutdownTablet);
     makeDraggable(_overlay.querySelector('.tos-anchor'), _overlay.querySelector('.mg-head'));
+    wireDragScroll(_overlay.querySelector('#tos-scroll'));
     applyTabletTheme();
     window.AudioEngine?.init?.();
-    window.AudioEngine?.playSfx(CRT_POWER_ON_DEF);
-    // CRT expands (0.6s), "ARCHITECT OS" holds for ~1s, then the real screen
-    // (home, or whatever screen this open navigated straight to) renders in.
-    setTimeout(render, CRT_ANIM_MS + BOOT_HOLD_MS);
+    if (skip) {
+      render(); // straight to content, no boot ceremony
+    } else {
+      window.AudioEngine?.playSfx(CRT_POWER_ON_DEF);
+      // CRT expands (0.6s), "ARCHITECT OS" holds for ~1s, then the real screen
+      // (home, or whatever screen this open navigated straight to) renders in.
+      setTimeout(render, CRT_ANIM_MS + BOOT_HOLD_MS);
+    }
     return;
   }
   render();
+}
+
+// Smart bar "Inv" shortcut: open the tablet straight to the Gear app's Inventory
+// tab with no CRT boot delay. Sets the client-side tab + boot-skip flag, then asks
+// the server for the gear screen (a tablet_panel message, which opens the shell).
+export function openTabletToInventory() {
+  _gearTab = 'inventory';
+  _skipBoot = true;
+  sendCmdSilent('tabletnav gear');
+}
+
+// Read-only snapshot of the last-loaded inventory payload (populated when the
+// player opens their Gear/Inventory). Used by smartbar macros for item-action
+// hints and "do I have X" checks. It's a snapshot, not a live mirror — empty
+// until the tablet gear screen has been fetched at least once this session.
+export function getTabletInventory() {
+  return _data?.inventory || [];
 }
 
 // ── Arcade app: "ARCHITECT" (a fake game inside the game) ────────────────────
@@ -3571,82 +4296,81 @@ function fkRespond(cmd, push, openMini) {
   }
 }
 
-// The ARCHITECT app inside the mini tablet → the infinite-recursion illusion.
-// Builds ~10 concentric layers alternating tablet↔game (deepest drawn on top,
-// in the centre), then one CSS zoom loop falls through them forever. It only
-// *looks* infinite: it's a fixed stack on a seamless scale(1→4) loop. Tap to
-// surface — removes the overlay, back to the mini tablet underneath.
-function fkOpenRecursion(root) {
-  if (root.querySelector('.tos-fk-rec')) return;
-  const DEPTH = 10;
-  let layers = '';
-  for (let d = 0; d < DEPTH; d++) {
-    const scale = Math.pow(0.5, d);
-    const content = (d % 2 === 0) ? fkRecTablet() : fkRecGame();
-    layers += `<div class="tos-fk-rl" style="transform:scale(${scale}); z-index:${d}">${content}</div>`;
-  }
-  const rec = document.createElement('div');
-  rec.className = 'tos-fk-rec';
-  rec.innerHTML = `<div class="tos-fk-rec-stage">${layers}</div><div class="tos-fk-rec-hint">▲ tap to surface</div>`;
-  rec.addEventListener('click', () => rec.remove());
-  root.appendChild(rec);
-}
-
-// One tablet-home layer — its app grid, with the centre-ish cell the circled-"A"
-// ARCHITECT icon the zoom dives into.
-function fkRecTablet() {
-  const cells = [];
-  for (let i = 0; i < 12; i++) {
-    if (i === 6) cells.push('<div class="tos-fk-rl-app arch"><span class="a">A</span></div>');
-    else cells.push(`<div class="tos-fk-rl-app">${FK_MINI_APPS[i].ic}</div>`);
-  }
-  return `<div class="tos-fk-rl-screen tos-fk-rl-tab">
-      <div class="tos-fk-rl-hd"><span class="a">A</span> ARCHITECT OS</div>
-      <div class="tos-fk-rl-grid">${cells.join('')}</div>
-    </div>`;
-}
-
-// One game-terminal layer — an abstracted room screen in the game palette.
-function fkRecGame() {
-  return `<div class="tos-fk-rl-screen tos-fk-rl-game">
-      <div class="rt">RUST ALLEY <span class="sf">SAFE</span></div>
-      <div class="rd">A knife-thin gap between two data-towers. A <span class="cam">camera</span> watches, unblinking.</div>
-      <div class="rx"><b>[North]</b> The Loading Bay &nbsp; <b>[East]</b> The Threshold</div>
-      <div class="rp">&gt; jack into ARCHITECT_</div>
-    </div>`;
-}
 
 
 function fkOpenMini(root) {
   if (root.querySelector('.tos-fk-mini-scrim')) return; // already open
-  const grid = FK_MINI_APPS.map((a, idx) =>
-    `<div class="tos-fk-app" data-fk-app="${idx}"><span class="ic">${a.ic}</span><span class="nm">${esc(a.nm)}</span></div>`).join('');
   const scrim = document.createElement('div');
   scrim.className = 'tos-fk-mini-scrim';
-  scrim.innerHTML = `
-    <div class="tos-fk-mini">
-      <div class="tos-fk-mini-hd"><span>ARCHITECT&nbsp;OS</span><span class="tos-fk-mini-x" id="tos-fk-mini-x">✕</span></div>
+  root.appendChild(scrim);
+  // Tapping the dim backdrop closes the whole nested stack.
+  scrim.addEventListener('click', e => { if (e.target === scrim) scrim.remove(); });
+  fkSpawnNest(scrim, 0);
+}
+
+// The wide landscape tablet (matches the desktop shape).
+function fkTabletHTML() {
+  const grid = FK_MINI_APPS.map((a, idx) =>
+    `<div class="tos-fk-app" data-fk-app="${idx}"><span class="ic">${a.ic}</span><span class="nm">${esc(a.nm)}</span></div>`).join('');
+  return `<div class="tos-fk-mini">
+      <div class="tos-fk-mini-hd"><span>ARCHITECT&nbsp;OS</span><span class="tos-fk-mini-x">✕</span></div>
       <div class="tos-fk-mini-screen">
         <div class="tos-fk-mini-time"><span>08:14</span><span>▮▮▮▯ 74%</span></div>
         <div class="tos-fk-mini-grid">${grid}</div>
-        <div class="tos-fk-mini-toast" id="tos-fk-mini-toast"></div>
-        <div class="tos-fk-mini-home" id="tos-fk-mini-home"></div>
+        <div class="tos-fk-mini-toast"></div>
+        <div class="tos-fk-mini-home"></div>
       </div>
     </div>`;
-  root.appendChild(scrim);
+}
 
-  const close = () => scrim.remove();
-  scrim.addEventListener('click', e => { if (e.target === scrim) close(); });
-  scrim.querySelector('#tos-fk-mini-x').addEventListener('click', close);
-  scrim.querySelector('#tos-fk-mini-home').addEventListener('click', close);
+// A compact fake game screen (the terminal look pane) that a tablet pops up over.
+function fkGameScreenHTML() {
+  return `<div class="tos-fk-gamescreen">
+      <div class="tos-fk-gs-hud"><span class="hp">HP 178/178</span><span>SAN 100</span><span>STA 100</span><span class="cr">₵ 10,555</span><span>WANTED ✦✦</span></div>
+      <div class="tos-fk-gs-room">RUST ALLEY<span class="tos-fk-gs-safe">SAFE</span></div>
+      <div class="tos-fk-gs-dist">· the Neon Quarter ·</div>
+      <div class="tos-fk-gs-desc">A knife-thin gap between two data-towers, floored in wet concrete and older promises. A cracked ad-panel loops a smiling face that hasn't existed in years.</div>
+      <div class="tos-fk-gs-exits"><span class="l">Exits:</span> <span class="ex">[North]</span> The Loading Bay, <span class="ex">[East]</span> The Threshold, <span class="ex">[Down]</span> Drainage Sub-Level</div>
+    </div>`;
+}
 
-  const toast = scrim.querySelector('#tos-fk-mini-toast');
+// One nested level inside the fake ARCHITECT window, scaled down 0.72× per level.
+// Level 0 is just the tablet (over the real terminal). Every deeper level is the
+// whole GAME SCREEN with a tablet popping up on it — so tapping ARCHITECT drops you
+// "into the game", and its tablet's ARCHITECT drops you into the game again, smaller
+// and smaller until the tiles are too small to click. Each level sits in a
+// pointer-events:none centring layer so taps fall through empty space to the level
+// (or backdrop) below; ✕/home peels this level back off.
+function fkSpawnNest(scrim, depth) {
+  const scale = Math.pow(0.72, depth);
+  if (scale < 0.1) return; // past here it's too small to bother clicking
+  // First tap into the game → a shaky banner on the real tablet's top bar.
+  if (depth === 1 && !scrim.querySelector('.tos-fk-caption')) {
+    const cap = document.createElement('div');
+    cap.className = 'tos-fk-caption';
+    cap.textContent = "Ohhhh shit...It's Architect all the way down....";
+    scrim.appendChild(cap);
+  }
+  const layer = document.createElement('div');
+  layer.className = 'tos-fk-mini-layer';
+  layer.style.transform = `scale(${scale.toFixed(4)})`;
+  layer.innerHTML = depth === 0
+    ? fkTabletHTML()
+    : `<div class="tos-fk-gamewrap">${fkGameScreenHTML()}${fkTabletHTML()}</div>`;
+  scrim.appendChild(layer);
+
+  // Back off just this (topmost) level; if it was the last, close the backdrop too.
+  const peel = () => { layer.remove(); if (!scrim.querySelector('.tos-fk-mini-layer')) scrim.remove(); };
+  layer.querySelector('.tos-fk-mini-x').addEventListener('click', peel);
+  layer.querySelector('.tos-fk-mini-home').addEventListener('click', peel);
+
+  const toast = layer.querySelector('.tos-fk-mini-toast');
   let toastT = null;
-  scrim.querySelectorAll('[data-fk-app]').forEach(el => {
+  layer.querySelectorAll('[data-fk-app]').forEach(el => {
     el.addEventListener('click', () => {
       el.classList.remove('tap'); void el.offsetWidth; el.classList.add('tap'); // restart flash
       const nm = FK_MINI_APPS[+el.getAttribute('data-fk-app')].nm;
-      if (nm === 'ARCHITECT') { fkOpenRecursion(root); return; }
+      if (nm === 'ARCHITECT') { fkSpawnNest(scrim, depth + 1); return; } // into the game, smaller
       toast.textContent = `${nm} — not installed`;
       toast.classList.add('show');
       if (toastT) clearTimeout(toastT);

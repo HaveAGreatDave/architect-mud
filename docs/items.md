@@ -107,6 +107,7 @@ tag model and the rationale behind it.
 | `restore_hp` / `restore_hunger` / `restore_thirst` / `restore_radiation` / `restore_sanity` | int | Consumable stat changes (can be negative). |
 | `grants_credits` | int | Credits granted on use (credit chips). |
 | `heal_over_time` | hot | Gradual heal `{ amount, duration_seconds }`, ticks once/min, stacks. |
+| `use_message` | string | Flavour line shown in place of the default `You use X.` when a plain consumable is eaten/drunk. |
 | `well_fed` | flag | Grants the Well-Fed buff (faster HP regen), 10 min. |
 | `hydrating` | flag | Grants the Hydrated buff (faster radiation decay), 10 min. |
 | `laced_drug` | drug id | Consumable applies this drug on use (systemic effects only — meter/phases/OD, not its instant restores). The "drugged drink/food" path; alcohol uses `"drug_alcohol"`. See [systems-survival.md](systems-survival.md). |

@@ -77,9 +77,26 @@ function fateResolve(query, candidates, context = {}) {
 // SIFT — exported
 // ---------------------------------------------------------------------------
 
+// A query wrapped in matching quotes ("foo" or 'foo') is a literal exact-match
+// request: the player is disambiguating explicitly, so skip fuzzy scoring and
+// only accept a candidate whose name equals the quoted text (case-insensitive).
+// Returns the unquoted inner string, or null if the query isn't quoted.
+function unquote(query) {
+  const q = String(query).trim();
+  if (q.length >= 2 && ((q[0] === '"' && q.at(-1) === '"') || (q[0] === "'" && q.at(-1) === "'")))
+    return q.slice(1, -1).trim();
+  return null;
+}
+
 // Ambiguity threshold: gap < 8 (equivalent to 0.08 on a 0–1 scale).
 export function resolve(query, candidates, context = {}) {
   if (!candidates.length) return { type: 'none' };
+  const literal = unquote(query);
+  if (literal !== null) {
+    const target = literal.toLowerCase();
+    const exact = candidates.find(c => c.name.toLowerCase() === target);
+    return exact ? { type: 'match', candidate: exact, score: 100 } : { type: 'none' };
+  }
   const scored = candidates
     .map(c => ({ candidate: c, score: scoreCandidate(c.name, query) }))
     .filter(s => s.score > 0)
@@ -99,6 +116,11 @@ export function resolve(query, candidates, context = {}) {
 // verbs like "drop all <filter>" that act on every match instead of prompting
 // to disambiguate — the same scoring, no ambiguity gate.
 export function matchAll(query, candidates) {
+  const literal = unquote(query);
+  if (literal !== null) {
+    const target = literal.toLowerCase();
+    return candidates.filter(c => c.name.toLowerCase() === target);
+  }
   return candidates
     .map(c => ({ candidate: c, score: scoreCandidate(c.name, query) }))
     .filter(s => s.score > 0)

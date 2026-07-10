@@ -366,6 +366,10 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 
     const amb = await cmdMove('north', mover, broadcast);
     check('ambiguous direction → numbered picker', amb?.type === 'output' && /Several ways lead north/.test(amb.message || '') && /\[1\]/.test(amb.message || ''), amb?.message?.slice?.(0, 120));
+    // movePicker carries ordered candidate zone ids so GPS auto-walk can answer the
+    // right number itself (it knows which destination it's heading to).
+    const pickIds = (amb?.movePicker?.candidates || []).map(c => c.id).sort();
+    check('ambiguous move exposes candidate zone ids to the client', JSON.stringify(pickIds) === JSON.stringify([A.id, B.id].sort()) && amb.movePicker.candidates.every((c, i) => c.n === i + 1), JSON.stringify(amb?.movePicker));
     check('ambiguous move does not relocate', mover.current_zone === originId, mover.current_zone);
     const sel = getSelectionState(mover.id);
     check('ambiguous move opens SIFT selection', sel?.allCandidates?.length === 2 && sel.context?.verb === 'move', JSON.stringify(sel?.context));

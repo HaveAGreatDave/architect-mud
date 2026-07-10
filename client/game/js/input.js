@@ -1,17 +1,42 @@
 import { state } from './state.js';
 import { sendCmd } from './net.js';
-import { appendHtml } from './render.js';
+import { appendHtml, appendMsg } from './render.js';
 import { MARKUP_HELP_HTML, STATUS_TEMPLATE } from './markup.js';
 import { appendToWhisperLog, sendToActiveTab } from './panels/whisper.js';
 import { openMusicPlayerPanel } from './panels/musicplayer.js';
 import { isFlightSimActive } from './panels/cockpit.js';
-import { toggleAutoWalk } from './panels/minimap.js';
+import { toggleAutoWalk, startAutoWalk, cancelAutoWalk } from './panels/minimap.js';
+import { runMacroByName, abortMacros } from './panels/smartbar-macros.js';
 
-function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
+export function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
   const lower = cmd.toLowerCase();
   if (lower === 'music') { openMusicPlayerPanel(); return true; }
+  // `echo <text>` prints a local line — never sent to the server. Handy on its
+  // own and the same verb macros use to surface information.
+  if (lower === 'echo' || lower.startsWith('echo ')) { appendMsg(cmd.slice(4).trim(), 'system'); return true; }
+  // `macro <name>` runs a saved smartbar macro by its label (client-side).
+  if (lower === 'macro' || lower.startsWith('macro ')) {
+    const name = cmd.slice(5).trim();
+    if (!name) { if (notify) notify('Usage: macro <name>'); return true; }
+    runMacroByName(name);
+    return true;
+  }
   // `auto` toggles GPS route auto-walk (a client-side stepper, not a server verb).
+  // `auto on` / `auto off` are the explicit engage/disengage forms — deterministic
+  // regardless of current state, so a macro can drive auto-walk without fighting
+  // the toggle's parity (bare `auto` flips whatever state it finds).
   if (lower === 'auto') { toggleAutoWalk(); return true; }
+  if (lower === 'auto on') { startAutoWalk(); return true; }
+  if (lower === 'auto off') { cancelAutoWalk('Auto-walk stopped.'); return true; }
+  // `stop` halts client-side automation — an in-progress auto-walk and/or any
+  // running macro. Only when neither is active does it fall through to the
+  // server's unified stop (combat, following, plugin actions).
+  if (lower === 'stop') {
+    const walkStopped = cancelAutoWalk('Auto-walk stopped.');
+    const macroStopped = abortMacros();
+    if (macroStopped) appendMsg('Macros stopped.', 'system');
+    if (walkStopped || macroStopped) return true;
+  }
   if (lower === '.markup') {
     const whisperShown = appendToWhisperLog(MARKUP_HELP_HTML);
     if (!whisperShown) appendHtml(MARKUP_HELP_HTML);

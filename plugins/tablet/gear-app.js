@@ -33,8 +33,9 @@ registerTabletApp({
   // Drag/drop + drop-off route through here so one round trip both mutates and
   // returns the refreshed screen. params: "<inventoryId> [qty]".
   async handleAction(player, actionId, params, broadcast) {
-    const [idStr, qtyStr] = String(params || '').trim().split(/\s+/);
-    const id = parseInt(idStr, 10);
+    // Inventory row ids are UUIDs — pass the string straight through (a parseInt
+    // here yields NaN and silently drops every equip/unequip/drop). Only qty is numeric.
+    const [id, qtyStr] = String(params || '').trim().split(/\s+/);
     if (id) {
       if (actionId === 'equip') await cmdEquipById(id, player, broadcast);
       else if (actionId === 'unequip') await cmdUnequipById(id, player);

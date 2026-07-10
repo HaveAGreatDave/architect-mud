@@ -1165,291 +1165,6 @@
 			</div>
 		</div>
 
-		<!-- SETTINGS PANEL -->
-		<div id="settings-panel">
-			<div id="settings-box">
-				<h2>Settings</h2>
-
-				<!-- Grouped pages instead of one long list. -->
-				<div class="settings-tabs" id="settings-tabs">
-					<button class="settings-tab active" data-settings-page="appearance">General</button>
-					<button class="settings-tab" data-settings-page="layout">Layout</button>
-					<button class="settings-tab" data-settings-page="sound">Sound</button>
-				</div>
-
-				<div class="settings-group" data-spage="appearance">
-					<label class="group-label">Theme</label>
-					<!-- Collapsed trigger: shows the active theme; click opens the swatch dropdown. -->
-					<button type="button" id="theme-dd-trigger" class="theme-dd-trigger" aria-expanded="false" title="Choose a theme">
-						<span class="theme-chip-prev" id="theme-dd-swatch"></span>
-						<span class="theme-dd-name" id="active-theme-name">Void</span>
-						<span class="theme-dd-caret">▾</span>
-					</button>
-					<!-- Swatch dropdown, hidden until the trigger is clicked. -->
-					<div id="theme-dd-panel" class="theme-dd-panel">
-						<!-- Inline swatch grid (populated by settings.js _populateThemeGrid). -->
-						<div id="settings-theme-grid" class="settings-theme-grid"></div>
-						<button id="theme-open-btn" class="theme-dd-editor-btn" title="Open the full theme editor">
-							🎨 Full Theme Editor…
-						</button>
-					</div>
-				</div>
-
-				<div class="settings-group" data-spage="appearance">
-					<label class="group-label" for="opt-contrast" style="display:flex;justify-content:space-between;align-items:center">
-						<span>Contrast</span>
-						<span id="contrast-value-label" style="font-size:11px;color:var(--text-dim)">Base</span>
-					</label>
-					<input type="range" id="opt-contrast" min="0" max="100" step="1" value="0"
-						style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 4px">
-					<div style="display:flex;gap:6px;margin-top:4px">
-						<button id="contrast-save-btn" style="flex:1;background:var(--accent);border:none;color:#000;font-family:var(--font);font-size:11px;padding:5px 0;cursor:pointer;border-radius:2px">Save</button>
-						<button id="contrast-restore-btn" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font);font-size:11px;padding:5px 0;cursor:pointer;border-radius:2px">Restore</button>
-					</div>
-				</div>
-
-				<div class="settings-group" data-spage="appearance">
-					<label class="group-label">Font Size</label>
-					<div class="settings-options" id="opt-fontsize">
-						<button class="settings-opt" data-value="14" title="Small" style="font-size:12px">A</button>
-						<button class="settings-opt" data-value="16" title="Medium" style="font-size:15px">A</button>
-						<button class="settings-opt" data-value="19" title="Large" style="font-size:18px">A</button>
-						<button class="settings-opt" data-value="22" title="X-Large" style="font-size:21px">A</button>
-					</div>
-				</div>
-
-				<div class="settings-group" data-spage="layout">
-					<label class="group-label">Layout</label>
-					<div class="settings-options" id="opt-sidebar">
-						<button class="settings-opt" data-value="left" title="Sidebar Left">⬅️</button>
-						<button class="settings-opt" data-value="right" title="Sidebar Right">➡️</button>
-						<button id="sidebar-reset-btn" class="sidebar-reset-btn" title="Reset sidebar order">↺</button>
-					</div>
-				</div>
-
-				<div class="settings-group" data-spage="layout">
-					<label class="group-label">Motion</label>
-					<div class="settings-options" id="opt-motion">
-						<button class="settings-opt" data-value="on" title="Movement Animations On">🎞️</button>
-						<button class="settings-opt" data-value="off" title="Motion Off">⏸</button>
-					</div>
-				</div>
-
-				<div class="settings-group" data-spage="layout">
-					<label class="group-label">Weather FX</label>
-					<div class="settings-options" id="opt-weatherfx">
-						<button class="settings-opt" data-value="on" title="Weather effects over the scene">🌧️</button>
-						<button class="settings-opt" data-value="off" title="No weather effects">🚫</button>
-					</div>
-				</div>
-
-				<div class="settings-group mobile-only-setting" data-spage="layout">
-					<label class="group-label">D-Pad Size</label>
-					<div class="settings-options" id="opt-dpadsize">
-						<button class="settings-opt" data-value="small" title="Small">S</button>
-						<button class="settings-opt" data-value="medium" title="Medium">M</button>
-						<button class="settings-opt" data-value="large" title="Large">L</button>
-					</div>
-				</div>
-
-				<div class="settings-group" data-spage="appearance">
-					<label class="group-label">Temp Units</label>
-					<div class="settings-options" id="opt-tempunit">
-						<button class="settings-opt" data-value="C" title="Celsius">C°ommunism</button>
-						<button class="settings-opt" data-value="F" title="Fahrenheit">F°reedom</button>
-					</div>
-				</div>
-
-				<div class="settings-group" data-spage="appearance">
-					<label class="group-label">Poker Felt</label>
-					<div class="settings-options" id="opt-pokerfelt">
-						<button class="settings-opt" data-value="green" title="Classic Green">🟢</button>
-						<button class="settings-opt" data-value="accent" title="Theme Accent">✨</button>
-						<button class="settings-opt" data-value="custom" title="Custom Colour">🖌️</button>
-						<input type="color" id="opt-pokerfelt-color" title="Pick a custom felt colour" value="#1a4a1a" style="width:32px;height:28px;padding:0;border:1px solid var(--border);border-radius:3px;background:none;cursor:pointer">
-					</div>
-				</div>
-
-				<div class="settings-group" id="sound-group" data-spage="sound">
-					<div style="border:1px solid var(--border);border-radius:3px;padding:8px 10px">
-						<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-							<span class="group-label" style="margin:0">Sound</span>
-							<label style="position:relative;display:inline-block;width:36px;height:20px">
-								<input type="checkbox" id="settings-sound-enabled" style="opacity:0;width:0;height:0">
-								<span id="sound-slider-track" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--border);border-radius:10px;transition:.2s"></span>
-								<span id="sound-slider-thumb" style="position:absolute;content:'';height:14px;width:14px;left:3px;bottom:3px;background:var(--text-dim);border-radius:50%;transition:.2s;pointer-events:none"></span>
-							</label>
-						</div>
-
-						<div style="display:flex;gap:4px;margin-bottom:8px">
-							<div id="opt-audio-music" style="display:contents">
-								<button class="settings-opt audio-icon-btn" data-value="true" title="Music On">🎵</button>
-								<button class="settings-opt audio-icon-btn" data-value="false" title="Music Off">🔇</button>
-							</div>
-							<div id="opt-audio-sfx" style="display:contents">
-								<button class="settings-opt audio-icon-btn" data-value="true" title="SFX On">💥</button>
-								<button class="settings-opt audio-icon-btn" data-value="false" title="SFX Off" style="margin-right:4px">🔕</button>
-							</div>
-							<div id="opt-audio-tv" style="display:contents">
-								<button class="settings-opt audio-icon-btn" data-value="true" title="TV Audio On">📺</button>
-								<button class="settings-opt audio-icon-btn" data-value="false" title="TV Audio Off" style="margin-right:4px">📵</button>
-							</div>
-							<div id="opt-audio-muteWhenHidden" style="display:contents">
-								<button class="settings-opt audio-icon-btn" data-value="true" title="Mute When Tab Hidden">🙈</button>
-								<button class="settings-opt audio-icon-btn" data-value="false" title="Keep Playing in Background">▶️</button>
-							</div>
-						</div>
-
-						<div style="display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:4px 6px">
-							<span style="font-size:10px;color:var(--text-dim)" title="Master Volume">🔊</span>
-							<input type="range" id="opt-masterVolume" min="0" max="1" step="0.05" value="0.8" style="accent-color:var(--accent);cursor:pointer;width:100%">
-							<span id="masterVolume-label" style="font-size:10px;color:var(--text-dim);width:28px;text-align:right">80%</span>
-
-							<span style="font-size:10px;color:var(--text-dim)" title="Music Volume">🎵</span>
-							<input type="range" id="opt-musicVolume" min="0" max="1" step="0.05" value="0.7" style="accent-color:var(--accent);cursor:pointer;width:100%">
-							<span id="musicVolume-label" style="font-size:10px;color:var(--text-dim);width:28px;text-align:right">70%</span>
-
-							<span style="font-size:10px;color:var(--text-dim)" title="SFX Volume">💥</span>
-							<input type="range" id="opt-sfxVolume" min="0" max="1" step="0.05" value="0.9" style="accent-color:var(--accent);cursor:pointer;width:100%">
-							<span id="sfxVolume-label" style="font-size:10px;color:var(--text-dim);width:28px;text-align:right">90%</span>
-
-							<span style="font-size:10px;color:var(--text-dim)" title="Ambient Volume">🌫️</span>
-							<input type="range" id="opt-ambientVolume" min="0" max="1" step="0.05" value="0.5" style="accent-color:var(--accent);cursor:pointer;width:100%">
-							<span id="ambientVolume-label" style="font-size:10px;color:var(--text-dim);width:28px;text-align:right">50%</span>
-
-							<span style="font-size:10px;color:var(--text-dim)" title="TV Volume">📺</span>
-							<input type="range" id="opt-tvVolume" min="0" max="1" step="0.05" value="0.6" style="accent-color:var(--accent);cursor:pointer;width:100%">
-							<span id="tvVolume-label" style="font-size:10px;color:var(--text-dim);width:28px;text-align:right">60%</span>
-						</div>
-					</div>
-				</div>
-				<script>
-					(function () {
-						var soundCheckbox = document.getElementById("settings-sound-enabled");
-						var soundTrack = document.getElementById("sound-slider-track");
-						var soundThumb = document.getElementById("sound-slider-thumb");
-
-						function updateSoundSliderVisual(checked) {
-							soundTrack.style.background = checked ? 'var(--accent)' : 'var(--border)';
-							soundThumb.style.left = checked ? '19px' : '3px';
-							soundThumb.style.background = checked ? '#000' : 'var(--text-dim)';
-						}
-
-						try {
-							var stored = JSON.parse(localStorage.getItem('architect_settings') || '{}');
-							soundCheckbox.checked = !!(stored.audio && stored.audio.enabled);
-						} catch (e) {}
-						updateSoundSliderVisual(soundCheckbox.checked);
-
-						soundCheckbox.addEventListener("change", function () {
-							updateSoundSliderVisual(soundCheckbox.checked);
-							if (window._setAudioEnabled) window._setAudioEnabled(soundCheckbox.checked);
-						});
-					})();
-				</script>
-
-				<div class="settings-group" id="maturity-group" data-spage="appearance">
-					<div
-						id="maturity-decoy"
-						style="
-							width: 100%;
-							height: 32px;
-							background: var(--bg2);
-							border-radius: 2px;
-							cursor: default;
-							user-select: none;
-						"
-						title=""></div>
-					<div id="maturity-reveal" style="display:none">
-						<label class="group-label">Mature Content</label>
-						<div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
-							<span style="font-size:12px;color:var(--text-dim)">MIS</span>
-							<label style="position:relative;display:inline-block;width:36px;height:20px">
-								<input type="checkbox" id="settings-mis" style="opacity:0;width:0;height:0">
-								<span id="mis-slider-track" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--border);border-radius:10px;transition:.2s"></span>
-								<span id="mis-slider-thumb" style="position:absolute;content:'';height:14px;width:14px;left:3px;bottom:3px;background:var(--text-dim);border-radius:50%;transition:.2s;pointer-events:none"></span>
-							</label>
-						</div>
-						<div id="maturity-status" style="font-size:11px;color:var(--text-dim);margin-top:4px"></div>
-					</div>
-				</div>
-				<script>
-					(function () {
-						var decoy = document.getElementById("maturity-decoy");
-						var reveal = document.getElementById("maturity-reveal");
-						var checkbox = document.getElementById("settings-mis");
-						var track = document.getElementById("mis-slider-track");
-						var thumb = document.getElementById("mis-slider-thumb");
-						var status = document.getElementById("maturity-status");
-						var clicks = 0, timer = null;
-
-						function updateSliderVisual(checked) {
-							track.style.background = checked ? 'var(--accent)' : 'var(--border)';
-							thumb.style.left = checked ? '19px' : '3px';
-							thumb.style.background = checked ? '#000' : 'var(--text-dim)';
-						}
-
-						decoy.addEventListener("click", function () {
-							clicks++;
-							if (timer) clearTimeout(timer);
-							timer = setTimeout(function () { clicks = 0; }, 400);
-							if (clicks >= 3) {
-								clicks = 0;
-								decoy.style.display = "none";
-								reveal.style.display = "";
-							}
-						});
-
-						checkbox.addEventListener("change", function () {
-							var sent = window._sendRaw && window._sendRaw({ type: 'mis_toggle', enable: checkbox.checked });
-							if (sent) {
-								updateSliderVisual(checkbox.checked);
-								status.style.color = 'var(--text-dim)';
-								status.textContent = checkbox.checked ? 'Mature content enabled.' : 'Mature content disabled.';
-							} else {
-								checkbox.checked = !checkbox.checked;
-								status.style.color = 'var(--text-dim)';
-								status.textContent = 'Not connected.';
-							}
-						});
-
-						// Sync state when player_update arrives
-						document.addEventListener('mis_state_update', function(e) {
-							checkbox.checked = !!e.detail.enabled;
-							updateSliderVisual(checkbox.checked);
-							if (e.detail.server_disabled) {
-								status.style.color = 'var(--error, #c44)';
-								status.textContent = 'MIS not enabled on server.';
-							}
-						});
-					})();
-				</script>
-
-				<!-- Settings page tabs: show only the active page's groups. -->
-				<script>
-					(function () {
-						var box = document.getElementById("settings-box");
-						var tabs = document.getElementById("settings-tabs");
-						if (!box || !tabs) return;
-						function showPage(page) {
-							box.querySelectorAll(".settings-group[data-spage]").forEach(function (g) {
-								g.style.display = g.getAttribute("data-spage") === page ? "" : "none";
-							});
-							tabs.querySelectorAll(".settings-tab").forEach(function (t) {
-								t.classList.toggle("active", t.getAttribute("data-settings-page") === page);
-							});
-						}
-						tabs.querySelectorAll(".settings-tab").forEach(function (t) {
-							t.addEventListener("click", function () { showPage(t.getAttribute("data-settings-page")); });
-						});
-						showPage("appearance");
-					})();
-				</script>
-
-				<button id="settings-close">Done</button>
-			</div>
-		</div>
-
 		<!-- THEME EDITOR OVERLAY -->
 		<div
 			id="theme-editor-overlay"
@@ -2111,8 +1826,36 @@
 						<span class="amp-brand-sub">MUSIC PLAYER</span>
 					</div>
 					<div class="amp-header-right">
+						<button class="amp-help-btn" id="amp-help" aria-label="About .MOD files" title="What is a .MOD?">?</button>
 						<span class="amp-screw"></span>
 						<button class="amp-close-btn" id="amp-close" aria-label="Close">✕</button>
+					</div>
+				</div>
+
+				<!-- About .MOD — ancient-artifact lore card (opened by the ? in the header) -->
+				<div class="amp-about" id="amp-about" hidden>
+					<div class="amp-about-scanline"></div>
+					<div class="amp-about-head">
+						<span class="amp-about-title">◄ THE .MOD FORMAT ►</span>
+						<button class="amp-close-btn" id="amp-about-close" aria-label="Close">✕</button>
+					</div>
+					<div class="amp-about-body">
+						<p class="amp-about-relic">— RECOVERED ARTIFACT · circa the Old Networks —</p>
+						<p>Long before the AMP, in the age of humming beige machines, sound was
+						not <em>recorded</em> but <em>rebuilt</em>. A <span class="amp-about-hi">.MOD</span>
+						— a "module" — carried no waveform. It carried the <em>score itself</em>:
+						a handful of tiny instrument samples and the sacred instructions for
+						replaying them across four channels, forever, identically.</p>
+						<p>Trackers, the scribes called them. They stacked notes in glowing
+						columns and traded these modules hand to hand across the wire. A whole
+						song, an entire mood, folded into a file smaller than a single second
+						of modern audio. The ancients called it <span class="amp-about-hi">demoscene</span>.
+						We call it a miracle.</p>
+						<p class="amp-about-howto">The AMP still speaks this dead tongue. Unearth
+						modules from the great archive at
+						<span class="amp-about-hi">modarchive.org</span>, then feed one to the deck
+						with the <span class="amp-about-hi">＋ .MOD</span> key. Your tape will play
+						as it did a thousand years ago.</p>
 					</div>
 				</div>
 

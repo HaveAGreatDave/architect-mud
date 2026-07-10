@@ -33,7 +33,6 @@ export function initSidebarOrder() {
   const lockBtn = document.getElementById('sidebar-lock-btn');
   lockBtn.innerHTML = LOCK_SVG;
   lockBtn.addEventListener('click', toggleLock);
-  document.getElementById('sidebar-reset-btn')?.addEventListener('click', resetOrder);
   document.getElementById('sidebar-move-btn')?.addEventListener('click', () => setMode('move'));
   document.getElementById('sidebar-resize-btn')?.addEventListener('click', () => setMode('resize'));
   document.getElementById('sidebar-size-reset-btn')?.addEventListener('click', resetSizes);

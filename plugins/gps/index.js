@@ -28,7 +28,7 @@ function cmdGps(args, raw, player) {
   if (!query) return { type: 'error', message: 'GPS to where? Try: gps <part of a location name>' };
 
   const r = siftResolve(query, getAllZones());
-  if (r.type === 'none') return { type: 'error', message: `No location matching "${query}".` };
+  if (r.type === 'none') return { type: 'error', message: `No location matching "${query.replace(/^["']|["']$/g, '')}".` };
   if (r.type === 'ambiguous') {
     createSelectionState(player.id, r.candidates, { dispatchType: 'gps.navigate', dispatchParam: 'destination' });
     return { type: 'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };

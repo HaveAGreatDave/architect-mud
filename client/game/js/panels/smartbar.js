@@ -20,6 +20,8 @@
 // (attack/talk/take/loot/examine, turn on|off, open/close/lock/unlock, knock,
 // look through, sit/lie/lean/watch, scavenge) via sendCmd.
 import { sendCmd } from '../net.js';
+import { appendMsg } from '../render.js';
+import { buildMacroNodes, openMacroManager, isMacroRunning, abortMacros } from './smartbar-macros.js';
 
 // ── Flow node model ─────────────────────────────────────────────────────────
 // A node is one of:
@@ -94,6 +96,10 @@ const CATALOG = [
   // touch brighter than the room verbs. One tap opens Tablet OS, the home for
   // Skills/Stats/Map/Music/Bank/etc. now that those quick-cmd buttons are gone.
   { build: () => ({ label: 'Tablet', cmd: 'tablet', accent: true }) },
+
+  // Fast lane to the Gear app's Inventory page — same accent as Tablet, sits right
+  // beside it. Opens the tablet with no CRT boot delay (client-side onFire).
+  { build: () => ({ label: 'Inv', accent: true, onFire: () => import('./tablet-os.js').then(m => m.openTabletToInventory?.()) }) },
 
   // Combat / social — single target, fires immediately when there's just one.
   { build: (m) => pick('Attack', 'Attack what?', m.enemies,
@@ -271,8 +277,98 @@ function renderStep(node, stack, page = 0) {
 // Entry point for a bar button: collapse trivial chains, then fire or open.
 function runNode(node) {
   const n = descend(node);
-  if (n.options) renderStep(n, []);
+  if (n.onFire) n.onFire();            // client-side handler (e.g. open a panel)
+  else if (n.options) renderStep(n, []);
   else sendCmd(n.cmd, n.logLabel);
+}
+
+// ── Custom order (drag-to-reorder) ──────────────────────────────────────────────
+// A localStorage list of button identity keys. Overrides the default layout above.
+const ORDER_KEY = 'architect_smartbar_order';
+function loadBarOrder() {
+  try { return JSON.parse(localStorage.getItem(ORDER_KEY)) || []; } catch { return []; }
+}
+function saveBarOrder(keys) {
+  try { localStorage.setItem(ORDER_KEY, JSON.stringify(keys)); } catch {}
+}
+
+// Stable identity for a node so its saved position survives room-driven rebuilds.
+function nodeKey(node) {
+  if (node.macroStop) return 'stop';
+  if (node.macroAdd) return 'add';
+  if (node.macro) return 'macro:' + node.macroId;
+  if (node.accent) return 'anchor:' + String(node.label).toLowerCase();
+  return 'verb:' + String(node.label || '').toLowerCase();
+}
+
+// The button just left of pointer x (drag insertion target), skipping the lifted one.
+function dragAfterElement(bar, x) {
+  const els = [...bar.querySelectorAll('.smart-btn:not(.smart-btn-dragging)')];
+  let best = { offset: -Infinity, el: null };
+  for (const el of els) {
+    const box = el.getBoundingClientRect();
+    const offset = x - (box.left + box.width / 2);
+    if (offset < 0 && offset > best.offset) best = { offset, el };
+  }
+  return best.el;
+}
+
+// Long-press to lift a button, then drag to reorder; drop saves the new order.
+// Delegated on the (persistent) bar element and wired once, so it survives the
+// per-room re-renders that recreate the buttons.
+let _dragWired = false;
+function wireDragReorder(bar) {
+  if (_dragWired) return;
+  _dragWired = true;
+  const LONG_MS = 350, MOVE_CANCEL = 10;
+  let pressTimer = null, dragging = false, dragEl = null, sx = 0, sy = 0, suppressClick = false;
+
+  const cancelPress = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+
+  bar.addEventListener('pointerdown', (e) => {
+    const btn = e.target.closest('.smart-btn');
+    if (!btn) return;
+    sx = e.clientX; sy = e.clientY;
+    cancelPress();
+    pressTimer = setTimeout(() => {
+      pressTimer = null;
+      dragging = true;
+      dragEl = btn;
+      btn.classList.add('smart-btn-dragging');
+      bar.style.touchAction = 'none';        // stop the row scrolling under the drag
+      try { bar.setPointerCapture(e.pointerId); } catch {}
+    }, LONG_MS);
+  });
+
+  bar.addEventListener('pointermove', (e) => {
+    if (!dragging) {
+      if (pressTimer && (Math.abs(e.clientX - sx) > MOVE_CANCEL || Math.abs(e.clientY - sy) > MOVE_CANCEL)) cancelPress();
+      return;
+    }
+    e.preventDefault();
+    const after = dragAfterElement(bar, e.clientX);
+    if (after == null) bar.appendChild(dragEl);
+    else if (after !== dragEl) bar.insertBefore(dragEl, after);
+  });
+
+  const finish = (e) => {
+    cancelPress();
+    if (!dragging) return;
+    dragging = false;
+    dragEl?.classList.remove('smart-btn-dragging');
+    dragEl = null;
+    bar.style.touchAction = '';
+    suppressClick = true;                    // eat the click that trails pointerup
+    try { bar.releasePointerCapture(e.pointerId); } catch {}
+    saveBarOrder([...bar.querySelectorAll('.smart-btn')].map((b) => b.dataset.key).filter(Boolean));
+  };
+  bar.addEventListener('pointerup', finish);
+  bar.addEventListener('pointercancel', finish);
+
+  // Capture-phase so a just-completed drag doesn't also fire the button's command.
+  bar.addEventListener('click', (e) => {
+    if (suppressClick) { e.stopPropagation(); e.preventDefault(); suppressClick = false; }
+  }, true);
 }
 
 // ── Bar render ─────────────────────────────────────────────────────────────────
@@ -291,17 +387,74 @@ export function renderSmartBar() {
   }
   nodes.push(...autoVerbNodes(m).filter(Boolean));
 
+  // Player macros sit between the fixed anchors (Tablet/Inv) and the room's
+  // context verbs — spliced in right after the leading run of accent anchors.
+  // The "＋" add chip is pinned to the far left, ahead of Tablet.
+  let anchorEnd = 0;
+  while (anchorEnd < nodes.length && nodes[anchorEnd].accent) anchorEnd++;
+  nodes.splice(anchorEnd, 0, ...buildMacroNodes());
+  nodes.unshift({ label: '＋', macroAdd: true, onFire: openMacroManager });
+
+  // Apply the player's saved custom order (drag-to-reorder), which overrides the
+  // default positions above. Keys are stable per-identity; buttons not in the
+  // saved order keep their natural relative order and trail the known ones.
+  for (let i = 0; i < nodes.length; i++) nodes[i]._i = i;
+  const order = loadBarOrder();
+  if (order.length) {
+    const idx = new Map(order.map((k, i) => [k, i]));
+    nodes.sort((a, b) => {
+      const ia = idx.has(nodeKey(a)) ? idx.get(nodeKey(a)) : Infinity;
+      const ib = idx.has(nodeKey(b)) ? idx.get(nodeKey(b)) : Infinity;
+      return (ia - ib) || (a._i - b._i);
+    });
+  }
+
+  // While a macro is running, pin a Stop chip to the far left — added after the
+  // custom-order sort so it's always the leftmost button and can't be dragged
+  // away. It's the escape hatch, shown only when there's something to stop.
+  if (isMacroRunning()) {
+    nodes.unshift({ label: '■ Stop', macroStop: true, onFire: () => {
+      if (abortMacros()) appendMsg('Stopping macros…', 'system');
+    } });
+  }
+
   bar.textContent = '';
   for (const node of nodes) {
     // Show the choice count on branches so "Open (3)" hints at the sheet.
     const opts = node.options ? node.options.filter(Boolean) : null;
     const btn = document.createElement('button');
-    btn.className = node.accent ? 'smart-btn smart-btn-accent' : 'smart-btn';
+    if (node.macroStop) btn.className = 'smart-btn smart-btn-macro-stop';
+    else if (node.macroAdd) btn.className = 'smart-btn smart-btn-accent smart-btn-macro-add';
+    else if (node.macro) {
+      btn.className = 'smart-btn smart-btn-macro';
+      if (node.color) btn.style.setProperty('--macro-color', node.color);
+    } else btn.className = node.accent ? 'smart-btn smart-btn-accent' : 'smart-btn';
+    btn.dataset.key = nodeKey(node);
     btn.textContent = opts && opts.length > 1 ? `${node.label} (${opts.length})` : node.label;
     btn.addEventListener('click', () => runNode(node));
     bar.appendChild(btn);
   }
 
+  wireDragReorder(bar);
+
   // Collapse the row entirely when the room offers no actions.
   bar.classList.toggle('smart-bar-empty', nodes.length === 0);
+
+  // Fade the overflowing edge so it's obvious the row scrolls (players swipe it
+  // with a finger — no scrollbar). Wire scroll/resize once, then refresh now.
+  if (!bar._scrollHintWired) {
+    bar._scrollHintWired = true;
+    bar.addEventListener('scroll', () => updateScrollHint(bar), { passive: true });
+    window.addEventListener('resize', () => updateScrollHint(bar));
+  }
+  updateScrollHint(bar);
+}
+
+// Toggle edge-fade classes based on how far the bar is scrolled: fade the right
+// while there's more to the right, the left once you've scrolled off the start.
+function updateScrollHint(bar) {
+  const max = bar.scrollWidth - bar.clientWidth;
+  const x = bar.scrollLeft;
+  bar.classList.toggle('can-scroll-left', x > 1);
+  bar.classList.toggle('can-scroll-right', x < max - 1);
 }

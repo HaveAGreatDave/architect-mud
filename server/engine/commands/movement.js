@@ -333,7 +333,14 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
       // Numbered SIFT picker. Selecting a number moves straight to that zone id
       // (see the selection intercept in commands/index.js) — no name round-trip.
       createSelectionState(player.id, candidates, { verb: 'move', moveDirection: direction });
-      return { type: 'output', message: `Several ways lead ${direction}.\n${formatSelectionPage(getSelectionState(player.id))}` };
+      // movePicker carries the ordered candidate zone ids so a client that already
+      // knows which destination it wants (GPS auto-walk) can answer the right number
+      // itself instead of stalling. Numbers match the rendered [1]/[2] order.
+      return {
+        type: 'output',
+        message: `Several ways lead ${direction}.\n${formatSelectionPage(getSelectionState(player.id))}`,
+        movePicker: { direction, candidates: candidates.map((c, i) => ({ n: i + 1, id: c.id })) },
+      };
     }
   }
   const targetZone = getZone(targetId);
@@ -476,6 +483,10 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
       broadcast(null, { type:'resource_tick', messages:[], player_update:{ stamina: player.stamina } }, null, player.id);
     }
   }
+
+  // Stamp the move for the rest/regen tick — stamina only recovers after a short
+  // idle delay since your last step (see restRegenTick in gameLoop.js).
+  player._lastMoveAt = Date.now();
 
   // Battle cries: one per enemy type in the destination zone
   const arrivedEnemies = getZoneEnemies(targetId);

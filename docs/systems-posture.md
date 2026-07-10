@@ -52,7 +52,7 @@ gate their messaging.
 
 | Behaviour | Location | Rule |
 |---|---|---|
-| **HP regen** | `gameLoop.js` `sittingRegenTick` (`15s` cadence) | While `posture === "sitting"` and not in combat, heal `SIT_REGEN_HP` (5) up to `hp_max`. In combat (`combatTargetId`/`pvpTargetId` set) → force stand instead. |
+| **Stamina + HP regen** | `gameLoop.js` `restRegenTick` (`15s` cadence) | Stamina recovers first, and only after the player has been idle (no move) for `IDLE_REGEN_MS` (8 s) — `STAND_STAMINA_REGEN` (1) per tick standing, `SIT_STAMINA_REGEN` (6) while sitting, both scaled by `tempRegenMultiplier`. HP heals `SIT_REGEN_HP` (3) per tick **only while `posture === "sitting"` and stamina is at max**. In combat (`combatTargetId`/`pvpTargetId` set) while sitting → force stand instead. `cmdMove` stamps `player._lastMoveAt`; the resource tick (`1m`) still applies temperature *drains*. |
 | **Stand when attacked (PvE)** | `gameLoop.js` enemy-attack handler | On any hit *attempt*, `forceStand(target, 'attacked')` clears any non-standing posture and notifies. Activity plugins' ticks then discard their own state. |
 | **Stand when attacked (PvP)** | `gameLoop.js` `pvpSwing` handler | Same, against the defender. |
 | **Stand when you attack** | [`plugins/weapon/index.js`](../plugins/weapon/index.js) `cmdAttack` | `forceStand(player, 'attacking')` on attack initiation. |
@@ -63,7 +63,9 @@ gate their messaging.
 
 ## Tunables
 
-- `SIT_REGEN_HP` = 5 HP per tick, `15s` cadence (`gameLoop.js`). 5 HP / 15 s.
+- `IDLE_REGEN_MS` = 8 s idle grace before stamina recovers.
+- `STAND_STAMINA_REGEN` = 1 / tick (standing, idle), `SIT_STAMINA_REGEN` = 6 / tick (sitting), `15s` cadence (`gameLoop.js`).
+- `SIT_REGEN_HP` = 3 HP per tick, only while sitting **and** stamina is full. 3 HP / 15 s.
 
 ## NPCs use the same substrate
 

@@ -467,6 +467,11 @@ export function initMusicPlayerPanel() {
   document.getElementById('amp-close').addEventListener('click', closeMusicPlayerPanel);
   panel.addEventListener('click', e => { if (e.target === panel) closeMusicPlayerPanel(); });
 
+  // About .MOD — the ancient-artifact lore card (toggled by the ? in the header).
+  const about = document.getElementById('amp-about');
+  document.getElementById('amp-help').addEventListener('click', () => { about.hidden = false; });
+  document.getElementById('amp-about-close').addEventListener('click', () => { about.hidden = true; });
+
   document.getElementById('amp-play').addEventListener('click', () => {
     if (_playing) { _stop(); return; }
     if (!_songs.length) return;

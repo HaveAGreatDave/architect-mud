@@ -1311,22 +1311,63 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const outroId = prevId;
   say(pick(...(ws ? ['worldseries.outro', 'outro'] : ['outro'])), finalTok, finalBug);
 
+  // Post-game recap reel (featured blocks only). A featured `@airtime` game fills ~85%
+  // of its long block, leaving a tail that would otherwise just park on the final card.
+  // Instead, roll a recap of TODAY'S EARLIER FINALS — the same in-game day's prior slots
+  // — so viewers see more baseball. These are already-computed games (pure per-slot
+  // results; the standings fold counts each slot exactly once), so recapping them shows
+  // more games without adding any: nothing is simulated or booked here, only re-shown.
+  // Not during the World Series (finalists own the screen) or the day's first slot (no
+  // earlier games yet). Recap nodes are tagged `_recap` so the pacer fills the tail with
+  // them instead of parking. Deterministic → identical reel on every TV.
+  const slotOfDay = ((slot % SPORTS_GAMES_PER_DAY) + SPORTS_GAMES_PER_DAY) % SPORTS_GAMES_PER_DAY;
+  const featured = Array.isArray(script.airSlots) && script.airSlots.length > 0;
+  if (featured && !ws && slotOfDay > 0) {
+    add({ type: 'say', text: 'Around the league — here’s how the earlier games finished today.', style: 'raw', _recap: true });
+    for (let e = slot - slotOfDay; e < slot; e++) {
+      const rg = sportsGameForSlot(script, e, null);
+      if (!rg) continue;
+      const { away: ra, home: rh, awayScore: ras, homeScore: rhs } = rg.game;
+      const rWin = ras === rhs ? '' : (ras > rhs ? ra.name : rh.name);
+      const rBug = {
+        sport: 'baseball', away: ra.name, home: rh.name,
+        awayAbbr: sportsAbbr(ra.name), homeAbbr: sportsAbbr(rh.name),
+        awayScore: ras, homeScore: rhs, status: 'FINAL',
+      };
+      const rFx = {
+        overlayType: 'sportsfx', kind: 'gamewin', winner: rWin,
+        loser: rWin === ra.name ? rh.name : ra.name,
+        winScore: rWin === ra.name ? ras : rhs, loseScore: rWin === ra.name ? rhs : ras,
+        away: ra.name, home: rh.name, awayScore: ras, homeScore: rhs, duration: 4.4,
+      };
+      add({ type: 'say', text: `Final: ${ra.name} ${ras}, ${rh.name} ${rhs}.`, style: 'raw', scorebug: rBug, graphic: rFx, _recap: true });
+    }
+  }
+
   // Pace the play-by-play to fill ~SPORTS_GAME_FILL of the slot (auto-repaces for any
-  // the slot), then park the final sign-off on screen for the remainder — a
-  // "final / next game soon" post-game lull — rather than looping the game mid-slot.
-  // Per-line hold rounds DOWN to the tick grid so the quantized on-air time can't
-  // overrun the slot; the tail then pads up to the exact slot boundary. All deterministic
-  // → every TV repaces and parks identically.
+  // number of lines), then use the remainder for the recap reel (featured) or park the
+  // final sign-off on screen (a "final / next game soon" lull) — never looping the live
+  // game mid-slot. Per-line hold rounds DOWN to the tick grid so the quantized on-air
+  // time can't overrun the slot; the tail then pads up to the exact slot boundary. All
+  // deterministic → every TV repaces, reels, and parks identically.
   const floorTick = (ms) => Math.floor(ms / BROADCAST_TICK_MS) * BROADCAST_TICK_MS;
-  const sayIds = Object.keys(nodes).filter((id) => nodes[id].type === 'say');
   const slotMs = sportsSlotMs();
-  const perLine = Math.min(90000, Math.max(SPORTS_LINE_HOLD_MS, floorTick(slotMs * SPORTS_GAME_FILL / Math.max(1, sayIds.length))));
-  for (const id of sayIds) nodes[id].holdMs = perLine;
+  const allSayIds = Object.keys(nodes).filter((id) => nodes[id].type === 'say');
+  const gameSayIds = allSayIds.filter((id) => !nodes[id]._recap);
+  const recapSayIds = allSayIds.filter((id) => nodes[id]._recap);
+  const perLine = Math.min(90000, Math.max(SPORTS_LINE_HOLD_MS, floorTick(slotMs * SPORTS_GAME_FILL / Math.max(1, gameSayIds.length))));
+  for (const id of gameSayIds) nodes[id].holdMs = perLine;
+  let lastFloor = perLine;
+  if (recapSayIds.length) {
+    const recapPerLine = Math.min(45000, Math.max(SPORTS_LINE_HOLD_MS, floorTick(slotMs * (1 - SPORTS_GAME_FILL) / recapSayIds.length)));
+    for (const id of recapSayIds) nodes[id].holdMs = recapPerLine;
+    lastFloor = recapPerLine;
+  }
 
   const holdOf = (nd) => (nd.type === 'start' ? 0 : Math.ceil((nd.type === 'title_card' ? (nd.duration ?? 10) * 1000 : (nd.holdMs ?? 5000)) / BROADCAST_TICK_MS) * BROADCAST_TICK_MS);
   const played = Object.values(nodes).reduce((sum, nd) => sum + holdOf(nd), 0);
   const tail = nodes[prevId] || nodes[outroId];
-  if (tail) tail.holdMs = Math.max(perLine, slotMs - (played - holdOf(tail)));
+  if (tail) tail.holdMs = Math.max(lastFloor, slotMs - (played - holdOf(tail)));
 
   // When the chain ends the walker restarts at _start on its own. Keying _broadcastId
   // to the global slot resets the blackboard when the slot rolls, so the shared graph

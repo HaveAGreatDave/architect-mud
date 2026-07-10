@@ -21,8 +21,8 @@ await query(
    ON CONFLICT (id) DO UPDATE SET
      name=EXCLUDED.name, description=EXCLUDED.description, weight=EXCLUDED.weight,
      value=EXCLUDED.value, tags=EXCLUDED.tags`,
-  [ITEM_ID, 'SPECTER Install Chip',
-   "A slab of black storage glass etched with a spider-web sigil. A single-use flasher — jack it into your tablet and it burns the SPECTER surveillance suite onto the OS, then cooks itself into dead plastic. One chip, one install.",
+  [ITEM_ID, 'SPECTER Firmware Drive',
+   "A matte-black flash drive the size of a thumbnail, its casing veined with a single hairline of cold green light that pulses like it's breathing. Etched down one side in micro-type: SPECTER // GHOST-SIG FIRMWARE. The USB connector is scuffed from a dozen ports it was never meant to see. Slot it into your tablet and `use` it — a flasher boots, bypasses the tablet's signature check, and writes SPECTER to ROM. One-shot: the drive dies with the install.",
    100, PRICE, JSON.stringify({ specter_program: true })]
 );
 console.log(`UPSERT item ${ITEM_ID}`);

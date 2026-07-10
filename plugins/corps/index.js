@@ -962,7 +962,7 @@ export const specializedActions = [
 // carries the eye-catching Franchise-style propaganda in its own description. THIS
 // hook adds only the *ache* the poster is engineered to leave behind and a lead to
 // a person — deliberately NO command list. Learning how a corp actually works is a
-// conversation you have with Denny Corliss on the Strip (scripts/add-corp-recruiter.js),
+// conversation you have with Denny Corliss down at the Yards (scripts/add-corp-recruiter.js),
 // not fine print you read off a wall. A few posters (`architect_wink`) carry the
 // license motif that only pays off once you learn what corps really serve.
 // Returns undefined for any other furniture so the posters plugin's own
@@ -970,7 +970,7 @@ export const specializedActions = [
 export const _corpPosterPitch = (f) => {
   if (f?.flags?.corp_poster !== true) return undefined;
   let out =
-    `<span class="text-dim">There's no form on it, no number to call — just the want it's built to leave in you, and, in a corner, a line small enough to feel like a secret: <b>Sign-ups in person only.</b> Ask on the Franchise Strip. Word on the row is a smiling man named <b>Denny Corliss</b> keeps a folding table down there and will walk anyone who asks through starting an outfit of their own.</span>`;
+    `<span class="text-dim">There's no form on it, no number to call — just the want it's built to leave in you, and, in a corner, a line small enough to feel like a secret: <b>Sign-ups in person only.</b> Ask down at the Yards. Word on the row is a smiling man named <b>Denny Corliss</b> keeps a folding table at the Depot, just inside the gates, and will walk anyone who asks through starting an outfit of their own.</span>`;
   if (f.flags?.architect_wink === true) {
     out += `\n<span class="text-dim">Bottom corner, too small to be meant for you: "OPERATING UNDER LICENSE · NORTHERN ACCESS GRANTED WHERE PRODUCTIVITY IS OBSERVED · —A"</span>`;
   }

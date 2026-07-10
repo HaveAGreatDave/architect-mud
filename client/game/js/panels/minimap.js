@@ -57,14 +57,37 @@ let autoWalkTimer = null;
 // next leg up without another Auto click. Cleared only by an explicit stop
 // (toggle off), a hard error, or the route being cleared.
 let autoWalkArmed = false;
+// Stuck detection: a step that leaves us in the same room made no progress. The
+// only non-erroring way that happens mid-walk is an ambiguous exit throwing a SIFT
+// picker (which auto-walk can't answer, so it just re-prompts). Two in a row → stop.
+let autoNoProgress = 0;
+let autoLastZone = null;
+let autoPendingTarget = null; // the zone id the last auto-walk step is trying to reach
 
 function autoWalkBtn() { return document.getElementById('mm-auto-toggle'); }
+
+// An ambiguous-direction move threw a numbered exit picker. Because auto-walk
+// already knows the exact next zone id on the route, match it against the picker's
+// candidates and answer the matching number ourselves — so the walk flows straight
+// through multi-exit junctions instead of stalling. Returns true if we answered
+// (the caller then suppresses the picker text). `picker.candidates` is [{n,id}] in
+// the same order the [1]/[2] options are rendered.
+export function resolveAutoWalkPicker(picker) {
+  if (!isAutoWalking() || autoPendingTarget == null) return false;
+  const hit = (picker?.candidates || []).find((c) => c.id === autoPendingTarget);
+  // The picker only accepts a number on the visible page (SIFT PAGE_SIZE = 5); if
+  // our target sits deeper, let it fall through to the stall-and-stop path.
+  if (!hit || hit.n == null || hit.n > 5) return false;
+  sendCmdSilent(String(hit.n)); // resolves the pending selection → the move completes
+  return true;
+}
 
 // keepArmed:true is the "arrived at this leg's end but still want to auto-walk the
 // next one" case — the timer stops but the intent persists for a resume.
 function stopAutoWalk(message, { keepArmed = false } = {}) {
   if (autoWalkTimer) { clearTimeout(autoWalkTimer); autoWalkTimer = null; }
   if (!keepArmed) { autoWalkArmed = false; autoWalkBtn()?.classList.remove('active'); }
+  autoNoProgress = 0; autoLastZone = null; autoPendingTarget = null;
   if (message) appendMsg(message, 'system');
 }
 
@@ -85,9 +108,25 @@ function autoWalkStep() {
   // Arrived at this leg's end: keep the intent armed so a quest advancing to a new
   // waypoint (gps_route resumeAuto) continues the walk without another Auto click.
   if (!path || path.length < 2) { stopAutoWalk('Auto-walk: arrived.', { keepArmed: true }); return; }
+
+  // Still in the same room as last step = the move didn't take (an ambiguous exit
+  // threw a SIFT picker). Tolerate one hiccup; on the second, stop and dismiss the
+  // pending picker so it doesn't swallow the player's next input.
+  if (autoLastZone === current.id) {
+    if (++autoNoProgress >= 2) {
+      sendCmdSilent('cancel');
+      stopAutoWalk('Auto-walk stopped — the way ahead is ambiguous. Pick an exit yourself.');
+      return;
+    }
+  } else {
+    autoNoProgress = 0;
+  }
+  autoLastZone = current.id;
+
   const nextId = path[1];
   const dir = Object.entries(current.exits || {}).find(([, id]) => id === nextId)?.[0];
   if (!dir || !DIR_CMDS.includes(dir)) { stopAutoWalk("Auto-walk stopped — can't step off the route from here."); return; }
+  autoPendingTarget = nextId; // so an exit picker can be answered toward this zone
   sendCmd(dir);
   autoWalkTimer = setTimeout(autoWalkStep, autoWalkDelay());
 }
@@ -100,6 +139,7 @@ export function startAutoWalk() {
   const path = current ? effectiveTracePath(current.id) : null;
   if (!path || path.length < 2) { appendMsg('Auto-walk: no GPS route plotted.', 'system'); return; }
   autoWalkArmed = true;
+  autoNoProgress = 0; autoLastZone = null;
   autoWalkBtn()?.classList.add('active');
   autoWalkStep();
 }
@@ -109,6 +149,15 @@ export function startAutoWalk() {
 export function toggleAutoWalk() {
   if (isAutoWalking() || autoWalkArmed) stopAutoWalk('Auto-walk stopped.');
   else startAutoWalk();
+}
+
+// Cancel an in-progress (or armed-but-paused) walk from outside the module — a
+// typed `stop`, or a blocked move (locked door, encumbrance) echoed back as an
+// error. No-ops (and stays silent) if there was nothing to stop.
+export function cancelAutoWalk(message) {
+  if (!isAutoWalking() && !autoWalkArmed) return false;
+  stopAutoWalk(message);
+  return true;
 }
 
 function wireMinimapAutoToggle() {

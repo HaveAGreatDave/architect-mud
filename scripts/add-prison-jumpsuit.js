@@ -20,7 +20,7 @@ const TAGS = {
   layer: 'outerwear',
   covers: ['legs'],   // one piece, two slots — torso AND legs
   bulkiness: 2,
-  insulation: 2,
+  insulation: 8,   // covers torso+legs (exposure 0) → warmthTemp = ambient + 8; warm past the 10°C cold threshold
   armor: 0,
   description: DESC,
 };

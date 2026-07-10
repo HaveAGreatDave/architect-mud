@@ -19,8 +19,14 @@ import { tickDrugDecay, tickDrugs, tickOnsets, tickWithdrawal, clearActiveDrugSt
 import { getTimeScale } from './gametime.js';
 import { getTotalXp } from './ip.js';
 
-// HP restored per sitting tick (every 15 seconds)
-const SIT_REGEN_HP = 5;
+// Rest/regen tunables (restRegenTick, every 15 seconds).
+// Stamina only regenerates once you've been idle (no movement) for a short delay,
+// and faster while sitting. HP only starts recovering — slowly, and only while
+// sitting — once stamina is back to full.
+const IDLE_REGEN_MS = 8000;       // no-movement grace before stamina recovers
+const STAND_STAMINA_REGEN = 1;    // stamina per tick when idle & standing (slow)
+const SIT_STAMINA_REGEN = 6;      // stamina per tick when sitting (faster rest)
+const SIT_REGEN_HP = 3;           // HP per tick while sitting, once stamina is full
 
 // Cloning-vat emergence beats (ms after respawn), played only on the normal vat
 // path: consciousness arrives immediately, the body reports in, then a dressing
@@ -41,7 +47,7 @@ export function startGameLoop(broadcast) {
   schedule('30s', stormTick);
   schedule('1m', resourceTick);
   schedule('10s', () => tickSpawns(broadcastFn));
-  schedule('15s', sittingRegenTick);
+  schedule('15s', restRegenTick);
   schedule('1m', npcWanderTick);
   schedule('30s', () => npcBanterTick({ broadcast: broadcastFn }));
   // Once-per-GAME-day housekeeping + rent collection. Driven by the environment's
@@ -932,17 +938,15 @@ async function resourceTick() {
       if (wx?.weatherType === 'ash') applyEffect(player, 'choking', 65);
     }
 
-    // --- Stamina regen/drain ---
+    // --- Stamina drain ---
+    // Extreme temperature saps stamina here; passive *regen* lives in restRegenTick
+    // (15s), gated on being idle and boosted while sitting.
     const staminaMax = player.stamina_max ?? 100;
     player.stamina = player.stamina ?? staminaMax;
     if (isFreezing || isOverheating) {
       player.stamina = Math.max(0, player.stamina - 3);
     } else if (isCold || isHot) {
       player.stamina = Math.max(0, player.stamina - 1);
-    } else if (player.stamina < staminaMax) {
-      // Passive regen, reduced by temperature penalty
-      const regen = Math.max(0, Math.floor(2 * tempRegenMultiplier(tempC)));
-      if (regen > 0) player.stamina = Math.min(staminaMax, player.stamina + regen);
     }
 
     // Diff-gate the write (Phase 6): only persist when one of the five tracked
@@ -994,22 +998,55 @@ const SIT_REGEN_MESSAGES = [
   `A moment of stillness. You feel marginally less terrible.`,
 ];
 
-async function sittingRegenTick() {
+// Rest/regen: stamina first (idle-gated, faster while sitting), then — only once
+// stamina is topped off and only while sitting — slow HP recovery. Runs every 15s.
+async function restRegenTick() {
+  const now = Date.now();
   for (const [playerId, player] of world.players) {
-    if (player.posture !== 'sitting') continue;
-    if (player.combatTargetId || player.pvpTargetId) {
+    // Combat interrupts sitting outright; standing players just don't rest.
+    if (player.posture === 'sitting' && (player.combatTargetId || player.pvpTargetId)) {
       forceStand(player, 'combat');
       continue;
     }
-    if (player.hp >= player.hp_max) continue;
-    const healed = Math.min(SIT_REGEN_HP, player.hp_max - player.hp);
-    player.hp += healed;
-    await query('UPDATE players SET hp=$1 WHERE id=$2', [player.hp, player.id]).catch(() => {});
-    const msg = SIT_REGEN_MESSAGES[Math.floor(Math.random() * SIT_REGEN_MESSAGES.length)];
+
+    const sitting = player.posture === 'sitting';
+    const staminaMax = player.stamina_max ?? 100;
+    player.stamina = player.stamina ?? staminaMax;
+    const idle = now - (player._lastMoveAt ?? 0) >= IDLE_REGEN_MS;
+
+    let hp = player.hp;
+    let stamina = player.stamina;
+
+    // Stamina recovers only when you've held still for the grace period. Sitting
+    // recovers faster; either way it's scaled down by temperature stress.
+    if (idle && stamina < staminaMax) {
+      const base = sitting ? SIT_STAMINA_REGEN : STAND_STAMINA_REGEN;
+      const gain = Math.max(0, Math.floor(base * tempRegenMultiplier(player.body_temp_c ?? 37)));
+      if (gain > 0) stamina = Math.min(staminaMax, stamina + gain);
+    }
+
+    // HP only starts knitting back together once stamina is full — and only while
+    // sitting. Deliberately slow.
+    let healed = 0;
+    if (sitting && stamina >= staminaMax && hp < player.hp_max) {
+      healed = Math.min(SIT_REGEN_HP, player.hp_max - hp);
+      hp += healed;
+    }
+
+    if (hp === player.hp && stamina === player.stamina) continue;
+    player.hp = hp;
+    player.stamina = stamina;
+    await query('UPDATE players SET hp=$1, stamina=$2 WHERE id=$3', [hp, stamina, player.id]).catch(() => {});
+
+    const messages = [];
+    if (healed > 0) {
+      const msg = SIT_REGEN_MESSAGES[Math.floor(Math.random() * SIT_REGEN_MESSAGES.length)];
+      messages.push(`${msg} (+${healed} HP)`);
+    }
     broadcastFn(null, {
       type: 'resource_tick',
-      messages: [`${msg} (+${healed} HP)`],
-      player_update: { hp: player.hp },
+      messages,
+      player_update: { hp, stamina },
     }, null, playerId);
   }
 }

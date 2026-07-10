@@ -1,7 +1,7 @@
 // Surveillance plugin regression suite — run by tests/regress.js (never loaded
 // in production). Verb routing plus the crime→star registry defaults/cap.
 import { CRIME_DEFAULTS, getCrimeStars, getCrimeList } from '../../server/engine/crimes.js';
-import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull } from './index.js';
+import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, deleteMicroreel, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull } from './index.js';
 import { query } from '../../server/models/db.js';
 import { setFlag } from '../../server/engine/flags.js';
 
@@ -65,7 +65,7 @@ export default async function regress({ run, check, getPlayer }) {
   // Carry a program chip and `use` it: installs SPECTER (flag) + burns the item.
   await query(
     `INSERT INTO items (id,name,description,type,weight,value,tags)
-     VALUES ('item_specter_program','SPECTER Install Chip','','device',100,1500,'{"specter_program":true}')
+     VALUES ('item_specter_program','SPECTER Firmware Drive','','device',100,1500,'{"specter_program":true}')
      ON CONFLICT (id) DO NOTHING`
   );
   await query("DELETE FROM player_inventory WHERE player_id=$1 AND item_id='item_specter_program'", [p.id]);
@@ -73,7 +73,7 @@ export default async function regress({ run, check, getPlayer }) {
     "INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ('inv_regress_specter',$1,'item_specter_program',1)",
     [p.id]
   );
-  const inst = await run('use SPECTER Install Chip');
+  const inst = await run('use SPECTER Firmware Drive');
   check('use SPECTER program triggers the install animation + reports install', inst?.type === 'specter_install' && /installed/i.test(inst?.message || ''), JSON.stringify(inst)?.slice(0, 160));
   check('SPECTER install sets the flag', (await isSpecterInstalled(p)) === true);
   const { rows: leftover } = await query("SELECT 1 FROM player_inventory WHERE player_id=$1 AND item_id='item_specter_program'", [p.id]);
@@ -145,6 +145,14 @@ export default async function regress({ run, check, getPlayer }) {
   check('wipe clears the buffer without saving a reel', __cameraFrames(CAM_ID).length === 0, `len=${__cameraFrames(CAM_ID).length}`);
   const reelsAfterWipe = await microreelList(p);
   check('wipe did not add a reel', reelsAfterWipe.length === reels.length, `before=${reels.length} after=${reelsAfterWipe.length}`);
+
+  // deleteMicroreel: a bogus / non-owned id is refused; a real one is destroyed for good.
+  const bogusDel = await deleteMicroreel(p, 'clip_does_not_exist');
+  check('deleteMicroreel refuses an unknown/non-owned reel', bogusDel?.ok === false, JSON.stringify(bogusDel));
+  const delRes = await deleteMicroreel(p, reelsAfterWipe[0].clipId);
+  check('deleteMicroreel destroys the owner reel', delRes?.ok === true, JSON.stringify(delRes));
+  const reelsAfterDelete = await microreelList(p);
+  check('destroyed reel is gone from the owner reel list', reelsAfterDelete.length === reelsAfterWipe.length - 1, `before=${reelsAfterWipe.length} after=${reelsAfterDelete.length}`);
 
   await query('DELETE FROM security_clips WHERE owner_id=$1', [p.id]);
   await query('DELETE FROM furniture WHERE id=$1', [CAM_ID]);

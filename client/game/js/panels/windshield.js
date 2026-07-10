@@ -56,7 +56,7 @@ export const RENDER_TUNE = {
   worldPace: 0.001,   // cruise/air pace (tiles per knot per second)
   groundBoost: 8,     // pace multiplier at zero altitude → quick down the runway
   groundDecay: 18,    // altitude e-fold (ft) for the boost → smaller = drops to cruise pace sooner after liftoff
-  eh: 0.05,           // Mode-7 eye height on the GROUND (near-0 spread-out look; a floor keeps the runway from collapsing)
+  eh: 0.14,           // Mode-7 eye height on the GROUND — raised from 0.05 to lift the camera so the bare near foreground drops off the bottom edge (runway reaches the bottom, no dirt shown below it); a floor still keeps the runway from collapsing
   climbLift: 7.0,     // eye-height ADDED per unit altitude: EH = max(floor, eh + climbLift*height). ~2 by 500ft → clears buildings
   tile: 0.85,         // Mode-7 floor tile frequency (higher = smaller terrain tiles)
   pixel: 4,           // Mode-7 render downscale → pixel chunkiness (higher = blockier/retro)

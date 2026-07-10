@@ -420,12 +420,15 @@ export async function finishConsume(player, itemRowId, broadcast, extraOpts = {}
 async function cmdUse(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Use what?' };
 
+  // Match by display name (substring), the instance's custom name, or the item
+  // TYPE id (exact, e.g. "item_stimpak") — the latter lets macros/scripts target
+  // "any of that item" and grabs the first matching stack.
   const { rows: drugRows } = await query(
     `SELECT pi.*, i.name, i.tags, d.id as drug_id FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
      JOIN drugs d ON d.item_id = i.id
-     WHERE pi.player_id=$1 AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2) LIMIT 1`,
-    [player.id, `%${targetStr}%`]
+     WHERE pi.player_id=$1 AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2 OR i.id ILIKE $3) LIMIT 1`,
+    [player.id, `%${targetStr}%`, targetStr]
   );
   if (drugRows.length) {
     const item = drugRows[0];
@@ -445,11 +448,13 @@ async function cmdUse(targetStr, player, broadcast) {
     return applyDrugUse(player, item, cd, opts, broadcast);
   }
 
-  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND jsonb_exists(i.tags,'consumable') LIMIT 1`, [player.id, `%${targetStr}%`]);
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND (i.name ILIKE $2 OR i.id ILIKE $3) AND jsonb_exists(i.tags,'consumable') LIMIT 1`, [player.id, `%${targetStr}%`, targetStr]);
   if (!rows.length) return cmdUseFurniture(targetStr, player, broadcast);
   const item = rows[0];
   const t = item.tags || {};
-  const messages = [`You use ${item.name}.`];
+  // An item can carry its own flavour line for the act of consuming it
+  // (tags.use_message); otherwise fall back to the plain default.
+  const messages = [t.use_message || `You use ${item.name}.`];
   if (t.restore_hp) { player.hp = Math.min(player.hp_max, player.hp+t.restore_hp); messages.push(`+${t.restore_hp} HP.`); }
   if (t.restore_hunger) {
     player.hunger = Math.min(100, player.hunger+t.restore_hunger);

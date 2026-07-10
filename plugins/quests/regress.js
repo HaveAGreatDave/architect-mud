@@ -99,9 +99,12 @@ export default async function regress({ run, check, getPlayer }) {
     `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
      VALUES ($1,'Regress Emote','',$2,'{}',0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
      ON CONFLICT (id) DO UPDATE SET objectives=$2`,
+    // taskSeconds:0 opts these back into instant completion — a bare visit now
+    // defaults to a short "doing the work" delay (DEFAULT_VISIT_SECONDS), so this
+    // test pins the instant path to assert the emote/gating tick without a sleep.
     [TWO_STEP_QUEST_ID, JSON.stringify([
-      { id: 'o0', type: 'visit', zone: 'zone_regress_nowhere_a', count: 1, desc: 'Step one', emote: '{who} does the first thing.' },
-      { id: 'o1', type: 'visit', zone: 'zone_regress_nowhere_b', count: 1, desc: 'Step two', requires: ['o0'], emote: '{who} does the second thing.' },
+      { id: 'o0', type: 'visit', zone: 'zone_regress_nowhere_a', count: 1, desc: 'Step one', taskSeconds: 0, emote: '{who} does the first thing.' },
+      { id: 'o1', type: 'visit', zone: 'zone_regress_nowhere_b', count: 1, desc: 'Step two', requires: ['o0'], taskSeconds: 0, emote: '{who} does the second thing.' },
     ])]
   );
   await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TWO_STEP_QUEST_ID]);
