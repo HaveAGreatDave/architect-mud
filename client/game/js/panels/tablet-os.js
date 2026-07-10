@@ -3753,8 +3753,8 @@ function wireTabletSettings() {
     const doSend = () => {
       const v = emojifyChat(chatInput.value.trim());
       if (!v) return;
+      chatInput.value = ''; // clear before send — sendChatMessage triggers a re-render that snapshots/restores the input value
       sendChatMessage(_chatTab, v);
-      chatInput.value = '';
     };
     chatSend?.addEventListener('click', doSend);
     chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSend(); });
