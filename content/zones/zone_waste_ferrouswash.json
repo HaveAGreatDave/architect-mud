@@ -8,7 +8,6 @@
   "bg_color": "#efa2a2",
   "color": "#eeeeee",
   "created_by": "phase10-build",
-  "danger_rating": "medium",
   "description": "A wash where iron-rich runoff braids across the flat in rust-red rivulets, staining a delta that spreads a little wider each year. Drinking it kills you slowly; standing in it, only slightly faster.",
   "exits": {
     "east": "zone_waste_scrapmesa",
@@ -17,24 +16,17 @@
     "west": "zone_waste_deadfurnace"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
+    "radiation": 10,
     "scavenging_table_id": "scav_west_wastes"
   },
   "grid_x": -7,
   "grid_y": -5,
   "grid_z": 0,
   "id": "zone_waste_ferrouswash",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "FW",
   "name": "Ferrous Wash",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 1,
   "updated_at": "1783301927"
 }

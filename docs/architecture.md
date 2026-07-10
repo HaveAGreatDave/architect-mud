@@ -135,8 +135,8 @@ The world-building interface. Accessible only to accounts with `role: dev`/`admi
 ### Modules (Built)
 
 #### 🗺️ Zone Editor
-- Name, description, danger rating, radiation level
-- PvP flag, safe-zone flag, **apartment flag** (`flags.is_apartment` — makes a zone rentable; saving a zone with this checked auto-registers an `apartments` table row if one doesn't exist yet), **building flag** (`flags.is_building`, drives entrance-discovery text in neighboring zones) and **interior flag** (`flags.is_interior`)
+- Name, description; danger shown read-only (inferred from spawns + radiation — override via the `danger` zone tag)
+- **Zone Tags editor** (radiation, sanctuary, street_life, … — the catalog-validated `flags` bag), plus structured widgets: **apartment flag** (`flags.is_apartment` — makes a zone rentable; saving a zone with this checked auto-registers an `apartments` table row if one doesn't exist yet), **building flag** (`flags.is_building`, drives entrance-discovery text in neighboring zones) and **interior flag** (`flags.is_interior`)
 - **Exits** — a direction + destination-zone picker (list of current exits with Remove buttons, plus an add-exit form), not a hand-edited JSON blob
 - Ambient events as a JSON array of strings
 - **Rooms / NPCs / Furniture sub-sections** — add, edit, and delete a zone's child rooms (apartments/interiors attached via a single exit back to this zone), NPCs, and furniture without leaving the zone's own edit panel
@@ -236,7 +236,7 @@ next to something hostile.
 ```sql
 players           -- account, stats, skills location, credits, bank_credits, anchor/current zone
 player_skills     -- player_id, skill_id, rank, xp
-zones             -- id, name, description, exits (JSONB), flags (JSONB), danger_rating, radiation_level
+zones             -- id, name, description, exits (JSONB), flags (JSONB — catalog-validated zone tag bag: radiation/sanctuary/danger/…)
 items             -- template definitions: type, effects, stat_modifiers
 player_inventory  -- player_id (or "_ground_<zone_id>" for dropped items), item_id, quantity
 enemies           -- template definitions: stat block, loot_table, behavior, faction

@@ -5,7 +5,7 @@ import { sendToPlayer } from '../messaging.js';
 import { getZonePowerStatus, recomputePower, recalcZoneLoad } from '../environment.js';
 import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
-import { getMinimapData, addPlayerToZone, removePlayerFromZone, removeLivePlayer } from '../world.js';
+import { getMinimapData, addPlayerToZone, removePlayerFromZone, removeLivePlayer, resolveLanding } from '../world.js';
 import { allExits, exitTargets } from '../exits.js';
 import { statCost, raiseStat, RAISABLE_STATS, getNetXp, maxHpForEndurance } from '../ip.js';
 import { ensureTunables } from '../tunables.js';
@@ -983,6 +983,7 @@ function cmdCorpses(player) {
 async function cmdTeleport(targetZoneId, player, broadcast) {
   if (player.role !== 'admin') return { type:'error', message:"You don't have the clearance for that." };
   if (!targetZoneId) return { type:'error', message:'Teleport where? Usage: teleport <zone id>' };
+  targetZoneId = resolveLanding(targetZoneId); // facades forward into their interior
   const targetZone = getZone(targetZoneId);
   if (!targetZone) return { type:'error', message:`No zone with id "${targetZoneId}" exists.` };
 

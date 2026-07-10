@@ -8,18 +8,12 @@
   "bg_color": "#be9d64",
   "color": "#eeeeee",
   "created_by": "phase2-build",
-  "danger_rating": "low",
   "description": "The lip of the wastes proper, where the Haul Road's shoulder crumbles into scree. Beyond, the grey goes on longer than seems fair.",
   "exits": {
     "east": "zone_waste_grit",
     "west": "zone_waste_deadflat"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
@@ -27,12 +21,9 @@
   "grid_y": 1,
   "grid_z": 0,
   "id": "zone_waste_verge",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "VG",
   "name": "The Verge",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

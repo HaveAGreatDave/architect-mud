@@ -132,7 +132,7 @@ export function buildCoordIndex() {
   let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
   for (const z of getAllZones()) {
     if (z.map_id !== 'map_world' || z.grid_x == null || z.grid_y == null) continue;
-    idx.set(`${z.grid_x},${z.grid_y}`, { id: z.id, name: z.name, flags: z.flags || {}, danger: z.danger_rating });
+    idx.set(`${z.grid_x},${z.grid_y}`, { id: z.id, name: z.name, flags: z.flags || {}, danger: z.danger });
     minx = Math.min(minx, z.grid_x); maxx = Math.max(maxx, z.grid_x);
     miny = Math.min(miny, z.grid_y); maxy = Math.max(maxy, z.grid_y);
   }

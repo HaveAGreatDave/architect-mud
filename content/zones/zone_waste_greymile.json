@@ -8,7 +8,6 @@
   "bg_color": "#efa2a2",
   "color": "#eeeeee",
   "created_by": "phase10-build",
-  "danger_rating": "low",
   "description": "The featureless grey mile that everyone crosses and nobody remembers, a long flat nothing of ash and grit between the city's edge and the killing ground beyond. Its only landmark is that it has none.",
   "exits": {
     "east": "zone_waste_sootbank",
@@ -16,11 +15,6 @@
     "west": "zone_waste_brokenkiln"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
@@ -28,12 +22,9 @@
   "grid_y": -4,
   "grid_z": 0,
   "id": "zone_waste_greymile",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "GM",
   "name": "The Grey Mile",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

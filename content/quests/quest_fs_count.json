@@ -2,7 +2,9 @@
   "category": null,
   "description": "Count the Loading Bay stock, then walk the Rust Quarter cache and tally how much has walked off on its own. 10₵.",
   "id": "quest_fs_count",
-  "meta": {},
+  "meta": {
+    "taskSeconds": 5
+  },
   "name": "Shrinkage Count",
   "objectives": [
     {
@@ -13,7 +15,6 @@
         "{who} circles a stack of pallets, recounting for the third time."
       ],
       "id": "o0",
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_city_east"
     },
@@ -28,7 +29,6 @@
       "requires": [
         "o0"
       ],
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_outskirts"
     }

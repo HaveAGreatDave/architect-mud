@@ -8,7 +8,6 @@
   "bg_color": "#bca6a6",
   "color": "#111111",
   "created_by": "phase6-build",
-  "danger_rating": "safe",
   "description": "A colonnade of ministries that administer nothing, their brass plates polished daily by staff who have not been paid in a decade and turn up anyway. The doors are always open onto empty marble halls.",
   "exits": {
     "east": "zone_gov_assembly",
@@ -18,24 +17,16 @@
     "artery": [
       "The Ministerial Mile"
     ],
-    "building_name": "",
-    "building_type": null,
     "gov_enclave": true,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "scavenging_table_id": "scav_consumer_trash"
   },
   "grid_x": -4,
   "grid_y": -7,
   "grid_z": 0,
   "id": "zone_gov_ministry",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "MN",
   "name": "Ministry Row",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

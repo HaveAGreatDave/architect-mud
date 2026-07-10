@@ -9,7 +9,6 @@
   "bg_color": "#2c2340",
   "color": "#eae6f0",
   "created_by": null,
-  "danger_rating": "safe",
   "description": "The elevator car — a mirrored box of brushed steel and warm downlight, floor smelling faintly of citrus polish. A brass rail runs waist-high around three walls, and a column of numbered buttons glows beside the door, waiting for a floor. A small screen overhead reads HALCYON TOWERS and, below it, the current car position. Step <b>out</b> to return to the Grand Lobby.",
   "exits": {
     "out": "zone_halcyon_lobby",
@@ -57,12 +56,9 @@
   "grid_y": -1,
   "grid_z": 0,
   "id": "zone_halcyon_elevator",
-  "is_safe_zone": 1,
   "map_id": "map_int_halcyon",
   "marker": "EL",
   "name": "Halcyon Towers — Elevator",
   "parent_zone": "zone_halcyon_lobby",
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783400000"
 }

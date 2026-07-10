@@ -5,7 +5,6 @@
   "bg_color": "#c9a884",
   "color": null,
   "created_by": null,
-  "danger_rating": "safe",
   "description": "The ground-floor lobby of The Meridian, a residential tower that survived the Collapse the same way most things survived it: through sheer institutional inertia. Cracked terrazzo floors carry the ghost of a geometric inlay, ground to near-invisibility by foot traffic. A bank of tenant mailboxes lines the east wall — most of them pried open decades ago, doors hanging at odd angles, contents long gone. The security desk sits unmanned, its terminal cycling a screensaver of rolling static. A brass plaque reading THE MERIDIAN — ESTABLISHED 2031 is still bolted above the entrance, which is the most optimistic thing in the building. Emergency lighting casts everything in pale amber. Stairs ascend through a fire door to the upper floors.",
   "exits": {
     "down": "zone_util_zone_meridian_lobby",
@@ -13,24 +12,18 @@
     "up": "zone_meridian_floor_1"
   },
   "flags": {
-    "building_name": null,
     "building_type": "apartment",
-    "is_apartment": false,
     "is_building": true,
     "is_interior": true,
-    "scavenging_table_id": null,
     "world_exit_zone": "zone_meridian"
   },
   "grid_x": 0,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_meridian_lobby",
-  "is_safe_zone": 0,
   "map_id": "map_int_meridian",
   "marker": null,
   "name": "The Meridian - Lobby",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783112116"
 }

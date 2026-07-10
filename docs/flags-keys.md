@@ -1,14 +1,17 @@
 # Flags-Bag Key Inventory
 
 `zones.flags`, `npcs.flags`, and `furniture.flags` are JSONB grab-bags read via
-`flags->>'key'` (SQL) and `flags.key` / `tagsOf()` (JS). There is no schema on
-them — this file is the catalog. **When you add a new flag key, add a row here.**
-Drift check: `node scripts/report-flag-keys.mjs` (add `--env-file=.env.prod` for
-prod) lists every stored key and flags any missing from this file.
+`flags->>'key'` (SQL) and `flags.key` / `tagsOf()` (JS). **When you add a new
+flag key, add a row here.** Drift check: `node scripts/report-flag-keys.mjs`
+(add `--env-file=.env.prod` for prod) lists every stored key and flags any
+missing from this file.
 
-Item tags are different: they're validated at write time against
-`client/shared/tagCatalog.js` (see [tags.md](tags.md)). These bags are not —
-a typo'd flag key is silently inert, so grep before renaming anything below.
+**Zone flags are catalog-validated since 2026-07** (scope `'zone'` in
+`client/shared/tagCatalog.js`): zone create/update and `PATCH /zones/:id/tag`
+reject uncatalogued keys or wrong value shapes, and `scripts/content/lint.mjs`
+sweeps `content/zones/*.json`. Add a new zone key to the catalog FIRST, then
+here. NPC/furniture bags remain documented-not-validated — a typo'd key there
+is silently inert, so grep before renaming anything below.
 
 ## zones.flags
 
@@ -27,7 +30,11 @@ a typo'd flag key is silently inert, so grep before renaming anything below.
 | `building_name` | world | display name of the enclosing building |
 | `building_type` | world | building category (shop, apartment, …) |
 | `checkpoint` | govgate | checkpoint gate zone |
+| `claimable` | corps | territory override: force claimable (absent = derived from inferred danger) |
+| `danger` | danger | manual danger override (`safe/low/medium/high/lethal`) — normally inferred from spawns + radiation (`engine/danger.js`) |
+| `district` | districts | override the id-prefix-derived district key (`engine/districts.js`) |
 | `elevator` | movement | elevator car zone |
+| `facade` | movement | OPT-IN non-standable building tile: auto-forwards into the interior map's entry zone; OUT lands on `world_exit_zone` (needs a maps row with `parent_zone_id` = this zone) |
 | `elevator_floors` | movement | floor list for the elevator |
 | `fishing_table_id` | fishing | scavenging-table id used for fishing here |
 | `gov_checkpoint` | govgate | government checkpoint (contraband scan) |
@@ -46,7 +53,10 @@ a typo'd flag key is silently inert, so grep before renaming anything below.
 | `mis_ok` | mis | zone-gated NPC consent (see `mis_requires_zone_flag`) |
 | `no_spawn` | spawning | suppress enemy spawns |
 | `open_sky` | flight | outdoor zone aircraft can overfly/land |
+| `planner` | zone-planner | provenance: blueprint id that generated this zone (tools/zone-planner) |
 | `prologue` | prologue | part of the prologue instance |
+| `radiation` | survival | ambient radiation 0–100 (entry gain `floor(v×0.1)`; ≥25/≥40 floors danger to high/lethal). Replaced the `radiation_level` column (legacy 1–5 values rescaled ×10) |
+| `sanctuary` | protection/sleep/spawning | civilization carve-out: combat protection (protection substrate), safe sleep, AI safe-flee, no hostile spawns. DELIBERATE — replaced `is_safe_zone`, which was dropped without conversion |
 | `scavenging_table_id` | scavenging | loot table for searching here |
 | `street_life` | ambience | ambient street-life event pool strength |
 | `utility_room` | power | building utility room (junction box lives here) |

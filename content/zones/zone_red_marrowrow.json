@@ -8,7 +8,6 @@
   "bg_color": "#efa2a2",
   "color": "#eeeeee",
   "created_by": "phase12-build",
-  "danger_rating": "lethal",
   "description": "The eastern edge of the core where it presses against the fringe, a row of gnawed and hollowed ruins that the changed use as a larder and a lair both. It is the closest a living person can stand to the Redline's heart and still, sometimes, walk away.",
   "exits": {
     "north": "zone_red_slaughterworks",
@@ -16,24 +15,17 @@
     "west": "zone_waste_chargully"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
+    "radiation": 40,
     "scavenging_table_id": "scav_irradiated_salvage"
   },
   "grid_x": -9,
   "grid_y": -3,
   "grid_z": 0,
   "id": "zone_red_marrowrow",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "MR",
   "name": "Marrow Row",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 4,
   "updated_at": "1783301927"
 }

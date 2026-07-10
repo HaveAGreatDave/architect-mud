@@ -1,4 +1,6 @@
-import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePlayers, getPlayerMembership } from './world.js';
+import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePlayers, getPlayerMembership, isEnterableFacade, getMapByParentZone } from './world.js';
+import { isSanctuary } from './zone-tags.js';
+import { zoneDanger, DANGER_RANK } from './danger.js';
 import { allExits, neighborZoneIds, exitTargets } from './exits.js';
 import { findPath, getZonesInRadius } from './pathfinding.js';
 import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy } from './combat.js';
@@ -220,6 +222,31 @@ function isEnemy(entity) {
 export function moveEntity(entity, newZoneId, broadcast, query) {
   const oldZoneId = entityZone(entity);
   if (oldZoneId === newZoneId) return true;
+
+  // Facade pass-through (mirrors cmdMove's revolving door): NPCs/enemies never
+  // stand on an enterable facade either — entering forwards to the interior
+  // entry zone, exiting lands on the front-door street tile. The front door's
+  // lock is checked HERE because after the swap the generic pair-lookup below
+  // can't see it (there's no direct exit between origin and final zone).
+  // Pathfinding self-heals: the path's next node after the facade is the entry
+  // zone, which the entity now already occupies — a no-op step.
+  const facadeZone = getZone(newZoneId);
+  if (facadeZone && isEnterableFacade(facadeZone)) {
+    const interior = getMapByParentZone(facadeZone.id);
+    const fromInside = getZone(oldZoneId)?.map_id === interior.id;
+    const finalId = fromInside ? facadeZone.flags?.world_exit_zone : interior.entry_zone_id;
+    if (finalId && finalId !== oldZoneId && getZone(finalId)) {
+      const fd = getDoorForExit(facadeZone.id, 'in', interior.entry_zone_id)
+              || getDoorForExit(interior.entry_zone_id, 'out', facadeZone.id) || null;
+      if (fd && fd.hp > 0 && fd.lock_state === 'locked') {
+        const ownsFrontDoor = !isEnemy(entity) &&
+          [entity.home_zone, entity.work_zone_id].some(z => z && (z === oldZoneId || z === finalId || z === facadeZone.id));
+        if (!ownsFrontDoor) return false; // blocked — a locked front door stops NPCs and chasing enemies alike
+      }
+      newZoneId = finalId;
+      if (oldZoneId === newZoneId) return true;
+    }
+  }
 
   const departDir = exitDirection(oldZoneId, newZoneId);
 
@@ -1004,11 +1031,16 @@ async function execAction(node, entity, ctx) {
           } else {
             const safe = [];
             const safeOnly = entity.flags?.safe_zones_only;
-            const HIGH_DANGER = new Set(['high', 'very_high', 'extreme']);
             for (const [sid, sz] of world.zones) {
               if (sz.map_id !== 'map_world') continue;
               if (sz.flags?.is_interior || sz.flags?.is_apartment) continue;
-              if (safeOnly ? !sz.is_safe_zone : HIGH_DANGER.has(sz.danger_rating)) continue;
+              // Never TARGET an enterable facade — forwarding would strand the
+              // wanderer in the lobby with `zoneId === patrolTarget` never true
+              // (walking through one mid-path is fine and self-heals).
+              if (isEnterableFacade(sz)) continue;
+              // Inferred danger. (The old set included 'very_high'/'extreme',
+              // values that never existed — lethal zones were never avoided.)
+              if (safeOnly ? !isSanctuary(sz) : DANGER_RANK[zoneDanger(sz)] >= DANGER_RANK.high) continue;
               safe.push(sid);
             }
             ai.patrolTarget = safe.length ? safe[Math.floor(Math.random() * safe.length)] : entity.home_zone;

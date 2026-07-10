@@ -8,7 +8,6 @@
   "bg_color": "#71b1e6",
   "color": "#eeeeee",
   "created_by": "phase5-build",
-  "danger_rating": "low",
   "description": "A sheltered sound between the wreck and the cold-store pilings, calm enough that the fishing skiffs tie up here. It is the last friendly water before the bay stops pretending.",
   "exits": {
     "east": "zone_bay_open",
@@ -16,11 +15,6 @@
     "south": "zone_dock_coldstore"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "scavenging_table_id": "scav_harbor",
     "water": true
   },
@@ -28,12 +22,9 @@
   "grid_y": -5,
   "grid_z": 0,
   "id": "zone_bay_sound",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "SD",
   "name": "The Sound",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

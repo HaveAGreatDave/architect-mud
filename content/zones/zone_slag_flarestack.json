@@ -8,7 +8,6 @@
   "bg_color": "#e9b282",
   "color": "#111111",
   "created_by": null,
-  "danger_rating": "low",
   "description": "A field of flare stacks stands dead against the sky, each tipped with a burner that hasn't lit in a lifetime. The ground between them is glassed in patches where the flares used to rain fire, and the glass is full of things that got caught when it cooled.",
   "exits": {
     "east": "zone_slag_catalyst",
@@ -17,25 +16,16 @@
     "west": "zone_red_dreadfurnace"
   },
   "flags": {
-    "building_name": null,
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
-    "scavenging_table_id": "scav_industrial_salvage",
-    "world_exit_zone": null
+    "scavenging_table_id": "scav_industrial_salvage"
   },
   "grid_x": -10,
   "grid_y": -1,
   "grid_z": 0,
   "id": "zone_slag_flarestack",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "FF",
   "name": "Flarestack Field",
   "parent_zone": null,
-  "pvp_enabled": 1,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

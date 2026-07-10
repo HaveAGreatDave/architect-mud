@@ -8,32 +8,24 @@
   "bg_color": "#e77474",
   "color": "#eeeeee",
   "created_by": "phase12-build",
-  "danger_rating": "lethal",
   "description": "The Redline itself, the top-left corner of the known world, where a line of rusted stakes and warning-skulls marks the place past which the maps simply stop and the living are simply advised not to. Everything here glows faintly, including, after a while, you.",
   "exits": {
     "east": "zone_red_glowfield",
     "south": "zone_red_mutiewarren"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
     "intro_lore": "This is where the map gives up. Past the skull-stakes the readings climb until they lie, and everything that still moves out here has decided to. The Redline doesn't have owners; it has victims and the things that made them. There's a reason it's the corner of the world nobody claims. If you're standing here without a plan to leave, you already made a mistake.",
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
+    "radiation": 50,
     "scavenging_table_id": "scav_irradiated_salvage"
   },
   "grid_x": -11,
   "grid_y": -7,
   "grid_z": 0,
   "id": "zone_red_redline",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "RL",
   "name": "The Redline",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 5,
   "updated_at": "1783301927"
 }

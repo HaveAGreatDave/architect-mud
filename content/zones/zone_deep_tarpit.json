@@ -8,7 +8,6 @@
   "bg_color": "#e69e73",
   "color": "#111111",
   "created_by": "phase2-build",
-  "danger_rating": "medium",
   "description": "Where the Undermarket's runoff meets the wastes — a black seep of tar and worse, worked by pickers who answer to the gangs uphill.",
   "exits": {
     "east": "zone_deep_warrens",
@@ -17,12 +16,7 @@
     "west": "zone_waste_nadir"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
     "intro_lore": "Where the Undermarket's runoff pools into a black seep of tar and worse, worked by people with nothing left to ruin. Whatever the market upstream won't touch ends up down here, sometimes including people. The fumes lie to you slowly and the diggers lie to you fast. Bring a reason to leave before you arrive.",
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk"
@@ -31,12 +25,9 @@
   "grid_y": 2,
   "grid_z": 0,
   "id": "zone_deep_tarpit",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "TP",
   "name": "Tarpit Edge",
   "parent_zone": null,
-  "pvp_enabled": 1,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

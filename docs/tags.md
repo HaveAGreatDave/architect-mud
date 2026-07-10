@@ -24,8 +24,17 @@
 > (`validateTags` in `server/engine/tags.js`, enforced in `itemTagsFor`), and
 > `content:lint` applies the same check to `content/items/*.json`. Add a new tag
 > to the catalog **first**, then attach it to items. Drift check:
-> `node scripts/report-tag-keys.mjs`. The uncatalogued `flags` bags on
-> zones/npcs/furniture are documented (not validated) in
+> `node scripts/report-tag-keys.mjs`.
+>
+> **Zone scope (2026-07).** `zones.flags` is now a catalog-validated tag bag too:
+> catalog entries with `scope: 'zone'` (radiation, sanctuary, danger, is_interior,
+> building metadata, …) drive the Zone Tags editor in the dev panel, and
+> `apiCreateZone`/`apiUpdateZone`/`PATCH /zones/:id/tag` + `content:lint` enforce
+> `validateTags` on the bag. Read helpers: `engine/zone-tags.js`
+> (`getZoneRadiation`/`isSanctuary`) and `engine/danger.js` (`zoneDanger` —
+> inferred, see systems-world.md). The legacy zone columns (danger_rating,
+> pvp_enabled, radiation_level, is_safe_zone) were migrated into flags and
+> dropped. The `flags` bags on npcs/furniture remain documented-not-validated in
 > [flags-keys.md](flags-keys.md), swept by `scripts/report-flag-keys.mjs`.
 
 ## Context

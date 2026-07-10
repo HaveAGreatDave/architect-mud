@@ -40,7 +40,7 @@ const PANELS = {
     columns: [
       { key: 'name', label: 'Name' },
       { key: 'id', label: 'Zone ID', render: v => `<code style="font-size:11px;color:var(--text-dim)">${v}</code>` },
-      { key: 'danger_rating', label: 'Danger', render: v => `<span class="badge badge-${v}">${v}</span>` },
+      { key: 'danger', label: 'Danger', render: v => `<span class="badge badge-${v}">${v}</span>` },
       { key: 'pvp_enabled', label: 'PvP', render: v => v ? '<span class="badge badge-pvp">PvP</span>' : '' },
       { key: 'player_count', label: 'Players' },
       { key: 'exits', label: 'Exits', render: v => typeof v === 'object' ? Object.keys(v||{}).join(', ') : '' },

@@ -11,7 +11,6 @@
   "bg_color": "#e08a4a",
   "color": null,
   "created_by": null,
-  "danger_rating": "safe",
   "description": "The shop is narrow but makes good use of vertical space — racks of clothing climb toward the ceiling, organized by some colour-logic that only Cassius understands. The walls are covered in polaroid-style printouts of outfits, annotated in marker. A tailoring station dominates one corner: cutting mat, shears, a half-dressed mannequin with pins in unfortunate places.",
   "exits": {
     "down": "zone_drum_basement",
@@ -24,12 +23,9 @@
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_drum_shop",
-  "is_safe_zone": 1,
   "map_id": "map_int_drum",
   "marker": null,
   "name": "Second Skin",
   "parent_zone": "zone_drum_exterior",
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783059649"
 }

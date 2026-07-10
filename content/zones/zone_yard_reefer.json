@@ -8,7 +8,6 @@
   "bg_color": "#1eae5d",
   "color": "#111111",
   "created_by": "phase8-build",
-  "danger_rating": "low",
   "description": "A row of refrigerated cars humming on stolen power, breathing fog into the yard. What's kept cold here ranges from legitimate to the kind of thing you smell before you see.",
   "exits": {
     "north": "zone_yard_crane",
@@ -18,23 +17,15 @@
     "artery": [
       "Reefer Street"
     ],
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": 8,
   "grid_y": -1,
   "grid_z": 0,
   "id": "zone_yard_reefer",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "Rf",
   "name": "Reefer Row",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

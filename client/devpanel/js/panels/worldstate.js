@@ -8,7 +8,7 @@ function renderWorldState(data) {
       let av = a[sortState.key], bv = b[sortState.key];
       if (av == null) av = ''; if (bv == null) bv = '';
       if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortState.dir;
-      if (sortState.key === 'danger_rating') {
+      if (sortState.key === 'danger') {
         const order = {safe:0,low:1,medium:2,high:3,lethal:4};
         return ((order[av]??2) - (order[bv]??2)) * sortState.dir;
       }
@@ -17,8 +17,8 @@ function renderWorldState(data) {
   }
 
   const cols = [
-    {key:'name',label:'Zone'},{key:'danger_rating',label:'Danger'},
-    {key:'player_count',label:'Players'},{key:'enemy_count',label:'Enemies'},{key:'is_safe_zone',label:'Safe'},
+    {key:'name',label:'Zone'},{key:'danger',label:'Danger'},
+    {key:'player_count',label:'Players'},{key:'enemy_count',label:'Enemies'},{key:'sanctuary',label:'Sanctuary'},
   ];
   let html = '<table><thead><tr>';
   for (const c of cols) {
@@ -30,10 +30,10 @@ function renderWorldState(data) {
   for (const z of zones) {
     html += `<tr>
       <td>${z.name}</td>
-      <td><span class="badge badge-${z.danger_rating}">${z.danger_rating}</span></td>
+      <td><span class="badge badge-${z.danger}">${z.danger}</span></td>
       <td>${z.player_count}</td>
       <td>${z.enemy_count}</td>
-      <td>${z.is_safe_zone ? '✓' : ''}</td>
+      <td>${z.sanctuary ? '⛨' : ''}</td>
       <td><button class="action-btn" onclick="reloadZone('${z.id}')">↻ Reload</button></td>
     </tr>`;
   }

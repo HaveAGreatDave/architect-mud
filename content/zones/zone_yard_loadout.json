@@ -8,7 +8,6 @@
   "bg_color": "#1eae5d",
   "color": "#111111",
   "created_by": "phase8-build",
-  "danger_rating": "low",
   "description": "The southern loadout bays where trucks back up to the docks and freight crosses from rail to road under the eye of a tally clerk who trusts absolutely no one, correctly.",
   "exits": {
     "east": "zone_yard_dray",
@@ -21,23 +20,15 @@
       "Grand Avenue",
       "Boxcar Street"
     ],
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": 6,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_yard_loadout",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "Lo",
   "name": "The Loadout",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

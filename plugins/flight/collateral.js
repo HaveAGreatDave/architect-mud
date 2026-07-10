@@ -43,7 +43,9 @@ export async function applyCrashCollateral(live, surface, pilot) {
   if (!surface) return { bill: 0, casualties: 0 };
   const severity = crashSeverity(live.type?.hull_hp);
   const npcs = getZoneNpcs(surface.id) || [];
-  const populated = !!surface.flags?.is_safe_zone || npcs.length > 0;
+  // (Was flags?.is_safe_zone — a key that never existed in flags, so this half
+  // was always false; the sanctuary tag makes the "civilized tile" check real.)
+  const populated = !!surface.flags?.sanctuary || npcs.length > 0;
 
   // Kill up to `severity` bystanders caught under the wreck (they respawn on the usual timer).
   let casualties = 0;

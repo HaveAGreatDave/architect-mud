@@ -8,7 +8,6 @@
   "bg_color": "#efa2a2",
   "color": "#eeeeee",
   "created_by": "phase10-build",
-  "danger_rating": "high",
   "description": "A sunken hollow just inside the Redline where the air sits still and hums, and the few plants are the wrong colours and the wrong sizes. Things den here. They come out changed, and hungry, and toward you.",
   "exits": {
     "east": "zone_waste_brokenkiln",
@@ -16,24 +15,17 @@
     "west": "zone_red_slaughterworks"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
+    "radiation": 30,
     "scavenging_table_id": "scav_irradiated_salvage"
   },
   "grid_x": -8,
   "grid_y": -4,
   "grid_z": 0,
   "id": "zone_red_vexhollow",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "VH",
   "name": "Vex Hollow",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 3,
   "updated_at": "1783301927"
 }

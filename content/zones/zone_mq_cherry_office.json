@@ -9,7 +9,6 @@
   "bg_color": "#e85aa0",
   "color": null,
   "created_by": null,
-  "danger_rating": "low",
   "description": "The office where the Cherry's money is counted and its problems are solved. A metal desk, a safe bolted through the floor, and a wall of monitors cycling grainy feeds of every corner of the club. A cot in the corner says the manager either lives here or has nowhere better to hide. The air is stale with old smoke and the ozone tang of overworked electronics.",
   "exits": {
     "north": "zone_mq_cherry_util",
@@ -22,12 +21,9 @@
   "grid_y": 0,
   "grid_z": -1,
   "id": "zone_mq_cherry_office",
-  "is_safe_zone": 0,
   "map_id": "map_int_mq_cherry",
   "marker": null,
   "name": "The Cherry Pit — Back Office",
   "parent_zone": "zone_mq_cherry_floor",
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783020039"
 }

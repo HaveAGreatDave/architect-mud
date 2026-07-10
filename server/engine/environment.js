@@ -2415,8 +2415,8 @@ async function createUtilityRoomWithJunctionBox(query, network, root) {
   const worldExit = anchor.flags?.world_exit_zone || anchor.parent_zone || null;
 
   await query(
-    `INSERT INTO zones (id, name, description, danger_rating, map_id, parent_zone, grid_x, grid_y, grid_z, flags, exits)
-     VALUES ($1,$2,$3,'safe',$4,$5,$6,$7,$8,$9,$10)
+    `INSERT INTO zones (id, name, description, map_id, parent_zone, grid_x, grid_y, grid_z, flags, exits)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      ON CONFLICT (id) DO UPDATE SET map_id=$4, parent_zone=$5, grid_x=$6, grid_y=$7, grid_z=$8, flags=$9`,
     [utilId, `${anchor.name} — Utility Room`,
      'A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.',

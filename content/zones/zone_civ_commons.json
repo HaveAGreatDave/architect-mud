@@ -8,7 +8,6 @@
   "bg_color": "#7fda9a",
   "color": "#111111",
   "created_by": "phase2-build",
-  "danger_rating": "safe",
   "description": "A cracked plaza the city forgot to demolish. A breadline shuffles past a dead fountain, and a hand-painted banner insists that WE ARE ALL SHAREHOLDERS.",
   "exits": {
     "down": "zone_under_commons",
@@ -16,11 +15,6 @@
     "west": "zone_waste_windrow"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "scavenging_table_id": "scav_consumer_trash",
     "street_life": true
   },
@@ -28,12 +22,9 @@
   "grid_y": -3,
   "grid_z": 0,
   "id": "zone_civ_commons",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "CO",
   "name": "The Commons",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

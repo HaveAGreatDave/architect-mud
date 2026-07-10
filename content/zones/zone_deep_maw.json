@@ -8,17 +8,11 @@
   "bg_color": "#e69e73",
   "color": "#111111",
   "created_by": "phase1-build",
-  "danger_rating": "medium",
   "description": "The Sprawl opens its throat here: a downward-sloping plaza where the Undermarket swallows anyone with nothing left to trade but themselves.",
   "exits": {
     "north": "zone_slums"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "scavenging_table_id": "scav_roadside_junk"
   },
@@ -26,12 +20,9 @@
   "grid_y": 3,
   "grid_z": 0,
   "id": "zone_deep_maw",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "MW",
   "name": "The Maw",
   "parent_zone": null,
-  "pvp_enabled": 1,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

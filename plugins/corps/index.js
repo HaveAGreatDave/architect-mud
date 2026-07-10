@@ -15,6 +15,7 @@ import {
   getZoneAssets, getOrgAssets, reloadZoneAssets,
 } from '../../server/engine/world.js';
 import { PERM, PERM_ALL, hasPerm } from '../../server/engine/org-perms.js';
+import { zoneDanger } from '../../server/engine/danger.js';
 import { releaseCorpHq } from '../../server/engine/apartments.js';
 import { sendToChatChannel } from '../../server/engine/channels.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
@@ -66,7 +67,9 @@ function isClaimableZone(zone) {
   if (!zone || zone.flags?.is_apartment) return false;
   if (zone.flags?.claimable === true) return true;
   if (zone.flags?.claimable === false) return false;
-  return !!zone.danger_rating && zone.danger_rating !== 'safe';
+  // Inferred danger: getAllZones() rows carry it as .danger; live world zone
+  // objects compute it via zoneDanger() (their cache field isn't in payloads).
+  return (zone.danger ?? zoneDanger(zone)) !== 'safe';
 }
 
 // Architect attention 0..100 for an org — concentration of power (zones held +
@@ -247,7 +250,7 @@ async function cmdCorpMap(player) {
       if (tgt) exits[dir] = tgt;
     }
     tiles.push({
-      id: z.id, x: z.grid_x, y: z.grid_y, name: z.name, danger: z.danger_rating || 'safe',
+      id: z.id, x: z.grid_x, y: z.grid_y, name: z.name, danger: z.danger || 'safe',
       isCurrent: z.id === player.current_zone, isStart: z.id === 'zone_city_west',
       artery: z.flags?.artery || null, exits, control,
     });

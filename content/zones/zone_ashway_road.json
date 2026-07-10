@@ -8,7 +8,6 @@
   "bg_color": "#b1bccd",
   "color": "#111111",
   "created_by": null,
-  "danger_rating": "low",
   "description": "Six lanes of freight road run west out of Old Coldwater, expansion joints heaved into knee-high ridges by decades of frost. Dead haulers sit nose-to-tail in the breakdown lane, cabs stripped to the frame, waiting on a shift change that never came.",
   "exits": {
     "east": "zone_ruins",
@@ -18,26 +17,17 @@
     "artery": [
       "The Haul Road"
     ],
-    "building_name": null,
-    "building_type": null,
     "intro_lore": "Six lanes were built for freight that stopped coming, and the road never got the memo either — it just keeps running west, cracking a little more every winter. The haulers parked along it are furniture now, stripped to steel bones by three generations of scavengers who came for parts and stayed to argue over who saw the wreck first.",
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
-    "scavenging_table_id": "scav_roadside_junk",
-    "world_exit_zone": null
+    "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": -5,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_ashway_road",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "HR",
   "name": "The Haul Road",
   "parent_zone": null,
-  "pvp_enabled": 1,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

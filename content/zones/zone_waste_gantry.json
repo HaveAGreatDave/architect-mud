@@ -8,7 +8,6 @@
   "bg_color": "#bfa06b",
   "color": "#eeeeee",
   "created_by": "phase11-build",
-  "danger_rating": "low",
   "description": "The skeleton of a loading gantry that once straddled the torn-up rail, now a rusted arch over nothing, straddling the deep wastes like a monument to the work that killed this place. Scavengers use its height to spot trouble coming.",
   "exits": {
     "east": "zone_waste_dustreach",
@@ -16,11 +15,6 @@
     "west": "zone_waste_rimeflat"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "scavenging_table_id": "scav_west_wastes"
   },
@@ -28,12 +22,9 @@
   "grid_y": 3,
   "grid_z": 0,
   "id": "zone_waste_gantry",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "GA",
   "name": "The Gantry",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

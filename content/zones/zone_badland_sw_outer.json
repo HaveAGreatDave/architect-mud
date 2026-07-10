@@ -9,18 +9,12 @@
   "bg_color": "#6d7c9e",
   "color": "#eeeeee",
   "created_by": null,
-  "danger_rating": "low",
   "description": "What used to be a municipal park, gone feral over long neglect. The trees have grown in crooked and close, roots buckling the old footpaths, and a swing-set rusts on its chains where no child has played in a lifetime.",
   "exits": {
     "west": "zone_deep_waste"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
     "intro_lore": "A municipal park gone feral, its trees grown into crooked shapes over something in the soil that hums when it rains. People slip into the Static Wood for privacy and a surprising number don't come back out with all of it. It's beautiful, in the wrong light. That's usually the last thing they think.",
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk"
@@ -29,12 +23,9 @@
   "grid_y": 1,
   "grid_z": 0,
   "id": "zone_badland_sw_outer",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "SW",
   "name": "The Static Wood",
   "parent_zone": null,
-  "pvp_enabled": 1,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

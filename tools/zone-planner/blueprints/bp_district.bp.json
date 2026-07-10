@@ -1,0 +1,2767 @@
+{
+  "id": "bp_district",
+  "map": "map_world",
+  "id_prefix": "district",
+  "origin": {
+    "x": 891,
+    "y": 896,
+    "z": 0
+  },
+  "palette": {
+    "Gravel 1": {
+      "label": "Gravel 1",
+      "template": "street",
+      "name": "",
+      "bg": "#3f3a34",
+      "color": "#b9a888",
+      "marker": "⁙∴",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "Gravel 3": {
+      "label": "Gravel 3",
+      "template": "street",
+      "name": "",
+      "bg": "#3f3a34",
+      "color": "#b9a888",
+      "marker": "⸪.",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "Gravel 4": {
+      "label": "Gravel 4",
+      "template": "street",
+      "name": "",
+      "bg": "#3f3a34",
+      "color": "#b9a888",
+      "marker": "▚",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "Water": {
+      "label": "Water",
+      "template": "water",
+      "name": "Cold Channel",
+      "bg": "#1d3b52",
+      "color": "#7fd3ff",
+      "marker": "≈",
+      "ambient_theme": "coast",
+      "tags": {
+        "water": true
+      }
+    },
+    "Fisherman Statue": {
+      "label": "Fisherman Statue",
+      "template": "plaza",
+      "name": "",
+      "bg": "#2e3a38",
+      "color": "#7fb0a0",
+      "marker": "웃",
+      "icon": "statue-fisherman",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "Hangar": {
+      "label": "Hangar",
+      "template": "building",
+      "name": "",
+      "bg": "#2f3742",
+      "color": "#8fb8d6",
+      "marker": "⏢",
+      "icon": "hangar",
+      "ambient_theme": "city",
+      "tags": {},
+      "building_type": "hangar",
+      "name_pool": [
+        "Coldwater Regional — Hangar",
+        "Smuggler's Slip Pad",
+        "Slagworks Strip",
+        "Threshold Helipad",
+        "Redline Airstrip",
+        "Marshalling Field"
+      ],
+      "interior": {
+        "lobby_name": "{name} — Apron"
+      }
+    },
+    "Not Grass": {
+      "label": "Not Grass",
+      "template": "plaza",
+      "name": "",
+      "bg": "#2f3a26",
+      "color": "#8ba36a",
+      "marker": "#",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "Hangar 2": {
+      "label": "Hangar 2",
+      "template": "zone",
+      "name": "",
+      "bg": "#33343c",
+      "color": "#9aa0b0",
+      "marker": "#",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "DK": {
+      "label": "DK",
+      "template": "street",
+      "name": "",
+      "bg": "#2f2a24",
+      "color": "#a98b63",
+      "marker": "▤▤",
+      "ambient_theme": "coast",
+      "tags": {
+        "dock": true
+      }
+    },
+    "Cloning Facility": {
+      "label": "Cloning Facility",
+      "template": "plaza",
+      "name": "",
+      "bg": "#1d3b52",
+      "color": "#7fd3ff",
+      "marker": "CF",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "Embassy Hotel": {
+      "label": "Embassy Hotel",
+      "template": "plaza",
+      "name": "",
+      "bg": "#2a1830",
+      "color": "#ff5aa0",
+      "marker": "EH",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "Drum Fits": {
+      "label": "Drum Fits",
+      "template": "plaza",
+      "name": "",
+      "bg": "#3a1f1f",
+      "color": "#e05555",
+      "marker": "DF",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "Dead Space Interiors copy": {
+      "label": "Dead Space Interiors copy",
+      "template": "plaza",
+      "name": "",
+      "bg": "#2c3a44",
+      "color": "#bfe6f0",
+      "marker": "DS",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "KSB-Studios": {
+      "label": "KSB-Studios",
+      "template": "plaza",
+      "name": "",
+      "bg": "#38300f",
+      "color": "#f0c419",
+      "marker": "TV",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "SH": {
+      "label": "SH",
+      "template": "building",
+      "marker": "▨",
+      "icon": null,
+      "bg": "#332e28",
+      "color": "#b89a72",
+      "ambient_theme": "city",
+      "tags": {},
+      "building_type": "residential",
+      "name_pool": [
+        "Shanty",
+        "Lean-to",
+        "Tarp Row"
+      ],
+      "interior": {
+        "lobby_name": "cramped shanty"
+      }
+    },
+    "MS": {
+      "label": "MS",
+      "template": "street",
+      "marker": "⳾",
+      "icon": null,
+      "bg": "#38322b",
+      "color": "#8f8375",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "RD": {
+      "label": "RD",
+      "template": "water",
+      "marker": "⌇",
+      "icon": null,
+      "bg": "#20261f",
+      "color": "#6b7d5a",
+      "ambient_theme": "wasteland",
+      "tags": {}
+    },
+    "P9": {
+      "label": "P9",
+      "template": "building",
+      "building_type": "precinct",
+      "name_pool": [
+        "Precinct 9"
+      ],
+      "interior": {
+        "lobby_name": "{name} — Booking"
+      },
+      "marker": "⚑",
+      "icon": "police",
+      "bg": "#232e3d",
+      "color": "#6fa8d8",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "PP": {
+      "label": "PP",
+      "template": "building",
+      "building_type": "factory",
+      "name_pool": [
+        "Coldwater Power Plant"
+      ],
+      "interior": {
+        "lobby_name": "{name} — Turbine Hall"
+      },
+      "marker": "⚙",
+      "icon": "factory",
+      "bg": "#3d2f22",
+      "color": "#e5822a",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "CR": {
+      "label": "CR",
+      "template": "building",
+      "building_type": "club",
+      "name_pool": [
+        "The Cherry Pit"
+      ],
+      "interior": {
+        "lobby_name": "{name} — Floor"
+      },
+      "marker": "♦",
+      "icon": "club",
+      "bg": "#2a1420",
+      "color": "#ff4d6a",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "CC": {
+      "label": "CC",
+      "template": "building",
+      "name": "",
+      "bg": "#2a1830",
+      "color": "#ff5aa0",
+      "marker": "CC",
+      "ambient_theme": "city",
+      "tags": {},
+      "building_type": "residential",
+      "name_pool": [
+        "Chrome Court"
+      ],
+      "interior": {
+        "lobby_name": "{name} — Lobby"
+      }
+    }
+  },
+  "cells": [
+    [
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      }
+    ],
+    [
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      }
+    ],
+    [
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      }
+    ],
+    [
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Water"
+      }
+    ],
+    [
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Water"
+      }
+    ],
+    [
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Water"
+      }
+    ],
+    [
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "DK"
+      },
+      {
+        "t": "DK"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Water"
+      }
+    ],
+    [
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "DK"
+      },
+      {
+        "t": "DK"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Cloning Facility"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Hangar"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Water"
+      }
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "DK"
+      },
+      {
+        "t": "DK"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Embassy Hotel"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Water"
+      }
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "DK"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Water"
+      }
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Gravel 3"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Not Grass"
+      },
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      }
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "CC"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      null,
+      {
+        "t": "Not Grass"
+      },
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Water"
+      },
+      {
+        "t": "Water"
+      }
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Drum Fits"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      null,
+      null,
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Water"
+      }
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Dead Space Interiors copy"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 3"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      }
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Dead Space Interiors copy"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      }
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Fisherman Statue"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "KSB-Studios"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      null,
+      null,
+      null,
+      {
+        "t": "P9"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "PP"
+      },
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      null,
+      null,
+      null,
+      {
+        "t": "SH"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "SH"
+      },
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      null,
+      null,
+      {
+        "t": "SH"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "RD"
+      },
+      {
+        "t": "MS"
+      },
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 4"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      null,
+      null,
+      null,
+      {
+        "t": "CC"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "MS"
+      },
+      {
+        "t": "RD"
+      },
+      {
+        "t": "SH"
+      },
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      null,
+      {
+        "t": "Not Grass"
+      },
+      null,
+      {
+        "t": "CR"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "RD"
+      },
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      null,
+      {
+        "t": "SH"
+      },
+      {
+        "t": "RD"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "SH"
+      },
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      null,
+      {
+        "t": "SH"
+      },
+      {
+        "t": "RD"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "Gravel 1"
+      },
+      {
+        "t": "SH"
+      },
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      null,
+      null,
+      {
+        "t": "SH"
+      },
+      {
+        "t": "RD"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "SH"
+      },
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      {
+        "t": "Not Grass"
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  ]
+}

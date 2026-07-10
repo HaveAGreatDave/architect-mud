@@ -8,7 +8,6 @@
   "bg_color": "#6d7c9e",
   "color": "#eeeeee",
   "created_by": null,
-  "danger_rating": "medium",
   "description": "What remains of the actual city. Glass and rebar and the occasional wall of a building that still looks like it meant something once. At the center, the old city hall stands largely untouched — the Architect's infrastructure runs through its foundation. A Precinct checkpoint straddles the old haul road here — a scanner arch, a bored guard, and a queue: the one way the wastes bleed into the city.",
   "exits": {
     "east": "zone_badland_w_gate",
@@ -18,26 +17,17 @@
     "artery": [
       "The Haul Road"
     ],
-    "building_name": null,
-    "building_type": null,
     "checkpoint": true,
     "intro_lore": "Old Coldwater was a real city once — banks, permits, people who thought the lights would stay on. The Handoff ended all of that in an afternoon. Now the towers are quarries and the only law is whoever's standing over you. Salvage what you can carry, trust no promise made in daylight, and never assume an empty street is empty.",
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
-    "scavenging_table_id": "scav_roadside_junk",
-    "world_exit_zone": null
+    "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": -4,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_ruins",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "OC",
   "name": "Old Coldwater",
   "parent_zone": null,
-  "pvp_enabled": 1,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

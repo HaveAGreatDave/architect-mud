@@ -8,7 +8,6 @@
   "bg_color": "#1eae5d",
   "color": "#111111",
   "created_by": "phase7-build",
-  "danger_rating": "medium",
   "description": "Where the parts nobody names are sold to people who don't ask — a lane of trestle tables under a low awning, the trade brisk and the eye-contact minimal.",
   "exits": {
     "east": "zone_meat_carrion",
@@ -16,11 +15,6 @@
     "west": "zone_deep_deepmaw"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "scavenging_table_id": "scav_roadside_junk"
   },
@@ -28,12 +22,9 @@
   "grid_y": 3,
   "grid_z": 0,
   "id": "zone_meat_offal",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "Of",
   "name": "Offal Lane",
   "parent_zone": null,
-  "pvp_enabled": 1,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

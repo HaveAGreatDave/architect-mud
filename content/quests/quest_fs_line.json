@@ -2,7 +2,9 @@
   "category": null,
   "description": "Hold a place in the line at the Sprawl Gate, then carry the ticket down to the Under Entrance for someone who matters more than you. 15₵.",
   "id": "quest_fs_line",
-  "meta": {},
+  "meta": {
+    "taskSeconds": 5
+  },
   "name": "Hold a Place",
   "objectives": [
     {
@@ -13,7 +15,6 @@
         "{who} shuffles forward an inch and calls it progress."
       ],
       "id": "o0",
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_city_south"
     },
@@ -28,7 +29,6 @@
       "requires": [
         "o0"
       ],
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_city_sw"
     }

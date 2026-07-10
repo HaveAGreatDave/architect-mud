@@ -12,7 +12,6 @@
   "bg_color": "#7fda9a",
   "color": "#111111",
   "created_by": null,
-  "danger_rating": "safe",
   "description": "Pre-Handoff retail storefronts, repurposed and argued over for years. Big box skeletons and drive-through lanes now used as livestock pens, retrofitted for survival.",
   "exits": {
     "east": "zone_threshold",
@@ -28,8 +27,6 @@
       "Grand Avenue",
       "The Haul Road"
     ],
-    "building_name": null,
-    "building_type": null,
     "greeter": {
       "lines": [
         "Hey — hey! Not so fast. You've got that fresh-decant shine and empty pockets, I can spot it blind. If you need money, that board's got work. Come back to me when it's done.",
@@ -44,24 +41,17 @@
       "npc_name": "Marta Kell"
     },
     "intro_lore": "Big-box skeletons and pre-Handoff storefronts, fought over so long that the fighting became the economy. The Franchise runs the Strip the way rot runs a wound: thoroughly, and like it belongs there. It's the safest place a new print will find to earn their first honest credits — which should tell you everything about how the rest of the basin goes.",
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "no_spawn": true,
     "scavenging_table_id": "scav_consumer_trash",
-    "street_life": true,
-    "world_exit_zone": null
+    "street_life": true
   },
   "grid_x": -1,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_city_west",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "FS",
   "name": "Franchise Strip",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

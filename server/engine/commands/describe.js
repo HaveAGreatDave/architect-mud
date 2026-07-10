@@ -22,6 +22,8 @@ import {
 } from "../apartments.js";
 import { fireHook } from "../plugins.js";
 import { isStackable } from "../tags.js";
+import { getZoneRadiation, isSanctuary } from "../zone-tags.js";
+import { zoneDanger } from "../danger.js";
 import { furnitureVerbs } from "../furnitureActions.js";
 import { titleCaseName } from "../text.js";
 import { getLockTagPublic, checkLockAuth } from "./doors.js";
@@ -360,12 +362,16 @@ export async function describeZone(zone, player) {
 
 	// Header line: name and the danger tag sit together so the [SAFE]/[LETHAL]
 	// chip reads as a label on the room rather than a separate line.
+	const dangerNow = zoneDanger(zone);
 	let desc =
 		`<span class="zone-name">${zone.name}</span>` +
-		` <span class="zone-danger zone-danger-${zone.danger_rating}">[${zone.danger_rating.toUpperCase()}]</span>`;
-	if (zone.radiation_level > 0)
-		desc += ` <span class="rad-warning">☢ RAD:${zone.radiation_level}</span>`;
-	if (zone.pvp_enabled) desc += ` <span class="pvp-warning">⚔ PVP</span>`;
+		` <span class="zone-danger zone-danger-${dangerNow}">[${dangerNow.toUpperCase()}]</span>`;
+	const zoneRad = getZoneRadiation(zone);
+	if (zoneRad > 0)
+		desc += ` <span class="rad-warning">☢ RAD:${zoneRad}</span>`;
+	// PvP is the default law everywhere — sanctuary is the exception worth a chip.
+	// (The old ⚔ PVP chip read a display-only column no law ever enforced.)
+	if (isSanctuary(zone)) desc += ` <span class="safe-warning">⛨ SANCTUARY</span>`;
 	// District tag: roots which neighborhood this room belongs to, coloured to
 	// match the map's land-use key. Cheap, constant, always shown.
 	const district = districtFor(zone);

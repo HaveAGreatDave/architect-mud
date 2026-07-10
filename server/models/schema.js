@@ -52,20 +52,25 @@ export const SCHEMA_SQL = `
     FOREIGN KEY (player_id) REFERENCES players(id)
   );
 
+  -- Zone properties live in the flags tag bag (scope 'zone' in the tag
+  -- catalog, validated on save): radiation (int), sanctuary (flag), danger
+  -- (enum override — normally inferred from spawns + radiation). The legacy
+  -- columns danger_rating / pvp_enabled / radiation_level / is_safe_zone were
+  -- migrated into flags and dropped 2026-07 (migrate-zone-columns-to-tags.mjs).
   CREATE TABLE IF NOT EXISTS zones (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT NOT NULL,
-    danger_rating TEXT DEFAULT 'safe',
-    pvp_enabled INTEGER DEFAULT 0,
-    radiation_level INTEGER DEFAULT 0,
-    is_safe_zone INTEGER DEFAULT 0,
     ambient_events JSONB DEFAULT '[]',
     exits JSONB DEFAULT '{}',
     flags JSONB DEFAULT '{}',
     created_by TEXT,
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+  ALTER TABLE zones DROP COLUMN IF EXISTS danger_rating;
+  ALTER TABLE zones DROP COLUMN IF EXISTS pvp_enabled;
+  ALTER TABLE zones DROP COLUMN IF EXISTS radiation_level;
+  ALTER TABLE zones DROP COLUMN IF EXISTS is_safe_zone;
 
   -- Maps are grid containers. The world is one map (map_world); each
   -- building interior is its own map, so a building takes a single cell on

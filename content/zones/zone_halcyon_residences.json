@@ -5,7 +5,6 @@
   "bg_color": "#2c2340",
   "color": "#eae6f0",
   "created_by": null,
-  "danger_rating": "safe",
   "description": "A hushed residential floor above the offices: a curved hall of numbered doors, a concierge desk long automated, and windows framing the grey bay far below. The rent up here is quiet, and enormous.",
   "exits": {
     "east": "zone_halcyon_apt_b",
@@ -24,12 +23,9 @@
   "grid_y": 0,
   "grid_z": 4,
   "id": "zone_halcyon_residences",
-  "is_safe_zone": 1,
   "map_id": "map_int_halcyon",
   "marker": "RS",
   "name": "Halcyon Residences — Sky Hall",
   "parent_zone": "zone_halcyon_lobby",
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783316802"
 }

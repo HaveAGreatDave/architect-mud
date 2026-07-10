@@ -10,7 +10,6 @@
   "bg_color": "#e85aa0",
   "color": null,
   "created_by": null,
-  "danger_rating": "safe",
   "description": "A room of mismatched desks shoved together, each buried under case files no one will close and coffee cups fossilizing into archaeology. A corkboard maps the district's gangs in red string that has long since become its own conspiracy. Half the overhead lights are dead and no one has requisitioned bulbs. The officers who work here have the specific exhaustion of people paid to hold a line that moved years ago.",
   "exits": {
     "north": "zone_mq_precinct_util",
@@ -23,12 +22,9 @@
   "grid_y": -1,
   "grid_z": 0,
   "id": "zone_mq_precinct_bullpen",
-  "is_safe_zone": 1,
   "map_id": "map_int_mq_precinct",
   "marker": null,
   "name": "Precinct 9 — Bullpen",
   "parent_zone": "zone_mq_precinct_lobby",
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1782964407"
 }

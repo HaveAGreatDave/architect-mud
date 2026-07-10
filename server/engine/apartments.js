@@ -4,6 +4,7 @@ import { skillCheck, awardSkillUse } from "./skills.js";
 import { adjustCredits } from "./economy.js";
 import { setPosture } from "./posture.js";
 import { registerProtectionProvider } from "./protection.js";
+import { isSanctuary } from "./zone-tags.js";
 import { hasPerm, PERM } from "./org-perms.js";
 import { exitTargets, neighborZoneIds } from "./exits.js";
 import { emit } from "./events.js";
@@ -569,7 +570,7 @@ export function getSleepEligibility(player, zone) {
 			reason: "unlocked_other",
 		};
 	}
-	if (zone.is_safe_zone) {
+	if (isSanctuary(zone)) {
 		return {
 			canSleep: true,
 			restore: SLEEP_RESTORE_SAFE_ZONE,

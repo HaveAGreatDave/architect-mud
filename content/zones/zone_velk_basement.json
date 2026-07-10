@@ -5,7 +5,6 @@
   "bg_color": "#e08a4a",
   "color": null,
   "created_by": null,
-  "danger_rating": "safe",
   "description": "A low-ceilinged basement room that smells of damp concrete and old cabling. A junction box occupies most of one wall, its panel door held shut with a twist of wire. Exposed conduit runs along the ceiling toward the shop above. A single bulb dangles from a cord, doing its best.",
   "exits": {
     "down": "zone_util_zone_velk_basement",
@@ -18,12 +17,9 @@
   "grid_y": 0,
   "grid_z": -1,
   "id": "zone_velk_basement",
-  "is_safe_zone": 1,
   "map_id": "map_int_velk",
   "marker": null,
   "name": "Velk's — Utility Room",
   "parent_zone": "zone_velk_exterior",
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1782918447"
 }

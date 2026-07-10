@@ -1,4 +1,4 @@
-// Sidebar minimap (5×5 BFS/grid) and the full-screen map popup.
+// Sidebar minimap (9×9 BFS/grid) and the full-screen map popup.
 import { sendCmd, sendCmdSilent } from '../net.js';
 import { appendMsg } from '../render.js';
 import { state } from '../state.js';
@@ -280,11 +280,13 @@ export function renderMinimap(nodes, direction) {
     }
   }
 
-  // A 5×5 window (x,y ∈ −R..R) expands to a (2·(2R+1)−1)² cell grid: even indices
+  // A 9×9 window (x,y ∈ −R..R) expands to a (2·(2R+1)−1)² cell grid: even indices
   // hold rooms, odd indices hold the connector *between* two rooms. A gap with a
   // connector = a walkable exit; an empty gap = a wall. This is the readability
   // fix — the same room+gap connector model openMapPopup() uses for the full map.
-  const R = 2;
+  // (R=2's 5×5 read as a board game; 9×9 shows the block you're in AND the next
+  // one — pair with the server BFS depth in getMinimapData.)
+  const R = 4;
   const gCols = (2 * R + 1) * 2 - 1, gRows = gCols;
   const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
   const inWin = (x, y) => x >= -R && x <= R && y >= -R && y <= R;
@@ -331,14 +333,23 @@ export function renderMinimap(nodes, direction) {
     }
   }
 
-  const symFor = (node) => node.marker
-    ? (node.marker.length === 1 ? node.marker + ' ' : node.marker.slice(0, 2))
-    : (node.is_safe_zone ? '◆ ' : (node.pvp_enabled ? '✕ ' : '○ '));
-  // Hover tooltip: zone name, its district, plus any building(s) on the tile.
-  // Escaped so a name with quotes can't break out of the title attribute.
+  // A named zone-icon SVG (flags.icon → assets/zone-icons/<name>.svg) wins over the
+  // marker glyph on a tile. Drawn as a CSS mask so the icon takes the tile's text
+  // colour (an <img> SVG can't inherit currentColor; a mask tinted by it can).
+  const iconSvg = (name) => /^[a-z0-9_-]+$/i.test(name || '')
+    ? `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${name}.svg)"></span>` : '';
+  const symFor = (node) => iconSvg(node.icon_svg) || (node.enterable
+    ? '▣ ' // pass-through building tile: a door you enter, not a room you stand in
+    : node.marker
+      ? (node.marker.length === 1 ? node.marker + ' ' : node.marker.slice(0, 2))
+      : (node.sanctuary ? '◆ ' : '○ '));
+  // Hover tooltip: zone name, its district, street name(s), plus any
+  // building(s) on the tile. Escaped so a name with quotes can't break out of
+  // the title attribute.
   const titleFor = (node) => {
-    const parts = [node.name];
+    const parts = [node.enterable && node.building_name ? `${node.building_name} — enter` : node.name];
     if (node.district?.name) parts.push(node.district.name);
+    if (node.artery?.length) parts.push(node.artery.join(' / '));
     if (node.buildings?.length) parts.push(node.buildings.join(', '));
     return escapeHtml(parts.join('\n'));
   };
@@ -349,7 +360,7 @@ export function renderMinimap(nodes, direction) {
   const overlay = mapState.avenueOverlay;
 
   // Route trace (shared with the full map): draw the yellow route over whatever slice
-  // of it falls inside this 5×5 window. Same coords model as the cell grid above —
+  // of it falls inside this 9×9 window. Same coords model as the cell grid above —
   // room at (y+R)*2,(x+R)*2 — so the overlay lines up with the tiles.
   const tracePath = effectiveTracePath(current.id) || [];
   const traceSet = new Set(tracePath);
@@ -425,8 +436,16 @@ export function renderMinimap(nodes, direction) {
       if (trDirs && !extra) styles.push('position:relative'); // room needs relative for the overlay
       const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
       const unreach = node.reachable === false ? ' mm-unreachable' : '';
-      const cls = `mm-c mm-room danger-${node.danger_rating || 'safe'}${styled}${extra}${unreach}${trDirs ? ' mm-trace' : ''}`;
-      html += `<span class="${cls}"${styleAttr} title="${titleFor(node)}">${sym}${traceRoad}</span>`;
+      // Enterable buildings are doors, not rooms — never danger-tinted, and
+      // clickable (action-link + data-dest rides main.js's delegated handler,
+      // sending `go <building name>`).
+      const dangerCls = node.enterable ? 'safe' : (node.danger || 'safe');
+      const enterCls = node.enterable ? ' mm-building action-link' : '';
+      const enterAttrs = node.enterable && node.building_name
+        ? ` data-action="go" data-target="${escapeHtml(node.building_name)}" data-dest="${escapeHtml(node.building_name)}"`
+        : '';
+      const cls = `mm-c mm-room danger-${dangerCls}${styled}${extra}${unreach}${enterCls}${trDirs ? ' mm-trace' : ''}`;
+      html += `<span class="${cls}"${styleAttr}${enterAttrs} title="${titleFor(node)}">${sym}${traceRoad}</span>`;
     }
   }
   for (const id of ['minimap-grid', 'minimap-grid-mob', 'minimap-grid-hud']) {

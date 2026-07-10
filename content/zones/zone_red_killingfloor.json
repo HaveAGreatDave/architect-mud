@@ -8,7 +8,6 @@
   "bg_color": "#e77474",
   "color": "#eeeeee",
   "created_by": "phase12-build",
-  "danger_rating": "lethal",
   "description": "The killing floor — a flat, open expanse swept clear of everything but bones and the things that made them, where whatever apex the Redline has bred holds court over a court of the dead. People come here to prove something. Their proof is usually their absence.",
   "exits": {
     "east": "zone_waste_slagverge",
@@ -16,24 +15,17 @@
     "west": "zone_red_glowfield"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
+    "radiation": 50,
     "scavenging_table_id": "scav_irradiated_salvage"
   },
   "grid_x": -9,
   "grid_y": -7,
   "grid_z": 0,
   "id": "zone_red_killingfloor",
-  "is_safe_zone": 0,
   "map_id": "map_world",
   "marker": "KF",
   "name": "The Killing Floor",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 5,
   "updated_at": "1783301927"
 }

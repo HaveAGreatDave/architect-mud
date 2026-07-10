@@ -467,7 +467,6 @@ function applyZoneEditToMap(zoneId) {
   if (!z) return;
   const g = id => document.getElementById(id);
   if (g('f-name')) z.name = g('f-name').value;
-  if (g('f-danger_rating')) z.danger_rating = g('f-danger_rating').value;
   if (g('f-marker')) z.marker = g('f-marker').value.trim() || null;
   if (g('f-color')) z.color = g('f-color').value.trim() || null;
   if (g('f-bg_color')) z.bg_color = g('f-bg_color').value.trim() || null;
@@ -534,10 +533,10 @@ let mapSelectedInteriorId = null;
 let mapInteriorsList = [];        // interior maps (parent_zone_id != null)
 let _exteriorBuildingZones = [];  // building zones from the exterior map, for interior tab dropdown
 let _mapPendingOverrides = new Map(); // zoneId → {color,bg_color,marker} for staged-but-unpublished zone edits
-let mapSafeZoneMode = false;   // true while the Safe Zone paint tool is active
+let mapSafeZoneMode = false;   // true while the Sanctuary paint tool is active
 let mapSafeZonePainting = false; // mouse button down, actively dragging a paint stroke
-let mapSafeZonePaintValue = null; // the is_safe_zone value being painted this stroke
-let mapSafeZonePendingSaves = new Set(); // zoneIds with an in-flight/queued save, to avoid dupe PUTs mid-drag
+let mapSafeZonePaintValue = null; // true = attaching the sanctuary tag this stroke, false = clearing
+let mapSafeZonePendingSaves = new Set(); // zoneIds with an in-flight/queued save, to avoid dupe writes mid-drag
 
 function mapsGuard() { return true; }
 
@@ -547,13 +546,14 @@ function toggleSafeZoneMode() {
   renderMapOverview();
 }
 
-// Persists a single zone's is_safe_zone flag. Fire-and-forget during a drag
-// stroke — the tile is already updated optimistically by the caller.
+// Persists a single zone's sanctuary tag through the atomic single-tag PATCH
+// (server-side jsonb merge — safe during drag strokes, no read-merge-write
+// race). Fire-and-forget; the tile is already updated optimistically.
 async function _saveSafeZone(zoneId, value) {
   if (mapSafeZonePendingSaves.has(zoneId)) return;
   mapSafeZonePendingSaves.add(zoneId);
   try {
-    const r = await API(`/zones/${zoneId}`, 'PUT', { is_safe_zone: value });
+    const r = await API(`/zones/${zoneId}/tag`, 'PATCH', { name: 'sanctuary', value: value ? true : null });
     if (r?.error) toast(r.error, true);
     else updateStagingBadge();
   } finally {
@@ -566,8 +566,9 @@ function safeZonePaintStart(e, zoneId) {
   const z = mapOverview?.zones.get(zoneId);
   if (!z) return;
   mapSafeZonePainting = true;
-  mapSafeZonePaintValue = !z.is_safe_zone;
-  z.is_safe_zone = mapSafeZonePaintValue;
+  mapSafeZonePaintValue = !z.flags?.sanctuary;
+  z.flags = { ...(z.flags || {}) };
+  if (mapSafeZonePaintValue) z.flags.sanctuary = true; else delete z.flags.sanctuary;
   renderMapOverview();
   _saveSafeZone(zoneId, mapSafeZonePaintValue);
 }
@@ -575,8 +576,9 @@ function safeZonePaintStart(e, zoneId) {
 function safeZonePaintOver(zoneId) {
   if (!mapSafeZonePainting) return;
   const z = mapOverview?.zones.get(zoneId);
-  if (!z || z.is_safe_zone === mapSafeZonePaintValue) return;
-  z.is_safe_zone = mapSafeZonePaintValue;
+  if (!z || !!z.flags?.sanctuary === mapSafeZonePaintValue) return;
+  z.flags = { ...(z.flags || {}) };
+  if (mapSafeZonePaintValue) z.flags.sanctuary = true; else delete z.flags.sanctuary;
   renderMapOverview();
   _saveSafeZone(zoneId, mapSafeZonePaintValue);
 }
@@ -1219,7 +1221,7 @@ function renderMapOverview() {
       if (pendingDelete.has(z.id)) cls += ' bm-pending-delete';
 
       if (mapSafeZoneMode) {
-        const safeStyle = (z.is_safe_zone
+        const safeStyle = (z.flags?.sanctuary
           ? ';background:rgba(57,255,143,0.35);border-color:rgba(57,255,143,0.9)'
           : ';background:rgba(255,59,92,0.25);border-color:rgba(255,59,92,0.75)') + ';cursor:crosshair';
         const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';

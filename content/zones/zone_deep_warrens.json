@@ -8,19 +8,13 @@
   "bg_color": "#e69e73",
   "color": "#111111",
   "created_by": "phase1-build",
-  "danger_rating": "medium",
   "description": "Where the Sprawl's foundations rot into a warren of lean-tos and tarp-roofed stalls. Everything here is for sale, and most of it is stolen off someone still warm.",
   "exits": {
     "south": "zone_deep_rotrow",
     "west": "zone_deep_tarpit"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
     "intro_lore": "The Sprawl's foundations have rotted into a maze of lean-tos and tarp stalls where everything's for sale and nothing has a fixed price but your life. The Warrens run on favors, grudges, and the quiet certainty that the person beside you would trade you for dinner. They might be right. Keep your hands where you can see everyone else's.",
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "lawless": true,
     "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk"
@@ -29,12 +23,9 @@
   "grid_y": 2,
   "grid_z": 0,
   "id": "zone_deep_warrens",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "WR",
   "name": "The Warrens",
   "parent_zone": null,
-  "pvp_enabled": 1,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }

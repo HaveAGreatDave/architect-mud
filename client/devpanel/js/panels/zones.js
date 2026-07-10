@@ -287,6 +287,75 @@ const BUILDING_TYPES = [
   { id: 'powerplant', label: 'Power Plant' },
 ];
 
+// Zone flag keys owned by the structured form widgets above the tag editor
+// (checkboxes / dropdowns). The Zone Tags picker excludes them so a key is
+// never editable in two places at once.
+const ZONE_STRUCTURED_KEYS = ['is_apartment', 'is_building', 'building_name',
+  'building_type', 'world_exit_zone', 'is_interior', 'scavenging_table_id'];
+
+// --- Zone tag picker (mirrors the furniture picker; reuses itemTagWidget /
+// readItemTag from items.js). Tags are flat keys in zones.flags filtered to
+// catalog entries with scope 'zone'. ---
+function zoneTagRow(name, value) {
+  const def = TAG_CATALOG[name];
+  return `<div class="field tag-row" data-tag="${name}">
+    <label>${def.label}<button type="button" onclick="removeZoneTag(this)" style="float:right;background:none;border:none;color:inherit;cursor:pointer;font-size:15px;line-height:1">×</button></label>
+    ${itemTagWidget(name, value)}
+    <div class="zone-subsection-note">${def.help}</div>
+  </div>`;
+}
+
+function zoneAddTagPicker(presentNames) {
+  const groups = {};
+  for (const [name, def] of Object.entries(TAG_CATALOG)) {
+    if (!tagAppliesTo(def, 'zone') || presentNames.includes(name) || ZONE_STRUCTURED_KEYS.includes(name)) continue;
+    (groups[def.group] = groups[def.group] || []).push([name, def]);
+  }
+  const optgroups = Object.entries(groups).map(([g, list]) =>
+    `<optgroup label="${g}">${list.map(([n, d])=>`<option value="${n}">${d.label}</option>`).join('')}</optgroup>`).join('');
+  if (!optgroups) return '<div style="font-size:11px;color:var(--text-dim)">No more zone tags available.</div>';
+  return `<div class="field-row" style="align-items:flex-end">
+    <div class="field"><label>Add tag</label><select id="zone-add-tag">${optgroups}</select></div>
+    <button type="button" class="action-btn" onclick="addZoneTag()">Add</button>
+  </div>`;
+}
+
+function refreshZoneTagPicker() {
+  const present = [...document.querySelectorAll('#zone-tags .tag-row')].map(r => r.dataset.tag);
+  document.getElementById('zone-add-tag-picker').innerHTML = zoneAddTagPicker(present);
+}
+
+function addZoneTag() {
+  const name = document.getElementById('zone-add-tag')?.value;
+  if (!name) return;
+  const def = TAG_CATALOG[name];
+  const defaults = { flag:true, int:0, enum:def.options?.[0], range:{min:0,max:0}, hot:{amount:0,duration_seconds:0}, statmap:{}, list:[], text:'' };
+  document.getElementById('zone-tags').insertAdjacentHTML('beforeend', zoneTagRow(name, defaults[def.shape]));
+  refreshZoneTagPicker();
+}
+
+function removeZoneTag(btn) {
+  btn.closest('.tag-row').remove();
+  refreshZoneTagPicker();
+}
+
+// Zone-aware value reader. readItemTag() JSON.parses 'text' values, which
+// would reject plain strings like an intro_lore paragraph — zone text tags
+// accept raw text (JSON objects/arrays still parse, e.g. the greeter config).
+function readZoneTag(rowEl) {
+  const def = TAG_CATALOG[rowEl.dataset.tag];
+  const input = rowEl.querySelector('.tag-input');
+  if (def.shape === 'text') {
+    const raw = input.value;
+    try { const p = JSON.parse(raw); return (typeof p === 'object' && p !== null) ? p : raw; } catch { return raw; }
+  }
+  if (def.shape === 'list') {
+    try { const p = JSON.parse(input.value); if (!Array.isArray(p)) throw 0; return p; }
+    catch { throw new Error(`${def.label}: expected a JSON array, e.g. ["The Haul Road"]`); }
+  }
+  return readItemTag(rowEl);
+}
+
 // Caches the currently-open zone's NPCs/furniture so quick-edit buttons
 // can look records up by id. Deliberately NOT embedding full records (with
 // free-text names/descriptions) into onclick attributes — an apostrophe in
@@ -700,16 +769,9 @@ async function zoneEditForm(rec, isNew) {
     <div class="field"><label>Zone ID</label><input id="f-id" value="${isNew ? '' : rec.id}" ${!isNew ? 'readonly style="opacity:0.5"' : ''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name || ''}" ${isNew ? 'oninput="document.getElementById(\'f-id\').value=\'zone_\'+this.value.toLowerCase().replace(/\\s+/g,\'_\')"' : ''}></div>
     <div class="field"><label>Description</label><textarea id="f-description" rows="5">${rec.description || ''}</textarea></div>
-    <div class="field-row">
-      <div class="field"><label>Danger Rating</label>
-        <select id="f-danger_rating">
-          ${['safe','low','medium','high','lethal'].map(d => `<option ${rec.danger_rating===d?'selected':''}>${d}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field"><label>Radiation Level</label><input type="number" id="f-radiation_level" value="${rec.radiation_level||0}" min="0" max="100"></div>
+    <div class="field"><label>Danger <span style="color:var(--text-dim);font-weight:400">(inferred from enemy spawns + radiation; override with the <code>danger</code> zone tag below)</span></label>
+      <input readonly style="opacity:0.6" value="${rec.danger || 'safe'}${flags.danger ? ' (tag override)' : ''}${rec.radiation ? ` — ☢ radiation ${rec.radiation}` : ''}${rec.sanctuary ? ' — ⛨ sanctuary' : ''}">
     </div>
-    <div class="checkbox-field"><input type="checkbox" id="f-pvp_enabled" ${rec.pvp_enabled?'checked':''}><label>PvP Enabled</label></div>
-    <div class="checkbox-field"><input type="checkbox" id="f-is_safe_zone" ${rec.is_safe_zone?'checked':''}><label>Safe Zone (police cameras present, anchor point)</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_apartment" ${flags.is_apartment?'checked':''}><label>Rentable Apartment (players can RENT, LOCK, SLEEP here)</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_building" ${flags.is_building?'checked':''} onchange="toggleBuildingFields(this.checked,${JSON.stringify(rec.id)})"><label>Building (appears in a "Buildings:" list and entrance-discovery text on zones that connect to it)</label></div>
     <div id="building-fields" style="display:${flags.is_building?'block':'none'}">
@@ -735,6 +797,16 @@ async function zoneEditForm(rec, isNew) {
         ${scavOptions}
       </select>
     </div>
+    ${(() => {
+      const tagNames = Object.keys(flags).filter(n =>
+        TAG_CATALOG[n] && tagAppliesTo(TAG_CATALOG[n], 'zone') && !ZONE_STRUCTURED_KEYS.includes(n));
+      return `<div class="field">
+        <label>Zone Tags</label>
+        <div id="zone-tags">${tagNames.map(n => zoneTagRow(n, flags[n])).join('')}</div>
+        <div id="zone-add-tag-picker">${zoneAddTagPicker(tagNames)}</div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:2px">Tag-driven zone properties (radiation, sanctuary, street life, …). The checkboxes above are structured views of the same flags bag.</div>
+      </div>`;
+    })()}
     <div class="field-row">
       <div class="field"><label>Map Marker (≤2 chars)</label><input id="f-marker" maxlength="2" value="${rec.marker || ''}" placeholder="e.g. ⌂" oninput="updateColorPreview()"></div>
       <div class="field"><label>Map Color (text)</label>
@@ -829,16 +901,26 @@ async function saveZone(existing) {
   try { ambients = JSON.parse(document.getElementById('f-ambient_events').value); } catch { return { error: 'Ambient events: invalid JSON' }; }
 
   const existingFlags = existing?.flags || {};
-  const flags = {
-    ...existingFlags,
-    is_apartment: document.getElementById('f-is_apartment').checked,
-    is_building: document.getElementById('f-is_building').checked,
-    building_name: document.getElementById('f-building_name')?.value.trim() || null,
-    building_type: document.getElementById('f-building_type')?.value || null,
-    world_exit_zone: document.getElementById('f-world_exit_zone')?.value.trim() || null,
-    is_interior: document.getElementById('f-is_interior').checked,
-    scavenging_table_id: document.getElementById('f-scavenging_table_id')?.value || null,
-  };
+  const flags = { ...existingFlags };
+  // Presence IS the signal in the flags bag (it's the catalog-validated zone
+  // tag bag) — unchecked/empty structured widgets remove their key instead of
+  // packing false/null junk that validateTags would reject.
+  const setOrDelete = (key, val) => { if (val) flags[key] = val; else delete flags[key]; };
+  setOrDelete('is_apartment', document.getElementById('f-is_apartment').checked);
+  setOrDelete('is_building', document.getElementById('f-is_building').checked);
+  setOrDelete('building_name', document.getElementById('f-building_name')?.value.trim());
+  setOrDelete('building_type', document.getElementById('f-building_type')?.value);
+  setOrDelete('world_exit_zone', document.getElementById('f-world_exit_zone')?.value.trim());
+  setOrDelete('is_interior', document.getElementById('f-is_interior').checked);
+  setOrDelete('scavenging_table_id', document.getElementById('f-scavenging_table_id')?.value);
+  // Re-derive picker-managed zone tags from the tag rows. Structured keys above
+  // are excluded from the picker; unknown/legacy keys pass through untouched.
+  for (const [name, def] of Object.entries(TAG_CATALOG)) {
+    if (tagAppliesTo(def, 'zone') && !ZONE_STRUCTURED_KEYS.includes(name)) delete flags[name];
+  }
+  try {
+    for (const row of document.querySelectorAll('#zone-tags .tag-row')) flags[row.dataset.tag] = readZoneTag(row);
+  } catch (e) { return { error: e.message }; }
 
   const rawMapId = document.getElementById('f-map_id')?.value;
   const rawGridX = document.getElementById('f-grid_x')?.value;
@@ -848,10 +930,6 @@ async function saveZone(existing) {
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
-    danger_rating: document.getElementById('f-danger_rating').value,
-    radiation_level: parseInt(document.getElementById('f-radiation_level').value)||0,
-    pvp_enabled: document.getElementById('f-pvp_enabled').checked,
-    is_safe_zone: document.getElementById('f-is_safe_zone').checked,
     exits: { ...zoneEditExitsState }, ambient_events: ambients, ambient_theme: document.getElementById('f-ambient_theme').value, flags,
     audio_theme_id: document.getElementById('f-audio_theme_id').value || null,
     marker: document.getElementById('f-marker').value.trim() || null,
@@ -1005,8 +1083,6 @@ async function _installBuildingGenerator(zoneId, rec) {
     const createResult = await directAPI('/zones', 'POST', {
       id: newZoneId, name: zoneName,
       description: `${newZ > currentZ ? 'Rooftop' : 'Basement'} of ${rec.name || zoneId}.`,
-      danger_rating: rec.danger_rating || 'medium',
-      pvp_enabled: false, is_safe_zone: false,
       exits: { [returnDir]: zoneId },
       ambient_events: [], ambient_theme: 'indoors',
       flags: { is_interior: true },

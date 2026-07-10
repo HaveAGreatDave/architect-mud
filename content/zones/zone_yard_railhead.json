@@ -8,30 +8,21 @@
   "bg_color": "#1eae5d",
   "color": "#111111",
   "created_by": "phase7-build",
-  "danger_rating": "low",
   "description": "The Yards' rail terminus, where a single working locomotive shunts flatcars of scrap and cargo out to wherever rails still run. The yardmaster keeps his office in a dead signal box here.",
   "exits": {
     "north": "zone_yard_forklift",
     "south": "zone_yard_bulk"
   },
   "flags": {
-    "building_name": "",
-    "building_type": null,
-    "is_apartment": false,
-    "is_building": false,
-    "is_interior": false,
     "scavenging_table_id": "scav_roadside_junk"
   },
   "grid_x": 8,
   "grid_y": 2,
   "grid_z": 0,
   "id": "zone_yard_railhead",
-  "is_safe_zone": 1,
   "map_id": "map_world",
   "marker": "RH",
   "name": "The Railhead",
   "parent_zone": null,
-  "pvp_enabled": 0,
-  "radiation_level": 0,
   "updated_at": "1783301927"
 }
