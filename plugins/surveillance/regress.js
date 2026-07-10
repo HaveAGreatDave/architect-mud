@@ -66,7 +66,7 @@ export default async function regress({ run, check, getPlayer }) {
   await query(
     `INSERT INTO items (id,name,description,type,weight,value,tags)
      VALUES ('item_specter_program','SPECTER Install Chip','','device',100,1500,'{"specter_program":true}')
-     ON CONFLICT (id) DO NOTHING`
+     ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, tags=EXCLUDED.tags`
   );
   await query("DELETE FROM player_inventory WHERE player_id=$1 AND item_id='item_specter_program'", [p.id]);
   await query(
