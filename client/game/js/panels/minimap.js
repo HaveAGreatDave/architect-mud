@@ -60,7 +60,7 @@ function stopAutoWalk(message) {
   if (message) appendMsg(message, 'system');
 }
 
-function isAutoWalking() { return autoWalkTimer !== null; }
+export function isAutoWalking() { return autoWalkTimer !== null; }
 
 function autoWalkStep() {
   autoWalkTimer = null;
@@ -75,7 +75,10 @@ function autoWalkStep() {
   autoWalkTimer = setTimeout(autoWalkStep, autoWalkDelay());
 }
 
-function startAutoWalk() {
+export function startAutoWalk() {
+  // Idempotent — clear any walk already in flight so a fresh route (e.g. the
+  // Tablet's Auto button re-plotting) never leaves two step-timers racing.
+  if (autoWalkTimer) { clearTimeout(autoWalkTimer); autoWalkTimer = null; }
   const current = (_lastMinimapNodes || []).find(n => n.is_current);
   const path = current ? effectiveTracePath(current.id) : null;
   if (!path || path.length < 2) { appendMsg('Auto-walk: no GPS route plotted.', 'system'); return; }
@@ -367,7 +370,7 @@ export function renderMinimap(nodes, direction) {
 
 // Land-use / function colour key for the default map view. Keys + colours match
 // server mapFunc() (movement.js) and scripts/landuse-zone-colors.js — keep synced.
-const FUNC_LEGEND = {
+export const FUNC_LEGEND = {
   northcity:   { label: 'North City / Uptown',   color: '#d9a83a' },
   government:  { label: 'Government',             color: '#b56fbf' },
   civic:       { label: 'Civic / institutional', color: '#4bb36a' },
@@ -411,7 +414,7 @@ function streetColor(a, b, regional) {
 }
 
 // Landmark icons — icon glyph must match the server POI_ICON in movement.js.
-const POI_LEGEND = {
+export const POI_LEGEND = {
   airport: { icon: '✈', label: 'Airport / airfield' },
   police:  { icon: '★', label: 'Police station' },
   power:   { icon: '⚡', label: 'Power plant' },
@@ -567,6 +570,18 @@ function effectiveTracePath(currentId) {
   if (rest.length <= 1) { mapState.tracePath = null; return null; } // arrived
   return rest;
 }
+
+// ── Shared with the Tablet Map app (panels/tablet-os.js) ─────────────────────
+// The tablet renders its own grid from the same `map` payload, but leans on the
+// popup's route machinery so there's one source of truth for GPS routes.
+// Plot the shortest drawable route between two tiles over an arbitrary tile list.
+export function routeBetween(fromId, toId, tiles) {
+  const byId = new Map((tiles || []).map(t => [t.id, t]));
+  return traceRoute(fromId, toId, byId);
+}
+// The currently-plotted GPS/route path (ordered tile ids), or null — so the
+// tablet map can highlight the same route the sidebar minimap + full map show.
+export function getTracePath() { return mapState.tracePath; }
 
 // Turn an ordered path of tile ids into draw instructions for a room/gap grid (even
 // index = room, odd = the connector between two rooms). `coordOf(id)` returns the

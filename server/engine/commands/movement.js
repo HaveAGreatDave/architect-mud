@@ -721,11 +721,14 @@ function overworldTileId(current) {
 
 // Three zoom levels — interior (your floor), zone (overworld 11×11 at your tile),
 // regional (full overworld). Interior only exists when you're inside one.
-function cmdMap(player, args = []) {
+// Returns just the map data ({ mode, tiles, insideInterior }); cmdMap tags it with
+// type:'map' for the popup, and the Tablet Map app (plugins/tablet/map-app.js)
+// reuses it verbatim so both views share one source of truth for the tiles.
+export function buildMapPayload(player, arg = '') {
   const current = getZone(player.current_zone);
-  if (!current) return { type:'map', mode:'zone', tiles: [], insideInterior: false };
+  if (!current) return { mode:'zone', tiles: [], insideInterior: false };
   const inside = isInteriorZone(current);
-  const arg = (Array.isArray(args) ? (args[0] || '') : '').toLowerCase();
+  arg = String(arg || '').toLowerCase();
 
   let mode;
   if (arg === 'regional') mode = 'regional';
@@ -733,15 +736,16 @@ function cmdMap(player, args = []) {
   else if (['zone','zones','rooms','raw','default','legacy'].includes(arg)) mode = 'zone';
   else mode = inside ? 'interior' : 'zone'; // bare `map`
 
-  if (mode === 'interior') {
-    return { type:'map', mode, tiles: window11(current.id), insideInterior: inside };
-  }
+  if (mode === 'interior') return { mode, tiles: window11(current.id), insideInterior: inside };
   const owId = overworldTileId(current);
-  if (mode === 'regional') {
-    return { type:'map', mode, tiles: regionalTiles(owId), insideInterior: inside };
-  }
+  if (mode === 'regional') return { mode, tiles: regionalTiles(owId), insideInterior: inside };
   // zone: 11×11 overworld centered on your surface tile (owId), or current if unresolved.
-  return { type:'map', mode:'zone', tiles: window11(owId || current.id), insideInterior: inside };
+  return { mode:'zone', tiles: window11(owId || current.id), insideInterior: inside };
+}
+
+function cmdMap(player, args = []) {
+  const arg = Array.isArray(args) ? (args[0] || '') : '';
+  return { type:'map', ...buildMapPayload(player, arg) };
 }
 
 export const handlers = {
