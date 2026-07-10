@@ -41,6 +41,8 @@ import './settings-app.js';
 import './corp-app.js';
 import './surveillance-app.js';
 import './chat-app.js';
+import './news-app.js';
+import './map-app.js';
 
 export { registerTabletApp, getTabletApps } from './registry.js';
 

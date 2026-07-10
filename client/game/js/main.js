@@ -61,9 +61,16 @@ const _isMobile =
 	/Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
 	window.innerWidth < 720;
 if (!localStorage.getItem(SETTINGS_KEY) && _isMobile) {
-	settings.density = "compact";
-	settings.fontSize = "16";
+	settings.fontSize = "19";
 }
+// Display density (desktop/mobile layout) is not a player setting — it's fixed
+// to the device on every load, full stop.
+settings.density = _isMobile ? "compact" : "comfortable";
+// Smart UI (contextual per-room action bar, panels/smartbar.js) defaults on for
+// touch/handheld and off for desktop, but any player — including desktop — can
+// flip it in Settings; once toggled, that choice persists. This never affects
+// the desktop/mobile layout itself (data-density above).
+if (settings.smartUI == null) settings.smartUI = _isMobile ? "on" : "off";
 
 // In compact mode, override --font-size-base to fit the actual viewport rather than
 // using the stored fontSize value (which was picked for a different screen size).
@@ -82,9 +89,9 @@ window._applyWeatherFx = setWeatherFxEnabled;
 
 applySettings(settings);
 // Mobile vs. desktop layout is auto-detected per device at launch — there is no
-// user toggle. Touch/handheld gets the mobile "smart UI" contextual command bar;
-// desktop keeps the full desktop layout.
-document.documentElement.setAttribute("data-smart-ui", _isMobile ? "on" : "off");
+// user toggle for that (data-density above). Smart UI (data-smart-ui, set by
+// applySettings from settings.smartUI) is a separate, player-togglable setting
+// that only controls the contextual per-room action bar (#smart-bar).
 applyMobileScale();
 window.addEventListener("resize", applyMobileScale);
 

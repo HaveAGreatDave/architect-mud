@@ -76,7 +76,14 @@ async function buildScreen(player, screenId, params) {
       const progress = Array.isArray(row.progress) ? row.progress : [];
       const complete = row.status === 'completed' || isComplete(row, progress);
       const actions = [];
-      if (!complete) actions.push({ id: 'track', label: player.tracked_quest_id === row.quest_id ? 'Tracking' : 'Track' });
+      if (!complete) {
+        const tracking = player.tracked_quest_id === row.quest_id;
+        actions.push({ id: 'track', label: tracking ? 'Tracking' : 'Track' });
+        // Once tracked, an Auto button lets the player auto-travel to the next stop
+        // straight from here — no detour to the minimap. It re-plots + auto-walks
+        // client-side (handled specially in tablet-os.js's action wiring).
+        if (tracking) actions.push({ id: 'autowalk', label: 'Auto' });
+      }
       if (complete) actions.push({ id: 'turnin', label: 'Turn In' });
       actions.push({ id: 'abandon', label: 'Abandon' });
       return {
@@ -244,6 +251,31 @@ async function handleAction(player, actionId, params) {
           sendToPlayer(player.id, { type: 'gps_route', message: `GPS locked: ${destZone.name}. Route plotted on the map.`, path });
         }
       }
+    }
+    return buildScreen(player, null, questId);
+  }
+
+  // Auto-travel: plot a fresh route to the tracked quest's next unmet zone
+  // objective and tell the client to start auto-walking it (the walk itself is
+  // client-side — client/game/js/panels/minimap.js — armed by the gps_route's
+  // `autostart` flag). Re-derived here every click so the destination always
+  // tracks the CURRENT next stop as earlier objectives complete. The tablet stays
+  // open on this detail so its checkboxes tick as each stop is reached en route.
+  if (actionId === 'autowalk') {
+    const { rows } = await query('SELECT objectives FROM quests WHERE id=$1', [questId]);
+    const quest = rows[0];
+    const { rows: pqRows } = await query('SELECT progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, questId]);
+    const progress = Array.isArray(pqRows[0]?.progress) ? pqRows[0].progress : [];
+    const objectives = quest?.objectives || [];
+    const next = objectives.find((obj, i) => obj.zone && (progress[i] || 0) < (obj.count || 1));
+    const note = (m) => sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">${m}</span>` });
+    if (!next) note('Nothing left to travel to on this one.');
+    else if (next.zone === player.current_zone) note("You're already at the next stop — do the work here.");
+    else {
+      const destZone = getZone(next.zone);
+      const path = destZone ? findPath(player.current_zone, next.zone) : null;
+      if (!path || path.length < 2) note("Can't plot a route there from here.");
+      else sendToPlayer(player.id, { type: 'gps_route', message: `Auto-travel to ${destZone.name}. Setting off…`, path, autostart: true });
     }
     return buildScreen(player, null, questId);
   }

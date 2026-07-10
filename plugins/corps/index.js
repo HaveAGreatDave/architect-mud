@@ -92,8 +92,7 @@ const err = (message) => ({ type: 'error', message });
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 // Corps must stay visually distinct on the map. The schema default (#888888)
 // counts as "unclaimed" — a corp that never chose a colour doesn't reserve grey.
-const DEFAULT_ORG_COLOR = '#888888';
-const MIN_COLOR_DISTANCE = 120;               // redmean scale, ~0..765
+const MIN_COLOR_DISTANCE = 120;               // redmean scale, ~0..765 (kept for map legends / regress)
 const isHex6 = (s) => /^#[0-9a-fA-F]{6}$/.test(s || '');
 const hexToRgb = (hex) => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
 // Low-cost perceptual colour distance ("redmean" approximation).
@@ -107,22 +106,10 @@ function colorDistance(a, b) {
 // so any subset is mutually distinct. Custom hex still routes through cmdEdit.
 const CORP_PALETTE = ['#e0413a', '#e8c62e', '#35c95a', '#2f9fd6', '#6a4de8', '#e04db0', '#b07a4a', '#9aa5ad', '#f0f0f0', '#5a6470'];
 
-// Every other org's *chosen* colour (the default grey counts as unclaimed).
-async function otherOrgColors(excludeOrgId) {
-  const { rows } = await query(
-    'SELECT name, color FROM orgs WHERE id <> $1 AND color IS NOT NULL AND lower(color) <> $2',
-    [excludeOrgId, DEFAULT_ORG_COLOR]);
-  return rows.filter(o => isHex6(o.color));
-}
-
-// Which palette swatches are still distinct enough for this org to claim — the
-// server SSOT the tablet picker renders (grey-out taken ones).
-export async function corpColorOptions(orgId) {
-  const taken = await otherOrgColors(orgId);
-  return CORP_PALETTE.map(hex => ({
-    hex,
-    available: !taken.some(o => colorDistance(hex, o.color) < MIN_COLOR_DISTANCE),
-  }));
+// Quick-pick preset swatches offered next to the free colour wheel. No
+// distinctness gate — every preset is always selectable (corps may share hues).
+export async function corpColorOptions() {
+  return CORP_PALETTE.map(hex => ({ hex, available: true }));
 }
 
 const liveById = (id) => getAllLivePlayers().find(p => p.id === id) || null;
@@ -499,8 +486,7 @@ async function cmdEdit(player, field, value) {
   } else if (field === 'color') {
     if (!isHex6(value)) return err('Usage: corp edit color #rrggbb');
     const hex = value.toLowerCase();
-    const clash = (await otherOrgColors(m.org_id)).find(o => colorDistance(hex, o.color) < MIN_COLOR_DISTANCE);
-    if (clash) return err(`That colour is too close to ${esc(clash.name)}'s — pick a more distinct one.`);
+    // Any colour is allowed — corps may share hues (no distinctness gate).
     await query('UPDATE orgs SET color=$1 WHERE id=$2', [hex, m.org_id]);
   } else {
     return err('Usage: corp edit name|desc|color <value>');

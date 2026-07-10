@@ -161,7 +161,7 @@ const _questNodeDefs = {
   objective: {
     label: 'Objective',
     color: '#4477aa',
-    defaultData: { kind: 'kill', target: '', count: 1, desc: '', spawnZone: '', spawn: 'spawn' },
+    defaultData: { kind: 'kill', target: '', count: 1, desc: '', spawnZone: '', spawn: 'spawn', emotes: '', taskSeconds: '' },
     renderBody: (n) => {
       const tgt = _escQ(n.data.target || '?');
       const c = Number(n.data.count) || 1;
@@ -184,7 +184,11 @@ const _questNodeDefs = {
       ` : ''}
       ${_qField('Count', _qInput('data.count', n.data.count ?? 1, '1', 'number'))}
       ${_qField('Description', _qTextarea('data.desc', n.data.desc, 2))}
-      <div style="font-size:10px;color:var(--text-dim);line-height:1.4">Re-open this panel after changing Kind to relabel the target field${' '}and reveal retrieve options.</div>
+      ${_qField('Action lines — flavour shown to the room each tick (one per line, {who} = player; blank = none)',
+        _qTextarea('data.emotes', n.data.emotes, 3))}
+      ${n.data.kind === 'visit' ? _qField('Task time (seconds) — how long standing here takes; a random Action line fires every couple seconds (blank/0 = completes instantly)',
+        _qInput('data.taskSeconds', n.data.taskSeconds ?? '', '5', 'number')) : ''}
+      <div style="font-size:10px;color:var(--text-dim);line-height:1.4">Re-open this panel after changing Kind to relabel the target field,${' '}reveal retrieve options, and show/hide the visit task timer.</div>
     `;
     },
   },
@@ -257,6 +261,10 @@ window.VineQuestSchema = {
         // toggle for whether the engine drops the item in on quest start.
         spawnZone: kind === 'retrieve' ? (o.zone || '') : '',
         spawn: o.spawn === false ? 'nospawn' : 'spawn',
+        // Action lines edited as one-per-line text (accepts the legacy singular `emote`);
+        // task delay is per-objective (visit only) — both round-trip back in toQuest.
+        emotes: Array.isArray(o.emotes) ? o.emotes.join('\n') : (o.emote ? String(o.emote) : ''),
+        taskSeconds: o.taskSeconds != null ? o.taskSeconds : '',
         requires: Array.isArray(o.requires) ? o.requires : [],
         _vine: o._vine,
       };
@@ -276,7 +284,7 @@ window.VineQuestSchema = {
     objs.forEach(o => o.requires.forEach(r => dependedOn.add(r)));
     objs.forEach(o => {
       const p = o._vine || pos[o.id] || { x: 340, y: 60 };
-      nodes[o.id] = { type: 'objective', x: p.x, y: p.y, data: { kind: o.kind, target: o.target, count: o.count, desc: o.desc, spawnZone: o.spawnZone, spawn: o.spawn } };
+      nodes[o.id] = { type: 'objective', x: p.x, y: p.y, data: { kind: o.kind, target: o.target, count: o.count, desc: o.desc, spawnZone: o.spawnZone, spawn: o.spawn, emotes: o.emotes, taskSeconds: o.taskSeconds } };
       if (o.requires.length) {
         o.requires.forEach(r => { if (byId[r]) edges.push({ fromNode: r, fromPort: 'unlocks', toNode: o.id }); });
       } else {
@@ -325,6 +333,12 @@ window.VineQuestSchema = {
         obj.zone = node.data.spawnZone || '';
         obj.spawn = node.data.spawn !== 'nospawn';
       }
+      // Action lines: one-per-line text → array (only when non-empty, so an
+      // untouched objective stays clean). Task delay is visit-only.
+      const emotes = String(node.data.emotes || '').split('\n').map(s => s.trim()).filter(Boolean);
+      if (emotes.length) obj.emotes = emotes;
+      const ts = Number(node.data.taskSeconds);
+      if (kind === 'visit' && ts > 0) obj.taskSeconds = ts;
       if (requires.length) obj.requires = requires;
       objectives.push(obj);
     }
@@ -338,7 +352,8 @@ window.VineQuestSchema = {
 
     const questType = questNode ? (questNode.data.questType || 'standard') : 'standard';
     // Flight templates rebuild their meta from the first-class fm* fields; every
-    // other quest type keeps whatever meta it carried (e.g. job-board taskSeconds).
+    // other quest type keeps whatever meta it carried (task timing is now per-
+    // objective — obj.taskSeconds — not quest meta).
     let meta = (questNode && questNode.data.meta && typeof questNode.data.meta === 'object') ? questNode.data.meta : {};
     if (questType === 'flight_template' && questNode) {
       const d = questNode.data;

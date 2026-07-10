@@ -56,6 +56,29 @@ export async function awardIp(playerId, skillId, margin = 0) {
   return { awarded: 1, leveledUp };
 }
 
+// Deterministically grant a fixed number of IP to a skill — for EARNED, structured rewards
+// (a graded landing, a completed contract) as opposed to the probabilistic per-use roll above.
+// Respects the same per-skill cap. Returns { awarded, leveledUp, level } — awarded is the IP
+// actually added after the cap (0 if already maxed).
+export async function grantSkillIp(playerId, skillId, amount) {
+  const amt = Math.max(0, Math.round(amount || 0));
+  if (!amt) return { awarded: 0, leveledUp: false, level: 0 };
+  const { rows } = await query(
+    'SELECT ip FROM player_skills WHERE player_id=$1 AND skill_id=$2',
+    [playerId, skillId]
+  );
+  const current = rows[0]?.ip ?? 0;
+  const gained = Math.min(SKILL_IP_CAP, current + amt) - current;
+  if (gained <= 0) return { awarded: 0, leveledUp: false, level: Math.floor(current / 100) };
+  if (!rows.length) {
+    await query('INSERT INTO player_skills (player_id, skill_id, ip) VALUES ($1,$2,$3)', [playerId, skillId, gained]);
+  } else {
+    await query('UPDATE player_skills SET ip = ip + $3 WHERE player_id=$1 AND skill_id=$2', [playerId, skillId, gained]);
+  }
+  const level = Math.floor((current + gained) / 100);
+  return { awarded: gained, leveledUp: level > Math.floor(current / 100), level };
+}
+
 // Cost to raise a stat by one point. Flat for now: 100 XP = 1 stat point.
 export function statCost(currentValue) {
   return getTunable('stat_cost_flat', 100);

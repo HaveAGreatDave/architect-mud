@@ -1,6 +1,6 @@
 const SETTINGS_KEY = 'architect_settings';
-const DEFAULT_AUDIO_SETTINGS = { enabled: false, music: false, sfx: false, tv: false, masterVolume: 0.8, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.5, tvVolume: 0.6, muteWhenHidden: true };
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'off', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_AUDIO_SETTINGS = { enabled: false, music: true, sfx: true, tv: true, masterVolume: 0.25, musicVolume: 0.40, sfxVolume: 0.25, ambientVolume: 0.25, tvVolume: 0.25, muteWhenHidden: true };
+const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', smartUI: null, audio: DEFAULT_AUDIO_SETTINGS };
 
 const DEFAULT_FELT_GREEN = '#1a4a1a';
 
@@ -86,6 +86,15 @@ function _hslToHex(h, s, l) {
 }
 
 function _isValidHex(s) { return /^#[0-9a-fA-F]{6}$/.test(s); }
+
+// Contrasting "ink" (near-black or white) for text/icons on a solid --accent
+// fill. Bright/warm accents (amber, yellow, mint) need dark ink; deep accents
+// need white — a fixed #fff washes out on light accents. Defaults to white.
+function _inkOn(hex) {
+  if (!_isValidHex(hex)) return '#ffffff';
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#0a0a0a' : '#ffffff';
+}
 
 // Mute a colour toward a felt-friendly tone, keeping its hue. Only ever darkens
 // and desaturates (caps L and S), so an already-muted colour passes through
@@ -209,8 +218,10 @@ function _themeChipHTML(value, label, colors, active) {
 }
 
 function _populateThemeGrid(settings) {
-  const grid = document.getElementById('opt-theme-grid');
-  if (!grid) return;
+  // Both the theme-editor overlay grid and the inline settings-panel grid (if
+  // present) show the same swatches.
+  const grids = [document.getElementById('opt-theme-grid'), document.getElementById('settings-theme-grid')].filter(Boolean);
+  if (!grids.length) return;
   const active = settings.theme || 'dark';
   const section = (title, items) =>
     `<div class="theme-grid-head">${title}</div><div class="theme-grid">` +
@@ -223,7 +234,7 @@ function _populateThemeGrid(settings) {
       custom.map(t => _themeChipHTML(t.id, t.name, _probeThemeVars({ colors: t.colors }), t.id === active)).join('') +
       `</div>`;
   }
-  grid.innerHTML = html;
+  for (const grid of grids) grid.innerHTML = html;
 }
 
 export function applySettings(settings) {
@@ -234,6 +245,11 @@ export function applySettings(settings) {
   document.documentElement.setAttribute('data-motion', settings.motion || 'on');
   document.documentElement.setAttribute('data-dpad-size', settings.dpadSize || 'small');
   document.documentElement.style.setProperty('--font-size-base', (settings.fontSize || '14') + 'px');
+  // Smart UI: shows/hides the contextual per-room action bar (#smart-bar,
+  // panels/smartbar.js) — player-togglable on any device. Never switches
+  // desktop/mobile layout (that stays device-detected via data-density, set
+  // once at launch and not player-adjustable).
+  document.documentElement.setAttribute('data-smart-ui', settings.smartUI || 'off');
 
   // Apply active custom theme colors, or any in-progress editor colors, then contrast boost
   const baseColors = customTheme ? customTheme.colors : (settings.customColors || {});
@@ -252,6 +268,12 @@ export function applySettings(settings) {
     if (colors[v]) document.documentElement.style.setProperty(v, colors[v]);
     else document.documentElement.style.removeProperty(v);
   });
+
+  // Contrasting ink for text on solid --accent fills (buttons/pills). Read the
+  // now-effective accent (theme CSS or the boosted inline value) and pick the
+  // legible foreground, so accent buttons never show accent-on-accent text.
+  const _accentEff = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  document.documentElement.style.setProperty('--accent-ink', _inkOn(_accentEff));
 
   // Poker felt colour: classic green, the theme accent (dampened to a felt tone
   // so bright accents don't glare), or a custom pick (used exactly as chosen).
@@ -281,16 +303,25 @@ export function applySettings(settings) {
   const _tn = document.getElementById('active-theme-name');
   if (_tn) _tn.textContent = _activeThemeName(settings);
 
+  // Mini swatch on the collapsed dropdown trigger — same dots as a full chip.
+  const _sw = document.getElementById('theme-dd-swatch');
+  if (_sw) {
+    const c = _getThemeColors(settings.theme || 'dark', settings);
+    _sw.style.background = c['--bg'];
+    _sw.style.borderColor = c['--border'];
+    _sw.innerHTML = _CHIP_DOT_VARS.map(v => `<span class="theme-dot" style="background:${c[v] || 'transparent'}"></span>`).join('');
+  }
+
   const _cs = document.getElementById('opt-contrast');
   const _cl = document.getElementById('contrast-value-label');
   const _cv = settings._contrastPreview != null ? settings._contrastPreview : (settings.contrast || 0);
   if (_cs && _cs.value !== String(_cv)) _cs.value = _cv;
   if (_cl) _cl.textContent = _cv === 0 ? 'Base' : `+${_cv}%`;
 
-  for (const group of ['fontsize', 'density', 'sidebar', 'motion', 'weatherfx', 'tempunit', 'dpadsize']) {
+  for (const group of ['fontsize', 'sidebar', 'motion', 'weatherfx', 'tempunit', 'dpadsize', 'smartui']) {
     const container = document.getElementById(`opt-${group}`);
     if (!container) continue;
-    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group === 'tempunit' ? 'tempUnit' : group === 'dpadsize' ? 'dpadSize' : group === 'weatherfx' ? 'weatherFx' : group;
+    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group === 'tempunit' ? 'tempUnit' : group === 'dpadsize' ? 'dpadSize' : group === 'weatherfx' ? 'weatherFx' : group === 'smartui' ? 'smartUI' : group;
     container.querySelectorAll('.settings-opt').forEach(btn => {
       btn.classList.toggle('selected', btn.dataset.value === String(settings[key]));
     });
@@ -335,15 +366,37 @@ export function applySettings(settings) {
 }
 
 export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {}) {
-  const themeGrid = document.getElementById('opt-theme-grid');
-  if (themeGrid) {
-    themeGrid.addEventListener('click', (e) => {
+  // Theme swatch grids — the editor-overlay grid and the inline settings grid
+  // both pick a theme on click.
+  const pickTheme = (value) => {
+    settings.theme = value;
+    settings.customColors = {};
+    _teEditLoaded = false;
+    // Collapse the swatch dropdown once a theme is chosen.
+    const ddPanel = document.getElementById('theme-dd-panel');
+    if (ddPanel) {
+      ddPanel.classList.remove('open');
+      document.getElementById('theme-dd-trigger')?.setAttribute('aria-expanded', 'false');
+    }
+    saveAndApply();
+  };
+  for (const gid of ['opt-theme-grid', 'settings-theme-grid']) {
+    const grid = document.getElementById(gid);
+    if (!grid) continue;
+    grid.addEventListener('click', (e) => {
       const chip = e.target.closest('.theme-chip');
-      if (!chip || !themeGrid.contains(chip)) return;
-      settings.theme = chip.dataset.value;
-      settings.customColors = {};
-      _teEditLoaded = false;
-      saveAndApply();
+      if (!chip || !grid.contains(chip)) return;
+      pickTheme(chip.dataset.value);
+    });
+  }
+
+  // Collapsed theme dropdown — the trigger toggles the swatch grid open/closed.
+  const ddTrigger = document.getElementById('theme-dd-trigger');
+  const ddPanel = document.getElementById('theme-dd-panel');
+  if (ddTrigger && ddPanel) {
+    ddTrigger.addEventListener('click', () => {
+      const open = ddPanel.classList.toggle('open');
+      ddTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
   }
 
@@ -352,9 +405,6 @@ export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {})
 
   document.querySelectorAll('#opt-fontsize .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.fontSize = btn.dataset.value; saveAndApply(); });
-  });
-  document.querySelectorAll('#opt-density .settings-opt').forEach(btn => {
-    btn.addEventListener('click', () => { settings.density = btn.dataset.value; saveAndApply(); });
   });
   document.querySelectorAll('#opt-sidebar .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.sidebarPosition = btn.dataset.value; saveAndApply(); });
@@ -367,6 +417,9 @@ export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {})
   });
   document.querySelectorAll('#opt-dpadsize .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.dpadSize = btn.dataset.value; saveAndApply(); });
+  });
+  document.querySelectorAll('#opt-smartui .settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => { settings.smartUI = btn.dataset.value; saveAndApply(); });
   });
   document.querySelectorAll('#opt-tempunit .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -447,6 +500,13 @@ export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {})
   }
 
   document.getElementById('settings-btn').addEventListener('click', () => {
+    // Route straight to the Tablet OS Settings app (the legacy settings-panel
+    // window is retired for players). Fall back to the old panel only where no
+    // command channel exists (e.g. contexts without the tablet).
+    if (sendCmd) {
+      sendCmd('tabletnav settings');
+      return;
+    }
     applySettings(settings);
     document.getElementById('settings-panel').classList.add('active');
   });

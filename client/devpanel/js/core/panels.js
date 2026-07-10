@@ -359,8 +359,11 @@ const PANELS = {
   },
 };
 
+const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'quests', 'vine-dialogue', 'vine-ai']);
 function activatePanelNav(name) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.panel === name));
+  const group = document.getElementById('nav-vine-children');
+  if (group) group.classList.toggle('open', VINE_GROUP_PANELS.has(name));
 }
 
 async function showPanel(name) {

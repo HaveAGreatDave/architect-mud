@@ -230,12 +230,15 @@ function vsOpenExisting(familyKey) {
   _vsActiveFamily = familyKey;
   _vsView = 'existing';
   vsRenderRoot();
+  const navPanel = { dialogue: 'vine-dialogue', ai: 'vine-ai', script: 'scripts', quest: 'quests' }[familyKey];
+  activatePanelNav(navPanel);
 }
 
 function vsBackToFront() {
   _vsView = 'front';
   _vsActiveFamily = null;
   vsRenderRoot();
+  activatePanelNav('vine');
 }
 
 // Compact flat list (no per-kind section boxes) for the active family. Rows carry a
@@ -279,6 +282,17 @@ function vsRenderExisting() {
       ${badge}
     </div>`;
   }).join('');
+}
+
+// Sidebar "Dialogue"/"AI" nav children — open the VINE Suite panel straight to that
+// family's existing-list (not the front page), with the nav item itself highlighted.
+async function vsNavFamily(familyKey) {
+  currentPanel = 'vine';
+  sortState = { key: null, dir: 1 };
+  closeEdit();
+  await loadPanel('vine');
+  activatePanelNav(`vine-${familyKey}`);
+  vsOpenExisting(familyKey);
 }
 
 // "+ New" on a family card — jump to the owning panel and open its blank record form.

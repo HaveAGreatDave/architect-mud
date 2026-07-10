@@ -929,6 +929,7 @@ const FSIM_TUNE = [
   ['haze', 'Distance haze', 0.3, 3, 0.05],
   ['rwl', 'Runway length', 1, 8, 0.2],
   ['rwyRecede', 'Runway recede', 0.5, 6, 0.2],
+  ['fov', 'Tunnel (FOV)', 0.5, 1.6, 0.02],
 ];
 
 // Live-tunable FLIGHT-MODEL knobs — every per-airframe characteristic in flightmodel
@@ -988,6 +989,22 @@ function ensureFlightSimStyles() {
     .fsim-toast{ position:absolute; top:38%; left:50%; transform:translateX(-50%); font:11px/1 monospace; letter-spacing:2px; z-index:5;
       color:var(--cy); background:rgba(6,12,18,.82); border:1px solid var(--cy); border-radius:5px; padding:4px 11px; opacity:0; transition:opacity .18s; pointer-events:none; white-space:nowrap; }
     .fsim-toast.show{ opacity:1; }
+    /* landing report card — big graded touchdown feedback flashed over the glass */
+    .fsim-card{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(.7); z-index:8;
+      display:flex; flex-direction:column; align-items:center; gap:1px; padding:12px 26px; pointer-events:none; text-align:center;
+      background:rgba(6,12,18,.86); border:1px solid #16303f; border-radius:12px; opacity:0; font-family:monospace;
+      transition:opacity .3s ease, transform .3s cubic-bezier(.2,1.3,.4,1); }
+    .fsim-card.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+    .fsim-card-hd{ font-size:10px; letter-spacing:3px; color:#8aa0b2; }
+    .fsim-card-grade{ font-size:52px; font-weight:900; line-height:1; text-shadow:0 0 14px currentColor; }
+    .fsim-card-fpm{ font-size:13px; letter-spacing:1px; color:#cfe0ee; }
+    .fsim-card-txt{ font-size:11px; color:#9fb4c4; margin-top:3px; max-width:230px; }
+    .fsim-card.butter .fsim-card-grade{ color:#5fe0a0; }
+    .fsim-card.good .fsim-card-grade{ color:#8fd0ff; }
+    .fsim-card.mid .fsim-card-grade{ color:#ffd24a; }
+    .fsim-card.bad .fsim-card-grade{ color:#ff8a3a; }
+    .fsim-card.crash{ border-color:#ff4a5a; }
+    .fsim-card.crash .fsim-card-grade{ color:#ff4a5a; }
     /* look-direction tag (Q/E/S hold-to-look) */
     .fsim-viewtag{ position:absolute; bottom:8px; left:50%; transform:translateX(-50%); font:10px/1 monospace; letter-spacing:2px; z-index:5;
       color:var(--cy); background:rgba(6,12,18,.7); border:1px solid #16303f; border-radius:4px; padding:2px 8px; opacity:0; transition:opacity .12s; pointer-events:none; }
@@ -1062,6 +1079,10 @@ function ensureFlightSimStyles() {
     .fsim-radio-frow i{ font-size:9px; font-style:normal; color:#2f7d5a; margin-left:auto; }
     .fsim-radio-frow.sq b{ letter-spacing:3px; }
     .fsim-radio-frow i.mode{ color:#e0b23e; text-shadow:0 0 5px rgba(224,178,62,.4); }
+    .fsim-radio-frow.tgt{ align-items:center; gap:4px; }
+    .fsim-radio-frow.tgt b{ font-size:9px; letter-spacing:.5px; flex:1; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .fsim-tgt-btn{ font:9px/1 monospace; color:#57e6a0; background:linear-gradient(180deg,#0e2419,#081711); border:1px solid #14322a; border-radius:3px; padding:1px 4px; cursor:pointer; flex:0 0 auto; }
+    .fsim-tgt-btn:active{ transform:translateY(1px); }
     .fsim-radio-deck{ display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:auto; }
     .fsim-radio-btns{ display:grid; grid-template-columns:1fr 1fr; gap:3px; }
     .fsim-radio-btn{ font:7px/1 monospace; letter-spacing:.5px; color:#9fb0bd; padding:3px 5px; min-width:24px; cursor:pointer;
@@ -1120,6 +1141,9 @@ function ensureFlightSimStyles() {
     .fsim-flapsw-lbls span.on{ color:var(--cy); text-shadow:0 0 5px var(--cy); }
     .fsim-tunebtn{ position:absolute; top:6px; right:8px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
       border-radius:6px; width:24px; height:22px; font-size:12px; line-height:1; cursor:pointer; }
+    .fsim-fsbtn{ position:absolute; top:6px; right:36px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
+      border-radius:6px; width:24px; height:22px; font-size:13px; line-height:1; cursor:pointer; }
+    .fsim-fsbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
     .fsim-tune{ position:absolute; top:32px; right:8px; z-index:4; width:186px; max-height:72vh; overflow-y:auto; overscroll-behavior:contain; background:rgba(8,14,20,.94); border:1px solid #14212d; border-radius:8px; padding:8px; }
     .fsim-tune .thdr{ font-size:9px; letter-spacing:1px; color:var(--cy); border-bottom:1px solid #16303f; padding-bottom:3px; margin:2px 0 6px; position:sticky; top:-8px; background:rgba(8,14,20,.98); }
     .fsim-tune .thdr:not(:first-child){ margin-top:9px; }
@@ -1331,7 +1355,7 @@ export function openFlightSim(opts = {}) {
   _fsim = F;
 
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
-    <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span></div><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div></div>
+    <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span></div><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div></div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -1369,6 +1393,7 @@ export function openFlightSim(opts = {}) {
           <div class="fsim-radio-frow"><span class="k">NAV</span><b>112.30</b><i>110.90</i></div>
           <div class="fsim-radio-frow sq"><span class="k">SQWK</span><b id="fsim-sq">1200</b><i class="mode">ALT</i></div>
           <div class="fsim-radio-frow"><span class="k">TILE</span><b id="fsim-tile" style="font-size:9px;letter-spacing:0;">—</b></div>
+          <div class="fsim-radio-frow tgt"><span class="k">TGT</span><button class="fsim-tgt-btn" id="fsim-tgt-prev" title="previous field ([)" tabindex="-1">◂</button><b id="fsim-tgt-name">—</b><button class="fsim-tgt-btn" id="fsim-tgt-next" title="next field (])" tabindex="-1">▸</button></div>
         </div>
         <div class="fsim-radio-deck">
           <div class="fsim-radio-btns">
@@ -1451,7 +1476,17 @@ export function openFlightSim(opts = {}) {
     if (!F.cargoKg) { fsimToast('— NO CARGO —'); return; }
     F.cargoKg = 0; sendCmdSilent('jettison'); fsimToast('CARGO JETTISONED');
   };
-  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'r', 'f', 'g', 'j', ' ']);
+  // Airport target guide — [ / ] (and the radio ◂/▸ buttons) step the field the target ring /
+  // Home waypoint locks onto. Keyed by airfield id so the choice survives the list re-sorting.
+  const cycleApTarget = (dir) => {
+    const list = Array.isArray(F.fields) ? F.fields : [];
+    if (!list.length) { fsimToast('— NO FIELDS IN RANGE —'); return; }
+    let i = list.findIndex((f) => f.id === F.apTargetId);
+    i = i < 0 ? (dir > 0 ? 0 : list.length - 1) : (i + dir + list.length) % list.length;
+    F.apTargetId = list[i].id;
+    fsimToast(`◎ ${(list[i].name || 'FIELD').toUpperCase()} · ${list[i].dist}mi`);
+  };
+  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'r', 'f', 'g', 'j', ' ', '[', ']']);
   const onKeyDown = (e) => {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
@@ -1471,6 +1506,8 @@ export function openFlightSim(opts = {}) {
       case 'f': if (!e.repeat) stepFlap(-1); break;
       case 'g': if (!e.repeat) toggleGear(); break;
       case 'j': if (!e.repeat) jettison(); break;
+      case '[': if (!e.repeat) cycleApTarget(-1); break;   // cycle target airport
+      case ']': if (!e.repeat) cycleApTarget(1); break;
       case ' ': F.firing = true; break;   // hold to fire guns (frame loop squirts bursts)
     }
   };
@@ -1494,17 +1531,10 @@ export function openFlightSim(opts = {}) {
       try { spoolUp(F.cls); } catch {}
       sendCmdSilent('flightevent engineon');
     } else if (s.onGround && s.airspeed < 5) {
+      if (F.rolling) { finishLanding(F, s); return; }   // rolled to a stop → park (opens the hangar at a field)
       F.engineOn = false; engBtn.classList.remove('on');
       try { spoolDown(F.cls); } catch {}
-      if (F.rolling) {
-        // Landed + rolled to a stop → shut down: taxi into the hangar and disembark.
-        F.rolling = false;
-        sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} 0 0 ${Math.round(s.heading)} 0 0 1 0`);
-        sendCmdSilent('flightevent land');
-        setTimeout(() => { closeFlightSim(); sendCmdSilent('look'); }, 600);
-      } else {
-        sendCmdSilent('flightevent engineoff');
-      }
+      sendCmdSilent('flightevent engineoff');
     }
   });
 
@@ -1570,6 +1600,18 @@ export function openFlightSim(opts = {}) {
   }));
   add(tuneBtn, 'click', () => { tunePanel.style.display = tunePanel.style.display === 'none' ? 'block' : 'none'; });
 
+  // Fullscreen: expand the sim over the whole output column, pushing the text log + command
+  // pane down out of the way for an immersive view. Toggling it off restores the split.
+  const fsBtn = q('#fsim-fsbtn');
+  add(fsBtn, 'click', () => {
+    const on = document.body.classList.toggle('fsim-fullscreen');
+    if (fsBtn) fsBtn.classList.toggle('on', on);
+  });
+
+  // Radio target-cycle buttons — the panel twin of the [ / ] keys.
+  add(q('#fsim-tgt-prev'), 'click', () => cycleApTarget(-1));
+  add(q('#fsim-tgt-next'), 'click', () => cycleApTarget(1));
+
   // Focus model: the sim pane owns the keyboard by default on embark (so A/Z/Q/E/S…
   // drive the plane immediately). Clicking anywhere on the pane takes focus off the
   // command box; clicking the command box directly gives it back to typing.
@@ -1614,6 +1656,57 @@ function offMapHeading(F) {
   if (!n) return null;
   const bx = (sx / n) - cx, by = (sy / n) - cy;
   return (Math.round(Math.atan2(bx, -by) * 180 / Math.PI) + 360) % 360;
+}
+
+// Landing report card — grades the touchdown by sink rate (fpm at contact) and flashes a big
+// letter grade + the fpm + a wisecrack over the windshield for a couple of seconds. ~200 fpm is
+// a good arrival; 600 fpm is the gear-breaking crash threshold; everything between is graded.
+const LANDING_GRADES = [
+  [50,  'A+', 'butter', '🧈 BUTTER. Absolutely greased it.'],
+  [100, 'A',  'butter', 'Silky. The passengers applauded.'],
+  [150, 'A-', 'good',   'Smooth. Barely a bump.'],
+  [200, 'B+', 'good',   'Nice one — textbook touchdown.'],
+  [260, 'B',  'good',   "Solid. The coffee didn't spill."],
+  [320, 'B-', 'mid',    'Firm, but perfectly fine.'],
+  [380, 'C+', 'mid',    'Ooh — felt that one.'],
+  [440, 'C',  'mid',    'That was an arrival, not a landing.'],
+  [500, 'C-', 'bad',    'Ouch. Better check the struts.'],
+  [560, 'D',  'bad',    'The tower is filing paperwork.'],
+  [600, 'F-', 'bad',    'The landing gear is openly weeping.'],
+];
+function landingGrade(fpm) {
+  for (const [lim, grade, cls, txt] of LANDING_GRADES) if (fpm <= lim) return { grade, cls, txt };
+  return { grade: 'F-', cls: 'bad', txt: 'The landing gear is openly weeping.' };
+}
+function showLandingCard(root, fpm, crashed) {
+  const view = root && root.querySelector('.fsim-view'); if (!view) return;
+  const f = Math.round(Math.max(0, fpm));
+  const g = crashed ? { grade: 'F', cls: 'crash', txt: 'You wear this one. 💀' } : landingGrade(f);
+  const old = view.querySelector('.fsim-card'); if (old) old.remove();
+  const card = document.createElement('div');
+  card.className = 'fsim-card ' + g.cls;
+  card.innerHTML = `<div class="fsim-card-hd">${crashed ? 'CRASHED' : 'TOUCHDOWN'}</div>`
+    + `<div class="fsim-card-grade">${g.grade}</div>`
+    + `<div class="fsim-card-fpm">${f} fpm</div>`
+    + `<div class="fsim-card-txt">${g.txt}</div>`;
+  view.appendChild(card);
+  requestAnimationFrame(() => card.classList.add('show'));
+  setTimeout(() => { card.classList.remove('show'); setTimeout(() => { try { card.remove(); } catch {} }, 400); }, crashed ? 2600 : 2200);
+}
+
+// Full-stop landing → cut the engine, report grounded+stopped, and park. The server
+// disembarks everyone at a real airfield, so we open straight into the hangar bay for
+// this airport; off-field (a VTOL set-down) we just hand the pane back to the room view.
+function finishLanding(F, s) {
+  if (F.landed) return;   // once per touchdown
+  F.landed = true; F.rolling = false;
+  F.engineOn = false;
+  const eb = document.getElementById('fsim-eng'); if (eb) eb.classList.remove('on');
+  try { spoolDown(F.cls); } catch {}
+  sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} 0 0 ${Math.round(s.heading)} 0 0 1 0`);
+  sendCmdSilent(`flightevent land ${F.landGrade || 'F-'} ${Math.round(F.landFpm || 0)}`);
+  const toHangar = !!F.onField;
+  setTimeout(() => { closeFlightSim(); sendCmdSilent(toHangar ? 'hangar' : 'look'); }, 600);
 }
 
 function fsimFrame(now) {
@@ -1675,6 +1768,7 @@ function fsimFrame(now) {
     if (hit && hit.severe) {
       F.cfitCd = 9999; F.reportedAirborne = false; F.rolling = false;
       groundFx('touchdownHard'); csfx('flight-crash', 'hololock-lose');
+      F.shake = 20;
       sendCmdSilent('flightevent crash cfit');
       if (F.toast) F.toast('CRASH — you flew into a building');
     } else if (hit) {
@@ -1684,6 +1778,7 @@ function fsimFrame(now) {
       s.airspeed *= 0.72; s.altitude = hit.roofFt + 25; s.vs = Math.max(s.vs, 40);
       s.bank = clampNum(s.bank + (s.bank >= 0 ? 14 : -14), -70, 70);
       groundFx('touchdownHard'); csfx('flight-touchdown', 'hololock-lose');
+      F.shake = 13;
       sendCmdSilent('flightevent clip');
       if (F.toast) F.toast('⚠ You clipped a rooftop!');
     }
@@ -1710,6 +1805,8 @@ function fsimFrame(now) {
       // Report a crash: the server destroys the craft and closes the sim (cockpit_close).
       F.rolling = false;
       groundFx('touchdownHard'); csfx('flight-crash', 'hololock-lose');
+      F.shake = 18;   // slammed it in — a big jolt
+      showLandingCard(root, sinkFpm, true);   // crash card
       sendCmdSilent('flightevent crash hardlanding');
       if (F.toast) F.toast('CRASH — you slammed it in too hard');
     } else {
@@ -1719,13 +1816,22 @@ function fsimFrame(now) {
       // above so the server marks us grounded (no overfly noise / airspace rules taxiing).
       // Reuse the same park-on-shutdown flow. A heli sets down vertically (no rollout), so it's
       // already "stopped" — hint the shutdown straight away; a fixed-wing rolls out first.
-      F.rolling = true; F.stopHinted = !!F.heli;
+      F.rolling = true; F.stopHinted = !!F.heli; F.landed = false;
       groundFx((F.touchVs || 0) < -500 ? 'touchdownHard' : 'touchdown');   // squeak/thump on contact
+      F.shake = clampNum(sinkFpm / 55, 0, 14);   // jolt scales with how hard the wheels hit
+      F.landGrade = landingGrade(sinkFpm).grade; F.landFpm = Math.round(sinkFpm);   // reported to the server for landing IP
+      showLandingCard(root, sinkFpm);   // graded report card flashes over the glass
       if (F.toast) F.toast(F.heli ? 'DOWN — cut the ENGINE to shut down & park' : 'ROLL OUT — brake to a stop, then cut the ENGINE to park');
     }
   }
   // Rolled to a stop on the ground → prompt the shutdown that taxis you into the hangar.
-  if (F.rolling && !F.stopHinted && s.onGround && s.airspeed < 5) { F.stopHinted = true; if (F.toast) F.toast('STOPPED — cut the ENGINE to shut down & park'); }
+  if (F.rolling && s.onGround && s.airspeed < 5) {
+    // Rolled to a stop AT an airfield → shut down and taxi into the hangar automatically
+    // (no manual engine-cut). Off-field (a VTOL that flared onto open ground) we still
+    // prompt the shutdown, so the pilot can choose to power back up and lift off again.
+    if (F.onField) finishLanding(F, s);
+    else if (!F.stopHinted) { F.stopHinted = true; if (F.toast) F.toast('STOPPED — cut the ENGINE to shut down & park'); }
+  }
 
   // Stall horn (intermittent → continuous).
   fsimHorn(F, dt);
@@ -1857,6 +1963,22 @@ function fsimFrame(now) {
   const retEl = document.getElementById('fsim-reticle');
   if (retEl) retEl.classList.toggle('lock', solReady);
 
+  // Airport target guide — the selected field (default: the nearest) resolved to a live
+  // tile-offset from the craft, for the windshield's in-view accent ring / off-screen Home
+  // waypoint. Tracked by airfield id; falls back to the nearest whenever the target drops out.
+  let apTarget = null;
+  const fieldList = Array.isArray(F.fields) ? F.fields : [];
+  if (fieldList.length) {
+    if (!F.apTargetId || !fieldList.some((f) => f.id === F.apTargetId)) F.apTargetId = fieldList[0].id;
+    const tgt = fieldList.find((f) => f.id === F.apTargetId) || fieldList[0];
+    if (tgt.gx != null) {
+      const adx = tgt.gx - F.pos.x, ady = tgt.gy - F.pos.y;
+      apTarget = { dx: adx, dy: ady, name: tgt.name, dist: Math.round(Math.hypot(adx, ady)) };
+    }
+    const nmEl = document.getElementById('fsim-tgt-name');
+    if (nmEl) nmEl.textContent = (tgt.name || 'FIELD').slice(0, 10).toUpperCase();
+  }
+
   paintWindshield('fsim-ws', {
     pitch: d.pitch, bank: d.bank,
     // Render height fraction (drives eye-height/compression). Referenced to 3000ft with a
@@ -1871,7 +1993,7 @@ function fsimFrame(now) {
     landGuide,
     hud: true, navWarn: back == null ? null : `⚠ TURN ${String(back).padStart(3, '0')}° — RETURN TO MAP`,
     threat: (F.aa && F.reportedAirborne) ? F.aa : null,   // AA envelope telegraph → pulsing banner + tape chevron
-    airports: F.fields, viewYaw: F.viewYaw,
+    airports: F.fields, apTarget, viewYaw: F.viewYaw,
     // Looking off the nose (Q/E/S) → frame the view as a side cabin window instead of the
     // forward windscreen. The real, rotated Mode-7 world still renders behind the pane.
     windowClass: F.viewYaw ? F.cls : undefined,
@@ -1907,6 +2029,15 @@ function fsimFrame(now) {
       rpm: s.rpm, airspeed: s.airspeed, vs: s.vs, altitude: s.altitude, onGround: s.onGround, groundSpeed: s.onGround ? s.airspeed : 0,
       stallMargin: s.stallMargin, stalled: s.stalled, flaps: input.flaps });
   }
+
+  // Impact screen-shake — a decaying jitter on the whole panel, kicked by the sink rate at
+  // touchdown (or a crash/clip). Bigger arrival = bigger jolt; settles in ~0.15s.
+  if (F.shake > 0.2) {
+    const m = F.shake;
+    root.style.transform = `translate(${(Math.random() * 2 - 1) * m}px, ${(Math.random() * 2 - 1) * m}px)`;
+    F.shake *= Math.exp(-dt * 9);
+    F.shakeOn = true;
+  } else if (F.shakeOn) { root.style.transform = ''; F.shake = 0; F.shakeOn = false; }
 
   F.raf = requestAnimationFrame(fsimFrame);
 }
@@ -2227,6 +2358,7 @@ export function flightSimContext(msg) {
   if (msg.map) { F.map = msg.map; if (msg.mapX != null) F.mapCenter = { x: msg.mapX, y: msg.mapY }; }
   if (msg.minimap) F.minimap = msg.minimap;
   if (msg.fields) F.fields = msg.fields;
+  if ('onField' in msg) F.onField = !!msg.onField;   // rolled onto a real airfield → auto-park + open the hangar on full stop
   if (msg.occupants) { F.occupants = msg.occupants; if (msg.seats) F.seats = msg.seats; renderSeats(F); }   // cabin readout keeps pace with boarding
   if ('cargo' in msg) F.cargoKg = msg.cargo;   // current hold weight (drives the J jettison bind)
   if (msg.sky) F.sky = msg.sky;
@@ -2294,6 +2426,7 @@ export function closeFlightSim() {
   try { disposeWindshield('fsim-ws'); } catch {}
   try { clearFlightDrugFx(document.getElementById('fsim-root')?.querySelector('.fsim-view'), document.getElementById('fsim-ws')); } catch {}
   stopEngineAudio();
+  document.body.classList.remove('fsim-fullscreen');   // drop the immersive layout if it was on
   suppressWeatherFx(false);   // back to the room view — let the outdoor overlay resume
 }
 

@@ -396,14 +396,21 @@ function nearestField(x, y) {
 // nearest first. Bearing is world-absolute; the client slides each tag as it turns.
 const FIELD_TAG_RANGE = 24;
 function nearbyFields(x, y) {
-  const out = [];
+  const all = [];
   for (const z of getAllZones()) {
     if (z.map_id !== 'map_world' || !z.flags?.airfield_id || z.grid_x == null) continue;
     const d = Math.hypot(z.grid_x - x, z.grid_y - y);
-    if (d > FIELD_TAG_RANGE) continue;
-    out.push({ name: z.flags.airfield_name || z.name, bearing: Math.round(bearingDeg(x, y, z.grid_x, z.grid_y)), dist: Math.round(d) });
+    // gx/gy let the client project a live target ring at the field's spot; id keeps the
+    // player's chosen target stable across the list re-sorting each tick.
+    all.push({ id: z.flags.airfield_id, name: z.flags.airfield_name || z.name, gx: z.grid_x, gy: z.grid_y,
+      bearing: Math.round(bearingDeg(x, y, z.grid_x, z.grid_y)), dist: Math.round(d), _d: d });
   }
-  return out.sort((a, b) => a.dist - b.dist);
+  all.sort((a, b) => a._d - b._d);
+  // Every field within range tags the heading tape, but ALWAYS keep at least the nearest so the
+  // target guide can always lock onto a field — even out over open country beyond tag range.
+  let out = all.filter((f) => f._d <= FIELD_TAG_RANGE);
+  if (!out.length && all.length) out = [all[0]];
+  return out.map(({ _d, ...f }) => f);
 }
 
 export function gaugePayload(live) {
@@ -507,6 +514,7 @@ export function contextPayload(live) {
     biomeBelow: districtBiome(surfaceAt(a.grid_x, a.grid_y)),
     minimap: (() => { const b = surfaceAt(a.grid_x, a.grid_y); return b ? getMinimapData(b.id, 3) : null; })(),
     fields: nearbyFields(a.grid_x, a.grid_y),   // airport bearing tags for the heading tape
+    onField: !!surfaceAt(a.grid_x, a.grid_y)?.flags?.airfield_id,   // rolled onto a real airfield tile → auto-park + hangar on stop
     cargo: a.custom_data?.cargoWeight || 0,     // current hold weight (drives the cockpit jettison bind)
     engines: live.type.engines || 1, seats: live.type.seats || 1, occupants: seatList(live),   // gauge count + cabin readout
     warn: a.fuel <= 0 ? 'STARVATION' : (a.fuel <= cap * BINGO_FRAC ? 'BINGO' : null),

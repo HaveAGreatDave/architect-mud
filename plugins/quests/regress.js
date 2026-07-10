@@ -153,6 +153,28 @@ export default async function regress({ run, check, getPlayer }) {
   await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TIMED_QUEST_ID]);
   await query('DELETE FROM quests WHERE id=$1', [TIMED_QUEST_ID]);
 
+  // ── Per-objective task time — obj.taskSeconds (no quest meta) ───────────────
+  // Timing now lives on the objective, not quest.meta, so different steps can take
+  // different times. Empty meta here proves the per-objective path stands alone.
+  const POBJ_QUEST_ID = 'quest_regress_objtimed';
+  await query(
+    `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
+     VALUES ($1,'Regress ObjTimed','',$2,'{}',0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+     ON CONFLICT (id) DO UPDATE SET objectives=$2`,
+    [POBJ_QUEST_ID,
+      JSON.stringify([{ id: 'o0', type: 'visit', zone: 'zone_regress_objtimed_spot', count: 1, desc: 'Do the thing', taskSeconds: 0.2 }])]
+  );
+  await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, POBJ_QUEST_ID]);
+  await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: POBJ_QUEST_ID } });
+  await trackEvent(player, (obj) => obj.type === 'visit' && obj.zone === 'zone_regress_objtimed_spot');
+  ({ rows } = await query('SELECT status, progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, POBJ_QUEST_ID]));
+  check('per-objective taskSeconds defers completion (no quest meta)', rows[0]?.status === 'active' && (rows[0]?.progress?.[0] || 0) === 0, JSON.stringify(rows[0]));
+  await sleep(400);
+  ({ rows } = await query('SELECT status, progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, POBJ_QUEST_ID]));
+  check('per-objective taskSeconds completes once elapsed', rows[0]?.status === 'completed' && rows[0]?.progress?.[0] === 1, JSON.stringify(rows[0]));
+  await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, POBJ_QUEST_ID]);
+  await query('DELETE FROM quests WHERE id=$1', [POBJ_QUEST_ID]);
+
   // ── Retrieve objective — auto-spawns the item, completes on pickup ──────────
   const RETRIEVE_QUEST_ID = 'quest_regress_retrieve';
   const RETRIEVE_ZONE = 'zone_regress_retrieve_spot';

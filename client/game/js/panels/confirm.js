@@ -35,7 +35,9 @@ function close() {
 }
 
 // msg: { prompt, command, confirmLabel?, title? }
-export function showConfirmDialog(msg) {
+// onConfirm (optional): a client-side callback fired on confirm instead of
+// sending `msg.command` down the wire — used by the Tablet's corp screens.
+export function showConfirmDialog(msg, onConfirm) {
   close();
   const el = document.createElement('div');
   el.className = 'confirm-window';
@@ -59,8 +61,9 @@ export function showConfirmDialog(msg) {
   el.querySelector('.confirm-x').addEventListener('click', close);
   el.querySelector('.confirm-cancel').addEventListener('click', close);
   el.querySelector('.confirm-ok').addEventListener('click', () => {
-    if (msg.command) sendCmd(msg.command, msg.confirmLabel || msg.command);
     close();
+    if (onConfirm) onConfirm();
+    else if (msg.command) sendCmd(msg.command, msg.confirmLabel || msg.command);
   });
   el.querySelector('.confirm-ok').focus();
 }
@@ -95,6 +98,56 @@ export function showDangerDialog(opts, onConfirm) {
   el.querySelector('.confirm-cancel').addEventListener('click', close);
   el.querySelector('.confirm-ok').addEventListener('click', () => { close(); onConfirm(); });
   el.querySelector('.confirm-cancel').focus();
+}
+
+let _promptEl = null;
+
+function closePrompt() {
+  _promptEl?.remove();
+  _promptEl = null;
+}
+
+// Same themed window as showConfirmDialog, but collects free text and hands it
+// to a client-side callback — the in-browser replacement for window.prompt()
+// (used by the Tablet's corp screens: name a corp, invite a player, etc.).
+// opts: { title?, prompt?, placeholder?, value?, confirmLabel? }, onConfirm: (text) => void
+export function showPromptDialog(opts, onConfirm) {
+  closePrompt();
+  const el = document.createElement('div');
+  el.className = 'confirm-window';
+  el.innerHTML = `
+    <div class="confirm-drag-handle">
+      <span class="confirm-title">${opts.title || 'Enter text'}</span>
+      <button class="confirm-x" title="Cancel">✕</button>
+    </div>
+    <div class="confirm-body">
+      <p class="confirm-prompt"></p>
+      <input class="confirm-input" type="text" autocomplete="off">
+      <div class="confirm-actions">
+        <button class="confirm-cancel">Cancel</button>
+        <button class="confirm-ok">${opts.confirmLabel || 'Confirm'}</button>
+      </div>
+    </div>`;
+  el.querySelector('.confirm-prompt').textContent = opts.prompt || '';
+  document.body.appendChild(el);
+  _promptEl = el;
+
+  const input = el.querySelector('.confirm-input');
+  if (opts.placeholder) input.placeholder = opts.placeholder;
+  if (opts.value) input.value = opts.value;
+  const submit = () => {
+    const v = input.value.trim();
+    if (!v) return;
+    onConfirm(v);
+    closePrompt();
+  };
+
+  makeDraggable(el, el.querySelector('.confirm-drag-handle'));
+  el.querySelector('.confirm-x').addEventListener('click', closePrompt);
+  el.querySelector('.confirm-cancel').addEventListener('click', closePrompt);
+  el.querySelector('.confirm-ok').addEventListener('click', submit);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  input.focus();
 }
 
 let _amountEl = null;

@@ -52,6 +52,14 @@ export default async function regress({ run, check, getPlayer }) {
   check('corp map sub-screen signals corp_map view', r?.view === 'corp_map' && Array.isArray(r?.tiles), JSON.stringify(r)?.slice(0, 200));
   check('corp map sub-screen has no error', !r?.error, r?.error);
 
+  // Map app: the tablet-native city map. Reuses buildMapPayload, so the root
+  // resolves to a map view with a tiles array + mode; a mode arg switches level.
+  r = await run('tabletnav map');
+  check('map app routes to a map view', r?.type === 'tablet_panel' && r?.appId === 'map' && r?.view === 'map', JSON.stringify(r)?.slice(0, 200));
+  check('map app carries tiles + mode with no error', Array.isArray(r?.tiles) && typeof r?.mode === 'string' && !r?.error, JSON.stringify(r)?.slice(0, 200));
+  r = await run('tabletnav map regional');
+  check('map app regional mode switches level', r?.view === 'map' && r?.mode === 'regional', JSON.stringify(r)?.slice(0, 200));
+
   // Surveillance (SPECTER) app: the fake player hasn't installed SPECTER, so the
   // hub screen is the locked state (view surveillance, live:false); installing it
   // (the flag the hack-deck program sets) unlocks the live hub. Microreels is the

@@ -16,9 +16,11 @@
 // (Tablet has no proactive multi-client push to patch against).
 import { sfx, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays } from './minigame-common.js';
 import { sendCmdSilent } from '../net.js';
+import { toggleAutoWalk, isAutoWalking, setGpsRoute, routeBetween, getTracePath, FUNC_LEGEND, POI_LEGEND } from './minimap.js';
 import { state } from '../state.js';
 import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES } from '/shared/settings.js';
-import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpdate, getOnlinePlayers, refreshOnlinePlayers, ensureChatConversation } from './whisper.js';
+import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpdate, getOnlinePlayers, refreshOnlinePlayers, ensureChatConversation, leaveChatConversation, removeCorpChannels, getClosedChatTabs, reopenChatTab } from './whisper.js';
+import { showPromptDialog, showConfirmDialog } from './confirm.js';
 import { parseMarkup } from '../markup.js';
 
 // Tablet's theme can be independent of the shared UI theme ("unlinked") —
@@ -40,13 +42,18 @@ let _close = null;
 let _data = null; // last tablet_panel payload
 let _pollTimer = null; // live-refresh interval for the Surveillance hub screen
 let _wasSurvLive = false; // was the last render a live surveillance screen (scroll-preserve)
-let _chatTab = null;   // Chat app: currently selected conversation key (channel id / PM handle)
+let _keepQuestScroll = false; // one-shot: preserve scroll on the next render (a live quest refresh)
+let _keepThemeScroll = false; // one-shot: preserve scroll on the next render (picking within the theme sheet)
+let _chatTab = null;   // Chat app: currently selected conversation key (channel id / PM handle, or CHAT_USERS_TAB)
+const CHAT_USERS_TAB = '__users__'; // Chat app: the Users hub tab (online-player directory, not a real conversation)
 let _chatUnsub = null; // Chat app: whisper.js update subscription (live re-render), null when not on chat
-let _tosTabletThemeOpen = false; // Settings: is the unlinked Tablet-theme picker expanded
+let _tosThemePicker = null;      // Settings: which theme selector sheet is open — null | 'ui' | 'tablet'
+let _tosSetPage = 'General';     // Settings: active page tab (grouped like the game's settings)
 let _tosMisRevealed = false; // Settings: has the hidden Mature Content (MIS) toggle been revealed
 let _tosMisClicks = 0, _tosMisTimer = null; // decoy 3-click reveal counter
 let _tosMisListenerBound = false; // one-time bind of the server mis_state_update sync
 let _tosCorpSel = null; // Corp Territory Map: selected zone id (client-side, no round trip)
+let _tosMapSel = null; // Map app: tapped/destination zone id (client-side, drives the GPS route)
 let _backReturn = null; // { appId, screen }: the list/board a detail was drilled into from, so Back
                         // returns there (e.g. Quests → Job Board → posting → Back = Job Board) instead
                         // of the app root. Set on item-open; cleared by any other explicit nav/home.
@@ -222,6 +229,7 @@ function ensureStyles() {
       transition:filter .12s, box-shadow .12s, transform .05s; }
     #tablet-os-overlay .tos-btn:hover { filter:brightness(1.12); box-shadow:0 0 18px color-mix(in srgb, var(--mg-accent) 65%, transparent), inset 0 1px 0 var(--tos-bevel-hi), inset 0 -3px 3px rgba(0,0,0,0.3), 0 3px 6px rgba(0,0,0,0.3); }
     #tablet-os-overlay .tos-btn:active { transform:translateY(1px); box-shadow:inset 0 2px 4px rgba(0,0,0,0.35); }
+    #tablet-os-overlay .tos-btn.disabled { opacity:.4; cursor:default; pointer-events:none; filter:grayscale(.5); }
 
     #tablet-os-overlay .tos-error { color:#ff7a86; font-size:13px; padding:16px 4px; text-align:center; }
 
@@ -234,8 +242,11 @@ function ensureStyles() {
       box-shadow:0 0 6px rgba(0,0,0,0.4); transition:transform .08s ease, filter .08s ease; }
     #tablet-os-overlay .tos-swatch:hover { filter:brightness(1.14); transform:scale(1.08); }
     #tablet-os-overlay .tos-swatch.sel { border-color:#fff; box-shadow:0 0 0 2px var(--mg-accent), 0 0 8px var(--mg-accent); }
-    #tablet-os-overlay .tos-swatch.taken { cursor:not-allowed; opacity:.22; filter:grayscale(.5); }
-    #tablet-os-overlay .tos-swatch.taken:hover { transform:none; filter:grayscale(.5); }
+    /* Free colour-wheel row (corp colour) — a big native swatch + live hex readout. */
+    #tablet-os-overlay .tos-color-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:7px; }
+    #tablet-os-overlay input.tos-color-lg { width:46px; height:34px; }
+    #tablet-os-overlay .tos-color-hex { font-family:'Courier New',monospace; font-size:13px; letter-spacing:1px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-color-hint { flex:1 1 100%; font-size:11px; color:var(--tos-fg-dim2); }
 
     /* Page nav (Skills & Stats — fixed-size pages instead of a growing list) */
     #tablet-os-overlay .tos-page-nav { display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:11px; letter-spacing:1px; color:var(--tos-fg-dim); text-transform:uppercase; }
@@ -255,11 +266,47 @@ function ensureStyles() {
     #tablet-os-overlay .tos-theme-btn:hover { filter:brightness(1.15); }
     #tablet-os-overlay .tos-theme-btn:active { transform:translateY(1px); box-shadow:inset 0 2px 3px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-theme-btn.selected { border-color:var(--mg-accent); box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 40%, transparent), inset 0 1px 0 var(--tos-bevel-hi); color:var(--mg-accent); font-weight:bold; }
+    /* Theme colour swatch — the theme previews itself (own bg + accent dot). */
+    #tablet-os-overlay .tos-theme-sw { display:flex; align-items:center; gap:7px; cursor:pointer; padding:7px 8px; border-radius:6px; font-size:11.5px; overflow:hidden;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 1px 3px rgba(0,0,0,.25);
+      transition:transform .05s, box-shadow .12s, filter .12s; }
+    #tablet-os-overlay .tos-theme-sw:hover { filter:brightness(1.08); }
+    #tablet-os-overlay .tos-theme-sw:active { transform:translateY(1px); }
+    #tablet-os-overlay .tos-theme-sw.selected { border-color:var(--mg-accent); box-shadow:0 0 0 2px var(--mg-accent), 0 0 9px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
+    #tablet-os-overlay .tos-theme-sw .tos-sw-dots { display:flex; gap:2px; flex:0 0 auto; }
+    #tablet-os-overlay .tos-theme-sw .tos-sw-dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; border:1px solid rgba(0,0,0,.4); box-shadow:0 0 3px rgba(0,0,0,.3); }
+    #tablet-os-overlay .tos-theme-sw .tos-sw-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* Compact theme trigger — the active theme as a single swatch that opens the
+       picker sheet, instead of laying the whole swatch list out on the page. */
+    #tablet-os-overlay .tos-theme-trigger { display:flex; align-items:center; gap:7px; cursor:pointer; min-width:150px; max-width:52vw; padding:6px 9px; border-radius:6px; font-size:12px; overflow:hidden;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent); box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 1px 3px rgba(0,0,0,.25);
+      transition:transform .05s, filter .12s; }
+    #tablet-os-overlay .tos-theme-trigger:hover { filter:brightness(1.1); }
+    #tablet-os-overlay .tos-theme-trigger:active { transform:translateY(1px); }
+    #tablet-os-overlay .tos-theme-trigger .tos-sw-ac { width:13px; height:13px; border-radius:50%; flex:0 0 auto; box-shadow:0 0 5px currentColor; border:1px solid rgba(0,0,0,.35); }
+    #tablet-os-overlay .tos-theme-trigger .tos-sw-name { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #tablet-os-overlay .tos-theme-trigger .tos-trigger-caret { flex:0 0 auto; font-size:11px; opacity:.75; }
+    /* Theme-picker sheet — the scrollable list that slides up over the settings
+       screen when a theme trigger is tapped. */
+    #tablet-os-overlay .tos-theme-sheet { animation:tos-sheet-in .18s ease-out; }
+    #tablet-os-overlay .tos-sheet-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-bottom:8px; margin-bottom:4px;
+      border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); font-size:13px; letter-spacing:.5px; color:var(--mg-accent); font-weight:bold; }
+    @keyframes tos-sheet-in { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 
     /* Full settings app — option-pill rows, sliders, colour swatch. Mirrors the
        game settings panel's groups, restyled in the tablet's bevel language.
        Pill groups reuse the theme-btn look at a smaller scale; a selected pill
        lights up in the accent like a theme swatch. */
+    /* Settings page tabs — grouped pages instead of one long scroll (mirrors the
+       game settings' grouping: Appearance / Layout / Sound / Game). */
+    #tablet-os-overlay .tos-set-tabs { display:flex; gap:6px; margin-bottom:4px; flex-wrap:wrap; }
+    #tablet-os-overlay .tos-set-tab { cursor:pointer; padding:6px 12px; border-radius:6px 6px 0 0; font-size:12px; letter-spacing:.5px; color:var(--tos-fg-dim);
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); border-bottom:none;
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi); transition:filter .12s; }
+    #tablet-os-overlay .tos-set-tab:hover { filter:brightness(1.15); }
+    #tablet-os-overlay .tos-set-tab.sel { color:var(--mg-accent); font-weight:bold; border-color:var(--mg-accent); box-shadow:0 -2px 8px color-mix(in srgb, var(--mg-accent) 22%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-set-page { border-top:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); padding-top:4px; }
     #tablet-os-overlay .tos-set-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 12%, transparent); }
     #tablet-os-overlay .tos-set-label { font-size:13px; color:var(--tos-fg); }
     #tablet-os-overlay .tos-set-val { font-size:11px; color:var(--tos-fg-dim); margin-left:6px; }
@@ -291,7 +338,10 @@ function ensureStyles() {
        alerts strip, a grid of live camera tiles (frame text + REC badge), and a
        focus pane with record/clip controls. Deliberately CRT/monochrome-green
        (--shub) rather than the tablet's theme accent, so a feed reads as a feed. */
-    #tablet-os-overlay .tos-surv { --shub:#39ff9e; }
+    /* Phosphor-green feed colour, but adapted to the screen background so it
+       stays legible on light themes (bright mint on a cream bg is unreadable) —
+       --tos-shub is set by applyTabletTheme() from the effective bg luminance. */
+    #tablet-os-overlay .tos-surv { --shub: var(--tos-shub, #39ff9e); }
     #tablet-os-overlay .tos-surv-hdr { display:flex; justify-content:space-between; align-items:center; font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:var(--shub); margin-bottom:8px; text-shadow:0 0 8px color-mix(in srgb, var(--shub) 55%, transparent); }
     #tablet-os-overlay .tos-surv-hdr .tos-surv-rec { color:#ff5a68; }
     #tablet-os-overlay .tos-alerts { display:flex; flex-direction:column; gap:3px; margin-bottom:9px; max-height:74px; overflow-y:auto; }
@@ -344,6 +394,8 @@ function ensureStyles() {
     #tablet-os-overlay .tos-chat-tab:active { transform:translateY(1px); }
     #tablet-os-overlay .tos-chat-tab.sel { border-color:var(--mg-accent); color:var(--mg-accent); font-weight:bold; box-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 35%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-chat-pip { margin-left:6px; font-size:9.5px; font-weight:bold; color:#fff; background:var(--red,#e0413a); border-radius:8px; padding:0 5px; line-height:15px; display:inline-block; vertical-align:middle; }
+    #tablet-os-overlay .tos-chat-x { margin-left:7px; font-size:10px; line-height:1; color:var(--tos-fg-dim2); border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); border-radius:3px; padding:1px 4px; vertical-align:middle; }
+    #tablet-os-overlay .tos-chat-x:hover { color:#fff; border-color:var(--red,#e0413a); background:color-mix(in srgb, var(--red,#e0413a) 30%, transparent); }
     #tablet-os-overlay .tos-chat-log { height:320px; max-height:44vh; overflow-y:auto; padding:9px 10px; border-radius:6px;
       background:var(--bg, #0c1114); border:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent);
       box-shadow:inset 0 1px 3px rgba(0,0,0,0.35); font-size:13px; line-height:1.45; }
@@ -354,22 +406,32 @@ function ensureStyles() {
     #tablet-os-overlay .tos-chat-from.me { color:var(--tos-fg-dim); font-style:italic; }
     #tablet-os-overlay .tos-chat-text { color:var(--tos-fg); word-break:break-word; }
     #tablet-os-overlay .tos-chat-input-row { display:flex; gap:8px; align-items:center; }
-    #tablet-os-overlay .tos-chat-input-row input { flex:1; min-width:0; background:var(--bg3, var(--bg)); border:1px solid color-mix(in srgb, var(--mg-accent) 28%, transparent);
+    /* Input blends with the message-log background (same --bg) with a legible,
+       high-contrast text colour (--tos-fg), rather than a mismatched dark box. */
+    #tablet-os-overlay .tos-chat-input-row input { flex:1; min-width:0; background:var(--bg, #0c1114); border:1px solid color-mix(in srgb, var(--mg-accent) 28%, transparent);
       color:var(--tos-fg); font-family:'Courier New',monospace; font-size:13px; padding:8px 10px; border-radius:5px; outline:none; }
+    #tablet-os-overlay .tos-chat-input-row input::placeholder { color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-chat-input-row input:focus { border-color:var(--mg-accent); box-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 30%, transparent); }
-    /* "Start a new message" strip — online players you don't already have a tab
-       for, as tappable chips; a single horizontal-scroll row so it stays thin. */
-    #tablet-os-overlay .tos-chat-newrow { display:flex; align-items:center; gap:7px; }
-    #tablet-os-overlay .tos-chat-newlabel { flex:0 0 auto; font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
-    #tablet-os-overlay .tos-chat-people { display:flex; gap:6px; overflow-x:auto; flex:1; min-width:0; padding-bottom:2px; }
-    #tablet-os-overlay .tos-chat-person { cursor:pointer; white-space:nowrap; padding:5px 10px; border-radius:12px; font-size:11.5px; color:var(--tos-fg-dim);
-      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
-      border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent);
-      box-shadow:inset 0 1px 0 var(--tos-bevel-hi); transition:filter .12s, transform .05s; }
-    #tablet-os-overlay .tos-chat-person:hover { filter:brightness(1.15); color:var(--tos-fg); }
-    #tablet-os-overlay .tos-chat-person:active { transform:translateY(1px); }
-    #tablet-os-overlay .tos-chat-person::before { content:'💬 '; }
-    #tablet-os-overlay .tos-chat-none { flex:1; font-size:11px; color:var(--tos-fg-dim2); }
+    /* Users hub — a directory of players online now (its own tab), each row
+       tappable to open/start a PM. Fills the same space the message log would. */
+    #tablet-os-overlay .tos-chat-users { display:flex; flex-direction:column; border-radius:6px; overflow:hidden;
+      background:var(--bg, #0c1114); border:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent);
+      box-shadow:inset 0 1px 3px rgba(0,0,0,0.35); }
+    #tablet-os-overlay .tos-chat-users-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px;
+      font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2);
+      border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 14%, transparent); }
+    #tablet-os-overlay .tos-chat-userlist { max-height:320px; overflow-y:auto; }
+    #tablet-os-overlay .tos-chat-userlist::-webkit-scrollbar { width:6px; }
+    #tablet-os-overlay .tos-chat-userlist::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+    #tablet-os-overlay .tos-chat-user { display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:pointer;
+      padding:9px 11px; font-size:13px; color:var(--tos-fg); border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 10%, transparent);
+      transition:background .12s; }
+    #tablet-os-overlay .tos-chat-user:last-child { border-bottom:none; }
+    #tablet-os-overlay .tos-chat-user:hover { background:color-mix(in srgb, var(--mg-accent) 12%, transparent); }
+    #tablet-os-overlay .tos-chat-user:active { background:color-mix(in srgb, var(--mg-accent) 20%, transparent); }
+    #tablet-os-overlay .tos-chat-user-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #tablet-os-overlay .tos-chat-user-pm { flex:0 0 auto; font-size:14px; color:var(--mg-accent); }
+    #tablet-os-overlay .tos-chat-none { font-size:11px; color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-chat-refresh { flex:0 0 auto; cursor:pointer; font-size:12px; color:var(--tos-fg-dim); border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent); border-radius:4px; padding:4px 8px;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-chat-refresh:hover { filter:brightness(1.15); }
@@ -410,6 +472,96 @@ function ensureStyles() {
     #tablet-os-overlay .tos-btn.tos-btn-hot { color:#fff; border-color:#ff5a6a;
       background:linear-gradient(165deg, #ff7a86, #ff5a6a 55%, #c93a46);
       box-shadow:0 0 10px rgba(255,90,106,.5), inset 0 1px 0 var(--tos-bevel-hi), inset 0 -3px 3px rgba(0,0,0,0.3); }
+
+    /* ── Map app ─────────────────────────────────────────────────────────────
+       A tablet-native version of the full-screen city map: a mode switcher
+       (interior/zone/regional), a GPS toolbar, and the same 2n-1 expanded grid
+       the corp map uses — but with the full map's land-use / danger / POI look.
+       Tap a tile to plot a GPS route to it (mirrored to the sidebar minimap). */
+    #tablet-os-overlay .tos-map-tabs { display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
+    #tablet-os-overlay .tos-map-tab { cursor:pointer; padding:6px 13px; border-radius:6px; font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--tos-fg-dim);
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); box-shadow:inset 0 1px 0 var(--tos-bevel-hi); transition:filter .12s; }
+    #tablet-os-overlay .tos-map-tab:hover { filter:brightness(1.15); }
+    #tablet-os-overlay .tos-map-tab.sel { color:var(--mg-accent); font-weight:bold; border-color:var(--mg-accent); box-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 25%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-map-tab.disabled { opacity:.35; pointer-events:none; }
+    #tablet-os-overlay .tos-map-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; font-size:12px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-map-bar .tos-map-route { flex:1 1 auto; min-width:120px; }
+    #tablet-os-overlay .tos-map-bar .tos-map-route b { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-map-mini { cursor:pointer; padding:6px 11px; border-radius:5px; font-size:11.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--mg-accent);
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent); box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-map-mini:hover { filter:brightness(1.15); }
+    #tablet-os-overlay .tos-map-mini:active { transform:translateY(1px); }
+    #tablet-os-overlay .tos-map-mini.active { color:#04120f; background:linear-gradient(165deg, color-mix(in srgb, var(--mg-accent) 100%, white 15%), var(--mg-accent)); box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
+    #tablet-os-overlay .tos-map-mini.disabled { opacity:.35; pointer-events:none; }
+    #tablet-os-overlay .tos-map-wrap { max-height:320px; overflow:auto; scrollbar-width:thin; scrollbar-color:color-mix(in srgb,var(--mg-accent) 40%,transparent) transparent;
+      background:radial-gradient(130% 130% at 50% 40%, color-mix(in srgb, var(--mg-accent) 7%, var(--bg,#030806)) 55%, var(--bg,#01050a) 100%); border:1px solid color-mix(in srgb,var(--mg-accent) 20%,transparent); border-radius:6px; padding:8px; }
+    #tablet-os-overlay .tos-map-wrap::-webkit-scrollbar { width:7px; height:7px; }
+    #tablet-os-overlay .tos-map-wrap::-webkit-scrollbar-thumb { background:color-mix(in srgb,var(--mg-accent) 35%,transparent); border-radius:5px; }
+    #tablet-os-overlay .tos-map-grid { display:grid; }
+    #tablet-os-overlay .tos-map-tile { position:relative; border-radius:4px; border:1px solid #00000066; cursor:pointer; overflow:hidden;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:2px 3px; text-align:center;
+      background:color-mix(in srgb,var(--mg-accent) 6%,var(--bg2,#0b1116)); color:var(--tos-fg-dim); transition:filter .12s; }
+    #tablet-os-overlay .tos-map-tile:hover { filter:brightness(1.2); }
+    /* Danger tint — a coloured left rail, echoing the full map's danger reading. */
+    #tablet-os-overlay .tos-map-tile.d-low    { box-shadow:inset 3px 0 0 rgba(205,180,70,.65); }
+    #tablet-os-overlay .tos-map-tile.d-medium { box-shadow:inset 3px 0 0 rgba(220,140,55,.7); }
+    #tablet-os-overlay .tos-map-tile.d-high   { box-shadow:inset 3px 0 0 rgba(212,70,60,.8); }
+    #tablet-os-overlay .tos-map-tile.d-lethal { box-shadow:inset 3px 0 0 rgba(214,55,55,.95); animation:tos-map-lethal 1.6s ease-in-out infinite; }
+    @keyframes tos-map-lethal { 0%,100%{filter:none} 50%{filter:brightness(1.25)} }
+    #tablet-os-overlay .tos-map-tile.unreach { opacity:.4; }
+    #tablet-os-overlay .tos-map-tile.on-route { outline:2px solid #ffcf4a; outline-offset:-2px; z-index:2; }
+    #tablet-os-overlay .tos-map-tile.dest { outline:2px solid #fff; }
+    #tablet-os-overlay .tos-map-tile.sel { outline:2px dashed var(--mg-accent); outline-offset:-2px; z-index:3; }
+    #tablet-os-overlay .tos-map-tile.cur { border-color:var(--mg-accent); box-shadow:0 0 9px color-mix(in srgb,var(--mg-accent) 60%,transparent), inset 0 0 0 1px var(--mg-accent); }
+    #tablet-os-overlay .tos-map-tile .mt-icon { font-size:13px; line-height:1; }
+    #tablet-os-overlay .tos-map-tile .mt-name { font-size:7.5px; line-height:1.05; font-weight:700; letter-spacing:.2px; }
+    #tablet-os-overlay .tos-map-tile .mt-you { position:absolute; top:0; right:2px; font-size:9px; color:var(--mg-accent); text-shadow:0 0 4px #000; }
+    #tablet-os-overlay .tos-map-tile .mt-dest { position:absolute; top:0; left:2px; font-size:9px; color:#ffcf4a; text-shadow:0 0 4px #000; }
+    #tablet-os-overlay .tos-map-link { display:flex; align-items:center; justify-content:center; color:color-mix(in srgb,var(--mg-accent) 40%,transparent); font-size:12px; line-height:1; pointer-events:none; }
+    #tablet-os-overlay .tos-map-link.art { color:#c9a24a; font-weight:bold; text-shadow:0 0 6px rgba(201,162,74,.55); }
+    #tablet-os-overlay .tos-map-legend { display:flex; flex-wrap:wrap; gap:5px 12px; margin:9px 0 4px; font-size:10px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-map-detail { margin-top:6px; border-top:1px solid color-mix(in srgb,var(--mg-accent) 16%,transparent); padding-top:8px; }
+    #tablet-os-overlay .tos-map-note { font-size:11.5px; color:var(--tos-fg-dim); line-height:1.5; padding:6px 2px; }
+
+    /* ── News app ──────────────────────────────────────────────────────────────
+       A stack of section cards (a "feed"). Each card is a raised bevel surface
+       like the list rows, with a header strip (title + optional subtitle) over a
+       type-specific widget body. */
+    #tablet-os-overlay .tos-news-sec { border-radius:7px; margin-bottom:11px; overflow:hidden;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 3px var(--tos-bevel-lo), 0 2px 5px rgba(0,0,0,0.2); }
+    #tablet-os-overlay .tos-news-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; flex-wrap:wrap;
+      padding:9px 11px; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent);
+      background:color-mix(in srgb, var(--mg-accent) 10%, transparent); }
+    #tablet-os-overlay .tos-news-title { font-size:13.5px; font-weight:bold; letter-spacing:.5px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-news-sub { font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--tos-fg-dim); }
+
+    /* Standings widget — a compact league table. Zebra rows, leader row nudged to
+       the accent, run-diff dimmed. */
+    #tablet-os-overlay .tos-standings { width:100%; border-collapse:collapse; font-size:12.5px; }
+    #tablet-os-overlay .tos-standings th { text-align:right; font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2);
+      padding:7px 8px; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent); }
+    #tablet-os-overlay .tos-standings td { text-align:right; padding:6px 8px; color:var(--tos-fg); border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 8%, transparent); }
+    #tablet-os-overlay .tos-standings tbody tr:last-child td { border-bottom:none; }
+    #tablet-os-overlay .tos-standings tbody tr:nth-child(even) td { background:color-mix(in srgb, var(--mg-accent) 5%, transparent); }
+    #tablet-os-overlay .tos-standings tbody tr:first-child td { color:var(--mg-accent); font-weight:bold; }
+    #tablet-os-overlay .tos-standings th.tos-st-team, #tablet-os-overlay .tos-standings td.tos-st-team { text-align:left; }
+    #tablet-os-overlay .tos-standings .tos-st-rank { color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-standings .tos-st-rd { color:var(--tos-fg-dim); }
+
+    /* Headlines widget — a stack of one-liner stories with a LIVE/WIRE tag. */
+    #tablet-os-overlay .tos-news-list { padding:4px 2px; }
+    #tablet-os-overlay .tos-headline { display:flex; gap:8px; align-items:baseline; padding:7px 9px; font-size:12.5px; line-height:1.4;
+      border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 9%, transparent); }
+    #tablet-os-overlay .tos-headline:last-child { border-bottom:none; }
+    #tablet-os-overlay .tos-hl-tag { flex:0 0 auto; font-size:8.5px; font-weight:bold; letter-spacing:1px; padding:2px 5px; border-radius:3px; margin-top:1px; }
+    #tablet-os-overlay .tos-hl-tag.live { color:#ff5a68; border:1px solid #4a1a1e; background:#1a0a0c; }
+    #tablet-os-overlay .tos-hl-tag.tabloid { color:var(--tos-fg-dim); border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent); background:var(--tos-surface); }
+    #tablet-os-overlay .tos-hl-text { color:var(--tos-fg); }
+    #tablet-os-overlay .tos-hl-by { color:var(--tos-fg-dim2); font-style:italic; font-size:11px; white-space:nowrap; }
   `;
   document.head.appendChild(s);
 }
@@ -437,6 +589,16 @@ function luminanceTextColor(hex) {
   return `rgb(${t},${t},${t})`;
 }
 
+// Perceived brightness of a hex colour, 0..1. Used to pick a legible phosphor
+// green for the SPECTER hub against whatever the tablet's screen background is.
+function bgLuminance(hex) {
+  const h = String(hex || '').trim().replace('#', '');
+  if (h.length !== 6) return 0;
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  if ([r, g, b].some(Number.isNaN)) return 0;
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
 // Resolves the effective --bg/--bg2/--border/--accent for this open (either
 // the shared page theme, or Tablet's own independent one when unlinked), sets
 // them as overrides on the overlay root, then derives the luminance-contrast
@@ -446,7 +608,7 @@ function luminanceTextColor(hex) {
 function applyTabletTheme() {
   if (!_overlay) return;
   const t = loadTabletTheme();
-  let bg2, accent;
+  let bg, bg2, accent;
 
   if (t.linked) {
     // Inherit the page's own theme — clear any leftover unlinked override.
@@ -454,11 +616,13 @@ function applyTabletTheme() {
     _overlay.style.removeProperty('--bg2');
     _overlay.style.removeProperty('--border');
     _overlay.style.removeProperty('--accent');
-    bg2 = getComputedStyle(document.documentElement).getPropertyValue('--bg2');
-    accent = getComputedStyle(document.documentElement).getPropertyValue('--accent');
+    const cs = getComputedStyle(document.documentElement);
+    bg = cs.getPropertyValue('--bg');
+    bg2 = cs.getPropertyValue('--bg2');
+    accent = cs.getPropertyValue('--accent');
   } else {
     const colors = probeBuiltinThemeColors(t.theme || 'dark');
-    bg2 = colors['--bg2']; accent = colors['--accent'];
+    bg = colors['--bg']; bg2 = colors['--bg2']; accent = colors['--accent'];
     _overlay.style.setProperty('--bg', colors['--bg']);
     _overlay.style.setProperty('--bg2', colors['--bg2']);
     _overlay.style.setProperty('--border', colors['--border']);
@@ -466,12 +630,18 @@ function applyTabletTheme() {
   }
 
   _overlay.style.setProperty('--tos-fg', luminanceTextColor(bg2) || 'var(--mg-accent)');
-  _overlay.style.setProperty('--tos-btn-fg', luminanceTextColor(accent) || '#04120f');
+  // Button text sits on a SOLID accent fill — a mid-grey (what luminanceTextColor
+  // returns for a mid-luminance accent like hot pink) is unreadable there. Pick a
+  // hard black/white instead so accent buttons always contrast their fill.
+  _overlay.style.setProperty('--tos-btn-fg', bgLuminance((accent || '').trim()) > 0.588 ? '#0a0a0a' : '#ffffff');
+  // SPECTER phosphor green: bright mint on dark screens, a deep readable green
+  // on light-theme screens (where #39ff9e washes out to nothing).
+  _overlay.style.setProperty('--tos-shub', bgLuminance((bg || '').trim()) > 0.6 ? '#0a7d43' : '#39ff9e');
 }
 
 function nav(appId, screenLabel, params) {
   _backReturn = null; // any explicit navigation invalidates a pending drill-in return
-  sfx('hololock-set');
+  sfx(TOS_SELECT_DEF);
   const parts = ['tabletnav', appId];
   if (screenLabel != null) parts.push(screenToken(screenLabel));
   if (params) parts.push(params);
@@ -479,7 +649,7 @@ function nav(appId, screenLabel, params) {
 }
 
 function act(appId, actionId, params) {
-  sfx('hololock-set');
+  sfx(TOS_SELECT_DEF);
   const parts = ['tabletaction', appId, actionId];
   if (params) parts.push(params);
   sendCmdSilent(parts.join(' '));
@@ -487,7 +657,7 @@ function act(appId, actionId, params) {
 
 function home() {
   _backReturn = null;
-  sfx('hololock-entry');
+  sfx(TOS_ENTRY_DEF);
   sendCmdSilent('tablet');
 }
 
@@ -504,6 +674,32 @@ function pollSurveillance() {
   const parts = ['tabletnav', _data.appId];
   if (screen != null) parts.push(screenToken(screen));
   if (_data.focusId) parts.push(_data.focusId);
+  sendCmdSilent(parts.join(' '));
+}
+
+// Live-refresh the Quests app when the server signals a quest changed state
+// (dispatch.js quest_update -> here). Silently re-navs the exact screen we're on
+// (category list / quest detail / job board), preserving scroll, so the objective
+// checkboxes tick in place without the player reopening the app. No-op unless the
+// tablet is open on the Quests app. Mirrors pollSurveillance's silent re-nav, but
+// event-driven rather than on a timer.
+export function tabletQuestUpdate() {
+  if (!_overlay || !_data || _data.appId !== 'quests') return;
+  const crumb = _data.breadcrumb || [];
+  let screen = null, params = null;
+  if (_data.view === 'detail') {
+    // Detail is keyed by quest_id (params); buildScreen resolves it regardless of
+    // the screen token, but a token still has to precede the id so the tokenizer
+    // doesn't misread the id as the screen — reuse the detail's category crumb.
+    screen = crumb[0] || null;
+    params = _data.quest?.id || _data.detail?.id || null;
+  } else {
+    screen = crumb.length ? crumb[crumb.length - 1] : null;
+  }
+  _keepQuestScroll = true;
+  const parts = ['tabletnav', 'quests'];
+  if (screen != null) parts.push(screenToken(screen));
+  if (params) parts.push(params);
   sendCmdSilent(parts.join(' '));
 }
 
@@ -600,12 +796,10 @@ function renderDetailRows(rows) {
 // mobile-only, matching the game panel's `.mobile-only-setting` gate.
 const TOS_OPT_GROUPS = [
   { key: 'fontSize', label: 'Font Size', opts: [
-    { v: '12', t: 'Small', g: 'A', s: 'font-size:11px' },
-    { v: '14', t: 'Medium', g: 'A', s: 'font-size:14px' },
-    { v: '17', t: 'Large', g: 'A', s: 'font-size:16px' },
-    { v: '20', t: 'X-Large', g: 'A', s: 'font-size:19px' } ] },
-  { key: 'density', label: 'Display', opts: [
-    { v: 'comfortable', t: 'Comfortable', g: '🖥️' }, { v: 'compact', t: 'Compact', g: '📱' } ] },
+    { v: '14', t: 'Small', g: 'A', s: 'font-size:12px' },
+    { v: '16', t: 'Medium', g: 'A', s: 'font-size:15px' },
+    { v: '19', t: 'Large', g: 'A', s: 'font-size:17px' },
+    { v: '22', t: 'X-Large', g: 'A', s: 'font-size:19px' } ] },
   { key: 'sidebarPosition', label: 'Sidebar', opts: [
     { v: 'left', t: 'Sidebar Left', g: '⬅️' }, { v: 'right', t: 'Sidebar Right', g: '➡️' } ] },
   { key: 'motion', label: 'Motion', opts: [
@@ -614,6 +808,8 @@ const TOS_OPT_GROUPS = [
     { v: 'on', t: 'Weather FX On', g: '🌧️' }, { v: 'off', t: 'Off', g: '🚫' } ] },
   { key: 'dpadSize', label: 'D-Pad Size', mobileOnly: true, opts: [
     { v: 'small', t: 'Small', g: 'S' }, { v: 'medium', t: 'Medium', g: 'M' }, { v: 'large', t: 'Large', g: 'L' } ] },
+  { key: 'smartUI', label: 'Smart UI', opts: [
+    { v: 'on', t: 'Contextual action bar on', g: '⚡' }, { v: 'off', t: 'Contextual action bar off', g: '🚫' } ] },
   { key: 'tempUnit', label: 'Temp Units', opts: [
     { v: 'C', t: 'Celsius', g: 'C°' }, { v: 'F', t: 'Fahrenheit', g: 'F°' } ] },
 ];
@@ -631,10 +827,69 @@ const TOS_VOL_SLIDERS = [
   { key: 'tvVolume', label: 'TV', g: '📺' },
 ];
 
-// Mobile layout is auto-detected at launch (main.js sets data-smart-ui) — use it
-// to gate the mobile-only D-Pad Size row, same as the legacy panel does in CSS.
+// Mobile layout is reflected in data-density ("compact") — use it to gate the
+// mobile-only D-Pad Size row, same as the legacy panel does in CSS. Note this is
+// distinct from data-smart-ui, which is just the player-togglable contextual
+// command bar and doesn't imply desktop/mobile layout either way.
 function tosIsMobile() {
-  return document.documentElement.getAttribute('data-smart-ui') === 'on';
+  return document.documentElement.getAttribute('data-density') === 'compact';
+}
+
+// The five theme colours previewed on each swatch — accent plus four status
+// hues, so a theme's palette (not just its accent) reads at a glance.
+const TOS_SW_DOT_VARS = ['--accent', '--green', '--yellow', '--red', '--purple'];
+
+// A theme rendered as a colour swatch: its own bg2 as the chip background, a
+// row of its key palette colours as dots, and a luminance-contrasted name — so
+// themes are picked by look, not by reading a list of names.
+function tosThemeSwatch(id, label, selected, dataAttr) {
+  const c = probeBuiltinThemeColors(id) || {};
+  const bg = (c['--bg2'] || '#1a2226').trim();
+  const ink = luminanceTextColor(bg) || '#fff';
+  const dots = TOS_SW_DOT_VARS.map(v => {
+    const col = (c[v] || 'transparent').trim();
+    return `<span class="tos-sw-dot" style="background:${esc(col)}"></span>`;
+  }).join('');
+  return `<div class="tos-theme-sw${selected ? ' selected' : ''}" ${dataAttr}="${esc(id)}" title="${esc(label)}" style="background:${esc(bg)}">
+    <span class="tos-sw-dots">${dots}</span><span class="tos-sw-name" style="color:${ink}">${esc(label)}</span></div>`;
+}
+
+// Resolve a theme id to its display name from the built-in lists.
+function tosThemeName(id) {
+  const f = [...DARK_THEMES, ...LIGHT_THEMES].find(([v]) => v === id);
+  return f ? f[1] : id;
+}
+
+// A compact trigger that shows the active theme (its own bg + accent) and opens
+// the scrollable theme-picker sheet — so the full swatch list isn't spread out
+// across the settings page. `kind` is 'ui' or 'tablet'.
+function tosThemeTrigger(kind, activeId) {
+  const c = probeBuiltinThemeColors(activeId) || {};
+  const bg = (c['--bg2'] || '#1a2226').trim(), ac = (c['--accent'] || '#35e0c8').trim();
+  const ink = luminanceTextColor(bg) || '#fff';
+  return `<div class="tos-theme-trigger" data-open-theme-sheet="${esc(kind)}" title="Choose a theme" style="background:${esc(bg)}">
+    <span class="tos-sw-ac" style="background:${esc(ac)};color:${esc(ac)}"></span>
+    <span class="tos-sw-name" style="color:${ink}">${esc(tosThemeName(activeId))}</span>
+    <span class="tos-trigger-caret" style="color:${ink}">&#9662;</span></div>`;
+}
+
+// The theme-picker sheet — a scrollable full list of themes that slides up over
+// the settings screen. `kind` 'ui' drives the shared settings.theme (+ a link to
+// the full editor); 'tablet' drives the unlinked Tablet's own theme.
+function renderThemeSheet(kind) {
+  const s = loadSettings();
+  const tt = loadTabletTheme();
+  const isTablet = kind === 'tablet';
+  const active = isTablet ? (tt.theme || 'dark') : (s.theme || 'dark');
+  const dataAttr = isTablet ? 'data-tablet-theme-pick' : 'data-theme-pick';
+  const sw = ([id, label]) => tosThemeSwatch(id, label, id === active, dataAttr);
+  return `<div class="tos-theme-sheet">
+    <div class="tos-sheet-head"><span>${isTablet ? 'Tablet Theme' : 'UI Theme'}</span>
+      <div class="tos-btn-sub" data-theme-sheet-close="1" style="margin:0">&#10005; Done</div></div>
+    ${renderSection('Dark', `<div class="tos-theme-grid">${DARK_THEMES.map(sw).join('')}</div>`)}
+    ${renderSection('Light', `<div class="tos-theme-grid">${LIGHT_THEMES.map(sw).join('')}</div>`)}
+    ${isTablet ? '' : `<div class="tos-btn-sub" data-open-theme-editor="1">🎨 Full Theme Editor&hellip;</div>`}
+  </div>`;
 }
 
 function tosPillRow(label, key, value, opts) {
@@ -651,29 +906,24 @@ function renderTabletSettings() {
   const audio = s.audio || {};
   const pct = (v) => `${Math.round((v ?? 0) * 100)}%`;
 
-  // Appearance — shared UI theme grid (always drives settings.theme) + editor + contrast.
-  const themeActive = s.theme || 'dark';
-  const themeSwatch = ([id, label]) => `<div class="tos-theme-btn${id === themeActive ? ' selected' : ''}" data-theme-pick="${esc(id)}">${esc(label)}</div>`;
-  const contrast = s._contrastPreview != null ? s._contrastPreview : (s.contrast || 0);
+  // A theme-picker sheet is open — show the scrollable selector instead of the
+  // settings pages (it slides up over the screen; ✕ Done returns here).
+  if (_tosThemePicker) return renderThemeSheet(_tosThemePicker);
 
-  // Theme locker — Tablet link/unlink as an easy toggle; unlocked reveals a
-  // separate picker for the Tablet's own independent theme.
+  // Theme — a compact trigger that opens the scrollable picker sheet, with the
+  // Match-UI-Theme lock right beneath it, and (when unlinked) the Tablet's own
+  // theme trigger. The full swatch list lives in the sheet, not on the page.
+  const themeActive = s.theme || 'dark';
   const tabletActive = tt.theme || 'dark';
-  const tabletSwatch = ([id, label]) => `<div class="tos-theme-btn${id === tabletActive ? ' selected' : ''}" data-tablet-theme-pick="${esc(id)}">${esc(label)}</div>`;
+  const contrast = s._contrastPreview != null ? s._contrastPreview : (s.contrast || 0);
   const lockRow = `<div class="tos-set-row"><span class="tos-set-label">Match UI Theme</span><div class="tos-opts">
     <div class="tos-opt${linked ? ' selected' : ''}" data-set-link="linked" title="Tablet follows the shared UI theme">🔒 Linked</div>
     <div class="tos-opt${!linked ? ' selected' : ''}" data-set-link="unlinked" title="Tablet keeps its own independent theme">🔓 Unlinked</div>
   </div></div>`;
-  const tabletThemePicker = !linked ? `
-    <div class="tos-btn-sub" data-tablet-theme-toggle="1">🎨 Tablet Theme&hellip;</div>
-    ${_tosTabletThemeOpen
-      ? renderSection('Tablet · Dark', `<div class="tos-theme-grid">${DARK_THEMES.map(tabletSwatch).join('')}</div>`) +
-        renderSection('Tablet · Light', `<div class="tos-theme-grid">${LIGHT_THEMES.map(tabletSwatch).join('')}</div>`)
-      : ''}` : '';
-
-  const displayRows = TOS_OPT_GROUPS
-    .filter(gp => !gp.mobileOnly || tosIsMobile())
-    .map(gp => tosPillRow(gp.label, gp.key, s[gp.key], gp.opts)).join('');
+  const themeSection =
+    `<div class="tos-set-row"><span class="tos-set-label">Theme</span>${tosThemeTrigger('ui', themeActive)}</div>` +
+    lockRow +
+    (linked ? '' : `<div class="tos-set-row"><span class="tos-set-label">Tablet Theme</span>${tosThemeTrigger('tablet', tabletActive)}</div>`);
 
   const feltMode = s.pokerFelt || 'green';
   const feltRow = `<div class="tos-set-row"><span class="tos-set-label">Poker Felt</span><div class="tos-opts">
@@ -701,20 +951,32 @@ function renderTabletSettings() {
       <span class="tos-set-val" data-vol-label="${esc(v.key)}">${pct(audio[v.key])}</span></span></div>`
   ).join('');
 
-  return `
-    ${renderSection('Theme', `<div class="tos-theme-grid">${DARK_THEMES.map(themeSwatch).join('')}</div>
-      <div class="tos-btn-sub" data-open-theme-editor="1">🎨 Full Theme Editor&hellip;</div>`)}
-    ${renderSection('Light Themes', `<div class="tos-theme-grid">${LIGHT_THEMES.map(themeSwatch).join('')}</div>`)}
-    <div class="tos-set-row"><span class="tos-set-label">Contrast <span class="tos-set-val" data-contrast-label="1">${contrast === 0 ? 'Base' : '+' + contrast + '%'}</span></span>
-      <span><input type="range" class="tos-slider" data-set-contrast="1" min="0" max="100" step="1" value="${contrast}">
-      <span class="tos-btn-sub" data-contrast-reset="1" style="margin:0 0 0 8px;padding:4px 9px">Reset</span></span></div>
+  const fontRow = tosPillRow('Font Size', 'fontSize', s.fontSize, TOS_OPT_GROUPS.find(g => g.key === 'fontSize').opts);
+  const layoutRows = TOS_OPT_GROUPS
+    .filter(gp => gp.key !== 'fontSize' && (!gp.mobileOnly || tosIsMobile()))
+    .map(gp => tosPillRow(gp.label, gp.key, s[gp.key], gp.opts)).join('');
 
-    ${renderSection('Tablet Theme Lock', lockRow + tabletThemePicker)}
-    ${renderSection('Display', displayRows)}
-    ${renderSection('Table', feltRow)}
-    ${renderSection('Sound', soundRow + audioToggleRows + volRows)}
-    ${renderMisSection()}
-  `;
+  // Grouped pages so Settings isn't one long scroll — same buckets as the game
+  // settings panel (General / Layout / Sound). Poker felt + MIS live under
+  // General now that the standalone Game tab is gone.
+  const pages = {
+    General:
+      themeSection +
+      `<div class="tos-set-row"><span class="tos-set-label">Contrast <span class="tos-set-val" data-contrast-label="1">${contrast === 0 ? 'Base' : '+' + contrast + '%'}</span></span>
+        <span><input type="range" class="tos-slider" data-set-contrast="1" min="0" max="100" step="1" value="${contrast}">
+        <span class="tos-btn-sub" data-contrast-reset="1" style="margin:0 0 0 8px;padding:4px 9px">Reset</span></span></div>` +
+      fontRow +
+      feltRow +
+      renderMisSection(),
+    Layout: layoutRows || '<div class="tos-empty">No layout options.</div>',
+    Sound: soundRow + audioToggleRows + volRows,
+  };
+  const pageNames = Object.keys(pages);
+  if (!pageNames.includes(_tosSetPage)) _tosSetPage = pageNames[0];
+  const tabs = pageNames.map(n =>
+    `<div class="tos-set-tab${n === _tosSetPage ? ' sel' : ''}" data-set-page="${esc(n)}">${esc(n)}</div>`).join('');
+
+  return `<div class="tos-set-tabs">${tabs}</div><div class="tos-set-page">${pages[_tosSetPage]}</div>`;
 }
 
 // Mature Content (MIS) — server-authoritative, so it reads live off state.player
@@ -879,21 +1141,167 @@ function renderCorpMapDetail(d) {
   return `<div class="tos-detail-name" style="font-size:15px">${esc(t.name)}</div><div class="tos-detail-desc">${t.isCurrent ? '◉ you are here · ' : ''}${controller}${home}</div>${tug}${econ}${assets}${artery}${acts}`;
 }
 
-// Colour picker — server-supplied swatches (distinct-enough to claim marked
-// available; the rest greyed as taken). A swatch is a `set_color` action, so
-// clicking it routes through the same wireBody action handler as the buttons.
-function renderColorPicker(appId, palette, current) {
-  if (!palette || !palette.length) return '';
-  const cur = String(current || '').toLowerCase();
-  const swatches = palette.map(c => {
-    const sel = cur && c.hex.toLowerCase() === cur;
-    if (!c.available && !sel) {
-      return `<span class="tos-swatch taken" style="background:${esc(c.hex)}" title="Taken by another corp"></span>`;
+// ── Map app ──────────────────────────────────────────────────────────────────
+// A tablet-native version of the full-screen city map. The tiles are exactly what
+// the popup gets (server buildMapPayload), rendered on the corp map's 2n-1 grid
+// but with the full map's land-use colour / danger / POI reading. Tapping a tile
+// selects it (client-side); its detail carries a "Route here" button that plots a
+// GPS route via the popup's own route machinery (setGpsRoute → mirrors onto the
+// sidebar minimap + refreshes the popup if it's open), and auto-walks it.
+const MAP_MODE_LABELS = { interior: 'Interior', zone: 'Zone', regional: 'Regional' };
+
+function _mapHexRgb(hex) {
+  const h = String(hex || '').replace('#', '');
+  return [parseInt(h.slice(0, 2), 16) || 0, parseInt(h.slice(2, 4), 16) || 0, parseInt(h.slice(4, 6), 16) || 0];
+}
+function _mapTileSym(t) {
+  if (t.isCurrent) return '<span class="mt-icon">◉</span>';
+  if (t.icon) return `<span class="mt-icon">${esc(t.icon)}</span>`;
+  if (t.marker) return `<span class="mt-icon">${esc(t.marker)}</span>`;
+  return '';
+}
+
+function renderMap(d) {
+  const tiles = d.tiles || [];
+  const mode = d.mode || 'zone';
+  const inside = !!d.insideInterior;
+
+  // Mode switcher — interior only exists when you're in a building (like the popup).
+  const modes = inside ? ['interior', 'zone', 'regional'] : ['zone', 'regional'];
+  const tabs = modes.map(m =>
+    `<span class="tos-map-tab${m === mode ? ' sel' : ''}" data-map-mode="${m}">${MAP_MODE_LABELS[m]}</span>`
+  ).join('');
+
+  if (!tiles.length) {
+    return `<div class="tos-map-tabs">${tabs}</div><div class="tos-empty">No map data for this level.</div>`;
+  }
+  if (!_tosMapSel || !tiles.some(t => t.id === _tosMapSel)) _tosMapSel = null;
+
+  const byId = new Map(tiles.map(t => [t.id, t]));
+  const route = getTracePath() || [];
+  const routeSet = new Set(route);
+  const dest = route.length > 1 ? route[route.length - 1] : null;
+
+  const xs = tiles.map(t => t.x), ys = tiles.map(t => t.y);
+  const minX = Math.min(...xs), minY = Math.min(...ys), maxX = Math.max(...xs), maxY = Math.max(...ys);
+  const gCols = (maxX - minX) * 2 + 1, gRows = (maxY - minY) * 2 + 1;
+  const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
+  for (const t of tiles) cell[(t.y - minY) * 2][(t.x - minX) * 2] = { kind: 'room', tile: t };
+  for (const t of tiles) {
+    const gx = (t.x - minX) * 2, gy = (t.y - minY) * 2;
+    for (const tgt of Object.values(t.exits || {})) {
+      const n = byId.get(tgt); if (!n) continue;
+      const dx = n.x - t.x, dy = n.y - t.y;
+      if (Math.abs(dx) + Math.abs(dy) !== 1) continue; // cardinal, adjacent only
+      const cy = gy + dy, cx = gx + dx;
+      if (cy < 0 || cy >= gRows || cx < 0 || cx >= gCols || cell[cy][cx]) continue;
+      const art = _cmSharesArtery(t.artery, n.artery);
+      cell[cy][cx] = { kind: 'link', ch: dx !== 0 ? (art ? '═' : '─') : (art ? '║' : '│'), art };
     }
+  }
+
+  const colT = Array.from({ length: gCols }, (_, i) => i % 2 ? '13px' : '52px').join(' ');
+  const rowT = Array.from({ length: gRows }, (_, i) => i % 2 ? '11px' : '42px').join(' ');
+  let grid = `<div class="tos-map-grid" style="grid-template-columns:${colT};grid-template-rows:${rowT}">`;
+  for (let r = 0; r < gRows; r++) for (let c = 0; c < gCols; c++) {
+    const it = cell[r][c];
+    const pos = `grid-column:${c + 1};grid-row:${r + 1}`;
+    if (!it) { grid += `<span style="${pos}"></span>`; continue; }
+    if (it.kind === 'link') { grid += `<span class="tos-map-link${it.art ? ' art' : ''}" style="${pos}">${it.ch}</span>`; continue; }
+    const t = it.tile;
+    const cls = ['tos-map-tile'];
+    if (t.danger && t.danger !== 'safe') cls.push('d-' + t.danger);
+    if (t.reachable === false) cls.push('unreach');
+    if (routeSet.has(t.id)) cls.push('on-route');
+    if (t.id === dest && !t.isCurrent) cls.push('dest');
+    if (t.id === _tosMapSel) cls.push('sel');
+    if (t.isCurrent) cls.push('cur');
+    let style = pos + ';';
+    // Regional view tints each tile by land-use function, like the popup's regional map.
+    if (mode === 'regional' && FUNC_LEGEND[t.func]) {
+      const [rr, gg, bb] = _mapHexRgb(FUNC_LEGEND[t.func].color);
+      style += `background:rgba(${rr},${gg},${bb},0.30);`;
+    }
+    const badges = (t.isCurrent ? '<span class="mt-you">◉</span>' : '')
+      + (t.id === dest && !t.isCurrent ? '<span class="mt-dest">⚑</span>' : '');
+    grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${_mapTileSym(t)}<span class="mt-name">${esc(t.name)}</span></div>`;
+  }
+  grid += '</div>';
+
+  return `<div class="tos-map-tabs">${tabs}</div>${renderMapBar(d)}<div class="tos-map-wrap">${grid}</div>${renderMapLegend(mode)}<div class="tos-map-detail" id="tos-map-detail">${renderMapDetail(d)}</div>`;
+}
+
+function renderMapBar(d) {
+  const route = getTracePath() || [];
+  const byId = new Map((d.tiles || []).map(t => [t.id, t]));
+  let status;
+  if (route.length > 1) {
+    const destTile = byId.get(route[route.length - 1]);
+    const hops = route.length - 1;
+    status = `<b>GPS:</b> ${destTile ? esc(destTile.name) : 'route'} · ${hops} stop${hops === 1 ? '' : 's'}`;
+  } else {
+    status = 'Tap a tile, then Route here to plot a GPS course.';
+  }
+  const auto = route.length > 1
+    ? `<span class="tos-map-mini${isAutoWalking() ? ' active' : ''}" data-map-auto>🏃 Auto-walk</span>` : '';
+  const clear = route.length > 1 ? `<span class="tos-map-mini" data-map-clear>✕ Clear</span>` : '';
+  return `<div class="tos-map-bar"><span class="tos-map-route">${status}</span>${auto}${clear}</div>`;
+}
+
+function renderMapLegend(mode) {
+  let items = '<span>◉ you · ⚑ dest · ═ artery</span>';
+  if (mode === 'regional') {
+    const keys = ['northcity', 'commercial', 'nightlife', 'docks', 'industrial', 'redline'];
+    items += keys.map(k => FUNC_LEGEND[k]
+      ? `<span class="tos-cm-lg"><span class="sw" style="background:${FUNC_LEGEND[k].color}"></span>${esc(FUNC_LEGEND[k].label.split(/[ /]/)[0])}</span>` : '').join('');
+  }
+  return `<div class="tos-map-legend">${items}</div>`;
+}
+
+function _mapActBtns(list) {
+  return `<div class="tos-actions">${list.map(([a, label]) =>
+    `<button class="tos-btn" data-map-act="${esc(a)}">${esc(label)}</button>`).join('')}</div>`;
+}
+
+function renderMapDetail(d) {
+  const t = (d.tiles || []).find(x => x.id === _tosMapSel);
+  if (!t) return `<div class="tos-map-note">Tap a tile to see what's there — then Route here to plot a course.</div>`;
+  const rows = [];
+  const funcLabel = FUNC_LEGEND[t.func]?.label;
+  if (funcLabel) rows.push(`<div class="tos-row"><span>District</span><span>${esc(funcLabel)}</span></div>`);
+  if (t.danger && t.danger !== 'safe') rows.push(`<div class="tos-row"><span>Danger</span><span>${esc(t.danger)}</span></div>`);
+  const poiLabel = t.poi && POI_LEGEND[t.poi] ? POI_LEGEND[t.poi].label : null;
+  if (poiLabel) rows.push(`<div class="tos-row"><span>Landmark</span><span>${esc(t.icon || '')} ${esc(poiLabel)}</span></div>`);
+  if (Array.isArray(t.artery) && t.artery.length) rows.push(`<div class="tos-row"><span>On</span><span>${t.artery.map(esc).join(' · ')}</span></div>`);
+  if (t.buildings?.length) rows.push(`<div class="tos-row"><span>Buildings</span><span>${t.buildings.map(esc).join(', ')}</span></div>`);
+  const route = getTracePath() || [];
+  const isDest = route.length > 1 && route[route.length - 1] === t.id;
+  let acts;
+  if (t.isCurrent) acts = `<div class="tos-map-note">◉ You are here.</div>`;
+  else if (t.reachable === false) acts = `<div class="tos-map-note">No route to here from where you stand.</div>`;
+  else if (isDest) acts = _mapActBtns([['auto', isAutoWalking() ? '■ Stop Auto-walk' : '🏃 Auto-walk here']]);
+  else acts = _mapActBtns([['route', '🧭 Route here']]);
+  return `<div class="tos-detail-name" style="font-size:15px">${esc(t.name)}</div>${t.description ? `<div class="tos-detail-desc">${esc(t.description)}</div>` : ''}${rows.join('')}${acts}`;
+}
+
+// Colour picker — a free colour wheel (any colour allowed; corps may share
+// hues) plus the preset palette as quick-pick swatches. Both the wheel and a
+// swatch fire the `set_color` action, so they route through the wireBody
+// handlers just like the corp buttons. No "taken"/uniqueness gating.
+function renderColorPicker(appId, palette, current) {
+  const cur = String(current || '').toLowerCase();
+  const valid = /^#[0-9a-f]{6}$/.test(cur) ? cur : '#35c95a';
+  const swatches = (palette || []).map(c => {
+    const sel = cur && c.hex.toLowerCase() === cur;
     return `<span class="tos-swatch${sel ? ' sel' : ''}" style="background:${esc(c.hex)}" title="${esc(c.hex)}"
       data-act-id="set_color" data-act-app="${esc(appId)}" data-act-params="${esc(c.hex)}"></span>`;
   }).join('');
-  return renderSection('Corp Colour', `<div class="tos-swatches">${swatches}</div>`);
+  const wheel = `<div class="tos-color-row">
+      <input type="color" class="tos-color tos-color-lg" data-set-corp-color="${esc(appId)}" value="${esc(valid)}" title="Pick any colour">
+      <span class="tos-color-hex">${esc((cur || valid).toUpperCase())}</span>
+      <span class="tos-color-hint">This colour marks your turf on the territory map.</span>
+    </div>`;
+  return renderSection('Corp Colour', wheel + (swatches ? `<div class="tos-swatches">${swatches}</div>` : ''));
 }
 
 // No-corp founding screen: state the one-time cost up front, then a name prompt.
@@ -988,34 +1396,57 @@ function renderChatMsg(m) {
   return `<div class="tos-chat-msg"><span class="tos-chat-from${m.isMe ? ' me' : ''}">${esc(m.isMe ? 'You' : m.from)}</span><span class="tos-chat-text">${body}</span></div>`;
 }
 
+// The Users tab body — a directory of players online now, tap to start a PM.
+// Mirrors the floating chat panel's hub. The data-chat-new / data-chat-refresh
+// hooks are already wired in wireBody(), so no extra wiring is needed here.
+function renderChatUsers() {
+  const havePm = new Set(getChatTabs().filter(t => t.kind === 'pm').map(t => t.key.toLowerCase()));
+  const people = getOnlinePlayers().filter(p => p.handle);
+  const rows = people.length
+    ? people.map(p => {
+        const existing = havePm.has(p.handle.toLowerCase());
+        return `<div class="tos-chat-user" data-chat-new="${esc(p.handle)}"><span class="tos-chat-user-name">${esc(p.handle)}</span><span class="tos-chat-user-pm">${existing ? '↩' : '💬'}</span></div>`;
+      }).join('')
+    : '<div class="tos-chat-none" style="padding:12px 10px">No one else online.</div>';
+  const closed = getClosedChatTabs();
+  const closedSection = closed.length ? `
+    <div class="tos-chat-users-head" style="margin-top:12px"><span>Recently closed</span></div>
+    <div class="tos-chat-userlist">${closed.map(t =>
+      `<div class="tos-chat-user" data-chat-reopen="${esc(t.key)}"><span class="tos-chat-user-name">${esc(t.label)}</span><span class="tos-chat-user-pm" title="Re-open">↩</span></div>`
+    ).join('')}</div>` : '';
+
+  return `<div class="tos-chat-users">
+    <div class="tos-chat-users-head"><span>Online now</span><span class="tos-chat-refresh" data-chat-refresh="1" title="Refresh online list">↻</span></div>
+    <div class="tos-chat-userlist">${rows}</div>
+    ${closedSection}
+  </div>`;
+}
+
 function renderChat() {
   const tabs = getChatTabs();
-  // Keep the selection valid; default to the corp channel, else first channel, else first tab.
-  if (!_chatTab || !tabs.some(t => t.key === _chatTab)) {
+  const onUsers = _chatTab === CHAT_USERS_TAB;
+  // Keep the selection valid; default to the corp channel, else first channel,
+  // else first tab (the Users hub is never auto-selected — it's opt-in).
+  if (!onUsers && (!_chatTab || !tabs.some(t => t.key === _chatTab))) {
     const corp = tabs.find(t => t.kind === 'channel' && t.key.startsWith('#corp:'));
     _chatTab = (corp || tabs.find(t => t.kind === 'channel') || tabs[0])?.key || null;
   }
-  const active = tabs.find(t => t.key === _chatTab) || null;
+  const active = onUsers ? null : (tabs.find(t => t.key === _chatTab) || null);
   if (active) markChatRead(active.key); // we're showing it — clear its unread
 
-  const tabRow = tabs.length
-    ? `<div class="tos-chat-tabs">${tabs.map(t =>
-        `<div class="tos-chat-tab${t.key === _chatTab ? ' sel' : ''}" data-chat-tab="${esc(t.key)}">${esc(t.label)}${t.unread ? `<span class="tos-chat-pip">${t.unread}</span>` : ''}</div>`
-      ).join('')}</div>`
-    : '';
+  // Users hub leads the strip, then channels + PM conversations.
+  const usersTab = `<div class="tos-chat-tab${onUsers ? ' sel' : ''}" data-chat-tab="${CHAT_USERS_TAB}" title="Players online now">Users</div>`;
+  const convoTabs = tabs.map(t =>
+    `<div class="tos-chat-tab${t.key === _chatTab ? ' sel' : ''}" data-chat-tab="${esc(t.key)}">${esc(t.label)}${t.unread ? `<span class="tos-chat-pip">${t.unread}</span>` : ''}${t.closable ? `<span class="tos-chat-x" data-chat-close="${esc(t.key)}" title="Close (or type /leave)">✕</span>` : ''}</div>`
+  ).join('');
+  const tabRow = `<div class="tos-chat-tabs">${usersTab}${convoTabs}</div>`;
 
-  // "Start a new message" — online players you don't already have a PM tab for.
-  const havePm = new Set(tabs.filter(t => t.kind === 'pm').map(t => t.key.toLowerCase()));
-  const newPeople = getOnlinePlayers().filter(p => p.handle && !havePm.has(p.handle.toLowerCase()));
-  const people = newPeople.length
-    ? `<div class="tos-chat-people">${newPeople.map(p =>
-        `<span class="tos-chat-person" data-chat-new="${esc(p.handle)}">${esc(p.handle)}</span>`).join('')}</div>`
-    : '<div class="tos-chat-none">No one else online.</div>';
-  const newRow = `<div class="tos-chat-newrow"><span class="tos-chat-newlabel">New</span>${people}<span class="tos-chat-refresh" data-chat-refresh="1" title="Refresh online list">↻</span></div>`;
+  // Users hub: show the online-player directory instead of a message log.
+  if (onUsers) return `<div class="tos-chat">${tabRow}${renderChatUsers()}</div>`;
 
   const msgs = active ? getChatMessages(active.key) : [];
   const logInner = !active
-    ? '<div class="tos-empty">No conversations yet. Join a corp for its channel, or tap someone above to start a message.</div>'
+    ? '<div class="tos-empty">No conversations yet. Open <strong>Users</strong> to message someone, or join a corp for its channel.</div>'
     : (msgs.length ? msgs.map(renderChatMsg).join('') : '<div class="tos-empty">No messages yet.</div>');
   const log = `<div class="tos-chat-log" id="tos-chat-log">${logInner}</div>`;
 
@@ -1023,7 +1454,52 @@ function renderChat() {
     ? `<div class="tos-chat-input-row"><input id="tos-chat-input" type="text" autocomplete="off" placeholder="Message ${esc(active.label)}…" /><button class="tos-btn" data-chat-send="1">Send</button></div>`
     : '';
 
-  return `<div class="tos-chat">${tabRow}${newRow}${log}${input}</div>`;
+  return `<div class="tos-chat">${tabRow}${log}${input}</div>`;
+}
+
+// ── News app ────────────────────────────────────────────────────────────────
+// The feed: a stack of section cards, each rendered by its section.type. New
+// section types (weather, corp wars, market) add a case to newsWidget below and
+// a builder server-side (plugins/tablet/news-app.js). Unknown types degrade to
+// a plain "unavailable" note rather than blanking the feed.
+function renderNews(sections) {
+  if (!sections || !sections.length) return '<div class="tos-empty">No news right now. Check back later.</div>';
+  return sections.map(sec => `<div class="tos-news-sec">
+    <div class="tos-news-head"><span class="tos-news-title">${esc(sec.title || '')}</span>${sec.subtitle ? `<span class="tos-news-sub">${esc(sec.subtitle)}</span>` : ''}</div>
+    ${newsWidget(sec)}
+  </div>`).join('');
+}
+
+function newsWidget(sec) {
+  switch (sec.type) {
+    case 'headlines': return renderHeadlinesWidget(sec.stories);
+    case 'standings': return renderStandingsWidget(sec.teams);
+    default: return '<div class="tos-empty" style="padding:12px 4px">This section is unavailable.</div>';
+  }
+}
+
+function renderHeadlinesWidget(stories) {
+  if (!stories || !stories.length) return '<div class="tos-empty" style="padding:14px 4px">Quiet news day. Too quiet.</div>';
+  return `<div class="tos-news-list">${stories.map(s => `<div class="tos-headline">
+    <span class="tos-hl-tag ${s.tag === 'live' ? 'live' : 'tabloid'}">${s.tag === 'live' ? 'LIVE' : 'WIRE'}</span>
+    <span class="tos-hl-text">${esc(s.headline)}${s.byline ? ` <span class="tos-hl-by">— ${esc(s.byline)}</span>` : ''}</span>
+  </div>`).join('')}</div>`;
+}
+
+function renderStandingsWidget(teams) {
+  if (!teams || !teams.length) return '<div class="tos-empty" style="padding:14px 4px">No games have been played yet — the DEADBALL standings are empty.</div>';
+  const rows = teams.map(t => `<tr>
+    <td class="tos-st-rank">${t.rank}</td>
+    <td class="tos-st-team">${esc(t.team)}</td>
+    <td>${t.wins}</td>
+    <td>${t.losses}</td>
+    <td>${esc(String(t.pct))}</td>
+    <td class="tos-st-rd">${esc(String(t.rd))}</td>
+  </tr>`).join('');
+  return `<table class="tos-standings">
+    <thead><tr><th>#</th><th class="tos-st-team">Team</th><th>W</th><th>L</th><th>Pct</th><th>RDif</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
 }
 
 function renderObjectives(objectives) {
@@ -1041,7 +1517,9 @@ function renderObjectives(objectives) {
 function renderActions(appId, actions, params) {
   if (!actions || !actions.length) return '';
   return `<div class="tos-actions">${actions.map(a =>
-    `<button class="tos-btn" data-act-id="${esc(a.id)}" data-act-app="${esc(appId)}" data-act-params="${esc(params || '')}"${a.prompt ? ` data-act-prompt="${esc(a.prompt)}"` : ''}${a.confirm ? ` data-act-confirm="${esc(a.confirm)}"` : ''}>${esc(a.label)}</button>`
+    a.disabled
+      ? `<button class="tos-btn disabled" disabled>${esc(a.label)}</button>`
+      : `<button class="tos-btn" data-act-id="${esc(a.id)}" data-act-app="${esc(appId)}" data-act-params="${esc(params || '')}"${a.prompt ? ` data-act-prompt="${esc(a.prompt)}"` : ''}${a.confirm ? ` data-act-confirm="${esc(a.confirm)}"` : ''}>${esc(a.label)}</button>`
   ).join('')}</div>`;
 }
 
@@ -1079,6 +1557,11 @@ function renderBody() {
       ${renderCorpMap(d)}
     </div>`;
   }
+  if (d.view === 'map') {
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+      <div id="tos-map-root">${renderMap(d)}</div>
+    </div>`;
+  }
   if (d.view === 'surveillance') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       ${renderSurveillance(d)}
@@ -1087,6 +1570,11 @@ function renderBody() {
   if (d.view === 'chat') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       ${renderChat()}
+    </div>`;
+  }
+  if (d.view === 'news') {
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+      ${renderNews(d.sections)}
     </div>`;
   }
   if (d.view === 'error') {
@@ -1174,21 +1662,93 @@ function wireBody() {
   });
   _overlay.querySelectorAll('[data-act-id]').forEach(el => {
     el.addEventListener('click', () => {
+      const appId = el.getAttribute('data-act-app');
+      const actionId = el.getAttribute('data-act-id');
       const confirmText = el.getAttribute('data-act-confirm');
-      if (confirmText && !window.confirm(confirmText)) return; // e.g. folding a corp
       const promptText = el.getAttribute('data-act-prompt');
-      let params = el.getAttribute('data-act-params');
-      if (promptText) {
-        const val = window.prompt(promptText);
-        if (val == null || !val.trim()) return; // cancelled or empty — don't send anything
-        params = val.trim();
+      const baseParams = el.getAttribute('data-act-params');
+      // Folding a corp also drops its now-dead chat channel from the list.
+      const fire = (params) => { if (actionId === 'fold') removeCorpChannels(); act(appId, actionId, params); };
+
+      // Auto-travel (Quests app) is a client-side movement toggle layered over the
+      // server re-plotting the route: already auto-walking -> just stop it here, no
+      // round trip; otherwise fire the server action, which plots a fresh route to
+      // the tracked quest's next stop and flags the gps_route to set off (handled in
+      // dispatch.js -> minimap.js startAutoWalk).
+      if (actionId === 'autowalk') {
+        if (isAutoWalking()) toggleAutoWalk();
+        else act(appId, actionId, baseParams);
+        return;
       }
-      act(el.getAttribute('data-act-app'), el.getAttribute('data-act-id'), params);
+
+      // In-browser dialogs instead of the browser's native confirm()/prompt() —
+      // themed, draggable, and rendered above the tablet (confirm.js).
+      if (promptText) {
+        showPromptDialog({ title: 'Corporation', prompt: promptText, confirmLabel: 'Submit' }, (val) => fire(val));
+        return;
+      }
+      if (confirmText) {
+        showConfirmDialog({ title: 'Confirm', prompt: confirmText, confirmLabel: 'Confirm' }, () => fire(baseParams));
+        return;
+      }
+      fire(baseParams);
     });
+  });
+  // Corp colour wheel — any colour, applied immediately via the set_color action.
+  _overlay.querySelectorAll('[data-set-corp-color]').forEach(el => {
+    el.addEventListener('change', () => act(el.getAttribute('data-set-corp-color'), 'set_color', el.value));
   });
 
   wireTabletSettings();
   wireCorpMap();
+  wireMap();
+}
+
+// Map app: mode switch (server round trip — different tiles), tap-a-tile to select
+// (client-side, refreshes the detail in place), and GPS route / auto-walk actions.
+// No-op off the map screen.
+function rebuildMap() {
+  const root = _overlay.querySelector('#tos-map-root');
+  if (root) { root.innerHTML = renderMap(_data); wireMap(); }
+}
+function wireMap() {
+  _overlay.querySelectorAll('[data-map-mode]').forEach(el => {
+    el.addEventListener('click', () => nav('map', el.getAttribute('data-map-mode'), null));
+  });
+  _overlay.querySelectorAll('[data-map-zone]').forEach(el => {
+    el.addEventListener('click', () => {
+      _tosMapSel = el.getAttribute('data-map-zone');
+      sfx(TOS_SELECT_DEF);
+      _overlay.querySelectorAll('.tos-map-tile.sel').forEach(s => s.classList.remove('sel'));
+      el.classList.add('sel');
+      const det = _overlay.querySelector('#tos-map-detail');
+      if (det) { det.innerHTML = renderMapDetail(_data); wireMapActs(); }
+    });
+  });
+  wireMapActs();
+  const auto = _overlay.querySelector('[data-map-auto]');
+  if (auto) auto.addEventListener('click', () => { toggleAutoWalk(); rebuildMap(); });
+  const clear = _overlay.querySelector('[data-map-clear]');
+  if (clear) clear.addEventListener('click', () => { setGpsRoute(null); rebuildMap(); });
+}
+function wireMapActs() {
+  _overlay.querySelectorAll('[data-map-act]').forEach(el => {
+    el.addEventListener('click', () => {
+      const a = el.getAttribute('data-map-act');
+      sfx(TOS_SELECT_DEF);
+      if (a === 'route') {
+        const cur = (_data.tiles || []).find(t => t.isCurrent);
+        if (cur && _tosMapSel) {
+          const path = routeBetween(cur.id, _tosMapSel, _data.tiles);
+          if (path && path.length > 1) setGpsRoute(path);
+        }
+        rebuildMap();
+      } else if (a === 'auto') {
+        toggleAutoWalk();
+        rebuildMap();
+      }
+    });
+  });
 }
 
 // Territory Map: tap a zone to select it (client-side only — refreshes the
@@ -1198,7 +1758,7 @@ function wireCorpMap() {
   _overlay.querySelectorAll('[data-cm-zone]').forEach(el => {
     el.addEventListener('click', () => {
       _tosCorpSel = el.getAttribute('data-cm-zone');
-      sfx('hololock-set');
+      sfx(TOS_SELECT_DEF);
       _overlay.querySelectorAll('.tos-cm-tile.sel').forEach(s => s.classList.remove('sel'));
       el.classList.add('sel');
       const det = _overlay.querySelector('#tos-cm-detail');
@@ -1209,7 +1769,7 @@ function wireCorpMap() {
 }
 function wireCorpMapActs() {
   _overlay.querySelectorAll('[data-cm-act]').forEach(el => {
-    el.addEventListener('click', () => { sfx('hololock-set'); act('corp', 'mapact', el.getAttribute('data-cm-act')); });
+    el.addEventListener('click', () => { sfx(TOS_SELECT_DEF); act('corp', 'mapact', el.getAttribute('data-cm-act')); });
   });
 }
 
@@ -1222,39 +1782,59 @@ function wireCorpMapActs() {
 function wireTabletSettings() {
   const commit = (s) => { saveSettings(s); applySettings(s); };
 
+  // Settings page tabs — switch grouped page (client-side only).
+  _overlay.querySelectorAll('[data-set-page]').forEach(el => {
+    el.addEventListener('click', () => {
+      _tosSetPage = el.getAttribute('data-set-page');
+      sfx(TOS_SELECT_DEF);
+      render();
+    });
+  });
+
   // Shared UI theme grid — always drives settings.theme (the tablet-theme
-  // picker below is separate, for the unlinked Tablet theme only).
+  // picker is separate, for the unlinked Tablet theme only). Both keep the sheet
+  // open and preserve its scroll spot so you can keep browsing after a pick.
   _overlay.querySelectorAll('[data-theme-pick]').forEach(el => {
     el.addEventListener('click', () => {
-      sfx('hololock-set');
+      sfx(TOS_SELECT_DEF);
       const s = loadSettings();
       s.theme = el.getAttribute('data-theme-pick');
       s.customColors = {}; // matches the legacy panel's theme-grid click (drops any in-progress custom edit)
       commit(s);
+      _keepThemeScroll = true;
       render();
     });
   });
   // Unlinked Tablet's own independent theme — never touches the page theme.
   _overlay.querySelectorAll('[data-tablet-theme-pick]').forEach(el => {
     el.addEventListener('click', () => {
-      sfx('hololock-set');
+      sfx(TOS_SELECT_DEF);
       saveTabletTheme({ ...loadTabletTheme(), theme: el.getAttribute('data-tablet-theme-pick') });
+      _keepThemeScroll = true;
       render();
     });
   });
   // Theme locker — easy Linked/Unlinked toggle.
   _overlay.querySelectorAll('[data-set-link]').forEach(el => {
     el.addEventListener('click', () => {
-      sfx('hololock-set');
+      sfx(TOS_SELECT_DEF);
       const tt = loadTabletTheme();
       if (el.getAttribute('data-set-link') === 'unlinked') saveTabletTheme({ linked: false, theme: tt.theme || 'dark' });
-      else { saveTabletTheme({ linked: true }); _tosTabletThemeOpen = false; }
+      else saveTabletTheme({ linked: true });
       render();
     });
   });
-  _overlay.querySelector('[data-tablet-theme-toggle]')?.addEventListener('click', () => {
-    sfx('hololock-set');
-    _tosTabletThemeOpen = !_tosTabletThemeOpen;
+  // Theme trigger → open the scrollable picker sheet; ✕ Done closes it.
+  _overlay.querySelectorAll('[data-open-theme-sheet]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      _tosThemePicker = el.getAttribute('data-open-theme-sheet');
+      render();
+    });
+  });
+  _overlay.querySelector('[data-theme-sheet-close]')?.addEventListener('click', () => {
+    sfx(TOS_SELECT_DEF);
+    _tosThemePicker = null;
     render();
   });
   // Chat app: pick a conversation, or send to the active one. Both operate on
@@ -1263,8 +1843,19 @@ function wireTabletSettings() {
     el.addEventListener('click', () => {
       _chatTab = el.getAttribute('data-chat-tab');
       markChatRead(_chatTab);
-      sfx('hololock-set');
+      sfx(TOS_SELECT_DEF);
       render();
+    });
+  });
+  // ✕ on a tab — close/leave that conversation (channel or PM). Stop the click
+  // from also switching to the tab we're closing.
+  _overlay.querySelectorAll('[data-chat-close]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const key = el.getAttribute('data-chat-close');
+      if (_chatTab === key) _chatTab = null; // let renderChat pick a new default
+      leaveChatConversation(key); // emits an update → re-renders us
+      sfx(TOS_SELECT_DEF);
     });
   });
   // Start a new PM with an online player (no floating panel side-effects).
@@ -1274,12 +1865,22 @@ function wireTabletSettings() {
       _chatTab = h;
       ensureChatConversation(h); // emits an update → re-renders us on the new tab
       markChatRead(h);
-      sfx('hololock-set');
+      sfx(TOS_SELECT_DEF);
+      render();
+    });
+  });
+  // Re-open a conversation the player closed earlier (channel or PM).
+  _overlay.querySelectorAll('[data-chat-reopen]').forEach(el => {
+    el.addEventListener('click', () => {
+      const key = el.getAttribute('data-chat-reopen');
+      _chatTab = reopenChatTab(key); // emits an update → re-renders us on the tab
+      markChatRead(_chatTab);
+      sfx(TOS_SELECT_DEF);
       render();
     });
   });
   _overlay.querySelector('[data-chat-refresh]')?.addEventListener('click', () => {
-    sfx('hololock-set');
+    sfx(TOS_SELECT_DEF);
     refreshOnlinePlayers().then(() => { if (_data?.view === 'chat') render(); });
   });
   const chatInput = _overlay.querySelector('#tos-chat-input');
@@ -1305,7 +1906,7 @@ function wireTabletSettings() {
   // weatherFx, dpadSize, tempUnit, pokerFelt) — all string-valued.
   _overlay.querySelectorAll('[data-set-key]').forEach(el => {
     el.addEventListener('click', () => {
-      sfx('hololock-set');
+      sfx(TOS_SELECT_DEF);
       const s = loadSettings();
       s[el.getAttribute('data-set-key')] = el.getAttribute('data-set-val');
       commit(s);
@@ -1355,7 +1956,7 @@ function wireTabletSettings() {
   // AudioEngine enable/disable, exactly as the legacy toggle does.
   _overlay.querySelectorAll('[data-set-sound]').forEach(el => {
     el.addEventListener('click', () => {
-      sfx('hololock-set');
+      sfx(TOS_SELECT_DEF);
       const s = loadSettings();
       (s.audio ||= {}).enabled = el.getAttribute('data-set-sound') === 'on';
       commit(s);
@@ -1364,7 +1965,7 @@ function wireTabletSettings() {
   });
   _overlay.querySelectorAll('[data-set-audio]').forEach(el => {
     el.addEventListener('click', () => {
-      sfx('hololock-set');
+      sfx(TOS_SELECT_DEF);
       const s = loadSettings();
       (s.audio ||= {})[el.getAttribute('data-set-audio')] = el.getAttribute('data-set-audio-val') === 'true';
       commit(s);
@@ -1391,13 +1992,13 @@ function wireTabletSettings() {
     if (_tosMisClicks >= 3) {
       _tosMisClicks = 0;
       _tosMisRevealed = true;
-      sfx('hololock-entry');
+      sfx(TOS_ENTRY_DEF);
       render();
     }
   });
   _overlay.querySelectorAll('[data-mis-set]').forEach(el => {
     el.addEventListener('click', () => {
-      sfx('hololock-set');
+      sfx(TOS_SELECT_DEF);
       const enable = el.getAttribute('data-mis-set') === 'on';
       // Server-authoritative: send the raw ws message and update optimistically;
       // the server confirms (or corrects) via the mis_state_update event below.
@@ -1439,14 +2040,36 @@ function makeDraggable(panel, handle) {
 // One-shot CRT power-on/off sounds — same shape as the TV's local synth defs
 // (client/game/js/panels/tv.js TV_POWER_ON_DEF/TV_POWER_OFF_DEF), defined
 // locally rather than added to the shared sfx-catalog since they're specific
-// to this one panel.
+// to this one panel. Power-off stays a softer confirmation chirp; power-on is
+// back to its original harsher sweep per user request.
 const CRT_POWER_ON_DEF = {
   id: 'tablet_crt_power_on', category: 'sfx', priority: 3,
   config: { waveform: 'triangle', freq: 60, duration: 0.4, noiseMix: 0.25, pitchBend: { to: 700, time: 0.28 }, filter: { type: 'lowpass', freq: 3400, q: 1 }, adsr: { a: 0.004, d: 0.18, s: 0.25, r: 0.18 } },
 };
 const CRT_POWER_OFF_DEF = {
   id: 'tablet_crt_power_off', category: 'sfx', priority: 3,
-  config: { waveform: 'triangle', freq: 900, duration: 0.3, noiseMix: 0.2, pitchBend: { to: 40, time: 0.25 }, filter: { type: 'lowpass', freq: 4000, q: 1 }, adsr: { a: 0.001, d: 0.05, s: 0.2, r: 0.2 } },
+  config: { waveform: 'sine', freq: 520, duration: 0.16, noiseMix: 0.03, pitchBend: { to: 280, time: 0.12 }, filter: { type: 'lowpass', freq: 2000, q: 0.6 }, adsr: { a: 0.01, d: 0.05, s: 0.08, r: 0.08 } },
+};
+const TABLET_SFX_GAIN = 0.55; // soft — a register-blip, not a chime you'd notice repeatedly
+
+// Selection/navigation clicks. Tablet screens reused the shared hololock-set/
+// hololock-entry catalog cues (tuned sharp on purpose for that hacking
+// minigame's tension) for every pill click, tab switch, and zone tap — which
+// gets grating fast on a device you click through constantly. These are local,
+// softer stand-ins: same "yes, that registered" function, much quieter and
+// shorter, and don't touch the catalog cues hololock/corp-console/corp-map/
+// fishing/cockpit still rely on.
+const TOS_SELECT_DEF = {
+  id: 'tos_select', category: 'sfx', priority: 4,
+  config: { duration: 0.06, layers: [
+    { waveform: 'sine', freq: 640, pitchBend: { to: 760, time: 0.04 }, filter: { type: 'lowpass', freq: 2000, q: 0.6 }, adsr: { a: 0.003, d: 0.045, s: 0, r: 0.025 }, gain: 0.08 },
+  ] },
+};
+const TOS_ENTRY_DEF = {
+  id: 'tos_entry', category: 'sfx', priority: 4,
+  config: { duration: 0.2, layers: [
+    { waveform: 'sine', freq: 240, pitchBend: { to: 380, time: 0.14 }, filter: { type: 'lowpass', freq: 1600, q: 0.6 }, adsr: { a: 0.015, d: 0.1, s: 0.08, r: 0.07 }, gain: 0.09 },
+  ] },
 };
 
 const CRT_ANIM_MS = 600;  // matches @keyframes tv-crt-poweron's 0.6s duration
@@ -1462,7 +2085,7 @@ function shutdownTablet() {
   if (!panel) { close(); return; }
   panel.classList.remove('tos-powering-on');
   panel.classList.add('tos-shutting-off');
-  window.AudioEngine?.playSfx(CRT_POWER_OFF_DEF);
+  window.AudioEngine?.playSfx(CRT_POWER_OFF_DEF, TABLET_SFX_GAIN);
   panel.addEventListener('animationend', () => close(), { once: true });
   setTimeout(() => close(), CRT_OFF_ANIM_MS + 100); // backstop if animationend never fires
 }
@@ -1514,8 +2137,12 @@ function render() {
   const survLive = _data.view === 'surveillance' && !!_data.live;
   const isChat = _data.view === 'chat';
   // A live surveillance poll refreshes in place — keep the operator's scroll spot
-  // instead of yanking to the top every 5s. Every other (real) nav starts at top.
-  const keepScroll = survLive && _wasSurvLive;
+  // instead of yanking to the top every 5s. A live quest refresh (an objective
+  // ticking while the player reads the screen) preserves it the same way, via a
+  // one-shot flag. Every other (real) nav starts at top.
+  const keepScroll = (survLive && _wasSurvLive) || _keepQuestScroll || _keepThemeScroll;
+  _keepQuestScroll = false;
+  _keepThemeScroll = false;
   const prevTop = scroll.scrollTop;
 
   // Chat re-renders on every incoming/outgoing message (via the subscription).
@@ -1557,6 +2184,10 @@ function render() {
 }
 
 export function closeTabletPanel() { shutdownTablet(); }
+
+// A dropped connection or a sign-out (both fire game-disconnect) leaves the
+// tablet driving nothing — tear it down immediately, no CRT flourish.
+window.addEventListener('game-disconnect', () => { if (_overlay) close(); });
 
 function close() {
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }

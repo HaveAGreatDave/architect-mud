@@ -24,15 +24,25 @@ export function avgColor(list) { let r = 0, g = 0, bb = 0; list.forEach(d => { c
 export let G = null, W = 0, H = 0;
 export function useCanvas(ctx, w, h) { G = ctx; W = w; H = h; }
 
-// dev test windows (splicetest/cooktest) paint the canvas backdrop from the
-// player's active theme instead of the fixed dark medlab gradient, so it
-// reads white on light themes and black on dark ones. null = default dark art.
-export let labBg = null, labBgLight = false;
+// Every lab window (splice + cook, real or dev test) paints its canvas backdrop from
+// the player's active theme instead of a fixed dark medlab gradient, so it reads white
+// on light themes and black on dark ones (and adapts live if the theme changes mid-game).
+export let labBg = null, labBgLight = false, labAccent = '#4fe08a';
 export function setLabBg(themed) {
   if (!themed) { labBg = null; labBgLight = false; return; }
   const raw = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#05050a';
   labBg = raw; const c = hexToRgb(raw); labBgLight = (c.r * .299 + c.g * .587 + c.b * .114) > 150;
 }
+// on a light theme the default --fgdim/--fgbright (accent mixed toward WHITE) washes out
+// against the now-light canvas; flip the mix target toward black so text stays readable.
+function fgdimOverrideCss() {
+  return labBgLight ? '--fgdim:color-mix(in srgb,var(--A) 65%,#000);--fgbright:color-mix(in srgb,var(--A) 20%,#000);' : '';
+}
+// canvas-text drop shadow that reads against whichever theme the backdrop is currently
+// painted in — a light halo on light themes, a dark halo on dark ones. Call before
+// G.fillText, then textShadowOff() (or a save/restore around the block) to clear it.
+export function textShadowOn(blur = 5) { G.shadowColor = labBgLight ? 'rgba(255,255,255,.9)' : 'rgba(0,0,0,.85)'; G.shadowBlur = blur; }
+export function textShadowOff() { G.shadowBlur = 0; }
 
 // ── shapes ───────────────────────────────────────────────────────────────────
 export function roundRect(x, y, w, h, r) { G.beginPath(); G.moveTo(x + r, y); G.arcTo(x + w, y, x + w, y + h, r); G.arcTo(x + w, y + h, x, y + h, r); G.arcTo(x, y + h, x, y, r); G.arcTo(x, y, x + w, y, r); G.closePath(); }
@@ -190,6 +200,7 @@ export function drawBench() {
   G.beginPath(); G.ellipse(W * .2, by + 40, 120, 30, 0, 0, 7); G.fill();
   G.beginPath(); G.ellipse(W * .8, by + 60, 160, 40, 0, 0, 7); G.fill();
   G.save(); G.globalAlpha = labBgLight ? .08 : .05; G.font = 'bold 120px monospace'; G.fillStyle = labBgLight ? '#b8651f' : '#ffb23e'; G.textAlign = 'center';
+  G.shadowColor = labAccent; G.shadowBlur = 46 + Math.sin(_benchT * 0.6) * 14;   // slow subtle accent-colour breathing glow
   G.fillText('☣', W * .5, H * .4); G.restore();
 }
 
@@ -294,8 +305,7 @@ function ensureLabStyles() {
   // everything (falling back to the passed lab colour, then green), surfaces are the
   // accent color-mixed into --bg2, with white/black bevels for the hard-plastic look.
   s.textContent = `
-  .lab-overlay{position:fixed;inset:0;z-index:9996;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg,#05050a) 82%,transparent);backdrop-filter:blur(4px);font-family:'Courier New',var(--font-mono,monospace);pointer-events:none}
-  .lab-overlay.lab-nodim{background:color-mix(in srgb,var(--bg,#05050a) 30%,transparent);backdrop-filter:none}
+  .lab-overlay{position:fixed;inset:0;z-index:9996;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg,#05050a) 30%,transparent);font-family:'Courier New',var(--font-mono,monospace);pointer-events:none}
   .lab-rig{pointer-events:auto;--A:var(--accent,var(--acc,#4fe08a));
     --surf:color-mix(in srgb,var(--A) 12%,var(--bg2,#0d0d16));
     --surf-hi:color-mix(in srgb,var(--A) 20%,var(--bg2,#0d0d16));
@@ -360,15 +370,13 @@ export function evPos(canvas, e) {
 // Returns an API; call api.close() to tear down. useCanvas() is pointed here.
 export function mountLab({ title = 'CHIMERA-9', subtitle = 'GENESPLICER', accent = '#4fe08a', showInsta = true, test = false } = {}) {
   ensureLabStyles();
-  setLabBg(test);
+  labAccent = accent;
+  setLabBg(true);   // 1.0: every lab window (real or test) reads the player's live theme
   const overlay = document.createElement('div');
-  overlay.className = 'lab-overlay' + (test ? ' lab-nodim' : '');
-  // on a light-theme test window the default --fgdim (accent mixed toward WHITE) washes
-  // out against the now-light canvas; flip the mix target toward black so dim/secondary
-  // text stays readable regardless of which theme is behind it.
-  const fgdimOverride = (test && labBgLight) ? `--fgdim:color-mix(in srgb,var(--A) 65%,#000);--fgbright:color-mix(in srgb,var(--A) 20%,#000);` : '';
+  overlay.className = 'lab-overlay';
+  const rigStyle = () => `--acc:${accent};${fgdimOverrideCss()}`;
   overlay.innerHTML = `
-    <div class="lab-rig" style="--acc:${accent};${fgdimOverride}">
+    <div class="lab-rig" style="${rigStyle()}">
       <canvas class="lab-stage" width="960" height="604"></canvas>
       <div class="lab-fx grid"></div><div class="lab-fx scan"></div>
       <canvas class="lab-grain" width="240" height="151"></canvas>
@@ -385,13 +393,25 @@ export function mountLab({ title = 'CHIMERA-9', subtitle = 'GENESPLICER', accent
   const gcv = overlay.querySelector('.lab-grain'), gg = gcv.getContext('2d');
   const grainTimer = setInterval(() => { const id = gg.createImageData(gcv.width, gcv.height); const d = id.data; for (let i = 0; i < d.length; i += 4) { const v = Math.random() * 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = Math.random() < .5 ? 40 : 0; } gg.putImageData(id, 0, 0); }, 90);
 
+  // Live theme reactivity: if the player flips theme (or edits a custom theme) while
+  // a lab window is open, re-read --bg and re-apply immediately, no reopen needed.
+  // Patches only the two custom props (setAttribute would wipe the drag transform).
+  const rigEl = overlay.querySelector('.lab-rig');
+  const onThemeChange = () => {
+    setLabBg(true);
+    if (labBgLight) { rigEl.style.setProperty('--fgdim', 'color-mix(in srgb,var(--A) 65%,#000)'); rigEl.style.setProperty('--fgbright', 'color-mix(in srgb,var(--A) 20%,#000)'); }
+    else { rigEl.style.removeProperty('--fgdim'); rigEl.style.removeProperty('--fgbright'); }
+  };
+  const themeObs = new MutationObserver(onThemeChange);
+  themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'style'] });
+
   let closed = false; const closeCbs = [];
-  function close() { if (closed) return; closed = true; clearInterval(grainTimer); AX.stopAll(); closeCbs.forEach(fn => { try { fn(); } catch (e) { } }); window.removeEventListener('pointermove', onDragMove); window.removeEventListener('pointerup', onDragEnd); if (overlay.parentNode) overlay.remove(); }
+  function close() { if (closed) return; closed = true; clearInterval(grainTimer); themeObs.disconnect(); AX.stopAll(); closeCbs.forEach(fn => { try { fn(); } catch (e) { } }); window.removeEventListener('pointermove', onDragMove); window.removeEventListener('pointerup', onDragEnd); if (overlay.parentNode) overlay.remove(); }
   overlay.querySelector('.close').addEventListener('click', close);
 
   // draggable rig — grab the titlebar (not the close button) and slide the window
   // around by CSS transform, independent of layout so the centred flex box holds.
-  const rig = overlay.querySelector('.lab-rig'), top = overlay.querySelector('.lab-top');
+  const top = overlay.querySelector('.lab-top');
   let dragX = 0, dragY = 0, dragging = false, startX = 0, startY = 0;
   function onDragStart(e) {
     if (e.target.closest('.close')) return;
@@ -402,7 +422,7 @@ export function mountLab({ title = 'CHIMERA-9', subtitle = 'GENESPLICER', accent
   function onDragMove(e) {
     if (!dragging) return;
     dragX = e.clientX - startX; dragY = e.clientY - startY;
-    rig.style.transform = `translate(${dragX}px,${dragY}px)`;
+    rigEl.style.transform = `translate(${dragX}px,${dragY}px)`;
   }
   function onDragEnd() { dragging = false; top.classList.remove('dragging'); window.removeEventListener('pointermove', onDragMove); window.removeEventListener('pointerup', onDragEnd); }
   top.addEventListener('pointerdown', onDragStart);

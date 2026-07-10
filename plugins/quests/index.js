@@ -169,14 +169,24 @@ function fireObjectiveEmote(actor, obj) {
 
 // --- Timed tasks (job board "the work takes a few seconds") ----------------
 // A 'visit' objective normally completes the instant the player steps into the
-// zone. A quest can opt into a delay instead via `meta.taskSeconds` — set "by
-// mission" in content (the 6 Franchise Strip jobs default to 5s) — so it reads
-// as actually DOING something there: a random line from the objective's
+// zone. An objective can opt into a delay instead via its own `taskSeconds` — set
+// per-objective in the quest editor (the 6 Franchise Strip jobs use 5s) — so it
+// reads as actually DOING something there: a random line from the objective's
 // `emotes` fires every couple of seconds while the countdown runs, and the
 // objective only really advances once it elapses. Leaving the zone before then
 // cancels the task outright — no partial credit for wandering off mid-task.
 const pendingTasks = new Map(); // key -> { playerId, zone, emoteTimer, doneTimer }
 const taskKey = (playerId, questId, objIndex) => `${playerId}:${questId}:${objIndex}`;
+
+// How long a 'visit' objective's task takes: the objective's own `taskSeconds`,
+// else the legacy quest-level `meta.taskSeconds` fallback (pre per-objective
+// authoring), else 0 = instant.
+function taskSecondsFor(quest, obj) {
+  const o = Number(obj?.taskSeconds);
+  if (o > 0) return o;
+  const m = Number(quest?.meta?.taskSeconds);
+  return m > 0 ? m : 0;
+}
 
 // Exported alongside trackEvent for regress.js only — same reasoning (nothing
 // outside the on('zone.entered', ...) subscriber below calls it in production).
@@ -265,7 +275,6 @@ export async function trackEvent(actor, predicate) {
     const objectives = quest.objectives || [];
     const progress = Array.isArray(pq.progress) ? pq.progress.slice() : [];
     while (progress.length < objectives.length) progress.push(0);
-    const taskSeconds = Number(quest.meta?.taskSeconds) > 0 ? Number(quest.meta.taskSeconds) : 0;
 
     let changed = false;
     const before = progress.slice(); // judge gating against pre-tick state
@@ -276,8 +285,9 @@ export async function trackEvent(actor, predicate) {
       if (!requiresMet(objectives, obj, before)) return; // locked until prerequisites done
       if (!predicate(obj)) return;
 
-      if (obj.type === 'visit' && taskSeconds > 0) {
-        scheduleTask(actor, quest, i, obj, taskSeconds); // completes later, on its own timer
+      const secs = obj.type === 'visit' ? taskSecondsFor(quest, obj) : 0;
+      if (secs > 0) {
+        scheduleTask(actor, quest, i, obj, secs); // completes later, on its own timer
         return;
       }
       progress[i] = (progress[i] || 0) + 1;
@@ -336,6 +346,16 @@ on('item.taken', ({ actor, item }) => {
   return trackEvent(actor, (obj) =>
     obj.type === 'retrieve' && obj.item_id && item?.item_id === obj.item_id);
 });
+
+// Live-refresh any open client quest UI (Tablet OS Quests app) the moment a quest
+// changes state, so its objective checkboxes tick without the player reopening the
+// app. Purely a client hint — the client no-ops it when the tablet is closed or not
+// on the Quests app (client/game/js/dispatch.js -> tablet-os.js tabletQuestUpdate).
+// Fired for every lifecycle transition in one place rather than threading a send
+// through each mutation path above.
+for (const ev of ['quest.started', 'quest.advanced', 'quest.completed', 'quest.turned_in', 'quest.abandoned']) {
+  on(ev, ({ actor }) => { if (actor?.id) sendToPlayer(actor.id, { type: 'quest_update' }); });
+}
 
 // Note: 'deliver' objectives (flight pilot contracts) are deliberately NOT wired to
 // zone.entered — a delivery has to be verified as an actual landing with the right

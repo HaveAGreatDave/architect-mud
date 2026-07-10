@@ -443,7 +443,10 @@ function drawClutterRight(ctx, w, h, floorTop) {
 // hero shot both draw through this instead of a bare (background-less) turntable.
 export function drawHangarFloorBay(ctx, opts) {
   ctx.clearRect(0, 0, opts.w, opts.h);
-  drawHangarBackdrop(ctx, opts.w, opts.h, { tint: opts.tint, sky: opts.sky });
+  // flat: true skips the hangar-room backdrop and leaves the canvas transparent —
+  // used by the mechanics-bench hero shot, which sits over the panel's own themed
+  // background instead of a hangar interior.
+  if (!opts.flat) drawHangarBackdrop(ctx, opts.w, opts.h, { tint: opts.tint, sky: opts.sky });
   if (opts.cls) paintTurntable(ctx, opts);
 }
 
