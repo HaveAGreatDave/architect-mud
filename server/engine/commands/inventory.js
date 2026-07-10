@@ -986,4 +986,4 @@ export const handlers = {
   closecontainer: (args, raw, player, broadcast) => cmdCloseContainer(args[0], player, broadcast),
 };
 
-export { cmdLookInContainer, describeContainer, cmdOpenContainer, cmdUse };
+export { cmdLookInContainer, describeContainer, cmdOpenContainer, cmdUse, cmdGear };

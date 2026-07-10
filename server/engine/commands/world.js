@@ -1017,25 +1017,36 @@ function cmdAdmin(player) {
   return { type:'admin_panel', role: player.role, commands };
 }
 
-function cmdHelp(player) {
-  let msg = `<span class="help-header">COMMANDS</span>
+// The command reference, as data — the single source shared by both `/help`
+// (below) and the Tablet Help app (plugins/tablet/help-app.js). `text` holds raw
+// angle brackets; cmdHelp escapes them for its HTML transcript, the tablet esc()s
+// them itself. Add or reword a line here and both surfaces update together.
+export const HELP_GROUPS = [
+  { cat: 'MOVEMENT',   text: 'north south east west up down (n/s/e/w/u/d)  |  go <dir>' },
+  { cat: 'COMBAT',     text: 'attack <target>  |  loot <corpse>' },
+  { cat: 'ITEMS',      text: 'inventory  take <item>  drop  use  equip' },
+  { cat: 'CONTAINERS', text: 'look in <container>  |  stow <item> in <container>  |  pull <item> from <container>' },
+  { cat: 'CRAFTING',   text: 'recipes  |  craft <recipe_id>' },
+  { cat: 'TRADING',    text: 'shop <npc>  |  buy <item>  |  sell <item>' },
+  { cat: 'ECONOMY',    text: 'balance  |  deposit <amt/all>  |  withdraw <amt/all>  (ATM required)  |  steal <player>' },
+  { cat: 'PROPERTY',   text: 'rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep' },
+  { cat: 'CHARACTER',  text: 'stats  skills  raise [stat]  mutations  factions' },
+  { cat: 'SOCIAL',     text: 'talk <npc>  |  say <message>  |  who  |  whisper/tell <player> <msg>' },
+  { cat: 'WORLD',      text: 'map  |  switch on/off <light>  |  turn on/off <light>' },
+  { cat: 'POSTURE',    text: 'sit  |  sit on <furniture/floor>  |  lie  |  lie on <furniture>  |  kneel  |  stand' },
+  { cat: 'EMOTES',     text: 'smile  frown  laugh  cry  sigh  nod  shake  dance  pace  stretch  wave  shrug  point' },
+  { cat: 'INTERACT',   text: 'lean on <furniture>  |  greet [player]  |  follow <player>  |  reflect' },
+  { cat: 'OBSERVE',    text: 'look sky  |  look ground  |  look distance  |  examine surroundings' },
+  { cat: 'INFO',       text: 'look  |  look <me/item/player>  |  examine <thing>  help' },
+];
 
-<span class="help-category">MOVEMENT</span>    north south east west up down (n/s/e/w/u/d)  |  go &lt;dir&gt;
-<span class="help-category">COMBAT</span>      attack &lt;target&gt;  |  loot &lt;corpse&gt;
-<span class="help-category">ITEMS</span>       inventory  take &lt;item&gt;  drop  use  equip
-<span class="help-category">CONTAINERS</span>  look in &lt;container&gt;  |  stow &lt;item&gt; in &lt;container&gt;  |  pull &lt;item&gt; from &lt;container&gt;
-<span class="help-category">CRAFTING</span>    recipes  |  craft &lt;recipe_id&gt;
-<span class="help-category">TRADING</span>     shop &lt;npc&gt;  |  buy &lt;item&gt;  |  sell &lt;item&gt;
-<span class="help-category">ECONOMY</span>     balance  |  deposit &lt;amt/all&gt;  |  withdraw &lt;amt/all&gt;  (ATM required)  |  steal &lt;player&gt;
-<span class="help-category">PROPERTY</span>    rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep
-<span class="help-category">CHARACTER</span>   stats  skills  raise [stat]  mutations  factions
-<span class="help-category">SOCIAL</span>      talk &lt;npc&gt;  |  say &lt;message&gt;  |  who  |  whisper/tell &lt;player&gt; &lt;msg&gt;
-<span class="help-category">WORLD</span>       map  |  switch on/off &lt;light&gt;  |  turn on/off &lt;light&gt;
-<span class="help-category">POSTURE</span>     sit  |  sit on &lt;furniture/floor&gt;  |  lie  |  lie on &lt;furniture&gt;  |  kneel  |  stand
-<span class="help-category">EMOTES</span>      smile  frown  laugh  cry  sigh  nod  shake  dance  pace  stretch  wave  shrug  point
-<span class="help-category">INTERACT</span>    lean on &lt;furniture&gt;  |  greet [player]  |  follow &lt;player&gt;  |  reflect
-<span class="help-category">OBSERVE</span>     look sky  |  look ground  |  look distance  |  examine surroundings
-<span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help`;
+function cmdHelp(player) {
+  const escLt = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  let msg = `<span class="help-header">COMMANDS</span>\n`;
+  for (const g of HELP_GROUPS) {
+    const pad = ' '.repeat(Math.max(1, 12 - g.cat.length));
+    msg += `\n<span class="help-category">${g.cat}</span>${pad}${escLt(g.text)}`;
+  }
   if (player?.role === 'admin') {
     msg += `\n<span class="help-category">ADMIN</span>      @admin   <span class="text-dim">— open the admin command reference (@ = admin · / = player · . = bookkeeping)</span>`;
   }

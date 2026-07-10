@@ -22,6 +22,7 @@ import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuilti
 import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpdate, getOnlinePlayers, refreshOnlinePlayers, ensureChatConversation, leaveChatConversation, removeCorpChannels, getClosedChatTabs, reopenChatTab } from './whisper.js';
 import { showPromptDialog, showConfirmDialog } from './confirm.js';
 import { parseMarkup } from '../markup.js';
+import { openMusicPlayerPanel } from './musicplayer.js';
 
 // Tablet's theme can be independent of the shared UI theme ("unlinked") —
 // its own tiny localStorage record, separate from architect_settings, so
@@ -56,6 +57,7 @@ let _tosMisClicks = 0, _tosMisTimer = null; // decoy 3-click reveal counter
 let _tosMisListenerBound = false; // one-time bind of the server mis_state_update sync
 let _tosCorpSel = null; // Corp Territory Map: selected zone id (client-side, no round trip)
 let _tosMapSel = null; // Map app: tapped/destination zone id (client-side, drives the GPS route)
+let _gearLayer = 2; // Gear app: displayed body layer (0 skin / 1 clothes / 2 armor), client-side
 let _backReturn = null; // { appId, screen }: the list/board a detail was drilled into from, so Back
                         // returns there (e.g. Quests → Job Board → posting → Back = Job Board) instead
                         // of the app root. Set on item-open; cleared by any other explicit nav/home.
@@ -184,6 +186,18 @@ function ensureStyles() {
     #tablet-os-overlay .tos-tile:hover { filter:brightness(1.15);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 3px var(--tos-bevel-lo), 0 3px 8px rgba(0,0,0,0.28), 0 0 14px color-mix(in srgb, var(--mg-accent) 30%, transparent); }
     #tablet-os-overlay .tos-tile:active { transform:translateY(1px); box-shadow:inset 0 2px 4px var(--tos-bevel-lo); }
+    /* Drag-reorder states. The lifted tile leaves a dimmed placeholder that
+       reflows through the grid; siblings glide to their new slots. */
+    #tablet-os-overlay .tos-tile-ghost { opacity:.32; }
+    #tablet-os-overlay .tos-grid-arranging .tos-tile { transition:transform .14s ease; }
+    /* The floating clone under the finger — appended to <body>, so this rule is
+       global (unscoped). Its surface/colour are copied inline from the real tile. */
+    .tos-tile-drag { position:fixed; z-index:9300; pointer-events:none; box-sizing:border-box; text-align:center;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; margin:0;
+      transform:scale(1.07); opacity:.96; box-shadow:0 8px 22px rgba(0,0,0,.5); }
+    .tos-tile-drag .tos-icon { font-size:24px; display:block; margin-bottom:6px; }
+    .tos-tile-drag .tos-icon svg { width:26px; height:26px; }
+    .tos-tile-drag .tos-name { font-size:11.5px; letter-spacing:.5px; }
     #tablet-os-overlay .tos-tile .tos-icon { font-size:24px; display:block; margin-bottom:6px; color:var(--tos-fg); }
     #tablet-os-overlay .tos-tile .tos-icon svg { width:26px; height:26px; display:inline-block; vertical-align:middle; }
     /* Two-tone: primary uses currentColor (theme fg); the .dim parts pick up a muted derived tone. */
@@ -220,6 +234,15 @@ function ensureStyles() {
     #tablet-os-overlay .tos-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 12%, transparent); font-size:13px; }
     #tablet-os-overlay .tos-row span:first-child { color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-row span:last-child { color:var(--tos-fg); }
+
+    /* Help reader (Help app chapter view) */
+    #tablet-os-overlay .tos-help-blurb { font-size:12.5px; color:var(--tos-fg-dim); line-height:1.5; margin-bottom:13px; }
+    #tablet-os-overlay .tos-help-sec { margin-bottom:13px; }
+    #tablet-os-overlay .tos-help-head { font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--mg-accent); margin-bottom:5px; padding-bottom:3px;
+      border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 20%, transparent); }
+    #tablet-os-overlay .tos-help-p { font-size:13px; color:var(--tos-fg); line-height:1.55; margin-bottom:5px; }
+    #tablet-os-overlay .tos-help-p.mono { color:var(--tos-fg-dim); background:var(--tos-surface-lo);
+      border:1px solid color-mix(in srgb, var(--mg-accent) 16%, transparent); border-radius:4px; padding:6px 9px; white-space:pre-wrap; word-break:break-word; }
 
     /* Objective checkboxes (quest detail) */
     #tablet-os-overlay .tos-obj { display:flex; gap:7px; align-items:baseline; padding:3px 0; font-size:13px; }
@@ -387,6 +410,50 @@ function ensureStyles() {
     #tablet-os-overlay .tos-buf-t { color:var(--tos-fg-dim2); font-size:9.5px; }
     #tablet-os-overlay .tos-buf::-webkit-scrollbar { width:5px; }
     #tablet-os-overlay .tos-buf::-webkit-scrollbar-thumb { background:color-mix(in srgb, var(--shub) 30%, transparent); border-radius:3px; }
+
+    /* ── Gear app ─────────────────────────────────────────────────────────────
+       A paperdoll: two flanking columns of slot boxes around a central human
+       silhouette whose body regions light up for every covered slot. A layer
+       selector swaps which layer the body boxes show; the soak table + effect
+       chips sit below. Uses the shared tos theme tokens so it re-skins per theme. */
+    #tablet-os-overlay .tos-gear { display:flex; flex-direction:column; gap:13px; }
+    #tablet-os-overlay .tos-gear-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    #tablet-os-overlay .tos-gl-group { display:inline-flex; border-radius:6px; overflow:hidden; border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-gl { cursor:pointer; padding:6px 14px; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:none; border-right:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent); }
+    #tablet-os-overlay .tos-gl:last-child { border-right:none; }
+    #tablet-os-overlay .tos-gl:hover { filter:brightness(1.14); }
+    #tablet-os-overlay .tos-gl.active { color:var(--mg-accent); font-weight:bold; background:color-mix(in srgb, var(--mg-accent) 16%, var(--tos-surface-lo)); box-shadow:inset 0 0 11px color-mix(in srgb, var(--mg-accent) 26%, transparent); }
+    #tablet-os-overlay .tos-gear-carry { display:flex; flex-direction:column; gap:3px; align-items:flex-end; }
+    #tablet-os-overlay .tos-gear-bar { width:118px; height:5px; border-radius:3px; overflow:hidden; background:var(--bg, #0c1114); border:1px solid color-mix(in srgb, var(--mg-accent) 20%, transparent); }
+    #tablet-os-overlay .tos-gear-bar span { display:block; height:100%; background:var(--mg-accent); box-shadow:0 0 6px var(--mg-accent); }
+    #tablet-os-overlay .tos-gear-carry-txt { font-size:10px; letter-spacing:.5px; color:var(--tos-fg-dim); }
+
+    #tablet-os-overlay .tos-doll { display:grid; grid-template-columns:1fr auto 1fr; gap:9px; align-items:center; padding:4px 0; }
+    #tablet-os-overlay .tos-doll-col { display:flex; flex-direction:column; gap:11px; }
+    #tablet-os-overlay .tos-doll-figure { width:120px; }
+    #tablet-os-overlay .tos-doll-svg { width:100%; height:auto; display:block; filter:drop-shadow(0 0 6px color-mix(in srgb, var(--mg-accent) 16%, transparent)); }
+    #tablet-os-overlay .tos-doll-struct { fill:color-mix(in srgb, var(--mg-accent) 7%, transparent); stroke:color-mix(in srgb, var(--mg-accent) 20%, transparent); stroke-width:1.5; }
+    #tablet-os-overlay .tos-doll-region { fill:color-mix(in srgb, var(--mg-accent) 8%, transparent); stroke:color-mix(in srgb, var(--mg-accent) 26%, transparent); stroke-width:1.6; transition:fill .2s, stroke .2s; }
+    #tablet-os-overlay .tos-doll-region.covered { fill:color-mix(in srgb, var(--mg-accent) 32%, transparent); stroke:var(--mg-accent); }
+
+    #tablet-os-overlay .tos-gslot { display:flex; flex-direction:column; gap:2px; padding:7px 10px; border-radius:5px; background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:1px solid color-mix(in srgb, var(--mg-accent) 20%, transparent); box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); transition:border-color .15s, box-shadow .15s; }
+    #tablet-os-overlay .tos-doll-col.left .tos-gslot { text-align:right; }
+    #tablet-os-overlay .tos-gslot-label { font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-gslot-item { font-size:12px; color:var(--tos-fg-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #tablet-os-overlay .tos-gslot.filled { border-color:color-mix(in srgb, var(--mg-accent) 46%, transparent); box-shadow:0 0 9px color-mix(in srgb, var(--mg-accent) 18%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-gslot.filled .tos-gslot-item { color:var(--tos-fg); }
+    #tablet-os-overlay .tos-gslot.filled .tos-gslot-label { color:var(--mg-accent); }
+
+    #tablet-os-overlay .tos-gear-stats { display:flex; flex-direction:column; gap:5px; }
+    #tablet-os-overlay .tos-gear-sec { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--mg-accent); margin-top:5px; opacity:.85; }
+    #tablet-os-overlay .tos-gear-soak { width:100%; border-collapse:collapse; font-size:11.5px; }
+    #tablet-os-overlay .tos-gear-soak th { font-weight:normal; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); padding:3px 4px; text-align:center; }
+    #tablet-os-overlay .tos-gear-soak th:first-child, #tablet-os-overlay .tos-gear-soak td:first-child { text-align:left; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-gear-soak td { padding:4px; text-align:center; color:var(--tos-fg-dim2); border-top:1px solid color-mix(in srgb, var(--mg-accent) 10%, transparent); }
+    #tablet-os-overlay .tos-gear-soak td.has { color:var(--mg-accent); font-weight:bold; }
+    #tablet-os-overlay .tos-gear-fx { display:flex; flex-wrap:wrap; gap:6px; }
+    #tablet-os-overlay .tos-gear-fx span { font-size:11px; padding:3px 10px; border-radius:11px; color:var(--tos-fg); background:color-mix(in srgb, var(--mg-accent) 14%, transparent); border:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent); }
+    #tablet-os-overlay .tos-gear-fx.empty { color:var(--tos-fg-dim2); font-size:11.5px; }
 
     /* ── Chat app ─────────────────────────────────────────────────────────────
        The same conversations as the floating chat window (corp #<name>, #arcnet,
@@ -871,15 +938,136 @@ const TOS_APP_ICONS = {
   // Not an SVG glyph — the circled-"A" ARCHITECT logo (same mark as the tablet's
   // own boot screen, .tos-boot-logo), so the tile reads as the game itself.
   arcade: `<span class="tos-ic-a">A</span>`,
+  music: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M9 18V5l11-2v13"/><circle class="dim" cx="6" cy="18" r="3" fill="currentColor" fill-opacity=".25" stroke="none"/><circle cx="6" cy="18" r="3"/><circle class="dim" cx="17" cy="16" r="3" fill="currentColor" fill-opacity=".25" stroke="none"/><circle cx="17" cy="16" r="3"/></svg>`,
+  help: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".18" stroke="none"/><circle cx="12" cy="12" r="9"/><path d="M9.1 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor" stroke="none"/></svg>`,
 };
 
+// Client-only tablet apps — appended to the server-registered roster. Unlike the
+// other apps (which round-trip a tablet_panel screen), Music launches the AMP
+// walkman overlay (openMusicPlayerPanel), a native panel that lives outside the
+// tablet chassis, so its tile is handled client-side in wireBody().
+const CLIENT_APPS = [{ id: 'music', name: 'Music', category: 'Media' }];
+
+// The player's custom home-grid arrangement is a client-only preference — a list
+// of app ids in display order, cached in localStorage. It never touches the
+// server; a fresh device simply falls back to registration order.
+const TABLET_APP_ORDER_KEY = 'architect_tablet_app_order';
+let _suppressTileClick = false; // swallow the click that fires right after a drag-drop
+
+function loadAppOrder() {
+  try { const a = JSON.parse(localStorage.getItem(TABLET_APP_ORDER_KEY)); return Array.isArray(a) ? a : []; }
+  catch { return []; }
+}
+function saveAppOrder(ids) {
+  try { if (ids?.length) localStorage.setItem(TABLET_APP_ORDER_KEY, JSON.stringify(ids)); } catch {}
+}
+
+// Reorder apps to the cached arrangement: saved-order apps first (in saved order),
+// then any not yet placed (new/unsaved apps) in their natural order.
+function applyAppOrder(apps) {
+  const order = loadAppOrder();
+  if (!order.length) return apps;
+  const byId = new Map(apps.map(a => [a.id, a]));
+  const ordered = [];
+  for (const id of order) { if (byId.has(id)) { ordered.push(byId.get(id)); byId.delete(id); } }
+  for (const a of apps) { if (byId.has(a.id)) ordered.push(a); }
+  return ordered;
+}
+
 function renderHomeApps(apps) {
-  if (!apps || !apps.length) return '<div class="tos-empty">No applications registered.</div>';
-  return `<div class="tos-grid">${apps.map(a => {
+  const all = applyAppOrder([...(apps || []), ...CLIENT_APPS]);
+  if (!all.length) return '<div class="tos-empty">No applications registered.</div>';
+  return `<div class="tos-grid">${all.map(a => {
     const svg = TOS_APP_ICONS[a.id];
     const icon = svg ? svg : esc(a.icon || '▫');
     return `<div class="tos-tile" data-nav-app="${esc(a.id)}"><span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
   }).join('')}</div>`;
+}
+
+// Long-press-to-lift drag reorder for the home app grid (the mobile home-screen
+// metaphor, so it works with touch and mouse and never fights a tap-to-open or a
+// scroll-swipe). Wired fresh on each home render; window listeners live only for
+// the duration of a press, so re-wiring can't leak them.
+function wireAppGridDrag(grid) {
+  const LIFT_MS = 300;   // hold this long (finger still) to pick a tile up
+  const CANCEL_MOVE = 10; // moving more than this before the lift = a tap/scroll, not a pickup
+  let press = null; // { tile, x, y, timer }
+  let drag = null;  // { tile, clone, offX, offY }
+
+  const reflow = (px, py) => {
+    const tiles = [...grid.querySelectorAll('.tos-tile')].filter(t => t !== drag.tile);
+    let target = null, best = Infinity;
+    for (const t of tiles) {
+      const b = t.getBoundingClientRect();
+      const d = Math.hypot(px - (b.left + b.width / 2), py - (b.top + b.height / 2));
+      if (d < best) { best = d; target = t; }
+    }
+    if (!target) return;
+    const b = target.getBoundingClientRect();
+    const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+    // Reading-order insert: before the nearest tile if the pointer is above its
+    // row or left of its centre within the row; otherwise after it.
+    const before = py < cy - b.height / 2 ? true : py > cy + b.height / 2 ? false : px < cx;
+    grid.insertBefore(drag.tile, before ? target : target.nextSibling);
+  };
+
+  const begin = () => {
+    const tile = press.tile;
+    const r = tile.getBoundingClientRect();
+    // The clone (the thing under the finger) lives on document.body so its fixed
+    // coords are plain viewport pixels — but that puts it outside the tablet's
+    // themed scope, so copy the resolved look across from the real tile.
+    const clone = tile.cloneNode(true);
+    clone.className = 'tos-tile-drag';
+    const cs = getComputedStyle(tile);
+    for (const p of ['backgroundColor', 'backgroundImage', 'border', 'borderRadius', 'color', 'fontFamily', 'padding']) clone.style[p] = cs[p];
+    Object.assign(clone.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+    document.body.appendChild(clone);
+    tile.classList.add('tos-tile-ghost');
+    grid.classList.add('tos-grid-arranging');
+    drag = { tile, clone, offX: press.x - r.left, offY: press.y - r.top };
+    press = null;
+    sfx(TOS_SELECT_DEF);
+  };
+
+  const onMove = (e) => {
+    if (drag) {
+      e.preventDefault();
+      drag.clone.style.left = (e.clientX - drag.offX) + 'px';
+      drag.clone.style.top = (e.clientY - drag.offY) + 'px';
+      reflow(e.clientX, e.clientY);
+      return;
+    }
+    if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > CANCEL_MOVE) {
+      clearTimeout(press.timer); press = null; // moved before the lift → let it tap/scroll
+    }
+  };
+
+  const end = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    if (press) { clearTimeout(press.timer); press = null; }
+    if (drag) {
+      drag.clone.remove();
+      drag.tile.classList.remove('tos-tile-ghost');
+      grid.classList.remove('tos-grid-arranging');
+      saveAppOrder([...grid.querySelectorAll('.tos-tile')].map(t => t.getAttribute('data-nav-app')).filter(Boolean));
+      drag = null;
+      _suppressTileClick = true;                       // the drop's trailing click must not open an app
+      setTimeout(() => { _suppressTileClick = false; }, 0);
+    }
+  };
+
+  grid.addEventListener('pointerdown', (e) => {
+    if (e.button > 0) return;
+    const tile = e.target.closest('.tos-tile');
+    if (!tile) return;
+    press = { tile, x: e.clientX, y: e.clientY, timer: setTimeout(begin, LIFT_MS) };
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  });
 }
 
 function renderBreadcrumb(appId, crumb) {
@@ -901,6 +1089,23 @@ function renderCategories(items) {
     <div class="tos-li-label"><span>${esc(it.label)}</span></div>
     ${it.sub ? `<div class="tos-li-sub">${esc(it.sub)}</div>` : ''}
   </div>`).join('');
+}
+
+// Help-app reader: a chapter's blurb + sections. A section is either a headless
+// prose block (paragraphs) or a headed command group; `mono` sections render the
+// command line in a highlighted monospace block. Read-only — the breadcrumb Back
+// returns to the chapter index.
+function renderHelp(ch) {
+  if (!ch) return '<div class="tos-empty">No help here.</div>';
+  const secs = (ch.sections || []).map(sec => `
+    <div class="tos-help-sec">
+      ${sec.heading ? `<div class="tos-help-head">${esc(sec.heading)}</div>` : ''}
+      ${(sec.body || []).map(p => `<div class="tos-help-p${sec.mono ? ' mono' : ''}">${esc(p)}</div>`).join('')}
+    </div>`).join('');
+  return `<div class="tos-help">
+    ${ch.blurb ? `<div class="tos-help-blurb">${esc(ch.blurb)}</div>` : ''}
+    ${secs}
+  </div>`;
 }
 
 // Prev/Next paging for a 'list' screen that returned a `page` field (currently
@@ -946,8 +1151,6 @@ const TOS_OPT_GROUPS = [
     { v: 'on', t: 'Weather FX On', g: '🌧️' }, { v: 'off', t: 'Off', g: '🚫' } ] },
   { key: 'dpadSize', label: 'D-Pad Size', mobileOnly: true, opts: [
     { v: 'small', t: 'Small', g: 'S' }, { v: 'medium', t: 'Medium', g: 'M' }, { v: 'large', t: 'Large', g: 'L' } ] },
-  { key: 'smartUI', label: 'Smart UI', opts: [
-    { v: 'on', t: 'Contextual action bar on', g: '⚡' }, { v: 'off', t: 'Contextual action bar off', g: '🚫' } ] },
   { key: 'tempUnit', label: 'Temp Units', opts: [
     { v: 'C', t: 'Celsius', g: 'C°' }, { v: 'F', t: 'Fahrenheit', g: 'F°' } ] },
 ];
@@ -1480,6 +1683,127 @@ function renderBufferLog(buffer, recording) {
   return `${head}<div class="tos-buf">${body}</div>`;
 }
 
+// ── Gear app ─────────────────────────────────────────────────────────────
+// A paperdoll over a human silhouette: five body slots (each showing the piece
+// worn in the selected layer), plus weapon and accessory. The silhouette's body
+// regions light up for any slot that's covered by an equipped piece. Below sits
+// the per-region soak table and the summed passive effects — the same data the
+// desktop Gear panel shows, reformatted for the tablet.
+const GEAR_LAYER_DEFS = [{ n: 1, label: 'Skin' }, { n: 2, label: 'Clothes' }, { n: 3, label: 'Armor' }];
+const GEAR_SLOT_LABEL = { head: 'Head', torso: 'Torso', hands: 'Hands', legs: 'Legs', feet: 'Feet', weapon_hand: 'Weapon', accessory: 'Accessory' };
+const GEAR_DMG = ['kinetic', 'edged', 'energy', 'fire', 'radiation'];
+const GEAR_ARMOR_SLOTS = ['head', 'torso', 'hands', 'legs', 'feet'];
+
+function gearWeight(g) {
+  g = Number(g) || 0;
+  return g < 1000 ? `${Math.round(g)}g` : `${(Math.round(g / 100) / 10)}kg`;
+}
+
+// The silhouette. Each body region carries a class that lights when that slot is
+// covered (any equipped layer). Arms and neck are neutral structure — they don't
+// map to a slot, so they stay dim.
+function gearDoll(covered) {
+  const cl = (slot) => 'tos-doll-region' + (covered(slot) ? ' covered' : '');
+  return `<svg class="tos-doll-svg" viewBox="0 0 200 470" aria-hidden="true">
+    <circle class="${cl('head')}" cx="100" cy="46" r="30"/>
+    <rect class="tos-doll-struct" x="89" y="72" width="22" height="18" rx="7"/>
+    <path class="${cl('torso')}" d="M58 98 Q100 82 142 98 L131 216 Q100 230 69 216 Z"/>
+    <rect class="tos-doll-struct" x="34" y="100" width="22" height="120" rx="11" transform="rotate(9 45 160)"/>
+    <rect class="tos-doll-struct" x="144" y="100" width="22" height="120" rx="11" transform="rotate(-9 155 160)"/>
+    <circle class="${cl('hands')}" cx="33" cy="228" r="13"/>
+    <circle class="${cl('hands')}" cx="167" cy="228" r="13"/>
+    <rect class="${cl('legs')}" x="71" y="220" width="26" height="184" rx="12"/>
+    <rect class="${cl('legs')}" x="103" y="220" width="26" height="184" rx="12"/>
+    <rect class="${cl('feet')}" x="63" y="404" width="34" height="20" rx="9"/>
+    <rect class="${cl('feet')}" x="103" y="404" width="34" height="20" rx="9"/>
+  </svg>`;
+}
+
+function renderGear(d) {
+  const items = d.items || [];
+  const equipped = items.filter(i => i.is_equipped);
+  const layerN = GEAR_LAYER_DEFS[_gearLayer].n;
+  const bodyItem = (slot) => equipped.find(i => i.slot === slot && (i.layer || 1) === layerN);
+  const covered = (slot) => equipped.some(i => i.slot === slot);
+
+  const box = (slot, it) =>
+    `<div class="tos-gslot${it ? ' filled' : ''}">` +
+      `<span class="tos-gslot-label">${esc(GEAR_SLOT_LABEL[slot] || slot)}</span>` +
+      `<span class="tos-gslot-item">${it ? esc(it.name) : '—'}</span></div>`;
+
+  const acc = equipped.filter(i => i.slot === 'accessory').sort((a, b) => (a.layer || 0) - (b.layer || 0))[0];
+  const doll =
+    `<div class="tos-doll">
+      <div class="tos-doll-col left">${box('head', bodyItem('head'))}${box('torso', bodyItem('torso'))}${box('hands', bodyItem('hands'))}</div>
+      <div class="tos-doll-figure">${gearDoll(covered)}</div>
+      <div class="tos-doll-col right">${box('legs', bodyItem('legs'))}${box('feet', bodyItem('feet'))}${box('weapon_hand', equipped.find(i => i.slot === 'weapon_hand'))}${box('accessory', acc)}</div>
+    </div>`;
+
+  // Header: layer selector + carry weight.
+  const layers = GEAR_LAYER_DEFS.map((l, i) =>
+    `<button class="tos-gl${i === _gearLayer ? ' active' : ''}" data-glayer="${i}">${l.label}</button>`).join('');
+  const wPct = d.capacity ? Math.min(100, Math.round((d.weight / d.capacity) * 100)) : 0;
+  const head =
+    `<div class="tos-gear-head">
+      <div class="tos-gl-group">${layers}</div>
+      <div class="tos-gear-carry" title="Carried weight">
+        <div class="tos-gear-bar"><span style="width:${wPct}%"></span></div>
+        <span class="tos-gear-carry-txt">${gearWeight(d.weight)} / ${gearWeight(d.capacity)}</span>
+      </div>
+    </div>`;
+
+  // Per-region soak, summed across worn layers.
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const slotSoak = (slot) => {
+    const t = {};
+    for (const p of equipped.filter(i => i.slot === slot)) {
+      const soak = p.tags?.armor_soak || {};
+      for (const dt of GEAR_DMG) t[dt] = (t[dt] || 0) + (Number(soak[dt]) || 0);
+    }
+    return t;
+  };
+  let soak = `<table class="tos-gear-soak"><thead><tr><th></th>${GEAR_DMG.map(t => `<th>${esc(cap(t).slice(0, 3))}</th>`).join('')}</tr></thead><tbody>`;
+  for (const slot of GEAR_ARMOR_SLOTS) {
+    const t = slotSoak(slot);
+    soak += `<tr><td>${esc(GEAR_SLOT_LABEL[slot])}</td>${GEAR_DMG.map(dt => `<td class="${t[dt] ? 'has' : ''}">${t[dt] || 0}</td>`).join('')}</tr>`;
+  }
+  soak += '</tbody></table>';
+
+  // Passive effects.
+  const fx = d.effects || {};
+  const parts = [];
+  for (const [k, v] of Object.entries(fx.stat_bonus || {})) parts.push(`${k.replace('stat_', '')} ${v > 0 ? '+' : ''}${v}`);
+  if (fx.insulation) parts.push(`insulation ${fx.insulation}°C`);
+  if (fx.sealed) parts.push('sealed airway');
+  if (fx.exposurePenalty) parts.push(`exposure ${fx.exposurePenalty}`);
+  const fxHtml = parts.length
+    ? `<div class="tos-gear-fx">${parts.map(p => `<span>${esc(p)}</span>`).join('')}</div>`
+    : '<div class="tos-gear-fx empty">No passive effects.</div>';
+
+  return `<div class="tos-gear">${head}${doll}
+    <div class="tos-gear-stats"><div class="tos-gear-sec">Protection</div>${soak}
+      <div class="tos-gear-sec">Effects</div>${fxHtml}</div></div>`;
+}
+
+// Layer selector is client-side — re-render the gear root without a round trip.
+function rebuildGear() {
+  const root = _overlay?.querySelector('#tos-gear-root');
+  if (root && _data) { root.innerHTML = renderGear(_data); wireGear(); }
+}
+
+function wireGear() {
+  if (!_overlay || _data?.view !== 'gear') return;
+  _overlay.querySelectorAll('[data-glayer]').forEach(el => {
+    el.addEventListener('click', () => {
+      const i = +el.getAttribute('data-glayer');
+      if (i === _gearLayer) return;
+      _gearLayer = i;
+      sfx(TOS_SELECT_DEF);
+      rebuildGear();
+    });
+  });
+}
+
 function renderSurveillance(d) {
   const tiles = d.tiles || [];
   const rec = tiles.filter(t => t.recording).length;
@@ -1724,6 +2048,11 @@ function renderBody() {
       <div id="tos-map-root">${renderMap(d)}</div>
     </div>`;
   }
+  if (d.view === 'gear') {
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+      <div id="tos-gear-root">${renderGear(d)}</div>
+    </div>`;
+  }
   if (d.view === 'surveillance') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       ${renderSurveillance(d)}
@@ -1751,6 +2080,9 @@ function renderBody() {
   if (d.view === 'categories') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(null, [d.appName])}${renderCategories(d.items)}</div>`;
   }
+  if (d.view === 'help') {
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderHelp(d.chapter)}</div>`;
+  }
   if (d.view === 'list') {
     const pageNav = d.page ? renderPageNav(d.appId, d.breadcrumb, d.page) : '';
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderList(d.items)}${pageNav}</div>`;
@@ -1772,8 +2104,19 @@ function renderBody() {
 
 function wireBody() {
   _overlay.querySelectorAll('[data-nav-app]').forEach(el => {
-    el.addEventListener('click', () => nav(el.getAttribute('data-nav-app'), null, null));
+    el.addEventListener('click', () => {
+      if (_suppressTileClick) return; // a drag-reorder just ended; don't also open the app
+      const appId = el.getAttribute('data-nav-app');
+      // Music is a native overlay (AMP walkman), not an in-tablet screen. It opens
+      // over the still-running tablet (its z-index sits above the chassis — see
+      // #musicplayer-panel in styles.css), so the tablet stays put behind it.
+      if (appId === 'music') { sfx(TOS_SELECT_DEF); openMusicPlayerPanel(); return; }
+      nav(appId, null, null);
+    });
   });
+  // Home-grid tiles are drag-reorderable (order cached locally, never sent up).
+  const appGrid = _overlay.querySelector('.tos-grid');
+  if (appGrid) wireAppGridDrag(appGrid);
   _overlay.querySelectorAll('[data-back]').forEach(el => {
     el.addEventListener('click', () => {
       const appId = el.getAttribute('data-back');
@@ -1870,6 +2213,7 @@ function wireBody() {
   wireTabletSettings();
   wireCorpMap();
   wireMap();
+  wireGear();
 }
 
 // Map app: mode switch (server round trip — different tiles), tap-a-tile to select
@@ -2637,6 +2981,7 @@ function close() {
   if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; }
   if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
   _wasSurvLive = false;
+  document.querySelectorAll('.tos-tile-drag').forEach(el => el.remove()); // stray lift clone, if torn down mid-drag
   if (_close) { _close(); _close = null; }
   _overlay = null;
   _data = null;

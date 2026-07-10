@@ -52,7 +52,7 @@ import { initWantedHud } from "./panels/wanted.js";
 import { initTvPanel } from "./panels/tv.js";
 import { initMediaDeckPanel } from "./panels/mediadeck.js";
 import { initAudio } from "./panels/audio.js";
-import { initMusicPlayerPanel, openMusicPlayerPanel, stopMusicPlayer } from "./panels/musicplayer.js";
+import { initMusicPlayerPanel, stopMusicPlayer } from "./panels/musicplayer.js";
 import { stopEngineAudio } from "./panels/engine-audio.js";
 
 // Settings
@@ -66,11 +66,9 @@ if (!localStorage.getItem(SETTINGS_KEY) && _isMobile) {
 // Display density (desktop/mobile layout) is not a player setting — it's fixed
 // to the device on every load, full stop.
 settings.density = _isMobile ? "compact" : "comfortable";
-// Smart UI (contextual per-room action bar, panels/smartbar.js) defaults on for
-// touch/handheld and off for desktop, but any player — including desktop — can
-// flip it in Settings; once toggled, that choice persists. This never affects
-// the desktop/mobile layout itself (data-density above).
-if (settings.smartUI == null) settings.smartUI = _isMobile ? "on" : "off";
+// Smart UI (the contextual per-room action bar, panels/smartbar.js) is always on
+// now, every device — applySettings pins data-smart-ui="on" — so there's no
+// per-player default to seed here anymore.
 
 // In compact mode, override --font-size-base to fit the actual viewport rather than
 // using the stored fontSize value (which was picked for a different screen size).
@@ -522,12 +520,6 @@ document
 	.getElementById("debug-whisper-btn")
 	?.addEventListener("click", debugFakeWhisper);
 window._sendRaw = sendRaw;
-document
-	.getElementById("open-map-btn")
-	?.addEventListener("click", () => sendCmd("map"));
-document
-	.getElementById("open-music-btn")
-	?.addEventListener("click", () => openMusicPlayerPanel());
 
 // HUD minimap tap → open full map popup
 document.getElementById("minimap-grid-hud")?.addEventListener("click", () => {

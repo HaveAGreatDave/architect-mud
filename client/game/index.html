@@ -525,16 +525,14 @@
 					<div id="quick-cmds">
 						<button class="qcmd" data-open-equip>inv</button>
 						<button class="qcmd" data-open-gear>gear</button>
-						<button class="qcmd" data-cmd="stats">stats</button>
-						<button class="qcmd" data-cmd="skills">skills</button>
 						<button class="qcmd" data-cmd="who">who</button>
 						<button class="qcmd" data-cmd="help">help</button>
 						<button class="qcmd" data-cmd="recipes">recipes</button>
 						<button class="qcmd" data-cmd="factions">factions</button>
 						<button class="qcmd" data-cmd="mutations">mutations</button>
-						<button class="qcmd" data-cmd="tablet">tablet</button>
-						<button class="qcmd" id="open-map-btn">map</button>
-						<button class="qcmd" id="open-music-btn">music</button>
+						<!-- Fallback tablet launcher — only shown when the Smart bar (which
+						     carries its own Tablet button) is off. CSS-gated on data-smart-ui. -->
+						<button class="qcmd" id="qcmd-tablet-fallback" data-cmd="tablet">tablet</button>
 					</div>
 				</div>
 				<div id="input-area">
@@ -1249,14 +1247,6 @@
 						<button class="settings-opt" data-value="small" title="Small">S</button>
 						<button class="settings-opt" data-value="medium" title="Medium">M</button>
 						<button class="settings-opt" data-value="large" title="Large">L</button>
-					</div>
-				</div>
-
-				<div class="settings-group" data-spage="layout">
-					<label class="group-label">Smart UI</label>
-					<div class="settings-options" id="opt-smartui">
-						<button class="settings-opt" data-value="on" title="Show contextual per-room action buttons">⚡</button>
-						<button class="settings-opt" data-value="off" title="Hide contextual per-room action buttons">🚫</button>
 					</div>
 				</div>
 

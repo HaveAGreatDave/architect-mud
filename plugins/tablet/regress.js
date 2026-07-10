@@ -30,6 +30,17 @@ export default async function regress({ run, check, getPlayer }) {
   check('tabletnav quests routes', r?.type === 'tablet_panel' && r?.appId === 'quests', JSON.stringify(r));
   check('quests root is category view', r?.view === 'categories', JSON.stringify(r));
 
+  // Help app: root is the chapter index (categories); a chapter opens the reader
+  // (help view) with sections; the Commands chapters carry the real /help groups.
+  r = await run('tabletnav help');
+  check('help app root is category view', r?.type === 'tablet_panel' && r?.appId === 'help' && r?.view === 'categories', JSON.stringify(r)?.slice(0, 200));
+  check('help root lists chapters', Array.isArray(r?.items) && r.items.some(it => it.id === 'basics') && r.items.some(it => it.id === 'gear'), JSON.stringify(r?.items?.map(i => i.id)));
+  r = await run('tabletnav help gear');
+  check('help chapter opens the reader view', r?.view === 'help' && !!r?.chapter, JSON.stringify(r)?.slice(0, 200));
+  check('help chapter carries command sections', Array.isArray(r?.chapter?.sections) && r.chapter.sections.some(s => s.heading === 'COMBAT'), JSON.stringify(r?.chapter?.sections?.map(s => s.heading)));
+  r = await run('tabletnav help nonsense_chapter');
+  check('help unknown chapter errors cleanly', r?.view === 'error', JSON.stringify(r)?.slice(0, 120));
+
   // Unknown app id falls back to home rather than erroring.
   r = await run('tabletnav nonexistent_app_xyz');
   check('tabletnav unknown app falls back to home', r?.screen === 'home', JSON.stringify(r));

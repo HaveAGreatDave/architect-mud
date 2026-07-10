@@ -245,11 +245,10 @@ export function applySettings(settings) {
   document.documentElement.setAttribute('data-motion', settings.motion || 'on');
   document.documentElement.setAttribute('data-dpad-size', settings.dpadSize || 'small');
   document.documentElement.style.setProperty('--font-size-base', (settings.fontSize || '14') + 'px');
-  // Smart UI: shows/hides the contextual per-room action bar (#smart-bar,
-  // panels/smartbar.js) — player-togglable on any device. Never switches
-  // desktop/mobile layout (that stays device-detected via data-density, set
-  // once at launch and not player-adjustable).
-  document.documentElement.setAttribute('data-smart-ui', settings.smartUI || 'off');
+  // Smart UI: the contextual per-room action bar (#smart-bar, panels/smartbar.js)
+  // is now always on, every device — it's the primary command surface (Tablet +
+  // room verbs) since the quick-cmds bar was retired, so it's no longer togglable.
+  document.documentElement.setAttribute('data-smart-ui', 'on');
 
   // Apply active custom theme colors, or any in-progress editor colors, then contrast boost
   const baseColors = customTheme ? customTheme.colors : (settings.customColors || {});
@@ -318,10 +317,10 @@ export function applySettings(settings) {
   if (_cs && _cs.value !== String(_cv)) _cs.value = _cv;
   if (_cl) _cl.textContent = _cv === 0 ? 'Base' : `+${_cv}%`;
 
-  for (const group of ['fontsize', 'sidebar', 'motion', 'weatherfx', 'tempunit', 'dpadsize', 'smartui']) {
+  for (const group of ['fontsize', 'sidebar', 'motion', 'weatherfx', 'tempunit', 'dpadsize']) {
     const container = document.getElementById(`opt-${group}`);
     if (!container) continue;
-    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group === 'tempunit' ? 'tempUnit' : group === 'dpadsize' ? 'dpadSize' : group === 'weatherfx' ? 'weatherFx' : group === 'smartui' ? 'smartUI' : group;
+    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group === 'tempunit' ? 'tempUnit' : group === 'dpadsize' ? 'dpadSize' : group === 'weatherfx' ? 'weatherFx' : group;
     container.querySelectorAll('.settings-opt').forEach(btn => {
       btn.classList.toggle('selected', btn.dataset.value === String(settings[key]));
     });
@@ -417,9 +416,6 @@ export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {})
   });
   document.querySelectorAll('#opt-dpadsize .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.dpadSize = btn.dataset.value; saveAndApply(); });
-  });
-  document.querySelectorAll('#opt-smartui .settings-opt').forEach(btn => {
-    btn.addEventListener('click', () => { settings.smartUI = btn.dataset.value; saveAndApply(); });
   });
   document.querySelectorAll('#opt-tempunit .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => {

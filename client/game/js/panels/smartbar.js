@@ -89,6 +89,12 @@ function scanRoom(area) {
 // Ordered list of smart actions. Each build(m) returns a flow node or null.
 // Kept generous on purpose so we can eyeball how crowded the bar gets.
 const CATALOG = [
+  // Personal device — always available regardless of room, so it's the fixed
+  // left-hand anchor of the (otherwise context-sensitive) bar and rendered a
+  // touch brighter than the room verbs. One tap opens Tablet OS, the home for
+  // Skills/Stats/Map/Music/Bank/etc. now that those quick-cmd buttons are gone.
+  { build: () => ({ label: 'Tablet', cmd: 'tablet', accent: true }) },
+
   // Combat / social — single target, fires immediately when there's just one.
   { build: (m) => pick('Attack', 'Attack what?', m.enemies,
       (e) => ({ label: e.label, cmd: `attack ${e.id || e.target.toLowerCase()}`, logLabel: `attack ${e.label}` })) },
@@ -290,7 +296,7 @@ export function renderSmartBar() {
     // Show the choice count on branches so "Open (3)" hints at the sheet.
     const opts = node.options ? node.options.filter(Boolean) : null;
     const btn = document.createElement('button');
-    btn.className = 'smart-btn';
+    btn.className = node.accent ? 'smart-btn smart-btn-accent' : 'smart-btn';
     btn.textContent = opts && opts.length > 1 ? `${node.label} (${opts.length})` : node.label;
     btn.addEventListener('click', () => runNode(node));
     bar.appendChild(btn);

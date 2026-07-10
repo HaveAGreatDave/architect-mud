@@ -5200,6 +5200,10 @@ body.fsim-fullscreen #bottom-input-wrap { display: none; }
 [data-smart-ui="on"] #smart-bar { display: flex; }
 [data-smart-ui="on"] #smart-bar.smart-bar-empty { display: none; }
 
+/* Fallback Tablet button on the command line — the Smart bar carries its own
+   Tablet anchor, so when Smart UI is on this duplicate hides. */
+[data-smart-ui="on"] #qcmd-tablet-fallback { display: none; }
+
 .smart-btn {
 	background: var(--bg3);
 	border: 1px solid var(--accent);
@@ -5219,6 +5223,17 @@ body.fsim-fullscreen #bottom-input-wrap { display: none; }
 }
 .smart-btn:active {
 	background: var(--accent-dim);
+}
+/* The Tablet anchor — a touch brighter than the room verbs: accent-tinted fill,
+   lighter border, and a soft glow so it reads as the always-there primary. */
+.smart-btn-accent {
+	background: color-mix(in srgb, var(--accent) 22%, var(--bg3));
+	border-color: color-mix(in srgb, var(--accent) 100%, white 25%);
+	box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.smart-btn-accent:active {
+	background: var(--accent);
+	color: var(--bg);
 }
 
 /* Bottom-sheet target chooser (opened when a verb has >1 target). */
@@ -8209,7 +8224,10 @@ body.fsim-fullscreen #bottom-input-wrap { display: none; }
 	position: fixed;
 	right: 24px;
 	top: 80px;
-	z-index: 900;
+	/* Above the Tablet OS chassis (z-index 9200, set in tablet-os.js) so Music can
+	   be launched from the tablet and float over it, yet below the confirm/toast
+	   layers (9600+). */
+	z-index: 9250;
 	filter: drop-shadow(0 8px 32px rgba(0,0,0,0.7));
 }
 #musicplayer-panel.active { display: block; }
