@@ -5,3 +5,8 @@ data/world.db
 *.db-journal
 server/mailer.js
 server/mailer.js
+tools/schema-report/schema-report.html
+tools/world-report/world-report.html
+tools/vine-lint/vine-lint.html
+tools/economy-report/economy-report.html
+tools/combat-sim/combat-sim.html

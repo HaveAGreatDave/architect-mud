@@ -77,7 +77,7 @@ async function runScene(actor, vale, zoneId) {
   const beat3 = async () => {
     if (present(actor.id, zoneId)) sendToZone(zoneId, say(`"So. Thank you. And let me square it — I don't like owing anyone."`));
     // The substantive part happens whether or not he stayed to watch.
-    const paid = await adjustCredits(actor, GIFT).catch(() => false);
+    const paid = await adjustCredits(actor, GIFT, undefined, 'npc:gift').catch(() => false);
     if (paid) {
       sendToZone(zoneId, say(`presses ₵${GIFT} into ${name}'s hand with a rare, tired smile.`), actor.id);
       sendToPlayer(actor.id, { type: 'output', message: `<span style="color:var(--yellow)">Sergeant Vale presses ₵${GIFT} into your hand. "We're square."</span>` });

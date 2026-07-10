@@ -1,0 +1,10 @@
+{
+  "name": "economy-ledger",
+  "version": "1.0.0",
+  "description": "Append-only credit ledger + daily circulation snapshots for faucet/sink auditing",
+  "events": {
+    "emits": [],
+    "consumes": ["credits.changed", "environment.dayRollover"]
+  },
+  "dataSchema": ["economy_ledger", "economy_snapshots"]
+}

@@ -306,7 +306,7 @@ async function cmdFound(player, name) {
 
   const orgId = randomUUID(), founderRank = randomUUID(), memberRank = randomUUID();
   const ok = await withTransaction(async (q) => {
-    if (!await adjustCredits(player, -FOUND_FEE, q)) return false;
+    if (!await adjustCredits(player, -FOUND_FEE, q, 'corp:found')) return false;
     await q('INSERT INTO orgs (id, name, owner_id, is_npc, treasury) VALUES ($1,$2,$3,0,0)', [orgId, name, player.id]);
     await q('INSERT INTO org_ranks (id, org_id, name, rank_order, permissions, is_default) VALUES ($1,$2,$3,$4,$5,$6)',
       [founderRank, orgId, 'Founder', 100, PERM_ALL, 0]);
@@ -423,7 +423,7 @@ async function cmdContribute(player, amountStr, broadcast) {
   const amount = amountStr === 'all' ? (player.credits || 0) : parseInt(amountStr, 10);
   if (!amount || amount <= 0) return err('Contribute how much? Usage: corp contribute <amount>');
   const ok = await withTransaction(async (q) => {
-    if (!await adjustCredits(player, -amount, q)) return false;
+    if (!await adjustCredits(player, -amount, q, 'corp:contribute')) return false;
     await q('UPDATE orgs SET treasury = treasury + $1 WHERE id=$2', [amount, m.org_id]);
     return true;
   });
@@ -453,7 +453,7 @@ async function cmdDisburse(player, targetName, amountStr, broadcast) {
   const result = await withTransaction(async (q) => {
     const dec = await q('UPDATE orgs SET treasury = treasury - $1 WHERE id=$2 AND treasury >= $1 RETURNING treasury', [amount, m.org_id]);
     if (!dec.rowCount) return null;
-    if (targetLive) await adjustCredits(targetLive, amount, q);
+    if (targetLive) await adjustCredits(targetLive, amount, q, 'corp:disburse');
     else await q('UPDATE players SET credits = credits + $1 WHERE id=$2', [amount, targetId]);
     return { treasury: dec.rows[0].treasury };
   });
@@ -835,7 +835,7 @@ async function cmdDisband(player) {
   await withTransaction(async (q) => {
     if ((org.treasury || 0) > 0 && org.owner_id) {
       const ownerLive = liveById(org.owner_id);
-      if (ownerLive) await adjustCredits(ownerLive, org.treasury, q);
+      if (ownerLive) await adjustCredits(ownerLive, org.treasury, q, 'corp:disband');
       else await q('UPDATE players SET credits = credits + $1 WHERE id=$2', [org.treasury, org.owner_id]);
     }
     await q('DELETE FROM orgs WHERE id=$1', [org.id]); // CASCADE ranks/members/relations

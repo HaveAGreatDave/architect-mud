@@ -11,7 +11,13 @@ Primary files: [economy.js](../server/engine/economy.js), [vendor.js](../server/
 [economy.js](../server/engine/economy.js) is the single mutation point so the "credits can't go
 negative" invariant lives in one place.
 
-- **`adjustCredits(player, delta)`** — returns `false` (no-op) if it would push carried credits below 0.
+- **`adjustCredits(player, delta, exec?, reason?)`** — returns `false` (no-op) if it would push carried
+  credits below 0. On success it emits **`credits.changed`** `{ playerId, delta, reason, after }`; the
+  `reason` is a short `'system:verb'` source label (every caller passes one) consumed by the
+  **economy-ledger plugin**, which appends one `economy_ledger` row per mutation and one
+  `economy_snapshots` row per game day. `tools/economy-report` charts circulation, faucet/sink balance
+  per reason, and **unattributed drift** — flow through the raw-SQL paths that still bypass this helper
+  (flight, insurance, jail, gametable, surveillance, rent, clone-vat); drift is the migration worklist.
 - **`transferCredits(player, amount, type)`** — moves between `credits` (carried) and `bank_credits`
   (banked). Both accept a number or `all`. The primary path is through the ATM plugin (see below); the engine's `transferCredits` handles only the credit ledger movement, not power/faction/stock checks.
 

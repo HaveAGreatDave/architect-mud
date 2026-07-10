@@ -3,6 +3,7 @@
 // Central credit mutation service. Every spend/gain path routes through here
 // so the "credits can't go negative" invariant is enforced in one place.
 import { query } from '../models/db.js';
+import { emit } from './events.js';
 
 // Adjust carried credits by delta (positive = gain, negative = spend).
 // Returns false if the player can't afford it.
@@ -15,7 +16,10 @@ import { query } from '../models/db.js';
 // `exec` defaults to the pooled `query`; pass a transaction runner (from
 // `withTransaction`) to make the debit part of a larger atomic op (debit + the
 // follow-on inventory write commit or roll back together).
-export async function adjustCredits(player, delta, exec = query) {
+// `reason` is a short source label ('vendor:sell', 'quest:reward', …) consumed
+// by the economy-ledger plugin via the credits.changed event; unlabeled calls
+// still ledger as null and show up as such in the economy report.
+export async function adjustCredits(player, delta, exec = query, reason = null) {
   // The floor only applies to spends. A gain (delta >= 0) must always succeed —
   // otherwise a player already in the red (e.g. from rent) can never be paid,
   // and the guarded UPDATE silently rejects the payout while the caller's
@@ -25,6 +29,7 @@ export async function adjustCredits(player, delta, exec = query) {
     [delta, player.id]);
   if (res.rowCount === 0) return false;
   player.credits = res.rows[0].credits;
+  if (delta !== 0) emit('credits.changed', { playerId: player.id, delta, reason, after: player.credits });
   return true;
 }
 

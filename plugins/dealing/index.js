@@ -106,8 +106,8 @@ async function cmdAcceptDeal(args, raw, player) {
     await withTransaction(async (tx) => {
       const { rows } = await tx('SELECT quantity FROM player_inventory WHERE id=$1 AND player_id=$2', [offer.invId, seller.id]);
       if (!rows.length || rows[0].quantity < 1) { failed = 'gone'; throw new Error('rollback'); }
-      if (!(await adjustCredits(player, -offer.price, tx))) { failed = 'funds'; throw new Error('rollback'); }
-      await adjustCredits(seller, offer.price, tx);
+      if (!(await adjustCredits(player, -offer.price, tx, 'dealing:trade'))) { failed = 'funds'; throw new Error('rollback'); }
+      await adjustCredits(seller, offer.price, tx, 'dealing:trade');
       if (rows[0].quantity <= 1) await tx('DELETE FROM player_inventory WHERE id=$1', [offer.invId]);
       else await tx('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [offer.invId]);
       await tx('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1,$2,$3,1,1.0,$4)',

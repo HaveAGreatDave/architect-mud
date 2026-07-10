@@ -134,7 +134,7 @@ async function cmdSafeCrackResolve(args, raw, player) {
   }
 
   const stolen = npc.vendor_credits;
-  await adjustCredits(player, stolen);
+  await adjustCredits(player, stolen, undefined, 'vendorsafe:loot');
   await query('UPDATE npcs SET vendor_credits=0 WHERE id=$1', [npcId]);
   await awardSkillUse(player.id, 'hacking', 2);
   // Robbed blind — the vendor holds a grudge even if they never caught you in

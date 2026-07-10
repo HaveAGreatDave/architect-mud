@@ -1,0 +1,81 @@
+<title>Architect MUD — World Integrity</title>
+<style>
+:root{
+  --bg:#f4f5f3; --panel:#ffffff; --panel2:#eceeea; --line:#d8dcd5; --ink:#1d2420; --ink2:#5c6660;
+  --accent:#2e8574;
+  --crit:#b4483e; --crit-bg:#f6e5e3; --warn:#9a7020; --warn-bg:#f5ecdb; --ok:#4f7f54; --ok-bg:#e5efe4; --info:#4a6b80; --info-bg:#e3ecf1;
+  --mono:ui-monospace,Consolas,"Cascadia Code",Menlo,monospace;
+  --sans:system-ui,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#12161b; --panel:#191f26; --panel2:#20262e; --line:#2b333c; --ink:#dde3de; --ink2:#8b968f;
+  --accent:#4fb8a5;
+  --crit:#e0776c; --crit-bg:#33211f; --warn:#d9a441; --warn-bg:#302818; --ok:#7fb885; --ok-bg:#1e2a1f; --info:#7fa8bf; --info-bg:#1c2831;
+}}
+:root[data-theme="dark"]{
+  --bg:#12161b; --panel:#191f26; --panel2:#20262e; --line:#2b333c; --ink:#dde3de; --ink2:#8b968f;
+  --accent:#4fb8a5;
+  --crit:#e0776c; --crit-bg:#33211f; --warn:#d9a441; --warn-bg:#302818; --ok:#7fb885; --ok-bg:#1e2a1f; --info:#7fa8bf; --info-bg:#1c2831;
+}
+:root[data-theme="light"]{
+  --bg:#f4f5f3; --panel:#ffffff; --panel2:#eceeea; --line:#d8dcd5; --ink:#1d2420; --ink2:#5c6660;
+  --accent:#2e8574;
+  --crit:#b4483e; --crit-bg:#f6e5e3; --warn:#9a7020; --warn-bg:#f5ecdb; --ok:#4f7f54; --ok-bg:#e5efe4; --info:#4a6b80; --info-bg:#e3ecf1;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--sans)}
+header{display:flex;align-items:baseline;gap:18px;padding:14px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap;position:sticky;top:0;background:var(--bg)}
+header h1{font-size:15px;margin:0}
+header h1 span{color:var(--accent);font-family:var(--mono)}
+.stats{display:flex;gap:16px;color:var(--ink2);font-size:12px;flex-wrap:wrap}
+.stats b{color:var(--ink);font-variant-numeric:tabular-nums}
+.regen{margin-left:auto;color:var(--ink2);font-size:11.5px}
+.regen code{font:11px var(--mono);background:var(--panel2);padding:1px 6px;border-radius:3px;color:var(--ink)}
+main{max-width:1000px;margin:0 auto;padding:20px 24px}
+.find{border:1px solid var(--line);border-left:3px solid;border-radius:4px;background:var(--panel);margin-bottom:10px;padding:10px 14px}
+.find h3{margin:0 0 2px;font-size:13.5px;display:flex;gap:8px;align-items:baseline}
+.find .sev{font-size:10px;text-transform:uppercase;letter-spacing:.08em;padding:1px 7px;border-radius:9px;flex-shrink:0}
+.find p{margin:2px 0 6px;color:var(--ink2);font-size:12.5px;max-width:75ch}
+.find code{font:12px var(--mono);background:var(--panel2);padding:1px 6px;border-radius:3px;display:inline-block;margin:1px 2px}
+.crit{border-left-color:var(--crit)} .crit .sev{background:var(--crit-bg);color:var(--crit)}
+.warn{border-left-color:var(--warn)} .warn .sev{background:var(--warn-bg);color:var(--warn)}
+.info{border-left-color:var(--info)} .info .sev{background:var(--info-bg);color:var(--info)}
+.okf{border-left-color:var(--ok)} .okf .sev{background:var(--ok-bg);color:var(--ok)}
+.clean{color:var(--ok);font-size:12.5px}
+details summary{cursor:pointer;color:var(--accent);font-size:12px;margin-top:4px}
+h2{font-size:14px;margin:22px 0 10px}
+</style>
+<header>
+  <h1><span>architect-mud</span> world integrity</h1>
+  <div class="stats" id="stats"></div>
+  <div class="regen">regenerate: <code>npm run db:world-report</code></div>
+</header>
+<main id="main"></main>
+<script>
+const FINDINGS = /*__FINDINGS__*/;
+const STATS = /*__STATS__*/;
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const sevName = { crit: 'critical', warn: 'warning', info: 'info' };
+const count = s => FINDINGS.filter(f => f.sev === s).reduce((a, f) => a + f.items.length, 0);
+
+document.getElementById('stats').innerHTML =
+  `<span>generated <b>${esc(STATS.generatedAt.replace('T',' ').slice(0,16))}</b></span>` +
+  `<span><b>${STATS.zones}</b> zones (<b>${STATS.reachable}</b> reachable)</span>` +
+  `<span><b>${STATS.npcs}</b> npcs</span><span><b>${STATS.enemies}</b> enemies</span>` +
+  `<span><b>${STATS.items}</b> items</span>` +
+  `<span><b style="color:var(--crit)">${count('crit')}</b> critical</span>` +
+  `<span><b style="color:var(--warn)">${count('warn')}</b> warnings</span>`;
+
+const dirty = FINDINGS.filter(f => f.items.length);
+const clean = FINDINGS.filter(f => !f.items.length);
+const renderItems = f => f.items.length > 40
+  ? f.items.slice(0, 40).map(i => `<code>${esc(i)}</code>`).join(' ') +
+    `<details><summary>show ${f.items.length - 40} more…</summary>${f.items.slice(40).map(i => `<code>${esc(i)}</code>`).join(' ')}</details>`
+  : f.items.map(i => `<code>${esc(i)}</code>`).join(' ');
+
+document.getElementById('main').innerHTML =
+  dirty.map(f => `<div class="find ${f.sev}"><h3><span class="sev">${sevName[f.sev]}</span>${esc(f.title)} <span style="color:var(--ink2);font-weight:400">· ${f.items.length}</span></h3>
+    <p>${esc(f.desc)}</p>${renderItems(f)}</div>`).join('') +
+  (clean.length ? `<h2>Clean checks (${clean.length})</h2>` +
+    clean.map(f => `<div class="find okf"><h3><span class="sev">clean</span>${esc(f.title)}</h3><p class="clean">✓ ${esc(f.desc)}</p></div>`).join('') : '');
+</script>

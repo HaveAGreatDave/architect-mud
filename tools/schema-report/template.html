@@ -1,0 +1,242 @@
+<title>Architect MUD — Schema Explorer</title>
+<style>
+:root{
+  --bg:#f4f5f3; --panel:#ffffff; --panel2:#eceeea; --line:#d8dcd5; --ink:#1d2420; --ink2:#5c6660;
+  --accent:#2e8574; --accent-bg:#e2efec;
+  --crit:#b4483e; --crit-bg:#f6e5e3; --warn:#9a7020; --warn-bg:#f5ecdb; --ok:#4f7f54; --ok-bg:#e5efe4; --info:#4a6b80; --info-bg:#e3ecf1;
+  --mono:ui-monospace,Consolas,"Cascadia Code",Menlo,monospace;
+  --sans:system-ui,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#12161b; --panel:#191f26; --panel2:#20262e; --line:#2b333c; --ink:#dde3de; --ink2:#8b968f;
+  --accent:#4fb8a5; --accent-bg:#1c2f2c;
+  --crit:#e0776c; --crit-bg:#33211f; --warn:#d9a441; --warn-bg:#302818; --ok:#7fb885; --ok-bg:#1e2a1f; --info:#7fa8bf; --info-bg:#1c2831;
+}}
+:root[data-theme="dark"]{
+  --bg:#12161b; --panel:#191f26; --panel2:#20262e; --line:#2b333c; --ink:#dde3de; --ink2:#8b968f;
+  --accent:#4fb8a5; --accent-bg:#1c2f2c;
+  --crit:#e0776c; --crit-bg:#33211f; --warn:#d9a441; --warn-bg:#302818; --ok:#7fb885; --ok-bg:#1e2a1f; --info:#7fa8bf; --info-bg:#1c2831;
+}
+:root[data-theme="light"]{
+  --bg:#f4f5f3; --panel:#ffffff; --panel2:#eceeea; --line:#d8dcd5; --ink:#1d2420; --ink2:#5c6660;
+  --accent:#2e8574; --accent-bg:#e2efec;
+  --crit:#b4483e; --crit-bg:#f6e5e3; --warn:#9a7020; --warn-bg:#f5ecdb; --ok:#4f7f54; --ok-bg:#e5efe4; --info:#4a6b80; --info-bg:#e3ecf1;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--sans);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:baseline;gap:18px;padding:14px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:15px;margin:0;letter-spacing:.02em}
+header h1 span{color:var(--accent);font-family:var(--mono)}
+.stats{display:flex;gap:16px;color:var(--ink2);font-size:12px}
+.stats b{color:var(--ink);font-variant-numeric:tabular-nums}
+.regen{margin-left:auto;color:var(--ink2);font-size:11.5px}
+.regen code{font:11px var(--mono);background:var(--panel2);padding:1px 6px;border-radius:3px;color:var(--ink)}
+main{flex:1;display:flex;min-height:0}
+nav{width:280px;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;flex-shrink:0}
+nav input{margin:10px;padding:7px 10px;background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--ink);font:13px var(--mono);outline:none}
+nav input:focus{border-color:var(--accent)}
+.tlist{overflow-y:auto;flex:1;padding-bottom:12px}
+.grp{padding:9px 12px 3px;font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink2)}
+.trow{display:flex;justify-content:space-between;gap:8px;padding:3px 12px 3px 18px;font:12.5px var(--mono);cursor:pointer;border-left:2px solid transparent}
+.trow:hover{background:var(--panel2)}
+.trow.sel{background:var(--accent-bg);border-left-color:var(--accent)}
+.trow .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trow .r{color:var(--ink2);font-variant-numeric:tabular-nums;flex-shrink:0}
+.trow .flag{color:var(--warn)}
+#content{flex:1;overflow-y:auto;padding:20px 24px;min-width:0}
+.tabs{display:flex;gap:2px;margin-bottom:16px}
+.tabs button{padding:6px 14px;border:1px solid var(--line);background:var(--panel);color:var(--ink2);font:12.5px var(--sans);cursor:pointer;border-radius:4px 4px 0 0;border-bottom:none}
+.tabs button.on{color:var(--ink);background:var(--panel2);font-weight:600}
+h2{font-size:14px;margin:20px 0 8px}
+h2:first-child{margin-top:0}
+.find{border:1px solid var(--line);border-left:3px solid;border-radius:4px;background:var(--panel);margin-bottom:8px;padding:9px 12px}
+.find h3{margin:0 0 2px;font-size:13px;display:flex;gap:8px;align-items:baseline}
+.find .sev{font-size:10px;text-transform:uppercase;letter-spacing:.08em;padding:1px 7px;border-radius:9px;flex-shrink:0}
+.find p{margin:2px 0 4px;color:var(--ink2);font-size:12.5px;max-width:70ch}
+.find code, .items code{font:12px var(--mono);background:var(--panel2);padding:1px 5px;border-radius:3px;cursor:pointer}
+.find code:hover{color:var(--accent)}
+.items{line-height:1.9}
+.crit{border-left-color:var(--crit)} .crit .sev{background:var(--crit-bg);color:var(--crit)}
+.warn{border-left-color:var(--warn)} .warn .sev{background:var(--warn-bg);color:var(--warn)}
+.info{border-left-color:var(--info)} .info .sev{background:var(--info-bg);color:var(--info)}
+.okf{border-left-color:var(--ok)} .okf .sev{background:var(--ok-bg);color:var(--ok)}
+table{border-collapse:collapse;width:100%;font:12.5px var(--mono)}
+th{text-align:left;font:600 10.5px var(--sans);text-transform:uppercase;letter-spacing:.07em;color:var(--ink2);padding:5px 10px;border-bottom:1px solid var(--line)}
+td{padding:3px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+td.null{color:var(--ink2)}
+.pill{font-size:10px;padding:1px 6px;border-radius:8px;font-family:var(--sans)}
+.pill.pk{background:var(--accent-bg);color:var(--accent)}
+.pill.fk{background:var(--info-bg);color:var(--info)}
+.pill.sp{background:var(--warn-bg);color:var(--warn)}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:4px;background:var(--panel)}
+.meta{color:var(--ink2);font-size:12.5px;margin:4px 0 14px}
+.reflink{font:12px var(--mono);color:var(--accent);cursor:pointer}
+.reflink:hover{text-decoration:underline}
+.idef{color:var(--ink2);font-size:11.5px;word-break:break-all}
+.empty{color:var(--ink2);font-style:italic;font-size:12.5px}
+button.back{background:none;border:none;color:var(--accent);cursor:pointer;font:12.5px var(--sans);padding:0;margin-bottom:10px}
+@media (max-width:700px){nav{width:170px}}
+</style>
+<header>
+  <h1><span>architect-mud</span> schema explorer</h1>
+  <div class="stats" id="stats"></div>
+  <div class="regen">regenerate: <code>npm run db:report</code> · prod: <code>node --env-file=.env.prod tools/schema-report/report.mjs</code></div>
+</header>
+<main>
+  <nav><input id="q" placeholder="filter tables…" type="search"><div class="tlist" id="tlist"></div></nav>
+  <div id="content"></div>
+</main>
+<script>
+const D = /*__DATA__*/;
+const NULLS = /*__NULLS__*/;
+
+// ---- index the dump ----
+const cols = {}, pk = {}, idx = {}, fkOut = {}, fkIn = {}, sparse = {};
+D.columns.forEach(c => (cols[c.table_name] ??= []).push(c));
+D.pks.forEach(p => (pk[p.table_name] ??= []).push(p.column_name));
+D.indexes.forEach(i => (idx[i.table_name] ??= []).push(i));
+D.fks.forEach(f => { (fkOut[f.from_table] ??= []).push(f); (fkIn[f.to_table] ??= []).push(f); });
+NULLS.forEach(n => (sparse[n.table_name] ??= {})[n.column_name] = +n.null_frac);
+const tableNames = new Set(D.tables.map(t => t.table));
+const rows = t => { const r = D.tables.find(x => x.table === t); return r ? +r.approx_rows : 0; };
+
+// ---- grouping by name stem ----
+const stem = n => n.split('_')[0].replace(/s$/, '');
+const groups = {};
+D.tables.forEach(t => (groups[stem(t.table)] ??= []).push(t.table));
+const grouped = {}, misc = [];
+Object.entries(groups).sort().forEach(([k, v]) => v.length > 1 ? grouped[k] = v.sort() : misc.push(v[0]));
+if (misc.length) grouped['other'] = misc.sort();
+
+// ---- findings ----
+const findings = [];
+const add = (sev, title, desc, items) => items.length && findings.push({ sev, title, desc, items });
+
+// leading index columns per table (parse indexdef)
+const leadCols = t => (idx[t] || []).map(i => (i.indexdef.match(/\(([^)]+)\)/) || [,''])[1].split(',')[0].trim().replace(/"/g,''));
+
+add('crit', 'Tables with no primary key',
+  'Every row needs a stable identity — no PK breaks replication tooling and makes safe UPDATE/DELETE harder.',
+  D.tables.filter(t => !pk[t.table]).map(t => t.table));
+
+add('warn', 'FK columns without an index',
+  'Postgres does not auto-index the referencing side of a foreign key. Joins and cascade deletes on these scan the whole table.',
+  D.fks.filter(f => !leadCols(f.from_table).includes(f.from_col))
+       .map(f => `${f.from_table}.${f.from_col} → ${f.to_table}`));
+
+// convention joins: *_id columns matching a real table but with no FK constraint
+const fkCols = new Set(D.fks.map(f => f.from_table + '.' + f.from_col));
+add('warn', 'Convention joins — *_id columns with no FK constraint',
+  'These columns name another table but nothing enforces the reference; orphaned ids accumulate silently. (Only ' + D.fks.length + ' real FKs exist across ' + D.tables.length + ' tables.)',
+  D.columns.filter(c => /_id$/.test(c.column_name) && !fkCols.has(c.table_name + '.' + c.column_name))
+    .filter(c => { const target = c.column_name.slice(0, -3); return tableNames.has(target + 's') || tableNames.has(target); })
+    .map(c => `${c.table_name}.${c.column_name}`));
+
+add('warn', 'Redundant indexes',
+  'The narrower index is a strict prefix of a wider one on the same table — it can usually be dropped.',
+  D.tables.flatMap(t => { const list = idx[t.table] || []; const key = i => (i.indexdef.match(/\(([^)]+)\)/)||[,''])[1];
+    return list.filter(a => list.some(b => a !== b && key(b).startsWith(key(a)) && key(b) !== key(a) && !a.indexdef.includes('UNIQUE')))
+               .map(a => `${t.table}: ${a.indexname}`); }));
+
+add('warn', 'Mostly-NULL columns (>50% null, from pg_stats)',
+  'Sparse columns are the smell CLAUDE.md bans on players/npcs — candidates for a flags table or JSON field.',
+  Object.entries(sparse).flatMap(([t, cs]) => rows(t) > 20 ? Object.entries(cs).map(([c, f]) => `${t}.${c} (${Math.round(f*100)}%)`) : []));
+
+add('info', 'Wide tables (>25 columns)',
+  'Column count is a proxy for accreted responsibilities — check the persistence tiers before adding more.',
+  D.tables.map(t => ({ t: t.table, n: (cols[t.table]||[]).length })).filter(x => x.n > 25)
+    .sort((a,b) => b.n - a.n).map(x => `${x.t} (${x.n} cols)`));
+
+add('info', 'Empty tables',
+  'Zero rows in dev. Some are legitimately prod-only or new; others may be dead features.',
+  D.tables.filter(t => +t.approx_rows === 0).map(t => t.table));
+
+add('info', 'Island tables — no FK in or out',
+  'Not necessarily wrong given the convention-join style, but each one is invisible to referential tooling.',
+  D.tables.filter(t => !fkOut[t.table] && !fkIn[t.table]).map(t => t.table));
+
+// ---- workload findings (pg_stat counters — most meaningful against prod) ----
+if (D.indexUsage) {
+  const kb = b => b >= 1048576 ? (b/1048576).toFixed(1) + 'MB' : Math.round(b/1024) + 'KB';
+  add('warn', 'Never-scanned indexes (workload)',
+    'idx_scan = 0 since last stats reset, excluding PK/unique constraints. Against prod these are drop candidates; on dev this only reflects local traffic.',
+    D.indexUsage.filter(i => +i.idx_scan === 0 && !i.is_constraint)
+      .sort((a,b) => b.bytes - a.bytes).map(i => `${i.table_name}: ${i.indexname} (${kb(+i.bytes)})`));
+
+  add('warn', 'Seq-scan heavy tables (workload)',
+    'Sequentially scanned more often than index-scanned despite having enough rows to matter — a hot query may be missing an index.',
+    D.tableActivity.filter(t => +t.seq_scan > +t.idx_scan && +t.n_live_tup > 1000 && +t.seq_scan > 50)
+      .sort((a,b) => b.seq_tup_read - a.seq_tup_read)
+      .map(t => `${t.table_name} (${t.seq_scan} seq vs ${t.idx_scan} idx, ${t.n_live_tup} rows)`));
+
+  add('info', 'Dead-tuple bloat',
+    'Dead rows outpacing autovacuum (>20% of live, min 500). Frequent-UPDATE tables land here; usually fine, worth watching on prod.',
+    D.tableActivity.filter(t => +t.n_dead_tup > 500 && +t.n_dead_tup > 0.2 * +t.n_live_tup)
+      .map(t => `${t.table_name} (${t.n_dead_tup} dead / ${t.n_live_tup} live)`));
+}
+
+// ---- render ----
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const fmtRows = n => n < 0 ? '?' : n >= 1000 ? (n/1000).toFixed(1) + 'k' : n;
+const flagged = new Set(findings.filter(f => f.sev !== 'info').flatMap(f => f.items.map(i => i.split(/[.:\s]/)[0])));
+
+$('#stats').innerHTML = (D.generatedAt ? `<span>generated <b>${esc(D.generatedAt.replace('T',' ').slice(0,16))}</b></span>` : '') +
+  `<span><b>${D.tables.length}</b> tables</span><span><b>${D.columns.length}</b> columns</span>` +
+  `<span><b>${D.fks.length}</b> FKs</span><span><b>${D.indexes.length}</b> indexes</span>` +
+  `<span><b style="color:var(--crit)">${findings.filter(f=>f.sev==='crit').reduce((a,f)=>a+f.items.length,0)}</b> critical</span>` +
+  `<span><b style="color:var(--warn)">${findings.filter(f=>f.sev==='warn').reduce((a,f)=>a+f.items.length,0)}</b> warnings</span>`;
+
+function renderNav(filter) {
+  const f = (filter || '').toLowerCase();
+  $('#tlist').innerHTML = Object.entries(grouped).map(([g, ts]) => {
+    const vis = ts.filter(t => t.includes(f));
+    return vis.length ? `<div class="grp">${esc(g)}</div>` + vis.map(t =>
+      `<div class="trow" data-t="${t}"><span class="n">${flagged.has(t) ? '<span class="flag">▲ </span>' : ''}${esc(t)}</span><span class="r">${fmtRows(rows(t))}</span></div>`).join('') : '';
+  }).join('');
+}
+
+function showFindings() {
+  document.querySelectorAll('.trow.sel').forEach(e => e.classList.remove('sel'));
+  const sevName = { crit: 'critical', warn: 'warning', info: 'info' };
+  $('#content').innerHTML = `<h2>Findings — automated schema review</h2>
+    <p class="meta">Computed from live DB introspection — regenerate with <code>npm run db:report</code>. Click any table name to inspect it.</p>` +
+    findings.map(f => `<div class="find ${f.sev}"><h3><span class="sev">${sevName[f.sev]}</span>${esc(f.title)} <span style="color:var(--ink2);font-weight:400">· ${f.items.length}</span></h3>
+      <p>${esc(f.desc)}</p><div class="items">${f.items.map(i => `<code data-t="${esc(i.split(/[.:\s]/)[0])}">${esc(i)}</code>`).join(' ')}</div></div>`).join('') +
+    `<div class="find okf"><h3><span class="sev">note</span>What this can't see</h3>
+     <p>Query-shape problems (seq scans on hot paths, unused indexes) need prod <code>pg_stat_user_indexes</code>/<code>pg_stat_statements</code> — rerun the introspection script with <code>--env-file=.env.prod</code> for that view.</p></div>`;
+}
+
+function showTable(t) {
+  document.querySelectorAll('.trow').forEach(e => e.classList.toggle('sel', e.dataset.t === t));
+  const cs = cols[t] || [], pks = pk[t] || [], sp = sparse[t] || {};
+  const outs = fkOut[t] || [], ins = fkIn[t] || [];
+  $('#content').innerHTML = `<button class="back" id="back">← back to findings</button>
+    <h2 style="font-family:var(--mono)">${esc(t)}</h2>
+    <p class="meta">~${fmtRows(rows(t))} rows · ${cs.length} columns · ${(idx[t]||[]).length} indexes${pks.length ? '' : ' · <b style="color:var(--crit)">no primary key</b>'}</p>
+    <div class="tblwrap"><table><tr><th>column</th><th>type</th><th>null</th><th>default</th><th></th></tr>` +
+    cs.map(c => `<tr><td>${esc(c.column_name)}</td><td>${esc(c.data_type)}</td>
+      <td class="null">${c.is_nullable === 'YES' ? '∅' : ''}</td>
+      <td class="null">${c.column_default ? esc(c.column_default.slice(0, 40)) : ''}</td>
+      <td>${pks.includes(c.column_name) ? '<span class="pill pk">PK</span>' : ''}
+          ${fkCols.has(t + '.' + c.column_name) ? '<span class="pill fk">FK</span>' : ''}
+          ${sp[c.column_name] !== undefined ? `<span class="pill sp">${Math.round(sp[c.column_name]*100)}% null</span>` : ''}</td></tr>`).join('') +
+    `</table></div>
+    <h2>References out (${outs.length})</h2>` +
+    (outs.length ? `<div class="items">${outs.map(f => `<code>${esc(f.from_col)}</code> → <span class="reflink" data-t="${esc(f.to_table)}">${esc(f.to_table)}.${esc(f.to_col)}</span> <span class="null">(${esc(f.delete_rule)})</span>`).join('<br>')}</div>` : '<p class="empty">none</p>') +
+    `<h2>Referenced by (${ins.length})</h2>` +
+    (ins.length ? `<div class="items">${ins.map(f => `<span class="reflink" data-t="${esc(f.from_table)}">${esc(f.from_table)}.${esc(f.from_col)}</span> <span class="null">(${esc(f.delete_rule)})</span>`).join('<br>')}</div>` : '<p class="empty">none</p>') +
+    `<h2>Indexes (${(idx[t]||[]).length})</h2>` +
+    ((idx[t]||[]).map(i => `<div class="idef"><b style="color:var(--ink)">${esc(i.indexname)}</b> — ${esc(i.indexdef.replace(/^CREATE /,''))}</div>`).join('') || '<p class="empty">none</p>');
+  const b = $('#back'); if (b) b.onclick = showFindings;
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-t]');
+  if (t && tableNames.has(t.dataset.t)) showTable(t.dataset.t);
+});
+$('#q').addEventListener('input', e => renderNav(e.target.value));
+
+renderNav('');
+showFindings();
+</script>

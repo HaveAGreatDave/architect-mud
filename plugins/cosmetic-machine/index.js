@@ -100,7 +100,7 @@ async function applyCharge(player, cost) {
     player.appearance_free_used = 1;
     await query('UPDATE players SET appearance_free_used=1 WHERE id=$1', [player.id]);
   }
-  if (cost > 0) await adjustCredits(player, -cost);
+  if (cost > 0) await adjustCredits(player, -cost, undefined, 'cosmetics:surgery');
   // Past-tense notification: the player reshaped themselves. The prologue listens
   // to gate chargen; harmless elsewhere.
   emit('appearance.changed', { actor: player });
@@ -228,7 +228,7 @@ async function cmdMorphex(args, raw, player) {
     if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/cm — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
     appData.penis_length_cm = targetCm;
     player.appearance_data = appData;
-    if (totalCost > 0) await adjustCredits(player, -totalCost);
+    if (totalCost > 0) await adjustCredits(player, -totalCost, undefined, 'cosmetics:surgery');
     await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(appData), player.id]);
     return buildPanelData(player, totalCost ? `Adjusted. (-${totalCost}₵)` : 'Adjusted. (free)');
   }
@@ -277,7 +277,7 @@ async function cmdMorphex(args, raw, player) {
     if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/tier — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
     appData.breast_size = targetSize;
     player.appearance_data = appData;
-    if (totalCost > 0) await adjustCredits(player, -totalCost);
+    if (totalCost > 0) await adjustCredits(player, -totalCost, undefined, 'cosmetics:surgery');
     await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(appData), player.id]);
     return buildPanelData(player, totalCost ? `Adjusted. (-${totalCost}₵)` : 'Adjusted. (free)');
   }

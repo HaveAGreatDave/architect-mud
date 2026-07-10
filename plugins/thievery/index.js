@@ -48,8 +48,8 @@ async function stealFrom(target, player, broadcast) {
 		target.credits,
 		Math.ceil(target.credits * (0.1 + Math.random() * 0.2)),
 	);
-	await adjustCredits(target, -amount);
-	await adjustCredits(player, amount);
+	await adjustCredits(target, -amount, undefined, 'thievery:steal');
+	await adjustCredits(player, amount, undefined, 'thievery:steal');
 	return {
 		type: "steal",
 		message: `You lift ${amount}c off ${target.handle} without them noticing a thing.`,

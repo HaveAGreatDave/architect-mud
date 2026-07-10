@@ -110,7 +110,7 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
   // Debit, deliver the item, and pay the vendor safe as one atomic unit so a
   // failure between steps can't take credits without handing over the goods.
   const paid = await withTransaction(async (q) => {
-    if (!await adjustCredits(player, -price, q)) return false;
+    if (!await adjustCredits(player, -price, q, 'vendor:buy')) return false;
 
     const { rows: existing } = await q(
       'SELECT id, quantity FROM player_inventory WHERE player_id = $1 AND item_id = $2 AND is_equipped = 0',
@@ -237,7 +237,7 @@ export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   await withTransaction(async (q) => {
     // Never remove the item unless the payout actually landed — a false return
     // rolls the whole transaction back so a sale can't destroy goods for free.
-    if (!(await adjustCredits(player, sellPrice, q))) throw new Error('payout failed');
+    if (!(await adjustCredits(player, sellPrice, q, 'vendor:sell'))) throw new Error('payout failed');
     if (invItem.quantity <= sellQty) {
       await q('DELETE FROM player_inventory WHERE id = $1', [inventoryId]);
     } else {

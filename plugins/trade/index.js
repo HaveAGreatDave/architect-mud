@@ -260,12 +260,12 @@ async function executeTrade(session) {
       for (const it of aOff.items) await moveItem(tx, it.invId, bId, it.qty);
       for (const it of bOff.items) await moveItem(tx, it.invId, aId, it.qty);
       if (aOff.credits > 0) {
-        if (!(await adjustCredits(aP || { id: aId, credits: 0 }, -aOff.credits, tx))) throw new Error('credits');
-        await adjustCredits(bP || { id: bId, credits: 0 }, aOff.credits, tx);
+        if (!(await adjustCredits(aP || { id: aId, credits: 0 }, -aOff.credits, tx, 'trade:credits'))) throw new Error('credits');
+        await adjustCredits(bP || { id: bId, credits: 0 }, aOff.credits, tx, 'trade:credits');
       }
       if (bOff.credits > 0) {
-        if (!(await adjustCredits(bP || { id: bId, credits: 0 }, -bOff.credits, tx))) throw new Error('credits');
-        await adjustCredits(aP || { id: aId, credits: 0 }, bOff.credits, tx);
+        if (!(await adjustCredits(bP || { id: bId, credits: 0 }, -bOff.credits, tx, 'trade:credits'))) throw new Error('credits');
+        await adjustCredits(aP || { id: aId, credits: 0 }, bOff.credits, tx, 'trade:credits');
       }
     });
   } catch (e) {
