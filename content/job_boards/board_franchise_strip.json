@@ -8,10 +8,22 @@
     "quest_fs_line",
     "quest_fs_parcel",
     "quest_fs_loop",
-    "quest_fs_haul"
+    "quest_fs_haul",
+    "quest_fs_flyer",
+    "quest_fs_mourn",
+    "quest_fs_ratcount",
+    "quest_fs_wake",
+    "quest_fs_sample",
+    "quest_fs_pigeon",
+    "quest_fs_witness",
+    "quest_fs_sniff",
+    "quest_fs_sweep",
+    "quest_fs_lostcat",
+    "quest_fs_seatfill",
+    "quest_fs_pipes"
   ],
   "rotation_period": "21600",
-  "rotation_size": 3,
+  "rotation_size": 5,
   "updated_at": "1783369742",
   "zone_id": "zone_city_west"
 }

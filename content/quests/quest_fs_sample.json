@@ -1,0 +1,57 @@
+{
+  "category": null,
+  "description": "A tray of ration samples one day past 'discard' and a franchise smile you have to supply yourself. Push them at Ration Nine, then work the crowds at the Marquee and Battery Square. Do not eat the samples. 10₵.",
+  "id": "quest_fs_sample",
+  "meta": {},
+  "name": "Free Samples",
+  "objectives": [
+    {
+      "desc": "Hand out samples at Ration Nine",
+      "emotes": [
+        "{who} thrusts a sample cup at a passerby and chirps 'New recipe!' with zero conviction.",
+        "{who} arranges the tray to hide the ones that are visibly moving.",
+        "{who} takes a sample cup back off someone who was clearly going to steal it."
+      ],
+      "id": "o0",
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_mq_grocery"
+    },
+    {
+      "desc": "Work the Marquee crowd",
+      "emotes": [
+        "{who} works the Marquee, pressing samples on anyone who slows down for even a second.",
+        "{who} calls 'Free! Free!' under the lights, and a small hungry crowd forms fast.",
+        "{who} refills the tray from a bag they were absolutely not supposed to bring."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_mq_marquee"
+    },
+    {
+      "desc": "Clear the tray at Battery Square",
+      "emotes": [
+        "{who} unloads the last samples on Battery Square, tray finally, blessedly empty.",
+        "{who} hands off the dregs to a kid who wasn't going to take no for an answer.",
+        "{who} sets the empty tray down, stomach growling, having not eaten a single one. Rules are rules."
+      ],
+      "id": "o2",
+      "requires": [
+        "o1"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_mq_battery"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 10
+  },
+  "updated_at": "1783600000"
+}

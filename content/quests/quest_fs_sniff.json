@@ -1,0 +1,57 @@
+{
+  "category": null,
+  "description": "The franchise lost its inspection license but not its inspection theater. Do the rounds at Fishmarket Dock, the Quays, and the Wharf. Your instrument is your nose. There is no report. 15₵.",
+  "id": "quest_fs_sniff",
+  "meta": {},
+  "name": "Sniff Test",
+  "objectives": [
+    {
+      "desc": "Inspect the Fishmarket Dock",
+      "emotes": [
+        "{who} leans over a crate at the Fishmarket, inhales deeply, and instantly regrets the whole career.",
+        "{who} sniffs a barrel, recoils, and gives it a confident thumbs-up anyway.",
+        "{who} pinches a bit of the catch, smells their fingers, and writes nothing down because there's no form."
+      ],
+      "id": "o0",
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_dock_fishmarket"
+    },
+    {
+      "desc": "Inspect the Quays",
+      "emotes": [
+        "{who} works down the Quays sniffing at anything that stands still, nodding sagely.",
+        "{who} takes a deep breath of Quay air, holds it, and turns a delicate shade of green.",
+        "{who} declares a suspicious puddle 'within tolerance' without knowing of what."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_dock_quays"
+    },
+    {
+      "desc": "Inspect the Wharf",
+      "emotes": [
+        "{who} finishes the rounds at the Wharf, gives one last professional sniff, and calls it passed.",
+        "{who} smells something genuinely alarming at the Wharf and decides that's tomorrow's problem.",
+        "{who} signs off the whole waterfront on the strength of a nose that stopped smelling anything an hour ago."
+      ],
+      "id": "o2",
+      "requires": [
+        "o1"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_dock_wharf"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 15
+  },
+  "updated_at": "1783600000"
+}
