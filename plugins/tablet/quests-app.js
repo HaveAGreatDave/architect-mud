@@ -281,33 +281,20 @@ async function handleAction(player, actionId, params) {
   }
 
   if (actionId === 'turnin') {
-    // A quest turned in through an NPC's dialogue (as opposed to a physical
-    // job board or a flight contract's landing check) has to actually be
-    // handed to that NPC — respect that instead of instant-granting from the
-    // tablet: route the player there if they're elsewhere, or hand off into
-    // the NPC's real dialogue (which now hides "report back" until the quest
-    // Flag says 'completed' — see engine/dialogue.js) if they're already here.
+    // Turn-in ALWAYS brings up the quest-giver's dialogue with their hand-in line,
+    // then closes the tablet — regardless of where the player is standing. The NPC
+    // is whoever the quest is handed back to (findTurnInNpc): the giver for an
+    // authored quest, or Marta the dispatcher for a job-board gig. This is a
+    // tablet/comms hand-in, not a physical one, so we don't require being in the
+    // NPC's zone or plot a walking route to them.
     const npcInfo = await findTurnInNpc(questId);
     if (npcInfo) {
-      if (player.current_zone !== npcInfo.zone) {
-        const destZone = getZone(npcInfo.zone);
-        const path = destZone ? findPath(player.current_zone, npcInfo.zone) : null;
-        const dest = destZone?.name || npcInfo.zone;
-        if (path && path.length >= 2) {
-          sendToPlayer(player.id, { type: 'gps_route', message: `GPS locked: ${dest}. Route plotted on the map.`, path });
-        }
-        // Bottom-pane note, not a screen swap — the player is still looking at
-        // this quest's detail (objectives/actions) and should stay there rather
-        // than land on a bare error screen that loses that context.
-        sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">${npcInfo.npcName} is the one who needs this — head to ${dest} to turn it in.</span>` });
-        return buildScreen(player, null, questId);
-      }
       const { rows: npcRows } = await query('SELECT * FROM npcs WHERE id=$1', [npcInfo.npcId]);
       const npc = npcRows[0];
       // A dispatcher (job board) hands in at a dedicated `job_turnin` node whose
       // context-driven TURN_IN action pays out the moment it renders; a per-quest
       // giver has no such node, so land on `root` and let the player click through
-      // its (completion-gated) "report back" option as before.
+      // its (completion-gated) "report back" option to complete the hand-in.
       const node = npcInfo.node || 'root';
       const { rows: qn } = await query('SELECT name FROM quests WHERE id=$1', [questId]);
       const rendered = npc && await renderDialogueNode(npc, node, player, { broadcast: null, npc, quest_id: questId, quest_name: qn[0]?.name || 'the job' });
@@ -327,9 +314,12 @@ async function handleAction(player, actionId, params) {
         sendToPlayer(player.id, { type: 'dialogue', npcId: npc.id, npcName: npc.name, node, text: rendered.text, options: rendered.options });
         return { type: 'tablet_close' };
       }
-      // Fall through to the direct grant if the NPC/root node has since vanished.
+      // Fall through to the direct grant if the NPC/node has since vanished — a
+      // finished quest must never be un-turn-in-able (anti-stuck guarantee).
     }
 
+    // No NPC tied to this quest (e.g. a flight contract) or its dialogue vanished:
+    // grant directly so the hand-in always resolves.
     const res = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: questId } });
     if (res?.type === 'error') return { view: 'error', message: res.message };
     if (player.tracked_quest_id === questId) {

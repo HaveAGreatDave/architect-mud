@@ -51,23 +51,40 @@ export function setRunState(running) {
 // arrival, the route runs out, or the user stops it. Cadence follows run/walk mode.
 const DIR_CMDS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out'];
 let autoWalkTimer = null;
+// The player's standing intent to auto-walk. Distinct from autoWalkTimer (the
+// "currently stepping" state): it SURVIVES arriving at a waypoint, so when a quest
+// advances a phase and re-plots the route (gps_route resumeAuto), we can pick the
+// next leg up without another Auto click. Cleared only by an explicit stop
+// (toggle off), a hard error, or the route being cleared.
+let autoWalkArmed = false;
 
 function autoWalkBtn() { return document.getElementById('mm-auto-toggle'); }
 
-function stopAutoWalk(message) {
+// keepArmed:true is the "arrived at this leg's end but still want to auto-walk the
+// next one" case — the timer stops but the intent persists for a resume.
+function stopAutoWalk(message, { keepArmed = false } = {}) {
   if (autoWalkTimer) { clearTimeout(autoWalkTimer); autoWalkTimer = null; }
-  autoWalkBtn()?.classList.remove('active');
+  if (!keepArmed) { autoWalkArmed = false; autoWalkBtn()?.classList.remove('active'); }
   if (message) appendMsg(message, 'system');
 }
 
 export function isAutoWalking() { return autoWalkTimer !== null; }
+
+// A quest re-plotted the GPS route for a new phase (gps_route resumeAuto). If the
+// player had auto-walk engaged for the prior leg — even if it "arrived" and paused
+// between legs — resume walking the fresh route automatically.
+export function resumeAutoWalkIfArmed() {
+  if (autoWalkArmed && !autoWalkTimer) startAutoWalk();
+}
 
 function autoWalkStep() {
   autoWalkTimer = null;
   const current = (_lastMinimapNodes || []).find(n => n.is_current);
   if (!current) { stopAutoWalk('Auto-walk stopped — lost track of where you are.'); return; }
   const path = effectiveTracePath(current.id);
-  if (!path || path.length < 2) { stopAutoWalk('Auto-walk: arrived.'); return; }
+  // Arrived at this leg's end: keep the intent armed so a quest advancing to a new
+  // waypoint (gps_route resumeAuto) continues the walk without another Auto click.
+  if (!path || path.length < 2) { stopAutoWalk('Auto-walk: arrived.', { keepArmed: true }); return; }
   const nextId = path[1];
   const dir = Object.entries(current.exits || {}).find(([, id]) => id === nextId)?.[0];
   if (!dir || !DIR_CMDS.includes(dir)) { stopAutoWalk("Auto-walk stopped — can't step off the route from here."); return; }
@@ -82,13 +99,15 @@ export function startAutoWalk() {
   const current = (_lastMinimapNodes || []).find(n => n.is_current);
   const path = current ? effectiveTracePath(current.id) : null;
   if (!path || path.length < 2) { appendMsg('Auto-walk: no GPS route plotted.', 'system'); return; }
+  autoWalkArmed = true;
   autoWalkBtn()?.classList.add('active');
   autoWalkStep();
 }
 
-// `auto` command / Auto button: toggle the route walk.
+// `auto` command / Auto button: toggle the route walk. Armed-but-paused (arrived
+// between quest legs) counts as "on" so a click turns the intent fully off.
 export function toggleAutoWalk() {
-  if (isAutoWalking()) stopAutoWalk('Auto-walk stopped.');
+  if (isAutoWalking() || autoWalkArmed) stopAutoWalk('Auto-walk stopped.');
   else startAutoWalk();
 }
 

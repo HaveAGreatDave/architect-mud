@@ -41,12 +41,14 @@ let _overlay = null;
 let _close = null;
 let _data = null; // last tablet_panel payload
 let _pollTimer = null; // live-refresh interval for the Surveillance hub screen
+let _fakeTimer = null; // Arcade app: ambient-line ticker for the fake MUD terminal
 let _wasSurvLive = false; // was the last render a live surveillance screen (scroll-preserve)
 let _keepQuestScroll = false; // one-shot: preserve scroll on the next render (a live quest refresh)
 let _keepThemeScroll = false; // one-shot: preserve scroll on the next render (picking within the theme sheet)
 let _chatTab = null;   // Chat app: currently selected conversation key (channel id / PM handle, or CHAT_USERS_TAB)
 const CHAT_USERS_TAB = '__users__'; // Chat app: the Users hub tab (online-player directory, not a real conversation)
 let _chatUnsub = null; // Chat app: whisper.js update subscription (live re-render), null when not on chat
+let _chatEmojiOpen = false; // Chat app: is the emoji picker popup open (persists across the frequent chat re-renders)
 let _tosThemePicker = null;      // Settings: which theme selector sheet is open — null | 'ui' | 'tablet'
 let _tosSetPage = 'General';     // Settings: active page tab (grouped like the game's settings)
 let _tosMisRevealed = false; // Settings: has the hidden Mature Content (MIS) toggle been revealed
@@ -187,6 +189,13 @@ function ensureStyles() {
     /* Two-tone: primary uses currentColor (theme fg); the .dim parts pick up a muted derived tone. */
     #tablet-os-overlay .tos-tile .tos-icon svg .dim { color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-tile .tos-name { font-size:11.5px; letter-spacing:.5px; color:var(--tos-fg); }
+    /* Arcade tile icon: the circled-"A" ARCHITECT logo — the same mark as the
+       tablet's boot screen (.tos-boot-logo), sized to the tile icon slot. */
+    #tablet-os-overlay .tos-tile .tos-icon .tos-ic-a { width:26px; height:26px; border-radius:50%; box-sizing:border-box;
+      display:inline-flex; align-items:center; justify-content:center; font-size:15px; font-weight:bold; line-height:1;
+      color:var(--mg-accent); border:2px solid var(--mg-accent);
+      text-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 70%, transparent);
+      box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 40%, transparent), inset 0 0 7px color-mix(in srgb, var(--mg-accent) 22%, transparent); }
 
     /* List view — same raised-bevel treatment as tiles, just row-shaped. */
     #tablet-os-overlay .tos-list-item { display:flex; flex-direction:column; gap:3px; cursor:pointer; padding:9px 11px; border-radius:6px;
@@ -412,6 +421,19 @@ function ensureStyles() {
       color:var(--tos-fg); font-family:'Courier New',monospace; font-size:13px; padding:8px 10px; border-radius:5px; outline:none; }
     #tablet-os-overlay .tos-chat-input-row input::placeholder { color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-chat-input-row input:focus { border-color:var(--mg-accent); box-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 30%, transparent); }
+    /* Emoji picker: a ☺ button that opens a grid popup above the input. */
+    #tablet-os-overlay .tos-chat-emoji-wrap { position:relative; flex:0 0 auto; }
+    #tablet-os-overlay .tos-chat-emoji-btn { cursor:pointer; background:var(--bg, #0c1114); border:1px solid color-mix(in srgb, var(--mg-accent) 28%, transparent);
+      color:var(--tos-fg-dim); font-size:16px; line-height:1; padding:7px 9px; border-radius:5px; }
+    #tablet-os-overlay .tos-chat-emoji-btn:hover { color:var(--mg-accent); border-color:var(--mg-accent); }
+    #tablet-os-overlay .tos-chat-emoji-pop { display:none; position:absolute; bottom:calc(100% + 6px); left:0; z-index:5; width:248px; max-height:184px; overflow-y:auto;
+      background:var(--bg, #0c1114); border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent); border-radius:6px; padding:6px; box-shadow:0 6px 18px rgba(0,0,0,.5);
+      grid-template-columns:repeat(8, 1fr); gap:2px; }
+    #tablet-os-overlay .tos-chat-emoji-pop.open { display:grid; }
+    #tablet-os-overlay .tos-chat-emoji-pop::-webkit-scrollbar { width:6px; }
+    #tablet-os-overlay .tos-chat-emoji-pop::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+    #tablet-os-overlay .tos-chat-emoji { cursor:pointer; text-align:center; font-size:18px; line-height:1; padding:4px 0; border-radius:4px; }
+    #tablet-os-overlay .tos-chat-emoji:hover { background:color-mix(in srgb, var(--mg-accent) 22%, transparent); }
     /* Users hub — a directory of players online now (its own tab), each row
        tappable to open/start a PM. Fills the same space the message log would. */
     #tablet-os-overlay .tos-chat-users { display:flex; flex-direction:column; border-radius:6px; overflow:hidden;
@@ -562,6 +584,119 @@ function ensureStyles() {
     #tablet-os-overlay .tos-hl-tag.tabloid { color:var(--tos-fg-dim); border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent); background:var(--tos-surface); }
     #tablet-os-overlay .tos-hl-text { color:var(--tos-fg); }
     #tablet-os-overlay .tos-hl-by { color:var(--tos-fg-dim2); font-style:italic; font-size:11px; white-space:nowrap; }
+
+    /* ── Arcade app: "ARCHITECT" (a fake game inside the game) ──────────────────
+       A little in-tablet emulator — login → boot → a tiny live MUD terminal with
+       a tablet you can tap, which pops a shrunk recreation of this tablet. Styled
+       to mirror the REAL game look pane: dark bg, --font-mono, and the same
+       syntax palette (--cyan exits, --orange furniture, --green NPCs, --purple
+       buildings, --text/--text-dim body) so it reads as an actual game screen.
+       All colours are the page's own theme vars, so it tracks the player theme. */
+    #tablet-os-overlay .tos-fake { position:relative; border-radius:6px; overflow:hidden;
+      border:1px solid var(--border, #2a2a40); background:var(--bg, #05050a); color:var(--text, #e8e8f5);
+      font-family:var(--font-mono, 'Courier New', monospace); box-shadow:inset 0 0 30px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.4); }
+    #tablet-os-overlay .tos-fake ::selection { background:color-mix(in srgb, var(--accent) 35%, transparent); }
+
+    /* Login screen — a spare terminal splash on the game bg. */
+    #tablet-os-overlay .tos-fk-login { display:flex; flex-direction:column; align-items:center; gap:11px; padding:34px 22px 42px; text-align:center; }
+    #tablet-os-overlay .tos-fk-logo { font-size:22px; letter-spacing:11px; font-weight:bold; color:var(--accent);
+      text-shadow:0 0 16px color-mix(in srgb, var(--accent) 60%, transparent); }
+    #tablet-os-overlay .tos-fk-tag { font-size:10px; letter-spacing:2px; color:var(--text-dim); text-transform:uppercase; margin-bottom:10px; }
+    #tablet-os-overlay .tos-fk-field { display:flex; align-items:center; gap:8px; width:min(280px,88%); font-size:13px; }
+    #tablet-os-overlay .tos-fk-field label { flex:0 0 74px; text-align:right; color:var(--text-dim); font-size:11px; letter-spacing:1px; text-transform:uppercase; }
+    #tablet-os-overlay .tos-fk-field input { flex:1; min-width:0; background:var(--bg2, #0d0d16); border:1px solid var(--border, #2a2a40);
+      color:var(--text); font-family:var(--font-mono,'Courier New',monospace); font-size:13px; padding:7px 9px; border-radius:4px; outline:none; }
+    #tablet-os-overlay .tos-fk-field input:focus { border-color:var(--accent); box-shadow:0 0 7px color-mix(in srgb, var(--accent) 35%, transparent); }
+    #tablet-os-overlay .tos-fk-jack { margin-top:12px; cursor:pointer; padding:9px 24px; border-radius:4px; font-family:var(--font-mono,'Courier New',monospace); font-weight:bold; letter-spacing:2px; font-size:13px;
+      color:var(--accent); background:transparent; border:1px solid var(--accent);
+      box-shadow:0 0 12px color-mix(in srgb, var(--accent) 30%, transparent); transition:background .12s, color .12s, transform .05s; }
+    #tablet-os-overlay .tos-fk-jack:hover { background:var(--accent); color:var(--accent-ink, #05050a); }
+    #tablet-os-overlay .tos-fk-jack:active { transform:translateY(1px); }
+    #tablet-os-overlay .tos-fk-cur { animation:tos-fk-blink 1s steps(1) infinite; }
+    @keyframes tos-fk-blink { 0%,50%{opacity:1} 51%,100%{opacity:0} }
+
+    /* Boot lines (login → play transition) */
+    #tablet-os-overlay .tos-fk-boot { padding:20px 18px; font-size:12.5px; line-height:1.7; min-height:210px; color:var(--text-dim); }
+    #tablet-os-overlay .tos-fk-boot .ok { color:var(--green, #39ff8f); }
+
+    /* Play: terminal — mirrors the game's look pane. */
+    #tablet-os-overlay .tos-fk-term { position:relative; display:flex; flex-direction:column; height:410px; max-height:54vh; }
+    /* Slim vitals strip (compresses the game's sidebar VITALS to one row). */
+    #tablet-os-overlay .tos-fk-hud { display:flex; gap:14px; flex-wrap:wrap; padding:7px 12px; font-size:11px; letter-spacing:.5px;
+      border-bottom:1px solid var(--border, #2a2a40); color:var(--text-dim); }
+    #tablet-os-overlay .tos-fk-hud b { font-weight:bold; }
+    #tablet-os-overlay .tos-fk-hud .hp { color:var(--green, #39ff8f); }
+    #tablet-os-overlay .tos-fk-hud .cr { color:var(--accent); }
+    #tablet-os-overlay .tos-fk-hud .wt { color:var(--yellow, #f5e642); }
+    #tablet-os-overlay .tos-fk-log { flex:1; min-height:0; overflow-y:auto; padding:11px 13px; font-size:13px; line-height:1.55; }
+    #tablet-os-overlay .tos-fk-log::-webkit-scrollbar { width:6px; }
+    #tablet-os-overlay .tos-fk-log::-webkit-scrollbar-thumb { background:var(--border, #2a2a40); border-radius:3px; }
+    #tablet-os-overlay .tos-fk-line { padding:1px 0; white-space:pre-wrap; word-break:break-word; }
+    /* Room header: bold accent name + [SAFE] danger badge (mirrors .zone-name / .zone-danger-safe). */
+    #tablet-os-overlay .tos-fk-room { color:var(--accent); font-weight:bold; letter-spacing:1.5px; text-transform:uppercase; }
+    #tablet-os-overlay .tos-fk-safe { margin-left:7px; font-size:10px; letter-spacing:0; padding:1px 5px; border-radius:2px; vertical-align:middle;
+      color:var(--green, #39ff8f); border:1px solid var(--green, #39ff8f); }
+    #tablet-os-overlay .tos-fk-dist { color:var(--text-dim); font-style:italic; letter-spacing:1px; font-size:12px; }
+    #tablet-os-overlay .tos-fk-desc { color:var(--text, #e8e8f5); }
+    #tablet-os-overlay .tos-fk-label { color:var(--text-dim); }
+    /* Interactive nouns — exact game link palette, underlined like .action-link. */
+    #tablet-os-overlay .tos-fk-furn, #tablet-os-overlay .tos-fk-npc, #tablet-os-overlay .tos-fk-exit,
+    #tablet-os-overlay .tos-fk-build, #tablet-os-overlay .tos-fk-buzz { font-weight:600; text-decoration:underline; text-underline-offset:2px; cursor:pointer; }
+    #tablet-os-overlay .tos-fk-furn  { color:var(--orange, #ff9a3c); }
+    #tablet-os-overlay .tos-fk-npc   { color:var(--green, #39ff8f); }
+    #tablet-os-overlay .tos-fk-exit  { color:var(--cyan, #28e5ff); }
+    #tablet-os-overlay .tos-fk-build { color:var(--purple, #b86bff); }
+    #tablet-os-overlay .tos-fk-buzz  { color:var(--cyan, #28e5ff); }
+    #tablet-os-overlay .tos-fk-dir { color:var(--text-dim); font-weight:bold; margin-right:2px; }
+    #tablet-os-overlay .tos-fk-amb { color:var(--text-dim); font-style:italic; }
+    #tablet-os-overlay .tos-fk-echo { color:var(--accent); }
+    #tablet-os-overlay .tos-fk-sys { color:var(--yellow, #f5e642); }
+    /* Quick-command chips row (mirrors #quick-cmds) — flavour, all local. */
+    #tablet-os-overlay .tos-fk-chips { display:flex; gap:5px; flex-wrap:wrap; padding:7px 12px 0; }
+    #tablet-os-overlay .tos-fk-chip { cursor:pointer; font-size:11px; color:var(--text-dim); padding:3px 8px; border-radius:3px;
+      background:var(--bg2, #0d0d16); border:1px solid var(--border, #2a2a40); transition:color .12s, border-color .12s; }
+    #tablet-os-overlay .tos-fk-chip:hover { color:var(--accent); border-color:var(--accent); }
+    #tablet-os-overlay .tos-fk-inrow { display:flex; align-items:center; gap:7px; padding:9px 12px; border-top:1px solid var(--border, #2a2a40); }
+    #tablet-os-overlay .tos-fk-prompt { color:var(--accent); font-weight:bold; }
+    #tablet-os-overlay .tos-fk-in { flex:1; min-width:0; background:transparent; border:none; outline:none; color:var(--text); font-family:var(--font-mono,'Courier New',monospace); font-size:13px; }
+    #tablet-os-overlay .tos-fk-in::placeholder { color:var(--text-dim); }
+    /* Floating tablet-buzz button in the corner of the terminal */
+    #tablet-os-overlay .tos-fk-tabbtn { position:absolute; right:12px; bottom:96px; z-index:4; cursor:pointer; user-select:none;
+      font-size:11px; letter-spacing:1px; padding:6px 11px; border-radius:4px; color:var(--accent); font-weight:bold;
+      background:var(--bg2, #0d0d16); border:1px solid var(--accent);
+      box-shadow:0 0 12px color-mix(in srgb, var(--accent) 30%, transparent); animation:tos-fk-pulse 1.8s ease-in-out infinite; }
+    #tablet-os-overlay .tos-fk-tabbtn:hover { background:var(--accent); color:var(--accent-ink, #05050a); }
+    @keyframes tos-fk-pulse { 0%,100%{box-shadow:0 0 8px color-mix(in srgb, var(--accent) 25%, transparent)} 50%{box-shadow:0 0 18px color-mix(in srgb, var(--accent) 60%, transparent)} }
+
+    /* Mini tablet — a shrunk recreation floating over the fake game (theme-tinted). */
+    #tablet-os-overlay .tos-fk-mini-scrim { position:absolute; inset:0; z-index:8; display:flex; align-items:center; justify-content:center;
+      background:rgba(0,0,0,.55); animation:tos-fk-fade .18s ease-out; }
+    @keyframes tos-fk-fade { from{opacity:0} to{opacity:1} }
+    #tablet-os-overlay .tos-fk-mini { position:relative; width:210px; border-radius:16px; padding:12px 10px 16px; color:var(--accent);
+      background:linear-gradient(160deg, rgba(255,255,255,0.07), transparent 30%), var(--bg2, #0d0d16);
+      border:2px solid #000; box-shadow:0 12px 30px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.12), 0 0 18px color-mix(in srgb, var(--accent) 20%, transparent);
+      animation:tos-fk-pop .22s cubic-bezier(.2,1.3,.5,1); }
+    @keyframes tos-fk-pop { from{transform:scale(.6); opacity:0} to{transform:scale(1); opacity:1} }
+    #tablet-os-overlay .tos-fk-mini-hd { display:flex; justify-content:space-between; align-items:center; font-size:8.5px; letter-spacing:2px; text-transform:uppercase; color:var(--accent); opacity:.85; margin-bottom:8px; padding:0 3px; }
+    #tablet-os-overlay .tos-fk-mini-x { cursor:pointer; font-size:12px; opacity:.8; line-height:1; }
+    #tablet-os-overlay .tos-fk-mini-x:hover { opacity:1; color:var(--text-bright, #fff); }
+    #tablet-os-overlay .tos-fk-mini-screen { background:var(--bg, #05050a); border-radius:8px; padding:9px 8px; box-shadow:inset 0 0 12px rgba(0,0,0,.6); }
+    #tablet-os-overlay .tos-fk-mini-time { display:flex; justify-content:space-between; font-size:7px; letter-spacing:1px; text-transform:uppercase; color:var(--accent); opacity:.6; margin-bottom:7px; }
+    #tablet-os-overlay .tos-fk-mini-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+    #tablet-os-overlay .tos-fk-app { cursor:pointer; text-align:center; padding:7px 2px; border-radius:6px;
+      background:color-mix(in srgb, var(--accent) 12%, var(--bg2, #0d0d16));
+      border:1px solid color-mix(in srgb, var(--accent) 28%, transparent); box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
+      transition:transform .06s, filter .12s; }
+    #tablet-os-overlay .tos-fk-app:hover { filter:brightness(1.18); }
+    #tablet-os-overlay .tos-fk-app:active { transform:scale(.9); }
+    #tablet-os-overlay .tos-fk-app.tap { animation:tos-fk-tap .4s ease; }
+    @keyframes tos-fk-tap { 0%{filter:brightness(2.2)} 100%{filter:brightness(1)} }
+    #tablet-os-overlay .tos-fk-app .ic { font-size:16px; display:block; line-height:1; }
+    #tablet-os-overlay .tos-fk-app .nm { font-size:7px; letter-spacing:.3px; color:color-mix(in srgb, var(--accent) 70%, #fff); margin-top:3px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #tablet-os-overlay .tos-fk-mini-toast { min-height:13px; text-align:center; font-size:8.5px; letter-spacing:1px; text-transform:uppercase; color:var(--accent); margin-top:9px; opacity:0; transition:opacity .15s; }
+    #tablet-os-overlay .tos-fk-mini-toast.show { opacity:.9; }
+    #tablet-os-overlay .tos-fk-mini-home { width:26px; height:26px; border-radius:50%; margin:9px auto 0; border:2px solid color-mix(in srgb, var(--accent) 40%, transparent); cursor:pointer; }
+    #tablet-os-overlay .tos-fk-mini-home:hover { border-color:var(--accent); box-shadow:0 0 8px color-mix(in srgb, var(--accent) 50%, transparent); }
   `;
   document.head.appendChild(s);
 }
@@ -733,6 +868,9 @@ const TOS_APP_ICONS = {
   vehicles: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 2l2.5 6.5L21 12v2l-6.5-2v4l2.5 2v1.5L12 18l-5 1.5V18l2.5-2v-4L3 14v-2l6.5-3.5z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M12 2l2.5 6.5L21 12v2l-6.5-2v4l2.5 2v1.5L12 18l-5 1.5V18l2.5-2v-4L3 14v-2l6.5-3.5z"/></svg>`,
   specter: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M3 7l13-3 1.2 4.4-13 3z" fill="currentColor" fill-opacity=".25" stroke="none"/><path d="M3 7l13-3 1.2 4.4-13 3z"/><path d="M17.6 6.2l3.4-1 .7 2.6-3.4 1"/><path d="M6 11.2V15a2 2 0 0 0 2 2h1"/><circle cx="9" cy="20" r="2"/><path d="M12.5 9.5l2.5 3.5"/></svg>`,
   chat: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M4 4h16v11H8l-4 4z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M4 4h16v11H8l-4 4z"/><path d="M8 8h8M8 11h5"/></svg>`,
+  // Not an SVG glyph — the circled-"A" ARCHITECT logo (same mark as the tablet's
+  // own boot screen, .tos-boot-logo), so the tile reads as the game itself.
+  arcade: `<span class="tos-ic-a">A</span>`,
 };
 
 function renderHomeApps(apps) {
@@ -1391,6 +1529,29 @@ function renderSurveillance(d) {
 // it via the exported chat API and send through it. Live updates come from the
 // onChatUpdate subscription (set up/torn down in render()/close()).
 
+// Emoji palette for the picker (tap to insert at the caret). Ordered for an 8-col grid.
+const CHAT_EMOJI = ['😀','😂','🙂','😉','😎','😍','😘','🤨','😴','🙄','😬','😳','😭','😢','😡','🤔','🤢','😱','💀','☠️','👍','👎','👌','🙏','👏','💪','🤞','👀','🔥','💯','✨','⭐','❤️','💔','🎉','💰','🍺','🚬','💊','⚠️','🚁','✈️','🔫','⚡','🌧️','🩸','🤖','💥'];
+// Automatic emoji: :shortcode: names and plain-text emoticons converted on send.
+const EMOJI_SHORTCODES = { fire:'🔥', skull:'💀', heart:'❤️', joy:'😂', lol:'😂', cry:'😭', sob:'😭', rage:'😡', angry:'😡', beer:'🍺', smoke:'🚬', pill:'💊', money:'💰', gun:'🔫', boom:'💥', robot:'🤖', eyes:'👀', pray:'🙏', clap:'👏', muscle:'💪', ok:'👌', star:'⭐', tada:'🎉', party:'🎉', wave:'👋', smile:'🙂', wink:'😉', cool:'😎', '100':'💯', '+1':'👍', '-1':'👎', thumbsup:'👍', thumbsdown:'👎' };
+const EMOJI_EMOTICONS = [
+  [/(?<=^|\s):-?\)(?=\s|$)/g, '🙂'],
+  [/(?<=^|\s):-?D(?=\s|$)/g, '😀'],
+  [/(?<=^|\s):-?\((?=\s|$)/g, '🙁'],
+  [/(?<=^|\s):-?[Pp](?=\s|$)/g, '😛'],
+  [/(?<=^|\s);-?\)(?=\s|$)/g, '😉'],
+  [/(?<=^|\s):-?[Oo](?=\s|$)/g, '😮'],
+  [/(?<=^|\s):['’]\((?=\s|$)/g, '😢'],
+  [/(?<=^|\s)<\/3(?=\s|$)/g, '💔'],
+  [/(?<=^|\s)<3(?=\s|$)/g, '❤️'],
+  [/(?<=^|\s)[xX]D(?=\s|$)/g, '😆'],
+];
+// Convert :shortcodes: and emoticons in an outgoing message to emoji.
+function emojifyChat(text) {
+  text = text.replace(/:([a-z0-9_+-]+):/gi, (m, name) => EMOJI_SHORTCODES[name.toLowerCase()] || m);
+  for (const [re, rep] of EMOJI_EMOTICONS) text = text.replace(re, rep);
+  return text;
+}
+
 function renderChatMsg(m) {
   const body = m.isHtml ? m.message : parseMarkup(m.message);
   return `<div class="tos-chat-msg"><span class="tos-chat-from${m.isMe ? ' me' : ''}">${esc(m.isMe ? 'You' : m.from)}</span><span class="tos-chat-text">${body}</span></div>`;
@@ -1450,8 +1611,9 @@ function renderChat() {
     : (msgs.length ? msgs.map(renderChatMsg).join('') : '<div class="tos-empty">No messages yet.</div>');
   const log = `<div class="tos-chat-log" id="tos-chat-log">${logInner}</div>`;
 
+  const emojiPop = `<div class="tos-chat-emoji-wrap"><button class="tos-chat-emoji-btn" data-chat-emoji-toggle="1" type="button" title="Emoji">☺</button><div class="tos-chat-emoji-pop${_chatEmojiOpen ? ' open' : ''}">${CHAT_EMOJI.map(e => `<span class="tos-chat-emoji" data-chat-emoji="${e}">${e}</span>`).join('')}</div></div>`;
   const input = active && !active.systemOnly
-    ? `<div class="tos-chat-input-row"><input id="tos-chat-input" type="text" autocomplete="off" placeholder="Message ${esc(active.label)}…" /><button class="tos-btn" data-chat-send="1">Send</button></div>`
+    ? `<div class="tos-chat-input-row">${emojiPop}<input id="tos-chat-input" type="text" autocomplete="off" placeholder="Message ${esc(active.label)}…" /><button class="tos-btn" data-chat-send="1">Send</button></div>`
     : '';
 
   return `<div class="tos-chat">${tabRow}${log}${input}</div>`;
@@ -1576,6 +1738,12 @@ function renderBody() {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       ${renderNews(d.sections)}
     </div>`;
+  }
+  if (d.view === 'fakeplay') {
+    // Self-contained novelty — the breadcrumb Back exits the whole app; the fake
+    // game (login → terminal → mini tablet) is mounted into #tos-fake-root by
+    // mountFakePlay() after render, and runs entirely client-side.
+    return `<div class="tos-body">${renderBreadcrumb(d.appId, [d.appName])}<div id="tos-fake-root" class="tos-fake"></div></div>`;
   }
   if (d.view === 'error') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}<div class="tos-error">${esc(d.message || d.error || 'Something went wrong.')}</div></div>`;
@@ -1842,6 +2010,7 @@ function wireTabletSettings() {
   _overlay.querySelectorAll('[data-chat-tab]').forEach(el => {
     el.addEventListener('click', () => {
       _chatTab = el.getAttribute('data-chat-tab');
+      _chatEmojiOpen = false; // fresh conversation → close the emoji picker
       markChatRead(_chatTab);
       sfx(TOS_SELECT_DEF);
       render();
@@ -1887,13 +2056,33 @@ function wireTabletSettings() {
   const chatSend = _overlay.querySelector('[data-chat-send]');
   if (chatInput) {
     const doSend = () => {
-      const v = chatInput.value.trim();
+      const v = emojifyChat(chatInput.value.trim());
       if (!v) return;
       sendChatMessage(_chatTab, v);
       chatInput.value = '';
     };
     chatSend?.addEventListener('click', doSend);
     chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSend(); });
+
+    // Emoji picker: ☺ toggles the popup; tapping an emoji inserts it at the caret.
+    const emojiToggle = _overlay.querySelector('[data-chat-emoji-toggle]');
+    const emojiPop = _overlay.querySelector('.tos-chat-emoji-pop');
+    emojiToggle?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      _chatEmojiOpen = !_chatEmojiOpen;
+      emojiPop?.classList.toggle('open', _chatEmojiOpen);
+    });
+    _overlay.querySelectorAll('[data-chat-emoji]').forEach(el => {
+      el.addEventListener('click', () => {
+        const em = el.getAttribute('data-chat-emoji');
+        const s = chatInput.selectionStart ?? chatInput.value.length;
+        const e2 = chatInput.selectionEnd ?? chatInput.value.length;
+        chatInput.value = chatInput.value.slice(0, s) + em + chatInput.value.slice(e2);
+        const pos = s + em.length;
+        chatInput.focus();
+        try { chatInput.setSelectionRange(pos, pos); } catch {}
+      });
+    });
   }
 
   _overlay.querySelector('[data-open-theme-editor]')?.addEventListener('click', () => {
@@ -2102,6 +2291,13 @@ export function openTabletPanel(msg) {
     document.addEventListener('mis_state_update', (e) => tosApplyMis(e.detail?.enabled, e.detail?.server_disabled));
   }
 
+  // Reuse the live overlay only if it's still in the DOM. mountOverlay's own ESC
+  // handler can tear the node out (calling our onClose) without our close() path
+  // running — if we didn't also null _overlay there, a stale detached reference
+  // would make every later open render into nothing until a page refresh. Guard
+  // on isConnected so a detached _overlay is treated as closed and rebuilt.
+  if (_overlay && !_overlay.isConnected) { close(); }
+
   if (!_overlay) {
     const html = `<div class="tos-anchor"><div class="tos-panel mg-chassis tos-powering-on">
       ${deviceHeader('&#9635;', 'ARCHITECT OS', 'Tablet Interface')}
@@ -2112,7 +2308,11 @@ export function openTabletPanel(msg) {
         ${crtOverlays()}
       </div></div>
     </div></div>`;
-    const mounted = mountOverlay({ id: 'tablet-os-overlay', html, onClose: () => { _data = null; }, closeOnBackdrop: false });
+    // onClose runs whenever the overlay is torn down by ANY path (including
+    // mountOverlay's ESC handler, which bypasses our shutdownTablet/close). Route
+    // it through close() so _overlay is always nulled — otherwise the next open
+    // reuses a dead reference and the tablet silently fails to appear.
+    const mounted = mountOverlay({ id: 'tablet-os-overlay', html, onClose: () => { close(); }, closeOnBackdrop: false });
     _overlay = mounted.overlay;
     _close = mounted.close;
     _overlay.querySelector('.mg-close').addEventListener('click', shutdownTablet);
@@ -2128,11 +2328,251 @@ export function openTabletPanel(msg) {
   render();
 }
 
+// ── Arcade app: "ARCHITECT" (a fake game inside the game) ────────────────────
+// Everything below runs client-side against #tos-fake-root. Login → boot lines
+// → a tiny live MUD terminal (canned room + ambient ticker + local command
+// echo), with a tablet you can tap that pops a shrunk recreation of this very
+// tablet (a tappable-but-inert home grid). No server round trips.
+
+const FK_AMBIENT = [
+  'Rain ticks off the corrugated awning overhead.',
+  'A delivery drone whines past, low and overloaded.',
+  'Somewhere below, a bassline thuds through the pavement.',
+  'A vendor two stalls down screams the price of synth-noodles.',
+  'The neon sign above you flickers: OPE— —PEN — OPEN.',
+  'A stray dog eyes your boots, thinks better of it, moves on.',
+  'Static crackles from a dead payphone. It almost sounds like a name.',
+  'Your breath fogs. The Architect is watching, probably.',
+  'A cop-drone sweeps the alley mouth with a red eye, then loses interest.',
+];
+
+// Mini-tablet home grid — a recreation of the real app roster (labels + icons).
+const FK_MINI_APPS = [
+  { ic: '📋', nm: 'Quests' }, { ic: '📊', nm: 'Skills' }, { ic: '💰', nm: 'Bank' },
+  { ic: '⛅', nm: 'Weather' }, { ic: '🗺️', nm: 'Map' }, { ic: '🚗', nm: 'Vehicles' },
+  { ic: '🏠', nm: 'Property' }, { ic: '💬', nm: 'Chat' }, { ic: '📡', nm: 'SPECTER' },
+  { ic: '📰', nm: 'News' }, { ic: '🏢', nm: 'Corp' }, { ic: '🎮', nm: 'ARCHITECT' },
+];
+
+function mountFakePlay() {
+  const root = _overlay && _overlay.querySelector('#tos-fake-root');
+  if (!root) return;
+  if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; }
+  const handle = (_data && _data.handle) || 'operative';
+  fkShowLogin(root, handle);
+}
+
+function fkShowLogin(root, handle) {
+  root.innerHTML = `
+    <div class="tos-fk-login">
+      <div class="tos-fk-logo">ARCHITECT</div>
+      <div class="tos-fk-tag">a post-singularity MUD</div>
+      <div class="tos-fk-field"><label>Handle</label><input id="tos-fk-handle" type="text" value="${esc(handle)}" spellcheck="false" autocomplete="off"></div>
+      <div class="tos-fk-field"><label>Passkey</label><input id="tos-fk-pass" type="password" value="hunter2" spellcheck="false" autocomplete="off"></div>
+      <div class="tos-fk-jack" id="tos-fk-jack">JACK IN <span class="tos-fk-cur">▊</span></div>
+    </div>`;
+  const jack = root.querySelector('#tos-fk-jack');
+  const pass = root.querySelector('#tos-fk-pass');
+  const go = () => fkBoot(root, root.querySelector('#tos-fk-handle').value.trim() || handle);
+  jack.addEventListener('click', go);
+  pass.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+}
+
+function fkBoot(root, handle) {
+  const lines = [
+    'Establishing uplink to grid node 7…',
+    'Handshake … <span class="ok">OK</span>',
+    'Authenticating operative … <span class="ok">OK</span>',
+    'Decrypting neural profile …',
+    'Loading world state … 41,982 rooms',
+    'Reticulating splines …',
+    `Welcome back, <span class="ok">${esc(handle)}</span>.`,
+  ];
+  root.innerHTML = `<div class="tos-fk-boot" id="tos-fk-boot"></div>`;
+  const box = root.querySelector('#tos-fk-boot');
+  let i = 0;
+  const tick = () => {
+    if (!_overlay || !_overlay.contains(box)) return; // torn down mid-boot
+    if (i < lines.length) {
+      const div = document.createElement('div');
+      div.innerHTML = '&gt; ' + lines[i++];
+      box.appendChild(div);
+      setTimeout(tick, 260 + Math.floor(Math.random() * 220));
+    } else {
+      setTimeout(() => { if (_overlay && _overlay.contains(box)) fkShowTerm(root, handle); }, 520);
+    }
+  };
+  tick();
+}
+
+function fkShowTerm(root, handle) {
+  const chips = ['inv','gear','stats','skills','who','help','tablet','map','music']
+    .map(c => `<span class="tos-fk-chip" data-fk-chip="${c}">${c}</span>`).join('');
+  root.innerHTML = `
+    <div class="tos-fk-term">
+      <div class="tos-fk-hud">
+        <span class="hp">HP <b>178/178</b></span><span>SAN <b>100</b></span>
+        <span>STA <b>100</b></span><span class="cr">₵ <b>10,555</b></span><span class="wt">WANTED <b>✦✦</b></span>
+      </div>
+      <div class="tos-fk-log" id="tos-fk-log"></div>
+      <div class="tos-fk-tabbtn" id="tos-fk-tabbtn">📱 TABLET</div>
+      <div class="tos-fk-chips">${chips}</div>
+      <div class="tos-fk-inrow">
+        <span class="tos-fk-prompt">&gt;</span>
+        <input class="tos-fk-in" id="tos-fk-in" type="text" spellcheck="false" autocomplete="off" placeholder="Type a command...">
+      </div>
+    </div>`;
+  const log = root.querySelector('#tos-fk-log');
+  const push = (html, cls) => {
+    const div = document.createElement('div');
+    div.className = 'tos-fk-line' + (cls ? ' ' + cls : '');
+    div.innerHTML = html;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  };
+  const openMini = () => fkOpenMini(root);
+
+  fkRoomLook(push);
+
+  const ambient = () => {
+    if (!_overlay || !_overlay.contains(log)) { clearInterval(_fakeTimer); _fakeTimer = null; return; }
+    push(FK_AMBIENT[Math.floor(Math.random() * FK_AMBIENT.length)], 'tos-fk-amb');
+  };
+  if (_fakeTimer) clearInterval(_fakeTimer);
+  _fakeTimer = setInterval(ambient, 6500);
+
+  root.querySelector('#tos-fk-tabbtn').addEventListener('click', openMini);
+  // Any underlined noun tagged data-fk-buzz opens the tablet; chips run as commands.
+  const wireLinks = () => root.querySelectorAll('[data-fk-buzz]').forEach(el => {
+    if (el._wired) return; el._wired = true;
+    el.addEventListener('click', openMini);
+  });
+  wireLinks();
+  root.querySelectorAll('[data-fk-chip]').forEach(el => {
+    el.addEventListener('click', () => {
+      const c = el.getAttribute('data-fk-chip');
+      push('&gt; ' + c, 'tos-fk-echo');
+      fkRespond(c, push, openMini);
+    });
+  });
+
+  const input = root.querySelector('#tos-fk-in');
+  input.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const cmd = input.value.trim();
+    input.value = '';
+    if (!cmd) return;
+    push('&gt; ' + esc(cmd), 'tos-fk-echo');
+    fkRespond(cmd, push, openMini);
+    wireLinks();
+  });
+  setTimeout(() => { if (_overlay && _overlay.contains(input)) input.focus(); }, 30);
+}
+
+// The opening room look — mirrors the real game's look-pane structure: bold
+// accent room name + [SAFE] badge, italic district line, description with inline
+// nouns, then Furniture / NPCs / Exits / Buildings lines in the game palette.
+function fkRoomLook(push) {
+  push('RUST ALLEY<span class="tos-fk-safe">SAFE</span>', 'tos-fk-room');
+  push('· the Neon Quarter ·', 'tos-fk-dist');
+  push('A knife-thin gap between two data-towers, floored in wet concrete and older promises. '
+     + 'Steam breathes up from a grate. A cracked ad-panel loops a smiling face that hasn\'t existed '
+     + 'in years. A <span class="tos-fk-furn" data-fk-buzz>camera</span> watches, unblinking.', 'tos-fk-desc');
+  push('<span class="tos-fk-label">Furniture:</span> <span class="tos-fk-furn">A Dead Ad-Panel</span>, '
+     + '<span class="tos-fk-furn">A Steam Grate</span>, <span class="tos-fk-furn">Street Lights</span> '
+     + '<span class="tos-fk-label">(off)</span>');
+  push('<span class="tos-fk-label">NPCs here:</span> <span class="tos-fk-npc">Sully</span>, '
+     + '<span class="tos-fk-npc">A Twitching Junkie</span>');
+  push('<span class="tos-fk-label">Exits:</span> <span class="tos-fk-dir">[North]</span> '
+     + '<span class="tos-fk-exit">The Loading Bay</span>, <span class="tos-fk-dir">[East]</span> '
+     + '<span class="tos-fk-exit">The Threshold</span>, <span class="tos-fk-dir">[Down]</span> '
+     + '<span class="tos-fk-exit">Drainage Sub-Level</span>');
+  push('<span class="tos-fk-label">Buildings:</span> <span class="tos-fk-dir">[In]</span> '
+     + '<span class="tos-fk-build">Embassy Hotel &amp; Bar</span>');
+  push('Your tablet buzzes in your pocket. <span class="tos-fk-buzz" data-fk-buzz>[check it]</span>', 'tos-fk-sys');
+}
+
+function fkRespond(cmd, push, openMini) {
+  const c = cmd.toLowerCase();
+  const first = c.split(/\s+/)[0];
+  if (['n','s','e','w','north','south','east','west','u','d','up','down','go'].includes(first)) {
+    push('You slip deeper into the Quarter. The walls lean closer.', 'tos-fk-desc');
+    push('DRAINAGE SUB-LEVEL', 'tos-fk-room');
+    push('· the Neon Quarter ·', 'tos-fk-dist');
+    push('Ankle-deep runoff. Something with too many legs skitters away from your light.', 'tos-fk-desc');
+    push('<span class="tos-fk-label">Exits:</span> <span class="tos-fk-dir">[Up]</span> '
+       + '<span class="tos-fk-exit">Rust Alley</span>');
+  } else if (first === 'look' || first === 'l') {
+    fkRoomLook(push);
+  } else if (first === 'inventory' || first === 'i' || first === 'inv') {
+    push('<span class="tos-fk-label">You are carrying:</span> a dented tablet, half a synth-noodle, '
+       + '<span class="tos-fk-furn">a rusted pipe</span>, ₵10,555, and a bad feeling.', 'tos-fk-desc');
+  } else if (first === 'gear') {
+    push('<span class="tos-fk-label">Worn:</span> a stained longcoat, cracked goggles, one good boot.', 'tos-fk-desc');
+  } else if (first === 'stats' || first === 'skills') {
+    push('<span class="tos-fk-label">Brawn</span> 4 · <span class="tos-fk-label">Reflexes</span> 6 · '
+       + '<span class="tos-fk-label">Brains</span> 5 · <span class="tos-fk-label">Cool</span> 7. Good enough for government work.', 'tos-fk-desc');
+  } else if (first === 'who') {
+    push('<span class="tos-fk-label">Online:</span> <span class="tos-fk-npc">you</span>, and the machine, always.', 'tos-fk-desc');
+  } else if (first === 'map') {
+    push('The map is a rumour. Open your tablet for the real one — oh, wait.', 'tos-fk-amb');
+  } else if (first === 'music') {
+    push('A synth drone fades up from nowhere. It knows what you did.', 'tos-fk-amb');
+  } else if (first === 'tablet' || first === 'os') {
+    push('You pull out your tablet.', 'tos-fk-sys');
+    openMini();
+  } else if (first === 'help') {
+    push('Try: look, north, inv, gear, stats, who, tablet, quit. (It\'s a demo. Be gentle.)', 'tos-fk-sys');
+  } else if (first === 'quit' || first === 'logout' || first === 'exit') {
+    push('There is no escape. You are already inside the tablet, inside the game, inside the tablet.', 'tos-fk-sys');
+  } else {
+    push(`You can't "${esc(first)}" here — and honestly, this is a game inside a tablet inside a game. Cut it some slack.`, 'tos-fk-amb');
+  }
+}
+
+function fkOpenMini(root) {
+  if (root.querySelector('.tos-fk-mini-scrim')) return; // already open
+  const grid = FK_MINI_APPS.map((a, idx) =>
+    `<div class="tos-fk-app" data-fk-app="${idx}"><span class="ic">${a.ic}</span><span class="nm">${esc(a.nm)}</span></div>`).join('');
+  const scrim = document.createElement('div');
+  scrim.className = 'tos-fk-mini-scrim';
+  scrim.innerHTML = `
+    <div class="tos-fk-mini">
+      <div class="tos-fk-mini-hd"><span>ARCHITECT&nbsp;OS</span><span class="tos-fk-mini-x" id="tos-fk-mini-x">✕</span></div>
+      <div class="tos-fk-mini-screen">
+        <div class="tos-fk-mini-time"><span>08:14</span><span>▮▮▮▯ 74%</span></div>
+        <div class="tos-fk-mini-grid">${grid}</div>
+        <div class="tos-fk-mini-toast" id="tos-fk-mini-toast"></div>
+        <div class="tos-fk-mini-home" id="tos-fk-mini-home"></div>
+      </div>
+    </div>`;
+  root.appendChild(scrim);
+
+  const close = () => scrim.remove();
+  scrim.addEventListener('click', e => { if (e.target === scrim) close(); });
+  scrim.querySelector('#tos-fk-mini-x').addEventListener('click', close);
+  scrim.querySelector('#tos-fk-mini-home').addEventListener('click', close);
+
+  const toast = scrim.querySelector('#tos-fk-mini-toast');
+  let toastT = null;
+  scrim.querySelectorAll('[data-fk-app]').forEach(el => {
+    el.addEventListener('click', () => {
+      el.classList.remove('tap'); void el.offsetWidth; el.classList.add('tap'); // restart flash
+      const nm = FK_MINI_APPS[+el.getAttribute('data-fk-app')].nm;
+      toast.textContent = `${nm} — not installed`;
+      toast.classList.add('show');
+      if (toastT) clearTimeout(toastT);
+      toastT = setTimeout(() => toast.classList.remove('show'), 1400);
+    });
+  });
+}
+
 function render() {
   if (!_overlay || !_data) return;
   const scroll = _overlay.querySelector('#tos-scroll');
   if (!scroll) return;
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; } // fakeplay remounts its own ticker
 
   const survLive = _data.view === 'surveillance' && !!_data.live;
   const isChat = _data.view === 'chat';
@@ -2160,6 +2600,8 @@ function render() {
   wireBody();
   applyTabletTheme();
 
+  if (_data.view === 'fakeplay') mountFakePlay();
+
   if (isChat) {
     const log = _overlay.querySelector('#tos-chat-log');
     if (log) log.scrollTop = log.scrollHeight; // chat pins to the newest line
@@ -2178,6 +2620,7 @@ function render() {
     }
   } else if (_chatUnsub) {
     _chatUnsub(); _chatUnsub = null;
+    _chatEmojiOpen = false; // left chat → don't reopen the picker next time
   }
 
   if (survLive) _pollTimer = setInterval(pollSurveillance, 5000);
@@ -2191,8 +2634,10 @@ window.addEventListener('game-disconnect', () => { if (_overlay) close(); });
 
 function close() {
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; }
   if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
   _wasSurvLive = false;
   if (_close) { _close(); _close = null; }
   _overlay = null;
+  _data = null;
 }

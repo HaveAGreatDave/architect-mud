@@ -43,6 +43,7 @@ import './surveillance-app.js';
 import './chat-app.js';
 import './news-app.js';
 import './map-app.js';
+import './arcade-app.js';
 
 export { registerTabletApp, getTabletApps } from './registry.js';
 

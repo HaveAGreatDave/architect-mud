@@ -76,11 +76,15 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('tabletnav specter chips');
   check('specter microreels is a list view with no error', r?.view === 'list' && !r?.error && Array.isArray(r?.items), JSON.stringify(r)?.slice(0, 200));
 
-  // Turn-in, wrong zone: stays on the quest's own detail screen (objectives/
-  // actions intact) instead of swapping to a bare error screen — the "head to
-  // X" nudge goes out as a bottom-pane message instead.
+  // Turn-in ALWAYS brings up the quest-giver's dialogue and closes the tablet,
+  // regardless of where the player is standing — it's a comms hand-in, not a
+  // physical one. The NPC's root node fires TURN_IN on render (pays out), and the
+  // action returns { type: 'tablet_close' }. Put the NPC in a zone far from the
+  // player to prove location no longer gates it.
   const TQ = 'quest_regress_tabletturnin';
   const TN = 'npc_regress_tabletturnin';
+  const player = getPlayer();
+  const savedZone = player.current_zone;
   await query(
     `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
      VALUES ($1,'Regress Tablet Turn-In','',$2,'{}',0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
@@ -89,21 +93,29 @@ export default async function regress({ run, check, getPlayer }) {
   );
   await query(
     `INSERT INTO npcs (id,name,description,zone_id,dialogue_tree,home_zone)
-     VALUES ($1,'Regress Tablet Turn-In NPC','','zone_regress_tabletturnin_npc',$2,'zone_regress_tabletturnin_npc')
-     ON CONFLICT (id) DO UPDATE SET dialogue_tree=$2, zone_id=$3`,
-    [TN, JSON.stringify({ root: { text: 'Hi.', actions: [{ action: 'TURN_IN', quest_id: TQ }], options: [] } }), 'zone_regress_tabletturnin_npc']
+     VALUES ($1,'Regress Tablet Turn-In NPC','','zone_regress_tabletturnin_faraway',$2,'zone_regress_tabletturnin_faraway')
+     ON CONFLICT (id) DO UPDATE SET dialogue_tree=$2, zone_id=$3, home_zone=$3`,
+    [TN, JSON.stringify({ root: { text: 'Hi.', actions: [{ action: 'TURN_IN', quest_id: TQ }], options: [] } }), 'zone_regress_tabletturnin_faraway']
   );
-  const player = getPlayer();
-  const savedZone = player.current_zone;
   await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TQ]);
   await query(
     "INSERT INTO player_quests (player_id,quest_id,status,progress) VALUES ($1,$2,'completed','[1]')",
     [player.id, TQ]
   );
-  player.current_zone = 'zone_regress_tabletturnin_somewhere_else';
 
+  player.current_zone = savedZone;
   r = await run(`tabletaction quests turnin ${TQ}`);
-  check('failed turn-in stays on the quest detail screen', r?.view === 'detail' && (r?.quest?.id === TQ || r?.detail?.id === TQ), JSON.stringify(r)?.slice(0, 200));
+  check('turn-in brings up the giver dialogue and closes the tablet (any zone)', r?.type === 'tablet_close', JSON.stringify(r)?.slice(0, 200));
+  const { rows: turned } = await query('SELECT status FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TQ]);
+  check('turn-in via dialogue pays out / completes the quest', turned[0]?.status === 'turned_in', JSON.stringify(turned));
+
+  // Anti-stuck guarantee: a completed quest with NO NPC tied to it (the giver was
+  // deleted, or it's a self-landing flight contract) must still turn in — it falls
+  // through to the direct grant rather than dead-ending. Remove the NPC and retry.
+  await query('DELETE FROM npcs WHERE id=$1', [TN]);
+  await query("UPDATE player_quests SET status='completed' WHERE player_id=$1 AND quest_id=$2", [player.id, TQ]);
+  r = await run(`tabletaction quests turnin ${TQ}`);
+  check('turn-in with no NPC falls through to the direct grant (never stuck)', r?.type === 'tablet_panel' && r?.view !== 'error', JSON.stringify(r)?.slice(0, 200));
 
   player.current_zone = savedZone;
   await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TQ]);

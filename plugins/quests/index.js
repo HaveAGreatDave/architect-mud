@@ -120,6 +120,11 @@ function routeToObjective(actor, quest, progress) {
     type: 'gps_route',
     message: `GPS locked: ${destZone.name} (${hops} stop${hops === 1 ? '' : 's'} away). Route plotted on the map.`,
     path,
+    // A quest phase advanced and re-plotted the route — if the player already had
+    // auto-walk engaged for the previous leg, the client picks this new leg up
+    // automatically (resumeAutoWalkIfArmed) instead of stranding them at the last
+    // waypoint waiting for another Auto click.
+    resumeAuto: true,
   });
 }
 
@@ -132,6 +137,27 @@ async function turnInHint(questId) {
   if (!npc) return 'Return to turn it in.';
   const zone = npc.zone && getZone(npc.zone);
   return `Bring it to ${npc.npcName}${zone ? ` at ${zone.name}` : ''} to turn it in.`;
+}
+
+// On completion, auto-plot a GPS route to wherever the quest is handed in (the
+// turn-in NPC / job-board dispatcher), so the turn-in is tracked on the map the
+// same way objectives are mid-quest (routeToObjective). No-op when the quest has
+// no NPC tied to it (flight contracts land themselves), the hand-in is in this
+// same zone, or no route can be plotted from here.
+async function routeToTurnIn(actor, questId) {
+  const npc = await findTurnInNpc(questId);
+  if (!npc || !npc.zone || npc.zone === actor.current_zone) return;
+  const destZone = getZone(npc.zone);
+  if (!destZone) return;
+  const path = findPath(actor.current_zone, npc.zone);
+  if (!path || path.length < 2) return;
+  const hops = path.length - 1;
+  sendToPlayer(actor.id, {
+    type: 'gps_route',
+    message: `GPS locked: ${destZone.name} (${hops} stop${hops === 1 ? '' : 's'} away) — turn-in point plotted on the map.`,
+    path,
+    resumeAuto: true, // continue auto-walking to the hand-in if it was already on
+  });
 }
 
 function objectiveLine(obj, done, locked) {
@@ -160,10 +186,27 @@ function objectiveEmotes(obj) {
   return [];
 }
 
-function fireObjectiveEmote(actor, obj) {
+// Last emote line shown per objective-instance (dedup key) — a job task fires one
+// every ~2s, so without this the same random line repeats back-to-back and reads
+// like a stuck record. With a key, we only ever show a line that differs from the
+// one just shown ("only a new emote if it's unique"); a single-line pool that
+// would just repeat is suppressed rather than spamming the zone. Cleared when the
+// task ends (see scheduleTask/cancelTasksLeavingZone) so the map stays bounded.
+const _lastEmote = new Map();
+
+function fireObjectiveEmote(actor, obj, key) {
   const pool = objectiveEmotes(obj);
   if (!pool.length) return;
-  const line = pool[Math.floor(Math.random() * pool.length)];
+  let line;
+  if (key) {
+    const last = _lastEmote.get(key);
+    const fresh = pool.filter((l) => l !== last);
+    if (!fresh.length) return;                 // nothing new to show → stay silent
+    line = fresh[Math.floor(Math.random() * fresh.length)];
+    _lastEmote.set(key, line);
+  } else {
+    line = pool[Math.floor(Math.random() * pool.length)];
+  }
   sendToZone(actor.current_zone, { type: 'zone_event', message: line.replace(/\{who\}/g, actor.handle) });
 }
 
@@ -196,6 +239,7 @@ export function cancelTasksLeavingZone(playerId, zoneId) {
       clearTimeout(t.emoteTimer);
       clearTimeout(t.doneTimer);
       pendingTasks.delete(key);
+      _lastEmote.delete(key);
     }
   }
 }
@@ -207,7 +251,7 @@ function scheduleTask(actor, quest, objIndex, obj, seconds) {
   pendingTasks.set(key, entry);
 
   const tickEmote = () => {
-    fireObjectiveEmote(actor, obj);
+    fireObjectiveEmote(actor, obj, key); // keyed → never repeats the previous line
     entry.emoteTimer = setTimeout(tickEmote, 1500 + Math.random() * 1000); // "randomly every few seconds"
   };
   tickEmote();
@@ -215,6 +259,7 @@ function scheduleTask(actor, quest, objIndex, obj, seconds) {
   entry.doneTimer = setTimeout(() => {
     clearTimeout(entry.emoteTimer);
     pendingTasks.delete(key);
+    _lastEmote.delete(key);
     finishObjectiveTick(actor, quest, objIndex).catch((e) => console.error('[quests] finishObjectiveTick error:', e.message));
   }, seconds * 1000);
 }
@@ -244,6 +289,7 @@ async function finishObjectiveTick(actor, quest, objIndex) {
   if (done) {
     await setQuestFlag(actor, quest.id, 'completed');
     msg(actor.id, `<span class="msg-system">Quest complete: ${quest.name}. ${await turnInHint(quest.id)}</span>`);
+    await routeToTurnIn(actor, quest.id);
     emit('quest.completed', { actor, quest_id: quest.id });
   } else {
     const next = objectives.find((o, i) => (progress[i] || 0) < (o.count || 1) && requiresMet(objectives, o, progress));
@@ -292,7 +338,7 @@ export async function trackEvent(actor, predicate) {
       }
       progress[i] = (progress[i] || 0) + 1;
       changed = true;
-      fireObjectiveEmote(actor, obj);
+      fireObjectiveEmote(actor, obj, taskKey(actor.id, quest.id, i)); // keyed → no back-to-back repeats
       if (progress[i] >= need) justFinished.push(obj);
     });
     if (!changed) continue;
@@ -307,6 +353,7 @@ export async function trackEvent(actor, predicate) {
     if (done) {
       await setQuestFlag(actor, quest.id, 'completed');
       msg(actor.id, `<span class="msg-system">Quest complete: ${quest.name}. ${await turnInHint(quest.id)}</span>`);
+      await routeToTurnIn(actor, quest.id);
       emit('quest.completed', { actor, quest_id: quest.id });
     } else {
       // Names the objective(s) that just finished and reads out whatever's next,
@@ -422,7 +469,7 @@ registerAction({
       [JSON.stringify(progress), done ? 'completed' : 'active', actor.id, quest_id]
     );
     emit('quest.advanced', { actor, quest_id, progress });
-    if (done) { await setQuestFlag(actor, quest_id, 'completed'); emit('quest.completed', { actor, quest_id }); }
+    if (done) { await setQuestFlag(actor, quest_id, 'completed'); await routeToTurnIn(actor, quest_id); emit('quest.completed', { actor, quest_id }); }
     else routeToObjective(actor, quest, progress);
     return { type: 'quest', quest_id, progress, completed: done };
   },
