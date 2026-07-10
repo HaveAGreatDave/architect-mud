@@ -19,14 +19,17 @@
 // players who have opted into MIS (the maturity slider); everyone else sees the
 // tamer version of the same beat.
 
-import { getZone, getZoneNpcs, getZonePlayers, world } from '../../server/engine/world.js';
-import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { getZone, getZoneNpcs, getZonePlayers, getMinimapData, world } from '../../server/engine/world.js';
+import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { isMisActive } from '../../server/engine/mis.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { registerLockType } from '../../server/engine/locks.js';
 import { resolve as siftResolve } from '../../server/engine/sift.js';
+import { on } from '../../server/engine/events.js';
+import { dispatchAction } from '../../server/engine/actions.js';
+import { describeZone } from '../../server/engine/commands/describe.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const NAKED_AT       = 500;              // heat at which every layer is off + graphic
@@ -272,5 +275,76 @@ registerLockType('viplock', {
     return until > Date.now();
   },
 });
+
+// ── Bouncer ──────────────────────────────────────────────────────────────────
+// A bouncer NPC (flags.bouncer=true, optional flags.bouncer_eject_zone) enforces
+// the one house rule on the club floor: hands off the dancers. He doesn't care
+// what happens behind the VIP door — a room carrying the mis_ok flag is exempt —
+// but a paw on a dancer anywhere else earns one terse warning, then the street.
+//
+// Detection rides the mis plugin's `mis.npc_act` event (fired whenever a player
+// puts hands on ANY npc). We only act when: the target is a dancer, the room is
+// NOT a VIP/mis_ok room, and a live bouncer is actually standing there.
+const BOUNCER_WARN_LIMIT = 1;                 // free warnings before the toss
+const bouncerStrikes = new Map();             // playerId -> offences this visit (ephemeral)
+
+const BOUNCER_WARN = [
+  (b) => `${b.name} clamps a hand on your shoulder like a car door. "Hands off. No touching on the floor." He doesn't blink. "Do it again and you're gone."`,
+  (b) => `${b.name} steps between you and the rail before you've finished reaching. "We don't do that out here. Look, tip, leave it at that."`,
+  (b) => `${b.name} peels your hand away without heat, the way you'd move a chair. "No touching. That's the whole rule. Next time you're out."`,
+];
+const BOUNCER_WARN_ROOM = (b, who) => `${b.name} materialises out of nowhere and puts ${who} back at arm's length from the dancer.`;
+const BOUNCER_EJECT = [
+  (b) => `${b.name} doesn't say much this time. A fistful of collar, your feet barely touching, and the noise of the club drops away behind a slamming door. "Told you. No touching."`,
+  (b) => `${b.name} lifts you clean off the floor and walks you out mid-protest. Cold air, wet pavement, the door already shut. "Come back when you've learned some manners."`,
+];
+const BOUNCER_EJECT_ROOM = (b, who) => `${b.name} hauls ${who} off their feet and carries them bodily to the door.`;
+const pickB = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+// The fallback eject target: the first exit that leaves the club floor. Used when
+// the bouncer NPC has no flags.bouncer_eject_zone set.
+function fallbackEjectZone(zoneId) {
+  const zone = getZone(zoneId);
+  const exits = zone?.exits || {};
+  for (const dir of Object.keys(exits)) {
+    const t = typeof exits[dir] === 'string' ? exits[dir] : exits[dir]?.target;
+    if (t && t !== zoneId) return t;
+  }
+  return null;
+}
+
+async function bouncerEject(player, bouncer, zoneId) {
+  const dest = bouncer.flags?.bouncer_eject_zone || fallbackEjectZone(zoneId);
+  const bc = getBroadcast();
+  bc?.(zoneId, { type: 'zone_event', message: BOUNCER_EJECT_ROOM(bouncer, player.handle) }, player.id);
+  if (dest) {
+    await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: dest }, context: { broadcast: bc } });
+    const zone = getZone(dest);
+    if (zone) sendToPlayer(player.id, { type: 'move', message: await describeZone(zone, player), zone: dest, minimap: getMinimapData(dest) });
+  }
+  sendToPlayer(player.id, { type: 'output', message: pickB(BOUNCER_EJECT)(bouncer) });
+}
+
+on('mis.npc_act', async ({ player, npc, zoneId }) => {
+  if (!player?.id || !npc?.flags?.stripper) return;   // only hands-on-a-dancer
+  if (getZone(zoneId)?.flags?.mis_ok) return;          // VIP room: not his problem
+  const bouncer = getZoneNpcs(zoneId).find(n => n.flags?.bouncer && !n._dead);
+  if (!bouncer) return;                                // nobody working the door
+
+  const strikes = (bouncerStrikes.get(player.id) || 0) + 1;
+  if (strikes <= BOUNCER_WARN_LIMIT) {
+    bouncerStrikes.set(player.id, strikes);
+    const bc = getBroadcast();
+    bc?.(zoneId, { type: 'zone_event', message: BOUNCER_WARN_ROOM(bouncer, player.handle) }, player.id);
+    sendToPlayer(player.id, { type: 'output', message: pickB(BOUNCER_WARN)(bouncer) });
+  } else {
+    bouncerStrikes.delete(player.id);
+    await bouncerEject(player, bouncer, zoneId).catch(e => console.error('[strippers] bouncer eject:', e.message));
+  }
+});
+
+// Wipe a player's strike count when they leave (or re-enter) — every visit to the
+// floor is a clean slate, so one warning always precedes a toss.
+on('zone.entered', ({ actor }) => { if (actor?.id) bouncerStrikes.delete(actor.id); });
 
 export const commands = { tip: cmdTip };

@@ -38,6 +38,7 @@ import {
 	toggleWhisperPanel,
 } from "./panels/whisper.js";
 import { initWho, openWhoModal } from "./panels/who.js";
+import { initPlayersPanel } from "./panels/players.js";
 import { showAmountDialog, showDangerDialog } from "./panels/confirm.js";
 import { initSidebarOrder } from "./panels/sidebar-order.js";
 import { mountCustomPanels } from "./panels/custom/manager.js";
@@ -87,9 +88,8 @@ window._applyWeatherFx = setWeatherFxEnabled;
 
 applySettings(settings);
 // Mobile vs. desktop layout is auto-detected per device at launch — there is no
-// user toggle for that (data-density above). Smart UI (data-smart-ui, set by
-// applySettings from settings.smartUI) is a separate, player-togglable setting
-// that only controls the contextual per-room action bar (#smart-bar).
+// user toggle for that (data-density above). The Smart bar (#smart-bar,
+// data-smart-ui) is always on, every device — applySettings pins it.
 applyMobileScale();
 window.addEventListener("resize", applyMobileScale);
 
@@ -443,6 +443,7 @@ initDialogue();
 initForecast();
 initWhisperPanel();
 initWho();
+initPlayersPanel();
 initAtmPanel();
 initInsurancePanel();
 initSurveillanceHub();

@@ -1711,7 +1711,7 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
     messages: messages.map(t => ({ text: t })),
     broadcast_graph: broadcastGraph,
     weather_pools: isWeather ? (weatherScript || { pools: {}, host: meta.host }) : null,
-    sports_pools: isSports ? (sportsScript || { sport: meta.sport || 'baseball', announcer: meta.announcer, teams: [], players: [], pools: {} }) : null,
+    sports_pools: isSports ? (sportsScript || { sport: meta.sport || 'baseball', announcer: meta.announcer, teams: [], players: [], pools: {}, airSlots: null }) : null,
     channel_id: channelId,
   };
   try {

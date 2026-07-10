@@ -84,22 +84,27 @@ export const TYPES = {
   // holds real speed once it has momentum behind it in a dive. Strong brakes (biggest wheels),
   // but the ~95 kt touchdown still makes for a long rollout — it needs a real runway.
   leviathan: {
-    // thrustMax doubled (52→104) so she actually accelerates hard enough to reach her high
-    // (95kt) rotation speed before running off the end of the strip — was ponderous to the
-    // point of not getting off the runway at all. vsMax/vsGain still cap climb performance
-    // separately, so this mainly shortens the ground roll rather than inflating in-air punch.
-    name: 'Leviathan', mass: 5.0, thrustMax: 104, vr: 95, vs0: 64, vne: 280, cruise: 170,
-    pitchRate: 6, pitchTau: 1.0, rollRate: 22, rollTau: 1.1, engineLag: 2.4,
-    pitchStable: 0.7, rollStable: 0.85, dragP: 0.00065, flapDrag: 0.7, flapLift: 0.45, flapVs: 0.2,
-    // Climb bumped (1900→2700 vsMax, 1800→2500 vsGain, 1.35→1.05 vsTau) — she's 4 turbofans,
-    // not a piston hauler, and needs to actually climb AWAY from the field fast once she's
-    // finally rolling, not just accelerate down it. Faster vsTau also means she responds to
-    // that excess lift sooner instead of lagging into it.
+    // Character (per author direction): HEAVY and SLOW ON TOP, but a strong hauler with the
+    // longest legs in the fleet. Three levers set that without touching her takeoff:
+    //  • SLOWER TOP SPEED — the top end is where thrust==parasitic drag, so dragP is raised
+    //    hard (0.00065→0.0034). At full power she now tops out ~185 kt (slowest of the mid/heavy
+    //    set) instead of running away. vne dropped to 200 as the matching redline reference.
+    //  • GOOD ACCELERATION + SAME TAKEOFF — the extra drag barely bites at the low speeds of the
+    //    ground roll, but to keep the exact rotation-speed accel the takeoff was tuned for, thrust
+    //    is bumped (104→120) to offset the new drag at Vr. Net force at 95 kt is ~unchanged, so
+    //    she still reaches rotation before the end of the strip; low-speed punch is if anything
+    //    a touch stronger.
+    //  • FLIES HEAVY — slower control rates + longer build-up + weaker self-level, so she's
+    //    ponderous to react (you fly her well ahead of the aircraft).
+    name: 'Leviathan', mass: 5.0, thrustMax: 120, vr: 95, vs0: 64, vne: 200, cruise: 155,
+    pitchRate: 5, pitchTau: 1.3, rollRate: 18, rollTau: 1.45, engineLag: 2.6,
+    pitchStable: 0.58, rollStable: 0.7, dragP: 0.0034, flapDrag: 0.7, flapLift: 0.45, flapVs: 0.2,
+    // Climb performance unchanged (she must still climb away from the field once rolling); the
+    // faster top speed is gone but the field performance is not.
     rollFric: 1.2, aoaCrit: 16, liftScale: 1.0, vsMax: 2700, vsGain: 2500, vsTau: 1.05,
     brake: 8.0, groundSteer: 16, ceiling: 18000,   // cruises high, above the weather — the fleet's highest ceiling
-    // The slippery, low-drag airframe would otherwise float ~34:1 dead-stick (albatross-like for
-    // a heavy freighter). A touch of dead-stick induced drag brings the engine-out glide to a
-    // believable ~13:1 without touching its (powered) cruise or climb. Best glide ~89 kt.
+    // A touch of dead-stick induced drag keeps the engine-out glide believable for a heavy
+    // (no albatross float) without touching powered cruise or climb. Best glide ~89 kt.
     glideDrag: 0.0019, bestGlide: 89,
   },
   // Reaper — a Fairchild A-10 WARTHOG analogue: the gun IS the plane. NOT a fighter —

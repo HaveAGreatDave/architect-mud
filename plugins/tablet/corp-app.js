@@ -4,7 +4,7 @@
 // the `corp console` command itself returns) and its `corp` command dispatcher
 // for actions (found/contribute/invest/colour/fold) — no corp logic duplicated
 // here, this is a reshape into the Tablet's `view: 'corp'` dashboard + buttons.
-import { getOrg, getPlayerMembership } from '../../server/engine/world.js';
+import { getOrg, getPlayerMembership, getAllLivePlayers } from '../../server/engine/world.js';
 import { PERM, hasPerm } from '../../server/engine/org-perms.js';
 import { registerTabletApp, normScreen } from './registry.js';
 
@@ -25,7 +25,7 @@ async function buildMapScreen(player) {
 }
 
 async function buildScreen(player, screenId) {
-  const { buildConsolePayload, FOUND_FEE, corpColorOptions } = await import('../corps/index.js');
+  const { buildConsolePayload, FOUND_FEE } = await import('../corps/index.js');
   const m = getPlayerMembership(player.id);
 
   if (normScreen(screenId) === 'map') return buildMapScreen(player);
@@ -49,7 +49,14 @@ async function buildScreen(player, screenId) {
     actions.push({ id: 'invest', label: `Invest ₵${payload.tierInfo.nextCost.toLocaleString()}` });
   }
   if (canInvite) {
-    actions.push({ id: 'invite', label: '➕ Invite Player', prompt: 'Handle of the player to invite (must be online):' });
+    // Present the roster of online players to pick from (no typing a handle) —
+    // exclude yourself and anyone already in the corp.
+    const memberHandles = new Set((payload.members || []).map(m => (m.handle || '').toLowerCase()));
+    const online = getAllLivePlayers()
+      .filter(p => p.id !== player.id && p.handle && !memberHandles.has(p.handle.toLowerCase()))
+      .map(p => p.handle)
+      .sort((a, b) => a.localeCompare(b));
+    actions.push({ id: 'invite', label: '➕ Invite Player', pick: online });
   }
   if (canFold) {
     actions.push({ id: 'fold', label: 'Fold Corp', confirm: `Fold ${org.name}? This deletes the corp for good — the treasury is refunded to the owner and any HQ is released.` });
@@ -69,7 +76,6 @@ async function buildScreen(player, screenId) {
       color: org.color || null,
       canEdit,
     },
-    palette: canEdit ? await corpColorOptions() : null,
     actions,
   };
 }

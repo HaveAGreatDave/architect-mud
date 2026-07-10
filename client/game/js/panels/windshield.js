@@ -654,16 +654,36 @@ function drawHud(ctx, W, H, v) {
   // a chevron so you always know which way to turn toward the field.
   const aps = Array.isArray(v.airports) ? v.airports : [];
   if (aps.length) {
-    const rowY = tapeY + tapeH + 24;
+    const rowY = tapeY + tapeH + 24, now = performance.now();
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    for (const ap of aps.slice(0, 4)) {
+    // Draw the SELECTED target last so it sits on top of any overlapping tags.
+    const ordered = aps.slice(0, 4).sort((a, b) => (a.id === v.apTargetId ? 1 : 0) - (b.id === v.apTargetId ? 1 : 0));
+    for (const ap of ordered) {
       const delta = (((ap.bearing - hdg) % 360) + 540) % 360 - 180;
       const off = Math.abs(delta) > 45, x = cx + clamp(delta, -45, 45) * ppd;
-      ctx.fillStyle = off ? 'rgba(224,120,208,0.5)' : '#e078d0';
-      ctx.beginPath(); ctx.moveTo(x, rowY - 4); ctx.lineTo(x + 3, rowY); ctx.lineTo(x, rowY + 4); ctx.lineTo(x - 3, rowY); ctx.closePath(); ctx.fill();
-      ctx.font = 'bold 9px monospace';
-      if (off) ctx.fillText(delta > 0 ? '›' : '‹', x + (delta > 0 ? 8 : -8), rowY);
-      ctx.font = '7px monospace'; ctx.fillStyle = off ? 'rgba(224,120,208,0.7)' : '#f0a8e4';
+      const isTgt = ap.id != null && ap.id === v.apTargetId;
+      // "Lined up" = the field is dead ahead (within ~3.5°). The tag slides to centre as you
+      // turn onto it and snaps to a green LINED-UP state so you know you're pointed home / can
+      // return to the map on this heading.
+      const lined = !off && Math.abs(delta) <= 3.5;
+      if (lined && isTgt) {
+        const pulse = 0.6 + 0.4 * Math.sin(now * 0.009);
+        ctx.fillStyle = `rgba(79,224,160,${0.85 + pulse * 0.15})`;
+        ctx.beginPath(); ctx.moveTo(x, rowY - 6); ctx.lineTo(x + 5, rowY); ctx.lineTo(x, rowY + 6); ctx.lineTo(x - 5, rowY); ctx.closePath(); ctx.fill();
+        // centre-line tick up to the tape so the eye reads "aligned"
+        ctx.strokeStyle = `rgba(79,224,160,${0.5 + pulse * 0.4})`; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, rowY - 7); ctx.lineTo(x, tapeY + tapeH); ctx.stroke();
+        ctx.font = 'bold 7px monospace'; ctx.fillStyle = '#4fe0a0';
+        ctx.fillText('◆ LINED UP', x, rowY - 13);
+      } else {
+        // Selected target is a brighter, larger diamond than the other fields.
+        const sz = isTgt ? 5 : 3.5;
+        ctx.fillStyle = off ? (isTgt ? 'rgba(255,207,62,0.7)' : 'rgba(224,120,208,0.5)') : (isTgt ? '#ffcf3e' : '#e078d0');
+        ctx.beginPath(); ctx.moveTo(x, rowY - sz); ctx.lineTo(x + sz * 0.75, rowY); ctx.lineTo(x, rowY + sz); ctx.lineTo(x - sz * 0.75, rowY); ctx.closePath(); ctx.fill();
+        if (off) { ctx.font = 'bold 9px monospace'; ctx.fillText(delta > 0 ? '›' : '‹', x + (delta > 0 ? 8 : -8), rowY); }
+      }
+      ctx.font = (isTgt ? 'bold ' : '') + '7px monospace';
+      ctx.fillStyle = lined && isTgt ? '#8ff0c4' : off ? (isTgt ? 'rgba(255,207,62,0.85)' : 'rgba(224,120,208,0.7)') : (isTgt ? '#ffe08a' : '#f0a8e4');
       ctx.fillText((ap.name || 'FIELD').slice(0, 7).toUpperCase() + (ap.dist != null ? ' ' + ap.dist : ''), x, rowY + 9);
     }
   }

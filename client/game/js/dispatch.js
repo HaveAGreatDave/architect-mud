@@ -24,6 +24,7 @@ import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } f
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
 import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillancehub.js';
 import { openDatachipReplay } from './panels/datachipreplay.js';
+import { openSpecterInstall } from './panels/specterinstall.js';
 import { openCircuitHack } from './panels/circuithack.js';
 import { openHololock } from './panels/hololock.js';
 import { openFishing } from './panels/fishing.js';
@@ -550,6 +551,7 @@ const handlers = {
   surveillance_hub: (msg) => { openSurveillanceHub(msg); },
   surveillance_hub_update: (msg) => { updateSurveillanceHub(msg); },
   datachip_replay: (msg) => { openDatachipReplay(msg); },
+  specter_install: (msg) => { openSpecterInstall(msg); },
   wanted_level: (msg) => { updateWantedHud(msg.stars || 0); if (msg.heat != null) setWantedHeat(msg.heat); refreshCustomPanels(); },
   heat_level: (msg) => setWantedHeat(msg.heat || 0),
   camera_flash: () => {

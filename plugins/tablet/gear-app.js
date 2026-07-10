@@ -1,17 +1,21 @@
-// Tablet OS — Gear app. A tablet-native view of the equipment screen: the same
-// worn loadout, per-region soak, and passive effects the `gear` command feeds the
-// desktop panel, presented as a paperdoll over a human silhouette. It reuses
-// cmdGear (server/engine/commands/inventory.js) so the numbers are identical to
-// the desktop Gear panel — one source of truth. The client (panels/tablet-os.js
-// renderGear) draws the silhouette, per-slot boxes, and the layer selector.
+// Tablet OS — Gear app. A tablet-native view of the equipment screen: the worn
+// loadout on a Vitruvian paperdoll, per-region soak, passive effects, and the
+// carried-item tray — with the same drag-to-equip / drop-off interactions the
+// desktop Inventory + Gear panels have. It reuses cmdGear/cmdInventory (for the
+// data) and cmdEquipById/cmdUnequipById/cmdDropById (for the actions), all from
+// server/engine/commands/inventory.js, so behaviour is identical to the desktop
+// panels — one source of truth. The client (panels/tablet-os.js renderGear) draws
+// the silhouette, per-slot boxes, layer selector, and tray.
 import { registerTabletApp } from './registry.js';
-import { cmdGear } from '../../server/engine/commands/inventory.js';
+import { cmdGear, cmdInventory, cmdEquipById, cmdUnequipById, cmdDropById } from '../../server/engine/commands/inventory.js';
 
 async function buildGear(player) {
-  const g = await cmdGear(player);
+  const g = await cmdGear(player);          // equipped pieces (soak) + effects + carry
+  const inv = await cmdInventory(player);   // full carried list → the tray
   return {
     view: 'gear',
-    items: g.items,
+    items: g.items,                         // equippable subset (the doll reads equipped)
+    inventory: inv.items || [],             // every carried item (tray = unequipped subset)
     effects: g.effects,
     weight: g.weight,
     capacity: g.capacity,
@@ -24,6 +28,18 @@ registerTabletApp({
   icon: '🧥',
   category: 'General',
   buildScreen(player) {
+    return buildGear(player);
+  },
+  // Drag/drop + drop-off route through here so one round trip both mutates and
+  // returns the refreshed screen. params: "<inventoryId> [qty]".
+  async handleAction(player, actionId, params, broadcast) {
+    const [idStr, qtyStr] = String(params || '').trim().split(/\s+/);
+    const id = parseInt(idStr, 10);
+    if (id) {
+      if (actionId === 'equip') await cmdEquipById(id, player, broadcast);
+      else if (actionId === 'unequip') await cmdUnequipById(id, player);
+      else if (actionId === 'drop') await cmdDropById(id, player, broadcast, parseInt(qtyStr, 10) || 0);
+    }
     return buildGear(player);
   },
 });

@@ -530,9 +530,6 @@
 						<button class="qcmd" data-cmd="recipes">recipes</button>
 						<button class="qcmd" data-cmd="factions">factions</button>
 						<button class="qcmd" data-cmd="mutations">mutations</button>
-						<!-- Fallback tablet launcher — only shown when the Smart bar (which
-						     carries its own Tablet button) is off. CSS-gated on data-smart-ui. -->
-						<button class="qcmd" id="qcmd-tablet-fallback" data-cmd="tablet">tablet</button>
 					</div>
 				</div>
 				<div id="input-area">
@@ -743,6 +740,11 @@
 					<div
 						id="enemy-list"
 						style="font-size: 11px; color: var(--orange)"></div>
+				</div>
+
+				<div class="sidebar-section" id="players-section">
+					<div class="sidebar-label">Online <span id="players-online-count" class="players-online-count"></span></div>
+					<div id="players-online-list" class="players-online-list"></div>
 				</div>
 
 				<div
@@ -1867,7 +1869,7 @@
 					</div>
 					<div id="tv-header-right">
 						<span id="tv-live-badge"><span class="tv-live-dot">●</span> LIVE</span>
-						<button id="tv-close-btn" aria-label="Power off television" title="Power off">&#x23FB;</button>
+						<button id="tv-close-btn" aria-label="Close view; hold to switch off television" title="Tap to close · hold to switch off">&#x23FB;</button>
 					</div>
 				</div>
 				<div id="tv-static"></div>

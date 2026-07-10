@@ -118,7 +118,8 @@ function render() {
     <div class="shub-focus-feed shub-${esc(focus.status)}">${tileFeedHtml(focus)}<div class="shub-scan"></div></div>
     <div class="shub-ctrls">
       <button class="shub-btn${focus.recording ? ' shub-btn-on' : ''}" data-act="record" data-id="${esc(focus.id)}">${focus.recording ? '■ STOP REC' : '● RECORD'}</button>
-      <button class="shub-btn" data-act="clip" data-id="${esc(focus.id)}">▤ CLIP → CHIP</button>
+      <button class="shub-btn" data-act="clip" data-id="${esc(focus.id)}">▤ CLIP → REEL</button>
+      <button class="shub-btn" data-act="clear" data-id="${esc(focus.id)}">✕ CLEAR</button>
     </div>` : '';
 
   grid.querySelectorAll('.shub-tile').forEach(el => el.addEventListener('click', () => {
@@ -131,6 +132,7 @@ function render() {
     const id = el.dataset.id;
     if (el.dataset.act === 'record') { sendCmdSilent(`record ${id}`); blip(760, 0.06); }
     else if (el.dataset.act === 'clip') { sendCmdSilent(`clip ${id}`); blip(440, 0.05); setTimeout(() => blip(660, 0.07), 70); }
+    else if (el.dataset.act === 'clear') { sendCmdSilent(`wipe ${id}`); blip(300, 0.05); }
   }));
 
   tiles.forEach(t => prevStatus[t.id] = t.status);

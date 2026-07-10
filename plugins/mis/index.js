@@ -24,7 +24,7 @@ import { stainZone, stainClothing } from '../../server/engine/bodily.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { isNpcMisWilling, getNpcMisLine, npcMisAttacks } from '../../server/engine/npc-personality.js';
 import { registerInputMatcher } from '../../server/engine/plugins.js';
-import { on } from '../../server/engine/events.js';
+import { on, emit } from '../../server/engine/events.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { describeGenitals, ejaculateDescription } from '../../server/engine/appearance.js';
@@ -83,6 +83,11 @@ function fleeNpcToHome(npc, broadcast) {
 // Shared NPC MIS reaction handler. verb is the action name for actor message copy.
 // opts.isStrip = true broadcasts a clothing strip message (for penetrative commands).
 async function handleNpcMis(player, npc, verb, broadcast, opts = {}) {
+  // Fire-and-forget notice that a player put hands on an NPC. Decoupled listeners
+  // (e.g. the strip club bouncer) react to it — they filter on npc.flags/zone
+  // themselves; the MIS system stays ignorant of who's watching.
+  emit('mis.npc_act', { player, npc, verb, zoneId: player.current_zone });
+
   // Zone-gated consent: an NPC with flags.mis_requires_zone_flag only accepts
   // MIS in a room carrying that flag (e.g. a club dancer who'll only play in the
   // VIP room). Anywhere else they just wave you off — no fleeing, no fight, so

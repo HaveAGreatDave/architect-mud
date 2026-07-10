@@ -1499,9 +1499,13 @@ export const SCHEMA_SQL = `
     champ_score  INTEGER,
     runner_score INTEGER,
     decided_at   TIMESTAMPTZ,
+    start_slot   BIGINT,                            -- global game-slot the season's standings window opens at
+    ws_slot      BIGINT,                            -- global slot the World Series airs / standings freeze at
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS start_date TEXT;
+  ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS start_slot BIGINT;
+  ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS ws_slot BIGINT;
 
   -- Staging for aired games so they book into the standings at END of their airing
   -- window (resolve_at), not at air-start. The game_id primary key makes booking

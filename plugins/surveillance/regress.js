@@ -1,7 +1,7 @@
 // Surveillance plugin regression suite — run by tests/regress.js (never loaded
 // in production). Verb routing plus the crime→star registry defaults/cap.
 import { CRIME_DEFAULTS, getCrimeStars, getCrimeList } from '../../server/engine/crimes.js';
-import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, __refreshRecordingCams, __captureZoneLine, __cameraFrames } from './index.js';
+import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull } from './index.js';
 import { query } from '../../server/models/db.js';
 import { setFlag } from '../../server/engine/flags.js';
 
@@ -74,7 +74,7 @@ export default async function regress({ run, check, getPlayer }) {
     [p.id]
   );
   const inst = await run('use SPECTER Install Chip');
-  check('use SPECTER program reports install', inst?.type === 'output' && /installed/i.test(inst?.message || ''), JSON.stringify(inst)?.slice(0, 160));
+  check('use SPECTER program triggers the install animation + reports install', inst?.type === 'specter_install' && /installed/i.test(inst?.message || ''), JSON.stringify(inst)?.slice(0, 160));
   check('SPECTER install sets the flag', (await isSpecterInstalled(p)) === true);
   const { rows: leftover } = await query("SELECT 1 FROM player_inventory WHERE player_id=$1 AND item_id='item_specter_program'", [p.id]);
   check('SPECTER install consumes the program item', leftover.length === 0, `rows=${leftover.length}`);
@@ -102,18 +102,51 @@ export default async function regress({ run, check, getPlayer }) {
   check('sticky-cam logs speech + movement as lines', frames.length === 2 && /docks/.test(frames[0].text) && /arrives/.test(frames[1].text), JSON.stringify(frames)?.slice(0, 200));
   check('sticky-cam ignores ambient (non-whitelisted) lines', frames.every(f => !/neon sign/.test(f.text)), JSON.stringify(frames)?.slice(0, 160));
   check('logged lines are HTML-stripped plain text', frames.every(f => !/[<>]/.test(f.text)), JSON.stringify(frames)?.slice(0, 160));
+  // Lines are kind-tagged so the microreel viewer can colour speech apart from narration.
+  check('speech line tagged kind=say', frames[0].kind === 'say', JSON.stringify(frames[0]));
+  check('narration/movement line tagged kind=event', frames[1].kind === 'event', JSON.stringify(frames[1]));
 
-  // Rolling buffer honours the tunable ceiling (default 25) — 40 distinct lines → 25.
+  // Buffer STOPS at the tunable cap (default 25) — it does not roll over. 40 more
+  // distinct lines → the buffer holds the FIRST 25 pushed and marks itself full.
   for (let i = 0; i < 40; i++) __captureZoneLine(CAM_ZONE, { type: 'say', message: `line number ${i}` });
   frames = __cameraFrames(CAM_ID);
-  check('rolling buffer caps at the configured line budget', frames.length === 25, `len=${frames.length}`);
-  check('rolling buffer keeps the newest lines', /line number 39/.test(frames[frames.length - 1].text), frames[frames.length - 1].text);
+  check('buffer caps at the configured line budget', frames.length === 25, `len=${frames.length}`);
+  check('buffer stops (keeps oldest, drops nothing recorded before the cap)', /line number 22/.test(frames[frames.length - 1].text), frames[frames.length - 1].text);
+  check('a full buffer marks itself full (stops recording until reset)', __cameraFull(CAM_ID) === true, `full=${__cameraFull(CAM_ID)}`);
 
   // The tablet reads this same buffer (owner-gated) to show what's on tape.
   const mine = await cameraBufferLines(p, CAM_ID);
-  check('cameraBufferLines returns the owner buffer', mine.length === 25 && /line number 39/.test(mine[mine.length - 1].text), `len=${mine.length}`);
+  check('cameraBufferLines returns the owner buffer', mine.length === 25 && mine[0].kind, `len=${mine.length}`);
   const notMine = await cameraBufferLines({ id: 'someone_else' }, CAM_ID);
   check('cameraBufferLines refuses a non-owner', notMine.length === 0, `len=${notMine.length}`);
 
+  // ── Clip (→ microreel + clear buffer) and wipe (clear only) ─────────────────
+  // Both verbs join furniture, so give the cam a furniture row.
+  await query('DELETE FROM furniture WHERE id=$1', [CAM_ID]);
+  await query(
+    `INSERT INTO furniture (id, zone_id, name, description, object_type, flags, origin, owner_id)
+     VALUES ($1,$2,'Regress Cam','','security_device',$3,'player',$4)`,
+    [CAM_ID, CAM_ZONE, JSON.stringify({ security_device: true, device_id: CAM_ID, concealed: true }), p.id]
+  );
+  await query('DELETE FROM security_clips WHERE owner_id=$1', [p.id]);
+  const clipRes = await run('clip Regress Cam');
+  check('clip saves a microreel (not a datachip)', clipRes?.type === 'output' && /microreel/i.test(clipRes?.message || ''), JSON.stringify(clipRes)?.slice(0, 160));
+  check('clip clears the buffer so the cam records again', __cameraFrames(CAM_ID).length === 0 && __cameraFull(CAM_ID) === false, `len=${__cameraFrames(CAM_ID).length} full=${__cameraFull(CAM_ID)}`);
+  const reels = await microreelList(p);
+  check('clipped microreel appears in the owner reel list', reels.length >= 1 && reels[0].frames === 25, JSON.stringify(reels[0])?.slice(0, 160));
+  const { rows: chipItems } = await query("SELECT 1 FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'datachip')", [p.id]);
+  check('clipping does NOT mint a physical datachip', chipItems.length === 0, `chips=${chipItems.length}`);
+
+  // Refill, then wipe: buffer clears without saving another reel.
+  __captureZoneLine(CAM_ZONE, { type: 'say', message: 'one more for the tape' });
+  check('buffer refills after a clip', __cameraFrames(CAM_ID).length === 1, `len=${__cameraFrames(CAM_ID).length}`);
+  const wipeRes = await run('wipe Regress Cam');
+  check('wipe reports the discard', wipeRes?.type === 'output' && /wipe/i.test(wipeRes?.message || ''), JSON.stringify(wipeRes)?.slice(0, 160));
+  check('wipe clears the buffer without saving a reel', __cameraFrames(CAM_ID).length === 0, `len=${__cameraFrames(CAM_ID).length}`);
+  const reelsAfterWipe = await microreelList(p);
+  check('wipe did not add a reel', reelsAfterWipe.length === reels.length, `before=${reels.length} after=${reelsAfterWipe.length}`);
+
+  await query('DELETE FROM security_clips WHERE owner_id=$1', [p.id]);
+  await query('DELETE FROM furniture WHERE id=$1', [CAM_ID]);
   await query('DELETE FROM security_devices WHERE id=$1', [CAM_ID]);
 }

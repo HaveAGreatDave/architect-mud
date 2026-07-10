@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, liveAircraft, persist, pushHud, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf, inHangarInterior, rentalOpFee } from './state.js';
+import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf, inHangarInterior, rentalOpFee } from './state.js';
 // `buy` belongs to commerce (shopping); flight wins it by load order (manifest
 // `after`) and delegates back unless you're buying an aircraft at a dealer field.
 import { commands as commerceCommands } from '../commerce/index.js';
@@ -77,9 +77,22 @@ async function acquire(args, raw, player, kind) {
      VALUES ($1,$2,$3,$4,'map_world',$5,$6,'ground','n',$7,$8,20,$9)`,
     [id, t.id, tailNum, player.id, field.grid_x, field.grid_y, field.id, Math.round((await typeCap(t.id)) * 0.5), kind === 'buy' ? 0 : 1]
   );
-  return { type: 'output', message: kind === 'buy'
-    ? `<span class="item-grant">Sold. A brand-new <b>${t.name}</b> (${tailNum}) is towed onto the ramp — it's yours. <b>embark</b> her. <span class="text-dim">You own her now: you buy your own fuel and pay for your own <b>repair</b>s (DIY, or the hangar does it right for more).</span></span>\n<span class="msg-system">📄 <b>HALCYON ASSURANCE</b> has a rep on the floor: cover her before her first flight — <span class="action-link" data-action="cmd" data-cmd="insurebind ${id}">insure her now</span>. <span class="text-dim">An uninsured write-off is a total loss.</span></span>`
-    : `<span class="item-grant">Rented a <b>${t.name}</b> (${tailNum}), half a tank, parked and ready. <b>embark</b> her and fly it yourself. <span class="text-dim">Flat desk fee ${price}c paid; the meter then runs while you're airborne — ~${rentalOpFee(t)}c per 30 min for gas &amp; upkeep. Maintenance is on the desk, so just bring her back.</span></span>` };
+  if (kind === 'buy') {
+    // Point-of-sale insurance offer as an in-browser accept/decline popup (server
+    // { type:'confirm' } → showConfirmDialog): confirm binds cover via `insurebind`,
+    // cancel declines. Premium mirrors the insurance plugin's 15%-of-value rate for a
+    // clean (no prior claims) buyer, so the number in the offer matches what binds.
+    const premium = Math.max(1, Math.round(t.price_buy * 0.15));
+    sendToPlayer(player.id, {
+      type: 'confirm',
+      title: '📄 Halcyon Assurance',
+      prompt: `Cover your new ${t.name} before her first flight? The premium is ${premium}c for 30 days; a covered write-off pays out most of her value, less a small excess. Decline and an uninsured total loss is entirely on you.`,
+      confirmLabel: `Insure (${premium}c)`,
+      command: `insurebind ${id}`,
+    });
+    return { type: 'output', message: `<span class="item-grant">Sold. A brand-new <b>${t.name}</b> (${tailNum}) is towed onto the ramp — it's yours. <b>embark</b> her. <span class="text-dim">You own her now: you buy your own fuel and pay for your own <b>repair</b>s (DIY, or the hangar does it right for more).</span></span>\n<span class="msg-system">📄 <b>HALCYON ASSURANCE</b> is offering cover — accept it in the popup, or <span class="action-link" data-action="cmd" data-cmd="insurebind ${id}">insure her now</span> later. <span class="text-dim">An uninsured write-off is a total loss.</span></span>` };
+  }
+  return { type: 'output', message: `<span class="item-grant">Rented a <b>${t.name}</b> (${tailNum}), half a tank, parked and ready. <b>embark</b> her and fly it yourself. <span class="text-dim">Flat desk fee ${price}c paid; the meter then runs while you're airborne — ~${rentalOpFee(t)}c per 30 min for gas &amp; upkeep. Maintenance is on the desk, so just bring her back.</span></span>` };
 }
 
 async function typeCap(typeId) {
@@ -111,6 +124,38 @@ export async function refuelAt(args, raw, player) {
   await persist(live);
   pushHud(live);
   return { type: 'output', message: `You pump ${Math.round(want)} units of ${live.type.fuel_type} for ${cost}c. Tank: ${Math.round(live.row.fuel)}/${Math.round(cap)}.`,
+    player_update: { credits: player.credits } };
+}
+
+// Refuel a PARKED, owned aircraft at the field without boarding it — the ramp-side
+// twin of refuelAt, driven by the room examine-menu's "refuel" link. Same pump price
+// and fuel-type gate; writes straight to the row (and the live registry if it happens
+// to still be loaded, e.g. just landed).
+export async function refuelParked(player, craftId) {
+  const field = fieldOf(player);
+  if (!field) return { type: 'emote', message: 'Head to the airfield to refuel.' };
+  const { rows } = await query(
+    `SELECT a.id, a.owner_id, a.parked_zone_id, a.fuel, a.custom_data, t.fuel_capacity, t.fuel_type, t.name tname
+       FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1`, [craftId]);
+  if (!rows.length) return { type: 'emote', message: 'No such aircraft here.' };
+  const a = rows[0];
+  if (a.owner_id !== player.id) return { type: 'emote', message: "That's not your aircraft to fuel." };
+  if (a.parked_zone_id !== field.id) return { type: 'emote', message: 'That aircraft is parked at a different field.' };
+  const stocks = fieldStocks(getZone(field.id));
+  if (!stocks.length) return { type: 'emote', message: 'No fuel service at this field.' };
+  if (!stocks.includes(a.fuel_type))
+    return { type: 'emote', message: `This field pumps ${stocks.join('/')}, but the ${a.tname} runs on ${a.fuel_type}. Find it elsewhere.` };
+  const cap = a.fuel_capacity || 1;
+  const need = cap - a.fuel;
+  if (need <= 0.5) return { type: 'emote', message: `The ${a.tname}'s tank is already full.` };
+  const cost = Math.ceil(need * REFUEL_PRICE_PER_UNIT);
+  if ((player.credits || 0) < cost) return { type: 'emote', message: `Topping her off is ${cost}c — you're short.` };
+  player.credits -= cost;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  const live = liveAircraft.get(craftId);
+  if (live) { live.row.fuel = cap; live.starving = false; await persist(live); }
+  else await query('UPDATE aircraft SET fuel=$1 WHERE id=$2', [cap, craftId]);
+  return { type: 'output', message: `You top off the ${a.tname} with ${Math.round(need)} units of ${a.fuel_type} for ${cost}c. Full tank.`,
     player_update: { credits: player.credits } };
 }
 

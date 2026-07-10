@@ -827,7 +827,33 @@ function _startTickerAnimation() {
 
 
 export function initTvPanel() {
-  document.getElementById('tv-close-btn').addEventListener('click', shutdownTvPanel);
+  // Power button: a quick TAP just closes your view — the set keeps playing in the
+  // room, so anyone else there still sees/hears it (ambient continues). Press and
+  // HOLD to actually switch the set off: that stops the broadcast for the whole room
+  // and announces it ("… switches off the television."). See tv.poweroff server-side.
+  const powerBtn = document.getElementById('tv-close-btn');
+  const HOLD_MS = 450;
+  let _powerHoldTimer = null, _powerHeld = false;
+  const clearHold = () => { if (_powerHoldTimer) { clearTimeout(_powerHoldTimer); _powerHoldTimer = null; } };
+  powerBtn.addEventListener('pointerdown', (e) => {
+    if (!_tvOpen) return;
+    e.preventDefault();
+    _powerHeld = false;
+    clearHold();
+    _powerHoldTimer = setTimeout(() => {
+      _powerHeld = true; _powerHoldTimer = null;
+      sendRaw({ type: 'tv_poweroff' });   // switch the whole set off, room-wide
+      shutdownTvPanel();                   // CRT collapse + local close
+    }, HOLD_MS);
+  });
+  powerBtn.addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    clearHold();
+    if (_powerHeld) { _powerHeld = false; return; }   // the hold already switched it off
+    if (_tvOpen) closeTvPanel();                        // quick tap: close the view, set stays on
+  });
+  powerBtn.addEventListener('pointerleave', clearHold);      // dragged off → cancel the hold
+  powerBtn.addEventListener('pointercancel', () => { clearHold(); _powerHeld = false; });
   window.addEventListener('game-disconnect', () => { if (_tvOpen) shutdownTvPanel(); });
 
   // Knob: click cycles channels, mousewheel fine-tunes. Drag-to-rotate is

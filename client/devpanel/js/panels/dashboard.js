@@ -107,13 +107,15 @@ function renderDashboard(data) {
 
           <!-- MOTD Template editor -->
           <div style="font-size:11px;font-weight:600;color:var(--text-dim);margin-bottom:6px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px">MOTD Template</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;font-family:var(--font-mono)">Tokens (expand inside the ascii border): <code>&lt;player name&gt;</code> · <code>&lt;date&gt;</code> · <code>&lt;dynamic text&gt;</code> · <code>&lt;news&gt;</code> — live headlines, one line each</div>
           <textarea id="motd-editor"
             readonly
             spellcheck="false"
             style="width:100%;height:360px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:10px;box-sizing:border-box;resize:vertical;border-radius:2px;line-height:1.3;white-space:pre;overflow:auto;word-wrap:normal;overflow-wrap:normal"
             placeholder="Loading…"></textarea>
-          <div style="margin-top:8px">
+          <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
             <button id="motd-save-btn" style="background:var(--accent);border:none;color:#000;font-family:var(--font-mono);font-size:11px;font-weight:600;padding:6px 18px;cursor:pointer;border-radius:2px">Save</button>
+            <button id="motd-insert-news" title="Insert the &lt;news&gt; token at the cursor (turn Read Only OFF first)" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:11px;padding:6px 12px;cursor:pointer;border-radius:2px">Insert &lt;news&gt;</button>
           </div>
 
           <!-- Dynamic text editor -->
@@ -216,6 +218,7 @@ async function _initMotdEditor() {
   const editor        = document.getElementById('motd-editor');
   const dynamicBox    = document.getElementById('motd-dynamic');
   const saveBtn       = document.getElementById('motd-save-btn');
+  const insertNewsBtn = document.getElementById('motd-insert-news');
   const pushBtn       = document.getElementById('motd-push-btn');
   const status        = document.getElementById('motd-status');
   const readonlyBtn   = document.getElementById('motd-readonly-toggle');
@@ -226,7 +229,7 @@ async function _initMotdEditor() {
 
   let _view     = 'big';      // 'big' | 'medium' | 'small'
   let _readonly = true;
-  let _motd     = { big: '', medium: '', small: '', dynamic: '' };
+  let _motd     = { big: '', medium: '', small: '', dynamic: '', news: [] };
 
   const btnStyle = (active) => {
     if (active) {
@@ -247,7 +250,10 @@ async function _initMotdEditor() {
 
   function _getPreview(view) {
     const dyn = (dynamicBox?.value ?? _motd.dynamic) || '';
-    return (_motd[view] || '').replace(/<dynamic text>/g, dyn || '[dynamic text]');
+    const news = (_motd.news && _motd.news.length ? _motd.news : ['[No recent broadcasts available]']).join('\n');
+    return (_motd[view] || '')
+      .replace(/<dynamic text>/g, dyn || '[dynamic text]')
+      .replace(/<news>/g, news);
   }
 
   function _setEditorContent(text) {
@@ -283,6 +289,19 @@ async function _initMotdEditor() {
   toggleMedium?.addEventListener('click', () => _setView('medium'));
   toggleSmall?.addEventListener('click',  () => _setView('small'));
   readonlyBtn?.addEventListener('click',  _toggleReadonly);
+
+  // Drop the <news> token in at the cursor (editor must be editable). The token
+  // expands to the live headlines at render time, wrapped inside the ascii border.
+  insertNewsBtn?.addEventListener('click', () => {
+    if (!editor) return;
+    if (_readonly) { _showStatus('Turn Read Only OFF to edit', false); return; }
+    const s = editor.selectionStart ?? editor.value.length;
+    const e = editor.selectionEnd ?? editor.value.length;
+    editor.value = editor.value.slice(0, s) + '<news>' + editor.value.slice(e);
+    editor.selectionStart = editor.selectionEnd = s + 6;
+    _motd[_view] = editor.value;
+    editor.focus();
+  });
 
   function _showStatus(msg, ok = true) {
     if (!status) return;
@@ -321,7 +340,7 @@ async function _initMotdEditor() {
   if (d.error) {
     if (editor) editor.placeholder = 'Failed to load MOTD.';
   } else {
-    _motd = { big: d.big || '', medium: d.medium || '', small: d.small || '', dynamic: d.dynamic || '' };
+    _motd = { big: d.big || '', medium: d.medium || '', small: d.small || '', dynamic: d.dynamic || '', news: Array.isArray(d.news) ? d.news : [] };
     if (dynamicBox) dynamicBox.value = _motd.dynamic;
     _refreshToggleBtns();
     _setEditorContent();

@@ -3,14 +3,15 @@
 // no-ops; this asserts routing + payload shape, not real data.
 import { query } from '../../server/models/db.js';
 import { setFlag } from '../../server/engine/flags.js';
+import { _test as news } from './news-generator.js';
 
 export default async function regress({ run, check, getPlayer }) {
   let r = await run('tablet');
   check('tablet verb opens home screen', r?.type === 'tablet_panel' && r?.screen === 'home', JSON.stringify(r));
   check('home screen carries player summary', !!r?.player && typeof r.player.credits === 'number', JSON.stringify(r?.player));
   check('home screen lists apps', Array.isArray(r?.apps) && r.apps.length >= 9, `apps=${r?.apps?.length}`);
-  check('home screen apps include quests/skills/bank/weather/vehicles/properties/settings/corp/specter',
-    ['quests', 'skills', 'bank', 'weather', 'vehicles', 'properties', 'settings', 'corp', 'specter']
+  check('home screen apps include quests/skills/bank/vehicles/properties/settings/corp/specter',
+    ['quests', 'skills', 'bank', 'vehicles', 'properties', 'settings', 'corp', 'specter']
       .every(id => r.apps.some(a => a.id === id)),
     JSON.stringify(r?.apps?.map(a => a.id)));
 
@@ -19,11 +20,16 @@ export default async function regress({ run, check, getPlayer }) {
 
   // Nav into each simple app's root screen — asserts buildScreen doesn't throw
   // and returns a recognizable view.
-  for (const appId of ['skills', 'bank', 'weather', 'vehicles', 'properties', 'settings', 'corp']) {
+  for (const appId of ['skills', 'bank', 'crafting', 'vehicles', 'properties', 'settings', 'corp']) {
     r = await run(`tabletnav ${appId}`);
     check(`tabletnav ${appId} routes to app`, r?.type === 'tablet_panel' && r?.screen === 'app' && r?.appId === appId, JSON.stringify(r));
     check(`tabletnav ${appId} has no error`, !r?.error, r?.error);
   }
+
+  // Crafting app: root is a list of known recipes (skill-gated). The fake player
+  // knows none, but the screen must still route as a list view with no error.
+  r = await run('tabletnav crafting');
+  check('crafting app root is a list view', r?.type === 'tablet_panel' && r?.appId === 'crafting' && r?.view === 'list' && !r?.error, JSON.stringify(r)?.slice(0, 200));
 
   // Quests app: category root (no rows for the fake player, but must not error).
   r = await run('tabletnav quests');
@@ -87,6 +93,27 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('tabletnav specter chips');
   check('specter microreels is a list view with no error', r?.view === 'list' && !r?.error && Array.isArray(r?.items), JSON.stringify(r)?.slice(0, 200));
 
+  // Microreels list is now backed by the owner's security_clips (decoupled from
+  // physical datachips), and a reel opens the app's OWN inline viewer (view: reel).
+  const REEL_ID = 'clip_regress_tablet';
+  await query('DELETE FROM security_clips WHERE id=$1', [REEL_ID]);
+  await query(
+    `INSERT INTO security_clips (id, device_id, zone_id, owner_id, frames, captured_at, crime_tags)
+     VALUES ($1,'dev_x','zone_x',$2,$3,0,'[]')`,
+    [REEL_ID, sp.id, JSON.stringify([{ t: '00:00:00', text: 'Kaz says hi', kind: 'say' }, { t: '00:00:05', text: 'Vann leaves', kind: 'event' }])]
+  );
+  r = await run('tabletnav specter chips');
+  check('microreels list surfaces the owner reel', r?.view === 'list' && r.items.some(it => it.id === REEL_ID), JSON.stringify(r?.items)?.slice(0, 200));
+  r = await run(`tabletnav specter microreels ${REEL_ID}`);
+  check('opening a reel routes to the inline reel viewer', r?.view === 'reel' && Array.isArray(r?.reel?.frames) && r.reel.frames.length === 2, JSON.stringify(r)?.slice(0, 200));
+  check('reel frames carry kind for speech/emote colouring', r?.reel?.frames?.[0]?.kind === 'say' && r?.reel?.frames?.[1]?.kind === 'event', JSON.stringify(r?.reel?.frames)?.slice(0, 160));
+  await query('DELETE FROM security_clips WHERE id=$1', [REEL_ID]);
+
+  // The Clear action delegates to the `wipe` verb and re-renders the hub — even
+  // with no deployed cam it returns a surveillance view without throwing.
+  r = await run('tabletaction specter clear');
+  check('specter clear action returns a surveillance view', r?.type === 'tablet_panel' && r?.appId === 'specter' && r?.view === 'surveillance' && !r?.error, JSON.stringify(r)?.slice(0, 200));
+
   // Turn-in ALWAYS brings up the quest-giver's dialogue and closes the tablet,
   // regardless of where the player is standing — it's a comms hand-in, not a
   // physical one. The NPC's root node fires TURN_IN on render (pays out), and the
@@ -132,4 +159,15 @@ export default async function regress({ run, check, getPlayer }) {
   await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TQ]);
   await query('DELETE FROM npcs WHERE id=$1', [TN]);
   await query('DELETE FROM quests WHERE id=$1', [TQ]);
+
+  // Word on the Street (news-generator getStories) must never surface a duplicate
+  // headline — the live ring dedupes on record, and the assembled feed dedupes
+  // live vs. tabloid filler.
+  news.record('Regress News Dupe Headline'); // same headline recorded twice…
+  news.record('Regress News Dupe Headline');
+  const ringCopies = news.RING.filter(s => s.headline === 'Regress News Dupe Headline').length;
+  check('recording the same headline twice keeps one ring copy', ringCopies === 1, `copies=${ringCopies}`);
+  const stories = await news.getStories(12);
+  const heads = stories.map(s => String(s.headline).trim().toLowerCase());
+  check('getStories returns no duplicate headlines', heads.length === new Set(heads).size, JSON.stringify(heads));
 }

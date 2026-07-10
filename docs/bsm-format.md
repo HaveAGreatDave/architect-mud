@@ -511,6 +511,7 @@ All the standard headers (`@broadcast`, `@channel`, `@category`, `@length`) work
 | `@type sports` | Switches the file to the sports line-library format. |
 | `@sport baseball` | Which simulation to run. Only `baseball` is implemented; the discriminator for future sports. |
 | `@announcer "Chip Vega"` | The play-by-play voice — a display **name**, surrounding quotes stripped. Available in lines as `{announcer}`. Not an NPC. |
+| `@airtime 19` | Optional. Feature only the game(s) covering these **in-game hours** (0–23, comma/space-separated) each day — one full game, snapped to the grid, at a fixed time of day; the channel is dark otherwise. Omit for **continuous** back-to-back games all day. The league itself always plays a full slate on the in-game clock (one game every 3 in-game hours → 8/in-game-day, ~1/team/day) and the standings advance regardless of what's aired; `@airtime` only picks which of those games this channel *shows*. `19` → the 18:00–21:00 game. |
 
 ## Team & player pools
 

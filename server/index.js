@@ -307,6 +307,11 @@ wss.on("connection", (ws) => {
 				emit("tv.unwatch", { playerId: session.playerId });
 			return;
 		}
+		if (msg.type === "tv_poweroff") {
+			if (!session.playerId) return;
+			emit("tv.poweroff", { playerId: session.playerId });
+			return;
+		}
 		if (msg.type === "deck_watch" || msg.type === "deck_unwatch") {
 			if (!session.playerId) return;
 			if (msg.type === "deck_watch" && msg.channelId)

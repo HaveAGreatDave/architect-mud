@@ -15,6 +15,7 @@ import { grantSkillIp } from '../../server/engine/ip.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { on } from '../../server/engine/events.js';
+import { getTimeScale } from '../../server/engine/gametime.js';
 import { dispatchAction, registerAction } from '../../server/engine/actions.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { getZoneEnemies, getZoneNpcs } from '../../server/engine/world.js';
@@ -30,7 +31,7 @@ import {
 } from './state.js';
 import { describeExterior, rampColorWord, conspicuousnessMult } from './livery.js';
 import { rollHazards, commands as hazardCommands } from './hazards.js';
-import { commands as acquisitionCommands, refuelAt, fieldStocks } from './acquisition.js';
+import { commands as acquisitionCommands, refuelAt, refuelParked, fieldStocks } from './acquisition.js';
 import { commands as combatCommands, tickCombat, relayContacts } from './combat.js';
 import { commands as contractCommands, checkContractDelivery, checkCargoDropDelivery, waitingDropAt, ensureFenceDrops, ensureFreightDrops, isFreightLicensed } from './contracts.js';
 import { commands as hangarCommands, pushHangarBay } from './hangars.js';
@@ -391,7 +392,13 @@ async function cmdLand(args, raw, player, broadcast) {
 }
 
 async function cmdRefuel(args, raw, player, broadcast) {
-  if (!player.aircraftId) return generatorCommands.refuel(args, raw, player, broadcast);   // generator refuel
+  if (!player.aircraftId) {
+    // Not aboard: `refuel <name>` off the room examine-menu tops off that parked owned
+    // craft at the field. Anything that doesn't name a craft on the ramp → generator refuel.
+    const m = await matchCraftHere(args, player);
+    if (m && m.owner_id === player.id) return refuelParked(player, m.id);
+    return generatorCommands.refuel(args, raw, player, broadcast);
+  }
   const res = await refuelAt(args, raw, player);
   // The continuous cockpit only gets fuel pushes while airborne — sync it now so a
   // ground refuel actually reaches the client (clears dead-stick, restores thrust).
@@ -743,6 +750,15 @@ async function billRental(live) {
   out(renter.id, `<span class="text-amber">⏱ Rental meter: <b>${fee}c</b> for the last half-hour aloft (gas &amp; upkeep).${pay < fee ? ' <span class="text-red">You couldn\'t cover it — the desk will settle up when you return her.</span>' : ''} Balance ${renter.credits}c.</span>`);
 }
 
+// Fuel endurance is calibrated in GAME time, not real time: the per-type tanks are
+// sized so a full tank lasts a fixed number of *real* minutes at the x3 baseline
+// game speed (Mayfly 10, Mule 20, Leviathan 30, Reaper 10 — full-throttle cruise).
+// The tank is really a game-world quantity, so the burn scales with the live game
+// speed: run the world faster and the fuel drains proportionally faster in real
+// time (a leg still covers the same span of game-time). Baseline x3 ⇒ factor 1.
+const BASELINE_TIMESCALE = 3;
+function fuelBurnScale() { return (getTimeScale() || BASELINE_TIMESCALE) / BASELINE_TIMESCALE; }
+
 async function flightTick() {
   if (ticking) return;
   ticking = true;
@@ -763,7 +779,7 @@ async function flightTick() {
         // a taxiing plane mustn't "buzz past overhead" or trip no-fly rules.
         const grounded = !!live.cont?.onGround;
         if (!grounded) {
-          a.fuel = Math.max(0, a.fuel - eff.burn * (0.15 + (a.throttle / 100)) * (BAND_BURN[a.altitude_band] || 1));
+          a.fuel = Math.max(0, a.fuel - eff.burn * (0.15 + (a.throttle / 100)) * (BAND_BURN[a.altitude_band] || 1) * fuelBurnScale());
           if (a.fuel <= 0 && !live.starving) { live.starving = true; toOccupants(live, '<span class="text-red">⚠ ENGINE OUT — the tank\'s dry. Dead stick. Get it down.</span>'); }
           await checkAirspace(live);
           if (!liveAircraft.has(live.row.id)) continue;
@@ -790,7 +806,7 @@ async function flightTick() {
       // 1. Advance along the true heading (sub-tile float accumulation).
       advance(live, live.hover ? 0 : eff.cruise * (a.throttle / 100));
       // 2. Burn.
-      a.fuel = Math.max(0, a.fuel - eff.burn * (0.15 + (a.throttle / 100)) * (BAND_BURN[a.altitude_band] || 1));
+      a.fuel = Math.max(0, a.fuel - eff.burn * (0.15 + (a.throttle / 100)) * (BAND_BURN[a.altitude_band] || 1) * fuelBurnScale());
       // 3. Thermal — per engine (a cold-started plant runs hotter and rougher).
       const target = 20 + a.throttle * 1.1 + eff.heatBias + (live.coldStart > 0 ? 22 : 0);
       if (live.engines?.length) {
@@ -914,7 +930,10 @@ async function describeHangarInterior(zone) {
     "SELECT name FROM aircraft WHERE parked_zone_id=$1 AND is_wreck=0 AND (custom_data->>'charter') IS DISTINCT FROM 'true' LIMIT 1",
     [ramp.id]
   ).catch(() => ({ rows: [] }));
-  if (rows.length) line += `\n<span class="furniture-label">On the ramp:</span> ${svcLink('embark', 'embark')} <span class="text-dim">an aircraft is parked outside — board it from here</span> · ${svcLink('loadout', 'loadout')} <span class="text-dim">(seats ⇄ cargo)</span>`;
+  if (rows.length) {
+    const craftLink = `<span class="action-link" data-action="cmd" data-cmd="examine ${rows[0].name}" title="its actions — embark / refuel / maintenance">an aircraft is parked outside</span>`;
+    line += `\n<span class="furniture-label">On the ramp:</span> ${svcLink('embark', 'embark')} <span class="text-dim">${craftLink} — board it from here</span> · ${svcLink('loadout', 'loadout')} <span class="text-dim">(seats ⇄ cargo)</span>`;
+  }
   const ch = charterParkedAt(ramp.id);
   if (ch) {
     const who = getLivePlayer(ch.chartererId)?.handle;
@@ -946,9 +965,11 @@ async function describeAirfield(zone) {
     [zone.id]
   ).catch(() => ({ rows: [] }));
   if (rows.length) {
-    const names = rows.map(r => { const c = rampColorWord(r.custom_data?.livery); return `a ${c ? c + ' ' : ''}${r.tname}`; });
+    // Each craft name is a click → `examine <name>`, which opens its action menu
+    // (embark / refuel / maintenance + cargo) rather than just a static description.
+    const names = rows.map(r => { const c = rampColorWord(r.custom_data?.livery); return `<span class="action-link" data-action="cmd" data-cmd="examine ${r.name}" title="look it over — embark / refuel / maintenance">a ${c ? c + ' ' : ''}${r.tname}</span>`; });
     const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
-    line += `\n<span class="furniture-label">On the ramp:</span> ${svcLink('embark', 'embark')} <span class="text-dim">${list} parked here — <b>examine</b> to look one over</span>`;
+    line += `\n<span class="furniture-label">On the ramp:</span> ${svcLink('embark', 'embark')} <span class="text-dim">${list} parked here — click one for its actions</span>`;
   }
   // A chartered aircraft waiting for its passenger — held for whoever chartered it.
   const ch = charterParkedAt(zone.id);
@@ -1099,26 +1120,58 @@ async function cmdFlightStatus(args, raw, player) {
 // here we DELEGATE to that prior owner (never just return undefined — that would skip
 // them and drop straight to the engine, killing `examine surroundings` / the poker
 // table view). The description reads the livery live, so it reflects a repaint at once.
-async function craftDescHere(args, player) {
+// The parked craft on this field named by the args (or any, for a generic word) — the
+// full row + type fields the examine-menu / refuel-by-name both read.
+async function matchCraftHere(args, player) {
   const arg = args.join(' ').toLowerCase().trim();
   if (!arg) return null;
   const field = fieldFor(player);
   if (!field) return null;
   const { rows } = await query(
-    "SELECT a.name, a.custom_data, t.name tname FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.parked_zone_id=$1 AND a.is_wreck=0 AND (a.custom_data->>'charter') IS DISTINCT FROM 'true'",
+    `SELECT a.id, a.name, a.owner_id, a.rental, a.custom_data, a.fuel,
+            t.name tname, t.fuel_capacity, t.fuel_type, t.cargo_capacity, t.seats
+       FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id
+      WHERE a.parked_zone_id=$1 AND a.is_wreck=0 AND (a.custom_data->>'charter') IS DISTINCT FROM 'true'`,
     [field.id]);
   const generic = ['aircraft', 'plane', 'craft', 'jet', 'chopper', 'heli'].includes(arg);
-  const m = rows.find(r => generic || (r.name || '').toLowerCase().includes(arg) || (r.tname || '').toLowerCase().includes(arg));
-  return m ? describeExterior(m.custom_data?.livery, m.tname, m.name) : null;
+  return rows.find(r => generic || (r.name || '').toLowerCase().includes(arg) || (r.tname || '').toLowerCase().includes(arg)) || null;
+}
+
+// One cargo slot ≈ this many kg of hold — turns each craft's kg capacity into a
+// per-plane number of slots for the examine-menu cargo readout.
+const CARGO_SLOT_KG = 60;
+// The click-menu appended under a parked craft's examine: embark for anyone; refuel +
+// maintenance for the owner; and a cargo readout drawn as one pip per slot the plane has.
+function craftActionMenu(m, player) {
+  const owned = m.owner_id === player.id;
+  const nm = m.name || m.tname;
+  const links = [`<span class="action-link" data-action="cmd" data-cmd="embark ${nm}">embark</span>`];
+  if (owned) {
+    const cap = Math.round(m.fuel_capacity || 1), pct = Math.max(0, Math.round((m.fuel || 0) / cap * 100));
+    links.push(`<span class="action-link" data-action="cmd" data-cmd="refuel ${nm}">refuel</span> <span class="text-dim">(${pct}% ${m.fuel_type})</span>`);
+    links.push(`<span class="action-link" data-action="cmd" data-cmd="hangar" title="hangar bay — maintenance">maintenance</span>`);
+  }
+  let out = `\n<span class="furniture-label">Actions:</span> ${links.join('   ·   ')}`;
+  const capKg = m.cargo_capacity || 0;
+  if (capKg > 0) {
+    const slots = Math.max(1, Math.round(capKg / CARGO_SLOT_KG));
+    const loadKg = Math.max(0, Math.round(m.custom_data?.cargoWeight || 0));
+    const filled = Math.min(slots, Math.round(loadKg / CARGO_SLOT_KG));
+    const pips = '▮'.repeat(filled) + '▯'.repeat(Math.max(0, slots - filled));
+    out += `\n<span class="furniture-label">Cargo:</span> <span class="text-cyan">${pips}</span> <span class="text-dim">${loadKg}/${capKg}kg · ${slots} slot${slots > 1 ? 's' : ''}</span>`;
+  } else {
+    out += `\n<span class="furniture-label">Cargo:</span> <span class="text-dim">no hold · ${m.seats} seat${m.seats > 1 ? 's' : ''}</span>`;
+  }
+  return out;
 }
 async function cmdExamineCraft(args, raw, player, broadcast) {
-  const desc = await craftDescHere(args, player);
-  if (desc) return { type: 'examine', message: desc };
+  const m = await matchCraftHere(args, player);
+  if (m) return { type: 'examine', message: describeExterior(m.custom_data?.livery, m.tname, m.name) + craftActionMenu(m, player) };
   return interactionsCommands.examine(args, raw, player, broadcast);   // prior owner → engine
 }
 async function cmdLookCraft(args, raw, player, broadcast) {
-  const desc = await craftDescHere(args, player);
-  if (desc) return { type: 'examine', message: desc };
+  const m = await matchCraftHere(args, player);
+  if (m) return { type: 'examine', message: describeExterior(m.custom_data?.livery, m.tname, m.name) + craftActionMenu(m, player) };
   return gametableCommands.look(args, raw, player, broadcast);         // prior owner → engine
 }
 

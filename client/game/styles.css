@@ -366,6 +366,17 @@ body.fsim-fullscreen #output,
 body.fsim-fullscreen #look-resize-handle,
 body.fsim-fullscreen #bottom-input-wrap { display: none; }
 
+/* Flight-sim hide-panel: a lighter twin of fullscreen — the sim grows to fill the column
+   (more outside view; the glass + control rows keep their fixed heights so the cockpit stays
+   the same size) but the COMMAND BOX stays put so you can still type. Only the scrollback log
+   + its resize handle are folded away. Toggled from the ⊟ button; cleared when the sim closes. */
+body.fsim-hidepanel #area-pane { max-height: none; flex: 1 1 auto; }
+body.fsim-hidepanel #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
+body.fsim-hidepanel .fsim { flex: 1 1 auto; min-height: 0; }
+body.fsim-hidepanel .fsim-view { height: auto; flex: 1 1 auto; min-height: 0; }
+body.fsim-hidepanel #output,
+body.fsim-hidepanel #look-resize-handle { display: none; }
+
 /* Mobile-only hidden state — overrides any inline height styles */
 .mob-pane-hidden {
 	display: none !important;
@@ -1202,6 +1213,66 @@ body.fsim-fullscreen #bottom-input-wrap { display: none; }
 	letter-spacing: 2px;
 	color: var(--text-dim);
 	margin-bottom: 8px;
+}
+
+/* Online roster */
+.players-online-count {
+	color: var(--accent);
+	letter-spacing: 0;
+}
+.players-online-empty {
+	font-size: 11px;
+	color: var(--text-dim);
+	padding: 2px 0;
+}
+.players-online-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+	padding: 4px 0;
+	border-bottom: 1px solid var(--border);
+}
+.players-online-row:last-child {
+	border-bottom: none;
+}
+.players-online-who {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+.players-online-handle {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--text-bright);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.players-online-handle.is-self {
+	color: var(--accent);
+}
+.players-online-zone {
+	font-size: 10px;
+	color: var(--text-dim);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.players-online-whisper {
+	flex: none;
+	background: transparent;
+	border: 1px solid var(--accent);
+	color: var(--accent);
+	font-family: var(--font-mono);
+	font-size: 10px;
+	padding: 2px 6px;
+	cursor: pointer;
+	border-radius: 2px;
+}
+.players-online-whisper:hover {
+	background: var(--accent);
+	color: var(--accent-ink, #000);
 }
 
 /* Header bar — holds the lock button; movable like a section when unlocked */
@@ -5005,6 +5076,15 @@ body.fsim-fullscreen #bottom-input-wrap { display: none; }
 	color: var(--accent);
 }
 
+/* The quick-cmds bar and its mobile ≡ fan trigger are retired from the player UI
+   — the always-on Smart bar (Tablet + room verbs) is the command surface now.
+   Hidden rather than deleted so it's trivially restorable; #bottom-weather still
+   shows on mobile since it's a sibling of #cmd-fan-btn, not inside #quick-cmds. */
+#quick-cmds,
+#cmd-fan-btn {
+	display: none !important;
+}
+
 #bottom-weather {
 	display: flex;
 	align-items: center;
@@ -5181,8 +5261,8 @@ body.fsim-fullscreen #bottom-input-wrap { display: none; }
 
 /* ─── SMART ACTION BAR ─── */
 /* Contextual verb row below the command input. Populated by renderSmartBar
-   from the current room; shown only when the player has Smart UI on
-   (settings.smartUI, any device), and hidden when the room offers nothing. */
+   from the current room; always on (every device — data-smart-ui is pinned to
+   "on" in applySettings), and hidden only when the room offers nothing. */
 #smart-bar {
 	display: none;
 	align-items: center;
@@ -5199,10 +5279,6 @@ body.fsim-fullscreen #bottom-input-wrap { display: none; }
 
 [data-smart-ui="on"] #smart-bar { display: flex; }
 [data-smart-ui="on"] #smart-bar.smart-bar-empty { display: none; }
-
-/* Fallback Tablet button on the command line — the Smart bar carries its own
-   Tablet anchor, so when Smart UI is on this duplicate hides. */
-[data-smart-ui="on"] #qcmd-tablet-fallback { display: none; }
 
 .smart-btn {
 	background: var(--bg3);
@@ -9665,6 +9741,28 @@ body.esp-active #output {
 	color: var(--text-bright);
 }
 .confirm-actions button:hover { border-color: var(--accent); }
+
+/* Select dialog (showSelectDialog) — a scrollable column of pickable options. */
+.confirm-select-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	max-height: 260px;
+	overflow-y: auto;
+	margin-bottom: 16px;
+}
+.confirm-select-opt {
+	text-align: left;
+	padding: 8px 12px;
+	cursor: pointer;
+	font-size: 13px;
+	font-family: var(--font-mono);
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	color: var(--text);
+}
+.confirm-select-opt:hover { border-color: var(--accent); color: var(--text-bright); background: var(--accent-dim); }
+.confirm-empty { margin: 0 0 16px; color: var(--text-dim); font-size: 13px; text-align: center; }
 
 /* High-stakes confirm (sign-out warning) — danger banners top and bottom */
 .confirm-danger { border-color: var(--red); box-shadow: 0 4px 32px rgba(255, 40, 40, 0.35); }

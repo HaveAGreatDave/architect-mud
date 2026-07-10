@@ -1,34 +1,43 @@
-// Baseball league for the DEADBALL broadcast: standings + monthly seasons + a World
-// Series.
+// Baseball league for the DEADBALL broadcast: standings + seasons + a World Series.
 //
-// The broadcast plugin SIMULATES a fresh game every airing and, the instant one starts
-// airing, emits a `sports.game` event with the already-decided result and when its
-// airing window wraps (`endsAtMs`). Rather than book immediately, this plugin STAGES
-// the result as a pending row (`sports_results`, keyed by gameId) and a 1-minute sweep
-// books it into `sports_standings` once the window ends. That's:
-//   • end-of-game — a game only counts once its airing window completes;
-//   • restart-safe — pending rows live in the DB, and the sweep catches up after
-//     downtime, so nothing is lost;
-//   • churn-proof — the gameId is keyed to an absolute time-window (see broadcast), so a
-//     mid-window restart re-sims the same slot and the INSERT no-ops (no double-count).
+// ZERO-WRITE STANDINGS. The broadcast plugin runs one deterministic game per hour on a
+// global clock — every game's result is a pure function of its slot, the same on every
+// server and every TV. So the standings aren't stored row-by-row; they're a *computed
+// fold* over the schedule for the current season's slot window (broadcast.computeStandings),
+// cached here and recomputed only when a game completes. No `sports_game`/staging rows,
+// no per-game upserts — the league advances on the clock with nobody watching and with
+// essentially no DB traffic.
 //
-// Seasons run SPORTS_SEASON_DAYS in-game days; at season's end the top two teams meet in
-// a single-game World Series (the finalists' game crowns a champion, resets standings,
-// opens the next season). Commands: `standings`, `worldseries`, `champions`.
+// Seasons still run SPORTS_SEASON_DAYS in-game days; at season's end the top two teams
+// meet in a single-game World Series. The "reset" is just a pointer: the new season's
+// `start_slot` moves forward, so its computed window starts fresh. Only `sports_season`
+// is persisted — a handful of writes per season, never per game. Commands: `standings`,
+// `worldseries`, `champions`.
 import { query } from '../../server/models/db.js';
-import { on, emit } from '../../server/engine/events.js';
-import { registerAction } from '../../server/engine/actions.js';
+import { emit } from '../../server/engine/events.js';
+import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 
 // A season runs SPORTS_SEASON_DAYS in-game days (~a month by default). When that many
 // in-game days have elapsed (and enough games have been played), the top two teams meet
-// in a single-game World Series; the winner is crowned champion, the standings reset,
-// and the next season opens. Tune SPORTS_SEASON_DAYS up if the in-game clock makes
-// seasons feel too short, down if they drag. Min-games guard stops a fast clock from
-// seeding a Series off a thin sample.
+// in a single-game World Series; the winner is crowned champion, the standings window
+// rolls forward, and the next season opens. Tune SPORTS_SEASON_DAYS up if the in-game
+// clock makes seasons feel too short, down if they drag. Min-games guard stops a fast
+// clock from seeding a Series off a thin sample.
 const SPORTS_SEASON_DAYS = 30;   // in-game days per season
 const SPORTS_MIN_WS_GAMES = 8;   // the #2 team must have played at least this many
+
+// ── The global clock (owned by broadcast) ────────────────────────────────────
+// Which hour-slot are we in? Seasons + the standings window are bounded by slots.
+// { slot, ready }. `ready` is false until the in-game clock has loaded — while not ready
+// the slot is a boot placeholder, so we must NOT persist it as a season anchor (it would
+// mismatch the real slot once the date loads). Callers that only need a read (standings
+// window end) can use the placeholder; anchoring waits for ready.
+async function currentSlot() {
+  const res = await dispatchAction({ type: 'broadcast.getSportsClock' }).catch(() => null);
+  return { slot: Number.isFinite(res?.slot) ? res.slot : 0, ready: !!res?.ready };
+}
 
 // ── Season lifecycle ───────────────────────────────────────────────────────────
 
@@ -64,39 +73,49 @@ async function currentSeason() {
   return rows[0] || null;
 }
 
-// Open a fresh regular-season row if none is active. Season numbers just increment.
+// Open a fresh regular-season row if none is active. The season's `start_slot` anchors
+// its standings window: games from this slot forward count toward it.
 async function ensureSeason() {
   const active = await currentSeason();
   if (active) return active;
   const { rows } = await query(`SELECT COALESCE(MAX(season_no), 0) + 1 AS n FROM sports_season`).catch(() => ({ rows: [{ n: 1 }] }));
   const n = rows[0]?.n || 1;
+  const { slot, ready } = await currentSlot();
   await query(
-    `INSERT INTO sports_season (season_no, start_month, start_date, phase) VALUES ($1, $2, $3, 'regular')
+    `INSERT INTO sports_season (season_no, start_month, start_date, start_slot, phase) VALUES ($1, $2, $3, $4, 'regular')
      ON CONFLICT (season_no) DO NOTHING`,
-    [n, gameMonth(), gameDate()],
+    [n, gameMonth(), gameDate(), ready ? slot : null],   // anchor only once the clock is live
   ).catch((e) => console.error('[sportsleague] ensureSeason error:', e.message));
   return currentSeason();
 }
 
-// Seed the World Series: the top two teams (needs a real sample). Returns the updated
-// season row, or null if it couldn't seed (too few teams / not enough games yet).
+// Seed the World Series: the top two teams (needs a real sample). The Series airs the
+// NEXT full slot (ws_slot); the regular standings freeze at that boundary. Returns the
+// updated season row, or null if it couldn't seed (too few teams / not enough games).
 async function seedWorldSeries(season) {
   const table = await queryStandings();
   if (table.length < 2) return null;
   const [a, b] = table;
   if ((b.wins + b.losses) < SPORTS_MIN_WS_GAMES) return null;   // guard: #2 must have played enough
+  const clock = await currentSlot();
+  if (!clock.ready) return null;                                // don't seed off a boot-placeholder slot
+  const wsSlot = clock.slot + 1;
   await query(
-    `UPDATE sports_season SET phase = 'worldseries', finalist_a = $1, finalist_b = $2 WHERE season_no = $3`,
-    [a.team, b.team, season.season_no],
+    `UPDATE sports_season SET phase = 'worldseries', finalist_a = $1, finalist_b = $2, ws_slot = $3 WHERE season_no = $4`,
+    [a.team, b.team, wsSlot, season.season_no],
   ).catch((e) => console.error('[sportsleague] seed error:', e.message));
+  _standCache.key = null;   // freeze the window at ws_slot now
   emit('sports.worldseries', { seasonNo: season.season_no, teams: [a.team, b.team] });
-  console.log(`[sportsleague] WORLD SERIES seeded (season ${season.season_no}): ${a.team} vs ${b.team}`);
-  return { ...season, phase: 'worldseries', finalist_a: a.team, finalist_b: b.team };
+  console.log(`[sportsleague] WORLD SERIES seeded (season ${season.season_no}): ${a.team} vs ${b.team} @ slot ${wsSlot}`);
+  return { ...season, phase: 'worldseries', finalist_a: a.team, finalist_b: b.team, ws_slot: wsSlot };
 }
 
-// The World Series game just aired — crown the champion from its result, close the
-// season (champions history), wipe the standings, and open the next season.
-async function crownChampion(season, g) {
+// The World Series slot has aired — crown the champion from that game's (deterministic)
+// result, close the season (champions history), and open the next season, whose
+// start_slot lands past the WS slot so the new window is clean.
+async function crownChampion(season) {
+  const g = await dispatchAction({ type: 'broadcast.getSlotResult', params: { slot: Number(season.ws_slot), teams: [season.finalist_a, season.finalist_b] } }).catch(() => null);
+  if (!g || !g.winner) return;
   const winner = g.winner, loser = winner === g.away ? g.home : g.away;
   const champScore = winner === g.away ? g.awayScore : g.homeScore;
   const runScore = winner === g.away ? g.homeScore : g.awayScore;
@@ -105,80 +124,33 @@ async function crownChampion(season, g) {
        champ_score = $3, runner_score = $4, decided_at = NOW() WHERE season_no = $5`,
     [winner, loser, champScore, runScore, season.season_no],
   ).catch((e) => console.error('[sportsleague] crown error:', e.message));
-  await query(`TRUNCATE sports_standings`).catch(() => query(`DELETE FROM sports_standings`).catch(() => {}));
-  await ensureSeason();
+  _standCache.key = null;
+  await ensureSeason();   // opens the next season with start_slot = now (past ws_slot)
   emit('sports.champion', { seasonNo: season.season_no, champion: winner, runnerUp: loser, champScore, runScore });
   console.log(`[sportsleague] WORLD SERIES CHAMPION (season ${season.season_no}): ${winner} beat ${loser} ${champScore}-${runScore}`);
 }
 
-async function bumpTeam(team, w, l, rf, ra) {
-  await query(
-    `INSERT INTO sports_standings (team, wins, losses, runs_for, runs_against, updated_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())
-     ON CONFLICT (team) DO UPDATE SET
-       wins         = sports_standings.wins + $2,
-       losses       = sports_standings.losses + $3,
-       runs_for     = sports_standings.runs_for + $4,
-       runs_against = sports_standings.runs_against + $5,
-       updated_at   = NOW()`,
-    [team, w, l, rf, ra],
-  ).catch((e) => console.error('[sportsleague] record error:', e.message));
-}
+// ── Standings (computed, cached) ────────────────────────────────────────────────
 
-// Stage an aired game as PENDING. It books into the standings only when its airing
-// window ends (resolve_at), via the sweep below — so a game that never finished airing
-// (mid-window restart) isn't counted. The game_id primary key makes this idempotent and
-// restart-safe: a re-simmed same-slot game (after a restart) INSERTs as a no-op, so no
-// double-count and no churn. No in-memory dedupe needed — the DB is the source of truth.
-async function stageResult(g) {
-  if (!g?.gameId) return;
-  const { away, home, awayScore, homeScore, winner, endsAtMs } = g;
-  if (!winner || away == null || home == null || awayScore == null || homeScore == null) return;
-  if (winner !== away && winner !== home) return;
-  const resolveAt = Number.isFinite(endsAtMs) ? endsAtMs : (Date.now() + 300000);
-  await query(
-    `INSERT INTO sports_results (game_id, away_team, home_team, away_score, home_score, winner, resolve_at)
-       VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7 / 1000.0))
-     ON CONFLICT (game_id) DO NOTHING`,
-    [g.gameId, away, home, awayScore, homeScore, winner, resolveAt],
-  ).catch((e) => console.error('[sportsleague] stage error:', e.message));
-}
-
-on('sports.game', (g) => { stageResult(g).catch((e) => console.error('[sportsleague] event error:', e.message)); });
-
-// Book one finished game. The World Series decider (the finalists' game while the
-// Series is on) crowns a champion and rolls the season; every other game goes to the
-// standings. Guards against ties / malformed rows (the sim guarantees a winner).
-async function bookResult(g) {
-  const { away, home, awayScore, homeScore, winner } = g;
-  if (!winner || winner !== away && winner !== home) return;
-  const season = await currentSeason();
-  if (season?.phase === 'worldseries') {
-    const finalists = [season.finalist_a, season.finalist_b];
-    if (finalists.includes(away) && finalists.includes(home)) { await crownChampion(season, g); return; }
+// The league table for the current season, folded from the deterministic schedule by
+// the broadcast plugin. Cached on (season, window-end) so it recomputes only when a
+// game completes (the slot advances) or the season rolls — not on every read.
+let _standCache = { key: null, rows: [] };
+async function queryStandings() {
+  const s = await currentSeason();
+  const { slot } = await currentSlot();
+  // BIGINT columns come back as strings from node-pg — coerce before use.
+  const startSlot = s?.start_slot != null ? Number(s.start_slot) : slot;
+  const endSlot = (s?.phase === 'worldseries' && s?.ws_slot != null) ? Number(s.ws_slot) : slot;
+  const key = `${s?.season_no || 0}:${startSlot}:${endSlot}`;
+  if (_standCache.key !== key) {
+    const res = await dispatchAction({ type: 'broadcast.computeStandings', params: { startSlot, endSlot } }).catch(() => null);
+    _standCache = { key, rows: Array.isArray(res?.rows) ? res.rows : [] };
   }
-  const loser     = winner === away ? home : away;
-  const winScore  = winner === away ? awayScore : homeScore;
-  const loseScore = winner === away ? homeScore : awayScore;
-  await bumpTeam(winner, 1, 0, winScore, loseScore);
-  await bumpTeam(loser, 0, 1, loseScore, winScore);
+  return _standCache.rows;
 }
 
-// Sweep: book every pending game whose airing window has ended, oldest first, then mark
-// it booked. Restart-safe (no per-game timers; catches up rows that came due during
-// downtime) and idempotent (the status flip means a game is booked exactly once).
-async function settleResults() {
-  const { rows } = await query(
-    `SELECT * FROM sports_results WHERE status = 'pending' AND resolve_at <= NOW() ORDER BY resolve_at ASC`,
-  ).catch(() => ({ rows: [] }));
-  for (const row of rows) {
-    await bookResult({ away: row.away_team, home: row.home_team, awayScore: row.away_score, homeScore: row.home_score, winner: row.winner })
-      .catch((e) => console.error('[sportsleague] book error:', e.message));
-    await query(`UPDATE sports_results SET status = 'booked' WHERE game_id = $1`, [row.game_id]).catch(() => {});
-  }
-}
-
-// Pure formatter — a monospace league table. Rows are pre-sorted by the query.
+// Pure formatter — a monospace league table. Rows are pre-sorted by the fold.
 function formatStandings(rows) {
   if (!rows.length) return "No baseball games have been played yet — the DEADBALL standings are empty.";
   const nameW = Math.min(28, Math.max(12, ...rows.map((r) => r.team.length)));
@@ -193,20 +165,6 @@ function formatStandings(rows) {
     return ` ${String(i + 1).padStart(2)}  ${r.team.padEnd(nameW)} ${String(r.wins).padStart(3)} ${String(r.losses).padStart(3)}  ${pct.padStart(5)}  ${rds.padStart(4)}`;
   });
   return ['⚾ DEADBALL — COLDWATER LEAGUE STANDINGS', head, sep, ...lines].join('\n');
-}
-
-// The league table, sorted the canonical way (win% → wins → run diff → name).
-// Shared by the `standings` command and the `sportsleague.getStandings` Action.
-async function queryStandings() {
-  const { rows } = await query(
-    `SELECT team, wins, losses, runs_for, runs_against
-       FROM sports_standings
-      ORDER BY (wins::float / NULLIF(wins + losses, 0)) DESC NULLS LAST,
-               wins DESC,
-               (runs_for - runs_against) DESC,
-               team ASC`,
-  ).catch(() => ({ rows: [] }));
-  return rows;
 }
 
 // The most recent crowned champion (for the standings header / trophy line).
@@ -258,7 +216,7 @@ async function cmdWorldSeries(args, raw, player) {
     if (s.phase !== 'regular') return { type: 'error', message: 'A World Series is already set or underway.' };
     const seeded = await seedWorldSeries(s);
     if (!seeded) return { type: 'error', message: `Can't seed yet — need 2+ teams with the runner-up at ${SPORTS_MIN_WS_GAMES}+ games played.` };
-    return { type: 'output', message: `⚾ WORLD SERIES forced: ${seeded.finalist_a} vs ${seeded.finalist_b}. It airs on the next game cycle.` };
+    return { type: 'output', message: `⚾ WORLD SERIES forced: ${seeded.finalist_a} vs ${seeded.finalist_b}. It airs at the top of the hour.` };
   }
   const s = await currentSeason();
   const champ = await lastChampion();
@@ -274,10 +232,9 @@ async function cmdWorldSeries(args, raw, player) {
   return { type: 'output', message: out.join('\n') };
 }
 
-// Cross-plugin read seam: the broadcast plugin dispatches these to drive the on-air
-// standings bug, pre-game record mentions, AND the World Series takeover (which two
-// teams to run + branding). Meeting through an Action keeps broadcast from reaching
-// into this plugin's tables directly.
+// Cross-plugin read seam: the broadcast + tablet plugins dispatch these to drive the
+// on-air standings bug, pre-game record mentions, and the World Series takeover. Meeting
+// through an Action keeps them from reaching into this plugin's table directly.
 registerAction({
   type: 'sportsleague.getStandings',
   handler: async () => ({ rows: await queryStandings() }),
@@ -291,19 +248,29 @@ registerAction({
       phase: s?.phase || 'regular',
       finalistA: s?.finalist_a || null,
       finalistB: s?.finalist_b || null,
+      wsSlot: s?.ws_slot != null ? Number(s.ws_slot) : null,
     };
   },
 });
 
-// Season clock: once a minute, make sure a season exists and, once SPORTS_SEASON_DAYS
-// in-game days have elapsed since it began, seed the World Series off the standings.
+// Season clock: once a minute, keep a season open, seed the World Series when the season
+// has run its course, and crown the champion once the Series slot has aired.
 async function seasonTick() {
   const s = await ensureSeason();
-  if (!s || s.phase !== 'regular') return;
-  // Start the clock late if the world date wasn't ready when the season opened.
-  if (!s.start_date) {
-    const d = gameDate();
-    if (d) await query(`UPDATE sports_season SET start_date = $1, start_month = $2 WHERE season_no = $3`, [d, gameMonth(), s.season_no]).catch(() => {});
+  if (!s) return;
+  if (s.phase === 'worldseries') {
+    const ws = s.ws_slot != null ? Number(s.ws_slot) : null;
+    const c = await currentSlot();
+    if (ws != null && c.ready && c.slot > ws) await crownChampion(s);
+    return;
+  }
+  if (s.phase !== 'regular') return;
+  // Backfill the anchors if the world clock / slot wasn't ready when the season opened.
+  if (!s.start_date || s.start_slot == null) {
+    const c = await currentSlot();
+    if (!c.ready) return;                     // wait for the in-game clock before anchoring
+    await query(`UPDATE sports_season SET start_date = COALESCE(start_date, $1), start_month = COALESCE(NULLIF(start_month,'0000-00'), $2), start_slot = COALESCE(start_slot, $3) WHERE season_no = $4`,
+      [gameDate(), gameMonth(), c.slot, s.season_no]).catch(() => {});
     return;
   }
   const elapsed = daysElapsed(s.start_date);
@@ -312,17 +279,12 @@ async function seasonTick() {
 schedule('1m', seasonTick);
 setTimeout(() => ensureSeason().catch((e) => console.error('[sportsleague] boot season error:', e.message)), 8000);
 
-// Book finished games once a minute (restart-safe; catches up rows that came due while
-// the server was down). A short post-boot pass settles anything already overdue.
-schedule('1m', settleResults);
-setTimeout(() => settleResults().catch((e) => console.error('[sportsleague] boot settle error:', e.message)), 9000);
-
 export const commands = {
   standings: () => cmdStandings(),
   worldseries: (args, raw, player) => cmdWorldSeries(args, raw, player),
   champions: () => cmdChampions(),
 };
 
-export const _test = { formatStandings, formatChampions, bookResult, stageResult, settleResults, daysBetween };
+export const _test = { formatStandings, formatChampions, daysBetween };
 
 console.log('[sportsleague] Plugin loaded.');

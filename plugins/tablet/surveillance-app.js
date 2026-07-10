@@ -1,11 +1,11 @@
 // Tablet OS — Surveillance (SPECTER) app. Wraps the surveillance plugin's spy-deck
-// hub + microreel replay into the tablet shell, the way corp-app.js wraps the corp
+// hub + microreel viewer into the tablet shell, the way corp-app.js wraps the corp
 // console. No surveillance logic is duplicated: the live hub data comes from
-// hubDataFor(), record/clip delegate to the plugin's own `record`/`clip` commands,
-// and opening a chip hands off to the same replay deck `use <datachip>` opens
-// (openReplayFor). The live-cam view refreshes by client-side polling (the tablet
-// has no proactive push) matched to the deck's 5s frame cadence — see tablet-os.js
-// renderSurveillance/the poll timer.
+// hubDataFor(), record/clip/clear delegate to the plugin's own commands, and a
+// microreel plays back inside the app's own inline viewer (view: 'reel') from
+// getMicroreel() — no separate replay-deck overlay. The live-cam view refreshes by
+// client-side polling (the tablet has no proactive push) matched to the deck's 5s
+// frame cadence — see tablet-os.js renderSurveillance/the poll timer.
 import { registerTabletApp, normScreen } from './registry.js';
 
 // Dynamic import (cached module — same instance the plugin loader already booted),
@@ -16,7 +16,12 @@ async function buildHome(player) {
   const s = await surv();
   if (!(await s.isSpecterInstalled(player))) return { installed: false };
   const { tiles } = await s.hubDataFor(player);
-  return { installed: true, cams: tiles.length, recording: tiles.filter(t => t.recording).length };
+  return {
+    installed: true,
+    cams: tiles.length,
+    recording: tiles.filter(t => t.recording).length,
+    notify: await s.pendingClipCount(player),   // reels waiting to be clipped → home badge
+  };
 }
 
 async function buildScreen(player, screenId, params) {
@@ -25,22 +30,32 @@ async function buildScreen(player, screenId, params) {
   const sel = (params || '').trim();
 
   // ── Microreels ─────────────────────────────────────────────────────────────
-  // Clicking a reel (arrives as this screen's params) opens the replay deck as a
-  // separate overlay and re-renders the list underneath it — no spy deck needed.
+  // The list of saved recordings. Clicking one (its clip id arrives as params)
+  // opens the app's OWN inline viewer (view: 'reel') — no separate replay deck.
   // Matches both the link token ('chips') and the re-nav'd breadcrumb label
   // ('microreels') a list-item click sends back.
   if (screen === 'chips' || screen === 'microreels') {
-    if (sel) await s.openReplayFor(player, sel).catch(() => {});
-    const chips = await s.datachipList(player);
+    if (sel) {
+      const reel = await s.getMicroreel(player, sel).catch(() => null);
+      if (reel) {
+        return {
+          view: 'reel',
+          breadcrumb: ['Surveillance', 'Microreels', reel.zone],
+          reel,
+        };
+      }
+    }
+    const reels = await s.microreelList(player);
     return {
       view: 'list',
       breadcrumb: ['Surveillance', 'Microreels'],
-      items: chips.map(c => ({
-        id: c.clipId || c.name,
+      items: reels.map(c => ({
+        id: c.clipId,
         label: c.name,
         sub: `${c.zone} · ${c.frames} frame${c.frames === 1 ? '' : 's'}${c.crimeTags?.length ? ` · EVIDENCE: ${c.crimeTags.join(', ')}` : ''}`,
         badge: c.crimeTags?.length ? 'illegal' : null,
       })),
+      empty: 'No microreels yet. Record a camera, then Clip its buffer to save a reel here.',
     };
   }
 
@@ -57,7 +72,7 @@ async function buildScreen(player, screenId, params) {
   }
   const { net: liveNet, tiles, alerts } = await s.hubDataFor(player);
   // A focused camera also carries its rolling buffer (the recorded event-lines) so
-  // the operator can read what's on tape before burning it to a chip.
+  // the operator can read what's on tape before saving it to a reel.
   const focusBuffer = sel ? await s.cameraBufferLines(player, sel) : null;
   return {
     view: 'surveillance', live: true, breadcrumb: ['Surveillance'],
@@ -70,11 +85,13 @@ async function handleAction(player, actionId, params, broadcast) {
   const s = await surv();
   const focus = (params || '').trim();
 
-  // record/clip run the plugin's own verbs (same behaviour as the standalone hub
-  // buttons), then re-render the hub focused on the same camera.
-  if (actionId === 'record' || actionId === 'clip') {
-    const cmd = s.commands[actionId];
-    if (cmd) await cmd(focus ? [focus] : [], `${actionId} ${focus}`.trim(), player, broadcast);
+  // record/clip/wipe run the plugin's own verbs (same behaviour as the standalone
+  // hub buttons): record toggles the tape, clip saves a microreel + clears the
+  // buffer, clear (wipe) discards it. Then re-render the hub focused on the cam.
+  if (actionId === 'record' || actionId === 'clip' || actionId === 'clear') {
+    const verb = actionId === 'clear' ? 'wipe' : actionId;
+    const cmd = s.commands[verb];
+    if (cmd) await cmd(focus ? [focus] : [], `${verb} ${focus}`.trim(), player, broadcast);
     return buildScreen(player, null, focus);
   }
   return buildScreen(player, null, '');

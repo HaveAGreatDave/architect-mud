@@ -18,6 +18,7 @@
 // wants to graduate to a shared module rather than live behind one app.
 import { query } from '../../server/models/db.js';
 import { on } from '../../server/engine/events.js';
+import { registerAction } from '../../server/engine/actions.js';
 import { getGameDateTime } from '../../server/engine/environment.js';
 import { getOrg, getZone } from '../../server/engine/world.js';
 
@@ -163,8 +164,17 @@ async function tabloidStories(count) {
 const RING = [];
 const RING_MAX = 24;
 
+const normHeadline = (h) => String(h || '').trim().toLowerCase();
+
 function record(headline) {
   if (!headline) return;
+  // Drop any existing copy first, so a repeated event (another death, another
+  // weather front) refreshes to the top of the feed instead of stacking a
+  // duplicate — the ring never holds the same headline twice.
+  const k = normHeadline(headline);
+  for (let i = RING.length - 1; i >= 0; i--) {
+    if (normHeadline(RING[i].headline) === k) RING.splice(i, 1);
+  }
   RING.unshift({ headline, tag: 'live', ts: Date.now() });
   if (RING.length > RING_MAX) RING.length = RING_MAX;
 }
@@ -223,10 +233,39 @@ on('weather.event', ({ type, phase }) => {
 // Up to `total` stories: the freshest live ones first, padded with today's
 // tabloid edition. Returns [{ headline, byline?, tag }].
 export async function getStories(total = 6) {
-  const live = RING.slice(0, Math.min(4, RING.length)).map(s => ({ headline: s.headline, tag: 'live' }));
-  const need = Math.max(0, total - live.length);
-  const filler = need ? await tabloidStories(need) : [];
-  return [...live, ...filler];
+  const seen = new Set();
+  const out = [];
+  // Freshest live stories first (capped so tabloid still fills the page), each
+  // added only once.
+  for (const s of RING) {
+    if (out.length >= Math.min(4, total)) break;
+    const k = normHeadline(s.headline);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push({ headline: s.headline, tag: 'live' });
+  }
+  // Pad with today's tabloid edition, skipping any headline already shown (a live
+  // story can coincide with a filler one). Over-draw all templates so removing a
+  // collision never leaves the page short of `total`.
+  if (out.length < total) {
+    const filler = await tabloidStories(TABLOID.length);
+    for (const s of filler) {
+      if (out.length >= total) break;
+      const k = normHeadline(s.headline);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(s);
+    }
+  }
+  return out;
 }
+
+// Read seam for the engine (motd.js) and any other consumer: the same live-first,
+// tabloid-padded feed, exposed through the Action registry so nothing outside the
+// tablet plugin has to import this file directly.
+registerAction({
+  type: 'news.getStories',
+  handler: async ({ params }) => ({ type: 'news', stories: await getStories(params?.total || 6) }),
+});
 
 export const _test = { tabloidStories, record, getStories, RING };

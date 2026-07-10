@@ -352,6 +352,43 @@ loses `CAM_VIS_STEP` (0.18) — `dim` 0.82, `gloomy` 0.64, `dark` 0.46, `murk` 0
 time-to-detection** for ongoing offences. Only the camera witness is degraded — an on-scene cop or
 bystander (human eyes) still sees you at their usual odds.
 
+### Microreels, capped buffers & the in-app viewer (2026-07-10)
+
+The SPECTER **tablet app** ([`plugins/tablet/surveillance-app.js`](../plugins/tablet/surveillance-app.js))
+became self-contained, and "clipping" was re-pointed at reels rather than physical chips.
+
+- **Clip → microreel, not datachip.** `clip` now writes a `security_clips` row (a **microreel**) and
+  **clears** the camera's live buffer so it records again — it no longer mints an `item_datachip_<id>`.
+  Physical **datachips** stay a separate, deliberate export: `collect` (or the crime auto-bank) still
+  physicalizes a clip into a tradeable/evidence item + its airable broadcast (`physicalizeClip` /
+  `ensureClipBroadcast`), unchanged. The tablet's **Microreels** list is now backed by the owner's
+  `security_clips` (`microreelList`), decoupled from inventory chips.
+- **In-app viewer.** Opening a reel renders the app's **own** inline viewer (`view: 'reel'` →
+  `renderReel`/`wireReel` in [`tablet-os.js`](../client/game/js/panels/tablet-os.js)): CRT screen,
+  colour-coded transcript, client-side play/scrub. No handoff to the standalone `#chip-panel`
+  ([`datachipreplay.js`](../client/game/js/panels/datachipreplay.js)) — that deck now only serves a
+  physical `use <datachip>` in the world.
+- **Speech vs. narration colour.** `captureZoneLine` tags each frame `kind` (`say` → speech,
+  `zone_event` → narration/emote); the buffer log and reel viewer colour them apart via theme tokens
+  (`--mg-accent` speech / `--shub` narration), so the split re-skins per tablet theme.
+- **Buffer caps and STOPS.** `CameraBuffer.push` no longer rolls over: at the `camera_buffer_lines`
+  tunable (default **25**) it sets `full` and banks nothing more **until reset**. Reset is `clip`
+  (save + clear) or the new `wipe`/**Clear** action (discard + clear). Capture stays activity-only
+  (speech/arrivals/exits/emotes/actions via `zone.broadcast`) + content-diffed, so an empty room never
+  spends buffer slots.
+- **Home notification.** `pendingClipCount` (cams with unclipped footage) drives a red badge on the
+  SPECTER home tile (`buildHome.notify` → `renderHomeApps`).
+- **SPECTER Firmware Drive + install flasher.** SPECTER is acquired as a one-shot firmware install,
+  not a carried spy-deck: the **SPECTER Firmware Drive** (`item_specter_program`, tag
+  `specter_program`) — a cyberpunk USB stick — is `use`d to flash SPECTER onto the tablet. The server
+  handler (`doInstallSpecter`) still sets the install flag + consumes the drive, but now returns a
+  `specter_install` message; the client plays a cosmetic **firmware flasher** overlay
+  ([`specterinstall.js`](../client/game/js/panels/specterinstall.js), routed in `dispatch.js`): the
+  drive slides into the tablet's data port, the screen boots, and a hackery erase→write→verify→patch
+  log fills a progress bar before "SPECTER INSTALLED". The old carried **spy-deck** (`item_spy_deck` →
+  `hub`/standalone `#shub-panel`) still works but is superseded by the tablet app; retiring it is a
+  vendor-side follow-up.
+
 ## Resolved forks
 
 All settled 2026-07-01 — see the two decision tables above. No open questions remain; ready for Phase 1.

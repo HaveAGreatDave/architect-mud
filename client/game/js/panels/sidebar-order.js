@@ -5,7 +5,7 @@ const COLLAPSED_KEY = 'architect_sidebar_collapsed';
 // carry a saved size. (Bumped after the min-height:0 change exposed old
 // clamped-tiny sizes, which made every panel come up minimized.)
 const SIZE_KEY = 'architect_sidebar_sizes_v2';
-const DEFAULT_ORDER = ['minimap-section', 'vitals-section', 'location-section', 'env-section', 'enemy-section', 'chat-section'];
+const DEFAULT_ORDER = ['minimap-section', 'vitals-section', 'location-section', 'env-section', 'enemy-section', 'players-section', 'chat-section'];
 
 let locked = true;
 let mode = 'move'; // 'move' (drag to reorder) | 'resize' (drag edge to size) — only meaningful while unlocked

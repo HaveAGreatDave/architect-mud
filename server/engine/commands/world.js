@@ -12,7 +12,7 @@ import { ensureTunables } from '../tunables.js';
 import { physicalDescription, soilDescription, randomAppearance } from '../appearance.js';
 import { isMisActive } from '../mis.js';
 import { availableActions } from '../specializedActions.js';
-import { genericFurnitureLinks } from '../furnitureActions.js';
+import { genericFurnitureLinks, furnitureVerbs, verbTarget } from '../furnitureActions.js';
 import { statusLabels } from '../effects.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 import { carryCapacity, formatWeight } from './inventory.js';
@@ -403,6 +403,19 @@ function describeFill(customData, capacity) {
   return `It is ${level} of ${fluid}.`;
 }
 
+// The verbs an inventory item affords — the single source shared by `examine`
+// and `help <item>`, so the two never disagree. `equip`/`unequip` for anything
+// with a body `slot` (state-aware from is_equipped), then the tag-gated
+// specialized actions (eat/drink/use/read/smoke/…) the item's tags unlock.
+function itemActionVerbs(it) {
+  const verbs = [];
+  if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'slot')) {
+    verbs.push(it.is_equipped ? 'unequip' : 'equip');
+  }
+  for (const v of availableActions(it)) if (!verbs.includes(v)) verbs.push(v);
+  return verbs;
+}
+
 async function cmdExamine(targetStr, player, broadcast) {
   if (!targetStr || targetStr === 'room') {
     const zone = getZone(player.current_zone);
@@ -417,7 +430,7 @@ async function cmdExamine(targetStr, player, broadcast) {
     return { type:'examine', message: await describePlayerAppearance(player, true, player, broadcast) };
   }
 
-  const { rows } = await query(`SELECT pi.id AS inv_id, pi.custom_data, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
+  const { rows } = await query(`SELECT pi.id AS inv_id, pi.custom_data, pi.is_equipped, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (rows.length) {
     const it = rows[0];
     let msg = `<span class="zone-name">${it.name}</span>\n${it.tags?.description ?? it.description}`;
@@ -428,7 +441,7 @@ async function cmdExamine(targetStr, player, broadcast) {
     if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'fillable')) {
       msg += `\n${describeFill(it.custom_data, it.tags.fillable)}`;
     }
-    const acts = availableActions(it);
+    const acts = itemActionVerbs(it);
     if (acts.length) {
       const links = acts.map(v =>
         `<span class="action-link" data-action="${v}" data-target="${it.name}">${v}</span>`
@@ -1040,13 +1053,60 @@ export const HELP_GROUPS = [
   { cat: 'INFO',       text: 'look  |  look <me/item/player>  |  examine <thing>  help' },
 ];
 
-function cmdHelp(player) {
+// `help <thing>` — the affordance list for a specific item or piece of furniture,
+// drawn from the same source examine uses (itemActionVerbs / furnitureVerbs), so
+// "what can I do with this" is one answer everywhere. Returns null when nothing
+// in reach matches, so cmdHelp can fall back to the general command reference.
+async function cmdTargetHelp(targetStr, player) {
+  const render = (name, entries) => {
+    let msg = `<span class="help-header">${name.toUpperCase()}</span>\n`;
+    if (!entries.length) {
+      msg += `\n<span class="text-dim">Nothing special to do with this — try</span> examine ${name.toLowerCase()}<span class="text-dim">.</span>`;
+      return { type: 'help', message: msg };
+    }
+    msg += `\n<span class="text-dim">Things you can do:</span>\n`;
+    msg += entries.map(e =>
+      `  <span class="action-link" data-action="${e.verb}" data-target="${e.target}">${e.verb} ${e.target}</span>`
+    ).join('\n');
+    return { type: 'help', message: msg };
+  };
+
+  // Inventory item first, then furniture in the current zone.
+  const { rows } = await query(
+    `SELECT pi.is_equipped, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`,
+    [player.id, `%${targetStr}%`]
+  );
+  if (rows.length) {
+    const it = rows[0];
+    return render(it.name, itemActionVerbs(it).map(v => ({ verb: v, target: it.name })));
+  }
+  const { rows: fr } = await query(
+    `SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
+    [player.current_zone, `%${targetStr}%`]
+  );
+  if (fr.length) {
+    const f = fr[0];
+    const n = f.name.toLowerCase();
+    return render(f.name, furnitureVerbs(f).map(v => ({ verb: v, target: verbTarget(v, n) })));
+  }
+  return null;
+}
+
+async function cmdHelp(args, player) {
+  const target = (args || []).join(' ').trim();
+  if (target) {
+    const specific = await cmdTargetHelp(target, player);
+    if (specific) return specific;
+    // Nothing in reach matched — fall through to the general command reference.
+  }
   const escLt = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   let msg = `<span class="help-header">COMMANDS</span>\n`;
   for (const g of HELP_GROUPS) {
     const pad = ' '.repeat(Math.max(1, 12 - g.cat.length));
     msg += `\n<span class="help-category">${g.cat}</span>${pad}${escLt(g.text)}`;
   }
+  msg += `\n<span class="help-category">HELP</span>      help &lt;item/furniture&gt;   <span class="text-dim">— what you can do with a specific thing</span>`;
   if (player?.role === 'admin') {
     msg += `\n<span class="help-category">ADMIN</span>      @admin   <span class="text-dim">— open the admin command reference (@ = admin · / = player · . = bookkeeping)</span>`;
   }
@@ -1097,7 +1157,7 @@ export const handlers = {
   examine:  (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
   stats:    (args, raw, player) => cmdStats(player),
   skills:   (args, raw, player) => cmdSkills(player),
-  help:     (args, raw, player) => cmdHelp(player),
+  help:     (args, raw, player) => cmdHelp(args, player),
   corpses:  (args, raw, player) => cmdCorpses(player),
   teleport: (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
   raise:    (args, raw, player) => cmdRaise(args, player),

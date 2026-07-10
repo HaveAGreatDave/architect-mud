@@ -254,7 +254,37 @@ function _selectMotdSize() {
   return 'small';
 }
 
-function _applyMotdSubstitutions(template, handle, dynamicText) {
+// Lay a list of strings into the space a border token occupied — word-wrap each
+// to totalSpace and pad back out to the right border so the box stays square.
+// Borderless callers get one unwrapped line per item. Mirror of the game client's
+// helper (client/game/js/panels/whisper.js) so the admin preview matches players.
+function _fitBorderLines(prefix, rborder, totalSpace, items) {
+  if (!rborder) {
+    const flat = items.length ? items : [''];
+    return flat.map(l => prefix + l).join('\n');
+  }
+  const contLeft = rborder + ' '.repeat(Math.max(0, prefix.length - 1));
+  const out = [];
+  for (const item of items) {
+    const s = String(item);
+    if (s.length <= totalSpace) { out.push(s); continue; }
+    const words = s.split(' ');
+    let cur = '';
+    for (const w of words) {
+      const test = cur ? cur + ' ' + w : w;
+      if (test.length > totalSpace) { if (cur) out.push(cur); cur = w; }
+      else cur = test;
+    }
+    if (cur) out.push(cur);
+  }
+  if (!out.length) out.push('');
+  return out.map((l, i) => {
+    const pad = ' '.repeat(Math.max(0, totalSpace - l.length));
+    return (i === 0 ? prefix : contLeft) + l + pad + rborder;
+  }).join('\n');
+}
+
+function _applyMotdSubstitutions(template, handle, dynamicText, newsLines) {
   const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   let text = template;
   text = text.replace(/<player name>( *)/g, (_, spaces) => handle + spaces);
@@ -281,6 +311,11 @@ function _applyMotdSubstitutions(template, handle, dynamicText) {
       return (i === 0 ? prefix : contLeft) + l + pad + rborder;
     }).join('\n');
   });
+  text = text.replace(/^(.*?)<news>( *)(║?)$/gm, (_, prefix, spaces, rborder) => {
+    const totalSpace = spaces.length + 6; // "<news>".length
+    const items = newsLines && newsLines.length ? newsLines : ['[No recent broadcasts available]'];
+    return _fitBorderLines(prefix, rborder, totalSpace, items);
+  });
   return text;
 }
 
@@ -296,7 +331,7 @@ function _measureMotdDims() {
   for (const size of ['big', 'medium', 'small']) {
     const template = _motdData[size] || '';
     if (!template) { _motdDims[size] = { w: 0, h: 0 }; continue; }
-    const rendered = _applyMotdSubstitutions(template, handle, _motdData.dynamic || '');
+    const rendered = _applyMotdSubstitutions(template, handle, _motdData.dynamic || '', _motdData.news || []);
     const pre = document.createElement('pre');
     pre.style.cssText = `font-family:var(--font-mono);white-space:pre;margin:0;line-height:1.3;font-size:${fs}`;
     pre.textContent = rendered;
@@ -325,7 +360,7 @@ function _rerenderMotd() {
   if (!_motdData) return;
   const template = _motdData[_selectMotdSize()] || '';
   if (!template) return;
-  _setSystemMOTD(_applyMotdSubstitutions(template, _myHandle || 'Admin', _motdData.dynamic || ''));
+  _setSystemMOTD(_applyMotdSubstitutions(template, _myHandle || 'Admin', _motdData.dynamic || '', _motdData.news || []));
 }
 
 async function _loadMotd() {
@@ -337,6 +372,7 @@ async function _loadMotd() {
       medium: data.medium || '',
       small: data.small || '',
       dynamic: data.dynamic || '',
+      news: Array.isArray(data.news) ? data.news : [],
     };
     _measureMotdDims();
     _applyWindowSize();

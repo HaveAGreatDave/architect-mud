@@ -1,12 +1,12 @@
 {
   "name": "synthesis",
   "version": "1.0.0",
-  "description": "Drug synthesis: cook reagents into potency-scaled drugs via a chemistry skill check + a 'stabilize the reaction' minigame. Cook at a chem lab (bonus) or with a cook kit anywhere (penalty).",
+  "description": "Drug synthesis: cook reagents into potency-scaled drugs via a chemistry skill check + a 'stabilize the reaction' minigame. Raw→processed cooks require a real chem lab (station quality adds a bonus); no portable kit.",
   "hooks": [],
   "commands": ["cook", "synthesize", "synthresolve", "splice", "splicepreview", "splicebegin", "spliceresolve", "unseal", "reclaim", "cooktest", "splicetest"],
   "objectGatedCommands": {
-    "cook":       { "discoverVia": "furniture:flags.crafting_station | item:cook_kit", "exposed": false, "note": "KNOWN GAP: needs a chem-lab furniture (flags.crafting_station, a flag value not a tag, so availableActions can't surface it) or a carried cook_kit item. Plain command, not examine-surfaced." },
-    "synthesize": { "discoverVia": "furniture:flags.crafting_station | item:cook_kit", "exposed": false, "note": "KNOWN GAP: alias of cook; same mixed flag/tag gate." },
+    "cook":       { "discoverVia": "furniture:flags.crafting_station", "exposed": false, "note": "KNOWN GAP: needs a chem-lab furniture (flags.crafting_station, a flag value not a tag, so availableActions can't surface it). Plain command, not examine-surfaced." },
+    "synthesize": { "discoverVia": "furniture:flags.crafting_station", "exposed": false, "note": "KNOWN GAP: alias of cook; same flag gate." },
     "splice":     { "discoverVia": "furniture:flags.crafting_station=chem_lab", "exposed": false, "note": "KNOWN GAP: master tier; requires a real chem-lab furniture + >=2 drug items + a Stabilizer. Flag-gated furniture, plain command — not examine-surfaced." }
   }
 }

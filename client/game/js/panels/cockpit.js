@@ -1009,6 +1009,19 @@ function ensureFlightSimStyles() {
     .fsim-viewtag{ position:absolute; bottom:8px; left:50%; transform:translateX(-50%); font:10px/1 monospace; letter-spacing:2px; z-index:5;
       color:var(--cy); background:rgba(6,12,18,.7); border:1px solid #16303f; border-radius:4px; padding:2px 8px; opacity:0; transition:opacity .12s; pointer-events:none; }
     .fsim-viewtag.show{ opacity:.9; }
+    /* fuel chip (always shown) + a REFUEL button that appears only when parked on a fuelled strip */
+    .fsim-fuel{ position:absolute; left:8px; top:22px; z-index:6; display:flex; align-items:center; gap:5px;
+      font:bold 10px/1 monospace; letter-spacing:1px; color:#8fe0a8; background:rgba(6,12,18,.72);
+      border:1px solid #16303f; border-radius:5px; padding:3px 7px; }
+    .fsim-fuel-ic{ font-size:11px; filter:saturate(.85); }
+    .fsim-fuel-pct{ min-width:30px; }
+    .fsim-fuel.low .fsim-fuel-pct{ color:#ffb23e; }
+    .fsim-fuel.bingo .fsim-fuel-pct{ color:#ff5b5b; }
+    .fsim-refuel{ display:none; font:bold 8px/1 monospace; letter-spacing:1px; cursor:pointer; padding:4px 7px; border-radius:4px;
+      background:linear-gradient(180deg,#12321f,#08160d); border:1px solid #2a6a44; color:#6fe0a0; }
+    .fsim-refuel:active{ transform:translateY(1px); }
+    .fsim-fuel.can-fuel .fsim-refuel{ display:inline-block; }
+    .fsim-fuel.can-fuel.full .fsim-refuel{ opacity:.45; }
     /* weapons (gunship): master-arm + fire strip, and a centre gun reticle when hot */
     .fsim-weap{ position:absolute; left:8px; bottom:8px; z-index:5; display:none; align-items:center; gap:6px;
       background:rgba(10,8,6,.74); border:1px solid #3a2a12; border-radius:6px; padding:4px 6px; }
@@ -1144,6 +1157,9 @@ function ensureFlightSimStyles() {
     .fsim-fsbtn{ position:absolute; top:6px; right:36px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
       border-radius:6px; width:24px; height:22px; font-size:13px; line-height:1; cursor:pointer; }
     .fsim-fsbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
+    .fsim-hidebtn{ position:absolute; top:6px; right:64px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
+      border-radius:6px; width:24px; height:22px; font-size:12px; line-height:1; cursor:pointer; }
+    .fsim-hidebtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
     .fsim-tune{ position:absolute; top:32px; right:8px; z-index:4; width:186px; max-height:72vh; overflow-y:auto; overscroll-behavior:contain; background:rgba(8,14,20,.94); border:1px solid #14212d; border-radius:8px; padding:8px; }
     .fsim-tune .thdr{ font-size:9px; letter-spacing:1px; color:var(--cy); border-bottom:1px solid #16303f; padding-bottom:3px; margin:2px 0 6px; position:sticky; top:-8px; background:rgba(8,14,20,.98); }
     .fsim-tune .thdr:not(:first-child){ margin-top:9px; }
@@ -1355,7 +1371,7 @@ export function openFlightSim(opts = {}) {
   _fsim = F;
 
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
-    <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span></div><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div></div>
+    <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span></div><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div></div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -1606,7 +1622,21 @@ export function openFlightSim(opts = {}) {
   add(fsBtn, 'click', () => {
     const on = document.body.classList.toggle('fsim-fullscreen');
     if (fsBtn) fsBtn.classList.toggle('on', on);
+    if (on) { document.body.classList.remove('fsim-hidepanel'); q('#fsim-hidebtn')?.classList.remove('on'); }   // fullscreen supersedes hide-panel
   });
+
+  // Hide-panel — folds away just the scrollback log (keeps the command box) and grows the
+  // outside view; the cockpit instrument rows keep their fixed height, so the panel stays put.
+  const hideBtn = q('#fsim-hidebtn');
+  add(hideBtn, 'click', () => {
+    const on = document.body.classList.toggle('fsim-hidepanel');
+    if (hideBtn) hideBtn.classList.toggle('on', on);
+    if (on) { document.body.classList.remove('fsim-fullscreen'); fsBtn?.classList.remove('on'); }
+  });
+
+  // Refuel — shown only when parked on a fuelled strip (the frame loop toggles it). Fires the
+  // same `refuel` verb the command line uses; the server tops the tank and pushes fuel back.
+  add(q('#fsim-refuel'), 'click', (e) => { e.stopPropagation(); sendCmdSilent('refuel'); fsimToast('REFUELLING…'); });
 
   // Radio target-cycle buttons — the panel twin of the [ / ] keys.
   add(q('#fsim-tgt-prev'), 'click', () => cycleApTarget(-1));
@@ -1907,6 +1937,18 @@ function fsimFrame(now) {
   if (lever) lever.style.bottom = (10 + input.throttle * 70) + '%';
   if (tv) tv.textContent = Math.round(input.throttle * 100) + '%';
 
+  // Fuel chip (always on) + REFUEL button (only when parked on an airfield tile with the
+  // wheels down; the server rejects a wrong-fuel field with its own message).
+  const fuelWrap = document.getElementById('fsim-fuel');
+  if (fuelWrap) {
+    const pct = Math.max(0, Math.round(F.fuel / (F.fuelCap || 1) * 100));
+    const pctEl = document.getElementById('fsim-fuel-pct'); if (pctEl) pctEl.textContent = pct + '%';
+    fuelWrap.classList.toggle('low', pct <= 30 && pct > 15);
+    fuelWrap.classList.toggle('bingo', pct <= 15);
+    fuelWrap.classList.toggle('can-fuel', s.onGround && !!F.onField);
+    fuelWrap.classList.toggle('full', pct >= 100);
+  }
+
   const back = F.reportedAirborne ? offMapHeading(F) : null;
   // Landing guide: show the glideslope gates once airborne, low, and within reach of the
   // departure runway (so it appears as you turn back to land).
@@ -1993,7 +2035,7 @@ function fsimFrame(now) {
     landGuide,
     hud: true, navWarn: back == null ? null : `⚠ TURN ${String(back).padStart(3, '0')}° — RETURN TO MAP`,
     threat: (F.aa && F.reportedAirborne) ? F.aa : null,   // AA envelope telegraph → pulsing banner + tape chevron
-    airports: F.fields, apTarget, viewYaw: F.viewYaw,
+    airports: F.fields, apTarget, apTargetId: F.apTargetId, viewYaw: F.viewYaw,
     // Looking off the nose (Q/E/S) → frame the view as a side cabin window instead of the
     // forward windscreen. The real, rotated Mode-7 world still renders behind the pane.
     windowClass: F.viewYaw ? F.cls : undefined,
@@ -2427,6 +2469,7 @@ export function closeFlightSim() {
   try { clearFlightDrugFx(document.getElementById('fsim-root')?.querySelector('.fsim-view'), document.getElementById('fsim-ws')); } catch {}
   stopEngineAudio();
   document.body.classList.remove('fsim-fullscreen');   // drop the immersive layout if it was on
+  document.body.classList.remove('fsim-hidepanel');    // …and the lighter hide-panel layout
   suppressWeatherFx(false);   // back to the room view — let the outdoor overlay resume
 }
 

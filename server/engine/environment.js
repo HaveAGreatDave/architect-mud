@@ -1919,7 +1919,7 @@ export function getGameDateTime() {
 }
 
 export function getEnvironmentState() {
-  return { ...getHUDPayload(), minutes: state.minutes, hour: Math.floor(state.minutes / 60), ambientLight: state.ambientLight, forecast: getForecast(), powerMap: getPowerMap(), precipRate: state.precipRate, currentPrecip: state.currentPrecip, lightningKills: state.lightningKills };
+  return { ...getHUDPayload(), minutes: state.minutes, hour: Math.floor(state.minutes / 60), timeScale: state.timeScale, ambientLight: state.ambientLight, forecast: getForecast(), powerMap: getPowerMap(), precipRate: state.precipRate, currentPrecip: state.currentPrecip, lightningKills: state.lightningKills };
 }
 
 // Records a player killed by storm lightning (not smite). Appends

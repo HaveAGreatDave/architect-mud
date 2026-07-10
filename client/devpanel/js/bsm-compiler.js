@@ -5,7 +5,7 @@ function compileBsm(text) {
   const lines = text.split('\n');
   let i = 0;
 
-  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '' };
+  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '', airSlots: null };
   const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [] };
 
   // Pre-scan ::actors block to build alias map and actor list.
@@ -120,6 +120,10 @@ function compileBsm(text) {
         else if (key === 'type') meta.type = val.toLowerCase();
         else if (key === 'sport') meta.sport = val.toLowerCase();               // sports: which sim to run (baseball)
         else if (key === 'announcer') meta.announcer = val.replace(/^["']|["']$/g, ''); // sports: play-by-play voice — a name string, NOT an npc_ id
+        // sports: feature only the game(s) covering these IN-GAME hours (0–23) each day —
+        // one full game, grid-snapped, at a fixed time of day. Omit ⇒ continuous (back-to-back
+        // games all day). "@airtime 19" → the evening (18:00–21:00) game airs daily.
+        else if (key === 'airtime') meta.airSlots = [...new Set(val.split(/[,\s]+/).map(Number).filter(n => Number.isFinite(n) && n >= 0 && n < 24).map(h => Math.floor(h / 3) % 8))];
         else if (key === 'titlecard') meta.titlecard = val;   // weather: graphic id shown before the report
         // @actor / @alias are pre-scanned from ::actors block; skip here
       }
@@ -417,7 +421,7 @@ function compileBsm(text) {
   // server assembles a fresh simulated game each airing. The announcer is a plain name
   // string spoken as narration — deliberately NOT added to npcIds, so importing a sports
   // broadcast never spawns a studio NPC. See docs/bsm-format.md#sports-broadcasts-type-sports.
-  const sportsScript = { sport: meta.sport || 'baseball', announcer: meta.announcer, teams, players, pools: weatherPools, title: meta.titlecard || '' };
+  const sportsScript = { sport: meta.sport || 'baseball', announcer: meta.announcer, teams, players, pools: weatherPools, title: meta.titlecard || '', airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null };
 
   return { meta, broadcastGraph: { _start: startId, nodes }, weatherScript, sportsScript, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };
 }

@@ -1,4 +1,5 @@
 import { query } from '../models/db.js';
+import { dispatchAction } from './actions.js';
 
 export const DEFAULT_BIG = `Connected: <date> as <player name>
 ▓█▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀█▓
@@ -44,10 +45,7 @@ export const DEFAULT_BIG = `Connected: <date> as <player name>
 ║ ╠══════════════════════════════════════════════════════════════════════════════════════════════╣ ║
 ║  RECENT NEWS:                                                                                      ║
 ║ ╠══════════════════════════════════════════════════════════════════════════════════════════════╣ ║
-║  [No recent broadcasts available]                                                                  ║
-║                                                                                                    ║
-║  > The world is constantly changing. New events, faction activity, and system alerts               ║
-║    will appear here as they occur.                                                                 ║
+║  <news>                                                                                            ║
 ║ ╠══════════════════════════════════════════════════════════════════════════════════════════════╣ ║
 ║                                                                                                    ║
 ║  TIP:                                                                                              ║
@@ -101,10 +99,7 @@ export const DEFAULT_MEDIUM = `Connected: <date> as <player name>
   ╠═══════════════════════════════════════════╣
                RECENT NEWS:
   ╠═══════════════════════════════════════════╣
-    [No recent broadcasts available]
-
-   > The world is constantly changing.
-
+    <news>
   ╠═══════════════════════════════════════════╣`;
 
 export const DEFAULT_SMALL = `Connected: <date> as <player name>
@@ -130,11 +125,25 @@ export const DEFAULT_SMALL = `Connected: <date> as <player name>
   ╠═════════════════════════════════╣
                RECENT NEWS:
   ╠═════════════════════════════════╣
-   [No recent broadcasts available]
-
-  > The world is constantly changing.
-
+   <news>
   ╠═════════════════════════════════╣`;
+
+// How many live headlines the MOTD's <news> block carries. Kept short so the
+// message stays a snapshot, not the full News-app feed.
+const MOTD_NEWS_COUNT = 4;
+
+// Live news for the <news> token — the same feed the tablet News app reads, via
+// the news.getStories Action seam (registered by the tablet plugin) so the engine
+// never imports the plugin. Each story becomes one ready-to-place line tagged by
+// source. Returns [] if the provider isn't loaded, so the token falls back to its
+// "no broadcasts" placeholder client-side.
+async function getMotdNews(count = MOTD_NEWS_COUNT) {
+  try {
+    const res = await dispatchAction({ type: 'news.getStories', params: { total: count } });
+    const stories = Array.isArray(res?.stories) ? res.stories : [];
+    return stories.map(s => `${s.tag === 'live' ? '[LIVE]' : '[WIRE]'} ${s.headline}`);
+  } catch { return []; }
+}
 
 export async function getMotd() {
   const { rows } = await query("SELECT key, value FROM server_settings WHERE key IN ('motd_big','motd_medium','motd_small','motd_dynamic')").catch(() => ({ rows: [] }));
@@ -144,6 +153,7 @@ export async function getMotd() {
     medium:  map.motd_medium  || DEFAULT_MEDIUM,
     small:   map.motd_small   || DEFAULT_SMALL,
     dynamic: map.motd_dynamic ?? '',
+    news:    await getMotdNews(),
   };
 }
 

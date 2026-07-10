@@ -150,6 +150,56 @@ export function showPromptDialog(opts, onConfirm) {
   input.focus();
 }
 
+let _selectEl = null;
+
+function closeSelect() {
+  _selectEl?.remove();
+  _selectEl = null;
+}
+
+// Same themed window, but offers a list of options to pick from (a tap, not
+// typing) — used by the Tablet's corp Invite flow to choose from online players.
+// opts: { title?, prompt?, options: [string | {label, value}], empty? },
+// onSelect: (value) => void
+export function showSelectDialog(opts, onSelect) {
+  closeSelect();
+  const el = document.createElement('div');
+  el.className = 'confirm-window';
+  const options = opts.options || [];
+  el.innerHTML = `
+    <div class="confirm-drag-handle">
+      <span class="confirm-title">${opts.title || 'Choose'}</span>
+      <button class="confirm-x" title="Cancel">✕</button>
+    </div>
+    <div class="confirm-body">
+      ${opts.prompt ? `<p class="confirm-prompt"></p>` : ''}
+      <div class="confirm-select-list"></div>
+      <div class="confirm-actions"><button class="confirm-cancel">Cancel</button></div>
+    </div>`;
+  if (opts.prompt) el.querySelector('.confirm-prompt').textContent = opts.prompt;
+  const list = el.querySelector('.confirm-select-list');
+  if (!options.length) {
+    const p = document.createElement('p');
+    p.className = 'confirm-empty';
+    p.textContent = opts.empty || 'Nothing to choose from.';
+    list.appendChild(p);
+  } else {
+    for (const o of options) {
+      const b = document.createElement('button');
+      b.className = 'confirm-select-opt';
+      b.textContent = o.label ?? String(o);
+      b.addEventListener('click', () => { closeSelect(); onSelect(o.value ?? o); });
+      list.appendChild(b);
+    }
+  }
+  document.body.appendChild(el);
+  _selectEl = el;
+
+  makeDraggable(el, el.querySelector('.confirm-drag-handle'));
+  el.querySelector('.confirm-x').addEventListener('click', closeSelect);
+  el.querySelector('.confirm-cancel').addEventListener('click', closeSelect);
+}
+
 let _amountEl = null;
 
 function closeAmount() {

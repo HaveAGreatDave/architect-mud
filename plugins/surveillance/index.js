@@ -373,6 +373,7 @@ async function buildTiles(ownerId) {
   );
   return rows.map(d => {
     const status = deviceStatus(d, fx);
+    const buf = cameraBuffers.get(d.id);
     return {
       id: d.id,
       name: d.name,
@@ -382,6 +383,8 @@ async function buildTiles(ownerId) {
       status,                                  // ok | offline | damaged | jammed | spoofed
       battery: batteryPct(d),
       recording: !!d.is_recording,
+      full: !!buf?.full,                       // buffer hit its cap → stopped until clip/clear
+      bufferLines: buf?.frames.length || 0,    // lines on tape waiting to be clipped
       frame: deviceFrame(d, status),
       ts: clock(),
     };
@@ -434,7 +437,11 @@ async function doInstallSpecter(args, raw, player) {
   if (it.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [it.inv_id]);
   else await query('DELETE FROM player_inventory WHERE id=$1', [it.inv_id]);
   await setFlag('player', SPECTER_FLAG, '1', player);
-  return { type: 'output', message: `The ${it.name} boots, floods your tablet with a scrolling install log, then goes inert — a scorched sliver of dead plastic. <span class="item-grant">SPECTER is now installed. Open your <b>tablet</b> → Surveillance.</span>` };
+  // The install already landed (flag set, drive consumed). The client plays the
+  // firmware-flasher animation (USB-insert → hackery boot/flash → SPECTER online);
+  // `message` is the transcript fallback if the overlay can't render.
+  return { type: 'specter_install', item: it.name,
+    message: `You slot the ${it.name} into the tablet. A firmware flasher boots, tears through the tablet's signature check, and writes SPECTER to ROM. <span class="item-grant">SPECTER is now installed. Open your <b>tablet</b> → Surveillance.</span>` };
 }
 
 // Register the player as a hub viewer and return the open payload. The command
@@ -610,8 +617,13 @@ class CameraBuffer {
     this.zoneId = null;       // refreshed each capture — used to route auto-clips
     this.ownerId = null;      // "
     this.lastAutoClip = 0;
+    this.full = false;        // true once the buffer hit its cap — stops recording until reset
   }
   push(frame) {               // frame.ts is stamped by the caller at capture time — never later,
+    // Cap = stop, not roll-over: once the buffer is full it banks nothing more
+    // until the operator clips or clears it through SPECTER. This preserves the
+    // whole window as a fixed reel rather than silently dropping the oldest line.
+    if (this.frames.length >= this.limit) { this.full = true; return; }
     // Content-diff (Phase 7a): if the room looks identical to the last banked
     // frame, don't churn the ring. An NPC entering/leaving/acting changes the
     // visible-actor text → a new frame lands whether or not a player is online,
@@ -621,8 +633,9 @@ class CameraBuffer {
     const last = this.frames[this.frames.length - 1];
     if (last && last.text === frame.text) return;
     this.frames.push(frame);  // or a delayed clip would shift the window under the timestamps
-    while (this.frames.length > this.limit) this.frames.shift();
+    if (this.frames.length >= this.limit) this.full = true;
   }
+  reset() { this.frames = []; this.full = false; }
 }
 const cameraBuffers = new Map(); // deviceId → CameraBuffer, created lazily on first line
 
@@ -662,7 +675,13 @@ async function refreshRecordingCams() {
     if (!arr) { arr = []; map.set(d.zone_id, arr); }
     arr.push({ id: d.id, ownerId: d.owner_id });
     const buf = cameraBuffers.get(d.id);
-    if (buf) { buf.limit = limit; buf.zoneId = d.zone_id; buf.ownerId = d.owner_id; while (buf.frames.length > limit) buf.frames.shift(); }
+    if (buf) {
+      buf.limit = limit; buf.zoneId = d.zone_id; buf.ownerId = d.owner_id;
+      // Only trim if the tunable cap was *lowered* under a live buffer (a config
+      // change); normal capture never overflows because push() stops at the cap.
+      while (buf.frames.length > limit) buf.frames.shift();
+      if (buf.frames.length >= limit) buf.full = true;
+    }
   }
   recordingCamsByZone = map;
 }
@@ -676,7 +695,11 @@ function captureZoneLine(zoneId, msg) {
   if (!cams || !cams.length) return;
   const text = stripTags(msg.message);
   if (!text) return;
-  const line = { t: clock(), ts: Date.now(), text };
+  // Tag the line by kind so the microreel viewer can colour speech apart from
+  // narration/emotes. `say` = spoken dialogue; everything else the room narrates
+  // (arrivals, exits, emotes, actions) is an `event`.
+  const kind = msg.type === 'say' ? 'say' : 'event';
+  const line = { t: clock(), ts: Date.now(), text, kind };
   const limit = currentBufferLimit();
   for (const cam of cams) {
     let buf = cameraBuffers.get(cam.id);
@@ -692,6 +715,7 @@ on('zone.broadcast', ({ zoneId, msg }) => captureZoneLine(zoneId, msg));
 export async function __refreshRecordingCams() { return refreshRecordingCams(); }
 export function __captureZoneLine(zoneId, msg) { return captureZoneLine(zoneId, msg); }
 export function __cameraFrames(deviceId) { return (cameraBuffers.get(deviceId)?.frames || []).slice(); }
+export function __cameraFull(deviceId) { return !!cameraBuffers.get(deviceId)?.full; }
 
 // A crime raised in a zone auto-banks a durable evidence record for every
 // actively-recording camera watching it (Phase 4b) — a security_clips row only,
@@ -785,7 +809,10 @@ async function physicalizeClip(clipRow, player) {
   return { itemId, zoneName, frameCount: frames.length, evidenceTag };
 }
 
-// clip [name] — burn the current live buffer to a datachip in your inventory.
+// clip [name] — burn the current live buffer to a saved MICROREEL (a security_clips
+// row you replay in SPECTER → Microreels) and CLEAR the buffer so the cam records
+// again. Clipping no longer mints a physical datachip — that's the separate `collect`
+// export path (deliberate: keeps evidence chips off the routine buffer-reset action).
 async function cmdClip(args, raw, player) {
   const nameHint = args.join(' ').trim();
   const params = [player.id];
@@ -800,14 +827,37 @@ async function cmdClip(args, raw, player) {
 
   // Frames live only in memory now (Phase 4) — never undefined, so an empty
   // buffer falls through to the "nothing recorded" message, not a crash.
-  const frames = cameraBuffers.get(dev.id)?.frames ?? [];
+  const buf = cameraBuffers.get(dev.id);
+  const frames = buf?.frames ?? [];
   if (!frames.length) return { type: 'error', message: `${dev.name} has nothing recorded. Try "record" first.` };
 
   const clip = await createSecurityClip(dev.id, frames.slice(), dev.zone_id, player.id);
-  clip.zone_name = dev.zone_name;
-  const { frameCount, zoneName, evidenceTag } = await physicalizeClip(clip, player);
+  const frameCount = frames.length;
+  const crimeTags = Array.isArray(clip.crime_tags) ? clip.crime_tags : [];
+  const evidenceTag = crimeTags.length ? `[EVIDENCE: ${crimeTags.join(', ').toUpperCase()}]` : '';
+  buf.reset();   // clear the tape so the camera resumes recording
 
-  return { type: 'output', message: `You burn the feed to a datachip — ${frameCount} frames from ${zoneName}.${evidenceTag ? ` <span class="text-red">${evidenceTag.trim()}</span>` : ''}\n<span class="text-dim">(use the datachip to replay it.)</span>` };
+  return { type: 'output', message: `You burn the feed to a microreel — ${frameCount} frame${frameCount === 1 ? '' : 's'} from ${dev.zone_name || dev.zone_id}.${evidenceTag ? ` <span class="text-red">${evidenceTag}</span>` : ''}\n<span class="text-dim">(open SPECTER → Microreels to view it. The buffer is cleared — the camera is recording again.)</span>` };
+}
+
+// wipe [name] — clear a camera's live buffer WITHOUT saving a microreel, so it can
+// record again. The counterpart to clip when you don't want to keep the tape.
+async function cmdWipe(args, raw, player) {
+  const nameHint = args.join(' ').trim();
+  const params = [player.id];
+  let sql = `SELECT d.id, f.name FROM security_devices d JOIN furniture f ON f.id=d.id
+             WHERE d.owner_id=$1`;
+  if (nameHint) { sql += ` AND (d.id=$2 OR f.name ILIKE $3)`; params.push(nameHint, `%${nameHint}%`); }
+  sql += ` ORDER BY f.name LIMIT 1`;
+  const { rows } = await query(sql, params);
+  const dev = rows[0];
+  if (!dev) return { type: 'error', message: nameHint ? `You have no deployed device matching "${nameHint}".` : "You have no deployed devices." };
+  const buf = cameraBuffers.get(dev.id);
+  const had = buf?.frames.length || 0;
+  if (buf) buf.reset();
+  return { type: 'output', message: had
+    ? `You wipe ${dev.name}'s buffer — ${had} line${had === 1 ? '' : 's'} discarded. It's recording again.`
+    : `${dev.name}'s buffer is already empty.` };
 }
 
 // collect [zone] — pull a physical datachip for an evidence clip a camera banked
@@ -2150,25 +2200,25 @@ export async function cameraBufferLines(player, deviceId) {
   if (!deviceId) return [];
   const { rows } = await query('SELECT 1 FROM security_devices WHERE id=$1 AND owner_id=$2', [deviceId, player.id]);
   if (!rows.length) return [];
-  return (cameraBuffers.get(deviceId)?.frames || []).slice(-40).map(f => ({ t: f.t, text: f.text }));
+  return (cameraBuffers.get(deviceId)?.frames || []).slice(-40).map(f => ({ t: f.t, text: f.text, kind: f.kind || 'event' }));
 }
 
-// Every datachip the player carries, with its clip metadata for a tablet list view.
-export async function datachipList(player) {
+// Every microreel the player owns (a security_clips row — a saved recording), with
+// metadata for the tablet's Microreels list. Decoupled from physical datachips:
+// clipping banks a reel here; a datachip is a separate `collect` export.
+export async function microreelList(player) {
   const { rows } = await query(
-    `SELECT i.name, i.tags->>'clip_id' AS clip_id, c.zone_id, z.name AS zone_name,
-            c.captured_at, c.crime_tags, COALESCE(jsonb_array_length(c.frames), 0) AS frame_count
-       FROM player_inventory pi
-       JOIN items i ON i.id = pi.item_id
-       LEFT JOIN security_clips c ON c.id = i.tags->>'clip_id'
+    `SELECT c.id, c.zone_id, z.name AS zone_name, c.captured_at, c.crime_tags,
+            COALESCE(jsonb_array_length(c.frames), 0) AS frame_count
+       FROM security_clips c
        LEFT JOIN zones z ON z.id = c.zone_id
-      WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'datachip')
-      ORDER BY c.captured_at DESC NULLS LAST, i.name`,
+      WHERE c.owner_id=$1
+      ORDER BY c.captured_at DESC NULLS LAST`,
     [player.id]
   );
   return rows.map(r => ({
-    clipId: r.clip_id,
-    name: r.name,
+    clipId: r.id,
+    name: `Reel — ${r.zone_name || r.zone_id || 'UNKNOWN'}`,
     zone: r.zone_name || r.zone_id || 'UNKNOWN',
     capturedAt: r.captured_at ? Number(r.captured_at) : null,
     crimeTags: parseBuffer(r.crime_tags),
@@ -2176,16 +2226,45 @@ export async function datachipList(player) {
   }));
 }
 
-// Push the datachip replay overlay for a clip id — the tablet chip list hands off
-// to the same replay deck `use <datachip>` opens.
-export async function openReplayFor(player, clipId) {
-  if (!clipId) return false;
+// One microreel's full contents for the in-app inline viewer — owner-checked. Frames
+// carry { t, text, kind } so the tablet can colour speech apart from narration.
+export async function getMicroreel(player, clipId) {
+  if (!clipId) return null;
   const { rows } = await query(
-    `SELECT c.*, z.name AS zone_name FROM security_clips c LEFT JOIN zones z ON z.id=c.zone_id WHERE c.id=$1`,
-    [clipId]
+    `SELECT c.*, z.name AS zone_name FROM security_clips c
+       LEFT JOIN zones z ON z.id=c.zone_id WHERE c.id=$1 AND c.owner_id=$2`,
+    [clipId, player.id]
   );
+  if (!rows.length) return null;
+  const c = rows[0];
+  return {
+    id: c.id,
+    zone: c.zone_name || c.zone_id || 'UNKNOWN',
+    capturedAt: c.captured_at ? Number(c.captured_at) : null,
+    crimeTags: parseBuffer(c.crime_tags),
+    frames: parseBuffer(c.frames),
+  };
+}
+
+// How many of the player's cameras have unclipped footage on tape right now — drives
+// the SPECTER home-screen notification badge (a reel waiting to be clipped).
+export async function pendingClipCount(player) {
+  const { rows } = await query('SELECT id FROM security_devices WHERE owner_id=$1', [player.id]);
+  const mine = new Set(rows.map(r => r.id));
+  let n = 0;
+  for (const [id, buf] of cameraBuffers) {
+    if (mine.has(id) && buf.frames.length > 0) n++;
+  }
+  return n;
+}
+
+// Clear a camera's live buffer without saving — the helper the tablet 'clear' action
+// reuses (same effect as the `wipe` verb, keyed by device id, owner-checked).
+export async function wipeCameraBuffer(player, deviceId) {
+  if (!deviceId) return false;
+  const { rows } = await query('SELECT 1 FROM security_devices WHERE id=$1 AND owner_id=$2', [deviceId, player.id]);
   if (!rows.length) return false;
-  sendToPlayer(player.id, await buildReplayPayload(rows[0]));
+  cameraBuffers.get(deviceId)?.reset();
   return true;
 }
 
@@ -2198,6 +2277,7 @@ export const commands = {
   hubclose: cmdHubClose,
   record: cmdRecord,
   clip: cmdClip,
+  wipe: cmdWipe,
   collect: cmdCollect,
   clips: cmdClips,
   replay: cmdReplay,

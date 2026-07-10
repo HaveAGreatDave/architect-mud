@@ -80,15 +80,22 @@ function _recordDeckMessage(channelId, message) {
 }
 
 on('tv.watch',   ({ playerId, channelId }) => tvWatchers.set(playerId, channelId));
-on('tv.unwatch', ({ playerId }) => {
+// A quick tap closes the panel — you stop watching, but the set keeps playing and the
+// room keeps overhearing it (ambient continues). So a plain unwatch just drops you as a
+// viewer; it does NOT switch the set off.
+on('tv.unwatch', ({ playerId }) => { tvWatchers.delete(playerId); });
+
+// Press-and-hold on the power button is the deliberate "switch it off" — turns the
+// shared set off for the whole room.
+on('tv.poweroff', ({ playerId }) => {
   const channelId = tvWatchers.get(playerId);
   tvWatchers.delete(playerId);
   if (channelId) powerOffWatchedTv(playerId, channelId).catch(err => console.error('[broadcast] powerOffWatchedTv error:', err.message));
 });
 
-// Powering the TV off (closing the panel) turns the shared set off for the whole
-// room: untune the device so ambient TV lines stop, tell the room, and close any
-// co-watcher's still-open panel. Mirrors `tune 0` plus a room announcement.
+// Switching the TV off (press-and-hold) turns the shared set off for the whole room:
+// untune the device so ambient TV lines stop, tell the room, and close any co-watcher's
+// still-open panel. Mirrors `tune 0` plus a room announcement.
 async function powerOffWatchedTv(playerId, channelId) {
   const player = world.players.get(playerId);
   const zoneId = player?.current_zone;
@@ -275,9 +282,10 @@ function broadcastDuration(bc) {
   // Weather graphs are assembled live from the forecast (not baked in the DB), so
   // there's nothing to measure here — give the slot a sane default airtime.
   if (bc.playback_mode === 'weather') return 120;
-  // Sports games are simulated fresh each airing (variable length); the runner rolls a
-  // new game per loop cycle, so give the slot a generous default airtime for one game.
-  if (bc.playback_mode === 'sports') return 300;
+  // Sports runs one deterministic game per hour on the shared global clock, so a slot
+  // reserves the full game window (a scheduled placement covers the whole hour). The
+  // airing seeks into whatever game the clock says is on right now, regardless.
+  if (bc.playback_mode === 'sports') return sportsSlotMs() / 1000;
   if (bc.broadcast_graph) {
     const d = _vineDuration(bc.broadcast_graph, bc.message_interval || 5);
     if (d > 0) return d;
@@ -749,20 +757,47 @@ function getWeatherGraph(item) {
 const SPORTS_ORDINALS = ['0th', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th', '13th', '14th', '15th'];
 function sportsOrdinal(n) { return SPORTS_ORDINALS[n] || `${n}th`; }
 
-function sportsPick(pools, ...keys) {
+// ── Deterministic seeding ────────────────────────────────────────────────────
+// The whole league is a pure function of wall-clock time: every game's outcome AND
+// its play-by-play are generated from a seed, so all TVs render an identical game at
+// the same instant and the standings can be recomputed from the seed alone (no
+// per-game DB rows). mulberry32 PRNG + an FNV-style integer hash for deriving seeds.
+function sportsRng(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function sportsHash(...nums) {
+  let h = 2166136261 >>> 0;
+  for (const n of nums) { h = Math.imul(h ^ (n >>> 0), 16777619); }
+  return h >>> 0;
+}
+
+// A pool pick, chatter, and the shuffle all draw from a supplied rng so the same
+// seed yields the same words in the same order (rng defaults to Math.random only for
+// any legacy caller — the sports path always threads a seeded rng).
+function sportsPick(pools, rand, ...keys) {
   for (const k of keys) {
     const arr = pools[k];
-    if (Array.isArray(arr) && arr.length) return arr[Math.floor(Math.random() * arr.length)];
+    if (Array.isArray(arr) && arr.length) return arr[Math.floor(rand() * arr.length)];
   }
   return null;
 }
 function sportsFill(line, tok) {
   return line.replace(/\{(\w+)\}/g, (_, k) => (tok[k] !== undefined && tok[k] !== null ? String(tok[k]) : ''));
 }
-function sportsShuffle(arr) {
+function sportsShuffle(arr, rand = Math.random) {
   const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
   return a;
+}
+// Team pool → display names (a team may be a bare string or an object with .name).
+function sportsTeamNames(teams) {
+  return (Array.isArray(teams) ? teams : []).map(t => (typeof t === 'string' ? t : t?.name)).filter(Boolean);
 }
 
 // One plate appearance → an outcome. Weights are tuned to real MLB per-PA rates:
@@ -781,8 +816,8 @@ const SPORTS_ATBAT_TABLE = [
   { kind: 'homerun',   w: 31,  bases: 4, out: false },
 ];
 const SPORTS_ATBAT_TOTAL = SPORTS_ATBAT_TABLE.reduce((s, o) => s + o.w, 0);
-function sportsRollAtBat() {
-  let roll = Math.random() * SPORTS_ATBAT_TOTAL;
+function sportsRollAtBat(rand = Math.random) {
+  let roll = rand() * SPORTS_ATBAT_TOTAL;
   for (const o of SPORTS_ATBAT_TABLE) { roll -= o.w; if (roll <= 0) return o; }
   return SPORTS_ATBAT_TABLE[0];
 }
@@ -804,6 +839,113 @@ const SPORTS_MAX_INNINGS = 20;              // safety cap; a winner is forced if
 
 const SPORTS_DEFAULT_NAMES = ['Rodriguez', 'Kane', 'Okafor', 'Bishop', 'Hale', 'Vance', 'Cruz', 'Doyle', 'Reyes', 'Park', 'Sato', 'Mundt', 'Nagy', 'Flynn', 'Ruiz', 'Abara', 'Cole', 'Voss', 'Dunn', 'Marsh'];
 
+// ── The shared clock: one game an hour, the same one on every TV ──────────────
+// Games run on a single global timeline keyed to wall-clock time, not per channel.
+// The current game = a pure function of the slot index, so every tuned TV lands on the
+// same game at the same beat, and tuning in mid-slot drops you into a game already in
+// progress (the graph walker seeks by elapsed time). A "day" of SPORTS_GAMES_PER_DAY
+// slots draws its matchups from a round-robin, so all teams play a balanced slate.
+//
+// REALISM IS MEASURED IN IN-GAME DAYS. A real league plays ~1 game per team per day, so
+// we fix SPORTS_GAMES_PER_DAY games per IN-GAME day (8 = one round for 16 teams → each
+// team once/day) and DERIVE the real-time slot length from the game clock: a slot is the
+// real time of one in-game day (24h ÷ timeScale) split into that many games. So the
+// cadence stays realistic whatever the world's clock speed — timeScale 1 → 3h games,
+// timeScale 3 (8-hour day) → 1h games. (Read once, after the clock loads; if you change
+// timeScale, restart and reset the season, since the slot size — and thus the standings
+// window — is denominated in slots.)
+const SPORTS_DAY_MS = 24 * 60 * 60 * 1000;             // real ms in one in-game day at timeScale 1
+const SPORTS_GAMES_PER_DAY = 8;                        // games per IN-GAME day (one round for 16 teams)
+const SPORTS_GAME_FILL = 0.85;                         // fraction of a slot the play-by-play fills (rest = post-game)
+const SPORTS_SLOT_FALLBACK_MS = SPORTS_DAY_MS / SPORTS_GAMES_PER_DAY;   // 3h — used only before the clock loads
+const SPORTS_SLOT_GAME_MIN = 1440 / SPORTS_GAMES_PER_DAY;   // in-game minutes per game (180 = a 3-in-game-hour block)
+
+// THE LEAGUE RUNS ON THE IN-GAME CLOCK. A slot is an in-game 3-hour block, so slot N of
+// the day maps to a FIXED in-game time (block 5 = 15:00–18:00 in-game) — that's what lets
+// a "featured slot" air at a predictable time. And since every client reads the same
+// server-authoritative in-game clock, all TVs land on the same game. Real time only enters
+// to pace the broadcast (how fast the in-game slot plays out in real seconds).
+function sportsInGameMinutes() {
+  const env = getEnvironmentState();
+  const d = (typeof env?.date === 'string' && env.date.length >= 10) ? env.date.slice(0, 10) : null;
+  const dayNum = d ? Math.floor(Date.parse(`${d}T00:00:00Z`) / 86400000) : 0;
+  return dayNum * 1440 + (Number.isFinite(env?.minutes) ? env.minutes : 0);
+}
+const sportsSlotIndex = () => Math.floor(sportsInGameMinutes() / SPORTS_SLOT_GAME_MIN);
+const sportsSlotOfDay = () => ((sportsSlotIndex() % SPORTS_GAMES_PER_DAY) + SPORTS_GAMES_PER_DAY) % SPORTS_GAMES_PER_DAY;
+// In-game minutes elapsed into the current slot (0..SPORTS_SLOT_GAME_MIN).
+const sportsSlotElapsedMin = () => sportsInGameMinutes() - sportsSlotIndex() * SPORTS_SLOT_GAME_MIN;
+
+// The slot's real-time DURATION (24h ÷ timeScale ÷ games) — how long the in-game block
+// takes to play out in real seconds; drives pacing + betting resolve. Lazy-memoized once
+// the clock loads (3h fallback before). If you change timeScale, restart + reset the season.
+let _sportsSlotMs = null;
+function sportsSlotMs() {
+  if (_sportsSlotMs) return _sportsSlotMs;
+  const env = getEnvironmentState();
+  const ts = env?.timeScale;
+  if (!ts || !env?.date) return SPORTS_SLOT_FALLBACK_MS;   // clock not ready yet — don't memoize a wrong value
+  _sportsSlotMs = Math.max(BROADCAST_TICK_MS, Math.round((SPORTS_DAY_MS / ts) / SPORTS_GAMES_PER_DAY));
+  return _sportsSlotMs;
+}
+// Real seconds already elapsed into the current slot — where the shared game "is" right
+// now, so a viewer tuning in lands mid-game.
+const sportsSegElapsedSec = () => (sportsSlotElapsedMin() / SPORTS_SLOT_GAME_MIN) * sportsSlotMs() / 1000;
+// Real epoch-ms when the current slot's game ends (betting resolve / airing wrap).
+const sportsSlotEndsAtMs = () => Date.now() + ((SPORTS_SLOT_GAME_MIN - sportsSlotElapsedMin()) / SPORTS_SLOT_GAME_MIN) * sportsSlotMs();
+
+// Is a sports broadcast scheduled to air right now? `airSlots` (an array of slot-of-day
+// indices 0..SPORTS_GAMES_PER_DAY-1) features ONLY those games each in-game day — one full
+// game, grid-snapped, at a fixed in-game time. Empty/absent ⇒ continuous (every slot,
+// back-to-back games).
+function sportsAiring(script) {
+  const slots = script?.airSlots;
+  if (!Array.isArray(slots) || !slots.length) return true;
+  return slots.includes(sportsSlotOfDay());
+}
+
+// Circle-method round-robin: for N teams (padded to even with a BYE), returns N-1
+// rounds of N/2 index pairs, every team appearing once per round. Deterministic
+// given N, so a day's schedule is reproducible from the day number alone.
+function roundRobinRounds(n) {
+  const even = n % 2 === 0 ? n : n + 1;               // pad odd rosters with a phantom BYE
+  const arr = Array.from({ length: even }, (_, i) => i);
+  const rounds = [];
+  for (let r = 0; r < even - 1; r++) {
+    const round = [];
+    for (let i = 0; i < even / 2; i++) round.push([arr[i], arr[even - 1 - i]]);
+    rounds.push(round);
+    arr.splice(1, 0, arr.pop());                       // fix the first, rotate the rest
+  }
+  return rounds;
+}
+
+// The matchup airing in a given global slot. The day picks a deterministic team
+// order + a rolling window into the round-robin so pairings vary day to day while
+// staying balanced; home/away flips on a per-slot coin. A pairing that lands on the
+// BYE (odd roster) is skipped to the next real one. Returns { away, home } or null.
+function sportsMatchupForSlot(slot, teams) {
+  const names = sportsTeamNames(teams);
+  if (names.length < 2) return null;
+  const day = Math.floor(slot / SPORTS_GAMES_PER_DAY);
+  const slotOfDay = ((slot % SPORTS_GAMES_PER_DAY) + SPORTS_GAMES_PER_DAY) % SPORTS_GAMES_PER_DAY;
+  const order = sportsShuffle(names, sportsRng(sportsHash(day, 0x5c4e))); // daily team order
+  const rounds = roundRobinRounds(order.length);
+  const gamesPerRound = rounds[0].length;
+  const roundsPerDay = Math.max(1, Math.floor(SPORTS_GAMES_PER_DAY / gamesPerRound));
+  // Walk from the slot's nominal pairing, skipping BYE games (index ≥ order.length).
+  const total = rounds.length * gamesPerRound;
+  const base = (day * roundsPerDay * gamesPerRound) + slotOfDay;
+  for (let k = 0; k < total; k++) {
+    const flat = (base + k) % total;
+    const [ai, hi] = rounds[Math.floor(flat / gamesPerRound)][flat % gamesPerRound];
+    if (ai >= order.length || hi >= order.length) continue;   // BYE — try the next pairing
+    const flip = (sportsHash(slot, 0xa17f) & 1) === 1;
+    return flip ? { away: order[hi], home: order[ai] } : { away: order[ai], home: order[hi] };
+  }
+  return null;
+}
+
 // Short 2–3 letter tag for the score bug (initials of a multi-word name, else first letters).
 function sportsAbbr(name) {
   const words = String(name || '').replace(/[^A-Za-z0-9 ]/g, '').trim().split(/\s+/).filter(Boolean);
@@ -818,10 +960,9 @@ function sportsAbbr(name) {
 // bottom half once it already leads in the 9th+, a bottom-half go-ahead run ends the
 // game as a walk-off, and a tie after nine goes to extra innings — where the offense
 // is cranked each frame until someone wins. There is always a winner; never a tie.
-function sportsSimGame(teams, players) {
-  const teamPool = (Array.isArray(teams) && teams.length >= 2) ? teams : [...(teams || []), ...(teams || []), 'Home', 'Away'];
-  const [awayName, homeName] = sportsShuffle(teamPool);
-  const names = sportsShuffle((Array.isArray(players) && players.length) ? players : SPORTS_DEFAULT_NAMES);
+function sportsSimGame(matchup, players, rand = Math.random) {
+  const awayName = matchup?.away || 'Away', homeName = matchup?.home || 'Home';
+  const names = sportsShuffle((Array.isArray(players) && players.length) ? players : SPORTS_DEFAULT_NAMES, rand);
   const mk = (name, off) => ({
     name, score: 0, idx: 0,
     lineup: Array.from({ length: 9 }, (_, k) => names[(off + k) % names.length]),
@@ -840,24 +981,24 @@ function sportsSimGame(teams, players) {
     while (outs < 3) {
       const batter = batting.lineup[batting.idx % 9];
       batting.idx++;
-      const ab = sportsRollAtBat();
+      const ab = sportsRollAtBat(rand);
       let kind = ab.kind, runs = 0;
 
       if (ab.out) {
         // Base/out-aware outs. A grounder with a man on first can turn two; a fly
         // ball with a man on third can be traded for a run; other grounders can
         // still push a runner over — a "productive out".
-        if (ab.kind === 'groundout' && bases[0] && outs < 2 && Math.random() < SPORTS_DP_CHANCE) {
+        if (ab.kind === 'groundout' && bases[0] && outs < 2 && rand() < SPORTS_DP_CHANCE) {
           kind = 'doubleplay';                 // batter + the force at second
           bases[0] = false;
           outs += 2;
-        } else if (ab.kind === 'flyout' && bases[2] && outs < 2 && Math.random() < SPORTS_SACFLY_CHANCE) {
+        } else if (ab.kind === 'flyout' && bases[2] && outs < 2 && rand() < SPORTS_SACFLY_CHANCE) {
           kind = 'sacfly';                      // runner tags from third and scores
           bases[2] = false; runs = 1;
           outs += 1;
         } else {
           outs += 1;
-          if (ab.kind === 'groundout' && outs < 3 && (bases[1] || bases[2]) && Math.random() < SPORTS_PRODUCTIVE_OUT_CHANCE) {
+          if (ab.kind === 'groundout' && outs < 3 && (bases[1] || bases[2]) && rand() < SPORTS_PRODUCTIVE_OUT_CHANCE) {
             kind = 'productout';                // grounder to the right side moves 'em up
             if (bases[2]) { runs += 1; bases[2] = false; }
             if (bases[1]) { bases[2] = true; bases[1] = false; }
@@ -882,13 +1023,13 @@ function sportsSimGame(teams, players) {
         bases[0] = bases[1] = bases[2] = false;
         if (ab.kind === 'single') {
           if (r2) runs++;
-          if (r1) { if (Math.random() < 0.72) runs++; else bases[2] = true; }
-          if (r0) { if (Math.random() < 0.42 && !bases[2]) bases[2] = true; else bases[1] = true; }
+          if (r1) { if (rand() < 0.72) runs++; else bases[2] = true; }
+          if (r0) { if (rand() < 0.42 && !bases[2]) bases[2] = true; else bases[1] = true; }
           bases[0] = true;
         } else if (ab.kind === 'double') {
           if (r2) runs++;
           if (r1) runs++;
-          if (r0) { if (Math.random() < 0.62) runs++; else bases[2] = true; }
+          if (r0) { if (rand() < 0.62) runs++; else bases[2] = true; }
           bases[1] = true;
         } else if (ab.kind === 'triple') {
           runs += (r0 ? 1 : 0) + (r1 ? 1 : 0) + (r2 ? 1 : 0);
@@ -911,10 +1052,10 @@ function sportsSimGame(teams, players) {
   // extra-inning "decide" roll fires and as the never-a-tie backstop at the cap.
   const forceFinish = () => {
     inning = Math.max(inning, 10);
-    const homeWins = Math.random() < 0.5;
+    const homeWins = rand() < 0.5;
     const bat = homeWins ? home : away, fld = homeWins ? away : home;
     const half = homeWins ? 'bottom' : 'top';
-    const r = Math.random();
+    const r = rand();
     const kind = r < 0.15 ? 'homerun' : (r < 0.5 ? 'double' : 'single');
     bat.score += 1;
     beats.push({ type: 'half_start', inning, half, battingName: bat.name, fieldingName: fld.name, pitcher: fld.pitcher, awayScore: away.score - (homeWins ? 0 : 1), homeScore: home.score - (homeWins ? 1 : 0) });
@@ -933,7 +1074,7 @@ function sportsSimGame(teams, players) {
     // decides it outright — so a tie can never drag on and always ends with a winner.
     if (inning >= 10) {
       const decide = Math.min(1, (inning - 10) * SPORTS_EXTRAS_DECIDE_STEP);
-      if (decide > 0 && Math.random() < decide) { forceFinish(); gameOver = true; break; }
+      if (decide > 0 && rand() < decide) { forceFinish(); gameOver = true; break; }
     }
   }
 
@@ -943,14 +1084,43 @@ function sportsSimGame(teams, players) {
   return { away, home, awayScore: away.score, homeScore: home.score, beats, innings: inning };
 }
 
+// Floor for how long a spoken line holds on air (a multiple of the 5s broadcast tick).
+// The actual per-line hold is computed per game to stretch the play-by-play across
+// SPORTS_GAME_FILL of the slot (so it auto-repaces for any slot length); this is
+// just the minimum so lines never flash by even in a very long game.
+const SPORTS_LINE_HOLD_MS = 10000;
+
+// The one game airing (or destined to air) in a given global slot — outcome and all.
+// PURE: same slot → same matchup, same seed, same result, on every server and every
+// TV. This is the single source of truth for both the on-air narration and the
+// computed standings, so the table can never disagree with what viewers saw. A World
+// Series override forces the two finalists (with its own seed). Returns null if the
+// roster is too thin to make a game.
+function sportsGameForSlot(script, slot, override) {
+  const seed = sportsHash(slot >>> 0, override?.worldSeries ? 0x77 : 0x00);
+  const matchup = override?.teams
+    ? { away: override.teams[0], home: override.teams[1] }
+    : sportsMatchupForSlot(slot, script.teams);
+  if (!matchup) return null;
+  const game = sportsSimGame(matchup, script.players, sportsRng(seed));
+  return { game, seed, matchup };
+}
+
 // Build the play-by-play VINE graph for one simulated game. Selective narration keeps
 // on-air pacing watchable: every scoring play is called (+ a running score line), half
-// framing is always called, routine outs/hits are sampled and capped per half.
-function assembleSportsGraph(script, broadcastId, cycle, override) {
+// framing is always called, routine outs/hits are sampled and capped per half. All
+// line choices draw from a narration rng seeded off the game seed, so the words are
+// identical on every TV (a separate stream from the result rng, so narration variety
+// never perturbs the outcome).
+function assembleSportsGraph(script, broadcastId, slot, override) {
   const announcer = script.announcer || 'your announcer';
   const pools = script.pools || {};
   const ws = !!override?.worldSeries;                       // World Series takeover?
-  const game = sportsSimGame(override?.teams || script.teams, script.players);
+  const gs = sportsGameForSlot(script, slot, override);
+  if (!gs) return null;
+  const game = gs.game;
+  const nrng = sportsRng(gs.seed ^ 0x9e3779b9);
+  const pick = (...keys) => sportsPick(pools, nrng, ...keys);
   const { away, home, awayScore, homeScore, beats } = game;
 
   const nodes = {};
@@ -1014,11 +1184,11 @@ function assembleSportsGraph(script, broadcastId, cycle, override) {
   const hasRecords = awayRecord !== '0-0' || homeRecord !== '0-0';
   const gameTok = { announcer, away: away.name, home: home.name, awayRecord, homeRecord };
   const pregameBug = bug('PRE-GAME', 0, 0, 0, [false, false, false]);
-  say(sportsPick(pools, ...(ws ? ['worldseries.intro', 'intro'] : ['intro'])), gameTok, pregameBug);
+  say(pick(...(ws ? ['worldseries.intro', 'intro'] : ['intro'])), gameTok, pregameBug);
   const muGraphic = ws
     ? { overlayType: 'sportsfx', kind: 'worldseries', away: away.name, home: home.name, awayRecord, homeRecord, duration: 4.6 }
     : { overlayType: 'sportsfx', kind: 'matchup', away: away.name, home: home.name, awayRecord, homeRecord, duration: 4.0 };
-  say(sportsPick(pools, ...(ws ? ['worldseries.matchup', 'matchup.records', 'matchup'] : (hasRecords ? ['matchup.records', 'matchup'] : ['matchup']))), gameTok, pregameBug, muGraphic);
+  say(pick(...(ws ? ['worldseries.matchup', 'matchup.records', 'matchup'] : (hasRecords ? ['matchup.records', 'matchup'] : ['matchup']))), gameTok, pregameBug, muGraphic);
 
   // Group the flat beat list into halves so each half-inning can be narrated as a
   // full "stage": EVERY one of the three outs is called, scoring plays are always
@@ -1038,41 +1208,41 @@ function assembleSportsGraph(script, broadcastId, cycle, override) {
   const extraHalves = halves.filter(h => h.start.inning >= 10);
 
   for (const h of regHalves) {
-    say(sportsPick(pools, `half.${h.start.half}`, 'half'), beatTok(h.start), beatBug(h.start));
+    say(pick(`half.${h.start.half}`, 'half'), beatTok(h.start), beatBug(h.start));
 
-    const target = 6 + Math.floor(Math.random() * 3);   // 6, 7, or 8 lines this half
+    const target = 6 + Math.floor(nrng() * 3);   // 6, 7, or 8 lines this half
     let spoken = 1;                                      // the framing line above
     let walkoffHalf = false;
-    const chatter = (b) => { const line = sportsPick(pools, 'chatter'); if (line) { say(line, beatTok(b), beatBug(b)); spoken++; } };
+    const chatter = (b) => { const line = pick('chatter'); if (line) { say(line, beatTok(b), beatBug(b)); spoken++; } };
 
     for (const b of h.atbats) {
       const tok = beatTok(b), sb = beatBug(b);
       if (b.kind === 'homerun') {
         const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr');
-        say(sportsPick(pools, key, 'hr'), tok, sb, hrGraphic(b)); spoken++;
-        say(sportsPick(pools, 'score.update'), tok, sb); spoken++;
-        if (b.walkoff) { say(sportsPick(pools, 'walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+        say(pick(key, 'hr'), tok, sb, hrGraphic(b)); spoken++;
+        say(pick('score.update'), tok, sb); spoken++;
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'sacfly') {
-        say(sportsPick(pools, 'atbat.sacfly'), tok, sb); spoken++;
-        say(sportsPick(pools, 'score.update'), tok, sb); spoken++;
-        if (b.walkoff) { say(sportsPick(pools, 'walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+        say(pick('atbat.sacfly'), tok, sb); spoken++;
+        say(pick('score.update'), tok, sb); spoken++;
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'productout') {
-        say(sportsPick(pools, 'atbat.productout', 'atbat.groundout'), tok, sb); spoken++;
-        if (b.rbi > 0) { say(sportsPick(pools, 'score.update'), tok, sb); spoken++; }
-        if (b.walkoff) { say(sportsPick(pools, 'walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+        say(pick('atbat.productout', 'atbat.groundout'), tok, sb); spoken++;
+        if (b.rbi > 0) { say(pick('score.update'), tok, sb); spoken++; }
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'doubleplay') {
-        say(sportsPick(pools, 'atbat.doubleplay'), tok, sb, dpGraphic(b)); spoken++;
+        say(pick('atbat.doubleplay'), tok, sb, dpGraphic(b)); spoken++;
       } else if (b.rbi > 0) {
-        say(sportsPick(pools, 'rbi'), tok, sb); spoken++;
-        say(sportsPick(pools, 'score.update'), tok, sb); spoken++;
-        if (b.walkoff) { say(sportsPick(pools, 'walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+        say(pick('rbi'), tok, sb); spoken++;
+        say(pick('score.update'), tok, sb); spoken++;
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.out) {
         // Call every out. Thread a chatter line between outs (never after the 3rd).
-        say(sportsPick(pools, `atbat.${b.kind}`, 'atbat.out'), tok, sb); spoken++;
+        say(pick(`atbat.${b.kind}`, 'atbat.out'), tok, sb); spoken++;
         if (b.outs < 3 && spoken < target) chatter(b);
       } else if (spoken < target) {
         // Non-scoring baserunner — colour, only when the half still needs lines.
-        say(sportsPick(pools, `atbat.${b.kind}`, 'atbat.single'), tok, sb); spoken++;
+        say(pick(`atbat.${b.kind}`, 'atbat.single'), tok, sb); spoken++;
       }
     }
 
@@ -1082,7 +1252,7 @@ function assembleSportsGraph(script, broadcastId, cycle, override) {
     while (!walkoffHalf && spoken < target && guard++ < 8) chatter(h.end);
 
     // Sparse score checkpoints — end of every third full inning.
-    if (h.start.half === 'bottom' && h.start.inning % 3 === 0) say(sportsPick(pools, 'recap.half'), beatTok(h.end), beatBug(h.end));
+    if (h.start.half === 'bottom' && h.start.inning % 3 === 0) say(pick('recap.half'), beatTok(h.end), beatBug(h.end));
   }
 
   const finalTok = {
@@ -1098,14 +1268,14 @@ function assembleSportsGraph(script, broadcastId, cycle, override) {
   if (extraHalves.length) {
     const narrateScore = (b) => {
       const tok = beatTok(b), sb = beatBug(b);
-      if (b.kind === 'homerun') { const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr'); say(sportsPick(pools, key, 'hr'), tok, sb, hrGraphic(b)); }
-      else if (b.kind === 'sacfly') say(sportsPick(pools, 'atbat.sacfly'), tok, sb);
-      else if (b.kind === 'productout') say(sportsPick(pools, 'atbat.productout', 'atbat.groundout'), tok, sb);
-      else say(sportsPick(pools, 'rbi'), tok, sb);
-      say(sportsPick(pools, 'score.update'), tok, sb);
-      if (b.walkoff) say(sportsPick(pools, 'walkoff'), tok, sb, walkoffGraphic(b));
+      if (b.kind === 'homerun') { const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr'); say(pick(key, 'hr'), tok, sb, hrGraphic(b)); }
+      else if (b.kind === 'sacfly') say(pick('atbat.sacfly'), tok, sb);
+      else if (b.kind === 'productout') say(pick('atbat.productout', 'atbat.groundout'), tok, sb);
+      else say(pick('rbi'), tok, sb);
+      say(pick('score.update'), tok, sb);
+      if (b.walkoff) say(pick('walkoff'), tok, sb, walkoffGraphic(b));
     };
-    say(sportsPick(pools, 'extras.intro'), gameTok, beatBug(extraHalves[0].start),
+    say(pick('extras.intro'), gameTok, beatBug(extraHalves[0].start),
       { overlayType: 'sportsfx', kind: 'extras', inningOrd: sportsOrdinal(extraHalves[0].start.inning), duration: 3.2 });
     for (const h of extraHalves) {
       // A top half always starts tied (the sim only continues on a tie); a bottom half
@@ -1115,15 +1285,15 @@ function assembleSportsGraph(script, broadcastId, cycle, override) {
       // claim it's still tied.
       const trailingHome = h.start.half === 'bottom' && h.start.awayScore !== h.start.homeScore;
       say(trailingHome
-        ? sportsPick(pools, 'extras.bottom.trail', 'extras.bottom', 'extras.cut')
-        : sportsPick(pools, `extras.${h.start.half}`, 'extras.cut'),
+        ? pick('extras.bottom.trail', 'extras.bottom', 'extras.cut')
+        : pick(`extras.${h.start.half}`, 'extras.cut'),
         beatTok(h.start), beatBug(h.start));
       const scorers = h.atbats.filter(b => b.rbi > 0);
       if (scorers.length) for (const b of scorers) narrateScore(b);
-      else if (!trailingHome) say(sportsPick(pools, 'extras.hold'), beatTok(h.end), beatBug(h.end));
+      else if (!trailingHome) say(pick('extras.hold'), beatTok(h.end), beatBug(h.end));
     }
     // A go-ahead run in the top that the home side couldn't answer = a road win in extras.
-    if (winner() === away.name) say(sportsPick(pools, 'winning.top'), finalTok, finalBug);
+    if (winner() === away.name) say(pick('winning.top'), finalTok, finalBug);
   }
 
   const winName = winner();
@@ -1137,13 +1307,32 @@ function assembleSportsGraph(script, broadcastId, cycle, override) {
     extras: game.innings > 9, inningOrd: sportsOrdinal(game.innings),
     duration: ws ? 5.4 : 4.4,
   };
-  say(sportsPick(pools, ...(ws ? ['worldseries.final', 'final'] : ['final'])), finalTok, finalBug, winGraphic);
-  say(sportsPick(pools, ...(ws ? ['worldseries.outro', 'outro'] : ['outro'])), finalTok, finalBug);
+  say(pick(...(ws ? ['worldseries.final', 'final'] : ['final'])), finalTok, finalBug, winGraphic);
+  const outroId = prevId;
+  say(pick(...(ws ? ['worldseries.outro', 'outro'] : ['outro'])), finalTok, finalBug);
 
-  // When the chain ends the walker restarts at _start on its own. Folding the loop
-  // cycle into _broadcastId resets the blackboard each cycle so a fresh game airs.
+  // Pace the play-by-play to fill ~SPORTS_GAME_FILL of the slot (auto-repaces for any
+  // the slot), then park the final sign-off on screen for the remainder — a
+  // "final / next game soon" post-game lull — rather than looping the game mid-slot.
+  // Per-line hold rounds DOWN to the tick grid so the quantized on-air time can't
+  // overrun the slot; the tail then pads up to the exact slot boundary. All deterministic
+  // → every TV repaces and parks identically.
+  const floorTick = (ms) => Math.floor(ms / BROADCAST_TICK_MS) * BROADCAST_TICK_MS;
+  const sayIds = Object.keys(nodes).filter((id) => nodes[id].type === 'say');
+  const slotMs = sportsSlotMs();
+  const perLine = Math.min(90000, Math.max(SPORTS_LINE_HOLD_MS, floorTick(slotMs * SPORTS_GAME_FILL / Math.max(1, sayIds.length))));
+  for (const id of sayIds) nodes[id].holdMs = perLine;
+
+  const holdOf = (nd) => (nd.type === 'start' ? 0 : Math.ceil((nd.type === 'title_card' ? (nd.duration ?? 10) * 1000 : (nd.holdMs ?? 5000)) / BROADCAST_TICK_MS) * BROADCAST_TICK_MS);
+  const played = Object.values(nodes).reduce((sum, nd) => sum + holdOf(nd), 0);
+  const tail = nodes[prevId] || nodes[outroId];
+  if (tail) tail.holdMs = Math.max(perLine, slotMs - (played - holdOf(tail)));
+
+  // When the chain ends the walker restarts at _start on its own. Keying _broadcastId
+  // to the global slot resets the blackboard when the slot rolls, so the shared graph
+  // re-seeds to the next game — the same instant on every TV.
   const graph = _normalizeBroadcastGraph({ _start: startId, nodes });
-  graph._broadcastId = `${broadcastId}:sport:${cycle}${ws ? ':ws' : ''}`;
+  graph._broadcastId = `${broadcastId}:sport:${slot}${ws ? ':ws' : ''}`;
   // The whole game is decided the instant it's assembled (the play-by-play just
   // reveals it over the airing). Stash the outcome so the tick can announce it to
   // the betting system — the result is known at bet-lock time, paid at air's end.
@@ -1151,16 +1340,48 @@ function assembleSportsGraph(script, broadcastId, cycle, override) {
   return graph;
 }
 
-// Fire a one-shot `sports.game` event when a fresh game starts airing on a channel,
-// carrying its (already-decided) result and when the broadcast wraps. The sportsbet
-// plugin consumes it. Deduped per (channel, game) so the 5s tick only announces once.
-const _sportsAnnounced = new Map();   // channelId -> last announced gameId
-function announceSportsGame(channelId, spGraph, endsAtMs) {
-  const g = spGraph?._game, gameId = spGraph?._broadcastId;
-  if (!g || !gameId || _sportsAnnounced.get(channelId) === gameId) return;
-  _sportsAnnounced.set(channelId, gameId);
-  emit('sports.game', { channelId, gameId, ...g, endsAtMs });
+// ── Background league heartbeat ──────────────────────────────────────────────
+// The league runs on the clock, not on viewership. Once a minute we resolve the
+// current slot's game and emit `sports.game` for every sports channel, so betting
+// opens/settles and the (computed) standings advance even with nobody watching —
+// a purely internal event, zero client egress. Deduped per (channel, game) so a
+// game is announced once per slot. The result is deterministic, so this agrees
+// exactly with whatever any TV is showing.
+const _sportsHeartbeat = new Map();   // channelId -> last gameId emitted
+function sportsChannels() {
+  const out = [];
+  for (const [channelId, state] of channelRuntime) {
+    const item = (state.playlist || []).find(i => i.playback_mode === 'sports' && i.sportsScript);
+    if (item) out.push({ channelId, script: item.sportsScript });
+  }
+  return out;
 }
+async function sportsHeartbeat() {
+  const nowMs = Date.now();
+  const chans = sportsChannels();
+  if (!chans.length) return;
+  await refreshSeason(nowMs);                       // background WS detection (no viewer needed)
+  const override = worldSeriesOverride();
+  const slot = sportsSlotIndex();
+  const gs = sportsGameForSlot(chans[0].script, slot, override);
+  if (!gs) return;
+  const g = gs.game;
+  const winner = g.awayScore === g.homeScore ? '' : (g.awayScore > g.homeScore ? g.away.name : g.home.name);
+  const gameId = `deadball:sport:${slot}${override?.worldSeries ? ':ws' : ''}`;
+  const endsAtMs = sportsSlotEndsAtMs();
+  for (const { channelId } of chans) {
+    if (_sportsHeartbeat.get(channelId) === gameId) continue;
+    _sportsHeartbeat.set(channelId, gameId);
+    emit('sports.game', {
+      channelId, gameId,
+      away: g.away.name, home: g.home.name,
+      awayScore: g.awayScore, homeScore: g.homeScore,
+      winner, endsAtMs,
+    });
+  }
+}
+setInterval(() => { sportsHeartbeat().catch(e => console.error('[broadcast] sports heartbeat error:', e.message)); }, 60 * 1000);
+setTimeout(() => { sportsHeartbeat().catch(() => {}); }, 9000);
 
 // ── League standings feed (for the on-air standings bug + record mentions) ──────
 // The sportsleague plugin owns the standings; broadcast reads them through its
@@ -1191,32 +1412,36 @@ function recordOf(team) {
 // Season/World-Series state (from the sportsleague plugin, same Action seam). When the
 // Series is on, sports airings run THESE two teams with championship branding instead
 // of a random matchup.
-let _seasonCache = { at: 0, phase: 'regular', finalistA: null, finalistB: null };
+let _seasonCache = { at: 0, phase: 'regular', finalistA: null, finalistB: null, wsSlot: null };
 async function refreshSeason(nowMs) {
   if (nowMs - _seasonCache.at < STANDINGS_CACHE_MS) return _seasonCache;
   const res = await dispatchAction({ type: 'sportsleague.getSeason' }).catch(() => null);
-  if (res && typeof res.phase === 'string') _seasonCache = { at: nowMs, phase: res.phase, finalistA: res.finalistA, finalistB: res.finalistB };
+  if (res && typeof res.phase === 'string') _seasonCache = { at: nowMs, phase: res.phase, finalistA: res.finalistA, finalistB: res.finalistB, wsSlot: res.wsSlot ?? null };
   else _seasonCache.at = nowMs;
   return _seasonCache;
 }
-// { teams:[a,b], worldSeries:true } when a Series is on, else null.
+// { teams:[a,b], worldSeries:true } once the Series is on AND its slot has arrived, so
+// the finalists take over the schedule from the WS slot until a champion is crowned.
 function worldSeriesOverride() {
   const s = _seasonCache;
-  return (s.phase === 'worldseries' && s.finalistA && s.finalistB) ? { teams: [s.finalistA, s.finalistB], worldSeries: true } : null;
+  if (s.phase !== 'worldseries' || !s.finalistA || !s.finalistB) return null;
+  if (s.wsSlot != null && sportsSlotIndex() < s.wsSlot) return null;   // WS airs from its slot on
+  return { teams: [s.finalistA, s.finalistB], worldSeries: true };
 }
 
-// Return the assembled game graph for a sports playlist item, rebuilding it when the
-// loop cycle advances (a new game per airing). Cached on the item between ticks.
-function getSportsGraph(item, cycle, override) {
-  if (!item.sportsScript) return null;
-  // Fold the World-Series override into the cache key so a Series game and a regular
-  // game never collide on the same item, and a fresh game is assembled on transitions.
-  const key = `${cycle}${override?.worldSeries ? `|ws:${override.teams.join('|')}` : ''}`;
-  if (!item._spGraph || item._spKey !== key) {
-    item._spGraph = assembleSportsGraph(item.sportsScript, item.broadcastId, cycle, override);
-    item._spKey = key;
+// The ONE game airing right now, shared by every channel. Keyed to the global slot
+// (not per channel/item), so all TVs render the same game object, seek to the same
+// beat off the shared clock, and roll to the next game together at the top of the
+// hour. Cached module-wide and rebuilt only when the slot (or the World-Series
+// override) changes — one assembly per hour, not one per channel per tick.
+let _sportsGraphCache = { key: null, graph: null };
+function getSportsGraph(script, slot, override) {
+  if (!script) return null;
+  const key = `${slot}${override?.worldSeries ? `|ws:${override.teams.join('|')}` : ''}`;
+  if (_sportsGraphCache.key !== key) {
+    _sportsGraphCache = { key, graph: assembleSportsGraph(script, 'deadball', slot, override) };
   }
-  return item._spGraph;
+  return _sportsGraphCache.graph;
 }
 
 async function getCurrentMessage(state, nowMs) {
@@ -1251,14 +1476,16 @@ async function getCurrentMessage(state, nowMs) {
           return r;
         }
       }
-      // Sports on a daily channel — one fresh game per day (edge case; sports is normally
-      // scheduled on a loop channel). Re-roll keyed to the calendar day.
-      if (item.playback_mode === 'sports') {
+      // Sports — the same global game regardless of channel type; seek to where it is
+      // on the shared clock so a daily-scheduled TV shows the identical in-progress game.
+      // A `airSlots` broadcast only shows its featured game(s); otherwise this channel is
+      // dark now (falls through to off-air / its other content).
+      if (item.playback_mode === 'sports' && sportsAiring(item.sportsScript)) {
         await refreshStandings(nowMs);   // warm the record cache before a fresh game assembles
         await refreshSeason(nowMs);
-        const spGraph = getSportsGraph(item, Math.floor(Date.now() / 86400000), worldSeriesOverride());
+        const spGraph = getSportsGraph(item.sportsScript, sportsSlotIndex(), worldSeriesOverride());
         if (spGraph) {
-          const r = tickBroadcastGraph(state.channelId, spGraph, state, nowMs, segElapsed);
+          const r = tickBroadcastGraph(state.channelId, spGraph, state, nowMs, sportsSegElapsedSec());
           if (r) r.programName = item.broadcastName || null;
           return r;
         }
@@ -1348,21 +1575,18 @@ async function getCurrentMessage(state, nowMs) {
           return tickBroadcastGraph(state.channelId, wxGraph, state, nowMs);
         }
       }
-      // Sports — a fresh game per cycle, walked as a play-by-play graph. The cycle is
-      // keyed to ABSOLUTE wall-clock time (not loopOriginMs, which resets on restart),
-      // so a given time-window always maps to the same game id — a mid-window restart
-      // re-sims the same slot instead of minting a brand-new game (keeps standings from
-      // being churned by restarts; see the sportsleague staging/sweep).
-      if (item.playback_mode === 'sports') {
-        const cycle = Math.floor(nowMs / 1000 / totalDuration);
+      // Sports — the ONE global game for this hour's slot, the same on every TV. The
+      // slot is keyed to absolute wall-clock time, so all channels render the same game
+      // and seek to the same beat; tuning in drops you in mid-game. Betting/standings
+      // events come from the background heartbeat (below), not the airing, so they fire
+      // with nobody watching.
+      if (item.playback_mode === 'sports' && sportsAiring(item.sportsScript)) {
         await refreshStandings(nowMs);   // warm the record cache before a fresh game assembles
         await refreshSeason(nowMs);      // is the World Series on? if so, run the finalists
-        const spGraph = getSportsGraph(item, cycle, worldSeriesOverride());
+        const spGraph = getSportsGraph(item.sportsScript, sportsSlotIndex(), worldSeriesOverride());
         if (spGraph) {
-          // Announce the airing to betting + standings, tagged with when the window wraps.
-          announceSportsGame(state.channelId, spGraph, (cycle + 1) * totalDuration * 1000);
           state.currentFallbackMessages = item.fallbackMessages || [];
-          return tickBroadcastGraph(state.channelId, spGraph, state, nowMs);
+          return tickBroadcastGraph(state.channelId, spGraph, state, nowMs, sportsSegElapsedSec());
         }
       }
       // VINE graph (scripted/news with broadcast_graph) — walker manages its own timing
@@ -1485,8 +1709,9 @@ async function _getDeckMessage(zoneId, nowMs, state) {
       return g ? tickBroadcastGraph(state.channelId, g, state, nowMs) : null;
     }
     if (item.playback_mode === 'sports') {
-      const g = getSportsGraph(item, Math.floor(nowMs / 86400000));
-      return g ? tickBroadcastGraph(state.channelId, g, state, nowMs) : null;
+      if (!sportsAiring(item.sportsScript)) return null;   // between featured games — dark
+      const g = getSportsGraph(item.sportsScript, sportsSlotIndex(), worldSeriesOverride());
+      return g ? tickBroadcastGraph(state.channelId, g, state, nowMs, sportsSegElapsedSec()) : null;
     }
     if (item.broadcastGraph) {
       return tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs);
@@ -2156,7 +2381,7 @@ function nodeHoldMs(node) {
       return (d.duration_s ?? (overlayType === 'text_card' ? 5 : 6)) * 1000;
     }
     default:
-      return 5000; // say, ticker, camera_cut, title_card, …
+      return d.holdMs ?? 5000; // say, ticker, camera_cut, … (sports lines carry an explicit holdMs)
   }
 }
 
@@ -2689,6 +2914,81 @@ registerAction({
       }
     }
     return { teams: [...teams] };
+  },
+});
+
+// The loaded sports script (teams + players + pools). Prefer a live channel runtime;
+// fall back to the DB so standings can be computed before any channel is tuned.
+async function anySportsScript() {
+  for (const { script } of sportsChannels()) if (script?.teams) return script;
+  const { rows } = await query(
+    `SELECT sports_pools FROM media_broadcasts WHERE playback_mode='sports' AND sports_pools IS NOT NULL LIMIT 1`,
+  ).catch(() => ({ rows: [] }));
+  if (!rows[0]) return null;
+  const sp = typeof rows[0].sports_pools === 'string' ? JSON.parse(rows[0].sports_pools || '{}') : rows[0].sports_pools;
+  return (sp && Array.isArray(sp.teams)) ? sp : null;
+}
+
+// The global clock — the sportsleague plugin reads this to know "which slot are we in"
+// so it can bound the standings window and time seasons/World-Series to the schedule.
+registerAction({
+  type: 'broadcast.getSportsClock',
+  handler: async () => ({ slot: sportsSlotIndex(), slotMs: sportsSlotMs(), gamesPerDay: SPORTS_GAMES_PER_DAY, ready: !!getEnvironmentState()?.date }),
+});
+
+// ZERO-WRITE STANDINGS. Every game is a pure function of its slot, so the league table
+// for any window is just a fold over the deterministic schedule — no per-game DB rows.
+// Result-only (no narration graph), so it's cheap enough to recompute on demand. The
+// sportsleague plugin passes its season window and caches the result.
+registerAction({
+  type: 'broadcast.computeStandings',
+  handler: async ({ params = {} } = {}) => {
+    const { startSlot, endSlot } = params;
+    const script = await anySportsScript();
+    if (!script) return { rows: [] };
+    let from = Number.isFinite(startSlot) ? startSlot : 0;
+    const to = Number.isFinite(endSlot) ? endSlot : sportsSlotIndex();
+    if (to - from > 100000) { console.warn(`[broadcast] computeStandings window ${to - from} slots — clamping`); from = to - 100000; }
+    const table = new Map();
+    const bump = (team, w, l, rf, ra) => {
+      const t = table.get(team) || { team, wins: 0, losses: 0, runs_for: 0, runs_against: 0 };
+      t.wins += w; t.losses += l; t.runs_for += rf; t.runs_against += ra; table.set(team, t);
+    };
+    for (let slot = from; slot < to; slot++) {
+      const gs = sportsGameForSlot(script, slot, null);      // regular schedule only
+      if (!gs) continue;
+      const { awayScore, homeScore } = gs.game;
+      if (awayScore === homeScore) continue;                 // sim never ties; guard anyway
+      const awayWon = awayScore > homeScore;
+      bump(gs.game.away.name, awayWon ? 1 : 0, awayWon ? 0 : 1, awayScore, homeScore);
+      bump(gs.game.home.name, awayWon ? 0 : 1, awayWon ? 1 : 0, homeScore, awayScore);
+    }
+    const rd = (r) => (r.runs_for || 0) - (r.runs_against || 0);
+    const rows = [...table.values()].sort((a, b) => {
+      const pa = a.wins / (a.wins + a.losses), pb = b.wins / (b.wins + b.losses);
+      if (pb !== pa) return pb - pa;
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      if (rd(b) !== rd(a)) return rd(b) - rd(a);
+      return a.team.localeCompare(b.team);
+    });
+    return { rows };
+  },
+});
+
+// One specific slot's result — used to crown the World Series from the finalists' game
+// (pass their names as `teams` so the WS override, not the regular schedule, is simmed).
+registerAction({
+  type: 'broadcast.getSlotResult',
+  handler: async ({ params = {} } = {}) => {
+    const { slot, teams } = params;
+    const script = await anySportsScript();
+    if (!script || !Number.isFinite(slot)) return null;
+    const override = (Array.isArray(teams) && teams.length === 2) ? { teams, worldSeries: true } : null;
+    const gs = sportsGameForSlot(script, slot, override);
+    if (!gs) return null;
+    const { away, home, awayScore, homeScore } = gs.game;
+    const winner = awayScore === homeScore ? '' : (awayScore > homeScore ? away.name : home.name);
+    return { away: away.name, home: home.name, awayScore, homeScore, winner };
   },
 });
 
@@ -3289,6 +3589,13 @@ export const specializedActions = [
   { verb: 'use', requiredTag: 'tv', handler: doUseTv },
   { verb: 'use', requiredTag: 'media_deck', handler: doUseMediaDeck },
 ];
+
+// Test seam (never loaded in production) — the deterministic league engine, so the
+// regress suite can assert same-slot reproducibility and the round-robin schedule.
+export const _test = {
+  sportsGameForSlot, sportsMatchupForSlot, roundRobinRounds, sportsSlotIndex,
+  sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY,
+};
 
 // ── Route handler (CRUD) ─────────────────────────────────────────────────────
 

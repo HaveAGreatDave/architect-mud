@@ -337,7 +337,42 @@ function _esc(s) {
 		.replace(/>/g, "&gt;");
 }
 
-function _applyMotdSubstitutions(template, handle, dynamicText) {
+// Lay a list of strings into the space a border token occupied, word-wrapping
+// each to `totalSpace` and (when a right border `║` is present) padding every
+// line back out to it so the box stays square. Continuation lines re-open the
+// left border and indent to the token's column. Borderless callers (the RECENT
+// NEWS block in the medium/small templates sits outside the box) get one line
+// per item, unwrapped. Shared by the <news> token; mirrors the inline logic the
+// <dynamic text> token still uses for its single string.
+function _fitBorderLines(prefix, rborder, totalSpace, items) {
+	if (!rborder) {
+		const flat = items.length ? items : [""];
+		return flat.map((l) => prefix + l).join("\n");
+	}
+	const contLeft = rborder + " ".repeat(Math.max(0, prefix.length - 1));
+	const out = [];
+	for (const item of items) {
+		const s = String(item);
+		if (s.length <= totalSpace) { out.push(s); continue; }
+		const words = s.split(" ");
+		let cur = "";
+		for (const w of words) {
+			const test = cur ? cur + " " + w : w;
+			if (test.length > totalSpace) { if (cur) out.push(cur); cur = w; }
+			else cur = test;
+		}
+		if (cur) out.push(cur);
+	}
+	if (!out.length) out.push("");
+	return out
+		.map((l, i) => {
+			const pad = " ".repeat(Math.max(0, totalSpace - l.length));
+			return (i === 0 ? prefix : contLeft) + l + pad + rborder;
+		})
+		.join("\n");
+}
+
+function _applyMotdSubstitutions(template, handle, dynamicText, newsLines) {
 	const date = new Date().toLocaleDateString("en-US", {
 		year: "numeric",
 		month: "long",
@@ -390,6 +425,20 @@ function _applyMotdSubstitutions(template, handle, dynamicText) {
 		},
 	);
 
+	// <news> — expands to the live-news lines the server attached to the MOTD,
+	// each wrapped/padded inside the ascii border exactly like <dynamic text>.
+	// Falls back to a placeholder when there's no news to show.
+	text = text.replace(
+		/^(.*?)<news>( *)(║?)$/gm,
+		(_, prefix, spaces, rborder) => {
+			const totalSpace = spaces.length + 6; // "<news>".length
+			const items = newsLines && newsLines.length
+				? newsLines
+				: ["[No recent broadcasts available]"];
+			return _fitBorderLines(prefix, rborder, totalSpace, items);
+		},
+	);
+
 	return text;
 }
 
@@ -418,6 +467,7 @@ function _measureMotdDims() {
 			template,
 			handle,
 			_motdData.dynamic || "",
+			_motdData.news || [],
 		);
 		const pre = document.createElement("pre");
 		pre.style.cssText = `font-family:var(--font-mono);white-space:pre;margin:0;line-height:1.3;font-size:${fs}`;
@@ -480,6 +530,7 @@ function _rerenderMotd() {
 		template,
 		handle,
 		_motdData.dynamic || "",
+		_motdData.news || [],
 	);
 	_setSystemMOTD(text);
 }
@@ -490,6 +541,7 @@ export function receiveMOTD(msg) {
 		medium: msg.medium || "",
 		small: msg.small || "",
 		dynamic: msg.dynamic || "",
+		news: Array.isArray(msg.news) ? msg.news : [],
 	};
 	_measureMotdDims();
 	_applyWindowSize(); // update panel width now that widths are known

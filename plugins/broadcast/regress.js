@@ -5,9 +5,41 @@
 import { getRegisteredAINodes, tickEntityAI, initBlackboard } from '../../server/engine/ai-behaviour.js';
 import { world } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
-import { ensureClipBroadcast } from './index.js';
+import { ensureClipBroadcast, _test } from './index.js';
 
 export default async function regress({ check, run }) {
+  // ── Deterministic DEADBALL league ───────────────────────────────────────────
+  // Every game is a pure function of its slot: same slot → byte-identical result on
+  // every server and every TV (this is what keeps all TVs in sync and lets the
+  // standings be a zero-write computed fold).
+  const script = { teams: ['Rats', 'Kings', 'Wolves', 'Slaggers', 'Ash', 'Moles', 'Wolv2', 'Drowners'], players: [], pools: {} };
+  const a = _test.sportsGameForSlot(script, 12345, null);
+  const b = _test.sportsGameForSlot(script, 12345, null);
+  check('same slot → identical matchup', a && b && a.game.away.name === b.game.away.name && a.game.home.name === b.game.home.name, JSON.stringify([a?.matchup, b?.matchup]));
+  check('same slot → identical score', a.game.awayScore === b.game.awayScore && a.game.homeScore === b.game.homeScore, `${a.game.awayScore}-${a.game.homeScore} vs ${b.game.awayScore}-${b.game.homeScore}`);
+  check('sim never ties', a.game.awayScore !== a.game.homeScore, `${a.game.awayScore}-${a.game.homeScore}`);
+  const c = _test.sportsGameForSlot(script, 12346, null);
+  check('a different slot rolls a different game',
+    a.game.away.name !== c.game.away.name || a.game.home.name !== c.game.home.name || a.game.awayScore !== c.game.awayScore || a.game.homeScore !== c.game.homeScore,
+    'adjacent slots differ');
+
+  // A round-robin round has every team exactly once (balanced schedule, not random).
+  const rounds = _test.roundRobinRounds(8);
+  check('round-robin: N-1 rounds', rounds.length === 7, String(rounds.length));
+  const seen = new Set(rounds[0].flat());
+  check('round-robin: every team plays once per round', rounds[0].length === 4 && seen.size === 8, JSON.stringify(rounds[0]));
+
+  // A matchup is a real pairing of two distinct teams from the roster.
+  const m = _test.sportsMatchupForSlot(999, script.teams);
+  check('matchup picks two distinct roster teams', m && m.away !== m.home && script.teams.includes(m.away) && script.teams.includes(m.home), JSON.stringify(m));
+
+  // Featured-slot airing gate: no airSlots ⇒ continuous; an out-of-range set ⇒ dark now,
+  // a full-range set ⇒ always airing (whatever the current slot-of-day is).
+  check('no airSlots airs continuously', _test.sportsAiring({}) === true && _test.sportsAiring({ airSlots: [] }) === true, 'continuous');
+  const allSlots = Array.from({ length: _test.SPORTS_GAMES_PER_DAY }, (_, i) => i);
+  check('featuring every slot always airs', _test.sportsAiring({ airSlots: allSlots }) === true, 'all-slots');
+  check('featuring no valid slot never airs', _test.sportsAiring({ airSlots: [-1] }) === false, 'empty-window');
+
   const { conditions, actions } = getRegisteredAINodes();
   check('AI condition nodes registered',
     ['CHANNEL_HAS_VIEWERS', 'IS_BROADCAST_SCHEDULED', 'AT_WORK_ZONE'].every(c => conditions.includes(c)),

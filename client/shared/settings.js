@@ -1,6 +1,6 @@
 const SETTINGS_KEY = 'architect_settings';
-const DEFAULT_AUDIO_SETTINGS = { enabled: false, music: true, sfx: true, tv: true, masterVolume: 0.25, musicVolume: 0.40, sfxVolume: 0.25, ambientVolume: 0.25, tvVolume: 0.25, muteWhenHidden: true };
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', smartUI: null, audio: DEFAULT_AUDIO_SETTINGS };
+export const DEFAULT_AUDIO_SETTINGS = { enabled: false, music: true, sfx: true, tv: true, masterVolume: 0.25, musicVolume: 0.40, sfxVolume: 0.25, ambientVolume: 0.25, tvVolume: 0.25, muteWhenHidden: true };
+const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', audio: DEFAULT_AUDIO_SETTINGS };
 
 const DEFAULT_FELT_GREEN = '#1a4a1a';
 

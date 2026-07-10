@@ -13,8 +13,9 @@
  * pending+TTL entry so a stale/forged resolve is ignored), but a good cook adds
  * margin → higher potency (baked into the drug item's custom_data, read by
  * useDrug) and a botch can blow up in your face. Cook at a chem-lab station
- * (quality bonus) or with a cook kit anywhere (penalty). Reuses the crafting
- * recipe cache + the 2d8−2d8 skillCheck; recipes/reagents/labs are content.
+ * (station quality adds a bonus) — raw→processed always needs a real lab, no
+ * portable kit. Reuses the crafting recipe cache + the 2d8−2d8 skillCheck;
+ * recipes/reagents/labs are content.
  */
 import { query, withTransaction } from '../../server/models/db.js';
 import { getRecipeCache, findRecipeByName } from '../../server/engine/crafting.js';
@@ -70,26 +71,20 @@ function resolveIngredients(recipe, inventory) {
   return { toConsume };
 }
 
-// Chem-lab furniture in the zone, or a carried cook kit, or nothing.
+// Chem-lab furniture in the zone, or nothing. Raw→processed cooks require a real
+// chem lab — no portable cook kit (only rolling manipulates already-processed
+// drugs without one).
 async function findWorkspace(recipe, player) {
-  const wantStation = recipe.requires_station || null;
-  if (wantStation) {
-    const { rows } = await query(
-      `SELECT flags FROM furniture WHERE zone_id = $1 AND flags->>'crafting_station' = $2 LIMIT 1`,
-      [player.current_zone, wantStation]
-    );
-    if (rows.length) {
-      const q = rows[0].flags?.station_quality;
-      const bonus = q === 'pristine' ? 4 : q === 'refined' ? 2 : 0;
-      return { mode: 'lab', contextBonus: bonus, label: 'the lab' };
-    }
-  }
-  const { rows: kit } = await query(
-    `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-     WHERE pi.player_id = $1 AND jsonb_exists(i.tags, 'cook_kit') LIMIT 1`,
-    [player.id]
+  const wantStation = recipe.requires_station || 'chem_lab';
+  const { rows } = await query(
+    `SELECT flags FROM furniture WHERE zone_id = $1 AND flags->>'crafting_station' = $2 LIMIT 1`,
+    [player.current_zone, wantStation]
   );
-  if (kit.length) return { mode: 'kit', contextBonus: -3, label: 'your cook kit' };
+  if (rows.length) {
+    const q = rows[0].flags?.station_quality;
+    const bonus = q === 'pristine' ? 4 : q === 'refined' ? 2 : 0;
+    return { mode: 'lab', contextBonus: bonus, label: 'the lab' };
+  }
   return null;
 }
 
@@ -133,7 +128,7 @@ async function cmdCook(args, raw, player, broadcast) {
   const ws = await findWorkspace(recipe, player);
   if (!ws) {
     const need = (recipe.requires_station || 'chem_lab').replace(/_/g, ' ');
-    return { type: 'error', message: `You need a ${need} or a cook kit to attempt this.` };
+    return { type: 'error', message: `You need a ${need} to attempt this.` };
   }
 
   const drug = drugForOutput(recipe); const tier = cookTier(drug); const family = cookFamily(drug); const difficulty = cookDiff(tier);

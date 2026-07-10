@@ -34,7 +34,7 @@ import { getTabletApps, findTabletApp } from './registry.js';
 import './quests-app.js';
 import './skills-app.js';
 import './bank-app.js';
-import './weather-app.js';
+import './crafting-app.js';
 import './vehicles-app.js';
 import './properties-app.js';
 import './settings-app.js';
