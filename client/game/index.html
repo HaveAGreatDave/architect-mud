@@ -1746,33 +1746,6 @@
 					</div>
 				</div>
 
-				<!-- About .MOD — ancient-artifact lore card (opened by the ? in the header) -->
-				<div class="amp-about" id="amp-about" hidden>
-					<div class="amp-about-scanline"></div>
-					<div class="amp-about-head">
-						<span class="amp-about-title">◄ THE .MOD FORMAT ►</span>
-						<button class="amp-close-btn" id="amp-about-close" aria-label="Close">✕</button>
-					</div>
-					<div class="amp-about-body">
-						<p class="amp-about-relic">— RECOVERED ARTIFACT · circa the Old Networks —</p>
-						<p>Long before the AMP, in the age of humming beige machines, sound was
-						not <em>recorded</em> but <em>rebuilt</em>. A <span class="amp-about-hi">.MOD</span>
-						— a "module" — carried no waveform. It carried the <em>score itself</em>:
-						a handful of tiny instrument samples and the sacred instructions for
-						replaying them across four channels, forever, identically.</p>
-						<p>Trackers, the scribes called them. They stacked notes in glowing
-						columns and traded these modules hand to hand across the wire. A whole
-						song, an entire mood, folded into a file smaller than a single second
-						of modern audio. The ancients called it <span class="amp-about-hi">demoscene</span>.
-						We call it a miracle.</p>
-						<p class="amp-about-howto">The AMP still speaks this dead tongue. Unearth
-						modules from the great archive at
-						<span class="amp-about-hi">modarchive.org</span>, then feed one to the deck
-						with the <span class="amp-about-hi">＋ .MOD</span> key. Your tape will play
-						as it did a thousand years ago.</p>
-					</div>
-				</div>
-
 				<div class="amp-cassette-window" id="amp-cassette-window">
 					<div class="amp-cassette-body" id="amp-cassette-body">
 						<div class="amp-cassette-label-strip" id="amp-cassette-label-strip"></div>
@@ -1813,6 +1786,38 @@
 				<input type="file" id="amp-load-file" accept=".mod,audio/mod" style="display:none">
 
 				<div class="amp-tracklist" id="amp-tracklist"></div>
+			</div>
+		</div>
+
+		<!-- About .MOD — ancient-artifact lore, popped out of the AMP as a centred
+		     modal (opened by the ? in the header) so the relic text reads large and
+		     legible. Lives at top level, outside #musicplayer-panel's drop-shadow
+		     filter, so its fixed backdrop covers the whole viewport. -->
+		<div class="amp-about" id="amp-about" hidden>
+			<div class="amp-about-card">
+				<div class="amp-about-scanline"></div>
+				<div class="amp-about-head">
+					<span class="amp-about-title">◄ THE .MOD FORMAT ►</span>
+					<button class="amp-close-btn" id="amp-about-close" aria-label="Close">✕</button>
+				</div>
+				<div class="amp-about-body">
+					<p class="amp-about-relic">— RECOVERED ARTIFACT · circa the Old Networks —</p>
+					<p>Long before the AMP, in the age of humming beige machines, sound was
+					not <em>recorded</em> but <em>rebuilt</em>. A <span class="amp-about-hi">.MOD</span>
+					— a "module" — carried no waveform. It carried the <em>score itself</em>:
+					a handful of tiny instrument samples and the sacred instructions for
+					replaying them across four channels, forever, identically.</p>
+					<p>Trackers, the scribes called them. They stacked notes in glowing
+					columns and traded these modules hand to hand across the wire. A whole
+					song, an entire mood, folded into a file smaller than a single second
+					of modern audio. The ancients called it <span class="amp-about-hi">demoscene</span>.
+					We call it a miracle.</p>
+					<p class="amp-about-howto">The AMP still speaks this dead tongue. Unearth
+					modules from the great archive at
+					<span class="amp-about-hi">modarchive.org</span>, then feed one to the deck
+					with the <span class="amp-about-hi">＋ .MOD</span> key. Your tape will play
+					as it did a thousand years ago.</p>
+				</div>
 			</div>
 		</div>
 

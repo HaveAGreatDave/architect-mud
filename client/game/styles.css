@@ -7571,7 +7571,7 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 #musicplayer-panel.active { display: block; }
 
 .amp-body {
-	position: relative;   /* anchor for the About .MOD overlay */
+	position: relative;   /* anchor for the cassette glass/deck overlays */
 	width: 300px;
 	background: linear-gradient(160deg, var(--bg3) 0%, var(--bg2) 60%, var(--bg) 100%);
 	border: 1px solid var(--border);
@@ -7644,18 +7644,43 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	box-shadow: 0 0 8px var(--accent-dim);
 }
 
-/* About .MOD — ancient-artifact lore card overlaying the deck */
+/* About .MOD — ancient-artifact lore, popped out as a centred modal so the relic
+   text reads large. Full-viewport dimmed backdrop; the green CRT card floats in
+   the middle. Sits above the AMP panel (9250) but below confirm/toast (9600+). */
 .amp-about {
-	position: absolute;
+	position: fixed;
 	inset: 0;
-	z-index: 5;
-	background: linear-gradient(160deg, #060e06 0%, #030703 100%);
-	color: #2aad10;
+	z-index: 9550;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 24px;
+	background: rgba(0, 6, 0, 0.72);
+	backdrop-filter: blur(3px);
+	-webkit-backdrop-filter: blur(3px);
+	font-family: 'Courier New', Courier, monospace;
+}
+.amp-about[hidden] { display: none; }
+/* The green phosphor card itself */
+.amp-about-card {
+	position: relative;
+	width: min(92vw, 560px);
+	max-height: 82vh;
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
+	background: linear-gradient(160deg, #060e06 0%, #030703 100%);
+	color: #2aad10;
+	border: 1px solid #1f7d0c;
+	border-radius: 12px;
+	box-shadow: 0 0 0 1px rgba(57,255,20,0.15), 0 18px 60px rgba(0,0,0,0.75),
+		0 0 40px rgba(42,173,16,0.25);
+	animation: amp-about-pop 0.18s ease-out;
 }
-.amp-about[hidden] { display: none; }
+@keyframes amp-about-pop {
+	from { opacity: 0; transform: scale(0.96); }
+	to   { opacity: 1; transform: scale(1); }
+}
 /* Faint CRT scanlines drifting over the relic text */
 .amp-about-scanline {
 	position: absolute;
@@ -7669,39 +7694,41 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding: 10px 14px 8px;
+	padding: 16px 20px 12px;
 	border-bottom: 1px solid #1a2e1a;
 }
 .amp-about-title {
-	font-size: 11px;
+	font-size: 16px;
 	font-weight: 700;
-	letter-spacing: 2px;
+	letter-spacing: 3px;
 	color: #39ff14;
 	text-shadow: 0 0 8px rgba(57,255,20,0.5);
 }
+.amp-about .amp-close-btn { font-size: 18px; }
 .amp-about-body {
-	padding: 12px 16px 16px;
+	padding: 18px 24px 24px;
 	overflow-y: auto;
-	font-size: 10px;
-	line-height: 1.6;
+	font-size: 15px;
+	line-height: 1.75;
 	letter-spacing: 0.3px;
 	text-shadow: 0 0 4px rgba(42,173,16,0.35);
 }
-.amp-about-body p { margin: 0 0 10px; }
+.amp-about-body p { margin: 0 0 14px; }
 .amp-about-relic {
 	color: #1f7d0c;
-	font-size: 8px;
+	font-size: 12px;
 	letter-spacing: 2px;
 	text-align: center;
 	text-transform: uppercase;
+	margin-bottom: 18px !important;
 }
 .amp-about-hi {
 	color: #39ff14;
 	text-shadow: 0 0 6px rgba(57,255,20,0.6);
 }
 .amp-about-howto {
-	margin-top: 4px;
-	padding-top: 10px;
+	margin-top: 6px;
+	padding-top: 14px;
 	border-top: 1px dashed #1a2e1a;
 	color: #39ff14;
 }

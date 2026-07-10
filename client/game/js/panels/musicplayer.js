@@ -467,10 +467,13 @@ export function initMusicPlayerPanel() {
   document.getElementById('amp-close').addEventListener('click', closeMusicPlayerPanel);
   panel.addEventListener('click', e => { if (e.target === panel) closeMusicPlayerPanel(); });
 
-  // About .MOD — the ancient-artifact lore card (toggled by the ? in the header).
+  // About .MOD — the ancient-artifact lore, popped out as a centred modal (opened
+  // by the ? in the header). Closes on ✕, a backdrop click, or Escape.
   const about = document.getElementById('amp-about');
   document.getElementById('amp-help').addEventListener('click', () => { about.hidden = false; });
   document.getElementById('amp-about-close').addEventListener('click', () => { about.hidden = true; });
+  about.addEventListener('click', (e) => { if (e.target === about) about.hidden = true; });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !about.hidden) about.hidden = true; });
 
   document.getElementById('amp-play').addEventListener('click', () => {
     if (_playing) { _stop(); return; }

@@ -388,6 +388,11 @@ function ensureStyles() {
     #tablet-os-overlay .tos-set-label { font-size:13px; color:var(--tos-fg); }
     #tablet-os-overlay .tos-set-val { font-size:11px; color:var(--tos-fg-dim); margin-left:6px; }
     #tablet-os-overlay .tos-opts { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
+    /* Label-less audio toggles: the on/off icons carry the meaning (tooltip'd),
+       so the row is a centered pair of larger buttons instead of a labelled row. */
+    #tablet-os-overlay .tos-set-row.tos-iconrow { justify-content:center; }
+    #tablet-os-overlay .tos-set-row.tos-iconrow .tos-opts { justify-content:center; flex:0 0 auto; }
+    #tablet-os-overlay .tos-set-row.tos-iconrow .tos-opt { min-width:44px; font-size:16px; padding:6px 12px; }
     #tablet-os-overlay .tos-opt { cursor:pointer; min-width:30px; text-align:center; padding:5px 9px; border-radius:5px; font-size:13px; line-height:1.1;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
       border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent); color:var(--tos-fg);
@@ -1730,7 +1735,7 @@ function renderTabletSettings() {
   </div></div>`;
   const audioToggleRows = TOS_AUDIO_TOGGLES.map(a => {
     const on = !!audio[a.key];
-    return `<div class="tos-set-row"><span class="tos-set-label">${esc(a.label)}</span><div class="tos-opts">
+    return `<div class="tos-set-row tos-iconrow"><div class="tos-opts">
       <div class="tos-opt${on ? ' selected' : ''}" data-set-audio="${esc(a.key)}" data-set-audio-val="true" title="${esc(a.label)} On">${esc(a.on)}</div>
       <div class="tos-opt${!on ? ' selected' : ''}" data-set-audio="${esc(a.key)}" data-set-audio-val="false" title="${esc(a.label)} Off">${esc(a.off)}</div>
     </div></div>`;
@@ -3296,7 +3301,7 @@ function renderActions(appId, actions, params) {
   return `<div class="tos-actions">${actions.map(a =>
     a.disabled
       ? `<button class="tos-btn disabled" disabled>${esc(a.label)}</button>`
-      : `<button class="tos-btn" data-act-id="${esc(a.id)}" data-act-app="${esc(appId)}" data-act-params="${esc(params || '')}"${a.prompt ? ` data-act-prompt="${esc(a.prompt)}"` : ''}${a.pick ? ` data-act-pick="${esc(JSON.stringify(a.pick))}"` : ''}${a.confirm ? ` data-act-confirm="${esc(a.confirm)}"` : ''}${a.launch ? ` data-act-launch="${esc(a.launch)}"` : ''}>${esc(a.label)}</button>`
+      : `<button class="tos-btn" data-act-id="${esc(a.id)}" data-act-app="${esc(appId)}" data-act-params="${esc(params || '')}"${a.prompt ? ` data-act-prompt="${esc(a.prompt)}"` : ''}${a.pick ? ` data-act-pick="${esc(JSON.stringify(a.pick)).replace(/"/g, '&quot;')}"` : ''}${a.confirm ? ` data-act-confirm="${esc(a.confirm)}"` : ''}${a.launch ? ` data-act-launch="${esc(a.launch)}"` : ''}>${esc(a.label)}</button>`
   ).join('')}</div>`;
 }
 
