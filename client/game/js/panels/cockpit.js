@@ -2459,6 +2459,21 @@ export function isFlightSimActive() { return !!_fsim; }
 // debounced silent `look` that clobbers the HUD with plain room text mid-landing.
 export function isCockpitHudActive() { return !!document.getElementById('ck-hud-root'); }
 
+// Read-only snapshot of the live flight position + window centre. The real game feeds
+// fresh map windows from the server (flightSimContext); the login-less flightsim.html
+// test page has no server, so it reads this each frame to know when the aircraft has
+// crossed far enough from the current window centre to regenerate a procedural window
+// and push it back through flightSimContext — the exact seam the server uses. Returns
+// null when no sim is active. Never called in the real game.
+export function flightSimSnapshot() {
+  const F = _fsim; if (!F) return null;
+  return {
+    pos: { x: F.pos.x, y: F.pos.y },
+    mapCenter: { x: F.mapCenter.x, y: F.mapCenter.y },
+    heading: F.s.heading, airborne: !!F.reportedAirborne,
+  };
+}
+
 export function closeFlightSim() {
   const F = _fsim; if (!F) return;
   _fsim = null;
