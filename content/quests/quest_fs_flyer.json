@@ -1,0 +1,57 @@
+{
+  "category": null,
+  "description": "A stack of damp franchise flyers and a bucket of paste. Slap them up across the Strip, Threshold Plaza North, and the Marquee. Nobody reads them. That's not the point. 15₵.",
+  "id": "quest_fs_flyer",
+  "meta": {},
+  "name": "Papering the Strip",
+  "objectives": [
+    {
+      "desc": "Paper the Franchise Strip",
+      "emotes": [
+        "{who} slaps a flyer over three older flyers and smooths it down with a paste-slick hand.",
+        "{who} papers a wall on the Strip, getting more glue on themselves than the brick.",
+        "{who} steps back to admire a crooked flyer, decides it's fine, and moves on."
+      ],
+      "id": "o0",
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_city_west"
+    },
+    {
+      "desc": "Paper Threshold Plaza North",
+      "emotes": [
+        "{who} pastes a flyer to a dead kiosk in Plaza North, right over the missing-persons notice.",
+        "{who} works down the plaza, one flyer per pillar, whistling something tuneless.",
+        "{who} peels a flyer off their own sleeve and sticks it to the nearest flat surface."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_city_north"
+    },
+    {
+      "desc": "Paper the Marquee",
+      "emotes": [
+        "{who} slaps the last flyers up under the Marquee lights and flicks paste off their fingers.",
+        "{who} papers over a rival franchise's flyers with grim satisfaction.",
+        "{who} runs out of paste, licks the last flyer, and presses it to the wall anyway."
+      ],
+      "id": "o2",
+      "requires": [
+        "o1"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_mq_marquee"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 15
+  },
+  "updated_at": "1783600000"
+}

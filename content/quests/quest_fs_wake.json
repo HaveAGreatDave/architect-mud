@@ -1,0 +1,42 @@
+{
+  "category": null,
+  "description": "The clocks are lies and the sirens stopped working, so the shift workers pay a human alarm. Bang on doors through the Sprawl, then rouse the Sprawl Gate before the whistle. Dodge what they throw. 10₵.",
+  "id": "quest_fs_wake",
+  "meta": {},
+  "name": "Human Alarm",
+  "objectives": [
+    {
+      "desc": "Rouse the Sprawl",
+      "emotes": [
+        "{who} hammers a door in the Sprawl and bellows the time, which is a guess.",
+        "{who} works down the row of doors, knocking, ducking a flung boot without breaking stride.",
+        "{who} rattles a shutter and yells 'SHIFT! SHIFT!' until something inside groans awake."
+      ],
+      "id": "o0",
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_slums"
+    },
+    {
+      "desc": "Rouse the Sprawl Gate",
+      "emotes": [
+        "{who} kicks the base of the Sprawl Gate flophouse and shouts everyone up for the line.",
+        "{who} drags a stick along the railings, a one-person wake-up call, deeply hated.",
+        "{who} counts the muffled curses from inside and marks each one as 'awake, technically.'"
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_city_south"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 10
+  },
+  "updated_at": "1783600000"
+}
