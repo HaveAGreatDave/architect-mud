@@ -2,7 +2,9 @@
   "category": null,
   "description": "The full delivery loop: Threshold, Threshold East, Castoff Walk, and out to the Marquee — in that order or not at all. 20₵.",
   "id": "quest_fs_loop",
-  "meta": {},
+  "meta": {
+    "taskSeconds": 5
+  },
   "name": "The Loop",
   "objectives": [
     {
@@ -13,7 +15,6 @@
         "{who} ducks through the Threshold at a dead sprint."
       ],
       "id": "o0",
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_threshold"
     },
@@ -28,7 +29,6 @@
       "requires": [
         "o0"
       ],
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_thresholdeast"
     },
@@ -43,7 +43,6 @@
       "requires": [
         "o1"
       ],
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_velk_exterior"
     },
@@ -58,7 +57,6 @@
       "requires": [
         "o2"
       ],
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_mq_marquee"
     }

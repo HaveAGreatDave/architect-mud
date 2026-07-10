@@ -65,7 +65,7 @@ export default async function regress({ run, check, getPlayer }) {
   // Carry a program chip and `use` it: installs SPECTER (flag) + burns the item.
   await query(
     `INSERT INTO items (id,name,description,type,weight,value,tags)
-     VALUES ('item_specter_program','SPECTER Firmware Drive','','device',100,1500,'{"specter_program":true}')
+     VALUES ('item_specter_program','SPECTER Install Chip','','device',100,1500,'{"specter_program":true}')
      ON CONFLICT (id) DO NOTHING`
   );
   await query("DELETE FROM player_inventory WHERE player_id=$1 AND item_id='item_specter_program'", [p.id]);
@@ -73,7 +73,7 @@ export default async function regress({ run, check, getPlayer }) {
     "INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ('inv_regress_specter',$1,'item_specter_program',1)",
     [p.id]
   );
-  const inst = await run('use SPECTER Firmware Drive');
+  const inst = await run('use SPECTER Install Chip');
   check('use SPECTER program triggers the install animation + reports install', inst?.type === 'specter_install' && /installed/i.test(inst?.message || ''), JSON.stringify(inst)?.slice(0, 160));
   check('SPECTER install sets the flag', (await isSpecterInstalled(p)) === true);
   const { rows: leftover } = await query("SELECT 1 FROM player_inventory WHERE player_id=$1 AND item_id='item_specter_program'", [p.id]);

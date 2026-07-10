@@ -2,7 +2,9 @@
   "category": null,
   "description": "The long one nobody else wants: parcel through the Threshold to Castoff Walk, on to the Marquee, and all the way to Cathode Row before you turn back. It pays because it's a hike. 25₵.",
   "id": "quest_fs_haul",
-  "meta": {},
+  "meta": {
+    "taskSeconds": 5
+  },
   "name": "The Long Haul",
   "objectives": [
     {
@@ -13,7 +15,6 @@
         "{who} pauses at the Threshold just long enough to resettle the load."
       ],
       "id": "o0",
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_threshold"
     },
@@ -28,7 +29,6 @@
       "requires": [
         "o0"
       ],
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_velk_exterior"
     },
@@ -43,7 +43,6 @@
       "requires": [
         "o1"
       ],
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_mq_marquee"
     },
@@ -58,7 +57,6 @@
       "requires": [
         "o2"
       ],
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_mq_cathode"
     }

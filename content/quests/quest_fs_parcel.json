@@ -2,7 +2,9 @@
   "category": null,
   "description": "Carry a sealed parcel out through the Threshold and Threshold East to a drop on Castoff Walk. Don't shake it, don't open it, don't ask. 15₵.",
   "id": "quest_fs_parcel",
-  "meta": {},
+  "meta": {
+    "taskSeconds": 5
+  },
   "name": "Parcel Run",
   "objectives": [
     {
@@ -13,7 +15,6 @@
         "{who} adjusts their grip on the parcel and keeps walking, eyes forward."
       ],
       "id": "o0",
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_threshold"
     },
@@ -28,7 +29,6 @@
       "requires": [
         "o0"
       ],
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_thresholdeast"
     },
@@ -43,7 +43,6 @@
       "requires": [
         "o1"
       ],
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_velk_exterior"
     }

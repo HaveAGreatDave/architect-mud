@@ -2,7 +2,9 @@
   "category": null,
   "description": "Read the dead meters at the Threshold, then the dead meters up at Plaza North, and copy down numbers no one will ever check. 10₵.",
   "id": "quest_fs_meter",
-  "meta": {},
+  "meta": {
+    "taskSeconds": 5
+  },
   "name": "Meter Reading",
   "objectives": [
     {
@@ -13,7 +15,6 @@
         "{who} raps a knuckle on the meter box, like that ever fixed anything."
       ],
       "id": "o0",
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_threshold"
     },
@@ -28,7 +29,6 @@
       "requires": [
         "o0"
       ],
-      "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_city_north"
     }
