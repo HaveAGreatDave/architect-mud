@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>ARCHITECT · FLIGHT SIM (open test)</title>
+<style>
+/* ───────────────────────────────────────────────────────────────────────────
+   FLIGHT SIM — open, no-login test rig. Imports the REAL flight-model.js +
+   windshield.js used by the game, and flies over a procedurally-scrolling basic
+   version of the world. Completely client-side: no websocket, no account.
+   Served at /flightsim.html (this file lives in client/game/).
+   ─────────────────────────────────────────────────────────────────────────── */
+:root{
+  --cy:#8fd0ff; --cy-dim:#4f7f9f; --grn:#5fe0a0; --amber:#ffcf3e; --red:#ff5a5b;
+  --ink:#cfe4f2; --ink-dim:#6f8698; --panel:#0b1219;
+  --font:'DejaVu Sans Mono','Consolas','Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:#04070c; color:var(--ink); font-family:var(--font);
+  overflow:hidden; letter-spacing:.3px; -webkit-font-smoothing:none;
+  display:flex; align-items:center; justify-content:center; gap:14px; padding:14px;
+}
+#deck{
+  position:relative; width:min(70vw,880px); aspect-ratio:16/11;
+  border-radius:14px; overflow:hidden; display:flex; flex-direction:column;
+  background:linear-gradient(180deg,#0c1219,#070b10 45%,#05080d);
+  border:1px solid #0a1219; box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 8px 30px rgba(0,0,0,.6);
+}
+#viewwrap{ position:relative; flex:1 1 auto; min-height:0; }
+#hud{ position:absolute; inset:0; pointer-events:none; }
+#strip{ display:flex; gap:8px; padding:8px; background:#070b10; border-top:1px solid #0f1a24; }
+.gauge{ flex:1; background:var(--panel); border:1px solid #14212d; border-radius:8px;
+  padding:6px 8px; display:flex; flex-direction:column; gap:2px; min-width:0; }
+.gauge .lbl{ font-size:9px; color:var(--ink-dim); letter-spacing:1.5px; }
+.gauge .val{ font-size:19px; color:var(--cy); font-variant-numeric:tabular-nums; line-height:1; }
+.gauge .unit{ font-size:9px; color:var(--ink-dim); }
+.gauge.warn .val{ color:var(--red); }
+#adiBox{ flex:0 0 96px; padding:4px; }
+#adi{ width:100%; height:100%; display:block; }
+#lamp{ position:absolute; top:10px; left:50%; transform:translateX(-50%);
+  font-size:12px; letter-spacing:2px; color:var(--red); opacity:0;
+  background:rgba(40,4,6,.7); border:1px solid var(--red); border-radius:5px; padding:3px 10px; }
+.tagline{ position:absolute; top:10px; left:12px; font-size:9px; letter-spacing:2px; color:var(--ink-dim); }
+
+/* control column (right) */
+#controls{ display:flex; flex-direction:column; gap:12px; width:210px; }
+.cbox{ background:var(--panel); border:1px solid #14212d; border-radius:12px; padding:10px; }
+.cbox h4{ font-size:10px; color:var(--ink-dim); letter-spacing:2px; margin-bottom:8px; font-weight:normal; }
+#craftSel{ width:100%; background:#0a1017; border:1px solid #16242f; color:var(--cy);
+  border-radius:7px; padding:7px; font-family:var(--font); font-size:12px; }
+#craftBlurb{ font-size:9px; color:var(--ink-dim); line-height:1.5; margin-top:8px; }
+#yokePad{ position:relative; width:100%; aspect-ratio:1; background:radial-gradient(circle at 50% 45%,#101c26,#0a1017);
+  border:1px solid #16242f; border-radius:12px; touch-action:none; cursor:grab; overflow:hidden; }
+#yokePad.drag{ cursor:grabbing; }
+#yokeKnob{ position:absolute; width:34px; height:34px; margin:-17px 0 0 -17px; border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,#3a6f8f,#12303f); border:1px solid #5fd0ff;
+  box-shadow:0 2px 8px rgba(0,0,0,.6), inset 0 1px 2px rgba(255,255,255,.3); }
+.padhint{ position:absolute; font-size:8px; color:var(--ink-dim); letter-spacing:1px; pointer-events:none; }
+.lever{ position:relative; height:120px; width:46px; margin:0 auto; background:#0a1017;
+  border:1px solid #16242f; border-radius:9px; touch-action:none; cursor:ns-resize; }
+.lever .fill{ position:absolute; left:0; right:0; bottom:0; background:linear-gradient(180deg,#1c74a0,#0d3346); border-radius:0 0 8px 8px; }
+.lever .grip{ position:absolute; left:-3px; right:-3px; height:16px; margin-top:-8px;
+  background:linear-gradient(180deg,#3a6f8f,#12303f); border:1px solid #5fd0ff; border-radius:4px; box-shadow:0 2px 6px rgba(0,0,0,.5); }
+.pct{ text-align:center; font-size:15px; color:var(--cy); margin-top:6px; font-variant-numeric:tabular-nums; }
+#flaps{ display:flex; gap:6px; }
+#flaps button{ flex:1; background:#0a1017; border:1px solid #16242f; color:var(--ink-dim);
+  border-radius:7px; padding:8px 0; font-family:var(--font); font-size:11px; cursor:pointer; }
+#flaps button.on{ border-color:var(--cy); color:var(--cy); background:#0f2231; }
+#resetBtn{ width:100%; background:#0f2231; border:1px solid var(--cy-dim); color:var(--cy);
+  border-radius:7px; padding:8px; font-family:var(--font); cursor:pointer; }
+#helpnl{ width:230px; background:var(--panel); border:1px solid #14212d; border-radius:12px; padding:12px; font-size:10px; }
+#helpnl h4{ color:var(--amber); letter-spacing:2px; margin-bottom:10px; font-weight:normal; }
+#helpnl p{ color:var(--ink-dim); line-height:1.7; margin-bottom:8px; }
+kbd{ background:#0f2231; border:1px solid #16242f; border-radius:3px; padding:0 4px; color:var(--cy); }
+</style>
+</head>
+<body>
+
+<div id="deck">
+  <div id="viewwrap">
+    <div id="wsmount" style="position:absolute;inset:0"></div>
+    <div id="hud">
+      <div class="tagline">ARCHITECT · FLIGHT SIM</div>
+      <div id="lamp">⚠ STALL</div>
+    </div>
+  </div>
+  <div id="strip">
+    <div id="adiBox"><svg id="adi" viewBox="0 0 120 120"></svg></div>
+    <div class="gauge"><span class="lbl">IAS</span><span class="val" id="gIas">0</span><span class="unit">KTS</span></div>
+    <div class="gauge"><span class="lbl">ALT</span><span class="val" id="gAlt">0</span><span class="unit">FT AGL</span></div>
+    <div class="gauge"><span class="lbl">V/S</span><span class="val" id="gVs">0</span><span class="unit">FT/MIN</span></div>
+    <div class="gauge"><span class="lbl">HDG</span><span class="val" id="gHdg">000</span><span class="unit">°</span></div>
+    <div class="gauge"><span class="lbl">RPM</span><span class="val" id="gRpm">0</span><span class="unit">%</span></div>
+  </div>
+</div>
+
+<div id="controls">
+  <div class="cbox">
+    <h4>AIRCRAFT</h4>
+    <select id="craftSel"></select>
+    <div id="craftBlurb"></div>
+  </div>
+  <div class="cbox">
+    <h4>YOKE — drag (springs to centre)</h4>
+    <div id="yokePad">
+      <svg id="yokeCross" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <line x1="50" y1="6" x2="50" y2="94" stroke="#16242f"/><line x1="6" y1="50" x2="94" y2="50" stroke="#16242f"/>
+      </svg>
+      <div id="yokeKnob"></div>
+      <span class="padhint" style="top:4px;left:50%;transform:translateX(-50%)">PUSH · NOSE DN</span>
+      <span class="padhint" style="bottom:4px;left:50%;transform:translateX(-50%)">PULL · NOSE UP</span>
+      <span class="padhint" style="left:4px;top:50%;transform:translateY(-50%)">L</span>
+      <span class="padhint" style="right:4px;top:50%;transform:translateY(-50%)">R</span>
+    </div>
+  </div>
+  <div class="cbox">
+    <h4>THROTTLE</h4>
+    <div class="lever" id="thrLever"><div class="fill" id="thrFill"></div><div class="grip" id="thrGrip"></div></div>
+    <div class="pct" id="thrPct">0%</div>
+  </div>
+  <div class="cbox">
+    <h4>FLAPS</h4>
+    <div id="flaps">
+      <button data-f="0" class="on">UP</button>
+      <button data-f="0.5">½</button>
+      <button data-f="1">FULL</button>
+    </div>
+  </div>
+</div>
+
+<div id="helpnl">
+  <h4>HOW TO FLY</h4>
+  <p>1. Ease the <b>throttle</b> up. Roll down the strip until the IAS passes the rotate speed.</p>
+  <p>2. Pull the <b>yoke</b> back gently to lift the nose. Hold a positive V/S to climb away.</p>
+  <p>3. Half or full <b>flaps</b> shorten the takeoff roll and slow you for landing.</p>
+  <p>4. Watch the <b>⚠ STALL</b> lamp — bank hard or fly too slow and the wing lets go.</p>
+  <p style="margin-top:12px;color:var(--cy)">Keys: <kbd>↑↓</kbd> pitch · <kbd>←→</kbd> roll · <kbd>W</kbd>/<kbd>S</kbd> throttle · <kbd>F</kbd> flaps · <kbd>R</kbd> respawn</p>
+  <button id="resetBtn">↺ RESPAWN ON THE STRIP</button>
+</div>
+
+<script type="module">
+import { createState, step, readout, TYPES } from './js/panels/flight-model.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield } from './js/panels/windshield.js';
+
+const clamp = (v,lo,hi)=>v<lo?lo:v>hi?hi:v;
+const lerp = (a,b,t)=>a+(b-a)*t;
+
+// ── Fixed-wing fleet only (the Dragonfly is a helicopter — collective + pedals —
+//    and needs its own control set, so it's left out of this simple test rig). ───
+const FLEET = ['mule','mayfly','carcass','reaper','leviathan'];
+const BLURB = {
+  mule:'Twin-turboprop STOL hauler. Rugged, honest, a strong climber off short strips.',
+  mayfly:'Featherweight trainer. Slow, docile and very hard to stall — start here.',
+  carcass:'A salvaged wreck. Underpowered, draggy and twitchy; you nurse it aloft.',
+  reaper:'Warthog-class gun platform. Slow and draggy, but rock-stable down low.',
+  leviathan:'Four-engine heavy freighter. Ponderous and heavy; needs a real runway.',
+};
+
+let craftKey = 'mule';
+let P = TYPES[craftKey];
+let s = createState(P);
+
+// ── Forward view (the real windshield module) ─────────────────────────────────
+ensureWindshieldStyles();
+document.getElementById('wsmount').innerHTML = windshieldHTML('ws', 'FWD VIEW');
+
+// ── A basic, endlessly-scrolling version of the world ─────────────────────────
+// We integrate our own world position (the model doesn't track x/y) and rebuild a
+// tile window centred on the craft each frame — so a loose procedural city drifts
+// toward and past you as you fly. Deterministic hash → mostly open air with
+// clusters of buildings, the odd field and a river; the craft's own tile is clear.
+let wx = 0, wy = 0;                       // world position, tile units
+const R = 4;                              // window radius (9×9, matching production)
+// The airstrip is anchored at world origin (0,0), laid along heading 0 (north). You
+// spawn sitting on the threshold, lined up down it. It's a real world-fixed strip —
+// roll down it to take off, then it recedes behind you; line back up on it to land.
+const RW_HDG = 0;
+function hash2(x, y){ let h = (Math.imul(x|0, 73856093) ^ Math.imul(y|0, 19349663)) >>> 0; return h / 4294967295; }
+function worldCell(x, y){
+  // Keep the departure corridor down the strip clear of buildings (x=0 column, a few
+  // tiles ahead/behind the threshold) so nothing spawns on the runway you take off from.
+  if (x === 0 && y <= 2 && y >= -6) return { kind:'field', biome:'parkland' };
+  const r = hash2(x, y);
+  if (Math.abs((x*3 + y) % 17) === 0) return { kind:'land', biome:'water' };  // meandering river
+  if (r > 0.72) return { kind:'land', biome:'city' };                          // building cluster
+  if (r > 0.62) return { kind:'field', biome:'parkland' };                     // open field
+  return { kind:'air' };                                                       // open sky ahead
+}
+function mapWindow(){
+  const cx = Math.round(wx), cy = Math.round(wy), rows = [];
+  for (let y = -R; y <= R; y++){ const row = [];
+    for (let x = -R; x <= R; x++){
+      if (x === 0 && y === 0){ row.push({ kind:'craft' }); continue; }
+      row.push(worldCell(cx + x, cy + y));
+    } rows.push(row);
+  } return rows;
+}
+
+// ── Control input state ───────────────────────────────────────────────────────
+const input = { elevator:0, aileron:0, throttle:0, flaps:0 };
+let yokeDrag=false, keyPitch=0, keyRoll=0;
+const disp = { ias:0, alt:0, vs:0, hdg:0, rpm:0, pitch:0, bank:0 };
+
+// ── Audio: a minimal stall horn (intermittent → continuous) ───────────────────
+let actx=null, hornOsc=null, hornGain=null, hornBeat=0;
+function audio(){ if(!actx){ actx=new (window.AudioContext||window.webkitAudioContext)();
+  hornOsc=actx.createOscillator(); hornGain=actx.createGain(); hornGain.gain.value=0;
+  hornOsc.type='square'; hornOsc.frequency.value=380; hornOsc.connect(hornGain).connect(actx.destination); hornOsc.start(); } return actx; }
+function stallHorn(margin, stalled, dt){
+  if(!actx) return; let want=0;
+  if(stalled) want=0.06;
+  else if(margin<0.35){ hornBeat=(hornBeat+dt*(2+(0.35-margin)*10))%1; want = hornBeat<0.5?0.05:0; }
+  hornGain.gain.setTargetAtTime(want, actx.currentTime, 0.02);
+}
+
+// ── Attitude indicator ────────────────────────────────────────────────────────
+const adi = document.getElementById('adi');
+adi.innerHTML = `
+  <defs><clipPath id="adiClip"><circle cx="60" cy="60" r="52"/></clipPath></defs>
+  <g clip-path="url(#adiClip)">
+    <g id="adiRoll"><g id="adiPitch">
+      <rect x="-80" y="-140" width="280" height="200" fill="#2b7fb0"/>
+      <rect x="-80" y="60" width="280" height="220" fill="#6b5330"/>
+      <line x1="-80" y1="60" x2="200" y2="60" stroke="#e8f2fa" stroke-width="2"/>
+      ${[-30,-20,-10,10,20,30].map(p=>`<line x1="${60-(Math.abs(p)>15?16:10)}" y1="${60-p*1.6}" x2="${60+(Math.abs(p)>15?16:10)}" y2="${60-p*1.6}" stroke="#cfe4f2" stroke-width="1"/>`).join('')}
+    </g></g>
+  </g>
+  <circle cx="60" cy="60" r="52" fill="none" stroke="#16242f" stroke-width="3"/>
+  <path d="M32 60 L50 60 M60 60 L60 60 M70 60 L88 60" stroke="#ffcf3e" stroke-width="2" fill="none"/>
+  <circle cx="60" cy="60" r="2.5" fill="#ffcf3e"/>
+  <polygon points="60,10 56,18 64,18" fill="#ffcf3e"/>
+`;
+const adiRoll = adi.querySelector('#adiRoll'), adiPitch = adi.querySelector('#adiPitch');
+
+// ── Craft selector ────────────────────────────────────────────────────────────
+const sel = document.getElementById('craftSel'), blurb = document.getElementById('craftBlurb');
+FLEET.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=TYPES[k].name; sel.appendChild(o); });
+sel.value = craftKey;
+function respawn(){ P = TYPES[craftKey]; s = createState(P); wx = 0; wy = 0;
+  input.throttle = 0; input.flaps = 0; input.elevator = 0; input.aileron = 0; syncFlapBtns();
+  blurb.textContent = BLURB[craftKey] || ''; }
+sel.addEventListener('change', ()=>{ craftKey = sel.value; respawn(); });
+
+// ── YOKE (2D pad, Pointer Events, springs to centre) ──────────────────────────
+const pad = document.getElementById('yokePad'), knob = document.getElementById('yokeKnob');
+function padTo(e){ const r = pad.getBoundingClientRect();
+  input.aileron = clamp(((e.clientX - r.left)/r.width)*2-1, -1, 1);
+  input.elevator = clamp(((e.clientY - r.top )/r.height)*2-1, -1, 1); }   // pull toward you (drag DOWN) = nose up
+pad.addEventListener('pointerdown', e=>{ yokeDrag=true; audio(); pad.classList.add('drag'); pad.setPointerCapture(e.pointerId); padTo(e); });
+pad.addEventListener('pointermove', e=>{ if(yokeDrag) padTo(e); });
+addEventListener('pointerup', ()=>{ yokeDrag=false; pad.classList.remove('drag'); });
+
+// ── THROTTLE (vertical lever, holds) ──────────────────────────────────────────
+const thr = document.getElementById('thrLever'), thrFill=document.getElementById('thrFill'), thrGrip=document.getElementById('thrGrip'), thrPct=document.getElementById('thrPct');
+let thrDrag=false;
+function thrTo(e){ const r=thr.getBoundingClientRect(); input.throttle = clamp(1-((e.clientY-r.top)/r.height),0,1); }
+thr.addEventListener('pointerdown', e=>{ thrDrag=true; audio(); thr.setPointerCapture(e.pointerId); thrTo(e); });
+thr.addEventListener('pointermove', e=>{ if(thrDrag) thrTo(e); });
+addEventListener('pointerup', ()=>{ thrDrag=false; });
+
+// ── FLAPS ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('#flaps button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#flaps button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); input.flaps=parseFloat(b.dataset.f);
+}));
+function syncFlapBtns(){ document.querySelectorAll('#flaps button').forEach(x=>x.classList.toggle('on', parseFloat(x.dataset.f)===input.flaps)); }
+
+// ── Keyboard ──────────────────────────────────────────────────────────────────
+addEventListener('keydown', e=>{
+  if(e.key==='ArrowUp') keyPitch=1; else if(e.key==='ArrowDown') keyPitch=-1;
+  else if(e.key==='ArrowLeft') keyRoll=-1; else if(e.key==='ArrowRight') keyRoll=1;
+  else if(e.key==='w'||e.key==='W') input.throttle=clamp(input.throttle+0.08,0,1);
+  else if(e.key==='s'||e.key==='S') input.throttle=clamp(input.throttle-0.08,0,1);
+  else if(e.key==='f'||e.key==='F'){ input.flaps = input.flaps>=1?0:input.flaps+0.5; syncFlapBtns(); }
+  else if(e.key==='r'||e.key==='R'){ respawn(); }
+  else return; e.preventDefault();
+});
+addEventListener('keyup', e=>{ if(e.key==='ArrowUp'||e.key==='ArrowDown') keyPitch=0; if(e.key==='ArrowLeft'||e.key==='ArrowRight') keyRoll=0; });
+document.getElementById('resetBtn').addEventListener('click', respawn);
+
+// ── Main loop ─────────────────────────────────────────────────────────────────
+const lamp = document.getElementById('lamp');
+respawn();
+let last=performance.now();
+function frame(now){
+  let dt = clamp((now-last)/1000, 0, 0.05); last=now;
+
+  if(!yokeDrag){ input.elevator = lerp(input.elevator, 0, Math.min(1, dt*6)); input.aileron = lerp(input.aileron, 0, Math.min(1, dt*6)); }
+  if(keyPitch) input.elevator = clamp(input.elevator + keyPitch*dt*2.5, -1, 1);
+  if(keyRoll)  input.aileron  = clamp(input.aileron  + keyRoll*dt*2.5, -1, 1);
+
+  step(s, input, P, dt);
+
+  // Advance our own world position from the model's speed + heading, so the map
+  // window scrolls the procedural city past us (buildings pop in tile by tile,
+  // exactly as the server-driven map window does in the real game).
+  const hr = s.heading * Math.PI/180;
+  const tilesPerSec = s.airspeed * 0.012;
+  wx += Math.sin(hr) * tilesPerSec * dt;
+  wy += -Math.cos(hr) * tilesPerSec * dt;
+
+  for(const e of s.events){ if(e.type==='touchdown'){ lamp.textContent = e.severity==='hard'?'⚠ HARD LANDING':'TOUCHDOWN'; lamp.style.color = e.severity==='hard'?'#ff5a5b':'#5fe0a0'; lamp.style.borderColor=lamp.style.color; lamp.style.opacity=1; setTimeout(()=>lamp.style.opacity=0,900); } }
+  stallHorn(s.stallMargin, s.stalled, dt);
+  if(s.stalled){ lamp.textContent='⚠ STALL'; lamp.style.color='#ff5a5b'; lamp.style.borderColor='#ff5a5b'; lamp.style.opacity=1; }
+  else if(!s.events.length && lamp.textContent==='⚠ STALL') lamp.style.opacity=0;
+
+  const r = readout(s, P);
+  disp.ias=lerp(disp.ias,r.airspeed,Math.min(1,dt*6)); disp.alt=lerp(disp.alt,r.altitude,Math.min(1,dt*5));
+  disp.vs=lerp(disp.vs,r.vs,Math.min(1,dt*4)); disp.rpm=lerp(disp.rpm,r.rpm,Math.min(1,dt*6));
+  disp.pitch=lerp(disp.pitch,r.pitch,Math.min(1,dt*10)); disp.bank=lerp(disp.bank,r.bank,Math.min(1,dt*10));
+  let dh=((r.heading-disp.hdg+540)%360)-180; disp.hdg=(disp.hdg+dh*Math.min(1,dt*6)+360)%360;
+
+  document.getElementById('gIas').textContent=Math.round(disp.ias);
+  document.getElementById('gAlt').textContent=Math.round(disp.alt);
+  document.getElementById('gVs').textContent=(disp.vs>=0?'+':'')+Math.round(disp.vs);
+  document.getElementById('gHdg').textContent=String(Math.round(disp.hdg)%360).padStart(3,'0');
+  document.getElementById('gRpm').textContent=Math.round(disp.rpm);
+  document.getElementById('gIas').closest('.gauge').classList.toggle('warn', r.stalled || s.stallMargin<0.35);
+
+  adiRoll.setAttribute('transform',`rotate(${-disp.bank} 60 60)`);
+  adiPitch.setAttribute('transform',`translate(0 ${disp.pitch*1.6})`);
+
+  thrFill.style.height=(input.throttle*100)+'%'; thrGrip.style.bottom=`calc(${input.throttle*100}% - 8px)`; thrPct.textContent=Math.round(input.throttle*100)+'%';
+  knob.style.left=(50+input.aileron*42)+'%'; knob.style.top=(50+input.elevator*42)+'%';
+
+  paintWindshield('ws', {
+    pitch:disp.pitch, bank:disp.bank,
+    // Height fraction referenced to 3000ft with a sqrt curve (ramps hard off the deck),
+    // matching the real cockpit so you climb above the buildings quickly.
+    height:Math.min(1,Math.sqrt(Math.max(0,r.altitude)/3000)), speed:clamp(r.airspeed/P.vne,0,1),
+    hour:14, weather:'clear', heading:disp.hdg,
+    phase:'cruise', map:mapWindow(),
+    // World-fixed airstrip at origin: stays put on the ground and recedes/rotates as you
+    // fly away, then fades out by ~300ft. Line back up on it and descend to land.
+    runway:{ ox:-wx, oy:-wy, hdg:RW_HDG, alt:clamp(r.altitude/320,0,1) },
+  });
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1509,6 +1509,7 @@ function wireDragScroll(scroll) {
 
   scroll.addEventListener('pointerdown', (e) => {
     if (e.button > 0) return;
+    if (_data?.view === 'gear') return;                     // gear uses drag-and-drop equip; don't hijack the press
     if (scroll.scrollHeight <= scroll.clientHeight) return; // nothing to pan
     if (isInteractive(e.target)) return;                    // let controls/tiles handle it
     start = { y: e.clientY, top: scroll.scrollTop, dragging: false };
@@ -4340,7 +4341,7 @@ function fkGameScreenHTML() {
 // "into the game", and its tablet's ARCHITECT drops you into the game again, smaller
 // and smaller until the tiles are too small to click. Each level sits in a
 // pointer-events:none centring layer so taps fall through empty space to the level
-// (or backdrop) below; ✕/home peels this level back off.
+// (or backdrop) below; ✕/home (or a backdrop tap) closes the whole stack at once.
 function fkSpawnNest(scrim, depth) {
   const scale = Math.pow(0.72, depth);
   if (scale < 0.1) return; // past here it's too small to bother clicking
@@ -4359,10 +4360,11 @@ function fkSpawnNest(scrim, depth) {
     : `<div class="tos-fk-gamewrap">${fkGameScreenHTML()}${fkTabletHTML()}</div>`;
   scrim.appendChild(layer);
 
-  // Back off just this (topmost) level; if it was the last, close the backdrop too.
-  const peel = () => { layer.remove(); if (!scrim.querySelector('.tos-fk-mini-layer')) scrim.remove(); };
-  layer.querySelector('.tos-fk-mini-x').addEventListener('click', peel);
-  layer.querySelector('.tos-fk-mini-home').addEventListener('click', peel);
+  // ✕ / home closes the ENTIRE nested stack at once — the whole scrim (every layer
+  // + the caption) goes together, so nothing lingers behind the closing window.
+  const closeStack = () => scrim.remove();
+  layer.querySelector('.tos-fk-mini-x').addEventListener('click', closeStack);
+  layer.querySelector('.tos-fk-mini-home').addEventListener('click', closeStack);
 
   const toast = layer.querySelector('.tos-fk-mini-toast');
   let toastT = null;
