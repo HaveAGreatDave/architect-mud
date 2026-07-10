@@ -41,11 +41,15 @@ async function buildScreen(player, screenId) {
 
   const org = getOrg(m.org_id);
   const canEdit = hasPerm(player, PERM.EDIT_CORP);
+  const canInvite = hasPerm(player, PERM.INVITE);
   const canFold = org.owner_id === player.id || hasPerm(player, PERM.DISBAND);
 
   const actions = [{ id: 'contribute', label: 'Contribute', prompt: 'Contribution amount (credits):' }];
   if (payload.tierInfo?.nextCost != null) {
     actions.push({ id: 'invest', label: `Invest ₵${payload.tierInfo.nextCost.toLocaleString()}` });
+  }
+  if (canInvite) {
+    actions.push({ id: 'invite', label: '➕ Invite Player', prompt: 'Handle of the player to invite (must be online):' });
   }
   if (canFold) {
     actions.push({ id: 'fold', label: 'Fold Corp', confirm: `Fold ${org.name}? This deletes the corp for good — the treasury is refunded to the owner and any HQ is released.` });
@@ -65,7 +69,7 @@ async function buildScreen(player, screenId) {
       color: org.color || null,
       canEdit,
     },
-    palette: canEdit ? await corpColorOptions(m.org_id) : null,
+    palette: canEdit ? await corpColorOptions() : null,
     actions,
   };
 }
@@ -88,6 +92,14 @@ async function handleAction(player, actionId, params, broadcast) {
     // Stay on the picker with the reason (e.g. "too close to X's") on failure.
     if (res?.type === 'error') return { ...(await buildScreen(player)), notice: res.message };
     return buildScreen(player);
+  }
+
+  if (actionId === 'invite') {
+    const handle = (params || '').trim();
+    if (!handle) return { ...(await buildScreen(player)), notice: 'Enter a player handle to invite.' };
+    const res = await run(['invite', handle], `corp invite ${handle}`);
+    // Surface the outcome (invite sent, not found, etc.) as a notice on the dashboard.
+    return { ...(await buildScreen(player)), notice: res?.message || `Invite sent to ${handle}.` };
   }
 
   if (actionId === 'fold') {

@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
-import { renderMinimap, openMapPopup, refreshMapIfOpen, setMapTerritory, setGpsRoute, setRunState } from './panels/minimap.js';
+import { renderMinimap, openMapPopup, refreshMapIfOpen, setMapTerritory, setGpsRoute, setRunState, startAutoWalk } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut } from './panels/environment.js';
 import { setWeatherEventFx } from './panels/weather-fx.js';
 import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
@@ -9,7 +9,7 @@ import { renderEquipPanel, renderGearPanel } from './panels/equipment.js';
 import { renderRecipesPanel } from './panels/recipes.js';
 import { renderStatsPanel } from './panels/stats.js';
 import { renderSkillsPanel } from './panels/skills.js';
-import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers, rollbackSelfEcho } from './panels/whisper.js';
+import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers, rollbackSelfEcho, removeCorpChannels } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
 import { openLightViewDialog } from './panels/lightview.js';
@@ -18,7 +18,7 @@ import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
-import { openTabletPanel, closeTabletPanel } from './panels/tablet-os.js';
+import { openTabletPanel, closeTabletPanel, tabletQuestUpdate } from './panels/tablet-os.js';
 import { openCorpMap } from './panels/corp-map.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
@@ -313,6 +313,9 @@ const handlers = {
   // An app handed off to another UI (e.g. quests-app.js "Turn In" opening the
   // turn-in NPC's dialogue) — close the shell instead of re-rendering it.
   tablet_close: () => { closeTabletPanel(); },
+  // A quest changed state server-side (objective ticked / completed / turned in) —
+  // live-refresh the Tablet OS Quests app if it's open on that app (no-op otherwise).
+  quest_update: () => { tabletQuestUpdate(); },
 
   // Corps (org) command results. Most just render text; the ones that move the
   // player's own credits also refresh the vitals HUD.
@@ -333,7 +336,7 @@ const handlers = {
   corp_founded:     (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
   corp_contribute:  (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
   corp_withdraw:    (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
-  corp_disband:     (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
+  corp_disband:     (msg) => { appendHtml(msg.message, 'help'); removeCorpChannels(); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
 
   map: (msg) => { openMapPopup(msg.tiles || [], msg.mode || 'zone', !!msg.insideInterior); },
   map_territory:      (msg) => { setMapTerritory(msg); },
@@ -487,7 +490,7 @@ const handlers = {
   'lightning': () => { triggerLightningFlash(); },
 
   output: (msg) => { appendHtml(msg.message, 'help'); },
-  gps_route: (msg) => { appendHtml(msg.message, 'help'); if (msg.path) setGpsRoute(msg.path); },
+  gps_route: (msg) => { appendHtml(msg.message, 'help'); if (msg.path) setGpsRoute(msg.path); if (msg.autostart) startAutoWalk(); },
 
   // `.debug` reveal — state lives only in localStorage. debug_toggle flips it;
   // debug_roll lines are always sent by the server but rendered only when on.
@@ -658,6 +661,7 @@ const handlers = {
       // the cook game — family (from the drug's form) picks the single-stage minigame
       openSynthMinigame({
         family: msg.family || 'wet',
+        form: msg.form || null,
         difficulty: msg.difficulty ?? 5,
         recipeName: msg.recipeName || 'COMPOUND',
         workspace: msg.workspace || '',

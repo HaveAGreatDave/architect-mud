@@ -1051,14 +1051,14 @@
 					<input
 						id="whisper-reply-input"
 						type="text"
-						placeholder="Reply…"
+						placeholder="Reply… (/leave closes this chat)"
 						style="
 							flex: 1;
-							background: var(--bg3);
+							background: var(--bg2);
 							border: 1px solid var(--border);
-							color: var(--text);
+							color: var(--text-bright);
 							font-family: var(--font-mono);
-							font-size: 12px;
+							font-size: 13px;
 							padding: 5px 8px;
 							outline: none;
 							border-radius: 2px;
@@ -1170,30 +1170,32 @@
 			<div id="settings-box">
 				<h2>Settings</h2>
 
-				<div class="settings-group">
-					<label class="group-label" style="display:flex;justify-content:space-between;align-items:center">
-						<span>Theme</span>
-						<span id="active-theme-name" style="font-size:11px;color:var(--text-dim)">Void</span>
-					</label>
-					<button
-						id="theme-open-btn"
-						style="
-							width: 100%;
-							background: transparent;
-							border: 1px solid var(--border);
-							color: var(--text);
-							font-family: var(--font);
-							font-size: 12px;
-							padding: 7px 10px;
-							cursor: pointer;
-							border-radius: 2px;
-						"
-						title="Choose or edit a theme">
-						🎨 Themes…
-					</button>
+				<!-- Grouped pages instead of one long list. -->
+				<div class="settings-tabs" id="settings-tabs">
+					<button class="settings-tab active" data-settings-page="appearance">General</button>
+					<button class="settings-tab" data-settings-page="layout">Layout</button>
+					<button class="settings-tab" data-settings-page="sound">Sound</button>
 				</div>
 
-				<div class="settings-group">
+				<div class="settings-group" data-spage="appearance">
+					<label class="group-label">Theme</label>
+					<!-- Collapsed trigger: shows the active theme; click opens the swatch dropdown. -->
+					<button type="button" id="theme-dd-trigger" class="theme-dd-trigger" aria-expanded="false" title="Choose a theme">
+						<span class="theme-chip-prev" id="theme-dd-swatch"></span>
+						<span class="theme-dd-name" id="active-theme-name">Void</span>
+						<span class="theme-dd-caret">▾</span>
+					</button>
+					<!-- Swatch dropdown, hidden until the trigger is clicked. -->
+					<div id="theme-dd-panel" class="theme-dd-panel">
+						<!-- Inline swatch grid (populated by settings.js _populateThemeGrid). -->
+						<div id="settings-theme-grid" class="settings-theme-grid"></div>
+						<button id="theme-open-btn" class="theme-dd-editor-btn" title="Open the full theme editor">
+							🎨 Full Theme Editor…
+						</button>
+					</div>
+				</div>
+
+				<div class="settings-group" data-spage="appearance">
 					<label class="group-label" for="opt-contrast" style="display:flex;justify-content:space-between;align-items:center">
 						<span>Contrast</span>
 						<span id="contrast-value-label" style="font-size:11px;color:var(--text-dim)">Base</span>
@@ -1206,25 +1208,17 @@
 					</div>
 				</div>
 
-				<div class="settings-group">
+				<div class="settings-group" data-spage="appearance">
 					<label class="group-label">Font Size</label>
 					<div class="settings-options" id="opt-fontsize">
-						<button class="settings-opt" data-value="12" title="Small" style="font-size:11px">A</button>
-						<button class="settings-opt" data-value="14" title="Medium" style="font-size:14px">A</button>
-						<button class="settings-opt" data-value="17" title="Large" style="font-size:17px">A</button>
-						<button class="settings-opt" data-value="20" title="X-Large" style="font-size:20px">A</button>
+						<button class="settings-opt" data-value="14" title="Small" style="font-size:12px">A</button>
+						<button class="settings-opt" data-value="16" title="Medium" style="font-size:15px">A</button>
+						<button class="settings-opt" data-value="19" title="Large" style="font-size:18px">A</button>
+						<button class="settings-opt" data-value="22" title="X-Large" style="font-size:21px">A</button>
 					</div>
 				</div>
 
-				<div class="settings-group">
-					<label class="group-label">Display</label>
-					<div class="settings-options" id="opt-density">
-						<button class="settings-opt" data-value="comfortable" title="Comfortable (Desktop)">🖥️</button>
-						<button class="settings-opt" data-value="compact" title="Compact (Mobile)">📱</button>
-					</div>
-				</div>
-
-				<div class="settings-group">
+				<div class="settings-group" data-spage="layout">
 					<label class="group-label">Layout</label>
 					<div class="settings-options" id="opt-sidebar">
 						<button class="settings-opt" data-value="left" title="Sidebar Left">⬅️</button>
@@ -1233,7 +1227,7 @@
 					</div>
 				</div>
 
-				<div class="settings-group">
+				<div class="settings-group" data-spage="layout">
 					<label class="group-label">Motion</label>
 					<div class="settings-options" id="opt-motion">
 						<button class="settings-opt" data-value="on" title="Movement Animations On">🎞️</button>
@@ -1241,7 +1235,7 @@
 					</div>
 				</div>
 
-				<div class="settings-group">
+				<div class="settings-group" data-spage="layout">
 					<label class="group-label">Weather FX</label>
 					<div class="settings-options" id="opt-weatherfx">
 						<button class="settings-opt" data-value="on" title="Weather effects over the scene">🌧️</button>
@@ -1249,7 +1243,7 @@
 					</div>
 				</div>
 
-				<div class="settings-group mobile-only-setting">
+				<div class="settings-group mobile-only-setting" data-spage="layout">
 					<label class="group-label">D-Pad Size</label>
 					<div class="settings-options" id="opt-dpadsize">
 						<button class="settings-opt" data-value="small" title="Small">S</button>
@@ -1258,7 +1252,15 @@
 					</div>
 				</div>
 
-				<div class="settings-group">
+				<div class="settings-group" data-spage="layout">
+					<label class="group-label">Smart UI</label>
+					<div class="settings-options" id="opt-smartui">
+						<button class="settings-opt" data-value="on" title="Show contextual per-room action buttons">⚡</button>
+						<button class="settings-opt" data-value="off" title="Hide contextual per-room action buttons">🚫</button>
+					</div>
+				</div>
+
+				<div class="settings-group" data-spage="appearance">
 					<label class="group-label">Temp Units</label>
 					<div class="settings-options" id="opt-tempunit">
 						<button class="settings-opt" data-value="C" title="Celsius">C°ommunism</button>
@@ -1266,7 +1268,7 @@
 					</div>
 				</div>
 
-				<div class="settings-group">
+				<div class="settings-group" data-spage="appearance">
 					<label class="group-label">Poker Felt</label>
 					<div class="settings-options" id="opt-pokerfelt">
 						<button class="settings-opt" data-value="green" title="Classic Green">🟢</button>
@@ -1276,7 +1278,7 @@
 					</div>
 				</div>
 
-				<div class="settings-group" id="sound-group">
+				<div class="settings-group" id="sound-group" data-spage="sound">
 					<div style="border:1px solid var(--border);border-radius:3px;padding:8px 10px">
 						<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
 							<span class="group-label" style="margin:0">Sound</span>
@@ -1354,7 +1356,7 @@
 					})();
 				</script>
 
-				<div class="settings-group" id="maturity-group">
+				<div class="settings-group" id="maturity-group" data-spage="appearance">
 					<div
 						id="maturity-decoy"
 						style="
@@ -1430,6 +1432,28 @@
 						});
 					})();
 				</script>
+
+				<!-- Settings page tabs: show only the active page's groups. -->
+				<script>
+					(function () {
+						var box = document.getElementById("settings-box");
+						var tabs = document.getElementById("settings-tabs");
+						if (!box || !tabs) return;
+						function showPage(page) {
+							box.querySelectorAll(".settings-group[data-spage]").forEach(function (g) {
+								g.style.display = g.getAttribute("data-spage") === page ? "" : "none";
+							});
+							tabs.querySelectorAll(".settings-tab").forEach(function (t) {
+								t.classList.toggle("active", t.getAttribute("data-settings-page") === page);
+							});
+						}
+						tabs.querySelectorAll(".settings-tab").forEach(function (t) {
+							t.addEventListener("click", function () { showPage(t.getAttribute("data-settings-page")); });
+						});
+						showPage("appearance");
+					})();
+				</script>
+
 				<button id="settings-close">Done</button>
 			</div>
 		</div>

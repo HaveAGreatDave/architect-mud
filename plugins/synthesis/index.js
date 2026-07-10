@@ -143,7 +143,7 @@ async function cmdCook(args, raw, player, broadcast) {
     type: 'synth_minigame',
     recipeId: recipe.id, nonce,
     recipeName: drug?.name || recipe.name,
-    family, tier, difficulty,
+    family, form: drug?.flags?.form || null, tier, difficulty,
     workspace: ws.label,
   };
 }

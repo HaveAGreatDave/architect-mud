@@ -14,7 +14,7 @@
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
 import { drawHangarFloorBay, drawHangarScene } from './aircraft3d.js';
-import { drawWireframe3D, drawKnob, drawPerfRadar, themeColor } from './wireframe-plane.js';
+import { drawWireframe3D, drawKnob, drawPerfRadar, themeColor, rgbTriplet } from './wireframe-plane.js';
 import { showConfirmDialog } from './confirm.js';
 
 let B = null;       // { data, screen, selId, work (paint edit copy) }
@@ -420,8 +420,11 @@ function hullTabHtml(c) {
 // morphs instantly as you drag, before the server round-trip. On Apply the server
 // recomputes authoritatively and re-pushes, so any drift self-corrects.
 const PERF_LABELS = [
-  { id: 'speed', label: 'SPEED' }, { id: 'economy', label: 'ECON' }, { id: 'range', label: 'RANGE' },
-  { id: 'cool', label: 'COOL' }, { id: 'agility', label: 'AGILITY' },
+  { id: 'speed', label: 'SPEED', desc: 'Cruise speed vs. stock — coarser pitch and more boost push this up; a leaner mixture trims it back a little.' },
+  { id: 'economy', label: 'ECON', desc: 'Fuel burn vs. stock — a leaner mixture stretches your range; boost and a heavy load both drink more.' },
+  { id: 'range', label: 'RANGE' },
+  { id: 'cool', label: 'COOL', desc: 'Heat margin vs. stock — rich mixture and boost both run hotter; an intercooler kit tempers it.' },
+  { id: 'agility', label: 'AGILITY' },
 ];
 const TUNE_KEYS = ['mixture', 'pitch', 'boost', 'cg'];
 function computeStatsClient(c, tune) {
@@ -457,65 +460,100 @@ function ensureTuneWork(c) {
 const curCraft = () => (B.data.craft || []).find(x => x.id === B.selId) || null;
 
 // Owner-only (matches hangars.js requireOwned — rentals fly stock). Renders the four
-// rotary knobs, the delta bars, Apply/Reset, the plain-English key, and the kit shop.
-// The radar lives on the bench stage; paintTuning() draws it + the knobs + the bars.
+// rotary knobs (hover each for what it does) side by side with the delta bars,
+// Apply/Reset, and the kit shop. The radar lives on the bench stage; paintTuning()
+// draws it + the knobs + the bars.
 function tuningTabHtml(c) {
   if (c.wreck) return '<div class="hb-note">A wreck — nothing to tune.</div>';
   if (c.rental) return '<div class="hb-note">You can only tune an aircraft you <b>own</b> — rentals fly stock.</div>';
   ensureTuneWork(c);
   const params = (B.data.tuneParams || []).filter(p => TUNE_KEYS.includes(p.id));
   const knobs = params.map(p => `
-    <div class="hb-knob-cell">
-      <canvas class="hb-knob" data-knob="${p.id}" width="76" height="76"></canvas>
+    <div class="hb-knob-cell" title="${esc(p.desc || '')}">
+      <canvas class="hb-knob" data-knob="${p.id}" width="60" height="60"></canvas>
       <div class="hb-knob-label">${esc(p.label || p.id)}</div>
       <div class="hb-knob-val" data-knobval="${p.id}">0.00</div>
       <div class="hb-knob-poles"><span>${esc(p.lo || '−')}</span><span>${esc(p.hi || '+')}</span></div>
     </div>`).join('');
   const bars = PERF_LABELS.map(a => `
-    <div class="hb-pbar-row"><span class="hb-pbar-l">${a.label}</span>
-      <span class="hb-pbar"><i data-pbar="${a.id}"></i></span>
+    <div class="hb-pbar-row"><span class="hb-pbar-l"${a.desc ? ` title="${esc(a.desc)}"` : ''}>${a.label}</span>
+      <span class="hb-pbar"${a.desc ? ` title="${esc(a.desc)}"` : ''}><i data-pbar="${a.id}"></i></span>
       <b class="hb-pbar-d" data-pbard="${a.id}"></b></div>`).join('');
-  const key = params.map(p => `<div class="hb-tune-key"><b>${esc(p.label || p.id)}</b> — ${esc(p.desc || '')}</div>`).join('');
   return `
-    <div class="hb-knobs">${knobs}</div>
-    <div class="hb-perf-bars" title="Change vs. this airframe's stock tune">${bars}</div>
+    <div class="hb-tune-grid">
+      <div class="hb-knobs">${knobs}</div>
+      <div class="hb-perf-bars">${bars}</div>
+    </div>
     <div class="hb-apply-row">
       <button class="hb-btn hb-accent" data-act="tune-apply">Apply Tune</button>
       <button class="hb-btn" data-act="tune-reset">Reset to stock</button>
-    </div>
-    <div class="hb-tune-note">Range set by your <b>Fabrication</b> and any fitted kits — dials stop at ±${c.tuneRange ?? 1}.</div>
-    <div class="hb-tune-keys">${key}</div>
-    ${kitSectionHtml(c)}`;
+      <span class="hb-tune-note">Range ±${c.tuneRange ?? 1} — set by <b>Fabrication</b> + kits (see the <b>KITS</b> tab). Hover a dial for what it does.</span>
+    </div>`;
 }
 
-// The upgrade-kit shop, folded into the tuning tab (kits are what widen the dials /
-// tame the heat). Owned kits show FITTED; the rest are one-click buy+install.
-function kitSectionHtml(c) {
+// The upgrade-kit shop — its own bench tab (kits widen the dials / tame the heat).
+// A selectable list of the airframe's kits down the side, with the picked kit's
+// blurb + install action beside it, so nothing ever scrolls off the tuning screen.
+function kitsTabHtml(c) {
+  if (c.wreck) return '<div class="hb-note">A wreck — nothing to upgrade.</div>';
+  if (c.rental) return '<div class="hb-note">You can only fit kits to an aircraft you <b>own</b> — rentals fly stock.</div>';
   const cat = c.kitCatalog || [];
-  if (!cat.length) return '';
-  return `<div class="hb-kits"><div class="hb-kits-head">UPGRADE KITS</div>${cat.map(k => `
-    <div class="hb-kit${k.owned ? ' hb-kit-owned' : ''}">
-      <div class="hb-kit-top"><span class="hb-kit-name">${esc(k.name)}</span>${k.owned
-        ? '<span class="hb-kit-tag">FITTED</span>'
-        : `<button class="hb-btn hb-kit-buy" data-kit="${esc(k.id)}">Install · ${k.price}c</button>`}</div>
-      <div class="hb-kit-blurb">${esc(k.blurb)}</div>
-    </div>`).join('')}</div>`;
+  if (!cat.length) return '<div class="hb-note">No upgrade kits fit this airframe.</div>';
+  if (!B.kitSel || !cat.some(k => k.id === B.kitSel)) B.kitSel = (cat.find(k => !k.owned) || cat[0]).id;
+  const sel = cat.find(k => k.id === B.kitSel) || cat[0];
+  const list = cat.map(k => `
+    <button class="hb-kit-item${k.id === sel.id ? ' hb-kit-item-sel' : ''}" data-kit-pick="${esc(k.id)}">
+      <span class="hb-kit-item-name">${esc(k.name)}</span>
+      <span class="hb-kit-item-tag${k.owned ? ' hb-kit-item-fitted' : ''}">${k.owned ? '✓ FITTED' : k.price + 'c'}</span>
+    </button>`).join('');
+  return `<div class="hb-kits-head">UPGRADE KITS</div>
+    <div class="hb-kits2">
+      <div class="hb-kit-list">${list}</div>
+      <div class="hb-kit-detail">
+        <div class="hb-kit-detail-name">${esc(sel.name)}</div>
+        <div class="hb-kit-blurb">${esc(sel.blurb)}</div>
+        <div class="hb-kit-detail-act">
+          ${sel.owned ? '<span class="hb-kit-tag">✓ FITTED</span>' : `<button class="hb-btn hb-accent" data-kit="${esc(sel.id)}">Install · ${sel.price}c</button>`}
+        </div>
+      </div>
+    </div>`;
 }
 
+// Size a small instrument canvas to the device pixel ratio and hand back a context
+// pre-scaled to CSS units, so the knob dials and radar stay crisp on hi-dpi screens
+// (they were drawn at 1× before and went soft). Backing store is only resized when
+// the target size/dpr changes, so repeated drag repaints stay cheap.
+function hiDpiCtx(cv, cssW, cssH) {
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  if (cv._hdW !== cssW || cv._hdH !== cssH || cv._hdpr !== dpr) {
+    cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px';
+    cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+    cv._hdW = cssW; cv._hdH = cssH; cv._hdpr = dpr;
+  }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return ctx;
+}
 // Draw everything that reflects the live working tune: the stage radar, the four
 // knob faces, the numeric read-outs, and the delta bars. Called after each render
 // and on every knob drag (cheap; only redraws canvases + a few text/width writes).
 function paintTuning() {
   const root = document.getElementById('hb-root'); if (!root) return;
   const c = curCraft(); if (!c || !B.tune) return;
+  // Resolve the live theme so the canvas instruments follow it: accent for the lit
+  // arcs/traces, `face` (the dial's surface) for the machined metal, `ink` (the text
+  // colour) for graticule + ticks. On a light theme the dials come out pale, not black.
   const accent = themeColor('--accent', '#5fd6ff');
+  const face = themeColor('--bg3', '#20262c');
+  const ink = rgbTriplet(themeColor('--text-dim', '#8888a8'));
+  const pos = themeColor('--green', '#9fe0b0'), neg = themeColor('--orange', '#e0894f');
   const axes = computeAxesClient(c, B.tune);
   const radar = root.querySelector('#hb-perf-radar');
-  if (radar) drawPerfRadar(radar.getContext('2d'), { w: radar.width, h: radar.height, axes, stock: STOCK_AXES, labels: PERF_LABELS, accent });
+  if (radar) drawPerfRadar(hiDpiCtx(radar, 220, 200), { w: 220, h: 200, axes, stock: STOCK_AXES, labels: PERF_LABELS, accent, ink });
   const range = c.tuneRange || 1;
   root.querySelectorAll('[data-knob]').forEach(cv => {
     const p = cv.getAttribute('data-knob');
-    drawKnob(cv.getContext('2d'), { w: cv.width, h: cv.height, value: B.tune[p] || 0, range, accent });
+    drawKnob(hiDpiCtx(cv, 60, 60), { w: 60, h: 60, value: B.tune[p] || 0, range, accent, face, ink });
   });
   root.querySelectorAll('[data-knobval]').forEach(el => {
     const v = B.tune[el.getAttribute('data-knobval')] || 0;
@@ -524,8 +562,8 @@ function paintTuning() {
   PERF_LABELS.forEach(a => {
     const bar = root.querySelector(`[data-pbar="${a.id}"]`), dl = root.querySelector(`[data-pbard="${a.id}"]`);
     const val = axes[a.id], delta = val - 50;
-    if (bar) { const lo = Math.min(50, val), hi = Math.max(50, val); bar.style.left = lo + '%'; bar.style.width = (hi - lo) + '%'; bar.style.background = delta >= 0 ? accent : '#e0894f'; }
-    if (dl) { dl.textContent = (delta > 0 ? '+' : '') + delta; dl.style.color = delta >= 0 ? '#9fe0b0' : '#e0894f'; }
+    if (bar) { const lo = Math.min(50, val), hi = Math.max(50, val); const col = delta >= 0 ? accent : neg; bar.style.left = lo + '%'; bar.style.width = (hi - lo) + '%'; bar.style.background = col; bar.style.color = col; }
+    if (dl) { dl.textContent = (delta > 0 ? '+' : '') + delta; dl.style.color = delta >= 0 ? pos : neg; }
   });
 }
 
@@ -572,7 +610,7 @@ function benchScreen() {
   const tabs = [
     { id: 'paint', label: 'PAINT' },
     { id: 'hull', label: `HULL · ${c.hullPct}%` },
-    ...(canTune ? [{ id: 'tuning', label: 'TUNING' }] : []),
+    ...(canTune ? [{ id: 'tuning', label: 'TUNING' }, { id: 'kits', label: 'KITS' }] : []),
     ...(c.configurable ? [{ id: 'weight', label: 'W&B' }] : []),
   ];
   if (!tabs.some(t => t.id === B.benchTab)) B.benchTab = tabs[0].id;
@@ -582,14 +620,15 @@ function benchScreen() {
 
   const body = B.benchTab === 'hull' ? hullTabHtml(c)
     : B.benchTab === 'tuning' ? tuningTabHtml(c)
+    : B.benchTab === 'kits' ? kitsTabHtml(c)
     : B.benchTab === 'weight' ? weightTabHtml(c)
     : paintTabHtml(c, cat, dirty);
 
   // On the TUNING tab the stage becomes the live performance radar (drawn by
   // paintTuning); every other tab keeps the real 3D turntable.
   const stage = B.benchTab === 'tuning'
-    ? `<canvas id="hb-perf-radar" width="300" height="280"></canvas>`
-    : bayCanvas('hb-bench-hero', c.wreck ? 'wreck' : c.class, B.work, null, 340, 'data-hb-src="work" data-hb-zoom="1.4"');
+    ? `<canvas id="hb-perf-radar" width="220" height="200"></canvas>`
+    : bayCanvas('hb-bench-hero', c.wreck ? 'wreck' : c.class, B.work, null, 340, 'data-hb-src="work" data-hb-zoom="1.4" data-hb-flat="1"');
 
   return `
     <div class="hb-bench hb-bench-crt">
@@ -598,8 +637,6 @@ function benchScreen() {
         ${tabBar}
         <div class="hb-bench-tabbody">${body}</div>
       </div>
-      <div class="hb-dealer-scanlines"></div>
-      <div class="hb-crt-glass"></div>
     </div>
     <div class="hb-toolbar">
       <div class="hb-tb-group">${!c.wreck ? tbtn('✈', 'Fly', `data-act="embark" data-tail="${esc(c.tail)}"`, 'hb-accent hb-go') : ''}</div>
@@ -673,7 +710,7 @@ function wire() {
     if (act === 'close') { if (B.data.inHangar) sendCmdSilent('out'); else { closeHangarBay(); sendCmdSilent('look'); } return; }
     if (act === 'back') { go('floor'); return; }
     if (act === 'buyrent') { go('buyrent'); return; }
-    if (act === 'bench') { go('bench'); return; }
+    if (act === 'bench') { B.tune = null; B.tuneFor = null; B.kitSel = null; go('bench'); return; }
     if (act === 'charter-any') { charterAny = !charterAny; render(); return; }
     if (act === 'embark') { sendCmdSilent(`embark ${e.currentTarget.getAttribute('data-tail')}`); closeHangarBay(); return; }
     if (act === 'store') { sendCmdSilent(`hangaract store ${B.selId}`); return; }
@@ -712,6 +749,7 @@ function wire() {
   on('[data-scheme-del]', 'click', (e) => sendCmdSilent(`scheme ${B.selId} delete ${e.currentTarget.getAttribute('data-scheme-del')}`));
   on('[data-knob]', 'pointerdown', startKnobDrag);
   on('[data-kit]', 'click', (e) => sendCmdSilent(`installkit ${B.selId} ${e.currentTarget.getAttribute('data-kit')}`));
+  on('[data-kit-pick]', 'click', (e) => { B.kitSel = e.currentTarget.getAttribute('data-kit-pick'); render(); });
   on('[data-loadout]', 'click', (e) => { sendCmdSilent(`loadout ${B.selId} ${e.currentTarget.getAttribute('data-loadout')}`); refetch(); });
   on('[data-hb-buy]', 'click', (e) => { sendCmdSilent(`buy ${e.currentTarget.getAttribute('data-hb-buy')}`); refetch(); });
   on('[data-hb-rent]', 'click', (e) => { sendCmdSilent(`rent ${e.currentTarget.getAttribute('data-hb-rent')}`); refetch(); });
@@ -749,7 +787,11 @@ function startSpin() {
       const tint = cv.getAttribute('data-hb-tint') || undefined;
       const cls = cv.getAttribute('data-hb-cls');
       const zoom = parseFloat(cv.getAttribute('data-hb-zoom')) || 1;
-      drawHangarFloorBay(ctx, { cls, livery: lv, yaw: yaw + (cv._phase || 0), w: cv._cw, h: cv._ch, tint, sky: B.data?.sky, zoom });
+      const flat = cv.getAttribute('data-hb-flat') === '1';
+      // Flat (bench hero) shots spin slower than the floor turntables — a lazier,
+      // more "on display" turn instead of the showroom's regular pace.
+      const spinYaw = flat ? yaw * 0.35 : yaw;
+      drawHangarFloorBay(ctx, { cls, livery: lv, yaw: spinYaw + (cv._phase || 0), w: cv._cw, h: cv._ch, tint, sky: B.data?.sky, zoom, flat });
     });
     // Dealer lot cards — true-3D wireframe schematics, each spun at its own
     // phase offset (like the `.hb-bay` turntables) so a row of them doesn't
@@ -818,7 +860,13 @@ function ensureStyles() {
      unrelated colours layered together. --hb-black2 is the deeper edge tone. */
   #hb-root { --hb-atm-accent:var(--accent);
     --hb-black:color-mix(in srgb, var(--hb-atm-accent) 20%, #060809);
-    --hb-black2:color-mix(in srgb, var(--hb-atm-accent) 11%, #020304); }
+    --hb-black2:color-mix(in srgb, var(--hb-atm-accent) 11%, #020304);
+    /* Theme-following bench surfaces (the mechanics bench reads as a lit tablet panel,
+       not a black CRT slab): a faint accent tint over the theme's own bg tiers, plus
+       translucent bevels that work on a light or a dark theme alike. */
+    --hb-surf:color-mix(in srgb, var(--hb-atm-accent) 9%, var(--bg3));
+    --hb-surf-lo:color-mix(in srgb, var(--hb-atm-accent) 5%, var(--bg2));
+    --hb-bevel-hi:rgba(255,255,255,0.5); --hb-bevel-lo:rgba(0,0,0,0.4); }
   /* Top status bar + bottom action tray are flat, frosted tablet chrome now
      — no CRT scanlines or tube sheen. Each is a slim accent-tinted glass slab
      with a single hairline edge; backdrop-filter blurs the chassis behind the
@@ -839,7 +887,7 @@ function ensureStyles() {
     color:var(--hb-atm-accent); text-shadow:0 0 4px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent);
     background:color-mix(in srgb, var(--hb-atm-accent) 8%, #0d1013); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); border-radius:6px; }
   #hb-root .hb-back:hover { border-color:var(--hb-atm-accent); box-shadow:0 0 10px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
-  #hb-root .hb-body { flex:1 1 auto; overflow-y:auto; padding:10px 14px; min-height:0; display:flex; flex-direction:column; }
+  #hb-root .hb-body { flex:1 1 auto; overflow:hidden; padding:10px 14px; min-height:0; display:flex; flex-direction:column; }
   #hb-root .hb-dim { color:#9db5c6; }
   #hb-root .hb-empty { color:#c2d6e4; font-size:13px; text-align:center; padding:24px 10px; }
   #hb-root .hb-note { color:#9db5c6; font-size:12px; padding:8px 0; }
@@ -981,24 +1029,21 @@ function ensureStyles() {
   #hb-root .hb-dealer-lot .hb-lot-price { color:#eafffb; text-shadow:0 0 4px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); }
   #hb-root .hb-wf-lot { display:block; margin:0 auto; }
 
-  /* Bench — ATM-style terminal (matches the dealer's CRT language, own cyan
-     accent). Tabbed (PAINT/HULL/TUNING/W&B) instead of one long stack, so no
-     section ever needs its own scrollbar. The stage stays pinned to the top
-     (position:sticky) so the plane — or, on TUNING, the engine schematic —
-     stays visible while the tab body scrolls beside it. */
+  /* Bench — a lit tablet panel (theme-following surfaces + soft bevels), NOT the
+     dealer's dark CRT tube: it obeys the player's background so a light theme reads
+     light. Tabbed (PAINT/HULL/TUNING/KITS/W&B) so no section needs its own scrollbar;
+     the stage stays pinned (position:sticky) so the plane — or, on TUNING, the
+     performance scope — stays visible while the tab body scrolls beside it. */
   #hb-root .hb-bench { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
   #hb-root .hb-bench-stage { flex:0 0 auto; position:sticky; top:0; z-index:4; }
   #hb-root .hb-bench-panels { flex:1 1 260px; min-width:240px; position:relative; z-index:4; }
-  /* No overflow:hidden here (unlike .hb-dealer-crt) — this element holds the
-     sticky stage, and overflow:hidden would make IT the sticky containing
-     block instead of the real scroll container (.hb-body), breaking the
-     "stage stays visible while the tab body scrolls" behavior. The rounded
-     corners are already matched by the scanline/glass overlays below, which
-     are sized exactly to this box, so nothing needs clipping. */
-  #hb-root .hb-bench-crt { position:relative; padding:12px; border-radius:20px/14px; border:1px solid color-mix(in srgb, var(--hb-atm-accent) 35%, var(--hb-black2));
-    background:radial-gradient(130% 130% at 50% 42%,color-mix(in srgb, var(--hb-atm-accent) 22%, var(--hb-black2)) 55%,var(--hb-black2) 100%);
-    box-shadow:inset 0 0 30px rgba(0,0,0,0.9), inset 0 0 8px color-mix(in srgb, var(--hb-atm-accent) 25%, transparent); }
-  #hb-root .hb-bench-crt .hb-note, #hb-root .hb-bench-crt .hb-dim { color:color-mix(in srgb, var(--hb-atm-accent) 55%, white); }
+  /* No overflow:hidden here — this element holds the sticky stage, and
+     overflow:hidden would make IT the sticky containing block instead of the real
+     scroll container (.hb-body), breaking the "stage stays visible" behavior. */
+  #hb-root .hb-bench-crt { position:relative; padding:13px; border-radius:14px; border:1px solid var(--border);
+    background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 5px var(--hb-bevel-lo), 0 6px 18px rgba(0,0,0,0.28); }
+  #hb-root .hb-bench-crt .hb-note, #hb-root .hb-bench-crt .hb-dim { color:var(--text-dim); }
   #hb-root #hb-perf-radar { display:block; margin:0 auto; }
   #hb-root .hb-bench-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
   #hb-root .hb-tab { font-family:inherit; font-size:10px; letter-spacing:1.5px; color:var(--hb-atm-accent); cursor:pointer;
@@ -1006,43 +1051,70 @@ function ensureStyles() {
     text-shadow:0 0 4px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
   #hb-root .hb-tab:hover { border-color:var(--hb-atm-accent); background:color-mix(in srgb, var(--hb-atm-accent) 14%, transparent); }
   #hb-root .hb-tab-active { border-color:var(--hb-atm-accent); background:color-mix(in srgb, var(--hb-atm-accent) 20%, transparent); box-shadow:0 0 12px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
-  #hb-root .hb-bench-tabbody { color:color-mix(in srgb, var(--hb-atm-accent) 40%, white); }
-  #hb-root .hb-bench-tabbody .hb-ctl, #hb-root .hb-bench-tabbody .hb-tune-row { color:color-mix(in srgb, var(--hb-atm-accent) 40%, white); }
+  #hb-root .hb-bench-tabbody { color:var(--text); }
+  #hb-root .hb-bench-tabbody .hb-ctl, #hb-root .hb-bench-tabbody .hb-tune-row { color:var(--text); }
   #hb-root .hb-subtabs { display:flex; gap:5px; margin-bottom:8px; }
-  #hb-root .hb-subtab { font-family:inherit; font-size:9px; letter-spacing:1px; color:color-mix(in srgb, var(--hb-atm-accent) 55%, white); cursor:pointer;
+  #hb-root .hb-subtab { font-family:inherit; font-size:9px; letter-spacing:1px; color:var(--text-dim); cursor:pointer;
     background:none; border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); border-radius:4px; padding:4px 9px; }
   #hb-root .hb-subtab:hover { border-color:var(--hb-atm-accent); color:var(--hb-atm-accent); }
   #hb-root .hb-subtab-active { color:var(--hb-atm-accent); border-color:var(--hb-atm-accent); background:color-mix(in srgb, var(--hb-atm-accent) 12%, transparent); }
   #hb-root .hb-repair-row { display:flex; gap:8px; flex-wrap:wrap; }
-  /* Tuning — rotary dials + a delta-bar readout + the kit shop. */
-  #hb-root .hb-knobs { display:flex; gap:6px; justify-content:space-between; flex-wrap:wrap; margin-bottom:12px; }
-  #hb-root .hb-knob-cell { display:flex; flex-direction:column; align-items:center; flex:1 1 62px; min-width:62px; }
+  /* Tuning — rotary dials + a delta-bar readout, side by side (not stacked) so the
+     whole tab fits one screen with no scrolling. The two clusters read as paired
+     instrument bays: each a shallow well sunk into the bench face, its dials/bars in
+     their own bezels — the same tactile, theme-following depth the tablet gives its
+     tiles (light on a light theme, dark on a dark one). */
+  #hb-root .hb-tune-grid { display:grid; grid-template-columns:minmax(158px,auto) 1fr; gap:10px 12px; align-items:stretch; margin-bottom:10px; }
+  /* Dial cluster — a sunken instrument bay. */
+  #hb-root .hb-knobs { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; padding:11px; border-radius:12px;
+    background:var(--hb-surf-lo); border:1px solid var(--border);
+    box-shadow:inset 0 2px 8px var(--hb-bevel-lo), inset 0 1px 0 rgba(255,255,255,0.06); }
+  /* Each dial panel-mounted in its own raised bezel — bright top lip, soft drop. */
+  #hb-root .hb-knob-cell { display:flex; flex-direction:column; align-items:center; gap:1px; padding:7px 4px 5px; border-radius:10px; cursor:help;
+    background:linear-gradient(180deg, var(--hb-surf), var(--hb-surf-lo)); border:1px solid var(--border);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 2px 4px rgba(0,0,0,0.16);
+    transition:filter .12s, box-shadow .12s, border-color .12s; }
+  #hb-root .hb-knob-cell:hover { filter:brightness(1.07); border-color:color-mix(in srgb, var(--hb-atm-accent) 45%, var(--border));
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 2px 7px rgba(0,0,0,0.2), 0 0 12px color-mix(in srgb, var(--hb-atm-accent) 20%, transparent); }
   #hb-root .hb-knob { display:block; cursor:ns-resize; touch-action:none; }
-  #hb-root .hb-knob-label { font-size:8.5px; letter-spacing:1px; color:color-mix(in srgb, var(--hb-atm-accent) 60%, white); margin-top:2px; text-align:center; }
-  #hb-root .hb-knob-val { font-size:11px; color:#eafffb; letter-spacing:1px; }
-  #hb-root .hb-knob-poles { display:flex; justify-content:space-between; width:100%; font-size:7px; letter-spacing:1px; color:#7d92a1; margin-top:1px; }
-  #hb-root .hb-perf-bars { display:grid; grid-template-columns:52px 1fr 34px; gap:4px 8px; align-items:center; margin-bottom:10px; }
+  #hb-root .hb-knob-label { font-size:8px; letter-spacing:1px; color:var(--text-dim); margin-top:2px; text-align:center; }
+  /* Readout reads like a lit segment display. */
+  #hb-root .hb-knob-val { font-size:11px; font-weight:bold; color:var(--text-bright); letter-spacing:0.5px; text-shadow:0 0 6px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); }
+  #hb-root .hb-knob-poles { display:flex; justify-content:space-between; width:100%; font-size:6.5px; letter-spacing:0.5px; color:var(--text-dim); margin-top:1px; padding:0 2px; }
+  /* Delta readout — a matching sunken bay of lit meters. */
+  #hb-root .hb-perf-bars { display:grid; grid-template-columns:42px 1fr 32px; gap:8px 8px; align-items:center; padding:11px 12px; border-radius:12px;
+    background:var(--hb-surf-lo); border:1px solid var(--border);
+    box-shadow:inset 0 2px 8px var(--hb-bevel-lo), inset 0 1px 0 rgba(255,255,255,0.06); }
   #hb-root .hb-pbar-row { display:contents; }
-  #hb-root .hb-pbar-l { font-size:8.5px; letter-spacing:1px; color:color-mix(in srgb, var(--hb-atm-accent) 55%, white); text-align:right; }
-  #hb-root .hb-pbar { position:relative; height:8px; background:rgba(0,0,0,0.35); border-radius:4px; overflow:hidden; box-shadow:inset 0 0 4px rgba(0,0,0,0.6); }
+  #hb-root .hb-pbar-l { font-size:8px; letter-spacing:0.5px; color:var(--text-dim); text-align:right; cursor:help; }
+  #hb-root .hb-pbar { position:relative; height:9px; background:var(--hb-surf); border-radius:5px;
+    box-shadow:inset 0 1px 3px var(--hb-bevel-lo), inset 0 0 0 1px var(--border); cursor:help; }
   /* The 50% mark = stock; bars grow from there both ways so a swing reads as +/-. */
-  #hb-root .hb-pbar::before { content:''; position:absolute; left:50%; top:0; bottom:0; width:1px; background:rgba(255,255,255,0.28); z-index:1; }
-  #hb-root .hb-pbar i { position:absolute; top:0; bottom:0; left:50%; width:0; border-radius:4px; transition:left .06s linear, width .06s linear, background .06s linear; }
-  #hb-root .hb-pbar-d { font-size:9px; letter-spacing:0.5px; text-align:left; min-width:30px; }
-  #hb-root .hb-tune-note { font-size:9.5px; color:color-mix(in srgb, var(--hb-atm-accent) 50%, white); margin:4px 0 8px; }
-  #hb-root .hb-tune-keys { display:flex; flex-direction:column; gap:3px; margin-bottom:10px; }
-  #hb-root .hb-tune-key { font-size:10px; color:#a8c6d8; line-height:1.35; }
-  #hb-root .hb-tune-key b { color:color-mix(in srgb, var(--hb-atm-accent) 70%, white); }
-  /* Upgrade kits */
-  #hb-root .hb-kits { border-top:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); padding-top:8px; }
-  #hb-root .hb-kits-head { font-size:9px; letter-spacing:3px; color:color-mix(in srgb, var(--hb-atm-accent) 60%, white); margin-bottom:6px; }
-  #hb-root .hb-kit { padding:6px 0; border-bottom:1px solid color-mix(in srgb, var(--hb-atm-accent) 12%, transparent); }
-  #hb-root .hb-kit-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  #hb-root .hb-kit-name { font-size:11px; color:#eafffb; letter-spacing:0.5px; }
-  #hb-root .hb-kit-tag { font-size:8px; letter-spacing:1px; color:#9fe0b0; border:1px solid #3a6a4a; border-radius:3px; padding:1px 5px; }
-  #hb-root .hb-kit-buy { padding:4px 9px; font-size:9px; }
-  #hb-root .hb-kit-blurb { font-size:9.5px; color:#9db5c6; margin-top:2px; line-height:1.35; }
-  #hb-root .hb-kit-owned .hb-kit-name { color:color-mix(in srgb, var(--hb-atm-accent) 65%, white); }
+  #hb-root .hb-pbar::before { content:''; position:absolute; left:50%; top:-1px; bottom:-1px; width:1px; background:color-mix(in srgb, var(--text) 35%, transparent); z-index:2; }
+  #hb-root .hb-pbar i { position:absolute; top:0; bottom:0; left:50%; width:0; border-radius:5px; box-shadow:0 0 7px currentColor; z-index:1;
+    transition:left .08s ease-out, width .08s ease-out, background .08s, box-shadow .08s; }
+  #hb-root .hb-pbar-d { font-size:9px; font-weight:bold; letter-spacing:0.5px; text-align:left; min-width:28px; }
+  #hb-root .hb-apply-row .hb-tune-note { flex-basis:100%; font-size:9px; color:var(--text-dim); margin-top:2px; }
+  /* Upgrade kits — their own tab: a selectable list beside the picked kit's detail. */
+  #hb-root .hb-kits-head { font-size:9px; letter-spacing:3px; color:var(--text-dim); margin-bottom:8px; }
+  #hb-root .hb-kits2 { display:grid; grid-template-columns:minmax(118px,44%) 1fr; gap:10px; align-items:start; }
+  #hb-root .hb-kit-list { display:flex; flex-direction:column; gap:6px; }
+  #hb-root .hb-kit-item { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; text-align:left; cursor:pointer;
+    font-family:inherit; font-size:11px; letter-spacing:0.5px; color:var(--text); padding:8px 10px; border-radius:9px;
+    background:linear-gradient(180deg, var(--hb-surf), var(--hb-surf-lo)); border:1px solid var(--border);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo); transition:filter .12s, border-color .12s, box-shadow .12s; }
+  #hb-root .hb-kit-item:hover { filter:brightness(1.07); border-color:color-mix(in srgb, var(--hb-atm-accent) 45%, var(--border)); }
+  #hb-root .hb-kit-item-sel { border-color:var(--hb-atm-accent);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 0 10px color-mix(in srgb, var(--hb-atm-accent) 25%, transparent); }
+  #hb-root .hb-kit-item-name { flex:1; }
+  #hb-root .hb-kit-item-tag { font-size:9px; letter-spacing:0.5px; color:var(--text-bright); white-space:nowrap; }
+  #hb-root .hb-kit-item-fitted { color:var(--green); }
+  #hb-root .hb-kit-detail { padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--hb-surf-lo);
+    box-shadow:inset 0 2px 8px var(--hb-bevel-lo); }
+  #hb-root .hb-kit-detail-name { font-size:12px; font-weight:bold; letter-spacing:1px; color:var(--text-bright); margin-bottom:4px; }
+  #hb-root .hb-kit-detail-act { margin-top:10px; }
+  #hb-root .hb-kit-tag { font-size:8px; letter-spacing:1px; color:var(--green); border:1px solid color-mix(in srgb, var(--green) 45%, transparent); border-radius:3px; padding:2px 6px; }
+  #hb-root .hb-kit-blurb { font-size:10.5px; color:var(--text-dim); margin-top:4px; line-height:1.4; }
   #hb-root .hb-loadout-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
   #hb-root .hb-presets { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
   #hb-root .hb-preset { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:1px; color:#dcecf8; cursor:pointer;
@@ -1070,7 +1142,7 @@ function ensureStyles() {
   #hb-root .hb-scheme-del:hover { color:#ff8a8a; }
   #hb-root .hb-scheme-save { display:flex; gap:8px; }
   #hb-root .hb-scheme-save input { flex:0 0 120px; background:rgba(0,0,0,0.25); color:#dcecf8; border:1px solid #5a7185; border-radius:5px; padding:5px 8px; font-family:inherit; }
-  @media (max-width:620px) { #hb-root .hb-ctls { grid-template-columns:1fr; } #hb-root .hb-bench { flex-direction:column; align-items:center; } }
+  @media (max-width:620px) { #hb-root .hb-ctls { grid-template-columns:1fr; } #hb-root .hb-bench { flex-direction:column; align-items:center; } #hb-root .hb-tune-grid { grid-template-columns:1fr; } }
   `;
   document.head.appendChild(st);
 }

@@ -1,6 +1,7 @@
-// Mobile smart action bar. A contextual, thumb-height row of verb buttons that
-// re-reads the current room from #area-content on every look/move (driven by
-// parseZoneInfo) and surfaces only the verbs that apply here.
+// Smart action bar. A contextual row of verb buttons that re-reads the current
+// room from #area-content on every look/move (driven by parseZoneInfo) and
+// surfaces only the verbs that apply here. Shown when the player has Smart UI
+// on (settings.smartUI, toggled in Settings — any device, not mobile-only).
 //
 // A verb button can now open a MULTI-STEP flow, not just a single target
 // chooser: e.g. Switch → On/Off → which light. Flows are modelled as a tree of

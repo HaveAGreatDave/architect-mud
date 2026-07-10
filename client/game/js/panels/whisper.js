@@ -113,6 +113,11 @@ let _activeWhisperTab = USERS_TAB;
 // there's always one conversation reachable in one click.
 let _lastPmTab = null;
 const _whisperConvos = new Map();
+// Conversations the player closed this session, kept so an embedder (the Tablet
+// Chat's Users hub) can offer to re-open them: key -> { key, label, kind, channel }.
+// `channel` holds the stashed channel def for a closed channel so re-opening can
+// restore it (PMs are re-created fresh via ensureChatConversation).
+const _closedChatTabs = new Map();
 let _onlinePlayers = [];
 
 // Window/text size settings
@@ -233,11 +238,11 @@ export function getChatTabs() {
 	const out = [];
 	for (const [id, ch] of _channels) {
 		const convo = _whisperConvos.get(id);
-		out.push({ key: id, label: _channelLabel(id), kind: "channel", unread: convo?.unread || 0, systemOnly: !!ch.systemOnly });
+		out.push({ key: id, label: _channelLabel(id), kind: "channel", unread: convo?.unread || 0, systemOnly: !!ch.systemOnly, closable: !ch.permanent });
 	}
 	for (const [handle, convo] of _whisperConvos) {
 		if (_channels.has(handle) || handle === USERS_TAB) continue;
-		out.push({ key: handle, label: handle, kind: "pm", unread: convo.unread || 0, systemOnly: false });
+		out.push({ key: handle, label: handle, kind: "pm", unread: convo.unread || 0, systemOnly: false, closable: true });
 	}
 	return out;
 }
@@ -261,12 +266,60 @@ export function markChatRead(key) {
 }
 
 // Send to a channel/PM tab (mirrors sendWhisperReply's send path for one tab).
+// Returns 'left' if the text was the /leave command (so an embedder can react),
+// else undefined.
 export function sendChatMessage(key, text) {
 	const msg = (text || "").trim();
-	if (!msg || !key || key === USERS_TAB || _isSystemOnly(key)) return;
+	if (!msg || !key) return;
+	// `/leave` closes the current conversation (channel or PM), same as the tab ✕.
+	if (msg.toLowerCase() === "/leave") { leaveChatConversation(key); return 'left'; }
+	if (key === USERS_TAB || _isSystemOnly(key)) return;
 	const expanded = expandTokens(msg);
 	_echoOwnMessage(key, expanded);
 	sendCmdSilent(`whisper ${key} ${expanded}`);
+}
+
+// Close/leave a conversation from an embedder (Tablet Chat's ✕ / /leave).
+// Permanent channels (#system) can't be left — _closeWhisperTab guards that.
+export function leaveChatConversation(key) {
+	_closeWhisperTab(key);
+}
+
+// Conversations closed this session, newest first — the Tablet's Users hub lists
+// these so a closed channel/PM can be brought back.
+export function getClosedChatTabs() {
+	return [..._closedChatTabs.values()].reverse();
+}
+
+// Re-open a previously closed conversation. A channel is restored from its
+// stashed def; a PM is re-created fresh (its old messages were dropped on close).
+export function reopenChatTab(key) {
+	const entry = _closedChatTabs.get(key);
+	_closedChatTabs.delete(key);
+	if (entry && entry.kind === "channel" && entry.channel) {
+		_channels.set(key, entry.channel);
+		if (!_whisperConvos.has(key))
+			_whisperConvos.set(key, { messages: [], scrollTop: 999999, unread: 0 });
+		if (_whisperPanelVisible) _refreshWhisperTabs();
+		_emitChatUpdate();
+		return key;
+	}
+	return ensureChatConversation(key); // PM (also emits an update)
+}
+
+// Drop every corp channel (#corp:<orgId>) from the chat list — called when the
+// player's corp folds/disbands, so the now-dead channel disappears everywhere.
+export function removeCorpChannels() {
+	for (const id of [..._channels.keys()]) {
+		if (String(id).startsWith("#corp:")) {
+			_channels.delete(id);
+			_whisperConvos.delete(id);
+			if (_activeWhisperTab === id) _activeWhisperTab = USERS_TAB;
+		}
+	}
+	if (_whisperPanelVisible) _refreshWhisperTabs();
+	_updateChatBadge();
+	_emitChatUpdate();
 }
 
 // ── MOTD ──────────────────────────────────────────────────────────────────────
@@ -573,6 +626,15 @@ function _switchToTab(key) {
 
 function _closeWhisperTab(handle) {
 	if (_channels.has(handle) && _channels.get(handle).permanent) return;
+	// Remember it so the Users hub can re-open it. A channel keeps its def (to
+	// restore access/labels); a PM just needs its handle.
+	const ch = _channels.get(handle);
+	_closedChatTabs.set(handle, {
+		key: handle,
+		label: ch ? _channelLabel(handle) : handle,
+		kind: ch ? "channel" : "pm",
+		channel: ch || null,
+	});
 	_saveConvos();
 	_whisperConvos.delete(handle);
 	_channels.delete(handle);
@@ -800,6 +862,7 @@ export function getOnlinePlayers() {
 // view. Returns the conversation key (the handle).
 export function ensureChatConversation(handle) {
 	if (!handle) return null;
+	_closedChatTabs.delete(handle); // it's back — drop it from the re-open list
 	if (!_whisperConvos.has(handle))
 		_whisperConvos.set(handle, _restoreOrCreate(handle));
 	_emitChatUpdate();
@@ -924,6 +987,7 @@ export function rollbackSelfEcho(attempted) {
 }
 
 export function receiveWhisper(from, message) {
+	_closedChatTabs.delete(from); // a new message revives the conversation tab
 	if (!_whisperConvos.has(from))
 		_whisperConvos.set(from, _restoreOrCreate(from));
 	const convo = _whisperConvos.get(from);
@@ -1037,6 +1101,11 @@ function sendWhisperReply() {
 	if (!msg || !_activeWhisperTab || _activeWhisperTab === USERS_TAB) return;
 
 	// Client-only commands
+	if (msg.toLowerCase() === "/leave") {
+		if (input) input.value = "";
+		_closeWhisperTab(_activeWhisperTab);
+		return;
+	}
 	if (msg.toLowerCase() === ".markup") {
 		if (input) input.value = "";
 		appendToWhisperLog(MARKUP_HELP_HTML);

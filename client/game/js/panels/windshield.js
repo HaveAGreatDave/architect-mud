@@ -66,6 +66,7 @@ export const RENDER_TUNE = {
   haze: 2.2,          // how fast the floor fades into the horizon haze
   rwl: 3.2,           // runway length (tiles)
   rwyRecede: 4.0,     // how strongly climbing pushes the runway down/under
+  fov: 0.82,          // horizontal FOV / focal length (<1 pulls the scenery in toward the vanishing point = a tighter "tunnel"; 1 = the old wide spread). Pure render — collision math is world-space and unaffected.
 };
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -373,6 +374,7 @@ export function paintWindshield(id, view) {
     drawWorldObjects(ctx, cam, vw, sky, now);
     if (vw.landGuide && vw.runway) drawGuideBoxes(ctx, cam, vw, now);
     if (vw.contacts) drawContacts(ctx, cam, vw, W, H);   // air-to-air traffic (Phase A: see other craft)
+    if (vw.apTarget) drawAirportTarget(ctx, cam, vw, W, H, now);   // target-field ring / Home waypoint
   }
 
   // Speed streaks (motion rush from the vanishing point) — forward view only.
@@ -1073,7 +1075,7 @@ function makeCam(W, horizonY, depth, v) {
   const EH = Math.max(0.05, RENDER_TUNE.eh + (v.height || 0) * RENDER_TUNE.climbLift);   // additive + floor: altitude adds real eye-height so you climb above buildings; floor keeps the runway/ground from collapsing at eh→0
   const hd = (v.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
   const off = v.mapOffset, ox = off ? off.x : 0, oy = off ? off.y : 0;
-  const cx = W / 2, FL = (W / 2) / 1.15;
+  const cx = W / 2, FL = (W / 2) / 1.15 * (RENDER_TUNE.fov || 1);   // fov<1 compresses the world laterally into a tighter tunnel
   const proj = (dx, dy, wz) => { const f = Math.max(0.06, dx * sinh - dy * cosh), l = dx * cosh + dy * sinh; return { sx: cx + (l / f) * FL, sy: horizonY + depth * (EH - wz) / f, f }; };
   const projFL = (aa, s, wz) => { const f = Math.max(0.06, aa); return { sx: cx + (s / f) * FL, sy: horizonY + depth * (EH - (wz || 0)) / f, f }; };
   return { R, sinh, cosh, ox, oy, proj, projFL, EH };   // EH exposed so airborne traffic can be placed relative to eye height
@@ -1141,6 +1143,55 @@ function drawRockBB(ctx, cam, dx, dy, night, seed, alpha) {
   ctx.globalAlpha = alpha; ctx.fillStyle = 'rgb(120,92,60)';
   ctx.beginPath(); ctx.moveTo(p.sx - s, p.sy); ctx.lineTo(p.sx - s * 0.3, p.sy - s * 0.7); ctx.lineTo(p.sx + s * 0.4, p.sy - s * 0.5); ctx.lineTo(p.sx + s, p.sy); ctx.closePath(); ctx.fill();
   ctx.globalAlpha = 1;
+}
+
+// ── Airport target guide ──────────────────────────────────────────────────────
+// The one selected field (default: nearest; cycled with [ / ] or the radio) as either an
+// in-view accent RING sitting on its spot on the ground, or — when it's off the forward view —
+// a gold "Home" waypoint pinned to the edge that points the way to turn toward it. Projected
+// through the same Mode-7 camera as the buildings, so the ring sits exactly where the field is.
+// `v.apTarget = { dx, dy, name, dist }` — tile offset from the craft.
+function drawAirportTarget(ctx, cam, v, W, H, now) {
+  const ap = v.apTarget; if (!ap) return;
+  const t = (now || 0) * 0.004, pulse = 0.6 + 0.4 * Math.sin(t);
+  const p = cam.proj(ap.dx, ap.dy, 0);
+  const onScreen = p.f > 0.12 && p.sx >= 10 && p.sx <= W - 10 && p.sy >= 10 && p.sy <= H - 10;
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (onScreen) {
+    // Accent ring on the field — grows as you close in, pulses so it's easy to find, with a
+    // small inner ring, four edge ticks and the field name + distance above it.
+    const r = clamp(46 / p.f, 11, 130);
+    ctx.strokeStyle = `rgba(95,208,255,${0.55 + 0.45 * pulse})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.stroke();
+    ctx.strokeStyle = `rgba(95,208,255,${0.3 + 0.3 * pulse})`; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(p.sx, p.sy, r * 0.6, 0, 7); ctx.stroke();
+    for (let a = 0; a < 4; a++) { const ang = a * Math.PI / 2; ctx.beginPath(); ctx.moveTo(p.sx + Math.cos(ang) * r, p.sy + Math.sin(ang) * r); ctx.lineTo(p.sx + Math.cos(ang) * (r + 6), p.sy + Math.sin(ang) * (r + 6)); ctx.stroke(); }
+    ctx.fillStyle = '#bfe8ff'; ctx.font = 'bold 8px monospace';
+    ctx.fillText((ap.name || 'FIELD').slice(0, 12).toUpperCase(), p.sx, p.sy - r - 11);
+    ctx.font = '7px monospace'; ctx.fillStyle = '#7fc8ec';
+    ctx.fillText(ap.dist + ' mi', p.sx, p.sy - r - 3);
+    ctx.restore();
+    return;
+  }
+  // Off-screen: a gold HOME waypoint pinned to the view edge, an arrow pointing the way to turn.
+  const f = ap.dx * cam.sinh - ap.dy * cam.cosh, l = ap.dx * cam.cosh + ap.dy * cam.sinh;
+  const cx = W / 2, cy = H * 0.46;
+  let sx = l, sy = -f; const m = Math.hypot(sx, sy) || 1; sx /= m; sy /= m;   // screen dir: ahead → up
+  const rad = Math.min(W, H) * 0.4;
+  const ex = clamp(cx + sx * rad, 16, W - 16), ey = clamp(cy + sy * rad, 18, H - 16);
+  ctx.translate(ex, ey);
+  ctx.fillStyle = `rgba(255,207,62,${0.72 + 0.28 * pulse})`;
+  ctx.save(); ctx.rotate(Math.atan2(sy, sx));   // arrow toward the field
+  ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(5, -5); ctx.lineTo(5, 5); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  // Little house glyph.
+  ctx.beginPath(); ctx.moveTo(-6, 1); ctx.lineTo(0, -5); ctx.lineTo(6, 1); ctx.closePath(); ctx.fill();   // roof
+  ctx.fillRect(-4, 1, 8, 6);                                                                                // body
+  ctx.fillStyle = 'rgba(20,16,4,0.9)'; ctx.fillRect(-1.4, 3.5, 2.8, 3.5);                                   // door
+  ctx.fillStyle = `rgba(255,215,110,${0.78 + 0.22 * pulse})`; ctx.font = 'bold 7px monospace';
+  ctx.fillText((ap.name || 'FIELD').slice(0, 8).toUpperCase(), 0, -12);
+  ctx.restore();
 }
 
 // ── Air-to-air traffic ────────────────────────────────────────────────────────

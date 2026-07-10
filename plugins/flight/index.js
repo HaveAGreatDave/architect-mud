@@ -11,6 +11,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { effectiveSkill, awardSkillUse, skillCheck } from '../../server/engine/skills.js';
+import { grantSkillIp } from '../../server/engine/ip.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { on } from '../../server/engine/events.js';
@@ -460,6 +461,12 @@ async function cmdLandResolve(args, raw, player, broadcast) {
 // the reported state to a sane envelope, owns fuel + all world consequences, and
 // pushes the world context back each tick. See docs/proposals/flight-overhaul.md.
 
+// Graded-landing → piloting IP (mirrors the client report card's fpm→A+…F- bands): A- or
+// better = 3, B+ through C- = 2, D through F- = 1. A crash never sends `land`, so it earns 0.
+const LANDING_IP = { 'A+': 3, 'A': 3, 'A-': 3, 'B+': 2, 'B': 2, 'B-': 2, 'C+': 2, 'C': 2, 'C-': 2, 'D': 1, 'F-': 1 };
+// Only a real flight (≥5 min airborne) earns landing IP — stops circuits-and-bumps farming.
+const LANDING_IP_MIN_MS = 5 * 60 * 1000;
+
 // Open the continuous cockpit on the client (parked, ready to fly). Sent on board —
 // the whole flight is flown from the cockpit UI (engine switch, throttle, yoke); no
 // startup/takeoff commands.
@@ -538,6 +545,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     // the player actually uses (falls back to the nearest airfield if this is ever lost).
     if (zone?.flags?.airfield_id) live.homeField = zone.id;
     live.row.airborne = 1; live.row.parked_zone_id = null; live.starving = false; live.runup = false; live.rolloutField = null;
+    if (!live.flightStartMs) live.flightStartMs = Date.now();   // trip clock for landing-IP eligibility (persists across touch-and-goes)
     initFloat(live);
     for (const pid of live.occupants) {
       const p = getLivePlayer(pid); if (!p) continue;
@@ -564,11 +572,35 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     // in the bay is a crash, not a courtesy tow (mirrors the `flags.water` "needs a boat"
     // rule on the ground). An airfield tile is never water, so this only bites off-strip.
     if (field && !field.flags?.airfield_id && field.flags?.water) { await crash(live, 'ditched'); return { type: 'noop' }; }
+    // Graded-landing IP: a clean touchdown teaches piloting. The client reports the grade it
+    // showed the pilot (`land <grade> <fpm>`); award it here for any survivable set-down (a
+    // crash lands on the `crash` path with 0), but only once the trip has been ≥5 min airborne.
+    // `field` is truthy for both a real airfield and an off-strip tow; a void/water landing
+    // (field falsy / water) crashed above and never reaches here.
+    if (field) {
+      const grade = String(args[1] || '').toUpperCase();
+      const fpm = Math.round(Number(args[2]) || 0);
+      const flewMs = Date.now() - (live.flightStartMs || Date.now());
+      live.flightStartMs = null;   // trip over — a re-takeoff starts a fresh clock
+      const ip = LANDING_IP[grade] || 0;
+      if (ip > 0 && flewMs >= LANDING_IP_MIN_MS) {
+        const res = await grantSkillIp(player.id, 'piloting', ip);
+        out(player.id, `<span class="ip-gain">Landing grade ${grade} (${fpm} fpm) — +${res.awarded} IP · Piloting${res.leveledUp ? ` — skill rises to level ${res.level}` : ''}</span>`);
+      } else if (ip > 0) {
+        out(player.id, `<span class="text-dim">Landing grade ${grade} (${fpm} fpm) — no IP earned (flight under 5 min).</span>`);
+      }
+    }
     if (field?.flags?.airfield_id || (isVtol && field)) {
       await parkAt(live, field.id);
       await awardSkillUse(player.id, 'piloting', 0);
       await checkContractDelivery(player, live, field.id);
       await checkCargoDropDelivery(player, live, field.id);
+      // Down at a real airfield → everyone climbs out automatically (no manual `disembark`),
+      // so the pilot's client can open straight into the hangar bay. A VTOL that flared onto
+      // an off-field tile stays boarded so it can lift off again.
+      if (field.flags.airfield_id) {
+        for (const pid of [...live.occupants]) { const p = getLivePlayer(pid); if (p) detach(p); }
+      }
       return { type: 'noop' };
     }
     // Off-strip, but she made it down in one piece: the client only sends `land` for a

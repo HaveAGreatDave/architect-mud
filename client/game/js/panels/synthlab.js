@@ -9,9 +9,9 @@
 // server-side. On finish, opts.onResult({score}) → `synthresolve <recipeId> <score>`.
 
 import { sendCmd } from '../net.js';
-import { clamp, rnd, shade, G, W, H, roundRect, drawBench, drawBeaker, drawBurner, fillLiquid, drawSteam, drawLCD, AX, mountLab, labBgLight } from './lab-kit.js';
+import { clamp, rnd, shade, G, W, H, roundRect, blob, drawBench, drawBeaker, drawBurner, fillLiquid, drawSteam, drawLCD, dustMotes, lightShaft, AX, mountLab, labBgLight, textShadowOn, evPos } from './lab-kit.js';
 
-// canvas text assumes a dark backdrop by default; cooktest can sit on a light theme
+// canvas text assumes a dark backdrop by default; the lab can now sit on any theme
 // (see lab-kit's labBgLight), so flip these two hardcoded HUD palettes when it does.
 const dimCol = () => labBgLight ? '#3f5148' : '#6f8a7c';
 const brightCol = () => labBgLight ? '#173226' : '#cfe9d8';
@@ -84,9 +84,204 @@ function bandUpdate(g, dt, onDone) {
   g.vel += (g.hold ? g.push : -g.gravity) * dt; g.vel *= Math.pow(.06, dt); g.level = clamp(g.level + g.vel * dt, 0, 1);
   g.heatS += ((g.hold ? 1 : 0) - g.heatS) * Math.min(1, dt * 6); AX.loopGain('burner', .03 + g.heatS * .1);
   const c = bandCenter(g), inb = Math.abs(g.level - c) <= g.bandHalf; if (inb) g.inBand += dt;
-  if (Math.random() < g.heatS * .6 + .05) g.bubbles.push({ x: rnd(1, -1), y: 0, r: rnd(3, 1), spd: rnd(1.4, .6) });
+  // thicker forms barely bubble, and what does rise creeps slower
+  const bubRate = g.opts.form === 'paste' ? .12 : g.opts.form === 'gel' ? .42 : 1;
+  const bubSpd = g.opts.form === 'paste' ? .4 : g.opts.form === 'gel' ? .65 : 1;
+  if (Math.random() < (g.heatS * .6 + .05) * bubRate) g.bubbles.push({ x: rnd(1, -1), y: 0, r: rnd(3, 1), spd: rnd(1.4, .6) * bubSpd });
   g.bubbles.forEach(b => b.y += b.spd * dt); g.bubbles = g.bubbles.filter(b => b.y < 1);
   if (g.t >= g.dur) { g.workScore = clamp(g.inBand / g.dur, 0, 1); onDone(); }
+}
+
+// ── GRIND — leaf nugget + pill press, shared by botanical/leaf and solids/pill ──
+// Leaf: a whole nugget sits in the mortar — click it to crack it into pieces,
+// then hold the pestle over each piece to work it down to powder. Pills: no
+// nugget to crack, they drop straight in as separate pieces and go straight to
+// grinding. Either way, once every piece is fully ground a short "add the
+// binding liquid" beat plays over the powder before the usual quench-and-seal.
+function grindPieceSpawn(g, n, falling) {
+  const homeR = g.mortar.r * 0.55;
+  g.pieces = Array.from({ length: n }, (_, i) => {
+    const a = (i / n) * Math.PI * 2 + rnd(0.4, -0.4);
+    return { x: g.mortar.x + Math.cos(a) * homeR * rnd(1, .3), y: g.mortar.y + Math.sin(a) * homeR * rnd(1, .3) * .6, r: 15 + rnd(5, -3), ground: false, fall: falling ? -(180 + i * 50) : 0 };
+  });
+}
+function grindInit(g, nugget, tint) {
+  g.mortar = { x: W / 2, y: H * 0.52, r: 100 };
+  g.pestle = { x: W / 2, y: H * 0.3, active: false };
+  g.groundCount = 0; g.nuggetBroken = !nugget;
+  g.grindTint = tint || 'rgba(180,200,150,.9)'; g.grindDust = [];   // powder puffs kicked up under the pestle
+  if (nugget) { g.nugget = { x: g.mortar.x, y: g.mortar.y, r: 52 }; g.pieces = []; }
+  else grindPieceSpawn(g, 5, true);
+  AX.loop('grind', { freq: 44, type: 'sawtooth', gain: 0, filt: 240, tremRate: 8, tremDepth: .3 });
+}
+function grindInput(g, down, p) {
+  if (!g.nuggetBroken && down && p) {
+    if (Math.hypot(p.x - g.nugget.x, p.y - g.nugget.y) < g.nugget.r) { g.nuggetBroken = true; grindPieceSpawn(g, 6, false); AX.bad(); g.lab.ticker('cracked — now work it down with the pestle.'); return; }
+  }
+  g.pestle.active = down;
+}
+function grindMove(g, p) { g.pestle.x = p.x; g.pestle.y = p.y; }
+function grindUpdate(g, dt) {
+  AX.loopGain('grind', g.pestle.active ? .05 : 0);
+  g.pieces.forEach(pc => {
+    if (pc.ground) return;
+    if (pc.fall < 0) pc.fall = Math.min(0, pc.fall + dt * 500);
+    const dx = g.mortar.x - pc.x, dy = g.mortar.y - pc.y, d = Math.hypot(dx, dy) || 1;
+    if (d > g.mortar.r - pc.r) { pc.x += dx / d * 70 * dt; pc.y += dy / d * 70 * dt; }
+    if (g.pestle.active && pc.fall >= 0) {
+      const pd = Math.hypot(pc.x - g.pestle.x, pc.y - g.pestle.y);
+      if (pd < 34) { pc.r -= dt * 11;
+        if (Math.random() < .55) g.grindDust.push({ x: pc.x + rnd(9, -9), y: pc.y + rnd(5, -5), vx: rnd(70, -70), vy: rnd(-30, -105), life: 0, ttl: rnd(.55, .3), col: shade(g.grindTint, rnd(22, -30)) });
+        if (pc.r <= 3) { pc.r = 0; pc.ground = true; g.groundCount++; AX.tick(); } }
+    }
+  });
+  g.grindDust.forEach(d => { d.life += dt; d.x += d.vx * dt; d.y += d.vy * dt; d.vy += 260 * dt; }); g.grindDust = g.grindDust.filter(d => d.life < d.ttl);
+  if (g.nuggetBroken && g.pieces.length && g.groundCount >= g.pieces.length) { g.workScore = 1; toLiquidBeat(g); }
+}
+// a small curled leaf with a central vein + ribs, drug-tinted glass idiom
+function drawLeafBit(r, tint) {
+  G.fillStyle = 'rgba(0,0,0,.3)'; G.beginPath(); G.ellipse(1.5, r * .55, r * .8, r * .3, 0, 0, 7); G.fill();
+  const lg = G.createLinearGradient(-r, -r, r, r); lg.addColorStop(0, shade(tint, 32)); lg.addColorStop(1, shade(tint, -36));
+  G.fillStyle = lg; G.beginPath(); G.moveTo(0, -r); G.quadraticCurveTo(r, -r * .2, 0, r); G.quadraticCurveTo(-r, -r * .2, 0, -r); G.closePath(); G.fill();
+  G.strokeStyle = shade(tint, -48); G.lineWidth = 1; G.beginPath(); G.moveTo(0, -r * .85); G.lineTo(0, r * .85); G.stroke();
+  for (let i = -2; i <= 2; i++) { if (!i) continue; G.beginPath(); G.moveTo(0, i * r * .28); G.lineTo((i > 0 ? 1 : -1) * r * .42, i * r * .28 + r * .22); G.stroke(); }
+  G.strokeStyle = shade(tint, 34); G.lineWidth = 1.3; G.beginPath(); G.moveTo(0, -r); G.quadraticCurveTo(r, -r * .2, 0, r); G.quadraticCurveTo(-r, -r * .2, 0, -r); G.stroke();
+}
+// a scored tablet with a glossy dome highlight
+function drawTabletBit(r, tint) {
+  G.fillStyle = 'rgba(0,0,0,.3)'; G.beginPath(); G.ellipse(1.5, r * .45, r * .9, r * .34, 0, 0, 7); G.fill();
+  const pg = G.createRadialGradient(-r * .3, -r * .3, 2, 0, 0, r); pg.addColorStop(0, shade(tint, 44)); pg.addColorStop(1, shade(tint, -26));
+  G.fillStyle = pg; G.beginPath(); G.arc(0, 0, r, 0, 7); G.fill();
+  G.strokeStyle = 'rgba(0,0,0,.3)'; G.lineWidth = 1; G.beginPath(); G.moveTo(-r * .8, 0); G.lineTo(r * .8, 0); G.stroke();
+  G.fillStyle = 'rgba(255,255,255,.5)'; G.beginPath(); G.ellipse(-r * .3, -r * .32, r * .3, r * .17, -.5, 0, 7); G.fill();
+  G.strokeStyle = shade(tint, -32); G.lineWidth = 1; G.beginPath(); G.arc(0, 0, r, 0, 7); G.stroke();
+}
+function grindDraw(g, label, tint) {
+  const m = g.mortar, isLeaf = g.opts.form === 'leaf', t = g.bgT || 0;
+  // ── stone mortar: cast shadow, weighted body, deep bowl cavity, lit rim ──
+  G.save(); G.fillStyle = 'rgba(0,0,0,.35)'; G.beginPath(); G.ellipse(m.x, m.y + m.r * .52, m.r * 1.02, m.r * .34, 0, 0, 7); G.fill(); G.restore();
+  const body = G.createLinearGradient(m.x, m.y - m.r * .4, m.x, m.y + m.r * .72); body.addColorStop(0, '#4a4038'); body.addColorStop(.5, '#332c26'); body.addColorStop(1, '#1b1610');
+  G.fillStyle = body; G.beginPath(); G.ellipse(m.x, m.y + m.r * .2, m.r * .98, m.r * .52, 0, 0, 7); G.fill();
+  G.fillStyle = 'rgba(255,255,255,.06)'; G.beginPath(); G.ellipse(m.x - m.r * .3, m.y - m.r * .02, m.r * .5, m.r * .22, -.3, 0, 7); G.fill();
+  const cav = G.createRadialGradient(m.x - m.r * .16, m.y - m.r * .12, 6, m.x, m.y, m.r * .9); cav.addColorStop(0, '#2c251b'); cav.addColorStop(.7, '#171108'); cav.addColorStop(1, '#0a0704');
+  G.fillStyle = cav; G.beginPath(); G.ellipse(m.x, m.y, m.r * .82, m.r * .46, 0, 0, 7); G.fill();
+  // ── ground-powder heap accumulating in the bowl ──
+  const frac = g.pieces.length ? g.groundCount / g.pieces.length : 0;
+  if (frac > 0) {
+    const hy = m.y + m.r * .12, hw = m.r * .66 * Math.sqrt(frac), hh = m.r * .2 * frac;
+    const heap = G.createLinearGradient(m.x, hy - hh, m.x, hy + hh); heap.addColorStop(0, shade(tint, 26)); heap.addColorStop(1, shade(tint, -32));
+    G.fillStyle = heap; G.beginPath(); G.ellipse(m.x, hy, hw, hh, 0, 0, 7); G.fill();
+    for (let i = 0; i < 34 * frac; i++) { G.fillStyle = i % 3 ? shade(tint, 20) : shade(tint, -26); G.fillRect(m.x + rnd(hw, -hw) * .9, hy + rnd(hh, -hh) * .8, 1.4, 1.4); }
+  }
+  // ── loose pieces (leaves or tablets), or the whole nugget waiting to be cracked ──
+  if (!g.nuggetBroken) {
+    const c = g.nugget, pulse = 1 + Math.sin(t * 3) * .03; G.save(); G.translate(c.x, c.y); G.scale(pulse, pulse);
+    G.fillStyle = 'rgba(0,0,0,.4)'; G.beginPath(); G.ellipse(0, c.r * .55, c.r * .95, c.r * .4, 0, 0, 7); G.fill();
+    const ng = G.createRadialGradient(-c.r * .3, -c.r * .32, 4, 0, 0, c.r); ng.addColorStop(0, shade(tint, 52)); ng.addColorStop(.6, shade(tint, -4)); ng.addColorStop(1, shade(tint, -48));
+    G.fillStyle = ng; blob(0, 0, c.r, c.r * .92, t * .6); G.fill();
+    for (let k = 0; k < 7; k++) { G.save(); G.rotate(k / 7 * Math.PI * 2 + t * .1); G.fillStyle = shade(tint, k % 2 ? 16 : -22); G.beginPath(); G.ellipse(0, -c.r * .42, c.r * .15, c.r * .42, 0, 0, 7); G.fill(); G.strokeStyle = 'rgba(0,0,0,.25)'; G.lineWidth = 1; G.beginPath(); G.moveTo(0, -c.r * .8); G.lineTo(0, -c.r * .04); G.stroke(); G.restore(); }
+    G.strokeStyle = 'rgba(230,245,200,.5)'; G.lineWidth = 1.6; blob(0, 0, c.r, c.r * .92, t * .6); G.stroke();
+    G.fillStyle = 'rgba(255,255,255,.3)'; G.beginPath(); G.ellipse(-c.r * .3, -c.r * .36, c.r * .28, c.r * .15, -.5, 0, 7); G.fill();
+    G.restore();
+    G.save(); G.globalAlpha = .35 + .35 * Math.sin(t * 3); G.strokeStyle = tint; G.lineWidth = 1.5; G.setLineDash([5, 6]); G.beginPath(); G.arc(c.x, c.y, c.r + 12, 0, 7); G.stroke(); G.setLineDash([]); G.restore();
+  } else {
+    g.pieces.forEach(pc => { if (pc.ground || pc.r <= 0) return; G.save(); G.translate(pc.x, pc.y + pc.fall);
+      if (isLeaf) { G.rotate(Math.sin(pc.x * 0.3) * .6); drawLeafBit(pc.r, tint); } else drawTabletBit(pc.r, tint); G.restore(); });
+  }
+  // rim light drawn over the contents so the near lip reads in front
+  G.strokeStyle = 'rgba(214,192,150,.55)'; G.lineWidth = 3; G.beginPath(); G.ellipse(m.x, m.y, m.r * .82, m.r * .46, 0, Math.PI * 1.04, Math.PI * 1.96); G.stroke();
+  G.strokeStyle = 'rgba(0,0,0,.45)'; G.lineWidth = 2.5; G.beginPath(); G.ellipse(m.x, m.y, m.r * .82, m.r * .46, 0, Math.PI * .06, Math.PI * .94); G.stroke();
+  // ── dust puffs ──
+  g.grindDust.forEach(d => { G.globalAlpha = clamp(1 - d.life / d.ttl, 0, 1); G.fillStyle = d.col; G.fillRect(d.x, d.y, 2, 2); }); G.globalAlpha = 1;
+  // ── weighted stone pestle at the cursor (grip up, bulb working the bowl) ──
+  G.save(); G.translate(g.pestle.x, g.pestle.y); if (g.pestle.active) G.rotate(Math.sin(t * 32) * .05);
+  G.fillStyle = 'rgba(0,0,0,.3)'; G.beginPath(); G.ellipse(0, 13, 20, 7, 0, 0, 7); G.fill();
+  const grip = G.createLinearGradient(-7, 0, 9, 0); grip.addColorStop(0, '#6e6146'); grip.addColorStop(.5, '#c9b98c'); grip.addColorStop(1, '#5b4f38');
+  G.fillStyle = grip; roundRect(-6, -52, 12, 46, 5); G.fill();
+  const head = G.createRadialGradient(-5, -6, 3, 0, 0, 19); head.addColorStop(0, '#e8d8ab'); head.addColorStop(.6, '#b9a877'); head.addColorStop(1, '#6e6146');
+  G.fillStyle = head; G.beginPath(); G.ellipse(0, 0, 17, 15, 0, 0, 7); G.fill();
+  G.strokeStyle = 'rgba(0,0,0,.4)'; G.lineWidth = 2; G.beginPath(); G.ellipse(0, 0, 17, 15, 0, 0, 7); G.stroke();
+  G.fillStyle = 'rgba(255,255,255,.4)'; G.beginPath(); G.ellipse(-5, -5, 6, 4, -.5, 0, 7); G.fill();
+  G.restore();
+  hud(g, label);
+  G.save(); textShadowOn(); G.fillStyle = brightCol(); G.font = 'bold 12px monospace'; G.textAlign = 'center';
+  G.fillText(g.nuggetBroken ? `HOLD & DRAG THE PESTLE OVER THE PIECES — ${g.groundCount}/${g.pieces.length} GROUND` : 'CLICK THE NUGGET TO CRACK IT', W / 2, m.y + m.r + 34);
+  G.restore();
+}
+function grindExit() { AX.stop('grind'); }
+// after full grind: a short "add the binding liquid" beat before quench.
+function toLiquidBeat(g) { if (g.phase !== 'work') return; g.phase = 'liquid'; g.liquidT = 0; grindExit(); g.lab.ticker('add the binding liquid…'); }
+function drawLiquidBeat(g) {
+  const m = g.mortar, t = clamp(g.liquidT / 1, 0, 1);
+  G.save(); G.globalAlpha = Math.min(1, t * 2); G.fillStyle = 'rgba(120,200,230,.55)'; G.beginPath(); G.ellipse(m.x, m.y - 50 + t * 46, 7, 58 * (1 - t * .5), 0, 0, 7); G.fill(); G.restore();
+  G.save(); textShadowOn(); G.fillStyle = brightCol(); G.font = 'bold 14px monospace'; G.textAlign = 'center'; G.fillText('ADDING BINDING LIQUID…', W / 2, m.y - m.r - 20); G.restore();
+}
+
+// ── BLOT — dose a perforated paper sheet (botanical/blotter) ──────────────────
+// A grid of tabs on a sheet; a loaded dropper trails the cursor. Hold and drag
+// over each tab to soak it — every tab wants an EVEN dose: land it near full and
+// MOVE ON. Linger and it over-bleeds (blotches darker + wider), costing quality.
+// Once every tab is dosed the sheet is dried & perforated at the quench.
+function blotInit(g, tint) {
+  const cols = 5, rows = 4, cw = 72, ch = 58, sw = cols * cw, sh = rows * ch;
+  g.sheet = { cols, rows, cw, ch, sw, sh, x: W / 2 - sw / 2, y: H * 0.5 - sh / 2 + 6 };
+  g.tabs = Array.from({ length: cols * rows }, () => ({ soak: 0, done: false }));
+  g.dropper = { x: W / 2, y: H * 0.28, active: false };
+  g.blotTint = tint || 'rgba(150,120,210,.95)';
+  AX.loop('drip', { freq: 62, type: 'sine', gain: 0, filt: 320, tremRate: 6, tremDepth: .4 });
+}
+function blotMove(g, p) { g.dropper.x = p.x; g.dropper.y = p.y; }
+function blotInput(g, down) { g.dropper.active = down; }
+function blotTabUnder(g) { const s = g.sheet, cx = Math.floor((g.dropper.x - s.x) / s.cw), cy = Math.floor((g.dropper.y - s.y) / s.ch);
+  if (cx < 0 || cy < 0 || cx >= s.cols || cy >= s.rows) return -1; return cy * s.cols + cx; }
+function blotUpdate(g, dt) {
+  AX.loopGain('drip', g.dropper.active ? .045 : 0);
+  if (g.dropper.active) { const i = blotTabUnder(g); if (i >= 0) { const tb = g.tabs[i]; tb.soak = clamp(tb.soak + dt * 0.85, 0, 1.7);
+    if (!tb.done && tb.soak >= 0.82) { tb.done = true; AX.tick(); } } }
+  if (g.tabs.every(tb => tb.soak >= 0.82)) {
+    // quality peaks at soak≈1; under- OR over-soaking both bleed off score.
+    g.workScore = g.tabs.reduce((a, tb) => a + clamp(1 - Math.abs(tb.soak - 1) / 0.6, 0, 1), 0) / g.tabs.length;
+    toQuench(g, 'dry & perforate the sheet');
+  }
+}
+function blotExit() { AX.stop('drip'); }
+function blotDraw(g, label, tint) {
+  const s = g.sheet, t = g.bgT || 0;
+  // ── paper sheet: cast shadow, cream stock, torn-tan border ──
+  G.save(); G.fillStyle = 'rgba(0,0,0,.34)'; G.beginPath(); G.ellipse(s.x + s.sw / 2, s.y + s.sh + 16, s.sw * .55, 20, 0, 0, 7); G.fill(); G.restore();
+  const pg = G.createLinearGradient(s.x, s.y, s.x, s.y + s.sh); pg.addColorStop(0, 'rgba(246,242,230,.97)'); pg.addColorStop(1, 'rgba(212,206,188,.93)');
+  G.fillStyle = pg; roundRect(s.x - 7, s.y - 7, s.sw + 14, s.sh + 14, 4); G.fill();
+  // ── per-tab dose blotches (drug-tinted; over-soak darkens + wicks past the cell) ──
+  for (let cy = 0; cy < s.rows; cy++) for (let cx = 0; cx < s.cols; cx++) {
+    const i = cy * s.cols + cx, tb = g.tabs[i], px = s.x + cx * s.cw + s.cw / 2, py = s.y + cy * s.ch + s.ch / 2;
+    if (tb.soak > 0.01) { const over = clamp(tb.soak - 1, 0, .7), rr = Math.min(s.cw, s.ch) * (.28 + tb.soak * .17);
+      G.save(); G.globalAlpha = clamp(tb.soak, .2, .95);
+      const bg = G.createRadialGradient(px, py, 1, px, py, rr); bg.addColorStop(0, shade(tint, 20 - over * 70)); bg.addColorStop(1, shade(tint, -30 - over * 80));
+      G.fillStyle = bg; G.beginPath(); G.ellipse(px, py, rr, rr * .92, 0, 0, 7); G.fill(); G.restore(); }
+    // faint printed motif on each dry tab
+    if (tb.soak < 0.3) { G.save(); G.globalAlpha = .18; G.strokeStyle = shade(tint, -20); G.lineWidth = 1; G.beginPath(); G.arc(px, py, 7, 0, 7); G.moveTo(px - 5, py); G.lineTo(px + 5, py); G.moveTo(px, py - 5); G.lineTo(px, py + 5); G.stroke(); G.restore(); }
+    // "dosed" pip when a tab is in the sweet zone
+    if (tb.done) { G.fillStyle = tb.soak > 1.25 ? '#e0644f' : '#4fe08a'; G.beginPath(); G.arc(px + s.cw / 2 - 7, py - s.ch / 2 + 7, 2.2, 0, 7); G.fill(); }
+  }
+  // ── perforation grid (dashed) + border ──
+  G.strokeStyle = 'rgba(120,110,90,.45)'; G.lineWidth = .8; G.setLineDash([1.5, 3]);
+  for (let i = 1; i < s.cols; i++) { G.beginPath(); G.moveTo(s.x + i * s.cw, s.y); G.lineTo(s.x + i * s.cw, s.y + s.sh); G.stroke(); }
+  for (let i = 1; i < s.rows; i++) { G.beginPath(); G.moveTo(s.x, s.y + i * s.ch); G.lineTo(s.x + s.sw, s.y + i * s.ch); G.stroke(); }
+  G.setLineDash([]); G.strokeStyle = 'rgba(120,110,90,.5)'; G.lineWidth = 1.2; roundRect(s.x, s.y, s.sw, s.sh, 2); G.stroke();
+  // ── loaded dropper trailing the cursor ──
+  const dp = g.dropper; G.save(); G.translate(dp.x, dp.y); G.rotate(0.35);
+  G.fillStyle = 'rgba(0,0,0,.25)'; G.beginPath(); G.ellipse(2, 40, 8, 4, 0, 0, 7); G.fill();
+  G.fillStyle = 'rgba(200,220,225,.22)'; roundRect(-6, -46, 12, 40, 5); G.fill();
+  G.fillStyle = tint; G.fillRect(-4, -22, 8, 16);   // reservoir of loaded solution
+  G.strokeStyle = 'rgba(220,235,240,.6)'; roundRect(-6, -46, 12, 40, 5); G.stroke();
+  G.fillStyle = '#2a343a'; roundRect(-7, -56, 14, 12, 3); G.fill();
+  G.fillStyle = tint; G.beginPath(); G.moveTo(-3, -6); G.lineTo(3, -6); G.lineTo(0, 4); G.closePath(); G.fill();   // pending drop at the tip
+  if (dp.active) { G.fillStyle = tint; G.beginPath(); G.arc(0, 12 + (t * 60 % 20), 2.4, 0, 7); G.fill(); }
+  G.restore();
+  hud(g, label);
+  const dosed = g.tabs.filter(tb => tb.done).length;
+  G.save(); textShadowOn(); G.fillStyle = brightCol(); G.font = 'bold 12px monospace'; G.textAlign = 'center';
+  G.fillText(`HOLD & DRAG THE DROPPER — DOSE EACH TAB EVENLY · ${dosed}/${g.tabs.length}`, W / 2, s.y + s.sh + 34); G.restore();
 }
 
 const FAMILIES = {
@@ -100,22 +295,27 @@ const FAMILIES = {
   },
   botanical: {
     accent: '#7fbf5a', label: 'CURE — gentle warmth, hold it in the wide green band',
-    init(g) { bandInit(g, { dur: 14, gravity: 0.55, push: 1.15, bandHalf: clamp(.26 - g.difficulty * .006, .15, .26), bandSpeed: .06 + g.difficulty * .01 }); AX.loop('burner', { freq: 58, type: 'sine', gain: .025, filt: 380, tremRate: 5, tremDepth: .2 }); },
-    update(g, dt) { bandUpdate(g, dt, () => toQuench(g, 'press and jar it')); },
-    input(g, down) { g.hold = down; },
-    draw(g) { drawBandGame(g, { burner: false, steam: false, flecks: true, okCol: '#7fbf5a', stat: (x) => `CURED ${Math.round(x.inBand / Math.max(.001, x.t) * 100)}% · ${Math.max(0, x.dur - x.t).toFixed(1)}s` }); },
-    exit() { AX.stop('burner'); },
+    init(g) { if (g.opts.form === 'leaf') grindInit(g, true, 'rgba(150,190,110,.95)');
+      else if (g.opts.form === 'blotter') blotInit(g, 'rgba(150,120,210,.95)');
+      else { bandInit(g, { dur: 14, gravity: 0.55, push: 1.15, bandHalf: clamp(.26 - g.difficulty * .006, .15, .26), bandSpeed: .06 + g.difficulty * .01 }); AX.loop('burner', { freq: 58, type: 'sine', gain: .025, filt: 380, tremRate: 5, tremDepth: .2 }); } },
+    update(g, dt) { const f = g.opts.form; f === 'leaf' ? grindUpdate(g, dt) : f === 'blotter' ? blotUpdate(g, dt) : bandUpdate(g, dt, () => toQuench(g, 'press and jar it')); },
+    input(g, down, p) { const f = g.opts.form; if (f === 'leaf') grindInput(g, down, p); else if (f === 'blotter') blotInput(g, down); else g.hold = down; },
+    move(g, p) { const f = g.opts.form; if (f === 'leaf') grindMove(g, p); else if (f === 'blotter') blotMove(g, p); },
+    draw(g) { const f = g.opts.form; return f === 'leaf' ? grindDraw(g, 'CURE — GRIND THE NUGGET', 'rgba(150,190,110,.55)') : f === 'blotter' ? blotDraw(g, 'DOSE — SOAK THE TABS', 'rgba(150,120,210,.9)') : drawBandGame(g, { burner: false, steam: false, flecks: true, okCol: '#7fbf5a', stat: (x) => `CURED ${Math.round(x.inBand / Math.max(.001, x.t) * 100)}% · ${Math.max(0, x.dur - x.t).toFixed(1)}s` }); },
+    exit(g) { const f = g.opts.form; if (f === 'leaf') grindExit(); else if (f === 'blotter') blotExit(); else AX.stop('burner'); },
   },
   solids: {
     accent: '#ffb23e', label: 'PRESS — hold to build force, release in the green (×3)',
-    init(g) { g.pressIdx = 0; g.presses = 3; g.force = 0; g.rising = false; g.scores = []; g.target = .6; g.band = clamp(.14 - g.difficulty * .005, .06, .14); g.rate = 0.5 + g.difficulty * .04; },
-    update(g, dt) { if (g.rising) { g.force += dt * g.rate; if (g.force >= 1.08) this.lock(g, true); } },
+    init(g) { if (g.opts.form === 'pill') grindInit(g, false, 'rgba(224,224,230,.95)');
+      else { g.pressIdx = 0; g.presses = 3; g.force = 0; g.rising = false; g.scores = []; g.target = .6; g.band = clamp(.14 - g.difficulty * .005, .06, .14); g.rate = 0.5 + g.difficulty * .04; } },
+    update(g, dt) { if (g.opts.form === 'pill') { grindUpdate(g, dt); return; } if (g.rising) { g.force += dt * g.rate; if (g.force >= 1.08) this.lock(g, true); } },
     lock(g, over) { g.rising = false; const acc = over ? 0 : clamp(1 - Math.abs(g.force - g.target) / (g.band * 2.4), 0, 1); g.scores.push(acc); g.pressIdx++; g.force = 0;
       if (over) AX.bad(); else if (acc > .85) AX.perfect(); else if (acc > .5) AX.good(); else AX.click();
       if (g.pressIdx >= g.presses) { g.workScore = g.scores.reduce((a, b) => a + b, 0) / g.scores.length; toQuench(g, 'seal the tablets'); } },
-    input(g, down) { if (down) { if (!g.rising && g.pressIdx < g.presses) g.rising = true; } else if (g.rising) this.lock(g, false); },
-    draw(g) { drawSolidsGame(g); },
-    exit() { },
+    input(g, down, p) { if (g.opts.form === 'pill') { grindInput(g, down, p); return; } if (down) { if (!g.rising && g.pressIdx < g.presses) g.rising = true; } else if (g.rising) this.lock(g, false); },
+    move(g, p) { if (g.opts.form === 'pill') grindMove(g, p); },
+    draw(g) { g.opts.form === 'pill' ? grindDraw(g, 'PRESS — GRIND THE PILLS', 'rgba(220,220,225,.6)') : drawSolidsGame(g); },
+    exit(g) { if (g.opts.form === 'pill') grindExit(); },
   },
   gas: {
     accent: '#5fd0e0', label: 'REGULATE — TAP to vent, keep the needle in the green',
@@ -162,34 +362,40 @@ function closeSynth() { if (_g && _g.lab) _g.lab.close(); }
 
 function wireCook(g) {
   const canvas = g.lab.canvas;
-  const onDown = () => { AX.tick(); if (g.phase === 'work') FAMILIES[g.family].input(g, true); else if (g.phase === 'quench') quenchStrike(g); };
+  const onMove = e => { const p = evPos(canvas, e); if (g.phase === 'work' && FAMILIES[g.family].move) FAMILIES[g.family].move(g, p); };
+  const onDown = e => { AX.tick(); const p = evPos(canvas, e); if (g.phase === 'work') FAMILIES[g.family].input(g, true, p); else if (g.phase === 'quench') quenchStrike(g); };
   const onUp = () => { if (g.phase === 'work') FAMILIES[g.family].input(g, false); };
   const onKey = e => { if (e.key === 'Escape') { g.lab.close(); return; } if (e.repeat) return; if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); if (g.phase === 'work') FAMILIES[g.family].input(g, true); else if (g.phase === 'quench') quenchStrike(g); } };
   const onKeyUp = e => { if (e.code === 'Space' || e.key === ' ') { if (g.phase === 'work') FAMILIES[g.family].input(g, false); } };
-  canvas.addEventListener('pointerdown', onDown); window.addEventListener('pointerup', onUp); window.addEventListener('keydown', onKey); window.addEventListener('keyup', onKeyUp);
-  g.lab.onClose(() => { g.closed = true; canvas.removeEventListener('pointerdown', onDown); window.removeEventListener('pointerup', onUp); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp); if (g.raf) cancelAnimationFrame(g.raf); FAMILIES[g.family] && FAMILIES[g.family].exit(g); });
+  canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerdown', onDown); window.addEventListener('pointerup', onUp); window.addEventListener('keydown', onKey); window.addEventListener('keyup', onKeyUp);
+  g.lab.onClose(() => { g.closed = true; canvas.removeEventListener('pointermove', onMove); canvas.removeEventListener('pointerdown', onDown); window.removeEventListener('pointerup', onUp); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp); if (g.raf) cancelAnimationFrame(g.raf); FAMILIES[g.family] && FAMILIES[g.family].exit(g); });
 }
 
-function toQuench(g, label) { if (g.phase !== 'work') return; g.phase = 'quench'; g.quenchT = 0; g.quenchTapped = false; FAMILIES[g.family].exit(g); g.lab.ticker(`${label} — strike SPACE as the ring meets the mark.`); }
+function toQuench(g, label) { if (g.phase !== 'work' && g.phase !== 'liquid') return; const wasWork = g.phase === 'work'; g.phase = 'quench'; g.quenchT = 0; g.quenchTapped = false; if (wasWork) FAMILIES[g.family].exit(g); g.lab.ticker(`${label} — strike SPACE as the ring meets the mark.`); }
 
 function cookLoop(now) {
   const g = _g; if (!g || g.closed) return;
   let dt = (now - g.last) / 1000; g.last = now; if (dt > .05) dt = .05;
   if (g.phase === 'work') g.t += dt;
+  g.bgT = (g.bgT || 0) + dt;   // always-advancing clock for ambient motion (g.t freezes off-work)
   update(g, dt);
   G.clearRect(0, 0, W, H); drawBench();
+  lightShaft(W / 2, 70, 340, H * 0.7, '130,225,175', .05);   // shared bench atmosphere (as splice)
+  dustMotes(g.bgT, 42, '150,225,185');
   FAMILIES[g.family].draw(g);
   if (g.phase !== 'done') {
     // CHIMERA-9 status readout
     drawLCD(W - 152, 18, 132, 24, (g._label || 'SYNTH').toUpperCase(), '#5fd0e0', 'CHIMERA-9');
-    if (g.opts.test) { G.save(); G.fillStyle = brightCol(); G.font = 'bold 11px monospace'; G.textAlign = 'center'; G.fillText('DEV · CHANGE FORM ↓', W / 2, H - 76); G.restore(); }
+    if (g.opts.test) { G.save(); textShadowOn(); G.fillStyle = brightCol(); G.font = 'bold 13px monospace'; G.textAlign = 'center'; G.fillText('DEV · CHANGE FORM ↓', W / 2, H - 76); G.restore(); }
   }
+  if (g.phase === 'liquid') drawLiquidBeat(g);
   if (g.phase === 'quench') drawQuench(g);
   if (g.phase === 'done') drawDone(g);
   g.raf = requestAnimationFrame(cookLoop);
 }
 function update(g, dt) {
   if (g.phase === 'work') FAMILIES[g.family].update(g, dt);
+  else if (g.phase === 'liquid') { g.liquidT += dt; if (g.liquidT > 1) toQuench(g, 'quench and set the batch'); }
   else if (g.phase === 'quench') { g.quenchT += dt; if (g.quenchT > g.quenchDur && !g.quenchTapped) finishCook(g, 'MISS', -0.08); }
   else if (g.phase === 'done') { g.resultT += dt; if (g.resultT > 1.15 && !g._resolved) { g._resolved = true;
     if (g.opts.test) { openSynthMinigame({ family: g.family, form: g.opts.form, difficulty: g.difficulty, recipeName: g.opts.recipeName, test: true, onResult: g.opts.onResult }); return; }  // dev loop — replay so you can keep switching forms
@@ -205,27 +411,53 @@ function quenchStrike(g) {
 function finishCook(g, grade, bonus) { if (g.phase === 'done') return; const score = clamp(Math.round((g.workScore + bonus) * 100), 0, 100); g.result = { grade, score }; g.phase = 'done'; g.resultT = 0; AX.tone(score >= 60 ? 520 : 200, .3, { type: 'triangle', gain: .2, to: score >= 60 ? 760 : 120 }); }
 
 // ── shared HUD + finish overlays ─────────────────────────────────────────────
-function hud(g, text) { G.save(); G.textAlign = 'center'; G.fillStyle = dimCol(); G.font = 'bold 11px monospace'; G.fillText(g._label || '', W / 2, 50); G.fillStyle = brightCol(); G.font = 'bold 13px monospace'; G.fillText(text, W / 2, 66); G.restore(); }
+function hud(g, text) { G.save(); textShadowOn(); G.textAlign = 'center'; G.fillStyle = dimCol(); G.font = 'bold 13px monospace'; G.fillText(g._label || '', W / 2, 50); G.fillStyle = brightCol(); G.font = 'bold 16px monospace'; G.fillText(text, W / 2, 68); G.restore(); }
 function drawQuench(g) {
   const cx = W / 2, cy = H * 0.44, R0 = 150, Rt = 34, R = R0 * (1 - clamp(g.quenchT / g.quenchDur, 0, 1));
   G.strokeStyle = 'rgba(79,224,138,.8)'; G.lineWidth = 3; G.beginPath(); G.arc(cx, cy, Rt, 0, 7); G.stroke();
   if (R > 2 && !g.quenchTapped) { G.strokeStyle = `rgba(95,208,224,${clamp(R / R0 + .2, .3, 1)})`; G.lineWidth = 2.5; G.beginPath(); G.arc(cx, cy, R, 0, 7); G.stroke(); }
-  G.fillStyle = brightCol(); G.font = 'bold 11px monospace'; G.textAlign = 'center'; G.fillText('◄ SET ON THE MARK ►', cx, cy - Rt - 12);
+  G.save(); textShadowOn(); G.fillStyle = brightCol(); G.font = 'bold 13px monospace'; G.textAlign = 'center'; G.fillText('◄ SET ON THE MARK ►', cx, cy - Rt - 12); G.restore();
 }
 function drawDone(g) {
-  const win = g.result.score >= 60; G.save(); G.textAlign = 'center';
-  G.fillStyle = win ? '#4fe08a' : '#e0b64f'; G.font = 'bold 18px monospace'; G.shadowColor = win ? 'rgba(79,224,138,.7)' : 'rgba(224,182,79,.6)'; G.shadowBlur = 14;
+  const win = g.result.score >= 60; G.save(); G.textAlign = 'center'; textShadowOn(6);
+  G.fillStyle = win ? '#4fe08a' : '#e0b64f'; G.font = 'bold 22px monospace'; G.shadowColor = win ? 'rgba(79,224,138,.7)' : 'rgba(224,182,79,.6)'; G.shadowBlur = 14;
   G.fillText(`${g.result.grade} — ${g.result.score}%`, W / 2, H * 0.2); G.shadowBlur = 0;
-  G.fillStyle = dimCol(); G.font = 'bold 10px monospace'; G.fillText(g.result.score >= 75 ? 'CLEAN BATCH' : g.result.score >= 45 ? 'PASSABLE' : 'MESSY', W / 2, H * 0.2 + 16); G.restore();
+  textShadowOn(); G.fillStyle = dimCol(); G.font = 'bold 12px monospace'; G.fillText(g.result.score >= 75 ? 'CLEAN BATCH' : g.result.score >= 45 ? 'PASSABLE' : 'MESSY', W / 2, H * 0.2 + 18); G.restore();
 }
 
 // ── per-family renderers ─────────────────────────────────────────────────────
+// viscosity dressing painted over the band fill (inside the beaker clip): gel clings
+// up the walls with a glassy domed meniscus; paste heaps into a dull, stiff crust.
+function drawWetSurface(b, ly, base, col, form) {
+  const x0 = b.x - b.w / 2, w = b.w, xr = b.x + b.w / 2;
+  if (form === 'gel') {
+    G.save();
+    const cl = 16; for (const wx of [x0, xr - 4]) { const cg = G.createLinearGradient(0, ly - cl, 0, ly + 4); cg.addColorStop(0, 'rgba(255,255,255,0)'); cg.addColorStop(1, shade(col, 30)); G.fillStyle = cg; G.globalAlpha = .35; G.fillRect(wx, ly - cl, 4, cl + 6); }
+    G.globalAlpha = 1; G.strokeStyle = 'rgba(255,255,255,.28)'; G.lineWidth = 2; G.beginPath();
+    for (let px = x0 + 2; px <= xr - 2; px += 4) { const yy = ly + 3 - Math.sin((px - x0) / w * Math.PI) * 5; px === x0 + 2 ? G.moveTo(px, yy) : G.lineTo(px, yy); } G.stroke();
+    const gg = G.createRadialGradient(b.x - 6, ly + 18, 2, b.x, ly + 26, w * .7); gg.addColorStop(0, 'rgba(255,255,255,.14)'); gg.addColorStop(1, 'rgba(255,255,255,0)'); G.fillStyle = gg; G.fillRect(x0, ly, w, base - ly);
+    G.restore();
+  } else if (form === 'paste') {
+    G.save();
+    G.fillStyle = 'rgba(30,28,24,.16)'; G.fillRect(x0, ly, w, base - ly);   // matte veil kills the shine
+    const mg = G.createLinearGradient(0, ly - 6, 0, ly + 12); mg.addColorStop(0, shade(col, -6)); mg.addColorStop(1, shade(col, -30));
+    G.fillStyle = mg; G.beginPath(); G.moveTo(x0, ly + 8);
+    for (let px = x0; px <= xr; px += 6) G.lineTo(px, ly + 2 - Math.abs(Math.sin(px * 0.21 + 1.3)) * 6 - Math.cos(px * 0.11) * 2);
+    G.lineTo(xr, ly + 8); G.closePath(); G.fill();
+    for (let i = 0; i < 4; i++) { G.fillStyle = shade(col, i % 2 ? 10 : -22); G.beginPath(); G.arc(x0 + 12 + i * (w - 24) / 3, ly + 2 + (i % 2) * 4, 3 + (i % 3), 0, 7); G.fill(); }
+    G.globalAlpha = .5; for (const wx of [x0, xr - 5]) { G.fillStyle = shade(col, -18); G.fillRect(wx, ly - 4, 5, base - ly + 4); } G.globalAlpha = 1;
+    G.restore();
+  }
+}
 function drawBandGame(g, o) {
-  const b = g.beaker, base = b.y + b.h / 2, ly = base - g.level * (b.h * 0.7), slosh = clamp(Math.abs(g.vel) * 0.5, 0, 1);
+  const b = g.beaker, base = b.y + b.h / 2, ly = base - g.level * (b.h * 0.7);
+  const form = g.opts.form, visc = form === 'paste' ? .28 : form === 'gel' ? .5 : 1;   // 1 = runny
+  const slosh = clamp(Math.abs(g.vel) * 0.5, 0, 1) * visc;
   if (o.burner) drawBurner(b, g.heatS, g.t);
   drawBeaker(b, () => {
     const c = bandCenter(g), inb = Math.abs(g.level - c) <= g.bandHalf, col = inb ? o.okCol : (g.level > c ? '#e0b64f' : '#e0644f');
     fillLiquid(b.x - b.w / 2, b.w, ly, base, col, col, g.t, slosh, g.heatS);
+    drawWetSurface(b, ly, base, col, form);
     const bt = base - (c + g.bandHalf) * (b.h * 0.7), bb = base - (c - g.bandHalf) * (b.h * 0.7);
     G.fillStyle = inb ? 'rgba(90,255,150,.16)' : 'rgba(90,255,150,.07)'; G.fillRect(b.x - b.w / 2, bt, b.w, bb - bt);
     G.strokeStyle = 'rgba(120,255,170,.6)'; G.setLineDash([5, 4]); G.lineWidth = 1; G.beginPath(); G.moveTo(b.x - b.w / 2, bt); G.lineTo(b.x + b.w / 2, bt); G.moveTo(b.x - b.w / 2, bb); G.lineTo(b.x + b.w / 2, bb); G.stroke(); G.setLineDash([]);
@@ -233,37 +465,139 @@ function drawBandGame(g, o) {
     g.bubbles.forEach(bl => { G.fillStyle = 'rgba(220,255,235,.3)'; G.beginPath(); G.arc(b.x + bl.x * b.w * .35, base - bl.y * (base - ly), bl.r, 0, 7); G.fill(); });
   });
   if (o.steam) drawSteam(b.x, ly, g.heatS * 0.9, g.t, '210,255,225');
+  const tag = form === 'paste' ? 'THICK PASTE — heats slow, holds steady' : form === 'gel' ? 'VISCOUS GEL — sluggish, clings' : form === 'liquid' ? 'THIN LIQUID — runny, quick to swing' : '';
+  if (tag) { G.save(); textShadowOn(); G.fillStyle = dimCol(); G.font = 'bold 11px monospace'; G.textAlign = 'center'; G.fillText(tag, b.x, base + 24); G.restore(); }
   hud(g, o.stat(g));
 }
+// the raw charge sitting in the die — powder packs into a fine mound, crystal into
+// chunky shards; both flatten toward a puck as the ram bears down (compress 0..1).
+function drawPressCharge(cx, bedY, dieW, compress, form, tint) {
+  const maxH = 28, h = Math.max(3, maxH * (1 - compress * 0.62)), w = dieW * (0.52 + compress * 0.15);
+  G.save(); G.beginPath(); G.rect(cx - dieW / 2 + 3, bedY - maxH - 4, dieW - 6, maxH + 4); G.clip();
+  if (form === 'crystal' && compress < 0.5) {
+    for (let i = 0; i < 9; i++) { const sx = cx - w / 2 + (i + .5) / 9 * w, sy = bedY - 3 - ((i * 37) % Math.max(4, h - 3)), r = 5 + (i % 3) * 2;
+      G.save(); G.translate(sx, sy); G.rotate((i * 1.3) % 3); G.fillStyle = shade(tint, i % 2 ? 28 : -18);
+      G.beginPath(); G.moveTo(0, -r); G.lineTo(r * .6, 0); G.lineTo(0, r); G.lineTo(-r * .6, 0); G.closePath(); G.fill();
+      G.strokeStyle = 'rgba(255,255,255,.4)'; G.lineWidth = .7; G.stroke(); G.restore(); }
+  } else {
+    const cg = G.createLinearGradient(0, bedY - h, 0, bedY); cg.addColorStop(0, shade(tint, 22)); cg.addColorStop(1, shade(tint, -30));
+    G.fillStyle = cg; G.beginPath(); G.moveTo(cx - w / 2, bedY);
+    for (let px = cx - w / 2; px <= cx + w / 2; px += 4) G.lineTo(px, bedY - h + Math.cos((px - cx) * 0.09) * 3 * (1 - compress));
+    G.lineTo(cx + w / 2, bedY); G.closePath(); G.fill();
+    for (let i = 0; i < 22; i++) { G.fillStyle = i % 3 ? shade(tint, 24) : shade(tint, -26); G.fillRect(cx + ((i * 53) % w) - w / 2, bedY - 2 - ((i * 29) % Math.max(2, h - 2)), 1.4, 1.4); }
+  }
+  G.restore();
+}
 function drawSolidsGame(g) {
-  const cx = W / 2, floorY = H * 0.66, ramTop = H * 0.24;
-  G.strokeStyle = 'rgba(120,140,150,.5)'; G.lineWidth = 8; G.beginPath(); G.moveTo(cx - 72, ramTop - 4); G.lineTo(cx - 72, floorY); G.moveTo(cx + 72, ramTop - 4); G.lineTo(cx + 72, floorY); G.moveTo(cx - 84, ramTop - 4); G.lineTo(cx + 84, ramTop - 4); G.stroke();
-  const ramY = ramTop + clamp(g.force, 0, 1) * (floorY - ramTop - 42);
-  const rg = G.createLinearGradient(cx - 44, 0, cx + 44, 0); rg.addColorStop(0, '#2a3138'); rg.addColorStop(.5, '#6b747d'); rg.addColorStop(1, '#20262b');
-  G.fillStyle = rg; G.fillRect(cx - 30, ramTop, 60, ramY - ramTop); G.fillStyle = '#6b747d'; G.fillRect(cx - 52, ramY, 104, 20);
-  G.fillStyle = 'rgba(255,255,255,.14)'; G.fillRect(cx - 26, ramTop + 4, 5, ramY - ramTop);
-  G.fillStyle = '#20262b'; G.fillRect(cx - 58, floorY, 116, 18);
-  for (let i = 0; i < Math.min(g.pressIdx, g.presses); i++) { G.fillStyle = '#d6c8a0'; G.beginPath(); G.ellipse(cx - 38 + i * 26, floorY + 4, 10, 4, 0, 0, 7); G.fill(); G.strokeStyle = 'rgba(0,0,0,.3)'; G.stroke(); }
-  const gx = cx + 122, gy = ramTop, gh = floorY - gy;
-  G.fillStyle = '#0a0f0c'; G.strokeStyle = 'rgba(132,150,168,.3)'; roundRect(gx, gy, 16, gh, 4); G.fill(); G.stroke();
-  const by0 = gy + gh * (1 - (g.target + g.band)), bh = gh * g.band * 2;
-  G.fillStyle = 'rgba(255,178,62,.28)'; G.fillRect(gx, by0, 16, bh); G.strokeStyle = 'rgba(255,178,62,.8)'; G.strokeRect(gx, by0, 16, bh);
-  const ny = gy + gh * (1 - clamp(g.force, 0, 1)); G.fillStyle = Math.abs(g.force - g.target) < g.band ? '#4fe08a' : g.force > g.target ? '#ff4a5b' : '#5fd0e0'; G.fillRect(gx - 4, ny - 2, 24, 4);
-  G.fillStyle = dimCol(); G.font = 'bold 9px monospace'; G.textAlign = 'center'; G.fillText('FORCE', gx + 8, gy - 6);
+  const cx = W / 2, bedY = H * 0.64, crownY = H * 0.15, colX = 96, colW = 26;
+  const tint = g.opts.form === 'crystal' ? 'rgba(196,210,222,1)' : 'rgba(214,198,158,1)';
+  // impact shock from a sharp force drop (release), derived — no extra state plumbing
+  if (g._lastF === undefined) g._lastF = 0;
+  if (g._lastF - g.force > 0.25) g._impT = g.bgT;
+  g._lastF = g.force;
+  const iAge = g.bgT - (g._impT ?? -9), impact = iAge >= 0 && iAge < .45 ? 1 - iAge / .45 : 0;
+
+  // ── heavy bolted columns ──
+  for (const sx of [cx - colX, cx + colX]) {
+    const cg = G.createLinearGradient(sx - colW / 2, 0, sx + colW / 2, 0); cg.addColorStop(0, '#171d22'); cg.addColorStop(.5, '#3a444c'); cg.addColorStop(1, '#171d22');
+    G.fillStyle = cg; G.fillRect(sx - colW / 2, crownY, colW, bedY - crownY + 20);
+    G.fillStyle = 'rgba(255,255,255,.10)'; G.fillRect(sx - colW / 2 + 3, crownY, 3, bedY - crownY);
+    for (let by = crownY + 24; by < bedY; by += 46) { G.fillStyle = '#10151a'; G.beginPath(); G.arc(sx, by, 4, 0, 7); G.fill(); G.strokeStyle = 'rgba(150,170,180,.4)'; G.lineWidth = 1; G.stroke(); }
+  }
+  // ── crown beam ──
+  const halfW = colX + colW / 2 + 6;
+  const crg = G.createLinearGradient(0, crownY - 6, 0, crownY + 28); crg.addColorStop(0, '#4a555d'); crg.addColorStop(1, '#20272d');
+  G.fillStyle = crg; roundRect(cx - halfW, crownY - 6, halfW * 2, 34, 4); G.fill();
+  G.fillStyle = 'rgba(255,255,255,.12)'; G.fillRect(cx - halfW, crownY - 6, halfW * 2, 3);
+
+  const ramTop = crownY + 28, ramY = ramTop + clamp(g.force, 0, 1) * (bedY - 36 - ramTop);
+  // hydraulic cylinder (fixed) + polished piston rod (extends with force)
+  const cylW = 40; G.fillStyle = '#2b333a'; roundRect(cx - cylW / 2, ramTop, cylW, 46, 5); G.fill();
+  G.strokeStyle = 'rgba(180,205,215,.4)'; G.lineWidth = 1.5; roundRect(cx - cylW / 2, ramTop, cylW, 46, 5); G.stroke();
+  G.fillStyle = 'rgba(255,255,255,.14)'; G.fillRect(cx - cylW / 2 + 5, ramTop + 4, 4, 38);
+  const rodTop = ramTop + 40; const rr = G.createLinearGradient(cx - 12, 0, cx + 12, 0); rr.addColorStop(0, '#5a646c'); rr.addColorStop(.5, '#aab4bc'); rr.addColorStop(1, '#454d54');
+  G.fillStyle = rr; G.fillRect(cx - 11, rodTop, 22, Math.max(0, ramY - rodTop));
+  // platen (ram head)
+  const plg = G.createLinearGradient(0, ramY, 0, ramY + 22); plg.addColorStop(0, '#7b858d'); plg.addColorStop(1, '#2a3138');
+  G.fillStyle = plg; roundRect(cx - 60, ramY, 120, 22, 3); G.fill();
+  G.fillStyle = 'rgba(255,255,255,.18)'; G.fillRect(cx - 56, ramY + 3, 112, 3);
+  G.fillStyle = 'rgba(0,0,0,.4)'; G.fillRect(cx - 60, ramY + 19, 120, 3);
+
+  // ── die + charge on the bed ──
+  const dieW = 108;
+  G.fillStyle = '#20262b'; G.fillRect(cx - dieW / 2 - 8, bedY, dieW + 16, 20);
+  G.fillStyle = '#12171b'; G.fillRect(cx - dieW / 2, bedY - 30, dieW, 30);
+  drawPressCharge(cx, bedY, dieW, clamp(g.force, 0, 1), g.opts.form, tint);
+  G.strokeStyle = 'rgba(150,170,180,.35)'; G.lineWidth = 2; G.strokeRect(cx - dieW / 2, bedY - 30, dieW, 30);
+  G.fillStyle = '#171d22'; G.fillRect(cx - colX - 30, bedY + 18, (colX + 30) * 2, 16);
+
+  // ── impact: shock ring + dust puff on release ──
+  if (impact > 0) { G.save(); G.globalAlpha = impact * .8; G.strokeStyle = shade(tint, 40); G.lineWidth = 2 + impact * 2;
+    G.beginPath(); G.ellipse(cx, bedY - 6, 40 + (1 - impact) * 64, 12 + (1 - impact) * 18, 0, 0, 7); G.stroke();
+    G.globalAlpha = impact * .5; G.fillStyle = shade(tint, 12);
+    for (let i = 0; i < 8; i++) { const a = -Math.PI + i / 8 * Math.PI, d = (1 - impact) * 72; G.beginPath(); G.arc(cx + Math.cos(a) * d, bedY - 8 - Math.abs(Math.sin(a)) * d * .5, 3 * impact + 1, 0, 7); G.fill(); }
+    G.restore(); }
+
+  // ── finished pucks on the ejection tray ──
+  for (let i = 0; i < Math.min(g.pressIdx, g.presses); i++) { const px = cx - 40 + i * 26, py = bedY + 40;
+    const pug = G.createLinearGradient(0, py - 5, 0, py + 5); pug.addColorStop(0, shade(tint, 20)); pug.addColorStop(1, shade(tint, -34));
+    G.fillStyle = pug; G.beginPath(); G.ellipse(px, py, 11, 5, 0, 0, 7); G.fill();
+    G.strokeStyle = 'rgba(0,0,0,.35)'; G.lineWidth = 1; G.stroke(); G.fillStyle = 'rgba(255,255,255,.3)'; G.beginPath(); G.ellipse(px - 3, py - 1.5, 4, 1.6, 0, 0, 7); G.fill(); }
+
+  // ── recessed FORCE gauge (right) ──
+  const gx = cx + colX + 44, gy = crownY + 22, gh = bedY - gy, inB = Math.abs(g.force - g.target) < g.band;
+  drawLCD(gx - 8, gy - 32, 52, 22, `${Math.round(clamp(g.force, 0, 1.08) * 100)}`, inB ? '#4fe08a' : (g.force > g.target + g.band ? '#ff4a5b' : '#5fd0e0'), 'FORCE');
+  const gbg = G.createLinearGradient(gx, 0, gx + 18, 0); gbg.addColorStop(0, '#04080a'); gbg.addColorStop(1, '#0c1519');
+  roundRect(gx, gy, 18, gh, 5); G.fillStyle = gbg; G.fill(); G.strokeStyle = 'rgba(0,0,0,.6)'; G.lineWidth = 1.5; roundRect(gx, gy, 18, gh, 5); G.stroke();
+  const by0 = gy + gh * (1 - (g.target + g.band)), bbh = gh * g.band * 2;
+  G.fillStyle = 'rgba(79,224,138,.22)'; G.fillRect(gx + 1, by0, 16, bbh); G.strokeStyle = 'rgba(79,224,138,.8)'; G.setLineDash([3, 3]); G.strokeRect(gx + 1, by0, 16, bbh); G.setLineDash([]);
+  G.fillStyle = 'rgba(255,74,91,.18)'; G.fillRect(gx + 1, gy, 16, gh * 0.08);
+  const ny = gy + gh * (1 - clamp(g.force, 0, 1.08));
+  G.fillStyle = inB ? '#4fe08a' : g.force > g.target + g.band ? '#ff4a5b' : '#5fd0e0'; G.shadowColor = G.fillStyle; G.shadowBlur = inB ? 10 : 4; G.fillRect(gx - 4, ny - 2, 26, 4); G.shadowBlur = 0;
+
   hud(g, `PRESS ${Math.min(g.pressIdx + 1, g.presses)} / ${g.presses}`);
+  G.save(); textShadowOn(); G.fillStyle = brightCol(); G.font = 'bold 12px monospace'; G.textAlign = 'center';
+  G.fillText(g.rising ? 'RELEASE IN THE GREEN' : 'HOLD TO BUILD FORCE', cx, bedY + 66); G.restore();
 }
 function drawGasGame(g) {
-  const cx = W / 2, cy = H * 0.42, R = 100;
-  G.fillStyle = '#2a333a'; roundRect(cx - 40, cy + R - 12, 80, 130, 10); G.fill(); G.strokeStyle = 'rgba(200,230,235,.4)'; G.lineWidth = 2; roundRect(cx - 40, cy + R - 12, 80, 130, 10); G.stroke();
-  G.fillStyle = '#0c1114'; G.beginPath(); G.arc(cx, cy, R, 0, 7); G.fill();
-  G.strokeStyle = 'rgba(200,220,225,.45)'; G.lineWidth = 3; G.beginPath(); G.arc(cx, cy, R, 0, 7); G.stroke();
+  const cx = W / 2, cy = H * 0.40, R = 104;
+  // ── regulator body / pressure cylinder under the gauge ──
+  const tw = 122, ty = cy + R - 4;
+  const tg = G.createLinearGradient(cx - tw / 2, 0, cx + tw / 2, 0); tg.addColorStop(0, '#20272d'); tg.addColorStop(.5, '#5a656d'); tg.addColorStop(1, '#181d22');
+  G.fillStyle = tg; roundRect(cx - tw / 2, ty, tw, 146, 14); G.fill();
+  G.fillStyle = 'rgba(255,255,255,.12)'; G.fillRect(cx - tw / 2 + 10, ty + 8, 6, 126);
+  G.fillStyle = 'rgba(95,208,224,.5)'; G.fillRect(cx - tw / 2, ty + 66, tw, 16); G.fillStyle = 'rgba(0,0,0,.4)'; G.fillRect(cx - tw / 2, ty + 66, tw, 3);
+  // side valve wheel (spins a touch on each vent)
+  G.save(); G.translate(cx + tw / 2 + 6, ty + 40); G.rotate(g.vent * 1.4);
+  G.strokeStyle = 'rgba(180,200,210,.6)'; G.lineWidth = 3; G.beginPath(); G.arc(0, 0, 13, 0, 7); G.stroke();
+  for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2; G.beginPath(); G.moveTo(0, 0); G.lineTo(Math.cos(a) * 13, Math.sin(a) * 13); G.stroke(); }
+  G.fillStyle = '#2a333a'; G.beginPath(); G.arc(0, 0, 4, 0, 7); G.fill(); G.restore();
+
+  // ── gauge: steel bezel + dark dial face ──
+  G.fillStyle = '#0c1114'; G.beginPath(); G.arc(cx, cy, R + 8, 0, 7); G.fill();
+  const bez = G.createLinearGradient(cx - R, cy - R, cx + R, cy + R); bez.addColorStop(0, '#5a656d'); bez.addColorStop(.5, '#20272d'); bez.addColorStop(1, '#40474e');
+  G.strokeStyle = bez; G.lineWidth = 9; G.beginPath(); G.arc(cx, cy, R + 3, 0, 7); G.stroke();
+  const dial = G.createRadialGradient(cx - R * .3, cy - R * .3, 8, cx, cy, R); dial.addColorStop(0, '#12181c'); dial.addColorStop(1, '#070b0e');
+  G.fillStyle = dial; G.beginPath(); G.arc(cx, cy, R, 0, 7); G.fill();
+
   const a0 = Math.PI * 0.75, a1 = Math.PI * 2.25, span = a1 - a0;
-  G.strokeStyle = 'rgba(150,180,190,.4)'; G.lineWidth = 1; for (let i = 0; i <= 10; i++) { const a = a0 + span * (i / 10); G.beginPath(); G.moveTo(cx + Math.cos(a) * (R - 9), cy + Math.sin(a) * (R - 9)); G.lineTo(cx + Math.cos(a) * (R - 2), cy + Math.sin(a) * (R - 2)); G.stroke(); }
-  G.strokeStyle = 'rgba(79,224,138,.7)'; G.lineWidth = 6; G.beginPath(); G.arc(cx, cy, R - 15, a0 + span * (g.target - g.band), a0 + span * (g.target + g.band)); G.stroke();
-  G.strokeStyle = 'rgba(255,74,91,.7)'; G.lineWidth = 6; G.beginPath(); G.arc(cx, cy, R - 15, a0 + span * 0.9, a1); G.stroke();
-  const na = a0 + span * clamp(g.pressure, 0, 1), nc = Math.abs(g.pressure - g.target) <= g.band ? '#4fe08a' : (g.pressure > 0.9 ? '#ff4a5b' : '#5fd0e0');
-  G.strokeStyle = nc; G.lineWidth = 3; G.beginPath(); G.moveTo(cx, cy); G.lineTo(cx + Math.cos(na) * (R - 18), cy + Math.sin(na) * (R - 18)); G.stroke();
-  G.fillStyle = '#20262b'; G.beginPath(); G.arc(cx, cy, 7, 0, 7); G.fill();
-  if (g.vent > 0.05) { G.save(); G.globalCompositeOperation = 'lighter'; for (let i = 0; i < 3; i++) { G.globalAlpha = g.vent * (.35 - i * .08); G.fillStyle = 'rgba(200,230,240,1)'; G.beginPath(); G.arc(cx + 46 + i * 9, cy + R - 6 - i * 8, 3 + i * 2, 0, 7); G.fill(); } G.restore(); }
-  hud(g, `PRESSURE ${Math.round(g.pressure * 100)} · TAP to vent · ${Math.max(0, g.dur - g.t).toFixed(1)}s`);
+  G.lineCap = 'round';
+  G.strokeStyle = 'rgba(79,224,138,.75)'; G.lineWidth = 7; G.shadowColor = 'rgba(79,224,138,.6)'; G.shadowBlur = 8; G.beginPath(); G.arc(cx, cy, R - 16, a0 + span * (g.target - g.band), a0 + span * (g.target + g.band)); G.stroke(); G.shadowBlur = 0;
+  G.strokeStyle = 'rgba(255,74,91,.8)'; G.beginPath(); G.arc(cx, cy, R - 16, a0 + span * 0.9, a1); G.stroke();
+  G.lineCap = 'butt';
+  for (let i = 0; i <= 10; i++) { const a = a0 + span * (i / 10), big = i % 5 === 0; G.strokeStyle = big ? 'rgba(200,225,230,.7)' : 'rgba(140,165,175,.45)'; G.lineWidth = big ? 2 : 1;
+    G.beginPath(); G.moveTo(cx + Math.cos(a) * (R - 6), cy + Math.sin(a) * (R - 6)); G.lineTo(cx + Math.cos(a) * (R - (big ? 16 : 11)), cy + Math.sin(a) * (R - (big ? 16 : 11))); G.stroke(); }
+  // needle (+cast shadow) + hub
+  const na = a0 + span * clamp(g.pressure, 0, 1.15), inB = Math.abs(g.pressure - g.target) <= g.band, nc = inB ? '#4fe08a' : (g.pressure > 0.9 ? '#ff4a5b' : '#5fd0e0');
+  G.save(); G.translate(cx, cy);
+  G.strokeStyle = 'rgba(0,0,0,.5)'; G.lineWidth = 4; G.beginPath(); G.moveTo(-Math.cos(na) * 12 + 2, -Math.sin(na) * 12 + 2); G.lineTo(Math.cos(na) * (R - 20) + 2, Math.sin(na) * (R - 20) + 2); G.stroke();
+  G.strokeStyle = nc; G.shadowColor = nc; G.shadowBlur = inB ? 10 : 5; G.lineWidth = 3; G.beginPath(); G.moveTo(-Math.cos(na) * 12, -Math.sin(na) * 12); G.lineTo(Math.cos(na) * (R - 20), Math.sin(na) * (R - 20)); G.stroke(); G.shadowBlur = 0;
+  G.fillStyle = '#c9d4da'; G.beginPath(); G.arc(0, 0, 8, 0, 7); G.fill(); G.fillStyle = '#20262b'; G.beginPath(); G.arc(0, 0, 4, 0, 7); G.fill(); G.restore();
+  // glass dome glint
+  G.save(); G.globalCompositeOperation = 'lighter'; const gl = G.createLinearGradient(cx - R, cy - R, cx + R * .3, cy + R * .3); gl.addColorStop(0, 'rgba(255,255,255,.14)'); gl.addColorStop(.55, 'rgba(255,255,255,0)'); G.fillStyle = gl; G.beginPath(); G.arc(cx, cy, R, 0, 7); G.fill(); G.restore();
+
+  // ── venting vapour + overpressure warning ──
+  if (g.vent > 0.05) drawSteam(cx + tw / 2 - 4, ty + 74, g.vent * 1.1, g.t, '190,225,235');
+  if (g.pressure > 0.92) { G.save(); G.globalAlpha = .35 + .35 * Math.sin(g.t * 18); textShadowOn(); G.fillStyle = '#ff4a5b'; G.font = 'bold 12px monospace'; G.textAlign = 'center'; G.fillText('⚠ OVERPRESSURE', cx, ty + 160); G.restore(); }
+  hud(g, `PRESSURE ${Math.round(g.pressure * 100)} · TAP TO VENT · ${Math.max(0, g.dur - g.t).toFixed(1)}s`);
 }

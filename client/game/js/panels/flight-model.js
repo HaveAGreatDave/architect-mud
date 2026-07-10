@@ -22,6 +22,7 @@ const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
 const G_KT = 19.06;               // gravity as a knots/second airspeed change (9.81 m/s²)
 const wrap360 = (d) => ((d % 360) + 360) % 360;
+const GROUND_EFFECT_FT = 24;      // AGL band (~a wingspan) where the wing rides a lift cushion → float + flare to land
 
 // ── Per-airframe tuning ───────────────────────────────────────────────────────
 // The Mayfly is the Phase-1 reference: a light, forgiving fixed-wing. Heavier types
@@ -402,7 +403,19 @@ export function step(state, input, p, dt) {
   // p.ceiling as the air thins — you can't climb past it (descent is unaffected). Emergent, no cap.
   const ceil = p.ceiling || 20000;
   const climbCap = p.vsMax * clamp((ceil - s.altitude) / (ceil * 0.4), 0, 1);
-  const vsTarget = clamp((vLift / weight - 1) * p.vsGain, sinkFloor, climbCap) * (1 - handsOff * 0.8);
+  let vsTarget = clamp((vLift / weight - 1) * p.vsGain, sinkFloor, climbCap);
+  // Hands off the yoke the aircraft shouldn't BALLOON, so damp the climb side toward level — but
+  // it must still settle: an idle, level plane bleeds speed and sinks, and that descent side is
+  // left alone. This is what lets you bleed altitude at low power without shoving the nose down;
+  // the sink stays gentle (bounded to the climb cap) right up until a real, sustained stall.
+  if (vsTarget > 0) vsTarget *= (1 - handsOff * 0.8);
+  // Ground effect: within ~a wingspan of the ground the wing rides a cushion of trapped air —
+  // induced drag falls away and the sink softens, so the aircraft FLOATS over the runway. You
+  // FLARE (ease back to trade the float for a gentle touchdown) instead of flying it into the deck.
+  if (!s.onGround && vsTarget < 0 && s.altitude < GROUND_EFFECT_FT) {
+    const ge = 1 - s.altitude / GROUND_EFFECT_FT;   // 0 at the top of the band → 1 on the deck
+    vsTarget *= 1 - 0.68 * ge * ge;                 // up to ~⅔ of the sink absorbed by the cushion
+  }
   if (s.onGround && vsTarget <= 0) {
     s.vs = 0;                                 // sitting on the wheels — no lift to climb on
   } else {
@@ -412,7 +425,12 @@ export function step(state, input, p, dt) {
 
   // 8. Airspeed: thrust − drag − the gravity component of pitch (climbing bleeds
   //    speed) − ground friction while rolling.
-  const drag = (p.dragP + flaps * p.flapDrag * 0.0016) * s.airspeed * s.airspeed  // parasitic drag ∝ V²
+  // Nose-down at low power the airframe is clean + unloaded, so it sheds parasitic drag and a
+  // descent BUILDS speed (gravity beats drag) — a real glide/dive accelerates well past cruise.
+  // Fades in with how far the nose is below the horizon and only at low throttle, so powered
+  // level flight, cruise and top speed are all untouched; it's gone the moment you level out.
+  const diveClean = s.pitch < 0 ? clamp(-s.pitch / 20, 0, 1) * clamp(1 - s.rpm / 0.6, 0, 1) : 0;
+  const drag = (p.dragP + flaps * p.flapDrag * 0.0016) * s.airspeed * s.airspeed * (1 - 0.5 * diveClean)  // parasitic drag ∝ V² (shed in a clean dive)
              + s.aoa * s.aoa * 0.0016 * s.airspeed                               // profile-drag rise with a hard pull
              + (p.glideDrag || 0) * Math.max(0, 1 - s.rpm / 0.4) * (weight * weight) / (s.airspeed * s.airspeed + 40);   // DEAD-STICK induced drag (∝ 1/V²): engages only as the powerplant winds down toward idle (rpm below ~0.4), full at a stopped/windmilling engine. It penalises the SLOW end of a glide, so best-glide sits at a sensible speed with a realistic ratio instead of floating forever just above the stall — and because it's gated to low rpm it leaves ALL powered cruise/climb untouched. Per-type; unset ⇒ 0 (legacy floaty glide).
   const grav = G_KT * Math.sin(s.pitch * D2R);

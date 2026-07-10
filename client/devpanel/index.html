@@ -77,9 +77,13 @@
     <div class="nav-item" data-panel="furniture" onclick="showPanel('furniture')">🪑 Furniture</div>
     <div class="nav-item" data-panel="recipes" onclick="showPanel('recipes')">⚗ Recipes</div>
     <div class="nav-item" data-panel="scavenging" onclick="showPanel('scavenging')">🔦 Scavenging</div>
-    <div class="nav-item" data-panel="scripts" onclick="showPanel('scripts')">⎇ Scripts</div>
-    <div class="nav-item" data-panel="quests" onclick="showPanel('quests')">❗ Quests</div>
     <div class="nav-item" data-panel="vine" onclick="showPanel('vine')">🌿 VINE Suite</div>
+    <div class="nav-children" id="nav-vine-children">
+      <div class="nav-item nav-child" data-panel="scripts" onclick="showPanel('scripts')">⎇ Scripts</div>
+      <div class="nav-item nav-child" data-panel="quests" onclick="showPanel('quests')">❗ Quests</div>
+      <div class="nav-item nav-child" data-panel="vine-dialogue" onclick="vsNavFamily('dialogue')">💬 Dialogue</div>
+      <div class="nav-item nav-child" data-panel="vine-ai" onclick="vsNavFamily('ai')">🧠 AI</div>
+    </div>
     <div class="nav-item" data-panel="mutations" onclick="showPanel('mutations')">☢ Mutations</div>
     <div class="nav-item" data-panel="drugs" onclick="showPanel('drugs')">💊 Drugs</div>
     <div class="nav-item" data-panel="sounds" onclick="showPanel('sounds')">🔊 SoundScript</div>
