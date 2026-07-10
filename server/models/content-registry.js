@@ -179,6 +179,7 @@ export const REGISTRY = [
   { table: 'player_flags', class: 'player' },
   { table: 'player_quests', class: 'player' },
   { table: 'bank_transactions', class: 'player' },   // Tablet OS Bank app deposit ledger
+  { table: 'economy_ledger', class: 'player' },      // economy-ledger plugin — per-player credit mutations
   { table: 'insurance_policies', class: 'player' },  // Halcyon Assurance — bought policies
   { table: 'insurance_claims', class: 'player' },    // …and filed claims
   { table: 'org_ranks', class: 'player' },           // player-crew org structure
@@ -194,6 +195,7 @@ export const REGISTRY = [
   { table: 'weather_forecast', class: 'runtime' },
   { table: 'lighting_states', class: 'runtime' },    // fully derived from furniture
   { table: 'zone_exit_overrides', class: 'runtime' }, // play-time exit wiring merged over authored zones.exits at load
+  { table: 'economy_snapshots', class: 'runtime' },  // economy-ledger plugin — daily circulation totals
   { table: 'zone_control', class: 'runtime' },
   { table: 'org_assets', class: 'runtime' },          // player-crew territory assets (extractor/turret)
   { table: 'scavenging_zone_stock', class: 'runtime' },

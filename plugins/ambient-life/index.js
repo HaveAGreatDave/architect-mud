@@ -220,7 +220,7 @@ async function cmdBuskerTip(player, broadcast) {
   const opp = liveOpportunity(player.current_zone, 'tip');
   if (!opp) return { type: 'error', message: `There's no one here worth tipping.` };
   if (opp.actedBy.has(player.id)) return { type: 'error', message: `You've already tipped the busker.` };
-  if (!(await adjustCredits(player, -TIP_PRICE))) return { type: 'error', message: `You dig for change and come up empty.` };
+  if (!(await adjustCredits(player, -TIP_PRICE, undefined, 'ambient:tip'))) return { type: 'error', message: `You dig for change and come up empty.` };
   opp.actedBy.add(player.id);
   player.sanity = Math.min(player.sanity_max ?? 100, (player.sanity ?? 0) + TIP_SANITY);
   await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]).catch(() => {});
@@ -235,7 +235,7 @@ async function cmdBuskerTip(player, broadcast) {
 async function cmdOrder(player, broadcast) {
   const opp = liveOpportunity(player.current_zone, 'order');
   if (!opp) return { type: 'error', message: `There's no cart here taking orders.` };
-  if (!(await adjustCredits(player, -ORDER_PRICE))) return { type: 'error', message: `You're a few credits short.` };
+  if (!(await adjustCredits(player, -ORDER_PRICE, undefined, 'ambient:order'))) return { type: 'error', message: `You're a few credits short.` };
   player.hunger = Math.min(100, (player.hunger ?? 0) + ORDER_HUNGER);
   player.digestive_load = Math.min(120, (player.digestive_load ?? 0) + foodLoad(ORDER_HUNGER));
   await query('UPDATE players SET hunger=$1, digestive_load=$2 WHERE id=$3', [player.hunger, player.digestive_load, player.id]).catch(() => {});

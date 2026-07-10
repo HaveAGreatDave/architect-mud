@@ -80,7 +80,7 @@ async function placeFurniture(item, base, zoneId, ownerId) {
 
 // Charge the player, place the piece, credit the vendor.
 async function finalizePurchase(player, npc, item, price, base, aptZone, aptName, buildingName) {
-  if (!await adjustCredits(player, -price)) {
+  if (!await adjustCredits(player, -price, undefined, 'furniture:buy')) {
     return { type: 'error', message: `You can't afford that. Need ${price} credits, have ${player.credits || 0}.\n${vendorBuyReaction(npc, 'poor')}` };
   }
   await placeFurniture(item, base, aptZone, player.id);

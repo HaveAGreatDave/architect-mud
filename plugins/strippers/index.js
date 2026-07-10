@@ -134,7 +134,7 @@ async function cmdTip(args, raw, player, broadcast) {
   if (r.type === 'ambiguous') return { type: 'error', message: 'Which dancer? Be more specific.' };
   const npc = r.candidate;
 
-  if (!(await adjustCredits(player, -amount))) {
+  if (!(await adjustCredits(player, -amount, undefined, 'strippers:tip'))) {
     return { type: 'error', message: "You can't cover that. Check your credits." };
   }
 

@@ -68,7 +68,7 @@ async function placeOrder(player, itemId, qty, vendorId) {
   const before = player.credits;
   try {
     await withTransaction(async (q) => {
-      if (!await adjustCredits(player, -cost, q)) throw new Error('broke');
+      if (!await adjustCredits(player, -cost, q, 'smuggle:order')) throw new Error('broke');
       await q(
         `INSERT INTO smuggle_orders (id, player_id, item_id, item_name, qty, drop_zone, deliver_at, status, vendor_id)
          VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8)`,

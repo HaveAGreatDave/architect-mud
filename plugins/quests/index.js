@@ -420,7 +420,7 @@ registerAction({
 
     // Grant rewards through the canonical Action/service paths.
     const rewards = quest.rewards || {};
-    if (rewards.credits) await adjustCredits(actor, rewards.credits);
+    if (rewards.credits) await adjustCredits(actor, rewards.credits, undefined, 'quest:reward');
     for (const it of (rewards.items || [])) {
       await dispatchAction({
         type: 'GRANT_ITEM',

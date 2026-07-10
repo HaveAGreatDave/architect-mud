@@ -69,8 +69,8 @@ async function cmdAcceptPay(args, raw, player) {
   let failed = null;
   try {
     await withTransaction(async (tx) => {
-      if (!(await adjustCredits(payer, -offer.amount, tx))) { failed = 'funds'; throw new Error('rollback'); }
-      await adjustCredits(player, offer.amount, tx);
+      if (!(await adjustCredits(payer, -offer.amount, tx, 'pay:send'))) { failed = 'funds'; throw new Error('rollback'); }
+      await adjustCredits(player, offer.amount, tx, 'pay:receive');
     });
   } catch {
     if (failed === 'funds') return { type: 'error', message: `${payer.handle} can't cover that anymore.` };

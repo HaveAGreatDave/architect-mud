@@ -144,8 +144,8 @@ async function cmdTakeWager(args, raw, player, broadcast) {
   let failed = null;
   try {
     await withTransaction(async (tx) => {
-      if (!(await adjustCredits(proposer, -offer.amount, tx))) { failed = proposer.handle; throw new Error('rollback'); }
-      if (!(await adjustCredits(player, -offer.amount, tx))) { failed = player.handle; throw new Error('rollback'); }
+      if (!(await adjustCredits(proposer, -offer.amount, tx, 'sportsbet:stake'))) { failed = proposer.handle; throw new Error('rollback'); }
+      if (!(await adjustCredits(player, -offer.amount, tx, 'sportsbet:stake'))) { failed = player.handle; throw new Error('rollback'); }
     });
   } catch {
     return { type: 'error', message: failed ? `${failed} can't cover the stake — the bet's off.` : 'The wager glitched — nothing moved.' };
@@ -166,8 +166,8 @@ async function cmdTakeWager(args, raw, player, broadcast) {
     );
   } catch (e) {
     // Insert failed — unwind the escrow so nobody's stake vanishes.
-    await adjustCredits(proposer, offer.amount).catch(() => {});
-    await adjustCredits(player, offer.amount).catch(() => {});
+    await adjustCredits(proposer, offer.amount, undefined, 'sportsbet:payout').catch(() => {});
+    await adjustCredits(player, offer.amount, undefined, 'sportsbet:payout').catch(() => {});
     console.error('[sportsbet] lock error:', e.message);
     return { type: 'error', message: 'The wager desk glitched — your stakes are refunded, nothing locked.' };
   }
@@ -213,7 +213,7 @@ async function settleBet(row) {
   // pure DB write (they see the balance on return).
   const credit = async (pid, amount) => {
     const live = getLivePlayer(pid);
-    await adjustCredits(live || { id: pid, credits: 0 }, amount).catch(() => {});
+    await adjustCredits(live || { id: pid, credits: 0 }, amount, undefined, 'sportsbet:payout').catch(() => {});
     return live;
   };
   if (winnerId) {

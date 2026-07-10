@@ -1757,6 +1757,35 @@ export const SCHEMA_SQL = `
     PRIMARY KEY (zone_id, direction, target_zone)
   );
 
+  -- Economy ledger (economy-ledger plugin): append-only record of every credit
+  -- mutation that flows through economy.js adjustCredits, keyed by a short
+  -- reason label. Raw-SQL credit writes that bypass economy.js are NOT here —
+  -- they surface as "unattributed drift" between daily snapshots and the
+  -- ledger sum in the economy report. Runtime data, never exported as content.
+  CREATE TABLE IF NOT EXISTS economy_ledger (
+    id BIGSERIAL PRIMARY KEY,
+    player_id TEXT NOT NULL,
+    delta INTEGER NOT NULL,
+    reason TEXT,
+    credits_after INTEGER,
+    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+  CREATE INDEX IF NOT EXISTS idx_economy_ledger_created ON economy_ledger(created_at);
+  CREATE INDEX IF NOT EXISTS idx_economy_ledger_reason ON economy_ledger(reason);
+
+  -- Daily circulation snapshots (taken on environment.dayRollover): totals of
+  -- every credit pool. Snapshot deltas minus ledger sums = unattributed flows.
+  CREATE TABLE IF NOT EXISTS economy_snapshots (
+    id BIGSERIAL PRIMARY KEY,
+    game_date TEXT,
+    player_credits BIGINT NOT NULL,
+    player_bank BIGINT NOT NULL,
+    org_treasury BIGINT NOT NULL,
+    vendor_credits BIGINT NOT NULL,
+    atm_cash BIGINT NOT NULL,
+    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
   -- Hot-path indexes: per-zone entity fetches (room render), container lookups,
   -- and jsonb tag gates. Kept at the end of the script — some indexed columns
   -- (items.tags, doors.tags) are added by ALTERs above, so a fresh DB must

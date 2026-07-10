@@ -344,7 +344,7 @@ export async function cmdRent(player) {
 	}
 
 	const cost = apt?.rent_cost ?? 100;
-	if (!(await adjustCredits(player, -cost)))
+	if (!(await adjustCredits(player, -cost, undefined, 'apartment:rent-claim')))
 		return {
 			type: "error",
 			message: `You need ${cost}c to claim this unit. You have ${player.credits}c.`,
@@ -493,7 +493,7 @@ export async function cmdUpgradeLock(player) {
 				"The lock is already as good as anyone around here can build.",
 		};
 
-	if (!(await adjustCredits(player, -UPGRADE_COST)))
+	if (!(await adjustCredits(player, -UPGRADE_COST, undefined, 'apartment:lock')))
 		return {
 			type: "error",
 			message: `Upgrading the lock costs ${UPGRADE_COST}c. You have ${player.credits}c.`,
