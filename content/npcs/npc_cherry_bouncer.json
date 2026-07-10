@@ -1,0 +1,158 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "e_ear": {
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "presses two fingers to his earpiece, listens to nothing, and nods once."
+        },
+        "type": "action"
+      },
+      "e_fold": {
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "shifts his weight, refolds his arms, and doesn't otherwise move."
+        },
+        "type": "action"
+      },
+      "e_scan": {
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "sweeps the room once with a slow, flat stare, then settles back."
+        },
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "pick": {
+        "branch_0": "loop",
+        "branch_1": "e_scan",
+        "branch_2": "e_fold",
+        "branch_3": "e_ear",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "pick",
+        "seconds": 70,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "A wall of a man in a black bomber jacket that gave up trying to contain his shoulders. A coiled earpiece wire disappears into his collar; steel-toed boots are planted like he was poured into the floor. He isn't looking at anything in particular, which somehow means he's looking at everything — and his hands, big and still at his sides, have obviously done this work a long time.",
+  "dialogue_tree": {
+    "root": {
+      "options": [
+        {
+          "next": "rules",
+          "text": "\"What're the rules in here?\""
+        },
+        {
+          "next": "vip",
+          "text": "\"What goes on in the VIP room?\""
+        },
+        {
+          "next": "vip",
+          "text": "\"How do I get into VIP?\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "text": "\"Nothing. Just looking.\""
+        }
+      ],
+      "text": "A slab of a man parked at the edge of the light, arms folded, earpiece curling down behind a collar built like a doorframe. He watches the room the way a camera does — no heat, no hurry, everything. When you slow down his eyes find you and stay there. \"Something you need.\" Not really a question."
+    },
+    "rules": {
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "text": "\"Crystal.\""
+        },
+        {
+          "next": "vip",
+          "text": "\"And VIP?\""
+        }
+      ],
+      "text": "\"One rule.\" He says it like he's said it ten thousand times, because he has. \"You don't touch the dancers. You look, you tip, you keep your hands to yourself. That's the whole list.\" A beat. \"You put a hand on one of my girls out here, I put a hand on you. Once to warn you. After that you're on the pavement. We clear?\""
+    },
+    "vip": {
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "text": "\"Fine, fine. No touching.\""
+        },
+        {
+          "next": "rules",
+          "text": "\"What are the rules again?\""
+        }
+      ],
+      "text": "The folded arms don't move. \"What happens behind that door isn't mine to talk about, and it isn't yours to ask me.\" He nods once at the dancers working the rail. \"You want the red room, that's between you and them — spend enough and they'll tell you themselves. Out here on my floor?\" The eyes flatten. \"Hands off. That part I'll talk about all night.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "bouncer": true,
+    "bouncer_eject_zone": "zone_mq_cathode",
+    "clothing_layers": [
+      "a black bomber jacket stretched drum-tight over his shoulders",
+      "a coiled earpiece with a curl of wire down the collar",
+      "scuffed steel-toed boots"
+    ],
+    "mis_willing": false,
+    "personality": "guard"
+  },
+  "home_activities": [],
+  "home_zone": "zone_mq_cherry_floor",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_cherry_bouncer",
+  "name": "Deacon Voss",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}
