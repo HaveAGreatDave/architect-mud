@@ -77,9 +77,20 @@ body{ background:var(--bg); color:var(--ink); font-family:var(--font); overflow:
 <!-- appendMsg (imported transitively by the cockpit's module graph) writes here; kept hidden. -->
 <div id="output"></div>
 
+<!-- The cockpit's whole soundscape (engine-audio.js: engine synth, slipstream, ground roll,
+     weather bed, one-shot cues) is guarded on window.AudioEngine / window.SFXCatalog — plain
+     globals the main client loads before its modules. Load them here too, or the open test
+     flies silent. audio-engine.js installs its own touch/click unlock; keydown is added below. -->
+<script src="/shared/audio-engine.js"></script>
+<script src="/shared/sfx-catalog.js"></script>
+
 <script type="module">
 import { openFlightSim, closeFlightSim, isFlightSimActive, flightSimContext, flightSimSnapshot } from './js/panels/cockpit.js';
 import { TYPES } from './js/panels/flight-model.js';
+
+// Autoplay unlock: the audio engine self-unlocks on touch/click, but the sim is flyable purely
+// from the keyboard — so resume the context on the first keypress too (one-shot).
+window.addEventListener('keydown', () => window.AudioEngine?.init?.(), { once: true });
 
 // ── Fleet (fixed-wing only — the Dragonfly is a helicopter needing collective +
 //    pedals, a different control set; left out of this simple open test). ─────────
