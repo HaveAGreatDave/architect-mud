@@ -26,7 +26,7 @@ import { openCircuitHack } from './panels/circuithack.js';
 import { openHololock } from './panels/hololock.js';
 import { openFishing } from './panels/fishing.js';
 import { abortMacros } from './panels/smartbar-macros.js';
-import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAirHit, flightSimAaTracer, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
+import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAirHit, flightSimAaTracer, flightSimAirThreat, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
@@ -622,6 +622,7 @@ const handlers = {
   flight_ctx: (msg) => { flightSimContext(msg); },
   flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)
   air_hit: (msg) => { flightSimAirHit(msg); },             // air-to-air gun hit feedback (Phase B)
+  air_threat: (msg) => { flightSimAirThreat(msg); },       // RWR: missile lock/launch warnings + flare confirm (Phase C)
   aa_tracer: (msg) => { flightSimAaTracer(msg); },         // incoming ground-AA tracer streak
   flight_takeoff: (msg) => {
     openTakeoff({

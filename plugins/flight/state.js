@@ -48,6 +48,26 @@ export const GUN_CONE_GATE = 24;     // server bearing gate (deg off the shooter
 export const GUN_DMG = 0.16;         // hull fraction per solid burst at perfect aim
 export const GUN_COOLDOWN_MS = 550;  // min ms between bursts (server-enforced)
 
+// ── Air-to-air missiles (Phase C) ─────────────────────────────────────────────
+// Lockable seekers for beyond-guns kills, flares as the counter. The client owns the
+// lock *cycle* feel (hold the bogey in the seeker cone LOCK_TIME_MS to acquire); the
+// server validates the lock (`airlock`) and owns the entire missile outcome — launch,
+// flight time, flare/jink defeat rolls, damage. Ammo = the airframe's hardpoints,
+// spent per sortie and rearmed free on parking at a field (guns stay infinite).
+export const MISSILE_RANGE = 8;           // client seeker range (tiles)
+export const MISSILE_RANGE_GATE = 9.5;    // server range gate (lenient for lag)
+export const MISSILE_CONE = 25;           // client seeker half-cone (deg off the nose)
+export const LOCK_TIME_MS = 2500;         // client hold-to-lock time
+export const MISSILE_FLIGHT_MS = 4000;    // launch → impact resolution window
+export const MISSILE_PK = 0.7;            // base kill probability of a clean shot
+export const MISSILE_DMG = 0.5;           // hull fraction on impact (two kill a healthy craft)
+export const MISSILE_COOLDOWN_MS = 1500;  // min ms between launches (server-enforced)
+export const FLARE_DEFEAT = 0.6;          // chance flares decoy an inbound seeker
+export const FLARE_WINDOW_MS = 5000;      // how long a flare burst covers you
+export const FLARE_COOLDOWN_MS = 8000;    // launcher recycle time
+// Missiles remaining on the rails (in-memory per sortie; null = full rails).
+export function mslAmmo(live) { return live.msl ?? (live.type?.hardpoints || 0); }
+
 // ── Continuous-flight seam (Phase 1 slice) ────────────────────────────────────
 // The overhaul's continuous energy model runs client-side; the server reconciles
 // and owns the consequences. It's gated to ONE airframe (the Mayfly) for the slice
@@ -608,6 +628,7 @@ export function contextPayload(live) {
     warn: a.fuel <= 0 ? 'STARVATION' : (a.fuel <= cap * BINGO_FRAC ? 'BINGO' : null),
     aa: live.aaThreat || null,                  // AA engagement-envelope telegraph (set by combat.tickCombat)
     hull: Math.max(0, Math.round((1 - (a.damage || 0)) * 100)),   // for the cockpit hull readout / battle damage
+    msl: mslAmmo(live),                         // missiles left on the rails (ammo pips)
   };
 }
 // Who's in each seat, padded to the airframe's seat count: index 0 = the pilot, the rest
@@ -699,6 +720,10 @@ export async function parkAt(live, zoneId) {
   live.hazard = null;
   live.aaThreat = null;
   live.aaWarned = false;
+  live.msl = null;             // rearm the rails at the ramp
+  live.lockTargetId = null;    // a parked craft holds no seeker lock
+  live.inboundMsl = null;      // anything chasing it lost the plot on touchdown
+  live.flaredUntil = 0;
   live.runup = false;
   live.engines = null;
   live.coldStart = 0;

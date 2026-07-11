@@ -3,9 +3,10 @@
 Blueprint for player-vs-player air combat on the continuous flight sim. Companion to
 [systems-flight.md](systems-flight.md) (the as-built flight system).
 
-> **Status: Phase A (contacts & netcode) BUILT** 2026-07-05 — regress 322/322, client modules
-> parse clean, **browser-unverified** (Chrome ext down). Server restart + client hard-refresh to
-> go live. Phases B–D (guns / missiles / polish) still design. See the Phasing section.
+> **Status: Phases A–C BUILT** (A contacts 2026-07-05 · B guns 2026-07-05 · C missiles
+> 2026-07-11) — regress green, client modules parse clean, **browser-unverified** (standing
+> caveat: needs a live tuning pass). Server restart + client hard-refresh to go live. Phase D
+> (polish) still design. See the Phasing section.
 
 ## Locked design decisions
 
@@ -191,8 +192,22 @@ under lag. The generous gate + guaranteed defender roll keep it from feeling bro
   attribution + feed. Server-enforced `GUN_COOLDOWN_MS`. Feedback: reticle flips amber→green lock,
   forward tracers + muzzle flash, `air_hit` toast + red battle-damage flash, live HULL readout
   (hull now in `flight_ctx`), gun/hit audio. regress 342/342 (incl. an `airfire` gate test).
-- **Phase C — Missiles:** lock cycle, `airlock`/`airfire missile`, server missile tick, `flares`,
-  RWR, ammo pips.
+- **Phase C — Missiles: ✅ BUILT** (2026-07-11). Client: **MSL weapon select** (WPN button /
+  `1`·`2` keys) with per-weapon ammo pips (`▲` missiles remaining); holding the designated bogey
+  inside the seeker envelope (`MSL_RANGE`=8 / `MSL_CONE`=25°) builds a lock over `MSL_LOCK_MS`
+  (reticle pulses amber → green + lock tone) → `airlock <id>`; trigger = **one launch per
+  squeeze** (`airfire missile <id>`, launch whoosh, `MSL_FIRE_MS` client gap); `X` / FLARE button
+  = `flares`. RWR consumes `air_threat` pushes: lock warning (deedle), **MISSILE INBOUND** warble
+  + toast, flare confirm FX, clear/lockbreak. Server (combat.js): `cmdAirLock`/`cmdAirUnlock`
+  (gate-validated at `MISSILE_RANGE_GATE`, target RWR warned — a lock is never silent),
+  `fireMissile` (needs the recorded lock + a rail; ammo = hardpoints per sortie via `mslAmmo`,
+  rearmed on `parkAt`, count rides `flight_ctx.msl`), and `tickMissiles` on the combat tick —
+  lock maintenance (drops on range/land/death) + fully server-authoritative resolution after
+  `MISSILE_FLIGHT_MS`: flares popped mid-flight defeat at `FLARE_DEFEAT`, active `evade` ×0.55
+  and a defender piloting notch ×0.7 shave `MISSILE_PK`, gunship armour cuts `MISSILE_DMG`;
+  hull-out → `crash(…, byPlayer)` kill attribution. `airlock`/`airunlock`/`flares` registered in
+  plugin.json. regress 799/800 (the 1 fail is a pre-existing elevator/content issue, present
+  without these changes). Browser-unverified — needs the standing live tuning pass.
 - **Phase D — Polish:** kill feed, `piloting` XP tuning, in-cockpit ⚙ balance sliders, and the
   *optional* wanted/interceptor heat for kills over civil airspace (hooks the existing
   `WANTED_RAISE` + `airspace_restricted` scaffolding).

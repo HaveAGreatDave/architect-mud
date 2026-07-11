@@ -13,7 +13,7 @@
 
 import { setAreaPane } from '../render.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
-import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn, tracerFx, hitFx } from './engine-audio.js';
+import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn, tracerFx, hitFx, lockTone, mslWarble, missileFx, flareFx } from './engine-audio.js';
 import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingHeightZ, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
@@ -865,6 +865,10 @@ const FAST_SYNC_RANGE = 5, CONTACT_DR_MAX = 2.0;
 // the alt→world-z scale (mirrors windshield CONTACT_ALT_K) for the vertical aim term, and
 // the burst cadence while the trigger's held (the server enforces its own harder cap).
 const GUN_RANGE = 2.2, GUN_CONE = 11, GUN_ALT_K = 1 / 600, GUN_FIRE_MS = 130;
+// Air-to-air missiles (Phase C): the seeker envelope (range tiles + half-cone deg off the
+// nose), the hold-to-lock time, and the min gap between launches. Mirror the server's
+// MISSILE_* tunables in state.js — the server gate is deliberately a shade more lenient.
+const MSL_RANGE = 8, MSL_CONE = 25, MSL_LOCK_MS = 2500, MSL_FIRE_MS = 1600;
 // ── Building collision (CFIT) ─────────────────────────────────────────────────
 // The windshield draws one deterministic building per built-up tile (buildingHeightZ in
 // windshield.js is the shared source of truth); the sim collision-checks that SAME geometry
@@ -1055,6 +1059,9 @@ function ensureFlightSimStyles() {
     /* firing solution up → the pipper flips from amber to a green lock */
     .fsim-reticle.lock svg{ filter:drop-shadow(0 0 5px rgba(80,255,140,.9)) hue-rotate(96deg) saturate(1.5); }
     .fsim-reticle.lock{ opacity:1; }
+    /* missile seeker building a lock — the reticle pulses amber until the tone goes green */
+    .fsim-reticle.seek{ opacity:1; animation:fsimSeek .5s ease-in-out infinite; }
+    @keyframes fsimSeek{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.18); } }
     .fsim-reticle svg{ width:100%; height:100%; filter:drop-shadow(0 0 3px rgba(255,106,58,.6)); }
     /* glass panel row: PFD | MFD (Diamond DA42-inspired) */
     .fsim-glass{ display:flex; gap:6px; height:clamp(150px,23vh,212px); }
@@ -1600,13 +1607,15 @@ export function openFlightSim(opts = {}) {
 
     disp: { ias: 0, alt: 0, vs: 0, hdg: s.heading, rpm: 0, pitch: 0, bank: 0 },
     contacts: [],   // air-to-air traffic, refreshed by flight_contacts
-    gunSolution: null, firing: false, hull: 100, hitFlashT: 0,   // Phase B: guns + battle damage
+    gunSolution: null, firing: false, fireHeld: false, hull: 100, hitFlashT: 0,   // Phase B: guns + battle damage
+    // Phase C: weapon select (guns ↔ missiles), the seeker lock cycle, rail count, RWR state.
+    weapon: 'guns', msl: opts.hardpoints || 0, seekId: null, lockProg: 0, lockId: null, mslWarnT: 0,
     listeners: [],
   };
   _fsim = F;
 
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
-    <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span></div><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div></div>
+    <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div></div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -1756,7 +1765,8 @@ export function openFlightSim(opts = {}) {
 
   // ── Keyboard flight controls ────────────────────────────────────────────────
   // A/Z throttle · Q/E/S hold-to-look (release → forward) · W forward · R/F flaps ·
-  // G gear (if retractable) · J jettison cargo. Ignored while typing in a text field.
+  // G gear (if retractable) · J jettison cargo · SPACE fire (hold) · 1/2 weapon select ·
+  // X flares. Ignored while typing in a text field.
   const VIEW_TAG = { '-90': '◀ LEFT VIEW', '90': 'RIGHT VIEW ▶', '180': '▲ REAR VIEW' };
   const viewTagEl = q('#fsim-viewtag');
   const setView = (yaw) => {
@@ -1791,7 +1801,8 @@ export function openFlightSim(opts = {}) {
     fsimToast(`◎ ${(list[i].name || 'FIELD').toUpperCase()} · ${list[i].dist}mi`);
   };
   let setExternal = () => {};   // assigned when the ◎ EXT button is wired below; V key + button share it
-  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'r', 'f', 'g', 'j', 'v', ' ', '[', ']']);
+  let setWeapon = () => {};     // assigned in the weapons wiring below; 1/2 keys + WPN button share it
+  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'r', 'f', 'g', 'j', 'v', 'x', '1', '2', ' ', '[', ']']);
   const onKeyDown = (e) => {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
@@ -1812,6 +1823,9 @@ export function openFlightSim(opts = {}) {
       case 'g': if (!e.repeat) toggleGear(); break;
       case 'v': if (!e.repeat) setExternal(!F.external); break;
       case 'j': if (!e.repeat) jettison(); break;
+      case 'x': if (!e.repeat && F.reportedAirborne) sendCmdSilent('flares'); break;   // countermeasures (server confirms via air_threat)
+      case '1': if (!e.repeat) setWeapon('guns'); break;   // weapon select
+      case '2': if (!e.repeat) setWeapon('msl'); break;
       case '[': if (!e.repeat) cycleApTarget(-1); break;   // cycle target airport
       case ']': if (!e.repeat) cycleApTarget(1); break;
       case ' ': F.firing = true; break;   // hold to fire guns (frame loop squirts bursts)
@@ -1858,9 +1872,16 @@ export function openFlightSim(opts = {}) {
   // server against an AA site in range). Space also fires. Reticle glows when armed.
   const weapEl = q('#fsim-weap'), reticleEl = q('#fsim-reticle');
   const armBtn = q('#fsim-arm'), fireBtn = q('#fsim-fire'), pipsEl = q('#fsim-weap-pips');
+  const wpnBtn = q('#fsim-wpn'), flareBtn = q('#fsim-flarebtn');
+  // Ammo pips: hardpoint diamonds with guns selected, missiles-remaining darts with MSL.
+  const paintPips = () => {
+    if (!pipsEl) return;
+    pipsEl.textContent = F.weapon === 'msl' ? (F.msl > 0 ? '▲'.repeat(F.msl) : '—') : '◆'.repeat(F.hardpoints);
+  };
+  F.paintPips = paintPips;   // flight_ctx refreshes the rail count → repaint
   if (F.hardpoints > 0) {
     if (weapEl) weapEl.classList.add('show');
-    if (pipsEl) pipsEl.textContent = '◆'.repeat(F.hardpoints);
+    paintPips();
     const setArmed = (on) => {
       F.armed = on;
       if (armBtn) { armBtn.textContent = on ? '● ARMED' : '◈ SAFE'; armBtn.classList.toggle('hot', on); }
@@ -1868,6 +1889,16 @@ export function openFlightSim(opts = {}) {
       if (reticleEl) reticleEl.classList.toggle('on', on);
     };
     add(armBtn, 'click', () => { setArmed(!F.armed); sendCmdSilent(F.armed ? 'arm' : 'safe'); });
+    // Weapon select (guns ↔ missiles) — the WPN button and the 1/2 keys share this.
+    setWeapon = (w) => {
+      if (w === F.weapon) return;
+      F.weapon = w;
+      if (wpnBtn) { wpnBtn.textContent = w === 'msl' ? 'MSL' : 'GUN'; wpnBtn.classList.toggle('hot', w === 'msl'); }
+      paintPips();
+      fsimToast(w === 'msl' ? `▲ MISSILES · ${F.msl} ON THE RAILS` : '◆ GUNS');
+    };
+    add(wpnBtn, 'click', () => setWeapon(F.weapon === 'msl' ? 'guns' : 'msl'));
+    add(flareBtn, 'click', () => { if (F.reportedAirborne) sendCmdSilent('flares'); });
     // FIRE is a HELD trigger (touch/mouse): the frame loop squirts bursts while down.
     const holdFire = (on) => (e) => { if (e) e.preventDefault(); F.firing = on; };
     if (fireBtn) {
@@ -2354,7 +2385,7 @@ function fsimFrame(now) {
   // aimQuality 0..1 falls off with the total cone angle; the server takes it on faith
   // within its own lenient gate and rolls the defender's jink against it.
   F.gunSolution = null;
-  if (designated && F.hardpoints > 0 && F.armed) {
+  if (designated && F.hardpoints > 0 && F.armed && F.weapon !== 'msl') {
     const elev = Math.atan2((designated.altDiff || 0) * GUN_ALT_K, Math.max(0.1, designated.rng)) * 180 / Math.PI;
     const totalOff = Math.hypot(designated.bore, elev - (s.pitch || 0));
     const inRange = designated.rng <= GUN_RANGE;
@@ -2363,17 +2394,56 @@ function fsimFrame(now) {
   }
   const solReady = !!(F.gunSolution && F.gunSolution.ready);
 
-  // Trigger held → squirt cannon bursts at the client cadence (the server enforces its
-  // own harder cap + validates the shot). With a solution it's air-to-air; without one,
-  // an armed craft still falls back to the ground-AA strafe pass.
-  if (F.firing && F.armed && F.reportedAirborne && (!F.lastFireMs || now - F.lastFireMs >= GUN_FIRE_MS)) {
-    F.lastFireMs = now;
-    if (solReady) { sendCmdSilent(`airfire guns ${F.gunSolution.id} ${F.gunSolution.aimQuality.toFixed(2)}`); F.muzzleT = now; try { gunFx(); } catch {} }
-    else if (F.hardpoints > 0) { sendCmdSilent('fire'); try { gunFx(); } catch {} }
+  // Missile seeker (Phase C): with MSL selected, holding the designated bogey inside the
+  // seeker envelope builds a lock over MSL_LOCK_MS; full bar → ask the server (`airlock`),
+  // which owns the lock and warns the target's RWR. Wander out and the lock decays off.
+  if (F.weapon === 'msl' && F.armed && F.hardpoints > 0 && designated && F.reportedAirborne) {
+    if (F.seekId !== designated.id) { F.seekId = designated.id; F.lockProg = 0; }   // new bogey → start over
+    const inEnv = designated.rng <= MSL_RANGE && designated.bore <= MSL_CONE;
+    if (inEnv) {
+      F.lockProg = Math.min(1, F.lockProg + dt * 1000 / MSL_LOCK_MS);
+      if (F.lockProg >= 1 && F.lockId !== designated.id) {
+        F.lockId = designated.id;
+        sendCmdSilent(`airlock ${designated.id}`);
+        try { lockTone(); } catch {}
+        if (F.toast) F.toast('◉ LOCK — FIRE WHEN READY');
+      }
+    } else {
+      F.lockProg = Math.max(0, F.lockProg - dt * 1.5);
+      if (F.lockId && F.lockProg <= 0) { sendCmdSilent('airunlock'); F.lockId = null; if (F.toast) F.toast('LOCK LOST'); }
+    }
+  } else if (F.lockId || F.lockProg > 0 || F.seekId) {
+    if (F.lockId) sendCmdSilent('airunlock');   // weapon deselected / target gone → drop it server-side too
+    F.lockId = null; F.lockProg = 0; F.seekId = null;
   }
-  // Reticle turns from amber (armed) to a green lock when a firing solution is up.
+
+  // Trigger held → guns squirt bursts at the client cadence (the server enforces its own
+  // harder cap + validates the shot); missiles are a single launch per squeeze off a full
+  // lock. With no air solution, an armed craft still falls back to the ground-AA strafe pass.
+  if (F.firing && F.armed && F.reportedAirborne) {
+    if (F.weapon === 'msl') {
+      if (!F.fireHeld && F.lockId && F.msl > 0 && (!F.lastMslMs || now - F.lastMslMs >= MSL_FIRE_MS)) {
+        F.lastMslMs = now;
+        F.msl = Math.max(0, F.msl - 1);   // optimistic; flight_ctx refreshes the authoritative count
+        sendCmdSilent(`airfire missile ${F.lockId}`);
+        F.muzzleT = now;
+        try { missileFx(); } catch {}
+        if (F.paintPips) F.paintPips();
+      }
+    } else if (!F.lastFireMs || now - F.lastFireMs >= GUN_FIRE_MS) {
+      F.lastFireMs = now;
+      if (solReady) { sendCmdSilent(`airfire guns ${F.gunSolution.id} ${F.gunSolution.aimQuality.toFixed(2)}`); F.muzzleT = now; try { gunFx(); } catch {} }
+      else if (F.hardpoints > 0) { sendCmdSilent('fire'); try { gunFx(); } catch {} }
+    }
+  }
+  F.fireHeld = F.firing;   // edge detect: one missile per trigger squeeze
+  // Reticle: amber when armed, pulsing while the seeker builds, green on a firing solution
+  // (guns on target, or a full missile lock).
   const retEl = document.getElementById('fsim-reticle');
-  if (retEl) retEl.classList.toggle('lock', solReady);
+  if (retEl) {
+    retEl.classList.toggle('lock', solReady || !!F.lockId);
+    retEl.classList.toggle('seek', F.weapon === 'msl' && F.lockProg > 0 && !F.lockId);
+  }
 
   // Airport target guide — the selected field (default: the nearest) resolved to a live
   // tile-offset from the craft, for the windshield's in-view accent ring / off-screen Home
@@ -2783,6 +2853,7 @@ export function flightSimContext(msg) {
   if ('biomeBelow' in msg) F.biomeBelow = msg.biomeBelow;
   if ('surface' in msg) { F.surface = msg.surface; const tEl = document.getElementById('fsim-tile'); if (tEl) tEl.textContent = (msg.surface || '—').toUpperCase(); }
   if (typeof msg.hull === 'number') F.hull = msg.hull;   // authoritative hull for the cockpit readout
+  if (typeof msg.msl === 'number' && msg.msl !== F.msl) { F.msl = msg.msl; if (F.paintPips) F.paintPips(); }   // authoritative rail count
   F.warn = msg.warn || null;
   const wasExposed = !!(F.aa && F.aa.exposed);
   F.aa = msg.aa || null;       // AA engagement-envelope telegraph (drives the windshield threat banner)
@@ -2802,6 +2873,37 @@ export function flightSimAirHit(msg) {
     try { hitFx(); } catch {}
   } else if (msg.role === 'dealt') {
     if (F.toast) F.toast('GUNS · HITS');
+  }
+}
+
+// RWR / countermeasure pushes (Phase C). `lock` = someone's seeker has you; `missile` = a
+// launch warning (warble + a hard toast — flares are the answer); `flares` = your own burst
+// confirmed by the server (play the launch FX); `clear`/`lockbreak` = the threat picture
+// relaxed. All feedback — every consequence is already authoritative server-side.
+export function flightSimAirThreat(msg) {
+  const F = _fsim; if (!F || !msg) return;
+  switch (msg.kind) {
+    case 'lock':
+      if (F.toast) F.toast(`⚠ RWR — MISSILE LOCK${msg.by ? ' · ' + msg.by : ''}`);
+      try { aaWarn(); } catch {}
+      break;
+    case 'missile':
+      F.mslWarnT = performance.now() + (msg.ms || 4000);
+      if (F.toast) F.toast('⚠ MISSILE INBOUND — FLARES (X) + BREAK');
+      try { mslWarble(); } catch {}
+      break;
+    case 'flares':
+      if (F.toast) F.toast('FLARES AWAY');
+      try { flareFx(); } catch {}
+      break;
+    case 'lockbreak':
+      F.lockId = null; F.lockProg = 0; F.seekId = null;   // the server dropped our seeker lock
+      if (F.toast) F.toast('LOCK LOST');
+      break;
+    case 'clear':
+      F.mslWarnT = 0;
+      if (F.toast) F.toast('RWR CLEAR');
+      break;
   }
 }
 

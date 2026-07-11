@@ -15,6 +15,8 @@ import {
   sendToZone, sendToPlayer, getZone, getLivePlayer, BANDS, isContinuous,
   CONTACT_RANGE, airContact, bearingDeg, toDeg, pushContext,
   GUN_RANGE_GATE, GUN_CONE_GATE, GUN_DMG, GUN_COOLDOWN_MS,
+  MISSILE_RANGE_GATE, MISSILE_FLIGHT_MS, MISSILE_PK, MISSILE_DMG, MISSILE_COOLDOWN_MS,
+  FLARE_DEFEAT, FLARE_WINDOW_MS, FLARE_COOLDOWN_MS, mslAmmo,
 } from './state.js';
 import { conspicuousnessMult } from './livery.js';
 
@@ -72,14 +74,28 @@ async function applyAirDamage(targetLive, amount, byPlayer, reason = 'shotdown',
   return false;
 }
 
+// RWR push to a craft's pilot: cockpit lock/missile/clear warnings (Phase C).
+function airThreatTo(live, payload) {
+  for (const pid of live.occupants) {
+    const p = getLivePlayer(pid);
+    if (p && p.seat === 'pilot') sendToPlayer(pid, { type: 'air_threat', ...payload });
+  }
+}
+
 // FIRE (guns): the client owns aim and reports `guns <targetId> <aimQuality0..1>`; the
 // server validates a lenient anti-spoof envelope off the last reconciled positions, then
 // resolves damage as GUN_DMG × aimQuality, cut by the defender's opposed jink / active
 // evade / armour. Cooldown is server-enforced so a modified client can't rapid-fire.
+//
+// FIRE (missile, Phase C): needs a server-recorded lock (`airlock`) on that target. The
+// launch is instant feedback; the OUTCOME is fully server-authoritative — the shot rides
+// as an inbound on the target's live object and resolves MISSILE_FLIGHT_MS later on the
+// target's combat tick (flares / a hard break / the defender's notch can defeat it).
 async function cmdAirFire(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
   const weapon = (args[0] || '').toLowerCase();
-  if (weapon !== 'guns') return { type: 'noop' };                    // missiles land in Phase C
+  if (weapon === 'missile') return fireMissile(live, args, player);
+  if (weapon !== 'guns') return { type: 'noop' };
   if (!live.row.airborne || !live.row.weapons_hot || (live.type.hardpoints || 0) < 1) return { type: 'noop' };
   const nowMs = Date.now();
   if (live.lastGun && nowMs - live.lastGun < GUN_COOLDOWN_MS) return { type: 'noop' };   // burst-rate cap
@@ -115,6 +131,91 @@ async function cmdAirFire(args, raw, player) {
     relayContacts(live);                                             // push the target's new hull to the shooter's picture
   }
   return { type: 'noop' };
+}
+
+// Launch a missile at a locked target: gate-validate, spend a rail, ride the shot as an
+// inbound on the TARGET's live object (it resolves there — the defender's state at impact
+// time is what decides the outcome, so flares popped mid-flight actually matter).
+function fireMissile(live, args, player) {
+  if (!live.row.airborne || !live.row.weapons_hot || (live.type.hardpoints || 0) < 1) return { type: 'noop' };
+  if (mslAmmo(live) < 1) return { type: 'emote', message: '<span class="text-amber">Rails are empty — rearm at a field.</span>' };
+  const nowMs = Date.now();
+  if (live.lastMsl && nowMs - live.lastMsl < MISSILE_COOLDOWN_MS) return { type: 'noop' };
+  const target = args[1] ? liveAircraft.get(args[1]) : null;
+  if (!target || target === live || !target.row.airborne || target.row.is_wreck) return { type: 'noop' };
+  if (live.lockTargetId !== target.row.id) return { type: 'emote', message: '<span class="text-amber">No lock — hold the seeker on the target first.</span>' };
+  const a = live.row, b = target.row;
+  if (cheb(a.grid_x, a.grid_y, b.grid_x, b.grid_y) > MISSILE_RANGE_GATE) return { type: 'noop' };
+  live.lastMsl = nowMs;
+  live.msl = mslAmmo(live) - 1;
+  pushContext(live);   // authoritative ammo pips, now
+  target.inboundMsl = [...(target.inboundMsl || []), { shooterId: player.id, launchedAt: nowMs, resolveAt: nowMs + MISSILE_FLIGHT_MS }];
+  airThreatTo(target, { kind: 'missile', ms: MISSILE_FLIGHT_MS, by: player.handle || null });
+  toOccupants(target, '<span class="text-red">⚠ MISSILE INBOUND — pop <b>flares</b> and break!</span>');
+  return { type: 'emote', message: `<span class="text-cyan">FOX TWO — missile away at the ${target.type.name}.</span>` };
+}
+
+// Break a shooter's seeker lock (target gone / out of range / deliberate unlock) and
+// tell both cockpits, so neither side flies on a stale warning.
+function breakLock(live, reason) {
+  const target = live.lockTargetId ? liveAircraft.get(live.lockTargetId) : null;
+  live.lockTargetId = null;
+  const pilot = pilotOf(live);
+  if (pilot) sendToPlayer(pilot.id, { type: 'air_threat', kind: 'lockbreak', reason });
+  if (target) airThreatTo(target, { kind: 'clear' });
+}
+
+// Missile lifecycle, run from tickCombat: keep the shooter's lock honest, then resolve
+// any inbound shots that have flown their time. Returns true if the craft was killed
+// (the caller must stop touching a deleted live).
+async function tickMissiles(live) {
+  const nowMs = Date.now();
+  // Lock maintenance (as shooter): the seeker drops a target that lands, dies, or opens the range.
+  if (live.lockTargetId) {
+    const t = liveAircraft.get(live.lockTargetId);
+    if (!t || !t.row.airborne || t.row.is_wreck
+      || cheb(live.row.grid_x, live.row.grid_y, t.row.grid_x, t.row.grid_y) > MISSILE_RANGE_GATE) breakLock(live, 'range');
+  }
+  // Inbound resolution (as target).
+  if (!live.inboundMsl?.length) return false;
+  const due = live.inboundMsl.filter(m => m.resolveAt <= nowMs);
+  if (!due.length) return false;
+  live.inboundMsl = live.inboundMsl.filter(m => m.resolveAt > nowMs);
+  for (const m of due) {
+    const shooter = getLivePlayer(m.shooterId);
+    // Flares popped while the shot was in the air can drag the seeker off onto the decoys.
+    if ((live.flaredUntil || 0) > m.launchedAt && Math.random() < FLARE_DEFEAT) {
+      toOccupants(live, '<span class="text-green">The missile bites on the flares and detonates behind you.</span>');
+      airThreatTo(live, { kind: 'clear' });
+      if (shooter) out(shooter.id, '<span class="text-amber">Flares — your missile goes stupid and eats a decoy.</span>');
+      continue;
+    }
+    // A hard defensive break + a good last-second notch both shave the kill probability.
+    let pk = MISSILE_PK;
+    if (live.evadeUntil && nowMs < live.evadeUntil) pk *= 0.55;
+    const defPilot = pilotOf(live);
+    if (defPilot && (await skillCheck(defPilot, 'piloting', 8)).success) pk *= 0.7;
+    if (Math.random() >= pk) {
+      toOccupants(live, '<span class="text-amber">The missile streaks past and self-destructs — a clean notch.</span>');
+      airThreatTo(live, { kind: 'clear' });
+      if (shooter) out(shooter.id, '<span class="text-amber">Miss — the shot loses the picture and goes ballistic.</span>');
+      continue;
+    }
+    const armor = live.type.class === 'gunship' ? 0.6 : 1;
+    const hullAfter = Math.round((1 - Math.min(1, (live.row.damage || 0) + MISSILE_DMG * armor)) * 100);
+    const killed = await applyAirDamage(live, MISSILE_DMG * armor, shooter, 'shotdown',
+      `<span class="text-red">💥 MISSILE IMPACT — the airframe bucks hard and sheds metal. Hull ${hullAfter}%.</span>`);
+    if (shooter) {
+      await awardSkillUse(shooter.id, 'piloting', 2);
+      if (!killed) {
+        out(shooter.id, `<span class="text-green">Splash — missile impact on the ${live.type.name}. Hull ${hullAfter}%.</span>`);
+        sendToPlayer(shooter.id, { type: 'air_hit', role: 'dealt', hullPct: hullAfter });
+      }
+    }
+    if (killed) return true;
+    airThreatTo(live, { kind: 'clear' });
+  }
+  return false;
 }
 
 // The nearest active emplacement whose ring we're inside, its bearing, and whether
@@ -156,6 +257,9 @@ function sendAaTracer(live, site, bearing, dist) {
 export async function tickCombat(live) {
   const a = live.row;
   if (!a.airborne) { live.aaThreat = null; live.aaWarned = false; return; }
+  // Missiles first (Phase C): keep this craft's seeker lock honest and resolve any
+  // inbound shots whose flight time is up. A kill deletes the live — stop here.
+  if (await tickMissiles(live)) return;
   const bandIdx = BANDS.indexOf(a.altitude_band);
   const evading = live.evadeUntil && Date.now() < live.evadeUntil;
   const pilot = pilotOf(live);
@@ -240,6 +344,45 @@ async function cmdEvade(args, raw, player) {
   return { type: 'emote', message: '<span class="text-cyan">You break hard and jink, throwing chaff — a harder target for the next few seconds.</span>' };
 }
 
+// Grant a seeker lock (Phase C). The client only asks after holding the bogey in the
+// seeker cone for the lock time; the server just gate-validates and records it — and
+// warns the target's RWR, so a lock is never silent.
+async function cmdAirLock(args, raw, player) {
+  const { live, err } = requirePilot(player); if (err) return err;
+  if (!live.row.airborne || !live.row.weapons_hot || (live.type.hardpoints || 0) < 1) return { type: 'noop' };
+  const target = args[0] ? liveAircraft.get(args[0]) : null;
+  if (!target || target === live || !target.row.airborne || target.row.is_wreck) return { type: 'noop' };
+  const a = live.row, b = target.row;
+  if (cheb(a.grid_x, a.grid_y, b.grid_x, b.grid_y) > MISSILE_RANGE_GATE) return { type: 'noop' };
+  if (live.lockTargetId === target.row.id) return { type: 'noop' };   // already have it
+  live.lockTargetId = target.row.id;
+  airThreatTo(target, { kind: 'lock', by: player.handle || null });
+  toOccupants(target, '<span class="text-red">⚠ RWR — MISSILE LOCK. Someone\'s seeker has you.</span>');
+  return { type: 'emote', message: `<span class="text-green">◉ LOCK — seeker tone on the ${target.type.name}.</span>` };
+}
+
+async function cmdAirUnlock(args, raw, player) {
+  const { live, err } = requirePilot(player); if (err) return err;
+  if (live.lockTargetId) breakLock(live, 'dropped');
+  return { type: 'noop' };
+}
+
+// Pop countermeasures (Phase C). Not gated to armed craft — a civilian Mayfly needs the
+// counter as much as the Reaper does. The burst covers a window; any missile launched
+// before flares that resolves inside it rolls the FLARE_DEFEAT decoy chance.
+async function cmdFlares(args, raw, player) {
+  const { live, err } = requirePilot(player); if (err) return err;
+  if (!live.row.airborne) return { type: 'emote', message: 'Nothing up here to decoy.' };
+  const nowMs = Date.now();
+  if (live.lastFlare && nowMs - live.lastFlare < FLARE_COOLDOWN_MS) {
+    return { type: 'emote', message: '<span class="text-amber">Flare launchers cycling — not ready.</span>' };
+  }
+  live.lastFlare = nowMs;
+  live.flaredUntil = nowMs + FLARE_WINDOW_MS;
+  airThreatTo(live, { kind: 'flares' });   // the cockpit plays the launch FX on confirmation
+  return { type: 'emote', message: '<span class="text-cyan">FLARES — burning stars tumble away behind you.</span>' };
+}
+
 async function cmdStrafe(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
   if (!live.row.airborne) return { type: 'emote', message: 'You strafe from the air.' };
@@ -305,4 +448,7 @@ export const commands = {
   fire: cmdStrafe,
   strafresolve: cmdStrafeResolve,
   airfire: cmdAirFire,
+  airlock: cmdAirLock,
+  airunlock: cmdAirUnlock,
+  flares: cmdFlares,
 };

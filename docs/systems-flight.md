@@ -230,6 +230,17 @@ cut the hit chance); a hit walks the hull-damage ladder → breakup → `crash`.
 `arm`/`safe` toggle weapons (hardpoints only); `strafe`/`fire` arms the **targeting-
 reticle deck** (`flight_target` → `strafresolve`) to silence a site.
 
+**Air-to-air PvP** (also `combat.js`; blueprint + phase log in
+[proposals/systems-flight-pvp.md](proposals/systems-flight-pvp.md)): contacts relay
+(Phase A), manual-pipper guns via `airfire guns` (Phase B), and **missiles (Phase C)**
+— the cockpit's MSL weapon select builds a seeker lock by holding the bogey in the
+reticle, `airlock` records it server-side (and trips the target's RWR), `airfire
+missile` launches, and the shot resolves server-authoritatively after its flight time
+on `tickCombat` (`tickMissiles`): flares popped mid-flight (`flares`, X key) can decoy
+it, a hard `evade` break + a piloting notch shave the kill probability. Ammo = the
+airframe's hardpoints per sortie, rearmed free on parking (`mslAmmo`; guns stay
+infinite). All `MISSILE_*`/`FLARE_*` tunables live in `state.js`.
+
 **Boarding under fire** (`cmdBoard`). Getting into the cockpit mid-fight is a
 **Reflexes check** (`stat_reflexes` vs a difficulty that scales with the number of
 things attacking you). Fail and you're beaten back into the fight; succeed and you

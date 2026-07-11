@@ -494,6 +494,37 @@ const HIT_FX = { config: { duration: 0.5, layers: [
   { waveform: 'sine', freq: 58, adsr: { a: 0.002, d: 0.22, s: 0, r: 0.1 }, gain: 0.13 } ] } };                                                                                                            // low structural thud
 export function hitFx() { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(HIT_FX); } catch {} }
 
+// Seeker lock acquired — a clean rising two-tone chirp settling into a steady lock tone.
+// One-shot on the moment the missile seeker goes from search to LOCK.
+const LOCK_TONE_FX = { config: { duration: 0.7, layers: [
+  { waveform: 'sine', freq: 620, pitchBend: { to: 980, time: 0.18 }, filter: { type: 'bandpass', freq: 900, q: 2.5 }, adsr: { a: 0.01, d: 0.12, s: 0.7, r: 0.1 }, gain: 0.06 },   // rising acquisition chirp
+  { waveform: 'square', freq: 980, delay: 0.22, tremolo: { rate: 28, depth: 0.25 }, filter: { type: 'bandpass', freq: 1200, q: 3 }, adsr: { a: 0.01, d: 0, s: 1, r: 0.1 }, gain: 0.045 } ] } };   // steady lock tone
+export function lockTone() { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(LOCK_TONE_FX); } catch {} }
+
+// Incoming-missile RWR warble — nastier and faster than the AA deedle: two square tones
+// hard-alternating, impossible to mistake for anything friendly. Fires on the launch warning.
+const MSL_WARBLE_FX = { config: { duration: 1.4, layers: [
+  { waveform: 'square', freq: 1180, tremolo: { rate: 22, depth: 0.95 }, filter: { type: 'bandpass', freq: 1500, q: 3.5 }, adsr: { a: 0.005, d: 0, s: 1, r: 0.06 }, gain: 0.07 },
+  { waveform: 'square', freq: 780, tremolo: { rate: 22, depth: 0.95 }, delay: 0.023, filter: { type: 'bandpass', freq: 1100, q: 3.5 }, adsr: { a: 0.005, d: 0, s: 1, r: 0.06 }, gain: 0.055 } ] } };
+export function mslWarble() { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(MSL_WARBLE_FX); } catch {} }
+
+// Missile launch — the motor ignition thump, then a hard whoosh tearing away and Dopplering
+// down as the shot outruns you.
+const MISSILE_FX = { config: { duration: 1.3, layers: [
+  { waveform: 'sine', freq: 90, pitchBend: { to: 45, time: 0.15 }, adsr: { a: 0.002, d: 0.2, s: 0, r: 0.1 }, gain: 0.12 },                                                          // ignition thump
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2400, q: 0.8 }, pitchBend: { to: 500, time: 1.0 }, adsr: { a: 0.03, d: 0.9, s: 0.2, r: 0.25 }, gain: 0.1 },    // tearing whoosh, falling away
+  { waveform: 'sawtooth', freq: 340, pitchBend: { to: 120, time: 0.9 }, filter: { type: 'lowpass', freq: 900, q: 1 }, adsr: { a: 0.02, d: 0.8, s: 0.1, r: 0.2 }, gain: 0.045 } ] } };  // motor roar Dopplering down
+export function missileFx() { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(MISSILE_FX); } catch {} }
+
+// Flares away — a fast string of pyrotechnic thumps kicking out of the dispensers, with a
+// bright sizzle riding behind them.
+const FLARE_FX = { config: { duration: 0.8, layers: [
+  { waveform: 'sine', freq: 120, pitchBend: { to: 60, time: 0.06 }, adsr: { a: 0.002, d: 0.09, s: 0, r: 0.04 }, gain: 0.1 },                                                        // thump 1
+  { waveform: 'sine', freq: 120, pitchBend: { to: 60, time: 0.06 }, delay: 0.14, adsr: { a: 0.002, d: 0.09, s: 0, r: 0.04 }, gain: 0.1 },                                            // thump 2
+  { waveform: 'sine', freq: 120, pitchBend: { to: 60, time: 0.06 }, delay: 0.28, adsr: { a: 0.002, d: 0.09, s: 0, r: 0.04 }, gain: 0.1 },                                            // thump 3
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3200, q: 0.7 }, delay: 0.06, adsr: { a: 0.05, d: 0.5, s: 0.2, r: 0.2 }, gain: 0.03 } ] } };                     // magnesium sizzle
+export function flareFx() { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(FLARE_FX); } catch {} }
+
 // Stall warning horn — a reedy buzzer that pulses on approach and goes continuous in the
 // stall (per the sound doc). `level` 0..1 rides its gain; 0 lets go and stops the loop.
 let _hornOn = false;
