@@ -12,7 +12,6 @@
   "created_by": null,
   "description": "A narrow run of frontage where every third storefront sells some flavor of skin, chrome, or forgetting. The signage competes for attention until it all blurs into one continuous migraine of light. A tattoo parlor, two shuttered clinics, and a club with a cherry blinking over the door. The gutter runs with meltwater and the confetti of a hundred torn wristbands.",
   "exits": {
-    "in": "zone_mq_cherry_floor",
     "north": "zone_up_skyway",
     "south": "zone_mq_marquee"
   },

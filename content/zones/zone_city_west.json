@@ -15,10 +15,6 @@
   "description": "Pre-Handoff retail storefronts, repurposed and argued over for years. Big box skeletons and drive-through lanes now used as livestock pens, retrofitted for survival.",
   "exits": {
     "east": "zone_threshold",
-    "in": [
-      "zone_start",
-      "zone_residential_lobby"
-    ],
     "north": "zone_city_east",
     "west": "zone_outskirts"
   },

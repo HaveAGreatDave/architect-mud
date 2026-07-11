@@ -1,0 +1,29 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#3a3550",
+  "color": "#e8e0ff",
+  "created_by": "zone-planner",
+  "description": "[PLANNER STUB] The face of Second Skin.",
+  "exits": {
+    "in": "zone_drum_shop"
+  },
+  "flags": {
+    "building_name": "Second Skin",
+    "building_type": "shop",
+    "facade": true,
+    "is_building": true,
+    "planner": "bp_district",
+    "world_exit_zone": "zone_district_900_908"
+  },
+  "grid_x": 901,
+  "grid_y": 908,
+  "grid_z": 0,
+  "id": "zone_district_901_908",
+  "map_id": "map_world",
+  "marker": "SS",
+  "name": "Second Skin",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

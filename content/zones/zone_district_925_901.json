@@ -1,0 +1,29 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#2b2b2b",
+  "color": "#f5d400",
+  "created_by": "zone-planner",
+  "description": "A strip of runway asphalt split down the middle by a hard yellow centreline running dead straight north to south. The paint is fresh enough to catch the light; tyre rubber smears black on either side of it.",
+  "exits": {
+    "east": "zone_district_926_901",
+    "north": "zone_district_925_900",
+    "south": "zone_district_925_902",
+    "west": "zone_district_924_901"
+  },
+  "flags": {
+    "icon": "runway_ns",
+    "planner": "bp_district",
+    "runway": "ns"
+  },
+  "grid_x": 925,
+  "grid_y": 901,
+  "grid_z": 0,
+  "id": "zone_district_925_901",
+  "map_id": "map_world",
+  "marker": "┃",
+  "name": "Runway",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

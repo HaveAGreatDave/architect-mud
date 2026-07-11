@@ -8,7 +8,6 @@
   "description": "The boulevard continues east as the buildings grow taller and crowd closer together, casting long shadows over the broken pavement. Collapsed skybridges hang between aging towers, their twisted steel frames silhouetted against flickering neon in the distance. Scattered barricades and burned-out vehicles narrow the roadway into a winding path through decades of neglect. Weathered signs advertise businesses that haven't existed in a generation, while loose cables sway overhead with a faint electrical buzz. Somewhere farther ahead, the city's heartbeat feels stronger, though whether it promises opportunity or danger is impossible to tell.",
   "exits": {
     "east": "zone_velk_exterior",
-    "in": "zone_furniture_store",
     "south": "zone_city_se",
     "west": "zone_threshold"
   },

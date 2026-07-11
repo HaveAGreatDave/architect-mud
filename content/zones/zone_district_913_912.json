@@ -1,0 +1,27 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#3f3a34",
+  "color": "#b9a888",
+  "created_by": "zone-planner",
+  "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
+  "exits": {
+    "east": "zone_district_914_912",
+    "south": "zone_district_913_913",
+    "west": "zone_district_912_912"
+  },
+  "flags": {
+    "icon": "road_sw",
+    "planner": "bp_district"
+  },
+  "grid_x": 913,
+  "grid_y": 912,
+  "grid_z": 0,
+  "id": "zone_district_913_912",
+  "map_id": "map_world",
+  "marker": "⁙∴",
+  "name": "Foundry Way",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

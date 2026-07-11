@@ -3,6 +3,6 @@
   "entry_zone_id": "zone_mq_grocery",
   "id": "map_int_mq_grocery",
   "name": "Battery Square — Interior",
-  "parent_zone_id": "zone_mq_battery",
+  "parent_zone_id": "zone_district_920_908",
   "updated_at": "1782964406"
 }

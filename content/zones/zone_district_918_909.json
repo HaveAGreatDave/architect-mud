@@ -1,0 +1,27 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#3f3a34",
+  "color": "#b9a888",
+  "created_by": "zone-planner",
+  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
+  "exits": {
+    "east": "zone_district_919_909",
+    "south": "zone_district_918_910",
+    "west": "zone_district_917_909"
+  },
+  "flags": {
+    "icon": "road_ew",
+    "planner": "bp_district"
+  },
+  "grid_x": 918,
+  "grid_y": 909,
+  "grid_z": 0,
+  "id": "zone_district_918_909",
+  "map_id": "map_world",
+  "marker": "▚",
+  "name": "Marrow Street",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

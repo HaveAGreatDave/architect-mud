@@ -13,7 +13,7 @@
     "down": "zone_residential_lobby_z-1_1782105292491",
     "east": "zone_apt_3",
     "north": "zone_apt_1",
-    "out": "zone_city_west",
+    "out": "zone_district_920_904",
     "south": "zone_apt_2",
     "up": "zone_embassy_floor2",
     "west": "zone_apt_4"
@@ -24,7 +24,7 @@
     "intro_lore": "The Embassy was a hotel before the Handoff, and it never got the memo that its guests aren't coming back. Now it's the basin's most sought-after slum — floors of hollowed rooms behind locks that still, miraculously, lock. Lowry keeps the bar running on spite and a working tap, which is more stability than most of Coldwater can claim. If you can afford a room here, you've already won more of this life than the Strip regulars outside.",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_city_west"
+    "world_exit_zone": "zone_district_920_904"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -33,6 +33,6 @@
   "map_id": "map_interior_zone_residential_lobby",
   "marker": "FS",
   "name": "Embassy Hotel & Bar — Lobby",
-  "parent_zone": null,
+  "parent_zone": "zone_district_920_904",
   "updated_at": "1782356877"
 }

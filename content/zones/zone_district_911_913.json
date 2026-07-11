@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#3f3a34",
+  "color": "#b9a888",
+  "created_by": "zone-planner",
+  "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
+  "exits": {
+    "east": "zone_district_912_913",
+    "north": "zone_district_911_912",
+    "south": "zone_district_911_914",
+    "west": "zone_district_910_913"
+  },
+  "flags": {
+    "icon": "road_nsw",
+    "planner": "bp_district"
+  },
+  "grid_x": 911,
+  "grid_y": 913,
+  "grid_z": 0,
+  "id": "zone_district_911_913",
+  "map_id": "map_world",
+  "marker": "⁙∴",
+  "name": "Meltwater Row",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

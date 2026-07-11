@@ -1,0 +1,27 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#332e28",
+  "color": "#b89a72",
+  "created_by": "zone-planner",
+  "description": "A residential stack optimised for maximum tenants per cubic metre and the bare legal minimum of reasons to keep living. Corridors of identical doors, behind each a life the city quietly stopped counting. A cat holds the stairwell; nobody contests the claim.",
+  "exits": {
+    "east": "zone_district_925_917",
+    "north": "zone_district_924_916",
+    "south": "zone_district_924_918",
+    "west": "zone_district_923_917"
+  },
+  "flags": {
+    "planner": "bp_district"
+  },
+  "grid_x": 924,
+  "grid_y": 917,
+  "grid_z": 0,
+  "id": "zone_district_924_917",
+  "map_id": "map_world",
+  "marker": "▨",
+  "name": "Residential Area",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

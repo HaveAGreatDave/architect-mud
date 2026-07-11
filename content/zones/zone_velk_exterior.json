@@ -8,7 +8,6 @@
   "description": "A cramped walk wedged between two facades in slow structural surrender, close enough to touch both walls at once. What isn't rented out is stacked with other people's abandoned lives — chair legs, dead lamps, a wardrobe with no doors — chained together against the inevitable. Velk's Pre-Owned holds the middle of the walk, its window a chaos of salvaged furniture arranged with a curator's inexplicable pride. Everything smells of damp upholstery and someone else's cigarettes.",
   "exits": {
     "east": "zone_mq_marquee",
-    "in": "zone_velk_shop",
     "south": "zone_drum_exterior",
     "west": "zone_thresholdeast"
   },

@@ -13,14 +13,14 @@
   "description": "The kind of bar that doesn't need a name over the door because if you're here, you already knew where you were going. SUMP is scratched into the paint anyway. It is one narrow room, a plank bar, and a floor that slopes toward a literal drain in the center — hence the name, and hence the smell. The regulars are fixtures, welded to their stools by decades of gravity and grievance. Drinks are cheap, strong, and served without conversation.",
   "exits": {
     "down": "zone_mq_sump_cellar",
-    "out": "zone_mq_ember"
+    "out": "zone_district_921_914"
   },
   "flags": {
     "building_name": "Sump",
     "building_type": "bar",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_mq_ember"
+    "world_exit_zone": "zone_district_921_914"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -29,6 +29,6 @@
   "map_id": "map_int_mq_sump",
   "marker": null,
   "name": "Sump",
-  "parent_zone": "zone_mq_ember",
+  "parent_zone": "zone_district_921_914",
   "updated_at": "1782964407"
 }

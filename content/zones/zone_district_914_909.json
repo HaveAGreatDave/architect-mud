@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#3f3a34",
+  "color": "#b9a888",
+  "created_by": "zone-planner",
+  "description": "The road here is more suggestion than surface — compacted gravel, broken kerbstones, a storm drain choked with silt. Somebody dragged a mattress halfway across it and gave up.",
+  "exits": {
+    "east": "zone_district_915_909",
+    "north": "zone_district_914_908",
+    "south": "zone_district_914_910",
+    "west": "zone_district_913_909"
+  },
+  "flags": {
+    "icon": "road_ew",
+    "planner": "bp_district"
+  },
+  "grid_x": 914,
+  "grid_y": 909,
+  "grid_z": 0,
+  "id": "zone_district_914_909",
+  "map_id": "map_world",
+  "marker": "⸪.",
+  "name": "Marrow Street",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

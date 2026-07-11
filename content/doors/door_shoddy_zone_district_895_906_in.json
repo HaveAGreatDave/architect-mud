@@ -1,0 +1,16 @@
+{
+  "door_type": "shoddy",
+  "exit_dir": "in",
+  "flags": {},
+  "hololock_difficulty": 0,
+  "hp": 300,
+  "hp_max": 300,
+  "id": "door_shoddy_zone_district_895_906_in",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": null,
+  "name": null,
+  "tags": {},
+  "target_zone": "zone_halcyon_lobby",
+  "zone_id": "zone_district_895_906"
+}

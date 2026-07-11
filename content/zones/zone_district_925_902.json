@@ -1,0 +1,29 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#2b2b2b",
+  "color": "#f5d400",
+  "created_by": "zone-planner",
+  "description": "Yellow runway markings stripe the asphalt north to south, guiding nothing anymore but obeyed out of habit. The line is chipped to dashes where wheels have hammered it for decades.",
+  "exits": {
+    "east": "zone_district_926_902",
+    "north": "zone_district_925_901",
+    "south": "zone_district_925_903",
+    "west": "zone_district_924_902"
+  },
+  "flags": {
+    "icon": "runway_ns",
+    "planner": "bp_district",
+    "runway": "ns"
+  },
+  "grid_x": 925,
+  "grid_y": 902,
+  "grid_z": 0,
+  "id": "zone_district_925_902",
+  "map_id": "map_world",
+  "marker": "┃",
+  "name": "Runway",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#3f3a34",
+  "color": "#b9a888",
+  "created_by": "zone-planner",
+  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
+  "exits": {
+    "east": "zone_district_903_908",
+    "north": "zone_district_902_907",
+    "south": "zone_district_902_909",
+    "west": "zone_district_901_908"
+  },
+  "flags": {
+    "icon": "road_ns",
+    "planner": "bp_district"
+  },
+  "grid_x": 902,
+  "grid_y": 908,
+  "grid_z": 0,
+  "id": "zone_district_902_908",
+  "map_id": "map_world",
+  "marker": "▚",
+  "name": "Cinder Lane",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

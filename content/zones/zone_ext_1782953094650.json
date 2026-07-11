@@ -7,7 +7,6 @@
   "created_by": null,
   "description": "A fenced service yard behind the broadcast blocks, floodlit at all hours by lights nobody remembers installing. Coax and power run overhead in fat looms, stapled to anything that will hold them, humming faintly in the wet. KSAB-TV's stage door sits under a dead awning, its ON AIR bulb burned out mid-word so it reads only ON. A satellite dish the size of a paddling pool tilts drunkenly on the roofline, still tracking a bird that stopped answering years ago.",
   "exits": {
-    "in": "zone_studio_1782953094650",
     "south": "zone_city_north"
   },
   "flags": {

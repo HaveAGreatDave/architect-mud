@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#3f3a34",
+  "color": "#b9a888",
+  "created_by": "zone-planner",
+  "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
+  "exits": {
+    "east": "zone_district_920_903",
+    "north": "zone_district_919_902",
+    "south": "zone_district_919_904",
+    "west": "zone_district_918_903"
+  },
+  "flags": {
+    "icon": "road_s",
+    "planner": "bp_district"
+  },
+  "grid_x": 919,
+  "grid_y": 903,
+  "grid_z": 0,
+  "id": "zone_district_919_903",
+  "map_id": "map_world",
+  "marker": "⁙∴",
+  "name": "Ironside Street",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

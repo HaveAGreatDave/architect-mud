@@ -1,0 +1,27 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "coast",
+  "audio_theme_id": null,
+  "bg_color": "#2f2a24",
+  "color": "#a98b63",
+  "created_by": "zone-planner",
+  "description": "Part of the long pier reaching out into the channel — corrugated loading sheds, a rusted crane frozen mid-swing, rope thick as your arm coiled and rotting in the salt air. Below the boards, the water works at the pilings with the patience of something that has all the time in the world.",
+  "exits": {
+    "east": "zone_district_911_902",
+    "north": "zone_district_910_901",
+    "south": "zone_district_910_903",
+    "west": "zone_district_909_902"
+  },
+  "flags": {
+    "planner": "bp_district"
+  },
+  "grid_x": 910,
+  "grid_y": 902,
+  "grid_z": 0,
+  "id": "zone_district_910_902",
+  "map_id": "map_world",
+  "marker": "▤▤",
+  "name": "Pier",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

@@ -1,0 +1,27 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#2f3a26",
+  "color": "#8ba36a",
+  "created_by": "zone-planner",
+  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "exits": {
+    "east": "zone_district_919_913",
+    "north": "zone_district_918_912",
+    "south": "zone_district_918_914",
+    "west": "zone_district_917_913"
+  },
+  "flags": {
+    "planner": "bp_district"
+  },
+  "grid_x": 918,
+  "grid_y": 913,
+  "grid_z": 0,
+  "id": "zone_district_918_913",
+  "map_id": "map_world",
+  "marker": "#",
+  "name": "Grasslands",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

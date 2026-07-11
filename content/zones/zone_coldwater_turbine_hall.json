@@ -7,12 +7,13 @@
   "created_by": null,
   "description": "A cavernous hall of throbbing turbines and grimy conduit. The city plant squats at the centre, roaring, its casing scabbed with warning decals and oil. The whole room shudders with the low churn of megawatts.",
   "exits": {
-    "out": "zone_powerplantnew"
+    "out": "zone_district_924_911"
   },
   "flags": {
+    "building_type": "power",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_powerplantnew"
+    "world_exit_zone": "zone_district_924_911"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -21,6 +22,6 @@
   "map_id": "map_int_coldwater_power",
   "marker": null,
   "name": "Coldwater Power Plant — Turbine Hall",
-  "parent_zone": "zone_powerplantnew",
+  "parent_zone": "zone_district_924_911",
   "updated_at": "1782940278"
 }

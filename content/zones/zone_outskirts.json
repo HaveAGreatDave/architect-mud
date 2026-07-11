@@ -12,24 +12,12 @@
   "description": "The industrial edge of the basin, decades past its last shift. Enormous processing facilities stand half-collapsed, their sheet-metal walls streaked orange with rust and peeling off the frames. Weeds have prised up the loading aprons; nothing here has drawn power in a very long time.",
   "exits": {
     "east": "zone_city_west",
-    "in": "zone_hangar_outskirts",
     "west": "zone_badland_w_gate"
   },
   "flags": {
-    "airfield_charter": true,
-    "airfield_dealer": true,
-    "airfield_fuel": true,
-    "airfield_fuels": [
-      "avgas",
-      "jet",
-      "biofuel"
-    ],
-    "airfield_id": "af_regional",
-    "airfield_name": "Coldwater Regional",
     "artery": [
       "The Haul Road"
     ],
-    "hangar_interior_zone": "zone_hangar_outskirts",
     "intro_lore": "Enormous processing facilities stand exactly where the last shift left them, decades cold, too big to loot and too broken to use. People hole up out here because nobody bothers to look — which means everyone you meet is also hiding from something. Do that math before you trust the next face you see.",
     "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk"

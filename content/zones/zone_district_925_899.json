@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#33343c",
+  "color": "#9aa0b0",
+  "created_by": "zone-planner",
+  "description": "Faded taxiway markings run off toward the hangars, the paint scoured to suggestion. Rubber scuffs and oil stains map decades of landings; somewhere a loose panel ticks against its frame in the wind.",
+  "exits": {
+    "east": "zone_district_926_899",
+    "north": "zone_district_925_898",
+    "south": "zone_district_925_900",
+    "west": "zone_district_924_899"
+  },
+  "flags": {
+    "planner": "bp_district",
+    "runway": "pad"
+  },
+  "grid_x": 925,
+  "grid_y": 899,
+  "grid_z": 0,
+  "id": "zone_district_925_899",
+  "map_id": "map_world",
+  "marker": "#",
+  "name": "Runway",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

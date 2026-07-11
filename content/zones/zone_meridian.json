@@ -7,7 +7,6 @@
   "created_by": null,
   "description": "A stretch of cracked pavement the city has forgotten to condemn. Water-stained precast towers lean over it on both sides, their ground floors a monotony of steel-framed glass — most of it dark, a few doors still lit from within. The Meridian's lobby throws a wedge of sick fluorescent light across the walk here, doorman long gone, intercom panel hanging by its wires. Somewhere overhead a window unit drips onto its sill in a slow, patient rhythm.",
   "exits": {
-    "in": "zone_meridian_lobby",
     "north": "zone_up_approach"
   },
   "flags": {

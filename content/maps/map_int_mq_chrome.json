@@ -3,6 +3,6 @@
   "entry_zone_id": "zone_mq_chrome_lobby",
   "id": "map_int_mq_chrome",
   "name": "Chrome Court — Interior",
-  "parent_zone_id": "zone_mq_chrome_court",
+  "parent_zone_id": "zone_district_895_905",
   "updated_at": "1782964406"
 }

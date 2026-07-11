@@ -9,14 +9,14 @@
   "exits": {
     "down": "zone_util_zone_halcyon_lobby",
     "in": "zone_halcyon_elevator",
-    "out": "zone_nc_halcyon"
+    "out": "zone_district_895_906"
   },
   "flags": {
     "building_name": "Halcyon Towers",
     "building_type": "corporate_office",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_nc_halcyon"
+    "world_exit_zone": "zone_district_895_906"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -25,6 +25,6 @@
   "map_id": "map_int_halcyon",
   "marker": "HA",
   "name": "Halcyon Towers — Grand Lobby",
-  "parent_zone": null,
+  "parent_zone": "zone_district_895_906",
   "updated_at": "1783316802"
 }

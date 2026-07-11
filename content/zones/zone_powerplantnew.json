@@ -10,7 +10,6 @@
   "created_by": null,
   "description": "A flat apron of stained concrete where the ground still runs warm underfoot, waste heat bleeding up from whatever's left alive below. Fat coolant mains arc overhead on their gantries, weeping rust-orange at every joint, and the air tastes of hot metal and pond scum. The Coldwater Power Plant looms at the apron's edge behind chain-link and faded RADIATION placards, a turbine somewhere inside grinding on out of sheer habit. Steam ghosts up from a grate and refuses to disperse.",
   "exits": {
-    "in": "zone_coldwater_turbine_hall",
     "south": "zone_city_east"
   },
   "flags": {

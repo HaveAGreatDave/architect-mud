@@ -12,7 +12,6 @@
   "created_by": null,
   "description": "Where the Marquee's neon can't quite reach, the district goes to seed. Ember Alley is a slot of a street lit orange by a single working sodium lamp and the coal-glow of cigarettes in doorways. A dive bar exhales stale beer and old grease into the cold. The walls wear decades of paste-over posters, and somewhere behind them, the brick. People here mind their own business with a dedication that is itself a kind of threat.",
   "exits": {
-    "in": "zone_mq_sump_bar",
     "south": "zone_weapons_exterior"
   },
   "flags": {

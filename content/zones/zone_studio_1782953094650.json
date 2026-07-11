@@ -8,13 +8,14 @@
   "description": "Broadcast stage for KSAB-TV Studio.",
   "exits": {
     "down": "zone_util_1782953094650",
-    "out": "zone_ext_1782953094650",
+    "out": "zone_district_913_911",
     "up": "zone_prod_1782953094650"
   },
   "flags": {
+    "building_type": "studio",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_ext_1782953094650"
+    "world_exit_zone": "zone_district_913_911"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -23,6 +24,6 @@
   "map_id": "map_int_1782953094650",
   "marker": null,
   "name": "KSAB-TV Studio Stage",
-  "parent_zone": null,
+  "parent_zone": "zone_district_913_911",
   "updated_at": "1782953095"
 }

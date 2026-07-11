@@ -14,14 +14,14 @@
   "exits": {
     "down": "zone_mq_precinct_holding",
     "north": "zone_mq_precinct_bullpen",
-    "out": "zone_mq_precinct"
+    "out": "zone_district_922_911"
   },
   "flags": {
     "building_name": "Precinct 9",
     "building_type": "police",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_mq_precinct"
+    "world_exit_zone": "zone_district_922_911"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -30,6 +30,6 @@
   "map_id": "map_int_mq_precinct",
   "marker": null,
   "name": "Precinct 9 — Lobby",
-  "parent_zone": "zone_mq_precinct",
+  "parent_zone": "zone_district_922_911",
   "updated_at": "1782964407"
 }

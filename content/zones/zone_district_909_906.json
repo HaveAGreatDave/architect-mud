@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#3f3a34",
+  "color": "#b9a888",
+  "created_by": "zone-planner",
+  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
+  "exits": {
+    "east": "zone_district_910_906",
+    "north": "zone_district_909_905",
+    "south": "zone_district_909_907",
+    "west": "zone_district_908_906"
+  },
+  "flags": {
+    "icon": "road_s",
+    "planner": "bp_district"
+  },
+  "grid_x": 909,
+  "grid_y": 906,
+  "grid_z": 0,
+  "id": "zone_district_909_906",
+  "map_id": "map_world",
+  "marker": "⸪.",
+  "name": "Meltwater Row",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

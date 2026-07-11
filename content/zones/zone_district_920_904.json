@@ -1,0 +1,29 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#3a3550",
+  "color": "#e8e0ff",
+  "created_by": "zone-planner",
+  "description": "[PLANNER STUB] The face of Embassy Hotel & Bar.",
+  "exits": {
+    "in": "zone_residential_lobby"
+  },
+  "flags": {
+    "building_name": "Embassy Hotel & Bar",
+    "building_type": "hotel",
+    "facade": true,
+    "is_building": true,
+    "planner": "bp_district",
+    "world_exit_zone": "zone_district_920_905"
+  },
+  "grid_x": 920,
+  "grid_y": 904,
+  "grid_z": 0,
+  "id": "zone_district_920_904",
+  "map_id": "map_world",
+  "marker": "EH",
+  "name": "Embassy Hotel & Bar",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

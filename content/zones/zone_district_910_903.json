@@ -1,0 +1,27 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "coast",
+  "audio_theme_id": null,
+  "bg_color": "#2f2a24",
+  "color": "#a98b63",
+  "created_by": "zone-planner",
+  "description": "Weathered decking stretches out over the water, wide enough to land a truck, scarred with the drag-marks of cargo that hasn't come through in years. A bollard leans drunkenly at the lip; gulls the size of dogs watch you from the rail and do not move.",
+  "exits": {
+    "east": "zone_district_911_903",
+    "north": "zone_district_910_902",
+    "south": "zone_district_910_904",
+    "west": "zone_district_909_903"
+  },
+  "flags": {
+    "planner": "bp_district"
+  },
+  "grid_x": 910,
+  "grid_y": 903,
+  "grid_z": 0,
+  "id": "zone_district_910_903",
+  "map_id": "map_world",
+  "marker": "▤▤",
+  "name": "Pier",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

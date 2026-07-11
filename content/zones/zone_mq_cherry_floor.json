@@ -14,14 +14,14 @@
   "exits": {
     "down": "zone_mq_cherry_office",
     "north": "zone_mq_cherry_vip",
-    "out": "zone_mq_cathode"
+    "out": "zone_district_901_907"
   },
   "flags": {
     "building_name": "The Cherry Pit",
     "building_type": "club",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_mq_cathode"
+    "world_exit_zone": "zone_district_901_907"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -30,6 +30,6 @@
   "map_id": "map_int_mq_cherry",
   "marker": null,
   "name": "The Cherry Pit",
-  "parent_zone": "zone_mq_cathode",
+  "parent_zone": "zone_district_901_907",
   "updated_at": "1783019924"
 }

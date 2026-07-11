@@ -1,0 +1,26 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#2f3a26",
+  "color": "#8ba36a",
+  "created_by": "zone-planner",
+  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "exits": {
+    "east": "zone_district_908_919",
+    "north": "zone_district_907_918",
+    "west": "zone_district_906_919"
+  },
+  "flags": {
+    "planner": "bp_district"
+  },
+  "grid_x": 907,
+  "grid_y": 919,
+  "grid_z": 0,
+  "id": "zone_district_907_919",
+  "map_id": "map_world",
+  "marker": "#",
+  "name": "Grasslands",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

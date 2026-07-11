@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#33343c",
+  "color": "#9aa0b0",
+  "created_by": "zone-planner",
+  "description": "Open apron stretching flat in every direction, tie-down rings rusted into the concrete. The wind has nothing to break it here and comes at you sideways, carrying grit and the ghost of jet fuel.",
+  "exits": {
+    "east": "zone_district_927_904",
+    "north": "zone_district_926_903",
+    "south": "zone_district_926_905",
+    "west": "zone_district_925_904"
+  },
+  "flags": {
+    "planner": "bp_district",
+    "runway": "pad"
+  },
+  "grid_x": 926,
+  "grid_y": 904,
+  "grid_z": 0,
+  "id": "zone_district_926_904",
+  "map_id": "map_world",
+  "marker": "#",
+  "name": "Runway",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

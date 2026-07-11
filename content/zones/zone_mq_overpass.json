@@ -13,7 +13,6 @@
   "description": "A stub of collapsed elevated roadway roofs this block in permanent shadow, its underside a cathedral of rebar and pigeon filth. Someone strung work-lights along the girders and called it commerce. An electronics stall glows under the deck; a stairwell drops into a basement lit by a single sign. Water finds its way down through the concrete no matter the weather, ticking into puddles that never dry.",
   "exits": {
     "east": "zone_mq_cage",
-    "in": "zone_mq_amp_shop",
     "north": "zone_mq_battery",
     "south": "zone_meat_ashpit"
   },

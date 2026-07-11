@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "coast",
+  "audio_theme_id": null,
+  "bg_color": "#1d3b52",
+  "color": "#7fd3ff",
+  "created_by": "zone-planner",
+  "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot — the channel beyond is deep, and impassable without a boat.",
+  "exits": {
+    "east": "zone_district_910_898",
+    "north": "zone_district_909_897",
+    "south": "zone_district_909_899",
+    "west": "zone_district_908_898"
+  },
+  "flags": {
+    "planner": "bp_district",
+    "water": true
+  },
+  "grid_x": 909,
+  "grid_y": 898,
+  "grid_z": 0,
+  "id": "zone_district_909_898",
+  "map_id": "map_world",
+  "marker": "≈",
+  "name": "Cold Channel",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

@@ -1,0 +1,36 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#2b2b2b",
+  "color": "#f5d400",
+  "created_by": "zone-planner",
+  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "exits": {
+    "east": "zone_district_894_909",
+    "south": "zone_district_893_910",
+    "west": "zone_district_892_909"
+  },
+  "flags": {
+    "airfield_charter": true,
+    "airfield_fuel": true,
+    "airfield_fuels": [
+      "avgas",
+      "jet"
+    ],
+    "airfield_id": "af_helipad",
+    "airfield_name": "Threshold Helipad",
+    "hangar_interior_zone": "zone_hangar_threshold",
+    "icon": "helipad",
+    "planner": "bp_district"
+  },
+  "grid_x": 893,
+  "grid_y": 909,
+  "grid_z": 0,
+  "id": "zone_district_893_909",
+  "map_id": "map_world",
+  "marker": "#",
+  "name": "Helipad",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

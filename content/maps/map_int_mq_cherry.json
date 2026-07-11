@@ -3,6 +3,6 @@
   "entry_zone_id": "zone_mq_cherry_floor",
   "id": "map_int_mq_cherry",
   "name": "Cathode Row — Interior",
-  "parent_zone_id": "zone_mq_cathode",
+  "parent_zone_id": "zone_district_901_907",
   "updated_at": "1782964405"
 }

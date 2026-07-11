@@ -8,7 +8,6 @@
   "description": "A hard-standing of cracked concrete and painted lines nobody parks between anymore. Floodlights — real, working ones — wash the whole yard in interrogation white, so there is nowhere to stand that isn't seen. Precinct 9 fronts the yard behind a caged sally-port, its charter placard swapped so many times the old bolt holes have merged into one long scar. A departmental drone idles on its pad, optics tracking anything that moves too fast.",
   "exits": {
     "east": "zone_yard_loadout",
-    "in": "zone_mq_precinct_lobby",
     "south": "zone_mq_cage",
     "west": "zone_mq_battery"
   },

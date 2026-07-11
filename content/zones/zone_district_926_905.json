@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#33343c",
+  "color": "#9aa0b0",
+  "created_by": "zone-planner",
+  "description": "A broad grey ribbon of cracked asphalt, its painted centreline dwindling to a pale seam in the heat-shimmer. Weeds push up through the expansion joints. A windsock hangs limp at the far edge.",
+  "exits": {
+    "east": "zone_district_927_905",
+    "north": "zone_district_926_904",
+    "south": "zone_district_926_906",
+    "west": "zone_district_925_905"
+  },
+  "flags": {
+    "planner": "bp_district",
+    "runway": "pad"
+  },
+  "grid_x": 926,
+  "grid_y": 905,
+  "grid_z": 0,
+  "id": "zone_district_926_905",
+  "map_id": "map_world",
+  "marker": "#",
+  "name": "Runway",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

@@ -1,0 +1,29 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": "#2b2b2b",
+  "color": "#f5d400",
+  "created_by": "zone-planner",
+  "description": "The north–south centreline halves the tarmac, yellow and unmistakable. Follow it with your eye and the runway runs away at both ends toward thresholds lost in the heat-shimmer.",
+  "exits": {
+    "east": "zone_district_926_900",
+    "north": "zone_district_925_899",
+    "south": "zone_district_925_901",
+    "west": "zone_district_924_900"
+  },
+  "flags": {
+    "icon": "runway_ns",
+    "planner": "bp_district",
+    "runway": "ns"
+  },
+  "grid_x": 925,
+  "grid_y": 900,
+  "grid_z": 0,
+  "id": "zone_district_925_900",
+  "map_id": "map_world",
+  "marker": "┃",
+  "name": "Runway",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

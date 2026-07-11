@@ -13,25 +13,15 @@
   "description": "The fractured boulevard stretches east beneath leaning streetlights and sagging power lines. Rows of shuttered storefronts stare blankly across the cracked pavement, their windows painted over or shattered years ago. Rusted buses sit abandoned where traffic died, their interiors swallowed by dust and creeping vines. Faded evacuation signs still point deeper into the city, while countless layers of graffiti bury whatever messages came before. Every road seems to lead somewhere important, yet every direction feels equally forgotten.",
   "exits": {
     "east": "zone_thresholdeast",
-    "in": "zone_hangar_threshold",
     "north": "zone_city_north",
     "south": "zone_city_south",
     "west": "zone_city_west"
   },
   "flags": {
-    "airfield_charter": true,
-    "airfield_fuel": true,
-    "airfield_fuels": [
-      "avgas",
-      "jet"
-    ],
-    "airfield_id": "af_helipad",
-    "airfield_name": "Threshold Helipad",
     "artery": [
       "Grand Avenue",
       "The Haul Road"
     ],
-    "hangar_interior_zone": "zone_hangar_threshold",
     "intro_lore": "The city's broken spine — a boulevard sagging east under dead lights and dead lines, where every district's traffic has to pass and everyone watches who does. It's neutral ground only because nobody's managed to hold it yet. You'll cross the Threshold a hundred times; the trick is making it a hundred and one.",
     "no_spawn": true,
     "scavenging_table_id": "scav_roadside_junk"

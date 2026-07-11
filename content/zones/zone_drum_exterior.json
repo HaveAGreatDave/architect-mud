@@ -7,7 +7,6 @@
   "created_by": null,
   "description": "A slim pedestrian cut that somehow keeps its dignity in a city this far gone — swept, even, the puddles smaller here than they have any right to be. Storefront glass runs its length, most of it soaped over, one window still dressed and lit. Drum's Fits shows two mannequins in loud, layered outfits that dare you to walk past without looking, a neon thread-spool buzzing pink above the door. The rest of the frontage waits for tenants who aren't coming.",
   "exits": {
-    "in": "zone_drum_shop",
     "north": "zone_velk_exterior"
   },
   "flags": {

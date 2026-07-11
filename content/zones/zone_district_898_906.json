@@ -1,0 +1,27 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#2f3a26",
+  "color": "#8ba36a",
+  "created_by": "zone-planner",
+  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "exits": {
+    "east": "zone_district_899_906",
+    "north": "zone_district_898_905",
+    "south": "zone_district_898_907",
+    "west": "zone_district_897_906"
+  },
+  "flags": {
+    "planner": "bp_district"
+  },
+  "grid_x": 898,
+  "grid_y": 906,
+  "grid_z": 0,
+  "id": "zone_district_898_906",
+  "map_id": "map_world",
+  "marker": "#",
+  "name": "Grasslands",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

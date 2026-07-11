@@ -1,0 +1,27 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "coast",
+  "audio_theme_id": null,
+  "bg_color": "#2f2a24",
+  "color": "#a98b63",
+  "created_by": "zone-planner",
+  "description": "A length of the great pier, its planking grey and split, bolted over a forest of barnacled pilings that vanish into the cold slop below. Mooring cleats the size of anvils stud the edge, most wrenched half out. The whole structure groans when the water shoves it.",
+  "exits": {
+    "east": "zone_district_910_903",
+    "north": "zone_district_909_902",
+    "south": "zone_district_909_904",
+    "west": "zone_district_908_903"
+  },
+  "flags": {
+    "planner": "bp_district"
+  },
+  "grid_x": 909,
+  "grid_y": 903,
+  "grid_z": 0,
+  "id": "zone_district_909_903",
+  "map_id": "map_world",
+  "marker": "▤▤",
+  "name": "Pier",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

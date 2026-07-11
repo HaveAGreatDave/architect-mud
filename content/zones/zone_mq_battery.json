@@ -13,7 +13,6 @@
   "description": "The civic heart of the district, such as it is — a paved square built around a dry fountain someone has repurposed as a communal firepit. A grocery holds down one side, a police precinct scowls from another, and a public notice pillar wears a thick scab of flyers: rooms to let, people gone missing, curfews rescinded and reinstated. It is, by local standards, safe. The precinct's floodlights see to that.",
   "exits": {
     "east": "zone_mq_precinct",
-    "in": "zone_mq_grocery",
     "north": "zone_mq_chrome_court",
     "south": "zone_mq_overpass",
     "west": "zone_mq_marquee"

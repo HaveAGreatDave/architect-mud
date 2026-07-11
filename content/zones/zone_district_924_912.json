@@ -1,0 +1,26 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#332e28",
+  "color": "#b89a72",
+  "created_by": "zone-planner",
+  "description": "Stacked living units marketed as \"affordable modular habitation\" — landlord for a concrete drawer you rent by the month, utilities extra, dignity not included. Someone's AC unit drips onto someone else's only window. The whole block breathes through one wheezing vent.",
+  "exits": {
+    "east": "zone_district_925_912",
+    "south": "zone_district_924_913",
+    "west": "zone_district_923_912"
+  },
+  "flags": {
+    "planner": "bp_district"
+  },
+  "grid_x": 924,
+  "grid_y": 912,
+  "grid_z": 0,
+  "id": "zone_district_924_912",
+  "map_id": "map_world",
+  "marker": "▨",
+  "name": "Residential Area",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}

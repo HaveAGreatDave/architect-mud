@@ -13,14 +13,14 @@
   "description": "A stall built into the overpass footing, every inch of it strung with salvaged tech: coils of cable, cracked slates, drones with their guts hanging out, and a wall of chargers for devices no one makes anymore. The proprietor works at a bench under a magnifier lamp, soldering iron never quite set down. Everything is priced by argument. A hand-lettered sign warns NO REFUNDS, NO EXCEPTIONS, NO EXORCISMS, the last apparently learned the hard way.",
   "exits": {
     "north": "zone_mq_amp_util",
-    "out": "zone_mq_overpass"
+    "out": "zone_district_905_908"
   },
   "flags": {
     "building_name": "Ampersand Electronics",
     "building_type": "shop",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_mq_overpass"
+    "world_exit_zone": "zone_district_905_908"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -29,6 +29,6 @@
   "map_id": "map_int_mq_amp",
   "marker": null,
   "name": "Ampersand Electronics",
-  "parent_zone": "zone_mq_overpass",
+  "parent_zone": "zone_district_905_908",
   "updated_at": "1782964407"
 }

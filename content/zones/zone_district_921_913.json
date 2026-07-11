@@ -1,0 +1,26 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#332e28",
+  "color": "#b89a72",
+  "created_by": "zone-planner",
+  "description": "Home sweet subsidised home: prefab housing the colour of wet cardboard, balconies caged against jumpers and pigeons with equal indifference. A billboard over the roofline promises a better unit uptown. Nobody here has ever seen uptown.",
+  "exits": {
+    "east": "zone_district_922_913",
+    "north": "zone_district_921_912",
+    "west": "zone_district_920_913"
+  },
+  "flags": {
+    "planner": "bp_district"
+  },
+  "grid_x": 921,
+  "grid_y": 913,
+  "grid_z": 0,
+  "id": "zone_district_921_913",
+  "map_id": "map_world",
+  "marker": "▨",
+  "name": "Residential Area",
+  "parent_zone": null,
+  "updated_at": "1783739474"
+}
