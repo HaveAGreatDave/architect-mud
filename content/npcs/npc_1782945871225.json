@@ -15,15 +15,15 @@
           "loop": true,
           "mode": "walk",
           "waypoints": [
-            "zone_city_north",
-            "zone_city_ne",
-            "zone_city_east",
-            "zone_city_se",
-            "zone_city_south",
-            "zone_city_west",
-            "zone_velk_exterior",
-            "zone_drum_exterior",
-            "zone_thresholdeast"
+            "zone_district_894_904",
+            "zone_district_913_913",
+            "zone_district_912_912",
+            "zone_district_894_905",
+            "zone_district_903_909",
+            "zone_district_912_909",
+            "zone_district_921_908",
+            "zone_district_901_908",
+            "zone_district_907_908"
           ]
         },
         "type": "action"

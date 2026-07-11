@@ -1,8 +1,0 @@
-{
-  "enemy_id": "enemy_scrap_picker",
-  "id": "spawn_slag_rail_scrap_picker",
-  "max_count": 1,
-  "respawn_seconds": 240,
-  "spawn_weight": 20,
-  "zone_id": "zone_slag_rail"
-}

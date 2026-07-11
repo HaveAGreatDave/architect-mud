@@ -12,7 +12,7 @@
   "flags": {
     "is_interior": true,
     "utility_room": true,
-    "world_exit_zone": "zone_meridian"
+    "world_exit_zone": "zone_district_918_908"
   },
   "grid_x": 0,
   "grid_y": 0,

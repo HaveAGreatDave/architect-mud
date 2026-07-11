@@ -21,10 +21,10 @@
   ],
   "weight": 100,
   "zones": [
-    "zone_city_west",
-    "zone_city_north",
-    "zone_mq_marquee",
-    "zone_civ_commons",
-    "zone_media_plaza"
+    "zone_district_912_909",
+    "zone_district_894_904",
+    "zone_district_902_908",
+    "zone_district_907_908",
+    "zone_district_909_911"
   ]
 }

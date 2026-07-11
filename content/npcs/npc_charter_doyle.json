@@ -129,7 +129,7 @@
   "faction": null,
   "flags": {
     "charter_pilot": {
-      "field": "zone_outskirts",
+      "field": "zone_district_925_903",
       "shift_start": 0
     },
     "personality": "charter_pilot"

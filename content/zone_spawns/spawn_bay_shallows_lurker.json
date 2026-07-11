@@ -1,8 +1,0 @@
-{
-  "enemy_id": "enemy_harbor_lurker",
-  "id": "spawn_bay_shallows_lurker",
-  "max_count": 1,
-  "respawn_seconds": 220,
-  "spawn_weight": 50,
-  "zone_id": "zone_bay_shallows"
-}

@@ -12,7 +12,7 @@
   "flags": {
     "is_interior": true,
     "utility_room": true,
-    "world_exit_zone": "zone_nc_halcyon"
+    "world_exit_zone": "zone_district_895_906"
   },
   "grid_x": 0,
   "grid_y": 0,

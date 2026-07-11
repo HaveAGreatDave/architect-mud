@@ -12,7 +12,7 @@
   "flags": {
     "is_interior": true,
     "utility_room": true,
-    "world_exit_zone": "zone_drum_exterior"
+    "world_exit_zone": "zone_district_901_908"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -21,6 +21,6 @@
   "map_id": "map_int_drum",
   "marker": null,
   "name": "Second Skin — Utility Room — Utility Room",
-  "parent_zone": "zone_drum_exterior",
+  "parent_zone": "zone_district_901_908",
   "updated_at": "1783116358"
 }

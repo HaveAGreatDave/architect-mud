@@ -58,8 +58,13 @@ export default async function regress({ run, check, getPlayer }) {
   // Abbreviation path, decoupled from the zone's real exits: a local door tagged
   // exit_dir='west' is reachable by every "w"/"west" phrasing. (A local door
   // needs no matching zone.exits entry — getZoneDoors returns it by zone.)
+  // target_zone is an explicit dummy, NOT null: with null, the far side resolves
+  // through the test zone's real 'west' exit — and if the harness lands the player
+  // next to an apartment (doorGuardsOnlyUnownedApartment sees the unowned unit as
+  // "open"), the hack spuriously reports the lock disengaged. A fixed non-apartment
+  // far side keeps this test about SIFT phrasing, not the borrowed zone's geography.
   setDoorCache(doorId, {
-    id: doorId, zone_id: p.current_zone, exit_dir: 'west', target_zone: null,
+    id: doorId, zone_id: p.current_zone, exit_dir: 'west', target_zone: '__regress_far_' + p.id,
     is_open: 0, hp: 100, hp_max: 100, lock_state: 'locked',
     tags: { 'lock:hololock': { canHack: true, difficulty: 5, messages: { unlock: 'click' } } },
   });

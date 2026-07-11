@@ -20,10 +20,10 @@
           "loop": true,
           "mode": "walk",
           "waypoints": [
-            "zone_city_west",
+            "zone_district_912_909",
             "zone_start",
-            "zone_threshold",
-            "zone_thresholdeast"
+            "zone_district_918_904",
+            "zone_district_907_908"
           ]
         },
         "type": "action"
@@ -190,10 +190,10 @@
   "vendor_shop_name": null,
   "vendor_stock_size": 0,
   "wander_zones": [
-    "zone_city_west",
+    "zone_district_912_909",
     "zone_start",
-    "zone_threshold",
-    "zone_thresholdeast"
+    "zone_district_918_904",
+    "zone_district_907_908"
   ],
   "wanders": 0,
   "work_zone_id": null

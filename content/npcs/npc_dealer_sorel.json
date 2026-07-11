@@ -20,11 +20,11 @@
           "loop": true,
           "mode": "walk",
           "waypoints": [
-            "zone_yard_depot",
-            "zone_yard_container",
-            "zone_yard_railhead",
-            "zone_yard_loadout",
-            "zone_yard_marshalling"
+            "zone_district_908_908",
+            "zone_district_916_909",
+            "zone_district_908_913",
+            "zone_district_909_906",
+            "zone_district_925_903"
           ]
         },
         "type": "action"
@@ -125,11 +125,11 @@
   "vendor_shop_name": null,
   "vendor_stock_size": 0,
   "wander_zones": [
-    "zone_yard_depot",
-    "zone_yard_container",
-    "zone_yard_railhead",
-    "zone_yard_loadout",
-    "zone_yard_marshalling"
+    "zone_district_908_908",
+    "zone_district_916_909",
+    "zone_district_908_913",
+    "zone_district_909_906",
+    "zone_district_925_903"
   ],
   "wanders": 0,
   "work_zone_id": null

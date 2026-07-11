@@ -22,7 +22,7 @@
           "waypoints": [
             "zone_mq_pigeon_bar",
             "zone_mq_cherry_floor",
-            "zone_mq_marquee",
+            "zone_district_902_908",
             "zone_mq_sump_bar"
           ]
         },
@@ -126,7 +126,7 @@
   "wander_zones": [
     "zone_mq_pigeon_bar",
     "zone_mq_cherry_floor",
-    "zone_mq_marquee",
+    "zone_district_902_908",
     "zone_mq_sump_bar"
   ],
   "wanders": 0,

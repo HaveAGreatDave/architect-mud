@@ -1,8 +1,0 @@
-{
-  "enemy_id": "enemy_feral_dog",
-  "id": "eaacb3cb-4027-406d-96f0-621e4a221302",
-  "max_count": 2,
-  "respawn_seconds": 160,
-  "spawn_weight": 55,
-  "zone_id": "zone_badland_w_gate"
-}

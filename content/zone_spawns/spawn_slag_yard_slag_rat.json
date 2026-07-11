@@ -1,8 +1,0 @@
-{
-  "enemy_id": "enemy_slag_rat",
-  "id": "spawn_slag_yard_slag_rat",
-  "max_count": 2,
-  "respawn_seconds": 90,
-  "spawn_weight": 40,
-  "zone_id": "zone_slag_yard"
-}

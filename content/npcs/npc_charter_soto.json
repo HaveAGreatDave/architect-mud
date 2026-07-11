@@ -129,7 +129,7 @@
   "faction": null,
   "flags": {
     "charter_pilot": {
-      "field": "zone_yard_marshalling",
+      "field": "zone_district_925_903",
       "shift_start": 8
     },
     "personality": "charter_pilot"
