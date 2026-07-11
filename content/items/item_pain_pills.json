@@ -1,0 +1,18 @@
+{
+  "description": "A blister pack of off-brand painkillers. Chalky, bitter, and slowly forgiving.",
+  "flags": {},
+  "id": "item_pain_pills",
+  "name": "pain pills",
+  "tags": {
+    "consumable": true,
+    "description": "A blister pack of off-brand painkillers. Chalky, bitter, and slowly forgiving.",
+    "heal_over_time": {
+      "amount": 22,
+      "duration_seconds": 180
+    },
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 16,
+  "weight": 40
+}

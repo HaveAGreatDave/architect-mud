@@ -1,0 +1,16 @@
+{
+  "description": "A vacuum-sealed stick of allegedly-beef. Chewy enough to double as jerky and dental floss.",
+  "flags": {},
+  "id": "item_beef_jerky",
+  "name": "beef jerky",
+  "tags": {
+    "consumable": true,
+    "description": "A vacuum-sealed stick of allegedly-beef. Chewy enough to double as jerky and dental floss.",
+    "restore_hunger": 22,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 180
+}

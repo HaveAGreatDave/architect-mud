@@ -1,0 +1,329 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "",
+    "nodes": {}
+  },
+  "chitchat": [
+    "\"Everything here keeps you breathing. That’s the whole pitch.\"",
+    "\"You touch it, you bought it. Most of it’s already broken, so we’re square.\"",
+    "\"Fresh out of the vat? Then you’re fresh out of everything. I can fix one of those.\"",
+    "\"Big scores get you killed. A working flashlight gets you home.\"",
+    "\"Prices are honest. Out here that counts as a miracle.\"",
+    "\"Buy a bandage now or buy a coffin later. I don’t sell coffins.\""
+  ],
+  "description": "A broad, unhurried man in a patched vendor’s apron, set up behind a rampart of scavenged crates on the sidewalk outside the clone facility. He watches the vat-house doors the way a fisherman watches a net — patient, and already pricing what comes out.",
+  "dialogue_tree": {
+    "accepted": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_first_hour"
+        },
+        {
+          "action": "GRANT_ITEM",
+          "item_id": "item_bat",
+          "quantity": 1
+        },
+        {
+          "action": "EXECUTE_SCRIPT",
+          "scriptId": "script_grady_crash_course"
+        }
+      ],
+      "options": [
+        {
+          "label": "On it.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Good. There’s a green line on your map now — that’s the way. East, into the alley. Try not to die out there; the paperwork on a fresh clone is murder.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Mind the alley. And the sky. And the water. Actually — mind everything.\" He goes back to watching the doors."
+    },
+    "lore": {
+      "options": [
+        {
+          "label": "Noted.",
+          "next": "root"
+        }
+      ],
+      "text": "He taps a scratched flashlight hanging off his belt. \"Two cells. That’s all this old thing ever needed. Everyone out here’s hunting some big score, some perfect gun. Me, I found the one tool that never quit on me and I stopped looking. Learn that before something out there teaches it to you the hard way.\""
+    },
+    "quest_offer": {
+      "options": [
+        {
+          "label": "I’ll clear them out.",
+          "next": "accepted"
+        },
+        {
+          "label": "Not my fight.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Funny you should say it. There’s a crew of clonejackers working the alley just east — Ironside Street. They wait for sprats like you to wobble out of the vats, then lift everything you’ve got before you know you had it. Bad for you. Worse for me: dead customers don’t spend.\" He pulls a battered bat off the crate and holds it out. \"Put two of them down, bring back the cells they boosted off me, and I’ll make it worth your while. Take the loaner. Bring it back or don’t — I’ve a crate of ’em.\""
+    },
+    "regular": {
+      "options": [
+        {
+          "label": "Show me the crates.",
+          "next": "shop"
+        },
+        {
+          "label": "Just passing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Back for more, regular? Good. You keep breathing, I keep selling. Beautiful arrangement, this.\""
+    },
+    "reported": {
+      "actions": [
+        {
+          "action": "REMOVE_ITEM",
+          "item_id": "item_stolen_cells",
+          "quantity": 1
+        },
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_first_hour"
+        }
+      ],
+      "options": [
+        {
+          "label": "Obliged, Grady.",
+          "next": "bye"
+        }
+      ],
+      "text": "He weighs the recovered cells in one hand and, for the first time, actually smiles. \"Well. Look at you — upright AND useful. Rare combination round here.\" He unclips the scratched flashlight from his belt and folds your fingers around it. \"This one’s mine. Was. Never once left me in the dark. Graduation gift. Consider yourself a regular.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What are you selling?",
+          "next": "shop"
+        },
+        {
+          "label": "\"Two-Cell?\"",
+          "next": "lore"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_first_hour",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "Something’s hunting the new ones out there.",
+          "next": "quest_offer"
+        },
+        {
+          "label": "I put those clonejackers down.",
+          "next": "reported"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "grady_regular",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Good doing business, Grady.",
+          "next": "regular"
+        },
+        {
+          "label": "(walk off)",
+          "next": "bye"
+        }
+      ],
+      "text": "The broad man clocks you the instant you’re upright. \"There it is. Another fresh one, blinking in the light.\" He spreads his hands over the crates. \"Name’s Grady. Folks call me Two-Cell. I sell the things that keep you breathing long enough to become a repeat customer.\""
+    },
+    "shop": {
+      "actions": [
+        {
+          "action": "OPEN_SHOP",
+          "npcId": "npc_grady"
+        }
+      ],
+      "options": [
+        {
+          "label": "(browse the crates)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Have a look. You break it, you bought it — but most of it’s pre-broken, so relax.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a patched canvas vendor’s apron hung with flashlights and spare cells",
+      "a padded work jacket gone shiny at the elbows",
+      "a faded thermal shirt and boxers"
+    ],
+    "personality": "travelling_vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_918_903",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_grady",
+  "name": "Grady \"Two-Cell\" Okonkwo",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_flashlight",
+      "price": 55,
+      "stock": 10
+    },
+    {
+      "item_id": "item_battery",
+      "price": 12,
+      "stock": 40
+    },
+    {
+      "item_id": "item_bat",
+      "price": 45,
+      "stock": 8
+    },
+    {
+      "item_id": "item_tire_iron",
+      "price": 28,
+      "stock": 6
+    },
+    {
+      "item_id": "item_scrap_shiv",
+      "price": 12,
+      "stock": 10
+    },
+    {
+      "item_id": "item_padded_jacket",
+      "price": 60,
+      "stock": 6
+    },
+    {
+      "item_id": "item_bump_cap",
+      "price": 30,
+      "stock": 8
+    },
+    {
+      "item_id": "item_work_gloves",
+      "price": 10,
+      "stock": 10
+    },
+    {
+      "item_id": "item_steel_toe_boots",
+      "price": 40,
+      "stock": 6
+    },
+    {
+      "item_id": "item_basic_pants",
+      "price": 10,
+      "stock": 10
+    },
+    {
+      "item_id": "item_rag_bandage",
+      "price": 6,
+      "stock": 30
+    },
+    {
+      "item_id": "item_bandage",
+      "price": 12,
+      "stock": 20
+    },
+    {
+      "item_id": "item_pain_pills",
+      "price": 16,
+      "stock": 15
+    },
+    {
+      "item_id": "item_medkit",
+      "price": 60,
+      "stock": 4
+    },
+    {
+      "item_id": "item_beef_jerky",
+      "price": 9,
+      "stock": 25
+    },
+    {
+      "item_id": "item_bar_jerky",
+      "price": 6,
+      "stock": 20
+    },
+    {
+      "item_id": "item_energy_drink",
+      "price": 8,
+      "stock": 25
+    },
+    {
+      "item_id": "item_water_bottle",
+      "price": 5,
+      "stock": 30
+    },
+    {
+      "item_id": "item_ration",
+      "price": 10,
+      "stock": 20
+    },
+    {
+      "item_id": "item_cigarettes",
+      "price": 15,
+      "stock": 20
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Two-Cell Supply",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_918_903"
+}

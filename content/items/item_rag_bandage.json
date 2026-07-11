@@ -1,0 +1,15 @@
+{
+  "description": "A wad of boiled rag and packing tape. Cheaper than gauze, works about as well as you would fear.",
+  "flags": {},
+  "id": "item_rag_bandage",
+  "name": "rag bandage",
+  "tags": {
+    "consumable": true,
+    "description": "A wad of boiled rag and packing tape. Cheaper than gauze, works about as well as you would fear.",
+    "restore_hp": 8,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 5,
+  "weight": 150
+}

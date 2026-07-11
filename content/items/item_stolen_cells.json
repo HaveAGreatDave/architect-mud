@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_stolen_cells",
+  "name": "bundle of stolen cells",
+  "tags": {
+    "description": "A rubber-banded brick of high-density flashlight cells, still warm from a pocket that was not yours. Grady’s stock, boosted off some newborn who never saw it coming.",
+    "misc": true,
+    "stackable": true
+  },
+  "type": null,
+  "value": 20,
+  "weight": 300
+}

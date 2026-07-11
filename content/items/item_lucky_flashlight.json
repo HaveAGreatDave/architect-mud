@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_lucky_flashlight",
+  "name": "Two-Cell's flashlight",
+  "tags": {
+    "description": "A scuffed rubber-armoured flashlight with \"2-CELL\" scratched into the barrel by hand. The lens is cracked clean across and it does not care — it has never once left its owner in the dark. LIGHT it to switch on, UNLIGHT to save the charge, RELOAD it with a fresh cell when it dies.",
+    "flashlight": true,
+    "misc": true,
+    "unique": true
+  },
+  "type": null,
+  "value": 60,
+  "weight": 400
+}

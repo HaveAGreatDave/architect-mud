@@ -1,0 +1,20 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_steel_toe_boots",
+  "name": "steel-toe boots",
+  "tags": {
+    "armor_soak": {
+      "kinetic": 2
+    },
+    "bulkiness": 2,
+    "description": "Steel-toed, salt-stained, laced with wire where the laces gave out. Good for walking. Better for stomping.",
+    "gets_wet": true,
+    "insulation": 2,
+    "layer": "outerwear",
+    "slot": "feet"
+  },
+  "type": "clothing",
+  "value": 40,
+  "weight": 1600
+}

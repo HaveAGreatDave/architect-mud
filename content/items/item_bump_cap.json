@@ -1,0 +1,19 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_bump_cap",
+  "name": "bump cap",
+  "tags": {
+    "armor_soak": {
+      "kinetic": 2
+    },
+    "bulkiness": 1,
+    "description": "A ball cap with a hard plastic shell sewn into the crown. Turns a cracked skull into a bad morning.",
+    "insulation": 1,
+    "layer": "armor",
+    "slot": "head"
+  },
+  "type": "clothing",
+  "value": 30,
+  "weight": 400
+}

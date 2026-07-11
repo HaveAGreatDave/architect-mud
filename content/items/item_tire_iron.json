@@ -1,0 +1,20 @@
+{
+  "description": "A bent steel tire iron. Does lug nuts, does kneecaps, does not ask questions.",
+  "flags": {},
+  "id": "item_tire_iron",
+  "name": "tire iron",
+  "tags": {
+    "damage": {
+      "max": 10,
+      "min": 4
+    },
+    "damage_type": "kinetic",
+    "description": "A bent steel tire iron. Does lug nuts, does kneecaps, does not ask questions.",
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "clubs"
+  },
+  "type": "weapon",
+  "value": 28,
+  "weight": 1400
+}

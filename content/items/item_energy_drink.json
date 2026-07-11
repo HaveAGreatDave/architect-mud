@@ -1,0 +1,16 @@
+{
+  "description": "A dented can of GRID energy drink. Tastes of battery acid and ambition. The label promises \"SYNERGY.\"",
+  "flags": {},
+  "id": "item_energy_drink",
+  "name": "can of GRID",
+  "tags": {
+    "consumable": true,
+    "description": "A dented can of GRID energy drink. Tastes of battery acid and ambition. The label promises \"SYNERGY.\"",
+    "restore_sanity": 4,
+    "restore_thirst": 12,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 8,
+  "weight": 350
+}

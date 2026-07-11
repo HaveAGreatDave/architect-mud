@@ -1,0 +1,51 @@
+{
+  "description": "Timed send-off tips Grady bellows after a new clone accepts the First Hour quest. Flag-gated to play once.",
+  "graph": {
+    "nodes": {
+      "done": {
+        "flag": "grady_course_done",
+        "scope": "player",
+        "type": "setflag",
+        "value": "true"
+      },
+      "gate": {
+        "condition": {
+          "flag": "grady_course_done",
+          "op": "unset",
+          "scope": "player"
+        },
+        "ifTrue": "l1",
+        "type": "condition"
+      },
+      "l1": {
+        "next": "w1",
+        "text": "Grady bellows after you: \"LOOK before you leap, sprat! Type LOOK, read the tile, THEN pick a direction.\"",
+        "type": "say"
+      },
+      "l2": {
+        "next": "w2",
+        "text": "Grady cups his hands: \"That bat does nothing in your bag — EQUIP it! When something ugly turns up, ATTACK it. Simple as breathing.\"",
+        "type": "say"
+      },
+      "l3": {
+        "next": "done",
+        "text": "Grady, distant now: \"Green line on your map is the GPS — hit AUTO and let your feet follow it east. Go on! Two credits won’t earn themselves!\"",
+        "type": "say"
+      },
+      "w1": {
+        "next": "l2",
+        "seconds": 5,
+        "type": "wait"
+      },
+      "w2": {
+        "next": "l3",
+        "seconds": 6,
+        "type": "wait"
+      }
+    },
+    "start": "gate"
+  },
+  "id": "script_grady_crash_course",
+  "name": "Grady's Crash Course",
+  "updated_at": "1783792170"
+}

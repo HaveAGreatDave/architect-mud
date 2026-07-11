@@ -1,0 +1,70 @@
+{
+  "category": null,
+  "description": "Grady says the clonejackers working Ironside Street are killing his business by killing his customers. Clear two of them out and bring back the flashlight cells they lifted off him.",
+  "id": "quest_first_hour",
+  "meta": {},
+  "name": "The First Hour",
+  "objectives": [
+    {
+      "desc": "Head east out of the vats onto Ironside Street (follow the green GPS line — hit AUTO).",
+      "emotes": [
+        "{who} steps out of the vat-house, blinking hard, and gets their bearings on the street."
+      ],
+      "id": "o_move",
+      "taskSeconds": 3,
+      "type": "visit",
+      "zone": "zone_district_919_903"
+    },
+    {
+      "count": 2,
+      "desc": "Put down 2 clonejackers preying on the newborns.",
+      "emotes": [
+        "{who} squares up against a clonejacker.",
+        "{who} drives a clonejacker back a step."
+      ],
+      "id": "o_kill",
+      "target": "clonejacker",
+      "type": "kill",
+      "zone": "zone_district_919_903"
+    },
+    {
+      "count": 1,
+      "desc": "Loot Grady's stolen cells off a downed clonejacker.",
+      "id": "o_loot",
+      "item_id": "item_stolen_cells",
+      "requires": [
+        "o_kill"
+      ],
+      "spawn": false,
+      "type": "retrieve",
+      "zone": "zone_district_919_903"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 120,
+    "flags": [
+      {
+        "flag": "grady_regular",
+        "scope": "player",
+        "value": "earned"
+      }
+    ],
+    "items": [
+      {
+        "item_id": "item_lucky_flashlight",
+        "quantity": 1
+      },
+      {
+        "item_id": "item_beef_jerky",
+        "quantity": 2
+      },
+      {
+        "item_id": "item_rag_bandage",
+        "quantity": 2
+      }
+    ]
+  },
+  "updated_at": "1783792170"
+}

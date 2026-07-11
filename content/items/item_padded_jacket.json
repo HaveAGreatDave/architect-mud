@@ -1,0 +1,21 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_padded_jacket",
+  "name": "padded work jacket",
+  "tags": {
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 2
+    },
+    "bulkiness": 2,
+    "description": "A quilted canvas work jacket, elbows worn to a shine and one pocket sewn shut over a stain. Warm, and it takes a hit before you do.",
+    "gets_wet": true,
+    "insulation": 3,
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": "clothing",
+  "value": 55,
+  "weight": 1300
+}

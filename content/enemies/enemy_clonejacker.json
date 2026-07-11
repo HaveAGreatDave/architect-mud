@@ -1,0 +1,133 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 20
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 5,
+  "butcher_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 100
+    }
+  ],
+  "death_message": "The clonejacker drops what they lifted and folds over the pile, wheezing.",
+  "description": "A twitchy opportunist in a stolen vat-tech coat two sizes too big, pockets bulging with other people’s starter kits. Loiters by the birth-doors the way a gull works a fry stand.",
+  "dodge": 1,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "\"Fresh one! Hold still — this is just a tax.\"",
+      "\"You don’t need all that. You’re basically brand new.\"",
+      "$enemy eyes your pockets a lot harder than your fists.",
+      "\"Nothing personal, sprat. It’s a volume business.\"",
+      "$enemy grins a grin missing several key components."
+    ],
+    "first_strike_delay_ms": 9000
+  },
+  "hit": 1,
+  "hp_max": 16,
+  "id": "enemy_clonejacker",
+  "loot_table": [
+    {
+      "item": "item_stolen_cells",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 100
+    },
+    {
+      "item": "item_credits_small",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 50
+    }
+  ],
+  "name": "clonejacker",
+  "weapon": [
+    {
+      "max": 4,
+      "min": 1,
+      "type": "kinetic"
+    }
+  ]
+}
