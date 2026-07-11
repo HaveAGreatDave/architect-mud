@@ -400,10 +400,12 @@ function mapWindow(a, radius = 4) {
       const biome = biomeOf(cell);
       const road = Array.isArray(cell.flags?.artery) && cell.flags.artery.length ? 1 : 0;
       const kind = cell.flags?.airfield_id ? 'field' : cell.flags?.airspace_restricted ? 'nofly' : 'land';
-      // Building tiles carry their building_type so the windshield renders a 3-D shape
-      // keyed to what the building IS (office tower, warehouse, diner…), with a fallback.
+      // Building tiles carry their building_type AND their name so the windshield can
+      // render either a dedicated per-building model (keyed off the name) or, failing
+      // that, the type's 3-D archetype (office tower, warehouse, diner…), with a fallback.
       const bt = cell.flags?.building_type || undefined;
-      row.push({ kind, biome, road, danger: cell.danger, bt });
+      const bn = cell.flags?.building_name || undefined;
+      row.push({ kind, biome, road, danger: cell.danger, bt, bn });
     }
     rows.push(row);
   }

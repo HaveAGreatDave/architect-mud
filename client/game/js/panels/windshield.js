@@ -319,7 +319,7 @@ export function paintWindshield(id, view) {
     // Mode-7-inspired textured ground plane (forward view) — faded in by worldBlend so
     // it crossfades against the airport/runway rather than popping in with it.
     ctx.save(); ctx.globalAlpha = worldBlend;
-    drawMode7Floor(ctx, W, H, horizonY, focal, vw, sky, gTop);
+    drawMode7Floor(ctx, W, H, horizonY, focal, vw, sky, gTop, now);
     ctx.restore();
   }
 
@@ -902,7 +902,7 @@ function m7buf(w, h) {
   return _m7;
 }
 
-function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop) {
+function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now) {
   if (depth <= 2) return;
   // AUTHENTIC Mode 7: sample the ground PER PIXEL into a low-res buffer, then blit it
   // up with nearest-neighbour — that's the chunky, shimmering look, most visible when
@@ -921,6 +921,25 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop) {
   const map = v.map, R = map ? (map.length - 1) / 2 : 0;
   const cx = W / 2, halfW = W / 2, LAT = 1.15, FREQ = RENDER_TUNE.tile;
   const nm = 1 - sky.night * 0.42, hz = RENDER_TUNE.haze, hor = sky.hor;
+  // Per-tile material LUT for the small visible window (the map is a ~9×9 window), built
+  // once per frame so the per-pixel sampler just indexes it: each entry is
+  // [r, g, b, waterness, grassness]. Off-map reads as endless desert (no void border).
+  const OFF = BIOME_GROUND.badlands, OFF5 = [OFF[0], OFF[1], OFF[2], 0, 0], mh = map ? map.length : 0;
+  let LUT = null;
+  if (map) {
+    LUT = new Array(mh);
+    for (let ry = 0; ry < mh; ry++) {
+      const row = map[ry], out = new Array(row.length);
+      for (let rx = 0; rx < row.length; rx++) {
+        const c = row[rx], bi = c && c.biome;
+        const col = bi ? (BIOME_GROUND[bi] || gTop) : OFF;
+        out[rx] = [col[0], col[1], col[2], bi === 'water' ? 1 : 0, bi === 'parkland' ? 1 : 0];
+      }
+      LUT[ry] = out;
+    }
+  }
+  const sample = (rx, ry) => (LUT && ry >= 0 && ry < mh && rx >= 0 && rx < LUT[ry].length) ? LUT[ry][rx] : OFF5;
+  const t = (now || 0) * 0.001;
   for (let by = 0; by < usedH; by++) {
     const p = Math.max(0.004, (horizonY + by * DS - horizonY) / depth);
     const d = EH / p;
@@ -930,13 +949,39 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop) {
     for (let bx = 0; bx < bw; bx++) {
       const l = ((X0 + bx * DS - cx) / halfW) * d * LAT;
       const wx = ax + d * sinh + l * cosh, wy = ay - d * cosh + l * sinh;
-      let base = BIOME_GROUND.badlands;   // off-map / open air reads as endless desert (no void border)
-      if (map) { const rx = Math.round(R + wx), ry = Math.round(R + wy); if (ry >= 0 && ry < map.length && rx >= 0 && rx < map[ry].length) { const c = map[ry][rx]; if (c && c.biome) base = BIOME_GROUND[c.biome] || gTop; } }
+      // Bilinear-blend the terrain across the four nearest tile centres so neighbouring
+      // biomes (grass→road, land→water) fade into each other instead of switching hard at
+      // the tile seam. waterW/grassW carry the same blend so the material treatment below
+      // feathers out over the shoreline too.
+      const fx = R + wx, fy = R + wy, ix = Math.floor(fx), iy = Math.floor(fy), fxr = fx - ix, fyr = fy - iy;
+      const s00 = sample(ix, iy), s10 = sample(ix + 1, iy), s01 = sample(ix, iy + 1), s11 = sample(ix + 1, iy + 1);
+      const w00 = (1 - fxr) * (1 - fyr), w10 = fxr * (1 - fyr), w01 = (1 - fxr) * fyr, w11 = fxr * fyr;
+      let br = s00[0] * w00 + s10[0] * w10 + s01[0] * w01 + s11[0] * w11;
+      let bg = s00[1] * w00 + s10[1] * w10 + s01[1] * w01 + s11[1] * w11;
+      let bb = s00[2] * w00 + s10[2] * w10 + s01[2] * w01 + s11[2] * w11;
+      const waterW = s00[3] * w00 + s10[3] * w10 + s01[3] * w01 + s11[3] * w11;
+      const grassW = s00[4] * w00 + s10[4] * w10 + s01[4] * w01 + s11[4] * w11;
+      // Base material: subtle concrete checker + within-tile diagonal gradient.
       const wxf = wx * FREQ, wyf = wy * FREQ, tx = Math.floor(wxf * 2), ty = Math.floor(wyf * 2);
-      // subtle checker + a within-tile diagonal gradient so the ground reads as textured
       const grad = ((wxf - Math.floor(wxf)) + (wyf - Math.floor(wyf))) * 0.05 - 0.05;
-      const tex = 1 + (((tx + ty) & 1) ? 0.06 : -0.06) + (((tx * 5 ^ ty * 3) & 3) === 0 ? 0.05 : 0) + grad;
-      data[idx] = (base[0] * tex * ih + hr) * nm; data[idx + 1] = (base[1] * tex * ih + hg) * nm; data[idx + 2] = (base[2] * tex * ih + hb) * nm; data[idx + 3] = 255;
+      let tex = 1 + (((tx + ty) & 1) ? 0.06 : -0.06) + (((tx * 5 ^ ty * 3) & 3) === 0 ? 0.05 : 0) + grad;
+      // Grass: a finer mottle so parkland reads as vegetation, not a flat green slab.
+      if (grassW > 0.002) {
+        const gx = Math.floor(wx * 5.3), gy = Math.floor(wy * 5.3);
+        tex = tex * (1 - grassW) + (1 + (((gx * 7 ^ gy * 13) & 3) * 0.05 - 0.075)) * grassW;
+      }
+      // Water: small travelling waves (two crossed sines drifting with time) + a sun glint
+      // on the crest, so open water shimmers instead of sitting as a flat blue tile.
+      let cr = 0;
+      if (waterW > 0.002) {
+        const wv = 0.5 * Math.sin(wx * 6.2 + wy * 1.4 + t * 2.3) + 0.5 * Math.sin((wx - wy) * 4.1 - t * 1.7);
+        tex = tex * (1 - waterW) + (1 + wv * 0.12) * waterW;
+        if (wv > 0.82) cr = (wv - 0.82) * 5 * waterW;   // crest glint, added as a bluish-white lift below
+      }
+      data[idx] = ((br * tex + cr * 55) * ih + hr) * nm;
+      data[idx + 1] = ((bg * tex + cr * 70) * ih + hg) * nm;
+      data[idx + 2] = ((bb * tex + cr * 90) * ih + hb) * nm;
+      data[idx + 3] = 255;
       idx += 4;
     }
   }
@@ -982,7 +1027,16 @@ export function setObjectTexture(key, img) { if (img) _tex.set(key, img); }
 function getTex(key, gen) { let t = _tex.get(key); if (!t) { t = gen(); _tex.set(key, t); } return t; }
 function texCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
 
-const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56, 66], marquee: [56, 40, 66], freight: [62, 66, 74], industrial: [78, 66, 54], infra: [64, 68, 78], ruins: [56, 52, 44], oldcoldwater: [52, 48, 44], docks: [58, 66, 74], __nofly: [120, 40, 40] };
+const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56, 66], marquee: [56, 40, 66], freight: [62, 66, 74], industrial: [78, 66, 54], infra: [64, 68, 78], ruins: [56, 52, 44], oldcoldwater: [52, 48, 44], docks: [58, 66, 74], __nofly: [120, 40, 40],
+  // Per-building / per-type palettes for the dedicated named-building models (NAMED_MODELS,
+  // drawTypeModel). Each named building points at its own key so two of the same type never
+  // share a wall colour; `ty_door` is the shared dark door/awning band.
+  ty_office: [46, 64, 92], ty_hotel: [70, 54, 78], ty_apt_a: [58, 60, 72], ty_apt_b: [70, 64, 58],
+  ty_police: [54, 68, 98], ty_clinic: [150, 178, 182], ty_studio: [66, 70, 82], ty_power: [92, 80, 64],
+  ty_hangar_a: [96, 102, 112], ty_hangar_b: [84, 98, 108],
+  ty_bar_a: [60, 44, 50], ty_bar_b: [50, 48, 62], ty_club: [70, 42, 80], ty_diner: [82, 72, 52],
+  ty_shop_a: [64, 60, 52], ty_shop_b: [54, 62, 60], ty_shop_c: [66, 54, 58], ty_shop_d: [58, 58, 66], ty_shop_e: [62, 66, 54],
+  ty_door: [20, 22, 26] };
 const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
 
 // ── 3-D building standard ─────────────────────────────────────────────────────
@@ -1573,6 +1627,192 @@ function drawMarquee(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
   }
 }
 
+// ── Dedicated per-building models ─────────────────────────────────────────────
+// Every named building on the 1:1 map gets its OWN model here — a type-appropriate
+// silhouette (a precinct reads as a precinct, the clinic wears a red cross, the TV
+// studio carries an antenna mast + dish, the power plant vents from cooling towers)
+// plus a per-building palette/neon so no two buildings — even two of the same type —
+// ever share a look. Keyed by a slug of the building's name (shipped as `bn` in the
+// map window). A building not in this table falls through to the type/biome archetype
+// path in drawWorldObjects, so a new or un-modelled building still renders something.
+// Height comes from bldgStyle() (the value the CFIT sweep reads), so the mass you see
+// is the mass you can hit; the per-building distinctiveness lives in the footprint,
+// palette and rooftop adornments — exactly the parts the collision sweep ignores.
+function bldgSlug(name) { return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
+const NAMED_MODELS = {
+  halcyontowers:                  { type: 'office',    pal: 'ty_office' },
+  embassyhotelbar:                { type: 'hotel',     pal: 'ty_hotel',    neon: '#ff4a9a' },
+  chromecourt:                    { type: 'apartment', pal: 'ty_apt_a' },
+  themeridianlobby:               { type: 'apartment', pal: 'ty_apt_b',    penthouse: true },
+  precinct9:                      { type: 'police',    pal: 'ty_police' },
+  coldwaterclonefacility:         { type: 'clinic',    pal: 'ty_clinic' },
+  ksabtvstudiostage:              { type: 'studio',    pal: 'ty_studio' },
+  coldwaterpowerplantturbinehall: { type: 'power',     pal: 'ty_power' },
+  coldwaterregionalhangar:        { type: 'hangar',    pal: 'ty_hangar_a', big: true },
+  thresholdhelipadhangar:         { type: 'hangar',    pal: 'ty_hangar_b', helipad: true },
+  sump:                           { type: 'bar',       pal: 'ty_bar_a',    neon: '#7dff6a' },
+  thedeadpigeon:                  { type: 'bar',       pal: 'ty_bar_b',    neon: '#5fd0ff' },
+  thecherrypit:                   { type: 'club',      pal: 'ty_club',     neon: '#ff4a9a' },
+  rationnine:                     { type: 'diner',     pal: 'ty_diner',    neon: '#ffcf3e' },
+  ampersandelectronics:           { type: 'shop',      pal: 'ty_shop_a',   neon: '#5fd0ff' },
+  deadspaceinteriors:             { type: 'shop',      pal: 'ty_shop_b',   neon: '#7dff6a' },
+  secondskin:                     { type: 'shop',      pal: 'ty_shop_c',   neon: '#ff4a9a' },
+  thecage:                        { type: 'shop',      pal: 'ty_shop_d',   neon: '#ffcf3e' },
+  velkspreownedfurnishings:       { type: 'shop',      pal: 'ty_shop_e',   neon: '#ff8a4a' },
+};
+function namedModel(name) { return NAMED_MODELS[bldgSlug(name)] || null; }
+
+// Per-type default model, so a building that carries only a building_type (no bespoke
+// NAMED_MODELS entry yet — a freshly-authored one) still renders a type-appropriate
+// dedicated model instead of a borrowed biome archetype. modelFor() prefers the named
+// model, then the type default; a tile with neither (a plain street/park tile) returns
+// null and keeps its biome archetype.
+const TYPE_MODEL = {
+  corporate_office: { type: 'office',    pal: 'ty_office' },
+  hotel:            { type: 'hotel',     pal: 'ty_hotel',  neon: '#ff4a9a' },
+  apartment:        { type: 'apartment', pal: 'ty_apt_a' },
+  residential:      { type: 'apartment', pal: 'ty_apt_b' },
+  shop:             { type: 'shop',      pal: 'ty_shop_a', neon: '#5fd0ff' },
+  diner:            { type: 'diner',     pal: 'ty_diner',  neon: '#ffcf3e' },
+  bar:              { type: 'bar',       pal: 'ty_bar_a',  neon: '#7dff6a' },
+  club:             { type: 'club',      pal: 'ty_club',   neon: '#ff4a9a' },
+  studio:           { type: 'studio',    pal: 'ty_studio' },
+  police:           { type: 'police',    pal: 'ty_police' },
+  clinic:           { type: 'clinic',    pal: 'ty_clinic' },
+  power:            { type: 'power',     pal: 'ty_power' },
+  hangar:           { type: 'hangar',    pal: 'ty_hangar_a' },
+};
+function modelFor(cell) { return (cell.bn && namedModel(cell.bn)) || (cell.bt && TYPE_MODEL[cell.bt]) || null; }
+
+// Shared adornment primitives for the dedicated models (all project through the same camera).
+function blinkLight(ctx, cam, dx, dy, wz, rgb, now, seed, alpha, r = 1.6) {
+  const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return;
+  const k = 0.4 + 0.5 * Math.abs(Math.sin((now || 0) * 0.004 + seed));
+  ctx.globalAlpha = alpha; ctx.fillStyle = `rgba(${rgb},${k})`;
+  ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+}
+function mast(ctx, cam, dx, dy, h0, h1, alpha, now, seed) {   // guyed antenna mast + red aviation light
+  const a = cam.proj(dx, dy, h0), b = cam.proj(dx, dy, h1);
+  if (a.f > 0.1 && b.f > 0.1) {
+    ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(184,192,206,0.8)'; ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  blinkLight(ctx, cam, dx, dy, h1, '255,80,80', now, seed, alpha);
+}
+function dish(ctx, cam, dx, dy, wz, s0, alpha) {   // rooftop satellite dish
+  const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return; const r = clamp(s0 / p.f, 2, 22);
+  ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(198,204,214,0.85)';
+  ctx.beginPath(); ctx.ellipse(p.sx, p.sy, r, r * 0.5, -0.5, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+}
+function crossMark(ctx, cam, dx, dy, wz, alpha) {   // red medical cross billboard
+  const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return; const s = clamp(9 / p.f, 2, 16);
+  ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(230,60,60,0.95)';
+  ctx.fillRect(p.sx - s * 0.28, p.sy - s, s * 0.56, s * 2);
+  ctx.fillRect(p.sx - s, p.sy - s * 0.28, s * 2, s * 0.56); ctx.globalAlpha = 1;
+}
+function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha) {   // vertical neon sign (generalised marquee)
+  const b = cam.proj(dx, dy, h0), t = cam.proj(dx, dy, h1); if (b.f <= 0.12 || t.f <= 0.12) return;
+  ctx.globalAlpha = alpha * (night ? 0.95 : 0.55); ctx.strokeStyle = color; ctx.lineWidth = 2.4;
+  if (night) { ctx.shadowColor = color; ctx.shadowBlur = 7; }
+  ctx.beginPath(); ctx.moveTo(b.sx, b.sy); ctx.lineTo(t.sx, t.sy); ctx.stroke();
+  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+}
+function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof glow (generalised ruin glow)
+  const g = cam.proj(dx, dy, wz); if (g.f <= 0.12) return; const s = clamp(s0 / g.f, 3, 60);
+  const rg = ctx.createRadialGradient(g.sx, g.sy, 1, g.sx, g.sy, s);
+  rg.addColorStop(0, `rgba(${rgb},${alpha})`); rg.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill();
+}
+
+// A dedicated named-building model: a type-appropriate silhouette built from draw3DBoxAt +
+// the adornments above, coloured by the building's own palette (m.pal) and neon (m.neon).
+function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now) {
+  const pal = m.pal;
+  switch (m.type) {
+    case 'office': {   // corporate glass tower: three setbacks + spire beacon
+      let w = fh * 1.1, z = 0; const H = h * 1.7;
+      for (let i = 0; i < 3; i++) { const z1 = H * ((i + 1) / 3); draw3DBoxAt(ctx, cam, dx, dy, w, z, z1, pal, seed + i, night, alpha, true); z = z1; w *= 0.74; }
+      mast(ctx, cam, dx, dy, H, H + h * 0.5, alpha, now, seed);
+      break;
+    }
+    case 'hotel': {   // tall slab + vertical neon blade + rooftop sign glow
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, 0, h * 1.4, pal, seed, night, alpha, true);
+      neonBlade(ctx, cam, dx - fh * 0.55, dy - fh * 0.55, h * 0.3, h * 1.35, m.neon || '#ff4a9a', night, alpha);
+      if (night) glowPool(ctx, cam, dx, dy, h * 1.4, '255,120,180', 20, alpha * 0.2);
+      break;
+    }
+    case 'apartment': {   // podium + residential block + optional penthouse
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.3, 0, h * 0.28, pal, seed + 5, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, h * 0.28, h, pal, seed, night, alpha, true);
+      if (m.penthouse) draw3DBoxAt(ctx, cam, dx + fh * 0.3, dy, fh * 0.5, h, h * 1.16, pal, seed + 2, night, alpha, true);
+      break;
+    }
+    case 'police': {   // squat wide civic block + set-back roof house + blue beacon + antenna
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.4, 0, h * 0.85, pal, seed, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.7, h * 0.85, h * 0.98, pal, seed + 1, night, alpha, true);
+      mast(ctx, cam, dx + fh * 0.9, dy, h * 0.85, h * 1.5, alpha, now, seed + 3);
+      blinkLight(ctx, cam, dx - fh * 0.7, dy, h, '90,150,255', now, seed, alpha, 1.8);
+      break;
+    }
+    case 'clinic': {   // clean pale block + rooftop red cross + soft clone-vat glow
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.2, 0, h * 0.9, pal, seed, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.55, h * 0.9, h * 1.08, pal, seed + 1, night, alpha, true);
+      crossMark(ctx, cam, dx, dy, h * 1.2, alpha);
+      glowPool(ctx, cam, dx, dy, h * 0.4, '120,220,150', 16, alpha * (night ? 0.28 : 0.14));
+      break;
+    }
+    case 'studio': {   // broad low studio block + tall guyed mast + satellite dish
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.45, 0, h * 0.7, pal, seed, night, alpha, true);
+      mast(ctx, cam, dx - fh * 0.7, dy, h * 0.7, h * 2.1, alpha, now, seed + 2);
+      dish(ctx, cam, dx + fh * 0.7, dy, h * 0.72, 10, alpha);
+      break;
+    }
+    case 'hangar': {   // wide low shed + big dark door band (+ helipad glow variant)
+      const w = fh * (m.big ? 1.7 : 1.4), top = h * (m.big ? 0.7 : 0.6);
+      draw3DBoxAt(ctx, cam, dx, dy, w, 0, top, pal, seed, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy + w * 0.55, w * 0.7, 0, top * 0.62, 'ty_door', seed + 1, night, alpha, false);
+      if (m.helipad) glowPool(ctx, cam, dx, dy, top + 0.01, '255,210,90', 14, alpha * 0.3);
+      break;
+    }
+    case 'power': {   // twin cooling towers venting steam + a tall smokestack
+      for (const s of [-1, 1]) {
+        draw3DBoxAt(ctx, cam, dx + s * fh * 0.8, dy, fh * 0.7, 0, h * 0.5, pal, seed + s + 1, night, alpha, false);
+        draw3DBoxAt(ctx, cam, dx + s * fh * 0.8, dy, fh * 0.55, h * 0.5, h * 1.05, pal, seed + s + 1, night, alpha, true);
+        drawSmoke(ctx, cam, dx + s * fh * 0.8, dy, h * 1.05, '210,214,220', alpha * 0.8, now, seed + s + 1);
+      }
+      draw3DBoxAt(ctx, cam, dx, dy - fh * 0.6, fh * 0.3, 0, h * 1.7, pal, seed + 4, night, alpha, true);
+      drawSmoke(ctx, cam, dx, dy - fh * 0.6, h * 1.7, '72,66,60', alpha, now, seed + 4);
+      blinkLight(ctx, cam, dx, dy - fh * 0.6, h * 1.7, '255,80,80', now, seed, alpha);
+      break;
+    }
+    case 'bar': {   // small box + a neon blade
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.95, 0, h * 0.7, pal, seed, night, alpha, true);
+      neonBlade(ctx, cam, dx, dy, h * 0.7, h * 1.05, m.neon || '#5fd0ff', night, alpha);
+      break;
+    }
+    case 'club': {   // box + twin neon roofline + colour glow
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, 0, h * 0.8, pal, seed, night, alpha, true);
+      neonBlade(ctx, cam, dx - fh * 0.4, dy, h * 0.8, h * 1.15, m.neon || '#ff4a9a', night, alpha);
+      neonBlade(ctx, cam, dx + fh * 0.4, dy, h * 0.8, h * 1.15, m.neon || '#ff4a9a', night, alpha);
+      glowPool(ctx, cam, dx, dy, h * 0.85, '255,74,154', 20, alpha * (night ? 0.34 : 0.16));
+      break;
+    }
+    case 'diner': {   // small warm box + rooftop neon + window glow
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, 0, h * 0.6, pal, seed, night, alpha, true);
+      neonBlade(ctx, cam, dx, dy, h * 0.6, h * 0.92, m.neon || '#ffcf3e', night, alpha);
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.3, '255,200,120', 12, alpha * 0.2);
+      break;
+    }
+    case 'shop':
+    default: {   // low storefront + awning band + a small sign
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, h * 0.7, pal, seed, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy + fh * 0.9, fh * 1.15, h * 0.12, h * 0.2, 'ty_door', seed + 1, night, alpha, false);
+      neonBlade(ctx, cam, dx, dy, h * 0.7, h * 0.95, m.neon || '#5fd0ff', night, alpha);
+      break;
+    }
+  }
+}
+
 // Route each biome to its archetype set — the one place building variety is chosen.
 function drawBuilding(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
   switch (bi) {
@@ -1627,9 +1867,12 @@ function drawWorldObjects(ctx, cam, v, sky, now) {
     const { arch, baseH } = bldgStyle(it.c);
     const h = baseH * (0.7 + frac(it.seed) * 0.6) * RENDER_TUNE.bldgH;
     const fh = (0.3 + frac(it.seed + 2) * 0.08) * RENDER_TUNE.bldgFoot;
-    // Each archetype draws its own set (downtown towers, industrial stacks, freight
-    // containers, dock cranes, cooling towers, broken ruins, neon marquee, …).
-    drawBuilding(ctx, cam, it.dx, it.dy, fh, h, arch, it.seed, night, alpha, now);
+    // Every building draws a dedicated model (its own if named, else its type default) at
+    // the same mass; a non-building tile falls back to the shared biome archetype set
+    // (industrial stacks, freight containers, cooling towers, broken ruins, neon marquee, …).
+    const m = modelFor(it.c);
+    if (m) drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now);
+    else drawBuilding(ctx, cam, it.dx, it.dy, fh, h, arch, it.seed, night, alpha, now);
   }
 }
 

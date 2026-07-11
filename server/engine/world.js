@@ -24,6 +24,10 @@ const world = {
   maps: new Map(),       // mapId -> maps row (parent_zone_id links an interior to its overworld tile)
 };
 
+// Last-resort home for an NPC whose current AND home zones were both deleted
+// (e.g. by a map conversion): the embassy lobby, the world's stable anchor.
+const ORPHAN_NPC_FALLBACK_ZONE = 'zone_residential_lobby';
+
 // Global ambient event pool, keyed by theme.
 let globalAmbientPool = {}; // theme -> string[]
 // Per-zone: last N ambient event strings shown (to avoid repeats).
@@ -105,6 +109,11 @@ export function isEnterableFacade(zone) {
 // reads as itself on the 1:1 map. Synonyms collapse (store/grocery → shop); an
 // unrecognised-but-present type gets a plain office block. Gated on the `facade`
 // tag so interior tiles (also is_building) never wear a rooftop.
+//
+// STANDARD: a new building_type needs BOTH a 2-D footprint here AND a 3-D shape in
+// BLDG_TYPE_3D (client/game/js/panels/windshield.js) so it reads consistently on the
+// map and from the air. Each registry has its own fallback, so an unlisted type still
+// renders something rather than nothing.
 const BUILDING_TYPE_ICON = {
   residential: 'bldg_residential', apartment: 'bldg_apartment',
   shop: 'bldg_shop', store: 'bldg_shop', grocery: 'bldg_shop',
@@ -229,8 +238,18 @@ async function loadNpcs() {
     // zone_id) — the DB value is either the last deliberate placement
     // (dev-panel move) or null on a freshly-imported NPC. Place there if the
     // zone still exists, else fall back to the authored home_zone so a stale
-    // zone_id pointing at a deleted zone can't make the NPC invisible.
-    const placeZone = (live.zone_id && world.zones.has(live.zone_id)) ? live.zone_id : live.home_zone;
+    // zone_id pointing at a deleted zone can't make the NPC invisible. If BOTH
+    // are dead (e.g. a zone deleted by a map conversion), the NPC would land
+    // nowhere and vanish — return it to the embassy as a last resort.
+    let placeZone = (live.zone_id && world.zones.has(live.zone_id)) ? live.zone_id : live.home_zone;
+    if (!placeZone || !world.zones.has(placeZone)) {
+      if (world.zones.has(ORPHAN_NPC_FALLBACK_ZONE)) {
+        console.warn(`[npc] ${npc.name} [${npc.id}] has no valid zone (zone_id=${npc.zone_id}, home_zone=${live.home_zone}); returning to the embassy.`);
+        placeZone = ORPHAN_NPC_FALLBACK_ZONE;
+      } else {
+        placeZone = null;
+      }
+    }
     if (placeZone && world.zones.has(placeZone)) {
       live.zone_id = placeZone;
       world.zones.get(placeZone).npcs.add(npc.id);
