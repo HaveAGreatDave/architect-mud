@@ -204,6 +204,7 @@ export function paintWindshield(id, view) {
   // flourishes (skyline glow, speed streaks, hero clouds, the canopy bow) are all
   // suppressed so the scene reads as a porthole, and drawWindowFrame masks the hull skin.
   const framed = side || !!v.windowClass;
+  const ext = !!v.external && !framed;   // external chase view: the ship is drawn from behind, no cockpit glass/canopy
   // On the deck (ground/takeoff/landing) we paint a real, terrain-themed airport.
   const onDeck = phase === 'ground' || phase === 'takeoff' || phase === 'landing';
   // Continuous ground↔air crossfade weight (0 = fully on the deck, 1 = fully airborne).
@@ -469,9 +470,12 @@ export function paintWindshield(id, view) {
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
+  // External chase view: draw the ship from behind (with its landing gear swinging out/in)
+  // over the world, in place of the cockpit glass.
+  if (ext) drawExternalCraft(ctx, W, H, v, now);
   // On-glass weather (drops that cling to the canopy, lightning), bug splats + frost + a WX badge.
-  drawGlass(ctx, W, H, wx, st, dt, speed, framed);
-  if (!v.windowClass) drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
+  if (!ext) drawGlass(ctx, W, H, wx, st, dt, speed, framed);
+  if (!v.windowClass && !ext) drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
   if (!v.windowClass) drawWxBadge(ctx, W, wx, v.wind);
   if (v.hud) drawHud(ctx, W, H, v);
   // Guns (Phase B): forward tracer stream + muzzle flash while firing, screen-fixed.
@@ -1536,6 +1540,71 @@ function drawAircraftModel(ctx, cam, c, baseWz) {
     ctx.fillStyle = shadeRgb(pal.base, 1.1); ctx.beginPath(); ctx.arc((minx + maxx) / 2, (miny + maxy) / 2, 2, 0, 7); ctx.fill();
   }
   return { minx, maxx, miny, maxy };
+}
+
+// External chase view: the player's OWN aircraft seen from behind and slightly above, banking
+// and pitching with the live attitude, its landing gear swinging down/up with `gearAnim`. A
+// self-contained screen-space render (no world camera) laid over the flying world — reuses the
+// shared aircraft geometry + livery from aircraft3d, so it's the same craft the hangar spins.
+function drawExternalCraft(ctx, W, H, v, now) {
+  const faces = aircraftFaces(v.cls || 'prop'), pal = liveryPalette(v.livery || {});
+  const bank = (v.bank || 0) * Math.PI / 180, pitch = (v.pitch || 0) * Math.PI / 180;
+  const cR = Math.cos(bank), sR = Math.sin(bank), cP = Math.cos(pitch), sP = Math.sin(pitch);
+  const E = 0.32, cE = Math.cos(E), sE = Math.sin(E);          // camera elevation — look down at the top
+  const camDist = 3.6, focal = Math.min(W, H) * 0.6, ox = W / 2, oy = H * 0.62;
+  const Ln = Math.hypot(0.3, -0.5, 0.8), lx = 0.3 / Ln, ly = -0.5 / Ln, lz = 0.8 / Ln;
+  // Rear-¾ projector: aircraft attitude (roll then pitch), then a fixed camera up the tail.
+  const proj = (f, g, h) => {
+    const g1 = g * cR - h * sR, h1 = g * sR + h * cR;          // bank about the roll axis
+    const f1 = f * cP - h1 * sP, h2 = f * sP + h1 * cP;        // pitch about the lateral axis
+    const fx = -f1, gy = -g1, hz = h2;                         // yaw 180° → view from behind the tail
+    const z = camDist - (fx * cE + hz * sE);
+    return { sx: ox + gy * focal / z, sy: oy - (hz * cE - fx * sE) * focal / z, z, wx: fx, wy: gy, wz: hz };
+  };
+  ctx.save();
+  ctx.fillStyle = 'rgba(6,8,12,0.2)';                          // soft ground shadow blob under the ship
+  ctx.beginPath(); ctx.ellipse(ox, oy + focal * 0.14, focal * 0.22, focal * 0.055, 0, 0, 7); ctx.fill();
+  const items = [];
+  for (const face of faces) {
+    const P = face.p.map((vv) => proj(vv[0], vv[1], vv[2]));
+    if (P.some((q) => q.z <= 0.3)) continue;
+    const a = [P[1].wx - P[0].wx, P[1].wy - P[0].wy, P[1].wz - P[0].wz];
+    const b = [P[2].wx - P[0].wx, P[2].wy - P[0].wy, P[2].wz - P[0].wz];
+    const nx = a[1] * b[2] - a[2] * b[1], ny = a[2] * b[0] - a[0] * b[2], nz = a[0] * b[1] - a[1] * b[0];
+    const light = 0.5 + 0.5 * Math.abs((nx * lx + ny * ly + nz * lz) / (Math.hypot(nx, ny, nz) || 1));
+    let z = 0; for (const q of P) z += q.z;
+    items.push({ poly: true, P, avgZ: z / P.length, role: face.role, col: shadeRgb(faceBaseRgb(face.role, pal), face.sh * pal.fmul * light) });
+  }
+  // Landing gear — a nose leg + two mains swinging out as gearAnim → 1 (fixed-gear craft = 1).
+  const ga = clamp(v.gearAnim ?? 1, 0, 1);
+  if (ga > 0.02) {
+    const bz = -0.12, leg = 0.42 * ga;
+    for (const [lf, lg, wr] of [[0.42, 0, 0.05], [-0.12, 0.34, 0.06], [-0.12, -0.34, 0.06]]) {
+      const top = proj(lf, lg, bz), bot = proj(lf, lg, bz - leg);
+      if (top.z <= 0.3 || bot.z <= 0.3) continue;
+      items.push({ gear: true, strut: [top, bot], wheel: bot, wr: Math.max(2, focal * wr / bot.z), avgZ: (top.z + bot.z) / 2 });
+    }
+  }
+  items.sort((a, b) => b.avgZ - a.avgZ);
+  ctx.lineJoin = 'round';
+  for (const it of items) {
+    if (it.poly) {
+      ctx.beginPath(); ctx.moveTo(it.P[0].sx, it.P[0].sy);
+      for (let i = 1; i < it.P.length; i++) ctx.lineTo(it.P[i].sx, it.P[i].sy);
+      ctx.closePath();
+      if (it.role === 'rotor') { ctx.globalAlpha = 0.26; ctx.fillStyle = it.col; ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = 'rgba(180,200,220,0.25)'; ctx.lineWidth = 1; ctx.stroke(); continue; }
+      ctx.fillStyle = it.col; ctx.fill(); ctx.strokeStyle = 'rgba(8,10,14,0.55)'; ctx.lineWidth = 1; ctx.stroke();
+    } else {
+      ctx.strokeStyle = 'rgba(38,42,48,0.95)'; ctx.lineWidth = Math.max(1.4, focal * 0.006 / it.wheel.z);
+      ctx.beginPath(); ctx.moveTo(it.strut[0].sx, it.strut[0].sy); ctx.lineTo(it.strut[1].sx, it.strut[1].sy); ctx.stroke();
+      ctx.fillStyle = 'rgba(16,16,20,0.98)';
+      ctx.beginPath(); ctx.ellipse(it.wheel.sx, it.wheel.sy, it.wr, it.wr * 0.9, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(90,94,100,0.7)'; ctx.lineWidth = 1; ctx.stroke();
+    }
+  }
+  ctx.restore();
+  ctx.fillStyle = 'rgba(143,208,255,0.6)'; ctx.font = '9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(ga > 0.02 && ga < 0.98 ? 'EXTERNAL · GEAR IN TRANSIT' : 'EXTERNAL', 9, H - 10);
 }
 // Off-screen / behind: a red chevron pinned to the view edge pointing the way to turn,
 // direction from the camera-space forward/lateral of the contact (banks with the world).

@@ -1343,7 +1343,7 @@ export function openFlightSim(opts = {}) {
   s.heading = (((opts.heading || 0) % 360) + 360) % 360;
 
   const F = {
-    P, s, cls: opts.craftClass || 'ultralight',
+    P, s, cls: opts.craftClass || 'ultralight', livery: opts.livery || opts.craftLivery,
     input: { elevator: 0, aileron: 0, throttle: 0, flaps: 0, pedal: 0 },
     // A helicopter (Dragonfly/Mini 500) flies the hover model: the throttle lever is the
     // COLLECTIVE, the yoke is the CYCLIC, and Q/E work the tail-rotor PEDALS (yaw). heli flag
@@ -1367,7 +1367,7 @@ export function openFlightSim(opts = {}) {
     engineOn: !!opts.engineOn,
     yokeDrag: false, thrDrag: false,
     viewYaw: 0, throttleKey: 0, flapIdx: 0,          // keyboard: hold-to-look yaw, A/Z throttle ramp, flap detent
-    gearRetract: !!opts.gearRetract, gearUp: false, cargoKg: opts.cargoKg || 0,   // gear (G) + jettison (J) — capabilities per airframe (Mayfly: none)
+    gearRetract: !!opts.gearRetract, gearUp: false, gearAnim: 1, external: false, cargoKg: opts.cargoKg || 0,   // gear (G) + jettison (J) + external view (V) — capabilities per airframe (Mayfly: none)
     hardpoints: opts.hardpoints || 0, armed: false,  // weapons (gunship): master-arm + fire
     nightLight: false,                               // instrument panel lights (PANEL switch)
     raf: 0, last: 0, syncAcc: 0, hornBeat: 0, audioAcc: 0,
@@ -1523,7 +1523,7 @@ export function openFlightSim(opts = {}) {
     F.apTargetId = list[i].id;
     fsimToast(`◎ ${(list[i].name || 'FIELD').toUpperCase()} · ${list[i].dist}mi`);
   };
-  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'r', 'f', 'g', 'j', ' ', '[', ']']);
+  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'r', 'f', 'g', 'j', 'v', ' ', '[', ']']);
   const onKeyDown = (e) => {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
@@ -1542,6 +1542,7 @@ export function openFlightSim(opts = {}) {
       case 'r': if (!e.repeat) stepFlap(1); break;
       case 'f': if (!e.repeat) stepFlap(-1); break;
       case 'g': if (!e.repeat) toggleGear(); break;
+      case 'v': if (!e.repeat) { F.external = !F.external; fsimToast(F.external ? '◎ EXTERNAL VIEW' : '◎ COCKPIT VIEW'); } break;
       case 'j': if (!e.repeat) jettison(); break;
       case '[': if (!e.repeat) cycleApTarget(-1); break;   // cycle target airport
       case ']': if (!e.repeat) cycleApTarget(1); break;
@@ -1778,6 +1779,11 @@ function fsimFrame(now) {
   const thr = (F.engineOn && !F.deadStick) ? input.throttle : 0;
 
   step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, flaps: input.flaps, pedal: input.pedal }, P, dt);
+
+  // Gear position eases toward its target (0 = up/stowed, 1 = down/locked) over ~1.6s so the
+  // external view shows it swinging out and tucking away, not snapping.
+  if (F.gearRetract) { const tgt = F.gearUp ? 0 : 1; F.gearAnim = lerpN(F.gearAnim ?? 1, tgt, Math.min(1, dt / 1.6)); }
+  else F.gearAnim = 1;
 
   // Sample the atmosphere from the live weather → wind vector + turbulence intensity.
   const atmos = F.atmos = weatherAtmos(F, now);
@@ -2071,6 +2077,10 @@ function fsimFrame(now) {
     // (streak animates in over AA_TRACER_MS, then clears).
     aaTracer: (F.aaTracerT && (now - F.aaTracerT) < AA_TRACER_MS)
       ? { bearing: F.aaTracerBearing, t: (now - F.aaTracerT) / AA_TRACER_MS } : null,
+    // External chase view (V): draw the ship from behind with its gear, animating up/down.
+    external: F.external, cls: F.cls, livery: F.livery,
+    gearAnim: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,   // fixed-gear craft are always down
+    onGround: !!r.onGround,
   });
 
   // Drug/booze impairment: warp the out-the-window view if the pilot is flying loaded.
