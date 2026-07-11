@@ -1148,7 +1148,7 @@ export const CLIMBOUT_MAX_F = 4.5, CLIMBOUT_LAT_IN = 0.3, CLIMBOUT_LAT_OUT = 0.2
 // (about to pass under/behind you) or this far (still fading in) isn't really "on the glass"
 // yet. Collision must never fire on a tile outside this window, or a hit can land on
 // something the player couldn't actually have seen.
-export const VISIBLE_NEAR_F = 0.05, VISIBLE_FAR_F = 10;
+export const VISIBLE_NEAR_F = 0.05, VISIBLE_FAR_F = 20;   // long skyline — buildings draw out to 20 tiles and emerge from the horizon haze
 export function climbOutClear(f, lat, height) {
   if (!(f > 0.1 && f < CLIMBOUT_MAX_F && height < 0.2)) return true;
   return clamp((Math.abs(lat) - CLIMBOUT_LAT_IN) / CLIMBOUT_LAT_OUT, 0, 1) > 0;
@@ -1501,12 +1501,16 @@ function cornerBox(ctx, cx, cy, r) {
 // marks along y, an E–W run along x; a crossing tile stays bare).
 function drawGroundSurfaces(ctx, cam, v) {
   const map = v.map; if (!map || !map.length) return; const R = cam.R;
+  const baseAlpha = ctx.globalAlpha;   // = worldBlend (set by the caller); the far fade rides on top of it
   const at = (rx, ry) => (ry >= 0 && ry < map.length && rx >= 0 && rx < map[ry].length) ? map[ry][rx] : null;
   const kindOf = (c) => !c ? null : c.road ? 'road' : c.kind === 'field' ? 'field' : null;
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     const c = map[ry][rx], surf = kindOf(c); if (!surf) continue;
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
-    if (f <= 0.06 || f > 8) continue;
+    if (f <= 0.06 || f > VISIBLE_FAR_F) continue;
+    // Match the buildings' long draw distance + far fade so pavement ghosts up out of the
+    // haze at the horizon instead of a hard line snapping in.
+    ctx.globalAlpha = baseAlpha * clamp((VISIBLE_FAR_F - f) / 6, 0, 1);
     const corner = (sx, sy) => cam.proj(dx + sx * 0.5, dy + sy * 0.5, 0);
     const P0 = corner(-1, -1), P1 = corner(1, -1), P2 = corner(1, 1), P3 = corner(-1, 1);
     if ([P0, P1, P2, P3].some(p => p.f <= 0.05)) continue;
@@ -1952,7 +1956,7 @@ function drawWorldObjects(ctx, cam, v, sky, now) {
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     if (f <= VISIBLE_NEAR_F || f > FAR) continue;
     const lat = dx * cam.cosh + dy * cam.sinh;
-    let alpha = clamp((f - 0.06) / 0.4, 0, 1) * clamp((FAR - f) / 1.6, 0, 1) * (v.worldBlend ?? 1);   // near pass-under + soft far fade-in, crossfaded in over the ground/air blend
+    let alpha = clamp((f - 0.06) / 0.4, 0, 1) * clamp((FAR - f) / 6, 0, 1) * (v.worldBlend ?? 1);   // near pass-under + a LONG far fade-in (6 tiles) so distant buildings ghost up out of the haze instead of popping
     // Keep the CLIMB-OUT path ahead clear (a building dead ahead reads as something
     // you'd fly into right off the runway) — but only while still low/climbing AND only
     // within CLIMBOUT_MAX_F tiles of the departure (see climbOutClear). Once past that

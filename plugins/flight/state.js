@@ -387,13 +387,13 @@ export function advance(live, tiles) {
 }
 
 // ── HUD payload (synthesized cockpit state, pushed to occupants) ──────────────
-// The surface window streamed to the cockpit. Radius 12 (a 25×25 tile block) so the
-// real 1:1 city reads with depth ahead — the windshield's VISIBLE_FAR_F (10 tiles)
-// draws the whole skyline instead of the old radius-4 window starving it at 4. It's a
-// cheap ~600-cell JSON pushed only every TICK_MS (3s), so the wider window costs nothing
-// on the wire. Keep radius ≥ VISIBLE_FAR_F (+ a drift margin) so the farthest tile the
-// renderer wants always exists in the payload.
-function mapWindow(a, radius = 12) {
+// The surface window streamed to the cockpit. Radius 24 (a 49×49 tile block) feeds the
+// windshield's long skyline (VISIBLE_FAR_F = 20 tiles) with a ~4-tile drift margin — the
+// window only refreshes every TICK_MS (3s) while the client slides it locally, so the far
+// edge must sit well beyond the draw distance or new tiles would starve/pop. Keep
+// radius ≥ VISIBLE_FAR_F + drift so the farthest tile the renderer wants always exists in
+// the payload. It's a ~2400-cell JSON pushed only every 3s while airborne — cheap.
+function mapWindow(a, radius = 24) {
   const rows = [];
   for (let dy = -radius; dy <= radius; dy++) {
     const row = [];
