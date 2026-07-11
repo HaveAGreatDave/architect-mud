@@ -934,6 +934,7 @@ const FSIM_TUNE = [
   ['tile', 'Floor tiles', 0.1, 3, 0.05],
   ['pixel', 'Pixel size', 1, 10, 1],
   ['bldgH', 'Bldg height', 0.05, 3, 0.05],
+  ['bldgStretch', 'Vert stretch', 1, 15, 0.5],
   ['bldgFoot', 'Bldg width', 0.05, 1.5, 0.05],
   ['texRes', 'Texture res', 0.3, 4, 0.25],
   ['haze', 'Distance haze', 0.3, 3, 0.05],

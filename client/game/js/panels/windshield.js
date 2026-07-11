@@ -61,6 +61,7 @@ export const RENDER_TUNE = {
   tile: 0.85,         // Mode-7 floor tile frequency (higher = smaller terrain tiles)
   pixel: 4,           // Mode-7 render downscale → pixel chunkiness (higher = blockier/retro)
   bldgH: 3.0,         // building height scale (from the user's tuned screenshot)
+  bldgStretch: 5.0,   // extra VERTICAL stretch on top of bldgH — makes buildings stand tall instead of pancakes; live 'Vert stretch' slider
   bldgFoot: 1.0,      // building footprint (width) scale — 1.0 fills most of the tile (a building owns its whole zone)
   texRes: 1.0,        // building texture resolution (higher = crisper, lower = chunkier)
   haze: 2.2,          // how fast the floor fades into the horizon haze
@@ -1015,8 +1016,10 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun) {
   const nm = 1 - sky.night * 0.42, hz = RENDER_TUNE.haze, hor = sky.hor;
   // Per-tile material LUT for the small visible window (the map is a ~9×9 window), built
   // once per frame so the per-pixel sampler just indexes it: each entry is
-  // [r, g, b, waterness, grassness, hillshade]. Off-map reads as endless desert (no void border).
-  const OFF = BIOME_GROUND.badlands, OFF5 = [OFF[0], OFF[1], OFF[2], 0, 0, 1], mh = map ? map.length : 0;
+  // [r, g, b, waterness, grassness, hillshade]. Off-map reads as endless OPEN OCEAN (waterness
+  // = 1 → the water treatment below gives it waves/glint), so the world sits on a sea, not a
+  // desert plain running to the horizon.
+  const OFF = BIOME_GROUND.water, OFF5 = [OFF[0], OFF[1], OFF[2], 1, 0, 1], mh = map ? map.length : 0;
   // Relief lighting: hillshade each tile off the procedural elevation gradient, lit by the
   // sun (a fixed NW key at night). Baked per-tile here (cheap) and bilinear-sampled per pixel.
   const wc = v.mapCenter || { x: 0, y: 0 }, wcx = wc.x, wcy = wc.y;
@@ -1226,7 +1229,7 @@ function floorsOf(cell) {
 // Deterministic building height for a cell: floors × per-storey, with a small stable
 // jitter off the seed so same-type neighbours aren't a dead-flat skyline.
 function floorHeight(cell, seed) {
-  return floorsOf(cell) * FLOOR_Z * (0.9 + frac(seed) * 0.2) * RENDER_TUNE.bldgH;
+  return floorsOf(cell) * FLOOR_Z * (0.9 + frac(seed) * 0.2) * RENDER_TUNE.bldgH * (RENDER_TUNE.bldgStretch || 1);
 }
 
 // Building footprint half-width (tile units) — a building fills most of its own tile. This
