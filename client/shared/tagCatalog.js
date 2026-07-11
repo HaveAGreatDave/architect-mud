@@ -347,6 +347,8 @@
       help: 'Hangar ramp (aircraft parking) — holds the paired dock zone id.' },
     insurance_desk: { label: 'Insurance Desk', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
       help: 'Aircraft insurance vendor here.' },
+    runway: { label: 'Runway', shape: 'enum', options: ['ns', 'ew', 'pad'], scope: 'zone', group: 'Zone: Flight',
+      help: 'Marks a runway tile: "ns"/"ew" is the centreline orientation the flight sim aligns its drawn runway to; "pad" is the surrounding asphalt. Stamped by the zone planner on runway tiles.' },
   };
 
   global.TAG_CATALOG = TAG_CATALOG;
