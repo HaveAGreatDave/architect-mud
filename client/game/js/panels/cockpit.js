@@ -980,8 +980,9 @@ const fmtStp = (v, stp) => (+v).toFixed(decOf(stp));
 // Per-craft cockpit SKIN for the continuous sim. Sets a body class (`fsim-theme-<id>`,
 // styled below) plus the canvas-instrument accent (PFD/MFD/gauges can't read CSS vars),
 // so each airframe's flightdeck reads its own. No entry ⇒ the default light-cyan cabin
-// (the Mayfly). The Mule is a cyberpunk carbon-fibre freighter in violet/magenta neon.
+// (the Carcass wreck). The Mule is a cyberpunk carbon-fibre freighter in violet/magenta neon.
 const FSIM_SKIN = {
+  mayfly: { id: 'mayfly', acc: '#5fe0e6', rgb: [95, 224, 230] },   // ultralight trainer: bright daytime sky-aqua, plexi & bare alloy
   mule: { id: 'mule', acc: '#a874ff', rgb: [168, 116, 255] },
   leviathan: { id: 'leviathan', acc: '#3fd6c0', rgb: [63, 214, 192] },   // Soviet An-124 turquoise flightdeck
   reaper: { id: 'reaper', acc: '#ff9a38', rgb: [255, 154, 56] },   // A-10 Warthog: olive-drab armour + gunsight amber
@@ -1174,6 +1175,18 @@ function ensureFlightSimStyles() {
     .fsim-viewbtn{ position:absolute; top:6px; right:92px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
       border-radius:6px; height:22px; padding:0 7px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer; }
     .fsim-viewbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
+    /* External view: drop the instrument dashboard (PFD/gauges/MFD, placard, transponder) but
+       KEEP the flying controls — throttle + yoke/cyclic — and let the outside view breathe. */
+    body.fsim-external .fsim-pfd, body.fsim-external .fsim-gauges, body.fsim-external .fsim-mfd,
+    body.fsim-external .fsim-placard, body.fsim-external .fsim-xpdr { display:none; }
+    body.fsim-external .fsim-glass { flex:0 0 auto; }
+    /* A couple of BIG important gauges, relocated to the bottom-right of the outside view. */
+    .fsim-extg{ position:absolute; right:10px; bottom:10px; z-index:5; display:none; flex-direction:column; gap:7px; align-items:flex-end; pointer-events:none; }
+    body.fsim-external .fsim-extg{ display:flex; }
+    .fsim-extg-row{ display:flex; align-items:baseline; gap:8px; background:rgba(6,12,18,.66); border:1px solid #1c3a4c; border-radius:9px; padding:5px 14px; min-width:172px; justify-content:flex-end; box-shadow:0 2px 10px rgba(0,0,0,.4); }
+    .fsim-extg-lbl{ color:var(--cy); font-size:13px; letter-spacing:2px; }
+    .fsim-extg-row b{ color:#e8f4ff; font-size:38px; line-height:1; font-variant-numeric:tabular-nums; min-width:92px; text-align:right; }
+    .fsim-extg-u{ color:#6f8fa4; font-size:13px; }
     .fsim-tune{ position:absolute; top:32px; right:8px; z-index:4; width:186px; max-height:72vh; overflow-y:auto; overscroll-behavior:contain; background:rgba(8,14,20,.94); border:1px solid #14212d; border-radius:8px; padding:8px; }
     .fsim-tune .thdr{ font-size:9px; letter-spacing:1px; color:var(--cy); border-bottom:1px solid #16303f; padding-bottom:3px; margin:2px 0 6px; position:sticky; top:-8px; background:rgba(8,14,20,.98); }
     .fsim-tune .thdr:not(:first-child){ margin-top:9px; }
@@ -1278,7 +1291,41 @@ function ensureFlightSimStyles() {
     .fsim-theme-reaper .fsim-yoke{ border-color:#4a4426; background:radial-gradient(circle at 50% 26%,#2a2814,#0f0d06); }
     .fsim-theme-reaper .fsim-throttle{ border-color:#4a4426; background:linear-gradient(180deg,#26260f,#0f0d06); }
     .fsim-theme-reaper .fsim-thr-grip{ background:linear-gradient(180deg,#ff9a38 0%,#8a5210 55%,#301c08 100%); }
-    .fsim-theme-reaper .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#301c08 0 2px,rgba(255,154,56,.32) 2px 4px); }`;
+    .fsim-theme-reaper .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#301c08 0 2px,rgba(255,154,56,.32) 2px 4px); }
+
+    /* ══ MAYFLY flightdeck skin — an ultralight trainer: bright daytime plexiglass, ══
+       bare riveted alloy, a clean sky-aqua glow. The lightest, friendliest deck — no
+       carbon, no armour, just an honest little bubble you learn to fly in. */
+    .fsim-theme-mayfly{ --cy:#5fe0e6; --mg:#59c8ff; --gr:#7dffb0; --cy-dim:rgba(95,224,230,.20); }
+    /* airy plexi surround — a pale, sunlit windshield frame instead of a dark bezel */
+    .fsim-theme-mayfly .fsim-view{ box-shadow:inset 0 0 0 2px #1c4750, inset 0 4px 20px rgba(95,224,230,.16), 0 0 14px rgba(0,0,0,.6); }
+    /* a thin light glareshield brow — much softer than the transport/gunship lips */
+    .fsim-theme-mayfly .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:12px; z-index:2; pointer-events:none;
+      background:linear-gradient(180deg,#16242a 0%,#0e181c 60%,rgba(14,24,28,0) 100%); border-bottom:1px solid rgba(95,224,230,.42); box-shadow:0 1px 8px rgba(95,224,230,.24); }
+    .fsim-theme-mayfly .fsim-pfd,.fsim-theme-mayfly .fsim-mfd,.fsim-theme-mayfly .fsim-gauges{ border-color:#1f5058; box-shadow:inset 0 0 10px rgba(0,0,0,.72), 0 0 0 1px rgba(95,224,230,.16); }
+    /* maker's plate → bare riveted aluminium (an unpainted trainer's data plate) */
+    .fsim-theme-mayfly .fsim-placard{ border-color:#2a4a50;
+      background:
+        radial-gradient(circle at 10px 10px, #eef4f6 0 1.4px, #b6c4c8 1.4px 2.6px, #6c7c80 2.6px 3.6px, rgba(0,0,0,.4) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) 10px, #eef4f6 0 1.4px, #b6c4c8 1.4px 2.6px, #6c7c80 2.6px 3.6px, rgba(0,0,0,.4) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at 10px calc(100% - 10px), #eef4f6 0 1.4px, #b6c4c8 1.4px 2.6px, #6c7c80 2.6px 3.6px, rgba(0,0,0,.4) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #eef4f6 0 1.4px, #b6c4c8 1.4px 2.6px, #6c7c80 2.6px 3.6px, rgba(0,0,0,.4) 3.6px 4.4px, transparent 4.6px),
+        repeating-linear-gradient(92deg, rgba(230,244,246,.06) 0 1px, rgba(0,0,0,.05) 1px 2px),
+        linear-gradient(157deg,#516a6f 0%,#61797d 24%,#3f5459 48%,#57706f 70%,#33474b 100%);
+      box-shadow:inset 0 1px 0 rgba(230,244,246,.26), inset 0 -2px 5px rgba(0,0,0,.5), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-mayfly .fsim-plac-title{ color:#0c2226; text-shadow:0 1px 0 rgba(200,240,244,.34); }
+    .fsim-theme-mayfly .fsim-plac-reg{ color:#08161a; text-shadow:0 1px 0 rgba(200,240,244,.4); }
+    .fsim-theme-mayfly .fsim-plac-own{ color:#1c3a3f; text-shadow:0 1px 0 rgba(200,240,244,.24); }
+    .fsim-theme-mayfly .fsim-plac-own.rented{ color:#0f7f88; text-shadow:0 1px 0 rgba(200,240,244,.24); }
+    .fsim-theme-mayfly .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(200,244,246,0) 30%, rgba(200,244,246,.44) 46%, rgba(200,244,246,.07) 52%, rgba(200,244,246,0) 66%); }
+    /* radio/transponder deck → light alloy */
+    .fsim-theme-mayfly .fsim-xpdr{ border-color:#2a4a50; background:linear-gradient(180deg,#3a5459 0%,#26383c 48%,#141d20 100%); box-shadow:inset 0 1px 0 rgba(95,224,230,.16), inset 0 -2px 6px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-mayfly .fsim-xpdr-title{ color:#5aa8b0; }
+    /* yoke well + throttle body → pale alloy, grip goes sky-aqua */
+    .fsim-theme-mayfly .fsim-yoke{ border-color:#1f5058; background:radial-gradient(circle at 50% 26%,#173238,#0a1214); }
+    .fsim-theme-mayfly .fsim-throttle{ border-color:#1f5058; background:linear-gradient(180deg,#153034,#0a1214); }
+    .fsim-theme-mayfly .fsim-thr-grip{ background:linear-gradient(180deg,#5fe0e6 0%,#1d7a80 55%,#0e2e30 100%); }
+    .fsim-theme-mayfly .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#0e2e30 0 2px,rgba(95,224,230,.32) 2px 4px); }`;
   document.head.appendChild(s);
 }
 
@@ -1319,6 +1366,137 @@ const YOKE_SVG = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100
   <circle id="fsim-yk-green" cx="44.5" cy="43" r="2.7" fill="url(#ykgreen)" opacity="0.2"/>
   <circle id="fsim-yk-red" cx="55.5" cy="43" r="2.7" fill="url(#ykred)" opacity="0.2"/>
 </svg>`;
+
+// ── Per-plane controls ────────────────────────────────────────────────────────
+// Each airframe carries its own control art, matched to type: a light tube yoke
+// (Mayfly), the caravan ram-horn wheel above (Mule + fallback), a broad Soviet
+// ram's-horn wheel (Leviathan), an A-10 combat centre stick (Reaper), and a heli
+// cyclic (Dragonfly). Every one keeps the SAME contract so the frame loop drives
+// it unchanged: viewBox `0 0 100 74`, the `fsim-yoke-svg` id/class, the name text
+// (`#fsim-yoke-name`, set on mount) and the two status LEDs (`#fsim-yk-green` /
+// `#fsim-yk-red` → best-climb/glide/stall). The green/blue/red LED gradients the
+// LED logic fills by url() are shared below so every control lights identically.
+const YK_LED_DEFS = `
+  <radialGradient id="ykgreen" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#9dffc8"/><stop offset="0.5" stop-color="#3ad07a"/><stop offset="1" stop-color="#0d3a22"/></radialGradient>
+  <radialGradient id="ykblue" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#cfeeff"/><stop offset="0.5" stop-color="#3aa8e0"/><stop offset="1" stop-color="#0b2a3c"/></radialGradient>
+  <radialGradient id="ykred" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffb6b8"/><stop offset="0.5" stop-color="#e0403a"/><stop offset="1" stop-color="#3a0d0d"/></radialGradient>`;
+
+// MAYFLY — an ultralight trainer's skeletal control: a thin aluminium grip tube on
+// two exposed posts with foam end-grips and a tiny hub plate. Light, minimal, honest.
+const YOKE_MAYFLY = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
+  <defs>${YK_LED_DEFS}
+    <linearGradient id="mftube" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6eef3"/><stop offset="0.5" stop-color="#9fb0bc"/><stop offset="1" stop-color="#59686f"/></linearGradient>
+    <radialGradient id="mfhub" cx="0.5" cy="0.34" r="0.72"><stop offset="0" stop-color="#3a444c"/><stop offset="1" stop-color="#0d1216"/></radialGradient>
+  </defs>
+  <!-- column stub + light cable -->
+  <rect x="46" y="46" width="8" height="16" rx="3" fill="url(#mfhub)" stroke="#000" stroke-width="0.5"/>
+  <path d="M50,50 q5,3 0,6 q-5,3 0,6 q5,3 0,6" fill="none" stroke="#39434b" stroke-width="1.3" stroke-linecap="round"/>
+  <!-- support posts up to the grip tube -->
+  <rect x="30" y="26" width="4" height="19" rx="2" fill="url(#mftube)" stroke="#39434b" stroke-width="0.5"/>
+  <rect x="66" y="26" width="4" height="19" rx="2" fill="url(#mftube)" stroke="#39434b" stroke-width="0.5"/>
+  <!-- horizontal grip tube -->
+  <rect x="16" y="20.5" width="68" height="6.5" rx="3.25" fill="url(#mftube)" stroke="#39434b" stroke-width="0.6"/>
+  <!-- foam end-grips -->
+  <rect x="8" y="17.5" width="16" height="12.5" rx="6" fill="#191c20" stroke="#000" stroke-width="0.7"/>
+  <rect x="76" y="17.5" width="16" height="12.5" rx="6" fill="#191c20" stroke="#000" stroke-width="0.7"/>
+  <rect x="10" y="14.5" width="9" height="4" rx="1.6" fill="#101216"/>
+  <rect x="81" y="14.5" width="9" height="4" rx="1.6" fill="#101216"/>
+  <!-- small central hub plate: name + LEDs -->
+  <rect x="37" y="29.5" width="26" height="16" rx="3" fill="url(#mfhub)" stroke="#2c343a" stroke-width="0.6"/>
+  <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="37" text-anchor="middle" textLength="21" lengthAdjust="spacingAndGlyphs">MAYFLY</text>
+  <circle id="fsim-yk-green" cx="45" cy="41.5" r="2.3" fill="url(#ykgreen)" opacity="0.2"/>
+  <circle id="fsim-yk-red" cx="55" cy="41.5" r="2.3" fill="url(#ykred)" opacity="0.2"/>
+</svg>`;
+
+// LEVIATHAN — an Antonov An-124 control wheel: a broad, heavy ram's-horn yoke with
+// chunky riveted grips and a big stamped data hub. Wider and beefier than the Mule's.
+const YOKE_LEVIATHAN = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
+  <defs>${YK_LED_DEFS}
+    <linearGradient id="lvblk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#33433f"/><stop offset="0.18" stop-color="#1a2725"/><stop offset="1" stop-color="#060b0a"/></linearGradient>
+    <linearGradient id="lvgrip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#38524d"/><stop offset="0.16" stop-color="#182927"/><stop offset="1" stop-color="#040807"/></linearGradient>
+    <radialGradient id="lvhub" cx="0.5" cy="0.32" r="0.75"><stop offset="0" stop-color="#2c3c39"/><stop offset="0.5" stop-color="#152220"/><stop offset="1" stop-color="#080d0c"/></radialGradient>
+    <radialGradient id="lvgloss" cx="0.4" cy="0.18" r="0.75"><stop offset="0" stop-color="rgba(180,240,228,0.24)"/><stop offset="0.45" stop-color="rgba(180,240,228,0.03)"/><stop offset="1" stop-color="rgba(0,0,0,0)"/></radialGradient>
+  </defs>
+  <!-- heavy column + coiled cable -->
+  <path d="M50,52 q8,3.5 0,7 q-8,3.5 0,7 q8,3.5 0,7" fill="none" stroke="#0a100f" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M50,52 q8,3.5 0,7 q-8,3.5 0,7 q8,3.5 0,7" fill="none" stroke="#26332f" stroke-width="1.1" stroke-linecap="round"/>
+  <rect x="43" y="44" width="14" height="13" rx="4" fill="url(#lvblk)" stroke="#000" stroke-width="0.7"/>
+  <!-- broad ram's-horn wheel -->
+  <path d="M7,50 Q3,19 22,14 Q36,8 50,16 Q64,8 78,14 Q97,19 93,50 L83,50 Q86,25 66,20 Q57,17 50,24 Q43,17 34,20 Q14,25 17,50 Z" fill="url(#lvblk)" stroke="#000" stroke-width="0.9"/>
+  <!-- chunky riveted grips -->
+  <rect x="2" y="39" width="19" height="31" rx="7.5" fill="url(#lvgrip)" stroke="#000" stroke-width="0.8"/>
+  <rect x="79" y="39" width="19" height="31" rx="7.5" fill="url(#lvgrip)" stroke="#000" stroke-width="0.8"/>
+  ${[[24, 18], [34, 14.5], [66, 14.5], [76, 18]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="#0a100f" stroke="#3a544f" stroke-width="0.4"/>`).join('')}
+  <path d="M7,50 Q3,19 22,14 Q36,8 50,16 Q64,8 78,14 Q97,19 93,50 L83,50 Q86,25 66,20 Q57,17 50,24 Q43,17 34,20 Q14,25 17,50 Z" fill="url(#lvgloss)"/>
+  <!-- big stamped data hub -->
+  <rect x="29" y="26" width="42" height="24" rx="3.5" fill="url(#lvhub)" stroke="#2c3c39" stroke-width="0.7"/>
+  <rect x="30.5" y="27.5" width="39" height="21" rx="2.8" fill="none" stroke="rgba(180,240,228,0.07)" stroke-width="0.5"/>
+  <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="36" text-anchor="middle" textLength="33" lengthAdjust="spacingAndGlyphs">LEVIATHAN</text>
+  <circle id="fsim-yk-green" cx="44" cy="43" r="2.7" fill="url(#ykgreen)" opacity="0.2"/>
+  <circle id="fsim-yk-red" cx="56" cy="43" r="2.7" fill="url(#ykred)" opacity="0.2"/>
+</svg>`;
+
+// REAPER — an A-10 combat centre stick: a rubber-booted floor stick with a molded
+// pistol grip, a coolie top-hat, a weapons button and a red gun trigger. Pivots low.
+const STICK_REAPER = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
+  <defs>${YK_LED_DEFS}
+    <linearGradient id="rpshaft" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a4d44"/><stop offset="0.5" stop-color="#24261e"/><stop offset="1" stop-color="#0c0d08"/></linearGradient>
+    <linearGradient id="rpgrip" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#57603b"/><stop offset="0.5" stop-color="#33381f"/><stop offset="1" stop-color="#14160b"/></linearGradient>
+  </defs>
+  <!-- floor mount + rubber boot -->
+  <ellipse cx="50" cy="71" rx="23" ry="4.5" fill="#0a0d07"/>
+  <path d="M39,70 L45,42 L55,42 L61,70 Z" fill="#15180e" stroke="#000" stroke-width="0.6"/>
+  <path d="M41,64 H59 M42,58 H58 M43,52 H57 M44,47 H56" stroke="#2a2e1b" stroke-width="0.8" fill="none"/>
+  <!-- shaft + name plate -->
+  <rect x="46" y="22" width="8" height="21" rx="2.5" fill="url(#rpshaft)" stroke="#000" stroke-width="0.6"/>
+  <rect x="42" y="34" width="16" height="7" rx="1.5" fill="#0c0f08" stroke="#2a2e1b" stroke-width="0.5"/>
+  <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="39.4" text-anchor="middle" textLength="13" lengthAdjust="spacingAndGlyphs">REAPER</text>
+  <!-- molded pistol grip -->
+  <path d="M43,26 Q42,7 49,6 L55,6 Q61,7 60,15 L58,27 Q57,31 50,31 Q44,31 43,26 Z" fill="url(#rpgrip)" stroke="#000" stroke-width="0.7"/>
+  <path d="M45,10 H57 M45,14 H58 M45,18 H58 M45,22 H57" stroke="rgba(0,0,0,0.4)" stroke-width="0.7" fill="none"/>
+  <!-- coolie top-hat + weapons button -->
+  <circle cx="51" cy="7" r="3.6" fill="#20241a" stroke="#000" stroke-width="0.5"/>
+  <path d="M51,4.4 V9.6 M48.4,7 H53.6" stroke="#8de24a" stroke-width="0.7"/>
+  <circle cx="56.5" cy="11" r="1.7" fill="#e0403a" stroke="#3a0d0d" stroke-width="0.4"/>
+  <!-- red gun trigger on the front -->
+  <path d="M43,20 q-4.5,1.5 -3.5,6.5 q3.5,2 4.5,-1.5 Z" fill="#c0392b" stroke="#000" stroke-width="0.5"/>
+  <!-- status LEDs on the grip collar -->
+  <circle id="fsim-yk-green" cx="47.5" cy="29" r="1.9" fill="url(#ykgreen)" opacity="0.2"/>
+  <circle id="fsim-yk-red" cx="52.5" cy="29" r="1.9" fill="url(#ykred)" opacity="0.2"/>
+</svg>`;
+
+// DRAGONFLY — a Mini-500 kit-helicopter cyclic: a thin exposed floor stick on a
+// gimbal with a bulbous grip head, a 4-way trim hat and a cargo-release trigger. Pivots low.
+const CYCLIC_DRAGONFLY = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
+  <defs>${YK_LED_DEFS}
+    <linearGradient id="dfshaft" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9d6cf"/><stop offset="0.5" stop-color="#71857c"/><stop offset="1" stop-color="#2b322e"/></linearGradient>
+    <radialGradient id="dfgrip" cx="0.42" cy="0.28" r="0.8"><stop offset="0" stop-color="#3b4a42"/><stop offset="0.6" stop-color="#1a231e"/><stop offset="1" stop-color="#0a0f0c"/></radialGradient>
+  </defs>
+  <!-- floor gimbal + thin exposed shaft -->
+  <ellipse cx="50" cy="71" rx="16" ry="4" fill="#0a120c"/>
+  <rect x="47" y="30" width="6" height="40" rx="2.4" fill="url(#dfshaft)" stroke="#1a231e" stroke-width="0.5"/>
+  <circle cx="50" cy="60" r="4.4" fill="#18211b" stroke="#0a120c" stroke-width="0.7"/>
+  <circle cx="50" cy="60" r="1.5" fill="#0a120c"/>
+  <!-- name band on the shaft -->
+  <rect x="41" y="41" width="18" height="7" rx="1.6" fill="#0c140e" stroke="#2a3a30" stroke-width="0.5"/>
+  <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="46.4" text-anchor="middle" textLength="15" lengthAdjust="spacingAndGlyphs">DRAGONFLY</text>
+  <!-- bulbous grip head -->
+  <ellipse cx="50" cy="18" rx="9.5" ry="13" fill="url(#dfgrip)" stroke="#000" stroke-width="0.7"/>
+  <ellipse cx="46.5" cy="12" rx="3" ry="4.5" fill="rgba(180,240,200,0.14)"/>
+  <!-- 4-way trim hat -->
+  <circle cx="50" cy="8" r="3.2" fill="#16201a" stroke="#000" stroke-width="0.5"/>
+  <path d="M50,5.2 V10.8 M47.2,8 H52.8" stroke="#8fe36b" stroke-width="0.7"/>
+  <!-- cargo-release trigger -->
+  <path d="M42,17 q-4,1.4 -3,6 q3.2,1.8 4,-1.6 Z" fill="#3ad07a" stroke="#0a2a18" stroke-width="0.5"/>
+  <!-- status LEDs on the grip -->
+  <circle id="fsim-yk-green" cx="47.5" cy="23.5" r="1.9" fill="url(#ykgreen)" opacity="0.2"/>
+  <circle id="fsim-yk-red" cx="52.5" cy="23.5" r="1.9" fill="url(#ykred)" opacity="0.2"/>
+</svg>`;
+
+// Pick the control art for a craft type (Mule + anything unlisted → the caravan wheel).
+function yokeSvgFor(t) {
+  return { mayfly: YOKE_MAYFLY, leviathan: YOKE_LEVIATHAN, reaper: STICK_REAPER, dragonfly: CYCLIC_DRAGONFLY }[t] || YOKE_SVG;
+}
 
 // Cabin-occupancy readout on the aircraft placard: one pip per seat — pilot in the accent,
 // riders in green, empty seats dim — with a hover title naming who's aboard.
@@ -1390,7 +1568,7 @@ export function openFlightSim(opts = {}) {
   _fsim = F;
 
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
-    <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span></div><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div></div>
+    <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span></div><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div></div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -1420,7 +1598,7 @@ export function openFlightSim(opts = {}) {
         <div class="fsim-plac-own" id="fsim-own">—</div>
         <div class="fsim-plac-seats" id="fsim-seats"></div>
       </div>
-      <div class="fsim-yoke" id="fsim-yoke">${YOKE_SVG}</div>
+      <div class="fsim-yoke" id="fsim-yoke">${yokeSvgFor(opts.craftType)}</div>
       <div class="fsim-xpdr">
         <div class="fsim-xpdr-title">XPDR · COM/NAV</div>
         <div class="fsim-radio-lcd">
@@ -1471,6 +1649,11 @@ export function openFlightSim(opts = {}) {
   if (ownEl) { ownEl.textContent = F.owner; ownEl.classList.toggle('rented', F.owner === 'RENTED'); }
   // Stamp the aircraft name across the yoke hub (themed accent via CSS) + the cabin readout.
   const yokeName = q('#fsim-yoke-name'); if (yokeName) yokeName.textContent = String(opts.deviceName || P.name || 'AIRCRAFT').toUpperCase();
+  // Floor-mounted controls (Reaper combat stick, Dragonfly cyclic) pivot near their
+  // base, not the wheel-column mid-point the CSS default (50% 66%) assumes — so the
+  // frame-loop lean rotates the whole stick about its boot instead of its shaft.
+  const yokeSvgEl = q('#fsim-yoke-svg');
+  if (yokeSvgEl && (opts.craftType === 'reaper' || opts.craftType === 'dragonfly')) yokeSvgEl.style.transformOrigin = '50% 92%';
   renderSeats(F);
 
   // Flaps — a 3-position switch (UP / ½ / FULL). Click the track to snap to the nearest detent.
@@ -1664,7 +1847,7 @@ export function openFlightSim(opts = {}) {
   // External / cockpit view toggle — the ◎ EXT button mirrors the V key; both call setExternal
   // so the button's lit state and F.external stay in sync however you flip it.
   const viewBtn = q('#fsim-viewbtn');
-  setExternal = (on) => { F.external = on; if (viewBtn) viewBtn.classList.toggle('on', on); fsimToast(on ? '◎ EXTERNAL VIEW' : '◎ COCKPIT VIEW'); };
+  setExternal = (on) => { F.external = on; if (viewBtn) viewBtn.classList.toggle('on', on); document.body.classList.toggle('fsim-external', on); fsimToast(on ? '◎ EXTERNAL VIEW' : '◎ COCKPIT VIEW'); };
   add(viewBtn, 'click', () => setExternal(!F.external));
 
   // Refuel — shown only when parked on a fuelled strip (the frame loop toggles it). Fires the
@@ -1906,6 +2089,11 @@ function fsimFrame(now) {
 
   const r = readout(s, P), d = F.disp;
   d.ias = lerpN(d.ias, r.airspeed, Math.min(1, dt * 6)); d.alt = lerpN(d.alt, r.altitude, Math.min(1, dt * 5));
+  // External view: feed the two big bottom-right gauges (the dashboard is hidden there).
+  if (F.external) {
+    const ig = document.getElementById('fsim-extg-ias'); if (ig) ig.textContent = Math.round(d.ias);
+    const ag = document.getElementById('fsim-extg-alt'); if (ag) ag.textContent = Math.round(d.alt);
+  }
   d.vs = lerpN(d.vs, r.vs, Math.min(1, dt * 4)); d.rpm = lerpN(d.rpm, r.rpm, Math.min(1, dt * 6));
   d.pitch = lerpN(d.pitch, r.pitch, Math.min(1, dt * 10)); d.bank = lerpN(d.bank, r.bank, Math.min(1, dt * 10));
   const dh = ((r.heading - d.hdg + 540) % 360) - 180; d.hdg = (d.hdg + dh * Math.min(1, dt * 6) + 360) % 360;
