@@ -210,7 +210,7 @@ function closeAmount() {
 // Same themed window as showConfirmDialog, but collects a number instead of
 // firing a fixed command — used wherever we need an amount from the player
 // (poker bet/raise) instead of a plain browser prompt().
-// opts: { title?, prompt?, confirmLabel?, min? }, onConfirm: (amount) => void
+// opts: { title?, prompt?, confirmLabel?, min?, value? }, onConfirm: (amount) => void
 export function showAmountDialog(opts, onConfirm) {
   closeAmount();
   const el = document.createElement('div');
@@ -233,6 +233,8 @@ export function showAmountDialog(opts, onConfirm) {
   _amountEl = el;
 
   const input = el.querySelector('.confirm-input');
+  // Prefill (e.g. the poker minimum bet) so the player only edits up from it.
+  if (opts.value != null) input.value = opts.value;
   const submit = () => {
     const n = parseInt(input.value, 10);
     if (!n || n < (opts.min ?? 1)) return;
@@ -246,4 +248,5 @@ export function showAmountDialog(opts, onConfirm) {
   el.querySelector('.confirm-ok').addEventListener('click', submit);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
   input.focus();
+  input.select();
 }

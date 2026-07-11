@@ -624,7 +624,7 @@ if (locDpad) {
 // keys through so you can still write commands.
 const wasdBtn = document.getElementById("loc-dpad-wasd");
 if (wasdBtn) {
-	const WASD = { w: "n", a: "w", s: "s", d: "e" };
+	const WASD = { w: "n", a: "w", s: "s", d: "e", q: "in", z: "out", e: "u", c: "d" };
 	const cmdInput = document.getElementById("cmd-input");
 	const setArmed = (on) => {
 		state.wasdMove = on;
@@ -661,8 +661,11 @@ document.getElementById("area-content")?.addEventListener("click", (e) => {
 	if (btn.dataset.fill != null) {
 		const cmd = btn.dataset.fill.trim();
 		const label = `${cmd[0].toUpperCase()}${cmd.slice(1)}`;
+		// data-min carries the minimum legal wager — prefill it and floor the
+		// input so the bet can't be submitted below the table minimum.
+		const min = btn.dataset.min != null ? parseInt(btn.dataset.min, 10) : 1;
 		showAmountDialog(
-			{ title: label, prompt: `${label} how much?`, confirmLabel: label, min: 1 },
+			{ title: label, prompt: `${label} how much?`, confirmLabel: label, min, value: min },
 			(n) => sendCmd(`${cmd} ${n}`),
 		);
 	} else if (btn.dataset.cmd) {

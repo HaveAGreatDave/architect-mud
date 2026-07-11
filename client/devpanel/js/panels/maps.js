@@ -1209,7 +1209,10 @@ function renderMapOverview() {
   // Grid — pad by one cell so there are empty cells to place new zones into.
   // Bounds are computed across ALL floors so the grid stays the same size when
   // switching z-levels, meaning (x,y) positions align visually between floors.
-  const allPlaced = all.filter(z => z.grid_x != null && z.grid_y != null);
+  // Scope to the district (inDistrict) like onFloor does — otherwise the legacy
+  // zones parked ~900 tiles from the district cluster stretch the bounds into a
+  // ~1800×1800 grid of empty cells and freeze the render.
+  const allPlaced = all.filter(z => z.grid_x != null && z.grid_y != null && inDistrict(z));
   let minX, maxX, minY, maxY;
   if (allPlaced.length) {
     const xs = allPlaced.map(z => z.grid_x), ys = allPlaced.map(z => z.grid_y);

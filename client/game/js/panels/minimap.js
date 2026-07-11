@@ -584,14 +584,11 @@ const MAP_TERRITORY_KEY = 'map_territory';
 let _savedTerritory = false;
 try { _savedTerritory = localStorage.getItem(MAP_TERRITORY_KEY) === '1'; } catch {}
 let _territory = null; // last { control: {zoneId:{...}}, orgs, myOrgId } payload
-// Route trace: click-a-tile-to-see-how-to-get-there. `routeMode` is armed-to-place
-// (persisted; true only while waiting for the next tile click — placing one, or
-// clearing an existing route via the GPS button, both disarm it); `tracePath` is
-// the current ordered list of tile ids, cleared on arrival or by the GPS button.
+// Route trace: double-click-a-tile-to-plot-a-route. `tracePath` is the current
+// ordered list of tile ids, cleared on arrival or by the GPS button. `routeMode`
+// is vestigial (kept false) now that single click always highlights a building.
 const MAP_ROUTE_KEY = 'map_route';
-let _savedRoute = false;
-try { _savedRoute = localStorage.getItem(MAP_ROUTE_KEY) === '1'; } catch {}
-const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false, avenueOverlay: _savedOverlay, territoryView: _savedTerritory, routeMode: _savedRoute, tracePath: null, legendSel: null };
+const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false, avenueOverlay: _savedOverlay, territoryView: _savedTerritory, routeMode: false, tracePath: null, legendSel: null };
 
 // Black/white ink for legibility on a saturated org fill (mirrors corp-map.js inkFor).
 function contrastInk(hex) {
@@ -837,24 +834,18 @@ function wireMapUi() {
     if (mapState.territoryView) fetchTerritory();
     renderMapGrid();
   });
-  // Route (GPS button): a route already drawn? click clears it. Otherwise the
-  // click arms the next tile click to place one (single-shot — placing a route
-  // disarms itself; see the grid click handler below).
+  // GPS button: clears the currently-drawn route (double-clicking a tile plots one).
+  // A no-op when there's nothing to clear.
   document.getElementById('map-route-toggle')?.addEventListener('click', () => {
     const btn = document.getElementById('map-route-toggle');
-    if (mapState.tracePath) {
-      mapState.tracePath = null;
-      mapState.routeMode = false;
-      try { localStorage.setItem(MAP_ROUTE_KEY, '0'); } catch {}
-      btn?.classList.remove('active', 'has-route');
-      if (isAutoWalking()) stopAutoWalk('Auto-walk stopped — route cleared.');
-      renderMapGrid();
-      if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // clear it off the minimap too
-      return;
-    }
-    mapState.routeMode = !mapState.routeMode;
-    try { localStorage.setItem(MAP_ROUTE_KEY, mapState.routeMode ? '1' : '0'); } catch {}
-    btn?.classList.toggle('active', mapState.routeMode);
+    if (!mapState.tracePath) return;
+    mapState.tracePath = null;
+    mapState.routeMode = false;
+    try { localStorage.setItem(MAP_ROUTE_KEY, '0'); } catch {}
+    btn?.classList.remove('active', 'has-route');
+    if (isAutoWalking()) stopAutoWalk('Auto-walk stopped — route cleared.');
+    renderMapGrid();
+    if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // clear it off the minimap too
   });
   const vp = document.getElementById('map-viewport');
   if (vp) {
@@ -951,21 +942,14 @@ function wireMapUi() {
         cb(zid);
         return;
       }
-      // Clicking a tile — on the map OR in the legend — selects it: every tile of that
-      // building lights up on the map (via .map-legend-sel) and its legend row
+      // Single click — on the map OR in the legend — selects a building: every tile of
+      // that building lights up on the map (via .map-legend-sel) and its legend row
       // highlights and scrolls into view. Re-clicking the same selection clears it.
-      // Route plotting takes over instead while the GPS button is armed.
-      if (!mapState.routeMode) {
-        if (el.id === 'map-grid' && mapDrag.moved) return; // ignore the click that ends a pan-drag
-        mapState.legendSel = (mapState.legendSel === zid) ? null : zid;
-        renderMapGrid();
-        document.querySelector('#map-legend .map-list-sel')?.scrollIntoView({ block: 'nearest' });
-        return;
-      }
-      // Route trace: draw a yellow road from the current tile to the clicked one.
-      // Ignore the click that ends a pan-drag (grid only; the legend can't be dragged).
-      if (el.id === 'map-grid' && mapDrag.moved) return;
-      plotMapRoute(zid);
+      // Plotting a GPS route is the double-click gesture (below), not this one.
+      if (el.id === 'map-grid' && mapDrag.moved) return; // ignore the click that ends a pan-drag
+      mapState.legendSel = (mapState.legendSel === zid) ? null : zid;
+      renderMapGrid();
+      document.querySelector('#map-legend .map-list-sel')?.scrollIntoView({ block: 'nearest' });
     });
     // Double-clicking any (non-water) tile GPS-routes to it, no need to arm the GPS
     // button first. Ignore the double-click that ends a pan-drag.
@@ -980,7 +964,7 @@ function wireMapUi() {
 }
 
 // Plot a client-side GPS route from the current tile to `zid` and mirror it onto the
-// sidebar minimap. Shared by route-mode single-click and double-click-to-GPS.
+// sidebar minimap. Fired by double-clicking a tile.
 function plotMapRoute(zid) {
   // Open water is impassable — you can't route to it. Say so rather than plot nothing.
   if (mapState.byId.get(zid)?.water) { appendMsg('Must be on Land.', 'error'); return; }

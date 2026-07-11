@@ -169,9 +169,9 @@ export function renderPane(table, viewerId) {
   // real (collision-free) verb — `sit`→`seat`, `watch`→`spectate`. Amount verbs
   // (data-fill) prompt for the amount before firing. Disabled buttons show but
   // don't relay.
-  function pbtn(label, cmd, { fill = false, disabled = false, highlight = false } = {}) {
+  function pbtn(label, cmd, { fill = false, disabled = false, highlight = false, min = null } = {}) {
     if (disabled) return `<button class="poker-cmd disabled" disabled>${label}</button>`;
-    const attr = fill ? `data-fill="${cmd} "` : `data-cmd="${cmd}"`;
+    const attr = fill ? `data-fill="${cmd} "${min != null ? ` data-min="${min}"` : ''}` : `data-cmd="${cmd}"`;
     const cls = highlight ? 'poker-cmd highlight' : 'poker-cmd';
     return `<button class="${cls}" ${attr}>${label}</button>`;
   }
@@ -187,7 +187,14 @@ export function renderPane(table, viewerId) {
       // "raise" when facing a bet. The verb tracks the label so the action bubble
       // reads correctly — the engine treats bet/raise identically.
       const wager = canCheck ? 'bet' : 'raise';
-      parts.push(pbtn(wager, wager, { fill: true, disabled: !myTurn }));
+      // Minimum legal total wager = current bet + the minimum raise, but never
+      // more than the player can afford (that's what all-in is for). Prefills
+      // the bet dialog and floors it so you can't submit below the minimum.
+      let wagerMin = null;
+      if (myTurn && game && myGs) {
+        wagerMin = Math.min(game.currentBet + game.minRaise, myGs.bet + myGs.chips);
+      }
+      parts.push(pbtn(wager, wager, { fill: true, disabled: !myTurn, min: wagerMin }));
       parts.push(pbtn('fold',  'fold',  { disabled: !myTurn }));
       parts.push(pbtn('all-in','allin', { disabled: !myTurn }));
       // One-click ways to fill the table: an AI opponent, or the dealer if he's stepped away.
