@@ -5,6 +5,11 @@ import { registerAction } from '../../server/engine/actions.js';
 
 // Shared by the direct match and the SIFT-disambiguation replay (gps.navigate).
 function plotRoute(player, destZone) {
+  // Open water isn't a place you can stand — you can't route to it, and it's hidden
+  // from name resolution below so it never even surfaces as a candidate.
+  if (destZone.flags?.water) {
+    return { type: 'error', message: 'Must be on Land.' };
+  }
   if (destZone.id === player.current_zone) {
     return { type: 'output', message: `You're already at ${destZone.name}.` };
   }
@@ -27,7 +32,9 @@ function cmdGps(args, raw, player) {
   const query = (args || []).join(' ').trim();
   if (!query) return { type: 'error', message: 'GPS to where? Try: gps <part of a location name>' };
 
-  const r = siftResolve(query, getAllZones());
+  // Water tiles are invisible to GPS — they can't be a destination (Cold Channel and
+  // its ilk would otherwise clutter every name match), so drop them before resolving.
+  const r = siftResolve(query, getAllZones().filter(z => !z.flags?.water));
   if (r.type === 'none') return { type: 'error', message: `No location matching "${query.replace(/^["']|["']$/g, '')}".` };
   if (r.type === 'ambiguous') {
     createSelectionState(player.id, r.candidates, { dispatchType: 'gps.navigate', dispatchParam: 'destination' });

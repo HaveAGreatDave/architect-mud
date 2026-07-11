@@ -666,6 +666,8 @@ function mapTile(zone, x, y, placed, currentId) {
     buildings: buildingsAt(zone),
     icon: poi?.icon || null, poi: poi?.poi || null,
     svg: zone.flags?.icon || buildingIconSvg(zone), // named zone-icon SVG (road_* connectors, statue, building_type rooftop, …)
+    water: !!zone.flags?.water, // impassable open water — the client refuses to route onto it
+
     // Street name(s) this tile sits on (an intersection can carry more than one) — null if none.
     artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
     exits: links, isCurrent: zone.id === currentId,

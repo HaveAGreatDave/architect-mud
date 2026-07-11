@@ -255,13 +255,23 @@ for (const d of world.doors.values()) { if (d.zone_id) doorZones.add(d.zone_id);
 // content-drift class as the door/apartment exclusions above (a freshly
 // file-imported world orders DB rows differently than a grown one, and can
 // land find() on a zone with special move-gating instead of an ordinary one).
+// A passable exit ([dir, targetId]) — one whose destination isn't open water. Open
+// water is impassable (engine:water move gate), so the move/rad/gps fixtures need a
+// step they can actually take, and the fake player must never be anchored ON water
+// (its only "exits" lead to more water, and water is instantly lethal by design).
+const zoneById = new Map(zones.map(z => [z.id, z]));
+const dryExit = (z) => Object.entries(z?.exits || {})
+  .map(([d, t]) => [d, Array.isArray(t) ? t[0] : t])
+  .find(([, t]) => { const zt = zoneById.get(t); return zt && !zt.flags?.water; });
 const zone = zones.find(z =>
   z.exits && Object.keys(z.exits).length > 0 &&
+  !z.flags?.water &&
   !doorZones.has(z.id) &&
   !getApartment(z.id) &&
   !z.flags?.prologue &&
-  !neighborZoneIds(z).some(n => doorZones.has(n)));
-if (!zone) { console.error('No door-free zone with exits found; aborting.'); process.exit(1); }
+  !neighborZoneIds(z).some(n => doorZones.has(n)) &&
+  dryExit(z));
+if (!zone) { console.error('No door-free, dry zone with a passable exit found; aborting.'); process.exit(1); }
 
 const P = {
   id: 'test_regress_' + process.pid,
@@ -343,7 +353,7 @@ addPlayerToZone(decoyId, getPlayer().current_zone); // visible to SIFT in the th
 removePlayerFromZone(decoyId, getPlayer().current_zone);
 removeLivePlayer(decoyId);
 
-const dir = Object.keys(zone.exits)[0];
+const dir = dryExit(zone)[0];
 const before = getPlayer().current_zone;
 
 // Encumbrance gate: negative capacity guarantees a block without inventory rows.
@@ -570,7 +580,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // Radiation comes from the tag alone (entry formula: floor(rad/10)).
   check('getZoneRadiation reads the tag', getZoneRadiation({ flags: { radiation: 30 } }) === 30);
   check('getZoneRadiation ignores the dropped column', getZoneRadiation({ radiation_level: 20, flags: {} }) === 0);
-  const exit0 = allExits(world.zones.get(p.current_zone))[0];
+  const exit0 = allExits(world.zones.get(p.current_zone)).find(e => { const zt = world.zones.get(e.target); return zt && !zt.flags?.water; });
   if (exit0) {
     const destZone = world.zones.get(exit0.target);
     const radBefore = p.radiation || 0;

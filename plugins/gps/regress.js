@@ -16,7 +16,9 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run(`gps ${here.name}`);
   check('gps to your own location says so, no route', r?.type === 'output' && /already at/i.test(r?.message || ''), r?.message);
 
-  const neighborId = Object.values(here.exits || {})[0];
+  // A non-water neighbour: water is invisible to GPS (and impassable), so routing to
+  // a Cold Channel tile can't produce a path — pick a dry neighbour to route to.
+  const neighborId = Object.values(here.exits || {}).flat().find(id => { const z = getZone(id); return z && !z.flags?.water; });
   if (neighborId) {
     const neighbor = getAllZones().find(z => z.id === neighborId);
     r = await run(`gps ${neighbor.name}`);

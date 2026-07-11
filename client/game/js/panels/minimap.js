@@ -938,6 +938,9 @@ function wireMapUi() {
       // Route trace: draw a yellow road from the current tile to the clicked one.
       // Ignore the click that ends a pan-drag (grid only; the legend can't be dragged).
       if (!mapState.routeMode || (el.id === 'map-grid' && mapDrag.moved)) return;
+      // Open water is impassable — you can't route to it. Say so instead of
+      // silently plotting nothing (traceRoute would find no path anyway).
+      if (mapState.byId.get(zid)?.water) { appendMsg('Must be on Land.', 'error'); return; }
       const current = mapState.tiles.find(t => t.isCurrent);
       const path = current ? traceRoute(current.id, zid, mapState.byId) : null;
       mapState.tracePath = (path && path.length > 1) ? path : null;
