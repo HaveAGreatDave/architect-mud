@@ -665,6 +665,8 @@ function mapTile(zone, x, y, placed, currentId) {
     danger: zoneDanger(zone), marker: zone.marker || null,
     color: zone.color || null, bg_color: zone.bg_color || null,
     func: mapFunc(zone),
+    district: districtFor(zone).key, // land-use district key — the regional map shows only your own
+
     description: zone.description || '',
     buildings: buildingsAt(zone),
     icon: poi?.icon || null, poi: poi?.poi || null,

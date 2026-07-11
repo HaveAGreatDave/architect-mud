@@ -312,14 +312,13 @@ export function renderMinimap(nodes, direction) {
   const overlay = mapState.avenueOverlay || 'icons'; // none | labels | icons
   const baseSym = (node) => iconSvg(node.icon_svg) || (node.enterable
     ? '▣ ' // pass-through building tile: a door you enter, not a room you stand in
-    : node.marker
-      ? (node.marker.length === 1 ? node.marker + ' ' : node.marker.slice(0, 2))
-      : (node.sanctuary ? '◆ ' : '○ '));
+    : (node.sanctuary ? '◆ ' : '')); // bare tile — no marker glyph (#, ⸪., …)
   const symFor = (node) => {
     const base = baseSym(node);
     if (overlay === 'none' || !node.building_type) return base;
+    // Labels: hide the building footprint and show a big 2-letter acronym in its place.
     if (overlay === 'labels')
-      return base + `<span class="map-bld-ov map-bld-label">${twoLetterAbbrev(node.building_name || node.name)}</span>`;
+      return `<span class="map-bld-ov map-bld-label">${twoLetterAbbrev(node.building_name || node.name)}</span>`;
     const glyph = BUILDING_ICON[node.building_type] || BUILDING_ICON._default;
     return base + `<span class="map-bld-ov map-bld-icon">${glyph}</span>`;
   };
@@ -503,6 +502,7 @@ const TERRAIN_FILL = { water: '#3f7fb0', grass: '#5a9e57' }; // fallback if a ti
 // #map-viewport in styles.css). The window never resizes; the regional view scales
 // its tiles down to fit the whole region inside it.
 const MAP_WINDOW_PX = 374;
+const MAP_BASE_TILE = 34; // #map-grid --map-room default (zone/interior tile px)
 
 // Small entrance arrow overlaid on a building tile, pointing to the edge the door
 // faces (server `entrance` field). A CSS triangle (no glyph) via .<pfx>-ent-<dir>;
@@ -534,7 +534,7 @@ let _territory = null; // last { control: {zoneId:{...}}, orgs, myOrgId } payloa
 const MAP_ROUTE_KEY = 'map_route';
 let _savedRoute = false;
 try { _savedRoute = localStorage.getItem(MAP_ROUTE_KEY) === '1'; } catch {}
-const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false, avenueOverlay: _savedOverlay, territoryView: _savedTerritory, routeMode: _savedRoute, tracePath: null };
+const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false, avenueOverlay: _savedOverlay, territoryView: _savedTerritory, routeMode: _savedRoute, tracePath: null, legendSel: null };
 
 // Black/white ink for legibility on a saturated org fill (mirrors corp-map.js inkFor).
 function contrastInk(hex) {
@@ -759,9 +759,14 @@ function wireMapUi() {
   // POI icons / 2-letter abbrevs. Picking an overlay implies Avenue View.
   // Tile-symbol overlay: none (colours only) / text (2-letter labels) / icons.
   document.getElementById('map-overlay-slider')?.addEventListener('click', (e) => {
-    const seg = e.target.closest('.mo-seg');
-    if (!seg) return;
-    mapState.avenueOverlay = seg.getAttribute('data-ov') || 'icons';
+    const slider = e.currentTarget;
+    const segs = [...slider.querySelectorAll('.mo-seg')];
+    if (!segs.length) return;
+    // Snap to the segment nearest the click X — the whole slider is clickable, not just
+    // the exact segment, so a click anywhere instantly toggles to the closest option.
+    const rect = slider.getBoundingClientRect();
+    const idx = Math.max(0, Math.min(segs.length - 1, Math.floor((e.clientX - rect.left) / (rect.width / segs.length))));
+    mapState.avenueOverlay = segs[idx].getAttribute('data-ov') || 'icons';
     try { localStorage.setItem(MAP_OVERLAY_KEY, mapState.avenueOverlay); } catch {}
     syncOverlaySlider();
     renderMapGrid();
@@ -889,24 +894,45 @@ function wireMapUi() {
         cb(zid);
         return;
       }
+      // Clicking a legend row highlights that building on the map (toggle). Route
+      // plotting from the legend still works while the GPS button is armed.
+      if (el.id === 'map-legend' && !mapState.routeMode) {
+        mapState.legendSel = (mapState.legendSel === zid) ? null : zid;
+        renderMapGrid();
+        return;
+      }
       // Route trace: draw a yellow road from the current tile to the clicked one.
       // Ignore the click that ends a pan-drag (grid only; the legend can't be dragged).
       if (!mapState.routeMode || (el.id === 'map-grid' && mapDrag.moved)) return;
-      // Open water is impassable — you can't route to it. Say so instead of
-      // silently plotting nothing (traceRoute would find no path anyway).
-      if (mapState.byId.get(zid)?.water) { appendMsg('Must be on Land.', 'error'); return; }
-      const current = mapState.tiles.find(t => t.isCurrent);
-      const path = current ? traceRoute(current.id, zid, mapState.byId) : null;
-      mapState.tracePath = (path && path.length > 1) ? path : null;
-      mapState.routeMode = false; // single-shot: placed, disarm until cleared + re-armed
-      try { localStorage.setItem(MAP_ROUTE_KEY, '0'); } catch {}
-      const rbtn = document.getElementById('map-route-toggle');
-      rbtn?.classList.remove('active');
-      rbtn?.classList.toggle('has-route', !!mapState.tracePath);
-      renderMapGrid();
-      if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // mirror the route on the sidebar minimap
+      plotMapRoute(zid);
     });
+    // Double-clicking any (non-water) tile GPS-routes to it, no need to arm the GPS
+    // button first. Ignore the double-click that ends a pan-drag.
+    if (el.id === 'map-grid') {
+      el.addEventListener('dblclick', (e) => {
+        const cell = e.target.closest('[data-zone-id]');
+        if (!cell || mapDrag.moved) return;
+        plotMapRoute(cell.getAttribute('data-zone-id'));
+      });
+    }
   }
+}
+
+// Plot a client-side GPS route from the current tile to `zid` and mirror it onto the
+// sidebar minimap. Shared by route-mode single-click and double-click-to-GPS.
+function plotMapRoute(zid) {
+  // Open water is impassable — you can't route to it. Say so rather than plot nothing.
+  if (mapState.byId.get(zid)?.water) { appendMsg('Must be on Land.', 'error'); return; }
+  const current = mapState.tiles.find(t => t.isCurrent);
+  const path = current ? traceRoute(current.id, zid, mapState.byId) : null;
+  mapState.tracePath = (path && path.length > 1) ? path : null;
+  mapState.routeMode = false; // single-shot: placed, disarm until cleared + re-armed
+  try { localStorage.setItem(MAP_ROUTE_KEY, '0'); } catch {}
+  const rbtn = document.getElementById('map-route-toggle');
+  rbtn?.classList.remove('active');
+  rbtn?.classList.toggle('has-route', !!mapState.tracePath);
+  renderMapGrid();
+  if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // mirror the route on the sidebar minimap
 }
 
 // Server-driven route (the `gps` command): the path can span the whole map, not
@@ -978,9 +1004,18 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
 // avenueView) without touching the server — used both by the initial open and by
 // the Avenue View toggle (a pure rendering-mode switch on already-fetched tiles).
 function renderMapGrid() {
-  const { tiles, mode, insideInterior } = mapState;
+  const { mode, insideInterior } = mapState;
   const grid = document.getElementById('map-grid');
   const legend = document.getElementById('map-legend');
+
+  // Regional view: show only the district you're in (hide the neighbouring ones) so it
+  // reads as "full zoom on this district", centred in the window. Zone/interior show
+  // everything as-is. Falls back to all tiles if the current tile carries no district.
+  let tiles = mapState.tiles;
+  if (mode === 'regional') {
+    const curDistrict = tiles.find(t => t.isCurrent)?.district;
+    if (curDistrict) tiles = tiles.filter(t => t.district === curDistrict);
+  }
 
   if (!tiles.length) {
     grid.textContent = '(no map data)';
@@ -1015,17 +1050,17 @@ function renderMapGrid() {
   const baseSym = (t) => {
     if (t.svg) return `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${t.svg}.svg)"></span>`;
     if (t.icon) return t.icon + ' ';                 // POI landmark (airport, police, …)
-    if (t.marker) return (t.marker.length === 1 ? t.marker + ' ' : t.marker.slice(0, 2));
-    return '';
+    return '';                                       // bare tile — no marker glyph (#, ⸪., …)
   };
   const symFor = (t) => {
     if (t.isCurrent) return '';
     const base = baseSym(t);
-    // Labels / icons ride ON TOP of a building's footprint; non-building tiles show
-    // only their base SVG. `none` shows the base everywhere.
+    // Icons ride ON TOP of a building's footprint; non-building tiles show only their
+    // base SVG. `none` shows the base everywhere. Labels hide the footprint and show a
+    // big 2-letter acronym in its place.
     if (overlay === 'none' || !t.building_type) return base;
     if (overlay === 'labels')
-      return base + `<span class="map-bld-ov map-bld-label">${twoLetterAbbrev(t.building_name || t.name)}</span>`;
+      return `<span class="map-bld-ov map-bld-label">${twoLetterAbbrev(t.building_name || t.name)}</span>`;
     const glyph = BUILDING_ICON[t.building_type] || BUILDING_ICON._default;
     return base + `<span class="map-bld-ov map-bld-icon">${glyph}</span>`;
   };
@@ -1036,18 +1071,22 @@ function renderMapGrid() {
     if (r >= 0 && r < gRows && c >= 0 && c < gCols) cell[r][c] = t;
   }
 
-  // Route trace: highlight the tiles on the walkable path to a clicked tile.
+  // Route trace: the tiles on the walkable path to a clicked tile (drawn as a line below).
   const curTile = tiles.find(t => t.isCurrent);
-  const traceSet = new Set(effectiveTracePath(curTile?.id) || []);
   document.getElementById('map-route-toggle')?.classList.toggle('has-route', !!mapState.tracePath);
+  // Legend selection: the building name the player clicked in the legend, highlighted
+  // (accent) on the map and in the list. Matched by name so every tile of a multi-tile
+  // building lights up.
+  const selName = mapState.legendSel ? mapState.byId.get(mapState.legendSel)?.name || null : null;
 
   // Regional: shrink the tiles so the whole region fits inside the fixed window at
   // once — full district in view, no panning. Zone/interior keep the CSS default tile
   // size (34px). The window itself never changes size. `--map-room` drives both the
   // column width and the .map-c row height, so setting it here scales tiles square.
+  let tilePx = MAP_BASE_TILE; // CSS default #map-grid --map-room (zone/interior)
   if (regional) {
-    const fit = Math.max(5, Math.floor(Math.min(MAP_WINDOW_PX / gCols, MAP_WINDOW_PX / gRows)));
-    grid.style.setProperty('--map-room', `${fit}px`);
+    tilePx = Math.max(5, Math.floor(Math.min(MAP_WINDOW_PX / gCols, MAP_WINDOW_PX / gRows)));
+    grid.style.setProperty('--map-room', `${tilePx}px`);
   } else {
     grid.style.removeProperty('--map-room');
   }
@@ -1103,20 +1142,35 @@ function renderMapGrid() {
         (regional || t.bg_color || t.color ? ' map-styled' : '') +
         (isPoi ? ` map-poi map-poi-${t.poi}` : '') +
         (terrain ? ` map-terr map-${terrain}` : '') +
-        (t.buildings && t.buildings.length ? ' map-has-building' : '') +
         (regional && t.reachable === false ? ' map-unreachable' : '') +
-        (traceSet.has(t.id) ? ' map-trace' : '');
+        (selName && t.name === selName ? ' map-legend-sel' : '');
       const style = styles.length ? ` style="${styles.join(';')}"` : '';
       const entMark = regional ? '' : entranceMark(t.entrance, 'map'); // arrow only when tiles are big enough to read
       html += `<span class="${cls}"${style} data-zone-id="${t.id}">${content}${entMark}${terrOv}</span>`;
     }
+  }
+  // GPS route: draw a yellow line through the centres of the route tiles (an SVG laid
+  // over the grid) rather than highlighting boxes. Tiles off the current grid/window
+  // (or in another district in regional view) are skipped.
+  const routeIds = effectiveTracePath(curTile?.id) || [];
+  if (routeIds.length > 1) {
+    const pts = [];
+    for (const id of routeIds) {
+      const rt = mapState.byId.get(id);
+      if (!rt) continue;
+      const c = colOf(rt), r = rowOf(rt);
+      if (c == null || r == null || c < 0 || c >= gCols || r < 0 || r >= gRows) continue;
+      pts.push(`${((c + 0.5) * tilePx).toFixed(1)},${((r + 0.5) * tilePx).toFixed(1)}`);
+    }
+    if (pts.length > 1)
+      html += `<svg class="map-gps-svg" viewBox="0 0 ${gCols * tilePx} ${gRows * tilePx}" preserveAspectRatio="none"><polyline class="map-gps-line" stroke-width="${Math.max(2, tilePx * 0.18).toFixed(1)}" points="${pts.join(' ')}"/></svg>`;
   }
   grid.innerHTML = html;
 
   // Right panel: "you are here" + landmark keys + the deduped tile list (one row
   // per distinct building/terrain, in its own painted colour). Same for every zoom
   // level now — no separate land-use legend.
-  let KEYS = `<div class="map-leg-row"><span class="map-leg-sym"><i class="map-leg-bld"></i></span> Building here</div>`;
+  let KEYS = '';
   const poiPresent = new Set(tiles.map(t => t.poi).filter(Boolean));
   for (const key of Object.keys(POI_LEGEND)) {
     if (!poiPresent.has(key)) continue;
@@ -1149,7 +1203,8 @@ function renderMapGrid() {
     if (legColor) styles.push(`color:${legColor}`);
     const symCls = `map-leg-sym danger-${t.danger || 'safe'}` + (t.bg_color || t.color ? ' map-styled' : '');
     const style = styles.length ? ` style="${styles.join(';')}"` : '';
-    const rowCls = 'map-leg-row map-list-row' + (t.isCurrent ? ' map-list-current' : '');
+    const rowCls = 'map-leg-row map-list-row' + (t.isCurrent ? ' map-list-current' : '')
+      + (selName && t.name === selName ? ' map-list-sel' : '');
     leg += `<div class="${rowCls}" data-zone-id="${t.id}"><span class="${symCls}"${style}>${symFor(t)}</span> ${escapeHtml(t.name)}</div>`;
   }
   leg += `</div>`;

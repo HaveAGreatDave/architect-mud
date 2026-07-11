@@ -848,7 +848,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile.terr { border-radius:0; border-color:transparent; }
     #tablet-os-overlay .tos-map-tile.terr-water, #tablet-os-overlay .tos-map-tile.terr-grass { background-repeat:no-repeat; background-size:100% 100%; }
     #tablet-os-overlay .tos-map-tile.terr-water { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23ffffff' stroke-opacity='0.30' stroke-width='1.1' stroke-linecap='round'><path d='M0 7q6 -3 12 0t12 0'/><path d='M0 14q6 -3 12 0t12 0'/><path d='M0 21q6 -3 12 0t12 0'/></g></svg>"); }
-    #tablet-os-overlay .tos-map-tile.terr-grass { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23103d1c' stroke-opacity='0.30' stroke-width='1' stroke-linecap='round'><path d='M4 21v-5'/><path d='M9 22v-6'/><path d='M14 21v-5'/><path d='M19 22v-6'/><path d='M6 13v-4'/><path d='M12 12v-4'/><path d='M18 13v-4'/></g></svg>"); }
+    #tablet-os-overlay .tos-map-tile.terr-grass { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%237fc95a' stroke-opacity='0.40' stroke-width='1' stroke-linecap='round'><path d='M4 21v-5'/><path d='M9 22v-6'/><path d='M14 21v-5'/><path d='M19 22v-6'/><path d='M6 13v-4'/><path d='M12 12v-4'/><path d='M18 13v-4'/></g></svg>"); }
     /* Entrance arrow — amber triangle on the edge the building's door faces. */
     #tablet-os-overlay .tos-map-tile .tos-ent { position:absolute; width:0; height:0; z-index:4; pointer-events:none; filter:drop-shadow(0 0 1px rgba(0,0,0,0.95)); }
     #tablet-os-overlay .tos-map-tile .tos-ent-north { top:1px; left:50%; transform:translateX(-50%); border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:5px solid #ffb454; }
@@ -2024,12 +2024,16 @@ function _mapTileSym(t) {
   // wins over the POI glyph, which is a landmark hint for the adjacent street.
   if (t.svg) return `<span class="mt-icon mt-svg" style="--zi:url(/assets/zone-icons/${esc(t.svg)}.svg)"></span>`;
   if (t.icon) return `<span class="mt-icon">${esc(t.icon)}</span>`;
-  if (t.marker) return `<span class="mt-icon">${esc(t.marker)}</span>`;
-  return '';
+  return ''; // bare tile — no marker glyph (#, ⸪., …)
 }
 
 function renderMap(d) {
-  const tiles = d.tiles || [];
+  let tiles = d.tiles || [];
+  // Regional: show only the district you're in (hide neighbours), like the full map.
+  if ((d.mode || 'zone') === 'regional') {
+    const cd = tiles.find(t => t.isCurrent)?.district;
+    if (cd) tiles = tiles.filter(t => t.district === cd);
+  }
   const mode = d.mode || 'zone';
   const inside = !!d.insideInterior;
 

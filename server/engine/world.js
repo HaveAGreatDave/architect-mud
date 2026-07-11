@@ -1,5 +1,6 @@
 import { query } from '../models/db.js';
 import { neighborZoneIds, primaryExits, allExits, addExit, removeExit } from './exits.js';
+import { OPPOSITE, DIR_OFFSET } from './directions.js';
 import { titleCaseName } from './text.js';
 import { districtFor } from './districts.js';
 import { isSanctuary, getZoneRadiation } from './zone-tags.js';
@@ -133,18 +134,36 @@ export function buildingTypeOf(zone) {
   return (zone.flags?.building_type || '').toLowerCase() || null;
 }
 
-// Which side a building's entrance is on, for the map's entrance arrow: the compass
-// direction from the facade tile toward its street tile (flags.world_exit_zone — the
-// tile you approach the door from). Only clean orthogonal neighbours qualify, so
-// interior tiles (whose world_exit_zone is an overworld tile, not a grid neighbour)
-// return null. 'north' | 'south' | 'east' | 'west' | null.
+// Which side a building's entrance is on, for the map's entrance arrow. The door
+// faces whichever adjacent street tile has an exit leading INTO the facade — that's
+// the tile you actually step in from (travel `east` into the tile ⇒ the door is on
+// its west face). We derive it from the real exit graph, NOT flags.world_exit_zone,
+// which is a planner hint that often points at the wrong side. Reverse-indexed once
+// and cached (rebuilt lazily; invalidated whenever exits change). 'north'|'south'|
+// 'east'|'west'|null.
+let _entranceDirCache = null;
+export function invalidateEntranceDirCache() { _entranceDirCache = null; }
+function buildEntranceDirIndex() {
+  const idx = new Map();
+  for (const z of world.zones.values()) {
+    if (z.grid_x == null) continue;
+    for (const [dir, targetId] of Object.entries(z.exits || {})) {
+      const off = DIR_OFFSET[dir];
+      if (!off || off[2] !== 0 || (off[0] === 0 && off[1] === 0)) continue; // N/S/E/W only
+      const t = world.zones.get(targetId);
+      if (!t || t.grid_x == null || !hasTag(t, 'facade') || idx.has(t.id)) continue;
+      // z steps `dir` into facade t and they're grid-adjacent that way ⇒ the door
+      // faces t's side toward z, i.e. the opposite of dir.
+      if (t.grid_x - z.grid_x === off[0] && t.grid_y - z.grid_y === off[1] && (t.grid_z ?? 0) === (z.grid_z ?? 0))
+        idx.set(t.id, OPPOSITE[dir]);
+    }
+  }
+  return idx;
+}
 export function buildingEntranceDir(zone) {
   if (!zone || !hasTag(zone, 'facade')) return null;
-  const ex = world.zones.get(zone.flags?.world_exit_zone || '');
-  if (!ex || zone.grid_x == null || ex.grid_x == null || (zone.grid_z ?? 0) !== (ex.grid_z ?? 0)) return null;
-  const dx = ex.grid_x - zone.grid_x, dy = ex.grid_y - zone.grid_y;
-  if (Math.abs(dx) + Math.abs(dy) !== 1) return null; // only a direct N/S/E/W neighbour
-  return dx === 1 ? 'east' : dx === -1 ? 'west' : dy === 1 ? 'south' : 'north';
+  if (!_entranceDirCache) _entranceDirCache = buildEntranceDirIndex();
+  return _entranceDirCache.get(zone.id) || null;
 }
 
 // Terrain class for the map/minimap surfaces: 'road' | 'water' | 'grass' | null.
@@ -159,7 +178,9 @@ export function zoneTerrain(zone) {
   const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(zone.bg_color || '');
   if (m) {
     const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
-    if (g > r + 24 && g > b + 24 && g > 110) return 'grass'; // authored green parkland
+    // Green-dominant surface = parkland/grass. Catches both the bright plaza greens and
+    // the dark muted grasslands (bg #2f3a26). `g - b >= 15` keeps teal/cyan docks out.
+    if (g > r && g - b >= 15 && g >= 45) return 'grass';
   }
   return null;
 }
@@ -226,6 +247,7 @@ export async function addExitOverride(zoneId, direction, targetZone, source = nu
   );
   const z = world.zones.get(zoneId);
   if (z) z.exits = addExit(z.exits, direction, targetZone);
+  invalidateEntranceDirCache();
 }
 
 // Unwire: deletes the override row and removes the exit from the live zone.
@@ -238,6 +260,7 @@ export async function removeExitOverride(zoneId, direction, targetZone) {
   );
   const z = world.zones.get(zoneId);
   if (z) z.exits = removeExit(z.exits, direction, targetZone);
+  invalidateEntranceDirCache();
 }
 
 async function loadZones() {
@@ -843,6 +866,7 @@ export async function reloadZone(zoneId) {
     _dangerInferred: existing._dangerInferred,
   });
   await applyExitOverrides(zoneId);
+  invalidateEntranceDirCache(); // a zone's exits may have changed — rebuild on next read
 }
 
 // Returns true and records the cooldown if this enemy type can shout; false if suppressed.

@@ -970,17 +970,29 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now) {
         const gx = Math.floor(wx * 5.3), gy = Math.floor(wy * 5.3);
         tex = tex * (1 - grassW) + (1 + (((gx * 7 ^ gy * 13) & 3) * 0.05 - 0.075)) * grassW;
       }
-      // Water: small travelling waves (two crossed sines drifting with time) + a sun glint
-      // on the crest, so open water shimmers instead of sitting as a flat blue tile.
-      let cr = 0;
+      // Water + shoreline. waterW rises 0→1 across the shore seam (bilinear), so it doubles
+      // as a shoreline coordinate — ~0.5 is the waterline. On top of the blended base colour
+      // we layer the cues that make a coast read as a coast instead of a colour crossfade:
+      //   · travelling waves + crest glint (open water shimmer)
+      //   · depth darkening as you head out from the line into deep water
+      //   · an animated surf band hugging the waterline, surging in and out along the coast
+      //   · a damp, darker strip of sand just above the line where the wash reaches
+      let cr = 0, foam = 0;
       if (waterW > 0.002) {
         const wv = 0.5 * Math.sin(wx * 6.2 + wy * 1.4 + t * 2.3) + 0.5 * Math.sin((wx - wy) * 4.1 - t * 1.7);
         tex = tex * (1 - waterW) + (1 + wv * 0.12) * waterW;
+        tex *= 1 - clamp((waterW - 0.5) * 2, 0, 1) * 0.18;   // shallows near the line stay lighter; open water sits darker
         if (wv > 0.82) cr = (wv - 0.82) * 5 * waterW;   // crest glint, added as a bluish-white lift below
+        // Surf: a bright band centred just on the water side of the waterline, pulsing with
+        // the swell and breaking unevenly along the coast (time + position phase).
+        const band = clamp(1 - Math.abs(waterW - 0.56) / 0.16, 0, 1);
+        if (band > 0) foam = band * band * (0.55 + 0.45 * Math.sin(t * 1.6 + (wx + wy) * 2.7 + wv * 1.5));
       }
-      data[idx] = ((br * tex + cr * 55) * ih + hr) * nm;
-      data[idx + 1] = ((bg * tex + cr * 70) * ih + hg) * nm;
-      data[idx + 2] = ((bb * tex + cr * 90) * ih + hb) * nm;
+      // Wet sand: the land strip just above the waterline reads damp where the wash reaches.
+      if (waterW > 0.14 && waterW < 0.5) tex *= 1 - clamp(1 - Math.abs(waterW - 0.32) / 0.18, 0, 1) * 0.14;
+      data[idx] = ((br * tex + cr * 55 + foam * 150) * ih + hr) * nm;
+      data[idx + 1] = ((bg * tex + cr * 70 + foam * 165) * ih + hg) * nm;
+      data[idx + 2] = ((bb * tex + cr * 90 + foam * 175) * ih + hb) * nm;
       data[idx + 3] = 255;
       idx += 4;
     }
@@ -1074,14 +1086,15 @@ function bldgStyle(cell) {
 // Deterministic building height (render world-z units) for a tile — the SAME value
 // drawWorldObjects paints (line ~1419), exposed so the flight sim can collision-check the
 // exact geometry that's on the glass. Returns 0 for tiles that carry no solid building to
-// fly into: open air, the runway/fields, water, the soft parkland/badlands billboards, and
-// the no-fly markers (the airspace system owns those, so we don't double-punish there).
-// `cell` is a map-window cell { kind, biome, ... }; wx,wy are its WORLD tile coords.
+// fly into: open air, the runway/fields, water, the soft parkland/badlands billboards, the
+// no-fly markers (the airspace system owns those, so we don't double-punish there), and any
+// plain terrain tile — only a real building tile (has `bt`) extrudes solid mass.
+// `cell` is a map-window cell { kind, biome, bt, ... }; wx,wy are its WORLD tile coords.
 export function buildingHeightZ(wx, wy, cell) {
   if (!cell) return 0;
   const k = cell.kind, bi = cell.biome;
   if (k === 'air' || k === 'craft' || k === 'field' || k === 'nofly'
-      || !bi || bi === 'water' || bi === 'parkland' || bi === 'badlands') return 0;
+      || !bi || bi === 'water' || bi === 'parkland' || bi === 'badlands' || !cell.bt) return 0;
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
   return bldgStyle(cell).baseH * (0.7 + frac(seed) * 0.6) * RENDER_TUNE.bldgH;
 }
@@ -1767,10 +1780,19 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now) {
       dish(ctx, cam, dx + fh * 0.7, dy, h * 0.72, 10, alpha);
       break;
     }
-    case 'hangar': {   // wide low shed + big dark door band (+ helipad glow variant)
+    case 'hangar': {   // wide low shed + big dark door band + ATC control tower (+ helipad glow)
       const w = fh * (m.big ? 1.7 : 1.4), top = h * (m.big ? 0.7 : 0.6);
       draw3DBoxAt(ctx, cam, dx, dy, w, 0, top, pal, seed, night, alpha, true);
       draw3DBoxAt(ctx, cam, dx, dy + w * 0.55, w * 0.7, 0, top * 0.62, 'ty_door', seed + 1, night, alpha, false);
+      // Control tower off one corner of the apron: a slender shaft topped by a wider glazed
+      // cab and an alternating aviation beacon — so a hangar reads as a working airfield, not
+      // just a shed. Like the masts on other models, it stands above the collision box.
+      const txx = dx - w * 0.95, txy = dy - w * 0.2;
+      const cabTop = h * (m.big ? 1.9 : 1.55), cabBot = cabTop * 0.82;
+      draw3DBoxAt(ctx, cam, txx, txy, fh * 0.24, 0, cabBot, pal, seed + 4, night, alpha, false);
+      draw3DBoxAt(ctx, cam, txx, txy, fh * 0.5, cabBot, cabTop, 'ty_office', seed + 5, night, alpha, true);
+      if (night) glowPool(ctx, cam, txx, txy, cabTop * 0.92, '150,210,255', 9, alpha * 0.3);
+      blinkLight(ctx, cam, txx, txy, cabTop + h * 0.06, '150,255,170', now, seed + 6, alpha, 1.9);
       if (m.helipad) glowPool(ctx, cam, dx, dy, top + 0.01, '255,210,90', 14, alpha * 0.3);
       break;
     }
@@ -1861,8 +1883,11 @@ function drawWorldObjects(ctx, cam, v, sky, now) {
     if (it.c.kind === 'nofly') { draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7); continue; }
     if (bi === 'parkland') { drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
     if (bi === 'badlands') { if ((it.seed % 3) === 0) drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
-    // A building tile extrudes the archetype + height for its building_type (with a
-    // fallback); a plain tile keeps its biome archetype. Same bldgStyle() the CFIT
+    // Only a real building tile (has `bt`) extrudes a 3-D building — a plain terrain tile
+    // stays bare ground, never sprouts a generated building. Matches buildingHeightZ, so
+    // what you see is exactly what you can hit.
+    if (!it.c.bt) continue;
+    // The archetype + height come from the building_type. Same bldgStyle() the CFIT
     // height sweep reads, so what you see is exactly what you can hit.
     const { arch, baseH } = bldgStyle(it.c);
     const h = baseH * (0.7 + frac(it.seed) * 0.6) * RENDER_TUNE.bldgH;

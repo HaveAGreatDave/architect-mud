@@ -2180,16 +2180,16 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	color: var(--text-dim);
 }
 /* Route (GPS) button: icon-only, same height as the text tabs but narrower.
-   Lit cyan while armed (waiting for the next tile click); lit route-yellow
-   once a route is drawn (matches .tr-rd), so a click there reads as "clear". */
+   Lit cyan while armed (waiting for the next tile click); lit accent once a route
+   is drawn (matches the .map-gps-line route), so a click there reads as "clear". */
 .map-tab-icon {
 	padding: 5px 9px;
 	font-size: 15px;
 	line-height: 1;
 }
 #map-route-toggle.has-route {
-	background: #ffd23f;
-	border-color: #ffd23f;
+	background: var(--accent);
+	border-color: var(--accent);
 	color: var(--bg);
 }
 #map-body {
@@ -2307,18 +2307,6 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	border: 1px solid transparent;
 	color: var(--text);
 }
-/* A tile fronting an enterable building gets a small corner dot. */
-.map-room.map-has-building::after {
-	content: '';
-	position: absolute;
-	top: 1px;
-	right: 1px;
-	width: 4px;
-	height: 4px;
-	border-radius: 50%;
-	background: var(--accent);
-	opacity: 0.85;
-}
 /* Dead-end (a single connector) reads slightly muted. */
 .map-room.map-deadend { opacity: 0.82; }
 
@@ -2345,6 +2333,11 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
   pointer-events: none; z-index: 3; filter: drop-shadow(0 0 2px rgba(255,208,64,0.85)); }
 .tr-rd  { fill: none; stroke: #ffd23f; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
 .tr-hub { fill: #ffd23f; }
+/* Full-map GPS route line — accent-coloured, laid over the grid through the route
+   tiles' centres. stroke-width is set inline (scaled to the tile size per zoom). */
+.map-gps-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  pointer-events: none; z-index: 3; filter: drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 80%, transparent)); }
+.map-gps-line { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; }
 /* The same route echoed on the sidebar/HUD/mobile minimaps. */
 .mm-c.mm-trace { position: relative; box-shadow: inset 0 0 0 2px rgba(255,207,74,0.9); z-index: 1; }
 /* Overlay glyph / abbrev ON TOP of the road. Icons ride bare (keep their POI
@@ -2368,13 +2361,19 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	pointer-events: none;
 	font-weight: bold;
 }
+/* Labels overlay: a big 2-letter acronym that replaces the building graphic and fills
+   the tile. White with a heavy black outline so it reads clearly over any tile colour.
+   Sized per surface (the full-map tiles are larger than the sidebar's). */
 .map-bld-label {
-	font-size: 8px;
-	letter-spacing: -0.5px;
+	font-size: 13px;
+	font-weight: 800;
+	line-height: 1;
+	letter-spacing: -1px;
 	color: #fff;
-	-webkit-text-stroke: 0.5px #000;
+	-webkit-text-stroke: 0.8px #000;
 	paint-order: stroke fill;
 }
+#map-grid .map-bld-label { font-size: 20px; letter-spacing: -1.5px; -webkit-text-stroke: 1px #000; }
 .map-bld-icon {
 	font-size: 10px;
 	line-height: 1;
@@ -2395,7 +2394,7 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23ffffff' stroke-opacity='0.30' stroke-width='1.1' stroke-linecap='round'><path d='M0 7q6 -3 12 0t12 0'/><path d='M0 14q6 -3 12 0t12 0'/><path d='M0 21q6 -3 12 0t12 0'/></g></svg>");
 }
 .mm-grass, .map-grass {
-	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23103d1c' stroke-opacity='0.30' stroke-width='1' stroke-linecap='round'><path d='M4 21v-5'/><path d='M9 22v-6'/><path d='M14 21v-5'/><path d='M19 22v-6'/><path d='M6 13v-4'/><path d='M12 12v-4'/><path d='M18 13v-4'/></g></svg>");
+	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%237fc95a' stroke-opacity='0.40' stroke-width='1' stroke-linecap='round'><path d='M4 21v-5'/><path d='M9 22v-6'/><path d='M14 21v-5'/><path d='M19 22v-6'/><path d='M6 13v-4'/><path d='M12 12v-4'/><path d='M18 13v-4'/></g></svg>");
 }
 
 /* Entrance arrow — a small amber triangle on the edge of a building tile pointing to
@@ -2506,7 +2505,7 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	padding-right: 4px;
 }
 .map-list-row {
-	cursor: default;
+	cursor: pointer;
 	padding: 0 3px;
 	border-radius: 2px;
 	line-height: 1.4;
@@ -2521,6 +2520,17 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 }
 .map-list-current {
 	color: var(--accent);
+}
+/* Legend-click selection: the building the player clicked in the list, highlighted
+   in accent both in the list row and (via .map-legend-sel) on the map tile. */
+.map-list-sel {
+	background: color-mix(in srgb, var(--accent) 26%, transparent);
+	color: var(--accent);
+	font-weight: 700;
+}
+.map-room.map-legend-sel {
+	z-index: 4;
+	box-shadow: inset 0 0 0 2px var(--accent), 0 0 9px 1px var(--accent);
 }
 .map-leg-row {
 	display: flex;
@@ -2592,14 +2602,6 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	height: 3px;
 	background: var(--accent);
 	box-shadow: 0 0 3px var(--accent);
-}
-.map-leg-bld {
-	display: inline-block;
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background: var(--accent);
-	vertical-align: middle;
 }
 .map-leg-sym.danger-safe {
 	background: rgba(35, 100, 55, 0.45);
