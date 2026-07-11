@@ -2,7 +2,7 @@ import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePla
 import { isSanctuary } from './zone-tags.js';
 import { zoneDanger, DANGER_RANK } from './danger.js';
 import { allExits, neighborZoneIds, exitTargets } from './exits.js';
-import { findPath, getZonesInRadius } from './pathfinding.js';
+import { findPath as findPathRaw, getZonesInRadius } from './pathfinding.js';
 import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy } from './combat.js';
 import { getEnvironmentState } from './environment.js';
 import { gameMsToReal } from './gametime.js';
@@ -216,6 +216,14 @@ function entityZone(entity) {
 
 function isEnemy(entity) {
   return entity.instanceId != null;
+}
+
+// Entity pathing over the zone graph. NPCs walk the road grid (roads-preferring search) so
+// they commute/patrol along streets instead of cutting through buildings; enemies keep the
+// direct BFS line — a chase shouldn't take the scenic route. Falls through to plain BFS when
+// the entity is unknown. Shadows the raw findPath import for every AI call site below.
+function findPath(fromId, toId, entity) {
+  return findPathRaw(fromId, toId, entity && !isEnemy(entity) ? { roads: true } : {});
 }
 
 // Returns true if the move succeeded, false if blocked by a locked door.
@@ -709,7 +717,7 @@ async function execAction(node, entity, ctx) {
 
       // Walk mode: BFS path, step one zone per tick
       if (!ai.patrolPath.length || ai.patrolTarget !== target) {
-        const path = findPath(zoneId, target);
+        const path = findPath(zoneId, target, entity);
         if (!path || path.length < 2) break;
         ai.patrolPath = path.slice(1); // skip current zone
         ai.patrolTarget = target;
@@ -866,7 +874,7 @@ async function execAction(node, entity, ctx) {
       // Explicit timing params: hold off until the commute window opens.
       // No params (e.g. driven by CHECK_WORK, which already decided it's time): walk immediately.
       if (zone_id && arrive_by != null) {
-        const path = findPath(zoneId, workZone);
+        const path = findPath(zoneId, workZone, entity);
         if (!path || path.length < 2) return 'RUNNING'; // unreachable — hold and retry
         const { minutes } = getEnvironmentState();
         const travelMinutes = path.length - 1;
@@ -881,7 +889,7 @@ async function execAction(node, entity, ctx) {
       // tick (a brisk commute) rather than one-zone-per-game-minute, so a worker
       // far from their shop isn't stuck crossing town for half the day.
       if (!ai.patrolPath.length || ai.patrolTarget !== workZone) {
-        const path = findPath(zoneId, workZone);
+        const path = findPath(zoneId, workZone, entity);
         if (!path || path.length < 2) return 'RUNNING';
         ai.patrolPath = path.slice(1);
         ai.patrolTarget = workZone;
@@ -930,7 +938,7 @@ async function execAction(node, entity, ctx) {
       if (!home || zoneId === home) break; // already home
 
       if (!ai.patrolPath.length || ai.patrolTarget !== home) {
-        const path = findPath(zoneId, home);
+        const path = findPath(zoneId, home, entity);
         if (!path || path.length < 2) return 'RUNNING';
         ai.patrolPath = path.slice(1);
         ai.patrolTarget = home;
@@ -983,7 +991,7 @@ async function execAction(node, entity, ctx) {
           const exit = sz.flags?.world_exit_zone || exitTargets(sz, 'out')[0] || null;
           if (exit) {
             if (!ai.patrolPath.length || ai.patrolTarget !== exit) {
-              const path = findPath(zoneId, exit);
+              const path = findPath(zoneId, exit, entity);
               if (path && path.length >= 2) {
                 ai.patrolPath = path.slice(1);
                 ai.patrolTarget = exit;
@@ -1050,7 +1058,7 @@ async function execAction(node, entity, ctx) {
       }
       if (!hlife_dest || zoneId === hlife_dest) { ai._lifeActivity = null; break; }
       if (!ai.patrolPath.length || ai.patrolTarget !== hlife_dest) {
-        const path = findPath(zoneId, hlife_dest);
+        const path = findPath(zoneId, hlife_dest, entity);
         if (!path || path.length < 2) { ai._lifeActivity = null; break; }
         ai.patrolPath = path.slice(1);
         ai.patrolTarget = hlife_dest;
@@ -1219,7 +1227,7 @@ async function execAction(node, entity, ctx) {
           // BFS to find closest
           let bestZone = null, bestDist = Infinity;
           for (const z of candidateZones) {
-            const path = findPath(zoneId, z);
+            const path = findPath(zoneId, z, entity);
             if (path && path.length - 1 < bestDist) {
               bestDist = path.length - 1;
               bestZone = z;
@@ -1239,7 +1247,7 @@ async function execAction(node, entity, ctx) {
       }
 
       if (!ai.patrolPath.length || ai.patrolTarget !== atmZone) {
-        const path = findPath(zoneId, atmZone);
+        const path = findPath(zoneId, atmZone, entity);
         if (!path || path.length < 2) return 'RUNNING';
         ai.patrolPath = path.slice(1);
         ai.patrolTarget = atmZone;
@@ -1279,7 +1287,7 @@ async function execAction(node, entity, ctx) {
       if (!studioZone || zoneId === studioZone) break; // already there or unscheduled
 
       if (!ai.patrolPath.length || ai.patrolTarget !== studioZone) {
-        const path = findPath(zoneId, studioZone);
+        const path = findPath(zoneId, studioZone, entity);
         if (!path || path.length < 2) return 'RUNNING';
         ai.patrolPath = path.slice(1);
         ai.patrolTarget = studioZone;
@@ -1507,7 +1515,7 @@ export async function tickEntityAI(entity, ctx) {
     const zoneId = entityZone(entity);
     if (zoneId !== entity.home_zone) {
       if (!ai.patrolPath.length || ai.patrolTarget !== entity.home_zone) {
-        const path = findPath(zoneId, entity.home_zone);
+        const path = findPath(zoneId, entity.home_zone, entity);
         if (path && path.length >= 2) { ai.patrolPath = path.slice(1); ai.patrolTarget = entity.home_zone; }
       }
       const next = ai.patrolPath.shift();
@@ -1539,7 +1547,7 @@ export async function tickEntityAI(entity, ctx) {
         const dest = sz.flags?.world_exit_zone || exitTargets(sz, 'out')[0] || entity.home_zone || null;
         if (dest && hereId !== dest) {
           if (!ai.patrolPath.length || ai.patrolTarget !== dest) {
-            const path = findPath(hereId, dest);
+            const path = findPath(hereId, dest, entity);
             if (path && path.length >= 2) { ai.patrolPath = path.slice(1); ai.patrolTarget = dest; }
           }
           const next = ai.patrolPath.shift();

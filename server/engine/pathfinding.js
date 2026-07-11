@@ -67,21 +67,43 @@ export function findPath(startId, targetId, { maxDistance = 60, roads = false } 
   return null;
 }
 
-// Least-cost search that hugs the road grid (see stepCost). `hops` tracks path length so
-// `maxDistance` still bounds the route the same way BFS does. The graph is small (a few
-// thousand zones) so a linear-scan frontier is plenty fast; no heap needed.
+// A tiny binary min-heap of [cost, id] pairs — the priority frontier for the road search.
+// Keeps findRoadPath at O(E log V) so it's cheap enough for NPC AI to path every tick, not
+// just an on-demand player GPS lookup. Lazy deletion: a node can be pushed more than once as
+// cheaper routes to it are found; the pop loop skips entries whose cost is already stale.
+class MinHeap {
+  constructor() { this.a = []; }
+  get size() { return this.a.length; }
+  push(cost, id) {
+    const a = this.a; a.push([cost, id]); let i = a.length - 1;
+    while (i > 0) { const p = (i - 1) >> 1; if (a[p][0] <= a[i][0]) break; [a[p], a[i]] = [a[i], a[p]]; i = p; }
+  }
+  pop() {
+    const a = this.a, top = a[0], last = a.pop();
+    if (a.length) {
+      a[0] = last; const n = a.length; let i = 0;
+      for (;;) { let s = i; const l = 2 * i + 1, r = l + 1;
+        if (l < n && a[l][0] < a[s][0]) s = l;
+        if (r < n && a[r][0] < a[s][0]) s = r;
+        if (s === i) break; [a[s], a[i]] = [a[i], a[s]]; i = s;
+      }
+    }
+    return top;
+  }
+}
+
+// Least-cost search that hugs the road grid (see stepCost), Dijkstra over a binary heap.
+// `hops` tracks path length so `maxDistance` still bounds the route the same way BFS does.
 function findRoadPath(startId, targetId, maxDistance) {
   const parent = new Map([[startId, null]]);
   const cost = new Map([[startId, 0]]);
   const hops = new Map([[startId, 0]]);
-  const frontier = new Set([startId]);
+  const heap = new MinHeap(); heap.push(0, startId);
 
-  while (frontier.size) {
-    // Pop the cheapest frontier node.
-    let current = null, best = Infinity;
-    for (const id of frontier) { const c = cost.get(id); if (c < best) { best = c; current = id; } }
-    frontier.delete(current);
+  while (heap.size) {
+    const [d, current] = heap.pop();
     if (current === targetId) break;
+    if (d > (cost.get(current) ?? Infinity)) continue;   // stale heap entry — a cheaper one already settled this node
 
     const hop = hops.get(current);
     if (hop >= maxDistance) continue;
@@ -93,12 +115,12 @@ function findRoadPath(startId, targetId, maxDistance) {
       const nz = world.zones.get(neighborId);
       const step = stepCost(nz);
       if (!isFinite(step)) continue;                 // impassable (water)
-      const nd = best + step;
+      const nd = d + step;
       if (nd < (cost.get(neighborId) ?? Infinity)) {
         cost.set(neighborId, nd);
         hops.set(neighborId, hop + 1);
         parent.set(neighborId, current);
-        frontier.add(neighborId);
+        heap.push(nd, neighborId);
       }
     }
   }
