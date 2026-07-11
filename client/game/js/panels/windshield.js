@@ -1250,12 +1250,11 @@ export function buildingHeightZ(wx, wy, cell) {
 // lat = lateral offset from the flight-path centerline (both in tile units), height = 0..1
 // eye-height fraction. Returns false when the renderer would have culled it (corr <= 0).
 // Capped to CLIMBOUT_MAX_F tiles ahead so this only shields the immediate runway departure —
-// NOT any low pass elsewhere in the city, where buildings must render (and collide) normally.
-// These three numbers are the ONLY place the corridor is defined — drawWorldObjects' soft
-// edge-fade reuses them directly (see climbOutFade below) instead of a second hand-copied
-// formula, so the render and the CFIT collision sweep can never drift out of sync again.
-// 4.5 tiles covers a heavy/jet ground roll (Leviathan, Reaper) — a light Mayfly is airborne
-// and climbing well inside this, so widening it doesn't cost the lighter craft anything.
+// NOT any low pass elsewhere in the city, where buildings collide normally. NOTE: this is now
+// a COLLISION-only shield — the renderer always draws these buildings (a building in view never
+// disappears), so during climb-out you SEE the departure towers and out-climb them rather than
+// them vanishing. 4.5 tiles covers a heavy/jet ground roll (Leviathan, Reaper); a light Mayfly
+// is airborne and climbing well inside this, so widening it doesn't cost the lighter craft.
 export const CLIMBOUT_MAX_F = 4.5, CLIMBOUT_LAT_IN = 0.3, CLIMBOUT_LAT_OUT = 0.2;
 // The renderer's own near/far visibility window (drawWorldObjects) — a building this close
 // (about to pass under/behind you) or this far (still fading in) isn't really "on the glass"
@@ -1266,9 +1265,6 @@ export function climbOutClear(f, lat, height) {
   if (!(f > 0.1 && f < CLIMBOUT_MAX_F && height < 0.2)) return true;
   return clamp((Math.abs(lat) - CLIMBOUT_LAT_IN) / CLIMBOUT_LAT_OUT, 0, 1) > 0;
 }
-// The matching soft-edge fade (same corridor, same numbers) for the render's alpha ramp —
-// only meaningful inside the same f/height window climbOutClear gates on.
-function climbOutFade(lat) { return clamp((Math.abs(lat) - CLIMBOUT_LAT_IN) / CLIMBOUT_LAT_OUT, 0, 1); }
 
 const TR = () => Math.max(0.5, RENDER_TUNE.texRes || 1);
 function wallTex(biome, night) {
@@ -2159,19 +2155,16 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     const c = map[ry][rx]; if (!c || c.kind === 'air' || c.kind === 'craft' || c.kind === 'field' || c.biome === 'water') continue;
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     if (f <= VISIBLE_NEAR_F || f > FAR) continue;
-    const lat = dx * cam.cosh + dy * cam.sinh;
-    let alpha = clamp((f - 0.06) / 0.4, 0, 1) * clamp((FAR - f) / 6, 0, 1) * (v.worldBlend ?? 1);   // near pass-under + a LONG far fade-in (6 tiles) so distant buildings ghost up out of the haze instead of popping
-    // Keep the CLIMB-OUT path ahead clear (a building dead ahead reads as something
-    // you'd fly into right off the runway) — but only while still low/climbing AND only
-    // within CLIMBOUT_MAX_F tiles of the departure (see climbOutClear). Once past that
-    // window OR settled into cruise, buildings ahead stay fully visible; this is a takeoff
-    // flourish, not a permanent no-fly corridor. Gated identically to (and reusing the same
-    // numbers as) the CFIT collision sweep in cockpit.js, so nothing can go invisible here
-    // while still being solid there, or vice versa.
-    if (f > 0.1 && f < CLIMBOUT_MAX_F && (v.height || 0) < 0.2) {
-      if (!climbOutClear(f, lat, v.height || 0)) continue;
-      alpha *= climbOutFade(lat);
-    }
+    // Buildings hold FULL opacity all the way to the camera — NO near-pass fade — so a
+    // building directly ahead of (or passing right beside/under) you never dissolves. Only
+    // the far edge fades, and only as haze: distant blocks ghost UP out of the horizon rather
+    // than pop in. Nothing else can turn a building translucent.
+    //
+    // The old climb-out corridor USED to hide buildings dead-ahead-and-low off the runway;
+    // it no longer does — you always see them. cockpit.js still keeps the MATCHING collision
+    // immunity (climbOutClear) for that departure window, so a weak climber can out-climb the
+    // towers it now flies visibly over instead of them vanishing.
+    let alpha = clamp((FAR - f) / 6, 0, 1) * (v.worldBlend ?? 1);
     if (alpha <= 0.02) continue;
     // Seed from the WORLD tile (stable), NOT the array index — so a building keeps its shape
     // when the server recenters the map window (was the main "popping in and out" cause).
