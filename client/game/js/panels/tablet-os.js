@@ -817,7 +817,7 @@ function ensureStyles() {
       background:radial-gradient(130% 130% at 50% 40%, color-mix(in srgb, var(--mg-accent) 7%, var(--bg,#030806)) 55%, var(--bg,#01050a) 100%); border:1px solid color-mix(in srgb,var(--mg-accent) 20%,transparent); border-radius:6px; padding:8px; }
     #tablet-os-overlay .tos-map-wrap::-webkit-scrollbar { width:7px; height:7px; }
     #tablet-os-overlay .tos-map-wrap::-webkit-scrollbar-thumb { background:color-mix(in srgb,var(--mg-accent) 35%,transparent); border-radius:5px; }
-    #tablet-os-overlay .tos-map-grid { display:grid; }
+    #tablet-os-overlay .tos-map-grid { display:grid; --tos-tile:40px; }
     #tablet-os-overlay .tos-map-tile { position:relative; border-radius:4px; border:1px solid #00000066; cursor:pointer; overflow:hidden;
       display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:2px 3px; text-align:center;
       background:color-mix(in srgb,var(--mg-accent) 6%,var(--bg2,#0b1116)); color:var(--tos-fg-dim); transition:filter .12s; }
@@ -833,8 +833,12 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile.dest { outline:2px solid #fff; }
     #tablet-os-overlay .tos-map-tile.sel { outline:2px dashed var(--mg-accent); outline-offset:-2px; z-index:3; }
     #tablet-os-overlay .tos-map-tile.cur { border-color:var(--mg-accent); box-shadow:0 0 9px color-mix(in srgb,var(--mg-accent) 60%,transparent), inset 0 0 0 1px var(--mg-accent); }
-    #tablet-os-overlay .tos-map-tile .mt-icon { font-size:13px; line-height:1; }
-    #tablet-os-overlay .tos-map-tile .mt-name { font-size:7.5px; line-height:1.05; font-weight:700; letter-spacing:.2px; }
+    #tablet-os-overlay .tos-map-tile .mt-icon { font-size:16px; line-height:1; }
+    /* Edge-to-edge 1:1 tiles render their zone-icon SVG (road connector / building
+       rooftop / runway / statue) as a mask filled with the tile's colour, like the
+       full map's mm-icon. */
+    #tablet-os-overlay .tos-map-tile .mt-svg { width:82%; height:82%; background:currentColor;
+      -webkit-mask:var(--zi) center/contain no-repeat; mask:var(--zi) center/contain no-repeat; }
     #tablet-os-overlay .tos-map-tile .mt-you { position:absolute; top:0; right:2px; font-size:9px; color:var(--mg-accent); text-shadow:0 0 4px #000; }
     #tablet-os-overlay .tos-map-tile .mt-dest { position:absolute; top:0; left:2px; font-size:9px; color:#ffcf4a; text-shadow:0 0 4px #000; }
     #tablet-os-overlay .tos-map-link { display:flex; align-items:center; justify-content:center; color:color-mix(in srgb,var(--mg-accent) 40%,transparent); font-size:12px; line-height:1; pointer-events:none; }
@@ -2002,6 +2006,9 @@ function _mapHexRgb(hex) {
 }
 function _mapTileSym(t) {
   if (t.isCurrent) return '<span class="mt-icon">◉</span>';
+  // A named zone-icon SVG (road/building/runway) is the tile's own footprint — it
+  // wins over the POI glyph, which is a landmark hint for the adjacent street.
+  if (t.svg) return `<span class="mt-icon mt-svg" style="--zi:url(/assets/zone-icons/${esc(t.svg)}.svg)"></span>`;
   if (t.icon) return `<span class="mt-icon">${esc(t.icon)}</span>`;
   if (t.marker) return `<span class="mt-icon">${esc(t.marker)}</span>`;
   return '';
@@ -2023,38 +2030,23 @@ function renderMap(d) {
   }
   if (!_tosMapSel || !tiles.some(t => t.id === _tosMapSel)) _tosMapSel = null;
 
-  const byId = new Map(tiles.map(t => [t.id, t]));
   const route = getTracePath() || [];
   const routeSet = new Set(route);
   const dest = route.length > 1 ? route[route.length - 1] : null;
 
+  // Edge-to-edge 1:1 grid: one cell per zone, tiles touch (roads/buildings render
+  // their own SVG footprint), mirroring the full-map popup — no connector/gap cells.
   const xs = tiles.map(t => t.x), ys = tiles.map(t => t.y);
   const minX = Math.min(...xs), minY = Math.min(...ys), maxX = Math.max(...xs), maxY = Math.max(...ys);
-  const gCols = (maxX - minX) * 2 + 1, gRows = (maxY - minY) * 2 + 1;
+  const gCols = maxX - minX + 1, gRows = maxY - minY + 1;
   const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
-  for (const t of tiles) cell[(t.y - minY) * 2][(t.x - minX) * 2] = { kind: 'room', tile: t };
-  for (const t of tiles) {
-    const gx = (t.x - minX) * 2, gy = (t.y - minY) * 2;
-    for (const tgt of Object.values(t.exits || {})) {
-      const n = byId.get(tgt); if (!n) continue;
-      const dx = n.x - t.x, dy = n.y - t.y;
-      if (Math.abs(dx) + Math.abs(dy) !== 1) continue; // cardinal, adjacent only
-      const cy = gy + dy, cx = gx + dx;
-      if (cy < 0 || cy >= gRows || cx < 0 || cx >= gCols || cell[cy][cx]) continue;
-      const art = _cmSharesArtery(t.artery, n.artery);
-      cell[cy][cx] = { kind: 'link', ch: dx !== 0 ? (art ? '═' : '─') : (art ? '║' : '│'), art };
-    }
-  }
+  for (const t of tiles) cell[t.y - minY][t.x - minX] = t;
 
-  const colT = Array.from({ length: gCols }, (_, i) => i % 2 ? '13px' : '52px').join(' ');
-  const rowT = Array.from({ length: gRows }, (_, i) => i % 2 ? '11px' : '42px').join(' ');
-  let grid = `<div class="tos-map-grid" style="grid-template-columns:${colT};grid-template-rows:${rowT}">`;
+  let grid = `<div class="tos-map-grid" style="grid-template-columns:repeat(${gCols},var(--tos-tile));grid-template-rows:repeat(${gRows},var(--tos-tile))">`;
   for (let r = 0; r < gRows; r++) for (let c = 0; c < gCols; c++) {
-    const it = cell[r][c];
+    const t = cell[r][c];
     const pos = `grid-column:${c + 1};grid-row:${r + 1}`;
-    if (!it) { grid += `<span style="${pos}"></span>`; continue; }
-    if (it.kind === 'link') { grid += `<span class="tos-map-link${it.art ? ' art' : ''}" style="${pos}">${it.ch}</span>`; continue; }
-    const t = it.tile;
+    if (!t) { grid += `<span style="${pos}"></span>`; continue; }
     const cls = ['tos-map-tile'];
     if (t.danger && t.danger !== 'safe') cls.push('d-' + t.danger);
     if (t.reachable === false) cls.push('unreach');
@@ -2070,7 +2062,7 @@ function renderMap(d) {
     }
     const badges = (t.isCurrent ? '<span class="mt-you">◉</span>' : '')
       + (t.id === dest && !t.isCurrent ? '<span class="mt-dest">⚑</span>' : '');
-    grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${_mapTileSym(t)}<span class="mt-name">${esc(t.name)}</span></div>`;
+    grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${_mapTileSym(t)}</div>`;
   }
   grid += '</div>';
 
