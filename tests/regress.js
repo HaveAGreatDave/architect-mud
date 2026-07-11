@@ -263,14 +263,25 @@ const zoneById = new Map(zones.map(z => [z.id, z]));
 const dryExit = (z) => Object.entries(z?.exits || {})
   .map(([d, t]) => [d, Array.isArray(t) ? t[0] : t])
   .find(([, t]) => { const zt = zoneById.get(t); return zt && !zt.flags?.water; });
-const zone = zones.find(z =>
+// Zone-name frequency: the world now has hundreds of identically-named terrain tiles
+// ("Grasslands", …). The GPS fixtures resolve destinations BY NAME, so the fake player
+// must sit on a uniquely-named tile with a uniquely-named dry neighbour — otherwise
+// `gps <name>` is inherently ambiguous. We prefer such a zone and fall back to any
+// door-free dry zone if the world somehow has none.
+const nameCount = new Map();
+for (const z of zones) nameCount.set(z.name, (nameCount.get(z.name) || 0) + 1);
+const uniqueName = (z) => z && nameCount.get(z.name) === 1;
+const baseOk = (z) =>
   z.exits && Object.keys(z.exits).length > 0 &&
   !z.flags?.water &&
   !doorZones.has(z.id) &&
   !getApartment(z.id) &&
   !z.flags?.prologue &&
   !neighborZoneIds(z).some(n => doorZones.has(n)) &&
-  dryExit(z));
+  dryExit(z);
+const zone =
+  zones.find(z => baseOk(z) && uniqueName(z) && uniqueName(zoneById.get(dryExit(z)[1])))
+  || zones.find(baseOk);
 if (!zone) { console.error('No door-free, dry zone with a passable exit found; aborting.'); process.exit(1); }
 
 const P = {

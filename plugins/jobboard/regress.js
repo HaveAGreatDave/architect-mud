@@ -28,7 +28,7 @@ export default async function regress({ run, check, getPlayer }) {
   // the board. Prove the fix by standing at a real board and checking a
   // player_quests row actually gets created.
   const home = player.current_zone;
-  player.current_zone = 'zone_city_west'; // Franchise Strip — board_franchise_strip
+  player.current_zone = 'zone_district_919_904'; // Franchise Strip — board_franchise_strip
   r = await run('gigs take 1');
   const { rows: taken } = await query(
     "SELECT 1 FROM player_quests WHERE player_id=$1 AND status='active'", [player.id]

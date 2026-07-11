@@ -1,4 +1,4 @@
-import { getAllZones } from '../../server/engine/world.js';
+import { getAllZones, getZone } from '../../server/engine/world.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
@@ -31,6 +31,13 @@ function plotRoute(player, destZone) {
 function cmdGps(args, raw, player) {
   const query = (args || []).join(' ').trim();
   if (!query) return { type: 'error', message: 'GPS to where? Try: gps <part of a location name>' };
+
+  // Standing in a tile whose exact name you typed? You're already there. Resolve self
+  // first so identically-named tiles (many "Grasslands" etc.) don't route you to a
+  // same-named neighbour instead of recognising the one you're on.
+  const hereZone = getZone(player.current_zone);
+  if (hereZone && String(hereZone.name || '').trim().toLowerCase() === query.toLowerCase())
+    return { type: 'output', message: `You're already at ${hereZone.name}.` };
 
   // Water tiles are invisible to GPS — they can't be a destination (Cold Channel and
   // its ilk would otherwise clutter every name match), so drop them before resolving.
