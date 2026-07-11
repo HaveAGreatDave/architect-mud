@@ -693,6 +693,10 @@ function ensureHudStyles() {
     /* Capability-driven flex layout: rows of instrument cards. Which cards exist,
        and the radar's size, are chosen per aircraft in mountHud(). */
     .ck-grid { display:flex; flex-direction:column; gap:8px; padding:8px 2px 2px; flex:1 1 auto; min-height:0; }
+    /* Looking off the nose (Q/E/S): hide the forward instrument panel + dials so the
+       banked side/rear view out the glass gets the whole pane. The canopy flexes to fill. */
+    .ck-hud.ck-looking .ck-grid, .ck-hud.ck-looking .ck-dials { display:none; }
+    .ck-hud.ck-looking .ck-canopy { flex:1 1 auto; margin-bottom:8px; }
     .ck-row { display:flex; gap:8px; align-items:stretch; flex:1 1 0; min-height:0; }
     .ck-row-top { flex:1.5 1 0; }
     .ck-row-top .ck-inst-adi { flex:1 1 40%; }
@@ -1491,6 +1495,10 @@ export function openFlightSim(opts = {}) {
   const setView = (yaw) => {
     F.viewYaw = yaw;
     if (viewTagEl) { viewTagEl.textContent = VIEW_TAG[String(yaw)] || ''; viewTagEl.classList.toggle('show', yaw !== 0); }
+    // Looking off the nose (Q/E/S): drop the forward instrument panel so the side/rear view
+    // fills the glass — you're not looking at your gauges when you're checking your six.
+    const hudRoot = document.getElementById('ck-hud-root');
+    if (hudRoot) hudRoot.classList.toggle('ck-looking', yaw !== 0);
   };
   const stepFlap = (d) => { const i = clampNum(F.flapIdx + d, 0, 2); if (i !== F.flapIdx) { setFlap(i); flapWhir(); } };
   const toggleGear = () => {
