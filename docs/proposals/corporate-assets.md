@@ -222,11 +222,20 @@ one later is config, not architecture (rule 2).
 
 ### Build order
 
-- **Phase A — Core (claim-only).** `corp_assets` schema, type registry, restaurant type, claim flow
-  against **existing enterable zones**, NPC staffing, hybrid income (floor tick + commerce active
-  share), console Assets block, `regress.js` loop. Ships value without Interior Pass.
-- **Phase B — Build & blueprints.** Buildable plots, blueprint instantiation, dev-panel authoring.
-  Depends on enterable interiors existing (see dependency below).
+**Sequencing decision (settled):** build the economic engine first against interiors that already
+exist, then add a thin self-authored commercial-shell set, and let Interior Pass supersede that
+substrate whenever it lands. This puts the *risky new mechanism* (blueprint instantiation) last,
+behind the *proven* economic loop.
+
+- **Phase A — Core economic loop (claim-only, no new interiors).** `corp_assets` schema, type
+  registry, restaurant type, claim flow against **enterable zones that already exist** (apartment-style
+  units — a restaurant is mechanically an owned interior + storefront vendor + staff + income), NPC
+  staffing, hybrid income (floor tick + commerce active share), console Assets block, `regress.js`
+  loop. Ships a complete, testable loop with **zero dependency on Interior Pass**.
+- **Phase B — Commercial shells + build/blueprints.** A thin, self-authored set of "commercial unit"
+  interiors (a restaurant blueprint + a couple of claimable shells) so assets read as real buildings,
+  plus buildable plots, blueprint instantiation, and dev-panel authoring. This is the bridge; Interior
+  Pass replaces this substrate later without changing the economics above it.
 - **Phase C — Synergy & failure polish.** Influence projection into `zone_control`, Architect-heat
   weighting, dormancy/revive, Tablet Assets screen.
 - **Phase D — The other three types.** Warehouse / security office / front office fleshed from stubs.
@@ -240,10 +249,6 @@ to treasury) → run the tick (floor − wages) → starve → assert dormant �
 
 ### Open questions
 
-- **Interior Pass dependency (biggest).** Claiming and building both need *enterable commercial
-  buildings* to exist. Interior Pass (`docs/proposals/interior-pass.md`) is the system that makes
-  facades enterable. Does Corporate Assets wait on it, ship a minimal enterable-shell slice of its own,
-  or start Phase A against the enterable zones that already exist (e.g. apartment-style units)?
 - **Table naming** — `corp_assets` vs `org_ventures` (the `org_assets` overlap).
 - **Active-share balance** — what fraction, and does it risk unbalancing the drug/vendor economy?
 - **Soft-seed strength** — how much influence should a pure economic presence project before it
