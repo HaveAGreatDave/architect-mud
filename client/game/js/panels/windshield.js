@@ -1108,6 +1108,12 @@ function floorHeight(cell, seed) {
   return floorsOf(cell) * FLOOR_Z * (0.9 + frac(seed) * 0.2) * RENDER_TUNE.bldgH;
 }
 
+// Building footprint half-width (tile units) — a building fills most of its own tile. This
+// is the SAME value the CFIT collision sweep reads (cockpit.js imports it) so a plane hits a
+// tower's mass exactly where its base is drawn, not a tiny box at the tile centre. Scaled by
+// the bldgFoot tuning knob at both the draw and the collision sites so they never drift.
+export const BUILDING_FOOT = 0.42;
+
 // Deterministic building height (render world-z units) for a tile — the SAME value
 // drawWorldObjects paints (line ~1419), exposed so the flight sim can collision-check the
 // exact geometry that's on the glass. Returns 0 for tiles that carry no solid building to
@@ -1979,7 +1985,7 @@ function drawWorldObjects(ctx, cam, v, sky, now) {
     // tile (a building occupies its whole zone, not a dot in the middle).
     const { arch } = bldgStyle(it.c);
     const h = floorHeight(it.c, it.seed);
-    const fh = (0.4 + frac(it.seed + 2) * 0.06) * RENDER_TUNE.bldgFoot;
+    const fh = (BUILDING_FOOT + frac(it.seed + 2) * 0.06) * RENDER_TUNE.bldgFoot;
     const face = faceVec(it.c.ent);   // door side → the street the entrance opens onto
     // Every building draws a dedicated model (its own if named, else its type default) at
     // the same mass; a non-building tile falls back to the shared biome archetype set

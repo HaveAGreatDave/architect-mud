@@ -14,7 +14,7 @@
 import { setAreaPane } from '../render.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn, tracerFx, hitFx } from './engine-audio.js';
-import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingHeightZ, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT } from './windshield.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingHeightZ, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
@@ -870,7 +870,9 @@ const GUN_RANGE = 2.2, GUN_CONE = 11, GUN_ALT_K = 1 / 600, GUN_FIRE_MS = 130;
 // clip of the roofline is survivable damage; going deep into the structure (or hitting fast) is a
 // write-off. All four are eyeball-tuning knobs for the live pass.
 const CFIT_FT_PER_Z = 600;    // render world-z → feet AGL
-const CFIT_FOOT = 0.12;       // building collision half-width around the tile centre (tile units) — tight, pixel-precise
+// Building collision half-width = the SAME footprint the windshield draws (BUILDING_FOOT),
+// scaled by the live bldgFoot knob, so a plane hits a tower's visible mass — not a tiny box
+// at the tile centre. (Was a fixed 0.12 back when buildings drew as thin spikes.)
 const CFIT_CRASH_PEN = 110;   // ft below the roofline that means you're INTO the structure → crash
 const CFIT_SWEEP = 4;         // sub-samples along the frame's ground track (anti-tunnel for fast craft)
 
@@ -883,12 +885,13 @@ function buildingCollisionAt(F, s) {
   const prev = F.cfitPrev || { x: F.pos.x, y: F.pos.y };
   const hd = (s.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
   const height = Math.min(1, Math.sqrt(Math.max(0, s.altitude) / 3000));   // matches windshield's v.height
+  const foot = BUILDING_FOOT * (RENDER_TUNE.bldgFoot || 1);   // collision footprint tracks the drawn one
   let worst = null;
   for (let i = 1; i <= CFIT_SWEEP; i++) {
     const t = i / CFIT_SWEEP;
     const px = prev.x + (F.pos.x - prev.x) * t, py = prev.y + (F.pos.y - prev.y) * t;
     const wx = Math.round(px), wy = Math.round(py);   // one building per tile, at integer coords
-    if (Math.abs(px - wx) > CFIT_FOOT || Math.abs(py - wy) > CFIT_FOOT) continue;   // outside the footprint
+    if (Math.abs(px - wx) > foot || Math.abs(py - wy) > foot) continue;   // outside the footprint
     const rx = Math.round(wx - mc.x + R), ry = Math.round(wy - mc.y + R);
     if (ry < 0 || ry >= map.length || rx < 0 || rx >= map[ry].length) continue;
     const hz = buildingHeightZ(wx, wy, map[ry][rx]);
