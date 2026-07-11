@@ -123,12 +123,12 @@ export async function exportContent(client, targetDir) {
     const { rows } = await client.query(`SELECT * FROM ${entry.table}${where} ORDER BY ${orderBy}`);
     const files = new Map();
     for (const row of rows) {
-      // Player-purchased furniture (furniture-shop.js mints furn_<8-hex-uuid>)
-      // is runtime state living in a content table — it must NEVER become a
-      // git file, or git starts owning a player's property (deploys would
-      // overwrite it; a file deletion would delete it). Skip it at the source.
-      if (isPlayerFurnitureId(entry.table, row.id)) {
-        console.warn(`  ⚠ ${entry.table}/${row.id}: player-furniture id shape — runtime row, not exported.`);
+      // Runtime rows living in content tables must NEVER become git files, or git
+      // starts owning transient state (deploys overwrite it; a file deletion deletes
+      // it). Player-bought furniture and SPECTER surveillance recordings both mint
+      // rows during play — skip them at the source.
+      if (isRuntimeResidueId(entry.table, row.id)) {
+        console.warn(`  ⚠ ${entry.table}/${row.id}: runtime row (not authored content), not exported.`);
         continue;
       }
       const name = fileNameForRow(entry, row);
@@ -175,10 +175,22 @@ export async function exportContent(client, targetDir) {
 }
 
 // Player-purchased furniture id shape (furniture-shop.js: `furn_${uuid8}`).
-// Shared by export (never emit a file) and the import deletion pass (never
-// delete the prod row even if a leaked file is removed from git).
 export function isPlayerFurnitureId(table, id) {
   return table === 'furniture' && /^furn_[0-9a-f]{8}$/.test(String(id ?? ''));
+}
+
+// Runtime rows that live in content tables but must never become git files. Shared
+// by export (never emit a file) and the import deletion pass (never delete the prod
+// row even if a leaked file is removed from git). Covers:
+//   - player-purchased furniture (furn_<8-hex>)
+//   - SPECTER surveillance recordings: a captured clip mints a media_broadcasts
+//     `bc_clip_clip_<ts>_<hex>` and, when chipped, an items `item_datachip_clip_<ts>_<hex>`.
+export function isRuntimeResidueId(table, id) {
+  const s = String(id ?? '');
+  if (isPlayerFurnitureId(table, s)) return true;
+  if (table === 'media_broadcasts' && /^bc_clip_clip_\d+_[0-9a-f]+$/.test(s)) return true;
+  if (table === 'items' && /^item_datachip_clip_\d+_[0-9a-f]+$/.test(s)) return true;
+  return false;
 }
 
 // ── File-tree reading (import / lint side) ───────────────────────────────────
