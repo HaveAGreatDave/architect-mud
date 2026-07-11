@@ -985,6 +985,38 @@ function texCanvas(w, h) { const c = document.createElement('canvas'); c.width =
 const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56, 66], marquee: [56, 40, 66], freight: [62, 66, 74], industrial: [78, 66, 54], infra: [64, 68, 78], ruins: [56, 52, 44], oldcoldwater: [52, 48, 44], docks: [58, 66, 74], __nofly: [120, 40, 40] };
 const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
 
+// ── 3-D building standard ─────────────────────────────────────────────────────
+// STANDARD: every building_type gets a 3-D representation here — an archetype (which
+// drawBuilding silhouette to extrude, reusing the biome archetypes) plus a height.
+// The map-window cell carries `bt` (building_type, from state.js mapWindow); the
+// windshield keys the flying-over 3-D shape off it. When a NEW building_type is
+// introduced, add it here AND to BUILDING_TYPE_ICON (server/engine/world.js, the 2-D
+// map footprint) so a building reads consistently in both views. `default` is the
+// fallback: an unknown type — or one whose entry hasn't loaded — still extrudes a
+// believable mid-rise instead of vanishing. Keep the archetype in the BLDG_H key set.
+const BLDG_TYPE_3D = {
+  corporate_office: { a: 'uptown',    h: 0.40 }, // glass towers
+  hotel:            { a: 'uptown',    h: 0.34 },
+  apartment:        { a: 'citycore',  h: 0.28 },
+  residential:      { a: 'citycore',  h: 0.18 },
+  shop:             { a: 'citycore',  h: 0.15 },
+  diner:            { a: 'citycore',  h: 0.12 },
+  bar:              { a: 'marquee',   h: 0.15 },
+  club:             { a: 'marquee',   h: 0.18 },
+  studio:           { a: 'infra',     h: 0.22 },
+  police:           { a: 'civic',     h: 0.22 },
+  clinic:           { a: 'civic',     h: 0.22 },
+  power:            { a: 'industrial', h: 0.34 },
+  hangar:           { a: 'freight',   h: 0.14 },
+  default:          { a: 'citycore',  h: 0.22 }, // fallback when a type has no entry / fails to load
+};
+// The archetype + base height for a map cell: a building tile (has `bt`) renders its
+// type's 3-D shape (or the fallback for an unknown type); a plain tile keeps its biome.
+function bldgStyle(cell) {
+  const s = cell && cell.bt ? (BLDG_TYPE_3D[cell.bt] || BLDG_TYPE_3D.default) : null;
+  return s ? { arch: s.a, baseH: s.h } : { arch: cell && cell.biome, baseH: BLDG_H[cell && cell.biome] || 0.3 };
+}
+
 // Deterministic building height (render world-z units) for a tile — the SAME value
 // drawWorldObjects paints (line ~1419), exposed so the flight sim can collision-check the
 // exact geometry that's on the glass. Returns 0 for tiles that carry no solid building to
@@ -997,7 +1029,7 @@ export function buildingHeightZ(wx, wy, cell) {
   if (k === 'air' || k === 'craft' || k === 'field' || k === 'nofly'
       || !bi || bi === 'water' || bi === 'parkland' || bi === 'badlands') return 0;
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
-  return (BLDG_H[bi] || 0.3) * (0.7 + frac(seed) * 0.6) * RENDER_TUNE.bldgH;
+  return bldgStyle(cell).baseH * (0.7 + frac(seed) * 0.6) * RENDER_TUNE.bldgH;
 }
 
 // Shared climb-out corridor test: a building dead ahead and low, right off the runway, is
@@ -1589,11 +1621,15 @@ function drawWorldObjects(ctx, cam, v, sky, now) {
     if (it.c.kind === 'nofly') { draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7); continue; }
     if (bi === 'parkland') { drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
     if (bi === 'badlands') { if ((it.seed % 3) === 0) drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
-    const h = (BLDG_H[bi] || 0.3) * (0.7 + frac(it.seed) * 0.6) * RENDER_TUNE.bldgH;
+    // A building tile extrudes the archetype + height for its building_type (with a
+    // fallback); a plain tile keeps its biome archetype. Same bldgStyle() the CFIT
+    // height sweep reads, so what you see is exactly what you can hit.
+    const { arch, baseH } = bldgStyle(it.c);
+    const h = baseH * (0.7 + frac(it.seed) * 0.6) * RENDER_TUNE.bldgH;
     const fh = (0.3 + frac(it.seed + 2) * 0.08) * RENDER_TUNE.bldgFoot;
-    // Each biome draws its own archetype set (downtown towers, industrial stacks, freight
+    // Each archetype draws its own set (downtown towers, industrial stacks, freight
     // containers, dock cranes, cooling towers, broken ruins, neon marquee, …).
-    drawBuilding(ctx, cam, it.dx, it.dy, fh, h, bi, it.seed, night, alpha, now);
+    drawBuilding(ctx, cam, it.dx, it.dy, fh, h, arch, it.seed, night, alpha, now);
   }
 }
 

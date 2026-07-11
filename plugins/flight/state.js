@@ -400,7 +400,10 @@ function mapWindow(a, radius = 4) {
       const biome = biomeOf(cell);
       const road = Array.isArray(cell.flags?.artery) && cell.flags.artery.length ? 1 : 0;
       const kind = cell.flags?.airfield_id ? 'field' : cell.flags?.airspace_restricted ? 'nofly' : 'land';
-      row.push({ kind, biome, road, danger: cell.danger });
+      // Building tiles carry their building_type so the windshield renders a 3-D shape
+      // keyed to what the building IS (office tower, warehouse, diner…), with a fallback.
+      const bt = cell.flags?.building_type || undefined;
+      row.push({ kind, biome, road, danger: cell.danger, bt });
     }
     rows.push(row);
   }
