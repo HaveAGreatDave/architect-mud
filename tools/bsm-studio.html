@@ -1,0 +1,1257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BSM Studio — Broadcast Editor</title>
+<!--
+  BSM Studio — a standalone visual editor for Architect MUD .bsm broadcast scripts.
+  Single self-contained file. No dependencies. Works offline. Email it, double-click it.
+
+  The .bsm grammar is owned by client/devpanel/js/bsm-compiler.js and the on-air
+  render by client/game/js/panels/tv.js. A verbatim copy of compileBsm() is vendored
+  below (see COMPILE_BSM) purely to VALIDATE exported output and DRIVE the preview.
+  If bsm-compiler.js changes, re-vendor that function.
+-->
+<style>
+  :root{
+    --bg:#0d1014; --panel:#161b22; --panel2:#1c232d; --line:#2a333f;
+    --ink:#e6edf3; --dim:#8b97a6; --accent:#3fb0ff; --accent2:#7ee787;
+    --warn:#ffb454; --err:#ff6b6b; --chip:#222c38; --radius:10px;
+    --tv-bg:#0a0c10; --tv-text:#d6e2ea; --tv-header:#3fb0ff; --tv-live:#ff5252;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-text-size-adjust:100%;
+  }
+  h1,h2,h3{margin:0 0 .5em}
+  h2{font-size:1.25rem}
+  h3{font-size:1rem;color:var(--accent)}
+  p{margin:.4em 0}
+  a{color:var(--accent)}
+  button{font:inherit;cursor:pointer}
+  .btn{
+    background:var(--chip); color:var(--ink); border:1px solid var(--line);
+    border-radius:8px; padding:10px 14px; min-height:44px; line-height:1;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent); color:#04121f; border-color:var(--accent); font-weight:600}
+  .btn.good{background:var(--accent2); color:#06210b; border-color:var(--accent2); font-weight:600}
+  .btn.danger{color:var(--err); border-color:#4a2a2a}
+  .btn.small{padding:6px 10px; min-height:34px; font-size:.85rem}
+  .btn:disabled{opacity:.45; cursor:not-allowed}
+  input,textarea,select{
+    font:inherit; background:var(--panel2); color:var(--ink);
+    border:1px solid var(--line); border-radius:8px; padding:10px; width:100%;
+  }
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+  textarea{resize:vertical}
+  label{display:block; font-size:.82rem; color:var(--dim); margin:.6em 0 .25em}
+  .row{display:flex; gap:10px; flex-wrap:wrap}
+  .row > *{flex:1 1 180px; min-width:0}
+  .muted{color:var(--dim)}
+  .mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace}
+
+  /* ---- App frame ---- */
+  header.app{
+    position:sticky; top:0; z-index:30; background:var(--panel);
+    border-bottom:1px solid var(--line);
+    padding:10px 14px calc(10px + env(safe-area-inset-top));
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  header.app .brand{font-weight:700; letter-spacing:.3px; font-size:1.05rem; white-space:nowrap}
+  header.app .brand .tag{color:var(--accent)}
+  header.app .sp{flex:1}
+  header.app .toolbtns{display:flex; gap:8px; flex-wrap:wrap}
+
+  nav.steps{
+    position:sticky; top:0; z-index:20; background:var(--panel);
+    border-bottom:1px solid var(--line);
+    display:flex; gap:6px; overflow-x:auto; padding:8px 10px;
+    -webkit-overflow-scrolling:touch; scrollbar-width:thin;
+  }
+  nav.steps button{
+    white-space:nowrap; background:transparent; border:1px solid transparent;
+    color:var(--dim); border-radius:20px; padding:8px 14px; min-height:40px;
+  }
+  nav.steps button.active{background:var(--chip); color:var(--ink); border-color:var(--line)}
+  nav.steps button .num{
+    display:inline-flex; width:20px; height:20px; border-radius:50%;
+    background:var(--line); color:var(--ink); align-items:center; justify-content:center;
+    font-size:.72rem; margin-right:6px;
+  }
+  nav.steps button.active .num{background:var(--accent); color:#04121f}
+  nav.steps button.done .num{background:var(--accent2); color:#06210b}
+
+  main{max-width:960px; margin:0 auto; padding:18px 14px 120px}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin:0 0 16px}
+  .screen-head{display:flex; align-items:center; gap:10px; margin-bottom:6px}
+  .screen-head h2{margin:0}
+  .hint{background:var(--panel2); border-left:3px solid var(--accent); border-radius:6px; padding:10px 12px; color:var(--dim); font-size:.9rem; margin:0 0 14px}
+
+  /* Help ? buttons */
+  .help{
+    flex:0 0 auto; width:24px; height:24px; border-radius:50%;
+    background:var(--chip); border:1px solid var(--line); color:var(--accent);
+    font-weight:700; font-size:.85rem; line-height:1; padding:0;
+    display:inline-flex; align-items:center; justify-content:center;
+  }
+  .help:hover{background:var(--accent); color:#04121f}
+  label .help{width:20px;height:20px;font-size:.75rem;vertical-align:middle;margin-left:4px}
+
+  /* Type picker */
+  .typegrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px}
+  .typecard{background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:14px; cursor:pointer}
+  .typecard.sel{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset}
+  .typecard b{display:block; margin-bottom:4px}
+  .typecard span{font-size:.82rem; color:var(--dim)}
+
+  /* item list rows */
+  .item{background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:12px; margin:0 0 10px}
+  .item .toprow{display:flex; align-items:center; gap:8px; margin-bottom:8px}
+  .item .toprow .lbl{font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .item .ctrls{display:flex; gap:6px; flex:0 0 auto}
+  .badge{font-size:.7rem; text-transform:uppercase; letter-spacing:.5px; background:var(--chip); border:1px solid var(--line); color:var(--dim); padding:3px 8px; border-radius:20px}
+  .chips{display:flex; flex-wrap:wrap; gap:6px}
+  .chip{background:var(--chip); border:1px solid var(--line); border-radius:16px; padding:5px 10px; font-size:.82rem; display:inline-flex; gap:6px; align-items:center}
+  .chip button{background:none;border:none;color:var(--dim);padding:0 2px;font-size:1rem;line-height:1}
+  .tokbtn{background:var(--chip);border:1px solid var(--line);color:var(--accent2);border-radius:6px;padding:5px 8px;font-size:.78rem;font-family:ui-monospace,monospace}
+  .tokbtn:hover{border-color:var(--accent2)}
+
+  .addbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px}
+
+  details.pool{border:1px solid var(--line); border-radius:10px; margin:0 0 10px; background:var(--panel2); overflow:hidden}
+  details.pool > summary{padding:12px; cursor:pointer; font-weight:600; list-style:none; display:flex; align-items:center; gap:8px}
+  details.pool > summary::-webkit-details-marker{display:none}
+  details.pool[open] > summary{border-bottom:1px solid var(--line)}
+  details.pool .body{padding:12px}
+  details.pool .count{font-size:.72rem; color:var(--dim); background:var(--chip); border-radius:20px; padding:2px 8px}
+  .poolgroup h3{margin:14px 0 8px; border-bottom:1px solid var(--line); padding-bottom:6px}
+
+  /* ASCII editor */
+  .asciiwrap{position:relative}
+  textarea.ascii{font-family:ui-monospace,Consolas,monospace; white-space:pre; overflow:auto; min-height:180px; line-height:1.2; tab-size:2}
+  .palette{display:flex; flex-wrap:wrap; gap:4px; margin:8px 0}
+  .palette button{background:var(--chip);border:1px solid var(--line);color:var(--ink);width:34px;height:34px;border-radius:6px;font-family:ui-monospace,monospace;padding:0}
+
+  /* TV preview frame */
+  .tvframe{
+    background:#05070a; border:2px solid #2b3440; border-radius:14px; padding:12px;
+    box-shadow:0 8px 40px rgba(0,0,0,.5); max-width:560px; margin:0 auto;
+  }
+  .tvbar{display:flex; align-items:center; gap:8px; font-size:.72rem; color:var(--dim); padding:0 4px 8px}
+  .tvbar .live{color:var(--tv-live); font-weight:700; display:none}
+  .tvbar .live.on{display:inline}
+  .tvbar .prog{flex:1; text-align:center; color:var(--tv-header); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .tvscreen{
+    position:relative; background:var(--tv-bg); border-radius:8px; overflow:hidden;
+    aspect-ratio:16/9; color:var(--tv-text); font-size:14px;
+  }
+  #tv-content{position:absolute; inset:0; overflow:hidden; padding:14px; display:flex; flex-direction:column; justify-content:flex-end}
+  .tv-msg{margin:0}
+  .tv-msg-raw .tv-speaker{font-weight:700}
+  .tv-msg-narration{font-style:italic; color:#b9c6d1}
+  .tv-msg-action{font-style:italic; color:#8b97a6}
+  .tv-msg-camera{font-size:.72rem; letter-spacing:1px; color:#5f6f7f; text-transform:uppercase}
+  .tv-msg-ambient{color:#7ee787}
+  pre.tv-msg-ascii{margin:0; font-family:ui-monospace,monospace; white-space:pre; text-align:center; align-self:center}
+  .tv-msg-svg{align-self:center; width:100%}
+  .tv-msg-svg svg{display:block; margin:0 auto; max-width:100%; height:auto}
+  .tv-spacer{height:.6em}
+  #tv-content.center{justify-content:center; align-items:center}
+  .tv-ticker{position:absolute; left:0; right:0; bottom:0; background:rgba(0,0,0,.7); color:var(--tv-header); font-size:.78rem; padding:4px 0; white-space:nowrap; overflow:hidden}
+  .tv-ticker span{display:inline-block; padding-left:100%; animation:tvtick linear infinite}
+  @keyframes tvtick{to{transform:translateX(-100%)}}
+  .tv-overlay{position:absolute; left:12px; right:12px; bottom:34px}
+  .tv-lower-third{background:linear-gradient(90deg,rgba(63,176,255,.95),rgba(63,176,255,.15)); color:#04121f; padding:8px 12px; border-radius:4px}
+  .tv-lower-third .n{font-weight:700}
+  .tv-lower-third .s{font-size:.8rem; opacity:.85}
+  .tv-text-card{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; background:rgba(0,0,0,.55); font-size:1.1rem}
+  .tv-credits-wrap{position:absolute; inset:0; overflow:hidden}
+  .tv-credits-inner{position:absolute; left:0; right:0; text-align:center; padding:0 10px}
+  .credits-header{font-weight:700; color:var(--tv-header); margin:.8em 0 .2em; text-transform:uppercase; font-size:.8rem; letter-spacing:1px}
+  .credits-line{margin:.1em 0}
+  .credits-blank{height:.8em}
+  .tv-static{position:absolute; inset:0; background:repeating-linear-gradient(0deg,#111,#111 2px,#1a1a1a 2px,#1a1a1a 4px); display:none; align-items:center; justify-content:center; color:#888; font-size:.8rem; letter-spacing:2px}
+  .tv-static.on{display:flex}
+  .tvctrls{display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap}
+
+  /* validation */
+  .vlist{list-style:none; padding:0; margin:0}
+  .vlist li{padding:8px 10px; border-radius:8px; margin:0 0 6px; font-size:.9rem}
+  .vlist li.err{background:rgba(255,107,107,.12); border:1px solid #4a2a2a; color:#ffb3b3}
+  .vlist li.warn{background:rgba(255,180,84,.1); border:1px solid #4a3a1f; color:#ffd79a}
+  .vlist li.ok{background:rgba(126,231,135,.1); border:1px solid #274a2c; color:#bff0c5}
+
+  pre.export{background:#05070a; border:1px solid var(--line); border-radius:8px; padding:12px; overflow:auto; max-height:340px; font-family:ui-monospace,monospace; font-size:.82rem; white-space:pre}
+
+  /* modal */
+  .modal-bg{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; z-index:100; align-items:center; justify-content:center; padding:16px}
+  .modal-bg.on{display:flex}
+  .modal{background:var(--panel); border:1px solid var(--line); border-radius:14px; max-width:560px; width:100%; max-height:85vh; overflow:auto; padding:20px}
+  .modal h2{color:var(--accent)}
+  .modal .close{position:sticky; top:0; float:right; margin:-6px -6px 0}
+  .modal .body h4{color:var(--accent2); margin:14px 0 4px}
+  .modal .body code{background:var(--chip); padding:2px 5px; border-radius:4px; font-size:.85rem}
+  .modal .body pre{background:#05070a; border:1px solid var(--line); border-radius:6px; padding:10px; overflow:auto; font-size:.8rem}
+
+  @media (max-width:560px){
+    main{padding:14px 10px 120px}
+    .card{padding:13px}
+    header.app .brand{font-size:.95rem}
+    .tv-text-card{font-size:1rem}
+  }
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div class="brand">BSM&nbsp;<span class="tag">Studio</span></div>
+  <div class="sp"></div>
+  <div class="toolbtns">
+    <button class="btn small" onclick="Help.open('overview')">? Guide</button>
+    <button class="btn small" onclick="Project.newProject()">New</button>
+    <button class="btn small" onclick="Project.save()">Save</button>
+    <button class="btn small" onclick="document.getElementById('loadfile').click()">Load</button>
+  </div>
+  <input type="file" id="loadfile" accept=".bsmproj,.json" style="display:none" onchange="Project.load(this.files[0])">
+</header>
+
+<nav class="steps" id="steps"></nav>
+
+<main id="screen"></main>
+
+<!-- Help modal -->
+<div class="modal-bg" id="help-bg" onclick="if(event.target===this)Help.close()">
+  <div class="modal">
+    <button class="btn small close" onclick="Help.close()">✕ Close</button>
+    <h2 id="help-title"></h2>
+    <div class="body" id="help-body"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   VENDORED COMPILER — verbatim copy of client/devpanel/js/bsm-compiler.js
+   Used only to validate exported .bsm and to drive the preview walker.
+   ========================================================================= */
+function compileBsm(text) {
+  const lines = text.split('\n');
+  let i = 0;
+  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '', airSlots: null };
+  const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [] };
+  const aliases = {}; const actorIds = []; let _inActors = false;
+  for (const ln of lines) {
+    const t = ln.trim();
+    if (t === '::actors') { _inActors = true; continue; }
+    if (t.startsWith('::') && t !== '::actors') { _inActors = false; continue; }
+    if (!_inActors) continue;
+    const mActor = t.match(/^@actor\s+(\S+)/);
+    if (mActor) { actorIds.push(mActor[1]); continue; }
+    const mAlias = t.match(/^@?alias\s+(\S+)\s+(.+)$/);
+    if (mAlias) aliases[mAlias[2].trim().toUpperCase()] = mAlias[1];
+  }
+  const nodes = {}; const assets = []; const weatherPools = {}; const teams = []; const players = [];
+  const messages = []; const rooms = []; const cameraNumbers = [];
+  const npcIds = new Set(actorIds);
+  let nodeCount = 0, startId = null, prevId = null, activeNpc = null;
+  function makeNode(data) {
+    const id = `bsm_${nodeCount}`;
+    const col = nodeCount % 5, row = Math.floor(nodeCount / 5);
+    nodeCount++;
+    nodes[id] = { ...data, _vine: { x: 80 + col * 220, y: 80 + row * 160 } };
+    if (prevId) nodes[prevId].next = id;
+    if (startId === null) startId = id;
+    prevId = id;
+    if (data.type === 'npc_anchor' && data.npc_id) npcIds.add(data.npc_id);
+    _debug.nodeTypes[data.type] = (_debug.nodeTypes[data.type] || 0) + 1;
+    return id;
+  }
+  makeNode({ type: 'start' });
+  const SPEAKER_RE = /^([A-Za-z][A-Za-z0-9_]*(?:\s[A-Z][A-Za-z0-9_]*)*):\s*$/;
+  const ANNOUNCER_LABELS = new Set(['NARRATOR', 'ANNOUNCER']);
+  const DIRECTIVE_PREFIXES = ['@','::','EVENT ','TITLE ','TICKER','WAIT','NPC ','OVERLAY','SHOT','SHOT_END','TICKER_END','OVERLAY_END','LOWER_THIRD_END','MUSIC_END','END','CAM ','ROOM ','LOWER_THIRD','MUSIC','ENTER ','ACTION','END_ACTION','♪','TECH_DIFFICULTIES ','CREDITS'];
+  const BARE_DURATION_RE = /^(\d+(?:\.\d+)?)s?$/;
+  function isDirectiveLine(ln){ if(!ln) return false; return DIRECTIVE_PREFIXES.some(p=>ln.startsWith(p))||SPEAKER_RE.test(ln)||BARE_DURATION_RE.test(ln); }
+  function collectBlock(terminator){ const buf=[]; while(i<lines.length){ const ln=lines[i].trim(); if(ln===terminator){i++;break;} buf.push(lines[i]); i++; } return buf.join('\n').trim(); }
+  while (i < lines.length) {
+    const ln = lines[i].trim();
+    if (!ln) { i++; continue; }
+    if (ln.startsWith('#')) { i++; continue; }
+    if (ln === 'END') break;
+    if (ln.startsWith('@')) {
+      const m = ln.match(/^@(\w+)\s*(.*)/);
+      if (m) {
+        const key=m[1], val=m[2].trim();
+        if (key==='broadcast') meta.name=val.replace(/^["']|["']$/g,'');
+        else if (key==='channel') meta.channel=val;
+        else if (key==='category') meta.category=val;
+        else if (key==='host') meta.host=val;
+        else if (key==='length') meta.length=parseFloat(val);
+        else if (key==='type') meta.type=val.toLowerCase();
+        else if (key==='sport') meta.sport=val.toLowerCase();
+        else if (key==='announcer') meta.announcer=val.replace(/^["']|["']$/g,'');
+        else if (key==='airtime') meta.airSlots=[...new Set(val.split(/[,\s]+/).map(Number).filter(n=>Number.isFinite(n)&&n>=0&&n<24).map(h=>Math.floor(h/3)%8))];
+        else if (key==='titlecard') meta.titlecard=val;
+      }
+      i++; continue;
+    }
+    if (ln.startsWith('::asset ')) { const assetId=ln.slice(8).trim(); i++; const content=collectBlock('::endasset'); assets.push({id:assetId,name:assetId,type:'ascii',content}); continue; }
+    if (ln.startsWith('::lines ')) { const key=ln.slice(8).trim(); i++; const content=collectBlock('::endlines'); const opts=content.split('\n').map(s=>s.trim()).filter(s=>s&&!s.startsWith('#')); if(key&&opts.length)(weatherPools[key]||(weatherPools[key]=[])).push(...opts); continue; }
+    if (ln === '::teams') { i++; const content=collectBlock('::endteams'); for(const s of content.split('\n').map(t=>t.trim()).filter(t=>t&&!t.startsWith('#'))) teams.push(s.replace(/^["']|["']$/g,'')); continue; }
+    if (ln === '::players') { i++; const content=collectBlock('::endplayers'); for(const s of content.split('\n').map(t=>t.trim()).filter(t=>t&&!t.startsWith('#'))) players.push(s.replace(/^["']|["']$/g,'')); continue; }
+    if (ln.startsWith('::')) { i++; continue; }
+    if (ln.startsWith('EVENT ')) { makeNode({type:'event',event_type:ln.slice(6).trim()}); i++; continue; }
+    if (ln.startsWith('TECH_DIFFICULTIES ')) { makeNode({type:'tech_difficulties',duration:parseFloat(ln.slice(19))||10}); i++; continue; }
+    if (ln.startsWith('TITLE ')) { makeNode({type:'title_card',graphic_id:ln.slice(6).trim()}); i++; continue; }
+    if (ln === 'TICKER') { i++; const text=collectBlock('TICKER_END'); makeNode({type:'ticker',text}); messages.push(text); continue; }
+    if (ln === 'WAIT' || ln.startsWith('WAIT ')) { const sec=ln==='WAIT'?5:(parseFloat(ln.slice(5))||5); makeNode({type:'wait',duration:sec}); i++; continue; }
+    if (ln.startsWith('ROOM ')) { const zoneId=ln.slice(5).trim(); if(zoneId&&!rooms.includes(zoneId))rooms.push(zoneId); i++; continue; }
+    if (/^CAM \d/.test(ln)) { const parts=ln.split(/\s+/); const camNum=parseInt(parts[1],10); if(!isNaN(camNum)&&!cameraNumbers.includes(camNum))cameraNumbers.push(camNum); const label=[parts[0],parts[1],parts.slice(2).join(' ')].filter(Boolean).join(' — '); makeNode({type:'camera_cut',zone_id:'',label}); i++; continue; }
+    if (ln === 'OVERLAY') { i++; const text=collectBlock('OVERLAY_END'); makeNode({type:'overlay',overlayType:'text_card',text}); continue; }
+    if (ln.startsWith('OVERLAY ')) { const graphicId=ln.slice(8).trim(); i++; const textLines=[]; while(i<lines.length){ const ol=lines[i].trim(); if(ol==='OVERLAY_END'){i++;break;} if(isDirectiveLine(ol))break; textLines.push(ol); i++; } makeNode({type:'overlay',graphic_id:graphicId,text:textLines.filter(Boolean).join('\n')}); continue; }
+    if (ln === 'LOWER_THIRD') { i++; const ltLines=[]; while(i<lines.length){ const ol=lines[i].trim(); if(ol==='LOWER_THIRD_END'){i++;break;} if(isDirectiveLine(ol))break; if(ol)ltLines.push(ol); i++; } const [ltText='',ltSubtext='']=ltLines; makeNode({type:'overlay',overlayType:'lower_third',text:ltText,subtext:ltSubtext,graphic_id:''}); continue; }
+    if (ln === 'SHOT') { i++; const text=collectBlock('SHOT_END'); makeNode({type:'say',text,style:'narration'}); messages.push(text); continue; }
+    if (ln === 'CREDITS' || ln.startsWith('CREDITS ')) { const durStr=ln.slice(7).trim(); const duration=durStr?(parseFloat(durStr)||null):null; i++; const text=collectBlock('END_CREDITS'); const nodeData={type:'credits',text}; if(duration!==null)nodeData.duration=duration; makeNode(nodeData); continue; }
+    if (ln.startsWith('NPC ')) { const npcId=ln.slice(4).trim(); if(npcId!==activeNpc){makeNode({type:'npc_anchor',npc_id:npcId});activeNpc=npcId;} i++; continue; }
+    const speakerMatch = ln.match(SPEAKER_RE);
+    if (speakerMatch) {
+      const speaker=speakerMatch[1].toUpperCase(); const resolved=aliases[speaker];
+      const isAnnouncer=ANNOUNCER_LABELS.has(speaker)&&!resolved;
+      const fallbackId=`npc_${speaker.toLowerCase().replace(/\s+/g,'_')}`;
+      if(!resolved&&!isAnnouncer&&!_debug.unresolvedSpeakers.some(u=>u.label===speaker)) _debug.unresolvedSpeakers.push({label:speaker,fallback:fallbackId});
+      const npcId=resolved??fallbackId; i++;
+      let text='';
+      while(i<lines.length){ const tl=lines[i].trim(); if(!tl){i++;continue;} if(isDirectiveLine(tl))break; text=tl; i++; break; }
+      if(!text) continue;
+      if(isAnnouncer){ makeNode({type:'say',text,style:'narration'}); messages.push(text); continue; }
+      if(npcId!==activeNpc){ makeNode({type:'npc_anchor',npc_id:npcId}); activeNpc=npcId; }
+      makeNode({type:'say',text,style:'raw'}); messages.push(text); continue;
+    }
+    const durMatch = ln.match(BARE_DURATION_RE);
+    if (durMatch) { makeNode({type:'wait',duration:parseFloat(durMatch[1])}); i++; continue; }
+    if (ln.endsWith('_END') || ln === 'END_ACTION' || ln === 'END_CREDITS') { i++; continue; }
+    if (ln === 'MUSIC' || ln.startsWith('MUSIC ')) { const song=ln==='MUSIC'?'':ln.slice(6).trim(); i++; const displayText=collectBlock('MUSIC_END'); if(song||displayText)makeNode({type:'music',song,text:displayText}); continue; }
+    if (ln.startsWith('ENTER ')) { const raw=ln.slice(6).trim(); const npc=raw.startsWith('npc_')?raw:`npc_${raw}`; if(npc!==activeNpc){makeNode({type:'npc_anchor',npc_id:npc});activeNpc=npc;} makeNode({type:'npc_action',message:'enters the frame.'}); i++; continue; }
+    if (ln === 'ACTION') { i++; const content=collectBlock('END_ACTION'); const [rawFirst,...rest]=content.trim().split(/\s+/); const npc=rawFirst?(rawFirst.startsWith('npc_')?rawFirst:`npc_${rawFirst}`):activeNpc; const act=rest.join(' '); if(npc&&npc!==activeNpc){makeNode({type:'npc_anchor',npc_id:npc});activeNpc=npc;} if(act)makeNode({type:'npc_action',message:act}); continue; }
+    if (ln.startsWith('ACTION ')) { const parts=ln.slice(7).trim().split(/\s+/); const rawNpc=parts[0]||''; const npc=rawNpc.startsWith('npc_')?rawNpc:`npc_${rawNpc}`; const act=parts.slice(1).join(' '); if(npc!==activeNpc){makeNode({type:'npc_anchor',npc_id:npc});activeNpc=npc;} if(act)makeNode({type:'npc_action',message:act}); i++; continue; }
+    if (ln.startsWith('♪')) { const inner=ln.replace(/^♪\s*|\s*♪$/g,'').trim(); if(!/\s/.test(inner)){i++;continue;} makeNode({type:'say',text:ln,style:'ambient'}); i++; continue; }
+    if (activeNpc) { makeNode({type:'npc_action',message:ln}); } else { _debug.unknownDirectives.push(ln); }
+    i++;
+  }
+  if (startId && nodes[startId] && nodes[startId].next == null) { const firstContent=Object.keys(nodes).find(k=>k!==startId); if(firstContent)nodes[startId].next=firstContent; }
+  if (meta.type === 'weather' && meta.host) npcIds.add(meta.host);
+  const weatherScript = { pools: weatherPools, host: meta.host, title: meta.titlecard || '' };
+  const sportsScript = { sport: meta.sport||'baseball', announcer: meta.announcer, teams, players, pools: weatherPools, title: meta.titlecard||'', airSlots:(meta.airSlots&&meta.airSlots.length)?meta.airSlots:null };
+  return { meta, broadcastGraph:{_start:startId,nodes}, weatherScript, sportsScript, messages, assets, rooms, cameras:cameraNumbers, npcIds:[...npcIds], actorIds, _debug };
+}
+
+/* =========================================================================
+   DATA MODEL
+   ========================================================================= */
+function blankModel(){
+  return {
+    version: 1,
+    meta:{ name:'', type:'live', channel:'', category:'general', host:'', length:'', sport:'baseball', announcer:'', airtime:'', titlecard:'' },
+    actors:[],      // {id, name, aliases:[...]}
+    assets:[],      // {id, content}
+    blocks:[],      // linear (live/scripted): {type, ...}
+    pools:{},       // weather/sports: key -> [lines]
+    teams:[], players:[],
+    credits:{ text:'', duration:'' }
+  };
+}
+let model = blankModel();
+let screen = 'project';
+
+const SCREENS_LINEAR = [
+  ['project','Project & Type'],['assets','Title Cards'],['actors','Actors'],
+  ['lines','Storyboard'],['credits','Credits'],['preview','Preview & Export']
+];
+const SCREENS_POOL = [
+  ['project','Project & Type'],['assets','Title Card'],['actors','Cast'],
+  ['pools','Pools'],['preview','Preview & Export']
+];
+function screenList(){ return isPool() ? SCREENS_POOL : SCREENS_LINEAR; }
+function isPool(){ return model.meta.type==='weather' || model.meta.type==='sports'; }
+function isLinear(){ return !isPool(); }
+
+/* small helpers */
+const $ = s=>document.querySelector(s);
+const esc = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const uid = p => p+'_'+Math.random().toString(36).slice(2,8);
+function opt(v,label,sel){ return `<option value="${esc(v)}"${sel===v?' selected':''}>${esc(label)}</option>`; }
+
+/* actor helpers */
+function speakerLabelFor(actor){
+  // A label usable as a `LABEL:` speaker prefix (must satisfy the compiler's SPEAKER_RE).
+  const ok = s => /^[A-Za-z][A-Za-z0-9_]*(?:\s[A-Z][A-Za-z0-9_]*)*$/.test(s);
+  for (const a of actor.aliases||[]) if (ok(a)) return a;
+  if (actor.name && ok(actor.name)) return actor.name;
+  return (actor.id||'npc').replace(/^npc_/,'').replace(/[^A-Za-z0-9_]/g,'_').replace(/^([a-z])/,(m)=>m.toUpperCase());
+}
+
+/* =========================================================================
+   POOL VOCABULARY (guided forms)
+   ========================================================================= */
+const WEATHER_GROUPS = [
+  ['Framing (once per report)', ['intro','intro.morning','intro.afternoon','intro.evening','intro.night','today.lead','forecast.lead','outro']],
+  ['Sky conditions (one per weather type)', ['sky.clear','sky.fog','sky.haze','sky.cloudy','sky.overcast','sky.rain','sky.sleet','sky.snow','sky.thunderstorm','sky.blizzard','sky.storm']],
+  ['Temperature bands', ['temp.frigid','temp.cold','temp.cool','temp.mild','temp.warm','temp.hot','temp.scorching']],
+  ['Wind', ['wind.calm','wind.breezy','wind.windy','wind.strong','wind.gale']],
+  ['Humidity', ['humid.dry','humid.comfortable','humid.humid','humid.oppressive']],
+  ['Severe warnings (severity ≥ 0.45)', ['warn.cold','warn.heat','warn.wind','warn.blizzard','warn.storm','warn.generic']],
+  ['Forecast-walk transitions', ['ahead.tomorrow','ahead.midweek','ahead.weekend','ahead.next']],
+  ['Weekly trend', ['trend.warming','trend.cooling','trend.clearing','trend.deteriorating','trend.steady']],
+  ['Ad-libs (optional flavour)', ['adlib','adlib.grim','adlib.chipper']],
+];
+const WEATHER_TOKENS = ['{weather}','{temp}','{feels}','{wind}','{windLabel}','{humidity}','{precip}','{day}','{date}','{hiTemp}','{loTemp}','{season}','{severeCount}','{worstDay}','{host}'];
+const SPORTS_GROUPS = [
+  ['Framing (once per game)', ['intro','matchup','matchup.records','final','outro']],
+  ['Half-inning framing', ['half.top','half.bottom','half']],
+  ['Routine outs', ['atbat.strikeout','atbat.groundout','atbat.flyout','atbat.popout','atbat.out']],
+  ['Non-scoring baserunners', ['atbat.single','atbat.double','atbat.triple','atbat.walk']],
+  ['Scoring plays', ['rbi','hr.solo','hr.grand','hr','score.update']],
+  ['Situational', ['walkoff','recap.half','chatter']],
+];
+const SPORTS_TOKENS = ['{announcer}','{away}','{home}','{team}','{batter}','{pitcher}','{inning}','{inningOrd}','{half}','{outs}','{rbi}','{runs}','{awayScore}','{homeScore}','{leader}','{lead}','{awayRecord}','{homeRecord}'];
+
+/* =========================================================================
+   BSM EMITTER  (model -> .bsm text)
+   ========================================================================= */
+function q(s){ return '"'+String(s).replace(/"/g,'')+'"'; }
+function buildBsm(m){
+  const L=[]; const t=m.meta.type;
+  L.push(`@broadcast ${q(m.meta.name||'Untitled Broadcast')}`);
+  if (m.meta.channel) L.push(`@channel ${m.meta.channel}`);
+  L.push(`@category ${m.meta.category||'general'}`);
+  if ((t==='live'||t==='weather') && m.meta.host) L.push(`@host ${m.meta.host}`);
+  if (m.meta.length!=='' && m.meta.length!=null) L.push(`@length ${m.meta.length}`);
+  L.push(`@type ${t}`);
+  if (t==='sports'){
+    L.push(`@sport ${m.meta.sport||'baseball'}`);
+    if (m.meta.announcer) L.push(`@announcer ${q(m.meta.announcer)}`);
+    if (m.meta.airtime!=='' && m.meta.airtime!=null) L.push(`@airtime ${m.meta.airtime}`);
+  }
+  if ((t==='weather'||t==='sports') && m.meta.titlecard) L.push(`@titlecard ${m.meta.titlecard}`);
+
+  // actors
+  if (m.actors.length){
+    L.push('','::actors');
+    for (const a of m.actors){
+      L.push(`@actor ${a.id}${a.name?(' '+a.name):''}`);
+      const seen=new Set();
+      const labels=[];
+      if (a.name) labels.push(a.name);       // auto-alias the display name
+      for (const al of a.aliases||[]) labels.push(al);
+      for (const lab of labels){ const u=lab.toUpperCase(); if(seen.has(u))continue; seen.add(u); L.push(`@alias ${a.id} ${lab}`); }
+    }
+    L.push('::endactors');
+  }
+
+  // assets
+  for (const as of m.assets){
+    L.push('',`::asset ${as.id}`); L.push(as.content||''); L.push('::endasset');
+  }
+
+  if (t==='weather'||t==='sports'){
+    if (t==='sports'){
+      if (m.teams.length){ L.push('','::teams'); m.teams.forEach(x=>L.push(x)); L.push('::endteams'); }
+      if (m.players.length){ L.push('','::players'); m.players.forEach(x=>L.push(x)); L.push('::endplayers'); }
+    }
+    for (const key of Object.keys(m.pools)){
+      const arr=(m.pools[key]||[]).filter(x=>x.trim());
+      if (!arr.length) continue;
+      L.push('',`::lines ${key}`); arr.forEach(x=>L.push(x)); L.push('::endlines');
+    }
+  } else {
+    L.push('');
+    for (const b of m.blocks) emitBlock(L, b, m);
+    if (m.credits && (m.credits.text||'').trim()){
+      const dur = (m.credits.duration!=='' && m.credits.duration!=null) ? (' '+m.credits.duration) : '';
+      L.push('', 'CREDITS'+dur); L.push(m.credits.text); L.push('END_CREDITS');
+    }
+  }
+
+  L.push('','END');
+  return L.join('\n');
+}
+function actorById(id){ return model.actors.find(a=>a.id===id); }
+function emitBlock(L, b, m){
+  const A=id=>m.actors.find(a=>a.id===id);
+  switch(b.type){
+    case 'scene': L.push(`::scene ${b.label||''}`); return;
+    case 'title': if(b.assetId) L.push(`TITLE ${b.assetId}`); return;
+    case 'dialogue': {
+      if (b.actorId==='__announcer'){ L.push('NARRATOR:'); L.push(b.text||''); return; }
+      const a=A(b.actorId); const lab=a?speakerLabelFor(a):'SPEAKER';
+      L.push(`${lab}:`); L.push(b.text||''); return;
+    }
+    case 'narration': L.push('NARRATOR:'); L.push(b.text||''); return;
+    case 'shot': L.push('SHOT'); L.push(b.text||''); L.push('SHOT_END'); return;
+    case 'action': {
+      const a=A(b.actorId); const id=a?a.id:(b.actorId||'');
+      if (id) L.push(`ACTION ${id} ${b.message||''}`.trim()); return;
+    }
+    case 'enter': { const a=A(b.actorId); const id=a?a.id:(b.actorId||''); if(id)L.push(`ENTER ${id}`); return; }
+    case 'camera': { const bits=['CAM', b.num||1, b.shot||'', b.subject||''].filter(x=>String(x).trim()!==''); L.push(bits.join(' ')); return; }
+    case 'lower_third': L.push('LOWER_THIRD'); if(b.name)L.push(b.name); if(b.subtitle)L.push(b.subtitle); L.push('LOWER_THIRD_END'); return;
+    case 'overlay': L.push(b.graphicId?`OVERLAY ${b.graphicId}`:'OVERLAY'); if(b.text)L.push(b.text); L.push('OVERLAY_END'); return;
+    case 'ticker': L.push('TICKER'); L.push(b.text||''); L.push('TICKER_END'); return;
+    case 'music': L.push(b.song?`MUSIC ${b.song}`:'MUSIC'); if(b.text)L.push(b.text); L.push('MUSIC_END'); return;
+    case 'wait': L.push(`WAIT ${b.seconds||5}`); return;
+    case 'tech': L.push(`TECH_DIFFICULTIES ${b.seconds||10}`); return;
+    case 'event': if(b.eventType)L.push(`EVENT ${b.eventType}`); return;
+    case 'room': if(b.zoneId)L.push(`ROOM ${b.zoneId}`); return;
+  }
+}
+
+/* =========================================================================
+   PERSISTENCE
+   ========================================================================= */
+const AUTOSAVE_KEY='bsm-studio:autosave';
+let _saveTimer=null;
+function autosave(){ clearTimeout(_saveTimer); _saveTimer=setTimeout(()=>{ try{ localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(model)); }catch(e){} }, 300); }
+function commit(rerender){ autosave(); if(rerender!==false) render(); }
+
+const Project = {
+  newProject(){ if(!confirm('Start a new project? Unsaved changes are kept in autosave until you overwrite them.'))return; model=blankModel(); screen='project'; commit(); },
+  save(){
+    const name=(model.meta.name||'broadcast').replace(/[^a-z0-9_-]+/gi,'_').toLowerCase();
+    download(name+'.bsmproj', JSON.stringify(model,null,2), 'application/json');
+  },
+  load(file){
+    if(!file)return;
+    const r=new FileReader();
+    r.onload=()=>{ try{ const obj=JSON.parse(r.result); model=migrate(obj); screen='project'; commit(); }catch(e){ alert('Could not read project file: '+e.message); } };
+    r.readAsText(file);
+  }
+};
+function migrate(obj){ const m=blankModel(); Object.assign(m.meta, obj.meta||{}); m.actors=obj.actors||[]; m.assets=obj.assets||[]; m.blocks=obj.blocks||[]; m.pools=obj.pools||{}; m.teams=obj.teams||[]; m.players=obj.players||[]; m.credits=Object.assign({text:'',duration:''},obj.credits||{}); return m; }
+function download(fname, text, mime){
+  const blob=new Blob([text],{type:mime||'text/plain'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+/* =========================================================================
+   RENDER — nav + screens
+   ========================================================================= */
+function render(){ renderNav(); renderScreen(); }
+function renderNav(){
+  const list=screenList();
+  const cur=list.findIndex(s=>s[0]===screen);
+  $('#steps').innerHTML=list.map((s,idx)=>{
+    const done = idx<cur;
+    return `<button class="${s[0]===screen?'active':''} ${done?'done':''}" onclick="go('${s[0]}')"><span class="num">${idx+1}</span>${esc(s[1])}</button>`;
+  }).join('');
+}
+function go(s){ if(!screenList().some(x=>x[0]===s)) s='project'; screen=s; render(); window.scrollTo(0,0); }
+function renderScreen(){
+  if(isPool() && screen==='lines') screen='pools';
+  if(isLinear() && screen==='pools') screen='lines';
+  const fn = ({project:scrProject, assets:scrAssets, actors:scrActors, lines:scrLines, pools:scrPools, credits:scrCredits, preview:scrPreview})[screen] || scrProject;
+  $('#screen').innerHTML = fn();
+  if (screen==='preview') Preview.mount();
+}
+function head(title, helpId){
+  return `<div class="screen-head"><button class="help" onclick="Help.open('${helpId}')" title="Help">?</button><h2>${esc(title)}</h2></div>`;
+}
+function navFoot(){
+  const list=screenList(); const i=list.findIndex(s=>s[0]===screen);
+  const prev=i>0?list[i-1]:null, next=i<list.length-1?list[i+1]:null;
+  return `<div class="addbar" style="justify-content:space-between;margin-top:18px">
+    ${prev?`<button class="btn" onclick="go('${prev[0]}')">← ${esc(prev[1])}</button>`:'<span></span>'}
+    ${next?`<button class="btn primary" onclick="go('${next[0]}')">${esc(next[1])} →</button>`:'<span></span>'}
+  </div>`;
+}
+
+/* ---------- Screen: Project & Type ---------- */
+const TYPES=[
+  ['live','Live','Aired live and acted by NPCs on a studio stage. Needs a host physically present.'],
+  ['scripted','Staged','A pre-recorded show that plays like a tape. Speaker names are labels only — nobody has to be on stage.'],
+  ['weather','Weather','A weathercaster line-library. The game assembles a fresh forecast each airing from live weather.'],
+  ['sports','Sports','A play-by-play line-library. The game simulates a whole game each airing.'],
+];
+function scrProject(){
+  const m=model.meta;
+  return head('Project & Type','type')+`
+  <div class="hint">Give your broadcast a name and pick its type. Everything downstream adapts to the type you choose.</div>
+  <div class="card">
+    <label>Broadcast title <button class="help" onclick="Help.open('title')">?</button></label>
+    <input value="${esc(m.name)}" placeholder="The Tonight Show" oninput="model.meta.name=this.value;autosave()">
+    <label style="margin-top:14px">Broadcast type</label>
+    <div class="typegrid">
+      ${TYPES.map(t=>`<div class="typecard ${m.type===t[0]?'sel':''}" onclick="setType('${t[0]}')"><b>${esc(t[1])}</b><span>${esc(t[2])}</span></div>`).join('')}
+    </div>
+  </div>
+  <div class="card">
+    <h3>Details</h3>
+    <div class="row">
+      <div><label>Channel ID <span class="muted">(optional)</span></label><input value="${esc(m.channel)}" placeholder="NEWS1" oninput="model.meta.channel=this.value;autosave()"></div>
+      <div><label>Category</label><input value="${esc(m.category)}" placeholder="news / late_night / comedy / sport / weather" oninput="model.meta.category=this.value;autosave()"></div>
+    </div>
+    <div class="row">
+      ${(m.type==='live'||m.type==='weather')?`<div><label>Host NPC id <button class="help" onclick="Help.open('host')">?</button></label><input value="${esc(m.host)}" placeholder="npc_dana_vale" oninput="model.meta.host=this.value;autosave()"></div>`:''}
+      <div><label>Length <span class="muted">(seconds, optional)</span></label><input type="number" value="${esc(m.length)}" placeholder="120" oninput="model.meta.length=this.value;autosave()"></div>
+    </div>
+    ${m.type==='sports'?`
+    <div class="row">
+      <div><label>Sport</label><select onchange="model.meta.sport=this.value;autosave()">${opt('baseball','baseball',m.sport||'baseball')}</select></div>
+      <div><label>Announcer name <button class="help" onclick="Help.open('announcer')">?</button></label><input value="${esc(m.announcer)}" placeholder="Chip Vega" oninput="model.meta.announcer=this.value;autosave()"></div>
+      <div><label>Air time <span class="muted">(in-game hour 0–23, optional)</span></label><input value="${esc(m.airtime)}" placeholder="19" oninput="model.meta.airtime=this.value;autosave()"></div>
+    </div>`:''}
+  </div>
+  ${navFoot()}`;
+}
+function setType(t){
+  if (t===model.meta.type) return;
+  const wasPool=isPool();
+  model.meta.type=t;
+  // moving between paradigms: keep data but land on a valid screen
+  if (isPool()!==wasPool) screen='project';
+  commit();
+}
+
+/* ---------- Screen: Assets / Title Cards ---------- */
+function scrAssets(){
+  const m=model;
+  const rows = m.assets.map((as,idx)=>assetRow(as,idx)).join('') || `<p class="muted">No title cards yet. Add one below — or skip this screen if your broadcast has none.</p>`;
+  let titleField='';
+  if (isPool()){
+    titleField=`<div class="card"><label>Title card shown before each report <button class="help" onclick="Help.open('titlecard')">?</button></label>
+      <select onchange="model.meta.titlecard=this.value;autosave()">
+        <option value="">— none —</option>
+        ${m.assets.map(a=>opt(a.id,a.id,m.meta.titlecard)).join('')}
+      </select></div>`;
+  }
+  return head('Title Cards & Graphics','assets')+`
+  <div class="hint">Title cards are full-screen graphics (a logo, a "BREAKING NEWS" card). BSM supports <b>ASCII art</b> and <b>inline SVG</b> only — a PNG you import is wrapped into an SVG automatically.</div>
+  ${titleField}
+  <div id="assetlist">${rows}</div>
+  <div class="addbar">
+    <button class="btn primary" onclick="addAsset()">＋ Add title card</button>
+  </div>
+  ${navFoot()}`;
+}
+function assetRow(as,idx){
+  const kind = (as.content||'').trim().startsWith('<svg') ? 'SVG' : 'ASCII';
+  return `<div class="item">
+    <div class="toprow">
+      <span class="badge">${kind}</span>
+      <input class="lbl mono" style="flex:1" value="${esc(as.id)}" placeholder="asset_id" oninput="model.assets[${idx}].id=this.value.trim().replace(/\\s+/g,'_');autosave()">
+      <div class="ctrls">
+        <button class="btn small" onclick="moveAsset(${idx},-1)" title="Up">↑</button>
+        <button class="btn small" onclick="moveAsset(${idx},1)" title="Down">↓</button>
+        <button class="btn small danger" onclick="delAsset(${idx})">✕</button>
+      </div>
+    </div>
+    <div class="row">
+      <div style="flex:2 1 260px">
+        <label>Content <button class="help" onclick="Help.open('assetcontent')">?</button></label>
+        <div class="palette">
+          ${['█','▀','▄','▌','▐','░','▒','▓','╔','╗','╚','╝','║','═','╱','╲','☢','⚙','★'].map(c=>`<button onclick="insertChar(${idx},'${c}')">${c}</button>`).join('')}
+        </div>
+        <textarea class="ascii" id="asset-ta-${idx}" rows="8" oninput="model.assets[${idx}].content=this.value;autosave();refreshAssetPreview(${idx})" placeholder="Type ASCII art, paste an &lt;svg&gt;…&lt;/svg&gt;, or import below.">${esc(as.content)}</textarea>
+        <div class="addbar">
+          <button class="btn small" onclick="document.getElementById('svgfile-${idx}').click()">Import SVG…</button>
+          <button class="btn small" onclick="document.getElementById('pngfile-${idx}').click()">Import PNG…</button>
+          <input type="file" id="svgfile-${idx}" accept=".svg,image/svg+xml" style="display:none" onchange="importSvg(${idx},this.files[0])">
+          <input type="file" id="pngfile-${idx}" accept="image/png,image/jpeg,image/*" style="display:none" onchange="importPng(${idx},this.files[0])">
+        </div>
+      </div>
+      <div style="flex:1 1 200px">
+        <label>Preview</label>
+        <div class="tvscreen" style="aspect-ratio:16/9"><div id="asset-prev-${idx}" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:8px"></div></div>
+      </div>
+    </div>
+  </div>`;
+}
+function addAsset(){ model.assets.push({id:uid('graphic'), content:''}); commit(); }
+function delAsset(i){ model.assets.splice(i,1); commit(); }
+function moveAsset(i,d){ const j=i+d; if(j<0||j>=model.assets.length)return; const t=model.assets[i]; model.assets[i]=model.assets[j]; model.assets[j]=t; commit(); }
+function insertChar(idx,c){ const ta=document.getElementById('asset-ta-'+idx); const s=ta.selectionStart,e=ta.selectionEnd; const v=ta.value; ta.value=v.slice(0,s)+c+v.slice(e); model.assets[idx].content=ta.value; ta.focus(); ta.selectionStart=ta.selectionEnd=s+c.length; autosave(); refreshAssetPreview(idx); }
+function refreshAssetPreview(idx){ const host=document.getElementById('asset-prev-'+idx); if(host) renderCard(host, model.assets[idx].content||''); }
+function importSvg(idx,file){ if(!file)return; const r=new FileReader(); r.onload=()=>{ model.assets[idx].content=String(r.result).trim(); commit(); }; r.readAsText(file); }
+function importPng(idx,file){
+  if(!file)return; const r=new FileReader();
+  r.onload=()=>{
+    const dataUri=r.result; const img=new Image();
+    img.onload=()=>{ const w=img.naturalWidth||640,h=img.naturalHeight||360;
+      model.assets[idx].content=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}"><image href="${dataUri}" x="0" y="0" width="${w}" height="${h}"/></svg>`;
+      commit();
+    };
+    img.onerror=()=>alert('Could not read that image.');
+    img.src=dataUri;
+  };
+  r.readAsDataURL(file);
+}
+// Render an asset into a preview host, mirroring tv.js svg-fit / ascii auto-scale.
+function renderCard(host, content){
+  content=(content||'').trim();
+  host.innerHTML='';
+  if(!content){ host.innerHTML='<span class="muted" style="font-size:.8rem">(empty)</span>'; return; }
+  if(content.startsWith('<svg')){
+    host.innerHTML=content;
+    const svg=host.querySelector('svg');
+    if(svg){ if(!svg.getAttribute('viewBox')){ const w=parseFloat(svg.getAttribute('width'))||640,h=parseFloat(svg.getAttribute('height'))||360; svg.setAttribute('viewBox',`0 0 ${w} ${h}`);} svg.removeAttribute('width'); svg.removeAttribute('height'); svg.style.maxWidth='100%'; svg.style.maxHeight='100%'; svg.style.height='auto'; }
+    return;
+  }
+  const pre=document.createElement('pre'); pre.style.margin='0'; pre.style.fontFamily='ui-monospace,monospace'; pre.style.whiteSpace='pre'; pre.style.textAlign='center'; pre.textContent=content;
+  host.appendChild(pre);
+  requestAnimationFrame(()=>{ const avail=host.clientWidth-16; const maxLen=Math.max(...content.split('\n').map(l=>l.length),1); const px=Math.max(Math.min(avail/(maxLen*0.6),16),5); pre.style.fontSize=px.toFixed(1)+'px'; pre.style.lineHeight='1.15'; });
+}
+
+/* ---------- Screen: Actors / Cast ---------- */
+function scrActors(){
+  const m=model;
+  if (m.meta.type==='sports') return scrSportsCast();
+  const rows=m.actors.map((a,idx)=>actorRow(a,idx)).join('') || `<p class="muted">No actors yet. Add the characters who speak or act in your broadcast.</p>`;
+  return head('Actors','actors')+`
+  <div class="hint">Each actor is one NPC. Give it the NPC id from the game, a display name, and any short aliases. In the storyboard you'll pick actors from a dropdown — the right label is written for you.</div>
+  <div id="actorlist">${rows}</div>
+  <div class="addbar"><button class="btn primary" onclick="addActor()">＋ Add actor</button></div>
+  <div class="card" style="margin-top:16px">
+    <h3>Off-screen announcer / narrator</h3>
+    <p class="muted">You don't declare this one. In the storyboard, choose <b>Narrator (off-screen)</b> as the speaker for a voice with nobody on stage — the game never spawns an NPC for it.</p>
+  </div>
+  ${navFoot()}`;
+}
+function actorRow(a,idx){
+  return `<div class="item">
+    <div class="toprow">
+      <span class="badge">Actor</span>
+      <span class="lbl">${esc(a.name||a.id||'(unnamed)')}</span>
+      <div class="ctrls"><button class="btn small danger" onclick="delActor(${idx})">✕</button></div>
+    </div>
+    <div class="row">
+      <div><label>NPC id <button class="help" onclick="Help.open('npcid')">?</button></label><input class="mono" value="${esc(a.id)}" placeholder="npc_captain_nguyen" oninput="model.actors[${idx}].id=this.value.trim();autosave()"></div>
+      <div><label>Display name</label><input value="${esc(a.name)}" placeholder="Captain Nguyen" oninput="model.actors[${idx}].name=this.value;autosave()"></div>
+    </div>
+    <label>Aliases <button class="help" onclick="Help.open('aliases')">?</button> <span class="muted">— extra speaker labels (the display name is already usable)</span></label>
+    <div class="chips" id="aliaslist-${idx}">
+      ${(a.aliases||[]).map((al,ai)=>`<span class="chip">${esc(al)}<button onclick="delAlias(${idx},${ai})">✕</button></span>`).join('')}
+      <input style="width:130px" placeholder="+ alias, Enter" onkeydown="if(event.key==='Enter'){addAlias(${idx},this.value);this.value=''}">
+    </div>
+  </div>`;
+}
+function addActor(){ model.actors.push({id:'', name:'', aliases:[]}); commit(); }
+function delActor(i){ model.actors.splice(i,1); commit(); }
+function addAlias(i,v){ v=(v||'').trim(); if(!v)return; (model.actors[i].aliases||(model.actors[i].aliases=[])).push(v); commit(); }
+function delAlias(i,ai){ model.actors[i].aliases.splice(ai,1); commit(); }
+
+function scrSportsCast(){
+  const m=model;
+  return head('Cast & Teams','sportscast')+`
+  <div class="hint">Sports broadcasts have no on-stage NPC. The announcer is just a name. Give the sim a pool of teams and players — it picks two teams and deals lineups each airing.</div>
+  <div class="card">
+    <label>Announcer name</label><input value="${esc(m.meta.announcer)}" placeholder="Chip Vega" oninput="model.meta.announcer=this.value;autosave()">
+  </div>
+  <div class="card">
+    <h3>Teams <button class="help" onclick="Help.open('teams')">?</button></h3>
+    ${listEditor('teams','Rustpile Rats')}
+  </div>
+  <div class="card">
+    <h3>Players <button class="help" onclick="Help.open('players')">?</button></h3>
+    ${listEditor('players','Rodriguez')}
+  </div>
+  ${navFoot()}`;
+}
+function listEditor(key, placeholder){
+  const arr=model[key];
+  return `<div class="chips" id="list-${key}">
+    ${arr.map((x,i)=>`<span class="chip">${esc(x)}<button onclick="delListItem('${key}',${i})">✕</button></span>`).join('')}
+  </div>
+  <div class="addbar"><input placeholder="Add ${esc(placeholder)} — Enter" onkeydown="if(event.key==='Enter'){addListItem('${key}',this.value);this.value=''}"></div>`;
+}
+function addListItem(key,v){ v=(v||'').trim(); if(!v)return; model[key].push(v); commit(); }
+function delListItem(key,i){ model[key].splice(i,1); commit(); }
+
+/* ---------- Screen: Storyboard (linear) ---------- */
+const BLOCK_TYPES=[
+  ['dialogue','Dialogue'],['narration','Narration'],['action','Action / emote'],['enter','Enter frame'],
+  ['camera','Camera cut'],['title','Title card'],['lower_third','Lower third'],['overlay','Overlay card'],
+  ['ticker','Ticker'],['music','Music'],['wait','Wait / pause'],['tech','Technical difficulties'],
+  ['event','Event cue'],['room','Room (dependency)'],['scene','Scene divider'],['shot','Narration block']
+];
+const CAM_SHOTS=['WIDE','ESTABLISHING','CLOSEUP','TWO_SHOT','OTS','TRACK','PAN','CRANE'];
+const EVENT_TYPES=['FADE_IN','FADE_OUT','APPLAUSE','LAUGHTER','DISSOLVE','COMMERCIAL_BREAK','RETURN_FROM_BREAK'];
+function scrLines(){
+  const m=model;
+  const rows=m.blocks.map((b,idx)=>blockRow(b,idx)).join('') || `<p class="muted">Empty storyboard. Add your first block below.</p>`;
+  return head('Storyboard','storyboard')+`
+  <div class="hint">Build your show top to bottom. Each block is one beat. You never write START or anchor nodes — they're added for you. Reorder with ↑ ↓.</div>
+  <div id="blocklist">${rows}</div>
+  <div class="card">
+    <label>Add a block <button class="help" onclick="Help.open('blocktypes')">?</button></label>
+    <div class="row">
+      <select id="addblocktype">${BLOCK_TYPES.map(b=>opt(b[0],b[1],'dialogue')).join('')}</select>
+      <button class="btn primary" style="flex:0 0 auto" onclick="addBlock(document.getElementById('addblocktype').value)">＋ Add</button>
+    </div>
+  </div>
+  ${navFoot()}`;
+}
+function actorSelect(idx,val,withAnnouncer){
+  const opts=[`<option value="">— pick actor —</option>`];
+  if(withAnnouncer) opts.push(opt('__announcer','Narrator (off-screen)',val));
+  model.actors.forEach(a=>opts.push(opt(a.id, a.name||a.id, val)));
+  return `<select onchange="model.blocks[${idx}].actorId=this.value;autosave()">${opts.join('')}</select>`;
+}
+function blockRow(b,idx){
+  const label=(BLOCK_TYPES.find(t=>t[0]===b.type)||[])[1]||b.type;
+  let body='';
+  switch(b.type){
+    case 'dialogue': body=`<label>Speaker</label>${actorSelect(idx,b.actorId,true)}<label>Line</label><textarea rows="2" oninput="model.blocks[${idx}].text=this.value;autosave()" placeholder="What they say.">${esc(b.text)}</textarea>`; break;
+    case 'narration': body=`<label>Narration (off-screen voice)</label><textarea rows="2" oninput="model.blocks[${idx}].text=this.value;autosave()">${esc(b.text)}</textarea>`; break;
+    case 'shot': body=`<label>Scene-setting narration (multi-line)</label><textarea rows="3" oninput="model.blocks[${idx}].text=this.value;autosave()">${esc(b.text)}</textarea>`; break;
+    case 'action': body=`<label>Who</label>${actorSelect(idx,b.actorId,false)}<label>Does what</label><input value="${esc(b.message)}" placeholder="waves to the crowd." oninput="model.blocks[${idx}].message=this.value;autosave()">`; break;
+    case 'enter': body=`<label>Who enters the frame</label>${actorSelect(idx,b.actorId,false)}`; break;
+    case 'camera': body=`<div class="row"><div style="flex:0 0 90px"><label>Cam #</label><input type="number" min="1" value="${esc(b.num||1)}" oninput="model.blocks[${idx}].num=this.value;autosave()"></div><div><label>Shot</label><select onchange="model.blocks[${idx}].shot=this.value;autosave()"><option value="">—</option>${CAM_SHOTS.map(s=>opt(s,s,b.shot)).join('')}</select></div><div><label>Subject <span class="muted">(optional)</span></label><input value="${esc(b.subject)}" placeholder="john_akerson" oninput="model.blocks[${idx}].subject=this.value;autosave()"></div></div>`; break;
+    case 'title': body=`<label>Title card graphic</label><select onchange="model.blocks[${idx}].assetId=this.value;autosave()"><option value="">— pick a title card —</option>${model.assets.map(a=>opt(a.id,a.id,b.assetId)).join('')}</select>${model.assets.length?'':'<p class="muted">No title cards yet — add one on the Title Cards screen.</p>'}`; break;
+    case 'lower_third': body=`<div class="row"><div><label>Name</label><input value="${esc(b.name)}" placeholder="Dana Vale" oninput="model.blocks[${idx}].name=this.value;autosave()"></div><div><label>Subtitle</label><input value="${esc(b.subtitle)}" placeholder="Anchor" oninput="model.blocks[${idx}].subtitle=this.value;autosave()"></div></div>`; break;
+    case 'overlay': body=`<label>Graphic id <span class="muted">(optional)</span></label><select onchange="model.blocks[${idx}].graphicId=this.value;autosave()"><option value="">— text only —</option>${model.assets.map(a=>opt(a.id,a.id,b.graphicId)).join('')}</select><label>Text</label><textarea rows="2" oninput="model.blocks[${idx}].text=this.value;autosave()">${esc(b.text)}</textarea>`; break;
+    case 'ticker': body=`<label>Ticker text (scrolls across the bottom)</label><input value="${esc(b.text)}" oninput="model.blocks[${idx}].text=this.value;autosave()">`; break;
+    case 'music': body=`<div class="row"><div><label>Song id <span class="muted">(optional)</span></label><input value="${esc(b.song)}" placeholder="outro_sting" oninput="model.blocks[${idx}].song=this.value;autosave()"></div><div><label>Display line</label><input value="${esc(b.text)}" placeholder="Thanks for tuning in." oninput="model.blocks[${idx}].text=this.value;autosave()"></div></div>`; break;
+    case 'wait': body=`<label>Pause (seconds)</label><input type="number" min="0" step="0.5" value="${esc(b.seconds||5)}" oninput="model.blocks[${idx}].seconds=this.value;autosave()">`; break;
+    case 'tech': body=`<label>Technical difficulties for (seconds)</label><input type="number" min="1" value="${esc(b.seconds||10)}" oninput="model.blocks[${idx}].seconds=this.value;autosave()">`; break;
+    case 'event': body=`<label>Event cue</label><select onchange="model.blocks[${idx}].eventType=this.value;autosave()"><option value="">—</option>${EVENT_TYPES.map(s=>opt(s,s,b.eventType)).join('')}</select>`; break;
+    case 'room': body=`<label>Zone id (dependency, no on-screen effect)</label><input class="mono" value="${esc(b.zoneId)}" placeholder="zone_studio_a" oninput="model.blocks[${idx}].zoneId=this.value;autosave()">`; break;
+    case 'scene': body=`<label>Scene label (organisational comment only)</label><input value="${esc(b.label)}" placeholder="MONOLOGUE" oninput="model.blocks[${idx}].label=this.value;autosave()">`; break;
+  }
+  return `<div class="item">
+    <div class="toprow">
+      <span class="badge">${esc(label)}</span>
+      <span class="lbl">${esc(blockSummary(b))}</span>
+      <div class="ctrls">
+        <button class="btn small" onclick="moveBlock(${idx},-1)">↑</button>
+        <button class="btn small" onclick="moveBlock(${idx},1)">↓</button>
+        <button class="btn small danger" onclick="delBlock(${idx})">✕</button>
+      </div>
+    </div>
+    ${body}
+  </div>`;
+}
+function blockSummary(b){
+  switch(b.type){
+    case 'dialogue': { const a=b.actorId==='__announcer'?'Narrator':(actorById(b.actorId)?.name||'—'); return `${a}: ${(b.text||'').slice(0,40)}`; }
+    case 'action': return `${(actorById(b.actorId)?.name)||'—'} ${(b.message||'').slice(0,40)}`;
+    case 'camera': return `CAM ${b.num||1} ${b.shot||''} ${b.subject||''}`.trim();
+    case 'title': return b.assetId||'(no graphic)';
+    default: return (b.text||b.label||b.name||'').slice(0,44);
+  }
+}
+function addBlock(type){ const b={type}; if(type==='wait')b.seconds=5; if(type==='tech')b.seconds=10; if(type==='camera')b.num=1; model.blocks.push(b); commit(); }
+function delBlock(i){ model.blocks.splice(i,1); commit(); }
+function moveBlock(i,d){ const j=i+d; if(j<0||j>=model.blocks.length)return; const t=model.blocks[i]; model.blocks[i]=model.blocks[j]; model.blocks[j]=t; commit(); }
+
+/* ---------- Screen: Pools (weather/sports) ---------- */
+function scrPools(){
+  const groups = model.meta.type==='weather'?WEATHER_GROUPS:SPORTS_GROUPS;
+  const tokens = model.meta.type==='weather'?WEATHER_TOKENS:SPORTS_TOKENS;
+  const helpId = model.meta.type==='weather'?'weatherpools':'sportspools';
+  const body = groups.map(g=>`
+    <div class="poolgroup"><h3>${esc(g[0])}</h3>
+      ${g[1].map(key=>poolBlock(key)).join('')}
+    </div>`).join('');
+  return head(model.meta.type==='weather'?'Weather Pools':'Sports Pools', helpId)+`
+  <div class="hint">Write interchangeable lines for each situation. The game picks one at random per airing and fills the <span class="mono">{tokens}</span> from live data. You don't need every key — see the ? for the minimum.</div>
+  <div class="card"><label>Insert a token into the focused line</label><div class="chips">${tokens.map(t=>`<button class="tokbtn" onclick="insertToken('${t}')">${esc(t)}</button>`).join('')}</div></div>
+  ${body}
+  ${navFoot()}`;
+}
+let _focusedPoolInput=null;
+function poolBlock(key){
+  const arr=model.pools[key]||[];
+  const n=arr.length;
+  return `<details class="pool" ${n?'open':''}>
+    <summary><span class="mono">${esc(key)}</span> <span class="count">${n} line${n===1?'':'s'}</span> <button class="help" style="margin-left:auto" onclick="event.preventDefault();Help.open('pool:${key}')">?</button></summary>
+    <div class="body">
+      ${arr.map((ln,i)=>`<div class="addbar" style="margin:0 0 6px"><input value="${esc(ln)}" onfocus="_focusedPoolInput=this" oninput="model.pools['${esc(key)}'][${i}]=this.value;autosave()"><button class="btn small danger" style="flex:0 0 auto" onclick="delPoolLine('${esc(key)}',${i})">✕</button></div>`).join('')}
+      <div class="addbar"><input placeholder="Add a line — Enter" onfocus="_focusedPoolInput=this" onkeydown="if(event.key==='Enter'){addPoolLine('${esc(key)}',this.value);this.value=''}"></div>
+    </div>
+  </details>`;
+}
+function addPoolLine(key,v){ v=(v||''); if(!v.trim())return; (model.pools[key]||(model.pools[key]=[])).push(v); commit(); }
+function delPoolLine(key,i){ model.pools[key].splice(i,1); if(!model.pools[key].length) delete model.pools[key]; commit(); }
+function insertToken(tok){
+  const el=_focusedPoolInput;
+  if(!el){ alert('Tap into a line first, then insert a token.'); return; }
+  const s=el.selectionStart??el.value.length, e=el.selectionEnd??el.value.length;
+  el.value=el.value.slice(0,s)+tok+el.value.slice(e); el.focus(); el.selectionStart=el.selectionEnd=s+tok.length;
+  el.dispatchEvent(new Event('input'));
+}
+
+/* ---------- Screen: Credits ---------- */
+function scrCredits(){
+  const c=model.credits;
+  return head('Credits','credits')+`
+  <div class="hint">Optional scrolling end-credits. Lines in ALL CAPS become section headers; everything else is a name/line. Leave blank to skip.</div>
+  <div class="card">
+    <label>Credits text</label>
+    <textarea rows="8" class="mono" oninput="model.credits.text=this.value;autosave()" placeholder="EXECUTIVE PRODUCER
+Dana Vale
+
+WRITTEN BY
+J. Marlowe">${esc(c.text)}</textarea>
+    <label style="margin-top:12px">Crawl duration <span class="muted">(seconds, optional — auto if blank)</span></label>
+    <input type="number" min="1" value="${esc(c.duration)}" placeholder="30" oninput="model.credits.duration=this.value;autosave()">
+  </div>
+  ${navFoot()}`;
+}
+
+/* ---------- Screen: Preview & Export ---------- */
+function scrPreview(){
+  return head('Preview & Export','preview')+`
+  <div class="hint">Press Play to watch your broadcast on a mock TV. Fix any red issues below, then export your .bsm.</div>
+  <div class="card">
+    <div class="tvframe">
+      <div class="tvbar"><span class="live" id="tv-live">● LIVE</span><span class="prog" id="tv-prog"></span><span id="tv-ch"></span></div>
+      <div class="tvscreen">
+        <div id="tv-content"></div>
+        <div class="tv-overlay" id="tv-overlay"></div>
+        <div class="tv-ticker" id="tv-ticker" style="display:none"><span id="tv-ticker-inner"></span></div>
+        <div class="tv-static" id="tv-static">● TECHNICAL DIFFICULTIES</div>
+      </div>
+    </div>
+    <div class="tvctrls">
+      <button class="btn good" id="tv-play" onclick="Preview.play()">▶ Play</button>
+      <button class="btn" onclick="Preview.stop()">■ Stop</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="screen-head"><button class="help" onclick="Help.open('validation')">?</button><h2 style="font-size:1.05rem">Checks</h2></div>
+    <ul class="vlist" id="vlist"></ul>
+  </div>
+  <div class="card">
+    <div class="addbar" style="justify-content:space-between">
+      <button class="btn small" onclick="Preview.toggleSrc()">Show/hide .bsm source</button>
+      <div class="addbar">
+        <button class="btn" onclick="Preview.copy()">Copy .bsm</button>
+        <button class="btn good" id="exportbtn" onclick="Preview.export()">⬇ Export .bsm</button>
+      </div>
+    </div>
+    <pre class="export" id="bsmsrc" style="display:none"></pre>
+  </div>
+  ${navFoot()}`;
+}
+
+/* =========================================================================
+   VALIDATION
+   ========================================================================= */
+function validate(){
+  const issues=[]; const m=model;
+  if(!m.meta.name.trim()) issues.push(['err','Broadcast needs a title (Project & Type screen).']);
+  if((m.meta.type==='live')&&!m.meta.host.trim()) issues.push(['warn','Live broadcasts need a host NPC on stage — set a Host NPC id, or the channel will drop to technical difficulties.']);
+  if(m.meta.type==='weather'&&!m.meta.host.trim()) issues.push(['warn','Weather broadcasts are host-acted — set a Host NPC id.']);
+  if(m.meta.type==='sports'&&!m.meta.announcer.trim()) issues.push(['warn','Sports broadcasts want an announcer name.']);
+
+  // asset id integrity
+  const assetIds=new Set(m.assets.map(a=>a.id));
+  m.assets.forEach(a=>{ if(!a.id.trim()) issues.push(['err','A title card is missing an id.']); if(!(a.content||'').trim()) issues.push(['warn',`Title card "${a.id}" is empty.`]); });
+
+  if(isLinear()){
+    if(!m.blocks.length) issues.push(['warn','Storyboard is empty — nothing will air.']);
+    m.blocks.forEach((b,i)=>{
+      if(b.type==='dialogue'){ if(!b.actorId) issues.push(['err',`Block ${i+1} (dialogue) has no speaker.`]); if(!(b.text||'').trim()) issues.push(['warn',`Block ${i+1} (dialogue) has no line.`]); }
+      if(b.type==='action'&&!b.actorId) issues.push(['err',`Block ${i+1} (action) has no actor.`]);
+      if(b.type==='title'&&b.assetId&&!assetIds.has(b.assetId)) issues.push(['err',`Block ${i+1} references missing title card "${b.assetId}".`]);
+    });
+    // actors used must have an id
+    m.actors.forEach(a=>{ if(!a.id.trim()) issues.push(['err',`Actor "${a.name||'(unnamed)'}" needs an NPC id.`]); });
+  } else {
+    const poolCount=Object.values(m.pools).reduce((n,arr)=>n+arr.filter(x=>x.trim()).length,0);
+    if(!poolCount) issues.push(['err','No pool lines yet — add lines on the Pools screen.']);
+    if(m.meta.type==='sports'&&m.teams.length<2) issues.push(['warn','Add at least 2 teams so the sim can pick a matchup.']);
+  }
+  if(m.meta.titlecard && !assetIds.has(m.meta.titlecard)) issues.push(['err',`Title card "${m.meta.titlecard}" is not defined.`]);
+
+  // round-trip compile
+  let compiled=null;
+  try{
+    compiled=compileBsm(buildBsm(m));
+    (compiled._debug.unresolvedSpeakers||[]).forEach(u=>issues.push(['warn',`Speaker "${u.label}" isn't declared as an actor — it will fall back to ${u.fallback}.`]));
+    (compiled._debug.unknownDirectives||[]).forEach(d=>issues.push(['warn',`Line not understood by the compiler: "${d.slice(0,50)}"`]));
+  }catch(e){ issues.push(['err','Compile failed: '+e.message]); }
+
+  return {issues, compiled};
+}
+
+/* =========================================================================
+   PREVIEW ENGINE  (mirrors client/game/js/panels/tv.js)
+   ========================================================================= */
+const Preview = {
+  _timer:null, _srcShown:false,
+  mount(){ this.stop(); this.refresh(); },
+  refresh(){
+    const {issues}=validate();
+    const hasErr=issues.some(x=>x[0]==='err');
+    const ul=$('#vlist');
+    if(ul){
+      ul.innerHTML = issues.length ? issues.map(x=>`<li class="${x[0]}">${x[0]==='err'?'✖':'⚠'} ${esc(x[1])}</li>`).join('')
+        : '<li class="ok">✓ Looks good — ready to export.</li>';
+    }
+    const btn=$('#exportbtn'); if(btn) btn.disabled=hasErr;
+    if(this._srcShown){ const p=$('#bsmsrc'); if(p){ p.textContent=buildBsm(model); p.style.display='block'; } }
+    const prog=$('#tv-prog'); if(prog) prog.textContent=model.meta.name||'';
+    const live=$('#tv-live'); if(live) live.classList.toggle('on', model.meta.type==='live'||model.meta.type==='weather');
+    const ch=$('#tv-ch'); if(ch) ch.textContent=model.meta.channel?('CH '+model.meta.channel):'';
+  },
+  toggleSrc(){ this._srcShown=!this._srcShown; const p=$('#bsmsrc'); if(!p)return; if(this._srcShown){ p.textContent=buildBsm(model); p.style.display='block'; } else p.style.display='none'; },
+  copy(){ navigator.clipboard?.writeText(buildBsm(model)).then(()=>toast('Copied .bsm to clipboard')); },
+  export(){
+    const {issues}=validate();
+    if(issues.some(x=>x[0]==='err')){ alert('Fix the red issues before exporting.'); return; }
+    const name=(model.meta.name||'broadcast').replace(/[^a-z0-9_-]+/gi,'_').toLowerCase();
+    download(name+'.bsm', buildBsm(model), 'text/plain');
+  },
+  stop(){ if(this._timer){ clearTimeout(this._timer); this._timer=null; } _clearAfterTitleCard=false; const c=$('#tv-content'); if(c){c.innerHTML='';c.classList.remove('center');} const ov=$('#tv-overlay'); if(ov)ov.innerHTML=''; const tk=$('#tv-ticker'); if(tk)tk.style.display='none'; const st=$('#tv-static'); if(st)st.classList.remove('on'); const b=$('#tv-play'); if(b)b.textContent='▶ Play'; },
+  play(){
+    this.stop();
+    const seq = isPool() ? buildSampleAiring(model) : buildLinearSequence();
+    if(!seq.length){ toast('Nothing to play yet.'); return; }
+    const b=$('#tv-play'); if(b)b.textContent='▶ Playing…';
+    let k=0;
+    const stepNext=()=>{
+      if(k>=seq.length){ if(b)b.textContent='▶ Play'; this._timer=null; return; }
+      const msg=seq[k++];
+      const hold=applyPreviewStep(msg);
+      this._timer=setTimeout(stepNext, hold);
+    };
+    stepNext();
+  }
+};
+function toast(t){ /* lightweight */ const d=document.createElement('div'); d.textContent=t; d.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#161b22;border:1px solid #2a333f;color:#e6edf3;padding:10px 16px;border-radius:8px;z-index:200'; document.body.appendChild(d); setTimeout(()=>d.remove(),1600); }
+
+// Walk the compiled graph into a flat list of preview steps (mirrors the runner).
+function buildLinearSequence(){
+  let compiled; try{ compiled=compileBsm(buildBsm(model)); }catch(e){ return []; }
+  const g=compiled.broadcastGraph; const seq=[]; let id=g._start; let guard=0; let anchor='';
+  const nameFor=npcId=>{ const a=model.actors.find(x=>x.id===npcId); if(a) return a.name||speakerLabelFor(a); return (npcId||'').replace(/^npc_/,'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); };
+  const assetFor=gid=>model.assets.find(a=>a.id===gid);
+  while(id && guard++<2000){
+    const n=g.nodes[id]; if(!n)break;
+    switch(n.type){
+      case 'npc_anchor': anchor=nameFor(n.npc_id); break;
+      case 'say':
+        if(n.style==='raw') seq.push({style:'raw', text:`${anchor} says, "${n.text}"`});
+        else if(n.style==='narration') seq.push({style:'narration', text:`"${n.text}"`});
+        else if(n.style==='ambient') seq.push({style:'ambient', text:n.text});
+        break;
+      case 'npc_action': seq.push({style:'action', text:`${anchor} ${n.message}`}); break;
+      case 'title_card': { const a=assetFor(n.graphic_id); if(a) seq.push({style:(a.content||'').trim().startsWith('<svg')?'svg':'ascii_art', text:a.content, hold:3000}); break; }
+      case 'camera_cut': seq.push({style:'camera', text:n.label}); break;
+      case 'overlay':
+        if(n.overlayType==='lower_third') seq.push({overlay:'lower_third', name:n.text, sub:n.subtext});
+        else seq.push({overlay:'text_card', text:n.text||''});
+        break;
+      case 'ticker': seq.push({ticker:n.text}); break;
+      case 'music': seq.push({style:'ambient', text:'♪ '+(n.text||n.song||'music')+' ♪'}); break;
+      case 'tech_difficulties': seq.push({tech:true, hold:Math.min((n.duration||10)*1000,4000)}); break;
+      case 'wait': seq.push({wait:Math.min((n.duration||5)*1000,4000)}); break;
+      case 'event': break;
+    }
+    id=n.next;
+  }
+  // credits
+  if(model.credits.text.trim()) seq.push({style:'credits', text:model.credits.text, hold:(model.credits.duration?Number(model.credits.duration):8)*1000});
+  return seq;
+}
+
+let _clearAfterTitleCard=false;
+function applyPreviewStep(m){
+  const content=$('#tv-content'); const ov=$('#tv-overlay'); const tk=$('#tv-ticker'); const st=$('#tv-static');
+  st.classList.remove('on');
+  if(m.wait){ return m.wait; }
+  if(m.tech){ content.innerHTML=''; st.classList.add('on'); return m.hold||3000; }
+  if(m.ticker!=null){ tk.style.display='block'; const inner=$('#tv-ticker-inner'); inner.textContent=m.ticker; inner.style.animationDuration=Math.max(6, m.ticker.length/6)+'s'; return 1200; }
+  if(m.overlay){
+    if(m.overlay==='lower_third'){ ov.innerHTML=`<div class="tv-lower-third"><div class="n">${esc(m.name)}</div>${m.sub?`<div class="s">${esc(m.sub)}</div>`:''}</div>`; setTimeout(()=>{ov.innerHTML='';},3200); return 3400; }
+    if(m.overlay==='text_card'){ content.innerHTML=''; const d=document.createElement('div'); d.className='tv-text-card'; d.innerHTML=esc(m.text).replace(/\n/g,'<br>'); content.appendChild(d); return 3000; }
+  }
+  const style=m.style;
+  const isTitle = style==='svg'||style==='ascii_art'||style==='credits';
+  if(isTitle || _clearAfterTitleCard){ content.innerHTML=''; content.classList.toggle('center', isTitle); _clearAfterTitleCard=false; }
+  else content.classList.remove('center');
+  if(isTitle) _clearAfterTitleCard=true;
+
+  if(style==='credits'){
+    content.classList.remove('center');
+    content.innerHTML='';
+    const wrap=document.createElement('div'); wrap.className='tv-credits-wrap';
+    const inner=document.createElement('div'); inner.className='tv-credits-inner';
+    for(const line of m.text.split('\n')){ const t=line.trim(); if(!t){ const b=document.createElement('div'); b.className='credits-blank'; inner.appendChild(b); continue; } const isH=t===t.toUpperCase()&&t.length<50&&/[A-Z]/.test(t); const p=document.createElement('p'); p.className=isH?'credits-header':'credits-line'; p.textContent=t; inner.appendChild(p); }
+    wrap.appendChild(inner); content.appendChild(wrap);
+    requestAnimationFrame(()=>{ const ch=content.clientHeight, ih=inner.scrollHeight; inner.style.transform=`translateY(${ch}px)`; inner.offsetHeight; const secs=(m.hold||8000)/1000; inner.style.transition=`transform ${secs}s linear`; inner.style.transform=`translateY(${-ih}px)`; });
+    return m.hold||8000;
+  }
+  if(style==='svg'){ const d=document.createElement('div'); d.className='tv-msg tv-msg-svg'; renderCard(d, m.text); content.appendChild(d); return m.hold||3000; }
+  if(style==='ascii_art'){ const d=document.createElement('div'); d.style.width='100%'; renderCard(d, m.text); content.appendChild(d); return m.hold||3000; }
+
+  // text lines
+  const el=document.createElement('div'); el.className='tv-msg tv-msg-'+(style||'raw');
+  if(style==='raw'){ el.innerHTML=String(m.text).replace(/^(.+?) says, "([\s\S]*)"$/, (x,name,sp)=>`<span class="tv-speaker" style="color:var(--tv-header)">${esc(name)}:</span><br>"${esc(sp)}"`); }
+  else el.textContent=m.text;
+  content.appendChild(el);
+  const spacer=document.createElement('div'); spacer.className='tv-spacer'; content.appendChild(spacer);
+  // hold time scales with length
+  const words=String(m.text||'').split(/\s+/).length;
+  return Math.max(1400, Math.min(words*260, 5000));
+}
+
+/* ---- Sample airing for weather/sports (random line per pool + token fill) ---- */
+function pick(arr){ return arr && arr.length ? arr[Math.floor(Math.random()*arr.length)] : null; }
+function fillTokens(line, dict){ return String(line).replace(/\{(\w+)\}/g, (m,k)=> dict[k]!=null?dict[k]:''); }
+function poolLine(key, dict){ const base=key.split('.')[0]; const arr=model.pools[key]||model.pools[base]; const l=pick(arr); return l?fillTokens(l,dict):null; }
+function hostName(){ const h=model.meta.host; const a=model.actors.find(x=>x.id===h); return a?(a.name||h):(h||'Host').replace(/^npc_/,'').replace(/_/g,' '); }
+function buildSampleAiring(m){
+  const seq=[]; const titleAsset=m.assets.find(a=>a.id===m.meta.titlecard);
+  if(titleAsset) seq.push({style:(titleAsset.content||'').trim().startsWith('<svg')?'svg':'ascii_art', text:titleAsset.content, hold:2600});
+  if(m.meta.type==='weather'){
+    const d={weather:'thunderstorm',temp:'48',feels:'44',wind:'32',windLabel:'Strong',humidity:'72',precip:'80',day:'today',date:'07-11',hiTemp:'55',loTemp:'38',season:'summer',severeCount:'2',worstDay:'Thursday',host:hostName()};
+    const skyKeys=Object.keys(m.pools).filter(k=>k.startsWith('sky.'));
+    const say=t=>{ if(t) seq.push({style:'raw', text:`${hostName()} says, "${t}"`}); };
+    say(poolLine('intro.morning',d)||poolLine('intro',d));
+    say(poolLine('today.lead',d));
+    say(poolLine(pick(skyKeys)||'sky.clear',d));
+    say(poolLine('temp.cold',d)); say(poolLine('wind.strong',d)); say(poolLine('warn.storm',d));
+    say(poolLine('forecast.lead',d));
+    d.day='tomorrow'; say(poolLine('ahead.tomorrow',d)); say(poolLine(pick(skyKeys)||'sky.rain',d));
+    say(poolLine('trend.deteriorating',d)||poolLine('trend.steady',d));
+    say(poolLine('outro',d));
+  } else {
+    const teams=m.teams.length?m.teams:['Rustpile Rats','Coldwater Kingfishers'];
+    const players=m.players.length?m.players:['Rodriguez','Halvorsen','Okafor','Vance','Delgado','Pike'];
+    const away=teams[0], home=teams[1]||teams[0];
+    const d={announcer:m.meta.announcer||'The announcer',away,home,team:away,batter:pick(players),pitcher:pick(players),inning:'3',inningOrd:'3rd',half:'top',outs:'1',rbi:'2',runs:'2',awayScore:'3',homeScore:'2',leader:away,lead:'1',awayRecord:'12-8',homeRecord:'10-10'};
+    const say=t=>{ if(t) seq.push({style:'narration', text:`"${t}"`}); };
+    say(poolLine('intro',d)); say(poolLine('matchup',d));
+    say(poolLine('half.top',d));
+    d.batter=pick(players); say(poolLine('atbat.strikeout',d)||poolLine('atbat.out',d));
+    d.batter=pick(players); say(poolLine('atbat.double',d));
+    d.batter=pick(players); say(poolLine('hr.solo',d)||poolLine('hr',d)); say(poolLine('score.update',d));
+    say(poolLine('recap.half',d));
+    say(poolLine('final',d)); say(poolLine('outro',d));
+  }
+  return seq.filter(s=>s.text!=null && s.text!=='');
+}
+
+/* =========================================================================
+   HELP
+   ========================================================================= */
+const HELP = {
+  overview:['Getting started', `
+    <p>BSM Studio builds <b>.bsm broadcast scripts</b> for Architect MUD — visually, with no syntax to memorize.</p>
+    <h4>The flow</h4>
+    <p>Work left to right through the steps at the top: <b>name & type → title cards → cast → your content → credits → preview & export.</b></p>
+    <h4>You never write the plumbing</h4>
+    <p>START nodes, speaker "anchor" nodes, node ids — all added automatically when you export. You just describe the show.</p>
+    <h4>Saving</h4>
+    <p>Your work auto-saves in this browser. Use <b>Save</b> to download a portable <code>.bsmproj</code> file you can reload later or pass to someone else. <b>Export .bsm</b> produces the final script to import into the game's dev panel.</p>`],
+  type:['Broadcast type', `
+    <p>Four kinds of broadcast, two paradigms:</p>
+    <h4>Live</h4><p>Acted live by NPCs on a studio stage. The host must be physically present in the studio or the channel drops to technical difficulties.</p>
+    <h4>Staged</h4><p>A pre-recorded show that plays like a tape. Speaker names are just labels — nobody needs to be on stage.</p>
+    <h4>Weather</h4><p>Not a fixed script — a <b>library of lines</b> keyed to weather conditions. The game reads the live 7-day forecast and assembles a fresh report every airing.</p>
+    <h4>Sports</h4><p>A library of play-by-play lines. The game <b>simulates a whole game</b> each airing and calls it from your lines. The announcer is just a name — no NPC.</p>`],
+  title:['Broadcast title', `<p>The show's name (<code>@broadcast</code>). Shown on the TV and in listings. Required.</p>`],
+  host:['Host NPC id', `<p>The on-screen anchor for a live/weather broadcast (<code>@host</code>). Use the NPC's game id, e.g. <code>npc_dana_vale</code>. This NPC must be in the channel's studio zone for the show to air live.</p>`],
+  announcer:['Announcer name', `<p>The play-by-play voice for sports (<code>@announcer</code>). This is a plain <b>name string</b>, not an NPC — no character is spawned. Available in your lines as <code>{announcer}</code>.</p>`],
+  assets:['Title cards & graphics', `
+    <p>Full-screen graphics: a show logo, a "BREAKING NEWS" slate, an end card. Each has an <b>id</b> you reference from a Title-card block (linear) or the title-card dropdown (weather/sports).</p>
+    <h4>Two supported formats</h4>
+    <p>BSM only supports <b>ASCII art</b> (monospace text) and <b>inline SVG</b>. Import a PNG and it's automatically wrapped inside an SVG so it still works.</p>`],
+  assetcontent:['Title-card content', `
+    <p>Type ASCII art directly (use the glyph palette for box-drawing), or paste a complete <code>&lt;svg&gt;…&lt;/svg&gt;</code> document. The preview shows exactly how it fills the TV — ASCII auto-scales to fit width; SVG scales to the frame. Recommended SVG canvas: <code>viewBox="0 0 640 360"</code>.</p>
+    <h4>Import SVG / PNG</h4><p>SVG is used as-is. PNG/JPG is base64-embedded into an SVG wrapper (pixel-perfect, larger file).</p>`],
+  titlecard:['Title card before the report', `<p>Weather/sports show one graphic (<code>@titlecard</code>) before each assembled report. Pick one of your title cards, or leave as none.</p>`],
+  actors:['Actors', `
+    <p>Every character who speaks or acts on stage is one <b>actor</b> = one NPC.</p>
+    <h4>Fields</h4><p><b>NPC id</b> — the game id (<code>npc_captain_nguyen</code>). <b>Display name</b> — what shows on screen. <b>Aliases</b> — extra short labels you can use as a speaker.</p>
+    <h4>Off-screen narrator</h4><p>For a disembodied voice, don't add an actor — pick "Narrator (off-screen)" as the speaker in a dialogue block. No NPC is created.</p>`],
+  npcid:['NPC id', `<p>The entity id of the NPC in the game, e.g. <code>npc_captain_nguyen</code>. When imported, the game matches this id to the real NPC (which supplies the real display name). Convention: lowercase, <code>npc_</code> prefix, underscores.</p>`],
+  aliases:['Aliases', `
+    <p>Speaker labels that resolve to this actor. The <b>display name is already an alias</b> automatically, so you only add extras.</p>
+    <p>Example: display name <code>Captain Nguyen</code> plus alias <code>Nguyen</code> lets you use either <code>Captain Nguyen:</code> or <code>Nguyen:</code> as the speaker. In this editor you pick actors from a dropdown, so the correct label is always written for you.</p>`],
+  sportscast:['Cast & teams (sports)', `<p>Sports has no on-stage NPC. Provide an announcer name, a pool of <b>teams</b> (2+), and a pool of <b>players</b> (20+ ideal). Each airing the sim picks two teams and deals lineups from your players.</p>`],
+  teams:['Teams', `<p>One team name per entry. The sim picks two at random (home + away) per airing.</p>`],
+  players:['Players', `<p>One player name per entry. The sim deals nine to each lineup plus a pitcher. Give it plenty (20+) so lineups vary.</p>`],
+  storyboard:['Storyboard', `
+    <p>Your show as an ordered list of <b>blocks</b>, top to bottom. Each block is one beat: a line, an action, a camera cut, a title card, an overlay, and so on.</p>
+    <p>Reorder with ↑ ↓, remove with ✕. You never author START or anchor nodes — the compiler adds them on export.</p>`],
+  blocktypes:['Block types', `
+    <h4>Dialogue</h4><p>A character speaks. Pick the actor (or Narrator). Renders as <code>Name says, "…"</code>.</p>
+    <h4>Narration / Narration block</h4><p>An off-screen voice with nobody on stage. Narration block (SHOT) is for multi-line scene-setting.</p>
+    <h4>Action / Enter</h4><p>A stage direction ("waves to the crowd") / a character entering the frame.</p>
+    <h4>Camera cut</h4><p>Switch cameras with a shot type and optional subject.</p>
+    <h4>Title card / Lower third / Overlay card</h4><p>Full-screen graphic / name-and-title chyron / a text or graphic overlay.</p>
+    <h4>Ticker</h4><p>A news crawl across the bottom.</p>
+    <h4>Music / Wait / Technical difficulties / Event</h4><p>A music cue / a pause / an offline slate / an inert cue marker (applause, fade).</p>
+    <h4>Room / Scene divider</h4><p>Declare a zone dependency (no on-screen effect) / an organisational label (comment only).</p>`],
+  credits:['Credits', `<p>Optional scrolling end-credits. Put role headings in ALL CAPS (they render as section headers) and names on the lines below. Blank lines add spacing. Set a duration or leave blank for an automatic pace.</p>`],
+  weatherpools:['Weather pools', `
+    <p>Write interchangeable lines for each weather <b>situation</b>. At air time the game reads the live forecast and picks one line from each matching pool, filling <code>{tokens}</code> from the real numbers.</p>
+    <h4>Minimum viable file</h4><p>An <code>intro</code>, an <code>outro</code>, and a <code>sky.*</code> pool for each weather type you expect. Everything else is enrichment.</p>
+    <h4>Tokens</h4><p>Click a token chip to insert it into the focused line: temperature <code>{temp}</code>, <code>{feels}</code>, <code>{wind}</code>, <code>{day}</code>, and more.</p>`],
+  sportspools:['Sports pools', `
+    <p>Write the <b>event language</b> — how a strikeout, a home run, a walk-off is called. The sim plays a game and picks a matching line per event, filling <code>{tokens}</code> from the live game state.</p>
+    <h4>Minimum viable file</h4><p><code>intro</code>, <code>half.top</code>, <code>half.bottom</code>, <code>atbat.out</code>, <code>hr</code>, <code>rbi</code>, <code>score.update</code>, <code>final</code>, <code>outro</code>.</p>`],
+  validation:['Checks', `<p><b>Red</b> issues block export — fix them first. <b>Amber</b> are warnings (the file still exports). The list includes a round-trip through the real compiler, so unresolved speakers or misread lines show up here exactly as the game would see them.</p>`],
+  preview:['Preview & export', `<p>Play watches your broadcast on a mock TV that mirrors the in-game set (title cards take the whole screen, credits crawl, tickers scroll, lower-thirds pop in). Weather/sports play a <b>sample airing</b> — one random pick per pool with example values — since the real report is assembled by the game. When the checks are clean, Export downloads your <code>.bsm</code>.</p>`],
+};
+// Per-pool help (assembled from the vocabulary descriptions)
+const POOL_HELP = {
+  'intro':'Sign-on / cold open. Time variants intro.morning/.afternoon/.evening/.night are preferred when they match.',
+  'today.lead':'Hand-off into current conditions.','forecast.lead':'Hand-off into the 7-day walk.','outro':'Sign-off / toss back to studio.',
+  'matchup':'Introduces the two teams.','matchup.records':'Optional records line (uses {awayRecord}/{homeRecord}).','final':'The final-score call.',
+  'half.top':'Away team comes up to bat.','half.bottom':'Home team comes up to bat.',
+  'score.update':'The running-score line, called after any scoring play.','recap.half':'A sparse score checkpoint every third inning.','walkoff':'Home wins with a late go-ahead run.','chatter':'Colour/filler between beats.',
+};
+const Help = {
+  open(id){
+    let title, body;
+    if(id.startsWith('pool:')){ const key=id.slice(5); title=key; body=`<p class="mono">${esc(key)}</p><p>${esc(POOL_HELP[key]||poolGenericHelp(key))}</p>`; }
+    else { const h=HELP[id]; if(!h)return; title=h[0]; body=h[1]; }
+    $('#help-title').textContent=title; $('#help-body').innerHTML=body; $('#help-bg').classList.add('on');
+  },
+  close(){ $('#help-bg').classList.remove('on'); }
+};
+function poolGenericHelp(key){
+  if(key.startsWith('sky.')) return 'Lines describing '+key.slice(4)+' skies. Spoken for today and each forecast day with this condition.';
+  if(key.startsWith('temp.')) return 'Lines for the '+key.slice(5)+' temperature band. The runner maps the real temperature to a band and pulls one.';
+  if(key.startsWith('wind.')) return 'Lines for '+key.slice(5)+' wind. Only voiced when wind is notable.';
+  if(key.startsWith('humid.')) return 'Lines for '+key.slice(6)+' humidity. Only voiced when notable.';
+  if(key.startsWith('warn.')) return 'Severe-weather warning for the '+key.slice(5)+' channel (severity ≥ 0.45).';
+  if(key.startsWith('ahead.')) return 'Transition line spoken before a '+key.slice(6)+' forecast day.';
+  if(key.startsWith('trend.')) return 'Chosen once by comparing the week\'s arc: '+key.slice(6)+'.';
+  if(key.startsWith('adlib')) return 'Optional character flavour sprinkled between beats.';
+  if(key.startsWith('atbat.')) return 'Call for a '+key.slice(6).replace(/_/g,' ')+' at-bat.';
+  if(key.startsWith('hr')) return 'Home-run call'+(key.includes('.')?(' ('+key.split('.')[1]+')'):'')+'.';
+  if(key==='rbi') return 'Non-homer runs-batted-in call.';
+  if(key==='half') return 'Generic half-inning framing fallback.';
+  return 'One interchangeable line pool. The game picks one at random per airing.';
+}
+
+/* =========================================================================
+   BOOT
+   ========================================================================= */
+(function boot(){
+  try{
+    const saved=localStorage.getItem(AUTOSAVE_KEY);
+    if(saved){ const obj=JSON.parse(saved); if(obj&&obj.meta&&(obj.meta.name||obj.blocks?.length||Object.keys(obj.pools||{}).length||obj.actors?.length)){ if(confirm('Resume your previous BSM Studio session?')) model=migrate(obj); } }
+  }catch(e){}
+  render();
+  // render asset previews after first paint when on assets screen
+})();
+// Re-render asset previews whenever the assets screen shows
+const _origRenderScreen=renderScreen;
+renderScreen=function(){ _origRenderScreen(); if(screen==='assets'){ model.assets.forEach((_,i)=>refreshAssetPreview(i)); } };
+</script>
+</body>
+</html>
