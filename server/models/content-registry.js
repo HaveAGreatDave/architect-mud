@@ -198,6 +198,7 @@ export const REGISTRY = [
   { table: 'economy_snapshots', class: 'runtime' },  // economy-ledger plugin — daily circulation totals
   { table: 'zone_control', class: 'runtime' },
   { table: 'org_assets', class: 'runtime' },          // player-crew territory assets (extractor/turret)
+  { table: 'org_ventures', class: 'runtime' },        // player-crew Corporate Assets (owned operating businesses)
   { table: 'scavenging_zone_stock', class: 'runtime' },
   { table: 'scavenging_zone_state', class: 'runtime' },
   { table: 'security_clips', class: 'runtime' },

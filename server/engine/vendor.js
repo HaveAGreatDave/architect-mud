@@ -156,7 +156,7 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
 
   // Neutral purchase seam — systems that care about *what* was bought (e.g. the
   // surveillance heat model watching bulk chemical buys) listen here and decide.
-  emit('vendor.purchase', { player: { id: player.id, handle: player.handle }, npcId: npc?.id, itemId, tags: item.tags || {}, quantity, zoneId: player.current_zone });
+  emit('vendor.purchase', { player: { id: player.id, handle: player.handle }, npcId: npc?.id, itemId, tags: item.tags || {}, quantity, price, zoneId: player.current_zone });
   // A conspicuous spend is street news.
   if (price >= 500) emit('gossip.bigBuy', { player: { id: player.id, handle: player.handle }, itemName: item.name, price, zoneId: player.current_zone });
 

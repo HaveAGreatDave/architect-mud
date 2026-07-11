@@ -22,6 +22,7 @@ const world = {
   orgMembers: new Map(), // playerId -> { org_id, rank_id, permissions }  (one corp per player)
   zoneControl: new Map(),// zoneId -> zone_control row (territory: controller + influence grip)
   orgAssets: new Map(),  // zoneId -> [org_assets rows] (corp investment: extractor/turret)
+  orgVentures: new Map(),// zoneId -> org_ventures row (Corporate Assets: corp-owned operating businesses)
   maps: new Map(),       // mapId -> maps row (parent_zone_id links an interior to its overworld tile)
 };
 
@@ -65,6 +66,7 @@ export async function initWorld() {
   await loadOrgs();
   await loadZoneControl();
   await loadOrgAssets();
+  await loadOrgVentures();
   await loadMaps();
   await loadPlayerCorpses();
   console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments, ${world.doors.size} doors, ${world.orgs.size} orgs`);
@@ -507,6 +509,25 @@ export async function reloadZoneAssets(zoneId) {
 }
 export function getZoneAssets(zoneId) { return world.orgAssets.get(zoneId) || []; }
 export function getOrgAssets(orgId) { return [...world.orgAssets.values()].flat().filter(a => a.org_id === orgId); }
+
+// ─── Corp ventures (Corporate Assets) ────────────────────────────────────────
+// world.orgVentures: zoneId -> org_ventures row (one owned operating business per
+// interior zone). Corp commands write DB then reloadVenture(zoneId). DB stays SoT.
+async function loadOrgVentures() {
+  world.orgVentures.clear();
+  const { rows } = await query('SELECT * FROM org_ventures').catch(() => ({ rows: [] }));
+  for (const r of rows) world.orgVentures.set(r.zone_id, r);
+}
+export async function reloadVenture(zoneId) {
+  const { rows } = await query('SELECT * FROM org_ventures WHERE zone_id=$1', [zoneId]);
+  if (rows.length) world.orgVentures.set(zoneId, rows[0]); else world.orgVentures.delete(zoneId);
+  return rows[0] || null;
+}
+export function getVenture(zoneId) { return world.orgVentures.get(zoneId) || null; }
+export function getAllVentures() { return [...world.orgVentures.values()]; }
+export function getOrgVentures(orgId) { return [...world.orgVentures.values()].filter(v => v.org_id === orgId); }
+export function getVentureByVendor(npcId) { return [...world.orgVentures.values()].find(v => v.vendor_id === npcId) || null; }
+export function removeVentureFromCache(zoneId) { world.orgVentures.delete(zoneId); }
 
 export function getZone(id) { return world.zones.get(id) || null; }
 

@@ -20,6 +20,10 @@ import { releaseCorpHq } from '../../server/engine/apartments.js';
 import { sendToChatChannel } from '../../server/engine/channels.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { schedule } from '../../server/engine/scheduler.js';
+import { on } from '../../server/engine/events.js';
+import {
+  cmdVentureAsset, handleVenturePurchase, runVentureTick, ventureConsoleBlock, ventureCount,
+} from './ventures.js';
 
 const FOUND_FEE = 1000;            // credits to found a corp
 const HQ_FEE = 500;                // credits (from treasury) to claim an HQ
@@ -183,7 +187,7 @@ async function buildConsolePayload(player) {
   const income = zones.reduce((s, z) => s + (z.base_income || 0) + zoneExtractorIncome(z.zone_id), 0);
   const upkeep = zones.reduce((s, z) => s + (z.base_upkeep || 0), 0);
   const tier = tierCap(org.tier);
-  const assetCount = getOrgAssets(m.org_id).length;
+  const assetCount = getOrgAssets(m.org_id).length + ventureCount(m.org_id);
 
   return {
     type: 'corp_console',
@@ -195,6 +199,7 @@ async function buildConsolePayload(player) {
     members,
     relations,
     territory,
+    assets: ventureConsoleBlock(m.org_id),
     directives: [],
     architectHeat: architectHeat(org, zones.length, assetCount),
   };
@@ -208,7 +213,7 @@ async function pushConsole(orgId, broadcast) {
     if (getPlayerMembership(p.id)?.org_id !== orgId) continue;
     const payload = await buildConsolePayload(p);
     if (payload.type === 'corp_console') {
-      broadcast(null, { type: 'corp_console_patch', treasury: payload.treasury, architectHeat: payload.architectHeat, members: payload.members, territory: payload.territory, tierInfo: payload.tierInfo }, null, p.id);
+      broadcast(null, { type: 'corp_console_patch', treasury: payload.treasury, architectHeat: payload.architectHeat, members: payload.members, territory: payload.territory, tierInfo: payload.tierInfo, assets: payload.assets }, null, p.id);
     }
   }
 }
@@ -882,6 +887,7 @@ const USAGE = [
   'corp reinforce [pts]      — spend treasury to strengthen your grip here',
   'corp invest               — raise your corp tier (member cap · territory slots · assets)',
   'corp build extractor|turret — build/upgrade an asset on a zone you hold',
+  'corp asset [list|claim]   — your corp-owned businesses; claim the one you stand in',
   'corp say <message>        — talk on your private corp channel',
   'corp disband              — dissolve the corp (owner only)',
 ].join('\n');
@@ -927,6 +933,8 @@ async function cmdCorp(args, raw, player, broadcast) {
     case 'fortify':     return cmdReinforce(player, rest[0], broadcast);
     case 'invest':      return cmdInvest(player, broadcast);
     case 'build':       return cmdBuild(player, rest[0], broadcast);
+    case 'asset':
+    case 'business':    return cmdVentureAsset(player, rest, broadcast, pushConsole);
     case 'say':
     case 'chat':        return cmdSay(player, rawRest.join(' '), broadcast);
     case 'disband':     return cmdDisband(player);
@@ -999,5 +1007,11 @@ export { buildConsolePayload, cmdCorpMap };
 
 // Settle territory income/upkeep + grip drift once a day.
 schedule('24h', () => runTerritoryTick().catch(e => console.error('[corps] territory tick error:', e.message)));
+
+// ── Corporate Assets (ventures.js) ──────────────────────────────────────────
+// Live: a cut of every sale at an owned business's storefront vendor.
+on('vendor.purchase', (e) => handleVenturePurchase(e).catch(err => console.error('[corps] venture purchase error:', err.message)));
+// Daily: settle each business's floor − upkeep, dormancy, and influence projection.
+schedule('24h', () => runVentureTick().catch(e => console.error('[corps] venture tick error:', e.message)));
 
 console.log('[corps] Plugin loaded.');

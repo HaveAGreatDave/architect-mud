@@ -3,8 +3,24 @@
 // `corp_poster` furniture and returns undefined for everything else, so the
 // posters plugin's own hook still runs (hook contract: last non-undefined wins).
 import { _corpPosterPitch, colorDistance, MIN_COLOR_DISTANCE } from './index.js';
+import { CORP_ASSET_TYPES, ventureConsoleBlock } from './ventures.js';
 
 export default async function regress({ run, check }) {
+  // ── Corporate Assets (ventures.js) — registry + console block ──────────────
+  // The type registry is the "building framework"; every type must be well-formed
+  // so the tick/console can trust its fields without guards.
+  const R = CORP_ASSET_TYPES.restaurant;
+  check('ventures: restaurant type exists', !!R, R);
+  check('ventures: restaurant has a positive passive floor', R?.passiveFloor > 0, R?.passiveFloor);
+  check('ventures: restaurant active share is a sane fraction', R?.activeShare > 0 && R?.activeShare <= 1, R?.activeShare);
+  check('ventures: restaurant upkeep is non-negative', (R?.upkeep ?? -1) >= 0, R?.upkeep);
+  check('ventures: all four types registered', ['restaurant', 'warehouse', 'security_office', 'front_office'].every(k => CORP_ASSET_TYPES[k]));
+  check('ventures: every type has a label + numeric fields', Object.values(CORP_ASSET_TYPES).every(t =>
+    typeof t.label === 'string' && typeof t.passiveFloor === 'number' && typeof t.upkeep === 'number' && typeof t.influenceProjection === 'number'));
+  // The console block is safe for an org that owns nothing (empty array, never throws).
+  const emptyBlock = ventureConsoleBlock('org-that-does-not-exist');
+  check('ventures: console block for an assetless org is an empty array', Array.isArray(emptyBlock) && emptyBlock.length === 0);
+
   // `corp territory` — the big-map overlay layer: a corp-free control projection
   // the client merges onto the engine `map` tiles. Returns a control map keyed by
   // zone id + an org legend, and opens nothing (unlike `corp map`).

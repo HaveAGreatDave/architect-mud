@@ -1409,6 +1409,25 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_org_assets_org ON org_assets(org_id);
   CREATE INDEX IF NOT EXISTS idx_org_assets_zone ON org_assets(zone_id);
 
+  -- Corporate Assets (corps plugin): org-owned, enterable operating businesses
+  -- (restaurant etc.). One venture per interior zone. Distinct from org_assets
+  -- (the invisible turret/extractor zone modifiers). Ownership + economics live
+  -- here; a self-running Phase-A business needs no staff (staff_count = 0).
+  CREATE TABLE IF NOT EXISTS org_ventures (
+    id           TEXT PRIMARY KEY,
+    org_id       TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    zone_id      TEXT NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+    asset_type   TEXT NOT NULL,                 -- key into CORP_ASSET_TYPES (ventures.js)
+    level        INTEGER NOT NULL DEFAULT 1,
+    dormant      INTEGER NOT NULL DEFAULT 0,
+    staff_count  INTEGER NOT NULL DEFAULT 0,    -- 0 until Phase B (staffing)
+    blueprint_id TEXT,                          -- NULL if claimed (vs built)
+    vendor_id    TEXT,                          -- storefront vendor NPC id, NULL until wired
+    acquired_at  BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    UNIQUE (zone_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_org_ventures_org ON org_ventures(org_id);
+
   -- ── Jail system (jail plugin) ──────────────────────────────────────────────
   -- Runtime tables: schema is exported, rows are not. Written by plugins/jail.
   -- A jailed player's legal gear is snapshotted into held_items (JSONB array of
