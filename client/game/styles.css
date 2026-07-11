@@ -1828,16 +1828,16 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 #minimap-grid-hud,
 #minimap-grid-mob {
 	display: grid;
-	/* 9×9 room window (R=4 in minimap.js) ⇒ 17 tracks: 9 rooms + 8 gaps. */
-	grid-template-columns: repeat(8, var(--mm-room) var(--mm-gap)) var(--mm-room);
-	grid-template-rows: repeat(8, var(--mm-room) var(--mm-gap)) var(--mm-room);
+	/* Edge-to-edge 1:1: a 9×9 tile window (R=4 in minimap.js), tiles touch — roads and
+	   buildings render their own icon footprint, no connector/gap tracks. */
+	grid-template-columns: repeat(9, var(--mm-room));
+	grid-template-rows: repeat(9, var(--mm-room));
 	justify-content: center;
 	align-content: center;
 	line-height: 1;
 }
 #minimap-grid {
-	--mm-room: 1.3em;
-	--mm-gap: 0.55em;
+	--mm-room: 1.7em;
 	font-size: 10px;
 }
 .mm-c {
@@ -2284,7 +2284,7 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 .tr-rd  { fill: none; stroke: #ffd23f; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
 .tr-hub { fill: #ffd23f; }
 /* The same route echoed on the sidebar/HUD/mobile minimaps. */
-.mm-c.mm-trace { position: relative; }
+.mm-c.mm-trace { position: relative; box-shadow: inset 0 0 0 2px rgba(255,207,74,0.9); z-index: 1; }
 /* Overlay glyph / abbrev ON TOP of the road. Icons ride bare (keep their POI
    colour); letters are white with a thin black outline for legibility. */
 .av-ov { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2; pointer-events: none; }
@@ -4028,10 +4028,9 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	flex-shrink: 0;
 }
 
-/* Compact HUD minimap — same room+gap grid, smaller tracks. */
+/* Compact HUD minimap — same edge-to-edge grid, smaller tiles. */
 #minimap-grid-hud {
-	--mm-room: 1.05em;
-	--mm-gap: 0.42em;
+	--mm-room: 1.4em;
 	font-size: 8px;
 	font-family: var(--font-mono);
 	background: var(--bg);
@@ -5085,8 +5084,7 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 }
 
 #minimap-grid-mob {
-	--mm-room: 1.4em;
-	--mm-gap: 0.6em;
+	--mm-room: 1.75em;
 	font-size: 11px;
 	font-family: var(--font-mono);
 }

@@ -279,72 +279,43 @@ export function renderMinimap(nodes, direction) {
     }
   }
 
-  // A 9×9 window (x,y ∈ −R..R) expands to a (2·(2R+1)−1)² cell grid: even indices
-  // hold rooms, odd indices hold the connector *between* two rooms. A gap with a
-  // connector = a walkable exit; an empty gap = a wall. This is the readability
-  // fix — the same room+gap connector model openMapPopup() uses for the full map.
-  // (R=2's 5×5 read as a board game; 9×9 shows the block you're in AND the next
-  // one — pair with the server BFS depth in getMinimapData.)
+  // Edge-to-edge 1:1: a 9×9 tile window (x,y ∈ −R..R), one cell per tile — tiles
+  // touch and roads/buildings render their own icon_svg footprint, so there are no
+  // connector/gap cells (mirrors the full-map popup). Gateways: a foreign tile one
+  // step across a district boundary from an in-district tile still renders as an edge
+  // marker, so crossing between neighborhoods reads.
   const R = 4;
-  const gCols = (2 * R + 1) * 2 - 1, gRows = gCols;
+  const gCols = 2 * R + 1, gRows = gCols;
   const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
   const inWin = (x, y) => x >= -R && x <= R && y >= -R && y <= R;
-
   for (const [id, [x, y]] of coords) {
     if (!inWin(x, y)) continue;
-    cell[(y + R) * 2][(x + R) * 2] = { kind: 'room', id };
-  }
-  // Draw a connector into the gap between a room and each neighbour it has a real
-  // exit to (positional dx/dy off the coord map, exactly like the full map). Non-
-  // cardinal exits (up/down/in/out) target tiles off this coord map and are skipped.
-  for (const [id, [x, y]] of coords) {
-    if (!inWin(x, y)) continue;
+    cell[y + R][x + R] = id;
     const node = byId.get(id);
-    if (!node) continue;
-    const gx = (x + R) * 2, gy = (y + R) * 2;
+    if (!node || !inDist(node)) continue;
     for (const targetId of Object.values(node.exits || {})) {
       if (!coords.has(targetId)) continue;
       const [tx, ty] = coords.get(targetId);
-      const dx = tx - x, dy = ty - y;
-      if (Math.abs(dx) > 1 || Math.abs(dy) > 1 || (dx === 0 && dy === 0)) continue;
-      const cx = gx + dx, cy = gy + dy;
-      if (cx < 0 || cx >= gCols || cy < 0 || cy >= gRows) continue;
-      if (cell[cy][cx]?.kind === 'room') continue;
-      const ch = (dx !== 0 && dy === 0) ? '─' : (dx === 0 && dy !== 0) ? '│' : (dx === dy ? '╲' : '╱');
-      // A major road (flags.artery): both endpoints must share a named artery,
-      // so a cross-street into an unrelated side street doesn't light up. Feeds
-      // Avenue View, which reads these to place ||/=/+ artery glyphs.
+      if (Math.abs(tx - x) > 1 || Math.abs(ty - y) > 1) continue;
       const tnode = byId.get(targetId);
-      // District clip: a connector between two tiles that are BOTH in another
-      // district is off your map — don't draw it. A connector with exactly one
-      // foot in your district is a door out: keep it, and mark the far (foreign)
-      // tile as a gateway so it renders as an edge marker.
-      const nIn = inDist(node), tIn = inDist(tnode);
-      if (!nIn && !tIn) continue;
-      if (nIn !== tIn) gateways.add(nIn ? targetId : id);
-      const artery = !!(node.artery && tnode?.artery && node.artery.some(s => tnode.artery.includes(s)));
-      // Dim the connector if either tile it joins is out of reach (BFS depth).
-      const dim = node.reachable === false || tnode?.reachable === false;
-      // Boundary: the connector spans two different districts — drawn faded so
-      // neighborhood edges read as edges, not seamless grid.
-      const boundary = !!(node.district?.key && tnode?.district?.key && node.district.key !== tnode.district.key);
-      cell[cy][cx] = { kind: 'link', ch, artery, dim, boundary };
+      if (tnode && !inDist(tnode)) gateways.add(targetId);
     }
   }
 
-  // A named zone-icon SVG (flags.icon → assets/zone-icons/<name>.svg) wins over the
-  // marker glyph on a tile. Drawn as a CSS mask so the icon takes the tile's text
-  // colour (an <img> SVG can't inherit currentColor; a mask tinted by it can).
+  // A named zone-icon SVG (icon_svg → assets/zone-icons/<name>.svg) is the tile's
+  // footprint, drawn as a CSS mask so it takes the tile's text colour. Avenue View
+  // swaps footprints for each tile's street/place abbreviation (a label overlay).
   const iconSvg = (name) => /^[a-z0-9_-]+$/i.test(name || '')
     ? `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${name}.svg)"></span>` : '';
-  const symFor = (node) => iconSvg(node.icon_svg) || (node.enterable
-    ? '▣ ' // pass-through building tile: a door you enter, not a room you stand in
-    : node.marker
-      ? (node.marker.length === 1 ? node.marker + ' ' : node.marker.slice(0, 2))
-      : (node.sanctuary ? '◆ ' : '○ '));
-  // Hover tooltip: zone name, its district, street name(s), plus any
-  // building(s) on the tile. Escaped so a name with quotes can't break out of
-  // the title attribute.
+  const symFor = (node) => {
+    if (mmAvenueView) return streetAbbrev(node.name);
+    return iconSvg(node.icon_svg) || (node.enterable
+      ? '▣ ' // pass-through building tile: a door you enter, not a room you stand in
+      : node.marker
+        ? (node.marker.length === 1 ? node.marker + ' ' : node.marker.slice(0, 2))
+        : (node.sanctuary ? '◆ ' : '○ '));
+  };
+  // Hover tooltip: zone name, its district, street name(s), plus any building(s).
   const titleFor = (node) => {
     const parts = [node.enterable && node.building_name ? `${node.building_name} — enter` : node.name];
     if (node.district?.name) parts.push(node.district.name);
@@ -353,51 +324,22 @@ export function renderMinimap(nodes, direction) {
     return escapeHtml(parts.join('\n'));
   };
 
-  // In Avenue View the minimap draws the same SVG roads as the full map and
-  // reflects the full map's saved overlay setting (mapState.avenueOverlay).
-  const isArteryLink = (link) => link?.kind === 'link' && link.artery;
-  const overlay = mapState.avenueOverlay;
-
-  // Route trace (shared with the full map): draw the yellow route over whatever slice
-  // of it falls inside this 9×9 window. Same coords model as the cell grid above —
-  // room at (y+R)*2,(x+R)*2 — so the overlay lines up with the tiles.
-  const tracePath = effectiveTracePath(current.id) || [];
-  const traceSet = new Set(tracePath);
-  const { gaps: traceGaps, dirs: traceDirs } = traceOverlay(tracePath, (id) => {
-    if (!coords.has(id)) return null;
-    const [x, y] = coords.get(id);
-    return [(x + R) * 2, (y + R) * 2];
-  });
+  // Route trace (shared with the full map): the tiles on the plotted route inside
+  // this window are highlighted (mm-trace), matching the full map's tile highlight.
+  const traceSet = new Set(effectiveTracePath(current.id) || []);
 
   let html = '';
   for (let r = 0; r < gRows; r++) {
     for (let c = 0; c < gCols; c++) {
-      const it = cell[r][c];
-      if (!it) { html += `<span class="mm-c mm-void"></span>`; continue; }
-      if (it.kind === 'link') {
-        const traceSvg = traceGaps.has(`${r},${c}`) ? traceGapSvg(traceGaps.get(`${r},${c}`)) : '';
-        if (mmAvenueView) {
-          if (it.artery && (it.ch === '─' || it.ch === '│'))
-            html += `<span class="mm-c av-gap" style="position:relative">${avGapSvg(it.ch === '─' ? 'h' : 'v')}${traceSvg}</span>`;
-          else html += traceSvg ? `<span class="mm-c mm-void" style="position:relative">${traceSvg}</span>` : `<span class="mm-c mm-void"></span>`;
-        } else {
-          // Boundary divider runs perpendicular to the connector: an east-west
-          // connector (─) gets a vertical divider, a north-south one (│) a horizontal.
-          const bd = it.boundary ? (' mm-boundary' + (it.ch === '─' ? ' mm-boundary-v' : it.ch === '│' ? ' mm-boundary-h' : '')) : '';
-          const dc = (it.dim ? ' mm-dim' : '') + bd;
-          html += traceSvg ? `<span class="mm-c mm-link${dc}" style="position:relative">${it.ch}${traceSvg}</span>` : `<span class="mm-c mm-link${dc}">${it.ch}</span>`;
-        }
-        continue;
-      }
-      const node = byId.get(it.id);
+      const id = cell[r][c];
+      if (!id) { html += `<span class="mm-c mm-void"></span>`; continue; }
+      const node = byId.get(id);
       if (!node) { html += `<span class="mm-c mm-void"></span>`; continue; }
-      const trDirs = traceSet.has(it.id) ? traceDirs.get(it.id) : null;
-      const traceRoad = trDirs ? traceRoadSvg([...trDirs]) : '';
-      if (node.is_current) { html += `<span class="mm-c mm-room mm-current${trDirs ? ' mm-trace' : ''}" title="${titleFor(node)}">${traceRoad}</span>`; continue; }
-      // Foreign tile: only the ones one step across a boundary survive, as a
-      // gateway edge marker (the district's initials in its colour, on a dashed
-      // hollow cell that reads as "another place lies this way"). Deeper foreign
-      // tiles are dropped to void so the sidebar stays scoped to your district.
+      const traceCls = traceSet.has(id) ? ' mm-trace' : '';
+      if (node.is_current) { html += `<span class="mm-c mm-room mm-current${traceCls}" title="${titleFor(node)}"></span>`; continue; }
+      // Foreign tile: only the ones one step across a boundary survive, as a gateway
+      // edge marker (the district's initials in its colour). Deeper foreign tiles are
+      // dropped to void so the sidebar stays scoped to your district.
       if (!inDist(node)) {
         if (gateways.has(node.id)) {
           const g = node.district || {};
@@ -409,42 +351,25 @@ export function renderMinimap(nodes, direction) {
         }
         continue;
       }
-      // Tile keeps its danger-tinted / custom fill in both modes; Avenue View just
-      // draws the SVG road + reflected overlay ON TOP of the coloured tile.
+      // Authored bg wins; otherwise a faint district tint so the sidebar reads as
+      // coloured neighborhood regions, not a uniform code-grid.
       const styles = [];
-      // Authored bg wins; otherwise fall back to a faint district tint so the
-      // sidebar reads as coloured neighborhood regions, not a uniform code-grid.
       if (node.bg_color) styles.push(`background:${node.bg_color}`);
       else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); styles.push(`background:rgba(${dr},${dg},${db},0.20)`); }
       const textColor = node.color || (node.bg_color ? luminanceTextColor(node.bg_color) : null);
       if (textColor) styles.push(`color:${textColor}`);
       const styled = (node.bg_color || node.color) ? ' mm-styled' : '';
-      let sym, extra = '';
-      if (mmAvenueView) {
-        const dirs = [];
-        if (isArteryLink(cell[r - 1]?.[c])) dirs.push('n');
-        if (isArteryLink(cell[r + 1]?.[c])) dirs.push('s');
-        if (isArteryLink(cell[r]?.[c + 1])) dirs.push('e');
-        if (isArteryLink(cell[r]?.[c - 1])) dirs.push('w');
-        sym = (dirs.length ? avRoadSvg(dirs) : '') + avOverlay(node, overlay);
-        extra = ' mm-avenue-cell';
-        styles.push('position:relative');
-      } else {
-        sym = symFor(node);
-      }
-      if (trDirs && !extra) styles.push('position:relative'); // room needs relative for the overlay
       const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
       const unreach = node.reachable === false ? ' mm-unreachable' : '';
-      // Enterable buildings are doors, not rooms — never danger-tinted, and
-      // clickable (action-link + data-dest rides main.js's delegated handler,
-      // sending `go <building name>`).
+      // Enterable buildings are doors, not rooms — clickable (action-link + data-dest
+      // rides main.js's delegated handler, sending `go <building name>`).
       const dangerCls = node.enterable ? 'safe' : (node.danger || 'safe');
       const enterCls = node.enterable ? ' mm-building action-link' : '';
       const enterAttrs = node.enterable && node.building_name
         ? ` data-action="go" data-target="${escapeHtml(node.building_name)}" data-dest="${escapeHtml(node.building_name)}"`
         : '';
-      const cls = `mm-c mm-room danger-${dangerCls}${styled}${extra}${unreach}${enterCls}${trDirs ? ' mm-trace' : ''}`;
-      html += `<span class="${cls}"${styleAttr}${enterAttrs} title="${titleFor(node)}">${sym}${traceRoad}</span>`;
+      const cls = `mm-c mm-room danger-${dangerCls}${styled}${unreach}${enterCls}${traceCls}`;
+      html += `<span class="${cls}"${styleAttr}${enterAttrs} title="${titleFor(node)}">${symFor(node)}</span>`;
     }
   }
   for (const id of ['minimap-grid', 'minimap-grid-mob', 'minimap-grid-hud']) {
@@ -579,40 +504,6 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
 }
 
-// Avenue-View road tile as SVG: arms reach toward each connected artery side, so
-// straight / corner / T / crossroads / dead-end stub / lone node all emerge from
-// which dirs are present. Roadway band (av-rd) + centre hub + dashed centreline
-// (av-cl) read unmistakably as a road even under an overlay. viewBox is the room
-// cell's 22×16 (centre 11,8); arms reach the edges to meet the gap road bands.
-const AV_END = { n: '11 0', s: '11 16', e: '22 8', w: '0 8' };
-function avRoadSvg(dirs) {
-  let d = '';
-  for (const dir of dirs) d += `M11 8L${AV_END[dir]}`;
-  return `<svg class="av-svg" viewBox="0 0 22 16" preserveAspectRatio="none" aria-hidden="true">`
-    + (d ? `<path class="av-rd" d="${d}"/>` : '')
-    + `<circle class="av-hub" cx="11" cy="8" r="4.4"/>`
-    + (d ? `<path class="av-cl" d="${d}"/>` : '')
-    + `</svg>`;
-}
-// Route trace: a yellow "avenue" laid down over the shortest walkable path from the
-// current tile to a clicked one. Same road geometry as the avenue view (arms toward
-// the connected sides + gap bands between tiles), recoloured yellow and drawn on top
-// of whatever view is active, so it reads as "follow this road to get there".
-function traceRoadSvg(dirs) {
-  let d = '';
-  for (const dir of dirs) d += `M11 8L${AV_END[dir]}`;
-  return `<svg class="tr-svg" viewBox="0 0 22 16" preserveAspectRatio="none" aria-hidden="true">`
-    + (d ? `<path class="tr-rd" d="${d}"/>` : '')
-    + `<circle class="tr-hub" cx="11" cy="8" r="3.4"/>`
-    + `</svg>`;
-}
-function traceGapSvg(orient) {
-  const vb = orient === 'h' ? '0 0 11 16' : '0 0 22 16';
-  const d = orient === 'h' ? 'M0 8L11 8' : 'M11 0L11 16';
-  return `<svg class="tr-svg" viewBox="${vb}" preserveAspectRatio="none" aria-hidden="true">`
-    + `<path class="tr-rd" d="${d}"/></svg>`;
-}
-
 // Shortest walkable route between two tiles over the currently-shown tiles, stepping
 // only through orthogonal grid-adjacent exits (so every leg can be drawn as a road
 // band). Returns an ordered array of tile ids from `fromId` to `toId`, or null if
@@ -669,49 +560,6 @@ export function routeBetween(fromId, toId, tiles) {
 // tablet map can highlight the same route the sidebar minimap + full map show.
 export function getTracePath() { return mapState.tracePath; }
 
-// Turn an ordered path of tile ids into draw instructions for a room/gap grid (even
-// index = room, odd = the connector between two rooms). `coordOf(id)` returns the
-// room cell's [gx,gy] or null if that tile isn't on this grid. Returns which gap cells
-// the route crosses (→ 'h'/'v' band) and which arm directions each room tile needs
-// (toward its path neighbours). Shared by the full map and the sidebar minimap.
-function traceOverlay(path, coordOf) {
-  const gaps = new Map();  // "gy,gx" -> 'h'|'v'
-  const dirs = new Map();  // id -> Set<'n'|'s'|'e'|'w'>
-  for (let i = 0; i + 1 < path.length; i++) {
-    const ca = coordOf(path[i]), cb = coordOf(path[i + 1]);
-    if (!ca || !cb) continue;
-    const dgx = cb[0] - ca[0], dgy = cb[1] - ca[1];
-    if ((Math.abs(dgx) === 2) === (Math.abs(dgy) === 2)) continue; // need exactly one axis ±2
-    const dirA = dgx === 2 ? 'e' : dgx === -2 ? 'w' : dgy === 2 ? 's' : 'n';
-    const dirB = dgx === 2 ? 'w' : dgx === -2 ? 'e' : dgy === 2 ? 'n' : 's';
-    if (!dirs.has(path[i])) dirs.set(path[i], new Set());
-    if (!dirs.has(path[i + 1])) dirs.set(path[i + 1], new Set());
-    dirs.get(path[i]).add(dirA);
-    dirs.get(path[i + 1]).add(dirB);
-    gaps.set(`${ca[1] + dgy / 2},${ca[0] + dgx / 2}`, dgx !== 0 ? 'h' : 'v');
-  }
-  return { gaps, dirs };
-}
-
-// Gap-cell road band matching the room roadway, so an avenue reads continuously
-// across the space between two road tiles. 'h' = horizontal gap, 'v' = vertical.
-function avGapSvg(orient) {
-  const vb = orient === 'h' ? '0 0 11 16' : '0 0 22 16';
-  const d = orient === 'h' ? 'M0 8L11 8' : 'M11 0L11 16';
-  return `<svg class="av-svg" viewBox="${vb}" preserveAspectRatio="none" aria-hidden="true">`
-    + `<path class="av-rd" d="${d}"/><path class="av-cl" d="${d}"/></svg>`;
-}
-// Avenue overlay (semi-transparent, rides on top of the road): a minimap icon
-// (POI glyph or the tile marker) or the 2-letter abbreviation. `o` may be a
-// full-map tile (icon/poi/marker/name) or a minimap node (marker/name only).
-function avOverlay(o, mode) {
-  if (mode === 'icons') {
-    const g = o.icon || (o.marker ? (o.marker.length === 1 ? o.marker : o.marker.slice(0, 2)) : '');
-    return g ? `<span class="av-ov av-ov-icon${o.poi ? ` map-poi map-poi-${o.poi}` : ''}">${escapeHtml(g)}</span>` : '';
-  }
-  if (mode === 'labels') return `<span class="av-ov av-ov-label">${escapeHtml(streetAbbrev(o.name))}</span>`;
-  return '';
-}
 // Reflect mapState.avenueOverlay onto the 3-stop slider (active segment + the
 // data-ov attribute that slides the highlight).
 function syncOverlaySlider() {
