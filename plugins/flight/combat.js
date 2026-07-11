@@ -111,6 +111,12 @@ async function cmdAirFire(args, raw, player) {
   const off = Math.abs(((bearingDeg(a.grid_x, a.grid_y, b.grid_x, b.grid_y) - toDeg(a.heading) + 540) % 360) - 180);
   if (off > GUN_CONE_GATE) return { type: 'noop' };
   live.lastGun = nowMs;
+  // Mark the guns hot so nearby pilots' cockpits render this craft's tracers. Push the
+  // fresh picture on the FIRST burst of a squeeze (transition into firing); the window
+  // covers the burst gap so we don't re-relay every round.
+  const wasFiring = (live.firingUntil || 0) > nowMs;
+  live.firingUntil = nowMs + 500;
+  if (!wasFiring) relayContacts(live);
 
   // Opposed: a jinking defender (piloting check vs the shooter's skill), an active
   // evade break, and an armoured tub all cut the damage the burst lands.
@@ -385,9 +391,13 @@ async function cmdFlares(args, raw, player) {
 
 async function cmdStrafe(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
-  if (!live.row.airborne) return { type: 'emote', message: 'You strafe from the air.' };
-  if (!live.row.weapons_hot) return { type: 'emote', message: 'Weapons are cold — `arm` first.' };
-  if (live.row.altitude_band !== 'low') return { type: 'emote', message: 'Come down to LOW for a gun pass.' };
+  // The continuous cockpit routes its held-trigger gun bursts here (~8×/s) as the ground
+  // gun-pass path; it has its own visual tracer feedback, so the "can't set up a pass"
+  // advisories stay SILENT there (a typed/deck `strafe` still gets them once).
+  const advise = (msg) => isContinuous(live) ? { type: 'noop' } : { type: 'emote', message: msg };
+  if (!live.row.airborne) return advise('You strafe from the air.');
+  if (!live.row.weapons_hot) return advise('Weapons are cold — `arm` first.');
+  if (live.row.altitude_band !== 'low') return advise('Come down to LOW for a gun pass.');
   const a = live.row;
   const { rows: sites } = await query(
     `SELECT s.id, s.name, s.accuracy, z.grid_x, z.grid_y FROM aa_sites s JOIN zones z ON z.id = s.zone_id WHERE s.active = 1`
@@ -395,7 +405,7 @@ async function cmdStrafe(args, raw, player) {
   const wanted = args.join(' ').toLowerCase();
   const inRange = sites.filter(s => s.grid_x != null && cheb(a.grid_x, a.grid_y, s.grid_x, s.grid_y) <= 1);
   const target = wanted ? inRange.find(s => s.name.toLowerCase().includes(wanted)) : inRange[0];
-  if (!target) return { type: 'emote', message: 'Nothing in gun range on this pass. Line it up and come around.' };
+  if (!target) return advise('Nothing in gun range on this pass. Line it up and come around.');
 
   // Continuous cockpit: no modal reticle deck — resolve the gun pass with a piloting
   // check inline (the FIRE button drives this straight from the flying cockpit).

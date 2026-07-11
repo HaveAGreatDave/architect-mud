@@ -495,9 +495,10 @@ function sendFlightSim(player, live) {
       : (live.row.owner_id === player.id ? String(player.name || player.username || 'OWNER').toUpperCase() : 'PRIVATE'),
     fuel: ctx.fuel, fuelCap: ctx.fuelCap, map: ctx.map, sky: ctx.sky, biomeBelow: ctx.biomeBelow, minimap: ctx.minimap, fields: ctx.fields,
     engines: ctx.engines, seats: ctx.seats, occupants: ctx.occupants,   // gauge count + cabin-occupancy readout
-    // Per-airframe capabilities the continuous cockpit adapts to (Phase 3): heavies +
-    // gunships have retractable gear; hardpoints arm the weapons; cargo enables jettison.
-    gearRetract: ['heavy', 'gunship'].includes(live.type.class),
+    // Per-airframe capabilities the continuous cockpit adapts to (Phase 3): the Mule,
+    // Reaper + Leviathan have retractable gear (only the fixed-gear Mayfly stays down);
+    // hardpoints arm the weapons; cargo enables jettison.
+    gearRetract: ['prop', 'gunship', 'heavy'].includes(live.type.class),
     hardpoints: live.type.hardpoints || 0,
     cargoCap: live.type.cargo_capacity || 0, cargoKg: ctx.cargo,
   });

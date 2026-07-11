@@ -2372,7 +2372,7 @@ function fsimFrame(now) {
       if (rng < contactNear) contactNear = rng;
       const brg = Math.atan2(dx, -dy) * 180 / Math.PI;                    // bearing to contact
       const bore = Math.abs(((brg - s.heading + 540) % 360) - 180);       // off our nose
-      const cv = { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery };
+      const cv = { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, firing: c.firing };
       contactView.push(cv);
       if (bore < bestBore) { bestBore = bore; designated = cv; }
     }
@@ -2432,8 +2432,10 @@ function fsimFrame(now) {
       }
     } else if (!F.lastFireMs || now - F.lastFireMs >= GUN_FIRE_MS) {
       F.lastFireMs = now;
-      if (solReady) { sendCmdSilent(`airfire guns ${F.gunSolution.id} ${F.gunSolution.aimQuality.toFixed(2)}`); F.muzzleT = now; try { gunFx(); } catch {} }
-      else if (F.hardpoints > 0) { sendCmdSilent('fire'); try { gunFx(); } catch {} }
+      F.muzzleT = now;                                  // flash + tracers show whenever the trigger's down, solution or not
+      if (solReady) sendCmdSilent(`airfire guns ${F.gunSolution.id} ${F.gunSolution.aimQuality.toFixed(2)}`);
+      else if (F.hardpoints > 0) sendCmdSilent('fire');
+      try { gunFx(); } catch {}
     }
   }
   F.fireHeld = F.firing;   // edge detect: one missile per trigger squeeze
@@ -2482,9 +2484,10 @@ function fsimFrame(now) {
     windowClass: F.viewYaw ? F.cls : undefined,
     windVec: (atmos.windKt > 1 && F.reportedAirborne) ? { dir: atmos.windDir, kt: atmos.windKt } : null,
     contacts: contactView, designated,
-    // Phase B guns: tracer/muzzle when firing on solution, a hull readout, and a red
-    // battle-damage flash that fades over ~0.4s after taking a hit.
-    firing: !!(F.firing && solReady), muzzle: F.muzzleT && (now - F.muzzleT < 90),
+    // Phase B guns: tracers stream out whenever the trigger's held (armed, airborne,
+    // gun selected) — solution or not — so you can SEE where you're shooting and walk
+    // the rounds onto the bogey. A hull readout + a red battle-damage flash on a hit.
+    firing: !!(F.firing && F.armed && F.reportedAirborne && F.weapon !== 'msl'), muzzle: F.muzzleT && (now - F.muzzleT < 90),
     hull: F.hull, hitFlash: F.hitFlashT ? clampNum(1 - (now - F.hitFlashT) / 400, 0, 1) : 0,
     // Incoming ground-AA tracer: bearing it's arriving from + a 0..1 progress fraction
     // (streak animates in over AA_TRACER_MS, then clears).

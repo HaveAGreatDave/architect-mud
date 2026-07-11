@@ -5,6 +5,21 @@
  */
 import { emit } from './events.js';
 import * as inv from './inventory.js';
+import { tagValue } from './tags.js';
+
+// Body slots a garment can occupy, for the "on your ..." equip message. Weapon/
+// accessory slots don't read naturally as body regions, so they keep the plain form.
+const BODY_SLOTS = new Set(['head', 'torso', 'hands', 'legs', 'feet']);
+
+// "torso" / "torso and legs" / "head, torso and legs" — the body region(s) a piece
+// covers, from its `slot` plus any extra `covers` slots (e.g. a jumpsuit's legs).
+function equipRegionPhrase(row, slot) {
+  if (!BODY_SLOTS.has(slot)) return null;
+  const covers = tagValue(row, 'covers');
+  const slots = [slot, ...(Array.isArray(covers) ? covers : [])].filter(s => BODY_SLOTS.has(s));
+  if (slots.length <= 1) return slots[0] || null;
+  return `${slots.slice(0, -1).join(', ')} and ${slots[slots.length - 1]}`;
+}
 
 // type -> { type, requiredTag?, validate?, handler }
 const registry = new Map();
@@ -101,7 +116,9 @@ registerAction({
     await inv.equipRow(row, actor, slot, layer);
     emit('item.equipped', { actor, item: row, slot });
     emit('inventory.changed', { actor });
-    return { type:'equip', message:`You equip ${row.name}.`, slot };
+    const region = equipRegionPhrase(row, slot);
+    const message = region ? `You equip ${row.name} on your ${region}.` : `You equip ${row.name}.`;
+    return { type:'equip', message, slot };
   },
 });
 

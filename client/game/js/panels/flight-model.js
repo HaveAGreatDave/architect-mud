@@ -112,17 +112,17 @@ export const TYPES = {
   // target and shrugs off ground fire. It can't run (high drag bleeds any dive), it just
   // keeps coming. Twin turbofans, forgiving low-speed handling, rough-field capable.
   reaper: {
-    // thrustMax 32→50 + engineLag 1.5→1.3 + vr 62→52 + vs0 40→34: she's a JET and was
-    // flying like a laden prop — worst thrust-to-mass in the fleet (9.4 kt/s) grinding
-    // toward the highest rotate speed, then bleeding straight back toward the stall on
-    // climb-out. Real turbofan thrust now shoves her off the deck, she rotates sooner,
-    // and the fatter stall margin + power reserve stops the climb-out stall. She stays
-    // DRAGGY (dragP 0.0011 unchanged) so drag still pins her top speed near vne — a
-    // jet that gets airborne fast and holds its energy, but still can't run away.
-    name: 'Reaper', mass: 3.4, thrustMax: 50, vr: 52, vs0: 34, vne: 210, cruise: 150,
-    pitchRate: 10, pitchTau: 0.7, rollRate: 58, rollTau: 0.6, engineLag: 1.3,
-    pitchStable: 1.1, rollStable: 1.3, dragP: 0.00110, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
-    rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 2400, vsGain: 2200, vsTau: 1.0,
+    // ROCKET OFF THE DECK (per author direction): thrustMax 50→92 gives her by far the best
+    // thrust-to-mass in the fleet (~27 kt/s), so she practically leaps off the runway and
+    // climbs out like she's shot from a rail (vsMax 2400→3600, vsGain 2200→3000, engineLag
+    // 1.3→1.0 for a snappier spool). To keep her A-10 character — "gets airborne fast but
+    // can't RUN" — dragP is raised in step (0.0011→0.00209) so thrust==drag still lands the
+    // level top end right on vne (√(92/0.00209)≈210 kt); the extra drag barely bites at the
+    // low speeds of the ground roll, so none of the takeoff punch is lost to it.
+    name: 'Reaper', mass: 3.4, thrustMax: 92, vr: 52, vs0: 34, vne: 210, cruise: 150,
+    pitchRate: 10, pitchTau: 0.7, rollRate: 58, rollTau: 0.6, engineLag: 1.0,
+    pitchStable: 1.1, rollStable: 1.3, dragP: 0.00209, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
+    rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 3600, vsGain: 3000, vsTau: 1.0,
     brake: 7.5, groundSteer: 28, ceiling: 17000, bestGlide: 69,
   },
   // Dragonfly — a REVOLUTION MINI 500 analogue: a tiny single-rotor kit helicopter. Light,
@@ -432,7 +432,7 @@ export function step(state, input, p, dt) {
   // FLARE (ease back to trade the float for a gentle touchdown) instead of flying it into the deck.
   if (!s.onGround && vsTarget < 0 && s.altitude < GROUND_EFFECT_FT) {
     const ge = 1 - s.altitude / GROUND_EFFECT_FT;   // 0 at the top of the band → 1 on the deck
-    vsTarget *= 1 - 0.68 * ge * ge;                 // up to ~⅔ of the sink absorbed by the cushion
+    vsTarget *= 1 - 0.42 * ge * ge;                 // a lighter cushion — enough to reward a flare, but she no longer FLOATS down the strip; slow + easing back settles her onto the runway
   }
   if (s.onGround && vsTarget <= 0) {
     s.vs = 0;                                 // sitting on the wheels — no lift to climb on

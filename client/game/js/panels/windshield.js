@@ -496,6 +496,7 @@ export function paintWindshield(id, view) {
       if (!framed) drawBirds(ctx, W, H, horizonY, vw, st, dt, speed, sky, now, worldBlend);   // ambient flock scattering as you pass
       if (vw.landGuide && vw.runway) drawGuideBoxes(ctx, cam, vw, now);
       if (vw.contacts) drawContacts(ctx, cam, vw, W, H, sunFx, now);   // air-to-air traffic (Phase A: see other craft)
+      drawGunTracers(ctx, cam, v, now);   // 3D gun tracers — own rounds + any nearby shooter's, streaking through world space toward where they're aiming
       if (vw.apTarget) drawAirportTarget(ctx, cam, vw, W, H, now);   // target-field ring / Home waypoint
     }
     // External chase view: the OWN ship, projected through the very same chase camera as the
@@ -567,8 +568,8 @@ export function paintWindshield(id, view) {
   if (!v.windowClass && !ext) drawCowl(ctx, W, H, v.cls);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera
   if (!v.windowClass) drawWxBadge(ctx, W, wx, v.wind);
   if (v.hud) drawHud(ctx, W, H, v);
-  // Guns (Phase B): forward tracer stream + muzzle flash while firing, screen-fixed.
-  if (v.firing || v.muzzle) drawGunfire(ctx, W, H, v);
+  // Guns (Phase B): tracers are drawn as 3D world objects inside the banked world block
+  // above (drawGunTracers) so they streak out with real depth toward the target.
   // Incoming ground-AA tracer: shows the pilot which way the guns below are actually firing.
   if (v.aaTracer) drawAATracer(ctx, W, H, v);
   // Battle damage: a red flash + edge pulse that fades after taking a hit.
@@ -1892,6 +1893,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9, drawn = 0;
   for (const face of aircraftFaces(c.cls)) {
     if (face.role === 'rotor') continue;                            // spinning surfaces drawn by drawRotorFX below
+    if (face.role === 'gear') continue;                             // baked (always-down) wheels — this view draws its own ANIMATED gear (c.gearAnim) so retraction reads
     const pts = face.p.map(P);
     if (pts.some(q => q.f <= 0.07)) continue;                       // vertex behind the lens → skip (avoids blow-up)
     let af = 0; for (const q of pts) { af += q.f; if (q.sx < minx) minx = q.sx; if (q.sx > maxx) maxx = q.sx; if (q.sy < miny) miny = q.sy; if (q.sy > maxy) maxy = q.sy; }
@@ -2038,20 +2040,77 @@ function drawContactChevron(ctx, c, f, l, W, H) {
     ctx.fillText(c.reg || 'BOGEY', ex, ey - 9);
   }
 }
-// Forward gun tracers + muzzle flash (screen-fixed — the guns are bolted to the nose).
-function drawGunfire(ctx, W, H, v) {
-  const cx = W / 2, aim = H * 0.46, t = _gunT();
+// 3D gun tracers — glowing rounds that travel in WORLD space (tiles, projected through
+// the flight camera) FROM a shooter's guns TOWARD where they're firing, so they streak
+// out with real depth and converge on the target instead of being two flat screen lines.
+// Draws the OWN ship's rounds (v.firing → toward the designated bogey, else down the
+// boresight) AND any nearby CONTACT that's firing (c.firing), so you SEE other planes
+// shooting near you. Called inside the banked world block, sharing drawContacts' camera.
+function drawGunTracers(ctx, cam, v, now) {
+  const t = (now || 0) * 0.001;
   ctx.save(); ctx.lineCap = 'round';
-  for (const sx of [W * 0.30, W * 0.70]) {
-    const jx = cx + (frac(t * 0.9 + sx) - 0.5) * 12, jy = aim + (frac(t * 1.3 + sx) - 0.5) * 9;
-    const g = ctx.createLinearGradient(sx, H, jx, jy);
-    g.addColorStop(0, 'rgba(255,180,90,0)'); g.addColorStop(0.6, 'rgba(255,200,110,0.5)'); g.addColorStop(1, 'rgba(255,244,190,0.9)');
-    ctx.strokeStyle = g; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx, H * 1.02); ctx.lineTo(jx, jy); ctx.stroke();
+  // — Own ship: muzzles just ahead/below the eye, off each wing; aim at the bogey or ahead —
+  if (v.firing || v.muzzle) {
+    const hd = (v.heading || 0) * Math.PI / 180, sh = Math.sin(hd), ch = Math.cos(hd);
+    const d = v.designated;
+    const aim = d ? [d.dx, d.dy, cam.EH + (d.altDiff || 0) * CONTACT_ALT_K]
+                  : [sh * 12, -ch * 12, cam.EH];   // no target → straight down the boresight
+    for (const s of [-1, 1]) {
+      const mx = sh * 0.34 + ch * 0.24 * s, my = -ch * 0.34 + sh * 0.24 * s, mz = cam.EH - 0.05;
+      if (v.firing) tracerStream(ctx, cam, [mx, my, mz], aim, t, s * 0.5 + 0.2);
+      if (v.muzzle) muzzleFlash(ctx, cam, mx, my, mz);
+    }
   }
-  if (v.muzzle) { ctx.fillStyle = 'rgba(255,224,150,0.55)'; for (const sx of [W * 0.30, W * 0.70]) { ctx.beginPath(); ctx.arc(sx, H * 0.985, 5 + frac(t + sx) * 4, 0, 7); ctx.fill(); } }
+  // — Nearby contacts firing: rounds stream forward off each of their wings —
+  if (v.contacts) for (const c of v.contacts) {
+    if (!c.firing) continue;
+    const id = String(c.id || ''), hash = (id.charCodeAt(0) || 0) + (id.charCodeAt(id.length - 1) || 0);   // stable per-contact phase (id is a UUID string)
+    const hd = (c.hdg || 0) * Math.PI / 180, sh = Math.sin(hd), ch = Math.cos(hd);
+    const wz = cam.EH + (c.altDiff || 0) * CONTACT_ALT_K;
+    const aim = [c.dx + sh * 12, c.dy - ch * 12, wz];   // 12 tiles down their nose
+    for (const s of [-1, 1]) {
+      tracerStream(ctx, cam, [c.dx + ch * 0.24 * s, c.dy + sh * 0.24 * s, wz - 0.02], aim, t + hash * 0.11, s * 0.5 + 0.7);
+      if (Math.sin(t * 30 + hash) > 0.4) muzzleFlash(ctx, cam, c.dx + ch * 0.24 * s, c.dy + sh * 0.24 * s, wz - 0.02);
+    }
+  }
   ctx.restore();
 }
-const _gunT = () => { try { return performance.now() * 0.02; } catch { return 0; } };
+// One glowing tracer stream from world point M=[x,y,z] to aim A=[x,y,z] (tiles), animated
+// as discrete rounds racing outward. Interpolates the rounds in WORLD space so their size +
+// spacing foreshorten with real perspective; each projected through the shared camera.
+function tracerStream(ctx, cam, M, A, phase, seed) {
+  const pm = cam.proj(M[0], M[1], M[2]), pa = cam.proj(A[0], A[1], A[2]);
+  // Faint continuous beam so the line of fire reads between rounds.
+  if (pm.f > 0.08 && pa.f > 0.08) {
+    const g = ctx.createLinearGradient(pm.sx, pm.sy, pa.sx, pa.sy);
+    g.addColorStop(0, 'rgba(255,214,130,0.14)'); g.addColorStop(1, 'rgba(255,248,210,0.30)');
+    ctx.strokeStyle = g; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(pm.sx, pm.sy); ctx.lineTo(pa.sx, pa.sy); ctx.stroke();
+  }
+  const lerp3 = (f) => [M[0] + (A[0] - M[0]) * f, M[1] + (A[1] - M[1]) * f, M[2] + (A[2] - M[2]) * f];
+  for (let i = 0; i < 5; i++) {
+    const f0 = (phase * 0.85 + i / 5 + frac(seed * 3.7)) % 1;   // 0 at the muzzle → 1 at the aim
+    const h = lerp3(f0), tl = lerp3(Math.max(0, f0 - 0.09));
+    const ph = cam.proj(h[0], h[1], h[2]), pt = cam.proj(tl[0], tl[1], tl[2]);
+    if (ph.f <= 0.1 || pt.f <= 0.1) continue;
+    const rad = clamp(2.6 / ph.f, 0.8, 7), al = clamp(1.5 - ph.f / 11, 0.35, 1);
+    // Streak behind the round.
+    const tg = ctx.createLinearGradient(pt.sx, pt.sy, ph.sx, ph.sy);
+    tg.addColorStop(0, 'rgba(255,170,60,0)'); tg.addColorStop(1, `rgba(255,250,222,${0.9 * al})`);
+    ctx.strokeStyle = tg; ctx.lineWidth = rad * 0.85; ctx.beginPath(); ctx.moveTo(pt.sx, pt.sy); ctx.lineTo(ph.sx, ph.sy); ctx.stroke();
+    // Glowing head.
+    const gg = ctx.createRadialGradient(ph.sx, ph.sy, 0, ph.sx, ph.sy, rad * 2.1);
+    gg.addColorStop(0, `rgba(255,252,236,${al})`); gg.addColorStop(0.45, `rgba(255,206,110,${0.6 * al})`); gg.addColorStop(1, 'rgba(255,160,50,0)');
+    ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ph.sx, ph.sy, rad * 2.1, 0, 7); ctx.fill();
+  }
+}
+// A muzzle-flash bloom at a world-space gun station.
+function muzzleFlash(ctx, cam, x, y, z) {
+  const p = cam.proj(x, y, z); if (p.f <= 0.1) return;
+  const r = clamp(6 / p.f, 2, 16);
+  const g = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, r);
+  g.addColorStop(0, 'rgba(255,244,196,0.85)'); g.addColorStop(0.5, 'rgba(255,196,90,0.5)'); g.addColorStop(1, 'rgba(255,150,40,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.fill();
+}
 
 // Incoming ground-AA tracer — enters from below-and-toward the gun's bearing (relative to
 // heading) and arcs up across the glass toward/past the cockpit, so fire from an emplacement

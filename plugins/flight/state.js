@@ -671,6 +671,7 @@ export function airContact(live) {
     hullPct: Math.max(0, Math.round((1 - (a.damage || 0)) * 100)),
     reg: String(a.name || live.type?.name || '???').toUpperCase().slice(0, 8),
     cls: live.type?.class || 'prop',
+    firing: (live.firingUntil || 0) > Date.now(),   // guns hot right now → viewers draw its tracers
   };
 }
 

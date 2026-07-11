@@ -107,11 +107,21 @@ function buildFixedWing(p) {
     if (p.prop === 'wing') addSpinner(faces, nf + 0.17, g, hc);   // Twin Otter wing turboprops
   }
   if (p.prop === 'nose') addSpinner(faces, p.noseF, 0, 0.02);     // Cessna single nose prop
-  // Nose cannon barrel (A-10 gunship): twin dark slabs under the nose.
-  if (p.noseGun) {
-    const gb = 0.03, gz = -p.fv * 0.35, gf = p.noseF + 0.16, gk = p.noseF - 0.35;
-    for (const s of [1, -1]) faces.push({ role: 'gun', sh: s > 0 ? 0.9 : 0.7, p: [
-      V(gf, s * gb, gz + gb), V(gf, s * gb, gz - gb), V(gk, s * gb, gz - gb), V(gk, s * gb, gz + gb)] });
+  // Under-wing cannon (gunship): a small forward-firing gun pod slung beneath each
+  // wing on a short pylon, its barrel poking ahead of the leading edge. A thin
+  // square-section tube — physically joined to the wing, not floating.
+  if (p.wingGuns) {
+    const gauge = 0.40, r = 0.018, gz = wH - 0.075, gf = 0.34, gk = 0.00;
+    for (const s of [1, -1]) {
+      const g = s * gauge;
+      const ring = (f) => [V(f, g + r, gz + r), V(f, g + r, gz - r), V(f, g - r, gz - r), V(f, g - r, gz + r)];
+      const Fr = ring(gf), Bk = ring(gk);
+      for (let i = 0; i < 4; i++) faces.push({ role: 'gun', sh: 0.66 + i * 0.07, p: [Fr[i], Fr[(i + 1) % 4], Bk[(i + 1) % 4], Bk[i]] });
+      faces.push({ role: 'gun', sh: 0.95, p: Fr });   // muzzle face
+      faces.push({ role: 'strut', sh: 0.6, p: [       // pylon up to the wing underside
+        V(0.06, g + 0.012, gz + r), V(0.06, g + 0.012, wH - 0.01),
+        V(-0.02, g - 0.012, wH - 0.01), V(-0.02, g - 0.012, gz + r)] });
+    }
   }
   // Fixed tricycle gear (Cessna / Twin Otter): two mains + a nose leg, each a strut + wheel.
   if (p.gear) {
@@ -130,11 +140,7 @@ function buildFixedWing(p) {
       }
     }
   }
-  // Canopy glass just aft of the nose (rides with the wing set so a high wing lifts it).
-  const cz = p.fv * (wH > 0 ? 0.8 : 0.6);
-  faces.push({ role: 'glass', sh: 0.9, p: [
-    V(p.noseF - 0.15, 0.06, cz), V(p.noseF - 0.45, 0.09, cz + p.fv * 0.35),
-    V(p.noseF - 0.45, -0.09, cz + p.fv * 0.35), V(p.noseF - 0.15, -0.06, cz)] });
+  // (No canopy — the fixed-wing hulls read cleaner without a cockpit blister.)
   return faces;
 }
 
@@ -295,11 +301,11 @@ const FW_PARAMS = {
   gunship: { ...FW_DEFAULT, fr: 0.15, fv: 0.14, span: 0.86, noseF: 1.0, tailF: -1.0,
     wingH: -0.03, dih: 0.03, wRootF: 0.22, wRootB: -0.30, wTipF: 0.16, wTipB: -0.26, hSpan: 0.36,
     engines: [], podEngines: [[-0.42, 0.30, 0.16], [-0.42, -0.30, 0.16]],
-    fins: [-0.24, 0.24], finF0: -0.82, finF1: -1.02, finF2: -1.08, finH: 0.42, noseGun: true },
+    fins: [-0.24, 0.24], finF0: -0.82, finF1: -1.02, finF2: -1.08, finH: 0.42, wingGuns: true, gear: true },
   // Leviathan — a high-wing, four-engine, wide-body heavy freighter: an Antonov An-124.
   heavy: { ...FW_DEFAULT, fr: 0.20, fv: 0.18, span: 1.05, noseF: 1.15, tailF: -1.12, hSpan: 0.46, finH: 0.66,
     wingH: 0.15, dih: 0.0, wRootF: 0.34, wRootB: -0.14, wTipF: 0.20, wTipB: -0.10,
-    engines: [-0.40, -0.20, 0.20, 0.40], nacF: 0.24, nacH: 0.03, pylons: true, windows: 6 },
+    engines: [-0.40, -0.20, 0.20, 0.40], nacF: 0.24, nacH: 0.03, pylons: true, windows: 6, gear: true },
 };
 
 // The starboard (right) wingtip station [f, g, h] in normalised model space — the outboard
