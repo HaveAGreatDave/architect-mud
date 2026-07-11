@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, buildingEntranceDir } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -598,7 +598,10 @@ function mapFunc(z) {
   return districtFor(z).key;
 }
 
-const MAP_WINDOW_HALF = 5; // 11×11 window: dx,dy ∈ −5..+5
+// 15×15 window: dx,dy ∈ −7..+7. The bigmap (tablet Map app) bounding-boxes the
+// tiles and shows the full window; the full-map popup hardcodes an 11×11 centred
+// grid (colOf = t.x + 5) and drops the outer ring, so it stays 11×11 unchanged.
+const MAP_WINDOW_HALF = 7;
 
 // Building names at a tile: exits leading to an is_building zone (same rule as
 // describe.js's "Buildings:" line). Data for the map's hover tooltip.
@@ -666,6 +669,11 @@ function mapTile(zone, x, y, placed, currentId) {
     buildings: buildingsAt(zone),
     icon: poi?.icon || null, poi: poi?.poi || null,
     svg: zone.flags?.icon || buildingIconSvg(zone), // named zone-icon SVG (road_* connectors, statue, building_type rooftop, …)
+    building_type: buildingTypeOf(zone), // facade tile's type — drives the labels/icons map overlay
+    building_name: zone.flags?.building_name || null,
+    entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
+    terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
+
     water: !!zone.flags?.water, // impassable open water — the client refuses to route onto it
 
     // Street name(s) this tile sits on (an intersection can carry more than one) — null if none.

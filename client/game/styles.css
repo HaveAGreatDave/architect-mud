@@ -1968,6 +1968,7 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	text-align: center;
 }
 .mm-room {
+	position: relative;
 	font-weight: bold;
 	border-radius: 2px;
 	border: 1px solid transparent;
@@ -2049,18 +2050,37 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	position: fixed;
 	inset: 0;
 	background: transparent;
-	z-index: 150;
+	/* Above the Tablet OS chassis (z-index 9200) so the map pops over it when
+	   launched from the tablet's Map tile — same convention as the music player. */
+	z-index: 9250;
 	align-items: center;
 	justify-content: center;
+	/* Floating window, not a modal: the full-screen container lets clicks fall
+	   through to whatever's behind (the tablet, the game) — only #map-box catches
+	   pointer events. So there's no backdrop to click-to-close; use the Close button. */
+	pointer-events: none;
 }
 #map-panel.active {
 	display: flex;
 }
 #map-box {
-	background: var(--bg2);
-	border: 1px solid var(--accent);
-	padding: 18px;
-	border-radius: 2px;
+	pointer-events: auto;
+	/* Tablet-OS chassis look (mirrors tablet-os.js --tos-surface system) so the
+	   popup reads as the same handheld device — but the map grid inside stays
+	   full colour (only a recessed-bezel CRT sheen sits over it, no accent wash). */
+	--map-surface-hi: color-mix(in srgb, var(--accent) 16%, var(--bg2));
+	--map-surface-lo: color-mix(in srgb, var(--accent) 5%, var(--bg2));
+	--map-bevel-hi: color-mix(in srgb, white 45%, transparent);
+	--map-bevel-lo: color-mix(in srgb, black 45%, transparent);
+	background: linear-gradient(160deg, var(--map-surface-hi), var(--bg2) 55%, var(--map-surface-lo));
+	border: 2px solid color-mix(in srgb, var(--bg2) 35%, #000 65%);
+	padding: 16px;
+	border-radius: 18px;
+	box-shadow:
+		inset 0 1px 0 var(--map-bevel-hi),
+		inset 0 0 0 1px rgba(0, 0, 0, 0.5),
+		0 18px 50px rgba(0, 0, 0, 0.72),
+		0 0 40px color-mix(in srgb, var(--accent) 16%, transparent);
 	max-width: 94vw;
 	max-height: 90vh;
 	overflow: auto;
@@ -2089,9 +2109,10 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 #map-box h2 {
 	color: var(--accent);
 	font-size: 14px;
-	letter-spacing: 2px;
+	letter-spacing: 3px;
 	text-transform: uppercase;
 	margin-bottom: 16px;
+	text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 #map-header {
 	display: flex;
@@ -2099,6 +2120,14 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	align-items: center;
 	gap: 16px;
 	margin-bottom: 16px;
+	/* Grab handle: drag empty header space to move the whole popup (the tabs,
+	   slider and buttons inside keep their own pointer/click behaviour). */
+	cursor: move;
+	user-select: none;
+	touch-action: none;
+}
+#map-box.map-dragging {
+	cursor: move;
 }
 #map-header h2 {
 	margin-bottom: 0;
@@ -2123,20 +2152,26 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	font-size: 12px;
 	letter-spacing: 1px;
 	color: var(--accent);
-	background: var(--bg);
-	border: 1px solid var(--accent);
-	border-radius: 2px;
+	background: linear-gradient(165deg, var(--map-surface-hi), var(--map-surface-lo));
+	border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+	border-radius: 6px;
 	padding: 5px 12px;
 	cursor: pointer;
+	box-shadow: inset 0 1px 0 var(--map-bevel-hi), inset 0 -2px 3px var(--map-bevel-lo), 0 2px 4px rgba(0, 0, 0, 0.22);
+	transition: filter .12s, box-shadow .12s, transform .05s;
 }
 .map-tab:hover:not(:disabled) {
-	background: var(--accent);
-	color: var(--bg);
+	filter: brightness(1.2);
+}
+.map-tab:active:not(:disabled) {
+	transform: translateY(1px);
+	box-shadow: inset 0 1px 3px var(--map-bevel-lo);
 }
 .map-tab.active {
 	background: var(--accent);
 	color: var(--bg);
 	font-weight: bold;
+	box-shadow: inset 0 1px 0 var(--map-bevel-hi), 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 .map-tab:disabled {
 	opacity: 0.4;
@@ -2163,26 +2198,53 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	gap: 24px;
 	align-items: flex-start;
 }
-/* Fixed 11-room window (11×22 rooms + 10×11 gaps wide; 21 rows × 16px tall).
-   The grid inside can be larger (regional view) — you drag to pan it. */
+/* Fixed 11-tile window of square tiles. The zone/interior grid is exactly 11×11 and
+   fills the viewport edge-to-edge (gapless); the regional grid is larger — you drag
+   to pan it. Sized to the tiles (11 × --map-room square) so the zone view fills the
+   tube instead of floating in empty margins. */
 #map-viewport {
-	--map-room: 22px;
-	--map-gap: 11px;
-	width: calc(11 * var(--map-room) + 10 * var(--map-gap));
-	height: calc(21 * 16px);
+	--map-room: 34px;
+	width: calc(11 * var(--map-room));
+	height: calc(11 * var(--map-room));
 	overflow: hidden;
 	position: relative;
 	flex: 0 0 auto;
 	cursor: grab;
 	user-select: none;
 	touch-action: none;
+	/* Recessed CRT tube: rounded corners clip the grid like a bulged screen, and a
+	   dark moulded bezel ring cradles it. The map underneath keeps its full colour. */
+	border-radius: 10px;
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--bg2) 30%, #000 70%), 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 #map-viewport.grabbing {
 	cursor: grabbing;
 }
+/* Scanlines over the tube — faint, so tile colours read straight through. */
+#map-viewport::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: 4;
+	pointer-events: none;
+	border-radius: inherit;
+	background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0, 0, 0, 0.14) 2px 3px);
+}
+/* Curved-glass sheen + a soft corner vignette (only the extreme corners darken,
+   so the map body stays full colour). Matches the tablet OS .mg-crt-glass. */
+#map-viewport::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: 5;
+	pointer-events: none;
+	border-radius: inherit;
+	background:
+		linear-gradient(115deg, transparent 0 42%, rgba(220, 240, 255, 0.08) 47%, rgba(220, 240, 255, 0.02) 52%, transparent 60%),
+		radial-gradient(120% 120% at 50% 50%, transparent 66%, rgba(0, 0, 0, 0.45) 100%);
+}
 #map-grid {
-	--map-room: 22px;
-	--map-gap: 11px;
+	--map-room: 34px;
 	display: grid;
 	justify-content: start;
 	align-content: start;
@@ -2198,7 +2260,7 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	height: 16px;
+	height: var(--map-room, 34px);
 	white-space: pre;
 }
 .map-link {
@@ -2292,10 +2354,66 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 .av-ov-label { font-size: 11px; font-weight: bold; letter-spacing: -0.5px; color: #fff;
   -webkit-text-stroke: 0.6px #000; paint-order: stroke fill; }
 
+/* Building overlay (labels / icons mode): a 2-letter acronym or a building-type
+   glyph painted OVER the building's SVG rooftop footprint, so the base map art
+   stays visible underneath. Absolutely centred over the tile; a dark halo keeps
+   it legible against any footprint colour. */
+.map-bld-ov {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 2;
+	pointer-events: none;
+	font-weight: bold;
+}
+.map-bld-label {
+	font-size: 8px;
+	letter-spacing: -0.5px;
+	color: #fff;
+	-webkit-text-stroke: 0.5px #000;
+	paint-order: stroke fill;
+}
+.map-bld-icon {
+	font-size: 10px;
+	line-height: 1;
+	filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
+}
+
+/* ── Tileable terrain (server `terrain` field: road / water / grass) ──────────
+   Shared by the sidebar minimap (.mm-*) and the full-map popup (.map-*). The fill
+   colour is set inline (grey asphalt for roads, the authored blue/green for water/
+   grass); these classes drop the tile border + rounding so a body of water or a
+   park reads as one continuous surface, and lay a subtle SVG texture that lines up
+   edge-to-edge across neighbouring tiles (one period per tile, matching phase at
+   the shared edges). Roads carry no texture — their grey surface + the yellow
+   dashed SVG mask (currentColor) are the whole read. */
+.mm-terr, .map-terr { border: 0 !important; border-radius: 0 !important; }
+.mm-water, .map-water, .mm-grass, .map-grass { background-repeat: no-repeat; background-size: 100% 100%; }
+.mm-water, .map-water {
+	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23ffffff' stroke-opacity='0.30' stroke-width='1.1' stroke-linecap='round'><path d='M0 7q6 -3 12 0t12 0'/><path d='M0 14q6 -3 12 0t12 0'/><path d='M0 21q6 -3 12 0t12 0'/></g></svg>");
+}
+.mm-grass, .map-grass {
+	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23103d1c' stroke-opacity='0.30' stroke-width='1' stroke-linecap='round'><path d='M4 21v-5'/><path d='M9 22v-6'/><path d='M14 21v-5'/><path d='M19 22v-6'/><path d='M6 13v-4'/><path d='M12 12v-4'/><path d='M18 13v-4'/></g></svg>");
+}
+
+/* Entrance arrow — a small amber triangle on the edge of a building tile pointing to
+   the side the door faces (server `entrance` field). CSS triangle so it stays crisp
+   at any tile size; a dark halo keeps it readable over a rooftop footprint. Shared by
+   the sidebar minimap (.mm-*) and the full-map popup (.map-*). */
+.mm-entrance, .map-entrance { position: absolute; width: 0; height: 0; z-index: 3; pointer-events: none; filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.95)); }
+.mm-ent-north, .map-ent-north { top: 0; left: 50%; transform: translateX(-50%); border-left: 3px solid transparent; border-right: 3px solid transparent; border-bottom: 4px solid #ffb454; }
+.mm-ent-south, .map-ent-south { bottom: 0; left: 50%; transform: translateX(-50%); border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 4px solid #ffb454; }
+.mm-ent-east, .map-ent-east { right: 0; top: 50%; transform: translateY(-50%); border-top: 3px solid transparent; border-bottom: 3px solid transparent; border-left: 4px solid #ffb454; }
+.mm-ent-west, .map-ent-west { left: 0; top: 50%; transform: translateY(-50%); border-top: 3px solid transparent; border-bottom: 3px solid transparent; border-right: 4px solid #ffb454; }
+
 /* Overlay slider: None / Icons / Labels — a segmented control with a sliding
    highlight, sitting in the map header next to the Avenue View toggle. */
-.map-overlay-slider { display: inline-flex; position: relative; border: 1px solid var(--border, #2a3a44);
-  border-radius: 12px; overflow: hidden; margin-left: 6px; vertical-align: middle; }
+.map-overlay-slider { display: inline-flex; position: relative; border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  border-radius: 12px; overflow: hidden; margin-left: 6px; vertical-align: middle;
+  background: linear-gradient(165deg, var(--map-surface-lo), color-mix(in srgb, var(--bg2) 60%, #000 40%));
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5); }
 .map-overlay-slider .mo-seg { width: 46px; text-align: center; background: transparent; border: none;
   color: var(--text-dim); font: inherit; font-size: 11px; padding: 3px 0; cursor: pointer; position: relative; z-index: 1; }
 .map-overlay-slider .mo-seg.active { color: var(--bg, #0a0f12); }
@@ -2348,10 +2466,10 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	flex: 0 0 auto;
 	min-width: 220px;
 	max-width: 300px;
-	/* Match the 11-row map viewport height so the panel bottom lines up with the
-	   map, and clip/scroll anything past it (regional's land-use list can be tall)
-	   so it never bleeds over the CLOSE button. */
-	max-height: calc(21 * 16px);
+	/* Match the 11-tile map viewport height (11 × --map-room square) so the panel
+	   bottom lines up with the map, and clip/scroll anything past it (regional's
+	   land-use list can be tall) so it never bleeds over the CLOSE button. */
+	max-height: calc(11 * 34px);
 	overflow: hidden auto;
 	scrollbar-width: thin;
 	scrollbar-color: var(--accent) var(--bg);
@@ -2359,8 +2477,12 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	flex-direction: column;
 	align-content: flex-start;
 	gap: 6px;
-	padding-left: 20px;
-	border-left: 1px solid var(--border);
+	/* Raised tablet panel (matches the chassis buttons) instead of a bare divider. */
+	padding: 12px 14px;
+	background: linear-gradient(165deg, var(--map-surface-hi), var(--map-surface-lo));
+	border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+	border-radius: 10px;
+	box-shadow: inset 0 1px 0 var(--map-bevel-hi), inset 0 -2px 3px var(--map-bevel-lo), 0 2px 5px rgba(0, 0, 0, 0.22);
 }
 .map-leg-head {
 	color: var(--accent);
@@ -2445,6 +2567,7 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	position: relative;
 	min-width: 22px;
 	padding: 1px 3px;
 	font-weight: bold;
@@ -3444,21 +3567,25 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 
 #map-close {
 	width: 100%;
-	background: var(--accent-dim);
-	border: 1px solid var(--accent);
-	color: var(--text-bright);
+	background: linear-gradient(165deg, var(--map-surface-hi), var(--map-surface-lo));
+	border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+	color: var(--accent);
 	font-family: var(--font-mono);
 	font-size: 12px;
 	padding: 9px;
 	cursor: pointer;
 	letter-spacing: 1px;
 	text-transform: uppercase;
-	border-radius: 2px;
-	transition: all 0.15s;
+	border-radius: 6px;
+	box-shadow: inset 0 1px 0 var(--map-bevel-hi), inset 0 -2px 3px var(--map-bevel-lo), 0 2px 4px rgba(0, 0, 0, 0.22);
+	transition: filter 0.12s, box-shadow 0.12s, transform 0.05s;
 }
 #map-close:hover {
-	background: var(--accent);
-	color: var(--bg);
+	filter: brightness(1.2);
+}
+#map-close:active {
+	transform: translateY(1px);
+	box-shadow: inset 0 1px 3px var(--map-bevel-lo);
 }
 
 /* Dialogue panel */

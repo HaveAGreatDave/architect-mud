@@ -813,11 +813,12 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-mini:active { transform:translateY(1px); }
     #tablet-os-overlay .tos-map-mini.active { color:#04120f; background:linear-gradient(165deg, color-mix(in srgb, var(--mg-accent) 100%, white 15%), var(--mg-accent)); box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
     #tablet-os-overlay .tos-map-mini.disabled { opacity:.35; pointer-events:none; }
-    #tablet-os-overlay .tos-map-wrap { max-height:320px; overflow:auto; scrollbar-width:thin; scrollbar-color:color-mix(in srgb,var(--mg-accent) 40%,transparent) transparent;
+    #tablet-os-overlay .tos-map-wrap { max-height:440px; overflow:auto; scrollbar-width:thin; scrollbar-color:color-mix(in srgb,var(--mg-accent) 40%,transparent) transparent;
+      display:grid; place-content:safe center;
       background:radial-gradient(130% 130% at 50% 40%, color-mix(in srgb, var(--mg-accent) 7%, var(--bg,#030806)) 55%, var(--bg,#01050a) 100%); border:1px solid color-mix(in srgb,var(--mg-accent) 20%,transparent); border-radius:6px; padding:8px; }
     #tablet-os-overlay .tos-map-wrap::-webkit-scrollbar { width:7px; height:7px; }
     #tablet-os-overlay .tos-map-wrap::-webkit-scrollbar-thumb { background:color-mix(in srgb,var(--mg-accent) 35%,transparent); border-radius:5px; }
-    #tablet-os-overlay .tos-map-grid { display:grid; --tos-tile:40px; }
+    #tablet-os-overlay .tos-map-grid { display:grid; --tos-tile:48px; }
     #tablet-os-overlay .tos-map-tile { position:relative; border-radius:4px; border:1px solid #00000066; cursor:pointer; overflow:hidden;
       display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:2px 3px; text-align:center;
       background:color-mix(in srgb,var(--mg-accent) 6%,var(--bg2,#0b1116)); color:var(--tos-fg-dim); transition:filter .12s; }
@@ -841,6 +842,19 @@ function ensureStyles() {
       -webkit-mask:var(--zi) center/contain no-repeat; mask:var(--zi) center/contain no-repeat; }
     #tablet-os-overlay .tos-map-tile .mt-you { position:absolute; top:0; right:2px; font-size:9px; color:var(--mg-accent); text-shadow:0 0 4px #000; }
     #tablet-os-overlay .tos-map-tile .mt-dest { position:absolute; top:0; left:2px; font-size:9px; color:#ffcf4a; text-shadow:0 0 4px #000; }
+    /* Tileable terrain: drop the border/rounding so water & parkland read as one
+       expanse, and lay a subtle connecting texture (one period per tile). Fill colour
+       is set inline (grey asphalt for roads, authored blue/green for water/grass). */
+    #tablet-os-overlay .tos-map-tile.terr { border-radius:0; border-color:transparent; }
+    #tablet-os-overlay .tos-map-tile.terr-water, #tablet-os-overlay .tos-map-tile.terr-grass { background-repeat:no-repeat; background-size:100% 100%; }
+    #tablet-os-overlay .tos-map-tile.terr-water { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23ffffff' stroke-opacity='0.30' stroke-width='1.1' stroke-linecap='round'><path d='M0 7q6 -3 12 0t12 0'/><path d='M0 14q6 -3 12 0t12 0'/><path d='M0 21q6 -3 12 0t12 0'/></g></svg>"); }
+    #tablet-os-overlay .tos-map-tile.terr-grass { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23103d1c' stroke-opacity='0.30' stroke-width='1' stroke-linecap='round'><path d='M4 21v-5'/><path d='M9 22v-6'/><path d='M14 21v-5'/><path d='M19 22v-6'/><path d='M6 13v-4'/><path d='M12 12v-4'/><path d='M18 13v-4'/></g></svg>"); }
+    /* Entrance arrow — amber triangle on the edge the building's door faces. */
+    #tablet-os-overlay .tos-map-tile .tos-ent { position:absolute; width:0; height:0; z-index:4; pointer-events:none; filter:drop-shadow(0 0 1px rgba(0,0,0,0.95)); }
+    #tablet-os-overlay .tos-map-tile .tos-ent-north { top:1px; left:50%; transform:translateX(-50%); border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:5px solid #ffb454; }
+    #tablet-os-overlay .tos-map-tile .tos-ent-south { bottom:1px; left:50%; transform:translateX(-50%); border-left:4px solid transparent; border-right:4px solid transparent; border-top:5px solid #ffb454; }
+    #tablet-os-overlay .tos-map-tile .tos-ent-east { right:1px; top:50%; transform:translateY(-50%); border-top:4px solid transparent; border-bottom:4px solid transparent; border-left:5px solid #ffb454; }
+    #tablet-os-overlay .tos-map-tile .tos-ent-west { left:1px; top:50%; transform:translateY(-50%); border-top:4px solid transparent; border-bottom:4px solid transparent; border-right:5px solid #ffb454; }
     #tablet-os-overlay .tos-map-link { display:flex; align-items:center; justify-content:center; color:color-mix(in srgb,var(--mg-accent) 40%,transparent); font-size:12px; line-height:1; pointer-events:none; }
     #tablet-os-overlay .tos-map-link.art { color:#c9a24a; font-weight:bold; text-shadow:0 0 6px rgba(201,162,74,.55); }
     #tablet-os-overlay .tos-map-legend { display:flex; flex-wrap:wrap; gap:5px 12px; margin:9px 0 4px; font-size:10px; color:var(--tos-fg-dim); }
@@ -2036,11 +2050,22 @@ function renderMap(d) {
 
   // Edge-to-edge 1:1 grid: one cell per zone, tiles touch (roads/buildings render
   // their own SVG footprint), mirroring the full-map popup — no connector/gap cells.
+  // Regional packs every distinct occupied coord to a dense index (so a far-flung
+  // district can't blow the grid up); zone/interior stay 1:1 on the raw local window.
   const xs = tiles.map(t => t.x), ys = tiles.map(t => t.y);
   const minX = Math.min(...xs), minY = Math.min(...ys), maxX = Math.max(...xs), maxY = Math.max(...ys);
-  const gCols = maxX - minX + 1, gRows = maxY - minY + 1;
+  let colOf, rowOf, gCols, gRows;
+  if (mode === 'regional') {
+    const ux = [...new Set(xs)].sort((a, b) => a - b), uy = [...new Set(ys)].sort((a, b) => a - b);
+    const xi = new Map(ux.map((x, i) => [x, i])), yi = new Map(uy.map((y, i) => [y, i]));
+    colOf = t => xi.get(t.x); rowOf = t => yi.get(t.y);
+    gCols = ux.length; gRows = uy.length;
+  } else {
+    colOf = t => t.x - minX; rowOf = t => t.y - minY;
+    gCols = maxX - minX + 1; gRows = maxY - minY + 1;
+  }
   const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
-  for (const t of tiles) cell[t.y - minY][t.x - minX] = t;
+  for (const t of tiles) cell[rowOf(t)][colOf(t)] = t;
 
   let grid = `<div class="tos-map-grid" style="grid-template-columns:repeat(${gCols},var(--tos-tile));grid-template-rows:repeat(${gRows},var(--tos-tile))">`;
   for (let r = 0; r < gRows; r++) for (let c = 0; c < gCols; c++) {
@@ -2054,15 +2079,28 @@ function renderMap(d) {
     if (t.id === dest && !t.isCurrent) cls.push('dest');
     if (t.id === _tosMapSel) cls.push('sel');
     if (t.isCurrent) cls.push('cur');
+    // Tileable terrain (mirrors the sidebar/full-map minimap): roads → grey asphalt +
+    // yellow markings; water/grass → a seamless coloured expanse (marker dropped) with a
+    // connecting texture from the .terr-<kind> class.
+    const terrain = ['road', 'water', 'grass'].includes(t.terrain) ? t.terrain : null;
+    let sym = _mapTileSym(t);
     let style = pos + ';';
-    // Regional view tints each tile by land-use function, like the popup's regional map.
-    if (mode === 'regional' && FUNC_LEGEND[t.func]) {
+    if (terrain === 'road') { style += 'background-color:#4c5157;color:#f2c53d;'; cls.push('terr', 'terr-road'); }
+    else if (terrain === 'water' || terrain === 'grass') {
+      style += `background-color:${t.bg_color || (terrain === 'water' ? '#3f7fb0' : '#5a9e57')};`;
+      cls.push('terr', 'terr-' + terrain);
+      sym = '';
+    }
+    // Regional view tints each non-terrain tile by land-use function, like the popup.
+    else if (mode === 'regional' && FUNC_LEGEND[t.func]) {
       const [rr, gg, bb] = _mapHexRgb(FUNC_LEGEND[t.func].color);
       style += `background:rgba(${rr},${gg},${bb},0.30);`;
     }
     const badges = (t.isCurrent ? '<span class="mt-you">◉</span>' : '')
       + (t.id === dest && !t.isCurrent ? '<span class="mt-dest">⚑</span>' : '');
-    grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${_mapTileSym(t)}</div>`;
+    // Entrance arrow — small amber triangle on the edge the building's door faces.
+    const ent = ['north', 'south', 'east', 'west'].includes(t.entrance) ? `<span class="tos-ent tos-ent-${t.entrance}"></span>` : '';
+    grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${sym}${ent}</div>`;
   }
   grid += '</div>';
 
@@ -3411,6 +3449,12 @@ function wireBody() {
       // over the still-running tablet (its z-index sits above the chassis — see
       // #musicplayer-panel in styles.css), so the tablet stays put behind it.
       if (appId === 'music') { sfx(TOS_SELECT_DEF); openMusicPlayerPanel(); return; }
+      // Map no longer renders inside the tablet — its tile just launches the full
+      // bigmap popup (now itself tablet-styled and draggable). The popup's z-index
+      // sits above the tablet chassis (see #map-panel in styles.css), so it pops up
+      // over the still-running tablet; request the map data (server replies with a
+      // `map` message → openMapPopup).
+      if (appId === 'map') { sfx(TOS_SELECT_DEF); sendCmdSilent('map'); return; }
       nav(appId, null, null);
     });
   });

@@ -303,17 +303,25 @@ export function renderMinimap(nodes, direction) {
   }
 
   // A named zone-icon SVG (icon_svg → assets/zone-icons/<name>.svg) is the tile's
-  // footprint, drawn as a CSS mask so it takes the tile's text colour. Avenue View
-  // swaps footprints for each tile's street/place abbreviation (a label overlay).
+  // footprint, drawn as a CSS mask so it takes the tile's text colour. Mirrors the
+  // full map: the SVG footprint is the base layer in every overlay mode, and the
+  // shared overlay setting (mapState.avenueOverlay) paints a 2-letter acronym or a
+  // building-type glyph over building tiles on top.
   const iconSvg = (name) => /^[a-z0-9_-]+$/i.test(name || '')
     ? `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${name}.svg)"></span>` : '';
+  const overlay = mapState.avenueOverlay || 'icons'; // none | labels | icons
+  const baseSym = (node) => iconSvg(node.icon_svg) || (node.enterable
+    ? '▣ ' // pass-through building tile: a door you enter, not a room you stand in
+    : node.marker
+      ? (node.marker.length === 1 ? node.marker + ' ' : node.marker.slice(0, 2))
+      : (node.sanctuary ? '◆ ' : '○ '));
   const symFor = (node) => {
-    if (mmAvenueView) return streetAbbrev(node.name);
-    return iconSvg(node.icon_svg) || (node.enterable
-      ? '▣ ' // pass-through building tile: a door you enter, not a room you stand in
-      : node.marker
-        ? (node.marker.length === 1 ? node.marker + ' ' : node.marker.slice(0, 2))
-        : (node.sanctuary ? '◆ ' : '○ '));
+    const base = baseSym(node);
+    if (overlay === 'none' || !node.building_type) return base;
+    if (overlay === 'labels')
+      return base + `<span class="map-bld-ov map-bld-label">${twoLetterAbbrev(node.building_name || node.name)}</span>`;
+    const glyph = BUILDING_ICON[node.building_type] || BUILDING_ICON._default;
+    return base + `<span class="map-bld-ov map-bld-icon">${glyph}</span>`;
   };
   // Hover tooltip: zone name, its district, street name(s), plus any building(s).
   const titleFor = (node) => {
@@ -336,7 +344,22 @@ export function renderMinimap(nodes, direction) {
       const node = byId.get(id);
       if (!node) { html += `<span class="mm-c mm-void"></span>`; continue; }
       const traceCls = traceSet.has(id) ? ' mm-trace' : '';
-      if (node.is_current) { html += `<span class="mm-c mm-room mm-current${traceCls}" title="${titleFor(node)}"></span>`; continue; }
+      if (node.is_current) {
+        // Render the tile you're standing on (its terrain fill / authored colour)
+        // UNDER the "you are here" beacon, so the marker reads as a locator on a
+        // visible tile rather than a blank swatch. The beacon (mm-current ::before/
+        // ::after) is a small centred dot+ring, so the tile shows around it.
+        const cs = [];
+        const cterr = TERRAIN.has(node.terrain) ? node.terrain : null;
+        if (cterr === 'road') cs.push(`background-color:${ROAD_SURFACE}`);
+        else if (cterr === 'water' || cterr === 'grass') cs.push(`background-color:${node.bg_color || TERRAIN_FILL[cterr]}`);
+        else if (node.bg_color) cs.push(`background-color:${node.bg_color}`);
+        else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); cs.push(`background-color:rgba(${dr},${dg},${db},0.20)`); }
+        const cterrCls = cterr ? ` mm-terr mm-${cterr}` : '';
+        const cStyle = cs.length ? ` style="${cs.join(';')}"` : '';
+        html += `<span class="mm-c mm-room mm-current${cterrCls}${traceCls}"${cStyle} title="${titleFor(node)}"></span>`;
+        continue;
+      }
       // Foreign tile: only the ones one step across a boundary survive, as a gateway
       // edge marker (the district's initials in its colour). Deeper foreign tiles are
       // dropped to void so the sidebar stays scoped to your district.
@@ -358,7 +381,25 @@ export function renderMinimap(nodes, direction) {
       else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); styles.push(`background:rgba(${dr},${dg},${db},0.20)`); }
       const textColor = node.color || (node.bg_color ? luminanceTextColor(node.bg_color) : null);
       if (textColor) styles.push(`color:${textColor}`);
-      const styled = (node.bg_color || node.color) ? ' mm-styled' : '';
+      let styled = (node.bg_color || node.color) ? ' mm-styled' : '';
+      // Terrain override (road / water / grass): seamless tileable fill. Roads become
+      // grey asphalt with yellow markings (the road SVG mask inherits `color`); water
+      // and grass drop their marker text for a clean coloured expanse + a connecting
+      // texture supplied by the .mm-<terrain> class. `background-color` (long-hand) is
+      // used so the class's texture background-image survives.
+      let content = symFor(node);
+      const terr = TERRAIN.has(node.terrain) ? node.terrain : null;
+      if (terr === 'road') {
+        styles.length = 0;
+        styles.push(`background-color:${ROAD_SURFACE}`, `color:${ROAD_MARKING}`);
+        styled = ' mm-styled';
+      } else if (terr === 'water' || terr === 'grass') {
+        styles.length = 0;
+        styles.push(`background-color:${node.bg_color || TERRAIN_FILL[terr]}`);
+        styled = ' mm-styled';
+        content = '';
+      }
+      const terrCls = terr ? ` mm-terr mm-${terr}` : '';
       const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
       const unreach = node.reachable === false ? ' mm-unreachable' : '';
       // Enterable buildings are doors, not rooms — clickable (action-link + data-dest
@@ -368,8 +409,8 @@ export function renderMinimap(nodes, direction) {
       const enterAttrs = node.enterable && node.building_name
         ? ` data-action="go" data-target="${escapeHtml(node.building_name)}" data-dest="${escapeHtml(node.building_name)}"`
         : '';
-      const cls = `mm-c mm-room danger-${dangerCls}${styled}${unreach}${enterCls}${traceCls}`;
-      html += `<span class="${cls}"${styleAttr}${enterAttrs} title="${titleFor(node)}">${symFor(node)}</span>`;
+      const cls = `mm-c mm-room danger-${dangerCls}${styled}${unreach}${enterCls}${terrCls}${traceCls}`;
+      html += `<span class="${cls}"${styleAttr}${enterAttrs} title="${titleFor(node)}">${content}${entranceMark(node.entrance, 'mm')}</span>`;
     }
   }
   for (const id of ['minimap-grid', 'minimap-grid-mob', 'minimap-grid-hud']) {
@@ -436,6 +477,40 @@ export const POI_LEGEND = {
   home:    { icon: '⌂', label: 'Apartments / housing' },
   stairs:  { icon: '⇕', label: 'Stairs (up/down)' },
 };
+
+// Building-type → overlay glyph for the map's "icons" mode. One entry per
+// building_type the content pipeline emits (server BUILDING_TYPE_ICON in world.js);
+// synonyms collapse the way the rooftop-SVG table does (store/grocery → shop). Keep
+// this in sync when a new building_type is added so it reads on the map, not just
+// from the air. Unlisted types fall back to _default.
+export const BUILDING_ICON = {
+  residential: '⌂', apartment: '🏢',
+  shop: '$', store: '$', grocery: '$',
+  bar: '🍺', club: '♥', police: '★',
+  corporate_office: '💼', hotel: '🏨', power: '⚡',
+  hangar: '✈', studio: '🎬', clinic: '✚', diner: '🍔',
+  _default: '▢',
+};
+
+// Tileable terrain styling (server `terrain` field). Roads recolour to grey asphalt
+// with yellow lane markings; water/grass render as a seamless coloured expanse with a
+// connecting texture from the .mm-<terrain> / .map-<terrain> CSS classes.
+const TERRAIN = new Set(['road', 'water', 'grass']);
+const ROAD_SURFACE = '#4c5157';   // grey asphalt
+const ROAD_MARKING = '#f2c53d';   // yellow lane markings (the road SVG mask takes `color`)
+const TERRAIN_FILL = { water: '#3f7fb0', grass: '#5a9e57' }; // fallback if a tile has no authored bg
+// The full-map popup's fixed window size in px (11 tiles × 34px — keep in sync with
+// #map-viewport in styles.css). The window never resizes; the regional view scales
+// its tiles down to fit the whole region inside it.
+const MAP_WINDOW_PX = 374;
+
+// Small entrance arrow overlaid on a building tile, pointing to the edge the door
+// faces (server `entrance` field). A CSS triangle (no glyph) via .<pfx>-ent-<dir>;
+// pfx is 'mm' (sidebar) or 'map' (full popup).
+const ENTRANCE_DIRS = new Set(['north', 'south', 'east', 'west']);
+function entranceMark(dir, pfx) {
+  return ENTRANCE_DIRS.has(dir) ? `<span class="${pfx}-entrance ${pfx}-ent-${dir}"></span>` : '';
+}
 
 // ── Three-level map popup: interior → zone → regional ────────────────────────
 // Popup state, kept across re-opens so the tab buttons + wheel know the current
@@ -690,6 +765,7 @@ function wireMapUi() {
     try { localStorage.setItem(MAP_OVERLAY_KEY, mapState.avenueOverlay); } catch {}
     syncOverlaySlider();
     renderMapGrid();
+    if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // mirror the overlay onto the sidebar minimap
   });
   // Territory: tint held tiles by controlling org, and fetch a fresh control layer.
   document.getElementById('map-territory-toggle')?.addEventListener('click', () => {
@@ -765,6 +841,36 @@ function wireMapUi() {
     };
     vp.addEventListener('pointerup', endDrag);
     vp.addEventListener('pointercancel', endDrag);
+  }
+  // Drag the whole popup by its header. A grab on empty header space (or the
+  // title) moves the box via a translate offset from its flex-centred origin;
+  // the tabs / slider / buttons inside the header keep their own click behaviour.
+  // The offset (bx/by) is closure state, so it persists while the popup stays
+  // wired (wireMapUi runs once) — reopening keeps wherever you left it.
+  const box = document.getElementById('map-box');
+  const header = document.getElementById('map-header');
+  if (box && header) {
+    let bx = 0, by = 0, sx = 0, sy = 0, dragging = false, hpid = null;
+    header.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button, .map-tab, .map-overlay-slider, #map-tabs')) return;
+      dragging = true; hpid = e.pointerId;
+      sx = e.clientX - bx; sy = e.clientY - by;
+      try { header.setPointerCapture(hpid); } catch {}
+      box.classList.add('map-dragging');
+    });
+    header.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      bx = e.clientX - sx; by = e.clientY - sy;
+      box.style.transform = `translate(${bx}px, ${by}px)`;
+    });
+    const endBoxDrag = (e) => {
+      if (!dragging) return;
+      dragging = false;
+      box.classList.remove('map-dragging');
+      try { header.releasePointerCapture(e.pointerId); } catch {}
+    };
+    header.addEventListener('pointerup', endBoxDrag);
+    header.addEventListener('pointercancel', endBoxDrag);
   }
   for (const id of ['map-grid', 'map-legend']) {
     const el = document.getElementById(id);
@@ -902,16 +1008,26 @@ function renderMapGrid() {
   }
 
   const overlay = mapState.avenueOverlay || 'icons'; // none | labels (text) | icons
-  const symFor = (t) => {
-    if (t.isCurrent || overlay === 'none') return '';
-    if (overlay === 'labels') return twoLetterAbbrev(t.name).padEnd(2, ' ');
-    // The tile's own named SVG (road connector, building-type rooftop, statue) wins
-    // over the POI glyph — POI is a landmark hint for the adjacent street, not the
-    // thing itself, so a building shows its footprint, not a duplicate ★/$.
-    if (t.svg) return `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${t.svg}.svg)"></span>`; // road/zone/building SVG
+  // Base layer for every mode: the tile's own named SVG (road connector, building-
+  // type rooftop, statue, water). Rendered under every overlay so the map always
+  // reads as an illustrated map, never bare coloured squares. Falls back to the POI
+  // landmark glyph / marker only when a tile has no SVG of its own.
+  const baseSym = (t) => {
+    if (t.svg) return `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${t.svg}.svg)"></span>`;
     if (t.icon) return t.icon + ' ';                 // POI landmark (airport, police, …)
     if (t.marker) return (t.marker.length === 1 ? t.marker + ' ' : t.marker.slice(0, 2));
-    return twoLetterAbbrev(t.name).padEnd(2, ' ');
+    return '';
+  };
+  const symFor = (t) => {
+    if (t.isCurrent) return '';
+    const base = baseSym(t);
+    // Labels / icons ride ON TOP of a building's footprint; non-building tiles show
+    // only their base SVG. `none` shows the base everywhere.
+    if (overlay === 'none' || !t.building_type) return base;
+    if (overlay === 'labels')
+      return base + `<span class="map-bld-ov map-bld-label">${twoLetterAbbrev(t.building_name || t.name)}</span>`;
+    const glyph = BUILDING_ICON[t.building_type] || BUILDING_ICON._default;
+    return base + `<span class="map-bld-ov map-bld-icon">${glyph}</span>`;
   };
 
   const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
@@ -925,6 +1041,16 @@ function renderMapGrid() {
   const traceSet = new Set(effectiveTracePath(curTile?.id) || []);
   document.getElementById('map-route-toggle')?.classList.toggle('has-route', !!mapState.tracePath);
 
+  // Regional: shrink the tiles so the whole region fits inside the fixed window at
+  // once — full district in view, no panning. Zone/interior keep the CSS default tile
+  // size (34px). The window itself never changes size. `--map-room` drives both the
+  // column width and the .map-c row height, so setting it here scales tiles square.
+  if (regional) {
+    const fit = Math.max(5, Math.floor(Math.min(MAP_WINDOW_PX / gCols, MAP_WINDOW_PX / gRows)));
+    grid.style.setProperty('--map-room', `${fit}px`);
+  } else {
+    grid.style.removeProperty('--map-room');
+  }
   grid.style.gridTemplateColumns = `repeat(${gCols}, var(--map-room))`;
   grid.classList.remove('avenue');
 
@@ -933,16 +1059,34 @@ function renderMapGrid() {
     for (let c = 0; c < gCols; c++) {
       const t = cell[r][c];
       if (!t) { html += `<span class="map-c"></span>`; continue; }
-      const terr = territory ? territory[t.id] : null; // controlling org, if any
+      const terrain = TERRAIN.has(t.terrain) ? t.terrain : null;
+      const org = territory ? territory[t.id] : null; // controlling org, if any
       // The tile's own painted colour is the whole story now — no land-use tint.
       const bg = t.bg_color || null;
       const styles = [];
-      if (bg) styles.push(`background:${bg}`);
-      const isPoi = t.icon && !t.isCurrent; // POI icon gets its own colour via a class
-      const tColor = t.color || (bg ? luminanceTextColor(bg) : null);
-      if (tColor && !isPoi) styles.push(`color:${tColor}`);
+      // Regional overview: tiles are tiny, so keep only the scalable SVG footprint
+      // (mask) and drop non-scaling glyphs / building labels — colour carries the read.
+      let content = regional
+        ? (t.svg && !t.isCurrent ? `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${t.svg}.svg)"></span>` : '')
+        : symFor(t);
+      const isPoi = !terrain && t.icon && !t.isCurrent; // POI icon gets its own colour via a class
+      // Terrain override (road / water / grass): seamless tileable fill (see the sidebar
+      // minimap for the same treatment). Roads → grey asphalt + yellow markings (the road
+      // SVG mask inherits `color`); water/grass → clean coloured expanse (marker dropped)
+      // + a connecting texture from the .map-<terrain> class. `background-color` long-hand
+      // keeps that texture's background-image alive.
+      if (terrain === 'road') {
+        styles.push(`background-color:${ROAD_SURFACE}`, `color:${ROAD_MARKING}`);
+      } else if (terrain === 'water' || terrain === 'grass') {
+        styles.push(`background-color:${t.bg_color || TERRAIN_FILL[terrain]}`);
+        content = '';
+      } else {
+        if (bg) styles.push(`background:${bg}`);
+        const tColor = t.color || (bg ? luminanceTextColor(bg) : null);
+        if (tColor && !isPoi) styles.push(`color:${tColor}`);
+      }
       let terrOv = '';
-      if (terr) {
+      if (org) {
         // Territory overlay: a 90%-opacity org-colour layer painted ABOVE the tile's
         // own icons/labels (a positioned .map-terr-ov child, not a background), so
         // control reads at a glance and dominates POI icons, abbreviations, and the
@@ -950,19 +1094,21 @@ function renderMapGrid() {
         styles.push('position:relative');
         // Org-colour glow (doubled for rival-held turf) sits outside the fill; dashed
         // outline while contested rings the tile.
-        styles.push(`box-shadow:inset 0 0 0 1px ${terr.color},0 0 8px ${terr.color}${terr.mine ? '' : ',0 0 4px ' + terr.color}`);
-        if (terr.status === 'CONTESTED') styles.push(`outline:1px dashed ${contrastInk(terr.color)};outline-offset:-3px`);
-        terrOv = `<span class="map-terr-ov" style="background:${hexA(terr.color, 0.9)}"></span>`;
+        styles.push(`box-shadow:inset 0 0 0 1px ${org.color},0 0 8px ${org.color}${org.mine ? '' : ',0 0 4px ' + org.color}`);
+        if (org.status === 'CONTESTED') styles.push(`outline:1px dashed ${contrastInk(org.color)};outline-offset:-3px`);
+        terrOv = `<span class="map-terr-ov" style="background:${hexA(org.color, 0.9)}"></span>`;
       }
       const cls = `map-c map-room danger-${t.danger || 'safe'}` +
         (t.isCurrent ? ' map-current' : '') +
         (regional || t.bg_color || t.color ? ' map-styled' : '') +
         (isPoi ? ` map-poi map-poi-${t.poi}` : '') +
+        (terrain ? ` map-terr map-${terrain}` : '') +
         (t.buildings && t.buildings.length ? ' map-has-building' : '') +
         (regional && t.reachable === false ? ' map-unreachable' : '') +
         (traceSet.has(t.id) ? ' map-trace' : '');
       const style = styles.length ? ` style="${styles.join(';')}"` : '';
-      html += `<span class="${cls}"${style} data-zone-id="${t.id}">${symFor(t)}${terrOv}</span>`;
+      const entMark = regional ? '' : entranceMark(t.entrance, 'map'); // arrow only when tiles are big enough to read
+      html += `<span class="${cls}"${style} data-zone-id="${t.id}">${content}${entMark}${terrOv}</span>`;
     }
   }
   grid.innerHTML = html;

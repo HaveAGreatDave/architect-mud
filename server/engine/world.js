@@ -126,6 +126,43 @@ export function buildingIconSvg(zone) {
   const bt = (zone.flags?.building_type || '').toLowerCase();
   return BUILDING_TYPE_ICON[bt] || (bt ? 'bldg_office' : null);
 }
+// The tile's own building type (facade-gated), for the map's labels/icons overlay —
+// null for streets, water, interiors and anything that isn't a building facade.
+export function buildingTypeOf(zone) {
+  if (!zone || !hasTag(zone, 'facade')) return null;
+  return (zone.flags?.building_type || '').toLowerCase() || null;
+}
+
+// Which side a building's entrance is on, for the map's entrance arrow: the compass
+// direction from the facade tile toward its street tile (flags.world_exit_zone — the
+// tile you approach the door from). Only clean orthogonal neighbours qualify, so
+// interior tiles (whose world_exit_zone is an overworld tile, not a grid neighbour)
+// return null. 'north' | 'south' | 'east' | 'west' | null.
+export function buildingEntranceDir(zone) {
+  if (!zone || !hasTag(zone, 'facade')) return null;
+  const ex = world.zones.get(zone.flags?.world_exit_zone || '');
+  if (!ex || zone.grid_x == null || ex.grid_x == null || (zone.grid_z ?? 0) !== (ex.grid_z ?? 0)) return null;
+  const dx = ex.grid_x - zone.grid_x, dy = ex.grid_y - zone.grid_y;
+  if (Math.abs(dx) + Math.abs(dy) !== 1) return null; // only a direct N/S/E/W neighbour
+  return dx === 1 ? 'east' : dx === -1 ? 'west' : dy === 1 ? 'south' : 'north';
+}
+
+// Terrain class for the map/minimap surfaces: 'road' | 'water' | 'grass' | null.
+// Drives the client's tileable water/grass fill and the grey-asphalt / yellow-markings
+// road recolour. Grass = parkland, detected by an authored green surface colour (the
+// way parks are painted). Buildings and ordinary street tiles return null.
+export function zoneTerrain(zone) {
+  if (!zone) return null;
+  if (zone.flags?.water) return 'water';
+  if (/^(road_|runway_)/.test(zone.flags?.icon || '')) return 'road';
+  if (buildingIconSvg(zone)) return null; // a building footprint, not terrain
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(zone.bg_color || '');
+  if (m) {
+    const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+    if (g > r + 24 && g > b + 24 && g > 110) return 'grass'; // authored green parkland
+  }
+  return null;
+}
 
 // Where a direct landing (teleport, respawn, .gohome, NPC placement) actually
 // puts an actor: enterable facades forward to their interior entry zone;
@@ -521,6 +558,9 @@ export function getMinimapData(centerZoneId, depth = 8) {
       grid_x: zone.grid_x, grid_y: zone.grid_y, grid_z: zone.grid_z,
       marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,
       icon_svg: zone.flags?.icon || buildingIconSvg(zone), // named SVG in client/game/assets/zone-icons/ (road_*, statue, or a building_type rooftop)
+      building_type: buildingTypeOf(zone), // facade tile's type — drives the sidebar/full-map labels/icons overlay
+      entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
+      terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
       district: (() => { const d = districtFor(zone); return { key: d.key, name: d.name, color: d.color }; })(),
       artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
       is_current: zone.id === centerZoneId,
