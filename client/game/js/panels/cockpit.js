@@ -1171,6 +1171,9 @@ function ensureFlightSimStyles() {
     .fsim-hidebtn{ position:absolute; top:6px; right:64px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
       border-radius:6px; width:24px; height:22px; font-size:12px; line-height:1; cursor:pointer; }
     .fsim-hidebtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
+    .fsim-viewbtn{ position:absolute; top:6px; right:92px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
+      border-radius:6px; height:22px; padding:0 7px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer; }
+    .fsim-viewbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
     .fsim-tune{ position:absolute; top:32px; right:8px; z-index:4; width:186px; max-height:72vh; overflow-y:auto; overscroll-behavior:contain; background:rgba(8,14,20,.94); border:1px solid #14212d; border-radius:8px; padding:8px; }
     .fsim-tune .thdr{ font-size:9px; letter-spacing:1px; color:var(--cy); border-bottom:1px solid #16303f; padding-bottom:3px; margin:2px 0 6px; position:sticky; top:-8px; background:rgba(8,14,20,.98); }
     .fsim-tune .thdr:not(:first-child){ margin-top:9px; }
@@ -1387,7 +1390,7 @@ export function openFlightSim(opts = {}) {
   _fsim = F;
 
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
-    <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span></div><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div></div>
+    <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span></div><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div></div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -1524,6 +1527,7 @@ export function openFlightSim(opts = {}) {
     F.apTargetId = list[i].id;
     fsimToast(`◎ ${(list[i].name || 'FIELD').toUpperCase()} · ${list[i].dist}mi`);
   };
+  let setExternal = () => {};   // assigned when the ◎ EXT button is wired below; V key + button share it
   const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'r', 'f', 'g', 'j', 'v', ' ', '[', ']']);
   const onKeyDown = (e) => {
     const tag = (e.target && e.target.tagName) || '';
@@ -1543,7 +1547,7 @@ export function openFlightSim(opts = {}) {
       case 'r': if (!e.repeat) stepFlap(1); break;
       case 'f': if (!e.repeat) stepFlap(-1); break;
       case 'g': if (!e.repeat) toggleGear(); break;
-      case 'v': if (!e.repeat) { F.external = !F.external; fsimToast(F.external ? '◎ EXTERNAL VIEW' : '◎ COCKPIT VIEW'); } break;
+      case 'v': if (!e.repeat) setExternal(!F.external); break;
       case 'j': if (!e.repeat) jettison(); break;
       case '[': if (!e.repeat) cycleApTarget(-1); break;   // cycle target airport
       case ']': if (!e.repeat) cycleApTarget(1); break;
@@ -1656,6 +1660,12 @@ export function openFlightSim(opts = {}) {
     if (hideBtn) hideBtn.classList.toggle('on', on);
     if (on) { document.body.classList.remove('fsim-fullscreen'); fsBtn?.classList.remove('on'); }
   });
+
+  // External / cockpit view toggle — the ◎ EXT button mirrors the V key; both call setExternal
+  // so the button's lit state and F.external stay in sync however you flip it.
+  const viewBtn = q('#fsim-viewbtn');
+  setExternal = (on) => { F.external = on; if (viewBtn) viewBtn.classList.toggle('on', on); fsimToast(on ? '◎ EXTERNAL VIEW' : '◎ COCKPIT VIEW'); };
+  add(viewBtn, 'click', () => setExternal(!F.external));
 
   // Refuel — shown only when parked on a fuelled strip (the frame loop toggles it). Fires the
   // same `refuel` verb the command line uses; the server tops the tank and pushes fuel back.
