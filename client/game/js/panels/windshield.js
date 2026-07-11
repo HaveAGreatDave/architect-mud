@@ -2037,20 +2037,42 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       { const [ex, ey] = F(fh * 0.7, 0); dish(ctx, cam, ex, ey, h * 0.72, 10, alpha); }
       break;
     }
-    case 'hangar': {   // wide low shed + big dark door band + ATC control tower (+ helipad glow)
-      const w = fh * (m.big ? 1.7 : 1.4), top = h * (m.big ? 0.7 : 0.6);
-      draw3DBoxAt(ctx, cam, dx, dy, w, 0, top, pal, seed, night, alpha, true);
-      { const [gx, gy] = F(0, w * 0.55); draw3DBoxAt(ctx, cam, gx, gy, w * 0.7, 0, top * 0.62, 'ty_door', seed + 1, night, alpha, false); }   // hangar door faces the street/apron
-      // Control tower off one corner of the apron: a slender shaft topped by a wider glazed
-      // cab and an alternating aviation beacon — so a hangar reads as a working airfield, not
-      // just a shed. Like the masts on other models, it stands above the collision box.
-      const [txx, txy] = F(-w * 0.95, -w * 0.2);
-      const cabTop = h * (m.big ? 1.9 : 1.55), cabBot = cabTop * 0.82;
-      draw3DBoxAt(ctx, cam, txx, txy, fh * 0.24, 0, cabBot, pal, seed + 4, night, alpha, false);
-      draw3DBoxAt(ctx, cam, txx, txy, fh * 0.5, cabBot, cabTop, 'ty_office', seed + 5, night, alpha, true);
-      if (night) glowPool(ctx, cam, txx, txy, cabTop * 0.92, '150,210,255', 9, alpha * 0.3);
-      blinkLight(ctx, cam, txx, txy, cabTop + h * 0.06, '150,255,170', now, seed + 6, alpha, 1.9);
-      if (m.helipad) glowPool(ctx, cam, dx, dy, top + 0.01, '255,210,90', 14, alpha * 0.3);
+    case 'hangar': {   // AIRPORT: glazed passenger terminal + hangar shed + ATC tower, floodlit at night
+      const w = fh * (m.big ? 1.55 : 1.3), top = h * (m.big ? 0.66 : 0.56);
+      // 1. TERMINAL — a broad, low glazed concourse across the frontage with a canopy over the
+      //    doors; it glows warm at night (a hall full of light).
+      { const [tx, ty] = F(fh * 0.42, 0);
+        draw3DBoxAt(ctx, cam, tx, ty, fh * 0.6, 0, top * 0.8, 'ty_office', seed + 8, night, alpha, true);          // glazed concourse
+        const [cx, cy] = F(fh * 0.42, fh * 0.62); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.56, top * 0.1, top * 0.32, 'ty_door', seed + 9, night, alpha, false);   // entrance canopy
+        if (night) glowPool(ctx, cam, tx, ty, top * 0.42, '255,214,150', 22, alpha * 0.34);                        // concourse spill
+      }
+      // 2. HANGAR — the wide shed with the big dark door band, alongside the terminal.
+      { const [hx, hy] = F(-fh * 0.5, 0);
+        draw3DBoxAt(ctx, cam, hx, hy, w, 0, top, pal, seed, night, alpha, true);
+        const [gx, gy] = F(-fh * 0.5, w * 0.55); draw3DBoxAt(ctx, cam, gx, gy, w * 0.72, 0, top * 0.6, 'ty_door', seed + 1, night, alpha, false);   // apron-facing door
+        if (night) glowPool(ctx, cam, hx, hy, top * 0.5, '150,190,230', 14, alpha * 0.22);                         // spill from inside the lit hangar
+      }
+      // 3. ATC TOWER — a slender shaft to a wider glazed cab, standing well above the sheds.
+      //    At night the cab windows glow, a red obstruction light burns at the tip, and the
+      //    civil rotating beacon alternates green↔white as it sweeps.
+      { const [txx, txy] = F(-fh * 0.92, -fh * 0.35);
+        const cabTop = h * (m.big ? 2.0 : 1.65), cabBot = cabTop * 0.8;
+        draw3DBoxAt(ctx, cam, txx, txy, fh * 0.16, 0, cabBot, pal, seed + 4, night, alpha, false);                 // shaft
+        draw3DBoxAt(ctx, cam, txx, txy, fh * 0.34, cabBot, cabTop, 'ty_office', seed + 5, night, alpha, true);     // glazed cab
+        if (night) {
+          glowPool(ctx, cam, txx, txy, cabTop * 0.9, '150,210,255', 9, alpha * 0.4);                              // lit cab
+          // Civil rotating beacon: green & white pulses a half-cycle out of phase (seed + π).
+          blinkLight(ctx, cam, txx, txy, cabTop + h * 0.05, '120,255,150', now, seed + 7, alpha, 2.1);
+          blinkLight(ctx, cam, txx, txy, cabTop + h * 0.05, '235,245,255', now, seed + 7 + Math.PI, alpha, 1.9);
+        }
+        blinkLight(ctx, cam, txx, txy, cabTop + h * 0.02, '255,70,70', now, seed + 6, alpha, 1.6);                 // red obstruction light
+      }
+      // 4. APRON at night — floodlit tarmac + a rim of blue taxiway edge lights across the front.
+      if (night) {
+        glowPool(ctx, cam, dx, dy, 0.02, '255,236,190', 30, alpha * 0.16);                                        // sodium apron floods
+        for (const s of [-0.7, -0.23, 0.23, 0.7]) { const [ex, ey] = F(fh * s, fh * 0.95); blinkLight(ctx, cam, ex, ey, 0.02, '90,150,255', now, seed + s * 10, alpha, 1.3); }
+        if (m.helipad) glowPool(ctx, cam, dx, dy, top + 0.01, '255,210,90', 14, alpha * 0.3);
+      }
       break;
     }
     case 'power': {   // twin cooling towers venting steam + a tall smokestack
