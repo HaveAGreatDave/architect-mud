@@ -427,6 +427,11 @@ for (const c of cells.values()) {
     // interior/lobby (never a duplicate). Marker = the tile's code, else initials.
     const bName = linked.name;
     const abbr = (c.code ? String(c.code).trim().toUpperCase() : initials(bName)).slice(0, 2);
+    // Carry the interior's building_type onto the facade so the on-map tile renders
+    // its rooftop footprint (buildingIconSvg keys off building_type) and survives a
+    // re-export — the facade is regenerated each run, so without this the type is
+    // lost. Hangar interiors flag themselves via hangar_interior rather than a type.
+    const bType = linked.flags?.building_type || (linked.hangar ? 'hangar' : null);
     plan.push({
       id, kind: 'facade', ownExits: MANUAL_BLD ? { in: c.link } : { ...ownExits, in: c.link },
       row: {
@@ -436,6 +441,7 @@ for (const c of cells.values()) {
         marker: abbr, color: c.leg.color ?? null, bg_color: c.leg.bg_color ?? null,
         ambient_theme: 'indoors',
         flags: { is_building: true, facade: true, building_name: bName,
+                 ...(bType ? { building_type: bType } : {}),
                  ...(streetId ? { world_exit_zone: streetId } : {}), planner: bp.id },
         parent_zone: null,
       },
