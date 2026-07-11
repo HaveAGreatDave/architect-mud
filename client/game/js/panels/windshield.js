@@ -1046,10 +1046,16 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun) {
       // feathers out over the shoreline too.
       const fx = R + wx, fy = R + wy, ix = Math.floor(fx), iy = Math.floor(fy), fxr = fx - ix, fyr = fy - iy;
       const s00 = sample(ix, iy), s10 = sample(ix + 1, iy), s01 = sample(ix, iy + 1), s11 = sample(ix + 1, iy + 1);
-      const w00 = (1 - fxr) * (1 - fyr), w10 = fxr * (1 - fyr), w01 = (1 - fxr) * fyr, w11 = fxr * fyr;
-      let br = s00[0] * w00 + s10[0] * w10 + s01[0] * w01 + s11[0] * w11;
-      let bg = s00[1] * w00 + s10[1] * w10 + s01[1] * w01 + s11[1] * w11;
-      let bb = s00[2] * w00 + s10[2] * w10 + s01[2] * w01 + s11[2] * w11;
+      const w00 = (1 - fxr) * (1 - fyr), w10 = fxr * (1 - fyr), w01 = (1 - fxr) * fyr, w11 = fxr * fyr;   // smooth blend — water/grass/relief keep this
+      // Biome COLOUR blends only in a narrow band right at the tile seam, so each patch of
+      // terrain reads as a crisp tile instead of a long cross-fade. Sharpen the fractional
+      // position around the boundary (smoothstep over ±EB) before weighting the colours.
+      const EB = 0.1, seam = (u) => { const t = clamp((u - 0.5 + EB) / (2 * EB), 0, 1); return t * t * (3 - 2 * t); };
+      const cxr = seam(fxr), cyr = seam(fyr);
+      const cw00 = (1 - cxr) * (1 - cyr), cw10 = cxr * (1 - cyr), cw01 = (1 - cxr) * cyr, cw11 = cxr * cyr;
+      let br = s00[0] * cw00 + s10[0] * cw10 + s01[0] * cw01 + s11[0] * cw11;
+      let bg = s00[1] * cw00 + s10[1] * cw10 + s01[1] * cw01 + s11[1] * cw11;
+      let bb = s00[2] * cw00 + s10[2] * cw10 + s01[2] * cw01 + s11[2] * cw11;
       const waterW = s00[3] * w00 + s10[3] * w10 + s01[3] * w01 + s11[3] * w11;
       const grassW = s00[4] * w00 + s10[4] * w10 + s01[4] * w01 + s11[4] * w11;
       const shadeW = s00[5] * w00 + s10[5] * w10 + s01[5] * w01 + s11[5] * w11;
@@ -1203,7 +1209,7 @@ const TYPE_FLOORS = {
   corporate_office: 22, hotel: 6, apartment: 8, residential: 3, shop: 1, diner: 1,
   bar: 1, club: 2, studio: 2, police: 3, clinic: 3, power: 5, hangar: 1, default: 4,
 };
-const FLOOR_Z = 0.018;   // world-z per storey (tuned so a 22-floor office ≈ the old tower height)
+const FLOOR_Z = 0.028;   // world-z per storey — vertically stretched (taller storeys) so buildings stand up off the deck instead of reading flat; not more floors, just taller ones
 function floorsOf(cell) {
   const f = cell && cell.flr;
   if (f > 0) return f;
