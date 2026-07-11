@@ -1388,7 +1388,7 @@ function drawRoads(ctx, cam, v) {
 function drawRunwayTex(ctx, cam, v, outerFade = 1) {
   const rw = v.runway; if (!rw) return;
   const alt = clamp(rw.alt || 0, 0, 1);
-  const RWL = RENDER_TUNE.rwl, hw = 0.15, BACK = 0.6, fMin = 0.06;
+  const RWL = rw.len || RENDER_TUNE.rwl, hw = 0.15, BACK = 0.6, fMin = 0.06;
   const fade = clamp(1.4 - alt * 1.5, 0, 1) * outerFade; if (fade <= 0.02) return;
   const hr = (rw.hdg || 0) * Math.PI / 180;
   const dx0 = Math.sin(hr), dy0 = -Math.cos(hr);      // along-runway unit (world)

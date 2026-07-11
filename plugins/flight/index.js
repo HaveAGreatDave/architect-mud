@@ -27,7 +27,7 @@ import {
   advance, initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
   ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme,
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
-  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield,
+  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, runwayFor,
 } from './state.js';
 import { describeExterior, rampColorWord, conspicuousnessMult } from './livery.js';
 import { rollHazards, commands as hazardCommands } from './hazards.js';
@@ -487,6 +487,7 @@ function sendFlightSim(player, live) {
     deviceName: live.type.name,
     airport: groundTheme(zone),
     gx: live.row.grid_x, gy: live.row.grid_y, heading: toDeg(live.row.heading),
+    runway: runwayFor(zone), // real departure runway from the map's centreline tiles (null = VTOL pad / no strip)
     engineOn: !!live.row.engine_on,
     registration: String(live.row.name || live.type.name || 'MAYFLY').toUpperCase(),
     owner: (live.row.rental || !live.row.owner_id) ? 'RENTED'

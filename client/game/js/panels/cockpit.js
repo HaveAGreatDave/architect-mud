@@ -1345,7 +1345,12 @@ export function openFlightSim(opts = {}) {
     pedalKey: 0,
     pos: { x: opts.gx || 0, y: opts.gy || 0 },
     mapCenter: { x: Math.round(opts.gx || 0), y: Math.round(opts.gy || 0) }, rollDist: 0, travel: 0,
-    rwOrigin: { x: opts.gx || 0, y: opts.gy || 0 }, rwHdg: (((opts.heading || 0) % 360) + 360) % 360,   // world-fixed departure runway anchor
+    // World-fixed departure runway anchor. When the server sends a runway pose derived
+    // from the map's centreline tiles (opts.runway), use it so the drawn runway sits on
+    // the real tiles; otherwise fall back to the craft's parked spot + heading.
+    rwOrigin: { x: opts.runway?.ox ?? opts.gx ?? 0, y: opts.runway?.oy ?? opts.gy ?? 0 },
+    rwHdg: opts.runway ? opts.runway.hdg : ((((opts.heading || 0) % 360) + 360) % 360),
+    rwLen: opts.runway?.len || null,
     airport: opts.airport || 'default',
     reg: opts.registration || (opts.deviceName || 'MAYFLY').toUpperCase(), owner: opts.owner || 'RENTED',
     fuel: opts.fuel ?? 100, fuelCap: opts.fuelCap || 100, warn: null,
@@ -2034,7 +2039,7 @@ function fsimFrame(now) {
     mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y }, travel: F.travel,
     // World-fixed runway: its origin + heading in the world, offset from the craft — so it
     // stays put and recedes/rotates naturally as you fly away (not glued ahead of the nose).
-    runway: { ox: F.rwOrigin.x - F.pos.x, oy: F.rwOrigin.y - F.pos.y, hdg: F.rwHdg, alt: clampNum(r.altitude / 320, 0, 1) },
+    runway: { ox: F.rwOrigin.x - F.pos.x, oy: F.rwOrigin.y - F.pos.y, hdg: F.rwHdg, len: F.rwLen, alt: clampNum(r.altitude / 320, 0, 1) },
     landGuide,
     hud: true, navWarn: back == null ? null : `⚠ TURN ${String(back).padStart(3, '0')}° — RETURN TO MAP`,
     threat: (F.aa && F.reportedAirborne) ? F.aa : null,   // AA envelope telegraph → pulsing banner + tape chevron

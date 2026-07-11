@@ -190,6 +190,33 @@ export function fieldFor(player) {
   return null;
 }
 
+// The real runway a field's aircraft take off along, derived from the map's yellow
+// runway-centreline tiles (flags.runway = 'ns'|'ew') rather than the aircraft's own
+// stored heading — so the runway the cockpit draws sits exactly on the tiles you see
+// on the map. Returns { ox, oy, hdg, len } (origin = the threshold nearest the ramp,
+// heading points down the strip toward the far end, len = tile count) or null if the
+// field has no runway near it (e.g. a VTOL helipad).
+export function runwayFor(fieldZone) {
+  if (!fieldZone || fieldZone.grid_x == null) return null;
+  const rx = fieldZone.grid_x, ry = fieldZone.grid_y, map = fieldZone.map_id;
+  const cl = getAllZones().filter(z => z.map_id === map && z.grid_x != null &&
+    (z.flags?.runway === 'ns' || z.flags?.runway === 'ew'));
+  if (!cl.length) return null;
+  let near = null, nd = Infinity;
+  for (const z of cl) { const d = Math.max(Math.abs(z.grid_x - rx), Math.abs(z.grid_y - ry)); if (d < nd) { nd = d; near = z; } }
+  if (nd > 3) return null; // no runway adjacent to this field
+  const ns = near.flags.runway === 'ns';
+  // The contiguous centreline through `near` (tiles sharing its axis line).
+  const along = cl.filter(z => ns ? z.grid_x === near.grid_x : z.grid_y === near.grid_y)
+    .map(z => ns ? z.grid_y : z.grid_x).sort((a, b) => a - b);
+  const lo = along[0], hi = along[along.length - 1], len = hi - lo + 1;
+  const fieldC = ns ? ry : rx;
+  const nearEnd = Math.abs(fieldC - lo) <= Math.abs(fieldC - hi) ? lo : hi;
+  const farEnd = nearEnd === lo ? hi : lo;
+  if (ns) return { ox: near.grid_x, oy: nearEnd, hdg: farEnd < nearEnd ? 0 : 180, len };
+  return { ox: nearEnd, oy: near.grid_y, hdg: farEnd > nearEnd ? 90 : 270, len };
+}
+
 // True when the player is standing INSIDE a walk-in hangar interior (at the desk),
 // as opposed to out on the exterior ramp. Aircraft *requests* (buy/rent/charter) are
 // gated to inside the hangar — you deal with the desk indoors, then the machine is
@@ -594,7 +621,13 @@ export function landDifficulty(live, emergency) {
 // ── Bring a craft to rest at an airfield; restore occupants to the ground ──────
 export async function parkAt(live, zoneId) {
   const z = getZone(zoneId);
-  if (z) { live.row.grid_x = z.grid_x; live.row.grid_y = z.grid_y; live.fx = z.grid_x; live.fy = z.grid_y; }
+  if (z) {
+    live.row.grid_x = z.grid_x; live.row.grid_y = z.grid_y; live.fx = z.grid_x; live.fy = z.grid_y;
+    // Face the craft down the runway it landed on, so it sits aligned with the strip
+    // (and its next departure lines up with the real centreline tiles).
+    const rw = runwayFor(z);
+    if (rw) live.row.heading = String(rw.hdg);
+  }
   live.row.airborne = 0;
   live.row.altitude_band = 'ground';
   live.row.throttle = 0;
