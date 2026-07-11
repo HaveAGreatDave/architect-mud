@@ -27,6 +27,30 @@ function compileBsm(text) {
     if (mAlias) aliases[mAlias[2].trim().toUpperCase()] = mAlias[1];
   }
 
+  // Implicit actor aliases: a SPEAKER label with no explicit @alias still resolves
+  // to a declared @actor when it matches that actor's derived name — the humanized
+  // id ("npc_lucky_chen" → "LUCKY CHEN"), its first word ("LUCKY"), or its last word
+  // ("CHEN"). This spares authors from writing an @alias line for the obvious cases
+  // and, crucially, stops the importer from minting a duplicate npc_<label> placeholder
+  // when the actor is already declared. Only applied when exactly one declared actor
+  // owns the label: an ambiguous first name (two actors both "LUCKY …") falls through
+  // to the normal fallback rather than silently picking one.
+  const implicitAliasIndex = {};  // KEY (uppercase) → Set(actorId)
+  for (const id of actorIds) {
+    const words = id.replace(/^npc_/, '').split(/[_\s]+/).filter(Boolean);
+    if (!words.length) continue;
+    const keys = new Set([
+      words.join(' ').toUpperCase(),
+      words[0].toUpperCase(),
+      words[words.length - 1].toUpperCase(),
+    ]);
+    for (const k of keys) (implicitAliasIndex[k] ||= new Set()).add(id);
+  }
+  const implicitActor = (label) => {
+    const set = implicitAliasIndex[label];
+    return set && set.size === 1 ? [...set][0] : undefined;
+  };
+
   const nodes = {};
   const assets = [];
   const weatherPools = {};    // pool_key → [line, …]  (only meaningful for @type weather AND @type sports — both use ::lines pools)
@@ -304,7 +328,7 @@ function compileBsm(text) {
     const speakerMatch = ln.match(SPEAKER_RE);
     if (speakerMatch) {
       const speaker = speakerMatch[1].toUpperCase();
-      const resolved = aliases[speaker];
+      const resolved = aliases[speaker] ?? implicitActor(speaker);
       // Unseen announcer — no NPC, no anchor. (An explicit @alias still wins.)
       const isAnnouncer = ANNOUNCER_LABELS.has(speaker) && !resolved;
       const fallbackId = `npc_${speaker.toLowerCase().replace(/\s+/g, '_')}`;
