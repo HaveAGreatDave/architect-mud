@@ -429,7 +429,14 @@ function mapWindow(a, radius = 24) {
       // Public-plaza landmark: a `statue-*` map icon marks a monument tile (the town-square
       // statue) so the windshield can raise a bespoke statue + fountain instead of bare ground.
       const mark = /^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined;
-      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark });
+      // Road piece connections, straight off the map icon suffix (road_ns, road_ne turn,
+      // road_nes T, road_nesw / road_x crossroads, road_n stub, …). The windshield paints
+      // lane markings toward each connected edge, so junctions, turns and Ts all read as what
+      // they are — not just straights. `rd` = the connected-direction letters (subset of nesw).
+      let rd;
+      const im = /^road_([nesw]+|x)$/.exec(cell.flags?.icon || '');
+      if (im) rd = im[1] === 'x' ? 'nesw' : im[1];
+      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd });
     }
     rows.push(row);
   }

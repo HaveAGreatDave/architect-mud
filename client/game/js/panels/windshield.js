@@ -1632,36 +1632,49 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
     ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
     const edge = (a, b) => { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); };
     if (!nN) edge(P0, P1); if (!nE) edge(P1, P2); if (!nS) edge(P3, P2); if (!nW) edge(P0, P3);
-    // Direction from same-surface neighbours. Both axes = a crossing/apron → leave it bare.
-    const ns = nN || nS, ew = nW || nE; if (ns && ew) continue;
-    const A = ew && !ns ? [1, 0] : [0, 1];   // surface axis (default N–S for an isolated tile)
-    const Px = A[1], Py = -A[0];             // across-surface axis
-    const stripe = (off, hw, aLo, aHi, style) => {
+    // Markings. A world-space stripe from aLo→aHi along axis A at lateral offset `off`.
+    const nsN = nN || nS, ewN = nW || nE;
+    const DIRV = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
+    const stripeA = (A, off, hw, aLo, aHi, style) => {
+      const Px = A[1], Py = -A[0];
       const q = (a, o) => cam.proj(dx + A[0] * a + Px * o, dy + A[1] * a + Py * o, 0);
       const c0 = q(aLo, off - hw), c1 = q(aLo, off + hw), c2 = q(aHi, off + hw), c3 = q(aHi, off - hw);
       if ([c0, c1, c2, c3].some(p => p.f <= 0.05)) return;
       ctx.fillStyle = style; ctx.beginPath();
       ctx.moveTo(c0.sx, c0.sy); ctx.lineTo(c1.sx, c1.sy); ctx.lineTo(c2.sx, c2.sy); ctx.lineTo(c3.sx, c3.sy); ctx.closePath(); ctx.fill();
     };
-    const dashed = (off, hw, style) => { for (let a = -0.5; a < 0.5; a += 0.34) stripe(off, hw, a, Math.min(0.5, a + 0.2), style); };
+    const dashedA = (A, off, hw, aLo, aHi, step, len, style) => { for (let a = aLo; a < aHi; a += step) stripeA(A, off, hw, a, Math.min(aHi, a + len), style); };
     if (surf === 'field') {
-      const WHITE = 'rgba(236,239,243,0.9)';
-      dashed(0, 0.02, WHITE);                                    // dashed runway centreline
-      stripe(-0.42, 0.016, -0.5, 0.5, WHITE); stripe(0.42, 0.016, -0.5, 0.5, WHITE);   // runway edge lines
+      const A = (ewN && !nsN) ? [1, 0] : [0, 1], WHITE = 'rgba(236,239,243,0.9)';
+      dashedA(A, 0, 0.02, -0.5, 0.5, 0.34, 0.2, WHITE);                                     // dashed runway centreline
+      stripeA(A, -0.42, 0.016, -0.5, 0.5, WHITE); stripeA(A, 0.42, 0.016, -0.5, 0.5, WHITE);   // runway edge lines
       // Threshold "piano keys" across each end where the runway stops (neighbour is not runway).
       for (const [open, end] of [[A[0] ? nW : nN, -1], [A[0] ? nE : nS, 1]]) {
-        if (open) continue;                                      // interior tile — no threshold here
-        for (let k = -3; k <= 3; k++) stripe(k * 0.11, 0.035, end * 0.5, end * 0.36, WHITE);
+        if (open) continue;
+        for (let k = -3; k <= 3; k++) stripeA(A, k * 0.11, 0.035, end * 0.5, end * 0.36, WHITE);
       }
-      // Glowing edge lights at night — a bright bead at each edge line, both ends of the tile.
-      if (nite > 0.25) {
+      if (nite > 0.25) {   // glowing edge lights at night
+        const Px = A[1], Py = -A[0];
         const light = (a, o) => { const p = cam.proj(dx + A[0] * a + Px * o, dy + A[1] * a + Py * o, 0); if (p.f <= 0.06) return; ctx.fillStyle = `rgba(255,246,214,${0.95 * nite})`; ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(2.2 / p.f, 0.8, 3.4), 0, 7); ctx.fill(); };
         for (const a of [-0.5, 0]) { light(a, -0.44); light(a, 0.44); }
       }
     } else {
+      // Road markings driven by the piece's connections (c.rd from the map icon), so a straight,
+      // a turn, a T-junction and a crossroads each read as what they are. Fall back to the
+      // same-surface neighbours when a tile has no icon (a bare artery).
       const LANE = 'rgba(232,234,238,0.8)', YEL = 'rgba(230,200,74,0.9)';
-      dashed(-0.23, 0.014, LANE); dashed(0.23, 0.014, LANE);                          // lane dividers
-      stripe(-0.045, 0.014, -0.5, 0.5, YEL); stripe(0.045, 0.014, -0.5, 0.5, YEL);    // double-yellow centre
+      const dirs = c.rd || (nsN && ewN ? 'nesw' : (ewN && !nsN) ? 'ew' : 'ns');
+      if (dirs === 'ns' || dirs === 'ew') {   // straight: continuous 4-lane markings across the tile
+        const A = dirs === 'ew' ? [1, 0] : [0, 1];
+        dashedA(A, -0.23, 0.014, -0.5, 0.5, 0.34, 0.2, LANE); dashedA(A, 0.23, 0.014, -0.5, 0.5, 0.34, 0.2, LANE);
+        stripeA(A, -0.045, 0.014, -0.5, 0.5, YEL); stripeA(A, 0.045, 0.014, -0.5, 0.5, YEL);
+      } else {   // stub / turn / T / crossroads: mark each connected arm from the centre out to its edge
+        for (const d of dirs) {
+          const A = DIRV[d]; if (!A) continue;
+          stripeA(A, -0.045, 0.014, 0, 0.5, YEL); stripeA(A, 0.045, 0.014, 0, 0.5, YEL);              // yellow centre arm
+          dashedA(A, -0.23, 0.014, 0.12, 0.5, 0.24, 0.13, LANE); dashedA(A, 0.23, 0.014, 0.12, 0.5, 0.24, 0.13, LANE);   // lane dashes, clear of the junction box
+        }
+      }
     }
   }
 }
