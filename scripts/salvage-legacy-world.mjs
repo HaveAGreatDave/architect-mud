@@ -186,4 +186,46 @@ function phase3() {
 
 if (runPhase(3)) phase3();
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 5 — Rehome SPECTER-PD street cameras onto district streets. The 17 legacy
+// cameras are the only functional furniture on the old overworld (schedule boards
+// regenerate from vendor NPC state; everything else is cosmetic). The district has
+// ZERO outdoor cameras, so deleting the legacy tiles would leave the live world's
+// streets with no wanted-system coverage. Each camera is a paired security_devices
+// + furniture row (id secdev_pd_<zone>); we clone the existing template onto a
+// spread of the district's main named streets. Placement mirrors seed-wanted-police.js.
+// ─────────────────────────────────────────────────────────────────────────────
+const CAMERA_STREETS = [
+  'zone_district_918_904', 'zone_district_919_905',                       // Ironside Street
+  'zone_district_894_904', 'zone_district_894_907', 'zone_district_894_910', // Halcyon Boulevard
+  'zone_district_907_908', 'zone_district_908_908', 'zone_district_909_908', // Meltwater Row
+  'zone_district_912_909', 'zone_district_916_909', 'zone_district_920_909', // Marrow Street
+  'zone_district_912_912', 'zone_district_913_913',                       // Foundry Way
+  'zone_district_902_907', 'zone_district_902_911',                       // Cinder Lane
+  'zone_district_903_909', 'zone_district_905_909',                       // Voss Avenue
+];
+
+function phase5() {
+  log('\n── Phase 5: rehome SPECTER-PD cameras ──');
+  const TEMPLATE = 'zone_city_east'; // an existing legacy camera pair to clone
+  const sdTmpl = JSON.parse(readFileSync(join(dir('security_devices'), `secdev_pd_${TEMPLATE}.json`), 'utf8'));
+  const fuTmpl = JSON.parse(readFileSync(join(dir('furniture'), `secdev_pd_${TEMPLATE}.json`), 'utf8'));
+  for (const zone of CAMERA_STREETS) {
+    if (!byId.get(zone)) { log(`  ! target ${zone} missing — skip`); continue; }
+    const id = `secdev_pd_${zone}`;
+    const sd = { ...sdTmpl, id, zone_id: zone, recording_buffer: [], status_flags: {} };
+    const fu = { ...fuTmpl, id, zone_id: zone, flags: { ...fuTmpl.flags, device_id: id } };
+    for (const [table, row] of [['security_devices', sd], ['furniture', fu]]) {
+      const file = join(dir(table), `${id}.json`);
+      const json = canonicalJson(row);
+      if (existsSync(file) && readFileSync(file, 'utf8') === json) continue;
+      if (WRITE) writeFileSync(file, json);
+    }
+    log(`  + PD camera ${id} (${byId.get(zone).o.name})  ${WRITE ? '[written]' : '[dry-run]'}`);
+    changed += 2;
+  }
+}
+
+if (runPhase(5)) phase5();
+
 log(`\n${WRITE ? 'WROTE' : 'DRY-RUN'} — ${changed} file(s) ${WRITE ? 'changed' : 'would change'}.`);
