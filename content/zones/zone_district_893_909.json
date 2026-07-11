@@ -20,9 +20,12 @@
     ],
     "airfield_id": "af_helipad",
     "airfield_name": "Threshold Helipad",
+    "district": "wasteland",
     "hangar_interior_zone": "zone_hangar_threshold",
     "icon": "helipad",
-    "planner": "bp_district"
+    "planner": "bp_district",
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true
   },
   "grid_x": 893,
   "grid_y": 909,

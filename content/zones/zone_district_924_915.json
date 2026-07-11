@@ -13,8 +13,11 @@
     "west": "zone_district_923_915"
   },
   "flags": {
+    "district": "residential",
     "icon": "road_nsw",
-    "planner": "bp_district"
+    "planner": "bp_district",
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true
   },
   "grid_x": 924,
   "grid_y": 915,

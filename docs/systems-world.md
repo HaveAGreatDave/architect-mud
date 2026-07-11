@@ -230,8 +230,60 @@ corpses past their `expiresAt`.
 
 `getMinimapData(centerZoneId, depth=4)` BFS's exits up to 4 hops, staying within the same `map_id`
 (so interiors and exteriors don't bleed into each other), and returns node snapshots (grid coords,
-markers, colours, danger, player counts) for the client's 5×5 ASCII grid. `cmdMap` returns the full
-same-`map_id`/same-`grid_z` tile set for the full-screen map popup.
+markers, colours, danger, player counts) for the client's grid. `cmdMap` returns the full
+same-`map_id`/same-`grid_z` tile set (a `MAP_WINDOW_HALF = 7` half-window in
+[movement.js](../server/engine/commands/movement.js)) for the full-screen map popup and the tablet
+bigmap.
+
+### Tile rendering (the map is drawn, not ASCII)
+
+Each map/minimap node carries four additive rendering fields, all derived server-side in
+[world.js](../server/engine/world.js) and mirrored into the `cmdMap` tile payload:
+
+- **`icon_svg`** — a named SVG in `client/game/assets/zone-icons/`. `flags.icon` wins; otherwise a
+  building **facade** tile falls back to the top-down rooftop footprint for its `building_type`
+  (`buildingIconSvg` → `BUILDING_TYPE_ICON`), so every building reads as itself on the 1:1 map. Road
+  tiles get one of 16 connectivity icons (`road_ns`, `road_nesw`, …) matching their road neighbours,
+  which the zone-planner stamps at export — a continuous dashed street network with real
+  T-junctions. Runways use `runway_ns`/`runway_ew`.
+- **`building_type`** (`buildingTypeOf`) — the facade tile's type, `null` for streets/water/interiors.
+  Drives the **labels/icons overlay** and the flight-sim 3-D shape.
+- **`entrance`** (`buildingEntranceDir`) — which edge (`north`/`south`/`east`/`west`) the door faces,
+  reverse-derived from the *real* exit graph (the street tile whose exit leads INTO the facade), **not**
+  from the `flags.world_exit_zone` planner hint. Cached, invalidated on any exit mutation. Drives the
+  small amber entrance arrow.
+- **`terrain`** (`zoneTerrain`) — `'road' | 'water' | 'grass' | null` for the tileable surface fill
+  (grey asphalt / yellow road markings, seamless water and parkland). Grass is detected from an
+  authored green `bg_color`.
+
+The client (game sidebar minimap, full-map popup, tablet bigmap in
+[minimap.js](../client/game/js/panels/minimap.js) / [tablet-os.js](../client/game/js/panels/tablet-os.js))
+shares a **None / Labels / Icons overlay** setting: all modes draw the SVG tile base; *labels* adds a
+2-letter building acronym; *icons* draws the full building-type glyph. The you-are-here marker is
+transparent so the current tile shows through. The full-map popup uses fixed square tiles that fill its
+374px window; the regional view scales tiles to fit the whole district with no panning.
+
+> **STANDARD:** a new `building_type` needs BOTH a 2-D footprint in `BUILDING_TYPE_ICON`
+> ([world.js](../server/engine/world.js)) AND a 3-D shape in `BLDG_TYPE_3D`
+> ([windshield.js](../client/game/js/panels/windshield.js)) so it reads consistently on the map and
+> from the air. Each registry falls back rather than rendering nothing.
+
+### The district — a generated slice of map_world
+
+The bulk of the exterior city is **generated content**, not hand-authored zone-by-zone. The
+**District Editor** ([tools/zone-planner/](../tools/zone-planner/), served on port 5178, tools-only —
+nothing the server or regress harness loads) turns a painted `bp_district` blueprint into a
+self-contained slice of `map_world`: terrain tiles, polyline-named roads (inheriting existing artery
+names at the seam), a connected minimap network, and the city's real buildings **relocated** onto the
+grid as facade markers that forward `in` to their existing interiors. `apply.mjs` writes to the local
+dev DB; `content:export` turns that into reviewable git diffs; the CODEX push deploys it. The current
+district is **888 zones** (shipped 2026-07-11), with the airfields (Coldwater Regional + Threshold
+Helipad) relocated onto it and the legacy ramps de-airfielded. See
+[tools/zone-planner/processlog.md](../tools/zone-planner/processlog.md) for the palette→kind reference
+and the pre-ship checklist.
+
+Note this **generated district** (grid geometry) is distinct from the **district *registry*** below
+(land-use identity derived from zone-id prefix) — two unrelated uses of the word "district".
 
 ## Districts (sense of place)
 

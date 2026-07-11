@@ -13,8 +13,11 @@
     "west": "zone_district_924_908"
   },
   "flags": {
+    "district": "wasteland",
     "icon": "road_w",
-    "planner": "bp_district"
+    "planner": "bp_district",
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true
   },
   "grid_x": 925,
   "grid_y": 908,

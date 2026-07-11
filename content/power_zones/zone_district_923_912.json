@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 100,
+  "flags": {},
+  "generator_id": "gen_zone_powerplantnew_1782069598190",
+  "id": "zone_district_923_912",
+  "max_capacity_kw": 100,
+  "name": "Kessler Street",
+  "source_type": "city_grid"
+}

@@ -23,6 +23,7 @@
     ],
     "airfield_id": "af_regional",
     "airfield_name": "Coldwater Regional",
+    "district": "wasteland",
     "hangar_interior_zone": "zone_hangar_outskirts",
     "icon": "runway_ns",
     "planner": "bp_district",

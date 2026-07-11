@@ -18,6 +18,16 @@ function renderZonesTable(records) {
   const isBuilding = z => !!z.flags?.is_building;
   const isExterior = z => !isInterior(z) && !isBuilding(z);
   const byName = (a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id));
+  // Terrain classification for grouping bulk map tiles (mirrors server zoneTerrain):
+  // water flag, road_/runway_ icon, or a green-dominant surface colour (grassland).
+  const terrainKey = z => {
+    if (z.flags?.water) return 'water';
+    if (/^(road_|runway_)/.test(z.flags?.icon || '')) return 'road';
+    const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(z.bg_color || '');
+    if (m) { const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+      if (g > r && g - b >= 15 && g >= 45) return 'grass'; }
+    return null;
+  };
 
   // 1. Interior spanning tree per building. BFS over exits from each entrance,
   //    claiming interior/apartment rooms; the first building to reach a room
@@ -188,7 +198,23 @@ function renderZonesTable(records) {
 
   // --- Assemble ---
   let html = `<div style="padding:10px 12px"><button class="action-btn" onclick="openBigMap()">🗺 View Big Map</button></div>`;
-  html += records.filter(isExterior).sort(byDistThenName).map(exteriorBlock).join('');
+  // Named (non-terrain) exterior zones first, radiating from spawn; then each terrain
+  // type collapsed into one big group so the map-tile bulk (grasslands, roads, water)
+  // doesn't drown the list.
+  const exteriors = records.filter(isExterior);
+  const terrOf = new Map(exteriors.map(z => [z.id, terrainKey(z)]));
+  html += exteriors.filter(z => !terrOf.get(z.id)).sort(byDistThenName).map(exteriorBlock).join('');
+  const TERRAIN_GROUPS = [
+    { key: 'grass', title: '🌿 Grasslands' },
+    { key: 'road', title: '🛣 Roads' },
+    { key: 'water', title: '🌊 Water' },
+  ];
+  for (const g of TERRAIN_GROUPS) {
+    const zs = exteriors.filter(z => terrOf.get(z.id) === g.key).sort(byDistThenName);
+    if (!zs.length) continue;
+    html += catchAllBand(`__terrain_${g.key}__`, g.title, `${zs.length} zone${zs.length !== 1 ? 's' : ''}`,
+      zs.map(exteriorBlock).join(''));
+  }
   if (looseBuildings.length) {
     html += catchAllBand('__loose_buildings__', 'Buildings — no exterior entrance', looseBuildings.length,
       looseBuildings.sort(byName).map(buildingBlock).join(''));

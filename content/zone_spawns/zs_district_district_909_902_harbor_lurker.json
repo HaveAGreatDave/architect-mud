@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_harbor_lurker",
+  "id": "zs_district_district_909_902_harbor_lurker",
+  "max_count": 1,
+  "respawn_seconds": 260,
+  "spawn_weight": 60,
+  "zone_id": "zone_district_909_902"
+}

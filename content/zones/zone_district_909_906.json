@@ -13,8 +13,11 @@
     "west": "zone_district_908_906"
   },
   "flags": {
+    "district": "docks",
     "icon": "road_s",
-    "planner": "bp_district"
+    "planner": "bp_district",
+    "scavenging_table_id": "scav_harbor",
+    "street_life": true
   },
   "grid_x": 909,
   "grid_y": 906,

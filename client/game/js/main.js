@@ -452,6 +452,11 @@ window.addEventListener('game-disconnect', () => {
 	stopEngineAudio();
 	window.AudioEngine?.stop('music');
 	window.AudioEngine?.stop('ambience');
+	// Close the full-screen map popup (and its tooltip) — a disconnected map is stale
+	// and can't be interacted with anyway.
+	document.getElementById('map-panel')?.classList.remove('active');
+	const mapTip = document.getElementById('map-tooltip');
+	if (mapTip) mapTip.style.display = 'none';
 });
 
 // Wire signout

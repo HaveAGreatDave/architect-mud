@@ -13,8 +13,11 @@
     "west": "zone_district_908_911"
   },
   "flags": {
+    "district": "wasteland",
     "icon": "statue-fisherman",
-    "planner": "bp_district"
+    "planner": "bp_district",
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true
   },
   "grid_x": 909,
   "grid_y": 911,

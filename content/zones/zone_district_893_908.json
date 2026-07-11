@@ -12,6 +12,7 @@
   "flags": {
     "building_name": "Threshold Helipad Hangar",
     "building_type": "hangar",
+    "district": "wasteland",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

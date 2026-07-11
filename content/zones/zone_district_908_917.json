@@ -1,6 +1,6 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
+  "ambient_theme": "forest",
   "audio_theme_id": null,
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
@@ -13,6 +13,7 @@
     "west": "zone_district_907_917"
   },
   "flags": {
+    "district": "wasteland",
     "planner": "bp_district"
   },
   "grid_x": 908,

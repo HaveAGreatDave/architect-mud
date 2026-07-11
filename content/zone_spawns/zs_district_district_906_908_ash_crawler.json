@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_ash_crawler",
+  "id": "zs_district_district_906_908_ash_crawler",
+  "max_count": 2,
+  "respawn_seconds": 260,
+  "spawn_weight": 60,
+  "zone_id": "zone_district_906_908"
+}

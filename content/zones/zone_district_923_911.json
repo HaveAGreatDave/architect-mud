@@ -12,8 +12,11 @@
     "south": "zone_district_923_912"
   },
   "flags": {
+    "district": "residential",
     "icon": "road_ns",
-    "planner": "bp_district"
+    "planner": "bp_district",
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true
   },
   "grid_x": 923,
   "grid_y": 911,

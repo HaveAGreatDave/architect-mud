@@ -1,6 +1,6 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
+  "ambient_theme": "forest",
   "audio_theme_id": null,
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
@@ -13,7 +13,9 @@
     "west": "zone_district_909_915"
   },
   "flags": {
-    "planner": "bp_district"
+    "district": "wasteland",
+    "planner": "bp_district",
+    "scavenging_table_id": "scav_west_wastes"
   },
   "grid_x": 910,
   "grid_y": 915,

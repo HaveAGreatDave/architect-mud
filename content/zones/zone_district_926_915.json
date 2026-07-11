@@ -13,7 +13,10 @@
     "west": "zone_district_925_915"
   },
   "flags": {
-    "planner": "bp_district"
+    "district": "residential",
+    "planner": "bp_district",
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true
   },
   "grid_x": 926,
   "grid_y": 915,

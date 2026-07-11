@@ -11,6 +11,7 @@
     "west": "zone_district_926_896"
   },
   "flags": {
+    "district": "water",
     "planner": "bp_district",
     "water": true
   },

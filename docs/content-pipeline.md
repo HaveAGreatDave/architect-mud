@@ -6,11 +6,17 @@ production — are build artifacts of those files. Git is the merge engine:
 concurrent work on different entities merges automatically; the same entity
 becomes an ordinary, visible git conflict instead of a silent overwrite.
 
-> **MIGRATION STATUS (2026-07-06):** the pipeline is built and verified, but the
-> cutover has NOT happened yet. The old seed pipeline (db/seed.sql +
-> content:publish/sync) is still authoritative until the [cutover
-> runbook](#cutover-runbook) below is executed. Do not run both pipelines side
-> by side beyond the cutover window.
+> **MIGRATION STATUS — CUTOVER DONE (2026-07-08):** git is now the sole writer
+> of world content to production. Prod content is read-only over HTTP
+> (`CONTENT_READONLY=1` on Render); a push to `main` runs the `deploy-content`
+> CI, which is the only path that mutates prod content. The old seed pipeline
+> (db/seed.sql + content:publish/sync) is retired. This pipeline is authoritative
+> — the [cutover runbook](#cutover-runbook) below is kept for reference only.
+>
+> As of 2026-07-11 the pipeline has shipped real content at scale: the 888-zone
+> district (see [systems-world.md](systems-world.md#the-district-a-generated-slice-of-map_world))
+> deployed additively through a normal push, with the airfield relocation and its
+> door/map rewiring handled as reviewable git diffs.
 
 ## The one table that rules them all
 

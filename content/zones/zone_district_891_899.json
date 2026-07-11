@@ -12,6 +12,7 @@
     "south": "zone_district_891_900"
   },
   "flags": {
+    "district": "water",
     "planner": "bp_district",
     "water": true
   },

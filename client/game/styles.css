@@ -2374,6 +2374,11 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	paint-order: stroke fill;
 }
 #map-grid .map-bld-label { font-size: 20px; letter-spacing: -1.5px; -webkit-text-stroke: 1px #000; }
+/* Sidebar/HUD/mobile minimaps: smaller tiles, so a smaller 2-letter label that still
+   fills the square. */
+#minimap-grid .map-bld-label,
+#minimap-grid-hud .map-bld-label,
+#minimap-grid-mob .map-bld-label { font-size: 10px; letter-spacing: -0.5px; -webkit-text-stroke: 0.6px #000; }
 .map-bld-icon {
 	font-size: 10px;
 	line-height: 1;
@@ -2542,7 +2547,8 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 #map-tooltip {
 	display: none;
 	position: fixed;
-	z-index: 400;
+	/* Above #map-panel (z-index 9250) so map hover tips aren't hidden behind the map. */
+	z-index: 9300;
 	max-width: 300px;
 	background: var(--bg2);
 	border: 1px solid var(--accent);

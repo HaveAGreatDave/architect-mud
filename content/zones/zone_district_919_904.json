@@ -13,8 +13,24 @@
     "west": "zone_district_918_904"
   },
   "flags": {
+    "district": "wasteland",
+    "greeter": {
+      "lines": [
+        "Hey — hey! Not so fast. You've got that fresh-decant shine and empty pockets, I can spot it blind. If you need money, that board's got work. Come back to me when it's done.",
+        "Whoa there. Where you off to in such a hurry, broke as you are? There's a board right there. Take a job, bring it back to me. Then you can go.",
+        "Hold up, shine. You look desperate, and that's alright — everybody does, first week. Work's on the board. See me after. That's the deal.",
+        "Hey! You. Yeah, you. Don't go wandering out there hungry. Check the board, do a job, come back to my window. Simple as that.",
+        "Slow down. Out there they don't hand out second chances. In here there's a board and there's me. Pick a tab, come back when it's done.",
+        "Easy, new blood. You've got 'desperate' written all over you — no shame in it. Money's on that board if you want it. Just come see me when you've earned it."
+      ],
+      "met_flag": "fs_marta_met",
+      "npc_id": "npc_fs_dispatcher",
+      "npc_name": "Marta Kell"
+    },
     "icon": "road_nsw",
-    "planner": "bp_district"
+    "planner": "bp_district",
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true
   },
   "grid_x": 919,
   "grid_y": 904,

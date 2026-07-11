@@ -12,6 +12,7 @@
   "flags": {
     "building_name": "Embassy Hotel & Bar",
     "building_type": "hotel",
+    "district": "wasteland",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

@@ -1,6 +1,6 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
+  "ambient_theme": "residential",
   "audio_theme_id": null,
   "bg_color": "#332e28",
   "color": "#b89a72",
@@ -13,7 +13,10 @@
     "west": "zone_district_925_912"
   },
   "flags": {
-    "planner": "bp_district"
+    "district": "residential",
+    "planner": "bp_district",
+    "scavenging_table_id": "scav_consumer_trash",
+    "street_life": true
   },
   "grid_x": 926,
   "grid_y": 912,

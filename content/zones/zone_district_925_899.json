@@ -13,6 +13,7 @@
     "west": "zone_district_924_899"
   },
   "flags": {
+    "district": "docks",
     "planner": "bp_district",
     "runway": "pad"
   },

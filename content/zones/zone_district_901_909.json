@@ -12,6 +12,7 @@
   "flags": {
     "building_name": "Dead Space Interiors",
     "building_type": "shop",
+    "district": "wasteland",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

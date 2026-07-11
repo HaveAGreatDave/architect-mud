@@ -313,12 +313,17 @@ export function renderMinimap(nodes, direction) {
   const baseSym = (node) => iconSvg(node.icon_svg) || (node.enterable
     ? '▣ ' // pass-through building tile: a door you enter, not a room you stand in
     : (node.sanctuary ? '◆ ' : '')); // bare tile — no marker glyph (#, ⸪., …)
+  // A tile counts as a building for the overlay if it's an enterable facade, carries a
+  // building type, or has a building name — broader than building_type alone so labels
+  // still land on buildings the type-detector misses.
+  const isBuilding = (node) => !!(node.building_type || node.enterable || node.building_name);
   const symFor = (node) => {
+    // Labels: hide the building graphic entirely and show a 2-letter acronym filling the
+    // tile square (mm-bld-label turns the tile into a solid labelled box).
+    if (overlay === 'labels' && isBuilding(node))
+      return `<span class="map-bld-ov map-bld-label">${twoLetterAbbrev(node.building_name || node.name)}</span>`;
     const base = baseSym(node);
     if (overlay === 'none' || !node.building_type) return base;
-    // Labels: hide the building footprint and show a big 2-letter acronym in its place.
-    if (overlay === 'labels')
-      return `<span class="map-bld-ov map-bld-label">${twoLetterAbbrev(node.building_name || node.name)}</span>`;
     const glyph = BUILDING_ICON[node.building_type] || BUILDING_ICON._default;
     return base + `<span class="map-bld-ov map-bld-icon">${glyph}</span>`;
   };
@@ -762,11 +767,11 @@ function wireMapUi() {
     const slider = e.currentTarget;
     const segs = [...slider.querySelectorAll('.mo-seg')];
     if (!segs.length) return;
-    // Snap to the segment nearest the click X — the whole slider is clickable, not just
-    // the exact segment, so a click anywhere instantly toggles to the closest option.
-    const rect = slider.getBoundingClientRect();
-    const idx = Math.max(0, Math.min(segs.length - 1, Math.floor((e.clientX - rect.left) / (rect.width / segs.length))));
-    mapState.avenueOverlay = segs[idx].getAttribute('data-ov') || 'icons';
+    // Step to the NEXT option in order (none → labels → icons → none), wherever you
+    // click — a sequential cycle, not a jump-to-the-nearest-segment toggle.
+    const order = segs.map((s) => s.getAttribute('data-ov') || 'icons');
+    const next = (order.indexOf(mapState.avenueOverlay) + 1) % order.length;
+    mapState.avenueOverlay = order[next];
     try { localStorage.setItem(MAP_OVERLAY_KEY, mapState.avenueOverlay); } catch {}
     syncOverlaySlider();
     renderMapGrid();

@@ -1,0 +1,14 @@
+{
+  "description": "A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_streetlight_zone_district_919_909",
+  "light_type": "streetlight",
+  "lumen_output": 6000,
+  "name": "street lights",
+  "object_type": "light",
+  "power_draw_kw": 5,
+  "price": 200,
+  "zone_id": "zone_district_919_909"
+}

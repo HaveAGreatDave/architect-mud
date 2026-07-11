@@ -1073,8 +1073,19 @@ function renderMapOverview() {
   const o = mapOverview;
   const panel = document.getElementById('list-panel');
   const all = [...o.zones.values()];
-  const floors = [...new Set(all.map(z => z.grid_z ?? 0))].sort((a, b) => a - b);
-  const onFloor = all.filter(z => (z.grid_z ?? 0) === o.z && z.grid_x != null && z.grid_y != null);
+  // Scope the exterior editor to the new district (the bp_district planner grid). The
+  // world map still carries legacy zones parked near the origin (~900 tiles away), and
+  // spanning both clusters would blow the grid up to ~900×900 mostly-empty cells. When
+  // there's no district grid (e.g. an interior map), show everything as before.
+  const districtZones = all.filter(z => z.flags?.planner === 'bp_district' && z.grid_x != null);
+  let dbbox = null;
+  if (districtZones.length) {
+    const dxs = districtZones.map(z => z.grid_x), dys = districtZones.map(z => z.grid_y);
+    dbbox = { minX: Math.min(...dxs), maxX: Math.max(...dxs), minY: Math.min(...dys), maxY: Math.max(...dys) };
+  }
+  const inDistrict = z => !dbbox || (z.grid_x >= dbbox.minX && z.grid_x <= dbbox.maxX && z.grid_y >= dbbox.minY && z.grid_y <= dbbox.maxY);
+  const floors = [...new Set(all.filter(inDistrict).map(z => z.grid_z ?? 0))].sort((a, b) => a - b);
+  const onFloor = all.filter(z => (z.grid_z ?? 0) === o.z && z.grid_x != null && z.grid_y != null && inDistrict(z));
   const knownZoneIds = new Set((Array.isArray(allRecords) ? allRecords : []).map(z => z.id));
   const interiorZoneIds = new Set([
     ...o.unplacedInterior.keys(),
