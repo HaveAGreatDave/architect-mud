@@ -305,13 +305,12 @@ function resolveFacadeTransit(from, to) {
   if (!isEnterableFacade(to)) return null;
   const interior = getMapByParentZone(to.id);
   if (from.map_id === interior.id) {
-    // Exiting: interior → facade → the building's front-door street tile.
-    const street = to.flags?.world_exit_zone ? getZone(to.flags.world_exit_zone) : null;
-    if (!street || street.id === from.id) {
-      console.warn(`[facade] ${to.id} has no usable world_exit_zone — landing on the facade (legacy)`);
-      return null;
-    }
-    return { finalId: street.id, finalZone: street, frontDoor: null }; // exit-side door already found by the standard lookup
+    // Exiting: interior → facade. You always come out ONTO the facade — the tile
+    // the entrance is on — rather than being pushed one tile further onto the
+    // street. Returning null leaves the standard move to land the player on `to`
+    // (the facade), the same path the legacy no-world_exit_zone fallback took.
+    // The exit-side door is already found by the standard lookup.
+    return null;
   }
   // Entering: anywhere else → facade → interior entry zone. The front door
   // lives on the facade↔interior 'in'/'out' exit, so surface it for the gate

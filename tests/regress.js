@@ -684,11 +684,12 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
       inMove?.type === 'move' && p.current_zone === 'rg_lobby', `zone=${p.current_zone} type=${inMove?.type}`);
     check('facade holds no players after transit', facade.players.size === 0);
 
-    // Walk out: lobby --out--> facade ⇒ land on the front-door street tile.
+    // Walk out: lobby --out--> facade ⇒ land ON the facade (the tile the entrance
+    // is on), not one tile further onto the street.
     p._lastStepAt = 0;
     const outMove = await cmdMove('out', p, broadcast);
-    check('OUT from the interior lands on the front-door street tile',
-      outMove?.type === 'move' && p.current_zone === 'rg_street', `zone=${p.current_zone} type=${outMove?.type}`);
+    check('OUT from the interior lands on the facade (the entrance tile)',
+      outMove?.type === 'move' && p.current_zone === 'rg_facade', `zone=${p.current_zone} type=${outMove?.type}`);
 
     // NPC path-through: moveEntity onto the facade forwards to the lobby.
     const npc = { id: 'rg_npc', name: 'Regress Wanderer', zone_id: 'rg_street', flags: {} };
