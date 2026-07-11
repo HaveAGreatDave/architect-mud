@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_residential_lobby_z-1_1782105292491_1782105308088",
+  "id": "zone_embassy_floor_2nd",
+  "max_capacity_kw": 1000,
+  "name": "Embassy Hotel & Bar — Second Floor Landing",
+  "source_type": "building_generator"
+}
