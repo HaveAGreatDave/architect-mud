@@ -1150,6 +1150,10 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_hangar_a: [96, 102, 112], ty_hangar_b: [84, 98, 108],
   ty_bar_a: [60, 44, 50], ty_bar_b: [50, 48, 62], ty_club: [70, 42, 80], ty_diner: [82, 72, 52],
   ty_shop_a: [64, 60, 52], ty_shop_b: [54, 62, 60], ty_shop_c: [66, 54, 58], ty_shop_d: [58, 58, 66], ty_shop_e: [62, 66, 54],
+  // Embassy Hotel & Bar — warm ochre tower over a moody neon-lit bar podium.
+  ty_embassy: [88, 66, 54], ty_embassy_bar: [46, 34, 42],
+  // Coldwater Clone Facility — clinical off-white shell + dark glowing vat glass.
+  ty_clone: [176, 200, 204], ty_clone_vat: [30, 52, 58],
   ty_door: [20, 22, 26] };
 const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
 
@@ -1606,7 +1610,7 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
   const baseAlpha = ctx.globalAlpha;   // = worldBlend (set by the caller); the far fade rides on top of it
   const nite = sky ? sky.night : 0;
   const at = (rx, ry) => (ry >= 0 && ry < map.length && rx >= 0 && rx < map[ry].length) ? map[ry][rx] : null;
-  const kindOf = (c) => !c ? null : c.road ? 'road' : c.kind === 'field' ? 'field' : null;
+  const kindOf = (c) => !c ? null : c.kind === 'field' ? 'field' : c.road ? 'road' : null;   // an airfield tile paints as runway even if it also carries a road icon
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     const c = map[ry][rx], surf = kindOf(c); if (!surf) continue;
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
@@ -1837,11 +1841,11 @@ function drawMarquee(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
 function bldgSlug(name) { return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
 const NAMED_MODELS = {
   halcyontowers:                  { type: 'office',    pal: 'ty_office' },
-  embassyhotelbar:                { type: 'hotel',     pal: 'ty_hotel',    neon: '#ff4a9a' },
+  embassyhotelbar:                { type: 'embassy',   pal: 'ty_embassy',  neon: '#ff4a9a' },
   chromecourt:                    { type: 'apartment', pal: 'ty_apt_a' },
   themeridianlobby:               { type: 'apartment', pal: 'ty_apt_b',    penthouse: true },
   precinct9:                      { type: 'police',    pal: 'ty_police' },
-  coldwaterclonefacility:         { type: 'clinic',    pal: 'ty_clinic' },
+  coldwaterclonefacility:         { type: 'clone',     pal: 'ty_clone' },
   ksabtvstudiostage:              { type: 'studio',    pal: 'ty_studio' },
   coldwaterpowerplantturbinehall: { type: 'power',     pal: 'ty_power' },
   coldwaterregionalhangar:        { type: 'hangar',    pal: 'ty_hangar_a', big: true },
@@ -1919,6 +1923,18 @@ function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof 
   rg.addColorStop(0, `rgba(${rgb},${alpha})`); rg.addColorStop(1, `rgba(${rgb},0)`);
   ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill();
 }
+// A HORIZONTAL neon sign band across a building's entrance face (a hotel/bar marquee), at
+// height wz, spanning ±half across the front edge (E = entrance world vector).
+function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha) {
+  const px = E[1] * half, py = -E[0] * half;          // across-front half-width
+  const ox = E[0] * half * 0.92, oy = E[1] * half * 0.92;   // pushed out to the front face
+  const a = cam.proj(dx - px + ox, dy - py + oy, wz), b = cam.proj(dx + px + ox, dy + py + oy, wz);
+  if (a.f <= 0.12 || b.f <= 0.12) return;
+  ctx.globalAlpha = alpha * (night ? 1 : 0.6); ctx.strokeStyle = color; ctx.lineWidth = 3.2; ctx.lineCap = 'round';
+  if (night) { ctx.shadowColor = color; ctx.shadowBlur = 9; }
+  ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+  ctx.shadowBlur = 0; ctx.globalAlpha = 1; ctx.lineCap = 'butt';
+}
 
 // ── Entrance facing ───────────────────────────────────────────────────────────
 // A model is authored with its FRONT (door, awning, marquee, forecourt) on its local
@@ -1953,10 +1969,46 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       mast(ctx, cam, dx, dy, H, H + h * 0.5, alpha, now, seed);
       break;
     }
-    case 'hotel': {   // tall slab + vertical neon blade + rooftop sign glow
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, 0, h * 1.4, pal, seed, night, alpha, true);
-      { const [nx, ny] = F(-fh * 0.55, fh * 0.55); neonBlade(ctx, cam, nx, ny, h * 0.3, h * 1.35, m.neon || '#ff4a9a', night, alpha); }   // neon blade over the entrance corner
+    case 'hotel': {   // podium + tall guest slab + entrance marquee + vertical neon blade
+      const neon = m.neon || '#ff4a9a';
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.2, 0, h * 0.24, pal, seed + 4, night, alpha, true);        // lit ground-floor podium
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, h * 0.24, h * 1.4, pal, seed, night, alpha, true);      // guest tower
+      { const [cx, cy] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.85, h * 0.16, h * 0.24, 'ty_door', seed + 5, night, alpha, false); }   // porte-cochère canopy over the entrance
+      marqueeBand(ctx, cam, dx, dy, E, fh, h * 0.27, neon, night, alpha);                             // marquee sign across the front
+      { const [nx, ny] = F(-fh * 0.55, fh * 0.55); neonBlade(ctx, cam, nx, ny, h * 0.3, h * 1.35, neon, night, alpha); }
       if (night) glowPool(ctx, cam, dx, dy, h * 1.4, '255,120,180', 20, alpha * 0.2);
+      break;
+    }
+    case 'embassy': {   // Embassy Hotel & Bar: warm guest tower over a moody neon bar podium + big marquee
+      const neon = m.neon || '#ff4a9a';
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.32, 0, h * 0.34, 'ty_embassy_bar', seed + 4, night, alpha, true);   // wide street-level bar
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, h * 0.34, h * 1.55, pal, seed, night, alpha, true);             // hotel tower above
+      { const [cx, cy] = F(0, fh * 1.15); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.95, h * 0.2, h * 0.3, 'ty_door', seed + 5, night, alpha, false); }   // grand entrance canopy
+      marqueeBand(ctx, cam, dx, dy, E, fh * 1.25, h * 0.16, '#ffcf3e', night, alpha);      // gold bar marquee low across the front
+      marqueeBand(ctx, cam, dx, dy, E, fh, h * 0.36, neon, night, alpha);                  // pink hotel marquee above the podium
+      { const [nx, ny] = F(-fh * 0.62, fh * 0.6); neonBlade(ctx, cam, nx, ny, h * 0.36, h * 1.5, neon, night, alpha); }   // vertical HOTEL blade up the corner
+      if (night) {
+        glowPool(ctx, cam, dx, dy, h * 0.34, '255,190,90', 26, alpha * 0.32);             // warm bar spill at street level
+        glowPool(ctx, cam, dx, dy, h * 1.55, '255,120,180', 16, alpha * 0.18);            // rooftop sign glow
+      }
+      blinkLight(ctx, cam, dx, dy, h * 1.55, '255,90,160', now, seed, alpha, 1.7);
+      break;
+    }
+    case 'clone': {   // Coldwater Clone Facility: clean lab shell, glowing bio-vats, a reactor dome + vents
+      const bio = '90,255,200';
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.18, 0, h * 0.8, pal, seed, night, alpha, true);            // clinical main block
+      { const [sx, sy] = F(-fh * 0.32, 0); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.5, h * 0.8, h * 1.15, pal, seed + 1, night, alpha, true); }   // set-back upper lab
+      // Row of lit clone-vat cylinders along the front face — the science-y signature.
+      for (const s of [-0.75, -0.25, 0.25, 0.75]) {
+        const [vx, vy] = F(s * fh * 0.78, fh * 0.62);
+        draw3DBoxAt(ctx, cam, vx, vy, fh * 0.13, 0, h * 0.52, 'ty_clone_vat', seed + 12 + Math.round(s * 4), night, alpha, true);
+        glowPool(ctx, cam, vx, vy, h * 0.26, bio, 7, alpha * (night ? 0.55 : 0.34));      // green bio-glow inside each tank
+      }
+      // Reactor / clean-room dome glow on the roof, venting steam, hazard beacon + antenna.
+      glowPool(ctx, cam, dx, dy, h * 0.86, '120,255,220', 22, alpha * (night ? 0.42 : 0.24));
+      { const [wx2, wy2] = F(fh * 0.72, -fh * 0.2); drawSmoke(ctx, cam, wx2, wy2, h * 0.8, '206,232,226', alpha * 0.6, now, seed + 2); }
+      { const [mx, my] = F(-fh * 0.9, -fh * 0.2); mast(ctx, cam, mx, my, h * 0.8, h * 1.55, alpha, now, seed + 4); }
+      blinkLight(ctx, cam, dx, dy, h * 1.15, bio, now, seed, alpha, 2);
       break;
     }
     case 'apartment': {   // podium + residential block + optional penthouse

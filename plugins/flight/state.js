@@ -401,10 +401,14 @@ function mapWindow(a, radius = 24) {
       if (dx === 0 && dy === 0) { row.push({ kind: 'craft' }); continue; }
       const cell = surfaceAt(a.grid_x + dx, a.grid_y + dy);
       if (!cell) { row.push({ kind: 'air' }); continue; }
-      // Each surface cell carries its derived biome, whether a major road (artery)
-      // runs through it, and its danger tier — the windshield renders the real world.
+      // Each surface cell carries its derived biome, whether a road runs through it, and its
+      // danger tier — the windshield renders the real world. A tile counts as road if it's a
+      // named artery OR carries a road/runway map icon (the authoritative per-tile road marker,
+      // the same one the minimap paints grey asphalt), so EVERY street on the map gets its
+      // asphalt + lane markings out the canopy — not just the major avenues.
       const biome = biomeOf(cell);
-      const road = Array.isArray(cell.flags?.artery) && cell.flags.artery.length ? 1 : 0;
+      const road = (Array.isArray(cell.flags?.artery) && cell.flags.artery.length)
+        || /^(road_|runway_)/.test(cell.flags?.icon || '') ? 1 : 0;
       const kind = cell.flags?.airfield_id ? 'field' : cell.flags?.airspace_restricted ? 'nofly' : 'land';
       // Building tiles carry their building_type AND their name so the windshield can
       // render either a dedicated per-building model (keyed off the name) or, failing

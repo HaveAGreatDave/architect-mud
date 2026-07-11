@@ -440,8 +440,12 @@ export function step(state, input, p, dt) {
   // descent BUILDS speed (gravity beats drag) — a real glide/dive accelerates well past cruise.
   // Fades in with how far the nose is below the horizon and only at low throttle, so powered
   // level flight, cruise and top speed are all untouched; it's gone the moment you level out.
-  const diveClean = s.pitch < 0 ? clamp(-s.pitch / 20, 0, 1) * clamp(1 - s.rpm / 0.6, 0, 1) : 0;
-  const drag = (p.dragP + flaps * p.flapDrag * 0.0016) * s.airspeed * s.airspeed * (1 - 0.5 * diveClean)  // parasitic drag ∝ V² (shed in a clean dive)
+  // A nose-down attitude cleans and unloads the airframe: parasitic drag falls away so gravity
+  // wins and ANY dive accelerates hard past cruise — regardless of power, not just a dead-stick
+  // glide. Ramps in with how far the nose is below the horizon and is gone the instant you level
+  // out (pitch → 0), so powered level flight, cruise and top speed stay untouched.
+  const diveClean = s.pitch < 0 ? clamp(-s.pitch / 18, 0, 1) : 0;
+  const drag = (p.dragP + flaps * p.flapDrag * 0.0016) * s.airspeed * s.airspeed * (1 - 0.72 * diveClean)  // parasitic drag ∝ V² (largely shed in a dive → speed builds)
              + s.aoa * s.aoa * 0.0016 * s.airspeed                               // profile-drag rise with a hard pull
              + (p.glideDrag || 0) * Math.max(0, 1 - s.rpm / 0.4) * (weight * weight) / (s.airspeed * s.airspeed + 40);   // DEAD-STICK induced drag (∝ 1/V²): engages only as the powerplant winds down toward idle (rpm below ~0.4), full at a stopped/windmilling engine. It penalises the SLOW end of a glide, so best-glide sits at a sensible speed with a realistic ratio instead of floating forever just above the stall — and because it's gated to low rpm it leaves ALL powered cruise/climb untouched. Per-type; unset ⇒ 0 (legacy floaty glide).
   const grav = G_KT * Math.sin(s.pitch * D2R);
