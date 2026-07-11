@@ -19,6 +19,14 @@
  * Moving AROUND inside the quarter (enclave → checkpoint tile) never triggers it —
  * only crossing IN from the outside does. Content flags the tiles
  * (scripts/add-gov-checkpoint.js); the drop of hardcoded zone ids stays in content.
+ *
+ * DORMANT as of the legacy-world decommission (2026-07-11): the North City gov
+ * quarter it guarded lived only on the old overworld, which is being retired. No
+ * zone currently carries `gov_checkpoint`, so this gate registers but never fires.
+ * The plugin is kept intact deliberately — re-flag a checkpoint tile
+ * (`gov_checkpoint` + the enclave with `gov_enclave`) when North City is rebuilt in
+ * the district and it wakes back up untouched. See
+ * docs/proposals/north-city-under-rebuild.md.
  */
 import { query } from '../../server/models/db.js';
 import { skillCheck } from '../../server/engine/skills.js';

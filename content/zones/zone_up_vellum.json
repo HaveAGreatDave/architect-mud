@@ -14,7 +14,6 @@
     "south": "zone_civ_steps"
   },
   "flags": {
-    "gov_checkpoint": true,
     "gov_enclave": true,
     "scavenging_table_id": "scav_consumer_trash"
   },
