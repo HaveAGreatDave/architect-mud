@@ -121,7 +121,8 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
       const click = clickable ? ` onclick="bigMapTileClick('${z.id}')"` : '';
       let tileStyle = mode === 'power' ? gs : gs + colorStyle;
       if (powerStatus) tileStyle += `;color:${powerTileTextColor(powerStatus)}`;
-      html += `<div class="${cls}" style="${tileStyle}" title="${z.id}"${click}><div>${marker}${z.name}${sub}</div></div>`;
+      const ico = zoneIconHtml(z);
+      html += `<div class="${cls}" style="${tileStyle}" title="${z.id}"${click}><div>${ico}${marker}${z.name}${sub}</div></div>`;
     }
   }
 
@@ -161,6 +162,18 @@ function luminanceTextColor(bgHex) {
   const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
   const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
   return lum > 0.5 ? '#111111' : '#eeeeee';
+}
+
+// Named zone-icon SVG (flags.icon → road_* connectors, statue, …) as a mask filled
+// with currentColor, matching how the game minimap draws it. Served from the game
+// client's assets (the /dev route only shadows /dev paths, so /assets resolves there).
+function zoneIconHtml(zone) {
+  const name = zone?.flags?.icon;
+  if (!name) return '';
+  const url = `/assets/zone-icons/${name}.svg`;
+  return `<span style="display:inline-block;width:15px;height:15px;background:currentColor;` +
+    `-webkit-mask:url(${url}) center/contain no-repeat;mask:url(${url}) center/contain no-repeat;` +
+    `vertical-align:middle;margin-right:3px"></span>`;
 }
 
 function zoneColorStyle(colorOrZone, _unused) {
@@ -403,7 +416,7 @@ function renderBigMapOverlay() {
 
       if (pendingDelete.has(z.id)) cls += ' bm-pending-delete';
 
-      html += `<div class="${cls}" style="${gs}${colorStyle}" title="${z.id}" onclick="bigMapTileClick('${z.id}')"><div>${dive}${marker}${z.name}${exHtml}${powerSub}</div></div>`;
+      html += `<div class="${cls}" style="${gs}${colorStyle}" title="${z.id}" onclick="bigMapTileClick('${z.id}')"><div>${dive}${zoneIconHtml(z)}${marker}${z.name}${exHtml}${powerSub}</div></div>`;
     }
   }
 

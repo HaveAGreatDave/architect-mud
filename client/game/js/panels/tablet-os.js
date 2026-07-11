@@ -1091,8 +1091,13 @@ function ensureStyles() {
        ARCHITECT-tap deep. Sits on the (unscaled) scrim so it stays put and legible. */
     #tablet-os-overlay .tos-fk-caption { position:absolute; top:9px; left:0; right:0; z-index:12; text-align:center; pointer-events:none;
       padding:0 14px; line-height:1.25; font-family:var(--font-mono,'Courier New',monospace); font-size:15px; font-weight:bold; font-style:italic;
-      letter-spacing:.5px; color:var(--accent); text-shadow:0 0 6px #000, 0 0 14px color-mix(in srgb, var(--accent) 70%, transparent);
       animation:tos-fk-shake .17s infinite, tos-fk-fade .25s ease-out; }
+    /* Text sits on its own dark pill so it stays legible on every theme (a light/white
+       theme has no dark backdrop of its own, and accent-on-accent used to bleed together). */
+    #tablet-os-overlay .tos-fk-caption span { display:inline-block; max-width:100%; padding:3px 12px; border-radius:8px;
+      background:rgba(6,10,16,.9); border:1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+      letter-spacing:.5px; color:#fff; text-shadow:0 0 6px #000, 0 0 12px color-mix(in srgb, var(--accent) 80%, transparent);
+      box-shadow:0 2px 10px rgba(0,0,0,.5); }
     @keyframes tos-fk-shake {
       0%   { transform:translate(0,0) rotate(0deg); }
       20%  { transform:translate(-2px,1px) rotate(-.7deg); }
@@ -4006,6 +4011,55 @@ const TOS_ENTRY_DEF = {
   ] },
 };
 
+// ── FM-synth cues for the fake ARCHITECT arcade app ──────────────────────────
+// A metallic little voice for the "game inside the game": every layer drives a
+// modulator into the carrier's frequency (fm:{rate,depth}) for that DX-era
+// inharmonic clang the plain UI beeps deliberately avoid. Kept low-gain so the
+// toy stays a toy under the real tablet chrome.
+const FK_JACK_DEF = { // JACK IN → uplink handshake: a rising FM zap that "connects"
+  id: 'fk_jack', category: 'sfx', priority: 4,
+  config: { duration: 0.34, layers: [
+    { waveform: 'sine', freq: 170, pitchBend: { to: 420, time: 0.22 }, fm: { rate: 43, depth: 220 },
+      filter: { type: 'lowpass', freq: 2600, q: 0.7 }, adsr: { a: 0.006, d: 0.16, s: 0.25, r: 0.12 }, gain: 0.085 },
+  ] },
+};
+const FK_BOOT_DEF = { // one per boot line: a short bright FM data-blip
+  id: 'fk_boot', category: 'sfx', priority: 3,
+  config: { duration: 0.06, layers: [
+    { waveform: 'sine', freq: 880, fm: { rate: 1760, depth: 340 },
+      filter: { type: 'bandpass', freq: 1800, q: 1.2 }, adsr: { a: 0.002, d: 0.05, s: 0, r: 0.02 }, gain: 0.06 },
+  ] },
+};
+const FK_KEY_DEF = { // command chip / Enter: a crisp FM keyclick
+  id: 'fk_key', category: 'sfx', priority: 3,
+  config: { duration: 0.045, layers: [
+    { waveform: 'square', freq: 1250, fm: { rate: 3100, depth: 420 },
+      filter: { type: 'lowpass', freq: 3200, q: 0.5 }, adsr: { a: 0.001, d: 0.04, s: 0, r: 0.015 }, gain: 0.05 },
+  ] },
+};
+const FK_OPEN_DEF = { // pop the mini-tablet: a bell-ish FM swell up
+  id: 'fk_open', category: 'sfx', priority: 4,
+  config: { duration: 0.22, layers: [
+    { waveform: 'sine', freq: 300, pitchBend: { to: 620, time: 0.16 }, fm: { rate: 210, depth: 150 },
+      filter: { type: 'lowpass', freq: 2400, q: 0.7 }, adsr: { a: 0.01, d: 0.14, s: 0.1, r: 0.08 }, gain: 0.075 },
+  ] },
+};
+const FK_DENY_DEF = { // "not installed": a sour, dissonant FM buzz-down
+  id: 'fk_deny', category: 'sfx', priority: 4,
+  config: { duration: 0.2, layers: [
+    { waveform: 'square', freq: 300, pitchBend: { to: 150, time: 0.16 }, fm: { rate: 450, depth: 300 },
+      filter: { type: 'lowpass', freq: 1400, q: 0.9 }, adsr: { a: 0.004, d: 0.12, s: 0.2, r: 0.07 }, gain: 0.07 },
+  ] },
+};
+const FK_DIVE_DEF = { // ARCHITECT-into-ARCHITECT: the "all the way down" fall — an
+  id: 'fk_dive', category: 'sfx', priority: 5, // echoing FM tone sliding into the well
+  config: { duration: 0.5, layers: [
+    { waveform: 'sine', freq: 560, pitchBend: { to: 110, time: 0.42 }, fm: { rate: 280, depth: 260 },
+      filter: { type: 'lowpass', freq: 2200, q: 0.8 }, echo: { mix: 0.28, delay: 0.11, feedback: 0.42 },
+      adsr: { a: 0.005, d: 0.3, s: 0.15, r: 0.18 }, gain: 0.085 },
+  ] },
+};
+
 const CRT_ANIM_MS = 600;  // matches @keyframes tv-crt-poweron's 0.6s duration
 const CRT_OFF_ANIM_MS = 550; // matches @keyframes tv-crt-shutoff's 0.55s duration
 const BOOT_HOLD_MS = 1000; // "ARCHITECT OS" boot screen hold, per spec
@@ -4326,7 +4380,7 @@ function fkShowLogin(root, handle) {
     </div>`;
   const jack = root.querySelector('#tos-fk-jack');
   const pass = root.querySelector('#tos-fk-pass');
-  const go = () => fkBoot(root, root.querySelector('#tos-fk-handle').value.trim() || handle);
+  const go = () => { sfx(FK_JACK_DEF); fkBoot(root, root.querySelector('#tos-fk-handle').value.trim() || handle); };
   jack.addEventListener('click', go);
   pass.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
 }
@@ -4350,6 +4404,7 @@ function fkBoot(root, handle) {
       const div = document.createElement('div');
       div.innerHTML = '&gt; ' + lines[i++];
       box.appendChild(div);
+      sfx(FK_BOOT_DEF);
       setTimeout(tick, 260 + Math.floor(Math.random() * 220));
     } else {
       setTimeout(() => { if (_overlay && _overlay.contains(box)) fkShowTerm(root, handle); }, 520);
@@ -4404,6 +4459,7 @@ function fkShowTerm(root, handle) {
   root.querySelectorAll('[data-fk-chip]').forEach(el => {
     el.addEventListener('click', () => {
       const c = el.getAttribute('data-fk-chip');
+      sfx(FK_KEY_DEF);
       push('&gt; ' + c, 'tos-fk-echo');
       fkRespond(c, push, openMini);
     });
@@ -4415,6 +4471,7 @@ function fkShowTerm(root, handle) {
     const cmd = input.value.trim();
     input.value = '';
     if (!cmd) return;
+    sfx(FK_KEY_DEF);
     push('&gt; ' + esc(cmd), 'tos-fk-echo');
     fkRespond(cmd, push, openMini);
     wireLinks();
@@ -4487,6 +4544,7 @@ function fkRespond(cmd, push, openMini) {
 
 function fkOpenMini(root) {
   if (root.querySelector('.tos-fk-mini-scrim')) return; // already open
+  sfx(FK_OPEN_DEF);
   const scrim = document.createElement('div');
   scrim.className = 'tos-fk-mini-scrim';
   root.appendChild(scrim);
@@ -4535,7 +4593,7 @@ function fkSpawnNest(scrim, depth) {
   if (depth === 1 && !scrim.querySelector('.tos-fk-caption')) {
     const cap = document.createElement('div');
     cap.className = 'tos-fk-caption';
-    cap.textContent = "Ohhhh shit...It's Architect all the way down....";
+    cap.innerHTML = '<span>Ohhhh shit...It\'s Architect all the way down....</span>';
     scrim.appendChild(cap);
   }
   const layer = document.createElement('div');
@@ -4558,7 +4616,8 @@ function fkSpawnNest(scrim, depth) {
     el.addEventListener('click', () => {
       el.classList.remove('tap'); void el.offsetWidth; el.classList.add('tap'); // restart flash
       const nm = FK_MINI_APPS[+el.getAttribute('data-fk-app')].nm;
-      if (nm === 'ARCHITECT') { fkSpawnNest(scrim, depth + 1); return; } // into the game, smaller
+      if (nm === 'ARCHITECT') { sfx(FK_DIVE_DEF); fkSpawnNest(scrim, depth + 1); return; } // into the game, smaller
+      sfx(FK_DENY_DEF);
       toast.textContent = `${nm} — not installed`;
       toast.classList.add('show');
       if (toastT) clearTimeout(toastT);

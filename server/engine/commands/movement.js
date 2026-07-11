@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -665,6 +665,7 @@ function mapTile(zone, x, y, placed, currentId) {
     description: zone.description || '',
     buildings: buildingsAt(zone),
     icon: poi?.icon || null, poi: poi?.poi || null,
+    svg: zone.flags?.icon || buildingIconSvg(zone), // named zone-icon SVG (road_* connectors, statue, building_type rooftop, …)
     // Street name(s) this tile sits on (an intersection can carry more than one) — null if none.
     artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
     exits: links, isCurrent: zone.id === currentId,

@@ -582,7 +582,6 @@
 					<div class="sidebar-label">Map</div>
 					<div class="mm-toggle-row">
 						<button type="button" id="mm-run-toggle" class="mm-avenue-toggle mm-icon-btn" title="Run — faster movement, burns stamina. Click to toggle walk / run.">🏃</button>
-						<button type="button" id="mm-avenue-toggle" class="mm-avenue-toggle mm-icon-btn" title="Avenue View — show major roads only.">🛣️</button>
 						<button type="button" id="mm-auto-toggle" class="mm-avenue-toggle mm-icon-btn" title="Auto-walk the plotted GPS route. Click again to stop.">👣</button>
 					</div>
 					<div id="minimap-grid">—</div>
@@ -1382,13 +1381,12 @@
 						<button type="button" class="map-tab" data-level="regional">Regional</button>
 						<span class="map-tab-sep" aria-hidden="true"></span>
 						<button type="button" id="map-route-toggle" class="map-tab map-tab-icon" aria-label="GPS route" title="GPS route — click, then click a tile to plot a route from where you are. Click again to clear it.">🧭</button>
-						<button type="button" id="map-avenue-toggle" class="map-tab map-tab-icon" aria-label="Avenue View" title="Avenue View — show major roads only.">🛣️</button>
 						<button type="button" id="map-territory-toggle" class="map-tab map-tab-icon" aria-label="Territory" title="Territory — tint tiles by their controlling org.">🚩</button>
-						<div id="map-overlay-slider" class="map-overlay-slider" data-ov="none" role="group" aria-label="Overlay on roads">
-							<button type="button" class="mo-seg active" data-ov="none">None</button>
-							<button type="button" class="mo-seg" data-ov="icons">Icons</button>
-							<button type="button" class="mo-seg" data-ov="labels">Labels</button>
-						</div>
+					</div>
+					<div id="map-overlay-slider" class="map-overlay-slider" data-ov="icons" role="group" aria-label="Tile labels">
+						<button type="button" class="mo-seg" data-ov="none" title="No labels — colours only">🚫</button>
+						<button type="button" class="mo-seg" data-ov="labels" title="Two-letter text labels">🔤</button>
+						<button type="button" class="mo-seg active" data-ov="icons" title="Icons">📍</button>
 					</div>
 				</div>
 				<div id="map-body">

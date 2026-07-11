@@ -99,6 +99,25 @@ export function isEnterableFacade(zone) {
   return !!(m?.entry_zone_id && world.zones.has(m.entry_zone_id));
 }
 
+// Building type → top-down rooftop footprint SVG (client/game/assets/zone-icons/
+// bldg_*.svg). Now that a zone is one building, a facade tile with no authored
+// flags.icon falls back to the footprint for its building_type, so every building
+// reads as itself on the 1:1 map. Synonyms collapse (store/grocery → shop); an
+// unrecognised-but-present type gets a plain office block. Gated on the `facade`
+// tag so interior tiles (also is_building) never wear a rooftop.
+const BUILDING_TYPE_ICON = {
+  residential: 'bldg_residential', apartment: 'bldg_apartment',
+  shop: 'bldg_shop', store: 'bldg_shop', grocery: 'bldg_shop',
+  bar: 'bldg_bar', club: 'bldg_club', police: 'bldg_police',
+  corporate_office: 'bldg_office', hotel: 'bldg_hotel', power: 'bldg_power',
+  hangar: 'bldg_hangar', studio: 'bldg_studio', clinic: 'bldg_clinic', diner: 'bldg_diner',
+};
+export function buildingIconSvg(zone) {
+  if (!zone || !hasTag(zone, 'facade')) return null;
+  const bt = (zone.flags?.building_type || '').toLowerCase();
+  return BUILDING_TYPE_ICON[bt] || (bt ? 'bldg_office' : null);
+}
+
 // Where a direct landing (teleport, respawn, .gohome, NPC placement) actually
 // puts an actor: enterable facades forward to their interior entry zone;
 // everything else lands as-is.
@@ -482,7 +501,7 @@ export function getMinimapData(centerZoneId, depth = 8) {
       map_id: zone.map_id || null,
       grid_x: zone.grid_x, grid_y: zone.grid_y, grid_z: zone.grid_z,
       marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,
-      icon_svg: zone.flags?.icon || null, // named SVG in client/game/assets/zone-icons/ (distinct from avenue POI glyph)
+      icon_svg: zone.flags?.icon || buildingIconSvg(zone), // named SVG in client/game/assets/zone-icons/ (road_*, statue, or a building_type rooftop)
       district: (() => { const d = districtFor(zone); return { key: d.key, name: d.name, color: d.color }; })(),
       artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
       is_current: zone.id === centerZoneId,

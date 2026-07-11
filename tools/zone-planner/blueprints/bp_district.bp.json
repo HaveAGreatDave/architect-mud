@@ -8,36 +8,6 @@
     "z": 0
   },
   "palette": {
-    "Gravel 1": {
-      "label": "Gravel 1",
-      "template": "street",
-      "name": "",
-      "bg": "#3f3a34",
-      "color": "#b9a888",
-      "marker": "⁙∴",
-      "ambient_theme": "city",
-      "tags": {}
-    },
-    "Gravel 3": {
-      "label": "Gravel 3",
-      "template": "street",
-      "name": "",
-      "bg": "#3f3a34",
-      "color": "#b9a888",
-      "marker": "⸪.",
-      "ambient_theme": "city",
-      "tags": {}
-    },
-    "Gravel 4": {
-      "label": "Gravel 4",
-      "template": "street",
-      "name": "",
-      "bg": "#3f3a34",
-      "color": "#b9a888",
-      "marker": "▚",
-      "ambient_theme": "city",
-      "tags": {}
-    },
     "Water": {
       "label": "Water",
       "template": "water",
@@ -61,39 +31,6 @@
       "ambient_theme": "city",
       "tags": {}
     },
-    "Hangar": {
-      "label": "Hangar",
-      "template": "building",
-      "name": "",
-      "bg": "#2f3742",
-      "color": "#8fb8d6",
-      "marker": "⏢",
-      "icon": "hangar",
-      "ambient_theme": "city",
-      "tags": {},
-      "building_type": "hangar",
-      "name_pool": [
-        "Coldwater Regional — Hangar",
-        "Smuggler's Slip Pad",
-        "Slagworks Strip",
-        "Threshold Helipad",
-        "Redline Airstrip",
-        "Marshalling Field"
-      ],
-      "interior": {
-        "lobby_name": "{name} — Apron"
-      }
-    },
-    "Not Grass": {
-      "label": "Not Grass",
-      "template": "plaza",
-      "name": "",
-      "bg": "#2f3a26",
-      "color": "#8ba36a",
-      "marker": "#",
-      "ambient_theme": "city",
-      "tags": {}
-    },
     "Hangar 2": {
       "label": "Hangar 2",
       "template": "zone",
@@ -112,58 +49,6 @@
       "color": "#a98b63",
       "marker": "▤▤",
       "ambient_theme": "coast",
-      "tags": {
-        "dock": true
-      }
-    },
-    "Cloning Facility": {
-      "label": "Cloning Facility",
-      "template": "plaza",
-      "name": "",
-      "bg": "#1d3b52",
-      "color": "#7fd3ff",
-      "marker": "CF",
-      "ambient_theme": "city",
-      "tags": {}
-    },
-    "Embassy Hotel": {
-      "label": "Embassy Hotel",
-      "template": "plaza",
-      "name": "",
-      "bg": "#2a1830",
-      "color": "#ff5aa0",
-      "marker": "EH",
-      "ambient_theme": "city",
-      "tags": {}
-    },
-    "Drum Fits": {
-      "label": "Drum Fits",
-      "template": "plaza",
-      "name": "",
-      "bg": "#3a1f1f",
-      "color": "#e05555",
-      "marker": "DF",
-      "ambient_theme": "city",
-      "tags": {}
-    },
-    "Dead Space Interiors copy": {
-      "label": "Dead Space Interiors copy",
-      "template": "plaza",
-      "name": "",
-      "bg": "#2c3a44",
-      "color": "#bfe6f0",
-      "marker": "DS",
-      "ambient_theme": "city",
-      "tags": {}
-    },
-    "KSB-Studios": {
-      "label": "KSB-Studios",
-      "template": "plaza",
-      "name": "",
-      "bg": "#38300f",
-      "color": "#f0c419",
-      "marker": "TV",
-      "ambient_theme": "city",
       "tags": {}
     },
     "SH": {
@@ -205,73 +90,68 @@
       "ambient_theme": "wasteland",
       "tags": {}
     },
-    "P9": {
-      "label": "P9",
+    "BLD": {
+      "label": "BLD",
       "template": "building",
-      "building_type": "precinct",
-      "name_pool": [
-        "Precinct 9"
-      ],
-      "interior": {
-        "lobby_name": "{name} — Booking"
-      },
-      "marker": "⚑",
-      "icon": "police",
-      "bg": "#232e3d",
-      "color": "#6fa8d8",
-      "ambient_theme": "city",
-      "tags": {}
-    },
-    "PP": {
-      "label": "PP",
-      "template": "building",
-      "building_type": "factory",
-      "name_pool": [
-        "Coldwater Power Plant"
-      ],
-      "interior": {
-        "lobby_name": "{name} — Turbine Hall"
-      },
-      "marker": "⚙",
-      "icon": "factory",
-      "bg": "#3d2f22",
-      "color": "#e5822a",
-      "ambient_theme": "city",
-      "tags": {}
-    },
-    "CR": {
-      "label": "CR",
-      "template": "building",
-      "building_type": "club",
-      "name_pool": [
-        "The Cherry Pit"
-      ],
-      "interior": {
-        "lobby_name": "{name} — Floor"
-      },
-      "marker": "♦",
-      "icon": "club",
-      "bg": "#2a1420",
-      "color": "#ff4d6a",
-      "ambient_theme": "city",
-      "tags": {}
-    },
-    "CC": {
-      "label": "CC",
-      "template": "building",
+      "building_type": "",
       "name": "",
-      "bg": "#2a1830",
-      "color": "#ff5aa0",
-      "marker": "CC",
-      "ambient_theme": "city",
-      "tags": {},
-      "building_type": "residential",
-      "name_pool": [
-        "Chrome Court"
-      ],
+      "name_pool": [],
       "interior": {
-        "lobby_name": "{name} — Lobby"
-      }
+        "lobby_name": "{name} — Ground Floor"
+      },
+      "bg": "#3a3550",
+      "color": "#e8e0ff",
+      "ambient_theme": "indoors",
+      "tags": {}
+    },
+    "Grass": {
+      "label": "Grass",
+      "template": "zone",
+      "name": "",
+      "bg": "#2f3a26",
+      "color": "#8ba36a",
+      "marker": "#",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "Road 1": {
+      "label": "Road 1",
+      "template": "street",
+      "name": "",
+      "bg": "#3f3a34",
+      "color": "#b9a888",
+      "marker": "⁙∴",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "Road 2": {
+      "label": "Road 2",
+      "template": "street",
+      "name": "",
+      "bg": "#3f3a34",
+      "color": "#b9a888",
+      "marker": "⸪.",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "Road 3": {
+      "label": "Road 3",
+      "template": "street",
+      "name": "",
+      "bg": "#3f3a34",
+      "color": "#b9a888",
+      "marker": "▚",
+      "ambient_theme": "city",
+      "tags": {}
+    },
+    "Runway NS": {
+      "label": "Runway NS",
+      "template": "zone",
+      "bg": "#2b2b2b",
+      "color": "#f5d400",
+      "marker": "┃",
+      "ambient_theme": "outdoors",
+      "tags": {}
     }
   },
   "cells": [
@@ -831,7 +711,7 @@
         "t": "Hangar 2"
       },
       {
-        "t": "Hangar 2"
+        "t": "Runway NS"
       },
       {
         "t": "Hangar 2"
@@ -860,16 +740,13 @@
         "t": "Water"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Water"
+        "t": "Grass"
       },
       {
         "t": "Water"
@@ -920,19 +797,22 @@
         "t": "Water"
       },
       {
-        "t": "Not Grass"
+        "t": "Water"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
       },
       {
         "t": "Water"
@@ -944,7 +824,7 @@
         "t": "Hangar 2"
       },
       {
-        "t": "Hangar 2"
+        "t": "Runway NS"
       },
       {
         "t": "Hangar 2"
@@ -955,34 +835,34 @@
     ],
     [
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
         "t": "Water"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
         "t": "Water"
@@ -1027,28 +907,28 @@
         "t": "Water"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
         "t": "Water"
@@ -1057,7 +937,7 @@
         "t": "Hangar 2"
       },
       {
-        "t": "Hangar 2"
+        "t": "Runway NS"
       },
       {
         "t": "Hangar 2"
@@ -1068,40 +948,40 @@
     ],
     [
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
         "t": "Water"
@@ -1137,40 +1017,44 @@
         "t": "Water"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Cloning Facility"
+        "t": "BLD",
+        "link": "zone_start",
+        "code": "CC"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 1"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
         "t": "Water"
       },
       {
-        "t": "Hangar"
+        "t": "BLD",
+        "link": "zone_hangar_outskirts",
+        "code": "CR"
       },
       {
-        "t": "Hangar 2"
+        "t": "Runway NS"
       },
       {
         "t": "Hangar 2"
@@ -1180,29 +1064,47 @@
       }
     ],
     [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 2"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
       },
       {
         "t": "Water"
@@ -1229,34 +1131,36 @@
         "t": "Water"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 1"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 1"
       },
       {
-        "t": "Embassy Hotel"
+        "t": "BLD",
+        "link": "zone_residential_lobby",
+        "code": "EH"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
         "t": "Water"
@@ -1275,27 +1179,49 @@
       }
     ],
     [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 2"
+      },
+      {
+        "t": "BLD",
+        "link": "zone_mq_chrome_lobby",
+        "code": "CC"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
       },
       {
         "t": "Water"
@@ -1319,40 +1245,40 @@
         "t": "Water"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 1"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
         "t": "Water"
@@ -1368,174 +1294,109 @@
       }
     ],
     [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 2"
       },
       {
-        "t": "Not Grass"
+        "t": "BLD",
+        "link": "zone_halcyon_lobby",
+        "code": "HT"
       },
       {
-        "t": "Water"
+        "t": "Grass"
       },
       {
-        "t": "Water"
+        "t": "Grass"
       },
       {
-        "t": "Water"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 3"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Gravel 1"
-      },
-      {
-        "t": "Not Grass"
-      },
-      null,
-      null,
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Water"
-      },
-      {
-        "t": "Hangar 2"
+        "t": "Grass"
       },
       {
         "t": "Water"
       },
       {
         "t": "Water"
-      }
-    ],
-    [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      {
-        "t": "Not Grass"
       },
       {
-        "t": "CC"
+        "t": "Water"
       },
       {
-        "t": "Gravel 4"
+        "t": "Road 2"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 1"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Gravel 4"
-      },
-      null,
-      {
-        "t": "Not Grass"
-      },
-      null,
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
+        "t": "Water"
       },
       {
         "t": "Hangar 2"
@@ -1548,440 +1409,693 @@
       }
     ],
     [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Drum Fits"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 2"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "BLD",
+        "link": "zone_mq_cherry_floor",
+        "code": "TC"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 3"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 3"
       },
       {
-        "t": "Gravel 1"
-      },
-      null,
-      null,
-      {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Road 3"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Hangar 2"
+      },
+      {
+        "t": "Water"
       },
       {
         "t": "Water"
       }
     ],
     [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Dead Space Interiors copy"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "BLD",
+        "link": "zone_hangar_threshold",
+        "code": "TH"
       },
       {
-        "t": "Gravel 4"
+        "t": "Road 2"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "BLD",
+        "link": "zone_drum_shop",
+        "code": "DF"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 3"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 3"
+        "t": "BLD",
+        "link": "zone_mq_amp_shop",
+        "code": "AE"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 1"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 1"
       },
       {
-        "t": "Gravel 4"
+        "t": "Road 1"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 1"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 2"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "BLD",
+        "link": "zone_meridian_lobby",
+        "code": "TM"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "BLD",
+        "link": "zone_mq_grocery",
+        "code": "RN"
+      },
+      {
+        "t": "BLD",
+        "link": "zone_velk_shop",
+        "code": "VP"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Road 3"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Water"
       }
     ],
     [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 2"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Dead Space Interiors copy"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "BLD",
+        "link": "zone_furniture_store",
+        "code": "DS"
       },
       {
-        "t": "Gravel 4"
+        "t": "Road 3"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 3"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 3"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 3"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 3"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 1"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
-      },
-      null,
-      null,
-      {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "Road 1"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 3"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 1"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 2"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 3"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Road 3"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Road 3"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
       }
     ],
     [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 2"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 2"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 2"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 2"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 2"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 2"
+      },
+      {
+        "t": "Road 3"
+      },
+      {
+        "t": "Road 3"
+      },
+      {
+        "t": "Road 3"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "BLD",
+        "link": "zone_mq_pigeon_bar",
+        "code": "TD"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Road 3"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Road 3"
+      },
+      {
+        "t": "Road 3"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      }
+    ],
+    [
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Road 3"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Grass"
       },
       {
         "t": "Fisherman Statue"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 1"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 1"
       },
       {
-        "t": "KSB-Studios"
+        "t": "BLD",
+        "link": "zone_studio_1782953094650",
+        "code": "KS"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
-      },
-      null,
-      null,
-      null,
-      {
-        "t": "P9"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "PP"
+        "t": "Grass"
       },
-      null,
-      null,
-      null
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "BLD",
+        "link": "zone_mq_precinct_lobby",
+        "code": "P9"
+      },
+      {
+        "t": "Road 3"
+      },
+      {
+        "t": "BLD",
+        "link": "zone_coldwater_turbine_hall",
+        "code": "CP"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      }
     ],
     [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 1"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
-      null,
-      null,
-      null,
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Road 3"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
       {
         "t": "SH"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 1"
       },
       {
         "t": "SH"
@@ -1992,85 +2106,109 @@
       {
         "t": "SH"
       },
-      null
+      {
+        "t": "Grass"
+      }
     ],
     [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 1"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 1"
       },
       {
-        "t": "Not Grass"
+        "t": "Road 1"
       },
-      null,
-      null,
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
       {
         "t": "SH"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 1"
       },
       {
-        "t": "SH"
+        "t": "Road 1"
       },
       {
         "t": "SH"
@@ -2081,83 +2219,111 @@
       {
         "t": "MS"
       },
-      null
+      {
+        "t": "Grass"
+      }
     ],
     [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 4"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
-      null,
-      null,
-      null,
       {
-        "t": "CC"
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Road 3"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "BLD",
+        "link": "zone_mq_sump_bar",
+        "code": "SU"
       },
       {
         "t": "SH"
       },
       {
-        "t": "Gravel 1"
+        "t": "Road 1"
       },
       {
         "t": "MS"
@@ -2168,86 +2334,112 @@
       {
         "t": "SH"
       },
-      null
+      {
+        "t": "Grass"
+      }
     ],
     [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
-      },
-      null,
-      {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
-      },
-      null,
-      {
-        "t": "Not Grass"
-      },
-      null,
-      {
-        "t": "CR"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Road 2"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Road 1"
+      },
+      {
+        "t": "Road 1"
       },
       {
         "t": "SH"
@@ -2255,170 +2447,101 @@
       {
         "t": "RD"
       },
-      null
+      {
+        "t": "Grass"
+      }
     ],
     [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
-      },
-      null,
-      {
-        "t": "SH"
+        "t": "Grass"
       },
       {
-        "t": "RD"
+        "t": "Road 2"
       },
       {
-        "t": "SH"
+        "t": "Grass"
       },
       {
-        "t": "Gravel 1"
+        "t": "Grass"
       },
       {
-        "t": "SH"
+        "t": "Grass"
       },
       {
-        "t": "SH"
-      },
-      null
-    ],
-    [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      {
-        "t": "Not Grass"
-      },
-      null,
       {
         "t": "SH"
       },
@@ -2429,88 +2552,109 @@
         "t": "SH"
       },
       {
-        "t": "SH"
-      },
-      {
-        "t": "Gravel 1"
+        "t": "Road 1"
       },
       {
         "t": "SH"
       },
-      null
+      {
+        "t": "SH"
+      },
+      {
+        "t": "Grass"
+      }
     ],
     [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
-      null,
-      null,
+      {
+        "t": "Road 2"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
       {
         "t": "SH"
       },
@@ -2524,88 +2668,240 @@
         "t": "SH"
       },
       {
+        "t": "Road 1"
+      },
+      {
         "t": "SH"
       },
-      null
+      {
+        "t": "Grass"
+      }
     ],
     [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
       {
-        "t": "Not Grass"
+        "t": "Grass"
       },
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null
+      {
+        "t": "Road 2"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "RD"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "SH"
+      },
+      {
+        "t": "Grass"
+      }
+    ],
+    [
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Road 2"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      },
+      {
+        "t": "Grass"
+      }
     ],
     [
       null,

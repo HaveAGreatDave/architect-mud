@@ -8,8 +8,7 @@ import { state } from '../state.js';
 // through here" — || north/south, = east/west, + at a crossing. Persisted, and
 // the last node payload is cached so the toggle can re-render without a move.
 const MM_AVENUE_KEY = 'mm_avenue';
-let mmAvenueView = false;
-try { mmAvenueView = localStorage.getItem(MM_AVENUE_KEY) === '1'; } catch {}
+let mmAvenueView = false; // avenue mode retired — toggle removed, always plain
 let _lastMinimapNodes = null;
 
 function wireMinimapAvenueToggle() {
@@ -520,7 +519,7 @@ export const POI_LEGEND = {
 // full map and the sidebar minimap read the one saved value.
 const MAP_OVERLAY_KEY = 'map_overlay';
 let _savedOverlay = 'none';
-try { _savedOverlay = localStorage.getItem(MAP_OVERLAY_KEY) || 'none'; } catch {}
+try { _savedOverlay = localStorage.getItem(MAP_OVERLAY_KEY) || 'icons'; } catch {}
 // Territory overlay: tint held tiles by controlling org on top of the avenue+labels
 // view. Persisted like the other view toggles; the control layer itself is fetched
 // on demand from the corps plugin (`corp territory`) and cached here.
@@ -835,37 +834,21 @@ function wireMapUi() {
   });
   // Overlay slider: what rides on top of the avenue roads — nothing / the minimap
   // POI icons / 2-letter abbrevs. Picking an overlay implies Avenue View.
+  // Tile-symbol overlay: none (colours only) / text (2-letter labels) / icons.
   document.getElementById('map-overlay-slider')?.addEventListener('click', (e) => {
     const seg = e.target.closest('.mo-seg');
     if (!seg) return;
-    mapState.avenueOverlay = seg.getAttribute('data-ov') || 'none';
+    mapState.avenueOverlay = seg.getAttribute('data-ov') || 'icons';
     try { localStorage.setItem(MAP_OVERLAY_KEY, mapState.avenueOverlay); } catch {}
-    if (mapState.avenueOverlay !== 'none' && !mapState.avenueView) {
-      mapState.avenueView = true;
-      document.getElementById('map-avenue-toggle')?.classList.toggle('active', true);
-    }
     syncOverlaySlider();
     renderMapGrid();
-    if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // reflect the setting on the sidebar minimap
   });
-  // Territory: tint held tiles by controlling org. Turning it on implies the
-  // avenue+labels reading it's meant to sit on, and fetches a fresh control layer.
+  // Territory: tint held tiles by controlling org, and fetch a fresh control layer.
   document.getElementById('map-territory-toggle')?.addEventListener('click', () => {
     mapState.territoryView = !mapState.territoryView;
     try { localStorage.setItem(MAP_TERRITORY_KEY, mapState.territoryView ? '1' : '0'); } catch {}
     document.getElementById('map-territory-toggle')?.classList.toggle('active', mapState.territoryView);
-    if (mapState.territoryView) {
-      if (!mapState.avenueView) {
-        mapState.avenueView = true;
-        document.getElementById('map-avenue-toggle')?.classList.toggle('active', true);
-      }
-      if (mapState.avenueOverlay === 'none') {
-        mapState.avenueOverlay = 'labels';
-        try { localStorage.setItem(MAP_OVERLAY_KEY, 'labels'); } catch {}
-        syncOverlaySlider();
-      }
-      fetchTerritory();
-    }
+    if (mapState.territoryView) fetchTerritory();
     renderMapGrid();
   });
   // Route (GPS button): a route already drawn? click clears it. Otherwise the
@@ -1038,7 +1021,7 @@ export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
 // avenueView) without touching the server — used both by the initial open and by
 // the Avenue View toggle (a pure rendering-mode switch on already-fetched tiles).
 function renderMapGrid() {
-  const { tiles, mode, insideInterior, avenueView, avenueOverlay } = mapState;
+  const { tiles, mode, insideInterior } = mapState;
   const grid = document.getElementById('map-grid');
   const legend = document.getElementById('map-legend');
 
@@ -1052,114 +1035,60 @@ function renderMapGrid() {
   // Corp-control tint only applies on the overworld levels (zone/regional), never
   // inside an interior. null = no tinting this pass.
   const territory = (mapState.territoryView && mode !== 'interior') ? (_territory?.control || null) : null;
-  const xs = tiles.map(t => t.x), ys = tiles.map(t => t.y);
-  // Interior/Zone are 11×11 windows pre-centered on you (0,0) — force the extent so
-  // you stay centered even when the window's edges are empty. Regional is dynamic.
-  const minX = regional ? Math.min(...xs) : -5;
-  const maxX = regional ? Math.max(...xs) : 5;
-  const minY = regional ? Math.min(...ys) : -5;
-  const maxY = regional ? Math.max(...ys) : 5;
-  const W = maxX - minX + 1, H = maxY - minY + 1;
-  const byId = mapState.byId;
+  // Compact placement: regional packs every distinct occupied coord to an index
+  // (so a far-flung district can't blow the grid up); zone/interior stay an 11×11
+  // window centred on you. Tiles touch — no connection/gap cells.
+  let colOf, rowOf, gCols, gRows;
+  if (regional) {
+    const xs = [...new Set(tiles.map(t => t.x))].sort((a, b) => a - b);
+    const ys = [...new Set(tiles.map(t => t.y))].sort((a, b) => a - b);
+    const xi = new Map(xs.map((x, i) => [x, i])), yi = new Map(ys.map((y, i) => [y, i]));
+    colOf = t => xi.get(t.x); rowOf = t => yi.get(t.y);
+    gCols = xs.length; gRows = ys.length;
+  } else {
+    colOf = t => t.x + 5; rowOf = t => t.y + 5;
+    gCols = 11; gRows = 11;
+  }
 
+  const overlay = mapState.avenueOverlay || 'icons'; // none | labels (text) | icons
   const symFor = (t) => {
-    if (t.isCurrent) return '';
+    if (t.isCurrent || overlay === 'none') return '';
+    if (overlay === 'labels') return twoLetterAbbrev(t.name).padEnd(2, ' ');
+    // The tile's own named SVG (road connector, building-type rooftop, statue) wins
+    // over the POI glyph — POI is a landmark hint for the adjacent street, not the
+    // thing itself, so a building shows its footprint, not a duplicate ★/$.
+    if (t.svg) return `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${t.svg}.svg)"></span>`; // road/zone/building SVG
     if (t.icon) return t.icon + ' ';                 // POI landmark (airport, police, …)
     if (t.marker) return (t.marker.length === 1 ? t.marker + ' ' : t.marker.slice(0, 2));
     return twoLetterAbbrev(t.name).padEnd(2, ' ');
   };
 
-  const gCols = W * 2 - 1, gRows = H * 2 - 1;
   const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
-
   for (const t of tiles) {
-    const gx = (t.x - minX) * 2, gy = (t.y - minY) * 2;
-    if (gy < 0 || gy >= gRows || gx < 0 || gx >= gCols) continue;
-    cell[gy][gx] = { kind: 'room', tile: t };
+    const c = colOf(t), r = rowOf(t);
+    if (r >= 0 && r < gRows && c >= 0 && c < gCols) cell[r][c] = t;
   }
 
-  for (const t of tiles) {
-    const gx = (t.x - minX) * 2, gy = (t.y - minY) * 2;
-    for (const targetId of Object.values(t.exits || {})) {
-      const n = byId.get(targetId);
-      if (!n) continue;
-      const dx = n.x - t.x, dy = n.y - t.y;
-      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) continue;
-      const cy = gy + dy, cx = gx + dx;
-      if (cy < 0 || cy >= gRows || cx < 0 || cx >= gCols) continue;
-      if (cell[cy][cx]?.kind === 'room') continue;
-      const orient = (dx !== 0 && dy === 0) ? 'h' : (dx === 0 && dy !== 0) ? 'v' : (dx === dy ? 'd1' : 'd2');
-      // A street adjacent to the current tile is one of "your exits" — highlight it.
-      const open = !!(t.isCurrent || n.isCurrent) || !!cell[cy][cx]?.open;
-      // A major road (flags.artery) is a fixed tag, not a computed tint — both
-      // endpoints must share a named artery (an intersection tile carries more
-      // than one), so a cross-street segment into an unrelated side street
-      // doesn't light up.
-      const artery = !!(t.artery && n.artery && t.artery.some(s => n.artery.includes(s)));
-      // Regional only: dim a street when either tile it joins is out of reach.
-      const dim = regional && (t.reachable === false || n.reachable === false);
-      cell[cy][cx] = { kind: 'link', orient, color: streetColor(t, n, regional), open, artery, dim };
-    }
-  }
-
-  // Route trace geometry: the yellow road laid over the shortest walkable path to a
-  // clicked tile, trimmed to the leg still ahead of you. Drawn on top of the normal
-  // render below (see traceOverlay). Shown whenever a route is stored, regardless of
-  // whether the GPS button is currently armed to place a new one.
+  // Route trace: highlight the tiles on the walkable path to a clicked tile.
   const curTile = tiles.find(t => t.isCurrent);
-  const tracePath = effectiveTracePath(curTile?.id) || [];
+  const traceSet = new Set(effectiveTracePath(curTile?.id) || []);
   document.getElementById('map-route-toggle')?.classList.toggle('has-route', !!mapState.tracePath);
-  const traceSet = new Set(tracePath);
-  const { gaps: traceGaps, dirs: traceDirs } = traceOverlay(tracePath, (id) => {
-    const t = byId.get(id);
-    return t ? [(t.x - minX) * 2, (t.y - minY) * 2] : null;
-  });
 
-  grid.style.gridTemplateColumns = Array.from({ length: gCols }, (_, c) =>
-    c % 2 === 0 ? 'var(--map-room)' : 'var(--map-gap)').join(' ');
-  // Avenue View strips tile chrome to an SVG road skeleton; overlay rides on top.
-  grid.classList.toggle('avenue', avenueView);
+  grid.style.gridTemplateColumns = `repeat(${gCols}, var(--map-room))`;
+  grid.classList.remove('avenue');
 
   let html = '';
   for (let r = 0; r < gRows; r++) {
     for (let c = 0; c < gCols; c++) {
-      const it = cell[r][c];
-      if (!it) { html += `<span class="map-c"></span>`; continue; }
-      if (it.kind === 'link') {
-        const tg = traceGaps.get(`${r},${c}`);
-        const traceSvg = tg ? traceGapSvg(tg) : '';
-        const rel = tg ? ';position:relative' : '';
-        if (avenueView) {
-          // Avenue View: only artery gaps draw, as SVG road bands matching the
-          // room roadway; everything else is blank so the skeleton reads clean.
-          if (it.artery && (it.orient === 'h' || it.orient === 'v')) {
-            html += `<span class="map-c av-gap"${tg ? ' style="position:relative"' : ''}>${avGapSvg(it.orient)}${traceSvg}</span>`;
-          } else {
-            html += `<span class="map-c"${tg ? ' style="position:relative"' : ''}>${traceSvg}</span>`;
-          }
-          continue;
-        }
-        const dimCls = it.dim ? ' map-dim' : '';
-        if (it.orient === 'd1' || it.orient === 'd2') { // diagonals stay glyphs (rare)
-          html += `<span class="map-c map-link${dimCls}"${tg ? ' style="position:relative"' : ''}>${it.orient === 'd1' ? '╲' : '╱'}${traceSvg}</span>`;
-        } else {
-          const scls = `map-c map-street map-street-${it.orient}${it.artery ? ' map-street-artery' : ''}${it.open ? ' map-street-open' : ''}${dimCls}`;
-          html += `<span class="${scls}" style="--street:${it.color}${rel}">${traceSvg}</span>`;
-        }
-        continue;
-      }
-      const t = it.tile;
+      const t = cell[r][c];
+      if (!t) { html += `<span class="map-c"></span>`; continue; }
       const terr = territory ? territory[t.id] : null; // controlling org, if any
-      const funcColor = FUNC_LEGEND[t.func]?.color || FUNC_LEGEND.residential.color;
-      // Whatever the active map mode paints this tile — territory rides on top of
-      // this as a translucent tint, it never replaces it.
-      const bg = regional ? funcColor : t.bg_color;
+      // The tile's own painted colour is the whole story now — no land-use tint.
+      const bg = t.bg_color || null;
       const styles = [];
       if (bg) styles.push(`background:${bg}`);
       const isPoi = t.icon && !t.isCurrent; // POI icon gets its own colour via a class
-      const tColor = regional
-        ? luminanceTextColor(bg)
-        : (t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null));
+      const tColor = t.color || (bg ? luminanceTextColor(bg) : null);
       if (tColor && !isPoi) styles.push(`color:${tColor}`);
       let terrOv = '';
       if (terr) {
@@ -1174,60 +1103,29 @@ function renderMapGrid() {
         if (terr.status === 'CONTESTED') styles.push(`outline:1px dashed ${contrastInk(terr.color)};outline-offset:-3px`);
         terrOv = `<span class="map-terr-ov" style="background:${hexA(terr.color, 0.9)}"></span>`;
       }
-      // Dead-end = exactly one connector touching this room.
-      let deg = 0;
-      for (const [rr, cc] of [[r, c - 1], [r, c + 1], [r - 1, c], [r + 1, c]])
-        if (cell[rr]?.[cc]?.kind === 'link') deg++;
-      const trDirs = traceSet.has(t.id) ? traceDirs.get(t.id) : null;
       const cls = `map-c map-room danger-${t.danger || 'safe'}` +
         (t.isCurrent ? ' map-current' : '') +
         (regional || t.bg_color || t.color ? ' map-styled' : '') +
         (isPoi ? ` map-poi map-poi-${t.poi}` : '') +
         (t.buildings && t.buildings.length ? ' map-has-building' : '') +
-        (deg === 1 ? ' map-deadend' : '') +
         (regional && t.reachable === false ? ' map-unreachable' : '') +
-        (trDirs ? ' map-trace' : '');
+        (traceSet.has(t.id) ? ' map-trace' : '');
       const style = styles.length ? ` style="${styles.join(';')}"` : '';
-      // Avenue View: draw the tile as an SVG road whose arms point toward each
-      // grid-adjacent artery link (straight / corner / T / crossroads / stub),
-      // meeting the gap road bands seamlessly. The overlay then rides a minimap
-      // icon or the tile abbreviation on top — on EVERY tile, not just roads —
-      // semi-transparent so the road (where there is one) stays visible under it.
-      let sym;
-      if (t.isCurrent) sym = '';
-      else if (avenueView) {
-        const arteryLink = (link) => link?.kind === 'link' && link.artery;
-        const dirs = [];
-        if (arteryLink(cell[r - 1]?.[c])) dirs.push('n');
-        if (arteryLink(cell[r + 1]?.[c])) dirs.push('s');
-        if (arteryLink(cell[r]?.[c + 1])) dirs.push('e');
-        if (arteryLink(cell[r]?.[c - 1])) dirs.push('w');
-        sym = dirs.length ? avRoadSvg(dirs) : '';
-        sym += avOverlay(t, avenueOverlay);
-      } else sym = symFor(t);
-      // Yellow route road on top (arms toward the prev/next tile on the traced path).
-      if (trDirs) sym += traceRoadSvg([...trDirs]);
-      html += `<span class="${cls}"${style} data-zone-id="${t.id}">${sym}${terrOv}</span>`;
+      html += `<span class="${cls}"${style} data-zone-id="${t.id}">${symFor(t)}${terrOv}</span>`;
     }
   }
   grid.innerHTML = html;
 
-  // Right panel: land-use legend (regional) or alphabetical room list (interior/zone).
-  // Shared glyph keys (street / your-exits / building) — same visual language as the grid.
-  let KEYS =
-    `<div class="map-leg-row"><span class="map-leg-sym"><i class="map-leg-street"></i></span> Street</div>` +
-    `<div class="map-leg-row"><span class="map-leg-sym"><i class="map-leg-street map-leg-street-artery"></i></span> Major road</div>` +
-    `<div class="map-leg-row"><span class="map-leg-sym"><i class="map-leg-street map-leg-street-open"></i></span> Your exits</div>` +
-    `<div class="map-leg-row"><span class="map-leg-sym"><i class="map-leg-bld"></i></span> Building here</div>`;
-  // Landmark icons actually present in this view (kept sparse — see server mapPoi()).
+  // Right panel: "you are here" + landmark keys + the deduped tile list (one row
+  // per distinct building/terrain, in its own painted colour). Same for every zoom
+  // level now — no separate land-use legend.
+  let KEYS = `<div class="map-leg-row"><span class="map-leg-sym"><i class="map-leg-bld"></i></span> Building here</div>`;
   const poiPresent = new Set(tiles.map(t => t.poi).filter(Boolean));
   for (const key of Object.keys(POI_LEGEND)) {
     if (!poiPresent.has(key)) continue;
     const p = POI_LEGEND[key];
     KEYS += `<div class="map-leg-row"><span class="map-leg-sym map-poi map-poi-${key}">${p.icon}</span> ${p.label}</div>`;
   }
-  // Territory legend: which org each tint colour belongs to (only when the overlay
-  // is on and the fetched layer named some orgs). Appended after the shared keys.
   if (territory && _territory?.orgs?.length) {
     KEYS += `<div class="map-leg-row map-leg-head">Territory</div>`;
     for (const o of _territory.orgs) {
@@ -1236,40 +1134,29 @@ function renderMapGrid() {
       KEYS += `<div class="map-leg-row"><span class="map-leg-sym map-styled" style="${style}">&nbsp;&nbsp;</span> ${escapeHtml(o.tag)} ${escapeHtml(o.name)}${you}</div>`;
     }
   }
-  if (regional) {
-    let leg = `<div class="map-leg-row"><span class="map-leg-sym map-current"></span> You are here</div>` + KEYS;
-    const present = new Set(tiles.map(t => t.func || 'residential'));
-    for (const key of Object.keys(FUNC_LEGEND)) {
-      if (!present.has(key)) continue;
-      const f = FUNC_LEGEND[key];
-      const style = `background:${f.color};color:${luminanceTextColor(f.color)}`;
-      leg += `<div class="map-leg-row"><span class="map-leg-sym map-styled" style="${style}">&nbsp;&nbsp;</span> ${f.label}</div>`;
-    }
-    legend.innerHTML = leg;
-  } else {
-    const youLabel = (mode === 'zone' && insideInterior) ? 'You are here (inside)' : 'You are here';
-    let leg = `<div class="map-leg-row map-leg-head"><span class="map-leg-sym map-current"></span> ${youLabel}</div>` + KEYS;
-    leg += `<div class="map-list">`;
-    // Alphabetical by marker (falling back to the 2-letter tile abbrev), then name.
-    const sorted = [...tiles].sort((a, b) => {
-      const ka = (a.marker || twoLetterAbbrev(a.name)).toLowerCase();
-      const kb = (b.marker || twoLetterAbbrev(b.name)).toLowerCase();
-      if (ka !== kb) return ka < kb ? -1 : 1;
-      return (a.name || '').localeCompare(b.name || '');
-    });
-    for (const t of sorted) {
-      const styles = [];
-      if (t.bg_color) styles.push(`background:${t.bg_color}`);
-      const legColor = t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null);
-      if (legColor) styles.push(`color:${legColor}`);
-      const symCls = `map-leg-sym danger-${t.danger || 'safe'}` + (t.bg_color || t.color ? ' map-styled' : '');
-      const style = styles.length ? ` style="${styles.join(';')}"` : '';
-      const rowCls = 'map-leg-row map-list-row' + (t.isCurrent ? ' map-list-current' : '');
-      leg += `<div class="${rowCls}" data-zone-id="${t.id}"><span class="${symCls}"${style}>${symFor(t)}</span> ${escapeHtml(t.name)}</div>`;
-    }
-    leg += `</div>`;
-    legend.innerHTML = leg;
+  const youLabel = (mode === 'zone' && insideInterior) ? 'You are here (inside)' : 'You are here';
+  let leg = `<div class="map-leg-row map-leg-head"><span class="map-leg-sym map-current"></span> ${youLabel}</div>` + KEYS + `<div class="map-list">`;
+  // Alphabetical by marker (falling back to the 2-letter tile abbrev), then name;
+  // deduped so each distinct building/terrain name appears exactly once.
+  const seenNames = new Set();
+  const sorted = [...tiles].sort((a, b) => {
+    const ka = (a.marker || twoLetterAbbrev(a.name)).toLowerCase();
+    const kb = (b.marker || twoLetterAbbrev(b.name)).toLowerCase();
+    if (ka !== kb) return ka < kb ? -1 : 1;
+    return (a.name || '').localeCompare(b.name || '');
+  }).filter(t => { const n = (t.name || '').toLowerCase(); if (seenNames.has(n)) return false; seenNames.add(n); return true; });
+  for (const t of sorted) {
+    const styles = [];
+    if (t.bg_color) styles.push(`background:${t.bg_color}`);
+    const legColor = t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null);
+    if (legColor) styles.push(`color:${legColor}`);
+    const symCls = `map-leg-sym danger-${t.danger || 'safe'}` + (t.bg_color || t.color ? ' map-styled' : '');
+    const style = styles.length ? ` style="${styles.join(';')}"` : '';
+    const rowCls = 'map-leg-row map-list-row' + (t.isCurrent ? ' map-list-current' : '');
+    leg += `<div class="${rowCls}" data-zone-id="${t.id}"><span class="${symCls}"${style}>${symFor(t)}</span> ${escapeHtml(t.name)}</div>`;
   }
+  leg += `</div>`;
+  legend.innerHTML = leg;
 
   // Center the viewport on the current tile (offsets require the panel laid out).
   centerMapOnCurrent();

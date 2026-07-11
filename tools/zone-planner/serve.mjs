@@ -19,6 +19,10 @@ const BP_DIR = join(HERE, 'blueprints');
 // The zone-icon library the GAME serves and renders on the minimap — the editor
 // reads/writes the same folder so what you paint is exactly what ships.
 const ICON_DIR = join(HERE, '..', '..', 'client', 'game', 'assets', 'zone-icons');
+// The git source-of-truth world content. The District Editor reads it (never
+// writes it) to list the real map's buildings for the placed/unplaced audit.
+const ZONES_DIR = join(HERE, '..', '..', 'content', 'zones');
+const MAPS_DIR = join(HERE, '..', '..', 'content', 'maps');
 const PORT = Number(process.argv[2]) || 5178;
 
 const send = (res, code, body, type = 'application/json') => {
@@ -90,12 +94,47 @@ const server = createServer(async (req, res) => {
       return json(res, 200, { ok: true, name });
     }
 
+    // ── Real-map buildings: the placed/unplaced audit reads the git content ──
+    // A building = the entry zone of an interior map (content/maps → entry_zone_id).
+    // This is the canonical, complete list: exactly one entry per interior map, so
+    // every real building appears once and back rooms, floors, utility closets,
+    // exterior frontages and outdoor markets are all excluded automatically.
+    // Read-only: the editor never mutates content from here.
+    if (req.method === 'GET' && path === '/api/buildings') {
+      const zoneFiles = (await readdir(ZONES_DIR).catch(() => [])).filter(f => f.endsWith('.json'));
+      const zones = new Map();
+      for (const f of zoneFiles) {
+        let z; try { z = JSON.parse(await readFile(join(ZONES_DIR, f), 'utf8')); } catch { continue; }
+        if (z && z.id) zones.set(z.id, z);
+      }
+      const mapFiles = (await readdir(MAPS_DIR).catch(() => [])).filter(f => f.endsWith('.json'));
+      const buildings = [], seen = new Set();
+      for (const f of mapFiles) {
+        let m; try { m = JSON.parse(await readFile(join(MAPS_DIR, f), 'utf8')); } catch { continue; }
+        const z = m.entry_zone_id && zones.get(m.entry_zone_id);
+        if (!z || seen.has(z.id)) continue;
+        const fl = z.flags || {};
+        // The entry must be an interior (or a hangar). This drops the World Map's
+        // own entry zone (The Threshold) — an exterior boulevard, not a building.
+        if (!fl.is_interior && !fl.hangar_interior) continue;
+        seen.add(z.id);
+        buildings.push({
+          id: z.id, name: z.name || null, marker: z.marker || null,
+          building_type: fl.building_type || (fl.hangar_interior ? 'hangar' : null),
+          building_name: fl.building_name || fl.airfield_name || m.name || z.name || null,
+        });
+      }
+      buildings.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
+      return json(res, 200, { buildings });
+    }
+
     // ── Seed: run apply.mjs (dry-run by default, --apply when apply=1) ──
     if (req.method === 'POST' && path === '/api/seed') {
-      const { name, apply, force } = JSON.parse(await readBody(req) || '{}');
+      const { name, apply, force, manualBuildingExits } = JSON.parse(await readBody(req) || '{}');
       const clean = safeName(name);
       if (!clean) return json(res, 400, { error: 'bad blueprint name' });
-      const flags = [bpFile(clean), ...(apply ? ['--apply'] : []), ...(force ? ['--force'] : [])];
+      const flags = [bpFile(clean), ...(apply ? ['--apply'] : []), ...(force ? ['--force'] : []),
+                     ...(manualBuildingExits ? ['--manual-building-exits'] : [])];
       const child = spawn(process.execPath, [join(HERE, 'apply.mjs'), ...flags], { cwd: join(HERE, '..', '..') });
       let out = '';
       child.stdout.on('data', d => (out += d));
