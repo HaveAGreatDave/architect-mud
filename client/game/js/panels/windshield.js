@@ -74,6 +74,15 @@ const rgb = (c, a) => a == null ? `rgb(${c[0]|0},${c[1]|0},${c[2]|0})` : `rgba($
 const mix = (c1, c2, t) => [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t)];
 const frac = (n) => { const x = Math.sin((n + 1) * 12.9898) * 43758.5453; return x - Math.floor(x); };   // deterministic 0..1 scatter
 
+// Gentle, deterministic ground elevation in WORLD tile space (flight-sim visual only) — a
+// few low-frequency octaves of rolling relief. Small amplitude on purpose; used to hillshade
+// the Mode-7 floor so the land reads as soft hills and coastal basins, never anything steep.
+function groundElev(wx, wy) {
+  return Math.sin(wx * 0.085 + 1.3) * Math.cos(wy * 0.07 - 0.7) * 0.6
+       + Math.sin((wx + wy) * 0.043 + 2.1) * 0.4
+       + Math.sin(wx * 0.19 - wy * 0.16) * 0.16;
+}
+
 // ── Time-of-day sky keyframes (blended by hour) ───────────────────────────────
 const SKY = [
   { h: 0,    top: [6, 8, 18],    hor: [20, 22, 40],   g1: [16, 20, 22], g2: [5, 7, 9],   night: 1,   sun: null },
@@ -998,8 +1007,12 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun) {
   const nm = 1 - sky.night * 0.42, hz = RENDER_TUNE.haze, hor = sky.hor;
   // Per-tile material LUT for the small visible window (the map is a ~9×9 window), built
   // once per frame so the per-pixel sampler just indexes it: each entry is
-  // [r, g, b, waterness, grassness]. Off-map reads as endless desert (no void border).
-  const OFF = BIOME_GROUND.badlands, OFF5 = [OFF[0], OFF[1], OFF[2], 0, 0], mh = map ? map.length : 0;
+  // [r, g, b, waterness, grassness, hillshade]. Off-map reads as endless desert (no void border).
+  const OFF = BIOME_GROUND.badlands, OFF5 = [OFF[0], OFF[1], OFF[2], 0, 0, 1], mh = map ? map.length : 0;
+  // Relief lighting: hillshade each tile off the procedural elevation gradient, lit by the
+  // sun (a fixed NW key at night). Baked per-tile here (cheap) and bilinear-sampled per pixel.
+  const wc = v.mapCenter || { x: 0, y: 0 }, wcx = wc.x, wcy = wc.y;
+  const litX = sun && sun.elev > 0.05 ? sun.dir[0] : -0.62, litY = sun && sun.elev > 0.05 ? sun.dir[1] : -0.62;
   let LUT = null;
   if (map) {
     LUT = new Array(mh);
@@ -1008,7 +1021,10 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun) {
       for (let rx = 0; rx < row.length; rx++) {
         const c = row[rx], bi = c && c.biome;
         const col = bi ? (BIOME_GROUND[bi] || gTop) : OFF;
-        out[rx] = [col[0], col[1], col[2], bi === 'water' ? 1 : 0, bi === 'parkland' ? 1 : 0];
+        const awx = (rx - R) + wcx, awy = (ry - R) + wcy;   // absolute world tile (relief stays put, doesn't slide)
+        const e0 = groundElev(awx, awy), gx = groundElev(awx + 0.5, awy) - e0, gy = groundElev(awx, awy + 0.5) - e0;
+        const shade = clamp(1 + (-gx * litX - gy * litY) * 2.4, 0.8, 1.2);
+        out[rx] = [col[0], col[1], col[2], bi === 'water' ? 1 : 0, bi === 'parkland' ? 1 : 0, shade];
       }
       LUT[ry] = out;
     }
@@ -1036,6 +1052,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun) {
       let bb = s00[2] * w00 + s10[2] * w10 + s01[2] * w01 + s11[2] * w11;
       const waterW = s00[3] * w00 + s10[3] * w10 + s01[3] * w01 + s11[3] * w11;
       const grassW = s00[4] * w00 + s10[4] * w10 + s01[4] * w01 + s11[4] * w11;
+      const shadeW = s00[5] * w00 + s10[5] * w10 + s01[5] * w01 + s11[5] * w11;
       // Base material: subtle concrete checker + within-tile diagonal gradient.
       const wxf = wx * FREQ, wyf = wy * FREQ, tx = Math.floor(wxf * 2), ty = Math.floor(wyf * 2);
       const grad = ((wxf - Math.floor(wxf)) + (wyf - Math.floor(wyf))) * 0.05 - 0.05;
@@ -1045,6 +1062,9 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun) {
         const gx = Math.floor(wx * 5.3), gy = Math.floor(wy * 5.3);
         tex = tex * (1 - grassW) + (1 + (((gx * 7 ^ gy * 13) & 3) * 0.05 - 0.075)) * grassW;
       }
+      // Relief hillshade — brightens sun-facing slopes, darkens the lee; land only, so the
+      // ground reads as gentle rolling hills. Water stays flat (its own wave shading below).
+      tex *= shadeW * (1 - waterW) + waterW;
       // Water + shoreline. waterW rises 0→1 across the shore seam (bilinear), so it doubles
       // as a shoreline coordinate — ~0.5 is the waterline. On top of the blended base colour
       // we layer the cues that make a coast read as a coast instead of a colour crossfade:

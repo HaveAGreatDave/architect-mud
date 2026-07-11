@@ -361,7 +361,13 @@ export function step(state, input, p, dt) {
   // 6b. Stall requires a SUSTAINED hold below the (loaded, flap-adjusted) stall speed.
   //     A momentary over-pull just mushes; you must hold a full pull (~5s) to stall.
   //     The timer builds while too slow and recovers fast the instant you ease off.
-  const loadFactor = 1 / Math.max(0.35, Math.cos(s.bank * D2R));
+  // A banked turn only loads the wing (raising the stall speed) to the extent you're pulling
+  // to hold/gain altitude. Geometric level-turn load is 1/cos(bank); we scale the EXTRA load
+  // above 1g by how hard you're actually hauling back (elevEff). Hands-off or nose-down — i.e.
+  // NOT climbing — the turn stays nearly unloaded, so you can crank it around near the stall
+  // speed without dropping out of the sky; only a sustained climbing turn bites like before.
+  const pull = clamp(s.elevEff, 0, 1);
+  const loadFactor = 1 + (1 / Math.max(0.35, Math.cos(s.bank * D2R)) - 1) * (0.3 + 0.7 * pull);
   const stallSpeed = p.vs0 * Math.sqrt(loadFactor) / (1 + flaps * p.flapVs);
   s.stallMargin = clamp((s.airspeed / stallSpeed - 1) / 0.3, 0, 1);
   const wasStalled = s.stalled;
