@@ -597,6 +597,22 @@ if (MANUAL_BLD) {
 const planIds = plan.map(p => p.id);
 const { rows: existingRows } = await query('SELECT * FROM zones WHERE id = ANY($1::text[])', [planIds]);
 const existing = new Map(existingRows.map(r => [r.id, r]));
+
+// Preserve airfield wiring across re-exports. A ramp tile's airfield identity
+// (airfield_id + services + the hangar_interior_zone link) is applied AFTER
+// generation — by dev-panel edits or a one-shot, since the blueprint has no
+// airfield concept — so a plain regeneration would drop it and strand the field.
+// Carry any existing values forward onto the regenerated tile (only when the plan
+// didn't set them itself). A field ramp's bespoke pad icon (e.g. a helipad's H) is
+// kept too; ordinary runway/road icons are re-derived and already set by the plan.
+const AF_PRESERVE = ['airfield_id', 'airfield_name', 'airfield_fuel', 'airfield_fuels',
+  'airfield_dealer', 'airfield_charter', 'airfield_lawless', 'airfield_theme', 'hangar_interior_zone'];
+for (const p of plan) {
+  const cf = existing.get(p.id)?.flags;
+  if (!cf) continue;
+  for (const k of AF_PRESERVE) if (cf[k] != null && p.row.flags[k] == null) p.row.flags[k] = cf[k];
+  if (cf.airfield_id && cf.icon && p.row.flags.icon == null) p.row.flags.icon = cf.icon;
+}
 const { rows: orphanRows } = await query(
   `SELECT id FROM zones WHERE flags->>'planner' = $1 AND NOT (id = ANY($2::text[]))`, [bp.id, planIds]);
 
