@@ -1104,7 +1104,7 @@ export const CLIMBOUT_MAX_F = 4.5, CLIMBOUT_LAT_IN = 0.3, CLIMBOUT_LAT_OUT = 0.2
 // (about to pass under/behind you) or this far (still fading in) isn't really "on the glass"
 // yet. Collision must never fire on a tile outside this window, or a hit can land on
 // something the player couldn't actually have seen.
-export const VISIBLE_NEAR_F = 0.05, VISIBLE_FAR_F = 7.5;
+export const VISIBLE_NEAR_F = 0.05, VISIBLE_FAR_F = 10;
 export function climbOutClear(f, lat, height) {
   if (!(f > 0.1 && f < CLIMBOUT_MAX_F && height < 0.2)) return true;
   return clamp((Math.abs(lat) - CLIMBOUT_LAT_IN) / CLIMBOUT_LAT_OUT, 0, 1) > 0;

@@ -43,6 +43,101 @@ function setPowerPanelInteriorZ(z) {
   renderPowerPanelBody();
 }
 
+// Jump straight into the interior view for a building (from a City Grid tile).
+function powerPanelOpenBuilding(zoneId) {
+  powerPanelView = 'interior';
+  powerPanelBuilding = zoneId || null;
+  powerPanelInteriorZ = 0;
+  renderPowerPanelBody();
+}
+
+// City Grid = a plant→junction-box schematic. The old view rendered a full CSS
+// grid over the bounding box of every placed zone (a <div> per coordinate cell),
+// which froze the panel once the district map grew to ~888 zones. Power only ever
+// flows city plant → building junction box → building interior, so we draw exactly
+// that: each plant node, and one tile per building it feeds. Bounded by generator
+// count, not map area — no terrain, no freeze.
+function _buildPlantSchematicHtml() {
+  const STATUS_CLS = { powered: 'bm-power-powered', overloaded: 'bm-power-overloaded', offline: 'bm-power-offline', unpowered: 'bm-power-unpowered' };
+  const zoneById = new Map(powerPanelAllZones.map(z => [z.id, z]));
+  const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
+  const plants = powerPanelGenerators.filter(g => g.generator_type === 'city_plant');
+  const jbs = powerPanelGenerators.filter(g => g.generator_type === 'junction_box');
+
+  // Walk a junction box's interior network out to the building entrance it serves.
+  const buildingFor = jb => {
+    const seen = new Set([jb.zone_id]);
+    const queue = [jb.zone_id];
+    while (queue.length) {
+      const cur = zoneById.get(queue.shift());
+      if (!cur) continue;
+      if (cur.flags?.is_building) return cur;
+      for (const exitId of flatNeighbors(cur.exits)) {
+        if (seen.has(exitId)) continue;
+        seen.add(exitId);
+        const nb = zoneById.get(exitId);
+        if (!nb) continue;
+        if (nb.flags?.is_building) return nb;
+        if (nb.flags?.is_interior || nb.flags?.is_apartment) queue.push(exitId);
+      }
+    }
+    return null;
+  };
+
+  const jbTile = jb => {
+    const b = buildingFor(jb);
+    const label = b?.name || jb.zone_name || jb.name || jb.id;
+    const draw = Number(jb.zone_load_w ?? 0);
+    const jbOn = Number(jb.capacity_kw) > 0;
+    const pw = b ? powerById.get(b.id) : null;
+    let status;
+    if (!jbOn || pw?.status === 'offline') status = 'offline';
+    else if (draw === 0) status = 'unpowered';
+    else status = pw?.status || 'powered';
+    const cls = STATUS_CLS[status] || 'bm-power-unpowered';
+    const nav = b ? ` style="cursor:pointer" onclick="powerPanelOpenBuilding('${b.id.replace(/'/g, "\\'")}')"` : '';
+    const drawStr = draw > 0 ? `${draw.toFixed(0)}W` : 'idle';
+    return `<div class="bigmap-tile ${cls}"${nav} title="${(label + '').replace(/"/g, '&quot;')} — ${status} · JB ${jb.name || jb.id}">
+      <div>🏢 ${label}<div style="font-size:9px;opacity:0.8;margin-top:2px">${drawStr} · ${status}</div></div>
+    </div>`;
+  };
+
+  const plantBlock = p => {
+    const fed = jbs.filter(jb => jb.city_generator_id === p.id);
+    const used = Number(p.total_demand_w ?? 0);
+    const cap = Number(p.capacity_kw);
+    const overdrawn = used > cap;
+    const cls = cap === 0 ? 'bm-power-plant bm-power-offline' : overdrawn ? 'bm-power-plant bm-power-overloaded' : 'bm-power-plant';
+    const plantNode = `<div class="bigmap-tile ${cls}" style="min-width:150px" title="${(p.zone_name || p.zone_id || '').replace(/"/g, '&quot;')}">
+      <div>⚡ ${p.name || p.id}<div style="font-size:10px;opacity:0.9;margin-top:2px">${used.toFixed(0)}/${cap.toFixed(0)}W · ${fed.length} bldg</div></div>
+    </div>`;
+    const tiles = fed.length
+      ? fed.map(jbTile).join('')
+      : `<div style="color:var(--text-dim);font-size:11px;align-self:center">No buildings wired to this plant.</div>`;
+    return `<div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:20px">
+      ${plantNode}
+      <div style="color:var(--text-dim);font-size:20px;align-self:center">→</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;flex:1">${tiles}</div>
+    </div>`;
+  };
+
+  if (!plants.length) {
+    return `<div style="color:var(--text-dim);padding:8px">No city power plants installed yet — install one from a zone's editor.</div>`;
+  }
+
+  let html = plants.map(plantBlock).join('');
+
+  const unassigned = jbs.filter(jb => !jb.city_generator_id || !plants.find(p => p.id === jb.city_generator_id));
+  if (unassigned.length) {
+    html += `<div style="margin-top:6px">
+      <div style="color:var(--warning);font-size:11px;margin-bottom:6px">⚠ Junction boxes not wired to any city plant:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">${unassigned.map(jbTile).join('')}</div>
+    </div>`;
+  }
+
+  return html;
+}
+
 function _buildInteriorMapHtml() {
   const buildings = powerPanelAllZones.filter(z => z.flags?.is_building);
   if (!buildings.length) return `<div style="color:var(--text-dim);padding:8px">No buildings found.</div>`;
@@ -175,7 +270,6 @@ function renderPowerPanelBody() {
   const tabBar = `<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
     <button class="action-btn${powerPanelView === 'city' ? ' primary' : ''}" onclick="setPowerPanelView('city')">⚡ City Grid</button>
     <button class="action-btn${powerPanelView === 'interior' ? ' primary' : ''}" onclick="setPowerPanelView('interior')">🏢 Building Interior</button>
-    <div style="margin-left:auto">${mapScaleControlHtml()}</div>
   </div>`;
 
   let html;
@@ -184,8 +278,8 @@ function renderPowerPanelBody() {
   } else {
     html = `<div style="padding:12px">
     ${tabBar}
-    ${wrapMapScale(buildDynamicMapGrid(bigMapZones, powerPanelMode, powerById, true))}
-    <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim)">${mapLegendHtml(powerPanelMode)}</div>
+    ${_buildPlantSchematicHtml()}
+    <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim)">${mapLegendHtml('power')}</div>
   </div>`;
   }
 
@@ -386,13 +480,17 @@ async function forceRecomputePower() {
 }
 
 async function _refreshPowerMapData() {
-  const [powerMap, generators] = await Promise.all([
+  const [powerMap, generators, allZones] = await Promise.all([
     API('/environment/power/map').catch(() => []),
     API('/environment/power/generators').catch(() => []),
+    API('/zones').catch(() => null),
   ]);
   bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
   powerPanelGenerators = Array.isArray(generators) ? generators : [];
   bigMapGenerators = powerPanelGenerators;
+  // Fix-buildings/auto-resolve can dig new utility rooms; keep the zone list fresh
+  // so the City Grid schematic can resolve every junction box to its building.
+  if (Array.isArray(allZones)) powerPanelAllZones = allZones;
   powerJbByOutdoor = _buildJbByOutdoor();
 }
 

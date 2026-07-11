@@ -1500,11 +1500,13 @@ export function openFlightSim(opts = {}) {
     if (!F.cargoKg) { fsimToast('— NO CARGO —'); return; }
     F.cargoKg = 0; sendCmdSilent('jettison'); fsimToast('CARGO JETTISONED');
   };
-  // Airport target guide — [ / ] (and the radio ◂/▸ buttons) step the field the target ring /
-  // Home waypoint locks onto. Keyed by airfield id so the choice survives the list re-sorting.
+  // Target guide — [ / ] (and the radio ◂/▸ buttons) step the destination the target ring /
+  // Home waypoint locks onto: airfields AND named landmarks (Precinct 9, the Embassy…), so you
+  // can point the guide at any real place. Keyed by id so the choice survives the list re-sort.
+  const targetList = () => [...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : [])];
   const cycleApTarget = (dir) => {
-    const list = Array.isArray(F.fields) ? F.fields : [];
-    if (!list.length) { fsimToast('— NO FIELDS IN RANGE —'); return; }
+    const list = targetList();
+    if (!list.length) { fsimToast('— NO DESTINATIONS IN RANGE —'); return; }
     let i = list.findIndex((f) => f.id === F.apTargetId);
     i = i < 0 ? (dir > 0 ? 0 : list.length - 1) : (i + dir + list.length) % list.length;
     F.apTargetId = list[i].id;
@@ -2017,7 +2019,8 @@ function fsimFrame(now) {
   // tile-offset from the craft, for the windshield's in-view accent ring / off-screen Home
   // waypoint. Tracked by airfield id; falls back to the nearest whenever the target drops out.
   let apTarget = null;
-  const fieldList = Array.isArray(F.fields) ? F.fields : [];
+  // Destinations = airfields + named landmarks (same shape), so the guide can lock onto either.
+  const fieldList = [...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : [])];
   if (fieldList.length) {
     if (!F.apTargetId || !fieldList.some((f) => f.id === F.apTargetId)) F.apTargetId = fieldList[0].id;
     const tgt = fieldList.find((f) => f.id === F.apTargetId) || fieldList[0];
@@ -2408,6 +2411,7 @@ export function flightSimContext(msg) {
   if (msg.map) { F.map = msg.map; if (msg.mapX != null) F.mapCenter = { x: msg.mapX, y: msg.mapY }; }
   if (msg.minimap) F.minimap = msg.minimap;
   if (msg.fields) F.fields = msg.fields;
+  if (msg.landmarks) F.landmarks = msg.landmarks;   // named buildings the target guide can lock onto (cycled alongside fields)
   if ('onField' in msg) F.onField = !!msg.onField;   // rolled onto a real airfield → auto-park + open the hangar on full stop
   if (msg.occupants) { F.occupants = msg.occupants; if (msg.seats) F.seats = msg.seats; renderSeats(F); }   // cabin readout keeps pace with boarding
   if ('cargo' in msg) F.cargoKg = msg.cargo;   // current hold weight (drives the J jettison bind)

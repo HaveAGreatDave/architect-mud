@@ -387,7 +387,13 @@ export function advance(live, tiles) {
 }
 
 // ── HUD payload (synthesized cockpit state, pushed to occupants) ──────────────
-function mapWindow(a, radius = 4) {
+// The surface window streamed to the cockpit. Radius 12 (a 25×25 tile block) so the
+// real 1:1 city reads with depth ahead — the windshield's VISIBLE_FAR_F (10 tiles)
+// draws the whole skyline instead of the old radius-4 window starving it at 4. It's a
+// cheap ~600-cell JSON pushed only every TICK_MS (3s), so the wider window costs nothing
+// on the wire. Keep radius ≥ VISIBLE_FAR_F (+ a drift margin) so the farthest tile the
+// renderer wants always exists in the payload.
+function mapWindow(a, radius = 12) {
   const rows = [];
   for (let dy = -radius; dy <= radius; dy++) {
     const row = [];
@@ -445,6 +451,28 @@ function nearbyFields(x, y) {
   return out.map(({ _d, ...f }) => f);
 }
 
+// Named buildings near a coord, as targetable waypoints for the cockpit's target guide —
+// the same {id,name,gx,gy,bearing,dist} shape as nearbyFields, so the client can cycle a
+// real landmark (Precinct 9, the Embassy…) with the same [ / ] control that picks fields.
+// Deduped by name (a building placed on more than one tile targets its nearest instance),
+// nearest first, capped so the cycle list stays short. Range spans the whole city cluster
+// so you can lock a landmark from across town and fly toward it.
+const LANDMARK_RANGE = 60, LANDMARK_MAX = 8;
+function nearbyLandmarks(x, y) {
+  const all = [];
+  for (const z of getAllZones()) {
+    if (z.map_id !== 'map_world' || z.grid_x == null) continue;
+    const name = z.flags?.building_name; if (!name) continue;
+    const d = Math.hypot(z.grid_x - x, z.grid_y - y);
+    if (d > LANDMARK_RANGE) continue;
+    all.push({ id: z.id, name, gx: z.grid_x, gy: z.grid_y, bearing: Math.round(bearingDeg(x, y, z.grid_x, z.grid_y)), dist: Math.round(d), _d: d });
+  }
+  all.sort((a, b) => a._d - b._d);
+  const seen = new Set(), out = [];
+  for (const f of all) { if (seen.has(f.name)) continue; seen.add(f.name); out.push(f); if (out.length >= LANDMARK_MAX) break; }
+  return out.map(({ _d, ...f }) => f);
+}
+
 export function gaugePayload(live) {
   const a = live.row, t = live.type, eff = effStats(live);
   const cap = eff.fuelCap;
@@ -473,7 +501,7 @@ export function gaugePayload(live) {
     engines, enginesStable: enginesAllStable(live), engineOn: !!a.engine_on, runup: !!live.runup,
     hullPct: Math.max(0, Math.round((1 - a.damage) * 100)),
     x: a.grid_x, y: a.grid_y, fx: live.fx, fy: live.fy,
-    surface: a.airborne ? (below ? below.name : 'open air') : null,
+    surface: a.airborne ? (below ? (below.flags?.building_name || below.name) : 'open air') : null,
     airborne: !!a.airborne, warn, fuelType: t.fuel_type, noise: t.noise || 2,
     armed: !!a.weapons_hot, hardpoints: t.hardpoints || 0,
     cargo: eff.cargo, maxTOW: eff.maxTOW, cargoCap: t.cargo_capacity || 0,
@@ -542,10 +570,13 @@ export function contextPayload(live) {
     type: 'flight_ctx',
     fuel: Math.round(a.fuel), fuelCap: Math.round(cap), fuelPct: Math.max(0, Math.round(a.fuel / cap * 100)),
     map: mapWindow(a), mapX: a.grid_x, mapY: a.grid_y, sky: skyState(),   // window centre → client keeps map+centre paired (no recenter pop)
-    surface: surfaceZone?.flags?.airfield_name || surfaceZone?.name || 'open air',
+    // Overflight readout: the real place under the craft — a named building wins over the
+    // raw tile name, so you read "Embassy Hotel & Bar", not the street cell it sits on.
+    surface: surfaceZone?.flags?.airfield_name || surfaceZone?.flags?.building_name || surfaceZone?.name || 'open air',
     biomeBelow: districtBiome(surfaceAt(a.grid_x, a.grid_y)),
     minimap: (() => { const b = surfaceAt(a.grid_x, a.grid_y); return b ? getMinimapData(b.id, 3) : null; })(),
     fields: nearbyFields(a.grid_x, a.grid_y),   // airport bearing tags for the heading tape
+    landmarks: nearbyLandmarks(a.grid_x, a.grid_y),   // named buildings you can lock the target guide onto
     onField: !!surfaceAt(a.grid_x, a.grid_y)?.flags?.airfield_id,   // rolled onto a real airfield tile → auto-park + hangar on stop
     cargo: a.custom_data?.cargoWeight || 0,     // current hold weight (drives the cockpit jettison bind)
     engines: live.type.engines || 1, seats: live.type.seats || 1, occupants: seatList(live),   // gauge count + cabin readout

@@ -398,9 +398,6 @@ export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {})
   document.getElementById('map-close').addEventListener('click', () => {
     document.getElementById('map-panel').classList.remove('active');
   });
-  document.getElementById('map-panel').addEventListener('click', (e) => {
-    if (e.target.id === 'map-panel') document.getElementById('map-panel').classList.remove('active');
-  });
 }
 
 export function listenForSettingsChanges(applyFn) {
