@@ -306,6 +306,22 @@ async function tick() {
 
   // Status effects + phased drug effects
   for (const [playerId, player] of world.players) {
+    // Drowning: open water is impassable (engine:water move gate), but a teleport,
+    // script, or glitch can still strand a player on a water tile. The black water
+    // is lethal — you can't tread it — so anyone who ends up there drowns at once.
+    // A boat-carrier is boating across (the move gate permits that), so they're spared.
+    const pz = world.zones.get(player.current_zone);
+    if (pz?.flags?.water && player.hp > 0) {
+      const { rows: boat } = await query(
+        `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+         WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'boat') LIMIT 1`,
+        [playerId]);
+      if (!boat.length) {
+        player.hp = 0;
+        await handlePlayerDeath(player, null, { type: 'drowning', label: 'Drowned in the open water' });
+        continue;
+      }
+    }
     const hpBefore = player.hp;
     const stamBefore = player.stamina;
     const messages = [...tickEffects(player), ...tickDrugs(player), ...tickOnsets(player)];
