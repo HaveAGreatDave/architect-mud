@@ -426,7 +426,10 @@ function mapWindow(a, radius = 24) {
         ent = (z && buildingEntranceDir(z)) || undefined;
         flr = cell.flags?.floors || undefined;
       }
-      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr });
+      // Public-plaza landmark: a `statue-*` map icon marks a monument tile (the town-square
+      // statue) so the windshield can raise a bespoke statue + fountain instead of bare ground.
+      const mark = /^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined;
+      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark });
     }
     rows.push(row);
   }

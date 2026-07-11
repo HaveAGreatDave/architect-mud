@@ -1154,6 +1154,7 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_embassy: [88, 66, 54], ty_embassy_bar: [46, 34, 42],
   // Coldwater Clone Facility — clinical off-white shell + dark glowing vat glass.
   ty_clone: [176, 200, 204], ty_clone_vat: [30, 52, 58],
+  __statue_stone: [116, 114, 118],   // weathered plinth stone for the town-square monument
   ty_door: [20, 22, 26] };
 const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
 
@@ -2171,6 +2172,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   }
   for (const it of items) {
     const alpha = it.alpha, bi = it.c.biome;
+    if (it.c.mark === 'statue') { drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now); continue; }   // town-square monument + fountain
     if (it.c.kind === 'nofly') { draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7); continue; }
     if (bi === 'parkland') { drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
     if (bi === 'badlands') { if ((it.seed % 3) === 0) drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
@@ -2195,6 +2197,56 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // buildings at night — post-singularity advertising, half its pixels dead.
     if (night > 0.3 && h > 0.35 && (it.seed % 4) === 0) drawHoloAd(ctx, cam, it.dx, it.dy, fh, h, it.seed, now, alpha * night);
   }
+}
+
+// The town-square monument: a heroic bronze figure on a stone plinth, ringed by a working
+// fountain (stone basin + water pool with travelling ripples + jets), uplit at night. Built
+// through the shared camera so it sits, sized and receding, on the plaza tile.
+function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now) {
+  const R = fh * 0.96;                                    // fountain basin radius (tiles)
+  const ring = (rad, z) => { const pts = []; for (let i = 0; i <= 18; i++) { const a = i / 18 * Math.PI * 2, p = cam.proj(dx + Math.cos(a) * rad, dy + Math.sin(a) * rad, z); if (p.f <= 0.06) return null; pts.push(p); } return pts; };
+  const trace = (pts) => { ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); };
+  const basin = ring(R, 0.012); if (!basin) return;
+  ctx.save(); ctx.globalAlpha = alpha;
+  // 1. Fountain — stone rim + water pool + a couple of expanding ripple rings.
+  ctx.fillStyle = 'rgb(122,120,124)'; trace(basin); ctx.fill();
+  const water = ring(R * 0.8, 0.016);
+  if (water) {
+    ctx.fillStyle = night ? 'rgb(26,54,80)' : 'rgb(58,120,152)'; trace(water); ctx.fill();
+    ctx.strokeStyle = 'rgba(205,232,246,0.35)'; ctx.lineWidth = 1;
+    for (let k = 0; k < 2; k++) { const t2 = ((now * 0.0006 + k * 0.5) % 1), rr = ring(R * 0.8 * (0.3 + 0.6 * t2), 0.02); if (rr) { ctx.globalAlpha = alpha * (1 - t2) * 0.5; trace(rr); ctx.stroke(); } }
+    ctx.globalAlpha = alpha;
+  }
+  // 2. Stone plinth.
+  const plinthTop = 0.3, figTop = 0.92;
+  draw3DBoxAt(ctx, cam, dx, dy, fh * 0.24, 0, plinthTop, '__statue_stone', seed, night, alpha, true);
+  // 3. Bronze figure — a verdigris silhouette (torso, head, a raised arm holding a rod),
+  //    drawn in screen space above the plinth and scaled by its projected height.
+  const base = cam.proj(dx, dy, plinthTop), top = cam.proj(dx, dy, figTop);
+  if (base.f > 0.12 && top.f > 0.12) {
+    const s = Math.max(3, Math.abs(base.sy - top.sy)), cx = (base.sx + top.sx) / 2, cyB = base.sy, cyT = top.sy;
+    const bronze = night ? 'rgb(64,92,80)' : 'rgb(118,136,96)', wB = s * 0.17;
+    ctx.fillStyle = bronze;
+    ctx.beginPath();
+    ctx.moveTo(cx - wB, cyB); ctx.lineTo(cx - wB * 0.55, cyT + s * 0.26); ctx.lineTo(cx - wB * 0.5, cyT + s * 0.1);
+    ctx.lineTo(cx + wB * 0.5, cyT + s * 0.1); ctx.lineTo(cx + wB * 0.55, cyT + s * 0.26); ctx.lineTo(cx + wB, cyB);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cyT, s * 0.1, 0, 7); ctx.fill();                                   // head
+    ctx.strokeStyle = bronze; ctx.lineWidth = Math.max(1, s * 0.06);
+    ctx.beginPath(); ctx.moveTo(cx + wB * 0.4, cyT + s * 0.22); ctx.lineTo(cx + wB * 1.7, cyT - s * 0.12); ctx.stroke();   // raised arm
+    ctx.strokeStyle = night ? 'rgba(96,116,104,0.9)' : 'rgba(104,120,84,0.9)'; ctx.lineWidth = Math.max(1, s * 0.035);
+    ctx.beginPath(); ctx.moveTo(cx + wB * 1.7, cyT - s * 0.12); ctx.lineTo(cx + wB * 2.9, cyT - s * 0.6); ctx.stroke();    // the fisherman's rod
+  }
+  // 4. Water jets — bright sprays from the basin, breathing with time.
+  ctx.strokeStyle = night ? 'rgba(150,200,232,0.55)' : 'rgba(222,240,250,0.6)'; ctx.lineWidth = 1.4;
+  for (const off of [-0.34, 0, 0.34]) {
+    const hgt = 0.02 + 0.15 * (0.7 + 0.3 * Math.sin(now * 0.004 + off * 6));
+    const j0 = cam.proj(dx + off * R, dy, 0.02), j1 = cam.proj(dx + off * R, dy, hgt);
+    if (j0.f > 0.12 && j1.f > 0.12) { ctx.beginPath(); ctx.moveTo(j0.sx, j0.sy); ctx.lineTo(j1.sx, j1.sy); ctx.stroke(); }
+  }
+  // 5. Night — warm uplight on the figure + a cool glimmer off the pool.
+  if (night) { glowPool(ctx, cam, dx, dy, figTop * 0.6, '255,220,150', 15, alpha * 0.32); glowPool(ctx, cam, dx, dy, 0.02, '90,160,205', 18, alpha * 0.22); }
+  ctx.restore();
 }
 
 // A building's ground shadow: a soft parallelogram beam of width = the footprint, cast in
