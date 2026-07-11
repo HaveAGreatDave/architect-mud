@@ -256,7 +256,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_waste_brokenkiln",
+  "home_zone": "zone_halcyon_apt_a",
   "hp": 24,
   "hp_max": 24,
   "id": "npc_slake",
@@ -331,5 +331,5 @@
   "vendor_stock_size": 8,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_waste_brokenkiln"
+  "work_zone_id": "zone_coldwater_turbine_hall"
 }

@@ -154,7 +154,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_civ_meltwater",
+  "home_zone": "zone_halcyon_apt_e",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_water_warden",
@@ -225,5 +225,5 @@
   "vendor_stock_size": 8,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_civ_meltwater"
+  "work_zone_id": "zone_mq_precinct_lobby"
 }

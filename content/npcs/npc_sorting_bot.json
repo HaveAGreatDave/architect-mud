@@ -154,7 +154,7 @@
     "personality": "robot"
   },
   "home_activities": [],
-  "home_zone": "zone_civ_sortation",
+  "home_zone": "zone_halcyon_apt_b",
   "hp": 30,
   "hp_max": 30,
   "id": "npc_sorting_bot",
@@ -169,5 +169,5 @@
   "vendor_stock_size": null,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_civ_sortation"
+  "work_zone_id": "zone_mq_precinct_lobby"
 }

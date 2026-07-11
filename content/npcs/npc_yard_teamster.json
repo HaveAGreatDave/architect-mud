@@ -154,7 +154,7 @@
     "personality": "labourer"
   },
   "home_activities": [],
-  "home_zone": "zone_yard_transfer",
+  "home_zone": "zone_meridian_unit_101",
   "hp": 18,
   "hp_max": 18,
   "id": "npc_yard_teamster",
@@ -169,5 +169,5 @@
   "vendor_stock_size": null,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_yard_transfer"
+  "work_zone_id": "zone_coldwater_turbine_hall"
 }

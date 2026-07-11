@@ -153,7 +153,7 @@
     "personality": "clerk"
   },
   "home_activities": [],
-  "home_zone": "zone_gov_registry",
+  "home_zone": "zone_apt_12",
   "hp": 14,
   "hp_max": 14,
   "id": "npc_gov_archivist",
@@ -168,5 +168,5 @@
   "vendor_stock_size": null,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_gov_registry"
+  "work_zone_id": "zone_mq_precinct_lobby"
 }

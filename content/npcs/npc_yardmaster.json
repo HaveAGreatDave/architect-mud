@@ -205,7 +205,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_yard_railhead",
+  "home_zone": "zone_meridian_unit_102",
   "hp": 24,
   "hp_max": 24,
   "id": "npc_yardmaster",
@@ -284,5 +284,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_yard_railhead"
+  "work_zone_id": "zone_coldwater_turbine_hall"
 }

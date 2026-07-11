@@ -154,7 +154,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_gov_prefect",
+  "home_zone": "zone_apt_4",
   "hp": 18,
   "hp_max": 18,
   "id": "npc_prefect_clerk",
@@ -225,5 +225,5 @@
   "vendor_stock_size": 8,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_gov_prefect"
+  "work_zone_id": "zone_mq_precinct_lobby"
 }

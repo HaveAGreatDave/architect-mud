@@ -98,7 +98,7 @@
     "no_attack_message": "Your arm begins to rise. The attendant watches it rise with mild interest. It does not rise. \"That is not one of the things you get to do here,\" it says, without reproach."
   },
   "home_activities": [],
-  "home_zone": "zone_the_inbetween",
+  "home_zone": "zone_apt_2",
   "hp": 40,
   "hp_max": 40,
   "id": "npc_attendant_inbetween",

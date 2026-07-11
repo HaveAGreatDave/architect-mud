@@ -13,7 +13,9 @@ function plotRoute(player, destZone) {
   if (destZone.id === player.current_zone) {
     return { type: 'output', message: `You're already at ${destZone.name}.` };
   }
-  const path = findPath(player.current_zone, destZone.id);
+  // Road-preferring route: hug the street grid, leaving it only for the start/end building.
+  // maxDistance is generous because sticking to roads adds hops vs. a straight cut-through.
+  const path = findPath(player.current_zone, destZone.id, { roads: true, maxDistance: 200 });
   if (!path || path.length < 2) {
     return { type: 'error', message: `Can't find a path to ${destZone.name} from here.` };
   }

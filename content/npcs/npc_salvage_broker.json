@@ -88,7 +88,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_slag_gate",
+  "home_zone": "zone_apt_8",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_salvage_broker",
@@ -163,5 +163,5 @@
   "vendor_stock_size": 8,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_slag_gate"
+  "work_zone_id": "zone_coldwater_turbine_hall"
 }
