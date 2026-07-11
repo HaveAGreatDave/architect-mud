@@ -1,10 +1,16 @@
 // Elevator plugin regression suite (harness-only, never loaded in production).
 import { _test } from './index.js';
 
-export default async function regress({ run, check }) {
-  // Verb routes and self-gates: the fake player is not in an elevator, so `floor`
-  // should reach the plugin and refuse cleanly (not fall through to "unknown command").
+export default async function regress({ run, check, getPlayer }) {
+  // Verb routes and self-gates: pin the player to a definitely-non-elevator zone
+  // (a bogus id → getZone() is undefined → not an elevator) so `floor` reaches the
+  // plugin and refuses cleanly regardless of which zone the harness happened to
+  // spawn into — otherwise a real elevator car in the world makes `floor 50` ride.
+  const p = getPlayer();
+  const savedZone = p.current_zone;
+  p.current_zone = 'zone_regress_not_an_elevator';
   const r = await run('floor 50');
+  p.current_zone = savedZone;
   check('floor routes to plugin', r?.type === 'error', r?.message);
   check('floor gates on being in a car', /elevator/i.test(r?.message || ''), r?.message);
 
