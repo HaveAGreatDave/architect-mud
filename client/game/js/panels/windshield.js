@@ -407,7 +407,11 @@ export function paintWindshield(id, view) {
     ctx.save(); ctx.globalAlpha = worldBlend;
     drawGroundSurfaces(ctx, cam, vw, sky, now);
     ctx.restore();
-    if (vw.runway) drawRunwayTex(ctx, cam, vw, worldBlend, sky, now);
+    // NOTE: no separate runway strip is drawn here — the airfield's own ground tiles (rendered
+    // by drawGroundSurfaces as pale runway concrete) ARE the runway, and their count marks its
+    // length (1 tile = an average strip, 2 = twice as long, …). Painting drawRunwayTex on top
+    // doubled it up ("runway over runway"), so it's gone; the landing GUIDE still uses the
+    // runway data below.
     // Aircraft's own shadow on the ground (cast along the sun) — reads as an altitude cue on
     // low passes/approach when the sun's behind you; culled otherwise.
     if (sunFx.elev > 0.02 && !framed) drawAircraftShadow(ctx, cam, height, sunFx, worldBlend);
@@ -1681,44 +1685,6 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
   }
 }
 
-// Departure runway anchored in the WORLD (origin + heading), projected through the same
-// camera as the buildings — so it stays put on the ground and recedes/rotates as you fly
-// away instead of tracking the nose. `rw = { ox, oy, hdg, alt }` = the runway origin's
-// world offset from the craft (tiles), its heading, and the climb-fade level.
-function drawRunwayTex(ctx, cam, v, outerFade = 1, sky = null, now = 0) {
-  const rw = v.runway; if (!rw) return;
-  const alt = clamp(rw.alt || 0, 0, 1);
-  const RWL = rw.len || RENDER_TUNE.rwl, hw = 0.15, BACK = 0.6, fMin = 0.06;
-  const fade = clamp(1.4 - alt * 1.5, 0, 1) * outerFade; if (fade <= 0.02) return;
-  const hr = (rw.hdg || 0) * Math.PI / 180;
-  const dx0 = Math.sin(hr), dy0 = -Math.cos(hr);      // along-runway unit (world)
-  const pxu = Math.cos(hr), pyu = Math.sin(hr);       // across-runway unit (world)
-  const ox = rw.ox || 0, oy = rw.oy || 0;             // runway origin relative to the craft
-  // Forward distance along the centreline is linear in t: f(t) = A + t*B. Solve for the
-  // camera-plane crossing so we draw exactly the part in front of us (no behind-camera smear).
-  const A = ox * cam.sinh - oy * cam.cosh, B = dx0 * cam.sinh - dy0 * cam.cosh;
-  let tLo = -BACK, tHi = RWL;
-  if (Math.abs(B) < 1e-4) { if (A < fMin) return; }
-  else { const tc = (fMin - A) / B; if (B > 0) tLo = Math.max(tLo, tc); else tHi = Math.min(tHi, tc); }
-  if (tHi - tLo < 0.03) return;
-  const P = (t, s) => cam.proj(ox + t * dx0 + s * pxu, oy + t * dy0 + s * pyu, 0);
-  ctx.save(); ctx.globalAlpha = fade;
-  const NL = P(tLo, -hw), NR = P(tLo, hw), FL2 = P(tHi, -hw), FR = P(tHi, hw);
-  ctx.fillStyle = '#22262d';
-  ctx.beginPath(); ctx.moveTo(NL.sx, NL.sy); ctx.lineTo(FL2.sx, FL2.sy); ctx.lineTo(FR.sx, FR.sy); ctx.lineTo(NR.sx, NR.sy); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = 'rgba(228,232,236,0.82)'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
-  ctx.beginPath(); ctx.moveTo(NL.sx, NL.sy); ctx.lineTo(FL2.sx, FL2.sy); ctx.moveTo(NR.sx, NR.sy); ctx.lineTo(FR.sx, FR.sy); ctx.stroke();
-  // Centreline dashes fixed at each world tile along the strip.
-  const cw = 0.02; ctx.fillStyle = 'rgba(236,214,120,0.85)';
-  for (let t = Math.ceil(tLo); t < tHi; t += 1) {
-    const lo = Math.max(tLo, t + 0.12), hi = Math.min(tHi, t + 0.62); if (hi - lo < 0.05) continue;
-    const a = P(lo, -cw), b = P(lo, cw), c = P(hi, cw), d = P(hi, -cw);
-    ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.lineTo(c.sx, c.sy); ctx.lineTo(d.sx, d.sy); ctx.closePath(); ctx.fill();
-  }
-  // Night lighting: edge lights, green threshold / red end bar, and the approach rabbit.
-  if (sky && sky.night > 0.25) drawRunwayLights(ctx, P, tLo, tHi, hw, now, fade * sky.night);
-  ctx.restore();
-}
 
 // Star Fox-style landing guide: a chain of wireframe gates on a gentle glideslope down to
 // the runway threshold. Anchored in the world (same camera as the runway/buildings), the
@@ -2351,24 +2317,6 @@ function drawBirds(ctx, W, H, horizonY, v, st, dt, speed, sky, now, worldBlend) 
     const px = (b.x - 0.075) * W, py = (b.y - b.scat * 0.12) * horizonY, flap = Math.sin(b.ph) * (4 + near * 2);
     ctx.beginPath(); ctx.moveTo(px - 5, py + flap * 0.4); ctx.lineTo(px, py - 1); ctx.lineTo(px + 5, py + flap * 0.4); ctx.stroke();
   }
-  ctx.restore();
-}
-
-// Night runway/approach lighting placed along a world-anchored strip (used by both the
-// departure runway and airfield tiles). `q(along, lateral)` projects a strip-local point;
-// draws white edge lights, a green threshold / red end bar, and a sequenced "rabbit" of
-// approach flashers strobing toward the threshold. `phase` cycles the rabbit.
-function drawRunwayLights(ctx, q, tLo, tHi, hw, now, alpha) {
-  const dot = (a, s, col, r) => { const p = q(a, s); if (p.f <= 0.06) return; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(r / p.f, 0.8, 4), 0, 7); ctx.fill(); };
-  ctx.save(); ctx.globalAlpha = alpha;
-  for (let a = Math.ceil(tLo * 2) / 2; a <= tHi; a += 0.5) {   // edge lights every half tile
-    dot(a, -hw, 'rgba(255,248,220,0.95)', 2.4); dot(a, hw, 'rgba(255,248,220,0.95)', 2.4);
-  }
-  dot(tLo, 0, 'rgba(90,255,120,0.98)', 3); dot(tLo, -hw, 'rgba(90,255,120,0.98)', 2.6); dot(tLo, hw, 'rgba(90,255,120,0.98)', 2.6);   // green threshold
-  dot(tHi, 0, 'rgba(255,70,70,0.98)', 3); dot(tHi, -hw, 'rgba(255,70,70,0.98)', 2.6); dot(tHi, hw, 'rgba(255,70,70,0.98)', 2.6);       // red end bar
-  // Approach "rabbit": a strobe running IN toward the threshold along the extended centreline.
-  const step = Math.floor(now * 0.006) % 6;
-  for (let k = 0; k < 6; k++) { if (k !== step) continue; dot(tLo - 0.4 - k * 0.5, 0, 'rgba(255,255,255,0.95)', 3.2); }
   ctx.restore();
 }
 
