@@ -761,14 +761,39 @@ function regionalReachable(startId) {
   return reachable;
 }
 
-// Full overworld (map_world, floor 0), absolute coords — the regional land-use view.
+// The contiguous landmass (4-adjacent grid tiles) the player's overworld tile sits
+// on. The overworld holds more than one disconnected cluster — the live district and
+// orphaned legacy geometry (the old Coldwater map) parked ~900 tiles away — and the
+// regional view should show only the one you're standing on, so a far-off island
+// doesn't sit in the corner shrinking everything else. Returns the whole set if the
+// player's tile can't be located (fall back to showing all).
+function landmassTiles(onMap, startId) {
+  const byXY = new Map(onMap.map(z => [`${z.grid_x},${z.grid_y}`, z]));
+  const start = onMap.find(z => z.id === startId);
+  if (!start) return onMap;
+  const seen = new Set([`${start.grid_x},${start.grid_y}`]);
+  const queue = [start];
+  while (queue.length) {
+    const z = queue.shift();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const key = `${z.grid_x + dx},${z.grid_y + dy}`;
+      const n = byXY.get(key);
+      if (n && !seen.has(key)) { seen.add(key); queue.push(n); }
+    }
+  }
+  return onMap.filter(z => seen.has(`${z.grid_x},${z.grid_y}`));
+}
+
+// Full overworld (map_world, floor 0), absolute coords — the regional land-use view,
+// scoped to the player's own contiguous landmass (see landmassTiles).
 export function regionalTiles(currentOverworldId) {
   const onMap = getAllZones().filter(z =>
     z.map_id === 'map_world' && (z.grid_z ?? 0) === 0 &&
     z.grid_x != null && z.grid_y != null);
-  const placed = new Set(onMap.map(z => z.id));
+  const tilesOnLandmass = landmassTiles(onMap, currentOverworldId);
+  const placed = new Set(tilesOnLandmass.map(z => z.id));
   const reachable = regionalReachable(currentOverworldId);
-  return onMap.map(z => {
+  return tilesOnLandmass.map(z => {
     const t = mapTile(z, z.grid_x, z.grid_y, placed, currentOverworldId);
     t.reachable = reachable.has(z.id);
     return t;
