@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_redline_horror",
+  "id": "zs_district_district_891_903_redline_horror",
+  "max_count": 1,
+  "respawn_seconds": 900,
+  "spawn_weight": 100,
+  "zone_id": "zone_district_891_903"
+}

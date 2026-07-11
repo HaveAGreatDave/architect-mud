@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Count the Loading Bay stock, then walk the Rust Quarter cache and tally how much has walked off on its own. 10₵.",
+  "description": "Count Foundry Way stock, then walk Residential Area cache and tally how much has walked off on its own. 10₵.",
   "id": "quest_fs_count",
   "meta": {
     "taskSeconds": 5
@@ -8,20 +8,20 @@
   "name": "Shrinkage Count",
   "objectives": [
     {
-      "desc": "Count stock at the Loading Bay",
+      "desc": "Foundry Way",
       "emotes": [
-        "{who} taps each crate at the Loading Bay, counting under their breath, and loses track twice.",
-        "{who} paces the Loading Bay, tallying crates on their fingers.",
+        "{who} taps each crate at Foundry Way, counting under their breath, and loses track twice.",
+        "{who} paces Foundry Way, tallying crates on their fingers.",
         "{who} circles a stack of pallets, recounting for the third time."
       ],
       "id": "o0",
       "type": "visit",
-      "zone": "zone_city_east"
+      "zone": "zone_district_912_912"
     },
     {
-      "desc": "Tally the Rust Quarter cache",
+      "desc": "Residential Area",
       "emotes": [
-        "{who} pokes through the Rust Quarter cache, tallying like their life depends on getting the same number twice.",
+        "{who} pokes through Residential Area cache, tallying like their life depends on getting the same number twice.",
         "{who} digs through scrap at the cache, muttering a running total.",
         "{who} eyeballs the pile and rounds the number up, generously."
       ],
@@ -30,7 +30,7 @@
         "o0"
       ],
       "type": "visit",
-      "zone": "zone_outskirts"
+      "zone": "zone_district_921_913"
     }
   ],
   "quest_type": "standard",

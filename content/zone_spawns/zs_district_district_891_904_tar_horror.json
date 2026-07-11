@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_tar_horror",
+  "id": "zs_district_district_891_904_tar_horror",
+  "max_count": 1,
+  "respawn_seconds": 320,
+  "spawn_weight": 45,
+  "zone_id": "zone_district_891_904"
+}

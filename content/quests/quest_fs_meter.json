@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Read the dead meters at the Threshold, then the dead meters up at Plaza North, and copy down numbers no one will ever check. 10₵.",
+  "description": "Read the dead meters at Ironside Street, then the dead meters up at Plaza North, and copy down numbers no one will ever check. 10₵.",
   "id": "quest_fs_meter",
   "meta": {
     "taskSeconds": 5
@@ -8,7 +8,7 @@
   "name": "Meter Reading",
   "objectives": [
     {
-      "desc": "Read the meters at the Threshold",
+      "desc": "Ironside Street",
       "emotes": [
         "{who} crouches by the meter box and squints at the dial like it owes money.",
         "{who} wipes grime off the meter glass and copies down a number that means nothing.",
@@ -16,10 +16,10 @@
       ],
       "id": "o0",
       "type": "visit",
-      "zone": "zone_threshold"
+      "zone": "zone_district_918_904"
     },
     {
-      "desc": "Read the meters at Plaza North",
+      "desc": "Halcyon Boulevard",
       "emotes": [
         "{who} jots a number off the meter, taps the glass twice, and writes down a different number instead.",
         "{who} squints at the Plaza North meter and mutters about municipal bookkeeping.",
@@ -30,7 +30,7 @@
         "o0"
       ],
       "type": "visit",
-      "zone": "zone_city_north"
+      "zone": "zone_district_894_904"
     }
   ],
   "quest_type": "standard",

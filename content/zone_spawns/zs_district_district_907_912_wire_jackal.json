@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_wire_jackal",
+  "id": "zs_district_district_907_912_wire_jackal",
+  "max_count": 2,
+  "respawn_seconds": 180,
+  "spawn_weight": 55,
+  "zone_id": "zone_district_907_912"
+}

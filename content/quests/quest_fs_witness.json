@@ -1,26 +1,26 @@
 {
   "category": null,
-  "description": "Two signatures short of legal, someone needs a warm body to swear they saw a thing they didn't. Stand as witness at Ledger Hall, then again at Registry Hall. Nod when nodded at. 25₵.",
+  "description": "Two signatures short of legal, someone needs a warm body to swear they saw a thing they didn't. Stand as witness at Halcyon Boulevard, then again at Voss Avenue. Nod when nodded at. 25₵.",
   "id": "quest_fs_witness",
   "meta": {},
   "name": "Rent-a-Witness",
   "objectives": [
     {
-      "desc": "Bear witness at Ledger Hall",
+      "desc": "Halcyon Boulevard",
       "emotes": [
-        "{who} stands very still at a Ledger Hall counter and solemnly attests to something never explained.",
+        "{who} stands very still at a Halcyon Boulevard counter and solemnly attests to something never explained.",
         "{who} makes a mark on a form beside a name they can't pronounce and won't remember.",
         "{who} raises a hand to swear an oath, unsure what to, and swears to it anyway."
       ],
       "id": "o0",
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_civ_ledger"
+      "zone": "zone_district_894_907"
     },
     {
-      "desc": "Bear witness at Registry Hall",
+      "desc": "Voss Avenue",
       "emotes": [
-        "{who} loiters at a Registry Hall window, ready to have 'definitely seen' whatever's required.",
+        "{who} loiters at a Voss Avenue window, ready to have 'definitely seen' whatever's required.",
         "{who} signs a second witness line, blows on the ink, and pretends this is all above board.",
         "{who} nods gravely at a clerk, having witnessed nothing, and pockets the stub."
       ],
@@ -30,7 +30,7 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_gov_registry"
+      "zone": "zone_district_905_909"
     }
   ],
   "quest_type": "standard",

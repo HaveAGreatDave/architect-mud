@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "The long one nobody else wants: parcel through the Threshold to Castoff Walk, on to the Marquee, and all the way to Cathode Row before you turn back. It pays because it's a hike. 25₵.",
+  "description": "The long one nobody else wants: parcel through Ironside Street to Voss Avenue, on to Cinder Lane, and all the way to Foundry Way before you turn back. It pays because it's a hike. 25₵.",
   "id": "quest_fs_haul",
   "meta": {
     "taskSeconds": 5
@@ -8,35 +8,35 @@
   "name": "The Long Haul",
   "objectives": [
     {
-      "desc": "Through the Threshold",
+      "desc": "Ironside Street",
       "emotes": [
-        "{who} hauls the load through the Threshold, arms already burning.",
+        "{who} hauls the load through Ironside Street, arms already burning.",
         "{who} grunts, hikes the load higher, and keeps moving.",
-        "{who} pauses at the Threshold just long enough to resettle the load."
+        "{who} pauses at Ironside Street just long enough to resettle the load."
       ],
       "id": "o0",
       "type": "visit",
-      "zone": "zone_threshold"
+      "zone": "zone_district_918_904"
     },
     {
-      "desc": "On to Castoff Walk",
+      "desc": "Voss Avenue",
       "emotes": [
-        "{who} keeps hauling on to Castoff Walk, cursing whoever decided this needed doing on foot.",
+        "{who} keeps hauling on to Voss Avenue, cursing whoever decided this needed doing on foot.",
         "{who} switches the load to the other shoulder without breaking stride.",
-        "{who} trudges toward Castoff Walk, sweat running into their eyes."
+        "{who} trudges toward Voss Avenue, sweat running into their eyes."
       ],
       "id": "o1",
       "requires": [
         "o0"
       ],
       "type": "visit",
-      "zone": "zone_velk_exterior"
+      "zone": "zone_district_904_909"
     },
     {
-      "desc": "On to the Marquee",
+      "desc": "Cinder Lane",
       "emotes": [
-        "{who} drags the load past the Marquee, sweating, refusing to put it down.",
-        "{who} staggers past the Marquee, arms shaking.",
+        "{who} drags the load past Cinder Lane, sweating, refusing to put it down.",
+        "{who} staggers past Cinder Lane, arms shaking.",
         "{who} mutters that this is the last job board gig they ever take."
       ],
       "id": "o2",
@@ -44,21 +44,21 @@
         "o1"
       ],
       "type": "visit",
-      "zone": "zone_mq_marquee"
+      "zone": "zone_district_902_908"
     },
     {
-      "desc": "All the way to Cathode Row",
+      "desc": "Foundry Way",
       "emotes": [
-        "{who} finally hauls it all the way to Cathode Row and drops it with a groan.",
-        "{who} sets the load down at Cathode Row and doesn't move for a second.",
-        "{who} collapses against a wall at Cathode Row, load finally delivered."
+        "{who} finally hauls it all the way to Foundry Way and drops it with a groan.",
+        "{who} sets the load down at Foundry Way and doesn't move for a second.",
+        "{who} collapses against a wall at Foundry Way, load finally delivered."
       ],
       "id": "o3",
       "requires": [
         "o2"
       ],
       "type": "visit",
-      "zone": "zone_mq_cathode"
+      "zone": "zone_district_913_912"
     }
   ],
   "quest_type": "standard",

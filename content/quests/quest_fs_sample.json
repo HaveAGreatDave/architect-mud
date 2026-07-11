@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "A tray of ration samples one day past 'discard' and a franchise smile you have to supply yourself. Push them at Ration Nine, then work the crowds at the Marquee and Battery Square. Do not eat the samples. 10₵.",
+  "description": "A tray of ration samples one day past 'discard' and a franchise smile you have to supply yourself. Push them at Ration Nine, then work the crowds at Cinder Lane and Halcyon Boulevard. Do not eat the samples. 10₵.",
   "id": "quest_fs_sample",
   "meta": {},
   "name": "Free Samples",
@@ -18,9 +18,9 @@
       "zone": "zone_mq_grocery"
     },
     {
-      "desc": "Work the Marquee crowd",
+      "desc": "Cinder Lane",
       "emotes": [
-        "{who} works the Marquee, pressing samples on anyone who slows down for even a second.",
+        "{who} works Cinder Lane, pressing samples on anyone who slows down for even a second.",
         "{who} calls 'Free! Free!' under the lights, and a small hungry crowd forms fast.",
         "{who} refills the tray from a bag they were absolutely not supposed to bring."
       ],
@@ -30,12 +30,12 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_mq_marquee"
+      "zone": "zone_district_902_908"
     },
     {
-      "desc": "Clear the tray at Battery Square",
+      "desc": "Halcyon Boulevard",
       "emotes": [
-        "{who} unloads the last samples on Battery Square, tray finally, blessedly empty.",
+        "{who} unloads the last samples on Halcyon Boulevard, tray finally, blessedly empty.",
         "{who} hands off the dregs to a kid who wasn't going to take no for an answer.",
         "{who} sets the empty tray down, stomach growling, having not eaten a single one. Rules are rules."
       ],
@@ -45,7 +45,7 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_mq_battery"
+      "zone": "zone_district_894_906"
     }
   ],
   "quest_type": "standard",

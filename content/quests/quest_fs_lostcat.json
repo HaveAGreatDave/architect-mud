@@ -1,26 +1,26 @@
 {
   "category": null,
-  "description": "The franchise manager's cat got out and she's inconsolable and paying. Look for 'Mister Pockets' along Castoff Walk, out into the Rust Quarter, and back through the Sprawl. Everyone knows how this ends. 10₵.",
+  "description": "The franchise manager's cat got out and she's inconsolable and paying. Look for 'Mister Pockets' along Voss Avenue, out into Residential Area, and back through Marrow Street. Everyone knows how this ends. 10₵.",
   "id": "quest_fs_lostcat",
   "meta": {},
   "name": "Lost Cat",
   "objectives": [
     {
-      "desc": "Search Castoff Walk",
+      "desc": "Voss Avenue",
       "emotes": [
-        "{who} crouches to peer under a bench on Castoff Walk, calling 'Mister Pockets?' softly.",
+        "{who} crouches to peer under a bench on Voss Avenue, calling 'Mister Pockets?' softly.",
         "{who} shakes a little bag of kibble and listens for a hopeful jingle that doesn't come.",
         "{who} finds a cat. Wrong cat. Furious cat. {who} moves on, bleeding slightly."
       ],
       "id": "o0",
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_velk_exterior"
+      "zone": "zone_district_904_909"
     },
     {
-      "desc": "Search the Rust Quarter",
+      "desc": "Residential Area",
       "emotes": [
-        "{who} picks through the Rust Quarter, checking every gap a small warm thing could hide in.",
+        "{who} picks through Residential Area, checking every gap a small warm thing could hide in.",
         "{who} whistles for a cat in a place where whistling attracts worse than cats.",
         "{who} spots a suspicious tuft of fur, follows it, and decides not to investigate the smell."
       ],
@@ -30,13 +30,13 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_outskirts"
+      "zone": "zone_district_921_913"
     },
     {
-      "desc": "Search the Sprawl",
+      "desc": "Marrow Street",
       "emotes": [
-        "{who} works the Sprawl gutters, quieter now, hopes lowering with the light.",
-        "{who} calls 'Mister Pockets' one last time into the Sprawl and gets only an echo.",
+        "{who} works Marrow Street gutters, quieter now, hopes lowering with the light.",
+        "{who} calls 'Mister Pockets' one last time into Marrow Street and gets only an echo.",
         "{who} decides to tell the manager he 'ran off somewhere nice,' pockets the fee, and calls it a mercy."
       ],
       "id": "o2",
@@ -45,7 +45,7 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_slums"
+      "zone": "zone_district_913_909"
     }
   ],
   "quest_type": "standard",

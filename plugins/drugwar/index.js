@@ -49,9 +49,9 @@ const FACTIONS = ['faction_franchise', 'faction_breakers', 'faction_glitch'];
 // Each drug-war zone's natural holder. The tick pulls turf back toward these,
 // so the map oscillates around them rather than drifting to one winner.
 const NATURAL = {
-  faction_franchise: ['zone_city_west', 'zone_thresholdeast', 'zone_city_north', 'zone_city_east'],
-  faction_breakers:  ['zone_mq_pigeon_bar', 'zone_mq_cherry_floor', 'zone_mq_marquee', 'zone_mq_sump_bar'],
-  faction_glitch:    ['zone_yard_depot', 'zone_yard_container', 'zone_yard_railhead', 'zone_yard_loadout', 'zone_yard_marshalling'],
+  faction_franchise: ['zone_district_912_909', 'zone_district_907_908', 'zone_district_894_904', 'zone_district_912_912'],
+  faction_breakers:  ['zone_mq_pigeon_bar', 'zone_mq_cherry_floor', 'zone_district_902_908', 'zone_mq_sump_bar'],
+  faction_glitch:    ['zone_district_908_908', 'zone_district_916_909', 'zone_district_908_913', 'zone_district_909_906', 'zone_district_909_907'],
 };
 
 // zoneId → natural faction, and the flat zone list.
@@ -158,8 +158,8 @@ on('drugwar.flip', ({ zoneId, fromOrg, toOrg }) => {
 // (B) "Police don't save you" (near spawn) and (C) "The machine is watching"
 // (the Core). Both hang off zone entry, each with its own per-player in-memory
 // cooldown (resets on restart — it's flavour) and a hard probability gate.
-const POLICE_ZONES = new Set(['zone_start', 'zone_threshold']);
-const WATCH_ZONES = new Set([...DRUGWAR_ZONES, 'zone_start', 'zone_threshold']);
+const POLICE_ZONES = new Set(['zone_start', 'zone_district_918_904']);
+const WATCH_ZONES = new Set([...DRUGWAR_ZONES, 'zone_start', 'zone_district_918_904']);
 const FAMILY_COOLDOWN_MS = 12 * 60_000;   // per player, per family
 const BLACKOUT_COOLDOWN_MS = 45 * 60_000; // server-wide — a blackout is a rare world event
 const policeSeen = new Map();             // playerId -> last ts

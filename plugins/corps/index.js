@@ -251,7 +251,7 @@ async function cmdCorpMap(player) {
     }
     tiles.push({
       id: z.id, x: z.grid_x, y: z.grid_y, name: z.name, danger: z.danger || 'safe',
-      isCurrent: z.id === player.current_zone, isStart: z.id === 'zone_city_west',
+      isCurrent: z.id === player.current_zone, isStart: z.id === 'zone_district_918_904',
       artery: z.flags?.artery || null, exits, control,
     });
   }

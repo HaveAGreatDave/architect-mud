@@ -15,9 +15,9 @@ import { query } from '../server/models/db.js';
 
 // faction, zones, starting grip, income/day, upkeep/day
 const TURF = [
-  ['faction_franchise', ['zone_city_west', 'zone_thresholdeast', 'zone_city_north', 'zone_city_east'], 65, 110, 40],
-  ['faction_breakers',  ['zone_mq_pigeon_bar', 'zone_mq_cherry_floor', 'zone_mq_marquee', 'zone_mq_sump_bar'], 65, 110, 40],
-  ['faction_glitch',    ['zone_yard_depot', 'zone_yard_container', 'zone_yard_railhead', 'zone_yard_loadout', 'zone_yard_marshalling'], 65, 110, 40],
+  ['faction_franchise', ['zone_district_912_909', 'zone_district_907_908', 'zone_district_894_904', 'zone_district_912_912'], 65, 110, 40],
+  ['faction_breakers',  ['zone_mq_pigeon_bar', 'zone_mq_cherry_floor', 'zone_district_902_908', 'zone_mq_sump_bar'], 65, 110, 40],
+  ['faction_glitch',    ['zone_district_908_908', 'zone_district_916_909', 'zone_district_908_913', 'zone_district_909_906', 'zone_district_909_907'], 65, 110, 40],
 ];
 
 async function seed() {

@@ -4,7 +4,7 @@
 import { computeTurfMove, ZONE_HOLDER, DRUGWAR_ZONES, isDrugWarZone, architectDelta } from './index.js';
 
 export default async function regress({ check }) {
-  const row = (over = {}) => ({ zone_id: 'zone_city_west', org_id: 'faction_franchise', influence: 60, challenger_org_id: null, ...over });
+  const row = (over = {}) => ({ zone_id: 'zone_district_912_909', org_id: 'faction_franchise', influence: 60, challenger_org_id: null, ...over });
   const never = () => 1;   // rng that never triggers a challenge
   const always = () => 0;  // rng that always triggers a challenge
 
@@ -40,8 +40,8 @@ export default async function regress({ check }) {
 
   // Zone universe sanity — the three districts are covered, spawn/hub stay neutral.
   check('drug-war zones cover all three districts',
-    isDrugWarZone('zone_city_west') && isDrugWarZone('zone_mq_pigeon_bar') && isDrugWarZone('zone_yard_depot'));
-  check('spawn + safe hub are NOT drug-war zones', !isDrugWarZone('zone_start') && !isDrugWarZone('zone_threshold'));
+    isDrugWarZone('zone_district_912_909') && isDrugWarZone('zone_mq_pigeon_bar') && isDrugWarZone('zone_district_908_908'));
+  check('spawn + safe hub are NOT drug-war zones', !isDrugWarZone('zone_start') && !isDrugWarZone('zone_district_918_904'));
   check('every drug-war zone has a natural holder',
     DRUGWAR_ZONES.every(z => ['faction_franchise', 'faction_breakers', 'faction_glitch'].includes(ZONE_HOLDER[z])));
 

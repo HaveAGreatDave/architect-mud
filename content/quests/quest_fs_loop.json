@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "The full delivery loop: Threshold, Threshold East, Castoff Walk, and out to the Marquee — in that order or not at all. 20₵.",
+  "description": "The full delivery loop: Ironside Street, Meltwater Row, Voss Avenue, and out to Cinder Lane — in that order or not at all. 20₵.",
   "id": "quest_fs_loop",
   "meta": {
     "taskSeconds": 5
@@ -8,57 +8,57 @@
   "name": "The Loop",
   "objectives": [
     {
-      "desc": "Threshold",
+      "desc": "Ironside Street",
       "emotes": [
-        "{who} jogs through the Threshold, already regretting agreeing to this.",
-        "{who} picks up the pace through the Threshold, checking the time.",
-        "{who} ducks through the Threshold at a dead sprint."
+        "{who} jogs through Ironside Street, already regretting agreeing to this.",
+        "{who} picks up the pace through Ironside Street, checking the time.",
+        "{who} ducks through Ironside Street at a dead sprint."
       ],
       "id": "o0",
       "type": "visit",
-      "zone": "zone_threshold"
+      "zone": "zone_district_918_904"
     },
     {
-      "desc": "Threshold East",
+      "desc": "Meltwater Row",
       "emotes": [
-        "{who} pushes on through Threshold East, counting the stops left out loud.",
+        "{who} pushes on through Meltwater Row, counting the stops left out loud.",
         "{who} keeps jogging, sweat starting to show.",
-        "{who} weaves through Threshold East without breaking pace."
+        "{who} weaves through Meltwater Row without breaking pace."
       ],
       "id": "o1",
       "requires": [
         "o0"
       ],
       "type": "visit",
-      "zone": "zone_thresholdeast"
+      "zone": "zone_district_907_908"
     },
     {
-      "desc": "Castoff Walk",
+      "desc": "Voss Avenue",
       "emotes": [
-        "{who} cuts across Castoff Walk without breaking stride.",
-        "{who} barely slows down crossing Castoff Walk.",
-        "{who} vaults a low railing on Castoff Walk, showing off a little."
+        "{who} cuts across Voss Avenue without breaking stride.",
+        "{who} barely slows down crossing Voss Avenue.",
+        "{who} vaults a low railing on Voss Avenue, showing off a little."
       ],
       "id": "o2",
       "requires": [
         "o1"
       ],
       "type": "visit",
-      "zone": "zone_velk_exterior"
+      "zone": "zone_district_904_909"
     },
     {
-      "desc": "Out to the Marquee",
+      "desc": "Cinder Lane",
       "emotes": [
-        "{who} staggers out to the Marquee, done running errands for one day.",
-        "{who} slows to a walk as the Marquee comes into view, thank god.",
-        "{who} bends over, hands on knees, finally at the Marquee."
+        "{who} staggers out to Cinder Lane, done running errands for one day.",
+        "{who} slows to a walk as Cinder Lane comes into view, thank god.",
+        "{who} bends over, hands on knees, finally at Cinder Lane."
       ],
       "id": "o3",
       "requires": [
         "o2"
       ],
       "type": "visit",
-      "zone": "zone_mq_marquee"
+      "zone": "zone_district_902_908"
     }
   ],
   "quest_type": "standard",

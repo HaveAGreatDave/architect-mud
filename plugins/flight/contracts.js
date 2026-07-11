@@ -293,7 +293,7 @@ export async function waitingDropAt(zoneId, playerId) {
 // way as an honest freight job. Every pallet weighs exactly SLOT_KG, so an
 // aircraft's hold naturally caps you at floor(cargoCap / SLOT_KG) of them —
 // "one per cargo slot" falls straight out of the existing weight math.
-const FENCE_ORIGIN = 'zone_waste_scald';     // the Scald — same lawless drop the smuggle plugin uses
+const FENCE_ORIGIN = 'zone_district_925_903'; // Coldwater Regional — the smuggle/fence drop, consolidated onto the district airfield
 const SLOT_KG = 100;
 const AIR_UNLOCK_FLAG = 'air_cargo_unlocked';
 const MAX_FENCE_WAITING = 6;                 // the standing pool size, topped up as pallets get flown out

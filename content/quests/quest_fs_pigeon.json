@@ -1,26 +1,26 @@
 {
   "category": null,
-  "description": "The birds are eating the signage again and the ad revenue with it. Chase the pigeons off Cathode Row, the Marquee, and the Overpass. Flap your arms. Lose your dignity. Keep the credits. 15₵.",
+  "description": "The birds are eating the signage again and the ad revenue with it. Chase the pigeons off Foundry Way, Cinder Lane, and Marrow Street. Flap your arms. Lose your dignity. Keep the credits. 15₵.",
   "id": "quest_fs_pigeon",
   "meta": {},
   "name": "Pigeon Patrol",
   "objectives": [
     {
-      "desc": "Clear the birds off Cathode Row",
+      "desc": "Foundry Way",
       "emotes": [
-        "{who} flaps both arms at the Cathode Row signage and hisses like a much larger animal.",
+        "{who} flaps both arms at Foundry Way signage and hisses like a much larger animal.",
         "{who} lobs a chunk of grit at a pigeon, misses, and startles a whole flock into the air.",
         "{who} stares down a single fat pigeon that refuses, on principle, to move."
       ],
       "id": "o0",
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_mq_cathode"
+      "zone": "zone_district_913_912"
     },
     {
-      "desc": "Clear the birds off the Marquee",
+      "desc": "Cinder Lane",
       "emotes": [
-        "{who} shoos pigeons off the Marquee letters, and they resettle two letters over immediately.",
+        "{who} shoos pigeons off Cinder Lane letters, and they resettle two letters over immediately.",
         "{who} bangs a stick on the hoarding and a grey cloud erupts off the sign.",
         "{who} makes eye contact with the flock leader. An understanding is not reached."
       ],
@@ -30,13 +30,13 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_mq_marquee"
+      "zone": "zone_district_902_908"
     },
     {
-      "desc": "Clear the birds off the Overpass",
+      "desc": "Marrow Street",
       "emotes": [
-        "{who} chases the last of them off the Overpass rail and immediately gets dive-bombed.",
-        "{who} waves their arms in wide circles until the Overpass is, for one glorious moment, bird-free.",
+        "{who} chases the last of them off Marrow Street rail and immediately gets dive-bombed.",
+        "{who} waves their arms in wide circles until Marrow Street is, for one glorious moment, bird-free.",
         "{who} wipes something off their shoulder, looks up, and makes their peace with the job."
       ],
       "id": "o2",
@@ -45,7 +45,7 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_mq_overpass"
+      "zone": "zone_district_914_909"
     }
   ],
   "quest_type": "standard",

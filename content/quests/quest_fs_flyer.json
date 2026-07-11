@@ -1,12 +1,12 @@
 {
   "category": null,
-  "description": "A stack of damp franchise flyers and a bucket of paste. Slap them up across the Strip, Threshold Plaza North, and the Marquee. Nobody reads them. That's not the point. 15₵.",
+  "description": "A stack of damp franchise flyers and a bucket of paste. Slap them up across the Strip, Halcyon Boulevard, and Cinder Lane. Nobody reads them. That's not the point. 15₵.",
   "id": "quest_fs_flyer",
   "meta": {},
   "name": "Papering the Strip",
   "objectives": [
     {
-      "desc": "Paper the Franchise Strip",
+      "desc": "Marrow Street",
       "emotes": [
         "{who} slaps a flyer over three older flyers and smooths it down with a paste-slick hand.",
         "{who} papers a wall on the Strip, getting more glue on themselves than the brick.",
@@ -15,10 +15,10 @@
       "id": "o0",
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_city_west"
+      "zone": "zone_district_912_909"
     },
     {
-      "desc": "Paper Threshold Plaza North",
+      "desc": "Halcyon Boulevard",
       "emotes": [
         "{who} pastes a flyer to a dead kiosk in Plaza North, right over the missing-persons notice.",
         "{who} works down the plaza, one flyer per pillar, whistling something tuneless.",
@@ -30,12 +30,12 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_city_north"
+      "zone": "zone_district_894_904"
     },
     {
-      "desc": "Paper the Marquee",
+      "desc": "Cinder Lane",
       "emotes": [
-        "{who} slaps the last flyers up under the Marquee lights and flicks paste off their fingers.",
+        "{who} slaps the last flyers up under Cinder Lane lights and flicks paste off their fingers.",
         "{who} papers over a rival franchise's flyers with grim satisfaction.",
         "{who} runs out of paste, licks the last flyer, and presses it to the wall anyway."
       ],
@@ -45,7 +45,7 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_mq_marquee"
+      "zone": "zone_district_902_908"
     }
   ],
   "quest_type": "standard",

@@ -1,26 +1,26 @@
 {
   "category": null,
-  "description": "Nothing's actually broken that hitting won't briefly fix. Do the rounds with a wrench: bang the pipes at the Threshold, Threshold East, and the Loading Bay until the gauges twitch. That's the whole job. 15₵.",
+  "description": "Nothing's actually broken that hitting won't briefly fix. Do the rounds with a wrench: bang the pipes at Ironside Street, Meltwater Row, and Foundry Way until the gauges twitch. That's the whole job. 15₵.",
   "id": "quest_fs_pipes",
   "meta": {},
   "name": "Percussive Maintenance",
   "objectives": [
     {
-      "desc": "Bang the pipes at the Threshold",
+      "desc": "Ironside Street",
       "emotes": [
-        "{who} whacks a dead pipe at the Threshold and watches a gauge flicker back to a lie.",
+        "{who} whacks a dead pipe at Ironside Street and watches a gauge flicker back to a lie.",
         "{who} gives the junction a rhythmic thumping, ear cocked for the specific clunk that means 'fine.'",
         "{who} kicks a valve that a wrench couldn't move, and it moves. Percussion works."
       ],
       "id": "o0",
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_threshold"
+      "zone": "zone_district_918_904"
     },
     {
-      "desc": "Bang the pipes at Threshold East",
+      "desc": "Meltwater Row",
       "emotes": [
-        "{who} raps down the run of pipe in Threshold East, chasing a hiss to its source and clobbering it.",
+        "{who} raps down the run of pipe in Meltwater Row, chasing a hiss to its source and clobbering it.",
         "{who} hits a manifold twice, the second time out of spite, and the pressure holds.",
         "{who} presses an ear to cold metal, hears nothing good, and hits it anyway."
       ],
@@ -30,12 +30,12 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_thresholdeast"
+      "zone": "zone_district_907_908"
     },
     {
-      "desc": "Bang the pipes at the Loading Bay",
+      "desc": "Foundry Way",
       "emotes": [
-        "{who} finishes the round at the Loading Bay, wrench ringing off the last stubborn coupling.",
+        "{who} finishes the round at Foundry Way, wrench ringing off the last stubborn coupling.",
         "{who} thumps a compressor until it coughs, catches, and pretends to work for another day.",
         "{who} steps back, listens to the whole system rattle in rough harmony, and calls it repaired."
       ],
@@ -45,7 +45,7 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_city_east"
+      "zone": "zone_district_912_912"
     }
   ],
   "quest_type": "standard",

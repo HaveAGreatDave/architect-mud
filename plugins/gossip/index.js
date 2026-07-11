@@ -204,9 +204,9 @@ on('vendor.purchase', async ({ player, zoneId }) => {
 // The turf war made audible — a corner flip (drugwar plugin) becomes street talk,
 // and a dealer whose home corner was taken is whispered to have gone to ground.
 const TURF_DEALER_HOME = {
-  zone_city_west: { dealer: 'Keller', faction: 'faction_franchise' },
+  zone_district_912_909: { dealer: 'Keller', faction: 'faction_franchise' },
   zone_mq_pigeon_bar: { dealer: 'Marsh', faction: 'faction_breakers' },
-  zone_yard_depot: { dealer: 'Sorel', faction: 'faction_glitch' },
+  zone_district_908_908: { dealer: 'Sorel', faction: 'faction_glitch' },
 };
 const TURF_LABEL = { faction_franchise: 'the Franchise', faction_breakers: 'the Breakers', faction_glitch: 'the Glitch' };
 on('drugwar.flip', ({ zoneId, fromOrg, toOrg }) => {

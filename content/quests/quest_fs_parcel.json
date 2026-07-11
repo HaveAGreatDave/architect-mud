@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Carry a sealed parcel out through the Threshold and Threshold East to a drop on Castoff Walk. Don't shake it, don't open it, don't ask. 15₵.",
+  "description": "Carry a sealed parcel out through Ironside Street and Meltwater Row to a drop on Voss Avenue. Don't shake it, don't open it, don't ask. 15₵.",
   "id": "quest_fs_parcel",
   "meta": {
     "taskSeconds": 5
@@ -8,20 +8,20 @@
   "name": "Parcel Run",
   "objectives": [
     {
-      "desc": "Through the Threshold",
+      "desc": "Ironside Street",
       "emotes": [
-        "{who} shoulders the parcel through the Threshold, very carefully not looking inside it.",
+        "{who} shoulders the parcel through Ironside Street, very carefully not looking inside it.",
         "{who} hefts the parcel and pretends not to notice it's ticking. It probably isn't.",
         "{who} adjusts their grip on the parcel and keeps walking, eyes forward."
       ],
       "id": "o0",
       "type": "visit",
-      "zone": "zone_threshold"
+      "zone": "zone_district_918_904"
     },
     {
-      "desc": "Through Threshold East",
+      "desc": "Meltwater Row",
       "emotes": [
-        "{who} keeps the parcel moving through Threshold East, doing their best to ignore the funny smell coming from it.",
+        "{who} keeps the parcel moving through Meltwater Row, doing their best to ignore the funny smell coming from it.",
         "{who} switches the parcel to the other arm and picks up the pace.",
         "{who} mutters at the parcel to please, please stop shifting on its own."
       ],
@@ -30,12 +30,12 @@
         "o0"
       ],
       "type": "visit",
-      "zone": "zone_thresholdeast"
+      "zone": "zone_district_907_908"
     },
     {
-      "desc": "Drop the parcel on Castoff Walk",
+      "desc": "Voss Avenue",
       "emotes": [
-        "{who} sets the parcel down on Castoff Walk and steps back fast, like it might go off.",
+        "{who} sets the parcel down on Voss Avenue and steps back fast, like it might go off.",
         "{who} places the parcel carefully and doesn't stick around to see what happens next.",
         "{who} drops the parcel and walks away without looking back."
       ],
@@ -44,7 +44,7 @@
         "o1"
       ],
       "type": "visit",
-      "zone": "zone_velk_exterior"
+      "zone": "zone_district_904_909"
     }
   ],
   "quest_type": "standard",

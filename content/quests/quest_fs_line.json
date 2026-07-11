@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Hold a place in the line at the Sprawl Gate, then carry the ticket down to the Under Entrance for someone who matters more than you. 15₵.",
+  "description": "Hold a place in the line at Voss Avenue, then carry the ticket down to Cinder Lane for someone who matters more than you. 15₵.",
   "id": "quest_fs_line",
   "meta": {
     "taskSeconds": 5
@@ -8,21 +8,21 @@
   "name": "Hold a Place",
   "objectives": [
     {
-      "desc": "Hold the place at the Sprawl Gate",
+      "desc": "Voss Avenue",
       "emotes": [
-        "{who} plants both feet at the Sprawl Gate and glares at anyone who even thinks about cutting the line.",
+        "{who} plants both feet at Voss Avenue and glares at anyone who even thinks about cutting the line.",
         "{who} leans against the gate, arms crossed, holding the spot like it's sacred ground.",
         "{who} shuffles forward an inch and calls it progress."
       ],
       "id": "o0",
       "type": "visit",
-      "zone": "zone_city_south"
+      "zone": "zone_district_903_909"
     },
     {
-      "desc": "Carry the ticket to the Under Entrance",
+      "desc": "Cinder Lane",
       "emotes": [
-        "{who} hustles the ticket over to the Under Entrance, muttering the number over and over so it doesn't slip their mind.",
-        "{who} jogs the ticket toward the Under Entrance, checking it hasn't smudged.",
+        "{who} hustles the ticket over to Cinder Lane, muttering the number over and over so it doesn't slip their mind.",
+        "{who} jogs the ticket toward Cinder Lane, checking it hasn't smudged.",
         "{who} waves the ticket like it's a passport to somewhere important."
       ],
       "id": "o1",
@@ -30,7 +30,7 @@
         "o0"
       ],
       "type": "visit",
-      "zone": "zone_city_sw"
+      "zone": "zone_district_902_907"
     }
   ],
   "quest_type": "standard",

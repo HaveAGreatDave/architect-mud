@@ -40,7 +40,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getLivePlayer } from '../../server/engine/world.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 
-const DROP_ZONE = 'zone_waste_scald';        // the Scald — lawless Redline airstrip, far off in the wastes
+const DROP_ZONE = 'zone_district_925_903';    // Coldwater Regional — smuggle drop, consolidated onto the district airfield
 const DROP_NAME = 'the Scald airstrip';
 const DELIVERY_MS = 3 * 60_000;              // MULE drop lands ~3 minutes after the order
 const MARKUP = 2;                            // order cost = raw value × MARKUP × qty (must match the fence-menu prices)

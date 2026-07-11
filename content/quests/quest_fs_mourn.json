@@ -1,26 +1,26 @@
 {
   "category": null,
-  "description": "Someone with no one left is being carried through the meat district and the family that isn't there paid for a crowd. Walk Carrion Way, then Offal Lane, and look devastated. Tears optional but appreciated. 20₵.",
+  "description": "Someone with no one left is being carried through the meat district and the family that isn't there paid for a crowd. Walk Cinder Lane, then Marrow Street, and look devastated. Tears optional but appreciated. 20₵.",
   "id": "quest_fs_mourn",
   "meta": {},
   "name": "Professional Mourner",
   "objectives": [
     {
-      "desc": "Grieve along Carrion Way",
+      "desc": "Cinder Lane",
       "emotes": [
-        "{who} dabs at dry eyes on Carrion Way and lets out a wail that echoes convincingly.",
+        "{who} dabs at dry eyes on Cinder Lane and lets out a wail that echoes convincingly.",
         "{who} walks the procession with head bowed, sneaking glances to see if anyone's watching.",
         "{who} clutches a stranger's coat and sobs the name off the toe-tag: 'Oh... Number Forty-One...'"
       ],
       "id": "o0",
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_meat_carrion"
+      "zone": "zone_district_902_911"
     },
     {
-      "desc": "See it off down Offal Lane",
+      "desc": "Marrow Street",
       "emotes": [
-        "{who} keens down Offal Lane, really committing now, working for the bonus.",
+        "{who} keens down Marrow Street, really committing now, working for the bonus.",
         "{who} throws a handful of gravel like flower petals and calls it a tribute.",
         "{who} wipes away a tear that turns out to be someone else's blood, and grieves harder."
       ],
@@ -30,7 +30,7 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_meat_offal"
+      "zone": "zone_district_915_909"
     }
   ],
   "quest_type": "standard",

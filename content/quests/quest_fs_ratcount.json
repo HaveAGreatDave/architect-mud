@@ -1,12 +1,12 @@
 {
   "category": null,
-  "description": "Sanitation needs a vermin tally for the yards, and by 'needs' they mean a number to file. Count the rats down Reefer Row, Container Row, and the Sidings. Round up if it's scary. 15₵.",
+  "description": "Sanitation needs a vermin tally for the yards, and by 'needs' they mean a number to file. Count the rats down Meltwater Row, Marrow Street, and Foundry Way. Round up if it's scary. 15₵.",
   "id": "quest_fs_ratcount",
   "meta": {},
   "name": "Vermin Census",
   "objectives": [
     {
-      "desc": "Tally the rats on Reefer Row",
+      "desc": "Meltwater Row",
       "emotes": [
         "{who} crouches by a reefer unit, counting glowing eyes in the dark and adding a few for luck.",
         "{who} bangs a pipe to flush the rats out, then loses count immediately.",
@@ -15,13 +15,13 @@
       "id": "o0",
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_yard_reefer"
+      "zone": "zone_district_907_910"
     },
     {
-      "desc": "Tally the rats on Container Row",
+      "desc": "Marrow Street",
       "emotes": [
         "{who} peers into a container gap, counts a writhing mass, and just writes 'lots.'",
-        "{who} follows a chittering sound down Container Row, stylus poised, dignity gone.",
+        "{who} follows a chittering sound down Marrow Street, stylus poised, dignity gone.",
         "{who} startles as something the size of a dog is definitely NOT a rat and moves on quickly."
       ],
       "id": "o1",
@@ -30,14 +30,14 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_yard_container"
+      "zone": "zone_district_916_909"
     },
     {
-      "desc": "Tally the rats on the Sidings",
+      "desc": "Foundry Way",
       "emotes": [
-        "{who} counts the last of them along the Sidings and underlines the total twice.",
+        "{who} counts the last of them along Foundry Way and underlines the total twice.",
         "{who} totals the tally, realizes it's more rats than the district has people, and shrugs.",
-        "{who} files the count under 'concerning' and gets the hell out of the Sidings."
+        "{who} files the count under 'concerning' and gets the hell out of Foundry Way."
       ],
       "id": "o2",
       "requires": [
@@ -45,7 +45,7 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_yard_sidings"
+      "zone": "zone_district_914_913"
     }
   ],
   "quest_type": "standard",

@@ -1,12 +1,12 @@
 {
   "category": null,
-  "description": "A mystery-shopper franchise auditor is 'in the district' so every stoop needs sweeping before they see it. Sweep the Strip, Custodian Row, and the Clinic Block. The ash comes back by morning. So do you. 15₵.",
+  "description": "A mystery-shopper franchise auditor is 'in the district' so every stoop needs sweeping before they see it. Sweep the Strip, Foundry Way, and Halcyon Boulevard. The ash comes back by morning. So do you. 15₵.",
   "id": "quest_fs_sweep",
   "meta": {},
   "name": "Ash Detail",
   "objectives": [
     {
-      "desc": "Sweep the Franchise Strip",
+      "desc": "Marrow Street",
       "emotes": [
         "{who} pushes a drift of grey ash off the Strip stoop and watches the wind put half of it back.",
         "{who} sweeps hard, coughs harder, and keeps sweeping.",
@@ -15,12 +15,12 @@
       "id": "o0",
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_city_west"
+      "zone": "zone_district_912_909"
     },
     {
-      "desc": "Sweep Custodian Row",
+      "desc": "Foundry Way",
       "emotes": [
-        "{who} works the broom down Custodian Row, where the actual custodians stopped bothering years ago.",
+        "{who} works the broom down Foundry Way, where the actual custodians stopped bothering years ago.",
         "{who} bangs the broom clean against a wall, releasing a small grey mushroom cloud.",
         "{who} sweeps ash off one step onto the next, technically progress, technically not."
       ],
@@ -30,12 +30,12 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_city_ne"
+      "zone": "zone_district_913_913"
     },
     {
-      "desc": "Sweep the Clinic Block",
+      "desc": "Halcyon Boulevard",
       "emotes": [
-        "{who} finishes at the Clinic Block, leaning on the broom, ash to the ankles.",
+        "{who} finishes at Halcyon Boulevard, leaning on the broom, ash to the ankles.",
         "{who} sweeps the last stoop clean and immediately sneezes it filthy again.",
         "{who} surveys the swept block, knows it won't last the hour, and takes the credits gladly."
       ],
@@ -45,7 +45,7 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_city_se"
+      "zone": "zone_district_894_905"
     }
   ],
   "quest_type": "standard",
