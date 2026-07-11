@@ -728,12 +728,12 @@ function actorRow(a,idx){
   return `<div class="item">
     <div class="toprow">
       <span class="badge">Actor</span>
-      <span class="lbl">${esc(a.name||a.id||'(unnamed)')}</span>
+      <span class="lbl" id="actorlbl-${idx}">${esc(a.name||a.id||'(unnamed)')}</span>
       <div class="ctrls"><button class="btn small danger" onclick="delActor(${idx})">✕</button></div>
     </div>
     <div class="row">
-      <div><label>NPC id <button class="help" onclick="Help.open('npcid')">?</button></label><input class="mono" value="${esc(a.id)}" placeholder="npc_captain_nguyen" oninput="model.actors[${idx}].id=this.value.trim();autosave()"></div>
-      <div><label>Display name</label><input value="${esc(a.name)}" placeholder="Captain Nguyen" oninput="model.actors[${idx}].name=this.value;autosave()"></div>
+      <div><label>NPC id <button class="help" onclick="Help.open('npcid')">?</button></label><input class="mono" value="${esc(a.id)}" placeholder="npc_captain_nguyen" oninput="model.actors[${idx}].id=this.value.trim();actorLbl(${idx});autosave()"></div>
+      <div><label>Display name</label><input value="${esc(a.name)}" placeholder="Captain Nguyen" oninput="model.actors[${idx}].name=this.value;actorLbl(${idx});autosave()"></div>
     </div>
     <label>Aliases <button class="help" onclick="Help.open('aliases')">?</button> <span class="muted">— extra speaker labels (the display name is already usable)</span></label>
     <div class="chips" id="aliaslist-${idx}">
@@ -742,6 +742,7 @@ function actorRow(a,idx){
     </div>
   </div>`;
 }
+function actorLbl(idx){ const a=model.actors[idx]; const el=document.getElementById('actorlbl-'+idx); if(a&&el) el.textContent=a.name||a.id||'(unnamed)'; }
 function addActor(){ model.actors.push({id:'', name:'', aliases:[]}); commit(); }
 function delActor(i){ model.actors.splice(i,1); commit(); }
 function addAlias(i,v){ v=(v||'').trim(); if(!v)return; (model.actors[i].aliases||(model.actors[i].aliases=[])).push(v); commit(); }
