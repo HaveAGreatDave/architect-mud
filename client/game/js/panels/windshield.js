@@ -131,6 +131,10 @@ function sceneFor(id, W, H) {
       clouds: Array.from({ length: 7 }, (_, i) => ({ x: rnd(i * 3), y: 0.12 + rnd(i * 5) * 0.4, s: 0.5 + rnd(i * 2) * 1.1, sp: 0.3 + rnd(i) * 0.9 })),
       parts: Array.from({ length: 90 }, (_, i) => ({ x: rnd(i * 7), y: rnd(i * 11), v: 0.5 + rnd(i) * 0.8 })),
       drops: Array.from({ length: 30 }, (_, i) => ({ x: rnd(i * 4), y: rnd(i * 6) * 0.9, r: 1.4 + rnd(i * 2) * 3, life: rnd(i), streak: 0 })),
+      bugs: [],                 // canopy bug splats that accumulate over the flight (impact specks on the glass)
+      bugT: 4 + rnd(3) * 6,     // seconds until the next splat
+      birds: null,              // lazily-seeded ambient flock (billboards drifting in the air)
+      shake: 0,                 // eased turbulence magnitude
     };
     _scenes.set(id, st);
   }
@@ -203,6 +207,29 @@ export function paintWindshield(id, view) {
   st.scroll = (st.scroll + speed * dt * (1.3 - height * 0.35) * 5.2) % 1;   // faster ground rush
   st.sideScroll = (st.sideScroll + speed * dt * 0.9) % 1;   // lateral drift for the side window
 
+  // Sun in WORLD space (for building/aircraft shadows + water glint). Rises east, tracks
+  // south at noon, sets west; below the horizon at night → no shadows. `dir` points toward
+  // the sun in tile (dx,dy) space; shadows fall the opposite way and stretch as the sun sinks.
+  const hour = v.hour == null ? 12 : v.hour;
+  const dayT = clamp((hour - 6) / 12, 0, 1);                 // 0 at 06:00 … 1 at 18:00
+  const sunUp = hour > 5.5 && hour < 18.5;
+  const sunElev = sunUp ? Math.sin(dayT * Math.PI) : 0;      // 0 at the horizons, 1 at noon
+  const sunAng = dayT * Math.PI;                             // east → south → west
+  const sunFx = {
+    elev: sunElev, night: sky.night,
+    dir: [Math.cos(sunAng), Math.sin(sunAng)],               // toward the sun (world dx,dy)
+    shadowDir: [-Math.cos(sunAng), -Math.sin(sunAng)],       // shadows fall away from it
+    len: sunUp ? clamp(0.6 + (1 - sunElev) * 2.4, 0.5, 3.4) : 0,   // long shadows at low sun
+    alpha: sunUp ? clamp(0.30 * (0.35 + sunElev), 0.08, 0.34) : 0,
+  };
+
+  // Turbulence: strong wind + low altitude jitters the camera a touch (eased so it's a
+  // shudder, not a strobe). Zero on the deck and in calm air. Drives a sub-pixel translate
+  // of the whole world below.
+  const turbTarget = !framed ? clamp(((v.wind || 0) - 14) / 40, 0, 1) * (0.4 + (1 - height) * 0.6) * (0.4 + speed * 0.8) : 0;
+  st.shake += (turbTarget - st.shake) * Math.min(1, dt * 3);
+  const shX = st.shake * Math.sin(now * 0.031) * 3.2, shY = st.shake * Math.sin(now * 0.043 + 1.3) * 2.4;
+
   ctx.save();
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
@@ -230,8 +257,9 @@ export function paintWindshield(id, view) {
   }
 
   // World (banks with the aircraft) — draw oversized so rotation never reveals edges.
+  // A turbulence shudder (shX/shY) rides on the translate so the whole scene trembles in wind.
   ctx.save();
-  ctx.translate(W / 2, H / 2); ctx.rotate(-bankRad); ctx.translate(-W / 2, -H / 2);
+  ctx.translate(W / 2 + shX, H / 2 + shY); ctx.rotate(-bankRad); ctx.translate(-W / 2, -H / 2);
   const OX = W, ex = W * 3;   // over-extents
 
   // Sky.
@@ -319,7 +347,7 @@ export function paintWindshield(id, view) {
     // Mode-7-inspired textured ground plane (forward view) — faded in by worldBlend so
     // it crossfades against the airport/runway rather than popping in with it.
     ctx.save(); ctx.globalAlpha = worldBlend;
-    drawMode7Floor(ctx, W, H, horizonY, focal, vw, sky, gTop, now);
+    drawMode7Floor(ctx, W, H, horizonY, focal, vw, sky, gTop, now, sunFx);
     ctx.restore();
   }
 
@@ -368,10 +396,15 @@ export function paintWindshield(id, view) {
     // ground/airborne phase flips.
     const cam = makeCam(W, horizonY, focal, vw);
     ctx.save(); ctx.globalAlpha = worldBlend;
-    drawGroundSurfaces(ctx, cam, vw);
+    drawGroundSurfaces(ctx, cam, vw, sky, now);
     ctx.restore();
-    if (vw.runway) drawRunwayTex(ctx, cam, vw, worldBlend);
-    drawWorldObjects(ctx, cam, vw, sky, now);
+    if (vw.runway) drawRunwayTex(ctx, cam, vw, worldBlend, sky, now);
+    // Aircraft's own shadow on the ground (cast along the sun) — reads as an altitude cue on
+    // low passes/approach when the sun's behind you; culled otherwise.
+    if (sunFx.elev > 0.02 && !framed) drawAircraftShadow(ctx, cam, height, sunFx, worldBlend);
+    drawWorldObjects(ctx, cam, vw, sky, now, sunFx);
+    if (sky.night > 0.35) drawSearchlights(ctx, cam, vw, now, worldBlend);   // sweeping beams from restricted (no-fly) blocks at night
+    if (!framed) drawBirds(ctx, W, H, horizonY, vw, st, dt, speed, sky, now, worldBlend);   // ambient flock scattering as you pass
     if (vw.landGuide && vw.runway) drawGuideBoxes(ctx, cam, vw, now);
     if (vw.contacts) drawContacts(ctx, cam, vw, W, H);   // air-to-air traffic (Phase A: see other craft)
     if (vw.apTarget) drawAirportTarget(ctx, cam, vw, W, H, now);   // target-field ring / Home waypoint
@@ -389,6 +422,19 @@ export function paintWindshield(id, view) {
   }
 
   ctx.restore();   // end banked world
+
+  // G-force grey-out: a hard, sustained bank loads you up — the edges desaturate and darken
+  // as blood drains, tunnelling the view. Proxy G off bank angle (steep = high load); forward
+  // view only, eased so it swells and releases smoothly.
+  if (!framed) {
+    const gLoad = clamp((Math.abs(v.bank || 0) - 45) / 45, 0, 1);
+    st.gGrey = (st.gGrey || 0) + (gLoad - (st.gGrey || 0)) * Math.min(1, dt * 2.5);
+    if (st.gGrey > 0.02) {
+      const gv = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * (0.5 - st.gGrey * 0.28), W / 2, H / 2, Math.max(W, H) * 0.72);
+      gv.addColorStop(0, 'rgba(90,92,96,0)'); gv.addColorStop(1, `rgba(24,26,30,${clamp(st.gGrey * 0.85, 0, 0.85)})`);
+      ctx.fillStyle = gv; ctx.fillRect(0, 0, W, H);
+    }
+  }
 
   // Fog wash (unbanked, over everything) — a dense low bank thinning upward.
   if (wx === 'fog') {
@@ -410,8 +456,8 @@ export function paintWindshield(id, view) {
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
-  // On-glass weather (drops that cling to the canopy, lightning) + a WX badge.
-  drawGlass(ctx, W, H, wx, st, dt, speed);
+  // On-glass weather (drops that cling to the canopy, lightning), bug splats + frost + a WX badge.
+  drawGlass(ctx, W, H, wx, st, dt, speed, framed);
   if (!v.windowClass) drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
   if (!v.windowClass) drawWxBadge(ctx, W, wx, v.wind);
   if (v.hud) drawHud(ctx, W, H, v);
@@ -546,8 +592,37 @@ function drawCanopy(ctx, W, H) {
 }
 
 // Water on the windscreen + storm lightning — drawn on the fixed glass, not the
-// banked world, so it reads as being *on* the canopy in front of you.
-function drawGlass(ctx, W, H, wx, st, dt, speed) {
+// banked world, so it reads as being *on* the canopy in front of you. Plus the slow
+// accretion that dirties a canopy over a flight: bug splats that build up, and frost
+// creeping in from the corners in snow.
+function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false) {
+  // Bug splats: while flying, the odd bug hits the glass and stays — the canopy gets
+  // progressively grubbier until you land (state resets with the scene). Rain washes it.
+  if (!framed && speed > 0.35 && wx !== 'rain' && wx !== 'storm') {
+    st.bugT -= dt * (0.3 + speed);
+    if (st.bugT <= 0) {
+      st.bugT = 3 + frac(st.bugs.length * 2.7 + speed * 10) * 7;
+      if (st.bugs.length < 16) st.bugs.push({ x: 0.2 + frac(st.bugs.length * 3.1) * 0.6, y: 0.15 + frac(st.bugs.length * 5.3) * 0.6, r: 1.4 + frac(st.bugs.length) * 2.2, a: 0 });
+    }
+  } else if (wx === 'rain' || wx === 'storm') {
+    if (st.bugs.length) st.bugs = st.bugs.filter((_, i) => frac(i + st.scroll * 20) > 0.03);   // rain slowly cleans the glass
+  }
+  for (const b of st.bugs) {
+    b.a = Math.min(1, b.a + dt * 3);
+    const x = b.x * W, y = b.y * H;
+    ctx.fillStyle = `rgba(120,120,80,${0.22 * b.a})`;
+    ctx.beginPath(); ctx.ellipse(x, y, b.r, b.r * 0.8, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = `rgba(70,66,44,${0.3 * b.a})`;                        // dark speck core + a smear tail
+    ctx.beginPath(); ctx.arc(x, y, b.r * 0.5, 0, 7); ctx.fill();
+    ctx.strokeStyle = `rgba(110,110,74,${0.12 * b.a})`; ctx.lineWidth = b.r * 0.7;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - b.r * 3 * speed, y + b.r * 1.2); ctx.stroke();
+  }
+  // Frost: in snow, ice creeps in from the corners — a feathery white bloom hugging the edges.
+  if (!framed && wx === 'snow') {
+    const fr = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.34, W / 2, H / 2, Math.max(W, H) * 0.72);
+    fr.addColorStop(0, 'rgba(226,240,255,0)'); fr.addColorStop(1, 'rgba(226,240,255,0.4)');
+    ctx.fillStyle = fr; ctx.fillRect(0, 0, W, H);
+  }
   if (wx === 'rain' || wx === 'storm') {
     // At rest a released drop runs straight DOWN the canopy under gravity. With airspeed
     // the slipstream drags it back and sideways (away from centre), so the streak flattens
@@ -902,7 +977,7 @@ function m7buf(w, h) {
   return _m7;
 }
 
-function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now) {
+function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun) {
   if (depth <= 2) return;
   // AUTHENTIC Mode 7: sample the ground PER PIXEL into a low-res buffer, then blit it
   // up with nearest-neighbour — that's the chunky, shimmering look, most visible when
@@ -977,12 +1052,19 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now) {
       //   · depth darkening as you head out from the line into deep water
       //   · an animated surf band hugging the waterline, surging in and out along the coast
       //   · a damp, darker strip of sand just above the line where the wash reaches
-      let cr = 0, foam = 0;
+      let cr = 0, foam = 0, gln = 0;
       if (waterW > 0.002) {
         const wv = 0.5 * Math.sin(wx * 6.2 + wy * 1.4 + t * 2.3) + 0.5 * Math.sin((wx - wy) * 4.1 - t * 1.7);
         tex = tex * (1 - waterW) + (1 + wv * 0.12) * waterW;
         tex *= 1 - clamp((waterW - 0.5) * 2, 0, 1) * 0.18;   // shallows near the line stay lighter; open water sits darker
         if (wv > 0.82) cr = (wv - 0.82) * 5 * waterW;   // crest glint, added as a bluish-white lift below
+        // Sun glitter: a bright, broken specular path across the water TOWARD the sun — the
+        // water pixels whose bearing off the craft aligns with the sun light up, the swell
+        // chopping the path into a shimmering trail of gold flecks.
+        if (sun && sun.elev > 0.05) {
+          const along = ((wx - ax) * sun.dir[0] + (wy - ay) * sun.dir[1]) / Math.max(0.6, d);
+          if (along > 0.15) gln = clamp((along - 0.15) * 1.5, 0, 1) * (0.35 + 0.65 * Math.max(0, wv)) * sun.elev * waterW;
+        }
         // Surf: a bright band centred just on the water side of the waterline, pulsing with
         // the swell and breaking unevenly along the coast (time + position phase).
         const band = clamp(1 - Math.abs(waterW - 0.56) / 0.16, 0, 1);
@@ -990,9 +1072,9 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now) {
       }
       // Wet sand: the land strip just above the waterline reads damp where the wash reaches.
       if (waterW > 0.14 && waterW < 0.5) tex *= 1 - clamp(1 - Math.abs(waterW - 0.32) / 0.18, 0, 1) * 0.14;
-      data[idx] = ((br * tex + cr * 55 + foam * 150) * ih + hr) * nm;
-      data[idx + 1] = ((bg * tex + cr * 70 + foam * 165) * ih + hg) * nm;
-      data[idx + 2] = ((bb * tex + cr * 90 + foam * 175) * ih + hb) * nm;
+      data[idx] = ((br * tex + cr * 55 + foam * 150 + gln * 150) * ih + hr) * nm;
+      data[idx + 1] = ((bg * tex + cr * 70 + foam * 165 + gln * 132) * ih + hg) * nm;
+      data[idx + 2] = ((bb * tex + cr * 90 + foam * 175 + gln * 66) * ih + hb) * nm;
       data[idx + 3] = 255;
       idx += 4;
     }
@@ -1499,9 +1581,10 @@ function cornerBox(ctx, cx, cy, r) {
 // pavement never bleeds softly into the terrain. Markings run in WORLD space along the
 // surface's direction, derived from which neighbours share the same surface (a N–S run
 // marks along y, an E–W run along x; a crossing tile stays bare).
-function drawGroundSurfaces(ctx, cam, v) {
+function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
   const map = v.map; if (!map || !map.length) return; const R = cam.R;
   const baseAlpha = ctx.globalAlpha;   // = worldBlend (set by the caller); the far fade rides on top of it
+  const nite = sky ? sky.night : 0;
   const at = (rx, ry) => (ry >= 0 && ry < map.length && rx >= 0 && rx < map[ry].length) ? map[ry][rx] : null;
   const kindOf = (c) => !c ? null : c.road ? 'road' : c.kind === 'field' ? 'field' : null;
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
@@ -1545,6 +1628,11 @@ function drawGroundSurfaces(ctx, cam, v) {
         if (open) continue;                                      // interior tile — no threshold here
         for (let k = -3; k <= 3; k++) stripe(k * 0.11, 0.035, end * 0.5, end * 0.36, WHITE);
       }
+      // Glowing edge lights at night — a bright bead at each edge line, both ends of the tile.
+      if (nite > 0.25) {
+        const light = (a, o) => { const p = cam.proj(dx + A[0] * a + Px * o, dy + A[1] * a + Py * o, 0); if (p.f <= 0.06) return; ctx.fillStyle = `rgba(255,246,214,${0.95 * nite})`; ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(2.2 / p.f, 0.8, 3.4), 0, 7); ctx.fill(); };
+        for (const a of [-0.5, 0]) { light(a, -0.44); light(a, 0.44); }
+      }
     } else {
       const LANE = 'rgba(232,234,238,0.8)', YEL = 'rgba(230,200,74,0.9)';
       dashed(-0.23, 0.014, LANE); dashed(0.23, 0.014, LANE);                          // lane dividers
@@ -1557,7 +1645,7 @@ function drawGroundSurfaces(ctx, cam, v) {
 // camera as the buildings — so it stays put on the ground and recedes/rotates as you fly
 // away instead of tracking the nose. `rw = { ox, oy, hdg, alt }` = the runway origin's
 // world offset from the craft (tiles), its heading, and the climb-fade level.
-function drawRunwayTex(ctx, cam, v, outerFade = 1) {
+function drawRunwayTex(ctx, cam, v, outerFade = 1, sky = null, now = 0) {
   const rw = v.runway; if (!rw) return;
   const alt = clamp(rw.alt || 0, 0, 1);
   const RWL = rw.len || RENDER_TUNE.rwl, hw = 0.15, BACK = 0.6, fMin = 0.06;
@@ -1587,6 +1675,8 @@ function drawRunwayTex(ctx, cam, v, outerFade = 1) {
     const a = P(lo, -cw), b = P(lo, cw), c = P(hi, cw), d = P(hi, -cw);
     ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.lineTo(c.sx, c.sy); ctx.lineTo(d.sx, d.sy); ctx.closePath(); ctx.fill();
   }
+  // Night lighting: edge lights, green threshold / red end bar, and the approach rabbit.
+  if (sky && sky.night > 0.25) drawRunwayLights(ctx, P, tLo, tHi, hw, now, fade * sky.night);
   ctx.restore();
 }
 
@@ -1947,7 +2037,7 @@ function drawBuilding(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
 }
 
 // Collect visible tiles, sort far→near, draw each (textured box / billboard).
-function drawWorldObjects(ctx, cam, v, sky, now) {
+function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   const map = v.map; if (!map || !map.length) return; const R = cam.R, night = sky.night;
   const FAR = VISIBLE_FAR_F, wcx = v.mapCenter ? v.mapCenter.x : 0, wcy = v.mapCenter ? v.mapCenter.y : 0;
   const items = [];
@@ -1975,6 +2065,16 @@ function drawWorldObjects(ctx, cam, v, sky, now) {
     items.push({ dx, dy, f, c, alpha, seed: (wx + 512) * 73 + (wy + 512) * 149 });   // stable, positive, frac-friendly
   }
   items.sort((a, b) => b.f - a.f);
+  // Shadow pre-pass: lay every building's ground shadow FIRST (far→near) so the bodies drawn
+  // next sit on top of the whole shadow field instead of over-painting a neighbour's shadow.
+  if (sun && sun.len > 0) {
+    for (const it of items) {
+      if (!it.c.bt) continue;
+      const h = floorHeight(it.c, it.seed);
+      const fh = (BUILDING_FOOT + frac(it.seed + 2) * 0.06) * RENDER_TUNE.bldgFoot;
+      drawBuildingShadow(ctx, cam, it.dx, it.dy, fh, h, sun, it.alpha);
+    }
+  }
   for (const it of items) {
     const alpha = it.alpha, bi = it.c.biome;
     if (it.c.kind === 'nofly') { draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7); continue; }
@@ -1997,7 +2097,121 @@ function drawWorldObjects(ctx, cam, v, sky, now) {
     const m = modelFor(it.c);
     if (m) drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face);
     else drawBuilding(ctx, cam, it.dx, it.dy, fh, h, arch, it.seed, night, alpha, now);
+    // Rooftop holo-ad: a flickering translucent sign floating over ~1 in 4 tall-ish city
+    // buildings at night — post-singularity advertising, half its pixels dead.
+    if (night > 0.3 && h > 0.35 && (it.seed % 4) === 0) drawHoloAd(ctx, cam, it.dx, it.dy, fh, h, it.seed, now, alpha * night);
   }
+}
+
+// A building's ground shadow: a soft parallelogram beam of width = the footprint, cast in
+// the sun's shadow direction and lengthened as the building is taller / the sun sits lower.
+function drawBuildingShadow(ctx, cam, dx, dy, fh, h, sun, alpha) {
+  const sd = sun.shadowDir, L = clamp(h * sun.len, 0.15, 3.5);
+  const px = -sd[1] * fh, py = sd[0] * fh;   // half-width perpendicular to the shadow direction
+  const A = cam.proj(dx - px, dy - py, 0), B = cam.proj(dx + px, dy + py, 0);
+  const C = cam.proj(dx + px + sd[0] * L, dy + py + sd[1] * L, 0), D = cam.proj(dx - px + sd[0] * L, dy - py + sd[1] * L, 0);
+  if ([A, B, C, D].some((p) => p.f <= 0.06)) return;
+  ctx.fillStyle = `rgba(8,10,14,${clamp(sun.alpha * alpha, 0, 0.4)})`;
+  ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.lineTo(C.sx, C.sy); ctx.lineTo(D.sx, D.sy); ctx.closePath(); ctx.fill();
+}
+
+// The aircraft's own shadow on the ground — a dark ellipse at the point the sun projects the
+// craft down onto, sliding away and shrinking with altitude. Reads as a height cue on a low,
+// sun-behind pass; naturally culled (off the bottom / behind) when it wouldn't be visible.
+function drawAircraftShadow(ctx, cam, height, sun, worldBlend) {
+  const sd = sun.shadowDir, alt = clamp(height, 0, 1);
+  const reach = alt * 6 / Math.max(0.25, sun.elev);
+  const p = cam.proj(sd[0] * reach, sd[1] * reach, 0);
+  if (p.f <= 0.12 || p.f > VISIBLE_FAR_F) return;
+  const size = clamp(26 / p.f, 3, 60) * (1 - alt * 0.4);
+  ctx.save();
+  ctx.globalAlpha = clamp(sun.alpha * 1.4 * worldBlend * (1 - alt * 0.5), 0, 0.4);
+  ctx.fillStyle = 'rgb(6,8,12)';
+  ctx.beginPath(); ctx.ellipse(p.sx, p.sy, size, size * 0.42, 0, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+const HOLO_COLS = ['90,200,255', '255,90,160', '120,255,140', '255,200,80', '180,120,255'];
+// A rooftop holographic advertising panel: a translucent coloured pane floating above the
+// roof with scanline bars, stuttering and dropping frames (half its pixels dead).
+function drawHoloAd(ctx, cam, dx, dy, fh, h, seed, now, alpha) {
+  const col = HOLO_COLS[seed % HOLO_COLS.length];
+  const z0 = h * 1.03, z1 = h * (1.28 + frac(seed) * 0.18), w = fh * (0.7 + frac(seed + 1) * 0.5);
+  const b0 = cam.proj(dx - w, dy, z0), b1 = cam.proj(dx + w, dy, z0), t1 = cam.proj(dx + w, dy, z1), t0 = cam.proj(dx - w, dy, z1);
+  if ([b0, b1, t1, t0].some((p) => p.f <= 0.12)) return;
+  const dropped = frac(Math.floor(now * 0.018) + seed) < 0.16;   // some frames blink out entirely
+  const flick = (0.45 + 0.55 * Math.abs(Math.sin(now * 0.006 + seed))) * (dropped ? 0.15 : 1);
+  ctx.save(); ctx.globalAlpha = alpha;
+  ctx.fillStyle = `rgba(${col},${0.16 * flick})`;
+  ctx.beginPath(); ctx.moveTo(t0.sx, t0.sy); ctx.lineTo(t1.sx, t1.sy); ctx.lineTo(b1.sx, b1.sy); ctx.lineTo(b0.sx, b0.sy); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = `rgba(${col},${0.5 * flick})`; ctx.lineWidth = 1;
+  for (let k = 1; k < 4; k++) {
+    const tt = k / 4;
+    const lx = t0.sx + (b0.sx - t0.sx) * tt, ly = t0.sy + (b0.sy - t0.sy) * tt;
+    const rx = t1.sx + (b1.sx - t1.sx) * tt, ry = t1.sy + (b1.sy - t1.sy) * tt;
+    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(rx, ry); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Sweeping surveillance searchlights rising off restricted (no-fly) blocks at night — a beam
+// that leans as it sweeps, doubling as a "keep out" telegraph. Capped so a dense border of
+// no-fly tiles can't spam beams.
+function drawSearchlights(ctx, cam, v, now, worldBlend) {
+  const map = v.map; if (!map || !map.length) return; const R = cam.R;
+  ctx.save(); ctx.lineCap = 'round'; let n = 0;
+  for (let ry = 0; ry < map.length && n < 6; ry++) for (let rx = 0; rx < map[ry].length && n < 6; rx++) {
+    const c = map[ry][rx]; if (!c || c.kind !== 'nofly') continue;
+    const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
+    if (f <= 0.2 || f > VISIBLE_FAR_F) continue;
+    n++;
+    const seed = rx * 7 + ry * 13, sweep = Math.sin(now * 0.0011 + seed);
+    const base = cam.proj(dx, dy, 0.02), tip = cam.proj(dx + sweep * 0.5, dy, 1.3 + 0.6 * (0.5 + 0.5 * Math.sin(now * 0.002 + seed)));
+    if (base.f <= 0.12 || tip.f <= 0.12) continue;
+    const a = clamp((VISIBLE_FAR_F - f) / 6, 0, 1) * 0.5 * worldBlend;
+    const g = ctx.createLinearGradient(base.sx, base.sy, tip.sx, tip.sy);
+    g.addColorStop(0, `rgba(150,205,255,${a})`); g.addColorStop(1, 'rgba(150,205,255,0)');
+    ctx.strokeStyle = g; ctx.lineWidth = clamp(10 / f, 2, 14);
+    ctx.beginPath(); ctx.moveTo(base.sx, base.sy); ctx.lineTo(tip.sx, tip.sy); ctx.stroke();
+    ctx.fillStyle = `rgba(210,235,255,${clamp(a * 1.5, 0, 0.8)})`;
+    ctx.beginPath(); ctx.arc(base.sx, base.sy, clamp(4 / f, 1, 4), 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Ambient flock: a handful of billboard birds drifting across the mid-sky that scatter —
+// speed up and climb — as the aircraft bears down on them. Daytime, airborne only.
+function drawBirds(ctx, W, H, horizonY, v, st, dt, speed, sky, now, worldBlend) {
+  if (worldBlend < 0.3 || sky.night > 0.6) return;
+  if (!st.birds) st.birds = Array.from({ length: 6 }, (_, i) => ({ x: frac(i * 3.1), y: 0.15 + frac(i * 5.7) * 0.4, ph: frac(i * 2.3) * 6, sp: 0.4 + frac(i) * 0.5, scat: 0 }));
+  ctx.save(); ctx.strokeStyle = `rgba(18,22,28,${0.5 * worldBlend})`; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+  for (const b of st.birds) {
+    const near = clamp(1 - Math.abs(b.x - 0.5) * 3, 0, 1);
+    b.scat += ((speed > 0.2 && near > 0.4 ? 1 : 0) - b.scat) * Math.min(1, dt * 2);
+    b.x = (b.x + (0.02 + speed * 0.06 + b.scat * 0.2) * b.sp * dt) % 1.15;
+    b.ph += dt * (6 + b.scat * 10);
+    const px = (b.x - 0.075) * W, py = (b.y - b.scat * 0.12) * horizonY, flap = Math.sin(b.ph) * (4 + near * 2);
+    ctx.beginPath(); ctx.moveTo(px - 5, py + flap * 0.4); ctx.lineTo(px, py - 1); ctx.lineTo(px + 5, py + flap * 0.4); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Night runway/approach lighting placed along a world-anchored strip (used by both the
+// departure runway and airfield tiles). `q(along, lateral)` projects a strip-local point;
+// draws white edge lights, a green threshold / red end bar, and a sequenced "rabbit" of
+// approach flashers strobing toward the threshold. `phase` cycles the rabbit.
+function drawRunwayLights(ctx, q, tLo, tHi, hw, now, alpha) {
+  const dot = (a, s, col, r) => { const p = q(a, s); if (p.f <= 0.06) return; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(r / p.f, 0.8, 4), 0, 7); ctx.fill(); };
+  ctx.save(); ctx.globalAlpha = alpha;
+  for (let a = Math.ceil(tLo * 2) / 2; a <= tHi; a += 0.5) {   // edge lights every half tile
+    dot(a, -hw, 'rgba(255,248,220,0.95)', 2.4); dot(a, hw, 'rgba(255,248,220,0.95)', 2.4);
+  }
+  dot(tLo, 0, 'rgba(90,255,120,0.98)', 3); dot(tLo, -hw, 'rgba(90,255,120,0.98)', 2.6); dot(tLo, hw, 'rgba(90,255,120,0.98)', 2.6);   // green threshold
+  dot(tHi, 0, 'rgba(255,70,70,0.98)', 3); dot(tHi, -hw, 'rgba(255,70,70,0.98)', 2.6); dot(tHi, hw, 'rgba(255,70,70,0.98)', 2.6);       // red end bar
+  // Approach "rabbit": a strobe running IN toward the threshold along the extended centreline.
+  const step = Math.floor(now * 0.006) % 6;
+  for (let k = 0; k < 6; k++) { if (k !== step) continue; dot(tLo - 0.4 - k * 0.5, 0, 'rgba(255,255,255,0.95)', 3.2); }
+  ctx.restore();
 }
 
 function drawWeather(ctx, W, H, wx, st, dt, speed) {
