@@ -8,7 +8,7 @@
 // engine-facing seam the whole plugin shares.
 
 import { query } from '../../server/models/db.js';
-import { getZone, getAllZones, getLivePlayer, getMinimapData } from '../../server/engine/world.js';
+import { getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir } from '../../server/engine/world.js';
 import { biomeOf, districtBiome } from './biomes.js';
 import { normalizeLivery } from './livery.js';
 import { sendToPlayer, sendToZone, sendToZoneExcept } from '../../server/engine/messaging.js';
@@ -411,7 +411,18 @@ function mapWindow(a, radius = 12) {
       // that, the type's 3-D archetype (office tower, warehouse, diner…), with a fallback.
       const bt = cell.flags?.building_type || undefined;
       const bn = cell.flags?.building_name || undefined;
-      row.push({ kind, biome, road, danger: cell.danger, bt, bn });
+      // Door face + storey count so the windshield can angle the building's entrance
+      // toward the street and scale its height by real floors (a 3-floor shop is not
+      // a tower). `ent` is 'north'|'south'|'east'|'west' (cached in world.js); `flr`
+      // is an explicit authored floor override (flags.floors), else the windshield
+      // falls back to a sensible per-type default.
+      let ent, flr;
+      if (bt) {
+        const z = getZone(cell.id);
+        ent = (z && buildingEntranceDir(z)) || undefined;
+        flr = cell.flags?.floors || undefined;
+      }
+      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr });
     }
     rows.push(row);
   }

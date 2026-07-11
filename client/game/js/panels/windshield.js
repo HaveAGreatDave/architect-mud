@@ -61,7 +61,7 @@ export const RENDER_TUNE = {
   tile: 0.85,         // Mode-7 floor tile frequency (higher = smaller terrain tiles)
   pixel: 4,           // Mode-7 render downscale → pixel chunkiness (higher = blockier/retro)
   bldgH: 3.0,         // building height scale (from the user's tuned screenshot)
-  bldgFoot: 0.1,      // building footprint (width) scale (from the user's tuned screenshot)
+  bldgFoot: 1.0,      // building footprint (width) scale — 1.0 fills most of the tile (a building owns its whole zone)
   texRes: 1.0,        // building texture resolution (higher = crisper, lower = chunkier)
   haze: 2.2,          // how fast the floor fades into the horizon haze
   rwl: 3.2,           // runway length (tiles)
@@ -368,7 +368,7 @@ export function paintWindshield(id, view) {
     // ground/airborne phase flips.
     const cam = makeCam(W, horizonY, focal, vw);
     ctx.save(); ctx.globalAlpha = worldBlend;
-    drawRoads(ctx, cam, vw);
+    drawGroundSurfaces(ctx, cam, vw);
     ctx.restore();
     if (vw.runway) drawRunwayTex(ctx, cam, vw, worldBlend);
     drawWorldObjects(ctx, cam, vw, sky, now);
@@ -1083,6 +1083,31 @@ function bldgStyle(cell) {
   return s ? { arch: s.a, baseH: s.h } : { arch: cell && cell.biome, baseH: BLDG_H[cell && cell.biome] || 0.3 };
 }
 
+// ── Building height by STOREYS ────────────────────────────────────────────────
+// Height comes from the building's real floor count, not a per-type slab: a 3-floor
+// hotel is a mid-rise, a corporate office a tower, a corner shop a single storey.
+// The server passes an authored floor override (cell.flr = flags.floors) when set;
+// otherwise we fall back to a believable per-type default. FLOOR_Z is the world-z
+// height of one storey — the whole thing still scales with the bldgH tuning knob so
+// the ⚙ slider keeps working. This is the ONE height formula; buildingHeightZ (CFIT
+// collision) and drawWorldObjects (render) both call floorHeight so what you see is
+// exactly what you can hit.
+const TYPE_FLOORS = {
+  corporate_office: 22, hotel: 6, apartment: 8, residential: 3, shop: 1, diner: 1,
+  bar: 1, club: 2, studio: 2, police: 3, clinic: 3, power: 5, hangar: 1, default: 4,
+};
+const FLOOR_Z = 0.018;   // world-z per storey (tuned so a 22-floor office ≈ the old tower height)
+function floorsOf(cell) {
+  const f = cell && cell.flr;
+  if (f > 0) return f;
+  return (cell && TYPE_FLOORS[cell.bt]) || TYPE_FLOORS.default;
+}
+// Deterministic building height for a cell: floors × per-storey, with a small stable
+// jitter off the seed so same-type neighbours aren't a dead-flat skyline.
+function floorHeight(cell, seed) {
+  return floorsOf(cell) * FLOOR_Z * (0.9 + frac(seed) * 0.2) * RENDER_TUNE.bldgH;
+}
+
 // Deterministic building height (render world-z units) for a tile — the SAME value
 // drawWorldObjects paints (line ~1419), exposed so the flight sim can collision-check the
 // exact geometry that's on the glass. Returns 0 for tiles that carry no solid building to
@@ -1096,7 +1121,7 @@ export function buildingHeightZ(wx, wy, cell) {
   if (k === 'air' || k === 'craft' || k === 'field' || k === 'nofly'
       || !bi || bi === 'water' || bi === 'parkland' || bi === 'badlands' || !cell.bt) return 0;
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
-  return bldgStyle(cell).baseH * (0.7 + frac(seed) * 0.6) * RENDER_TUNE.bldgH;
+  return floorHeight(cell, seed);
 }
 
 // Shared climb-out corridor test: a building dead ahead and low, right off the runway, is
@@ -1157,17 +1182,6 @@ function roofTex(biome, night) {
     return c;
   });
 }
-function roadTex() {
-  const tr = TR();
-  return getTex('road:' + tr, () => {
-    const S = Math.round(16 * tr), c = texCanvas(S, S), g = c.getContext('2d');
-    g.fillStyle = '#242830'; g.fillRect(0, 0, S, S);
-    const N = Math.round(24 * tr);
-    for (let i = 0; i < N; i++) { const rx = frac(i * 3.7) * S | 0, ry = frac(i * 6.1) * S | 0; g.fillStyle = `rgba(255,255,255,${0.02 + frac(i) * 0.03})`; g.fillRect(rx, ry, 1, 1); }
-    g.fillStyle = 'rgba(220,200,120,0.7)'; g.fillRect(S / 2 - tr, 3 * tr, 2 * tr, 6 * tr);
-    return c;
-  });
-}
 // Affine texture-mapped triangle (the Mode-7 warp). Maps texture-space triangle
 // (s0,s1,s2) onto screen triangle (d0,d1,d2). Composes with the current transform.
 function texTri(ctx, img, s0, s1, s2, d0, d1, d2) {
@@ -1203,6 +1217,7 @@ function makeCam(W, horizonY, depth, v) {
 // One extruded, texture-mapped box between two heights (base wz0 → top wz1): painter-sorted
 // walls + an optional roof. Setback towers stack several of these.
 function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, roof) {
+  fh = Math.min(fh, 0.48);   // keep a fat footprint inside its own tile (no bleed into the neighbour)
   const cs = [[-fh, -fh], [fh, -fh], [fh, fh], [-fh, fh]];
   const b = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz0));
   const t = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz1));
@@ -1469,14 +1484,62 @@ function cornerBox(ctx, cx, cy, r) {
   ctx.stroke();
 }
 
-function drawRoads(ctx, cam, v) {
-  const map = v.map; if (!map || !map.length) return; const R = cam.R, tex = roadTex();
+// Solid, HARD-EDGED paved surfaces with painted markings, laid over the Mode-7 floor.
+// Two kinds share the machinery: artery tiles render as a four-lane road (dashed lane
+// dividers + solid double-yellow centre); airfield tiles (`kind:'field'`) render as pale
+// airport-runway concrete (dashed white centreline + threshold "piano keys" where the
+// strip ends). Both get an opaque fill (no faded texture wash) plus a crisp kerb line
+// stroked along every boundary that meets a DIFFERENT surface — the hard edge, so the
+// pavement never bleeds softly into the terrain. Markings run in WORLD space along the
+// surface's direction, derived from which neighbours share the same surface (a N–S run
+// marks along y, an E–W run along x; a crossing tile stays bare).
+function drawGroundSurfaces(ctx, cam, v) {
+  const map = v.map; if (!map || !map.length) return; const R = cam.R;
+  const at = (rx, ry) => (ry >= 0 && ry < map.length && rx >= 0 && rx < map[ry].length) ? map[ry][rx] : null;
+  const kindOf = (c) => !c ? null : c.road ? 'road' : c.kind === 'field' ? 'field' : null;
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
-    const c = map[ry][rx]; if (!c || !c.road) continue;
+    const c = map[ry][rx], surf = kindOf(c); if (!surf) continue;
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
-    if (f <= 0.08 || f > 6.5) continue;
-    const P0 = cam.proj(dx - 0.5, dy - 0.5, 0), P1 = cam.proj(dx + 0.5, dy - 0.5, 0), P2 = cam.proj(dx + 0.5, dy + 0.5, 0), P3 = cam.proj(dx - 0.5, dy + 0.5, 0);
-    drawTexQuad(ctx, tex, [P0.sx, P0.sy], [P1.sx, P1.sy], [P2.sx, P2.sy], [P3.sx, P3.sy]);
+    if (f <= 0.06 || f > 8) continue;
+    const corner = (sx, sy) => cam.proj(dx + sx * 0.5, dy + sy * 0.5, 0);
+    const P0 = corner(-1, -1), P1 = corner(1, -1), P2 = corner(1, 1), P3 = corner(-1, 1);
+    if ([P0, P1, P2, P3].some(p => p.f <= 0.05)) continue;
+    // Solid fill — hard, opaque, no fade. Runway concrete reads a touch lighter than road tar.
+    ctx.fillStyle = surf === 'field' ? '#3a3e46' : '#2b2f36';
+    ctx.beginPath(); ctx.moveTo(P0.sx, P0.sy); ctx.lineTo(P1.sx, P1.sy); ctx.lineTo(P2.sx, P2.sy); ctx.lineTo(P3.sx, P3.sy); ctx.closePath(); ctx.fill();
+    // Hard kerb edge: stroke each boundary that faces a non-matching surface.
+    const nN = kindOf(at(rx, ry - 1)) === surf, nS = kindOf(at(rx, ry + 1)) === surf;
+    const nW = kindOf(at(rx - 1, ry)) === surf, nE = kindOf(at(rx + 1, ry)) === surf;
+    ctx.strokeStyle = surf === 'field' ? 'rgba(224,228,234,0.8)' : 'rgba(198,203,209,0.7)';
+    ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+    const edge = (a, b) => { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); };
+    if (!nN) edge(P0, P1); if (!nE) edge(P1, P2); if (!nS) edge(P3, P2); if (!nW) edge(P0, P3);
+    // Direction from same-surface neighbours. Both axes = a crossing/apron → leave it bare.
+    const ns = nN || nS, ew = nW || nE; if (ns && ew) continue;
+    const A = ew && !ns ? [1, 0] : [0, 1];   // surface axis (default N–S for an isolated tile)
+    const Px = A[1], Py = -A[0];             // across-surface axis
+    const stripe = (off, hw, aLo, aHi, style) => {
+      const q = (a, o) => cam.proj(dx + A[0] * a + Px * o, dy + A[1] * a + Py * o, 0);
+      const c0 = q(aLo, off - hw), c1 = q(aLo, off + hw), c2 = q(aHi, off + hw), c3 = q(aHi, off - hw);
+      if ([c0, c1, c2, c3].some(p => p.f <= 0.05)) return;
+      ctx.fillStyle = style; ctx.beginPath();
+      ctx.moveTo(c0.sx, c0.sy); ctx.lineTo(c1.sx, c1.sy); ctx.lineTo(c2.sx, c2.sy); ctx.lineTo(c3.sx, c3.sy); ctx.closePath(); ctx.fill();
+    };
+    const dashed = (off, hw, style) => { for (let a = -0.5; a < 0.5; a += 0.34) stripe(off, hw, a, Math.min(0.5, a + 0.2), style); };
+    if (surf === 'field') {
+      const WHITE = 'rgba(236,239,243,0.9)';
+      dashed(0, 0.02, WHITE);                                    // dashed runway centreline
+      stripe(-0.42, 0.016, -0.5, 0.5, WHITE); stripe(0.42, 0.016, -0.5, 0.5, WHITE);   // runway edge lines
+      // Threshold "piano keys" across each end where the runway stops (neighbour is not runway).
+      for (const [open, end] of [[A[0] ? nW : nN, -1], [A[0] ? nE : nS, 1]]) {
+        if (open) continue;                                      // interior tile — no threshold here
+        for (let k = -3; k <= 3; k++) stripe(k * 0.11, 0.035, end * 0.5, end * 0.36, WHITE);
+      }
+    } else {
+      const LANE = 'rgba(232,234,238,0.8)', YEL = 'rgba(230,200,74,0.9)';
+      dashed(-0.23, 0.014, LANE); dashed(0.23, 0.014, LANE);                          // lane dividers
+      stripe(-0.045, 0.014, -0.5, 0.5, YEL); stripe(0.045, 0.014, -0.5, 0.5, YEL);    // double-yellow centre
+    }
   }
 }
 
@@ -1737,10 +1800,32 @@ function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof 
   ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill();
 }
 
+// ── Entrance facing ───────────────────────────────────────────────────────────
+// A model is authored with its FRONT (door, awning, marquee, forecourt) on its local
+// +y axis. faceVec turns the server's entrance direction into that front's world
+// heading; facePt rotates a model-local offset (lx,ly) onto the world so the door band
+// swings around to the street the building actually opens onto. Local +x maps to the
+// perpendicular (right of the door), local +y to the entrance vector.
+function faceVec(ent) {
+  switch (ent) {
+    case 'north': return [0, -1];
+    case 'south': return [0, 1];
+    case 'east':  return [1, 0];
+    case 'west':  return [-1, 0];
+    default:      return [0, 1];   // unknown → keep the old front-facing default
+  }
+}
+function facePt(dx, dy, lx, ly, E) {
+  const px = E[1], py = -E[0];   // local +x = right of the door (E rotated -90°)
+  return [dx + lx * px + ly * E[0], dy + lx * py + ly * E[1]];
+}
+
 // A dedicated named-building model: a type-appropriate silhouette built from draw3DBoxAt +
 // the adornments above, coloured by the building's own palette (m.pal) and neon (m.neon).
-function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now) {
+// `E` is the entrance world-vector (faceVec) so the door/forecourt points at the street.
+function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = [0, 1]) {
   const pal = m.pal;
+  const F = (lx, ly) => facePt(dx, dy, lx, ly, E);   // model-local → world, rotated to the entrance
   switch (m.type) {
     case 'office': {   // corporate glass tower: three setbacks + spire beacon
       let w = fh * 1.1, z = 0; const H = h * 1.7;
@@ -1750,21 +1835,21 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now) {
     }
     case 'hotel': {   // tall slab + vertical neon blade + rooftop sign glow
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, 0, h * 1.4, pal, seed, night, alpha, true);
-      neonBlade(ctx, cam, dx - fh * 0.55, dy - fh * 0.55, h * 0.3, h * 1.35, m.neon || '#ff4a9a', night, alpha);
+      { const [nx, ny] = F(-fh * 0.55, fh * 0.55); neonBlade(ctx, cam, nx, ny, h * 0.3, h * 1.35, m.neon || '#ff4a9a', night, alpha); }   // neon blade over the entrance corner
       if (night) glowPool(ctx, cam, dx, dy, h * 1.4, '255,120,180', 20, alpha * 0.2);
       break;
     }
     case 'apartment': {   // podium + residential block + optional penthouse
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.3, 0, h * 0.28, pal, seed + 5, night, alpha, true);
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, h * 0.28, h, pal, seed, night, alpha, true);
-      if (m.penthouse) draw3DBoxAt(ctx, cam, dx + fh * 0.3, dy, fh * 0.5, h, h * 1.16, pal, seed + 2, night, alpha, true);
+      if (m.penthouse) { const [px, py] = F(fh * 0.3, 0); draw3DBoxAt(ctx, cam, px, py, fh * 0.5, h, h * 1.16, pal, seed + 2, night, alpha, true); }
       break;
     }
     case 'police': {   // squat wide civic block + set-back roof house + blue beacon + antenna
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.4, 0, h * 0.85, pal, seed, night, alpha, true);
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.7, h * 0.85, h * 0.98, pal, seed + 1, night, alpha, true);
-      mast(ctx, cam, dx + fh * 0.9, dy, h * 0.85, h * 1.5, alpha, now, seed + 3);
-      blinkLight(ctx, cam, dx - fh * 0.7, dy, h, '90,150,255', now, seed, alpha, 1.8);
+      { const [mx, my] = F(fh * 0.9, 0); mast(ctx, cam, mx, my, h * 0.85, h * 1.5, alpha, now, seed + 3); }
+      { const [bx, by] = F(-fh * 0.7, 0); blinkLight(ctx, cam, bx, by, h, '90,150,255', now, seed, alpha, 1.8); }
       break;
     }
     case 'clinic': {   // clean pale block + rooftop red cross + soft clone-vat glow
@@ -1776,18 +1861,18 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now) {
     }
     case 'studio': {   // broad low studio block + tall guyed mast + satellite dish
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.45, 0, h * 0.7, pal, seed, night, alpha, true);
-      mast(ctx, cam, dx - fh * 0.7, dy, h * 0.7, h * 2.1, alpha, now, seed + 2);
-      dish(ctx, cam, dx + fh * 0.7, dy, h * 0.72, 10, alpha);
+      { const [mx, my] = F(-fh * 0.7, 0); mast(ctx, cam, mx, my, h * 0.7, h * 2.1, alpha, now, seed + 2); }
+      { const [ex, ey] = F(fh * 0.7, 0); dish(ctx, cam, ex, ey, h * 0.72, 10, alpha); }
       break;
     }
     case 'hangar': {   // wide low shed + big dark door band + ATC control tower (+ helipad glow)
       const w = fh * (m.big ? 1.7 : 1.4), top = h * (m.big ? 0.7 : 0.6);
       draw3DBoxAt(ctx, cam, dx, dy, w, 0, top, pal, seed, night, alpha, true);
-      draw3DBoxAt(ctx, cam, dx, dy + w * 0.55, w * 0.7, 0, top * 0.62, 'ty_door', seed + 1, night, alpha, false);
+      { const [gx, gy] = F(0, w * 0.55); draw3DBoxAt(ctx, cam, gx, gy, w * 0.7, 0, top * 0.62, 'ty_door', seed + 1, night, alpha, false); }   // hangar door faces the street/apron
       // Control tower off one corner of the apron: a slender shaft topped by a wider glazed
       // cab and an alternating aviation beacon — so a hangar reads as a working airfield, not
       // just a shed. Like the masts on other models, it stands above the collision box.
-      const txx = dx - w * 0.95, txy = dy - w * 0.2;
+      const [txx, txy] = F(-w * 0.95, -w * 0.2);
       const cabTop = h * (m.big ? 1.9 : 1.55), cabBot = cabTop * 0.82;
       draw3DBoxAt(ctx, cam, txx, txy, fh * 0.24, 0, cabBot, pal, seed + 4, night, alpha, false);
       draw3DBoxAt(ctx, cam, txx, txy, fh * 0.5, cabBot, cabTop, 'ty_office', seed + 5, night, alpha, true);
@@ -1798,13 +1883,15 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now) {
     }
     case 'power': {   // twin cooling towers venting steam + a tall smokestack
       for (const s of [-1, 1]) {
-        draw3DBoxAt(ctx, cam, dx + s * fh * 0.8, dy, fh * 0.7, 0, h * 0.5, pal, seed + s + 1, night, alpha, false);
-        draw3DBoxAt(ctx, cam, dx + s * fh * 0.8, dy, fh * 0.55, h * 0.5, h * 1.05, pal, seed + s + 1, night, alpha, true);
-        drawSmoke(ctx, cam, dx + s * fh * 0.8, dy, h * 1.05, '210,214,220', alpha * 0.8, now, seed + s + 1);
+        const [cx, cy] = F(s * fh * 0.8, 0);
+        draw3DBoxAt(ctx, cam, cx, cy, fh * 0.7, 0, h * 0.5, pal, seed + s + 1, night, alpha, false);
+        draw3DBoxAt(ctx, cam, cx, cy, fh * 0.55, h * 0.5, h * 1.05, pal, seed + s + 1, night, alpha, true);
+        drawSmoke(ctx, cam, cx, cy, h * 1.05, '210,214,220', alpha * 0.8, now, seed + s + 1);
       }
-      draw3DBoxAt(ctx, cam, dx, dy - fh * 0.6, fh * 0.3, 0, h * 1.7, pal, seed + 4, night, alpha, true);
-      drawSmoke(ctx, cam, dx, dy - fh * 0.6, h * 1.7, '72,66,60', alpha, now, seed + 4);
-      blinkLight(ctx, cam, dx, dy - fh * 0.6, h * 1.7, '255,80,80', now, seed, alpha);
+      { const [sx, sy] = F(0, -fh * 0.6);
+        draw3DBoxAt(ctx, cam, sx, sy, fh * 0.3, 0, h * 1.7, pal, seed + 4, night, alpha, true);
+        drawSmoke(ctx, cam, sx, sy, h * 1.7, '72,66,60', alpha, now, seed + 4);
+        blinkLight(ctx, cam, sx, sy, h * 1.7, '255,80,80', now, seed, alpha); }
       break;
     }
     case 'bar': {   // small box + a neon blade
@@ -1814,8 +1901,8 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now) {
     }
     case 'club': {   // box + twin neon roofline + colour glow
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, 0, h * 0.8, pal, seed, night, alpha, true);
-      neonBlade(ctx, cam, dx - fh * 0.4, dy, h * 0.8, h * 1.15, m.neon || '#ff4a9a', night, alpha);
-      neonBlade(ctx, cam, dx + fh * 0.4, dy, h * 0.8, h * 1.15, m.neon || '#ff4a9a', night, alpha);
+      { const [ax, ay] = F(-fh * 0.4, 0); neonBlade(ctx, cam, ax, ay, h * 0.8, h * 1.15, m.neon || '#ff4a9a', night, alpha); }
+      { const [bx, by] = F(fh * 0.4, 0); neonBlade(ctx, cam, bx, by, h * 0.8, h * 1.15, m.neon || '#ff4a9a', night, alpha); }
       glowPool(ctx, cam, dx, dy, h * 0.85, '255,74,154', 20, alpha * (night ? 0.34 : 0.16));
       break;
     }
@@ -1828,7 +1915,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now) {
     case 'shop':
     default: {   // low storefront + awning band + a small sign
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, h * 0.7, pal, seed, night, alpha, true);
-      draw3DBoxAt(ctx, cam, dx, dy + fh * 0.9, fh * 1.15, h * 0.12, h * 0.2, 'ty_door', seed + 1, night, alpha, false);
+      { const [gx, gy] = F(0, fh * 0.9); draw3DBoxAt(ctx, cam, gx, gy, fh * 1.15, h * 0.12, h * 0.2, 'ty_door', seed + 1, night, alpha, false); }   // storefront awning faces the street
       neonBlade(ctx, cam, dx, dy, h * 0.7, h * 0.95, m.neon || '#5fd0ff', night, alpha);
       break;
     }
@@ -1887,16 +1974,18 @@ function drawWorldObjects(ctx, cam, v, sky, now) {
     // stays bare ground, never sprouts a generated building. Matches buildingHeightZ, so
     // what you see is exactly what you can hit.
     if (!it.c.bt) continue;
-    // The archetype + height come from the building_type. Same bldgStyle() the CFIT
-    // height sweep reads, so what you see is exactly what you can hit.
-    const { arch, baseH } = bldgStyle(it.c);
-    const h = baseH * (0.7 + frac(it.seed) * 0.6) * RENDER_TUNE.bldgH;
-    const fh = (0.3 + frac(it.seed + 2) * 0.08) * RENDER_TUNE.bldgFoot;
+    // Height comes from the building's storeys (floorHeight) — the SAME formula the CFIT
+    // sweep reads — so what you see is exactly what you can hit. Footprint fills most of the
+    // tile (a building occupies its whole zone, not a dot in the middle).
+    const { arch } = bldgStyle(it.c);
+    const h = floorHeight(it.c, it.seed);
+    const fh = (0.4 + frac(it.seed + 2) * 0.06) * RENDER_TUNE.bldgFoot;
+    const face = faceVec(it.c.ent);   // door side → the street the entrance opens onto
     // Every building draws a dedicated model (its own if named, else its type default) at
     // the same mass; a non-building tile falls back to the shared biome archetype set
     // (industrial stacks, freight containers, cooling towers, broken ruins, neon marquee, …).
     const m = modelFor(it.c);
-    if (m) drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now);
+    if (m) drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face);
     else drawBuilding(ctx, cam, it.dx, it.dy, fh, h, arch, it.seed, night, alpha, now);
   }
 }

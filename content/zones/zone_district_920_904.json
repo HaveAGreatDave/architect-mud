@@ -5,7 +5,7 @@
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
   "created_by": "zone-planner",
-  "description": "[PLANNER STUB] The face of Embassy Hotel & Bar.",
+  "description": "The face of Embassy Hotel & Bar.",
   "exits": {
     "in": "zone_residential_lobby"
   },

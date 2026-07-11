@@ -1069,14 +1069,11 @@ function renderMapGrid() {
   const grid = document.getElementById('map-grid');
   const legend = document.getElementById('map-legend');
 
-  // Regional view: show only the district you're in (hide the neighbouring ones) so it
-  // reads as "full zoom on this district", centred in the window. Zone/interior show
-  // everything as-is. Falls back to all tiles if the current tile carries no district.
+  // Regional view: show the whole contiguous landmass you're standing on (the server's
+  // landmassTiles already scopes it to your cluster, hiding far-off orphan geometry).
+  // Land-use tint colours the neighbourhoods; we no longer filter to a single land-use
+  // category, which shredded any region spanning multiple funcs into blank cells.
   let tiles = mapState.tiles;
-  if (mode === 'regional') {
-    const curDistrict = tiles.find(t => t.isCurrent)?.district;
-    if (curDistrict) tiles = tiles.filter(t => t.district === curDistrict);
-  }
 
   if (!tiles.length) {
     grid.textContent = '(no map data)';

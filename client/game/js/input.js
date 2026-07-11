@@ -96,6 +96,9 @@ export function initInput({ saveOrigin, notify } = {}) {
     // The flight sim owns the keyboard (A/Z throttle, Q/E/S views, R/F flaps, …) — don't
     // yank focus into the command box on those single-key presses.
     if (isFlightSimActive()) return;
+    // WASD keyboard movement owns the keys while armed — don't pull focus into
+    // the command box (the window-capture handler in main.js drives movement).
+    if (state.wasdMove) return;
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
       input.focus();
     }

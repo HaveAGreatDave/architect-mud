@@ -2029,11 +2029,9 @@ function _mapTileSym(t) {
 
 function renderMap(d) {
   let tiles = d.tiles || [];
-  // Regional: show only the district you're in (hide neighbours), like the full map.
-  if ((d.mode || 'zone') === 'regional') {
-    const cd = tiles.find(t => t.isCurrent)?.district;
-    if (cd) tiles = tiles.filter(t => t.district === cd);
-  }
+  // Regional: show the whole contiguous landmass (server landmassTiles already scopes
+  // it to your cluster), like the full map. We no longer filter to a single land-use
+  // category, which shredded multi-func regions into blank cells.
   const mode = d.mode || 'zone';
   const inside = !!d.insideInterior;
 

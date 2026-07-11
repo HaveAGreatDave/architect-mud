@@ -615,6 +615,41 @@ if (locDpad) {
 	wireDpadPressRelease(locDpad);
 }
 
+// WASD keyboard movement — the location d-pad's centre button arms a mode where
+// W/A/S/D drive N/W/S/E without opening the command box. Desktop only (the
+// button lives in the desktop sidebar's loc-dpad). While armed the mode "takes
+// focus": we blur the command input and a window-capture keydown intercepts the
+// movement keys before the auto-focus handler in input.js can grab them. Click
+// the command box to type — that unarms nothing, but an editable target lets the
+// keys through so you can still write commands.
+const wasdBtn = document.getElementById("loc-dpad-wasd");
+if (wasdBtn) {
+	const WASD = { w: "n", a: "w", s: "s", d: "e" };
+	const cmdInput = document.getElementById("cmd-input");
+	const setArmed = (on) => {
+		state.wasdMove = on;
+		wasdBtn.setAttribute("aria-pressed", on ? "true" : "false");
+		if (on) cmdInput?.blur();
+	};
+	wasdBtn.addEventListener("click", () => setArmed(!state.wasdMove));
+	window.addEventListener(
+		"keydown",
+		(e) => {
+			if (!state.wasdMove) return;
+			if (e.ctrlKey || e.metaKey || e.altKey) return;
+			// Let real text fields (command box, chat, tablet, dialogs) type normally.
+			const tag = e.target.tagName;
+			if (tag === "INPUT" || tag === "TEXTAREA" || e.target.isContentEditable) return;
+			const dir = WASD[e.key.toLowerCase()];
+			if (!dir) return;
+			e.preventDefault();
+			e.stopImmediatePropagation();
+			sendCmd(dir);
+		},
+		true,
+	);
+}
+
 // Poker command bar — buttons live in the area pane (re-rendered on every poker
 // update, so this is delegated). data-cmd relays the real verb (labels may be
 // aliases, e.g. "sit"→seat, "watch"→spectate); data-fill is an amount verb

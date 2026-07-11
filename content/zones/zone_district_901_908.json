@@ -5,7 +5,7 @@
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
   "created_by": "zone-planner",
-  "description": "[PLANNER STUB] The face of Second Skin.",
+  "description": "The face of Second Skin.",
   "exits": {
     "in": "zone_drum_shop"
   },

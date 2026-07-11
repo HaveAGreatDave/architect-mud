@@ -5,7 +5,7 @@
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
   "created_by": "zone-planner",
-  "description": "[PLANNER STUB] The face of The Cherry Pit.",
+  "description": "The face of The Cherry Pit.",
   "exits": {
     "in": "zone_mq_cherry_floor"
   },

@@ -4459,6 +4459,37 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	border-color: var(--accent);
 }
 
+/* Centre cell of the location d-pad: toggles WASD keyboard movement (desktop). */
+.dpad-wasd-btn {
+	padding: 0;
+	background: transparent;
+	border: 1px solid transparent;
+	color: var(--text-dim);
+	opacity: 0.5;
+	font-family: var(--font-mono);
+	font-size: 15px;
+	line-height: 1;
+	border-radius: 2px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
+}
+.dpad-wasd-btn:hover {
+	opacity: 1;
+	color: var(--accent);
+	border-color: var(--accent);
+}
+/* Armed — WASD keys now drive movement and hold keyboard focus. */
+.dpad-wasd-btn[aria-pressed="true"] {
+	opacity: 1;
+	color: var(--accent);
+	background: var(--accent-dim);
+	border-color: var(--accent);
+}
+
 .dpad-btn {
 	width: 34px;
 	height: 34px;

@@ -5,7 +5,7 @@
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
   "created_by": "zone-planner",
-  "description": "[PLANNER STUB] The face of KSAB-TV Studio Stage.",
+  "description": "The face of KSAB-TV Studio Stage.",
   "exits": {
     "in": "zone_studio_1782953094650"
   },
