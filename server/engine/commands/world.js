@@ -1,6 +1,7 @@
 import { query, logActivity } from '../../models/db.js';
-import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, getZoneDoors, spawnEnemySync, world } from '../world.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, getZoneDoors, spawnEnemySync, world, getApartment } from '../world.js';
 import { getLockTagPublic } from './doors.js';
+import { isApartmentZone, getBuildingName, releaseApartment, findNearestVacantApartment, rehomeNpc, clearNpcResidence } from '../apartments.js';
 import { sendToPlayer } from '../messaging.js';
 import { getZonePowerStatus, recomputePower, recalcZoneLoad } from '../environment.js';
 import { getPlayerSkills, SKILLS } from '../skills.js';
@@ -899,6 +900,69 @@ async function cmdReincarnate(args, player) {
   return { type:'output', message:`${target.handle} has been reincarnated — wiped to a fresh account, waiting in The Inbetween.${live ? ' (was online — kicked to reconnect clean)' : ''}` };
 }
 
+// Admin eviction. Turns a PLAYER out of every personal rental they hold, or an NPC
+// out of their home unit — freeing the unit(s) for the next tenant. An evicted NPC
+// immediately seeks the nearest vacant apartment (walking distance, so usually one in
+// the same building) and moves in, re-registering it as home; if the whole map is full
+// they're turned out to the residential lobby. Target is named globally (like sethome),
+// player first (resolved by handle), then NPC (by name, exact before unique partial).
+async function cmdEvict(args, player) {
+  if (player.role !== 'admin') return { type:'error', message:"You don't have the clearance for that." };
+  const name = args.join(' ').trim();
+  if (!name) return { type:'error', message:'Usage: evict <player or npc>' };
+
+  // A player's rental agreement lives in the `apartments` ledger keyed by owner_id.
+  const { rows: pRows } = await query('SELECT id, handle, home_zone FROM players WHERE LOWER(handle)=$1 LIMIT 1', [name.toLowerCase()]);
+  if (pRows.length) {
+    const target = pRows[0];
+    const { rows: owned } = await query(
+      "SELECT zone_id FROM apartments WHERE owner_id=$1 AND COALESCE(owner_type,'player')='player'", [target.id]);
+    if (!owned.length) return { type:'error', message:`${target.handle} isn't renting anywhere.` };
+    const freed = [];
+    for (const { zone_id } of owned) {
+      const apt = getApartment(zone_id);
+      if (apt) await releaseApartment(apt, zone_id);
+      freed.push(getZone(zone_id)?.name || zone_id);
+      // Drop their home bind if it pointed at a unit they just lost, so `home` can't
+      // route them back to a place that's no longer theirs.
+      if (target.home_zone === zone_id) {
+        await query('UPDATE players SET home_zone=NULL WHERE id=$1', [target.id]);
+        const live = world.players.get(target.id);
+        if (live) live.home_zone = null;
+      }
+    }
+    logActivity('admin_cmd', player.handle, null, `evict ${target.handle} (${freed.length} unit${freed.length===1?'':'s'})`);
+    return { type:'output', message:`Evicted ${target.handle} from ${freed.join(', ')}. ${freed.length>1?'Those units are':'That unit is'} available again.` };
+  }
+
+  // Otherwise an NPC, matched by name — exact match first, then a single partial.
+  const npcs = [...world.npcs.values()];
+  const lname = name.toLowerCase();
+  let matches = npcs.filter(n => (n.name || '').toLowerCase() === lname);
+  if (!matches.length) matches = npcs.filter(n => (n.name || '').toLowerCase().includes(lname));
+  if (!matches.length) return { type:'error', message:`No player or NPC called "${name}".` };
+  if (matches.length > 1)
+    return { type:'error', message:`"${name}" matches ${matches.length} NPCs — be more specific: ${matches.slice(0, 6).map(n => n.name).join(', ')}${matches.length > 6 ? '…' : ''}.` };
+  const npc = matches[0];
+
+  const oldZoneId = npc.home_zone;
+  if (!oldZoneId || !isApartmentZone(getZone(oldZoneId)))
+    return { type:'error', message:`${npc.name} doesn't have an apartment to be evicted from.` };
+  const oldName = getZone(oldZoneId)?.name || oldZoneId;
+
+  const newZoneId = await findNearestVacantApartment(oldZoneId, oldZoneId);
+  if (!newZoneId) {
+    await clearNpcResidence(npc);
+    logActivity('admin_cmd', player.handle, null, `evict ${npc.name} → no vacancy`);
+    return { type:'output', message:`Evicted ${npc.name} from ${oldName}. No vacant unit anywhere — turned out to the residential lobby. ${oldName} is available again.` };
+  }
+  await rehomeNpc(npc, newZoneId);
+  const newName = getZone(newZoneId)?.name || newZoneId;
+  const building = getBuildingName(getZone(newZoneId));
+  logActivity('admin_cmd', player.handle, null, `evict ${npc.name}: ${oldZoneId} → ${newZoneId}`);
+  return { type:'output', message:`Evicted ${npc.name} from ${oldName} — it's available again. ${npc.name} moved into the nearest vacancy, ${newName}${building ? ` (${building})` : ''}, and now lives there.` };
+}
+
 async function applyLightSwitch(nameStr, dir, player, broadcast) {
   if (!nameStr) return { type:'error', message:'Specify a light name.' };
   const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${nameStr}%`]);
@@ -1011,6 +1075,7 @@ const ADMIN_COMMANDS = [
   { verb:'corpses',         args:'',                       desc:'List every corpse currently on the map.',            roles:['admin'],                              cat:'World' },
   { verb:'purge',           args:'',                       desc:'Wipe your wanted stars + heat and combust every cop in the room.', roles:['admin'],                 cat:'World' },
   { verb:'sethome',         args:'<player> [zone|here]',   desc:"Force-set a player's home zone (default: your current zone).",     roles:['admin'],                 cat:'World' },
+  { verb:'evict',           args:'<player or npc>',        desc:'End a tenant\'s lease and free the unit. Evicted NPCs move into the nearest vacant apartment.', roles:['admin'],       cat:'World' },
   { verb:'reincarnate',     args:'<player>',               desc:'Wipe a player to a brand-new account, dropped into The Inbetween. Irreversible.', roles:['admin'],       cat:'World' },
   { verb:'lettherebelight', args:'',                       desc:'Add a lit, powered overhead fixture to this room.',  roles:['admin','dev'],                        cat:'World' },
   { verb:'spawn',           args:'<item id> [zone|here]',  desc:'Spawn an item (default: your current zone).',        roles:['admin','dev'],                        cat:'Spawning' },
@@ -1165,6 +1230,7 @@ export const handlers = {
   spawn:    (args, raw, player, broadcast) => cmdSpawn(args, player, broadcast),
   spawnenemy: (args, raw, player, broadcast) => cmdSpawnEnemy(args, player, broadcast),
   sethome:  (args, raw, player) => cmdAdminSetHome(args, player),
+  evict:    (args, raw, player) => cmdEvict(args, player),
   reincarnate: (args, raw, player) => cmdReincarnate(args, player),
   admin:    (args, raw, player) => cmdAdmin(player),
 };

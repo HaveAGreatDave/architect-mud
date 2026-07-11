@@ -350,7 +350,11 @@ async function cmdSummon(args, raw, player) {
 // "take a seat first" gate for symmetry.
 async function cmdEvict(args, raw, player) {
   const t = tableForPlayer(player);
-  if (!t || t.seatedIndex(player.id) < 0) return { type: 'error', message: 'Take a seat first, then evict a gambler.' };
+  // `evict` is also the admin housing command (engine world.js). When the player
+  // isn't at a poker table at all, this isn't a poker eviction — return undefined so
+  // dispatch falls through to that engine handler instead of eating the verb here.
+  if (!t) return undefined;
+  if (t.seatedIndex(player.id) < 0) return { type: 'error', message: 'Take a seat first, then evict a gambler.' };
   if (t.phase === 'InProgress') return { type: 'error', message: "You can't evict anyone mid-hand." };
 
   const bots = t.seats.filter(s => s && s.isBot);

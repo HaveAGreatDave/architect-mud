@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "A door clicks shut down the hall and a deadbolt turns over.",
+    "Below, a glass breaks against the bar and the murmur doesn't even pause."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#c9a884",
+  "color": null,
+  "created_by": null,
+  "description": "The second-floor landing, one flight up from the bar's warmth and racket. The hotel's carpet runner still holds on up here — threadbare, cigarette-burned, but present, the last floor before it gives out to bare concrete above. Four doors open off the stairwell, brass numbers screwed to each: 2A through 2D. The iron railing is cold under your hand, and the smell of Lowry's grill rises through the boards with the low murmur of the bar.",
+  "exits": {
+    "down": "zone_residential_lobby",
+    "east": "zone_apt_3",
+    "north": "zone_apt_1",
+    "south": "zone_apt_2",
+    "up": "zone_embassy_floor2",
+    "west": "zone_apt_4"
+  },
+  "flags": {
+    "intro_lore": "One flight up from Lowry's, the Embassy still pretends to be a hotel — carpet underfoot, numbers square in their screws, a landing that hasn't quite given up. Four doors, four locks, four small holdouts against the basin outside.",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_embassy_floor_2nd",
+  "map_id": "map_interior_zone_residential_lobby",
+  "marker": null,
+  "name": "Embassy Hotel & Bar — Second Floor Landing",
+  "parent_zone": "zone_residential_lobby",
+  "updated_at": "1783800000"
+}

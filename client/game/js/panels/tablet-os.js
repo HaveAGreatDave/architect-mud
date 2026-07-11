@@ -19,7 +19,7 @@ import { sendCmdSilent } from '../net.js';
 import { toggleAutoWalk, isAutoWalking, setGpsRoute, routeBetween, getTracePath, FUNC_LEGEND, POI_LEGEND } from './minimap.js';
 import { state } from '../state.js';
 import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES, DEFAULT_AUDIO_SETTINGS } from '/shared/settings.js';
-import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpdate, getOnlinePlayers, refreshOnlinePlayers, ensureChatConversation, leaveChatConversation, removeCorpChannels, getClosedChatTabs, reopenChatTab } from './whisper.js';
+import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpdate, getOnlinePlayers, refreshOnlinePlayers, ensureChatConversation, leaveChatConversation, removeCorpChannels, getClosedChatTabs, reopenChatTab, getMotdHtml } from './whisper.js';
 import { showPromptDialog, showConfirmDialog, showSelectDialog } from './confirm.js';
 import { parseMarkup } from '../markup.js';
 import { openMusicPlayerPanel } from './musicplayer.js';
@@ -390,7 +390,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-opts { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
     /* Label-less audio toggles: the on/off icons carry the meaning (tooltip'd),
        so the row is a centered pair of larger buttons instead of a labelled row. */
-    #tablet-os-overlay .tos-set-row.tos-iconrow { justify-content:center; }
+    #tablet-os-overlay .tos-set-row.tos-iconrow { justify-content:center; gap:22px; flex-wrap:wrap; }
     #tablet-os-overlay .tos-set-row.tos-iconrow .tos-opts { justify-content:center; flex:0 0 auto; }
     #tablet-os-overlay .tos-set-row.tos-iconrow .tos-opt { min-width:44px; font-size:16px; padding:6px 12px; }
     #tablet-os-overlay .tos-opt { cursor:pointer; min-width:30px; text-align:center; padding:5px 9px; border-radius:5px; font-size:13px; line-height:1.1;
@@ -1756,13 +1756,18 @@ function renderTabletSettings() {
     <div class="tos-opt${soundOn ? ' selected' : ''}" data-set-sound="on" title="Sound On">🔊 On</div>
     <div class="tos-opt${!soundOn ? ' selected' : ''}" data-set-sound="off" title="Sound Off">🔇 Off</div>
   </div></div>`;
-  const audioToggleRows = TOS_AUDIO_TOGGLES.map(a => {
+  // Two compact rows of paired audio toggles above the sliders — icons only (meaning
+  // carried by the tooltip): row 1 = Music / SFX, row 2 = TV / Mute-When-Hidden.
+  const audioToggleCell = a => {
     const on = !!audio[a.key];
-    return `<div class="tos-set-row tos-iconrow"><div class="tos-opts">
+    return `<div class="tos-opts" title="${esc(a.label)}">
       <div class="tos-opt${on ? ' selected' : ''}" data-set-audio="${esc(a.key)}" data-set-audio-val="true" title="${esc(a.label)} On">${esc(a.on)}</div>
       <div class="tos-opt${!on ? ' selected' : ''}" data-set-audio="${esc(a.key)}" data-set-audio-val="false" title="${esc(a.label)} Off">${esc(a.off)}</div>
-    </div></div>`;
-  }).join('');
+    </div>`;
+  };
+  const audioToggleRows = [[0, 1], [2, 3]]
+    .map(pair => `<div class="tos-set-row tos-iconrow">${pair.map(i => audioToggleCell(TOS_AUDIO_TOGGLES[i])).join('')}</div>`)
+    .join('');
   const volRows = TOS_VOL_SLIDERS.map(v =>
     `<div class="tos-set-row"><span class="tos-set-label">${esc(v.g)} ${esc(v.label)}</span>
       <span><input type="range" class="tos-slider" data-set-vol="${esc(v.key)}" min="0" max="1" step="0.05" value="${audio[v.key] ?? 0}">
@@ -3104,11 +3109,11 @@ function renderChatUsers() {
 function renderChat() {
   const tabs = getChatTabs();
   const onUsers = _chatTab === CHAT_USERS_TAB;
-  // Keep the selection valid; default to the corp channel, else first channel,
-  // else first tab (the Users hub is never auto-selected — it's opt-in).
+  // Keep the selection valid; default to the #system MOTD tab, else first
+  // channel, else first tab (the Users hub is never auto-selected — it's opt-in).
   if (!onUsers && (!_chatTab || !tabs.some(t => t.key === _chatTab))) {
-    const corp = tabs.find(t => t.kind === 'channel' && t.key.startsWith('#corp:'));
-    _chatTab = (corp || tabs.find(t => t.kind === 'channel') || tabs[0])?.key || null;
+    const sys = tabs.find(t => t.key === '#system');
+    _chatTab = (sys || tabs.find(t => t.kind === 'channel') || tabs[0])?.key || null;
   }
   const active = onUsers ? null : (tabs.find(t => t.key === _chatTab) || null);
   if (active) markChatRead(active.key); // we're showing it — clear its unread
@@ -3128,11 +3133,15 @@ function renderChat() {
   // .tos-motd wrapper — no chat-bubble chrome — so fitMotd() can scale the full
   // border down to the tablet's width after layout (render()).
   const isSystem = active && active.key === '#system';
+  // Always show the full Large ("big") MOTD in the tablet, whatever size the
+  // floating chat panel is set to; fitMotd() scales it to the tablet's width.
+  // Fall back to the stored #system message if the MOTD data isn't loaded yet.
   const motdMsg = isSystem ? (msgs.find(m => m.isHtml) || msgs[0]) : null;
+  const motdHtml = isSystem ? (getMotdHtml('big') || motdMsg?.message) : null;
   const logInner = !active
     ? '<div class="tos-empty">No conversations yet. Open <strong>Users</strong> to message someone, or join a corp for its channel.</div>'
     : isSystem
-      ? (motdMsg ? `<div class="tos-motd">${motdMsg.isHtml ? motdMsg.message : esc(motdMsg.message)}</div>` : '<div class="tos-empty">No message of the day.</div>')
+      ? (motdHtml ? `<div class="tos-motd">${motdHtml}</div>` : '<div class="tos-empty">No message of the day.</div>')
       : (msgs.length ? msgs.map(renderChatMsg).join('') : '<div class="tos-empty">No messages yet.</div>');
   const log = `<div class="tos-chat-log${isSystem ? ' tos-motd-log' : ''}" id="tos-chat-log">${logInner}</div>`;
 

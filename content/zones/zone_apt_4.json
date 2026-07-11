@@ -9,7 +9,7 @@
   "created_by": null,
   "description": "A larger unit, big enough to actually pace in. The previous tenant left graffiti on the inside of the door: COUNT YOUR DAYS.",
   "exits": {
-    "east": "zone_residential_lobby"
+    "east": "zone_embassy_floor_2nd"
   },
   "flags": {
     "is_apartment": true,
@@ -17,11 +17,11 @@
   },
   "grid_x": -1,
   "grid_y": 0,
-  "grid_z": 0,
+  "grid_z": 1,
   "id": "zone_apt_4",
   "map_id": "map_interior_zone_residential_lobby",
   "marker": null,
-  "name": "Unit 1D",
+  "name": "Unit 2D",
   "parent_zone": "zone_residential_lobby",
   "updated_at": "1783111686"
 }

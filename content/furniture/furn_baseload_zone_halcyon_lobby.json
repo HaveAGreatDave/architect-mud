@@ -1,0 +1,14 @@
+{
+  "description": "A brushed-steel environmental console recessed into the lobby wall, its readouts glowing a placid blue. It runs the tower's filtered, climate-perfect air and the recessed lobby lighting around the clock — a constant, billable draw the Halcyon is only too happy to meter.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_baseload_zone_halcyon_lobby",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "environmental console",
+  "object_type": "fixture",
+  "power_draw_kw": 3,
+  "price": 0,
+  "zone_id": "zone_halcyon_lobby"
+}

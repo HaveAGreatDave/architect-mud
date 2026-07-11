@@ -34,7 +34,7 @@
 // }
 
 import { isWeatherFxEnabled } from './weather-fx.js';
-import { aircraftFaces, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb } from './aircraft3d.js';
+import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX } from './aircraft3d.js';
 
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
 let _obsHgt = 0;                // current view altitude fraction — drawers show more of a roof/top as it climbs
@@ -60,7 +60,7 @@ export const RENDER_TUNE = {
   climbLift: 7.0,     // eye-height ADDED per unit altitude: EH = max(floor, eh + climbLift*height). ~2 by 500ft → clears buildings
   tile: 0.85,         // Mode-7 floor tile frequency (higher = smaller terrain tiles)
   pixel: 4,           // Mode-7 render downscale → pixel chunkiness (higher = blockier/retro)
-  bldgH: 3.0,         // building height scale (from the user's tuned screenshot)
+  bldgH: 1.40,        // building height scale (from the user's tuned screenshot)
   bldgStretch: 5.0,   // extra VERTICAL stretch on top of bldgH — makes buildings stand tall instead of pancakes; live 'Vert stretch' slider
   bldgFoot: 1.0,      // building footprint (width) scale — 1.0 fills most of the tile (a building owns its whole zone)
   texRes: 1.0,        // building texture resolution (higher = crisper, lower = chunkier)
@@ -68,6 +68,11 @@ export const RENDER_TUNE = {
   rwl: 3.2,           // runway length (tiles)
   rwyRecede: 4.0,     // how strongly climbing pushes the runway down/under
   fov: 0.82,          // horizontal FOV / focal length (<1 pulls the scenery in toward the vanishing point = a tighter "tunnel"; 1 = the old wide spread). Pure render — collision math is world-space and unaffected.
+  treeDensity: 2.0,   // trees per grass tile (×) — 0 = none, live 'Trees' slider
+  treeForest: 0.9,    // forest-clump threshold: patches with an area-bias above this go densely wooded; lower = more/bigger forests
+  chaseBack: 1.7,     // EXTERNAL chase cam: how many tiles behind the craft the camera sits
+  chaseUp: 0.42,      // EXTERNAL chase cam: world-z the camera sits above the craft (higher = looks down more)
+  chaseSink: 0.12,    // EXTERNAL view: drop the model this much (world-z) so it sits ON the ground instead of floating above the runway
 };
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -123,13 +128,35 @@ const airportCfg = (theme) => AIRPORT[theme] || AIRPORT.default;
 // ── Biome ground tint (the near/mid ground colour when flying over a district) ──
 // Not the flat map colours — the material the ground reads as from the air: arid
 // desert over the badlands, dark water over the bay, ashen concrete over industry.
+// The old grey urban/industrial districts now read as GRASS (green) — bare terrain between
+// buildings is turf, not concrete. Roads (asphalt) and the airport are painted opaquely on
+// top of this, so they're unaffected; only the base ground turns green. Kept as-is: water
+// (blue), badlands (desert tan), parkland (already green), airport (grey ramp). Slight
+// per-district variation so a whole city isn't one flat green.
 const BIOME_GROUND = {
-  badlands: [150, 112, 72], water: [34, 62, 88], docks: [58, 70, 80],
-  ruins: [86, 82, 58], oldcoldwater: [58, 54, 50], industrial: [72, 66, 58],
-  infra: [70, 74, 80], freight: [74, 78, 84], marquee: [62, 52, 66],
-  citycore: [58, 60, 66], parkland: [58, 92, 54], uptown: [56, 62, 74], civic: [66, 66, 60],
+  badlands: [150, 112, 72], water: [34, 62, 88], docks: [54, 90, 54],
+  ruins: [78, 98, 56], oldcoldwater: [56, 94, 52], industrial: [52, 86, 48],
+  infra: [54, 92, 50], freight: [54, 90, 50], marquee: [58, 96, 54],
+  citycore: [56, 96, 52], parkland: [58, 92, 54], uptown: [60, 104, 56], civic: [58, 98, 54],
   airport: [60, 64, 60],
 };
+// Biomes whose bare ground reads as GRASS — the fine vegetation mottle instead of the
+// concrete checker, so the green above lands as turf. Kept OFF: water, desert badlands, and
+// the airport ramp (stays concrete grey).
+const GRASS_BIOMES = new Set(['parkland', 'citycore', 'uptown', 'civic', 'infra', 'freight',
+  'marquee', 'oldcoldwater', 'industrial', 'ruins', 'docks']);
+// Grey asphalt apron colour + a test for "next to a runway": a grassed district tile that
+// touches an airfield/field surface stays concrete-grey (and grows no trees), so the paved
+// area around a strip reads as tarmac, not turf, even though the wider district is green.
+const APRON_GREY = [60, 64, 60];
+function nearField(map, rx, ry) {
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dy) continue;
+    const row = map[ry + dy], c = row && row[rx + dx];
+    if (c && (c.kind === 'field' || c.biome === 'airport')) return true;
+  }
+  return false;
+}
 
 function sceneFor(id, W, H) {
   let st = _scenes.get(id);
@@ -193,12 +220,6 @@ export function paintWindshield(id, view) {
   // (heading tape, airport tags) always reads true heading. The passenger cabin (side)
   // is a fixed 90° off the nose — always perpendicular to the direction of travel, even
   // down the runway on takeoff. Everything else is shared.
-  const yawOff = v.viewYaw || (v.side ? 90 : 0);
-  const vw = yawOff ? { ...v, heading: (v.heading || 0) + yawOff } : v;
-  const W = cw, H = ch, speed = clamp(v.speed || 0, 0, 1), height = clamp(v.height || 0, 0, 1);
-  const phase = v.phase || 'cruise';
-  const wx = (v.weather || 'clear').toLowerCase();
-  const sky = skyAt(v.hour == null ? 12 : v.hour);
   const side = !!v.side;                                    // passenger side window (looks 90° off the nose)
   // "Framed" = the view is seen THROUGH a window punched in the hull (passenger cabin
   // or the pilot's Q/E/S side-look), not the forward windscreen. Forward-only canopy
@@ -206,7 +227,17 @@ export function paintWindshield(id, view) {
   // suppressed so the scene reads as a porthole, and drawWindowFrame masks the hull skin.
   const framed = side || !!v.windowClass;
   const ext = !!v.external && !framed;   // external chase view: a real camera behind + above the craft
-  const chase = ext ? { back: 1.7, up: 0.42 } : null;   // tiles behind / world-z above the craft
+  // External orbit: hold the middle mouse to spin the chase camera around the craft. Adding it to
+  // the VIEW heading rotates the world + camera around the aircraft, while the model keeps its own
+  // real heading (drawn below), so we see the plane from the orbit angle. Snaps back to behind on release.
+  const extOrbit = ext ? (v.extYaw || 0) : 0;
+  const yawOff = (v.viewYaw || (v.side ? 90 : 0)) + extOrbit;
+  const vw = yawOff ? { ...v, heading: (v.heading || 0) + yawOff } : v;
+  const W = cw, H = ch, speed = clamp(v.speed || 0, 0, 1), height = clamp(v.height || 0, 0, 1);
+  const phase = v.phase || 'cruise';
+  const wx = (v.weather || 'clear').toLowerCase();
+  const sky = skyAt(v.hour == null ? 12 : v.hour);
+  const chase = ext ? { back: RENDER_TUNE.chaseBack, up: RENDER_TUNE.chaseUp } : null;   // tiles behind / world-z above the craft (tunable)
   // On the deck (ground/takeoff/landing) we paint a real, terrain-themed airport.
   const onDeck = phase === 'ground' || phase === 'takeoff' || phase === 'landing';
   // Continuous ground↔air crossfade weight (0 = fully on the deck, 1 = fully airborne).
@@ -259,6 +290,27 @@ export function paintWindshield(id, view) {
   else st.horizon += (rawHorizon - st.horizon) * Math.min(1, dt * 5);
   const horizonY = st.horizon;
   const bankRad = (v.bank || 0) * Math.PI / 180;
+
+  // ── Cinematic-flourish placement + strength scalars ───────────────────────────
+  // The sun's on-screen position (same placement the sky disc uses), hoisted so the
+  // god-rays, glare, and lens flare all read from one source. sunSky* is the pre-bank
+  // world frame (used inside the banked block); sunFlare* is that point re-projected
+  // through the bank + turbulence shake into screen space (used after the world restore).
+  const _sunT = clamp((hour - 6) / 12, 0, 1);
+  const sunSkyX = clamp(_sunT, 0.08, 0.92) * W;
+  const sunSkyY = horizonY * (0.30 + 0.35 * Math.sin(_sunT * Math.PI));
+  const _cosB = Math.cos(bankRad), _sinB = Math.sin(bankRad), _sdx = sunSkyX - W / 2, _sdy = sunSkyY - H / 2;
+  const sunFlareX = W / 2 + (_sdx * _cosB + _sdy * _sinB) + shX;
+  const sunFlareY = H / 2 + (-_sdx * _sinB + _sdy * _cosB) + shY;
+  const _clearish = wx === 'clear' || wx === 'cloudy';
+  const glareStr = (sunUp && !framed && _clearish) ? clamp(0.32 + (1 - sunElev) * 0.7, 0, 1) * (wx === 'cloudy' ? 0.45 : 1) : 0;
+  const rayStr   = (sunUp && !framed && _clearish && worldBlend > 0.02) ? clamp((0.55 - sunElev) / 0.55, 0, 1) * (wx === 'cloudy' ? 0.5 : 1) : 0;
+  const auroraOn = sky.night > 0.4 && (wx === 'clear' || wx === 'ash') && !framed;
+  const cockpitGlow = clamp(sky.night * 0.85 + (sunUp && sunElev < 0.28 ? 0.22 : 0), 0, 1);
+  const _hotTheme = !!airport && (v.airport === 'city' || v.airport === 'slag' || v.airport === 'wastes');
+  const shimmerStr = (onDeck && _hotTheme && sunElev > 0.35 && !framed) ? clamp((sunElev - 0.35) / 0.5, 0, 1) : 0;
+  const _gTurn = clamp((Math.abs(v.bank || 0) - 35) / 45, 0, 1);
+  const vaporStr = (!framed && !ext && worldBlend > 0.5) ? clamp(Math.max(speed * 0.55 - 0.22, _gTurn), 0, 1) : 0;
   // Ground palette: airport terrain colours on the deck; airborne, tint the sky's
   // ground band toward the biome you're flying over (desert tan, bay blue, urban grey).
   let gTop = airport ? mix(airport.g1, [0, 0, 0], sky.night * 0.45) : sky.g1;
@@ -267,6 +319,14 @@ export function paintWindshield(id, view) {
     const t = mix(BIOME_GROUND[v.biomeBelow], [0, 0, 0], sky.night * 0.5);
     gTop = mix(gTop, t, 0.6); gBot = mix(gBot, mix(t, [0, 0, 0], 0.35), 0.6);
   }
+
+  // Backstop: a plain sky→ground wash under the whole canvas, so a steep bank (external chase
+  // view especially) never exposes the near-black canvas backing in a corner the rotated,
+  // oversized sky/ground rects don't quite reach. Normally fully painted over — only the last
+  // corner sliver ever shows it, and a rough sky/ground colour there beats a black wedge.
+  { const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, rgb(sky.top)); bg.addColorStop(clamp(horizonY / H, 0.05, 0.95), rgb(sky.hor)); bg.addColorStop(1, rgb(gBot));
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H); }
 
   // World (banks with the aircraft) — draw oversized so rotation never reveals edges.
   // A turbulence shudder (shX/shY) rides on the translate so the whole scene trembles in wind.
@@ -285,6 +345,8 @@ export function paintWindshield(id, view) {
     for (const s2 of st.stars) { const sy = s2.y * horizonY; if (sy > horizonY) continue; const tw = 0.5 + 0.5 * Math.sin(now * 0.002 * s2.m + s2.x * 30); ctx.globalAlpha = sky.night * s2.m * tw; ctx.fillRect(s2.x * W, sy, 1.4, 1.4); }
     ctx.globalAlpha = 1;
   }
+  // Aurora / ash-glow curtains high in the night sky.
+  if (auroraOn) drawAurora(ctx, W, horizonY, now, sky, wx);
   // Sun / moon.
   if (sky.sun || sky.night > 0.4) {
     const sunX = clamp((( (v.hour == null ? 12 : v.hour) - 6) / 12), 0.08, 0.92) * W;
@@ -375,6 +437,10 @@ export function paintWindshield(id, view) {
     ctx.restore();
   }
 
+  // Volumetric god-rays fanning down from a low sun (dawn/dusk); buildings drawn below
+  // paint over them, so the rays read as sitting behind the skyline.
+  if (rayStr > 0.01) drawGodRays(ctx, W, H, horizonY, sunSkyX, sunSkyY, sky.sun, rayStr);
+
   // Atmospheric precipitation (snow/rain/ash in the air) is drawn HERE — after the sky
   // and ground but BEFORE the world objects — so buildings pass in front of it and it
   // reads as falling out in the scene, not plastered on the glass ("snowing inside").
@@ -397,37 +463,45 @@ export function paintWindshield(id, view) {
     // diagonal instead of the strip just shrinking straight up in place.
     drawGroundRunway(ctx, W, H, horizonY, depthGround, { roll: v.roll || 0, alt: height }, st.scroll, sky.night, reveal);
   }
+  // Enter for the PILOT's own scene always (even parked on the deck, worldBlend 0) so her shadow
+  // and external-chase model still draw — and for the PASSENGER window only once the Mode-7 world
+  // is fading in (worldBlend), same as before. The heavy WORLD layers (ground surfaces, buildings,
+  // traffic) stay gated by worldBlend; only the own-ship shadow/model escape that gate.
   if (phase === 'vtol') {
     drawPad(ctx, W, H, horizonY, height, v.drift || 0);
-  } else if (worldBlend > 0.02) {
+  } else if (!framed || worldBlend > 0.02) {
     _obsHgt = clamp(v.height || 0, 0, 1);
-    // Textured 3-D world through the Mode-7 camera: roads + runway on the ground,
-    // then extruded building boxes on top (depth-sorted). Fixes the flat-billboard
-    // "strange perspective" and pop-in. Fades in with worldBlend so it crossfades
-    // against the airport scenery above instead of popping in the instant the
-    // ground/airborne phase flips.
     const cam = makeCam(W, horizonY, focal, vw, chase);
-    ctx.save(); ctx.globalAlpha = worldBlend;
-    drawGroundSurfaces(ctx, cam, vw, sky, now);
-    ctx.restore();
-    // NOTE: no separate runway strip is drawn here — the airfield's own ground tiles (rendered
-    // by drawGroundSurfaces as pale runway concrete) ARE the runway, and their count marks its
-    // length (1 tile = an average strip, 2 = twice as long, …). Painting drawRunwayTex on top
-    // doubled it up ("runway over runway"), so it's gone; the landing GUIDE still uses the
-    // runway data below.
-    // Aircraft's own shadow on the ground (cast along the sun) — reads as an altitude cue on
-    // low passes/approach when the sun's behind you; culled otherwise.
-    if (sunFx.elev > 0.02 && !framed) drawAircraftShadow(ctx, cam, height, sunFx, worldBlend);
-    drawWorldObjects(ctx, cam, vw, sky, now, sunFx);
-    if (sky.night > 0.35) drawSearchlights(ctx, cam, vw, now, worldBlend);   // sweeping beams from restricted (no-fly) blocks at night
-    if (!framed) drawBirds(ctx, W, H, horizonY, vw, st, dt, speed, sky, now, worldBlend);   // ambient flock scattering as you pass
-    if (vw.landGuide && vw.runway) drawGuideBoxes(ctx, cam, vw, now);
-    if (vw.contacts) drawContacts(ctx, cam, vw, W, H);   // air-to-air traffic (Phase A: see other craft)
-    if (vw.apTarget) drawAirportTarget(ctx, cam, vw, W, H, now);   // target-field ring / Home waypoint
+    // Textured 3-D world through the Mode-7 camera (roads/runway ground + extruded buildings),
+    // faded in with worldBlend so it crossfades against the airport scenery above. On the deck
+    // (worldBlend 0) it's the flat airport scenery that stands in, so these layers stay dark.
+    if (worldBlend > 0.02) {
+      ctx.save(); ctx.globalAlpha = worldBlend;
+      drawGroundSurfaces(ctx, cam, vw, sky, now);
+      ctx.restore();
+    }
+    // Aircraft's own shadow — drawn AFTER the ground surfaces but BEFORE the buildings, and NOT
+    // gated by worldBlend, so a parked craft reads as planted the instant you embark. `phase ===
+    // 'ground'` is the authoritative weight-on-wheels signal (true from embark): planted ⇒ a soft
+    // contact shadow FULL-strength directly beneath her; airborne ⇒ the sun-cast height cue. The
+    // two cross-fade over the first bit of climb via `grounded`.
+    if (!framed) {
+      const grounded = phase === 'ground' ? 1 : clamp(1 - height / 0.06, 0, 1);
+      if (grounded > 0.01) drawGroundContactShadow(ctx, cam, v.heading, v.cls, grounded);
+      if (sunFx.elev > 0.02 && grounded < 0.99) drawAircraftShadow(ctx, cam, height, sunFx, worldBlend, v.heading, v.cls);
+    }
+    if (worldBlend > 0.02) {
+      drawWorldObjects(ctx, cam, vw, sky, now, sunFx);
+      if (sky.night > 0.35) drawSearchlights(ctx, cam, vw, now, worldBlend);   // sweeping beams from restricted (no-fly) blocks at night
+      if (!framed) drawBirds(ctx, W, H, horizonY, vw, st, dt, speed, sky, now, worldBlend);   // ambient flock scattering as you pass
+      if (vw.landGuide && vw.runway) drawGuideBoxes(ctx, cam, vw, now);
+      if (vw.contacts) drawContacts(ctx, cam, vw, W, H, sunFx, now);   // air-to-air traffic (Phase A: see other craft)
+      if (vw.apTarget) drawAirportTarget(ctx, cam, vw, W, H, now);   // target-field ring / Home waypoint
+    }
     // External chase view: the OWN ship, projected through the very same chase camera as the
     // world (a real 3rd-person camera, not a sprite pasted on a cockpit view), at the craft's
     // eye-height with its gear swinging out/in.
-    if (ext) drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: 3.1, gearAnim: v.gearAnim ?? 1 }, cam.EHbase);
+    if (ext) drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: 3.1, gearAnim: v.gearAnim ?? 1, power: v.speed }, cam.EHbase - RENDER_TUNE.chaseSink, sunFx, now);
   }
 
   // Speed streaks (motion rush from the vanishing point) — forward view only.
@@ -442,6 +516,9 @@ export function paintWindshield(id, view) {
   }
 
   ctx.restore();   // end banked world
+
+  // Heat shimmer: the tarmac wavers in the hot air above the horizon (hot fields, high sun).
+  if (shimmerStr > 0.01) drawHeatShimmer(ctx, cv, W, H, horizonY, dpr, now, shimmerStr);
 
   // G-force grey-out: a hard, sustained bank loads you up — the edges desaturate and darken
   // as blood drains, tunnelling the view. Proxy G off bank angle (steep = high load); forward
@@ -464,6 +541,12 @@ export function paintWindshield(id, view) {
     ctx.fillStyle = fg; ctx.fillRect(0, 0, W, H);
   }
 
+
+  // Wingtip vapour streaming off the wings at speed / in a hard-G bank.
+  if (vaporStr > 0.01) drawVaporTrails(ctx, W, H, horizonY, vaporStr, now);
+  // Sun glare + lens flare across the canopy when the sun is in the field of view.
+  if (glareStr > 0.01) drawLensFlare(ctx, W, H, sunFlareX, sunFlareY, sky.sun, glareStr);
+
   // Canopy glass sheen — a soft diagonal reflection that slides a touch with bank.
   const sheen = ctx.createLinearGradient(0, 0, W, H);
   const so = clamp(0.5 + (v.bank || 0) / 120, 0.1, 0.9);
@@ -471,6 +554,8 @@ export function paintWindshield(id, view) {
   sheen.addColorStop(so, 'rgba(255,255,255,0.06)');
   sheen.addColorStop(clamp(so + 0.18, 0, 1), 'rgba(255,255,255,0)');
   ctx.fillStyle = sheen; ctx.fillRect(0, 0, W, H);
+  // Instrument-panel glow reflected up onto the lower canopy at dusk/night.
+  if (!framed && !ext && cockpitGlow > 0.02) drawInstrumentReflection(ctx, W, H, cockpitGlow, v.bank || 0);
   // corner vignette
   const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.7);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)');
@@ -479,6 +564,7 @@ export function paintWindshield(id, view) {
   // On-glass weather (drops that cling to the canopy, lightning), bug splats + frost + a WX badge.
   if (!ext) drawGlass(ctx, W, H, wx, st, dt, speed, framed);
   if (!v.windowClass && !ext) drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
+  if (!v.windowClass && !ext) drawCowl(ctx, W, H, v.cls);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera
   if (!v.windowClass) drawWxBadge(ctx, W, wx, v.wind);
   if (v.hud) drawHud(ctx, W, H, v);
   // Guns (Phase B): forward tracer stream + muzzle flash while firing, screen-fixed.
@@ -611,6 +697,188 @@ function drawCanopy(ctx, W, H) {
   ctx.fillStyle = pg; ctx.fillRect(W / 2 - pw / 2, 0, pw, H * 0.24);
 }
 
+// Nose cowl / glareshield across the BOTTOM of the forward view — the aircraft's own
+// nose deck sitting in the near foreground, the way it does in a real cockpit. It
+// occludes the bare near-ground band below the runway (which otherwise reads as
+// "seeing through the floor") with the airframe itself, so the fix costs no camera
+// lift. Depth + a shallow centre bump vary by class so each nose reads a little
+// different: a bubble ultralight barely shows any cowl; a heavy freighter carries a
+// broad glareshield; a gunship a flat armoured deck.
+const COWL_DEPTH = { ultralight: 0.12, heli: 0.14, prop: 0.17, heavy: 0.22, gunship: 0.19, wreck: 0.16, default: 0.17 };
+function drawCowl(ctx, W, H, cls) {
+  const d = (COWL_DEPTH[cls] || COWL_DEPTH.default) * H;
+  const yCorner = H - d;               // cowl top at the corners
+  const yMid = yCorner - d * 0.30;     // a shallow nose bump at the centre (rises a touch higher)
+  ctx.save();
+  // Ambient-occlusion band on the glass just above the cowl — seats it into the scene
+  // so its top edge isn't a hard cut against the ground.
+  const ao = ctx.createLinearGradient(0, yMid - H * 0.11, 0, yMid + 4);
+  ao.addColorStop(0, 'rgba(6,10,14,0)'); ao.addColorStop(1, 'rgba(6,10,14,0.34)');
+  ctx.fillStyle = ao; ctx.fillRect(0, yMid - H * 0.11, W, H * 0.11 + 4);
+  // Cowl body: full-width, top edge bowing up over the nose.
+  ctx.beginPath();
+  ctx.moveTo(0, H); ctx.lineTo(0, yCorner);
+  ctx.quadraticCurveTo(W * 0.5, yMid, W, yCorner);
+  ctx.lineTo(W, H); ctx.closePath();
+  const g = ctx.createLinearGradient(0, yMid, 0, H);
+  g.addColorStop(0, 'rgba(14,18,24,0.98)'); g.addColorStop(0.5, 'rgba(9,12,17,1)'); g.addColorStop(1, 'rgba(4,6,9,1)');
+  ctx.fillStyle = g; ctx.fill();
+  // Anti-glare ribs — two faint contours following the bow, for texture.
+  ctx.strokeStyle = 'rgba(255,255,255,0.028)'; ctx.lineWidth = 1;
+  for (let i = 1; i <= 2; i++) {
+    const f = i / 3, yy = lerp(yCorner, H, f);
+    ctx.beginPath(); ctx.moveTo(0, yy); ctx.quadraticCurveTo(W * 0.5, yy - d * 0.30 * (1 - f), W, yy); ctx.stroke();
+  }
+  // Glareshield lip: the top edge catching sky light.
+  ctx.beginPath(); ctx.moveTo(0, yCorner); ctx.quadraticCurveTo(W * 0.5, yMid, W, yCorner);
+  ctx.strokeStyle = 'rgba(150,185,215,0.16)'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.restore();
+}
+
+// ── Cinematic flourishes ──────────────────────────────────────────────────────
+// A cluster of light-and-atmosphere touches, each self-contained and additive so
+// they layer over the scene without disturbing the physics-driven render below.
+
+// Volumetric god-rays: soft wedges of light fanning DOWN from a low sun (dawn/dusk),
+// laid in the banked world frame (buildings drawn after occlude them). `sx,sy` is the
+// sun in the pre-bank world frame.
+function drawGodRays(ctx, W, H, horizonY, sx, sy, disc, str) {
+  const col = disc || [255, 240, 210], n = 7;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < n; i++) {
+    const spread = i / (n - 1) - 0.5;            // -0.5..0.5 fan
+    const ang = Math.PI / 2 + spread * 1.15;      // around straight-down
+    const len = H * 1.25, wBase = W * (0.02 + 0.03 * (1 - Math.abs(spread) * 1.2));
+    const ex = sx + Math.cos(ang) * len, ey = sy + Math.sin(ang) * len;
+    const px = -Math.sin(ang), py = Math.cos(ang);   // wedge-width perpendicular
+    const a = str * (0.055 + 0.05 * (1 - Math.abs(spread)));
+    const g = ctx.createLinearGradient(sx, sy, ex, ey);
+    g.addColorStop(0, rgb(col, a)); g.addColorStop(1, rgb(col, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(sx + px * wBase * 0.3, sy + py * wBase * 0.3);
+    ctx.lineTo(sx - px * wBase * 0.3, sy - py * wBase * 0.3);
+    ctx.lineTo(ex - px * wBase, ey - py * wBase);
+    ctx.lineTo(ex + px * wBase, ey + py * wBase);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Aurora / ash-glow: slow vertical light-curtains high in the night sky. Green-teal
+// aurora on a clear night; a dull red-orange glow when an ash cloud hangs overhead.
+function drawAurora(ctx, W, horizonY, now, sky, wx) {
+  const ash = wx === 'ash', bands = 5;
+  const topCol = ash ? [200, 90, 40] : [80, 220, 150];
+  const botCol = ash ? [120, 44, 22] : [40, 130, 200];
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < bands; i++) {
+    const drift = Math.sin(now * 0.00013 * (1 + i * 0.3) + i * 2.1);
+    const cx = W * (0.5 + drift * 0.42) + i * W * 0.04 - W * 0.08;
+    const bw = W * (0.10 + 0.05 * ((i * 7) % 3));
+    const wob = 0.5 + 0.5 * Math.sin(now * 0.0004 + i);
+    const a = sky.night * (0.05 + 0.055 * wob);
+    const g = ctx.createLinearGradient(cx, 0, cx, horizonY * 0.75);
+    g.addColorStop(0, rgb(topCol, 0)); g.addColorStop(0.4, rgb(topCol, a));
+    g.addColorStop(0.75, rgb(botCol, a * 0.6)); g.addColorStop(1, rgb(botCol, 0));
+    ctx.fillStyle = g; ctx.fillRect(cx - bw / 2, 0, bw, horizonY * 0.75);
+  }
+  ctx.restore();
+}
+
+// Sun glare + lens flare, screen-space over the canopy. `sx,sy` is the sun re-projected
+// through the bank into screen coords; a main bloom + an anamorphic streak + a chain of
+// ghost discs marching along the sun→screen-centre axis (the classic camera artifact).
+function drawLensFlare(ctx, W, H, sx, sy, disc, str) {
+  const col = disc || [255, 240, 210], cx = W / 2, cy = H / 2;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  let g = ctx.createRadialGradient(sx, sy, 0, sx, sy, W * 0.30);
+  g.addColorStop(0, rgb(col, 0.5 * str)); g.addColorStop(0.22, rgb(col, 0.16 * str)); g.addColorStop(1, rgb(col, 0));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  g = ctx.createLinearGradient(sx - W * 0.5, sy, sx + W * 0.5, sy);
+  g.addColorStop(0, rgb(col, 0)); g.addColorStop(0.5, rgb(mix(col, [255, 255, 255], 0.4), 0.22 * str)); g.addColorStop(1, rgb(col, 0));
+  ctx.fillStyle = g; ctx.fillRect(0, sy - 2.5, W, 5);
+  const dx = cx - sx, dy = cy - sy;
+  const ghosts = [[-0.32, 0.05, [180, 200, 255]], [0.28, 0.03, [255, 220, 180]], [0.55, 0.06, col], [0.92, 0.085, [200, 255, 220]], [1.25, 0.045, [255, 200, 210]]];
+  for (const [t, rr, c2] of ghosts) {
+    const px = sx + dx * t, py = sy + dy * t;
+    if (px < -W * 0.2 || px > W * 1.2) continue;
+    const r = W * rr, rg = ctx.createRadialGradient(px, py, 0, px, py, r);
+    rg.addColorStop(0, rgb(c2, 0.16 * str)); rg.addColorStop(0.6, rgb(c2, 0.05 * str)); rg.addColorStop(1, rgb(c2, 0));
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Wingtip vapour: vortices streaming off the wingtips — a light contrail at speed, thick
+// vapour cones in a hard-G bank. Two procedural ribbons trailing from the lower corners,
+// their puffs animated so they appear to stream backward.
+function drawVaporTrails(ctx, W, H, horizonY, str, now) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const vy = H * 0.80;
+  for (const side of [-1, 1]) {
+    const ax = W * (0.5 + side * 0.40), ex = W * (0.5 + side * 0.62), ey = H * 1.05;
+    const puffs = 10;
+    for (let i = 0; i < puffs; i++) {
+      const ph = ((i / puffs) + now * 0.0006 * (2 + str * 3)) % 1;
+      const x = lerp(ax, ex, ph), y = lerp(vy, ey, ph);
+      const r = (3 + ph * 16) * (0.5 + str), a = str * 0.10 * (1 - ph);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, `rgba(235,242,255,${a})`); g.addColorStop(1, 'rgba(235,242,255,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+// Heat shimmer: the tarmac wavers in the hot air just above the horizon. A true
+// refraction — thin rows of the already-drawn scene re-sampled from the canvas with a
+// travelling horizontal wobble that grows toward the foreground. `cv` is the canvas
+// element (device pixels); the live ctx is dpr-scaled, hence the ×dpr on the source.
+function drawHeatShimmer(ctx, cv, W, H, horizonY, dpr, now, str) {
+  const bandTop = Math.max(0, horizonY - H * 0.02);
+  const bandH = Math.min(H - bandTop, H * 0.34);
+  if (bandH <= 0) return;
+  const rows = 34, rh = bandH / rows;
+  for (let i = 0; i < rows; i++) {
+    const y = bandTop + i * rh, depth = i / rows;
+    const amp = str * (1.4 + depth * 5.5);
+    const off = Math.sin(now * 0.004 + i * 0.7) * amp + Math.sin(now * 0.0027 + i * 1.9) * amp * 0.5;
+    ctx.drawImage(cv, 0, y * dpr, W * dpr, rh * dpr + 1, off, y, W, rh + 1);
+  }
+}
+
+// Instrument-panel glow reflected up onto the lower canopy at dusk/night — a faint wash
+// plus a couple of coloured glints (cyan gauge, amber warning) that slide with bank.
+function drawInstrumentReflection(ctx, W, H, glow, bank) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createLinearGradient(0, H, 0, H * 0.55);
+  g.addColorStop(0, `rgba(70,150,180,${0.10 * glow})`); g.addColorStop(1, 'rgba(70,150,180,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, H * 0.5, W, H * 0.5);
+  const slide = clamp(bank / 60, -1, 1) * W * 0.12;
+  for (const [fx, col] of [[0.32, [90, 200, 220]], [0.68, [230, 170, 90]]]) {
+    const x = W * fx - slide, y = H * 0.92, r = W * 0.16;
+    const rg = ctx.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, rgb(col, 0.10 * glow)); rg.addColorStop(1, rgb(col, 0));
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// City-light bloom: at night, a warm halo over each near building's lit face, so the
+// amber windows baked into the wall texture read as actually emitting light.
+function drawCityBloom(ctx, cam, dx, dy, h, night, alpha) {
+  const c = cam.proj(dx, dy, h * 0.55);
+  if (c.f <= 0.25 || c.f > 8) return;
+  const prox = clamp(1 - c.f / 8, 0, 1), r = clamp(150 / c.f, 8, 70);
+  const a = night * alpha * (0.04 + 0.09 * prox);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(c.sx, c.sy, 0, c.sx, c.sy, r);
+  g.addColorStop(0, `rgba(255,206,132,${a})`); g.addColorStop(0.55, `rgba(255,176,96,${a * 0.4})`); g.addColorStop(1, 'rgba(255,176,96,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.sx, c.sy, r, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
 // Water on the windscreen + storm lightning — drawn on the fixed glass, not the
 // banked world, so it reads as being *on* the canopy in front of you. Plus the slow
 // accretion that dirties a canopy over a flight: bug splats that build up, and frost
@@ -683,6 +951,11 @@ function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false) {
     }
     if (st.flash > 0) {
       ctx.fillStyle = `rgba(220,232,255,${st.flash * 0.35})`; ctx.fillRect(0, 0, W, H);
+      // Sheet-glow biased to the upper sky: even when the bolt is off-screen, the storm
+      // behind the skyline lights up (distant cloud-to-cloud lightning).
+      const sheet = ctx.createLinearGradient(0, 0, 0, H * 0.6);
+      sheet.addColorStop(0, `rgba(226,236,255,${st.flash * 0.28})`); sheet.addColorStop(1, 'rgba(226,236,255,0)');
+      ctx.fillStyle = sheet; ctx.fillRect(0, 0, W, H * 0.6);
       if (st.bolt && st.flash > 0.4) {
         ctx.strokeStyle = `rgba(240,248,255,${st.flash})`; ctx.lineWidth = 2; ctx.shadowColor = 'rgba(200,224,255,0.9)'; ctx.shadowBlur = 12;
         ctx.beginPath(); ctx.moveTo(st.bolt[0][0] * W, 0); for (const [px, py] of st.bolt) ctx.lineTo(px * W, py * H); ctx.stroke(); ctx.shadowBlur = 0;
@@ -782,13 +1055,18 @@ function drawHud(ctx, W, H, v) {
       ctx.fillText((ap.name || 'FIELD').slice(0, 7).toUpperCase() + (ap.dist != null ? ' ' + ap.dist : ''), x, rowY + 9);
     }
   }
-  // Off-map turn-back banner.
+  // Off-map turn-back banner. Its opacity is driven by navWarnAlpha (heading-vs-home
+  // alignment) so it fades out as you turn back toward the map rather than hard-toggling.
   if (v.navWarn) {
-    const y = H * 0.34; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const w = ctx.measureText(v.navWarn).width + 18;
-    ctx.fillStyle = 'rgba(40,10,6,0.74)'; ctx.strokeStyle = '#ff8a3e'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx - w / 2, y - 11, w, 22, 5) : ctx.rect(cx - w / 2, y - 11, w, 22); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#ffb23e'; ctx.fillText(v.navWarn, cx, y + 0.5);
+    const a = v.navWarnAlpha == null ? 1 : clamp(v.navWarnAlpha, 0, 1);
+    if (a > 0.02) {
+      const y = H * 0.34; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const w = ctx.measureText(v.navWarn).width + 18;
+      ctx.save(); ctx.globalAlpha = a;
+      ctx.fillStyle = 'rgba(40,10,6,0.74)'; ctx.strokeStyle = '#ff8a3e'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx - w / 2, y - 11, w, 22, 5) : ctx.rect(cx - w / 2, y - 11, w, 22); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffb23e'; ctx.fillText(v.navWarn, cx, y + 0.5); ctx.restore();
+    }
   }
   // AA threat telegraph: a pulsing red banner spelling out the escape drill while you're
   // inside a ground-fire envelope, plus a red diamond on the tape pointing at the gun.
@@ -1022,7 +1300,13 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
   // [r, g, b, waterness, grassness, hillshade]. Off-map reads as endless OPEN OCEAN (waterness
   // = 1 → the water treatment below gives it waves/glint), so the world sits on a sea, not a
   // desert plain running to the horizon.
-  const OFF = BIOME_GROUND.water, OFF5 = [OFF[0], OFF[1], OFF[2], 1, 0, 1], mh = map ? map.length : 0;
+  // Off-map fallback = the tile you're currently OVER (its biome colour), not open ocean — so
+  // flying across a large landmass you don't get a spurious band of water where the loaded map
+  // window ends; the real sea still shows from actual water tiles near the coast. Over water
+  // (or with no biome yet) it stays ocean.
+  const offBi = (!v.biomeBelow || v.biomeBelow === 'water' || !BIOME_GROUND[v.biomeBelow]) ? null : v.biomeBelow;
+  const OFF = offBi ? BIOME_GROUND[offBi] : BIOME_GROUND.water;
+  const OFF5 = [OFF[0], OFF[1], OFF[2], offBi ? 0 : 1, offBi && GRASS_BIOMES.has(offBi) ? 1 : 0, 1], mh = map ? map.length : 0;
   // Relief lighting: hillshade each tile off the procedural elevation gradient, lit by the
   // sun (a fixed NW key at night). Baked per-tile here (cheap) and bilinear-sampled per pixel.
   const wc = v.mapCenter || { x: 0, y: 0 }, wcx = wc.x, wcy = wc.y;
@@ -1034,11 +1318,15 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       const row = map[ry], out = new Array(row.length);
       for (let rx = 0; rx < row.length; rx++) {
         const c = row[rx], bi = c && c.biome;
-        const col = bi ? (BIOME_GROUND[bi] || gTop) : OFF;
+        let grassy = GRASS_BIOMES.has(bi);
+        // Grassed district tile touching a runway → keep it grey tarmac apron, not turf.
+        const apron = grassy && nearField(map, rx, ry);
+        if (apron) grassy = false;
+        const col = apron ? APRON_GREY : (bi ? (BIOME_GROUND[bi] || gTop) : OFF);
         const awx = (rx - R) + wcx, awy = (ry - R) + wcy;   // absolute world tile (relief stays put, doesn't slide)
         const e0 = groundElev(awx, awy), gx = groundElev(awx + 0.5, awy) - e0, gy = groundElev(awx, awy + 0.5) - e0;
         const shade = clamp(1 + (-gx * litX - gy * litY) * 2.4, 0.8, 1.2);
-        out[rx] = [col[0], col[1], col[2], bi === 'water' ? 1 : 0, bi === 'parkland' ? 1 : 0, shade];
+        out[rx] = [col[0], col[1], col[2], bi === 'water' ? 1 : 0, grassy ? 1 : 0, shade];
       }
       LUT[ry] = out;
     }
@@ -1048,6 +1336,12 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
   for (let by = 0; by < usedH; by++) {
     const p = Math.max(0.004, (horizonY + by * DS - horizonY) / depth);
     const d = EH / p;
+    // High-frequency detail (wave shimmer, sun glitter, concrete/grass mottle) aliases into a
+    // hard nearest-neighbour checkerboard once a low-res texel spans several world units —
+    // worst in the mid/far field where each depth band jumps in world-space. Fade the detail
+    // AMPLITUDE out with distance (near = full, far = flat base colour): a cheap mip-map that
+    // kills the checker without touching the intended chunky Mode-7 blit.
+    const detail = clamp(1.15 - d * 0.7, 0.15, 1);
     const haze = clamp(1 - p * hz, 0, 0.85), ih = 1 - haze;
     const hr = hor[0] * haze, hg = hor[1] * haze, hb = hor[2] * haze;
     let idx = by * bw * 4;
@@ -1073,14 +1367,16 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       const waterW = s00[3] * w00 + s10[3] * w10 + s01[3] * w01 + s11[3] * w11;
       const grassW = s00[4] * w00 + s10[4] * w10 + s01[4] * w01 + s11[4] * w11;
       const shadeW = s00[5] * w00 + s10[5] * w10 + s01[5] * w01 + s11[5] * w11;
-      // Base material: subtle concrete checker + within-tile diagonal gradient.
+      // Base material: a WHISPER of concrete tone variation + within-tile diagonal gradient.
+      // Kept very low — a stronger checker read as a distracting tiled pattern on flat grey
+      // asphalt/apron (the whole thing pulsing like a chessboard as you flew over it).
       const wxf = wx * FREQ, wyf = wy * FREQ, tx = Math.floor(wxf * 2), ty = Math.floor(wyf * 2);
-      const grad = ((wxf - Math.floor(wxf)) + (wyf - Math.floor(wyf))) * 0.05 - 0.05;
-      let tex = 1 + (((tx + ty) & 1) ? 0.06 : -0.06) + (((tx * 5 ^ ty * 3) & 3) === 0 ? 0.05 : 0) + grad;
+      const grad = ((wxf - Math.floor(wxf)) + (wyf - Math.floor(wyf))) * 0.03 - 0.03;
+      let tex = 1 + ((((tx + ty) & 1) ? 0.022 : -0.022) + (((tx * 5 ^ ty * 3) & 3) === 0 ? 0.018 : 0) + grad) * detail;
       // Grass: a finer mottle so parkland reads as vegetation, not a flat green slab.
       if (grassW > 0.002) {
         const gx = Math.floor(wx * 5.3), gy = Math.floor(wy * 5.3);
-        tex = tex * (1 - grassW) + (1 + (((gx * 7 ^ gy * 13) & 3) * 0.05 - 0.075)) * grassW;
+        tex = tex * (1 - grassW) + (1 + (((gx * 7 ^ gy * 13) & 3) * 0.05 - 0.075) * detail) * grassW;
       }
       // Relief hillshade — brightens sun-facing slopes, darkens the lee; land only, so the
       // ground reads as gentle rolling hills. Water stays flat (its own wave shading below).
@@ -1095,7 +1391,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       let cr = 0, foam = 0, gln = 0;
       if (waterW > 0.002) {
         const wv = 0.5 * Math.sin(wx * 6.2 + wy * 1.4 + t * 2.3) + 0.5 * Math.sin((wx - wy) * 4.1 - t * 1.7);
-        tex = tex * (1 - waterW) + (1 + wv * 0.12) * waterW;
+        tex = tex * (1 - waterW) + (1 + wv * 0.12 * detail) * waterW;
         tex *= 1 - clamp((waterW - 0.5) * 2, 0, 1) * 0.18;   // shallows near the line stay lighter; open water sits darker
         if (wv > 0.82) cr = (wv - 0.82) * 5 * waterW;   // crest glint, added as a bluish-white lift below
         // Sun glitter: a bright, broken specular path across the water TOWARD the sun — the
@@ -1112,6 +1408,25 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       }
       // Wet sand: the land strip just above the waterline reads damp where the wash reaches.
       if (waterW > 0.14 && waterW < 0.5) tex *= 1 - clamp(1 - Math.abs(waterW - 0.32) / 0.18, 0, 1) * 0.14;
+      // Near-camera detail. Forward resolution collapses as d→EH (the classic Mode-7 near
+      // smear): the closest rows sample a razor-thin world slice, so the base wave/texture —
+      // tuned for the mid-field — barely varies across them and the foreground flattens into
+      // one dark colour that reads as a hole in the floor. Fold in a finer, higher-frequency
+      // animated ripple (water) or gravel grain (land) whose strength rises as the ground
+      // nears, carrying real world-space texture right down to the bottom edge — so the
+      // foreground stays surfaced without lifting the camera or drawing more cowl.
+      const near = clamp((0.55 - d) / 0.55, 0, 1);
+      if (near > 0.01) {
+        if (waterW > 0.002) {
+          const wv2 = 0.5 * Math.sin(wx * 22 + wy * 15 - t * 3.1) + 0.5 * Math.sin((wx + wy) * 17 + t * 2.2);
+          tex *= 1 + (0.06 + wv2 * 0.11) * near * waterW;               // lift + fine chop breaks the flat dark
+          if (wv2 > 0.7) cr = Math.max(cr, (wv2 - 0.7) * 2.6 * near * waterW);   // fine crest lift (neutral, day or night)
+        } else {
+          const nx = Math.floor(wx * 14.7), ny = Math.floor(wy * 14.7);
+          tex *= 1 + (((nx * 7 ^ ny * 13) & 3) * 0.045 - 0.065) * near;  // fine dirt/gravel grain
+        }
+      }
+      cr *= detail; foam *= detail; gln *= detail;   // fade the bright specular spikes out with distance too (near ≈ full)
       data[idx] = ((br * tex + cr * 55 + foam * 150 + gln * 150) * ih + hr) * nm;
       data[idx + 1] = ((bg * tex + cr * 70 + foam * 165 + gln * 132) * ih + hg) * nm;
       data[idx + 2] = ((bb * tex + cr * 90 + foam * 175 + gln * 66) * ih + hb) * nm;
@@ -1174,6 +1489,10 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_embassy: [88, 66, 54], ty_embassy_bar: [46, 34, 42],
   // Coldwater Clone Facility — clinical off-white shell + dark glowing vat glass.
   ty_clone: [176, 200, 204], ty_clone_vat: [30, 52, 58],
+  // Bespoke named-building shells — a distinct wall tone per silhouette below.
+  ty_lux: [58, 52, 78], ty_chrome: [118, 126, 136], ty_meridian: [98, 104, 90],
+  ty_grocery: [78, 100, 66], ty_tech: [46, 88, 96], ty_showroom: [56, 90, 86],
+  ty_boutique: [92, 60, 88], ty_junk: [94, 70, 48],
   __statue_stone: [116, 114, 118],   // weathered plinth stone for the town-square monument
   ty_door: [20, 22, 26] };
 const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
@@ -1354,19 +1673,50 @@ function makeCam(W, horizonY, depth, v, chase) {
 function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, roof) {
   fh = Math.min(fh, 0.48);   // keep a fat footprint inside its own tile (no bleed into the neighbour)
   const cs = [[-fh, -fh], [fh, -fh], [fh, fh], [-fh, fh]];
+  // Raw (unclamped) forward distance of a footprint point — the value proj() clamps to 0.06.
+  // f is constant up a vertical edge (height-independent), so this is per footprint CORNER.
+  const NEAR_CLIP = 0.08;   // trim walls to this near plane; above proj's 0.06 clamp so trimmed corners project stably
+  const rawF = (x, y) => (x + (cam.back || 0) * cam.sinh) * cam.sinh - (y - (cam.back || 0) * cam.cosh) * cam.cosh;
+  const cf = cs.map(([a, c]) => rawF(dx + a, dy + c));
   const b = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz0));
-  const t = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz1));
   const wall = wallTex(biome, night), shade = [0.0, 0.16, 0.3, 0.12];
   ctx.globalAlpha = alpha;
   const faces = [];
-  for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; faces.push({ af: (b[i].f + b[j].f) / 2, i, j }); }
+  for (let i = 0; i < 4; i++) {
+    const j = (i + 1) % 4;
+    // Backface cull — draw ONLY the side walls whose outward normal points at the camera.
+    // (mx,my) is the face-centre offset from the box axis, i.e. its outward normal; the wall
+    // faces the camera when n·(camera − centre) > 0. The camera is at the coord origin in
+    // cockpit view, but `back` tiles behind (at −back·sinh, +back·cosh) in the external chase
+    // view — fold that in, or the cull picks the wrong walls and you see straight into the box.
+    const mx = (cs[i][0] + cs[j][0]) / 2, my = (cs[i][1] + cs[j][1]) / 2;
+    if (mx * (dx + mx) + my * (dy + my) + (cam.back || 0) * (mx * cam.sinh - my * cam.cosh) >= 0) continue;   // wall faces away → skip
+    faces.push({ af: (b[i].f + b[j].f) / 2, i, j });
+  }
   faces.sort((x, y) => y.af - x.af);
   for (const fc of faces) {
-    const P0 = [t[fc.i].sx, t[fc.i].sy], P1 = [t[fc.j].sx, t[fc.j].sy], P2 = [b[fc.j].sx, b[fc.j].sy], P3 = [b[fc.i].sx, b[fc.i].sy];
+    const i = fc.i, j = fc.j;
+    // Near-plane CLIP the wall's horizontal edge before projecting. Without this, a front-facing
+    // wall whose far corner has crossed BEHIND the eye (happens when you fly close past a building)
+    // has that corner clamped to f=0.06 and flung across the screen — the wall smears over the box
+    // and you see its far/interior faces (the "inside-out" look). Trim the behind corner to the
+    // near plane instead. f varies linearly along the edge, so a plain lerp gives the crossing.
+    let ax = dx + cs[i][0], ay = dy + cs[i][1], bx = dx + cs[j][0], by = dy + cs[j][1];
+    const fi = cf[i], fj = cf[j];
+    if (fi < NEAR_CLIP && fj < NEAR_CLIP) continue;   // wall wholly behind the eye → invisible
+    if (fi < NEAR_CLIP) { const s = (NEAR_CLIP - fi) / (fj - fi); ax += (bx - ax) * s; ay += (by - ay) * s; }
+    else if (fj < NEAR_CLIP) { const s = (NEAR_CLIP - fj) / (fi - fj); bx += (ax - bx) * s; by += (ay - by) * s; }
+    const ti = cam.proj(ax, ay, wz1), tj = cam.proj(bx, by, wz1), bi = cam.proj(ax, ay, wz0), bj = cam.proj(bx, by, wz0);
+    const P0 = [ti.sx, ti.sy], P1 = [tj.sx, tj.sy], P2 = [bj.sx, bj.sy], P3 = [bi.sx, bi.sy];
     drawTexQuad(ctx, wall, P0, P1, P2, P3);
-    if (shade[fc.i]) { ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.closePath(); ctx.fillStyle = `rgba(0,0,0,${shade[fc.i]})`; ctx.fill(); }
+    if (shade[i]) { ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.closePath(); ctx.fillStyle = `rgba(0,0,0,${shade[i]})`; ctx.fill(); }
   }
-  if (roof) drawTexQuad(ctx, roofTex(biome, night), [t[0].sx, t[0].sy], [t[1].sx, t[1].sy], [t[2].sx, t[2].sy], [t[3].sx, t[3].sy]);
+  // Roof: only when the whole top quad is in front of the eye — a partly-behind roof can't be
+  // seen from that angle anyway, and clipping a 4-gon to the near plane would need a polygon split.
+  if (roof && cf[0] >= NEAR_CLIP && cf[1] >= NEAR_CLIP && cf[2] >= NEAR_CLIP && cf[3] >= NEAR_CLIP) {
+    const t = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz1));
+    drawTexQuad(ctx, roofTex(biome, night), [t[0].sx, t[0].sy], [t[1].sx, t[1].sy], [t[2].sx, t[2].sy], [t[3].sx, t[3].sy]);
+  }
   ctx.globalAlpha = 1;
 }
 function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
@@ -1472,7 +1822,7 @@ function drawAirportTarget(ctx, cam, v, W, H, now) {
 const CONTACT_ALT_K = 1 / 600;   // feet of altitude delta → world-z units (tune)
 const CONTACT_VS = 1.6;          // vertical exaggeration so the projected model isn't screen-squashed (tune)
 const CONTACT_SIZE = { ultralight: 0.085, heli: 0.11, prop: 0.11, heavy: 0.17, gunship: 0.13, wreck: 0.10 };
-function drawContacts(ctx, cam, v, W, H) {
+function drawContacts(ctx, cam, v, W, H, sun, now) {
   const cs = v.contacts; if (!cs || !cs.length) return;
   ctx.save();
   for (const c of cs) {
@@ -1483,7 +1833,7 @@ function drawContacts(ctx, cam, v, W, H) {
     const onScreen = pc.f > 0.12 && pc.sx >= -40 && pc.sx <= W + 40 && pc.sy >= -40 && pc.sy <= H + 40;
     if (!onScreen) { drawContactChevron(ctx, c, f, l, W, H); continue; }
     ctx.globalAlpha = clamp(1.5 - pc.f / 12, 0.35, 1);    // fade into the haze with distance
-    const bb = drawAircraftModel(ctx, cam, c, baseWz);
+    const bb = drawAircraftModel(ctx, cam, c, baseWz, sun, now);
     ctx.globalAlpha = 1;
     if (c.designated && bb) {
       const cx = (bb.minx + bb.maxx) / 2, cy = (bb.miny + bb.maxy) / 2;
@@ -1505,7 +1855,7 @@ function drawContacts(ctx, cam, v, W, H) {
 // accents). The per-class model + livery shading come from the shared aircraft3d
 // module — the same geometry the hangar spins on its turntable. Returns the screen
 // bbox for the designator.
-function drawAircraftModel(ctx, cam, c, baseWz) {
+function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   const SIZE = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1), VS = CONTACT_VS;
   const hr = (c.hdg || 0) * Math.PI / 180, roll = (c.bank || 0) * Math.PI / 180, pitch = (c.pitch || 0) * Math.PI / 180;
   const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pitch), sp = Math.sin(pitch);
@@ -1516,6 +1866,23 @@ function drawAircraftModel(ctx, cam, c, baseWz) {
     const g2 = g * cr + h1 * sr, h2 = -g * sr + h1 * cr;            // roll (right wing down = +)
     return cam.proj(c.dx + SIZE * (f1 * fwdX + g2 * rgtX), c.dy + SIZE * (f1 * fwdY + g2 * rgtY), baseWz + SIZE * VS * h2);
   };
+  // Same transform WITHOUT the projection — the vertex in world 3-space, for per-face normals.
+  const Wp = (lp) => {
+    const f = lp[0], g = lp[1], h = lp[2];
+    const f1 = f * cp - h * sp, h1 = f * sp + h * cp;
+    const g2 = g * cr + h1 * sr, h2 = -g * sr + h1 * cr;
+    return [c.dx + SIZE * (f1 * fwdX + g2 * rgtX), c.dy + SIZE * (f1 * fwdY + g2 * rgtY), baseWz + SIZE * VS * h2];
+  };
+  // Directional sun light (world-3D unit vector toward the sun) — faces pointing at it brighten,
+  // faces turned away fall into shade, so the model looks genuinely lit and shifts as she banks
+  // and as the sun tracks across the day. Falls back to the baked flat shading at night.
+  let toSun = null, sunStr = 0;
+  if (sun && sun.elev > 0.02) {
+    const e = clamp(sun.elev, 0, 1), hz = Math.sqrt(Math.max(0, 1 - e * e));
+    const m = Math.hypot(sun.dir[0] * hz, sun.dir[1] * hz, e) || 1;
+    toSun = [sun.dir[0] * hz / m, sun.dir[1] * hz / m, e / m];
+    sunStr = clamp(e * 1.4, 0, 1) * (1 - (sun.night || 0));
+  }
   // Livery palette (shared with the hangar): base + trim, a finish sheen multiplier,
   // and pattern-driven accents.
   const lv = c.livery || {};
@@ -1524,10 +1891,25 @@ function drawAircraftModel(ctx, cam, c, baseWz) {
   const faces = [];
   let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9, drawn = 0;
   for (const face of aircraftFaces(c.cls)) {
+    if (face.role === 'rotor') continue;                            // spinning surfaces drawn by drawRotorFX below
     const pts = face.p.map(P);
     if (pts.some(q => q.f <= 0.07)) continue;                       // vertex behind the lens → skip (avoids blow-up)
     let af = 0; for (const q of pts) { af += q.f; if (q.sx < minx) minx = q.sx; if (q.sx > maxx) maxx = q.sx; if (q.sy < miny) miny = q.sy; if (q.sy > maxy) maxy = q.sy; }
-    const col = shadeRgb(faceBaseRgb(face.role, pal), face.sh * pal.fmul);
+    // Sun lighting multiplier: outward face normal (world) · sun. Kept ON TOP of the baked `sh`
+    // so the hand-tuned character stays, but the sun now shapes the light across the airframe.
+    let lm = 1;
+    if (toSun && face.p.length >= 3) {
+      const w0 = Wp(face.p[0]), w1 = Wp(face.p[1]), w2 = Wp(face.p[2]);
+      const ax = w1[0] - w0[0], ay = w1[1] - w0[1], az = w1[2] - w0[2];
+      const bx = w2[0] - w0[0], by = w2[1] - w0[1], bz = w2[2] - w0[2];
+      let nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+      const nm = Math.hypot(nx, ny, nz) || 1; nx /= nm; ny /= nm; nz /= nm;
+      const ox = (w0[0] + w1[0] + w2[0]) / 3 - c.dx, oy = (w0[1] + w1[1] + w2[1]) / 3 - c.dy, oz = (w0[2] + w1[2] + w2[2]) / 3 - baseWz;
+      if (nx * ox + ny * oy + nz * oz < 0) { nx = -nx; ny = -ny; nz = -nz; }   // outward-facing
+      const nl = Math.max(0, nx * toSun[0] + ny * toSun[1] + nz * toSun[2]);
+      lm = 0.82 + 0.5 * nl * sunStr;
+    }
+    const col = shadeRgb(faceBaseRgb(face.role, pal), face.sh * pal.fmul * lm);
     faces.push({ pts, af: af / pts.length, col, role: face.role }); drawn++;
   }
   if (!drawn) return null;
@@ -1547,20 +1929,89 @@ function drawAircraftModel(ctx, cam, c, baseWz) {
       ctx.beginPath(); ctx.moveTo(fc.pts[0].sx, fc.pts[0].sy); ctx.lineTo(fc.pts[1].sx, fc.pts[1].sy); ctx.stroke(); ctx.restore();
     }
   }
+  // ── Engine effects ──────────────────────────────────────────────────────────
+  // Jets trail an orange exhaust plume (growing with power); props spin a translucent disc at
+  // the nose; the heli beats a faint rotor-disc blur overhead.
+  const power = clamp(c.power != null ? c.power : 0.55, 0, 1), big = c.sizeMul ? 1.4 : 1;
+  if (c.cls === 'gunship' || c.cls === 'heavy') {
+    const np = P([1, 0, 0.02]), tp = P([-1, 0, 0.05]);
+    if (np.f > 0.08 && tp.f > 0.08) {
+      let ex = tp.sx - np.sx, ey = tp.sy - np.sy; const em = Math.hypot(ex, ey) || 1; ex /= em; ey /= em;
+      ctx.lineCap = 'round';
+      // Exhaust trails from the real nacelle exits: the A-10's twin rear pods, or the
+      // An-124's four underwing turbofans just behind the wing.
+      const jets = c.cls === 'heavy'
+        ? [[0.04, -0.40, 0.03], [0.04, -0.20, 0.03], [0.04, 0.20, 0.03], [0.04, 0.40, 0.03]]
+        : [[-0.60, -0.30, 0.16], [-0.60, 0.30, 0.16]];
+      for (const st of jets) {
+        const q = P(st); if (q.f <= 0.08) continue;
+        const len = (7 + power * 20) * big / Math.max(0.35, q.f);
+        const grad = ctx.createLinearGradient(q.sx, q.sy, q.sx + ex * len, q.sy + ey * len);
+        grad.addColorStop(0, `rgba(255,225,160,${0.6 * (0.3 + power)})`); grad.addColorStop(0.5, `rgba(255,140,60,${0.4 * (0.3 + power)})`); grad.addColorStop(1, 'rgba(255,70,40,0)');
+        ctx.strokeStyle = grad; ctx.lineWidth = clamp(len * 0.28, 2, 9);
+        ctx.beginPath(); ctx.moveTo(q.sx, q.sy); ctx.lineTo(q.sx + ex * len, q.sy + ey * len); ctx.stroke();
+      }
+    }
+  } else if (c.cls === 'ultralight' || c.cls === 'prop' || c.cls === 'heli') {
+    // Spinning props / rotors: real model-space blades + blur disc + tip glint via
+    // the shared FX layer (aircraft3d.js), projected through this SAME camera and
+    // orientation so they bank and foreshorten with the craft. Rate rides the
+    // throttle; the layer draws the heli's main AND tail rotors itself.
+    drawRotorFX(ctx, c.cls, (lp) => { const q = P(lp); return q.f <= 0.08 ? null : q; },
+      { spin: (now || 0) * 0.001 * (9 + power * 8), power: 0.4 + power * 0.6 });
+  }
+  ctx.globalAlpha = 1;
+
+  // ── Nav lights + strobes ────────────────────────────────────────────────────
+  // Red port / green starboard wingtips (steady), a white tail strobe, and a red belly beacon —
+  // brighter at night, dim by day. A big life-giver, especially at dusk.
+  if (c.cls !== 'wreck') {
+    const nb = clamp((sun ? sun.night : 0) * 0.7 + 0.34, 0.3, 1);
+    const strobe = (now && Math.sin((now || 0) * 0.007 + (c.dx || 0) * 3) > 0.72) ? 1 : 0.1;
+    const beac = 0.32 + 0.68 * Math.abs(Math.sin((now || 0) * 0.004 + (c.dy || 0)));
+    // Anchor the wingtip lamps to the actual mesh wingtip station, so red/green sit ON the
+    // tips (touching the wing) for every airframe instead of floating off a hand-tuned span.
+    const tip = wingtipStation(c.cls);
+    const lamp = (lp, col, lit) => {
+      const q = P(lp); if (q.f <= 0.08 || lit <= 0.02) return;
+      const s = clamp(3.2 / q.f, 1, 8) * big;
+      const rg = ctx.createRadialGradient(q.sx, q.sy, 0, q.sx, q.sy, s * 2.2);
+      rg.addColorStop(0, `rgba(${col},${0.85 * lit * nb})`); rg.addColorStop(1, `rgba(${col},0)`);
+      ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(q.sx, q.sy, s * 2.2, 0, 7); ctx.fill();
+      ctx.fillStyle = `rgba(255,255,255,${0.75 * lit * nb})`; ctx.beginPath(); ctx.arc(q.sx, q.sy, Math.max(0.7, s * 0.42), 0, 7); ctx.fill();
+    };
+    if (tip) {
+      const [tf, tg, th] = tip;
+      lamp([tf, -tg, th], '255,55,55', 1); lamp([tf, tg, th], '60,255,95', 1);   // port red · starboard green
+      lamp([-1.0, 0, 0.14], '255,255,255', strobe); lamp([0.1, 0, -0.16], '255,90,70', beac);
+    } else {
+      lamp([-1.02, 0, 0.12], '255,255,255', strobe); lamp([0, 0, -0.14], '255,90,70', beac);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   // Landing gear — own-ship external view only (c.gearAnim set). A nose leg + two mains swing
   // DOWN as gearAnim → 1, projected through the SAME camera/orientation as the model. Skipped
   // for the heli (the Dragonfly rides on skids, already part of its model — no wheels).
   if (c.gearAnim > 0.02 && c.cls !== 'heli') {
-    const ga = clamp(c.gearAnim, 0, 1), bz = -0.12, leg = 0.42 * ga;
+    const ga = clamp(c.gearAnim, 0, 1);
+    const fv = ({ ultralight: 0.085, prop: 0.12, gunship: 0.14, heavy: 0.16 })[c.cls] || 0.12;   // fuselage belly depth
+    const fr = ({ ultralight: 0.08, prop: 0.12, gunship: 0.15, heavy: 0.18 })[c.cls] || 0.12;     // fuselage half-width
+    const drop = 0.012 * ga;   // wheels sit right up against the body/wings on a stubby strut
+    // [fwd, lateral, attachZ] — the NOSE leg drops off the fuselage belly, the two MAINS off the
+    // wing roots, so every strut MEETS the airframe (no floating stalks). Each hangs a short
+    // straight `drop` to its wheel.
+    const legs = [[0.42, 0, -fv * 0.82], [-0.05, fr + 0.05, -0.02], [-0.05, -(fr + 0.05), -0.02]];
     ctx.lineJoin = 'round';
-    for (const [lf, lg] of [[0.42, 0], [-0.12, 0.34], [-0.12, -0.34]]) {
-      const top = P([lf, lg, bz]), bot = P([lf, lg, bz - leg]);
+    for (const [lf, lg, az] of legs) {
+      const top = P([lf, lg, az]), bot = P([lf, lg, az - drop]);
       if (top.f <= 0.08 || bot.f <= 0.08) continue;
-      const w2 = P([lf, lg + 0.09, bz - leg]), wr = Math.max(2, Math.hypot(w2.sx - bot.sx, w2.sy - bot.sy) * 0.9);
-      ctx.strokeStyle = 'rgba(36,40,46,0.95)'; ctx.lineWidth = Math.max(1.4, wr * 0.45);
+      const w2 = P([lf, lg + 0.05, az - drop]), wr = Math.max(1.4, Math.hypot(w2.sx - bot.sx, w2.sy - bot.sy) * 0.55);   // fatter wheels
+      ctx.strokeStyle = 'rgba(40,44,50,0.95)'; ctx.lineWidth = Math.max(1.8, wr * 0.62);   // fatter, stubby strut
       ctx.beginPath(); ctx.moveTo(top.sx, top.sy); ctx.lineTo(bot.sx, bot.sy); ctx.stroke();
-      ctx.fillStyle = 'rgba(16,16,20,0.98)'; ctx.beginPath(); ctx.ellipse(bot.sx, bot.sy, wr, wr * 0.85, 0, 0, 7); ctx.fill();
-      ctx.strokeStyle = 'rgba(92,96,102,0.7)'; ctx.lineWidth = 1; ctx.stroke();
+      // tyre — a fat dark wheel, still flattened enough to read as a wheel (not a ball), + a lighter hub
+      ctx.fillStyle = 'rgba(14,14,18,0.98)'; ctx.beginPath(); ctx.ellipse(bot.sx, bot.sy, wr, wr * 0.78, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(80,84,92,0.85)'; ctx.beginPath(); ctx.ellipse(bot.sx, bot.sy, wr * 0.34, wr * 0.28, 0, 0, 7); ctx.fill();
     }
   }
   // Very distant/edge-on: guarantee at least a visible pip so a far bogey never vanishes.
@@ -1649,12 +2100,17 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
   const map = v.map; if (!map || !map.length) return; const R = cam.R;
   const baseAlpha = ctx.globalAlpha;   // = worldBlend (set by the caller); the far fade rides on top of it
   const nite = sky ? sky.night : 0;
+  // For the runway PAPI (glideslope lights) + windsocks drawn at each threshold below.
+  const acAlt = v.landGuide?.alt ?? ((v.height || 0) ** 2 * 3000);   // aircraft altitude (ft)
+  const windKt = v.wind || 0, windDeg = v.windVec?.dir ?? 250;
   const at = (rx, ry) => (ry >= 0 && ry < map.length && rx >= 0 && rx < map[ry].length) ? map[ry][rx] : null;
   const kindOf = (c) => !c ? null : c.kind === 'field' ? 'field' : c.road ? 'road' : null;   // an airfield tile paints as runway even if it also carries a road icon
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     const c = map[ry][rx], surf = kindOf(c); if (!surf) continue;
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
-    if (f <= 0.06 || f > VISIBLE_FAR_F) continue;
+    // Near-clip against the CAMERA (fCam = f + back) so road/pavement behind the craft keeps
+    // drawing in the external chase view instead of popping out at the tail; far stays on `f`.
+    if (f + (cam.back || 0) <= 0.06 || f > VISIBLE_FAR_F) continue;
     // Match the buildings' long draw distance + far fade so pavement ghosts up out of the
     // haze at the horizon instead of a hard line snapping in.
     ctx.globalAlpha = baseAlpha * clamp((VISIBLE_FAR_F - f) / 6, 0, 1);
@@ -1687,10 +2143,13 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
       const A = (ewN && !nsN) ? [1, 0] : [0, 1], WHITE = 'rgba(236,239,243,0.9)';
       dashedA(A, 0, 0.02, -0.5, 0.5, 0.34, 0.2, WHITE);                                     // dashed runway centreline
       stripeA(A, -0.42, 0.016, -0.5, 0.5, WHITE); stripeA(A, 0.42, 0.016, -0.5, 0.5, WHITE);   // runway edge lines
-      // Threshold "piano keys" across each end where the runway stops (neighbour is not runway).
+      // Threshold "piano keys" across each end where the runway stops (neighbour is not runway),
+      // plus a PAPI glideslope array + a windsock beside that threshold.
       for (const [open, end] of [[A[0] ? nW : nN, -1], [A[0] ? nE : nS, 1]]) {
         if (open) continue;
         for (let k = -3; k <= 3; k++) stripeA(A, k * 0.11, 0.035, end * 0.5, end * 0.36, WHITE);
+        drawPAPI(ctx, cam, dx, dy, A, end, acAlt, f, nite);
+        drawWindsock(ctx, cam, dx, dy, A, end, windKt, windDeg, now, nite);
       }
       if (nite > 0.25) {   // glowing edge lights at night
         const Px = A[1], Py = -A[0];
@@ -1718,6 +2177,53 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
   }
 }
 
+// PAPI — a row of four glideslope lights beside the runway threshold. Each reads WHITE when
+// you're above its slope and RED when below, so the ratio tells the approach angle: 4 white =
+// too high, 2/2 = on slope, 4 red = too low. Colours are driven off the aircraft's altitude
+// vs. the nominal 34-ft-per-tile slope (same the landing gates use) at this threshold's range.
+function drawPAPI(ctx, cam, dx, dy, A, end, acAlt, dist, nite) {
+  const Px = A[1], Py = -A[0];
+  const nomAlt = 34 * Math.max(0.6, dist);
+  const white = clamp(Math.round(2 + ((acAlt - nomAlt) / Math.max(1, nomAlt)) / 0.16), 0, 4);
+  for (let i = 0; i < 4; i++) {
+    const lat = 0.56 + i * 0.075;   // beside the runway, inner (white first) → outer
+    const p = cam.proj(dx + A[0] * (end * 0.4) + Px * lat, dy + A[1] * (end * 0.4) + Py * lat, 0.02);
+    if (p.f <= 0.06) continue;
+    const on = i < white, col = on ? '255,250,225' : '255,60,50';
+    const s = clamp(2.4 / p.f, 1, 5), a = 0.6 + nite * 0.4;
+    const g = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, s * 2.2);
+    g.addColorStop(0, `rgba(${col},${0.9 * a})`); g.addColorStop(1, `rgba(${col},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.sx, p.sy, s * 2.2, 0, 7); ctx.fill();
+    ctx.fillStyle = `rgba(255,255,255,${(on ? 0.9 : 0.5) * a})`; ctx.beginPath(); ctx.arc(p.sx, p.sy, Math.max(0.7, s * 0.5), 0, 7); ctx.fill();
+  }
+}
+
+// Windsock — a striped fabric cone on a pole beside the threshold. It points DOWNWIND and
+// inflates + lifts toward horizontal as the wind picks up (droops when calm), with a gentle
+// flutter, so it reads wind direction + strength at a glance.
+function drawWindsock(ctx, cam, dx, dy, A, end, windKt, windDeg, now, nite) {
+  const Px = A[1], Py = -A[0];
+  const wx0 = dx + A[0] * (end * 0.42) + Px * (-0.6), wy0 = dy + A[1] * (end * 0.42) + Py * (-0.6);
+  const base = cam.proj(wx0, wy0, 0), top = cam.proj(wx0, wy0, 0.13);
+  if (base.f <= 0.08 || top.f <= 0.08) return;
+  ctx.strokeStyle = 'rgba(176,182,190,0.9)'; ctx.lineWidth = clamp(2 / top.f, 1, 3); ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(base.sx, base.sy); ctx.lineTo(top.sx, top.sy); ctx.stroke();
+  const strength = clamp(windKt / 22, 0.12, 1), gust = 1 + 0.12 * Math.sin((now || 0) * 0.004 + wx0);
+  const dwr = (windDeg + 180) * Math.PI / 180, dwx = Math.sin(dwr) * gust, dwy = -Math.cos(dwr) * gust;
+  const len = 0.05 + strength * 0.13;
+  const tip = cam.proj(wx0 + dwx * len, wy0 + dwy * len, 0.13 - (1 - strength) * 0.1);
+  if (tip.f <= 0.08) return;
+  let sdx = tip.sx - top.sx, sdy = tip.sy - top.sy; const sl = Math.hypot(sdx, sdy) || 1; sdx /= sl; sdy /= sl;
+  const nx = -sdy, ny = sdx, mw = clamp(4.4 / top.f, 1.4, 8);
+  const at = (t) => [top.sx + (tip.sx - top.sx) * t, top.sy + (tip.sy - top.sy) * t, mw * (1 - t * 0.82)];
+  for (let i = 0; i < 3; i++) {
+    const a0 = at(i / 3), a1 = at((i + 1) / 3);
+    ctx.fillStyle = (i % 2 === 0) ? 'rgba(228,72,56,0.94)' : 'rgba(238,240,244,0.94)';
+    ctx.beginPath();
+    ctx.moveTo(a0[0] + nx * a0[2], a0[1] + ny * a0[2]); ctx.lineTo(a1[0] + nx * a1[2], a1[1] + ny * a1[2]);
+    ctx.lineTo(a1[0] - nx * a1[2], a1[1] - ny * a1[2]); ctx.lineTo(a0[0] - nx * a0[2], a0[1] - ny * a0[2]); ctx.closePath(); ctx.fill();
+  }
+}
 
 // Star Fox-style landing guide: a chain of wireframe gates on a gentle glideslope down to
 // the runway threshold. Anchored in the world (same camera as the runway/buildings), the
@@ -1749,6 +2255,25 @@ function drawGuideBoxes(ctx, cam, v, now) {
   ctx.restore();
 }
 
+// Rooftop clutter for the otherwise-featureless flat-top boxes: a set-back mechanical
+// penthouse, a couple of AC/vent units on the deck, and one seed-picked feature (water
+// tank on stilts / guyed antenna mast / satellite dish) + a night aviation blink. All of
+// it sits ABOVE the box's roof (`roofZ`) — the CFIT sweep ignores it, exactly like the
+// existing penthouses/masts — so it only lifts the silhouette, never the hittable mass.
+function roofClutter(ctx, cam, dx, dy, fh, roofZ, bi, seed, night, alpha, now) {
+  const ph = roofZ * (0.14 + frac(seed) * 0.2);
+  draw3DBoxAt(ctx, cam, dx + fh * 0.12, dy - fh * 0.08, fh * 0.44, roofZ, roofZ + ph, bi, seed + 7, night, alpha, true);   // set-back penthouse
+  for (let i = 0; i < 2; i++) {                             // low rooftop mechanical boxes — capped (roof=true) so you don't look into an open box from above
+    const ox = (frac(seed + i * 3) - 0.5) * fh, oy = (frac(seed + i * 7) - 0.5) * fh * 0.6;
+    draw3DBoxAt(ctx, cam, dx + ox, dy + oy, fh * 0.15, roofZ, roofZ + roofZ * 0.07, bi, seed + 20 + i, night, alpha, true);
+  }
+  const r = seed % 4;
+  if (r === 0) draw3DBoxAt(ctx, cam, dx - fh * 0.22, dy, fh * 0.2, roofZ + ph, roofZ + ph + roofZ * 0.16, bi, seed + 5, night, alpha, true);   // water tank on stilts (capped)
+  else if (r === 1) mast(ctx, cam, dx + fh * 0.2, dy, roofZ, roofZ + roofZ * 0.55, alpha, now, seed);                                            // antenna mast
+  else if (r === 2) dish(ctx, cam, dx - fh * 0.18, dy - fh * 0.1, roofZ + roofZ * 0.02, 12, alpha);                                              // satellite dish
+  if (night) blinkLight(ctx, cam, dx + fh * 0.12, dy - fh * 0.08, roofZ + ph, '255,80,80', now, seed, alpha);
+}
+
 // General city-core building: a varied mix picked from the (stable) seed — plain mid-rise,
 // a podium with a set-back block, a block with a rooftop mechanical penthouse (sometimes
 // corner-offset), or the occasional taller tower — so the core reads as a mixed cityscape.
@@ -1761,7 +2286,7 @@ function drawCityBuilding(ctx, cam, dx, dy, fh, h, biome, seed, night, alpha, no
     return;
   }
   draw3DBoxAt(ctx, cam, dx, dy, fh, 0, h, biome, seed, night, alpha, true);   // the main block
-  if (kind === 1) return;                                   // plain mid-rise
+  if (kind === 1) { roofClutter(ctx, cam, dx, dy, fh, h, biome, seed, night, alpha, now); return; }   // plain mid-rise → dressed roof
   const off = kind === 3 ? fh * 0.45 : 0;                    // rooftop penthouse, corner-pushed on kind 3
   draw3DBoxAt(ctx, cam, dx + off, dy - off * 0.5, fh * 0.5, h, h + h * (0.18 + frac(seed + 2) * 0.22), biome, seed + 3, night, alpha, true);
 }
@@ -1797,8 +2322,9 @@ function drawIndustrial(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
   } else if (kind === 1) {   // squat storage tanks
     draw3DBoxAt(ctx, cam, dx - fh * 0.9, dy, fh * 0.8, 0, h * 0.7, bi, seed, night, alpha, true);
     draw3DBoxAt(ctx, cam, dx + fh * 0.9, dy, fh * 0.8, 0, h * 0.55, bi, seed + 3, night, alpha, true);
-  } else {   // low sprawling plant hall
+  } else {   // low sprawling plant hall + rooftop vents/tank so it isn't a bare slab
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.25, 0, h * 0.8, bi, seed, night, alpha, true);
+    roofClutter(ctx, cam, dx, dy, fh * 1.25, h * 0.8, bi, seed, night, alpha, now);
   }
 }
 function drawInfra(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
@@ -1818,8 +2344,10 @@ function drawFreight(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
       const cx = dx + (i % 2 - 0.5) * fh * 1.1, cy = dy + (Math.floor(i / 2) - 0.5) * fh * 0.7;
       draw3DBoxAt(ctx, cam, cx, cy, fh * 0.5, 0, h * (0.26 + (i % 2) * 0.13), bi, seed + i * 5, night, alpha, true);
     }
-  } else {   // long low warehouse
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.4, 0, h * (kind === 0 ? 0.5 : 0.62), bi, seed, night, alpha, true);
+  } else {   // long low warehouse + rooftop HVAC/vents so it isn't a bare slab
+    const rz = h * (kind === 0 ? 0.5 : 0.62);
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.4, 0, rz, bi, seed, night, alpha, true);
+    roofClutter(ctx, cam, dx, dy, fh * 1.4, rz, bi, seed, night, alpha, now);
     if (bi === 'docks') drawGantry(ctx, cam, dx, dy, fh, h, alpha, seed);
   }
 }
@@ -1855,25 +2383,25 @@ function drawMarquee(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
 // palette and rooftop adornments — exactly the parts the collision sweep ignores.
 function bldgSlug(name) { return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
 const NAMED_MODELS = {
-  halcyontowers:                  { type: 'office',    pal: 'ty_office' },
+  halcyontowers:                  { type: 'luxtower',  pal: 'ty_lux',      neon: '#ffcf8a' },
   embassyhotelbar:                { type: 'embassy',   pal: 'ty_embassy',  neon: '#ff4a9a' },
-  chromecourt:                    { type: 'apartment', pal: 'ty_apt_a' },
-  themeridianlobby:               { type: 'apartment', pal: 'ty_apt_b',    penthouse: true },
+  chromecourt:                    { type: 'chrome',    pal: 'ty_chrome' },
+  themeridianlobby:               { type: 'meridian',  pal: 'ty_meridian', penthouse: true },
   precinct9:                      { type: 'police',    pal: 'ty_police' },
   coldwaterclonefacility:         { type: 'clone',     pal: 'ty_clone' },
   ksabtvstudiostage:              { type: 'studio',    pal: 'ty_studio' },
   coldwaterpowerplantturbinehall: { type: 'power',     pal: 'ty_power' },
   coldwaterregionalhangar:        { type: 'hangar',    pal: 'ty_hangar_a', big: true },
   thresholdhelipadhangar:         { type: 'hangar',    pal: 'ty_hangar_b', helipad: true },
-  sump:                           { type: 'bar',       pal: 'ty_bar_a',    neon: '#7dff6a' },
-  thedeadpigeon:                  { type: 'bar',       pal: 'ty_bar_b',    neon: '#5fd0ff' },
-  thecherrypit:                   { type: 'club',      pal: 'ty_club',     neon: '#ff4a9a' },
-  rationnine:                     { type: 'diner',     pal: 'ty_diner',    neon: '#ffcf3e' },
-  ampersandelectronics:           { type: 'shop',      pal: 'ty_shop_a',   neon: '#5fd0ff' },
-  deadspaceinteriors:             { type: 'shop',      pal: 'ty_shop_b',   neon: '#7dff6a' },
-  secondskin:                     { type: 'shop',      pal: 'ty_shop_c',   neon: '#ff4a9a' },
+  sump:                           { type: 'divebar',   pal: 'ty_bar_a',    neon: '#7dff6a' },
+  thedeadpigeon:                  { type: 'divebar',   pal: 'ty_bar_b',    neon: '#5fd0ff', perch: true },
+  thecherrypit:                   { type: 'strip',     pal: 'ty_club',     neon: '#ff4a9a' },
+  rationnine:                     { type: 'grocery',   pal: 'ty_grocery',  neon: '#ffcf3e' },
+  ampersandelectronics:           { type: 'techstall', pal: 'ty_tech',     neon: '#5fd0ff' },
+  deadspaceinteriors:             { type: 'showroom',  pal: 'ty_showroom', neon: '#7dff6a' },
+  secondskin:                     { type: 'boutique',  pal: 'ty_boutique', neon: '#ff4a9a' },
   thecage:                        { type: 'shop',      pal: 'ty_shop_d',   neon: '#ffcf3e' },
-  velkspreownedfurnishings:       { type: 'shop',      pal: 'ty_shop_e',   neon: '#ff8a4a' },
+  velkspreownedfurnishings:       { type: 'junkshop',  pal: 'ty_junk',     neon: '#ff8a4a' },
 };
 function namedModel(name) { return NAMED_MODELS[bldgSlug(name)] || null; }
 
@@ -1925,12 +2453,59 @@ function crossMark(ctx, cam, dx, dy, wz, alpha) {   // red medical cross billboa
   ctx.fillRect(p.sx - s * 0.28, p.sy - s, s * 0.56, s * 2);
   ctx.fillRect(p.sx - s, p.sy - s * 0.28, s * 2, s * 0.56); ctx.globalAlpha = 1;
 }
-function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha) {   // vertical neon sign (generalised marquee)
+function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha) {   // vertical marquee blade — a stacked sign board, not a bare line
   const b = cam.proj(dx, dy, h0), t = cam.proj(dx, dy, h1); if (b.f <= 0.12 || t.f <= 0.12) return;
-  ctx.globalAlpha = alpha * (night ? 0.95 : 0.55); ctx.strokeStyle = color; ctx.lineWidth = 2.4;
+  const ux = t.sx - b.sx, uy = t.sy - b.sy, len = Math.hypot(ux, uy) || 1;
+  const wpx = clamp(9 / ((b.f + t.f) / 2), 2, 9);            // blade half-width (screen px), distance-scaled
+  const nx = -uy / len * wpx, ny = ux / len * wpx;           // perpendicular half-width offset
+  const P = [[b.sx + nx, b.sy + ny], [t.sx + nx, t.sy + ny], [t.sx - nx, t.sy - ny], [b.sx - nx, b.sy - ny]];
+  const trace = () => { ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); };
+  ctx.save();
+  // backing board
+  ctx.globalAlpha = alpha * (night ? 0.92 : 0.84); ctx.fillStyle = '#120d12'; trace(); ctx.fill();
+  // colour-lit face
+  ctx.globalAlpha = alpha * (night ? 0.8 : 0.55); ctx.fillStyle = color;
+  if (night) { ctx.shadowColor = color; ctx.shadowBlur = 8; }
+  trace(); ctx.fill(); ctx.shadowBlur = 0;
+  // stacked "letter" rungs down the blade
+  const N = clamp(Math.round(len / 8), 3, 8);
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1;
+  if (night) { ctx.shadowColor = color; ctx.shadowBlur = 4; }
+  for (let i = 1; i < N; i++) {
+    const s = i / N, cx = b.sx + ux * s, cy = b.sy + uy * s;
+    ctx.globalAlpha = alpha * (night ? 0.9 : 0.68);
+    ctx.beginPath(); ctx.moveTo(cx + nx * 0.55, cy + ny * 0.55); ctx.lineTo(cx - nx * 0.55, cy - ny * 0.55); ctx.stroke();
+  }
+  ctx.restore();
+}
+// A single tall LIT vertical marquee up a building's front — the sign name stacked one glowing
+// letter per row (E / M / B / A / S / S / Y) on a dark board, from world-z h0→h1 at (dx,dy). The
+// letters ARE the lit elements (neon fill + a bright white core + glow), so it reads as an
+// illuminated hotel blade day or night. Board width scales with distance.
+function verticalMarquee(ctx, cam, dx, dy, h0, h1, label, color, night, alpha) {
+  const n = label.length; if (!n) return;
+  const b = cam.proj(dx, dy, h0), t = cam.proj(dx, dy, h1);
+  if (b.f <= 0.12 || t.f <= 0.12) return;
+  const len = Math.hypot(t.sx - b.sx, t.sy - b.sy) || 1, seg = len / n;
+  const halfW = clamp(seg * 0.6, 3, 30);
+  const ux = (t.sx - b.sx) / len, uy = (t.sy - b.sy) / len, nx = -uy, ny = ux;   // up + perpendicular (screen)
+  const P = [[b.sx + nx * halfW, b.sy + ny * halfW], [t.sx + nx * halfW, t.sy + ny * halfW], [t.sx - nx * halfW, t.sy - ny * halfW], [b.sx - nx * halfW, b.sy - ny * halfW]];
+  ctx.save();
+  // dark backing board + a thin lit edge frame
+  ctx.globalAlpha = alpha; ctx.fillStyle = '#0e0a0f';
+  ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = alpha * (night ? 0.5 : 0.32); ctx.strokeStyle = color; ctx.lineWidth = 1.2;
   if (night) { ctx.shadowColor = color; ctx.shadowBlur = 7; }
-  ctx.beginPath(); ctx.moveTo(b.sx, b.sy); ctx.lineTo(t.sx, t.sy); ctx.stroke();
-  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  ctx.stroke(); ctx.shadowBlur = 0;
+  // stacked letters — first letter at the TOP, last at the bottom
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `bold ${Math.max(6, seg * 0.7)}px monospace`;
+  for (let i = 0; i < n; i++) {
+    const fr = (i + 0.5) / n, px = t.sx + (b.sx - t.sx) * fr, py = t.sy + (b.sy - t.sy) * fr;
+    ctx.globalAlpha = alpha; ctx.shadowColor = color; ctx.shadowBlur = night ? 9 : 5;
+    ctx.fillStyle = color; ctx.fillText(label[i], px, py);                              // neon glow base
+    ctx.shadowBlur = night ? 5 : 2; ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillText(label[i], px, py);   // bright lit core
+  }
+  ctx.restore();
 }
 function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof glow (generalised ruin glow)
   const g = cam.proj(dx, dy, wz); if (g.f <= 0.12) return; const s = clamp(s0 / g.f, 3, 60);
@@ -1938,17 +2513,64 @@ function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof 
   rg.addColorStop(0, `rgba(${rgb},${alpha})`); rg.addColorStop(1, `rgba(${rgb},0)`);
   ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill();
 }
-// A HORIZONTAL neon sign band across a building's entrance face (a hotel/bar marquee), at
-// height wz, spanning ±half across the front edge (E = entrance world vector).
-function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha) {
-  const px = E[1] * half, py = -E[0] * half;          // across-front half-width
-  const ox = E[0] * half * 0.92, oy = E[1] * half * 0.92;   // pushed out to the front face
-  const a = cam.proj(dx - px + ox, dy - py + oy, wz), b = cam.proj(dx + px + ox, dy + py + oy, wz);
-  if (a.f <= 0.12 || b.f <= 0.12) return;
-  ctx.globalAlpha = alpha * (night ? 1 : 0.6); ctx.strokeStyle = color; ctx.lineWidth = 3.2; ctx.lineCap = 'round';
-  if (night) { ctx.shadowColor = color; ctx.shadowBlur = 9; }
-  ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
-  ctx.shadowBlur = 0; ctx.globalAlpha = 1; ctx.lineCap = 'butt';
+// A HORIZONTAL marquee SIGN across a building's entrance face (a hotel/bar marquee), at
+// height wz, spanning ±half across the front edge (E = entrance world vector). Drawn as a
+// real lit sign board — a dark backing panel, a colour-lit face, a frame, and a row of
+// marquee bulbs along the top & bottom rails — so it reads as signage in daylight instead
+// of a bare stroke (which is all it used to be).
+function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label) {
+  const px = E[1] * half, py = -E[0] * half;                 // across-front half-width
+  const ox = E[0] * half * 0.94, oy = E[1] * half * 0.94;    // pushed out to the front face
+  const hh = Math.min(clamp(half * 0.26, 0.045, 0.12), Math.max(0.03, wz * 0.85));   // sign half-height (world-z), never dips below the base
+  const Lx = dx - px + ox, Ly = dy - py + oy, Rx = dx + px + ox, Ry = dy + py + oy;
+  const tl = cam.proj(Lx, Ly, wz + hh), tr = cam.proj(Rx, Ry, wz + hh);
+  const bl = cam.proj(Lx, Ly, wz - hh), br = cam.proj(Rx, Ry, wz - hh);
+  if ([tl, tr, bl, br].some((p) => p.f <= 0.12)) return;
+  const quad = () => { ctx.beginPath(); ctx.moveTo(tl.sx, tl.sy); ctx.lineTo(tr.sx, tr.sy); ctx.lineTo(br.sx, br.sy); ctx.lineTo(bl.sx, bl.sy); ctx.closePath(); };
+  ctx.save();
+  // 1. dark backing board
+  ctx.globalAlpha = alpha * (night ? 0.94 : 0.86); ctx.fillStyle = '#140f14'; quad(); ctx.fill();
+  // 2. colour-lit sign face (glows at night)
+  ctx.globalAlpha = alpha * (night ? 0.82 : 0.6); ctx.fillStyle = color;
+  if (night) { ctx.shadowColor = color; ctx.shadowBlur = 8; }
+  quad(); ctx.fill(); ctx.shadowBlur = 0;
+  // 3. metal frame
+  ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(18,14,18,0.9)'; ctx.lineWidth = 1.3; quad(); ctx.stroke();
+  // 4. marquee bulbs along the top & bottom rails
+  const wpx = Math.hypot(tr.sx - tl.sx, tr.sy - tl.sy);
+  const N = clamp(Math.round(wpx / 9), 4, 16);
+  if (night) { ctx.shadowColor = color; ctx.shadowBlur = 5; }
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    for (const [P, Q] of [[tl, tr], [bl, br]]) {
+      const sx = P.sx + (Q.sx - P.sx) * t, sy = P.sy + (Q.sy - P.sy) * t;
+      ctx.globalAlpha = alpha * (night ? 0.95 : 0.82); ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(sx, sy, night ? 1.5 : 1.2, 0, 7); ctx.fill();
+      ctx.globalAlpha = alpha * (night ? 0.85 : 0.55); ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(sx, sy, 0.5, 0, 7); ctx.fill();
+    }
+  }
+  ctx.shadowBlur = 0;
+  // 5. the sign lettering — centred on the face, rotated onto the band and squeezed to fit.
+  if (label) {
+    const midL = [(tl.sx + bl.sx) / 2, (tl.sy + bl.sy) / 2], midR = [(tr.sx + br.sx) / 2, (tr.sy + br.sy) / 2];
+    const midT = [(tl.sx + tr.sx) / 2, (tl.sy + tr.sy) / 2], midB = [(bl.sx + br.sx) / 2, (bl.sy + br.sy) / 2];
+    const wl = Math.hypot(midR[0] - midL[0], midR[1] - midL[1]), hl = Math.hypot(midB[0] - midT[0], midB[1] - midT[1]);
+    if (wl > 12 && hl > 4) {
+      ctx.translate((midL[0] + midR[0]) / 2, (midL[1] + midR[1]) / 2);
+      ctx.rotate(Math.atan2(midR[1] - midL[1], midR[0] - midL[0]));
+      ctx.font = `bold ${Math.max(6, hl * 0.74)}px monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const mw = ctx.measureText(label).width || 1;
+      ctx.scale(Math.min(1, (wl * 0.84) / mw), 1);   // squeeze to fit the board width
+      ctx.globalAlpha = alpha; ctx.lineWidth = Math.max(1, hl * 0.14);
+      ctx.strokeStyle = 'rgba(8,6,8,0.92)'; ctx.strokeText(label, 0, 0);
+      ctx.fillStyle = '#fff';
+      if (night) { ctx.shadowColor = color; ctx.shadowBlur = 6; }
+      ctx.fillText(label, 0, 0);
+    }
+  }
+  ctx.restore();
 }
 
 // ── Entrance facing ───────────────────────────────────────────────────────────
@@ -1977,6 +2599,11 @@ function facePt(dx, dy, lx, ly, E) {
 function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = [0, 1]) {
   const pal = m.pal;
   const F = (lx, ly) => facePt(dx, dy, lx, ly, E);   // model-local → world, rotated to the entrance
+  // Front-face (entrance/marquee side) visibility: its outward normal is E, so the face points
+  // at the camera when E·(camera − faceCentre) > 0 — same test as the box backface cull, folding
+  // in the external-view chase offset. When the front is turned away we skip the signage/marquee
+  // (it lives ON that face) instead of letting it float through the building from behind.
+  const frontVis = (E[0] * (dx + E[0] * fh) + E[1] * (dy + E[1] * fh) + (cam.back || 0) * (E[0] * cam.sinh - E[1] * cam.cosh)) < 0;
   switch (m.type) {
     case 'office': {   // corporate glass tower: three setbacks + spire beacon
       let w = fh * 1.1, z = 0; const H = h * 1.7;
@@ -1989,8 +2616,10 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.2, 0, h * 0.24, pal, seed + 4, night, alpha, true);        // lit ground-floor podium
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, h * 0.24, h * 1.4, pal, seed, night, alpha, true);      // guest tower
       { const [cx, cy] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.85, h * 0.16, h * 0.24, 'ty_door', seed + 5, night, alpha, false); }   // porte-cochère canopy over the entrance
-      marqueeBand(ctx, cam, dx, dy, E, fh, h * 0.27, neon, night, alpha);                             // marquee sign across the front
-      { const [nx, ny] = F(-fh * 0.55, fh * 0.55); neonBlade(ctx, cam, nx, ny, h * 0.3, h * 1.35, neon, night, alpha); }
+      if (frontVis) {   // front-face signage — hidden when the marquee side is turned away
+        marqueeBand(ctx, cam, dx, dy, E, fh, h * 0.27, neon, night, alpha);                           // marquee sign across the front
+        const [nx, ny] = F(-fh * 0.55, fh * 0.55); neonBlade(ctx, cam, nx, ny, h * 0.3, h * 1.35, neon, night, alpha);
+      }
       if (night) glowPool(ctx, cam, dx, dy, h * 1.4, '255,120,180', 20, alpha * 0.2);
       break;
     }
@@ -1999,9 +2628,9 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.32, 0, h * 0.34, 'ty_embassy_bar', seed + 4, night, alpha, true);   // wide street-level bar
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, h * 0.34, h * 1.55, pal, seed, night, alpha, true);             // hotel tower above
       { const [cx, cy] = F(0, fh * 1.15); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.95, h * 0.2, h * 0.3, 'ty_door', seed + 5, night, alpha, false); }   // grand entrance canopy
-      marqueeBand(ctx, cam, dx, dy, E, fh * 1.25, h * 0.16, '#ffcf3e', night, alpha);      // gold bar marquee low across the front
-      marqueeBand(ctx, cam, dx, dy, E, fh, h * 0.36, neon, night, alpha);                  // pink hotel marquee above the podium
-      { const [nx, ny] = F(-fh * 0.62, fh * 0.6); neonBlade(ctx, cam, nx, ny, h * 0.36, h * 1.5, neon, night, alpha); }   // vertical HOTEL blade up the corner
+      // ONE tall lit VERTICAL marquee up the front — EMBASSY stacked E-M-B-A-S-S-Y — only when
+      // the front (marquee) face is actually toward you, so it never shows through from behind.
+      if (frontVis) { const [nx, ny] = F(fh * 0.72, fh * 0.66); verticalMarquee(ctx, cam, nx, ny, h * 0.42, h * 1.5, 'EMBASSY', neon, night, alpha); }
       if (night) {
         glowPool(ctx, cam, dx, dy, h * 0.34, '255,190,90', 26, alpha * 0.32);             // warm bar spill at street level
         glowPool(ctx, cam, dx, dy, h * 1.55, '255,120,180', 16, alpha * 0.18);            // rooftop sign glow
@@ -2024,6 +2653,92 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       { const [wx2, wy2] = F(fh * 0.72, -fh * 0.2); drawSmoke(ctx, cam, wx2, wy2, h * 0.8, '206,232,226', alpha * 0.6, now, seed + 2); }
       { const [mx, my] = F(-fh * 0.9, -fh * 0.2); mast(ctx, cam, mx, my, h * 0.8, h * 1.55, alpha, now, seed + 4); }
       blinkLight(ctx, cam, dx, dy, h * 1.15, bio, now, seed, alpha, 2);
+      break;
+    }
+    case 'luxtower': {   // Halcyon Towers: slender luxury highrise — lit lobby podium, tapering shaft, glazed crown
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.24, 0, h * 0.26, pal, seed + 4, night, alpha, true);        // brass-lit ground lobby
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, h * 0.26, h * 1.92, pal, seed, night, alpha, true);      // slender residential shaft
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.56, h * 1.92, h * 2.18, pal, seed + 2, night, alpha, true);  // set-back glazed crown
+      { const [cx, cy] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.78, h * 0.14, h * 0.22, 'ty_door', seed + 5, night, alpha, false); }   // entrance canopy
+      if (night) {
+        glowPool(ctx, cam, dx, dy, h * 0.26, '255,206,140', 22, alpha * 0.3);                           // warm downlight spill at the lobby
+        glowPool(ctx, cam, dx, dy, h * 2.18, '255,224,170', 14, alpha * 0.22);                          // crown glow
+      }
+      blinkLight(ctx, cam, dx, dy, h * 2.2, '255,214,150', now, seed, alpha, 1.8);                      // brass roof beacon
+      break;
+    }
+    case 'chrome': {   // Chrome Court: mirror-steel residential slab over a jimmied-mailbox podium + rooftop plant
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.34, 0, h * 0.2, pal, seed + 5, night, alpha, true);          // mailbox lobby podium
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, h * 0.2, h * 1.3, pal, seed, night, alpha, true);          // steel slab
+      { const [rx, ry] = F(fh * 0.28, 0); draw3DBoxAt(ctx, cam, rx, ry, fh * 0.42, h * 1.3, h * 1.46, pal, seed + 2, night, alpha, true); }   // rooftop lift housing
+      glowPool(ctx, cam, dx, dy, h * 0.72, '198,214,230', 20, alpha * (night ? 0.26 : 0.16));           // cold chrome sheen up the face
+      { const [cx, cy] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.9, h * 0.1, h * 0.18, 'ty_door', seed + 6, night, alpha, false); }
+      break;
+    }
+    case 'meridian': {   // The Meridian: terrazzo residential tower + set-back penthouse + rooftop water tank
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.3, 0, h * 0.26, pal, seed + 5, night, alpha, true);          // lobby podium
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, h * 0.26, h * 1.34, pal, seed, night, alpha, true);        // tower
+      if (m.penthouse) { const [px, py] = F(fh * 0.3, 0); draw3DBoxAt(ctx, cam, px, py, fh * 0.5, h * 1.34, h * 1.56, pal, seed + 2, night, alpha, true); }   // penthouse
+      { const [wx3, wy3] = F(-fh * 0.36, 0); draw3DBoxAt(ctx, cam, wx3, wy3, fh * 0.2, h * 1.34, h * 1.62, pal, seed + 3, night, alpha, true); }   // rooftop water tank on stilts
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.7, '255,196,120', 12, alpha * 0.14);                  // scattered lit windows
+      break;
+    }
+    case 'divebar': {   // Sump / The Dead Pigeon: low grimy box + one flickering neon blade + dim window glow
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.9, 0, h * 0.62, pal, seed, night, alpha, true);
+      { const [nx, ny] = F(fh * 0.42, fh * 0.5); neonBlade(ctx, cam, nx, ny, h * 0.62, h * 0.98, m.neon || '#5fd0ff', night, alpha); }   // blade over the door
+      { const [vx, vy] = F(-fh * 0.6, fh * 0.2); drawSmoke(ctx, cam, vx, vy, h * 0.62, '120,116,110', alpha * 0.4, now, seed + 3); }      // kitchen/vent smoke
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.28, '255,180,90', 10, alpha * 0.2);                   // grimy amber window
+      if (m.perch) {   // The Dead Pigeon — its stuffed bird on a pole over the register
+        const [px, py] = F(0, fh * 0.55);
+        mast(ctx, cam, px, py, h * 0.62, h * 0.82, alpha, now, seed + 7);
+        draw3DBoxAt(ctx, cam, px, py, fh * 0.08, h * 0.82, h * 0.9, 'ty_door', seed + 8, night, alpha, true);   // the pigeon silhouette
+      }
+      break;
+    }
+    case 'strip': {   // The Cherry Pit: dark box + twin neon roofline + a cherry-red stage glow bleeding out the door
+      const neon = m.neon || '#ff4a9a';
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, 0, h * 0.8, pal, seed, night, alpha, true);
+      { const [ax, ay] = F(-fh * 0.4, 0); neonBlade(ctx, cam, ax, ay, h * 0.8, h * 1.15, neon, night, alpha); }
+      { const [bx, by] = F(fh * 0.4, 0); neonBlade(ctx, cam, bx, by, h * 0.8, h * 1.15, neon, night, alpha); }
+      { const [gx, gy] = F(0, fh * 0.95); glowPool(ctx, cam, gx, gy, 0.02, '220,40,70', 16, alpha * (night ? 0.5 : 0.3)); }   // cherry-red spill out the entrance
+      glowPool(ctx, cam, dx, dy, h * 0.85, '255,74,120', 20, alpha * (night ? 0.36 : 0.16));            // roofline wash
+      break;
+    }
+    case 'grocery': {   // Ration Nine: low wide store + a long front awning, stacked crates, and a lit sign
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.28, 0, h * 0.55, pal, seed, night, alpha, true);
+      { const [ax, ay] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.2, h * 0.12, h * 0.24, 'ty_door', seed + 1, night, alpha, false); }   // full-width awning
+      for (const s of [-0.7, 0.7]) { const [cx, cy] = F(s * fh * 0.7, fh * 0.82); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.22, 0, h * 0.14, 'ty_door', seed + 9 + s * 3, night, alpha, true); }   // crates out front
+      neonBlade(ctx, cam, dx, dy, h * 0.55, h * 0.85, m.neon || '#ffcf3e', night, alpha);
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.26, '255,214,140', 12, alpha * 0.22);                 // lit aisles through the glass
+      break;
+    }
+    case 'techstall': {   // Ampersand Electronics: a cluttered stall tucked under an overpass girder, strung with cyan tech-glow
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.1, 0, h * 0.5, pal, seed, night, alpha, true);               // stall box
+      for (const s of [-1, 1]) { const [sx, sy] = F(s * fh * 1.05, -fh * 0.1); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.12, 0, h * 1.5, pal, seed + 2 + s, night, alpha, false); }   // overpass piers
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.4, h * 1.5, h * 1.68, pal, seed + 5, night, alpha, true);    // the girder deck overhead
+      neonBlade(ctx, cam, dx, dy, h * 0.5, h * 0.82, m.neon || '#5fd0ff', night, alpha);
+      glowPool(ctx, cam, dx, dy, h * 0.3, '95,208,255', 12, alpha * (night ? 0.4 : 0.22));              // cyan gear-glow spilling off the counter
+      break;
+    }
+    case 'showroom': {   // Dead Space Interiors: a wide glazed showroom floor with a big lit display window
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.36, 0, h * 0.6, pal, seed, night, alpha, true);
+      { const [wx4, wy4] = F(0, fh * 0.92); glowPool(ctx, cam, wx4, wy4, h * 0.24, '150,220,190', 20, alpha * (night ? 0.42 : 0.24)); }   // display-window glow
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.7, h * 0.6, h * 0.7, pal, seed + 1, night, alpha, true);      // slim parapet band
+      neonBlade(ctx, cam, dx, dy, h * 0.7, h * 0.98, m.neon || '#7dff6a', night, alpha);
+      break;
+    }
+    case 'boutique': {   // Second Skin: a narrow tall shopfront with a full-height neon fashion blade + warm display glow
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.8, 0, h * 0.98, pal, seed, night, alpha, true);
+      { const [nx, ny] = F(fh * 0.6, fh * 0.5); neonBlade(ctx, cam, nx, ny, h * 0.28, h * 1.05, m.neon || '#ff4a9a', night, alpha); }
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.22, '255,150,200', 10, alpha * 0.28);                 // lit boutique window
+      break;
+    }
+    case 'junkshop': {   // Velk's Pre-Owned Furnishings: cluttered main shed + lean-to + junk stacked on the roof
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, h * 0.6, pal, seed, night, alpha, true);              // main shed
+      { const [lx, ly] = F(fh * 0.95, 0); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.5, 0, h * 0.4, pal, seed + 1, night, alpha, true); }   // lean-to annex
+      for (const s of [-0.5, 0.1, 0.6]) { const [jx, jy] = F(s * fh * 0.9, -fh * 0.2); draw3DBoxAt(ctx, cam, jx, jy, fh * 0.18, h * 0.6, h * (0.68 + frac(seed + s * 7) * 0.12), 'ty_door', seed + 10 + s * 5, night, alpha, true); }   // roof junk piles
+      neonBlade(ctx, cam, dx, dy, h * 0.6, h * 0.86, m.neon || '#ff8a4a', night, alpha);
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.26, '255,170,110', 10, alpha * 0.2);
       break;
     }
     case 'apartment': {   // podium + residential block + optional penthouse
@@ -2153,22 +2868,33 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     const c = map[ry][rx]; if (!c || c.kind === 'air' || c.kind === 'craft' || c.kind === 'field' || c.biome === 'water') continue;
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
-    if (f <= VISIBLE_NEAR_F || f > FAR) continue;
+    // Near-clip against the CAMERA, not the craft: in the external chase view the camera sits
+    // `back` tiles behind the aircraft, so a building that has slipped behind the model is still
+    // well in front of the camera (fCam = f + back) and must keep drawing — clipping on the raw
+    // craft distance `f` popped it out the instant it passed the tail. Far stays on `f`.
+    const fCam = f + (cam.back || 0);
+    if (fCam <= VISIBLE_NEAR_F || f > FAR) continue;
     // Buildings hold FULL opacity all the way to the camera — NO near-pass fade — so a
     // building directly ahead of (or passing right beside/under) you never dissolves. Only
     // the far edge fades, and only as haze: distant blocks ghost UP out of the horizon rather
     // than pop in. Nothing else can turn a building translucent.
     //
+    // The fade is confined to a THIN band at the very draw limit (the last HAZE_BAND tiles),
+    // not a wide swathe — otherwise a prominent mid-distance landmark reads as see-through
+    // (the sky showing straight through its body) rather than solid. Buildings closer than
+    // FAR − HAZE_BAND are fully opaque; only the last couple of tiles ghost in at the horizon.
+    //
     // The old climb-out corridor USED to hide buildings dead-ahead-and-low off the runway;
     // it no longer does — you always see them. cockpit.js still keeps the MATCHING collision
     // immunity (climbOutClear) for that departure window, so a weak climber can out-climb the
     // towers it now flies visibly over instead of them vanishing.
-    let alpha = clamp((FAR - f) / 6, 0, 1) * (v.worldBlend ?? 1);
+    const HAZE_BAND = 3;   // tiles of soft fade at the far edge (was 6 — halved so mid-distance blocks stay solid)
+    let alpha = clamp((FAR - f) / HAZE_BAND, 0, 1) * (v.worldBlend ?? 1);
     if (alpha <= 0.02) continue;
     // Seed from the WORLD tile (stable), NOT the array index — so a building keeps its shape
     // when the server recenters the map window (was the main "popping in and out" cause).
     const wx = Math.round((rx - R) + wcx), wy = Math.round((ry - R) + wcy);
-    items.push({ dx, dy, f, c, alpha, seed: (wx + 512) * 73 + (wy + 512) * 149 });   // stable, positive, frac-friendly
+    items.push({ dx, dy, f, c, alpha, seed: (wx + 512) * 73 + (wy + 512) * 149, wx, wy, rx, ry });   // stable, positive, frac-friendly
   }
   items.sort((a, b) => b.f - a.f);
   // Shadow pre-pass: lay every building's ground shadow FIRST (far→near) so the bodies drawn
@@ -2187,6 +2913,18 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     if (it.c.kind === 'nofly') { draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7); continue; }
     if (bi === 'parkland') { drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
     if (bi === 'badlands') { if ((it.seed % 3) === 0) drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
+    // Trees & small forests on OPEN grass (no building, no road here). A coarse per-area hash
+    // makes whole ~4-tile patches lean wooded or clear, so stands cluster into small forests
+    // instead of a uniform sprinkle; sparse areas still get the odd lone tree. Deterministic
+    // off the world tile, so a wood stays put as the map window recentres.
+    if (!it.c.bt && !it.c.road && GRASS_BIOMES.has(bi) && !nearField(map, it.rx, it.ry)) {
+      const areaBias = frac(Math.floor(it.wx / 4) * 71.7 + Math.floor(it.wy / 4) * 131.3);   // shared over a ~4-tile patch
+      const tileRoll = frac(it.wx * 57.1 + it.wy * 199.7);
+      const bias = RENDER_TUNE.treeForest;
+      const density = (areaBias > bias ? 0.32 + (areaBias - bias) * 1.3 : areaBias * 0.12) * RENDER_TUNE.treeDensity;   // wooded patch vs. lone trees, scaled by the Trees slider
+      if (tileRoll < density) drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha);
+      continue;
+    }
     // Only a real building tile (has `bt`) extrudes a 3-D building — a plain terrain tile
     // stays bare ground, never sprouts a generated building. Matches buildingHeightZ, so
     // what you see is exactly what you can hit.
@@ -2207,6 +2945,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // Rooftop holo-ad: a flickering translucent sign floating over ~1 in 4 tall-ish city
     // buildings at night — post-singularity advertising, half its pixels dead.
     if (night > 0.3 && h > 0.35 && (it.seed % 4) === 0) drawHoloAd(ctx, cam, it.dx, it.dy, fh, h, it.seed, now, alpha * night);
+    // Warm bloom over the lit windows so near towers read as emitting light at night.
+    if (night > 0.45) drawCityBloom(ctx, cam, it.dx, it.dy, h, night, alpha);
   }
 }
 
@@ -2272,20 +3012,72 @@ function drawBuildingShadow(ctx, cam, dx, dy, fh, h, sun, alpha) {
   ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.lineTo(C.sx, C.sy); ctx.lineTo(D.sx, D.sy); ctx.closePath(); ctx.fill();
 }
 
-// The aircraft's own shadow on the ground — a dark ellipse at the point the sun projects the
-// craft down onto, sliding away and shrinking with altitude. Reads as a height cue on a low,
-// sun-behind pass; naturally culled (off the bottom / behind) when it wouldn't be visible.
-function drawAircraftShadow(ctx, cam, height, sun, worldBlend) {
-  const sd = sun.shadowDir, alt = clamp(height, 0, 1);
-  const reach = alt * 6 / Math.max(0.25, sun.elev);
-  const p = cam.proj(sd[0] * reach, sd[1] * reach, 0);
-  if (p.f <= 0.12 || p.f > VISIBLE_FAR_F) return;
-  const size = clamp(26 / p.f, 3, 60) * (1 - alt * 0.4);
+// Airframe shadow footprints in the craft's own GROUND frame — (fwd, side) in tile units,
+// nose at +fwd. These are laid flat on the ground plane (z=0) and each vertex is projected
+// through the camera, so the shadow genuinely skews and foreshortens with the Mode-7
+// perspective instead of being a squashed 2D sprite pasted at a point.
+const SHADOW_PLANE = [
+  [[1.0, 0], [0.55, 0.11], [-0.85, 0.10], [-1.0, 0], [-0.85, -0.10], [0.55, -0.11]],   // fuselage
+  [[0.22, 0.06], [-0.02, 0.95], [-0.24, 0.95], [-0.16, 0.06], [-0.16, -0.06], [-0.24, -0.95], [-0.02, -0.95], [0.22, -0.06]],   // swept wings
+  [[-0.72, 0.34], [-1.0, 0.34], [-1.0, -0.34], [-0.72, -0.34]],   // tailplane
+];
+
+// Paint the shadow silhouette on the ground plane, centred at world ground point (gx,gy),
+// nose along heading `hr` (radians), scaled by `L` tiles. Each vertex is projected through
+// the camera so the shape lies flat on the surface and skews correctly with perspective.
+// Shared by the sun-cast shadow and the grounded contact shadow.
+function paintShadowSilhouette(ctx, cam, gx, gy, hr, L, alpha, cls) {
+  const cs = Math.cos(hr), sn = Math.sin(hr);
+  // craft-local (fwd,side) → world ground (z=0) → screen. forward = (sin,-cos), right = (cos,sin).
+  const S = (fwd, side) => cam.proj(gx + fwd * sn + side * cs, gy - fwd * cs + side * sn, 0);
+  const fillPoly = (localPts) => {
+    const pts = [];
+    for (const [f, s] of localPts) { const q = S(f * L, s * L); if (q.f <= 0.1) return; pts.push(q); }   // any vertex behind the lens → skip this poly
+    ctx.beginPath(); ctx.moveTo(pts[0].sx, pts[0].sy);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].sx, pts[i].sy);
+    ctx.closePath(); ctx.fill();
+  };
   ctx.save();
-  ctx.globalAlpha = clamp(sun.alpha * 1.4 * worldBlend * (1 - alt * 0.5), 0, 0.4);
+  ctx.globalAlpha = alpha;
   ctx.fillStyle = 'rgb(6,8,12)';
-  ctx.beginPath(); ctx.ellipse(p.sx, p.sy, size, size * 0.42, 0, 0, 7); ctx.fill();
+  if (cls === 'heli') {   // rotor disc + a stubby body
+    const disc = [], body = [[0.62, 0], [0.1, 0.16], [-0.7, 0.12], [-0.7, -0.12], [0.1, -0.16]];
+    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; disc.push([Math.cos(a) * 0.95, Math.sin(a) * 0.95]); }
+    fillPoly(disc); fillPoly(body);
+  } else {
+    for (const poly of SHADOW_PLANE) fillPoly(poly);
+  }
   ctx.restore();
+}
+
+// The aircraft's own shadow on the ground — the airframe projected down onto the surface at
+// the point the sun casts it, sliding away and shrinking with altitude. Reads as a height cue
+// on a low, sun-behind pass; naturally culled when it wouldn't be visible.
+function drawAircraftShadow(ctx, cam, height, sun, worldBlend, heading, cls) {
+  const sd = sun.shadowDir, alt = clamp(height, 0, 1);
+  // Offset the shadow toward the anti-sun direction, but CAP the reach: the true sun-cast point
+  // runs to ~24 tiles at altitude, past the 20-tile draw distance, so the shadow was culled the
+  // instant you climbed ("no shadow" in the air). Clamp it to a few tiles so it stays on the
+  // visible ground below the craft — a readable height cue that never silently disappears.
+  const reach = Math.min(3.2, alt * 6 / Math.max(0.25, sun.elev));
+  const cxw = sd[0] * reach, cyw = sd[1] * reach;
+  const p = cam.proj(cxw, cyw, 0);
+  if (p.f <= 0.12 || p.f > VISIBLE_FAR_F) return;
+  const hr = (heading || 0) * Math.PI / 180;
+  paintShadowSilhouette(ctx, cam, cxw, cyw, hr, 0.42 * (1 - alt * 0.4),
+    clamp(sun.alpha * 1.5 * worldBlend * (1 - alt * 0.5), 0, 0.4), cls);
+}
+
+// A soft contact shadow directly beneath the craft, present whenever it's on the ground
+// (sun-independent — so it reads as planted even overcast or at night). Fades out over the
+// first sliver of climb, handing off to the sun-cast shadow above once airborne.
+function drawGroundContactShadow(ctx, cam, heading, cls, strength) {
+  const p = cam.proj(0, 0, 0);
+  if (p.f <= 0.12 || p.f > VISIBLE_FAR_F) return;
+  const hr = (heading || 0) * Math.PI / 180;
+  // Alpha rides on `strength` only (NOT worldBlend, which is 0 on the deck — that zeroed the
+  // shadow exactly when the craft is parked and it should read most solid).
+  paintShadowSilhouette(ctx, cam, 0, 0, hr, 0.42, clamp(0.36 * strength, 0, 0.36), cls);
 }
 
 const HOLO_COLS = ['90,200,255', '255,90,160', '120,255,140', '255,200,80', '180,120,255'];

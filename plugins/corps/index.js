@@ -841,6 +841,9 @@ async function cmdDisband(player) {
       if (ownerLive) await adjustCredits(ownerLive, org.treasury, q, 'corp:disband');
       else await q('UPDATE players SET credits = credits + $1 WHERE id=$2', [org.treasury, org.owner_id]);
     }
+    // Kill the corp's private chat channel history too — once the org is gone
+    // no one can access '#corp:<id>', so its stored messages are dead weight.
+    await q('DELETE FROM channel_messages WHERE channel_id=$1', [`#corp:${org.id}`]);
     await q('DELETE FROM orgs WHERE id=$1', [org.id]); // CASCADE ranks/members/relations
   });
   removeOrgFromCache(org.id);

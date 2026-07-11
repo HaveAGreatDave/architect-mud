@@ -30,6 +30,7 @@ import {
   RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, runwayFor,
 } from './state.js';
 import { describeExterior, rampColorWord, conspicuousnessMult } from './livery.js';
+import { districtBiome } from './biomes.js';
 import { rollHazards, commands as hazardCommands } from './hazards.js';
 import { commands as acquisitionCommands, refuelAt, refuelParked, fieldStocks } from './acquisition.js';
 import { commands as combatCommands, tickCombat, relayContacts } from './combat.js';
@@ -577,9 +578,10 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     // cleared surface tile below it.
     const isVtol = live.type.takeoff_mode === 'vtol';
     // Open water is no place to set her down — nothing in the fleet has floats, so ditching
-    // in the bay is a crash, not a courtesy tow (mirrors the `flags.water` "needs a boat"
-    // rule on the ground). An airfield tile is never water, so this only bites off-strip.
-    if (field && !field.flags?.airfield_id && field.flags?.water) { await crash(live, 'ditched'); return { type: 'noop' }; }
+    // in the bay is a crash, not a courtesy tow. Catch it by BIOME as well as the `flags.water`
+    // gate, so a bay tile that only reads as water via its district still ditches you. An
+    // airfield tile is never water, so this only bites off-strip.
+    if (field && !field.flags?.airfield_id && (field.flags?.water || districtBiome(field) === 'water')) { await crash(live, 'ditched'); return { type: 'noop' }; }
     // Graded-landing IP: a clean touchdown teaches piloting. The client reports the grade it
     // showed the pilot (`land <grade> <fpm>`); award it here for any survivable set-down (a
     // crash lands on the `crash` path with 0), but only once the trip has been ≥5 min airborne.
@@ -603,12 +605,11 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
       await awardSkillUse(player.id, 'piloting', 0);
       await checkContractDelivery(player, live, field.id);
       await checkCargoDropDelivery(player, live, field.id);
-      // Down at a real airfield → everyone climbs out automatically (no manual `disembark`),
-      // so the pilot's client can open straight into the hangar bay. A VTOL that flared onto
-      // an off-field tile stays boarded so it can lift off again.
-      if (field.flags.airfield_id) {
-        for (const pid of [...live.occupants]) { const p = getLivePlayer(pid); if (p) detach(p); }
-      }
+      // Everyone climbs out onto the tile where she settled (parkAt set their zone to it).
+      // At a real airfield the client opens straight into the hangar bay; off-field — a VTOL
+      // that flared onto any surface — they're simply put down where they landed and can walk
+      // away, then `embark` the parked craft again to lift back off.
+      for (const pid of [...live.occupants]) { const p = getLivePlayer(pid); if (p) detach(p); }
       return { type: 'noop' };
     }
     // Off-strip, but she made it down in one piece: the client only sends `land` for a

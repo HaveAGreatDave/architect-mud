@@ -9,7 +9,7 @@
   "exits": {
     "down": "zone_util_zone_halcyon_lobby",
     "in": "zone_halcyon_elevator",
-    "out": "zone_district_895_906"
+    "west": "zone_district_895_906"
   },
   "flags": {
     "building_name": "Halcyon Towers",

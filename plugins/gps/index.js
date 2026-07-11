@@ -30,6 +30,52 @@ function plotRoute(player, destZone) {
   };
 }
 
+// Straight-line grid distance² between two tiles (no sqrt — we only compare).
+// Infinity when either lacks grid coords, so those sort last.
+function gridDist(a, b) {
+  if (!a || !b || a.grid_x == null || b.grid_x == null) return Infinity;
+  const dx = a.grid_x - b.grid_x, dy = a.grid_y - b.grid_y;
+  return dx * dx + dy * dy;
+}
+
+// Option D — many tiles legitimately share one name: filler terrain ("Grasslands"),
+// or a street that spans a dozen tiles ("Halcyon Boulevard"). Any one of them is as
+// good a destination as another, so route to the NEAREST reachable one instead of
+// popping an unusable N-row picker (or, worse, tie-break-routing to a far tile).
+function routeToNearest(player, candidates) {
+  const here = getZone(player.current_zone);
+  const sorted = candidates
+    .filter(z => z.id !== player.current_zone)
+    .sort((a, b) => gridDist(here, a) - gridDist(here, b));
+  // plotRoute runs the real road-preferring pathfind; grid distance only orders the
+  // attempts. Try the closest few so an unreachable nearest tile falls through to the
+  // next — bounded so a name matching hundreds of tiles never fans out hundreds of BFS.
+  for (const z of sorted.slice(0, 8)) {
+    const res = plotRoute(player, z);
+    if (res.type === 'gps_route') return res;
+  }
+  return sorted.length
+    ? plotRoute(player, sorted[0]) // surface its concrete error (e.g. can't find a path)
+    : { type: 'error', message: 'No reachable tile of that name.' };
+}
+
+// Option A (backup) — a direct handle to one exact tile, bypassing name matching:
+// a full zone id, or "x,y" / "x y" grid coordinates on the player's current map+level.
+// The map popup shows these coords, so this is the power-user way to hit a precise tile.
+function resolveDirect(query, player) {
+  const byId = getZone(query) || getZone(query.toLowerCase());
+  if (byId) return byId;
+  const m = query.match(/^(-?\d+)\s*[ ,]\s*(-?\d+)$/);
+  if (m) {
+    const here = getZone(player.current_zone);
+    const gx = +m[1], gy = +m[2];
+    return getAllZones().find(z =>
+      z.grid_x === gx && z.grid_y === gy &&
+      z.map_id === here?.map_id && (z.grid_z ?? 0) === (here?.grid_z ?? 0)) || null;
+  }
+  return null;
+}
+
 function cmdGps(args, raw, player) {
   const query = (args || []).join(' ').trim();
   if (!query) return { type: 'error', message: 'GPS to where? Try: gps <part of a location name>' };
@@ -41,9 +87,21 @@ function cmdGps(args, raw, player) {
   if (hereZone && String(hereZone.name || '').trim().toLowerCase() === query.toLowerCase())
     return { type: 'output', message: `You're already at ${hereZone.name}.` };
 
+  // Option A: an exact zone id or grid coordinate resolves straight to one tile.
+  const direct = resolveDirect(query, player);
+  if (direct) return plotRoute(player, direct);
+
   // Water tiles are invisible to GPS — they can't be a destination (Cold Channel and
   // its ilk would otherwise clutter every name match), so drop them before resolving.
-  const r = siftResolve(query, getAllZones().filter(z => !z.flags?.water));
+  const landZones = getAllZones().filter(z => !z.flags?.water);
+
+  // Option D: the typed name is an exact match for several tiles (terrain / a long
+  // street). Route to the nearest rather than SIFT's tie-break pick or a dead picker.
+  const q = query.toLowerCase();
+  const sameName = landZones.filter(z => String(z.name || '').trim().toLowerCase() === q);
+  if (sameName.length > 1) return routeToNearest(player, sameName);
+
+  const r = siftResolve(query, landZones);
   if (r.type === 'none') return { type: 'error', message: `No location matching "${query.replace(/^["']|["']$/g, '')}".` };
   if (r.type === 'ambiguous') {
     createSelectionState(player.id, r.candidates, { dispatchType: 'gps.navigate', dispatchParam: 'destination' });

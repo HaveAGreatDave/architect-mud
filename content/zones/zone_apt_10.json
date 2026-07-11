@@ -16,11 +16,11 @@
   },
   "grid_x": 0,
   "grid_y": 1,
-  "grid_z": 2,
+  "grid_z": 3,
   "id": "zone_apt_10",
   "map_id": "map_interior_zone_residential_lobby",
   "marker": null,
-  "name": "Unit 3B",
+  "name": "Unit 4B",
   "parent_zone": "zone_embassy_floor3",
   "updated_at": "1783045464"
 }

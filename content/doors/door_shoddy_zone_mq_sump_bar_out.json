@@ -1,6 +1,6 @@
 {
   "door_type": "shoddy",
-  "exit_dir": "out",
+  "exit_dir": "south",
   "flags": {},
   "hololock_difficulty": 0,
   "hp": 300,

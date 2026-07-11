@@ -7,7 +7,8 @@
   "created_by": "zone-planner",
   "description": "The face of The Meridian - Lobby.",
   "exits": {
-    "in": "zone_meridian_lobby"
+    "east": "zone_district_919_908",
+    "west": "zone_meridian_lobby"
   },
   "flags": {
     "building_name": "The Meridian - Lobby",

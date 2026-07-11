@@ -32,6 +32,73 @@ export default async function regress({ run, check, getPlayer }) {
     );
   }
 
+  // Option D — a name shared by many tiles (filler terrain / a long street) routes to
+  // the NEAREST one, not a picker or a tie-break-arbitrary far tile. Find such a name
+  // the player isn't already standing on, then assert it plots a route to a same-named
+  // tile and that no other same-named tile is grid-closer than the one chosen.
+  {
+    const land = getAllZones().filter(z => !z.flags?.water && z.grid_x != null);
+    const byName = {};
+    for (const z of land) (byName[(z.name || '').toLowerCase()] = byName[(z.name || '').toLowerCase()] || []).push(z);
+    const here = getZone(p.current_zone);
+    const dupName = Object.keys(byName).find(n =>
+      n && byName[n].length > 3 && n !== (here.name || '').toLowerCase());
+    if (dupName) {
+      const group = byName[dupName];
+      r = await run(`gps ${group[0].name}`);
+      const endId = r?.type === 'gps_route' ? r.path[r.path.length - 1] : null;
+      const end = endId && getZone(endId);
+      const sq = (a, b) => (a.grid_x - b.grid_x) ** 2 + (a.grid_y - b.grid_y) ** 2;
+      const chosenD = end ? sq(here, end) : Infinity;
+      const closest = Math.min(...group.filter(z => z.id !== here.id).map(z => sq(here, z)));
+      check(
+        'gps to a many-tile name routes to a same-named tile',
+        r?.type === 'gps_route' && end && (end.name || '').toLowerCase() === dupName,
+        `type=${r?.type} end=${end?.name}`,
+      );
+      check(
+        'gps to a many-tile name picks (near) the closest tile',
+        chosenD <= closest * 1.05 + 1, // exact closest may be unreachable; allow the fallthrough
+        `chosen²=${chosenD} closest²=${closest}`,
+      );
+    }
+  }
+
+  // Option A — a bare grid coordinate ("x,y") and a raw zone id each resolve straight
+  // to that one tile, no name matching. Pick a reachable dry tile a few hops out.
+  {
+    const here = getZone(p.current_zone);
+    // Coords must be unique on this map for a coord lookup to be deterministic — interior
+    // maps can stack tiles at one (x,y). Count occupancy so we only test a lone tile.
+    const coordCount = {};
+    for (const z of getAllZones())
+      if (z.map_id === here.map_id && z.grid_x != null) {
+        const k = `${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`;
+        coordCount[k] = (coordCount[k] || 0) + 1;
+      }
+    // Coord syntax "x,y" resolves on the player's current z-level, so the target must
+    // share it (interior maps stack floors at one (x,y) across grid_z).
+    const target = getAllZones().find(z =>
+      z.map_id === here.map_id && !z.flags?.water && z.grid_x != null && z.id !== here.id &&
+      (z.grid_z ?? 0) === (here.grid_z ?? 0) &&
+      coordCount[`${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`] === 1 &&
+      (findPath(here.id, z.id, { roads: true, maxDistance: 40 }) || []).length >= 2);
+    if (target) {
+      r = await run(`gps ${target.grid_x},${target.grid_y}`);
+      check(
+        'gps to "x,y" coordinates routes to that tile',
+        r?.type === 'gps_route' && r.path[r.path.length - 1] === target.id,
+        `type=${r?.type} end=${r?.path?.[r.path.length - 1]} want=${target.id}`,
+      );
+      r = await run(`gps ${target.id}`);
+      check(
+        'gps to a raw zone id routes to that tile',
+        r?.type === 'gps_route' && r.path[r.path.length - 1] === target.id,
+        `type=${r?.type} end=${r?.path?.[r.path.length - 1]} want=${target.id}`,
+      );
+    }
+  }
+
   // Road-preferring routing: a route between two street tiles should stay ON the street
   // grid — its interior hops are all roads/street tiles, never routed through a building
   // facade. Find one real road-to-road route a handful of hops long and assert it hugs

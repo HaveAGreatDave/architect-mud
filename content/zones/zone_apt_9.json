@@ -7,7 +7,7 @@
   "bg_color": "#c9a884",
   "color": null,
   "created_by": null,
-  "description": "Unit 3A, top floor, street-facing. Best light in the building up here — what little the smog lets through comes in clean and level through a window that actually opens. A proper bed, a desk someone bolted to the wall, and a hook in the ceiling that used to hold a fan and now holds nothing, turning slowly in the draft. Quiet. Expensive-feeling, for the Embassy.",
+  "description": "Unit 4A, top floor, street-facing. Best light in the building up here — what little the smog lets through comes in clean and level through a window that actually opens. A proper bed, a desk someone bolted to the wall, and a hook in the ceiling that used to hold a fan and now holds nothing, turning slowly in the draft. Quiet. Expensive-feeling, for the Embassy.",
   "exits": {
     "south": "zone_embassy_floor3"
   },
@@ -16,11 +16,11 @@
   },
   "grid_x": 0,
   "grid_y": -1,
-  "grid_z": 2,
+  "grid_z": 3,
   "id": "zone_apt_9",
   "map_id": "map_interior_zone_residential_lobby",
   "marker": null,
-  "name": "Unit 3A",
+  "name": "Unit 4A",
   "parent_zone": "zone_embassy_floor3",
   "updated_at": "1783045464"
 }

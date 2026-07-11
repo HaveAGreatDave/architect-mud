@@ -52,6 +52,7 @@ import { initMediaDeckPanel } from "./panels/mediadeck.js";
 import { initAudio } from "./panels/audio.js";
 import { initMusicPlayerPanel, stopMusicPlayer } from "./panels/musicplayer.js";
 import { stopEngineAudio } from "./panels/engine-audio.js";
+import { isFlightSimActive } from "./panels/cockpit.js";
 
 // Settings
 const settings = loadSettings();
@@ -632,10 +633,13 @@ if (wasdBtn) {
 		if (on) cmdInput?.blur();
 	};
 	wasdBtn.addEventListener("click", () => setArmed(!state.wasdMove));
+	// Embarking an aircraft: W/A/S/D become flight controls, so drop walk-mode if it was armed
+	// (otherwise the capture handler below eats the keys before the flight sim ever sees them).
+	window.addEventListener("flightsim:open", () => { if (state.wasdMove) setArmed(false); });
 	window.addEventListener(
 		"keydown",
 		(e) => {
-			if (!state.wasdMove) return;
+			if (!state.wasdMove || isFlightSimActive()) return;
 			if (e.ctrlKey || e.metaKey || e.altKey) return;
 			// Let real text fields (command box, chat, tablet, dialogs) type normally.
 			const tag = e.target.tagName;

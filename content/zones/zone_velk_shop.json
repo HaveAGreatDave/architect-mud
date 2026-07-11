@@ -8,13 +8,13 @@
   ],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
-  "bg_color": "#e08a4a",
+  "bg_color": "#b06a35",
   "color": null,
   "created_by": null,
   "description": "The shop is improbably full — every surface covered, every corner claimed. Chairs stacked on tables, lamps draped with fabric samples, shelves bowing under the weight of picture frames, drawer units, and objects with no obvious purpose but clear previous lives. It smells like oil soap and old wood. Somehow, it all feels livable.",
   "exits": {
     "down": "zone_velk_basement",
-    "out": "zone_district_921_908"
+    "east": "zone_district_921_908"
   },
   "flags": {
     "intro_lore": "Every stick of furniture in here belonged to somebody who isn't coming back for it — evicted, printed over, or worse — and Velk sells it all with the same brisk cheer, like provenance is a feature and not a warning. Buy the chair. Don't ask whose it was.",

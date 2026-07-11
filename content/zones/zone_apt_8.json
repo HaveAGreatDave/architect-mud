@@ -7,7 +7,7 @@
   "bg_color": "#c9a884",
   "color": null,
   "created_by": null,
-  "description": "Unit 2D, narrow as a coffin and about as bright. The previous tenant left in a hurry: a chair on its side, a ring of candle stubs on the floor, initials keyed into the doorframe. There's a real bed, though, and a deadbolt, and the walls are thick enough that the neighbours' business stays theirs.",
+  "description": "Unit 3D, narrow as a coffin and about as bright. The previous tenant left in a hurry: a chair on its side, a ring of candle stubs on the floor, initials keyed into the doorframe. There's a real bed, though, and a deadbolt, and the walls are thick enough that the neighbours' business stays theirs.",
   "exits": {
     "east": "zone_embassy_floor2"
   },
@@ -17,11 +17,11 @@
   },
   "grid_x": -1,
   "grid_y": 0,
-  "grid_z": 1,
+  "grid_z": 2,
   "id": "zone_apt_8",
   "map_id": "map_interior_zone_residential_lobby",
   "marker": null,
-  "name": "Unit 2D",
+  "name": "Unit 3D",
   "parent_zone": null,
   "updated_at": "1783111686"
 }

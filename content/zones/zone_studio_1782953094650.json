@@ -2,14 +2,14 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
-  "bg_color": "#8e6fd0",
+  "bg_color": "#6d3fb5",
   "color": null,
   "created_by": null,
   "description": "Broadcast stage for KSAB-TV Studio.",
   "exits": {
     "down": "zone_util_1782953094650",
-    "out": "zone_district_913_911",
-    "up": "zone_prod_1782953094650"
+    "up": "zone_prod_1782953094650",
+    "west": "zone_district_913_911"
   },
   "flags": {
     "building_type": "studio",

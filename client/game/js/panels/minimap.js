@@ -942,24 +942,21 @@ function wireMapUi() {
         cb(zid);
         return;
       }
+      if (el.id === 'map-grid' && mapDrag.moved) return; // ignore the click that ends a pan-drag
+      // Double-click (the second click of a pair) GPS-routes to the tile — no need to
+      // arm the route button first. We detect it via e.detail (the click count) inside
+      // this single handler rather than a native 'dblclick' listener: the single-click
+      // branch below rebuilds #map-grid (grid.innerHTML = …), destroying the very tile
+      // node the browser needs clicked twice, so a real 'dblclick' event never fires on
+      // the map grid.
+      if (el.id === 'map-grid' && e.detail >= 2) { plotMapRoute(zid); return; }
       // Single click — on the map OR in the legend — selects a building: every tile of
       // that building lights up on the map (via .map-legend-sel) and its legend row
       // highlights and scrolls into view. Re-clicking the same selection clears it.
-      // Plotting a GPS route is the double-click gesture (below), not this one.
-      if (el.id === 'map-grid' && mapDrag.moved) return; // ignore the click that ends a pan-drag
       mapState.legendSel = (mapState.legendSel === zid) ? null : zid;
       renderMapGrid();
       document.querySelector('#map-legend .map-list-sel')?.scrollIntoView({ block: 'nearest' });
     });
-    // Double-clicking any (non-water) tile GPS-routes to it, no need to arm the GPS
-    // button first. Ignore the double-click that ends a pan-drag.
-    if (el.id === 'map-grid') {
-      el.addEventListener('dblclick', (e) => {
-        const cell = e.target.closest('[data-zone-id]');
-        if (!cell || mapDrag.moved) return;
-        plotMapRoute(cell.getAttribute('data-zone-id'));
-      });
-    }
   }
 }
 
@@ -1127,7 +1124,11 @@ function renderMapGrid() {
   // column width and the .map-c row height, so setting it here scales tiles square.
   let tilePx = MAP_BASE_TILE; // CSS default #map-grid --map-room (zone/interior)
   if (regional) {
-    tilePx = Math.max(5, Math.floor(Math.min(MAP_WINDOW_PX / gCols, MAP_WINDOW_PX / gRows)));
+    // Fit the whole region into the viewport's *actual* width — which shrinks on
+    // mobile (the CSS media query narrows --map-room), so read it live rather than
+    // trusting the desktop MAP_WINDOW_PX constant.
+    const winPx = document.getElementById('map-viewport')?.clientWidth || MAP_WINDOW_PX;
+    tilePx = Math.max(5, Math.floor(Math.min(winPx / gCols, winPx / gRows)));
     grid.style.setProperty('--map-room', `${tilePx}px`);
   } else {
     grid.style.removeProperty('--map-room');

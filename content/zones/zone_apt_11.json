@@ -7,7 +7,7 @@
   "bg_color": "#c9a884",
   "color": null,
   "created_by": null,
-  "description": "Unit 3C. The realtor — the corkboard downstairs, really — calls this one 'cozy.' It's small. A single room with a curtained-off toilet, a sink that runs rust for a minute before it runs clear, and a window painted shut and then painted again. But the lock is new, the floor is solid, and nobody up here asks questions.",
+  "description": "Unit 4C. The realtor — the corkboard downstairs, really — calls this one 'cozy.' It's small. A single room with a curtained-off toilet, a sink that runs rust for a minute before it runs clear, and a window painted shut and then painted again. But the lock is new, the floor is solid, and nobody up here asks questions.",
   "exits": {
     "west": "zone_embassy_floor3"
   },
@@ -16,11 +16,11 @@
   },
   "grid_x": 1,
   "grid_y": 0,
-  "grid_z": 2,
+  "grid_z": 3,
   "id": "zone_apt_11",
   "map_id": "map_interior_zone_residential_lobby",
   "marker": null,
-  "name": "Unit 3C",
+  "name": "Unit 4C",
   "parent_zone": "zone_embassy_floor3",
   "updated_at": "1783045464"
 }

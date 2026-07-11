@@ -2,12 +2,12 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
-  "bg_color": "#9a8a4f",
+  "bg_color": "#b0862a",
   "color": null,
   "created_by": null,
   "description": "A cavernous hall of throbbing turbines and grimy conduit. The city plant squats at the centre, roaring, its casing scabbed with warning decals and oil. The whole room shudders with the low churn of megawatts.",
   "exits": {
-    "out": "zone_district_924_911"
+    "west": "zone_district_924_911"
   },
   "flags": {
     "building_type": "power",

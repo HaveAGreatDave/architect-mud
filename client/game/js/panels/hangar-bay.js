@@ -1034,7 +1034,12 @@ function ensureStyles() {
      light. Tabbed (PAINT/HULL/TUNING/KITS/W&B) so no section needs its own scrollbar;
      the stage stays pinned (position:sticky) so the plane — or, on TUNING, the
      performance scope — stays visible while the tab body scrolls beside it. */
-  #hb-root .hb-bench { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+  /* The bench box is the scroll region (.hb-body is overflow:hidden), so tall tab
+     content — e.g. the Apply row under the tuning knobs / paint controls — is always
+     reachable instead of being clipped off the bottom. The stage's sticky top:0 pins
+     within this scroller, keeping the plane/scope visible as the panels scroll. */
+  #hb-root .hb-bench { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;
+    flex:1 1 auto; min-height:0; overflow-y:auto; }
   #hb-root .hb-bench-stage { flex:0 0 auto; position:sticky; top:0; z-index:4; }
   #hb-root .hb-bench-panels { flex:1 1 260px; min-width:240px; position:relative; z-index:4; }
   /* No overflow:hidden here — this element holds the sticky stage, and
@@ -1051,7 +1056,9 @@ function ensureStyles() {
     text-shadow:0 0 4px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
   #hb-root .hb-tab:hover { border-color:var(--hb-atm-accent); background:color-mix(in srgb, var(--hb-atm-accent) 14%, transparent); }
   #hb-root .hb-tab-active { border-color:var(--hb-atm-accent); background:color-mix(in srgb, var(--hb-atm-accent) 20%, transparent); box-shadow:0 0 12px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
-  #hb-root .hb-bench-tabbody { color:var(--text); }
+  /* A little bottom breathing room so a tab's trailing control (the Apply / Install
+     row) isn't flush against the scroll region's bottom edge. */
+  #hb-root .hb-bench-tabbody { color:var(--text); padding-bottom:12px; }
   #hb-root .hb-bench-tabbody .hb-ctl, #hb-root .hb-bench-tabbody .hb-tune-row { color:var(--text); }
   #hb-root .hb-subtabs { display:flex; gap:5px; margin-bottom:8px; }
   #hb-root .hb-subtab { font-family:inherit; font-size:9px; letter-spacing:1px; color:var(--text-dim); cursor:pointer;
@@ -1112,7 +1119,7 @@ function ensureStyles() {
   #hb-root .hb-kit-detail { padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--hb-surf-lo);
     box-shadow:inset 0 2px 8px var(--hb-bevel-lo); }
   #hb-root .hb-kit-detail-name { font-size:12px; font-weight:bold; letter-spacing:1px; color:var(--text-bright); margin-bottom:4px; }
-  #hb-root .hb-kit-detail-act { margin-top:10px; }
+  #hb-root .hb-kit-detail-act { margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
   #hb-root .hb-kit-tag { font-size:8px; letter-spacing:1px; color:var(--green); border:1px solid color-mix(in srgb, var(--green) 45%, transparent); border-radius:3px; padding:2px 6px; }
   #hb-root .hb-kit-blurb { font-size:10.5px; color:var(--text-dim); margin-top:4px; line-height:1.4; }
   #hb-root .hb-loadout-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }

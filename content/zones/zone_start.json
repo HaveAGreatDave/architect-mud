@@ -12,8 +12,8 @@
   "description": "Aseptic white tile floor that has long since gone grey at the grout lines. Vat chambers run along both walls — human-sized cylinders of cloudy fluid, most occupied, all humming at a frequency just below the threshold of comfort. Overhead fluorescents pulse with slow, clinical regularity. Somewhere in the walls, a machine breathes. This is where you come from. Every time.",
   "exits": {
     "down": "zone_clone_facility_z-1_1782276270002",
-    "east": "zone_clone_facility_bathroom",
-    "out": "zone_district_918_903"
+    "east": "zone_district_918_903",
+    "west": "zone_clone_facility_bathroom"
   },
   "flags": {
     "building_name": "Coldwater Clone Facility",

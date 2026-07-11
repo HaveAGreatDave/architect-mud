@@ -58,7 +58,7 @@ export const TYPES = {
     vsMax: 525,           // max sustained climb (ft/min) — scaled ~0.7× the Cessna 172 like our other numbers
     vsGain: 1600,         // how hard excess lift converts to vertical speed
     vsTau: 1.0,           // vertical inertia (s) — vs eases toward its target; lower = climbs out off the ground faster
-    ceiling: 7500,        // service ceiling (ft) — climb performance fades to zero here (thin air)
+    ceiling: 12500,       // service ceiling (ft) — climb performance fades to zero here (thin air)
     bestGlide: 49,        // best-glide (max-range) speed (kt) — the yoke light glows BLUE here in a dead-stick glide
   },
 
@@ -75,7 +75,7 @@ export const TYPES = {
     pitchRate: 9, pitchTau: 0.8, rollRate: 40, rollTau: 0.7, engineLag: 1.7,
     pitchStable: 0.88, rollStable: 1.0, dragP: 0.00090, flapDrag: 0.65, flapLift: 0.5, flapVs: 0.24,
     rollFric: 1.4, aoaCrit: 18, liftScale: 1.0, vsMax: 1800, vsGain: 1800, vsTau: 0.95,
-    brake: 6.0, groundSteer: 26, ceiling: 12000, bestGlide: 65,
+    brake: 6.0, groundSteer: 26, ceiling: 17000, bestGlide: 65,
   },
   // Leviathan — 4-engine heavy-lift freighter, an ANTONOV AN-124 RUSLAN analogue: HEAVY first —
   // ponderous to accelerate and steer, a long roll, an unremarkable level cruise (no faster
@@ -102,7 +102,7 @@ export const TYPES = {
     // Climb performance unchanged (she must still climb away from the field once rolling); the
     // faster top speed is gone but the field performance is not.
     rollFric: 1.2, aoaCrit: 16, liftScale: 1.0, vsMax: 2700, vsGain: 2500, vsTau: 1.05,
-    brake: 8.0, groundSteer: 16, ceiling: 18000,   // cruises high, above the weather — the fleet's highest ceiling
+    brake: 8.0, groundSteer: 16, ceiling: 23000,   // cruises high, above the weather — the fleet's highest ceiling
     // A touch of dead-stick induced drag keeps the engine-out glide believable for a heavy
     // (no albatross float) without touching powered cruise or climb. Best glide ~89 kt.
     glideDrag: 0.0019, bestGlide: 89,
@@ -123,7 +123,7 @@ export const TYPES = {
     pitchRate: 10, pitchTau: 0.7, rollRate: 58, rollTau: 0.6, engineLag: 1.3,
     pitchStable: 1.1, rollStable: 1.3, dragP: 0.00110, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
     rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 2400, vsGain: 2200, vsTau: 1.0,
-    brake: 7.5, groundSteer: 28, ceiling: 12000, bestGlide: 69,
+    brake: 7.5, groundSteer: 28, ceiling: 17000, bestGlide: 69,
   },
   // Dragonfly — a REVOLUTION MINI 500 analogue: a tiny single-rotor kit helicopter. Light,
   // darty and gets into tight spots (huge cyclic + pedal authority, spins on the spot in a
@@ -138,7 +138,7 @@ export const TYPES = {
     pitchStable: 1.5, rollStable: 1.7,    // weak-ish self-level — needs constant small corrections
     yawRate: 95,                          // pedal (tail-rotor) authority in the hover, deg/s
     engineLag: 0.9,                       // rotor spool time
-    cyclicThrust: 2.4,                    // disc-tilt → horizontal accel (kt/s per deg of lean)
+    cyclicThrust: 3.2,                    // disc-tilt → horizontal accel (kt/s per deg of lean)
     dragP: 0.0019,                        // draggy body: bleeds speed, modest top end
     liftMax: 2.7, hoverThrust: 1.0,       // collective×Nr vertical lift authority vs hover weight
     // Gentle vertical response so the hover isn't twitchy: a small collective error off the
@@ -147,7 +147,7 @@ export const TYPES = {
     vsGain: 850, vsMax: 1300, vsTau: 0.9,
     vrsVs: 480,                           // settling-with-power onset (fpm sink) when slow + powered
     rollFric: 3.2,                        // skid friction on the ground
-    ceiling: 10000,
+    ceiling: 15000,
   },
   // Carcass — salvaged wreck: underpowered, draggy, unstable. A junker you nurse into the air.
   carcass: {
@@ -155,7 +155,7 @@ export const TYPES = {
     pitchRate: 11, pitchTau: 0.5, rollRate: 50, rollTau: 0.5, engineLag: 1.5,
     pitchStable: 0.7, rollStable: 0.8, dragP: 0.00120, flapDrag: 0.55, flapLift: 0.32, flapVs: 0.17,
     rollFric: 1.7, aoaCrit: 17, liftScale: 0.95, vsMax: 900, vsGain: 1650, vsTau: 1.0,
-    brake: 5.0, groundSteer: 30, ceiling: 6000, bestGlide: 45,
+    brake: 5.0, groundSteer: 30, ceiling: 11000, bestGlide: 45,
   },
 };
 
@@ -241,8 +241,10 @@ function stepHeli(state, input, p, dt) {
     s.heading = wrap360(s.heading + turnRate * dt);
   }
 
-  // 4. Horizontal accel: the tilted disc pushes you where the nose leans (nose down = forward).
-  const accel = (s.onGround ? 0 : -s.pitch * (p.cyclicThrust || 2) * Nr);
+  // 4. Horizontal accel: the tilted disc pushes you where the nose leans (nose down = forward),
+  //    AND a nose-low attitude lets gravity pull you into the dive — so pushing the nose down
+  //    builds real speed (an autorotative dive), not just the gentle disc-tilt nudge.
+  const accel = s.onGround ? 0 : (-s.pitch * (p.cyclicThrust || 2) * Nr) + clamp(-s.pitch, 0, 35) * 0.16;
   const drag = p.dragP * s.airspeed * Math.abs(s.airspeed);
   s.airspeed = clamp(s.airspeed + (accel - drag) * dt, -0.18 * p.cruise, p.vne * 1.03);
   if (s.onGround) s.airspeed -= Math.sign(s.airspeed) * Math.min(Math.abs(s.airspeed), p.rollFric * dt);
@@ -273,7 +275,10 @@ function stepHeli(state, input, p, dt) {
     thrustV = Math.min(thrustV, (p.hoverThrust || 1) * (1 - 0.55 * vrs));
     if (!s.vrsWarn) { s.events.push({ type: 'vrs' }); s.vrsWarn = true; }
   } else s.vrsWarn = false;
-  const vsTarget = clamp((thrustV / (p.hoverThrust || 1) - 1) * p.vsGain, -p.vsMax * 1.8, p.vsMax);
+  // Sink HARDER than she climbs — chop the collective (or droop Nr) and the underpowered kit
+  // heli drops away in a deep autorotative descent instead of mushing down gently.
+  const deficit = thrustV / (p.hoverThrust || 1) - 1;
+  const vsTarget = clamp(deficit * (deficit < 0 ? p.vsGain * 1.9 : p.vsGain), -p.vsMax * 2.6, p.vsMax);
   if (s.onGround && vsTarget <= 0) s.vs = 0;
   else { s.vs += (vsTarget - s.vs) * Math.min(1, dt / p.vsTau); s.altitude += (s.vs / 60) * dt; }
 
@@ -295,7 +300,9 @@ export function step(state, input, p, dt) {
   if (p.heli) return stepHeli(state, input, p, dt);
   const s = state;
   s.events = [];
-  const elevator = clamp(input.elevator || 0, -1, 1);
+  // Elevator + trim: the trim wheel biases the yoke's neutral point, so a centred yoke
+  // holds the attitude the trim commands (hands-off cruise/climb). Combined, then clamped.
+  const elevator = clamp((input.elevator || 0) + (input.trim || 0), -1, 1);
   const aileron = clamp(input.aileron || 0, -1, 1);
   const throttle = clamp(input.throttle || 0, 0, 1);
   const flaps = clamp(input.flaps || 0, 0, 1);

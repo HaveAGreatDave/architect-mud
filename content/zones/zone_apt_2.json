@@ -9,18 +9,18 @@
   "created_by": null,
   "description": "A corner unit with two windows, both boarded. Someone before you left a faded poster on the wall — a beach, somewhere, once.",
   "exits": {
-    "north": "zone_residential_lobby"
+    "north": "zone_embassy_floor_2nd"
   },
   "flags": {
     "is_apartment": true
   },
   "grid_x": 0,
   "grid_y": 1,
-  "grid_z": 0,
+  "grid_z": 1,
   "id": "zone_apt_2",
   "map_id": "map_interior_zone_residential_lobby",
   "marker": null,
-  "name": "Unit 1B",
+  "name": "Unit 2B",
   "parent_zone": null,
   "updated_at": "1783045464"
 }

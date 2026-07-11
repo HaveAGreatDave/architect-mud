@@ -7,7 +7,8 @@
   "created_by": "zone-planner",
   "description": "The face of Dead Space Interiors.",
   "exits": {
-    "in": "zone_furniture_store"
+    "east": "zone_district_902_909",
+    "west": "zone_furniture_store"
   },
   "flags": {
     "building_name": "Dead Space Interiors",

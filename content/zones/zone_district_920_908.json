@@ -7,7 +7,8 @@
   "created_by": "zone-planner",
   "description": "The face of Ration Nine.",
   "exits": {
-    "in": "zone_mq_grocery"
+    "east": "zone_mq_grocery",
+    "west": "zone_district_919_908"
   },
   "flags": {
     "building_name": "Ration Nine",

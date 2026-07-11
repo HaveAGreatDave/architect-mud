@@ -7,7 +7,8 @@
   "created_by": "zone-planner",
   "description": "The face of The Cherry Pit.",
   "exits": {
-    "in": "zone_mq_cherry_floor"
+    "east": "zone_district_902_907",
+    "west": "zone_mq_cherry_floor"
   },
   "flags": {
     "building_name": "The Cherry Pit",

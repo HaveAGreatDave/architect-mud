@@ -8,13 +8,13 @@
   ],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
-  "bg_color": "#e85aa0",
+  "bg_color": "#8a6a3a",
   "color": null,
   "created_by": null,
   "description": "A long, low bar named for the taxidermied pigeon nailed over the register, wings spread in permanent, moth-eaten glory. The counter is a slab of reclaimed door on oil drums; the stools don't match and neither do the glasses. String lights and the blue flicker of a muted screen do all the lighting the place can afford. It smells of spilled synth-beer, cigarettes, and the particular warmth of a room where nobody is going to ask what you did today.",
   "exits": {
     "down": "zone_mq_pigeon_back",
-    "out": "zone_district_905_910"
+    "north": "zone_district_905_910"
   },
   "flags": {
     "building_name": "The Dead Pigeon",

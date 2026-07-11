@@ -7,13 +7,13 @@
   "created_by": null,
   "description": "A sterile, brightly lit washroom lined with smooth composite walls and seamless flooring. The air smells faintly of antiseptic and ozone, while quiet ventilation hums overhead. Hairline drainage channels and spotless surfaces give the unsettling impression that every trace of biological material is meant to disappear without a trace.",
   "exits": {
-    "west": "zone_start"
+    "east": "zone_start"
   },
   "flags": {
     "intro_lore": "A clone-facility bathroom, which means it works about as well as everything else Coldwater kept running out of habit. The mirror's been scratched half-blind by a hundred other versions of somebody working out what they look like now. Wash up if you want — the water's real, mostly. Nobody's coming to check on you, and this is the last privacy you'll get for free.",
     "is_interior": true
   },
-  "grid_x": 1,
+  "grid_x": -1,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_clone_facility_bathroom",

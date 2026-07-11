@@ -1,0 +1,14 @@
+{
+  "description": "A steel access panel low on the lobby wall, warm to the touch. Behind it the building's emergency lighting ballasts and life-safety circuits hum without pause, drawing a steady trickle off the grid — the reason the amber strips never quite go dark.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_baseload_zone_meridian_lobby",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "emergency lighting panel",
+  "object_type": "fixture",
+  "power_draw_kw": 1.5,
+  "price": 0,
+  "zone_id": "zone_meridian_lobby"
+}

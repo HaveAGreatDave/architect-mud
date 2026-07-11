@@ -7,7 +7,8 @@
   "created_by": "zone-planner",
   "description": "The face of Sump.",
   "exits": {
-    "in": "zone_mq_sump_bar"
+    "north": "zone_mq_sump_bar",
+    "south": "zone_district_921_915"
   },
   "flags": {
     "building_name": "Sump",

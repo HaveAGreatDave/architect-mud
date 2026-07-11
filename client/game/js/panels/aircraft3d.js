@@ -39,18 +39,22 @@ function faceIsTrim(role, pat) {
   if (pat === 'stripes' && role === 'stab') return true;
   return false;
 }
-// Raw (pre-shade) rgb for a face. Glass reads as dark canopy regardless of livery.
+// Raw (pre-shade) rgb for a face. Glass/windows read as dark panes; gear/struts/gun/
+// intakes as dark structural metal — all independent of the livery colour.
 export function faceBaseRgb(role, pal) {
-  if (role === 'glass') return [14, 26, 36];
+  if (role === 'glass' || role === 'window') return [14, 26, 36];
+  if (role === 'strut' || role === 'gear' || role === 'gun') return [44, 48, 54];
   return faceIsTrim(role, pal.pat) ? pal.trim : pal.base;
 }
 
 // ── Geometry ────────────────────────────────────────────────────────────────────
 const V = (f, g, h) => [f, g, h];
 
-// A parametric fixed-wing: a lozenge fuselage (nose tip → mid ring → tail tip),
-// swept wings with dihedral, tailplane, one or two vertical fins, engine nacelles,
-// and a canopy. Every knob mirrors the old top-down silhouette proportions.
+// A parametric fixed-wing: a lozenge fuselage (nose tip → mid ring → tail tip), high-
+// or low-set swept wings with dihedral, tailplane, one or two vertical fins, engine
+// nacelles (underwing tubes OR rear pods), and a canopy. Optional class-signature parts
+// — strut braces, fixed gear, prop spinners, nose gun, cabin windows, engine pylons —
+// give each class its real-world silhouette (Cessna / Twin Otter / An-124 / A-10).
 function buildFixedWing(p) {
   const faces = [];
   const T = V(0, 0, p.fv), R = V(0, p.fr, 0), B = V(0, 0, -p.fv), L = V(0, -p.fr, 0);
@@ -60,11 +64,20 @@ function buildFixedWing(p) {
     { p: [X, R, T], sh: 0.98 }, { p: [X, B, R], sh: 0.82 }, { p: [X, L, B], sh: 0.62 }, { p: [X, T, L], sh: 0.82 },
   ];
   for (const f of bodyRing) faces.push({ p: f.p, role: 'body', sh: f.sh });
-  // Wings (+ optional dihedral), swept.
+  const wH = p.wingH || 0;   // wing vertical set: high (+) rides the fuselage top, low (−) the belly
+  // Wings (high/low set + optional dihedral), swept.
   for (const s of [1, -1]) {
     faces.push({ role: 'wing', sh: 0.82, p: [
-      V(p.wRootF, s * p.fr * 0.7, -0.01), V(p.wTipF, s * p.span, p.dih),
-      V(p.wTipB, s * p.span, p.dih), V(p.wRootB, s * p.fr * 0.7, -0.01)] });
+      V(p.wRootF, s * p.fr * 0.7, wH - 0.01), V(p.wTipF, s * p.span, wH + p.dih),
+      V(p.wTipB, s * p.span, wH + p.dih), V(p.wRootB, s * p.fr * 0.7, wH - 0.01)] });
+  }
+  // Strut braces from the lower fuselage out to the mid-wing (Cessna / Twin Otter).
+  if (p.struts) {
+    for (const s of [1, -1]) {
+      faces.push({ role: 'strut', sh: 0.6, p: [
+        V(0.10, s * p.fr, -p.fv * 0.5), V(0.14, s * p.span * 0.52, wH - 0.01),
+        V(0.06, s * p.span * 0.52, wH - 0.01), V(0.02, s * p.fr, -p.fv * 0.5)] });
+    }
   }
   // Horizontal stabiliser.
   for (const s of [1, -1]) {
@@ -76,21 +89,71 @@ function buildFixedWing(p) {
   for (const fg of (p.fins || [0])) {
     faces.push({ role: 'fin', sh: 0.9, p: [V(p.finF0, fg, 0.05), V(p.finF1, fg, p.finH), V(p.finF2, fg, 0.06)] });
   }
-  // Engine nacelles (short tubes) under/at each engine station.
-  for (const g of (p.engines || [])) {
-    const nf = p.nacF, nr = 0.05, hc = p.nacH;
+  // Engine nacelles — underwing tubes (from `engines` lateral stations) or fatter rear
+  // pods (from `podEngines` full [f,g,h] stations, e.g. the A-10's high tail-mounts).
+  const nacStations = p.podEngines || (p.engines || []).map(g => [p.nacF, g, p.nacH]);
+  for (const [nf, g, hc] of nacStations) {
+    const nr = p.podEngines ? 0.07 : 0.05;
     const rT = V(nf, g, hc + nr), rR = V(nf, g + nr, hc), rB = V(nf, g, hc - nr), rL = V(nf, g - nr, hc);
-    const fr = V(nf + 0.15, g, hc), bk = V(nf - 0.16, g, hc);
+    const fr = V(nf + 0.17, g, hc), bk = V(nf - 0.18, g, hc);
     for (const [a, b] of [[rT, rR], [rR, rB], [rB, rL], [rL, rT]]) {
       faces.push({ role: 'nacelle', sh: 0.8, p: [fr, a, b] });
       faces.push({ role: 'nacelle', sh: 0.7, p: [bk, b, a] });
     }
+    faces.push({ role: 'window', sh: 0.9, p: [rT, rR, rB, rL] });   // dark engine intake
+    if (p.pylons) faces.push({ role: 'strut', sh: 0.7, p: [        // pylon slung under the high wing
+      V(nf + 0.02, g + 0.015, hc + nr), V(nf + 0.02, g + 0.015, wH),
+      V(nf - 0.02, g - 0.015, wH), V(nf - 0.02, g - 0.015, hc + nr)] });
+    if (p.prop === 'wing') addSpinner(faces, nf + 0.17, g, hc);   // Twin Otter wing turboprops
   }
-  // Canopy glass just aft of the nose.
+  if (p.prop === 'nose') addSpinner(faces, p.noseF, 0, 0.02);     // Cessna single nose prop
+  // Nose cannon barrel (A-10 gunship): twin dark slabs under the nose.
+  if (p.noseGun) {
+    const gb = 0.03, gz = -p.fv * 0.35, gf = p.noseF + 0.16, gk = p.noseF - 0.35;
+    for (const s of [1, -1]) faces.push({ role: 'gun', sh: s > 0 ? 0.9 : 0.7, p: [
+      V(gf, s * gb, gz + gb), V(gf, s * gb, gz - gb), V(gk, s * gb, gz - gb), V(gk, s * gb, gz + gb)] });
+  }
+  // Fixed tricycle gear (Cessna / Twin Otter): two mains + a nose leg, each a strut + wheel.
+  if (p.gear) {
+    const wz = -p.fv - 0.08;
+    addGear(faces, 0.10, p.fr + 0.06, wz);
+    addGear(faces, 0.10, -(p.fr + 0.06), wz);
+    addGear(faces, p.noseF * 0.55, 0, wz + 0.02);
+  }
+  // Cabin window row along the upper fuselage sides (transports: Twin Otter / An-124).
+  if (p.windows) {
+    for (const s of [1, -1]) {
+      for (let i = 0; i < p.windows; i++) {
+        const wf = 0.42 - i * (0.95 / p.windows), wy = s * p.fr * 1.02, wq = 0.045, wc = p.fv * 0.34;
+        faces.push({ role: 'window', sh: 0.86, p: [
+          V(wf + wq, wy, wc + wq), V(wf + wq, wy, wc - wq), V(wf - wq, wy, wc - wq), V(wf - wq, wy, wc + wq)] });
+      }
+    }
+  }
+  // Canopy glass just aft of the nose (rides with the wing set so a high wing lifts it).
+  const cz = p.fv * (wH > 0 ? 0.8 : 0.6);
   faces.push({ role: 'glass', sh: 0.9, p: [
-    V(p.noseF - 0.15, 0.06, p.fv * 0.6), V(p.noseF - 0.45, 0.09, p.fv * 0.95),
-    V(p.noseF - 0.45, -0.09, p.fv * 0.95), V(p.noseF - 0.15, -0.06, p.fv * 0.6)] });
+    V(p.noseF - 0.15, 0.06, cz), V(p.noseF - 0.45, 0.09, cz + p.fv * 0.35),
+    V(p.noseF - 0.45, -0.09, cz + p.fv * 0.35), V(p.noseF - 0.15, -0.06, cz)] });
   return faces;
+}
+
+// A small forward-pointing spinner cone + hub (prop hub). The spinning disc itself is
+// drawn by each renderer's effect layer, keyed off PROP_STATIONS (below).
+function addSpinner(faces, f, g, h) {
+  const apex = V(f + 0.14, g, h), r = 0.045;
+  const ring = [V(f, g + r, h + r), V(f, g - r, h + r), V(f, g - r, h - r), V(f, g + r, h - r)];
+  for (let i = 0; i < 4; i++) faces.push({ role: 'nacelle', sh: 0.95 - i * 0.06, p: [apex, ring[i], ring[(i + 1) % 4]] });
+}
+
+// One fixed gear leg (short, stout strut) + a wheel hexagon, in side profile. The leg
+// tops out ABOVE the belly (+z) so it disappears partly into the fuselage.
+function addGear(faces, f, g, wz) {
+  const top = 0.04, hw = 0.035;   // reach up inside the model; fatter leg
+  faces.push({ role: 'gear', sh: 0.7, p: [V(f + hw, g, top), V(f + hw, g, wz), V(f - hw, g, wz), V(f - hw, g, top)] });
+  const wr = 0.06, wheel = [];
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; wheel.push(V(f + Math.cos(a) * wr, g, wz + Math.sin(a) * wr)); }
+  faces.push({ role: 'gear', sh: 0.5, p: wheel });
 }
 
 // A light rotorcraft: fat stubby cabin, tapering tail boom, tail fin + rotor, skids,
@@ -115,31 +178,139 @@ function buildHeli() {
   for (const s of [1, -1]) {
     faces.push({ role: 'body', sh: 0.5, p: [V(0.36, s * 0.2, -0.28), V(-0.05, s * 0.2, -0.28), V(-0.05, s * 0.2, -0.24), V(0.36, s * 0.2, -0.24)] });
   }
-  // Main-rotor disc (octagon) + hub.
+  // Main-rotor disc (octagon) + mast + hub. The disc face only feeds the schematic
+  // wireframe renderer — the painted renderers skip role 'rotor' and draw the live
+  // blades through drawRotorFX instead.
   const disc = [], cf = 0.1, cz = 0.5, rad = 1.05;
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; disc.push(V(cf + Math.cos(a) * rad, Math.sin(a) * rad, cz)); }
   faces.push({ role: 'rotor', sh: 0.65, p: disc });
+  faces.push({ role: 'body', sh: 0.7, p: [V(cf + 0.04, 0, 0.18), V(cf + 0.04, 0, cz), V(cf - 0.04, 0, cz), V(cf - 0.04, 0, 0.18)] });
+  faces.push({ role: 'body', sh: 0.6, p: [V(cf, 0.04, 0.18), V(cf, 0.04, cz), V(cf, -0.04, cz), V(cf, -0.04, 0.18)] });
   const hb = 0.08;
   faces.push({ role: 'nacelle', sh: 0.9, p: [V(cf + hb, 0, cz + hb), V(cf, hb, cz), V(cf - hb, 0, cz + hb)] });
   return faces;
 }
 
+// Where each class's prop discs spin — read by both renderers' engine-effect layers so
+// the translucent blur sits on the actual spinner(s), not a hardcoded nose position.
+export const PROP_STATIONS = {
+  ultralight: [[1.12, 0, 0.02]],                       // Cessna: one nose prop
+  prop: [[0.47, 0.42, 0.11], [0.47, -0.42, 0.11]],     // Twin Otter: two wing props
+};
+
+// ── Animated prop & rotor blades ────────────────────────────────────────────────
+// The spinning surfaces are an EFFECT LAYER every renderer draws through its OWN
+// camera: `projFn([f,g,h])` → {sx, sy} screen point, or null when it's behind the
+// lens. Blades are true model-space polygons, so they bank and foreshorten with the
+// craft in any view while the static face list stays memoisable (painted renderers
+// skip role 'rotor'; the wireframe keeps its schematic disc). `spin` is a shared
+// time-phase in radians — each disc gears it to its own RPM. `power` 0..1 breathes
+// the blur; `parked: true` draws crisp stopped blades (hangar floor, turntable).
+export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false } = {}) {
+  if (cls === 'heli') {
+    // Main rotor (f-g plane; matches buildHeli's cf 0.1 / cz 0.5) + tail rotor
+    // (f-h plane on the boom's right side), geared ~5× the main.
+    spinDisc(ctx, projFn, [0.1, 0, 0.5], [1, 0, 0], [0, 1, 0], 1.02, spin, power, parked, 2, 0.85);
+    spinDisc(ctx, projFn, [-1.04, 0.07, 0.12], [1, 0, 0], [0, 0, 1], 0.19, spin * 4.7 + 1.1, power, parked, 2, 0.7);
+  } else {
+    // Cessna two-blade nose prop / Twin Otter three-blade wing turboprops. The
+    // stations record the spinner apex (ultralight) vs base (prop) — nudge the
+    // blade plane back to the cone root either way.
+    const blades = cls === 'ultralight' ? 2 : 3, off = cls === 'ultralight' ? -0.11 : 0.03;
+    for (const st of (PROP_STATIONS[cls] || [])) {
+      spinDisc(ctx, projFn, [st[0] + off, st[1], st[2]], [0, 0, 1], [0, 1, 0],
+        cls === 'ultralight' ? 0.24 : 0.21, spin * 2.2 + st[1] * 3, power, parked, blades, 0.5);
+    }
+  }
+}
+
+// One spinning disc: centre C, two unit axes U/V spanning its plane (model space),
+// radius r. `lead` is the front blade's opacity (helis read solid, props smear).
+function spinDisc(ctx, projFn, C, U, V, r, spin, power, parked, blades, lead) {
+  const at = (a, rad, wPerp) => {   // point at polar (a, rad) offset wPerp across the blade
+    const ca = Math.cos(a), sa = Math.sin(a);
+    return projFn([
+      C[0] + (U[0] * ca + V[0] * sa) * rad + (V[0] * ca - U[0] * sa) * wPerp,
+      C[1] + (U[1] * ca + V[1] * sa) * rad + (V[1] * ca - U[1] * sa) * wPerp,
+      C[2] + (U[2] * ca + V[2] * sa) * rad + (V[2] * ca - U[2] * sa) * wPerp]);
+  };
+  const blade = (a, fill) => {   // tapered quad, root → tip
+    const q = [at(a, r * 0.12, r * 0.085), at(a, r, r * 0.045), at(a, r, -r * 0.045), at(a, r * 0.12, -r * 0.085)];
+    if (q.some(p => !p)) return;
+    ctx.beginPath(); ctx.moveTo(q[0].sx, q[0].sy);
+    for (let i = 1; i < 4; i++) ctx.lineTo(q[i].sx, q[i].sy);
+    ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+  };
+  const hub = at(0, 0, 0), tip = at(0, r, 0);
+  if (!hub || !tip) return;
+  const rpx = Math.hypot(tip.sx - hub.sx, tip.sy - hub.sy);   // screen radius → hub dot size
+  const step = Math.PI * 2 / blades;
+  if (parked) {   // engines off: crisp dark stopped blades on a hub dot
+    for (let i = 0; i < blades; i++) blade(spin + i * step, 'rgba(38,43,49,0.95)');
+    ctx.fillStyle = 'rgba(30,34,40,0.95)';
+    ctx.beginPath(); ctx.arc(hub.sx, hub.sy, Math.max(1, rpx * 0.08), 0, 7); ctx.fill();
+    return;
+  }
+  // Blur disc + tip ring, breathing with power.
+  const rim = [];
+  for (let i = 0; i < 16; i++) { const q = at(i / 16 * Math.PI * 2, r, 0); if (!q) return; rim.push(q); }
+  ctx.beginPath(); ctx.moveTo(rim[0].sx, rim[0].sy);
+  for (let i = 1; i < 16; i++) ctx.lineTo(rim[i].sx, rim[i].sy);
+  ctx.closePath();
+  ctx.fillStyle = `rgba(205,216,226,${0.06 + power * 0.09})`; ctx.fill();
+  ctx.strokeStyle = `rgba(228,238,246,${0.14 + power * 0.16})`; ctx.lineWidth = 1; ctx.stroke();
+  // The blades, each dragging two fading ghosts behind it around the arc — the
+  // rotational smear that sells the spin direction.
+  for (let i = 0; i < blades; i++) {
+    for (let k = 0; k < 3; k++) blade(spin + i * step - k * 0.17, `rgba(36,41,47,${lead * Math.pow(0.42, k)})`);
+  }
+  ctx.fillStyle = 'rgba(30,34,40,0.9)';
+  ctx.beginPath(); ctx.arc(hub.sx, hub.sy, Math.max(1, rpx * 0.07), 0, 7); ctx.fill();
+  // A bright glint sweeping the tip ring — light catching the blur.
+  ctx.beginPath();
+  for (let i = 0; i <= 4; i++) { const q = at(spin * 1.3 + i * 0.14, r * 0.99, 0); if (!q) return; i === 0 ? ctx.moveTo(q.sx, q.sy) : ctx.lineTo(q.sx, q.sy); }
+  ctx.strokeStyle = `rgba(240,248,255,${0.2 + power * 0.25})`; ctx.lineWidth = 1.4; ctx.stroke();
+}
+
 // Per-class fixed-wing parameters (normalised units).
 const FW_DEFAULT = {
-  noseF: 1.05, tailF: -1.05, fr: 0.12, fv: 0.12, span: 0.95,
+  noseF: 1.05, tailF: -1.05, fr: 0.12, fv: 0.12, span: 0.95, wingH: 0,
   wRootF: 0.30, wRootB: -0.05, wTipF: 0.14, wTipB: -0.02, dih: 0.05,
   hF: -0.80, hB: -1.02, hTipF: -0.86, hTipB: -1.04, hSpan: 0.40,
   finF0: -0.74, finF1: -0.98, finF2: -1.06, finH: 0.50, fins: [0],
   engines: [-0.24, 0.24], nacF: -0.02, nacH: -0.02,
 };
 const FW_PARAMS = {
-  prop: FW_DEFAULT,
-  ultralight: { ...FW_DEFAULT, fr: 0.08, fv: 0.085, span: 1.05, noseF: 0.92, tailF: -0.92, dih: 0.09, finH: 0.42, engines: [] },
-  gunship: { ...FW_DEFAULT, fr: 0.15, fv: 0.14, span: 0.82, noseF: 0.98, tailF: -1.0, hSpan: 0.34,
-    engines: [-0.30, 0.30], nacF: -0.55, nacH: 0.11, fins: [-0.22, 0.22], finF0: -0.80, finF1: -1.0, finF2: -1.08, finH: 0.40 },
-  heavy: { ...FW_DEFAULT, fr: 0.18, fv: 0.16, span: 1.02, noseF: 1.15, tailF: -1.15, hSpan: 0.46, finH: 0.62,
-    engines: [-0.36, -0.19, 0.19, 0.36], nacF: 0.05, nacH: -0.08 },
+  // Mayfly — a high-wing, strut-braced, fixed-gear single: a Cessna.
+  ultralight: { ...FW_DEFAULT, fr: 0.085, fv: 0.09, span: 1.05, noseF: 0.98, tailF: -0.95,
+    wingH: 0.10, dih: 0.02, wRootF: 0.34, wRootB: -0.06, wTipF: 0.30, wTipB: -0.02,
+    finH: 0.44, engines: [], prop: 'nose', struts: true, gear: true },
+  // Mule — a high-wing, twin-turboprop, fixed-gear STOL hauler: a DHC-6 Twin Otter.
+  prop: { ...FW_DEFAULT, fr: 0.13, fv: 0.13, span: 1.02, noseF: 1.0, tailF: -1.05,
+    wingH: 0.13, dih: 0.01, wRootF: 0.36, wRootB: -0.10, wTipF: 0.26, wTipB: -0.06,
+    finH: 0.60, finF0: -0.72, finF1: -1.0, finF2: -1.08,
+    engines: [-0.42, 0.42], nacF: 0.30, nacH: 0.11, prop: 'wing',
+    struts: true, gear: true, windows: 4 },
+  // Reaper — a straight-wing, twin rear-pod, twin-tail gun platform: an A-10 Warthog.
+  gunship: { ...FW_DEFAULT, fr: 0.15, fv: 0.14, span: 0.86, noseF: 1.0, tailF: -1.0,
+    wingH: -0.03, dih: 0.03, wRootF: 0.22, wRootB: -0.30, wTipF: 0.16, wTipB: -0.26, hSpan: 0.36,
+    engines: [], podEngines: [[-0.42, 0.30, 0.16], [-0.42, -0.30, 0.16]],
+    fins: [-0.24, 0.24], finF0: -0.82, finF1: -1.02, finF2: -1.08, finH: 0.42, noseGun: true },
+  // Leviathan — a high-wing, four-engine, wide-body heavy freighter: an Antonov An-124.
+  heavy: { ...FW_DEFAULT, fr: 0.20, fv: 0.18, span: 1.05, noseF: 1.15, tailF: -1.12, hSpan: 0.46, finH: 0.66,
+    wingH: 0.15, dih: 0.0, wRootF: 0.34, wRootB: -0.14, wTipF: 0.20, wTipB: -0.10,
+    engines: [-0.40, -0.20, 0.20, 0.40], nacF: 0.24, nacH: 0.03, pylons: true, windows: 6 },
 };
+
+// The starboard (right) wingtip station [f, g, h] in normalised model space — the outboard
+// mid-chord point of the wing, so nav lights anchor exactly ON the wingtips instead of
+// floating beside them. Mirror g for the port tip. Uses the same param fallback as the mesh
+// (unknown → prop). Helis have no fixed wings → null.
+export function wingtipStation(cls) {
+  if (cls === 'heli') return null;
+  const p = FW_PARAMS[cls] || FW_PARAMS.prop;
+  return [(p.wTipF + p.wTipB) / 2, p.span, (p.wingH || 0) + (p.dih || 0)];
+}
 
 // Faces for a class (memoised — geometry is static).
 const _cache = {};
@@ -149,11 +320,12 @@ export function aircraftFaces(cls) {
   _cache[cls] = faces;
   return faces;
 }
-// A wreck: the prop hull minus its right wing, both fins, and canopy — a stripped carcass.
+// A wreck: a generic hull minus its right wing, both fins, canopy, and windows — a
+// stripped carcass. Built off the plain default (no gear/struts/prop) so it stays neutral.
 function buildWreck() {
   if (_cache.wreck) return _cache.wreck;
-  const faces = buildFixedWing(FW_PARAMS.prop).filter(f =>
-    f.role !== 'glass' && f.role !== 'fin' && !(f.role === 'wing' && f.p.some(v => v[1] < 0)));
+  const faces = buildFixedWing(FW_DEFAULT).filter(f =>
+    f.role !== 'glass' && f.role !== 'window' && f.role !== 'fin' && !(f.role === 'wing' && f.p.some(v => v[1] < 0)));
   _cache.wreck = faces;
   return faces;
 }
@@ -188,6 +360,7 @@ function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom =
   };
   const drawn = [];
   for (const face of faces) {
+    if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
     const P = face.p.map(v => proj(v[0], v[1], v[2]));
     if (P.some(q => q.z <= 0.15)) continue;
     const a = [P[1].wx - P[0].wx, P[1].wy - P[0].wy, P[1].wz - P[0].wz];
@@ -206,10 +379,6 @@ function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom =
     ctx.beginPath(); ctx.moveTo(fc.P[0].sx, fc.P[0].sy);
     for (let i = 1; i < fc.P.length; i++) ctx.lineTo(fc.P[i].sx, fc.P[i].sy);
     ctx.closePath();
-    if (fc.role === 'rotor') {
-      ctx.globalAlpha = 0.26; ctx.fillStyle = fc.col; ctx.fill(); ctx.globalAlpha = 1;
-      ctx.strokeStyle = 'rgba(180,200,220,0.25)'; ctx.lineWidth = 1; ctx.stroke(); continue;
-    }
     ctx.fillStyle = fc.col; ctx.fill();
     ctx.strokeStyle = 'rgba(8,10,14,0.55)'; ctx.lineWidth = 1; ctx.stroke();
     if (!wreck && livery?.finish === 'gloss' && fc.role === 'body') {
@@ -217,6 +386,9 @@ function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom =
       ctx.beginPath(); ctx.moveTo(fc.P[0].sx, fc.P[0].sy); ctx.lineTo(fc.P[1].sx, fc.P[1].sy); ctx.stroke(); ctx.restore();
     }
   }
+  // Props/rotors — engines off in here, so crisp STOPPED blades (not a blur),
+  // projected through this same camera so they spin with the turntable.
+  if (!wreck) drawRotorFX(ctx, cls, (v) => { const q = proj(v[0], v[1], v[2]); return q.z <= 0.2 ? null : q; }, { parked: true, spin: 2.3 });
 }
 
 // ── Outside world glimpse (through the open bay door) ─────────────────────────
@@ -487,6 +659,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky }) {
     const selected = e.id === selId;
     const drawn = [];
     for (const face of faces) {
+      if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
       const P = face.p.map(v => {
         const g1 = v[1] * cro - v[2] * sro, h1 = v[1] * sro + v[2] * cro;   // static wreck roll
         return proj(v[0], laneG + g1, h1);
@@ -526,13 +699,14 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky }) {
       ctx.beginPath(); ctx.moveTo(fc.P[0].sx, fc.P[0].sy);
       for (let i = 1; i < fc.P.length; i++) ctx.lineTo(fc.P[i].sx, fc.P[i].sy);
       ctx.closePath();
-      if (fc.role === 'rotor') {
-        ctx.globalAlpha = 0.26; ctx.fillStyle = fc.col; ctx.fill(); ctx.globalAlpha = 1;
-        ctx.strokeStyle = 'rgba(180,200,220,0.25)'; ctx.lineWidth = 1; ctx.stroke(); continue;
-      }
       ctx.fillStyle = fc.col; ctx.fill();
       ctx.strokeStyle = 'rgba(8,10,14,0.5)'; ctx.lineWidth = 1; ctx.stroke();
     }
+    // Parked craft: crisp stopped blades, angled differently lane to lane so the
+    // row doesn't read as clones.
+    if (!grp.entry.wreck) drawRotorFX(ctx, grp.entry.cls,
+      (v) => { const q = proj(v[0], grp.laneG + v[1], v[2]); return q.z <= 0.15 ? null : q; },
+      { parked: true, spin: 1.9 + grp.laneG * 0.6 });
     // A thin bright outline on the SELECTED craft — reads at a glance in a room
     // full of other planes, where a colour cue alone would be too subtle.
     if (grp.selected) {

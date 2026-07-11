@@ -9,18 +9,18 @@
   "created_by": null,
   "description": "A small studio with a mattress, a hot plate, and a window that doesn't open. It's not much, but the door locks, and around here that's everything.",
   "exits": {
-    "south": "zone_residential_lobby"
+    "south": "zone_embassy_floor_2nd"
   },
   "flags": {
     "is_apartment": true
   },
   "grid_x": 0,
   "grid_y": -1,
-  "grid_z": 0,
+  "grid_z": 1,
   "id": "zone_apt_1",
   "map_id": "map_interior_zone_residential_lobby",
   "marker": null,
-  "name": "Unit 1A",
+  "name": "Unit 2A",
   "parent_zone": null,
   "updated_at": "1783045464"
 }

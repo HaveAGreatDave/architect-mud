@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
-  "bg_color": null,
+  "bg_color": "#5f6f7a",
   "color": null,
   "created_by": null,
   "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",

@@ -14,7 +14,7 @@ export default async function regress({ check }) {
 
   // ── Constants wired to the intended entities ──────────────────────────────────
   check('targets Sergeant Vale', _test.VALE_ID === 'npc_pd_officer', _test.VALE_ID);
-  check('moves her to her own home (Unit 2B)', _test.HOME === 'zone_apt_6', _test.HOME);
+  check('moves her to her own home (Unit 3B)', _test.HOME === 'zone_apt_6', _test.HOME);
   check('gift is ₵200', _test.GIFT === 200, String(_test.GIFT));
   check('one-time via a world flag', typeof _test.FLAG === 'string' && _test.FLAG.length > 0, _test.FLAG);
 }

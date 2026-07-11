@@ -7,7 +7,8 @@
   "created_by": "zone-planner",
   "description": "The face of Coldwater Power Plant — Turbine Hall.",
   "exits": {
-    "in": "zone_coldwater_turbine_hall"
+    "east": "zone_coldwater_turbine_hall",
+    "west": "zone_district_923_911"
   },
   "flags": {
     "building_name": "Coldwater Power Plant — Turbine Hall",

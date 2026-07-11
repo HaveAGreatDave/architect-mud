@@ -7,7 +7,8 @@
   "created_by": "zone-planner",
   "description": "The face of Precinct 9.",
   "exits": {
-    "in": "zone_mq_precinct_lobby"
+    "in": "zone_mq_precinct_lobby",
+    "north": "zone_district_922_910"
   },
   "flags": {
     "building_name": "Precinct 9",

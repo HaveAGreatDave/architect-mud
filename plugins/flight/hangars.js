@@ -31,8 +31,13 @@ const nowSec = () => Math.floor(Date.now() / 1000);
 // front when present, leaving the rest of args exactly as a typed command would
 // have produced them.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// A leading arg is a craft id if it's a UUID OR the `aircraft_<kind>_<owner>_<rand>`
+// form the fleet actually mints (see acquisition/charter/test). WITHOUT the second case
+// the explicit id the hangar panel passes (`installkit <id> <kit>`) fails the match, is
+// dropped, and the command falls back to a zone lookup that misses inside a hangar.
+const isCraftId = (s) => UUID_RE.test(s) || /^aircraft_[a-z0-9_]+$/i.test(s);
 function popCraftId(args) {
-  return UUID_RE.test(args[0] || '') ? { id: args[0], rest: args.slice(1) } : { id: undefined, rest: args };
+  return isCraftId(args[0] || '') ? { id: args[0], rest: args.slice(1) } : { id: undefined, rest: args };
 }
 
 // The aircraft the player is aboard, or (given an explicit id) that exact craft —
@@ -43,7 +48,10 @@ async function targetCraft(player, id) {
     return rows[0] ? { id: rows[0].id, live: liveAircraft.get(rows[0].id) || null } : null;
   }
   if (player.aircraftId) { const l = liveAircraft.get(player.aircraftId); if (l) return { id: l.row.id, live: l }; }
-  const { rows } = await query('SELECT id FROM aircraft WHERE parked_zone_id=$1 AND owner_id=$2 AND is_wreck=0 LIMIT 1', [player.current_zone, player.id]);
+  // Parked craft live at the FIELD/ramp zone; inside a hangar interior player.current_zone
+  // is the interior, so resolve to the field zone the same way buildCards does.
+  const zoneId = fieldOf(player)?.id || player.current_zone;
+  const { rows } = await query('SELECT id FROM aircraft WHERE parked_zone_id=$1 AND owner_id=$2 AND is_wreck=0 LIMIT 1', [zoneId, player.id]);
   return rows[0] ? { id: rows[0].id, live: liveAircraft.get(rows[0].id) || null } : null;
 }
 
@@ -61,7 +69,8 @@ async function ownedCraft(player, id) {
     const l = liveAircraft.get(player.aircraftId);
     if (l) return (l.row.owner_id === player.id && !l.row.rental) ? { id: l.row.id, live: l } : { notOwned: true };
   }
-  const { rows } = await query('SELECT id FROM aircraft WHERE parked_zone_id=$1 AND owner_id=$2 AND rental=0 AND is_wreck=0 LIMIT 1', [player.current_zone, player.id]);
+  const zoneId = fieldOf(player)?.id || player.current_zone;
+  const { rows } = await query('SELECT id FROM aircraft WHERE parked_zone_id=$1 AND owner_id=$2 AND rental=0 AND is_wreck=0 LIMIT 1', [zoneId, player.id]);
   return rows[0] ? { id: rows[0].id, live: liveAircraft.get(rows[0].id) || null } : null;
 }
 async function loadCd(tgt) {

@@ -8,9 +8,9 @@
   "bg_color": "#c9a884",
   "color": null,
   "created_by": null,
-  "description": "The second-floor landing, where the hotel's old carpet runner gives up entirely — bare concrete underneath, worn pale in a path between the stairs and the doors. Four units open off it, brass numbers screwed to each: 2A through 2D, a couple hanging by a single screw. The stairwell railing is cold iron, sticky where a thousand hands have gripped it. A dead vending machine hulks in the corner, its glass front spider-cracked, the snacks inside fossilised. Somewhere below, the bar's murmur leaks up through the floor.",
+  "description": "The third-floor landing, where the hotel's old carpet runner gives up entirely — bare concrete underneath, worn pale in a path between the stairs and the doors. Four units open off it, brass numbers screwed to each: 2A through 2D, a couple hanging by a single screw. The stairwell railing is cold iron, sticky where a thousand hands have gripped it. A dead vending machine hulks in the corner, its glass front spider-cracked, the snacks inside fossilised. Somewhere below, the bar's murmur leaks up through the floor.",
   "exits": {
-    "down": "zone_residential_lobby",
+    "down": "zone_embassy_floor_2nd",
     "east": "zone_apt_7",
     "north": "zone_apt_5",
     "south": "zone_apt_6",
@@ -23,11 +23,11 @@
   },
   "grid_x": 0,
   "grid_y": 0,
-  "grid_z": 1,
+  "grid_z": 2,
   "id": "zone_embassy_floor2",
   "map_id": "map_interior_zone_residential_lobby",
   "marker": null,
-  "name": "Embassy Hotel & Bar — Second Floor Landing",
+  "name": "Embassy Hotel & Bar — Third Floor Landing",
   "parent_zone": "zone_residential_lobby",
   "updated_at": "1783020605"
 }

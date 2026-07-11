@@ -8,7 +8,7 @@
   "bg_color": "#c9a884",
   "color": null,
   "created_by": null,
-  "description": "Top of the stairwell — the third-floor landing, closer to the roof and colder for it. Water stains bloom brown across the ceiling tiles, one sagging low enough to drip when it rains. Units 3A through 3D ring the landing, their doors heavier up here, the locks newer; people who climb this far want to stay lost. A single emergency light burns a weak red over the stairwell mouth, the only bulb on the floor that still works. The iron railing ends in a broken newel post someone's wrapped in duct tape.",
+  "description": "Top of the stairwell — the fourth-floor landing, closer to the roof and colder for it. Water stains bloom brown across the ceiling tiles, one sagging low enough to drip when it rains. Units 3A through 3D ring the landing, their doors heavier up here, the locks newer; people who climb this far want to stay lost. A single emergency light burns a weak red over the stairwell mouth, the only bulb on the floor that still works. The iron railing ends in a broken newel post someone's wrapped in duct tape.",
   "exits": {
     "down": "zone_embassy_floor2",
     "east": "zone_apt_11",
@@ -22,11 +22,11 @@
   },
   "grid_x": 0,
   "grid_y": 0,
-  "grid_z": 2,
+  "grid_z": 3,
   "id": "zone_embassy_floor3",
   "map_id": "map_interior_zone_residential_lobby",
   "marker": null,
-  "name": "Embassy Hotel & Bar — Third Floor Landing",
+  "name": "Embassy Hotel & Bar — Fourth Floor Landing",
   "parent_zone": "zone_residential_lobby",
   "updated_at": "1783112361"
 }

@@ -2,8 +2,8 @@
 // Akerson.
 //
 // Backstory: Vale (npc_pd_officer) was auto-homed into Akerson's owned Embassy unit
-// (Unit 1A / zone_apt_1) while she got back on her feet. Her *real* home is now
-// Unit 2B (zone_apt_6) — set on her `home_zone` — but she's still physically
+// (Unit 2A / zone_apt_1) while she got back on her feet. Her *real* home is now
+// Unit 3B (zone_apt_6) — set on her `home_zone` — but she's still physically
 // standing in his apartment. This plugin is the on-screen resolution: the first
 // time Akerson walks into the room she's in, she squares up with him and moves out.
 //
@@ -19,7 +19,7 @@
 // happen; only the spoken lines are gated on him still being in the room.
 //
 // Trigger is co-presence, not a hardcoded room: it fires wherever Vale and Akerson
-// first share a zone. In practice that's Unit 1A, since Vale doesn't wander — the
+// first share a zone. In practice that's Unit 2A, since Vale doesn't wander — the
 // moment he comes home to his own unit and finds her there.
 
 import { on } from '../../server/engine/events.js';
@@ -31,8 +31,8 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { query } from '../../server/models/db.js';
 
 const VALE_ID  = 'npc_pd_officer';   // Sergeant Vale
-const APT_ZONE = 'zone_apt_1';       // Akerson's owned unit (Unit 1A) she squatted in
-const HOME     = 'zone_apt_6';       // her real home (Unit 2B), already her home_zone
+const APT_ZONE = 'zone_apt_1';       // Akerson's owned unit (Unit 2A) she squatted in
+const HOME     = 'zone_apt_6';       // her real home (Unit 3B), already her home_zone
 const GIFT     = 200;                // credits she presses into his hand
 const FLAG     = 'vale_apology_akerson'; // world scope — never replay
 
@@ -85,12 +85,12 @@ async function runScene(actor, vale, zoneId) {
   };
   const beat4 = async () => {
     if (present(actor.id, zoneId))
-      sendToZone(zoneId, say(`"Got my own place now — Unit 2B, upstairs. Finally. I'll get out of your hair."`));
+      sendToZone(zoneId, say(`"Got my own place now — Unit 3B, upstairs. Finally. I'll get out of your hair."`));
     // Move her out for real, and persist it so a restart doesn't put her back in
-    // his apartment. Her home_zone is already Unit 2B.
+    // his apartment. Her home_zone is already Unit 3B.
     if (moveNpcToZone(VALE_ID, HOME)) {
       sendToZone(zoneId, { type: 'zone_event', message: `Sergeant Vale gathers her few belongings and heads upstairs to her own place at last.` });
-      sendToZone(HOME, { type: 'zone_event', message: `Sergeant Vale lets herself into Unit 2B and sets her things down, home at last.` });
+      sendToZone(HOME, { type: 'zone_event', message: `Sergeant Vale lets herself into Unit 3B and sets her things down, home at last.` });
     }
     await query('UPDATE npcs SET zone_id=$1, home_zone=$1 WHERE id=$2', [HOME, VALE_ID]).catch(() => {});
   };

@@ -313,11 +313,20 @@ function resolveFacadeTransit(from, to) {
     return null;
   }
   // Entering: anywhere else → facade → interior entry zone. The front door
-  // lives on the facade↔interior 'in'/'out' exit, so surface it for the gate
-  // chain (the street→facade hop has no door of its own).
+  // lives on the facade↔interior link, so surface it for the gate chain (the
+  // street→facade hop has no door of its own). Find it by the ACTUAL exit
+  // direction rather than assuming 'in'/'out': buildings reworked to cardinal
+  // entrances label that link e.g. 'west'/'east', while legacy ones still use
+  // 'in'/'out' — both resolve here.
   const entryId = interior.entry_zone_id;
-  const frontDoor = getDoorForExit(to.id, 'in', entryId) || getDoorForExit(entryId, 'out', to.id) || null;
-  return { finalId: entryId, finalZone: getZone(entryId), frontDoor };
+  const entryZone = getZone(entryId);
+  const toInteriorDir = allExits(to).find((e) => e.target === entryId)?.dir;
+  const toFacadeDir = entryZone ? allExits(entryZone).find((e) => e.target === to.id)?.dir : null;
+  const frontDoor =
+    (toInteriorDir && getDoorForExit(to.id, toInteriorDir, entryId)) ||
+    (toFacadeDir && getDoorForExit(entryId, toFacadeDir, to.id)) ||
+    null;
+  return { finalId: entryId, finalZone: entryZone, frontDoor };
 }
 
 export async function cmdMove(direction, player, broadcast, opts = {}) {

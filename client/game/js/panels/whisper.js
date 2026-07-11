@@ -518,6 +518,25 @@ function _setSystemMOTD(renderedText) {
 	}
 }
 
+// Render the MOTD at an explicit size (default 'big'/Large) as ready-to-inject
+// HTML, independent of the floating panel's window-size setting. The Tablet
+// Chat uses this so it always shows the full Large MOTD (then scales it to fit).
+export function getMotdHtml(size = "big") {
+	if (!_motdData) return null;
+	const template = _motdData[size] || _motdData.big || "";
+	if (!template) return null;
+	const handle =
+		document.getElementById("handle-display")?.textContent?.trim() ||
+		"Player";
+	const text = _applyMotdSubstitutions(
+		template,
+		handle,
+		_motdData.dynamic || "",
+		_motdData.news || [],
+	);
+	return `<pre style="font-family:var(--font-mono);white-space:pre;margin:0;line-height:1.3;tab-size:4">${_esc(text)}</pre>`;
+}
+
 function _rerenderMotd() {
 	if (!_motdData) return;
 	const size = _selectMotdSize();

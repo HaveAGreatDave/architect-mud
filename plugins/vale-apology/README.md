@@ -1,8 +1,8 @@
 # vale-apology
 
 **Purpose** — a single, one-time narrative beat. Sergeant Vale (`npc_pd_officer`) was
-auto-homed into a player-owned Embassy unit (Akerson's Unit 1A / `zone_apt_1`) while she
-got back on her feet. Her real home is now Unit 2B (`zone_apt_6`). The first time Akerson
+auto-homed into a player-owned Embassy unit (Akerson's Unit 2A / `zone_apt_1`) while she
+got back on her feet. Her real home is now Unit 3B (`zone_apt_6`). The first time Akerson
 shares a room with her, she apologises for crashing at his place, thanks him, presses
 ₵200 into his hand (a real credit transfer), and moves out to her own unit (a real,
 persisted NPC move). It fires exactly once, forever.

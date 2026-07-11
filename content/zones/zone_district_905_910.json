@@ -7,7 +7,8 @@
   "created_by": "zone-planner",
   "description": "The face of The Dead Pigeon.",
   "exits": {
-    "in": "zone_mq_pigeon_bar"
+    "north": "zone_district_905_909",
+    "south": "zone_mq_pigeon_bar"
   },
   "flags": {
     "building_name": "The Dead Pigeon",

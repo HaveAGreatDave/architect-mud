@@ -547,6 +547,74 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   }
 }
 
+// evict (admin housing command + engine rehoming helpers). Covers: (1) the gametable
+// plugin's `evict` falls through when the player isn't at a poker table, so the engine
+// handler runs; (2) findNearestVacantApartment returns a real vacant unit, preferring
+// the same building; (3) the `evict <npc>` command frees the old unit and rehomes the
+// NPC into that vacancy (npc_residences + home_zone follow). Real FK targets; the NPC's
+// home/zone and role are captured and restored in finally so the dev DB stays clean.
+{
+  const apt = await import('../server/engine/apartments.js');
+  const { query: q } = await import('../server/models/db.js');
+  const { world, moveNpcToZone } = await import('../server/engine/world.js');
+
+  // (1) Fall-through: a non-seated player's `evict` is not eaten by gametable. Our
+  // fake player isn't admin, so the engine handler answers with the clearance gate —
+  // crucially NOT gametable's "take a seat first".
+  const ft = await run('evict Nobody');
+  check('evict falls through gametable when not at a table',
+    !/take a seat/i.test(ft?.message || ''), ft?.message);
+
+  const npc = world.npcs.get('npc_embassy_barkeep');
+  const oldZone = 'zone_meridian_unit_301'; // real, normally-vacant Meridian apartment
+  const nearZone = 'zone_meridian_unit_302'; // its across-the-hall neighbour (2 hops)
+  if (npc) {
+    const savedHome = npc.home_zone, savedZone = npc.zone_id, savedRole = getPlayer().role;
+    // Capture whoever currently lives next door so we can restore them — the dev DB
+    // ships the Meridian near-full, which is exactly why we vacate one unit to make
+    // "nearest" deterministic (otherwise the true nearest vacancy is another building).
+    const { rows: nb } = await q('SELECT npc_id FROM npc_residences WHERE zone_id=$1', [nearZone]);
+    const nearOrigNpc = nb[0]?.npc_id || null;
+    try {
+      // Seat the NPC in oldZone as its registered home, and vacate the neighbour.
+      await q('UPDATE npcs SET home_zone=$1 WHERE id=$2', [oldZone, npc.id]);
+      await q(`INSERT INTO npc_residences (zone_id, npc_id) VALUES ($1,$2)
+               ON CONFLICT (zone_id) DO UPDATE SET npc_id=$2`, [oldZone, npc.id]);
+      await q('DELETE FROM npc_residences WHERE zone_id=$1', [nearZone]);
+      npc.home_zone = oldZone;
+      moveNpcToZone(npc.id, oldZone);
+
+      // (2) With the neighbour vacant, it's the nearest vacancy (2 hops, same building)
+      // — closer than any unit in another building.
+      const nearest = await apt.findNearestVacantApartment(oldZone, oldZone);
+      check('findNearestVacantApartment picks the closest vacant unit',
+        nearest === nearZone, `nearest=${nearest}`);
+
+      // (3) The command itself: admin evicts the NPC → old unit freed, NPC rehomed.
+      getPlayer().role = 'admin';
+      const r = await run(`evict ${npc.name}`);
+      check('evict <npc> reports the rehoming',
+        r?.type === 'output' && /moved into/i.test(r?.message || ''), r?.message);
+      check('evicted NPC no longer occupies the old unit',
+        (await apt.getNpcResidence(oldZone)) === null, oldZone);
+      check('evicted NPC now lives in the nearest vacancy',
+        npc.home_zone === nearZone && (await apt.getNpcResidence(nearZone))?.npc_id === npc.id,
+        `home=${npc.home_zone}`);
+      const { rows: cnt } = await q('SELECT count(*)::int c FROM npc_residences WHERE npc_id=$1', [npc.id]);
+      check('evicted NPC holds exactly one residence', cnt[0]?.c === 1, JSON.stringify(cnt[0]));
+    } finally {
+      getPlayer().role = savedRole;
+      await q('DELETE FROM npc_residences WHERE npc_id=$1', [npc.id]);
+      if (nearOrigNpc)
+        await q(`INSERT INTO npc_residences (zone_id, npc_id) VALUES ($1,$2)
+                 ON CONFLICT (zone_id) DO UPDATE SET npc_id=$2`, [nearZone, nearOrigNpc]);
+      await q('UPDATE npcs SET home_zone=$1, zone_id=$2 WHERE id=$3', [savedHome, savedZone, npc.id]);
+      npc.home_zone = savedHome;
+      moveNpcToZone(npc.id, savedZone);
+    }
+  }
+}
+
 // Sanctuary + radiation zone tags (Phase 2 of the zone redesign). All fixtures
 // are in-memory mutations of live world zone objects — no DB writes — and are
 // torn down in finally.

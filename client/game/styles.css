@@ -377,6 +377,14 @@ body.fsim-hidepanel .fsim-view { height: auto; flex: 1 1 auto; min-height: 0; }
 body.fsim-hidepanel #output,
 body.fsim-hidepanel #look-resize-handle { display: none; }
 
+/* Flight-sim external chase view: the world fills the whole column so the cockpit controls
+   can float over it (see cockpit.js). Grows the pane like hide-panel; the command box stays. */
+body.fsim-external #area-pane { max-height: none; flex: 1 1 auto; }
+body.fsim-external #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
+body.fsim-external .fsim { flex: 1 1 auto; min-height: 0; }
+body.fsim-external #output,
+body.fsim-external #look-resize-handle { display: none; }
+
 /* Mobile-only hidden state — overrides any inline height styles */
 .mob-pane-hidden {
 	display: none !important;
@@ -2438,6 +2446,22 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
   background: var(--cyan); border-radius: 11px; transition: left .15s ease; z-index: 0; }
 .map-overlay-slider[data-ov="icons"]::before  { left: 46px; }
 .map-overlay-slider[data-ov="labels"]::before { left: 92px; }
+
+/* Mobile: the header packs the title, level tabs, GPS/territory icons and the
+   overlay slider into one row, and the body's viewport is a fixed 374px — wider
+   than a phone. That forced the box to scroll sideways, sliding the right-hand
+   buttons off-screen. Wrap the header, stack the body, and shrink the tiles so
+   every control stays reachable without a horizontal scrollbar. */
+@media (max-width: 720px) {
+  #map-box { max-width: 96vw; padding: 12px; }
+  #map-header { flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  #map-header h2 { flex: 1 1 100%; margin-bottom: 2px; }
+  #map-tabs { justify-content: flex-start; flex: 1 1 auto; }
+  .map-overlay-slider { margin-left: 0; }
+  #map-body { flex-direction: column; align-items: center; gap: 14px; }
+  #map-viewport, #map-grid { --map-room: 28px; }
+  #map-legend { width: 100%; }
+}
 
 /* Landmark POI icons — bold, colour-coded by category (airport, police, …). */
 .map-poi { font-weight: bold; }
@@ -9622,6 +9646,43 @@ body.tripping #output {
 .cpanel-wanted-empty { color: var(--accent-dim); text-shadow: none; }
 .cpanel-wanted-clean .cpanel-wanted-stars { color: var(--text-dim); text-shadow: none; }
 .cpanel-wanted-note { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+
+/* Wanted-level HUD — top-centre neon pill (wanted.js). Hidden until `.active`;
+   the flame canvas burns behind the stars, `.wanted-pulse` stings on a rise. */
+#wanted-hud {
+	position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+	z-index: 150; display: none; align-items: center; gap: 8px;
+	padding: 4px 16px; border-radius: 999px; pointer-events: none; overflow: visible;
+	background: rgba(6, 2, 8, .72);
+	border: 1px solid var(--accent);
+	box-shadow: 0 0 14px var(--accent), inset 0 0 8px var(--accent-dim);
+}
+#wanted-hud.active { display: inline-flex; }
+.wanted-label {
+	position: relative; z-index: 2;
+	font: 700 12px/1 var(--font-mono); letter-spacing: 3px;
+	color: var(--accent); text-shadow: 0 0 6px var(--accent);
+}
+/* JS overrides `left` to centre the canvas on the stars; keep it behind them. */
+.wanted-flame {
+	position: absolute; left: 50%; bottom: 0; z-index: 1;
+	width: 220px; height: 82px; transform: translateX(-50%); pointer-events: none;
+}
+.wanted-stars {
+	position: relative; z-index: 2;
+	font-size: 20px; line-height: 1; letter-spacing: 2px; white-space: nowrap;
+	color: var(--accent); text-shadow: 0 0 8px var(--accent);
+}
+.wanted-empty { color: var(--accent-dim); text-shadow: none; }
+@keyframes wanted-pulse {
+	0%   { transform: translateX(-50%) scale(1);
+	       box-shadow: 0 0 14px var(--accent), inset 0 0 8px var(--accent-dim); }
+	30%  { transform: translateX(-50%) scale(1.09);
+	       box-shadow: 0 0 28px var(--accent), inset 0 0 14px var(--accent); }
+	100% { transform: translateX(-50%) scale(1);
+	       box-shadow: 0 0 14px var(--accent), inset 0 0 8px var(--accent-dim); }
+}
+#wanted-hud.wanted-pulse { animation: wanted-pulse .5s ease-out; }
 
 /* Builder modal */
 .cpanel-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1000;

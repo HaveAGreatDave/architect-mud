@@ -7,7 +7,8 @@
   "created_by": "zone-planner",
   "description": "The face of Velk's Pre-Owned Furnishings.",
   "exits": {
-    "in": "zone_velk_shop"
+    "east": "zone_district_922_908",
+    "west": "zone_velk_shop"
   },
   "flags": {
     "building_name": "Velk's Pre-Owned Furnishings",

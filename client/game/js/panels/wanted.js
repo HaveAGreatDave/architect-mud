@@ -14,9 +14,33 @@ let audioCtx = null;
 
 // Flame dials — tuned in sandbox/heat-flame-lab.html and locked here.
 const FLAME = { thresh: 20, density: 0.30, height: 0.50, flick: 0.9, spread: 0.18, psize: 1.15 };
-const RAMP = ['#4a1204', '#6e1a06', '#9a2408', '#c8380d', '#f25311', '#ff7a1e', '#ff9c2c', '#ffc247', '#ffe38c', '#fff6d0'];
+// Fire ramp derived from the theme --accent: dark ember → hot core → near-white tip.
+// Falls back to a classic orange fire if the var can't be read.
+let RAMP = ['#4a1204', '#6e1a06', '#9a2408', '#c8380d', '#f25311', '#ff7a1e', '#ff9c2c', '#ffc247', '#ffe38c', '#fff6d0'];
+let rampKey = '';
 const MAX_PARTS = 260;      // hard cap — the particle array can never run away
 const FW = 220, FH = 82;    // fixed logical canvas (matches .wanted-flame CSS box)
+
+const hx = v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
+function accentRamp(hex) {
+  let h = hex.replace('#', '').trim();
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  if (h.length !== 6) return null;
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  // t<0 darkens toward black (embers), t>0 lightens toward white (hot tip).
+  const mix = t => t < 0
+    ? '#' + hx(r * (1 + t)) + hx(g * (1 + t)) + hx(b * (1 + t))
+    : '#' + hx(r + (255 - r) * t) + hx(g + (255 - g) * t) + hx(b + (255 - b) * t);
+  return [-0.78, -0.6, -0.4, -0.2, 0, 0.15, 0.3, 0.5, 0.7, 0.9].map(mix);
+}
+function refreshRamp() {
+  try {
+    const acc = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    if (!acc || acc === rampKey) return;
+    const ramp = accentRamp(acc);
+    if (ramp) { RAMP = ramp; rampKey = acc; }
+  } catch { /* keep current ramp */ }
+}
 
 let flame = null;           // { el, canvas, ctx, starsEl, parts, dpr, litKey } once built
 let raf = 0;
@@ -125,8 +149,9 @@ function renderStars() {
 function updateVisibility() {
   const el = document.getElementById('wanted-hud');
   if (!el) return;
-  if (stars > 0 || heat > 0) {
+  if (stars > 0 || heat > FLAME.thresh) {
     build();
+    refreshRamp();
     el.classList.add('active');
     renderStars();
     ensureLoop();

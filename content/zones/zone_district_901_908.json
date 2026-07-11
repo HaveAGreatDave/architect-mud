@@ -7,7 +7,8 @@
   "created_by": "zone-planner",
   "description": "The face of Second Skin.",
   "exits": {
-    "in": "zone_drum_shop"
+    "east": "zone_district_902_908",
+    "west": "zone_drum_shop"
   },
   "flags": {
     "building_name": "Second Skin",

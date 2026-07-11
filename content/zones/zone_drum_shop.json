@@ -8,13 +8,13 @@
   ],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
-  "bg_color": "#e08a4a",
+  "bg_color": "#b0568f",
   "color": null,
   "created_by": null,
   "description": "The shop is narrow but makes good use of vertical space — racks of clothing climb toward the ceiling, organized by some colour-logic that only Cassius understands. The walls are covered in polaroid-style printouts of outfits, annotated in marker. A tailoring station dominates one corner: cutting mat, shears, a half-dressed mannequin with pins in unfortunate places.",
   "exits": {
     "down": "zone_drum_basement",
-    "out": "zone_district_901_908"
+    "east": "zone_district_901_908"
   },
   "flags": {
     "is_interior": true

@@ -941,6 +941,11 @@ const FSIM_TUNE = [
   ['rwl', 'Runway length', 1, 8, 0.2],
   ['rwyRecede', 'Runway recede', 0.5, 6, 0.2],
   ['fov', 'Tunnel (FOV)', 0.5, 1.6, 0.02],
+  ['treeDensity', 'Trees', 0, 2, 0.05],
+  ['treeForest', 'Forest clump', 0.2, 0.9, 0.02],
+  ['chaseBack', 'Chase dist', 0.5, 5, 0.1],
+  ['chaseUp', 'Chase height', 0, 2, 0.05],
+  ['chaseSink', 'Sit height', -0.2, 0.5, 0.01],
 ];
 
 // Live-tunable FLIGHT-MODEL knobs — every per-airframe characteristic in flightmodel
@@ -1164,6 +1169,16 @@ function ensureFlightSimStyles() {
     .fsim-flapsw-knob{ position:absolute; left:2px; right:2px; height:28%; top:2%; border-radius:4px; background:linear-gradient(180deg,#d6e8f5,#7f9bb0); box-shadow:0 2px 5px rgba(0,0,0,.6); transition:top .12s; }
     .fsim-flapsw-lbls{ flex:1 1 auto; display:flex; flex-direction:column; justify-content:space-between; font:9px monospace; letter-spacing:1px; color:#6f8698; padding:1px 0; }
     .fsim-flapsw-lbls span.on{ color:var(--cy); text-shadow:0 0 5px var(--cy); }
+    /* elevator trim wheel — scroll or click (top = nose up, bottom = nose down) */
+    .fsim-trim{ flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:3px; margin-top:2px; }
+    .fsim-trim-cap{ font:8px monospace; letter-spacing:1px; color:#6f8698; }
+    .fsim-trim-wheel{ position:relative; width:26px; height:44px; border-radius:6px; overflow:hidden; cursor:ns-resize; touch-action:none;
+      background:linear-gradient(90deg,#03070b,#0c1620 45%,#0c1620 55%,#03070b); border:1px solid #16303f; box-shadow:inset 0 0 6px #000, 0 1px 2px rgba(255,255,255,.15); }
+    .fsim-trim-drum{ position:absolute; left:2px; right:2px; top:-50%; height:200%;
+      background:repeating-linear-gradient(0deg,#0e2130 0 3px,rgba(95,208,255,.20) 3px 4px,#24425a 4px 7px); }
+    .fsim-trim-idx{ position:absolute; left:0; right:0; top:50%; height:2px; margin-top:-1px; background:var(--cy); box-shadow:0 0 5px var(--cy); }
+    .fsim-trim-val{ font:9px monospace; color:#6f8698; letter-spacing:.5px; }
+    .fsim-trim-val.set{ color:var(--yellow,#ffb43a); text-shadow:0 0 5px var(--yellow,#ffb43a); }
     .fsim-tunebtn{ position:absolute; top:6px; right:8px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
       border-radius:6px; width:24px; height:22px; font-size:12px; line-height:1; cursor:pointer; }
     .fsim-fsbtn{ position:absolute; top:6px; right:36px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
@@ -1175,11 +1190,24 @@ function ensureFlightSimStyles() {
     .fsim-viewbtn{ position:absolute; top:6px; right:92px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
       border-radius:6px; height:22px; padding:0 7px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer; }
     .fsim-viewbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
-    /* External view: drop the instrument dashboard (PFD/gauges/MFD, placard, transponder) but
-       KEEP the flying controls — throttle + yoke/cyclic — and let the outside view breathe. */
+    /* External view: the chase-cam world fills the WHOLE pane and the flying controls
+       (throttle + cyclic + master/flaps) float over it on TRANSPARENT backgrounds — no black
+       instrument slab. The dashboard (PFD/gauges/MFD, placard, transponder) is dropped, and so
+       is the PANEL lights switch (nothing to light out here). The pane growth is in styles.css. */
+    body.fsim-external .fsim{ position:relative; }
+    body.fsim-external .fsim-view{ position:absolute; inset:0; height:auto; z-index:0; }
     body.fsim-external .fsim-pfd, body.fsim-external .fsim-gauges, body.fsim-external .fsim-mfd,
-    body.fsim-external .fsim-placard, body.fsim-external .fsim-xpdr { display:none; }
-    body.fsim-external .fsim-glass { flex:0 0 auto; }
+    body.fsim-external .fsim-placard, body.fsim-external .fsim-xpdr,
+    body.fsim-external .fsim-nightsw { display:none; }
+    /* control rows → transparent overlays pinned over the bottom of the view */
+    body.fsim-external .fsim-glass{ position:absolute; left:8px; bottom:8px; width:auto; height:150px; gap:6px; z-index:6; background:transparent; }
+    body.fsim-external .fsim-rightctl{ flex:0 0 auto; }
+    body.fsim-external .fsim-throttle{ background:rgba(6,12,18,.34); border-color:rgba(120,150,175,.4); }
+    body.fsim-external .fsim-ctl{ position:absolute; left:0; right:0; bottom:-18px; height:120px; z-index:5; background:transparent; pointer-events:none; justify-content:center; }
+    body.fsim-external .fsim-yoke{ background:transparent; border-color:transparent; box-shadow:none; flex:0 0 300px; pointer-events:auto; }
+    /* External view: keep the yoke fully at the BOTTOM (its top edge sits at its well, so it
+       never rises up over the aircraft model), a touch bigger. */
+    body.fsim-external .fsim-yoke-svg{ top:2%; left:13%; width:74%; height:150%; }
     /* A couple of BIG important gauges, relocated to the bottom-right of the outside view. */
     .fsim-extg{ position:absolute; right:10px; bottom:10px; z-index:5; display:none; flex-direction:column; gap:7px; align-items:flex-end; pointer-events:none; }
     body.fsim-external .fsim-extg{ display:flex; }
@@ -1188,6 +1216,7 @@ function ensureFlightSimStyles() {
     .fsim-extg-row b{ color:#e8f4ff; font-size:38px; line-height:1; font-variant-numeric:tabular-nums; min-width:92px; text-align:right; }
     .fsim-extg-u{ color:#6f8fa4; font-size:13px; }
     .fsim-tune{ position:absolute; top:32px; right:8px; z-index:4; width:186px; max-height:72vh; overflow-y:auto; overscroll-behavior:contain; background:rgba(8,14,20,.94); border:1px solid #14212d; border-radius:8px; padding:8px; }
+    .fsim-tune-drag{ font-size:9px; letter-spacing:1px; color:var(--cy); background:rgba(20,33,45,.98); border:1px solid #16303f; border-radius:5px; padding:4px 6px; margin:-2px 0 6px; cursor:move; user-select:none; touch-action:none; position:sticky; top:-8px; z-index:1; }
     .fsim-tune .thdr{ font-size:9px; letter-spacing:1px; color:var(--cy); border-bottom:1px solid #16303f; padding-bottom:3px; margin:2px 0 6px; position:sticky; top:-8px; background:rgba(8,14,20,.98); }
     .fsim-tune .thdr:not(:first-child){ margin-top:9px; }
     .fsim-tune .trow{ display:flex; align-items:center; gap:5px; margin-bottom:5px; font-size:9px; }
@@ -1477,9 +1506,9 @@ const CYCLIC_DRAGONFLY = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox=
   <rect x="47" y="30" width="6" height="40" rx="2.4" fill="url(#dfshaft)" stroke="#1a231e" stroke-width="0.5"/>
   <circle cx="50" cy="60" r="4.4" fill="#18211b" stroke="#0a120c" stroke-width="0.7"/>
   <circle cx="50" cy="60" r="1.5" fill="#0a120c"/>
-  <!-- name band on the shaft -->
-  <rect x="41" y="41" width="18" height="7" rx="1.6" fill="#0c140e" stroke="#2a3a30" stroke-width="0.5"/>
-  <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="46.4" text-anchor="middle" textLength="15" lengthAdjust="spacingAndGlyphs">DRAGONFLY</text>
+  <!-- name plate clamped across the shaft (wider than the shaft so the long name reads) -->
+  <rect x="33" y="40.5" width="34" height="8" rx="1.8" fill="#0c140e" stroke="#2a3a30" stroke-width="0.5"/>
+  <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="46.4" text-anchor="middle" textLength="28" lengthAdjust="spacingAndGlyphs">DRAGONFLY</text>
   <!-- bulbous grip head -->
   <ellipse cx="50" cy="18" rx="9.5" ry="13" fill="url(#dfgrip)" stroke="#000" stroke-width="0.7"/>
   <ellipse cx="46.5" cy="12" rx="3" ry="4.5" fill="rgba(180,240,200,0.14)"/>
@@ -1516,6 +1545,7 @@ function renderSeats(F) {
 export function openFlightSim(opts = {}) {
   closeFlightSim();          // clear any prior
   closeCockpit();            // stop the glass HUD loop; the continuous cockpit owns the pane
+  window.dispatchEvent(new Event('flightsim:open'));   // let the WASD walk-mode owner disarm — those keys are flight controls now
   suppressWeatherFx(true);   // kill the outdoor overlay immediately so rain never flashes over the cockpit on embark
   ensureWindshieldStyles(); ensureFlightSimStyles(); refreshAccent();
   const skin = FSIM_SKIN[opts.craftType] || null;   // per-craft flightdeck theme
@@ -1526,14 +1556,22 @@ export function openFlightSim(opts = {}) {
 
   const F = {
     P, s, cls: opts.craftClass || 'ultralight', livery: opts.livery || opts.craftLivery,
-    input: { elevator: 0, aileron: 0, throttle: 0, flaps: 0, pedal: 0 },
+    input: { elevator: 0, aileron: 0, throttle: 0, flaps: 0, pedal: 0, trim: 0 },
     // A helicopter (Dragonfly/Mini 500) flies the hover model: the throttle lever is the
     // COLLECTIVE, the yoke is the CYCLIC, and Q/E work the tail-rotor PEDALS (yaw). heli flag
     // drives the control remap + instrument set below.
     heli: opts.craftClass === 'heli' || !!(TYPES[opts.craftType] && TYPES[opts.craftType].heli),
     pedalKey: 0,
-    pos: { x: opts.gx || 0, y: opts.gy || 0 },
-    mapCenter: { x: Math.round(opts.gx || 0), y: Math.round(opts.gy || 0) }, rollDist: 0, travel: 0,
+    // Nudge the parked craft a short way FORWARD down the runway so, on embark, the view frames
+    // it ON the visible strip instead of back on the ramp/threshold. Only when there's a real
+    // runway to sit on; the takeoff still rolls out from here down the remaining strip.
+    ...(() => {
+      const hr = (opts.runway ? opts.runway.hdg : (((opts.heading || 0) % 360) + 360) % 360) * Math.PI / 180;
+      const fwd = opts.runway ? 1.3 : 0;   // tiles forward (~a few hundred feet) — 0 off-runway
+      const px = (opts.gx || 0) + Math.sin(hr) * fwd, py = (opts.gy || 0) - Math.cos(hr) * fwd;
+      return { pos: { x: px, y: py }, mapCenter: { x: Math.round(px), y: Math.round(py) } };
+    })(),
+    rollDist: 0, travel: 0,
     // World-fixed departure runway anchor. When the server sends a runway pose derived
     // from the map's centreline tiles (opts.runway), use it so the drawn runway sits on
     // the real tiles; otherwise fall back to the craft's parked spot + heading.
@@ -1587,6 +1625,11 @@ export function openFlightSim(opts = {}) {
             <div class="fsim-flapsw-track" id="fsim-flapsw-track"><div class="fsim-flapsw-knob" id="fsim-flapsw-knob"></div></div>
             <div class="fsim-flapsw-lbls"><span class="on">UP</span><span>½</span><span>FULL</span></div>
           </div>
+          <div class="fsim-trim" id="fsim-trim" title="ELEVATOR TRIM — mouse-wheel to roll, or click top (nose up) / bottom (nose down)">
+            <span class="fsim-trim-cap">TRIM</span>
+            <div class="fsim-trim-wheel" id="fsim-trim-wheel"><div class="fsim-trim-drum" id="fsim-trim-drum"></div><div class="fsim-trim-idx"></div></div>
+            <span class="fsim-trim-val" id="fsim-trim-val">0</span>
+          </div>
         </div>
       </div>
     </div>
@@ -1632,7 +1675,7 @@ export function openFlightSim(opts = {}) {
   // Yoke — 2D pad, springs to centre. Physically inverted: drag DOWN = pull = nose up.
   const pad = q('#fsim-yoke');
   const padTo = (e) => { const r = pad.getBoundingClientRect(); F.input.aileron = clampNum(((e.clientX - r.left) / r.width) * 2 - 1, -1, 1); F.input.elevator = clampNum(((e.clientY - r.top) / r.height) * 2 - 1, -1, 1); };
-  add(pad, 'pointerdown', (e) => { F.yokeDrag = true; pad.classList.add('drag'); try { pad.setPointerCapture(e.pointerId); } catch {} padTo(e); });
+  add(pad, 'pointerdown', (e) => { if (e.button) return; F.yokeDrag = true; pad.classList.add('drag'); try { pad.setPointerCapture(e.pointerId); } catch {} padTo(e); });
   add(pad, 'pointermove', (e) => { if (F.yokeDrag) padTo(e); });
   add(window, 'pointerup', () => { F.yokeDrag = false; pad.classList.remove('drag'); });
 
@@ -1642,6 +1685,21 @@ export function openFlightSim(opts = {}) {
   add(thr, 'pointerdown', (e) => { F.thrDrag = true; try { thr.setPointerCapture(e.pointerId); } catch {} thrTo(e); });
   add(thr, 'pointermove', (e) => { if (F.thrDrag) thrTo(e); });
   add(window, 'pointerup', () => { F.thrDrag = false; });
+
+  // External-view orbit — hold the MIDDLE mouse button and drag to spin the chase camera around
+  // the aircraft; release and it eases back to behind (frame loop). Only active in external view.
+  const viewEl = q('.fsim-view');
+  if (viewEl) {
+    let ox = 0;
+    add(viewEl, 'pointerdown', (e) => {
+      if (e.button !== 1 || !F.external) return;
+      F.orbitDrag = true; ox = e.clientX; e.preventDefault();
+      try { viewEl.setPointerCapture(e.pointerId); } catch {}
+    });
+    add(window, 'pointermove', (e) => { if (!F.orbitDrag) return; F.extOrbit = (F.extOrbit || 0) + (e.clientX - ox) * 0.4; ox = e.clientX; });
+    add(window, 'pointerup', (e) => { if (e.button === 1) F.orbitDrag = false; });
+    add(viewEl, 'auxclick', (e) => { if (e.button === 1) e.preventDefault(); });   // no middle-click autoscroll inside the view
+  }
 
   // Aircraft placard (bottom-left): registration + owner (RENTED if none).
   const regEl = q('#fsim-reg'), ownEl = q('#fsim-own');
@@ -1663,6 +1721,28 @@ export function openFlightSim(opts = {}) {
   const setFlap = (i) => { F.flapIdx = i; F.input.flaps = FLAP_VAL[i]; if (flapKnob) flapKnob.style.top = FLAP_TOP[i]; flapLbls.forEach((s2, j) => s2.classList.toggle('on', j === i)); };
   add(flapTrack, 'pointerdown', (e) => { const r = flapTrack.getBoundingClientRect(); const f = (e.clientY - r.top) / r.height; const i = f < 0.34 ? 0 : f < 0.67 ? 1 : 2; if (FLAP_VAL[i] !== F.input.flaps) { setFlap(i); flapWhir(); } });
   setFlap(0);
+
+  // Elevator trim — a console wheel that biases the yoke's neutral so you can hold an attitude
+  // hands-off (trim adds to elevator in the model). Mouse-wheel to roll it; click the top half
+  // for nose-up, the bottom half for nose-down. Capped well short of full deflection so it
+  // assists rather than flies for you. Helis have no elevator trim — the block is hidden.
+  const TRIM_STEP = 0.04, TRIM_MAX = 0.6;
+  const trimEl = q('#fsim-trim'), trimWheel = q('#fsim-trim-wheel'), trimDrum = q('#fsim-trim-drum'), trimVal = q('#fsim-trim-val');
+  const setTrim = (t) => {
+    F.input.trim = clampNum(t, -TRIM_MAX, TRIM_MAX);
+    if (trimDrum) trimDrum.style.transform = `translateY(${-F.input.trim / TRIM_MAX * 18}px)`;
+    if (trimVal) {
+      const n = Math.round(F.input.trim / TRIM_STEP);
+      trimVal.textContent = n === 0 ? '0' : (n > 0 ? '▲' : '▼') + Math.abs(n);
+      trimVal.classList.toggle('set', n !== 0);
+    }
+  };
+  if (F.heli) { if (trimEl) trimEl.style.display = 'none'; }
+  else if (trimWheel) {
+    add(trimWheel, 'wheel', (e) => { e.preventDefault(); setTrim(F.input.trim + (e.deltaY < 0 ? TRIM_STEP : -TRIM_STEP)); }, { passive: false });
+    add(trimWheel, 'pointerdown', (e) => { const r = trimWheel.getBoundingClientRect(); setTrim(F.input.trim + ((e.clientY - r.top) < r.height / 2 ? TRIM_STEP : -TRIM_STEP)); });
+  }
+  setTrim(0);
 
   // Transient action toast (flap/gear/jettison feedback). Auto-hides ~1.1s.
   const toastEl = q('#fsim-toast');
@@ -1814,8 +1894,24 @@ export function openFlightSim(opts = {}) {
   const rndRow = ([k, lbl, lo, hi, stp]) =>
     `<div class="trow"><label>${lbl}</label><input type="range" data-k="${k}" min="${lo}" max="${hi}" step="${stp}" value="${RENDER_TUNE[k]}"><span class="tv" id="fsim-tv-${k}">${fmtStp(RENDER_TUNE[k], stp)}</span></div>`;
   tunePanel.innerHTML =
+    `<div class="fsim-tune-drag" id="fsim-tune-drag">⠿ TUNING — drag to move</div>` +
     `<div class="thdr">✈ ${esc(F.P.name || 'AIRCRAFT')} · FEEL</div>` + PHYS_TUNE.map(physRow).join('') +
     `<div class="thdr">▦ WORLD RENDER</div>` + FSIM_TUNE.map(rndRow).join('');
+  // Drag the tuning window by its header. Switches to left/top positioning (relative to the
+  // view) on first grab so it can move anywhere; the sliders below keep their own pointer events.
+  const dragH = q('#fsim-tune-drag');
+  if (dragH) {
+    let dragging = false, px = 0, py = 0, baseL = 0, baseT = 0;
+    add(dragH, 'pointerdown', (e) => {
+      const r = tunePanel.getBoundingClientRect();
+      const pr = (tunePanel.offsetParent || tunePanel.parentElement).getBoundingClientRect();
+      baseL = r.left - pr.left; baseT = r.top - pr.top;
+      tunePanel.style.left = baseL + 'px'; tunePanel.style.top = baseT + 'px'; tunePanel.style.right = 'auto';
+      px = e.clientX; py = e.clientY; dragging = true; e.preventDefault();
+    });
+    add(window, 'pointermove', (e) => { if (!dragging) return; tunePanel.style.left = (baseL + e.clientX - px) + 'px'; tunePanel.style.top = (baseT + e.clientY - py) + 'px'; });
+    add(window, 'pointerup', () => { dragging = false; });
+  }
   tunePanel.querySelectorAll('input[data-pk]').forEach((inp) => add(inp, 'input', () => {
     const k = inp.dataset.pk; F.P[k] = parseFloat(inp.value);
     const tv = document.getElementById('fsim-pv-' + k); if (tv) tv.textContent = fmtStp(F.P[k], inp.step);
@@ -1899,7 +1995,14 @@ function offMapHeading(F) {
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (real(at(cx + dx, cy + dy))) return null;  // still over the world
   let sx = 0, sy = 0, n = 0;
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) if (real(map[ry][rx])) { sx += rx; sy += ry; n++; }
-  if (!n) return null;
+  // Home direction: the centroid of real terrain in view. Far enough out that the window
+  // holds NO built world, fall back to the WORLD bearing to the departure origin (a fixed
+  // point inside the map) so the banner keeps pointing home instead of blinking off.
+  if (!n) {
+    const hx = (F.rwOrigin?.x ?? F.mapCenter.x) - F.pos.x, hy = (F.rwOrigin?.y ?? F.mapCenter.y) - F.pos.y;
+    if (!hx && !hy) return null;
+    return (Math.round(Math.atan2(hx, -hy) * 180 / Math.PI) + 360) % 360;
+  }
   const bx = (sx / n) - cx, by = (sy / n) - cy;
   return (Math.round(Math.atan2(bx, -by) * 180 / Math.PI) + 360) % 360;
 }
@@ -1959,11 +2062,16 @@ function fsimFrame(now) {
   const F = _fsim; if (!F) return;
   const root = document.getElementById('fsim-root');
   if (!root) { closeFlightSim(); return; }
-  const dt = clampNum((now - F.last) / 1000, 0, 0.05); F.last = now;
+  // Frame delta — drives per-frame input sampling + display smoothing below. The flight
+  // model itself integrates in fixed sub-steps (see the accumulator further down), so a
+  // slightly bigger cap here is safe: it just widens how much sim time one frame may catch up.
+  const dt = clampNum((now - F.last) / 1000, 0, 0.25); F.last = now;
   const { s, P, input } = F;
 
   // Yoke springs to centre when released.
   if (!F.yokeDrag) { input.elevator = lerpN(input.elevator, 0, Math.min(1, dt * 6)); input.aileron = lerpN(input.aileron, 0, Math.min(1, dt * 6)); }
+  // External-view orbit eases back to behind (chase) once the middle mouse is released.
+  if (!F.orbitDrag && F.extOrbit) F.extOrbit = lerpN(F.extOrbit, 0, Math.min(1, dt * 3));
   // Keyboard throttle (A/Z held) ramps the lever ~2s full-sweep.
   if (F.throttleKey) input.throttle = clampNum(input.throttle + F.throttleKey * dt * 0.5, 0, 1);
   // Heli tail-rotor pedals (Q/E held): ramp toward the held side, spring to centre on release.
@@ -1972,42 +2080,58 @@ function fsimFrame(now) {
   // engine master switch is on and the tank isn't dry (dead stick).
   const thr = (F.engineOn && !F.deadStick) ? input.throttle : 0;
 
-  step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, flaps: input.flaps, pedal: input.pedal }, P, dt);
+  // Sample the atmosphere from the live weather → wind vector + turbulence intensity.
+  // (Sampled once per rendered frame and held across the fixed sub-steps below.)
+  const atmos = F.atmos = weatherAtmos(F, now);
+
+  // ── Fixed-timestep physics ────────────────────────────────────────────────────
+  // The flight model + turbulence + world translation advance in fixed 1/60 s slices, so
+  // handling is identical at 30/60/144 fps and the sim stays deterministic (which helps
+  // server reconciliation). Input + weather are sampled once per frame (above); collision,
+  // phase transitions and rendering happen once per frame (below, on the settled state).
+  // Leftover time carries in F.acc, capped at 0.5 s and 8 steps so a long tab-stall drains
+  // instead of spiralling.
+  const FIXED = 1 / 60;
+  F.acc = Math.min((F.acc || 0) + dt, 0.5);
+  let nSteps = 0;
+  while (F.acc >= FIXED && nSteps < 8) {
+    const h = FIXED;
+    step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, flaps: input.flaps, pedal: input.pedal, trim: input.trim }, P, h);
+
+    // Turbulence: the air disturbs the AIRCRAFT (you correct it), it never cheats the physics.
+    // Deterministic summed-sine "noise" (no RNG) rolls/pitches you and bumps lift, ∝ severity.
+    if (atmos.turb > 0.01 && !s.onGround) {
+      const t = now * 0.001, g = atmos.turb;
+      const nRoll = Math.sin(t * 3.1) + 0.6 * Math.sin(t * 7.7 + 2) + 0.8 * Math.sin(t * 1.3);
+      const nPitch = Math.sin(t * 2.3 + 1.5) + 0.6 * Math.sin(t * 5.1 + 0.7);
+      s.bank = clampNum(s.bank + nRoll * g * 5.5 * h, -70, 70);
+      s.pitch = clampNum(s.pitch + nPitch * g * 3.5 * h, -35, 35);
+      s.vs += nRoll * g * 130 * h;                              // gusty lift / ballooning
+    }
+
+    // Move through the world whenever rolling or flying — the takeoff roll translates
+    // you forward down the runway (buildings grow and pass); liftoff just adds altitude.
+    if (s.airspeed > 0.5) {
+      // Ground pace is quick so you actually roll down the runway, then decays FAST with altitude
+      // (exp, groundDecay-ft e-fold) to the slow cruise pace (worldPace) so the sky doesn't rush past.
+      const pace = RENDER_TUNE.worldPace * (1 + (RENDER_TUNE.groundBoost - 1) * Math.exp(-Math.max(0, s.altitude) / (RENDER_TUNE.groundDecay || 25)));
+      const d = s.airspeed * pace * h, hr = s.heading * Math.PI / 180;
+      // Ground track = air velocity + wind (airborne only — on the wheels the gear holds you to
+      // the ground). A crosswind drifts you off the runway centreline; a head/tailwind slows/speeds
+      // your progress over the ground while airspeed (through the air) is unchanged.
+      let vx = Math.sin(hr) * s.airspeed, vy = -Math.cos(hr) * s.airspeed;
+      if (!s.onGround && atmos.windKt > 0.2) { const wr = atmos.windDir * Math.PI / 180; vx += Math.sin(wr) * atmos.windKt; vy += -Math.cos(wr) * atmos.windKt; }
+      F.pos.x += vx * pace * h; F.pos.y += vy * pace * h;
+      F.travel += d;
+      if (F.engineOn) F.rollDist += d;
+    }
+    F.acc -= FIXED; nSteps++;
+  }
 
   // Gear position eases toward its target (0 = up/stowed, 1 = down/locked) over ~1.6s so the
   // external view shows it swinging out and tucking away, not snapping.
   if (F.gearRetract) { const tgt = F.gearUp ? 0 : 1; F.gearAnim = lerpN(F.gearAnim ?? 1, tgt, Math.min(1, dt / 1.6)); }
   else F.gearAnim = 1;
-
-  // Sample the atmosphere from the live weather → wind vector + turbulence intensity.
-  const atmos = F.atmos = weatherAtmos(F, now);
-  // Turbulence: the air disturbs the AIRCRAFT (you correct it), it never cheats the physics.
-  // Deterministic summed-sine "noise" (no RNG) rolls/pitches you and bumps lift, ∝ severity.
-  if (atmos.turb > 0.01 && !s.onGround) {
-    const t = now * 0.001, g = atmos.turb;
-    const nRoll = Math.sin(t * 3.1) + 0.6 * Math.sin(t * 7.7 + 2) + 0.8 * Math.sin(t * 1.3);
-    const nPitch = Math.sin(t * 2.3 + 1.5) + 0.6 * Math.sin(t * 5.1 + 0.7);
-    s.bank = clampNum(s.bank + nRoll * g * 5.5 * dt, -70, 70);
-    s.pitch = clampNum(s.pitch + nPitch * g * 3.5 * dt, -35, 35);
-    s.vs += nRoll * g * 130 * dt;                              // gusty lift / ballooning
-  }
-
-  // Move through the world whenever rolling or flying — the takeoff roll translates
-  // you forward down the runway (buildings grow and pass); liftoff just adds altitude.
-  if (s.airspeed > 0.5) {
-    // Ground pace is quick so you actually roll down the runway, then decays FAST with altitude
-    // (exp, groundDecay-ft e-fold) to the slow cruise pace (worldPace) so the sky doesn't rush past.
-    const pace = RENDER_TUNE.worldPace * (1 + (RENDER_TUNE.groundBoost - 1) * Math.exp(-Math.max(0, s.altitude) / (RENDER_TUNE.groundDecay || 25)));
-    const d = s.airspeed * pace * dt, hr = s.heading * Math.PI / 180;
-    // Ground track = air velocity + wind (airborne only — on the wheels the gear holds you to
-    // the ground). A crosswind drifts you off the runway centreline; a head/tailwind slows/speeds
-    // your progress over the ground while airspeed (through the air) is unchanged.
-    let vx = Math.sin(hr) * s.airspeed, vy = -Math.cos(hr) * s.airspeed;
-    if (!s.onGround && atmos.windKt > 0.2) { const wr = atmos.windDir * Math.PI / 180; vx += Math.sin(wr) * atmos.windKt; vy += -Math.cos(wr) * atmos.windKt; }
-    F.pos.x += vx * pace * dt; F.pos.y += vy * pace * dt;
-    F.travel += d;
-    if (F.engineOn) F.rollDist += d;
-  }
 
   // ── Building collision (CFIT) — flying into a tower you can see out the glass ─────
   // Checks the aircraft's swept path this frame against the deterministic building geometry
@@ -2050,8 +2174,19 @@ function fsimFrame(now) {
     // don't let its (very real, very fast) sink rate write the plane off. Only arm the
     // hard-landing crash check once she's actually climbed clear of the ground.
     const establishedClimb = (F.peakAltSinceLift || 0) >= 25;
+    const overWater = F.biomeBelow === 'water';
     sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} 0 ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} 0 1 0`);
-    if (sinkFpm > 600 && establishedClimb) {
+    if (overWater && establishedClimb) {
+      // Touched down on open water — nothing in the fleet floats, so it's an instant ditching,
+      // not a landing. (Only once she's actually flown, so a bounce over a bay tile on the
+      // takeoff roll doesn't count.) The server sinks the craft + closes the sim.
+      F.rolling = false;
+      groundFx('touchdownHard'); csfx('flight-crash', 'hololock-lose');
+      F.shake = 16;
+      showLandingCard(root, sinkFpm, true);   // crash card
+      sendCmdSilent('flightevent crash ditched');
+      if (F.toast) F.toast('CRASH — you ditched in the water');
+    } else if (sinkFpm > 600 && establishedClimb) {
       // Slammed it in — a touchdown sinking faster than 600 fpm breaks the gear/airframe.
       // Report a crash: the server destroys the craft and closes the sim (cockpit_close).
       F.rolling = false;
@@ -2070,9 +2205,14 @@ function fsimFrame(now) {
       F.rolling = true; F.stopHinted = !!F.heli; F.landed = false;
       groundFx((F.touchVs || 0) < -500 ? 'touchdownHard' : 'touchdown');   // squeak/thump on contact
       F.shake = clampNum(sinkFpm / 55, 0, 14);   // jolt scales with how hard the wheels hit
-      F.landGrade = landingGrade(sinkFpm).grade; F.landFpm = Math.round(sinkFpm);   // reported to the server for landing IP
-      showLandingCard(root, sinkFpm);   // graded report card flashes over the glass
-      if (F.toast) F.toast(F.heli ? 'DOWN — cut the ENGINE to shut down & park' : 'ROLL OUT — brake to a stop, then cut the ENGINE to park');
+      // GRADE + flash the report card ONLY for a real arrival. A low hop during the takeoff
+      // roll (never climbed clear) is a rejected-takeoff bounce, not a landing — no grade card,
+      // and landGrade stays null so a shutdown here reports no landing.
+      if (establishedClimb) {
+        F.landGrade = landingGrade(sinkFpm).grade; F.landFpm = Math.round(sinkFpm);   // reported to the server for landing IP
+        showLandingCard(root, sinkFpm);   // graded report card flashes over the glass
+        if (F.toast) F.toast(F.heli ? 'DOWN — cut the ENGINE to shut down & park' : 'ROLL OUT — brake to a stop, then cut the ENGINE to park');
+      } else { F.landGrade = null; F.landFpm = 0; }
     }
   }
   // Rolled to a stop on the ground → prompt the shutdown that taxis you into the hangar.
@@ -2176,6 +2316,10 @@ function fsimFrame(now) {
   }
 
   const back = F.reportedAirborne ? offMapHeading(F) : null;
+  // Off-map banner fade: don't nag while you're already correcting. Full strength when
+  // pointed away from home, fading to nothing as the nose swings within ~30° of the return
+  // bearing — so turning back quietly dismisses it instead of a hard flicker at the edge.
+  const navWarnAlpha = back == null ? 0 : clampNum((Math.abs(angDelta(d.hdg, back)) - 30) / 45, 0, 1);
   // Landing guide: show the glideslope gates once airborne, low, and within reach of the
   // departure runway (so it appears as you turn back to land).
   const rwDist = Math.hypot(F.rwOrigin.x - F.pos.x, F.rwOrigin.y - F.pos.y);
@@ -2260,9 +2404,9 @@ function fsimFrame(now) {
     // stays put and recedes/rotates naturally as you fly away (not glued ahead of the nose).
     runway: { ox: F.rwOrigin.x - F.pos.x, oy: F.rwOrigin.y - F.pos.y, hdg: F.rwHdg, len: F.rwLen, alt: clampNum(r.altitude / 320, 0, 1) },
     landGuide,
-    hud: true, navWarn: back == null ? null : `⚠ TURN ${String(back).padStart(3, '0')}° — RETURN TO MAP`,
+    hud: true, navWarn: navWarnAlpha <= 0.02 ? null : `⚠ TURN ${String(back).padStart(3, '0')}° — RETURN TO MAP`, navWarnAlpha,
     threat: (F.aa && F.reportedAirborne) ? F.aa : null,   // AA envelope telegraph → pulsing banner + tape chevron
-    airports: F.fields, apTarget, apTargetId: F.apTargetId, viewYaw: F.viewYaw,
+    airports: F.fields, apTarget, apTargetId: F.apTargetId, viewYaw: F.viewYaw, extYaw: F.extOrbit || 0,
     // Looking off the nose (Q/E/S) → frame the view as a side cabin window instead of the
     // forward windscreen. The real, rotated Mode-7 world still renders behind the pane.
     windowClass: F.viewYaw ? F.cls : undefined,
@@ -2717,6 +2861,7 @@ export function closeFlightSim() {
   stopEngineAudio();
   document.body.classList.remove('fsim-fullscreen');   // drop the immersive layout if it was on
   document.body.classList.remove('fsim-hidepanel');    // …and the lighter hide-panel layout
+  document.body.classList.remove('fsim-external');     // …and the external chase-cam layout
   suppressWeatherFx(false);   // back to the room view — let the outdoor overlay resume
 }
 

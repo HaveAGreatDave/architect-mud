@@ -1,5 +1,6 @@
 import { query } from "../models/db.js";
-import { getApartment, setApartmentCache, getZone, world, setDoorCache, getPlayerMembership } from "./world.js";
+import { getApartment, setApartmentCache, getZone, world, setDoorCache, getPlayerMembership, moveNpcToZone } from "./world.js";
+import { findPath } from "./pathfinding.js";
 import { skillCheck, awardSkillUse } from "./skills.js";
 import { adjustCredits } from "./economy.js";
 import { setPosture } from "./posture.js";
@@ -289,6 +290,54 @@ export async function getNpcResidence(zoneId) {
 		[zoneId],
 	);
 	return rows[0] || null;
+}
+
+// The closest vacant apartment to `fromZoneId`, measured in walking distance (hops
+// over the exit graph, so it naturally prefers another unit in the SAME building,
+// then the nearest neighbouring building). "Vacant" = an is_apartment zone with no
+// player owner and no NPC resident. `exceptZoneId` is force-excluded (the unit an
+// NPC is being moved out of). Returns the zone id, or null if the whole map is full.
+export async function findNearestVacantApartment(fromZoneId, exceptZoneId) {
+	const { rows } = await query('SELECT zone_id FROM npc_residences');
+	const occupied = new Set(rows.map(r => r.zone_id));
+	let best = null, bestHops = Infinity;
+	for (const z of world.zones.values()) {
+		if (!isApartmentZone(z) || z.id === exceptZoneId) continue;
+		if (occupied.has(z.id) || getApartment(z.id)?.owner_id) continue;
+		const path = findPath(fromZoneId, z.id, { maxDistance: 100 });
+		if (!path) continue;
+		const hops = path.length - 1;
+		if (hops < bestHops) { best = z.id; bestHops = hops; }
+	}
+	return best;
+}
+
+// Move an NPC's registered home to `newZoneId`: repoint home_zone, rewrite the
+// npc_residences tracker (one row per NPC — the old row, and thus the old unit's
+// occupancy, is dropped), and relocate the live NPC there now so they're standing in
+// their new place; the AT_HOME_LIFE behaviour keeps them there. zone_id is persisted
+// because an eviction is a deliberate placement, not autonomous drift the loader skips.
+export async function rehomeNpc(npc, newZoneId) {
+	await query('UPDATE npcs SET home_zone=$1, zone_id=$1 WHERE id=$2', [newZoneId, npc.id]);
+	await query('DELETE FROM npc_residences WHERE npc_id=$1', [npc.id]);
+	await query(
+		`INSERT INTO npc_residences (zone_id, npc_id) VALUES ($1,$2)
+		 ON CONFLICT (zone_id) DO UPDATE SET npc_id=$2`,
+		[newZoneId, npc.id],
+	);
+	npc.home_zone = newZoneId;
+	moveNpcToZone(npc.id, newZoneId);
+}
+
+// Evict an NPC from their unit with nowhere to rehome them: drop the residence row
+// (freeing the old unit) and turn them out to the generic residential lobby so they
+// aren't left registered anywhere. Used only when the map has no vacancy.
+export async function clearNpcResidence(npc) {
+	const fallback = world.zones.has('zone_residential_lobby') ? 'zone_residential_lobby' : npc.home_zone;
+	await query('DELETE FROM npc_residences WHERE npc_id=$1', [npc.id]);
+	await query('UPDATE npcs SET home_zone=$1, zone_id=$1 WHERE id=$2', [fallback, npc.id]);
+	npc.home_zone = fallback;
+	if (world.zones.has(fallback)) moveNpcToZone(npc.id, fallback);
 }
 
 // Defensive invariant: an apartment's lock is meaningful only while the unit is
