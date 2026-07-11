@@ -1,5 +1,5 @@
 import { createServer } from "http";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, statSync } from "fs";
 import { join, extname, dirname } from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
@@ -136,6 +136,7 @@ const MIME = {
 	".css": "text/css; charset=utf-8",
 	".json": "application/json; charset=utf-8",
 	".png": "image/png",
+	".svg": "image/svg+xml",
 };
 
 const httpServer = createServer(async (req, res) => {
@@ -227,9 +228,21 @@ const httpServer = createServer(async (req, res) => {
 		filePath = join(__dirname, "../client/game/index.html");
 	}
 	try {
+		// No build step means asset URLs never change, so browsers would serve
+		// stale JS/HTML after a deploy until a manual hard-refresh. Revalidate on
+		// every load (no-cache) but keep it cheap: Last-Modified lets an unchanged
+		// file answer with a 304. A redeploy rewrites mtimes, busting the cache.
+		const lastMod = statSync(filePath).mtime.toUTCString();
+		if (req.headers["if-modified-since"] === lastMod) {
+			res.writeHead(304);
+			res.end();
+			return;
+		}
 		const data = readFileSync(filePath);
 		res.writeHead(200, {
 			"Content-Type": MIME[extname(filePath)] || "text/plain",
+			"Cache-Control": "no-cache",
+			"Last-Modified": lastMod,
 		});
 		res.end(data);
 	} catch {
