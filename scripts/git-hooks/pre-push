@@ -26,6 +26,7 @@ is_zero() { case "$1" in *[!0]*) return 1 ;; *) return 0 ;; esac; }
 # flag survives the loop.
 needs_regress=0
 needs_lint=0
+deleted_content=""
 while read -r local_ref local_oid remote_ref remote_oid; do
   is_zero "$local_oid" && continue          # branch deletion — nothing to gate
   if is_zero "$remote_oid"; then
@@ -40,7 +41,24 @@ while read -r local_ref local_oid remote_ref remote_oid; do
   printf '%s\n' "$changed" | grep -q '^content/' && needs_lint=1
   other=$(printf '%s\n' "$changed" | grep -v '^db/seed\.sql$' | grep -v '^db/audio-seed\.sql$' | grep -v '^content/' | grep -v '^$')
   [ -n "$other" ] && needs_regress=1
+  # Content-file DELETIONS get an extra safety check (below): they're the only
+  # destructive content op and the one that silently wiped a teammate's work.
+  del=$(git diff --name-only --diff-filter=D --no-renames "$remote_oid" "$local_oid" 2>/dev/null | grep '^content/')
+  [ -n "$del" ] && deleted_content="$deleted_content$del
+"
 done
+
+# --- Content deletion guard --------------------------------------------------
+# Block a push that deletes content files your local DB never imported — the
+# fingerprint of `content:export` run against a stale DB (see the script header).
+if [ -n "$deleted_content" ]; then
+  echo "[content-guard] this push deletes content files — verifying against your import marker…"
+  if printf '%s' "$deleted_content" | node scripts/content/guard-deletions.mjs; then
+    :
+  else
+    exit 1
+  fi
+fi
 
 if [ "$needs_lint" = 1 ]; then
   echo "[content-gate] content files in this push — linting…"
