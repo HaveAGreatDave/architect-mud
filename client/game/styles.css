@@ -1933,6 +1933,19 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
 	transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 .mm-avenue-toggle:hover { border-color: var(--accent); color: var(--text); }
+.mm-avenue-toggle:disabled { opacity: 0.35; cursor: default; }
+.mm-avenue-toggle:disabled:hover { border-color: var(--border); color: var(--text-dim); }
+/* Zoom +/- cluster in the minimap's bottom-right corner (mirrors the top-right
+   toggle row). Overlays the map, semi-opaque so the tiles beneath still read. */
+.mm-zoom-row {
+	position: absolute;
+	bottom: 8px;
+	right: 8px;
+	display: flex;
+	gap: 4px;
+	z-index: 3;
+}
+.mm-zoom-row .mm-avenue-toggle { background: color-mix(in srgb, var(--bg) 82%, transparent); }
 .mm-avenue-toggle.active {
 	border-color: var(--accent);
 	color: var(--accent);

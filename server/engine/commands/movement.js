@@ -733,34 +733,6 @@ function window11(centerId) {
   return tiles;
 }
 
-// Tiles within REGIONAL_REACH hops of the player's overworld tile (following exits
-// that stay on map_world floor 0). Everything else on the regional map renders dimmed
-// — visible, but out of reach.
-const REGIONAL_REACH = 15;
-function regionalReachable(startId) {
-  const reachable = new Set();
-  if (!startId) return reachable;
-  const dist = new Map([[startId, 0]]);
-  reachable.add(startId);
-  const queue = [startId];
-  while (queue.length) {
-    const id = queue.shift();
-    const d = dist.get(id);
-    if (d >= REGIONAL_REACH) continue;
-    const zone = getZone(id);
-    if (!zone) continue;
-    for (const targetId of Object.values(primaryExits(zone))) {
-      if (reachable.has(targetId)) continue;
-      const t = getZone(targetId);
-      if (!t || t.map_id !== 'map_world' || (t.grid_z ?? 0) !== 0) continue;
-      reachable.add(targetId);
-      dist.set(targetId, d + 1);
-      queue.push(targetId);
-    }
-  }
-  return reachable;
-}
-
 // The contiguous landmass (4-adjacent grid tiles) the player's overworld tile sits
 // on. The overworld holds more than one disconnected cluster — the live district and
 // orphaned legacy geometry (the old Coldwater map) parked ~900 tiles away — and the
@@ -792,12 +764,8 @@ export function regionalTiles(currentOverworldId) {
     z.grid_x != null && z.grid_y != null);
   const tilesOnLandmass = landmassTiles(onMap, currentOverworldId);
   const placed = new Set(tilesOnLandmass.map(z => z.id));
-  const reachable = regionalReachable(currentOverworldId);
-  return tilesOnLandmass.map(z => {
-    const t = mapTile(z, z.grid_x, z.grid_y, placed, currentOverworldId);
-    t.reachable = reachable.has(z.id);
-    return t;
-  });
+  return tilesOnLandmass.map(z =>
+    mapTile(z, z.grid_x, z.grid_y, placed, currentOverworldId));
 }
 
 // The overworld tile the player occupies: their own tile on the surface, or the

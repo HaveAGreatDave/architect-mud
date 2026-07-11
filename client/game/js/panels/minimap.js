@@ -11,6 +11,50 @@ const MM_AVENUE_KEY = 'mm_avenue';
 let mmAvenueView = false; // avenue mode retired — toggle removed, always plain
 let _lastMinimapNodes = null;
 
+// Minimap zoom: three levels sharing the same render, differing only in the BFS
+// window radius R (fewer tiles = closer) and a matching tile size so each minimap's
+// footprint stays ~constant as you zoom. Level 0 (R=4, 9×9) reproduces the CSS
+// defaults exactly, so nothing changes at the default zoom. Applies to all three
+// minimaps (sidebar / HUD / mobile) since they share one rendered html string.
+const MM_ZOOM_KEY = 'mm_zoom';
+const MM_ZOOM = [{ R: 4 }, { R: 3 }, { R: 2 }]; // far → near (9×9, 7×7, 5×5)
+const MM_GRIDS = [
+  { id: 'minimap-grid', base: 1.7 },
+  { id: 'minimap-grid-hud', base: 1.4 },
+  { id: 'minimap-grid-mob', base: 1.75 },
+];
+let mmZoom = 0;
+try { const z = parseInt(localStorage.getItem(MM_ZOOM_KEY), 10); if (z >= 0 && z < MM_ZOOM.length) mmZoom = z; } catch {}
+
+// Size the grid tracks to the current zoom's window and scale the tile size so the
+// grid keeps roughly the same overall footprint. At level 0 scale is 1, so the
+// inline values match the CSS and there's no visual change from default.
+function applyMinimapZoom() {
+  const n = 2 * MM_ZOOM[mmZoom].R + 1;
+  const scale = 9 / n;
+  for (const { id, base } of MM_GRIDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.style.setProperty('--mm-room', (base * scale).toFixed(3) + 'em');
+    el.style.gridTemplateColumns = `repeat(${n}, var(--mm-room))`;
+    el.style.gridTemplateRows = `repeat(${n}, var(--mm-room))`;
+  }
+  const zin = document.getElementById('mm-zoom-in');
+  const zout = document.getElementById('mm-zoom-out');
+  if (zin) zin.disabled = mmZoom >= MM_ZOOM.length - 1;
+  if (zout) zout.disabled = mmZoom <= 0;
+}
+
+// +1 = zoom in (closer, smaller R), −1 = zoom out. Clamped; re-renders in place.
+function stepMinimapZoom(delta) {
+  const next = Math.min(MM_ZOOM.length - 1, Math.max(0, mmZoom + delta));
+  if (next === mmZoom) return;
+  mmZoom = next;
+  try { localStorage.setItem(MM_ZOOM_KEY, String(mmZoom)); } catch {}
+  if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
+  else applyMinimapZoom();
+}
+
 function wireMinimapAvenueToggle() {
   const btn = document.getElementById('mm-avenue-toggle');
   if (!btn || btn._wired) return;
@@ -176,7 +220,14 @@ function wireMinimapDblClick() {
     if (e.target?.closest?.('#minimap-grid, #minimap-grid-hud, #minimap-grid-mob')) sendCmdSilent('map');
   });
 }
-function wireMinimap() { wireMinimapAvenueToggle(); wireMinimapAutoToggle(); wireMinimapDblClick(); }
+function wireMinimapZoom() {
+  const zin = document.getElementById('mm-zoom-in');
+  const zout = document.getElementById('mm-zoom-out');
+  if (zin && !zin._wired) { zin._wired = true; zin.addEventListener('click', () => stepMinimapZoom(1)); }
+  if (zout && !zout._wired) { zout._wired = true; zout.addEventListener('click', () => stepMinimapZoom(-1)); }
+  applyMinimapZoom(); // apply the persisted level + set initial button disabled states
+}
+function wireMinimap() { wireMinimapAvenueToggle(); wireMinimapAutoToggle(); wireMinimapDblClick(); wireMinimapZoom(); }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireMinimap);
 else wireMinimap();
 
@@ -284,7 +335,7 @@ export function renderMinimap(nodes, direction) {
   // connector/gap cells (mirrors the full-map popup). Gateways: a foreign tile one
   // step across a district boundary from an in-district tile still renders as an edge
   // marker, so crossing between neighborhoods reads.
-  const R = 4;
+  const R = MM_ZOOM[mmZoom].R;
   const gCols = 2 * R + 1, gRows = gCols;
   const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
   const inWin = (x, y) => x >= -R && x <= R && y >= -R && y <= R;
@@ -417,6 +468,7 @@ export function renderMinimap(nodes, direction) {
       html += `<span class="${cls}"${styleAttr}${enterAttrs} title="${titleFor(node)}">${content}${entranceMark(node.entrance, 'mm')}</span>`;
     }
   }
+  applyMinimapZoom(); // keep the grid tracks in step with R before painting the cells
   for (const id of ['minimap-grid', 'minimap-grid-mob', 'minimap-grid-hud']) {
     const el = document.getElementById(id);
     if (el) el.innerHTML = html;
@@ -899,16 +951,20 @@ function wireMapUi() {
         cb(zid);
         return;
       }
-      // Clicking a legend row highlights that building on the map (toggle). Route
-      // plotting from the legend still works while the GPS button is armed.
-      if (el.id === 'map-legend' && !mapState.routeMode) {
+      // Clicking a tile — on the map OR in the legend — selects it: every tile of that
+      // building lights up on the map (via .map-legend-sel) and its legend row
+      // highlights and scrolls into view. Re-clicking the same selection clears it.
+      // Route plotting takes over instead while the GPS button is armed.
+      if (!mapState.routeMode) {
+        if (el.id === 'map-grid' && mapDrag.moved) return; // ignore the click that ends a pan-drag
         mapState.legendSel = (mapState.legendSel === zid) ? null : zid;
         renderMapGrid();
+        document.querySelector('#map-legend .map-list-sel')?.scrollIntoView({ block: 'nearest' });
         return;
       }
       // Route trace: draw a yellow road from the current tile to the clicked one.
       // Ignore the click that ends a pan-drag (grid only; the legend can't be dragged).
-      if (!mapState.routeMode || (el.id === 'map-grid' && mapDrag.moved)) return;
+      if (el.id === 'map-grid' && mapDrag.moved) return;
       plotMapRoute(zid);
     });
     // Double-clicking any (non-water) tile GPS-routes to it, no need to arm the GPS
@@ -1147,7 +1203,6 @@ function renderMapGrid() {
         (regional || t.bg_color || t.color ? ' map-styled' : '') +
         (isPoi ? ` map-poi map-poi-${t.poi}` : '') +
         (terrain ? ` map-terr map-${terrain}` : '') +
-        (regional && t.reachable === false ? ' map-unreachable' : '') +
         (selName && t.name === selName ? ' map-legend-sel' : '');
       const style = styles.length ? ` style="${styles.join(';')}"` : '';
       const entMark = regional ? '' : entranceMark(t.entrance, 'map'); // arrow only when tiles are big enough to read
