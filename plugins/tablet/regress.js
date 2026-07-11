@@ -130,11 +130,11 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('tabletaction specter clear');
   check('specter clear action returns a surveillance view', r?.type === 'tablet_panel' && r?.appId === 'specter' && r?.view === 'surveillance' && !r?.error, JSON.stringify(r)?.slice(0, 200));
 
-  // Turn-in ALWAYS brings up the quest-giver's dialogue and closes the tablet,
-  // regardless of where the player is standing — it's a comms hand-in, not a
-  // physical one. The NPC's root node fires TURN_IN on render (pays out), and the
-  // action returns { type: 'tablet_close' }. Put the NPC in a zone far from the
-  // player to prove location no longer gates it.
+  // Turn-in is an IN-PERSON hand-in: standing in the giver's zone brings up their
+  // dialogue and closes the tablet (root node fires TURN_IN on render + pays out,
+  // action returns { type: 'tablet_close' }); away from the giver it refuses and
+  // routes there instead of completing remotely. Put the NPC in its own zone to
+  // prove both halves.
   const TQ = 'quest_regress_tabletturnin';
   const TN = 'npc_regress_tabletturnin';
   const player = getPlayer();
@@ -157,9 +157,20 @@ export default async function regress({ run, check, getPlayer }) {
     [player.id, TQ]
   );
 
+  // Away from the giver: the hand-in is refused (routed, not completed) — the
+  // tablet stays on the quest detail and the quest is still 'completed', not
+  // 'turned_in'.
   player.current_zone = savedZone;
   r = await run(`tabletaction quests turnin ${TQ}`);
-  check('turn-in brings up the giver dialogue and closes the tablet (any zone)', r?.type === 'tablet_close', JSON.stringify(r)?.slice(0, 200));
+  check('turn-in away from the giver refuses (stays on the tablet, no hand-in)', r?.type === 'tablet_panel' && r?.appId === 'quests', JSON.stringify(r)?.slice(0, 200));
+  const { rows: notYet } = await query('SELECT status FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TQ]);
+  check('turn-in away from the giver does NOT complete the quest', notYet[0]?.status === 'completed', JSON.stringify(notYet));
+
+  // In the giver's zone: the dialogue opens, the tablet closes, and the quest pays
+  // out / turns in.
+  player.current_zone = 'zone_regress_tabletturnin_faraway';
+  r = await run(`tabletaction quests turnin ${TQ}`);
+  check('turn-in in the giver zone brings up the dialogue and closes the tablet', r?.type === 'tablet_close', JSON.stringify(r)?.slice(0, 200));
   const { rows: turned } = await query('SELECT status FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TQ]);
   check('turn-in via dialogue pays out / completes the quest', turned[0]?.status === 'turned_in', JSON.stringify(turned));
 

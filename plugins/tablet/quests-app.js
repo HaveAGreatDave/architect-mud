@@ -281,13 +281,27 @@ async function handleAction(player, actionId, params) {
   }
 
   if (actionId === 'turnin') {
-    // Turn-in ALWAYS brings up the quest-giver's dialogue with their hand-in line,
-    // then closes the tablet — regardless of where the player is standing. The NPC
-    // is whoever the quest is handed back to (findTurnInNpc): the giver for an
-    // authored quest, or Marta the dispatcher for a job-board gig. This is a
-    // tablet/comms hand-in, not a physical one, so we don't require being in the
-    // NPC's zone or plot a walking route to them.
+    // Turn-in is an IN-PERSON hand-in: you must physically bring the finished job
+    // back to the NPC it's handed to (findTurnInNpc) — the giver for an authored
+    // quest, or Marta the dispatcher for a job-board gig. If the player isn't
+    // standing in that NPC's zone, refuse the hand-in and plot a GPS route to them
+    // instead of completing it remotely (the tablet stays open on this quest).
     const npcInfo = await findTurnInNpc(questId);
+    if (npcInfo && npcInfo.zone && npcInfo.zone !== player.current_zone) {
+      const destZone = getZone(npcInfo.zone);
+      const path = destZone ? findPath(player.current_zone, npcInfo.zone) : null;
+      if (path && path.length >= 2) {
+        const hops = path.length - 1;
+        sendToPlayer(player.id, {
+          type: 'gps_route',
+          message: `Bring it to ${npcInfo.npcName} in person — ${destZone.name} (${hops} stop${hops === 1 ? '' : 's'} away). Route plotted.`,
+          path, resumeAuto: true,
+        });
+      } else {
+        sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">Take it to ${npcInfo.npcName} to hand it in.</span>` });
+      }
+      return buildScreen(player, null, questId);
+    }
     if (npcInfo) {
       const { rows: npcRows } = await query('SELECT * FROM npcs WHERE id=$1', [npcInfo.npcId]);
       const npc = npcRows[0];
