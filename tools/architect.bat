@@ -1,11 +1,11 @@
 @echo off
-cd C:\Users\johna\Documents\Github\architect-mud
+cd /d "%~dp0.."
 setlocal enabledelayedexpansion
 
 echo Which command do you want to run?
 echo   [Enter] just open here (no command)
 echo   [1] npm run dev
-echo   [2] node ./zone-planner/serve.mjs   (map server)
+echo   [2] node ./tools/zone-planner/serve.mjs   (map server)
 echo   [3] npm run content:export
 echo   [4] npm run test:regress
 echo   [5] npm run content:status
@@ -21,7 +21,7 @@ set /p "choice=Enter number (or just Enter to open here): "
 
 if "%choice%"=="" goto :nocmd
 if "%choice%"=="1" ( set "cmd=npm run dev" & set "url=http://localhost:3000" )
-if "%choice%"=="2" ( set "cmd=node ./zone-planner/serve.mjs" & set "url=http://localhost:5178" )
+if "%choice%"=="2" ( set "cmd=node ./tools/zone-planner/serve.mjs" & set "url=http://localhost:5178" )
 if "%choice%"=="3" set "cmd=npm run content:export"
 if "%choice%"=="4" set "cmd=npm run test:regress"
 if "%choice%"=="5" set "cmd=npm run content:status"
