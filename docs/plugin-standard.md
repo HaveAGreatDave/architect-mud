@@ -74,9 +74,10 @@ seed. Both are separate, deliberate steps:
   `main`, where CI applies the full `SCHEMA_SQL` + additive content in one regress-gated, backed-up
   transaction (see [content-pipeline.md](content-pipeline.md)). Don't run `db:schema` against
   prod, and don't hand-write a prod one-shot for plain schema DDL. Never a boot-time migration.
-- **Content rows:** if the table holds *authored world content* (not per-player runtime state), add it
-  to `CONTENT_TABLES` in `server/api/backup.routes.js`, in FK-safe insertion order. This allowlist is
-  what the dump ships — into both the git seed and the prod deploy. **Miss it and your content restores
+- **Content rows:** if the table holds *authored world content* (not per-player runtime state),
+  classify it by adding an entry to `REGISTRY` in `server/models/content-registry.js`, in FK-safe
+  insertion order (`CONTENT_TABLES` is derived from it; `backup.routes.js` just re-exports).
+  This allowlist is what the dump ships — into both the git content tree and the prod deploy. **Miss it and your content restores
   empty on a fresh DB with no error** — this is the class of bug that hid the `quests` table. Declaring
   the table in `dataSchema` is *not* enough; that list is documentation, not wired to the export.
 - **Data transformations** (backfilling or rewriting *existing* rows — e.g. moving data between

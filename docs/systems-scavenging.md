@@ -97,11 +97,14 @@ once per `ATTEMPT_MS` (3500 ms, a sibling to the attack cadence). Each attempt:
 out-of-reach pick can be drawn and auto-fails; variance is intentional), then roll.
 
 **Success** — decrement that item's per-zone stock, insert one unit straight into
-inventory, award 1 IP via `awardSkillUse`, and show a random flavor line + "*You
+inventory, and show a random flavor line + "*You
 turn up <item> and pocket it.*" (the item name is a clickable `examine` link). **A
 successful find always ends the action** — you stop scavenging on the first find,
 so gathering a room takes a fresh `scavenge` per item. If that find took the
 **last** unit, an extra "*picked the area clean*" line fires before the stop.
+
+**Every attempt** — hit or miss — awards skill use via `awardSkillUse(player.id, 'scavenging', margin)`
+(coming up empty still improves you).
 
 **Failure** — `streak++`, show a flavor line + "*You come up empty.*" At **exactly**
 `streak === 3`, fire the once-only nudge "*…if you just search a little harder…*"
@@ -131,8 +134,8 @@ straight back up the moment a scavenger depletes something.
 ## Command
 
 `scavenge` (bare verb; new plugin). Refuses if already scavenging, if in combat
-(`combatTargetId`/`pvpTargetId`), if not standing, or if the zone has no table.
-There is no stop verb — `stand` or moving ends it. Targeted `scavenge <thing>`
+(`combatTargetId`/`pvpTargetId`/`npcCombatTargetId`), if not standing, or if the zone has no table.
+`stop`, `stand`, or moving ends it (the plugin listens on `player.stop`). Targeted `scavenge <thing>`
 (furniture-attached tables) is deliberately out of scope for now.
 
 ## Tunables

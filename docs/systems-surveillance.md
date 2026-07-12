@@ -1,12 +1,15 @@
-# Surveillance & Spy Networks — SPECTER (Design, Not Built)
+# Surveillance & Spy Networks — SPECTER (As Built)
 
 *Working name: **SPECTER** (Surveillance, Perception, Evidence, Counter-Tracking & Remote-viewing).*
 Grows the **camera half of the [broadcast system](systems-broadcast.md)** into a player-deployable,
 PvP-capable surveillance layer. NPC police run the same tech to track crime.
 
-> Status: **Phases 1–6 code-complete** on branch `feature/surveillance-specter` (uncommitted; needs
-> live playtest). Phase 6 became a **witnessed-crime Wanted System** (below) rather than plain
-> evidence+dispatch — see [the Wanted System section](#wanted-system-phase-6).
+> Status: **shipped** — all six phases live in [`plugins/surveillance/`](../plugins/surveillance/index.js)
+> (with its own `regress.js`); tables are in `SCHEMA_SQL` and classified in the content registry.
+> Phase 6 became a **witnessed-crime Wanted System** (below) rather than plain
+> evidence+dispatch — see [the Wanted System section](#wanted-system-phase-6). This doc keeps its
+> phased-design structure as a history of how it was built; the per-phase "pending schema/restart"
+> caveats are obsolete.
 
 > **Cops don't chase you while you're airborne.** Ground policing runs normally, but the pursuit
 > engine leaves a suspect alone while they're in a cockpit: `searchAndPursue` and the `APPREHEND`
@@ -85,8 +88,8 @@ security_devices
   battery INTEGER / battery_max
   wired INTEGER               -- 1 = taps zone power instead of battery
   is_powered / is_damaged / is_recording INTEGER
-  recording_buffer JSONB      -- ring buffer, reuse media_cameras shape
-  storage_limit INTEGER
+  recording_buffer JSONB      -- DEAD COLUMN: the rolling buffer moved fully in-memory
+  storage_limit INTEGER       -- (CameraBuffer / cameraBuffers in index.js); nothing reads these
   status_flags JSONB          -- { jammed, spoofed, hijacked_by, looping, blinded }
   hack_difficulty INTEGER
   placed_at BIGINT
@@ -192,29 +195,30 @@ Reuses TV rendering internals (ticker, SVG, off-air static) — the hub is "a TV
 
 ## Phased build (each phase independently shippable)
 
-1. **Foundation** — ✅ *code-complete (branch `feature/surveillance-specter`), pending `npm run db:schema` + restart.*
+1. **Foundation** — ✅ *shipped.*
    `security_networks`/`security_devices`/`security_clips` tables in `SCHEMA_SQL`; new
    [`plugins/surveillance/`](../plugins/surveillance/index.js) with `plant`/`retrieve`/`sweep`/`feed`;
    concealed furniture hidden from `look` via a `flags.concealed` filter in `describe.js`;
    battery/power tick (cams days / drone hours). Feed = own `feedSnapshot()` (zone snapshot, same
    shape as broadcast's `buildCameraSnapshot`, which is plugin-private so not importable). Test gear:
    [`scripts/seed-surveillance-gear.js`](../scripts/seed-surveillance-gear.js) (sticky/tap cam, recon drone).
-2. **Surveillance Hub** — ✅ *code-complete (branch `feature/surveillance-specter`).*
-   New client panel [`surveillancehub.js`](../client/game/js/panels/surveillancehub.js) (+ `#shub-panel`
+2. **Surveillance Hub** — ✅ *shipped.*
+   New client panel `surveillancehub.js` (*since deleted — UI is tablet-only, see the 2026-07-10 note*) (+ `#shub-panel`
    markup, CSS): grid of live feed tiles + a focus pane, per-tile chrome (battery, signal bars, ●REC,
    scanlines, and static skins for offline/jammed/spoofed/damaged), self-contained WebAudio blips.
    Opened by the carried **Surveillance Deck** (`hub`, or `use deck`) or a `security_console` furniture.
    Server pushes `surveillance_hub` (open) then `surveillance_hub_update` every 5s to a `hubViewers`
    set; client sends `hubclose` on close; `player.logout` prunes. Frames = `feedSnapshot()`.
-3. **Records** — ✅ *code-complete (branch `feature/surveillance-specter`).*
+3. **Records** — ✅ *shipped.*
    `record`/`clip`/`clips`/`replay` commands + hub RECORD / CLIP→CHIP focus buttons. Recording banks a
    frame per 5s tick into `recording_buffer` (capped at `storage_limit`); `clip` burns the buffer to a
    `security_clips` row **and** a physical `item_datachip_<id>` (tradeable/sellable). Crimes witnessed
    in-frame (in-memory `crimeLog` fed by `player.death`) auto-stamp `crime_tags` → the chip becomes
-   evidence (higher value). `use <datachip>` / `replay` opens the **Datachip Replay Deck**
-   ([`datachipreplay.js`](../client/game/js/panels/datachipreplay.js)) — an 80s VHS/cyberdeck: spinning
-   reels, amber timecode, VHS tracking band, scanlines, evidence sticker, transport controls + scrub.
-4. **Counterplay** — ✅ *code-complete (branch `feature/surveillance-specter`).*
+   evidence (higher value). `use <datachip>` / `replay` opened the **Datachip Replay Deck**
+   (`datachipreplay.js`, *since deleted — the tablet reel viewer renders the pushed payload now, see
+   the 2026-07-10 note*) — an 80s VHS/cyberdeck: spinning reels, amber timecode, VHS tracking band,
+   scanlines, evidence sticker, transport controls + scrub.
+4. **Counterplay** — ✅ *shipped.*
    **Find & destroy:** `smash <name>` rips a swept-out device off its mount (deletes it) and fires a
    `⚠ TAMPER` **dead-man ping** to its owner. **Hack & hijack:** `hijack <name>` validates + arms a
    breach and returns a `circuit_hack` message → the client opens the **Circuit Breach** minigame
@@ -225,7 +229,7 @@ Reuses TV rendering internals (ticker, SVG, off-air static) — the hub is "a TV
    **Jam & spoof:** `jammer`/`spoofer` are planted like any device; a live jammer statics every cam
    in its zone (`jammed`), a spoofer feeds cams a clean empty-room frame (`spoofed`) — even into
    recordings. Effect computed live in `deviceStatus`/`deviceFrame` via a cached `getInterferenceZones()`.
-5. **Device variety** — ✅ *code-complete (branch `feature/surveillance-specter`); crafting deferred.*
+5. **Device variety** — ✅ *shipped.*
    **Motion/audio sensors** push alerts (no video): motion via per-tick occupancy diffing (`pollSensors`),
    audio via the `player.death` hook (gunfire/scream). Alerts land in a per-owner ring, ping the owner if
    online, and render in a new **hub ALERTS strip** (with a chirp on arrival). **Drone piloting** —
@@ -237,7 +241,7 @@ Reuses TV rendering internals (ticker, SVG, off-air static) — the hub is "a TV
    [`seed-surveillance-crafting.js`](../scripts/seed-surveillance-crafting.js) adds 3 salvage components
    (Optic Module / Signal Board / Micro Cell) + 6 `electronics` recipes (`craft <gear name>`, no station;
    higher tiers need higher electronics rank); components also stock at Glitch.
-6. **Police / Wanted System** — ✅ *code-complete (branch `feature/surveillance-specter`).* See below.
+6. **Police / Wanted System** — ✅ *shipped.* See below.
 
 ## Wanted System (Phase 6)
 
@@ -246,8 +250,9 @@ existing **Arbiters** (`plugins/emergency/index.js`). All in the "Wanted system"
 [`plugins/surveillance/index.js`](../plugins/surveillance/index.js).
 
 - **Witnessed-only** — `isWitnessed(zone)` = a live (un-jammed) PD cam, an on-duty `flags.police`
-  NPC, or another player present. Crime off-camera earns nothing. Triggers: witnessed homicide
-  (`player.death`, killer is a player, +2★), smashing a PD device (+1★), hijacking one (+2★).
+  NPC, or another player present. Crime off-camera earns nothing (except `always`-witnessed crimes
+  like `murder`, which self-report). Triggers: a player kill (`player.death` → the 5★ `murder`
+  crime), smashing a PD device (+1★), hijacking one (+2★).
 - **Escalation ladder** (`TIERS`, full roster per star): ★1 Patrol Officer · ★2 +Patrol Drone ·
   ★3 ×2 Enforcement Trooper · ★4 Heavy Enforcer +Trooper · ★5 **Arbiters** (reuses
   `enemy_arbiterclass_enforcement_unit`). Tiers 1–4 are new enemy templates
@@ -280,6 +285,52 @@ existing **Arbiters** (`plugins/emergency/index.js`). All in the "Wanted system"
 - **Deviations**: disguise-clear deferred (needs the appearance system); "murder" = killing a *player*
   (only `player.death` fires).
 
+### Invisible heat (0–100) — the second wanted layer
+
+Alongside the visible star bar runs an invisible **heat** meter per player (`heatRuntime`):
+
+- `addHeat` accrues it from suspicious-but-not-charged acts (e.g. reagent purchases via
+  `vendor.purchase`); raising stars also adds `HEAT_PER_STAR` (8) per star.
+- It decays `HEAT_DECAY_PER_TICK` (0.35) on the 6s tick and is **persisted to the `heat` player
+  flag** (written on raise, on zero, and at logout — checkpoint tier), pushed to the HUD as
+  `heat_level`.
+- Crossing `HEAT_MAX` (100) **ignites**: `igniteHeat` forces a minimum 3★ pursuit
+  (`HEAT_IGNITE_STARS`).
+- Other plugins feed it through the **`HEAT_RAISE`** action.
+
+**Being-watched cues:** as heat climbs, the player gets escalating atmospheric lines
+(`WATCHED_CUES` — faint ≥25, watched ≥50, closing ≥80), delivered by `maybeWatchedCue` on an
+interval that shrinks with heat.
+
+### Apprehend — non-lethal detention (≤3.5★)
+
+At `APPREHEND_MAX` (3.5★) or below, hunters **detain rather than kill**: on contact the client gets
+an `apprehend_prompt` with a reflex-scaled submit-or-run window (`reflexWindowMs`), resolved by the
+`apprehendresolve` command. **`submit`** dispatches `{type:'ARREST'}` into the jail plugin (live
+booking, no death); **`run`** (or timeout) adds +2★ (`resisting_arrest`-style escalation) and the
+hunt continues. Checkpoints and other systems can trigger the same flow via the **`APPREHEND`**
+action. Above 3.5★ the response is lethal as described above.
+
+### Admin & upkeep commands
+
+- **`purge`** (admin-only) — "burn the law in the room": clears pursuit state + slate for the zone.
+- **`wipe`** — discard-and-clear a camera's capped buffer (the Clear action in the tablet app); see
+  the microreel note below for the cap-then-STOP buffer model.
+
+### Notes & caveats
+
+- **`camera_effectiveness` tunable (default 0.5):** every camera catch-chance is multiplied by this
+  dev tunable — cameras run at *half* their base rates by default, on top of the visibility factor
+  below. The `CAM_CATCH_BASE` 0.2 numbers quoted in this doc are before this multiplier.
+- **Player kills charge once:** killing a player charges the 5★ `murder` crime (witness `always` —
+  self-reporting) via the crime registry. The legacy +2★ "witnessed homicide" bump was removed
+  (2026-07-12) — it double-logged evidence and double-dispatched police on top of the murder charge.
+- **Recording is blocked on police networks** (`cmdRecord`) — you can't turn the PD's own cams into
+  your evidence farm.
+- **More crime wiring than listed above:** `item.given`→`drug_dealing`, `atm.jacked`/`atm.jackResolved`/
+  `atm.drained`, `theft.caught`, `burglary.reported`, `hololock.breached`, `bodily.publicRelief`→
+  `indecent_exposure`, `vendor.safeHackWitnessed`; witnessed charges also emit `crime.witnessed`.
+
 ## Crime registry & camera catch (2026-07-02)
 
 The hardcoded per-crime star amounts were replaced with a **data-driven crime registry** plus a
@@ -287,10 +338,12 @@ camera-catch reaction. Stars are now **fractional** (half-steps) so petty acts r
 
 - **Crime registry** — [`server/engine/crimes.js`](../server/engine/crimes.js) ships the canonical
   crime keys + default star weights (dev-panel editable via the new **`crimes`** table & panel).
-  Keys/witness-mode are engine constants; only the star value is content. Defaults:
-  `drug_use` 0.5 (camera-only), `attack_player` 3, `attack_npc` 3, `kill_police` 5 (always reported),
-  `hacking` 2. `getCrimeStars(key)` = DB override → shipped default → 0. Loaded at boot
-  (`reloadCrimes`), reloaded on each `PUT /crimes/:id`.
+  Keys/witness-mode are engine constants; only the star value is content. The registry ships **~31
+  crime keys** (see `crimes.js` for the full list — theft, robbery, burglary, atm_robbery, arson,
+  manufacturing, contraband_possession, indecent_exposure, murder, …). Representative defaults:
+  `drug_use` 0.5 (camera-only), `attack_player` 4, `attack_npc` 4, `kill_police` 5 (always reported),
+  `hacking` 2, `murder` 5 (always). `getCrimeStars(key)` = DB override → shipped default → 0. Loaded
+  at boot (`reloadCrimes`), reloaded on each `PUT /crimes/:id`.
 - **`raiseCrime(player, key, zone, suspect)`** (surveillance) is the single charge path: witness-gates
   (`camera` / `any` / `always`), debounces repeats of the same act (12s so swings don't ratchet),
   charges `raiseWanted` by the crime's stars (additive, capped at 5), logs PD evidence, and dispatches
@@ -384,8 +437,8 @@ became self-contained, and "clipping" was re-pointed at reels rather than physic
 - **In-app viewer.** Opening a reel renders the app's **own** inline viewer (`view: 'reel'` →
   `renderReel`/`wireReel` in [`tablet-os.js`](../client/game/js/panels/tablet-os.js)): CRT screen,
   colour-coded transcript, client-side play/scrub. No handoff to the standalone `#chip-panel`
-  ([`datachipreplay.js`](../client/game/js/panels/datachipreplay.js)) — that deck now only serves a
-  physical `use <datachip>` in the world.
+  (`datachipreplay.js` — *since deleted*; a physical `use <datachip>` also routes to the tablet
+  reel viewer now).
 - **Speech vs. narration colour.** `captureZoneLine` tags each frame `kind` (`say` → speech,
   `zone_event` → narration/emote); the buffer log and reel viewer colour them apart via theme tokens
   (`--mg-accent` speech / `--shub` narration), so the split re-skins per tablet theme.
@@ -401,7 +454,8 @@ became self-contained, and "clipping" was re-pointed at reels rather than physic
   `specter_program`) — a cyberpunk USB stick — is `use`d to flash SPECTER onto the tablet. The server
   handler (`doInstallSpecter`) still sets the install flag + consumes the drive, but now returns a
   `specter_install` message; the client plays a cosmetic **firmware flasher** overlay
-  ([`specterinstall.js`](../client/game/js/panels/specterinstall.js), routed in `dispatch.js`): the
+  (formerly `specterinstall.js`, *since deleted* — now folded into the tablet shell via
+  `openTabletSpecterInstall`/`mountSpecterInstallFlash` in `tablet-os.js`, routed in `dispatch.js`): the
   drive slides into the tablet's data port, the screen boots, and a hackery erase→write→verify→patch
   log fills a progress bar before "SPECTER INSTALLED". The old carried **spy-deck** (`item_spy_deck` →
   `hub`/standalone `#shub-panel`) still works but is superseded by the tablet app; retiring it is a
@@ -409,4 +463,4 @@ became self-contained, and "clipping" was re-pointed at reels rather than physic
 
 ## Resolved forks
 
-All settled 2026-07-01 — see the two decision tables above. No open questions remain; ready for Phase 1.
+All settled 2026-07-01 — see the two decision tables above. All phases have since shipped.

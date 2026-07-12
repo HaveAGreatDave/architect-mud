@@ -1,6 +1,6 @@
 # Dev Panel JS Reference
 
-The dev panel (`/dev`) is served from `client/devpanel/`. Its JavaScript lives in `client/devpanel/js/` as ~38 plain classic scripts (plus the `vine-*` graph-editor files documented in [vine.md](vine.md)) loaded in a fixed order by `index.html`. All scripts share one global scope — no modules, no bundler.
+The dev panel (`/dev`) is served from `client/devpanel/`. Its JavaScript lives in `client/devpanel/js/` as ~48 plain classic scripts (plus the `vine-*` graph-editor files documented in [vine.md](vine.md)) loaded in a fixed order by `index.html`. All scripts share one global scope — no modules, no bundler.
 
 See `client/devpanel/js/README.md` for the load-order contract.
 
@@ -33,7 +33,7 @@ The shared list/edit lifecycle that every panel rides on:
 ### `panels.js`
 The central dispatch table and panel lifecycle. **Must load after all `panels/*` and `ui/*` files** because the `PANELS` object literal evaluates function references at construction time.
 
-- **`PANELS`** — one entry per nav section (dashboard, zones, maps, power, enemies, items, npcs, furniture, recipes, scavenging, scripts, quests, vine, mutations, drugs, sounds, audio, bank, emergency, broadcasts, tags, worldstate, timeweather, players, validator, changes). Each entry declares `title`, `fetch`, optional `columns`, `editForm`, `save`, `delete`, and `render`.
+- **`PANELS`** — one entry per nav section (dashboard, zones, maps, power, enemies, items, npcs, furniture, recipes, scavenging, scripts, quests, vine, mutations, drugs, sounds, audio, bank, emergency, broadcasts, tags, worldstate, timeweather, players, validator, changes, aliases, devlog, gossip, flight, games, jobBoards). Each entry declares `title`, `fetch`, optional `columns`, `editForm`, `save`, `delete`, and `render`.
 - `activatePanelNav(name)` — highlights the active nav item.
 - `showPanel(name)` / `loadPanel(name)` — fetch data, call the panel's render function, wire up the toolbar.
 
@@ -345,7 +345,30 @@ The Zone Validator panel (data integrity checks).
 ### `dashboard.js`
 `renderDashboard(data)` — the landing screen shown on login. Displays server health, online player count, recent changes, and quick-links to the most-used panels.
 
+### `devlog.js`
+Dev Log panel — curated team heads-ups (`change`/`heads-up`/`action-required` kinds) plus recent code activity pulled live from git.
+
+### `flight.js`
+Flight debug panel — charter pilot work status, the flight request log, and every aircraft instance (test-flight conjures, player buys, charter ghosts, wrecks). Deleting from here is the only cleanup path. Self-contained fetch (panel config `fetch` is a no-op), matching the bank/ATM pattern.
+
+### `games.js`
+`renderGamesPanel(data)` — active gametable (poker) tables, with a clear-all button.
+
+### `gossip.js`
+`renderGossip(data)` — inspector for the live in-memory gossip pool: per-row and clear-all delete, plus a "spread as NPC" form that plants a rumour at a chosen NPC's zone.
+
+### `job-boards.js`
+Job Boards panel — authors the `job_boards` table (jobboard plugin): quest pool picker, `rotation_size`, and `rotation_period` (stored in seconds, edited in hours).
+
 ---
+
+## Root files
+
+### `bsm-compiler.js`
+`compileBsm(text)` — client-side compiler from `.bsm` broadcast scripts to a VINE graph + flat messages + assets (see [bsm-format.md](bsm-format.md)).
+
+### `ghost-mode.js`
+Ghost Mode — an in-panel floating dialog that opens a dedicated WebSocket tagged as a ghost session for live zone observation; the admin's real character never moves.
 
 ## `bootstrap.js`
 

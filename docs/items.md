@@ -99,10 +99,12 @@ tag model and the rationale behind it.
 | `slot` | enum | `head`·`torso`·`hands`·`legs`·`feet`·`weapon_hand`·`accessory`. **Presence of this tag is what makes an item equippable.** |
 | `layer` | enum | `underwear`·`outerwear`·`armor` — which of the three worn layers a **body-slot** piece occupies (innermost→outermost). One item per slot+layer; others see only your outermost layer. Ignored for `weapon_hand` (single) and `accessory` (3 slots, no layers). Defaults to `outerwear` when unset. |
 | `armor` | int | Flat damage reduction while equipped. Stacks across worn pieces. |
+| `armor_soak` | statmap | Per-damage-type soak, e.g. `{ "kinetic": 3, "energy": 1 }` — the primary typed-armor mechanism (see [combat.md](combat.md)). |
 | `stat_bonus` | statmap | Passive stat bumps, e.g. `{ "stat_str": 3 }`. |
 | `requires` | statmap | Stat gates to equip, e.g. `{ "stat_str": 6 }`. |
 | `damage` | range | Weapon damage roll `{ min, max }`. |
 | `weapon_skill` | enum | `fists`·`blades`·`clubs`·`firearms`·`science` — the combat skill this weapon trains and routes attack XP to. |
+| `damage_type` | enum | `kinetic`·`edged`·`energy`·`fire`·`radiation` — the weapon's damage type, matched against the defender's typed soak. |
 | `status_chance` | statmap | On-hit status, e.g. `{ "stunned": 0.3 }`. |
 | `restore_hp` / `restore_hunger` / `restore_thirst` / `restore_radiation` / `restore_sanity` | int | Consumable stat changes (can be negative). |
 | `grants_credits` | int | Credits granted on use (credit chips). |
@@ -113,6 +115,12 @@ tag model and the rationale behind it.
 | `laced_drug` | drug id | Consumable applies this drug on use (systemic effects only — meter/phases/OD, not its instant restores). The "drugged drink/food" path; alcohol uses `"drug_alcohol"`. See [systems-survival.md](systems-survival.md). |
 | `laced_potency` | number | Strength multiplier for `laced_drug` (default 1). Alcohol: scales `intox_per_dose` per drink. |
 | `container` | int | Marks the item as a container; value is the max total weight it can hold. See **Containers** below. |
+
+This table covers the core item model; it is not the full catalog. The authoritative list is
+`client/shared/tagCatalog.js` — it also defines environmental/equipment tags (`insulation`,
+`bulkiness`, `covers`, `gets_wet`, `sealed`, `auto_equip`), gear-capability tags (`flashlight`,
+`battery`, `hack_device`, `fishing_rod`, `bait`, `mining_tool`), and combat capabilities
+(`butchering`, `demolition`), all engine-read.
 
 ### Name-collision note
 

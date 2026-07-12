@@ -33,7 +33,7 @@ cash_stock INT          — current cash in the machine (drained by withdrawals)
 cash_max INT            — refill target for the replenish tick
 replenish_interval_hours INT — hours between automatic refills (default 6)
 last_replenish BIGINT   — unix seconds of last refill
-hack_difficulty INT     — target number for hacking skill check (default 5)
+hack_difficulty INT     — hacking target number (DB default 5; runtime falls back to 6 when null)
 is_broken INT           — 0 = operational; 1 = broken (all operations blocked)
 ```
 
@@ -179,7 +179,7 @@ SELECT id, cash_max, replenish_interval_hours, last_replenish
 FROM atm_units WHERE cash_stock < cash_max AND is_broken = 0
 ```
 
-For each row, if `now - last_replenish >= replenish_interval_hours × 3600`, sets `cash_stock = cash_max` and updates `last_replenish`. Broken ATMs are excluded.
+For each row, if the interval has elapsed, sets `cash_stock = cash_max` and updates `last_replenish`. The interval is **game-time scaled** (`gameMsToReal(replenish_interval_hours × 3600 × 1000)`) — it tracks the sped-up game day, not raw real hours. Broken ATMs are excluded. There is also an admin-only `.hackpreview` command that previews the Circuit Breach overlay at arbitrary difficulty/skill.
 
 ---
 

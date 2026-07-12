@@ -23,6 +23,10 @@
 - **contracts.js** — the freight economy.
 - **hangars.js** — ownership: hangars, repair, salvage, rebuild, tuning.
 - **acquisition.js** — charter / buy / refuel.
+- **charter.js** — charter flights (see §Charter below).
+- **biomes.js** — overflight biomes.
+- **collateral.js** — ground collateral (crash/strike effects).
+- **livery.js** — aircraft liveries.
 
 ## Six airfields (live)
 

@@ -11,7 +11,7 @@ Game client: [`client/game/js/panels/tv.js`](../client/game/js/panels/tv.js).
 
 ## Schema
 
-Five tables in `server/models/schema.js`:
+Seven tables in `server/models/schema.js`:
 
 | Table | Purpose |
 |---|---|
@@ -20,6 +20,8 @@ Five tables in `server/models/schema.js`:
 | `media_channel_playlist` | Daily schedule or loop playlist per channel |
 | `media_cameras` | Camera placements, recording buffers, streaming targets |
 | `media_graphics` | ASCII art and SVG graphic assets referenced by channels and VINE nodes |
+| `media_themes` | TV-panel CSS themes referenced by `media_channels.theme_id` (see Themes below) |
+| `media_deck_units` | Media-deck light/state backing (see Media Deck & Cassettes) |
 
 ### `media_broadcasts`
 
@@ -29,7 +31,9 @@ name TEXT
 description TEXT
 category TEXT             — general | news | advertisement | entertainment | emergency | …
 tags JSONB                — []
-playback_mode TEXT        — scripted | dynamic_news | live_camera | recorded
+playback_mode TEXT        — scripted | weather | sports (the runtime branches only on these;
+                            'weather' assembles a live forecast graph, 'sports' simulates a
+                            DEADBALL baseball game — see Weather & Sports broadcasts below)
 messages JSONB            — [{ text: '...' }, ...] flat fallback list
 message_interval REAL     — seconds between messages (default 5)
 override_duration REAL    — if set, overrides computed duration
@@ -38,6 +42,9 @@ enabled INTEGER
 broadcast_graph JSONB     — VINE graph; overrides flat message list when present
 fallback_messages JSONB   — ['[TECHNICAL DIFFICULTIES]…', …] — used when NPC host is absent
 channel_id TEXT FK        — channel this broadcast is assigned to (informational, not scheduling)
+weather_pools JSONB       — line pools for 'weather' mode (forecast graph assembly)
+sports_pools JSONB        — line pools for 'sports' mode (play-by-play / announcer)
+created_by TEXT, updated_at
 ```
 
 ### `media_channels`
@@ -81,6 +88,8 @@ is_streaming INTEGER
 streaming_channel_id TEXT FK
 recording_buffer JSONB    — [{ ts, text }, …] capped at storage_limit
 storage_limit INTEGER     — default 200
+is_damaged INTEGER        — a camera zone reads "working" only when is_powered && !is_damaged
+permissions JSONB, flags JSONB
 ```
 
 ### `media_graphics`
@@ -120,7 +129,7 @@ The `type` field controls how the content is rendered. `ascii` content is displa
    ```
    > The object above is illustrative and has drifted. Current state also carries `totalDuration`, `newsCategories`, `idleBroadcast`, `camera`, `scheduleMode`, and `commercialPool` at the channel level, and each `playlist[]` item now carries `slotType` and `npcStaff`. Treat `index.js` (`loadChannelRuntimes`, ~lines 220–260) as authoritative.
 
-2. **`loadZoneTunings()`** — reads all furniture with `broadcast_receiver` flag, builds `zoneTunings: Map<zoneId, Map<channelId, deviceType>>` and `furnitureChannelIndex: Map<furnitureId, { zoneId, channelId, deviceType }>`.
+2. **`loadZoneTunings()`** — reads all furniture with a `flags.tuned_channel` set (joined to the channel by `number`; device type comes from `broadcast_device_type`), builds `zoneTunings: Map<zoneId, Map<channelId, deviceType>>` and `furnitureChannelIndex: Map<furnitureId, { zoneId, channelId, deviceType }>`.
 
 3. **`loadGraphicsCache()`** — loads all `media_graphics` rows (`id`, `name`, `type`, `content`) into `graphicsCache: Map<id, row>` for zero-latency off-air graphic resolution.
 
@@ -134,7 +143,7 @@ Every 5 seconds:
 2. Skips zones with no players.
 3. For each tuned channel, calls `getCurrentMessage(channelId, nowMs)`.
 4. If no result (or duplicate key): checks `state.wasActive`. If it was active last tick, fires a one-time `off_air` signal to all watching players (includes offline graphic content and type if set), then sets `state.wasActive = false`. Continues to next channel.
-5. If a result arrived: formats via `formatMessage(text, deviceType, zone)`, sends `{ type: 'broadcast', message, channel, style }` to all players in the zone. Sets `state.wasActive = true`.
+5. If a result arrived: formats via `formatMessage(text, deviceType, zone, style)` and **splits the zone's players** — active TV watchers on that channel get `{ type: 'broadcast', message, channel, style, duration, programName }` (music lines also push `audio_music`; overlays push `tv_overlay`); everyone else gets a `broadcast_ambient` only when the line carries `speech` and the 30-second ambient throttle allows (see Passive vs Active below); media-deck preview watchers separately get `deck_broadcast`. Sets `state.wasActive = true`.
 
 ### `getCurrentMessage()`
 
@@ -162,7 +171,10 @@ Computes how many seconds a broadcast asset occupies in the schedule:
 | `security_monitor` | `[FEED — Zone Name] HH:MM:SS — text` |
 | other | raw text |
 
-Device type is read from the `broadcast_device_type` tag on the furniture item.
+Signature is `formatMessage(text, deviceType, zone, style)`. Graphic styles (`svg` / `ascii_art` /
+`credits`, the `GRAPHIC_STYLES` set) bypass the device prefix entirely so a `radio`/`security_monitor`
+prefix can't corrupt graphic content. Device type is read from the `broadcast_device_type` tag on the
+furniture item.
 
 ---
 
@@ -177,11 +189,14 @@ When the active playlist item changes (`activeBroadcastId` differs from last tic
 ```js
 currentNode = _start
 waitUntil = null
-npcAnchor = null
+npcAnchor = null       // npcAnchorId is also cleared
 hostAbsent = false
 absentDetectedAt = null
 techDiffMode = false
 ```
+
+When a viewer tunes in mid-slot (`segElapsedSec > 0`), `_seekGraph` fast-forwards the cursor so the
+program lands mid-broadcast instead of restarting from the top.
 
 ### NPC presence → camera-idle → tech-diff state machine
 
@@ -197,7 +212,7 @@ techDiffMode = false
 |---|---|
 | `say` | Return `{ text, key, style: 'raw' }`. Skipped (node advanced) when `hostAbsent`. |
 | `ticker` | Return `{ text, key, style: 'ticker' }`. Skipped when `hostAbsent`. |
-| `music` | Looks up `data.song` against `audio_songs` (via `getSongDefByName` in `plugins/audio/index.js`). If found, returns `{ text, song, key, style: 'music' }` and holds for 15s; if the channel is `live` with a `studioZoneId`, also `sendToZone`s the song there directly. If not found, falls back to `{ text, key, style: 'raw' }` (or is skipped if `text` is also empty). See [Music Cues](#music-cues). |
+| `music` | Looks up `data.song` against `audio_songs` (via `getSongDefByName` in `plugins/audio/index.js`). If found, returns `{ text, song, key, style: 'music' }` and holds for 8s; if the channel is `live` with a `studioZoneId`, also `sendToZone`s the song there directly. If not found, falls back to `{ text, key, style: 'raw' }` (or is skipped if `text` is also empty). See [Music Cues](#music-cues). |
 | `wait` | Set `waitUntil = nowMs + data.seconds * 1000`. Block until elapsed. |
 | `npc_anchor` | Set `bb.npcAnchor`. Check NPC presence against `studioZoneId`. Advance. |
 | `camera_cut` | Return `[CAM: label] <zone snapshot>`. |
@@ -209,6 +224,11 @@ techDiffMode = false
 | `set_flag` | Call `setFlag(flag, value)`. Advance immediately. |
 | `title_card` | Fetch graphic from `graphicsCache` by `graphic_id`. Return `{ text: content, style: 'svg' \| 'ascii_art' }` based on `graphic.type`. |
 | `overlay` | Push `{ type: 'tv_overlay', overlay: { overlayType, text, subtext, duration } }` to TV watchers, and the same payload as `deck_overlay` to media-deck preview watchers so on-screen graphics mirror to the deck (music is not mirrored). |
+| `show_overlay` / `clear_overlay` | Explicitly raise / clear a persistent overlay (score bug, standings). |
+| `npc_action` | Emote-style host action line. |
+| `credits` | Return `{ text, style: 'credits' }` — the client renders a scrolling crawl. |
+| `tech_difficulties` | Force the technical-difficulties card. |
+| `event` | Fire a script event from the graph. |
 
 Guards against cycles: max 50 hops per tick before early exit.
 
@@ -219,7 +239,7 @@ Guards against cycles: max 50 hops per tick before early exit.
 The `MUSIC <song>` ... `MUSIC_END` block in a `.bsm` script (or a `music` card in the dev panel canvas editor / VINE graph) plays a real synthesized song from the [procedural audio system](#audio-system-cross-reference) rather than just printing text.
 
 - `song` is matched against `audio_songs.name` (case-sensitive) via `getSongDefByName()`, exported from `plugins/audio/index.js`.
-- **Found**: the resolved song def (with `_instrumentsById` attached) is sent as `{ type: 'audio_music', def }` to every player currently watching that channel's TV. If the channel is `live` and has a `studioZoneId`, the same song is also sent to everyone physically in the studio zone via `sendToZone`, independent of who's watching a TV. The node holds for 15 seconds (songs are authored at a fixed 15s length — see the seed instruments/songs in `scripts/seed-broadcast-music.js`) before the graph advances. Any `text` on the node is still shown as a normal broadcast line alongside the song.
+- **Found**: the resolved song def (with `_instrumentsById` attached) is sent as `{ type: 'audio_music', def }` to every player currently watching that channel's TV. If the channel is `live` and has a `studioZoneId`, the same song is also sent to everyone physically in the studio zone via `sendToZone`, independent of who's watching a TV. The node holds for **8 seconds** of airtime (`nodeHoldMs`; `_vineDuration` bills music at 8s too) before the graph advances — independent of the song's authored length (seed instruments/songs in `scripts/seed-broadcast-music.js`). Any `text` on the node is still shown as a normal broadcast line alongside the song.
 - **Not found**: no audio plays. If `text` is set, it's shown exactly like a `say` node (`style: 'raw'`) and the node holds for 5 seconds. If `text` is empty too, the node is skipped with no delay.
 - `client/devpanel/js/bsm-compiler.js` no longer discards the theme name on the `MUSIC` line (it used to fold straight into an ambient `say` node) — it's preserved as `data.song` on a dedicated `music` node type.
 
@@ -239,6 +259,15 @@ on('flag.set', …)     → enqueueNews('martial_law', 'EMERGENCY ALERT: …',  
 ```
 
 `enqueueNews(category, text, priority, ts)` appends to each matching channel's `newsQueue`. Critical items are prepended. News channels drain one item per tick from the queue; when empty, the idle broadcast plays.
+
+---
+
+## Weather & Sports broadcasts
+
+Two special `playback_mode` values assemble their content at runtime instead of playing authored messages:
+
+- **`weather`** — assembles a live forecast graph from the broadcast's `weather_pools` line pools and the actual 7-day forecast.
+- **`sports`** — simulates a DEADBALL baseball game (play-by-play + announcer lines from `sports_pools`), keyed to an absolute airing time-window so a re-simmed same-slot game produces the same `gameId`. While a game airs, the plugin **emits a `sports.game` event every 60s** with payload `{ channelId, gameId, away, home, awayScore, homeScore, winner, endsAtMs }` — consumed by the **sportsbet**, **sportsleague**, and **gossip** plugins (they read `winner`; there is no `result` field). Score-bug and standings overlays ride `tv_overlay`; the World Series takeover pulls standings back through the `sportsleague.getStandings`/`getSeason` actions.
 
 ---
 
@@ -263,7 +292,7 @@ Condition node → type: CHANNEL_HAS_VIEWERS
   channel_id: 'ch_ksab_tv'
 ```
 
-Returns true if any player is currently watching that channel. Implemented via `broadcast-bridge.js` to avoid circular imports.
+Returns true if any player is currently watching that channel. Implemented via `broadcast-bridge.js` to avoid circular imports. The plugin also registers the **`IS_BROADCAST_SCHEDULED`** and **`AT_WORK_ZONE`** AI conditions (used by the studio-actor default graphs).
 
 ### `broadcast-bridge.js`
 
@@ -272,6 +301,10 @@ Returns true if any player is currently watching that channel. Implemented via `
 ```js
 registerViewerChecker(fn)    // called by broadcast plugin at startup
 hasChannelViewers(channelId) // called by ai-behaviour evalCondition
+// plus three more registered pairs, same pattern:
+isNpcScheduledNow(npcId)     // drives the AT_WORK / HAVE_LIFE stage-occupancy rule
+getNpcStudioZone(npcId)
+isZoneWatched(zoneId)
 ```
 
 ### NPC Work Scheduling (`recalculateNpcSchedules`)
@@ -301,11 +334,11 @@ It runs automatically on **every** playlist save (`PUT /broadcast/channels/:id/p
 
 | Command | Behaviour |
 |---|---|
-| `watch tv` / `tv` / `watch television` | Opens the TV panel for the first `tv`-tagged device in the zone |
+| `watch tv` / `tv` / `watch television` / `listen` | Opens the TV panel for the first `tv`-tagged device in the zone (`listen` is an alias of `watch`) |
 | `tune <n>` | Tunes the `broadcast_receiver` device in the zone to channel `n`; re-sends `tv_panel` if panel is open |
 | `tune 0` | Turns the device off; triggers CRT shutoff animation if panel is open |
 | `use <deck name>` | Opens the media deck panel (`mediadeck_panel`) for the `media_deck`-tagged furniture in the zone |
-| `load cassette` | Loads a carried `media_cassette` item into the deck in the zone; **consumes the item from inventory** (the tape physically goes into the deck) and sets it active |
+| `load cassette` | Loads a carried `media_cassette` item into the deck in the zone; **consumes the item from inventory** (the tape physically goes into the deck) and sets it active. (`load` also has a chip/footage branch for surveillance datachips) |
 | `eject` | Stops the deck's active cassette, **removes its broadcast from the deck's library**, and spawns the physical cassette item (`item_cassette_<showname>`) back into the player's inventory — at most one copy per broadcast can exist in the world at a time |
 | `selectcassette <broadcastId>` | Switches the deck's active cassette among ones already in its library, without needing to carry the tape (used by panel row clicks) |
 
@@ -337,8 +370,8 @@ renders it as:
 [TV] "…the spoken line…"
 ```
 
-This fires once per new broadcast message (throttled by the `lastMsgKey` guard in
-`broadcastTick`, not every tick), and only for messages that have speech — non-spoken
+This fires at most once per new broadcast message (the `lastMsgKey` guard) **and** at most once
+per 30 seconds per zone+channel (`AMBIENT_LINE_EVERY_MS = 30000`), and only for messages that have speech — non-spoken
 content (graphics, music, tickers) never leaks into the main chat stream. It does **not**
 depend on anyone else in the room actively watching.
 
@@ -346,8 +379,10 @@ depend on anyone else in the room actively watching.
 
 All broadcast messages for the active channel are routed to the TV panel. `style: 'ticker'`
 goes to the ticker strip. `style: 'svg'` is injected as live SVG markup. All others append
-as text. `dispatch.js` uses two handlers — `broadcast` (active watchers) and
-`broadcast_ambient` (passive viewers):
+as text. Beyond these two, the server↔client wire also carries **`tv_overlay`** (score bug /
+standings / overlay nodes), **`deck_overlay`** and **`deck_broadcast`** (media-deck preview),
+**`audio_music`** (music nodes), and **`tv_off`** (`tune 0`). The `broadcast` handler also applies
+`programName` to the panel header. Simplified, `dispatch.js`'s two core handlers:
 
 ```js
 broadcast: (msg) => {
@@ -388,7 +423,7 @@ broadcast_ambient: (msg) => {
 ╚═══════════════════════════════════════════════════════╝
 ```
 
-### Message rendering (`appendTvMessage(text, style)`)
+### Message rendering (`appendTvMessage(text, style, duration)`)
 
 | Style | Render method |
 |---|---|
@@ -396,6 +431,10 @@ broadcast_ambient: (msg) => {
 | `ticker` | Routed to the ticker strip, not the content area |
 | `ascii_art` | `pre.textContent = text` — monospace, pre-wrapped, coloured by `--tv-header-color` |
 | `svg` | `div.innerHTML = text` — SVG injected as live markup, `max-width:100%; height:auto` |
+| `credits` | Scrolling credits crawl (with header detection) |
+
+`svg`, `ascii_art`, and `credits` are treated as **title cards** — they clear the screen before
+rendering. The optional `duration` arg is threaded from the server message.
 
 SVG graphics are centred and scale to fit the panel width. Because graphics are dev-authored (not player input), innerHTML injection is safe.
 
@@ -562,6 +601,9 @@ All broadcast routes use `directAPI`:
 | POST | `/broadcast/channels` | Create channel |
 | PUT | `/broadcast/channels/:id` | Update channel |
 | PUT | `/broadcast/channels/:id/playlist` | Replace entire playlist (re-runs NPC work-scheduling — see below) |
+| GET/DELETE | `/broadcast/channels/:id/ejected-slots` | List / clear a channel's ejected-cassette slots |
+| POST | `/broadcast/channels/:id/restart` | Restart a channel's runtime |
+| GET | `/broadcast/channels/:id/debug` | Static day-scan broadcast debugger (`scanChannelDay`) |
 | POST | `/broadcast/ensure-studio` | Attach/backfill a channel's studio interior rooms; places by `studio_zone_id` or `grid_x`+`grid_y` with neighbor auto-wiring |
 | POST | `/broadcast/create-studio` | Create a new studio zone for a channel |
 | POST | `/broadcast/recalculate-schedules` | Force `recalculateNpcSchedules` across channels |
@@ -569,6 +611,8 @@ All broadcast routes use `directAPI`:
 | POST | `/broadcast/cameras` | Create camera |
 | PUT | `/broadcast/cameras/:id` | Update camera |
 | DELETE | `/broadcast/cameras/:id` | Delete camera |
+| POST | `/broadcast/cameras/:id/clear-buffer` | Wipe a camera's recording buffer |
+| POST | `/broadcast/cameras/:id/to-broadcast` | Convert a camera buffer into a broadcast asset |
 | GET | `/broadcast/graphics` | List graphics |
 | POST | `/broadcast/graphics` | Create graphic |
 | PUT | `/broadcast/graphics/:id` | Update graphic |
@@ -577,6 +621,10 @@ All broadcast routes use `directAPI`:
 | POST | `/broadcast/themes` | Create theme |
 | PUT | `/broadcast/themes/:id` | Update theme |
 | DELETE | `/broadcast/themes/:id` | Delete theme |
+| POST | `/broadcast/cleanup-orphans` | Remove orphaned broadcast rows |
+| POST | `/broadcast/studio-info` | Studio zone info helper |
+| GET/POST | `/broadcast/deck` | Media-deck state / mutations |
+| POST | `/broadcast/cassette` | BSM-import cassette item creation (see Media Deck & Cassettes) |
 
 ---
 

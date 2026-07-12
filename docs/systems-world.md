@@ -221,10 +221,8 @@ The engine holds the sampler via `registerWeatherField` / `registerWeatherFieldS
 `tickSpawns` (every 10s) joins `zone_spawns` with `enemies`, and for each timer that's due, spawns if the
 live count of that template in the zone is below `max_count` and a `Math.random()×100 < spawn_weight`
 roll passes; then it reschedules `nextSpawn` by `respawn_seconds`. `cleanCorpses` (every 30s) expires
-corpses past their `expiresAt`.
-
-> **Dead system:** `createCorpse` has no callers, so the corpse Map is never populated — see
-> [combat.md](combat.md). `cleanCorpses` and corpse rendering run against an always-empty set.
+corpses past their `expiresAt`. Corpses are created by `createCorpse` on player death
+(`gameLoop.js`) and enemy kills (weapon plugin via `spawnEnemyCorpse`) — see [combat.md](combat.md).
 
 ## Minimap
 

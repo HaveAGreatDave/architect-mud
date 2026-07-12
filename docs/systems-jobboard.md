@@ -8,15 +8,14 @@ and keep you fed. Beauty and misery, and you wouldn't have it any other way.
 
 - **`jobboard` plugin** — a thin **discovery + rotation** layer over the `quests`
   plugin. It owns no quest logic; the verbs delegate to `START_QUEST` / `TURN_IN`.
-  - Verbs: `gigs` / `postings` / `jobboard` (read the board in your zone),
-    `gigs take <n>` (accept), `gigs claim <n>` (hand in for pay). Deliberately
-    **not** `jobs`/`board`/`take`/`claim` — those are owned by flight/gametable/
-    posters/corps.
+  - Verbs: `gigs` / `postings` / `jobboard` — the bare verbs **open the Tablet OS
+    Job Board** (Quests → Job Board via `tabletnav`), they no longer text-render the
+    board in chat. `gigs take <n>` (accept) and `gigs claim <n>` (hand in for pay)
+    still act directly. Deliberately **not** `jobs`/`board`/`take`/`claim` — those
+    are owned by flight/gametable/posters/corps.
   - **The board is an actionable object.** The board furniture carries a `job_board`
     tag; `read <board>` (a specialized action, also surfaced as a Read button on the
-    board's smart bar) lists the live postings. Every posting line has a **clickable**
-    `[Take]` / `[Hand in]` (an `action-link` with `data-raw-cmd="gigs take/claim <n>"`),
-    so the whole flow is point-and-click as well as typeable.
+    board's smart bar) likewise opens the Tablet OS Job Board.
   - **`OPEN_JOBBOARD` dialogue Action** — lets an NPC (Marta) *read you the postings*.
     A static dialogue tree can't enumerate the rotating set, so her `work` node
     dispatches this and the `{dialogue_line}` result (the same clickable listing) is

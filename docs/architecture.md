@@ -13,14 +13,14 @@
 | **Runtime** | Node.js (ES modules) | Server, game loop, real-time logic |
 | **Transport** | `ws` (raw WebSocket) | Real-time bidirectional communication |
 | **Frontend** | Vanilla JS, single-file HTML | Player client + Dev panel — no build step |
-| **Database** | PostgreSQL via Supabase (free tier) | Persistent world state, players, items — single source of truth |
+| **Database** | PostgreSQL via Neon (migrated from Supabase 2026-07) | Persistent world state, players, items — single source of truth |
 | **Query layer** | `pg` (node-postgres), raw SQL | No ORM — schema is hand-written in `schema.js` |
 | **Auth** | JWT (`jsonwebtoken`) + SHA-256 password hashing | Player accounts, dev/admin roles |
 | **Hosting** | Render (free Web Service tier) | Node server, auto-deploys on git push |
 
 ### Why this stack, in practice
 
-The original plan considered SQLite for local dev and a VPS for production. That changed early: the build environment has no local network access, so any local-only database needed to also work over the network from the first line of code, which meant going straight to Postgres rather than maintaining two schemas. Supabase's free tier provided that without cost. Render was chosen over Vercel/Netlify/Cloudflare (serverless — no persistent WebSocket support) and over Railway (no permanent free tier) specifically because it supports long-lived WebSocket connections on its free plan.
+The original plan considered SQLite for local dev and a VPS for production. That changed early: the build environment has no local network access, so any local-only database needed to also work over the network from the first line of code, which meant going straight to Postgres rather than maintaining two schemas. Supabase's free tier provided that without cost (production has since migrated to **Neon**). Render was chosen over Vercel/Netlify/Cloudflare (serverless — no persistent WebSocket support) and over Railway (no permanent free tier) specifically because it supports long-lived WebSocket connections on its free plan.
 
 No ORM was used. The schema is small enough that hand-written SQL in `schema.js` is easier to read and debug than a generated layer, and every query in the codebase is a plain parameterized `pg` call through a single `query()` helper in `models/db.js`.
 
@@ -28,9 +28,9 @@ No ORM was used. The schema is small enough that hand-written SQL in `schema.js`
 
 The server **does not** touch the schema or world content on boot. The two are managed separately and deliberately:
 
-- **Schema** lives entirely in `server/models/schema.js` as the exported `SCHEMA_SQL` string (idempotent DDL). Apply it with `npm run db:schema`. The same string is reused by the dev-panel export, so a backup always carries the schema that fits its data.
-- **Content** is owned by production. The dev-panel export (`/dev` → Power Tools → *Database Backup*) emits a full `.sql` dump (schema + world content, no player/PII rows). Restore it into a fresh DB with `psql -f` or `npm run db:restore -- dump.sql` to seed local/offline dev or recover a backup.
-- **Schema changes** are made by a one-shot script run once against production, plus a matching edit to `SCHEMA_SQL`. There is no auto-run migration path — this is what keeps dev from being disrupted by content-rewriting code firing on every restart (the reason the old startup `migrate()` was removed).
+- **Schema** lives entirely in `server/models/schema.js` as the exported `SCHEMA_SQL` string (idempotent DDL). Apply it locally with `npm run db:schema`; production gets it through the CODEX deploy (CI applies the full `SCHEMA_SQL` ahead of content on every push to `main`).
+- **Content** lives in git — one JSON file per entity under `content/`, exported/imported via `npm run content:export`/`content:import` (the **CODEX pipeline**, see [content-pipeline.md](content-pipeline.md)). A push to `main` is the deploy: CI backs prod up, applies schema + additive content, and is regress-gated. The dev-panel `.sql` export (`/dev` → Power Tools → *Database Backup*) remains as a backup/restore mechanism.
+- **One-shot scripts** against production are reserved for *data transformations* on existing rows (the additive deploy can't touch them): `node --env-file=.env.prod scripts/<name>.mjs`. There is no auto-run migration path — this is what keeps dev from being disrupted by content-rewriting code firing on every restart (the reason the old startup `migrate()` was removed).
 
 ---
 
@@ -40,7 +40,7 @@ The server **does not** touch the schema or world content on boot. The two are m
 /
 ├── server/
 │   ├── index.js              # HTTP + WebSocket entry point, auth, global error handlers
-│   ├── keepalive.js          # Pings Render /health AND runs SELECT 1 against Supabase every 10min
+│   ├── keepalive.js          # Pings Render /health every 10min (deliberately never touches the DB — lets Neon sleep)
 │   ├── engine/
 │   │   ├── gameLoop.js       # Tick system: combat tick, minute tick, ambient tick, spawn tick
 │   │   ├── combat.js         # Combat resolution, cooldowns, enemy attack timers
@@ -104,13 +104,15 @@ The server **does not** touch the schema or world content on boot. The two are m
 │   └── shared/
 │       ├── tagCatalog.js     # Single source of truth for item tag definitions — read by both client and server
 │       └── tagSupertags.js   # Supertag registry (TAG_SUPERTAGS) — dual-mode file like tagCatalog.js
-├── plugins/                   # One folder per plugin (38 as of 2026-07) — see docs/plugins.md
+├── plugins/                   # One folder per plugin (~80 as of 2026-07) — see docs/plugins.md
 │                              # for the authoritative catalogue; don't duplicate it here.
+├── content/                   # World content as one JSON file per entity — the CODEX pipeline
+│                              # (git is source of truth for prod content); see docs/content-pipeline.md
 ├── tests/regress.js           # Pre-deploy regression gate (`npm run test:regress`) — see CLAUDE.md
 └── render.yaml                # Render free-plan service config
 ```
 
-There is no `/data/` JSON directory and no separate seed-from-JSON pipeline. World content lives only in Postgres (production is the source of truth) and is edited through the dev panel. A fresh database is populated by restoring a `.sql` dump exported from the dev panel — not from a checked-in seed file. (Historically content lived as JS literals in a `seed.js`; that drifted from the live DB and was retired in favor of export/restore.)
+World content is edited through the dev panel and versioned in git under `content/` (one JSON file per entity — the CODEX pipeline, [content-pipeline.md](content-pipeline.md)); a push to `main` deploys it. (Historically content lived as JS literals in a `seed.js`, then as a dev-panel `.sql` export; both were retired in favor of the git pipeline.)
 
 ---
 
@@ -231,7 +233,11 @@ next to something hostile.
 
 ---
 
-## Database Schema (Actual Tables)
+## Database Schema (Core Tables)
+
+This is an illustrative core subset — the full schema (~80 tables) is `SCHEMA_SQL` in
+`server/models/schema.js`, and the content/runtime/player classification of every table lives in
+`server/models/content-registry.js`.
 
 ```sql
 players           -- account, stats, skills location, credits, bank_credits, anchor/current zone
@@ -243,8 +249,8 @@ enemies           -- template definitions: stat block, loot_table, behavior, fac
 zone_spawns       -- zone_id, enemy_id, max_count, spawn_weight, respawn_seconds
 npcs              -- id, name, zone_id, dialogue_tree (JSONB), vendor_inventory (JSONB)
 furniture         -- id, zone_id, name, description, flags; is_light/light_on/light_type for switchable lights
-factions          -- id, name, description
-player_faction_rep -- player_id, faction_id, reputation score
+orgs              -- factions + player orgs (the old `factions` table was folded in)
+player_faction_rep -- player_id, faction_id (references orgs.id), reputation score
 loot_tables       -- named, reusable weighted-drop tables (lightly used; most loot is inlined)
 world_events      -- log of significant events
 player_corpses    -- lootable death drops, expire after 10 minutes
@@ -317,13 +323,13 @@ Rules of thumb:
 
 These are real bugs hit during deployment, kept here so they don't get relearned:
 
-- **`pg.Pool` needs `DATABASE_URL` actually loaded into `process.env`.** Node does not read `.env` files on its own. `db.js` imports `'dotenv/config'` at the very top specifically to fix this — removing that import silently breaks local development (you'll see `ECONNREFUSED ::1:5432` / `127.0.0.1:5432`, i.e. it's trying to connect to a local Postgres that doesn't exist, instead of Supabase).
-- **Supabase's direct connection is IPv6-only on free tier.** Always use the Session Pooler connection string (port `5432`) for any environment without guaranteed IPv6 egress, which includes Render's free compute.
+- **`pg.Pool` needs `DATABASE_URL` actually loaded into `process.env`.** Node does not read `.env` files on its own. `db.js` imports `'dotenv/config'` at the very top specifically to fix this — removing that import silently breaks local development (you'll see `ECONNREFUSED ::1:5432` / `127.0.0.1:5432`, i.e. it's trying to connect to a local Postgres that doesn't exist, instead of the configured DB).
+- *(Historical, Supabase-era)* **Supabase's direct connection is IPv6-only on free tier.** Always use the Session Pooler connection string (port `5432`) for any environment without guaranteed IPv6 egress. Prod is now on Neon, where the content pipeline requires the **direct/unpooled** endpoint instead.
 - **A boolean sent to an INTEGER column crashes `pg`, not just that query.** Postgres columns like `pvp_enabled`/`is_safe_zone`/`is_locked` are `INTEGER` (0/1), but JS naturally sends `true`/`false`. Every write path that accepts a boolean from client input coerces it explicitly (`value ? 1 : 0`) rather than trusting the caller.
 - **An uncaught error in one request handler can take down the entire process**, not just fail that one request — Node doesn't isolate requests from each other the way a forked-process server would. Every database-writing route handler is wrapped in try/catch, and `index.js` also registers `process.on('uncaughtException'/'unhandledRejection')` as a last-resort net so an unforeseen bug logs instead of crashing the game for every connected player.
 - **A hardcoded `ws://` URL breaks the moment the page is served over HTTPS** — browsers block insecure WebSocket connections from a secure page (`Mixed Content` error). The client detects `location.protocol` and picks `wss://` or `ws://` accordingly instead of assuming one.
 - **Render's dashboard "Name" field doesn't reliably change the live subdomain** if the service already has one. Treat the URL as fixed at creation time.
-- **Supabase free-tier projects can come back from a pause/restore cycle with empty tables**, even though the project itself shows "Active" again. This isn't expected/guaranteed Supabase behavior, but it's been observed; treat world data on the free tier as reproducible-via-reseed rather than precious, or upgrade before it matters.
+- *(Historical, Supabase-era)* **Supabase free-tier projects can come back from a pause/restore cycle with empty tables**, even though the project itself shows "Active" again. One of the reasons prod moved to Neon.
 - **Neon snapshot branches count against a cap and don't self-clean fast enough.** The content deploy takes an instant copy-on-write `predeploy-*` branch of prod before touching it. `expires_at` (14 days) is too slow at real deploy cadence — they pile up past the branch cap. The workflow prunes all but the newest 5 *before* each snapshot. Anything creating Neon branches needs an active prune, not just an expiry.
 - **The content deploy's deletion pass needs deferrable, ownership-correct FKs — and can't reconcile un-git-tracked drift.** The first real prod deploys hit a cascade of these; the full writeup lives in [content-pipeline.md → Deploy lessons](content-pipeline.md). In short: content-parent FKs must be `DEFERRABLE INITIALLY DEFERRED` with `ON DELETE CASCADE` (owned children) / `SET NULL` (loose refs); a `CREATE TABLE IF NOT EXISTS` never alters a drifted existing table so re-assert constraints via `DROP`+`ADD`; a git baseline seeded from a local DB with divergent PKs needs a deliberate one-shot to reconcile ("git wins"); and a mid-import `deadlock detected` is just the live server contending — retry the deploy.
 - **Primary keys are `TEXT` (UUIDs), never integers — never `parseInt()` an id.** Every `id` column in the schema is `TEXT PRIMARY KEY`, populated with `randomUUID()`. A command that takes a row id from the client (e.g. `stowid <id>`, `closecontainer <id>`) must pass the string straight through to the query. `parseInt()` on a UUID silently corrupts it: a UUID starting with a letter becomes `NaN`, and one starting with a digit is truncated to its leading digits — either way the `WHERE id=$1` matches nothing and the handler fails quietly (it returns `null`, so the player sees no message at all rather than an error). This bit the container close path; the symptom is "the action just does nothing sometimes" because whether it works depends on the random first character of the id.
@@ -332,26 +338,7 @@ These are real bugs hit during deployment, kept here so they don't get relearned
 
 ## Plugin System
 
-The loader itself (`plugins.js`) is a file-drop manifest + `index.js` exporting `hooks`, `commands`, and optionally `routeHandler`. Plugins can also register Actions and subscribe to Events imperatively in their `index.js`. 15 plugins exist:
-
-```
-/plugins/
-  ├── factions/           # Faction rep display (factions/rep commands)
-  ├── mutations/          # Radiation mutation system: mutations command + tick.minute check
-  ├── weather/            # 7-day seeded weather forecast (environment.init + advanceWeather hooks)
-  ├── zone-validator/     # World integrity: validates zone exits, repairs broken ones on save
-  ├── crafting/           # Item crafting (craft, recipes commands)
-  ├── quests/             # Quest lifecycle: START_QUEST/ADVANCE/COMPLETE/TURN_IN actions,
-  │                       # event-driven objective tracking, quests/quest/ql commands, dev CRUD
-  ├── interactions/       # Posture + emotes: sit, stand, lie, wave, examine, etc.
-  ├── container/          # Container items — OPEN specialized action gated on container tag
-  ├── doors/              # Door OPEN/CLOSE/LOCK/UNLOCK specialized actions
-  ├── weapon/             # ATTACK specialized action (player combat path)
-  ├── food/               # EAT specialized action gated on consumable tag
-  ├── drugs/              # USE/INJECT specialized actions gated on drug tag
-  ├── lighting/           # SWITCH/FLIP/TURN specialized actions for light fixtures
-  └── clothing-wetness/   # Per-item wetness from rain/snow + body temperature effects
-```
+The loader itself (`plugins.js`) is a file-drop manifest + `index.js` exporting `hooks`, `commands`, and optionally `routeHandler`. Plugins can also register Actions, specialized actions, input matchers, and Event subscriptions imperatively in their `index.js`. **~80 plugins exist — the authoritative catalogue is [plugins.md](plugins.md); it is deliberately not duplicated here.**
 
 ```javascript
 // plugin.json (quests as example of richer manifest)
@@ -394,7 +381,7 @@ export const routeHandler = (path, method, body, auth) => { /* dev CRUD */ };
 
 **Hooks can be called into, not just reacted to.** `fireHook`'s "last non-undefined return wins" behavior means a hook isn't only a notification — a route handler can `fireHook('worldValidator.runFull')` and use the plugin's return value directly as the HTTP response. This is how the zone-validator's dev-panel button works end to end with zero changes to `plugins.js` itself, and it's worth calling out explicitly here since nothing previously documented that this was possible.
 
-Plugins load at server start by scanning `/plugins/*/plugin.json`. There is no in-panel plugin manager UI yet — enabling/disabling is still done by adding/removing the folder and restarting. There is also no `registerCommand`/`registerRoute`/UI-registration API yet — every plugin so far reaches the engine only through already-exported functions (`query()`, `world.js`'s `reloadZone()`) plus hooks, which is enough for an on-demand tool like the validator but would not yet be enough for a plugin that wants to own a player-typed command or its own dev-panel tab without a core code change. See `docs/plugin-architecture-analysis.md` for the full review of which systems are good extraction candidates and what API gaps block them.
+Plugins load at server start by scanning `/plugins/*/plugin.json`. There is no in-panel plugin manager UI yet — enabling/disabling is still done by adding/removing the folder and restarting. Plugins own player-typed commands (a `commands` export + `plugin.json` declaration; plugin commands win dispatch over engine builtins), dev-panel routes (`routeHandler` + `routePrefix`), specialized actions, and input matchers. See [reference/plugin-architecture-analysis.md](reference/plugin-architecture-analysis.md) for the historical extraction review and [plugin-standard.md](plugin-standard.md) for the current plugin contract.
 
 ---
 
@@ -403,12 +390,12 @@ Plugins load at server start by scanning `/plugins/*/plugin.json`. There is no i
 ```bash
 git clone <repo>
 cd architect-mud
-cp .env.example .env
-# Set DATABASE_URL to your Supabase pooler string (or local Postgres)
+# Create .env with DATABASE_URL pointing at your local Postgres
+# (e.g. postgresql://postgres:postgres@localhost:5432/architect_dev)
 
 npm install
-npm run db:schema                          # create the schema
-npm run db:restore -- architect-dump.sql   # load content from a dev-panel export
+npm run db:schema        # create the schema
+npm run content:import   # load world content from the git content/ tree
 npm run dev
 ```
 
@@ -424,7 +411,7 @@ Render free Web Service, not a VPS:
 - `git push` to the connected GitHub repo triggers an automatic build + deploy
 - No PM2/Nginx — Render's platform handles process supervision and HTTPS termination
 - `render.yaml` pins the free plan and start command
-- Migrations are **not** run automatically on deploy — they're a manual, one-time (or occasional) step run from a developer's machine against the live Supabase database, since Render's free tier has no shell access
+- Schema + content reach prod through the CODEX content-deploy CI on push to `main` ([content-pipeline.md](content-pipeline.md)); one-shot data transformations run from a developer's machine against the live Neon database (`node --env-file=.env.prod …`), since Render's free tier has no shell access
 
 ---
 

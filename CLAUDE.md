@@ -16,6 +16,12 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - [docs/systems-weather-extreme.md](docs/systems-weather-extreme.md) — **extreme weather (steps 1–6 + 7a built; 7b/7c pending)**: severity scalar over the weather field, gear-gated-lethal thermal/wind/blackout/ash-choking channels, no indoor safe-haven, power-stays-out scar, ⚠ forecast telegraph band, named "hero" event framework (approach→peak→passing, in the weather plugin); acid-rain teeth + EMP blackout still to build
 - [docs/systems-economy.md](docs/systems-economy.md) — credits/banking, vendors, factions, crafting, IP/stat-raising, housing (as built)
 - [docs/systems-world.md](docs/systems-world.md) — world state, movement, ambience, sound propagation, spawning, minimap, scheduler, tunables (as built)
+- [docs/server.md](docs/server.md) — the server process: boot sequence, in-memory vs. DB state, tick scheduling, WS message handling (as built)
+- [docs/vine.md](docs/vine.md) — the VINE graph editor: file roles, schemas (dialogue/script/AI/broadcast/quest), and editor internals
+- [docs/flags-keys.md](docs/flags-keys.md) — registry of `flags` keys across zones/NPCs/items/furniture and which plugin owns each
+- [docs/systems-flight.md](docs/systems-flight.md) — flight: aircraft, airfields, hazards, contracts, air combat, hangars/salvage/tuning (as built)
+- [docs/systems-mining.md](docs/systems-mining.md) — mining: posture-based deposit-working, per-zone ore tables, tool gate (as built)
+- [docs/systems-jobboard.md](docs/systems-jobboard.md) — rotating job board: legal early-money gigs over the quests plugin, greeter gate, philosophical encounters (as built)
 - [docs/devpanel-js.md](docs/devpanel-js.md) — dev panel JS file reference: what each script in `client/devpanel/js/` holds, which functions live where, and the load-order contract
 - [docs/commands.md](docs/commands.md) — command dispatch pipeline, SIFT/FATE target resolution system, rules for using SIFT in new commands, and per-domain targeting reference
 - [docs/scripting.md](docs/scripting.md) — action registry (registerAction/dispatchAction), event bus (on/emit), flag store (getFlag/setFlag/evalConditions), and script graph runner (runGraph); the mutation path all content flows through

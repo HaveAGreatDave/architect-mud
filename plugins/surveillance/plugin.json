@@ -5,6 +5,7 @@
   "commands": ["plant", "retrieve", "sweep", "feed", "hub", "hubclose", "record", "clip", "wipe", "collect", "clips", "replay", "smash", "hijack", "hijackresolve", "pilot", "submit", "wanted", "bribe", "scrub", "apprehendresolve", "purge"],
   "routePrefix": "/surveillance",
   "specializedActions": [
+    { "verb": "use", "requiredTag": "specter_program" },
     { "verb": "use", "requiredTag": "spy_deck" },
     { "verb": "use", "requiredTag": "security_console" },
     { "verb": "use", "requiredTag": "datachip" }

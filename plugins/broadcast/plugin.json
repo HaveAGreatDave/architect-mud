@@ -12,7 +12,7 @@
   "routePrefix": "/broadcast",
   "actions": { "registers": ["TUNE_DEVICE", "CAMERA_RECORD", "CAMERA_STREAM"] },
   "events": {
-    "emits": ["broadcast.message", "device.tuned", "camera.recorded"],
+    "emits": ["broadcast.message", "device.tuned", "camera.recorded", "sports.game", "npc.broadcast_say"],
     "consumes": ["tv.watch", "tv.unwatch", "deck.watch", "deck.unwatch", "player.logout", "player.death", "flag.set", "npc.broadcast_say", "zone.broadcast"]
   }
 }
