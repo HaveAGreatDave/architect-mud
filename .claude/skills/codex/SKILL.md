@@ -23,21 +23,32 @@ World content lives in **git as one JSON file per entity** (`content/<table>/<pk
 - On explicit asks: "ship this", "commit the content", "prep for push", "is this clean", "did I break the world".
 - Before telling the user a content task is "done." Content in a local DB that isn't exported and committed is **invisible to everyone else and lost on the next rebuild.**
 
+## First decide: where does the content actually live? (export is CONDITIONAL)
+
+Before anything, answer one question: **was this content authored in the DB, or as files?** The two paths ship differently, and running export on file-authored content is a classic self-inflicted mess.
+
+- **DB-authored** — you created/edited it through the **dev panel** or `design-cli`, so the only copy is rows in your local DB. Files don't exist yet. **You MUST `content:export`** to serialize DB → files; that's the only way git can see the work.
+- **File-authored** — you (or an agent) wrote/edited `content/<table>/<pk>.json` **directly** with a text editor. **The files ARE the source of truth already. Do NOT export.** Export would dump your entire *played-in* local DB back over the tree — burying your small, clean diff under hundreds of runtime-residue files (streetlights, power-sim boxes, spawn instances) and catalog-wide re-serialization, and even *un-deleting* files you removed (their rows still sit in the DB). The push-then-export instinct is right: your committed files are the truth; the DB is a build artifact of them. Skip straight to lint.
+
+> Rule of thumb: **files → commit them; DB → export first.** If you didn't touch the dev panel this session, you're file-authored — don't export. When a change is *mixed* (some dev-panel, some hand-edited), export, then in the diff review discard everything except the entities you deliberately touched (see Step 2–3).
+
 ## The ship sequence
 
 Run it in order. Do not skip the diff review — it is the step that catches the mess.
 
 ```
-1. npm run content:export      # local DB → content/ files
+1. npm run content:export      # ONLY if DB-authored (dev-panel/design-cli). SKIP for file-authored content.
 2. git status content/         # what changed?  ← THINK here, don't rubber-stamp
    git diff content/           # read it
 3. <discard runtime residue>   # git checkout -- content/<table>/<file>  (see below)
 4. npm run content:lint        # JSON valid, real columns, no excluded cols, no dangling FKs
 5. npm run test:regress        # the SHIP regress: the shipped world still boots, all suites green
-6. git add content/ [code]     # + any SCHEMA_SQL/registry/plugin code in the same commit
+6. git add content/ [code]     # add the SPECIFIC files you authored; + SCHEMA_SQL/registry/plugin code, same commit
    git commit -m "…"
 7. report: what shipped (ids), lint/regress result, anything you discarded and why
 ```
+
+For **file-authored** content the sequence is just steps 2 (review your own diff) → 4 → 5 → 6 → 7. No export, nothing to discard.
 
 Pushing is the user's call unless they said otherwise. Tell them what a push will do (§Prod), don't do it silently.
 
@@ -111,8 +122,9 @@ After cutover, **pushing to `main` deploys to production** (CI applies content; 
 
 Before you call it done, confirm out loud:
 
-- [ ] `content:export` run; `git diff content/` **read**, not rubber-stamped
-- [ ] runtime residue discarded (or: diff was clean, nothing to discard — say which)
+- [ ] authoring mode decided: DB-authored ⇒ `content:export` run; file-authored ⇒ export SKIPPED
+- [ ] `git diff content/` **read**, not rubber-stamped
+- [ ] runtime residue discarded (or: file-authored / diff was clean, nothing to discard — say which)
 - [ ] new tables classified in the registry; excludeColumns follows the self-healing-only rule
 - [ ] schema + registry + code + content in **one** commit if a schema change is involved
 - [ ] `content:lint` clean
