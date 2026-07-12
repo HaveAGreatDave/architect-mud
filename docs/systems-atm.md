@@ -33,7 +33,7 @@ cash_stock INT          — current cash in the machine (drained by withdrawals)
 cash_max INT            — refill target for the replenish tick
 replenish_interval_hours INT — hours between automatic refills (default 6)
 last_replenish BIGINT   — unix seconds of last refill
-hack_difficulty INT     — hacking target number (DB default 5; runtime falls back to 6 when null)
+hack_difficulty INT     — hacking target number (default 5)
 is_broken INT           — 0 = operational; 1 = broken (all operations blocked)
 ```
 

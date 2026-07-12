@@ -12,14 +12,14 @@
 
 import { query } from '../models/db.js';
 import { SCHEMA_SQL } from '../models/schema.js';
-import { CONTENT_TABLES, EXCLUDED_TABLES, AUDIO_TABLES } from '../models/content-registry.js';
+import { CONTENT_TABLES, EXCLUDED_TABLES } from '../models/content-registry.js';
 
 // Table classification (what is content vs runtime vs player, FK order, filters,
 // runtime-mutated columns) lives in server/models/content-registry.js — the single
 // source of truth for table semantics. This module re-exports the legacy derived
-// shapes so existing consumers (regress, export-seed, content-pull/diff) keep
-// importing from here unchanged. New code should import the registry directly.
-export { CONTENT_TABLES, EXCLUDED_TABLES, AUDIO_TABLES };
+// shapes so existing consumers (regress) keep importing from here unchanged. New
+// code should import the registry directly.
+export { CONTENT_TABLES, EXCLUDED_TABLES };
 
 export async function handleBackupApi(path, method, body, auth) {
   if (path !== '/admin/export-dump') return null;

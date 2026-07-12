@@ -237,13 +237,6 @@ export const EXCLUDED_TABLES = REGISTRY
   .filter(e => e.class !== 'content')
   .map(e => e.table);
 
-// Subset tag of the content entries — NOT a second master list. These six carry
-// base64 sample blobs + giant tracker JSON (~92% of a dump's bytes); export-seed
-// splits them into db/audio-seed.sql so world diffs stay readable.
-export const AUDIO_TABLES = [
-  'audio_samples', 'audio_songs', 'audio_instruments', 'audio_sfx', 'audio_ambient', 'audio_event_routes',
-];
-
 // Full content entries (pk/where/excludeColumns), in FK-safe order — the shape the
 // content pipeline (scripts/content/*) consumes.
 export function contentEntries() {

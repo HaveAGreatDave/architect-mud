@@ -114,7 +114,7 @@ async function buildAtmPanel(atm, player, powered) {
     cashMax: atm.cash_max ?? 5000,
     powered,
     isBroken: !!atm.is_broken,
-    hackDifficulty: atm.hack_difficulty ?? 6,
+    hackDifficulty: atm.hack_difficulty ?? 5,
     hackingSkill: await effectiveSkill(player, 'hacking'),
     hasHackDevice: await hasHackDevice(player.id),
     maintenanceUnlocked: hasMaintenanceAccess(atm.id, player.id),
@@ -312,7 +312,7 @@ async function cmdJack(args, raw, player) {
     deviceId: atm.id,
     deviceName: atm.name,
     skill: await effectiveSkill(player, 'hacking'),
-    difficulty: atm.hack_difficulty ?? 6,
+    difficulty: atm.hack_difficulty ?? 5,
     resolveCmd: 'jackresolve',
   };
 }

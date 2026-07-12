@@ -91,7 +91,7 @@ The stack is intentionally minimal. There's a dev panel at `/dev` with live zone
 
 Development runs against a **local Postgres**, not the production database (Neon). This keeps dev/test/script traffic off prod and means you can't break the live game by experimenting.
 
-World content (zones, items, NPCs, furniture — **no player accounts, no secrets**) lives in git as one JSON file per entity under [`content/`](content/) — the **CODEX content pipeline** is the source of truth; see [docs/content-pipeline.md](docs/content-pipeline.md). (`db/seed.sql` is a legacy snapshot from the retired seed pipeline.)
+World content (zones, items, NPCs, furniture — **no player accounts, no secrets**) lives in git as one JSON file per entity under [`content/`](content/) — the **CODEX content pipeline** is the source of truth; see [docs/content-pipeline.md](docs/content-pipeline.md).
 
 **First-time setup:**
 
@@ -101,11 +101,12 @@ World content (zones, items, NPCs, furniture — **no player accounts, no secret
    DATABASE_URL=postgresql://postgres:postgres@localhost:5432/architect_dev
    ```
    (If you chose a different Postgres password, put it here.)
-3. Build the local database from the committed snapshot:
+3. Create the empty local database, then apply schema + world content from git:
    ```
-   npm run db:setup-local
+   npm run db:create-local     # creates the empty DB (pg driver — no psql needed)
+   npm run content:import      # applies SCHEMA_SQL, then loads content/ into the DB
    ```
-   This drops & recreates `architect_dev` and loads `db/seed.sql`. No `psql` needed — it runs through the `pg` driver. Then run `npm run db:schema` and `npm run content:import` to bring it current from the git `content/` tree. Register a fresh character in-game (player data isn't shared).
+   Register a fresh character in-game (player data isn't shared).
 
 **Day-to-day:** `npm run dev`, `npm run test:regress`, and the dev panel all use your local database automatically — same commands as before.
 
@@ -114,13 +115,11 @@ content locally, run `npm run content:export` to write the changed entities as J
 `content/`, commit, and push — **a push to `main` is the deploy** (CI backs prod up, applies
 schema + additive content, and is regress-gated). Pull + `npm run content:import` to sync another
 machine. `npm run content:lint` and `content:status` check the tree. Full flow:
-[docs/content-pipeline.md](docs/content-pipeline.md). (The old `content:publish`/`content:sync`
-seed-snapshot scripts are retired — don't use them.)
+[docs/content-pipeline.md](docs/content-pipeline.md).
 
 **Touching production deliberately** (one-shot data transformations only):
 `node --env-file=.env.prod scripts/<name>.mjs` — the git-ignored `.env.prod` holds the prod
-Neon `DATABASE_URL`. Never restore `db/seed.sql` onto production (it drops & rebuilds a *local*
-DB and refuses anything non-localhost).
+Neon `DATABASE_URL`.
 
 ### Backups
 

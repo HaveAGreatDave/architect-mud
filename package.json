@@ -20,11 +20,8 @@
     "canary": "node tools/canary/canary.mjs",
     "combat-sim": "node tools/combat-sim/sim.mjs",
     "db:restore": "node server/models/restore.js",
-    "db:setup-local": "node scripts/setup-local-db.mjs",
-    "db:export-seed": "node scripts/export-seed.mjs",
+    "db:create-local": "node scripts/create-local-db.mjs",
     "db:backup-prod": "node scripts/backup-prod.mjs",
-    "content:publish": "node scripts/content-publish.mjs",
-    "content:sync": "node scripts/content-sync.mjs",
     "content:export": "node scripts/content/export.mjs",
     "content:import": "node scripts/content/import.mjs",
     "content:lint": "node scripts/content/lint.mjs",
@@ -35,8 +32,7 @@
     "db:fold-factions": "node server/models/temp/fold-factions-into-orgs.js",
     "db:drop-factions": "node server/models/temp/drop-factions-table.js",
     "db:strip-craft-quality": "node server/models/temp/strip-craft-quality.js",
-    "db:drop-craft-time": "node server/models/temp/drop-craft-time.js",
-    "db:seed-audio": "node server/models/temp/seed-audio.js"
+    "db:drop-craft-time": "node server/models/temp/drop-craft-time.js"
   },
   "dependencies": {
     "@getbrevo/brevo": "^5.0.4",

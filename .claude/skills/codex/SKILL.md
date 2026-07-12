@@ -9,12 +9,7 @@ World content lives in **git as one JSON file per entity** (`content/<table>/<pk
 
 **Read [docs/content-pipeline.md](../../../docs/content-pipeline.md) once per session** before shipping — it's the authoritative pipeline reference; this skill is the operating procedure on top of it.
 
-> **Cutover check (do this first, once per session).** The pipeline may be mid-migration, and the signals are separate — check, don't assume:
-> - `git ls-files content/ | head -1` — is the file tree committed? (empty ⇒ baseline not landed yet ⇒ the old seed pipeline is still the only truth; ship via the legacy path and say so.)
-> - `git ls-files db/seed.sql` — does the **old** pipeline still exist? If BOTH the content tree and `db/seed.sql` are present, you're in the **transition window**: the baseline landed but the old pipeline isn't retired. Files are the intended truth, but confirm with the user which pipeline they're treating as authoritative before you ship — a stale or un-reconciled `content/` (e.g. seeded from one person's local DB, not the reconciled prod baseline) can still be in flux.
-> - `grep -q "^  push:" .github/workflows/deploy-content.yml` — is prod auto-deploy live? If yes, a push to `main` deploys; treat §Prod as real.
->
-> Only when `content/` is committed do the steps below apply. When in doubt, ask rather than shipping through a half-migrated pipeline.
+> **Cutover is complete (2026-07).** The git `content/` tree is the sole source of truth; the old seed pipeline (`db/seed.sql`, `content:publish`/`content:sync`, `export-seed`, `setup-local-db`) is **retired and deleted**. A fresh DB is `npm run db:create-local` → `npm run content:import`; prod deploys on push to `main`. If you find a `db/seed.sql` in the tree, something reintroduced it — stop and flag it.
 
 ## When to invoke
 

@@ -926,7 +926,7 @@ async function resourceTick() {
     const isOverheating = tempC > 42;
     const isHot = tempC > 40 && tempC <= 42;
 
-    // Sustained dangerous temperature causes HP loss only after 20 minutes of
+    // Sustained dangerous temperature causes HP loss only after 5 minutes of
     // continuous exposure — short spells in the extreme cold/heat don't kill.
     const isDangerous = isFreezing || isOverheating;
     if (isDangerous) {
