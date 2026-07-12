@@ -33,23 +33,38 @@ export default async function regress({ run, check, getPlayer }) {
   }
 
   // Option D — a name shared by many tiles (filler terrain / a long street) routes to
-  // the NEAREST one, not a picker or a tie-break-arbitrary far tile. Find such a name
-  // and assert it plots a route to a same-named tile that no other same-named tile is
-  // grid-closer than. These clusters live on ONE map, and GPS can't route across maps
-  // (findPath is single-map, and grid coords aren't comparable between maps), so stand
-  // the player on the cluster's own map — on a non-cluster tile so it's not "already
-  // there" — before asserting; otherwise "nearest" is meaningless and no path exists.
+  // the NEAREST reachable one, not a picker or a tie-break-arbitrary far tile. GPS mirrors
+  // this in routeToNearest: it road-routes to the first of its 8 grid-closest same-named
+  // tiles that a road path reaches, and correctly ERRORS when none of them do — vast
+  // off-road filler ("grasslands", hundreds of tiles) is a legitimate no-route. So the
+  // fixture can't just grab the first same-named cluster + first stand tile: it must stand
+  // on a tile from which GPS can actually reach a same-named tile. Scan for such a
+  // (cluster, stand) pair — reproducing GPS's closest-8 window — and remember the tile GPS
+  // will pick as `expected`; skip the assertion if the sampled world offers no routable
+  // pair. Clusters live on ONE map (findPath is single-map, grid coords aren't comparable
+  // across maps), so the stand is always on the cluster's own map.
   {
+    const sq = (a, b) => (a.grid_x - b.grid_x) ** 2 + (a.grid_y - b.grid_y) ** 2;
     const byName = {};
     for (const z of getAllZones().filter(z => !z.flags?.water && z.grid_x != null))
       (byName[(z.name || '').toLowerCase()] = byName[(z.name || '').toLowerCase()] || []).push(z);
-    const dupName = Object.keys(byName).find(n => n && byName[n].length > 3);
-    const group = dupName ? byName[dupName] : null;
-    const groupMap = group && group[0].map_id;
-    const groupIds = group && new Set(group.map(z => z.id));
-    const stand = group && getAllZones().find(z =>
-      z.map_id === groupMap && !groupIds.has(z.id) && !z.flags?.water && z.grid_x != null &&
-      z.exits && Object.keys(z.exits).length > 0);
+    let dupName, group, stand, expected;
+    for (const n of Object.keys(byName)) {
+      if (!n || byName[n].length <= 3) continue;
+      const g = byName[n], gIds = new Set(g.map(z => z.id)), gMap = g[0].map_id;
+      const stands = getAllZones().filter(z =>
+        z.map_id === gMap && !gIds.has(z.id) && !z.flags?.water && z.grid_x != null &&
+        z.exits && Object.keys(z.exits).length > 0);
+      // Bounded stand probe: for each candidate stand, does GPS's closest-8 window contain
+      // a road-reachable same-named tile? First hit wins. Cap the probe so a huge off-road
+      // cluster never fans out an unbounded BFS sweep before falling through to the next name.
+      for (const s of stands.slice(0, 40)) {
+        const near8 = g.slice().sort((a, b) => sq(s, a) - sq(s, b)).slice(0, 8);
+        const pick = near8.find(t => (findPath(s.id, t.id, { roads: true, maxDistance: 200 }) || []).length >= 2);
+        if (pick) { dupName = n; group = g; stand = s; expected = pick; break; }
+      }
+      if (stand) break;
+    }
     if (stand) {
       const savedGpsZone = p.current_zone;
       p.current_zone = stand.id;
@@ -57,17 +72,16 @@ export default async function regress({ run, check, getPlayer }) {
       r = await run(`gps ${group[0].name}`);
       const endId = r?.type === 'gps_route' ? r.path[r.path.length - 1] : null;
       const end = endId && getZone(endId);
-      const sq = (a, b) => (a.grid_x - b.grid_x) ** 2 + (a.grid_y - b.grid_y) ** 2;
       const chosenD = end ? sq(here, end) : Infinity;
-      const closest = Math.min(...group.map(z => sq(here, z)));
+      const closest = sq(here, expected); // the nearest same-named tile GPS can actually reach
       check(
         'gps to a many-tile name routes to a same-named tile',
         r?.type === 'gps_route' && end && (end.name || '').toLowerCase() === dupName,
         `type=${r?.type} end=${end?.name}`,
       );
       check(
-        'gps to a many-tile name picks (near) the closest tile',
-        chosenD <= closest * 1.05 + 1, // exact closest may be unreachable; allow the fallthrough
+        'gps to a many-tile name picks (near) the closest reachable tile',
+        chosenD <= closest * 1.05 + 1, // GPS routes to the closest reachable; slack for path ties
         `chosen²=${chosenD} closest²=${closest}`,
       );
       p.current_zone = savedGpsZone;
