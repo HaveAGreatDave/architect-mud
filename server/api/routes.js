@@ -1,4 +1,5 @@
 import { query, logActivity } from '../models/db.js';
+import { syncContentFromRequest, syncZoneDeletion } from './content-sync.js';
 import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps } from '../engine/world.js';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { allExits } from '../engine/exits.js';
@@ -169,7 +170,17 @@ function contentReadonlyBlocks(path, method) {
   return !OPS_ROUTES.some(re => re.test(path));
 }
 
+// Public entry: dispatch the request, then (local dev only, best-effort) mirror any
+// successful content write to its content/<table>/<pk>.json file. The sync never
+// changes the response the dev panel sees — a failure is logged and swallowed.
 export async function handleApiRequest(url, method, body, headers) {
+  const result = await dispatchApiRequest(url, method, body, headers);
+  try { await syncContentFromRequest(url, method, result); }
+  catch (e) { console.error('[content-sync]', e.message); }
+  return result;
+}
+
+async function dispatchApiRequest(url, method, body, headers) {
   const path = url.replace(/^\/api/,'').split('?')[0];
   const auth = verifyToken(headers);
 
@@ -1129,6 +1140,9 @@ export async function apiDeleteZone(id) {
     }
     await rescueDisplacedPlayers(allDeletedIds);
     fireHook('zone.delete', id, allDeletedIds).catch(() => {});
+    // Local dev: remove the content files for every deleted zone + their children
+    // (map-delete funnels through here too). No-op on prod. Best-effort.
+    try { syncZoneDeletion(allDeletedIds); } catch (e) { console.error('[content-sync]', e.message); }
     return {status:200,body:{message: children.length ? `Zone deleted (and ${children.length} attached room${children.length>1?'s':''})` : 'Zone deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
