@@ -340,6 +340,12 @@ export function getEnvSnapshot() {
   };
 }
 
+// Whether the player is currently indoors, per the authoritative visibility/tick state.
+// Consumers that only make sense outdoors (e.g. the on-foot fireworks sky-flash) gate on this.
+export function isFxIndoors() {
+  return fxIndoor;
+}
+
 // Fallback tick — only increments if the server hasn't pushed in over 90 seconds
 // (i.e. WS is disconnected). Normal operation is driven entirely by server pushes.
 setInterval(() => {

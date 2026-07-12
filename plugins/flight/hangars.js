@@ -9,7 +9,8 @@ import { query } from '../../server/models/db.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
   SEAT_KG, isConfigurable, loadoutBudget, effLoadout, sendToPlayer, skyState, inHangarInterior,
-  FLIGHT_PACE, tuneRange, installedKits, KITS, perfAxes } from './state.js';
+  FLIGHT_PACE, tuneRange, installedKits, KITS, perfAxes, parkAt, nearestAirfield, getZone,
+  detach, getLivePlayer } from './state.js';
 import { normalizeLivery, sanitizeLivery, signatureScore, describeExterior,
   paintCost, isPaintable, readSchemes, schemeOf,
   PATTERNS, FINISHES, UPHOLSTERY, DECALS, PRESETS } from './livery.js';
@@ -729,6 +730,53 @@ export async function cancelRental(player, aircraftId) {
   if (live) liveAircraft.delete(aircraftId);
   await query('DELETE FROM aircraft WHERE id=$1', [aircraftId]);
   return { type: 'output', message: `<span class="item-grant">Returned the ${clean(ac.tname)} — the rental slot is free.</span>` };
+}
+
+// Flush stuck airborne aircraft — Tablet OS "Vehicles" app. Recovery for a craft
+// left flagged airborne with nobody driving it: a crashed tab / lost connection
+// (or a server restart) can strand a plane at airborne=1, which blocks selling
+// and reads as "Airborne" forever until the 10-minute unattended auto-return in
+// index.js fires. Grounds every OWNED aircraft of the player's that's aloft with
+// no one aboard — a still-loaded instance is parked by the hangar crew (parkAt
+// disembarks + persists), a DB-only ghost just has its flag cleared in place.
+// A craft someone is genuinely flying (occupants aboard) is left alone. Returns
+// the count grounded.
+export async function flushAirborne(player) {
+  const { rows } = await query(
+    `SELECT id, airborne, parked_zone_id, grid_x, grid_y
+     FROM aircraft WHERE owner_id=$1 AND rental=0 AND is_wreck=0`, [player.id]);
+  let grounded = 0;
+  for (const ac of rows) {
+    const live = liveAircraft.get(ac.id);
+    if (live) {
+      // Recover a craft stranded "aboard" by a mid-flight refresh: a disconnect (or a
+      // reconnect that re-seats the pilot) leaves the owner in her occupant set, so she reads
+      // as "someone's flying her" forever and blocks flush + sell. Prune ghost occupants
+      // (disconnected) and detach the REQUESTING owner — invoking flush from the tablet IS them
+      // climbing out of their own plane. Only a DIFFERENT live player genuinely riding blocks it.
+      let realRider = false, recovered = false;
+      for (const pid of [...live.occupants]) {
+        const p = getLivePlayer(pid);
+        if (!p) { live.occupants.delete(pid); recovered = true; }            // ghost — gone
+        else if (pid === player.id) { detach(p); live.occupants.delete(pid); recovered = true; }   // it's you — climb out
+        else realRider = true;                                              // a real passenger — leave her be
+      }
+      if (realRider) continue;
+      if (live.row.airborne) {
+        const home = (live.homeField && getZone(live.homeField)?.flags?.airfield_id) ? live.homeField : null;
+        const dest = home || nearestAirfield(live.row.grid_x, live.row.grid_y)?.id || live.row.parked_zone_id;
+        if (dest) { await parkAt(live, dest); recovered = true; }           // set her down
+      }
+      if (recovered) grounded++;
+    } else if (ac.airborne) {
+      const dest = ac.parked_zone_id || nearestAirfield(ac.grid_x, ac.grid_y)?.id || null;
+      await query(
+        `UPDATE aircraft SET airborne=0, altitude_band='ground', throttle=0${dest ? ', parked_zone_id=$2' : ''} WHERE id=$1`,
+        dest ? [ac.id, dest] : [ac.id]);
+      grounded++;
+    }
+  }
+  return grounded;
 }
 
 // `sell <id>` (hangar-bay panel) / `cancelrental <id>` — the chat-command

@@ -66,6 +66,10 @@ async function buildScreen(player, screenId, params) {
     };
   }
 
+  // A plane can get stranded showing "Airborne" (crashed tab / lost connection /
+  // server restart) — unsellable and unmanageable until it's grounded. Offer a
+  // one-tap recovery when the fleet has any craft aloft.
+  const stuckAloft = list.filter(v => v.airborne).length;
   return {
     // A non-empty breadcrumb matters beyond display here: the client's list-item
     // click handler resends the CURRENT breadcrumb's last entry as the screenId
@@ -76,6 +80,11 @@ async function buildScreen(player, screenId, params) {
     view: 'list',
     breadcrumb: ['Fleet'],
     items: list.map(v => ({ id: v.id, label: v.tail, sub: `${v.typeName} · Hull ${v.hullPct}% · Fuel ${v.fuelPct}% · ${v.location}` })),
+    actions: stuckAloft ? [{
+      id: 'flush_airborne',
+      label: `Flush Airborne Aircraft (${stuckAloft})`,
+      confirm: `Ground ${stuckAloft} aircraft still flagged airborne with nobody aboard? Use this if a plane is stuck showing "Airborne" and won't sell.`,
+    }] : [],
   };
 }
 
@@ -86,6 +95,14 @@ async function buildScreen(player, screenId, params) {
 // "call this function with an id." Bottom-pane message either way, then stay on
 // this vehicle's screen on failure or fall back to the fleet list once she's gone.
 async function handleAction(player, actionId, params) {
+  // Fleet-level recovery: ground any of the player's aircraft stranded airborne.
+  if (actionId === 'flush_airborne') {
+    const { flushAirborne } = await import('../flight/hangars.js');
+    const n = await flushAirborne(player);
+    sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">${n ? `Grounded ${n} aircraft that ${n === 1 ? 'was' : 'were'} stuck aloft.` : 'No stranded aircraft to flush.'}</span>` });
+    return buildScreen(player, null, '');
+  }
+
   const aircraftId = (params || '').trim();
   if (!aircraftId || (actionId !== 'sell' && actionId !== 'cancel_rental')) return buildScreen(player, null, aircraftId);
 

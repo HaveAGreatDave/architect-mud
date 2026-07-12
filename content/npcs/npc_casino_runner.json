@@ -1,0 +1,71 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "emote": {
+        "action_type": "EMOTE",
+        "next": "wait",
+        "params": {
+          "message": "weaves between the tables balancing a tray of free drinks."
+        },
+        "type": "action"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "emote",
+        "seconds": 90,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Highball, sir? On the house.\"",
+    "\"Winner winner — another round?\""
+  ],
+  "description": "A runner threading the tables with a tray of free drinks, keeping the marks watered and seated.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They look away."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "(nod)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Drink? They're free. Everything after that isn't.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a sequinned house halter",
+      "a slim tank",
+      "a black bra and briefs"
+    ],
+    "personality": "bartender"
+  },
+  "home_activities": [],
+  "home_zone": "zone_casino_interior",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_casino_runner",
+  "name": "a cocktail runner",
+  "npc_type": "civilian",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": null,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_casino_interior"
+}

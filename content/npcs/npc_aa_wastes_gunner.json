@@ -1,0 +1,46 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "thumbs a round out of the feed, inspects it, and slots it back.",
+    "\"Out here you shoot what flies. Usually worth stripping when it comes down.\""
+  ],
+  "description": "A leathery wastes gun-hand crouched behind a jury-rigged autocannon bolted to a dead truck bed, goggles pushed up on a sunburnt forehead.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They turn back to the guns and the sky."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "...",
+          "next": "bye"
+        }
+      ],
+      "text": "They keep one eye on the sky. \"Unless you're here to help work the guns, you're in the way. Move.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "aa_crew": "aa_wastes_gun",
+    "personality": "mercenary"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_891_907",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_aa_wastes_gunner",
+  "name": "a wastes gun-hand",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_891_907"
+}

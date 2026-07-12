@@ -1,0 +1,15 @@
+{
+  "description": "A scuffed composite helmet with a cracked NVG mount. Rings like a bell when something big hits it — which beats the alternative.",
+  "flags": {},
+  "id": "item_ballistic_helm",
+  "name": "ballistic helmet",
+  "tags": {
+    "armor": 3,
+    "description": "A scuffed composite helmet with a cracked NVG mount. Rings like a bell when something big hits it — which beats the alternative.",
+    "layer": "armor",
+    "slot": "head"
+  },
+  "type": "armor",
+  "value": 90,
+  "weight": 1400
+}

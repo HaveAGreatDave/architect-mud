@@ -1,0 +1,163 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "chat": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "wait",
+        "type": "action"
+      },
+      "look": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "wait",
+        "ifTrue": "chat",
+        "type": "condition"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "look",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Everything here has a story. I sell you the item, not the story.\"",
+    "\"You didn't get it here. We're agreed.\"",
+    "\"Cash is cash. History is expensive.\""
+  ],
+  "description": "A thin, unhurried man behind the mesh, cataloguing you at a glance and pricing you a beat later. He smiles only with the lower half of his face.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They turn back to the counter."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let me see the stock.",
+          "next": "shop"
+        },
+        {
+          "label": "(walk off)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Buying or selling? Either way, keep your voice down and your hands where the camera likes them.\""
+    },
+    "shop": {
+      "actions": [
+        {
+          "action": "OPEN_SHOP",
+          "npcId": "npc_fence_kade"
+        }
+      ],
+      "options": [
+        {
+          "label": "(browse)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Take a look. Cash only, no refunds, no tears.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a many-pocketed utility coat",
+      "a faded company polo",
+      "grey boxer-briefs"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_fence_interior",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_fence_kade",
+  "name": "Sallow 'Ledger' Kade",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_lockpick_roll",
+      "price": 63,
+      "stock": 8
+    },
+    {
+      "item_id": "item_burner_phone",
+      "price": 42,
+      "stock": 12
+    },
+    {
+      "item_id": "item_fenced_watch",
+      "price": 84,
+      "stock": 5
+    },
+    {
+      "item_id": "item_pawn_ring",
+      "price": 49,
+      "stock": 8
+    },
+    {
+      "item_id": "item_holdout_pistol",
+      "price": 126,
+      "stock": 4
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Pawn & Pity",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_fence_interior"
+}

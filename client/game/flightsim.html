@@ -39,9 +39,10 @@ body{ background:var(--bg); color:var(--ink); font-family:var(--font); overflow:
   background:rgba(6,12,18,.6); border:1px solid #16303f; border-radius:8px; padding:5px 7px; backdrop-filter:blur(3px); }
 #craftSel{ background:var(--panel); border:1px solid #16242f; color:var(--accent);
   border-radius:6px; padding:6px 7px; font-family:var(--font); font-size:12px; }
-#respawn{ background:#0f2231; border:1px solid #315c6f; color:var(--accent);
+#respawn,#wxToggle{ background:#0f2231; border:1px solid #315c6f; color:var(--accent);
   border-radius:6px; padding:7px 9px; font-family:var(--font); font-size:11px; letter-spacing:1px; cursor:pointer; }
-#respawn:active{ transform:translateY(1px); }
+#respawn:active,#wxToggle:active{ transform:translateY(1px); }
+#wxToggle.on{ background:#123a2a; border-color:#3f8f6a; color:#8fffcf; }   /* lit when the demo front is up */
 
 /* ── Mobile: a bigger yoke, dropped into its own bottom band, clear of the gauges.
    The cockpit normally lets the yoke graphic rise UP into the gauge panel
@@ -50,7 +51,7 @@ body{ background:var(--bg); color:var(--ink); font-family:var(--font); overflow:
 @media (max-width: 820px){
   #area-content .fsim{ gap:4px; padding:4px; }
   #area-content .fsim-glass{ height:21vh; }
-  #area-content .fsim-rightctl{ flex:0 0 88px; }          /* throttle · engine · flaps stay, a touch narrower */
+  #area-content .fsim-rightctl{ flex:0 0 112px; }         /* throttle · engine · flaps (roomier gate) stay, a touch narrower */
   #area-content .fsim-ctl{ height:34vh; }                 /* tall bottom band = a big yoke, further down */
   #area-content .fsim-placard,
   #area-content .fsim-xpdr{ display:none; }               /* hand the whole bottom row to the yoke */
@@ -71,6 +72,7 @@ body{ background:var(--bg); color:var(--ink); font-family:var(--font); overflow:
      so it survives the cockpit re-mounting itself into the pane. -->
 <div id="chrome">
   <select id="craftSel" title="aircraft"></select>
+  <button id="wxToggle" title="toggle a demo weather front (fly-through clouds)">☁ WX</button>
   <button id="respawn" title="respawn on the strip (or after a crash/park)">↺</button>
 </div>
 
@@ -136,6 +138,33 @@ function genWindow(cx, cy){
 
 const SKY = { hour:14, weather:'clear', wind:0 };
 
+// ── Demo weather front (the ☁ WX toggle) ──────────────────────────────────────
+// The real game plumbs sky.field from the server; this open rig has none, so the
+// fly-through cloud deck (windshield.js) has no cells to render. This is a stand-in
+// field — a scatter of drifting cloud cells + one storm — in the SAME shape the
+// server sends (cells advected by stepWeatherCells, sampled for rain/whiteout). Flip
+// it on to climb into real clouds; off restores clear skies. Cells drift on their own
+// velocities and torus-wrap inside `bounds`, so a front keeps circling back to fly through.
+const WX_FIELD = {
+  tick: 30,
+  bounds: { minX:-70, maxX:70, minY:-70, maxY:70 },
+  cells: [
+    { x:   0, y:-24, r:15, intensity:0.80, type:'cloud',                 vx: 0.6, vy: 0.2 },
+    { x: -20, y:-44, r:19, intensity:0.95, type:'cloud',                 vx: 0.4, vy: 0.5 },
+    { x:  24, y:-58, r:16, intensity:1.00, type:'storm', precip:'rain',  vx:-0.3, vy: 0.4 },
+    { x:  32, y:  9, r:13, intensity:0.70, type:'cloud',                 vx: 0.5, vy:-0.3 },
+    { x: -32, y: 14, r:16, intensity:0.85, type:'cloud',                 vx: 0.2, vy:-0.4 },
+  ],
+};
+let wxOn = false;
+function setWeather(on){
+  wxOn = on;
+  SKY.weather = on ? 'cloudy' : 'clear';
+  SKY.field   = on ? WX_FIELD : undefined;
+  document.getElementById('wxToggle').classList.toggle('on', on);
+  flightSimContext({ sky: SKY });   // takes effect on the next render frame (F.sky.field)
+}
+
 // ── Launch / relaunch the live cockpit ────────────────────────────────────────
 function launch(){
   const c = byKey(craftKey);
@@ -185,6 +214,7 @@ FLEET.forEach(f => { const o = document.createElement('option'); o.value = f.key
 sel.value = craftKey;
 sel.addEventListener('change', () => { craftKey = sel.value; launch(); });
 document.getElementById('respawn').addEventListener('click', launch);
+document.getElementById('wxToggle').addEventListener('click', () => setWeather(!wxOn));
 
 launch();
 requestAnimationFrame(provide);

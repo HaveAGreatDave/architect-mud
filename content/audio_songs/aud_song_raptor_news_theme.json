@@ -1,0 +1,208 @@
+{
+  "category": "theme",
+  "channel_pan": [],
+  "channels": [
+    [
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "G4",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "C5",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "C5",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "D5",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "E5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "G5",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "G5",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "F5",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "E5",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "D5",
+        "vol": 1
+      },
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "C5",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "E5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "G5",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "C6",
+        "vol": 1
+      },
+      null,
+      null,
+      null
+    ],
+    [
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "C3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "C3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "C3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "C3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "C3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "C3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "C3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "C3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "F2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "F2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "C3",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_brass_saw",
+        "note": "G2",
+        "vol": 0.8
+      },
+      null
+    ]
+  ],
+  "enabled": 1,
+  "id": "aud_song_raptor_news_theme",
+  "instrument_ids": [
+    "aud_inst_brass_saw"
+  ],
+  "loop_end": 0,
+  "loop_start": 0,
+  "name": "raptor_news_theme",
+  "priority": 5,
+  "tempo": 144
+}

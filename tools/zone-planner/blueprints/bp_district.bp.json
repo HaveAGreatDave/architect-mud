@@ -11,7 +11,7 @@
     "Water": {
       "label": "Water",
       "template": "water",
-      "name": "Cold Channel",
+      "name": "Coldwater Basin",
       "bg": "#1d3b52",
       "color": "#7fd3ff",
       "marker": "≈",

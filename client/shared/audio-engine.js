@@ -988,6 +988,297 @@
     else _sampleCache.clear();
   }
 
+  // ── Formant speech: procedural TV-narrator readout ──────────────────────────
+  // Two stages: text→phoneme (dictionary + rules) and phoneme→formant synthesis.
+  // Each narrator's name seeds a deterministic voice. Rides the 'tv' bus, so TV
+  // volume, the tv-enable toggle, and mute-when-hidden already apply. Sounds like
+  // a 1980s talking machine — intentional, for a machine-run broadcast network.
+  const Speech = (function () {
+    // Phoneme inventory: [F1,F2,F3] Hz, type, nominal duration (ms).
+    // Types: V vowel, N nasal, L liquid/glide, F fricative, S stop, H aspirate, P pause.
+    const PH = {
+      IY:{f:[270,2290,3010],t:'V',d:130}, IH:{f:[390,1990,2550],t:'V',d:100},
+      EH:{f:[530,1840,2480],t:'V',d:110}, AE:{f:[660,1720,2410],t:'V',d:140},
+      AA:{f:[730,1090,2440],t:'V',d:150}, AO:{f:[570,840,2410],t:'V',d:140},
+      UH:{f:[440,1020,2240],t:'V',d:100}, UW:{f:[300,870,2240],t:'V',d:140},
+      ER:{f:[490,1350,1690],t:'V',d:150}, AH:{f:[640,1190,2390],t:'V',d:90},
+      EY:{f:[530,1840,2480],to:[270,2290,3010],t:'V',d:170},
+      AY:{f:[730,1090,2440],to:[270,2290,3010],t:'V',d:180},
+      OY:{f:[570,840,2410], to:[270,2290,3010],t:'V',d:180},
+      OW:{f:[570,840,2410], to:[300,870,2240], t:'V',d:170},
+      AW:{f:[730,1090,2440],to:[300,870,2240], t:'V',d:180},
+      M:{f:[250,1100,2200],t:'N',d:80}, N:{f:[250,1700,2600],t:'N',d:80}, NG:{f:[250,2000,2900],t:'N',d:80},
+      L:{f:[360,1300,2600],t:'L',d:70}, R:{f:[420,1300,1600],t:'L',d:80},
+      W:{f:[300,610,2200],t:'L',d:70},  Y:{f:[270,2290,3010],t:'L',d:60},
+      S:{t:'F',d:110,nf:6500,nq:6,vd:0},  Z:{t:'F',d:100,nf:6500,nq:6,vd:.5},
+      SH:{t:'F',d:120,nf:2600,nq:4,vd:0}, ZH:{t:'F',d:100,nf:2600,nq:4,vd:.5},
+      F:{t:'F',d:100,nf:4000,nq:2,vd:0},  V:{t:'F',d:90,nf:4000,nq:2,vd:.5},
+      TH:{t:'F',d:100,nf:5500,nq:2,vd:0}, DH:{t:'F',d:80,nf:5500,nq:2,vd:.5},
+      HH:{t:'H',d:80,nf:1500,nq:1,vd:0},
+      CH:{t:'F',d:120,nf:2600,nq:4,vd:0,stopFirst:1}, JH:{t:'F',d:110,nf:2600,nq:4,vd:.4,stopFirst:1},
+      P:{t:'S',d:90,nf:1500,vd:0}, B:{t:'S',d:80,nf:900,vd:.4},
+      T:{t:'S',d:90,nf:4000,vd:0}, D:{t:'S',d:80,nf:3000,vd:.4},
+      K:{t:'S',d:90,nf:2000,vd:0}, G:{t:'S',d:80,nf:1800,vd:.4},
+      _:{t:'P',d:120},
+    };
+
+    // High-frequency irregulars + broadcast vocab the rules/dict get wrong. Wins over CMU.
+    const DICT = {
+      the:'DH AH', a:'AH', of:'AH V', to:'T UW', evening:'IY V N IH NG',
+      soylent:'S OY L EH N T', coldwater:'K OW L D W AO T ER', architect:'AA R K IH T EH K T',
+    };
+    function dictLook(w){ return DICT[w] ? DICT[w].split(' ') : null; }
+
+    // CMUdict subset (25k words, single-char encoded) — decoded lazily on first use.
+    let CMU = null;
+    function cmuBuild(){
+      CMU = new Map();
+      const D = global.CMUDICT; if (!D) return;
+      CMU._A = D.alpha; CMU._P = D.phones;
+      for (const line of D.blob.split('\n')) {
+        const sp = line.indexOf(' '); if (sp < 0) continue;
+        CMU.set(line.slice(0, sp), line.slice(sp + 1));
+      }
+    }
+    function cmuLook(w){
+      if (!CMU) cmuBuild();
+      const enc = CMU.get(w); if (!enc) return null;
+      const out = [];
+      for (const ch of enc) out.push(CMU._P[CMU._A.indexOf(ch)]);
+      return out;
+    }
+
+    const VOICED_END = new Set(['B','D','G','V','DH','Z','ZH','M','N','NG','L','R','W','Y','JH',
+      'IY','IH','EH','AE','AA','AO','UH','UW','ER','AH','EY','AY','OY','OW','AW']);
+    const SIBILANT = new Set(['S','Z','SH','ZH','CH','JH']);
+
+    // Pronounce a word: hand-dict → CMU → inflectional suffix → letter rules.
+    function pronounceWord(w){
+      w = w.toLowerCase().replace(/[^a-z']/g,'');
+      if (!w) return [];
+      const d = dictLook(w); if (d) return d;
+      const c = cmuLook(w);  if (c) return c;
+      const stemPh = (s)=>{ const dd = dictLook(s) || cmuLook(s); return dd || g2p(s); };
+      let m;
+      if ((m=/^(.+?)(s)$/.exec(w)) && w.length>2 && !/(ss|us|is)$/.test(w)) {
+        const ph = stemPh(m[1]);
+        if (ph.length) { const last = ph[ph.length-1];
+          if (SIBILANT.has(last)) return [...ph,'IH','Z'];
+          return [...ph, VOICED_END.has(last)?'Z':'S']; }
+      }
+      if ((m=/^(.+?)ed$/.exec(w)) && w.length>3) {
+        let ph = stemPh(m[1]);
+        if (!ph.length && m[1].length) ph = g2p(m[1]+'e');
+        if (ph.length) { const last = ph[ph.length-1];
+          if (last==='T'||last==='D') return [...ph,'IH','D'];
+          return [...ph, VOICED_END.has(last)?'D':'T']; }
+      }
+      if ((m=/^(.+?)ing$/.exec(w)) && w.length>4) {
+        let stem = m[1], ph = stemPh(stem);
+        if (stem.length && !/[aeiou]{2}|[aeiou][^aeiou][^aeiou]/.test(stem)) { const e = g2p(stem+'e'); if (e.length) ph = e; }
+        if (ph.length) return [...ph,'IH','NG'];
+      }
+      if ((m=/^(.+?)ly$/.exec(w)) && w.length>3) { const ph = stemPh(m[1]); if (ph.length) return [...ph,'L','IY']; }
+      if ((m=/^(.+?)er$/.exec(w)) && w.length>3) { const ph = stemPh(m[1]); if (ph.length) return [...ph,'ER']; }
+      return g2p(w);
+    }
+
+    // Grapheme-to-phoneme fallback: compact rule set, left-to-right longest match.
+    function g2p(word){
+      word = word.toLowerCase().replace(/[^a-z']/g,'');
+      if (!word) return [];
+      const out = []; let i = 0;
+      const isV = c => 'aeiou'.includes(c);
+      const at = k => word[k] || '';
+      while (i < word.length) {
+        const c = word[i], nx = at(i+1);
+        const rest = word.slice(i);
+        if (i===0 && c==='k' && nx==='n') { out.push('N'); i+=2; continue; }
+        if (i===0 && c==='w' && nx==='r') { out.push('R'); i+=2; continue; }
+        if (i===0 && c==='g' && nx==='n') { out.push('N'); i+=2; continue; }
+        if (c==='m' && nx==='b' && i+2>=word.length) { out.push('M'); i+=2; continue; }
+        if (c==='g' && nx==='n' && i+2>=word.length) { out.push('N'); i+=2; continue; }
+        if (rest.startsWith('tion')) { out.push('SH','AH','N'); i+=4; continue; }
+        if (rest.startsWith('sion')) { out.push('ZH','AH','N'); i+=4; continue; }
+        if (rest.startsWith('ough')) { out.push('AO'); i+=4; continue; }
+        if (rest.startsWith('igh'))  { out.push('AY'); i+=3; continue; }
+        if (rest.startsWith('tch'))  { out.push('CH'); i+=3; continue; }
+        if (c==='t' && nx==='h') { out.push(i===0?'TH':'DH'); i+=2; continue; }
+        if (c==='s' && nx==='h') { out.push('SH'); i+=2; continue; }
+        if (c==='c' && nx==='h') { out.push('CH'); i+=2; continue; }
+        if (c==='p' && nx==='h') { out.push('F'); i+=2; continue; }
+        if (c==='w' && nx==='h') { out.push('W'); i+=2; continue; }
+        if (c==='g' && nx==='h') { i+=2; continue; }
+        if (c==='c' && nx==='k') { out.push('K'); i+=2; continue; }
+        if (c==='n' && nx==='g' && (i+2>=word.length)) { out.push('NG'); i+=2; continue; }
+        if (c==='q' && nx==='u') { out.push('K','W'); i+=2; continue; }
+        if (c==='n' && nx==='k') { out.push('NG','K'); i+=2; continue; }
+        const vd = { ee:'IY',ea:'IY',oo:'UW',ou:'AW',ow:'OW',oa:'OW',ai:'EY',ay:'EY',
+                     oy:'OY',oi:'OY',au:'AO',aw:'AO',ey:'IY',ie:'AY',ue:'UW',ei:'EY' };
+        const two = c+nx;
+        if (vd[two]) { out.push(vd[two]); i+=2; continue; }
+        if (!isV(c) && c===nx) { i++; continue; }
+        if (isV(c)) {
+          const silentE = (nx && !isV(nx) && at(i+2)==='e' && i+3>=word.length);
+          const longMap  = {a:'EY',e:'IY',i:'AY',o:'OW',u:'UW'};
+          const shortMap = {a:'AE',e:'EH',i:'IH',o:'AA',u:'AH'};
+          if (c==='e' && i===word.length-1 && i>0) { i++; continue; }
+          if (silentE) { out.push(longMap[c]); i++; continue; }
+          if (c==='o' && nx==='r') { out.push('AO'); i++; continue; }
+          if (c==='a' && nx==='r') { out.push('AA'); i++; continue; }
+          if ((c==='e'||c==='i'||c==='u') && nx==='r') { out.push('ER'); i++; continue; }
+          out.push(shortMap[c]); i++; continue;
+        }
+        switch (c) {
+          case 'c': out.push((nx==='e'||nx==='i'||nx==='y')?'S':'K'); break;
+          case 'g': out.push((nx==='e'||nx==='i'||nx==='y')?'JH':'G'); break;
+          case 'j': out.push('JH'); break;
+          case 'x': out.push('K','S'); break;
+          case 'y': out.push(i===0?'Y':'IY'); break;
+          case 'w': out.push('W'); break; case 'r': out.push('R'); break;
+          case 'l': out.push('L'); break; case 'h': out.push('HH'); break;
+          case "'": break;
+          default: { const mm={b:'B',d:'D',f:'F',k:'K',m:'M',n:'N',p:'P',s:'S',t:'T',v:'V',z:'Z'};
+                     if (mm[c]) out.push(mm[c]); }
+        }
+        i++;
+      }
+      return out;
+    }
+
+    function textToPhonemes(text){
+      const seq = [];
+      for (const tok of String(text).trim().split(/(\s+|[.,!?;:])/)) {
+        if (!tok) continue;
+        if (/^\s+$/.test(tok)) { seq.push('_'); continue; }
+        if (/^[.,!?;:]$/.test(tok)) { seq.push('_','_'); continue; }
+        seq.push(...pronounceWord(tok));
+      }
+      return seq;
+    }
+
+    // Per-narrator voice: deterministic from the name. Nothing stored — name IS the voice.
+    function hashName(s){
+      let h = 2166136261 >>> 0; s = (s||'').toLowerCase().trim();
+      for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h,16777619); }
+      return h >>> 0;
+    }
+    function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+    function voiceFromName(name){
+      const r = mulberry32(hashName(name)); const pick = arr => arr[Math.floor(r()*arr.length)];
+      const high = r() < 0.5;
+      return {
+        f0:     high ? 120+r()*55 : 82+r()*38,
+        fshift: high ? 1.02+r()*0.16 : 0.9+r()*0.12,
+        speed:  0.92+r()*0.22,
+        ring:   r()<0.25 ? 0.10+r()*0.22 : r()*0.06,
+        wave:   pick(['sawtooth','sawtooth','square','square']),
+        jitter: 0.004+r()*0.016,
+        breath: r()*0.05,
+      };
+    }
+
+    // Rough total duration (s) of a phoneme run at a given speed — used to decide
+    // how much to compress a line so it fits before the next broadcast tick.
+    function estimateDuration(phon, speed){
+      let t = 0.08;
+      for (const code of phon) {
+        const p = PH[code]; if (!p) continue;
+        if (p.t==='F' && p.stopFirst) t += 0.03;
+        t += Math.max(0.03, (p.d/1000)/speed);
+      }
+      return t;
+    }
+
+    let live = [];
+    function cancel(){ live.forEach(n => { try { n.stop(); } catch { /* already stopped */ } }); live = []; }
+
+    function speak(text, opt = {}){
+      if (!_settings.enabled || !_settings.tv) return;
+      const c = ensureContext(); if (!c) return;
+      if (c.state === 'suspended') c.resume();
+      cancel();
+      const V = voiceFromName(opt.seed || text);
+      const F0 = V.f0, ringAmt = V.ring, fshift = V.fshift;
+      const phon = textToPhonemes(text);
+      if (!phon.length) return;
+      // Fit-to-window: if the line won't finish before the next is expected (opt.budget
+      // seconds), speed up — never down — so it lands in time. Capped so it stays legible.
+      let speed = V.speed;
+      if (opt.budget > 0.5) {
+        const target = opt.budget * 0.9;                 // leave a little headroom
+        const natural = estimateDuration(phon, speed);
+        if (natural > target) speed *= Math.min(natural / target, 2.0);
+      }
+      const out = busFor('tv');
+
+      const master = c.createGain(); master.gain.value = 0.9;
+      const ringGain = c.createGain(); ringGain.gain.value = 1 - ringAmt;
+      const lfo = c.createOscillator(); lfo.frequency.value = 50;
+      const lfoDepth = c.createGain(); lfoDepth.gain.value = ringAmt;
+      lfo.connect(lfoDepth).connect(ringGain.gain);
+      master.connect(ringGain).connect(out);
+
+      const glot = c.createOscillator(); glot.type = V.wave; glot.frequency.value = F0;
+      const jit = c.createOscillator(); jit.type = 'triangle'; jit.frequency.value = 9;
+      const jitG = c.createGain(); jitG.gain.value = F0 * V.jitter; jit.connect(jitG).connect(glot.frequency);
+      const voiced = c.createGain(); voiced.gain.value = 0;
+      const forms = [0,1,2].map(k => {
+        const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 500; bp.Q.value = [8,10,12][k];
+        const g = c.createGain(); g.gain.value = [1,0.7,0.4][k];
+        glot.connect(bp).connect(g).connect(voiced);
+        return bp;
+      });
+      voiced.connect(master);
+
+      const nz = c.createBufferSource(); nz.buffer = getNoiseBuffer(); nz.loop = true;
+      const nbp = c.createBiquadFilter(); nbp.type = 'bandpass'; nbp.frequency.value = 4000; nbp.Q.value = 3;
+      const noiseG = c.createGain(); noiseG.gain.value = 0;
+      nz.connect(nbp).connect(noiseG).connect(master);
+
+      const t0 = c.currentTime + 0.05; let t = t0;
+      const setF = (when, arr) => forms.forEach((bp, k) => bp.frequency.setTargetAtTime(arr[k]*fshift, when, 0.015));
+
+      for (const code of phon) {
+        const p = PH[code]; if (!p) continue;
+        const dur = Math.max(0.03, (p.d/1000)/speed);
+        if (p.t==='V' || p.t==='N' || p.t==='L') {
+          setF(t, p.f);
+          voiced.gain.setTargetAtTime(p.t==='V'?0.9:0.6, t, 0.012);
+          noiseG.gain.setTargetAtTime(V.breath, t, 0.01);
+          if (p.to) setF(t+dur*0.5, p.to);
+          t += dur;
+        } else if (p.t==='F' || p.t==='H') {
+          if (p.stopFirst) { voiced.gain.setTargetAtTime(0,t,0.005); noiseG.gain.setTargetAtTime(0,t,0.005); t += 0.03; }
+          nbp.frequency.setTargetAtTime(p.nf, t, 0.01); nbp.Q.value = p.nq||3;
+          noiseG.gain.setTargetAtTime(p.t==='H'?0.14:0.3, t, 0.008);
+          voiced.gain.setTargetAtTime(p.vd?0.35:0, t, 0.008);
+          t += dur; noiseG.gain.setTargetAtTime(0, t, 0.02);
+        } else if (p.t==='S') {
+          voiced.gain.setTargetAtTime(0, t, 0.004); noiseG.gain.setTargetAtTime(0, t, 0.004);
+          t += dur*0.6;
+          nbp.frequency.setTargetAtTime(p.nf, t, 0.005); nbp.Q.value = 2;
+          noiseG.gain.setTargetAtTime(0.28, t, 0.003); noiseG.gain.setTargetAtTime(0, t+0.02, 0.01);
+          if (p.vd) voiced.gain.setTargetAtTime(0.3, t, 0.005);
+          t += dur*0.4;
+        } else if (p.t==='P') {
+          voiced.gain.setTargetAtTime(0, t, 0.02); noiseG.gain.setTargetAtTime(0, t, 0.02);
+          t += dur/speed;
+        }
+      }
+      const end = t + 0.08;
+      voiced.gain.setTargetAtTime(0, end, 0.02);
+      noiseG.gain.setTargetAtTime(0, end, 0.02);
+      glot.frequency.setValueAtTime(F0, t0);
+      glot.frequency.linearRampToValueAtTime(F0*0.92, end);
+      glot.start(t0); nz.start(t0); lfo.start(t0); jit.start(t0);
+      glot.stop(end+0.1); nz.stop(end+0.1); lfo.stop(end+0.1); jit.stop(end+0.1);
+      live = [glot, nz, lfo, jit];
+    }
+
+    return { speak, cancel };
+  })();
+
   global.AudioEngine = {
     init, applyVolumeSettings,
     playSfx, playSample, clearSampleCache,
@@ -995,6 +1286,8 @@
     playMusic, stopMusic, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
     stop,
     noteToFreq,
+    speak: (text, opt) => Speech.speak(text, opt),
+    cancelSpeech: () => Speech.cancel(),
     // Hand a custom synth (e.g. the flight-engine) the context + ambient bus + shared noise
     // buffer so it can build its own live, parameter-driven node graph on the ambient chain.
     engineNodes: () => { const c = ensureContext(); if (!c) return null; return { ctx: c, bus: busFor('ambient'), noise: getNoiseBuffer() }; },

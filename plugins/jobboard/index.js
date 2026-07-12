@@ -70,6 +70,26 @@ export async function turnInNpcForQuest(questId) {
 
 function nowSec() { return Math.floor(Date.now() / 1000); }
 
+// Cheap "is this quest posted on ANY board?" check, cached (60s TTL, invalidated
+// on board CRUD below) so the quests plugin can gate job-board-only rules — e.g.
+// the longer tile-work window — without a DB hit per objective tick.
+let _boardQuestIds = null;
+let _boardQuestAt = 0;
+const BOARD_QUEST_TTL = 60;
+export async function jobBoardQuestIds() {
+  if (_boardQuestIds && (nowSec() - _boardQuestAt) < BOARD_QUEST_TTL) return _boardQuestIds;
+  const { rows } = await query('SELECT quest_pool FROM job_boards');
+  const set = new Set();
+  for (const r of rows) if (Array.isArray(r.quest_pool)) for (const id of r.quest_pool) set.add(id);
+  _boardQuestIds = set; _boardQuestAt = nowSec();
+  return set;
+}
+export async function isJobBoardQuest(questId) {
+  if (!questId) return false;
+  return (await jobBoardQuestIds()).has(questId);
+}
+function invalidateBoardQuestCache() { _boardQuestIds = null; }
+
 function isComplete(quest, progress) {
   return (quest.objectives || []).every((o, i) => (progress[i] || 0) >= (o.count || 1));
 }
@@ -300,6 +320,7 @@ export const routeHandler = async (path, method, body, auth) => {
         [bid, body.zone_id || '', body.name || 'Job Board', body.description || '',
          JSON.stringify(body.quest_pool || []), body.rotation_size || 3, body.rotation_period || DEFAULT_PERIOD]
       );
+      invalidateBoardQuestCache();
       return { status: 201, body: { id: bid } };
     }
     if (id && method === 'PUT') {
@@ -311,12 +332,14 @@ export const routeHandler = async (path, method, body, auth) => {
       );
       // Clear the rotation snapshot so an edited pool/size shows on the next read.
       await clearFlag('world', `jobboard_rot_${id}`);
+      invalidateBoardQuestCache();
       return { status: 200, body: { id } };
     }
     if (id && method === 'DELETE') {
       if (auth.role !== 'admin') return { status: 403, body: { error: 'Admin access required' } };
       await query('DELETE FROM job_boards WHERE id=$1', [id]);
       await clearFlag('world', `jobboard_rot_${id}`);
+      invalidateBoardQuestCache();
       return { status: 200, body: { message: 'Deleted' } };
     }
   } catch (e) {

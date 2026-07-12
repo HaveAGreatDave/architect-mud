@@ -2,10 +2,11 @@
 
 Fishing is a posture-based, perpetual **cast-and-wait** action for water-adjacent
 zones — the water-side cousin of [scavenging](systems-scavenging.md). Casting
-waits for a bite; a bite **arms a client-side tension-bar reel overlay**; landing
-the reel pulls a catch from a loot table gated by the new **Fishing** skill.
+waits for a bite; a bite **arms a client-side cast+reel overlay**; the player's
+**cast (power = depth, angle = lane)** decides what's on the line, and landing
+the reel pulls that catch from a loot table gated by the new **Fishing** skill.
 
-Owned by `plugins/fishing/` (verbs `fish` / `fishresolve`). See
+Owned by `plugins/fishing/` (verbs `fish` / `fishcast` / `fishresolve`). See
 [plugins.md](plugins.md) for the ownership/precedence rule.
 
 ## The loop (server)
@@ -21,11 +22,32 @@ A 1 s tick runs one **cast** every `ATTEMPT_MS` (4.2 s):
 1. **Gate checks** — still in a `fishing_table_id` zone, still carrying a rod.
 2. **Bite roll** — `BITE_CHANCE` (0.55, +0.15 with bait). A miss prints a quiet
    flavor line and nudges after `HINT_STREAK` (3) dry casts.
-3. **On a bite** — pick a weighted target from the eligible pool, mint an
-   anti-spoof `token`, set `fishState.pending`, and send a `fishing_game` message
-   to arm the overlay. **The loop pauses** (no further casts) until the overlay
-   resolves via `fishresolve`, or `PENDING_TTL_MS` (30 s) elapses (player
-   abandoned the overlay → "the line goes slack" and the loop resumes).
+3. **On a bite** — build the eligible pool but **don't pick the catch yet**;
+   stash the whole pool on `fishState.pending` (`phase: 'cast'`), mint an
+   anti-spoof `token`, and send a `fishing_game` message to arm the **cast**
+   overlay (with the pool's average difficulty for cast-stage feel). **The loop
+   pauses** until the cast+fight resolves via `fishresolve`, or `PENDING_TTL_MS`
+   (30 s) elapses at either phase (player abandoned the overlay → "the line goes
+   slack" and the loop resumes; `armedAt` is reset when the cast lands, so the
+   fight gets its own full TTL).
+
+### The cast decides the catch (`fishcast`)
+The overlay's cast stage reports `fishcast <zoneId> <power> <angle> <token>`
+(power/angle ∈ [0,1], clamped server-side). `cmdFishCast` validates the token +
+posture + carried rod, then **`pickCastTarget(pool, power, angle)`** chooses the
+catch and flips `pending.phase` to `'fight'`:
+- **Power → depth.** A catch's "home depth" is `difficulty / DEPTH_MAX` (12);
+  weight is scaled by `0.35 + (1 − |power − homeDepth|)`, so a deep cast tilts
+  the draw toward the scarcer, higher-difficulty entries.
+- **Angle → off-line specials.** `offAxis = |angle − 0.5|·2`. Bait-gated catches
+  and monster hooks get `×(1 + offAxis·2.2)`; ordinary catches get `×(1 −
+  offAxis·0.4)`. Straight water favours the ordinary pool; angling off raises the
+  odds of the specials.
+
+The client can only *influence* the draw (it can't summon an out-of-pool catch —
+the pool is the server's). The chosen catch's real difficulty is sent back in a
+`fishing_fight` message, which arms the reel stage tuned to what you actually
+hooked.
 
 ### The eligible bite pool
 - **Normal catches** — stocked `scavenging_table_items` with `current_qty > 0`.
@@ -36,12 +58,21 @@ A 1 s tick runs one **cast** every `ATTEMPT_MS` (4.2 s):
 
 ## The reel overlay (client)
 
-`client/game/js/panels/fishing.js` → `openFishing()`, built on the shared
-minigame chrome (`minigame-common.js`): moulded chassis, branded head, recessed
-bezel + bulged-CRT screen, deck strip with live threat LEDs — the same hardware
-family as Circuit Breach / Hololock / the ATM.
+`client/game/js/panels/fishing.js` → `openFishing()` (+ `armFishFight()` for the
+handoff), built on the shared minigame chrome (`minigame-common.js`): moulded
+chassis, branded head, recessed bezel + bulged-CRT screen, deck strip with live
+threat LEDs — the same hardware family as Circuit Breach / Hololock / the ATM.
 
-**Mechanic — keep-in-zone:** a vertical water column holds a controllable **gaff**
+**Stage 1 — the cast:** a horizontal AIM tick sweeps the surface; TAP (button /
+tube / Space) locks the **angle** and hands straight to a vertical POWER meter
+that charges (0 SHALLOW → 1 DEEP) while held. RELEASE fires — power + angle are
+reported via `onCast` → `fishcast`. The bobber pays out to that lane and depth,
+settles, and is yanked under (`FISH ON!`) while the server picks the catch. A
+shallow cast also seeds a fuller CREEL head-start (`generateFight` — deep water
+is high risk / high reward). The fight only starts once **both** the pay-out
+animation and the server's `fishing_fight` have landed (`tryStartFight`).
+
+**Stage 2 — the reel, keep-in-zone:** a vertical water column holds a controllable **gaff**
 band and the hooked **catch**. HOLD (Space / the button / the tube) reels the gaff
 up; release lets it sink under gravity. Keep the gaff bracketing the catch to fill
 the **CREEL** meter; lose the bracket and the creel drains while **TENSION**

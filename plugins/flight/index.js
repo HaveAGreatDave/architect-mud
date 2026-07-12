@@ -19,6 +19,7 @@ import { getTimeScale } from '../../server/engine/gametime.js';
 import { dispatchAction, registerAction } from '../../server/engine/actions.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { getZoneEnemies, getZoneNpcs } from '../../server/engine/world.js';
+import { getEnvironmentState } from '../../server/engine/environment.js';
 import {
   TICK_MS, FUEL_RESERVE_FRAC, BANDS, BAND_LABEL, BAND_BURN, DIRS, DIR_ALIASES,
   liveAircraft, surfaceAt, bounds, loadAircraft, pilotOf, persist, reap, effStats,
@@ -29,7 +30,7 @@ import {
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
   RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, runwayFor,
 } from './state.js';
-import { describeExterior, rampColorWord, conspicuousnessMult } from './livery.js';
+import { describeExterior, rampColorWord, conspicuousnessMult, normalizeLivery } from './livery.js';
 import { districtBiome } from './biomes.js';
 import { rollHazards, commands as hazardCommands } from './hazards.js';
 import { commands as acquisitionCommands, refuelAt, refuelParked, fieldStocks } from './acquisition.js';
@@ -421,6 +422,7 @@ async function cmdTakeoffResolve(args, raw, player) {
     pushHud(live); return { type: 'noop' };
   }
   live.row.airborne = 1; live.row.altitude_band = 'low'; live.row.parked_zone_id = null; live.starving = false;
+  live.lastSync = Date.now();   // fresh unattended-recovery clock at wheels-up
   live.runup = false;
   if (live.row.throttle < 50) live.row.throttle = 70;   // climb-out power (the deck flew it off; keep it flying)
   initFloat(live);
@@ -485,6 +487,7 @@ function sendFlightSim(player, live) {
     type: 'flight_sim',
     craftType: live.type.id.replace(/^ac_/, ''),
     craftClass: live.type.class,
+    livery: normalizeLivery(live.row.custom_data),   // paint-bay scheme the external chase model renders in
     deviceName: live.type.name,
     airport: groundTheme(zone),
     gx: live.row.grid_x, gy: live.row.grid_y, heading: toDeg(live.row.heading),
@@ -511,6 +514,7 @@ async function cmdFlightSync(args, raw, player) {
   const n = args.map(Number);
   if (n.length < 9 || n.some(Number.isNaN)) return { type: 'noop' };
   reconcile(live, { gx: n[0], gy: n[1], alt: n[2], ias: n[3], hdg: n[4], thr: n[5], vs: n[6], onGround: n[7] === 1, stalled: n[8] === 1, bank: n[9], pitch: n[10] });
+  live.lastSync = Date.now();   // the pilot is actively flying — reset the unattended-recovery clock
   // While rolling out on the ground over an airfield, remember it — the shutdown `land`
   // parks here even if the roll drifts a tile off the runway before the engine's cut.
   if (n[7] === 1) { const b = surfaceAt(live.row.grid_x, live.row.grid_y); if (b?.flags?.airfield_id) live.rolloutField = b.id; }
@@ -525,7 +529,7 @@ async function cmdFlightSync(args, raw, player) {
 // the field she flew out of (or the nearest one), and bills the pilot a retrieval fee
 // scaled to the airframe's value. Short on credits? We garnish what you have — the
 // aircraft still comes back; consider the rest a debt to your dignity.
-async function retrieveOffField(live, player) {
+async function retrieveOffField(live, player, { abort = false } = {}) {
   const spot = surfaceAt(live.row.grid_x, live.row.grid_y);
   const home = (live.homeField && getZone(live.homeField)?.flags?.airfield_id)
     ? { id: live.homeField, name: getZone(live.homeField).flags.airfield_name || getZone(live.homeField).name }
@@ -539,7 +543,10 @@ async function retrieveOffField(live, player) {
   // No airfield in the world to tow to (shouldn't happen) — just leave her parked where she sits.
   const dest = home?.id || spot?.id || live.row.parked_zone_id;
   await parkAt(live, dest);
-  out(player.id, `<span class="text-amber">You set the ${live.type.name} down clean, but this is no airstrip — you've put down in ${where}.</span> ` +
+  const lead = abort
+    ? `<span class="text-amber">You break off the flight — a mayday call, and you're out.</span> `
+    : `<span class="text-amber">You set the ${live.type.name} down clean, but this is no airstrip — you've put down in ${where}.</span> `;
+  out(player.id, lead +
     `<span class="item-grant">A hangar recovery crew tows her back to ${home?.name || 'the field'} and hands you the bill: <b>${fee}c</b> for the retrieval${paid < fee ? ` (only ${paid}c of it covered — the rest is owed)` : ''}.</span>`);
 }
 
@@ -555,6 +562,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     // the player actually uses (falls back to the nearest airfield if this is ever lost).
     if (zone?.flags?.airfield_id) live.homeField = zone.id;
     live.row.airborne = 1; live.row.parked_zone_id = null; live.starving = false; live.runup = false; live.rolloutField = null;
+    live.lastSync = Date.now();   // fresh unattended-recovery clock at wheels-up
     if (!live.flightStartMs) live.flightStartMs = Date.now();   // trip clock for landing-IP eligibility (persists across touch-and-goes)
     initFloat(live);
     for (const pid of live.occupants) {
@@ -641,6 +649,15 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     return { type: 'noop' };
   }
 
+  // Abort — the pilot bails out of the flight from anywhere (airborne or a stuck ground state).
+  // A hangar recovery crew tows the craft back to a field and bills the retrieval fee (same as
+  // an off-strip tow), then everyone climbs out on the ground. Never a crash — she comes back.
+  if (ev === 'abort') {
+    await retrieveOffField(live, player, { abort: true });
+    for (const pid of [...live.occupants]) { const p = getLivePlayer(pid); if (p) detach(p); }
+    return { type: 'noop' };
+  }
+
   // Engine master switch (the on-panel replacement for `startup`).
   if (ev === 'engineon') { live.row.engine_on = 1; await persist(live); pushContext(live); return { type: 'noop' }; }
   if (ev === 'engineoff') { if (!live.row.airborne) { live.row.engine_on = 0; live.row.throttle = 0; await persist(live); } return { type: 'noop' }; }
@@ -680,18 +697,56 @@ const CLASS_SOUND = {
 };
 function classSound(cls) { return CLASS_SOUND[cls] || CLASS_SOUND.prop; }
 
-// Reach in tiles (0 = inaudible from the ground).
+// Reach in tiles (0 = inaudible from the ground). Only the LOW band produces an
+// identified, sound-carried pass — cruise/high are handled by the sight channel.
 function noiseReach(live) {
   const t = live.type, a = live.row;
   let loud = (t.noise || 2) + Math.max(0, (t.engines || 1) - 1) * 0.4 + ((t.max_takeoff_weight || 0) > 800 ? 1 : 0);
   loud += (a.throttle - 50) / 60;                       // firewalled = louder; idling = quieter
   loud *= conspicuousnessMult(live);                    // paint: dark/matte/camo hides, bright/gloss/hazard shouts
-  if (a.altitude_band === 'high') return 0;             // too high to hear
-  if (a.altitude_band === 'cruise') loud -= 2;          // muffled by altitude
+  if (a.altitude_band !== 'low') return 0;              // only a low pass is loud enough to identify
   return Math.max(0, Math.min(4, Math.round(loud)));
 }
 
+// Ground-observer airspeed readout (knots). Continuous craft report true IAS;
+// discrete craft derive it from cruise × throttle (the 84 kt/tile scale the charter uses).
+function overflySpeed(live) {
+  if (isContinuous(live)) return Math.max(0, Math.round(live.cont?.airspeed || 0));
+  return Math.round(effStats(live).cruise * (live.row.throttle / 100) * 84);
+}
+function speedWord(kt) {
+  if (kt < 70) return 'crawling';
+  if (kt < 150) return 'at a steady clip';
+  if (kt < 240) return 'moving fast';
+  return 'screaming past';
+}
+
+// Anti-spam: a given ground zone catches at most one overhead line per this window,
+// no matter how many ticks a craft loiters or circles over it. The physics tick runs
+// every few seconds for flight itself; this gate is what keeps the sky from chattering.
+const SKY_COOLDOWN_MS = 45000;
+const skyLastSeen = new Map();   // zoneId → last overhead-line timestamp
+function skyReady(zoneId) {
+  const now = Date.now();
+  if (now - (skyLastSeen.get(zoneId) || 0) < SKY_COOLDOWN_MS) return false;
+  skyLastSeen.set(zoneId, now);
+  return true;
+}
+// Overhead lines land in the client's sky banner (pinned at the top of the room pane,
+// auto-fading) rather than the scrollback — excluding our own occupants, who are aloft.
+function emitSky(live, zoneId, message) {
+  sendToZoneExcept(zoneId, { type: 'sky', message }, live.occupants);
+}
+
+// Dispatch by altitude: LOW = a detailed, identified, sound-carried pass (type +
+// heading + speed, plus a directional rumble to neighbours and ground reactions);
+// CRUISE/HIGH = a brief, non-identifying visual sighting directly below.
 function overflyNoise(live) {
+  if (live.row.altitude_band === 'low') return overflyLow(live);
+  return overflySight(live);
+}
+
+function overflyLow(live) {
   const a = live.row, t = live.type;
   const reach = noiseReach(live);
   if (reach <= 0) return;
@@ -701,17 +756,50 @@ function overflyNoise(live) {
     if (dist > reach) continue;
     const cell = surfaceAt(a.grid_x + dx, a.grid_y + dy);
     if (!cell) continue;
-    if (Math.random() > Math.max(0.08, 0.55 - dist * 0.16)) continue;   // thins with distance → not spammy
-    let msg;
-    if (dist === 0) msg = `<span class="text-dim">A <b>${t.name}</b> ${snd.near}, heading ${hdg}.</span>`;
-    else {
+    // Ground reactions (enemies looking up / potshots) track every low pass; the
+    // player-facing line is rate-limited per zone so a loitering craft can't spam it.
+    if (dist === 0) groundReact(live, cell.id, reach);
+    if (!skyReady(cell.id)) continue;
+    if (dist === 0) {
+      const kt = overflySpeed(live);
+      emitSky(live, cell.id, `A <b>${t.name}</b> ${snd.near}, heading ${hdg} — ${speedWord(kt)} (~${kt} kt).`);
+    } else {
       const from = degToCardinal(bearingDeg(a.grid_x + dx, a.grid_y + dy, a.grid_x, a.grid_y)).toUpperCase();
-      msg = `<span class="text-dim">You hear ${snd.far} to the ${from}${dist >= reach ? ', distant' : ''}.</span>`;
+      emitSky(live, cell.id, `You hear ${snd.far} to the ${from}${dist >= reach ? ', distant' : ''}.`);
     }
-    // Exclude our own occupants: they share a stale ground zone but are aloft — they
-    // must never hear the noise their own aircraft is making below them.
-    sendToZoneExcept(cell.id, { type: 'zone_event', message: msg }, live.occupants);
-    if (dist === 0 && a.altitude_band === 'low') groundReact(live, cell.id, reach);
+  }
+}
+
+// The sighting text follows the light: by day a shape or a distant speck, at dawn/dusk
+// it catches the low sun, at night you see only its blinking nav lights.
+function sightLine(high, hdg, phase) {
+  const dark = phase === 'night';
+  const golden = phase === 'dawn' || phase === 'dusk';
+  if (high) {
+    if (dark)   return `Navigation lights blink across the sky, high overhead, tracking ${hdg}.`;
+    if (golden) return `An aircraft catches the low sun — a bright fleck crossing high overhead, heading ${hdg}.`;
+    return `A distant aircraft crosses high overhead, heading ${hdg}.`;
+  }
+  if (dark)   return `An aircraft passes overhead, running lights winking, heading ${hdg}.`;
+  if (golden) return `An aircraft passes overhead, its underside lit gold by the low sun, heading ${hdg}.`;
+  return `An aircraft passes overhead, heading ${hdg}.`;
+}
+
+// A cruise/high pass: too far up to identify or hear the engine — the ground just
+// catches a shape crossing overhead. One brief sighting over the tiles it's above.
+function overflySight(live) {
+  const a = live.row;
+  const high = a.altitude_band === 'high';
+  const reach = 1;
+  const hdg = degToCardinal(toDeg(a.heading)).toUpperCase();
+  const msg = sightLine(high, hdg, getEnvironmentState().timePhase);
+  for (let dx = -reach; dx <= reach; dx++) for (let dy = -reach; dy <= reach; dy++) {
+    const dist = Math.max(Math.abs(dx), Math.abs(dy));
+    if (dist > reach) continue;
+    const cell = surfaceAt(a.grid_x + dx, a.grid_y + dy);
+    if (!cell) continue;
+    if (!skyReady(cell.id)) continue;   // rate-limited per zone — no every-tick spam
+    emitSky(live, cell.id, msg);
   }
 }
 
@@ -762,12 +850,36 @@ async function billRental(live) {
 const BASELINE_TIMESCALE = 3;
 function fuelBurnScale() { return (getTimeScale() || BASELINE_TIMESCALE) / BASELINE_TIMESCALE; }
 
+const AUTO_RETURN_MS = 10 * 60 * 1000;   // an unattended airborne craft is flown back to a hangar after 10 real minutes
+
+// A hangar crew recovers an ABANDONED airborne craft: park her at the field she launched from
+// (else the nearest airfield), setting anyone still aboard down in the hangar, and clear any
+// offline crew association so she's boardable fresh. Mirrors the off-field tow, minus the fee.
+async function autoReturn(live) {
+  const homeZone = (live.homeField && getZone(live.homeField)?.flags?.airfield_id) ? live.homeField : null;
+  const near = nearestAirfield(live.row.grid_x, live.row.grid_y);
+  const dest = homeZone || near?.id || live.row.parked_zone_id;
+  if (!dest) return;   // nowhere to send her (no airfield in the world) — leave her be
+  toOccupants(live, '<span class="text-amber">⏱ Left unattended aloft — a hangar recovery crew flies her back and puts her away.</span>');
+  await parkAt(live, dest);
+  for (const pid of [...live.occupants]) { if (!getLivePlayer(pid)) live.occupants.delete(pid); }
+  if (live.pilotId && !getLivePlayer(live.pilotId)) live.pilotId = null;
+  live.lastSync = Date.now();
+}
+
 async function flightTick() {
   if (ticking) return;
   ticking = true;
   try {
     for (const live of [...liveAircraft.values()]) {
       if (live.charter) continue;   // NPC-flown charters are driven by charter.js, not the physics tick
+      // Recover an airborne craft left UNATTENDED: if the pilot's cockpit hasn't synced (tab
+      // closed / disconnected / abandoned) for AUTO_RETURN_MS, a hangar crew flies her home — so
+      // ghost aircraft don't linger aloft forever. Parked craft (airborne 0) are exempt.
+      if (live.row.airborne) {
+        if (!live.lastSync) live.lastSync = Date.now();
+        else if (Date.now() - live.lastSync > AUTO_RETURN_MS) { await autoReturn(live); continue; }
+      }
       await billRental(live);       // self-flown rentals: the airborne operating meter (gas + upkeep)
 
       // Continuous craft (the Mayfly slice): the client owns motion/attitude, so we
@@ -909,7 +1021,7 @@ registerAction({
 // A clickable command link, and the shared "Services:" line built from a field's
 // flags — used identically on the exterior ramp and inside the walk-in hangar so
 // the two can't drift.
-const svcLink = (cmd, label) => `<span class="action-link" data-action="cmd" data-cmd="${cmd}" title="${label}">${label}</span>`;
+const svcLink = (cmd, label) => `<span class="action-link cmd-link" data-action="cmd" data-cmd="${cmd}" title="${label}">${label}</span>`;
 function serviceBits(field) {
   const f = field.flags || {};
   const bits = [svcLink('hangar', 'hangar')];
@@ -955,6 +1067,10 @@ async function describeAirfield(zone) {
   if (!zone?.flags?.airfield_id) return undefined;
   const f = zone.flags;
   let line = serviceBits(zone);
+  // A prominent, dedicated line for the 3D hangar bay so the look scene has an
+  // obvious call-to-action to open it (matches the walk-in interior's line) — the
+  // terse `hangar` link in the Services row is easy to miss.
+  line += `\n<span class="furniture-label">Hangar bay:</span> ${svcLink('hangar', 'Open Hangar Bay')} <span class="text-dim">your aircraft up close in 3D — charter, buy/rent, maintenance</span>`;
   // If this field has a walk-in hangar, boarding is done INSIDE it (less ambiguity) —
   // point players in through the bay doors; the embark links live in the office.
   if (f.hangar_interior_zone) {
@@ -1008,6 +1124,20 @@ on('zone.entered', async ({ actor, zone: zoneId, from }) => {
 // aircraft's occupant set and the player's flying posture don't stay stale.
 on('player.death', ({ player }) => {
   if (player.aircraftId) detach(player);
+});
+
+// Storm lightning → the flight sim. The engine's stormTick is the SINGLE strike
+// authority; each located strike is relayed to any airborne aircraft close enough
+// to render it as a bolt out the canopy, so pilots see the SAME lightning the
+// ground does. View push only — the flash + rare kill are the engine's.
+const LIGHTNING_VIEW_DIST2 = 70 * 70;   // tiles² — just past the client's bolt cull
+on('weather.lightningStrike', ({ gx, gy, intensity }) => {
+  for (const live of liveAircraft.values()) {
+    if (!live.row.airborne) continue;
+    const dx = (live.row.grid_x || 0) - gx, dy = (live.row.grid_y || 0) - gy;
+    if (dx * dx + dy * dy > LIGHTNING_VIEW_DIST2) continue;
+    for (const pid of live.occupants) sendToPlayer(pid, { type: 'lightning_strike', gx, gy, intensity });
+  }
 });
 
 on('player.login', ({ id }) => {
@@ -1101,6 +1231,21 @@ async function cmdTaxi(args, raw, player, broadcast) {
   return { type: 'emote', message: `<span class="text-green">You ease her out of the garage and onto the runway. ${how}</span>` };
 }
 
+// ── Admin: rewind to the departure hangar (test tool) ─────────────────────────
+// Sets the craft straight back down at the field she launched from (else the nearest
+// airfield) with the pilot still aboard — no flying. Fired by the cockpit's admin ⏪
+// button; the client then closes the sim and reopens the hangar bay. Dev/admin only.
+async function cmdAirHome(args, raw, player) {
+  if (!devOk(player)) return { type: 'error', message: 'Access denied.' };
+  const { live, err } = requirePilot(player); if (err) return err;
+  const homeZone = (live.homeField && getZone(live.homeField)?.flags?.airfield_id) ? live.homeField : null;
+  const dest = homeZone || nearestAirfield(live.row.grid_x, live.row.grid_y)?.id || live.row.parked_zone_id;
+  if (!dest) return { type: 'emote', message: 'No hangar to rewind to.' };
+  await parkAt(live, dest);
+  detach(player);   // climb out cleanly at the hangar (clears aircraftId/posture) so you can re-fly or manage her
+  return { type: 'emote', message: `<span class="text-cyan">⏪ REWIND — ${live.type.name} set back down at ${getZone(dest)?.name || 'the hangar'}.</span>` };
+}
+
 // ── flight / status — a text readout of the aircraft you're aboard ─────────────
 async function cmdFlightStatus(args, raw, player) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
@@ -1186,7 +1331,7 @@ export const commands = {
   heading: cmdHeading, climb: cmdClimb, dive: cmdDive,
   takeoff: cmdTakeoff, land: cmdLand, refuel: cmdRefuel,
   takeoffresolve: cmdTakeoffResolve, landresolve: cmdLandResolve,
-  flightsync: cmdFlightSync, flightevent: cmdFlightEvent,
+  flightsync: cmdFlightSync, flightevent: cmdFlightEvent, airhome: cmdAirHome,
   ...hazardCommands, ...acquisitionCommands, ...combatCommands, ...contractCommands, ...hangarCommands, ...charterCommands,
 };
 

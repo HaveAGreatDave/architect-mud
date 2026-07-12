@@ -53,6 +53,7 @@ import { initAudio } from "./panels/audio.js";
 import { initMusicPlayerPanel, stopMusicPlayer } from "./panels/musicplayer.js";
 import { stopEngineAudio } from "./panels/engine-audio.js";
 import { isFlightSimActive } from "./panels/cockpit.js";
+import { isHangarBayWalkActive } from "./panels/hangar-bay.js";
 
 // Settings
 const settings = loadSettings();
@@ -639,7 +640,7 @@ if (wasdBtn) {
 	window.addEventListener(
 		"keydown",
 		(e) => {
-			if (!state.wasdMove || isFlightSimActive()) return;
+			if (!state.wasdMove || isFlightSimActive() || isHangarBayWalkActive()) return;
 			if (e.ctrlKey || e.metaKey || e.altKey) return;
 			// Let real text fields (command box, chat, tablet, dialogs) type normally.
 			const tag = e.target.tagName;
@@ -739,6 +740,12 @@ function handleActionLinkClick(e) {
 	}
 	const action = el.dataset.action;
 	const target = el.dataset.target;
+	// Command links (data-action="cmd" data-cmd="…") send the verb verbatim —
+	// used by the flight hangar/ramp service links (hangar/refuel/buy/embark/…).
+	if (action === "cmd" && el.dataset.cmd) {
+		sendCmd(el.dataset.cmd, el.dataset.label);
+		return;
+	}
 	if (!action || !target) return;
 	// Exit/building/room links carry data-dest (the destination name) — click by
 	// name so SIFT reaches the specific location even when several exits share a
@@ -803,6 +810,11 @@ for (const id of ["minimap-grid", "minimap-grid-mob", "minimap-grid-hud"]) {
 			pane.style.height = "";
 		}
 	});
+
+	// Full-pane apps (the hangar bay) snap the pane back to its default auto size on
+	// open so the whole interface fits, overriding any manual drag height the player
+	// left on an ordinary room look.
+	pane.addEventListener("lookpaneauto", () => setAuto());
 
 	resetBtn.addEventListener("click", (e) => {
 		e.stopPropagation();

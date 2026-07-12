@@ -3,7 +3,7 @@
   "version": "0.3.0",
   "description": "Flight — full system. Embark/charter/buy aircraft at six airfields; fly the map_world tile grid on a real-time posture tick loop through interactive takeoff/glideslope/targeting decks, OR ride an NPC-pilot charter as a passenger. Phase B hazards, no-fly airspace, cargo/passenger + smuggling contracts, ground AA + air combat, hangars, wreck salvage/rebuild, owner-only customization, and engine-noise propagation. The aircraft is a first-class object owning its occupant set; the cockpit HUD is synthesized per-aircraft.",
   "commands": [
-    "embark", "board", "disembark", "deplane", "startup", "shutdown", "throttle", "heading", "climb", "dive", "takeoff", "land", "taxi", "refuel", "takeoffresolve", "landresolve", "flightsync", "flightevent",
+    "embark", "board", "disembark", "deplane", "startup", "shutdown", "throttle", "heading", "climb", "dive", "takeoff", "land", "taxi", "refuel", "takeoffresolve", "landresolve", "flightsync", "flightevent", "airhome",
     "recover", "extinguish", "eject", "bail", "preflight", "hover", "spot", "scan", "chart", "squawk",
     "buy", "rent", "charter", "charterinfo", "charterbook", "cancel", "testfly", "flight", "fs",
     "arm", "safe", "evade", "strafe", "fire", "strafresolve", "airfire", "airlock", "airunlock", "flares",
@@ -36,6 +36,7 @@
     "cancelrental": { "discoverVia": "none", "exposed": false, "note": "Rental aircraft row, id-based (hangar-bay panel / Tablet Vehicles app); not typed directly." }
   },
   "after": ["gametable", "generator", "commerce", "broadcast", "interactions", "quests"],
+  "hooks": ["zone.describeRoom"],
   "routePrefix": "/flight",
   "dependencies": ["quests"],
   "dataSchema": ["aircraft", "aircraft_types", "aa_sites", "hangars"]

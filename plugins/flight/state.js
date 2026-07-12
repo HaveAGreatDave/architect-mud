@@ -16,7 +16,7 @@ import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
 import { emit } from '../../server/engine/events.js';
 import { applyCrashCollateral, isSeverelyImpaired } from './collateral.js';
-import { getEnvironmentState } from '../../server/engine/environment.js';
+import { getEnvironmentState, getWeatherFieldSnapshot } from '../../server/engine/environment.js';
 
 export const TICK_MS = 3000;
 // Overall traversal pace — a single knob that slows the flight down without
@@ -567,8 +567,37 @@ export function gaugePayload(live) {
 export function skyState() {
   try {
     const env = getEnvironmentState();
-    return { hour: env.hour, weather: env.currentWeatherType || env.weatherType || 'clear', wind: env.windKph || 0 };
+    return {
+      hour: env.hour, weather: env.currentWeatherType || env.weatherType || 'clear', wind: env.windKph || 0,
+      // Spatial weather: the day's moving cloud/precip/storm cells over map_world, so the flight
+      // sim can render the REAL clouds/rain out the canopy at their true bearings and advect them
+      // itself between packets. `tick` is the field's advect interval (s) — `vx/vy` are per that
+      // tick — so the client can extrapolate positions forward and needn't be re-sent every frame.
+      field: weatherFieldForClient(),
+    };
   } catch { return { hour: 12, weather: 'clear', wind: 0 }; }
+}
+
+// Compact the engine's weather-field snapshot for the wire: just the cells the renderer needs
+// (position, radius, velocity, kind, strength) plus the map bounds it wraps within.
+function weatherFieldForClient() {
+  const snap = getWeatherFieldSnapshot();
+  if (!snap || !snap.bounds || !snap.systems?.length) return null;
+  // Prevailing wind as the compass bearing the cells drift TOWARD (renderer convention: 0 = -y
+  // north, 90 = +x east), so the HUD wind arrow + flight turbulence share the drift's own wind.
+  let wind = null;
+  if (snap.wind) {
+    const a = snap.wind.angle;
+    wind = { dir: (Math.atan2(Math.cos(a), -Math.sin(a)) * 180 / Math.PI + 360) % 360, kph: snap.wind.kph || 0 };
+  }
+  return {
+    tick: 30,   // advectField() steps once per 30s environment tick; vx/vy are grid units per tick
+    bounds: snap.bounds, wind,
+    cells: snap.systems.map(s => ({
+      x: s.x, y: s.y, r: s.radius, vx: s.vx, vy: s.vy,
+      type: s.type, intensity: s.intensity, precip: s.precipType,
+    })),
+  };
 }
 
 export function pushHud(live) {
@@ -793,7 +822,10 @@ export async function crash(live, reason = 'crash', byPlayer = null) {
       : '<span class="text-red">The ground comes up to meet you. There is a noise, and then there is nothing.</span>');
     await handlePlayerDeath(p, byPlayer || null, { type: reason, label });
   }
-  if (byPlayer) out(byPlayer.id, `<span class="text-green">★ SPLASH ONE — you shot down the ${live.type.name}.</span>`);
+  if (byPlayer) {
+    out(byPlayer.id, `<span class="text-green">★ SPLASH ONE — you shot down the ${live.type.name}.</span>`);
+    sendToPlayer(byPlayer.id, { type: 'flight_kill', name: live.type.name });   // big top-of-glass kill banner
+  }
   // Notify listeners (Halcyon Assurance files a claim if the craft was insured). Past-tense,
   // fire-and-forget — insurance reads the wreck row it just persisted above.
   emit('flight.crashed', {

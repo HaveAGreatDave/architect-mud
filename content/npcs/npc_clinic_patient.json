@@ -1,0 +1,71 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "emote": {
+        "action_type": "EMOTE",
+        "next": "wait",
+        "params": {
+          "message": "winces and re-wraps the bandage around his hand."
+        },
+        "type": "action"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "emote",
+        "seconds": 90,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Doc's good. Doc's the only good thing on this row.\"",
+    "\"You think this is bad, you shoulda seen the other guy.\""
+  ],
+  "description": "A hunched patient on the bench cradling a wrapped hand, waiting his turn with the patience of the truly broke.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They look away."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "(nod)",
+          "next": "bye"
+        }
+      ],
+      "text": "He nods at the curtain. \"Take a number. She's worth the wait.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a blood-spotted parka",
+      "a threadbare jumper",
+      "grey long johns"
+    ],
+    "personality": "vagrant"
+  },
+  "home_activities": [],
+  "home_zone": "zone_clinic_interior",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_clinic_patient",
+  "name": "a waiting patient",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": null,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_clinic_interior"
+}

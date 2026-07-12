@@ -1,0 +1,46 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "pats the launch rail and squints up into the haze.",
+    "\"Fly over Redline, you pay the Redline toll. One way or another.\""
+  ],
+  "description": "A Redline gang missileer draped in red, one hand resting on the SAM nest's launch rail like it's a pet. He grins at the sky the way a man grins at easy money.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They turn back to the guns and the sky."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "...",
+          "next": "bye"
+        }
+      ],
+      "text": "They keep one eye on the sky. \"Unless you're here to help work the guns, you're in the way. Move.\""
+    }
+  },
+  "faction": "redline",
+  "flags": {
+    "aa_crew": "aa_redline_sam",
+    "personality": "mercenary"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_891_903",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_aa_redline_missileer",
+  "name": "a Redline missileer",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_891_903"
+}

@@ -1,0 +1,27 @@
+{
+  "ambient_events": [
+    "A drum of something settles with a deep, resonant glug.",
+    "The extractor fans overhead never quite clear the chemical tang."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2a2620",
+  "color": "#d8c8a0",
+  "created_by": null,
+  "description": "A concrete warehouse-shop stacked to the rafters with drums, glassware and coils of tubing. A forklift idles in the aisle and a clipboard-and-ballpoint sign-out sheet does duty as the entire compliance department.",
+  "exits": {},
+  "flags": {
+    "building_name": "Bulk & Bond Supply",
+    "claimable_asset": "chem_supply",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_chemsupply_interior",
+  "map_id": "map_interior_zone_chemsupply_interior",
+  "marker": "CH",
+  "name": "Bulk & Bond Supply",
+  "parent_zone": null,
+  "updated_at": "1783740000"
+}

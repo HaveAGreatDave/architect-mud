@@ -1,0 +1,19 @@
+{
+  "description": "A snub little pistol built to vanish in a waistband. Not accurate, not pretty, but very final at conversational range.",
+  "flags": {},
+  "id": "item_holdout_pistol",
+  "name": "holdout pistol",
+  "tags": {
+    "damage": {
+      "max": 11,
+      "min": 6
+    },
+    "description": "A snub little pistol built to vanish in a waistband. Not accurate, not pretty, but very final at conversational range.",
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "firearms"
+  },
+  "type": "weapon",
+  "value": 90,
+  "weight": 600
+}

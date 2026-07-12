@@ -456,16 +456,34 @@ const GEAR_FX = {
 };
 export function gearFx(kind) { const ae = AE(); const d = GEAR_FX[kind] || GEAR_FX.extend; try { ae?.init?.(); ae?.playSfx?.(d); } catch {} }
 
-// The GAU-8 Avenger "BRRRT" — a ~65 rounds/sec cannon burst: a low buzz-saw growl and a
-// deep muzzle sub, both chopped by a fast tremolo (the individual rounds), a high muzzle
-// sizzle on top, and a quick barrel spin-up at the front. Unmistakable, and terrifying.
-const GUN_FX = { config: { duration: 0.9, layers: [
-  { waveform: 'sawtooth', freq: 68, tremolo: { rate: 66, depth: 0.95 }, filter: { type: 'lowpass', freq: 520, q: 1.2 }, adsr: { a: 0.04, d: 0.72, s: 0.7, r: 0.12 }, gain: 0.13 },   // buzz-saw growl (the "BRRRT")
-  { waveform: 'noise', noiseMix: 1, tremolo: { rate: 66, depth: 0.9 }, filter: { type: 'bandpass', freq: 360, q: 0.8 }, adsr: { a: 0.04, d: 0.72, s: 0.7, r: 0.12 }, gain: 0.10 },     // chopped noise = the rounds
-  { waveform: 'sine', freq: 44, tremolo: { rate: 66, depth: 0.5 }, filter: { type: 'lowpass', freq: 120, q: 1 }, adsr: { a: 0.05, d: 0.72, s: 0.7, r: 0.15 }, gain: 0.12 },           // deep muzzle sub / recoil
-  { waveform: 'noise', noiseMix: 1, tremolo: { rate: 66, depth: 0.85 }, filter: { type: 'highpass', freq: 2600, q: 0.7 }, adsr: { a: 0.02, d: 0.6, s: 0.5, r: 0.1 }, gain: 0.035 },    // high muzzle sizzle
-  { waveform: 'sawtooth', freq: 38, pitchBend: { to: 68, time: 0.12 }, filter: { type: 'lowpass', freq: 400, q: 1 }, adsr: { a: 0.02, d: 0.12, s: 0, r: 0.05 }, gain: 0.05 } ] } };   // barrel spin-up
-export function gunFx() { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(GUN_FX); } catch {} }
+// A single heavy .50-cal round — ONE percussive "thud", fired per round by the trigger loop
+// (GUN_FIRE_MS cadence) so the sound times up exactly with each muzzle flash + tracer instead
+// of a smooth GAU-8 buzz-saw: a deep muzzle THUMP that drops in pitch (recoil), a short low
+// body, a sharp round-crack on top, and a doppler tracer "zip" — the round streaking away
+// downrange, its pitch falling as it recedes (the same doppler bend the AA tracer whizz-by
+// uses, just receding-only since your own rounds fly away from you). At the ~6.7 rnd/s
+// cadence the zips overlap into a continuous "zeeew-zeeew" of tracers leaving the muzzles.
+const GUN_FX = { config: { duration: 0.3, layers: [
+  { waveform: 'sine', freq: 42, pitchBend: { to: 26, time: 0.12 }, filter: { type: 'lowpass', freq: 90, q: 1 }, adsr: { a: 0.001, d: 0.22, s: 0, r: 0.07 }, gain: 0.5 },   // sub-bass CHEST THUMP — the concussive weight of the round
+  { waveform: 'sine', freq: 72, pitchBend: { to: 38, time: 0.1 }, filter: { type: 'lowpass', freq: 170, q: 1.1 }, adsr: { a: 0.001, d: 0.18, s: 0, r: 0.06 }, gain: 0.58 }, // deep muzzle THUD + recoil drop — the body of the "thump"
+  { waveform: 'sawtooth', freq: 92, pitchBend: { to: 64, time: 0.09 }, filter: { type: 'lowpass', freq: 520, q: 1.3 }, adsr: { a: 0.001, d: 0.13, s: 0, r: 0.05 }, gain: 0.3 }, // low body / breech slam
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 540, q: 0.8 }, adsr: { a: 0.0005, d: 0.075, s: 0, r: 0.03 }, gain: 0.34 },                            // the round-crack (hard percussive attack)
+  { waveform: 'sawtooth', freq: 1050, pitchBend: { to: 470, time: 0.14 }, filter: { type: 'bandpass', freq: 1050, q: 1.6 }, adsr: { a: 0.004, d: 0.1, s: 0, r: 0.06 }, gain: 0.03 },  // DOPPLER tracer zip, receding downrange (darkened + non-sustaining to kill the continuous whine)
+  { waveform: 'noise', noiseMix: 1, delay: 0.05, filter: { type: 'bandpass', freq: 1000, q: 1.4 }, adsr: { a: 0.003, d: 0.1, s: 0, r: 0.05 }, gain: 0.035 },               // air-rush trailing the round as it goes
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 2600, q: 0.7 }, adsr: { a: 0.0005, d: 0.03, s: 0, r: 0.02 }, gain: 0.035 } ] } };                     // high muzzle snap (halved)
+// The report heard from OUTSIDE the airframe (external/chase view): less of the in-cockpit
+// chest-bass boom, a sharper crack and more high snap (open air, off to the side of the
+// muzzles) and a brighter/wider doppler zip (you hear the tracers whip past out here) — the
+// same shot, just not sitting behind the breech.
+const GUN_FX_EXT = { config: { duration: 0.3, layers: [
+  { waveform: 'sine', freq: 40, pitchBend: { to: 26, time: 0.1 }, filter: { type: 'lowpass', freq: 85, q: 1 }, adsr: { a: 0.001, d: 0.18, s: 0, r: 0.05 }, gain: 0.28 },
+  { waveform: 'sine', freq: 66, pitchBend: { to: 40, time: 0.1 }, filter: { type: 'lowpass', freq: 175, q: 1.1 }, adsr: { a: 0.001, d: 0.15, s: 0, r: 0.05 }, gain: 0.44 },
+  { waveform: 'sawtooth', freq: 88, pitchBend: { to: 62, time: 0.08 }, filter: { type: 'lowpass', freq: 560, q: 1.3 }, adsr: { a: 0.001, d: 0.11, s: 0, r: 0.04 }, gain: 0.28 },
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 700, q: 0.8 }, adsr: { a: 0.0005, d: 0.075, s: 0, r: 0.03 }, gain: 0.4 },                              // sharper open-air crack
+  { waveform: 'sawtooth', freq: 1300, pitchBend: { to: 540, time: 0.15 }, filter: { type: 'bandpass', freq: 1300, q: 1.7 }, adsr: { a: 0.004, d: 0.1, s: 0, r: 0.07 }, gain: 0.04 },  // DOPPLER tracer whip-past (darkened + non-sustaining to kill the continuous whine)
+  { waveform: 'noise', noiseMix: 1, delay: 0.06, filter: { type: 'bandpass', freq: 1300, q: 1.3 }, adsr: { a: 0.003, d: 0.11, s: 0, r: 0.06 }, gain: 0.05 },                // air-rush as it recedes
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 2800, q: 0.7 }, adsr: { a: 0.0005, d: 0.04, s: 0, r: 0.03 }, gain: 0.06 } ] } };                       // high muzzle snap (halved)
+export function gunFx(external) { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(external ? GUN_FX_EXT : GUN_FX); } catch {} }
 
 // AA / radar-warning-receiver tone — the insistent launch-warning "deedle-deedle": a bright
 // square lead chopped by a fast tremolo with a fifth under it, cutting through the engine
@@ -475,14 +493,26 @@ const AA_WARN_FX = { config: { duration: 0.85, layers: [
   { waveform: 'sawtooth', freq: 660, tremolo: { rate: 16, depth: 0.85 }, filter: { type: 'bandpass', freq: 1000, q: 3 }, adsr: { a: 0.01, d: 0, s: 1, r: 0.08 }, gain: 0.035 } ] } };
 export function aaWarn() { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(AA_WARN_FX); } catch {} }
 
-// Incoming AA tracer — proximity-scaled: a round passing right on top of you cracks sharp,
-// loud and bright (the supersonic snap); one from a distant/marginal shot is a duller,
-// quieter whiz that barely cuts through the engine. `near` is 0..1 (1 = point-blank).
+// Incoming AA tracer — a DOPPLER whizz-by ("neeee-yowww"): the round arrives at a high,
+// compressed pitch and drops through a low one the instant it passes and starts receding.
+// Proximity-scaled by `near` (0..1, 1 = point-blank): a close pass whizzes faster, wider,
+// and brighter than a distant marginal shot. The tonal layers now SUSTAIN through the pitch
+// glide (the old def decayed in 0.08s — before the 0.12s bend finished — so the doppler was
+// inaudible); a delayed lower noise band fakes the doppler on the air-rush as it goes past.
 function tracerFxDef(near) {
   const n = Math.max(0, Math.min(1, near));
-  return { config: { duration: 0.28 + n * 0.14, layers: [
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1300 + n * 2700, q: 2 + n * 2.2 }, adsr: { a: 0.001, d: 0.05 + n * 0.05, s: 0, r: 0.05 + n * 0.1 }, gain: 0.02 + n * 0.16 },
-    { waveform: 'sawtooth', freq: 850 + n * 1500, pitchBend: { to: 260 + n * 320, time: 0.12 }, filter: { type: 'bandpass', freq: 1100 + n * 2100, q: 3 }, adsr: { a: 0.001, d: 0.08, s: 0, r: 0.08 }, gain: 0.01 + n * 0.09 } ] } };
+  const glide = 0.16 - n * 0.09;        // closer pass = faster drop through the pass point
+  const hi = 1300 + n * 2600;           // approaching (doppler-compressed) pitch
+  const lo = 240 + n * 180;             // receding pitch once it's behind you
+  return { config: { duration: 0.32 + n * 0.16, layers: [
+    // Tonal doppler core — rings THROUGH the glide (small sustain) so the sweep is heard.
+    { waveform: 'sawtooth', freq: hi, pitchBend: { to: lo, time: glide }, filter: { type: 'bandpass', freq: 1200 + n * 1600, q: 2 }, adsr: { a: 0.005, d: 0.1 + n * 0.06, s: 0.25, r: 0.12 }, gain: 0.05 + n * 0.09 },
+    // Bright harmonic an octave up — the sharp edge of the pass; same doppler sweep.
+    { waveform: 'triangle', freq: hi * 1.9, pitchBend: { to: lo * 1.9, time: glide }, filter: { type: 'bandpass', freq: 2600, q: 3 }, adsr: { a: 0.004, d: 0.09, s: 0.12, r: 0.08 }, gain: 0.02 + n * 0.05 },
+    // Air-rush noise: a bright band on approach...
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1600 + n * 2600, q: 1.6 + n * 1.8 }, adsr: { a: 0.001, d: 0.05 + n * 0.04, s: 0, r: 0.05 }, gain: 0.02 + n * 0.13 },
+    // ...then a lower, delayed band as it recedes behind you (doppler on the rush itself).
+    { waveform: 'noise', noiseMix: 1, delay: glide * 0.7, filter: { type: 'bandpass', freq: 700 + n * 700, q: 1.2 }, adsr: { a: 0.004, d: 0.1, s: 0, r: 0.08 }, gain: 0.015 + n * 0.08 } ] } };
 }
 export function tracerFx(near) { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(tracerFxDef(near)); } catch {} }
 

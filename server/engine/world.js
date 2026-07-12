@@ -168,6 +168,25 @@ export function buildingEntranceDir(zone) {
   return _entranceDirCache.get(zone.id) || null;
 }
 
+// Cardinal directions from an interior room that lead OUT of the building — an exit to
+// a zone on a different map (the facade / exterior). The interior-side mirror of
+// buildingEntranceDir: drives the interior map's exit arrows the way that one drives
+// the overworld map's entrance arrows. Returns null for exterior tiles, facades, and
+// interiors whose only way out is non-cardinal (legacy in/out), which the arrow set
+// can't point.
+const INTERIOR_EXIT_DIRS = new Set(['north', 'south', 'east', 'west']);
+export function interiorExitDirs(zone) {
+  if (!zone || isEnterableFacade(zone)) return null;
+  if (!(zone.flags?.is_interior || zone.flags?.is_apartment || zone.flags?.is_building)) return null;
+  const dirs = [];
+  for (const [dir, target] of Object.entries(primaryExits(zone))) {
+    if (!INTERIOR_EXIT_DIRS.has(dir)) continue;
+    const t = world.zones.get(target);
+    if (t && (t.map_id || null) !== (zone.map_id || null)) dirs.push(dir);
+  }
+  return dirs.length ? dirs : null;
+}
+
 // Terrain class for the map/minimap surfaces: 'road' | 'water' | 'grass' | null.
 // Drives the client's tileable water/grass fill and the grey-asphalt / yellow-markings
 // road recolour. Grass = parkland, detected by an authored green surface colour (the
@@ -604,6 +623,7 @@ export function getMinimapData(centerZoneId, depth = 8) {
       icon_svg: zone.flags?.icon || buildingIconSvg(zone), // named SVG in client/game/assets/zone-icons/ (road_*, statue, or a building_type rooftop)
       building_type: buildingTypeOf(zone), // facade tile's type — drives the sidebar/full-map labels/icons overlay
       entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
+      exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows
       terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
       district: (() => { const d = districtFor(zone); return { key: d.key, name: d.name, color: d.color }; })(),
       artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),

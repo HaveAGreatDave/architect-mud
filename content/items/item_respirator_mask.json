@@ -1,0 +1,14 @@
+{
+  "description": "A rubber half-mask with twin filter cartridges. Between you and whatever you're about to aerosolise.",
+  "flags": {},
+  "id": "item_respirator_mask",
+  "name": "half-face respirator",
+  "tags": {
+    "description": "A rubber half-mask with twin filter cartridges. Between you and whatever you're about to aerosolise.",
+    "misc": true,
+    "slot": "accessory"
+  },
+  "type": "misc",
+  "value": 50,
+  "weight": 250
+}

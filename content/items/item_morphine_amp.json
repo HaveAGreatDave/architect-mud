@@ -1,0 +1,15 @@
+{
+  "description": "A glass ampoule of the good stuff. Everything hurts less, including good judgement.",
+  "flags": {},
+  "id": "item_morphine_amp",
+  "name": "morphine ampoule",
+  "tags": {
+    "consumable": true,
+    "description": "A glass ampoule of the good stuff. Everything hurts less, including good judgement.",
+    "restore_hp": 15,
+    "restore_sanity": 10
+  },
+  "type": "consumable",
+  "value": 40,
+  "weight": 40
+}

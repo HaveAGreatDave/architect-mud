@@ -1,0 +1,163 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "chat": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "wait",
+        "type": "action"
+      },
+      "look": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "wait",
+        "ifTrue": "chat",
+        "type": "condition"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "look",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Solvent, glass, gas. What you build with it is your ledger, not mine.\"",
+    "\"Sign the sheet. The sheet keeps us both breathing.\"",
+    "\"Wear the mask. I mean it. I like repeat customers.\""
+  ],
+  "description": "A broad, methodical stockman in a rubber apron who knows exactly what everything on his shelves can do, and pointedly never asks which one you have in mind.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They turn back to the counter."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let me see the stock.",
+          "next": "shop"
+        },
+        {
+          "label": "(walk off)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Bulk's in the back, glass up front, gas is chained by the door. Sign the sheet on your way out.\""
+    },
+    "shop": {
+      "actions": [
+        {
+          "action": "OPEN_SHOP",
+          "npcId": "npc_chem_boateng"
+        }
+      ],
+      "options": [
+        {
+          "label": "(browse)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Take a look. Cash only, no refunds, no tears.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a heavy rubberised apron over a hi-vis vest",
+      "a company coverall",
+      "grey boxers"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_chemsupply_interior",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_chem_boateng",
+  "name": "Osei Boateng",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_industrial_tape",
+      "price": 17,
+      "stock": 25
+    },
+    {
+      "item_id": "item_solvent_jug",
+      "price": 35,
+      "stock": 18
+    },
+    {
+      "item_id": "item_propane_canister",
+      "price": 42,
+      "stock": 12
+    },
+    {
+      "item_id": "item_glassware_set",
+      "price": 63,
+      "stock": 10
+    },
+    {
+      "item_id": "item_respirator_mask",
+      "price": 70,
+      "stock": 12
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Bulk & Bond Supply",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_chemsupply_interior"
+}

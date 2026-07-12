@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, buildingEntranceDir } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, buildingEntranceDir, interiorExitDirs } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -682,6 +682,7 @@ function mapTile(zone, x, y, placed, currentId) {
     building_type: buildingTypeOf(zone), // facade tile's type — drives the labels/icons map overlay
     building_name: zone.flags?.building_name || null,
     entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
+    exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows
     terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
 
     water: !!zone.flags?.water, // impassable open water — the client refuses to route onto it

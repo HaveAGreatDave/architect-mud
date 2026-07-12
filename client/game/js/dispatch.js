@@ -1,9 +1,9 @@
 import { state } from './state.js';
-import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane } from './render.js';
+import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
-import { renderMinimap, openMapPopup, refreshMapIfOpen, setMapTerritory, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, isAutoWalking, cancelAutoWalk, resolveAutoWalkPicker } from './panels/minimap.js';
-import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut } from './panels/environment.js';
-import { setWeatherEventFx } from './panels/weather-fx.js';
+import { renderMinimap, openMapPopup, refreshMapIfOpen, setMapTerritory, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, isAutoWalking, cancelAutoWalk, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
+import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors } from './panels/environment.js';
+import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
 import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
 import { updateInventoryCache, consumeSilentInventory } from './panels/inventory-state.js';
 import { renderRecipesPanel } from './panels/recipes.js';
@@ -18,22 +18,24 @@ import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
-import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen } from './panels/tablet-os.js';
+import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestOutput, noteQuestStep, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen } from './panels/tablet-os.js';
 import { openCorpMap } from './panels/corp-map.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
 import { openCircuitHack } from './panels/circuithack.js';
 import { openHololock } from './panels/hololock.js';
-import { openFishing } from './panels/fishing.js';
+import { openSignalHijack } from './panels/signalhijack.js';
+import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
+import { openFishing, armFishFight } from './panels/fishing.js';
 import { abortMacros } from './panels/smartbar-macros.js';
-import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAirHit, flightSimAaTracer, flightSimAirThreat, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
+import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
 import { openSpliceSelect, openSpliceStages, applySplicePreview } from './panels/splicelab.js';
 import { showSpliceReport } from './panels/spliceReport.js';
 import { updateWantedHud, setWantedHeat } from './panels/wanted.js';
-import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
+import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel, tvSpeak } from './panels/tv.js';
 import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
 import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
@@ -176,7 +178,7 @@ const handlers = {
     if (isTvOpen() && getTvActiveChannelId() === msg.channel) {
       showTvOnAir();
       if (msg.style === 'ticker') updateTvTicker(msg.message);
-      else appendTvMessage(msg.message, msg.style, msg.duration);
+      else { appendTvMessage(msg.message, msg.style, msg.duration); tvSpeak(msg.message, msg.style); }
       if (msg.programName !== undefined) {
         const el = document.getElementById('tv-program-name');
         if (el) el.textContent = msg.programName || '';
@@ -224,6 +226,9 @@ const handlers = {
       if (msg.refresh) { clearTimeout(_lookTimer); _lookTimer = setTimeout(() => sendCmdSilent('look'), 800); }
     };
   })(),
+  // Aircraft overhead: a transient banner pinned to the top of the room pane (auto-fades),
+  // not a scrollback line. Server rate-limits these per zone, so they don't accumulate.
+  sky: (msg) => { showSkyBanner(msg.message); },
   emote: (msg) => {
     const el = appendHtml(msg.message, 'zone-event');
     if (msg.butcherMs) { closeLootPanel(); attachInlineProgress(el, msg.butcherMs); }
@@ -317,6 +322,14 @@ const handlers = {
   // A quest changed state server-side (objective ticked / completed / turned in) —
   // live-refresh the Tablet OS Quests app if it's open on that app (no-op otherwise).
   quest_update: () => { tabletQuestUpdate(); },
+  // A structured objective-step line for the Tablet's client-only quest log
+  // ("read the meter (1/2)"). No chat output — the counter can't be reconstructed
+  // client-side, so the server pushes the whole line.
+  quest_log: (msg) => { noteQuestStep(msg.text); },
+  // Timed tile-task state (begin / finished / interrupted) — rendered with a
+  // standout style so the 15s work window's start/end is obvious in the log, and
+  // fed to the activity-log parser so a "Quest complete: …" finish still records.
+  quest_task: (msg) => { noteQuestOutput(msg.message); appendHtml(msg.message, 'quest-task'); },
 
   // Corps (org) command results. Most just render text; the ones that move the
   // player's own credits also refresh the vitals HUD.
@@ -494,14 +507,28 @@ const handlers = {
   'environment.weatherOverride': (msg) => { updateEnvironmentHUD(msg); },
   'weather_event': (msg) => { setWeatherEventFx(msg.eventType, msg.phase); },
   'lightning': () => { triggerLightningFlash(); },
+  'lightning_strike': (msg) => { flightSimLightning(msg); },
 
   output: (msg) => {
     // A GPS auto-walk that hit a numbered exit picker answers it itself (matching
     // its known target zone) — swallow the picker text rather than spam the log.
     if (msg.movePicker && resolveAutoWalkPicker(msg.movePicker)) return;
+    // Feed quest take/hand-in lines into the Tablet's client-only activity log.
+    noteQuestOutput(msg.message);
     appendHtml(msg.message, 'help');
   },
-  gps_route: (msg) => { appendHtml(msg.message, 'help'); if (msg.path) setGpsRoute(msg.path); if (msg.autostart) startAutoWalk(); else if (msg.resumeAuto) resumeAutoWalkIfArmed(); },
+  gps_route: (msg) => {
+    if (msg.path) setGpsRoute(msg.path);
+    // A manual `gps` plot asks whether to auto-walk now (unless one's already in
+    // flight, where resumeAuto quietly re-routes the walk in progress).
+    if (msg.promptAutoWalk && !isAutoWalking()) {
+      appendHtml(`${msg.message} Do you want to auto-walk there now? (y/n)`, 'help');
+      armAutoWalkPrompt();
+      return;
+    }
+    appendHtml(msg.message, 'help');
+    if (msg.autostart) startAutoWalk(); else if (msg.resumeAuto) resumeAutoWalkIfArmed();
+  },
 
   // `.debug` reveal — state lives only in localStorage. debug_toggle flips it;
   // debug_roll lines are always sent by the server but rendered only when on.
@@ -594,6 +621,19 @@ const handlers = {
     });
   },
 
+  signal_hijack: (msg) => {
+    const resolveCmd = msg.resolveCmd || 'pirateresolve';
+    openSignalHijack({
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      stationName: msg.stationName || msg.deckName || 'STATION',
+      onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.deckId} ${won ? 1 : 0}`),
+    });
+  },
+
+  pirate_console: (msg) => openPirateConsole(msg),
+  pirate_console_close: () => closePirateConsole(),
+
   hololock_game: (msg) => {
     const resolveCmd = msg.resolveCmd || 'hackresolve';
     openHololock({
@@ -604,14 +644,25 @@ const handlers = {
     });
   },
 
+  // A bite arms the CAST overlay (charge a power meter for depth, aim an angle).
+  // The cast is reported via `fishcast`, which chooses the catch server-side and
+  // replies with `fishing_fight`. The win/lose result still flows through the
+  // same token via `fishresolve`.
   fishing_game: (msg) => {
+    const castCmd = msg.castCmd || 'fishcast';
     const resolveCmd = msg.resolveCmd || 'fishresolve';
     openFishing({
       skill: msg.skill ?? 4,
-      difficulty: msg.difficulty ?? 5,
+      difficulty: msg.castDifficulty ?? 5,   // nominal — just tunes the cast-stage feel
       deviceName: msg.deviceName || 'THE LINE',
+      onCast: ({ power, angle }) => sendCmdSilent(`${castCmd} ${msg.zoneId} ${power.toFixed(3)} ${angle.toFixed(3)} ${msg.token}`),
       onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.zoneId} ${won ? 1 : 0} ${msg.token}`),
     });
+  },
+  // The server picked the catch from the cast and armed the fight — continue the
+  // open overlay into the reel stage tuned to the real catch difficulty.
+  fishing_fight: (msg) => {
+    armFishFight({ skill: msg.skill ?? 4, difficulty: msg.difficulty ?? 5 });
   },
 
   // ── Flight (cockpit HUD + takeoff/landing minigames) ─────────────────────
@@ -621,9 +672,28 @@ const handlers = {
   flight_sim: (msg) => { openFlightSim(msg); },
   flight_ctx: (msg) => { flightSimContext(msg); },
   flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)
+  flight_aasites: (msg) => { flightSimAASites(msg); },     // active ground AA emplacements → 3D turret models
   air_hit: (msg) => { flightSimAirHit(msg); },             // air-to-air gun hit feedback (Phase B)
+  flight_kill: (msg) => { flightSimKill(msg); },           // confirmed kill → big top-of-glass banner
   air_threat: (msg) => { flightSimAirThreat(msg); },       // RWR: missile lock/launch warnings + flare confirm (Phase C)
   aa_tracer: (msg) => { flightSimAaTracer(msg); },         // incoming ground-AA tracer streak
+  // Admin fireworks show. Airborne viewers get the real 3D burst in the windshield;
+  // on-foot players get a coloured sky-flash (skipped while the cockpit owns the pane —
+  // they get the 3D burst instead) plus the weather-FX sky glow for the show's duration.
+  fireworks_sim:   (msg) => { flightSimFireworks(msg); },
+  // A shell climbing before it bursts: one tile away (or on the launch tile) on-foot players see
+  // a streaking trail rise and detonate at its apex — the whistle is tuned to peak there. Farther
+  // out there's no trail, just the sky-flash at detonation (fireworks_flash below).
+  fireworks_launch: (msg) => {
+    if (isFlightSimActive() || isFxIndoors()) return;   // airborne → 3D burst; indoors → heard only
+    if ((msg.dist ?? 99) <= 1) launchFirework(msg.rgb, msg.lead);
+  },
+  fireworks_flash: (msg) => {
+    if (isFlightSimActive()) return;   // airborne viewers get the real 3D windshield burst instead
+    if (isFxIndoors()) return;         // indoors you only hear it — no sky-flash or bloom through the walls
+    flashFirework(msg.rgb, msg.intensity);   // the concussion bloom at detonation (the particle burst rides the climbing shell)
+  },
+  fireworks_sky:   (msg) => { setFireworksGlow(!!msg.on); },
   flight_takeoff: (msg) => {
     openTakeoff({
       skill: msg.skill ?? 4,
@@ -798,6 +868,22 @@ function flashPowerChange(mode, deviceType) {
     blink(true, 0, 0.08); blink(false, 110, 0.55);
     setTimeout(() => el.remove(), 720);
   }
+}
+
+// A single fireworks burst as seen from the ground: a brief coloured flash blooming from
+// the upper-middle of the view (where the sky is), using the same inline-styled screen-blend
+// overlay trick as flashPowerChange so it needs no CSS. `intensity` (0..1, server-scaled by
+// distance) drives the peak brightness — near the launch it's a full flash, rooms away it's a
+// dim glow on the horizon.
+function flashFirework(rgb, intensity) {
+  const [r, g, b] = Array.isArray(rgb) ? rgb : [255, 220, 120];
+  const peak = Math.max(0.05, Math.min(0.5, intensity ?? 0.4));
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;inset:0;z-index:9997;pointer-events:none;mix-blend-mode:screen;background:radial-gradient(circle at 50% 34%, rgba(${r},${g},${b},${peak}) 0%, rgba(${r},${g},${b},0) 62%);opacity:0;transition:opacity .09s ease-out`;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => { el.style.opacity = '1'; });
+  setTimeout(() => { el.style.transition = 'opacity .55s ease-out'; el.style.opacity = '0'; }, 110);
+  setTimeout(() => el.remove(), 720);
 }
 
 export function handleServerMsg(msg) {

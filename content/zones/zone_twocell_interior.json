@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "A shelf of dead flashlights waits under a sign that reads: TESTED. MOSTLY.",
+    "Somewhere in the back a battery charger ticks and clicks to itself."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2a2620",
+  "color": "#d8c8a0",
+  "created_by": null,
+  "description": "A cramped front room built out of corrugated sheet and honest intentions. Scavenged crates form a counter down the middle, and every nail in reach hangs with flashlights, coils of spare cells, canteens and folded work clothes. A strip of salvaged emergency lighting keeps the place lit even when the block goes dark — which, Grady will tell you, is the entire point.",
+  "exits": {
+    "west": "zone_district_920_903"
+  },
+  "flags": {
+    "building_name": "Two-Cell Supply",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_920_903"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_twocell_interior",
+  "map_id": "map_interior_zone_twocell_interior",
+  "marker": "TS",
+  "name": "Two-Cell Supply",
+  "parent_zone": "zone_district_920_903",
+  "updated_at": "1783739474"
+}

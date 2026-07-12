@@ -14,6 +14,7 @@
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
 import { drawHangarFloorBay, drawHangarScene } from './aircraft3d.js';
+import { updateHangarAmbience, stopHangarAmbience } from './hangar-ambience.js';
 import { drawWireframe3D, drawKnob, drawPerfRadar, themeColor, rgbTriplet } from './wireframe-plane.js';
 import { showConfirmDialog } from './confirm.js';
 
@@ -25,10 +26,19 @@ let charterData = null;   // last charter_open payload
 let charterAny = false;   // off-airfield (Dragonfly) mode toggled on the charter screen
 
 export function isHangarBayActive() { return !!document.getElementById('hb-root'); }
+// The walk-around inspect view drives its own first-person WASD camera, so — like the
+// flight sim — it must own W/A/S/D: the MUD's wasd-move (main.js) and the type-anywhere
+// auto-focus (input.js) both check this and stand down while it's up.
+export function isHangarBayWalkActive() {
+  return !!(B && B.screen === 'inspect' && (B.inspect?.mode || 'walk') === 'walk');
+}
 
 // ── Entry points (dispatch.js wires these to the server pushes) ───────────────
 export function openHangarBay(data) {
   const freshOpen = !B;
+  // Snap the top pane back to its default auto size so the whole hangar UI fits the
+  // interface, regardless of any manual drag height left on the previous room look.
+  if (freshOpen) document.getElementById('area-pane')?.dispatchEvent(new CustomEvent('lookpaneauto'));
   B = B || { screen: 'floor', selId: null, work: null };
   B.data = data || {};
   const craft = B.data.craft || [];
@@ -53,6 +63,7 @@ export function openCharterScreen(data) {
 
 export function closeHangarBay() {
   cleanupPopover();
+  stopHangarAmbience();   // the render loop drove the weather bed; it stops now, so silence it
   if (raf) { cancelAnimationFrame(raf); raf = null; }
   B = null; charterData = null;
   // Tear the panel out of the pane immediately rather than leaving it (with its
@@ -69,7 +80,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 const esc = (s) => String(s == null ? '' : s).replace(/[<>&"]/g, ch => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[ch]));
-function go(screen) { cleanupPopover(); B.screen = screen; render(); }
+function go(screen) { cleanupPopover(); inspectKeys.clear(); B.screen = screen; render(); }
 // Commands that don't self-refresh the panel (repair/tune/loadout/buy/rent) get a
 // short delayed re-fetch — the same trick fleet.js used for `buy`.
 function refetch() { setTimeout(() => sendCmdSilent('hangar'), 450); }
@@ -123,6 +134,7 @@ function floorScreen() {
   const craftActs = sel ? [
     !sel.wreck ? tbtn('✈', 'Fly', `data-act="embark" data-tail="${esc(sel.tail)}"`, 'hb-accent hb-go') : '',
     !sel.wreck ? tbtn('⚙', 'Maintenance', 'data-act="bench"') : '',
+    tbtn('◉', 'Inspect', 'data-act="inspect"'),
     d.hasBay && !sel.wreck && sel.location === 'ramp' ? tbtn('⤓', 'Store', 'data-act="store"') : '',
     d.hasBay && sel.location === 'hangar' ? tbtn('⤒', 'Roll Out', 'data-act="pull"') : '',
     !sel.wreck && !sel.rental ? tbtn('₵', 'Sell', 'data-act="sell"') : '',
@@ -160,6 +172,75 @@ function sceneEntries() {
   }
   return entries;
 }
+// ── Walkaround inspect ────────────────────────────────────────────────────────
+// A single-craft view of the selected plane in the hangar, in one of two modes:
+//   • WALK — a first-person free camera: WASD/QE move the eye around the floor, drag turns
+//     the head (mouse-look), scroll changes FOV. `cam` is the eye {x fwd, y right, z up, yaw,
+//     pitch, fov} in the craft's frame.
+//   • ORBIT — the classic turntable: drag orbits around the plane, drag up/down changes eye
+//     height, scroll zooms.
+// Both reuse the turntable renderer (drawHangarFloorBay → paintTurntable). Nested `cam` object
+// ⇒ a factory (a shallow spread would share it across resets and mutate the default).
+// Open standing off the nose, slightly to one side, looking back past the plane and out through
+// the open bay door behind its tail — matching the floor/hangar view (door behind the craft), so
+// the walk view frames it against the real sky/weather from the first frame (W walks you toward
+// the tail + the door; the orbit turntable ignores cam).
+const inspectDefault = () => ({ mode: 'walk', yaw: 0.7, elev: 0.28, zoom: 1.25,
+  cam: { x: 2.5, y: 1.0, z: 0.02, yaw: Math.PI, pitch: 0.03, fov: 1 }, moveVec: { f: 0, r: 0, u: 0 } });
+const inspectKeys = new Set();
+const WALK_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', ' ']);
+function inspectScreen() {
+  const c = (B.data.craft || []).find(x => x.id === B.selId);
+  if (!c) { B.screen = 'floor'; return floorScreen(); }
+  const walk = (B.inspect?.mode || 'walk') === 'walk';
+  // Touch controls (a thumbstick + up/down pads) — CSS-hidden on fine pointers (desktop uses
+  // WASD/drag/scroll), shown on coarse pointers (phones/tablets), and only in walk mode.
+  const touchPad = walk ? `
+      <div class="hb-walk-pad"><div class="hb-walk-stick" id="hb-walk-stick"><div class="hb-walk-knob" id="hb-walk-knob"></div></div></div>
+      <div class="hb-walk-vert">
+        <button class="hb-walk-btn" data-walk="up" tabindex="-1">▲</button>
+        <button class="hb-walk-btn" data-walk="dn" tabindex="-1">▼</button>
+      </div>` : '';
+  // Walk right up to the cockpit and this lights → tap/Enter to climb in (first-person embark).
+  const boardPrompt = (walk && !c.wreck) ? `<div class="hb-board" id="hb-board" data-act="embark" data-tail="${esc(c.tail)}">✈ BOARD</div>` : '';
+  return `
+    <div class="hb-floor">
+      <canvas id="hb-inspect" class="hb-scene hb-inspect" tabindex="0"></canvas>
+      <div class="hb-inspect-name">${esc(c.tail)} <span>${esc(c.typeName)}</span></div>
+      <div class="hb-inspect-hint">${walk ? 'WASD / stick move · drag look · walk up to BOARD' : 'drag to orbit · scroll / pinch zoom'}</div>
+      ${boardPrompt}
+      ${touchPad}
+    </div>
+    <div class="hb-toolbar">
+      <div class="hb-tb-group">
+        ${!c.wreck ? tbtn('✈', 'Board', `data-act="embark" data-tail="${esc(c.tail)}"`, 'hb-accent hb-go') : ''}
+        ${tbtn('⇄', walk ? 'Walk' : 'Orbit', 'data-act="inspect-mode"')}
+        ${tbtn('↺', 'Reset View', 'data-act="inspect-reset"')}
+      </div>
+      <div class="hb-tb-group hb-tb-right">${tbtn('‹', 'Back', 'data-act="back"')}</div>
+    </div>`;
+}
+// WASD capture — only while the walk-inspect screen is up and no text field is focused
+// (so it never eats keystrokes meant for the command box or a rename field). Bound once.
+window.addEventListener('keydown', (e) => {
+  if (!B || B.screen !== 'inspect' || (B.inspect?.mode || 'walk') !== 'walk') return;
+  const el = document.activeElement;
+  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+  const k = e.key.toLowerCase();
+  if (WALK_KEYS.has(k)) {
+    if (k === ' ' && !inspectKeys.has(' ')) startInspectHop();   // Space = a quick hop on the leading edge, not a held climb
+    inspectKeys.add(k); e.preventDefault();
+  } else if (k === 'enter' || k === 'f') { const b = document.getElementById('hb-board'); if (b?.classList.contains('near')) { b.click(); e.preventDefault(); } }   // board when you've walked up to her
+});
+// Space = a little hop: a quick upward bob that arcs back to eye level under gravity (NOT the
+// continuous climb e/QE gives). Lives as a transient offset on B.inspect.hop, layered onto cam.z
+// at render time; only fires from grounded so taps don't stack.
+function startInspectHop() {
+  if (!B?.inspect || B.inspect.mode !== 'walk') return;
+  const hop = B.inspect.hop || (B.inspect.hop = { off: 0, vel: 0 });
+  if (hop.off <= 1e-3 && Math.abs(hop.vel) < 1e-3) hop.vel = 2.1;
+}
+window.addEventListener('keyup', (e) => { inspectKeys.delete(e.key.toLowerCase()); });
 function barCol(pct) { return pct <= 25 ? '#ff5b5b' : pct <= 55 ? '#ffb23e' : '#46e05a'; }
 function locBadge(c) {
   if (c.wreck) return '<span class="hb-badge hb-b-wreck">WRECK</span>';
@@ -628,7 +709,7 @@ function benchScreen() {
   // paintTuning); every other tab keeps the real 3D turntable.
   const stage = B.benchTab === 'tuning'
     ? `<canvas id="hb-perf-radar" width="220" height="200"></canvas>`
-    : bayCanvas('hb-bench-hero', c.wreck ? 'wreck' : c.class, B.work, null, 340, 'data-hb-src="work" data-hb-zoom="1.4" data-hb-flat="1"');
+    : bayCanvas('hb-bench-hero', c.wreck ? 'wreck' : c.class, B.work, null, 240, 'data-hb-src="work" data-hb-zoom="1.5" data-hb-flat="1"');
 
   return `
     <div class="hb-bench hb-bench-crt">
@@ -648,8 +729,8 @@ function benchScreen() {
 function render() {
   if (!B) return;
   const d = B.data || {};
-  const title = B.screen === 'charter' ? 'CHARTER' : B.screen === 'buyrent' ? 'BUY / RENT' : B.screen === 'bench' ? 'MECHANICS BENCH' : 'HANGAR BAY';
-  const body = B.screen === 'charter' ? charterScreen() : B.screen === 'buyrent' ? buyRentScreen() : B.screen === 'bench' ? benchScreen() : floorScreen();
+  const title = B.screen === 'charter' ? 'CHARTER' : B.screen === 'buyrent' ? 'BUY / RENT' : B.screen === 'bench' ? 'MECHANICS BENCH' : B.screen === 'inspect' ? 'INSPECT' : 'HANGAR BAY';
+  const body = B.screen === 'charter' ? charterScreen() : B.screen === 'buyrent' ? buyRentScreen() : B.screen === 'bench' ? benchScreen() : B.screen === 'inspect' ? inspectScreen() : floorScreen();
   // A persistent back button lives in the header itself (not just the bottom
   // toolbar) on every non-floor screen — always visible, never scrolled out of view.
   const backBtn = B.screen !== 'floor' ? `<button class="hb-back" data-act="back" title="Back to the hangar floor">‹ Hangar</button>` : '';
@@ -695,6 +776,68 @@ function wire() {
     B.work = c ? { ...c.livery } : null;
     render();
   });
+  // Walkaround inspect: drag to orbit (yaw + eye height), scroll to zoom. Writes the
+  // live camera into B.inspect, which the render loop reads every frame.
+  const inspect = root.querySelector('#hb-inspect');
+  if (inspect) {
+    B.inspect = B.inspect || inspectDefault();
+    inspect.focus?.();   // so WASD lands here, not the command box
+    // Multi-pointer: ONE finger/mouse = look (walk) or orbit; TWO fingers = pinch-zoom. Pointer
+    // Events unify mouse + touch, so this drives desktop and mobile from the same code.
+    const ptrs = new Map();   // pointerId → {x, y}
+    let pinch = 0;            // last two-finger distance, 0 when not pinching
+    const twoDist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+    const applyZoom = (ratio) => {
+      if (B.inspect.mode === 'walk') B.inspect.cam.fov = Math.max(0.5, Math.min(2, B.inspect.cam.fov / ratio));
+      else B.inspect.zoom = Math.max(0.6, Math.min(2.8, B.inspect.zoom * ratio));
+    };
+    inspect.addEventListener('pointerdown', (e) => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); inspect.setPointerCapture(e.pointerId); inspect.style.cursor = 'grabbing'; inspect.focus?.(); if (ptrs.size === 2) pinch = twoDist(); });
+    inspect.addEventListener('pointermove', (e) => {
+      const prev = ptrs.get(e.pointerId); if (!prev) return;
+      const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+      ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (ptrs.size >= 2) {                                       // pinch → zoom, no look
+        const d = twoDist(); if (pinch) applyZoom(d / pinch); pinch = d; return;
+      }
+      if (B.inspect.mode === 'walk') {
+        const cam = B.inspect.cam;
+        cam.yaw += dx * 0.006;                                    // drag right → look right
+        cam.pitch = Math.max(-1.2, Math.min(1.2, cam.pitch - dy * 0.005));   // drag up → look up
+      } else {
+        B.inspect.yaw -= dx * 0.01;
+        B.inspect.elev = Math.max(0.05, Math.min(1.3, B.inspect.elev + dy * 0.006));
+      }
+    });
+    const endPtr = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = 0; if (!ptrs.size) inspect.style.cursor = 'grab'; };
+    inspect.addEventListener('pointerup', endPtr);
+    inspect.addEventListener('pointercancel', endPtr);
+    inspect.addEventListener('wheel', (e) => { e.preventDefault(); applyZoom(1 - e.deltaY * 0.0012); }, { passive: false });
+  }
+
+  // Virtual thumbstick (touch, walk mode): feeds a move vector the render loop reads like WASD.
+  const stick = root.querySelector('#hb-walk-stick'), knob = root.querySelector('#hb-walk-knob');
+  if (stick && knob && B.inspect) {
+    B.inspect.moveVec = B.inspect.moveVec || { f: 0, r: 0, u: 0 };
+    let sid = null;
+    const place = (dx, dy) => { knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; };
+    stick.addEventListener('pointerdown', (e) => { sid = e.pointerId; stick.setPointerCapture(e.pointerId); });
+    stick.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== sid) return;
+      const r = stick.getBoundingClientRect(), R = r.width / 2;
+      let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R);
+      const mag = Math.hypot(dx, dy); if (mag > R) { dx = dx / mag * R; dy = dy / mag * R; }
+      place(dx, dy);
+      B.inspect.moveVec.r = dx / R; B.inspect.moveVec.f = -dy / R;   // stick up = forward
+    });
+    const rel = (e) => { if (e.pointerId !== sid) return; sid = null; place(0, 0); B.inspect.moveVec.f = 0; B.inspect.moveVec.r = 0; };
+    stick.addEventListener('pointerup', rel); stick.addEventListener('pointercancel', rel);
+  }
+  // Up/down pads (touch, walk mode) — hold to climb/drop the eye.
+  const setU = (v) => { if (B.inspect) { B.inspect.moveVec = B.inspect.moveVec || { f: 0, r: 0, u: 0 }; B.inspect.moveVec.u = v; } };
+  on('[data-walk]', 'pointerdown', (e) => { e.preventDefault(); setU(e.currentTarget.getAttribute('data-walk') === 'up' ? 1 : -1); });
+  on('[data-walk]', 'pointerup', () => setU(0));
+  on('[data-walk]', 'pointercancel', () => setU(0));
+  on('[data-walk]', 'pointerleave', () => setU(0));
   on('[data-hb-dest]', 'click', (e) => {
     const dest = e.currentTarget.getAttribute('data-hb-dest');
     sendCmdSilent(`charterbook ${dest}${charterAny ? ' any' : ''}`);
@@ -711,6 +854,9 @@ function wire() {
     if (act === 'back') { go('floor'); return; }
     if (act === 'buyrent') { go('buyrent'); return; }
     if (act === 'bench') { B.tune = null; B.tuneFor = null; B.kitSel = null; go('bench'); return; }
+    if (act === 'inspect') { B.inspect = B.inspect || inspectDefault(); go('inspect'); return; }
+    if (act === 'inspect-reset') { const m = B.inspect?.mode; B.inspect = inspectDefault(); if (m) B.inspect.mode = m; inspectKeys.clear(); return; }
+    if (act === 'inspect-mode') { if (B.inspect) B.inspect.mode = B.inspect.mode === 'walk' ? 'orbit' : 'walk'; inspectKeys.clear(); render(); return; }
     if (act === 'charter-any') { charterAny = !charterAny; render(); return; }
     if (act === 'embark') { sendCmdSilent(`embark ${e.currentTarget.getAttribute('data-tail')}`); closeHangarBay(); return; }
     if (act === 'store') { sendCmdSilent(`hangaract store ${B.selId}`); return; }
@@ -765,16 +911,75 @@ function startSpin() {
   const loop = (t) => {
     const root = document.getElementById('hb-root');
     if (!root) { raf = null; return; }
-    if (last) yaw += Math.min(0.05, (t - last) / 1000) * 0.55;
+    const dt = last ? Math.min(0.05, (t - last) / 1000) : 0;
+    yaw += dt * 0.55;
     last = t;
+
+    // Weather audio + the lightning schedule for the walk-inspect bay-door diorama. Driven every
+    // frame (active only in walk mode) so the ambient bed fades out when you leave the walk view;
+    // the returned fx (flash/bolt/motion) rides through into the door renderer via the sky object.
+    const walkActive = !!(B && B.screen === 'inspect' && (B.inspect?.mode || 'walk') === 'walk');
+    const skyFx = updateHangarAmbience(B?.data?.sky, walkActive);
 
     const scene = root.querySelector('#hb-scene');
     if (scene) {
-      if (!scene._cw) sizeCanvas(scene);
+      // Re-measure whenever the box changes size — the area pane's top divider can be
+      // dragged taller/shorter. The canvas fills its box via CSS, so a stale backing
+      // store both stretches the render AND desyncs the click hit-regions (sceneHits are
+      // in canvas CSS-space) from the getBoundingClientRect the click handler reads.
+      const r = scene.getBoundingClientRect();
+      if (!scene._cw || Math.abs(r.width - scene._cw) > 0.5 || Math.abs(r.height - scene._ch) > 0.5) sizeCanvas(scene);
       const ctx = scene.getContext('2d');
       if (ctx) {
         ctx.setTransform(scene._dpr, 0, 0, scene._dpr, 0, 0);
         sceneHits = drawHangarScene(ctx, { w: scene._cw, h: scene._ch, entries: sceneEntries(), selId: B.selId, sky: B.data?.sky });
+      }
+    }
+
+    // Walkaround inspect — one craft on the player-driven camera (B.inspect): a free WASD
+    // walk camera or the orbit turntable.
+    const inspect = root.querySelector('#hb-inspect');
+    if (inspect && B.inspect) {
+      // WALK: WASD/QE (desktop) + the virtual thumbstick/pads (touch) drive the eye each frame
+      // (dt-scaled), on the ground plane relative to where you're facing; clamped to a box.
+      if (B.inspect.mode === 'walk') {
+        const mv = B.inspect.moveVec || { f: 0, r: 0, u: 0 };
+        let mf = mv.f, mr = mv.r, mu = mv.u;
+        if (inspectKeys.has('w')) mf += 1; if (inspectKeys.has('s')) mf -= 1;
+        if (inspectKeys.has('d')) mr += 1; if (inspectKeys.has('a')) mr -= 1;
+        if (inspectKeys.has('e')) mu += 1; if (inspectKeys.has('q')) mu -= 1;   // Space no longer climbs — it hops (below)
+        const cam = B.inspect.cam;
+        if (mf || mr || mu) {
+          const spd = 1.4 * dt, cyw = Math.cos(cam.yaw), syw = Math.sin(cam.yaw);
+          mf = Math.max(-1, Math.min(1, mf)); mr = Math.max(-1, Math.min(1, mr));
+          cam.x = Math.max(-6, Math.min(6, cam.x + (mf * cyw + mr * -syw) * spd));   // forward=(cyw,syw), right=(-syw,cyw)
+          cam.y = Math.max(-6, Math.min(6, cam.y + (mf * syw + mr * cyw) * spd));
+          cam.z = Math.max(-0.12, Math.min(2.4, cam.z + mu * spd));
+          // Collision: you can't walk INTO the plane. An exclusion ellipse in the ground plane
+          // around the fuselage/wing-root core (nose↔tail is the long axis); if the eye is below
+          // the airframe it gets pushed radially back out to the hull, so you slide along her side.
+          const AF = 1.4, AG = 0.75;
+          if (cam.z < 0.45) { const d = Math.hypot(cam.x / AF, cam.y / AG); if (d > 1e-3 && d < 1) { cam.x /= d; cam.y /= d; } }
+        }
+        // Hop physics: a transient vertical offset that arcs up on Space and falls back under gravity.
+        const hop = B.inspect.hop || (B.inspect.hop = { off: 0, vel: 0 });
+        if (hop.vel !== 0 || hop.off > 1e-4) { hop.vel -= 7.0 * dt; hop.off += hop.vel * dt; if (hop.off <= 0) { hop.off = 0; hop.vel = 0; } }
+      }
+      const r = inspect.getBoundingClientRect();
+      if (!inspect._cw || Math.abs(r.width - inspect._cw) > 0.5 || Math.abs(r.height - inspect._ch) > 0.5) sizeCanvas(inspect);
+      const ctx = inspect.getContext('2d');
+      const c = (B.data.craft || []).find(x => x.id === B.selId);
+      if (ctx && inspect._cw && c) {
+        ctx.setTransform(inspect._dpr, 0, 0, inspect._dpr, 0, 0);
+        const opts = { cls: c.class, wreck: !!c.wreck, livery: c.livery, w: inspect._cw, h: inspect._ch, sky: { ...(B.data?.sky || {}), fx: skyFx }, floor: true, floor3d: true };
+        if (B.inspect.mode === 'walk') opts.cam = { ...B.inspect.cam, z: B.inspect.cam.z + (B.inspect.hop?.off || 0) };   // layer the hop bob onto the eye
+        else { opts.yaw = B.inspect.yaw; opts.elev = B.inspect.elev; opts.zoom = B.inspect.zoom; }
+        drawHangarFloorBay(ctx, opts);
+        // First-person embark: light the BOARD prompt when you've walked up to the cockpit.
+        if (B.inspect.mode === 'walk' && !c.wreck) {
+          const cam = B.inspect.cam, near = Math.hypot(cam.x - 0.35, cam.y, cam.z - 0.08) < 1.9;
+          root.querySelector('#hb-board')?.classList.toggle('near', near);
+        }
       }
     }
     root.querySelectorAll('canvas.hb-bay').forEach((cv) => {
@@ -894,8 +1099,32 @@ function ensureStyles() {
   #hb-root .hb-hint { color:#9db5c6; font-size:11px; text-align:center; padding:8px 0; }
 
   /* Floor — one 3D scene canvas, not a row of cards */
-  #hb-root .hb-floor { flex:1 1 auto; display:flex; min-height:280px; }
+  #hb-root .hb-floor { position:relative; flex:1 1 auto; display:flex; min-height:280px; }
   #hb-root .hb-scene { width:100%; height:100%; min-height:280px; display:block; border-radius:8px; cursor:pointer; }
+  #hb-root .hb-inspect { cursor:grab; touch-action:none; outline:none; }
+  #hb-root .hb-inspect:active { cursor:grabbing; }
+  #hb-root .hb-inspect-name { position:absolute; left:12px; top:10px; z-index:2; font-size:13px; font-weight:bold; letter-spacing:1px; color:var(--text-bright,#eafffb); text-shadow:0 1px 3px rgba(0,0,0,0.8); pointer-events:none; }
+  #hb-root .hb-inspect-name span { font-size:10px; font-weight:normal; color:var(--hb-atm-accent); margin-left:6px; letter-spacing:0.5px; }
+  #hb-root .hb-inspect-hint { position:absolute; right:12px; bottom:10px; z-index:2; font-size:9px; letter-spacing:1px; color:#9db5c6; background:rgba(6,12,18,0.6); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); border-radius:4px; padding:3px 7px; pointer-events:none; }
+  /* Touch controls — hidden on a mouse (fine pointer), shown on phones/tablets (coarse). */
+  #hb-root .hb-walk-pad, #hb-root .hb-walk-vert { display:none; }
+  @media (pointer: coarse) { #hb-root .hb-walk-pad, #hb-root .hb-walk-vert { display:flex; } }
+  #hb-root .hb-walk-pad { position:absolute; left:16px; bottom:16px; z-index:4; }
+  #hb-root .hb-walk-stick { position:relative; width:104px; height:104px; border-radius:50%; touch-action:none;
+    background:radial-gradient(circle at 50% 40%, rgba(30,44,56,0.5), rgba(6,12,18,0.5)); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); box-shadow:inset 0 0 14px rgba(0,0,0,0.5); }
+  #hb-root .hb-walk-knob { position:absolute; left:50%; top:50%; width:46px; height:46px; margin:0; transform:translate(-50%,-50%); border-radius:50%;
+    background:linear-gradient(180deg, color-mix(in srgb, var(--hb-atm-accent) 40%, #0e1620), color-mix(in srgb, var(--hb-atm-accent) 12%, #060c12)); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 55%, transparent); box-shadow:0 2px 6px rgba(0,0,0,0.5); }
+  #hb-root .hb-walk-vert { position:absolute; right:16px; bottom:16px; z-index:4; flex-direction:column; gap:10px; }
+  #hb-root .hb-walk-btn { width:48px; height:48px; font-size:16px; color:var(--hb-atm-accent); cursor:pointer; touch-action:none;
+    background:rgba(6,12,18,0.5); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); border-radius:10px; }
+  #hb-root .hb-walk-btn:active { background:color-mix(in srgb, var(--hb-atm-accent) 22%, rgba(6,12,18,0.5)); }
+  /* First-person BOARD prompt — hidden until you're up close (.near), then it pulses. */
+  #hb-root .hb-board { position:absolute; left:50%; top:44%; transform:translate(-50%,-50%) scale(0.9); z-index:5;
+    font:bold 13px/1 monospace; letter-spacing:2px; color:#eafffb; cursor:pointer; padding:9px 16px; border-radius:8px; opacity:0; pointer-events:none;
+    background:color-mix(in srgb, var(--hb-atm-accent) 30%, rgba(6,12,18,0.7)); border:1px solid var(--hb-atm-accent);
+    box-shadow:0 0 16px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); transition:opacity .18s, transform .18s; text-shadow:0 0 6px color-mix(in srgb, var(--hb-atm-accent) 55%, transparent); }
+  #hb-root .hb-board.near { opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); animation:hbBoardPulse 1.4s ease-in-out infinite; }
+  @keyframes hbBoardPulse { 0%,100% { box-shadow:0 0 14px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); } 50% { box-shadow:0 0 22px color-mix(in srgb, var(--hb-atm-accent) 70%, transparent); } }
   #hb-root .hb-bay { display:block; border-radius:6px; }
 
   /* The selected-craft readout is a "panel on the floor scene" (not the 3D scene
@@ -1038,29 +1267,29 @@ function ensureStyles() {
      content — e.g. the Apply row under the tuning knobs / paint controls — is always
      reachable instead of being clipped off the bottom. The stage's sticky top:0 pins
      within this scroller, keeping the plane/scope visible as the panels scroll. */
-  #hb-root .hb-bench { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;
+  #hb-root .hb-bench { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start;
     flex:1 1 auto; min-height:0; overflow-y:auto; }
   #hb-root .hb-bench-stage { flex:0 0 auto; position:sticky; top:0; z-index:4; }
-  #hb-root .hb-bench-panels { flex:1 1 260px; min-width:240px; position:relative; z-index:4; }
+  #hb-root .hb-bench-panels { flex:1 1 260px; min-width:230px; position:relative; z-index:4; }
   /* No overflow:hidden here — this element holds the sticky stage, and
      overflow:hidden would make IT the sticky containing block instead of the real
      scroll container (.hb-body), breaking the "stage stays visible" behavior. */
-  #hb-root .hb-bench-crt { position:relative; padding:13px; border-radius:14px; border:1px solid var(--border);
+  #hb-root .hb-bench-crt { position:relative; padding:10px; border-radius:14px; border:1px solid var(--border);
     background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 5px var(--hb-bevel-lo), 0 6px 18px rgba(0,0,0,0.28); }
   #hb-root .hb-bench-crt .hb-note, #hb-root .hb-bench-crt .hb-dim { color:var(--text-dim); }
   #hb-root #hb-perf-radar { display:block; margin:0 auto; }
-  #hb-root .hb-bench-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  #hb-root .hb-bench-tabs { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:7px; }
   #hb-root .hb-tab { font-family:inherit; font-size:10px; letter-spacing:1.5px; color:var(--hb-atm-accent); cursor:pointer;
-    background:color-mix(in srgb, var(--hb-atm-accent) 6%, transparent); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:5px; padding:6px 11px;
+    background:color-mix(in srgb, var(--hb-atm-accent) 6%, transparent); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:5px; padding:5px 9px;
     text-shadow:0 0 4px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
   #hb-root .hb-tab:hover { border-color:var(--hb-atm-accent); background:color-mix(in srgb, var(--hb-atm-accent) 14%, transparent); }
   #hb-root .hb-tab-active { border-color:var(--hb-atm-accent); background:color-mix(in srgb, var(--hb-atm-accent) 20%, transparent); box-shadow:0 0 12px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
   /* A little bottom breathing room so a tab's trailing control (the Apply / Install
      row) isn't flush against the scroll region's bottom edge. */
-  #hb-root .hb-bench-tabbody { color:var(--text); padding-bottom:12px; }
+  #hb-root .hb-bench-tabbody { color:var(--text); padding-bottom:8px; }
   #hb-root .hb-bench-tabbody .hb-ctl, #hb-root .hb-bench-tabbody .hb-tune-row { color:var(--text); }
-  #hb-root .hb-subtabs { display:flex; gap:5px; margin-bottom:8px; }
+  #hb-root .hb-subtabs { display:flex; gap:5px; margin-bottom:6px; }
   #hb-root .hb-subtab { font-family:inherit; font-size:9px; letter-spacing:1px; color:var(--text-dim); cursor:pointer;
     background:none; border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); border-radius:4px; padding:4px 9px; }
   #hb-root .hb-subtab:hover { border-color:var(--hb-atm-accent); color:var(--hb-atm-accent); }
@@ -1071,13 +1300,13 @@ function ensureStyles() {
      instrument bays: each a shallow well sunk into the bench face, its dials/bars in
      their own bezels — the same tactile, theme-following depth the tablet gives its
      tiles (light on a light theme, dark on a dark one). */
-  #hb-root .hb-tune-grid { display:grid; grid-template-columns:minmax(158px,auto) 1fr; gap:10px 12px; align-items:stretch; margin-bottom:10px; }
+  #hb-root .hb-tune-grid { display:grid; grid-template-columns:minmax(150px,auto) 1fr; gap:8px 10px; align-items:stretch; margin-bottom:8px; }
   /* Dial cluster — a sunken instrument bay. */
-  #hb-root .hb-knobs { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; padding:11px; border-radius:12px;
+  #hb-root .hb-knobs { display:grid; grid-template-columns:repeat(2,1fr); gap:6px; padding:9px; border-radius:12px;
     background:var(--hb-surf-lo); border:1px solid var(--border);
     box-shadow:inset 0 2px 8px var(--hb-bevel-lo), inset 0 1px 0 rgba(255,255,255,0.06); }
   /* Each dial panel-mounted in its own raised bezel — bright top lip, soft drop. */
-  #hb-root .hb-knob-cell { display:flex; flex-direction:column; align-items:center; gap:1px; padding:7px 4px 5px; border-radius:10px; cursor:help;
+  #hb-root .hb-knob-cell { display:flex; flex-direction:column; align-items:center; gap:1px; padding:5px 4px 4px; border-radius:10px; cursor:help;
     background:linear-gradient(180deg, var(--hb-surf), var(--hb-surf-lo)); border:1px solid var(--border);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 2px 4px rgba(0,0,0,0.16);
     transition:filter .12s, box-shadow .12s, border-color .12s; }
@@ -1089,7 +1318,7 @@ function ensureStyles() {
   #hb-root .hb-knob-val { font-size:11px; font-weight:bold; color:var(--text-bright); letter-spacing:0.5px; text-shadow:0 0 6px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); }
   #hb-root .hb-knob-poles { display:flex; justify-content:space-between; width:100%; font-size:6.5px; letter-spacing:0.5px; color:var(--text-dim); margin-top:1px; padding:0 2px; }
   /* Delta readout — a matching sunken bay of lit meters. */
-  #hb-root .hb-perf-bars { display:grid; grid-template-columns:42px 1fr 32px; gap:8px 8px; align-items:center; padding:11px 12px; border-radius:12px;
+  #hb-root .hb-perf-bars { display:grid; grid-template-columns:42px 1fr 32px; gap:6px 8px; align-items:center; padding:9px 11px; border-radius:12px;
     background:var(--hb-surf-lo); border:1px solid var(--border);
     box-shadow:inset 0 2px 8px var(--hb-bevel-lo), inset 0 1px 0 rgba(255,255,255,0.06); }
   #hb-root .hb-pbar-row { display:contents; }
@@ -1103,7 +1332,7 @@ function ensureStyles() {
   #hb-root .hb-pbar-d { font-size:9px; font-weight:bold; letter-spacing:0.5px; text-align:left; min-width:28px; }
   #hb-root .hb-apply-row .hb-tune-note { flex-basis:100%; font-size:9px; color:var(--text-dim); margin-top:2px; }
   /* Upgrade kits — their own tab: a selectable list beside the picked kit's detail. */
-  #hb-root .hb-kits-head { font-size:9px; letter-spacing:3px; color:var(--text-dim); margin-bottom:8px; }
+  #hb-root .hb-kits-head { font-size:9px; letter-spacing:3px; color:var(--text-dim); margin-bottom:6px; }
   #hb-root .hb-kits2 { display:grid; grid-template-columns:minmax(118px,44%) 1fr; gap:10px; align-items:start; }
   #hb-root .hb-kit-list { display:flex; flex-direction:column; gap:6px; }
   #hb-root .hb-kit-item { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; text-align:left; cursor:pointer;
@@ -1119,16 +1348,16 @@ function ensureStyles() {
   #hb-root .hb-kit-detail { padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--hb-surf-lo);
     box-shadow:inset 0 2px 8px var(--hb-bevel-lo); }
   #hb-root .hb-kit-detail-name { font-size:12px; font-weight:bold; letter-spacing:1px; color:var(--text-bright); margin-bottom:4px; }
-  #hb-root .hb-kit-detail-act { margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
+  #hb-root .hb-kit-detail-act { margin-top:10px; padding-top:9px; border-top:1px solid var(--border); }
   #hb-root .hb-kit-tag { font-size:8px; letter-spacing:1px; color:var(--green); border:1px solid color-mix(in srgb, var(--green) 45%, transparent); border-radius:3px; padding:2px 6px; }
   #hb-root .hb-kit-blurb { font-size:10.5px; color:var(--text-dim); margin-top:4px; line-height:1.4; }
   #hb-root .hb-loadout-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
-  #hb-root .hb-presets { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  #hb-root .hb-presets { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:7px; }
   #hb-root .hb-preset { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:1px; color:#dcecf8; cursor:pointer;
     background:rgba(255,255,255,0.07); border:1px solid #5a7185; border-radius:6px; padding:4px 8px; font-family:inherit; }
   #hb-root .hb-preset:hover { border-color:#7fd6ff; }
   #hb-root .hb-chip { width:14px; height:14px; border-radius:3px; display:inline-block; }
-  #hb-root .hb-ctls { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
+  #hb-root .hb-ctls { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; }
   #hb-root .hb-ctl { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color:#dcecf8; letter-spacing:1px; }
   #hb-root .hb-ctl input[type=color] { width:44px; height:26px; padding:0; border:1px solid #5a7185; border-radius:5px; background:none; cursor:pointer; }
   #hb-root .hb-cp-swatch { width:44px; height:26px; padding:0; border:1px solid #5a7185; border-radius:5px; cursor:pointer; }
@@ -1141,7 +1370,7 @@ function ensureStyles() {
   #hb-root .hb-cp-huecursor { position:absolute; top:-2px; left:0; width:6px; height:18px; margin-left:-3px; border-radius:2px; background:#fff; box-shadow:0 0 2px rgba(0,0,0,0.8); pointer-events:none; }
   #hb-root .hb-cp-hex-input { margin-top:10px; width:100%; box-sizing:border-box; background:rgba(0,0,0,0.25); color:#dcecf8; border:1px solid #5a7185; border-radius:5px; padding:5px 8px; font-family:inherit; text-align:center; letter-spacing:1px; }
   #hb-root .hb-ctl select { flex:1; max-width:120px; background:rgba(0,0,0,0.25); color:#dcecf8; border:1px solid #5a7185; border-radius:5px; padding:4px; font-family:inherit; }
-  #hb-root .hb-apply-row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  #hb-root .hb-apply-row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
   #hb-root .hb-schemes { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
   #hb-root .hb-scheme { display:inline-flex; align-items:center; background:rgba(255,255,255,0.07); border:1px solid #5a7185; border-radius:6px; overflow:hidden; }
   #hb-root .hb-scheme-load { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:1px; color:#dcecf8; cursor:pointer; background:none; border:none; padding:4px 6px 4px 8px; font-family:inherit; }

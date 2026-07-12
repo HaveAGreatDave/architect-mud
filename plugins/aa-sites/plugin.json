@@ -1,0 +1,10 @@
+{
+  "name": "aa-sites",
+  "version": "1.0.0",
+  "description": "AA emplacements on foot: a zone.describeRoom panel on each aa_sites tile showing the battery's name, faction, and live status (MANNED / ● FIRING / destroyed), plus a throttled room broadcast when the guns open up (driven by flight.aaFired). Crew are stationed NPCs (content). Firing state is runtime memory; nothing is written back.",
+  "hooks": ["zone.describeRoom"],
+  "events": {
+    "consumes": ["flight.aaFired", "flight.aaSilenced"]
+  },
+  "extensionPoints": ["aa_sites"]
+}

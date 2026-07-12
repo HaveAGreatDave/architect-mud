@@ -800,12 +800,10 @@ async function physicalizeClip(clipRow, player) {
     `INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`,
     [randomUUID(), player.id, itemId]
   );
-  // Build (or refresh) the chip's playable broadcast. Kept off the critical path —
-  // a chip still works as evidence even if the broadcast build hiccups.
-  try {
-    const { ensureClipBroadcast } = await import('../broadcast/index.js');
-    await ensureClipBroadcast(broadcastId, `Footage: ${zoneName}`, frames, 4);
-  } catch (e) { console.error('[surveillance] clip broadcast build failed:', e.message); }
+  // The chip carries a broadcast_id, but the playable broadcast is minted lazily —
+  // only if/when the chip is actually loaded into a media deck (see cmdLoadCassette).
+  // Most chips are only ever replayed privately or submitted as evidence and never
+  // aired, so eager minting just piled up hidden broadcasts nobody watched.
   return { itemId, zoneName, frameCount: frames.length, evidenceTag };
 }
 
@@ -1256,7 +1254,7 @@ registerAction({
 registerAction({
   type: 'CHARGE_CRIME',
   handler: async ({ actor, params }) => {
-    if (actor?.id && params?.key) await raiseCrime(actor, params.key, actor.current_zone, actor.handle, true);
+    if (actor?.id && params?.key) await raiseCrime(actor, params.key, params.zoneId || actor.current_zone, actor.handle, true);
     return { type: 'charged', key: params?.key || null };
   },
 });
@@ -1270,6 +1268,13 @@ registerAction({
     const s = wantedRuntime.get(actor?.id);
     return { type: 'peak', peak: s ? Math.max(s.maxStars || 0, s.stars) : 0 };
   },
+});
+
+// Cross-plugin seam: read the CURRENT (decayed) wanted level — used by the flight plugin so
+// ground AA only opens up on wanted pilots (criminals), not law-abiding overflights.
+registerAction({
+  type: 'WANTED_STARS',
+  handler: ({ actor }) => ({ type: 'wanted', stars: wantedRuntime.get(actor?.id)?.stars || 0 }),
 });
 
 // ── Invisible heat (0–100) — the slow burn of being *noticed* ─────────────────
@@ -1830,6 +1835,7 @@ async function scanActiveCrimes() {
   const byZone = new Map();   // zoneId -> [player]
   for (const p of getAllLivePlayers()) {
     if (!p.current_zone) continue;
+    if (p._vatDressing) continue;   // clone mid-emergence, being dressed — not indecent exposure
     if (!byZone.has(p.current_zone)) byZone.set(p.current_zone, []);
     byZone.get(p.current_zone).push(p);
   }
@@ -2100,7 +2106,7 @@ async function cmdSubmit(args, raw, player) {
 
   const nameHint = args.join(' ').trim();
   const params = [player.id];
-  let sql = `SELECT pi.id AS inv_id, i.name, i.tags FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+  let sql = `SELECT pi.id AS inv_id, i.id AS item_id, i.name, i.tags FROM player_inventory pi JOIN items i ON i.id = pi.item_id
              WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'datachip')`;
   if (nameHint) { sql += ` AND i.name ILIKE $2`; params.push(`%${nameHint}%`); }
   sql += ` LIMIT 1`;
@@ -2117,6 +2123,18 @@ async function cmdSubmit(args, raw, player) {
   player.credits = (player.credits || 0) + reward;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
   await query('DELETE FROM player_inventory WHERE id=$1', [chip.inv_id]);
+  // The evidence is now in police hands — the clip is spent. Reap its row, its
+  // hidden clip broadcast, and the (now unheld) chip definition so submissions
+  // don't leave orphans piling up in the media library.
+  if (clipId) {
+    await query('DELETE FROM security_clips WHERE id=$1', [clipId]);
+    const bcId = chip.tags?.broadcast_id || `bc_clip_${clipId}`;
+    await query('DELETE FROM media_broadcasts WHERE id=$1', [bcId]);
+  }
+  await query(
+    `DELETE FROM items WHERE id=$1 AND NOT EXISTS (SELECT 1 FROM player_inventory pi WHERE pi.item_id=items.id)`,
+    [chip.item_id]
+  );
   return {
     type: 'output',
     message: `${cop.name} slots the chip, scans the ${tags.join('/')} footage, and pays out <span class="ip-gain">${reward}c</span> in evidence bounty.`,
@@ -2148,6 +2166,42 @@ async function batteryTick() {
 }
 
 setInterval(() => batteryTick().catch(e => console.error('[surveillance] battery tick error:', e.message)), 5 * 60 * 1000);
+
+// ── Evidence retention purge ─────────────────────────────────────────────────
+// security_clips accumulate forever otherwise: auto-banked evidence nobody
+// collects, and police clip_pd_ rows minted on every witnessed crime. Drop clips
+// older than the retention window that have NO physical chip held anywhere — a
+// held microreel is owned property and keeps its clip indefinitely. Cascades to
+// each dropped clip's lazily-built broadcast and its (now unheld) chip item.
+const CLIP_RETENTION_MS = 3 * 24 * 60 * 60 * 1000;   // 3 days, mirrors the jail evidence locker
+
+// Cascade a set of deleted clip ids to their lazily-built broadcasts and the
+// (now unheld) chip item definitions. Held chips are left alone — the caller is
+// responsible for only passing clips that have no held chip.
+async function reapClipArtifacts(clipIds) {
+  if (!clipIds.length) return;
+  const bcIds = clipIds.map(id => `bc_clip_${id}`);
+  await query(`DELETE FROM media_broadcasts WHERE id = ANY($1::text[])`, [bcIds]);
+  await query(
+    `DELETE FROM items WHERE tags->>'broadcast_id' = ANY($1::text[])
+       AND NOT EXISTS (SELECT 1 FROM player_inventory pi WHERE pi.item_id = items.id)`,
+    [bcIds]);
+}
+
+async function purgeOldClips() {
+  const cutoff = Math.floor((Date.now() - CLIP_RETENTION_MS) / 1000);   // captured_at is epoch seconds
+  const { rows: gone } = await query(
+    `DELETE FROM security_clips c
+      WHERE c.captured_at < $1
+        AND NOT EXISTS (
+          SELECT 1 FROM items i JOIN player_inventory pi ON pi.item_id = i.id
+           WHERE i.tags->>'clip_id' = c.id::text)
+      RETURNING c.id`, [cutoff]);
+  if (!gone.length) return;
+  await reapClipArtifacts(gone.map(r => r.id));
+  console.log(`[surveillance] purged ${gone.length} expired evidence clip(s).`);
+}
+setInterval(() => purgeOldClips().catch(e => console.error('[surveillance] clip purge error:', e.message)), 30 * 60 * 1000);
 
 // ── Plugin exports ────────────────────────────────────────────────────────────
 
@@ -2327,6 +2381,25 @@ export const commands = {
   scrub: cmdScrub,
   apprehendresolve: cmdApprehendResolve,
   purge: cmdPurge,
+};
+
+// When a zone is deleted (dev panel), reap the evidence tied to it so it can't
+// leave orphaned clips/broadcasts/chips behind — exactly the "Cold Channel" pile.
+// Held microreels (owned property) are spared; only unheld clips are dropped.
+export const hooks = {
+  'zone.delete': async (id, allDeletedIds) => {
+    const zoneIds = Array.isArray(allDeletedIds) && allDeletedIds.length ? allDeletedIds : [id];
+    const { rows: gone } = await query(
+      `DELETE FROM security_clips c
+        WHERE c.zone_id = ANY($1::text[])
+          AND NOT EXISTS (
+            SELECT 1 FROM items i JOIN player_inventory pi ON pi.item_id = i.id
+             WHERE i.tags->>'clip_id' = c.id::text)
+        RETURNING c.id`, [zoneIds]);
+    if (!gone.length) return;
+    await reapClipArtifacts(gone.map(r => r.id));
+    console.log(`[surveillance] zone delete reaped ${gone.length} clip(s) from ${zoneIds.length} zone(s).`);
+  },
 };
 
 export const specializedActions = [

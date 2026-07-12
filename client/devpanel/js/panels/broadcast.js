@@ -132,7 +132,7 @@ async function bcSuiteRefresh(focusTab) {
 }
 
 const BROADCAST_CATEGORIES = ['general','news','advertisement','entertainment','emergency','weather','sport','music','documentary','surveillance'];
-const BROADCAST_MODES      = ['scripted','dynamic_news','live','recorded','weather','sports'];
+const BROADCAST_MODES      = ['scripted','dynamic_news','live','recorded','weather','sports','news'];
 
 const BC_CAT_COLOR = {
   entertainment: 'var(--cyan)',    news: 'var(--yellow)',
@@ -167,6 +167,15 @@ let _broadcastGraph  = null;
 let _bcNewChVisible  = false;
 let _bcNewActive     = false;  // true while the blank "new broadcast" canvas is open
 let _bcCommNewActive = false;  // true while the blank "new commercial" canvas is open
+let _bcShowClips     = false;  // reveal auto-generated surveillance-clip broadcasts in the sidebar
+
+// Auto-minted surveillance-clip broadcasts (one hidden enabled=0 entry per
+// datachip, id `bc_clip_*`, category 'surveillance'). They aren't editable
+// channels — they exist only so a chip can play on a zone's TVs — so they're
+// collapsed out of the sidebar by default to keep it readable.
+function _bcIsClip(b) {
+  return b.category === 'surveillance' || String(b.id).startsWith('bc_clip_');
+}
 
 // ── Panel entry ───────────────────────────────────────────────────────────────
 
@@ -198,7 +207,10 @@ function _bcRenderSidebar() {
   const el = document.getElementById('bc-sidebar');
   if (!el) return;
 
-  const items = _broadcastList.map(b => {
+  const clipCount = _broadcastList.filter(_bcIsClip).length;
+  const shown = _bcShowClips ? _broadcastList : _broadcastList.filter(b => !_bcIsClip(b));
+
+  const items = shown.map(b => {
     const ch  = _bcChannels.find(c => c.id === b.channel_id);
     const col = BC_CAT_COLOR[b.category] || 'var(--text-dim)';
     const sel = _bcSelected?.id === b.id;
@@ -223,7 +235,16 @@ function _bcRenderSidebar() {
     </div>
     <div style="flex:1;overflow-y:auto">
       ${items || '<div style="padding:16px;color:var(--text-dim);font-size:11px">No broadcasts yet.</div>'}
+      ${clipCount ? `<div onclick="bcToggleClips()" title="Auto-generated surveillance-clip broadcasts (one per datachip). Not editable channels."
+          style="padding:8px 12px;cursor:pointer;font-size:10px;color:var(--text-dim);border-top:1px solid var(--border)">
+          ${_bcShowClips ? '▾' : '▸'} ${clipCount} surveillance clip${clipCount === 1 ? '' : 's'} ${_bcShowClips ? '(hide)' : '(show)'}
+        </div>` : ''}
     </div>`;
+}
+
+function bcToggleClips() {
+  _bcShowClips = !_bcShowClips;
+  _bcRenderSidebar();
 }
 
 // ── Select / open ─────────────────────────────────────────────────────────────
@@ -354,14 +375,14 @@ function _bcCanvasHtml(rec, opts = {}) {
   // Weather + sports are live-assembled: the runtime builds a fresh graph from the
   // broadcast's line pools every airing, so the stored graph is just the Start node.
   // Say so, or an empty storyboard/VINE reads as broken.
-  const liveAssembled = rec?.playback_mode === 'weather' || rec?.playback_mode === 'sports';
+  const liveAssembled = rec?.playback_mode === 'weather' || rec?.playback_mode === 'sports' || rec?.playback_mode === 'news';
   const liveAssembledNotice = liveAssembled ? `
       <div style="display:flex;gap:10px;padding:10px 12px;margin-bottom:12px;border:1px solid var(--accent2);border-left:3px solid var(--accent2);border-radius:0 3px 3px 0;background:var(--bg3)">
         <span style="font-size:15px;line-height:1">🎲</span>
         <div style="font-size:11px;color:var(--text);line-height:1.5">
           <strong>Live-assembled ${rec.playback_mode} broadcast.</strong>
           A fresh script is generated from this broadcast's line pools <em>every time it airs</em>
-          (${rec.playback_mode === 'weather' ? 'from the live 7-day forecast' : 'a newly simulated game each airing'}),
+          (${rec.playback_mode === 'weather' ? 'from the live 7-day forecast' : rec.playback_mode === 'news' ? 'from the live news generator each airing' : 'a newly simulated game each airing'}),
           so the stored graph is only the <em>Start</em> node — the storyboard and ⬡ VINE view will look empty by design.
           To change its content, edit the <code>::lines</code> pools in its <code>.bsm</code> and re-import.
         </div>
@@ -785,9 +806,10 @@ async function saveBroadcast() {
     enabled: document.getElementById('bc-enabled')?.checked ? 1 : 0,
     messages,
     broadcast_graph: graph,
-    // Preserve weather/sports line pools on manual save — they're only authored via BSM import.
+    // Preserve weather/sports/news line pools on manual save — they're only authored via BSM import.
     weather_pools: _bcSelected?.weather_pools || null,
     sports_pools: _bcSelected?.sports_pools || null,
+    news_pools: _bcSelected?.news_pools || null,
     channel_id: document.getElementById('bc-channel')?.value || null,
     fallback_messages: (document.getElementById('bc-fallback-msgs')?.value || '').split('\n').map(s => s.trim()).filter(Boolean),
   };
@@ -850,7 +872,7 @@ async function cloneBroadcast(rec) {
 
 let _bcImportInProgress = false;
 async function bcCleanOrphans() {
-  if (!(await dpConfirm('Scan for and remove orphaned broadcast references?\n\nThis will:\n• Delete playlist slots pointing at deleted broadcasts\n• Null out channel/zone refs on broadcasts, channels, and cameras that point at deleted entities\n\nNo broadcasts or channels will be deleted.'))) return;
+  if (!(await dpConfirm('Scan for and remove orphaned broadcast references?\n\nThis will:\n• Delete playlist slots pointing at deleted broadcasts\n• Null out channel/zone refs on broadcasts, channels, and cameras that point at deleted entities\n• Reap dead surveillance-clip broadcasts (clip gone AND no chip held anywhere)\n\nNo editable broadcasts or channels will be deleted.'))) return;
   const res = await directAPI('/broadcast/cleanup-orphans', 'POST');
   if (res?.error) { toast(res.error, true); return; }
   toast(res.message || 'Done');
@@ -862,6 +884,7 @@ async function bcCleanOrphans() {
     if (res.report.channelStudioZoneRefsCleared) lines.push(`${res.report.channelStudioZoneRefsCleared} studio-zone ref(s) cleared`);
     if (res.report.camerasRemovedDeadZone)       lines.push(`${res.report.camerasRemovedDeadZone} camera(s) removed (zone gone)`);
     if (res.report.cameraChannelRefsCleared)     lines.push(`${res.report.cameraChannelRefsCleared} camera→channel ref(s) cleared`);
+    if (res.report.clipBroadcastsReaped)         lines.push(`${res.report.clipBroadcastsReaped} dead clip broadcast(s) reaped`);
     console.log('[bcCleanOrphans]', lines.join(', '));
   }
   await bcSuiteRefresh('broadcasts');
@@ -1669,7 +1692,7 @@ async function _bcDepFinish() {
   if (_bcDepCompiled) await _bcImportSave(_bcDepCompiled);
 }
 
-async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript, messages, assets, cameras, actorIds, npcIds }) {
+async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript, newsScript, talkshowScript, messages, assets, cameras, actorIds, npcIds }) {
   // Apply zone ID remaps to camera_cut nodes (BSM ID → real interior zone ID)
   for (const node of Object.values(broadcastGraph?.nodes || {})) {
     if (node.type === 'camera_cut') {
@@ -1701,17 +1724,27 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
   // @type sports → a line library + team/player pools; the server simulates a fresh
   // game each airing. Like weather it loops; unlike weather it needs no host NPC — the
   // announcer is a plain name spoken as narration, so no studio NPC is ever spawned.
-  const isWeather = meta.type === 'weather';
-  const isSports  = meta.type === 'sports';
-  const isPool    = isWeather || isSports;
+  // @type news → a line library; the server pulls fresh stories from the live news
+  // generator each airing and reads them through anchors/reporters (name strings, no NPC).
+  // @type talkshow → a line library + guest personas; the server assembles a fresh episode
+  // each night and ACTS it live with real cast NPCs (host + sidekick) plus a reusable guest
+  // NPC renamed per episode. Like a live show it staffs the studio; like sports it gates on
+  // an @airtime slot and loops so it re-airs each night.
+  const isWeather  = meta.type === 'weather';
+  const isSports   = meta.type === 'sports';
+  const isNews     = meta.type === 'news';
+  const isTalkshow = meta.type === 'talkshow';
+  const isPool     = isWeather || isSports || isNews || isTalkshow;
   const body = {
-    name: meta.name, category: meta.category || (isWeather ? 'weather' : isSports ? 'sport' : 'general'),
-    playback_mode: isWeather ? 'weather' : isSports ? 'sports' : 'scripted', message_interval: 5,
+    name: meta.name, category: meta.category || (isWeather ? 'weather' : isSports ? 'sport' : isNews ? 'news' : isTalkshow ? 'late_night' : 'general'),
+    playback_mode: isWeather ? 'weather' : isSports ? 'sports' : isNews ? 'news' : isTalkshow ? 'talkshow' : 'scripted', message_interval: 5,
     override_duration: meta.length || null, loop: isPool ? 1 : 0, enabled: 1,
     messages: messages.map(t => ({ text: t })),
     broadcast_graph: broadcastGraph,
     weather_pools: isWeather ? (weatherScript || { pools: {}, host: meta.host }) : null,
     sports_pools: isSports ? (sportsScript || { sport: meta.sport || 'baseball', announcer: meta.announcer, teams: [], players: [], pools: {}, airSlots: null }) : null,
+    news_pools: isNews ? (newsScript || { anchors: [], reporters: [], announcer: meta.announcer, pools: {} }) : null,
+    talkshow_pools: isTalkshow ? (talkshowScript || { host: meta.host, sidekick: meta.sidekick, guestNpc: meta.guestNpc, guests: [], pools: {}, title: meta.titlecard || '', theme: meta.theme || '', airSlots: null }) : null,
     channel_id: channelId,
   };
   try {
@@ -1729,8 +1762,9 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
         if (deckRes?.error) console.warn('[BSM] Media deck spawn failed:', deckRes.error);
 
         // Non-live imports get a physical cassette of the recording, placed in
-        // the production room and registered in the deck's library.
-        if (meta.type !== 'live') {
+        // the production room and registered in the deck's library. A talk show is
+        // acted live (not a recording), so it gets no cassette — like @type live.
+        if (meta.type !== 'live' && !isTalkshow) {
           const broadcastId = res?.id || existing?.id;
           if (broadcastId) {
             const cassetteRes = await directAPI('/broadcast/cassette', 'POST', {
@@ -1767,11 +1801,13 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
           }
         }
         // Place declared actors in studio zone — create if new, update zone if existing.
-        // ONLY live channels and weather forecasts actually put a host on-stage (they're
-        // presence-gated at runtime). Every other type — scripted, sports, commercial —
-        // speaks its lines directly with no NPC, so we never spawn or move one for them,
-        // even if the .bsm declares ::actors / SPEAKER lines.
-        const spawnsNpcs = meta.type === 'live' || meta.type === 'weather';
+        // ONLY live channels, weather forecasts, and talk shows actually put cast on-stage
+        // (they're presence-gated at runtime). Every other type — scripted, sports, news,
+        // commercial — speaks its lines directly with no NPC, so we never spawn or move one
+        // for them, even if the .bsm declares ::actors / SPEAKER lines. For a talk show the
+        // host + sidekick + reusable guest are placed here; the server's schedule recalc then
+        // assigns the guest its roaming lifecycle graph when the show is put on a playlist.
+        const spawnsNpcs = meta.type === 'live' || meta.type === 'weather' || isTalkshow;
         let npcSpawnCount = 0, npcMoveCount = 0;
         const existingNpcIds = _bcExistingNpcIds instanceof Set ? _bcExistingNpcIds : new Set();
         const actors = spawnsNpcs ? [...new Set([
@@ -1779,22 +1815,28 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
           ...(Array.isArray(npcIds)   ? npcIds   : []),
         ])] : [];
         for (const npcId of actors) {
+          // The reusable talk-show guest is special: it's tagged so the server can find it,
+          // starts "hidden" (it lives off-world between episodes), and gets its roaming
+          // lifecycle graph assigned by the schedule recalc when the show is put on a playlist.
+          const isGuest = isTalkshow && npcId === meta.guestNpc;
           try {
             if (existingNpcIds.has(npcId)) {
               const existing = _bcExistingNpcMap.get(npcId) || {};
               const npcRes = await directAPI(`/npcs/${npcId}`, 'PUT', {
                 ...existing,
                 zone_id: _bcImportStudioZoneId, home_zone: _bcImportStudioZoneId,
+                ...(isGuest ? { flags: { ...(existing.flags || {}), studio_npc: true, talkshow_guest: true } } : {}),
               });
               if (npcRes?.error) console.warn(`[BSM] NPC move failed for ${npcId}:`, npcRes.error);
               else npcMoveCount++;
             } else {
               const npcRes = await directAPI('/npcs', 'POST', {
                 id: npcId, name: npcId.replace(/^npc_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-                description: 'A broadcast studio host.',
+                description: isGuest ? "Tonight's guest, waiting in the wings." : 'A broadcast studio host.',
                 zone_id: _bcImportStudioZoneId, home_zone: _bcImportStudioZoneId,
                 wanders: 0, wander_zones: [],
-                dialogue_tree: {}, vendor_inventory: [], flags: { studio_npc: true },
+                dialogue_tree: {}, vendor_inventory: [],
+                flags: isGuest ? { studio_npc: true, talkshow_guest: true } : { studio_npc: true },
                 behaviour_graph: _bcDefaultStudioGraph(_bcImportStudioZoneId),
                 chitchat: (typeof NPC_CHITCHAT_PRESETS !== 'undefined' && NPC_CHITCHAT_PRESETS.tv_host) || [],
               });
@@ -1803,13 +1845,21 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
             }
           } catch (npcErr) { console.warn(`[BSM] NPC error for ${npcId}:`, npcErr.message); }
         }
+        // A talk show auto-locks to its @airtime: the save already pinned its daily slot;
+        // now that the cast NPCs exist, recalc staffs them (and gives the guest its roaming
+        // lifecycle graph) so the show is fully wired to air at its broadcast time.
+        let scheduledNote = '';
+        if (isTalkshow) {
+          try { await directAPI('/broadcast/recalculate-schedules', 'POST', {}); scheduledNote = ', auto-scheduled at its airtime'; }
+          catch (schErr) { console.warn('[BSM] talkshow schedule recalc failed:', schErr.message); }
+        }
         const camNote = camsCreated ? `, ${camsCreated} camera(s) spawned` : '';
         const npcNote = [
           npcSpawnCount ? `${npcSpawnCount} NPC(s) placed` : '',
           npcMoveCount  ? `${npcMoveCount} NPC(s) moved to studio` : '',
         ].filter(Boolean).join(', ');
         const npcSuffix = npcNote ? `, ${npcNote}` : '';
-        toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}${camNote}${npcSuffix}.`);
+        toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}${camNote}${npcSuffix}${scheduledNote}.`);
       } catch (camErr) {
         toast(`Imported "${meta.name}" — broadcast saved, but studio setup failed: ${camErr.message}`, true);
       }

@@ -1,0 +1,13 @@
+{
+  "description": "A leather roll of picks, tension wrenches, and one bent bobby pin that has opened more doors than all the rest.",
+  "flags": {},
+  "id": "item_lockpick_roll",
+  "name": "lockpick roll",
+  "tags": {
+    "description": "A leather roll of picks, tension wrenches, and one bent bobby pin that has opened more doors than all the rest.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 45,
+  "weight": 150
+}

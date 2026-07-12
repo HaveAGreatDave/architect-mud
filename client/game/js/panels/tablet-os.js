@@ -39,6 +39,67 @@ function saveTabletTheme(t) {
   try { localStorage.setItem(TABLET_THEME_KEY, JSON.stringify(t)); } catch {}
 }
 
+// ── Quest activity log (client-only) ────────────────────────────────────────
+// A small rolling record of quest/job-board actions, shown at the foot of the
+// Quests app root. Deliberately client-side (localStorage, per-device) — it's
+// captured from the authoritative server chat lines the client already receives
+// ("New quest: X.", "Quest turned in: X. (+N₵)"), plus the tablet's own abandon
+// action, so it never lies about a hand-in that only plotted a GPS route. No
+// server round trip, no DB row.
+const QLOG_KEY = 'architect_quest_log';
+const QLOG_CAP = 20;
+function loadQLog() {
+  try { const a = JSON.parse(localStorage.getItem(QLOG_KEY) || '[]'); return Array.isArray(a) ? a : []; }
+  catch { return []; }
+}
+function pushQLog(text) {
+  if (!text) return;
+  const log = loadQLog();
+  // Collapse an exact immediate repeat (e.g. a double-fired output line).
+  if (log[0] && log[0].text === text) return;
+  log.unshift({ t: Date.now(), text });
+  try { localStorage.setItem(QLOG_KEY, JSON.stringify(log.slice(0, QLOG_CAP))); } catch {}
+  // If the player is looking at the Quests root right now, refresh it in place so
+  // the new line appears without reopening the app.
+  if (_overlay && _data && _data.appId === 'quests' && _data.view === 'categories') {
+    _keepQuestScroll = true;
+    render();
+  }
+}
+// Recognise the stable server strings the quest engine sends on take / complete /
+// hand-in (plugins/quests/index.js msg()). HTML-wrapped, so match on inner text.
+export function noteQuestOutput(html) {
+  if (!html || typeof html !== 'string') return;
+  const text = html.replace(/<[^>]+>/g, '');
+  let m = text.match(/New quest:\s*(.+?)\.\s*$/m) || text.match(/New quest:\s*(.+?)\./);
+  if (m) { pushQLog(`Took “${m[1].trim()}”`); return; }
+  m = text.match(/Quest complete:\s*(.+?)\./);
+  if (m) { pushQLog(`Completed “${m[1].trim()}”`); return; }
+  m = text.match(/Quest turned in:\s*(.+?)\.(?:\s*\(\+(\d+)₵\))?/);
+  if (m) { pushQLog(`Handed in “${m[1].trim()}”${m[2] ? ` · +₵${m[2]}` : ''}`); }
+}
+// A structured objective-step line pushed by the server ("read the meter (1/2)") —
+// carries the running counter the chat "Done: …" line can't. Logged verbatim.
+export function noteQuestStep(text) { pushQLog(text); }
+function relTime(ts) {
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (s < 60) return 'just now';
+  const mn = Math.floor(s / 60); if (mn < 60) return `${mn}m ago`;
+  const h = Math.floor(mn / 60); if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+function renderQuestActivityLog() {
+  const log = loadQLog();
+  if (!log.length) return '';
+  const rows = log.slice(0, 8).map(e =>
+    `<div class="tos-qlog-row"><span class="tos-qlog-txt">${esc(e.text)}</span><span class="tos-qlog-t">${esc(relTime(e.t))}</span></div>`
+  ).join('');
+  return `<div class="tos-qlog">
+    <div class="tos-qlog-hdr"><span>Recent Activity</span><span class="tos-qlog-clear" data-qlog-clear>clear</span></div>
+    ${rows}
+  </div>`;
+}
+
 let _overlay = null;
 let _close = null;
 let _data = null; // last tablet_panel payload
@@ -250,6 +311,14 @@ function ensureStyles() {
     #tablet-os-overlay .tos-badge.open, #tablet-os-overlay .tos-badge.legal { color:var(--mg-accent); border:1px solid color-mix(in srgb,var(--mg-accent) 30%,transparent); background:var(--tos-surface); }
     #tablet-os-overlay .tos-badge.illegal { color:#ff7a86; border:1px solid #4a1a1e; background:#1a0a0c; }
     #tablet-os-overlay .tos-empty { color:var(--tos-fg-dim2); font-size:12.5px; line-height:1.5; padding:20px 4px; text-align:center; }
+    /* Quest activity log (client-only), foot of the Quests app root. */
+    #tablet-os-overlay .tos-qlog { margin-top:14px; padding-top:10px; border-top:1px solid var(--tos-border); }
+    #tablet-os-overlay .tos-qlog-hdr { display:flex; justify-content:space-between; align-items:baseline; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-bottom:6px; }
+    #tablet-os-overlay .tos-qlog-clear { cursor:pointer; color:var(--tos-fg-dim); text-transform:none; letter-spacing:0; }
+    #tablet-os-overlay .tos-qlog-clear:hover { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-qlog-row { display:flex; justify-content:space-between; gap:10px; font-size:12px; padding:3px 0; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-qlog-txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #tablet-os-overlay .tos-qlog-t { color:var(--tos-fg-dim2); flex:none; }
 
     /* Detail view */
     #tablet-os-overlay .tos-detail-name { font-size:18px; color:var(--tos-fg); margin-bottom:4px; }
@@ -818,7 +887,7 @@ function ensureStyles() {
       background:radial-gradient(130% 130% at 50% 40%, color-mix(in srgb, var(--mg-accent) 7%, var(--bg,#030806)) 55%, var(--bg,#01050a) 100%); border:1px solid color-mix(in srgb,var(--mg-accent) 20%,transparent); border-radius:6px; padding:8px; }
     #tablet-os-overlay .tos-map-wrap::-webkit-scrollbar { width:7px; height:7px; }
     #tablet-os-overlay .tos-map-wrap::-webkit-scrollbar-thumb { background:color-mix(in srgb,var(--mg-accent) 35%,transparent); border-radius:5px; }
-    #tablet-os-overlay .tos-map-grid { display:grid; --tos-tile:48px; }
+    #tablet-os-overlay .tos-map-grid { display:grid; position:relative; --tos-tile:48px; }
     #tablet-os-overlay .tos-map-tile { position:relative; border-radius:4px; border:1px solid #00000066; cursor:pointer; overflow:hidden;
       display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:2px 3px; text-align:center;
       background:color-mix(in srgb,var(--mg-accent) 6%,var(--bg2,#0b1116)); color:var(--tos-fg-dim); transition:filter .12s; }
@@ -830,7 +899,8 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile.d-lethal { box-shadow:inset 3px 0 0 rgba(214,55,55,.95); animation:tos-map-lethal 1.6s ease-in-out infinite; }
     @keyframes tos-map-lethal { 0%,100%{filter:none} 50%{filter:brightness(1.25)} }
     #tablet-os-overlay .tos-map-tile.unreach { opacity:.4; }
-    #tablet-os-overlay .tos-map-tile.on-route { outline:2px solid #ffcf4a; outline-offset:-2px; z-index:2; }
+    #tablet-os-overlay .tos-gps-svg { position:absolute; grid-column:1/-1; grid-row:1/-1; width:100%; height:100%; pointer-events:none; z-index:2; }
+    #tablet-os-overlay .tos-gps-line { fill:none; stroke:var(--mg-accent); stroke-width:0.18; stroke-linecap:round; stroke-linejoin:round; }
     #tablet-os-overlay .tos-map-tile.dest { outline:2px solid #fff; }
     #tablet-os-overlay .tos-map-tile.sel { outline:2px dashed var(--mg-accent); outline-offset:-2px; z-index:3; }
     #tablet-os-overlay .tos-map-tile.cur { border-color:var(--mg-accent); box-shadow:0 0 9px color-mix(in srgb,var(--mg-accent) 60%,transparent), inset 0 0 0 1px var(--mg-accent); }
@@ -1555,7 +1625,7 @@ function renderBreadcrumb(appId, crumb) {
 function renderList(items) {
   if (!items || !items.length) return '<div class="tos-empty">Nothing here.</div>';
   return items.map(it => `<div class="tos-list-item" data-open-item="${esc(it.id)}">
-    <div class="tos-li-label"><span>${esc(it.label)}</span>${it.badge ? `<span class="tos-badge ${esc(it.badge)}">${esc(it.badge)}</span>` : ''}</div>
+    <div class="tos-li-label"><span>${esc(it.label)}</span>${it.badge ? `<span class="tos-badge ${esc(it.badge)}">${esc(it.badgeLabel || it.badge)}</span>` : ''}</div>
     ${it.sub ? `<div class="tos-li-sub">${esc(it.sub)}</div>` : ''}
   </div>`).join('');
 }
@@ -2052,7 +2122,6 @@ function renderMap(d) {
   if (!_tosMapSel || !tiles.some(t => t.id === _tosMapSel)) _tosMapSel = null;
 
   const route = getTracePath() || [];
-  const routeSet = new Set(route);
   const dest = route.length > 1 ? route[route.length - 1] : null;
 
   // Edge-to-edge 1:1 grid: one cell per zone, tiles touch (roads/buildings render
@@ -2072,7 +2141,8 @@ function renderMap(d) {
     gCols = maxX - minX + 1; gRows = maxY - minY + 1;
   }
   const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
-  for (const t of tiles) cell[rowOf(t)][colOf(t)] = t;
+  const tById = new Map();
+  for (const t of tiles) { cell[rowOf(t)][colOf(t)] = t; tById.set(t.id, t); }
 
   let grid = `<div class="tos-map-grid" style="grid-template-columns:repeat(${gCols},var(--tos-tile));grid-template-rows:repeat(${gRows},var(--tos-tile))">`;
   for (let r = 0; r < gRows; r++) for (let c = 0; c < gCols; c++) {
@@ -2082,7 +2152,6 @@ function renderMap(d) {
     const cls = ['tos-map-tile'];
     if (t.danger && t.danger !== 'safe') cls.push('d-' + t.danger);
     if (t.reachable === false) cls.push('unreach');
-    if (routeSet.has(t.id)) cls.push('on-route');
     if (t.id === dest && !t.isCurrent) cls.push('dest');
     if (t.id === _tosMapSel) cls.push('sel');
     if (t.isCurrent) cls.push('cur');
@@ -2107,8 +2176,20 @@ function renderMap(d) {
       + (t.id === dest && !t.isCurrent ? '<span class="mt-dest">⚑</span>' : '');
     // Entrance arrow — small amber triangle on the edge the building's door faces.
     const ent = ['north', 'south', 'east', 'west'].includes(t.entrance) ? `<span class="tos-ent tos-ent-${t.entrance}"></span>` : '';
-    grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${sym}${ent}</div>`;
+    // Interior exit arrows — same triangle, one per way out of the building (exit_dirs).
+    const exits = Array.isArray(t.exit_dirs) ? t.exit_dirs.map(dr => `<span class="tos-ent tos-ent-${dr}"></span>`).join('') : '';
+    grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${sym}${ent}${exits}</div>`;
   }
+  // GPS route line: an accent polyline through route tile centres, laid over the grid
+  // as an SVG spanning every track (viewBox in tile units), mirroring the minimap.
+  const gpsPts = [];
+  for (const id of route) {
+    const t = tById.get(id);
+    if (!t) continue;
+    gpsPts.push(`${(colOf(t) + 0.5).toFixed(2)},${(rowOf(t) + 0.5).toFixed(2)}`);
+  }
+  if (gpsPts.length > 1)
+    grid += `<svg class="tos-gps-svg" viewBox="0 0 ${gCols} ${gRows}" preserveAspectRatio="none"><polyline class="tos-gps-line" points="${gpsPts.join(' ')}"/></svg>`;
   grid += '</div>';
 
   return `<div class="tos-map-tabs">${tabs}</div>${renderMapBar(d)}<div class="tos-map-wrap">${grid}</div>${renderMapLegend(mode)}<div class="tos-map-detail" id="tos-map-detail">${renderMapDetail(d)}</div>`;
@@ -3427,14 +3508,16 @@ function renderBody() {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}<div class="tos-error">${esc(d.message || d.error || 'Something went wrong.')}</div></div>`;
   }
   if (d.view === 'categories') {
-    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(null, [d.appName])}${renderCategories(d.items)}</div>`;
+    // Quests app root carries a small client-only activity log beneath the list.
+    const qlog = d.appId === 'quests' ? renderQuestActivityLog() : '';
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(null, [d.appName])}${renderCategories(d.items)}${qlog}</div>`;
   }
   if (d.view === 'help') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderHelp(d.chapter)}</div>`;
   }
   if (d.view === 'list') {
     const pageNav = d.page ? renderPageNav(d.appId, d.breadcrumb, d.page) : '';
-    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderList(d.items)}${pageNav}</div>`;
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderList(d.items)}${pageNav}${renderActions(d.appId, d.actions, '')}</div>`;
   }
   if (d.view === 'detail') {
     const det = d.detail || d.quest || {};
@@ -3562,7 +3645,13 @@ function wireBody() {
       const baseParams = el.getAttribute('data-act-params');
       const launchCmd = el.getAttribute('data-act-launch');
       // Folding a corp also drops its now-dead chat channel from the list.
-      const fire = (params) => { if (actionId === 'fold') removeCorpChannels(); act(appId, actionId, params); };
+      // Abandon is the one quest lifecycle action the server sends no chat line for,
+      // so record it into the activity log here (take/hand-in are caught from output).
+      const fire = (params) => {
+        if (actionId === 'fold') removeCorpChannels();
+        if (appId === 'quests' && actionId === 'abandon' && _data?.quest?.name) pushQLog(`Dropped “${_data.quest.name}”`);
+        act(appId, actionId, params);
+      };
 
       // A launch action (Crafting app) hands off to a real game command — the
       // cook/splice minigame or an instant craft — instead of round-tripping the
@@ -3616,6 +3705,15 @@ function wireBody() {
   // Corp colour wheel — any colour, applied immediately via the set_color action.
   _overlay.querySelectorAll('[data-set-corp-color]').forEach(el => {
     el.addEventListener('change', () => act(el.getAttribute('data-set-corp-color'), 'set_color', el.value));
+  });
+
+  // Quest activity log: clear it (client-only) and re-render in place.
+  const qlogClear = _overlay.querySelector('[data-qlog-clear]');
+  if (qlogClear) qlogClear.addEventListener('click', () => {
+    try { localStorage.removeItem(QLOG_KEY); } catch {}
+    sfx(TOS_SELECT_DEF);
+    _keepQuestScroll = true;
+    render();
   });
 
   wireTabletSettings();

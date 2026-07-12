@@ -1,0 +1,19 @@
+{
+  "description": "A full-tang fighting knife with a blackened edge. Never jams, never runs dry, never asks questions.",
+  "flags": {},
+  "id": "item_combat_knife",
+  "name": "combat knife",
+  "tags": {
+    "damage": {
+      "max": 8,
+      "min": 4
+    },
+    "description": "A full-tang fighting knife with a blackened edge. Never jams, never runs dry, never asks questions.",
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "blades"
+  },
+  "type": "weapon",
+  "value": 55,
+  "weight": 300
+}

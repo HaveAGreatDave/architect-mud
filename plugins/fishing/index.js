@@ -55,9 +55,34 @@ const DEFAULT_BROADCAST = [
   'casts a line out over the water and settles in to fish.',
 ];
 
+const DEPTH_MAX = 12;       // difficulty that maps to "as deep as it gets" — normalises a catch's home depth
+
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function roll2d8() { return Math.floor(Math.random() * 8) + 1 + Math.floor(Math.random() * 8) + 1; }
 function nowSec() { return Math.floor(Date.now() / 1000); }
+function clamp01(n) { return Math.max(0, Math.min(1, n)); }
+
+// Pick the catch from an armed pool given the player's cast — power (0 shallow .. 1
+// deep) and angle (0.5 straight; off-axis toward either bank). A catch's "home
+// depth" is derived from its difficulty (deeper = better), so a deep cast tilts
+// the draw toward the scarcer entries. Casting off-line trades away the ordinary
+// pool for a better shot at the off-line specials (bait-gated catches + monster
+// hooks) — the "different catches on an angle" idea.
+function pickCastTarget(pool, power, angle) {
+  const offAxis = clamp01(Math.abs(angle - 0.5) * 2);
+  const weighted = pool.map(e => {
+    const fishDepth = clamp01(e.difficulty / DEPTH_MAX);
+    const depthAffinity = 1 - Math.abs(power - fishDepth);   // 0..1, peaks when the cast reaches its depth
+    let w = Math.max(1, e.weight) * (0.35 + depthAffinity);
+    if (e.kind === 'monster' || e.baitGated) w *= 1 + offAxis * 2.2;  // specials favour the off-line cast
+    else w *= 1 - offAxis * 0.4;                                      // straight water favours the ordinary pool
+    return { e, w: Math.max(0.05, w) };
+  });
+  const total = weighted.reduce((s, x) => s + x.w, 0);
+  let r = Math.random() * total;
+  for (const x of weighted) { r -= x.w; if (r < 0) return x.e; }
+  return weighted[weighted.length - 1].e;
+}
 
 function pickWeighted(entries) {
   const total = entries.reduce((s, e) => s + Math.max(1, e.weight), 0);
@@ -309,19 +334,23 @@ async function runAttempt(player, st, nowMs) {
     return;
   }
 
-  // A bite. Pick what's on the line and ARM the reel overlay — the tension bar
-  // decides whether it's landed. Difficulty is the entry's; skill tunes the board.
-  const target = pickWeighted(pool);
+  // A bite — but which fish it is isn't settled yet: the player's CAST decides.
+  // Stash the eligible pool and ARM the cast overlay (charge a power meter for
+  // depth, aim an angle). The client reports the cast via `fishcast`, and only
+  // then does cmdFishCast pick the target and arm the reel fight. The board's
+  // cast-stage feel is tuned to the pool's average difficulty (we don't yet know
+  // the specific catch); skill tunes the rest.
   const token = randomUUID();
-  advanceState(player.id, { lastAttempt: nowMs, streak: 0, pending: { target, token, armedAt: nowMs } });
-  out(player.id, `${flavor}\n<span class="text-cyan">The line snaps taut — something\'s on!</span>`);
+  const avgDiff = Math.round(pool.reduce((s, e) => s + e.difficulty, 0) / pool.length);
+  advanceState(player.id, { lastAttempt: nowMs, streak: 0, pending: { pool, token, armedAt: nowMs, phase: 'cast' } });
+  out(player.id, `${flavor}\n<span class="text-cyan">Something stirs the black water past your float — ready your cast.</span>`);
   sendToPlayer(player.id, {
     type: 'fishing_game',
     zoneId: st.zoneId,
     deviceName: 'THE LINE',
     skill: effective,
-    difficulty: target.difficulty,
-    resolveCmd: 'fishresolve',
+    castDifficulty: avgDiff,
+    castCmd: 'fishcast',
     token,
   });
 }
@@ -373,6 +402,44 @@ on('player.stop', ({ player, stopped }) => {
 // with its own win/lose. That outcome is authoritative (like Circuit Breach);
 // the server only validates the token + posture + carried rod before acting.
 
+// fishcast <zoneId> <power> <angle> <token> — the cast overlay reports its
+// aim/power here. This is where the catch is actually chosen (from the pool
+// stashed at bite time), weighted by depth (power) and off-line specials
+// (angle). We then arm the reel fight tuned to that specific catch. Silent,
+// token-gated, anti-spoof — power/angle are clamped to [0,1] server-side, and
+// the pool is the server's, so the client can only influence the draw, never
+// summon an out-of-pool catch.
+async function cmdFishCast(args, raw, player) {
+  const zoneId = args[0];
+  const power = clamp01(Number(args[1]));
+  const angle = clamp01(Number.isFinite(Number(args[2])) ? Number(args[2]) : 0.5);
+  const token = args[3];
+  const cur = getLivePlayer(player.id);
+  const st = cur?.fishState;
+  if (!cur || cur.posture !== 'fishing' || !st || !st.pending || st.pending.phase !== 'cast') return { type: 'noop' };
+  if (st.pending.token !== token || st.zoneId !== zoneId) return { type: 'noop' };
+
+  if (!(await hasRod(player.id))) {
+    out(player.id, 'Your rod\'s gone — nothing to cast with.');
+    stopFishing(player.id, st.zoneId, player.handle);
+    return { type: 'noop' };
+  }
+
+  const target = pickCastTarget(st.pending.pool, power, angle);
+  advanceState(player.id, { pending: { ...st.pending, target, phase: 'fight', armedAt: Date.now() } });
+
+  const effective = await effectiveSkill(player, 'fishing');
+  sendToPlayer(player.id, {
+    type: 'fishing_fight',
+    zoneId: st.zoneId,
+    skill: effective,
+    difficulty: target.difficulty,
+    resolveCmd: 'fishresolve',
+    token,
+  });
+  return { type: 'noop' };
+}
+
 async function cmdFishResolve(args, raw, player, broadcast) {
   const zoneId = args[0];
   const won = args[1] === '1';
@@ -380,6 +447,7 @@ async function cmdFishResolve(args, raw, player, broadcast) {
   const cur = getLivePlayer(player.id);
   const st = cur?.fishState;
   if (!cur || cur.posture !== 'fishing' || !st || !st.pending) return { type: 'noop' };
+  if (st.pending.phase !== 'fight' || !st.pending.target) return { type: 'noop' };
   if (st.pending.token !== token || st.zoneId !== zoneId) return { type: 'noop' };
 
   const target = st.pending.target;
@@ -471,10 +539,11 @@ async function cmdFish(args, raw, player, broadcast) {
 
 export const commands = {
   fish: cmdFish,
+  fishcast: cmdFishCast,
   fishresolve: cmdFishResolve,
 };
 
 // Pure helpers exposed for the regression suite (never used in production).
-export const _test = { pickWeighted, BITE_CHANCE, ROD_SNAP_CHANCE, ATTEMPT_MS };
+export const _test = { pickWeighted, pickCastTarget, BITE_CHANCE, ROD_SNAP_CHANCE, ATTEMPT_MS };
 
 console.log('[fishing] Plugin loaded.');

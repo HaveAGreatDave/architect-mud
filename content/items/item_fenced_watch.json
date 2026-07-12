@@ -1,0 +1,14 @@
+{
+  "description": "A chunky chrome watch with someone else's initials worn off the back. Keeps perfect time; poor provenance.",
+  "flags": {},
+  "id": "item_fenced_watch",
+  "name": "hot chrono watch",
+  "tags": {
+    "description": "A chunky chrome watch with someone else's initials worn off the back. Keeps perfect time; poor provenance.",
+    "misc": true,
+    "slot": "accessory"
+  },
+  "type": "misc",
+  "value": 60,
+  "weight": 80
+}

@@ -1,0 +1,17 @@
+{
+  "description": "A sealed hard-case of clotting foam, sutures and one-shot analgesics. Buys your body time to do the rest.",
+  "flags": {},
+  "id": "item_trauma_kit",
+  "name": "trauma kit",
+  "tags": {
+    "consumable": true,
+    "description": "A sealed hard-case of clotting foam, sutures and one-shot analgesics. Buys your body time to do the rest.",
+    "heal_over_time": {
+      "amount": 50,
+      "duration_seconds": 300
+    }
+  },
+  "type": "consumable",
+  "value": 70,
+  "weight": 500
+}

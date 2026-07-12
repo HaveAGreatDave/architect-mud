@@ -35,7 +35,7 @@ Appear at the top, one per line, in any order. Recognized keys:
 | `@category general` | `meta.category` | defaults to `"general"` |
 | `@host npc_host_id` | `meta.host` | |
 | `@length 120` | `meta.length` | parsed as float (seconds) |
-| `@type live` | `meta.type` | lowercased; known values: `live`, `scripted`, `weather`, `sports`; defaults to `"live"`. `weather` and `sports` switch the file to the line-library format — see [Weather Broadcasts](#weather-broadcasts-type-weather) and [Sports Broadcasts](#sports-broadcasts-type-sports). |
+| `@type live` | `meta.type` | lowercased; known values: `live`, `scripted`, `weather`, `sports`, `news`, `talkshow`; defaults to `"live"`. `weather`, `sports`, `news`, and `talkshow` switch the file to the line-library format — see [Weather Broadcasts](#weather-broadcasts-type-weather), [Sports Broadcasts](#sports-broadcasts-type-sports), [News Broadcasts](#news-broadcasts-type-news), and [Talk-Show Broadcasts](#talk-show-broadcasts-type-talkshow). |
 
 Any other `@key value` line is silently ignored at the top level (only `@actor`/`@alias` are meaningful elsewhere — see below).
 
@@ -614,3 +614,189 @@ The client renderer (`_applyScorebug` in [tv.js](../client/game/js/panels/tv.js)
 ## Worked example
 
 See [data/scripts/baseball.bsm](../data/scripts/baseball.bsm) for the full library. A minimal viable file needs `@type sports`, `@sport baseball`, `@announcer`, a `::teams` pool (2+), a `::players` pool, and at least the `intro`, `half.top`, `half.bottom`, `atbat.out`, `hr`, `rbi`, `score.update`, `final`, and `outro` pools. Everything else is enrichment.
+
+---
+
+# News Broadcasts (`@type news`)
+
+A **news** `.bsm` is the third [weather](#weather-broadcasts-type-weather)/[sports](#sports-broadcasts-type-sports) sibling: a **line library** (the same `::lines <key>` pools), not a linear script. Where weather *reads* a forecast and sports *simulates* a game, news pulls the **live dynamic stories** — the very ones the tablet's News app shows — from the news generator ([plugins/tablet/news-generator.js](../plugins/tablet/news-generator.js), via the `news.getStories` action) and reads them out through **anchors and field reporters**. Each airing assembles a fresh bulletin: cold open → anchor greeting → a full anchor→reporter segment per top story → a rundown of the next few headlines → a kicker → sign-off, one random line per matching pool with `{tokens}` filled from each story and the show's cast.
+
+The authored `.bsm` holds the *voice* (the network's tone, the anchors' patter); the runner owns the *facts* (which stories lead tonight). The author never hardcodes a headline — they write anchor/reporter lines and the runner drops the live stories into them.
+
+## How it differs from `live` / `weather` / `sports`
+
+| | `live` / `scripted` | `weather` | `sports` | `news` |
+|---|---|---|---|---|
+| Body | ordered directives → chain | condition-keyed pools | event-keyed pools + team/player pools | segment-keyed pools |
+| State source | none | live 7-day forecast (read) | a simulated game (generated) | the live news generator (read) |
+| Repeatable | same each time | re-rolls per forecast day | re-rolls a new game each cycle | **re-rolls a fresh bulletin per refresh bucket** |
+| Acted live | live channels only | yes (`_requireHost`, host in-studio) | no — announcer is a name | **no** — anchors/reporters are names, no NPC |
+| Compiler output | `broadcastGraph` chain | `weatherScript` | `sportsScript` | `newsScript` |
+
+**Not acted live, no NPC.** Anchors, reporters, and the announcer are **name strings**, not `npc_*` ids. Lines are spoken as plain narration, so nothing is added to `npcIds` and **importing a news broadcast never spawns a studio NPC**. It runs on an ordinary `playlist`/`daily`/`news` channel with no studio zone.
+
+## Headers
+
+All the standard headers (`@broadcast`, `@channel`, `@category`, `@length`) work as usual. News adds:
+
+| Directive | Effect |
+|---|---|
+| `@type news` | Switches the file to the news line-library format. |
+| `@anchor "Brick Hardline"` | A studio anchor — a display **name**, quotes stripped. **Repeatable**: the first `@anchor` is the lead anchor (`{anchor}`), a second is the co-anchor (`{anchor2}`). Not an NPC. |
+| `@reporter "Ronnie Vasquez"` | A field reporter — a display **name**. **Repeatable**; the runner rotates through them for `{reporter}` (live-on-scene segments). Not an NPC. |
+| `@announcer "The Voice of…"` | Optional station/voiceover name, available as `{announcer}` (cold opens, stings, sign-off). Not an NPC. |
+| `@titlecard <graphic_id>` | Shows this graphic as a `title_card` before the bulletin each airing. Pair it with a `::asset <graphic_id>` block (ASCII or `<svg>…</svg>`). |
+
+## Line pools (`::lines <key>`)
+
+Same collector as weather/sports — each non-empty line is one interchangeable alternative, the runner picks one per beat and fills `{tokens}`, re-declared keys merge.
+
+**Framing (once per bulletin):** `open` (station cold open, announcer voice) · `anchor.intro` (anchor greeting) · `rundown.lead` (the "also tonight" pivot) · `kicker.lead` (feel-good pivot) · `kicker` (the light closer itself) · `outro` (anchor sign-off) · `signoff` (station sign-off, announcer voice)
+**Per featured story (top 3):** `alert` (breaking sting — lead story only) · `anchor.banter` (toss to co-anchor between later stories) · `story.lead` (anchor reads the headline) · `handoff.reporter` (toss to a field reporter) · `reporter.scene` (reporter on scene, expands the story `{body}`) · `reporter.vox` (fabricated "man on the street", optional) · `handoff.back` (reporter tosses back) · `pundit.take` (a hot take, used for stories that *don't* get a field reporter) · `anchor.reaction` (anchor editorializes)
+**Rundown (the next few headlines):** `rundown.item` (one per remaining headline)
+
+The lead story always gets a reporter field segment; the others get a reporter ~half the time and a `pundit.take` otherwise. Missing pools skip gracefully; `story.lead`, `handoff.reporter`, `reporter.scene`, and `rundown.item` have neutral built-in fallbacks so a thin file still airs.
+
+## Tokens
+
+Filled per beat; unknown tokens strip to empty.
+
+| Token | Value |
+|---|---|
+| `{anchor}` | the lead anchor (first `@anchor`); alternates with `{anchor2}` across stories |
+| `{anchor2}` | the co-anchor (second `@anchor`, or the lead if only one) |
+| `{reporter}` | a field reporter for this segment (rotated from `@reporter`) |
+| `{announcer}` | the station/voiceover name (`@announcer`) |
+| `{scene}` | a real outdoor district the reporter is "live" from (a random named zone) |
+| `{headline}` | the story's headline (from the news generator) |
+| `{body}` | the story's body copy — the reporter expands on this |
+| `{byline}` | the story's outlet/byline |
+
+## Assembly order
+
+Each airing: `title_card` (if `@titlecard`) → `open` → `anchor.intro` → **for each of the top 3 stories:** (`alert` on the lead / `anchor.banter` after) → `story.lead` → *either* `handoff.reporter` → `reporter.scene` → (`reporter.vox`) → `handoff.back` *or* `pundit.take` → `anchor.reaction` → **rundown:** `rundown.lead` → `rundown.item` × remaining → `kicker.lead` → `kicker` → `outro` → `signoff`. Each beat is a `say` node; with no anchor NPC the lines render as plain `[TV] "…"` narration. The bulletin re-rolls when the refresh bucket (in-game day + a 5-minute window) advances, so it picks up new live stories as the world's news changes; within a bucket the chain loops.
+
+## Compiler & runtime contract (as built)
+
+- `compileBsm(text)` returns the standard envelope **plus** a `newsScript` field for `@type news`, and leaves `broadcastGraph` minimal (just the `start` node — the real graph is assembled per airing):
+  ```js
+  newsScript: {
+    anchors:   [ 'Brick Hardline', 'Chastity Vale' ], // @anchor lines, in order — NOT added to npcIds
+    reporters: [ 'Ronnie Vasquez', … ],               // @reporter lines
+    announcer: 'The Voice of Raptor',                 // @announcer
+    pools:     { [key]: [line, …] },                  // ::lines blocks
+    title:     'rnn_title',                           // @titlecard
+  }
+  ```
+- **Import** ([broadcast.js](../client/devpanel/js/panels/broadcast.js) `_bcImportSave`): saved with `playback_mode = 'news'`, `loop = 1`, `override_duration = @length`, `news_pools` = the `newsScript` (new `media_broadcasts.news_pools` JSONB column). No studio/host is created — asset-only.
+- **Runner** ([plugins/broadcast/index.js](../plugins/broadcast/index.js)): a `news` playlist item calls `getNewsGraph(item, nowMs)`, which fetches live stories via `dispatchAction('news.getStories')` (falling back to a couple of built-in stories if the generator is unreachable) and caches the assembled graph, re-fetching when the refresh bucket advances. `assembleNewsGraph` emits the `say`-node chain via `newsPick`/`newsFill`. The graph does **not** set `_requireHost`, so no presence gating — it plays on any channel. Downstream (`say` nodes, passive `[TV] "…"` leakage, off-air) reuses the existing broadcast walker unchanged.
+- **Schema**: `ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS news_pools JSONB;` in `SCHEMA_SQL`. Apply with `npm run db:schema` before the runner loads (it `SELECT`s the column in `loadChannelRuntimes`).
+
+## Worked example
+
+See [data/scripts/raptor_news.bsm](../data/scripts/raptor_news.bsm) for the full library — **Raptor News Network**, a Fox-News-parody nightly bulletin. A minimal viable file needs `@type news`, at least one `@anchor`, and the `anchor.intro`, `story.lead`, and `outro` pools; add `@reporter` plus `handoff.reporter`/`reporter.scene`/`handoff.back` for on-scene segments, and the rest is enrichment. Import it through the dev panel (Broadcast → Import BSM), pick a channel, and it airs a fresh, live-sourced bulletin on loop.
+
+---
+
+# Talk-Show Broadcasts (`@type talkshow`)
+
+The line-library format's **live-acted** member. Where weather/sports/news read or simulate facts and read them out through disembodied **names**, a talk show is the reverse: a fixed procedural structure PERFORMED on the studio stage by **real `npc_*` cast**. Each night the runner assembles a fresh episode from the `::lines` pools — a cold open, a monologue, a guest interview, a sponsor break, a sign-off — and attributes every line to a cast NPC via `npc_anchor`, so it airs exactly like a hand-scripted `@type live` show but never repeats.
+
+The signature trick is the **roaming guest**: ONE reusable NPC (`@guest`) is renamed to a different persona from the `::guests` pool every night, materialises in a random unobserved corner of the city (no players, no cameras watching), walks across the map to the studio to perform, and slips away to vanish backstage once the show's done. If the guest hasn't reached the stage by airtime the channel presence-gates to "technical difficulties" — it is genuinely live.
+
+## How it differs from `live` / `weather` / `sports` / `news`
+
+| | `live`/`scripted` | `weather` | `sports` | `news` | `talkshow` |
+|---|---|---|---|---|---|
+| Body | ordered directives → chain | condition pools | event pools + rosters | segment pools | segment pools + guest personas |
+| State source | none | live forecast | simulated game | live news generator | **the night's guest persona (chosen daily)** |
+| Repeatable | same each time | re-rolls per day | new game each cycle | re-rolls per bucket | **fresh episode each in-game day** |
+| Acted live | live channels only | yes (host in-studio) | no — a name | no — names | **yes — real cast NPCs + a roaming guest** |
+| Spawns NPCs | live channels | the weathercaster | no | no | **host + sidekick + reusable guest** |
+| Compiler output | `broadcastGraph` chain | `weatherScript` | `sportsScript` | `newsScript` | `talkshowScript` |
+
+**Acted live, real NPCs.** `@host`, `@sidekick`, and `@guest` are `npc_*` ids (not names) — they ARE added to `npcIds`, so importing a talk show places the host + sidekick on-stage and creates the reusable guest. The assembled graph is stamped `_requireHost`, so the live walker presence-gates it on ANY channel (no cast in the studio ⇒ camera-idle → technical difficulties).
+
+## Headers
+
+Standard headers (`@broadcast`, `@channel`, `@category`, `@length`) plus:
+
+| Directive | Effect |
+|---|---|
+| `@type talkshow` | Switches the file to the talk-show line-library format. |
+| `@host npc_john_akerson` | The desk host — a real `npc_*` id (`meta.host`). Commutes in on schedule; the `{host}` token. |
+| `@sidekick npc_graham_mercer` | The announcer/bandleader — a real `npc_*` id. Does the cold open; the `{sidekick}` token. |
+| `@guest npc_guest` | The **reusable** guest NPC, renamed to a different persona each night. |
+| `@airtime 22` | The nightly slot. On import the show **auto-pins a daily playlist slot to this in-game 3-hour block** on its channel (reuses the sports slot clock; `22` → 21:00–24:00) and flips the channel to daily mode, so it's locked to its broadcast time with no manual scheduling. Omit ⇒ a single all-day slot (always available). |
+| `@titlecard <graphic_id>` | Graphic shown as a `title_card` before each episode. Pair with a `::asset` block. |
+| `@theme <song>` | Intro theme; plays the matching `audio_songs` row if one exists, else the cue text shows briefly. |
+
+## `::guests` block — the persona pool
+
+One persona per line: `Name | Title | theme_song | tag` (title, theme, and tag all optional). The runner picks one per in-game day (deterministically, so every TV agrees) and renames `@guest` to it; `{guest}` = the name, `{title}` = the title blurb. The optional **`tag`** names a persona-specific *exchange* pool (`interview.<tag>`), so that guest gets **on-topic signature Q&A** in the interview.
+
+```
+::guests
+Lenny "Lucky" Malone | professional lottery winner, eight-time and counting | | lucky
+Dr. Priya Sundaram | the surgeon who transplants organs she prints at home | | surgeon
+::endguests
+```
+
+## Line pools (`::lines <key>`)
+
+Same collector as the other library formats. Pools (all optional; missing ones skip):
+
+**Cold open (sidekick):** `open` (the "it's the show!" intro, 1–2 a night) · `tease` (tonight's line-up, 2–3) · `announce_host` (brings out `{host}`)
+**Monologue (host):** `monologue` (opening jokes — **5–8 a night**, so the length itself varies)
+**Optional beats (some nights only):** `sidekick_aside` (the sidekick heckles back mid-monologue, ~45%) · `desk_bit` (a host riff before the guest, ~50%)
+**Interview (host ↔ guest):** `guest_intro` (host welcomes `{guest}`, `{title}`) · `interview` (**generic** Q&A exchanges) · `interview.<tag>` (a guest's **signature** exchanges). Each exchange is one authored pair — **`host question >> guest answer`** — so the question and reply always belong together (no index-paired non-sequiturs). The night's deck blends up to two of the guest's signature exchanges with generic ones and runs **4–6** exchanges, plus a ~35%-chance follow-up
+**Break:** `commercial` (a sponsor read, spoken as studio narration, 1–2)
+**Sign-off (host):** `signoff` (thanks the guest, goodnight, 2–3)
+
+## Tokens
+
+| Token | Value |
+|---|---|
+| `{host}` | the host NPC's live name (`@host`) |
+| `{sidekick}` | the sidekick NPC's live name (`@sidekick`) |
+| `{guest}` | tonight's guest persona name (from `::guests`) |
+| `{title}` | tonight's guest persona title/blurb |
+
+## Assembly order
+
+Each in-game day: `title_card` (if `@titlecard`) → `music` (`@theme`) → **cold open:** `open` ×1–2 → `tease` ×2–3 → `announce_host` → **monologue:** `monologue` ×5–8 → *(~45%)* `sidekick_aside` → *(~50%)* `desk_bit` ×1–2 → **interview:** `guest_intro` → (`interview` / `interview.<tag>` pair: host Q → guest A) ×4–6 → *(~35%)* one follow-up exchange → **break:** `commercial` ×1–2 (narration) → **sign-off:** `signoff` ×2–3. The **counts and the optional beats are seeded off the day**, so both the *content* and the *shape* of the episode change night to night — it doesn't go stale. Each spoken beat is an `npc_anchor` (switching the on-stage speaker) followed by `say` nodes; the walker resolves the anchor's *current* name at air time, so the renamed guest is attributed correctly. Each interview beat is an authored **`question >> answer`** pair, so the host's question and the guest's reply always match; the per-night deck blends up to two of the guest's `interview.<tag>` **signature** exchanges (the host asks about THEIR thing) with the generic `interview` pool, so each guest sounds like themselves. The episode re-rolls when the in-game day advances (new guest, new jokes, new structure); within a day it's stable so every TV agrees, and it only airs during the `@airtime` slot.
+
+## Guest lifecycle (roaming NPC)
+
+The reusable guest carries a bespoke behaviour graph ([`makeTalkshowGuestGraph`](../plugins/broadcast/index.js)) assigned by the schedule recalc when the show is put on a channel playlist:
+
+```
+start → IS_BROADCAST_SCHEDULED?
+   true  → TALKSHOW_APPEAR → GO_TO_WORK → AT_WORK → wait → loop
+   false → TALKSHOW_HIDE → wait → loop
+```
+
+- **`TALKSHOW_APPEAR`** (engine AI action): while the show is on the clock and the guest is still parked in its hidden backstage zone (`home_zone` = `zone_talkshow_backstage`, an exit-less limbo), it teleports the guest into a random zone a few tiles from the studio that has **no players and no active camera/planted device** watching (`pickUnobservedZoneNear` + the `isZoneWatched` bridge). `GO_TO_WORK` then walks it onstage one zone per tick.
+- **`TALKSHOW_HIDE`** (engine AI action): off the clock, the moment the guest is standing somewhere unobserved it vanishes back to backstage; otherwise it walks toward the studio's exterior exit and re-checks each tick.
+- The host + sidekick use the ordinary `makeDefaultStudioGraph` commute (studio ↔ home). All three are staffed for the `@airtime` slot, so `IS_BROADCAST_SCHEDULED` is true exactly while the episode airs.
+
+## Compiler & runtime contract (as built)
+
+- `compileBsm(text)` returns the standard envelope **plus** a `talkshowScript`, and leaves `broadcastGraph` minimal (just `start` — the episode is assembled per airing):
+  ```js
+  talkshowScript: {
+    host: 'npc_john_akerson', sidekick: 'npc_graham_mercer', guestNpc: 'npc_guest', // added to npcIds
+    guests: [ { name, title, theme, tag }, … ],  // ::guests (tag → interview.<tag>)
+    pools:  { [key]: [line, …] },             // ::lines blocks (interview pairs: 'Q >> A')
+    title:  'tonight_show_logo',              // @titlecard
+    theme:  'tonight_theme',                  // @theme
+    airSlots: [7],                            // @airtime → in-game 3h block index
+  }
+  ```
+- **Import** ([broadcast.js](../client/devpanel/js/panels/broadcast.js) `_bcImportSave`): saved with `playback_mode = 'talkshow'`, `loop = 1`, `override_duration = @length`, `talkshow_pools` = the `talkshowScript` (`media_broadcasts.talkshow_pools` JSONB). The host + sidekick are placed in the studio; the reusable guest is created tagged `flags.talkshow_guest`. No cassette (it's acted live, not a recording). On save, `ensureTalkshowSlot` **auto-pins a daily playlist slot at each `@airtime` block** and sets the channel to daily mode; once the cast NPCs exist the import triggers a schedule recalc to staff them — so the show self-schedules to its broadcast time.
+- **Runner** ([plugins/broadcast/index.js](../plugins/broadcast/index.js)): a `talkshow` playlist item that is `talkshowAiring` calls `getTalkshowGraph(item, nowMs)` → `assembleTalkshowGraph`, cached per in-game day. A per-minute `talkshowHeartbeat` renames the guest to the day's persona regardless of viewers. `recalculateNpcSchedules` staffs the cast (read from `talkshow_pools`, since the stored graph is start-only) and assigns the guest its lifecycle graph + backstage home. The schedule checker ties the cast's "on-shift" window to `@airtime` (not the channel loop position).
+- **Schema**: `ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS talkshow_pools JSONB;` in `SCHEMA_SQL`. Apply with `npm run db:schema` before the runner loads.
+
+## Worked example
+
+See [data/scripts/Tonight_Show.bsm](../data/scripts/Tonight_Show.bsm) — **The Tonight Show with John Akerson** (host `npc_john_akerson`, announcer `npc_graham_mercer`, reusable `npc_guest`, eighteen guest personas each with their own signature-exchange pool, plus `sidekick_aside`/`desk_bit` optional beats). A minimal file needs `@type talkshow`, `@host`, `@guest`, a `::guests` line, and the `monologue` and `interview` (Q&A pairs) pools; add `@sidekick` + `open`/`announce_host`/`signoff` for the full show, and `interview.<tag>` pools to give each guest an on-topic, distinct voice. Import through the dev panel (Broadcast → Import BSM) and pick a channel — the show **auto-schedules to its `@airtime`** (a daily slot on that channel) and staffs the cast automatically, so it airs a fresh, live-acted episode at its broadcast time each night with no manual scheduling.

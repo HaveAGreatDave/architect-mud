@@ -1,0 +1,19 @@
+{
+  "description": "A short, brutal pump-action with a heat-scarred barrel. Solves problems in a wide, apologetic spread.",
+  "flags": {},
+  "id": "item_riot_shotgun",
+  "name": "Ironside riot shotgun",
+  "tags": {
+    "damage": {
+      "max": 16,
+      "min": 9
+    },
+    "description": "A short, brutal pump-action with a heat-scarred barrel. Solves problems in a wide, apologetic spread.",
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "firearms"
+  },
+  "type": "weapon",
+  "value": 160,
+  "weight": 3200
+}

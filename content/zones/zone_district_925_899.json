@@ -1,11 +1,11 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
+  "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#33343c",
-  "color": "#9aa0b0",
+  "bg_color": "#2b2b2b",
+  "color": "#f5d400",
   "created_by": "zone-planner",
-  "description": "Faded taxiway markings run off toward the hangars, the paint scoured to suggestion. Rubber scuffs and oil stains map decades of landings; somewhere a loose panel ticks against its frame in the wind.",
+  "description": "The north–south centreline halves the tarmac, yellow and unmistakable. Follow it with your eye and the runway runs away at both ends toward thresholds lost in the heat-shimmer.",
   "exits": {
     "east": "zone_district_926_899",
     "north": "zone_district_925_898",
@@ -13,16 +13,17 @@
     "west": "zone_district_924_899"
   },
   "flags": {
-    "district": "docks",
+    "district": "wasteland",
+    "icon": "runway_ns",
     "planner": "bp_district",
-    "runway": "pad"
+    "runway": "ns"
   },
   "grid_x": 925,
   "grid_y": 899,
   "grid_z": 0,
   "id": "zone_district_925_899",
   "map_id": "map_world",
-  "marker": "#",
+  "marker": "┃",
   "name": "Runway",
   "parent_zone": null,
   "updated_at": "1783739474"

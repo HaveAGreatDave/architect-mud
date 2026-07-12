@@ -8,6 +8,7 @@
   "description": "The face of Embassy Hotel & Bar.",
   "exits": {
     "east": "zone_residential_lobby",
+    "north": "zone_district_920_903",
     "west": "zone_district_919_904"
   },
   "flags": {

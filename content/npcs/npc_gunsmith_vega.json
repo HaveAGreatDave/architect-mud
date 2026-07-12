@@ -1,0 +1,163 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "chat": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "wait",
+        "type": "action"
+      },
+      "look": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "wait",
+        "ifTrue": "chat",
+        "type": "condition"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "look",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"A gun you can't clean is a paperweight that lies to you.\"",
+    "\"I sell tools. What you do with them is between you and the coroner.\"",
+    "\"Two in the chest. Don't get fancy.\""
+  ],
+  "description": "A wiry gunsmith with burn-scarred forearms and a machinist's squint. She field-strips a pistol while she talks and reassembles it without looking.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They turn back to the counter."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let me see the stock.",
+          "next": "shop"
+        },
+        {
+          "label": "(walk off)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Looking to buy or looking to loiter? The rack's behind the glass. Ask before you touch.\""
+    },
+    "shop": {
+      "actions": [
+        {
+          "action": "OPEN_SHOP",
+          "npcId": "npc_gunsmith_vega"
+        }
+      ],
+      "options": [
+        {
+          "label": "(browse)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Take a look. Cash only, no refunds, no tears.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a patched flak jacket hung with a vendor's badge",
+      "a snug work tank",
+      "a plain bra and briefs"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_gunshop_interior",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_gunsmith_vega",
+  "name": "Marisol Vega",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_gun_oil_kit",
+      "price": 28,
+      "stock": 15
+    },
+    {
+      "item_id": "item_combat_knife",
+      "price": 77,
+      "stock": 10
+    },
+    {
+      "item_id": "item_ballistic_helm",
+      "price": 126,
+      "stock": 6
+    },
+    {
+      "item_id": "item_kevlar_vest",
+      "price": 196,
+      "stock": 5
+    },
+    {
+      "item_id": "item_riot_shotgun",
+      "price": 224,
+      "stock": 4
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Ironside Arms",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_gunshop_interior"
+}

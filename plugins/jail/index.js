@@ -17,10 +17,10 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { world, getZone, getLivePlayer, getMinimapData } from '../../server/engine/world.js';
+import { world, getZone, getLivePlayer, getMinimapData, getDoorById, getZoneDoors, setDoorCache } from '../../server/engine/world.js';
 import { getFlag } from '../../server/engine/flags.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
-import { on } from '../../server/engine/events.js';
+import { on, emit } from '../../server/engine/events.js';
 import { dispatchAction, registerAction } from '../../server/engine/actions.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
@@ -518,6 +518,37 @@ on('zone.entered', async ({ actor, zone }) => {
   if (!actor?.id || releasing.has(actor.id) || zone === CELL_ZONE) return;
   const { rows } = await query('SELECT 1 FROM jail_prisoners WHERE player_id = $1', [actor.id]);
   if (rows.length) await escape(actor).catch(e => console.error('[jail] escape error:', e.message));
+});
+
+// ── Fail-safe: re-lock the cell behind an admin ──────────────────────────────
+// An admin can pop the holding-cell hololock (to fish someone out, or just testing).
+// If they wander off and forget to re-lock it, the block sits wide open and any prisoner
+// strolls free. So: track an admin from the moment they step INTO the cell, and the moment
+// they step back OUT, slam the hololock shut + closed behind them. Only admins trip this —
+// prisoners/guards run their own (escape / walk-out) paths, untouched.
+const ADMIN_ROLES = new Set(['admin', 'dev', 'builder', 'designer']);
+const CELL_DOOR = 'door_precinct_cell';
+const adminInCell = new Set();
+
+async function secureCellDoor() {
+  const door = getDoorById(CELL_DOOR) || getZoneDoors(CELL_ZONE)[0];
+  if (!door) return false;
+  if (door.lock_state === 'locked' && !door.is_open) return false;   // already shut + locked
+  door.lock_state = 'locked'; door.is_open = 0;
+  setDoorCache(door.id, door);
+  await query('UPDATE doors SET lock_state=$1, is_open=$2 WHERE id=$3', ['locked', 0, door.id]).catch(() => {});
+  emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
+  return true;
+}
+
+on('zone.entered', async ({ actor, zone }) => {
+  if (!actor?.id || !ADMIN_ROLES.has(actor.role)) return;
+  if (zone === CELL_ZONE) { adminInCell.add(actor.id); return; }
+  if (!adminInCell.delete(actor.id)) return;   // this admin wasn't in the cell
+  if (await secureCellDoor().catch(() => false)) {
+    sendToPlayer(actor.id, { type: 'output', message: '<span class="text-dim">The cell hololock re-engages behind you.</span>' });
+    getBroadcast()?.(CELL_ZONE, { type: 'zone_event', message: 'The cell hololock slams shut with a heavy magnetic clunk.', refresh: true }, actor.id);
+  }
 });
 
 // ── Minute tick: rotate shifts + decay the prison countdown HUD ──────────────

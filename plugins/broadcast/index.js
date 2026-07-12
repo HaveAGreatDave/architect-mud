@@ -6,10 +6,12 @@ import { on, emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
-import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
+import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup, registerZoneWatchedChecker, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
 import { registerAICondition, registerAIAction } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections } from '../../server/engine/environment.js';
 import { getSongDefByName, getSfxDefByName, getAmbientDefByName } from '../audio/index.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 
 // ── Color helpers (for studio tile coloring) ─────────────────────────────────
 function _hexToHsl(hex) {
@@ -165,6 +167,32 @@ function makeDefaultStudioGraph(studioZoneId = null) {
 // Backward-compat alias used where no specific studio zone is known yet
 const DEFAULT_STUDIO_BEHAVIOUR_GRAPH = makeDefaultStudioGraph();
 
+// The roaming talk-show guest's lifecycle graph. Unlike the resident cast (who just
+// commute studio↔home), the guest LIVES OFF-WORLD between episodes in a hidden backstage
+// zone, and each night: appears in a random unobserved zone (no players, no cams), walks
+// to the studio to perform, then — once the show's over — slips out and vanishes back to
+// backstage the moment nobody's watching. TALKSHOW_APPEAR / TALKSHOW_HIDE are engine AI
+// actions (ai-behaviour.js) that do the teleport-in / walk-out-and-vanish; between them the
+// stock GO_TO_WORK/AT_WORK move it onstage and hold it there for the broadcast.
+function makeTalkshowGuestGraph(studioZoneId = null) {
+  return {
+    _start: 'g_start',
+    nodes: {
+      g_start:  { type: 'start', next: 'g_sched' },
+      g_sched:  { type: 'condition', condition_type: 'IS_BROADCAST_SCHEDULED', ifTrue: 'g_appear', ifFalse: 'g_hide' },
+      // On the clock: materialise (if still backstage), commute in, hold onstage.
+      g_appear: { type: 'action', action_type: 'TALKSHOW_APPEAR', next: 'g_work' },
+      g_work:   { type: 'action', action_type: 'GO_TO_WORK', params: studioZoneId ? { zone_id: studioZoneId } : {}, next: 'g_atwork' },
+      g_atwork: { type: 'action', action_type: 'AT_WORK', next: 'g_wait' },
+      g_wait:   { type: 'wait', seconds: 12, next: 'g_loop' },
+      // Off the clock: walk out and disappear once unobserved.
+      g_hide:   { type: 'action', action_type: 'TALKSHOW_HIDE', next: 'g_wait2' },
+      g_wait2:  { type: 'wait', seconds: 12, next: 'g_loop' },
+      g_loop:   { type: 'loop', next: 'g_start' },
+    },
+  };
+}
+
 // Neutral "off the payroll" graph: just live a random life, no studio commute.
 // Used to un-stick an NPC that a scripted show wrongly routed to a studio.
 function makeWanderGraph() {
@@ -240,6 +268,8 @@ async function scanChannelDay(channelId) {
     const label = item.broadcast_name || item.broadcast_id;
     if (item.playback_mode === 'weather') { add('info', 'weather_live', `'${label}' is a weather forecast — assembled live, not statically scannable.`, { broadcast: label }); continue; }
     if (item.playback_mode === 'sports')  { add('info', 'sports_live',  `'${label}' is a sports broadcast — a fresh game is simulated each airing, not statically scannable.`, { broadcast: label }); continue; }
+    if (item.playback_mode === 'news')    { add('info', 'news_live',    `'${label}' is a news broadcast — a fresh bulletin is assembled from the live news generator each airing, not statically scannable.`, { broadcast: label }); continue; }
+    if (item.playback_mode === 'talkshow'){ add('info', 'talkshow_live', `'${label}' is a talk show — a fresh episode is assembled and acted live by the cast each night, not statically scannable.`, { broadcast: label }); continue; }
     let graph = item.broadcast_graph;
     if (!graph) continue;
     if (typeof graph === 'string') { try { graph = JSON.parse(graph); } catch { add('error', 'bad_graph', `'${label}' has an unparseable broadcast graph.`, { broadcast: label }); continue; } }
@@ -286,6 +316,12 @@ function broadcastDuration(bc) {
   // reserves the full game window (a scheduled placement covers the whole hour). The
   // airing seeks into whatever game the clock says is on right now, regardless.
   if (bc.playback_mode === 'sports') return sportsSlotMs() / 1000;
+  // News assembles a fresh bulletin from the live news generator each airing (nothing
+  // baked in the DB to measure) — give the slot a sane default airtime.
+  if (bc.playback_mode === 'news') return 180;
+  // A talk show assembles a fresh episode each night and airs across its whole @airtime
+  // block, so a slot reserves the full in-game 3-hour window (same as a sports slot).
+  if (bc.playback_mode === 'talkshow') return sportsSlotMs() / 1000;
   if (bc.broadcast_graph) {
     const d = _vineDuration(bc.broadcast_graph, bc.message_interval || 5);
     if (d > 0) return d;
@@ -358,7 +394,7 @@ async function loadChannelRuntimes() {
         WHERE c.enabled = 1 ORDER BY c.number`
     );
     const { rows: playlist } = await query(
-      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages, b.weather_pools, b.sports_pools
+      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages, b.weather_pools, b.sports_pools, b.news_pools, b.talkshow_pools
          FROM media_channel_playlist p
          LEFT JOIN media_broadcasts b ON b.id = p.broadcast_id
         ORDER BY p.channel_id, p.start_time`
@@ -417,6 +453,10 @@ async function loadChannelRuntimes() {
       if (typeof weatherScript === 'string') { try { weatherScript = JSON.parse(weatherScript); } catch { weatherScript = null; } }
       let sportsScript = item.sports_pools;
       if (typeof sportsScript === 'string') { try { sportsScript = JSON.parse(sportsScript); } catch { sportsScript = null; } }
+      let newsScript = item.news_pools;
+      if (typeof newsScript === 'string') { try { newsScript = JSON.parse(newsScript); } catch { newsScript = null; } }
+      let talkshowScript = item.talkshow_pools;
+      if (typeof talkshowScript === 'string') { try { talkshowScript = JSON.parse(talkshowScript); } catch { talkshowScript = null; } }
       playlistByChannel.get(item.channel_id).push({
         id: item.id,
         broadcastId: item.broadcast_id,
@@ -429,6 +469,8 @@ async function loadChannelRuntimes() {
         weatherHost: weatherScript?.host || null,
         weatherTitle: weatherScript?.title || null,
         sportsScript: sportsScript || null,
+        newsScript: newsScript || null,
+        talkshowScript: talkshowScript || null,
         messages: Array.isArray(item.messages) ? item.messages : (item.messages ? JSON.parse(item.messages) : []),
         message_interval: item.message_interval || 5,
         loop: item.loop,
@@ -443,11 +485,13 @@ async function loadChannelRuntimes() {
     for (const ch of channels) {
       if (ch.studio_zone_id) studioZoneIndex.set(ch.studio_zone_id, ch.id);
       const pl = playlistByChannel.get(ch.id) || [];
-      // Studio staffing only applies to LIVE channels and WEATHER forecasts. A scripted
-      // show's npc_anchor nodes are speaker attribution, not a cue for the NPC to appear
-      // on-stage — so the AI schedule/studio lookups must never see them as staff.
+      // Studio staffing only applies to LIVE channels, WEATHER forecasts, and TALK SHOWS
+      // (all three are acted on-stage and presence-gated). A scripted show's npc_anchor
+      // nodes are speaker attribution, not a cue for the NPC to appear on-stage — so the
+      // AI schedule/studio lookups must never see them as staff. Talk-show items carry
+      // their own staff (host/sidekick/guest) regardless of the channel's declared type.
       for (const it of pl) {
-        if (ch.channel_type !== 'live' && it.playback_mode !== 'weather') it.npcStaff = [];
+        if (ch.channel_type !== 'live' && it.playback_mode !== 'weather' && it.playback_mode !== 'talkshow') it.npcStaff = [];
       }
       const totalDuration = pl.length
         ? Math.max(...pl.map(i => i.startTime + i.duration))
@@ -1485,6 +1529,448 @@ function getSportsGraph(script, slot, override) {
   return _sportsGraphCache.graph;
 }
 
+// ── News broadcasts ───────────────────────────────────────────────────────────
+// A news broadcast (playback_mode 'news') is the weather/sports sibling: a line
+// library (::lines pools) whose FACTS come from the live news generator each airing.
+// Where weather reads a forecast and sports simulates a game, news pulls the SAME
+// dynamic stories the tablet's News app shows — through the 'news.getStories' action —
+// and reads them out through anchors and field reporters. The anchors, reporters, and
+// announcer are plain NAME strings spoken as narration (no npc_anchor); news is NOT
+// acted-live — no studio NPC, no presence gating. A fresh bulletin re-rolls per refresh
+// bucket so the stories rotate as the world's news does.
+// Spec: docs/bsm-format.md#news-broadcasts-type-news.
+
+const NEWS_REFRESH_MS = 5 * 60 * 1000;   // re-roll the bulletin at most this often (picks up new live stories)
+const NEWS_FEATURE = 3;                  // stories given a full anchor→reporter segment
+const NEWS_RUNDOWN = 3;                  // extra headlines read in the closing rundown
+// If the news generator is ever unreachable, the bulletin still airs off these.
+const NEWS_FALLBACK_STORIES = [
+  { headline: 'The Machine Declares Everything "Within Acceptable Parameters"', body: 'No further details were released, and none were expected.', byline: 'the newsroom' },
+  { headline: 'Officials Confirm the City Is Still, Technically, a City', body: 'Residents were urged to remain calm and keep purchasing.', byline: 'the newsroom' },
+];
+
+// Outdoor district names for the {scene} token ("live from …") so a reporter stands in
+// a real place. Cached from the world and refreshed lazily; interiors/units filtered out.
+let _newsScenes = null, _newsScenesAt = 0;
+function newsSceneNames() {
+  if (_newsScenes && Date.now() - _newsScenesAt < 10 * 60 * 1000) return _newsScenes;
+  const names = new Set();
+  const INTERIORISH = /(roof|lobby|mezzanine|stairwell|basement|interior|ground floor| floor$)/i;
+  for (const z of world.zones.values()) {
+    if (!z?.name) continue;
+    const f = z.flags || {};
+    if (f.is_building) continue;                       // storefront tile named for its shop
+    if (f.is_interior && f.artery !== true) continue;  // interiors, but keep named streets
+    if (/^unit\s/i.test(z.name) || INTERIORISH.test(z.name)) continue;
+    names.add(z.name);
+  }
+  _newsScenes = names.size ? [...names] : ['the Undermarket', 'the Yards', 'Franchise Strip', 'the Slagworks'];
+  _newsScenesAt = Date.now();
+  return _newsScenes;
+}
+
+function newsFill(line, tok) {
+  return line.replace(/\{(\w+)\}/g, (_, k) => (tok[k] !== undefined && tok[k] !== null ? String(tok[k]) : ''));
+}
+function newsPick(pools, ...keys) {
+  for (const k of keys) { const a = pools[k]; if (Array.isArray(a) && a.length) return a[Math.floor(Math.random() * a.length)]; }
+  return null;
+}
+const newsPickFrom = (arr, fallback) => (Array.isArray(arr) && arr.length ? arr[Math.floor(Math.random() * arr.length)] : fallback);
+
+// Assemble a fresh bulletin: cold open → anchor greeting → a full anchor→reporter
+// segment for each of the top NEWS_FEATURE stories → a rundown of the next few
+// headlines → kicker → sign-off. One random line per matching pool, {tokens} filled
+// from the story and the show's anchor/reporter names. Missing pools skip gracefully
+// (a couple of essentials have a neutral built-in fallback so a thin file still airs).
+function assembleNewsGraph(script, broadcastId, stories, bucket) {
+  const pools = script.pools || {};
+  const anchors = (script.anchors && script.anchors.length) ? script.anchors : ['the anchor'];
+  const reporters = (script.reporters && script.reporters.length) ? script.reporters : anchors;
+  const anchor = anchors[0];
+  const anchor2 = anchors[1] || anchors[0];
+  const scenes = newsSceneNames();
+
+  const nodes = {};
+  let n = 0, prevId = null, startId = null;
+  const add = (data) => {
+    const id = `nw_${n++}`;
+    nodes[id] = { ...data };
+    if (prevId) nodes[prevId].next = id;
+    if (startId === null) startId = id;
+    prevId = id;
+    return id;
+  };
+  add({ type: 'start' });
+  if (script.title) add({ type: 'title_card', graphic_id: script.title });
+  // Intro theme sting (@theme → an audio_songs row). The walker plays it if the song
+  // exists, else the cue text shows briefly and it moves on — so a missing song never
+  // stalls the bulletin.
+  if (script.theme) add({ type: 'music', song: script.theme, text: '♪ Raptor News theme ♪' });
+
+  // Every line is attributed to whoever is speaking it: the text is emitted as
+  // `Name says, "line"` so the TV client renders a screenplay nameplate (and seeds
+  // a distinct procedural voice per host). speaker null ⇒ unattributed narration.
+  // src = chosen line, or fallback if the pool is missing/empty; empty ⇒ beat skipped.
+  const say = (speaker, line, tok, fallback) => {
+    const src = line || fallback;
+    if (!src) return;
+    const body = newsFill(src, tok).trim();
+    if (!body) return;
+    add({ type: 'say', text: speaker ? `${speaker} says, "${body}"` : body, style: 'raw' });
+  };
+  const announcer = script.announcer || anchor;
+  const baseTok = { anchor, anchor2, announcer };
+
+  say(announcer, newsPick(pools, 'open'), baseTok);
+  say(anchor, newsPick(pools, 'anchor.intro'), baseTok);
+
+  const feature = stories.slice(0, NEWS_FEATURE);
+  const rundown = stories.slice(NEWS_FEATURE, NEWS_FEATURE + NEWS_RUNDOWN);
+
+  feature.forEach((s, idx) => {
+    // The desk anchor for this story alternates; the co-anchor tosses in and, on
+    // stories with no field crew, supplies the pundit take — so the two anchors
+    // actually trade off and react to each other rather than one reading it all.
+    const desk = idx % 2 ? anchor2 : anchor;
+    const other = idx % 2 ? anchor : anchor2;
+    const reporter = newsPickFrom(reporters, desk);
+    const scene = newsPickFrom(scenes, 'the Basin');
+    // In tokens, {anchor} is whoever holds the desk (the name a reporter addresses),
+    // {anchor2} the co-anchor being tossed to.
+    const tok = {
+      ...baseTok, anchor: desk, anchor2: other, reporter, scene,
+      headline: s.headline || '', body: s.body || '', byline: s.byline || 'our newsroom',
+    };
+    if (idx === 0) {
+      say(desk, newsPick(pools, 'alert'), tok);             // breaking sting on the lead
+    } else {
+      // Toss between stories: the anchor who just finished (now `other`) hands the
+      // desk to `desk`, so the line is spoken by `other` and addresses `desk`.
+      say(other, newsPick(pools, 'anchor.banter'), { ...tok, anchor: other, anchor2: desk });
+    }
+    say(desk, newsPick(pools, 'story.lead'), tok, 'Our next story: {headline}.');
+    // Field segment: the lead story always goes to a reporter; the rest sometimes do.
+    if (idx === 0 || Math.random() < 0.5) {
+      say(desk, newsPick(pools, 'handoff.reporter'), tok, 'For more, we go to {reporter} in {scene}.');
+      say(reporter, newsPick(pools, 'reporter.scene'), tok, '{reporter}, live in {scene}: {body}');
+      if (Math.random() < 0.5) say(reporter, newsPick(pools, 'reporter.vox'), tok);
+      say(reporter, newsPick(pools, 'handoff.back'), tok);
+    } else {
+      // No field crew — the co-anchor weighs in with a hot take instead.
+      say(other, newsPick(pools, 'pundit.take'), { ...tok, anchor: other });
+    }
+    say(desk, newsPick(pools, 'anchor.reaction'), tok);
+  });
+
+  if (rundown.length) {
+    say(anchor, newsPick(pools, 'rundown.lead'), baseTok);
+    // Rapid-fire headlines alternate between the two anchors.
+    rundown.forEach((s, i) => say(i % 2 ? anchor2 : anchor, newsPick(pools, 'rundown.item'), { ...baseTok, headline: s.headline || '' }, 'Also tonight: {headline}.'));
+  }
+
+  say(anchor2, newsPick(pools, 'kicker.lead'), baseTok);   // co-anchor takes the feel-good pivot
+  say(anchor2, newsPick(pools, 'kicker'), baseTok);
+  say(anchor, newsPick(pools, 'outro'), baseTok);
+  say(announcer, newsPick(pools, 'signoff'), baseTok);
+
+  // _normalizeBroadcastGraph strips _broadcastId, so stamp it after: folding the bucket
+  // in makes the walker reset (re-roll) when the bucket advances, so the bulletin re-airs
+  // fresh with new stories. When the chain ends the walker restarts at _start (loops).
+  const graph = _normalizeBroadcastGraph({ _start: startId, nodes });
+  graph._broadcastId = `${broadcastId}:news:${bucket}`;
+  return graph;
+}
+
+// Return the assembled bulletin for a news playlist item, re-fetching live stories and
+// rebuilding when the refresh bucket (in-game day + 5-min window) advances. Cached on
+// the item between ticks so we don't hit the news generator every tick.
+async function getNewsGraph(item, nowMs) {
+  const script = item.newsScript;
+  if (!script) return null;
+  const env = getEnvironmentState();
+  const date = (typeof env?.date === 'string' ? env.date.slice(0, 10) : '') || 'day0';
+  const bucket = `${date}:${Math.floor(nowMs / NEWS_REFRESH_MS)}`;
+  if (item._newsGraph && item._newsBucket === bucket) return item._newsGraph;
+  let stories = [];
+  try {
+    const res = await dispatchAction({ type: 'news.getStories', params: { total: NEWS_FEATURE + NEWS_RUNDOWN } });
+    if (Array.isArray(res?.stories)) stories = res.stories;
+  } catch { /* generator unavailable — fall back below */ }
+  if (!stories.length) stories = NEWS_FALLBACK_STORIES;
+  item._newsGraph = assembleNewsGraph(script, item.broadcastId, stories, bucket);
+  item._newsBucket = bucket;
+  return item._newsGraph;
+}
+
+// ── Talk-show broadcasts ────────────────────────────────────────────────────
+// A talk show (playback_mode 'talkshow') is the live-ACTED procedural sibling of news/
+// sports. Like them it stores a ::lines library + personas and assembles a fresh episode
+// each night; UNLIKE them it is performed on stage by REAL npc_ cast — a resident host and
+// sidekick who commute in on schedule, plus ONE reusable guest NPC renamed to a different
+// persona every night. The assembled graph is stamped `_requireHost` so the live walker
+// presence-gates it: if the guest hasn't made it to the studio (it walks across the map)
+// the channel falls to camera-idle → technical difficulties, exactly like any live show.
+// Spec: docs/bsm-format.md#talk-show-broadcasts-type-talkshow.
+
+const TALKSHOW_MONOLOGUE = 4;   // base jokes for the monologue (+0..1 more per night); audience
+                                // beats between jokes carry the pacing, so fewer jokes per show
+const TALKSHOW_INTERVIEW = 3;   // base host-question / guest-answer exchanges (+0..1 more per night)
+
+// The show airs on a nightly @airtime slot, reusing the sports in-game 3-hour block clock
+// (sportsSlotOfDay). No @airtime ⇒ every slot (continuous), same convention as sports.
+function talkshowAiring(script) {
+  const slots = script?.airSlots;
+  if (!Array.isArray(slots) || !slots.length) return true;
+  return slots.includes(sportsSlotOfDay());
+}
+// Episode bucket = the in-game calendar day, so a fresh guest + fresh episode roll once a
+// day and every viewer (and every restart within that day) sees the same one.
+function talkshowDayBucket() {
+  const env = getEnvironmentState();
+  return (typeof env?.date === 'string' && env.date.length >= 10) ? env.date.slice(0, 10) : 'day0';
+}
+// Deterministically pick the night's guest persona from the ::guests pool by the day bucket,
+// so the choice is stable across restarts and identical on every TV.
+function talkshowPersonaFor(script, bucket) {
+  const guests = Array.isArray(script?.guests) ? script.guests.filter(g => g && g.name) : [];
+  if (!guests.length) return { name: "Tonight's Guest", title: '', theme: '' };
+  const seed = sportsHash(...[...bucket].map(c => c.charCodeAt(0)));
+  return guests[seed % guests.length];
+}
+
+function talkshowFill(line, tok) {
+  return String(line).replace(/\{(\w+)\}/g, (_, k) => (tok[k] !== undefined && tok[k] !== null ? String(tok[k]) : ''));
+}
+// Draw N distinct lines from a pool (shuffled by the seeded rng), filled with tokens. Falls
+// back to fewer if the pool is short; empty pool ⇒ [].
+function talkshowDraw(pools, key, n, tok, rand) {
+  const arr = Array.isArray(pools[key]) ? pools[key] : [];
+  if (!arr.length) return [];
+  return sportsShuffle(arr, rand).slice(0, n).map(l => talkshowFill(l, tok).trim()).filter(Boolean);
+}
+// One interview beat is an authored Q&A PAIR — "host question >> guest answer" — so the
+// question and the reply always belong together (no index-paired non-sequiturs). Split on the
+// first `>>`; a line with no delimiter is treated as an answer-only aside.
+function splitExchange(pair) {
+  const s = String(pair);
+  const i = s.indexOf('>>');
+  return i < 0 ? ['', s.trim()] : [s.slice(0, i).trim(), s.slice(i + 2).trim()];
+}
+// Build the night's interview deck: up to 2 of the guest's SIGNATURE exchanges (the persona
+// pool `interview.<tag>`, where the host's question is about THEIR thing), the rest generic
+// small-talk exchanges (`interview`), shuffled together — so every guest gets a couple of
+// on-topic beats while the mix still varies night to night.
+function talkshowExchangeDeck(pools, persona, n, rand) {
+  const sigPool = persona?.tag && Array.isArray(pools[`interview.${persona.tag}`]) ? pools[`interview.${persona.tag}`] : [];
+  const genPool = Array.isArray(pools['interview']) ? pools['interview'] : [];
+  const sig = sportsShuffle(sigPool, rand).slice(0, Math.min(2, sigPool.length));
+  const gen = sportsShuffle(genPool, rand).slice(0, Math.max(0, n - sig.length));
+  return sportsShuffle([...sig, ...gen], rand);
+}
+
+// Assemble one night's episode into a VINE broadcast graph of npc_anchor + say nodes, acted
+// by the real cast. Deterministic given the day bucket (seeded rng) so all viewers see the
+// same show. Segments: title/theme → sidekick cold open → host monologue → guest interview
+// (host asks / guest answers) → commercial → host sign-off.
+function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
+  const pools = script.pools || {};
+  const rand = sportsRng(sportsHash(...[...`${broadcastId}:${bucket}`].map(c => c.charCodeAt(0))));
+  const host = script.host || 'npc_host';
+  const sidekick = script.sidekick || host;
+  const guestNpc = script.guestNpc || 'npc_guest';
+  const guestName = persona?.name || "Tonight's Guest";
+  const tok = {
+    guest: guestName, title: persona?.title || 'our special guest',
+    host: (world.npcs.get(host)?.name) || 'the host',
+    sidekick: (world.npcs.get(sidekick)?.name) || 'the announcer',
+  };
+
+  const nodes = {};
+  let n = 0, prevId = null, startId = null, curAnchor = null;
+  const add = (data) => {
+    const id = `ts_${n++}`;
+    nodes[id] = { ...data };
+    if (prevId) nodes[prevId].next = id;
+    if (startId === null) startId = id;
+    prevId = id;
+    return id;
+  };
+  // Switch on-stage speaker only when it actually changes (npc_anchor nodes are the live
+  // presence + attribution cue the walker keys off).
+  const anchor = (npcId) => { if (npcId !== curAnchor) { add({ type: 'npc_anchor', npc_id: npcId }); curAnchor = npcId; } };
+  const line = (npcId, text) => { if (!text) return; anchor(npcId); add({ type: 'say', text, style: 'raw' }); };
+  const lines = (npcId, arr) => arr.forEach(t => line(npcId, t));
+
+  // Audience reactions — laughs, groans, applause between the jokes and around the guest
+  // exchanges, so the room breathes and each line lands before the next. They're unattributed
+  // stage business, so they go out as ambient (dim italic, no speaker, not read aloud) over an
+  // empty anchor. Pre-drawn once and cycled so a single show doesn't repeat a reaction, and —
+  // crucially — because we lean on the crowd to fill time, each SEGMENT draws fewer scripted
+  // lines per night, leaving more of the pools unseen so the variety lasts across broadcasts.
+  const reactionDeck = talkshowDraw(pools, 'audience', 40, tok, rand);
+  const applauseDeck = talkshowDraw(pools, 'applause', 12, tok, rand);
+  let rIdx = 0, aIdx = 0;
+  const ambientBeat = (text, holdMs) => {
+    if (!text) return;
+    if (curAnchor !== '') { add({ type: 'npc_anchor', npc_id: '' }); curAnchor = ''; }
+    add({ type: 'say', text, style: 'ambient', holdMs });
+  };
+  const react = () => { if (reactionDeck.length) ambientBeat(reactionDeck[rIdx++ % reactionDeck.length], 3500); };
+  const applause = () => {
+    if (applauseDeck.length) ambientBeat(applauseDeck[aIdx++ % applauseDeck.length], 4200);
+    else react();
+  };
+
+  add({ type: 'start' });
+  if (script.title) add({ type: 'title_card', graphic_id: script.title });
+  if (script.theme) add({ type: 'music', song: script.theme, text: '♪ The theme plays. ♪' });
+
+  // Cold open — the sidekick/announcer does the "It's the show!" intro + tonight's tease.
+  // Line counts wobble night to night so the open never feels rote.
+  lines(sidekick, talkshowDraw(pools, 'open', 1 + Math.floor(rand() * 2), tok, rand));   // 1–2
+  lines(sidekick, talkshowDraw(pools, 'tease', 1 + Math.floor(rand() * 2), tok, rand));  // 1–2
+  line(sidekick, talkshowFill(sportsPick(pools, rand, 'announce_host') || "Ladies and gentlemen — {host}!", tok));
+  applause();   // the host walks out to applause
+
+  // Monologue — the host's opening jokes; 4–5 a night, each landing on an audience beat so the
+  // room breathes between punchlines instead of the jokes running together.
+  const jokes = talkshowDraw(pools, 'monologue', TALKSHOW_MONOLOGUE + Math.floor(rand() * 2), tok, rand);  // 4–5
+  jokes.forEach((joke, i) => {
+    line(host, joke);
+    // A reaction after most jokes (always the last one, as the button into what follows).
+    if (i === jokes.length - 1 || rand() < 0.7) react();
+  });
+  // Sometimes the sidekick heckles back mid-monologue (~45% of nights).
+  if (rand() < 0.45) { lines(sidekick, talkshowDraw(pools, 'sidekick_aside', 1, tok, rand)); react(); }
+  // Sometimes the host does a desk bit before the guest (~50%).
+  if (rand() < 0.50) { lines(host, talkshowDraw(pools, 'desk_bit', 1, tok, rand)); react(); }
+
+  // Guest intro + interview — host welcomes tonight's persona (to applause), then 3–4 EXCHANGES.
+  // Each exchange is an authored Q&A pair, so the host's question and the guest's reply belong
+  // together; the night blends a couple of the guest's on-topic signature beats with generic
+  // small-talk, shuffled, so the interview is coherent AND different every night. An audience
+  // beat between exchanges gives the back-and-forth a live rhythm.
+  line(host, talkshowFill(sportsPick(pools, rand, 'guest_intro') || "My next guest is {title}. Please welcome {guest}!", tok));
+  applause();   // the guest takes the stage
+  const exN = TALKSHOW_INTERVIEW + Math.floor(rand() * 2);   // 3–4
+  const deck = talkshowExchangeDeck(pools, persona, exN + 1, rand);   // +1 spare for the follow-up
+  const sayExchange = (pair, withBeat) => {
+    const [q, a] = splitExchange(pair);
+    if (q) line(host, talkshowFill(q, tok));
+    if (a) line(guestNpc, talkshowFill(a, tok));
+    if (withBeat) react();   // the crowd reacts to the answer before the next question
+  };
+  let ex = 0;
+  const total = Math.min(exN, deck.length);
+  for (; ex < total; ex++) sayExchange(deck[ex], ex < total - 1 && rand() < 0.6);
+  // A second, shorter guest beat some nights (~35%) - one more on-topic exchange.
+  if (rand() < 0.35 && deck[ex]) sayExchange(deck[ex], false);
+
+  // Commercial — a quick sponsor break read as narration over the studio (an ad break, not the
+  // host talking), one line so it doesn't overstay.
+  const ad = talkshowDraw(pools, 'commercial', 1, tok, rand);
+  if (ad.length) { add({ type: 'npc_anchor', npc_id: '' }); curAnchor = ''; ad.forEach(t => add({ type: 'say', text: t, style: 'narration' })); }
+
+  // Sign-off — host thanks the guest and says goodnight. ONE line, so the show never says
+  // goodnight twice.
+  applause();
+  lines(host, talkshowDraw(pools, 'signoff', 1, { ...tok }, rand));
+
+  const graph = _normalizeBroadcastGraph({ _start: startId, nodes });
+  graph._broadcastId = `${broadcastId}:talkshow:${bucket}`;
+  graph._requireHost = true;   // presence-gate: no cast in studio ⇒ camera-idle → tech-diff
+  return graph;
+}
+
+// Return the night's assembled episode for a talk-show playlist item, rebuilt when the day
+// bucket rolls (new guest, new jokes). Cached on the item between ticks.
+function getTalkshowGraph(item, nowMs) {
+  const script = item.talkshowScript;
+  if (!script) return null;
+  const bucket = talkshowDayBucket();
+  if (item._talkshowGraph && item._talkshowBucket === bucket) return item._talkshowGraph;
+  const persona = talkshowPersonaFor(script, bucket);
+  item._talkshowGraph = assembleTalkshowGraph(script, item.broadcastId, bucket, persona);
+  item._talkshowBucket = bucket;
+  return item._talkshowGraph;
+}
+
+// ── Guest lifecycle plumbing ─────────────────────────────────────────────────
+// The reusable guest lives off-world between episodes in a hidden backstage zone (no exits,
+// no map — unreachable by players), and is renamed to the night's persona so it walks in as
+// the right character. The engine's TALKSHOW_APPEAR/HIDE actions do the movement; here we
+// (a) ensure the backstage zone exists, (b) expose which zones are being watched so the
+// guest only ever materialises where no one/no camera can see it "appear", and (c) rename
+// the guest once per episode.
+
+const TALKSHOW_BACKSTAGE_ZONE = 'zone_talkshow_backstage';
+let _backstageReady = false;
+async function ensureBackstageZone() {
+  if (_backstageReady) return TALKSHOW_BACKSTAGE_ZONE;
+  await query(
+    `INSERT INTO zones (id, name, description, exits, flags)
+       VALUES ($1, $2, $3, '{}'::jsonb, $4::jsonb)
+     ON CONFLICT (id) DO NOTHING`,
+    [TALKSHOW_BACKSTAGE_ZONE, 'Backstage', 'A featureless holding space between the world and the wings. Nothing reaches here.', JSON.stringify({ no_spawn: true })]
+  ).catch(() => {});
+  try { await reloadZone(TALKSHOW_BACKSTAGE_ZONE); } catch { /* loaded lazily on next reload */ }
+  _backstageReady = true;
+  return TALKSHOW_BACKSTAGE_ZONE;
+}
+
+// Zones a camera or planted device is actively watching — the guest must NEVER "appear" or
+// "vanish" in one of these on-screen. Cached from the DB and refreshed on a slow cadence;
+// read synchronously by the engine's guest actions through the bridge.
+const _watchedZones = new Set();
+async function refreshWatchedZones() {
+  const next = new Set();
+  try {
+    const { rows } = await query(
+      `SELECT DISTINCT zone_id FROM security_devices WHERE device_kind IN ('sticky_cam','drone') AND COALESCE(is_damaged,0)=0`
+    );
+    for (const r of rows) if (r.zone_id) next.add(r.zone_id);
+  } catch { /* table may not exist in a bare test DB — leave device zones out */ }
+  try {
+    const { rows } = await query(`SELECT DISTINCT zone_id FROM media_cameras WHERE is_powered=1 AND COALESCE(is_damaged,0)=0`);
+    for (const r of rows) if (r.zone_id) next.add(r.zone_id);
+  } catch { /* ignore */ }
+  _watchedZones.clear();
+  for (const z of next) _watchedZones.add(z);
+}
+registerZoneWatchedChecker((zoneId) => _watchedZones.has(zoneId));
+setInterval(() => { refreshWatchedZones().catch(() => {}); }, 15000);
+setTimeout(() => { refreshWatchedZones().catch(() => {}); }, 8000);
+
+// Rename the reusable guest to tonight's persona, once per episode bucket, so it appears +
+// performs as the right character. Runs on a heartbeat regardless of viewers, so the guest's
+// identity is set before it walks on. Deduped per (guestNpc, bucket).
+const _talkshowRenamed = new Map();   // guestNpc -> last bucket renamed
+async function talkshowHeartbeat() {
+  const bucket = talkshowDayBucket();
+  const seen = new Set();
+  for (const state of channelRuntime.values()) {
+    for (const item of (state.playlist || [])) {
+      const script = item.talkshowScript;
+      if (item.playback_mode !== 'talkshow' || !script?.guestNpc) continue;
+      const guestNpc = script.guestNpc;
+      if (seen.has(guestNpc)) continue;
+      seen.add(guestNpc);
+      if (_talkshowRenamed.get(guestNpc) === bucket) continue;
+      const persona = talkshowPersonaFor(script, bucket);
+      const desc = persona.title
+        ? `${persona.name} — ${persona.title}. Tonight's guest on ${item.broadcastName || 'the show'}.`
+        : `${persona.name}, tonight's guest on ${item.broadcastName || 'the show'}.`;
+      await query(`UPDATE npcs SET name=$1, description=$2 WHERE id=$3`, [persona.name, desc, guestNpc]).catch(() => {});
+      const live = world.npcs.get(guestNpc);
+      if (live) { live.name = persona.name; live.description = desc; }
+      _talkshowRenamed.set(guestNpc, bucket);
+    }
+  }
+}
+setInterval(() => { talkshowHeartbeat().catch(e => console.error('[broadcast] talkshow heartbeat error:', e.message)); }, 60 * 1000);
+setTimeout(() => { talkshowHeartbeat().catch(() => {}); }, 10000);
+
 async function getCurrentMessage(state, nowMs) {
   const { channelType, playlist, totalDuration, idleBroadcast, newsCategories, camera, loopOriginMs, scheduleMode } = state;
 
@@ -1492,6 +1978,13 @@ async function getCurrentMessage(state, nowMs) {
   if (channelType === 'news') {
     const elapsed = playlist.length && totalDuration > 0 ? ((nowMs - loopOriginMs) / 1000) % totalDuration : -1;
     const activeItem = elapsed >= 0 ? playlist.find(i => elapsed >= i.startTime && elapsed < i.startTime + i.duration) : null;
+    // A scripted news bulletin (playback_mode 'news') assembles live from the news
+    // generator — handle it before the generic graph check, or its start-only stored
+    // graph would air empty.
+    if (activeItem?.playback_mode === 'news') {
+      const nwGraph = await getNewsGraph(activeItem, nowMs);
+      if (nwGraph) return tickBroadcastGraph(state.channelId, nwGraph, state, nowMs);
+    }
     if (activeItem?.broadcastGraph) return tickBroadcastGraph(state.channelId, activeItem.broadcastGraph, state, nowMs);
     const q = newsQueue.get(state.channelId) || [];
     const item = q.shift();
@@ -1527,6 +2020,26 @@ async function getCurrentMessage(state, nowMs) {
         const spGraph = getSportsGraph(item.sportsScript, sportsSlotIndex(), worldSeriesOverride());
         if (spGraph) {
           const r = tickBroadcastGraph(state.channelId, spGraph, state, nowMs, sportsSegElapsedSec());
+          if (r) r.programName = item.broadcastName || null;
+          return r;
+        }
+      }
+      // News — a fresh bulletin assembled from the live news generator each refresh bucket.
+      if (item.playback_mode === 'news') {
+        const nwGraph = await getNewsGraph(item, nowMs);
+        if (nwGraph) {
+          const r = tickBroadcastGraph(state.channelId, nwGraph, state, nowMs, segElapsed);
+          if (r) r.programName = item.broadcastName || null;
+          return r;
+        }
+      }
+      // Talk show — tonight's episode, acted live by the cast. Only airs in its @airtime
+      // slot; outside it the channel is dark here and falls through to idle/off-air.
+      if (item.playback_mode === 'talkshow' && talkshowAiring(item.talkshowScript)) {
+        const tsGraph = getTalkshowGraph(item, nowMs);
+        if (tsGraph) {
+          state.currentFallbackMessages = item.fallbackMessages || [];
+          const r = tickBroadcastGraph(state.channelId, tsGraph, state, nowMs, segElapsed);
           if (r) r.programName = item.broadcastName || null;
           return r;
         }
@@ -1630,6 +2143,23 @@ async function getCurrentMessage(state, nowMs) {
           return tickBroadcastGraph(state.channelId, spGraph, state, nowMs, sportsSegElapsedSec());
         }
       }
+      // News — a fresh bulletin from the live news generator, re-rolled per refresh bucket
+      if (item.playback_mode === 'news') {
+        const nwGraph = await getNewsGraph(item, nowMs);
+        if (nwGraph) {
+          state.currentFallbackMessages = item.fallbackMessages || [];
+          return tickBroadcastGraph(state.channelId, nwGraph, state, nowMs);
+        }
+      }
+      // Talk show — tonight's episode, acted live. Airs only in its @airtime slot; outside
+      // it, fall through so the channel goes off-air (offline graphic / static).
+      if (item.playback_mode === 'talkshow' && talkshowAiring(item.talkshowScript)) {
+        const tsGraph = getTalkshowGraph(item, nowMs);
+        if (tsGraph) {
+          state.currentFallbackMessages = item.fallbackMessages || [];
+          return tickBroadcastGraph(state.channelId, tsGraph, state, nowMs);
+        }
+      }
       // VINE graph (scripted/news with broadcast_graph) — walker manages its own timing
       if (item.broadcastGraph) {
         state.currentFallbackMessages = item.fallbackMessages || [];
@@ -1706,7 +2236,101 @@ function _deckItemFrom(broadcastId, bc) {
   };
 }
 
+// ── Pirate queue playback (Phase 2) ──────────────────────────────────────────
+// A seized deck runs its captor's queue instead of the channel schedule OR the
+// legacy deck_active tape. State lives on the deck furniture flags (see the
+// piracy block): pirate_queue (broadcast ids), pirate_cursor, pirate_loop
+// (off|item|queue), pirate_playing, pirate_started_ms (current item's air start),
+// pirate_crawl (breaking-news ticker). Own item cache so cursor changes rebuild.
+const _pirateCache = new Map(); // zoneId -> { id, item, fetchedAt }
+const _pirateDur = new Map();   // broadcastId -> duration seconds
+
+// Pure loop-advance decision: given the current cursor, queue length, and loop
+// mode, return the next cursor and whether playback stops. 'item' holds the same
+// slot; 'off' stops at the end; 'queue' wraps.
+function _nextCursor(cursor, len, loop) {
+  if (len <= 0) return { cursor: 0, stop: true };
+  if (loop === 'item') return { cursor, stop: false };
+  if (loop === 'off' && cursor >= len - 1) return { cursor, stop: true };
+  return { cursor: (cursor + 1) % len, stop: false };
+}
+
+async function _pirateItemDur(id) {
+  if (_pirateDur.has(id)) return _pirateDur.get(id);
+  const { rows } = await query(
+    `SELECT override_duration, playback_mode, broadcast_graph, message_interval, messages FROM media_broadcasts WHERE id=$1`, [id]
+  ).catch(() => ({ rows: [] }));
+  const bc = rows[0];
+  const parse = (v) => { if (typeof v !== 'string') return v; try { return JSON.parse(v); } catch { return null; } };
+  let dur = 30;
+  if (bc) dur = broadcastDuration({ ...bc, broadcast_graph: parse(bc.broadcast_graph), messages: parse(bc.messages) || bc.messages }) || 30;
+  dur = Math.max(15, dur); // floor so ultra-short tapes don't thrash the queue
+  _pirateDur.set(id, dur);
+  return dur;
+}
+
+// Returns undefined when the deck isn't pirated (caller falls through to the
+// normal path), null when pirated-but-dark (stopped / empty queue), or a tick
+// message when the pirate queue is airing.
+async function _getPirateMessage(zoneId, nowMs, state) {
+  const { rows } = await query(
+    `SELECT id, flags FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%'
+      ORDER BY (flags->>'channel_id' = $2) DESC NULLS LAST LIMIT 1`,
+    [zoneId, state?.channelId || null]
+  ).catch(() => ({ rows: [] }));
+  if (!rows.length) return undefined;
+  const deck = rows[0];
+  const dflags = _deckFlags(deck);
+  if (!dflags.pirate_owner) return undefined;   // not pirated → normal path
+  if (!dflags.pirate_playing) return null;      // stopped → dark
+  const q = Array.isArray(dflags.pirate_queue) ? dflags.pirate_queue : [];
+  if (!q.length) return null;
+  let cursor = Math.min(Math.max(0, dflags.pirate_cursor | 0), q.length - 1);
+  let activeId = q[cursor];
+
+  // Auto-advance once the current item has aired its full duration (unless it's
+  // set to loop the single item). loop 'queue' wraps; 'off' stops at the end.
+  const dur = await _pirateItemDur(activeId);
+  const started = dflags.pirate_started_ms || nowMs;
+  if (dflags.pirate_loop !== 'item' && nowMs - started >= dur * 1000) {
+    const nx = _nextCursor(cursor, q.length, dflags.pirate_loop);
+    if (nx.stop) {
+      dflags.pirate_playing = false;
+      await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]).catch(() => {});
+      _pirateCache.delete(zoneId);
+      return null;
+    }
+    cursor = nx.cursor;
+    activeId = q[cursor];
+    dflags.pirate_cursor = cursor;
+    dflags.pirate_started_ms = nowMs;
+    await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]).catch(() => {});
+    _pirateCache.delete(zoneId);
+  }
+
+  // Breaking-news crawl — roughly one tick in three carries the ticker so it
+  // recurs in the TV ticker strip alongside the aired content.
+  if (dflags.pirate_crawl && Math.floor(nowMs / 5000) % 3 === 2) {
+    return { text: String(dflags.pirate_crawl), style: 'ticker', key: `pircrawl:${Math.floor(nowMs / 5000)}` };
+  }
+
+  let entry = _pirateCache.get(zoneId);
+  if (!entry || entry.id !== activeId || nowMs - entry.fetchedAt > _DECK_CACHE_TTL) {
+    const { rows: bcRows } = await query(
+      `SELECT playback_mode, messages, message_interval, broadcast_graph, fallback_messages, weather_pools, sports_pools
+         FROM media_broadcasts WHERE id=$1`, [activeId]
+    ).catch(() => ({ rows: [] }));
+    entry = bcRows[0]
+      ? { id: activeId, item: _deckItemFrom(activeId, bcRows[0]), fetchedAt: nowMs }
+      : { id: activeId, item: null, fetchedAt: nowMs };
+    _pirateCache.set(zoneId, entry);
+  }
+  return _playDeckItem(entry.item, state, nowMs);
+}
+
 async function _getDeckMessage(zoneId, nowMs, state) {
+  const pirate = await _getPirateMessage(zoneId, nowMs, state);
+  if (pirate !== undefined) return pirate;   // pirated deck runs its captor's queue
   let entry = _deckCache.get(zoneId);
   if (!entry || nowMs - entry.fetchedAt > _DECK_CACHE_TTL) {
     // If a zone holds more than one deck, prefer the one linked to THIS channel so
@@ -1736,13 +2360,15 @@ async function _getDeckMessage(zoneId, nowMs, state) {
     }
     _deckCache.set(zoneId, entry);
   }
-  const item = entry.item;
-  if (!item) return null;
+  return _playDeckItem(entry.item, state, nowMs);
+}
 
-  // Graph / weather / sports cassettes are walked through the channel blackboard —
-  // exactly like the scheduled path — so a loaded Deadball or DOOMCAST tape actually
-  // plays. The deck override suppresses the schedule this tick, so sharing the
-  // blackboard is safe (only one of the two produces a message per tick).
+// Render one built deck item to a tick message — the shared player for both the
+// legacy deck_active path and the pirate queue. Graph / weather / sports items
+// walk the channel blackboard exactly like the scheduled path; flat lists loop on
+// their own duration. Returns null when the item is empty/dark this tick.
+function _playDeckItem(item, state, nowMs) {
+  if (!item) return null;
   if (state) {
     state.currentFallbackMessages = item.fallbackMessages || [];
     if (item.playback_mode === 'weather') {
@@ -1758,8 +2384,6 @@ async function _getDeckMessage(zoneId, nowMs, state) {
       return tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs);
     }
   }
-
-  // Flat message list (loops on its own duration).
   if (!item.messages.length) return null;
   const elapsed = (nowMs / 1000) % (item.messages.length * item.message_interval);
   const result = getScriptedMessage(item.messages, item.message_interval, elapsed);
@@ -2038,6 +2662,13 @@ registerNpcScheduleChecker((npcId) => {
   const gameSecs = (minutes ?? 0) * 60;
   const nowMs = Date.now();
   for (const state of channelRuntime.values()) {
+    // Talk-show cast are on-shift for the whole @airtime block, keyed to the in-game clock
+    // (not the channel's loop position) — so the guest appears + commutes and the host/sidekick
+    // hold the stage exactly while the episode airs, and clear off the moment it's over.
+    for (const item of (state.playlist || [])) {
+      if (item.playback_mode !== 'talkshow') continue;
+      if (item.npcStaff?.includes(npcId) && talkshowAiring(item.talkshowScript)) return true;
+    }
     let item = null;
     if (state.scheduleMode === 'daily') {
       item = state.playlist.find(i => gameSecs >= i.startTime && gameSecs < i.startTime + i.duration);
@@ -2046,7 +2677,7 @@ registerNpcScheduleChecker((npcId) => {
       const elapsed = ((nowMs - state.loopOriginMs) / 1000) % state.totalDuration;
       item = state.playlist.find(i => elapsed >= i.startTime && elapsed < i.startTime + i.duration);
     }
-    if (item?.npcStaff?.includes(npcId)) return true;
+    if (item?.playback_mode !== 'talkshow' && item?.npcStaff?.includes(npcId)) return true;
   }
   return false;
 });
@@ -2233,10 +2864,35 @@ async function _injectWorkPhaseForPlaylistItem(item) {
 // broadcast's on-screen NPCs from its graph, merge them into the playlist item's
 // npc_staff conditions, assign a studio-aware behaviour graph + work_zone_id to
 // any host, and re-inject the per-broadcast work-phase actions. Idempotent.
+// Auto-lock a talk show to its broadcast time. A talkshow is ONLY available during its
+// nightly @airtime block, so whenever one is saved we pin it to that block on its channel
+// automatically (a daily-scheduled slot) — the builder never has to hand-place it on the
+// timeline. Idempotent: re-pins THIS show's own slot(s) and leaves other broadcasts on the
+// channel alone. Staffing (cast + guest graphs) is done by the caller via recalc once the
+// cast NPCs exist. No @airtime ⇒ a single all-day slot (always available).
+async function ensureTalkshowSlot(broadcastId, channelId, talkshowPools) {
+  if (!broadcastId || !channelId) return;
+  let ts = talkshowPools;
+  if (typeof ts === 'string') { try { ts = JSON.parse(ts); } catch { ts = null; } }
+  const BLOCK = 3 * 3600;   // one in-game 3h airtime block, in game-seconds-since-midnight
+  const slots = Array.isArray(ts?.airSlots) && ts.airSlots.length ? ts.airSlots : null;
+  // Pinning to a fixed time of day needs the channel in daily-schedule mode.
+  await query(`UPDATE media_channels SET schedule_mode='daily' WHERE id=$1`, [channelId]).catch(() => {});
+  await query('DELETE FROM media_channel_playlist WHERE channel_id=$1 AND broadcast_id=$2', [channelId, broadcastId]).catch(() => {});
+  const windows = slots ? slots.map(b => [(((b % 8) + 8) % 8) * BLOCK, BLOCK]) : [[0, 24 * 3600]];
+  for (const [start, dur] of windows) {
+    await query(
+      `INSERT INTO media_channel_playlist (id,channel_id,broadcast_id,start_time,duration_override,priority,conditions,slot_type)
+       VALUES ($1,$2,$3,$4,$5,0,'[]'::jsonb,'broadcast')`,
+      [randomUUID(), channelId, broadcastId, start, dur]
+    ).catch(() => {});
+  }
+}
+
 async function recalculateNpcSchedules() {
   const { rows: plItems } = await query(`
     SELECT p.id, p.channel_id, p.broadcast_id, p.conditions,
-           b.broadcast_graph, b.playback_mode,
+           b.broadcast_graph, b.playback_mode, b.talkshow_pools,
            c.channel_type, c.studio_zone_id
     FROM media_channel_playlist p
     JOIN media_broadcasts b ON b.id = p.broadcast_id
@@ -2263,13 +2919,27 @@ async function recalculateNpcSchedules() {
       if (node.type === 'npc_anchor' && nid && !npcIds.includes(nid)) npcIds.push(nid);
     }
 
-    // Only LIVE channels and WEATHER forecasts physically staff the studio. For a
-    // scripted show, npc_anchor is speaker attribution only — never staff it, and
-    // strip any stale staffing a previous (buggy) pass merged into its conditions.
-    const staffsNpcs = row.channel_type === 'live' || row.playback_mode === 'weather';
+    // A talk show's stored graph is start-only (the episode is assembled live), so its cast
+    // can't be read from npc_anchor nodes — it comes from talkshow_pools instead: the resident
+    // host + sidekick, plus the reusable guest. All three staff the studio; the guest gets its
+    // own roaming lifecycle graph + a backstage "home" it vanishes to between episodes.
+    const isTalkshow = row.playback_mode === 'talkshow';
+    let guestNpcId = null;
+    if (isTalkshow) {
+      let ts = row.talkshow_pools;
+      if (typeof ts === 'string') { try { ts = JSON.parse(ts); } catch { ts = null; } }
+      guestNpcId = ts?.guestNpc || null;
+      npcIds.length = 0;
+      for (const id of [ts?.host, ts?.sidekick, ts?.guestNpc]) if (id && !npcIds.includes(id)) npcIds.push(id);
+    }
+
+    // Only LIVE channels, WEATHER forecasts, and TALK SHOWS physically staff the studio. For a
+    // scripted show, npc_anchor is speaker attribution only — never staff it, and strip any
+    // stale staffing a previous (buggy) pass merged into its conditions.
+    const staffsNpcs = row.channel_type === 'live' || row.playback_mode === 'weather' || isTalkshow;
     const studioZoneId = row.studio_zone_id || null;
 
-    // Reconcile npc_staff in the item's conditions (merge for live/weather, clear otherwise)
+    // Reconcile npc_staff in the item's conditions (merge for live/weather/talkshow, clear otherwise)
     let cond = row.conditions;
     if (typeof cond === 'string') { try { cond = JSON.parse(cond); } catch { cond = {}; } }
     if (Array.isArray(cond) || !cond) cond = {};
@@ -2284,25 +2954,40 @@ async function recalculateNpcSchedules() {
 
     if (!staffsNpcs || !npcIds.length) continue;
 
-    // Assign default behaviour graph (with studio zone) to any staff NPC, and
-    // ensure work_zone_id points at the studio so GO_TO_WORK resolves.
+    // Assign default behaviour graph (with studio zone) to any staff NPC, and ensure
+    // work_zone_id points at the studio so GO_TO_WORK resolves. The guest is special: it
+    // gets the roaming lifecycle graph and a hidden backstage home instead.
+    const backstageZone = isTalkshow && guestNpcId ? await ensureBackstageZone() : null;
     const defaultGraph = JSON.stringify(makeDefaultStudioGraph(studioZoneId));
+    const guestGraph   = JSON.stringify(makeTalkshowGuestGraph(studioZoneId));
     for (const npcId of npcIds) {
       liveStaff.set(npcId, studioZoneId);
-      // Always overwrite — ensures zone_id is populated even for existing graphs; set work_zone_id so GO_TO_WORK resolves without graph params
-      const { rowCount } = await query(
-        `UPDATE npcs SET behaviour_graph=$1, work_zone_id=COALESCE(work_zone_id,$2) WHERE id=$3`,
-        [defaultGraph, studioZoneId, npcId]
-      ).catch(() => ({ rowCount: 0 }));
+      const isGuest = isTalkshow && npcId === guestNpcId;
+      // Always overwrite — ensures zone_id is populated even for existing graphs; set work_zone_id
+      // so GO_TO_WORK resolves without graph params. The guest also gets its backstage home_zone.
+      const { rowCount } = isGuest
+        ? await query(
+            `UPDATE npcs SET behaviour_graph=$1, work_zone_id=$2, home_zone=$3 WHERE id=$4`,
+            [guestGraph, studioZoneId, backstageZone, npcId]
+          ).catch(() => ({ rowCount: 0 }))
+        : await query(
+            `UPDATE npcs SET behaviour_graph=$1, work_zone_id=COALESCE(work_zone_id,$2) WHERE id=$3`,
+            [defaultGraph, studioZoneId, npcId]
+          ).catch(() => ({ rowCount: 0 }));
       if (rowCount) {
         updatedNpcs++;
         const npc = world.npcs.get(npcId);
-        if (npc && !npc.work_zone_id) npc.work_zone_id = studioZoneId;
+        if (npc) {
+          if (isGuest) { npc.behaviour_graph = JSON.parse(guestGraph); npc.work_zone_id = studioZoneId; npc.home_zone = backstageZone; npc._ai = null; }
+          else if (!npc.work_zone_id) npc.work_zone_id = studioZoneId;
+        }
       }
     }
 
-    // Re-inject work-phase actions from the broadcast graph
-    await _injectWorkPhaseForPlaylistItem({ broadcast_id: row.broadcast_id, npcStaff: npcIds, studioZoneId });
+    // Re-inject work-phase actions from the broadcast graph. Skipped for talk shows — the
+    // episode is assembled live, so there's no baked per-NPC line sequence to extract, and
+    // the guest's lifecycle graph must not be overwritten.
+    if (!isTalkshow) await _injectWorkPhaseForPlaylistItem({ broadcast_id: row.broadcast_id, npcStaff: npcIds, studioZoneId });
   }
 
   // Self-heal: any NPC still routed to a studio zone but no longer legitimately
@@ -2393,8 +3078,10 @@ function _evalBroadcastCondition(node, channelId, nowMs) {
 
 // Walk the VINE graph for one tick. Returns { text, key, style } or null.
 // Broadcast tick interval — the graph walker (tickBroadcastGraph) emits at most one
-// message per tick, so on-air a node occupies a whole tick even if its hold is shorter.
-const BROADCAST_TICK_MS = 5000;
+// message per tick, and node holds are honored at tick granularity (a hold rounds up
+// to the next tick boundary). Kept fine (2s) so line holds like 8s land precisely
+// instead of snapping to the next 5s; the tick only re-evaluates, it never skips.
+const BROADCAST_TICK_MS = 2000;
 
 // Canonical on-air hold (ms) for a content node, before tick-quantization. This is the
 // single source of truth for how long each node type stays up, shared by the live walker
@@ -2422,7 +3109,7 @@ function nodeHoldMs(node) {
       return (d.duration_s ?? (overlayType === 'text_card' ? 5 : 6)) * 1000;
     }
     default:
-      return d.holdMs ?? 5000; // say, ticker, camera_cut, … (sports lines carry an explicit holdMs)
+      return d.holdMs ?? 8000; // say, ticker, camera_cut, … (sports lines carry an explicit holdMs)
   }
 }
 
@@ -2579,7 +3266,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           ? `>> ${bb.npcAnchor ? `${bb.npcAnchor}: ` : ''}${raw} <<`
           : (!isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         const isSpeech = !isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor;
-        return { text: text_say, key: key_say, style: 'raw', ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}) };
+        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}) };
       }
 
       case 'music': {
@@ -3047,6 +3734,298 @@ function _deckFlags(deck) {
   return typeof deck.flags === 'object' ? { ...deck.flags } : JSON.parse(deck.flags || '{}');
 }
 
+// ── Broadcast Piracy (SPECTER) ────────────────────────────────────────────────
+// A media deck is a station's transmitter. With the pirate firmware flashed onto
+// their tablet, a player can hijack the deck (the Signal Hijack minigame) and
+// seize the frequency: while `pirate_owner` is set the deck answers only to them,
+// its citywide `deck_active` override is theirs to run, and the legit control
+// interface is locked to everyone else. Persistent until reclaimed (counter-hack
+// for now; engineer-NPC reboot + wanted-heat drop land in later phases). Seizure
+// state lives on the deck's own furniture flags, so it survives restarts.
+const PIRACY_FLAG = 'piracy_installed';
+async function isPiracyInstalled(player) {
+  const v = await getFlag('player', PIRACY_FLAG, player);
+  return v === '1' || v === 1 || v === true;
+}
+
+function _isDeckAdmin(player) { return player?.role === 'admin' || player?.role === 'dev'; }
+
+// Who may legitimately operate a deck's controls: an admin/dev (the station-owner
+// proxy until corp ownership exists) or the current pirate. An un-seized deck is
+// otherwise locked — the firmware+hijack is the only way in for everyone else.
+function canOperateDeck(dflags, player) {
+  if (_isDeckAdmin(player)) return true;
+  return !!dflags.pirate_owner && dflags.pirate_owner === player?.id;
+}
+
+// Shared gate for the deck-operate handlers (load/eject/select/use). Returns an
+// error result to short-circuit on, or null when the player may operate the deck.
+function _deckLockError(dflags, player) {
+  if (canOperateDeck(dflags, player)) return null;
+  const hint = dflags.pirate_owner
+    ? 'Someone else has pirated this deck. Take it back with <b>pirate</b>.'
+    : 'Its control interface is locked. Flash pirate firmware and <b>pirate</b> it to seize the frequency.';
+  return { type: 'error', message: `The deck won't answer to you. ${hint}` };
+}
+
+// ⚠ TAMPER dead-man ping to a previous owner when a deck is seized out from under
+// them (mirrors surveillance's tamperPing; kept local to avoid importing it).
+function _deckTamperPing(ownerId, actorId, stationName, zoneName, reason) {
+  if (!ownerId || ownerId === actorId) return;
+  sendToPlayer(ownerId, { type: 'system', message: `<span class="text-red">⚠ TAMPER</span> — ${stationName || 'a station'} at ${zoneName || 'unknown'} ${reason}` });
+}
+
+const PIRACY_LOCKOUT_MS = 5 * 60 * 1000;
+const pendingPirate = new Map(); // playerId -> { deckId, ts }
+const pirateLockout = new Map(); // playerId -> untilTs
+
+// use <pirate firmware> — flash the piracy firmware onto the tablet, consuming it.
+async function doInstallPiracyFirmware(args, raw, player) {
+  if (!player) return undefined;
+  const nameHint = args.join(' ').trim().toLowerCase();
+  const params = [player.id];
+  let sql = `SELECT pi.id AS inv_id, pi.quantity, i.name FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+             WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'piracy_firmware')`;
+  if (nameHint) { sql += ` AND i.name ILIKE $2`; params.push(`%${nameHint}%`); }
+  sql += ' LIMIT 1';
+  const { rows } = await query(sql, params);
+  if (!rows.length) return undefined; // not carrying one / named something else — let other handlers try
+  if (await isPiracyInstalled(player)) {
+    return { type: 'error', message: 'The pirate firmware is already flashed onto your tablet.' };
+  }
+  const it = rows[0];
+  if (it.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [it.inv_id]);
+  else await query('DELETE FROM player_inventory WHERE id=$1', [it.inv_id]);
+  await setFlag('player', PIRACY_FLAG, '1', player);
+  return { type: 'output', message: `You slot the ${it.name} into the tablet. A flasher tears through the signature check and burns a pirate transmitter stack into ROM. <span class="item-grant">Signal piracy online. Find a station's media deck and <b>pirate</b> it.</span>` };
+}
+
+// pirate <deck> — arm a Signal Hijack on a station's media deck. Result returns
+// via `pirateresolve`. Requires the firmware; on-site (the deck's zone).
+async function cmdPirate(args, raw, player) {
+  if (!player) return { type: 'error', message: 'No character.' };
+  const until = pirateLockout.get(player.id) || 0;
+  if (Date.now() < until) return { type: 'error', message: `Your rig is locked out. ${Math.ceil((until - Date.now()) / 1000)}s remaining.` };
+  if (!(await isPiracyInstalled(player))) {
+    return { type: 'error', message: 'You need the pirate firmware flashed onto your tablet to hijack a media deck.' };
+  }
+  const nameHint = args.join(' ').trim().toLowerCase();
+  const { rows } = await query(
+    `SELECT f.id, f.name, f.flags, z.name AS zone_name FROM furniture f LEFT JOIN zones z ON z.id = f.zone_id
+      WHERE f.zone_id=$1 AND f.flags::text LIKE '%"media_deck"%'${nameHint ? ' AND f.name ILIKE $2' : ''} LIMIT 1`,
+    nameHint ? [player.current_zone, `%${nameHint}%`] : [player.current_zone]
+  );
+  const deck = rows[0];
+  if (!deck) return { type: 'error', message: 'There is no media deck here to pirate.' };
+  const dflags = _deckFlags(deck);
+  if (canOperateDeck(dflags, player)) return { type: 'error', message: `You already control the ${deck.name}.` };
+
+  const skill = await effectiveSkill(player, 'hacking');
+  const difficulty = Number.isFinite(dflags.hack_difficulty) ? dflags.hack_difficulty : 5;
+  const stationName = channelRuntime.get(dflags.channel_id)?.stationName || deck.name;
+  pendingPirate.set(player.id, { deckId: deck.id, ts: Date.now() });
+  return { type: 'signal_hijack', deckId: deck.id, deckName: deck.name, stationName, skill, difficulty };
+}
+
+// pirateresolve <deckId> <1|0> — silent; the Signal Hijack overlay fires this.
+async function cmdPirateResolve(args, raw, player) {
+  if (!player) return { type: 'noop' };
+  const deckId = args[0];
+  const win = args[1] === '1';
+  const pending = pendingPirate.get(player.id);
+  pendingPirate.delete(player.id);
+  if (!pending || pending.deckId !== deckId || Date.now() - pending.ts > 180000) return { type: 'noop' };
+
+  const { rows } = await query(
+    `SELECT f.id, f.name, f.flags, f.zone_id, z.name AS zone_name FROM furniture f
+       LEFT JOIN zones z ON z.id = f.zone_id WHERE f.id=$1`, [deckId]
+  );
+  const deck = rows[0];
+  if (!deck) return { type: 'error', message: 'The deck is gone.' };
+  const dflags = _deckFlags(deck);
+  const stationName = channelRuntime.get(dflags.channel_id)?.stationName || deck.name;
+
+  if (!win) {
+    pirateLockout.set(player.id, Date.now() + PIRACY_LOCKOUT_MS);
+    return { type: 'error', message: 'The carrier slips your lock and the station traces your transmitter. Rig lockout: 5 minutes.' };
+  }
+
+  const priorOwner = dflags.pirate_owner || null;
+  dflags.pirate_owner = player.id;
+  dflags.pirate_since = Date.now();
+  // Seed the pirate queue from the station's own library so there's something on
+  // air the instant it's seized; the captor edits it from the console.
+  const lib = Array.isArray(dflags.deck_cassettes) ? [...dflags.deck_cassettes] : [];
+  dflags.pirate_queue = Array.isArray(dflags.pirate_queue) && dflags.pirate_queue.length ? dflags.pirate_queue : lib;
+  dflags.pirate_cursor = 0;
+  dflags.pirate_loop = dflags.pirate_loop || 'queue';
+  dflags.pirate_playing = true;
+  dflags.pirate_started_ms = Date.now();
+  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
+  _deckCache.delete(deck.zone_id);
+  _pirateCache.delete(deck.zone_id);
+  await awardSkillUse(player.id, 'hacking', 2);
+  // Citywide takeover is self-reporting heat (broadcast_piracy, witness 'always').
+  await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'broadcast_piracy', zoneId: deck.zone_id } }).catch(() => {});
+  _deckTamperPing(priorOwner, player.id, stationName, deck.zone_name || deck.zone_id, 'was HIJACKED out from under you — you no longer control it.');
+  return { type: 'output', message: `<span class="ip-gain">CARRIER SEIZED.</span> ${stationName} answers to you now. Open the pirate console with <b>air</b> (from anywhere) to run the schedule.` };
+}
+
+// ── Pirate console (Phase 2) ─────────────────────────────────────────────────
+// Find the deck this player currently pirates — prefer one in their zone (so the
+// on-site captor edits the deck in front of them), else the single one they hold
+// (remote control), else null with an ambiguity flag.
+async function _findPiratedDeck(player) {
+  const { rows } = await query(
+    `SELECT f.id, f.name, f.flags, f.zone_id, z.name AS zone_name FROM furniture f
+       LEFT JOIN zones z ON z.id = f.zone_id
+      WHERE jsonb_exists(f.flags,'media_deck') AND f.flags->>'pirate_owner'=$1`, [player.id]
+  ).catch(() => ({ rows: [] }));
+  if (!rows.length) return { deck: null };
+  const here = rows.find(r => r.zone_id === player.current_zone);
+  if (here) return { deck: here };
+  if (rows.length === 1) return { deck: rows[0] };
+  return { deck: null, ambiguous: true };
+}
+
+// Assemble the console payload: the pirate queue (named), the content pool the
+// captor can add from (carried cassettes/microreels + the station's own library
+// not already queued), and the live transport state.
+async function buildPirateConsole(deck, player) {
+  const dflags = _deckFlags(deck);
+  const queueIds = Array.isArray(dflags.pirate_queue) ? dflags.pirate_queue : [];
+  const lib = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
+
+  // Carried cassettes (media_cassette items in inventory — includes SPECTER
+  // microreels, which are cassette-tagged datachips).
+  const { rows: invRows } = await query(
+    `SELECT DISTINCT COALESCE(i.tags->>'broadcast_id', i.flags->>'broadcast_id') AS bid, i.name
+       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id=$1 AND pi.container_id IS NULL
+        AND (jsonb_exists(i.tags,'media_cassette') OR (i.flags->>'media_cassette')='true')`,
+    [player.id]
+  ).catch(() => ({ rows: [] }));
+
+  // Resolve display names + surveillance-clip (MicroReel) flag for every id we
+  // reference (queue + library).
+  const allIds = [...new Set([...queueIds, ...lib])].filter(Boolean);
+  let nameById = new Map();
+  if (allIds.length) {
+    const { rows: bcRows } = await query(`SELECT id, name, category FROM media_broadcasts WHERE id = ANY($1)`, [allIds]).catch(() => ({ rows: [] }));
+    for (const b of bcRows) nameById.set(b.id, { name: b.name, mini: String(b.id).startsWith('bc_clip_') || b.category === 'surveillance' });
+  }
+  const label = (id) => nameById.get(id) || { name: id, mini: String(id).startsWith('bc_clip_') };
+
+  const queue = queueIds.map(id => ({ id, ...label(id) }));
+  // Pool = carried cassettes + station library not already in the queue, deduped.
+  const inQueue = new Set(queueIds);
+  const pool = [];
+  const seen = new Set();
+  for (const r of invRows) {
+    if (!r.bid || seen.has(r.bid)) continue;
+    seen.add(r.bid);
+    pool.push({ id: r.bid, name: r.name?.replace(/^Cassette:\s*/i, '') || r.bid, mini: String(r.bid).startsWith('bc_clip_'), src: 'carried' });
+  }
+  for (const id of lib) {
+    if (seen.has(id) || inQueue.has(id)) continue;
+    seen.add(id);
+    pool.push({ id, ...label(id), src: 'library' });
+  }
+
+  const cursor = Math.min(Math.max(0, dflags.pirate_cursor | 0), Math.max(0, queue.length - 1));
+  return {
+    type: 'pirate_console',
+    deckId: deck.id,
+    stationName: channelRuntime.get(dflags.channel_id)?.stationName || deck.name,
+    playing: dflags.pirate_playing !== false,
+    loop: dflags.pirate_loop || 'queue',
+    crawl: dflags.pirate_crawl || '',
+    cursor,
+    nowAiring: queue[cursor]?.name || null,
+    queue,
+    pool,
+  };
+}
+
+// air [open|play|stop|skip|loop <mode>|add <name>|remove <n>|move <n> <m>|crawl <text|off>|close]
+// The pirate console — run the seized station's schedule from anywhere.
+async function cmdAir(args, raw, player) {
+  if (!player) return { type: 'error', message: 'No character.' };
+  const sub = (args[0] || 'open').toLowerCase();
+  if (sub === 'close') return { type: 'pirate_console_close' };
+
+  const { deck, ambiguous } = await _findPiratedDeck(player);
+  if (ambiguous) return { type: 'error', message: 'You hold more than one station — stand at the deck you want to run.' };
+  if (!deck) return { type: 'error', message: "You don't control any station. Pirate a media deck first (pirate <deck>)." };
+  const dflags = _deckFlags(deck);
+  const q = Array.isArray(dflags.pirate_queue) ? [...dflags.pirate_queue] : [];
+  let touched = true;
+
+  switch (sub) {
+    case 'open': touched = false; break;
+    case 'play': dflags.pirate_playing = true; dflags.pirate_started_ms = Date.now(); break;
+    case 'stop': dflags.pirate_playing = false; break;
+    case 'skip': {
+      if (!q.length) break;
+      dflags.pirate_cursor = _nextCursor(dflags.pirate_cursor | 0, q.length, 'queue').cursor; // skip always advances/wraps
+      dflags.pirate_started_ms = Date.now();
+      dflags.pirate_playing = true;
+      break;
+    }
+    case 'loop': {
+      const mode = (args[1] || '').toLowerCase();
+      if (!['off', 'item', 'queue'].includes(mode)) return { type: 'error', message: 'Loop mode: off | item | queue.' };
+      dflags.pirate_loop = mode;
+      break;
+    }
+    case 'add': {
+      const hint = args.slice(1).join(' ').trim().toLowerCase();
+      if (!hint) return { type: 'error', message: 'Add what? air add <name>.' };
+      const console0 = await buildPirateConsole(deck, player);
+      const match = console0.pool.find(p => p.id.toLowerCase() === hint || p.name.toLowerCase().includes(hint));
+      if (!match) return { type: 'error', message: `Nothing in your pool matches "${hint}".` };
+      q.push(match.id);
+      dflags.pirate_queue = q;
+      break;
+    }
+    case 'remove': {
+      const n = parseInt(args[1], 10);
+      if (!(n >= 1 && n <= q.length)) return { type: 'error', message: `Remove which? 1–${q.length}.` };
+      const idx = n - 1;
+      q.splice(idx, 1);
+      dflags.pirate_queue = q;
+      const cur = dflags.pirate_cursor | 0;
+      if (idx < cur) dflags.pirate_cursor = cur - 1;
+      else if (idx === cur) dflags.pirate_started_ms = Date.now(); // now points at the next item
+      break;
+    }
+    case 'move': {
+      const from = parseInt(args[1], 10) - 1, to = parseInt(args[2], 10) - 1;
+      if (!(from >= 0 && from < q.length && to >= 0 && to < q.length)) return { type: 'error', message: `Move which? air move <n> <m> (1–${q.length}).` };
+      const [it] = q.splice(from, 1);
+      q.splice(to, 0, it);
+      dflags.pirate_queue = q;
+      break;
+    }
+    case 'crawl': {
+      const text = args.slice(1).join(' ').trim();
+      dflags.pirate_crawl = (!text || text.toLowerCase() === 'off') ? null : text.slice(0, 200);
+      break;
+    }
+    default:
+      return { type: 'error', message: 'air [open|play|stop|skip|loop <mode>|add <name>|remove <n>|move <n> <m>|crawl <text|off>|close]' };
+  }
+
+  if (touched) {
+    if (dflags.pirate_cursor > Math.max(0, q.length - 1)) dflags.pirate_cursor = Math.max(0, q.length - 1);
+    await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
+    _deckCache.delete(deck.zone_id);
+    _pirateCache.delete(deck.zone_id);
+    deck.flags = dflags; // reflect edits in the console payload below
+  }
+  return buildPirateConsole(deck, player);
+}
+
 async function cmdLoadCassette(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
   // Usage: load cassette [<name>]  — lists carried cassettes; loads by name if given
@@ -3081,8 +4060,24 @@ async function cmdLoadCassette(args, raw, player) {
   const deck = await _findDeckInZone(player.current_zone);
   if (!deck) return { type: 'output', message: 'There is no media deck here.' };
   const dflags = _deckFlags(deck);
+  const lock = _deckLockError(dflags, player);
+  if (lock) return lock;
   const broadcastId = cassette.tags?.broadcast_id || cassette.flags?.broadcast_id;
   if (!broadcastId) return { type: 'output', message: 'That cassette has no broadcast loaded.' };
+
+  // A surveillance chip's broadcast is minted lazily — only here, when it's
+  // actually loaded into a deck — so unaired chips don't pile hidden broadcasts
+  // up in the library. Rebuild it from the clip's frames on demand.
+  const clipId = cassette.tags?.clip_id || cassette.flags?.clip_id;
+  if (clipId) {
+    const { rows: cl } = await query(
+      `SELECT c.frames, z.name AS zone_name FROM security_clips c
+         LEFT JOIN zones z ON z.id = c.zone_id WHERE c.id=$1`, [clipId]);
+    if (!cl.length) return { type: 'output', message: 'That datachip is corrupted — its footage is gone.' };
+    const frames = Array.isArray(cl[0].frames) ? cl[0].frames : [];
+    await ensureClipBroadcast(broadcastId, `Footage: ${cl[0].zone_name || 'UNKNOWN'}`, frames, 4);
+  }
+
   const cassettes = Array.isArray(dflags.deck_cassettes) ? [...dflags.deck_cassettes] : [];
   if (!cassettes.includes(broadcastId)) cassettes.push(broadcastId);
   dflags.deck_cassettes = cassettes;
@@ -3173,6 +4168,8 @@ async function cmdEjectCassette(args, raw, player) {
   const deck = await _findDeckInZone(player.current_zone);
   if (!deck) return { type: 'output', message: 'There is no media deck here.' };
   const dflags = _deckFlags(deck);
+  const lock = _deckLockError(dflags, player);
+  if (lock) return lock;
   if (!dflags.deck_active) return { type: 'output', message: 'The deck is empty.' };
   const broadcastId = dflags.deck_active;
 
@@ -3251,6 +4248,8 @@ async function cmdSelectCassette(args, raw, player) {
   const deck = await _findDeckInZone(player.current_zone);
   if (!deck) return { type: 'output', message: 'There is no media deck here.' };
   const dflags = _deckFlags(deck);
+  const lock = _deckLockError(dflags, player);
+  if (lock) return lock;
   const cassettes = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
   if (!cassettes.includes(broadcastId)) return { type: 'output', message: 'That cassette is not in this deck.' };
   dflags.deck_active = broadcastId;
@@ -3350,10 +4349,15 @@ async function doUseMediaDeck(args, raw, player) {
   if (!player) return undefined;
   const nameHint = args.join(' ').toLowerCase();
   const { rows } = await query(
-    `SELECT id, name FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%'${nameHint ? ' AND name ILIKE $2' : ''} LIMIT 1`,
+    `SELECT id, name, flags FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%'${nameHint ? ' AND name ILIKE $2' : ''} LIMIT 1`,
     nameHint ? [player.current_zone, `%${nameHint}%`] : [player.current_zone]
   );
   if (!rows.length) return undefined;
+  const dflags = _deckFlags(rows[0]);
+  const lock = _deckLockError(dflags, player);
+  if (lock) return lock;
+  // The captor gets the pirate console; an admin/dev gets the legacy management panel.
+  if (dflags.pirate_owner === player.id) return buildPirateConsole({ ...rows[0], zone_id: player.current_zone }, player);
   return buildMediaDeckPanel(rows[0].id, player);
 }
 
@@ -3375,6 +4379,7 @@ async function mediaDeckSyncTick() {
     const channelId = dflags.channel_id;
     const cassettes = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
     if (!channelId || !cassettes.length) continue;
+    if (dflags.pirate_owner) continue; // a pirated deck answers only to its captor — don't auto-align it to the schedule
 
     const { rows: plRows } = await query(
       `SELECT broadcast_id, start_time, COALESCE(duration_override, 300) AS duration
@@ -3624,18 +4629,28 @@ export const commands = {
   },
   eject: cmdEjectCassette,
   selectcassette: cmdSelectCassette,
+  pirate: cmdPirate,
+  pirateresolve: cmdPirateResolve,
+  air: cmdAir,
 };
 
 export const specializedActions = [
   { verb: 'use', requiredTag: 'tv', handler: doUseTv },
   { verb: 'use', requiredTag: 'media_deck', handler: doUseMediaDeck },
+  { verb: 'use', requiredTag: 'piracy_firmware', handler: doInstallPiracyFirmware },
 ];
+
+// Test seam (never loaded in production) — the pure piracy gate helpers, so the
+// regress suite can assert the deck-lock logic without a live furniture row.
+export const _piracyTest = { canOperateDeck, deckLockError: _deckLockError, nextCursor: _nextCursor };
 
 // Test seam (never loaded in production) — the deterministic league engine, so the
 // regress suite can assert same-slot reproducibility and the round-robin schedule.
 export const _test = {
   sportsGameForSlot, sportsMatchupForSlot, roundRobinRounds, sportsSlotIndex,
   sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY,
+  assembleNewsGraph, newsFill, newsSceneNames,
+  assembleTalkshowGraph, talkshowAiring, talkshowPersonaFor, talkshowFill, makeTalkshowGuestGraph, ensureTalkshowSlot,
 };
 
 // ── Route handler (CRUD) ─────────────────────────────────────────────────────
@@ -3661,16 +4676,19 @@ export const routeHandler = async (path, method, body, auth) => {
         const graph = body.broadcast_graph ? JSON.stringify(body.broadcast_graph) : null;
         const wxPools = body.weather_pools ? JSON.stringify(body.weather_pools) : null;
         const spPools = body.sports_pools ? JSON.stringify(body.sports_pools) : null;
+        const nwPools = body.news_pools ? JSON.stringify(body.news_pools) : null;
+        const tsPools = body.talkshow_pools ? JSON.stringify(body.talkshow_pools) : null;
         await query(
-          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages,weather_pools,sports_pools)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15,$16,$17)`,
+          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages,weather_pools,sports_pools,news_pools,talkshow_pools)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15,$16,$17,$18,$19)`,
           [bid, body.name || 'Untitled', body.description || '', body.category || 'general',
            JSON.stringify(body.tags || []), body.playback_mode || 'scripted',
            JSON.stringify(body.messages || []), body.message_interval || 5,
            body.override_duration || null, body.loop ? 1 : 0, body.enabled !== false ? 1 : 0,
            auth?.playerId || 'unknown', graph, body.channel_id || null,
-           JSON.stringify(body.fallback_messages || []), wxPools, spPools]
+           JSON.stringify(body.fallback_messages || []), wxPools, spPools, nwPools, tsPools]
         );
+        if (body.playback_mode === 'talkshow' && body.channel_id) await ensureTalkshowSlot(bid, body.channel_id, tsPools);
         await loadChannelRuntimes();
         return { status: 201, body: { id: bid } };
       }
@@ -3678,16 +4696,19 @@ export const routeHandler = async (path, method, body, auth) => {
         const graph = body.broadcast_graph ? JSON.stringify(body.broadcast_graph) : null;
         const wxPools = body.weather_pools ? JSON.stringify(body.weather_pools) : null;
         const spPools = body.sports_pools ? JSON.stringify(body.sports_pools) : null;
+        const nwPools = body.news_pools ? JSON.stringify(body.news_pools) : null;
+        const tsPools = body.talkshow_pools ? JSON.stringify(body.talkshow_pools) : null;
         await query(
           `UPDATE media_broadcasts SET name=$1,description=$2,category=$3,tags=$4,playback_mode=$5,
            messages=$6,message_interval=$7,override_duration=$8,loop=$9,enabled=$10,broadcast_graph=$11,
-           channel_id=$12,fallback_messages=$13,weather_pools=$14,sports_pools=$15,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$16`,
+           channel_id=$12,fallback_messages=$13,weather_pools=$14,sports_pools=$15,news_pools=$16,talkshow_pools=$17,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$18`,
           [body.name||'Untitled', body.description||'', body.category||'general',
            JSON.stringify(body.tags||[]), body.playback_mode||'scripted',
            JSON.stringify(body.messages||[]), body.message_interval||5,
            body.override_duration||null, body.loop?1:0, body.enabled!==false?1:0, graph,
-           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), wxPools, spPools, id]
+           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), wxPools, spPools, nwPools, tsPools, id]
         );
+        if (body.playback_mode === 'talkshow' && body.channel_id) await ensureTalkshowSlot(id, body.channel_id, tsPools);
         await loadChannelRuntimes();
         return { status: 200, body: { id } };
       }
@@ -4081,6 +5102,33 @@ export const routeHandler = async (path, method, body, auth) => {
           [orphanCamCh.map(r => r.id)]
         );
         report.cameraChannelRefsCleared = orphanCamCh.length;
+      }
+
+      // Dead surveillance-clip broadcasts (`bc_clip_*`): one hidden enabled=0
+      // entry is minted per datachip so a chip can play on a zone's TVs. When the
+      // security_clips row is gone AND no chip for it is held in any inventory,
+      // the broadcast can never air again — reap it plus its unheld chip item.
+      // A clip whose chip is still held is LEFT ALONE (it's the last copy).
+      const { rows: deadClipBc } = await query(
+        `SELECT b.id FROM media_broadcasts b
+          WHERE b.id LIKE 'bc_clip_%'
+            AND NOT EXISTS (SELECT 1 FROM security_clips c WHERE ('bc_clip_'||c.id) = b.id)
+            AND NOT EXISTS (
+              SELECT 1 FROM items i JOIN player_inventory pi ON pi.item_id = i.id
+               WHERE i.tags->>'broadcast_id' = b.id)`
+      );
+      if (deadClipBc.length) {
+        const ids = deadClipBc.map(r => r.id);
+        const { rows: deadChips } = await query(
+          `SELECT id FROM items
+             WHERE tags->>'broadcast_id' = ANY($1::text[])
+               AND NOT EXISTS (SELECT 1 FROM player_inventory pi WHERE pi.item_id = items.id)`,
+          [ids]
+        );
+        await query(`DELETE FROM media_broadcasts WHERE id = ANY($1::text[])`, [ids]);
+        if (deadChips.length) await query(`DELETE FROM items WHERE id = ANY($1::text[])`, [deadChips.map(r => r.id)]);
+        report.clipBroadcastsReaped = deadClipBc.length;
+        report.clipChipsReaped = deadChips.length;
       }
 
       await loadChannelRuntimes();
@@ -4787,7 +5835,7 @@ export const routeHandler = async (path, method, body, auth) => {
 await loadChannelRuntimes();
 await loadZoneTunings();
 await loadGraphicsCache();
-setInterval(broadcastTick, 5000);
+setInterval(broadcastTick, BROADCAST_TICK_MS);
 
 // Register _tvfreq as a silent internal command (not listed in plugin.json, invisible to HELP)
 registerCommand('_tvfreq', cmdTvFreq);

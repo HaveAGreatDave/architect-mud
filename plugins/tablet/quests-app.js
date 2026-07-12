@@ -71,6 +71,12 @@ async function buildScreen(player, screenId, params) {
   // player_quests) and an open Job Board posting the player hasn't accepted yet
   // (no player_quests row — read straight from `quests`).
   if (questId) {
+    // Did we drill in from the Job Board list? The origin arrives as the screen
+    // token (data-open-item passes the current breadcrumb), and we echo it back in
+    // the detail breadcrumb so a live-refresh keeps it. When true, the accept/turn-in
+    // buttons use the board's own plain-language verbs ("Take Job"/"Hand In") instead
+    // of the generic quest labels — the "it's not clear what I'm doing" fix.
+    const fromBoard = normScreen(screenId) === 'job board';
     const row = rows.find(r => r.quest_id === questId);
     if (row) {
       const progress = Array.isArray(row.progress) ? row.progress : [];
@@ -84,11 +90,11 @@ async function buildScreen(player, screenId, params) {
         // client-side (handled specially in tablet-os.js's action wiring).
         if (tracking) actions.push({ id: 'autowalk', label: 'Auto' });
       }
-      if (complete) actions.push({ id: 'turnin', label: 'Turn In' });
-      actions.push({ id: 'abandon', label: 'Abandon' });
+      if (complete) actions.push({ id: 'turnin', label: fromBoard ? 'Hand In Job' : 'Turn In' });
+      actions.push({ id: 'abandon', label: fromBoard ? 'Drop Job' : 'Abandon' });
       return {
         view: 'detail',
-        breadcrumb: [row.category || defaultCategory(row), row.name],
+        breadcrumb: [fromBoard ? 'Job Board' : (row.category || defaultCategory(row)), row.name],
         quest: {
           id: row.quest_id, name: row.name, description: row.description || '',
           status: complete ? 'ready' : 'active',
@@ -105,7 +111,7 @@ async function buildScreen(player, screenId, params) {
     if (!quest) return { view: 'error', message: 'Quest not found or no longer active.' };
     return {
       view: 'detail',
-      breadcrumb: [quest.category || defaultCategory(quest), quest.name],
+      breadcrumb: [fromBoard ? 'Job Board' : (quest.category || defaultCategory(quest)), quest.name],
       quest: {
         id: quest.id, name: quest.name, description: quest.description || '',
         status: 'open',
@@ -113,7 +119,7 @@ async function buildScreen(player, screenId, params) {
         rewards: quest.rewards || {},
         tracked: false,
       },
-      actions: [{ id: quest.quest_type === 'flight' ? 'accept_flight' : 'accept', label: 'Accept' }],
+      actions: [{ id: quest.quest_type === 'flight' ? 'accept_flight' : 'accept', label: fromBoard ? 'Take Job' : 'Accept' }],
     };
   }
 
@@ -161,12 +167,16 @@ async function buildScreen(player, screenId, params) {
       view: 'list',
       breadcrumb: ['Job Board'],
       boardName: board.name,
+      // Badge/sub say the VERB, not the internal state name — a player reading
+      // "OPEN"/"READY" couldn't tell what tapping does. badgeLabel overrides the
+      // badge text while `badge` still drives its colour class (renderList).
       items: jobs.map(({ quest, pq }) => {
         const state = jobState(quest, pq);
-        const sub = state === 'ready' ? 'Ready to turn in'
-          : state === 'active' ? (() => { const { have, need } = progressTotals(quest, pq); return `In progress (${have}/${need})`; })()
-          : `${creditsOf(quest)}c — open`;
-        return { id: quest.id, label: quest.name, sub, badge: state };
+        let sub, badgeLabel;
+        if (state === 'ready') { sub = 'Finished — tap to hand it in for pay'; badgeLabel = 'HAND IN'; }
+        else if (state === 'active') { const { have, need } = progressTotals(quest, pq); sub = `In progress — ${have}/${need} done`; badgeLabel = 'IN PROGRESS'; }
+        else { sub = `${creditsOf(quest)}₵ on completion — tap to take the job`; badgeLabel = 'TAKE'; }
+        return { id: quest.id, label: quest.name, sub, badge: state, badgeLabel };
       }),
     };
   }

@@ -1,0 +1,14 @@
+{
+  "description": "Chalky chelation tablets that bind what the sky put in you. Taste like a swimming pool. Work like a promise.",
+  "flags": {},
+  "id": "item_antirad_tablets",
+  "name": "anti-rad tablets",
+  "tags": {
+    "consumable": true,
+    "description": "Chalky chelation tablets that bind what the sky put in you. Taste like a swimming pool. Work like a promise.",
+    "restore_radiation": -30
+  },
+  "type": "consumable",
+  "value": 30,
+  "weight": 50
+}

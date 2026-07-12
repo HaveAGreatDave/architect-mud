@@ -8,7 +8,7 @@ import { signatureMult, signatureScore, colorName, describeExterior,
   normalizeLivery, sanitizeLivery, conspicuousnessMult, paintCost, isPaintable,
   readSchemes, schemeOf } from './livery.js';
 import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.js';
-import { sellAircraft, cancelRental } from './hangars.js';
+import { sellAircraft, cancelRental, flushAirborne } from './hangars.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX } from './state.js';
 import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
 import { setFlag } from '../../server/engine/flags.js';
@@ -219,6 +219,23 @@ export default async function regress({ run, check, getPlayer }) {
     sr = await sellAircraft(p, strangerId);
     check('sellAircraft refuses an airborne aircraft', sr?.type === 'error' && /air/i.test(sr.message || ''), JSON.stringify(sr));
     await query('DELETE FROM aircraft WHERE id=$1', [strangerId]);
+
+    // flushAirborne grounds a DB-only ghost stuck airborne (no live instance) so it
+    // becomes sellable again; leaves genuinely-parked craft untouched.
+    const ghostId = 'aircraft_regress_ghost';
+    const parkedId = 'aircraft_regress_parked';
+    await query('DELETE FROM aircraft WHERE id = ANY($1)', [[ghostId, parkedId]]);
+    await query(
+      `INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,altitude_band) VALUES
+        ($1,$3,'REGR-04',$4,0,0,1,'cruise'), ($2,$3,'REGR-05',$4,0,0,0,'ground')`,
+      [ghostId, parkedId, acType.id, p.id]
+    );
+    const flushed = await flushAirborne(p);
+    check('flushAirborne grounds the stranded aircraft (count)', flushed === 1, `flushed=${flushed}`);
+    const { rows: after } = await query('SELECT id, airborne FROM aircraft WHERE id = ANY($1) ORDER BY id', [[ghostId, parkedId]]);
+    check('flushAirborne clears the ghost airborne flag', after.find(a => a.id === ghostId)?.airborne === 0, JSON.stringify(after));
+    check('flushAirborne leaves a parked craft alone', after.find(a => a.id === parkedId)?.airborne === 0, JSON.stringify(after));
+    await query('DELETE FROM aircraft WHERE id = ANY($1)', [[ghostId, parkedId]]);
   }
 
   // ── Licensed freight drops (air-freight licence gate + pool top-up) ─────────

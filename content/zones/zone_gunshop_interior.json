@@ -1,0 +1,27 @@
+{
+  "ambient_events": [
+    "Down the sealed lane, someone works through a slow, deliberate magazine.",
+    "A sign over the register reads: YOU BREAK THE GLASS, YOU MEET THE OWNER."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2a2620",
+  "color": "#d8c8a0",
+  "created_by": null,
+  "description": "A tight, orderly shop that smells of oil and cold metal. Long guns stand racked behind a scarred counter, ammunition boxed in neat ziggurats, a firing lane sealed off behind scratched glass at the back.",
+  "exits": {},
+  "flags": {
+    "building_name": "Ironside Arms",
+    "claimable_asset": "gun_shop",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_gunshop_interior",
+  "map_id": "map_interior_zone_gunshop_interior",
+  "marker": "GN",
+  "name": "Ironside Arms",
+  "parent_zone": null,
+  "updated_at": "1783740000"
+}

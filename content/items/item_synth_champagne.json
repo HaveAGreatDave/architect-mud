@@ -1,0 +1,16 @@
+{
+  "description": "Bottle-fermented in a bioreactor last Tuesday. Bubbles like the real thing and lies like the rest of this place.",
+  "flags": {},
+  "id": "item_synth_champagne",
+  "name": "synth champagne",
+  "tags": {
+    "consumable": true,
+    "description": "Bottle-fermented in a bioreactor last Tuesday. Bubbles like the real thing and lies like the rest of this place.",
+    "hydrating": true,
+    "restore_sanity": 10,
+    "restore_thirst": 12
+  },
+  "type": "consumable",
+  "value": 20,
+  "weight": 750
+}

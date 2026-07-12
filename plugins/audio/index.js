@@ -301,6 +301,31 @@ const SFX_POWER_DRAIN = {
   },
 };
 
+// Aircraft cannon raking your tile, heard from the GROUND — the ground side of a strafing
+// run, deliberately NOT the shooter's muzzle report. Fired once per burst (the strafe path
+// emits at the gun's ~8/s cadence) so the BRRRT builds from the cadence itself: a broadband
+// dirt/debris thud where a round smacks the ground beside you, the supersonic crack of the
+// round passing, a distant lowpassed cannon report rolling in from above, and a low thump
+// through the ground. Shorter/impact-led vs the crisp in-cockpit GUN_FX.
+const SFX_STRAFE_GROUND = {
+  id: 'sfx_strafe_ground', name: 'sfx_strafe_ground', category: 'sfx', priority: 5,
+  config: {
+    duration: 0.3,
+    layers: [
+      { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 420, q: 0.8 }, adsr: { a: 0.001, d: 0.12, s: 0, r: 0.08 }, gain: 0.2 },   // round smacking the dirt beside you
+      { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2600, q: 1.6 }, adsr: { a: 0.0005, d: 0.04, s: 0, r: 0.03 }, gain: 0.11 },  // supersonic crack of the round passing
+      { waveform: 'sawtooth', freq: 120, pitchBend: { to: 70, time: 0.14 }, filter: { type: 'lowpass', freq: 300, q: 1 }, adsr: { a: 0.006, d: 0.18, s: 0, r: 0.1 }, gain: 0.1 },   // distant, muffled cannon report from above
+      { waveform: 'sine', freq: 46, adsr: { a: 0.003, d: 0.2, s: 0, r: 0.1 }, gain: 0.14 },   // low thump through the ground
+    ],
+  },
+};
+
+// Ground side of an aircraft strafing run — the flight plugin emits this per gun burst so
+// the tile hears the fire in sync (its own cooldown-gated damage is separate).
+on('flight.strafeIncoming', ({ zoneId }) => {
+  if (zoneId) sendToZone(zoneId, { type: 'audio_sfx', def: SFX_STRAFE_GROUND, gain: 0.9 });
+});
+
 // A ghost's actions build an "unseen presence" — but a sound on every single one
 // would be constant noise, so only every Nth action rings out. Designers can
 // override the sound with an event route named 'ghost.ambient'; otherwise the

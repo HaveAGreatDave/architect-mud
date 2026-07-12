@@ -1,0 +1,10 @@
+{
+  "accuracy": 9,
+  "active": 1,
+  "damage": 0.42,
+  "faction": "coldwater",
+  "id": "aa_clone_guard",
+  "name": "the Clone Vats Guardian battery",
+  "range": 3,
+  "zone_id": "zone_district_918_903"
+}

@@ -7,7 +7,7 @@ import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy } from './combat.js
 import { getEnvironmentState } from './environment.js';
 import { gameMsToReal } from './gametime.js';
 import { dispatchAction } from './actions.js';
-import { isNpcScheduledNow, getNpcStudioZone } from './broadcast-bridge.js';
+import { isNpcScheduledNow, getNpcStudioZone, isZoneWatched } from './broadcast-bridge.js';
 import { getShopperForNpc, closeShopSession, didBuyThisSession } from './vendor-session.js';
 import { getNpcChitchat } from './npc-personality.js';
 import { OPPOSITE as OPPOSITE_DIR } from './directions.js';
@@ -224,6 +224,36 @@ function isEnemy(entity) {
 // the entity is unknown. Shadows the raw findPath import for every AI call site below.
 function findPath(fromId, toId, entity) {
   return findPathRaw(fromId, toId, entity && !isEnemy(entity) ? { roads: true } : {});
+}
+
+// Pick a random zone the talk-show guest can plausibly "appear" in unseen: within a short
+// walk of the studio, but out on the public map (not inside the studio building), with no
+// players present and no camera/planted device watching. Returns a zone id, or null if the
+// area's too crowded/surveilled (caller falls back to the studio's exterior tile).
+function pickUnobservedZoneNear(studioZone, entity) {
+  const sz = getZone(studioZone);
+  const studioMap = sz?.map_id ?? null;
+  const reach = getZonesInRadius(studioZone, 8);    // Map<zone_id, distance> — kept tight so the
+                                                     // guest has a SHORT commute and reaches the stage
+                                                     // before the interview segment (it airs live).
+  const cands = [];
+  for (const [zid, dist] of reach) {
+    if (zid === studioZone || dist < 2) continue;              // not on-stage; a few tiles out
+    const z = getZone(zid);
+    if (!z) continue;
+    if (studioMap != null && z.map_id === studioMap) continue; // stay out of the studio building
+    if (z.flags?.no_spawn) continue;
+    if (getZonePlayers(zid).length) continue;                  // no player watching it arrive
+    if (isZoneWatched(zid)) continue;                          // no camera / sticky-cam watching
+    cands.push([zid, dist]);
+  }
+  if (!cands.length) return null;
+  // Bias to the CLOSEST unobserved zones: with zero lead time (the show goes to air the moment
+  // the guest starts walking), a distant origin left it still commuting when the interview began,
+  // breaking the segment to technical difficulties. Pick randomly among the nearest few.
+  cands.sort((a, b) => a[1] - b[1]);
+  const nearest = cands.slice(0, Math.min(3, cands.length));
+  return nearest[Math.floor(Math.random() * nearest.length)][0];
 }
 
 // Returns true if the move succeeded, false if blocked by a locked door.
@@ -1298,6 +1328,60 @@ async function execAction(node, entity, ctx) {
       const moved = moveEntity(entity, nextZone, broadcast, query);
       if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
       return 'RUNNING';
+    }
+
+    // ── Talk-show guest lifecycle ────────────────────────────────────────────
+    // The reusable guest lives off-world in a hidden backstage zone (entity.home_zone)
+    // between episodes. When the show is on the clock it MATERIALISES into a random
+    // unobserved zone near the studio (no players, no camera/sticky-cam watching) — so a
+    // player never witnesses it "appear" — and the stock GO_TO_WORK then walks it onstage.
+    case 'TALKSHOW_APPEAR': {
+      if (!ai) break;
+      const home = entity.home_zone;
+      const here = entityZone(entity);
+      if (!home || here !== home) break;   // already out in the world — commute handles the rest
+      const studioZone = entity.work_zone_id || entity.studio_zone_id || getNpcStudioZone(entity.id);
+      if (!studioZone) break;
+      const origin = pickUnobservedZoneNear(studioZone, entity)
+        || getZone(studioZone)?.flags?.world_exit_zone
+        || exitTargets(getZone(studioZone), 'out')[0]
+        || null;
+      if (origin && origin !== home) {
+        moveEntity(entity, origin, broadcast, query);   // non-adjacent → teleports it into the world
+        ai.patrolPath = []; ai.patrolTarget = null;
+      }
+      break;   // next tick: GO_TO_WORK commutes it to the stage
+    }
+
+    // Off the clock: slip out and VANISH back to backstage the instant nobody's watching.
+    // If standing somewhere unobserved, disappear now; otherwise walk one step toward the
+    // studio's exterior (away from the on-camera stage) and re-check next tick.
+    case 'TALKSHOW_HIDE': {
+      if (!ai) break;
+      const home = entity.home_zone;
+      const here = entityZone(entity);
+      if (!home || here === home) break;   // no backstage set, or already hidden
+      if (!getZonePlayers(here).length && !isZoneWatched(here)) {
+        moveEntity(entity, home, broadcast, query);     // unobserved → vanish to backstage
+        ai.patrolPath = []; ai.patrolTarget = null;
+        break;
+      }
+      const studioZone = entity.work_zone_id || entity.studio_zone_id || getNpcStudioZone(entity.id);
+      const sz = studioZone ? getZone(studioZone) : null;
+      const target = sz?.flags?.world_exit_zone || (sz ? exitTargets(sz, 'out')[0] : null) || null;
+      if (target && here !== target) {
+        if (!ai.patrolPath.length || ai.patrolTarget !== target) {
+          const path = findPath(here, target, entity);
+          if (path && path.length >= 2) { ai.patrolPath = path.slice(1); ai.patrolTarget = target; }
+        }
+        const nextZone = ai.patrolPath.shift();
+        if (nextZone) { const moved = moveEntity(entity, nextZone, broadcast, query); if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; } }
+        break;
+      }
+      // At/near the exit but still watched — drift to a neighbour and try again next tick.
+      const nbs = neighborZoneIds(getZone(here)).filter(z => getZone(z));
+      if (nbs.length) moveEntity(entity, nbs[Math.floor(Math.random() * nbs.length)], broadcast, query);
+      break;
     }
 
     default: {

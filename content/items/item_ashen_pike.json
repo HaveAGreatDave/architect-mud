@@ -1,0 +1,16 @@
+{
+  "description": "A long ambush predator hauled up out of the cold deep, ash-grey and stitched with old scars. All muscle and spite. Feeds a family — and nearly took the hand that landed it.",
+  "flags": {},
+  "id": "item_ashen_pike",
+  "name": "ashen pike",
+  "tags": {
+    "consumable": true,
+    "description": "A long ambush predator hauled up out of the cold deep, ash-grey and stitched with old scars. All muscle and spite. Feeds a family — and nearly took the hand that landed it.",
+    "restore_hunger": 26,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 32,
+  "weight": 250
+}

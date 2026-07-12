@@ -56,6 +56,21 @@ function updateTransition(dt) {
 let eventFx = { type: null, phase: null };
 let flashA = 0;   // current ion-storm flash alpha, decays each frame
 
+// Admin fireworks: a soft, slowly hue-drifting colour wash over the top of the pane for the
+// show's duration — the glow of the display lighting up the sky. On its own channel (not
+// eventFx) so it never clobbers a genuinely active weather hero event. The discrete per-burst
+// flashes are the separate `fireworks_flash` overlay in dispatch.js; this is the ambient glow.
+let fireworksGlow = false;
+let glowT = 0;
+
+// Real particle explosions for bursts going off within a couple tiles — a shell's worth of
+// sparks flung out from a point high in the pane, arcing down under gravity and fading. A shell
+// first *climbs* (see `shells`) and detonates at its apex. Driven by the `fireworks_launch` WS
+// message (via launchFirework) only when the launch is close enough that a flat sky-flash would
+// undersell it. Each `bursts` entry is one detonation; `shells` are the rising trails. Both additive.
+let bursts = [];
+let shells = [];
+
 let particles = [];
 let fogBlobs = [];
 let lastT = 0;
@@ -285,6 +300,127 @@ function draw(dt) {
   ctx.clearRect(0, 0, w, h);
   drawBase(dt, w, h);
   if (eventFx.type) drawEventOverlay(dt, w, h);
+  if (fireworksGlow) drawFireworksGlow(dt, w, h);
+  if (shells.length) drawShells(dt, w, h);
+  if (bursts.length) drawBursts(dt, w, h);
+}
+
+// Seed a climbing shell: a hot ember streaking up from the bottom of the pane to a burst point
+// high in the sky over `leadMs`, laying a fading trail behind it. When it reaches the apex it
+// detonates (spawnBurst) right there. The whistle SFX is tuned to the same lead, so its pitch
+// peaks as the trail tops out. Trail/head are white-gold (the colour is revealed by the burst).
+function spawnShell(rgb, leadMs) {
+  const w = paneRect.width, h = paneRect.height;
+  const tx = rand(w * 0.2, w * 0.8);
+  const ty = rand(h * 0.1, h * 0.4);
+  const sx = tx + rand(-w * 0.05, w * 0.05);   // launched with a slight lean off vertical
+  shells.push({ sx, sy: h + 6, tx, ty, x: sx, y: h + 6, rgb, dur: Math.max(0.25, (leadMs || 900) / 1000), t: 0, trail: [] });
+}
+
+// Advance + draw every climbing shell. Additive blend for the glowing trail; the shell decelerates
+// as it rises (easeOut) so it visibly slows near the apex before bursting. A shell that reaches its
+// apex spawns its burst and is culled.
+function drawShells(dt, w, h) {
+  const prev = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = 'lighter';
+  for (const s of shells) {
+    s.t += dt;
+    const p = Math.min(1, s.t / s.dur);
+    const e = 1 - (1 - p) * (1 - p);   // easeOut — fast off the pad, slowing toward the apex
+    s.x = s.sx + (s.tx - s.sx) * e;
+    s.y = s.sy + (s.ty - s.sy) * e;
+    s.trail.push({ x: s.x, y: s.y, a: 1 });
+    if (s.trail.length > 16) s.trail.shift();
+    for (const q of s.trail) q.a -= dt * 2.4;   // trail fades quickly behind the ember
+    for (let i = 1; i < s.trail.length; i++) {
+      const q0 = s.trail[i - 1], q1 = s.trail[i];
+      const a = Math.max(0, q1.a);
+      if (a <= 0) continue;
+      ctx.strokeStyle = `rgba(255,238,190,${a * 0.6})`;
+      ctx.lineWidth = 1.4 * a + 0.3;
+      ctx.beginPath(); ctx.moveTo(q0.x, q0.y); ctx.lineTo(q1.x, q1.y); ctx.stroke();
+    }
+    const flick = 0.7 + 0.3 * Math.sin(s.t * 45);   // the ember sputters as it climbs
+    ctx.fillStyle = `rgba(255,250,232,${flick})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, 2.2, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalCompositeOperation = prev;
+  for (const s of shells) if (s.t >= s.dur) spawnBurst(s.rgb, s.tx, s.ty);
+  shells = shells.filter(s => s.t < s.dur);
+}
+
+// Seed one detonation: a spray of sparks radiating from a point high in the pane (the sky),
+// each with an outward velocity, gravity, drag, and a lifetime. rgb tints them, with a little
+// per-spark variance so the shell shimmers rather than reading as one flat colour. cx/cy default
+// to a random sky point but are supplied by a climbing shell so the burst lands at its apex.
+function spawnBurst(rgb, cx, cy) {
+  const w = paneRect.width, h = paneRect.height;
+  const [br, bg, bb] = Array.isArray(rgb) ? rgb : [255, 220, 120];
+  if (cx == null) cx = rand(w * 0.2, w * 0.8);
+  if (cy == null) cy = rand(h * 0.1, h * 0.4);
+  const speed = rand(120, 205) * (0.75 + Math.min(1.1, (w * h) / 800000));  // scale reach with pane size
+  const n = 62 + Math.floor(Math.random() * 42);
+  const sparks = [];
+  for (let i = 0; i < n; i++) {
+    const ang = (i / n) * Math.PI * 2 + rand(-0.08, 0.08);
+    const sp = speed * rand(0.4, 1);
+    const v = rand(0.3, 0.9);   // per-spark colour variance toward white
+    sparks.push({
+      x: cx, y: cy,
+      vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+      life: rand(1.2, 2), max: 2,
+      r: [Math.min(255, br + (255 - br) * (1 - v)), Math.min(255, bg + (255 - bg) * (1 - v)), Math.min(255, bb + (255 - bb) * (1 - v))],
+    });
+  }
+  bursts.push({ sparks });
+}
+
+// Advance + draw every live detonation. Additive ('lighter') blend so overlapping sparks glow;
+// each spark trails a short line back along its velocity. Dead sparks (life ≤ 0) are culled and
+// an emptied burst is dropped so the loop can idle once the last one fades.
+function drawBursts(dt, w, h) {
+  const GRAV = 90, DRAG = 0.86;
+  const prev = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineWidth = 2;
+  for (const b of bursts) {
+    for (const s of b.sparks) {
+      s.life -= dt;
+      if (s.life <= 0) continue;
+      const drag = Math.pow(DRAG, dt);   // frame-rate-independent drag
+      s.vx *= drag;
+      s.vy = s.vy * drag + GRAV * dt;
+      s.x += s.vx * dt; s.y += s.vy * dt;
+      const a = Math.max(0, s.life / s.max);
+      const [r, g, bl] = s.r;
+      ctx.strokeStyle = `rgba(${r|0},${g|0},${bl|0},${a * 0.7})`;
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(s.x - s.vx * dt * 3, s.y - s.vy * dt * 3);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(${r|0},${g|0},${bl|0},${a})`;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 1.9, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    b.sparks = b.sparks.filter(s => s.life > 0);
+  }
+  bursts = bursts.filter(b => b.sparks.length);
+  ctx.globalCompositeOperation = prev;
+}
+
+// A gentle colour wash across the upper half of the pane, its hue slowly drifting and its
+// alpha breathing — the reflected glow of fireworks lighting the sky. Additive-soft, kept
+// faint so it reads as sky-glow rather than a tint over the whole room.
+function drawFireworksGlow(dt, w, h) {
+  glowT += dt;
+  const hue = (glowT * 45) % 360;
+  const a = 0.05 + 0.035 * (0.5 + 0.5 * Math.sin(glowT * 1.7));
+  const grad = ctx.createLinearGradient(0, 0, 0, h * 0.55);
+  grad.addColorStop(0, `hsla(${hue},90%,62%,${a})`);
+  grad.addColorStop(1, `hsla(${hue},90%,62%,0)`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h * 0.55);
 }
 
 function frame(t) {
@@ -299,7 +435,7 @@ function frame(t) {
 // Keep running while anything is still on screen — including an effect mid-fade
 // (active/presence) after the target has already gone to 'none'.
 function shouldRun() {
-  const busy = cur.effect !== 'none' || active !== 'none' || presence > 0.001 || !!eventFx.type;
+  const busy = cur.effect !== 'none' || active !== 'none' || presence > 0.001 || !!eventFx.type || fireworksGlow || bursts.length > 0 || shells.length > 0;
   return enabled && !suppressed && busy && !document.hidden;
 }
 
@@ -341,6 +477,28 @@ export function setWeatherEventFx(type, phase) {
   eventFx = { type: type || null, phase: phase || null };
   if (type) flashA = 0;
   if (!shouldRun()) { stopLoop(); return; }
+  startLoop();
+}
+
+// Public: turn the admin-fireworks sky glow on/off. Driven by the `fireworks_sky` WS message
+// at show start/end. Suppressed automatically while the cockpit owns the pane (via the
+// existing `suppressed` gate) — airborne pilots get the real 3D bursts instead.
+export function setFireworksGlow(on) {
+  fireworksGlow = !!on;
+  if (on) glowT = 0;
+  if (!shouldRun()) { stopLoop(); return; }
+  startLoop();
+}
+
+// Public: launch a climbing shell (trail rising to a sky apex, then a particle burst) for a
+// nearby firework. Driven by the `fireworks_launch` WS message when the launch is within a couple
+// tiles; `leadMs` matches the whistle so the trail tops out as the pitch peaks. Gated by the same
+// enabled/suppressed rules as the rest of the overlay (airborne pilots get the 3D burst instead).
+export function launchFirework(rgb, leadMs) {
+  if (!enabled || suppressed) return;
+  ensureCanvas();
+  if (!syncRect()) return;     // pane collapsed (mobile) — nothing to draw on
+  spawnShell(rgb, leadMs);
   startLoop();
 }
 

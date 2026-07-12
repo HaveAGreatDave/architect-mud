@@ -1,0 +1,13 @@
+{
+  "description": "Beakers, a condenser, and a battered flask, nested in foam. Perfectly legal. Perfectly suspicious in quantity.",
+  "flags": {},
+  "id": "item_glassware_set",
+  "name": "lab glassware set",
+  "tags": {
+    "description": "Beakers, a condenser, and a battered flask, nested in foam. Perfectly legal. Perfectly suspicious in quantity.",
+    "material": true
+  },
+  "type": "material",
+  "value": 45,
+  "weight": 1500
+}

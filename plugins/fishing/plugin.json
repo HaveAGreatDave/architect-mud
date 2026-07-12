@@ -2,9 +2,10 @@
   "name": "fishing",
   "version": "1.0.0",
   "description": "Fishing — a posture-based perpetual cast-and-wait action for water-adjacent zones. A bite arms the client tension-bar reel overlay (fishing_game); landing it pulls a catch from a reused scavenging loot table, gated by the Fishing skill. Rod required, bait optional; rare monster hooks spawn a live enemy, botched reels can snap the rod.",
-  "commands": ["fish", "fishresolve"],
+  "commands": ["fish", "fishcast", "fishresolve"],
   "objectGatedCommands": {
     "fish": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: dual-gated — zone flag fishing_table_id (ambient, not examinable) + a carried item tagged fishing_rod. Not exposed as a rod specializedAction because the verb also needs a fishing zone; advertising `fish` on examine rod in a dry zone would mislead. Discovered via the rod item description / help." },
+    "fishcast": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: internal cast overlay callback (token-gated); reports the player's cast power/angle, which chooses the catch and arms the reel fight. Never typed by a player." },
     "fishresolve": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: internal tension-bar overlay callback (token-gated); never typed by a player." }
   }
 }

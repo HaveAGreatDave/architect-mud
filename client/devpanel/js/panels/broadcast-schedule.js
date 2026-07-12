@@ -281,7 +281,9 @@ function _schedRenderContent() {
   const availW = el.clientWidth - 32;
   if (availW > 200) _schedPxPerHour = Math.floor(availW / 24);
 
-  const libRows = _schedBroadcasts.map(b => {
+  // Auto-minted surveillance-clip broadcasts (bc_clip_*/category surveillance)
+  // aren't schedulable programming — collapse them out of the library drawer.
+  const libRows = _schedBroadcasts.filter(b => !_bcIsClip(b)).map(b => {
     const dur = b.override_duration || ((Array.isArray(b.messages) ? b.messages.length : 0) * (b.message_interval || 5)) || 3600;
     const col = SCHED_CAT_COLOR[b.category] || 'var(--text-dim)';
     return `<div class="bc-lib-item" draggable="true"
@@ -884,8 +886,9 @@ function _schedAutoSchedule(startSec, endSec, loops) {
     : (ch.commercial_pool ? JSON.parse(ch.commercial_pool) : [])
   );
 
-  const programs    = _schedBroadcasts.filter(b => !poolIds.has(b.id));
-  const commercials = _schedBroadcasts.filter(b => poolIds.has(b.id));
+  const schedulable = _schedBroadcasts.filter(b => !_bcIsClip(b));
+  const programs    = schedulable.filter(b => !poolIds.has(b.id));
+  const commercials = schedulable.filter(b => poolIds.has(b.id));
 
   if (!programs.length) { toast('No programs available to schedule.', true); return; }
 

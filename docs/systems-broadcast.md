@@ -29,7 +29,7 @@ name TEXT
 description TEXT
 category TEXT             — general | news | advertisement | entertainment | emergency | …
 tags JSONB                — []
-playback_mode TEXT        — scripted | dynamic_news | live_camera | recorded
+playback_mode TEXT        — scripted | dynamic_news | live_camera | recorded | weather | sports | news | talkshow
 messages JSONB            — [{ text: '...' }, ...] flat fallback list
 message_interval REAL     — seconds between messages (default 5)
 override_duration REAL    — if set, overrides computed duration
@@ -239,6 +239,15 @@ on('flag.set', …)     → enqueueNews('martial_law', 'EMERGENCY ALERT: …',  
 ```
 
 `enqueueNews(category, text, priority, ts)` appends to each matching channel's `newsQueue`. Critical items are prepended. News channels drain one item per tick from the queue; when empty, the idle broadcast plays.
+
+---
+
+## Live-Assembled Shows (`weather` / `sports` / `news` / `talkshow`)
+
+Four `playback_mode`s store a **line library** (`::lines` pools) instead of a baked graph, and assemble a fresh VINE graph on each airing rather than replaying stored content. They're authored as `.bsm` files (`@type weather|sports|news|talkshow`) — see [docs/bsm-format.md](bsm-format.md) — and stored in dedicated JSONB columns (`weather_pools` / `sports_pools` / `news_pools` / `talkshow_pools`). `getCurrentMessage` routes each `playback_mode` to its `assemble*Graph()` builder (cached per refresh bucket), then feeds the result to the same `tickBroadcastGraph` walker as any other graph.
+
+- **`weather`** reads the live 7-day forecast; **`sports`** simulates a fresh game; **`news`** pulls live stories from the news generator. Their announcers/anchors are **name strings** — no NPC is spawned.
+- **`talkshow`** is the odd one out: it's **acted live by real cast NPCs**. A resident host + sidekick commute in on schedule, and ONE reusable guest NPC is renamed to a new persona each in-game day, appears in a random unobserved zone, walks across the map to the studio, performs, and vanishes backstage afterward (engine AI actions `TALKSHOW_APPEAR`/`TALKSHOW_HIDE`, plus `talkshowHeartbeat` for the nightly rename). The assembled graph sets `_requireHost`, so it presence-gates on any channel — no cast on-stage ⇒ camera-idle → technical difficulties. See [Talk-Show Broadcasts](bsm-format.md#talk-show-broadcasts-type-talkshow).
 
 ---
 
@@ -582,7 +591,7 @@ All broadcast routes use `directAPI`:
 
 ## Operational Notes
 
-- **Tick cadence**: 5 seconds, separate `setInterval` in the plugin (not the world scheduler).
+- **Tick cadence**: 2 seconds (`BROADCAST_TICK_MS`), separate `setInterval` in the plugin (not the world scheduler). The tick is the re-evaluation granularity, not the reading pace — node holds (`nodeHoldMs`, default 8 s for a spoken line) are honored at tick granularity, so a fine tick lets non-5s holds land precisely without ever skipping messages.
 - **In-memory only**: `channelRuntime`, `zoneTunings`, `newsQueue`, `graphicsCache` — all rebuilt on server restart from DB. News queue starts empty on restart.
 - **Graphics cache**: holds `id`, `name`, `type`, `content`. `type` is used by `title_card` and `off_air` to set the correct wire style (`'svg'` vs `'ascii_art'`), which the client uses to pick `innerHTML` vs `textContent` rendering.
 - **VINE vs flat list**: runtime prefers `broadcastGraph` when present. Both are saved independently.

@@ -311,9 +311,50 @@
       config: { duration: 0.5, layers: [
         { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 900, q: 1 }, adsr: { a: 0.001, d: 0.45, s: 0, r: 0.05 }, gain: 0.14 },
         { waveform: 'sawtooth', freq: 90, pitchBend: { to: 50, time: 0.4 }, adsr: { a: 0.001, d: 0.4, s: 0, r: 0.05 }, gain: 0.16 } ] } },
+
+    // ── Fishing (cast / reel) ────────────────────────────────────────────────
+    // The reel ratchet as you wind the power up (rising click density is faked
+    // with a short bandpassed-noise burst under a climbing tone).
+    { id: 'fishing-charge', name: 'Fishing — reel charge', group: 'fishing', category: 'sfx', priority: 5,
+      config: { duration: 0.4, layers: [
+        { waveform: 'square', freq: 240, pitchBend: { to: 620, time: 0.34 }, filter: { type: 'bandpass', freq: 1400, q: 3 }, adsr: { a: 0.01, d: 0.3, s: 0.2, r: 0.08 }, gain: 0.07 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2600, q: 1.4 }, adsr: { a: 0.02, d: 0.3, s: 0.1, r: 0.06 }, gain: 0.05 } ] } },
+    // The cast release — line paying out off the reel: an airy whip that falls away.
+    { id: 'fishing-cast', name: 'Fishing — cast away', group: 'fishing', category: 'sfx', priority: 6,
+      config: { duration: 0.42, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 1700, q: 0.7 }, adsr: { a: 0.005, d: 0.3, s: 0, r: 0.08 }, gain: 0.13 },
+        { waveform: 'triangle', freq: 900, pitchBend: { to: 280, time: 0.3 }, filter: { type: 'bandpass', freq: 1200, q: 1 }, adsr: { a: 0.004, d: 0.26, s: 0, r: 0.08 }, gain: 0.10 } ] } },
+    // The float plops onto the water — a fast pitch-drop body under a soft splash.
+    { id: 'fishing-splash', name: 'Fishing — float lands', group: 'fishing', category: 'sfx', priority: 5,
+      config: { duration: 0.34, layers: [
+        { waveform: 'sine', freq: 420, pitchBend: { to: 90, time: 0.06 }, adsr: { a: 0.001, d: 0.12, s: 0, r: 0.05 }, gain: 0.3 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 1400, q: 1 }, adsr: { a: 0.001, d: 0.18, s: 0, r: 0.08 }, gain: 0.16 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.05, filter: { type: 'highpass', freq: 3000, q: 0.8 }, adsr: { a: 0.001, d: 0.1, s: 0, r: 0.05 }, gain: 0.07 } ] } },
+    // FISH ON — the take: a hard upward yank, a water burst, an alert ping.
+    { id: 'fishing-bite', name: 'Fishing — the strike', group: 'fishing', category: 'sfx', priority: 8,
+      config: { duration: 0.5, layers: [
+        { waveform: 'sawtooth', freq: 150, pitchBend: { to: 520, time: 0.12 }, filter: { type: 'lowpass', freq: 2600, q: 1 }, adsr: { a: 0.002, d: 0.16, s: 0.1, r: 0.1 }, gain: 0.16 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 900, q: 1 }, adsr: { a: 0.001, d: 0.2, s: 0, r: 0.08 }, gain: 0.2 },
+        { waveform: 'square', freq: 1200, delay: 0.14, filter: { type: 'bandpass', freq: 1400, q: 5 }, adsr: { a: 0.002, d: 0.08, s: 0, r: 0.05 }, gain: 0.11 } ] } },
+    // A single reel click as you engage the drag and start winding in.
+    { id: 'fishing-reel', name: 'Fishing — reel bite', group: 'fishing', category: 'sfx', priority: 4,
+      config: { duration: 0.1, layers: [
+        { waveform: 'square', freq: 620, pitchBend: { to: 900, time: 0.06 }, filter: { type: 'bandpass', freq: 1600, q: 5 }, adsr: { a: 0.002, d: 0.07, s: 0, r: 0.03 }, gain: 0.08 } ] } },
+    // Landed — a rising resolve, then the slab slaps onto the dock.
+    { id: 'fishing-land', name: 'Fishing — landed', group: 'fishing', category: 'sfx', priority: 8,
+      config: { duration: 0.7, layers: [
+        { waveform: 'square', freq: 440, pitchBend: { to: 1320, time: 0.22 }, filter: { type: 'lowpass', freq: 5000, q: 1 }, adsr: { a: 0.005, d: 0.16, s: 0.1, r: 0.08 }, gain: 0.13 },
+        { waveform: 'triangle', freq: 180, delay: 0.28, pitchBend: { to: 70, time: 0.2 }, adsr: { a: 0.002, d: 0.22, s: 0, r: 0.1 }, gain: 0.3 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.28, filter: { type: 'lowpass', freq: 900, q: 1 }, adsr: { a: 0.001, d: 0.12, s: 0, r: 0.06 }, gain: 0.16 } ] } },
+    // The line snaps — a sharp twang/crack, then a low sinking-away.
+    { id: 'fishing-snap', name: 'Fishing — line snaps', group: 'fishing', category: 'sfx', priority: 8,
+      config: { duration: 0.46, layers: [
+        { waveform: 'sawtooth', freq: 800, pitchBend: { to: 120, time: 0.1 }, filter: { type: 'bandpass', freq: 1400, q: 3 }, adsr: { a: 0.001, d: 0.14, s: 0, r: 0.05 }, gain: 0.2 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.04, filter: { type: 'highpass', freq: 2400, q: 1 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.03 }, gain: 0.2 },
+        { waveform: 'triangle', freq: 160, delay: 0.08, pitchBend: { to: 50, time: 0.3 }, adsr: { a: 0.005, d: 0.24, s: 0.2, r: 0.2 }, gain: 0.15 } ] } },
   ];
 
-  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)' };
+  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)' };
 
   const _builtinById = new Map(BUILTINS.map(d => [d.id, d]));
   let _overrides = new Map(); // id -> { config, priority, enabled, name }

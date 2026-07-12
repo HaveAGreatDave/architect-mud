@@ -1,0 +1,71 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "emote": {
+        "action_type": "EMOTE",
+        "next": "wait",
+        "params": {
+          "message": "glances out at the street and shifts his weight from foot to foot."
+        },
+        "type": "action"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "emote",
+        "seconds": 90,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Keep it moving, keep it moving.\"",
+    "\"You a cop? You look like a cop.\""
+  ],
+  "description": "A jittery kid loitering by the door, watching the street through the mesh and chewing something that isn't gum.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They look away."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "(nod)",
+          "next": "bye"
+        }
+      ],
+      "text": "He looks you up and down. \"Ledger's inside. Don't touch nothin'.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a hooded track jacket",
+      "a stained band tee",
+      "grey boxers"
+    ],
+    "personality": "thug"
+  },
+  "home_activities": [],
+  "home_zone": "zone_fence_interior",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_fence_lookout",
+  "name": "a twitchy lookout",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": null,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_fence_interior"
+}

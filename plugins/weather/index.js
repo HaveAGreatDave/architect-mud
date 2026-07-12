@@ -220,6 +220,7 @@ const field = {
   baseCloud: 0,       // ambient cloudiness floor from weatherType
   baseSeverity: 0,    // day-level extreme-weather severity floor from forecast[0]
   bounds: null,       // { minX, maxX, minY, maxY } of map_world, cached
+  wind: null,         // { angle, kph } — the prevailing wind that drifts every cell
 };
 
 // ── Named "hero" weather events (step 7) ────────────────────────────────────
@@ -378,7 +379,10 @@ function systemsForForecast(weatherType, precipChance, tempC, windKph, bounds, r
   for (let i = 0; i < precipCells; i++) spawn('precip', 0.5 + precipChance * 0.5);
   for (let i = 0; i < stormCells;  i++) spawn('storm',  0.6 + precipChance * 0.4);
 
-  return { systems, baseCloud };
+  // The day's prevailing wind — the one that drifts every cell — so the same wind can drive the
+  // flight sim's HUD wind arrow + turbulence, not a separate per-hour formula. Angle is in grid
+  // (x,y) space (baseVx/baseVy); windKph is the forecast speed the drift already scales with.
+  return { systems, baseCloud, wind: { angle: windAngle, kph: windKph } };
 }
 
 function seedField(date, forecast0, bounds) {
@@ -387,11 +391,12 @@ function seedField(date, forecast0, bounds) {
   const tempC        = forecast0?.tempC ?? 12;
   const precipChance = forecast0?.precipChance ?? 0.05;
   const windKph      = forecast0?.windKph ?? null;
-  const { systems, baseCloud } = systemsForForecast(weatherType, precipChance, tempC, windKph, bounds, rand);
+  const { systems, baseCloud, wind } = systemsForForecast(weatherType, precipChance, tempC, windKph, bounds, rand);
   field.systems      = systems;
   field.baseCloud    = baseCloud;
   field.baseSeverity = severityForForecast0(weatherType, tempC, windKph);
   field.bounds       = bounds;
+  field.wind         = wind;
 }
 
 // Drift every cell one step; torus-wrap (with padding) so cells re-enter the
@@ -449,6 +454,7 @@ function getWeatherFieldSnapshot() {
   return {
     bounds: field.bounds,
     baseSeverity: currentBaseSeverity(),
+    wind: field.wind,
     systems: field.systems.map(s => ({
       x: s.x, y: s.y, radius: s.radius, vx: s.vx, vy: s.vy,
       type: s.type, intensity: s.intensity, precipType: s.precipType,

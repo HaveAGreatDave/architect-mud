@@ -1,0 +1,46 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "swings the flak gun a few degrees and eyeballs the sky down the barrel.",
+    "\"She's older than me and twice as mean. Point her up, pull, duck.\""
+  ],
+  "description": "A soot-black Slagworks hand welded into the flak gun's cradle, ear defenders round his neck and a dead roll-up in his lip. He fires the old gun on feel more than optics.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They turn back to the guns and the sky."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "...",
+          "next": "bye"
+        }
+      ],
+      "text": "They keep one eye on the sky. \"Unless you're here to help work the guns, you're in the way. Move.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "aa_crew": "aa_slag_flak",
+    "personality": "mercenary"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_891_905",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_aa_slag_gunner",
+  "name": "a Slagworks flak gunner",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_891_905"
+}

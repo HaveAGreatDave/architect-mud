@@ -1,0 +1,163 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "chat": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "wait",
+        "type": "action"
+      },
+      "look": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "wait",
+        "ifTrue": "chat",
+        "type": "condition"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "look",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Stop the bleeding first. Feelings second.\"",
+    "\"I don't ask how. I just patch.\"",
+    "\"Buy the trauma kit now, thank me at 3 a.m.\""
+  ],
+  "description": "A calm, tired physician with a stethoscope worn like a scarf and the unhurried competence of someone who has seen worse walk in and worse walk out.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They turn back to the counter."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let me see the stock.",
+          "next": "shop"
+        },
+        {
+          "label": "(walk off)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit if you're dying, browse if you're not. Cabinet's stocked.\""
+    },
+    "shop": {
+      "actions": [
+        {
+          "action": "OPEN_SHOP",
+          "npcId": "npc_medic_anand"
+        }
+      ],
+      "options": [
+        {
+          "label": "(browse)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Take a look. Cash only, no refunds, no tears.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a clean but fraying medical coat",
+      "faded surgical scrubs",
+      "a plain bra and briefs"
+    ],
+    "personality": "doctor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_clinic_interior",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_medic_anand",
+  "name": "Dr. Priya Anand",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_field_splint",
+      "price": 35,
+      "stock": 20
+    },
+    {
+      "item_id": "item_antirad_tablets",
+      "price": 42,
+      "stock": 25
+    },
+    {
+      "item_id": "item_morphine_amp",
+      "price": 56,
+      "stock": 15
+    },
+    {
+      "item_id": "item_combat_stim",
+      "price": 77,
+      "stock": 12
+    },
+    {
+      "item_id": "item_trauma_kit",
+      "price": 98,
+      "stock": 8
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Mercy Row Clinic",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_clinic_interior"
+}

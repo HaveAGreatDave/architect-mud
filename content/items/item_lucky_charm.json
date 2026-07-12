@@ -1,0 +1,17 @@
+{
+  "description": "A rabbit's foot on a keyring. The house sells luck by the gram; the rabbit was less enthused.",
+  "flags": {},
+  "id": "item_lucky_charm",
+  "name": "loaded rabbit's foot",
+  "tags": {
+    "description": "A rabbit's foot on a keyring. The house sells luck by the gram; the rabbit was less enthused.",
+    "misc": true,
+    "slot": "accessory",
+    "stat_bonus": {
+      "stat_cool": 1
+    }
+  },
+  "type": "misc",
+  "value": 40,
+  "weight": 30
+}

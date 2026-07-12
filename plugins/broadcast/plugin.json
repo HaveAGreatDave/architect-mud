@@ -2,7 +2,7 @@
   "name": "broadcast",
   "version": "1.0.0",
   "description": "Unified media framework: scripted channels, dynamic news, live cameras, recorded footage.",
-  "commands": ["tune", "watch", "listen", "tv", "load", "eject", "selectcassette"],
+  "commands": ["tune", "watch", "listen", "tv", "load", "eject", "selectcassette", "pirate", "pirateresolve", "air"],
   "objectGatedCommands": {
     "tune":           { "discoverVia": "furniture:broadcast_receiver", "exposed": false, "note": "KNOWN GAP: raw tune verb gates on broadcast_receiver-flagged furniture; discovery is via the use/tv specializedAction panel, not the verb. NOTE tag/flag mismatch: use/tv gates on tag 'tv' but doUseTv queries the broadcast_receiver flag — a set with the flag but no 'tv' tag surfaces no examine action." },
     "load":           { "discoverVia": "furniture:media_deck", "exposed": false, "note": "KNOWN GAP: `load cassette` gates on media_deck furniture; discovered via the use/media_deck panel, not the verb." },

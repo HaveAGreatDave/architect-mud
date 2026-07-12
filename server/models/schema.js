@@ -1020,6 +1020,10 @@ export const SCHEMA_SQL = `
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS weather_pools JSONB;
   -- Sports broadcasts (playback_mode='sports') store a line library + team/player pools here: { sport, announcer, teams:[…], players:[…], pools:{key:[…]} }
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS sports_pools JSONB;
+  -- News broadcasts (playback_mode='news') store a line library + anchor/reporter names here: { anchors:[…], reporters:[…], announcer, pools:{key:[…]} }; facts come from the live news generator each airing
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS news_pools JSONB;
+  -- Talk-show broadcasts (playback_mode='talkshow') store a line library + real cast + guest personas here: { host, announcer, guestNpc, guests:[{name,title,theme}], pools:{key:[…]}, title, theme, airSlots }. A fresh episode is assembled live and ACTED by real studio NPCs (host+announcer) plus a reusable guest NPC renamed each night.
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS talkshow_pools JSONB;
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS commercial_pool JSONB DEFAULT '[]';
   ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS slot_type TEXT DEFAULT 'broadcast';
 

@@ -1,0 +1,14 @@
+{
+  "description": "An aluminium-and-velcro splint. Sets the break well enough that you can limp somewhere better.",
+  "flags": {},
+  "id": "item_field_splint",
+  "name": "field splint",
+  "tags": {
+    "consumable": true,
+    "description": "An aluminium-and-velcro splint. Sets the break well enough that you can limp somewhere better.",
+    "restore_hp": 20
+  },
+  "type": "consumable",
+  "value": 25,
+  "weight": 300
+}

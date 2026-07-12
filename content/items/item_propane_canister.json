@@ -1,0 +1,13 @@
+{
+  "description": "A dinged steel canister of propane. Heats a cookpot, a still, or a very short argument.",
+  "flags": {},
+  "id": "item_propane_canister",
+  "name": "propane canister",
+  "tags": {
+    "description": "A dinged steel canister of propane. Heats a cookpot, a still, or a very short argument.",
+    "material": true
+  },
+  "type": "material",
+  "value": 30,
+  "weight": 4000
+}

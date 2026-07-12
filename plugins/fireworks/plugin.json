@@ -1,0 +1,9 @@
+{
+  "name": "fireworks",
+  "version": "1.0.0",
+  "description": "Admin-triggered synchronized fireworks show over the clone facility — staggered burst descriptions (origin + nearby rooms, fainter with distance), propagated booms, on-foot screen flashes, flight-sim 3D bursts, and a weather-FX sky glow.",
+  "commands": ["fireworks"],
+  "hooks": [],
+  "actions": [],
+  "events": []
+}

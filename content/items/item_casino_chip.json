@@ -1,0 +1,14 @@
+{
+  "description": "A house token, milled brass edged in dead neon. Worthless anywhere but the tables — which is exactly the point.",
+  "flags": {},
+  "id": "item_casino_chip",
+  "name": "Neon Vig chip",
+  "tags": {
+    "currency": true,
+    "description": "A house token, milled brass edged in dead neon. Worthless anywhere but the tables — which is exactly the point.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 25,
+  "weight": 5
+}

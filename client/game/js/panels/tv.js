@@ -14,7 +14,34 @@ function _tvColorizeNpcSay(html) {
   );
 }
 
+// Read a spoken broadcast line with the procedural formant voice. Only speaks
+// actual dialogue/narration (style 'raw') — tickers, title cards, overlays and
+// score-bugs travel on other styles/wire-types and stay silent. The narrator's
+// name (the "Name says" prefix) is dropped from what's spoken but used to SEED
+// the voice, so each host sounds consistent; narration with no speaker falls back
+// to the station name as the seed.
+let _lastSpeakAt = 0;
+let _speakWindow = 5;   // estimated seconds between spoken lines (seed = broadcast tick)
+export function tvSpeak(rawText, style) {
+  if (!_readAloud || !rawText) return;
+  if (style && style !== 'raw' && style !== 'emote' && style !== 'narrate' && style !== 'system') return;
+  const strip = s => s.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();  // drop markup/bug tags
+  let seed, speech;
+  const m = /^(.+?) says, "([\s\S]*)"$/.exec(rawText);
+  if (m) { seed = strip(m[1]); speech = strip(m[2]); }
+  else { seed = (document.getElementById('tv-station-name')?.textContent || 'broadcast').trim(); speech = strip(rawText); }
+  if (!speech) return;
+  // Adaptively estimate how long until the next line, so speech can be compressed
+  // to fit. Smooth the measured gap; ignore implausible ones (first line, long stalls).
+  const now = performance.now();
+  const gap = (now - _lastSpeakAt) / 1000;
+  if (_lastSpeakAt && gap > 1 && gap < 20) _speakWindow = _speakWindow * 0.5 + gap * 0.5;
+  _lastSpeakAt = now;
+  window.AudioEngine?.speak(speech, { seed, budget: _speakWindow });
+}
+
 let _tvOpen = false;
+let _readAloud = localStorage.getItem('tvReadAloud') === '1';
 let _tvShuttingDown = false;
 let _tvPoweredOff = false;
 let _tvActiveChannelId = null;
@@ -248,6 +275,7 @@ export function applyTvTheme(theme) {
 }
 
 export function closeTvPanel() {
+  window.AudioEngine?.cancelSpeech();
   _tvOpen = false;
   _tvShuttingDown = false;
   _tvPoweredOff = false;
@@ -277,6 +305,7 @@ export function closeTvPanel() {
 
 export function shutdownTvPanel() {
   if (!_tvOpen || _tvShuttingDown) return;
+  window.AudioEngine?.cancelSpeech();
   _tvShuttingDown = true;
   if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
 
@@ -520,6 +549,7 @@ export function isTvOpen() { return _tvOpen; }
 export function getTvActiveChannelId() { return _tvActiveChannelId; }
 
 function _tvTuneTo(num) {
+  window.AudioEngine?.cancelSpeech();
   if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
   _wheelTarget = null;
   _tvFrequency = num;
@@ -855,6 +885,19 @@ export function initTvPanel() {
   powerBtn.addEventListener('pointerleave', clearHold);      // dragged off → cancel the hold
   powerBtn.addEventListener('pointercancel', () => { clearHold(); _powerHeld = false; });
   window.addEventListener('game-disconnect', () => { if (_tvOpen) shutdownTvPanel(); });
+
+  // Read-aloud toggle: synthesize the broadcast's spoken lines with a procedural
+  // formant voice. Preference persists across sessions. Turning it off cuts any
+  // line currently being read.
+  const readBtn = document.getElementById('tv-read-btn');
+  const syncReadBtn = () => readBtn?.classList.toggle('on', _readAloud);
+  syncReadBtn();
+  readBtn?.addEventListener('click', () => {
+    _readAloud = !_readAloud;
+    localStorage.setItem('tvReadAloud', _readAloud ? '1' : '0');
+    syncReadBtn();
+    if (!_readAloud) window.AudioEngine?.cancelSpeech();
+  });
 
   // Knob: click cycles channels, mousewheel fine-tunes. Drag-to-rotate is
   // disabled for now — it was unreliable to control smoothly — so there's no

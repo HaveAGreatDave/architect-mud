@@ -1,0 +1,16 @@
+{
+  "description": "A palm-sized silver fish with gill plates honed to little blades. It'll nick your fingers going into the bucket, but it fries up clean and quick.",
+  "flags": {},
+  "id": "item_razorgill",
+  "name": "razorgill",
+  "tags": {
+    "consumable": true,
+    "description": "A palm-sized silver fish with gill plates honed to little blades. It'll nick your fingers going into the bucket, but it fries up clean and quick.",
+    "restore_hunger": 14,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 10,
+  "weight": 250
+}

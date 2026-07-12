@@ -106,6 +106,10 @@ let autoWalkArmed = false;
 let autoNoProgress = 0;
 let autoLastZone = null;
 let autoPendingTarget = null; // the zone id the last auto-walk step is trying to reach
+// Off-course recovery: if a step lands us off the plotted corridor, we ask the server
+// to re-plot from here and resume. Bounded so a destination the server can't reach
+// from our new spot doesn't spin forever.
+let autoRerouteTries = 0;
 
 function autoWalkBtn() { return document.getElementById('mm-auto-toggle'); }
 
@@ -130,7 +134,7 @@ export function resolveAutoWalkPicker(picker) {
 function stopAutoWalk(message, { keepArmed = false } = {}) {
   if (autoWalkTimer) { clearTimeout(autoWalkTimer); autoWalkTimer = null; }
   if (!keepArmed) { autoWalkArmed = false; autoWalkBtn()?.classList.remove('active'); }
-  autoNoProgress = 0; autoLastZone = null; autoPendingTarget = null;
+  autoNoProgress = 0; autoLastZone = null; autoPendingTarget = null; autoRerouteTries = 0;
   if (message) appendMsg(message, 'system');
 }
 
@@ -151,6 +155,21 @@ function autoWalkStep() {
   // Arrived at this leg's end: keep the intent armed so a quest advancing to a new
   // waypoint (gps_route resumeAuto) continues the walk without another Auto click.
   if (!path || path.length < 2) { stopAutoWalk('Auto-walk: arrived.', { keepArmed: true }); return; }
+
+  // Off course: a forced move / wrong turn / mismatched exit dropped us off the
+  // plotted corridor. Rather than stall trying to step to a tile we can't reach, ask
+  // the server to re-plot from here to the same destination and resume (armed).
+  if (!mapState.tracePath.includes(current.id)) {
+    const destId = mapState.tracePath[mapState.tracePath.length - 1];
+    if (destId && current.id !== destId && ++autoRerouteTries <= 3) {
+      autoLastZone = null; autoPendingTarget = null;
+      sendCmdSilent(`gps ${destId}`); // gps_route resumeAuto re-arms the step from our new spot
+      return;
+    }
+    stopAutoWalk("Auto-walk stopped — off course and can't find a way back to the route.");
+    return;
+  }
+  autoRerouteTries = 0;
 
   // Still in the same room as last step = the move didn't take (an ambiguous exit
   // threw a SIFT picker). Tolerate one hiccup; on the second, stop and dismiss the
@@ -185,6 +204,17 @@ export function startAutoWalk() {
   autoNoProgress = 0; autoLastZone = null;
   autoWalkBtn()?.classList.add('active');
   autoWalkStep();
+}
+
+// One-shot "auto-walk there now? (y/n)" prompt armed by a manual `gps` plot.
+// The next typed line answers it (input.js): y/yes walks the just-plotted route,
+// anything else lets it lapse. Cleared on any answer so it never lingers.
+let autoWalkPromptPending = false;
+export function armAutoWalkPrompt() { autoWalkPromptPending = true; }
+export function isAutoWalkPromptPending() { return autoWalkPromptPending; }
+export function answerAutoWalkPrompt(yes) {
+  autoWalkPromptPending = false;
+  if (yes) startAutoWalk();
 }
 
 // `auto` command / Auto button: toggle the route walk. Armed-but-paused (arrived
@@ -387,9 +417,10 @@ export function renderMinimap(nodes, direction) {
     return escapeHtml(parts.join('\n'));
   };
 
-  // Route trace (shared with the full map): the tiles on the plotted route inside
-  // this window are highlighted (mm-trace), matching the full map's tile highlight.
-  const traceSet = new Set(effectiveTracePath(current.id) || []);
+  // Route trace (shared with the full map): the plotted route is drawn as an accent
+  // line through tile centres (an SVG laid over the grid, built after the cell loop),
+  // matching the full map's polyline rather than highlighting boxes.
+  const tracePath = effectiveTracePath(current.id) || [];
 
   let html = '';
   for (let r = 0; r < gRows; r++) {
@@ -398,7 +429,6 @@ export function renderMinimap(nodes, direction) {
       if (!id) { html += `<span class="mm-c mm-void"></span>`; continue; }
       const node = byId.get(id);
       if (!node) { html += `<span class="mm-c mm-void"></span>`; continue; }
-      const traceCls = traceSet.has(id) ? ' mm-trace' : '';
       if (node.is_current) {
         // Render the tile you're standing on (its terrain fill / authored colour)
         // UNDER the "you are here" beacon, so the marker reads as a locator on a
@@ -412,7 +442,7 @@ export function renderMinimap(nodes, direction) {
         else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); cs.push(`background-color:rgba(${dr},${dg},${db},0.20)`); }
         const cterrCls = cterr ? ` mm-terr mm-${cterr}` : '';
         const cStyle = cs.length ? ` style="${cs.join(';')}"` : '';
-        html += `<span class="mm-c mm-room mm-current${cterrCls}${traceCls}"${cStyle} title="${titleFor(node)}"></span>`;
+        html += `<span class="mm-c mm-room mm-current${cterrCls}"${cStyle} title="${titleFor(node)}"></span>`;
         continue;
       }
       // Foreign tile: only the ones one step across a boundary survive, as a gateway
@@ -464,10 +494,24 @@ export function renderMinimap(nodes, direction) {
       const enterAttrs = node.enterable && node.building_name
         ? ` data-action="go" data-target="${escapeHtml(node.building_name)}" data-dest="${escapeHtml(node.building_name)}"`
         : '';
-      const cls = `mm-c mm-room danger-${dangerCls}${styled}${unreach}${enterCls}${terrCls}${traceCls}`;
-      html += `<span class="${cls}"${styleAttr}${enterAttrs} title="${titleFor(node)}">${content}${entranceMark(node.entrance, 'mm')}</span>`;
+      const cls = `mm-c mm-room danger-${dangerCls}${styled}${unreach}${enterCls}${terrCls}`;
+      html += `<span class="${cls}"${styleAttr}${enterAttrs} title="${titleFor(node)}">${content}${entranceMark(node.entrance, 'mm')}${exitMarks(node.exit_dirs, 'mm')}</span>`;
     }
   }
+  // GPS route line: an accent polyline through the centres of the route tiles that
+  // fall inside this window, laid over the grid as an SVG spanning every track (so it
+  // aligns with the centred cells without pixel math). viewBox is in tile units.
+  const gpsPts = [];
+  for (const id of tracePath) {
+    const co = coords.get(id);
+    if (!co) continue;
+    const [x, y] = co;
+    if (!inWin(x, y)) continue;
+    gpsPts.push(`${(x + R + 0.5).toFixed(2)},${(y + R + 0.5).toFixed(2)}`);
+  }
+  if (gpsPts.length > 1)
+    html += `<svg class="mm-gps-svg" viewBox="0 0 ${gCols} ${gRows}" preserveAspectRatio="none"><polyline class="mm-gps-line" points="${gpsPts.join(' ')}"/></svg>`;
+
   applyMinimapZoom(); // keep the grid tracks in step with R before painting the cells
   for (const id of ['minimap-grid', 'minimap-grid-mob', 'minimap-grid-hud']) {
     const el = document.getElementById(id);
@@ -567,6 +611,12 @@ const MAP_BASE_TILE = 34; // #map-grid --map-room default (zone/interior tile px
 const ENTRANCE_DIRS = new Set(['north', 'south', 'east', 'west']);
 function entranceMark(dir, pfx) {
   return ENTRANCE_DIRS.has(dir) ? `<span class="${pfx}-entrance ${pfx}-ent-${dir}"></span>` : '';
+}
+
+// Interior exit arrows: the same amber triangles as the entrance arrow, one per
+// cardinal direction that leads out of the building (server `exit_dirs`).
+function exitMarks(dirs, pfx) {
+  return Array.isArray(dirs) ? dirs.map(d => entranceMark(d, pfx)).join('') : '';
 }
 
 // ── Three-level map popup: interior → zone → regional ────────────────────────
@@ -1187,7 +1237,7 @@ function renderMapGrid() {
         (terrain ? ` map-terr map-${terrain}` : '') +
         (selName && t.name === selName ? ' map-legend-sel' : '');
       const style = styles.length ? ` style="${styles.join(';')}"` : '';
-      const entMark = regional ? '' : entranceMark(t.entrance, 'map'); // arrow only when tiles are big enough to read
+      const entMark = regional ? '' : entranceMark(t.entrance, 'map') + exitMarks(t.exit_dirs, 'map'); // arrows only when tiles are big enough to read
       html += `<span class="${cls}"${style} data-zone-id="${t.id}">${content}${entMark}${terrOv}</span>`;
     }
   }

@@ -23,6 +23,7 @@ const D2R = Math.PI / 180, R2D = 180 / Math.PI;
 const G_KT = 19.06;               // gravity as a knots/second airspeed change (9.81 m/s²)
 const wrap360 = (d) => ((d % 360) + 360) % 360;
 const GROUND_EFFECT_FT = 24;      // AGL band (~a wingspan) where the wing rides a lift cushion → float + flare to land
+const HELI_GROUND_EFFECT_FT = 34; // AGL band (~a rotor diameter) where the downwash piles into a lift cushion → soft settle onto the skids
 
 // ── Per-airframe tuning ───────────────────────────────────────────────────────
 // The Mayfly is the Phase-1 reference: a light, forgiving fixed-wing. Heavier types
@@ -115,15 +116,19 @@ export const TYPES = {
     // ROCKET OFF THE DECK (per author direction): thrustMax 50→92 gives her by far the best
     // thrust-to-mass in the fleet (~27 kt/s), so she practically leaps off the runway and
     // climbs out like she's shot from a rail (vsMax 2400→3600, vsGain 2200→3000, engineLag
-    // 1.3→1.0 for a snappier spool). To keep her A-10 character — "gets airborne fast but
-    // can't RUN" — dragP is raised in step (0.0011→0.00209) so thrust==drag still lands the
-    // level top end right on vne (√(92/0.00209)≈210 kt); the extra drag barely bites at the
-    // low speeds of the ground roll, so none of the takeoff punch is lost to it.
-    name: 'Reaper', mass: 3.4, thrustMax: 92, vr: 52, vs0: 34, vne: 210, cruise: 150,
+    // 1.3→1.0 for a snappier spool).
+    // NOW SHE RUNS TOO (per author direction): dragP dropped 0.00209→0.00140 so thrust==drag
+    // lands the level top end near √(92/0.00140)≈256 kt — much faster flat-out — and vne is
+    // opened to 270 to match. The extra speed barely touches the ground roll (drag ∝ V²).
+    // LESS FLOATY SLOW: vs0 34→39 raises the weight anchor (weightOf ∝ vs0²) so she flies
+    // heavier — at low speed the lift deficit bites sooner and she settles instead of hanging —
+    // and vsTau 1.0→0.85 makes her vertical response snappier (less wallow), while a strong
+    // thrust-to-mass keeps takeoff punch intact despite the extra weight.
+    name: 'Reaper', mass: 3.4, thrustMax: 92, vr: 54, vs0: 39, vne: 270, cruise: 165,
     pitchRate: 10, pitchTau: 0.7, rollRate: 58, rollTau: 0.6, engineLag: 1.0,
-    pitchStable: 1.1, rollStable: 1.3, dragP: 0.00209, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
-    rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 3600, vsGain: 3000, vsTau: 1.0,
-    brake: 7.5, groundSteer: 28, ceiling: 17000, bestGlide: 69,
+    pitchStable: 1.1, rollStable: 1.3, dragP: 0.00140, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
+    rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 3600, vsGain: 3000, vsTau: 0.85,
+    brake: 7.5, groundSteer: 28, ceiling: 17000, bestGlide: 76,
   },
   // Dragonfly — a REVOLUTION MINI 500 analogue: a tiny single-rotor kit helicopter. Light,
   // darty and gets into tight spots (huge cyclic + pedal authority, spins on the spot in a
@@ -278,7 +283,14 @@ function stepHeli(state, input, p, dt) {
   // Sink HARDER than she climbs — chop the collective (or droop Nr) and the underpowered kit
   // heli drops away in a deep autorotative descent instead of mushing down gently.
   const deficit = thrustV / (p.hoverThrust || 1) - 1;
-  const vsTarget = clamp(deficit * (deficit < 0 ? p.vsGain * 1.9 : p.vsGain), -p.vsMax * 2.6, p.vsMax);
+  let vsTarget = clamp(deficit * (deficit < 0 ? p.vsGain * 1.9 : p.vsGain), -p.vsMax * 2.6, p.vsMax);
+  // Ground cushion (in-ground-effect): within ~a rotor-diameter of the deck the downwash piles
+  // into a lift cushion, so a descent SOFTENS as you near the ground — she eases onto the skids
+  // instead of dropping the last few feet. Sink only; hover and climb are untouched.
+  if (!s.onGround && vsTarget < 0 && s.altitude < HELI_GROUND_EFFECT_FT) {
+    const ge = 1 - s.altitude / HELI_GROUND_EFFECT_FT;   // 0 at the top of the band → 1 on the deck
+    vsTarget *= 1 - 0.5 * ge * ge;
+  }
   if (s.onGround && vsTarget <= 0) s.vs = 0;
   else { s.vs += (vsTarget - s.vs) * Math.min(1, dt / p.vsTau); s.altitude += (s.vs / 60) * dt; }
 
@@ -306,6 +318,7 @@ export function step(state, input, p, dt) {
   const aileron = clamp(input.aileron || 0, -1, 1);
   const throttle = clamp(input.throttle || 0, 0, 1);
   const flaps = clamp(input.flaps || 0, 0, 1);
+  const pedal = clamp(input.pedal || 0, -1, 1);   // rudder: yaws the nose (flat/skidding turn) airborne, steers the nosewheel on the ground
   const weight = weightOf(p);
 
   // 1. Engine inertia — rpm eases toward the throttle lever, never snaps.
@@ -322,15 +335,16 @@ export function step(state, input, p, dt) {
   //    limits, so it takes a lot of input to put yourself in danger. Released, it
   //    self-levels toward stability.
   s.elevEff += (elevator - s.elevEff) * Math.min(1, dt / p.pitchTau);
-  const pitchResist = 1 - 0.55 * Math.abs(s.pitch) / 35;
+  const pitchResist = 1 - 0.55 * Math.abs(s.pitch) / 48;   // scaled to the wider ±48° envelope
   const pitchCmd = s.elevEff * p.pitchRate * auth * pitchResist;
   s.pitch += (pitchCmd - p.pitchStable * s.pitch * (1 - Math.abs(s.elevEff))) * dt;
   // Rotation attitude is gear-limited while the mains are still down — without this a held
   // back-pressure keeps pitching (and AoA) up toward the full airborne limit before liftoff,
   // and since the airborne stall-collapse never engages on the ground, the AoA² drag term
   // below climbs unbounded and can pin airspeed short of flying speed forever. 15° is a
-  // generous real-world rotation attitude; airborne keeps the full ±35° envelope.
-  s.pitch = clamp(s.pitch, s.onGround ? -5 : -35, s.onGround ? 15 : 35);
+  // generous real-world rotation attitude; airborne gets the full ±48° envelope (more yoke
+  // play — you can push the nose noticeably further down and haul it further up).
+  s.pitch = clamp(s.pitch, s.onGround ? -5 : -48, s.onGround ? 15 : 48);
 
   // 4. Bank: like pitch, the roll effect BUILDS over ~rollTau and the airframe
   //    resists toward full bank, so it takes a sustained full throw to reach the
@@ -346,16 +360,21 @@ export function step(state, input, p, dt) {
     s.bank = clamp(s.bank, -70, 70);
   }
 
-  // 5. Heading: a coordinated turn from bank (rate ∝ tan(bank)/speed). No airspeed →
-  //    no turn (you can't steer a parked plane with the yoke).
+  // 5. Heading: a coordinated turn from bank (rate ∝ tan(bank)/speed) PLUS a direct yaw from the
+  //    rudder — a flat, skidding turn that swings the nose without banking. Rudder authority builds
+  //    with airspeed like the yoke (mushy below Vr), so it's a real control in the air: crab the
+  //    crosswind, skid a flat turn, or kick the nose straight on final. No airspeed → no yaw.
+  const rudderYaw = p.rudderYaw ?? clamp(15 / Math.sqrt(p.mass || 1), 4, 18);   // deg/s at full rudder & full authority (mass-scaled: heavier = lazier)
   if (s.airspeed > 1 && !s.onGround) {
     const turnRate = (G_KT * Math.tan(s.bank * D2R)) / Math.max(p.vs0, s.airspeed) * R2D;
-    s.heading = wrap360(s.heading + turnRate * dt);
+    s.heading = wrap360(s.heading + (turnRate + pedal * rudderYaw * auth) * dt);
   } else if (s.onGround && s.airspeed > 0.3) {
-    // Nosewheel/tiller steering on the ground — the raw aileron swings the nose to taxi.
-    // Needs a little roll speed to bite and fades toward rotation so you don't swerve at Vr.
+    // Nosewheel/tiller steering on the ground — aileron OR rudder pedals swing the nose to taxi
+    // (mobile has no pedals, so aileron still steers). Needs a little roll speed to bite and fades
+    // toward rotation so you don't swerve at Vr.
     const steerAuth = clamp(s.airspeed / 5, 0, 1) * clamp((p.vr - s.airspeed) / p.vr, 0, 1);
-    s.heading = wrap360(s.heading + aileron * (p.groundSteer || 0) * steerAuth * dt);
+    const steer = clamp(aileron + pedal, -1, 1);
+    s.heading = wrap360(s.heading + steer * (p.groundSteer || 0) * steerAuth * dt);
   }
 
   // 6. Angle of attack from the current flight path (uses last frame's vs — fine at
@@ -451,9 +470,9 @@ export function step(state, input, p, dt) {
   // wins and ANY dive accelerates hard past cruise — regardless of power, not just a dead-stick
   // glide. Ramps in with how far the nose is below the horizon and is gone the instant you level
   // out (pitch → 0), so powered level flight, cruise and top speed stay untouched.
-  const diveClean = s.pitch < 0 ? clamp(-s.pitch / 18, 0, 1) : 0;
-  const drag = (p.dragP + flaps * p.flapDrag * 0.0016) * s.airspeed * s.airspeed * (1 - 0.72 * diveClean)  // parasitic drag ∝ V² (largely shed in a dive → speed builds)
-             + s.aoa * s.aoa * 0.0016 * s.airspeed                               // profile-drag rise with a hard pull
+  const diveClean = s.pitch < 0 ? clamp(-s.pitch / 11, 0, 1) : 0;   // ramps in FAST — nose down and she cleans up and accelerates hard (full by ~11° down)
+  const drag = (p.dragP + flaps * p.flapDrag * 0.0016) * s.airspeed * s.airspeed * (1 - 0.9 * diveClean)  // parasitic drag ∝ V² (almost all shed in a dive → gravity wins and speed builds quickly)
+             + Math.max(0, s.aoa) ** 2 * 0.0016 * s.airspeed                    // profile-drag rise with a hard PULL only — a nose-down push (negative AoA) doesn't load the wing, so it never penalises a dive
              + (p.glideDrag || 0) * Math.max(0, 1 - s.rpm / 0.4) * (weight * weight) / (s.airspeed * s.airspeed + 40);   // DEAD-STICK induced drag (∝ 1/V²): engages only as the powerplant winds down toward idle (rpm below ~0.4), full at a stopped/windmilling engine. It penalises the SLOW end of a glide, so best-glide sits at a sensible speed with a realistic ratio instead of floating forever just above the stall — and because it's gated to low rpm it leaves ALL powered cruise/climb untouched. Per-type; unset ⇒ 0 (legacy floaty glide).
   const grav = G_KT * Math.sin(s.pitch * D2R);
   // Ground friction: idle rolling drag, plus wheel brakes from FORWARD pressure (push the

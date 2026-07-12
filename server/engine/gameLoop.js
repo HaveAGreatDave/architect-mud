@@ -14,7 +14,7 @@ import { hasExit, neighborZoneIds } from './exits.js';
 import { setPosture, forceStand } from './posture.js';
 import { carryCapacity } from './commands/inventory.js';
 import { query, logActivity } from '../models/db.js';
-import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, recordLightningKill, getZoneStormIntensity } from './environment.js';
+import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot } from './environment.js';
 import { tickDrugDecay, tickDrugs, tickOnsets, tickWithdrawal, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
 import { getTotalXp } from './ip.js';
@@ -44,7 +44,7 @@ export function startGameLoop(broadcast) {
   setInterval(tick, 1000); // 1s combat tick stays raw — latency-critical hot path
   schedule('1m', minuteTickFn);
   schedule('45s', ambientTick);
-  schedule('30s', stormTick);
+  schedule('5s', stormTick);
   schedule('1m', resourceTick);
   schedule('10s', () => tickSpawns(broadcastFn));
   schedule('15s', restRegenTick);
@@ -416,12 +416,18 @@ export function equipStarterOutfit(victimId, sex) {
 function scheduleVatEmergence(player) {
   const send = (message) => broadcastFn(null, { type: 'output', message }, null, player.id);
 
+  // The clone is naked until the dressing gantry clothes it (VAT_DRESS_MS). Mark
+  // that window so the witness system doesn't charge indecent exposure for a body
+  // that is mid-emergence and being dressed against its will.
+  player._vatDressing = true;
+
   setTimeout(() => {
     send(`<span class="clone-vat-message">Your new body reports in, one seam at a time. Nerve endings find their sockets and announce themselves — cold, ache, the dumb weight of your own hands. Muscle remembers what muscle is for. You are, unmistakably, meat again.</span>`);
   }, VAT_ASSIMILATE_MS);
 
   setTimeout(async () => {
     equipStarterOutfit(player.id, player.biological_sex || 'male');
+    player._vatDressing = false;   // clothed now — witness system may resume
     let cost = 0;
     try { cost = Math.ceil((await getTotalXp(player.id)) / 3); } catch { cost = 0; }
     if (cost > 0) {
@@ -606,9 +612,18 @@ const THUNDER_MESSAGES = [
   '<span class="msg-ambient">Thunder detonates overhead. The ground seems to shudder with it.</span>',
 ];
 
-// Fires lightning flashes and thunder messages to outdoor players during storms.
-// Runs every 30s; each zone has a random chance of a strike per tick.
-// Very rarely (1 in 500 per zone per tick) a player in that zone is struck and killed.
+// Fires lightning across the storm field every 5s. The SERVER is the single strike
+// authority so the flight sim shows the SAME lightning as the ground: every strike
+// is emitted as `weather.lightningStrike` (world coords + intensity), which the
+// flight plugin relays to any pilot within view as a 3-D bolt out the canopy. Two
+// sources feed it:
+//   • Ground cadence — each populated outdoor storm zone rolls a local strike. At
+//     5s the per-zone chance is 1/6 the old 30s chance, so the per-minute flash
+//     (and the rare kill that rides on it) rate is UNCHANGED — it's just spread
+//     across ticks instead of flashing every zone at once every 30s.
+//   • Sky fill — a few strikes scattered inside each storm cell so a pilot flying
+//     a storm sees lightning even with nobody on the ground below. Visual only;
+//     the ground roll is the sole path that can kill.
 async function stormTick() {
   const { weatherType } = getEnvironmentState();
   if (!STORM_WEATHER_TYPES.has(weatherType)) return;
@@ -620,10 +635,11 @@ async function stormTick() {
     // flash (and kill) more often. Field disabled → uniform 0.5 (old behaviour).
     const intensity = getZoneStormIntensity(zoneId);
     if (intensity <= 0) continue;
-    if (Math.random() > intensity) continue;
+    if (Math.random() > intensity / 6) continue;   // 5s tick: 1/6 the 30s odds → same per-minute rate
 
-    // Send lightning flash to all players in zone
+    // Flash the ground players + emit the world-coord strike the flight sim renders.
     broadcastFn(zoneId, { type: 'lightning' });
+    emit('weather.lightningStrike', { gx: zone.grid_x, gy: zone.grid_y, intensity });
 
     // Very rare: one player in the zone gets struck by lightning, scaled by
     // local storm intensity (1 in 500 per flash at a cell core).
@@ -650,6 +666,21 @@ async function stormTick() {
       broadcastFn(zoneId, { type: 'ambient', message: msg });
       emit('weather.thunder', { zoneId });
     }, delay);
+  }
+
+  // Sky fill — strikes inside each storm cell so a pilot overhead sees a live
+  // storm even with no ground players below. Scattered across the tick window so
+  // they don't all arrive on the tick boundary. Visual only (no ground effect).
+  const snap = getWeatherFieldSnapshot();
+  for (const cell of snap?.systems || []) {
+    if (cell.type !== 'storm') continue;
+    const expected = cell.intensity * 1.2;   // ~1 strike / 4s per cell at full intensity
+    const n = Math.floor(expected) + (Math.random() < expected % 1 ? 1 : 0);
+    for (let i = 0; i < Math.min(n, 4); i++) {
+      const rr = Math.sqrt(Math.random()) * cell.radius * 0.9, th = Math.random() * 6.2832;
+      const gx = cell.x + Math.cos(th) * rr, gy = cell.y + Math.sin(th) * rr;
+      setTimeout(() => emit('weather.lightningStrike', { gx, gy, intensity: cell.intensity }), Math.random() * 4500);
+    }
   }
 }
 

@@ -33,6 +33,37 @@ export const CORP_ASSET_TYPES = {
     blueprint: 'blueprint_restaurant',
     // Phase B adds staffing: staffRequired, wagePerStaff, staffedYield multiplier.
   },
+
+  // ── Storefronts (built) — consumer-facing shops whose real money is the
+  //    activeShare cut of vendor sales, so tuning is *tiered by risk*:
+  //    goods = steady floor + moderate share + low upkeep; vice = thin floor +
+  //    fat share + heavy upkeep (a busy vice den prints; an idle one bleeds).
+  //    `risk` is documentation for the console/future crime-heat weighting.
+
+  // Goods — steady, low-heat, high-value sales.
+  gun_shop: {
+    label: 'Armory', risk: 'goods', passiveFloor: 35, activeShare: 0.25, upkeep: 14, influenceProjection: 2,
+    blueprint: 'blueprint_gun_shop',
+  },
+  clinic: {
+    label: 'Clinic', risk: 'goods', passiveFloor: 40, activeShare: 0.18, upkeep: 12, influenceProjection: 2,
+    blueprint: 'blueprint_clinic',
+  },
+  chem_supply: {
+    label: 'Chem Supply', risk: 'goods', passiveFloor: 35, activeShare: 0.20, upkeep: 12, influenceProjection: 2,
+    blueprint: 'blueprint_chem_supply',
+  },
+
+  // Vice — thin floor, fat share, heavy upkeep (+ crime heat, Phase D).
+  casino: {
+    label: 'Casino', risk: 'vice', passiveFloor: 25, activeShare: 0.30, upkeep: 25, influenceProjection: 3,
+    blueprint: 'blueprint_casino',
+  },
+  fence: {
+    label: 'Fence', risk: 'vice', passiveFloor: 20, activeShare: 0.35, upkeep: 20, influenceProjection: 3,
+    blueprint: 'blueprint_fence',
+  },
+
   // ── STUBS (Phase D) — registered so the framework generalises; effects TODO. ──
   warehouse:       { label: 'Warehouse',       passiveFloor: 20, activeShare: 0,    upkeep: 8,  influenceProjection: 1, TODO: 'bulk corp storage / smuggling cut' },
   security_office: { label: 'Security Office', passiveFloor: 0,  activeShare: 0,    upkeep: 20, influenceProjection: 4, TODO: 'defense/heat reduction for nearby owned zones' },

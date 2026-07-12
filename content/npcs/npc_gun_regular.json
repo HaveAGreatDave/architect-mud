@@ -1,0 +1,71 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "emote": {
+        "action_type": "EMOTE",
+        "next": "wait",
+        "params": {
+          "message": "sights down an unloaded rifle at the far wall and nods to himself."
+        },
+        "type": "action"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "emote",
+        "seconds": 90,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Vega's the best trigger work in the district. Don't haggle her.\"",
+    "\"Groupings don't lie. People do.\""
+  ],
+  "description": "A broad-shouldered regular loitering by the firing lane, running a bore snake through a rifle he clearly doesn't need to sell.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They look away."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "(nod)",
+          "next": "bye"
+        }
+      ],
+      "text": "He barely glances up. \"New iron? Vega'll sort you.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a plate carrier over a range jacket",
+      "a moisture-wicking tee",
+      "olive boxer-briefs"
+    ],
+    "personality": "mercenary"
+  },
+  "home_activities": [],
+  "home_zone": "zone_gunshop_interior",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_gun_regular",
+  "name": "a range regular",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": null,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_gunshop_interior"
+}

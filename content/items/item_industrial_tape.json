@@ -1,0 +1,13 @@
+{
+  "description": "A fat roll of reinforced tape that has, at various times, held together vehicles, wounds and alibis.",
+  "flags": {},
+  "id": "item_industrial_tape",
+  "name": "industrial tape roll",
+  "tags": {
+    "description": "A fat roll of reinforced tape that has, at various times, held together vehicles, wounds and alibis.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 12,
+  "weight": 300
+}

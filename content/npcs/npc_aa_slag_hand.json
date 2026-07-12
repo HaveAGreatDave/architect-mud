@@ -1,0 +1,46 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "drags another belt of shells over to the gun and spits.",
+    "\"Nobody paid us for the sky. We just don't like things flying over the works.\""
+  ],
+  "description": "A Slagworks powder hand hauling belts of shells out of a scorched ready-locker, face wrapped against the smoke off the slag.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They turn back to the guns and the sky."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "...",
+          "next": "bye"
+        }
+      ],
+      "text": "They keep one eye on the sky. \"Unless you're here to help work the guns, you're in the way. Move.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "aa_crew": "aa_slag_flak",
+    "personality": "mercenary"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_891_905",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_aa_slag_hand",
+  "name": "a Slagworks powder hand",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_891_905"
+}

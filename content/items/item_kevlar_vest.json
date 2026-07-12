@@ -1,0 +1,15 @@
+{
+  "description": "A layered ballistic vest with ceramic trauma plates. Heavy, hot, and the reason you're still upright.",
+  "flags": {},
+  "id": "item_kevlar_vest",
+  "name": "kevlar vest",
+  "tags": {
+    "armor": 4,
+    "description": "A layered ballistic vest with ceramic trauma plates. Heavy, hot, and the reason you're still upright.",
+    "layer": "armor",
+    "slot": "torso"
+  },
+  "type": "armor",
+  "value": 140,
+  "weight": 2500
+}

@@ -238,6 +238,8 @@
       help: 'audio_samples row this music item plays (audio plugin).' },
     specter_program: { label: 'SPECTER Program', shape: 'flag', scope: 'class', group: 'Systems',
       help: 'The SPECTER surveillance tablet-app item (surveillance plugin).' },
+    piracy_firmware: { label: 'Pirate Firmware', shape: 'flag', scope: 'class', group: 'Systems',
+      help: 'Firmware drive `use`d to flash signal-piracy onto the tablet; then `pirate` a media deck (broadcast plugin).' },
     spy_deck: { label: 'Spy Deck', shape: 'flag', scope: 'class', group: 'Systems',
       help: 'Surveillance hub deck — reviews planted-device feeds.' },
     stackable: { label: 'Stackable (legacy)', shape: 'flag', scope: 'class', group: 'Systems',
@@ -263,6 +265,8 @@
       help: 'Suppress enemy spawns in this zone.' },
     claimable: { label: 'Claimable Territory', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Corps territory override: force this zone claimable. Absent = derived (claimable when inferred danger isn\'t safe, never apartments).' },
+    claimable_asset: { label: 'Claimable Business', shape: 'text', scope: 'zone', group: 'Zone: Law & Hazard',
+      help: 'Corporate Assets: a corp can take this storefront over with "corp asset claim". Value is the asset type key (restaurant, casino, fence, gun_shop, clinic, chem_supply). Needs a vendor NPC in the zone for the sales cut.' },
 
     is_interior: { label: 'Interior', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Indoors — weather/temperature/lighting use the interior model.' },

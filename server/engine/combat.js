@@ -377,6 +377,24 @@ export function killNpcInstance(npcId) {
   return npc;
 }
 
+// Apply a single strike to a player from a NON-melee source — an aircraft cannon
+// raking the tile, a wreck coming down on them. Rolls a body part, subtracts that
+// part's typed soak (so a kevlar vest still helps under a strafing run), writes HP,
+// and reports whether it was lethal. No to-hit and no cooldown: the caller owns the
+// hit roll and its own fire-rate gate. Lethal outcomes are left for the caller to
+// route through handlePlayerDeath.
+export async function applyStrikeToPlayer(player, { min, max, damageType = 'kinetic' }) {
+  await ensureTunables();
+  const part = rollBodyPart();
+  let damage = randInt(min, max);
+  if (part === 'head') damage = Math.floor(damage * getTunable('head_damage_multiplier', 1.5));
+  damage = Math.max(1, damage - playerPartSoak(player, part, damageType));
+  const before = player.hp ?? player.hp_max ?? 100;
+  player.hp = Math.max(0, before - damage);
+  await query('UPDATE players SET hp=$1 WHERE id=$2', [player.hp, player.id]);
+  return { damage, part, partLabel: PART_LABELS[part] || part, killed: player.hp <= 0 };
+}
+
 function resolveEnemyLoot(enemy) {
   const drops = [];
   for (const entry of enemy.loot_table) {

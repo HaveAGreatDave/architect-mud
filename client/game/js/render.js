@@ -32,6 +32,28 @@ export function appendHtml(html, cls = '') {
   return el;
 }
 
+// A transient "aircraft overhead" banner pinned to the top of the room pane. It lives
+// in #output-container (which doesn't scroll and survives room-look refreshes), fades in
+// on arrival, and auto-clears. The server already rate-limits these per zone.
+let _skyTimer = null;
+export function showSkyBanner(html) {
+  const host = document.getElementById('output-container');
+  if (!host) return;
+  let el = document.getElementById('sky-banner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sky-banner';
+    host.appendChild(el);
+  }
+  el.innerHTML = `<span class="sky-glyph">✈</span> ${html}`;
+  // Restart the entrance animation even if a prior banner is still showing.
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  clearTimeout(_skyTimer);
+  _skyTimer = setTimeout(() => el.classList.remove('show'), 7000);
+}
+
 export function appendPre(text, cls = '') {
   const el = document.createElement('pre');
   el.className = `msg msg-${cls}`;

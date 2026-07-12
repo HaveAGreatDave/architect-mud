@@ -101,6 +101,13 @@ function msg(playerId, text) {
   sendToPlayer(playerId, { type: 'output', message: text });
 }
 
+// A timed-task state line (begin / finished / interrupted). Its own message type so
+// the client can make it stand out in the bottom pane (dispatch.js `quest_task` →
+// .msg-quest-task) instead of blending into ordinary output.
+function taskMsg(playerId, text) {
+  sendToPlayer(playerId, { type: 'quest_task', message: text });
+}
+
 // Auto-GPS: point the player's minimap/bigmap at whatever zone their next
 // incomplete objective needs them at (any objective type carrying a `zone`,
 // not just 'visit' — e.g. a 'kill' objective authored with a hunting-ground
@@ -228,31 +235,51 @@ const taskKey = (playerId, questId, objIndex) => `${playerId}:${questId}:${objIn
 // completing the instant the player (or an auto-walk) arrives. Author 0 explicitly
 // to opt a specific objective back into instant completion.
 const DEFAULT_VISIT_SECONDS = 3;
-function taskSecondsFor(quest, obj) {
+// Job-board gigs read as real work — their tile actions hold ~15s by default
+// (per-objective `taskSeconds` still overrides). Passed in as `fallback` from
+// trackEvent, which knows whether the quest is board-posted (isJobBoardQuest).
+const JOBBOARD_VISIT_SECONDS = 15;
+function taskSecondsFor(quest, obj, fallback = DEFAULT_VISIT_SECONDS) {
   if (obj && obj.taskSeconds != null) return Math.max(0, Number(obj.taskSeconds) || 0);
   const m = Number(quest?.meta?.taskSeconds);
   if (m > 0) return m;
-  return DEFAULT_VISIT_SECONDS;
+  return fallback;
+}
+
+// Tear a task down and tell the player it was interrupted. Shared by the two
+// interrupt paths — leaving the zone, and doing any other action mid-task. Safe to
+// delete the current entry while iterating a Map elsewhere (JS allows it).
+function cancelTask(key, entry) {
+  clearTimeout(entry.emoteTimer);
+  clearTimeout(entry.doneTimer);
+  pendingTasks.delete(key);
+  _lastEmote.delete(key);
+  taskMsg(entry.playerId, `✖ Task interrupted: ${entry.desc}. You'll have to come back and start it over.`);
 }
 
 // Exported alongside trackEvent for regress.js only — same reasoning (nothing
 // outside the on('zone.entered', ...) subscriber below calls it in production).
 export function cancelTasksLeavingZone(playerId, zoneId) {
   for (const [key, t] of pendingTasks) {
-    if (t.playerId === playerId && t.zone === zoneId) {
-      clearTimeout(t.emoteTimer);
-      clearTimeout(t.doneTimer);
-      pendingTasks.delete(key);
-      _lastEmote.delete(key);
-    }
+    if (t.playerId === playerId && t.zone === zoneId) cancelTask(key, t);
+  }
+}
+
+// Cancel every pending task a player has (they can only ever be working one zone
+// at a time). Fired when the player does something other than wait it out.
+function cancelPlayerTasks(playerId) {
+  for (const [key, t] of pendingTasks) {
+    if (t.playerId === playerId) cancelTask(key, t);
   }
 }
 
 function scheduleTask(actor, quest, objIndex, obj, seconds) {
   const key = taskKey(actor.id, quest.id, objIndex);
   if (pendingTasks.has(key)) return; // already working it
-  const entry = { playerId: actor.id, zone: obj.zone, emoteTimer: null, doneTimer: null };
+  const entry = { playerId: actor.id, zone: obj.zone, desc: objectiveDesc(obj), emoteTimer: null, doneTimer: null };
   pendingTasks.set(key, entry);
+  // Clear start marker so the player knows the window opened and to hold still.
+  taskMsg(actor.id, `▶ Starting task: ${entry.desc} — stay here (${seconds}s). Moving or acting cancels it.`);
 
   const tickEmote = () => {
     fireObjectiveEmote(actor, obj, key); // keyed → never repeats the previous line
@@ -282,6 +309,9 @@ async function finishObjectiveTick(actor, quest, objIndex) {
   const need = obj.count || 1;
   if ((progress[objIndex] || 0) >= need) return;
   progress[objIndex] += 1;
+  // Feed the running counter into the Tablet's client-only quest activity log
+  // (the "(1/2)" step the chat "Done: …" line can't carry — it has no count).
+  sendToPlayer(actor.id, { type: 'quest_log', text: `${objectiveDesc(obj)} (${Math.min(progress[objIndex], need)}/${need})` });
 
   const done = isComplete(quest, progress);
   await query(
@@ -292,13 +322,14 @@ async function finishObjectiveTick(actor, quest, objIndex) {
   emit('quest.advanced', { actor, quest_id: quest.id, progress });
   if (done) {
     await setQuestFlag(actor, quest.id, 'completed');
-    msg(actor.id, `<span class="msg-system">Quest complete: ${quest.name}. ${await turnInHint(quest.id)}</span>`);
+    // Standout finish marker; keeps "Quest complete: <name>." verbatim so the
+    // client activity-log parser still records the completion.
+    taskMsg(actor.id, `✔ Finished: ${objectiveDesc(obj)}. Quest complete: ${quest.name}. ${await turnInHint(quest.id)}`);
     await routeToTurnIn(actor, quest.id);
     emit('quest.completed', { actor, quest_id: quest.id });
   } else {
     const next = objectives.find((o, i) => (progress[i] || 0) < (o.count || 1) && requiresMet(objectives, o, progress));
-    const parts = [`Done: ${objectiveDesc(obj)}.`, next ? `Next: ${objectiveDesc(next)}.` : `Quest updated: ${quest.name}.`];
-    msg(actor.id, `<span class="msg-system">${parts.join(' ')}</span>`);
+    taskMsg(actor.id, `✔ Finished: ${objectiveDesc(obj)}.${next ? ` Next: ${objectiveDesc(next)}.` : ` Quest updated: ${quest.name}.`}`);
     routeToObjective(actor, quest, progress);
   }
 }
@@ -329,13 +360,22 @@ export async function trackEvent(actor, predicate) {
     let changed = false;
     const before = progress.slice(); // judge gating against pre-tick state
     const justFinished = []; // objectives whose count was reached this tick (instant path only)
+    // Job-board gigs get the longer default tile-work window; look it up once per
+    // quest (only when it actually has a timed-eligible 'visit' objective).
+    let visitFallback = DEFAULT_VISIT_SECONDS;
+    if (objectives.some((o) => o.type === 'visit')) {
+      try {
+        const { isJobBoardQuest } = await import('../jobboard/index.js');
+        if (await isJobBoardQuest(quest.id)) visitFallback = JOBBOARD_VISIT_SECONDS;
+      } catch { /* jobboard plugin absent — keep the default */ }
+    }
     objectives.forEach((obj, i) => {
       const need = obj.count || 1;
       if ((progress[i] || 0) >= need) return;
       if (!requiresMet(objectives, obj, before)) return; // locked until prerequisites done
       if (!predicate(obj)) return;
 
-      const secs = obj.type === 'visit' ? taskSecondsFor(quest, obj) : 0;
+      const secs = obj.type === 'visit' ? taskSecondsFor(quest, obj, visitFallback) : 0;
       if (secs > 0) {
         scheduleTask(actor, quest, i, obj, secs); // completes later, on its own timer
         return;
@@ -354,6 +394,13 @@ export async function trackEvent(actor, predicate) {
       [JSON.stringify(progress), done ? 'completed' : 'active', actor.id, quest.id]
     );
     emit('quest.advanced', { actor, quest_id: quest.id, progress });
+    // Log each objective whose counter actually moved this tick — "(x/y)" step
+    // lines for the Tablet's client-only quest activity log (see finishObjectiveTick).
+    objectives.forEach((o, i) => {
+      if ((progress[i] || 0) === (before[i] || 0)) return;
+      const cNeed = o.count || 1;
+      sendToPlayer(actor.id, { type: 'quest_log', text: `${objectiveDesc(o)} (${Math.min(progress[i] || 0, cNeed)}/${cNeed})` });
+    });
     if (done) {
       await setQuestFlag(actor, quest.id, 'completed');
       msg(actor.id, `<span class="msg-system">Quest complete: ${quest.name}. ${await turnInHint(quest.id)}</span>`);
@@ -396,6 +443,23 @@ on('item.taken', ({ actor, item }) => {
   // item_id like 'give' — any copy counts (the auto-spawned one, or a pre-placed one).
   return trackEvent(actor, (obj) =>
     obj.type === 'retrieve' && obj.item_id && item?.item_id === obj.item_id);
+});
+
+// Doing anything other than waiting cancels an in-progress tile task. Fired for
+// every command (server/engine/commands/index.js) BEFORE it runs, so the move/act
+// that arrives on the tile never cancels the task it's about to start. A short
+// allowlist of passive info/comms/UI verbs is exempt — glancing at your tablet or
+// the room shouldn't blow the window. Movement isn't listed (it cancels), and
+// zone.entered above catches it too; the entry is gone by then, so one message.
+const NON_CANCELLING_CMDS = new Set([
+  'look', 'l', 'glance', 'exits', 'ex', 'quests', 'gigs', 'postings', 'jobboard',
+  'score', 'sc', 'stats', 'stat', 'skills', 'sk', 'inventory', 'inv', 'i',
+  'who', 'help', 'say', 'chat', 'ooc', 'whisper', 'tell', 'emote', 'time',
+  'weather', 'tablet', 'tabletnav', 'map', 'gps',
+]);
+on('player.command', ({ player, cmd }) => {
+  if (!player?.id || !cmd || NON_CANCELLING_CMDS.has(cmd)) return;
+  cancelPlayerTasks(player.id);
 });
 
 // Live-refresh any open client quest UI (Tablet OS Quests app) the moment a quest

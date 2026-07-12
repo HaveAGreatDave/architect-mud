@@ -119,11 +119,11 @@ entry; the other three are registered stubs that prove the framework generalizes
 
 | Decision | Choice |
 |---|---|
-| **Income** | **Hybrid** — a staffed asset pays a passive floor on the 24h tick; player purchases at its vendor route a share to the treasury live |
+| **Income** | **Hybrid, low-yield** — a modest passive floor on the 24h tick + a live cut of vendor sales. Phase A assets are **self-running** (no staff needed) — they make sense to run on their own |
 | **Territory** | **Independent but synergistic** — you can own an asset in a zone you don't militarily control; operating assets *project influence* for your org on the tick, feeding the `zone_control` war from the economic side |
 | **Acquisition** | **Both** — *claim* a designer-placed vacant building shell (like an HQ), or *build* by stamping a designer-authored blueprint onto a designer-marked buildable plot |
-| **Staffing** | **NPC staff you hire** — wages are the upkeep and gate the passive floor; an unstaffed asset goes dormant |
-| **Failure** | **Dormant, not destroyed** — an asset that can't pay wages/upkeep stops earning + projecting until restaffed/refunded (repossession is a later phase) |
+| **Staffing** | **Deferred to Phase B** — hiring NPC staff turns a self-running business into a higher-yield **NPC-run** one. Phase A needs no staff |
+| **Failure** | **Dormant, not destroyed** — an asset whose treasury can't cover its (low, flat) upkeep goes dormant until refunded; rarely triggered for self-running assets |
 
 ### Content-pipeline reconciliation (hard constraint)
 
@@ -142,17 +142,17 @@ for **venture economics**:
 apartments        (existing) — owner_type='org', owner_org_id set on the asset's interior zone.
                   Handles who owns it + lock/access. No change to the table.
 
-corp_assets       id, org_id, zone_id (the interior; UNIQUE), asset_type,
-                  level, staff_count, dormant, blueprint_id (NULL if claimed),
-                  vendor_id (its storefront vendor, NULL until wired), acquired_at
+org_ventures      id, org_id, zone_id (the interior; UNIQUE), asset_type,
+                  level, dormant, staff_count (0 until Phase B),
+                  blueprint_id (NULL if claimed), vendor_id (storefront vendor NPC id, NULL until wired),
+                  acquired_at
 ```
 
-> **Naming note (open):** the existing `org_assets` table already holds the invisible turret/extractor
-> *zone modifiers*. To avoid confusion, this spec calls the new building-level record `corp_assets` and
-> treats the old ones as "zone installations" in UI copy. If that overlap reads badly, the alternative
-> is `org_ventures`. Settle before schema lands.
+> **Naming (settled):** `org_ventures`, not `corp_assets` — the existing `org_assets` table already
+> holds the invisible turret/extractor *zone modifiers*, so a "venture" (a corp's operating business at
+> a location) keeps the two unambiguous. Feature stays "Corporate Assets" player-facing.
 
-All new columns/tables go into `SCHEMA_SQL` (idempotent, no boot migration). `corp_assets` is cached in
+All new columns/tables go into `SCHEMA_SQL` (idempotent, no boot migration). `org_ventures` is cached in
 `world` alongside `zoneControl`/`orgAssets`, re-synced on mutation — never a per-request DB read.
 
 ### Type registry
@@ -163,7 +163,8 @@ Modeled on the `ASSETS` object at `plugins/corps/index.js:44`, richer:
 CORP_ASSET_TYPES = {
   restaurant: {
     label, passiveFloor, activeShare (frac of sales → treasury), upkeep,
-    staffRequired, wagePerStaff, influenceProjection, blueprint: 'blueprint_restaurant'
+    influenceProjection, blueprint: 'blueprint_restaurant',
+    // Phase B adds staffing: staffRequired, wagePerStaff, staffedYield multiplier
   },
   warehouse:      { ... }   // STUB — bulk corp storage / smuggling cut
   security_office:{ ... }   // STUB — defense/heat reduction for nearby owned zones
@@ -176,22 +177,25 @@ one later is config, not architecture (rule 2).
 
 ### Mechanics
 
-- **Income (hybrid).** On the 24h tick (sibling to `runTerritoryTick`, in the corps plugin): a staffed,
-  non-dormant asset adds `passiveFloor × level − upkeep − wages` to its org's treasury. Live: a
-  `commerce` buy hook routes `activeShare` of every purchase at the asset's vendor into the treasury
-  (reusing `vendor_bank_credits` routing the corps doc already anticipates). Unvisited-but-staffed earns
-  the floor; busy earns real money.
-- **Staffing.** `staff_count` is the economic driver; `corp asset staff <hire|fire> [n]` adjusts it,
-  wages drain on the tick. `staff_count < staffRequired` → **dormant**. For life, the reference
-  restaurant renders a small capped set of flavor staff NPCs while operating (cosmetic, via the existing
-  NPC/ambient substrate) — the *count* drives economics, not spawned entities, to keep DB cost flat.
-- **Synergy (influence projection).** Each operating asset adds `influenceProjection × level` to its
-  zone's `zone_control.influence` for its org on the tick. In an *unclaimed* zone this can soft-seed
-  control at a low grip — an economic route into the territory war — kept modest so military `claim`/
-  `contest` stays primary.
-- **Failure.** Treasury can't cover wages+upkeep → asset flips `dormant` (stops earning + projecting),
-  not destroyed. Restaff/refund to revive. Long-dormant repossession is a later phase.
-- **Architect heat.** `architectHeat` already counts asset count; extend it to weigh `corp_assets`
+- **Income (hybrid, low-yield, self-running).** On the 24h tick (sibling to `runTerritoryTick`, in the
+  corps plugin): a non-dormant asset adds `passiveFloor × level − upkeep` to its org's treasury. Live: a
+  `vendor.purchase` listener routes `activeShare` of every sale at the asset's storefront vendor into the
+  treasury (the emit at `vendor.js:159` gains a `price` field — the one cross-plugin touch). Idle earns
+  the modest floor; a frequented storefront earns real money. **No staff, no wages** — Phase A assets
+  run on their own.
+- **Synergy (influence projection, Phase A).** Each operating asset adds `influenceProjection × level`
+  to its zone's `zone_control.influence` for its org on the tick. In an *unclaimed* zone this can
+  soft-seed control at a low grip — an economic route into the territory war — kept modest so military
+  `claim`/`contest` stays primary.
+- **Staffing (Phase B).** `staff_count` (column present, `0` in Phase A) becomes a yield multiplier:
+  hire NPC staff (`corp asset staff hire|fire [n]`) to turn a self-running business into a higher-yield
+  NPC-run one; wages join upkeep; a business that *requires* staff and loses them goes dormant. The
+  reference restaurant may render a small capped set of flavor staff NPCs while staffed (cosmetic; the
+  *count* drives economics, not spawned entities).
+- **Failure.** Treasury can't cover upkeep (+ wages, once Phase B) → asset flips `dormant` (stops
+  earning + projecting), not destroyed. Refund/restaff to revive. Rare for low-upkeep self-running
+  assets. Long-dormant repossession is a later phase.
+- **Architect heat.** `architectHeat` already counts asset count; extend it to weigh `org_ventures`
   (economic concentration draws the optimizer, same as territory).
 
 ### Acquisition flows
@@ -206,11 +210,13 @@ one later is config, not architecture (rule 2).
 
 ### Surfaces
 
-- **Corp console** (`buildConsolePayload`) gains an **Assets** block: per-asset type, zone, staff/req,
-  dormant flag, today's floor + live take. Pushed via the existing `pushConsole` patch.
-- **Tablet** corp-app (`plugins/tablet/corp-app.js`) gets an Assets screen reusing that payload.
-- **Dev panel**: a Corp Assets tab — the blueprint registry, "mark plot buildable," "place vacant
-  shell" tooling. This is where designers author what corps can later claim/build.
+- **Corp console** (`buildConsolePayload`) gains an **Assets** block: per-asset type, zone, dormant
+  flag, today's floor + live take (staff/req join it in Phase B). Pushed via the existing `pushConsole`
+  patch.
+- **Tablet** corp-app (`plugins/tablet/corp-app.js`) gets an Assets screen reusing that payload —
+  **in Phase A** (pulled forward so assets are manageable from the tablet from day one).
+- **Dev panel** (Phase C): a Corp Assets tab — the blueprint registry, "mark plot buildable," "place
+  vacant shell" tooling. For Phase A, `flags.claimable_asset` is set via the existing zone flag editor.
 - **Verbs**: everything routes under the existing `corp`/`org` dispatcher as `corp asset …`
   subcommands — no new top-level verbs (matches how the plugin already namespaces).
 
@@ -222,35 +228,38 @@ one later is config, not architecture (rule 2).
 
 ### Build order
 
-**Sequencing decision (settled):** build the economic engine first against interiors that already
-exist, then add a thin self-authored commercial-shell set, and let Interior Pass supersede that
-substrate whenever it lands. This puts the *risky new mechanism* (blueprint instantiation) last,
-behind the *proven* economic loop.
+**Sequencing decision (settled):** ship a complete *self-running* economic loop first (claim → income
+→ influence → surfaces), against interiors that already exist. Staffing/NPC-run businesses come next,
+then blueprints, letting the *risky new mechanism* (blueprint instantiation) land last, behind a proven
+loop. **Zero dependency on Interior Pass** for Phase A.
 
-- **Phase A — Core economic loop (claim-only, no new interiors).** `corp_assets` schema, type
-  registry, restaurant type, claim flow against **enterable zones that already exist** (apartment-style
-  units — a restaurant is mechanically an owned interior + storefront vendor + staff + income), NPC
-  staffing, hybrid income (floor tick + commerce active share), console Assets block, `regress.js`
-  loop. Ships a complete, testable loop with **zero dependency on Interior Pass**.
-- **Phase B — Commercial shells + build/blueprints.** A thin, self-authored set of "commercial unit"
-  interiors (a restaurant blueprint + a couple of claimable shells) so assets read as real buildings,
-  plus buildable plots, blueprint instantiation, and dev-panel authoring. This is the bridge; Interior
-  Pass replaces this substrate later without changing the economics above it.
-- **Phase C — Synergy & failure polish.** Influence projection into `zone_control`, Architect-heat
-  weighting, dormancy/revive, Tablet Assets screen.
-- **Phase D — The other three types.** Warehouse / security office / front office fleshed from stubs.
-  Not this effort; the framework must merely allow them.
+- **Phase A — Self-running assets + full surfacing (no staff, no new interiors).** `org_ventures`
+  schema + `world` cache, type registry, restaurant type, claim flow against **enterable zones that
+  already exist** (`flags.claimable_asset`; a self-running eatery = owned interior + storefront vendor +
+  low income), **hybrid low-yield income** (passive floor tick + live `vendor.purchase` active share),
+  **influence projection** into `zone_control`, **console + Tablet** Assets surfaces, and **one example
+  restaurant placed as content** to dogfood the walk-in→claim loop. `regress.js` covers the full loop.
+- **Phase B — Staffing & NPC-run businesses.** `staff_count` becomes a yield multiplier; hire/fire NPC
+  staff; wages join upkeep; staff-required businesses go dormant if unstaffed; optional flavor staff
+  NPCs. Higher-yield business tiers.
+- **Phase C — Build & blueprints.** A thin self-authored set of "commercial unit" interiors + buildable
+  plots + blueprint instantiation + dev-panel authoring. Interior Pass later supersedes this substrate
+  without changing the economics above it.
+- **Phase D — Remaining types + polish.** Warehouse / security office / front office fleshed from stubs;
+  Architect-heat weighting refinement; long-dormant repossession. The framework must merely allow them.
 
 ### Testing
 
-`plugins/corps/regress.js` gains an asset loop: claim → hire staff → simulate a purchase (active share
-to treasury) → run the tick (floor − wages) → starve → assert dormant → restaff → assert revived.
-`npm run test:regress` is the gate before any push (per `CLAUDE.md`).
+`plugins/corps/regress.js` gains an asset loop: found corp → flag a test zone `claimable_asset` → claim
+→ assert `org_ventures` row + ownership → simulate a `vendor.purchase` at its vendor → assert active
+share hit the treasury → run the asset tick → assert floor − upkeep applied + influence projected →
+drain the treasury → tick → assert dormant → refund → assert revived. `npm run test:regress` is the
+gate before any push (per `CLAUDE.md`).
 
 ### Open questions
 
-- **Table naming** — `corp_assets` vs `org_ventures` (the `org_assets` overlap).
-- **Active-share balance** — what fraction, and does it risk unbalancing the drug/vendor economy?
-- **Soft-seed strength** — how much influence should a pure economic presence project before it
-  trivializes military claims?
-- **Staff as flavor NPCs** — cosmetic-only, or eventually assignable/kill-able (griefing surface)?
+- **Active-share balance** — starting at 20%; watch it doesn't unbalance the drug/vendor economy.
+- **Soft-seed strength** — how much influence a pure economic presence should project before it
+  trivializes military claims (starting low).
+- **Phase B staffing shape** — flavor NPCs cosmetic-only, or eventually assignable/kill-able (griefing
+  surface)?

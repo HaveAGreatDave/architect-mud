@@ -1,0 +1,13 @@
+{
+  "description": "A tin of oil, a bore snake, and a rag gone black with honest work. Keeps the thing that keeps you alive alive.",
+  "flags": {},
+  "id": "item_gun_oil_kit",
+  "name": "gun-oil & rag kit",
+  "tags": {
+    "description": "A tin of oil, a bore snake, and a rag gone black with honest work. Keeps the thing that keeps you alive alive.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 20,
+  "weight": 200
+}

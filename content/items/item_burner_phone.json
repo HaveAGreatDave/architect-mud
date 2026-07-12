@@ -1,0 +1,13 @@
+{
+  "description": "A cheap handset with a prepaid chip and no name attached. Good for exactly one bad idea.",
+  "flags": {},
+  "id": "item_burner_phone",
+  "name": "burner phone",
+  "tags": {
+    "description": "A cheap handset with a prepaid chip and no name attached. Good for exactly one bad idea.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 30,
+  "weight": 120
+}

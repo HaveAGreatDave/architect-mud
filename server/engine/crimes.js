@@ -44,6 +44,7 @@ export const CRIME_DEFAULTS = {
   reckless_endangerment: { label: 'Reckless endangerment',       stars: 3,   witness: 'any',    description: 'Crashing or ditching an aircraft into an inhabited area.' },
   manslaughter:        { label: 'Manslaughter',                  stars: 4,   witness: 'always', description: 'Killing bystanders through the reckless operation of an aircraft.' },
   jamming_signal:      { label: 'Signal jamming',                stars: 1.5, witness: 'camera', description: "Jamming a security network's transmission." },
+  broadcast_piracy:    { label: 'Broadcast piracy',             stars: 3.5, witness: 'always', description: 'Hijacking a station’s media deck and seizing its frequency — a citywide signal takeover reports itself the moment it airs.' },
   bribery_attempt:     { label: 'Attempted bribery',              stars: 0.5, witness: 'camera', description: 'Attempting to bribe an officer on camera.' },
 };
 

@@ -27,6 +27,15 @@ function plotRoute(player, destZone) {
     type: 'gps_route',
     message: `GPS locked: ${destZone.name} (${hops} stop${hops === 1 ? '' : 's'} away). Route plotted on the map.`,
     path,
+    // If the player is already auto-walking (armed), a fresh plot continues the walk
+    // on the new corridor — this is what lets an off-course auto-walker re-plot from
+    // its new position and get back on track. Harmless when not armed (the client
+    // only resumes an armed walk).
+    resumeAuto: true,
+    // Manual `gps` plots (this path only — quest/tablet routes build their own
+    // gps_route without this flag) ask the player whether to auto-walk there now.
+    // The client appends the y/n question and arms a one-shot prompt.
+    promptAutoWalk: true,
   };
 }
 
@@ -91,7 +100,7 @@ function cmdGps(args, raw, player) {
   const direct = resolveDirect(query, player);
   if (direct) return plotRoute(player, direct);
 
-  // Water tiles are invisible to GPS — they can't be a destination (Cold Channel and
+  // Water tiles are invisible to GPS — they can't be a destination (Coldwater Basin and
   // its ilk would otherwise clutter every name match), so drop them before resolving.
   const landZones = getAllZones().filter(z => !z.flags?.water);
 

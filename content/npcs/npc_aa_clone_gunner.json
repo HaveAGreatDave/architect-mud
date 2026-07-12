@@ -1,0 +1,46 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "tracks a distant contact through the optics and mutters a range to nobody.",
+    "\"Anything with wings over the vats is a target. Company policy.\""
+  ],
+  "description": "A Coldwater security gunner in vats-white armour, strapped into the Guardian battery's seat with her eyes on the sky. The clone tanks glow behind her; nothing gets to hit them on her watch.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They turn back to the guns and the sky."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "...",
+          "next": "bye"
+        }
+      ],
+      "text": "They keep one eye on the sky. \"Unless you're here to help work the guns, you're in the way. Move.\""
+    }
+  },
+  "faction": "coldwater",
+  "flags": {
+    "aa_crew": "aa_clone_guard",
+    "personality": "guard"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_918_903",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_aa_clone_gunner",
+  "name": "a Guardian battery gunner",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_918_903"
+}

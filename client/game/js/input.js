@@ -5,11 +5,20 @@ import { MARKUP_HELP_HTML, STATUS_TEMPLATE } from './markup.js';
 import { appendToWhisperLog, sendToActiveTab } from './panels/whisper.js';
 import { openMusicPlayerPanel } from './panels/musicplayer.js';
 import { isFlightSimActive } from './panels/cockpit.js';
-import { toggleAutoWalk, startAutoWalk, cancelAutoWalk } from './panels/minimap.js';
+import { isHangarBayWalkActive } from './panels/hangar-bay.js';
+import { toggleAutoWalk, startAutoWalk, cancelAutoWalk, isAutoWalkPromptPending, answerAutoWalkPrompt } from './panels/minimap.js';
 import { runMacroByName, abortMacros } from './panels/smartbar-macros.js';
 
 export function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
   const lower = cmd.toLowerCase();
+  // A pending "auto-walk there now? (y/n)" from a manual `gps` plot. y/yes sets
+  // off immediately; a plain n/no is consumed silently; anything else lets the
+  // prompt lapse and runs as a normal command.
+  if (isAutoWalkPromptPending()) {
+    if (lower === 'y' || lower === 'yes') { answerAutoWalkPrompt(true); return true; }
+    if (lower === 'n' || lower === 'no') { answerAutoWalkPrompt(false); return true; }
+    answerAutoWalkPrompt(false);
+  }
   if (lower === 'music') { openMusicPlayerPanel(); return true; }
   // `echo <text>` prints a local line — never sent to the server. Handy on its
   // own and the same verb macros use to surface information.
@@ -96,6 +105,9 @@ export function initInput({ saveOrigin, notify } = {}) {
     // The flight sim owns the keyboard (A/Z throttle, Q/E/S views, R/F flaps, …) — don't
     // yank focus into the command box on those single-key presses.
     if (isFlightSimActive()) return;
+    // The hangar walk-around inspect owns W/A/S/D (its own free camera) — don't steal
+    // focus into the command box, or its keydown handler bails on the focused input.
+    if (isHangarBayWalkActive()) return;
     // WASD keyboard movement owns the keys while armed — don't pull focus into
     // the command box (the window-capture handler in main.js drives movement).
     if (state.wasdMove) return;

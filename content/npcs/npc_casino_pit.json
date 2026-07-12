@@ -1,0 +1,163 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "chat": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "wait",
+        "type": "action"
+      },
+      "look": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "wait",
+        "ifTrue": "chat",
+        "type": "condition"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "look",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"The house doesn't cheat. It doesn't have to.\"",
+    "\"Drinks are free. That should tell you something.\"",
+    "\"Everyone leaves eventually. Question is how light.\""
+  ],
+  "description": "A composed woman in a croupier's jacket who watches the room the way a cat watches a drain. Her hands never stop moving; her eyes never start.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They turn back to the counter."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Let me see the stock.",
+          "next": "shop"
+        },
+        {
+          "label": "(walk off)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Evening. Buy in, buy a drink, or admire the carpet — all three pay the house.\""
+    },
+    "shop": {
+      "actions": [
+        {
+          "action": "OPEN_SHOP",
+          "npcId": "npc_casino_pit"
+        }
+      ],
+      "options": [
+        {
+          "label": "(browse)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Take a look. Cash only, no refunds, no tears.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a red-trimmed croupier's jacket",
+      "a pressed collar blouse",
+      "a satin bra and panties"
+    ],
+    "personality": "dealer"
+  },
+  "home_activities": [],
+  "home_zone": "zone_casino_interior",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_casino_pit",
+  "name": "Delphine 'The Rake' Marchetti",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_rail_highball",
+      "price": 11,
+      "stock": 40
+    },
+    {
+      "item_id": "item_synth_champagne",
+      "price": 28,
+      "stock": 15
+    },
+    {
+      "item_id": "item_casino_chip",
+      "price": 35,
+      "stock": 200
+    },
+    {
+      "item_id": "item_gold_cigarillo",
+      "price": 17,
+      "stock": 30
+    },
+    {
+      "item_id": "item_lucky_charm",
+      "price": 56,
+      "stock": 6
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "The Neon Vig",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_casino_interior"
+}

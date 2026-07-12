@@ -1594,6 +1594,14 @@ export function registerWeatherField(fn)          { sampleField = fn; }
 export function registerWeatherFieldSnapshot(fn)  { weatherFieldSnapshot = fn; }
 export function registerWeatherFieldAdvance(fn)   { advanceWeatherField = fn; }
 
+// Public read of the weather field (moving cloud/precip/storm cells + map bounds),
+// for callers that project it themselves — e.g. the flight sim renders these cells
+// as the actual clouds/rain out the canopy and advects them client-side. Empty when
+// the field plugin isn't wired.
+export function getWeatherFieldSnapshot() {
+  return weatherFieldSnapshot ? weatherFieldSnapshot() : { bounds: null, systems: [] };
+}
+
 // Named-event lifecycle (step 7): the weather plugin owns the events; the engine
 // drives them. weatherEventStep() is called on the 30s tick and returns announce
 // lines to broadcast; weatherEventTrigger(type) starts one on demand (dev tool).

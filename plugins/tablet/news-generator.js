@@ -73,12 +73,16 @@ async function loadBanks() {
   if (_banks && Date.now() - _banksAt < BANK_TTL_MS) return _banks;
   const [zone, person, org, drug] = await Promise.all([
     // District/street tiles only — outdoor zones + named streets (flags.artery),
-    // never apartment units / hallways / utility rooms (flags.is_interior). A
-    // name-guard mops up the few residual "Unit 101"s that lack the flag, so
-    // headlines name a place ("the Slagworks") not a stairwell.
+    // never interiors (flags.is_interior) NOR building tiles themselves
+    // (flags.is_building — a storefront tile named for its shop, e.g. "Ampersand
+    // Electronics", reads as a business, not a place). Name-guards mop up the
+    // residual "Unit 101"s and any sub-zone named for a floor/roof/lobby, so
+    // headlines name a place ("the Slagworks") not a stairwell or a shop.
     names(`SELECT name FROM zones
-             WHERE (COALESCE(flags->>'is_interior','') <> 'true' OR COALESCE(flags->>'artery','') = 'true')
+             WHERE COALESCE(flags->>'is_building','') <> 'true'
+               AND (COALESCE(flags->>'is_interior','') <> 'true' OR COALESCE(flags->>'artery','') = 'true')
                AND name !~* '^unit\\s'
+               AND name !~* '(roof|lobby|mezzanine|stairwell|basement|interior|ground floor| floor$)'
              ORDER BY name LIMIT 300`, FALLBACK.zone),
     names(`SELECT name FROM npcs WHERE name IS NOT NULL LIMIT 200`, FALLBACK.person),
     names(`SELECT name FROM orgs WHERE name IS NOT NULL LIMIT 100`, FALLBACK.org),
@@ -86,11 +90,17 @@ async function loadBanks() {
   ]);
   // Static flavour banks — no DB, pure tone.
   const object = ['toaster', 'municipal drone', 'severed antenna', 'vending machine', 'prosthetic leg', 'shopping cart',
-    'coolant barrel', 'ration brick', 'traffic bollard', 'defunct ATM', 'mannequin', 'space heater'];
+    'coolant barrel', 'ration brick', 'traffic bollard', 'defunct ATM', 'mannequin', 'space heater',
+    'parking meter', 'weather balloon', 'fire hydrant', 'billboard', 'manhole cover', 'pigeon', 'city bus',
+    'vending drone', 'commemorative statue', 'wheelie bin', 'traffic drone', 'payphone'];
   const profession = ['welder', 'data-broker', 'gutter-medic', 'ration clerk', 'drone wrangler', 'debt collector',
-    'street preacher', 'scrap diver', 'noodle vendor', 'off-books electrician'];
-  const verb = ['arguing with', 'proposing marriage to', 'attempting to eat', 'worshipping', 'selling counterfeit',
-    'fistfighting', 'unionising', 'live-streaming', 'performing surgery on'];
+    'street preacher', 'scrap diver', 'noodle vendor', 'off-books electrician',
+    'zoning inspector', 'toll clerk', 'sewer diver', 'crossing guard', 'meter reader', 'city planner',
+    'parking enforcer', 'sanitation chief', 'permit clerk'];
+  const verb = ['arguing with', 'proposing marriage to', 'attempting to eat', 'worshipping', 'trying to fence',
+    'fistfighting', 'unionising with', 'live-streaming', 'performing surgery on',
+    'filing paperwork against', 'holding a vigil for', 'declaring war on', 'auctioning off', 'formally blessing',
+    'quietly bribing', 'demanding an apology from'];
   const outlet = ['The Coldwater Crier', 'Static Weekly', 'The Grid Gazette', 'Slag & Ash Report', 'The Daily Rust'];
   _banks = { zone, person, org, drug, object, profession, verb, outlet };
   _banksAt = Date.now();
@@ -114,6 +124,33 @@ const TABLOID = [
   '{person} Sues {org} Over a {object}, a Grudge, and "The Principle of It"',
   'City Renames {zone} to "{zone}, But Worse" Citing Honesty',
   '{profession} Sets Personal Record: {number} {object}s Stolen Before Noon',
+  // Civic ticker (SimCity-esque) — the Machine, zoning, utilities, and municipal absurdity.
+  '{zone} Declares Independence at Noon, Quietly Rejoins the City by Supper',
+  'Traffic in {zone} Achieves Sentience; Demands a Seat on the Council',
+  '{org} Unveils Bold New Slogan; {number} Injured During the Unveiling',
+  'Rogue {object} Elected to Council in {zone}; Approval Rating Hits {number}%',
+  '{zone} Runs Out of {object}s; Residents Improvise, Immediately Regret It',
+  'The Machine Rules {zone} "Fine, Probably"; Residents Unconvinced',
+  '{profession} Strike Enters Day {number}; City Officials Yet to Notice',
+  'Enormous {object} Drifts Over {zone}; Weather Service Blames the Weather',
+  '{drug} Prices Crash in {zone}; {profession}s Riot Purely Out of Boredom',
+  '{org} Merges With {org2}; New Super-Entity Sues Itself by Tuesday',
+  '{zone} Wins Regional Award for "Most Improved Smell"',
+  'City Installs Gleaming New {object} in {zone}; It Is Already Missing',
+  'Water Pressure Returns to {zone} for {number} Glorious Minutes',
+  'Power Restored to {zone}; Nobody Left Awake to Enjoy It',
+  '{zone} Zoning Board Approves {object} Factory Beside the Second {object} Factory',
+  'Sinkhole in {zone} Reclassified as "Feature"; Property Values Soar',
+  '{org} Declares {drug} a Food Group; {profession}s Cautiously Optimistic',
+  'Public Transit Reaches {zone} at Last; Departs Before Anyone Boards',
+  'New {profession} Union in {zone} Disbands Over Disagreement About Snacks',
+  'Census Finds {zone} Now {number}% {object}; Officials "Comfortable With That"',
+  '{zone} Renames Every Street "Main"; Emergency Services Resign en Masse',
+  'Escaped {object} Terrorises {zone} for {number} Hours, Then Gets Bored',
+  '{org} Vows to Clean Up {zone}; Dispatches One Very Tired {profession}',
+  'Statue of {person} Unveiled in {zone}; Sold for Scrap Before the Ribbon Is Cut',
+  '{profession} Fixes {zone}’s {object} Crisis; Creates Two Fresh Ones in the Process',
+  '{zone} Holds Referendum on Whether to Keep Existing; Turnout {number}%',
 ];
 
 // Body copy for the tabloid story — the "mini story" the reader opens from a
@@ -128,16 +165,53 @@ const TABLOID_BODY = [
   'Officials confirmed the report, then confirmed they would confirm nothing further. A {profession} in {zone} called it "about right, honestly."',
   'The Machine logged the incident under "statistically inevitable" and moved on. {org} is reportedly "monetising the coverage as we speak."',
   'Reached at length, a bystander in {zone} offered a lengthy statement about a {object}, most of which cannot be printed. The rest simply said: "typical."',
+  'A committee in {zone} studied the matter for {number} minutes, then adjourned for lunch and never reconvened. {org} hailed the response as "proportionate."',
+  'Property values in {zone} were unaffected, chiefly because there were none to affect. The {object} remains at large and, by all accounts, unbothered.',
+  'The zoning board of {zone} approved the fallout retroactively, citing "vibes." A {profession} was seen nodding gravely, then leaving to file for a permit.',
+  'The Machine ran the numbers, sighed audibly through every speaker in {zone}, and reclassified the whole affair as "within tolerance." {org} took a small commission.',
 ];
 
-// Fill {slot} tokens. Repeated tokens resolve to the SAME value within one
-// headline (so "Marries Own {object} — {object} Files for Divorce" names one
-// object) — that's why templates use a numbered variant ({org2}, {zone2}) when
-// they deliberately want two DIFFERENT picks. A per-render memo keyed on the
-// exact token gives both behaviours for free.
-function fill(tpl, pick, rng) {
+// ── Casing helpers ────────────────────────────────────────────────────────────
+// Headlines are written in Title Case, but the filled-in nouns aren't: the static
+// banks (object/profession/verb) are lowercase, and DB names can be lowercase too
+// (a drug "loose cannabis", a place "the Slagworks"). Left raw, a filled headline
+// reads "…Sealed Off After 'Regrettable toaster Incident'". So the WHOLE assembled
+// headline gets one AP-style Title-Case pass (bodies stay sentence-case). Minor
+// words (a, the, of, in…) stay lowercase unless they lead the headline; acronyms
+// and proper nouns ("ATM", "Precinct 9", "LOCAL", "BREAKING") are preserved — a
+// word carrying its own inner capital, or all-caps, is left exactly as written.
+// The authored template words are already AP-style, so the pass is near-idempotent
+// on them and only corrects the injected nouns.
+const MINOR = new Set(['a', 'an', 'the', 'and', 'but', 'or', 'nor', 'for', 'of', 'to',
+  'in', 'on', 'at', 'by', 'with', 'vs', 'from', 'into', 'over', 'as', 'en']);
+
+function titleCaseWord(w, isFirst) {
+  if (!w) return w;
+  if (/[A-Z]/.test(w.slice(1)) || w === w.toUpperCase()) return w; // acronym / proper noun: leave it
+  const lower = w.toLowerCase();
+  if (!isFirst && MINOR.has(lower)) return lower;                  // "of", "with" stay down mid-title
+  return w.charAt(0).toUpperCase() + w.slice(1);
+}
+// AP-style Title Case for a whole headline: hyphen- and minor-word-aware, first
+// word always raised.
+function titleCase(phrase) {
+  let first = true;
+  return String(phrase).split(/(\s+)/).map(tok => {
+    if (/^\s*$/.test(tok)) return tok;
+    const cased = tok.split('-').map((p, i) => titleCaseWord(p, first && i === 0)).join('-');
+    first = false;
+    return cased;
+  }).join('');
+}
+
+// Build a token resolver: {slot} → value, memoised so a repeated token resolves
+// to the SAME value (so "Marries Own {object} — {object} Files for Divorce" names
+// one object). Numbered variants ({org2}, {zone2}) share a bank but dodge a
+// same-bank collision, so a feud names two different orgs. One resolver is shared
+// across a headline and its body so a slot reads the same noun in both.
+function makeResolver(pick, rng) {
   const memo = new Map();          // token → value (same token = same value)
-  const used = new Map();          // bank → Set of values already used this headline
+  const used = new Map();          // bank → Set of values already used this story
   const bankOf = (token) => token.replace(/\d+$/, ''); // {org2} → org
   const distinctPick = (bank) => {
     const seen = used.get(bank) || new Set();
@@ -146,12 +220,18 @@ function fill(tpl, pick, rng) {
     seen.add(val); used.set(bank, seen);
     return val;
   };
-  return tpl.replace(/\{(\w+)\}/g, (_, token) => {
+  return (token) => {
     if (memo.has(token)) return memo.get(token);
     const val = token === 'number' ? String(3 + Math.floor(rng() * 96)) : distinctPick(bankOf(token));
     memo.set(token, val);
     return val;
-  });
+  };
+}
+// Render a template with a resolver. Headline mode Title-Cases the whole assembled
+// line so injected lowercase nouns fit; bodies render verbatim (sentence-case).
+function render(tpl, resolve, { headline = false } = {}) {
+  const out = tpl.replace(/\{(\w+)\}/g, (_, token) => resolve(token));
+  return headline ? titleCase(out) : out;
 }
 
 async function tabloidStories(count) {
@@ -169,10 +249,13 @@ async function tabloidStories(count) {
   const out = [];
   for (const idx of order) {
     if (out.length >= count) break;
-    // Fill headline + body TOGETHER (joined on a sentinel) through one fill()
-    // call so a shared slot resolves to the same value in both, then split.
+    // One resolver shared across headline + body so a slot resolves to the same
+    // value in both. Headline mode Title-Cases the common nouns; the body renders
+    // sentence-case. Draw the body template first to preserve the seeded RNG order.
     const bodyTpl = TABLOID_BODY[Math.floor(rng() * TABLOID_BODY.length)];
-    const [headline, body] = fill(`${TABLOID[idx]}␞${bodyTpl}`, pick, rng).split('␞');
+    const resolve = makeResolver(pick, rng);
+    const headline = render(TABLOID[idx], resolve, { headline: true });
+    const body = render(bodyTpl, resolve);
     out.push({ headline, body, byline: outlet(), tag: 'tabloid' });
   }
   return out;

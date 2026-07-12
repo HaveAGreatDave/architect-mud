@@ -5,7 +5,7 @@ function compileBsm(text) {
   const lines = text.split('\n');
   let i = 0;
 
-  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '', airSlots: null };
+  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '' };
   const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [] };
 
   // Pre-scan ::actors block to build alias map and actor list.
@@ -56,6 +56,7 @@ function compileBsm(text) {
   const weatherPools = {};    // pool_key → [line, …]  (only meaningful for @type weather AND @type sports — both use ::lines pools)
   const teams = [];           // team names from ::teams block  (only meaningful for @type sports)
   const players = [];         // player names from ::players block (only meaningful for @type sports)
+  const guests = [];          // guest personas {name,title,theme} from ::guests block (only meaningful for @type talkshow)
   const messages = [];
   const rooms = [];           // zone IDs from ROOM directives (ordered, deduplicated)
   const cameraNumbers = [];   // unique CAM numbers in order of first appearance
@@ -143,12 +144,22 @@ function compileBsm(text) {
         else if (key === 'length') meta.length = parseFloat(val);
         else if (key === 'type') meta.type = val.toLowerCase();
         else if (key === 'sport') meta.sport = val.toLowerCase();               // sports: which sim to run (baseball)
-        else if (key === 'announcer') meta.announcer = val.replace(/^["']|["']$/g, ''); // sports: play-by-play voice — a name string, NOT an npc_ id
+        else if (key === 'announcer') meta.announcer = val.replace(/^["']|["']$/g, ''); // sports/news: voiceover/announcer — a name string, NOT an npc_ id
+        // news: anchor(s) and field reporter(s) — plain NAME strings, repeatable, NOT npc_ ids.
+        // First @anchor is the lead anchor ({anchor}); a second is the co-anchor ({anchor2}).
+        else if (key === 'anchor')   { const nm = val.replace(/^["']|["']$/g, ''); if (nm) meta.anchors.push(nm); }
+        else if (key === 'reporter') { const nm = val.replace(/^["']|["']$/g, ''); if (nm) meta.reporters.push(nm); }
         // sports: feature only the game(s) covering these IN-GAME hours (0–23) each day —
         // one full game, grid-snapped, at a fixed time of day. Omit ⇒ continuous (back-to-back
         // games all day). "@airtime 19" → the evening (18:00–21:00) game airs daily.
         else if (key === 'airtime') meta.airSlots = [...new Set(val.split(/[,\s]+/).map(Number).filter(n => Number.isFinite(n) && n >= 0 && n < 24).map(h => Math.floor(h / 3) % 8))];
-        else if (key === 'titlecard') meta.titlecard = val;   // weather: graphic id shown before the report
+        else if (key === 'titlecard') meta.titlecard = val;   // weather/news: graphic id shown before the report
+        else if (key === 'theme') meta.theme = val.replace(/^["']|["']$/g, '');  // news: intro theme song (audio_songs.name)
+        // talkshow: the REAL studio cast — npc_ ids, acted live on stage (unlike news/sports names).
+        // @host = desk host, @sidekick = announcer/bandleader who does the intro, @guest = the
+        // reusable guest NPC renamed each episode. All three are spawned/placed by the importer.
+        else if (key === 'sidekick') meta.sidekick = val;
+        else if (key === 'guest')    meta.guestNpc = val;
         // @actor / @alias are pre-scanned from ::actors block; skip here
       }
       i++; continue;
@@ -159,7 +170,8 @@ function compileBsm(text) {
       const assetId = ln.slice(8).trim();
       i++;
       const content = collectBlock('::endasset');
-      assets.push({ id: assetId, name: assetId, type: 'ascii', content });
+      const assetType = /^\s*<svg[\s>]/i.test(content) ? 'svg' : 'ascii';
+      assets.push({ id: assetId, name: assetId, type: assetType, content });
       continue;
     }
 
@@ -195,6 +207,22 @@ function compileBsm(text) {
       const content = collectBlock('::endplayers');
       for (const s of content.split('\n').map(t => t.trim()).filter(t => t && !t.startsWith('#'))) {
         players.push(s.replace(/^["']|["']$/g, ''));
+      }
+      continue;
+    }
+
+    // ── Talk-show guest-persona pool (::guests … ::endguests) ────────────────
+    // One persona per line: "Name | Title | theme_song | tag". Title/theme/tag optional.
+    // The talkshow runner picks one persona per episode, renames the reusable guest NPC to
+    // it, and fills {guest}/{title} tokens from it. The optional `tag` names a persona-specific
+    // answer pool (::lines interview.a.<tag>) so that guest gets signature lines in the
+    // interview, mixed with the generic answers.
+    if (ln === '::guests') {
+      i++;
+      const content = collectBlock('::endguests');
+      for (const s of content.split('\n').map(t => t.trim()).filter(t => t && !t.startsWith('#'))) {
+        const [name, title, theme, tag] = s.split('|').map(p => p.trim().replace(/^["']|["']$/g, ''));
+        if (name) guests.push({ name, title: title || '', theme: theme || '', tag: tag || '' });
       }
       continue;
     }
@@ -447,5 +475,26 @@ function compileBsm(text) {
   // broadcast never spawns a studio NPC. See docs/bsm-format.md#sports-broadcasts-type-sports.
   const sportsScript = { sport: meta.sport || 'baseball', announcer: meta.announcer, teams, players, pools: weatherPools, title: meta.titlecard || '', airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null };
 
-  return { meta, broadcastGraph: { _start: startId, nodes }, weatherScript, sportsScript, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };
+  // News broadcasts (@type news) are the weather/sports siblings: a line library (::lines
+  // pools) whose facts come from the live news generator each airing. Anchors, reporters,
+  // and the announcer are plain NAME strings spoken as narration — deliberately NOT added
+  // to npcIds, so importing a news broadcast never spawns a studio NPC.
+  // See docs/bsm-format.md#news-broadcasts-type-news.
+  const newsScript = { anchors: meta.anchors, reporters: meta.reporters, announcer: meta.announcer, pools: weatherPools, title: meta.titlecard || '', theme: meta.theme || '' };
+
+  // Talk-show broadcasts (@type talkshow) are the live-acted procedural sibling: a line
+  // library (::lines pools) + guest personas (::guests), assembled into a fresh episode
+  // each night. Unlike news/sports, the cast (host + sidekick) and the renamed guest are
+  // REAL npc_ ids acted on stage — so they ARE added to npcIds and the importer spawns/places
+  // them. See docs/bsm-format.md#talk-show-broadcasts-type-talkshow.
+  const talkshowScript = {
+    host: meta.host || '', sidekick: meta.sidekick || '', guestNpc: meta.guestNpc || '',
+    guests, pools: weatherPools, title: meta.titlecard || '', theme: meta.theme || '',
+    airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null,
+  };
+  if (meta.type === 'talkshow') {
+    for (const id of [meta.host, meta.sidekick, meta.guestNpc]) if (id) npcIds.add(id);
+  }
+
+  return { meta, broadcastGraph: { _start: startId, nodes }, weatherScript, sportsScript, newsScript, talkshowScript, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };
 }

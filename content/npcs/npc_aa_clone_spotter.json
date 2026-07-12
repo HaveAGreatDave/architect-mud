@@ -1,0 +1,46 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "reads a bearing off his slate and thumbs it through to the gun.",
+    "\"Low and slow, they said. They always come in low and slow.\""
+  ],
+  "description": "A Coldwater spotter with a slate of overlapping radar returns and a headset clamped to one ear. He calls bearings to the gunner in a flat, bored monotone.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They turn back to the guns and the sky."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "...",
+          "next": "bye"
+        }
+      ],
+      "text": "They keep one eye on the sky. \"Unless you're here to help work the guns, you're in the way. Move.\""
+    }
+  },
+  "faction": "coldwater",
+  "flags": {
+    "aa_crew": "aa_clone_guard",
+    "personality": "guard"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_918_903",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_aa_clone_spotter",
+  "name": "a Guardian battery spotter",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_918_903"
+}

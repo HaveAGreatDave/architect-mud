@@ -12,14 +12,20 @@
 // openTargeting report { won } → the server resolve command decides the outcome.
 
 import { setAreaPane } from '../render.js';
+import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn, tracerFx, hitFx, lockTone, mslWarble, missileFx, flareFx } from './engine-audio.js';
-import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingHeightZ, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT } from './windshield.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFt, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
 import { sendCmdSilent } from '../net.js';
 import { hex2rgb } from './aircraft3d.js';
+
+// Touch-primary devices (phones/tablets) have no keyboard for rudder pedals, so their fin
+// auto-coordinates with the roll input; desktops (a fine pointer + keys) fly the rudder by hand
+// on the ,/. pedals. Evaluated once — the input class doesn't change mid-session.
+const _touchPrimary = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
 // Theme accent for the canvas-drawn instruments (the CSS chrome uses var(--accent)
 // directly; canvas can't, so we sample it once when the cockpit opens).
@@ -317,6 +323,7 @@ function paintWindow(id, a, s) {
   paintWindshield(id, {
     pitch: a.pitch, bank: a.roll, height: a.height ?? 0, speed: speedFrac,
     hour: s.sky?.hour, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
+    wxField: s.sky?.field, acX: a.fx, acY: a.fy,   // spatial weather cells + our world position
     // Both scenes' data are passed unconditionally (falling back to the last real values
     // once the server's own payload has moved on) — `worldBlend` above decides how much
     // of each windshield.js actually paints, not which one is available.
@@ -858,26 +865,64 @@ function ensureTakeoffStyles() {
 
 let _fsim = null;
 const lerpN = (a, b, t) => a + (b - a) * t;
+
+// ── Flaps control — per-airframe style ────────────────────────────────────────
+// The detents map evenly onto the model's 0..1 `flaps` input; only the graphic + labels
+// differ. `johnson` = a Cessna-style white wing-flaps lever (light craft); `quadrant` = an
+// airliner detented flap lever, 0/1/2/3/FULL (the heavy); `switch` = the compact 3-position
+// toggle (military/utility). A helicopter has NO flaps (the control is hidden entirely).
+const FLAP_STYLES = {
+  johnson:  { cap: 'WING FLAPS', detents: [{ v: 0, l: 'UP' }, { v: 0.33, l: '10°' }, { v: 0.67, l: '20°' }, { v: 1, l: 'FULL' }] },
+  quadrant: { cap: 'FLAPS',      detents: [{ v: 0, l: '0' }, { v: 0.25, l: '1' }, { v: 0.5, l: '2' }, { v: 0.75, l: '3' }, { v: 1, l: 'FULL' }] },
+  switch:   { cap: '',           detents: [{ v: 0, l: 'UP' }, { v: 0.5, l: '½' }, { v: 1, l: 'FULL' }] },
+};
+const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant', reaper: 'switch', carcass: 'switch', dragonfly: null };
+function flapStyleFor(craftType) {
+  const key = craftType in FLAP_BY_CRAFT ? FLAP_BY_CRAFT[craftType] : 'switch';
+  return key ? { key, ...FLAP_STYLES[key] } : null;   // null ⇒ no flaps (heli)
+}
+function buildFlapHtml(st) {
+  if (!st) return '';   // heli — no flaps control at all
+  const lbls = st.detents.map((d, i) => `<span data-fd="${i}"${i === 0 ? ' class="on"' : ''}>${d.l}</span>`).join('');
+  const dual = st.key === 'quadrant';   // the airliner quadrant reads its scale down BOTH gate rails
+  return `<div class="fsim-flap fsim-flap-${st.key}">
+    <div class="fsim-flap-body">
+      <div class="fsim-flap-scale">${lbls}</div>
+      <div class="fsim-flapsw-track" id="fsim-flapsw-track"><div class="fsim-flapsw-knob" id="fsim-flapsw-knob"></div></div>
+      ${dual ? `<div class="fsim-flap-scale right">${lbls}</div>` : ''}
+    </div>
+    ${st.cap ? `<div class="fsim-flap-cap">${st.cap}</div>` : ''}
+  </div>`;
+}
 // Air-to-air (Phase A): tighten flightsync when traffic is within this many tiles,
 // and dead-reckon a contact's position at most this long before its next relay.
 const FAST_SYNC_RANGE = 5, CONTACT_DR_MAX = 2.0;
 // Air-to-air guns (Phase B): the client's gun-solution envelope (tiles + half-cone deg),
 // the alt→world-z scale (mirrors windshield CONTACT_ALT_K) for the vertical aim term, and
 // the burst cadence while the trigger's held (the server enforces its own harder cap).
-const GUN_RANGE = 2.2, GUN_CONE = 11, GUN_ALT_K = 1 / 600, GUN_FIRE_MS = 130;
+const GUN_RANGE = 2.2, GUN_CONE = 11, GUN_ALT_K = 1 / 600, GUN_FIRE_MS = 120;   // ~8.3 rounds/s — the driving M2-Browning .50 cadence: one heavy thud + one tracer round per shot (audio, muzzle flash & tracer all fire on this cadence)
+// The FX cadence above is for feel; the *network* burst command is paced separately. The
+// server only resolves one gun burst per GUN_COOLDOWN_MS (550 air / 650 ground in
+// plugins/flight/state.js + combat.js) and drops the rest — but every dropped command still
+// spends a token in the connection's command rate-limiter (5/s, server/index.js), so sending
+// at the 120ms visual cadence drains the bucket in ~4.5s and trips the "sending commands too
+// fast" throttle. Pace the send to just above the server's burst window: FX stay at 120ms,
+// the command goes out at ~1.5/s.
+const GUN_CMD_AIR_MS = 600;      // > server A2A GUN_COOLDOWN_MS (550)
+const GUN_CMD_GROUND_MS = 700;   // > server GROUND_GUN_COOLDOWN_MS (650)
 // Air-to-air missiles (Phase C): the seeker envelope (range tiles + half-cone deg off the
 // nose), the hold-to-lock time, and the min gap between launches. Mirror the server's
 // MISSILE_* tunables in state.js — the server gate is deliberately a shade more lenient.
 const MSL_RANGE = 8, MSL_CONE = 25, MSL_LOCK_MS = 2500, MSL_FIRE_MS = 1600;
 // ── Building collision (CFIT) ─────────────────────────────────────────────────
-// The windshield draws one deterministic building per built-up tile (buildingHeightZ in
-// windshield.js is the shared source of truth); the sim collision-checks that SAME geometry
-// so flying into a tower you can see out the glass hurts. Building heights are in the render's
-// world-z units — CFIT_FT_PER_Z converts to feet AGL (matched to the contact-altitude scale,
-// 1/600, so a rooftop sits at the height a contact aircraft would show at the same z). A shallow
-// clip of the roofline is survivable damage; going deep into the structure (or hitting fast) is a
-// write-off. All four are eyeball-tuning knobs for the live pass.
-const CFIT_FT_PER_Z = 600;    // render world-z → feet AGL
+// The windshield draws one deterministic building per built-up tile from its floor count; the sim
+// collision-checks that SAME building so flying into a tower you can see out the glass hurts. The
+// shared source of truth is the FLOOR COUNT, not the render's world-z: the renderer extrudes floors
+// into a stylised world-z (bldgStretch etc.) and the camera eye-height rises as a √-compressed
+// function of altitude, so world-z can't be both visually pretty AND linear in real feet. So the
+// collision works in real feet off the floors (buildingRoofFt in windshield.js) — a shop tops out
+// ~12 ft, a 22-storey tower ~264 ft — instead of the old flat hz·600 that put a 3-storey's roof at
+// 353 ft and made you CFIT with wide-open air out the window. Shallow clip = damage; deep = write-off.
 // Building collision half-width = the SAME footprint the windshield draws (BUILDING_FOOT),
 // scaled by the live bldgFoot knob, so a plane hits a tower's visible mass — not a tiny box
 // at the tile centre. (Was a fixed 0.12 back when buildings drew as thin spikes.)
@@ -902,8 +947,8 @@ function buildingCollisionAt(F, s) {
     if (Math.abs(px - wx) > foot || Math.abs(py - wy) > foot) continue;   // outside the footprint
     const rx = Math.round(wx - mc.x + R), ry = Math.round(wy - mc.y + R);
     if (ry < 0 || ry >= map.length || rx < 0 || rx >= map[ry].length) continue;
-    const hz = buildingHeightZ(wx, wy, map[ry][rx]);
-    if (hz <= 0) continue;
+    const roofFt = buildingRoofFt(wx, wy, map[ry][rx]);   // roof altitude in real feet (floors × storey)
+    if (roofFt <= 0) continue;
     const dx = wx - px, dy = wy - py, f = dx * sinh - dy * cosh, lat = dx * cosh + dy * sinh;
     // Must be inside the renderer's own near/far visibility window — a building the windshield
     // wouldn't actually be drawing (too close under the nose, or still fading in from FAR out)
@@ -920,9 +965,9 @@ function buildingCollisionAt(F, s) {
     // to F.depPos (set at liftoff), so CFIT is untouched for any low pass elsewhere in the city.
     if (F.depPos && Math.hypot(F.pos.x - F.depPos.x, F.pos.y - F.depPos.y) < CLIMBOUT_MAX_F
         && f > 0 && f < CLIMBOUT_MAX_F && Math.abs(lat) < CLIMBOUT_LAT_IN + CLIMBOUT_LAT_OUT
-        && s.altitude < hz * CFIT_FT_PER_Z) continue;
-    const pen = hz * CFIT_FT_PER_Z - s.altitude;   // >0 ⇒ below the roofline ⇒ contact
-    if (pen > 0 && (!worst || pen > worst.pen)) worst = { pen, roofFt: hz * CFIT_FT_PER_Z };
+        && s.altitude < roofFt) continue;
+    const pen = roofFt - s.altitude;   // >0 ⇒ below the roofline ⇒ contact
+    if (pen > 0 && (!worst || pen > worst.pen)) worst = { pen, roofFt };
   }
   if (!worst) return null;
   return { severe: worst.pen >= CFIT_CRASH_PEN || s.airspeed >= (F.P?.vne || 200) * 0.6, roofFt: worst.roofFt };
@@ -1003,13 +1048,25 @@ function ensureFlightSimStyles() {
   const s = document.createElement('style'); s.id = 'fsim-styles';
   s.textContent = `
     .fsim{ display:flex; flex-direction:column; gap:6px; font-family:var(--font,monospace); --cy:var(--accent,#8fd0ff); --mg:#ff4a9a; --gr:#5fe0a0; }
-    .fsim-view{ position:relative; height:clamp(150px,26vh,300px); border-radius:8px; overflow:hidden; box-shadow:inset 0 0 0 2px #0f1c28, 0 0 12px rgba(0,0,0,.6); }
+    .fsim-view{ position:relative; height:clamp(215px,40vh,460px); border-radius:8px; overflow:hidden; box-shadow:inset 0 0 0 2px #0f1c28, 0 0 12px rgba(0,0,0,.6); }
     .fsim-lamp{ position:absolute; top:8px; left:50%; transform:translateX(-50%); font:11px/1 monospace; letter-spacing:2px; z-index:3;
       color:#ff5a5b; background:rgba(40,4,6,.7); border:1px solid #ff5a5b; border-radius:5px; padding:3px 9px; opacity:0; transition:opacity .12s; }
     /* transient action toast (flap/gear/jettison confirmations) */
     .fsim-toast{ position:absolute; top:38%; left:50%; transform:translateX(-50%); font:11px/1 monospace; letter-spacing:2px; z-index:5;
       color:var(--cy); background:rgba(6,12,18,.82); border:1px solid var(--cy); border-radius:5px; padding:4px 11px; opacity:0; transition:opacity .18s; pointer-events:none; white-space:nowrap; }
     .fsim-toast.show{ opacity:1; }
+    /* KILL FEED — big, loud confirmation stack across the top of the glass. Each kill
+       slams in, holds, then fades; the whole column is anchored top-centre above the HUD. */
+    .fsim-killfeed{ position:absolute; top:6px; left:50%; transform:translateX(-50%); z-index:9;
+      display:flex; flex-direction:column; align-items:center; gap:5px; pointer-events:none; width:max-content; max-width:92%; }
+    .fsim-kill{ font:900 clamp(15px,3.4vw,26px)/1.05 monospace; letter-spacing:2px; text-align:center; white-space:nowrap;
+      color:#5fe0a0; text-shadow:0 0 10px rgba(95,224,160,.9), 0 0 22px rgba(95,224,160,.5), 0 2px 3px rgba(0,0,0,.8);
+      background:linear-gradient(180deg, rgba(8,26,18,.92), rgba(6,16,12,.86)); border:2px solid #5fe0a0; border-radius:7px;
+      padding:6px 18px; box-shadow:0 0 18px rgba(95,224,160,.55), inset 0 0 12px rgba(95,224,160,.18);
+      animation:fsimKillIn .28s cubic-bezier(.15,1.5,.4,1) both, fsimKillOut .5s ease 2.6s forwards; }
+    .fsim-kill b{ color:#eaffef; }
+    @keyframes fsimKillIn{ 0%{ opacity:0; transform:scale(.5) translateY(-8px); } 60%{ opacity:1; transform:scale(1.12); } 100%{ opacity:1; transform:scale(1); } }
+    @keyframes fsimKillOut{ from{ opacity:1; } to{ opacity:0; transform:scale(.94); } }
     /* landing report card — big graded touchdown feedback flashed over the glass */
     .fsim-card{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(.7); z-index:8;
       display:flex; flex-direction:column; align-items:center; gap:1px; padding:12px 26px; pointer-events:none; text-align:center;
@@ -1064,13 +1121,13 @@ function ensureFlightSimStyles() {
     @keyframes fsimSeek{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.18); } }
     .fsim-reticle svg{ width:100%; height:100%; filter:drop-shadow(0 0 3px rgba(255,106,58,.6)); }
     /* glass panel row: PFD | MFD (Diamond DA42-inspired) */
-    .fsim-glass{ display:flex; gap:6px; height:clamp(150px,23vh,212px); }
+    .fsim-glass{ display:flex; gap:6px; height:clamp(138px,19vh,196px); }
     .fsim-pfd,.fsim-mfd,.fsim-gauges{ position:relative; flex:1 1 0; background:#060c12; border:1px solid #16303f; border-radius:8px; overflow:hidden;
       box-shadow:inset 0 0 10px rgba(0,0,0,.7), 0 0 0 1px rgba(95,208,255,.08); }
     .fsim-pfd{ flex:0.6 1 0; }        /* left PFD */
     .fsim-mfd{ flex:0.6 1 0; }        /* right MFD squeezed to the SAME width as the PFD */
     .fsim-gauges{ flex:2 1 0; }       /* wide centre: gauges hug its edges, the yoke rises up its middle */
-    .fsim-rightctl{ flex:0 0 140px; display:flex; gap:6px; }   /* throttle + start + flaps, to the right of the MFD */
+    .fsim-rightctl{ flex:0 0 158px; display:flex; gap:6px; }   /* throttle + start + flaps (roomier gate), to the right of the MFD */
     .fsim-pfd canvas,.fsim-mfd canvas,.fsim-gauges canvas{ width:100%; height:100%; display:block; image-rendering:pixelated; }
     .fsim-mfd-tog{ position:absolute; top:5px; right:5px; z-index:2; background:rgba(6,14,22,.8); border:1px solid var(--cy); color:var(--cy);
       border-radius:4px; font:8px monospace; padding:2px 5px; letter-spacing:1px; cursor:pointer; }
@@ -1163,27 +1220,51 @@ function ensureFlightSimStyles() {
       border:1px solid var(--cy); box-shadow:0 2px 6px rgba(0,0,0,.6), inset 0 1px 2px rgba(255,255,255,.35); }
     .fsim-thr-grip::after{ content:''; position:absolute; left:22%; right:22%; top:8px; height:4px; background:repeating-linear-gradient(90deg,#0e2130 0 2px,rgba(95,208,255,.25) 2px 4px); }
     .fsim-thr-val{ position:absolute; bottom:4px; left:0; right:0; text-align:center; font:9px monospace; color:var(--cy); }
-    .fsim-side{ flex:1 1 auto; display:flex; flex-direction:column; gap:8px; align-items:stretch; }
+    .fsim-side{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:6px; align-items:stretch; }
     /* engine master: a round accent button with a power glyph that recesses when running */
     .fsim-engbtn{ flex:0 0 auto; align-self:center; width:52px; height:52px; border-radius:50%; border:2px solid var(--cy); color:var(--cy);
       background:radial-gradient(circle at 50% 34%,#0e2230,#06121c); font-size:22px; line-height:1; cursor:pointer; user-select:none;
       display:flex; align-items:center; justify-content:center; box-shadow:0 3px 0 rgba(0,0,0,.55), 0 5px 9px rgba(0,0,0,.5); transition:transform .09s, box-shadow .09s, text-shadow .12s; }
     .fsim-engbtn:active{ transform:translateY(2px); }
     .fsim-engbtn.on{ transform:translateY(3px); box-shadow:inset 0 3px 9px rgba(0,0,0,.85); text-shadow:0 0 10px var(--cy); }
-    /* flaps: a 3-position switch (UP / ½ / FULL) — click the track to snap to a detent */
-    .fsim-flapsw{ flex:1 1 auto; display:flex; gap:7px; align-items:stretch; }
-    .fsim-flapsw-track{ position:relative; flex:0 0 20px; background:#04080c; border:1px solid #16303f; border-radius:6px; cursor:pointer; box-shadow:inset 0 0 5px #000; touch-action:none; }
-    .fsim-flapsw-knob{ position:absolute; left:2px; right:2px; height:28%; top:2%; border-radius:4px; background:linear-gradient(180deg,#d6e8f5,#7f9bb0); box-shadow:0 2px 5px rgba(0,0,0,.6); transition:top .12s; }
-    .fsim-flapsw-lbls{ flex:1 1 auto; display:flex; flex-direction:column; justify-content:space-between; font:9px monospace; letter-spacing:1px; color:#6f8698; padding:1px 0; }
-    .fsim-flapsw-lbls span.on{ color:var(--cy); text-shadow:0 0 5px var(--cy); }
-    /* elevator trim wheel — scroll or click (top = nose up, bottom = nose down) */
-    .fsim-trim{ flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:3px; margin-top:2px; }
-    .fsim-trim-cap{ font:8px monospace; letter-spacing:1px; color:#6f8698; }
-    .fsim-trim-wheel{ position:relative; width:26px; height:44px; border-radius:6px; overflow:hidden; cursor:ns-resize; touch-action:none;
-      background:linear-gradient(90deg,#03070b,#0c1620 45%,#0c1620 55%,#03070b); border:1px solid #16303f; box-shadow:inset 0 0 6px #000, 0 1px 2px rgba(255,255,255,.15); }
-    .fsim-trim-drum{ position:absolute; left:2px; right:2px; top:-50%; height:200%;
-      background:repeating-linear-gradient(0deg,#0e2130 0 3px,rgba(95,208,255,.20) 3px 4px,#24425a 4px 7px); }
-    .fsim-trim-idx{ position:absolute; left:0; right:0; top:50%; height:2px; margin-top:-1px; background:var(--cy); box-shadow:0 0 5px var(--cy); }
+    /* ── Flaps — per-airframe graphic; drag/click the gate to the nearest notch. Bigger +
+       translucent (glassy), so it reads as a real unit and ghosts nicely over the external view. ── */
+    .fsim-flap{ flex:1 1 auto; display:flex; flex-direction:column; gap:3px; min-height:0; overflow:hidden; }
+    .fsim-flap-body{ flex:1 1 auto; display:flex; gap:6px; align-items:stretch; min-height:46px; }
+    .fsim-flap-scale{ flex:0 0 auto; display:flex; flex-direction:column; justify-content:space-between; font:9.5px monospace; letter-spacing:.5px; color:#8aa0b2; padding:2px 0; }
+    .fsim-flap-scale span.on{ color:var(--cy); text-shadow:0 0 6px var(--cy); }
+    .fsim-flapsw-track{ position:relative; flex:0 0 26px; background:rgba(4,8,12,.5); border:1px solid rgba(120,150,175,.35); border-radius:6px; cursor:pointer; box-shadow:inset 0 0 6px rgba(0,0,0,.6); touch-action:none; }
+    .fsim-flapsw-knob{ position:absolute; left:3px; right:3px; height:28%; top:6%; border-radius:5px; background:linear-gradient(180deg,#d6e8f5,#7f9bb0); box-shadow:0 2px 6px rgba(0,0,0,.6); transition:top .1s; }
+    .fsim-flap-cap{ flex:0 0 auto; text-align:center; font:8.5px monospace; letter-spacing:1.5px; color:#93aabc; }
+    /* Johnson bar (Cessna / light craft) — a chunky WHITE wing-flaps lever in a smoked-glass case. */
+    .fsim-flap-johnson{ background:rgba(10,13,17,.5); border:1px solid rgba(120,140,150,.3); border-radius:7px; padding:4px 6px; -webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px); }
+    .fsim-flap-johnson .fsim-flapsw-track{ background:rgba(6,9,12,.55); border-color:rgba(120,140,150,.3); }
+    .fsim-flap-johnson .fsim-flapsw-knob{ height:32%; background:linear-gradient(180deg,#fbfbfb,#c6cacc); border:1px solid #9aa0a2; }
+    .fsim-flap-johnson .fsim-flap-cap{ color:#bcc2c6; }
+    /* Airliner quadrant (the heavy) — a dark gated lever on a translucent brushed-metal plate. */
+    .fsim-flap-quadrant{ background:linear-gradient(180deg,rgba(70,76,84,.55),rgba(30,34,40,.55)); border:1px solid rgba(150,160,170,.4); border-radius:6px; padding:4px 6px; box-shadow:inset 0 1px 0 rgba(255,255,255,.1); -webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px); }
+    .fsim-flap-quadrant .fsim-flap-body{ gap:4px; }
+    .fsim-flap-quadrant .fsim-flapsw-track{ background:rgba(8,10,12,.6); border-color:rgba(0,0,0,.6); }
+    .fsim-flap-quadrant .fsim-flapsw-knob{ height:20%; background:linear-gradient(180deg,#34393e,#101315); border:1px solid #000; box-shadow:0 2px 5px rgba(0,0,0,.7); }
+    .fsim-flap-quadrant .fsim-flap-scale{ color:#d2d6d8; }
+    .fsim-flap-quadrant .fsim-flap-cap{ color:#d2d6d8; }
+    /* elevator trim: NOSE DOWN (top) ↔ NOSE UP (bottom), a scrolling bead-chain wheel with a
+       T/O (take-off / neutral) detent and a bright position handle. drag/roll/click to set. */
+    .fsim-trim{ flex:1 1 auto; display:flex; flex-direction:column; align-items:center; gap:3px; min-height:0; }
+    .fsim-trim-end{ font:6px monospace; line-height:1.05; letter-spacing:.5px; text-align:center; opacity:.85; }
+    .fsim-trim-nd{ color:#e79364; }   /* nose-down warm */
+    .fsim-trim-nu{ color:#5fd0e0; }   /* nose-up cool */
+    .fsim-trim-wheel{ position:relative; flex:1 1 auto; width:26px; min-height:64px; border-radius:8px; overflow:hidden; cursor:ns-resize; touch-action:none;
+      background:linear-gradient(90deg,#03070b,#0c1620 45%,#0c1620 55%,#03070b); border:1px solid #16303f; box-shadow:inset 0 0 8px #000, 0 1px 2px rgba(255,255,255,.15); }
+    /* the bead chain — a vertical run of glossy beads tiled every 20px, scrolled by trim */
+    .fsim-trim-drum{ position:absolute; left:50%; margin-left:-8px; width:16px; top:-50%; height:200%; will-change:transform;
+      background-image:radial-gradient(circle at 50% 42%,#8fccff 0 4.4px,#3f86e0 4.4px 6px,rgba(60,120,220,.22) 6px 7.2px,transparent 7.2px);
+      background-size:100% 20px; background-repeat:repeat-y; filter:drop-shadow(0 0 3px rgba(95,180,255,.5)); }
+    .fsim-trim-detent{ position:absolute; left:0; right:0; top:50%; height:0; pointer-events:none; }
+    .fsim-trim-detent::before{ content:''; position:absolute; left:0; right:0; top:-1px; height:2px; background:var(--cy); box-shadow:0 0 5px var(--cy); opacity:.8; }
+    .fsim-trim-detent span{ position:absolute; left:1px; top:0; transform:translateY(-50%); font:5px monospace; letter-spacing:.3px; color:#a7bccb; background:rgba(4,10,16,.72); padding:0 1px; border-radius:1px; }
+    .fsim-trim-handle{ position:absolute; left:1px; right:1px; height:6px; margin-top:-3px; border-radius:3px; pointer-events:none; transition:top .06s linear;
+      background:linear-gradient(#f0f7ff,#9fbfe0); box-shadow:0 0 6px var(--cy),0 1px 2px rgba(0,0,0,.6); }
     .fsim-trim-val{ font:9px monospace; color:#6f8698; letter-spacing:.5px; }
     .fsim-trim-val.set{ color:var(--yellow,#ffb43a); text-shadow:0 0 5px var(--yellow,#ffb43a); }
     .fsim-tunebtn{ position:absolute; top:6px; right:8px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
@@ -1194,6 +1275,17 @@ function ensureFlightSimStyles() {
     .fsim-hidebtn{ position:absolute; top:6px; right:64px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
       border-radius:6px; width:24px; height:22px; font-size:12px; line-height:1; cursor:pointer; }
     .fsim-hidebtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
+    /* Abort button — top-left, red so it reads as an exit hatch, not a normal control. */
+    .fsim-abortbtn{ position:absolute; top:6px; left:8px; z-index:6; height:22px; padding:0 8px; border-radius:5px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer;
+      background:rgba(40,10,10,.72); border:1px solid #7a3a3a; color:#ff8a5b; }
+    .fsim-abortbtn:hover{ border-color:#ff8a5b; box-shadow:0 0 8px rgba(255,120,80,.4); }
+    .fsim-abortbtn:active{ transform:translateY(1px); }
+    .fsim-abortbtn.armed{ background:var(--warn,#ff5b5b); color:#160404; border-color:var(--warn,#ff5b5b); }
+    /* Admin-only rewind button — top-left (right of ABORT), deliberately red so it never reads as a normal control. */
+    .fsim-adminbtn{ position:absolute; top:6px; left:76px; z-index:6; width:26px; height:22px; border-radius:5px; font-size:12px; cursor:pointer;
+      background:rgba(40,10,10,.72); border:1px solid #7a3a3a; color:#ff8a5b; }
+    .fsim-adminbtn:hover{ border-color:#ff8a5b; box-shadow:0 0 8px rgba(255,120,80,.4); }
+    .fsim-adminbtn:active{ transform:translateY(1px); }
     .fsim-viewbtn{ position:absolute; top:6px; right:92px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
       border-radius:6px; height:22px; padding:0 7px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer; }
     .fsim-viewbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
@@ -1210,10 +1302,12 @@ function ensureFlightSimStyles() {
     body.fsim-external .fsim-glass{ position:absolute; left:8px; bottom:8px; width:auto; height:150px; gap:6px; z-index:6; background:transparent; }
     body.fsim-external .fsim-rightctl{ flex:0 0 auto; }
     body.fsim-external .fsim-throttle{ background:rgba(6,12,18,.34); border-color:rgba(120,150,175,.4); }
-    body.fsim-external .fsim-ctl{ position:absolute; left:0; right:0; bottom:-18px; height:120px; z-index:5; background:transparent; pointer-events:none; justify-content:center; }
+    /* Weapons/flare strip lifted clear of the throttle + trim wheel (the glass sits at bottom:8px, ~150px tall). */
+    body.fsim-external .fsim-weap{ bottom:166px; }
+    body.fsim-external .fsim-ctl{ position:absolute; left:0; right:0; bottom:18px; height:120px; z-index:5; background:transparent; pointer-events:none; justify-content:center; }
     body.fsim-external .fsim-yoke{ background:transparent; border-color:transparent; box-shadow:none; flex:0 0 300px; pointer-events:auto; }
-    /* External view: keep the yoke fully at the BOTTOM (its top edge sits at its well, so it
-       never rises up over the aircraft model), a touch bigger. */
+    /* External view: the yoke/stick sits a bit higher now (the chase cam rides the craft
+       higher/more centred, leaving room below it), a touch bigger. */
     body.fsim-external .fsim-yoke-svg{ top:2%; left:13%; width:74%; height:150%; }
     /* A couple of BIG important gauges, relocated to the bottom-right of the outside view. */
     .fsim-extg{ position:absolute; right:10px; bottom:10px; z-index:5; display:none; flex-direction:column; gap:7px; align-items:flex-end; pointer-events:none; }
@@ -1594,8 +1688,10 @@ export function openFlightSim(opts = {}) {
     engineOn: !!opts.engineOn,
     yokeDrag: false, thrDrag: false,
     viewYaw: 0, throttleKey: 0, flapIdx: 0,          // keyboard: hold-to-look yaw, A/Z throttle ramp, flap detent
-    gearRetract: !!opts.gearRetract, gearUp: false, gearAnim: 1, external: false, cargoKg: opts.cargoKg || 0,   // gear (G) + jettison (J) + external view (V) — capabilities per airframe (Mayfly: none)
+    gearRetract: !!opts.gearRetract, gearUp: false, gearAnim: 1, external: false, extZoom: 1, cargoKg: opts.cargoKg || 0,   // gear (G) + jettison (J) + external view (V) — capabilities per airframe (Mayfly: none)
+    craftType: opts.craftType,                       // airframe id (drives the reaper-only gun/stores panel)
     hardpoints: opts.hardpoints || 0, armed: false,  // weapons (gunship): master-arm + fire
+    gunCap: 1174, gunRounds: 1174,                   // GAU-8 ammo drum (cosmetic; counts down as the gun squirts)
     nightLight: false,                               // instrument panel lights (PANEL switch)
     raf: 0, last: 0, syncAcc: 0, hornBeat: 0, audioAcc: 0,
     temp: 40, battery: 100,          // cosmetic engine-temp (°C) + battery charge (%) for the gauge cluster
@@ -1607,6 +1703,8 @@ export function openFlightSim(opts = {}) {
 
     disp: { ias: 0, alt: 0, vs: 0, hdg: s.heading, rpm: 0, pitch: 0, bank: 0 },
     contacts: [],   // air-to-air traffic, refreshed by flight_contacts
+    aaSites: [],    // active ground AA emplacements (world tiles), refreshed by flight_aasites
+    fireworks: [],  // active admin fireworks bursts (world tiles + spawn time), fed by fireworks_sim
     gunSolution: null, firing: false, fireHeld: false, hull: 100, hitFlashT: 0,   // Phase B: guns + battle damage
     // Phase C: weapon select (guns ↔ missiles), the seeker lock cycle, rail count, RWR state.
     weapon: 'guns', msl: opts.hardpoints || 0, seekId: null, lockProg: 0, lockId: null, mslWarnT: 0,
@@ -1614,8 +1712,11 @@ export function openFlightSim(opts = {}) {
   };
   _fsim = F;
 
+  const flapStyle = flapStyleFor(opts.craftType);   // per-airframe flaps graphic (null = heli, hidden)
+  const isAdmin = ['admin', 'dev', 'builder', 'designer'].includes(state.myRole);
+  const adminBtn = isAdmin ? '<button class="fsim-adminbtn" id="fsim-rewindbtn" title="ADMIN — rewind to the hangar you departed, with the plane (test)">⏪</button>' : '';
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
-    <div class="fsim-view">${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div></div>
+    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div></div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -1630,13 +1731,15 @@ export function openFlightSim(opts = {}) {
         <div class="fsim-side">
           <button class="fsim-engbtn" id="fsim-eng" title="engine master">⏻</button>
           <button class="fsim-nightsw" id="fsim-nightsw" title="instrument panel lights" tabindex="-1"><span class="fsim-nightsw-led"></span>PANEL</button>
-          <div class="fsim-flapsw">
-            <div class="fsim-flapsw-track" id="fsim-flapsw-track"><div class="fsim-flapsw-knob" id="fsim-flapsw-knob"></div></div>
-            <div class="fsim-flapsw-lbls"><span class="on">UP</span><span>½</span><span>FULL</span></div>
-          </div>
-          <div class="fsim-trim" id="fsim-trim" title="ELEVATOR TRIM — mouse-wheel to roll, or click top (nose up) / bottom (nose down)">
-            <span class="fsim-trim-cap">TRIM</span>
-            <div class="fsim-trim-wheel" id="fsim-trim-wheel"><div class="fsim-trim-drum" id="fsim-trim-drum"></div><div class="fsim-trim-idx"></div></div>
+          ${buildFlapHtml(flapStyle)}
+          <div class="fsim-trim" id="fsim-trim" title="ELEVATOR TRIM — drag or roll the wheel; up = NOSE DOWN, down = NOSE UP">
+            <span class="fsim-trim-end fsim-trim-nd">NOSE<br>DOWN</span>
+            <div class="fsim-trim-wheel" id="fsim-trim-wheel">
+              <div class="fsim-trim-drum" id="fsim-trim-drum"></div>
+              <div class="fsim-trim-detent"><span>T/O</span></div>
+              <div class="fsim-trim-handle" id="fsim-trim-handle"></div>
+            </div>
+            <span class="fsim-trim-end fsim-trim-nu">NOSE<br>UP</span>
             <span class="fsim-trim-val" id="fsim-trim-val">0</span>
           </div>
         </div>
@@ -1708,6 +1811,14 @@ export function openFlightSim(opts = {}) {
     add(window, 'pointermove', (e) => { if (!F.orbitDrag) return; F.extOrbit = (F.extOrbit || 0) + (e.clientX - ox) * 0.4; ox = e.clientX; });
     add(window, 'pointerup', (e) => { if (e.button === 1) F.orbitDrag = false; });
     add(viewEl, 'auxclick', (e) => { if (e.button === 1) e.preventDefault(); });   // no middle-click autoscroll inside the view
+    // External-view zoom — mouse wheel pulls the chase camera in/out (scale on chaseBack).
+    // Down/away = zoom out (bigger back), up/toward = zoom in. Clamped so you can't clip
+    // into the model or drift so far the plane's a dot. Only live in the external chase view.
+    add(viewEl, 'wheel', (e) => {
+      if (!F.external) return;
+      e.preventDefault();
+      F.extZoom = clampNum((F.extZoom || 1) * (e.deltaY > 0 ? 1.1 : 0.9), 0.45, 2.4);
+    }, { passive: false });
   }
 
   // Aircraft placard (bottom-left): registration + owner (RENTED if none).
@@ -1723,23 +1834,44 @@ export function openFlightSim(opts = {}) {
   if (yokeSvgEl && (opts.craftType === 'reaper' || opts.craftType === 'dragonfly')) yokeSvgEl.style.transformOrigin = '50% 92%';
   renderSeats(F);
 
-  // Flaps — a 3-position switch (UP / ½ / FULL). Click the track to snap to the nearest detent.
+  // Flaps — a per-airframe lever (Cessna Johnson bar / airliner quadrant / switch), or absent
+  // on the heli. Detents map evenly onto the model's 0..1 flaps input; drag or click the gate
+  // to the nearest notch. Exposed on F so the R/F keys and any external caller can step it.
   const flapTrack = q('#fsim-flapsw-track'), flapKnob = q('#fsim-flapsw-knob');
-  const flapLbls = root.querySelectorAll('.fsim-flapsw-lbls span');
-  const FLAP_VAL = [0, 0.5, 1], FLAP_TOP = ['2%', '36%', '70%'];
-  const setFlap = (i) => { F.flapIdx = i; F.input.flaps = FLAP_VAL[i]; if (flapKnob) flapKnob.style.top = FLAP_TOP[i]; flapLbls.forEach((s2, j) => s2.classList.toggle('on', j === i)); };
-  add(flapTrack, 'pointerdown', (e) => { const r = flapTrack.getBoundingClientRect(); const f = (e.clientY - r.top) / r.height; const i = f < 0.34 ? 0 : f < 0.67 ? 1 : 2; if (FLAP_VAL[i] !== F.input.flaps) { setFlap(i); flapWhir(); } });
-  setFlap(0);
+  if (flapStyle && flapTrack) {
+    const detents = flapStyle.detents, n = detents.length;
+    const flapLbls = root.querySelectorAll('.fsim-flap-scale span');
+    const topFor = (i) => `${(4 + (i / (n - 1)) * 66).toFixed(1)}%`;   // knob top inside the gate (leaves room for the lever height at FULL)
+    const setFlap = (i) => {
+      i = clampInt(i, 0, n - 1); F.flapIdx = i; F.input.flaps = detents[i].v;
+      if (flapKnob) flapKnob.style.top = topFor(i);
+      flapLbls.forEach((s2) => s2.classList.toggle('on', +s2.dataset.fd === i));
+    };
+    const pick = (e) => { const r = flapTrack.getBoundingClientRect(); return Math.round(clampNum((e.clientY - r.top) / r.height, 0, 1) * (n - 1)); };
+    let flapDrag = false;
+    const toDetent = (i) => { if (i !== F.flapIdx) { setFlap(i); flapWhir(); } };
+    add(flapTrack, 'pointerdown', (e) => { flapDrag = true; flapTrack.setPointerCapture?.(e.pointerId); toDetent(pick(e)); });
+    add(flapTrack, 'pointermove', (e) => { if (flapDrag) toDetent(pick(e)); });
+    add(flapTrack, 'pointerup', () => { flapDrag = false; });
+    add(flapTrack, 'pointercancel', () => { flapDrag = false; });
+    F._setFlap = setFlap; F._flapN = n;
+    setFlap(0);
+  } else {
+    F.input.flaps = 0; F._flapN = 0;   // heli / no flaps — leave the input clean
+  }
 
   // Elevator trim — a console wheel that biases the yoke's neutral so you can hold an attitude
   // hands-off (trim adds to elevator in the model). Mouse-wheel to roll it; click the top half
   // for nose-up, the bottom half for nose-down. Capped well short of full deflection so it
   // assists rather than flies for you. Helis have no elevator trim — the block is hidden.
   const TRIM_STEP = 0.04, TRIM_MAX = 0.6;
-  const trimEl = q('#fsim-trim'), trimWheel = q('#fsim-trim-wheel'), trimDrum = q('#fsim-trim-drum'), trimVal = q('#fsim-trim-val');
+  const trimEl = q('#fsim-trim'), trimWheel = q('#fsim-trim-wheel'), trimDrum = q('#fsim-trim-drum'), trimVal = q('#fsim-trim-val'), trimHandle = q('#fsim-trim-handle');
   const setTrim = (t) => {
     F.input.trim = clampNum(t, -TRIM_MAX, TRIM_MAX);
-    if (trimDrum) trimDrum.style.transform = `translateY(${-F.input.trim / TRIM_MAX * 18}px)`;
+    // +trim = NOSE UP → handle rides toward the BOTTOM; −trim = NOSE DOWN → toward the top.
+    const frac = (F.input.trim + TRIM_MAX) / (2 * TRIM_MAX);          // 0 (nose down/top) .. 1 (nose up/bottom)
+    if (trimDrum) trimDrum.style.transform = `translateY(${F.input.trim / TRIM_MAX * 12}px)`;   // chain scrolls with trim
+    if (trimHandle) trimHandle.style.top = `${frac * 100}%`;
     if (trimVal) {
       const n = Math.round(F.input.trim / TRIM_STEP);
       trimVal.textContent = n === 0 ? '0' : (n > 0 ? '▲' : '▼') + Math.abs(n);
@@ -1748,8 +1880,18 @@ export function openFlightSim(opts = {}) {
   };
   if (F.heli) { if (trimEl) trimEl.style.display = 'none'; }
   else if (trimWheel) {
-    add(trimWheel, 'wheel', (e) => { e.preventDefault(); setTrim(F.input.trim + (e.deltaY < 0 ? TRIM_STEP : -TRIM_STEP)); }, { passive: false });
-    add(trimWheel, 'pointerdown', (e) => { const r = trimWheel.getBoundingClientRect(); setTrim(F.input.trim + ((e.clientY - r.top) < r.height / 2 ? TRIM_STEP : -TRIM_STEP)); });
+    // Spatially consistent everywhere: moving toward NOSE UP (down) raises trim, toward NOSE
+    // DOWN (up) lowers it. Wheel + click step; a vertical drag rolls it continuously.
+    add(trimWheel, 'wheel', (e) => { e.preventDefault(); setTrim(F.input.trim + (e.deltaY > 0 ? TRIM_STEP : -TRIM_STEP)); }, { passive: false });
+    let dragY = null, dragBase = 0, moved = false;
+    add(trimWheel, 'pointerdown', (e) => { trimWheel.setPointerCapture(e.pointerId); dragY = e.clientY; dragBase = F.input.trim; moved = false; });
+    add(trimWheel, 'pointermove', (e) => { if (dragY == null) return; const dy = e.clientY - dragY; if (Math.abs(dy) > 3) moved = true; setTrim(dragBase + dy / 60 * TRIM_MAX); });   // drag down → nose up
+    const endDrag = (e) => {
+      if (dragY != null && !moved) { const r = trimWheel.getBoundingClientRect(); setTrim(F.input.trim + ((e.clientY - r.top) < r.height / 2 ? -TRIM_STEP : TRIM_STEP)); }   // tap top = nose down, bottom = nose up
+      dragY = null;
+    };
+    add(trimWheel, 'pointerup', endDrag);
+    add(trimWheel, 'pointercancel', () => { dragY = null; });
   }
   setTrim(0);
 
@@ -1777,11 +1919,20 @@ export function openFlightSim(opts = {}) {
     const hudRoot = document.getElementById('ck-hud-root');
     if (hudRoot) hudRoot.classList.toggle('ck-looking', yaw !== 0);
   };
-  const stepFlap = (d) => { const i = clampNum(F.flapIdx + d, 0, 2); if (i !== F.flapIdx) { setFlap(i); flapWhir(); } };
+  const stepFlap = (d) => { if (!F._flapN || !F._setFlap) return; const i = clampInt(F.flapIdx + d, 0, F._flapN - 1); if (i !== F.flapIdx) { F._setFlap(i); flapWhir(); } };
   const toggleGear = () => {
     if (!F.gearRetract) { fsimToast('— FIXED GEAR —'); return; }
     F.gearUp = !F.gearUp;
     try { gearFx(F.gearUp ? 'retract' : 'extend'); } catch {}
+    // Raise the gear with weight on the wheels and she drops onto her belly: a grinding
+    // crunch, a jolt, and the mains are gone — she won't roll or take off until you put the
+    // wheels back down (or hit ABORT for a tow). Play stupid games…
+    if (F.gearUp && F.s.onGround) {
+      F.shake = 14;
+      try { groundFx('touchdownHard'); } catch {}
+      fsimToast('⚠ GEAR UP ON THE GROUND — she settles onto her belly');
+      return;
+    }
     fsimToast(F.gearUp ? 'GEAR UP' : 'GEAR DOWN');
   };
   const jettison = () => {
@@ -1802,7 +1953,7 @@ export function openFlightSim(opts = {}) {
   };
   let setExternal = () => {};   // assigned when the ◎ EXT button is wired below; V key + button share it
   let setWeapon = () => {};     // assigned in the weapons wiring below; 1/2 keys + WPN button share it
-  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'r', 'f', 'g', 'j', 'v', 'x', '1', '2', ' ', '[', ']']);
+  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'r', 'f', 'g', 'j', 'v', 'x', '1', '2', ' ', '[', ']', ',', '.']);
   const onKeyDown = (e) => {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
@@ -1816,6 +1967,9 @@ export function openFlightSim(opts = {}) {
       // so side-look is dropped; S still looks back. Fixed-wing keeps Q/E as hold-to-look.
       case 'q': if (F.heli) F.pedalKey = -1; else setView(-90); break;
       case 'e': if (F.heli) F.pedalKey = 1; else setView(90); break;
+      // Fixed-wing rudder pedals (,/. held). The heli already pedals on Q/E, so leave it alone.
+      case ',': if (!F.heli) F.pedalKey = -1; break;   // left rudder
+      case '.': if (!F.heli) F.pedalKey = 1; break;    // right rudder
       case 's': setView(180); break;
       case 'w': setView(0); break;
       case 'r': if (!e.repeat) stepFlap(1); break;
@@ -1834,7 +1988,7 @@ export function openFlightSim(opts = {}) {
   const onKeyUp = (e) => {
     const k = (e.key || '').toLowerCase();
     if (k === 'a' || k === 'z') F.throttleKey = 0;
-    else if ((k === 'q' || k === 'e') && F.heli) F.pedalKey = 0;   // release pedal → centres
+    else if (((k === 'q' || k === 'e') && F.heli) || k === ',' || k === '.') F.pedalKey = 0;   // release pedal → centres
     else if (k === 'q' || k === 'e' || k === 's') setView(0);      // release hold-to-look → forward
     else if (k === ' ') F.firing = false;                         // release trigger
   };
@@ -1848,6 +2002,10 @@ export function openFlightSim(opts = {}) {
   add(engBtn, 'click', () => {
     if (!F.engineOn) {
       F.engineOn = true; engBtn.classList.add('on');
+      // Start at IDLE — the engine coming alive must never surge the plane forward. You
+      // advance the throttle yourself to taxi up to the runway (the lever visual follows
+      // input.throttle each frame, so zeroing it here also drops the lever to idle).
+      F.input.throttle = 0; F.throttleKey = 0;
       try { spoolUp(F.cls); } catch {}
       sendCmdSilent('flightevent engineon');
     } else if (s.onGround && s.airspeed < 5) {
@@ -1953,6 +2111,35 @@ export function openFlightSim(opts = {}) {
   }));
   add(tuneBtn, 'click', () => { tunePanel.style.display = tunePanel.style.display === 'none' ? 'block' : 'none'; });
 
+  // Admin ⏪ rewind — set the plane back down at the departure hangar and reopen it (test tool).
+  // The server (airhome) parks her + disembarks; we then close the sim and open the hangar bay.
+  const rewindBtn = q('#fsim-rewindbtn');
+  if (rewindBtn) add(rewindBtn, 'click', () => {
+    sendCmdSilent('airhome');
+    fsimToast('⏪ REWIND — back to the hangar');
+    setTimeout(() => { closeFlightSim(); sendCmdSilent('hangar'); }, 450);
+  });
+
+  // Abort — bail out of the flight from anywhere. The server dispatches a recovery crew that
+  // tows the craft back to a field and bills a retrieval fee (same as an off-strip tow), then
+  // sets you on the ground. Two-tap armed so a stray click doesn't cost you credits.
+  const abortBtn = q('#fsim-abortbtn');
+  let abortArm = 0;
+  add(abortBtn, 'click', () => {
+    if (F.last - abortArm > 3000) {
+      abortArm = F.last;
+      abortBtn?.classList.add('armed');
+      fsimToast('⤫ ABORT? — tap again to bail (aircraft recovered at cost)');
+      setTimeout(() => abortBtn?.classList.remove('armed'), 3000);
+      return;
+    }
+    abortArm = 0;
+    abortBtn?.classList.remove('armed');
+    sendCmdSilent('flightevent abort');
+    fsimToast('⤫ ABORTING — recovery crew inbound');
+    setTimeout(() => { closeFlightSim(); sendCmdSilent('look'); }, 600);
+  });
+
   // Fullscreen: expand the sim over the whole output column, pushing the text log + command
   // pane down out of the way for an immersive view. Toggling it off restores the split.
   const fsBtn = q('#fsim-fsbtn');
@@ -2000,8 +2187,8 @@ export function openFlightSim(opts = {}) {
 
 // Sample the atmosphere at the aircraft from the live weather (the "wind is the foundation"
 // layer). Returns a steady-plus-gusting wind vector + a turbulence intensity, both scaled by
-// weather severity. The prevailing wind direction is derived deterministically from the hour
-// (no wind field in the world yet) so it's stable within a flight but varies across the day.
+// weather severity. The prevailing wind direction comes from the weather field (the same wind that
+// drifts the clouds/rain/storm cells), falling back to a per-hour bearing when the field is absent.
 const WX_SEV = { clear: 0, cloudy: 0.22, fog: 0.12, rain: 0.5, snow: 0.4, storm: 1.0 };
 function weatherAtmos(F, now) {
   const wx = (F.sky?.weather || 'clear').toLowerCase();
@@ -2009,7 +2196,9 @@ function weatherAtmos(F, now) {
   const t = now * 0.001;
   const gust = 1 + 0.45 * sev * Math.sin(t * 0.6) + 0.2 * sev * Math.sin(t * 1.7 + 1.1);   // slow swell over the steady wind
   const windKt = ((F.sky?.wind || 0) * 0.28 + sev * 13) * gust;   // reported windKph→kt + weather baseline
-  const windDir = (((F.sky?.hour || 12) * 17 + 40) % 360 + 360) % 360;
+  // The prevailing wind that drifts the weather cells, so the arrow points where the clouds go.
+  // Falls back to the old per-hour bearing only when the field isn't plumbed.
+  const windDir = F.sky?.field?.wind?.dir ?? ((((F.sky?.hour || 12) * 17 + 40) % 360 + 360) % 360);
   return { sev, windKt, windDir, turb: sev };
 }
 
@@ -2105,11 +2294,17 @@ function fsimFrame(now) {
   if (!F.orbitDrag && F.extOrbit) F.extOrbit = lerpN(F.extOrbit, 0, Math.min(1, dt * 3));
   // Keyboard throttle (A/Z held) ramps the lever ~2s full-sweep.
   if (F.throttleKey) input.throttle = clampNum(input.throttle + F.throttleKey * dt * 0.5, 0, 1);
-  // Heli tail-rotor pedals (Q/E held): ramp toward the held side, spring to centre on release.
-  if (F.heli) input.pedal = F.pedalKey ? clampNum(input.pedal + F.pedalKey * dt * 3, -1, 1) : lerpN(input.pedal, 0, Math.min(1, dt * 8));
+  // Pedals held: ramp toward the held side, spring to centre on release. The heli tail rotor (Q/E)
+  // yaws the nose in the flight model; on a fixed-wing (,/.) the model ignores pedal, so this only
+  // swings the rudder surface on the external view. Same ramp either way.
+  input.pedal = F.pedalKey ? clampNum(input.pedal + F.pedalKey * dt * 3, -1, 1) : lerpN(input.pedal, 0, Math.min(1, dt * 8));
+  // Belly-down: gear stowed with weight on the wheels. She's grinding on her keel — no wheels to
+  // roll on, so no thrust reaches the ground and she can't move or take off until the gear's back
+  // down (or you ABORT for a tow). This is the punishment for raising the gear parked/rolling.
+  const bellyDown = s.onGround && F.gearRetract && F.gearUp;
   // Effective throttle: the lever always moves, but there's no thrust unless the
-  // engine master switch is on and the tank isn't dry (dead stick).
-  const thr = (F.engineOn && !F.deadStick) ? input.throttle : 0;
+  // engine master switch is on and the tank isn't dry (dead stick) — and never on the belly.
+  const thr = (F.engineOn && !F.deadStick && !bellyDown) ? input.throttle : 0;
 
   // Sample the atmosphere from the live weather → wind vector + turbulence intensity.
   // (Sampled once per rendered frame and held across the fixed sub-steps below.)
@@ -2308,6 +2503,11 @@ function fsimFrame(now) {
     fuelPct: Math.round(F.fuel / (F.fuelCap || 1) * 100), battery: F.battery,
     stall: r.stalled, warn: r.stalled || s.stallMargin < 0.35, hornBeat: F.hornBeat, night: F.nightLight,
     lowNr: !!s.lowNr, vrs: !!s.vrs,   // heli: low-rotor-RPM + settling-with-power annunciators
+    // Extra panel furniture (annunciator strip · secondary bar gauges · reaper gun/stores):
+    craft: F.craftType, engineOn: F.engineOn, airborne: F.reportedAirborne, prpm: F.rpms[0] || 0,
+    gear: F.gearRetract ? (F.gearUp ? 'up' : 'down') : 'fixed',
+    hardpoints: F.hardpoints, armed: F.armed, weapon: F.weapon, msl: F.msl,
+    gunRounds: F.gunRounds, gunCap: F.gunCap,
   });
 
   // Full yoke: roll with aileron + a 3-D pull toward/away with elevator (capped so it
@@ -2433,9 +2633,16 @@ function fsimFrame(now) {
     } else if (!F.lastFireMs || now - F.lastFireMs >= GUN_FIRE_MS) {
       F.lastFireMs = now;
       F.muzzleT = now;                                  // flash + tracers show whenever the trigger's down, solution or not
-      if (solReady) sendCmdSilent(`airfire guns ${F.gunSolution.id} ${F.gunSolution.aimQuality.toFixed(2)}`);
-      else if (F.hardpoints > 0) sendCmdSilent('fire');
-      try { gunFx(); } catch {}
+      // FX every squirt for feel, but only fire the actual command at the server's burst
+      // cadence — anything faster is a server-side no-op that still burns rate-limit budget.
+      const cmdGap = solReady ? GUN_CMD_AIR_MS : GUN_CMD_GROUND_MS;
+      if (!F.lastGunCmdMs || now - F.lastGunCmdMs >= cmdGap) {
+        F.lastGunCmdMs = now;
+        if (solReady) sendCmdSilent(`airfire guns ${F.gunSolution.id} ${F.gunSolution.aimQuality.toFixed(2)}`);
+        else if (F.hardpoints > 0) sendCmdSilent('fire');
+      }
+      F.gunRounds = Math.max(0, F.gunRounds - 65);      // ~65 rounds/squirt (GAU-8 cadence) → the drum counts down
+      try { gunFx(F.external); } catch {}
     }
   }
   F.fireHeld = F.firing;   // edge detect: one missile per trigger squeeze
@@ -2470,6 +2677,8 @@ function fsimFrame(now) {
     // sqrt curve so it ramps HARD off the deck — by ~500ft you're visibly above the buildings.
     height: Math.min(1, Math.sqrt(Math.max(0, r.altitude) / 3000)), speed: clampNum(r.airspeed / (P.vne || 120), 0, 1),
     hour: F.sky?.hour, weather: F.sky?.weather, wind: F.sky?.wind, heading: d.hdg,
+    // Spatial weather cells + our absolute world position → real clouds/rain out the canopy.
+    wxField: F.sky?.field, acX: F.pos.x, acY: F.pos.y,
     map: F.map, mapCenter: F.mapCenter, phase: 'cruise', airport: F.airport, biomeBelow: F.biomeBelow,
     mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y }, travel: F.travel,
     // World-fixed runway: its origin + heading in the world, offset from the craft — so it
@@ -2487,14 +2696,38 @@ function fsimFrame(now) {
     // Phase B guns: tracers stream out whenever the trigger's held (armed, airborne,
     // gun selected) — solution or not — so you can SEE where you're shooting and walk
     // the rounds onto the bogey. A hull readout + a red battle-damage flash on a hit.
-    firing: !!(F.firing && F.armed && F.reportedAirborne && F.weapon !== 'msl'), muzzle: F.muzzleT && (now - F.muzzleT < 90),
+    firing: !!(F.firing && F.armed && F.reportedAirborne && F.weapon !== 'msl'), muzzle: F.muzzleT && (now - F.muzzleT < 60), muzzleT: F.muzzleT || 0, gunMs: GUN_FIRE_MS,
     hull: F.hull, hitFlash: F.hitFlashT ? clampNum(1 - (now - F.hitFlashT) / 400, 0, 1) : 0,
     // Incoming ground-AA tracer: bearing it's arriving from + a 0..1 progress fraction
-    // (streak animates in over AA_TRACER_MS, then clears).
+    // (volley animates in over AA_TRACER_MS, then clears). dx/dy = the firing site's live
+    // tile-offset from us (recomputed each frame so the volley stays anchored to the gun
+    // while we move) → the windshield's 3D world tracers; null falls back to the 2D streak.
     aaTracer: (F.aaTracerT && (now - F.aaTracerT) < AA_TRACER_MS)
-      ? { bearing: F.aaTracerBearing, t: (now - F.aaTracerT) / AA_TRACER_MS } : null,
+      ? { bearing: F.aaTracerBearing, t: (now - F.aaTracerT) / AA_TRACER_MS,
+          dx: F.aaTracerX != null ? F.aaTracerX - F.pos.x : null,
+          dy: F.aaTracerY != null ? F.aaTracerY - F.pos.y : null,
+          seed: F.aaTracerSeed || 1 } : null,
+    // Active ground AA emplacements as 3D world models. Server sends absolute site
+    // tiles; we resolve them to a live offset from our own smooth position each frame
+    // (same anchoring trick as the AA tracer) so the turrets sit still on the ground.
+    aaSites: (F.aaSites && F.aaSites.length && F.pos)
+      ? F.aaSites.map(s => ({ dx: s.x - F.pos.x, dy: s.y - F.pos.y, name: s.name })) : null,
+    // Admin fireworks bursts: absolute launch tiles resolved to a live offset each frame
+    // (same anchoring trick as aaSites), carrying a 0..1 life fraction so the windshield can
+    // animate each burst's expand-and-fade. Expired bursts drop out here.
+    fireworks: (F.fireworks && F.fireworks.length && F.pos)
+      ? F.fireworks.filter(b => now - b.t0 < FIREWORK_MS)
+          .map(b => ({ dx: b.x - F.pos.x, dy: b.y - F.pos.y, t: (now - b.t0) / FIREWORK_MS, rgb: b.rgb, seed: b.seed })) : null,
     // External chase view (V): draw the ship from behind with its gear, animating up/down.
-    external: F.external, cls: F.cls, livery: F.livery,
+    // Prop/rotor spin is driven by engine RPM (spooled fraction of throttle → reacts to the
+    // engine being on and to throttle, with spool lag), NOT airspeed — so she turns at idle on
+    // the ramp and winds up with the throttle instead of only spinning once she's moving.
+    external: F.external, extZoom: F.extZoom || 1, cls: F.cls, livery: F.livery, enginePct: d.rpm,
+    // Live control-surface deflection for the external chase model: ailerons/elevator/flaps
+    // swing to the pilot's own inputs (elevator folds in trim, which the flight model also adds).
+    // rudder: desktop flies it by hand on the ,/. pedals (F.input.pedal); touch devices have no
+    // keyboard, so their fin auto-coordinates — a half-throw deflection INTO the roll as you bank.
+    ctrl: F.external ? { aileron: F.input.aileron, elevator: clampNum(F.input.elevator + (F.input.trim || 0), -1, 1), flaps: F.input.flaps, rudder: clampNum((F.input.pedal || 0) + (_touchPrimary ? 0.5 * F.input.aileron : 0), -1, 1) } : null,
     gearAnim: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,   // fixed-gear craft are always down
     onGround: !!r.onGround,
   });
@@ -2654,31 +2887,84 @@ function arcGauge(ctx, cx, cy, r, frac, label, val, opts) {
   const hub = ctx.createRadialGradient(cx - 1, cy - 1, 0.4, cx, cy, 3.2);
   hub.addColorStop(0, '#d2dde6'); hub.addColorStop(1, '#39454f');
   ctx.fillStyle = hub; ctx.beginPath(); ctx.arc(cx, cy, 2.6, 0, 7); ctx.fill();
-  // Label above.
-  ctx.fillStyle = '#93a7b7'; ctx.font = '6px monospace'; ctx.textBaseline = 'alphabetic'; ctx.fillText(label, cx, cy - r - 5);
+  // Label above — font scales with the dial so a big gauge reads big.
+  const lblF = Math.max(6, Math.round(r * 0.32)), valF = Math.max(7, Math.round(r * 0.4));
+  ctx.fillStyle = '#a3b7c7'; ctx.font = `${lblF}px monospace`; ctx.textBaseline = 'alphabetic'; ctx.fillText(label, cx, cy - r - Math.max(3, r * 0.12));
   // Recessed digital read-out pill below the hub.
-  const vy = cy + r * 0.56, pw = Math.max(18, r), ph = 9, px0 = cx - pw / 2, py0 = vy - ph / 2, rr = 2;
+  const vy = cy + r * 0.56, pw = Math.max(20, r * 1.15), ph = Math.max(9, r * 0.52), px0 = cx - pw / 2, py0 = vy - ph / 2, rr = 2;
   ctx.beginPath(); ctx.moveTo(px0 + rr, py0); ctx.arcTo(px0 + pw, py0, px0 + pw, py0 + ph, rr); ctx.arcTo(px0 + pw, py0 + ph, px0, py0 + ph, rr); ctx.arcTo(px0, py0 + ph, px0, py0, rr); ctx.arcTo(px0, py0, px0 + pw, py0, rr); ctx.closePath();
   ctx.fillStyle = 'rgba(3,8,12,0.85)'; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 0.6; ctx.stroke();
-  ctx.fillStyle = opts.valcol || ACCENT; ctx.font = 'bold 7px monospace'; ctx.textBaseline = 'middle'; ctx.fillText(String(val), cx, vy + 0.5);
+  ctx.fillStyle = opts.valcol || ACCENT; ctx.font = `bold ${valF}px monospace`; ctx.textBaseline = 'middle'; ctx.fillText(String(val), cx, vy + 0.5);
 }
 
-// STALL annunciator — a red warning lamp in a matching bezel: dim when clear, pulses with
-// the horn on approach, solid + glowing in the stall.
-function stallLamp(ctx, x, y, r, g) {
-  // On a heli there's no aerodynamic stall: this bezel becomes the LOW-Nr / settling lamp.
-  const heli = g.eng === 'heli';
-  const label = heli ? (g.vrs ? 'SETTLE' : 'LO NR') : 'STALL';
-  const alarm = heli ? (g.lowNr || g.vrs) : g.stall;
-  const on = alarm ? 1 : (g.warn ? (g.hornBeat < 0.5 ? 1 : 0.28) : 0.16);
-  const face = ctx.createRadialGradient(x, y - r * 0.3, r * 0.15, x, y, r * 1.2);
-  face.addColorStop(0, '#170b0b'); face.addColorStop(1, '#05090d');
-  ctx.fillStyle = face; ctx.beginPath(); ctx.arc(x, y, r * 1.2, 0, 7); ctx.fill();
-  ctx.lineWidth = Math.max(1.4, r * 0.1); ctx.strokeStyle = 'rgba(94,62,62,0.6)'; ctx.beginPath(); ctx.arc(x, y, r * 1.2, 0, 7); ctx.stroke();
-  if (on > 0.5) { ctx.shadowColor = '#e0403a'; ctx.shadowBlur = 12; }
-  ctx.fillStyle = `rgba(224,64,58,${on})`; ctx.beginPath(); ctx.arc(x, y, r * 0.82, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(255,120,116,0.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, r * 0.82, 0, 7); ctx.stroke();
-  ctx.fillStyle = on > 0.5 ? '#fff' : '#7a3a38'; ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, x, y);
+
+// ── Extra gauge-panel furniture ──────────────────────────────────────────────
+// The engine dials only fill two narrow columns at the panel's edges; the wide bands
+// between them and the centre stick used to be dead black. These fill that space with
+// an annunciator tile grid, slim secondary bar instruments, and (reaper only) a GAU-8
+// ammo/stores block — all kept clear of the stick so they never sit under it at rest.
+function fsPill(ctx, x, y, w, h, rr) {
+  rr = Math.min(rr, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y); ctx.arcTo(x + w, y, x + w, y + h, rr); ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr); ctx.arcTo(x, y, x + w, y, rr); ctx.closePath();
+}
+// A grid of caution/annunciator lamps: dim when nominal, glowing in their alarm colour when lit.
+function annunTiles(ctx, x0, y0, x1, y1, tiles) {
+  if (!tiles.length || x1 - x0 < 30) return;
+  const cols = (x1 - x0) > 92 ? 2 : 1, rowsN = Math.ceil(tiles.length / cols), gap = 3;
+  const tw = (x1 - x0 - gap * (cols - 1)) / cols, th = Math.min(15, (y1 - y0 - gap * (rowsN - 1)) / rowsN);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  tiles.forEach((t, i) => {
+    const c = i % cols, rw = Math.floor(i / cols), x = x0 + c * (tw + gap), y = y0 + rw * (th + gap);
+    fsPill(ctx, x, y, tw, th, 3);
+    ctx.fillStyle = t.on ? t.col : 'rgba(10,16,22,0.72)'; ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = t.on ? t.col : 'rgba(70,92,110,0.4)';
+    if (t.on) { ctx.save(); ctx.shadowColor = t.col; ctx.shadowBlur = 6; ctx.stroke(); ctx.restore(); } else ctx.stroke();
+    ctx.fillStyle = t.on ? '#06121c' : 'rgba(140,165,185,0.6)';
+    ctx.font = `bold ${Math.min(8, th * 0.56)}px monospace`; ctx.fillText(t.lbl, x + tw / 2, y + th / 2 + 0.5);
+  });
+}
+// Slim bottom-anchored bar instruments (oil pressure / fuel flow / hydraulics) with a caption.
+function barCluster(ctx, x0, x1, H, items) {
+  const yTop = H * 0.16, yBot = H * 0.80, n = items.length, slot = (x1 - x0) / n, bw = Math.min(13, slot * 0.52);
+  items.forEach((it, i) => {
+    const cx = x0 + slot * (i + 0.5), h = yBot - yTop;
+    fsPill(ctx, cx - bw / 2, yTop, bw, h, 3); ctx.fillStyle = 'rgba(6,12,18,0.82)'; ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(90,120,145,0.3)'; ctx.stroke();
+    const fh = h * clampNum(it.frac, 0, 1);
+    ctx.save(); ctx.beginPath(); ctx.rect(cx - bw / 2, yBot - fh, bw, fh); ctx.clip();
+    fsPill(ctx, cx - bw / 2, yTop, bw, h, 3); ctx.fillStyle = it.col; ctx.globalAlpha = 0.9; ctx.fill(); ctx.restore();
+    ctx.fillStyle = '#8aa0b2'; ctx.font = '7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(it.lbl, cx, yBot + 3);
+  });
+}
+// Reaper-only GAU-8 gun/stores block: a rotary-odometer rounds counter + depletion bar,
+// a master-ARM lamp and the selected-weapon readout.
+function gunStores(ctx, x0, x1, yTop, yBot, g) {
+  const cx = (x0 + x1) / 2, w = Math.min(x1 - x0, 128), bx0 = cx - w / 2;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#b08a4a'; ctx.font = 'bold 8px monospace'; ctx.fillText('◈ GAU-8 · STORES', cx, yTop);
+  const ly = yTop + 12, lh = 20;
+  fsPill(ctx, bx0, ly, w, lh, 4); ctx.fillStyle = 'rgba(3,9,6,0.9)'; ctx.fill();
+  ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.stroke();
+  const rounds = Math.max(0, g.gunRounds | 0);
+  ctx.fillStyle = rounds < 200 ? '#ff5a5b' : '#ff9a38'; ctx.font = 'bold 15px monospace';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(String(rounds).padStart(4, '0'), bx0 + 7, ly + lh / 2 + 0.5);
+  ctx.fillStyle = '#6b7a5a'; ctx.font = '7px monospace'; ctx.textAlign = 'right'; ctx.fillText('RDS', bx0 + w - 6, ly + lh / 2 + 0.5);
+  const dy = ly + lh + 4, df = rounds / (g.gunCap || 1174);
+  fsPill(ctx, bx0, dy, w, 4, 2); ctx.fillStyle = 'rgba(6,12,10,0.85)'; ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.rect(bx0, dy, w * df, 4); ctx.clip();
+  fsPill(ctx, bx0, dy, w, 4, 2); ctx.fillStyle = df < 0.2 ? '#ff5a5b' : '#8de24a'; ctx.fill(); ctx.restore();
+  const ry = dy + 9, rh = 16, gp = 5, half = (w - gp) / 2, armed = !!g.armed;
+  fsPill(ctx, bx0, ry, half, rh, 3); ctx.fillStyle = armed ? '#c0392b' : 'rgba(10,16,22,0.72)'; ctx.fill();
+  ctx.lineWidth = 1; ctx.strokeStyle = armed ? '#ff5a3a' : 'rgba(70,92,110,0.4)';
+  if (armed) { ctx.save(); ctx.shadowColor = '#ff5a3a'; ctx.shadowBlur = 6; ctx.stroke(); ctx.restore(); } else ctx.stroke();
+  ctx.fillStyle = armed ? '#ffe0d0' : 'rgba(140,165,185,0.6)'; ctx.font = 'bold 9px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(armed ? '● ARM' : '○ SAFE', bx0 + half / 2, ry + rh / 2 + 0.5);
+  fsPill(ctx, bx0 + half + gp, ry, half, rh, 3); ctx.fillStyle = 'rgba(10,16,22,0.72)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(70,92,110,0.4)'; ctx.stroke();
+  ctx.fillStyle = '#8de24a'; ctx.fillText(g.weapon === 'msl' ? 'MSL ' + (g.msl || 0) : 'GUN', bx0 + half + gp + half / 2, ry + rh / 2 + 0.5);
 }
 
 function paintGauges(cv, g) {
@@ -2688,7 +2974,6 @@ function paintGauges(cv, g) {
   if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
   const ctx = cv.getContext('2d'); ctx.save(); ctx.scale(dpr, dpr);
   const W = cw, H = ch; ctx.clearRect(0, 0, W, H);
-  const colL = W * 0.12, colR = W * 0.88, vne = g.vne || 120;
   const rpms = g.rpms || [g.rpm || 0], temps = g.temps || [g.temp || 40], nEng = Math.max(1, g.engines || 1);
   // spec[2] carries the engine index (1-based; 0 = single-engine, no suffix) — the draw
   // cases below label it per powerplant (piston RPM/TEMP · turboprop TQ/ITT · jet N1/EGT).
@@ -2696,20 +2981,24 @@ function paintGauges(cv, g) {
   const tempSpec = (i) => ['temp', temps[i] || 40, nEng > 1 ? i + 1 : 0];
   const eng = g.eng || 'piston';
   const suffix = (n) => (n ? ' ' + n : '');
-  // Column layout: a single-engine craft keeps the classic Mayfly panel; twin+ splits the
-  // engines across the two edge columns (a 4-engine heavy fills both with two engines each —
-  // a real wing-by-wing cluster), with fuel + the stall lamp anchoring the column bottoms.
+  // FAT, READABLE cluster: only the primary powerplant dials + the L/R fuel pair live here now.
+  // Airspeed reads off the PFD tape and the STALL / LOW-ROTOR lamp lives over the view, so those
+  // redundant dials are dropped — which lets a single-engine craft run just TWO rows of big dials
+  // flanking the yoke (twins fill three, a 4-engine heavy five). Fuel is a proper L/R tank pair.
   let leftCol, rightCol;
   if (nEng === 1) {
-    leftCol = [rpmSpec(0), ['spd'], ['batt']];
-    rightCol = [tempSpec(0), ['fuel'], ['stall']];
+    leftCol = [rpmSpec(0), ['fuel', 'L']];
+    rightCol = [tempSpec(0), ['fuel', 'R']];
   } else {
     const half = Math.ceil(nEng / 2);
-    leftCol = []; for (let i = 0; i < half; i++) leftCol.push(rpmSpec(i), tempSpec(i)); leftCol.push(['fuel']);
-    rightCol = []; for (let i = half; i < nEng; i++) rightCol.push(rpmSpec(i), tempSpec(i)); rightCol.push(['stall']);
+    leftCol = []; for (let i = 0; i < half; i++) leftCol.push(rpmSpec(i), tempSpec(i)); leftCol.push(['fuel', 'L']);
+    rightCol = []; for (let i = half; i < nEng; i++) rightCol.push(rpmSpec(i), tempSpec(i)); rightCol.push(['fuel', 'R']);
   }
-  const rows = Math.max(3, leftCol.length, rightCol.length), chd = H / rows;
-  const r = Math.min(W * 0.088, chd * 0.40, chd * 0.5 - 6);   // last term keeps the top label off the panel edge
+  const rows = Math.max(2, leftCol.length, rightCol.length), chd = H / rows;
+  // Radius is as big as the row height allows (leaving room for the label above + read-out below)
+  // and capped by the width so a dial never crowds the yoke rising up the centre.
+  const r = Math.min(chd * 0.38, W * 0.19);
+  const col = Math.max(r * 1.28, W * 0.04), colL = col, colR = W - col;
   const yAt = (i) => (i + 0.5) * chd;
   const draw = (spec, x, y) => {
     switch (spec[0]) {
@@ -2732,14 +3021,35 @@ function paintGauges(cv, g) {
             : Math.round(spec[1]) + '°';
         arcGauge(ctx, x, y, r, tf, lbl, val, { col: tf > 0.82 ? '#ff5a5b' : tf > 0.6 ? '#ffb23e' : '#5fe0a0', marks: [{ v: 0.82, col: '#ff5a5b' }] }); break;
       }
-      case 'spd': arcGauge(ctx, x, y, r, g.ias / vne, 'SPD', Math.round(g.ias), { col: g.warn ? '#ff5a5b' : '#5fe0a0', valcol: g.warn ? '#ff5a5b' : ACCENT, marks: [{ v: g.vs0 / vne, col: '#ff5a5b' }, { v: g.vr / vne, col: '#5fe0a0' }, { v: 1, col: '#ff5a5b' }] }); break;
-      case 'batt': arcGauge(ctx, x, y, r, g.battery / 100, 'BATT', Math.round(g.battery) + '%', { col: g.battery <= 20 ? '#ff5a5b' : '#5fe0a0' }); break;
-      case 'fuel': arcGauge(ctx, x, y, r, g.fuelPct / 100, 'FUEL', g.fuelPct + '%', { col: g.fuelPct <= 15 ? '#ff5a5b' : '#ffb23e', valcol: g.fuelPct <= 15 ? '#ff5a5b' : ACCENT, marks: [{ v: 0.15, col: '#ff5a5b' }] }); break;
-      case 'stall': stallLamp(ctx, x, y, r, g); break;
+      case 'fuel': arcGauge(ctx, x, y, r, g.fuelPct / 100, 'FUEL' + (spec[1] ? ' ' + spec[1] : ''), g.fuelPct + '%', { col: g.fuelPct <= 15 ? '#ff5a5b' : '#ffb23e', valcol: g.fuelPct <= 15 ? '#ff5a5b' : ACCENT, marks: [{ v: 0.15, col: '#ff5a5b' }] }); break;
     }
   };
   leftCol.forEach((s, i) => draw(s, colL, yAt(i)));
   rightCol.forEach((s, i) => draw(s, colR, yAt(i)));
+
+  // ── Fill the dead bands between the dial columns and the centre stick ──────────
+  const dialHalf = r * 1.22, innerL = colL + dialHalf + 8, innerR = colR - dialHalf - 8;
+  const koL = W * 0.35, koR = W * 0.65;   // centre keep-out (the stick lives here at rest)
+  // Left band → secondary bar instruments (cosmetic, driven off the primary powerplant).
+  if (koL - innerL > 40) barCluster(ctx, innerL, koL, H, [
+    { lbl: 'OIL', frac: g.engineOn ? 0.5 + g.prpm * 0.45 : 0.05, col: '#5fe0a0' },
+    { lbl: 'FLOW', frac: g.engineOn ? Math.max(0.05, g.prpm) : 0, col: '#ffb23e' },
+    { lbl: 'HYD', frac: g.engineOn ? 0.68 + g.prpm * 0.28 : 0.08, col: '#5fd0ff' },
+  ]);
+  // Right band → annunciator lamps, with the reaper's GAU-8 stores block stacked above them.
+  if (innerR - koR > 40) {
+    const gun = g.craft === 'reaper' && g.hardpoints > 0;
+    const tiles = [
+      { lbl: 'GEAR', on: g.gear === 'up', col: '#ffb23e' },
+      { lbl: 'FUEL', on: g.fuelPct <= 15, col: '#ff5a5b' },
+      { lbl: 'GEN', on: g.battery < 20, col: '#ff5a5b' },
+      { lbl: 'STALL', on: !!g.stall, col: '#ff5a5b' },
+    ];
+    if (eng === 'heli') tiles.push({ lbl: 'LO NR', on: !!g.lowNr, col: '#ff5a5b' }, { lbl: 'VRS', on: !!g.vrs, col: '#ff5a5b' });
+    if (g.hardpoints > 0 && !gun) tiles.push({ lbl: 'ARM', on: !!g.armed, col: '#ff5a3a' });
+    if (gun) { gunStores(ctx, koR, innerR, H * 0.10, H * 0.52, g); annunTiles(ctx, koR, H * 0.58, innerR, H * 0.9, tiles); }
+    else annunTiles(ctx, koR, H * 0.14, innerR, H * 0.86, tiles);
+  }
   if (g.night) nightGlow(ctx, W, H);
   ctx.restore();
 }
@@ -2872,11 +3182,32 @@ export function flightSimAirHit(msg) {
   if (msg.role === 'taken') {
     F.hitFlashT = performance.now();
     if (typeof msg.hullPct === 'number') F.hull = msg.hullPct;
+    // Impact shake scaled by how hard the hit bit into the hull (msg.dmg = hull % lost) —
+    // a graze rattles, a heavy burst/missile throws the whole panel. `max` so a big jolt
+    // isn't softened by a lingering one; the frame loop decays it.
+    F.shake = Math.max(F.shake || 0, clampNum((msg.dmg ?? 8) * 0.9, 5, 28));
     if (F.toast) F.toast(`⚠ TAKING FIRE${msg.by ? ' · ' + msg.by : ''} — HULL ${msg.hullPct}%`);
     try { hitFx(); } catch {}
   } else if (msg.role === 'dealt') {
     if (F.toast) F.toast('GUNS · HITS');
   }
+}
+
+// Confirmed-kill banner: the server pushes `flight_kill` whenever this pilot cuts down a
+// target (strafe on the ground, or an air-to-air splash). We slam a big, loud entry across
+// the top of the glass so a kill reads even with the text pane hidden. Entries stack and
+// self-remove once their fade animation is done; the list is capped so a burst can't pile up.
+export function flightSimKill(msg) {
+  const F = _fsim; if (!F || !msg) return;
+  const feed = document.getElementById('fsim-killfeed'); if (!feed) return;
+  const el = document.createElement('div');
+  el.className = 'fsim-kill';
+  const name = String(msg.name || 'target').replace(/[<>]/g, '');
+  el.innerHTML = `★ KILL — <b>${name}</b>`;
+  feed.appendChild(el);
+  while (feed.childElementCount > 4) feed.removeChild(feed.firstChild);   // cap the visible stack
+  setTimeout(() => el.remove(), 3300);   // outlasts the in+hold+out CSS animation
+  try { hitFx(); } catch {}
 }
 
 // RWR / countermeasure pushes (Phase C). `lock` = someone's seeker has you; `missile` = a
@@ -2912,12 +3243,42 @@ export function flightSimAirThreat(msg) {
 
 // Incoming ground-AA tracer: purely visual, no damage here (that's the `air_hit` push if it
 // connects) — just draws where the fire is coming from so it isn't invisible/undodgeable.
-const AA_TRACER_MS = 550;
+// Carries the emplacement's world tile (msg.x/y) so the windshield can raise the volley
+// from the actual gun in 3D; 900ms gives the rounds time to visibly climb from the ground.
+const AA_TRACER_MS = 900;
 export function flightSimAaTracer(msg) {
   const F = _fsim; if (!F || !msg) return;
   F.aaTracerT = performance.now();
   F.aaTracerBearing = msg.bearing || 0;
+  F.aaTracerX = Number.isFinite(msg.x) ? msg.x : null;   // site world tile (null → screen-space fallback)
+  F.aaTracerY = Number.isFinite(msg.y) ? msg.y : null;
+  F.aaTracerSeed = Math.random() * 100;                  // stable per-volley spread pattern
   try { tracerFx(msg.near ?? 0.5); } catch {}
+}
+
+// Admin fireworks burst. The server pushes the launch tile (x,y) + colour; we stamp it with
+// receipt time and let the windshield animate the expand-and-fade over FIREWORK_MS, anchored
+// to the world tile like an AA site. The boom rides along in the payload — played here scaled
+// by our distance from the launch, so a far-off pilot hears only a faint pop.
+const FIREWORK_MS = 1700;
+export function flightSimFireworks(msg) {
+  const F = _fsim; if (!F || !msg) return;
+  if (!F.fireworks) F.fireworks = [];
+  F.fireworks.push({ x: msg.x, y: msg.y, t0: performance.now(), rgb: Array.isArray(msg.rgb) ? msg.rgb : [255, 220, 120], seed: Math.random() * 100 });
+  if (F.fireworks.length > 24) F.fireworks.splice(0, F.fireworks.length - 24);   // cap the live list
+  if (msg.sfx && F.pos) {
+    const d = Math.max(Math.abs(msg.x - F.pos.x), Math.abs(msg.y - F.pos.y));   // chebyshev tiles
+    const gain = Math.max(0, 1 - d / 40);
+    if (gain > 0.05) { try { window.AudioEngine?.playSfx(msg.sfx, gain); } catch {} }
+  }
+}
+
+// Storm lightning relayed from the server. The engine's stormTick is the single
+// strike authority; each located strike (world tile + intensity) is handed to the
+// windshield, which renders it as a 3-D bolt out the canopy when it's within view.
+export function flightSimLightning(msg) {
+  if (!msg) return;
+  pushLightningStrike(msg.gx, msg.gy, msg.intensity);
 }
 
 // Air-to-air traffic relay (Phase A: see-only). Each contact carries world position +
@@ -2927,6 +3288,14 @@ export function flightSimContacts(msg) {
   const F = _fsim; if (!F || !msg) return;
   const now = performance.now();
   F.contacts = (msg.contacts || []).map(c => ({ ...c, t: now }));
+}
+
+// Active ground AA emplacements (world tiles) for the 3D windshield. Refreshed ~1Hz —
+// the ground doesn't move, so no dead-reckon; the frame loop just re-offsets them from
+// our own smooth position each render.
+export function flightSimAASites(msg) {
+  const F = _fsim; if (!F || !msg) return;
+  F.aaSites = Array.isArray(msg.sites) ? msg.sites : [];
 }
 
 // True while the continuous cockpit owns the area pane — dispatch uses this to stop

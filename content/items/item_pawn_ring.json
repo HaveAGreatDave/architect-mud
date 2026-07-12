@@ -1,0 +1,14 @@
+{
+  "description": "A heavy signet ring, crest filed flat. Whoever it meant something to isn't coming back for it.",
+  "flags": {},
+  "id": "item_pawn_ring",
+  "name": "pawned signet ring",
+  "tags": {
+    "description": "A heavy signet ring, crest filed flat. Whoever it meant something to isn't coming back for it.",
+    "misc": true,
+    "slot": "accessory"
+  },
+  "type": "misc",
+  "value": 35,
+  "weight": 20
+}

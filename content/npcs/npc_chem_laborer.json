@@ -1,0 +1,71 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "emote": {
+        "action_type": "EMOTE",
+        "next": "wait",
+        "params": {
+          "message": "shoulders a drum onto the hand-truck with a practised grunt."
+        },
+        "type": "action"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "emote",
+        "seconds": 90,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Cash job, no names. Same as everybody in here.\"",
+    "\"Careful with the jugs, friend. That one bites.\""
+  ],
+  "description": "A day-laborer leaning on a hand-truck stacked with drums, waiting on a delivery run and the wages that come with it.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They look away."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "(nod)",
+          "next": "bye"
+        }
+      ],
+      "text": "He tips his chin at you. \"Osei's at the counter. Watch the forklift.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a paint-flecked work jacket",
+      "a sun-bleached tee",
+      "faded boxers"
+    ],
+    "personality": "unemployed"
+  },
+  "home_activities": [],
+  "home_zone": "zone_chemsupply_interior",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_chem_laborer",
+  "name": "a day-laborer",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": null,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_chemsupply_interior"
+}
