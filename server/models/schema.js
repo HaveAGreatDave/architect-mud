@@ -858,6 +858,18 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_player_count_log_time ON player_count_log(recorded_at DESC);
 
+  -- Neon free-tier usage history. Snapshotted ~daily (only while players are
+  -- online, so logging never wakes a suspended compute) to give a trend line
+  -- the Neon console won't retain on the free plan: total DB size over time,
+  -- plus the biggest tables so you can see what's growing.
+  CREATE TABLE IF NOT EXISTS neon_usage_log (
+    id          BIGSERIAL PRIMARY KEY,
+    captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    db_bytes    BIGINT NOT NULL,
+    top_tables  JSONB NOT NULL DEFAULT '[]'::jsonb
+  );
+  CREATE INDEX IF NOT EXISTS idx_neon_usage_log_time ON neon_usage_log(captured_at DESC);
+
   -- Dev Log: team heads-ups / important changes shown at check-in.
   -- kind: change | heads-up | action-required (the last needs an action, e.g. restart/migration).
   CREATE TABLE IF NOT EXISTS dev_notes (

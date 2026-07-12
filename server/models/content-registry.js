@@ -219,6 +219,7 @@ export const REGISTRY = [
   { table: 'channel_messages', class: 'runtime' },
   { table: 'server_activity_log', class: 'runtime' },
   { table: 'player_count_log', class: 'runtime' },
+  { table: 'neon_usage_log', class: 'runtime' },
   { table: 'dev_notes', class: 'runtime' },
   { table: 'dev_identities', class: 'runtime' },
   { table: 'dev_commits', class: 'runtime' },

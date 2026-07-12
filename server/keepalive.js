@@ -1,11 +1,18 @@
 /**
- * Keepalive — pings our own /health endpoint AND the database every
- * 10 minutes to prevent both Render and Supabase free tiers from
- * spinning down / pausing during active sessions.
+ * Keepalive — pings our own /health endpoint every 10 minutes to keep
+ * Render's free-tier dyno from spinning down (which would kill every open
+ * WebSocket) during active sessions.
+ *
+ * It deliberately does NOT ping the database. On Neon, an idle compute
+ * scales to zero after ~5 min and stops billing compute-hours — the whole
+ * point of the free tier. A periodic DB ping would keep the compute awake
+ * 24/7 and burn the monthly compute-hour budget for an empty server. The
+ * game loop already leaves the DB alone when no players are online, so the
+ * compute is free to suspend; the first player to arrive wakes it (see the
+ * connect-time warm-up in index.js). This ping is Render-only.
+ *
  * Only runs in production. Does nothing in dev.
  */
-import { query } from './models/db.js';
-
 export function startKeepalive() {
   if (process.env.NODE_ENV !== 'production') return;
 
@@ -19,12 +26,11 @@ export function startKeepalive() {
     : null;
 
   // Ping every 10 minutes — well within Render's 15min idle threshold.
-  // Supabase free tier pauses after 7 DAYS of no DB activity, so the
-  // same interval covers both with enormous margin.
   const INTERVAL = 10 * 60 * 1000;
 
   setInterval(async () => {
-    // Keep Render awake
+    // Keep Render awake. Hits /health, which is memory-only (no DB), so it
+    // never wakes the Neon compute.
     if (url) {
       try {
         const res = await fetch(url);
@@ -33,14 +39,7 @@ export function startKeepalive() {
         console.warn(`Keepalive (Render) ping error: ${e.message}`);
       }
     }
-
-    // Keep Supabase awake — any real query counts as activity
-    try {
-      await query('SELECT 1');
-    } catch (e) {
-      console.warn(`Keepalive (Supabase) ping error: ${e.message}`);
-    }
   }, INTERVAL);
 
-  console.log(`✓ Keepalive started (Render + Supabase, every 10min)`);
+  console.log(`✓ Keepalive started (Render /health, every 10min)`);
 }
