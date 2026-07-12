@@ -1,0 +1,26 @@
+#!/bin/sh
+# After a rebase (e.g. `git pull --rebase`): same content auto-import as
+# post-merge. Git does NOT fire post-merge on rebase pulls, which left local
+# DBs silently stale (the July 2026 district batch landed via a rebase pull
+# and 1,700+ content files never imported). $1 is "amend" or "rebase" — only
+# a rebase can bring in new upstream content files.
+#
+# Enabled via core.hooksPath scripts/git-hooks (npm run hooks:install).
+
+[ "$1" = "rebase" ] || exit 0
+
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+cd "$root" || exit 0
+
+if git diff --name-only ORIG_HEAD HEAD 2>/dev/null | grep -q '^content/'; then
+  echo ""
+  echo "📦 Content files changed in that rebase — importing into your local DB…"
+  if npm run content:import -- --guard-wip; then
+    :
+  else
+    echo "   ⚠ Import did not complete (see above). Resolve, then run:  npm run content:import"
+  fi
+  echo ""
+fi
+
+exit 0

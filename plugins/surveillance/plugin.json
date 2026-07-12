@@ -6,6 +6,7 @@
   "hooks": ["zone.delete"],
   "routePrefix": "/surveillance",
   "specializedActions": [
+    { "verb": "use", "requiredTag": "specter_program" },
     { "verb": "use", "requiredTag": "spy_deck" },
     { "verb": "use", "requiredTag": "security_console" },
     { "verb": "use", "requiredTag": "datachip" }

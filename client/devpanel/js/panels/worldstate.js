@@ -114,6 +114,7 @@ function startWorldStatePolling() {
   directAPI('/emergency/state').then(d => updateEspDot(d)).catch(() => {});
 
   setInterval(async () => {
+    if (document.hidden) return; // tab not visible — skip; sidebar refreshes on next visible tick
     const [data, esp] = await Promise.allSettled([
       API('/world/state'),
       directAPI('/emergency/state'),

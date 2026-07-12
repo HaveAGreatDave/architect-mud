@@ -41,8 +41,8 @@ async function spawnEnemyCorpse(player, targetName, result) {
 	if (result.loot?.length) {
 		for (const drop of result.loot) {
 			await query(
-				"INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,0.8)",
-				[randomUUID(), corpseId, drop.item_id, drop.quantity],
+				"INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ($1,$2,$3,$4,0.8,$5)",
+				[randomUUID(), corpseId, drop.item_id, drop.quantity, drop.custom_data ? JSON.stringify(drop.custom_data) : null],
 			);
 		}
 	}

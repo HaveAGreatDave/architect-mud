@@ -104,7 +104,11 @@
       "weight": 55
     },
     {
-      "item": "item_credits_small",
+      "credits": [
+        5,
+        20
+      ],
+      "item": "item_credit_chip",
       "qty": [
         1,
         1

@@ -41,7 +41,7 @@ error between the two steps can't tear them:
 - **`sell`** — payout + inventory removal ([vendor.js](../server/engine/vendor.js)).
 - **`craft`** — ingredient consume + output insert, on both the success and catastrophic-fail paths ([crafting.js](../server/engine/crafting.js)).
 - **ATM `deposit`/`withdraw`** — `transferCredits` (or the fee-bearing bank debit) + the `cash_stock` update ([plugins/atm/index.js](../plugins/atm/index.js)).
-- **ATM `jack`** — cash payout + bricking the terminal ([plugins/atm/index.js](../plugins/atm/index.js)).
+- **ATM `drain`** — cash payout + bricking the terminal ([plugins/atm/index.js](../plugins/atm/index.js)).
 - **`use`** — effect/credit application + item consumption ([commands/inventory.js](../server/engine/commands/inventory.js)).
 
 ## ATM terminals
@@ -50,9 +50,12 @@ error between the two steps can't tear them:
 
 - ATMs are **furniture items** with the `atm` flag. A corresponding `atm_units` row tracks `cash_stock`, `network_id`, `hack_difficulty`, and `is_broken`.
 - **Networks** (`atm_networks`) define `fee_rate`, `withdrawal_limit`, faction rep gates, and the UI accent colour.
-- **`deposit`**: moves carried → banked; increases `cash_stock` (machine fills up).
+- **`deposit`**: moves carried → banked; increases `cash_stock` (machine fills up). Every deposit
+  also writes a `bank_transactions` ledger row (feeds the Tablet Bank app).
 - **`withdraw`**: moves banked → carried; drains `cash_stock`; fee deducted from bank, only raw amount reaches player.
-- **`jack`**: hacking skill check vs `hack_difficulty`; success empties `cash_stock` into player's carry and breaks the machine; failure sets a 5-minute in-memory lockout.
+- **`jack`**: requires a carried `hack_device`; arms the Circuit Breach minigame (no server-side
+  skill roll). Success grants **maintenance access**; the actual cash-out + bricking is the
+  separate **`drain`** command.
 - **Power**: all operations check `isZonePowered()` — ATMs go dark when the zone loses power.
 - **Replenish tick**: every 5 minutes the plugin refills ATMs whose `replenish_interval_hours` has elapsed.
 - **Legacy fallback**: zones with only `zone.flags.has_atm` (no furniture) still work for basic deposit/withdraw with no power, faction, or stock checks.
@@ -87,15 +90,14 @@ error between the two steps can't tear them:
 for faction-gated AI. Reputation is read by the vendor discount path and the (engine-side) hostility
 checks.
 
-> **Missing command:** there is **no `factions` player command** wired into the engine, even though
-> `help` advertises it and the client has a render handler for it. `getPlayerFactionRep()` exists but
-> nothing calls it from a command. Players currently can't view their standings. See the QA report.
+The `factions` player command (view your standings) is owned by the **factions plugin**
+([plugins/factions/index.js](../plugins/factions/index.js)).
 
 ## Theft
 
-`steal` ([commands/combat.js](../server/engine/commands/combat.js)): blocked in protected zones
-(the protection substrate — housing forcefields and `sanctuary`-tagged zones), 60-second
-per-player cooldown. A `deception` check vs difficulty 7; success lifts 10–30% of the target's carried
+`steal` (owned by the **thievery plugin**, [plugins/thievery/index.js](../plugins/thievery/index.js)):
+blocked in protected zones (the protection substrate — housing forcefields and `sanctuary`-tagged
+zones), 60-second per-player cooldown (Flag-persisted as `steal_cooldown_until`, survives restart). A `deception` check vs difficulty 7; success lifts 10–30% of the target's carried
 credits, failure broadcasts a public "caught red-handed" event. Uses `adjustCredits` both directions.
 
 ## Crafting

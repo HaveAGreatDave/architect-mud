@@ -14,14 +14,14 @@
 //
 // Idempotent: ON CONFLICT (id) DO UPDATE re-points each dealer, so re-running
 // cleanly repaints Keller (formerly `npc_the_fixer`, "a hooded figure") and
-// keeps Marsh/Sorel in sync. Depends on the drug items existing (db/seed.sql);
+// keeps Marsh/Sorel in sync. Depends on the drug items existing (content/items);
 // the catalogue is filtered against the live `items` table so a missing id is
 // dropped with a warning rather than sold as a phantom. A server restart (or
 // /world reload) loads the NPCs into world.npcs.
 import { query } from '../server/models/db.js';
 
 // Faction-flavoured, trust-tiered catalogues. Every item_id below is confirmed
-// present in db/seed.sql. min_trust gates visibility per player (vendor.js).
+// present in content/items. min_trust gates visibility per player (vendor.js).
 const DEALERS = [
   {
     id: 'npc_the_fixer',            // keep the existing id; just becomes Keller

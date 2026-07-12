@@ -402,7 +402,15 @@ function resolveEnemyLoot(enemy) {
       const qty = Array.isArray(entry.qty)
         ? Math.floor(Math.random() * (entry.qty[1] - entry.qty[0] + 1)) + entry.qty[0]
         : 1;
-      drops.push({ item_id: entry.item, quantity: qty });
+      const drop = { item_id: entry.item, quantity: qty };
+      // A credit-chip entry rolls a variable denomination (entry.credits: [min,max]
+      // or a fixed int) stamped onto the instance so `use` pays out exactly that.
+      if (entry.credits != null) {
+        const [lo, hi] = Array.isArray(entry.credits) ? entry.credits : [entry.credits, entry.credits];
+        const amt = Math.floor(Math.random() * (hi - lo + 1)) + lo;
+        drop.custom_data = { credits: amt, name: `credit chip (₵${amt})` };
+      }
+      drops.push(drop);
     }
   }
   return drops;

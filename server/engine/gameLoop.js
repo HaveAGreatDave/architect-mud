@@ -17,7 +17,6 @@ import { query, logActivity } from '../models/db.js';
 import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot } from './environment.js';
 import { tickDrugDecay, tickDrugs, tickOnsets, tickWithdrawal, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
-import { getTotalXp } from './ip.js';
 
 // Rest/regen tunables (restRegenTick, every 15 seconds).
 // Stamina only regenerates once you've been idle (no movement) for a short delay,
@@ -388,6 +387,18 @@ export async function spawnPlayerCorpse(victim, zoneId) {
     `INSERT INTO player_corpses (id, player_id, zone_id, death_message, expires_at, capacity) VALUES ($1, $2, $3, $4, $5, $6)`,
     [corpseId, victim.id, zoneId, corpseName, expiresAt, capacity]
   ).catch(() => {});
+  // Carried credits fall with the body as a lootable credit chip stamped with the
+  // exact amount. Banked (ATM) credits — bank_credits — are untouched and stay safe.
+  const carried = Number(victim.credits) || 0;
+  if (carried > 0) {
+    await query(
+      `INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data)
+       VALUES ($1,$2,'item_credit_chip',1,1.0,$3)`,
+      [randomUUID(), corpseId, JSON.stringify({ credits: carried, name: `credit chip (₵${carried})` })]
+    ).catch(() => {});
+    await query('UPDATE players SET credits=0 WHERE id=$1', [victim.id]).catch(() => {});
+    victim.credits = 0;
+  }
   createCorpse({ id: corpseId, name: corpseName, zoneId, expiresAt, capacity });
   return { corpseId, corpseName };
 }
@@ -409,10 +420,8 @@ export function equipStarterOutfit(victimId, sex) {
 
 // The clone-vat emergence sequence for a normal respawn, played on timers after
 // the initial death/consciousness message: the body assimilates, then a dressing
-// robot clothes you and bills your account. The bill is Total XP earned / 3,
-// rounded up to the nearest credit — and it is the one credit path allowed to
-// push a balance negative (a debt owed to the vat), so it writes the debit
-// directly rather than through adjustCredits' non-negative guard.
+// robot clothes you and prints an invoice against your account. Cloning is free
+// for everyone — the invoice reads COMPLIMENTARY and the balance is left untouched.
 function scheduleVatEmergence(player) {
   const send = (message) => broadcastFn(null, { type: 'output', message }, null, player.id);
 
@@ -428,17 +437,10 @@ function scheduleVatEmergence(player) {
   setTimeout(async () => {
     equipStarterOutfit(player.id, player.biological_sex || 'male');
     player._vatDressing = false;   // clothed now — witness system may resume
-    let cost = 0;
-    try { cost = Math.ceil((await getTotalXp(player.id)) / 3); } catch { cost = 0; }
-    if (cost > 0) {
-      const { rows } = await query(
-        'UPDATE players SET credits = credits - $1 WHERE id=$2 RETURNING credits',
-        [cost, player.id]
-      ).catch(() => ({ rows: [] }));
-      if (rows.length) player.credits = Number(rows[0].credits);
-    }
+    // Cloning is free for everyone — the vat still dresses you and prints the invoice,
+    // it just stamps the total COMPLIMENTARY and never touches the balance.
     const balance = player.credits ?? 0;
-    send(`<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you — underwear, pants, a t-shirt, a pair of shoes — with the tenderness of an industrial press, then prints an invoice against your account: <span class="credits">₵${cost}</span> for cloning, tailoring, and incidental resurrection. Balance: <span class="credits">₵${balance}</span>.</span>`);
+    send(`<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you — underwear, pants, a t-shirt, a pair of shoes — with the tenderness of an industrial press, then slaps an invoice against your account and stamps it before you can read the line items: <span class="credits">COMPLIMENTARY</span>. The Architect eats the cost of cloning, tailoring, and incidental resurrection — not out of generosity but because a debt you could die to escape is no leash at all. Balance: <span class="credits">₵${balance}</span>.</span>`);
     broadcastFn(null, { type: 'player_update', credits: balance }, null, player.id);
   }, VAT_DRESS_MS);
 }
@@ -522,7 +524,7 @@ export async function handlePlayerDeath(player, killer, cause = null) {
     type:'player_death',
     message:`\n<span class="death-message">☠ ${msg}${killerMsg}</span>\n${vatLine}`,
     respawn_zone: respawnZone,
-    player_update: { hp:player.hp, sanity:player.sanity, hunger:player.hunger, thirst:player.thirst, radiation:player.radiation, stamina:player.stamina, body_temp_c:player.body_temp_c },
+    player_update: { hp:player.hp, sanity:player.sanity, hunger:player.hunger, thirst:player.thirst, radiation:player.radiation, stamina:player.stamina, body_temp_c:player.body_temp_c, credits:player.credits },
   }, null, player.id);
 
   emit('player.respawn', { player });
@@ -955,7 +957,7 @@ async function resourceTick() {
     const isOverheating = tempC > 42;
     const isHot = tempC > 40 && tempC <= 42;
 
-    // Sustained dangerous temperature causes HP loss only after 20 minutes of
+    // Sustained dangerous temperature causes HP loss only after 5 minutes of
     // continuous exposure — short spells in the extreme cold/heat don't kill.
     const isDangerous = isFreezing || isOverheating;
     if (isDangerous) {

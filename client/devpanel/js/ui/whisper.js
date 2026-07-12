@@ -219,6 +219,7 @@ async function _fetchOnline() {
 // ── Polling ───────────────────────────────────────────────────────────────────
 
 async function _poll() {
+  if (document.hidden) return; // tab not visible — skip; next tick after refocus catches up via `since`
   const since = _lastPollTs;
   try {
     const data = await API(`/channels/messages?since=${since}`);

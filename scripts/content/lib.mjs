@@ -17,6 +17,31 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { contentEntries } from '../../server/models/content-registry.js';
+import { SCHEMA_SQL } from '../../server/models/schema.js';
+
+// Columns SCHEMA_SQL declares for a table (CREATE TABLE body + ADD COLUMN retrofits).
+// This is the AUTHORITATIVE column set for content files: prod is built from
+// SCHEMA_SQL, so a column the live DB happens to carry but the schema doesn't
+// declare (a legacy leftover from an old dump) must never enter a file. Export
+// and import serialize through here; content:lint validates against the same
+// parse — so the writer and the checker can't drift.
+const schemaColsCache = new Map();
+export function schemaColumnsOf(table) {
+  if (schemaColsCache.has(table)) return schemaColsCache.get(table);
+  const cols = new Set();
+  const block = SCHEMA_SQL.match(new RegExp(`CREATE TABLE IF NOT EXISTS ${table} \\(([\\s\\S]*?)\\n  \\);`, 'm'));
+  if (block) {
+    for (const line of block[1].split('\n')) {
+      const m = line.match(/^\s{4}"?([a-z_]+)"?\s/);
+      if (m && !['primary', 'foreign', 'unique', 'check', 'constraint'].includes(m[1])) cols.add(m[1]);
+    }
+  }
+  for (const m of SCHEMA_SQL.matchAll(new RegExp(`ALTER TABLE ${table}\\s+ADD COLUMN IF NOT EXISTS (\\w+)`, 'g'))) {
+    cols.add(m[1]);
+  }
+  schemaColsCache.set(table, cols);
+  return cols;
+}
 
 export const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const CONTENT_DIR = join(REPO_ROOT, 'content');
@@ -89,9 +114,14 @@ export function canonicalJson(obj) {
 // strings (deterministic, UTC); everything else is already JSON-able.
 export function rowToFileObject(entry, row) {
   const excluded = new Set(entry.excludeColumns || []);
+  const schemaCols = schemaColumnsOf(entry.table);
   const out = {};
   for (const [col, v] of Object.entries(row)) {
     if (excluded.has(col)) continue;
+    // Drop columns SCHEMA_SQL doesn't declare (legacy leftovers on a Frankenstein
+    // local DB): prod never has them and lint rejects them. Fail open if the table
+    // isn't found in the schema parse, rather than emptying the file.
+    if (schemaCols.size && !schemaCols.has(col)) continue;
     out[col] = v instanceof Date ? v.toISOString() : v;
   }
   return out;

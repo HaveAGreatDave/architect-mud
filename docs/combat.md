@@ -77,8 +77,8 @@ uses the global `body_part_weights` tunable
 (the defender when a player swings) uses its own `body_parts`: a list of `{part, weight, soak}`
 entries editable per-monster in the dev panel, defaulting to that same standard spread. Each entry
 carries its own typed `soak` map, so a monster soaks the player's hit against the struck part's
-armour — replacing the old single monster-wide `soak`/`armor` (still read as a fallback for
-monsters with no `body_parts`).
+armour — replacing the old single monster-wide `soak`/`armor`. A monster with no `body_parts`
+soaks **nothing** (`enemyPartSoak` returns 0 — there is no flat-armor fallback).
 
 arms→hands, legs→legs, feet→feet. The low-weight `feet` part (weight 4) lets the `feet` armour
 slot's typed soak actually reduce damage when the feet are struck — surfaced per-region in the
@@ -90,16 +90,16 @@ Players carry a per-slot soak structure on `player.soak`, built by `recomputeArm
 ([inventory.js](../server/engine/commands/inventory.js)):
 
 ```
-player.soak[slot] = { soak: { kinetic: N, thermal: N, ... }, flat: <legacy armor int> }
+player.soak[slot] = { soak: { kinetic: N, energy: N, ... }, flat: <legacy armor int> }
 ```
 
 `resolveSoak(soakMap, damageType)`: if the map has the incoming damage type, use it in full;
 otherwise reduce by `max(other values) × soak_mismatch_factor` (0.25). Enemies use a typed `soak`
 map if present, else the flat `armor` integer.
 
-> **Known bug:** `recomputeArmor()` is only called at login ([index.js:395](../server/index.js)).
-> Equipping or unequipping armour mid-session updates the DB but **not** `player.soak`, so armour
-> changes have no combat effect until the player reconnects. See [qa-audit-2026-06.md](qa-audit-2026-06.md).
+`recomputeArmor()` runs at login and again on every equip, unequip, and bulk-drop
+([inventory.js](../server/engine/commands/inventory.js)), so armour changes take combat effect
+immediately.
 
 ## Weapons
 
@@ -108,7 +108,8 @@ item tagged `weapon` and pulls `damage` (`{min,max}`), `weapon_skill`, `damage_t
 from its tags. Unarmed default: 2–4 kinetic, `fists`. `status_chance` is read but **never used**
 (no code applies a weapon-triggered status effect — see the effects note below). Monsters carry
 their own `weapon` instead: a JSONB list of `{type, min, max}` damage components edited in the
-dev panel (falling back to the legacy `damage_min/damage_max` + `flags.damage_type` if empty).
+dev panel; if empty, the fallback is a fixed `1–3` strike typed by `flags.damage_type` (default
+`kinetic`) — the legacy `damage_min/damage_max` columns are not read.
 
 ## Cooldowns
 
@@ -119,6 +120,7 @@ In-memory per-player map (`combat.js`), keyed by action:
 | `attack` | 3500 ms |
 | `flee` | 4000 ms |
 | `use_item` | 2500 ms |
+| `shove` | 60000 ms |
 
 Attacking while on cooldown returns a "still recovering" message. Cooldowns live in process memory
 only; they reset on server restart.
@@ -135,9 +137,8 @@ enemy behaviour:
 4. **Auto-retaliate:** if the player survives and is off attack-cooldown, they automatically swing back
    at the attacker.
 
-> **Known issues** (see the QA report): the attack-interval formula has no lower clamp (`stat_agi ≥ 34`
-> ⇒ attacks every tick); and `handlePlayerDeath` has no re-entrancy guard, so two same-tick lethal hits
-> can run respawn twice. (`combatTargetId` tracking and retaliation focus-lock are now fixed.)
+> **Known issue** (see the QA report): `handlePlayerDeath` has no re-entrancy guard, so two same-tick
+> lethal hits can run respawn twice. (`combatTargetId` tracking and retaliation focus-lock are now fixed.)
 
 ## On kill
 
@@ -180,13 +181,14 @@ Dodge on **every miss**. `awardSkillUse` (`skills.js`) rolls for a 1-IP award vi
 when the check is close (margin ≈ 0) and falling off with the **absolute** margin, so barely-*failing*
 trains you nearly as well as barely-winning.
 
-## Status effects (defined but inert)
+## Status effects
 
 [effects.js](../server/engine/effects.js) defines `bleeding` (−2 HP/tick), `burning` (−5 HP/tick),
-and `irradiated` (+2 RAD/tick), and `tickEffects()` runs every second from the game loop. However,
-**`applyEffect()` has no callers anywhere in the codebase** — nothing in combat, weapons, drugs, or
-the environment ever starts an effect. The system is wired to tick but can never be triggered. See
-the QA report.
+`irradiated` (+2 RAD/tick), and `choking` (−4 STA/tick, then −2 HP/tick once winded), and
+`tickEffects()` runs every second from the game loop. The only live caller of `applyEffect()` today
+is the ashfall hazard (`gameLoop.js` applies `choking` outdoors in ash weather — see
+[systems-weather-extreme.md](systems-weather-extreme.md)). Nothing in combat, weapons, or drugs
+starts an effect yet — weapon `status_chance` remains read-but-unused.
 
 ## Player death
 

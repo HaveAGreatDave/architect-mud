@@ -9,35 +9,42 @@ World content lives in **git as one JSON file per entity** (`content/<table>/<pk
 
 **Read [docs/content-pipeline.md](../../../docs/content-pipeline.md) once per session** before shipping — it's the authoritative pipeline reference; this skill is the operating procedure on top of it.
 
-> **Cutover check (do this first, once per session).** The pipeline may be mid-migration, and the signals are separate — check, don't assume:
-> - `git ls-files content/ | head -1` — is the file tree committed? (empty ⇒ baseline not landed yet ⇒ the old seed pipeline is still the only truth; ship via the legacy path and say so.)
-> - `git ls-files db/seed.sql` — does the **old** pipeline still exist? If BOTH the content tree and `db/seed.sql` are present, you're in the **transition window**: the baseline landed but the old pipeline isn't retired. Files are the intended truth, but confirm with the user which pipeline they're treating as authoritative before you ship — a stale or un-reconciled `content/` (e.g. seeded from one person's local DB, not the reconciled prod baseline) can still be in flux.
-> - `grep -q "^  push:" .github/workflows/deploy-content.yml` — is prod auto-deploy live? If yes, a push to `main` deploys; treat §Prod as real.
->
-> Only when `content/` is committed do the steps below apply. When in doubt, ask rather than shipping through a half-migrated pipeline.
+> **Cutover is complete (2026-07).** The git `content/` tree is the sole source of truth; the old seed pipeline (`db/seed.sql`, `content:publish`/`content:sync`, `export-seed`, `setup-local-db`) is **retired and deleted**. A fresh DB is `npm run db:create-local` → `npm run content:import`; prod deploys on push to `main`. If you find a `db/seed.sql` in the tree, something reintroduced it — stop and flag it.
 
 ## When to invoke
 
 - **Always, after `mud-designer`, `plugin-builder`, or `engine-change` produce content or schema.** Those skills END with rows in your local DB or DDL in `SCHEMA_SQL`. They are not done until CODEX ships them. Treat this as the mandatory Phase-N of each.
-- After ANY dev-panel / `design-cli` authoring session, even a one-line tweak.
+- After ANY dev-panel / `design-cli` authoring session, even a one-line tweak. (The dev-panel save-hook already wrote the files locally — your job is to review, lint, regress, and commit them, not to export.)
 - On explicit asks: "ship this", "commit the content", "prep for push", "is this clean", "did I break the world".
 - Before telling the user a content task is "done." Content in a local DB that isn't exported and committed is **invisible to everyone else and lost on the next rebuild.**
+
+## First decide: where does the content actually live? (export is CONDITIONAL)
+
+Before anything, answer one question: **was this content authored in the DB, or as files?** The two paths ship differently, and running export on file-authored content is a classic self-inflicted mess.
+
+- **File-authored** — you (or an agent) wrote/edited `content/<table>/<pk>.json` **directly** with a text editor. **The files ARE the source of truth already. Do NOT export.** Export would dump your entire *played-in* local DB back over the tree — burying your small, clean diff under hundreds of runtime-residue files (streetlights, power-sim boxes, spawn instances) and catalog-wide re-serialization, and even *un-deleting* files you removed (their rows still sit in the DB). The push-then-export instinct is right: your committed files are the truth; the DB is a build artifact of them. Skip straight to lint.
+- **Dev-panel-authored** — you created/edited it through the **dev panel** against your **local** server. As of the dev-panel save-hook (`server/api/content-sync.js`), each save **already wrote the entity's file** for you (deletes remove it; deleting a zone/map cascade-removes its child files). So this is now **also file-authored by the time you ship** — the files are sitting in your working tree, unstaged. **Do NOT export.** Just review `git status`, then lint. (If the save-hook was somehow off, or you're on an old build, fall back to a targeted export — see below.)
+- **`content:export` is now a reconciliation tool, not a routine step.** Reach for it only to backfill files after a bulk DB change the save-hook didn't cover (a one-shot script that rewrote many rows, a restore), and even then **review the diff hard** and discard runtime residue (Step 2–3).
+
+> Rule of thumb: **you almost never run export.** Files on disk — whether hand-edited or written by the dev-panel save-hook — are the truth; commit them. Only export to recover files after a bulk out-of-band DB mutation, and scrub the diff when you do.
 
 ## The ship sequence
 
 Run it in order. Do not skip the diff review — it is the step that catches the mess.
 
 ```
-1. npm run content:export      # local DB → content/ files
+1. npm run content:export      # RARELY — only to reconcile files after a bulk out-of-band DB change. Dev-panel saves + hand edits already wrote files; SKIP.
 2. git status content/         # what changed?  ← THINK here, don't rubber-stamp
    git diff content/           # read it
 3. <discard runtime residue>   # git checkout -- content/<table>/<file>  (see below)
 4. npm run content:lint        # JSON valid, real columns, no excluded cols, no dangling FKs
 5. npm run test:regress        # the SHIP regress: the shipped world still boots, all suites green
-6. git add content/ [code]     # + any SCHEMA_SQL/registry/plugin code in the same commit
+6. git add content/ [code]     # add the SPECIFIC files you authored; + SCHEMA_SQL/registry/plugin code, same commit
    git commit -m "…"
 7. report: what shipped (ids), lint/regress result, anything you discarded and why
 ```
+
+For **file-authored** content the sequence is just steps 2 (review your own diff) → 4 → 5 → 6 → 7. No export, nothing to discard.
 
 Pushing is the user's call unless they said otherwise. Tell them what a push will do (§Prod), don't do it silently.
 
@@ -98,6 +105,14 @@ When the ship includes a schema change, the SCHEMA_SQL edit, the registry classi
 
 Symptom of both: a content file exists on disk but its row is missing from the DB — which surfaces as a broken `examine`/`look`, a dangling inventory reference, or a lint FK warning. Confirm with `SELECT id FROM <table> WHERE id=…`; the fix is always commit-then-import.
 
+### Deleting via the dev panel — files are removed for you (incl. large cascades)
+
+The dev-panel save-hook (`server/api/content-sync.js`) also handles deletes locally: deleting an entity in the panel **removes its `content/<table>/<pk>.json`** immediately (unstaged). This is the deletion analogue of the save-hook — you don't `rm` the file by hand.
+
+**Large-scale / cascade removes are the case to know about.** Deleting a **zone or a map** in the panel cascades in the engine — it removes the zone(s) plus every child row (npcs, furniture, spawns, windows, apartments, interior rooms/siblings, the map). The hook mirrors that cascade to files: `apiDeleteZone` hands its full deleted-zone set to `syncZoneDeletion`, which removes each zone file **and** every child content file whose zone reference is in that set. So a single map delete can legitimately show up in `git status` as **dozens of deleted files** — that is correct, not runaway. Review the deletion list (it's scoped to the zones you removed), then commit it as one "retire zone X" change. On push, those file deletions propagate the removal to prod (git-diff-driven deletion pass), so **don't delete a zone you only meant to unpublish**.
+
+Note the cleanup is keyed on **file content** (each child file's `zone_id`/`home_zone`/etc.), not a DB diff — so it only ever removes files that point at a deleted zone, and can never sweep away unrelated file-authored work that simply isn't imported into your local DB.
+
 ## Prod: what a push means, and the cautions
 
 After cutover, **pushing to `main` deploys to production** (CI applies content; Render redeploys code — same push). You rarely push (that's the user's call), but when you prepare a push, know and relay:
@@ -111,8 +126,9 @@ After cutover, **pushing to `main` deploys to production** (CI applies content; 
 
 Before you call it done, confirm out loud:
 
-- [ ] `content:export` run; `git diff content/` **read**, not rubber-stamped
-- [ ] runtime residue discarded (or: diff was clean, nothing to discard — say which)
+- [ ] authoring mode decided: DB-authored ⇒ `content:export` run; file-authored ⇒ export SKIPPED
+- [ ] `git diff content/` **read**, not rubber-stamped
+- [ ] runtime residue discarded (or: file-authored / diff was clean, nothing to discard — say which)
 - [ ] new tables classified in the registry; excludeColumns follows the self-healing-only rule
 - [ ] schema + registry + code + content in **one** commit if a schema change is involved
 - [ ] `content:lint` clean

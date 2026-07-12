@@ -46,6 +46,7 @@ import {
 import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, cmdGhostPowerDrain, makeGhostBroadcast } from "./engine/commands/ghost.js";
 import { activateForcefield, deactivateForcefield } from "./engine/apartments.js";
 import { startKeepalive } from "./keepalive.js";
+import { startUsageLog } from "./usage-log.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
 import { handlePanelData, sendPanelCatalog } from "./engine/panels.js";
 import pool, { query, logActivity } from "./models/db.js";
@@ -253,6 +254,12 @@ const httpServer = createServer(async (req, res) => {
 
 const wss = new WebSocketServer({ server: httpServer });
 
+// Message types that count as deliberate player input for idle tracking —
+// things a player typed or clicked, not the client keeping itself alive.
+const IDLE_ACTIVITY_TYPES = new Set([
+	"command", "dialogue", "buy_npc", "sell_npc", "sell_all_npc", "shop_close", "mis_toggle",
+]);
+
 wss.on("connection", (ws) => {
 	clients.set(ws, {
 		playerId: null,
@@ -280,6 +287,15 @@ wss.on("connection", (ws) => {
 			return;
 		}
 		const session = clients.get(ws);
+		// Idle-logoff activity stamp: deliberate player actions refresh the live
+		// player's _lastInputAt (runtime-only; swept by the idle-logoff plugin).
+		// Deliberately excludes auth, app-level pings, and the client's own
+		// automation commands (sendCmdSilent tags them silent:true) — an
+		// unattended client must still read as idle.
+		if (session?.playerId && IDLE_ACTIVITY_TYPES.has(msg.type) && !msg.silent) {
+			const live = getLivePlayer(session.playerId);
+			if (live) live._lastInputAt = Date.now();
+		}
 		if (msg.type === "auth") return handleAuth(ws, session, msg);
 		if (msg.type === "auth_token") return handleAuthToken(ws, session, msg);
 		if (msg.type === "auth_reconnect")
@@ -385,7 +401,35 @@ wss.on("connection", (ws) => {
 			message: "Connected to ARCHITECT.",
 		}),
 	);
+
+	// Warm the Neon compute the moment a client connects, while they're still
+	// on the login screen — so their auth query lands on a hot database. If the
+	// wake takes more than a beat, tell the client so a free-tier cold start
+	// reads as a normal part of connecting rather than a hang.
+	warmDbCompute(ws);
 });
+
+// Fire a trivial query to wake a suspended Neon compute (free tier scales to
+// zero after ~5 min idle). If it doesn't answer within WARM_NOTICE_MS, send a
+// "waking" notice; clear it with "awake" once the compute responds. When the
+// DB is already hot the query returns fast and neither message is sent, so
+// there's no flicker in the common case. Errors are swallowed — a failed warm-up
+// just means the real auth query will surface the problem normally.
+const WARM_NOTICE_MS = 600;
+function warmDbCompute(ws) {
+	let noticed = false;
+	const timer = setTimeout(() => {
+		noticed = true;
+		if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ type: "waking" }));
+	}, WARM_NOTICE_MS);
+	query("SELECT 1")
+		.catch(() => {})
+		.finally(() => {
+			clearTimeout(timer);
+			if (noticed && ws.readyState === ws.OPEN)
+				ws.send(JSON.stringify({ type: "awake" }));
+		});
+}
 
 // WebSocket heartbeat — kills stale connections
 const heartbeat = setInterval(() => {
@@ -1193,6 +1237,7 @@ async function boot() {
 	}
 	startGameLoop(broadcast);
 	startKeepalive();
+	startUsageLog();
 
 	// Single-instance guard: if the port is already taken, another server is
 	// running. Exit fast instead of lingering as a zombie that still holds a DB

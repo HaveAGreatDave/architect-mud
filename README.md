@@ -51,7 +51,7 @@ The world runs a live environmental simulation around the clock: a 30-minute day
 - Faction reputation — 6 tiers, trade discounts, hostile NPC behavior
 - Vendor system — buy/sell with faction discounts; Sully the barkeep at the Basin Swill
 - Economy — dual carried/banked credit pools, ATMs, player-to-player theft (Deception skill check, zone broadcasts on failure)
-- Skill system — 18 skills, XP-by-use, rank 0–10
+- Skill system — 25 skills, XP-by-use, rank 0–10
 - Environmental simulation — day/night cycle, weather, seasons, 7-day forecast, visibility effects
 - Power grid & lighting — generators, simulated blackouts/overloads, switchable indoor lights, auto streetlights at dusk
 - Furniture & scenery — examinable room dressing (bars, beds, corkboards, light fixtures)
@@ -77,7 +77,7 @@ The world runs a live environmental simulation around the clock: a 30-minute day
 
 No framework. No ORM. No build step.
 
-- **Server:** Node.js, raw WebSockets (`ws`), PostgreSQL via Supabase
+- **Server:** Node.js, raw WebSockets (`ws`), PostgreSQL via Neon
 - **Client:** One HTML file + one CSS file per client. Vanilla JS.
 - **Schema:** A single idempotent `SCHEMA_SQL` in `server/models/schema.js`, applied deliberately — nothing runs on boot.
 - **Content:** Lives in Postgres, managed through the in-game dev panel. Not hardcoded.
@@ -89,9 +89,9 @@ The stack is intentionally minimal. There's a dev panel at `/dev` with live zone
 
 ## Local Development Database
 
-Development runs against a **local Postgres**, not the production Supabase database. This keeps dev/test/script traffic off Supabase (which is metered on egress) and means you can't break the live game by experimenting. The live server on Render still uses Supabase — that's unchanged.
+Development runs against a **local Postgres**, not the production database (Neon). This keeps dev/test/script traffic off prod and means you can't break the live game by experimenting.
 
-The world (zones, items, NPCs, furniture — **no player accounts, no secrets**) is committed to the repo as a snapshot at [`db/seed.sql`](db/seed.sql). It's the shared source of truth for content between developers.
+World content (zones, items, NPCs, furniture — **no player accounts, no secrets**) lives in git as one JSON file per entity under [`content/`](content/) — the **CODEX content pipeline** is the source of truth; see [docs/content-pipeline.md](docs/content-pipeline.md).
 
 **First-time setup:**
 
@@ -101,31 +101,30 @@ The world (zones, items, NPCs, furniture — **no player accounts, no secrets**)
    DATABASE_URL=postgresql://postgres:postgres@localhost:5432/architect_dev
    ```
    (If you chose a different Postgres password, put it here.)
-3. Build the local database from the committed snapshot:
+3. Create the empty local database, then apply schema + world content from git:
    ```
-   npm run db:setup-local
+   npm run db:create-local     # creates the empty DB (pg driver — no psql needed)
+   npm run content:import      # applies SCHEMA_SQL, then loads content/ into the DB
    ```
-   This drops & recreates `architect_dev` and loads `db/seed.sql`. No `psql` needed — it runs through the `pg` driver. Register a fresh character in-game (player data isn't shared).
+   Register a fresh character in-game (player data isn't shared).
 
 **Day-to-day:** `npm run dev`, `npm run test:regress`, and the dev panel all use your local database automatically — same commands as before.
 
-**Sharing content changes:** local DBs are separate copies and don't sync automatically, so use these two one-liners:
-```
-npm run content:publish            # export seed, commit db/seed.sql, push  (auto message)
-npm run content:publish -- "msg"   # ...with a custom commit message
-```
-On the other machine:
-```
-npm run content:sync               # pull, and rebuild the local DB only if the seed changed
-```
-A `post-merge` git hook also nudges you to run `content:sync` whenever a `git pull` brings in a changed seed (enable hooks once with `npm run hooks:install`). Under the hood these wrap `db:export-seed` (regenerate `db/seed.sql`) and `db:setup-local` (rebuild from it); `content:publish` only commits when the *content* actually changed, so incidental row-reordering never creates a spurious commit.
+**Sharing content changes (CODEX pipeline):** content is deployed through git. After editing
+content locally, run `npm run content:export` to write the changed entities as JSON under
+`content/`, commit, and push — **a push to `main` is the deploy** (CI backs prod up, applies
+schema + additive content, and is regress-gated). Pull + `npm run content:import` to sync another
+machine. `npm run content:lint` and `content:status` check the tree. Full flow:
+[docs/content-pipeline.md](docs/content-pipeline.md).
 
-**Touching production deliberately** (e.g. pushing content live at deploy time): temporarily swap `DATABASE_URL` back to the Supabase pooler string (kept commented in `.env`), run what you need, then swap back. Don't restore `db/seed.sql` onto production — that file drops & rebuilds a *local* DB (and is guarded to refuse anything non-localhost). Push content live via the dev panel's additive export/restore instead.
+**Touching production deliberately** (one-shot data transformations only):
+`node --env-file=.env.prod scripts/<name>.mjs` — the git-ignored `.env.prod` holds the prod
+Neon `DATABASE_URL`.
 
 ### Backups
 
-- **Content only** (no accounts): the dev panel's one-click _Database Backup → Export_ — safe to share, this is what `db/seed.sql` is built from.
-- **Full production backup** (schema + all data, **including player accounts/password hashes**): `npm run db:backup-prod`. Writes a timestamped `.sql` to `~/Documents/architect-backups` (outside the repo), keeps the newest 10. Targets `PROD_DATABASE_URL` (the session-pooler URL, port 5432) — set that in `.env`. **This file contains secrets: keep it private, never commit it.** A Windows scheduled task ("ArchitectMUD Weekly Prod Backup") runs this weekly. Restore into a fresh DB with `psql "<url>" -f <file>`.
+- **Content only** (no accounts): the dev panel's one-click _Database Backup → Export_ — safe to share.
+- **Full production backup** (schema + all data, **including player accounts/password hashes**): `npm run db:backup-prod`. Writes a timestamped `.sql` to `~/Documents/architect-backups` (outside the repo), keeps the newest 10. Targets `PROD_DATABASE_URL` (the Neon direct/unpooled URL) — set that in `.env`. **This file contains secrets: keep it private, never commit it.** A Windows scheduled task ("ArchitectMUD Weekly Prod Backup") runs this weekly. Restore into a fresh DB with `psql "<url>" -f <file>`.
 
 ---
 

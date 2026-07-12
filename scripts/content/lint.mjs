@@ -14,23 +14,11 @@
 import { contentEntries } from '../../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../../server/models/schema.js';
 import { validateTags } from '../../server/engine/tags.js';
-import { readContentTree, fileNameForRow } from './lib.mjs';
+import { readContentTree, fileNameForRow, schemaColumnsOf as columnsOf } from './lib.mjs';
 
-// ── SCHEMA_SQL parsing (columns + content→content FKs), no DB required ───────
-function columnsOf(table) {
-  const cols = new Set();
-  const block = SCHEMA_SQL.match(new RegExp(`CREATE TABLE IF NOT EXISTS ${table} \\(([\\s\\S]*?)\\n  \\);`, 'm'));
-  if (block) {
-    for (const line of block[1].split('\n')) {
-      const m = line.match(/^\s{4}"?([a-z_]+)"?\s/);
-      if (m && !['primary', 'foreign', 'unique', 'check', 'constraint'].includes(m[1])) cols.add(m[1]);
-    }
-  }
-  for (const m of SCHEMA_SQL.matchAll(new RegExp(`ALTER TABLE ${table}\\s+ADD COLUMN IF NOT EXISTS (\\w+)`, 'g'))) {
-    cols.add(m[1]);
-  }
-  return cols;
-}
+// ── SCHEMA_SQL parsing (content→content FKs), no DB required ─────────────────
+// Column parsing lives in lib.mjs (schemaColumnsOf) so the export writer and this
+// checker validate against the exact same parse and can never drift.
 
 function fksOf(table) {
   const fks = [];

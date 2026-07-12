@@ -77,6 +77,22 @@ export function sendToChatChannel(channelId, msg, broadcast) {
   return true;
 }
 
+// High-water mark: created_at (epoch seconds) of the newest stored channel
+// message. Every write flows through storeChannelMessage in this process, so a
+// poll whose cursor is already at the mark can skip Postgres entirely — the
+// devpanel polls every 3s around the clock, and each idle poll otherwise burns
+// a Neon query. DB-stamped (RETURNING created_at / MAX on first use) so it
+// compares in the same clock domain as the cursors clients advance from rows.
+let _newestMsgAt = null;
+
+async function newestMessageAt() {
+  if (_newestMsgAt === null) {
+    const { rows } = await query('SELECT COALESCE(MAX(created_at), 0) AS ts FROM channel_messages');
+    _newestMsgAt = Number(rows[0].ts);
+  }
+  return _newestMsgAt;
+}
+
 // Return messages posted after `since` (epoch seconds) for channels the player can access.
 // Shape: { '#arcnet': [{ from, message, ts }, ...] }
 export async function getChannelMessagesSince(player, since) {
@@ -86,6 +102,11 @@ export async function getChannelMessagesSince(player, since) {
   const corpId = corpChannelIdFor(player);
   if (corpId) channelIds.push(corpId);
   if (!channelIds.length) return {};
+  if (Math.floor(since || 0) >= await newestMessageAt()) {
+    const out = {};
+    for (const id of channelIds) out[id] = [];
+    return out;
+  }
   const { rows } = await query(
     `SELECT channel_id, from_handle, message, created_at
        FROM channel_messages
@@ -104,10 +125,12 @@ export async function getChannelMessagesSince(player, since) {
 // Insert a message and prune the channel back to HISTORY_LIMIT rows.
 async function storeChannelMessage(channelId, fromHandle, message) {
   try {
-    await query(
-      'INSERT INTO channel_messages (channel_id, from_handle, message) VALUES ($1, $2, $3)',
+    const { rows } = await query(
+      'INSERT INTO channel_messages (channel_id, from_handle, message) VALUES ($1, $2, $3) RETURNING created_at',
       [channelId, fromHandle, message],
     );
+    const ts = Number(rows[0].created_at);
+    if (_newestMsgAt === null || ts > _newestMsgAt) _newestMsgAt = ts;
     await query(
       `DELETE FROM channel_messages
          WHERE channel_id = $1

@@ -69,7 +69,13 @@ export function initNet(messageHandler) {
     onColdStart(showing) {
       if (showing) showColdStart();
     },
-    onMessage(msg) { _messageHandler?.(msg); },
+    onMessage(msg) {
+      // DB compute wake (Neon free-tier cold start). Handled here so it reuses
+      // the cold-start overlay; never forwarded to the game message handler.
+      if (msg.type === 'waking') { showColdStart({ db: true }); return; }
+      if (msg.type === 'awake') { hideColdStart(); return; }
+      _messageHandler?.(msg);
+    },
   });
 }
 
@@ -88,7 +94,9 @@ export function sendCmd(cmd, displayText) {
 
 export function sendCmdSilent(cmd) {
   if (!_connection?.isOpen()) return;
-  _connection.send({ type: 'command', command: cmd });
+  // silent: client automation (post-move look refresh, tablet re-nav polls) —
+  // the server excludes these from idle-logoff activity stamping.
+  _connection.send({ type: 'command', command: cmd, silent: true });
 }
 
 export function sendDialogue(npcId, choice, optionIndex) {
@@ -324,15 +332,21 @@ export function setConnStatus(stateStr) {
   el.title = CONN_TITLES[stateStr] ?? '';
 }
 
-function showColdStart() {
+function showColdStart(opts = {}) {
+  // Two flavours: the Render dyno cold start (~60s, connection-level) and the
+  // lighter Neon DB compute wake ({ db: true }, ~a few seconds) signalled by
+  // the server's "waking" message.
+  const body = opts.db
+    ? '<div style="color:var(--text-dim);font-size:12px;line-height:1.6">Waking the world.<br><span style="color:var(--text);font-size:11px">Just a moment...</span></div>'
+    : '<div style="color:var(--text-dim);font-size:12px;line-height:1.6">Server is waking up.<br>Free tier cold start — about 60 seconds.<br><span style="color:var(--text);font-size:11px">Reconnecting automatically...</span></div>';
   let el = document.getElementById('cold-start-notice');
   if (!el) {
     el = document.createElement('div');
     el.id = 'cold-start-notice';
     el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border:1px solid var(--accent);padding:24px;text-align:center;z-index:300;border-radius:2px;max-width:320px';
-    el.innerHTML = '<div style="color:var(--accent);font-size:13px;letter-spacing:2px;margin-bottom:8px">ARCHITECT</div><div style="color:var(--text-dim);font-size:12px;line-height:1.6">Server is waking up.<br>Free tier cold start — about 60 seconds.<br><span style="color:var(--text);font-size:11px">Reconnecting automatically...</span></div>';
     document.body.appendChild(el);
   }
+  el.innerHTML = '<div style="color:var(--accent);font-size:13px;letter-spacing:2px;margin-bottom:8px">ARCHITECT</div>' + body;
   el.style.display = 'block';
 }
 

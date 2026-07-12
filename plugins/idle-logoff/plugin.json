@@ -1,0 +1,6 @@
+{
+  "name": "idle-logoff",
+  "version": "1.0.0",
+  "description": "Warns players after 15 minutes without deliberate input and disconnects them at 20. Applies to everyone — no role or combat exemptions.",
+  "hooks": ["tick.minute"]
+}

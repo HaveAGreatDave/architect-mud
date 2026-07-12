@@ -562,7 +562,7 @@ function logCrime(zoneId, tag) {
   // the caller's path so crime handling never blocks on clip I/O.
   autoClipZone(zoneId).catch(() => {});
 }
-on('player.death', async ({ player, killer }) => {
+on('player.death', async ({ player }) => {
   // Getting downed clears the victim's own wanted level (death / arrest).
   if (player?.id && wantedRuntime.has(player.id)) await clearWanted(player.id, 'you were taken down');
   // …and cools the invisible heat with it — a takedown resets the slow burn too.
@@ -587,13 +587,8 @@ on('player.death', async ({ player, killer }) => {
   for (const d of rows) {
     if (devicePowered(d)) pushAlert(d.owner_id, `AUDIO — gunfire and a scream in ${zoneName}.`, zoneName);
   }
-
-  // A witnessed homicide by a player earns wanted stars + PD evidence + an APB.
-  if (killer?.id && killer.handle && await isWitnessed(zoneId)) {
-    await raiseWanted(killer, 2, 'a witnessed homicide');
-    await logPoliceEvidence(zoneId, ['murder'], killer.handle);
-    dispatchPolice(zoneId, 'homicide', killer.handle);
-  }
+  // Charging the killer is owned entirely by the crime-registry listener below
+  // (raiseCrime(killer, 'murder', …) — stars + PD evidence + dispatch in one path).
 });
 
 function parseBuffer(raw) {
