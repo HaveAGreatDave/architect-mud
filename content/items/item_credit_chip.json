@@ -1,0 +1,16 @@
+{
+  "description": "A Franchise-issue credit chip. Its casing is stamped with a denomination and it carries whatever balance was loaded onto it — crack it open to flush that balance straight into your account.",
+  "flags": {},
+  "id": "item_credit_chip",
+  "name": "credit chip",
+  "tags": {
+    "consumable": true,
+    "currency": true,
+    "description": "A Franchise-issue credit chip loaded with a variable balance. Use it to bank the credits.",
+    "stackable": false,
+    "use_message": "You crack the credit chip's seal and its balance flushes into your account."
+  },
+  "type": "currency",
+  "value": 0,
+  "weight": 0
+}

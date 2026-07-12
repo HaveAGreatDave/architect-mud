@@ -104,7 +104,9 @@ export async function recomputeInsulation(player) {
 async function cmdInventory(player) {
   const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight,i.value FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL ORDER BY i.name`, [player.id]);
   if (!rows.length) return { type:'inventory', message:'Your inventory is empty.', items:[] };
-  for (const r of rows) r.name = titleCaseName(r.name); // list display — Title Case
+  // Per-instance name (custom_data.name) wins — e.g. a credit chip stamped with its
+  // own denomination — otherwise Title Case the item-type name for list display.
+  for (const r of rows) r.name = parseCustomData(r.custom_data)?.name || titleCaseName(r.name);
   let msg = '<span class="inv-header">INVENTORY</span>\n';
   for (const item of rows) {
     const eq = item.is_equipped ? ' <span class="equipped">[equipped]</span>' : '';
@@ -452,6 +454,7 @@ async function cmdUse(targetStr, player, broadcast) {
   if (!rows.length) return cmdUseFurniture(targetStr, player, broadcast);
   const item = rows[0];
   const t = item.tags || {};
+  const cd = parseCustomData(item.custom_data);
   // An item can carry its own flavour line for the act of consuming it
   // (tags.use_message); otherwise fall back to the plain default.
   const messages = [t.use_message || `You use ${item.name}.`];
@@ -467,7 +470,10 @@ async function cmdUse(targetStr, player, broadcast) {
   }
   if (t.restore_radiation) { player.radiation = Math.max(0, player.radiation+t.restore_radiation); messages.push(`${t.restore_radiation} Radiation.`); }
   if (t.restore_sanity) { player.sanity = Math.min(player.sanity_max, Math.max(0, player.sanity+t.restore_sanity)); messages.push(`${t.restore_sanity>0?'+':''}${t.restore_sanity} Sanity.`); }
-  if (t.grants_credits) { player.credits = (player.credits||0)+t.grants_credits; messages.push(`+${t.grants_credits} credits.`); }
+  // Credit chips pay out a per-instance amount (custom_data.credits, variable from
+  // a loot roll or a dropped corpse) and fall back to a fixed item-type value.
+  const creditGrant = cd?.credits ?? t.grants_credits;
+  if (creditGrant) { player.credits = (player.credits||0)+creditGrant; messages.push(`+${creditGrant} credits.`); }
   if (t.heal_over_time) {
     const { amount, duration_seconds } = t.heal_over_time;
     const ticks = Math.max(1, Math.round(duration_seconds / 60));

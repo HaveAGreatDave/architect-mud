@@ -47,7 +47,7 @@ const ITEM_HOLOCASTER = 'item_x90_holocaster';
 const KIT = [
   { id: 'item_bat',             name: 'aluminum bat',      qty: 1 },
   { id: 'item_football_helmet', name: 'football helmet',   qty: 1 },
-  { id: 'item_credit_chip_100', name: 'credit chip (100₵)', qty: 1 },
+  { id: 'item_credit_chip',     name: 'credit chip',       qty: 1, credits: 100 },
   { id: 'item_ration',          name: 'vacuum ration',     qty: 5 },
   { id: 'canteen',              name: 'canteen',           qty: 1 },
 ];
@@ -63,10 +63,10 @@ const isSet = async (player, flag) => (await getFlag('player', flag, player)) ==
 const raise = (player, flag) => setFlag('player', flag, 'true', player);
 const out   = (player, message) => sendToPlayer(player.id, { type: 'output', message });
 
-async function grantItem(player, itemId, quantity = 1, owner = player.id) {
+async function grantItem(player, itemId, quantity = 1, owner = player.id, customData = null) {
   await query(
-    'INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,1.0)',
-    [randomUUID(), owner, itemId, quantity]
+    'INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ($1,$2,$3,$4,1.0,$5)',
+    [randomUUID(), owner, itemId, quantity, customData ? JSON.stringify(customData) : null]
   );
 }
 
@@ -274,7 +274,7 @@ function playBroadcast(player) {
     try {
       if (await isSet(player, F_COLLAPSE)) return; // a prior playback already finished — don't re-drop the kit
       const ground = `_ground_${Z_BROADCAST}`;
-      for (const { id, qty } of KIT) await grantItem(player, id, qty, ground);
+      for (const { id, qty, credits } of KIT) await grantItem(player, id, qty, ground, credits ? { credits, name: `credit chip (₵${credits})` } : null);
       await raise(player, F_COLLAPSE);
       // Highlight each dropped item as a clickable take-link (same convention as
       // the room's "Lying here:" list), then refresh the room so the ground items
