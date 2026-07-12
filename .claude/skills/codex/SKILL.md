@@ -19,7 +19,7 @@ World content lives in **git as one JSON file per entity** (`content/<table>/<pk
 ## When to invoke
 
 - **Always, after `mud-designer`, `plugin-builder`, or `engine-change` produce content or schema.** Those skills END with rows in your local DB or DDL in `SCHEMA_SQL`. They are not done until CODEX ships them. Treat this as the mandatory Phase-N of each.
-- After ANY dev-panel / `design-cli` authoring session, even a one-line tweak.
+- After ANY dev-panel / `design-cli` authoring session, even a one-line tweak. (The dev-panel save-hook already wrote the files locally — your job is to review, lint, regress, and commit them, not to export.)
 - On explicit asks: "ship this", "commit the content", "prep for push", "is this clean", "did I break the world".
 - Before telling the user a content task is "done." Content in a local DB that isn't exported and committed is **invisible to everyone else and lost on the next rebuild.**
 
@@ -27,17 +27,18 @@ World content lives in **git as one JSON file per entity** (`content/<table>/<pk
 
 Before anything, answer one question: **was this content authored in the DB, or as files?** The two paths ship differently, and running export on file-authored content is a classic self-inflicted mess.
 
-- **DB-authored** — you created/edited it through the **dev panel** or `design-cli`, so the only copy is rows in your local DB. Files don't exist yet. **You MUST `content:export`** to serialize DB → files; that's the only way git can see the work.
 - **File-authored** — you (or an agent) wrote/edited `content/<table>/<pk>.json` **directly** with a text editor. **The files ARE the source of truth already. Do NOT export.** Export would dump your entire *played-in* local DB back over the tree — burying your small, clean diff under hundreds of runtime-residue files (streetlights, power-sim boxes, spawn instances) and catalog-wide re-serialization, and even *un-deleting* files you removed (their rows still sit in the DB). The push-then-export instinct is right: your committed files are the truth; the DB is a build artifact of them. Skip straight to lint.
+- **Dev-panel-authored** — you created/edited it through the **dev panel** against your **local** server. As of the dev-panel save-hook (`server/api/content-sync.js`), each save **already wrote the entity's file** for you (deletes remove it; deleting a zone/map cascade-removes its child files). So this is now **also file-authored by the time you ship** — the files are sitting in your working tree, unstaged. **Do NOT export.** Just review `git status`, then lint. (If the save-hook was somehow off, or you're on an old build, fall back to a targeted export — see below.)
+- **`content:export` is now a reconciliation tool, not a routine step.** Reach for it only to backfill files after a bulk DB change the save-hook didn't cover (a one-shot script that rewrote many rows, a restore), and even then **review the diff hard** and discard runtime residue (Step 2–3).
 
-> Rule of thumb: **files → commit them; DB → export first.** If you didn't touch the dev panel this session, you're file-authored — don't export. When a change is *mixed* (some dev-panel, some hand-edited), export, then in the diff review discard everything except the entities you deliberately touched (see Step 2–3).
+> Rule of thumb: **you almost never run export.** Files on disk — whether hand-edited or written by the dev-panel save-hook — are the truth; commit them. Only export to recover files after a bulk out-of-band DB mutation, and scrub the diff when you do.
 
 ## The ship sequence
 
 Run it in order. Do not skip the diff review — it is the step that catches the mess.
 
 ```
-1. npm run content:export      # ONLY if DB-authored (dev-panel/design-cli). SKIP for file-authored content.
+1. npm run content:export      # RARELY — only to reconcile files after a bulk out-of-band DB change. Dev-panel saves + hand edits already wrote files; SKIP.
 2. git status content/         # what changed?  ← THINK here, don't rubber-stamp
    git diff content/           # read it
 3. <discard runtime residue>   # git checkout -- content/<table>/<file>  (see below)
@@ -108,6 +109,14 @@ When the ship includes a schema change, the SCHEMA_SQL edit, the registry classi
 2. **Restoring a file you deleted-and-committed earlier on the SAME branch keeps getting re-deleted.** HEAD still shows it deleted, so every `content:import` inserts it from the working file *then the deletion pass removes it again* — the log reads `1 inserted, … 1 deleted` and the row ends up gone. Fix: **commit the restoration first**, then `content:import`. Now `marker..HEAD` no longer shows it deleted and the row sticks.
 
 Symptom of both: a content file exists on disk but its row is missing from the DB — which surfaces as a broken `examine`/`look`, a dangling inventory reference, or a lint FK warning. Confirm with `SELECT id FROM <table> WHERE id=…`; the fix is always commit-then-import.
+
+### Deleting via the dev panel — files are removed for you (incl. large cascades)
+
+The dev-panel save-hook (`server/api/content-sync.js`) also handles deletes locally: deleting an entity in the panel **removes its `content/<table>/<pk>.json`** immediately (unstaged). This is the deletion analogue of the save-hook — you don't `rm` the file by hand.
+
+**Large-scale / cascade removes are the case to know about.** Deleting a **zone or a map** in the panel cascades in the engine — it removes the zone(s) plus every child row (npcs, furniture, spawns, windows, apartments, interior rooms/siblings, the map). The hook mirrors that cascade to files: `apiDeleteZone` hands its full deleted-zone set to `syncZoneDeletion`, which removes each zone file **and** every child content file whose zone reference is in that set. So a single map delete can legitimately show up in `git status` as **dozens of deleted files** — that is correct, not runaway. Review the deletion list (it's scoped to the zones you removed), then commit it as one "retire zone X" change. On push, those file deletions propagate the removal to prod (git-diff-driven deletion pass), so **don't delete a zone you only meant to unpublish**.
+
+Note the cleanup is keyed on **file content** (each child file's `zone_id`/`home_zone`/etc.), not a DB diff — so it only ever removes files that point at a deleted zone, and can never sweep away unrelated file-authored work that simply isn't imported into your local DB.
 
 ## Prod: what a push means, and the cautions
 
