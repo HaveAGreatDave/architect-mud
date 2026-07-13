@@ -3,6 +3,7 @@ import { findPath } from '../../server/engine/pathfinding.js';
 import { allExits } from '../../server/engine/exits.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
 
 // The exact direction to step at each hop: dirs[k] is the exit direction from
 // path[k] to path[k+1]. The client auto-walker follows these directly instead of
@@ -162,6 +163,25 @@ function cmdGps(args, raw, player) {
 registerAction({
   type: 'gps.navigate',
   handler: ({ actor, params }) => plotRoute(actor, params.destination),
+});
+
+// GPS_TO — a dialogue action so an NPC (e.g. an archivist giving directions) can plot a
+// route to a fixed destination straight onto the player's map. Takes a zone id in
+// `params.zone`. Pushes the gps_route to the player the same way quests do (sendToPlayer),
+// so it draws independently of the dialogue text; returns a benign result the dialogue
+// loop ignores. No auto-walk prompt — a route handed to you mid-conversation shouldn't
+// hijack you into walking; you decide to follow it (or `gps` it again to arm auto-walk).
+registerAction({
+  type: 'GPS_TO',
+  handler: ({ actor, params }) => {
+    const noop = { type: 'gps_pointed' };   // unhandled by the dialogue loop → no text append
+    if (!actor?.current_zone || !params?.zone) return noop;
+    const dest = getZone(params.zone);
+    if (!dest || dest.id === actor.current_zone) return noop;
+    const res = plotRoute(actor, dest);
+    if (res.type === 'gps_route') { delete res.promptAutoWalk; sendToPlayer(actor.id, res); }
+    return noop;
+  },
 });
 
 // Run mode: a runtime-only flag on the live player (never a DB column — it's

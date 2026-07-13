@@ -2,6 +2,8 @@
 // against the live world without touching the client-side minimap overlay.
 import { getZone, getAllZones } from '../../server/engine/world.js';
 import { findPath } from '../../server/engine/pathfinding.js';
+import { dispatchAction } from '../../server/engine/actions.js';
+import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 
 const isRoadTile = (z) => !!z && (/^(road_|runway_)/.test(z.flags?.icon || '') || !!z.flags?.artery);
 
@@ -204,6 +206,44 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('walk');
   check('walk clears running', r?.type === 'run_state' && r.running === false && p.running === false, JSON.stringify(r));
   p.running = savedRunning;
+
+  // GPS_TO action — an NPC (e.g. the Hall of Records archivist) plotting a route straight
+  // onto the player's map from dialogue. Dispatch it and confirm a gps_route is pushed to
+  // the player via sendToPlayer/broadcast, with NO auto-walk prompt, and that being already
+  // at the destination sends nothing. Spy on broadcast and restore it afterward.
+  {
+    const savedBc = getBroadcast();
+    const savedCur = p.current_zone;
+    const sent = [];
+    setBroadcast((zoneId, message, excludeId, targetId) => { sent.push({ targetId, message }); });
+    // Pick a reachable origin/dest pair from the live map: a building tile and any other
+    // building tile a road route connects to. Deterministic enough (first reachable pair).
+    const buildings = getAllZones().filter(z => z.flags?.building_type && z.map_id === 'map_world');
+    let origin = null, dest = null;
+    for (const o of buildings) {
+      const d = buildings.find(z => z.id !== o.id && (findPath(o.id, z.id, { roads: false, maxDistance: 300 })?.length || 0) > 1);
+      if (d) { origin = o.id; dest = d.id; break; }
+    }
+    try {
+      if (origin && dest) {
+        p.current_zone = origin;
+        await dispatchAction({ type: 'GPS_TO', actor: p, params: { zone: dest } });
+        const route = sent.find(s => s.message?.type === 'gps_route');
+        check(
+          'GPS_TO pushes a gps_route to the player with no auto-walk prompt',
+          !!route && route.targetId === p.id && Array.isArray(route.message.path) &&
+            route.message.path.length > 1 && route.message.promptAutoWalk === undefined,
+          JSON.stringify(route ? { target: route.targetId, hops: route.message.path?.length, prompt: route.message.promptAutoWalk } : sent),
+        );
+        sent.length = 0;
+        p.current_zone = dest;
+        await dispatchAction({ type: 'GPS_TO', actor: p, params: { zone: dest } });
+        check('GPS_TO no-ops when already at the destination', !sent.some(s => s.message?.type === 'gps_route'), `sent=${sent.length}`);
+      } else {
+        check('GPS_TO: found a reachable building pair to test', false, 'no reachable building pair on map_world');
+      }
+    } finally { setBroadcast(savedBc); p.current_zone = savedCur; }
+  }
 
   p.current_zone = savedZone;
 }
