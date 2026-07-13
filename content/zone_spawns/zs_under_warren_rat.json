@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_sewer_rat",
+  "id": "zs_under_warren_rat",
+  "max_count": 3,
+  "respawn_seconds": 200,
+  "spawn_weight": 80,
+  "zone_id": "zone_under_warren"
+}

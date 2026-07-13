@@ -3,6 +3,7 @@
 
 import { sendCmdSilent, sendRaw } from '../net.js';
 import { renderMarkup } from '../markup.js';
+import { createGamedayView } from './gameday.js';
 
 // Render an NPC say line in screenplay style: the speaker's name (in the TV
 // accent color) on its own line, their speech directly beneath it — no gap.
@@ -55,6 +56,12 @@ let _tickerText = '';
 let _tickerAnimating = false;
 let _overlayTimer = null;
 let _tuneTimer = null;
+// Gameday sub-screen: the animated at-bat view. The view is created lazily (needs
+// its host in the DOM), `_gamedayOpen` is the player's toggle, `_lastGameday` is the
+// most recent payload so opening mid-at-bat lands on the current play.
+let _gamedayView = null;
+let _gamedayOpen = false;
+let _lastGameday = null;
 let _tvChannelList = [];   // [{ number, name, channelId }] sorted by number
 let _tvFrequency   = 0;    // current dial position (float), quantized to 0.05 steps for display/lock
 let _dialRaw       = 0;    // unquantized accumulator driving drag math, avoids feedback-loop stepping
@@ -104,7 +111,7 @@ export function openTvPanel(data) {
     if (data.sounds.powerOff)_powerOffDef= { ...TV_POWER_OFF_DEF,config: data.sounds.powerOff.config };
   }
 
-  if ((data.channelId || null) !== _tvActiveChannelId) { _clearScorebug(); _clearStandings(); _clearSportsFx(); }   // drop stale graphics when the dial moves
+  if ((data.channelId || null) !== _tvActiveChannelId) { _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); }   // drop stale graphics when the dial moves
   _tvActiveChannelId = data.channelId || null;
   _tvOpen = true;
   _tvShuttingDown = false;
@@ -292,6 +299,7 @@ export function closeTvPanel() {
   _clearScorebug();
   _clearStandings();
   _clearSportsFx();
+  _clearGameday();
   const win = document.getElementById('tv-window');
   win.classList.remove('tv-shutting-off');
   win.style.position = '';
@@ -331,6 +339,7 @@ export function applyTvOverlay(overlay) {
   // The score-bug is a persistent layer (updated in place, its own container) —
   // it must not be wiped by transient overlays, nor auto-dismiss on a timer.
   if (overlay && overlay.overlayType === 'scorebug') { _applyScorebug(overlay); return; }
+  if (overlay && overlay.overlayType === 'gameday') { _handleGameday(overlay); return; }
   if (overlay && overlay.overlayType === 'standings') { _applyStandingsBug(overlay); return; }
   if (overlay && overlay.overlayType === 'sportsfx') { _applySportsFx(overlay); return; }
   _clearOverlay();
@@ -415,6 +424,47 @@ function _clearScorebug() {
   if (host) { host.innerHTML = ''; host.classList.remove('on'); }
 }
 
+// ── Gameday sub-screen ─────────────────────────────────────────────────────────
+// A new `gameday` overlay arrives per at-bat during a sports broadcast. First one
+// reveals the "Gameday" toggle button; the view only renders while the player has it
+// open (it covers the play-by-play), but we always cache the latest so opening mid-
+// game lands on the current play. The view is placement-agnostic (gameday.js) — this
+// wires it to the TV window and could bind the same view to a tablet host later.
+function _handleGameday(gd) {
+  _lastGameday = gd;
+  const btn = document.getElementById('tv-gameday-btn');
+  if (btn) btn.classList.add('avail');
+  if (_gamedayOpen) {
+    if (!_gamedayView) _gamedayView = createGamedayView(document.getElementById('tv-gameday'));
+    _gamedayView.apply(gd);
+  }
+}
+
+function _toggleGameday() {
+  const host = document.getElementById('tv-gameday');
+  const btn = document.getElementById('tv-gameday-btn');
+  if (!host) return;
+  _gamedayOpen = !_gamedayOpen;
+  host.classList.toggle('on', _gamedayOpen);
+  btn?.classList.toggle('on', _gamedayOpen);
+  if (_gamedayOpen) {
+    if (!_gamedayView) _gamedayView = createGamedayView(host);
+    if (_lastGameday) _gamedayView.apply(_lastGameday);
+  }
+}
+
+// Drop the whole sub-screen — on a channel change or panel close, so a stale game
+// never lingers. Hides the toggle until the next sports broadcast reveals it again.
+function _clearGameday() {
+  _gamedayOpen = false;
+  _lastGameday = null;
+  _gamedayView?.clear();
+  const host = document.getElementById('tv-gameday');
+  if (host) host.classList.remove('on');
+  const btn = document.getElementById('tv-gameday-btn');
+  if (btn) btn.classList.remove('on', 'avail');
+}
+
 // Transient "standings bug" — the league table flashed up periodically during a
 // sports broadcast. Its own container (top-left) so it coexists with the persistent
 // score-bug, and it auto-dismisses on a timer (the server flashes it, doesn't hold it).
@@ -435,14 +485,53 @@ function _applyStandingsBug(sb) {
   }).join('');
   host.innerHTML = `<div class="tv-st-title">${_esc(sb.title || 'STANDINGS')}</div>${body}`;
   host.classList.add('on');
+  // Reserve the bug's top-right corner in the text layer so the play-by-play wraps
+  // around it instead of running underneath. Measure after layout, then flow the
+  // shape into #tv-messages and mark #tv-content so the message column runs block.
+  requestAnimationFrame(() => {
+    const content = document.getElementById('tv-content');
+    if (!content || !host.classList.contains('on')) return;
+    const cRect = content.getBoundingClientRect();
+    const hRect = host.getBoundingClientRect();
+    // Shape spans from the top of the message box down past the bug, plus a gap.
+    const shapeW = Math.ceil(cRect.right - hRect.left) + 12;
+    const shapeH = Math.ceil(hRect.bottom - cRect.top) + 10;
+    content.style.setProperty('--tv-st-shape-w', `${Math.max(shapeW, 0)}px`);
+    content.style.setProperty('--tv-st-shape-h', `${Math.max(shapeH, 0)}px`);
+    content.classList.add('standings-on');
+    _ensureStandingsShape();
+  });
   if (_standingsTimer) clearTimeout(_standingsTimer);
   _standingsTimer = setTimeout(_clearStandings, (sb.duration || 9) * 1000);
+}
+
+// The float that reserves the bug's corner must be the first child of #tv-messages
+// (a float only pushes content that follows it). appendTvMessage keeps it in front.
+function _ensureStandingsShape() {
+  const content = document.getElementById('tv-content');
+  if (!content || !content.classList.contains('standings-on')) return;
+  const container = document.getElementById('tv-messages');
+  if (!container) return;
+  let shape = container.querySelector('.tv-standings-shape');
+  if (!shape) {
+    shape = document.createElement('div');
+    shape.className = 'tv-standings-shape';
+  }
+  if (container.firstChild !== shape) container.insertBefore(shape, container.firstChild);
 }
 
 function _clearStandings() {
   if (_standingsTimer) { clearTimeout(_standingsTimer); _standingsTimer = null; }
   const host = document.getElementById('tv-standings');
   if (host) { host.innerHTML = ''; host.classList.remove('on'); }
+  const content = document.getElementById('tv-content');
+  if (content) {
+    content.classList.remove('standings-on');
+    content.style.removeProperty('--tv-st-shape-w');
+    content.style.removeProperty('--tv-st-shape-h');
+  }
+  const shape = document.querySelector('#tv-messages .tv-standings-shape');
+  if (shape) shape.remove();
 }
 
 // Full-screen sports "graphics": the home-run trajectory call-out, the final-score
@@ -714,6 +803,7 @@ export function appendTvMessage(text, style, duration) {
       // Keep the last line so the display doesn't hard-cut mid-thought
       const lastEl = _tvHistory.length ? _tvHistory[_tvHistory.length - 1].cloneNode(true) : null;
       _clearTvMessages();
+      _ensureStandingsShape();
       if (lastEl) { container.appendChild(lastEl); _tvHistory.push(lastEl); }
     }
   }
@@ -816,6 +906,20 @@ export function appendTvMessage(text, style, duration) {
   if (_tvHistory.length > MAX_TV_HISTORY * 2) {
     _tvHistory.splice(0, 2).forEach(n => n.remove());
   }
+
+  // Post-append guard: the message just added (now possibly re-wrapped narrower
+  // around the standings bug) must not spill past the bottom of the box and get
+  // clipped. If it does, roll to a fresh screen with this message alone at the top.
+  const tvContent = document.getElementById('tv-content');
+  if (tvContent && tvContent.clientHeight > 0 &&
+      container.offsetHeight > tvContent.clientHeight &&
+      _tvHistory.length > 2) {
+    _clearTvMessages();
+    _ensureStandingsShape();
+    container.appendChild(el);
+    container.appendChild(spacer);
+    _tvHistory.push(el, spacer);
+  }
 }
 
 export function updateTvTicker(text) {
@@ -900,6 +1004,11 @@ export function initTvPanel() {
     syncReadBtn();
     if (!_readAloud) window.AudioEngine?.cancelSpeech();
   });
+
+  // Gameday toggle: reveals the animated at-bat sub-screen. Hidden until a sports
+  // broadcast sends its first `gameday` overlay (which adds `.avail`).
+  const gamedayBtn = document.getElementById('tv-gameday-btn');
+  gamedayBtn?.addEventListener('click', () => { if (_tvOpen) _toggleGameday(); });
 
   // Knob: click cycles channels, mousewheel fine-tunes. Drag-to-rotate is
   // disabled for now — it was unreliable to control smoothly — so there's no

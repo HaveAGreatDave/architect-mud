@@ -28,9 +28,15 @@ function stepCost(zone) {
 // `roads: true` runs a road-preferring least-cost search (Dijkstra over stepCost) instead
 // of plain BFS, so GPS routes stay on the street grid, leaving it only for the start/end
 // building. `maxDistance` bounds the route in HOPS in both modes.
-export function findPath(startId, targetId, { maxDistance = 60, roads = false } = {}) {
+//
+// `avoid` (a Set of zone ids) removes tiles from the search entirely — used by GPS
+// auto-walk to route AROUND a tile whose entrance turned out to be blocked (a locked
+// door, a gated apartment) instead of dead-ending at it. The target is never avoided,
+// so "route to a tile behind a locked door" still resolves (and legitimately fails
+// only when there's no other way in).
+export function findPath(startId, targetId, { maxDistance = 60, roads = false, avoid = null } = {}) {
   if (startId === targetId) return [startId];
-  if (roads) return findRoadPath(startId, targetId, maxDistance);
+  if (roads) return findRoadPath(startId, targetId, maxDistance, avoid);
 
   const parent = new Map([[startId, null]]);
   const dist = new Map([[startId, 0]]);
@@ -56,6 +62,7 @@ export function findPath(startId, targetId, { maxDistance = 60, roads = false } 
     if (!zone) continue;
 
     for (const neighborId of neighborZoneIds(zone)) {
+      if (avoid && neighborId !== targetId && avoid.has(neighborId)) continue;
       if (!parent.has(neighborId)) {
         parent.set(neighborId, current);
         dist.set(neighborId, currentDist + 1);
@@ -94,7 +101,8 @@ class MinHeap {
 
 // Least-cost search that hugs the road grid (see stepCost), Dijkstra over a binary heap.
 // `hops` tracks path length so `maxDistance` still bounds the route the same way BFS does.
-function findRoadPath(startId, targetId, maxDistance) {
+// `avoid` (Set of zone ids, target exempt) prunes tiles from the frontier — see findPath.
+function findRoadPath(startId, targetId, maxDistance, avoid = null) {
   const parent = new Map([[startId, null]]);
   const cost = new Map([[startId, 0]]);
   const hops = new Map([[startId, 0]]);
@@ -112,6 +120,7 @@ function findRoadPath(startId, targetId, maxDistance) {
     if (!zone) continue;
 
     for (const neighborId of neighborZoneIds(zone)) {
+      if (avoid && neighborId !== targetId && avoid.has(neighborId)) continue;
       const nz = world.zones.get(neighborId);
       const step = stepCost(nz);
       if (!isFinite(step)) continue;                 // impassable (water)

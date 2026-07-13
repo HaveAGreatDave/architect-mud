@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_sewer_roach",
+  "id": "zs_under_flooded_roach",
+  "max_count": 2,
+  "respawn_seconds": 240,
+  "spawn_weight": 55,
+  "zone_id": "zone_under_flooded"
+}

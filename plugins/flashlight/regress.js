@@ -5,6 +5,7 @@
 import { fireHook } from '../../server/engine/plugins.js';
 import { getRegisteredSpecializedActions } from '../../server/engine/specializedActions.js';
 import { floorVisibility } from '../../server/engine/environment.js';
+import { flashlightDrainRate } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -29,6 +30,11 @@ export default async function regress({ run, check, getPlayer }) {
   // With no lit flashlight held, the perceive hook leaves visibility untouched.
   const perceived = await fireHook('visibility.perceive', p, { category: 'dark', visibility: 0.12 }, { id: p.current_zone });
   check('perceive hook is a no-op without a lit flashlight', perceived === undefined, JSON.stringify(perceived));
+
+  // Per-item drain rate: missing/invalid → normal 1.0; a valid multiplier is honored.
+  check('drain rate defaults to 1 with no flags', flashlightDrainRate(undefined) === 1 && flashlightDrainRate({}) === 1, 'default');
+  check('drain rate reads flags.flashlight_drain', flashlightDrainRate({ flashlight_drain: 0.5 }) === 0.5, 'frugal light');
+  check('drain rate rejects non-positive/garbage', flashlightDrainRate({ flashlight_drain: 0 }) === 1 && flashlightDrainRate({ flashlight_drain: 'x' }) === 1, 'guarded');
 
   // Typing `light` with no flashlight to resolve falls through without crashing.
   const r = await run('light');

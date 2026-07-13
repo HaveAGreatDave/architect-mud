@@ -149,6 +149,13 @@ function buildEntranceDirIndex() {
   const idx = new Map();
   for (const z of world.zones.values()) {
     if (z.grid_x == null) continue;
+    // The entrance must be the STREET tile you step in from — so the source zone
+    // has to be standable. Skip facades as sources: two adjacent building faces can
+    // be wired directly to each other (Two-Cell's `south` ↔ Embassy's `north`), and
+    // if that building-to-building exit is scanned before the real road, the door
+    // gets pinned to the neighbouring building and facadeStreetTile spills you onto
+    // it instead of the street.
+    if (hasTag(z, 'facade')) continue;
     for (const [dir, targetId] of Object.entries(z.exits || {})) {
       const off = DIR_OFFSET[dir];
       if (!off || off[2] !== 0 || (off[0] === 0 && off[1] === 0)) continue; // N/S/E/W only

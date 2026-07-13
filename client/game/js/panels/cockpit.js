@@ -1299,7 +1299,7 @@ function ensureFlightSimStyles() {
     body.fsim-external .fsim-view{ position:absolute; inset:0; height:auto; z-index:0; }
     body.fsim-external .fsim-pfd, body.fsim-external .fsim-gauges, body.fsim-external .fsim-mfd,
     body.fsim-external .fsim-placard, body.fsim-external .fsim-xpdr,
-    body.fsim-external .fsim-nightsw { display:none; }
+    body.fsim-external .fsim-nightsw, body.fsim-external .fsim-reticle { display:none; }   /* external view draws the two-part gunsight on the canvas instead */
     /* control rows → transparent overlays pinned over the bottom of the view */
     body.fsim-external .fsim-glass{ position:absolute; left:8px; bottom:8px; width:auto; height:150px; gap:6px; z-index:6; background:transparent; }
     body.fsim-external .fsim-rightctl{ flex:0 0 auto; }
@@ -2735,6 +2735,9 @@ function fsimFrame(now) {
     // gun selected) — solution or not — so you can SEE where you're shooting and walk
     // the rounds onto the bogey. A hull readout + a red battle-damage flash on a hit.
     firing: !!(F.firing && F.armed && F.reportedAirborne && F.weapon !== 'msl'), muzzle: F.muzzleT && (now - F.muzzleT < 60), muzzleT: F.muzzleT || 0, gunMs: GUN_FIRE_MS,
+    // Two-part gunsight: shown while the guns are armed + airborne (aiming, not only firing). Also
+    // aligns the chase camera dead-astern so the boresight runs up the screen centre (windshield.js).
+    reticle: !!(F.armed && F.reportedAirborne && F.weapon !== 'msl'),
     hull: F.hull, hitFlash: F.hitFlashT ? clampNum(1 - (now - F.hitFlashT) / 400, 0, 1) : 0,
     // Incoming ground-AA tracer: bearing it's arriving from + a 0..1 progress fraction
     // (volley animates in over AA_TRACER_MS, then clears). dx/dy = the firing site's live

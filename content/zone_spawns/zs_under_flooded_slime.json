@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_sewer_slime",
+  "id": "zs_under_flooded_slime",
+  "max_count": 1,
+  "respawn_seconds": 400,
+  "spawn_weight": 40,
+  "zone_id": "zone_under_flooded"
+}

@@ -69,7 +69,7 @@ export const RENDER_TUNE = {
   rwyRecede: 4.0,     // how strongly climbing pushes the runway down/under
   fov: 0.82,          // horizontal FOV / focal length (<1 pulls the scenery in toward the vanishing point = a tighter "tunnel"; 1 = the old wide spread). Pure render — collision math is world-space and unaffected.
   volClouds: 1,       // 1 = fly-THROUGH volumetric cloud deck (world-projected puff stacks that grow, part around you, and whiteout as you punch through) + camera-locked haze; 0 = the old flat dome billboards only
-  cloudZ: 2.4,        // world-z the fly-through cloud BASE sits at: climb up into it and you punch through — below the deck you're under it, above it you're on top looking down on the tops
+  cloudZ: 2.4,        // (superseded) old fixed cloud-base world-z. The fly-through deck now derives its base per-weather from a realistic altitude — see CLOUD_BASE_FT / cloudBaseZ() below.
   cloudThick: 1.6,    // vertical spread (world-z) of that deck → how tall the wall of cloud you fly through is
   treeDensity: 2.0,   // trees per grass tile (×) — 0 = none, live 'Trees' slider
   treeForest: 0.9,    // forest-clump threshold: patches with an area-bias above this go densely wooded; lower = more/bigger forests
@@ -370,7 +370,9 @@ export function paintWindshield(id, view) {
   // External orbit: hold the middle mouse to spin the chase camera around the craft. Adding it to
   // the VIEW heading rotates the world + camera around the aircraft, while the model keeps its own
   // real heading (drawn below), so we see the plane from the orbit angle. Snaps back to behind on release.
-  const extOrbit = ext ? ((v.extYaw || 0) + RENDER_TUNE.chaseYaw) : 0;
+  // Aiming (v.reticle) drops the resting 3/4 off-astern angle so the chase camera looks straight up
+  // the nose/gun line — the boresight then runs up the screen centre and the two-part reticle aligns.
+  const extOrbit = ext ? ((v.extYaw || 0) + (v.reticle ? 0 : RENDER_TUNE.chaseYaw)) : 0;
   const yawOff = (v.viewYaw || (v.side ? 90 : 0)) + extOrbit;
   const vw = yawOff ? { ...v, heading: (v.heading || 0) + yawOff } : v;
   const W = cw, H = ch, speed = clamp(v.speed || 0, 0, 1), height = clamp(v.height || 0, 0, 1);
@@ -792,7 +794,7 @@ export function paintWindshield(id, view) {
     if (worldBlend > 0.02) {
       drawWorldObjects(ctx, cam, vw, sky, now, sunFx);
       if (st.bolts && st.bolts.length) drawLightning(ctx, cam, st, now, v.acX ?? 0, v.acY ?? 0);   // 3-D lightning bolts inside storm cells
-      if (volOn) drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY);   // fly-through cloud deck: real weather-field cells as world-projected puff stacks + whiteout + haze
+      if (volOn) drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr);   // fly-through cloud deck: puff stacks + silver-lining rim, value-noise mottle, inter-lobe AO, virga shafts + whiteout/haze (base at a realistic altitude for `wx`)
       if (vw.aaSites) drawAASites(ctx, cam, vw, now);   // radar-dish SAM turrets at active AA sites
       if (sky.night > 0.35) drawSearchlights(ctx, cam, vw, now, worldBlend);   // sweeping beams from restricted (no-fly) blocks at night
       if (!framed) drawBirds(ctx, W, H, horizonY, vw, st, dt, speed, sky, now, worldBlend);   // ambient flock scattering as you pass
@@ -811,6 +813,7 @@ export function paintWindshield(id, view) {
     // world (a real 3rd-person camera, not a sprite pasted on a cockpit view), at the craft's
     // eye-height with its gear swinging out/in.
     if (ext) drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc }, ownShipBaseWz(cam, v), sunFx, now);
+    if (ext && v.reticle) drawGunReticle(ctx, cam, v, W, H, horizonY);   // two-part gunsight over the chase model
   }
 
   // Speed streaks (motion rush from the vanishing point) — forward view only.
@@ -1788,20 +1791,66 @@ function drawPuff(ctx, cx, cy, s, lit, base, alpha) {
 // camera-locked haze band (thickening inside a front) underlays it. Returns the eased 0..1 immersion.
 // Card template: [ox, oy, oz] world offsets as fractions of the puff radius, then [sizeMul, litBias].
 // A fat core, four around it (the horizontal spread), a lit crown up in z and a shaded base below.
+// Realistic cloud-base ALTITUDE (ft) per condition. The server gives us no ceiling, so we pick a
+// believable base for the weather: ground fog hugs the deck; overcast, rain and snow ride a low-mid
+// stratus deck; fair-weather cumulus sit higher; storms tower off a mid base. Converted to the SAME
+// Mode-7 world-z the camera climbs through (matching makeCam's EH curve, EH = eh + climbLift·√(alt/3000)),
+// so the deck sits at that real altitude — overhead when you're on the runway, flown INTO only once you
+// actually climb up to it, never smeared across the ground the way the old fixed low base was.
+const CLOUD_BASE_FT = { clear: 3200, cloudy: 1600, rain: 1200, storm: 1800, snow: 1500, fog: 150, ash: 900, dust: 700 };
+const cloudBaseZ = (wx) => Math.max(0.05, RENDER_TUNE.eh + Math.sqrt((CLOUD_BASE_FT[wx] ?? 1600) / 3000) * RENDER_TUNE.climbLift);
+// Card template: [ox, oy, oz, sizeMul, litBias, yScale] as fractions of the puff radius. A real
+// cumulus is NOT a symmetric ball of smoke — it has a FLAT, SHADOWED base sitting on the ceiling and
+// BILLOWS UPWARD into rounded, sunlit cauliflower lobes. So the base cards sit low (oz≈0), wide and
+// heavily SQUASHED (yScale→0.4) and DARK (litBias→0.1); the body lobes rise (oz+) and brighten; the
+// crowns are small, near-round (yScale→0.9) and brightest (litBias→1). Ordered base→body→crown so a
+// phone's 4-card prefix still spans the whole vertical form instead of only the base slab.
 const CLOUD_CARDS = [
-  [ 0.00,  0.00,  0.00, 1.00, 0.55],
-  [-0.72,  0.16,  0.06, 0.82, 0.45],
-  [ 0.70, -0.12,  0.02, 0.82, 0.48],
-  [ 0.12,  0.70, -0.04, 0.78, 0.42],
-  [-0.20, -0.68,  0.10, 0.78, 0.46],
-  [ 0.00,  0.05,  0.60, 0.66, 0.95],   // lit crown, up in world-z
-  [ 0.00, -0.05, -0.52, 0.62, 0.12],   // shaded base, below
+  [ 0.00,  0.00,  0.05, 1.22, 0.10, 0.40],   // 0 flat wide shadowed base slab
+  [-0.04,  0.06,  0.50, 0.88, 0.52, 0.76],   // 1 mid body billow
+  [ 0.03, -0.02,  0.90, 0.46, 1.00, 0.94],   // 2 bright crown
+  [-0.62,  0.22,  0.08, 0.80, 0.16, 0.44],   // 3 base lobe (L)
+  [ 0.64, -0.14,  0.10, 0.80, 0.17, 0.44],   // 4 base lobe (R)
+  [ 0.34,  0.18,  0.48, 0.74, 0.56, 0.76],   // 5 mid lobe
+  [-0.34, -0.10,  0.46, 0.72, 0.48, 0.76],   // 6 mid lobe
+  [ 0.18, -0.05,  0.82, 0.42, 0.95, 0.92],   // 7 crown lobe
+  [-0.15,  0.10,  0.78, 0.42, 0.90, 0.92],   // 8 crown lobe
 ];
-function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, dt, W, H, horizonY) {
+// How CUMULIFORM the weather is: 1 = heaped, towering cauliflower (fair-weather cumulus, storm cells);
+// 0 = a flat, featureless STRATUS sheet (overcast, fog, snow). Drives vertical billow, how wide the
+// puffs spread into a sheet, and how much top-to-bottom light contrast they carry.
+const CLOUD_CUMULUS = { clear: 1.0, cloudy: 0.35, rain: 0.45, storm: 1.0, snow: 0.3, fog: 0.12, ash: 0.55, dust: 0.45 };
+// A memoised value-noise tile, stamped over the larger cloud cards in 'overlay' blend so the
+// billows gain a mottled, curdled surface (light + dark patches at a few scales) instead of reading
+// as a smooth airbrushed gradient — the single biggest "that's vapour, not smoke" texture cue.
+let _cloudNoiseTex = null;
+function cloudNoiseTex(){
+  if (_cloudNoiseTex) return _cloudNoiseTex;
+  const S = 64, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d');
+  g.fillStyle = 'rgb(128,128,128)'; g.fillRect(0, 0, S, S);   // neutral grey → overlay no-op where untouched
+  for (let scale = 0; scale < 3; scale++) {
+    const n = 10 + scale * 14, r = 15 - scale * 4;
+    for (let i = 0; i < n; i++) {
+      const x = frac(i * 3.1 + scale * 7.7) * S, y = frac(i * 5.7 + scale * 2.3) * S;
+      const val = 128 + (frac(i * 8.3 + scale * 1.9) * 2 - 1) * (30 - scale * 7) | 0;   // lighter/darker blotch
+      const rg = g.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, `rgba(${val},${val},${val},0.55)`); rg.addColorStop(1, 'rgba(128,128,128,0)');
+      g.fillStyle = rg; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    }
+  }
+  _cloudNoiseTex = c; return c;
+}
+function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, dt, W, H, horizonY, wx, lightX, lightY, lightStr) {
   const cells = st.cells, ax = v.acX, ay = v.acY;
   if (!cells || !cells.length || ax == null || ay == null) return st.cloudImm = 0;
   const nCards = W < 720 ? 4 : CLOUD_CARDS.length;   // thinner stacks on a phone
-  const RANGE = 48, baseZ = RENDER_TUNE.cloudZ, thick = RENDER_TUNE.cloudThick;
+  const RANGE = 48, baseZ = cloudBaseZ(wx), thick = RENDER_TUNE.cloudThick;   // base sits at a realistic altitude for the weather (see CLOUD_BASE_FT)
+  // Cumuliform vs stratiform shaping: cumulus billow tall and heaped (vScale up, hScale tight); a
+  // stratus sheet is flat and spread wide (vScale down, hScale up). `litComp` also flattens the
+  // top/bottom light contrast toward a uniform grey for stratus so it reads as an overcast sheet.
+  const cumF = CLOUD_CUMULUS[wx] ?? 0.5;
+  const vScale = 0.34 + 0.5 * cumF, hScale = 1 + (1 - cumF) * 0.55, litComp = 0.4 + 0.6 * cumF;
   // Camera-locked haze band around the horizon — a screen-space fog that DOESN'T parallax, layered
   // under the puffs for depth (the "haze that follows the screen"). Thickens inside a front, fades at night.
   const wxCover = sampleWeatherCells(cells, ax, ay).cloud;
@@ -1822,17 +1871,28 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
       const rr = Math.sqrt(frac(c.seed + k * 1.7)) * c.r * 0.9, th = frac(c.seed + k * 3.3) * 6.2832;
       const dx = c.x + Math.cos(th) * rr - ax, dy = c.y + Math.sin(th) * rr - ay, dist = Math.hypot(dx, dy);
       if (dist > RANGE) continue;
-      const pz = baseZ + (frac(c.seed + k * 2.9) - 0.5) * thick;
+      // Anchor the puff BASE near the ceiling (small scatter) and let the cards billow UP from there,
+      // so the deck has a flat-ish bottom instead of puffs floating at random heights.
+      const pz = baseZ + frac(c.seed + k * 2.9) * thick * 0.35;
       const R = (3.0 + frac(c.seed + k * 5.7) * 3.0) * (0.7 + clamp(c.intensity, 0, 1) * 0.5);
       const distFade = clamp(1 - dist / RANGE, 0.04, 1), cellA = alpha * clamp(c.intensity, 0.4, 1);
+      // Inter-lobe ambient occlusion: a soft dark pool sunk into the puff base, sorted FARTHEST
+      // (f+3) so it paints first, UNDER the lobes — deepening the shadowed crevices where the
+      // cauliflower heaps meet, instead of every lobe reading equally bright.
+      const pbase = cam.proj(dx, dy, pz);
+      if (pbase.f > 0.12) {
+        const sAO = clamp(R * 0.95 * cam.FL / pbase.f, 2, W * 0.9);
+        cards.push({ ao: true, x: pbase.sx, y: pbase.sy + sAO * 0.16, s: sAO, f: pbase.f + 3, a: cellA * distFade * 0.4 });
+      }
       for (let ci = 0; ci < nCards; ci++) {
         const cd = CLOUD_CARDS[ci];
         const jx = (frac(c.seed + k * 3.1 + ci * 2.1) - 0.5) * 0.5, jy = (frac(c.seed + k * 1.7 + ci * 4.3) - 0.5) * 0.5;
-        const p = cam.proj(dx + (cd[0] + jx) * R, dy + (cd[1] + jy) * R, pz + cd[2] * R);
+        const p = cam.proj(dx + (cd[0] + jx) * R * hScale, dy + (cd[1] + jy) * R * hScale, pz + cd[2] * R * vScale);
         if (p.f <= 0.12) continue;                     // card is at/behind the eye → the whiteout covers it
         const near = smoothstep((p.f - 0.3) / 0.9);    // dissolve cards as they reach the eye so they melt INTO the whiteout, not balloon
         const sPx = clamp(R * cd[3] * 0.62 * cam.FL / p.f, 2, W * 0.9);
-        cards.push({ x: p.sx, y: p.sy, s: sPx, f: p.f, a: cellA * distFade * near, lit: cd[4], stormy });
+        const litEff = 0.5 + (cd[4] - 0.5) * litComp;   // full bright-top/dark-base range for cumulus; compressed toward flat grey for stratus
+        cards.push({ x: p.sx, y: p.sy, s: sPx, f: p.f, a: cellA * distFade * near, lit: litEff, oz: cd[2], ys: cd[5], stormy });
       }
     }
   }
@@ -1844,12 +1904,63 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
   const imm = st.cloudImm, cardScale = 1 - imm * 0.85;   // cards fade as the whiteout takes over — inside, you see uniform fog, not lumps
   if (cardScale > 0.02) {
     cards.sort((a, b) => b.f - a.f);                   // far first (painter's)
+    const noiseTex = cloudNoiseTex();
+    const litOK = lightStr > 0.05 && lightX != null;
     for (const c of cards) {
+      if (c.ao) {                                      // ambient-occlusion pool under the lobes
+        const rg = ctx.createRadialGradient(c.x, c.y, c.s * 0.1, c.x, c.y, c.s);
+        rg.addColorStop(0, rgb([18, 24, 32], c.a * cardScale)); rg.addColorStop(1, 'rgba(18,24,32,0)');
+        ctx.fillStyle = rg; ctx.beginPath(); ctx.ellipse(c.x, c.y, c.s, c.s * 0.5, 0, 0, 7); ctx.fill();
+        continue;
+      }
       const bt = c.stormy ? mix(base, [78, 84, 94], 0.5) : base, lt = c.stormy ? mix(lit, [140, 146, 156], 0.5) : lit;
       const col = mix(bt, lt, c.lit), a = c.a * cardScale;
-      const rg = ctx.createRadialGradient(c.x, c.y, c.s * 0.12, c.x, c.y, c.s);
-      rg.addColorStop(0, rgb(col, a)); rg.addColorStop(0.55, rgb(col, a * 0.82)); rg.addColorStop(1, rgb(col, 0));
-      ctx.fillStyle = rg; ctx.beginPath(); ctx.ellipse(c.x, c.y, c.s, c.s * 0.72, 0, 0, 7); ctx.fill();
+      // A DENSER radial falloff holds opacity through the core, then rolls off to a firmer edge — a
+      // solid cloud mass instead of a wispy smoke ring — and the per-card vertical squash (ys) keeps
+      // the base shelves flat and the crowns rounded so the stack silhouettes as billowed cauliflower.
+      const rg = ctx.createRadialGradient(c.x, c.y - c.s * 0.12, c.s * 0.16, c.x, c.y, c.s);
+      rg.addColorStop(0, rgb(col, a)); rg.addColorStop(0.5, rgb(col, a * 0.95));
+      rg.addColorStop(0.82, rgb(col, a * 0.5)); rg.addColorStop(1, rgb(col, 0));
+      ctx.fillStyle = rg; ctx.beginPath(); ctx.ellipse(c.x, c.y, c.s, c.s * c.ys, 0, 0, 7); ctx.fill();
+      // Value-noise mottle: stamp the curdled tile over big cards (overlay modulates brightness only).
+      if (c.s > 15 && a > 0.12) {
+        ctx.save();
+        ctx.beginPath(); ctx.ellipse(c.x, c.y, c.s * 0.98, c.s * c.ys * 0.98, 0, 0, 7); ctx.clip();
+        ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = clamp(a * 0.6, 0, 0.5);
+        ctx.drawImage(noiseTex, c.x - c.s, c.y - c.s * c.ys, c.s * 2, c.s * c.ys * 2);
+        ctx.restore();
+      }
+      // Silver lining: a bright feathered rim on the crown lobe's edge that FACES the key light, so
+      // a backlit front glows along its top instead of reading as a flat grey mass. Crowns only.
+      if (litOK && c.oz > 0.55 && c.lit > 0.6) {
+        let dx = lightX - c.x, dy = lightY - c.y; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
+        const ang = Math.atan2(dy, dx), ra = clamp(lightStr * a * 0.9, 0, 0.6);
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = rgb(mix(lt, [255, 255, 255], 0.55), ra); ctx.lineWidth = Math.max(1, c.s * 0.12);
+        ctx.beginPath(); ctx.ellipse(c.x, c.y, c.s * 0.9, c.s * c.ys * 0.9, 0, ang - 0.95, ang + 0.95); ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+  // Virga / rain shafts: faint raked streaks hanging from the base of precip + storm cells toward the
+  // ground, fading out before they reach it — a shower reads as a trailing veil, not just a grey lump.
+  if (imm < 0.6) for (const c of cells) {
+    if (c.intensity <= 0.05 || !(c.type === 'storm' || c.type === 'precip')) continue;
+    const cdx = c.x - ax, cdy = c.y - ay, cdist = Math.hypot(cdx, cdy);
+    if (cdist > RANGE) continue;
+    const shafts = Math.min(8, Math.max(3, Math.round(c.r))), rake = (v.wind || 0) * 0.02;
+    const dfade = clamp(1 - cdist / RANGE, 0.04, 1) * (1 - imm), topZ = baseZ - 0.05;
+    const col = c.type === 'storm' ? [120, 132, 150] : [150, 162, 176];
+    for (let k = 0; k < shafts; k++) {
+      const rr = Math.sqrt(frac(c.seed + k * 4.3 + 1.1)) * c.r * 0.8, th = frac(c.seed + k * 2.7 + 0.4) * 6.2832;
+      const sx = cdx + Math.cos(th) * rr, sy = cdy + Math.sin(th) * rr;
+      const pt = cam.proj(sx, sy, topZ), pb = cam.proj(sx + rake, sy + rake, Math.max(0.15, topZ - thick - 2.2));
+      if (pt.f <= 0.12 || pb.f <= 0.12) continue;
+      const g = ctx.createLinearGradient(pt.sx, pt.sy, pb.sx, pb.sy);
+      const sa = clamp(c.intensity, 0.3, 1) * dfade * (1 - night * 0.4) * (c.type === 'storm' ? 0.32 : 0.22);
+      g.addColorStop(0, rgb(col, sa)); g.addColorStop(0.7, rgb(col, sa * 0.35)); g.addColorStop(1, rgb(col, 0));
+      ctx.strokeStyle = g; ctx.lineWidth = clamp(c.r * 0.5 * cam.FL / pt.f * 0.02, 1, 5);
+      ctx.beginPath(); ctx.moveTo(pt.sx, pt.sy); ctx.lineTo(pb.sx, pb.sy); ctx.stroke();
     }
   }
   // Whiteout: eye inside cloud → flood the view with the lit fog tint (a hair of world still bleeds
@@ -2639,6 +2750,42 @@ function drawGunTracers(ctx, cam, v, now) {
       tracerStream(ctx, cam, [c.dx + ch * 0.24 * s, c.dy + sh * 0.24 * s, wz - 0.02], aim, t + hash * 0.11, s * 0.5 + 0.7);
       if (Math.sin(t * 30 + hash) > 0.4) muzzleFlash(ctx, cam, c.dx + ch * 0.24 * s, c.dy + sh * 0.24 * s, wz - 0.02);
     }
+  }
+  ctx.restore();
+}
+// Two-part gunsight for the external chase view. Part 1 is a FIXED centre reference — the level
+// boresight (where the gun line points in level flight), which the aligned chase camera holds up the
+// screen centre. Part 2 is a live PIPPER at the actual gun-convergence point projected down the nose
+// (or onto the designated bogey, in red) — as you pitch/bank to aim, it drifts off the centre and the
+// tie-line reads the tracking offset; pull the pipper onto the target and the rounds go there.
+function drawGunReticle(ctx, cam, v, W, H, horizonY) {
+  const hd = (v.heading || 0) * Math.PI / 180, sh = Math.sin(hd), ch = Math.cos(hd);
+  const muzZ = ownShipBaseWz(cam, v);
+  let aim, designated = false;
+  if (v.designated) { aim = [v.designated.dx, v.designated.dy, cam.EH + (v.designated.altDiff || 0) * CONTACT_ALT_K]; designated = true; }
+  else {
+    const pr = (v.pitch || 0) * Math.PI / 180; let R = 16, az = muzZ + R * Math.tan(pr);
+    if (az < 0) { R = muzZ / Math.max(0.02, -Math.tan(pr)); az = 0; }   // gun line meets the ground → converge there
+    aim = [sh * R, -ch * R, az];
+  }
+  const pip = cam.proj(aim[0], aim[1], aim[2]);
+  const ctr = cam.proj(sh * 16, -ch * 16, muzZ);                        // level boresight = the fixed centre
+  const cx = ctr.f > 0.1 ? ctr.sx : W / 2, cy = ctr.f > 0.1 ? ctr.sy : horizonY;
+  const green = 'rgba(120,255,150,';
+  ctx.save(); ctx.lineWidth = 1.4;
+  // Part 1 — fixed centre reference: a dot with four short ticks.
+  ctx.strokeStyle = green + '0.85)'; ctx.fillStyle = green + '0.85)';
+  ctx.beginPath(); ctx.arc(cx, cy, 2, 0, 7); ctx.fill();
+  for (const [ux, uy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { ctx.beginPath(); ctx.moveTo(cx + ux * 6, cy + uy * 6); ctx.lineTo(cx + ux * 11, cy + uy * 11); ctx.stroke(); }
+  // Part 2 — the tracking pipper: a ringed reticle at the gun-convergence point (red on a bogey).
+  if (pip.f > 0.1) {
+    const col = designated ? 'rgba(255,90,80,' : green;
+    ctx.strokeStyle = green + '0.32)'; ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(pip.sx, pip.sy); ctx.stroke(); ctx.setLineDash([]);   // tracking tie-line
+    ctx.strokeStyle = col + '0.95)'; ctx.fillStyle = col + '0.95)';
+    ctx.beginPath(); ctx.arc(pip.sx, pip.sy, 8, 0, 7); ctx.stroke();
+    ctx.beginPath(); ctx.arc(pip.sx, pip.sy, 1.6, 0, 7); ctx.fill();
+    for (const a of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) { ctx.beginPath(); ctx.moveTo(pip.sx + Math.cos(a) * 8, pip.sy + Math.sin(a) * 8); ctx.lineTo(pip.sx + Math.cos(a) * 12, pip.sy + Math.sin(a) * 12); ctx.stroke(); }
   }
   ctx.restore();
 }

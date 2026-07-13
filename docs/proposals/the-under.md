@@ -1,89 +1,114 @@
-# The Under — Proposal & Phased Build Plan
+# The Under — The Sewer Layer (Proposal & Phased Build Plan)
 
-**Status:** SCOPED 2026-07-03. The full metro/cavern build below is **not built**. A separate,
-**minimal "North City gate corridor" IS BUILT (2026-07-03)** — see the box below. Build order for
-the full project: **this project first**, then the [Interior Pass](interior-pass.md).
+**Status:** Reframed 2026-07-12 as a **sewer layer** — the municipal storm/waste network
+beneath Coldwater Basin at `map_world` grid_z −1. This supersedes the earlier "metro-first"
+framing of this doc: the walkable sewer tunnels **are** the canonical z-1 layer, and the old
+transit/cavern ideas become **future overlays** on this same geometry (see
+[Future overlays](#future-overlays)). **Phase 1 (the beginner pocket near the Clone Facility)
+is the current deliverable.**
 
-> ## BUILT: The Under — North City gate corridor (minimal)
-> A small, self-contained slice that repurposes The Under as *the northwest gate to North City*,
-> built ahead of (and independent from) the full metro/cavern scope.
-> - **Surface wall:** the 14-tile NW North City enclave (govt block + west North City + the uptown
->   finger `zone_up_vellum`) is sealed. All 14 surface crossings into the surrounding wastes/bay/civic
->   grid were severed **except one chokepoint** — **The Steps**, `zone_civ_steps` ↔ `zone_up_vellum`
->   (marked ⛩). That is the only surface way in.
-> - **The Under corridor (3 new z-1 tiles):** `zone_under_commons` (−3,−3, `up`→`zone_civ_commons`) →
->   `zone_under_deep` (−3,−4) → `zone_under_landing` (−3,−5, `up`→`zone_gov_mezzanine`). Descend at the
->   Commons, walk the tunnel, resurface inside the government quarter. Free walkable tunnel; **no
->   express train** (that's the future `plugins/metro/`).
-> - **Verified:** global BFS — all 223 tiles reachable, no orphans; enclave boundary seams are exactly
->   The Steps + the Under landing.
-> - **Scope boundary:** North City's **east** half (x 5..8, across the bay, reached from The Yards) is
->   untouched — this gates the NW approach only.
-> - **Live:** content is in Postgres and **confirmed present in production** as of 2026-07-04 (a prior
->   2026-07-03 apply run silently failed to write to prod despite reporting success — re-ran and
->   verified by direct query). **World reload/restart still PENDING** to go live in-game.
-> - Not done here (still the scoped build below): z-1 station ring, z-2 caverns, bestiary/apex, the
->   express plugin.
+## What The Under is
 
-A z-1 metro + z-2 cavern layer beneath the 220-tile surface map. Solves the biggest post-expansion
-pain (traversal cost across a full 20×11 rectangle) *and* adds an explorable underworld biome with its
-own bestiary and an apex. The surface map is `map_world` grid_z 0; the Under lives on the **same
-`map_world` map at grid_z −1 (metro) and −2 (caverns)**, linked to the surface by `up`/`down` exits.
+A dark, explorable underground biome on the **same `map_world` map at grid_z −1**, linked to
+the surface by `up`/`down` storm-drain seams (the `drum_shop`↔`drum_basement` pattern). It is
+the player's **first dedicated PvE combat and exploration space** — entered immediately after
+the tutorial, forgiving near the entrance, and designed to grow into a district-spanning
+network that supports progression throughout the game (not a one-off dungeon).
 
-## Locked design decisions
+Two things make the sewer read as *the sewer* and give the flashlight a real job:
+
+- **It's pitch dark.** Sewer tiles are `is_interior` with no power and no windows, so
+  `getZoneVisibility` resolves them to `pitch_dark`. Without a light you can only feel for
+  exits; creatures and ground loot are hidden, and every swing you throw eats the −5 darkness
+  to-hit penalty.
+- **The flashlight is the key.** Grady's gift (`item_lucky_flashlight`, already the reward for
+  `quest_first_hour`) floors the holder's *perceived* light to `clear` via the flashlight
+  plugin's `visibility.perceive` hook — cancelling the penalty and revealing the room. Monsters
+  still eat the raw zone darkness on their swings, so a lit player has a decisive edge and a
+  dark one is in real trouble. This is the intended tension: **you do not go down without a
+  charged flashlight.**
+
+## Locked design decisions (2026-07-12)
+
 | Decision | Choice |
 |---|---|
-| Primary role | **Explorable underworld dungeon** (travel is a strong secondary) |
-| Movement | **Both** — walkable tunnels (free) **+** express trains |
-| Bestiary | **New underworld bestiary + a cavern apex** (Redline-horror scale) |
-| Express gating | **Credit fare + power-gated** — costs credits per ride AND stops during blackouts |
-| Express reach | **Core + Docks + Yards only** — the wastes/Redline stay earned on foot |
-| Size | **Medium** — z-1 metro ~14 tiles + z-2 caverns ~12 tiles (~26 total) |
+| Primary role | **Beginner PvE combat + exploration**, growing into a district-wide biome |
+| Fiction | **Sewer** is the z-1 layer; metro/express + z-2 caverns are future overlays on it |
+| Target footprint | **District-wide** eventually (loose mirror of the surface streets) |
+| Layout style | **Loose hand-authored** — roughly tracks the streets, but breaks 1:1 with junctions, floods, collapses, utility rooms, dead-ends |
+| First slice | **Beginner pocket** (~11 tiles) under the Clone Facility corner — ships now |
+| Bulk build method | **Deferred** — decide generator-vs-hand-authored after the pocket is live and proven |
+| Bestiary (now) | **3 creatures** (sewer rat / roach / slime), expanded later |
 
-## What already exists (the stub)
-- `zone_tunnels` "The Under" — `map_world` z-1 at (0,2).
-- `zone_city_sw` "The Under Entrance" and `zone_slums` "The Sprawl" (0,2) — the surface `down` seam.
-- The extreme-weather/power system already models blackouts (the "power-stays-out" scar) — the express
-  power-gate reads that state; no new power model needed.
+## History (for context)
 
-## The model
-- **Metro (z-1):** a walkable tunnel network on `map_world` z-1. Stations sit *directly under* their
-  surface district (same grid_x/grid_y, z-1) with an `up`/`down` pair to the surface tile. Tunnels
-  connect stations with cardinal exits. Free to walk.
-- **Express (z-1):** a **new plugin** (`plugins/metro/`) adds `board` / `ride <destination>` /
-  `disembark`. Board only at an **express hub** (a subset of stations: Downtown, Marquee, Docks, Yards).
-  Ride = pick a hub via SIFT, pay a credit fare, teleport to it. **Power-gated:** if the grid is in
-  blackout, trains don't run (falls back to walking). Reach is core/docks/yards only — no frontier hub.
-- **Caverns (z-2):** a natural biome below the metro, reached by `down` shafts from a few z-1 nodes.
-  Not on the transit network — you delve on foot. Home to the new bestiary and the apex.
-- **Danger gradient:** z-1 metro = low/medium (muggers, tunnel vermin); z-2 caverns = high→lethal at the
-  apex. Mirrors the surface's earned-danger shape.
+The `map_world` overworld that hosted the original hand-built "Under" (`zone_tunnels`,
+`zone_under_commons/deep/landing`, the North-City gate corridor) was **retired** — those tiles
+no longer exist in the content tree; they survive only in git history. The current surface is a
+**procedurally generated 888-tile district** (`zone_district_<x>_<y>`, grid_x 891–927 /
+grid_y 896–919, all grid_z 0), with **no `flags.artery` road network** — so "mirror the surface
+roads" means loosely following the generated street grid, not recreating named avenues. **Zero
+zones currently sit on `map_world` at grid_z −1**, so the sewer is the first occupant of that
+layer — a clean slate.
 
-> **Engine note:** walkable tunnels + caverns are **pure content** (zones + exits + spawns, built via
-> the coldwater direct-DB pipeline). The **express is a new mechanic → a plugin**; before building
-> Phase 3, run the engine-vs-plugin-vs-content gate (`plugin-builder` skill). It needs: a fare seam
-> (credits debit), a destination picker (reuse SIFT), and a read of the blackout state. Add a
-> `plugins/metro/regress.js`.
+## Phase 1 — Beginner pocket (current deliverable)
 
-## Phases
-| # | Phase | Layer | ~Tiles | Deliverable |
-|---|---|---|---|---|
-| 1 | **Spine & entrances** | z-1 | ~6 | The trunk tunnel + 3 surface stair-downs (extends the existing stub); walkable end-to-end |
-| 2 | **Station ring** | z-1 | ~8 | A platform under each served district (Downtown, Marquee, Docks, Yards, N. City civic, Undermarket) with up-links; tunnels close the ring |
-| 3 | **Express system** | — | 0 | `plugins/metro/` — board/ride/disembark, credit fare, power-gate, SIFT destination picker; hubs = Downtown/Marquee/Docks/Yards; regress suite |
-| 4 | **z-2 caverns** | z-2 | ~10 | The deep biome (Sunless Sea, Fungal Cavern, the Deep Line, the Nest…) reached by down-shafts; atmospheric shells + scav |
-| 5 | **Bestiary & apex** | z-2 | 0 | New underworld enemies (tunnel/fungal/deep-water) + a cavern apex + a trophy; spawns across z-1/z-2; a capstone quest hook on the surface |
+~11 new z-1 tiles under the Clone Facility corner (grid ~917–921 × 903–905), authored loose.
 
-**Phase-1 exit criterion:** you can descend at ≥1 surface tile, walk the trunk, and resurface — verified
-by DB exit reciprocity + a regress pass. Each later phase ships walkable/playable on its own.
+**Geometry & entrance.** One storm-drain `down` from **Ironside Street** (`zone_district_919_903`,
+where the tutorial clonejacker fight happens) into the entry **Sump**, with a reciprocal `up`.
+A short loop (Sump → Confluence / Flooded Run / Dripping Bend → Silt Gallery) plus dead-end
+nooks (Rat Warren nest, Utility Alcove, Overflow Chamber) and **two future seams left visibly
+blocked** — a **Collapsed Tunnel** and a **Sealed Maintenance Door** — telegraphing expansion.
+All tiles `is_interior` + unpowered (⇒ pitch dark) + `district: "sewer"`.
 
-## Open items to resolve at build time (not blockers)
-- Exact station grid coords under the new districts (finalize when Phase 2 starts).
-- Fare amount + whether it scales by distance.
-- Whether the apex trophy feeds an existing NPC's capstone (e.g. a downtown fixer) or a new one.
-- Cavern biome theming (fungal vs flooded vs machine-tomb) — pick per z-2 tile in Phase 4.
+**Bestiary (3, beginner band, a notch above clonejackers).** Names share the token **"sewer"**
+so one kill objective counts them all (the quest matcher is a name-substring `includes`):
+- `enemy_sewer_rat` — hp 10, hit 1, dodge 2, 1–3 kinetic (modeled on `enemy_slag_rat`).
+- `enemy_sewer_roach` — hp 6, hit 2, dodge 4 (fast, evasive), 1–2 kinetic.
+- `enemy_sewer_slime` — hp 22, hit 1, dodge 0 (slow, tanky, no-flee), 1–3 kinetic.
+
+Spawned via `zone_spawns` rows across the interior tiles (the Sump is left spawn-free as a safe
+landing/re-entry). Danger auto-infers low.
+
+**Loot.** A new `scav_sewer` scavenging table on the pocket tiles reusing existing junk
+(`item_scrap_metal`, `item_tangled_wire`, `item_depleted_battery`) plus one new `item_rusty_pipe`
+and a rare **live `item_battery`** (difficulty-gated "cache" find that feeds the flashlight).
+Enemy `loot_table`s drop scrap/wire/credits.
+
+**Quest — "Down the Drain"** (`quest_down_the_drain`). Offered by Grady **after** `quest_first_hour`
+turns in (gated on `grady_regular` set): descend the Ironside drain, cull **6 sewer creatures**,
+return. Reward: ~100 credits + **3 batteries** (keeps the flashlight fed) + jerky + bandages.
+Grady's dialogue gains the offer, the send-off pointing at the drain, and the `TURN_IN` node
+(which is how the quest auto-discovers him as the turn-in NPC).
+
+**Engine note:** Phase 1 is **pure content** — zones + exits + spawns + scav + quest + one item,
+plus a dialogue edit. No plugin. Ships through `content/*.json` + `content:import` and a push to
+`main` (CODEX); regress-gated.
+
+## Future overlays (not built)
+
+The same z-1 geometry is the substrate for later systems, layered on rather than replacing:
+- **Express transit** — a `plugins/metro/` mechanic (board/ride/disembark, credit fare,
+  power-gated so it stops in blackouts, SIFT destination picker) riding the sewer trunk between
+  hub stations. This is the *only* piece that warrants a plugin; run the engine-vs-plugin gate
+  before building and add `plugins/metro/regress.js`.
+- **z-2 caverns** — a deeper natural biome reached by `down` shafts from a few z-1 nodes, home
+  to a higher mutant tier and a cavern apex; delved on foot, off the transit network.
+- **Set-pieces** — dungeon entrances, hidden laboratories, corporate facilities, mutant nests,
+  utility networks, quest locations, and boss encounters hung off the expanding tunnel network.
+
+## District expansion (Phases 2+)
+
+Extend the loose network outward wing by wing (junction rings, flooded sections, utility rooms),
+each wing gated by distance / collapsed tunnels / locked maintenance doors and shipped playable
+on its own, growing the bestiary (possum, drain snake, sewer bat, then deeper mutants). The
+**bulk build method** (a sewer planner à la `bp_district` vs. continued hand-authoring) is
+decided once the Phase-1 pocket is live and proven — deliberately deferred.
 
 ## Build method
-Same as the coldwater expansion: direct-DB upsert + minted admin token; coord-map auto-exit generation
-with reciprocal attach-merges; `npm run test:regress` gate every phase; memory + this doc updated per
-phase. Content is DB-only and goes live on `npm start`; the metro plugin hot-loads on restart.
+
+Git-as-source-of-truth content pipeline (per CLAUDE.md / `docs/content-pipeline.md`): one JSON
+file per entity under `content/`, `npm run content:lint` → `npm run content:import` to a local
+DB → `npm run test:regress` → push to `main` (CI import = deploy). The `codex` skill is the exit
+gate. The legacy direct-DB upsert flow referenced in older revisions of this doc is retired.

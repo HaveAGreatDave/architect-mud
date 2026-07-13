@@ -24,7 +24,7 @@ None.
 
 ## Tick usage
 
-- `1m` — drains one charge unit from every lit flashlight held by an online player. At zero the beam dies (`lit` → false) and the holder is warned.
+- `1m` — drains charge from every lit flashlight held by an online player, at a per-item rate (`flashlightDrainRate`): the stock 1 unit/min, or slower for a frugal light (see Config). Fractional drain accumulates in `custom_data.drainacc` so `battery` stays an integer. At zero the beam dies (`lit` → false) and the holder is warned.
 
 ## Dependencies
 
@@ -34,10 +34,11 @@ Engine: `environment.js` (`floorVisibility`, `LIGHT_LADDER`), `scheduler.js`, `m
 
 - `BATTERY_MAX = 120` — charge units on a fresh cell (1 unit/minute ⇒ ~2 hours of light).
 - `LIT_FLOOR = 'clear'` — the light band a lit flashlight guarantees the holder.
+- `flags.flashlight_drain` (per **item**, optional) — a positive drain multiplier. Absent/invalid ⇒ 1.0 (normal). `0.5` halves the drain, so a cell lasts ~twice as long (e.g. `item_lucky_flashlight`, Grady's gift).
 
 ## Data schema
 
-No owned tables. Instance state lives in `player_inventory.custom_data`: `{ lit: bool, battery: int }`.
+No owned tables. Instance state lives in `player_inventory.custom_data`: `{ lit: bool, battery: int, drainacc: number }`.
 
 Item content (created by `scripts/seed-flashlight.js`):
 

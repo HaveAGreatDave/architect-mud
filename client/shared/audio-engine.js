@@ -1146,9 +1146,66 @@
       return out;
     }
 
+    // Numbers & number-symbols → words, so the voice can actually SAY them (digits are otherwise
+    // stripped by pronounceWord's [^a-z'] filter and vanish). Run BEFORE tokenising so the split on
+    // '.'/',' can't shred a decimal or a grouped number. Covers: cardinals ("forty two"), thousands
+    // commas ("1,000,000" → "one million"), decimals ("3.14" → "three point one four"), ORDINALS
+    // ("1st"/"22nd" → "first"/"twenty second"), YEARS read as pairs ("2026" → "twenty twenty six",
+    // "1984" → "nineteen eighty four", "2005" → "twenty oh five"), and the % and ° symbols.
+    const _ONES = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
+    const _TENS = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+    function intToWords(n){
+      n = Math.floor(n);
+      if (n < 20) return _ONES[n];
+      if (n < 100) return _TENS[(n/10)|0] + (n%10 ? ' '+_ONES[n%10] : '');
+      if (n < 1000) return _ONES[(n/100)|0]+' hundred'+(n%100 ? ' '+intToWords(n%100) : '');
+      if (n < 1e6) return intToWords((n/1000)|0)+' thousand'+(n%1000 ? ' '+intToWords(n%1000) : '');
+      if (n < 1e9) return intToWords((n/1e6)|0)+' million'+(n%1e6 ? ' '+intToWords(n%1e6) : '');
+      return intToWords((n/1e9)|0)+' billion'+(n%1e9 ? ' '+intToWords(n%1e9) : '');
+    }
+    function numToWords(s){
+      if (s.includes('.')) {
+        const [ip, fp] = s.split('.');
+        const intPart = ip.length ? intToWords(parseInt(ip,10)) : 'zero';
+        return intPart+' point '+fp.split('').map(d=>_ONES[+d]).join(' ');
+      }
+      const n = parseInt(s,10);
+      if (!isFinite(n) || n > 999999999999) return s.split('').map(d=>_ONES[+d]||'').join(' ');   // absurdly long → read digit by digit
+      return intToWords(n);
+    }
+    // A 4-digit year spoken as pairs: 2026 → "twenty twenty six", 1984 → "nineteen eighty four",
+    // 2005 → "twenty oh five", 1900 → "nineteen hundred", 2000 → "two thousand".
+    function yearToWords(n){
+      const hi = (n/100)|0, lo = n%100;
+      if (n % 1000 === 0) return intToWords(n);
+      if (lo === 0) return intToWords(hi)+' hundred';
+      if (lo < 10) return intToWords(hi)+' oh '+_ONES[lo];
+      return intToWords(hi)+' '+intToWords(lo);
+    }
+    // Cardinal → ordinal by inflecting only the LAST word: 21 → "twenty first", 100 → "one hundredth".
+    const _ORD = { one:'first', two:'second', three:'third', five:'fifth', eight:'eighth', nine:'ninth', twelve:'twelfth' };
+    function ordinalToWords(n){
+      const w = intToWords(n).split(' '), last = w[w.length-1];
+      w[w.length-1] = _ORD[last] || (last.endsWith('y') ? last.slice(0,-1)+'ieth' : last+'th');
+      return w.join(' ');
+    }
+    function expandNumbers(text){
+      return String(text)
+        .replace(/°\s*([CF])\b/g, (m,u)=>' degrees '+(u==='C'?'celsius':'fahrenheit')+' ')   // 72°F → "degrees fahrenheit"
+        .replace(/°/g, ' degrees ')
+        .replace(/%/g, ' percent ')
+        .replace(/(\d+)(?:st|nd|rd|th)\b/gi, (m,d)=>' '+ordinalToWords(parseInt(d,10))+' ')   // ordinals: 1st → "first"
+        // Bare 4-digit numbers in a plausible year range read as pairs (2026 → "twenty twenty six").
+        // \b avoids comma-grouped quantities (1,500 has no 4-digit run) and longer runs; the '.' guards
+        // skip a value that's really a decimal (3.2026 / 2026.5) so the decimal pass below handles it.
+        .replace(/\b\d{4}\b/g, (m,off,s)=>{ const n=+m; return (n>=1000 && n<=2099 && s[off-1]!=='.' && s[off+4]!=='.') ? ' '+yearToWords(n)+' ' : m; })
+        .replace(/(\d),(?=\d)/g, '$1')                    // strip thousands separators: 1,000,000 → 1000000
+        .replace(/\d+(?:\.\d+)?/g, m => ' '+numToWords(m)+' ');
+    }
+
     function textToPhonemes(text){
       const seq = [];
-      for (const tok of String(text).trim().split(/(\s+|[.,!?;:])/)) {
+      for (const tok of expandNumbers(text).trim().split(/(\s+|[.,!?;:])/)) {
         if (!tok) continue;
         if (/^\s+$/.test(tok)) { seq.push('_'); continue; }
         if (/^[.,!?;:]$/.test(tok)) { seq.push('_','_'); continue; }
@@ -1170,7 +1227,7 @@
       return {
         f0:     high ? 120+r()*55 : 82+r()*38,
         fshift: high ? 1.02+r()*0.16 : 0.9+r()*0.12,
-        speed:  0.92+r()*0.22,
+        speed:  1.02+r()*0.22,
         ring:   r()<0.25 ? 0.10+r()*0.22 : r()*0.06,
         wave:   pick(['sawtooth','sawtooth','square','square']),
         jitter: 0.004+r()*0.016,
@@ -1224,7 +1281,7 @@
       const jitG = c.createGain(); jitG.gain.value = F0 * V.jitter; jit.connect(jitG).connect(glot.frequency);
       const voiced = c.createGain(); voiced.gain.value = 0;
       const forms = [0,1,2].map(k => {
-        const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 500; bp.Q.value = [8,10,12][k];
+        const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 500; bp.Q.value = [10,13,16][k];
         const g = c.createGain(); g.gain.value = [1,0.7,0.4][k];
         glot.connect(bp).connect(g).connect(voiced);
         return bp;
@@ -1237,14 +1294,14 @@
       nz.connect(nbp).connect(noiseG).connect(master);
 
       const t0 = c.currentTime + 0.05; let t = t0;
-      const setF = (when, arr) => forms.forEach((bp, k) => bp.frequency.setTargetAtTime(arr[k]*fshift, when, 0.015));
+      const setF = (when, arr) => forms.forEach((bp, k) => bp.frequency.setTargetAtTime(arr[k]*fshift, when, 0.008));
 
       for (const code of phon) {
         const p = PH[code]; if (!p) continue;
         const dur = Math.max(0.03, (p.d/1000)/speed);
         if (p.t==='V' || p.t==='N' || p.t==='L') {
           setF(t, p.f);
-          voiced.gain.setTargetAtTime(p.t==='V'?0.9:0.6, t, 0.012);
+          voiced.gain.setTargetAtTime(p.t==='V'?0.9:0.6, t, 0.008);
           noiseG.gain.setTargetAtTime(V.breath, t, 0.01);
           if (p.to) setF(t+dur*0.5, p.to);
           t += dur;

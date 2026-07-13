@@ -1,0 +1,9 @@
+{
+  "fishing_bait_catches": [],
+  "fishing_monsters": [],
+  "flags": {},
+  "id": "scav_sewer",
+  "messages": {},
+  "name": "Sewer Scavenge",
+  "replenish_interval_seconds": 150
+}

@@ -7168,6 +7168,35 @@ body.fsim-external #look-resize-handle { display: none; }
 	border-color: var(--tv-header-color, #37d67a);
 	box-shadow: 0 0 10px rgba(55, 214, 122, 0.4), inset 0 0 5px rgba(55, 214, 122, 0.15);
 }
+/* Gameday toggle — same chassis button as read-aloud; hidden until a sports
+   broadcast reveals it (.avail), lit while the sub-screen is open (.on). */
+#tv-gameday-btn {
+	display: none;
+	background: #0c100e;
+	border: 2px solid #1e2e28;
+	color: #2e4840;
+	font-family: inherit;
+	font-size: 14px;
+	line-height: 1;
+	cursor: pointer;
+	padding: 0;
+	border-radius: 50%;
+	width: 28px;
+	height: 28px;
+	align-items: center;
+	justify-content: center;
+	transition: color 0.2s, border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+#tv-gameday-btn.avail { display: flex; }
+#tv-gameday-btn:hover {
+	color: var(--tv-header-color, #37d67a);
+	border-color: var(--tv-header-color, #2e6a44);
+}
+#tv-gameday-btn.on {
+	color: var(--tv-header-color, #37d67a);
+	border-color: var(--tv-header-color, #37d67a);
+	box-shadow: 0 0 10px rgba(55, 214, 122, 0.4), inset 0 0 5px rgba(55, 214, 122, 0.15);
+}
 /* Content area */
 #tv-content {
 	flex: 1;
@@ -7376,15 +7405,162 @@ body.fsim-external #look-resize-handle { display: none; }
 	to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ── Gameday sub-screen ─────────────────────────────────────────────────────────
+   The animated at-bat view (client/game/js/panels/gameday.js). Covers the content
+   area (clear of the header/footer) when the player toggles it on; renders the same
+   structured data Chip is narrating as a live diamond, pitch plot, matchup + play
+   card, and a running play-by-play feed. Themed off the TV chassis variables. */
+#tv-gameday {
+	position: absolute;
+	inset: 45px 0 72px 0;
+	z-index: 48;
+	display: none;
+	flex-direction: column;
+	background:
+		radial-gradient(ellipse at 50% 0%, rgba(0, 40, 30, 0.4), transparent 70%),
+		var(--tv-bg, #080c10);
+	color: var(--tv-text, #b8d4c8);
+	font-family: var(--font-mono);
+	padding: 8px 10px 6px;
+	gap: 6px;
+	overflow: hidden;
+	animation: gd-in 0.25s ease-out;
+}
+#tv-gameday.on { display: flex; }
+@keyframes gd-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Score header */
+.gd-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 4px 8px;
+	background: rgba(0, 0, 0, 0.4);
+	border: 1px solid var(--tv-border, rgba(0,220,180,0.35));
+	border-radius: 3px;
+	flex: 0 0 auto;
+}
+.gd-team { display: flex; align-items: center; gap: 8px; min-width: 92px; }
+.gd-team.home { justify-content: flex-end; }
+.gd-abbr { font-weight: bold; letter-spacing: 1.5px; font-size: 15px; color: rgba(220, 240, 235, 0.75); }
+.gd-team.lead .gd-abbr { color: #fff; }
+.gd-score { font-weight: bold; font-size: 22px; font-variant-numeric: tabular-nums; color: var(--tv-text); }
+.gd-team.lead .gd-score { color: var(--tv-header-color, #37d67a); }
+.gd-mid { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.gd-inn { font-size: 11px; letter-spacing: 1px; color: var(--tv-header-color, #37d67a); text-transform: uppercase; }
+.gd-outs { display: flex; align-items: center; gap: 4px; font-size: 8px; letter-spacing: 0.5px; color: rgba(220,240,235,0.5); }
+.gd-outs em { font-style: normal; }
+.gd-out { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); }
+.gd-out.on { background: #ff3344; border-color: #ff3344; }
+.gd-count { font-size: 13px; font-weight: bold; font-variant-numeric: tabular-nums; color: #fff; }
+
+/* Body: three columns — diamond+matchup | pitch plot | play card + pitch list */
+.gd-body { flex: 1 1 auto; display: grid; grid-template-columns: 1.1fr 1fr 1.3fr; gap: 8px; min-height: 0; }
+.gd-col { min-width: 0; display: flex; flex-direction: column; }
+
+/* Diamond */
+.gd-diamond-col { align-items: center; justify-content: flex-start; gap: 6px; }
+.gd-diamond { width: 100%; max-width: 150px; aspect-ratio: 1; }
+.gd-basepath { stroke: rgba(255,255,255,0.14); stroke-width: 2; }
+.gd-base { fill: rgba(255,255,255,0.08); stroke: rgba(255,255,255,0.3); stroke-width: 1.5; }
+.gd-base.on { fill: var(--tv-header-color, #37d67a); stroke: var(--tv-header-color, #37d67a); }
+.gd-base.fresh { animation: gd-base-pop 0.6s ease-out; }
+.gd-plate { fill: rgba(255,255,255,0.5); stroke: rgba(255,255,255,0.6); stroke-width: 1; }
+.gd-diamond-col.scored .gd-plate { animation: gd-plate-flash 0.8s ease-out; }
+@keyframes gd-base-pop {
+	0% { transform: scale(0.4); opacity: 0.2; filter: brightness(2.2); }
+	60% { transform: scale(1.25); filter: brightness(1.6); }
+	100% { transform: scale(1); filter: brightness(1); }
+	/* transform-box keeps the scale centred on the rotated base rect */
+}
+.gd-base.fresh { transform-box: fill-box; transform-origin: center; }
+@keyframes gd-plate-flash {
+	0%, 100% { fill: rgba(255,255,255,0.5); }
+	40% { fill: #ffd23e; filter: drop-shadow(0 0 6px #ffd23e); }
+}
+.gd-matchup { width: 100%; display: flex; flex-direction: column; gap: 3px; }
+.gd-mrow { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.gd-mlabel {
+	flex: 0 0 auto; width: 22px; text-align: center; font-size: 8px; font-weight: bold;
+	letter-spacing: 0.5px; padding: 2px 0; border-radius: 2px;
+	background: rgba(255,255,255,0.08); color: rgba(220,240,235,0.6);
+}
+.gd-mlabel.bat { background: var(--tv-header-color, #37d67a); color: #041008; }
+.gd-mname { font-weight: bold; color: var(--tv-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Pitch plot */
+.gd-plot-col { align-items: center; gap: 4px; }
+.gd-zone { width: 100%; max-width: 150px; aspect-ratio: 1; overflow: visible; }
+.gd-zone-box { fill: rgba(255,255,255,0.03); stroke: rgba(255,255,255,0.35); stroke-width: 1; }
+.gd-zone-grid { stroke: rgba(255,255,255,0.12); stroke-width: 0.5; }
+.gd-pitch circle { stroke: rgba(0,0,0,0.6); stroke-width: 1; }
+.gd-pitch text { fill: #fff; font-size: 8px; font-weight: bold; text-anchor: middle; font-family: var(--font-mono); }
+/* Settled dots are static (the plot re-renders each reveal step); only the just-
+   thrown pitch (.new) drops in. */
+.gd-pitch { opacity: 1; }
+.gd-pitch.new { animation: gd-pitch-drop 0.34s ease-out; transform-box: fill-box; transform-origin: center; }
+@keyframes gd-pitch-drop {
+	from { opacity: 0; transform: translateY(-14px) scale(1.7); }
+	60%  { transform: translateY(0) scale(0.9); }
+	to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.gd-pitch.ball circle { fill: #3b82f6; }
+.gd-pitch.called circle { fill: #f97316; }
+.gd-pitch.swinging circle { fill: #ef4444; }
+.gd-pitch.foul circle { fill: #eab308; }
+.gd-pitch.inplay circle { fill: #22c55e; }
+.gd-plot-legend { display: flex; gap: 8px; font-size: 8px; color: rgba(220,240,235,0.5); }
+.gd-plot-legend .gd-pldot { width: 12px; height: 12px; font-size: 8px; }
+
+/* Play card + pitch list */
+.gd-info-col { gap: 5px; }
+.gd-play {
+	flex: 0 0 auto; padding: 6px 8px; border-radius: 3px;
+	background: rgba(0,0,0,0.4); border-left: 3px solid var(--tv-header-color, #37d67a);
+	animation: gd-play-in 0.3s ease-out;
+}
+.gd-play.scored { border-left-color: #ffd23e; }
+/* Pre-outcome placeholder while the pitches play out — dim, no slide-in. */
+.gd-play.pending { border-left-color: rgba(255,255,255,0.25); animation: none; }
+.gd-play.pending .gd-play-desc { color: rgba(220,240,235,0.45); font-size: 13px; letter-spacing: 2px; }
+@keyframes gd-play-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+.gd-play-desc { font-size: 15px; font-weight: bold; color: #fff; letter-spacing: 0.3px; }
+.gd-play.scored .gd-play-desc { color: #ffd23e; }
+.gd-play-bat { font-size: 10px; color: rgba(220,240,235,0.6); margin-top: 1px; }
+.gd-pitchlist { flex: 1 1 auto; overflow: hidden; display: flex; flex-direction: column; gap: 2px; }
+.gd-plrow { display: flex; align-items: center; gap: 6px; font-size: 9px; line-height: 1.3; color: rgba(220,240,235,0.75); }
+.gd-pldot {
+	flex: 0 0 auto; width: 14px; height: 14px; border-radius: 50%; display: flex;
+	align-items: center; justify-content: center; font-size: 8px; font-weight: bold; color: #041008;
+}
+.gd-pldot.ball { background: #3b82f6; color: #fff; }
+.gd-pldot.called { background: #f97316; }
+.gd-pldot.swinging { background: #ef4444; color: #fff; }
+.gd-pldot.foul { background: #eab308; }
+.gd-pldot.inplay { background: #22c55e; }
+.gd-plres { flex: 0 0 auto; width: 82px; }
+.gd-plpitch { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(220,240,235,0.55); }
+.gd-plcount { flex: 0 0 auto; font-variant-numeric: tabular-nums; color: rgba(220,240,235,0.5); }
+
+/* Play-by-play feed */
+.gd-feed { flex: 0 0 auto; display: flex; flex-direction: column; gap: 1px; border-top: 1px solid var(--tv-border, rgba(0,220,180,0.25)); padding-top: 4px; }
+.gd-feed-row { display: flex; align-items: center; gap: 8px; font-size: 10px; color: rgba(220,240,235,0.5); }
+.gd-feed-row.latest { color: var(--tv-text); }
+.gd-feed-inn { flex: 0 0 auto; width: 26px; font-weight: bold; color: var(--tv-header-color, #37d67a); }
+.gd-feed-bat { flex: 0 0 auto; width: 90px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gd-feed-desc { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ── Standings bug (transient league table) ────────────────────────────────────
-   Flashed up periodically during a sports broadcast, top-left so it clears the
-   score-bug (bottom-right) and the play-by-play text (which fills from the top-left
-   but is short). Auto-dismisses client-side; slides in from the left. Themed off
-   the channel's TV vars, same broadcast-graphic look as the score-bug. */
+   Flashed up periodically during a sports broadcast, top-RIGHT so it blocks the
+   play-by-play text (which fills from the top-left) as little as possible. The
+   text layer beneath it wraps around its footprint (see .tv-standings-shape) so
+   no line runs under the bug. Auto-dismisses client-side; slides in from the
+   right. Themed off the channel's TV vars, same look as the score-bug. */
 #tv-standings {
 	position: absolute;
 	top: 52px;
-	left: 10px;
+	right: 10px;
 	z-index: 46;
 	display: none;
 	flex-direction: column;
@@ -7397,6 +7573,17 @@ body.fsim-external #look-resize-handle { display: none; }
 	overflow: hidden;
 	box-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
 	animation: tv-st-in 0.35s ease-out;
+}
+/* While the standings bug is up, the message column runs as block flow so a
+   right-floated shape (sized in JS to the bug's footprint) reserves its corner
+   and the play-by-play text wraps around it instead of vanishing underneath. */
+#tv-content.standings-on #tv-messages { display: block; }
+.tv-standings-shape {
+	float: right;
+	width: var(--tv-st-shape-w, 0px);
+	height: var(--tv-st-shape-h, 0px);
+	shape-outside: margin-box;
+	pointer-events: none;
 }
 #tv-standings.on { display: flex; }
 .tv-st-title {
@@ -7437,7 +7624,7 @@ body.fsim-external #look-resize-handle { display: none; }
 	font-variant-numeric: tabular-nums;
 }
 @keyframes tv-st-in {
-	from { opacity: 0; transform: translateX(-10px); }
+	from { opacity: 0; transform: translateX(10px); }
 	to   { opacity: 1; transform: translateX(0); }
 }
 

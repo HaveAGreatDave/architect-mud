@@ -146,6 +146,52 @@ export default async function regress({ run, check, getPlayer }) {
     }
   }
 
+  // Per-hop directions + reroute-around-obstacle. A gps_route now carries a `dirs`
+  // array (the exact direction to step at each hop) so the client walker can follow a
+  // second same-direction exit it couldn't resolve from its own minimap node; and a
+  // `!avoid a,b` flag lets an auto-walk reroute route AROUND a blocked tile instead of
+  // dead-stopping. Find a start tile with a 3+ tile route (has an intermediate to
+  // avoid) and assert both. Skip-safe if the sampled world offers no such route.
+  {
+    const leadsTo = (z, dir, next) => { const v = z?.exits?.[dir]; return (Array.isArray(v) ? v : [v]).includes(next); };
+    const cand = getAllZones().filter(z =>
+      z.map_id === 'map_world' && z.grid_x != null && !z.flags?.water &&
+      z.exits && Object.keys(z.exits).length > 0);
+    let start = null, path = null;
+    for (const s of cand.slice(0, 40)) {
+      for (const d of cand.slice(0, 60)) {
+        if (d.id === s.id) continue;
+        const pth = findPath(s.id, d.id, { roads: true, maxDistance: 40 });
+        if (pth && pth.length >= 3) { start = s; path = pth; break; }
+      }
+      if (start) break;
+    }
+    if (start) {
+      const savedGps = p.current_zone;
+      p.current_zone = start.id;
+      const destId = path[path.length - 1];
+      let r = await run(`gps ${destId}`);
+      check(
+        'gps route carries a per-hop dirs array aligned to the path',
+        r?.type === 'gps_route' && Array.isArray(r.dirs) && r.dirs.length === r.path.length - 1 &&
+          r.dirs.every((dir, k) => typeof dir === 'string' && leadsTo(getZone(r.path[k]), dir, r.path[k + 1])),
+        `dirs=${JSON.stringify(r?.dirs)} path=${JSON.stringify(r?.path)}`,
+      );
+      // Route around an intermediate tile: the new path must not pass through it — or
+      // legitimately error when it was the only way through. `!resume` suppresses the
+      // y/n prompt and the "GPS locked" line (an in-progress reroute, not a new plot).
+      const avoidTile = r?.path?.[1];
+      r = await run(`gps ${destId} !avoid ${avoidTile} !resume`);
+      check(
+        'gps !avoid routes around the tile; !resume suppresses the prompt',
+        r?.type === 'error' ||
+          (r?.type === 'gps_route' && !r.path.includes(avoidTile) && r.promptAutoWalk === false && r.message === ''),
+        `type=${r?.type} avoided=${avoidTile} inPath=${r?.path?.includes(avoidTile)} prompt=${r?.promptAutoWalk} msg="${r?.message}"`,
+      );
+      p.current_zone = savedGps;
+    }
+  }
+
   // Run mode: a bare `run` toggles player.running; `run on/off` and `walk` are explicit.
   const savedRunning = p.running;
   p.running = false;

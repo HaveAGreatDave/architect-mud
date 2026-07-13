@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "Water sheets down the curved wall in a constant, whispering film.",
+    "The echo of your own breathing comes back to you a beat late.",
+    "A drip finds the back of your neck with cold precision."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1c241f",
+  "color": "#8fae9a",
+  "created_by": "the-under",
+  "description": "A long curved bend where the main tunnel doglegs and the walls run with seep. The brick underfoot is glazed slick with algae that has never seen a photon of sun. It connects the sump back west to the silt gallery south.",
+  "exits": {
+    "south": "zone_under_silt",
+    "west": "zone_under_sump"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true,
+    "scavenging_table_id": "scav_sewer"
+  },
+  "grid_x": 920,
+  "grid_y": 903,
+  "grid_z": -1,
+  "id": "zone_under_bend",
+  "map_id": "map_world",
+  "marker": "◜",
+  "name": "Dripping Bend",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

@@ -1051,10 +1051,14 @@ function startSpin() {
     // Dealer lot cards — true-3D wireframe schematics, each spun at its own
     // phase offset (like the `.hb-bay` turntables) so a row of them doesn't
     // rotate in lockstep. Fixed-size canvases (no dpr scaling needed).
-    root.querySelectorAll('canvas.hb-wf-lot').forEach((cv) => {
-      if (cv._phase == null) cv._phase = Math.random() * 6.28;
-      drawWireframe3D(cv.getContext('2d'), { cls: cv.getAttribute('data-wf-cls'), w: cv.width, h: cv.height, accent: themeColor('--accent', '#39ff9e'), yaw: yaw + cv._phase });
-    });
+    const wfLots = root.querySelectorAll('canvas.hb-wf-lot');
+    if (wfLots.length) {
+      const accent = themeColor('--accent', '#39ff9e');   // one getComputedStyle for the whole row, not per-card
+      wfLots.forEach((cv) => {
+        if (cv._phase == null) cv._phase = Math.random() * 6.28;
+        drawWireframe3D(cv.getContext('2d'), { cls: cv.getAttribute('data-wf-cls'), w: cv.width, h: cv.height, accent, yaw: yaw + cv._phase });
+      });
+    }
     raf = requestAnimationFrame(loop);
   };
   raf = requestAnimationFrame(loop);

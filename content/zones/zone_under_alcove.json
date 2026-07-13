@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "A valve on the wall weeps a slow orange line of rust.",
+    "The dark presses in close in this dead little pocket.",
+    "Something small flees your light and vanishes behind the pipes."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1c241f",
+  "color": "#8fae9a",
+  "created_by": "the-under",
+  "description": "A utility alcove at the crawlway's dead end — a niche of dead gauges, seized valves, and a workbench long since stripped for parts. Whatever crew maintained this place is decades gone, but they left their leavings scattered in the muck for anyone patient enough to sift.",
+  "exits": {
+    "north": "zone_under_crawl"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true,
+    "scavenging_table_id": "scav_sewer"
+  },
+  "grid_x": 918,
+  "grid_y": 905,
+  "grid_z": -1,
+  "id": "zone_under_alcove",
+  "map_id": "map_world",
+  "marker": "⌂",
+  "name": "Utility Alcove",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

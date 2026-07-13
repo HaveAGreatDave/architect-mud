@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "Your shoulders scrape brick on both sides at once.",
+    "A pipe overhead ticks as something cools — or moves — inside it.",
+    "Grit sifts down from the low ceiling and finds your collar."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1c241f",
+  "color": "#8fae9a",
+  "created_by": "the-under",
+  "description": "A maintenance crawlway barely wide enough to pass, its ceiling a tangle of sweating conduit and dead cable. Someone bolted a walkway over the channel here a lifetime ago; half of it has rusted through into the flow below. It runs south to a dead-end alcove and north back to the junction.",
+  "exits": {
+    "north": "zone_under_confluence",
+    "south": "zone_under_alcove"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true,
+    "scavenging_table_id": "scav_sewer"
+  },
+  "grid_x": 918,
+  "grid_y": 904,
+  "grid_z": -1,
+  "id": "zone_under_crawl",
+  "map_id": "map_world",
+  "marker": "╫",
+  "name": "Maintenance Crawl",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

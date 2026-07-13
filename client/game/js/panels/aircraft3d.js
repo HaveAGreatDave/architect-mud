@@ -1691,9 +1691,14 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky }) {
         return proj(v[0] * sc, laneG + g1, h1);
       });
       if (P.some(q => q.z <= 0.15)) continue;   // skip just this FACE, not the whole plane
-      const a = [P[1].wx - P[0].wx, P[1].wy - P[0].wy, P[1].wz - P[0].wz];
-      const b = [P[2].wx - P[0].wx, P[2].wy - P[0].wy, P[2].wz - P[0].wz];
-      let nx = a[1] * b[2] - a[2] * b[1], ny = a[2] * b[0] - a[0] * b[2], nz = a[0] * b[1] - a[1] * b[0];
+      // Newell's method for the face normal — stays valid when one edge collapses to zero length
+      // (the nose/tail cone rings degenerate to a point), so the body cull no longer drops the
+      // whole nose cone off a zero normal (the "missing nose" bug).
+      let nx = 0, ny = 0, nz = 0;
+      for (let i = 0; i < P.length; i++) {
+        const c = P[i], d = P[(i + 1) % P.length];
+        nx += (c.wy - d.wy) * (c.wz + d.wz); ny += (c.wz - d.wz) * (c.wx + d.wx); nz += (c.wx - d.wx) * (c.wy + d.wy);
+      }
       const nl = Math.hypot(nx, ny, nz) || 1;
       // Backface cull the closed-hull roles so a far-side facet can't bleed through the near side
       // (painter's sort alone lets it win in places). Outward is measured from THIS plane's centre.

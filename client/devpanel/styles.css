@@ -660,6 +660,10 @@
 .vs-grid.vs-readonly .vs-cell.vs-on { opacity: 0.85; }
 .vs-grid.vs-readonly .vs-cell.vs-on:hover { background: var(--accent2); border-color: var(--accent2); filter: none; }
 
+/* Busy-button spinner (BSM import "Importing…" affordance) */
+@keyframes bsm-spin { to { transform: rotate(360deg); } }
+.bsm-spin { display: inline-block; animation: bsm-spin 0.8s linear infinite; }
+
 /* Emergency Security Protocol status pulse */
 @keyframes esp-status-pulse {
 	0%, 100% { background: rgba(120,0,0,0.15); border-color: #880000; }

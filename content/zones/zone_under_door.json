@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "The sealed door hums faintly, as if something behind it still draws power.",
+    "A keypad beside the frame is dark, its casing cracked but intact.",
+    "Cold, machine-scented air seeps under the door's bottom edge."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1c241f",
+  "color": "#8fae9a",
+  "created_by": "the-under",
+  "description": "The gallery narrows to a landing before a heavy steel maintenance door, set deep in a reinforced frame and streaked with old rust-weep. A dead keypad guards it. Whatever lies beyond has been sealed off from the sewer for a long time — and unlike the rest of the Under, it still smells faintly of clean, cold machinery. It will not open for you today.",
+  "exits": {
+    "north": "zone_under_silt"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true,
+    "scavenging_table_id": "scav_sewer"
+  },
+  "grid_x": 920,
+  "grid_y": 905,
+  "grid_z": -1,
+  "id": "zone_under_door",
+  "map_id": "map_world",
+  "marker": "▤",
+  "name": "Sealed Maintenance Door",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

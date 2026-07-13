@@ -7,9 +7,11 @@
  *   reload  — consume a `battery` item to refill the cell
  *
  * Instance state lives in player_inventory.custom_data:
- *   { lit: bool, battery: int }   — battery counts down one unit per minute
- * while lit (see the '1m' drain tick). A flashlight item is `unique` so each
- * carried unit keeps its own lit/battery state.
+ *   { lit: bool, battery: int, drainacc: number }   — battery drains while lit
+ * (see the '1m' drain tick). Normal lights burn one unit per minute; a frugal
+ * light drains slower via flags.flashlight_drain (a multiplier < 1), with the
+ * fractional remainder carried in drainacc so `battery` stays an integer. A
+ * flashlight item is `unique` so each carried unit keeps its own state.
  *
  * A lit flashlight with charge doesn't touch zone lighting — it raises how
  * brightly the *holder* perceives the room, via the `visibility.perceive` hook
@@ -24,6 +26,15 @@ import { LIGHT_LADDER, floorVisibility } from '../../server/engine/environment.j
 
 const BATTERY_MAX = 120;     // units of charge = minutes of light on a fresh cell
 const LIT_FLOOR = 'clear';   // perceived light level a lit flashlight guarantees
+
+// Charge spent per lit-minute. A stock flashlight burns 1 unit/min (a 120-min
+// cell); a better-made light sips slower via flags.flashlight_drain (a positive
+// multiplier — 0.5 = half the drain, so a cell lasts twice as long). Anything
+// missing/invalid falls back to the normal 1.0.
+export function flashlightDrainRate(flags) {
+  const r = Number(flags?.flashlight_drain);
+  return Number.isFinite(r) && r > 0 ? r : 1;
+}
 
 // Resolve a flashlight in the player's top-level inventory. With a name, match
 // it; otherwise take the first, preferring one that's already lit.
@@ -111,22 +122,27 @@ export const hooks = {
 schedule('1m', async () => {
   for (const player of getAllLivePlayers()) {
     const { rows } = await query(
-      `SELECT pi.id, pi.custom_data, i.name
+      `SELECT pi.id, pi.custom_data, i.name, i.flags
          FROM player_inventory pi JOIN items i ON i.id = pi.item_id
         WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'flashlight')
           AND COALESCE((pi.custom_data->>'lit')::boolean, false) = true`,
       [player.id]);
     for (const f of rows) {
-      const battery = (f.custom_data?.battery ?? 0) - 1;
+      // Accumulate fractional drain so a frugal light (rate < 1) only spends a
+      // whole battery unit every few minutes; `battery` itself stays an integer.
+      const acc = (Number(f.custom_data?.drainacc) || 0) + flashlightDrainRate(f.flags);
+      const spent = Math.floor(acc);
+      const drainacc = acc - spent;
+      const battery = (f.custom_data?.battery ?? 0) - spent;
       if (battery <= 0) {
         await query(
-          `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || '{"lit":false,"battery":0}'::jsonb WHERE id=$1`,
+          `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || '{"lit":false,"battery":0,"drainacc":0}'::jsonb WHERE id=$1`,
           [f.id]);
         sendToPlayer(player.id, { type: 'output', message: `<span class="ambient">Your ${f.name} flickers, browns out, and dies. Darkness closes back in.</span>` });
       } else {
         await query(
           `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || $1::jsonb WHERE id=$2`,
-          [JSON.stringify({ battery }), f.id]);
+          [JSON.stringify({ battery, drainacc }), f.id]);
       }
     }
   }

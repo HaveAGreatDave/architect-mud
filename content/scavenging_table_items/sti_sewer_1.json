@@ -1,0 +1,8 @@
+{
+  "difficulty": 3,
+  "id": "sti_sewer_1",
+  "item_id": "item_scrap_metal",
+  "max_qty": 3,
+  "table_id": "scav_sewer",
+  "weight": 20
+}

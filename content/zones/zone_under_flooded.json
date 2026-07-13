@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "Something unseen slides through the black water and is gone.",
+    "The water laps at your shins, warmer than it has any right to be.",
+    "A slick of iridescent scum drifts past, catching your light."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#182420",
+  "color": "#8fae9a",
+  "created_by": "the-under",
+  "description": "The tunnel floor drops and the water rises to your knees, black and still and stinking. Debris rides the surface — a bloated boot, a nest of hair and wire. The current tugs faintly south, toward a low arch where the roof has half caved. Every step here is a guess.",
+  "exits": {
+    "north": "zone_under_sump",
+    "east": "zone_under_silt",
+    "south": "zone_under_warren"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true,
+    "scavenging_table_id": "scav_sewer"
+  },
+  "grid_x": 919,
+  "grid_y": 904,
+  "grid_z": -1,
+  "id": "zone_under_flooded",
+  "map_id": "map_world",
+  "marker": "≋",
+  "name": "Flooded Run",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

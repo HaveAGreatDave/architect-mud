@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 0,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_under_warren",
+  "max_capacity_kw": 0,
+  "name": "Rat Warren",
+  "source_type": "city_grid"
+}

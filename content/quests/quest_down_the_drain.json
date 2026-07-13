@@ -1,0 +1,60 @@
+{
+  "category": null,
+  "description": "Grady says the storm drain on Ironside is backing up with vermin, and vermin work their way up. He wants the newborn nest thinned before it spreads to the vats. Take the flashlight he gave you, go down, and put six of the things down.",
+  "id": "quest_down_the_drain",
+  "meta": {},
+  "name": "Down the Drain",
+  "objectives": [
+    {
+      "desc": "Climb down the storm drain on Ironside Street (follow the green GPS line — hit AUTO). Bring a light.",
+      "emotes": [
+        "{who} swings a leg over the drain lip and starts down the rusted ladder into the dark."
+      ],
+      "id": "o_descend",
+      "taskSeconds": 3,
+      "type": "visit",
+      "zone": "zone_under_sump"
+    },
+    {
+      "count": 6,
+      "desc": "Cull 6 sewer creatures down in the Under (rats, roaches, slimes — all count).",
+      "emotes": [
+        "{who} sets their feet in the muck and squares up against the dark.",
+        "{who} drives another sewer thing back into the water."
+      ],
+      "id": "o_cull",
+      "requires": [
+        "o_descend"
+      ],
+      "target": "sewer",
+      "type": "kill"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 100,
+    "flags": [
+      {
+        "flag": "grady_sewer_cleared",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "items": [
+      {
+        "item_id": "item_battery",
+        "quantity": 3
+      },
+      {
+        "item_id": "item_beef_jerky",
+        "quantity": 2
+      },
+      {
+        "item_id": "item_rag_bandage",
+        "quantity": 2
+      }
+    ]
+  },
+  "updated_at": "1784000000"
+}

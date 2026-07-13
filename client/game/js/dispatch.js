@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
-import { renderMinimap, openMapPopup, refreshMapIfOpen, setMapTerritory, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, isAutoWalking, cancelAutoWalk, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
+import { renderMinimap, openMapPopup, refreshMapIfOpen, setMapTerritory, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, isAutoWalking, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors } from './panels/environment.js';
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
 import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
@@ -424,8 +424,9 @@ const handlers = {
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
     if (msg.html) appendHtml(msg.message, 'error'); else appendMsg(msg.message, 'error');
     // A blocked auto-walk step (locked door, encumbrance, water — anything the
-    // move gates veto) comes back as an error. Stop rather than hammer the wall.
-    if (isAutoWalking()) cancelAutoWalk('Auto-walk stopped — the way ahead is blocked.');
+    // move gates veto) comes back as an error. Route AROUND the blocked tile and
+    // resume rather than hammer the wall; only dead-stop when there's no way past.
+    if (isAutoWalking()) autoWalkBlocked('Auto-walk stopped — the way ahead is blocked.');
     if (document.getElementById('recipes-panel').classList.contains('active')) sendCmdSilent('recipes');
   },
 
@@ -518,15 +519,16 @@ const handlers = {
     appendHtml(msg.message, 'help');
   },
   gps_route: (msg) => {
-    if (msg.path) setGpsRoute(msg.path);
+    if (msg.path) setGpsRoute(msg.path, msg.dirs);
     // A manual `gps` plot asks whether to auto-walk now (unless one's already in
-    // flight, where resumeAuto quietly re-routes the walk in progress).
+    // flight, where resumeAuto quietly re-routes the walk in progress). In-progress
+    // reroutes carry an empty message and promptAutoWalk:false — they just re-arm.
     if (msg.promptAutoWalk && !isAutoWalking()) {
       appendHtml(`${msg.message} Do you want to auto-walk there now? (y/n)`, 'help');
       armAutoWalkPrompt();
       return;
     }
-    appendHtml(msg.message, 'help');
+    if (msg.message) appendHtml(msg.message, 'help');
     if (msg.autostart) startAutoWalk(); else if (msg.resumeAuto) resumeAutoWalkIfArmed();
   },
 

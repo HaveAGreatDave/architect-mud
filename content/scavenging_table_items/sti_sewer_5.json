@@ -1,0 +1,8 @@
+{
+  "difficulty": 9,
+  "id": "sti_sewer_5",
+  "item_id": "item_battery",
+  "max_qty": 1,
+  "table_id": "scav_sewer",
+  "weight": 4
+}

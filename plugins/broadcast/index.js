@@ -883,6 +883,83 @@ const SPORTS_MAX_INNINGS = 20;              // safety cap; a winner is forced if
 
 const SPORTS_DEFAULT_NAMES = ['Rodriguez', 'Kane', 'Okafor', 'Bishop', 'Hale', 'Vance', 'Cruz', 'Doyle', 'Reyes', 'Park', 'Sato', 'Mundt', 'Nagy', 'Flynn', 'Ruiz', 'Abara', 'Cole', 'Voss', 'Dunn', 'Marsh'];
 
+// ── Gameday: synthesized pitch-by-pitch + play descriptions ───────────────────
+// The DEADBALL sim resolves at the AT-BAT level — it has no pitch data. For the
+// animated Gameday sub-screen we synthesize a plausible pitch sequence per at-bat,
+// PURELY from a seed, so every TV renders the identical sequence and it always ends
+// on the pitch that matches Chip's called outcome (a K ends on strike three, a walk
+// on ball four, everything else on a ball put in play). This is cosmetic colour, not
+// a change to the game result — the outcome still comes solely from sportsSimGame.
+const SPORTS_PITCH_TYPES = [
+  { type: 'Four-Seam Fastball', lo: 92, hi: 99, w: 34 },
+  { type: 'Sinker',             lo: 90, hi: 96, w: 16 },
+  { type: 'Slider',             lo: 82, hi: 89, w: 20 },
+  { type: 'Changeup',           lo: 82, hi: 89, w: 12 },
+  { type: 'Curveball',          lo: 74, hi: 82, w: 10 },
+  { type: 'Cutter',             lo: 87, hi: 92, w: 8  },
+];
+const SPORTS_PITCH_TOTAL = SPORTS_PITCH_TYPES.reduce((s, o) => s + o.w, 0);
+// Neutral, factual play-card label (distinct from Chip's flavour narration).
+const SPORTS_PLAY_DESC = {
+  strikeout: 'Strikeout', groundout: 'Groundout', flyout: 'Flyout', popout: 'Pop Out',
+  single: 'Single', double: 'Double', triple: 'Triple', walk: 'Walk', homerun: 'Home Run',
+  doubleplay: 'Double Play', sacfly: 'Sacrifice Fly', productout: 'Groundout',
+};
+function sportsPlayDesc(b) {
+  if (b.kind === 'homerun') return b.rbi >= 4 ? 'Grand Slam' : (b.rbi > 1 ? `Home Run — ${b.rbi} RBI` : 'Home Run');
+  const base = SPORTS_PLAY_DESC[b.kind] || 'In Play';
+  return (b.rbi > 0 && b.kind !== 'walk') ? `${base} — ${b.rbi} RBI` : base;
+}
+// Build the pitch sequence for one at-bat. Returns pitches ending in the terminal
+// pitch that produces `kind`. Each pitch: {n, type, velo, x, y, result, balls, strikes}
+// where x,y ∈ [0,1] (the strike zone is the box ~0.25–0.75) and result is one of
+// ball | called | swinging | foul | inplay. balls/strikes are the count AFTER the pitch.
+function sportsSynthPitches(seed, kind) {
+  const rand = sportsRng(seed);
+  const pickType = () => { let r = rand() * SPORTS_PITCH_TOTAL; for (const p of SPORTS_PITCH_TYPES) { r -= p.w; if (r <= 0) return p; } return SPORTS_PITCH_TYPES[0]; };
+  const zone = (result) => {
+    if (result === 'ball') {
+      // At least one axis off the plate.
+      const out = () => (rand() < 0.5 ? 0.04 + rand() * 0.16 : 0.80 + rand() * 0.16);
+      return rand() < 0.5 ? { x: out(), y: 0.20 + rand() * 0.60 } : { x: 0.20 + rand() * 0.60, y: out() };
+    }
+    // In or on the edge of the zone (fouls hug the edge a bit more).
+    const edge = result === 'foul' ? 0.16 : 0.24;
+    return { x: 0.5 + (rand() - 0.5) * (1 - edge), y: 0.5 + (rand() - 0.5) * (1 - edge) };
+  };
+  const terminal = kind === 'strikeout' ? 'strike' : (kind === 'walk' ? 'ball' : 'inplay');
+  let preBalls, preStrikes;
+  if (terminal === 'strike') { preBalls = Math.floor(rand() * 4); preStrikes = 2; }      // K on strike three
+  else if (terminal === 'ball') { preBalls = 3; preStrikes = Math.floor(rand() * 3); }    // BB on ball four
+  else { preBalls = Math.floor(rand() * 4); preStrikes = Math.floor(rand() * 3); }        // in play, any count
+
+  const pre = [];
+  for (let i = 0; i < preBalls; i++) pre.push('ball');
+  for (let i = 0; i < preStrikes; i++) pre.push(rand() < 0.45 ? 'called' : 'swinging');
+  for (let i = pre.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [pre[i], pre[j]] = [pre[j], pre[i]]; }
+  // A little texture: an extra foul or two once there are two strikes.
+  if (preStrikes === 2) { let extra = 0; while (rand() < 0.30 && extra++ < 2) pre.push('foul'); }
+
+  const terminalResult = terminal === 'strike' ? (rand() < 0.5 ? 'called' : 'swinging')
+    : (terminal === 'ball' ? 'ball' : 'inplay');
+  const results = [...pre, terminalResult];
+
+  let balls = 0, strikes = 0;
+  return results.map((result, i) => {
+    if (result === 'ball') balls++;
+    else if (result === 'foul') { if (strikes < 2) strikes++; }
+    else strikes++;
+    const p = pickType();
+    const z = zone(result);
+    return {
+      n: i + 1, type: p.type,
+      velo: Math.round(p.lo + rand() * (p.hi - p.lo)),
+      x: Math.round(z.x * 1000) / 1000, y: Math.round(z.y * 1000) / 1000,
+      result, balls, strikes,
+    };
+  });
+}
+
 // ── The shared clock: one game an hour, the same one on every TV ──────────────
 // Games run on a single global timeline keyed to wall-clock time, not per channel.
 // The current game = a pure function of the slot index, so every tuned TV lands on the
@@ -1216,7 +1293,24 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // "graphic" FX (home-run trajectory, final-score card, extra-innings hype). The FX
   // rides the say node exactly like the score-bug and is pushed to TV watchers when
   // the line airs; the client animates it. See _applySportsFx in tv.js.
-  const say = (line, tok, sb, graphic) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}) }); };
+  const say = (line, tok, sb, graphic, gd) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}) }); };
+  // Rich per-at-bat snapshot for the animated Gameday sub-screen. Rides one say node
+  // per beat (the lead line) exactly like the score-bug/FX, and is pushed to watchers
+  // when that line airs; the client animates it. Carries the same structured data Chip
+  // is narrating (batter/pitcher/kind/bases before→after) plus a synthesized pitch
+  // sequence seeded off the game seed so every TV renders it identically.
+  const beatGameday = (b, basesBefore, idx) => ({
+    batter: b.batter || '', pitcher: b.pitcher || '',
+    battingTeam: b.battingName, fieldingTeam: b.fieldingName,
+    battingAbbr: sportsAbbr(b.battingName), fieldingAbbr: sportsAbbr(b.fieldingName),
+    inning: b.inning, inningOrd: sportsOrdinal(b.inning), half: b.half,
+    outs: b.outs ?? 0, rbi: b.rbi ?? 0, kind: b.kind, out: !!b.out, walkoff: !!b.walkoff,
+    basesBefore: basesBefore || [false, false, false],
+    basesAfter: b.bases || [false, false, false],
+    awayScore: b.awayScore, homeScore: b.homeScore,
+    desc: sportsPlayDesc(b),
+    pitches: sportsSynthPitches(sportsHash(gs.seed, b.inning * 2 + (b.half === 'bottom' ? 1 : 0), idx >>> 0), b.kind),
+  });
   const hrGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'homerun', batter: b.batter || '', team: b.battingName || '', grand: b.rbi >= 4, duration: 3.8 });
   const walkoffGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'walkoff', batter: b.batter || '', team: b.battingName || '', home: home.name, away: away.name, homeScore: b.homeScore, awayScore: b.awayScore, duration: 4.4 });
   const dpGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'doubleplay', batter: b.batter || '', duration: 2.4 });
@@ -1259,34 +1353,37 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     let walkoffHalf = false;
     const chatter = (b) => { const line = pick('chatter'); if (line) { say(line, beatTok(b), beatBug(b)); spoken++; } };
 
+    let abIdx = 0, prevBases = [false, false, false];
     for (const b of h.atbats) {
       const tok = beatTok(b), sb = beatBug(b);
+      const gd = beatGameday(b, prevBases, abIdx++);
+      prevBases = b.bases || [false, false, false];
       if (b.kind === 'homerun') {
         const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr');
-        say(pick(key, 'hr'), tok, sb, hrGraphic(b)); spoken++;
+        say(pick(key, 'hr'), tok, sb, hrGraphic(b), gd); spoken++;
         say(pick('score.update'), tok, sb); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'sacfly') {
-        say(pick('atbat.sacfly'), tok, sb); spoken++;
+        say(pick('atbat.sacfly'), tok, sb, null, gd); spoken++;
         say(pick('score.update'), tok, sb); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'productout') {
-        say(pick('atbat.productout', 'atbat.groundout'), tok, sb); spoken++;
+        say(pick('atbat.productout', 'atbat.groundout'), tok, sb, null, gd); spoken++;
         if (b.rbi > 0) { say(pick('score.update'), tok, sb); spoken++; }
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'doubleplay') {
-        say(pick('atbat.doubleplay'), tok, sb, dpGraphic(b)); spoken++;
+        say(pick('atbat.doubleplay'), tok, sb, dpGraphic(b), gd); spoken++;
       } else if (b.rbi > 0) {
-        say(pick('rbi'), tok, sb); spoken++;
+        say(pick('rbi'), tok, sb, null, gd); spoken++;
         say(pick('score.update'), tok, sb); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.out) {
         // Call every out. Thread a chatter line between outs (never after the 3rd).
-        say(pick(`atbat.${b.kind}`, 'atbat.out'), tok, sb); spoken++;
+        say(pick(`atbat.${b.kind}`, 'atbat.out'), tok, sb, null, gd); spoken++;
         if (b.outs < 3 && spoken < target) chatter(b);
       } else if (spoken < target) {
         // Non-scoring baserunner — colour, only when the half still needs lines.
-        say(pick(`atbat.${b.kind}`, 'atbat.single'), tok, sb); spoken++;
+        say(pick(`atbat.${b.kind}`, 'atbat.single'), tok, sb, null, gd); spoken++;
       }
     }
 
@@ -1310,12 +1407,15 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // go-ahead run (top or bottom) or a walk-off — because in extras the offense is
   // cranked and you never know which side breaks it until it happens. Always a winner.
   if (extraHalves.length) {
-    const narrateScore = (b) => {
+    const narrateScore = (b, h) => {
       const tok = beatTok(b), sb = beatBug(b);
-      if (b.kind === 'homerun') { const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr'); say(pick(key, 'hr'), tok, sb, hrGraphic(b)); }
-      else if (b.kind === 'sacfly') say(pick('atbat.sacfly'), tok, sb);
-      else if (b.kind === 'productout') say(pick('atbat.productout', 'atbat.groundout'), tok, sb);
-      else say(pick('rbi'), tok, sb);
+      const idx = h ? h.atbats.indexOf(b) : 0;
+      const basesBefore = (h && idx > 0) ? h.atbats[idx - 1].bases : [false, false, false];
+      const gd = beatGameday(b, basesBefore, idx);
+      if (b.kind === 'homerun') { const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr'); say(pick(key, 'hr'), tok, sb, hrGraphic(b), gd); }
+      else if (b.kind === 'sacfly') say(pick('atbat.sacfly'), tok, sb, null, gd);
+      else if (b.kind === 'productout') say(pick('atbat.productout', 'atbat.groundout'), tok, sb, null, gd);
+      else say(pick('rbi'), tok, sb, null, gd);
       say(pick('score.update'), tok, sb);
       if (b.walkoff) say(pick('walkoff'), tok, sb, walkoffGraphic(b));
     };
@@ -1333,7 +1433,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
         : pick(`extras.${h.start.half}`, 'extras.cut'),
         beatTok(h.start), beatBug(h.start));
       const scorers = h.atbats.filter(b => b.rbi > 0);
-      if (scorers.length) for (const b of scorers) narrateScore(b);
+      if (scorers.length) for (const b of scorers) narrateScore(b, h);
       else if (!trailingHome) say(pick('extras.hold'), beatTok(h.end), beatBug(h.end));
     }
     // A go-ahead run in the top that the home side couldn't answer = a road win in extras.
@@ -2560,6 +2660,11 @@ async function broadcastTick() {
       // late-tuners pick up the current state within one beat.
       const scorebugOverlay = result.scorebug ? { overlayType: 'scorebug', ...result.scorebug } : null;
 
+      // Gameday: the rich per-at-bat snapshot that drives the animated sub-screen.
+      // Rides the same tv_overlay channel as the score-bug; the client keeps it if the
+      // Gameday view is open and ignores it otherwise.
+      const gamedayOverlay = result.gameday ? { overlayType: 'gameday', ...result.gameday } : null;
+
       // Standings bug: during a sports airing (score-bug present), flash the league
       // table up on a slow cadence per channel. It's a transient graphic that rides
       // the same tv_overlay channel and auto-dismisses client-side; it coexists with
@@ -2588,6 +2693,7 @@ async function broadcastTick() {
           if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song });
           if (isSample) sendToPlayer(player.id, { type: 'audio_sample', def: result.sample });
           if (scorebugOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
+          if (gamedayOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: gamedayOverlay });
           if (standingsOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: standingsOverlay });
           if (result.graphic) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: result.graphic });
         } else if (ambientDue) {
@@ -3380,7 +3486,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           : (!isVerbatim && !isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         // Verbatim lines (microreel dialogue) leak as speech without needing an anchor.
         const isSpeech = (!isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor) || isVerbatim;
-        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}) };
+        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: node.data.gameday } : {}) };
       }
 
       case 'music': {

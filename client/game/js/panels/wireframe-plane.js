@@ -37,21 +37,31 @@ export function drawWireframe3D(ctx, { cls, w, h, accent = '#39ff9e', yaw = 0, g
   if (glow) { ctx.shadowColor = accent; ctx.shadowBlur = 5; }
 
   const edges = [];
+  let zMin = Infinity, zMax = -Infinity;
   for (const face of faces) {
     const P = face.p.map(v => proj(v[0], v[1], v[2]));
     if (P.some(q => q.z <= 0.15)) continue;
     let avgZ = 0; for (const q of P) avgZ += q.z;
-    edges.push({ P, avgZ: avgZ / P.length });
+    avgZ /= P.length;
+    if (avgZ < zMin) zMin = avgZ; if (avgZ > zMax) zMax = avgZ;
+    edges.push({ P, avgZ });
   }
   if (!edges.length) { ctx.restore(); return; }
-  edges.sort((a, b) => b.avgZ - a.avgZ);
-  const zMin = edges[edges.length - 1].avgZ, zMax = edges[0].avgZ, zRange = Math.max(0.01, zMax - zMin);
-  for (const { P, avgZ } of edges) {
-    ctx.globalAlpha = 0.32 + (1 - (avgZ - zMin) / zRange) * 0.58;   // nearer = brighter
+  const zRange = Math.max(0.01, zMax - zMin);
+  // Batch the edges into a few depth bands and stroke each band as ONE path with a
+  // single alpha (and a single glow pass) — instead of a stroke + shadow-blur per
+  // face. Same x-ray fade (far→near = dim→bright), a fraction of the draw cost.
+  const BANDS = 5;
+  for (let b = 0; b < BANDS; b++) {                      // far band first, so nearer edges paint on top
+    ctx.globalAlpha = 0.32 + ((b + 0.5) / BANDS) * 0.58;
     ctx.beginPath();
-    ctx.moveTo(P[0].sx, P[0].sy);
-    for (let i = 1; i < P.length; i++) ctx.lineTo(P[i].sx, P[i].sy);
-    ctx.closePath();
+    for (const { P, avgZ } of edges) {
+      const t = 1 - (avgZ - zMin) / zRange;              // 0 far … 1 near
+      if (Math.min(BANDS - 1, (t * BANDS) | 0) !== b) continue;
+      ctx.moveTo(P[0].sx, P[0].sy);
+      for (let i = 1; i < P.length; i++) ctx.lineTo(P[i].sx, P[i].sy);
+      ctx.closePath();
+    }
     ctx.stroke();
   }
   ctx.restore();

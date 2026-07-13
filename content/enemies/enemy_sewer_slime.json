@@ -1,0 +1,48 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": { "action_type": "ATTACK", "next": "loop", "type": "action" },
+      "has_target": { "condition_type": "HAS_TARGET", "ifFalse": "idle", "ifTrue": "attack", "type": "condition" },
+      "idle": { "action_type": "IDLE", "next": "loop", "type": "action" },
+      "loop": { "next": "start", "type": "loop" },
+      "start": { "next": "has_target", "type": "start" }
+    }
+  },
+  "body_parts": [
+    { "part": "head", "soak": {}, "weight": 5 },
+    { "part": "torso", "soak": {}, "weight": 80 },
+    { "part": "left_arm", "soak": {}, "weight": 0 },
+    { "part": "right_arm", "soak": {}, "weight": 0 },
+    { "part": "left_leg", "soak": {}, "weight": 0 },
+    { "part": "right_leg", "soak": {}, "weight": 0 }
+  ],
+  "butcher_difficulty": 3,
+  "butcher_table": [],
+  "death_message": "The slime loses cohesion all at once, sluicing away into the grate with a long sigh.",
+  "description": "A knee-high heap of translucent grey ooze studded with whatever the sewer fed it — bottle caps, a doll's eye, teeth. It doesn't hurry. It doesn't need to. It just flows toward warmth and folds over it.",
+  "dodge": 0,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy pours toward $player with mindless patience.",
+      "$enemy throws a rope of caustic ooze at $player.",
+      "$enemy swells and reaches a dripping pseudopod for $player.",
+      "The reek off $enemy makes $player's eyes water."
+    ],
+    "first_strike_delay_ms": 7000
+  },
+  "hit": 1,
+  "hp_max": 22,
+  "id": "enemy_sewer_slime",
+  "loot_table": [
+    { "item": "item_depleted_battery", "qty": [1, 1], "weight": 20 },
+    { "item": "item_scrap_metal", "qty": [1, 1], "weight": 25 }
+  ],
+  "name": "sewer slime",
+  "weapon": [
+    { "max": 3, "min": 1, "type": "kinetic" }
+  ]
+}

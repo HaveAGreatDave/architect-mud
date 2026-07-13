@@ -8,7 +8,7 @@
   },
   "engines": 2,
   "fuel_burn_base": 2.2,
-  "fuel_capacity": 375,
+  "fuel_capacity": 750,
   "fuel_type": "jet",
   "handling": -1,
   "hardpoints": 4,

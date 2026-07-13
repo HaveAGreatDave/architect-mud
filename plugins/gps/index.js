@@ -1,10 +1,28 @@
 import { getAllZones, getZone } from '../../server/engine/world.js';
 import { findPath } from '../../server/engine/pathfinding.js';
+import { allExits } from '../../server/engine/exits.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
 
+// The exact direction to step at each hop: dirs[k] is the exit direction from
+// path[k] to path[k+1]. The client auto-walker follows these directly instead of
+// re-deriving the direction from its minimap node — which only carries the FIRST
+// target per direction (primaryExits), so it can't walk a second same-direction
+// exit on its own. Handing it the server's authoritative direction fixes that.
+function routeDirs(path) {
+  const dirs = [];
+  for (let k = 0; k < path.length - 1; k++) {
+    const z = getZone(path[k]);
+    dirs.push(allExits(z).find(e => e.target === path[k + 1])?.dir || null);
+  }
+  return dirs;
+}
+
 // Shared by the direct match and the SIFT-disambiguation replay (gps.navigate).
-function plotRoute(player, destZone) {
+// opts.avoid — a Set of zone ids to route around (auto-walk hit a blocked entrance).
+// opts.resume — this is an in-progress auto-walk reroute, not a fresh manual plot:
+// don't prompt the player and don't spam a "GPS locked" line; just quietly re-arm.
+function plotRoute(player, destZone, { avoid = null, resume = false } = {}) {
   // Open water isn't a place you can stand — you can't route to it, and it's hidden
   // from name resolution below so it never even surfaces as a candidate.
   if (destZone.flags?.water) {
@@ -15,7 +33,14 @@ function plotRoute(player, destZone) {
   }
   // Road-preferring route: hug the street grid, leaving it only for the start/end building.
   // maxDistance is generous because sticking to roads adds hops vs. a straight cut-through.
-  const path = findPath(player.current_zone, destZone.id, { roads: true, maxDistance: 200 });
+  let path = findPath(player.current_zone, destZone.id, { roads: true, maxDistance: 200, avoid });
+  // Fallback to a plain shortest-hop BFS when the road search can't reach it — road
+  // preference inflates hop count (a far tile can exceed the cap the road way while a
+  // straight cut is well within it), and some tiles are only reachable off-road. A
+  // reachable destination shouldn't dead-end just because the pretty route is too long.
+  if (!path || path.length < 2) {
+    path = findPath(player.current_zone, destZone.id, { roads: false, maxDistance: 300, avoid });
+  }
   if (!path || path.length < 2) {
     return { type: 'error', message: `Can't find a path to ${destZone.name} from here.` };
   }
@@ -25,17 +50,19 @@ function plotRoute(player, destZone) {
   // shared by the sidebar minimap and the full map popup.
   return {
     type: 'gps_route',
-    message: `GPS locked: ${destZone.name} (${hops} stop${hops === 1 ? '' : 's'} away). Route plotted on the map.`,
+    message: resume ? '' : `GPS locked: ${destZone.name} (${hops} stop${hops === 1 ? '' : 's'} away). Route plotted on the map.`,
     path,
+    dirs: routeDirs(path),
     // If the player is already auto-walking (armed), a fresh plot continues the walk
     // on the new corridor — this is what lets an off-course auto-walker re-plot from
     // its new position and get back on track. Harmless when not armed (the client
     // only resumes an armed walk).
     resumeAuto: true,
     // Manual `gps` plots (this path only — quest/tablet routes build their own
-    // gps_route without this flag) ask the player whether to auto-walk there now.
-    // The client appends the y/n question and arms a one-shot prompt.
-    promptAutoWalk: true,
+    // gps_route without this flag, and in-progress reroutes pass resume) ask the
+    // player whether to auto-walk there now. The client appends the y/n question
+    // and arms a one-shot prompt.
+    promptAutoWalk: !resume,
   };
 }
 
@@ -86,7 +113,18 @@ function resolveDirect(query, player) {
 }
 
 function cmdGps(args, raw, player) {
-  const query = (args || []).join(' ').trim();
+  let query = (args || []).join(' ').trim();
+
+  // Internal reroute flags the client appends to a silent re-plot during auto-walk
+  // (never typed by a human). `!avoid a,b` routes around blocked tiles; `!resume`
+  // marks this as an in-progress reroute (no prompt, no chat line). Strip them off
+  // the query before it hits name/coordinate resolution.
+  let avoid = null, resume = false;
+  const avoidM = query.match(/\s*!avoid\s+(\S+)/);
+  if (avoidM) { avoid = new Set(avoidM[1].split(',').filter(Boolean)); query = query.replace(avoidM[0], '').trim(); }
+  if (/\s*!resume\b/.test(query)) { resume = true; query = query.replace(/\s*!resume\b/, '').trim(); }
+  const routeOpts = { avoid, resume };
+
   if (!query) return { type: 'error', message: 'GPS to where? Try: gps <part of a location name>' };
 
   // Standing in a tile whose exact name you typed? You're already there. Resolve self
@@ -97,8 +135,10 @@ function cmdGps(args, raw, player) {
     return { type: 'output', message: `You're already at ${hereZone.name}.` };
 
   // Option A: an exact zone id or grid coordinate resolves straight to one tile.
+  // This is also the reroute path — the client re-plots by raw zone id — so pass the
+  // avoid/resume opts through here.
   const direct = resolveDirect(query, player);
-  if (direct) return plotRoute(player, direct);
+  if (direct) return plotRoute(player, direct, routeOpts);
 
   // Water tiles are invisible to GPS — they can't be a destination (Coldwater Basin and
   // its ilk would otherwise clutter every name match), so drop them before resolving.

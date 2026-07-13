@@ -1,0 +1,8 @@
+{
+  "difficulty": 4,
+  "id": "sti_sewer_3",
+  "item_id": "item_rusty_pipe",
+  "max_qty": 2,
+  "table_id": "scav_sewer",
+  "weight": 14
+}

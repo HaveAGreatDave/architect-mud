@@ -997,7 +997,7 @@ async function _bcShowImportChannelModal(compiled) {
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="action-btn" onclick="document.getElementById('bsm-channel-overlay').remove();_bcImportInProgress=false">Cancel</button>
-        <button class="action-btn primary" onclick="_bcImportChannelConfirm()">Continue →</button>
+        <button id="bsm-import-continue-btn" class="action-btn primary" onclick="_bcImportChannelConfirm()">Continue →</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -1256,6 +1256,17 @@ function _bcImportChPickerConfirm() {
 }
 
 async function _bcImportChannelConfirm() {
+  const btn = document.getElementById('bsm-import-continue-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="bsm-spin">⟳</span> Importing…'; }
+  try {
+    await _bcImportChannelConfirmInner();
+  } finally {
+    // Success paths remove the overlay (button gone); on a keep-open error path, restore it.
+    if (btn && document.body.contains(btn)) { btn.disabled = false; btn.textContent = 'Continue →'; }
+  }
+}
+
+async function _bcImportChannelConfirmInner() {
   const compiled = _bcImportPending;
   const isScripted = compiled.meta?.type === 'scripted';
   const sel = document.getElementById('bsm-ch-select')?.value || '';

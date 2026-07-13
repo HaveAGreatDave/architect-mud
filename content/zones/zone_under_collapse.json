@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "Somewhere behind the rubble, water runs on into places you can't reach.",
+    "The fallen brick shifts a fraction and holds.",
+    "A draft whistles thin through a gap too small to crawl."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1c241f",
+  "color": "#8fae9a",
+  "created_by": "the-under",
+  "description": "The channel ends in a wall of collapsed masonry — a whole section of roof come down, packed floor to ceiling with broken brick, root, and rebar. Cold air leaks through the cracks, carrying the sound of deeper tunnels running on beyond. There is no way through. Not yet.",
+  "exits": {
+    "east": "zone_under_confluence"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true,
+    "scavenging_table_id": "scav_sewer"
+  },
+  "grid_x": 917,
+  "grid_y": 903,
+  "grid_z": -1,
+  "id": "zone_under_collapse",
+  "map_id": "map_world",
+  "marker": "▩",
+  "name": "Collapsed Tunnel",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

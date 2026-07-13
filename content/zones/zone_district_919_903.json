@@ -5,12 +5,13 @@
   "bg_color": "#3f3a34",
   "color": "#b9a888",
   "created_by": "zone-planner",
-  "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
+  "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze. At the kerb, a storm drain gapes where its grate has been levered aside — a rusted ladder dropping down into the dark of the Under.",
   "exits": {
     "east": "zone_district_920_903",
     "north": "zone_district_919_902",
     "south": "zone_district_919_904",
-    "west": "zone_district_918_903"
+    "west": "zone_district_918_903",
+    "down": "zone_under_sump"
   },
   "flags": {
     "district": "wasteland",

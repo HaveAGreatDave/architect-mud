@@ -292,12 +292,21 @@ function killLoops(fast) {
   running = false; curClass = null; curWeather = null; _hornOn = false;
 }
 
-export function stopEngineAudio() { if (running) killLoops(false); stopFlightEngine(false); }
+// killLoops also stops the loops that live INDEPENDENTLY of `running` — the stall
+// horn (flt-stallhorn) and the weather bed (flt-weather), both started from the
+// continuous fixed-wing path where `running` is never set. Gating it on `running`
+// leaked those: a stall horn sounding on a fixed-wing flight would drone on forever
+// (ambient bus, survives every mute) after close. So call it unconditionally.
+export function stopEngineAudio() { killLoops(false); stopFlightEngine(false); }
 
 // Ride the engine sound off the live HUD state. Called every cockpit update (~4/s).
 export function updateEngineAudio(s) {
   const ae = AE(); if (!ae) return;
-  if (!s || (!s.airborne && !s.engineOn)) { if (running) killLoops(false); stopFlightEngine(false); return; }
+  // Fire killLoops when parked/off if ANY loop it owns is alive — the generic loops
+  // (running) OR the independently-started stall horn / weather bed. Broadening past
+  // `running` stops a stall horn left ringing after a fixed-wing shutdown on the deck;
+  // once its flags clear, subsequent ~4/s ticks skip it, so no churn.
+  if (!s || (!s.airborne && !s.engineOn)) { if (running || _hornOn || curWeather) killLoops(false); stopFlightEngine(false); return; }
 
   // Continuous cockpit (the fixed-wing fleet) → the live parametric FlightEngine synth, voiced
   // per class; deck craft (the heli) → static crossfaded loops.

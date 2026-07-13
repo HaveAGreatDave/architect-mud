@@ -1,0 +1,13 @@
+{
+  "description": "A length of corroded conduit pipe, threaded at one end and weeping rust. Scrappers pay for the metal, not the memories.",
+  "flags": {},
+  "id": "item_rusty_pipe",
+  "name": "rusty pipe",
+  "tags": {
+    "description": "A length of corroded conduit pipe, threaded at one end and weeping rust. Scrappers pay for the metal, not the memories.",
+    "material": true
+  },
+  "type": null,
+  "value": 4,
+  "weight": 900
+}

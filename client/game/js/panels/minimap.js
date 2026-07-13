@@ -78,9 +78,16 @@ const WALK_STEP_MS = 1000;         // relaxed walking cadence
 const RUN_STEP_MS  = 480;          // brisk running cadence
 // Delay before the next auto-walk step: run cadence only while running AND with
 // stamina left to spend — otherwise a winded runner auto-drops to the walk pace.
+// Off-road, the run cadence is floored to the walk pace: the pacing plugin throttles
+// non-road steps to ~900ms and QUEUES anything faster (a silent deferral), which the
+// stuck-detector below would misread as no-progress. Roads are paced ~2× faster, so
+// the brisk RUN_STEP_MS clears the throttle there and stays snappy.
 function autoWalkDelay() {
   const sta = state.player?.stamina ?? 100;
-  return (runMode && sta >= RUN_STEP_STAMINA) ? RUN_STEP_MS : WALK_STEP_MS;
+  if (!runMode || sta < RUN_STEP_STAMINA) return WALK_STEP_MS;
+  const cur = (_lastMinimapNodes || []).find(n => n.is_current);
+  const onRoad = cur?.terrain === 'road' || (Array.isArray(cur?.artery) && cur.artery.length > 0);
+  return onRoad ? RUN_STEP_MS : WALK_STEP_MS;
 }
 function runBtn() { return document.getElementById('mm-run-toggle'); }
 // Run-state subscribers outside this module (e.g. the Tablet Map app's Run button)
@@ -116,8 +123,30 @@ let autoPendingTarget = null; // the zone id the last auto-walk step is trying t
 // to re-plot from here and resume. Bounded so a destination the server can't reach
 // from our new spot doesn't spin forever.
 let autoRerouteTries = 0;
+// Blocked-entrance recovery: tiles whose entrance turned out to be blocked (a locked
+// door, a gated apartment) — a route that isn't visible to the road planner. On a
+// blocked step we add the tile here and re-plot AROUND it (server-side avoid set)
+// instead of dead-stopping, so the walk problem-solves its way past obstacles. Bounded
+// so a genuinely walled-off destination stops cleanly rather than thrashing.
+const autoAvoid = new Set();
+const AUTO_AVOID_MAX = 8;
+// Consecutive blocks from the SAME standing tile. A tile-specific obstacle (locked
+// door) is passed by rerouting and we move on, resetting this; a GLOBAL block
+// (encumbrance fails every direction) keeps failing from the same spot — cap it so we
+// stop cleanly after a few instead of spamming a reroute per direction.
+let autoBlockAnchor = null;
+let autoBlockTries = 0;
+const AUTO_BLOCK_MAX = 3;
 
 function autoWalkBtn() { return document.getElementById('mm-auto-toggle'); }
+
+// Ask the server to re-plot to `destId` from wherever we are now, routing around any
+// tiles we've learned are blocked, and quietly resume the armed walk (no y/n prompt).
+// Shared by off-course recovery and blocked-entrance recovery.
+function requestReroute(destId) {
+  const avoid = autoAvoid.size ? ` !avoid ${[...autoAvoid].join(',')}` : '';
+  sendCmdSilent(`gps ${destId}${avoid} !resume`);
+}
 
 // An ambiguous-direction move threw a numbered exit picker. Because auto-walk
 // already knows the exact next zone id on the route, match it against the picker's
@@ -139,8 +168,9 @@ export function resolveAutoWalkPicker(picker) {
 // next one" case — the timer stops but the intent persists for a resume.
 function stopAutoWalk(message, { keepArmed = false } = {}) {
   if (autoWalkTimer) { clearTimeout(autoWalkTimer); autoWalkTimer = null; }
-  if (!keepArmed) { autoWalkArmed = false; autoWalkBtn()?.classList.remove('active'); }
+  if (!keepArmed) { autoWalkArmed = false; autoWalkBtn()?.classList.remove('active'); autoAvoid.clear(); }
   autoNoProgress = 0; autoLastZone = null; autoPendingTarget = null; autoRerouteTries = 0;
+  autoBlockAnchor = null; autoBlockTries = 0;
   if (message) appendMsg(message, 'system');
 }
 
@@ -167,9 +197,9 @@ function autoWalkStep() {
   // the server to re-plot from here to the same destination and resume (armed).
   if (!mapState.tracePath.includes(current.id)) {
     const destId = mapState.tracePath[mapState.tracePath.length - 1];
-    if (destId && current.id !== destId && ++autoRerouteTries <= 3) {
+    if (destId && current.id !== destId && ++autoRerouteTries <= 5) {
       autoLastZone = null; autoPendingTarget = null;
-      sendCmdSilent(`gps ${destId}`); // gps_route resumeAuto re-arms the step from our new spot
+      requestReroute(destId); // gps_route resumeAuto re-arms the step from our new spot
       return;
     }
     stopAutoWalk("Auto-walk stopped — off course and can't find a way back to the route.");
@@ -192,7 +222,14 @@ function autoWalkStep() {
   autoLastZone = current.id;
 
   const nextId = path[1];
-  const dir = Object.entries(current.exits || {}).find(([, id]) => id === nextId)?.[0];
+  // Prefer the server's authoritative per-hop direction (mapState.traceDirs, aligned
+  // to the full tracePath): the minimap node only knows the FIRST target per direction
+  // (primaryExits), so it can't resolve a second same-direction exit on its own. When
+  // the server didn't supply dirs (a client-side map-click route), fall back to reading
+  // the direction off the current node's exits.
+  const idx = mapState.tracePath.indexOf(current.id);
+  let dir = (mapState.traceDirs && idx >= 0) ? mapState.traceDirs[idx] : null;
+  if (!dir) dir = Object.entries(current.exits || {}).find(([, id]) => id === nextId)?.[0];
   if (!dir || !DIR_CMDS.includes(dir)) { stopAutoWalk("Auto-walk stopped — can't step off the route from here."); return; }
   autoPendingTarget = nextId; // so an exit picker can be answered toward this zone
   sendCmd(dir);
@@ -220,14 +257,14 @@ export function armAutoWalkPrompt() { autoWalkPromptPending = true; }
 export function isAutoWalkPromptPending() { return autoWalkPromptPending; }
 export function answerAutoWalkPrompt(yes) {
   autoWalkPromptPending = false;
-  if (yes) startAutoWalk();
+  if (yes) { autoAvoid.clear(); startAutoWalk(); } // fresh walk — forget prior obstacles
 }
 
 // `auto` command / Auto button: toggle the route walk. Armed-but-paused (arrived
 // between quest legs) counts as "on" so a click turns the intent fully off.
 export function toggleAutoWalk() {
   if (isAutoWalking() || autoWalkArmed) stopAutoWalk('Auto-walk stopped.');
-  else startAutoWalk();
+  else { autoAvoid.clear(); startAutoWalk(); } // fresh walk — forget prior obstacles
 }
 
 // Cancel an in-progress (or armed-but-paused) walk from outside the module — a
@@ -236,6 +273,32 @@ export function toggleAutoWalk() {
 export function cancelAutoWalk(message) {
   if (!isAutoWalking() && !autoWalkArmed) return false;
   stopAutoWalk(message);
+  return true;
+}
+
+// A move the walker sent came back as an error (a blocked entrance — locked door,
+// gated apartment — that the road planner couldn't see). Instead of dead-stopping,
+// mark that tile as avoid and re-plot AROUND it, so the walk problem-solves past the
+// obstacle. Falls back to a clean stop when there's nothing to route around: the
+// blocked tile IS the destination, no step was in flight, or the avoid budget is spent.
+// Returns true if it handled the error (rerouted or stopped an active walk).
+export function autoWalkBlocked(message) {
+  if (!isAutoWalking()) return false;
+  const destId = mapState.tracePath?.[mapState.tracePath.length - 1];
+  const blocked = autoPendingTarget;
+  const here = (_lastMinimapNodes || []).find(n => n.is_current)?.id;
+  // Count consecutive blocks from this same tile — resets the moment we actually move
+  // (a new standing tile), so a route past several locked buildings still gets the full
+  // avoid budget, but a wall we can't leave at all stops after AUTO_BLOCK_MAX.
+  if (here === autoBlockAnchor) autoBlockTries++; else { autoBlockAnchor = here; autoBlockTries = 1; }
+  if (blocked && destId && blocked !== destId && autoAvoid.size < AUTO_AVOID_MAX && autoBlockTries <= AUTO_BLOCK_MAX) {
+    autoAvoid.add(blocked);
+    if (autoWalkTimer) { clearTimeout(autoWalkTimer); autoWalkTimer = null; }
+    autoLastZone = null; autoPendingTarget = null;
+    requestReroute(destId);
+    return true;
+  }
+  stopAutoWalk(message || 'Auto-walk stopped — the way ahead is blocked.');
   return true;
 }
 
@@ -642,7 +705,7 @@ let _territory = null; // last { control: {zoneId:{...}}, orgs, myOrgId } payloa
 // ordered list of tile ids, cleared on arrival or by the GPS button. `routeMode`
 // is vestigial (kept false) now that single click always highlights a building.
 const MAP_ROUTE_KEY = 'map_route';
-const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false, avenueOverlay: _savedOverlay, territoryView: _savedTerritory, routeMode: false, tracePath: null, legendSel: null };
+const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false, avenueOverlay: _savedOverlay, territoryView: _savedTerritory, routeMode: false, tracePath: null, traceDirs: null, legendSel: null };
 
 // Black/white ink for legibility on a saturated org fill (mirrors corp-map.js inkFor).
 function contrastInk(hex) {
@@ -727,7 +790,7 @@ function effectiveTracePath(currentId) {
   const i = p.indexOf(currentId);
   if (i === -1) return p;                 // stepped off-route — still show the corridor
   const rest = p.slice(i);
-  if (rest.length <= 1) { mapState.tracePath = null; return null; } // arrived
+  if (rest.length <= 1) { mapState.tracePath = null; mapState.traceDirs = null; return null; } // arrived
   return rest;
 }
 
@@ -894,6 +957,7 @@ function wireMapUi() {
     const btn = document.getElementById('map-route-toggle');
     if (!mapState.tracePath) return;
     mapState.tracePath = null;
+    mapState.traceDirs = null;
     mapState.routeMode = false;
     try { localStorage.setItem(MAP_ROUTE_KEY, '0'); } catch {}
     btn?.classList.remove('active', 'has-route');
@@ -1022,6 +1086,7 @@ function plotMapRoute(zid) {
   const current = mapState.tiles.find(t => t.isCurrent);
   const path = current ? traceRoute(current.id, zid, mapState.byId) : null;
   mapState.tracePath = (path && path.length > 1) ? path : null;
+  mapState.traceDirs = null; // client-side route: walker derives direction from node exits
   mapState.routeMode = false; // single-shot: placed, disarm until cleared + re-armed
   try { localStorage.setItem(MAP_ROUTE_KEY, '0'); } catch {}
   const rbtn = document.getElementById('map-route-toggle');
@@ -1037,8 +1102,13 @@ function plotMapRoute(zid) {
 // doesn't pop the full map open — if it's already open, refresh it in place
 // (regional, so the whole route is visible) rather than disturbing the player
 // with an unrequested popup.
-export function setGpsRoute(path) {
+export function setGpsRoute(path, dirs = null) {
   mapState.tracePath = (path && path.length > 1) ? path : null;
+  // Per-hop directions from the server (aligned to the full path), so the walker
+  // can follow second same-direction exits it couldn't resolve on its own. Cleared
+  // with the path; absent for client-side map-click routes (walker falls back to
+  // reading the direction off the node's exits).
+  mapState.traceDirs = mapState.tracePath ? dirs : null;
   mapState.routeMode = false;
   try { localStorage.setItem(MAP_ROUTE_KEY, '0'); } catch {}
   const rbtn = document.getElementById('map-route-toggle');
