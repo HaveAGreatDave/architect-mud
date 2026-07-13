@@ -106,7 +106,7 @@ async function handleAction(player, actionId, params) {
   const aircraftId = (params || '').trim();
   if (!aircraftId || (actionId !== 'sell' && actionId !== 'cancel_rental')) return buildScreen(player, null, aircraftId);
 
-  const { sellAircraft, cancelRental } = await import('../flight/hangars.js');
+  const { sellAircraft, cancelRental, pushHangarBay } = await import('../flight/hangars.js');
   const res = actionId === 'sell' ? await sellAircraft(player, aircraftId) : await cancelRental(player, aircraftId);
 
   const failed = res?.type === 'error';
@@ -116,6 +116,10 @@ async function handleAction(player, actionId, params) {
   // extra field spread on top.
   if (failed) return { ...(await buildScreen(player, null, aircraftId)), notice: res.message };
   if (res?.player_update) sendToPlayer(player.id, { type: 'player_update', ...res.player_update });
+  // If the player is standing at a hangar with the bay open, that craft is still
+  // sitting on the floor — refresh it so the sold/returned plane drops off. No-op
+  // if the bay isn't open (refreshOnly), and a silent miss if they're not at a field.
+  await pushHangarBay(player, null, { refreshOnly: true });
   return buildScreen(player, null, '');
 }
 

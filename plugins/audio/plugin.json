@@ -6,6 +6,6 @@
   "routePrefix": "/audio",
   "events": {
     "emits": ["audio.music.changed", "audio.sfx.triggered"],
-    "consumes": ["zone.entered", "enemy.killed", "enemy.attacked", "player.death", "item.taken", "item.dropped", "device.tuned", "bodily.sfx", "flight.strafeIncoming"]
+    "consumes": ["zone.entered", "enemy.killed", "enemy.attacked", "player.death", "item.taken", "item.dropped", "device.tuned", "bodily.sfx", "flight.strafeIncoming", "flight.aaFired"]
   }
 }

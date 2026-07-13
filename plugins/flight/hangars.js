@@ -15,6 +15,7 @@ import { normalizeLivery, sanitizeLivery, signatureScore, describeExterior,
   paintCost, isPaintable, readSchemes, schemeOf,
   PATTERNS, FINISHES, UPHOLSTERY, DECALS, PRESETS } from './livery.js';
 import { pilotStatusForField, charterParkedAt } from './charter.js';
+import { isPilotLicensed } from './checkride.js';
 // `tune` also belongs to broadcast (tune a channel); flight wins it and hands
 // back when you're not tuning an aircraft. `repair` shadows the engine gear-repair
 // builtin — cmdRepair returns undefined out of aircraft context to fall through.
@@ -24,6 +25,18 @@ import { commands as broadcastCommands } from '../broadcast/index.js';
 import { commands as commerceCommands } from '../commerce/index.js';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
+
+// The direction the "Exit Hangar" button walks the player out of a walk-in hangar
+// interior. Interiors were originally seeded with an `out` exit, but the district
+// rebuild re-wired them to a lateral compass door (e.g. `east`) and dropped `out`,
+// so a hardcoded `out` no longer resolves. Prefer `out` when it still exists, else
+// the first lateral door (not the up/down utility shaft) — that's the way to the ramp.
+function hangarExitDir(player) {
+  const z = getZone(player.current_zone);
+  if (!z?.flags?.hangar_interior || !z.exits) return 'out';
+  if (z.exits.out) return 'out';
+  return Object.keys(z.exits).find(d => !['up', 'down', 'in'].includes(d)) || 'out';
+}
 
 // The hangar-bay panel always knows exactly which craft is selected — its action
 // buttons put that craft's real id as the FIRST token of the command they send
@@ -141,7 +154,10 @@ async function buildCards(player, field) {
   });
 }
 
-export async function pushHangarBay(player, selectId) {
+// `opts.refreshOnly` marks this push as a background refresh (e.g. after a remote
+// tablet sale): the client updates the hangar bay only if it's already open on
+// screen, and ignores it otherwise instead of popping the 3D hangar open.
+export async function pushHangarBay(player, selectId, opts = {}) {
   const field = fieldOf(player);
   if (!field) return { type: 'emote', message: 'Hangars are at the airfields.' };
   const { rows: mine } = await query('SELECT id FROM hangars WHERE field_zone=$1 AND owner_id=$2', [field.id, player.id]);
@@ -152,24 +168,31 @@ export async function pushHangarBay(player, selectId) {
   const parked = charterParkedAt(field.id);
   const charterWaiting = parked && parked.chartererId === player.id ? { destName: parked.destName } : null;
   const canBuy = !!field.flags.airfield_dealer, canRent = !!field.flags.airfield_charter;
-  let buyCatalog = [], rentCatalog = [];
+  // ONE lot per airframe carrying BOTH prices — the client shows a single wireframe with a
+  // Buy and a Rent button under it (each gated on afford + licence), instead of separate
+  // buy/rent sections. Buy/Rent buttons still show only where the field offers that desk.
+  let lots = [];
   if (canBuy || canRent) {
     const { rows: types } = await query("SELECT id, name, class, seats, fuel_type, price_buy, price_rent_hourly FROM aircraft_types WHERE class <> 'wreck' ORDER BY price_buy");
-    if (canBuy) buyCatalog = types.map(t => ({ id: t.id, name: t.name, class: t.class, seats: t.seats, fuel: t.fuel_type, price: t.price_buy }));
-    if (canRent) rentCatalog = types.map(t => ({ id: t.id, name: t.name, class: t.class, seats: t.seats, fuel: t.fuel_type, price: t.price_rent_hourly }));
+    lots = types.map(t => ({ id: t.id, name: t.name, class: t.class, seats: t.seats, fuel: t.fuel_type, priceBuy: t.price_buy, priceRent: t.price_rent_hourly }));
   }
+  // Licence gate for the acquisition buttons (admins/devs are auto-rated + bypass the price).
+  const licensed = await isPilotLicensed(player);
+  const isAdmin = ['admin', 'dev'].includes(player.role);
   sendToPlayer(player.id, { type: 'hangar_bay_open', data: {
     field: field.flags.airfield_name || field.name,
     // Tells the client whether "Close" also has to walk the player back out to
     // the ramp (standing inside the walk-in hangar) or just dismisses the panel
     // (opened from the open ramp itself, where there's no interior to leave).
     inHangar: inHangarInterior(player),
+    exitDir: hangarExitDir(player),
+    refreshOnly: !!opts.refreshOnly,
     hasBay: mine.length > 0, credits: player.credits || 0, craft,
     select: selectId || null,   // client pre-selects this craft (from `view <tail>`)
     pilot: pilotStatusForField(field.id),
     charterWaiting,
     sky: skyState(),   // time-of-day + weather, visible through the open bay door
-    canBuy, canRent, buyCatalog, rentCatalog,
+    canBuy, canRent, lots, licensed, isAdmin,
     catalog: { patterns: PATTERNS, finishes: FINISHES, uphol: UPHOLSTERY, decals: DECALS, presets: PRESETS },
     tuneParams: Object.entries(TUNE_PARAMS).map(([id, p]) => ({ id, label: p.label, lo: p.lo, hi: p.hi, desc: p.desc })),
   } });

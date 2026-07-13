@@ -21,8 +21,8 @@ function _tvColorizeNpcSay(html) {
 // the voice, so each host sounds consistent; narration with no speaker falls back
 // to the station name as the seed.
 let _lastSpeakAt = 0;
-let _speakWindow = 5;   // estimated seconds between spoken lines (seed = broadcast tick)
-export function tvSpeak(rawText, style) {
+let _speakWindow = 5;   // fallback: estimated seconds between spoken lines
+export function tvSpeak(rawText, style, windowSec) {
   if (!_readAloud || !rawText) return;
   if (style && style !== 'raw' && style !== 'emote' && style !== 'narrate' && style !== 'system') return;
   const strip = s => s.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();  // drop markup/bug tags
@@ -31,13 +31,15 @@ export function tvSpeak(rawText, style) {
   if (m) { seed = strip(m[1]); speech = strip(m[2]); }
   else { seed = (document.getElementById('tv-station-name')?.textContent || 'broadcast').trim(); speech = strip(rawText); }
   if (!speech) return;
-  // Adaptively estimate how long until the next line, so speech can be compressed
-  // to fit. Smooth the measured gap; ignore implausible ones (first line, long stalls).
+  // Track inter-line gaps as a fallback window (for broadcasts that don't send one).
   const now = performance.now();
   const gap = (now - _lastSpeakAt) / 1000;
-  if (_lastSpeakAt && gap > 1 && gap < 20) _speakWindow = _speakWindow * 0.5 + gap * 0.5;
+  if (_lastSpeakAt && gap > 1 && gap < 30) _speakWindow = _speakWindow * 0.5 + gap * 0.5;
   _lastSpeakAt = now;
-  window.AudioEngine?.speak(speech, { seed, budget: _speakWindow });
+  // Prefer the server's per-line window (the text-scaled hold), which is sized so the
+  // voice reads at its natural pace without compressing. Fall back to the measured gap.
+  const budget = windowSec > 0.5 ? windowSec : _speakWindow;
+  window.AudioEngine?.speak(speech, { seed, budget });
 }
 
 let _tvOpen = false;

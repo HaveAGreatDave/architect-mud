@@ -718,7 +718,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 
 // Non-standable facades (Phase 5 of the zone redesign): a facade-tagged
 // building tile auto-forwards movement into its interior entry zone; OUT from
-// inside lands on the front-door street tile. Entirely synthetic in-memory
+// inside forwards straight back out onto the entrance street tile. Entirely synthetic in-memory
 // fixture (street ↔ facade ↔ lobby + an interior map row), torn down in finally.
 {
   const { isEnterableFacade, resolveLanding, getMapByParentZone } = await import('../server/engine/world.js');
@@ -752,12 +752,13 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
       inMove?.type === 'move' && p.current_zone === 'rg_lobby', `zone=${p.current_zone} type=${inMove?.type}`);
     check('facade holds no players after transit', facade.players.size === 0);
 
-    // Walk out: lobby --out--> facade ⇒ land ON the facade (the tile the entrance
-    // is on), not one tile further onto the street.
+    // Walk out: lobby --out--> facade ⇒ forward straight through onto the
+    // entrance street tile, never stranding the player on the non-standable facade.
     p._lastStepAt = 0;
     const outMove = await cmdMove('out', p, broadcast);
-    check('OUT from the interior lands on the facade (the entrance tile)',
-      outMove?.type === 'move' && p.current_zone === 'rg_facade', `zone=${p.current_zone} type=${outMove?.type}`);
+    check('OUT from the interior forwards onto the entrance street tile',
+      outMove?.type === 'move' && p.current_zone === 'rg_street', `zone=${p.current_zone} type=${outMove?.type}`);
+    check('facade holds no players after OUT transit', facade.players.size === 0);
 
     // NPC path-through: moveEntity onto the facade forwards to the lobby.
     const npc = { id: 'rg_npc', name: 'Regress Wanderer', zone_id: 'rg_street', flags: {} };

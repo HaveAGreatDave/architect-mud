@@ -632,7 +632,8 @@ All broadcast routes use `directAPI`:
 
 ## Operational Notes
 
-- **Tick cadence**: 2 seconds (`BROADCAST_TICK_MS`), separate `setInterval` in the plugin (not the world scheduler). The tick is the re-evaluation granularity, not the reading pace — node holds (`nodeHoldMs`, default 8 s for a spoken line) are honored at tick granularity, so a fine tick lets non-5s holds land precisely without ever skipping messages.
+- **Tick cadence**: 1 second (`BROADCAST_TICK_MS`), separate `setInterval` in the plugin (not the world scheduler). The tick is the re-evaluation granularity, not the reading pace — node holds (`nodeHoldMs`) are honored at tick granularity (a node advances on the first tick past its hold), so a fine tick lets the text-scaled holds land close to target without ever skipping messages.
+- **Spoken-line pacing scales with text**: for `say`/`ticker`/`camera_cut` nodes, `nodeHoldMs` returns `min(chars × 110ms, 20s) + 1s` (a small floor for readability), sized so the read-aloud formant voice reads each line at its natural pace — never speeding up, nothing cut off — with a 1 s gap before the next line. The `say` result carries this window as `duration` so the client uses it as the exact speech budget (falling back to the measured inter-line gap when absent). `110 ms/char` is calibrated to the synth's ~94 ms/char average, the margin covering slower per-narrator voices.
 - **In-memory only**: `channelRuntime`, `zoneTunings`, `newsQueue`, `graphicsCache` — all rebuilt on server restart from DB. News queue starts empty on restart.
 - **Graphics cache**: holds `id`, `name`, `type`, `content`. `type` is used by `title_card` and `off_air` to set the correct wire style (`'svg'` vs `'ascii_art'`), which the client uses to pick `innerHTML` vs `textContent` rendering.
 - **VINE vs flat list**: runtime prefers `broadcastGraph` when present. Both are saved independently.

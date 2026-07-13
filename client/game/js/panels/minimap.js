@@ -83,10 +83,16 @@ function autoWalkDelay() {
   return (runMode && sta >= RUN_STEP_STAMINA) ? RUN_STEP_MS : WALK_STEP_MS;
 }
 function runBtn() { return document.getElementById('mm-run-toggle'); }
+// Run-state subscribers outside this module (e.g. the Tablet Map app's Run button)
+// so they can light up in step with the sidebar toggle when a `run_state` arrives.
+const _runListeners = [];
+export function isRunning() { return runMode; }
+export function onRunStateChange(fn) { _runListeners.push(fn); }
 // Called from dispatch on a `run_state` message (the server's answer to `run`).
 export function setRunState(running) {
   runMode = !!running;
   runBtn()?.classList.toggle('active', runMode);
+  for (const fn of _runListeners) { try { fn(runMode); } catch {} }
 }
 
 // Auto-walk: steps the player toward the plotted GPS route (mapState.tracePath,
@@ -322,14 +328,11 @@ export function renderMinimap(nodes, direction) {
   const byId = new Map(nodes.map(n => [n.id, n]));
   const coords = new Map();
 
-  // District clipping: the sidebar shows only YOUR district plus the doors out of
-  // it. Any tile in a different district is dropped, except the ones you can step
-  // straight into — those render as "gateway" edge markers (see below). This
-  // sharpens the sense of crossing between neighborhoods. `gateways` collects the
-  // foreign tiles that sit one step across a boundary. (Interiors share one prefix,
-  // so inside a building everything is same-district and nothing clips.)
-  const curDistrict = current.district?.key || null;
-  const inDist = (n) => !curDistrict || n?.district?.key === curDistrict;
+  // District clipping DISABLED: the sidebar now renders every tile in the window,
+  // regardless of district, so neighbouring districts stay in place instead of being
+  // fogged to void. (`inDist` is kept as an always-true predicate so the gateway /
+  // foreign-tile branches below simply never fire.)
+  const inDist = () => true;
   const gateways = new Set();
 
   if (current.map_id && current.grid_x != null && current.grid_y != null) {
@@ -567,6 +570,7 @@ function streetColor(a, b, regional) {
 
 // Landmark icons — icon glyph must match the server POI_ICON in movement.js.
 export const POI_LEGEND = {
+  aa:      { icon: '⌖', label: 'AA battery' },
   airport: { icon: '✈', label: 'Airport / airfield' },
   police:  { icon: '★', label: 'Police station' },
   power:   { icon: '⚡', label: 'Power plant' },

@@ -306,10 +306,23 @@ export default async function regress({ check, run }) {
   // ── Chips unify with cassettes: a clip becomes a loadable mini-cassette ──────
   const BC_ID = 'bc_clip_regress';
   await query('DELETE FROM media_broadcasts WHERE id=$1', [BC_ID]);
-  await ensureClipBroadcast(BC_ID, 'Footage: Regress Alley', [{ text: 'Kaz arrives.' }, { text: 'Kaz says: "clear"' }], 4);
-  const { rows: bc } = await query('SELECT playback_mode, enabled, category, message_interval, jsonb_array_length(messages) AS n FROM media_broadcasts WHERE id=$1', [BC_ID]);
+  await ensureClipBroadcast(BC_ID, 'Footage: Regress Alley', [{ text: 'Kaz arrives.', kind: 'event' }, { text: 'Kaz says, "clear"', kind: 'say' }], 4);
+  const { rows: bc } = await query('SELECT playback_mode, enabled, category, message_interval, jsonb_array_length(messages) AS n, broadcast_graph FROM media_broadcasts WHERE id=$1', [BC_ID]);
   check('ensureClipBroadcast makes a hidden scripted broadcast', bc[0] && bc[0].playback_mode === 'scripted' && bc[0].enabled === 0 && bc[0].n === 2, JSON.stringify(bc[0]));
   check('clip broadcast is categorized surveillance (drives the MicroReel visual)', bc[0]?.category === 'surveillance', bc[0]?.category);
+  // The reel is imported as a real broadcast graph (say-node chain), so it airs
+  // like a broadcast — dialogue frames as leak-able 'verbatim' speech, narrated
+  // action/arrival frames as plain lines.
+  const clipGraph = typeof bc[0]?.broadcast_graph === 'string' ? JSON.parse(bc[0].broadcast_graph) : bc[0]?.broadcast_graph;
+  const clipNodes = clipGraph?.nodes || {};
+  check('clip import builds a broadcast graph (start → linked say chain)',
+    clipGraph?._start === 'start' && clipNodes.start?.next === 'clip_0'
+      && clipNodes.clip_0?.type === 'say' && clipNodes.clip_0?.next === 'clip_1' && clipNodes.clip_1?.next == null,
+    JSON.stringify(clipGraph)?.slice(0, 220));
+  check('dialogue frame → verbatim (airs as captured + leaks as [TV] speech); action frame → raw',
+    clipNodes.clip_0?.style === 'raw' && clipNodes.clip_1?.style === 'verbatim'
+      && clipNodes.clip_0?.text === 'Kaz arrives.' && clipNodes.clip_1?.text === 'Kaz says, "clear"',
+    `clip_0=${clipNodes.clip_0?.style} clip_1=${clipNodes.clip_1?.style}`);
   await ensureClipBroadcast(BC_ID, 'Footage: Regress Alley', [{ text: 'only one now' }], 4); // idempotent upsert
   const { rows: bc2 } = await query('SELECT jsonb_array_length(messages) AS n FROM media_broadcasts WHERE id=$1', [BC_ID]);
   check('ensureClipBroadcast upserts in place (no duplicate rows)', bc2.length === 1 && bc2[0].n === 1, JSON.stringify(bc2));
@@ -359,4 +372,19 @@ export default async function regress({ check, run }) {
   check('air with no seized station is refused', air?.type === 'error' && /station/i.test(air?.message || ''), JSON.stringify(air));
   const airPlay = await run('air play');
   check('air play with no seized station is refused', airPlay?.type === 'error' && /station/i.test(airPlay?.message || ''), JSON.stringify(airPlay));
+
+  // ── Live camera routing (Phase 3) ────────────────────────────────────────────
+  // The live/recorded subcommands route through cmdAir and gate on holding a
+  // station (they don't throw or fall through to the usage error).
+  const airLive = await run('air live');
+  check('air live routes + gates on a seizure', airLive?.type === 'error' && /station/i.test(airLive?.message || ''), JSON.stringify(airLive));
+  const airSrc = await run('air source station');
+  check('air source routes + gates on a seizure', airSrc?.type === 'error' && /station/i.test(airSrc?.message || ''), JSON.stringify(airSrc));
+
+  // ── Reclaim: engineer response timing (Phase 4) ──────────────────────────────
+  // The engineer arrives a fixed defend window (120 s) after the seizure; a repel
+  // stamps an explicit next-attempt time that then wins.
+  const { engineerDueAt } = _piracyTest;
+  check('engineer is due one defend window after seizure', engineerDueAt({ pirate_since: 1000 }) === 1000 + 120000, String(engineerDueAt({ pirate_since: 1000 })));
+  check('a stamped retry time overrides the default window', engineerDueAt({ pirate_since: 1000, pirate_engineer_at: 5000 }) === 5000, String(engineerDueAt({ pirate_since: 1000, pirate_engineer_at: 5000 })));
 }

@@ -1,0 +1,46 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "wipes down a coolant line and listens to the gun cycle in the ceiling.",
+    "\"They put a round through her, I put her back together. Coldwater keeps the receipts.\""
+  ],
+  "description": "A Coldwater battery technician in vats-white coveralls, sleeves shoved up, threading a fresh coolant line through the Guardian's underdeck. When a strafing run guts the gun overhead, she's the one down here who brings it back online.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They turn back to the mechanism."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "...",
+          "next": "bye"
+        }
+      ],
+      "text": "They don't look up from the reload gear. \"The gun stays up because I keep it up. You're not helping — you're standing in my light. Move.\""
+    }
+  },
+  "faction": "coldwater",
+  "flags": {
+    "aa_engineer": "aa_clone_guard",
+    "personality": "guard"
+  },
+  "home_activities": [],
+  "home_zone": "zone_aa_clone_bunker",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_aa_clone_engineer",
+  "name": "a Guardian battery technician",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_aa_clone_bunker"
+}

@@ -206,6 +206,25 @@ export function zoneTerrain(zone) {
   return null;
 }
 
+// The street tile a facade spills you onto when you leave. The facade is
+// non-standable, so exiting has to resolve the real overworld tile behind it:
+// the authored entrance side (buildingEntranceDir, from the exit graph) first,
+// then any cardinal exit off the facade that leads back to a non-interior tile,
+// and finally the planner's world_exit_zone hint. Null ⇒ no usable street tile.
+// Shared by movement (the exit hop) and describe (labeling the interior's exit
+// with the street it lands on rather than the building you're standing in).
+export function facadeStreetTile(facade) {
+  const interior = getMapByParentZone(facade.id);
+  const dir = buildingEntranceDir(facade);
+  if (dir && facade.exits?.[dir]) return facade.exits[dir];
+  for (const [d, target] of Object.entries(facade.exits || {})) {
+    if (!['north', 'south', 'east', 'west'].includes(d)) continue;
+    const t = world.zones.get(target);
+    if (t && (!interior || t.map_id !== interior.id)) return target;
+  }
+  return facade.flags?.world_exit_zone || null;
+}
+
 // Where a direct landing (teleport, respawn, .gohome, NPC placement) actually
 // puts an actor: enterable facades forward to their interior entry zone;
 // everything else lands as-is.

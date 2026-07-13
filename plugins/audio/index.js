@@ -18,7 +18,7 @@ const eventRoutes = new Map(); // event_name -> row[]
 
 // name -> id, so event handlers below can reference assets by human name
 // without hardcoding ids. Falls back to no-op if the named asset isn't seeded.
-const byName = { sfx: new Map(), songs: new Map(), ambient: new Map() };
+const byName = { sfx: new Map(), songs: new Map(), ambient: new Map(), samples: new Map() };
 
 const SAMPLE_META_COLS = 'id,name,category,priority,mime_type,base_note,loop_start,loop_end,snes_rate,snes_bits,echo_mix,config,enabled';
 
@@ -49,7 +49,8 @@ export async function loadAudioLibrary() {
     eventRoutes.set(row.event_name, arr);
   }
   samples.clear();
-  for (const row of sm.rows) samples.set(row.id, row);
+  byName.samples.clear();
+  for (const row of sm.rows) { samples.set(row.id, row); byName.samples.set(row.name, row.id); }
 }
 
 await loadAudioLibrary().catch(e => console.error('[audio] failed to load library:', e.message));
@@ -66,6 +67,10 @@ function ambientByName(name) {
   const id = byName.ambient.get(name);
   return id ? ambient.get(id) : null;
 }
+function sampleByName(name) {
+  const id = byName.samples.get(name);
+  return id ? samples.get(id) : null;
+}
 
 // Looked up by other plugins (e.g. broadcast) that need to trigger a song by
 // its human name without owning a DB query of their own.
@@ -75,6 +80,10 @@ export function getSongDefByName(name) {
 }
 export function getSfxDefByName(name) { return name ? sfxByName(name) : null; }
 export function getAmbientDefByName(name) { return name ? ambientByName(name) : null; }
+// A recorded sample (audio_samples) resolved by human name — used by broadcast
+// themes that name a sample sting instead of a tracker song. Metadata only (no
+// `data` blob); the client fetches the blob from /audio/samples/:id/data.
+export function getSampleDefByName(name) { return name ? sampleByName(name) : null; }
 
 // ── Event route helper ────────────────────────────────────────────────────
 // Checks audio_event_routes for the given event name and dispatches the
@@ -324,6 +333,35 @@ const SFX_STRAFE_GROUND = {
 // the tile hears the fire in sync (its own cooldown-gated damage is separate).
 on('flight.strafeIncoming', ({ zoneId }) => {
   if (zoneId) sendToZone(zoneId, { type: 'audio_sfx', def: SFX_STRAFE_GROUND, gain: 0.9 });
+});
+
+// An AA battery firing, heard on the GROUND — a heavy Flak-88 bark: a huge concussive muzzle
+// blast, the sharp crack of the round, and a long lowpassed report rolling out. Propagated
+// from the gun's tile so the surrounding zones (and down the hatch, the bunker crew) hear it
+// carry and fade with distance/doors. Throttled per site so it reports like a big slow gun.
+const SFX_FLAK_REPORT = {
+  id: 'sfx_flak_report', name: 'sfx_flak_report', category: 'sfx', priority: 6,
+  config: {
+    duration: 0.9,
+    layers: [
+      { waveform: 'sine', freq: 50, pitchBend: { to: 27, time: 0.18 }, filter: { type: 'lowpass', freq: 95, q: 1 }, adsr: { a: 0.001, d: 0.34, s: 0, r: 0.2 }, gain: 0.6 },   // sub-bass muzzle concussion
+      { waveform: 'sine', freq: 82, pitchBend: { to: 44, time: 0.14 }, filter: { type: 'lowpass', freq: 200, q: 1.1 }, adsr: { a: 0.001, d: 0.26, s: 0, r: 0.12 }, gain: 0.5 },   // muzzle body / recoil drop
+      { waveform: 'sawtooth', freq: 108, pitchBend: { to: 64, time: 0.1 }, filter: { type: 'lowpass', freq: 560, q: 1.3 }, adsr: { a: 0.001, d: 0.16, s: 0, r: 0.08 }, gain: 0.26 },   // breech slam / low body
+      { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 520, q: 0.8 }, adsr: { a: 0.0005, d: 0.09, s: 0, r: 0.05 }, gain: 0.34 },   // the hard report crack
+      { waveform: 'noise', noiseMix: 1, delay: 0.12, filter: { type: 'lowpass', freq: 360, q: 0.7 }, adsr: { a: 0.02, d: 0.4, s: 0, r: 0.32 }, gain: 0.22 },   // report rolling out across the ground
+    ],
+  },
+};
+
+const _lastFlak = new Map();   // siteId → ms of last ground report (per-site bark throttle)
+on('flight.aaFired', ({ zoneId, siteId }) => {
+  if (!zoneId) return;
+  const now = Date.now();
+  if (siteId) {
+    if (now - (_lastFlak.get(siteId) || 0) < 650) return;   // ~1.5 booms/s max — a heavy gun, not a buzzsaw
+    _lastFlak.set(siteId, now);
+  }
+  propagateAudio(zoneId, SFX_FLAK_REPORT, 1.0, sendToZone);   // floods neighbours + the bunker, fading per hop/door
 });
 
 // A ghost's actions build an "unseen presence" — but a sound on every single one
@@ -1004,7 +1042,7 @@ function colValue(col, body) {
   return v ?? null;
 }
 
-export const routeHandler = async (path, method, body, auth) => {
+export const routeHandler = async (path, method, body, auth, reqHeaders) => {
   if (!path.startsWith('/audio')) return null;
   if (method !== 'GET' && !devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
 
@@ -1056,11 +1094,20 @@ export const routeHandler = async (path, method, body, auth) => {
     const SAMPLE_COLS = ['name', 'category', 'priority', 'data', 'mime_type', 'base_note', 'loop_start', 'loop_end', 'snes_rate', 'snes_bits', 'echo_mix', 'config', 'enabled'];
     const SAMPLE_EDIT_COLS = ['name', 'category', 'priority', 'base_note', 'loop_start', 'loop_end', 'snes_rate', 'snes_bits', 'echo_mix', 'config', 'enabled'];
     try {
-      // GET /audio/samples/:id/data — returns base64 blob; open to game client (no dev auth needed for GET)
+      // GET /audio/samples/:id/data — returns base64 blob; open to game client (no dev auth needed for GET).
+      // Sample blobs are large and change rarely (only on re-upload), so we cache with
+      // revalidation: an ETag (server-side md5, no blob transfer to compute) lets a
+      // returning browser send If-None-Match and get a bodyless 304 instead of re-downloading.
+      // must-revalidate + short max-age keeps a re-encode from serving stale audio for long.
       if (id && parts[3] === 'data' && method === 'GET') {
+        const meta = await query('SELECT md5(data) AS etag FROM audio_samples WHERE id=$1', [id]);
+        if (!meta.rows[0] || meta.rows[0].etag == null) return { status: 404, body: { error: 'Not found' } };
+        const etag = `"${meta.rows[0].etag}"`;
+        const headers = { 'Cache-Control': 'public, max-age=3600, must-revalidate', 'ETag': etag };
+        if (reqHeaders?.['if-none-match'] === etag) return { status: 304, headers };
         const { rows } = await query('SELECT data FROM audio_samples WHERE id=$1', [id]);
         if (!rows[0]) return { status: 404, body: { error: 'Not found' } };
-        return { status: 200, body: { data: rows[0].data } };
+        return { status: 200, headers, body: { data: rows[0].data } };
       }
       if (!id && method === 'GET') {
         const { rows } = await query(`SELECT ${SAMPLE_META_COLS} FROM audio_samples ORDER BY name`);

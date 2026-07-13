@@ -10,10 +10,11 @@ Reuses the media-deck override, the SPECTER firmware/tablet shell, the Circuit-B
 loop, the crime/Wanted spine, and the dead-man tamper ping. **No new render stack, no new content
 system** — it turns the deck's existing `deck_active` override into a real pirate console.
 
-> Status: **Phases 1–2 built (2026-07-12); regress-green.** Design agreed with all forks resolved in
-> the decision tables below. Phase 1 (gate + seizure + Signal Hijack + crime) and Phase 2 (the pirate
-> console — queue/playback/crawl, `air`) extend the **broadcast plugin** (it already owns the deck verb
-> + `_getDeckMessage`). Phases 3–5 pending — see the phase list.
+> Status: **Phases 1–4 built (2026-07-12); regress-green.** Design agreed with all forks resolved in
+> the decision tables below. Phases 1 (gate + seizure + Signal Hijack + crime), 2 (pirate console —
+> queue/playback/crawl), 3 (LIVE/RECORDED toggle + live camera routing), and 4 (reclaim — engineer
+> reboot + Wanted-heat drop + counter-hack) extend the **broadcast plugin** (it already owns the deck
+> verb + `_getDeckMessage`). Only Phase 5 (corp-station targeting) pending — see the phase list.
 
 ---
 
@@ -199,10 +200,29 @@ gains the pirate controls for the owner-at-deck case. Controls:
    simpler, and it opens both on-site and remotely); the crawl rides the existing ticker style (~1 tick
    in 3) rather than a dedicated overlay event; the open console reflects state at each command, not a
    live push (auto-advance shows on a TV, not in the console) — a live-refresh push is a small follow-up.
-3. **Live camera routing** — the LIVE/RECORDED toggle + live-source picker (station cam **and**
-   SPECTER cam → live-to-air via `buildCameraSnapshot`/`feedSnapshot`). *Ships the surveillance crossover.*
-4. **Reclaim depth** — engineer-NPC dispatch + on-site reboot; counter-hack path; Wanted polish.
-   *Ships the station fighting back.*
+3. **Live camera routing** — ✅ *built 2026-07-12 (broadcast plugin; regress-green).*
+   `pirate_mode` ('recorded'|'live') + `pirate_live_source` on the deck flags; `air recorded` /
+   `air live [src]` / `air source <src>` toggle + pick. LIVE mode's `_getPirateMessage` branch cuts to
+   a camera via **`buildCameraSnapshot(zoneId)`** — the station studio cam (channel `studioZoneId`) **or**
+   any SPECTER camera the captor controls (`_liveSources` reads `security_devices` for their
+   `sticky_cam`/`drone` devices **read-only** — no surveillance import; every source is just a zone to
+   render). The console gains a RECORDED/LIVE toggle + a source picker; the crawl rides both modes.
+   *Ships the surveillance crossover — broadcast a rival's private moment citywide.* **Deviation:** used
+   broadcast's own `buildCameraSnapshot` for every source (station and SPECTER alike) rather than
+   surveillance's plugin-private `feedSnapshot` — same result (a zone rendered as feed text), no
+   cross-plugin code coupling.
+4. **Reclaim depth** — ✅ *built 2026-07-12 (broadcast plugin; regress-green).* All three active paths,
+   no auto-timer: **(1) engineer response** — a 15 s `engineerTick` reboots any deck whose 2-min defend
+   window (`_engineerDueAt` on `pirate_since`, or a stamped `pirate_engineer_at` retry) has elapsed,
+   **unless the captor is standing at the deck** (they run the engineer off; retry in 90 s) — the seize
+   message telegraphs it. **(2) Wanted-heat drop** — `player.death` (covers downing/arrest) fires
+   `_releaseSeizuresBy` → every station the victim held falls. **(3) counter-hack** — a rival re-runs
+   Signal Hijack on a deck they don't own (`cmdPirate`/`cmdPirateResolve` already allow it and reset the
+   defend window). All reclaim routes clear via `_clearSeizure` (wipes `pirate_*` → the channel's own
+   programming resumes). *Ships the station fighting back.* **Deviation:** the engineer is a
+   **telegraphed, presence-defended reboot** (messaging + a defend-by-standing-there window), not a
+   physically-pathing killable NPC — same gameplay loop, far lower risk; the surveillance
+   hunter pattern (`spawnEnemySync` + `findPath`/`moveEntity`) can upgrade it to a walk-in unit later.
 5. **Corp/player station targeting** *(dependency-gated)* — extend targeting + counter-hack to
    corp-owned stations once corp **station ownership** exists (see Dependencies). Until then, all
    channels read as city/NPC and are pirateable under phases 1–4.

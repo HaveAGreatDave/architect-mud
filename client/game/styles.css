@@ -412,6 +412,21 @@ body.fsim-hidepanel .fsim-view { height: auto; flex: 1 1 auto; min-height: 0; }
 body.fsim-hidepanel #output,
 body.fsim-hidepanel #look-resize-handle { display: none; }
 
+/* Hangar bay fullscreen / hide-panel: the 3D hangar app mounts in #area-pane exactly
+   like the flight sim, so it gets the same two immersive layouts — ⛶ fullscreen (pane
+   fills the column, log + command box folded away) and ⊟ hide-panel (log gone, command
+   box stays). #hb-root already flexes to fill the pane, so only the pane/log rules are
+   needed here. Both classes are cleared when the hangar closes. */
+body.hb-fullscreen #area-pane,
+body.hb-hidepanel #area-pane { max-height: none; flex: 1 1 auto; }
+body.hb-fullscreen #area-content,
+body.hb-hidepanel #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
+body.hb-fullscreen #output,
+body.hb-fullscreen #look-resize-handle,
+body.hb-fullscreen #bottom-input-wrap,
+body.hb-hidepanel #output,
+body.hb-hidepanel #look-resize-handle { display: none; }
+
 /* Flight-sim external chase view: the world fills the whole column so the cockpit controls
    can float over it (see cockpit.js). Grows the pane like hide-panel; the command box stays. */
 body.fsim-external #area-pane { max-height: none; flex: 1 1 auto; }
@@ -2526,6 +2541,7 @@ body.fsim-external #look-resize-handle { display: none; }
 
 /* Landmark POI icons — bold, colour-coded by category (airport, police, …). */
 .map-poi { font-weight: bold; }
+.map-poi-aa      { color: #ff5a4a; }
 .map-poi-airport { color: #2fd0c0; }
 .map-poi-police  { color: #6a9bff; }
 .map-poi-power   { color: #ffd23a; }
@@ -9049,13 +9065,13 @@ body.esp-active #output {
 /* Player chat speech bubbles (from `say`) — open inward toward table center */
 .poker-chat {
 	position: absolute;
-	width: 590px;
+	width: 295px;
 	background: #f4f1e4;
 	color: #16160f;
-	font-size: 50px;
+	font-size: 25px;
 	line-height: 1.25;
-	padding: 20px 40px;
-	border-radius: 40px;
+	padding: 10px 20px;
+	border-radius: 20px;
 	white-space: normal;
 	text-align: center;
 	z-index: 13;
@@ -9066,16 +9082,16 @@ body.esp-active #output {
 .poker-chat::after {
 	content: '';
 	position: absolute;
-	border: 25px solid transparent;
+	border: 13px solid transparent;
 }
-.seat-north .poker-chat { top: calc(100% + 35px); left: 50%; transform: translateX(-50%); }
-.seat-north .poker-chat::after { top: -45px; left: 50%; margin-left: -25px; border-bottom-color: #f4f1e4; border-top: 0; }
-.seat-south .poker-chat { bottom: calc(100% + 35px); left: 50%; transform: translateX(-50%); }
-.seat-south .poker-chat::after { bottom: -45px; left: 50%; margin-left: -25px; border-top-color: #f4f1e4; border-bottom: 0; }
-.seat-east .poker-chat { right: calc(100% + 45px); top: 50%; transform: translateY(-50%); }
-.seat-east .poker-chat::after { right: -45px; top: 50%; margin-top: -25px; border-left-color: #f4f1e4; border-right: 0; }
-.seat-west .poker-chat { left: calc(100% + 45px); top: 50%; transform: translateY(-50%); }
-.seat-west .poker-chat::after { left: -45px; top: 50%; margin-top: -25px; border-right-color: #f4f1e4; border-left: 0; }
+.seat-north .poker-chat { top: calc(100% + 18px); left: 50%; transform: translateX(-50%); }
+.seat-north .poker-chat::after { top: -23px; left: 50%; margin-left: -13px; border-bottom-color: #f4f1e4; border-top: 0; }
+.seat-south .poker-chat { bottom: calc(100% + 18px); left: 50%; transform: translateX(-50%); }
+.seat-south .poker-chat::after { bottom: -23px; left: 50%; margin-left: -13px; border-top-color: #f4f1e4; border-bottom: 0; }
+.seat-east .poker-chat { right: calc(100% + 23px); top: 50%; transform: translateY(-50%); }
+.seat-east .poker-chat::after { right: -23px; top: 50%; margin-top: -13px; border-left-color: #f4f1e4; border-right: 0; }
+.seat-west .poker-chat { left: calc(100% + 23px); top: 50%; transform: translateY(-50%); }
+.seat-west .poker-chat::after { left: -23px; top: 50%; margin-top: -13px; border-right-color: #f4f1e4; border-left: 0; }
 @keyframes chat-pop {
 	from { opacity: 0; }
 }

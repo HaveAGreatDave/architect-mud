@@ -1,18 +1,25 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_events": [
+    "The flak gun's cradle creaks as it swings a few degrees and stops.",
+    "A drift of spent shell cups glints where the grass has been scorched back.",
+    "Something in the mechanism pings as it cools."
+  ],
+  "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#38342c",
+  "color": "#b8b0a0",
   "created_by": "zone-planner",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "A Slagworks flak pit sunk into the old grassland — a ring of rusted plate and rammed earth open to the sky, the flak gun squatting exposed at its heart on a hand-cranked cradle. It's ugly, old, and built to eat a hit and keep firing; the crew work it in the open with ear-defenders and no illusions. A buckled steel hatch in the pit floor lets down into the bunker where the shell hoist and the gun's guts are kept.",
   "exits": {
     "east": "zone_district_892_905",
     "north": "zone_district_891_904",
-    "south": "zone_district_891_906"
+    "south": "zone_district_891_906",
+    "down": "zone_aa_slag_bunker"
   },
   "flags": {
+    "aa_site": true,
     "district": "wasteland",
+    "icon": "aa",
     "planner": "bp_district"
   },
   "grid_x": 891,
@@ -20,8 +27,8 @@
   "grid_z": 0,
   "id": "zone_district_891_905",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "AA",
+  "name": "Slagworks Flak Pit",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1783740000"
 }

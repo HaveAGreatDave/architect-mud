@@ -154,7 +154,7 @@ function compileBsm(text) {
         // games all day). "@airtime 19" → the evening (18:00–21:00) game airs daily.
         else if (key === 'airtime') meta.airSlots = [...new Set(val.split(/[,\s]+/).map(Number).filter(n => Number.isFinite(n) && n >= 0 && n < 24).map(h => Math.floor(h / 3) % 8))];
         else if (key === 'titlecard') meta.titlecard = val;   // weather/news: graphic id shown before the report
-        else if (key === 'theme') meta.theme = val.replace(/^["']|["']$/g, '');  // news: intro theme song (audio_songs.name)
+        else if (key === 'theme') meta.theme = val.replace(/^["']|["']$/g, '');  // news/talkshow: intro theme sting — an audio_songs.name OR an audio_samples.name (quote names with spaces)
         // talkshow: the REAL studio cast — npc_ ids, acted live on stage (unlike news/sports names).
         // @host = desk host, @sidekick = announcer/bandleader who does the intro, @guest = the
         // reusable guest NPC renamed each episode. All three are spawned/placed by the importer.
@@ -221,7 +221,9 @@ function compileBsm(text) {
       i++;
       const content = collectBlock('::endguests');
       for (const s of content.split('\n').map(t => t.trim()).filter(t => t && !t.startsWith('#'))) {
-        const [name, title, theme, tag] = s.split('|').map(p => p.trim().replace(/^["']|["']$/g, ''));
+        // Strip only a MATCHED wrapping quote pair around the whole field — not quotes
+        // that are part of the value (e.g. a nickname like "Sparky" Reyes).
+        const [name, title, theme, tag] = s.split('|').map(p => p.trim().replace(/^(["'])([\s\S]*)\1$/, '$2'));
         if (name) guests.push({ name, title: title || '', theme: theme || '', tag: tag || '' });
       }
       continue;

@@ -3,7 +3,10 @@
 **Purpose** — paces player movement so the large world feels large. Two layers: a
 short walk cadence (a per-step cooldown via a `registerMoveGate` gate) that paces
 travel, and a `sprint` toggle that spends stamina per step for a faster burst
-cadence, auto-dropping you to a "winded" walk when stamina runs low. A too-fast step
+cadence, auto-dropping you to a "winded" walk when stamina runs low. **Roads (and
+marked arteries) halve the cadence (`ROAD_SPEEDUP=2`)** so travel along the street
+grid is ×2 — the same grid the GPS router prefers; open water is impassable
+(handled upstream by the `engine:water` move gate). A too-fast step
 is **queued, not rejected** — type `n n n e` and you're walked along at cadence
 instead of hitting a wall of errors. System-driven relocations
 (`opts.bypassEncumbrance`) and drained steps (`opts._pacingDrain`) are exempt.
@@ -41,7 +44,7 @@ instead of hitting a wall of errors. System-driven relocations
 ## Tunables (module consts in `index.js`)
 
 `WALK_COOLDOWN_MS=900`, `SPRINT_COOLDOWN_MS=350`, `SPRINT_COST=8`,
-`SPRINT_FLOOR=15`, `WINDED_RECOVER=40`, `MAX_QUEUE=12`.
+`SPRINT_FLOOR=15`, `WINDED_RECOVER=40`, `MAX_QUEUE=12`, `ROAD_SPEEDUP=2`.
 
 ## Dependencies
 

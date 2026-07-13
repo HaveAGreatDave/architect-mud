@@ -1,0 +1,46 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "threads a fresh belt off the wall and blows grit out of the feed.",
+    "\"Out here you fix it or you walk. I fix it. Shoot her down and she's up by dark.\""
+  ],
+  "description": "A wiry wastes wrench-hand surrounded by cannibalised parts and coiled belts, keeping the autocannon firing on scavenged spares and spite. Strafe the gun off its mount and she'll have it back up by nightfall.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They turn back to the bench."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "...",
+          "next": "bye"
+        }
+      ],
+      "text": "They don't put the wrench down. \"Gun works because I make it work. You're not helping — you're in my light. Move.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "aa_engineer": "aa_wastes_gun",
+    "personality": "mercenary"
+  },
+  "home_activities": [],
+  "home_zone": "zone_aa_wastes_bunker",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_aa_wastes_engineer",
+  "name": "a wastes wrench-hand",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_aa_wastes_bunker"
+}

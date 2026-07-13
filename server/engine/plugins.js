@@ -228,12 +228,14 @@ export function registerRoutes(prefix, handler) {
   routeHandlers.push({ prefix, handler });
 }
 
-// Called from routes.js before built-in route matching. Returns {status, body}
-// if a plugin handled the request, or null to fall through.
-export async function fireRoutes(path, method, body, auth) {
+// Called from routes.js before built-in route matching. Returns {status, body,
+// headers?} if a plugin handled the request, or null to fall through. `reqHeaders`
+// is the raw request header map (lower-cased keys) — handlers use it for e.g.
+// conditional GETs (If-None-Match).
+export async function fireRoutes(path, method, body, auth, reqHeaders) {
   for (const { prefix, handler } of routeHandlers) {
     if (path.startsWith(prefix)) {
-      const result = await handler(path, method, body, auth);
+      const result = await handler(path, method, body, auth, reqHeaders);
       if (result) return result;
     }
   }

@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, buildingEntranceDir, interiorExitDirs } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, buildingEntranceDir, interiorExitDirs, facadeStreetTile } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -305,12 +305,16 @@ function resolveFacadeTransit(from, to) {
   if (!isEnterableFacade(to)) return null;
   const interior = getMapByParentZone(to.id);
   if (from.map_id === interior.id) {
-    // Exiting: interior → facade. You always come out ONTO the facade — the tile
-    // the entrance is on — rather than being pushed one tile further onto the
-    // street. Returning null leaves the standard move to land the player on `to`
-    // (the facade), the same path the legacy no-world_exit_zone fallback took.
-    // The exit-side door is already found by the standard lookup.
-    return null;
+    // Exiting: interior → facade → street, in one move. The facade is
+    // non-standable, so spill straight onto the entrance street tile rather than
+    // stranding the player on the facade for an extra step. The exit-side front
+    // door was already found by the standard lookup (interior↔facade link), so
+    // leave `door` untouched (frontDoor: null). Fall back to landing on the
+    // facade only when no street tile resolves (the legacy walled-in guard).
+    const streetId = facadeStreetTile(to);
+    const street = streetId ? getZone(streetId) : null;
+    if (!street) return null;
+    return { finalId: streetId, finalZone: street, frontDoor: null };
   }
   // Entering: anywhere else → facade → interior entry zone. The front door
   // lives on the facade↔interior link, so surface it for the gate chain (the
@@ -385,8 +389,8 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
 
   // Revolving-door seam: an enterable facade is never stood on. Stepping onto
   // it from the street forwards straight into the interior entry zone; walking
-  // out of the interior onto it lands on its front-door street tile
-  // (flags.world_exit_zone). The swap happens BEFORE the gate chain, so gates
+  // out of the interior forwards straight back onto its entrance street tile
+  // (facadeStreetTile). The swap happens BEFORE the gate chain, so gates
   // run exactly once with from=origin, to=final destination, door=front door —
   // no pacing double-charge, and the lock law is checked on the real door.
   const transit = resolveFacadeTransit(zone, targetZone);
@@ -626,7 +630,7 @@ function buildingsAt(zone) {
 // Uses the clean signals (airfield_name flag, building_type on adjacent buildings)
 // plus vendor NPCs and up/down stairs. Deliberately SPARSE: most tiles return null.
 // Priority is the "what matters most here" order. { icon, poi } | null.
-const POI_ICON = { airport: '✈', police: '★', power: '⚡', club: '♥', bar: '🍺', hotel: '🏨', vendor: '$', home: '⌂', stairs: '⇕' };
+const POI_ICON = { aa: '⌖', airport: '✈', police: '★', power: '⚡', club: '♥', bar: '🍺', hotel: '🏨', vendor: '$', home: '⌂', stairs: '⇕' };
 const POWER_RE = /coolant|turbine|reactor|powerplant/i;
 function buildingTypesAt(zone) {
   const types = new Set();
@@ -642,6 +646,9 @@ function hasVendorNpc(zoneId) {
   return false;
 }
 function mapPoi(zone) {
+  // AA emplacements outrank everything (incl. the up/down-hatch stairs marker below)
+  // so a battery reads as a battery, not a stairwell.
+  if (zone.flags?.aa_site) return { icon: POI_ICON.aa, poi: 'aa' };
   if (zone.flags?.airfield_name) return { icon: POI_ICON.airport, poi: 'airport' };
   const bt = buildingTypesAt(zone);
   if (bt.has('police')) return { icon: POI_ICON.police, poi: 'police' };

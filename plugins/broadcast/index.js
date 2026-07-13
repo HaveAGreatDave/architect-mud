@@ -9,7 +9,7 @@ import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup, registerZoneWatchedChecker, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
 import { registerAICondition, registerAIAction } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections } from '../../server/engine/environment.js';
-import { getSongDefByName, getSfxDefByName, getAmbientDefByName } from '../audio/index.js';
+import { getSongDefByName, getSfxDefByName, getAmbientDefByName, getSampleDefByName } from '../audio/index.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 
@@ -281,7 +281,7 @@ async function scanChannelDay(channelId) {
       if (!KNOWN_BROADCAST_NODES.has(node.type)) { add('warn', 'unknown_node', `'${label}': unknown node type '${node.type}' will be skipped on air.`, { broadcast: label, node: nid }); continue; }
       const gid = (node.type === 'title_card' || node.type === 'overlay' || node.type === 'show_overlay') ? d.graphic_id : null;
       if (gid && !graphicsCache.has(gid)) add('warn', 'missing_graphic', `'${label}': graphic '${gid}' not found — the card will be skipped.`, { broadcast: label, node: nid });
-      if (node.type === 'music' && d.song && !getSongDefByName(d.song)) add('info', 'missing_song', `'${label}': song '${d.song}' not found — falls back to cue text or is skipped.`, { broadcast: label, node: nid });
+      if (node.type === 'music' && d.song && !getSongDefByName(d.song) && !getSampleDefByName(d.song)) add('info', 'missing_song', `'${label}': song '${d.song}' not found — falls back to cue text or is skipped.`, { broadcast: label, node: nid });
       if (node.type === 'npc_anchor' && d.npc_id && !world.npcs?.has(d.npc_id)) add('warn', 'missing_npc', `'${label}': host NPC '${d.npc_id}' does not exist.`, { broadcast: label, node: nid });
       if (node.type === 'camera_cut' && d.zone_id && !getZone(d.zone_id)) add('warn', 'missing_zone', `'${label}': camera-cut zone '${d.zone_id}' does not exist.`, { broadcast: label, node: nid });
     }
@@ -1703,6 +1703,24 @@ async function getNewsGraph(item, nowMs) {
   return item._newsGraph;
 }
 
+// The host's one nightly news bit draws on a real headline from the SAME live feed the
+// News app and news channel use (live/event-sourced stories first, wire/tabloid as filler).
+// Cached here and refreshed on a slow interval so the SYNCHRONOUS episode assembler can read
+// a headline without awaiting — the episode itself only rebuilds once per in-game day anyway,
+// so at-most-5-min staleness never shows. null ⇒ the news bit skips cleanly that night.
+let _talkshowNewsStory = null;
+async function refreshTalkshowNewsStory() {
+  try {
+    const res = await dispatchAction({ type: 'news.getStories', params: { total: 6 } });
+    const stories = Array.isArray(res?.stories) ? res.stories : [];
+    // Prefer a LIVE (event-sourced) story over a wire/tabloid filler; the feed is already
+    // live-first, but pick explicitly so a live story always wins when one exists.
+    _talkshowNewsStory = stories.find(s => s?.tag === 'live') || stories[0] || null;
+  } catch { /* generator unreachable — keep the last story (or null: the bit just skips) */ }
+}
+setInterval(() => { refreshTalkshowNewsStory().catch(() => {}); }, NEWS_REFRESH_MS);
+setTimeout(() => { refreshTalkshowNewsStory().catch(() => {}); }, 8000);
+
 // ── Talk-show broadcasts ────────────────────────────────────────────────────
 // A talk show (playback_mode 'talkshow') is the live-ACTED procedural sibling of news/
 // sports. Like them it stores a ::lines library + personas and assembles a fresh episode
@@ -1841,6 +1859,16 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
     // A reaction after most jokes (always the last one, as the button into what follows).
     if (i === jokes.length - 1 || rand() < 0.7) react();
   });
+  // The night's news bit — the host riffs on ONE real headline from the live feed (a live
+  // story preferred over a wire one; see refreshTalkshowNewsStory). Once per show, folded in
+  // right after the monologue as a second joke beat. Skips cleanly on nights the feed is empty
+  // or the file has no `newsjoke` pool, so it's purely additive to the existing jokes.
+  if (_talkshowNewsStory?.headline) {
+    // Strip trailing punctuation so the authored line supplies its own around {headline}.
+    const newsTok = { ...tok, headline: String(_talkshowNewsStory.headline).replace(/[.\s]+$/, '') };
+    const newsBit = talkshowDraw(pools, 'newsjoke', 1, newsTok, rand);
+    if (newsBit.length) { lines(host, newsBit); react(); }
+  }
   // Sometimes the sidekick heckles back mid-monologue (~45% of nights).
   if (rand() < 0.45) { lines(sidekick, talkshowDraw(pools, 'sidekick_aside', 1, tok, rand)); react(); }
   // Sometimes the host does a desk bit before the guest (~50%).
@@ -2283,6 +2311,27 @@ async function _getPirateMessage(zoneId, nowMs, state) {
   const dflags = _deckFlags(deck);
   if (!dflags.pirate_owner) return undefined;   // not pirated → normal path
   if (!dflags.pirate_playing) return null;      // stopped → dark
+
+  // Breaking-news crawl — roughly one tick in three carries the ticker so it
+  // recurs in the TV ticker strip alongside the aired content (both modes).
+  if (dflags.pirate_crawl && Math.floor(nowMs / 5000) % 3 === 2) {
+    return { text: String(dflags.pirate_crawl), style: 'ticker', key: `pircrawl:${Math.floor(nowMs / 5000)}` };
+  }
+
+  // LIVE mode (Phase 3): cut the feed to a camera instead of the recorded queue —
+  // the station's own studio cam, or any zone a SPECTER cam the captor controls
+  // watches (buildCameraSnapshot renders any zone as feed text). Fresh key each
+  // 5s slot so the live feed refreshes.
+  if (dflags.pirate_mode === 'live') {
+    const src = dflags.pirate_live_source || null;
+    const camZone = src?.zoneId || channelRuntime.get(dflags.channel_id)?.studioZoneId || null;
+    if (!camZone) return null;
+    const snap = buildCameraSnapshot(camZone);
+    if (!snap) return null;
+    return { text: `[LIVE · ${src?.label || 'STUDIO CAM'}] ${snap}`, style: 'raw', key: `pirlive:${Math.floor(nowMs / 5000)}` };
+  }
+
+  // RECORDED mode: run the queue.
   const q = Array.isArray(dflags.pirate_queue) ? dflags.pirate_queue : [];
   if (!q.length) return null;
   let cursor = Math.min(Math.max(0, dflags.pirate_cursor | 0), q.length - 1);
@@ -2306,12 +2355,6 @@ async function _getPirateMessage(zoneId, nowMs, state) {
     dflags.pirate_started_ms = nowMs;
     await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]).catch(() => {});
     _pirateCache.delete(zoneId);
-  }
-
-  // Breaking-news crawl — roughly one tick in three carries the ticker so it
-  // recurs in the TV ticker strip alongside the aired content.
-  if (dflags.pirate_crawl && Math.floor(nowMs / 5000) % 3 === 2) {
-    return { text: String(dflags.pirate_crawl), style: 'ticker', key: `pircrawl:${Math.floor(nowMs / 5000)}` };
   }
 
   let entry = _pirateCache.get(zoneId);
@@ -2504,7 +2547,8 @@ async function broadcastTick() {
       const zone = getZone(zoneId);
       const formatted = formatMessage(result.text, deviceType, zone, result.style);
       const isMusic = result.style === 'music' && result.song;
-      if (!formatted && !isMusic) continue;
+      const isSample = result.style === 'music' && result.sample;
+      if (!formatted && !isMusic && !isSample) continue;
 
       const programName = result.programName ?? state.currentProgramName ?? null;
 
@@ -2542,6 +2586,7 @@ async function broadcastTick() {
         if (tvWatchers.get(player.id) === channelId) {
           if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}) });
           if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song });
+          if (isSample) sendToPlayer(player.id, { type: 'audio_sample', def: result.sample });
           if (scorebugOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
           if (standingsOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: standingsOverlay });
           if (result.graphic) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: result.graphic });
@@ -2557,6 +2602,57 @@ async function broadcastTick() {
       }
       if (formatted) { _recordDeckMessage(channelId, formatted); deckIdleChannels.delete(channelId); }
       emit('broadcast.message', { channelId, zoneId, text: result.text });
+    }
+  }
+
+  // ── Live-stage acting (performs without a TV audience) ────────────────────
+  // A talk show / live channel is ACTED in its studio by real NPC cast, and those
+  // lines are spoken into the studio as a side effect of ticking the broadcast graph
+  // (tickBroadcastGraph sendToZone's each line onto the stage). The zone loop above
+  // only drives the graph when a TV somewhere is tuned in — so with nobody watching,
+  // the cast just stand around the studio saying nothing. Drive the graph here too
+  // whenever the studio ITSELF is being observed: a player standing on the stage, or a
+  // working camera / sticky cam filming it (_watchedZones covers both the studio's own
+  // broadcast camera and any SPECTER spy device). This makes the cast perform their
+  // lines for anyone in the room or on a spy feed, not only for TV viewers.
+  for (const [channelId, state] of channelRuntime) {
+    if (activeChannels.has(channelId)) continue;   // already driven by a tuned TV zone
+    const studio = state.studioZoneId;
+    if (!studio) continue;
+    const observed = getZonePlayers(studio).length > 0 || _watchedZones.has(studio);
+    if (!observed) continue;
+    activeChannels.add(channelId);                 // claim it so the deck pass won't re-tick
+    try {
+      const deckResult = state.deckZoneId ? await _getDeckMessage(state.deckZoneId, nowMs, state) : null;
+      const result = deckResult || await getCurrentMessage(state, nowMs);
+      // getCurrentMessage already performed the on-stage acting via sendToZone as a
+      // side effect. There are no TV watchers on this path (or the channel would be in
+      // activeChannels), so we only track state and feed any deck-preview monitors.
+      if (!result || result.key === state.lastMsgKey) {
+        const stillWaiting = !result && state.graphBlackboard?.waitUntil > nowMs;
+        if (!result && !stillWaiting) {
+          state.wasActive = false;
+          // Raise the deck-preview dead-air card once per transition into idle.
+          if (!deckIdleChannels.has(channelId)) {
+            deckIdleChannels.add(channelId);
+            for (const [pid, cid] of deckWatchers) if (cid === channelId)
+              sendToPlayer(pid, { type: 'deck_broadcast', channel: channelId, style: 'no_broadcast' });
+          }
+        }
+        continue;
+      }
+      state.wasActive = true;
+      state.lastMsgKey = result.key;
+      if (result.style === 'overlay' || result.style === 'live_relay') continue;
+      const formatted = formatMessage(result.text, 'tv', null, result.style);
+      if (!formatted) continue;
+      _recordDeckMessage(channelId, formatted);
+      deckIdleChannels.delete(channelId);
+      for (const [pid, cid] of deckWatchers) if (cid === channelId)
+        sendToPlayer(pid, { type: 'deck_broadcast', message: formatted, channel: channelId, style: result.style || 'raw' });
+      emit('broadcast.message', { channelId, zoneId: studio, text: result.text });
+    } catch (err) {
+      console.error(`[broadcast] studio-acting tick error (${channelId}):`, err.message);
     }
   }
 
@@ -3078,10 +3174,10 @@ function _evalBroadcastCondition(node, channelId, nowMs) {
 
 // Walk the VINE graph for one tick. Returns { text, key, style } or null.
 // Broadcast tick interval — the graph walker (tickBroadcastGraph) emits at most one
-// message per tick, and node holds are honored at tick granularity (a hold rounds up
-// to the next tick boundary). Kept fine (2s) so line holds like 8s land precisely
-// instead of snapping to the next 5s; the tick only re-evaluates, it never skips.
-const BROADCAST_TICK_MS = 2000;
+// message per tick, and node holds are honored at tick granularity (a node advances on
+// the first tick past its hold). Kept fine (1s) so the text-scaled spoken-line holds
+// (nodeHoldMs) land close to their target + 1s buffer; the tick only re-evaluates, never skips.
+const BROADCAST_TICK_MS = 1000;
 
 // Canonical on-air hold (ms) for a content node, before tick-quantization. This is the
 // single source of truth for how long each node type stays up, shared by the live walker
@@ -3094,7 +3190,7 @@ function nodeHoldMs(node) {
     case 'event':
       return 3000;
     case 'music':
-      return getSongDefByName(d.song) ? 8000 : 5000;
+      return (getSongDefByName(d.song) || getSampleDefByName(d.song)) ? 8000 : 5000;
     case 'title_card':
       return (d.duration ?? 10) * 1000;
     case 'wait':
@@ -3108,8 +3204,19 @@ function nodeHoldMs(node) {
         || (node.type === 'overlay' && !d.graphic_id ? 'text_card' : 'lower_third');
       return (d.duration_s ?? (overlayType === 'text_card' ? 5 : 6)) * 1000;
     }
-    default:
-      return d.holdMs ?? 8000; // say, ticker, camera_cut, … (sports lines carry an explicit holdMs)
+    default: {
+      // say / ticker / camera_cut, … — scale the on-screen hold to how long the voice
+      // needs to read the line, so the read-aloud never has to speed up and nothing is
+      // cut off. ~110 ms/char (calibrated to the formant synth, which averages ~94 ms/char
+      // — the margin covers slower per-narrator voices), capped at 20 s of speech, plus a
+      // 1 s buffer before the next line. A small floor keeps very short lines readable.
+      // Sports lines pass an explicit holdMs and keep it.
+      if (d.holdMs != null) return d.holdMs;
+      const text = typeof d.text === 'string' ? d.text : '';
+      if (!text) return 8000;                          // e.g. runtime camera snapshot — sane default
+      const voiceMs = Math.min(text.length * 110, 20000);
+      return Math.max(2500, voiceMs + 1000);
+    }
   }
 }
 
@@ -3237,11 +3344,17 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       case 'say': {
         const raw = node.data?.text || '';
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
-        bb.waitUntil = nowMs + nodeHoldMs(node);
+        const holdMs_say = nodeHoldMs(node);
+        bb.waitUntil = nowMs + holdMs_say;
         const key_say = `graph:${channelId}:${nodeId}:${nowMs}`;
         const style_say = node.data?.style || 'raw';
         const isNarration = style_say === 'narration';
         const isAmbient   = style_say === 'ambient';
+        // 'verbatim' — a pre-rendered line that already carries its own speaker
+        // (e.g. a surveillance microreel frame, `Bob says, "…"`). It airs exactly
+        // as captured (never re-wrapped by an anchor) but still leaks to bystanders
+        // as [TV] speech, just like genuine dialogue on air.
+        const isVerbatim  = style_say === 'verbatim';
         if (liveActed && state.studioZoneId) {
           if (isNarration) {
             // Unseen announcer — no one is on stage saying this, so it comes over
@@ -3264,9 +3377,10 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         }
         const text_say = style_say === 'ticker'
           ? `>> ${bb.npcAnchor ? `${bb.npcAnchor}: ` : ''}${raw} <<`
-          : (!isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
-        const isSpeech = !isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor;
-        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}) };
+          : (!isVerbatim && !isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
+        // Verbatim lines (microreel dialogue) leak as speech without needing an anchor.
+        const isSpeech = (!isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor) || isVerbatim;
+        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}) };
       }
 
       case 'music': {
@@ -3274,13 +3388,17 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const text = node.data?.text || '';
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         const songDef = getSongDefByName(songName);
+        // A theme may name a recorded sample (audio_samples) instead of a tracker
+        // song — play it once as a one-shot sting rather than a looping tracker bed.
+        const sampleDef = songDef ? null : getSampleDefByName(songName);
         const key_music = `music:${channelId}:${nodeId}:${nowMs}`;
-        if (songDef) {
+        if (songDef || sampleDef) {
           bb.waitUntil = nowMs + nodeHoldMs(node);
+          const audioMsg = songDef ? { type: 'audio_music', def: songDef } : { type: 'audio_sample', def: sampleDef };
           if (liveActed && state.studioZoneId) {
-            sendToZone(state.studioZoneId, { type: 'audio_music', def: songDef });
+            sendToZone(state.studioZoneId, audioMsg);
           }
-          return { text, song: songDef, key: key_music, style: 'music' };
+          return { text, song: songDef || null, sample: sampleDef || null, key: key_music, style: 'music' };
         }
         logBroadcast(channelId, 'info', `Song '${songName}' not found — ${text ? 'showing cue text' : 'skipped'}`, nodeId);
         if (!text) { nodeId = bb.currentNode; bb.waitUntil = null; break; }
@@ -3861,6 +3979,7 @@ async function cmdPirateResolve(args, raw, player) {
   dflags.pirate_loop = dflags.pirate_loop || 'queue';
   dflags.pirate_playing = true;
   dflags.pirate_started_ms = Date.now();
+  delete dflags.pirate_engineer_at; // fresh defend window for the new captor
   await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
   _deckCache.delete(deck.zone_id);
   _pirateCache.delete(deck.zone_id);
@@ -3868,8 +3987,79 @@ async function cmdPirateResolve(args, raw, player) {
   // Citywide takeover is self-reporting heat (broadcast_piracy, witness 'always').
   await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'broadcast_piracy', zoneId: deck.zone_id } }).catch(() => {});
   _deckTamperPing(priorOwner, player.id, stationName, deck.zone_name || deck.zone_id, 'was HIJACKED out from under you — you no longer control it.');
-  return { type: 'output', message: `<span class="ip-gain">CARRIER SEIZED.</span> ${stationName} answers to you now. Open the pirate console with <b>air</b> (from anywhere) to run the schedule.` };
+  return { type: 'output', message: `<span class="ip-gain">CARRIER SEIZED.</span> ${stationName} answers to you now — open the pirate console with <b>air</b>. But the station logged the breach: an engineer is en route to the deck. Hold the deck in person or lose the air.` };
 }
+
+// ── Reclaim: the station fights back (Phase 4) ───────────────────────────────
+// Three active paths, no auto-timer: (1) an engineer response reboots the deck
+// unless the captor is holding it in person; (2) dying/arrest drops every seizure;
+// (3) counter-hack — a rival runs Signal Hijack on a deck they don't own (already
+// handled by cmdPirate/cmdPirateResolve, which reset the defend window).
+const ENGINEER_DELAY_MS = 120000; // defend window before the station's engineer arrives
+const ENGINEER_RETRY_MS = 90000;  // repelled in person → the engineer tries again later
+const PIRATE_KEYS = ['pirate_owner', 'pirate_since', 'pirate_queue', 'pirate_cursor', 'pirate_loop',
+  'pirate_playing', 'pirate_started_ms', 'pirate_crawl', 'pirate_mode', 'pirate_live_source', 'pirate_engineer_at'];
+
+// When the engineer arrives (pure): due once the defend window (or a repel retry)
+// has elapsed since the seizure.
+function _engineerDueAt(dflags) {
+  return dflags.pirate_engineer_at || (dflags.pirate_since || 0) + ENGINEER_DELAY_MS;
+}
+
+// Wipe every pirate_* flag → the deck falls back to its channel's own programming.
+async function _clearSeizure(deck, dflags) {
+  for (const k of PIRATE_KEYS) delete dflags[k];
+  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]).catch(() => {});
+  _deckCache.delete(deck.zone_id);
+  _pirateCache.delete(deck.zone_id);
+}
+
+// Release every station a player holds (death / arrest drops the seizure).
+async function _releaseSeizuresBy(ownerId, reasonToOwner) {
+  if (!ownerId) return;
+  const { rows } = await query(
+    `SELECT id, zone_id, name, flags FROM furniture WHERE flags::text LIKE '%"media_deck"%' AND flags->>'pirate_owner'=$1`, [ownerId]
+  ).catch(() => ({ rows: [] }));
+  for (const deck of rows) {
+    const dflags = _deckFlags(deck);
+    const station = channelRuntime.get(dflags.channel_id)?.stationName || deck.name;
+    await _clearSeizure(deck, dflags);
+    if (reasonToOwner) sendToPlayer(ownerId, { type: 'system', message: `<span class="text-red">⚠ SIGNAL LOST</span> — ${station} slipped your grip (${reasonToOwner}).` });
+    sendToZone(deck.zone_id, { type: 'zone_event', message: `The deck reboots itself; normal programming resumes.` });
+  }
+}
+
+// Engineer response tick: reboot any deck whose defend window has elapsed, unless
+// the captor is standing at the deck (they run the engineer off — retry later).
+async function engineerTick() {
+  const { rows } = await query(
+    `SELECT id, zone_id, name, flags FROM furniture WHERE flags::text LIKE '%"media_deck"%' AND flags->>'pirate_owner' IS NOT NULL`
+  ).catch(() => ({ rows: [] }));
+  const now = Date.now();
+  for (const deck of rows) {
+    const dflags = _deckFlags(deck);
+    if (!dflags.pirate_owner || now < _engineerDueAt(dflags)) continue;
+    const station = channelRuntime.get(dflags.channel_id)?.stationName || deck.name;
+    const present = getZonePlayers(deck.zone_id).some(p => p.id === dflags.pirate_owner);
+    if (present) {
+      dflags.pirate_engineer_at = now + ENGINEER_RETRY_MS;
+      await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]).catch(() => {});
+      sendToPlayer(dflags.pirate_owner, { type: 'system', message: `<span class="text-amber">⚠ You run a station engineer off the ${deck.name}.</span> They'll be back — don't leave the deck.` });
+      sendToZone(deck.zone_id, { type: 'zone_event', message: `A station engineer edges toward the deck, sees it's guarded, and retreats.` }, dflags.pirate_owner);
+      continue;
+    }
+    const owner = dflags.pirate_owner;
+    await _clearSeizure(deck, dflags);
+    sendToPlayer(owner, { type: 'system', message: `<span class="text-red">⚠ SIGNAL LOST</span> — a station engineer reached the ${deck.name} and rebooted ${station}. You no longer hold the air.` });
+    sendToZone(deck.zone_id, { type: 'zone_event', message: `A station engineer reboots the deck. Normal programming resumes.` });
+  }
+}
+setInterval(() => engineerTick().catch(e => console.error('[broadcast] engineer tick error:', e.message)), 15 * 1000);
+
+// Death (which covers a downing/arrest) drops every station the victim held.
+on('player.death', ({ player }) => {
+  if (player?.id) _releaseSeizuresBy(player.id, 'you were taken down').catch(() => {});
+});
 
 // ── Pirate console (Phase 2) ─────────────────────────────────────────────────
 // Find the deck this player currently pirates — prefer one in their zone (so the
@@ -3886,6 +4076,23 @@ async function _findPiratedDeck(player) {
   if (here) return { deck: here };
   if (rows.length === 1) return { deck: rows[0] };
   return { deck: null, ambiguous: true };
+}
+
+// The cameras the captor can cut to live (Phase 3): the station's own studio cam
+// plus any SPECTER camera they control. Every source is just a zone we render
+// with buildCameraSnapshot — no surveillance import, only a read of its device
+// table. `key` = 'station' | 'specter:<deviceId>'.
+async function _liveSources(dflags, player) {
+  const out = [];
+  const studio = channelRuntime.get(dflags.channel_id)?.studioZoneId;
+  if (studio) out.push({ key: 'station', label: 'Station Studio Cam', zoneId: studio });
+  const { rows } = await query(
+    `SELECT d.id, d.zone_id, f.name, z.name AS zone_name FROM security_devices d
+       JOIN furniture f ON f.id = d.id LEFT JOIN zones z ON z.id = d.zone_id
+      WHERE d.owner_id=$1 AND d.device_kind IN ('sticky_cam','drone')`, [player.id]
+  ).catch(() => ({ rows: [] }));
+  for (const r of rows) out.push({ key: `specter:${r.id}`, label: `${r.name}${r.zone_name ? ` @ ${r.zone_name}` : ''}`, zoneId: r.zone_id });
+  return out;
 }
 
 // Assemble the console payload: the pirate queue (named), the content pool the
@@ -3933,21 +4140,30 @@ async function buildPirateConsole(deck, player) {
   }
 
   const cursor = Math.min(Math.max(0, dflags.pirate_cursor | 0), Math.max(0, queue.length - 1));
+  const mode = dflags.pirate_mode === 'live' ? 'live' : 'recorded';
+  const sources = await _liveSources(dflags, player);
+  const liveSource = dflags.pirate_live_source || null;
+  const nowAiring = mode === 'live'
+    ? `LIVE · ${liveSource?.label || sources[0]?.label || 'no camera'}`
+    : (queue[cursor]?.name || null);
   return {
     type: 'pirate_console',
     deckId: deck.id,
     stationName: channelRuntime.get(dflags.channel_id)?.stationName || deck.name,
     playing: dflags.pirate_playing !== false,
+    mode,
+    liveSource,
+    sources,
     loop: dflags.pirate_loop || 'queue',
     crawl: dflags.pirate_crawl || '',
     cursor,
-    nowAiring: queue[cursor]?.name || null,
+    nowAiring,
     queue,
     pool,
   };
 }
 
-// air [open|play|stop|skip|loop <mode>|add <name>|remove <n>|move <n> <m>|crawl <text|off>|close]
+// air [open|play|stop|skip|loop <mode>|recorded|live [src]|source <src>|add <name>|remove <n>|move <n> <m>|crawl <text|off>|close]
 // The pirate console — run the seized station's schedule from anywhere.
 async function cmdAir(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
@@ -3965,6 +4181,30 @@ async function cmdAir(args, raw, player) {
     case 'open': touched = false; break;
     case 'play': dflags.pirate_playing = true; dflags.pirate_started_ms = Date.now(); break;
     case 'stop': dflags.pirate_playing = false; break;
+    case 'recorded': dflags.pirate_mode = 'recorded'; dflags.pirate_playing = true; dflags.pirate_started_ms = Date.now(); break;
+    case 'live': {
+      const sources = await _liveSources(dflags, player);
+      if (!sources.length) return { type: 'error', message: 'You control no camera to route — the station has no studio cam and you hold no SPECTER cameras.' };
+      const hint = args.slice(1).join(' ').trim().toLowerCase();
+      let src = dflags.pirate_live_source || null;
+      if (hint) src = sources.find(s => s.key.toLowerCase() === hint || s.label.toLowerCase().includes(hint)) || src;
+      if (!src) src = sources[0]; // default to the studio cam (or first camera)
+      dflags.pirate_mode = 'live';
+      dflags.pirate_live_source = { key: src.key, label: src.label, zoneId: src.zoneId };
+      dflags.pirate_playing = true;
+      break;
+    }
+    case 'source': {
+      const hint = args.slice(1).join(' ').trim().toLowerCase();
+      if (!hint) return { type: 'error', message: 'Route which camera? air source <name>.' };
+      const sources = await _liveSources(dflags, player);
+      const src = sources.find(s => s.key.toLowerCase() === hint || s.label.toLowerCase().includes(hint));
+      if (!src) return { type: 'error', message: `No camera matches "${hint}".` };
+      dflags.pirate_live_source = { key: src.key, label: src.label, zoneId: src.zoneId };
+      dflags.pirate_mode = 'live';
+      dflags.pirate_playing = true;
+      break;
+    }
     case 'skip': {
       if (!q.length) break;
       dflags.pirate_cursor = _nextCursor(dflags.pirate_cursor | 0, q.length, 'queue').cursor; // skip always advances/wraps
@@ -4151,15 +4391,42 @@ async function _ensureCassetteItem(broadcastId, broadcastName) {
 // airs when someone physically loads the chip. Called from the surveillance
 // plugin (physicalizeClip) via dynamic import; idempotent per clip.
 export async function ensureClipBroadcast(broadcastId, name, frames, intervalSec = 4) {
-  const messages = (frames || [])
-    .map(f => ({ text: typeof f === 'string' ? f : f?.text }))
-    .filter(m => m.text);
-  if (!messages.length) return;
+  // Each captured frame is a fully-rendered zone line — dialogue (`kind:'say'`,
+  // e.g. `Bob says, "…"`) or narrated activity (`kind:'event'` — arrivals, exits,
+  // emotes, actions). Preserve that distinction so the reel airs like a broadcast.
+  const lines = (frames || [])
+    .map(f => (typeof f === 'string'
+      ? { text: f, kind: 'event' }
+      : { text: f?.text, kind: f?.kind === 'say' ? 'say' : 'event' }))
+    .filter(l => l.text);
+  if (!lines.length) return;
+
+  // Flat messages kept for back-compat + duration fallback; the graph is what
+  // actually airs. Build a linked say-node chain (the same shape the BSM compiler
+  // emits) so playback walks it through tickBroadcastGraph exactly like an authored
+  // broadcast: dialogue frames use style 'verbatim' — aired as captured AND leaked
+  // to bystanders as [TV] speech — while narrated action/arrival frames air as
+  // plain lines (no bystander leak, mirroring an npc_action node). holdMs matches
+  // message_interval so the graph's measured duration lines up with real pacing
+  // (pirate auto-advance, deck loop).
+  const messages = lines.map(l => ({ text: l.text }));
+  const nodes = { start: { type: 'start', next: lines.length ? 'clip_0' : null } };
+  lines.forEach((l, i) => {
+    nodes[`clip_${i}`] = {
+      type: 'say',
+      text: l.text,
+      style: l.kind === 'say' ? 'verbatim' : 'raw',
+      holdMs: intervalSec * 1000,
+      next: i < lines.length - 1 ? `clip_${i + 1}` : null,
+    };
+  });
+  const graph = { _start: 'start', nodes };
+
   await query(
-    `INSERT INTO media_broadcasts (id, name, description, category, playback_mode, messages, message_interval, loop, enabled)
-     VALUES ($1,$2,$3,'surveillance','scripted',$4::jsonb,$5,1,0)
-     ON CONFLICT (id) DO UPDATE SET name=$2, messages=$4::jsonb, message_interval=$5`,
-    [broadcastId, name, 'Recovered surveillance footage.', JSON.stringify(messages), intervalSec]
+    `INSERT INTO media_broadcasts (id, name, description, category, playback_mode, messages, message_interval, broadcast_graph, loop, enabled)
+     VALUES ($1,$2,$3,'surveillance','scripted',$4::jsonb,$5,$6::jsonb,1,0)
+     ON CONFLICT (id) DO UPDATE SET name=$2, messages=$4::jsonb, message_interval=$5, broadcast_graph=$6::jsonb`,
+    [broadcastId, name, 'Recovered surveillance footage.', JSON.stringify(messages), intervalSec, JSON.stringify(graph)]
   );
 }
 
@@ -4507,6 +4774,13 @@ async function doUseTv(args, raw, player) {
   );
   if (!rows.length) return undefined;
 
+  // If this set is already tuned (emitting the ambient noise the room overhears),
+  // open the console straight onto that channel rather than dark — same as `tv`.
+  const entry = furnitureChannelIndex.get(rows[0].id);
+  if (entry?.channelId && channelRuntime.has(entry.channelId)) {
+    return buildTvPanel(entry.channelId, player);
+  }
+
   const flags = typeof rows[0].flags === 'object' ? rows[0].flags : JSON.parse(rows[0].flags || '{}');
   return buildTvOffPanel(player, flags.tv_skin || 'crt');
 }
@@ -4642,7 +4916,7 @@ export const specializedActions = [
 
 // Test seam (never loaded in production) — the pure piracy gate helpers, so the
 // regress suite can assert the deck-lock logic without a live furniture row.
-export const _piracyTest = { canOperateDeck, deckLockError: _deckLockError, nextCursor: _nextCursor };
+export const _piracyTest = { canOperateDeck, deckLockError: _deckLockError, nextCursor: _nextCursor, engineerDueAt: _engineerDueAt };
 
 // Test seam (never loaded in production) — the deterministic league engine, so the
 // regress suite can assert same-slot reproducibility and the round-robin schedule.

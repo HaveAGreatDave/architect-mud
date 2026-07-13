@@ -40,6 +40,13 @@ export default async function regress({ run, check, getPlayer }) {
     cadenceGate({ player: p, direction: 'north', opts: { bypassEncumbrance: true } }) === undefined);
   check('neither exempt step enqueued anything', (p._moveQueue?.length || 0) === 0);
 
+  // ── Road speedup: roads (and arteries) carry a ×ROAD_SPEEDUP movement factor ──
+  check('road_ tile is ×ROAD_SPEEDUP', _test.roadSpeedFactor({ flags: { icon: 'road_ns' } }) === _test.ROAD_SPEEDUP);
+  check('runway_ tile is ×ROAD_SPEEDUP', _test.roadSpeedFactor({ flags: { icon: 'runway_18' } }) === _test.ROAD_SPEEDUP);
+  check('marked artery is ×ROAD_SPEEDUP', _test.roadSpeedFactor({ flags: { artery: ['Haul Road'] } }) === _test.ROAD_SPEEDUP);
+  check('plain tile is ×1', _test.roadSpeedFactor({ flags: {} }) === 1);
+  check('missing/water tile is ×1 (not sped up)', _test.roadSpeedFactor(null) === 1 && _test.roadSpeedFactor({ flags: { water: true } }) === 1);
+
   // ── Sprint toggle ──────────────────────────────────────────────────────────
   p._winded = false;
   p.stamina = 100;

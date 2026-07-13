@@ -9,7 +9,7 @@
 @announcer "The Voice of Raptor"
 @length 200
 @titlecard rnn_title
-@theme raptor_news_theme
+@theme "Theme Jingle 1"
 
 # =============================================================================
 # RAPTOR NEWS NETWORK — a Fox-News-parody nightly bulletin for the Coldwater Basin.

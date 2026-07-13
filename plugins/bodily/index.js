@@ -80,8 +80,9 @@ async function equippedSlotsFor(player, slotNames) {
 
 async function involuntaryBowelRelease(player) {
   const coveredSlots = await equippedSlotsFor(player, ['legs']);
+  // Legwear on → it soaks into the clothing and never reaches the floor.
   if (coveredSlots.length) await stainClothing(player, coveredSlots, 'feces');
-  await stainZone(player.current_zone, 'feces');
+  else await stainZone(player.current_zone, 'feces');
   sendToZone(player.current_zone, { type:'zone_event', message:`Something smells suddenly and sharply wrong nearby.` }, player.id);
   player.digestive_load = 0;
   return `<span style="color:var(--red)">Your body gives out. You lose control entirely. Your clothing is stained. The world will notice.</span>`;
@@ -89,8 +90,9 @@ async function involuntaryBowelRelease(player) {
 
 async function involuntaryBladderRelease(player) {
   const coveredSlots = await equippedSlotsFor(player, ['legs']);
+  // Legwear on → it soaks into the clothing and never reaches the floor.
   if (coveredSlots.length) await stainClothing(player, coveredSlots, 'urine');
-  await stainZone(player.current_zone, 'urine');
+  else await stainZone(player.current_zone, 'urine');
   sendToZone(player.current_zone, { type:'zone_event', message:`A small puddle spreads near someone's feet.` }, player.id);
   player.hydration_load = 0;
   return `<span style="color:var(--red)">You can't hold it any longer. It just… happens. Your clothing is wet. You stand very still for a moment.</span>`;
@@ -211,12 +213,15 @@ async function relieveBladder(player, hasFacility, broadcast, target = null) {
   if (hasFacility) {
     return { ok: true, message: pick(TOILET_PEE_MSGS), private: true };
   }
-  await stainZone(player.current_zone, 'urine');
-  broadcast(player.current_zone, { type:'zone_event', message: `A stream hits the ground nearby.` }, player.id);
+  // Soaked into legwear → nothing reaches the floor.
+  if (!stained) {
+    await stainZone(player.current_zone, 'urine');
+    broadcast(player.current_zone, { type:'zone_event', message: `A stream hits the ground nearby.` }, player.id);
+  }
   return {
     ok: true,
     message: stained
-      ? `You go where you stand. Your ${covered[0] || 'clothing'} absorbs most of it.`
+      ? `You go where you stand. Your ${covered[0] || 'clothing'} soaks it all up.`
       : unzips
       ? `You unzip, push your boxers aside, and let go. No fuss, no mess.`
       : pick(GROUND_PEE_MSGS),
@@ -272,7 +277,8 @@ async function relieveBowels(player, hasFacility, broadcast, target = null) {
   if (hasFacility) {
     return { ok: true, message: pick(TOILET_POOP_MSGS), private: true };
   }
-  await stainZone(player.current_zone, 'feces');
+  // Soaked into legwear → nothing reaches the floor (the smell still carries).
+  if (!stained) await stainZone(player.current_zone, 'feces');
   broadcast(player.current_zone, { type:'zone_event', message: `The smell of something biological drifts through the air.` }, player.id);
   return {
     ok: true,

@@ -1,0 +1,46 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "torques a bolt on the reload hoist and spits into the dirt.",
+    "\"Bird takes a bite out of the nest, I stitch her up before the smoke clears. Toll never stops.\""
+  ],
+  "description": "A Redline armourer down among the missile racks and the reload hoist, grease to the shoulder and a red rag knotted at his throat. He keeps the nest fed and, when a strafing run guts the rail, welds it back together.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They turn back to the racks."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "...",
+          "next": "bye"
+        }
+      ],
+      "text": "They don't look up from the hoist. \"The nest stays hot because I keep it hot. You're not helping — you're in my light. Move.\""
+    }
+  },
+  "faction": "redline",
+  "flags": {
+    "aa_engineer": "aa_redline_sam",
+    "personality": "mercenary"
+  },
+  "home_activities": [],
+  "home_zone": "zone_aa_redline_bunker",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_aa_redline_engineer",
+  "name": "a Redline armourer",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_aa_redline_bunker"
+}

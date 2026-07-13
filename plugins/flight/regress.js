@@ -11,6 +11,7 @@ import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.
 import { sellAircraft, cancelRental, flushAirborne } from './hangars.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX } from './state.js';
 import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
+import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { query } from '../../server/models/db.js';
 
@@ -259,6 +260,31 @@ export default async function regress({ run, check, getPlayer }) {
   check('ensureFreightDrops holds the pool at the cap (no runaway)', fd[0]?.n === 4, JSON.stringify(fd[0]));
   await query("DELETE FROM cargo_drops WHERE owner_id=$1 AND kind='freight'", [p.id]);
   await setFlag('player', 'air_freight_licensed', '0', p);
+
+  // ── Pilot licence + checkride (hard gate to fly; distinct from the freight licence) ──
+  const savedRole = p.role;
+  p.role = 'player';
+  await setFlag('player', 'air_pilot_licensed', '0', p);
+  check('isPilotLicensed false before the checkride', (await isPilotLicensed(p)) === false);
+  p.role = 'admin';
+  check('admins are auto-rated (role bypass)', (await isPilotLicensed(p)) === true);
+  p.role = 'player';
+  await setFlag('player', 'air_pilot_licensed', '1', p);
+  check('isPilotLicensed true once the licence flag is set', (await isPilotLicensed(p)) === true);
+  await setFlag('player', 'air_pilot_licensed', '0', p);
+  p.role = savedRole;
+
+  // Ring course + stage constants (pure).
+  check('the checkride has a 4-ring pilot-wings course', checkrideTest.GATES.length === 4);
+  check('every ring carries a position, altitude and tolerances', checkrideTest.GATES.every(g => Number.isFinite(g.gx) && Number.isFinite(g.gy) && g.alt > 0 && g.r > 0 && g.altTol > 0));
+  check('the ride runs STARTUP → TAKEOFF → RINGS → LAND', checkrideTest.STAGE.STARTUP === 0 && checkrideTest.STAGE.LAND === 3);
+
+  // The `checkride` verb is player-facing (NOT admin-gated) — an already-flying player is
+  // told to climb out first (a cheap path that proves access without spawning a loaner).
+  const savedAcC = p.aircraftId; p.aircraftId = 'aircraft_regress_dummy';
+  r = await run('checkride');
+  check('checkride is player-accessible (not access-denied) and gates on being aboard', /climb out/i.test(r?.message || ''), r?.message);
+  if (savedAcC) p.aircraftId = savedAcC; else delete p.aircraftId;
 
   p.posture = savedPosture; p.npcCombatTargetId = savedCombat;
   if (savedAc) p.aircraftId = savedAc; else { delete p.aircraftId; delete p.seat; }

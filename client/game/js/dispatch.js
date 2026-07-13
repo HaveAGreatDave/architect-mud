@@ -178,7 +178,7 @@ const handlers = {
     if (isTvOpen() && getTvActiveChannelId() === msg.channel) {
       showTvOnAir();
       if (msg.style === 'ticker') updateTvTicker(msg.message);
-      else { appendTvMessage(msg.message, msg.style, msg.duration); tvSpeak(msg.message, msg.style); }
+      else { appendTvMessage(msg.message, msg.style, msg.duration); tvSpeak(msg.message, msg.style, msg.duration); }
       if (msg.programName !== undefined) {
         const el = document.getElementById('tv-program-name');
         if (el) el.textContent = msg.programName || '';

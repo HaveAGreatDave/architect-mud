@@ -1,0 +1,46 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "backs out of the flak gun's mechanism, torque wrench in his teeth, and grunts.",
+    "\"Slagworks built her ugly so she'd take a hit and keep eating. I just keep the teeth in her.\""
+  ],
+  "description": "A Slagworks fitter half-inside the flak gun's mechanism, soot-black and unbothered, a torque wrench clamped in his teeth. He drags the old gun back from the dead every time a strafing run kills it.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "They go back inside the mechanism."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "...",
+          "next": "bye"
+        }
+      ],
+      "text": "They don't come out of the gun. \"She fires because I keep her fed and mended. You're not helping — you're in the way. Move.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "aa_engineer": "aa_slag_flak",
+    "personality": "mercenary"
+  },
+  "home_activities": [],
+  "home_zone": "zone_aa_slag_bunker",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_aa_slag_engineer",
+  "name": "a Slagworks fitter",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_aa_slag_bunker"
+}

@@ -7,7 +7,7 @@
 @guest npc_guest
 @airtime 22
 @titlecard tonight_show_logo
-@theme tonight_theme
+@theme "Theme Jingle 2"
 @length 300
 
 # =============================================================================
@@ -76,6 +76,12 @@ Transmitting live on the frequency they SWORE they'd jammed — it's The Tonight
 From the last building on the block with working lights — most of them — it's The Tonight Show!
 Beamed to you at great personal risk to everyone involved — it's The Tonight Show!
 It's late, you're awake, and something's wrong — that can only mean it's The Tonight Show!
+Rebuilt after the fire, rewired after the flood, and back on the air out of pure spite — it's The Tonight Show!
+The only program in the district legally classified as both entertainment and a hazard — it's The Tonight Show!
+Airing tonight because the injunction doesn't take effect until midnight — it's The Tonight Show!
+Filmed before a live studio audience, most of whom are here voluntarily — it's The Tonight Show!
+Powered by one generator and a great deal of denial — it's The Tonight Show!
+Still standing where the map says there's a crater — it's The Tonight Show!
 ::endlines
 
 # --- The "tonight..." tease: what's supposedly on the show ----------------------
@@ -92,6 +98,14 @@ Tonight — celebrity gossip, from the two celebrities we have left.
 Tonight — we test whether the studio audience can be replaced with cardboard. Results are inconclusive and litigious.
 Tonight — heartwarming stories, market updates, and the slow collapse of everything, in that order.
 Tonight — an interview so candid our sponsors have already fled the building.
+Tonight — a man who's never been right about anything predicts your future, and you'll pay attention anyway.
+Tonight — we count the exits, we count the survivors, and if the numbers match, we've had a good show.
+Tonight — a guest, a scandal, and the exact amount of legal exposure our producers will allow.
+Tonight — the Machine has an announcement, the grid has an opinion, and neither of them asked you.
+Tonight — free samples, in the sense that nobody agreed to pay for what's about to happen.
+Tonight — one guest tells the truth, and we find out live whether the building can survive it.
+Tonight — we reunite a man with the toaster that made him rich. There will not be a dry eye or a working outlet.
+Tonight — everything's fine, nothing's fine, and somewhere in between there's a musical number.
 ::endlines
 
 # --- Audience reactions: unattributed crowd beats dropped between jokes and around --
@@ -114,6 +128,14 @@ Tonight — an interview so candid our sponsors have already fled the building.
 ( Half the crowd laughs; the other half checks the exits. )
 ( A cough. One brave cough. )
 ( The audience laughs harder than the joke earned. )
+( The audience gasps, then laughs at itself for gasping. )
+( A long silence, then one person applauds out of politeness. )
+( Genuine laughter, the good kind, the rare kind. )
+( The crowd boos, warmly. )
+( Someone yells "TOO SOON!" Someone else yells "NEVER SOON ENOUGH!" )
+( Laughter, and the distinct sound of someone leaving. )
+( The audience murmurs, unsure if that was allowed. )
+( A wave of laughter, cut short by a flicker of the lights. )
 ::endlines
 
 # --- Applause: bigger crowd swells for entrances and the sign-off ({guest} token ok). -
@@ -125,6 +147,10 @@ Tonight — an interview so candid our sponsors have already fled the building.
 ( Big applause. Somebody throws something. It's fine. )
 ( The audience rises — a few of them, anyway. )
 ( Applause, thin but sincere. )
+( The crowd stands for {guest}, then remembers the seats cost extra and sits. )
+( Applause rolls in like it owes the room money. )
+( Wild applause; a chair gives out; the show goes on. )
+( The audience claps {host} out, half of them checking the exits first. )
 ::endlines
 
 # --- Announcer brings out the host (the {host} token = John's live name) --------
@@ -137,6 +163,10 @@ The one, the only, the contractually-obligated — {host}!
 He's brave, he's rested, he's had exactly one functioning idea today — {host}!
 Direct from the makeup chair and straight into your nightmares — {host}!
 Give it up for the last honest face on television, allegedly — {host}!
+The only man who reads the teleprompter AND the room, badly — {host}!
+Fresh off a contract negotiation he lost — please welcome {host}!
+He's got jokes, he's got debts, and tonight he's got a microphone — {host}!
+Still cleared to broadcast as of this sentence — your host, {host}!
 ::endlines
 
 # --- Monologue: the host's opening jokes (5–8 drawn per night) -------------------
@@ -173,6 +203,52 @@ A drone delivered my mail today, then asked for a tip, then filed a complaint ab
 The news anchor cried on air tonight. Ratings went up. They've made it a segment now. It's called "The Weather."
 My doctor told me to reduce stress. I asked how. He looked out the window for a while and then just quietly left.
 There's a new dating app in the Basin. You match based on who owes the same people money. It's called Mutual.
+Good news, folks — the city says the water's safe to drink now. They didn't say for whom.
+I got a letter from the tax office today. It was addressed to "Occupant or Next of Kin." They're just covering their bases.
+The Machine rolled out facial recognition downtown. Great system. It recognized my face and immediately asked if I was sure.
+They put up a statue of the founder in the plaza. It's already been stolen twice. That's the most honest tribute you could pay the man.
+My building installed a new security door. It locks perfectly. From the inside. We're all still in there. Say hi to my family.
+The clinic offered me a loyalty card. Ten checkups and the eleventh organ failure is free.
+The corporates announced record profits and record layoffs on the same day. They're calling it "efficiency." I'm calling it from a payphone, because they took my line.
+I saw a kid selling lemonade on the corner. Then a licensing drone shut him down. Then the drone bought the stand. That kid's going to run this city someday, if it's still here.
+The subway added a "quiet car." It's quiet because the speakers are broken and so is the door and so are we.
+My horoscope said today was a good day to take risks. My horoscope has never been outside. My horoscope doesn't know about the district.
+They're calling this the worst heat wave in fifty years. Fifty years ago they said the same thing. We've been winning that award every year. Consistency.
+I applied for a permit to complain about permits. It's under review. The review is also under review.
+The Machine sent everyone a birthday message today. Everyone. Same day. It has decided we all have the same birthday now. It's easier for the servers.
+I passed a "Now Hiring" sign at a place that burned down last week. That's not optimism, that's the market. Somebody's already hiring for the fire.
+The news said the crime rate dropped forty percent. Turns out they just moved the border of the district forty percent inward. We're all outside now.
+I bought a smoke detector. It went off immediately and hasn't stopped. I checked — no fire. It just knows something. I trust it now. We're friends.
+A charity came to my door asking for donations to fight poverty. I said I'd love to help but I AM the poverty. They gave ME a leaflet. Full circle.
+The mayor promised to fix the potholes. Then he fell in one. We haven't seen him since. Honestly, best he's polled in years.
+My neighbor got a robot dog. It guards the apartment, walks itself, and last week it unionized. Now it guards the apartment forty hours a week with breaks.
+They opened a museum of the old world. One exhibit. It's a working light switch. There's a two-hour line. People weep.
+I tried to cancel a subscription today. The retention specialist cried. Then I cried. Then we agreed to see other services.
+Corporate wellness sent me a meditation app. It reminds me to breathe. Then it reminds me the air is a premium feature. Then it upsells me the good air.
+The bank foreclosed on a building, then the building foreclosed on the bank. Nobody knows who owns the block now. The block seems happy about it.
+Somebody asked me if things could get worse. I said absolutely, and then, out of professional courtesy, I didn't elaborate.
+::endlines
+
+# --- News bit: the host riffs on ONE real headline pulled from the live news feed --
+# --- (a LIVE/event-sourced story preferred over a wire/tabloid filler). Aired once ---
+# --- per show, folded in right after the monologue as a second joke beat. The runner --
+# --- fills {headline} from the freshest story and strips its trailing punctuation, so --
+# --- the authored line supplies its own. Skips cleanly on nights the feed is empty. ---
+::lines newsjoke
+And now for the news. Tonight's top story: "{headline}." I'd unpack that, but the last man who unpacked it is still in Holding.
+You see the headline tonight? "{headline}." I read it twice. It got worse the second time.
+Here's one for you: "{headline}." Somewhere, an executive is calling that a growth opportunity.
+Big news tonight, folks: "{headline}." And they say nothing ever happens in this city.
+The headline going around tonight is "{headline}." I called the newsroom to confirm it. They laughed and hung up. So — confirmed.
+Real story tonight: "{headline}." My producer says I can't comment on it. My producer is also under the desk, so.
+Top of the news: "{headline}." You can't make this up. Believe me — legal already asked if I had.
+Tonight in the news: "{headline}." And the terrifying part is that's the GOOD news.
+Made the wire today: "{headline}." Somewhere the Machine filed that under "within acceptable parameters."
+Here's the story everyone's talking about: "{headline}." Well — everyone still able to talk.
+News just in: "{headline}." I'd say you couldn't script it, but somebody clearly did, and they're getting paid more than me.
+The big headline tonight: "{headline}." I'm told the mayor has no comment, which, for once, is the smartest thing he's said all year.
+Straight from the feed: "{headline}." I showed it to the band. The band asked to go home. The band cannot go home.
+Tonight's headline: "{headline}." Frame that one, folks. In this city, that's what passes for a historical document.
 ::endlines
 
 # --- Sidekick heckle: Graham chimes in mid-monologue (~45% of nights) -----------
@@ -185,6 +261,12 @@ There's a new dating app in the Basin. You match based on who owes the same peop
 {sidekick}: I've heard that joke in three districts now and it's wanted in two of them.
 {sidekick}: Beautiful. No notes. Well — all notes, but no time.
 {sidekick}: For those at home, {host} is now doing the little bow he does when he's stalling.
+{sidekick}: I'd like the audience to know I begged him to cut that one.
+{sidekick}: That joke is now evidence, {host}. I'm just the announcer, but I know evidence.
+{sidekick}: The band wants hazard pay after that, and honestly, so do I.
+{sidekick}: For the folks at home, that silence is the sound of {host} realizing what he said.
+{sidekick}: We are contractually one more of those away from a warning label, {host}.
+{sidekick}: I'm laughing. It's a survival response, but I'm laughing.
 ::endlines
 
 # --- Desk bit: a host riff before the guest (~50% of nights) --------------------
@@ -199,6 +281,12 @@ I want to thank our sponsors, all of whom are currently under investigation, whi
 So the network gave me "notes" this week. The main note was "fewer notes." I'm choosing to honor that spiritually.
 Somebody in the front row is eating during my monologue. Sir. This is a comedy program. Show some fear.
 Little behind-the-scenes for you: the desk isn't real. None of it's real. The desk is the most real thing here and it's cardboard.
+Little housekeeping: if you hear an alarm during the show, finish watching first. It's rude to leave during the good part.
+I got recognized on the street today. By a bounty drone. We had a lovely chat and then I ran.
+We got a new intern this week. Brave kid. Started Monday, filed a missing-persons report on himself Wednesday, just to be safe.
+Somebody asked why we still do the show live. Because taped means they'd have time to stop us. Live means they have to catch up.
+The network wanted me to plug the new app. It tracks your every move. I said mine already does that, it's called the rent.
+Real quick — happy anniversary to my landlord and me. Ten years. He still doesn't fix the heat, I still don't pay on time. Longest relationship I've got.
 ::endlines
 
 # --- Host welcomes the guest ({title} = their persona blurb, {guest} = their name)
@@ -211,6 +299,12 @@ Please welcome someone the producers swore was cleared by legal — {guest}, {ti
 My next guest is {title}. I did not know that was a job. Ladies and gentlemen, {guest}!
 Straight from a life I would not wish on my worst enemy — {guest}, {title}!
 Here to explain themselves, at long last — {guest}, {title}!
+My next guest does something I genuinely didn't know was legal — {guest}, {title}!
+Please welcome, fresh from a life sentence's worth of anecdotes, {guest} — {title}!
+I've wanted to meet this person for years, mostly to ask "why." Ladies and gentlemen, {guest}, {title}!
+Our next guest signed a waiver so long the pen ran out — welcome {guest}, {title}!
+You've feared them, you've read about them, now meet them — {guest}, {title}!
+Here's someone the Machine flagged, the corporates blacklisted, and we booked anyway — {guest}, {title}!
 ::endlines
 
 # --- Interview: authored Q&A PAIRS (host question >> guest answer) --------------
@@ -234,6 +328,20 @@ Best part of the job, worst part, go. >> Same part, John. That's the trouble wit
 Did you always know this was your calling? >> I knew the day everyone told me to stop. That's usually the sign, isn't it?
 So how did you even get started? >> One bad decision, made confidently, repeated until it became a career.
 Any regrets? >> Regret's a luxury, John. I can barely afford the studio parking.
+Let's start easy — how was the trip in? >> Two checkpoints, one shakedown, and a man selling maps to the exit. Standard, John.
+Do people recognize you on the street? >> They recognize the liability, John. The face comes second.
+What's a normal day look like for you? >> There are no normal days. There's the day it works and the day it's on the news. Sometimes both.
+Any advice you wish someone had given you? >> "Don't." One word. Would've saved everyone a lot of paperwork, including yours.
+Be honest — is it as bad as it looks? >> No, John. It's worse. But it looks bad from a very flattering angle tonight.
+What's the one thing people always get wrong about you? >> They think I chose this. I was ASSIGNED this. There's a difference, and there's a form.
+How do you unwind after a long day? >> I sit very still in the dark and let the building settle. If it settles quietly, I've won.
+Do your parents know what you do? >> My mother thinks I'm in "logistics." She's not entirely wrong, and I'd like to keep it that way.
+What would you be doing if not this? >> The same thing, John, but without the title and the dental. Mostly I'm here for the dental.
+Ever think about quitting? >> Every morning. Then the alarm goes off, and by "alarm" I mean the neighbors, and by "morning" I mean it's still dark.
+What's the most dangerous part of the job? >> The commute, easily. The job itself is only trying to kill me part-time.
+Do you have any rivals? >> I had one. We settled our differences. He settled first. It was very amicable, geographically speaking.
+What's your proudest achievement? >> I'm still here, John. In this city, that's not a milestone, that's a miracle with a pulse.
+If you could tell the Machine one thing, what would it be? >> Nothing. It's listening right now. Hi. We're all very productive. Please don't.
 ::endlines
 
 # --- Persona-specific exchanges (interview.<tag>): the host asks about THEIR thing.
@@ -242,108 +350,144 @@ Any regrets? >> Regret's a luxury, John. I can barely afford the studio parking.
 You've won the city lottery eight times — what's the secret? >> Always buy the ticket right after surviving something that should've killed you.
 Eight jackpots. Do you at least feel lucky? >> I feel HUNTED, John. There's a difference, and the difference has a legal team.
 What was the first thing you bought? >> A deluxe apartment. The deluxe part is that only one wall leaks.
+Eight jackpots — do the corporates let you keep it? >> They let me keep the STORY, John. The money went to "processing fees." All of it. Every time.
+Any tips for the folks at home? >> Yeah — win eight times so they can't pin any single one on you. Amateurs get caught at four.
 ::endlines
 
 ::lines interview.surgeon
 You print the organs at home now? >> I do, John. The printer's louder than you'd think, and it does NOT do refunds.
 Forty transplants and no license — how do you sleep? >> "Unlicensed" is such a cold word for someone who's given forty people a working spleen. Give or take.
 Any pride in the work? >> The kidneys are my best. I sign them. Small signature, inside. You'll never know unless we meet again.
+What's the strangest thing you've printed? >> A spleen, a kidney, and once, by accident, a very small piano. I don't discuss the piano.
+Do you offer a warranty? >> Ninety days or until it makes a noise, John, whichever comes first. Usually the noise.
 ::endlines
 
 ::lines interview.nation
 You declared your apartment a sovereign nation. How's governance? >> One law, one citizen, and a standing army of me holding a bat.
 Any foreign relations? >> We've opened talks with 4B down the hall. It's tense. They have a working stove.
 Do the corporates recognize your statehood? >> They don't, John. But they DO recognize my rent. So we're at an impasse.
+Does your nation have a flag? >> A gray towel, John. It's what I had. It's also the ceiling situation, so some days it flies itself.
+Any tourism? >> One visitor. The landlord. It became a hostage situation. We've since normalized relations.
 ::endlines
 
 ::lines interview.vending
 Your machine has killed forty people. Care to comment? >> Forty lives, yes — but thousands of beverages dispensed. It's a NET positive.
 Is the machine... okay? >> Legally it's a person now. Emotionally, it's a person very disappointed in all of us.
 What do you call this business model? >> "Aggressive vending." "Killing spree" tested poorly with the beverage demographic.
+What flavor does the machine dispense? >> "Original," John. Same as the funerals. We keep the branding consistent.
+Is there a recall? >> There's a MEMORIAL, John. A recall implies the machine did something wrong, and legally, the machine is grieving.
 ::endlines
 
 ::lines interview.reverend
 Tell us about the Church of the Reasonable Refund. >> We teach that suffering is real, John, and you're entitled to store credit for it.
 Do you pass a collection plate? >> We pass a receipt. Salvation is itemized.
 How's the flock these days? >> Grown to hundreds. Mostly people who wanted a refund and found God in the returns line.
+What's a sermon like at the Church of the Reasonable Refund? >> I hold up a receipt, John, and the congregation weeps, because they remember what they paid.
+Do miracles happen? >> A man got store credit approved on a final-sale item last spring. We're still talking about it. We built a small shrine.
 ::endlines
 
 ::lines interview.chef
 These squid tacos — are they safe? >> Probably fine, John. "Probably" is doing a lot of work in that sentence, and I respect it.
 Where do you source your ingredients? >> Locally. Out here that means "from a hole I don't fully understand."
 People say your food's dangerous. >> My food is HONEST. The danger is a seasoning.
+What's on the menu tonight? >> The special, John. I don't know what's in it either. That's why it's special.
+Any Michelin interest? >> A man came, ate, left, and filed a report. Not a review — a report. I framed it.
 ::endlines
 
 ::lines interview.bouncer
 Nine years ejecting the same man? >> Same guy, same door. At this point it's less a job and more a marriage.
 Does he ever just stay out? >> He always comes back. I always throw him out. We've never spoken. It's the purest thing I have.
 What's the secret to bouncing? >> It isn't strength, John, it's sadness. You have to look like you've got nothing left to lose. I don't.
+Does the man you eject ever fight back? >> Never, John. We have an understanding. He falls, I nod, the sun rises, we begin again.
+Nine years — do you know his name? >> No. Names ruin it. He's "sir," I'm "the wall," and that's the healthiest relationship either of us has.
 ::endlines
 
 ::lines interview.exorcist
 An Undermarket exorcist — is any of it real? >> Most "hauntings" are bad wiring, John. But the other ten percent? That's why I carry two staplers.
 Is exorcism as dramatic as they say? >> It's mostly paperwork. The spirits, like everyone down there, just want to be seen.
 And you're... licensed? >> I paid for the license. The demon that runs the licensing office was very reasonable.
+What's the worst haunting you've handled? >> A vending machine, John. Possessed. Or maybe just Ophelia's. Down there you can't always tell.
+Do the spirits ever win? >> One did, John. It owns a laundromat now. Pays taxes. Honestly, it assimilated better than most of us.
 ::endlines
 
 ::lines interview.scavenger
 You got rich off a toaster? >> One working toaster, John. In this economy, a machine that browns bread reliably is a small nation's GDP.
 People laughed at scavenging for a living. >> Nobody's laughing from inside their leaking apartment.
 Ever find anything stranger than the toaster? >> I don't talk about the doll. We don't talk about the doll, John.
+Since the toaster, what's the market like? >> Cutthroat, John. Everybody's out there now with a stick, poking hope. I sold my stick. Retired.
+Do you still scavenge? >> Only emotionally, John. I comb the past for anything I can still use. Slim pickings.
 ::endlines
 
 ::lines interview.lawsuit
 You're suing the sun? >> Emotional distress, John. It's been up there this whole time, judging me, and I've had enough.
 What are your chances, realistically? >> My lawyer says it's a long shot, jurisdictionally. I said, so is the sun.
 What happens if you win? >> Every sunrise owes me residuals. Think about the precedent. Think about the light.
+Has the sun responded to the suit? >> It rose the next morning, John, which my lawyer says is either contempt or a confession. We're arguing which.
+Any other defendants on your list? >> Gravity's next. It's been holding me down my whole life and it's never once apologized.
 ::endlines
 
 ::lines interview.colonel
 Colonel, tell us about the war. >> I can neither confirm nor deny it, John — officially, it didn't happen. I have a medal that says so.
 And the pension? >> For a conflict in no record. I cash it monthly. The check is real. The war is "complicated."
 What won it, in the end? >> Discipline. That's what won us the — well. Whatever it was we may or may not have won.
+Colonel, did you have a rank? >> I had SEVERAL, John, all of them classified, some of them contradictory. I outranked myself twice.
+Do you miss the service? >> I miss the certainty, John. Out here nobody tells you who to shoot. You have to guess. It's exhausting.
 ::endlines
 
 ::lines interview.influencer
 Nine million followers — that's remarkable. >> Every one a bot I personally pay, John. Do you know how expensive authenticity is?
 Isn't that just fake engagement? >> My bots have never once let me down. Can you say that about a person?
 Doesn't it ever feel hollow? >> I post my breakfast, the bots love it, I feel seen. The illusion holds one more day. It's the modern condition.
+What's your engagement rate? >> One hundred percent, John. The bots never miss. That's more than I can say for my own family.
+Ever meet a real follower? >> Once, John. It was terrifying. He had OPINIONS. My bots would never. I blocked reality that day.
 ::endlines
 
 ::lines interview.sparky
 From grid saboteur to safety consultant? >> Same job, John. I just bill for it now.
 Do you feel guilty about the blackouts? >> I feel EMPLOYED. The blackouts built my client list.
 What's the key to electrical safety? >> Respect the current. I did not, for years, and now I glow faintly.
+What's the biggest blackout you take credit for? >> The Long Dark, John. Six districts. I don't talk about it — but I do put it on the invoice.
+Any advice for homeowners? >> Don't touch the box, John. That's my box now. Everything's my box now. That's the consulting.
 ::endlines
 
 ::lines interview.forecaster
 Eleven years forecasting the market? >> And never once right, John. That's a KIND of consistency.
 Then why do the corporates keep you on? >> A broken forecaster is a fixed point. You can navigate by being exactly wrong.
 What's your call for tomorrow? >> Stability and growth. I've predicted that every day. You've watched the results.
+What did you predict for LAST quarter? >> Boom times, John. It was the crash. But directionally, there was movement, and I called the movement.
+How do you stay confident? >> Being wrong every day, John, takes the pressure off being right. I'm the most relaxed man in finance.
 ::endlines
 
 ::lines interview.monk
 Brother Ansel, welcome. What brings you here tonight? >> ...
 Can you tell us a little about the vow? >> ......
 Anything at all you'd like to say to the folks at home? >> (a stare of profound, radiant, aggressive silence)
+Brother Ansel — a nod for yes? >> (holds an aggressive, unbroken stare)
+Anything for the young monks watching? >> (very slowly, and with menace, raises a single finger to his lips)
 ::endlines
 
 ::lines interview.hoarder
 Three-time hoarding champion — the secret? >> You never, ever, EVER let go. Of anything. Ever.
 People call it a problem. >> The trophies call it a lifestyle, John. I have all three. And their boxes. And the receipts.
 What's your proudest possession? >> The narrow path from my door to my chair. That path is my life's work.
+What can't you throw away? >> Nothing, John. That's the sport. Last year I kept a sneeze. I have it in a jar. It's loyal.
+Do you ever run out of room? >> Room is a myth the un-committed tell themselves, John. There's always room. You just have to love harder.
 ::endlines
 
 ::lines interview.taster
 A professional poison taster — how are you still alive? >> Spite, mostly, John. And a truly world-class stomach lining.
 Two livers, is that right? >> One and a half now. It's been a week.
 Is it a rough gig? >> Ninety percent fine, ten percent the worst afternoon of your life. I've had a lot of afternoons.
+What's the worst thing you've tasted? >> Tuesday, John. All of it. I tasted the whole day and I do not recommend it.
+How do you know when something's poisoned? >> I don't, John. That's the JOB. I find out the way everyone does — dramatically, and on the floor.
 ::endlines
 
 ::lines interview.florist
 From assassin to florist — quite a pivot. >> After the career I had, John, it's nice to work with things that are ALREADY dead.
 People find your bouquets oddly menacing. >> The lilies are just lilies. Probably.
 Enjoying retirement? >> Nobody's tried anything. They know exactly what the peace lilies mean, and they behave.
+Do old clients ever visit the shop? >> They send flowers, John. To ME. It's a warning, and honestly, it's beautiful work. I taught some of them.
+What's your bestseller? >> The "We Know" bouquet, John. It's lilies. It's always lilies. People know what it means and they pay promptly.
 ::endlines
 
 # --- Commercial: a quick sponsor break read as studio narration -----------------
@@ -356,6 +500,12 @@ We'll return in a moment. Tonight's episode is brought to you by Soylent Origina
 Back after this. Brought to you by the Bank of the Basin — your money, our building, let's not make this weird.
 This break sponsored by GleamTooth Dental, the only clinic in the district with a working autoclave, they think.
 Right back. Tonight's sponsor is the Coldwater Transit Authority: we go places, and sometimes you go with us.
+We'll be right back after this from CraniumTrust Cyberware: it's your brain, now with a subscription.
+Quick break, brought to you by the Basin Water Board: it's wet, it's mostly water, and it's legally a beverage.
+Stay tuned. This segment sponsored by ExitRow Realty — when you absolutely have to leave the district by morning.
+Back in a moment. Tonight's break brought to you by Comfort Soylent: the grief flavor is back for a limited time.
+Don't go anywhere. Sponsored by GridSure Generators — because the dark is only free the first night.
+We'll return shortly, after a word from the Church of the Reasonable Refund: salvation, itemized, no returns after ninety days.
 ::endlines
 
 # --- Sign-off: the host thanks the guest and says goodnight ---------------------
@@ -370,6 +520,12 @@ Thanks again to {guest}. From all of us up here on the last lit stage in the dis
 That's it for tonight. Be kind to each other, or at least be quiet about it. Goodnight!
 We're out of time and nearly out of power. Thanks to {guest}, and to you, for being awake. Goodnight.
 Remember, folks: it's a hard city, but it's the only one that's still on the air. Goodnight from The Tonight Show.
+That's our show. Lock your door, salt your soylent, and we'll do it all again tomorrow, grid permitting.
+Thanks to {guest}, and to you, for choosing us over the several emergencies happening outside. Goodnight.
+We're out of time. Be suspicious, be kind, and never in that order. Goodnight, everybody.
+That's all from the last lit desk in the district. Thanks to {guest}. Sleep with one eye open — it's cheaper than a security system.
+Goodnight, folks. If the lights come back on, thank the generator. If they don't, thank you for watching in the dark.
+Huge thanks to {guest} for making it out alive, and to the rest of you for making it in. Goodnight from The Tonight Show.
 ::endlines
 
 END

@@ -1,18 +1,25 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_events": [
+    "The autocannon traverses on its dead-truck mount with a tortured metal shriek.",
+    "Belt links glint in a heap where the grass has been beaten flat.",
+    "Heat-shimmer wobbles off the barrel long after the last burst."
+  ],
+  "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#38342c",
+  "color": "#c0b088",
   "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "A wastes gun nest bodged together on the open pasture — an autocannon bolted to the bed of a dead truck, sandbagged around and open to the whole sky. It's scavenged, jury-rigged, and mean, traversed by hand and fed by whoever's nearest. A hatch cut into a buried container beside the truck drops into the bunker where the spares and the belts are hoarded out of the sun.",
   "exits": {
     "east": "zone_district_892_907",
     "north": "zone_district_891_906",
-    "south": "zone_district_891_908"
+    "south": "zone_district_891_908",
+    "down": "zone_aa_wastes_bunker"
   },
   "flags": {
+    "aa_site": true,
     "district": "wasteland",
+    "icon": "aa",
     "planner": "bp_district"
   },
   "grid_x": 891,
@@ -20,8 +27,8 @@
   "grid_z": 0,
   "id": "zone_district_891_907",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "AA",
+  "name": "Wastes Gun Nest",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1783740000"
 }

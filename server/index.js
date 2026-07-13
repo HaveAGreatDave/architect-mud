@@ -189,8 +189,10 @@ const httpServer = createServer(async (req, res) => {
 		res.writeHead(result.status, {
 			"Content-Type": "application/json",
 			...cors,
+			...(result.headers || {}),
 		});
-		res.end(JSON.stringify(result.body));
+		// 304 Not Modified carries no body (the client reuses its cached copy).
+		res.end(result.status === 304 ? undefined : JSON.stringify(result.body));
 		return;
 	}
 

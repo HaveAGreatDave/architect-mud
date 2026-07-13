@@ -296,11 +296,14 @@ function threatFrom(a, sites, bandIdx) {
 // the site's engagement ring is a faint distant whiz, one from point-blank is a sharp crack.
 // `x`/`y` = the emplacement's world tile, so the windshield can raise the volley from the
 // actual gun on the ground as 3D world tracers (bearing stays for its screen-space fallback).
-function sendAaTracer(live, site, bearing, dist) {
+// `hit` decides the geometry the windshield draws: a hit walks the burst ONTO the
+// cockpit (converging, in sync with the air_hit flash); a miss streaks deliberately
+// wide/high. The server owns hit/miss (anti-cheat) — the tracer just depicts it truthfully.
+function sendAaTracer(live, site, bearing, dist, hit) {
   const near = 1 - Math.max(0, Math.min(1, dist / Math.max(1, site.range)));
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
-    if (p && p.seat === 'pilot') sendToPlayer(pid, { type: 'aa_tracer', bearing, near, by: site.name, x: site.grid_x, y: site.grid_y });
+    if (p && p.seat === 'pilot') sendToPlayer(pid, { type: 'aa_tracer', bearing, near, by: site.name, x: site.grid_x, y: site.grid_y, hit: !!hit });
   }
 }
 
@@ -359,10 +362,12 @@ export async function tickCombat(live) {
     if (evading) hitChance -= 0.3;
     // A skilled pilot instinctively jinks.
     if (pilot) { const chk = await skillCheck(pilot, 'piloting', s.accuracy); if (chk.success) hitChance -= 0.25; }
-    // Show the pilot where it's coming from — a tracer streak from the gun's bearing,
-    // converging on the cockpit whether it hits or not (misses arc past just as visibly).
-    sendAaTracer(live, s, Math.round(bearingDeg(a.grid_x, a.grid_y, s.grid_x, s.grid_y)), cheb(a.grid_x, a.grid_y, s.grid_x, s.grid_y));
-    if (Math.random() < Math.max(0.05, hitChance)) {
+    // Resolve the burst first, then show it truthfully: a hit walks the rounds onto the
+    // cockpit (in sync with the damage flash), a miss streaks wide. Either way the fire
+    // visibly comes from the gun's tile so the pilot has a direction to break from.
+    const isHit = Math.random() < Math.max(0.05, hitChance);
+    sendAaTracer(live, s, Math.round(bearingDeg(a.grid_x, a.grid_y, s.grid_x, s.grid_y)), cheb(a.grid_x, a.grid_y, s.grid_x, s.grid_y), isHit);
+    if (isHit) {
       // Armoured gun platforms (the A-10-style Reaper) shrug off ground fire — their
       // titanium tub soaks half the hit, so they can loiter over a target and survive.
       const armor = live.type.class === 'gunship' ? 0.5 : 1;

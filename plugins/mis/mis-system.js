@@ -161,33 +161,48 @@ export const NIPPLE_SOFT = [
   `Her nipples are soft — at rest, diplomatically neutral.`,
 ];
 
+// Bare-chest breast-size copy — shown whenever the torso is uncovered. Leading
+// "Her" so the isSelf caller can swap it to "Your"; no other gendered pronouns.
+const BREAST_BARE = {
+  flat:         [`Her chest is nearly flat — efficient, aerodynamic, no complaints from physics.`, `Her breasts are barely there. Present in theory.`],
+  small:        [`Her breasts are small and sit high — perky in a way that feels almost smug.`, `Her breasts are modest, and make no apologies about it.`],
+  medium:       [`Her breasts are a solid medium — the kind that fill a bra without a fight.`, `Her breasts are average in the most satisfying sense of the word.`],
+  large:        [`Her breasts are large and full. Gravity is aware of them.`, `Her breasts are generously sized — impossible to ignore.`],
+  'very large': [`Her breasts are enormous, frankly — their own gravitational pull.`, `Her breasts are massive. Structurally impressive. An engineering concern.`],
+};
+
+// Female chest description (breast size + nipple state) with NO MIS gate — the
+// caller is responsible for gating. breastVisibilityNote wraps this with the gate.
 // torsoLayerCount: number of equipped torso items
 // outermostBulkiness: bulkiness value of outermost torso layer (0 if none)
-// outermostLayerMax: 1 = outermost torso piece is an underwear-layer item (bra), 2 = clothing
+// outermostLayerMax: 1 = outermost torso piece is an underwear-layer item, 2 = clothing
 // outermostName: display name of outermost torso item
-export function breastVisibilityNote(player, torsoLayerCount, outermostBulkiness, outermostLayerMax, outermostName, tempC) {
-  if (!isMisActive(player)) return null;
+export function femaleChestNote(player, torsoLayerCount, outermostBulkiness, outermostLayerMax, outermostName, tempC) {
   if (player.biological_sex !== 'female') return null;
 
   const data = player.appearance_data || {};
   const size = data.breast_size || 'medium';
   // Horniness >30 overrides temperature for nipple hardness
   const hard = (player.horniness || 0) > 30 || (tempC !== undefined && tempC < 10);
+  const nipplePool = hard ? NIPPLE_HARD : NIPPLE_SOFT;
+  const nipple = () => nipplePool[Math.floor(Math.random() * nipplePool.length)];
 
   if (torsoLayerCount === 0) {
-    // Naked chest — nipple state only (breasts described by describeGenitals)
-    const pool = hard ? NIPPLE_HARD : NIPPLE_SOFT;
-    return pool[Math.floor(Math.random() * pool.length)];
+    // Bare chest — breast size + a single nipple line.
+    const bare = BREAST_BARE[size] || BREAST_BARE.medium;
+    return `${bare[Math.floor(Math.random() * bare.length)]} ${nipple()}`;
   }
 
   if (torsoLayerCount === 1 && outermostLayerMax <= 1) {
-    // Bra only — describe breast fullness
+    // A single under-layer with nothing over it (bra, camisole, undershirt…) —
+    // describe the fit against the garment by name, not "bra" specifically.
+    const garment = outermostName || 'top';
     const FILL = {
-      flat:         `Her chest barely registers in the bra. The bra is doing charity work.`,
-      small:        `Her breasts sit neatly in the bra — no complaints from either party.`,
-      medium:       `Her breasts fill out the bra in a satisfying, uneventful way.`,
-      large:        `Her breasts press against the bra with some conviction.`,
-      'very large': `Her breasts are straining the bra's structural integrity. It's doing its best.`,
+      flat:         `Her chest barely registers under the ${garment}. It's doing charity work.`,
+      small:        `Her breasts sit neatly under the ${garment} — no complaints from either party.`,
+      medium:       `Her breasts fill out the ${garment} in a satisfying, uneventful way.`,
+      large:        `Her breasts press against the ${garment} with some conviction.`,
+      'very large': `Her breasts are straining the ${garment}'s structural integrity. It's doing its best.`,
     };
     const fill = FILL[size] || FILL.medium;
     if (hard) {
@@ -207,6 +222,14 @@ export function breastVisibilityNote(player, torsoLayerCount, outermostBulkiness
   }
 
   return null;
+}
+
+// MIS-gated wrapper around femaleChestNote (the clothed describe path gates on
+// the viewer's MIS separately; this also requires the target to have MIS on,
+// matching the prior behaviour).
+export function breastVisibilityNote(player, torsoLayerCount, outermostBulkiness, outermostLayerMax, outermostName, tempC) {
+  if (!isMisActive(player)) return null;
+  return femaleChestNote(player, torsoLayerCount, outermostBulkiness, outermostLayerMax, outermostName, tempC);
 }
 
 // Escalating heat tiers — checked low-to-high in addHorniness, only the

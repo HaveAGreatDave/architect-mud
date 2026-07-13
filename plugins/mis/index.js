@@ -13,7 +13,7 @@ import {
   addHorniness, washEjaculate, MIS_TUTORIAL,
   startMisEvent, stopMisEvent, hasMisEvent, getMisEventMeta,
   triggerClimax, triggerGroundClimax,
-  erectionVisibilityNote, breastVisibilityNote, NIPPLE_HARD, NIPPLE_SOFT,
+  erectionVisibilityNote, breastVisibilityNote, femaleChestNote,
   MASTURBATE_EVENT_MALE, MASTURBATE_EVENT_FEMALE,
   MASTURBATE_EVENT_SELF_MALE, MASTURBATE_EVENT_SELF_FEMALE,
   NPC_WITNESS_AROUSED, NPC_WITNESS_DISGUST,
@@ -36,6 +36,15 @@ function misGate(player, raw) {
     return { type:'error', message:`Unknown command: "${cmd}". Type HELP for commands.` };
   }
   return null;
+}
+
+// True if the player has any garment equipped on the legs slot. Ejaculate soaks
+// into it instead of hitting the floor (mirrors the piss/shit rule in bodily).
+async function legsCovered(player) {
+  const { rows } = await query(
+    `SELECT 1 FROM player_inventory WHERE player_id=$1 AND is_equipped=1 AND slot='legs' LIMIT 1`,
+    [player.id]);
+  return rows.length > 0;
 }
 
 // Broadcast a zone event only to players who have MIS enabled
@@ -566,17 +575,29 @@ async function cmdMasturbate(args, raw, player, broadcast) {
 
     if (live.horniness >= 100) {
       stopMisEvent(playerId);
+      const covered = await legsCovered(live);
       const msg = await triggerGroundClimax(live);
-      await stainZone(live.current_zone, 'ejaculate');
-      const zoneMsgs = EJACULATE_ZONE_MSGS.ground;
-      const zoneText = zoneMsgs[Math.floor(Math.random() * zoneMsgs.length)].replace('{name}', live.handle);
+      let zoneText, selfText, tickMsgs;
+      if (covered) {
+        // Underwear on — it soaks into the fabric instead of the floor.
+        await stainClothing(live, ['legs'], 'ejaculate');
+        zoneText = `${live.handle} shudders, and a spreading stain darkens the front of their clothing.`;
+        selfText = `You come — with your underwear still on, it soaks straight into the fabric.`;
+        tickMsgs = [`Your climax stains your underwear. (+10 Sanity)`];
+      } else {
+        await stainZone(live.current_zone, 'ejaculate');
+        const zoneMsgs = EJACULATE_ZONE_MSGS.ground;
+        zoneText = zoneMsgs[Math.floor(Math.random() * zoneMsgs.length)].replace('{name}', live.handle);
+        selfText = zoneText;
+        tickMsgs = msg;
+      }
       broadcastMis(live.current_zone, { type: 'zone_event', message: zoneText }, broadcast, live.id);
-      // Player sees the zone message too
-      broadcast(null, { type: 'zone_event', message: zoneText }, null, playerId);
+      // Player sees their own version
+      broadcast(null, { type: 'zone_event', message: selfText }, null, playerId);
       npcWitnessMis(live.current_zone, broadcast, 0.7);
       broadcast(null, {
         type: 'resource_tick',
-        messages: msg,
+        messages: tickMsgs,
         player_update: { horniness: live.horniness, erect: live.erect, sanity: live.sanity },
       }, null, playerId);
       return;
@@ -894,20 +915,32 @@ async function cmdEjaculate(args, raw, player, broadcast) {
 
   // No argument or "on ground" / "on floor"
   if (!str || /^on\s+(?:the\s+)?(?:ground|floor)$/.test(str)) {
+    // Underwear on → it can't reach the floor; it soaks into the fabric.
+    const covered = await legsCovered(player);
     const msg = await triggerGroundClimax(player);
-    await stainZone(player.current_zone, 'ejaculate');
-    const zonePool = EJACULATE_ZONE_MSGS.ground;
-    broadcast(player.current_zone, {
-      type: 'zone_event',
-      message: zonePool[Math.floor(Math.random() * zonePool.length)].replace('{name}', player.handle),
-    }, player.id);
+    if (covered) {
+      await stainClothing(player, ['legs'], 'ejaculate');
+      broadcast(player.current_zone, {
+        type: 'zone_event',
+        message: `${player.handle} tenses, and a wet stain blooms through the front of their clothing.`,
+      }, player.id);
+    } else {
+      await stainZone(player.current_zone, 'ejaculate');
+      const zonePool = EJACULATE_ZONE_MSGS.ground;
+      broadcast(player.current_zone, {
+        type: 'zone_event',
+        message: zonePool[Math.floor(Math.random() * zonePool.length)].replace('{name}', player.handle),
+      }, player.id);
+    }
     npcWitnessMis(player.current_zone, broadcast, 0.6);
     broadcast(null, {
       type: 'resource_tick',
       messages: msg,
       player_update: { horniness: player.horniness, erect: player.erect, sanity: player.sanity },
     }, null, player.id);
-    return { type:'output', message: `You let go and finish on the ground.` };
+    return { type:'output', message: covered
+      ? `You let go — with your underwear still on, it soaks straight into the fabric.`
+      : `You let go and finish on the ground.` };
   }
 
   // "on <name>'s <part>"
@@ -1306,22 +1339,22 @@ schedule('1m', async () => {
 // arousal-on-examine side effect to an attracted viewer.
 
 async function appearanceMisNotes({ target, viewer, isSelf, broadcast, naked, bySlot = {}, layerCounts = {} }) {
-  const selfNipplePool = pool => (isSelf ? pool.map(s => s.replace(/^Her /i, 'Your ')) : pool);
+  // Chest note comes back in third person ("Her …"); flip to "Your …" for self.
+  const selfFix = s => (isSelf ? s.replace(/\bHer\b/g, 'Your').replace(/\bher\b/g, 'your') : s);
   let notes = '';
 
   if (naked) {
     const viewerForMis = isSelf ? target : (viewer || null);
     if (viewerForMis && isMisActive(viewerForMis)) {
       const envState = getEnvironmentState();
+      // Fully naked: breast size + nipple state first (labia stays hidden), then
+      // the ass line from describeGenitals. Gated by the naked-branch MIS check.
+      const chestNote = femaleChestNote(target, 0, 0, 2, null, envState.tempC);
+      if (chestNote) notes += `\n${selfFix(chestNote)}`;
       const genitalDesc = describeGenitals(target, isSelf);
       if (genitalDesc) notes += `\n${genitalDesc}`;
       const ejacNote = ejaculateDescription(target, isSelf, new Set());
       if (ejacNote) notes += `\n${ejacNote}`;
-      if (target.biological_sex === 'female') {
-        const hard = (target.horniness || 0) > 30 || (envState.tempC !== undefined && envState.tempC < 10);
-        const nipplePool = selfNipplePool(hard ? NIPPLE_HARD : NIPPLE_SOFT);
-        notes += `\n${nipplePool[Math.floor(Math.random() * nipplePool.length)]}`;
-      }
     }
 
     // Arousal on examine: viewer sees naked target they're attracted to
@@ -1357,23 +1390,15 @@ async function appearanceMisNotes({ target, viewer, isSelf, broadcast, naked, by
   // New 3-layer model: an underwear-layer piece is the bra equivalent (1); anything
   // else worn over the torso reads as clothing (2). Mirrors the old layer-max semantics.
   const outermostLayerMax = torsoItem?.tags?.layer === 'underwear' ? 1 : 2;
+  // Torso bare or under a single under-layer → breast size; thin layers → nipple
+  // show-through. This is the single source for the female chest (one note only).
   const breastNote = breastVisibilityNote(target, torsoLayerCount, outermostBulkiness, outermostLayerMax, torsoItem?.name, envState.tempC);
-  if (breastNote) {
-    const breastNoteFixed = isSelf ? breastNote.replace(/\bHer\b/g, 'Your').replace(/\bher\b/g, 'your') : breastNote;
-    notes += `\n${breastNoteFixed}`;
-  }
+  if (breastNote) notes += `\n${selfFix(breastNote)}`;
 
   // Show genitals/ass when legs are naked (no leg layer)
   if (legsLayerCount === 0) {
     const genitalDesc = describeGenitals(target, isSelf);
     if (genitalDesc) notes += `\n${genitalDesc}`;
-  }
-
-  // Show nipple state for females when torso is naked
-  if (target.biological_sex === 'female' && torsoLayerCount === 0) {
-    const hard = (target.horniness || 0) > 30 || (envState.tempC !== undefined && envState.tempC < 10);
-    const nipplePool = selfNipplePool(hard ? NIPPLE_HARD : NIPPLE_SOFT);
-    notes += `\n${nipplePool[Math.floor(Math.random() * nipplePool.length)]}`;
   }
 
   // Arousal on examine: visible erection or nipples on attracted viewer

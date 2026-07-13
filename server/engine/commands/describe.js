@@ -6,6 +6,8 @@ import {
 	getZoneCorpses,
 	getZonePlayers,
 	getDoorForExit,
+	isEnterableFacade,
+	facadeStreetTile,
 } from "../world.js";
 import {
 	getZoneVisibility,
@@ -69,6 +71,20 @@ function getConnectedDestinations(zone) {
 		plain = [];
 	for (const { dir: direction, target: targetId } of allExits(zone)) {
 		const targetZone = getZone(targetId);
+		// Leaving a building: an interior exit onto an enterable facade actually
+		// spills you straight onto the street behind it in one move (see
+		// resolveFacadeTransit). Show it as an exit onto that street — labeled
+		// with the street's name — not as the building you're standing in. Keep
+		// targetId pointing at the real adjacent facade so `go <street name>`
+		// still resolves to a valid move. Falls through if no street resolves.
+		if (currentIsInterior && targetZone && isEnterableFacade(targetZone)) {
+			const streetId = facadeStreetTile(targetZone);
+			const street = streetId ? getZone(streetId) : null;
+			if (street) {
+				plain.push({ direction, targetId, name: street.name });
+				continue;
+			}
+		}
 		if (targetZone?.flags?.is_building) {
 			buildings.push({
 				direction,

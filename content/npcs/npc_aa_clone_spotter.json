@@ -27,7 +27,7 @@
     "personality": "guard"
   },
   "home_activities": [],
-  "home_zone": "zone_district_918_903",
+  "home_zone": "zone_district_918_901",
   "hp": 24,
   "hp_max": 24,
   "id": "npc_aa_clone_spotter",
@@ -42,5 +42,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_district_918_903"
+  "work_zone_id": "zone_district_918_901"
 }

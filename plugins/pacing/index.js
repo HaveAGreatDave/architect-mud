@@ -8,7 +8,10 @@
  *
  *   1. WALK CADENCE — every step has a short cooldown (WALK_COOLDOWN_MS). Tuned so
  *      normal room-reading pace never trips it, but spamming a direction is paced.
- *      Walking is free (no stamina) and never hard-blocked.
+ *      Walking is free (no stamina) and never hard-blocked. Roads (and marked
+ *      arteries) halve the cooldown (ROAD_SPEEDUP) so travel along the street grid
+ *      is ×2 — the same road grid the GPS router hugs. Water is impassable, handled
+ *      upstream by the engine:water move gate.
  *   2. SPRINT — `sprint on` moves faster than the walk cadence (SPRINT_COOLDOWN_MS)
  *      by spending SPRINT_COST stamina per step. Drop below SPRINT_FLOOR and you're
  *      WINDED: sprint auto-drops and can't be re-enabled until stamina recovers to
@@ -38,7 +41,7 @@
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { on } from '../../server/engine/events.js';
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
-import { getLivePlayer } from '../../server/engine/world.js';
+import { getLivePlayer, getZone } from '../../server/engine/world.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
 import { query } from '../../server/models/db.js';
 
@@ -48,13 +51,25 @@ const SPRINT_COST        = 8;     // stamina per sprint step
 const SPRINT_FLOOR       = 15;    // sprint auto-drops when stamina falls below this
 const WINDED_RECOVER     = 40;    // stamina needed to sprint again after being winded
 const MAX_QUEUE          = 12;    // how many steps you can bank ahead
+const ROAD_SPEEDUP       = 2;     // roads move you ×2 — half the step cooldown
 
 function staminaOf(player) {
   return player.stamina ?? (player.stamina_max ?? 100);
 }
 
+// Terrain movement multiplier for a tile: roads (and marked arteries) carry you
+// ×ROAD_SPEEDUP, everything walkable else ×1. Same "this is a road" test the router
+// uses (pathfinding.isRoadZone), so the street grid the GPS hugs is the street grid
+// you move fast on. Water isn't handled here — it's impassable (engine:water gate).
+function roadSpeedFactor(zone) {
+  const f = zone?.flags || {};
+  const isRoad = /^(road_|runway_)/.test(f.icon || '') || !!f.artery;
+  return isRoad ? ROAD_SPEEDUP : 1;
+}
+
 function cadenceMs(player) {
-  return player._sprinting ? SPRINT_COOLDOWN_MS : WALK_COOLDOWN_MS;
+  const base = player._sprinting ? SPRINT_COOLDOWN_MS : WALK_COOLDOWN_MS;
+  return Math.round(base / roadSpeedFactor(getZone(player.current_zone)));
 }
 
 function nextReadyAt(player) {
@@ -153,6 +168,7 @@ export const commands = { sprint };
 
 export const _test = {
   WALK_COOLDOWN_MS, SPRINT_COOLDOWN_MS, SPRINT_COST, SPRINT_FLOOR, WINDED_RECOVER, MAX_QUEUE,
+  ROAD_SPEEDUP, roadSpeedFactor,
   // Cancel any armed drain + clear the queue (regress hygiene — no real timers left running).
   cancelQueue(player) {
     if (player._moveTimer) { clearTimeout(player._moveTimer); player._moveTimer = null; }

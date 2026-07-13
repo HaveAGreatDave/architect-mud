@@ -1,10 +1,11 @@
 {
   "name": "aa-sites",
-  "version": "1.0.0",
-  "description": "AA emplacements on foot: a zone.describeRoom panel on each aa_sites tile showing the battery's name, faction, and live status (MANNED / ● FIRING / destroyed), plus a throttled room broadcast when the guns open up (driven by flight.aaFired). Crew are stationed NPCs (content). Firing state is runtime memory; nothing is written back.",
+  "version": "1.1.0",
+  "description": "AA emplacements on foot as two-part installations (exposed deck + bunker): a zone.describeRoom panel on each aa_sites deck tile showing the battery's name, faction, and live status (MANNED / ● FIRING / OFF-LINE UNDER REPAIR / cold ruin), a throttled room broadcast when the guns open up (flight.aaFired), and the repair loop — a strafed battery (active=0) is brought back online by its sheltered bunker engineer after REPAIR_MS, unless the engineer is dead. Exposed gunners are stationed NPCs; the engineer is flagged aa_engineer. Emits flight.aaRepaired.",
   "hooks": ["zone.describeRoom"],
   "events": {
-    "consumes": ["flight.aaFired", "flight.aaSilenced"]
+    "consumes": ["flight.aaFired", "flight.aaSilenced"],
+    "produces": ["flight.aaRepaired"]
   },
   "extensionPoints": ["aa_sites"]
 }

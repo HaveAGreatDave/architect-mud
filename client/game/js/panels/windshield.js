@@ -73,8 +73,9 @@ export const RENDER_TUNE = {
   cloudThick: 1.6,    // vertical spread (world-z) of that deck → how tall the wall of cloud you fly through is
   treeDensity: 2.0,   // trees per grass tile (×) — 0 = none, live 'Trees' slider
   treeForest: 0.9,    // forest-clump threshold: patches with an area-bias above this go densely wooded; lower = more/bigger forests
-  chaseBack: 1.9,     // EXTERNAL chase cam: how many tiles behind the craft the camera sits
-  chaseUp: 0.28,      // EXTERNAL chase cam: world-z the camera sits above the craft (higher = looks down more; lower rides the craft higher/more centred on screen)
+  chaseBack: 1.6,     // EXTERNAL chase cam: how many tiles behind the craft the camera sits
+  chaseUp: 0.22,      // EXTERNAL chase cam: world-z the camera sits above the craft (higher = looks down more; lower rides the craft higher/more centred on screen)
+  chaseYaw: 12,       // EXTERNAL chase cam: resting off-astern angle (deg) so we view the craft from a slight 3/4 rear quarter, not dead-behind. Mouse orbit adds on top of this.
   chaseSink: 0.015,   // EXTERNAL view: small final trim (world-z) sinking the wheels a hair into the tarmac to hide the seam. The model is auto-anchored so its gear rests on the ground (see ownShipBaseWz) — this is just a nudge on top, no longer the whole ground offset
 };
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
@@ -369,7 +370,7 @@ export function paintWindshield(id, view) {
   // External orbit: hold the middle mouse to spin the chase camera around the craft. Adding it to
   // the VIEW heading rotates the world + camera around the aircraft, while the model keeps its own
   // real heading (drawn below), so we see the plane from the orbit angle. Snaps back to behind on release.
-  const extOrbit = ext ? (v.extYaw || 0) : 0;
+  const extOrbit = ext ? ((v.extYaw || 0) + RENDER_TUNE.chaseYaw) : 0;
   const yawOff = (v.viewYaw || (v.side ? 90 : 0)) + extOrbit;
   const vw = yawOff ? { ...v, heading: (v.heading || 0) + yawOff } : v;
   const W = cw, H = ch, speed = clamp(v.speed || 0, 0, 1), height = clamp(v.height || 0, 0, 1);
@@ -455,6 +456,14 @@ export function paintWindshield(id, view) {
   const _cosB = Math.cos(bankRad), _sinB = Math.sin(bankRad), _sdx = sunSkyX - W / 2, _sdy = sunSkyY - H / 2;
   const sunFlareX = W / 2 + (_sdx * _cosB + _sdy * _sinB) + shX;
   const sunFlareY = H / 2 + (-_sdx * _sinB + _sdy * _cosB) + shY;
+  // A single "key light" screen point for cloud silver-lining: the sun by day, the moon by night
+  // (the moon rides the opposite arc — mirrors the sun/moon disc placement below). Clouds draw a
+  // bright feathered edge on the lobe facing this point, so a front reads as backlit, not flat grey.
+  const _moonT = hour >= 18.5 ? (hour - 18.5) / 11 : (hour + 5.5) / 11;
+  const _moonPos = projSky(90 + _moonT * 180, Math.sin(_moonT * Math.PI) * 55, vw.heading, W, horizonY, skyFL);
+  const _dayKey = sunUp && sunFront;
+  const lightX = _dayKey ? sunSkyX : _moonPos.sx, lightY = _dayKey ? sunSkyY : _moonPos.sy;
+  const lightStr = _dayKey ? clamp(0.4 + sunElev * 0.6, 0, 1) : (sky.night > 0.4 && _moonPos.front ? 0.7 : 0);
   const _clearish = wx === 'clear' || wx === 'cloudy';
   const glareStr = (sunUp && sunFront && !framed && _clearish) ? clamp(0.32 + (1 - sunElev) * 0.7, 0, 1) * (wx === 'cloudy' ? 0.45 : 1) : 0;
   const rayStr   = (sunUp && sunFront && !framed && _clearish && worldBlend > 0.02) ? clamp((0.55 - sunElev) / 0.55, 0, 1) * (wx === 'cloudy' ? 0.5 : 1) : 0;
@@ -573,10 +582,31 @@ export function paintWindshield(id, view) {
   // FAR fronts (a cloud line on the horizon) and cede everything within reach to the volumetric layer.
   const volOn = !framed && worldBlend > 0.02 && RENDER_TUNE.volClouds !== 0;
   const cloudy = wx === 'cloudy' || wx === 'rain' || wx === 'storm' || wx === 'snow' || wx === 'fog';
-  const cloudAlpha = (wx === 'clear' ? 0.42 : cloudy ? 0.64 : 0.5) * (1 - sky.night * 0.55);
+  const cloudAlpha = (wx === 'clear' ? 0.5 : cloudy ? 0.74 : 0.58) * (1 - sky.night * 0.4);
   let baseTint = cloudy ? [148, 156, 166] : mix([245, 248, 252], sky.hor, 0.22);
   let litTint = cloudy ? [190, 196, 204] : mix([255, 255, 255], sky.sun || [255, 250, 240], 0.28);
   if (localStorm > 0.02) { baseTint = mix(baseTint, [92, 98, 108], localStorm * 0.7); litTint = mix(litTint, [150, 156, 166], localStorm * 0.6); }   // darken under a storm/rain cell
+  // Overcast CEILING — a thin, cheap full-sky layer for grey weather: one gradient wash (thicker
+  // toward the horizon, where the line of sight cuts through more of the deck) veils the stars/sun,
+  // then a few broad drifting patches give it uneven thickness so it isn't a dead flat fill. The
+  // discrete puffs drawn below share this tint, so they read as denser knots WITHIN the ceiling
+  // rather than lone blobs on open sky. Nearly free — a couple of gradient fills, no per-sprite work.
+  const overcast = wx === 'cloudy' ? 0.9 : wx === 'fog' ? 0.82 : wx === 'storm' ? 0.85 : (wx === 'rain' || wx === 'snow') ? 0.7 : 0;
+  if (overcast > 0.01 && !framed) {
+    const ceil = mix(mix(baseTint, litTint, 0.4), [24, 26, 34], sky.night * 0.5);
+    const wash = ctx.createLinearGradient(0, -H * 0.4, 0, horizonY);
+    wash.addColorStop(0, rgb(ceil, overcast * 0.22)); wash.addColorStop(1, rgb(ceil, overcast * 0.42));   // thickens toward the horizon
+    ctx.fillStyle = wash; ctx.fillRect(-OX, -H, ex, horizonY + H);
+    const drift = ((vw.heading || 0) / 360) * W * 2.5;   // pans with the compass, like the clouds
+    for (let i = 0; i < 4; i++) {
+      const px = ((frac(i * 3.3) * 2 - 0.35) * W - drift * (0.4 + frac(i) * 0.5)) % (W * 2.4);
+      const py = horizonY * (0.28 + frac(i * 1.7) * 0.5), pr = W * (0.4 + frac(i * 2.1) * 0.4);
+      const pc = frac(i * 5.1) > 0.5 ? mix(ceil, litTint, 0.5) : mix(ceil, [18, 20, 28], 0.5);   // lighter thin spots / heavier lumps
+      const g2 = ctx.createRadialGradient(px, py, pr * 0.1, px, py, pr);
+      g2.addColorStop(0, rgb(pc, overcast * 0.14)); g2.addColorStop(1, rgb(pc, 0));
+      ctx.fillStyle = g2; ctx.beginPath(); ctx.ellipse(px, py, pr, pr * 0.5, 0, 0, 7); ctx.fill();
+    }
+  }
   const drawList = [];
   if (st.cells && v.acX != null) {
     const ax = v.acX, ay = v.acY;
@@ -622,6 +652,18 @@ export function paintWindshield(id, view) {
       const rg = ctx.createRadialGradient(cx + ox, cy + oy - rr * 0.35, rr * 0.15, cx + ox, cy + oy, rr);
       rg.addColorStop(0, rgb(lt, a)); rg.addColorStop(0.5, rgb(bt, a * 0.9)); rg.addColorStop(1, rgb(bt, 0));
       ctx.fillStyle = rg; ctx.beginPath(); ctx.ellipse(cx + ox, cy + oy, rr, rr * 0.64, 0, 0, 7); ctx.fill();
+    }
+    // Silver lining: a bright feathered crescent on the lobe edge facing the sun/moon, so the top
+    // catches the light and the cloud reads as a lit 3-D mass rather than a flat grey smudge.
+    if (lightStr > 0.02) {
+      const ldx = cx - lightX, ldy = cy - lightY, ld = Math.hypot(ldx, ldy) || 1;
+      const ux = ldx / ld, uy = ldy / ld;                       // unit vector cloud→away-from-light
+      const hx = cx - ux * cs * 0.75, hy = cy - uy * cs * 0.42;  // sit the highlight on the lit edge
+      const rimA = a * lightStr * (d.stormy ? 0.4 : 0.85), rl = cs * 1.05;
+      const rimCol = mix(lt, [255, 255, 255], 0.45);
+      const rg = ctx.createRadialGradient(hx, hy, rl * 0.08, hx, hy, rl);
+      rg.addColorStop(0, rgb(rimCol, rimA)); rg.addColorStop(0.45, rgb(rimCol, rimA * 0.35)); rg.addColorStop(1, rgb(rimCol, 0));
+      ctx.fillStyle = rg; ctx.beginPath(); ctx.ellipse(hx, hy, rl, rl * 0.6, 0, 0, 7); ctx.fill();
     }
   }
   // High CIRRUS — thin, wispy horizontal streaks near the top of the sky (a different cloud TYPE
@@ -763,11 +805,12 @@ export function paintWindshield(id, view) {
       if (v.aaTracer && v.aaTracer.dx != null) v._aaDrew3D = drawAATracer3D(ctx, cam, v, now);
       if (v.fireworks) drawFireworks(ctx, cam, v, now);   // admin fireworks bursting over a world tile
       if (vw.apTarget) drawAirportTarget(ctx, cam, vw, W, H, now);   // target-field ring / Home waypoint
+      if (vw.gates) drawGates(ctx, cam, vw, W, H, now);   // checkride pilot-wings rings
     }
     // External chase view: the OWN ship, projected through the very same chase camera as the
     // world (a real 3rd-person camera, not a sprite pasted on a cockpit view), at the craft's
     // eye-height with its gear swinging out/in.
-    if (ext) drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: 3.1, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl }, ownShipBaseWz(cam, v), sunFx, now);
+    if (ext) drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc }, ownShipBaseWz(cam, v), sunFx, now);
   }
 
   // Speed streaks (motion rush from the vanishing point) — forward view only.
@@ -1938,7 +1981,7 @@ export const BUILDING_FOOT = 0.42;
 export function buildingHeightZ(wx, wy, cell) {
   if (!cell) return 0;
   const k = cell.kind, bi = cell.biome;
-  if (k === 'air' || k === 'craft' || k === 'field' || k === 'nofly'
+  if (k === 'air' || cell.self || k === 'field' || k === 'nofly'
       || !bi || bi === 'water' || bi === 'parkland' || bi === 'badlands' || !cell.bt) return 0;
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
   return floorHeight(cell, seed);
@@ -2194,6 +2237,38 @@ function drawAirportTarget(ctx, cam, v, W, H, now) {
   ctx.restore();
 }
 
+// ── Checkride pilot-wings rings ───────────────────────────────────────────────
+// v.gates = { active, rings:[{dx,dy,altDiff,r}] } — fly-through gates for the flight
+// checkride. Each ring is a billboard circle placed at its world-z (altitude delta) and
+// projected through the SAME Mode-7 camera as everything else, so it grows as you close.
+// The active ring glows bright green + labelled; upcoming ones are dimmer; flown ones drop.
+function drawGates(ctx, cam, v, W, H, now) {
+  const g = v.gates; if (!g || !Array.isArray(g.rings) || !g.rings.length) return;
+  const t = (now || 0) * 0.004, pulse = 0.6 + 0.4 * Math.sin(t);
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let i = 0; i < g.rings.length; i++) {
+    if (i < g.active) continue;   // already flown
+    const ring = g.rings[i];
+    const wz = cam.EH + (ring.altDiff || 0) * CONTACT_ALT_K;
+    const p = cam.proj(ring.dx, ring.dy, wz);
+    if (p.f <= 0.12) continue;   // behind the camera
+    const isActive = i === g.active;
+    const rad = clamp((ring.r * 60) / p.f, 8, 260);
+    const col = isActive ? '120,255,180' : '90,170,130';
+    const a = isActive ? (0.55 + 0.45 * pulse) : 0.28;
+    ctx.strokeStyle = `rgba(${col},${a})`; ctx.lineWidth = isActive ? 4 : 2;
+    ctx.beginPath(); ctx.arc(p.sx, p.sy, rad, 0, 7); ctx.stroke();
+    ctx.strokeStyle = `rgba(${col},${a * 0.5})`; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(p.sx, p.sy, rad * 0.68, 0, 7); ctx.stroke();
+    if (isActive) {
+      ctx.fillStyle = `rgba(190,255,210,${0.7 + 0.3 * pulse})`; ctx.font = 'bold 8px monospace';
+      ctx.fillText(`RING ${i + 1}`, p.sx, p.sy - rad - 8);
+    }
+  }
+  ctx.restore();
+}
+
 // ── Air-to-air traffic ────────────────────────────────────────────────────────
 // Each contact is { dx, dy, altDiff, rng, reg, hullPct, cls, hdg, bank, pitch, designated }
 // relative to us (world tiles + altitude delta in feet + the bogey's own attitude). We
@@ -2203,6 +2278,12 @@ function drawAirportTarget(ctx, cam, v, W, H, now) {
 const CONTACT_ALT_K = 1 / 600;   // feet of altitude delta → world-z units (tune)
 const CONTACT_VS = 1.6;          // vertical exaggeration so the projected model isn't screen-squashed (tune)
 const CONTACT_SIZE = { ultralight: 0.06, heli: 0.11, prop: 0.11, heavy: 0.17, gunship: 0.13, wreck: 0.10 };   // Cessna ~0.55× the Twin Otter — a small light single (matches MODEL_SCALE in the hangar)
+// Own-ship EXTERNAL-chase scale: how much bigger the hero model draws than a same-class contact.
+// The chase camera sits a FIXED number of tiles back (chaseBack, normalised to CONTACT_SIZE.prop),
+// so lowering this shrinks the plane against the world/buildings without moving the camera — i.e. it
+// fixes plane↔building scale. It is the ONE own-ext multiplier: the draw, the ground anchor
+// (ownShipBaseWz/modelGroundDrop) and the gun muzzles all read it, so the gear stays pinned to the deck.
+const OWN_EXT_MUL = 2.3;
 const LOD_HI_TILES = 4.5;   // contacts nearer than this (or the own chase model) render the full-detail mesh; farther ones drop to the coarse LOD (they're only a few px)
 
 // The own-ship external-chase model's centre world-z. Two jobs, and it takes the higher of them:
@@ -2219,7 +2300,7 @@ const LOD_HI_TILES = 4.5;   // contacts nearer than this (or the own chase model
 const _groundDropCache = {};
 function modelGroundDrop(cls) {                                    // level gear drop (cached) → stable chase anchor
   if (_groundDropCache[cls] != null) return _groundDropCache[cls];
-  return (_groundDropCache[cls] = (CONTACT_SIZE[cls] || 0.11) * 3.1 * CONTACT_VS * (-modelLowestH(cls, 0, 0, 1)));
+  return (_groundDropCache[cls] = (CONTACT_SIZE[cls] || 0.11) * OWN_EXT_MUL * CONTACT_VS * (-modelLowestH(cls, 0, 0, 1)));
 }
 // The most-negative vertex height (craft units) with pitch/bank/gear applied — the model's true
 // lowest point. Mirrors drawAircraftModel's own transform + gear tuck so the floor matches the pixels.
@@ -2242,7 +2323,7 @@ function modelLowestH(cls, pitchDeg, bankDeg, gearAnim) {
   return m;
 }
 function ownShipBaseWz(cam, v) {
-  const S = (CONTACT_SIZE[v.cls] || 0.11) * 3.1 * CONTACT_VS;
+  const S = (CONTACT_SIZE[v.cls] || 0.11) * OWN_EXT_MUL * CONTACT_VS;
   const natural = modelGroundDrop(v.cls) + (cam.EHbase - RENDER_TUNE.eh) - RENDER_TUNE.chaseSink;   // chase anchor: level gear on deck + climb
   const floor = S * (-modelLowestH(v.cls, v.pitch, v.bank, v.gearAnim ?? 1)) - RENDER_TUNE.chaseSink;   // lowest actual vertex on z=0 (minus the seam trim)
   return Math.max(natural, floor);   // never let any part of the airframe dip below the ground
@@ -2430,10 +2511,15 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   } else if (c.cls === 'ultralight' || c.cls === 'prop' || c.cls === 'heli') {
     // Spinning props / rotors: real model-space blades + blur disc + tip glint via
     // the shared FX layer (aircraft3d.js), projected through this SAME camera and
-    // orientation so they bank and foreshorten with the craft. Rate rides the
-    // throttle; the layer draws the heli's main AND tail rotors itself.
+    // orientation so they bank and foreshorten with the craft. The own-ship (external
+    // chase) passes a spool CHOREOGRAPHY — propPhase (accumulated angle, so the blades
+    // slow smoothly to a stop), propSpin (blade smear, engine-on driven) and propDisc
+    // (blur-disc opacity, throttle driven): the blades spin up first, THEN the disc fades
+    // in; reversed on shutdown. Contacts pass none → old airspeed/power-driven look.
+    const spinBase = c.propPhase != null ? c.propPhase : (now || 0) * 0.001 * (2 + power * 16);
     drawRotorFX(ctx, c.cls, (lp) => { const q = P(lp); return q.f <= 0.08 ? null : q; },
-      { spin: (now || 0) * 0.001 * (2 + power * 16), power: 0.15 + power * 0.85 });
+      { spin: spinBase, power: 0.15 + power * 0.85,
+        disc: c.propDisc != null ? c.propDisc : null, spool: c.propSpin != null ? c.propSpin : null });
   }
   ctx.globalAlpha = 1;
 
@@ -2526,7 +2612,7 @@ function drawGunTracers(ctx, cam, v, now) {
       // External chase: the own ship is a MODEL at (0,0), so the guns must sit on its WINGS,
       // transformed by its heading/bank/pitch exactly like the drawn model — not "ahead of the
       // camera" (which is behind + above the plane, hence the rounds appearing over the top).
-      const SIZE = (CONTACT_SIZE[v.cls] || 0.11) * 3.1, baseWz = ownShipBaseWz(cam, v);
+      const SIZE = (CONTACT_SIZE[v.cls] || 0.11) * OWN_EXT_MUL, baseWz = ownShipBaseWz(cam, v);
       const roll = (v.bank || 0) * Math.PI / 180, pit = (v.pitch || 0) * Math.PI / 180;
       const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pit), sp = Math.sin(pit);
       const toWorld = (f, g, hh) => { const f1 = f * cp - hh * sp, h1 = f * sp + hh * cp, g2 = g * cr + h1 * sr, h2 = -g * sr + h1 * cr;
@@ -2628,51 +2714,71 @@ function muzzleFlash(ctx, cam, x, y, z) {
 // tile so the thing shooting at you is a PLACE you can spot from altitude and roll in on,
 // not just a bearing on the glass. Built from the same Mode-7 camera as the buildings, so it
 // banks and scrolls with the world. `v.aaSites` = [{dx, dy, name}] (live tile-offset from us).
-// A dark olive plinth + steel radar dish + twin rails, topped with a red target-lock beacon
-// that throbs — the pulse is what catches the eye against the terrain from a distance.
+// The installation we describe on the ground: a squat concrete BUNKER, an EXPOSED twin gun
+// on a turret that SLEWS to track the viewing pilot (barrels point straight at your aircraft
+// — the thing shooting at you is visibly aimed at you), and a RADAR antenna sweeping a slow
+// circle beside it, topped with a pulsing red target-lock beacon that catches the eye at range.
 function drawAASites(ctx, cam, v, now) {
   const sites = v.aaSites; if (!sites || !sites.length) return;
   const night = v.sky?.night || 0;
   const pulse = 0.45 + 0.55 * Math.abs(Math.sin(now / 300));   // target-lock throb (0.45..1)
-  const HW = 0.15, H_PLINTH = 0.06, H_DISH = 0.15, H_BEACON = 0.2;   // footprint + heights (tiles)
+  const sweep = (now / 620) % (Math.PI * 2);                   // radar antenna azimuth (rad)
+  const BW = 0.2, H_BUNK = 0.09, H_RAD = 0.17;                 // bunker half-width + heights (tiles)
+  const BL = 0.22, EL = 0.11;                                  // gun barrel length + elevation rise
   const P = (s, ox, oy, wz) => cam.proj(s.dx + ox, s.dy + oy, wz);
-  // Far → near so nearer turrets overpaint the ones behind them.
+  // Far → near so nearer installations overpaint the ones behind them.
   const list = sites.map(s => ({ s, f: P(s, 0, 0, 0).f })).filter(o => o.f > 0.14 && o.f < 20).sort((a, b) => b.f - a.f);
-  const corners = [[-HW, -HW], [HW, -HW], [HW, HW], [-HW, HW]];
+  const corners = [[-BW, -BW], [BW, -BW], [BW, BW], [-BW, BW]];
   for (const { s, f } of list) {
     const g = P(s, 0, 0, 0);
-    ctx.save(); ctx.lineJoin = 'round';
+    ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     // Contact shadow anchoring it to the ground.
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath(); ctx.ellipse(g.sx, g.sy, clamp(26 / f, 2, 60), clamp(9 / f, 1, 22), 0, 0, 7); ctx.fill();
-    // Plinth — a squat dark-olive box: side walls then the lit top face.
+    ctx.fillStyle = 'rgba(0,0,0,0.38)';
+    ctx.beginPath(); ctx.ellipse(g.sx, g.sy, clamp(34 / f, 3, 74), clamp(12 / f, 1, 26), 0, 0, 7); ctx.fill();
+    // Bunker — a squat concrete box: dark side walls then the lit top slab.
     const base = corners.map(([a, b]) => P(s, a, b, 0));
-    const top = corners.map(([a, b]) => P(s, a, b, H_PLINTH));
-    ctx.fillStyle = '#24281a';
+    const top = corners.map(([a, b]) => P(s, a, b, H_BUNK));
+    ctx.fillStyle = '#2f2f2a';
     for (let i = 0; i < 4; i++) {
       const j = (i + 1) % 4;
       ctx.beginPath(); ctx.moveTo(base[i].sx, base[i].sy); ctx.lineTo(base[j].sx, base[j].sy);
       ctx.lineTo(top[j].sx, top[j].sy); ctx.lineTo(top[i].sx, top[i].sy); ctx.closePath(); ctx.fill();
     }
-    ctx.fillStyle = '#3c422c';
+    ctx.fillStyle = '#45443d';
     ctx.beginPath(); ctx.moveTo(top[0].sx, top[0].sy); for (let i = 1; i < 4; i++) ctx.lineTo(top[i].sx, top[i].sy); ctx.closePath(); ctx.fill();
-    // Twin gun/missile rails angled up off the plinth.
-    ctx.strokeStyle = '#4a4f38'; ctx.lineWidth = clamp(3.5 / f, 0.8, 5); ctx.lineCap = 'round';
+    // Bunker hatch — a dark square on the top slab (where the crew drop into the bunker).
+    const h = 0.06, hatch = [[-h, -h], [h, -h], [h, h], [-h, h]].map(([a, b]) => P(s, a, b, H_BUNK + 0.001));
+    ctx.fillStyle = '#1c1c18';
+    ctx.beginPath(); ctx.moveTo(hatch[0].sx, hatch[0].sy); for (let i = 1; i < 4; i++) ctx.lineTo(hatch[i].sx, hatch[i].sy); ctx.closePath(); ctx.fill();
+
+    // Radar mast + sweeping antenna, off one corner of the bunker.
+    const rx = BW * 0.78, ry = -BW * 0.55;
+    const rmBot = P(s, rx, ry, H_BUNK), rmTop = P(s, rx, ry, H_RAD);
+    ctx.strokeStyle = '#6b7060'; ctx.lineWidth = clamp(3 / f, 0.7, 5);
+    ctx.beginPath(); ctx.moveTo(rmBot.sx, rmBot.sy); ctx.lineTo(rmTop.sx, rmTop.sy); ctx.stroke();
+    const rb = 0.075, ca = Math.cos(sweep) * rb, sa = Math.sin(sweep) * rb;   // rotating bar in ground plane
+    const e0 = P(s, rx + ca, ry + sa, H_RAD), e1 = P(s, rx - ca, ry - sa, H_RAD);
+    ctx.strokeStyle = '#aeb69a'; ctx.lineWidth = clamp(2.4 / f, 0.6, 4);
+    ctx.beginPath(); ctx.moveTo(e0.sx, e0.sy); ctx.lineTo(e1.sx, e1.sy); ctx.stroke();
+    // Leading-edge sweep node — a faint blip riding the antenna tip.
+    ctx.fillStyle = 'rgba(150,220,140,0.7)';
+    ctx.beginPath(); ctx.arc(e0.sx, e0.sy, clamp(2.6 / f, 0.6, 4), 0, 7); ctx.fill();
+
+    // Exposed twin gun on a turret drum, SLEWED to point at the viewing pilot. The eye is at
+    // offset (0,0); the barrels lie along the ground vector from the gun toward it and tilt up.
+    const len = Math.hypot(s.dx, s.dy) || 1, ux = -s.dx / len, uy = -s.dy / len, px = -uy, py = ux;
+    const drum0 = P(s, 0, 0, H_BUNK), drum1 = P(s, 0, 0, H_BUNK + 0.05);
+    ctx.strokeStyle = '#3f443c'; ctx.lineWidth = clamp(9 / f, 2, 16);
+    ctx.beginPath(); ctx.moveTo(drum0.sx, drum0.sy); ctx.lineTo(drum1.sx, drum1.sy); ctx.stroke();   // turret drum
+    ctx.strokeStyle = '#565c50'; ctx.lineWidth = clamp(3.4 / f, 0.9, 5.5);
     for (const side of [-1, 1]) {
-      const b0 = P(s, side * 0.05, 0, H_PLINTH + 0.01), b1 = P(s, side * 0.17, 0.02, H_DISH + 0.03);
+      const ox = px * 0.028 * side, oy = py * 0.028 * side;
+      const b0 = P(s, ox, oy, H_BUNK + 0.05), b1 = P(s, ux * BL + ox, uy * BL + oy, H_BUNK + 0.05 + EL);
       ctx.beginPath(); ctx.moveTo(b0.sx, b0.sy); ctx.lineTo(b1.sx, b1.sy); ctx.stroke();
     }
-    // Mast + steel radar dish.
-    const mBot = P(s, 0, 0, H_PLINTH), dish = P(s, 0, 0, H_DISH);
-    ctx.strokeStyle = '#5a5f45'; ctx.lineWidth = clamp(4.5 / f, 1, 8);
-    ctx.beginPath(); ctx.moveTo(mBot.sx, mBot.sy); ctx.lineTo(dish.sx, dish.sy); ctx.stroke();
-    const dR = clamp(22 / f, 3, 46);
-    ctx.save(); ctx.translate(dish.sx, dish.sy); ctx.rotate(-0.5);
-    ctx.fillStyle = '#7c8466'; ctx.beginPath(); ctx.ellipse(0, 0, dR, dR * 0.5, 0, 0, 7); ctx.fill();
-    ctx.strokeStyle = '#c8d0a8'; ctx.lineWidth = clamp(2 / f, 0.6, 3); ctx.stroke();
-    ctx.restore();
-    // Pulsing red target-lock beacon on top — the long-range eye-catcher.
-    const bcn = P(s, 0, 0, H_BEACON), bR = clamp(7 / f, 1.5, 14) * (0.7 + 0.6 * pulse);
+
+    // Pulsing red target-lock beacon on the radar mast — the long-range eye-catcher.
+    const bcn = P(s, rx, ry, H_RAD + 0.03), bR = clamp(7 / f, 1.5, 14) * (0.7 + 0.6 * pulse);
     if (night > 0.3) { ctx.shadowColor = 'rgba(255,40,30,0.95)'; ctx.shadowBlur = 8 + night * 12; }
     const bg = ctx.createRadialGradient(bcn.sx, bcn.sy, 0, bcn.sx, bcn.sy, bR * 2);
     bg.addColorStop(0, `rgba(255,90,70,${0.6 + 0.4 * pulse})`); bg.addColorStop(0.4, `rgba(255,40,30,${0.5 * pulse})`); bg.addColorStop(1, 'rgba(255,20,20,0)');
@@ -2701,10 +2807,13 @@ function drawAATracer3D(ctx, cam, v, now) {
   if (tr.t < 0.35) muzzleFlash(ctx, cam, M[0], M[1], M[2]);   // the gun flickers while the volley leaves
   const rnd = (i) => frac(Math.sin(tr.seed * 37.7 + i * 17.3) * 43758.55);
   for (let i = 0; i < 4; i++) {
-    // Aim point: near the eye but spread wide/high per round — the burst converges on the
-    // cockpit and streaks past overhead rather than terminating on the glass.
-    const A = [-tr.dx * 0.12 + (rnd(i) - 0.5) * 0.6, -tr.dy * 0.12 + (rnd(i + 9) - 0.5) * 0.6,
-      cam.EH + 0.02 + rnd(i + 4) * 0.06];
+    // Aim point depends on the server's hit/miss (tr.hit): a HIT walks the burst tight onto
+    // the cockpit (converges on the eye, in sync with the air_hit flash); a MISS overshoots
+    // the eye and sprays wide/high so it streaks past the glass. Honest either way.
+    const past = tr.hit ? 0.0 : 0.12;      // miss overshoots the eye; hit terminates on it
+    const spread = tr.hit ? 0.05 : 0.6;    // hit converges; miss sprays
+    const A = [-tr.dx * past + (rnd(i) - 0.5) * spread, -tr.dy * past + (rnd(i + 9) - 0.5) * spread,
+      cam.EH + (tr.hit ? -0.015 : 0.02) + rnd(i + 4) * (tr.hit ? 0.03 : 0.06)];
     const f0 = clamp(tr.t * 1.3 - i * 0.08, 0, 1);   // staggered rounds racing up the same line
     if (f0 <= 0 || f0 >= 1) continue;
     const lerp3 = (f) => [M[0] + (A[0] - M[0]) * f, M[1] + (A[1] - M[1]) * f, M[2] + (A[2] - M[2]) * f];
@@ -3360,7 +3469,6 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     case 'embassy': {   // Embassy Hotel & Bar: warm guest tower + big marquee (bar podium removed — it wasn't reading right)
       const neon = m.neon || '#ff4a9a';
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, 0, h * 1.55, pal, seed, night, alpha, true);                    // single warm ochre tower, ground to roof
-      { const [cx, cy] = F(0, fh * 1.15); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.95, h * 0.2, h * 0.3, 'ty_door', seed + 5, night, alpha, false); }   // grand entrance canopy
       // ONE tall lit VERTICAL marquee up the front — EMBASSY stacked E-M-B-A-S-S-Y — only when
       // the front (marquee) face is actually toward you, so it never shows through from behind.
       if (frontVis) { const [nx, ny] = F(fh * 0.72, fh * 0.66); verticalMarquee(ctx, cam, nx, ny, h * 0.42, h * 1.5, 'EMBASSY', neon, night, alpha); }
@@ -3599,7 +3707,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   const FAR = VISIBLE_FAR_F, wcx = v.mapCenter ? v.mapCenter.x : 0, wcy = v.mapCenter ? v.mapCenter.y : 0;
   const items = [];
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
-    const c = map[ry][rx]; if (!c || c.kind === 'air' || c.kind === 'craft' || c.kind === 'field' || c.biome === 'water') continue;
+    const c = map[ry][rx]; if (!c || c.kind === 'air' || c.self || c.kind === 'field' || c.biome === 'water') continue;
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     // Near-clip against the CAMERA, not the craft: in the external chase view the camera sits
     // `back` tiles behind the aircraft, so a building that has slipped behind the model is still

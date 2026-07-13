@@ -1,0 +1,95 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": { "type": "start", "next": "idle" },
+      "idle": { "type": "wait", "seconds": 60, "next": "idle" }
+    }
+  },
+  "chitchat": [
+    "\"Anybody can point a plane at the sky. Landing it is the exam.\"",
+    "\"Yoke's inverted — pull back to climb. Learn it now, not at fifty feet.\"",
+    "\"I've signed off worse pilots than you. A few of them even came back.\""
+  ],
+  "description": "A trim, silver-haired woman in a faded flight instructor's jacket, a clipboard tucked under one arm and a headset slung round her neck. She watches the ramp the way a surgeon watches a heartbeat monitor — patient, unblinking, cataloguing every twitch. The wings stitched over her breast pocket are worn to threads.",
+  "dialogue_tree": {
+    "accepted": {
+      "actions": [
+        { "action": "START_CHECKRIDE" }
+      ],
+      "options": [],
+      "text": "\"Then quit talking and start flying.\" She walks you out to a trainer Mayfly idling on the ramp and folds herself into the seat beside you. \"Follow my calls. Try not to embarrass either of us.\""
+    },
+    "already": {
+      "options": [
+        { "label": "Just checking in.", "next": "bye" }
+      ],
+      "text": "\"You're already rated — I signed your ticket myself. Sky's yours. Don't make me regret it.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "She gives a curt nod and goes back to watching the ramp."
+    },
+    "offer": {
+      "options": [
+        { "label": "I'm ready. Let's go.", "next": "accepted" },
+        { "label": "Not just yet.", "next": "bye" }
+      ],
+      "text": "\"A checkride. You'll fly a trainer Mayfly off my ramp, thread a course of rings I'll throw up in front of you — climb, turn, come around — and grease her back onto Coldwater Regional, Grade B or better. Bend the aircraft and we start over; the trainers are free and I've a hangar of them. Two things before you strap in: the ENGINE switch lights her up, and the yoke is INVERTED — drag DOWN to pull back and climb. Everybody forgets that one. Once.\""
+    },
+    "tips": {
+      "options": [
+        { "label": "Got it.", "next": "root" }
+      ],
+      "text": "\"Throttle's on A and Z. Steer with the yoke — left and right to bank, and remember she's inverted: down to climb, up to descend. Keep your speed up in the turns, ease it down on final. The rings tell you where; the horizon tells you how.\""
+    },
+    "root": {
+      "options": [
+        {
+          "conditions": [
+            { "flag": "air_pilot_licensed", "op": "unset", "scope": "player" }
+          ],
+          "label": "I want my pilot's licence.",
+          "next": "offer"
+        },
+        {
+          "conditions": [
+            { "flag": "air_pilot_licensed", "op": "set", "scope": "player" }
+          ],
+          "label": "Good to be rated.",
+          "next": "already"
+        },
+        { "label": "How do these things fly?", "next": "tips" },
+        { "label": "(walk off)", "next": "bye" }
+      ],
+      "text": "The silver-haired woman clocks you the moment you step onto the hangar floor. \"Looking to fly? Nobody takes the pilot seat around here until they've flown a checkride with me. Name's Reyes. I decide who gets to leave the ground.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a faded flight instructor's jacket with worn pilot's wings stitched over the pocket",
+      "a pressed uniform shirt and slacks",
+      "a headset slung around the neck"
+    ],
+    "personality": "charter_pilot"
+  },
+  "home_activities": [],
+  "home_zone": "zone_hangar_outskirts",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_examiner_reyes",
+  "name": "Examiner Dela Reyes",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hangar_outskirts"
+}

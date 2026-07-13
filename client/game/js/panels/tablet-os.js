@@ -16,7 +16,7 @@
 // (Tablet has no proactive multi-client push to patch against).
 import { sfx, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays } from './minigame-common.js';
 import { sendCmdSilent } from '../net.js';
-import { toggleAutoWalk, isAutoWalking, setGpsRoute, routeBetween, getTracePath, FUNC_LEGEND, POI_LEGEND } from './minimap.js';
+import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, FUNC_LEGEND, POI_LEGEND } from './minimap.js';
 import { state } from '../state.js';
 import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES, DEFAULT_AUDIO_SETTINGS } from '/shared/settings.js';
 import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpdate, getOnlinePlayers, refreshOnlinePlayers, ensureChatConversation, leaveChatConversation, removeCorpChannels, getClosedChatTabs, reopenChatTab, getMotdHtml } from './whisper.js';
@@ -123,6 +123,17 @@ let _tosMisListenerBound = false; // one-time bind of the server mis_state_updat
 let _tosCorpSel = null; // Corp Territory Map: selected zone id (client-side, no round trip)
 let _tosCorpPage = 0; // Corp dashboard: current page (Overview/Operatives/Territory/Diplomacy), client-side
 let _tosMapSel = null; // Map app: tapped/destination zone id (client-side, drives the GPS route)
+// Map app zoom: the tile pixel size, stepped by the +/- buttons. More levels than
+// the sidebar minimap's three since the tablet shows the whole level at once. Index 3
+// (48px) is the built-in default matching the CSS. Persisted client-side.
+const TOS_MAP_ZOOM_KEY = 'tos_map_zoom';
+const TOS_TILE_ZOOMS = [24, 32, 40, 48, 56, 68, 84];
+let _tosMapZoom = 3;
+try { const z = parseInt(localStorage.getItem(TOS_MAP_ZOOM_KEY), 10); if (z >= 0 && z < TOS_TILE_ZOOMS.length) _tosMapZoom = z; } catch {}
+// Keep the Map app's Run button lit in step with the sidebar toggle (run_state echo).
+onRunStateChange((running) => {
+  _overlay?.querySelector('[data-map-run]')?.classList.toggle('active', running);
+});
 let _gearLayer = 2; // Gear app: displayed body layer (0 skin / 1 clothes / 2 armor), client-side
 let _gearTab = 'inventory';  // Gear app primary tab: 'inventory' (full paged pack) or 'loadout' (paperdoll)
 let _gearTrayPage = 0;       // Gear app: current page of the loadout carried tray
@@ -282,6 +293,25 @@ function ensureStyles() {
     .tos-tile-drag .tos-icon { font-size:21px; display:block; margin-bottom:4px; }
     .tos-tile-drag .tos-icon svg { width:22px; height:22px; }
     .tos-tile-drag .tos-name { font-size:11px; letter-spacing:.5px; }
+    /* Dragged off the tablet: the clone reddens to signal "release = remove". */
+    .tos-tile-drag.tos-tile-removing { transform:scale(.92); opacity:.7;
+      border-color:var(--red,#e0413a) !important; box-shadow:0 8px 22px rgba(0,0,0,.5), 0 0 16px color-mix(in srgb, var(--red,#e0413a) 60%, transparent); }
+    .tos-tile-drag.tos-tile-removing .tos-name::after { content:' ✕'; color:var(--red,#e0413a); }
+    /* The ⊕ "add apps" tile — dashed, dimmed, to read as a slot rather than an app. */
+    #tablet-os-overlay .tos-tile-add { background:none; border-style:dashed;
+      border-color:color-mix(in srgb, var(--mg-accent) 30%, transparent); box-shadow:none; opacity:.72; }
+    #tablet-os-overlay .tos-tile-add:hover { opacity:1; box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 22%, transparent); }
+    #tablet-os-overlay .tos-tile-add .tos-icon { color:var(--mg-accent); }
+    /* Add-apps sheet: a scrim + card over the home screen, listing removed apps. */
+    #tablet-os-overlay .tos-addsheet { position:absolute; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
+      padding:18px; background:color-mix(in srgb, var(--bg,#030806) 72%, transparent); backdrop-filter:blur(2px); }
+    #tablet-os-overlay .tos-addsheet-card { width:100%; max-width:340px; max-height:88%; overflow:auto; padding:14px;
+      border-radius:10px; border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent);
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); box-shadow:0 12px 34px rgba(0,0,0,.55); }
+    #tablet-os-overlay .tos-addsheet-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;
+      font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-addsheet-x { cursor:pointer; color:var(--mg-accent); font-size:14px; padding:0 4px; }
+    #tablet-os-overlay .tos-addsheet-x:hover { filter:brightness(1.2); }
     #tablet-os-overlay .tos-tile .tos-icon { font-size:21px; display:block; margin-bottom:4px; color:var(--tos-fg); }
     #tablet-os-overlay .tos-tile .tos-icon svg { width:22px; height:22px; display:inline-block; vertical-align:middle; }
     /* Two-tone: primary uses currentColor (theme fg); the .dim parts pick up a muted derived tone. */
@@ -882,9 +912,21 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-mini:active { transform:translateY(1px); }
     #tablet-os-overlay .tos-map-mini.active { color:#04120f; background:linear-gradient(165deg, color-mix(in srgb, var(--mg-accent) 100%, white 15%), var(--mg-accent)); box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
     #tablet-os-overlay .tos-map-mini.disabled { opacity:.35; pointer-events:none; }
+    #tablet-os-overlay .tos-map-ctl { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin:6px 0; }
+    #tablet-os-overlay .tos-map-zoom { display:inline-flex; margin-left:auto; gap:0; border-radius:6px; overflow:hidden;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent); }
+    #tablet-os-overlay .tos-mz { cursor:pointer; width:32px; height:30px; font-size:18px; line-height:1; color:var(--mg-accent);
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:none; border-left:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-mz:first-child { border-left:none; }
+    #tablet-os-overlay .tos-mz:hover:not(:disabled) { filter:brightness(1.18); }
+    #tablet-os-overlay .tos-mz:active:not(:disabled) { transform:translateY(1px); }
+    #tablet-os-overlay .tos-mz:disabled { opacity:.35; cursor:default; }
     #tablet-os-overlay .tos-map-wrap { max-height:440px; overflow:auto; scrollbar-width:thin; scrollbar-color:color-mix(in srgb,var(--mg-accent) 40%,transparent) transparent;
+      cursor:grab; touch-action:none;
       display:grid; place-content:safe center;
       background:radial-gradient(130% 130% at 50% 40%, color-mix(in srgb, var(--mg-accent) 7%, var(--bg,#030806)) 55%, var(--bg,#01050a) 100%); border:1px solid color-mix(in srgb,var(--mg-accent) 20%,transparent); border-radius:6px; padding:8px; }
+    #tablet-os-overlay .tos-map-wrap.grabbing { cursor:grabbing; }
     #tablet-os-overlay .tos-map-wrap::-webkit-scrollbar { width:7px; height:7px; }
     #tablet-os-overlay .tos-map-wrap::-webkit-scrollbar-thumb { background:color-mix(in srgb,var(--mg-accent) 35%,transparent); border-radius:5px; }
     #tablet-os-overlay .tos-map-grid { display:grid; position:relative; --tos-tile:48px; }
@@ -1441,6 +1483,9 @@ const CLIENT_APPS = [{ id: 'music', name: 'Music', category: 'Media' }];
 // of app ids in display order, cached in localStorage. It never touches the
 // server; a fresh device simply falls back to registration order.
 const TABLET_APP_ORDER_KEY = 'architect_tablet_app_order';
+// Apps the player has flung off the home grid. Client-only, like the order — a list
+// of ids; anything here is dropped from the grid and offered back under the ⊕ tile.
+const TABLET_APP_HIDDEN_KEY = 'architect_tablet_hidden_apps';
 let _suppressTileClick = false; // swallow the click that fires right after a drag-drop
 
 function loadAppOrder() {
@@ -1449,6 +1494,20 @@ function loadAppOrder() {
 }
 function saveAppOrder(ids) {
   try { if (ids?.length) localStorage.setItem(TABLET_APP_ORDER_KEY, JSON.stringify(ids)); } catch {}
+}
+function loadHiddenApps() {
+  try { const a = JSON.parse(localStorage.getItem(TABLET_APP_HIDDEN_KEY)); return Array.isArray(a) ? a : []; }
+  catch { return []; }
+}
+function saveHiddenApps(ids) {
+  try { localStorage.setItem(TABLET_APP_HIDDEN_KEY, JSON.stringify(ids || [])); } catch {}
+}
+function hideApp(id) {
+  const h = loadHiddenApps();
+  if (!h.includes(id)) { h.push(id); saveHiddenApps(h); }
+}
+function unhideApp(id) {
+  saveHiddenApps(loadHiddenApps().filter(x => x !== id));
 }
 
 // Reorder apps to the cached arrangement: saved-order apps first (in saved order),
@@ -1464,9 +1523,10 @@ function applyAppOrder(apps) {
 }
 
 function renderHomeApps(apps) {
-  const all = applyAppOrder([...(apps || []), ...CLIENT_APPS]);
-  if (!all.length) return '<div class="tos-empty">No applications registered.</div>';
-  return `<div class="tos-grid">${all.map(a => {
+  const hidden = new Set(loadHiddenApps());
+  const all = applyAppOrder([...(apps || []), ...CLIENT_APPS]).filter(a => !hidden.has(a.id));
+  if (!all.length && !hidden.size) return '<div class="tos-empty">No applications registered.</div>';
+  const tiles = all.map(a => {
     const svg = TOS_APP_ICONS[a.id];
     const icon = svg ? svg : esc(a.icon || '▫');
     // A positive `notify` count (e.g. SPECTER reels waiting to be clipped) lights a
@@ -1474,7 +1534,46 @@ function renderHomeApps(apps) {
     const n = Number(a.notify) || 0;
     const badge = n > 0 ? `<span class="tos-tile-badge">${n > 9 ? '9+' : n}</span>` : '';
     return `<div class="tos-tile" data-nav-app="${esc(a.id)}">${badge}<span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
-  }).join('')}</div>`;
+  }).join('');
+  // The ⊕ tile — always last, opens the "add removed apps" sheet. Excluded from the
+  // drag-reorder / drag-off machinery (it isn't a real app).
+  const add = `<div class="tos-tile tos-tile-add" data-tos-addapps="1" title="Add apps"><span class="tos-icon">⊕</span><span class="tos-name">Add</span></div>`;
+  return `<div class="tos-grid">${tiles}${add}</div>`;
+}
+
+// The "add removed apps" sheet — a client-side card over the home screen listing every
+// app the player has flung off the grid. Tap one to put it back. No server round trip.
+function openAddAppsSheet() {
+  if (!_overlay) return;
+  const screen = _overlay.querySelector('#tos-screen-inner');
+  if (!screen) return;
+  screen.querySelector('.tos-addsheet')?.remove();
+  const hidden = loadHiddenApps();
+  const byId = new Map([...(_data?.apps || []), ...CLIENT_APPS].map(a => [a.id, a]));
+  const apps = hidden.map(id => byId.get(id)).filter(Boolean);
+  const body = apps.length
+    ? `<div class="tos-grid">${apps.map(a => {
+        const svg = TOS_APP_ICONS[a.id];
+        const icon = svg ? svg : esc(a.icon || '▫');
+        return `<div class="tos-tile" data-readd-app="${esc(a.id)}"><span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
+      }).join('')}</div>`
+    : '<div class="tos-empty">Nothing removed. Drag an app off the tablet to stash it here.</div>';
+  const sheet = document.createElement('div');
+  sheet.className = 'tos-addsheet';
+  sheet.innerHTML = `<div class="tos-addsheet-card">
+    <div class="tos-addsheet-hdr"><span>Add apps</span><span class="tos-addsheet-x" data-addsheet-close title="Close">✕</span></div>
+    ${body}
+  </div>`;
+  screen.appendChild(sheet);
+  sfx(TOS_SELECT_DEF);
+  const close = () => sheet.remove();
+  sheet.addEventListener('click', (e) => { if (e.target === sheet) close(); });
+  sheet.querySelector('[data-addsheet-close]')?.addEventListener('click', close);
+  sheet.querySelectorAll('[data-readd-app]').forEach(el => el.addEventListener('click', () => {
+    unhideApp(el.getAttribute('data-readd-app'));
+    close();
+    render();  // rebuild home from _data with the app restored
+  }));
 }
 
 // Long-press-to-lift drag reorder for the home app grid (the mobile home-screen
@@ -1494,7 +1593,7 @@ function wireAppGridDrag(grid) {
     // between two neighbouring slots (each insert reflowed the grid and flipped
     // which neighbour was "nearest"). Swap past whichever real tile is closest,
     // on the side it sits relative to the drag tile in DOM order.
-    const tiles = [...grid.querySelectorAll('.tos-tile')];
+    const tiles = [...grid.querySelectorAll('.tos-tile:not(.tos-tile-add)')];
     let target = null, best = Infinity;
     for (const t of tiles) {
       const b = t.getBoundingClientRect();
@@ -1525,12 +1624,24 @@ function wireAppGridDrag(grid) {
     sfx(TOS_SELECT_DEF);
   };
 
+  // True when the pointer has strayed outside the tablet's screen — dropping here
+  // flings the app off the grid (into the ⊕ stash) rather than reordering it.
+  const offTablet = (x, y) => {
+    const screen = _overlay?.querySelector('#tos-screen-inner');
+    if (!screen) return false;
+    const b = screen.getBoundingClientRect();
+    return x < b.left || x > b.right || y < b.top || y > b.bottom;
+  };
+
   const onMove = (e) => {
     if (drag) {
       e.preventDefault();
       drag.clone.style.left = (e.clientX - drag.offX) + 'px';
       drag.clone.style.top = (e.clientY - drag.offY) + 'px';
-      reflow(e.clientX, e.clientY);
+      drag.lastX = e.clientX; drag.lastY = e.clientY;
+      const off = offTablet(e.clientX, e.clientY);
+      drag.clone.classList.toggle('tos-tile-removing', off);
+      if (!off) reflow(e.clientX, e.clientY); // only reshuffle while still over the grid
       return;
     }
     if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > CANCEL_MOVE) {
@@ -1544,20 +1655,29 @@ function wireAppGridDrag(grid) {
     window.removeEventListener('pointercancel', end);
     if (press) { clearTimeout(press.timer); press = null; }
     if (drag) {
+      const dropOff = offTablet(drag.lastX, drag.lastY);
+      const appId = drag.tile.getAttribute('data-nav-app');
       drag.clone.remove();
       drag.tile.classList.remove('tos-tile-ghost');
       grid.classList.remove('tos-grid-arranging');
-      saveAppOrder([...grid.querySelectorAll('.tos-tile')].map(t => t.getAttribute('data-nav-app')).filter(Boolean));
-      drag = null;
       _suppressTileClick = true;                       // the drop's trailing click must not open an app
       setTimeout(() => { _suppressTileClick = false; }, 0);
+      if (dropOff && appId) {
+        // Flung off the tablet → stash it under ⊕ and rebuild home.
+        hideApp(appId);
+        drag = null;
+        render();
+        return;
+      }
+      saveAppOrder([...grid.querySelectorAll('.tos-tile')].map(t => t.getAttribute('data-nav-app')).filter(Boolean));
+      drag = null;
     }
   };
 
   grid.addEventListener('pointerdown', (e) => {
     if (e.button > 0) return;
     const tile = e.target.closest('.tos-tile');
-    if (!tile) return;
+    if (!tile || tile.classList.contains('tos-tile-add')) return; // ⊕ tile isn't draggable
     press = { tile, x: e.clientX, y: e.clientY, timer: setTimeout(begin, LIFT_MS) };
     window.addEventListener('pointermove', onMove, { passive: false });
     window.addEventListener('pointerup', end);
@@ -1864,7 +1984,7 @@ function renderTabletSettings() {
     Layout: (layoutRows || '') +
       `<div class="tos-set-row"><span class="tos-set-label">Sidebar Order<span class="tos-set-val">Drag order &amp; hidden panels</span></span>
         <span class="tos-btn-sub" data-reset-sidebar="1" style="margin:0">Reset to Default</span></div>` +
-      `<div class="tos-set-row"><span class="tos-set-label">Home App Layout<span class="tos-set-val">Your dragged tile order</span></span>
+      `<div class="tos-set-row"><span class="tos-set-label">Home App Layout<span class="tos-set-val">Tile order + restore removed apps</span></span>
         <span class="tos-btn-sub" data-reset-apps="1" style="margin:0">Reset to Default</span></div>`,
     Sound: soundRow + audioToggleRows + volRows +
       `<div class="tos-set-row"><span class="tos-set-label">Sound Settings<span class="tos-set-val">Toggles &amp; volumes</span></span>
@@ -2144,7 +2264,7 @@ function renderMap(d) {
   const tById = new Map();
   for (const t of tiles) { cell[rowOf(t)][colOf(t)] = t; tById.set(t.id, t); }
 
-  let grid = `<div class="tos-map-grid" style="grid-template-columns:repeat(${gCols},var(--tos-tile));grid-template-rows:repeat(${gRows},var(--tos-tile))">`;
+  let grid = `<div class="tos-map-grid" style="--tos-tile:${TOS_TILE_ZOOMS[_tosMapZoom]}px;grid-template-columns:repeat(${gCols},var(--tos-tile));grid-template-rows:repeat(${gRows},var(--tos-tile))">`;
   for (let r = 0; r < gRows; r++) for (let c = 0; c < gCols; c++) {
     const t = cell[r][c];
     const pos = `grid-column:${c + 1};grid-row:${r + 1}`;
@@ -2192,7 +2312,26 @@ function renderMap(d) {
     grid += `<svg class="tos-gps-svg" viewBox="0 0 ${gCols} ${gRows}" preserveAspectRatio="none"><polyline class="tos-gps-line" points="${gpsPts.join(' ')}"/></svg>`;
   grid += '</div>';
 
-  return `<div class="tos-map-tabs">${tabs}</div>${renderMapBar(d)}<div class="tos-map-wrap">${grid}</div>${renderMapLegend(mode)}<div class="tos-map-detail" id="tos-map-detail">${renderMapDetail(d)}</div>`;
+  return `<div class="tos-map-tabs">${tabs}</div>${renderMapCtl()}${renderMapBar(d)}<div class="tos-map-wrap">${grid}</div>${renderMapLegend(mode)}<div class="tos-map-detail" id="tos-map-detail">${renderMapDetail(d)}</div>`;
+}
+
+// Persistent map controls (mirroring the sidebar minimap): Run + Auto-walk toggles,
+// a recenter-on-you button, and a −/+ zoom stepper. Run/Auto reflect the shared
+// minimap state so they light up wherever it's driven from.
+function renderMapCtl() {
+  const run = isRunning() ? ' active' : '';
+  const auto = isAutoWalking() ? ' active' : '';
+  const zoutOff = _tosMapZoom <= 0 ? ' disabled' : '';
+  const zinOff = _tosMapZoom >= TOS_TILE_ZOOMS.length - 1 ? ' disabled' : '';
+  return `<div class="tos-map-ctl">
+    <span class="tos-map-mini${run}" data-map-run title="Toggle running">🏃 Run</span>
+    <span class="tos-map-mini${auto}" data-map-autotoggle title="Toggle auto-walk to the plotted route">➤ Auto</span>
+    <span class="tos-map-mini" data-map-recenter title="Recenter on you">◎ Center</span>
+    <span class="tos-map-zoom">
+      <button class="tos-mz" data-map-zoom="out" title="Zoom out"${zoutOff}>−</button>
+      <button class="tos-mz" data-map-zoom="in" title="Zoom in"${zinOff}>+</button>
+    </span>
+  </div>`;
 }
 
 function renderMapBar(d) {
@@ -2206,10 +2345,8 @@ function renderMapBar(d) {
   } else {
     status = 'Tap a tile, then Route here to plot a GPS course.';
   }
-  const auto = route.length > 1
-    ? `<span class="tos-map-mini${isAutoWalking() ? ' active' : ''}" data-map-auto>🏃 Auto-walk</span>` : '';
   const clear = route.length > 1 ? `<span class="tos-map-mini" data-map-clear>✕ Clear</span>` : '';
-  return `<div class="tos-map-bar"><span class="tos-map-route">${status}</span>${auto}${clear}</div>`;
+  return `<div class="tos-map-bar"><span class="tos-map-route">${status}</span>${clear}</div>`;
 }
 
 function renderMapLegend(mode) {
@@ -3555,6 +3692,10 @@ function wireBody() {
   // Home-grid tiles are drag-reorderable (order cached locally, never sent up).
   const appGrid = _overlay.querySelector('.tos-grid');
   if (appGrid) wireAppGridDrag(appGrid);
+  _overlay.querySelector('[data-tos-addapps]')?.addEventListener('click', () => {
+    if (_suppressTileClick) return; // a drag just ended; don't also open the sheet
+    openAddAppsSheet();
+  });
   _overlay.querySelectorAll('[data-back]').forEach(el => {
     el.addEventListener('click', () => {
       const appId = el.getAttribute('data-back');
@@ -3744,10 +3885,95 @@ function wireMap() {
     });
   });
   wireMapActs();
-  const auto = _overlay.querySelector('[data-map-auto]');
-  if (auto) auto.addEventListener('click', () => { toggleAutoWalk(); rebuildMap(); });
   const clear = _overlay.querySelector('[data-map-clear]');
   if (clear) clear.addEventListener('click', () => { setGpsRoute(null); rebuildMap(); });
+  // Persistent controls: Run (server round-trip, echoes run_state), Auto-walk toggle,
+  // recenter-on-you, and the −/+ zoom stepper (client-side, live, no rebuild).
+  _overlay.querySelector('[data-map-run]')?.addEventListener('click', () => sendCmdSilent('run'));
+  _overlay.querySelector('[data-map-autotoggle]')?.addEventListener('click', () => { toggleAutoWalk(); rebuildMap(); });
+  _overlay.querySelector('[data-map-recenter]')?.addEventListener('click', centerMapOnPlayer);
+  _overlay.querySelectorAll('[data-map-zoom]').forEach((b) => b.addEventListener('click', () => {
+    const dir = b.getAttribute('data-map-zoom') === 'in' ? 1 : -1;
+    const next = Math.min(TOS_TILE_ZOOMS.length - 1, Math.max(0, _tosMapZoom + dir));
+    if (next === _tosMapZoom) return;
+    _tosMapZoom = next;
+    try { localStorage.setItem(TOS_MAP_ZOOM_KEY, String(_tosMapZoom)); } catch {}
+    applyMapZoom();
+    updateMapZoomBtns();
+  }));
+  // Drag anywhere on the map to scroll it; default to the player centred on (re)build.
+  wireMapDrag(_overlay.querySelector('.tos-map-wrap'));
+  updateMapZoomBtns();
+  centerMapOnPlayer();
+}
+
+// Scroll the map so the tile you're standing on sits in the middle of the viewport.
+// getBoundingClientRect keeps it correct whether the grid is centred (fits) or
+// scrolling (overflows). No-op if the current tile isn't rendered.
+function centerMapOnPlayer() {
+  const wrap = _overlay?.querySelector('.tos-map-wrap');
+  const cur = wrap?.querySelector('.tos-map-tile.cur');
+  if (!wrap || !cur) return;
+  const wr = wrap.getBoundingClientRect(), cr = cur.getBoundingClientRect();
+  wrap.scrollLeft += (cr.left + cr.width / 2) - (wr.left + wrap.clientWidth / 2);
+  wrap.scrollTop += (cr.top + cr.height / 2) - (wr.top + wrap.clientHeight / 2);
+}
+
+// Live tile-size change that keeps whatever's under the viewport centre put across
+// the resize (ratio-preserve), so zooming doesn't yank the view off the spot you're
+// looking at. Reads scrollWidth after setting the var to force the reflow.
+function applyMapZoom() {
+  const wrap = _overlay?.querySelector('.tos-map-wrap');
+  const grid = wrap?.querySelector('.tos-map-grid');
+  if (!grid) return;
+  let rx = 0.5, ry = 0.5;
+  if (wrap.scrollWidth > wrap.clientWidth) rx = (wrap.scrollLeft + wrap.clientWidth / 2) / wrap.scrollWidth;
+  if (wrap.scrollHeight > wrap.clientHeight) ry = (wrap.scrollTop + wrap.clientHeight / 2) / wrap.scrollHeight;
+  grid.style.setProperty('--tos-tile', TOS_TILE_ZOOMS[_tosMapZoom] + 'px');
+  wrap.scrollLeft = rx * wrap.scrollWidth - wrap.clientWidth / 2;
+  wrap.scrollTop = ry * wrap.scrollHeight - wrap.clientHeight / 2;
+}
+
+function updateMapZoomBtns() {
+  const zout = _overlay?.querySelector('[data-map-zoom="out"]');
+  const zin = _overlay?.querySelector('[data-map-zoom="in"]');
+  if (zout) zout.disabled = _tosMapZoom <= 0;
+  if (zin) zin.disabled = _tosMapZoom >= TOS_TILE_ZOOMS.length - 1;
+}
+
+// Drag-to-scroll the map viewport. A movement threshold defers the "drag" so a plain
+// tap still selects a tile; once dragging, the click that follows pointerup is
+// swallowed (capture-phase) so it doesn't also fire a tile selection.
+function wireMapDrag(wrap) {
+  if (!wrap) return;
+  let on = false, moved = false, sx = 0, sy = 0, sl = 0, st = 0, pid = null;
+  wrap.addEventListener('pointerdown', (e) => {
+    if (e.button && e.button !== 0) return;
+    on = true; moved = false; sx = e.clientX; sy = e.clientY;
+    sl = wrap.scrollLeft; st = wrap.scrollTop; pid = e.pointerId;
+  });
+  wrap.addEventListener('pointermove', (e) => {
+    if (!on) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (!moved && Math.abs(dx) + Math.abs(dy) > 4) {
+      moved = true; wrap.classList.add('grabbing');
+      try { wrap.setPointerCapture(pid); } catch {}
+    }
+    if (!moved) return;
+    wrap.scrollLeft = sl - dx;
+    wrap.scrollTop = st - dy;
+  });
+  const end = (e) => {
+    if (!on) return;
+    on = false; wrap.classList.remove('grabbing');
+    if (moved) { wrap._suppressClick = true; setTimeout(() => { wrap._suppressClick = false; }, 0); }
+    try { wrap.releasePointerCapture(e.pointerId); } catch {}
+  };
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', end);
+  wrap.addEventListener('click', (e) => {
+    if (wrap._suppressClick) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
 }
 function wireMapActs() {
   _overlay.querySelectorAll('[data-map-act]').forEach(el => {
@@ -4008,7 +4234,7 @@ function wireTabletSettings() {
   // in-place confirmation rather than a re-render (the grid isn't on this screen).
   _overlay.querySelector('[data-reset-apps]')?.addEventListener('click', (e) => {
     sfx(TOS_SELECT_DEF);
-    try { localStorage.removeItem(TABLET_APP_ORDER_KEY); } catch {}
+    try { localStorage.removeItem(TABLET_APP_ORDER_KEY); localStorage.removeItem(TABLET_APP_HIDDEN_KEY); } catch {}
     const btn = e.currentTarget;
     btn.textContent = '✓ Reset';
     setTimeout(() => { if (btn.isConnected) btn.textContent = 'Reset to Default'; }, 1400);

@@ -418,9 +418,13 @@ function mapWindow(a, radius = 24) {
   for (let dy = -radius; dy <= radius; dy++) {
     const row = [];
     for (let dx = -radius; dx <= radius; dx++) {
-      if (dx === 0 && dy === 0) { row.push({ kind: 'craft' }); continue; }
+      // The tile directly under the craft (0,0): keep its REAL surface so the runway/road
+      // still paints under us — just flag it `self` so nothing extrudes on our own tile (the
+      // building/tree/rock pass and the radar own-blip skip on `self`). Nuking it to a bare
+      // { kind:'craft' } used to leave a hole in the pavement right where we sit.
+      const self = dx === 0 && dy === 0 ? 1 : undefined;
       const cell = surfaceAt(a.grid_x + dx, a.grid_y + dy);
-      if (!cell) { row.push({ kind: 'air' }); continue; }
+      if (!cell) { row.push({ kind: 'air', self }); continue; }
       // Each surface cell carries its derived biome, whether a road runs through it, and its
       // danger tier — the windshield renders the real world. A tile counts as road if it's a
       // named artery OR carries a road/runway map icon (the authoritative per-tile road marker,
@@ -456,7 +460,7 @@ function mapWindow(a, radius = 24) {
       let rd;
       const im = /^road_([nesw]+|x)$/.exec(cell.flags?.icon || '');
       if (im) rd = im[1] === 'x' ? 'nesw' : im[1];
-      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd });
+      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, self });
     }
     rows.push(row);
   }
@@ -658,6 +662,7 @@ export function contextPayload(live) {
     aa: live.aaThreat || null,                  // AA engagement-envelope telegraph (set by combat.tickCombat)
     hull: Math.max(0, Math.round((1 - (a.damage || 0)) * 100)),   // for the cockpit hull readout / battle damage
     msl: mslAmmo(live),                         // missiles left on the rails (ammo pips)
+    checkride: live.checkride?.clientView || null,   // guided-checkride instruction toast + ring gates (null = not on a checkride)
   };
 }
 // Who's in each seat, padded to the airframe's seat count: index 0 = the pilot, the rest

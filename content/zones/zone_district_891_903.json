@@ -1,18 +1,25 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_events": [
+    "The launch rail slews a few degrees on its own, the seeker head hunting the haze.",
+    "A wind moves through the grass and sets the empty missile canisters ringing.",
+    "Somewhere below the deck a compressor kicks in and labours."
+  ],
+  "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#3a3226",
+  "color": "#d0a36a",
   "created_by": "zone-planner",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "description": "A Redline SAM nest thrown up on the old grassland — sandbags and scavenged plate bermed into a rough horseshoe, the launch rail exposed at the centre with two red-striped missiles nosed at the sky. The nest tracks the haze on a groaning powered mount, the crew lounging at it with the ease of people who charge a toll and mean it. A plate hatch, weighted with a truck spring, drops into the bunker where the reloads and the launch electronics are kept out of the weather.",
   "exits": {
     "east": "zone_district_892_903",
     "north": "zone_district_891_902",
-    "south": "zone_district_891_904"
+    "south": "zone_district_891_904",
+    "down": "zone_aa_redline_bunker"
   },
   "flags": {
+    "aa_site": true,
     "district": "wasteland",
+    "icon": "aa",
     "planner": "bp_district"
   },
   "grid_x": 891,
@@ -20,8 +27,8 @@
   "grid_z": 0,
   "id": "zone_district_891_903",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "AA",
+  "name": "Redline SAM Nest",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1783740000"
 }

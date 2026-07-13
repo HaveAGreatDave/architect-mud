@@ -106,35 +106,42 @@ const FLEET = [
 const byKey = (k) => FLEET.find(f => f.key === k) || FLEET[0];
 let craftKey = 'mule';
 
-// ── Procedural world ──────────────────────────────────────────────────────────
-// A deterministic hash → the same "basic version of the world" wherever you fly:
-// varied building districts, tree parks, and a meandering river, with the departure
-// corridor down the strip kept clear. The cockpit anchors a world-fixed runway at
-// the spawn tile (0,0) and seeds each building by its WORLD coordinate, so the map
-// window can recenter under you without anything popping or re-shuffling.
-const RAD = 11;                    // window half-size (23×23) — covers the 7.5-tile draw range + slop
-const RECENTER = 3;                // regenerate + recenter once you drift this many tiles from centre
-const BUILDING_BIOMES = ['citycore','uptown','civic','industrial','infra','freight','ruins','marquee'];
-function hash2(x, y){ let h = (Math.imul(x|0, 73856093) ^ Math.imul(y|0, 19349663)) >>> 0; return h / 4294967295; }
-function worldCell(x, y){
-  // Keep the strip you take off from clear of obstacles (x=0 column, a few tiles
-  // ahead of / behind the threshold at origin).
-  if (x === 0 && y <= 2 && y >= -6) return { kind:'air' };
-  if (Math.abs((x*3 + y) % 19) === 0) return { kind:'land', biome:'water' };            // meandering river
-  const r = hash2(x, y);
-  if (r > 0.74){ const b = BUILDING_BIOMES[(hash2(x+7, y-3) * BUILDING_BIOMES.length) | 0]; return { kind:'land', biome:b }; }  // building district
-  if (r > 0.60) return { kind:'land', biome:'parkland' };                                // tree park
-  if (r > 0.55) return { kind:'land', biome:'badlands' };                                // scrub / rocks
-  return { kind:'air' };                                                                 // open ground
-}
+// ── Live world snapshot ─────────────────────────────────────────────────────────
+// The REAL Coldwater map_world surface, captured by scripts/snapshot-flight-world.mjs
+// into flightsim-world.json — one entry per tile, in the EXACT cell shape the flight
+// plugin (plugins/flight/state.js mapWindow) streams to the cockpit, so the windshield
+// renders these tiles identically to a live flight. We slice a window out of it as the
+// aircraft drifts, so the open test flies over the actual city — bay, districts, runway
+// and all — with no server. Re-run the snapshot script to refresh after a map change.
+const WORLD = await fetch('./flightsim-world.json').then(r => r.json());
+const RAD = 24;                    // window half-size (49×49) — matches the flight plugin's mapWindow radius so the far skyline never starves
+const RECENTER = 4;                // regenerate + recenter once you drift this many tiles from centre
+function worldCell(x, y){ return WORLD.cells[`${x},${y}`] || { kind:'air' }; }   // beyond the real map ⇒ open air, exactly like the server's null tile
 function genWindow(cx, cy){
   const rows = [];
   for (let y = -RAD; y <= RAD; y++){ const row = [];
-    for (let x = -RAD; x <= RAD; x++) row.push(worldCell(cx + x, cy + y));
+    for (let x = -RAD; x <= RAD; x++){
+      if (x === 0 && y === 0){ row.push({ kind:'craft' }); continue; }   // centre = the aircraft's own tile (the model is drawn separately)
+      row.push(worldCell(cx + x, cy + y));
+    }
     rows.push(row);
   }
   return rows;
 }
+const biomeAt = (x, y) => (WORLD.cells[`${x},${y}`] || {}).biome || null;
+
+// Spawn on a real field — prefer one with a runway (fixed-wing needs a strip). The
+// cockpit anchors a world-fixed departure runway from opts.runway and nudges the parked
+// craft ~1.3 tiles forward down it, so the paired window centre is that nudged point —
+// generate the initial window there so tiles and centre line up with no first-frame jump.
+const SPAWN = WORLD.fields.find(f => f.runway) || WORLD.fields[0] || { gx:0, gy:0, runway:null };
+const SPAWN_X = SPAWN.runway ? SPAWN.runway.ox : SPAWN.gx;
+const SPAWN_Y = SPAWN.runway ? SPAWN.runway.oy : SPAWN.gy;
+const SPAWN_HDG = SPAWN.runway ? SPAWN.runway.hdg : 0;
+const _hr = SPAWN_HDG * Math.PI / 180, _fwd = SPAWN.runway ? 1.3 : 0;
+const CENTER_X = Math.round(SPAWN_X + Math.sin(_hr) * _fwd);   // mirrors openFlightSim's mapCenter nudge
+const CENTER_Y = Math.round(SPAWN_Y - Math.cos(_hr) * _fwd);
+const FIELDS = WORLD.fields.map(f => ({ id:f.id, name:f.name, gx:f.gx, gy:f.gy }));   // ✈ waypoint targets ([ ] cycling)
 
 const SKY = { hour:14, weather:'clear', wind:0 };
 
@@ -145,15 +152,18 @@ const SKY = { hour:14, weather:'clear', wind:0 };
 // server sends (cells advected by stepWeatherCells, sampled for rain/whiteout). Flip
 // it on to climb into real clouds; off restores clear skies. Cells drift on their own
 // velocities and torus-wrap inside `bounds`, so a front keeps circling back to fly through.
+// Anchored on the spawn (the sim now flies at real world coords, not the origin): cells
+// sit a short way north of the strip — the heading-0 takeoff direction — so you climb into
+// them straight off the runway.
 const WX_FIELD = {
   tick: 30,
-  bounds: { minX:-70, maxX:70, minY:-70, maxY:70 },
+  bounds: { minX: SPAWN_X - 70, maxX: SPAWN_X + 70, minY: SPAWN_Y - 70, maxY: SPAWN_Y + 70 },
   cells: [
-    { x:   0, y:-24, r:15, intensity:0.80, type:'cloud',                 vx: 0.6, vy: 0.2 },
-    { x: -20, y:-44, r:19, intensity:0.95, type:'cloud',                 vx: 0.4, vy: 0.5 },
-    { x:  24, y:-58, r:16, intensity:1.00, type:'storm', precip:'rain',  vx:-0.3, vy: 0.4 },
-    { x:  32, y:  9, r:13, intensity:0.70, type:'cloud',                 vx: 0.5, vy:-0.3 },
-    { x: -32, y: 14, r:16, intensity:0.85, type:'cloud',                 vx: 0.2, vy:-0.4 },
+    { x: SPAWN_X +  0, y: SPAWN_Y - 24, r:15, intensity:0.80, type:'cloud',                 vx: 0.6, vy: 0.2 },
+    { x: SPAWN_X - 20, y: SPAWN_Y - 44, r:19, intensity:0.95, type:'cloud',                 vx: 0.4, vy: 0.5 },
+    { x: SPAWN_X + 24, y: SPAWN_Y - 58, r:16, intensity:1.00, type:'storm', precip:'rain',  vx:-0.3, vy: 0.4 },
+    { x: SPAWN_X + 32, y: SPAWN_Y +  9, r:13, intensity:0.70, type:'cloud',                 vx: 0.5, vy:-0.3 },
+    { x: SPAWN_X - 32, y: SPAWN_Y + 14, r:16, intensity:0.85, type:'cloud',                 vx: 0.2, vy:-0.4 },
   ],
 };
 let wxOn = false;
@@ -172,10 +182,11 @@ function launch(){
   openFlightSim({
     craftType: c.key, craftClass: c.cls, deviceName: c.name,
     registration: c.name.toUpperCase(), owner: 'OPEN TEST',
-    gx: 0, gy: 0, heading: 0, engineOn: true,      // engine already running so you can just push the throttle
+    gx: SPAWN_X, gy: SPAWN_Y, heading: SPAWN_HDG, engineOn: true,   // engine already running so you can just push the throttle
     fuel: 100, fuelCap: 100,
-    map: genWindow(0, 0), sky: SKY, biomeBelow: null,
-    fields: [{ id: 'home', name: 'Test Field', gx: 0, gy: 0 }],
+    map: genWindow(CENTER_X, CENTER_Y), sky: SKY, biomeBelow: biomeAt(CENTER_X, CENTER_Y),
+    runway: SPAWN.runway || undefined,             // real departure strip on the map's runway tiles
+    fields: FIELDS,
     engines: c.engines, seats: c.seats, occupants: [], hardpoints: 0,
     airport: 'default',
   });
@@ -204,7 +215,7 @@ function provide(){
   const dx = snap.pos.x - snap.mapCenter.x, dy = snap.pos.y - snap.mapCenter.y;
   if (Math.hypot(dx, dy) >= RECENTER){
     const cx = Math.round(snap.pos.x), cy = Math.round(snap.pos.y);
-    flightSimContext({ map: genWindow(cx, cy), mapX: cx, mapY: cy, sky: SKY });
+    flightSimContext({ map: genWindow(cx, cy), mapX: cx, mapY: cy, sky: SKY, biomeBelow: biomeAt(cx, cy) });
   }
 }
 

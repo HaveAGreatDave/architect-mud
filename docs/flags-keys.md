@@ -24,6 +24,8 @@ is silently inert, so grep before renaming anything below.
 | `airfield_id` | flight | which airfield this zone belongs to |
 | `airfield_lawless` | flight | airfield outside city law |
 | `airfield_name` | flight | display name of the airfield |
+| `aa_site` | aa-sites | this surface tile is an AA emplacement's exposed gun deck — drives the map AA POI (`⌖` / "AA battery") |
+| `aa_bunker` | aa-sites | interior bunker zone under an AA site; value = the owning `aa_sites.id` |
 | `airspace_restricted` | flight | AA-gated airspace over this zone |
 | `always_lit` | environment | never dark regardless of power/time |
 | `artery` | movement/ambience | major street (traffic ambience, routing) |

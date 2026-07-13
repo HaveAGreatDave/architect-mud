@@ -471,7 +471,13 @@ export function step(state, input, p, dt) {
   // glide. Ramps in with how far the nose is below the horizon and is gone the instant you level
   // out (pitch → 0), so powered level flight, cruise and top speed stay untouched.
   const diveClean = s.pitch < 0 ? clamp(-s.pitch / 11, 0, 1) : 0;   // ramps in FAST — nose down and she cleans up and accelerates hard (full by ~11° down)
+  // Gear drag: extended RETRACTABLE gear hangs into the airstream and bleeds speed (∝ V²), a real
+  // penalty for cruising with the wheels down. Scaled as a fraction of the airframe's own parasitic
+  // drag (per-type via gearDragFrac, default 0.35) so it's proportioned to each craft. `input.gear`
+  // is the extended fraction (0 = up, 1 = down); fixed-gear craft pass 0 (drag already in dragP).
+  const gearExt = clamp(input.gear || 0, 0, 1);
   const drag = (p.dragP + flaps * p.flapDrag * 0.0016) * s.airspeed * s.airspeed * (1 - 0.9 * diveClean)  // parasitic drag ∝ V² (almost all shed in a dive → gravity wins and speed builds quickly)
+             + gearExt * (p.gearDragFrac ?? 0.35) * p.dragP * s.airspeed * s.airspeed                     // gear-down parasitic drag (retractable craft only)
              + Math.max(0, s.aoa) ** 2 * 0.0016 * s.airspeed                    // profile-drag rise with a hard PULL only — a nose-down push (negative AoA) doesn't load the wing, so it never penalises a dive
              + (p.glideDrag || 0) * Math.max(0, 1 - s.rpm / 0.4) * (weight * weight) / (s.airspeed * s.airspeed + 40);   // DEAD-STICK induced drag (∝ 1/V²): engages only as the powerplant winds down toward idle (rpm below ~0.4), full at a stopped/windmilling engine. It penalises the SLOW end of a glide, so best-glide sits at a sensible speed with a realistic ratio instead of floating forever just above the stall — and because it's gated to low rpm it leaves ALL powered cruise/climb untouched. Per-type; unset ⇒ 0 (legacy floaty glide).
   const grav = G_KT * Math.sin(s.pitch * D2R);

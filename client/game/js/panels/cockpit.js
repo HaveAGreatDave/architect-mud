@@ -14,7 +14,7 @@
 import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
-import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn, tracerFx, hitFx, lockTone, mslWarble, missileFx, flareFx } from './engine-audio.js';
+import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, flareFx } from './engine-audio.js';
 import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFt, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
@@ -24,7 +24,7 @@ import { hex2rgb } from './aircraft3d.js';
 
 // Touch-primary devices (phones/tablets) have no keyboard for rudder pedals, so their fin
 // auto-coordinates with the roll input; desktops (a fine pointer + keys) fly the rudder by hand
-// on the ,/. pedals. Evaluated once — the input class doesn't change mid-session.
+// on the rudder pedals (,/. or X/C). Evaluated once — the input class doesn't change mid-session.
 const _touchPrimary = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
 // Theme accent for the canvas-drawn instruments (the CSS chrome uses var(--accent)
@@ -637,7 +637,7 @@ function paintRadarWorld(s) {
   const R = (s.map.length - 1) / 2, step = 108 / (R + 0.5);
   let out = '';
   for (let ry = 0; ry < s.map.length; ry++) for (let rx = 0; rx < s.map[ry].length; rx++) {
-    const cell = s.map[ry][rx]; if (cell.kind === 'air' || cell.kind === 'craft') continue;
+    const cell = s.map[ry][rx]; if (cell.kind === 'air' || cell.self) continue;
     const cx = 130 + (rx - R) * step, cy = 130 + (ry - R) * step;
     if (cell.kind === 'field') out += `<rect x="${cx - 4}" y="${cy - 4}" width="8" height="8" fill="none" stroke="#46e05a" stroke-width="1.5"/><circle cx="${cx}" cy="${cy}" r="1.5" fill="#46e05a"/>`;
     else if (cell.kind === 'nofly') out += `<path d="M${cx - 4},${cy - 4} L${cx + 4},${cy + 4} M${cx + 4},${cy - 4} L${cx - 4},${cy + 4}" stroke="#ff5b5b" stroke-width="1.5"/>`;
@@ -1221,6 +1221,8 @@ function ensureFlightSimStyles() {
     .fsim-thr-grip::after{ content:''; position:absolute; left:22%; right:22%; top:8px; height:4px; background:repeating-linear-gradient(90deg,#0e2130 0 2px,rgba(95,208,255,.25) 2px 4px); }
     .fsim-thr-val{ position:absolute; bottom:4px; left:0; right:0; text-align:center; font:9px monospace; color:var(--cy); }
     .fsim-side{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:6px; align-items:stretch; }
+    /* flaps + trim share one horizontal row so they sit side by side instead of stacking/overlapping */
+    .fsim-ft-row{ flex:1 1 auto; min-height:0; display:flex; gap:6px; align-items:stretch; }
     /* engine master: a round accent button with a power glyph that recesses when running */
     .fsim-engbtn{ flex:0 0 auto; align-self:center; width:52px; height:52px; border-radius:50%; border:2px solid var(--cy); color:var(--cy);
       background:radial-gradient(circle at 50% 34%,#0e2230,#06121c); font-size:22px; line-height:1; cursor:pointer; user-select:none;
@@ -1663,15 +1665,10 @@ export function openFlightSim(opts = {}) {
     // drives the control remap + instrument set below.
     heli: opts.craftClass === 'heli' || !!(TYPES[opts.craftType] && TYPES[opts.craftType].heli),
     pedalKey: 0,
-    // Nudge the parked craft a short way FORWARD down the runway so, on embark, the view frames
-    // it ON the visible strip instead of back on the ramp/threshold. Only when there's a real
-    // runway to sit on; the takeoff still rolls out from here down the remaining strip.
-    ...(() => {
-      const hr = (opts.runway ? opts.runway.hdg : (((opts.heading || 0) % 360) + 360) % 360) * Math.PI / 180;
-      const fwd = opts.runway ? 1.3 : 0;   // tiles forward (~a few hundred feet) — 0 off-runway
-      const px = (opts.gx || 0) + Math.sin(hr) * fwd, py = (opts.gy || 0) - Math.cos(hr) * fwd;
-      return { pos: { x: px, y: py }, mapCenter: { x: Math.round(px), y: Math.round(py) } };
-    })(),
+    // Start the craft exactly where it's parked (no forward hop onto the strip). The takeoff
+    // rolls out from the parked spot down the runway.
+    pos: { x: opts.gx || 0, y: opts.gy || 0 },
+    mapCenter: { x: Math.round(opts.gx || 0), y: Math.round(opts.gy || 0) },
     rollDist: 0, travel: 0,
     // World-fixed departure runway anchor. When the server sends a runway pose derived
     // from the map's centreline tiles (opts.runway), use it so the drawn runway sits on
@@ -1684,6 +1681,7 @@ export function openFlightSim(opts = {}) {
     fuel: opts.fuel ?? 100, fuelCap: opts.fuelCap || 100, warn: null,
     map: opts.map || null, sky: opts.sky || { hour: 12, weather: 'clear', wind: 0 }, biomeBelow: opts.biomeBelow ?? null,
     minimap: opts.minimap || null, mfdMode: 'local', fields: opts.fields || [],
+    checkride: opts.checkride || null, checkrideToast: null,   // guided-checkride instruction + ring gates (null off a checkride)
     deadStick: false, reportedAirborne: false, rolling: false, stopHinted: false,
     engineOn: !!opts.engineOn,
     yokeDrag: false, thrDrag: false,
@@ -1731,16 +1729,18 @@ export function openFlightSim(opts = {}) {
         <div class="fsim-side">
           <button class="fsim-engbtn" id="fsim-eng" title="engine master">⏻</button>
           <button class="fsim-nightsw" id="fsim-nightsw" title="instrument panel lights" tabindex="-1"><span class="fsim-nightsw-led"></span>PANEL</button>
-          ${buildFlapHtml(flapStyle)}
-          <div class="fsim-trim" id="fsim-trim" title="ELEVATOR TRIM — drag or roll the wheel; up = NOSE DOWN, down = NOSE UP">
-            <span class="fsim-trim-end fsim-trim-nd">NOSE<br>DOWN</span>
-            <div class="fsim-trim-wheel" id="fsim-trim-wheel">
-              <div class="fsim-trim-drum" id="fsim-trim-drum"></div>
-              <div class="fsim-trim-detent"><span>T/O</span></div>
-              <div class="fsim-trim-handle" id="fsim-trim-handle"></div>
+          <div class="fsim-ft-row">
+            ${buildFlapHtml(flapStyle)}
+            <div class="fsim-trim" id="fsim-trim" title="ELEVATOR TRIM — drag or roll the wheel; up = NOSE DOWN, down = NOSE UP">
+              <span class="fsim-trim-end fsim-trim-nd">NOSE<br>DOWN</span>
+              <div class="fsim-trim-wheel" id="fsim-trim-wheel">
+                <div class="fsim-trim-drum" id="fsim-trim-drum"></div>
+                <div class="fsim-trim-detent"><span>T/O</span></div>
+                <div class="fsim-trim-handle" id="fsim-trim-handle"></div>
+              </div>
+              <span class="fsim-trim-end fsim-trim-nu">NOSE<br>UP</span>
+              <span class="fsim-trim-val" id="fsim-trim-val">0</span>
             </div>
-            <span class="fsim-trim-end fsim-trim-nu">NOSE<br>UP</span>
-            <span class="fsim-trim-val" id="fsim-trim-val">0</span>
           </div>
         </div>
       </div>
@@ -1904,6 +1904,7 @@ export function openFlightSim(opts = {}) {
     F.toastT = setTimeout(() => toastEl.classList.remove('show'), 1100);
   };
   F.toast = fsimToast;   // so the frame loop (touchdown/rollout prompts) can raise toasts too
+  if (F.checkride?.instruction) { fsimToast(F.checkride.instruction); F.checkrideToast = F.checkride.instruction; }   // opening checkride brief
 
   // ── Keyboard flight controls ────────────────────────────────────────────────
   // A/Z throttle · Q/E/S hold-to-look (release → forward) · W forward · R/F flaps ·
@@ -1953,7 +1954,7 @@ export function openFlightSim(opts = {}) {
   };
   let setExternal = () => {};   // assigned when the ◎ EXT button is wired below; V key + button share it
   let setWeapon = () => {};     // assigned in the weapons wiring below; 1/2 keys + WPN button share it
-  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'r', 'f', 'g', 'j', 'v', 'x', '1', '2', ' ', '[', ']', ',', '.']);
+  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'y', 'h', 'f', 'g', 'j', 'v', 'x', 'c', '1', '2', ' ', '[', ']', ',', '.']);
   const onKeyDown = (e) => {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
@@ -1967,17 +1968,18 @@ export function openFlightSim(opts = {}) {
       // so side-look is dropped; S still looks back. Fixed-wing keeps Q/E as hold-to-look.
       case 'q': if (F.heli) F.pedalKey = -1; else setView(-90); break;
       case 'e': if (F.heli) F.pedalKey = 1; else setView(90); break;
-      // Fixed-wing rudder pedals (,/. held). The heli already pedals on Q/E, so leave it alone.
-      case ',': if (!F.heli) F.pedalKey = -1; break;   // left rudder
-      case '.': if (!F.heli) F.pedalKey = 1; break;    // right rudder
+      // Fixed-wing rudder pedals, held. ,/. and X/C are interchangeable alternatives (some
+      // keyboards make ,/. awkward). The heli already pedals on Q/E, so leave it alone.
+      case ',': case 'x': if (!F.heli) F.pedalKey = -1; break;   // left rudder
+      case '.': case 'c': if (!F.heli) F.pedalKey = 1; break;    // right rudder
       case 's': setView(180); break;
       case 'w': setView(0); break;
-      case 'r': if (!e.repeat) stepFlap(1); break;
-      case 'f': if (!e.repeat) stepFlap(-1); break;
+      case 'y': if (!e.repeat) stepFlap(1); break;   // flaps extend
+      case 'h': if (!e.repeat) stepFlap(-1); break;  // flaps retract
       case 'g': if (!e.repeat) toggleGear(); break;
       case 'v': if (!e.repeat) setExternal(!F.external); break;
       case 'j': if (!e.repeat) jettison(); break;
-      case 'x': if (!e.repeat && F.reportedAirborne) sendCmdSilent('flares'); break;   // countermeasures (server confirms via air_threat)
+      case 'f': if (!e.repeat && F.reportedAirborne) sendCmdSilent('flares'); break;   // countermeasures (server confirms via air_threat)
       case '1': if (!e.repeat) setWeapon('guns'); break;   // weapon select
       case '2': if (!e.repeat) setWeapon('msl'); break;
       case '[': if (!e.repeat) cycleApTarget(-1); break;   // cycle target airport
@@ -1988,7 +1990,7 @@ export function openFlightSim(opts = {}) {
   const onKeyUp = (e) => {
     const k = (e.key || '').toLowerCase();
     if (k === 'a' || k === 'z') F.throttleKey = 0;
-    else if (((k === 'q' || k === 'e') && F.heli) || k === ',' || k === '.') F.pedalKey = 0;   // release pedal → centres
+    else if (((k === 'q' || k === 'e') && F.heli) || k === ',' || k === '.' || k === 'x' || k === 'c') F.pedalKey = 0;   // release pedal → centres
     else if (k === 'q' || k === 'e' || k === 's') setView(0);      // release hold-to-look → forward
     else if (k === ' ') F.firing = false;                         // release trigger
   };
@@ -2009,10 +2011,13 @@ export function openFlightSim(opts = {}) {
       try { spoolUp(F.cls); } catch {}
       sendCmdSilent('flightevent engineon');
     } else if (s.onGround && s.airspeed < 5) {
-      if (F.rolling) { finishLanding(F, s); return; }   // rolled to a stop → park (opens the hangar at a field)
+      if (F.rolling && !F.heli) { finishLanding(F, s); return; }   // fixed-wing rolled to a stop → park (opens the hangar at a field)
       F.engineOn = false; engBtn.classList.remove('on');
       try { spoolDown(F.cls); } catch {}
       sendCmdSilent('flightevent engineoff');
+      // A helicopter never auto-parks/leaves the sim on shutdown — it stays put so the pilot can
+      // spin back up or look around; the only way out is typing `disembark` (climb out).
+      if (F.heli && F.rolling) { F.rolling = false; if (F.toast) F.toast('SHUT DOWN — type disembark to climb out'); }
     }
   });
 
@@ -2322,7 +2327,10 @@ function fsimFrame(now) {
   let nSteps = 0;
   while (F.acc >= FIXED && nSteps < 8) {
     const h = FIXED;
-    step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, flaps: input.flaps, pedal: input.pedal, trim: input.trim }, P, h);
+    // gear: extended fraction of RETRACTABLE gear (1 = down/locked, 0 = up) — feeds the model's
+    // gear-drag term so leaving the wheels down bleeds speed. Fixed-gear craft report 0 (their
+    // gear drag is already baked into dragP), so they take no extra penalty.
+    step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0 }, P, h);
 
     // Turbulence: the air disturbs the AIRCRAFT (you correct it), it never cheats the physics.
     // Deterministic summed-sine "noise" (no RNG) rolls/pitches you and bumps lift, ∝ severity.
@@ -2437,17 +2445,18 @@ function fsimFrame(now) {
       if (establishedClimb) {
         F.landGrade = landingGrade(sinkFpm).grade; F.landFpm = Math.round(sinkFpm);   // reported to the server for landing IP
         showLandingCard(root, sinkFpm);   // graded report card flashes over the glass
-        if (F.toast) F.toast(F.heli ? 'DOWN — cut the ENGINE to shut down & park' : 'ROLL OUT — brake to a stop, then cut the ENGINE to park');
+        if (F.toast) F.toast(F.heli ? 'DOWN — lift off again, or type disembark to climb out' : 'ROLL OUT — brake to a stop, then cut the ENGINE to park');
       } else { F.landGrade = null; F.landFpm = 0; }
     }
   }
   // Rolled to a stop on the ground → prompt the shutdown that taxis you into the hangar.
   if (F.rolling && s.onGround && s.airspeed < 5) {
-    // Rolled to a stop AT an airfield → shut down and taxi into the hangar automatically
-    // (no manual engine-cut). Off-field (a VTOL that flared onto open ground) we still
-    // prompt the shutdown, so the pilot can choose to power back up and lift off again.
-    if (F.onField) finishLanding(F, s);
-    else if (!F.stopHinted) { F.stopHinted = true; if (F.toast) F.toast('STOPPED — cut the ENGINE to shut down & park'); }
+    // A FIXED-WING that's rolled to a stop AT an airfield shuts down and taxis into the hangar
+    // automatically (no manual engine-cut). A HELICOPTER never auto-parks/leaves the sim on
+    // landing — it stays put so the pilot can lift off again or look around, and leaves only by
+    // typing `disembark`. Off-field (a VTOL flared onto open ground) we just prompt the shutdown.
+    if (F.onField && !F.heli) finishLanding(F, s);
+    else if (!F.stopHinted) { F.stopHinted = true; if (F.toast) F.toast(F.heli ? 'DOWN — type disembark to climb out' : 'STOPPED — cut the ENGINE to shut down & park'); }
   }
 
   // Stall horn (intermittent → continuous).
@@ -2671,7 +2680,36 @@ function fsimFrame(now) {
     if (nmEl) nmEl.textContent = (tgt.name || 'FIELD').slice(0, 10).toUpperCase();
   }
 
+  // Checkride pilot-wings rings — resolve absolute gate tiles to live offsets for the
+  // windshield, and detect a fly-through of the ACTIVE ring (the client owns the plane's
+  // world position), reporting it to the server which advances the ride.
+  let gateView = null;
+  const cr = F.checkride;
+  if (cr && Array.isArray(cr.gates) && cr.gates.length) {
+    gateView = { active: cr.gateIdx, rings: cr.gates.map((g) => ({ dx: g.gx - F.pos.x, dy: g.gy - F.pos.y, altDiff: g.alt - s.altitude, r: g.r })) };
+    const g = cr.gates[cr.gateIdx];
+    if (g && F.lastGateSent !== cr.gateIdx) {
+      const gdx = g.gx - F.pos.x, gdy = g.gy - F.pos.y;
+      if (Math.hypot(gdx, gdy) < g.r && Math.abs(s.altitude - g.alt) < g.altTol) {
+        F.lastGateSent = cr.gateIdx;   // one report per gate; re-arms when the server advances gateIdx
+        sendCmdSilent(`flightevent gate ${cr.gateIdx}`);
+      }
+    }
+  }
+
+  // Prop/rotor spool choreography for the external chase model. BLADES: F.propSpin rises when the
+  // engine is on (idling even at zero throttle) and winds DOWN to a dead stop a beat after shutdown
+  // — spin-up brisk, wind-down lazy. F.propPhase accumulates the actual rotation angle at a rate
+  // that scales with the spool, so the blades visibly slow to rest instead of snapping to a halt.
+  // DISC: propDisc is keyed to real rpm/throttle, so the translucent blur fades IN only as you power
+  // up and fades OUT first on shutdown (blades still turning under it). Reverses the startup order.
+  const propTgt = F.engineOn ? 0.20 + 0.80 * clampNum(s.rpm, 0, 1) : 0;
+  F.propSpin = lerpN(F.propSpin || 0, propTgt, Math.min(1, dt * (propTgt > (F.propSpin || 0) ? 2.2 : 1.0)));
+  F.propPhase = (F.propPhase || 0) + dt * F.propSpin * 34;   // rev rate ∝ spool → frozen at rest
+  const propDisc = clampNum((d.rpm - 0.12) / 0.45, 0, 1);    // no disc at idle; fully in by ~57% rpm
+
   paintWindshield('fsim-ws', {
+    gates: gateView,
     pitch: d.pitch, bank: d.bank,
     // Render height fraction (drives eye-height/compression). Referenced to 3000ft with a
     // sqrt curve so it ramps HARD off the deck — by ~500ft you're visibly above the buildings.
@@ -2706,6 +2744,7 @@ function fsimFrame(now) {
       ? { bearing: F.aaTracerBearing, t: (now - F.aaTracerT) / AA_TRACER_MS,
           dx: F.aaTracerX != null ? F.aaTracerX - F.pos.x : null,
           dy: F.aaTracerY != null ? F.aaTracerY - F.pos.y : null,
+          hit: !!F.aaTracerHit,   // hit → rounds walk onto the cockpit; miss → streak wide
           seed: F.aaTracerSeed || 1 } : null,
     // Active ground AA emplacements as 3D world models. Server sends absolute site
     // tiles; we resolve them to a live offset from our own smooth position each frame
@@ -2723,6 +2762,7 @@ function fsimFrame(now) {
     // engine being on and to throttle, with spool lag), NOT airspeed — so she turns at idle on
     // the ramp and winds up with the throttle instead of only spinning once she's moving.
     external: F.external, extZoom: F.extZoom || 1, cls: F.cls, livery: F.livery, enginePct: d.rpm,
+    propPhase: F.propPhase, propSpin: F.propSpin, propDisc,   // external prop/rotor spool choreography (blades spin up → disc fades in; reversed on shutdown)
     // Live control-surface deflection for the external chase model: ailerons/elevator/flaps
     // swing to the pilot's own inputs (elevator folds in trim, which the flight model also adds).
     // rudder: desktop flies it by hand on the ,/. pedals (F.input.pedal); touch devices have no
@@ -3168,6 +3208,14 @@ export function flightSimContext(msg) {
   if (typeof msg.hull === 'number') F.hull = msg.hull;   // authoritative hull for the cockpit readout
   if (typeof msg.msl === 'number' && msg.msl !== F.msl) { F.msl = msg.msl; if (F.paintPips) F.paintPips(); }   // authoritative rail count
   F.warn = msg.warn || null;
+  // Guided checkride: store the current instruction + ring gates, and toast the
+  // instruction whenever it changes (a stage advance). Deduped so it doesn't re-toast
+  // every tick.
+  if ('checkride' in msg) {
+    F.checkride = msg.checkride;
+    const instr = msg.checkride?.instruction;
+    if (instr && instr !== F.checkrideToast) { F.checkrideToast = instr; if (F.toast) F.toast(instr); }
+  }
   const wasExposed = !!(F.aa && F.aa.exposed);
   F.aa = msg.aa || null;       // AA engagement-envelope telegraph (drives the windshield threat banner)
   if (F.aa && F.aa.exposed && !wasExposed) aaWarn();   // RWR "deedle" the instant you enter the envelope
@@ -3252,8 +3300,11 @@ export function flightSimAaTracer(msg) {
   F.aaTracerBearing = msg.bearing || 0;
   F.aaTracerX = Number.isFinite(msg.x) ? msg.x : null;   // site world tile (null → screen-space fallback)
   F.aaTracerY = Number.isFinite(msg.y) ? msg.y : null;
+  F.aaTracerHit = !!msg.hit;                             // server's hit/miss → tracer geometry
   F.aaTracerSeed = Math.random() * 100;                  // stable per-volley spread pattern
-  try { tracerFx(msg.near ?? 0.5); } catch {}
+  const near = msg.near ?? 0.5;
+  try { aaGunFx(near); } catch {}   // the gun's heavy report from below…
+  try { tracerFx(near); } catch {}  // …and the round whipping past you
 }
 
 // Admin fireworks burst. The server pushes the launch tile (x,y) + colour; we stamp it with

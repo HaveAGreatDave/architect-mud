@@ -39,6 +39,10 @@ const TRIM_ROLE = new Set(['fin', 'rudder', 'nacelle', 'rotor']);
 // control surfaces, which inherit their parent panel's colour by sitting in its space).
 const PATTERN_ROLE = new Set(['body', 'wing', 'aileron', 'flap', 'stab', 'elevator']);
 const STAB_ROLE = new Set(['stab', 'elevator']);
+// Closed-hull roles that wrap the fuselage/canopy centred on the model origin: safe to
+// backface-cull (their far side is genuinely hidden). Kept OUT: wings/stabs/fins/struts/
+// nacelles/gear — thin or off-axis surfaces where an outward-from-origin test is unreliable.
+const CULL_ROLE = new Set(['body', 'glass', 'window']);
 // Centroid of a facet in the craft frame [f = fore+, g = right+, h = up+].
 function faceCentroid(pts) {
   let f = 0, g = 0, h = 0; for (const v of pts) { f += v[0]; g += v[1]; h += v[2]; }
@@ -171,9 +175,10 @@ function buildFixedWing(p, detail = 1) {
   // pods (from `podEngines` full [f,g,h] stations, e.g. the A-10's high tail-mounts).
   const nacStations = p.podEngines || (p.engines || []).map(g => [p.nacF, g, p.nacH]);
   for (const [nf, g, hc] of nacStations) {
-    const nr = p.podEngines ? 0.085 : 0.05;   // fat rear pods (A-10's big TF34 turbofans)
+    const nr = p.nacR || (p.podEngines ? 0.085 : 0.05);   // fat rear pods (A-10's TF34s); p.nacR sizes big underwing turbofans (An-124 D-18T)
+    const half = 0.17 + (nr - 0.05) * 1.3;                // fatter engines run longer too, so the tube stays proportioned
     const rT = V(nf, g, hc + nr), rR = V(nf, g + nr, hc), rB = V(nf, g, hc - nr), rL = V(nf, g - nr, hc);
-    const fr = V(nf + 0.17, g, hc), bk = V(nf - 0.18, g, hc);
+    const fr = V(nf + half, g, hc), bk = V(nf - half - 0.01, g, hc);
     for (const [a, b] of [[rT, rR], [rR, rB], [rB, rL], [rL, rT]]) {
       faces.push({ role: 'nacelle', sh: 0.8, p: [fr, a, b] });
       faces.push({ role: 'nacelle', sh: 0.7, p: [bk, b, a] });
@@ -257,6 +262,11 @@ function buildFixedWing(p, detail = 1) {
       }
       A = B;
     }
+    // Cap the fore + aft rings so the greenhouse reads as a CLOSED bubble — a raked windscreen up
+    // front and a faired rear window — instead of an open-ended tube. The backface cull auto-orients
+    // each cap's normal from the model centre, so the flat end faces don't need a fixed winding.
+    faces.push({ role: 'glass', sh: 0.72, p: ringAt(0) });   // front windscreen
+    faces.push({ role: 'glass', sh: 0.50, p: ringAt(1) });   // rear window
   }
   return faces;
 }
@@ -609,12 +619,18 @@ export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 
 // skip role 'rotor'; the wireframe keeps its schematic disc). `spin` is a shared
 // time-phase in radians — each disc gears it to its own RPM. `power` 0..1 breathes
 // the blur; `parked: true` draws crisp stopped blades (hangar floor, turntable).
-export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false } = {}) {
+// `disc` (0..1) is the translucent blur-disc opacity; `spool` (0..1) is how fast the blades
+// are actually turning → how smeared they read (0 = a stopped/crisp prop, 1 = full motion smear).
+// Split so the own-ship can spin the BLADES up first (spool) and fade the DISC in after (disc),
+// and reverse on shutdown. Contacts pass neither → both fall back to `power` / full smear (old look).
+export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false, disc = null, spool = null } = {}) {
+  const dsc = disc != null ? disc : power;      // blur-disc opacity
+  const spl = spool != null ? spool : 1;        // blade motion amount
   if (cls === 'heli') {
     // Main rotor (f-g plane; matches buildHeli's cf 0.1 / cz 0.28) + tail rotor
     // (f-h plane on the boom's right side), geared ~5× the main.
-    spinDisc(ctx, projFn, [0.1, 0, 0.28], [1, 0, 0], [0, 1, 0], 1.02, spin, power, parked, 2, 0.85);
-    spinDisc(ctx, projFn, [-1.04, 0.07, 0.12], [1, 0, 0], [0, 0, 1], 0.19, spin * 4.7 + 1.1, power, parked, 2, 0.7);
+    spinDisc(ctx, projFn, [0.1, 0, 0.28], [1, 0, 0], [0, 1, 0], 1.02, spin, dsc, spl, parked, 2, 0.85);
+    spinDisc(ctx, projFn, [-1.04, 0.07, 0.12], [1, 0, 0], [0, 0, 1], 0.19, spin * 4.7 + 1.1, dsc, spl, parked, 2, 0.7);
   } else {
     // Cessna two-blade nose prop / Twin Otter three-blade wing turboprops. The
     // stations record the spinner apex (ultralight) vs base (prop) — nudge the
@@ -622,14 +638,15 @@ export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = 
     const blades = cls === 'ultralight' ? 2 : 3, off = cls === 'ultralight' ? -0.06 : 0.03;
     for (const st of (PROP_STATIONS[cls] || [])) {
       spinDisc(ctx, projFn, [st[0] + off, st[1], st[2]], [0, 0, 1], [0, 1, 0],
-        cls === 'ultralight' ? 0.21 : 0.21, spin * 2.2 + st[1] * 3, power, parked, blades, 0.5);
+        cls === 'ultralight' ? 0.21 : 0.21, spin * 2.2 + st[1] * 3, dsc, spl, parked, blades, 0.5);
     }
   }
 }
 
-// One spinning disc: centre C, two unit axes U/V spanning its plane (model space),
-// radius r. `lead` is the front blade's opacity (helis read solid, props smear).
-function spinDisc(ctx, projFn, C, U, V, r, spin, power, parked, blades, lead) {
+// One spinning disc: centre C, two unit axes U/V spanning its plane (model space), radius r.
+// `disc` = blur-disc opacity, `spool` = blade motion amount (see drawRotorFX). `lead` is the
+// front blade's opacity (helis read solid, props smear).
+function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, lead) {
   const at = (a, rad, wPerp) => {   // point at polar (a, rad) offset wPerp across the blade
     const ca = Math.cos(a), sa = Math.sin(a);
     return projFn([
@@ -654,25 +671,33 @@ function spinDisc(ctx, projFn, C, U, V, r, spin, power, parked, blades, lead) {
     ctx.beginPath(); ctx.arc(hub.sx, hub.sy, Math.max(1, rpx * 0.08), 0, 7); ctx.fill();
     return;
   }
-  // Blur disc + tip ring, breathing with power.
-  const rim = [];
-  for (let i = 0; i < 16; i++) { const q = at(i / 16 * Math.PI * 2, r, 0); if (!q) return; rim.push(q); }
-  ctx.beginPath(); ctx.moveTo(rim[0].sx, rim[0].sy);
-  for (let i = 1; i < 16; i++) ctx.lineTo(rim[i].sx, rim[i].sy);
-  ctx.closePath();
-  ctx.fillStyle = `rgba(205,216,226,${0.06 + power * 0.09})`; ctx.fill();
-  ctx.strokeStyle = `rgba(228,238,246,${0.14 + power * 0.16})`; ctx.lineWidth = 1; ctx.stroke();
-  // The blades, each dragging two fading ghosts behind it around the arc — the
-  // rotational smear that sells the spin direction.
+  // Blur disc + tip ring — opacity rides `disc`, so it's INVISIBLE until the prop is spun up
+  // (fades in on throttle, fades out first on shutdown). A soft fade near zero avoids a hard pop.
+  const dFade = clampN(disc * 3.5, 0, 1);
+  if (dFade > 0.01) {
+    const rim = [];
+    for (let i = 0; i < 16; i++) { const q = at(i / 16 * Math.PI * 2, r, 0); if (!q) return; rim.push(q); }
+    ctx.beginPath(); ctx.moveTo(rim[0].sx, rim[0].sy);
+    for (let i = 1; i < 16; i++) ctx.lineTo(rim[i].sx, rim[i].sy);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(205,216,226,${dFade * (0.06 + disc * 0.09)})`; ctx.fill();
+    ctx.strokeStyle = `rgba(228,238,246,${dFade * (0.14 + disc * 0.16)})`; ctx.lineWidth = 1; ctx.stroke();
+  }
+  // The blades: crisp and stopped at spool 0 (a single dark blade per position, no smear),
+  // dragging more fading ghosts and spreading them wider as `spool` climbs — so the prop reads
+  // as speeding up / slowing down, not just present/absent. Ghost count grows with spool.
+  const ghosts = spool > 0.55 ? 3 : spool > 0.18 ? 2 : 1;
   for (let i = 0; i < blades; i++) {
-    for (let k = 0; k < 3; k++) blade(spin + i * step - k * 0.17, `rgba(36,41,47,${lead * Math.pow(0.42, k)})`);
+    for (let k = 0; k < ghosts; k++) blade(spin + i * step - k * 0.17 * spool, `rgba(36,41,47,${lead * Math.pow(0.42, k)})`);
   }
   ctx.fillStyle = 'rgba(30,34,40,0.9)';
   ctx.beginPath(); ctx.arc(hub.sx, hub.sy, Math.max(1, rpx * 0.07), 0, 7); ctx.fill();
-  // A bright glint sweeping the tip ring — light catching the blur.
-  ctx.beginPath();
-  for (let i = 0; i <= 4; i++) { const q = at(spin * 1.3 + i * 0.14, r * 0.99, 0); if (!q) return; i === 0 ? ctx.moveTo(q.sx, q.sy) : ctx.lineTo(q.sx, q.sy); }
-  ctx.strokeStyle = `rgba(240,248,255,${0.2 + power * 0.25})`; ctx.lineWidth = 1.4; ctx.stroke();
+  // A bright glint sweeping the tip ring — light catching the blur; only while the disc shows.
+  if (dFade > 0.05) {
+    ctx.beginPath();
+    for (let i = 0; i <= 4; i++) { const q = at(spin * 1.3 + i * 0.14, r * 0.99, 0); if (!q) return; i === 0 ? ctx.moveTo(q.sx, q.sy) : ctx.lineTo(q.sx, q.sy); }
+    ctx.strokeStyle = `rgba(240,248,255,${dFade * (0.2 + disc * 0.25)})`; ctx.lineWidth = 1.4; ctx.stroke();
+  }
 }
 
 // Per-class fixed-wing parameters (normalised units).
@@ -694,7 +719,7 @@ const FW_PARAMS = {
     finF0: -0.62, finF1: -0.86, finF2: -0.92, finH: 0.46, fins: [0],
     engines: [], prop: 'nose', struts: true, gear: true, gearStyle: 'spring',
     noseBlunt: 3.0, noseCowl: 0.48, boxy: 0.4, bodyTube: 0.10, tailUp: 0.05,   // full, rounded cowl tapering to the small spinner
-    canopy: { f0: 0.44, f1: 0.22, w: 0.072, h: 0.05, front: 0.5, tail: 0.28, segs: 4, arc: 3, sink: 0.02 } },   // windscreen/front-cabin AHEAD of the high wing LE (0.26) so it never pokes through the wing
+    canopy: { f0: 0.50, f1: 0.30, w: 0.072, h: 0.05, front: 0.4, tail: 0.28, segs: 4, arc: 3, sink: 0.02 } },   // windscreen/front-cabin kept entirely AHEAD of the high wing LE (0.26) so it never pokes through the wing
   // Mule — a high-wing, twin-turboprop, fixed-gear STOL hauler: a DHC-6 Twin Otter (per ref). A
   // deep, flat-sided BOX of a fuselage held near-constant most of its length, with the signature
   // DROOPED, POINTED "anteater" nose (noseZ pulls the radome down below the fuselage line to a
@@ -722,9 +747,9 @@ const FW_PARAMS = {
   // a cantilever wing — NO lift struts (unlike the strut-braced Otter).
   heavy: { ...FW_DEFAULT, fr: 0.20, fv: 0.18, span: 1.05, noseF: 1.15, tailF: -1.12, hSpan: 0.46, finH: 0.66,
     wingH: 0.17, dih: -0.05, wRootF: 0.34, wRootB: -0.14, wTipF: 0.20, wTipB: -0.10,
-    engines: [-0.40, -0.20, 0.20, 0.40], nacF: 0.24, nacH: 0.06, pylons: true, windows: 6, heavyGear: true,
-    noseBlunt: 3.3, boxy: 0.12, bodyTube: 0.5, tailUp: 0.10,
-    canopy: { f0: 0.86, f1: 0.42, w: 0.15, h: 0.11, front: 0.24, tail: 0.06, segs: 5, arc: 4, sink: 0.02 } },   // An-124 raised forward flight-deck hump behind the radome
+    engines: [-0.60, -0.34, 0.34, 0.60], nacF: 0.26, nacH: 0.0, nacR: 0.095, pylons: true, windows: 6, heavyGear: true,
+    noseBlunt: 3.3, noseCowl: 0.16, boxy: 0.12, bodyTube: 0.5, tailUp: 0.10,   // noseCowl floors the radome so it's a blunt An-124 nose, not a point
+    canopy: { f0: 0.80, f1: 0.38, w: 0.115, h: 0.085, front: 0.30, tail: 0.10, segs: 6, arc: 5, sink: 0.025 } },   // smooth raised forward flight-deck hump behind the radome   // An-124 raised forward flight-deck hump behind the radome
 };
 
 // The starboard (right) wingtip station [f, g, h] in normalised model space — the outboard
@@ -869,19 +894,46 @@ function decalTex(id) {
 export function drawNoseArt(ctx, proj, cls, lv) {
   const id = lv?.decal; if (!id || id === 'none') return;
   const img = decalTex(id); if (!img) return;
-  const p = FW_PARAMS[cls] || FW_PARAMS.prop, fr = (p.fr || 0.13) * 1.03;
-  const fF = 0.64, fR = 0.18, hT = 0.10, hB = -0.07;                 // forward-fuselage side panel
-  const side = (gg) => [proj(fF, gg, hT), proj(fR, gg, hT), proj(fR, gg, hB), proj(fF, gg, hB)];   // [front-top, rear-top, rear-bottom, front-bottom]
-  const PR = side(fr), PL = side(-fr);
-  const az = (P) => (P[0].z + P[1].z + P[2].z + P[3].z) / 4;
-  const near = az(PR) <= az(PL) ? PR : PL;                            // the side facing you (nearer)
-  if (near.some(q => q.z <= 0.18)) return;
-  const W = img.width, H = img.height, q = near.map(v => [v.sx, v.sy]);
-  ctx.save();
-  ctx.beginPath(); ctx.moveTo(q[0][0], q[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(q[i][0], q[i][1]); ctx.closePath(); ctx.clip();
-  acTexTri(ctx, img, [0, 0], [W, 0], [W, H], q[0], q[1], q[2]);
-  acTexTri(ctx, img, [0, 0], [W, H], [0, H], q[0], q[2], q[3]);
-  ctx.restore();
+  const p = FW_PARAMS[cls] || FW_PARAMS.prop;
+  // The decal is mapped onto the ACTUAL fuselage surface, front(nose)→rear, rather than as a flat
+  // billboard at the widest half-width. A billboard overshoots the rounded/boxy hull and hangs the
+  // art off the edge; instead each grid vertex is pushed out to the hull's cross-section at its
+  // (f, h), so the art WRAPS around the curve. It's centred on the fuselage centreline — which
+  // droops with the nose — so it sits LOW on the flank (accommodating it flat first), and only curls
+  // onto the shoulder/belly where it's too tall to lie flat. Reconstructs the same cross-section
+  // buildFixedWing skins (radius taper + boxy superellipse) so the decal tracks the real hull.
+  const fF = 0.64, fR = 0.18;                                        // forward-fuselage extent (front = nose)
+  const fr = p.fr, fv = p.fv, shapeExp = 1 - (p.boxy || 0) * 0.55;
+  const noseK = p.noseBlunt || 2.4, tube = p.bodyTube || 0, cowl = p.noseCowl || 0, OUT = 1.03;
+  const radAt = (f) => { let u = Math.min(1, Math.abs(f / p.noseF)); u = u <= tube ? 0 : (u - tube) / (1 - tube); return cowl + (1 - cowl) * Math.pow(Math.max(0, 1 - Math.pow(u, noseK)), 1 / noseK); };
+  const czAt = (f) => (p.noseZ ?? 0.02) * (f / p.noseF);            // centreline height (drooped nose pulls it down)
+  const surf = (f, h, sign) => {                                     // near-flank hull point at (f, h) — sign picks the flank
+    const r = radAt(f), sv = clampN((h - czAt(f)) / (fv * r || 1e-6), -0.999, 0.999);
+    const cosMag = Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(sv), 2 / shapeExp)));
+    return [f, sign * Math.pow(cosMag, shapeExp) * fr * r * OUT, h];
+  };
+  const mid = (fF + fR) / 2, cM = czAt(mid);
+  const sign = proj(...surf(mid, cM, 1)).z <= proj(...surf(mid, cM, -1)).z ? 1 : -1;   // the flank facing you
+  const hHalf = fv * 0.72;                                          // fills the flank; taller art curls over the shoulder
+  const Nc = 6, Nr = 3, W = img.width, H = img.height, grid = [];
+  let anyNear = false;
+  for (let j = 0; j <= Nr; j++) {
+    const row = [];
+    for (let i = 0; i <= Nc; i++) {
+      const f = fF + (fR - fF) * (i / Nc), h = czAt(f) + hHalf - 2 * hHalf * (j / Nr);   // top(j=0) → bottom
+      const P = proj(...surf(f, h, sign)); row.push(P); if (P.z > 0.18) anyNear = true;
+    }
+    grid.push(row);
+  }
+  if (!anyNear) return;
+  for (let j = 0; j < Nr; j++) for (let i = 0; i < Nc; i++) {
+    const a = grid[j][i], b = grid[j][i + 1], c = grid[j + 1][i + 1], d = grid[j + 1][i];
+    if (a.z <= 0.18 || b.z <= 0.18 || c.z <= 0.18 || d.z <= 0.18) continue;             // skip cells crossing behind the eye
+    const s0 = [i / Nc * W, j / Nr * H], s1 = [(i + 1) / Nc * W, j / Nr * H];
+    const s2 = [(i + 1) / Nc * W, (j + 1) / Nr * H], s3 = [i / Nc * W, (j + 1) / Nr * H];
+    acTexTri(ctx, img, s0, s1, s2, [a.sx, a.sy], [b.sx, b.sy], [c.sx, c.sy]);
+    acTexTri(ctx, img, s0, s2, s3, [a.sx, a.sy], [c.sx, c.sy], [d.sx, d.sy]);
+  }
 }
 
 // ── True-3D inspect environment ───────────────────────────────────────────────
@@ -1064,11 +1116,23 @@ function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
       ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - slant, py + 12); ctx.stroke();
     }
   } else if (fx.motion && wx === 'snow') {
-    ctx.fillStyle = 'rgba(240,246,253,0.85)';
-    for (let i = 0; i < 26; i++) {
-      const px = x0 + (hash01(i * 1.7) * dw + Math.sin(now * 0.6 + i) * 9) % dw;
-      const py = yTop + (hash01(i * 3.1) * dh + now * 44) % dh;
-      ctx.beginPath(); ctx.arc(px, py, 1.4, 0, 7); ctx.fill();
+    // Blizzard proxy: snow collapses to one 'snow' string server-side, so wind is the only
+    // "how hard is it coming down" signal we get — calm flurry ⇒ 0, wind-blown whiteout ⇒ 1.
+    const bliz = Math.min(1, (sky?.wind || 0) / 45);
+    // Whiteout haze over the diorama — a thin milky wash in calm snow, a dense veil in a blizzard.
+    ctx.fillStyle = rgbStr([236, 242, 250], 0.08 + bliz * 0.42);
+    ctx.fillRect(x0, yTop, dw, dh);
+    // Driving snow: a straight, purposeful fall (no lazy flutter), raked by the wind. Motion is
+    // time-driven in a normalized [0,1] track then mapped into the door box, so walking only
+    // parallax-scales the flakes — it never jumps or speeds up their fall.
+    const slant = 2 + bliz * 16, fall = 0.5 + bliz * 0.8;
+    ctx.fillStyle = rgbStr([240, 246, 253], 0.85);
+    const count = 26 + Math.round(bliz * 34);
+    for (let i = 0; i < count; i++) {
+      const ny = (hash01(i * 3.1) + now * fall) % 1;
+      const px = x0 + (hash01(i * 1.7) * dw + ny * slant) % dw;
+      const py = yTop + ny * dh;
+      ctx.beginPath(); ctx.arc(px, py, 1.3, 0, 7); ctx.fill();
     }
   }
   if (wx === 'fog' || wx === 'cloudy') {   // low haze rolling across the apron (static, always)
@@ -1117,36 +1181,100 @@ function bayBillboard(ctx, proj, fillModel, f, gc, zTop, seed) {
     ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(c0.sx, c0.sy, rad, 0, 7); ctx.fill();
   }
 }
-// The air-traffic-control tower off to one side of the apron: a tapered concrete shaft (front +
-// one receding side face), a wider control cab with outward-leaning glass, a roof, and a mast
-// carrying a red obstruction blink and an alternating white/green rotating airport beacon.
+// The air-traffic-control tower off to one side of the apron — the apron's hero landmark, so it's
+// built up from a lot of small faces rather than a few big ones: a splayed plinth base, a banded
+// tapered shaft with a service ladder, an outrigger catwalk gallery with a railing, a wider control
+// cab with outward-leaning mullioned glass and a parapet roof, and a roof equipment cluster (a
+// sweeping surveillance-radar bar, whip antennas, a dish) topped by a mast carrying a red
+// obstruction blink and an alternating white/green rotating airport beacon. Everything is model-space
+// so it parallaxes as you walk; faces are emitted strictly back(side)→front, bottom→top for painter's
+// depth (fillModel has no z-buffer). Only the +f (front) and +g (side) faces ever face the camera.
 function drawATCTower(ctx, proj, fillModel, pal, night) {
-  const g = 8.4, f = -20, base = FLOOR_Z, fB = f - 0.8;
-  const shaftTop = base + 3.2, w0 = 0.5, w1 = 0.32;
-  const shaftF = rgbStr(mix3(pal.hor, [50, 56, 64], 0.62)), shaftS = rgbStr(mix3(pal.hor, [34, 38, 44], 0.62));
-  fillModel([[f, g + w0, base], [fB, g + w0 * 0.9, base], [fB, g + w1 * 0.9, shaftTop], [f, g + w1, shaftTop]], shaftS);   // side
-  fillModel([[f, g - w0, base], [f, g + w0, base], [f, g + w1, shaftTop], [f, g - w1, shaftTop]], shaftF);                  // front
-  // Control cab — a wider box on top, its front glass leaning OUT (classic tower rake).
-  const cabZb = shaftTop, cabZt = shaftTop + 0.72, cw = 0.78, lean = 0.16;
-  fillModel([[f + 0.05, g - cw, cabZb], [f + 0.05, g + cw, cabZb], [fB, g + cw * 0.92, cabZb], [fB, g - cw * 0.92, cabZb]], 'rgb(30,34,40)');   // deck underside
-  fillModel([[f, g + cw, cabZb], [fB, g + cw * 0.92, cabZb], [fB, g + cw * 0.92, cabZt], [f - lean, g + cw, cabZt]], rgbStr(mix3(pal.hor, [26, 30, 36], 0.6)));   // cab side
-  const glass = night > 0.4 ? [140, 200, 176] : [96, 138, 156];
-  fillModel([[f, g - cw, cabZb + 0.06], [f, g + cw, cabZb + 0.06], [f - lean, g + cw, cabZt], [f - lean, g - cw, cabZt]], rgbStr(glass, 0.94));   // raked glass band
-  // Cab mullions — a couple of dark verticals over the glass so it reads as windows, not a slab.
-  for (const gg of [-cw * 0.5, 0, cw * 0.5]) fillModel([[f - lean * 0.5, g + gg - 0.02, cabZb + 0.08], [f - lean * 0.5, g + gg + 0.02, cabZb + 0.08], [f - lean, g + gg + 0.02, cabZt], [f - lean, g + gg - 0.02, cabZt]], 'rgba(18,22,28,0.75)');
-  fillModel([[f - lean, g - cw, cabZt], [f - lean, g + cw, cabZt], [fB, g + cw * 0.92, cabZt + 0.14], [fB, g - cw * 0.92, cabZt + 0.14]], 'rgb(22,26,32)');   // roof
+  const g = 8.4, f = -20, base = FLOOR_Z, fB = f - 0.9, t = performance.now() / 1000;
+  // Concrete tones keyed to the sky so the tower sits in the same light as the diorama; the receding
+  // +g side is a shade darker than the camera-facing front. `p` = palette-mix helper.
+  const p = (rgb, k = 0.62) => rgbStr(mix3(pal.hor, rgb, k));
+  const shaftF = p([54, 60, 68]), shaftS = p([34, 38, 44]);
+  const trimF = p([74, 82, 92]), trimS = p([48, 54, 62]);
+  const steelF = 'rgb(38,42,48)', steelS = 'rgb(24,27,32)';
+  // A tapered vertical segment centred on g: receding +g side first, then the camera-facing front.
+  const tier = (zb, zt, wb, wt, cF, cS) => {
+    fillModel([[f, g + wb, zb], [fB, g + wb * 0.9, zb], [fB, g + wt * 0.9, zt], [f, g + wt, zt]], cS);   // +g side
+    fillModel([[f, g - wb, zb], [f, g + wb, zb], [f, g + wt, zt], [f, g - wt, zt]], cF);                  // front
+  };
+  // A thin horizontal band/ledge (slightly proud of the shaft) — its underside + front fascia.
+  const band = (z, w, h, cF, cS) => {
+    fillModel([[f - 0.02, g - w, z], [f - 0.02, g + w, z], [fB, g + w * 0.9, z], [fB, g - w * 0.9, z]], cS);   // underside
+    fillModel([[f - 0.02, g - w, z], [f - 0.02, g + w, z], [f - 0.02, g + w, z + h], [f - 0.02, g - w, z + h]], cF);   // fascia
+  };
+
+  // 1) Splayed plinth base — a wide short block flaring to the ground, with a dark service doorway.
+  const plZ = base + 0.5;
+  tier(base, plZ, 0.9, 0.66, p([46, 52, 60]), p([30, 34, 40]));
+  fillModel([[f - 0.02, g - 0.16, base + 0.04], [f - 0.02, g + 0.16, base + 0.04], [f - 0.02, g + 0.13, base + 0.34], [f - 0.02, g - 0.13, base + 0.34]], 'rgb(14,16,20)');   // doorway
+
+  // 2) Banded, tapered shaft — split into stacked segments with proud trim ledges between them, so
+  //    the column reads as poured concrete lifts rather than one smooth cone.
+  const shaftTop = base + 3.4;
+  const lifts = [[plZ, 0.62], [plZ + 0.95, 0.55], [plZ + 1.9, 0.48], [shaftTop, 0.4]];
+  for (let i = 0; i < lifts.length - 1; i++) {
+    tier(lifts[i][0], lifts[i + 1][0], lifts[i][1], lifts[i + 1][1], shaftF, shaftS);
+    band(lifts[i + 1][0] - 0.03, lifts[i + 1][1] + 0.05, 0.08, trimF, trimS);
+  }
+  // Service ladder up the front — two dark rails + evenly-spaced rungs.
+  for (const rg of [-0.06, 0.06]) fillModel([[f - 0.03, g + rg - 0.012, plZ], [f - 0.03, g + rg + 0.012, plZ], [f - 0.03, g + rg + 0.012, shaftTop], [f - 0.03, g + rg - 0.012, shaftTop]], 'rgba(16,18,22,0.85)');
+  for (let z = plZ + 0.14; z < shaftTop - 0.1; z += 0.26) fillModel([[f - 0.03, g - 0.07, z], [f - 0.03, g + 0.07, z], [f - 0.03, g + 0.07, z + 0.03], [f - 0.03, g - 0.07, z + 0.03]], 'rgba(16,18,22,0.8)');
+
+  // 3) Outrigger catwalk gallery — a deck wider than the cab wrapping the top of the shaft, with an
+  //    underside, a fascia, and a railing (posts + top rail) around the front and +g side.
+  const galZ = shaftTop, gW = 1.0, galF = -0.06;   // galF: front deck edge pulled toward camera
+  fillModel([[f + galF, g - gW, galZ], [f + galF, g + gW, galZ], [fB - 0.1, g + gW * 0.9, galZ], [fB - 0.1, g - gW * 0.9, galZ]], steelS);   // deck underside
+  band(galZ, gW, 0.1, steelF, steelS);   // deck fascia lip
+  const railZ = galZ + 0.24;
+  fillModel([[f + galF, g - gW, railZ - 0.03], [f + galF, g + gW, railZ - 0.03], [f + galF, g + gW, railZ], [f + galF, g - gW, railZ]], 'rgba(150,160,172,0.8)');   // front top rail
+  fillModel([[f + galF, g + gW, railZ - 0.03], [fB - 0.1, g + gW * 0.9, railZ - 0.03], [fB - 0.1, g + gW * 0.9, railZ], [f + galF, g + gW, railZ]], 'rgba(120,130,142,0.7)');   // side top rail
+  for (let gg = -gW + 0.12; gg <= gW - 0.06; gg += 0.32) fillModel([[f + galF, g + gg - 0.015, galZ], [f + galF, g + gg + 0.015, galZ], [f + galF, g + gg + 0.015, railZ], [f + galF, g + gg - 0.015, railZ]], 'rgba(140,150,162,0.55)');   // front railing posts
+
+  // 4) Control cab — the wider glass box, its front leaning OUT over the gallery (classic tower rake).
+  const cabZb = galZ + 0.06, cabZt = cabZb + 0.82, cw = 0.88, lean = 0.2;
+  fillModel([[f, g + cw, cabZb], [fB, g + cw * 0.92, cabZb], [fB, g + cw * 0.92, cabZt], [f - lean, g + cw, cabZt]], p([26, 30, 36], 0.6));   // cab +g side wall
+  const glass = night > 0.4 ? [150, 210, 184] : [96, 138, 156];
+  fillModel([[f, g - cw, cabZb + 0.05], [f, g + cw, cabZb + 0.05], [f - lean, g + cw, cabZt], [f - lean, g - cw, cabZt]], rgbStr(glass, 0.94));   // raked glass band
+  // Lit consoles glimpsed behind the glass at night — a few warm specks low in the pane.
+  if (night > 0.4) for (const gg of [-cw * 0.6, -cw * 0.15, cw * 0.35]) fillModel([[f - lean * 0.35, g + gg - 0.05, cabZb + 0.12], [f - lean * 0.35, g + gg + 0.05, cabZb + 0.12], [f - lean * 0.4, g + gg + 0.05, cabZb + 0.24], [f - lean * 0.4, g + gg - 0.05, cabZb + 0.24]], 'rgba(255,206,150,0.8)');
+  // Mullions — dark verticals over the glass, plus a horizontal transom, so it reads as a window band.
+  for (const gg of [-cw * 0.66, -cw * 0.33, 0, cw * 0.33, cw * 0.66]) fillModel([[f - lean * 0.5, g + gg - 0.02, cabZb + 0.06], [f - lean * 0.5, g + gg + 0.02, cabZb + 0.06], [f - lean, g + gg + 0.02, cabZt], [f - lean, g + gg - 0.02, cabZt]], 'rgba(16,20,26,0.78)');
+  fillModel([[f - lean * 0.62, g - cw, cabZb + 0.5], [f - lean * 0.62, g + cw, cabZb + 0.5], [f - lean * 0.66, g + cw, cabZb + 0.55], [f - lean * 0.66, g - cw, cabZb + 0.55]], 'rgba(16,20,26,0.7)');   // transom
+  // Parapet roof — a shallow slab overhanging the glass, with a thin fascia edge.
+  const roofZ = cabZt, roofZt = roofZ + 0.16;
+  fillModel([[f - lean, g + cw, roofZ], [fB, g + cw * 0.92, roofZ], [fB, g + cw * 0.92, roofZt], [f - lean, g + cw, roofZt]], 'rgb(30,34,40)');   // roof +g fascia (side)
+  fillModel([[f - lean, g - cw, roofZ], [f - lean, g + cw, roofZ], [f - lean, g + cw, roofZt], [f - lean, g - cw, roofZt]], 'rgb(38,43,50)');   // roof front fascia
+  fillModel([[f - lean, g - cw, roofZt], [f - lean, g + cw, roofZt], [fB, g + cw * 0.92, roofZt], [fB, g - cw * 0.92, roofZt]], 'rgb(24,28,34)');   // roof top
+
+  // 5) Roof equipment cluster — antennas + a dish rise off the parapet, and the mast tops it out.
+  const rf = f - lean * 0.5;
+  fillModel([[rf, g - cw * 0.55 - 0.04, roofZt], [rf, g - cw * 0.55 + 0.04, roofZt], [rf, g - cw * 0.55 + 0.04, roofZt + 0.16], [rf, g - cw * 0.55 - 0.04, roofZt + 0.16]], 'rgb(20,23,28)');   // dish pedestal
+  fillModel([[rf - 0.02, g - cw * 0.55 - 0.18, roofZt + 0.1], [rf - 0.02, g - cw * 0.55 + 0.18, roofZt + 0.1], [rf - 0.06, g - cw * 0.55 + 0.14, roofZt + 0.34], [rf - 0.06, g - cw * 0.55 - 0.14, roofZt + 0.34]], 'rgba(180,190,202,0.85)');   // dish face
+  for (const gg of [cw * 0.2, cw * 0.5]) fillModel([[rf, g + gg - 0.015, roofZt], [rf, g + gg + 0.015, roofZt], [rf, g + gg + 0.015, roofZt + 0.4 + gg], [rf, g + gg - 0.015, roofZt + 0.4 + gg]], 'rgba(30,34,40,0.9)');   // whip antennas
   // Mast + lights.
-  const mastTop = cabZt + 0.7;
-  fillModel([[f - lean - 0.08, g - 0.04, cabZt + 0.14], [f - lean - 0.08, g + 0.04, cabZt + 0.14], [f - lean - 0.08, g + 0.04, mastTop], [f - lean - 0.08, g - 0.04, mastTop]], 'rgba(20,22,26,0.9)');
-  const mast = proj(f - lean - 0.08, g, mastTop);
+  const mastTop = roofZt + 0.8;
+  fillModel([[rf - 0.08, g - 0.04, roofZt], [rf - 0.08, g + 0.04, roofZt], [rf - 0.08, g + 0.04, mastTop], [rf - 0.08, g - 0.04, mastTop]], 'rgba(20,22,26,0.9)');
+  const mast = proj(rf - 0.08, g, mastTop);
   if (mast.z > ROOM_NEAR) {
-    const t = performance.now() / 1000;
     const blink = t % 1.3 < 0.13 ? 1 : 0.12;   // red obstruction light — a slow steady blink
     let rg = ctx.createRadialGradient(mast.sx, mast.sy, 1, mast.sx, mast.sy, 11);
     rg.addColorStop(0, `rgba(255,60,50,${0.35 + blink * 0.55})`); rg.addColorStop(1, 'rgba(255,60,50,0)');
     ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(mast.sx, mast.sy, 11, 0, 7); ctx.fill();
+    // Surveillance-radar bar sweeping over the roof — a thin foreshortened line rotating about the
+    // roof centre, so the tower reads as an active, staffed facility.
+    const rc = proj(f - lean, g, roofZt + 0.12);
+    if (rc.z > ROOM_NEAR) {
+      const len = Math.max(7, Math.min(34, 30 / rc.z)), a = t * 1.7, dx = Math.cos(a) * len, dy = Math.sin(a) * len * 0.36;
+      ctx.strokeStyle = 'rgba(150,200,172,0.75)'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(rc.sx - dx, rc.sy - dy); ctx.lineTo(rc.sx + dx, rc.sy + dy); ctx.stroke(); ctx.lineCap = 'butt';
+    }
     // Airport beacon on the cab roof — alternating white/green sweep.
-    const beacon = proj(f - lean, g + cw * 0.6, cabZt + 0.18);
+    const beacon = proj(f - lean, g + cw * 0.6, roofZt + 0.18);
     if (beacon.z > ROOM_NEAR) {
       const green = (t % 2) < 1, col = green ? '80,255,150' : '245,250,255', ph = 0.4 + 0.6 * Math.abs(Math.sin(t * Math.PI));
       rg = ctx.createRadialGradient(beacon.sx, beacon.sy, 1, beacon.sx, beacon.sy, 13);
@@ -1177,7 +1305,7 @@ function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom =
   const roll = wreck ? -0.26 : 0, cro = Math.cos(roll), sro = Math.sin(roll);
   const ox = w / 2, oy = h * 0.52;
   const Ln = Math.hypot(-0.25, -0.45, 0.86), lx = -0.25 / Ln, ly = -0.45 / Ln, lz = 0.86 / Ln;
-  let proj;
+  let proj, eyeW;   // eyeW = the camera position in the SAME space the face normals live in (P.wx/wy/wz), for backface culling
   if (cam) {
     // FREE WALK CAMERA: eye at (x forward, y right, z up) in the craft's own frame, looking
     // along yaw (azimuth in the ground plane) + pitch. WASD moves the eye, drag turns the head.
@@ -1192,6 +1320,7 @@ function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom =
       const depth = xf * cpi + dU * spi, up = -xf * spi + dU * cpi;      // into screen / screen-up
       return { sx: ox + xr * focal / depth, sy: oy - up * focal / depth, z: depth, wx: f, wy: g1, wz: h1 };
     };
+    eyeW = [cam.x, cam.y, cam.z];   // the free-walk eye, already in model/world (f,g1,h1) space
   } else {
     // ORBIT TURNTABLE: fixed distance, yaw about up + a ¾ elevation tilt, zoom via focal.
     const E = clampN(elev, 0.04, 1.35), cosE = Math.cos(E), sinE = Math.sin(E);
@@ -1204,6 +1333,7 @@ function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom =
       const z = camDist - camZ;
       return { sx: ox + gy * focal / z, sy: oy - camY * focal / z, z, wx: fx, wy: gy, wz: hz };
     };
+    eyeW = [camDist * cosE, 0, camDist * sinE];   // orbit eye in (fx,gy,hz) space: solves camZ = camDist, camY = 0
   }
   if (floor && cam) drawInspectRoom(ctx, proj, sky);   // walk view: a real 3D hangar around you, live sky through the bay door
   if (floor) drawFloorGrid(ctx, proj);   // 3D ground under the plane (draws before the model)
@@ -1212,10 +1342,28 @@ function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom =
     if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
     const P = face.p.map(v => proj(v[0], v[1], v[2]));
     if (P.some(q => q.z <= 0.15)) continue;
-    const a = [P[1].wx - P[0].wx, P[1].wy - P[0].wy, P[1].wz - P[0].wz];
-    const b = [P[2].wx - P[0].wx, P[2].wy - P[0].wy, P[2].wz - P[0].wz];
-    let nx = a[1] * b[2] - a[2] * b[1], ny = a[2] * b[0] - a[0] * b[2], nz = a[0] * b[1] - a[1] * b[0];
+    // Newell's method for the face normal (sum over all edges) — stays valid even when ONE
+    // edge of the polygon collapses to zero length, which happens at the nose/tail cone tips
+    // where a whole cross-section ring degenerates to a point. The old two-edge cross product
+    // used P[0]→P[1] as its first edge, so a collapsed front ring (P[0]===P[1]) gave a zero
+    // normal → the body cull dropped the entire nose cone (the "missing nose" bug).
+    let nx = 0, ny = 0, nz = 0;
+    for (let i = 0; i < P.length; i++) {
+      const c = P[i], d = P[(i + 1) % P.length];
+      nx += (c.wy - d.wy) * (c.wz + d.wz); ny += (c.wz - d.wz) * (c.wx + d.wx); nz += (c.wx - d.wx) * (c.wy + d.wy);
+    }
     const nl = Math.hypot(nx, ny, nz) || 1;
+    // Backface cull the CLOSED-HULL roles (fuselage skin, canopy, windows). Painter's
+    // sort alone lets a far-side hull facet win the depth test in places and bleed through
+    // the near side; these surfaces wrap a body centred on the origin, so a normal oriented
+    // outward-from-origin that faces AWAY from the eye is the hidden back and can be dropped.
+    // Appendages (wings/stabs/fins/nacelles/gear) are thin or off-axis, so they stay two-sided.
+    if (CULL_ROLE.has(face.role)) {
+      let cx = 0, cy = 0, cz = 0; for (const q of P) { cx += q.wx; cy += q.wy; cz += q.wz; }
+      const n = P.length; cx /= n; cy /= n; cz /= n;
+      const out = (nx * cx + ny * cy + nz * cz) < 0 ? -1 : 1;   // flip normal to point away from the model centre
+      if (out * (nx * (eyeW[0] - cx) + ny * (eyeW[1] - cy) + nz * (eyeW[2] - cz)) <= 0) continue;   // faces away from the eye → hidden back
+    }
     const light = 0.52 + 0.48 * Math.abs((nx * lx + ny * ly + nz * lz) / nl);
     let rgb = faceBaseRgb(face, pal);
     if (wreck) rgb = mix3(rgb, [74, 72, 66], 0.55);
@@ -1523,6 +1671,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky }) {
     const z = camDist - camZ;
     return { sx: ox + gy * focal / z, sy: oy - camY * focal / z, z, wx: fx, wy: gy, wz: hz };
   };
+  const eyeW = [camDist * cosE, 0, camDist * sinE];   // the shared camera in (fx,gy,hz) space, for backface culling
 
   const hits = [];
   const groups = entries.map((e, i) => {
@@ -1532,6 +1681,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky }) {
     const pal = liveryPalette(e.livery || {});
     const roll = e.wreck ? -0.22 : 0, cro = Math.cos(roll), sro = Math.sin(roll);
     const selected = e.id === selId;
+    const cen = proj(0, laneG, 0);   // this plane's own centre in normal-space (its lane, not the origin) — for backface culling
     const drawn = [];
     for (const face of faces) {
       if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
@@ -1545,6 +1695,15 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky }) {
       const b = [P[2].wx - P[0].wx, P[2].wy - P[0].wy, P[2].wz - P[0].wz];
       let nx = a[1] * b[2] - a[2] * b[1], ny = a[2] * b[0] - a[0] * b[2], nz = a[0] * b[1] - a[1] * b[0];
       const nl = Math.hypot(nx, ny, nz) || 1;
+      // Backface cull the closed-hull roles so a far-side facet can't bleed through the near side
+      // (painter's sort alone lets it win in places). Outward is measured from THIS plane's centre.
+      if (CULL_ROLE.has(face.role)) {
+        let cx = 0, cy2 = 0, cz2 = 0; for (const q of P) { cx += q.wx; cy2 += q.wy; cz2 += q.wz; }
+        const m = P.length; cx /= m; cy2 /= m; cz2 /= m;
+        const dx = cx - cen.wx, dy = cy2 - cen.wy, dz = cz2 - cen.wz;
+        const out = (nx * dx + ny * dy + nz * dz) < 0 ? -1 : 1;   // flip normal to point away from the plane centre
+        if (out * (nx * (eyeW[0] - cx) + ny * (eyeW[1] - cy2) + nz * (eyeW[2] - cz2)) <= 0) continue;
+      }
       const light = 0.62 + 0.5 * Math.abs((nx * lx + ny * ly + nz * lz) / nl);
       let rgb = faceBaseRgb(face, pal);
       if (e.wreck) rgb = mix3(rgb, [74, 72, 66], 0.55);

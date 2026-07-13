@@ -35,6 +35,10 @@ export function isHangarBayWalkActive() {
 
 // ── Entry points (dispatch.js wires these to the server pushes) ───────────────
 export function openHangarBay(data) {
+  // A background refresh (e.g. after a remote tablet sale) only updates an
+  // already-open bay — if the panel is closed, ignore it rather than popping the
+  // 3D hangar open over whatever the player is actually looking at (the tablet).
+  if (data?.refreshOnly && !B) return;
   const freshOpen = !B;
   // Snap the top pane back to its default auto size so the whole hangar UI fits the
   // interface, regardless of any manual drag height left on the previous room look.
@@ -64,6 +68,7 @@ export function openCharterScreen(data) {
 export function closeHangarBay() {
   cleanupPopover();
   stopHangarAmbience();   // the render loop drove the weather bed; it stops now, so silence it
+  document.body.classList.remove('hb-fullscreen', 'hb-hidepanel');   // drop the immersive layout so the room look isn't left with the log/command box hidden
   if (raf) { cancelAnimationFrame(raf); raf = null; }
   B = null; charterData = null;
   // Tear the panel out of the pane immediately rather than leaving it (with its
@@ -76,7 +81,7 @@ export function closeHangarBay() {
 // bound once at module load, not per-render, so it never stacks up duplicate handlers.
 window.addEventListener('keydown', (e) => {
   if (!B || e.key !== 'Escape') return;
-  if (B.screen !== 'floor') { go('floor'); } else if (B.data?.inHangar) { sendCmdSilent('out'); } else { closeHangarBay(); sendCmdSilent('look'); }
+  if (B.screen !== 'floor') { go('floor'); } else if (B.data?.inHangar) { sendCmdSilent(B.data.exitDir || 'out'); } else { closeHangarBay(); sendCmdSilent('look'); }
 });
 
 const esc = (s) => String(s == null ? '' : s).replace(/[<>&"]/g, ch => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[ch]));
@@ -164,10 +169,13 @@ function sceneEntries() {
   // not present/bookable (server-gated: only the charterer can board it).
   if (pilot && d.canRent !== undefined) {
     const ready = pilot.present || !!d.charterWaiting;
+    const unrated = !d.licensed && !d.isAdmin;
     entries.push({
-      id: '__charter', cls: 'prop', tint: ready ? (pilot.color || '#f2b01e') : null,
+      id: '__charter', cls: 'prop', tint: (ready || unrated) ? (pilot.color || '#f2b01e') : null,
       livery: { base: pilot.color || '#f2b01e', trim: '#1a1a1a', pattern: 'solid', finish: 'gloss', cabin: '#1a1a1a' },
-      label: d.charterWaiting ? `✈ CHARTER — ${pilot.name} (ready to board)` : pilot.present ? `✈ CHARTER — ${pilot.name}` : '✈ CHARTER — off shift',
+      // Unrated pilots see the charter plane as their way in: click it to take the checkride.
+      label: unrated ? '✈ CHARTER — click to take your checkride & earn your licence'
+        : d.charterWaiting ? `✈ CHARTER — ${pilot.name} (ready to board)` : pilot.present ? `✈ CHARTER — ${pilot.name}` : '✈ CHARTER — off shift',
     });
   }
   return entries;
@@ -298,19 +306,36 @@ function charterScreen() {
 // lot instead of the floor/bench's realistic shaded 3D turntable. Deliberately
 // the only screen styled this way (see ensureStyles' .hb-dealer-* block) — the
 // floor and mechanics bench keep the ordinary hangar look untouched.
-function lotCard(t, mode) {
-  return `<button class="hb-lot hb-dealer-lot" data-hb-${mode}="${esc(t.id)}">
-    <canvas class="hb-wf-lot" data-wf-cls="${esc(t.class)}" width="128" height="90"></canvas>
+// One big wireframe per airframe with a Buy and a Rent button underneath it (each shown only
+// where the field offers that desk). A button is disabled if you can't afford it OR you have
+// no pilot licence — admins bypass both. The whole card is no longer a single click target.
+function lotCard(t) {
+  const d = B.data;
+  const admin = !!d.isAdmin, licensed = admin || !!d.licensed, credits = d.credits || 0;
+  const acqBtn = (kind, price) => {
+    const canAfford = admin || credits >= price;
+    const ok = licensed && canAfford;
+    const why = !licensed ? 'You need a pilot licence — pass a checkride first.'
+      : !canAfford ? "You can't afford this." : `${kind === 'buy' ? 'Buy' : 'Rent'} the ${t.name}`;
+    return `<button class="hb-lot-acq hb-lot-${kind}" data-hb-${kind}="${esc(t.id)}"${ok ? '' : ' disabled'} title="${esc(why)}">
+      ${kind === 'buy' ? 'BUY' : 'RENT'} · ₵${price}${kind === 'rent' ? '/hr' : ''}</button>`;
+  };
+  return `<div class="hb-lot hb-dealer-lot">
+    <canvas class="hb-wf-lot" data-wf-cls="${esc(t.class)}" width="200" height="142"></canvas>
     <div class="hb-lot-name">${esc(t.name)}</div>
     <div class="hb-lot-meta">${esc(t.class)} · ${t.seats} seat${t.seats > 1 ? 's' : ''} · ${esc(t.fuel)}</div>
-    <div class="hb-lot-price">₵ ${t.price}${mode === 'rent' ? '/hr' : ''}</div>
-  </button>`;
+    <div class="hb-lot-acts">
+      ${d.canBuy ? acqBtn('buy', t.priceBuy) : ''}
+      ${d.canRent ? acqBtn('rent', t.priceRent) : ''}
+    </div>
+  </div>`;
 }
 function buyRentScreen() {
   const d = B.data;
-  const buy = d.canBuy ? `<div class="hb-section">BUY</div><div class="hb-lotgrid">${(d.buyCatalog || []).map(t => lotCard(t, 'buy')).join('')}</div>` : '';
-  const rent = d.canRent ? `<div class="hb-section">RENT (self-flown)</div><div class="hb-lotgrid">${(d.rentCatalog || []).map(t => lotCard(t, 'rent')).join('')}</div>` : '';
-  return `<div class="hb-dealer-crt"><div class="hb-scroll">${buy}${rent}</div><div class="hb-dealer-scanlines"></div><div class="hb-crt-glass"></div></div>
+  const gate = !d.isAdmin && !d.licensed
+    ? `<div class="hb-lot-lockmsg">⚠ You need a pilot licence to buy or rent — pass a checkride at Coldwater Regional first.
+       <button class="hb-btn hb-accent" data-act="checkride" style="margin-top:8px">✈ Take the checkride</button></div>` : '';
+  return `<div class="hb-dealer-crt"><div class="hb-scroll">${gate}<div class="hb-lotgrid">${(d.lots || []).map(lotCard).join('')}</div></div><div class="hb-dealer-scanlines"></div><div class="hb-crt-glass"></div></div>
     <div class="hb-toolbar"><div class="hb-tb-group hb-tb-right">${tbtn('‹', 'Back', 'data-act="back"')}</div></div>`;
 }
 
@@ -734,9 +759,17 @@ function render() {
   // A persistent back button lives in the header itself (not just the bottom
   // toolbar) on every non-floor screen — always visible, never scrolled out of view.
   const backBtn = B.screen !== 'floor' ? `<button class="hb-back" data-act="back" title="Back to the hangar floor">‹ Hangar</button>` : '';
+  // Immersive view toggles — the same pair the flight sim carries: ⊟ folds away the
+  // scrollback log (command box stays), ⛶ fills the whole column. Their lit state is
+  // read off the body class so it survives every re-render.
+  const fs = document.body.classList.contains('hb-fullscreen'), hp = document.body.classList.contains('hb-hidepanel');
+  const viewBtns = `<span class="hb-viewbtns">
+      <button class="hb-viewbtn${hp ? ' on' : ''}" data-act="hidepanel" title="hide the text panel — more hangar view">⊟</button>
+      <button class="hb-viewbtn${fs ? ' on' : ''}" data-act="fullscreen" title="fullscreen">⛶</button>
+    </span>`;
   setAreaPane(`<div id="hb-root">
     <div class="hb-head">${backBtn}<span class="hb-title">✈ ${title} — ${esc(d.field || '')}</span>
-      <span class="hb-credits">₵ ${d.credits ?? 0}</span></div>
+      <span class="hb-credits">₵ ${d.credits ?? 0}</span>${viewBtns}</div>
     <div class="hb-body">${body}</div>
   </div>`);
   wire();
@@ -764,6 +797,10 @@ function wire() {
     }
     if (!best) return;
     if (best.id === '__charter') {
+      // Unrated pilots can't fly anything yet — clicking the charter plane starts the
+      // checkride (the loaner Mayfly + guided tutorial) so a new player has a discoverable
+      // way to earn their licence right here on the hangar floor.
+      if (!B.data.licensed && !B.data.isAdmin) { sendCmdSilent('checkride'); closeHangarBay(); return; }
       // Already booked for you: click boards it directly. Otherwise, if a pilot's
       // on duty, click opens the booking dialog. A stranger's booking (pilot busy,
       // not yours) is neither — the server keeps it unbookable either way.
@@ -847,16 +884,29 @@ function wire() {
   on('[data-act]', 'click', (e) => {
     const act = e.currentTarget.getAttribute('data-act');
     // Standing inside the walk-in hangar: "Exit" actually walks you back out to the
-    // ramp — `out` fires zone.entered on the far side, which pushes `hangar_close`
-    // to dismiss the panel. Opened from the open ramp itself, there's no interior
-    // to leave, so just dismiss it here.
-    if (act === 'close') { if (B.data.inHangar) sendCmdSilent('out'); else { closeHangarBay(); sendCmdSilent('look'); } return; }
+    // ramp — the move fires zone.entered on the far side, which pushes `hangar_close`
+    // to dismiss the panel. The way out is whatever door the interior actually has
+    // (server-supplied exitDir; `out` on old hangars, a compass dir on rebuilt ones).
+    // Opened from the open ramp itself, there's no interior to leave, so just dismiss.
+    // Immersive view toggles (mirror the flight sim's ⛶/⊟): flip the body class the
+    // CSS reads, keep the two mutually exclusive, and re-light both buttons in place —
+    // no full render(), so the live 3D scene never blinks.
+    if (act === 'fullscreen' || act === 'hidepanel') {
+      const cls = act === 'fullscreen' ? 'hb-fullscreen' : 'hb-hidepanel';
+      const other = act === 'fullscreen' ? 'hb-hidepanel' : 'hb-fullscreen';
+      if (document.body.classList.toggle(cls)) document.body.classList.remove(other);
+      root.querySelector('[data-act="fullscreen"]')?.classList.toggle('on', document.body.classList.contains('hb-fullscreen'));
+      root.querySelector('[data-act="hidepanel"]')?.classList.toggle('on', document.body.classList.contains('hb-hidepanel'));
+      return;
+    }
+    if (act === 'close') { if (B.data.inHangar) sendCmdSilent(B.data.exitDir || 'out'); else { closeHangarBay(); sendCmdSilent('look'); } return; }
     if (act === 'back') { go('floor'); return; }
     if (act === 'buyrent') { go('buyrent'); return; }
     if (act === 'bench') { B.tune = null; B.tuneFor = null; B.kitSel = null; go('bench'); return; }
     if (act === 'inspect') { B.inspect = B.inspect || inspectDefault(); go('inspect'); return; }
     if (act === 'inspect-reset') { const m = B.inspect?.mode; B.inspect = inspectDefault(); if (m) B.inspect.mode = m; inspectKeys.clear(); return; }
     if (act === 'inspect-mode') { if (B.inspect) B.inspect.mode = B.inspect.mode === 'walk' ? 'orbit' : 'walk'; inspectKeys.clear(); render(); return; }
+    if (act === 'checkride') { sendCmdSilent('checkride'); closeHangarBay(); return; }
     if (act === 'charter-any') { charterAny = !charterAny; render(); return; }
     if (act === 'embark') { sendCmdSilent(`embark ${e.currentTarget.getAttribute('data-tail')}`); closeHangarBay(); return; }
     if (act === 'store') { sendCmdSilent(`hangaract store ${B.selId}`); return; }
@@ -1092,6 +1142,17 @@ function ensureStyles() {
     color:var(--hb-atm-accent); text-shadow:0 0 4px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent);
     background:color-mix(in srgb, var(--hb-atm-accent) 8%, #0d1013); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); border-radius:6px; }
   #hb-root .hb-back:hover { border-color:var(--hb-atm-accent); box-shadow:0 0 10px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
+  /* Fullscreen / hide-panel toggles — a small glyph pair pinned to the right of the head,
+     matching the sim's ⛶/⊟. The lit ('on') state carries the accent glow the .hb-back
+     hover uses, so an active toggle reads as "engaged". */
+  #hb-root .hb-viewbtns { display:flex; gap:6px; margin-left:10px; }
+  #hb-root .hb-viewbtn { font-family:inherit; font-size:14px; line-height:1; cursor:pointer; padding:5px 8px;
+    color:color-mix(in srgb, var(--hb-atm-accent) 75%, #cfe); background:color-mix(in srgb, var(--hb-atm-accent) 8%, #0d1013);
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); border-radius:6px; }
+  #hb-root .hb-viewbtn:hover { border-color:var(--hb-atm-accent); box-shadow:0 0 10px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
+  #hb-root .hb-viewbtn.on { color:#eafffb; border-color:var(--hb-atm-accent);
+    background:color-mix(in srgb, var(--hb-atm-accent) 22%, #0d1013);
+    box-shadow:0 0 10px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent), inset 0 0 8px color-mix(in srgb, var(--hb-atm-accent) 20%, transparent); }
   #hb-root .hb-body { flex:1 1 auto; overflow:hidden; padding:10px 14px; min-height:0; display:flex; flex-direction:column; }
   #hb-root .hb-dim { color:#9db5c6; }
   #hb-root .hb-empty { color:#c2d6e4; font-size:13px; text-align:center; padding:24px 10px; }
@@ -1224,13 +1285,18 @@ function ensureStyles() {
   /* Buy/Rent */
   #hb-root .hb-scroll { overflow-y:auto; }
   #hb-root .hb-section { font-size:9px; letter-spacing:3px; color:#9db5c6; margin:12px 0 6px; border-bottom:1px solid #4a5f70; padding-bottom:3px; }
-  #hb-root .hb-lotgrid { display:flex; flex-wrap:wrap; gap:12px; }
-  #hb-root .hb-lot { width:150px; background:linear-gradient(160deg,#4a5f70,#374a58); border:1px solid #5a7185; border-radius:8px; padding:8px; cursor:pointer; font-family:inherit; color:#dcecf8; }
+  #hb-root .hb-lotgrid { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; }
+  #hb-root .hb-lot { width:236px; background:linear-gradient(160deg,#4a5f70,#374a58); border:1px solid #5a7185; border-radius:8px; padding:10px; font-family:inherit; color:#dcecf8; }
   #hb-root .hb-lot:hover { border-color:#7fd6ff; }
   #hb-root .hb-lot-art { display:flex; justify-content:center; }
-  #hb-root .hb-lot-name { color:#ffffff; font-weight:bold; letter-spacing:1px; text-align:center; margin-top:4px; font-size:11px; }
-  #hb-root .hb-lot-meta { color:#a8c6d8; font-size:9px; text-align:center; margin:2px 0 4px; }
+  #hb-root .hb-lot-name { color:#ffffff; font-weight:bold; letter-spacing:1px; text-align:center; margin-top:4px; font-size:13px; }
+  #hb-root .hb-lot-meta { color:#a8c6d8; font-size:10px; text-align:center; margin:2px 0 8px; }
   #hb-root .hb-lot-price { text-align:center; letter-spacing:1px; color:var(--yellow); }
+  #hb-root .hb-lot-acts { display:flex; gap:8px; }
+  #hb-root .hb-lot-acq { flex:1; padding:7px 4px; border-radius:6px; border:1px solid #5a7185; background:linear-gradient(160deg,#3a4c5a,#2b3a46); color:#eafffb; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:0.5px; cursor:pointer; }
+  #hb-root .hb-lot-acq:hover:not(:disabled) { border-color:#7fd6ff; box-shadow:0 0 8px rgba(127,214,255,0.3); }
+  #hb-root .hb-lot-acq:disabled { opacity:0.4; cursor:not-allowed; filter:grayscale(0.6); }
+  #hb-root .hb-lot-lockmsg { color:#ffcf6b; font-size:11px; letter-spacing:0.5px; text-align:center; margin:4px 0 12px; text-shadow:0 0 6px rgba(255,180,60,0.3); }
 
   /* Dealer terminal (Buy/Rent) and mechanics bench — the full ATM CRT tube
      (bulging-glass radial gradient, deep inset vignette, scanlines, glass
@@ -1241,7 +1307,7 @@ function ensureStyles() {
     background:radial-gradient(130% 130% at 50% 42%,color-mix(in srgb, var(--hb-atm-accent) 22%, var(--hb-black2)) 55%,var(--hb-black2) 100%);
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 35%, var(--hb-black2)); border-radius:20px/14px; padding:12px; overflow:hidden;
     box-shadow:inset 0 0 30px rgba(0,0,0,0.9), inset 0 0 8px color-mix(in srgb, var(--hb-atm-accent) 25%, transparent); }
-  #hb-root .hb-dealer-crt .hb-scroll { position:relative; z-index:4; }
+  #hb-root .hb-dealer-crt .hb-scroll { position:relative; z-index:4; flex:1 1 auto; min-height:0; }
   #hb-root .hb-dealer-scanlines { position:absolute; inset:0; z-index:2; pointer-events:none; border-radius:inherit;
     background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,0.22) 2px 3px); }
   #hb-root .hb-crt-glass { position:absolute; inset:0; z-index:3; pointer-events:none; border-radius:inherit;
@@ -1256,7 +1322,7 @@ function ensureStyles() {
   #hb-root .hb-dealer-lot .hb-lot-name { color:var(--hb-atm-accent); }
   #hb-root .hb-dealer-lot .hb-lot-meta { color:color-mix(in srgb, var(--hb-atm-accent) 65%, white); }
   #hb-root .hb-dealer-lot .hb-lot-price { color:#eafffb; text-shadow:0 0 4px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); }
-  #hb-root .hb-wf-lot { display:block; margin:0 auto; }
+  #hb-root .hb-wf-lot { display:block; margin:0 auto; max-width:100%; }
 
   /* Bench — a lit tablet panel (theme-following surfaces + soft bevels), NOT the
      dealer's dark CRT tube: it obeys the player's background so a light theme reads

@@ -38,6 +38,7 @@ import { commands as combatCommands, tickCombat, relayContacts } from './combat.
 import { commands as contractCommands, checkContractDelivery, checkCargoDropDelivery, waitingDropAt, ensureFenceDrops, ensureFreightDrops, isFreightLicensed } from './contracts.js';
 import { commands as hangarCommands, pushHangarBay } from './hangars.js';
 import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter, activeCharters } from './charter.js';
+import { isPilotLicensed, beginCheckride, evaluateCheckride, checkrideEvent, getCheckrideState, hasActiveCheckride } from './checkride.js';
 
 // Verb-collision routers (see plugin.json `after`): flight wins `board`/`refuel`
 // and delegates to the prior owner by context.
@@ -171,10 +172,20 @@ async function boardFound(found, player, broadcast) {
   if (seat === 'passenger' && live.occupants.size >= effLoadout(live.row, live.type).seats)
     return { type: 'emote', message: `The ${live.type.name} is full${live.row.custom_data?.loadout ? ' — it\'s rigged for freight' : ''}.` };
 
+  // Pilot licence gate — you can't take the pilot seat of ANY aircraft unrated. The
+  // one exception is your own checkride loaner (marked custom_data.checkride === your
+  // id), so you can re-board it to retry the landing. Passengers/charter are ungated.
+  const isLoaner = found.custom_data?.checkride === player.id;
+  if (seat === 'pilot' && !isLoaner && !(await isPilotLicensed(player)))
+    return { type: 'emote', message: '<span class="text-amber">You\'re not rated to fly. See the flight examiner at Coldwater Regional (its hangar office) for a checkride.</span>' };
+
   live.occupants.add(player.id);
   player.aircraftId = found.id;
   player.seat = seat;
   if (seat === 'pilot') live.pilotId = player.id;
+  // Re-link the in-progress checkride to this fresh live object on a loaner re-board,
+  // so the cockpit resumes showing the current stage instruction.
+  if (isLoaner) { live.checkridePilotId = player.id; live.checkride = getCheckrideState(player.id); }
   // Made it in under fire — slam the hatch and everything on you loses its lock.
   let broke = 0;
   if (inCombat) {
@@ -497,6 +508,7 @@ function sendFlightSim(player, live) {
     owner: (live.row.rental || !live.row.owner_id) ? 'RENTED'
       : (live.row.owner_id === player.id ? String(player.name || player.username || 'OWNER').toUpperCase() : 'PRIVATE'),
     fuel: ctx.fuel, fuelCap: ctx.fuelCap, map: ctx.map, sky: ctx.sky, biomeBelow: ctx.biomeBelow, minimap: ctx.minimap, fields: ctx.fields,
+    checkride: ctx.checkride,   // guided-checkride state carried on the initial cockpit open
     engines: ctx.engines, seats: ctx.seats, occupants: ctx.occupants,   // gauge count + cabin-occupancy readout
     // Per-airframe capabilities the continuous cockpit adapts to (Phase 3): the Mule,
     // Reaper + Leviathan have retractable gear (only the fixed-gear Mayfly stays down);
@@ -514,6 +526,7 @@ async function cmdFlightSync(args, raw, player) {
   const n = args.map(Number);
   if (n.length < 9 || n.some(Number.isNaN)) return { type: 'noop' };
   reconcile(live, { gx: n[0], gy: n[1], alt: n[2], ias: n[3], hdg: n[4], thr: n[5], vs: n[6], onGround: n[7] === 1, stalled: n[8] === 1, bank: n[9], pitch: n[10] });
+  if (live.checkride) evaluateCheckride(live);   // guided-checkride stage progression off the fresh telemetry
   live.lastSync = Date.now();   // the pilot is actively flying — reset the unattended-recovery clock
   // While rolling out on the ground over an airfield, remember it — the shutdown `land`
   // parks here even if the roll drifts a tile off the runway before the engine's cut.
@@ -574,6 +587,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     if (zone) broadcast(zone.id, { type: 'zone_event', message: `The ${live.type.name} lifts off and climbs away.` }, player.id);
     await awardSkillUse(player.id, 'piloting', 0);
     out(player.id, '<span class="text-green">Wheels up — you claw into the sky.</span>');
+    if (live.checkride) await checkrideEvent(live, 'takeoff', args, player);
     return { type: 'noop' };
   }
 
@@ -610,6 +624,15 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
       }
     }
     if (field?.flags?.airfield_id || (isVtol && field)) {
+      // Grade the checkride landing while the pilot's still aboard (a pass issues the
+      // licence; a miss leaves the loaner parked for a retry). crDone → the loaner is a
+      // free trainer that's served its purpose, so scrap it after everyone climbs out.
+      let crDone = false;
+      if (live.checkride) {
+        const grade = String(args[1] || '').toUpperCase();
+        const fpm = Math.round(Number(args[2]) || 0);
+        crDone = await checkrideEvent(live, 'land', [grade, fpm, field.id], player);
+      }
       await parkAt(live, field.id);
       await awardSkillUse(player.id, 'piloting', 0);
       await checkContractDelivery(player, live, field.id);
@@ -619,6 +642,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
       // that flared onto any surface — they're simply put down where they landed and can walk
       // away, then `embark` the parked craft again to lift back off.
       for (const pid of [...live.occupants]) { const p = getLivePlayer(pid); if (p) detach(p); }
+      if (crDone) await deleteAircraft(live.row.id);
       return { type: 'noop' };
     }
     // Off-strip, but she made it down in one piece: the client only sends `land` for a
@@ -658,8 +682,12 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     return { type: 'noop' };
   }
 
+  // A checkride ring fly-through, reported by the client (which owns the plane's
+  // world position). The state machine advances to the next gate / the landing stage.
+  if (ev === 'gate') { if (live.checkride) await checkrideEvent(live, 'gate', args, player); return { type: 'noop' }; }
+
   // Engine master switch (the on-panel replacement for `startup`).
-  if (ev === 'engineon') { live.row.engine_on = 1; await persist(live); pushContext(live); return { type: 'noop' }; }
+  if (ev === 'engineon') { live.row.engine_on = 1; await persist(live); pushContext(live); if (live.checkride) await checkrideEvent(live, 'engineon', args, player); return { type: 'noop' }; }
   if (ev === 'engineoff') { if (!live.row.airborne) { live.row.engine_on = 0; live.row.throttle = 0; await persist(live); } return { type: 'noop' }; }
   return { type: 'noop' };
 }
@@ -988,6 +1016,15 @@ async function wreckSweep() {
     }
     if (now - at >= WRECK_TTL_MS) await deleteAircraft(r.id);
   }
+  // Reap abandoned checkride loaners: a free trainer whose ride has ended (passed,
+  // crashed, or the player walked off and the in-memory state is gone) and that no one
+  // is currently sitting in. A ride still in progress keeps its Map entry, so its parked
+  // loaner survives for a re-board.
+  const { rows: loaners } = await query("SELECT id, owner_id FROM aircraft WHERE id LIKE 'aircraft_checkride_%'");
+  for (const l of loaners) {
+    if (liveAircraft.has(l.id) || hasActiveCheckride(l.owner_id)) continue;
+    await deleteAircraft(l.id);
+  }
 }
 setInterval(() => wreckSweep().catch(e => console.error('[flight] wreck sweep error:', e.message)), WRECK_SWEEP_MS);
 
@@ -1199,6 +1236,50 @@ async function cmdTestFly(args, raw, player) {
   return { type: 'emote', message: `<span class="text-green">[TEST] A free <b>${t.name}</b>, full tank, and you're in the pilot's seat. ${how}. It's yours — scrap it when done.</span>` };
 }
 
+// ── Checkride: conjure the free loaner Mayfly and start the ride ───────────────
+// Shared by the examiner NPC's START_CHECKRIDE dialogue action and the `.checkride`
+// admin command. Spawns a throwaway full-tank Mayfly on the Coldwater Regional ramp
+// (marked custom_data.checkride so the boarding gate + cleanup key on it), seats the
+// player as pilot, opens the cockpit, and hands off to the checkride state machine.
+const CHECKRIDE_FIELD = 'zone_district_925_903';   // Coldwater Regional runway (fixed-wing)
+async function startCheckrideRide(player) {
+  if (player.aircraftId) return { type: 'emote', message: 'Climb out of what you\'re in first.' };
+  if (hasActiveCheckride(player.id)) return { type: 'emote', message: 'Your trainer\'s already on the ramp — <b>embark</b> it to pick up where you left off.' };
+  const field = getZone(CHECKRIDE_FIELD);
+  if (!field) return { type: 'emote', message: 'The examiner can\'t raise the tower right now. Try again shortly.' };
+  const { rows } = await query("SELECT fuel_capacity FROM aircraft_types WHERE id='ac_mayfly'");
+  const fuelCap = rows[0]?.fuel_capacity || 40;
+  const id = `aircraft_checkride_${player.id.slice(0, 6)}_${randomUUID().slice(0, 6)}`;
+  await query(
+    `INSERT INTO aircraft (id,type_id,name,owner_id,map_id,grid_x,grid_y,altitude_band,parked_zone_id,fuel,engine_temp,rental,custom_data)
+     VALUES ($1,'ac_mayfly',$2,$3,'map_world',$4,$5,'ground',$6,$7,20,1,$8)`,
+    [id, 'TRAINER Mayfly', player.id, field.grid_x, field.grid_y, field.id, fuelCap, JSON.stringify({ checkride: player.id })]
+  );
+  const live = await loadAircraft(id);
+  live.occupants.add(player.id); player.aircraftId = id; player.seat = 'pilot'; live.pilotId = player.id;
+  live.checkridePilotId = player.id;
+  sendFlightSim(player, live);
+  beginCheckride(player, live);
+  return { type: 'emote', message: '<span class="text-green">The examiner walks you out to a trainer Mayfly on the ramp and drops into the seat beside you. "Right — let\'s see if you can fly. Follow my calls."</span>' };
+}
+
+// The examiner NPC dispatches this from its dialogue tree (`{ action: "START_CHECKRIDE" }`).
+registerAction({
+  type: 'START_CHECKRIDE',
+  handler: async ({ actor }) => {
+    const res = await startCheckrideRide(actor);
+    if (res?.message) out(actor.id, res.message);
+    return { type: 'ok' };
+  },
+});
+
+// Take the checkride. Player-facing entry point (alongside the examiner NPC dialogue and
+// the hangar-bay charter tile): any unrated pilot can start the ride here. Admins are
+// auto-licensed but may still run it to exercise the flow.
+async function cmdCheckride(args, raw, player) {
+  return startCheckrideRide(player);
+}
+
 // Taxi a craft out of the walk-in hangar (the "garage") onto the exterior ramp (the
 // runway) — the gate between sitting in the garage and flying. Only meaningful when
 // she's parked inside a hangar interior; out on the ramp already there's nothing to
@@ -1332,6 +1413,7 @@ export const commands = {
   takeoff: cmdTakeoff, land: cmdLand, refuel: cmdRefuel,
   takeoffresolve: cmdTakeoffResolve, landresolve: cmdLandResolve,
   flightsync: cmdFlightSync, flightevent: cmdFlightEvent, airhome: cmdAirHome,
+  checkride: cmdCheckride,
   ...hazardCommands, ...acquisitionCommands, ...combatCommands, ...contractCommands, ...hangarCommands, ...charterCommands,
 };
 

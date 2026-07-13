@@ -1,19 +1,26 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_events": [
+    "The Guardian's ring mount whines a few degrees, tracking something only the radar can see.",
+    "Spent brass from an earlier engagement lies raked into a glinting drift against the revetment.",
+    "A coolant line ticks as it cools somewhere under the gun deck."
+  ],
+  "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#3a3a32",
+  "color": "#d8d2b0",
   "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "A hardened gun position dug into the basin shore — a horseshoe of poured concrete and stacked ballistic bag, open to the sky. The Guardian autocannon sits exposed on its powered ring mount at the centre, barrels canted up, slaving around to whatever the radar hands it. The crew work it in the open, no cover but the revetment lip and their own nerve. A steel blast hatch in the floor drops down into the bunker where the reload gear and the guts of the thing live.",
   "exits": {
     "east": "zone_district_919_901",
     "north": "zone_district_918_900",
     "south": "zone_district_918_902",
-    "west": "zone_district_917_901"
+    "west": "zone_district_917_901",
+    "down": "zone_aa_clone_bunker"
   },
   "flags": {
+    "aa_site": true,
     "district": "docks",
+    "icon": "aa",
     "planner": "bp_district"
   },
   "grid_x": 918,
@@ -21,8 +28,8 @@
   "grid_z": 0,
   "id": "zone_district_918_901",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "AA",
+  "name": "Guardian Battery",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1783740000"
 }

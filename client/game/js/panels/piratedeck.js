@@ -36,6 +36,8 @@ function ensureStyles() {
     #piratedeck-overlay .pd-t { background:#1c0e16; color:#ff8fb0; border:1px solid #4a2030; border-radius:2px; cursor:pointer; font-family:inherit; font-size:13px; font-weight:bold; padding:6px 9px; letter-spacing:1px; }
     #piratedeck-overlay .pd-t:hover { color:#ff5f8a; border-color:#ff5f8a; }
     #piratedeck-overlay .pd-t.on { color:#0a0406; background:#46e05a; border-color:#46e05a; }
+    #piratedeck-overlay .pd-mode { display:flex; gap:8px; margin:10px 0 2px; }
+    #piratedeck-overlay .pd-mode .pd-t { flex:1; }
     #piratedeck-overlay .pd-sec { font-size:10px; letter-spacing:2px; color:#a06678; margin:12px 0 5px; text-transform:uppercase; }
     #piratedeck-overlay .pd-row { display:flex; align-items:center; gap:8px; padding:6px 8px; border:1px solid #331722; border-radius:3px; margin-bottom:4px; background:#120810; font-size:12px; }
     #piratedeck-overlay .pd-row.cur { border-color:#46e05a; background:#0e1a12; }
@@ -87,6 +89,9 @@ function render() {
   const loopNext = { off: 'item', item: 'queue', queue: 'off' }[loop];
   const queue = d.queue || [];
   const pool = d.pool || [];
+  const mode = d.mode || 'recorded';
+  const sources = d.sources || [];
+  const liveKey = d.liveSource?.key || (sources[0] && sources[0].key);
 
   const queueRows = queue.length ? queue.map((it, i) => `
     <div class="pd-row${i === d.cursor ? ' cur' : ''}">
@@ -107,6 +112,22 @@ function render() {
       <button class="pd-ico" title="Add to queue">＋</button>
     </div>`).join('') : '<div class="pd-empty">— NOTHING TO ADD — carry cassettes or seize a library —</div>';
 
+  const sourceRows = sources.length ? sources.map(s => `
+    <div class="pd-row${s.key === liveKey ? ' cur' : ''}" data-source="${esc(s.key)}">
+      <span class="pd-name">${esc(s.label)}</span>
+      <span class="pd-num">${s.key === 'station' ? 'STUDIO' : 'SPECTER'}</span>
+      ${s.key === liveKey ? '<span class="pd-air">▶ ON AIR</span>' : '<button class="pd-ico" title="Cut to this camera">◉</button>'}
+    </div>`).join('') : '<div class="pd-empty">— NO CAMERA — no studio cam, no SPECTER cams you control —</div>';
+
+  const recordedBody = `
+      <div class="pd-sec">Queue</div>
+      <div class="pd-queue">${queueRows}</div>
+      <div class="pd-sec">Add from your pool</div>
+      <div class="pd-pool">${poolRows}</div>`;
+  const liveBody = `
+      <div class="pd-sec">Live camera — cut to air</div>
+      <div class="pd-pool">${sourceRows}</div>`;
+
   _overlay.innerHTML = `
     <div class="pd-box">
       <div class="pd-head"><span>◈ PIRATE CONSOLE</span><button class="pd-close" aria-label="Close">✕</button></div>
@@ -114,13 +135,14 @@ function render() {
       <div class="pd-now">
         <div class="pd-now-air"><span class="pd-tag">NOW AIRING</span>${esc(d.nowAiring || '— dead air —')}</div>
         <button class="pd-t ${playing ? 'on' : ''}" data-act="${playing ? 'stop' : 'play'}" title="${playing ? 'Stop' : 'Play'}">${playing ? '⏸' : '▶'}</button>
-        <button class="pd-t" data-act="skip" title="Skip to next">⏭</button>
-        <button class="pd-t" data-loop="${loopNext}" title="Loop: ${loop} → ${loopNext}">↻ ${loop.toUpperCase()}</button>
+        ${mode === 'recorded' ? `<button class="pd-t" data-act="skip" title="Skip to next">⏭</button>
+        <button class="pd-t" data-loop="${loopNext}" title="Loop: ${loop} → ${loopNext}">↻ ${loop.toUpperCase()}</button>` : ''}
       </div>
-      <div class="pd-sec">Queue</div>
-      <div class="pd-queue">${queueRows}</div>
-      <div class="pd-sec">Add from your pool</div>
-      <div class="pd-pool">${poolRows}</div>
+      <div class="pd-mode">
+        <button class="pd-t ${mode === 'recorded' ? 'on' : ''}" data-act="recorded">▤ RECORDED</button>
+        <button class="pd-t ${mode === 'live' ? 'on' : ''}" data-act="live">◉ LIVE</button>
+      </div>
+      ${mode === 'live' ? liveBody : recordedBody}
       <div class="pd-sec">Breaking-news crawl</div>
       <div class="pd-crawl">
         <input id="pd-crawl-input" maxlength="200" placeholder="Scroll a message across the city…" value="${esc(d.crawl || '')}">
@@ -141,4 +163,5 @@ function render() {
   _overlay.querySelectorAll('[data-move-up]').forEach(b => b.addEventListener('click', () => { const i = +b.getAttribute('data-move-up'); if (i > 0) send(`air move ${i + 1} ${i}`); }));
   _overlay.querySelectorAll('[data-move-dn]').forEach(b => b.addEventListener('click', () => { const i = +b.getAttribute('data-move-dn'); if (i < queue.length - 1) send(`air move ${i + 1} ${i + 2}`); }));
   _overlay.querySelectorAll('[data-add]').forEach(r => r.addEventListener('click', () => send(`air add ${r.getAttribute('data-add')}`)));
+  _overlay.querySelectorAll('[data-source]').forEach(r => r.addEventListener('click', () => send(`air source ${r.getAttribute('data-source')}`)));
 }

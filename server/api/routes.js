@@ -200,7 +200,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   const backupResult = await handleBackupApi(path, method, body, auth);
   if (backupResult) return backupResult;
 
-  const pluginResult = await fireRoutes(path, method, body, auth);
+  const pluginResult = await fireRoutes(path, method, body, auth, headers);
   if (pluginResult) return pluginResult;
 
   if (path==='/mis/status' && method==='GET') {

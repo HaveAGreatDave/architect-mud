@@ -516,6 +516,30 @@ function tracerFxDef(near) {
 }
 export function tracerFx(near) { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(tracerFxDef(near)); } catch {} }
 
+// The AA GUN'S REPORT heard from altitude — the heavy Flak-88 bark of the battery firing on
+// the ground BELOW you, distinct from tracerFx (the round whipping PAST you). A big low-
+// velocity gun: a deep chest BOOM, a hard breech crack, and a long lowpassed tail that rolls
+// out across the basin. `near` (0..1) is proximity to the gun: a close battery is a sharp,
+// loud CRACK-BOOM; a distant one is a muffled far-off thud with a longer, softer roll. Because
+// the report rolls UP from the ground it lands a touch behind the visual muzzle flash — which
+// is exactly right (you see the flash, then the boom reaches you).
+function aaGunFxDef(near) {
+  const n = Math.max(0, Math.min(1, near));
+  const crackF = 360 + n * 320;         // sharper, brighter crack up close
+  const rollDelay = 0.1 - n * 0.05;     // a distant gun's report rolls in a hair later
+  return { config: { duration: 0.85 - n * 0.1, layers: [
+    // Sub-bass concussion — the punch of the muzzle blast.
+    { waveform: 'sine', freq: 52, pitchBend: { to: 28, time: 0.16 }, filter: { type: 'lowpass', freq: 95, q: 1 }, adsr: { a: 0.002, d: 0.3, s: 0, r: 0.18 }, gain: 0.28 + n * 0.28 },
+    // Muzzle body / breech thud.
+    { waveform: 'sine', freq: 84, pitchBend: { to: 46, time: 0.13 }, filter: { type: 'lowpass', freq: 190, q: 1.1 }, adsr: { a: 0.002, d: 0.24, s: 0, r: 0.12 }, gain: 0.24 + n * 0.24 },
+    { waveform: 'sawtooth', freq: 104, pitchBend: { to: 62, time: 0.1 }, filter: { type: 'lowpass', freq: 520, q: 1.2 }, adsr: { a: 0.001, d: 0.15, s: 0, r: 0.08 }, gain: 0.1 + n * 0.14 },
+    // The sharp report crack of a high-velocity 88 — brighter/harder the closer you are.
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: crackF, q: 0.8 }, adsr: { a: 0.0006, d: 0.08 + n * 0.05, s: 0, r: 0.05 }, gain: 0.08 + n * 0.2 },
+    // Rolling report tail — the boom rolling out across the landscape, delayed and lowpassed.
+    { waveform: 'noise', noiseMix: 1, delay: rollDelay, filter: { type: 'lowpass', freq: 300 + n * 260, q: 0.7 }, adsr: { a: 0.02, d: 0.35 - n * 0.1, s: 0, r: 0.28 }, gain: 0.06 + n * 0.12 } ] } };
+}
+export function aaGunFx(near) { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(aaGunFxDef(near)); } catch {} }
+
 // Rounds striking the airframe — an impact crack, a short metallic ring off the skin, and a
 // low structural thud. Fires on any confirmed air hit (AA or air-to-air guns) via air_hit.
 const HIT_FX = { config: { duration: 0.5, layers: [
