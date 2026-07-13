@@ -14,7 +14,7 @@
 import { query } from '../server/models/db.js';
 
 const ZONE = 'zone_district_895_906';   // Halcyon Towers exterior tile
-const FLOORS = 60;
+const FLOORS = 42;   // tip breaks the cloud tops (~8.2 world-z) without spearing far above the deck
 
 const r = await query(
   `UPDATE zones
