@@ -294,6 +294,8 @@
       help: 'Display name of the enclosing building.' },
     building_type: { label: 'Building Type', shape: 'text', scope: 'zone', group: 'Zone: Structure',
       help: 'Building category (bar, hotel, store, grocery, …) — controls entrance-discovery flavor text.' },
+    floors: { label: 'Floors (Storeys)', shape: 'number', scope: 'zone', group: 'Zone: Structure',
+      help: 'Explicit storey count for the flight-sim skyline — overrides the per-building-type default so a landmark tower stands taller (or shorter). Read by the windshield building-height formula.' },
     world_exit_zone: { label: 'World Exit Zone', shape: 'text', scope: 'zone', group: 'Zone: Structure',
       help: 'Exterior seam zone for this building — where OUT ultimately lands.' },
     utility_room: { label: 'Utility Room', shape: 'flag', scope: 'zone', group: 'Zone: Structure',

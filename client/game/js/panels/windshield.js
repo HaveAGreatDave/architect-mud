@@ -360,7 +360,11 @@ export function paintWindshield(id, view) {
   // recovers; the EMA damps it into a stable equilibrium instead of oscillating. 1 = full quality
   // (≤~22ms/45fps), down to 0.3 under sustained load. Read by drawVolumetricClouds below.
   st.frameMs = st.frameMs ? st.frameMs + (raw - st.frameMs) * 0.1 : raw;
-  st.cloudQ = clamp(1 - (st.frameMs - 22) / 26, 0.3, 1);
+  // Floor raised 0.3→0.5: under a heavy deck the puff budget shed as much as 70% of its puffs,
+  // and since heavy clouds ARE the load the dial oscillated the deck — on-screen puffs blinked out
+  // and back as frames breathed. A 0.5 floor halves that swing (min budget 170, not 102) so the
+  // visible deck stays put; the soft budget edge below fades the far tail we still can't afford.
+  st.cloudQ = clamp(1 - (st.frameMs - 22) / 26, 0.5, 1);
 
   const v = view || {};
   // Look direction: Q/E/S swivel the camera off the nose (viewYaw ≠ 0) while the aircraft
@@ -1881,6 +1885,7 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
   const q = st.cloudQ ?? 1;
   const mottleOK = q > 0.7;                                 // shed the clip+drawImage noise overlay under load
   let budget = Math.round((W < 720 ? 150 : 340) * q);       // total puffs this frame across all cells
+  const budget0 = Math.max(1, budget);                      // starting budget → soft-fade the last slice of it (below)
   const nearCells = [];
   for (const c of cells) {
     if (c.intensity <= 0.02) continue;
@@ -1910,13 +1915,18 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
       const lat = dx * cam.cosh + dy * cam.sinh;
       if (Math.abs(lat) > fwd * halfExt + 3.0) continue;          // outside the forward cone (+ puff-radius margin)
       budget--;                                                   // survived the cull → this puff draws; charge the budget
+      // Soft budget edge: puffs are drawn nearest-cell-first, so the LAST slice of the budget is
+      // always the farthest in-view puffs — the ones tucked behind nearer puffs, haze and the
+      // whiteout. Fade that tail out (last ~18% of the budget) instead of hard-popping it when the
+      // cap is hit, so the deck's far edge dissolves smoothly as the cap breathes rather than blinking.
+      const budgetFade = clamp(budget / (budget0 * 0.18), 0, 1);
       // Anchor the puff BASE near the ceiling, but scatter over a TALLER band now (the deck is thicker)
       // and let the cards billow UP from there, so the deck has depth instead of a thin flat sheet.
       const pz = baseZ + frac(c.seed + k * 2.9) * thick * 0.55;
       // Small puffs — the detail lives in their number, not their size. With the view-cone cull the
       // budget now buys only visible puffs, so we can afford finer (smaller) ones and still fill the sky.
       const R = (1.1 + frac(c.seed + k * 5.7) * 1.25) * (0.7 + clamp(c.intensity, 0, 1) * 0.5);
-      const distFade = clamp(1 - dist / RANGE, 0.04, 1), cellA = alpha * clamp(c.intensity, 0.5, 1);
+      const distFade = clamp(1 - dist / RANGE, 0.04, 1), cellA = alpha * clamp(c.intensity, 0.5, 1) * budgetFade;
       // Inter-lobe ambient occlusion: a soft dark pool sunk into the puff base, sorted FARTHEST
       // (f+3) so it paints first, UNDER the lobes — deepening the shadowed crevices where the
       // cauliflower heaps meet, instead of every lobe reading equally bright.

@@ -145,6 +145,18 @@ export function bearingDeg(fromX, fromY, toX, toY) {
 }
 
 // ── Surface coord index (the computed-overlay lookup) ─────────────────────────
+// When two map_world zones share a grid tile (e.g. a bespoke landmark stamped ONTO an
+// existing terrain tile — the Echelon sits on a Coldwater Basin water cell), the index can
+// only hold one. Rank them so the content-bearing tile always wins its grid instead of
+// last-iterated-wins silently clobbering it: a landmark/airfield/building outranks a road,
+// which outranks bare terrain. Used by both surfaceAt (live) and the flightsim snapshot.
+export function surfaceRank(flags = {}) {
+  if (flags.yacht) return 3;                                             // bespoke landmark — always owns its tile
+  if (flags.airfield_id || flags.building_type) return 2;               // airfield / building
+  if (/^(road_|runway_|statue)/.test(flags.icon || '')
+      || (Array.isArray(flags.artery) && flags.artery.length)) return 1; // road / artery / statue
+  return 0;                                                             // plain terrain (water, land)
+}
 let _coordIndex = null;
 let _bounds = null;
 export function buildCoordIndex() {
@@ -152,7 +164,11 @@ export function buildCoordIndex() {
   let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
   for (const z of getAllZones()) {
     if (z.map_id !== 'map_world' || z.grid_x == null || z.grid_y == null) continue;
-    idx.set(`${z.grid_x},${z.grid_y}`, { id: z.id, name: z.name, flags: z.flags || {}, danger: z.danger });
+    const key = `${z.grid_x},${z.grid_y}`, prev = idx.get(key);
+    // Keep the higher-priority tile when two zones collide on one grid (see surfaceRank).
+    if (!prev || surfaceRank(z.flags || {}) > surfaceRank(prev.flags)) {
+      idx.set(key, { id: z.id, name: z.name, flags: z.flags || {}, danger: z.danger });
+    }
     minx = Math.min(minx, z.grid_x); maxx = Math.max(maxx, z.grid_x);
     miny = Math.min(miny, z.grid_y); maxy = Math.max(maxy, z.grid_y);
   }

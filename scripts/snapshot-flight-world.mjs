@@ -16,7 +16,7 @@
 
 import { writeFileSync } from 'fs';
 import { initWorld, getAllZones, getZone, buildingEntranceDir } from '../server/engine/world.js';
-import { runwayFor } from '../plugins/flight/state.js';
+import { runwayFor, surfaceRank } from '../plugins/flight/state.js';
 import { biomeOf } from '../plugins/flight/biomes.js';
 import { stopAll } from '../server/engine/scheduler.js';
 
@@ -37,7 +37,11 @@ function deriveCell(z) {
     ent = (zz && buildingEntranceDir(zz)) || undefined;
     flr = flags.floors || undefined;
   }
-  const mark = /^statue/.test(flags.icon || '') ? 'statue' : undefined;
+  // Bespoke landmarks the windshield raises off the `mark` channel — mirror plugins/flight
+  // state.js: the Echelon's exterior tile (flags.yacht) → the black superyacht + helipad, a
+  // statue-* map icon → the town-square monument. A field/water tile is otherwise culled, so
+  // without this the baked rig would never draw the Echelon (unlike a live flight).
+  const mark = flags.yacht ? 'yacht' : /^statue/.test(flags.icon || '') ? 'statue' : undefined;
   let rd;
   const im = /^road_([nesw]+|x)$/.exec(flags.icon || '');
   if (im) rd = im[1] === 'x' ? 'nesw' : im[1];
@@ -47,10 +51,14 @@ function deriveCell(z) {
 
 let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
 const cells = {};
+const cellRank = {};   // per-grid surfaceRank of the tile currently in `cells`, for collision precedence
 const fields = [];
 for (const z of getAllZones()) {
   if (z.map_id !== 'map_world' || z.grid_x == null || z.grid_y == null) continue;
-  cells[`${z.grid_x},${z.grid_y}`] = deriveCell(z);
+  const key = `${z.grid_x},${z.grid_y}`, rank = surfaceRank(z.flags || {});
+  // Same collision rule as buildCoordIndex: a landmark/building tile (the Echelon) must win
+  // its grid over a bare terrain tile stamped on the same cell, not lose to iteration order.
+  if (cells[key] === undefined || rank > cellRank[key]) { cells[key] = deriveCell(z); cellRank[key] = rank; }
   minx = Math.min(minx, z.grid_x); maxx = Math.max(maxx, z.grid_x);
   miny = Math.min(miny, z.grid_y); maxy = Math.max(maxy, z.grid_y);
   if (z.flags?.airfield_id) {
