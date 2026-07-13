@@ -715,7 +715,7 @@ const handlers = {
   // Echelon helm console — takes over the client like the flight sim. Engaging the telegraph fires
   // the real `sail`; the ✕/Esc exit closes it and re-looks so the room description comes back cleanly.
   // `sky` seeds the real sim weather field; `transitMs` restores the lock if opened mid-passage.
-  helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, sky: msg.sky, map: msg.map, transitMs: msg.transitMs, onSail: (dir) => sendCmdSilent('sail ' + dir), onExit: () => sendCmdSilent('look') }); },
+  helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, sky: msg.sky, map: msg.map, transitMs: msg.transitMs, transitTotal: msg.transitTotal, onSail: (dir) => sendCmdSilent('sail ' + dir), onExit: () => sendCmdSilent('look') }); },
   helm_close: () => { closeHelm(); sendCmdSilent('look'); },
   helm_sky: (msg) => { if (isHelmActive()) helmSetSky(msg.sky); },   // live sim weather field, streamed like the flight sim's
   // Passage complete → re-centre the chase view on the new tile's real world window, then unlock.

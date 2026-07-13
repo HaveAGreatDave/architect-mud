@@ -170,6 +170,18 @@ const YACHT_WAKE_MS = 20_000;
 let _yachtWakeUntil = 0;
 export function setYachtMakingWay() { _yachtWakeUntil = Date.now() + YACHT_WAKE_MS; }
 
+// An in-progress ten-minute passage: while set, the yacht is between tiles and the window builder
+// glides her model sub-tile toward the destination so EVERY nearby pilot sees her actually making
+// way across the Basin (not sitting still until she pops to the next tile). Authoritative + time-
+// based, so it's identical for everyone and correct even for a pilot who arrives mid-passage. The
+// yacht plugin sets/clears it around its own `transit`. Transient, module-local — no DB, no flags.
+// { fromX, fromY, toX, toY, startAt, arriveAt }
+let _yachtTransit = null;
+export function setYachtTransit(t) { _yachtTransit = t || null; }
+export function clearYachtTransit() { _yachtTransit = null; }
+// Heading (deg, bow-north = 0) implied by a unit tile delta, for the sailing hull's yaw.
+function deltaHeading(dx, dy) { return dx > 0 ? 90 : dx < 0 ? 270 : dy > 0 ? 180 : 0; }
+
 export function buildCoordIndex() {
   const idx = new Map();
   let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
@@ -483,9 +495,24 @@ function mapWindow(a, radius = 24) {
       const mark = cell.flags?.yacht ? 'yacht'
         : (/^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined);
       // A yacht that's recently sailed streams a decaying wake to every pilot in view.
-      let wake;
-      if (mark === 'yacht' && _yachtWakeUntil > Date.now())
-        wake = { spd: (_yachtWakeUntil - Date.now()) / YACHT_WAKE_MS };   // 1 → 0 over YACHT_WAKE_MS
+      let wake, sub, heading;
+      if (mark === 'yacht') {
+        const now = Date.now();
+        // Underway: glide the hull sub-tile from her departure cell toward the destination by the
+        // passage's time-progress (0→1), point her bow along the course, and hold a steady wake.
+        // The yacht's own tile only commits on arrival, so her cell sits at `from`; `sub` carries
+        // the fractional lead so the windshield draws the model partway across the water.
+        if (_yachtTransit && now < _yachtTransit.arriveAt) {
+          const { fromX, fromY, toX, toY, startAt, arriveAt } = _yachtTransit;
+          const frac = Math.max(0, Math.min(1, (now - startAt) / (arriveAt - startAt)));
+          const ddx = toX - fromX, ddy = toY - fromY;
+          sub = { x: ddx * frac, y: ddy * frac };
+          heading = deltaHeading(ddx, ddy);
+          wake = { spd: 0.6 };   // steady making-way wash for the whole passage
+        } else if (_yachtWakeUntil > now) {
+          wake = { spd: (_yachtWakeUntil - now) / YACHT_WAKE_MS };   // 1 → 0 over YACHT_WAKE_MS
+        }
+      }
       // Road piece connections, straight off the map icon suffix (road_ns, road_ne turn,
       // road_nes T, road_nesw / road_x crossroads, road_n stub, …). The windshield paints
       // lane markings toward each connected edge, so junctions, turns and Ts all read as what
@@ -493,7 +520,7 @@ function mapWindow(a, radius = 24) {
       let rd;
       const im = /^road_([nesw]+|x)$/.exec(cell.flags?.icon || '');
       if (im) rd = im[1] === 'x' ? 'nesw' : im[1];
-      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, wake, self });
+      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, wake, sub, heading, self });
     }
     rows.push(row);
   }

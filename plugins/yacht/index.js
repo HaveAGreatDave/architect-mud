@@ -284,6 +284,7 @@ async function arriveEchelon() {
   if (!transit) return;
   const { toX, toY } = transit;
   transit = null;
+  flightStateMod?.clearYachtTransit?.();   // passage done — pilots see her settled at the new tile
   await query('UPDATE zones SET grid_x=$1, grid_y=$2 WHERE id=$3', [toX, toY, EXTERIOR]);
   const ext = getZone(EXTERIOR);
   if (ext) { ext.grid_x = toX; ext.grid_y = toY; }
@@ -343,11 +344,14 @@ async function cmdSail(args, raw, player, broadcast) {
   // minutes and only commits to the new position on arrival (arriveEchelon), scheduled below.
   await undockAll();
   const now = Date.now();
-  transit = { toX: tx, toY: ty, dir: dirWord, startAt: now, arriveAt: now + SAIL_TRANSIT_MS, timer: null };
+  transit = { fromX: ext.grid_x, fromY: ext.grid_y, toX: tx, toY: ty, dir: dirWord, startAt: now, arriveAt: now + SAIL_TRANSIT_MS, timer: null };
   transit.timer = setTimeout(() => { arriveEchelon().catch(e => console.error('[yacht] arrive:', e.message)); }, SAIL_TRANSIT_MS);
-  // Signal the flight renderer she's under way, so every nearby pilot's windshield paints a
-  // decaying wake (the owner's Helm chase view sets its own wake client-side); re-pinged while
-  // she's underway by pushHelmLive.
+  // Hand the flight renderer the whole passage (from→to, timed) so every nearby pilot's windshield
+  // glides her hull sub-tile across the Basin for the full ten minutes — authoritative + time-based,
+  // so it's identical for everyone and correct for a pilot who arrives mid-passage. setYachtMakingWay
+  // still fires the decaying-wake fallback for the arrival ping; the owner's Helm chase view drives
+  // its own glide from the timing the console is handed.
+  flightStateMod?.setYachtTransit?.({ fromX: ext.grid_x, fromY: ext.grid_y, toX: tx, toY: ty, startAt: now, arriveAt: now + SAIL_TRANSIT_MS });
   flightStateMod?.setYachtMakingWay?.();
 
   const bc = broadcast || getBroadcast();
@@ -432,7 +436,7 @@ async function cmdHelmConsole(args, raw, player) {
   const heading = transit ? DIR_DEG[transit.dir] : 0;
   const sky = flightStateMod?.skyState?.() || null;
   const map = flightStateMod?.yachtHelmWindow?.(ext.grid_x, ext.grid_y) || null;   // the real basin around her
-  sendToPlayer(player.id, { type: 'helm_open', gx: ext.grid_x, gy: ext.grid_y, heading, transitMs: transitLeft(), sky, map });
+  sendToPlayer(player.id, { type: 'helm_open', gx: ext.grid_x, gy: ext.grid_y, heading, transitMs: transitLeft(), transitTotal: transit ? SAIL_TRANSIT_MS : 0, sky, map });
   helmViewers.add(player.id);
   return { type: 'system', message: 'You take the helm. The console wakes under your hands.' };
 }

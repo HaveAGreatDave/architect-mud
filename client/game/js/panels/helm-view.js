@@ -136,6 +136,7 @@ export function openHelmChase(container, opts = {}) {
     // A passage is a long, sustained transit: she makes way at CRUISE for transitMs, then arrives
     // at the next tile. sailT is 0..1 progress across the passage. spd rides toward the throttle.
     spd: 0, sailing: false, sailT: 0, transitMs: 0, transitEnd: 0, sailDir: null,
+    mapOffset: { x: 0, y: 0 },   // sub-tile world pan across a passage (yacht held centred by center.sub)
     serverField: null,   // the REAL weather field from the sim (setSky) — preferred over the synth
     // Camera: extYaw/extPitch are the orbit (drag), extZoom the dolly (wheel). The windshield
     // clamps extPitch above the terrain, so the orbit can never dip the eye below the water.
@@ -166,9 +167,11 @@ export function openHelmChase(container, opts = {}) {
       st.sailT = Math.min(1, (total - Math.max(0, st.transitEnd - now)) / total);
       if (now >= st.transitEnd) {
         st.sailT = 1; st.sailing = false;
-        // With a real streamed world the server re-centres us (setWorld) on arrival; only advance
-        // our own position when running the synthetic fallback (standalone rig, no server).
-        if (!st.serverWorld) { st.gx += DV[st.sailDir][0]; st.gy += DV[st.sailDir][1]; }
+        // With a real streamed world the server re-centres us (setWorld) on arrival — so HOLD the
+        // full one-tile lead (she's drawn on the destination cell) until that window swaps in, rather
+        // than snapping mapOffset back to 0 and popping her a tile backward. The synthetic fallback
+        // (standalone rig, no server) advances our own tile and zeroes the offset to match.
+        if (!st.serverWorld) { st.gx += DV[st.sailDir][0]; st.gy += DV[st.sailDir][1]; st.mapOffset.x = 0; st.mapOffset.y = 0; st.center.sub = undefined; }
         if (st.onArrive) st.onArrive(st.gx, st.gy, st.sailDir);
       }
     }
@@ -182,6 +185,16 @@ export function openHelmChase(container, opts = {}) {
     st.center.heading = st.heading;
     audio.update(st.spd);
     st.seaScroll = (st.seaScroll || 0) + st.spd * dt * 6;   // along-heading drift so the swell streams past under way
+    // Real passage progress: pan the whole world window sub-tile toward the destination (mapOffset)
+    // AND lead the yacht cell by the same amount (center.sub) so she holds screen-centre while the
+    // city/shoreline slide past her — she visibly crosses the Basin over the ten minutes, not a
+    // stationary boat that pops to the next tile. sailT is server-authoritative (see beginTransit),
+    // so leaving and reopening the helm resumes exactly where she is. Flat when moored.
+    if (st.sailing && st.sailDir) {
+      const gx = DV[st.sailDir][0] * st.sailT, gy = DV[st.sailDir][1] * st.sailT;
+      st.mapOffset.x = gx; st.mapOffset.y = gy;
+      st.center.sub = { x: gx, y: gy };
+    }
 
     // Live time + weather from the shared world (falls back to opts before first sync).
     const env = liveEnv();
@@ -198,7 +211,7 @@ export function openHelmChase(container, opts = {}) {
       external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1,
       heading: st.heading, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: st.extZoom,
       height: 0, speed: st.spd, hour, weather, wxField: field, seaScroll: st.seaScroll || 0,
-      map: st.map, mapCenter: { x: st.gx, y: st.gy }, mapOffset: { x: 0, y: 0 },
+      map: st.map, mapCenter: { x: st.gx, y: st.gy }, mapOffset: st.mapOffset,
       acX: st.gx, acY: st.gy, biomeBelow: 'water', airport: 'default',
     });
     st.raf = requestAnimationFrame(frame);
@@ -220,15 +233,19 @@ export function openHelmChase(container, opts = {}) {
     // Begin a real passage: a sustained making-way transit of `ms` along `dir`, arriving one tile
     // on. Snaps her course to the travel heading; frame() eases her there and advances the tile at
     // the end. The server drives this (10-min passage) and confirms arrival via endTransit.
-    beginTransit(dir, ms) {
+    beginTransit(dir, ms, total) {
       if (!DV[dir]) return false;
       st.headingTarget = DEG[dir]; st.sailDir = dir;
-      st.transitMs = ms; st.transitEnd = performance.now() + ms; st.sailing = true; st.sailT = 0;
+      // `ms` = time remaining, `total` = the whole passage (defaults to ms for a fresh cast-off).
+      // Seeding transitMs from the total makes sailT reflect TRUE progress, so a helm reopened mid-
+      // passage resumes with the world already part-slid rather than snapping back to the start.
+      st.transitMs = total || ms; st.transitEnd = performance.now() + ms; st.sailing = true;
+      st.sailT = Math.max(0, Math.min(1, (st.transitMs - ms) / st.transitMs));
       return true;
     },
     // Authoritative arrival from the server: snap to her real tile and release the passage. Idempotent
     // with frame()'s own local arrival (both just end the passage + fix position).
-    endTransit(gx, gy) { st.sailing = false; st.transitEnd = 0; if (gx != null) st.gx = gx; if (gy != null) st.gy = gy; },
+    endTransit(gx, gy) { st.sailing = false; st.transitEnd = 0; st.mapOffset.x = 0; st.mapOffset.y = 0; st.center.sub = undefined; if (gx != null) st.gx = gx; if (gy != null) st.gy = gy; },
     transitLeft() { return st.sailing ? Math.max(0, st.transitEnd - performance.now()) : 0; },
     speed() { return st.spd; },
     heading() { return st.heading; },
@@ -251,7 +268,9 @@ export function openHelmChase(container, opts = {}) {
       const c = rows[r] && rows[r][r];
       if (!c) return;
       c.self = undefined; if (!c.mark) c.mark = 'yacht'; if (!c.wake) c.wake = { spd: st.spd };
+      c.sub = undefined;   // fresh window is centred on her tile — no residual sub-tile lead
       st.map = rows; st.center = c; st.serverWorld = true;
+      st.mapOffset.x = 0; st.mapOffset.y = 0;
       if (cx != null) st.gx = cx; if (cy != null) st.gy = cy;
     },
     env() { return liveEnv(); },   // live world time/weather (or null) for the console chips
