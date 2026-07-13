@@ -27,6 +27,11 @@ import { hex2rgb } from './aircraft3d.js';
 // on the rudder pedals (,/. or X/C). Evaluated once — the input class doesn't change mid-session.
 const _touchPrimary = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
+// Resting elevation ANGLE of the external chase camera's orbit arc (rad) — the behind-and-slightly-
+// above pose. Derived from the same chaseUp/chaseBack the renderer uses, so a ⟲ reset returns to the
+// exact default cam. The middle-drag orbit and the reset swing both work in this angle.
+const REST_PITCH = Math.asin(RENDER_TUNE.chaseUp / RENDER_TUNE.chaseBack);
+
 // Theme accent for the canvas-drawn instruments (the CSS chrome uses var(--accent)
 // directly; canvas can't, so we sample it once when the cockpit opens).
 let ACCENT = '#8fd0ff', ACCENT_RGB = [143, 208, 255];
@@ -76,6 +81,24 @@ function liveryAccent(livery, fallbackHex) {
   const rgb = [0, 1, 2].map(i => Math.round(mix(i, w) / wsum));
   return '#' + rgb.map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
 }
+
+// The aircraft name printed on the yoke's name-plate is coloured by the craft's
+// EXTERIOR paint (base) — but a dark paint would vanish against the dark plate, so
+// we lift it toward white until it clears a brightness floor while keeping its hue.
+// Returns null when there's no paint on file (leave the airframe's themed accent).
+function legibleInk(hex) {
+  const rgb = hex2rgb(hex);
+  if (!rgb) return null;
+  let [r, g, b] = rgb;
+  const lum = () => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  for (let i = 0; i < 24 && lum() < 150; i++) { r += (255 - r) * 0.18; g += (255 - g) * 0.18; b += (255 - b) * 0.18; }
+  return '#' + [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+}
+const _hx = (rgb) => '#' + rgb.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+// Multiply a colour's brightness (m<1 darker, m>1 lighter) — builds the panel's gradient stops.
+function shadeRgb(rgb, m) { return _hx(rgb.map(v => v * m)); }
+// Blend a colour toward `to` by t (0..1) — lifts the cabin colour to a legible panel edge.
+function mixRgb(rgb, to, t) { return _hx(rgb.map((v, i) => v + (to[i] - v) * t)); }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 1. THE GLASS COCKPIT (area-pane HUD)
@@ -194,6 +217,7 @@ export function closeCockpit() {
   _anim = null; _prev = null; _sig = ''; _moveFrom = null; _lastPushT = 0;
   _lastGround = null; _lastMap = null; _lastBiome = null;
   unbindPaxKeys();
+  document.body.classList.remove('ck-fullscreen', 'ck-hidepanel');   // drop the cabin immersive layouts if either was on
   stopEngineAudio();
 }
 
@@ -338,7 +362,10 @@ function paintWindow(id, a, s) {
     biomeBelow: s.biomeBelow ?? _lastBiome,
     roll: a.rwyRoll || 0,   // ground-roll distance — how far down the strip you've travelled
     side: paxView === 'side', viewYaw: paxView === 'rear' ? 180 : 0,
-    windowClass: pax ? (s.class || 'prop') : undefined,
+    // Framed hull-cutout for the side/rear cabin windows only. Looking FORWARD (Q held) you're
+    // seeing past the pilot out the windscreen — no cabin porthole frame — so the clean forward
+    // canopy view (skyline glow, speed streaks, instrument reflection) reads under the yoke/throttle.
+    windowClass: pax && paxView !== 'forward' ? (s.class || 'prop') : undefined,
     livery: pax ? s.livery : undefined,   // hull skin punched by the window = the craft's own paint
     mapOffset,
   });
@@ -573,6 +600,8 @@ function mountPassenger(s) {
       <span class="ck-phase" id="ck-phase">Enjoy the flight.</span>
     </div>
     <div class="ck-pax-window">${windshieldHTML('ck-ws', 'CABIN WINDOW')}
+      <button class="ck-pax-fsbtn" id="ck-pax-fsbtn" title="fullscreen" tabindex="-1">⛶</button>
+      <button class="ck-pax-hidebtn" id="ck-pax-hidebtn" title="hide the text panel — more window" tabindex="-1">⊟</button>
       <div class="ck-pax-viewtag" id="ck-pax-viewtag"></div>
       <div class="ck-pax-cockpit" id="ck-pax-cockpit">
         <div class="ck-pax-yoke">${YOKE_SVG}</div>
@@ -591,6 +620,33 @@ function mountPassenger(s) {
   </div>`;
   setAreaPane(html);
   bindPaxKeys();
+  wirePaxChrome();
+}
+
+// Fullscreen / hide-panel + keyboard-focus, matching the flight-sim + hangar chrome. The cabin
+// pane owns the keyboard by default (so Q/E swivel the view immediately instead of typing into
+// chat); clicking the pane takes focus off the command box, clicking the command box gives it back.
+function wirePaxChrome() {
+  const root = document.getElementById('ck-hud-root'); if (!root) return;
+  const fsBtn = document.getElementById('ck-pax-fsbtn');
+  const hideBtn = document.getElementById('ck-pax-hidebtn');
+  fsBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const on = document.body.classList.toggle('ck-fullscreen');
+    fsBtn.classList.toggle('on', on);
+    if (on) { document.body.classList.remove('ck-hidepanel'); hideBtn?.classList.remove('on'); }   // fullscreen supersedes hide-panel
+  });
+  hideBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const on = document.body.classList.toggle('ck-hidepanel');
+    hideBtn.classList.toggle('on', on);
+    if (on) { document.body.classList.remove('ck-fullscreen'); fsBtn?.classList.remove('on'); }
+  });
+  root.tabIndex = -1;
+  const cmdInput = document.getElementById('cmd-input');
+  const focusPax = () => { try { if (document.activeElement === cmdInput) cmdInput.blur(); root.focus({ preventScroll: true }); } catch {} };
+  root.addEventListener('pointerdown', focusPax);
+  focusPax();
 }
 
 // ── Compose the DOM from the aircraft's capabilities + size ───────────────────
@@ -683,6 +739,12 @@ function ensureHudStyles() {
     .ck-pax-strip b { color:#eaf6ff; }
     .ck-pax-hint { text-align:center; font-size:9px; letter-spacing:1px; color:#4d6a76; padding:0 6px 4px; }
     .ck-pax-hint b { color:#7fae99; }
+    /* Fullscreen / hide-panel toggles — the cabin twin of the flight-sim ⛶ / ⊟ chrome. */
+    .ck-pax-fsbtn, .ck-pax-hidebtn { position:absolute; top:8px; z-index:3; background:rgba(6,12,18,.7);
+      border:1px solid #16303f; color:var(--acc); width:24px; height:24px; border-radius:5px; cursor:pointer;
+      font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0; }
+    .ck-pax-fsbtn { right:8px; } .ck-pax-hidebtn { right:36px; }
+    .ck-pax-fsbtn.on, .ck-pax-hidebtn.on { background:var(--acc); color:#05141f; border-color:var(--acc); }
     /* Q/E look-direction tag — mirrors the pilot's own fsim-viewtag styling. */
     .ck-pax-viewtag { position:absolute; top:8px; left:50%; transform:translateX(-50%); font:10px monospace;
       letter-spacing:2px; color:#ffcf3e; background:rgba(6,12,18,0.6); border:1px solid rgba(255,207,62,0.4);
@@ -1201,6 +1263,8 @@ function ensureFlightSimStyles() {
     .fsim-nightsw-led{ width:6px; height:6px; border-radius:50%; background:#243038; box-shadow:inset 0 0 2px #000; }
     .fsim-nightsw.on{ color:var(--cy); border-color:var(--cy); }
     .fsim-nightsw.on .fsim-nightsw-led{ background:var(--cy); box-shadow:0 0 6px var(--cy); }
+    /* no engine = no power to the light circuits: the switches read dead until the master's on */
+    .fsim-nightsw.nopwr{ opacity:.4; cursor:not-allowed; }
     /* instrument night lighting: an accent wash over the glass panels + a lit edge */
     .fsim-nightlit .fsim-pfd,.fsim-nightlit .fsim-mfd,.fsim-nightlit .fsim-gauges{ box-shadow:inset 0 0 14px var(--cy-dim,rgba(95,208,255,.16)), 0 0 6px var(--cy-dim,rgba(95,208,255,.12)); border-color:var(--cy); }
     .fsim-nightlit .fsim-mfd-lbl,.fsim-nightlit .fsim-mfd-tog{ text-shadow:0 0 6px var(--cy); }
@@ -1335,6 +1399,19 @@ function ensureFlightSimStyles() {
     .fsim-tune .trow label{ flex:0 0 64px; color:#6f8698; letter-spacing:.5px; }
     .fsim-tune .trow input{ flex:1; min-width:0; }
     .fsim-tune .tv{ flex:0 0 34px; text-align:right; color:var(--cy); font-variant-numeric:tabular-nums; }
+
+    /* ══ PAINTED DASHBOARD — when the craft has a paint job, the whole instrument-panel
+       surround takes the interior CABIN / UPHOLSTERY colour, overriding the per-craft
+       flightdeck skin. ID-scoped (#fsim-root) so it beats the class-only .fsim-theme-*
+       backgrounds. The black glass screens keep their dark faces — only their bezels and
+       the physical slabs (yoke well, throttle body, radio deck, master/panel switches)
+       retint. The --panel-* vars are set on mount from the cabin hex. ══ */
+    #fsim-root.fsim-painted .fsim-yoke{ border-color:var(--panel-edge); background:radial-gradient(circle at 50% 26%,var(--panel-hi),var(--panel-lo)); }
+    #fsim-root.fsim-painted .fsim-throttle{ border-color:var(--panel-edge); background:linear-gradient(180deg,var(--panel-hi),var(--panel-lo)); }
+    #fsim-root.fsim-painted .fsim-xpdr{ border-color:var(--panel-edge); background:linear-gradient(180deg,var(--panel-hi) 0%,var(--panel-mid) 48%,var(--panel-lo) 100%); }
+    #fsim-root.fsim-painted .fsim-pfd,#fsim-root.fsim-painted .fsim-mfd,#fsim-root.fsim-painted .fsim-gauges{ border-color:var(--panel-edge); }
+    #fsim-root.fsim-painted .fsim-engbtn{ background:radial-gradient(circle at 50% 34%,var(--panel-hi),var(--panel-lo)); }
+    #fsim-root.fsim-painted .fsim-nightsw{ background:linear-gradient(180deg,var(--panel-hi),var(--panel-lo)); }
 
     /* ══ MULE flightdeck skin — a Grand-Caravan-scale glass cockpit, but cyberpunk: ══
        carbon-fibre chrome, violet+magenta neon, an aggressive glareshield. All the
@@ -1501,7 +1578,7 @@ const YOKE_SVG = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100
   <rect x="80" y="33.5" width="11" height="6" rx="2" fill="#191b1f" stroke="#000" stroke-width="0.4"/>
   <path d="M11,45 Q7,21 25,17 Q39,12 50,18 Q61,12 75,17 Q93,21 89,45 L80,45 Q83,27 66,23 Q58,20 50,26 Q42,20 34,23 Q17,27 20,45 Z" fill="url(#ykgloss)"/>
   <!-- centre hub placard: aircraft name (accent) over the status LEDs -->
-  <rect x="31" y="25" width="38" height="24" rx="4" fill="url(#ykhub)" stroke="#2c2f35" stroke-width="0.7"/>
+  <rect id="fsim-yoke-plate" x="31" y="25" width="38" height="24" rx="4" fill="url(#ykhub)" stroke="#2c2f35" stroke-width="0.7"/>
   <rect x="32" y="26" width="36" height="22" rx="3.4" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
   <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="35.5" text-anchor="middle" textLength="30" lengthAdjust="spacingAndGlyphs">MULE</text>
   <circle id="fsim-yk-green" cx="44.5" cy="43" r="2.7" fill="url(#ykgreen)" opacity="0.2"/>
@@ -1543,7 +1620,7 @@ const YOKE_MAYFLY = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 
   <rect x="10" y="14.5" width="9" height="4" rx="1.6" fill="#101216"/>
   <rect x="81" y="14.5" width="9" height="4" rx="1.6" fill="#101216"/>
   <!-- small central hub plate: name + LEDs -->
-  <rect x="37" y="29.5" width="26" height="16" rx="3" fill="url(#mfhub)" stroke="#2c343a" stroke-width="0.6"/>
+  <rect id="fsim-yoke-plate" x="37" y="29.5" width="26" height="16" rx="3" fill="url(#mfhub)" stroke="#2c343a" stroke-width="0.6"/>
   <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="37" text-anchor="middle" textLength="21" lengthAdjust="spacingAndGlyphs">MAYFLY</text>
   <circle id="fsim-yk-green" cx="45" cy="41.5" r="2.3" fill="url(#ykgreen)" opacity="0.2"/>
   <circle id="fsim-yk-red" cx="55" cy="41.5" r="2.3" fill="url(#ykred)" opacity="0.2"/>
@@ -1570,7 +1647,7 @@ const YOKE_LEVIATHAN = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0
   ${[[24, 18], [34, 14.5], [66, 14.5], [76, 18]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="#0a100f" stroke="#3a544f" stroke-width="0.4"/>`).join('')}
   <path d="M7,50 Q3,19 22,14 Q36,8 50,16 Q64,8 78,14 Q97,19 93,50 L83,50 Q86,25 66,20 Q57,17 50,24 Q43,17 34,20 Q14,25 17,50 Z" fill="url(#lvgloss)"/>
   <!-- big stamped data hub -->
-  <rect x="29" y="26" width="42" height="24" rx="3.5" fill="url(#lvhub)" stroke="#2c3c39" stroke-width="0.7"/>
+  <rect id="fsim-yoke-plate" x="29" y="26" width="42" height="24" rx="3.5" fill="url(#lvhub)" stroke="#2c3c39" stroke-width="0.7"/>
   <rect x="30.5" y="27.5" width="39" height="21" rx="2.8" fill="none" stroke="rgba(180,240,228,0.07)" stroke-width="0.5"/>
   <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="36" text-anchor="middle" textLength="33" lengthAdjust="spacingAndGlyphs">LEVIATHAN</text>
   <circle id="fsim-yk-green" cx="44" cy="43" r="2.7" fill="url(#ykgreen)" opacity="0.2"/>
@@ -1590,7 +1667,7 @@ const STICK_REAPER = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0
   <path d="M41,64 H59 M42,58 H58 M43,52 H57 M44,47 H56" stroke="#2a2e1b" stroke-width="0.8" fill="none"/>
   <!-- shaft + name plate -->
   <rect x="46" y="22" width="8" height="21" rx="2.5" fill="url(#rpshaft)" stroke="#000" stroke-width="0.6"/>
-  <rect x="42" y="34" width="16" height="7" rx="1.5" fill="#0c0f08" stroke="#2a2e1b" stroke-width="0.5"/>
+  <rect id="fsim-yoke-plate" x="42" y="34" width="16" height="7" rx="1.5" fill="#0c0f08" stroke="#2a2e1b" stroke-width="0.5"/>
   <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="39.4" text-anchor="middle" textLength="13" lengthAdjust="spacingAndGlyphs">REAPER</text>
   <!-- molded pistol grip -->
   <path d="M43,26 Q42,7 49,6 L55,6 Q61,7 60,15 L58,27 Q57,31 50,31 Q44,31 43,26 Z" fill="url(#rpgrip)" stroke="#000" stroke-width="0.7"/>
@@ -1619,7 +1696,7 @@ const CYCLIC_DRAGONFLY = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox=
   <circle cx="50" cy="60" r="4.4" fill="#18211b" stroke="#0a120c" stroke-width="0.7"/>
   <circle cx="50" cy="60" r="1.5" fill="#0a120c"/>
   <!-- name plate clamped across the shaft (wider than the shaft so the long name reads) -->
-  <rect x="33" y="40.5" width="34" height="8" rx="1.8" fill="#0c140e" stroke="#2a3a30" stroke-width="0.5"/>
+  <rect id="fsim-yoke-plate" x="33" y="40.5" width="34" height="8" rx="1.8" fill="#0c140e" stroke="#2a3a30" stroke-width="0.5"/>
   <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="46.4" text-anchor="middle" textLength="28" lengthAdjust="spacingAndGlyphs">DRAGONFLY</text>
   <!-- bulbous grip head -->
   <ellipse cx="50" cy="18" rx="9.5" ry="13" fill="url(#dfgrip)" stroke="#000" stroke-width="0.7"/>
@@ -1670,8 +1747,8 @@ export function openFlightSim(opts = {}) {
     P, s, cls: opts.craftClass || 'ultralight', livery: opts.livery || opts.craftLivery,
     input: { elevator: 0, aileron: 0, throttle: 0, flaps: 0, pedal: 0, trim: 0 },
     // A helicopter (Dragonfly/Mini 500) flies the hover model: the throttle lever is the
-    // COLLECTIVE, the yoke is the CYCLIC, and Q/E work the tail-rotor PEDALS (yaw). heli flag
-    // drives the control remap + instrument set below.
+    // COLLECTIVE, the yoke is the CYCLIC, and the rudder pedals (,/. or X/C) work the tail
+    // rotor (yaw) — same keys as the fixed-wings. heli flag drives the instrument set below.
     heli: opts.craftClass === 'heli' || !!(TYPES[opts.craftType] && TYPES[opts.craftType].heli),
     pedalKey: 0,
     // Start the craft exactly where it's parked (no forward hop onto the strip). The takeoff
@@ -1699,7 +1776,7 @@ export function openFlightSim(opts = {}) {
     craftType: opts.craftType,                       // airframe id (drives the reaper-only gun/stores panel)
     hardpoints: opts.hardpoints || 0, armed: false,  // weapons (gunship): master-arm + fire
     gunCap: 1174, gunRounds: 1174,                   // GAU-8 ammo drum (cosmetic; counts down as the gun squirts)
-    nightLight: false,                               // instrument panel lights (PANEL switch)
+    nightLight: false, landingLight: false,          // instrument-panel backlight (PANEL) + exterior landing/taxi lights (LIGHTS) — both need engine power
     raf: 0, last: 0, syncAcc: 0, hornBeat: 0, audioAcc: 0,
     temp: 40, battery: 100,          // cosmetic engine-temp (°C) + battery charge (%) for the gauge cluster
     engines: Math.max(1, opts.engines || 1), seats: Math.max(1, opts.seats || 1), occupants: opts.occupants || [],
@@ -1737,7 +1814,8 @@ export function openFlightSim(opts = {}) {
         </div>
         <div class="fsim-side">
           <button class="fsim-engbtn" id="fsim-eng" title="engine master">⏻</button>
-          <button class="fsim-nightsw" id="fsim-nightsw" title="instrument panel lights" tabindex="-1"><span class="fsim-nightsw-led"></span>PANEL</button>
+          <button class="fsim-nightsw" id="fsim-nightsw" title="instrument panel lights (needs engine power)" tabindex="-1"><span class="fsim-nightsw-led"></span>PANEL</button>
+          <button class="fsim-nightsw" id="fsim-landsw" title="exterior landing / taxi lights (needs engine power)" tabindex="-1"><span class="fsim-nightsw-led"></span>LIGHTS</button>
           <div class="fsim-ft-row">
             ${buildFlapHtml(flapStyle)}
             <div class="fsim-trim" id="fsim-trim" title="ELEVATOR TRIM — drag or roll the wheel; up = NOSE DOWN, down = NOSE UP">
@@ -1807,10 +1885,11 @@ export function openFlightSim(opts = {}) {
   add(thr, 'pointermove', (e) => { if (F.thrDrag) thrTo(e); });
   add(window, 'pointerup', () => { F.thrDrag = false; });
 
-  // External-view orbit — hold the MIDDLE mouse button and drag to spin the chase camera around
-  // the aircraft (drag left/right = orbit horizontally, up/down = orbit vertically). The camera
-  // LOCKS wherever you leave it — no spring-back — so you can fly and watch from any angle. The
-  // ⟲ reset button (or double-middle-click) snaps it back behind the craft. Only in external view.
+  // External-view orbit — hold the MIDDLE mouse button and drag to orbit the chase camera around
+  // the aircraft on a turntable arc (drag left/right = spin around, up/down = rise over the top to
+  // look down / swing under the belly to look up). The camera LOCKS wherever you leave it — no
+  // spring-back — so you can fly and watch from any angle. The ⟲ reset button SWINGS it back to just
+  // behind and above the craft. Only in external view.
   const viewEl = q('.fsim-view');
   if (viewEl) {
     let ox = 0, oy = 0;
@@ -1821,8 +1900,9 @@ export function openFlightSim(opts = {}) {
     });
     add(window, 'pointermove', (e) => {
       if (!F.orbitDrag) return;
+      F.orbitResetting = false;                                                        // a manual drag cancels a running reset swing
       F.extOrbit = (F.extOrbit || 0) + (e.clientX - ox) * 0.4;                          // horizontal yaw (deg), unbounded — spins all the way around
-      F.extElev = clampNum((F.extElev || 0) - (e.clientY - oy) * 0.006, -0.18, 3.0);     // vertical: drag up = rise + look down; clamp keeps the camera above the terrain (renderer floors EH too)
+      F.extPitch = clampNum((F.extPitch ?? REST_PITCH) - (e.clientY - oy) * 0.006, -1.35, 1.4);   // vertical orbit angle (rad): drag up = over the top (look down), drag down = under the belly (look up). The renderer stops the under-swing at the terrain.
       ox = e.clientX; oy = e.clientY;
     });
     add(window, 'pointerup', (e) => { if (e.button === 1) F.orbitDrag = false; });
@@ -1843,6 +1923,26 @@ export function openFlightSim(opts = {}) {
   if (ownEl) { ownEl.textContent = F.owner; ownEl.classList.toggle('rented', F.owner === 'RENTED'); }
   // Stamp the aircraft name across the yoke hub (themed accent via CSS) + the cabin readout.
   const yokeName = q('#fsim-yoke-name'); if (yokeName) yokeName.textContent = String(opts.deviceName || P.name || 'AIRCRAFT').toUpperCase();
+  // Paint reads on the control itself: the name-plate PANEL takes the interior
+  // cabin/upholstery colour, and the aircraft name PRINTED on it takes the exterior
+  // paint colour (lifted to stay legible on the dark plate). No paint on file
+  // (rentals) → leave the airframe's stock themed plate + accent lettering.
+  if (F.livery) {
+    const plate = q('#fsim-yoke-plate');
+    if (plate && /^#[0-9a-fA-F]{6}$/.test(F.livery.cabin || '')) plate.setAttribute('fill', F.livery.cabin);
+    const ink = legibleInk(F.livery.base);
+    if (yokeName && ink) yokeName.style.fill = ink;
+    // Retint the whole dashboard surround from the cabin colour: a lit edge + a
+    // three-stop gradient the panel slabs share. Only when there's a valid cabin hex.
+    const cab = hex2rgb(F.livery.cabin);
+    if (cab) {
+      root.style.setProperty('--panel-hi', shadeRgb(cab, 1.5));
+      root.style.setProperty('--panel-mid', shadeRgb(cab, 1.0));
+      root.style.setProperty('--panel-lo', shadeRgb(cab, 0.55));
+      root.style.setProperty('--panel-edge', mixRgb(cab, [255, 255, 255], 0.32));
+      root.classList.add('fsim-painted');
+    }
+  }
   // Floor-mounted controls (Reaper combat stick, Dragonfly cyclic) pivot near their
   // base, not the wheel-column mid-point the CSS default (50% 66%) assumes — so the
   // frame-loop lean rotates the whole stick about its boot instead of its shaft.
@@ -1980,14 +2080,14 @@ export function openFlightSim(opts = {}) {
     switch (k) {
       case 'a': F.throttleKey = 1; break;
       case 'z': F.throttleKey = -1; break;
-      // On the heli, Q/E are the tail-rotor PEDALS (yaw) — you pedal-turn to point the nose,
-      // so side-look is dropped; S still looks back. Fixed-wing keeps Q/E as hold-to-look.
-      case 'q': if (F.heli) F.pedalKey = -1; else setView(-90); break;
-      case 'e': if (F.heli) F.pedalKey = 1; else setView(90); break;
-      // Fixed-wing rudder pedals, held. ,/. and X/C are interchangeable alternatives (some
-      // keyboards make ,/. awkward). The heli already pedals on Q/E, so leave it alone.
-      case ',': case 'x': if (!F.heli) F.pedalKey = -1; break;   // left rudder
-      case '.': case 'c': if (!F.heli) F.pedalKey = 1; break;    // right rudder
+      // Q/E are hold-to-look (side views) on every craft, heli included — the tail-rotor
+      // yaw lives on the rudder pedals below, same as the fixed-wings.
+      case 'q': setView(-90); break;
+      case 'e': setView(90); break;
+      // Rudder/yaw pedals, held — on the heli these pedal the tail rotor. ,/. and X/C are
+      // interchangeable alternatives (some keyboards make ,/. awkward).
+      case ',': case 'x': F.pedalKey = -1; break;   // left rudder / pedal
+      case '.': case 'c': F.pedalKey = 1; break;    // right rudder / pedal
       case 's': setView(180); break;
       case 'w': setView(0); break;
       case 'y': if (!e.repeat) stepFlap(1); break;   // flaps extend
@@ -2006,7 +2106,7 @@ export function openFlightSim(opts = {}) {
   const onKeyUp = (e) => {
     const k = (e.key || '').toLowerCase();
     if (k === 'a' || k === 'z') F.throttleKey = 0;
-    else if (((k === 'q' || k === 'e') && F.heli) || k === ',' || k === '.' || k === 'x' || k === 'c') F.pedalKey = 0;   // release pedal → centres
+    else if (k === ',' || k === '.' || k === 'x' || k === 'c') F.pedalKey = 0;   // release pedal → centres
     else if (k === 'q' || k === 'e' || k === 's') setView(0);      // release hold-to-look → forward
     else if (k === ' ') F.firing = false;                         // release trigger
   };
@@ -2015,6 +2115,20 @@ export function openFlightSim(opts = {}) {
 
   // Engine master — a round accent button that recesses while running. Off→on any time;
   // on→off only parked and stopped (you can't kill the engine in the air).
+  // Instrument panel lights — a dash switch that backlights the glass panels + dials in the
+  // accent colour (for night flying) — and the exterior LIGHTS switch (landing/taxi lamps). Both
+  // draw off the engine: no master, no power, so cutting the engine drops every light (nav lamps
+  // included, out on the model) and the switches read dead until it's running again.
+  root.style.setProperty('--cy-dim', accA(0.16));
+  const nightSw = q('#fsim-nightsw'), landSw = q('#fsim-landsw');
+  const syncLights = () => {
+    if (!F.engineOn) { F.nightLight = false; F.landingLight = false; }   // engine off → all circuits dead
+    nightSw.classList.toggle('on', F.nightLight);
+    root.classList.toggle('fsim-nightlit', F.nightLight);
+    nightSw.classList.toggle('nopwr', !F.engineOn);
+    if (landSw) { landSw.classList.toggle('on', F.landingLight); landSw.classList.toggle('nopwr', !F.engineOn); }
+  };
+
   const engBtn = q('#fsim-eng');
   if (F.engineOn) engBtn.classList.add('on');
   add(engBtn, 'click', () => {
@@ -2026,26 +2140,22 @@ export function openFlightSim(opts = {}) {
       F.input.throttle = 0; F.throttleKey = 0;
       try { spoolUp(F.cls); } catch {}
       sendCmdSilent('flightevent engineon');
+      syncLights();   // power restored — switches come live again (lights stay off until switched on)
     } else if (s.onGround && s.airspeed < 5) {
       if (F.rolling && !F.heli) { finishLanding(F, s); return; }   // fixed-wing rolled to a stop → park (opens the hangar at a field)
       F.engineOn = false; engBtn.classList.remove('on');
       try { spoolDown(F.cls); } catch {}
       sendCmdSilent('flightevent engineoff');
+      syncLights();   // master off → kill instrument backlight + exterior lamps
       // A helicopter never auto-parks/leaves the sim on shutdown — it stays put so the pilot can
       // spin back up or look around; the only way out is typing `disembark` (climb out).
       if (F.heli && F.rolling) { F.rolling = false; if (F.toast) F.toast('SHUT DOWN — type disembark to climb out'); }
     }
   });
 
-  // Instrument panel lights — a dash switch that backlights the glass panels + dials
-  // in the accent colour (for night flying). Independent of the badge's external sheen.
-  root.style.setProperty('--cy-dim', accA(0.16));
-  const nightSw = q('#fsim-nightsw');
-  add(nightSw, 'click', () => {
-    F.nightLight = !F.nightLight;
-    nightSw.classList.toggle('on', F.nightLight);
-    root.classList.toggle('fsim-nightlit', F.nightLight);
-  });
+  add(nightSw, 'click', () => { if (!F.engineOn) return; F.nightLight = !F.nightLight; syncLights(); });
+  add(landSw, 'click', () => { if (!F.engineOn) return; F.landingLight = !F.landingLight; syncLights(); });
+  syncLights();   // set the initial switch/LED state to match the engine at mount (usually cold + dark)
 
   // Weapons (gunship only): master-arm toggle + FIRE (a gun pass — resolved inline by the
   // server against an AA site in range). Space also fires. Reticle glows when armed.
@@ -2185,8 +2295,9 @@ export function openFlightSim(opts = {}) {
   setExternal = (on) => { F.external = on; if (viewBtn) viewBtn.classList.toggle('on', on); document.body.classList.toggle('fsim-external', on); fsimToast(on ? '◎ EXTERNAL VIEW' : '◎ COCKPIT VIEW'); };
   add(viewBtn, 'click', () => setExternal(!F.external));
 
-  // ⟲ Reset the locked orbit camera back to behind the craft (zero yaw + elevation + zoom).
-  add(q('#fsim-orbitreset'), 'click', () => { F.extOrbit = 0; F.extElev = 0; F.extZoom = 1; fsimToast('⟲ CAMERA RESET'); });
+  // ⟲ Reset — SWING the orbit camera from wherever it is back to just behind and above the craft
+  // (the frame loop eases yaw/elevation/zoom to rest; a manual drag cancels it mid-swing).
+  add(q('#fsim-orbitreset'), 'click', () => { F.orbitResetting = true; fsimToast('⟲ CAMERA RESET'); });
 
   // Refuel — shown only when parked on a fuelled strip (the frame loop toggles it). Fires the
   // same `refuel` verb the command line uses; the server tops the tank and pushes fuel back.
@@ -2293,7 +2404,7 @@ function showLandingCard(root, fpm, crashed) {
 function finishLanding(F, s) {
   if (F.landed) return;   // once per touchdown
   F.landed = true; F.rolling = false;
-  F.engineOn = false;
+  F.engineOn = false; F.nightLight = false; F.landingLight = false;   // engine cut on park → all lights out
   const eb = document.getElementById('fsim-eng'); if (eb) eb.classList.remove('on');
   try { spoolDown(F.cls); } catch {}
   sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} 0 0 ${Math.round(s.heading)} 0 0 1 0`);
@@ -2314,12 +2425,22 @@ function fsimFrame(now) {
 
   // Yoke springs to centre when released.
   if (!F.yokeDrag) { input.elevator = lerpN(input.elevator, 0, Math.min(1, dt * 6)); input.aileron = lerpN(input.aileron, 0, Math.min(1, dt * 6)); }
-  // External-view orbit LOCKS wherever you left it (no spring-back) — the ⟲ reset button zeroes it.
+  // External-view orbit LOCKS wherever you left it (no spring-back). The ⟲ reset SWINGS it home:
+  // ease the yaw/elevation/zoom back to the resting behind-and-above pose, then settle exactly.
+  if (F.orbitResetting) {
+    const k = Math.min(1, dt * 6);
+    F.extOrbit = lerpN(F.extOrbit || 0, 0, k);
+    F.extPitch = lerpN(F.extPitch ?? REST_PITCH, REST_PITCH, k);
+    F.extZoom = lerpN(F.extZoom || 1, 1, k);
+    if (Math.abs(F.extOrbit) < 0.3 && Math.abs((F.extPitch ?? REST_PITCH) - REST_PITCH) < 0.005 && Math.abs((F.extZoom || 1) - 1) < 0.01) {
+      F.extOrbit = 0; F.extPitch = REST_PITCH; F.extZoom = 1; F.orbitResetting = false;
+    }
+  }
   // Keyboard throttle (A/Z held) ramps the lever ~2s full-sweep.
   if (F.throttleKey) input.throttle = clampNum(input.throttle + F.throttleKey * dt * 0.5, 0, 1);
-  // Pedals held: ramp toward the held side, spring to centre on release. The heli tail rotor (Q/E)
-  // yaws the nose in the flight model; on a fixed-wing (,/.) the model ignores pedal, so this only
-  // swings the rudder surface on the external view. Same ramp either way.
+  // Pedals held (,/. or X/C): ramp toward the held side, spring to centre on release. The heli
+  // tail rotor yaws the nose in the flight model; on a fixed-wing the model ignores pedal, so this
+  // only swings the rudder surface on the external view. Same ramp either way.
   input.pedal = F.pedalKey ? clampNum(input.pedal + F.pedalKey * dt * 3, -1, 1) : lerpN(input.pedal, 0, Math.min(1, dt * 8));
   // Belly-down: gear stowed with weight on the wheels. She's grinding on her keel — no wheels to
   // roll on, so no thrust reaches the ground and she can't move or take off until the gear's back
@@ -2740,7 +2861,10 @@ function fsimFrame(now) {
     pitch: d.pitch, bank: d.bank,
     // Render height fraction (drives eye-height/compression). Referenced to 3000ft with a
     // sqrt curve so it ramps HARD off the deck — by ~500ft you're visibly above the buildings.
-    height: Math.min(1, Math.sqrt(Math.max(0, r.altitude) / 3000)), speed: clampNum(r.airspeed / (P.vne || 120), 0, 1),
+    // Use the RAW s.altitude, not the whole-foot-rounded readout: the sqrt is steepest just off
+    // the deck, so feeding rounded feet made the eye-height jump in visible steps on the climb-out
+    // (worst on slow climbers). The raw float climbs continuously.
+    height: Math.min(1, Math.sqrt(Math.max(0, s.altitude) / 3000)), speed: clampNum(r.airspeed / (P.vne || 120), 0, 1),
     hour: F.sky?.hour, weather: F.sky?.weather, wind: F.sky?.wind, heading: d.hdg,
     // Spatial weather cells + our absolute world position → real clouds/rain out the canopy.
     wxField: F.sky?.field, acX: F.pos.x, acY: F.pos.y,
@@ -2748,11 +2872,11 @@ function fsimFrame(now) {
     mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y }, travel: F.travel,
     // World-fixed runway: its origin + heading in the world, offset from the craft — so it
     // stays put and recedes/rotates naturally as you fly away (not glued ahead of the nose).
-    runway: { ox: F.rwOrigin.x - F.pos.x, oy: F.rwOrigin.y - F.pos.y, hdg: F.rwHdg, len: F.rwLen, alt: clampNum(r.altitude / 320, 0, 1) },
+    runway: { ox: F.rwOrigin.x - F.pos.x, oy: F.rwOrigin.y - F.pos.y, hdg: F.rwHdg, len: F.rwLen, alt: clampNum(s.altitude / 320, 0, 1) },
     landGuide,
     hud: true, navWarn: navWarnAlpha <= 0.02 ? null : `⚠ TURN ${String(back).padStart(3, '0')}° — RETURN TO MAP`, navWarnAlpha,
     threat: (F.aa && F.reportedAirborne) ? F.aa : null,   // AA envelope telegraph → pulsing banner + tape chevron
-    airports: F.fields, apTarget, apTargetId: F.apTargetId, viewYaw: F.viewYaw, extYaw: F.extOrbit || 0, extElev: F.extElev || 0,
+    airports: F.fields, apTarget, apTargetId: F.apTargetId, viewYaw: F.viewYaw, extYaw: F.extOrbit || 0, extPitch: F.extPitch ?? REST_PITCH,
     // Looking off the nose (Q/E/S) → frame the view as a side cabin window instead of the
     // forward windscreen. The real, rotated Mode-7 world still renders behind the pane.
     windowClass: F.viewYaw ? F.cls : undefined,
@@ -2792,6 +2916,8 @@ function fsimFrame(now) {
     // engine being on and to throttle, with spool lag), NOT airspeed — so she turns at idle on
     // the ramp and winds up with the throttle instead of only spinning once she's moving.
     external: F.external, extZoom: F.extZoom || 1, cls: F.cls, livery: F.livery, enginePct: d.rpm,
+    engineOn: F.engineOn, landingLight: F.landingLight,   // nav/strobe/beacon die with the engine; landing lamps add a bright forward set
+
     propPhase: F.propPhase, propSpin: F.propSpin, propDisc,   // external prop/rotor spool choreography (blades spin up → disc fades in; reversed on shutdown)
     // Live control-surface deflection for the external chase model: ailerons/elevator/flaps
     // swing to the pilot's own inputs (elevator folds in trim, which the flight model also adds).

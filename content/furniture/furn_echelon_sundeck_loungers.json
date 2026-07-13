@@ -1,0 +1,16 @@
+{
+  "description": "A long curved run of deep, cushioned sun loungers in cream canvas, angled to take the sun and the view at once. A folded stack of white towels waits at one end.",
+  "flags": {
+    "interactions": ["lean"]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_sundeck_loungers",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "sun loungers",
+  "object_type": "fixture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_echelon_sundeck"
+}

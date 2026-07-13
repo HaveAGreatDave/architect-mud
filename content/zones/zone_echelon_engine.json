@@ -16,6 +16,7 @@
   "flags": {
     "yacht": true,
     "echelon": true,
+    "engine_ambience": true,
     "is_interior": true,
     "is_building": true,
     "building_name": "The Echelon",

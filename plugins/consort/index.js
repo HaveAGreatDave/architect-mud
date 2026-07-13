@@ -28,10 +28,13 @@
 // a persisted Flag.
 
 import { schedule } from '../../server/engine/scheduler.js';
-import { world, getZonePlayers, getZoneNpcs } from '../../server/engine/world.js';
+import { world, getZone, getZonePlayers, getZoneNpcs, getAllLivePlayers } from '../../server/engine/world.js';
 import { sendToZone, sendToPlayer } from '../../server/engine/messaging.js';
 import { isMisActive } from '../../server/engine/mis.js';
-import { formatChitchat } from '../../server/engine/ai-behaviour.js';
+import { formatChitchat, moveEntity } from '../../server/engine/ai-behaviour.js';
+import { on } from '../../server/engine/events.js';
+import { exitTargets } from '../../server/engine/exits.js';
+import { query } from '../../server/models/db.js';
 
 // ── Tunables ────────────────────────────────────────────────────────────────
 const MAX_AROUSAL   = 100;              // fully bare at this
@@ -225,6 +228,136 @@ function playScene(zoneId, roxy, bijou, thread) {
 
 const findConsort = (npcs, name) => npcs.find(n => String(n.name || '').toLowerCase().includes(name));
 
+// ── Area life (beckoned out of the cabin) ───────────────────────────────────────
+// The suite and the boudoir are their INTIMATE spaces — arousal, undress, devotion
+// (the block in the tick below). Beckoned anywhere else aboard, they instead live a
+// life keyed to the deck they're standing on: they pick an activity, stay in it for
+// a good while, and only occasionally change or comment. Nothing here is hardcoded
+// to a content id — the area is read off zone flags.
+const isIntimateZone = (zone) => !!zone?.flags?.echelon_suite;   // suite + boudoir
+
+function areaProfile(zone) {
+  const f = zone?.flags || {};
+  if (f.echelon_sundeck) return 'sundeck';
+  if (f.echelon_helipad) return 'helipad';
+  if (f.echelon_view)    return 'view';        // stern lounge, stair landing
+  return 'cabin';                              // foyer, bridge, anywhere else aboard
+}
+
+// Activity tunables — deliberately slow. She settles into a thing for minutes, and
+// most eligible ticks pass with nothing said.
+const ACT_MIN_MS       = 150_000;   // ~2.5 min settled into an activity...
+const ACT_MAX_MS       = 360_000;   // ...up to ~6
+const ACT_SPEAK_GAP_MS = 45_000;    // and a long gap between any continuation beats
+const ACT_IDLE_CHANCE  = 0.25;      // most eligible ticks she simply is
+
+// Line factory: `§` is replaced with her name. Second arg is the MIS-only (skin)
+// variant, shown only to opted-in viewers and only when she's alone with her keeper.
+const L = (t, h) => ({ t: (n) => t.replaceAll('§', n), h: h ? (n) => h.replaceAll('§', n) : null });
+
+const AREA_ACTIVITIES = {
+  sundeck: [
+    { key: 'suntan',
+      start: L('§ stretches out on a lounger and tips her face up to the sun.',
+               '§ shrugs out of her robe to a scrap of bikini and stretches out to tan, warm and unbothered.'),
+      idle: [ L('§ turns over to catch the sun on her back, unhurried.'),
+              L('§ reaches lazily for the sunscreen and doesn’t quite bother with it.'),
+              L('§ hums behind big dark glasses, one knee lazily up.',
+                '§ tugs a bikini strap off her shoulder for an even tan.') ] },
+    { key: 'jacuzzi', minMs: 240_000, maxMs: 600_000,
+      start: L('§ slips into the jacuzzi with a long, contented sigh, water up to her collarbone.',
+               '§ peels down and sinks into the jacuzzi bare, water sliding over warm skin, and moans softly at the heat.'),
+      idle: [ L('§ tips her head back against the jacuzzi’s edge, eyes closed, jets purring.'),
+              L('§ trails a slow hand through the steaming water, in no hurry to get out.'),
+              L('§ sinks lower until the water kisses her chin, blissed-out.',
+                '§ rises to rest bare and glistening on the tiled edge a moment, then sinks back under.') ] },
+    { key: 'cocktail',
+      start: L('§ plucks a frosted glass off the tray and sips, watching the water.'),
+      idle: [ L('§ rolls the cold glass against her cheek and sighs at the sun.'),
+              L('§ swirls the ice and steals a look your way over the rim.') ] },
+    { key: 'dip',
+      start: L('§ sits on the deck edge and trails her toes through the jacuzzi’s warm spill.'),
+      idle: [ L('§ kicks a lazy arc of water into the light and laughs at nothing.') ] },
+    { key: 'read',
+      start: L('§ curls into a lounger with a glossy magazine, one knee up.'),
+      idle: [ L('§ turns a page without really reading it, sun-drunk.') ] },
+    { key: 'nap',
+      start: L('§ pulls a wide sunhat down over her eyes and dozes, breathing slow.'),
+      idle: [ L('§ stirs, murmurs something, and settles deeper into the cushions.') ] },
+  ],
+  view: [
+    { key: 'recline',
+      start: L('§ folds herself into the leather and watches the black water slide past.'),
+      idle: [ L('§ draws her knees up, rests her chin on them, and goes quiet.') ] },
+    { key: 'rail',
+      start: L('§ leans on the rail, chin on her hands, following a wake that isn’t there.'),
+      idle: [ L('§ lets the Basin wind take her hair and doesn’t fix it.') ] },
+    { key: 'sip',
+      start: L('§ warms her hands around a glass and says nothing, content.'),
+      idle: [ L('§ tips the last of the glass back and watches the horizon smudge grey.') ] },
+    { key: 'throw',
+      start: L('§ pulls a cashmere throw around her shoulders against the Basin chill.'),
+      idle: [ L('§ burrows a little further into the throw, cosy.') ] },
+  ],
+  helipad: [
+    { key: 'windswept',
+      start: L('§ laughs as the open wind whips her hair across her face.'),
+      idle: [ L('§ spreads her arms to the wind and lets the whole sky have her.') ] },
+    { key: 'edge',
+      start: L('§ drifts to the rail and looks out over the long drop to the Basin.'),
+      idle: [ L('§ leans into the wind, fearless, grinning at the dark water.') ] },
+    { key: 'huddle',
+      start: L('§ hugs herself against the rotor-cold up here and grins through it.'),
+      idle: [ L('§ bounces on her toes to keep warm, breath clouding.') ] },
+  ],
+  cabin: [
+    { key: 'linger',
+      start: L('§ drapes herself over the nearest rail and watches you move through the room.'),
+      idle: [ L('§ shifts her weight, unhurried, following you with her eyes.') ] },
+    { key: 'admire',
+      start: L('§ trails a fingertip along the brushed titanium and takes it all in.'),
+      idle: [ L('§ tilts her head at her own reflection in the bulkhead and half-smiles.') ] },
+    { key: 'perch',
+      start: L('§ perches on the edge of something expensive and crosses her legs.'),
+      idle: [ L('§ swings a foot idly and waits, content just to be near you.') ] },
+  ],
+};
+
+// One consort's turn of area-life. Picks/holds an activity keyed to the deck, and
+// only rarely narrates. Hot (skin) lines play only when she's alone with her keeper.
+function runAreaActivity(npc, zone, zoneId, now, keeperHere, strangerHere) {
+  const profile = areaProfile(zone);
+  const acts = AREA_ACTIVITIES[profile] || AREA_ACTIVITIES.cabin;
+
+  // Out here she's presentable: shed any cabin arousal/undress so she never wanders
+  // onto the sun deck mid-strip.
+  if ((npc._clothingPeeled || 0) && !npc._forcedNude) npc._clothingPeeled = 0;
+  arousal.set(npc.id, 0);
+
+  const graphicOK = keeperHere && !strangerHere;   // she only bares for him
+  const cur = npc._activity;
+  const stale = !cur || cur.profile !== profile || now >= (npc._activityUntil || 0);
+
+  if (stale) {
+    const choices = acts.filter(a => !cur || a.key !== cur.key);   // avoid immediate repeat
+    const act = pick(choices.length ? choices : acts);
+    npc._activity = { key: act.key, profile };
+    npc._activityUntil = now + randInt(act.minMs || ACT_MIN_MS, act.maxMs || ACT_MAX_MS);
+    tieredZoneLine(zoneId, act.start.t(npc.name), graphicOK ? act.start.h?.(npc.name) : null);
+    lastSpoke.set(npc.id, now);
+    return;
+  }
+
+  // Mid-activity: an occasional, unhurried continuation beat.
+  if (now - (lastSpoke.get(npc.id) || 0) < ACT_SPEAK_GAP_MS) return;
+  if (Math.random() > ACT_IDLE_CHANCE) return;
+  const act = acts.find(a => a.key === cur.key);
+  if (!act) return;
+  const line = pick(act.idle);
+  tieredZoneLine(zoneId, line.t(npc.name), graphicOK ? line.h?.(npc.name) : null);
+  lastSpoke.set(npc.id, now);
+}
+
 // ── Tick ────────────────────────────────────────────────────────────────────
 let ticking = false;
 function consortTick() {
@@ -248,6 +381,13 @@ function consortTick() {
         const keeperHere  = !!devoted && players.some(p => p.handle === devoted);
         const strangerHere = anyStranger(devoted);
         const keeper      = keeperHere ? players.find(p => p.handle === devoted) : null;
+
+        // Beckoned out onto the ship (anywhere but the intimate cabins), she lives a
+        // life keyed to that deck instead of the arousal/undress path.
+        if (!isIntimateZone(zone)) {
+          runAreaActivity(npc, zone, zoneId, now, keeperHere, strangerHere);
+          continue;
+        }
 
         // Arousal only ever climbs when they're ALONE with the one they belong to.
         // A stranger in the room — even with him present — kills it.
@@ -331,15 +471,136 @@ async function onTalk({ player, npc }) {
   return formatChitchat(npc.name, line);
 }
 
+// ── Beckon / dismiss (keeper-only) ──────────────────────────────────────────────
+// The consorts live tucked away in a concealed boudoir off the suite (their
+// home_zone) and only step out when their keeper calls. Their emergence zone is
+// whatever room that boudoir's `out` door opens onto — the suite — so nothing is
+// hardcoded to a content id here.
+const NOOP = () => {};
+
+const consortsOf = (handle) =>
+  handle ? [...world.npcs.values()].filter(n => isConsort(n) && n.flags?.devoted_to === handle) : [];
+
+// The room a consort emerges into: the zone their home boudoir exits to.
+function emergeZoneOf(npc) {
+  const home = getZone(npc.home_zone);
+  return home ? (exitTargets(home, 'out')[0] || null) : null;
+}
+
+// Narrate a consort beat to the room, MIS-tiered per viewer, but skip the keeper —
+// their own view is returned to them as the command result instead (no duplicate).
+function narrateToRoom(zoneId, keeperId, tame, hot) {
+  for (const p of getZonePlayers(zoneId)) {
+    if (p.id === keeperId) continue;
+    sendToPlayer(p.id, { type: 'zone_event', message: (hot && isMisActive(p)) ? hot : tame });
+  }
+}
+
+// Arrival / departure narration. From the suite she comes through the concealed
+// wardrobe; called out to any other deck she simply makes her way up to him.
+const arriveLines = (n, viaWardrobe) => viaWardrobe
+  ? [`The mirrored wardrobe swings inward and ${n} steps out, finding you at once.`,
+     `The mirrored wardrobe swings inward and ${n} slips out, all warm silk and welcome, her eyes going straight to you.`]
+  : [`${n} makes her way to you and settles in close.`,
+     `${n} makes her way to you, robe loose and eyes bright, and settles in close.`];
+const departLines = (n, viaWardrobe) => viaWardrobe
+  ? [`${n} slips back through the mirrored wardrobe and is gone.`,
+     `${n} presses a kiss to the air and slips back through the mirrored wardrobe, out of sight.`]
+  : [`${n} gathers herself and heads back below to the boudoir.`,
+     `${n} blows you a kiss and slips away below.`];
+
+async function cmdBeckon(args, raw, player) {
+  const mine = consortsOf(player.handle);
+  if (!mine.length) return { type: 'error', message: 'No one here answers to you like that.' };
+
+  const here = getZone(player.current_zone);
+  if (!here?.flags?.echelon) return { type: 'error', message: "They won't leave the Echelon. Call for them from aboard." };
+  const home = mine[0].home_zone;
+  if (player.current_zone === home) return { type: 'error', message: "You're already in the boudoir with them." };
+
+  const name = args.join(' ').trim().toLowerCase();
+  let targets = mine;
+  if (name) {
+    targets = mine.filter(n => String(n.name || '').toLowerCase().includes(name));
+    if (!targets.length) return { type: 'error', message: 'No one of yours by that name.' };
+  }
+
+  const dest = player.current_zone;
+  const viaWardrobe = dest === emergeZoneOf(mine[0]);   // the suite the boudoir opens onto
+  const lines = [];
+  for (const npc of targets) {
+    if (npc._dead || npc.zone_id === dest) continue;               // dead or already here
+    npc._activity = null; npc._activityUntil = 0;                  // fresh read of the new area
+    const [tame, hot] = arriveLines(npc.name, viaWardrobe);
+    narrateToRoom(dest, player.id, tame, hot);
+    moveEntity(npc, dest, NOOP, query);                            // silent hop; we narrate it
+    lines.push(isMisActive(player) ? hot : tame);
+  }
+  if (!lines.length) return { type: 'output', message: 'They’re already here with you.' };
+  return { type: 'output', message: lines.join('\n') };
+}
+
+// Send some/all of a keeper's out-of-boudoir consorts back to their hidden room.
+// Narrates to the room they leave (all viewers); returns the ones actually sent.
+function retreatConsorts(list, filterName) {
+  const sent = [];
+  for (const npc of list) {
+    if (npc._dead || npc.zone_id === npc.home_zone) continue;      // already tucked away
+    if (filterName && !String(npc.name || '').toLowerCase().includes(filterName)) continue;
+    const [tame, hot] = departLines(npc.name, npc.zone_id === emergeZoneOf(npc));
+    tieredZoneLine(npc.zone_id, tame, hot);
+    npc._activity = null; npc._activityUntil = 0;
+    moveEntity(npc, npc.home_zone, NOOP, query);
+    sent.push(npc);
+  }
+  return sent;
+}
+
+async function cmdDismiss(args, raw, player) {
+  const mine = consortsOf(player.handle);
+  if (!mine.length) return { type: 'error', message: 'No one here answers to you like that.' };
+  const sent = retreatConsorts(mine, args.join(' ').trim().toLowerCase() || null);
+  if (!sent.length) return { type: 'output', message: 'They’re already tucked away.' };
+  return { type: 'output', message: `You send ${sent.map(n => n.name).join(' and ')} back to the boudoir.` };
+}
+
+// Keeper steps off the Echelon → the companions slip back into hiding. Fires for
+// every player move, but consortsOf() is empty for anyone who isn't a keeper. While
+// he's still aboard they stay put on whatever deck he last beckoned them to (he
+// re-beckons to move them, or dismisses to send them home).
+on('zone.entered', ({ actor, zone }) => {
+  const mine = consortsOf(actor?.handle);
+  if (!mine.length) return;
+  if (getZone(zone)?.flags?.echelon) return;                      // still aboard
+  retreatConsorts(mine);
+});
+
+// Keeper drops connection → tuck any of their exposed companions away. We match by
+// devoted_to handle, excluding the departing session so ordering with the live-player
+// removal doesn't matter.
+on('player.logout', ({ id }) => {
+  const online = new Set(getAllLivePlayers().filter(p => p.id !== id).map(p => p.handle));
+  for (const npc of world.npcs.values()) {
+    if (!isConsort(npc) || npc.zone_id === npc.home_zone) continue;
+    if (online.has(npc.flags?.devoted_to)) continue;              // keeper still aboard
+    retreatConsorts([npc]);
+  }
+});
+
 export const hooks = {
   'npc.talk': (payload) => onTalk(payload).catch(e => { console.error('[consort] onTalk:', e.message); return undefined; }),
 };
 
-export const commands = {};
+export const commands = {
+  beckon:  cmdBeckon,
+  dismiss: cmdDismiss,
+};
 
 // Exposed for the regress suite.
 export const _test = {
   isConsort, peeledForArousal, onTalk, consortTick,
   PAIR_PRIVATE, PAIR_WITH_KEEPER, arousal, lastSpoke,
   MAX_AROUSAL, AROUSED_AT,
+  consortsOf, cmdBeckon, cmdDismiss, retreatConsorts,
+  areaProfile, isIntimateZone, runAreaActivity, AREA_ACTIVITIES, ACT_MIN_MS,
 };

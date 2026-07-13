@@ -19,6 +19,7 @@ import { emit } from './events.js';
 import { vendorGrudgeRemaining, grudgeRefusal } from './vendor-grudge.js';
 import { markSessionPurchase } from './vendor-session.js';
 import { vendorBuyReaction } from './vendor-reactions.js';
+import { isVendorClosed, vendorClosedLine } from './ai-behaviour.js';
 
 // Trust-gated vendors (e.g. the covert shadow dealer). When an NPC's flags carry
 // a `trust_flag`, its shelf is not the random `vendor_stock` shelf but the full
@@ -80,6 +81,7 @@ export async function getVendorStock(npc, playerId) {
 // ─── Buy ─────────────────────────────────────────────────────────────────────
 
 export async function buyFromVendor(player, npc, itemId, quantity = 1) {
+  if (isVendorClosed(npc)) return { success: false, message: vendorClosedLine(npc) };
   const grudge = await vendorGrudgeRemaining(player.id, npc.id);
   if (grudge > 0) return { success: false, message: grudgeRefusal(npc, grudge) };
 
@@ -119,9 +121,14 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
     if (existing.length && isStackable(item)) {
       await q('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [quantity, existing[0].id]);
     } else {
+      // Templates may ship a `flags.prefill` bag (e.g. a jerry can sold full of
+      // fuel) — seed it into the fresh instance's custom_data so the unit arrives
+      // in that state. Non-stacking items (fillable containers are `unique`) get
+      // their own row, so this can't smear across a stack.
+      const prefill = item.flags?.prefill;
       await q(
-        'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1, $2, $3, $4, 1.0)',
-        [randomUUID(), player.id, itemId, quantity]
+        'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1, $2, $3, $4, 1.0, $5)',
+        [randomUUID(), player.id, itemId, quantity, JSON.stringify(prefill || {})]
       );
     }
 
@@ -210,6 +217,7 @@ export async function getSellableInventory(player, npc) {
 }
 
 export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
+  if (isVendorClosed(npc)) return { success: false, message: vendorClosedLine(npc) };
   const grudge = await vendorGrudgeRemaining(player.id, npc.id);
   if (grudge > 0) return { success: false, message: grudgeRefusal(npc, grudge) };
 

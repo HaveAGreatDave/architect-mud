@@ -7,14 +7,17 @@
 import { query } from '../../server/models/db.js';
 import { getZone, getLivePlayer } from '../../server/engine/world.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
-import { gameToday, ymd, addGameDays, gameDaysBetween } from '../../server/engine/apartments.js';
+import { gameToday, ymd, addGameDays, gameDaysBetween, MONTHS } from '../../server/engine/apartments.js';
 import { on } from '../../server/engine/events.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { registerTabletApp } from './registry.js';
 
 const REM_FLAG = 'calendar_reminders';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_RE = /^\d{4}-\d{2}$/;
+// Month names (both the short and the full label) come from the engine's shared
+// MONTHS table (server/engine/apartments.js) so the calendar reads the same as
+// rent notices — the naming-rights-sold-off in-world month names.
 
 // Minimal HTML escape — reminder text is player-authored and lands in a client
 // output span, so it can't be trusted to be markup-free.
@@ -83,17 +86,80 @@ async function allEvents(player) {
   return events;
 }
 
+// Shift a 'YYYY-MM' month key by whole months.
+function shiftMonth(ym, delta) {
+  let [y, m] = ym.split('-').map(Number);
+  m += delta;
+  y += Math.floor((m - 1) / 12);
+  m = ((m - 1) % 12 + 12) % 12 + 1;
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+// Month-grid data for the given 'YYYY-MM': a list of week-rows of day cells, with
+// each dated cell carrying the events that fall on it. Weeks start Monday; leading/
+// trailing cells that spill outside the month are `{ day: null }` padding. The game
+// calendar is plain Gregorian (server/engine/apartments.js does UTC Date math), so
+// the grid is computed the same way.
+function monthGrid(ym, today, events) {
+  const [y, m] = ym.split('-').map(Number);
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const firstDow = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7; // Mon=0 … Sun=6
+
+  const byDate = new Map();
+  for (const e of events) {
+    if (!e.date) continue;
+    (byDate.get(e.date) || byDate.set(e.date, []).get(e.date)).push(e);
+  }
+
+  const cells = [];
+  for (let i = 0; i < firstDow; i++) cells.push({ day: null });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = `${ym}-${String(d).padStart(2, '0')}`;
+    const evs = (byDate.get(date) || []).map(e => ({
+      kind: e.kind, text: e.text, detail: e.detail || '',
+    }));
+    cells.push({ day: d, date, isToday: date === today, evs });
+  }
+  while (cells.length % 7 !== 0) cells.push({ day: null });
+
+  const weeks = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  return weeks;
+}
+
+// The agenda list rendered beneath the grid — the same clickable event stream the
+// app used to be, so each event still drills into its detail/delete screen.
+function agendaItems(today, events) {
+  return [
+    { id: 'today', label: `📅 Today — ${prettyDate(today)}`, sub: 'In-world date' },
+    ...events.map(e => ({
+      id: e.id,
+      label: `${e.kind === 'rent' ? '🏠 ' : '• '}${e.text}`,
+      sub: `${prettyDate(e.date)} · ${countdown(today, e.date)}${e.detail ? ` · ${e.detail}` : ''}${e.fired ? ' · ✓ reminded' : ''}`,
+    })),
+  ];
+}
+
 // --- Screens ----------------------------------------------------------------
 
 async function buildScreen(player, screenId, params) {
   const today = gameToday();
   const events = await allEvents(player);
   const id = (params || '').trim();
+  const sid = String(screenId || '').toLowerCase();
 
-  // Detail for a single event.
+  // Month navigation: the grid's prev/next arrows nav with screenId 'month' and a
+  // 'YYYY-MM' params token. Kept distinct from the event-detail path (below), which
+  // also arrives via params, so a month key is never mistaken for an event id.
+  if (sid === 'month') {
+    const ym = MONTH_RE.test(id) ? id : (today ? today.slice(0, 7) : '2087-01');
+    return calendarScreen(today, events, ym);
+  }
+
+  // Detail for a single event, clicked from the agenda list.
   if (id && id !== 'today') {
     const ev = events.find(e => e.id === id);
-    if (!ev) return listScreen(today, events);
+    if (!ev) return calendarScreen(today, events, today ? today.slice(0, 7) : '2087-01');
     const rows = [
       { label: 'Date', value: prettyDate(ev.date) },
       { label: 'When', value: countdown(today, ev.date) || '—' },
@@ -101,7 +167,8 @@ async function buildScreen(player, screenId, params) {
     if (ev.detail) rows.push({ label: ev.kind === 'rent' ? 'Cost' : 'Note', value: ev.detail });
     return {
       view: 'detail',
-      breadcrumb: [ev.kind === 'rent' ? 'Rent' : 'Reminder'],
+      // Two crumb levels so Back drills up to the calendar root, not straight home.
+      breadcrumb: ['Calendar', ev.kind === 'rent' ? 'Rent' : 'Reminder'],
       detail: {
         id: ev.id,
         name: ev.text,
@@ -114,27 +181,26 @@ async function buildScreen(player, screenId, params) {
     };
   }
 
-  return listScreen(today, events);
+  // Root: the month grid for the current in-world month.
+  return calendarScreen(today, events, today ? today.slice(0, 7) : '2087-01');
 }
 
-function listScreen(today, events) {
-  const items = [
-    { id: 'today', label: `📅 Today — ${prettyDate(today)}`, sub: 'In-world date' },
-    ...events.map(e => ({
-      id: e.id,
-      label: `${e.kind === 'rent' ? '🏠 ' : '• '}${e.text}`,
-      sub: `${prettyDate(e.date)} · ${countdown(today, e.date)}${e.detail ? ` · ${e.detail}` : ''}${e.fired ? ' · ✓ reminded' : ''}`,
-    })),
-  ];
+function calendarScreen(today, events, ym) {
+  const [y, m] = ym.split('-').map(Number);
   return {
-    view: 'list',
+    view: 'calendar',
     // Non-empty breadcrumb is required, not cosmetic: the client's list-item click
     // handler resends the current breadcrumb's last entry as the screenId token
     // alongside the clicked id as params. An empty breadcrumb sends screenId:null
     // and shoves the event id into the wrong slot, so buildScreen never sees it
     // (see vehicles-app.js's note on the same trap).
     breadcrumb: ['Calendar'],
-    items,
+    monthLabel: `${MONTHS[m - 1] || '?'} ${y}`,
+    weekdays: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+    prevMonth: shiftMonth(ym, -1),
+    nextMonth: shiftMonth(ym, 1),
+    weeks: monthGrid(ym, today, events),
+    items: agendaItems(today, events),
     actions: [{
       id: 'add',
       label: '✚ New reminder',

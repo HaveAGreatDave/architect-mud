@@ -111,8 +111,11 @@ export function openTvPanel(data) {
     if (data.sounds.powerOff)_powerOffDef= { ...TV_POWER_OFF_DEF,config: data.sounds.powerOff.config };
   }
 
-  if ((data.channelId || null) !== _tvActiveChannelId) { _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); }   // drop stale graphics when the dial moves
+  const _channelChanged = (data.channelId || null) !== _tvActiveChannelId;
+  if (_channelChanged) { _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); }   // drop stale graphics when the dial moves
   _tvActiveChannelId = data.channelId || null;
+  // Keep the TV guide open across a channel change, but refresh it for the new station.
+  if (_channelChanged && _scheduleOpen) _requestSchedule();
   _tvOpen = true;
   _tvShuttingDown = false;
   _tvPoweredOff = !data.channelId || data.channelNumber === 0;
@@ -300,6 +303,7 @@ export function closeTvPanel() {
   _clearStandings();
   _clearSportsFx();
   _clearGameday();
+  _clearSchedule();
   const win = document.getElementById('tv-window');
   win.classList.remove('tv-shutting-off');
   win.style.position = '';
@@ -470,6 +474,86 @@ function _clearGameday() {
   if (host) host.classList.remove('on');
   const btn = document.getElementById('tv-gameday-btn');
   if (btn) btn.classList.remove('on', 'avail');
+}
+
+// ── TV guide sub-screen ─────────────────────────────────────────────────────────
+// A "what's on and when" panel for the tuned channel. Opening it asks the server for
+// the running order + current in-world time (tv_schedule); while it stays open we
+// re-request on a slow tick so the "on now" highlight and loop countdowns stay live.
+// Placement mirrors the Gameday sub-screen: an overlay covering the message area.
+let _scheduleOpen = false;
+let _scheduleTimer = null;
+
+function _requestSchedule() {
+  if (_tvActiveChannelId) sendRaw({ type: 'tv_schedule', channelId: _tvActiveChannelId });
+}
+
+function _toggleSchedule() {
+  const host = document.getElementById('tv-schedule');
+  const btn = document.getElementById('tv-schedule-btn');
+  if (!host) return;
+  _scheduleOpen = !_scheduleOpen;
+  host.classList.toggle('on', _scheduleOpen);
+  btn?.classList.toggle('on', _scheduleOpen);
+  if (!_scheduleOpen) { _clearScheduleTimer(); return; }
+  if (!_tvActiveChannelId) {
+    host.innerHTML = '<div class="tv-sched-empty">The set is off — tune to a channel first.</div>';
+    return;
+  }
+  host.innerHTML = '<div class="tv-sched-empty">Fetching schedule…</div>';
+  _requestSchedule();
+  if (_scheduleTimer) clearInterval(_scheduleTimer);
+  _scheduleTimer = setInterval(_requestSchedule, 2000);
+}
+
+function _clearScheduleTimer() {
+  if (_scheduleTimer) { clearInterval(_scheduleTimer); _scheduleTimer = null; }
+}
+
+// Drop the guide on channel change / panel close so a stale listing never lingers.
+function _clearSchedule() {
+  _scheduleOpen = false;
+  _clearScheduleTimer();
+  const host = document.getElementById('tv-schedule');
+  if (host) { host.classList.remove('on'); host.innerHTML = ''; }
+  const btn = document.getElementById('tv-schedule-btn');
+  if (btn) btn.classList.remove('on');
+}
+
+export function renderTvSchedule(data) {
+  if (!_scheduleOpen || !data || data.channelId !== _tvActiveChannelId) return;
+  const host = document.getElementById('tv-schedule');
+  if (!host) return;
+  const slots = Array.isArray(data.slots) ? data.slots : [];
+  const daily = data.scheduleMode === 'daily';
+  const fmtDur = (s) => !(s > 0) ? '' : (s >= 60 ? `${Math.round(s / 60)} min` : `${Math.round(s)}s`);
+  const fmtIn = (s) => {
+    if (!(s > 0)) return 'on now';
+    const m = Math.floor(s / 60), ss = Math.round(s % 60);
+    return m ? `in ${m}:${String(ss).padStart(2, '0')}` : `in ${ss}s`;
+  };
+  let rows;
+  if (!slots.length) {
+    rows = '<div class="tv-sched-empty">Nothing scheduled on this channel.</div>';
+  } else {
+    rows = slots.map(sl => {
+      const when = daily ? _esc(sl.todLabel || '') : (sl.onNow ? 'ON NOW' : fmtIn(sl.startsInSec));
+      const dur = fmtDur(sl.durationSec);
+      return `<div class="tv-sched-row${sl.onNow ? ' now' : ''}">` +
+        `<span class="tv-sched-when">${when}</span>` +
+        `<span class="tv-sched-name">${_esc(sl.name)}</span>` +
+        `<span class="tv-sched-dur">${dur}</span>` +
+      `</div>`;
+    }).join('');
+  }
+  const title = _esc(data.stationName || 'Schedule') + (data.channelNumber ? ` · CH ${data.channelNumber}` : '');
+  host.innerHTML =
+    `<div class="tv-sched-head">` +
+      `<span class="tv-sched-title">${title}</span>` +
+      `<span class="tv-sched-clock">&#x1F552; ${_esc(data.nowLabel || '')}</span>` +
+    `</div>` +
+    `<div class="tv-sched-list">${rows}</div>` +
+    `<div class="tv-sched-foot">${daily ? 'In-world local time.' : 'This channel runs on a loop.'}</div>`;
 }
 
 // Transient "standings bug" — the league table flashed up periodically during a
@@ -1022,6 +1106,10 @@ export function initTvPanel() {
   // broadcast sends its first `gameday` overlay (which adds `.avail`).
   const gamedayBtn = document.getElementById('tv-gameday-btn');
   gamedayBtn?.addEventListener('click', () => { if (_tvOpen) _toggleGameday(); });
+
+  // TV guide toggle: shows the tuned channel's running order + current in-world time.
+  const scheduleBtn = document.getElementById('tv-schedule-btn');
+  scheduleBtn?.addEventListener('click', () => { if (_tvOpen) _toggleSchedule(); });
 
   // Knob: click cycles channels, mousewheel fine-tunes. Drag-to-rotate is
   // disabled for now — it was unreliable to control smoothly — so there's no

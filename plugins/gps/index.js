@@ -64,6 +64,10 @@ function plotRoute(player, destZone, { avoid = null, resume = false } = {}) {
     // player whether to auto-walk there now. The client appends the y/n question
     // and arms a one-shot prompt.
     promptAutoWalk: !resume,
+    // A plain `gps` destination is a single, final target: arriving turns auto-walk
+    // fully off. Only fresh plots declare this — a reroute (resume) omits it so an
+    // in-progress quest walk keeps its "continuing" intent across the re-plot.
+    ...(resume ? {} : { continueOnArrival: false }),
   };
 }
 

@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_jerry_can",
+  "name": "jerry can",
+  "tags": {
+    "description": "A dented steel jerry can with a bayonet cap and a stubby pour spout, the sides scabbed with faded hazard decals. Empty, it rattles; full, it sloshes and reeks. Made for fuel — fill it at a pump and pour it into a thirsty generator.",
+    "fillable": 40,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 35,
+  "weight": 2500
+}

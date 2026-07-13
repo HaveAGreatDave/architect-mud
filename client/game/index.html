@@ -1374,36 +1374,8 @@
 			</div>
 		</div>
 
-		<!-- MAP POPUP -->
-		<div id="map-panel">
-			<div id="map-box">
-				<div id="map-header">
-					<h2 id="map-title">City Map</h2>
-					<div id="map-tabs">
-						<button type="button" class="map-tab" data-level="interior">Interior</button>
-						<button type="button" class="map-tab" data-level="zone">Zone</button>
-						<button type="button" class="map-tab" data-level="regional">Regional</button>
-						<span class="map-tab-sep" aria-hidden="true"></span>
-						<button type="button" id="map-route-toggle" class="map-tab map-tab-icon" aria-label="GPS route" title="GPS route — double-click a tile to plot a route from where you are. Click here to clear it.">📍</button>
-						<button type="button" id="map-auto-toggle" class="map-tab map-tab-icon" aria-label="Auto-walk" title="Auto-walk — follow the plotted GPS route. Click to start/stop.">➤</button>
-						<button type="button" id="map-territory-toggle" class="map-tab map-tab-icon" aria-label="Territory" title="Territory — tint tiles by their controlling org.">🚩</button>
-						<span class="map-tab-sep" aria-hidden="true"></span>
-						<button type="button" id="map-zoom-out" class="map-tab map-tab-icon" aria-label="Zoom out" title="Zoom out">−</button>
-						<button type="button" id="map-zoom-in" class="map-tab map-tab-icon" aria-label="Zoom in" title="Zoom in">+</button>
-					</div>
-					<div id="map-overlay-slider" class="map-overlay-slider" data-ov="icons" role="group" aria-label="Tile labels">
-						<button type="button" class="mo-seg" data-ov="none" title="No labels — colours only">🚫</button>
-						<button type="button" class="mo-seg" data-ov="labels" title="Two-letter text labels">🔤</button>
-						<button type="button" class="mo-seg active" data-ov="icons" title="Icons">📍</button>
-					</div>
-				</div>
-				<div id="map-body">
-					<div id="map-viewport"><div id="map-grid"></div></div>
-					<div id="map-legend"></div>
-				</div>
-				<button id="map-close" style="margin-top: 14px">Close</button>
-			</div>
-		</div>
+		<!-- MAP POPUP retired — the city map now lives in the tablet Map app
+		     (panels/tablet-os.js renderMap); the minimap double-click opens it there. -->
 
 		<!-- CONTAINER PANEL -->
 		<div id="container-panel">
@@ -1551,6 +1523,7 @@
 					</div>
 					<div id="tv-header-right">
 						<span id="tv-live-badge"><span class="tv-live-dot">●</span> LIVE</span>
+						<button id="tv-schedule-btn" aria-label="TV guide" title="TV guide — what's on and when">&#x1F5D3;</button>
 						<button id="tv-gameday-btn" aria-label="Gameday view" title="Gameday — animated play-by-play">&#x26BE;</button>
 						<button id="tv-read-btn" aria-label="Read broadcast aloud" title="Read broadcast aloud (synthesized voice)">&#x1F508;</button>
 						<button id="tv-close-btn" aria-label="Close view; hold to switch off television" title="Tap to close · hold to switch off">&#x23FB;</button>
@@ -1577,6 +1550,7 @@
 					</div>
 				</div>
 				<div id="tv-overlay-container"></div>
+				<div id="tv-schedule"></div>
 				<div id="tv-gameday"></div>
 				<div id="tv-scorebug"></div>
 				<div id="tv-standings"></div>

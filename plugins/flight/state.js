@@ -159,6 +159,17 @@ export function surfaceRank(flags = {}) {
 }
 let _coordIndex = null;
 let _bounds = null;
+
+// ── Echelon "making way" ─────────────────────────────────────────────────────
+// When the yacht sails a tile, she carries a decaying wake for a short spell so EVERY
+// nearby pilot's windshield paints it at her new position — not just the owner's Helm
+// chase view (which sets its own wake client-side). The yacht plugin pings setYachtMakingWay
+// on a successful move via the soft-import it already uses; the window builder below reads
+// this to attach `wake:{spd}` to the yacht cell. Transient, module-local — no DB, no flags.
+const YACHT_WAKE_MS = 20_000;
+let _yachtWakeUntil = 0;
+export function setYachtMakingWay() { _yachtWakeUntil = Date.now() + YACHT_WAKE_MS; }
+
 export function buildCoordIndex() {
   const idx = new Map();
   let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
@@ -471,6 +482,10 @@ function mapWindow(a, radius = 24) {
       // Echelon's exterior tile (flags.yacht) → a sleek black yacht with a lit helipad.
       const mark = cell.flags?.yacht ? 'yacht'
         : (/^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined);
+      // A yacht that's recently sailed streams a decaying wake to every pilot in view.
+      let wake;
+      if (mark === 'yacht' && _yachtWakeUntil > Date.now())
+        wake = { spd: (_yachtWakeUntil - Date.now()) / YACHT_WAKE_MS };   // 1 → 0 over YACHT_WAKE_MS
       // Road piece connections, straight off the map icon suffix (road_ns, road_ne turn,
       // road_nes T, road_nesw / road_x crossroads, road_n stub, …). The windshield paints
       // lane markings toward each connected edge, so junctions, turns and Ts all read as what
@@ -478,7 +493,7 @@ function mapWindow(a, radius = 24) {
       let rd;
       const im = /^road_([nesw]+|x)$/.exec(cell.flags?.icon || '');
       if (im) rd = im[1] === 'x' ? 'nesw' : im[1];
-      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, self });
+      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, wake, self });
     }
     rows.push(row);
   }

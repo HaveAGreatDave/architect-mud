@@ -38,9 +38,17 @@ export function addGameDays(ymdStr, n) {
 export function gameDaysBetween(a, b) {
   return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000);
 }
-// Pretty-print a 'YYYY-MM-DD' game date as e.g. "9 June 2087".
+// In-world month names — the calendar's naming rights got sold off. Positionally
+// 1:1 with Jan–Dec so any real date maps cleanly; used everywhere a game date is
+// shown to a player (rent notices here, the tablet Calendar app).
+export const MONTHS = [
+  'Janufizz', 'Februtek', 'Marchex', 'Aprilex', 'Maytrix', 'Junet',
+  'Julyte', 'Augmentum', 'Septek', 'Octane', 'Novapex', 'Decibel',
+];
+// Pretty-print a 'YYYY-MM-DD' game date as e.g. "9 Junet 2087".
 function formatGameDate(ymdStr) {
-  return new Date(`${ymdStr}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const d = new Date(`${ymdStr}T00:00:00Z`);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 // The zone(s) on the far side of a door: its pinned target if it has one (a door

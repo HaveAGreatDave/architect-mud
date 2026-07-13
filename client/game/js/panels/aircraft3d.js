@@ -31,7 +31,8 @@ export function liveryPalette(lv) {
   const trim = hex2rgb(lv.trim) || [138, 144, 153];
   const pat = lv.pattern || 'bare';
   if (pat === 'splinter') base = mix3(base, [60, 64, 44], 0.35);
-  return { base, trim, fmul: FINISH_MUL[lv.finish] ?? 1.0, pat };
+  const ground = hex2rgb(lv.ground) || JAZZ_GROUND;   // jazz undercoat (the "cup paper" the splatter pops against)
+  return { base, trim, ground, fmul: FINISH_MUL[lv.finish] ?? 1.0, pat };
 }
 // Structural accents that ALWAYS wear the trim colour, whatever the pattern.
 const TRIM_ROLE = new Set(['fin', 'rudder', 'nacelle', 'rotor']);
@@ -75,7 +76,7 @@ export function faceBaseRgb(face, pal) {
   const role = face.role;
   if (role === 'glass' || role === 'window') return [14, 26, 36];
   if (role === 'strut' || role === 'gear' || role === 'gun') return [44, 48, 54];
-  if (pal.pat === 'jazz' && JAZZ_ROLE.has(role)) return JAZZ_GROUND;   // bone undercoat; overlayJazz paints the splatter on top
+  if (pal.pat === 'jazz' && JAZZ_ROLE.has(role)) return pal.ground || JAZZ_GROUND;   // chosen undercoat; overlayJazz paints the splatter on top
   return faceWearsTrim(face, pal.pat) ? pal.trim : pal.base;
 }
 
@@ -889,13 +890,13 @@ function jzSquig(cx, cy, ang, axis, humps, amp, rng) {
   for (let i = 0; i <= steps; i++) { const t = i / steps, d = t * axis, off = Math.sin(ph + t * humps * 6.28) * amp + Math.sin(ph * 1.7 + t * humps * 2.3 * 6.28) * amp * 0.3; sp.push([sx + ux * d + px * off, sy + uy * d + py * off]); }
   return sp;
 }
-export function jazzTex(c0, c1, c2) {
-  c0 = c0 || '#18b8c2'; c1 = c1 || '#5a2c9c'; c2 = c2 || '#c22b8c';
-  const key = c0 + c1 + c2, hit = _jazzCache.get(key); if (hit) return hit;
+export function jazzTex(c0, c1, c2, ground) {
+  c0 = c0 || '#18b8c2'; c1 = c1 || '#5a2c9c'; c2 = c2 || '#c22b8c'; ground = ground || rgbStr(JAZZ_GROUND);
+  const key = c0 + c1 + c2 + ground, hit = _jazzCache.get(key); if (hit) return hit;
   const cv = document.createElement('canvas'); cv.width = JZ_TW * JZ_SS; cv.height = JZ_TH * JZ_SS;
   const g = cv.getContext('2d'), W = JZ_TW, H = JZ_TH, rng = jzRng(jzHash(key) || 1);
   g.scale(JZ_SS, JZ_SS);   // draw in 256×140 design space; the canvas is JZ_SS× denser
-  g.fillStyle = rgbStr(JAZZ_GROUND); g.fillRect(0, 0, W, H);
+  g.fillStyle = ground; g.fillRect(0, 0, W, H);
   const diag = Math.hypot(W, H), ang = -(22 + rng() * 10) * Math.PI / 180, cx = W / 2, cy = H / 2;
   const ux = Math.cos(ang), uy = Math.sin(ang), px = -uy, py = ux, gap = H * 0.17;
   for (let b = 0; b < 3; b++) {   // stacked teal zigzag bands
@@ -1512,7 +1513,7 @@ export function drawTurntable(ctx, opts) {
 function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null }) {
   const faces = wreck ? buildWreck() : aircraftFaces(cls);
   const pal = liveryPalette(livery || {});
-  const jazzImg = (!wreck && pal.pat === 'jazz') ? jazzTex(livery?.base, livery?.trim, livery?.accent) : null;
+  const jazzImg = (!wreck && pal.pat === 'jazz') ? jazzTex(livery?.base, livery?.trim, livery?.accent, livery?.ground) : null;
   const texStr = wreck ? 0.62 : (TEX_STRENGTH[livery?.finish] ?? 0.46);
   const roll = wreck ? -0.26 : 0, cro = Math.cos(roll), sro = Math.sin(roll);
   const ox = w / 2, oy = h * 0.52;
@@ -1962,7 +1963,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     const sc = scales[i];   // real relative size — a Cessna parks much smaller than a Twin Otter
     const faces = e.wreck ? buildWreck() : aircraftFaces(e.cls);
     const pal = liveryPalette(e.livery || {});
-    const jazzImg = (!e.wreck && pal.pat === 'jazz') ? jazzTex(e.livery?.base, e.livery?.trim, e.livery?.accent) : null;
+    const jazzImg = (!e.wreck && pal.pat === 'jazz') ? jazzTex(e.livery?.base, e.livery?.trim, e.livery?.accent, e.livery?.ground) : null;
     const roll = e.wreck ? -0.22 : 0, cro = Math.cos(roll), sro = Math.sin(roll);
     const selected = e.id === selId;
     const cen = proj(0, laneG, 0);   // this plane's own centre in normal-space (its lane, not the origin) — for backface culling

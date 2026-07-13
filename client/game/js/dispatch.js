@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
-import { renderMinimap, openMapPopup, refreshMapIfOpen, setMapTerritory, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, isAutoWalking, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
+import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors } from './panels/environment.js';
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
 import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
@@ -18,7 +18,7 @@ import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
-import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestOutput, noteQuestStep, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen } from './panels/tablet-os.js';
+import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestOutput, noteQuestStep, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen, openTabletToMap, refreshTabletMapIfOpen } from './panels/tablet-os.js';
 import { openCorpMap } from './panels/corp-map.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
@@ -29,13 +29,15 @@ import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
 import { openFishing, armFishFight } from './panels/fishing.js';
 import { abortMacros } from './panels/smartbar-macros.js';
 import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
+import { openHelm, closeHelm, isHelmActive } from './panels/helm-mode.js';
+import { setYachtAmbience, yachtUnderway } from './panels/yacht-ambience.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
 import { openSpliceSelect, openSpliceStages, applySplicePreview } from './panels/splicelab.js';
 import { showSpliceReport } from './panels/spliceReport.js';
 import { updateWantedHud, setWantedHeat } from './panels/wanted.js';
-import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel, tvSpeak } from './panels/tv.js';
+import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel, tvSpeak, renderTvSchedule } from './panels/tv.js';
 import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
 import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
@@ -136,9 +138,10 @@ const handlers = {
     // Don't clobber the live cockpit (either the continuous sim or the discrete
     // passenger HUD) or an open hangar bay panel — all replace the plain-text room
     // description with their own app in the same area-pane.
-    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive()) setAreaPane(msg.message);
+    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()) setAreaPane(msg.message);
     if (state.echoNextLook) { appendMsg('You look around.', 'system'); state.echoNextLook = false; }
     if (msg.zone) state.currentZone = msg.zone;
+    setYachtAmbience(msg.ambience);   // naval on deck / engine below / null elsewhere
     parseZoneInfo(msg.message);
     if (msg.minimap) renderMinimap(msg.minimap);
     refreshZoneVisibility();
@@ -149,16 +152,17 @@ const handlers = {
     // against this plain-text room description — whichever lands second wins.
     // If the bay panel already won that race, don't stomp it; it owns the pane
     // until the player actually leaves (hangar_close triggers a fresh look).
-    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive()) setAreaPane(msg.message, msg.direction);
+    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()) setAreaPane(msg.message, msg.direction);
     if (msg.narration) appendHtml(msg.narration, 'move');
     state.currentZone = msg.zone;
+    setYachtAmbience(msg.ambience);   // naval on deck / engine below / null elsewhere
     parseZoneInfo(msg.message);
     if (msg.radiation_gain > 0) appendMsg(`☢ +${msg.radiation_gain} radiation absorbed.`, 'system');
     if (state.player) { state.player.radiation = Math.min(100, (state.player.radiation || 0) + (msg.radiation_gain || 0)); updateVitals(state.player); }
     if (msg.minimap) renderMinimap(msg.minimap, msg.direction);
     if (msg.tempC !== undefined) updateZoneTempHUD(msg.tempC);
     refreshZoneVisibility();
-    refreshMapIfOpen();
+    refreshTabletMapIfOpen();
   },
 
   combat: (() => {
@@ -224,6 +228,7 @@ const handlers = {
       applyTvOverlay(msg.overlay);
     }
   },
+  tv_schedule: (msg) => { if (isTvOpen()) renderTvSchedule(msg); },
   system: (msg) => { appendHtml(msg.message, 'system'); },
   ambient: (msg) => { appendHtml(msg.message, 'ambient'); },
   sleep: (msg) => { appendHtml(msg.message, 'system'); },
@@ -381,8 +386,10 @@ const handlers = {
   corp_withdraw:    (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
   corp_disband:     (msg) => { appendHtml(msg.message, 'help'); removeCorpChannels(); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
 
-  map: (msg) => { openMapPopup(msg.tiles || [], msg.mode || 'zone', !!msg.insideInterior); },
-  map_territory:      (msg) => { setMapTerritory(msg); },
+  // The city map is the tablet Map app now — the standalone popup is retired. The
+  // typed `map` command (server still returns a type:'map' payload) just opens the
+  // tablet there; the minimap double-click routes through the same opener.
+  map: () => { openTabletToMap(); },
 
   equip: (msg) => {
     // Desktop inventory/gear popups are retired. If the tablet Gear app is open,
@@ -549,6 +556,10 @@ const handlers = {
   },
   gps_route: (msg) => {
     if (msg.path) setGpsRoute(msg.path, msg.dirs);
+    // Whether arriving should keep auto-walk armed for a following leg. Only routes
+    // that declare it change the setting — an in-progress reroute omits it, so a quest
+    // walk stays "continuing" across an off-course re-plot.
+    if ('continueOnArrival' in msg) setAutoWalkPersist(msg.continueOnArrival);
     // A manual `gps` plot asks whether to auto-walk now (unless one's already in
     // flight, where resumeAuto quietly re-routes the walk in progress). In-progress
     // reroutes carry an empty message and promptAutoWalk:false — they just re-arm.
@@ -701,6 +712,11 @@ const handlers = {
   cockpit_close: () => { closeCockpit(); sendCmdSilent('look'); },   // hand the area pane back to the room view
   // Continuous cockpit (client-sim + server-reconcile) — the Mayfly slice.
   flight_sim: (msg) => { openFlightSim(msg); },
+  // Echelon helm console — takes over the area pane like the flight sim. AHEAD fires the real
+  // `sail`; the ✕/Esc exit closes it and re-looks so the room description comes back cleanly.
+  helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, onSail: (dir) => sendCmdSilent('sail ' + dir), onExit: () => sendCmdSilent('look') }); },
+  helm_close: () => { closeHelm(); sendCmdSilent('look'); },
+  yacht_underway: () => { yachtUnderway(); },   // swell the engine-room rumble while she makes way
   flight_ctx: (msg) => { flightSimContext(msg); },
   flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)
   flight_aasites: (msg) => { flightSimAASites(msg); },     // active ground AA emplacements → 3D turret models

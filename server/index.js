@@ -343,6 +343,11 @@ wss.on("connection", (ws) => {
 			emit("tv.poweroff", { playerId: session.playerId });
 			return;
 		}
+		if (msg.type === "tv_schedule") {
+			if (!session.playerId) return;
+			emit("tv.schedule", { playerId: session.playerId, channelId: msg.channelId });
+			return;
+		}
 		if (msg.type === "deck_watch" || msg.type === "deck_unwatch") {
 			if (!session.playerId) return;
 			if (msg.type === "deck_watch" && msg.channelId)
@@ -1017,6 +1022,11 @@ async function handleDialogue(ws, session, msg) {
 		if (!player) return;
 		if (!npc.vendor_inventory?.length) {
 			ws.send(JSON.stringify({ type: "error", message: `${npc.name} has nothing to sell.` }));
+			return;
+		}
+		const { isVendorClosed, vendorClosedLine } = await import("./engine/ai-behaviour.js");
+		if (isVendorClosed(npc)) {
+			ws.send(JSON.stringify({ type: "error", message: vendorClosedLine(npc) }));
 			return;
 		}
 		openShopSession(session.playerId, npc.id);

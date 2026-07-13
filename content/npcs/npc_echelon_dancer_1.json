@@ -12,7 +12,7 @@
     "mis_willing": true,
     "clothing_layers": ["a loosely-belted silk robe", "a lace-trimmed slip", "a matching lace bra and panties"]
   },
-  "home_zone": "zone_echelon_suite",
+  "home_zone": "zone_echelon_suite_boudoir",
   "hp": 40,
   "hp_max": 40,
   "id": "npc_echelon_dancer_1",

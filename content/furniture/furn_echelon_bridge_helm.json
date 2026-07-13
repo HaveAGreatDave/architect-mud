@@ -1,0 +1,14 @@
+{
+  "description": "The helm: a single slab of dark glass canted toward the forward window, the Basin thrown across it in cold navigational vectors. One worn brass throttle stands proud of the glass — the only analogue thing aboard, polished bright by a hand that clearly favours it. A slow blue pulse breathes under the surface, holding station, waiting for a course it has not been given.",
+  "flags": {
+    "interactions": ["examine"]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_bridge_helm",
+  "name": "the helm console",
+  "object_type": "furniture",
+  "power_draw_kw": 1,
+  "price": 0,
+  "zone_id": "zone_echelon_bridge"
+}

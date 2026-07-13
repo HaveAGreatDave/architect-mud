@@ -1,0 +1,19 @@
+{
+  "description": null,
+  "flags": {
+    "prefill": {
+      "fluid_type": "fuel",
+      "fluid_amount": 40
+    }
+  },
+  "id": "item_jerry_can_full",
+  "name": "jerry can",
+  "tags": {
+    "description": "A dented steel jerry can with a bayonet cap and a stubby pour spout, brimful and heavy — fuel sloshing to the neck and the whole thing reeking of hydrocarbons. Pour it into a generator, or crack the cap and top something off.",
+    "fillable": 40,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 110,
+  "weight": 18000
+}

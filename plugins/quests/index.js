@@ -132,6 +132,7 @@ function routeToObjective(actor, quest, progress) {
     // automatically (resumeAutoWalkIfArmed) instead of stranding them at the last
     // waypoint waiting for another Auto click.
     resumeAuto: true,
+    continueOnArrival: true, // a quest leg — stay armed at the waypoint for the next one
   });
 }
 
@@ -164,6 +165,7 @@ async function routeToTurnIn(actor, questId) {
     message: `GPS locked: ${destZone.name} (${hops} stop${hops === 1 ? '' : 's'} away) — turn-in point plotted on the map.`,
     path,
     resumeAuto: true, // continue auto-walking to the hand-in if it was already on
+    continueOnArrival: true,
   });
 }
 

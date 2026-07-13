@@ -50,6 +50,54 @@ export default async function regress({ check }) {
     check(`banter: ${poolName} threads are well-formed two-handers`, bad === null, bad ? JSON.stringify(bad).slice(0, 120) : '');
   }
 
+  // Beckon / dismiss are keeper-only: nobody's consorts answer to a stranger.
+  check('consortsOf: bogus handle owns no consorts', _test.consortsOf('__nobody__').length === 0);
+
+  const stranger = { handle: '__nobody__', id: 'regress_stranger', current_zone: 'zone_nowhere' };
+  const beckonDenied = await _test.cmdBeckon([], 'beckon', stranger);
+  check('beckon: stranger is refused', beckonDenied?.type === 'error' && /answers to you/i.test(beckonDenied.message || ''), beckonDenied?.message);
+  const dismissDenied = await _test.cmdDismiss([], 'dismiss', stranger);
+  check('dismiss: stranger is refused', dismissDenied?.type === 'error' && /answers to you/i.test(dismissDenied.message || ''), dismissDenied?.message);
+
+  // retreatConsorts leaves an already-tucked-away consort untouched (home==here).
+  const tucked = { name: 'Fake', home_zone: 'zone_boudoir_x', zone_id: 'zone_boudoir_x', flags: { consort: true } };
+  check('retreat: no-op when already home', _test.retreatConsorts([tucked]).length === 0);
+
+  // Area profiles: the deck she's on is read off zone flags (nothing hardcoded).
+  check('area: sundeck flag → sundeck profile', _test.areaProfile({ flags: { echelon_sundeck: true } }) === 'sundeck');
+  check('area: view flag → view profile', _test.areaProfile({ flags: { echelon_view: true } }) === 'view');
+  check('area: helipad flag → helipad profile', _test.areaProfile({ flags: { echelon_helipad: true } }) === 'helipad');
+  check('area: unflagged aboard zone → cabin profile', _test.areaProfile({ flags: {} }) === 'cabin');
+  check('area: suite/boudoir are intimate zones', _test.isIntimateZone({ flags: { echelon_suite: true } }) === true);
+  check('area: the sun deck is NOT an intimate zone', _test.isIntimateZone({ flags: { echelon_sundeck: true } }) === false);
+
+  // Every activity in every profile is well-formed (a name-templating start line and
+  // at least one idle beat), and all four profiles carry a variety.
+  let actsBad = null, thinProfile = null;
+  for (const [prof, list] of Object.entries(_test.AREA_ACTIVITIES)) {
+    if (!Array.isArray(list) || list.length < 3) thinProfile = prof;
+    for (const a of list) {
+      const startOk = a.start && typeof a.start.t === 'function' && a.start.t('Roxy').includes('Roxy');
+      const idleOk = Array.isArray(a.idle) && a.idle.length > 0 && a.idle.every(l => typeof l.t === 'function');
+      if (!(a.key && startOk && idleOk)) { actsBad = `${prof}/${a.key}`; break; }
+    }
+    if (actsBad) break;
+  }
+  check('area: every activity is well-formed', actsBad === null, actsBad || '');
+  check('area: sundeck/view/helipad/cabin all have variety', thinProfile === null, thinProfile || '');
+
+  // runAreaActivity starts an activity for a consort on the sun deck without throwing,
+  // and stamps the hold timer so she stays in it a while.
+  const deckGirl = { id: 'regress_deck_roxy', name: 'Roxy', zone_id: 'zone_deck_x',
+    flags: { consort: true, devoted_to: 'Cyd' } };
+  let deckThrew = false;
+  try { _test.runAreaActivity(deckGirl, { flags: { echelon_sundeck: true } }, 'zone_deck_x', 1_000_000, false, false); }
+  catch { deckThrew = true; }
+  check('area: runAreaActivity picks an activity without throwing', deckThrew === false && !!deckGirl._activity);
+  check('area: the activity holds for a good while', (deckGirl._activityUntil || 0) - 1_000_000 >= _test.ACT_MIN_MS || (deckGirl._activityUntil || 0) > 1_000_000);
+  _test.arousal.delete('regress_deck_roxy');
+  _test.lastSpoke.delete('regress_deck_roxy');
+
   // The tick must survive a sweep of the live world without throwing.
   let threw = false;
   try { _test.consortTick(); } catch { threw = true; }

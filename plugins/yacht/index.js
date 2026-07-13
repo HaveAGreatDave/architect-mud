@@ -288,6 +288,9 @@ async function cmdSail(args, raw, player, broadcast) {
   ext.grid_x = tx; ext.grid_y = ty;
   invalidateEntranceDirCache();
   rebuildFlightIndex();
+  // Signal the flight renderer she's under way, so every nearby pilot's windshield paints a
+  // decaying wake at her new tile (the owner's Helm chase view sets its own wake client-side).
+  import('../flight/state.js').then(m => m.setYachtMakingWay?.()).catch(() => {});
   lastSailAt = Date.now();
 
   // Come to rest beside a pier? Lower the gangway.
@@ -297,6 +300,11 @@ async function cmdSail(args, raw, player, broadcast) {
   const bc = broadcast || getBroadcast();
   for (const zid of [EXTERIOR, 'zone_echelon_bridge', 'zone_echelon_stern', 'zone_echelon_foyer']) {
     bc?.(zid, { type: 'zone_event', message: 'The deck shifts underfoot as the Echelon gets underway, then settles.' }, player.id);
+  }
+  // Cue the client ambience: swell the engine-room rumble (and deck wash) for everyone aboard
+  // while she's making way. The client decays it back to idle over the making-way window.
+  for (const zid of ['zone_echelon_engine', 'zone_echelon_engineering', EXTERIOR, 'zone_echelon_helipad', 'zone_echelon_stern', 'zone_echelon_bridge', 'zone_echelon_foyer']) {
+    bc?.(zid, { type: 'yacht_underway' }, null);
   }
   const dockLine = pier ? ` She comes to rest alongside ${pier.pier.name}.` : '';
   return { type: 'system', message: `You ease the throttle ${dirWord}. The Echelon slides one length across the Basin to ${tx}, ${ty}.${dockLine}` };
@@ -357,11 +365,26 @@ export const specializedActions = [
   { verb: 'use', requiredTag: 'teleporter', handler: doUseTeleporter },
 ];
 
+// `helm` (admin, on the bridge) opens the visual helm console — the client takes over the area
+// pane with the chase view + wheel (dispatch `helm_open`), exactly like the flight sim's cockpit.
+// AHEAD in that UI fires the ordinary `sail` command, so all the movement rules stay server-side.
+async function cmdHelmConsole(args, raw, player) {
+  if (player.role !== 'admin') return ADMIN_ONLY;
+  const ext = getZone(EXTERIOR);
+  if (!ext) return { type: 'error', message: 'The Echelon is not on the water right now.' };
+  if (!getZone(player.current_zone)?.flags?.echelon_bridge) {
+    return { type: 'error', message: 'You can only take the helm from her bridge.' };
+  }
+  const cd = Math.max(0, SAIL_COOLDOWN_MS - (Date.now() - lastSailAt));
+  sendToPlayer(player.id, { type: 'helm_open', gx: ext.grid_x, gy: ext.grid_y, heading: 0, cooldownMs: cd });
+  return { type: 'system', message: 'You take the helm. The console wakes under your hands.' };
+}
+
 export const commands = {
   invite:   cmdInvite,
   uninvite: cmdUninvite,
   invites:  cmdInvites,
   sail:     cmdSail,
-  helm:     cmdSail,
+  helm:     cmdHelmConsole,
   dock:     cmdDock,
 };

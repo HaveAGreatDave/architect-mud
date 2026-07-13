@@ -87,6 +87,9 @@ on('tv.watch',   ({ playerId, channelId }) => tvWatchers.set(playerId, channelId
 // viewer; it does NOT switch the set off.
 on('tv.unwatch', ({ playerId }) => { tvWatchers.delete(playerId); });
 
+// The TV-guide button asks for the tuned channel's running order + the current time.
+on('tv.schedule', ({ playerId, channelId }) => { sendTvSchedule(playerId, channelId); });
+
 // Press-and-hold on the power button is the deliberate "switch it off" — turns the
 // shared set off for the whole room.
 on('tv.poweroff', ({ playerId }) => {
@@ -2957,6 +2960,58 @@ function nowBroadcastingFor(channelId) {
   if (state.channelType === 'live')  return { broadcast_id: null, name: 'Live studio feed',  source: 'live' };
   if (state.idleBroadcast)           return { broadcast_id: null, name: 'Idle / standby',    source: 'idle' };
   return null;
+}
+
+// Viewer-facing TV guide for the tuned channel — the running order plus the current
+// in-world clock, pushed to the player when they open the schedule button. Two shapes
+// depending on how the channel is scheduled:
+//   • daily  — each slot has a fixed in-world time of day (start_time = seconds since
+//              midnight), so it reads as a real TV guide with clock times.
+//   • loop   — the playlist repeats on a real-time cycle with no wall-clock anchor, so
+//              we hand back the running order with a real-time "up next in M:SS" per slot.
+function _fmtHHMM(mins) {
+  const m = Math.max(0, Math.round(mins));
+  return `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+function sendTvSchedule(playerId, channelId) {
+  const state = channelId ? channelRuntime.get(channelId) : null;
+  const nowMin = getEnvironmentState().minutes ?? 0;
+  const base = {
+    type: 'tv_schedule',
+    channelId: channelId || null,
+    stationName: state?.stationName || null,
+    channelNumber: state?.number ?? null,
+    scheduleMode: state?.scheduleMode === 'daily' ? 'daily' : 'loop',
+    nowLabel: _fmtHHMM(nowMin),
+  };
+  if (!state || !state.playlist?.length) {
+    sendToPlayer(playerId, { ...base, slots: [] });
+    return;
+  }
+  const nameFor = (i) => (i.slotType === 'commercial_break') ? 'Commercial break' : (i.broadcastName || 'Untitled');
+  let slots;
+  if (base.scheduleMode === 'daily') {
+    const nowSec = nowMin * 60;
+    slots = state.playlist.map(i => ({
+      name: nameFor(i),
+      todLabel: _fmtHHMM(i.startTime / 60),
+      durationSec: i.duration,
+      onNow: nowSec >= i.startTime && nowSec < i.startTime + i.duration,
+    }));
+  } else {
+    const total = state.totalDuration || 1;
+    const elapsed = ((Date.now() - state.loopOriginMs) / 1000) % total;
+    slots = state.playlist.map(i => {
+      const onNow = elapsed >= i.startTime && elapsed < i.startTime + i.duration;
+      return {
+        name: nameFor(i),
+        durationSec: i.duration,
+        onNow,
+        startsInSec: onNow ? 0 : Math.round((i.startTime - elapsed + total) % total),
+      };
+    }).sort((a, b) => (b.onNow - a.onNow) || (a.startsInSec - b.startsInSec));
+  }
+  sendToPlayer(playerId, { ...base, slots });
 }
 
 // ── Behaviour-tree nodes ──────────────────────────────────────────────────────

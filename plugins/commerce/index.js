@@ -13,6 +13,7 @@ import { resolve as siftResolve, createSelectionState, formatSelectionPage } fro
 import { registerAction } from '../../server/engine/actions.js';
 import { on } from '../../server/engine/events.js';
 import { vendorGrudgeRemaining, holdVendorGrudge, grudgeRefusal } from '../../server/engine/vendor-grudge.js';
+import { isVendorClosed, vendorClosedLine } from '../../server/engine/ai-behaviour.js';
 
 // Resolve which vendor a bare buy/sell targets: the one the player is actively
 // shopping with (if still in the zone), else the first vendor present. Without this,
@@ -29,6 +30,7 @@ function resolveVendor(player, npcs) {
 
 async function openShopFor(npc, player) {
   if (!npc.vendor_inventory?.length) return { type:'error', message:`${npc.name} isn't a vendor.` };
+  if (isVendorClosed(npc)) return { type:'error', message: vendorClosedLine(npc) };
   const grudge = await vendorGrudgeRemaining(player.id, npc.id);
   if (grudge > 0) return { type:'error', message: grudgeRefusal(npc, grudge) };
   const stock = await getVendorStock(npc, player.id);

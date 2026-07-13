@@ -17,6 +17,7 @@
   "flags": {
     "yacht": true,
     "echelon": true,
+    "naval_ambience": true,
     "district": "water",
     "icon": "boat",
     "airfield_id": "echelon_helipad",

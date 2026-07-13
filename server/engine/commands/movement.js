@@ -200,6 +200,13 @@ function cmdLookDistance(player) {
   return { type: 'examine', message: `Looking into the distance you can make out — ${parts.join('; ')}.` };
 }
 
+// Location-gated ambient soundscape for the client (naval gulls/surf on deck, engine-room rumble
+// below). Purely a flag lookup — a zone opts in with flags.naval_ambience / flags.engine_ambience.
+function ambienceFor(zone) {
+  const f = zone?.flags || {};
+  return f.naval_ambience ? 'naval' : f.engine_ambience ? 'engine' : null;
+}
+
 async function cmdLook(player, targetStr, broadcast) {
   if (targetStr === 'sky' || targetStr === 'up') return cmdLookSky(player);
   if (targetStr === 'ground' || targetStr === 'down') return cmdLookGround(player);
@@ -207,7 +214,7 @@ async function cmdLook(player, targetStr, broadcast) {
   if (!targetStr || targetStr === 'room' || targetStr === 'around') {
     const zone = getZone(player.current_zone);
     if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
-    return { type:'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(zone.id, 8, player) };
+    return { type:'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(zone.id, 8, player), ambience: ambienceFor(zone) };
   }
   const inMatch = targetStr.match(/^in\s+(.+)$/i);
   if (inMatch) {
@@ -576,7 +583,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     }
   }
 
-  return { type:'move', message:zoneDesc, narration, zone:targetId, direction, radiation_gain:radGain, minimap: getMinimapData(targetId, 8, player), tempC: getZoneTemperature(targetId) };
+  return { type:'move', message:zoneDesc, narration, zone:targetId, direction, radiation_gain:radGain, minimap: getMinimapData(targetId, 8, player), tempC: getZoneTemperature(targetId), ambience: ambienceFor(targetZone) };
 }
 
 // Move every live player following `leaderId` (a player or NPC id) out of
@@ -621,10 +628,18 @@ function mapFunc(z) {
   return districtFor(z).key;
 }
 
-// 15×15 window: dx,dy ∈ −7..+7. The bigmap (tablet Map app) bounding-boxes the
-// tiles and shows the full window; the full-map popup hardcodes an 11×11 centred
-// grid (colOf = t.x + 5) and drops the outer ring, so it stays 11×11 unchanged.
-const MAP_WINDOW_HALF = 7;
+// Default window half-radius (interior floor plans + the innermost overworld stop).
+// dx,dy ∈ −HALF..+HALF; both map surfaces bounding-box the tiles they get.
+const MAP_WINDOW_HALF = 5;
+
+// Unified map-zoom ladder, most-zoomed-IN first. Each overworld stop is a window
+// half-radius; the terminal stop (index === MAP_ZOOM_MAX) is the whole contiguous
+// landmass (regional). Zooming out on either map surface walks this ladder, growing
+// the tile window until it saturates the region. Interior, when inside a building,
+// sits one stop inside z0. Kept in step with the client pixel-size ladders in
+// panels/minimap.js and panels/tablet-os.js by index.
+const MAP_ZOOM_HALVES = [5, 8, 12]; // z0 11×11 · z1 17×17 · z2 25×25
+const MAP_ZOOM_MAX = MAP_ZOOM_HALVES.length; // z{MAX} = regional (terminal stop)
 
 // Building names at a tile: exits leading to an is_building zone (same rule as
 // describe.js's "Buildings:" line). Data for the map's hover tooltip.
@@ -711,13 +726,13 @@ function mapTile(zone, x, y, placed, currentId) {
   };
 }
 
-// 11×11 window centered on centerId, tiles positioned relative to it (center at 0,0).
-// Placed centers use grid coords; unplaced (coordless interior) centers fall back to a
-// BFS virtual grid clamped to the window.
-function window11(centerId, viewer = null) {
+// Square window of half-radius `half` centered on centerId, tiles positioned relative
+// to it (center at 0,0). Placed centers use grid coords; unplaced (coordless interior)
+// centers fall back to a BFS virtual grid clamped to the window.
+function windowTiles(centerId, viewer = null, half = MAP_WINDOW_HALF) {
   const center = getZone(centerId);
   if (!center) return [];
-  const H = MAP_WINDOW_HALF;
+  const H = half;
 
   if (center.map_id && center.grid_x != null && center.grid_y != null) {
     const cx = center.grid_x, cy = center.grid_y, cz = center.grid_z ?? 0;
@@ -810,21 +825,29 @@ function overworldTileId(current) {
 // reuses it verbatim so both views share one source of truth for the tiles.
 export function buildMapPayload(player, arg = '') {
   const current = getZone(player.current_zone);
-  if (!current) return { mode:'zone', tiles: [], insideInterior: false };
+  if (!current) return { mode:'zone', tiles: [], insideInterior: false, zoomLevel: 0, maxZoom: MAP_ZOOM_MAX };
   const inside = isInteriorZone(current);
   arg = String(arg || '').toLowerCase();
-
-  let mode;
-  if (arg === 'regional') mode = 'regional';
-  else if (arg === 'interior') mode = inside ? 'interior' : 'zone';
-  else if (['zone','zones','rooms','raw','default','legacy'].includes(arg)) mode = 'zone';
-  else mode = inside ? 'interior' : 'zone'; // bare `map`
-
-  if (mode === 'interior') return { mode, tiles: window11(current.id, player), insideInterior: inside };
   const owId = overworldTileId(current);
-  if (mode === 'regional') return { mode, tiles: regionalTiles(owId, player), insideInterior: inside };
-  // zone: 11×11 overworld centered on your surface tile (owId), or current if unresolved.
-  return { mode:'zone', tiles: window11(owId || current.id, player), insideInterior: inside };
+
+  // Interior — the innermost stop; only exists inside a building. Bare `map` while
+  // inside defaults here (interior stays automatic); `map interior` requests it.
+  if ((arg === 'interior' || arg === '') && inside)
+    return { mode:'interior', tiles: windowTiles(current.id, player), insideInterior: true, zoomLevel: -1, maxZoom: MAP_ZOOM_MAX };
+
+  // Overworld zoom level on the unified ladder. `z<n>` picks it directly; `regional`
+  // (and other legacy words) map onto the ladder ends for back-compat.
+  let level;
+  const m = /^z(\d+)$/.exec(arg);
+  if (m) level = Math.max(0, Math.min(MAP_ZOOM_MAX, parseInt(m[1], 10)));
+  else if (arg === 'regional') level = MAP_ZOOM_MAX;
+  else level = 0; // zone / bare-not-inside / legacy words → innermost overworld stop
+
+  if (level >= MAP_ZOOM_MAX)
+    return { mode:'regional', tiles: regionalTiles(owId, player), insideInterior: inside, zoomLevel: MAP_ZOOM_MAX, maxZoom: MAP_ZOOM_MAX };
+  // Overworld window centered on your surface tile (owId), or current if unresolved,
+  // widening with the zoom level until the region saturates → regional above.
+  return { mode:'zone', tiles: windowTiles(owId || current.id, player, MAP_ZOOM_HALVES[level]), insideInterior: inside, zoomLevel: level, maxZoom: MAP_ZOOM_MAX };
 }
 
 function cmdMap(player, args = []) {

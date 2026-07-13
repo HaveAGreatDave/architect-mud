@@ -322,6 +322,10 @@
     {
       "item_id": "item_hololock_kit",
       "price": 150
+    },
+    {
+      "item_id": "item_jerry_can",
+      "price": 35
     }
   ],
   "vendor_restock_rate": 1,

@@ -399,11 +399,21 @@ export function paintWindshield(id, view) {
   const szRef = CONTACT_SIZE.prop || 0.11;
   const szFac = clamp((CONTACT_SIZE[v.cls] || szRef) / szRef, 0.55, 1.15);
   const extZoom = clamp(v.extZoom || 1, 0.45, 2.4);
-  // Vertical orbit (middle-drag up/down): extElev raises/lowers the chase camera's eye-height so
-  // you look down onto the craft from above, or level with it. The camera can never dip below the
-  // terrain — makeCam / the Mode-7 ground both floor the eye-height at 0.05 world-z above ground.
-  const extElev = ext && !v.reticle ? (v.extElev || 0) : 0;
-  const chase = ext ? { back: RENDER_TUNE.chaseBack * szFac * extZoom, up: RENDER_TUNE.chaseUp * szFac + extElev } : null;   // tiles behind / world-z above the craft (tunable)
+  // Vertical orbit (middle-drag up/down): the chase camera rides a fixed-radius ARC around the
+  // craft — a turntable, like the hangar walkaround — instead of sliding straight up. `extPitch` is
+  // the ELEVATION ANGLE (rad): + lifts the camera up-and-over to look DOWN on the craft, − drops it
+  // down-and-under to look UP at the belly. The radius is the same chaseBack the zoom scales, so the
+  // azimuth orbit + zoom are untouched and the resting pose still matches the old behind-and-above cam.
+  const orbR = RENDER_TUNE.chaseBack * szFac * extZoom;
+  const restPitch = Math.asin(clamp(RENDER_TUNE.chaseUp / RENDER_TUNE.chaseBack, -1, 1));   // the old slight-above resting angle
+  // Ground clamp: the eye can never sink below the terrain. EH = EHbase + up is floored at 0.05
+  // downstream; here we solve the lowest arc angle that keeps the camera a hair above that floor.
+  // EHbase grows with altitude, so you can swing FULLY under the craft up high, but near the deck the
+  // ground blocks the under-view — exactly "rotate under unless it runs the camera into the ground".
+  const EHbaseC = Math.max(0.05, RENDER_TUNE.eh + height * RENDER_TUNE.climbLift);
+  const groundPitch = Math.asin(clamp((0.06 - EHbaseC) / Math.max(1e-3, orbR), -1, 1));
+  const extPitch = ext && !v.reticle ? clamp(v.extPitch != null ? v.extPitch : restPitch, groundPitch, 1.4) : restPitch;
+  const chase = ext ? { back: orbR * Math.cos(extPitch), up: orbR * Math.sin(extPitch) } : null;   // camera on the arc: tiles behind / world-z above the craft
   // On the deck (ground/takeoff/landing) we paint a real, terrain-themed airport.
   const onDeck = phase === 'ground' || phase === 'takeoff' || phase === 'landing';
   // Continuous ground↔air crossfade weight (0 = fully on the deck, 1 = fully airborne).
@@ -424,12 +434,19 @@ export function paintWindshield(id, view) {
   const sunUp = hour > 5.5 && hour < 18.5;
   const sunElev = sunUp ? Math.sin(dayT * Math.PI) : 0;      // 0 at the horizons, 1 at noon
   const sunAng = dayT * Math.PI;                             // east → south → west
+  // The moon rides the opposite arc (up ~18:30→05:30), giving the night sea a light to glitter
+  // off — otherwise open water goes pure black once the city glow is gone. Same world-direction
+  // form as the sun so drawMode7Floor can lay a specular path toward it.
+  const moonT = hour >= 18.5 ? (hour - 18.5) / 11 : (hour < 5.5 ? (hour + 5.5) / 11 : -1);
+  const moonUp = moonT >= 0 && moonT <= 1, moonAng = moonUp ? moonT * Math.PI : 0;
   const sunFx = {
     elev: sunElev, night: sky.night,
     dir: [Math.cos(sunAng), Math.sin(sunAng)],               // toward the sun (world dx,dy)
     shadowDir: [-Math.cos(sunAng), -Math.sin(sunAng)],       // shadows fall away from it
     len: sunUp ? clamp(0.6 + (1 - sunElev) * 2.4, 0.5, 3.4) : 0,   // long shadows at low sun
     alpha: sunUp ? clamp(0.30 * (0.35 + sunElev), 0.08, 0.34) : 0,
+    moonElev: moonUp ? Math.sin(moonAng) : 0,                 // 0 at moonrise/set, 1 overhead
+    moonDir: [Math.cos(moonAng), Math.sin(moonAng)],          // toward the moon (world dx,dy)
   };
 
   // Turbulence: strong wind + low altitude jitters the camera a touch (eased so it's a
@@ -797,7 +814,7 @@ export function paintWindshield(id, view) {
     // 'ground'` is the authoritative weight-on-wheels signal (true from embark): planted ⇒ a soft
     // contact shadow FULL-strength directly beneath her; airborne ⇒ the sun-cast height cue. The
     // two cross-fade over the first bit of climb via `grounded`.
-    if (!framed) {
+    if (!framed && !v.hideOwnShip) {
       const grounded = phase === 'ground' ? 1 : clamp(1 - height / 0.06, 0, 1);
       if (grounded > 0.01) drawGroundContactShadow(ctx, cam, v.heading, v.cls, grounded);
       if (sunFx.elev > 0.02 && grounded < 0.99) drawAircraftShadow(ctx, cam, height, sunFx, worldBlend, v.heading, v.cls);
@@ -823,7 +840,10 @@ export function paintWindshield(id, view) {
     // External chase view: the OWN ship, projected through the very same chase camera as the
     // world (a real 3rd-person camera, not a sprite pasted on a cockpit view), at the craft's
     // eye-height with its gear swinging out/in.
-    if (ext) drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc }, ownShipBaseWz(cam, v), sunFx, now);
+    // `hideOwnShip` lets a non-aircraft chase (the Helm view watching the Echelon) borrow the
+    // external orbit camera without pasting an aircraft at world origin — the yacht cell that
+    // sits at the map-window centre renders as the framed subject instead.
+    if (ext && !v.hideOwnShip) drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight }, ownShipBaseWz(cam, v), sunFx, now);
     if (ext && v.reticle) drawGunReticle(ctx, cam, v, W, H, horizonY);   // two-part gunsight over the chase model
   }
 
@@ -1670,6 +1690,10 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
   }
   const sample = (rx, ry) => (LUT && ry >= 0 && ry < mh && rx >= 0 && rx < LUT[ry].length) ? LUT[ry][rx] : OFF5;
   const t = (now || 0) * 0.001;
+  // A caller (the Helm chase, which holds position) can pass `seaScroll` — an accumulated
+  // along-heading distance — so the swell streams past and reads as MAKING WAY even though the
+  // map window isn't translating. Normal flight passes none (0), so it's unaffected.
+  const seaScroll = v.seaScroll || 0, ssX = Math.sin((v.heading || 0) * Math.PI / 180) * seaScroll, ssY = -Math.cos((v.heading || 0) * Math.PI / 180) * seaScroll;
   for (let by = 0; by < usedH; by++) {
     const p = Math.max(0.004, (horizonY + by * DS - horizonY) / depth);
     const d = EH / p;
@@ -1725,18 +1749,31 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       //   · depth darkening as you head out from the line into deep water
       //   · an animated surf band hugging the waterline, surging in and out along the coast
       //   · a damp, darker strip of sand just above the line where the wash reaches
-      let cr = 0, foam = 0, gln = 0;
+      let cr = 0, foam = 0, gln = 0, moon = 0, cap = 0;
       if (waterW > 0.002) {
-        const wv = 0.5 * Math.sin(wx * 6.2 + wy * 1.4 + t * 2.3) + 0.5 * Math.sin((wx - wy) * 4.1 - t * 1.7);
-        tex = tex * (1 - waterW) + (1 + wv * 0.12 * detail) * waterW;
+        // Lively small swell (a Wave Race read — choppy, not big rollers): three crossing sine
+        // trains at the drifted coords so the sea streams past when making way.
+        const swx = wx + ssX, swy = wy + ssY;
+        const wv = 0.5 * Math.sin(swx * 6.2 + swy * 1.4 + t * 2.3) + 0.4 * Math.sin((swx - swy) * 4.1 - t * 1.7) + 0.14 * Math.sin((swx + swy) * 9.0 + t * 3.4);
+        tex = tex * (1 - waterW) + (1 + wv * 0.15 * detail) * waterW;
         tex *= 1 - clamp((waterW - 0.5) * 2, 0, 1) * 0.18;   // shallows near the line stay lighter; open water sits darker
-        if (wv > 0.82) cr = (wv - 0.82) * 5 * waterW;   // crest glint, added as a bluish-white lift below
-        // Sun glitter: a bright, broken specular path across the water TOWARD the sun — the
-        // water pixels whose bearing off the craft aligns with the sun light up, the swell
-        // chopping the path into a shimmering trail of gold flecks.
+        if (wv > 0.78) cr = (wv - 0.78) * 5 * waterW;   // crest glint, added as a bluish-white lift below
+        if (wv > 0.90) cap = (wv - 0.90) * 9 * waterW;  // WHITECAP — bright white foam breaking off the very tops
+        // Sun glitter: a bright, broken specular path across the water TOWARD the sun (fixed by the
+        // real bearing, not the drift) — the swell chops it into a shimmering trail of gold flecks.
         if (sun && sun.elev > 0.05) {
           const along = ((wx - ax) * sun.dir[0] + (wy - ay) * sun.dir[1]) / Math.max(0.6, d);
-          if (along > 0.15) gln = clamp((along - 0.15) * 1.5, 0, 1) * (0.35 + 0.65 * Math.max(0, wv)) * sun.elev * waterW;
+          if (along > 0.12) gln = clamp((along - 0.12) * 1.7, 0, 1) * (0.4 + 0.7 * Math.max(0, wv)) * (0.4 + 0.6 * sun.elev) * waterW;
+        }
+        // Moonlight: at night the sun is down and open water reads black. Give the swell a cool
+        // silver sheen (so the waves are legible) plus a broken specular path toward the moon —
+        // the night twin of the sun glitter. Added AFTER the night dimming below so it genuinely
+        // lights the dark sea rather than being crushed by it.
+        if (sun && sun.moonElev > 0.05 && sun.night > 0.3) {
+          let path = 0;
+          const along = ((wx - ax) * sun.moonDir[0] + (wy - ay) * sun.moonDir[1]) / Math.max(0.6, d);
+          if (along > 0.1) path = clamp((along - 0.1) * 1.4, 0, 1) * (0.4 + 0.6 * Math.max(0, wv));
+          moon = sun.night * sun.moonElev * waterW * (0.12 + 0.24 * Math.max(0, wv) + 0.95 * path);
         }
         // Surf: a bright band centred just on the water side of the waterline, pulsing with
         // the swell and breaking unevenly along the coast (time + position phase).
@@ -1755,18 +1792,25 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       const near = clamp((0.55 - d) / 0.55, 0, 1);
       if (near > 0.01) {
         if (waterW > 0.002) {
-          const wv2 = 0.5 * Math.sin(wx * 22 + wy * 15 - t * 3.1) + 0.5 * Math.sin((wx + wy) * 17 + t * 2.2);
+          const wv2 = 0.5 * Math.sin((wx + ssX) * 22 + (wy + ssY) * 15 - t * 3.1) + 0.5 * Math.sin((wx + ssX + wy + ssY) * 17 + t * 2.2);
           tex *= 1 + (0.06 + wv2 * 0.11) * near * waterW;               // lift + fine chop breaks the flat dark
           if (wv2 > 0.7) cr = Math.max(cr, (wv2 - 0.7) * 2.6 * near * waterW);   // fine crest lift (neutral, day or night)
+          if (wv2 > 0.86) cap = Math.max(cap, (wv2 - 0.86) * 6 * near * waterW); // near-field whitecaps
         } else {
           const nx = Math.floor(wx * 14.7), ny = Math.floor(wy * 14.7);
           tex *= 1 + (((nx * 7 ^ ny * 13) & 3) * 0.045 - 0.065) * near;  // fine dirt/gravel grain
         }
       }
-      cr *= detail; foam *= detail; gln *= detail;   // fade the bright specular spikes out with distance too (near ≈ full)
-      data[idx] = ((br * tex + cr * 55 + foam * 150 + gln * 150) * ih + hr) * nm;
-      data[idx + 1] = ((bg * tex + cr * 70 + foam * 165 + gln * 132) * ih + hg) * nm;
-      data[idx + 2] = ((bb * tex + cr * 90 + foam * 175 + gln * 66) * ih + hb) * nm;
+      cr *= detail; foam *= detail; gln *= detail; moon *= detail; cap *= detail;   // fade the bright specular spikes out with distance too (near ≈ full)
+      // Moonlight is added OUTSIDE the night multiplier (nm) — it IS the night's light, so it must
+      // survive the dimming that turns the daytime sea dark. Cool silver-blue (R<G<B).
+      const mAdd = moon * ih;
+      // Whitecaps: bright neutral foam on breaking crests — full by day, dimmer but still catching
+      // moonlight at night (so the sea reads alive in both).
+      const capAdd = cap * 205 * ih * (0.45 + 0.55 * nm);
+      data[idx] = ((br * tex + cr * 55 + foam * 150 + gln * 150) * ih + hr) * nm + mAdd * 120 + capAdd;
+      data[idx + 1] = ((bg * tex + cr * 70 + foam * 165 + gln * 132) * ih + hg) * nm + mAdd * 140 + capAdd;
+      data[idx + 2] = ((bb * tex + cr * 90 + foam * 175 + gln * 66) * ih + hb) * nm + mAdd * 185 + capAdd * 1.06;
       data[idx + 3] = 255;
       idx += 4;
     }
@@ -2260,9 +2304,13 @@ function makeCam(W, horizonY, depth, v, chase) {
 
 // One extruded, texture-mapped box between two heights (base wz0 → top wz1): painter-sorted
 // walls + an optional roof. Setback towers stack several of these.
-function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, roof) {
+function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, roof, yaw) {
   fh = Math.min(fh, 0.48);   // keep a fat footprint inside its own tile (no bleed into the neighbour)
-  const cs = [[-fh, -fh], [fh, -fh], [fh, fh], [-fh, fh]];
+  // `yaw` (rad, optional) spins the footprint about its centre — buildings never pass it (axis-
+  // aligned as before); a heading-aware object like the sailing Echelon passes its heading so the
+  // extruded box turns with the hull. cs stays the SSOT the projection + backface cull read from.
+  let cs = [[-fh, -fh], [fh, -fh], [fh, fh], [-fh, fh]];
+  if (yaw) { const cy = Math.cos(yaw), sy = Math.sin(yaw); cs = cs.map(([a, b]) => [a * cy - b * sy, a * sy + b * cy]); }
   // Raw (unclamped) forward distance of a footprint point — the value proj() clamps to 0.06.
   // f is constant up a vertical edge (height-independent), so this is per footprint CORNER.
   const NEAR_CLIP = 0.08;   // trim walls to this near plane; above proj's 0.06 clamp so trimmed corners project stably
@@ -2582,7 +2630,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   const pal = liveryPalette(lv);
   // Jazz splatter: baked once per colour-set, affine-mapped across the hull facets in body space
   // (the same Memphis paint the hangar draws — without this the sim shows only the bone undercoat).
-  const jazzImg = pal.pat === 'jazz' ? jazzTex(lv.base, lv.trim, lv.accent) : null;
+  const jazzImg = pal.pat === 'jazz' ? jazzTex(lv.base, lv.trim, lv.accent, lv.ground) : null;
   // Project every face; depth-sort by average forward distance (far first).
   const faces = [];
   let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9, drawn = 0;
@@ -2697,8 +2745,10 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
 
   // ── Nav lights + strobes ────────────────────────────────────────────────────
   // Red port / green starboard wingtips (steady), a white tail strobe, and a red belly beacon —
-  // brighter at night, dim by day. A big life-giver, especially at dusk.
-  if (c.cls !== 'wreck') {
+  // brighter at night, dim by day. A big life-giver, especially at dusk. All of it runs off the
+  // engine: `lights===false` (own ship, master cut) blacks the whole set out. Contacts leave it
+  // undefined → lit as before. Landing/taxi lamps (`landing`) add a bright forward set on top.
+  if (c.cls !== 'wreck' && c.lights !== false) {
     const nb = clamp((sun ? sun.night : 0) * 0.7 + 0.34, 0.3, 1);
     const strobe = (now && Math.sin((now || 0) * 0.007 + (c.dx || 0) * 3) > 0.72) ? 1 : 0.1;
     const beac = 0.32 + 0.68 * Math.abs(Math.sin((now || 0) * 0.004 + (c.dy || 0)));
@@ -2719,6 +2769,21 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       lamp([-1.0, 0, 0.14], '255,255,255', strobe); lamp([0.1, 0, -0.16], '255,90,70', beac);
     } else {
       lamp([-1.02, 0, 0.12], '255,255,255', strobe); lamp([0, 0, -0.14], '255,90,70', beac);
+    }
+    // Landing / taxi lights (LIGHTS switch) — a bright white pair on the wing leading edges, full-
+    // bright regardless of daylight so the beam reads deliberately, with a wider soft halo than the
+    // nav lamps. Only when switched on (and, being on the same engine circuit, only while lit).
+    if (c.landing && tip) {
+      const [tf, tg, th] = tip;
+      const land = (lp) => {
+        const q = P(lp); if (q.f <= 0.08) return;
+        const s = clamp(3.6 / q.f, 1.2, 10) * big;
+        const rg = ctx.createRadialGradient(q.sx, q.sy, 0, q.sx, q.sy, s * 3);
+        rg.addColorStop(0, 'rgba(255,252,235,0.95)'); rg.addColorStop(0.5, 'rgba(255,248,220,0.38)'); rg.addColorStop(1, 'rgba(255,248,220,0)');
+        ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(q.sx, q.sy, s * 3, 0, 7); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.beginPath(); ctx.arc(q.sx, q.sy, Math.max(0.9, s * 0.5), 0, 7); ctx.fill();
+      };
+      land([tf + 0.12, -tg * 0.6, th]); land([tf + 0.12, tg * 0.6, th]);   // leading-edge lamps, inboard of the nav tips
     }
     ctx.globalAlpha = 1;
   }
@@ -4017,7 +4082,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   for (const it of items) {
     const alpha = it.alpha, bi = it.c.biome;
     if (it.c.mark === 'statue') { drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now); continue; }   // town-square monument + fountain
-    if (it.c.mark === 'yacht') { drawYacht(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now); continue; }   // the Echelon — sleek black superyacht + helipad
+    if (it.c.mark === 'yacht') { drawYacht(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now, it.c.wake, it.c.heading); continue; }   // the Echelon — sleek black superyacht + helipad (wake/heading present only when she's under way, e.g. the Helm chase view)
     if (it.c.kind === 'nofly') { draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7); continue; }
     if (bi === 'parkland') { drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
     if (bi === 'badlands') { if ((it.seed % 3) === 0) drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
@@ -4113,35 +4178,78 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now) {
 // north, with a lit helipad aft (the tile a VTOL sets down on). Built world-fixed from a
 // spine of tapered hull boxes + a stepped deck house + a raised pad, so the sea (drawn by
 // the floor pass beneath) laps around the hull instead of runway concrete.
-function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now) {
+function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading) {
   const HULL = 'ty_yacht', DECK = 'ty_yacht_deck', GLASS = 'ty_yacht_glass';
   const deckZ = 0.058;   // freeboard: main-deck height above the waterline (z=0)
-  // 1. Hull — a slim N–S spine of boxes, tapering to a point at the bow (−y).
-  for (const [oy, hw] of [[-0.36, 0.05], [-0.18, 0.11], [0.0, 0.13], [0.18, 0.13], [0.34, 0.10]])
-    draw3DBoxAt(ctx, cam, dx, dy + oy, hw, 0, deckZ, HULL, seed, night, alpha, true);
+  const hr = (heading || 0) * Math.PI / 180, shr = Math.sin(hr), chr = Math.cos(hr);
+  // Rotate a local (beam x, fore-aft y) offset into world tile coords about the yacht's centre.
+  // heading 0 = bow to the north (−y), matching drawAircraftModel's convention, so the chase cam
+  // (already sitting behind `heading`) frames her stern as she comes round. At heading 0 this is
+  // the identity → a moored/streamed Echelon (no heading) renders byte-for-byte as before.
+  const W = (ox, oy) => [dx - oy * shr + ox * chr, dy + oy * chr + ox * shr];
+  const proj = (ox, oy, z) => { const w = W(ox, oy); return cam.proj(w[0], w[1], z); };
+  const box = (oy, hw, z0, z1, biome, roof) => { const w = W(0, oy); draw3DBoxAt(ctx, cam, w[0], w[1], hw, z0, z1, biome, seed, night, alpha, roof, hr); };
+
+  // 0. Wake — she carries one ONLY when under way (the Helm chase view sets cell.wake.spd);
+  //    a moored Echelon passes no `wake`, so ordinary fly-bys are unchanged. Drawn first, on
+  //    the water surface, so the hull sits over its churning origin.
+  if (wake && wake.spd > 0.02) drawYachtWake(ctx, cam, dx, dy, hr, night, alpha, now, Math.min(1.2, wake.spd));
+  // 1. Hull — a slim spine of boxes, tapering to a point at the bow (fore, −y local).
+  for (const [oy, hw] of [[-0.36, 0.05], [-0.18, 0.11], [0.0, 0.13], [0.18, 0.13], [0.34, 0.10]]) box(oy, hw, 0, deckZ, HULL, true);
   // 2. Stepped superstructure amidships — a broad lounge deck with a smoked-glass band, then a bridge.
-  draw3DBoxAt(ctx, cam, dx, dy - 0.04, 0.10, deckZ, deckZ + 0.05, DECK, seed, night, alpha, true);
-  draw3DBoxAt(ctx, cam, dx, dy - 0.03, 0.105, deckZ + 0.016, deckZ + 0.036, GLASS, seed, night, alpha, false);
-  draw3DBoxAt(ctx, cam, dx, dy - 0.13, 0.072, deckZ + 0.05, deckZ + 0.10, DECK, seed, night, alpha, true);
+  box(-0.04, 0.10, deckZ, deckZ + 0.05, DECK, true);
+  box(-0.03, 0.105, deckZ + 0.016, deckZ + 0.036, GLASS, false);
+  box(-0.13, 0.072, deckZ + 0.05, deckZ + 0.10, DECK, true);
   // 3. Helipad aft — a flat raised pad with a painted ring + "H", lit amber at night.
-  const padY = dy + 0.25, padZ = deckZ + 0.006;
-  draw3DBoxAt(ctx, cam, dx, padY, 0.13, deckZ, padZ, DECK, seed, night, alpha, true);
+  const padOY = 0.25, padZ = deckZ + 0.006, padR = 0.1;   // pad ring radius in tile units — sits within the pad, not the whole footprint
+  box(padOY, 0.13, deckZ, padZ, DECK, true);
   ctx.save(); ctx.globalAlpha = alpha;
-  const ring = []; for (let i = 0; i <= 20; i++) { const a = i / 20 * Math.PI * 2, p = cam.proj(dx + Math.cos(a) * fh * 0.9, padY + Math.sin(a) * fh * 0.9, padZ + 0.002); if (p.f <= 0.08) { ring.length = 0; break; } ring.push(p); }
+  const ring = []; for (let i = 0; i <= 20; i++) { const a = i / 20 * Math.PI * 2, p = proj(Math.cos(a) * padR, padOY + Math.sin(a) * padR, padZ + 0.002); if (p.f <= 0.08) { ring.length = 0; break; } ring.push(p); }
   const white = night ? 'rgba(255,210,120,0.9)' : 'rgba(236,239,243,0.9)';
   if (ring.length) {
     ctx.strokeStyle = white; ctx.lineWidth = 1.4;
     ctx.beginPath(); ring.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.stroke();
-    const P = (ox, oy) => cam.proj(dx + ox * fh, padY + oy * fh, padZ + 0.003);
-    const hp = [P(-0.34, -0.42), P(-0.34, 0.42), P(0.34, -0.42), P(0.34, 0.42), P(-0.34, 0), P(0.34, 0)];
+    const HP = (ox, oy) => proj(ox * padR, padOY + oy * padR, padZ + 0.003);
+    const hp = [HP(-0.34, -0.42), HP(-0.34, 0.42), HP(0.34, -0.42), HP(0.34, 0.42), HP(-0.34, 0), HP(0.34, 0)];
     if (hp.every(p => p.f > 0.08)) {   // a blocky "H"
       ctx.lineWidth = 2.2;
       ctx.beginPath(); ctx.moveTo(hp[0].sx, hp[0].sy); ctx.lineTo(hp[1].sx, hp[1].sy); ctx.moveTo(hp[2].sx, hp[2].sy); ctx.lineTo(hp[3].sx, hp[3].sy); ctx.moveTo(hp[4].sx, hp[4].sy); ctx.lineTo(hp[5].sx, hp[5].sy); ctx.stroke();
     }
   }
   ctx.restore();
+  // 3.5 Faceting — angular triangle panels that turn the box hull into a sharp, impressive
+  //     superyacht: a raked clipper prow, a swept foredeck vee, smoked-glass windshield facets,
+  //     hull chines down each flank, and a raked radar fin. All heading-aware via `proj`.
+  ctx.save(); ctx.globalAlpha = alpha;
+  const DK = 'rgba(9,12,17,0.98)', MD = 'rgba(26,32,41,0.97)', GL = 'rgba(46,70,98,0.9)', EDG = night ? 'rgba(120,150,185,0.35)' : 'rgba(196,212,230,0.32)';
+  const tri = (P0, P1, P2, fill, edge) => {
+    const a = proj(P0[0], P0[1], P0[2]), b = proj(P1[0], P1[1], P1[2]), c = proj(P2[0], P2[1], P2[2]);
+    if (a.f <= 0.06 || b.f <= 0.06 || c.f <= 0.06) return;
+    ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.lineTo(c.sx, c.sy); ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    if (edge) { ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke(); }
+  };
+  // Raked clipper prow — two blades meeting at a point forward of the hull.
+  tri([0, -0.36, deckZ], [0, -0.48, 0.016], [-0.055, -0.32, 0.010], DK, EDG);
+  tri([0, -0.36, deckZ], [0, -0.48, 0.016], [0.055, -0.32, 0.010], MD, EDG);
+  // Swept foredeck vee.
+  tri([0, -0.34, deckZ + 0.002], [-0.095, -0.20, deckZ + 0.002], [0, -0.15, deckZ + 0.004], MD);
+  tri([0, -0.34, deckZ + 0.002], [0.095, -0.20, deckZ + 0.002], [0, -0.15, deckZ + 0.004], DK);
+  // Raked smoked-glass windshield facets climbing to the bridge.
+  tri([-0.095, -0.085, deckZ + 0.006], [0.095, -0.085, deckZ + 0.006], [0, -0.15, deckZ + 0.052], GL, EDG);
+  tri([-0.072, -0.10, deckZ + 0.05], [0.072, -0.10, deckZ + 0.05], [0, -0.145, deckZ + 0.10], GL, EDG);
+  // Angular hull chines down each flank.
+  tri([-0.13, -0.16, deckZ * 0.55], [-0.13, 0.18, deckZ * 0.55], [-0.10, 0.0, 0.0], MD, EDG);
+  tri([0.13, -0.16, deckZ * 0.55], [0.13, 0.18, deckZ * 0.55], [0.10, 0.0, 0.0], DK, EDG);
+  // Aft quarter facets flanking the helipad.
+  tri([-0.13, 0.14, deckZ], [-0.13, 0.34, deckZ], [-0.06, 0.30, deckZ], MD);
+  tri([0.13, 0.14, deckZ], [0.13, 0.34, deckZ], [0.06, 0.30, deckZ], DK);
+  // Raked radar fin above the bridge — a swept triangular sail on each side of the mast.
+  tri([-0.016, -0.12, deckZ + 0.10], [-0.016, -0.20, deckZ + 0.10], [-0.016, -0.15, deckZ + 0.24], DK, EDG);
+  tri([0.016, -0.12, deckZ + 0.10], [0.016, -0.20, deckZ + 0.10], [0.016, -0.15, deckZ + 0.24], MD, EDG);
+  ctx.restore();
   // 4. A slim mast over the bridge, with a blinking red beacon.
-  const m0 = cam.proj(dx, dy - 0.13, deckZ + 0.10), m1 = cam.proj(dx, dy - 0.13, deckZ + 0.19);
+  const m0 = proj(0, -0.13, deckZ + 0.10), m1 = proj(0, -0.13, deckZ + 0.19);
   if (m0.f > 0.12 && m1.f > 0.12) {
     ctx.save(); ctx.globalAlpha = alpha;
     ctx.strokeStyle = night ? 'rgba(180,190,200,0.8)' : 'rgba(90,96,104,0.9)'; ctx.lineWidth = 1.2;
@@ -4153,24 +4261,77 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now) {
   //    superstructure glass, a cool-lit bridge, the amber helipad wash, a necklace of white
   //    running lights tracing both deck rails, warm deck-house windows, and a bow lamp.
   if (night) {
-    glowPool(ctx, cam, dx, dy - 0.03, deckZ + 0.03, '255,206,150', 15, alpha * 0.5);   // lounge deck aglow through the smoked glass
-    glowPool(ctx, cam, dx, dy - 0.13, deckZ + 0.08, '200,220,255', 11, alpha * 0.42);  // lit bridge
-    glowPool(ctx, cam, dx, padY, padZ + 0.004, '255,200,110', 16, alpha * 0.4);        // helipad wash
+    const gp = (ox, oy, z, col, r, al) => { const w = W(ox, oy); glowPool(ctx, cam, w[0], w[1], z, col, r, al); };
+    gp(0, -0.03, deckZ + 0.03, '255,206,150', 15, alpha * 0.5);   // lounge deck aglow through the smoked glass
+    gp(0, -0.13, deckZ + 0.08, '200,220,255', 11, alpha * 0.42);  // lit bridge
+    gp(0, padOY, padZ + 0.004, '255,200,110', 16, alpha * 0.4);   // helipad wash
     ctx.save(); ctx.globalAlpha = alpha;
-    // Running lights: a string down both rails, bow to stern, plus a bright bow lamp.
-    ctx.fillStyle = 'rgba(240,244,250,0.92)';
+    // Running lights: a bright white string down both rails, a glowing bow lamp, and proper red
+    // (port) / green (starboard) sidelights forward — so a dark hull on dark water clearly reads
+    // as a lit ship under way, not a shadow.
+    ctx.fillStyle = 'rgba(245,248,252,0.95)';
     const rail = [[0, -0.38]];
     for (let i = 0; i <= 6; i++) { const oy = -0.34 + i * (0.64 / 6); rail.push([-0.12, oy], [0.12, oy]); }
     for (const [ox, oy] of rail) {
-      const p = cam.proj(dx + ox, dy + oy, deckZ + 0.006); if (p.f > 0.1) { ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(1.9 / p.f, 0.5, 2.6), 0, 7); ctx.fill(); }
+      const p = proj(ox, oy, deckZ + 0.006); if (p.f > 0.1) { ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(2.2 / p.f, 0.7, 3.2), 0, 7); ctx.fill(); }
+    }
+    gp(0, -0.38, deckZ + 0.012, '245,248,252', 8, alpha * 0.5);   // bow steaming-lamp glow
+    for (const [ox, glow, dot] of [[-0.12, '255,74,64', 'rgba(255,96,86,0.98)'], [0.12, '70,232,126', 'rgba(96,240,150,0.98)']]) {
+      gp(ox, -0.30, deckZ + 0.012, glow, 7, alpha * 0.55);       // port red / starboard green sidelight
+      const p = proj(ox, -0.30, deckZ + 0.012); if (p.f > 0.1) { ctx.fillStyle = dot; ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(2.2 / p.f, 0.8, 3.2), 0, 7); ctx.fill(); }
     }
     // Warm deck-house windows as bright points over the soft glow.
     ctx.fillStyle = 'rgba(255,214,150,0.95)';
     for (const [ox, oy, oz] of [[-0.06, -0.03, deckZ + 0.026], [0.06, -0.03, deckZ + 0.026], [0, -0.13, deckZ + 0.075]]) {
-      const p = cam.proj(dx + ox, dy + oy, oz); if (p.f > 0.1) { ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(1.6 / p.f, 0.5, 2.4), 0, 7); ctx.fill(); }
+      const p = proj(ox, oy, oz); if (p.f > 0.1) { ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(1.6 / p.f, 0.5, 2.4), 0, 7); ctx.fill(); }
     }
     ctx.restore();
   }
+}
+
+// The Echelon's wake — foam boiling off the transom and streaming astern (+y, toward the
+// chase camera) in a widening V, projected on the water surface (z≈0) through the same cam
+// as the hull so it foreshortens correctly. `spd` (0..~1.2) scales length/spread/brightness.
+// Only ever called for a yacht that is under way (cell.wake.spd > 0).
+function drawYachtWake(ctx, cam, dx, dy, hr, night, alpha, now, spd) {
+  const shr = Math.sin(hr), chr = Math.cos(hr);
+  const proj = (ox, oy, z) => cam.proj(dx - oy * shr + ox * chr, dy + oy * chr + ox * shr, z);   // same local→world rotation as the hull
+  const sternOY = 0.36;                         // just aft of the transom (local fore-aft)
+  const len = 0.6 + spd * 1.4;                  // how far the wake streams astern (tiles)
+  const edgeR = 0.04 + spd * 0.05, edgeF = 0.10 + spd * 0.16;   // half-width at stern / far end
+  const foam = night ? [225, 235, 245] : [245, 250, 253];
+  ctx.save(); ctx.globalAlpha = alpha;
+  // 1. Translucent turbulence fill inside the V.
+  const A = proj(-edgeR, sternOY, 0.003), B = proj(edgeR, sternOY, 0.003);
+  const C = proj(edgeF, sternOY + len, 0.003), D = proj(-edgeF, sternOY + len, 0.003);
+  if (A.f > 0.06 && B.f > 0.06 && C.f > 0.06 && D.f > 0.06) {
+    ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.lineTo(C.sx, C.sy); ctx.lineTo(D.sx, D.sy); ctx.closePath();
+    ctx.fillStyle = rgb(foam, 0.10 + 0.14 * spd); ctx.fill();
+  }
+  // 2. Foam speckle streaming astern, drifting with time.
+  const drift = (now * 0.00035 * (0.5 + spd)) % 1;
+  const N = 26;
+  for (let i = 0; i < N; i++) {
+    const t = (i / N + drift) % 1;             // 0 at stern → 1 far astern (loops)
+    const oy = sternOY + t * len;
+    const spread = lerp(edgeR, edgeF, t) * (0.4 + frac(i * 3.1) * 0.9);
+    const side = frac(i * 1.7) < 0.5 ? -1 : 1;
+    const p = proj(side * spread, oy, 0.004);
+    if (p.f <= 0.06) continue;
+    ctx.globalAlpha = alpha * (1 - t) * (0.35 + 0.5 * spd);
+    ctx.fillStyle = rgb(foam);
+    ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp((1.4 + t * 2.4) / p.f, 0.6, 7), 0, 7); ctx.fill();
+  }
+  // 3. Bright churn boiling right off the transom.
+  const cpt = proj(0, sternOY, 0.004);
+  if (cpt.f > 0.06) {
+    const rr = clamp(2.2 / cpt.f, 3, 22) * (0.7 + spd);
+    const g = ctx.createRadialGradient(cpt.sx, cpt.sy, 1, cpt.sx, cpt.sy, rr);
+    g.addColorStop(0, rgb(foam, 0.55)); g.addColorStop(1, rgb(foam, 0));
+    ctx.globalAlpha = alpha; ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cpt.sx, cpt.sy, rr, 0, 7); ctx.fill();
+  }
+  ctx.restore();
 }
 
 // A building's ground shadow: a soft parallelogram beam of width = the footprint, cast in

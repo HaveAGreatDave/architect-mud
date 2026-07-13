@@ -427,6 +427,20 @@ body.hb-fullscreen #bottom-input-wrap,
 body.hb-hidepanel #output,
 body.hb-hidepanel #look-resize-handle { display: none; }
 
+/* Charter cabin (passenger glass HUD, #ck-hud-root) fullscreen / hide-panel — the same two
+   immersive layouts as the flight sim + hangar. The HUD already flexes to fill #area-content
+   (height:100%), so only the pane/log rules are needed. ⛶ fullscreen folds the log + command
+   box away; ⊟ hide-panel folds only the log. Both classes are cleared when the cabin closes. */
+body.ck-fullscreen #area-pane,
+body.ck-hidepanel #area-pane { max-height: none; flex: 1 1 auto; }
+body.ck-fullscreen #area-content,
+body.ck-hidepanel #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
+body.ck-fullscreen #output,
+body.ck-fullscreen #look-resize-handle,
+body.ck-fullscreen #bottom-input-wrap,
+body.ck-hidepanel #output,
+body.ck-hidepanel #look-resize-handle { display: none; }
+
 /* Flight-sim external chase view: the world fills the whole column so the cockpit controls
    can float over it (see cockpit.js). Grows the pane like hide-panel; the command box stays. */
 body.fsim-external #area-pane { max-height: none; flex: 1 1 auto; }
@@ -7183,6 +7197,34 @@ body.fsim-external #look-resize-handle { display: none; }
 	border-color: var(--tv-header-color, #37d67a);
 	box-shadow: 0 0 10px rgba(55, 214, 122, 0.4), inset 0 0 5px rgba(55, 214, 122, 0.15);
 }
+/* TV-guide toggle — same chassis button as read-aloud; always available, lit while
+   the schedule sub-screen is open (.on). */
+#tv-schedule-btn {
+	background: #0c100e;
+	border: 2px solid #1e2e28;
+	color: #2e4840;
+	font-family: inherit;
+	font-size: 13px;
+	line-height: 1;
+	cursor: pointer;
+	padding: 0;
+	border-radius: 50%;
+	width: 28px;
+	height: 28px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: color 0.2s, border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+#tv-schedule-btn:hover {
+	color: var(--tv-header-color, #37d67a);
+	border-color: var(--tv-header-color, #2e6a44);
+}
+#tv-schedule-btn.on {
+	color: var(--tv-header-color, #37d67a);
+	border-color: var(--tv-header-color, #37d67a);
+	box-shadow: 0 0 10px rgba(55, 214, 122, 0.4), inset 0 0 5px rgba(55, 214, 122, 0.15);
+}
 /* Gameday toggle — same chassis button as read-aloud; hidden until a sports
    broadcast reveals it (.avail), lit while the sub-screen is open (.on). */
 #tv-gameday-btn {
@@ -7444,6 +7486,50 @@ body.fsim-external #look-resize-handle { display: none; }
 }
 #tv-gameday.on { display: flex; }
 @keyframes gd-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── TV guide sub-screen ─────────────────────────────────────────────────────── */
+#tv-schedule {
+	position: absolute;
+	inset: 45px 0 72px 0;
+	z-index: 48;
+	display: none;
+	flex-direction: column;
+	background:
+		repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.10) 2px 3px),
+		radial-gradient(ellipse at 50% -10%, rgba(0, 60, 45, 0.35), transparent 60%),
+		var(--tv-bg, #080c10);
+	color: var(--tv-text, #b8d4c8);
+	font-family: var(--font-mono);
+	padding: 8px 10px;
+	overflow: hidden;
+	animation: gd-in 0.25s ease-out;
+}
+#tv-schedule.on { display: flex; }
+.tv-sched-head {
+	display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+	padding-bottom: 6px; margin-bottom: 4px;
+	border-bottom: 1px solid var(--tv-border, rgba(0,220,180,0.3));
+	flex: 0 0 auto;
+}
+.tv-sched-title { font-weight: bold; letter-spacing: 1px; color: var(--tv-header-color, #37d67a); font-size: 13px; text-transform: uppercase; }
+.tv-sched-clock { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--tv-text, #b8d4c8); white-space: nowrap; }
+.tv-sched-list { flex: 1 1 auto; overflow-y: auto; }
+.tv-sched-row {
+	display: flex; align-items: baseline; gap: 10px;
+	padding: 4px 4px; font-size: 12.5px; line-height: 1.3;
+	border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.tv-sched-when {
+	flex: 0 0 84px; font-variant-numeric: tabular-nums;
+	color: rgba(220, 240, 235, 0.6); text-transform: uppercase; letter-spacing: 0.5px;
+}
+.tv-sched-name { flex: 1 1 auto; color: var(--tv-text, #b8d4c8); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-sched-dur { flex: 0 0 auto; color: rgba(220, 240, 235, 0.4); font-size: 11px; white-space: nowrap; }
+.tv-sched-row.now { background: rgba(0, 220, 180, 0.1); }
+.tv-sched-row.now .tv-sched-when { color: var(--tv-header-color, #37d67a); font-weight: bold; }
+.tv-sched-row.now .tv-sched-name { color: #fff; font-weight: bold; }
+.tv-sched-empty { padding: 20px 8px; text-align: center; color: rgba(220, 240, 235, 0.5); font-size: 12.5px; }
+.tv-sched-foot { flex: 0 0 auto; padding-top: 5px; font-size: 10.5px; color: rgba(220, 240, 235, 0.35); text-align: center; }
 
 /* ── Score bug (broadcast strip) ─────────────────────────────────────────────── */
 .gd-top { display: flex; align-items: stretch; justify-content: space-between; gap: 6px; height: 40px; flex: 0 0 auto; }
@@ -8169,6 +8255,7 @@ body.fsim-external #look-resize-handle { display: none; }
 	#tv-program-name { font-size: 9px; display: none; }
 	#tv-close-btn    { width: 24px; height: 24px; font-size: 13px; }
 	#tv-read-btn     { width: 24px; height: 24px; font-size: 11px; }
+	#tv-schedule-btn { width: 24px; height: 24px; font-size: 11px; }
 	#tv-live-badge   { font-size: 8px; }
 	#tv-content      { padding: 8px 10px; }
 	#tv-footer       { height: 48px; }
@@ -9326,14 +9413,14 @@ body.esp-active #output {
 }
 .dealer-speech {
 	position: relative;
-	max-width: 750px;
+	max-width: 250px;
 	background: #12121c;
 	border: 1px solid var(--accent-dim);
 	color: var(--accent);
-	font-size: 50px;
+	font-size: 17px;
 	line-height: 1.3;
-	padding: 20px 40px;
-	border-radius: 40px;
+	padding: 7px 14px;
+	border-radius: 14px;
 	box-shadow: 0 2px 6px rgba(0,0,0,0.5);
 	animation: chat-pop 0.18s ease-out;
 }
@@ -9341,9 +9428,9 @@ body.esp-active #output {
 .dealer-speech::before {
 	content: '';
 	position: absolute;
-	left: -25px;
-	top: 40px;
-	border-width: 20px 25px 20px 0;
+	left: -8px;
+	top: 13px;
+	border-width: 7px 8px 7px 0;
 	border-style: solid;
 	border-color: transparent #12121c transparent transparent;
 }
@@ -9360,13 +9447,13 @@ body.esp-active #output {
 /* Player chat speech bubbles (from `say`) — open inward toward table center */
 .poker-chat {
 	position: absolute;
-	width: 295px;
+	width: 200px;
 	background: #f4f1e4;
 	color: #16160f;
-	font-size: 25px;
+	font-size: 17px;
 	line-height: 1.25;
-	padding: 10px 20px;
-	border-radius: 20px;
+	padding: 6px 12px;
+	border-radius: 12px;
 	white-space: normal;
 	text-align: center;
 	z-index: 13;
@@ -9377,16 +9464,16 @@ body.esp-active #output {
 .poker-chat::after {
 	content: '';
 	position: absolute;
-	border: 13px solid transparent;
+	border: 5px solid transparent;
 }
-.seat-north .poker-chat { top: calc(100% + 18px); left: 50%; transform: translateX(-50%); }
-.seat-north .poker-chat::after { top: -23px; left: 50%; margin-left: -13px; border-bottom-color: #f4f1e4; border-top: 0; }
-.seat-south .poker-chat { bottom: calc(100% + 18px); left: 50%; transform: translateX(-50%); }
-.seat-south .poker-chat::after { bottom: -23px; left: 50%; margin-left: -13px; border-top-color: #f4f1e4; border-bottom: 0; }
-.seat-east .poker-chat { right: calc(100% + 23px); top: 50%; transform: translateY(-50%); }
-.seat-east .poker-chat::after { right: -23px; top: 50%; margin-top: -13px; border-left-color: #f4f1e4; border-right: 0; }
-.seat-west .poker-chat { left: calc(100% + 23px); top: 50%; transform: translateY(-50%); }
-.seat-west .poker-chat::after { left: -23px; top: 50%; margin-top: -13px; border-right-color: #f4f1e4; border-left: 0; }
+.seat-north .poker-chat { top: calc(100% + 6px); left: 50%; transform: translateX(-50%); }
+.seat-north .poker-chat::after { top: -9px; left: 50%; margin-left: -5px; border-bottom-color: #f4f1e4; border-top: 0; }
+.seat-south .poker-chat { bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); }
+.seat-south .poker-chat::after { bottom: -9px; left: 50%; margin-left: -5px; border-top-color: #f4f1e4; border-bottom: 0; }
+.seat-east .poker-chat { right: calc(100% + 8px); top: 50%; transform: translateY(-50%); }
+.seat-east .poker-chat::after { right: -9px; top: 50%; margin-top: -5px; border-left-color: #f4f1e4; border-right: 0; }
+.seat-west .poker-chat { left: calc(100% + 8px); top: 50%; transform: translateY(-50%); }
+.seat-west .poker-chat::after { left: -9px; top: 50%; margin-top: -5px; border-right-color: #f4f1e4; border-left: 0; }
 @keyframes chat-pop {
 	from { opacity: 0; }
 }

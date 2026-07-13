@@ -71,28 +71,40 @@ export default async function regress({ run, check, getPlayer }) {
   check('corp map sub-screen has no error', !r?.error, r?.error);
 
   // Map app: the tablet-native city map. Reuses buildMapPayload, so the root
-  // resolves to a map view with a tiles array + mode; a mode arg switches level.
+  // resolves to a map view with a tiles array + mode; the unified zoom ladder
+  // (z<n> args) widens the tile window until it saturates into the regional view.
   r = await run('tabletnav map');
   check('map app routes to a map view', r?.type === 'tablet_panel' && r?.appId === 'map' && r?.view === 'map', JSON.stringify(r)?.slice(0, 200));
   check('map app carries tiles + mode with no error', Array.isArray(r?.tiles) && typeof r?.mode === 'string' && !r?.error, JSON.stringify(r)?.slice(0, 200));
+  check('map app reports the zoom ladder (zoomLevel + maxZoom)', typeof r?.zoomLevel === 'number' && typeof r?.maxZoom === 'number' && r.maxZoom >= 1, JSON.stringify({ z: r?.zoomLevel, m: r?.maxZoom }));
+  const z0Count = r?.tiles?.length || 0;
+  r = await run('tabletnav map z1');
+  check('map app z1 is a wider window than z0', r?.view === 'map' && r?.mode === 'zone' && r?.zoomLevel === 1 && (r?.tiles?.length || 0) >= z0Count, JSON.stringify({ z0: z0Count, z1: r?.tiles?.length }));
   r = await run('tabletnav map regional');
-  check('map app regional mode switches level', r?.view === 'map' && r?.mode === 'regional', JSON.stringify(r)?.slice(0, 200));
+  check('map app regional is the terminal zoom stop', r?.view === 'map' && r?.mode === 'regional' && r?.zoomLevel === r?.maxZoom, JSON.stringify({ v: r?.view, z: r?.zoomLevel, m: r?.maxZoom }));
 
-  // Calendar app: root is a list view leading with the "today" marker and
-  // carrying a new-reminder action. Adding a +N reminder persists to player_flags,
-  // then shows in the list; drilling in (client sends the breadcrumb as screenId +
-  // the id as params) opens a detail with a delete action; delete removes it.
+  // Calendar app: root is a month-grid calendar view leading with a weeks grid and
+  // an agenda list beneath it (led by the "today" marker), carrying a new-reminder
+  // action. Adding a +N reminder persists to player_flags, then shows in the agenda
+  // list and gets a marker dot on its grid day; drilling in (client sends the
+  // breadcrumb as screenId + the id as params) opens a detail with a delete action;
+  // delete removes it. Prev/next month arrows re-nav to a 'YYYY-MM' via screenId 'month'.
   const cal = getPlayer();
   await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key=$2', [cal.id, 'calendar_reminders']);
   r = await run('tabletnav calendar');
-  check('calendar app routes to a list view', r?.type === 'tablet_panel' && r?.appId === 'calendar' && r?.view === 'list' && !r?.error, JSON.stringify(r)?.slice(0, 200));
-  check('calendar list leads with the today marker', r?.items?.[0]?.id === 'today', JSON.stringify(r?.items)?.slice(0, 200));
-  check('calendar list offers a new-reminder action', Array.isArray(r?.actions) && r.actions.some(a => a.id === 'add' && a.prompt), JSON.stringify(r?.actions)?.slice(0, 200));
+  check('calendar app routes to a calendar view', r?.type === 'tablet_panel' && r?.appId === 'calendar' && r?.view === 'calendar' && !r?.error, JSON.stringify(r)?.slice(0, 200));
+  check('calendar view carries a weeks grid + month nav', Array.isArray(r?.weeks) && r.weeks.length > 0 && /^\d{4}-\d{2}$/.test(r?.prevMonth || '') && /^\d{4}-\d{2}$/.test(r?.nextMonth || ''), JSON.stringify({ w: r?.weeks?.length, p: r?.prevMonth, n: r?.nextMonth }));
+  check('calendar agenda leads with the today marker', r?.items?.[0]?.id === 'today', JSON.stringify(r?.items)?.slice(0, 200));
+  check('calendar view offers a new-reminder action', Array.isArray(r?.actions) && r.actions.some(a => a.id === 'add' && a.prompt), JSON.stringify(r?.actions)?.slice(0, 200));
+
+  // A month nav (screenId 'month' + a 'YYYY-MM' token) returns that month's grid.
+  r = await run('tabletnav calendar month 2099-01');
+  check('month nav returns the requested month grid', r?.view === 'calendar' && /Janufizz 2099/.test(r?.monthLabel || ''), JSON.stringify({ v: r?.view, m: r?.monthLabel }));
 
   r = await run('tabletaction calendar add 2099-01-01 Regress reminder');
-  check('adding a dated reminder returns the list (no error)', r?.appId === 'calendar' && r?.view === 'list' && !r?.error, JSON.stringify(r)?.slice(0, 200));
+  check('adding a dated reminder returns the calendar (no error)', r?.appId === 'calendar' && r?.view === 'calendar' && !r?.error, JSON.stringify(r)?.slice(0, 200));
   const remItem = r?.items?.find(it => String(it.id).startsWith('rem_'));
-  check('the new reminder shows in the calendar list', !!remItem && /Regress reminder/.test(remItem.label), JSON.stringify(r?.items)?.slice(0, 240));
+  check('the new reminder shows in the calendar agenda', !!remItem && /Regress reminder/.test(remItem.label), JSON.stringify(r?.items)?.slice(0, 240));
 
   // Drill in the way the client does: `tabletnav calendar <breadcrumb> <id>`.
   r = await run(`tabletnav calendar Calendar ${remItem?.id}`);
@@ -100,7 +112,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   r = await run(`tabletaction calendar del ${remItem?.id}`);
   const stillThere = (r?.items || []).some(it => it.id === remItem?.id);
-  check('deleting a reminder removes it from the list', r?.view === 'list' && !stillThere, JSON.stringify(r?.items)?.slice(0, 200));
+  check('deleting a reminder removes it from the agenda', r?.view === 'calendar' && !stillThere, JSON.stringify(r?.items)?.slice(0, 200));
 
   r = await run('tabletaction calendar add nodatehere just some text');
   check('a reminder with no leading date errors cleanly', r?.view === 'error', JSON.stringify(r)?.slice(0, 160));

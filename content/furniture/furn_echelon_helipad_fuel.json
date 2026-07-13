@@ -1,0 +1,15 @@
+{
+  "description": "A squat refuelling bowser lashed to the deck at the pad's edge — a scuffed avgas tank on a wheeled cradle, a coiled grounding cable, and a dead-man nozzle racked in a spring clip. A brass placard reads AVGAS 100LL · GROUND BEFORE FUELLING. It serves the helideck and tops off anything with a tank; fill a container here, or refuel an aircraft parked on the pad.",
+  "flags": {
+    "fuel_source": true,
+    "interactions": ["examine"]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_helipad_fuel",
+  "name": "the fuel bowser",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_echelon_helipad"
+}

@@ -258,7 +258,7 @@ async function handleAction(player, actionId, params) {
         const destZone = getZone(next.zone);
         const path = destZone ? findPath(player.current_zone, next.zone) : null;
         if (path && path.length >= 2) {
-          sendToPlayer(player.id, { type: 'gps_route', message: `GPS locked: ${destZone.name}. Route plotted on the map.`, path });
+          sendToPlayer(player.id, { type: 'gps_route', message: `GPS locked: ${destZone.name}. Route plotted on the map.`, path, continueOnArrival: false });
         }
       }
     }
@@ -285,7 +285,7 @@ async function handleAction(player, actionId, params) {
       const destZone = getZone(next.zone);
       const path = destZone ? findPath(player.current_zone, next.zone) : null;
       if (!path || path.length < 2) note("Can't plot a route there from here.");
-      else sendToPlayer(player.id, { type: 'gps_route', message: `Auto-travel to ${destZone.name}. Setting off…`, path, autostart: true });
+      else sendToPlayer(player.id, { type: 'gps_route', message: `Auto-travel to ${destZone.name}. Setting off…`, path, autostart: true, continueOnArrival: true });
     }
     return buildScreen(player, null, questId);
   }
@@ -305,7 +305,7 @@ async function handleAction(player, actionId, params) {
         sendToPlayer(player.id, {
           type: 'gps_route',
           message: `Bring it to ${npcInfo.npcName} in person — ${destZone.name} (${hops} stop${hops === 1 ? '' : 's'} away). Route plotted.`,
-          path, resumeAuto: true,
+          path, resumeAuto: true, continueOnArrival: true,
         });
       } else {
         sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">Take it to ${npcInfo.npcName} to hand it in.</span>` });

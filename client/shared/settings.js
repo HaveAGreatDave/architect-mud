@@ -394,10 +394,6 @@ export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {})
   document.getElementById('settings-btn')?.addEventListener('click', () => {
     if (sendCmd) sendCmd('tabletnav settings');
   });
-
-  document.getElementById('map-close').addEventListener('click', () => {
-    document.getElementById('map-panel').classList.remove('active');
-  });
 }
 
 export function listenForSettingsChanges(applyFn) {

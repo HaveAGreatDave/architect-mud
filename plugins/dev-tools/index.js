@@ -151,9 +151,33 @@ async function cmdLetThereBeLight(args, raw, player, broadcast) {
   return { type: 'look', message: await describeZone(zone, player), notify, zone: zoneId, minimap: getMinimapData(zoneId, 8, player) };
 }
 
+// .makeitrain — the Architect blesses you with a fat stack of credits. Admin
+// wish-fulfilment: bumps your own balance by 100k, persists it, and pushes the
+// new number to the HUD via player_update. Amusing by design.
+async function cmdMakeItRain(args, raw, player, broadcast) {
+  if (!['admin', 'dev'].includes(player.role)) {
+    return { type: 'error', message: 'Unknown command: ".makeitrain".' };
+  }
+  const GRANT = 100000;
+  player.credits = (player.credits || 0) + GRANT;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (broadcast) {
+    broadcast(player.current_zone, {
+      type: 'zone_event',
+      message: `A shaft of light falls on ${player.handle}, and a blizzard of credit chips rains down from nowhere.`,
+    }, player.id);
+  }
+  return {
+    type: 'output',
+    message: `☔ The Architect makes it rain. <b>+₵${GRANT.toLocaleString()}</b> — your balance is now <b>₵${player.credits.toLocaleString()}</b>.`,
+    player_update: { credits: player.credits },
+  };
+}
+
 export const commands = {
   // NB: register the BARE verb — the dispatcher strips a leading `.`/`/` before
   // matching, so a `.dresscyd` key would never fire.
   dresscyd: cmdDressCyd,
   lettherebelight: cmdLetThereBeLight,
+  makeitrain: cmdMakeItRain,
 };

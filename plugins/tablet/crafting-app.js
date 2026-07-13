@@ -293,6 +293,7 @@ async function handleAction(player, actionId, params) {
           message: `GPS locked: ${dest?.name || bench.zoneId} — auto-walking to the bench.`,
           path: bench.path,
           autostart: true,
+          continueOnArrival: false, // single destination — stop auto-walk on arrival
         });
       }
     }

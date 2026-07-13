@@ -1,0 +1,16 @@
+{
+  "description": "A sunken jacuzzi set into the teak, its water lit turquoise from beneath and breathing a slow curl of steam. Wide enough for a small, intimate crowd, with a broad tiled lip to perch on.",
+  "flags": {
+    "interactions": []
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_sundeck_jacuzzi",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "jacuzzi",
+  "object_type": "fixture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_echelon_sundeck"
+}

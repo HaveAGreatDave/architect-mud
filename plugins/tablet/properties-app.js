@@ -72,7 +72,7 @@ async function handleAction(player, actionId, params) {
     if (destZone && zoneId !== player.current_zone) {
       const path = findPath(player.current_zone, zoneId);
       if (path && path.length >= 2) {
-        sendToPlayer(player.id, { type: 'gps_route', message: `GPS locked: ${destZone.name}. Route plotted on the map.`, path });
+        sendToPlayer(player.id, { type: 'gps_route', message: `GPS locked: ${destZone.name}. Route plotted on the map.`, path, continueOnArrival: false });
       }
     }
     return buildScreen(player, null, zoneId);

@@ -12,7 +12,7 @@
     "mis_willing": true,
     "clothing_layers": ["a sheer floor-length peignoir", "a satin camisole", "a delicate lace thong"]
   },
-  "home_zone": "zone_echelon_suite",
+  "home_zone": "zone_echelon_suite_boudoir",
   "hp": 40,
   "hp_max": 40,
   "id": "npc_echelon_dancer_2",

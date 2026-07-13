@@ -2,5 +2,5 @@
   "name": "dev-tools",
   "version": "1.0.0",
   "description": "Admin-only dev utility commands.",
-  "commands": ["dresscyd", "lettherebelight"]
+  "commands": ["dresscyd", "lettherebelight", "makeitrain"]
 }

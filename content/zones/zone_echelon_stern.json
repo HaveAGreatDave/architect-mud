@@ -16,6 +16,7 @@
   "flags": {
     "yacht": true,
     "echelon": true,
+    "naval_ambience": true,
     "echelon_view": true,
     "is_interior": true,
     "is_building": true,

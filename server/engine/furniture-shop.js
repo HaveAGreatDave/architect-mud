@@ -19,6 +19,7 @@ import { adjustCredits } from './economy.js';
 import { registerAction } from './actions.js';
 import { createSelectionState, formatSelectionPage } from './sift.js';
 import { vendorBuyReaction } from './vendor-reactions.js';
+import { isVendorClosed, vendorClosedLine } from './ai-behaviour.js';
 import { randomUUID } from 'crypto';
 
 const CONSUMER_INTERACTIONS = ['sit', 'lean', 'lie', 'watch', 'lift'];
@@ -99,6 +100,7 @@ async function finalizePurchase(player, npc, item, price, base, aptZone, aptName
  *   - >1 apartments → prompt which unit, then deliver via furniture.deliver.
  */
 export async function buyFurniture(player, npc, item, catalogueEntry) {
+  if (isVendorClosed(npc)) return { type: 'error', message: vendorClosedLine(npc) };
   const apts = await ownedApartments(player.id);
   if (!apts.length) {
     return {

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>ARCHITECT · ECHELON HELM (test)</title>
+<style>
+  /* Thin standalone harness — mounts the REAL in-game Helm console (helm-mode.js openHelm) into
+     a full-viewport container, so what you see here is exactly what takes over the area pane in
+     game. Served over HTTP at /helm-chase-test.html (modules don't load over file://). */
+  html, body { height: 100%; margin: 0; background: #04070c; overflow: hidden; }
+  #helm-root { position: fixed; inset: 0; }
+  .helm-root { height: 100% !important; border-radius: 0 !important; }   /* fill the viewport standalone */
+  #output { display: none; }
+</style>
+</head>
+<body>
+  <!-- Error surface (classic script — catches module-load + runtime throws before the module runs). -->
+  <script>
+    (function () {
+      var box = document.createElement('div');
+      box.style.cssText = 'position:fixed;top:52px;left:8px;right:8px;z-index:9999;max-height:60vh;overflow:auto;color:#ff9a8a;font:12px/1.45 monospace;white-space:pre-wrap;background:rgba(12,4,4,.92);border:1px solid #a33;border-radius:6px;padding:9px;display:none';
+      function show(m){ if(!box.parentNode&&document.body) document.body.appendChild(box); box.style.display='block'; box.textContent += m+'\n\n'; }
+      window.addEventListener('error', function(e){ show('ERROR: '+(e.message||'')+(e.filename?('\n  @ '+e.filename+':'+e.lineno+':'+e.colno):'')+(e.error&&e.error.stack?('\n'+e.error.stack):'')); });
+      window.addEventListener('unhandledrejection', function(e){ show('PROMISE REJECTION: '+((e.reason&&e.reason.stack)||e.reason)); });
+    })();
+  </script>
+
+  <div id="helm-root"></div>
+  <div id="output"></div>
+
+  <script src="/shared/audio-engine.js"></script>
+  <script src="/shared/sfx-catalog.js"></script>
+
+  <script type="module">
+    import { openHelm } from './js/panels/helm-mode.js';
+    window.addEventListener('keydown', () => window.AudioEngine?.init?.(), { once: true });
+    // No server here, so AHEAD just drives the local chase; Exit reloads the harness.
+    openHelm({ mount: document.getElementById('helm-root'), gx: 40, gy: 40, onExit: () => location.reload() });
+  </script>
+</body>
+</html>

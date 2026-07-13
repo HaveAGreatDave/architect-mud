@@ -479,6 +479,11 @@
       "item_id": "item_bloodworm_bait",
       "price": 6,
       "stock": 30
+    },
+    {
+      "item_id": "item_jerry_can_full",
+      "price": 120,
+      "stock": 2
     }
   ],
   "vendor_restock_rate": 1,

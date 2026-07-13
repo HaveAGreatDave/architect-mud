@@ -16,7 +16,7 @@
 // (Tablet has no proactive multi-client push to patch against).
 import { sfx, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays } from './minigame-common.js';
 import { sendCmdSilent } from '../net.js';
-import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, FUNC_LEGEND, POI_LEGEND } from './minimap.js';
+import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND } from './minimap.js';
 import { state } from '../state.js';
 import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES, DEFAULT_AUDIO_SETTINGS } from '/shared/settings.js';
 import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpdate, getOnlinePlayers, refreshOnlinePlayers, ensureChatConversation, leaveChatConversation, removeCorpChannels, getClosedChatTabs, reopenChatTab, getMotdHtml } from './whisper.js';
@@ -124,13 +124,20 @@ let _tosMisListenerBound = false; // one-time bind of the server mis_state_updat
 let _tosCorpSel = null; // Corp Territory Map: selected zone id (client-side, no round trip)
 let _tosCorpPage = 0; // Corp dashboard: current page (Overview/Operatives/Territory/Diplomacy), client-side
 let _tosMapSel = null; // Map app: tapped/destination zone id (client-side, drives the GPS route)
-// Map app zoom: the tile pixel size, stepped by the +/- buttons. More levels than
-// the sidebar minimap's three since the tablet shows the whole level at once. Index 3
-// (48px) is the built-in default matching the CSS. Persisted client-side.
-const TOS_MAP_ZOOM_KEY = 'tos_map_zoom';
-const TOS_TILE_ZOOMS = [24, 32, 40, 48, 56, 68, 84];
-let _tosMapZoom = 3;
-try { const z = parseInt(localStorage.getItem(TOS_MAP_ZOOM_KEY), 10); if (z >= 0 && z < TOS_TILE_ZOOMS.length) _tosMapZoom = z; } catch {}
+// Map app zoom: one unified axis. The −/+ buttons walk the server's zoom ladder
+// (movement.js MAP_ZOOM_HALVES) — each step grows the tile window and, at the far
+// end, becomes the whole-region view — instead of just resizing pixels. This array
+// is the tile pixel size per server zoomLevel (0 local street … maxZoom regional);
+// interior (zoomLevel −1) reuses the local-street size. Index by server zoomLevel.
+const TOS_ZOOM_PX = [56, 40, 30, 22];
+const TOS_INTERIOR_PX = 56;
+const tosZoomPx = (d) => d.mode === 'interior'
+  ? TOS_INTERIOR_PX
+  : TOS_ZOOM_PX[Math.max(0, Math.min(TOS_ZOOM_PX.length - 1, d.zoomLevel ?? 0))];
+// The minimap double-click opens the city map — now the in-tablet Map app, since the
+// standalone popup is retired. Injected here (minimap.js can't import us — that'd be a
+// cycle) so the double-click stays decoupled from the tablet.
+setMapOpener(openTabletToMap);
 // Keep the Map app's Run button lit in step with the sidebar toggle (run_state echo).
 onRunStateChange((running) => {
   _overlay?.querySelector('[data-map-run]')?.classList.toggle('active', running);
@@ -344,6 +351,27 @@ function ensureStyles() {
     #tablet-os-overlay .tos-badge.open, #tablet-os-overlay .tos-badge.legal { color:var(--mg-accent); border:1px solid color-mix(in srgb,var(--mg-accent) 30%,transparent); background:var(--tos-surface); }
     #tablet-os-overlay .tos-badge.illegal { color:#ff7a86; border:1px solid #4a1a1e; background:#1a0a0c; }
     #tablet-os-overlay .tos-empty { color:var(--tos-fg-dim2); font-size:12.5px; line-height:1.5; padding:20px 4px; text-align:center; }
+    /* Calendar app — month grid (view: 'calendar'). Monochrome like the rest of the tablet. */
+    #tablet-os-overlay .tos-cal { margin-bottom:12px; }
+    #tablet-os-overlay .tos-cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    #tablet-os-overlay .tos-cal-title { color:var(--tos-fg); font-size:13.5px; letter-spacing:1px; text-transform:uppercase; }
+    #tablet-os-overlay .tos-cal-nav { cursor:pointer; user-select:none; color:var(--tos-fg-dim); padding:1px 10px; border-radius:5px; font-size:15px; line-height:1.3;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); background:var(--tos-surface); }
+    #tablet-os-overlay .tos-cal-nav:hover { color:var(--mg-accent); filter:brightness(1.12); }
+    #tablet-os-overlay .tos-cal-nav:active { transform:translateY(1px); }
+    #tablet-os-overlay .tos-cal-grid { display:grid; grid-template-columns:repeat(7, 1fr); gap:3px; }
+    #tablet-os-overlay .tos-cal-dow { text-align:center; font-size:10px; letter-spacing:.5px; text-transform:uppercase; color:var(--tos-fg-dim2); padding-bottom:2px; }
+    #tablet-os-overlay .tos-cal-cell { position:relative; aspect-ratio:1/1; display:flex; align-items:flex-start; justify-content:center; padding-top:4px;
+      border-radius:5px; font-size:12px; color:var(--tos-fg-dim);
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:1px solid var(--tos-border); }
+    #tablet-os-overlay .tos-cal-cell.tos-cal-pad { background:none; border:none; }
+    #tablet-os-overlay .tos-cal-cell.tos-cal-has { cursor:default; color:var(--tos-fg); border-color:color-mix(in srgb, var(--mg-accent) 34%, transparent); }
+    #tablet-os-overlay .tos-cal-cell.tos-cal-today { color:var(--tos-fg); border-color:var(--mg-accent);
+      box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--mg-accent) 55%, transparent); }
+    #tablet-os-overlay .tos-cal-num { line-height:1; }
+    #tablet-os-overlay .tos-cal-dots { position:absolute; bottom:4px; left:0; right:0; display:flex; gap:2px; justify-content:center; }
+    #tablet-os-overlay .tos-cal-dot { width:4px; height:4px; border-radius:50%; background:var(--mg-accent); }
+    #tablet-os-overlay .tos-cal-dot-rent { background:var(--tos-fg-dim); }
     /* Quest activity log (client-only), foot of the Quests app root. */
     #tablet-os-overlay .tos-qlog { margin-top:14px; padding-top:10px; border-top:1px solid var(--tos-border); }
     #tablet-os-overlay .tos-qlog-hdr { display:flex; justify-content:space-between; align-items:baseline; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-bottom:6px; }
@@ -907,13 +935,6 @@ function ensureStyles() {
        (interior/zone/regional), a GPS toolbar, and the same 2n-1 expanded grid
        the corp map uses — but with the full map's land-use / danger / POI look.
        Tap a tile to plot a GPS route to it (mirrored to the sidebar minimap). */
-    #tablet-os-overlay .tos-map-tabs { display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
-    #tablet-os-overlay .tos-map-tab { cursor:pointer; padding:6px 13px; border-radius:6px; font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--tos-fg-dim);
-      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
-      border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); box-shadow:inset 0 1px 0 var(--tos-bevel-hi); transition:filter .12s; }
-    #tablet-os-overlay .tos-map-tab:hover { filter:brightness(1.15); }
-    #tablet-os-overlay .tos-map-tab.sel { color:var(--mg-accent); font-weight:bold; border-color:var(--mg-accent); box-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 25%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
-    #tablet-os-overlay .tos-map-tab.disabled { opacity:.35; pointer-events:none; }
     #tablet-os-overlay .tos-map-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; font-size:12px; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-map-bar .tos-map-route { flex:1 1 auto; min-width:120px; }
     #tablet-os-overlay .tos-map-bar .tos-map-route b { color:var(--mg-accent); }
@@ -1483,6 +1504,9 @@ const TOS_APP_ICONS = {
   arcade: `<span class="tos-ic-a">A</span>`,
   music: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M9 18V5l11-2v13"/><circle class="dim" cx="6" cy="18" r="3" fill="currentColor" fill-opacity=".25" stroke="none"/><circle cx="6" cy="18" r="3"/><circle class="dim" cx="17" cy="16" r="3" fill="currentColor" fill-opacity=".25" stroke="none"/><circle cx="17" cy="16" r="3"/></svg>`,
   help: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".18" stroke="none"/><circle cx="12" cy="12" r="9"/><path d="M9.1 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor" stroke="none"/></svg>`,
+  // Calendar = a wall-calendar sheet: torn-off binding tabs, a header band, and a
+  // grid of day cells, monochrome like the rest so it drops the off-palette 📅 emoji.
+  calendar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M8 2v3M16 2v3"/><rect x="3.5" y="5" width="17" height="16" rx="1.5"/><path class="dim" d="M3.5 9h17V6.5A1.5 1.5 0 0 0 19 5H5A1.5 1.5 0 0 0 3.5 6.5z" fill="currentColor" fill-opacity=".28" stroke="none"/><path d="M3.5 9h17"/><path d="M7.5 12.5h3M13.5 12.5h3M7.5 16.5h3M13.5 16.5h3"/></svg>`,
 };
 
 // Client-only tablet apps — appended to the server-registered roster. Unlike the
@@ -1760,6 +1784,36 @@ function renderList(items) {
     <div class="tos-li-label"><span>${esc(it.label)}</span>${it.badge ? `<span class="tos-badge ${esc(it.badge)}">${esc(it.badgeLabel || it.badge)}</span>` : ''}</div>
     ${it.sub ? `<div class="tos-li-sub">${esc(it.sub)}</div>` : ''}
   </div>`).join('');
+}
+
+// Month-grid calendar (Calendar app). A 7-column grid — weekday header row then the
+// weeks from the server's monthGrid — with a marker dot on any day that carries an
+// event and a native multi-line tooltip listing them. The prev/next arrows re-nav
+// the app with screenId 'month' + a 'YYYY-MM' token (wired in wireBody).
+function renderCalendar(d) {
+  const dow = (d.weekdays || []).map(w => `<div class="tos-cal-dow">${esc(w)}</div>`).join('');
+  const cells = (d.weeks || []).map(week => week.map(cell => {
+    if (cell.day == null) return '<div class="tos-cal-cell tos-cal-pad"></div>';
+    const evs = cell.evs || [];
+    const has = evs.length > 0;
+    // Escape each event's text before joining with the literal newline entity — the
+    // whole title can't be esc()'d wholesale or the &#10; would be double-encoded.
+    const tip = evs.map(e => `${e.kind === 'rent' ? '🏠 ' : '• '}${esc(e.text)}${e.detail ? ` (${esc(e.detail)})` : ''}`).join('&#10;');
+    const kinds = [...new Set(evs.map(e => e.kind))];
+    const dots = has ? `<div class="tos-cal-dots">${kinds.map(k => `<span class="tos-cal-dot tos-cal-dot-${esc(k)}"></span>`).join('')}</div>` : '';
+    const cls = ['tos-cal-cell'];
+    if (cell.isToday) cls.push('tos-cal-today');
+    if (has) cls.push('tos-cal-has');
+    return `<div class="${cls.join(' ')}"${has ? ` title="${tip}"` : ''}><span class="tos-cal-num">${cell.day}</span>${dots}</div>`;
+  }).join('')).join('');
+  return `<div class="tos-cal">
+    <div class="tos-cal-head">
+      <span class="tos-cal-nav" data-cal-month="${esc(d.prevMonth || '')}" title="Previous month">&#8592;</span>
+      <span class="tos-cal-title">${esc(d.monthLabel || '')}</span>
+      <span class="tos-cal-nav" data-cal-month="${esc(d.nextMonth || '')}" title="Next month">&#8594;</span>
+    </div>
+    <div class="tos-cal-grid">${dow}${cells}</div>
+  </div>`;
 }
 
 function renderCategories(items) {
@@ -2220,7 +2274,6 @@ function renderCorpMapDetail(d) {
 // selects it (client-side); its detail carries a "Route here" button that plots a
 // GPS route via the popup's own route machinery (setGpsRoute → mirrors onto the
 // sidebar minimap + refreshes the popup if it's open), and auto-walks it.
-const MAP_MODE_LABELS = { interior: 'Interior', zone: 'Zone', regional: 'Regional' };
 
 function _mapHexRgb(hex) {
   const h = String(hex || '').replace('#', '');
@@ -2241,16 +2294,9 @@ function renderMap(d) {
   // it to your cluster), like the full map. We no longer filter to a single land-use
   // category, which shredded multi-func regions into blank cells.
   const mode = d.mode || 'zone';
-  const inside = !!d.insideInterior;
-
-  // Mode switcher — interior only exists when you're in a building (like the popup).
-  const modes = inside ? ['interior', 'zone', 'regional'] : ['zone', 'regional'];
-  const tabs = modes.map(m =>
-    `<span class="tos-map-tab${m === mode ? ' sel' : ''}" data-map-mode="${m}">${MAP_MODE_LABELS[m]}</span>`
-  ).join('');
 
   if (!tiles.length) {
-    return `<div class="tos-map-tabs">${tabs}</div><div class="tos-empty">No map data for this level.</div>`;
+    return `<div class="tos-empty">No map data for this level.</div>`;
   }
   if (!_tosMapSel || !tiles.some(t => t.id === _tosMapSel)) _tosMapSel = null;
 
@@ -2277,7 +2323,7 @@ function renderMap(d) {
   const tById = new Map();
   for (const t of tiles) { cell[rowOf(t)][colOf(t)] = t; tById.set(t.id, t); }
 
-  let grid = `<div class="tos-map-grid" style="--tos-tile:${TOS_TILE_ZOOMS[_tosMapZoom]}px;grid-template-columns:repeat(${gCols},var(--tos-tile));grid-template-rows:repeat(${gRows},var(--tos-tile))">`;
+  let grid = `<div class="tos-map-grid" style="--tos-tile:${tosZoomPx(d)}px;grid-template-columns:repeat(${gCols},var(--tos-tile));grid-template-rows:repeat(${gRows},var(--tos-tile))">`;
   for (let r = 0; r < gRows; r++) for (let c = 0; c < gCols; c++) {
     const t = cell[r][c];
     const pos = `grid-column:${c + 1};grid-row:${r + 1}`;
@@ -2325,17 +2371,19 @@ function renderMap(d) {
     grid += `<svg class="tos-gps-svg" viewBox="0 0 ${gCols} ${gRows}" preserveAspectRatio="none"><polyline class="tos-gps-line" points="${gpsPts.join(' ')}"/></svg>`;
   grid += '</div>';
 
-  return `<div class="tos-map-tabs">${tabs}</div>${renderMapCtl()}${renderMapBar(d)}<div class="tos-map-wrap">${grid}</div>${renderMapLegend(mode)}<div class="tos-map-detail" id="tos-map-detail">${renderMapDetail(d)}</div>`;
+  return `${renderMapCtl(d)}${renderMapBar(d)}<div class="tos-map-wrap">${grid}</div>${renderMapLegend(mode)}<div class="tos-map-detail" id="tos-map-detail">${renderMapDetail(d)}</div>`;
 }
 
 // Persistent map controls (mirroring the sidebar minimap): Run + Auto-walk toggles,
 // a recenter-on-you button, and a −/+ zoom stepper. Run/Auto reflect the shared
 // minimap state so they light up wherever it's driven from.
-function renderMapCtl() {
+function renderMapCtl(d) {
   const run = isRunning() ? ' active' : '';
   const auto = isAutoWalking() ? ' active' : '';
-  const zoutOff = _tosMapZoom <= 0 ? ' disabled' : '';
-  const zinOff = _tosMapZoom >= TOS_TILE_ZOOMS.length - 1 ? ' disabled' : '';
+  // One zoom axis: out grows the tile window until it's the whole region; in tightens
+  // it back to the local street, then into the interior when you're in a building.
+  const zoutOff = _mapCanZoom(d, -1) ? '' : ' disabled';
+  const zinOff = _mapCanZoom(d, 1) ? '' : ' disabled';
   return `<div class="tos-map-ctl">
     <span class="tos-map-mini${run}" data-map-run title="Toggle running">🏃 Run</span>
     <span class="tos-map-mini${auto}" data-map-autotoggle title="Toggle auto-walk to the plotted route">➤ Auto</span>
@@ -2345,6 +2393,29 @@ function renderMapCtl() {
       <button class="tos-mz" data-map-zoom="in" title="Zoom in"${zinOff}>+</button>
     </span>
   </div>`;
+}
+
+// The map arg one zoom step from the current payload, or null at an end of the axis.
+// dir −1 = zoom out (wider window → region), +1 = zoom in (→ interior when inside).
+function _mapZoomArg(d, dir) {
+  const mode = d.mode || 'zone', level = d.zoomLevel ?? 0, max = d.maxZoom ?? 0;
+  if (dir < 0) {
+    if (mode === 'interior') return 'z0';
+    if (level < max) return 'z' + (level + 1);
+    return null; // already regional
+  }
+  if (mode === 'interior') return null; // already innermost
+  if (level === 0) return d.insideInterior ? 'interior' : null;
+  return 'z' + (level - 1);
+}
+const _mapCanZoom = (d, dir) => _mapZoomArg(d, dir) !== null;
+
+// The server zoom arg for the payload's *current* stop — interior / regional / z<n> —
+// so a refresh (player moved) re-requests the same window width, not the default.
+function _tosMapZoomArg(d) {
+  if (d.mode === 'interior') return 'interior';
+  if (d.mode === 'regional') return 'regional';
+  return 'z' + (d.zoomLevel ?? 0);
 }
 
 function renderMapBar(d) {
@@ -3695,6 +3766,9 @@ function renderBody() {
   if (d.view === 'help') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderHelp(d.chapter)}</div>`;
   }
+  if (d.view === 'calendar') {
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderCalendar(d)}${renderList(d.items)}${renderActions(d.appId, d.actions, '')}</div>`;
+  }
   if (d.view === 'list') {
     const pageNav = d.page ? renderPageNav(d.appId, d.breadcrumb, d.page) : '';
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderList(d.items)}${pageNav}${renderActions(d.appId, d.actions, '')}</div>`;
@@ -3727,12 +3801,10 @@ function wireBody() {
       // over the still-running tablet (its z-index sits above the chassis — see
       // #musicplayer-panel in styles.css), so the tablet stays put behind it.
       if (appId === 'music') { sfx(TOS_SELECT_DEF); openMusicPlayerPanel(); return; }
-      // Map no longer renders inside the tablet — its tile just launches the full
-      // bigmap popup (now itself tablet-styled and draggable). The popup's z-index
-      // sits above the tablet chassis (see #map-panel in styles.css), so it pops up
-      // over the still-running tablet; request the map data (server replies with a
-      // `map` message → openMapPopup).
-      if (appId === 'map') { sfx(TOS_SELECT_DEF); sendCmdSilent('map'); return; }
+      // Map renders inside the tablet again — the standalone bigmap popup is retired,
+      // so the Map app IS the city map (one surface, shared with the minimap
+      // double-click, which opens the tablet here too — see openTabletToMap).
+      if (appId === 'map') { nav('map', null, null); return; }
       nav(appId, null, null);
     });
   });
@@ -3760,6 +3832,10 @@ function wireBody() {
   });
   _overlay.querySelectorAll('[data-open-cat]').forEach(el => {
     el.addEventListener('click', () => nav(_data.appId, el.getAttribute('data-open-cat'), null));
+  });
+  // Calendar month arrows: re-nav the app to a specific 'YYYY-MM' via screenId 'month'.
+  _overlay.querySelectorAll('[data-cal-month]').forEach(el => {
+    el.addEventListener('click', () => nav(_data.appId, 'month', el.getAttribute('data-cal-month')));
   });
   _overlay.querySelectorAll('[data-open-item]').forEach(el => {
     el.addEventListener('click', () => {
@@ -3910,17 +3986,14 @@ function wireBody() {
   wireGear();
 }
 
-// Map app: mode switch (server round trip — different tiles), tap-a-tile to select
-// (client-side, refreshes the detail in place), and GPS route / auto-walk actions.
-// No-op off the map screen.
+// Map app: one zoom axis (−/+ walk the server tile-window ladder), tap-a-tile to
+// select (client-side, refreshes the detail in place), and GPS route / auto-walk
+// actions. No-op off the map screen.
 function rebuildMap() {
   const root = _overlay.querySelector('#tos-map-root');
   if (root) { root.innerHTML = renderMap(_data); wireMap(); }
 }
 function wireMap() {
-  _overlay.querySelectorAll('[data-map-mode]').forEach(el => {
-    el.addEventListener('click', () => nav('map', el.getAttribute('data-map-mode'), null));
-  });
   _overlay.querySelectorAll('[data-map-zone]').forEach(el => {
     el.addEventListener('click', () => {
       _tosMapSel = el.getAttribute('data-map-zone');
@@ -3935,22 +4008,17 @@ function wireMap() {
   const clear = _overlay.querySelector('[data-map-clear]');
   if (clear) clear.addEventListener('click', () => { setGpsRoute(null); rebuildMap(); });
   // Persistent controls: Run (server round-trip, echoes run_state), Auto-walk toggle,
-  // recenter-on-you, and the −/+ zoom stepper (client-side, live, no rebuild).
+  // recenter-on-you, and the −/+ zoom stepper. Zoom now walks the server ladder (each
+  // step = a wider/narrower tile window), so it's a round trip that re-renders the map.
   _overlay.querySelector('[data-map-run]')?.addEventListener('click', () => sendCmdSilent('run'));
   _overlay.querySelector('[data-map-autotoggle]')?.addEventListener('click', () => { toggleAutoWalk(); rebuildMap(); });
   _overlay.querySelector('[data-map-recenter]')?.addEventListener('click', centerMapOnPlayer);
   _overlay.querySelectorAll('[data-map-zoom]').forEach((b) => b.addEventListener('click', () => {
-    const dir = b.getAttribute('data-map-zoom') === 'in' ? 1 : -1;
-    const next = Math.min(TOS_TILE_ZOOMS.length - 1, Math.max(0, _tosMapZoom + dir));
-    if (next === _tosMapZoom) return;
-    _tosMapZoom = next;
-    try { localStorage.setItem(TOS_MAP_ZOOM_KEY, String(_tosMapZoom)); } catch {}
-    applyMapZoom();
-    updateMapZoomBtns();
+    const arg = _mapZoomArg(_data, b.getAttribute('data-map-zoom') === 'in' ? 1 : -1);
+    if (arg) nav('map', arg, null);
   }));
   // Drag anywhere on the map to scroll it; default to the player centred on (re)build.
   wireMapDrag(_overlay.querySelector('.tos-map-wrap'));
-  updateMapZoomBtns();
   centerMapOnPlayer();
 }
 
@@ -3964,28 +4032,6 @@ function centerMapOnPlayer() {
   const wr = wrap.getBoundingClientRect(), cr = cur.getBoundingClientRect();
   wrap.scrollLeft += (cr.left + cr.width / 2) - (wr.left + wrap.clientWidth / 2);
   wrap.scrollTop += (cr.top + cr.height / 2) - (wr.top + wrap.clientHeight / 2);
-}
-
-// Live tile-size change that keeps whatever's under the viewport centre put across
-// the resize (ratio-preserve), so zooming doesn't yank the view off the spot you're
-// looking at. Reads scrollWidth after setting the var to force the reflow.
-function applyMapZoom() {
-  const wrap = _overlay?.querySelector('.tos-map-wrap');
-  const grid = wrap?.querySelector('.tos-map-grid');
-  if (!grid) return;
-  let rx = 0.5, ry = 0.5;
-  if (wrap.scrollWidth > wrap.clientWidth) rx = (wrap.scrollLeft + wrap.clientWidth / 2) / wrap.scrollWidth;
-  if (wrap.scrollHeight > wrap.clientHeight) ry = (wrap.scrollTop + wrap.clientHeight / 2) / wrap.scrollHeight;
-  grid.style.setProperty('--tos-tile', TOS_TILE_ZOOMS[_tosMapZoom] + 'px');
-  wrap.scrollLeft = rx * wrap.scrollWidth - wrap.clientWidth / 2;
-  wrap.scrollTop = ry * wrap.scrollHeight - wrap.clientHeight / 2;
-}
-
-function updateMapZoomBtns() {
-  const zout = _overlay?.querySelector('[data-map-zoom="out"]');
-  const zin = _overlay?.querySelector('[data-map-zoom="in"]');
-  if (zout) zout.disabled = _tosMapZoom <= 0;
-  if (zin) zin.disabled = _tosMapZoom >= TOS_TILE_ZOOMS.length - 1;
 }
 
 // Drag-to-scroll the map viewport. A movement threshold defers the "drag" so a plain
@@ -4570,6 +4616,26 @@ export function openTabletToLoadout() {
   _gearTab = 'loadout';
   _skipBoot = true;
   sendCmdSilent('tabletnav gear');
+}
+
+// Open the tablet straight to the Map app — the single city-map surface now that
+// the standalone bigmap popup is retired. The minimap double-click routes here (via
+// the injected opener in minimap.js) and the typed `map` command lands here too (see
+// dispatch.js). Skip-boot for a snappy open. `arg` carries an optional zoom stop.
+export function openTabletToMap(arg) {
+  _skipBoot = true;
+  sendCmdSilent('tabletnav map' + (arg ? ' ' + arg : ''));
+}
+
+// If the tablet is open on the Map app, silently re-fetch it at the current zoom so
+// the "you are here" marker + window follow the player as they move (the replacement
+// for the retired popup's refreshMapIfOpen). Returns whether it refreshed.
+export function refreshTabletMapIfOpen() {
+  if (_overlay && _overlay.isConnected && _data?.appId === 'map' && _data?.view === 'map') {
+    sendCmdSilent('tabletnav map ' + _tosMapZoomArg(_data));
+    return true;
+  }
+  return false;
 }
 
 // Open the tablet Quests app straight to a specific quest's detail screen — used

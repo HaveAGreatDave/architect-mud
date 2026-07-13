@@ -227,16 +227,16 @@ async function writeLivery(ac, next) {
   const live = liveAircraft.get(ac.id); if (live) live.row.custom_data = cd;
 }
 
-// Save a paint job from the panel: paintset <id> <base> <trim> <pattern> <finish> <cabin> <uphol> <decal> <accent>.
+// Save a paint job from the panel: paintset <id> <base> <trim> <pattern> <finish> <cabin> <uphol> <decal> <accent> <ground>.
 // Owner-only, at a field, on the ground. Charges the class-scaled respray fee only when the
 // paint actually changed; the hand-written livery text and saved schemes are never touched here.
-// (accent trails the arg list so older clients that omit it still parse — it defaults in place.)
+// (accent/ground trail the arg list so older clients that omit them still parse — they default in place.)
 async function cmdPaintset(args, raw, player) {
-  const [id, base, trim, pattern, finish, cabin, uphol, decal, accent] = args;
+  const [id, base, trim, pattern, finish, cabin, uphol, decal, accent, ground] = args;
   const { ac, err } = await paintTarget(player, id); if (err) return err;
 
   const prev = normalizeLivery(ac.custom_data);
-  const next = { ...sanitizeLivery({ base, trim, accent, pattern, finish, cabin, uphol, decal }, prev), text: prev.text };
+  const next = { ...sanitizeLivery({ base, trim, accent, ground, pattern, finish, cabin, uphol, decal }, prev), text: prev.text };
   if (JSON.stringify(next) !== JSON.stringify(prev)) {
     const fee = paintCost({ class: ac.class });
     if ((player.credits || 0) < fee) { await pushHangarBay(player); return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}c — you're short.` }; }

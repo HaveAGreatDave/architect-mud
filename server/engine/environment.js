@@ -450,8 +450,13 @@ function scheduleTicks() {
   });
 }
 
+// The world is set in the future — a fresh DB seeds its game_date to this fixed
+// anchor and advances from there. Existing DBs are moved to it by
+// scripts/set-calendar-date.mjs.
+const START_DATE = '2076-07-13';
+
 async function ensureClockRow(query) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = START_DATE;
   await query(
     `INSERT INTO world_clock (id, game_date, game_time_minutes, day_of_week, season)
      VALUES (1, $1, $2, $3, $4)

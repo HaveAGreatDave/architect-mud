@@ -11,6 +11,13 @@ const MM_AVENUE_KEY = 'mm_avenue';
 let mmAvenueView = false; // avenue mode retired — toggle removed, always plain
 let _lastMinimapNodes = null;
 
+// The city map lives in the tablet Map app now (the standalone popup is retired).
+// tablet-os.js injects its opener here via setMapOpener so the minimap double-click
+// can open it without minimap.js importing the tablet (which would be a cycle). The
+// fallback still opens the tablet map, just without the skip-boot fast-path.
+let _mapOpener = () => sendCmdSilent('tabletnav map');
+export function setMapOpener(fn) { if (typeof fn === 'function') _mapOpener = fn; }
+
 // Minimap zoom: three levels sharing the same render, differing only in the BFS
 // window radius R (fewer tiles = closer) and a matching tile size so each minimap's
 // footprint stays ~constant as you zoom. Level 0 (R=4, 9×9) reproduces the CSS
@@ -123,6 +130,12 @@ const AUTO_WATCHDOG_MS = 3000;
 // next leg up without another Auto click. Cleared only by an explicit stop
 // (toggle off), a hard error, or the route being cleared.
 let autoWalkArmed = false;
+// Does the current route want auto-walk to STAY armed after arriving? Set from the
+// server's `continueOnArrival` flag on the gps_route (see setAutoWalkPersist). Quest
+// legs set it true so a multi-leg journey resumes at the next waypoint without another
+// Auto click; a plain `gps` destination leaves it false, so arriving fully turns
+// auto-walk off (button unlit, intent cleared) instead of lingering armed.
+let autoWalkPersist = false;
 // Stuck detection: a step that leaves us in the same room made no progress. The
 // only non-erroring way that happens mid-walk is an ambiguous exit throwing a SIFT
 // picker (which auto-walk can't answer, so it just re-prompts). Two in a row → stop.
@@ -207,14 +220,22 @@ export function resumeAutoWalkIfArmed() {
   if (autoWalkArmed && !isAutoWalking()) startAutoWalk();
 }
 
+// Called from dispatch for any gps_route that declares `continueOnArrival` (quest legs
+// true, plain `gps` false). Reroute re-plots during an in-progress walk omit the flag,
+// so they leave the current setting untouched — a quest walk stays "continuing" across
+// an off-course reroute.
+export function setAutoWalkPersist(v) { autoWalkPersist = !!v; }
+
 function autoWalkStep() {
   autoWalkTimer = null;
   const current = (_lastMinimapNodes || []).find(n => n.is_current);
   if (!current) { stopAutoWalk('Auto-walk stopped — lost track of where you are.'); return; }
   const path = effectiveTracePath(current.id);
-  // Arrived at this leg's end: keep the intent armed so a quest advancing to a new
-  // waypoint (gps_route resumeAuto) continues the walk without another Auto click.
-  if (!path || path.length < 2) { stopAutoWalk('Auto-walk: arrived.', { keepArmed: true }); return; }
+  // Arrived at this leg's end. Keep the intent armed only for a continuing route (a
+  // quest leg — autoWalkPersist) so a quest advancing to a new waypoint (gps_route
+  // resumeAuto) picks up without another Auto click. A plain `gps` destination isn't
+  // continuing, so fully stop: unlight the Auto button and clear the armed intent.
+  if (!path || path.length < 2) { stopAutoWalk('Auto-walk: arrived.', { keepArmed: autoWalkPersist }); return; }
 
   // Off course: a forced move / wrong turn / mismatched exit dropped us off the
   // plotted corridor. Rather than stall trying to step to a tile we can't reach, ask
@@ -359,7 +380,7 @@ function wireMinimapDblClick() {
   if (_mmDblWired) return;
   _mmDblWired = true;
   document.addEventListener('dblclick', (e) => {
-    if (e.target?.closest?.('#minimap-grid, #minimap-grid-hud, #minimap-grid-mob')) sendCmdSilent('map');
+    if (e.target?.closest?.('#minimap-grid, #minimap-grid-hud, #minimap-grid-mob')) _mapOpener();
   });
 }
 function wireMinimapZoom() {
@@ -710,11 +731,6 @@ const TERRAIN = new Set(['road', 'water', 'grass']);
 const ROAD_SURFACE = '#4c5157';   // grey asphalt
 const ROAD_MARKING = '#f2c53d';   // yellow lane markings (the road SVG mask takes `color`)
 const TERRAIN_FILL = { water: '#3f7fb0', grass: '#5a9e57' }; // fallback if a tile has no authored bg
-// The full-map popup's fixed window size in px (11 tiles × 34px — keep in sync with
-// #map-viewport in styles.css). The window never resizes; the regional view scales
-// its tiles down to fit the whole region inside it.
-const MAP_WINDOW_PX = 374;
-
 // Small entrance arrow overlaid on a building tile, pointing to the edge the door
 // faces (server `entrance` field). A CSS triangle (no glyph) via .<pfx>-ent-<dir>;
 // pfx is 'mm' (sidebar) or 'map' (full popup).
@@ -729,61 +745,16 @@ function exitMarks(dirs, pfx) {
   return Array.isArray(dirs) ? dirs.map(d => entranceMark(d, pfx)).join('') : '';
 }
 
-// ── Three-level map popup: interior → zone → regional ────────────────────────
-// Popup state, kept across re-opens so the tab buttons + wheel know the current
-// level and the tooltip can look tiles up by id.
-// The overlay slider setting is persisted so it survives reloads and both the
-// full map and the sidebar minimap read the one saved value.
+// The tile-label overlay mode (none | labels | icons) is persisted so it survives
+// reloads; the sidebar minimap reads this one saved value.
 const MAP_OVERLAY_KEY = 'map_overlay';
 let _savedOverlay = 'none';
 try { _savedOverlay = localStorage.getItem(MAP_OVERLAY_KEY) || 'icons'; } catch {}
-// Territory overlay: tint held tiles by controlling org on top of the avenue+labels
-// view. Persisted like the other view toggles; the control layer itself is fetched
-// on demand from the corps plugin (`corp territory`) and cached here.
-const MAP_TERRITORY_KEY = 'map_territory';
-let _savedTerritory = false;
-try { _savedTerritory = localStorage.getItem(MAP_TERRITORY_KEY) === '1'; } catch {}
-let _territory = null; // last { control: {zoneId:{...}}, orgs, myOrgId } payload
-// Route trace: double-click-a-tile-to-plot-a-route. `tracePath` is the current
-// ordered list of tile ids, cleared on arrival or by the GPS button. `routeMode`
-// is vestigial (kept false) now that single click always highlights a building.
-const MAP_ROUTE_KEY = 'map_route';
-const mapState = { mode: 'zone', insideInterior: false, byId: new Map(), tiles: [], avenueView: false, avenueOverlay: _savedOverlay, territoryView: _savedTerritory, routeMode: false, tracePath: null, traceDirs: null, legendSel: null };
-
-// Black/white ink for legibility on a saturated org fill (mirrors corp-map.js inkFor).
-function contrastInk(hex) {
-  const h = (hex || '').replace('#', '');
-  if (h.length < 6) return '#08110d';
-  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
-  return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#08110d' : '#eafffb';
-}
-// hex -> rgba(...) string at a given alpha, for the territory overlay tint.
-function hexA(hex, a) {
-  const h = (hex || '').replace('#', '');
-  if (h.length < 6) return `rgba(0,0,0,${a})`;
-  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${a})`;
-}
-
-// Store the fetched corp-control layer and re-tint the map if it's open.
-export function setMapTerritory(msg) {
-  _territory = msg || null;
-  if (document.getElementById('map-panel')?.classList.contains('active')) renderMapGrid();
-}
-// Ask the server for the current control layer (silent — routes back as map_territory).
-function fetchTerritory() { sendCmdSilent('corp territory'); }
-let mapUiWired = false;
-// Pan offset of the grid within the fixed 11×11 viewport, and live drag state.
-const mapPan = { tx: 0, ty: 0 };
-const mapDrag = { on: false };
-// Popup full-map pixel zoom: the tile size (px) for the zone/interior grid, stepped
-// by the −/+ buttons and the mouse wheel. Zooming past the 34px default overflows the
-// fixed viewport, which is exactly what makes drag-to-pan live (an 11×11 grid that
-// merely fills the viewport has nothing to pan). Regional stays auto-fit-to-window.
-const MAP_TILE_ZOOMS = [22, 28, 34, 42, 52, 64, 80];
-const MAP_ZOOM_KEY = 'map_tile_zoom';
-let mapZoom = 2; // index → 34px, matching the CSS default
-try { const z = parseInt(localStorage.getItem(MAP_ZOOM_KEY), 10); if (z >= 0 && z < MAP_TILE_ZOOMS.length) mapZoom = z; } catch {}
+// Shared map state that outlives the retired full-screen popup: the overlay label
+// mode (read by the sidebar minimap) and the active GPS route — tracePath/traceDirs,
+// set by the `gps` command or the tablet map's "Route here", walked by auto-walk, and
+// mirrored onto both the sidebar minimap and the tablet map.
+const mapState = { avenueOverlay: _savedOverlay, tracePath: null, traceDirs: null };
 
 function twoLetterAbbrev(name) {
   return ((name || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 2) || '??');
@@ -854,328 +825,14 @@ export function routeBetween(fromId, toId, tiles) {
   return traceRoute(fromId, toId, byId);
 }
 // The currently-plotted GPS/route path (ordered tile ids), or null — so the
-// tablet map can highlight the same route the sidebar minimap + full map show.
+// tablet map can highlight the same route the sidebar minimap shows.
 export function getTracePath() { return mapState.tracePath; }
 
-// Reflect mapState.avenueOverlay onto the 3-stop slider (active segment + the
-// data-ov attribute that slides the highlight).
-function syncOverlaySlider() {
-  const slider = document.getElementById('map-overlay-slider');
-  if (!slider) return;
-  slider.setAttribute('data-ov', mapState.avenueOverlay);
-  for (const seg of slider.querySelectorAll('.mo-seg'))
-    seg.classList.toggle('active', seg.getAttribute('data-ov') === mapState.avenueOverlay);
-}
-
-// Step the pixel zoom (zone/interior only — regional auto-fits). +1 = zoom in.
-// Re-renders in place; centerMapOnCurrent (end of renderMapGrid) keeps you centred.
-function stepMapZoom(delta) {
-  if (mapState.mode === 'regional') return;
-  const next = Math.min(MAP_TILE_ZOOMS.length - 1, Math.max(0, mapZoom + delta));
-  if (next === mapZoom) return;
-  mapZoom = next;
-  try { localStorage.setItem(MAP_ZOOM_KEY, String(mapZoom)); } catch {}
-  renderMapGrid();
-}
-// Grey out the −/+ buttons at the ends of the zoom range, or entirely in regional
-// (which is fit-to-window and doesn't pixel-zoom).
-function updateMapZoomBtns() {
-  const out = document.getElementById('map-zoom-out');
-  const zin = document.getElementById('map-zoom-in');
-  const regional = mapState.mode === 'regional';
-  if (out) out.disabled = regional || mapZoom <= 0;
-  if (zin) zin.disabled = regional || mapZoom >= MAP_TILE_ZOOMS.length - 1;
-}
-// Keep the header Auto-walk button lit in step with the shared auto-walk state, so a
-// map refresh (player moved) or a start/stop from elsewhere stays reflected.
-function syncMapAutoBtn() {
-  document.getElementById('map-auto-toggle')?.classList.toggle('active', isAutoWalking());
-}
-
-function mapTooltipEl() {
-  let t = document.getElementById('map-tooltip');
-  if (!t) { t = document.createElement('div'); t.id = 'map-tooltip'; document.body.appendChild(t); }
-  return t;
-}
-function positionTooltip(t, e) {
-  const pad = 14;
-  const r = t.getBoundingClientRect();
-  let x = e.clientX + pad, y = e.clientY + pad;
-  if (x + r.width > window.innerWidth) x = e.clientX - r.width - pad;
-  if (y + r.height > window.innerHeight) y = e.clientY - r.height - pad;
-  t.style.left = Math.max(4, x) + 'px';
-  t.style.top = Math.max(4, y) + 'px';
-}
-// ── Drag-to-pan the grid within the fixed 11×11 viewport ─────────────────────
-// Clamp so the grid never drags past its own edges; when a dimension is smaller
-// than the viewport (grid fits) it's centered and locked.
-function applyMapPan() {
-  const vp = document.getElementById('map-viewport');
-  const grid = document.getElementById('map-grid');
-  if (!vp || !grid) return;
-  const vw = vp.clientWidth, vh = vp.clientHeight;
-  const gw = grid.scrollWidth, gh = grid.scrollHeight;
-  const clamp = (t, view, content) =>
-    content <= view ? (view - content) / 2 : Math.min(0, Math.max(view - content, t));
-  mapPan.tx = clamp(mapPan.tx, vw, gw);
-  mapPan.ty = clamp(mapPan.ty, vh, gh);
-  grid.style.transform = `translate(${mapPan.tx}px, ${mapPan.ty}px)`;
-}
-function centerMapOnCurrent() {
-  const vp = document.getElementById('map-viewport');
-  const grid = document.getElementById('map-grid');
-  if (!vp || !grid) return;
-  const cur = grid.querySelector('.map-current');
-  if (cur) {
-    mapPan.tx = vp.clientWidth / 2 - (cur.offsetLeft + cur.offsetWidth / 2);
-    mapPan.ty = vp.clientHeight / 2 - (cur.offsetTop + cur.offsetHeight / 2);
-  } else { mapPan.tx = 0; mapPan.ty = 0; }
-  applyMapPan();
-}
-
-function onMapHover(e) {
-  if (mapDrag.on) return;
-  const cell = e.target.closest('[data-zone-id]');
-  if (!cell) return;
-  const z = mapState.byId.get(cell.getAttribute('data-zone-id'));
-  if (!z) return;
-  const t = mapTooltipEl();
-  let html = `<div class="map-tt-name">${escapeHtml(z.name)}</div>`;
-  const district = FUNC_LEGEND[z.func];
-  if (district) html += `<div class="map-tt-district" style="color:${district.color}">${escapeHtml(district.label)}</div>`;
-  const terr = mapState.territoryView ? _territory?.control?.[z.id] : null;
-  if (terr) {
-    const contested = terr.status === 'CONTESTED'
-      ? ` · contested${terr.challenger ? ' by ' + escapeHtml(terr.challenger) : ''}` : '';
-    html += `<div class="map-tt-bld"><b>${escapeHtml(terr.tag)}</b> · ${terr.influence}% grip${contested}</div>`;
-  }
-  if (z.description) html += `<div class="map-tt-desc">${escapeHtml(z.description)}</div>`;
-  if (z.buildings && z.buildings.length)
-    html += `<div class="map-tt-bld"><b>Buildings:</b> ${z.buildings.map(escapeHtml).join(', ')}</div>`;
-  t.innerHTML = html;
-  t.style.display = 'block';
-  positionTooltip(t, e);
-}
-function onMapMove(e) {
-  const t = document.getElementById('map-tooltip');
-  if (t && t.style.display === 'block') positionTooltip(t, e);
-}
-function onMapOut(e) {
-  const cell = e.target.closest('[data-zone-id]');
-  if (!cell) return;
-  const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('[data-zone-id]');
-  if (to) return; // sliding between cells — the next hover updates the tooltip
-  const t = document.getElementById('map-tooltip');
-  if (t) t.style.display = 'none';
-}
-
-// One-time wiring for the toggle button, mouse-wheel level cycling, and the
-// custom hover tooltip (delegated over the grid + legend list).
-function wireMapUi() {
-  if (mapUiWired) return;
-  mapUiWired = true;
-  // Three explicit level buttons (interior / zone / regional). The wheel still
-  // cycles; these jump straight to a level.
-  document.getElementById('map-tabs')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('.map-tab');
-    if (!btn || btn.disabled) return;
-    const level = btn.getAttribute('data-level');
-    if (level && level !== mapState.mode) sendCmdSilent(`map ${level}`);
-  });
-  // Avenue View: a rendering toggle, not a zoom level — swaps room symbols for
-  // connected road icons (no server round-trip needed, just re-render).
-  document.getElementById('map-avenue-toggle')?.addEventListener('click', () => {
-    mapState.avenueView = !mapState.avenueView;
-    document.getElementById('map-avenue-toggle')?.classList.toggle('active', mapState.avenueView);
-    renderMapGrid();
-  });
-  // Overlay slider: what rides on top of the avenue roads — nothing / the minimap
-  // POI icons / 2-letter abbrevs. Picking an overlay implies Avenue View.
-  // Tile-symbol overlay: none (colours only) / text (2-letter labels) / icons.
-  document.getElementById('map-overlay-slider')?.addEventListener('click', (e) => {
-    const slider = e.currentTarget;
-    const segs = [...slider.querySelectorAll('.mo-seg')];
-    if (!segs.length) return;
-    // Step to the NEXT option in order (none → labels → icons → none), wherever you
-    // click — a sequential cycle, not a jump-to-the-nearest-segment toggle.
-    const order = segs.map((s) => s.getAttribute('data-ov') || 'icons');
-    const next = (order.indexOf(mapState.avenueOverlay) + 1) % order.length;
-    mapState.avenueOverlay = order[next];
-    try { localStorage.setItem(MAP_OVERLAY_KEY, mapState.avenueOverlay); } catch {}
-    syncOverlaySlider();
-    renderMapGrid();
-    if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // mirror the overlay onto the sidebar minimap
-  });
-  // Territory: tint held tiles by controlling org, and fetch a fresh control layer.
-  document.getElementById('map-territory-toggle')?.addEventListener('click', () => {
-    mapState.territoryView = !mapState.territoryView;
-    try { localStorage.setItem(MAP_TERRITORY_KEY, mapState.territoryView ? '1' : '0'); } catch {}
-    document.getElementById('map-territory-toggle')?.classList.toggle('active', mapState.territoryView);
-    if (mapState.territoryView) fetchTerritory();
-    renderMapGrid();
-  });
-  // GPS button: clears the currently-drawn route (double-clicking a tile plots one).
-  // A no-op when there's nothing to clear.
-  document.getElementById('map-route-toggle')?.addEventListener('click', () => {
-    const btn = document.getElementById('map-route-toggle');
-    if (!mapState.tracePath) return;
-    mapState.tracePath = null;
-    mapState.traceDirs = null;
-    mapState.routeMode = false;
-    try { localStorage.setItem(MAP_ROUTE_KEY, '0'); } catch {}
-    btn?.classList.remove('active', 'has-route');
-    if (isAutoWalking()) stopAutoWalk('Auto-walk stopped — route cleared.');
-    renderMapGrid();
-    if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // clear it off the minimap too
-  });
-  // −/+ pixel zoom (zone/interior). Zooming in overflows the viewport so the drag-pan
-  // below has room to move; regional ignores it (auto-fit).
-  document.getElementById('map-zoom-out')?.addEventListener('click', () => stepMapZoom(-1));
-  document.getElementById('map-zoom-in')?.addEventListener('click', () => stepMapZoom(1));
-  // Auto-walk toggle: follow the plotted GPS route (or stop if already walking). The
-  // lit state is kept in sync by syncMapAutoBtn on every render.
-  document.getElementById('map-auto-toggle')?.addEventListener('click', () => {
-    if (isAutoWalking()) stopAutoWalk('Auto-walk stopped.');
-    else startAutoWalk();
-    syncMapAutoBtn();
-  });
-  const vp = document.getElementById('map-viewport');
-  if (vp) {
-    let lastWheel = 0;
-    vp.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const now = Date.now();
-      if (now - lastWheel < 120) return; // one notch = one step
-      lastWheel = now;
-      stepMapZoom(e.deltaY < 0 ? 1 : -1); // up = zoom in, down = zoom out
-    }, { passive: false });
-
-    // Drag to pan the grid within the bounded viewport. Pointer capture is deferred
-    // until movement actually crosses the drag threshold — capturing immediately on
-    // pointerdown redirects the subsequent 'click' event's target to `vp` itself
-    // (per the Pointer Events capture spec), which broke tile clicks (route trace,
-    // charter destination-pick) on every plain click, not just drags.
-    let dsx = 0, dsy = 0, downX = 0, downY = 0, pid = null;
-    vp.addEventListener('pointerdown', (e) => {
-      mapDrag.on = true;
-      mapDrag.moved = false;
-      downX = e.clientX; downY = e.clientY;
-      dsx = e.clientX - mapPan.tx;
-      dsy = e.clientY - mapPan.ty;
-      pid = e.pointerId;
-    });
-    vp.addEventListener('pointermove', (e) => {
-      if (!mapDrag.on) return;
-      if (!mapDrag.moved && Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 4) {
-        mapDrag.moved = true;
-        vp.classList.add('grabbing');
-        try { vp.setPointerCapture(pid); } catch {}
-        const t = document.getElementById('map-tooltip');
-        if (t) t.style.display = 'none';
-      }
-      if (!mapDrag.moved) return;
-      mapPan.tx = e.clientX - dsx;
-      mapPan.ty = e.clientY - dsy;
-      applyMapPan();
-    });
-    const endDrag = (e) => {
-      if (!mapDrag.on) return;
-      mapDrag.on = false;
-      vp.classList.remove('grabbing');
-      try { vp.releasePointerCapture(e.pointerId); } catch {}
-    };
-    vp.addEventListener('pointerup', endDrag);
-    vp.addEventListener('pointercancel', endDrag);
-  }
-  // Drag the whole popup by its header. A grab on empty header space (or the
-  // title) moves the box via a translate offset from its flex-centred origin;
-  // the tabs / slider / buttons inside the header keep their own click behaviour.
-  // The offset (bx/by) is closure state, so it persists while the popup stays
-  // wired (wireMapUi runs once) — reopening keeps wherever you left it.
-  const box = document.getElementById('map-box');
-  const header = document.getElementById('map-header');
-  if (box && header) {
-    let bx = 0, by = 0, sx = 0, sy = 0, dragging = false, hpid = null;
-    header.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('button, .map-tab, .map-overlay-slider, #map-tabs')) return;
-      dragging = true; hpid = e.pointerId;
-      sx = e.clientX - bx; sy = e.clientY - by;
-      try { header.setPointerCapture(hpid); } catch {}
-      box.classList.add('map-dragging');
-    });
-    header.addEventListener('pointermove', (e) => {
-      if (!dragging) return;
-      bx = e.clientX - sx; by = e.clientY - sy;
-      box.style.transform = `translate(${bx}px, ${by}px)`;
-    });
-    const endBoxDrag = (e) => {
-      if (!dragging) return;
-      dragging = false;
-      box.classList.remove('map-dragging');
-      try { header.releasePointerCapture(e.pointerId); } catch {}
-    };
-    header.addEventListener('pointerup', endBoxDrag);
-    header.addEventListener('pointercancel', endBoxDrag);
-  }
-  for (const id of ['map-grid', 'map-legend']) {
-    const el = document.getElementById(id);
-    if (!el) continue;
-    el.addEventListener('mouseover', onMapHover);
-    el.addEventListener('mousemove', onMapMove);
-    el.addEventListener('mouseout', onMapOut);
-    el.addEventListener('click', (e) => {
-      const cell = e.target.closest('[data-zone-id]');
-      if (!cell) return;
-      const zid = cell.getAttribute('data-zone-id');
-      // Charter destination-pick takes precedence while armed.
-      if (_pickCb) {
-        const cb = _pickCb; _pickCb = null;
-        document.getElementById('map-panel')?.classList.remove('active');
-        cb(zid);
-        return;
-      }
-      if (el.id === 'map-grid' && mapDrag.moved) return; // ignore the click that ends a pan-drag
-      // Double-click (the second click of a pair) GPS-routes to the tile — no need to
-      // arm the route button first. We detect it via e.detail (the click count) inside
-      // this single handler rather than a native 'dblclick' listener: the single-click
-      // branch below rebuilds #map-grid (grid.innerHTML = …), destroying the very tile
-      // node the browser needs clicked twice, so a real 'dblclick' event never fires on
-      // the map grid.
-      if (el.id === 'map-grid' && e.detail >= 2) { plotMapRoute(zid); return; }
-      // Single click — on the map OR in the legend — selects a building: every tile of
-      // that building lights up on the map (via .map-legend-sel) and its legend row
-      // highlights and scrolls into view. Re-clicking the same selection clears it.
-      mapState.legendSel = (mapState.legendSel === zid) ? null : zid;
-      renderMapGrid();
-      document.querySelector('#map-legend .map-list-sel')?.scrollIntoView({ block: 'nearest' });
-    });
-  }
-}
-
-// Plot a client-side GPS route from the current tile to `zid` and mirror it onto the
-// sidebar minimap. Fired by double-clicking a tile.
-function plotMapRoute(zid) {
-  // Open water is impassable — you can't route to it. Say so rather than plot nothing.
-  if (mapState.byId.get(zid)?.water) { appendMsg('Must be on Land.', 'error'); return; }
-  const current = mapState.tiles.find(t => t.isCurrent);
-  const path = current ? traceRoute(current.id, zid, mapState.byId) : null;
-  mapState.tracePath = (path && path.length > 1) ? path : null;
-  mapState.traceDirs = null; // client-side route: walker derives direction from node exits
-  mapState.routeMode = false; // single-shot: placed, disarm until cleared + re-armed
-  try { localStorage.setItem(MAP_ROUTE_KEY, '0'); } catch {}
-  const rbtn = document.getElementById('map-route-toggle');
-  rbtn?.classList.remove('active');
-  rbtn?.classList.toggle('has-route', !!mapState.tracePath);
-  renderMapGrid();
-  if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // mirror the route on the sidebar minimap
-}
 
 // Server-driven route (the `gps` command): the path can span the whole map, not
 // just whatever's currently on screen, so it's set directly rather than via
-// traceRoute's on-screen BFS. Mirrors onto the sidebar minimap immediately;
-// doesn't pop the full map open — if it's already open, refresh it in place
-// (regional, so the whole route is visible) rather than disturbing the player
-// with an unrequested popup.
+// traceRoute's on-screen BFS. Mirrors onto the sidebar minimap immediately; the
+// tablet map, if open, picks the route up on its next render/refresh.
 export function setGpsRoute(path, dirs = null) {
   mapState.tracePath = (path && path.length > 1) ? path : null;
   // Per-hop directions from the server (aligned to the full path), so the walker
@@ -1183,286 +840,6 @@ export function setGpsRoute(path, dirs = null) {
   // with the path; absent for client-side map-click routes (walker falls back to
   // reading the direction off the node's exits).
   mapState.traceDirs = mapState.tracePath ? dirs : null;
-  mapState.routeMode = false;
-  try { localStorage.setItem(MAP_ROUTE_KEY, '0'); } catch {}
-  const rbtn = document.getElementById('map-route-toggle');
-  rbtn?.classList.remove('active');
-  rbtn?.classList.toggle('has-route', !!mapState.tracePath);
   if (!mapState.tracePath && isAutoWalking()) stopAutoWalk('Auto-walk stopped — route cleared.');
   if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
-  if (document.getElementById('map-panel')?.classList.contains('active')) sendCmdSilent('map regional');
-}
-
-// Arm the map popup so the next tile click selects a destination (charter). The
-// callback receives the clicked zone id; picking closes the map.
-let _pickCb = null;
-export function armMapPick(cb) {
-  _pickCb = cb;
-  const title = document.getElementById('map-title');
-  if (title) title.textContent = 'Charter — pick your destination';
-}
-
-export function openMapPopup(tiles, mode = 'zone', insideInterior = false) {
-  // Back-compat with the old two-mode server payloads.
-  if (mode === 'function') mode = 'regional';
-  else if (mode === 'zones') mode = 'zone';
-
-  mapState.mode = mode;
-  mapState.insideInterior = !!insideInterior;
-  mapState.byId = new Map(tiles.map(t => [t.id, t]));
-  mapState.tiles = tiles;
-  // A stored route persists across moves/reopens; effectiveTracePath() trims it to the
-  // leg still ahead and drops it on arrival, so it never needs a blanket clear here.
-
-  wireMapUi();
-
-  const title = document.getElementById('map-title');
-  if (title) title.textContent =
-    mode === 'regional' ? 'City Map — Regional' : mode === 'interior' ? 'City Map — Interior' : 'City Map — Zone';
-
-  // Highlight the active level; disable Interior when you're not inside one.
-  for (const btn of document.querySelectorAll('#map-tabs .map-tab')) {
-    const level = btn.getAttribute('data-level');
-    btn.classList.toggle('active', level === mode);
-    btn.disabled = (level === 'interior' && !insideInterior);
-  }
-  document.getElementById('map-avenue-toggle')?.classList.toggle('active', mapState.avenueView);
-  document.getElementById('map-territory-toggle')?.classList.toggle('active', mapState.territoryView);
-  document.getElementById('map-route-toggle')?.classList.toggle('active', mapState.routeMode);
-  document.getElementById('map-route-toggle')?.classList.toggle('has-route', !!mapState.tracePath);
-  syncOverlaySlider();
-  if (mapState.territoryView) fetchTerritory(); // refresh the control layer each open
-
-  const tip = document.getElementById('map-tooltip');
-  if (tip) tip.style.display = 'none';
-
-  renderMapGrid();
-  document.getElementById('map-panel').classList.add('active');
-}
-
-// Refreshes the map popup's grid/legend from mapState (tiles/mode/insideInterior/
-// avenueView) without touching the server — used both by the initial open and by
-// the Avenue View toggle (a pure rendering-mode switch on already-fetched tiles).
-function renderMapGrid() {
-  const { mode, insideInterior } = mapState;
-  const grid = document.getElementById('map-grid');
-  const legend = document.getElementById('map-legend');
-
-  // Regional view: show the whole contiguous landmass you're standing on (the server's
-  // landmassTiles already scopes it to your cluster, hiding far-off orphan geometry).
-  // Land-use tint colours the neighbourhoods; we no longer filter to a single land-use
-  // category, which shredded any region spanning multiple funcs into blank cells.
-  let tiles = mapState.tiles;
-
-  if (!tiles.length) {
-    grid.textContent = '(no map data)';
-    legend.innerHTML = '';
-    return;
-  }
-
-  const regional = mode === 'regional';
-  // Corp-control tint only applies on the overworld levels (zone/regional), never
-  // inside an interior. null = no tinting this pass.
-  const territory = (mapState.territoryView && mode !== 'interior') ? (_territory?.control || null) : null;
-  // Compact placement: regional packs every distinct occupied coord to an index
-  // (so a far-flung district can't blow the grid up); zone/interior stay an 11×11
-  // window centred on you. Tiles touch — no connection/gap cells.
-  let colOf, rowOf, gCols, gRows;
-  if (regional) {
-    const xs = [...new Set(tiles.map(t => t.x))].sort((a, b) => a - b);
-    const ys = [...new Set(tiles.map(t => t.y))].sort((a, b) => a - b);
-    const xi = new Map(xs.map((x, i) => [x, i])), yi = new Map(ys.map((y, i) => [y, i]));
-    colOf = t => xi.get(t.x); rowOf = t => yi.get(t.y);
-    gCols = xs.length; gRows = ys.length;
-  } else {
-    colOf = t => t.x + 5; rowOf = t => t.y + 5;
-    gCols = 11; gRows = 11;
-  }
-
-  const overlay = mapState.avenueOverlay || 'icons'; // none | labels (text) | icons
-  // Base layer for every mode: the tile's own named SVG (road connector, building-
-  // type rooftop, statue, water). Rendered under every overlay so the map always
-  // reads as an illustrated map, never bare coloured squares. Falls back to the POI
-  // landmark glyph / marker only when a tile has no SVG of its own.
-  const baseSym = (t) => {
-    if (t.svg) return `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${t.svg}.svg)"></span>`;
-    if (t.icon) return t.icon + ' ';                 // POI landmark (airport, police, …)
-    return '';                                       // bare tile — no marker glyph (#, ⸪., …)
-  };
-  const symFor = (t) => {
-    if (t.isCurrent) return '';
-    const base = baseSym(t);
-    // Icons ride ON TOP of a building's footprint; non-building tiles show only their
-    // base SVG. `none` shows the base everywhere. Labels hide the footprint and show a
-    // big 2-letter acronym in its place.
-    if (overlay === 'none' || !t.building_type) return base;
-    if (overlay === 'labels')
-      return `<span class="map-bld-ov map-bld-label">${twoLetterAbbrev(t.building_name || t.name)}</span>`;
-    const glyph = BUILDING_ICON[t.building_type] || BUILDING_ICON._default;
-    return base + `<span class="map-bld-ov map-bld-icon">${glyph}</span>`;
-  };
-
-  const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
-  for (const t of tiles) {
-    const c = colOf(t), r = rowOf(t);
-    if (r >= 0 && r < gRows && c >= 0 && c < gCols) cell[r][c] = t;
-  }
-
-  // Route trace: the tiles on the walkable path to a clicked tile (drawn as a line below).
-  const curTile = tiles.find(t => t.isCurrent);
-  document.getElementById('map-route-toggle')?.classList.toggle('has-route', !!mapState.tracePath);
-  // Legend selection: the building name the player clicked in the legend, highlighted
-  // (accent) on the map and in the list. Matched by name so every tile of a multi-tile
-  // building lights up.
-  const selName = mapState.legendSel ? mapState.byId.get(mapState.legendSel)?.name || null : null;
-
-  // Regional: shrink the tiles so the whole region fits inside the fixed window at
-  // once — full district in view, no panning. Zone/interior keep the CSS default tile
-  // size (34px). The window itself never changes size. `--map-room` drives both the
-  // column width and the .map-c row height, so setting it here scales tiles square.
-  let tilePx;
-  if (regional) {
-    // Fit the whole region into the viewport's *actual* width — which shrinks on
-    // mobile (the CSS media query narrows --map-room), so read it live rather than
-    // trusting the desktop MAP_WINDOW_PX constant.
-    const winPx = document.getElementById('map-viewport')?.clientWidth || MAP_WINDOW_PX;
-    tilePx = Math.max(5, Math.floor(Math.min(winPx / gCols, winPx / gRows)));
-  } else {
-    // Zone/interior: the user's pixel zoom. Larger than the 34px default overflows the
-    // fixed viewport → drag-to-pan becomes live (see applyMapPan/centerMapOnCurrent).
-    tilePx = MAP_TILE_ZOOMS[mapZoom];
-  }
-  grid.style.setProperty('--map-room', `${tilePx}px`);
-  grid.style.gridTemplateColumns = `repeat(${gCols}, var(--map-room))`;
-  grid.classList.remove('avenue');
-
-  let html = '';
-  for (let r = 0; r < gRows; r++) {
-    for (let c = 0; c < gCols; c++) {
-      const t = cell[r][c];
-      if (!t) { html += `<span class="map-c"></span>`; continue; }
-      const terrain = TERRAIN.has(t.terrain) ? t.terrain : null;
-      const org = territory ? territory[t.id] : null; // controlling org, if any
-      // The tile's own painted colour is the whole story now — no land-use tint.
-      const bg = t.bg_color || null;
-      const styles = [];
-      // Regional overview: tiles are tiny, so keep only the scalable SVG footprint
-      // (mask) and drop non-scaling glyphs / building labels — colour carries the read.
-      let content = regional
-        ? (t.svg && !t.isCurrent ? `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${t.svg}.svg)"></span>` : '')
-        : symFor(t);
-      const isPoi = !terrain && t.icon && !t.isCurrent; // POI icon gets its own colour via a class
-      // Terrain override (road / water / grass): seamless tileable fill (see the sidebar
-      // minimap for the same treatment). Roads → grey asphalt + yellow markings (the road
-      // SVG mask inherits `color`); water/grass → clean coloured expanse (marker dropped)
-      // + a connecting texture from the .map-<terrain> class. `background-color` long-hand
-      // keeps that texture's background-image alive.
-      if (terrain === 'road') {
-        styles.push(`background-color:${ROAD_SURFACE}`, `color:${ROAD_MARKING}`);
-      } else if (terrain === 'water' || terrain === 'grass') {
-        styles.push(`background-color:${t.bg_color || TERRAIN_FILL[terrain]}`);
-        content = '';
-      } else {
-        if (bg) styles.push(`background:${bg}`);
-        const tColor = t.color || (bg ? luminanceTextColor(bg) : null);
-        if (tColor && !isPoi) styles.push(`color:${tColor}`);
-      }
-      let terrOv = '';
-      if (org) {
-        // Territory overlay: a 90%-opacity org-colour layer painted ABOVE the tile's
-        // own icons/labels (a positioned .map-terr-ov child, not a background), so
-        // control reads at a glance and dominates POI icons, abbreviations, and the
-        // avenue-road overlay. The tile goes position:relative so the layer clips to it.
-        styles.push('position:relative');
-        // Org-colour glow (doubled for rival-held turf) sits outside the fill; dashed
-        // outline while contested rings the tile.
-        styles.push(`box-shadow:inset 0 0 0 1px ${org.color},0 0 8px ${org.color}${org.mine ? '' : ',0 0 4px ' + org.color}`);
-        if (org.status === 'CONTESTED') styles.push(`outline:1px dashed ${contrastInk(org.color)};outline-offset:-3px`);
-        terrOv = `<span class="map-terr-ov" style="background:${hexA(org.color, 0.9)}"></span>`;
-      }
-      const cls = `map-c map-room danger-${t.danger || 'safe'}` +
-        (t.isCurrent ? ' map-current' : '') +
-        (regional || t.bg_color || t.color ? ' map-styled' : '') +
-        (isPoi ? ` map-poi map-poi-${t.poi}` : '') +
-        (terrain ? ` map-terr map-${terrain}` : '') +
-        (selName && t.name === selName ? ' map-legend-sel' : '');
-      const style = styles.length ? ` style="${styles.join(';')}"` : '';
-      const entMark = regional ? '' : entranceMark(t.entrance, 'map') + exitMarks(t.exit_dirs, 'map'); // arrows only when tiles are big enough to read
-      html += `<span class="${cls}"${style} data-zone-id="${t.id}">${content}${entMark}${terrOv}</span>`;
-    }
-  }
-  // GPS route: draw a yellow line through the centres of the route tiles (an SVG laid
-  // over the grid) rather than highlighting boxes. Tiles off the current grid/window
-  // (or in another district in regional view) are skipped.
-  const routeIds = effectiveTracePath(curTile?.id) || [];
-  if (routeIds.length > 1) {
-    const pts = [];
-    for (const id of routeIds) {
-      const rt = mapState.byId.get(id);
-      if (!rt) continue;
-      const c = colOf(rt), r = rowOf(rt);
-      if (c == null || r == null || c < 0 || c >= gCols || r < 0 || r >= gRows) continue;
-      pts.push(`${((c + 0.5) * tilePx).toFixed(1)},${((r + 0.5) * tilePx).toFixed(1)}`);
-    }
-    if (pts.length > 1)
-      html += `<svg class="map-gps-svg" viewBox="0 0 ${gCols * tilePx} ${gRows * tilePx}" preserveAspectRatio="none"><polyline class="map-gps-line" stroke-width="${Math.max(2, tilePx * 0.18).toFixed(1)}" points="${pts.join(' ')}"/></svg>`;
-  }
-  grid.innerHTML = html;
-
-  // Right panel: "you are here" + landmark keys + the deduped tile list (one row
-  // per distinct building/terrain, in its own painted colour). Same for every zoom
-  // level now — no separate land-use legend.
-  let KEYS = '';
-  const poiPresent = new Set(tiles.map(t => t.poi).filter(Boolean));
-  for (const key of Object.keys(POI_LEGEND)) {
-    if (!poiPresent.has(key)) continue;
-    const p = POI_LEGEND[key];
-    KEYS += `<div class="map-leg-row"><span class="map-leg-sym map-poi map-poi-${key}">${p.icon}</span> ${p.label}</div>`;
-  }
-  if (territory && _territory?.orgs?.length) {
-    KEYS += `<div class="map-leg-row map-leg-head">Territory</div>`;
-    for (const o of _territory.orgs) {
-      const style = `background:${o.color};color:${contrastInk(o.color)}`;
-      const you = o.id === _territory.myOrgId ? ' (you)' : '';
-      KEYS += `<div class="map-leg-row"><span class="map-leg-sym map-styled" style="${style}">&nbsp;&nbsp;</span> ${escapeHtml(o.tag)} ${escapeHtml(o.name)}${you}</div>`;
-    }
-  }
-  const youLabel = (mode === 'zone' && insideInterior) ? 'You are here (inside)' : 'You are here';
-  let leg = `<div class="map-leg-row map-leg-head"><span class="map-leg-sym map-current"></span> ${youLabel}</div>` + KEYS + `<div class="map-list">`;
-  // Alphabetical by marker (falling back to the 2-letter tile abbrev), then name;
-  // deduped so each distinct building/terrain name appears exactly once.
-  const seenNames = new Set();
-  const sorted = [...tiles].sort((a, b) => {
-    const ka = (a.marker || twoLetterAbbrev(a.name)).toLowerCase();
-    const kb = (b.marker || twoLetterAbbrev(b.name)).toLowerCase();
-    if (ka !== kb) return ka < kb ? -1 : 1;
-    return (a.name || '').localeCompare(b.name || '');
-  }).filter(t => { const n = (t.name || '').toLowerCase(); if (seenNames.has(n)) return false; seenNames.add(n); return true; });
-  for (const t of sorted) {
-    const styles = [];
-    if (t.bg_color) styles.push(`background:${t.bg_color}`);
-    const legColor = t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null);
-    if (legColor) styles.push(`color:${legColor}`);
-    const symCls = `map-leg-sym danger-${t.danger || 'safe'}` + (t.bg_color || t.color ? ' map-styled' : '');
-    const style = styles.length ? ` style="${styles.join(';')}"` : '';
-    const rowCls = 'map-leg-row map-list-row' + (t.isCurrent ? ' map-list-current' : '')
-      + (selName && t.name === selName ? ' map-list-sel' : '');
-    leg += `<div class="${rowCls}" data-zone-id="${t.id}"><span class="${symCls}"${style}>${symFor(t)}</span> ${escapeHtml(t.name)}</div>`;
-  }
-  leg += `</div>`;
-  legend.innerHTML = leg;
-
-  // Center the viewport on the current tile (offsets require the panel laid out).
-  centerMapOnCurrent();
-  updateMapZoomBtns();
-  syncMapAutoBtn();
-}
-
-// If the map popup is currently open, silently re-request it at the current
-// zoom level so it stays in sync as the player moves — same-shape response as
-// opening it fresh, just routed back through the normal 'map' message handler.
-export function refreshMapIfOpen() {
-  if (document.getElementById('map-panel')?.classList.contains('active')) {
-    sendCmdSilent(`map ${mapState.mode}`);
-  }
 }
