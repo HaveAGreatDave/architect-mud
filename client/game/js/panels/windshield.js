@@ -4082,7 +4082,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   for (const it of items) {
     const alpha = it.alpha, bi = it.c.biome;
     if (it.c.mark === 'statue') { drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now); continue; }   // town-square monument + fountain
-    if (it.c.mark === 'yacht') { drawYacht(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now, it.c.wake, it.c.heading); continue; }   // the Echelon — sleek black superyacht + helipad (wake/heading present only when she's under way, e.g. the Helm chase view)
+    if (it.c.mark === 'yacht') { drawYacht(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now, it.c.wake, it.c.heading, sun); continue; }   // the Echelon — a high-poly superyacht hull, sun-lit (wake/heading present only when she's under way, e.g. the Helm chase view)
     if (it.c.kind === 'nofly') { draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7); continue; }
     if (bi === 'parkland') { drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
     if (bi === 'badlands') { if ((it.seed % 3) === 0) drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
@@ -4178,112 +4178,160 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now) {
 // north, with a lit helipad aft (the tile a VTOL sets down on). Built world-fixed from a
 // spine of tapered hull boxes + a stepped deck house + a raised pad, so the sea (drawn by
 // the floor pass beneath) laps around the hull instead of runway concrete.
-function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading) {
-  const HULL = 'ty_yacht', DECK = 'ty_yacht_deck', GLASS = 'ty_yacht_glass';
-  const deckZ = 0.058;   // freeboard: main-deck height above the waterline (z=0)
+// The Echelon — a genuinely high-poly superyacht, built as a real triangulated hull rather than a
+// stack of boxes: cross-section stations (beam + sheer curves) swept fore→aft into a surface with a
+// chine knuckle, a cambered deck, a transom, a two-tier glass deckhouse, a radar arch, and railings.
+// Every face carries a world normal, so the whole model is depth-sorted (painter, far→near),
+// backface-culled, and lit by the real sun (`sun`) — the same directional shading the aircraft use —
+// falling back to a top-lit key at night. Shares the one function used by BOTH the flight sim and
+// the Helm chase view. heading 0 = bow north (−y), matching drawAircraftModel so a chase cam frames
+// her stern; a moored/streamed Echelon (no heading) renders bow-north.
+function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading, sun) {
   const hr = (heading || 0) * Math.PI / 180, shr = Math.sin(hr), chr = Math.cos(hr);
-  // Rotate a local (beam x, fore-aft y) offset into world tile coords about the yacht's centre.
-  // heading 0 = bow to the north (−y), matching drawAircraftModel's convention, so the chase cam
-  // (already sitting behind `heading`) frames her stern as she comes round. At heading 0 this is
-  // the identity → a moored/streamed Echelon (no heading) renders byte-for-byte as before.
-  const W = (ox, oy) => [dx - oy * shr + ox * chr, dy + oy * chr + ox * shr];
+  const isNight = night > 0.35;
+  const W = (ox, oy) => [dx - oy * shr + ox * chr, dy + oy * chr + ox * shr];              // local (beam,fore-aft) → world tile
   const proj = (ox, oy, z) => { const w = W(ox, oy); return cam.proj(w[0], w[1], z); };
-  const box = (oy, hw, z0, z1, biome, roof) => { const w = W(0, oy); draw3DBoxAt(ctx, cam, w[0], w[1], hw, z0, z1, biome, seed, night, alpha, roof, hr); };
+  const wv = (ox, oy, z) => { const w = W(ox, oy); return [w[0], w[1], z]; };              // local → world 3-vector (for normals)
 
-  // 0. Wake — she carries one ONLY when under way (the Helm chase view sets cell.wake.spd);
-  //    a moored Echelon passes no `wake`, so ordinary fly-bys are unchanged. Drawn first, on
-  //    the water surface, so the hull sits over its churning origin.
+  // 0. Wake — carried ONLY when under way (the Helm view / a just-sailed yacht set cell.wake.spd);
+  //    a moored Echelon passes none, so ordinary fly-bys are unchanged. Drawn first, on the water.
   if (wake && wake.spd > 0.02) drawYachtWake(ctx, cam, dx, dy, hr, night, alpha, now, Math.min(1.2, wake.spd));
-  // 1. Hull — a slim spine of boxes, tapering to a point at the bow (fore, −y local).
-  for (const [oy, hw] of [[-0.36, 0.05], [-0.18, 0.11], [0.0, 0.13], [0.18, 0.13], [0.34, 0.10]]) box(oy, hw, 0, deckZ, HULL, true);
-  // 2. Stepped superstructure amidships — a broad lounge deck with a smoked-glass band, then a bridge.
-  box(-0.04, 0.10, deckZ, deckZ + 0.05, DECK, true);
-  box(-0.03, 0.105, deckZ + 0.016, deckZ + 0.036, GLASS, false);
-  box(-0.13, 0.072, deckZ + 0.05, deckZ + 0.10, DECK, true);
-  // 3. Helipad aft — a flat raised pad with a painted ring + "H", lit amber at night.
-  const padOY = 0.25, padZ = deckZ + 0.006, padR = 0.1;   // pad ring radius in tile units — sits within the pad, not the whole footprint
-  box(padOY, 0.13, deckZ, padZ, DECK, true);
+
+  // ── Palette ──
+  const HULL_LO = [14, 18, 25], HULL_HI = [30, 37, 48], TRANSOM = [18, 23, 31], DECK = [92, 100, 112],
+        HOUSE = [32, 39, 50], ROOF = [44, 52, 64], GLASS = [46, 70, 102], PAD = [76, 84, 96];
+  const EDGE = isNight ? 'rgba(120,150,185,0.14)' : 'rgba(0,0,0,0.15)';
+  const GEDGE = isNight ? 'rgba(150,190,230,0.30)' : 'rgba(205,222,240,0.26)';
+
+  // ── Hull geometry: cross-section stations [t (0=bow→1=stern), half-beam, sheer height] ──
+  const ST = [
+    [0.00, 0.000, 0.086], [0.08, 0.046, 0.082], [0.18, 0.090, 0.074], [0.30, 0.118, 0.066],
+    [0.42, 0.134, 0.060], [0.55, 0.134, 0.056], [0.68, 0.130, 0.056], [0.80, 0.122, 0.058],
+    [0.90, 0.114, 0.060], [1.00, 0.106, 0.062],
+  ];
+  const N = ST.length, OY = (t) => -0.52 + t * 0.94;   // bow at oy −0.52, transom at +0.42 (length ~0.94 tiles)
+  const hbsz = (oy) => { const t = clamp((oy + 0.52) / 0.94, 0, 1); let i = 0; while (i < N - 2 && ST[i + 1][0] < t) i++; const a = ST[i], b = ST[i + 1], u = b[0] > a[0] ? (t - a[0]) / (b[0] - a[0]) : 0; return [a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]; };
+
+  const faces = [];
+  const F = (p, col, o) => faces.push(Object.assign({ p, col }, o));
+
+  // Topsides — two bands per side (waterline→chine knuckle, chine→sheer) swept between stations, so
+  // the flank is a curved surface with a real knuckle line, not a flat slab. Deck panels (port/star,
+  // cambered to a centreline crown) cap each bay. The bow station (hb≈0) closes the surface to a point.
+  for (let i = 0; i < N - 1; i++) {
+    const [t0, hb0, sz0] = ST[i], [t1, hb1, sz1] = ST[i + 1], oy0 = OY(t0), oy1 = OY(t1);
+    const wb0 = hb0 * 0.70, wb1 = hb1 * 0.70, cb0 = hb0 * 0.99, cb1 = hb1 * 0.99, cz0 = sz0 * 0.42, cz1 = sz1 * 0.42;
+    for (const s of [-1, 1]) {
+      F([[s * wb0, oy0, 0], [s * wb1, oy1, 0], [s * cb1, oy1, cz1], [s * cb0, oy0, cz0]], HULL_LO, { edge: EDGE });
+      F([[s * cb0, oy0, cz0], [s * cb1, oy1, cz1], [s * hb1, oy1, sz1], [s * hb0, oy0, sz0]], HULL_HI, { edge: EDGE });
+    }
+    const cam0 = 0.004, cam1 = 0.004;
+    F([[-hb0, oy0, sz0], [0, oy0, sz0 + cam0], [0, oy1, sz1 + cam1], [-hb1, oy1, sz1]], DECK);
+    F([[hb0, oy0, sz0], [0, oy0, sz0 + cam0], [0, oy1, sz1 + cam1], [hb1, oy1, sz1]], DECK);
+  }
+  { const [, hb, sz] = ST[N - 1], oy = OY(1), wb = hb * 0.70;   // transom
+    F([[-wb, oy, 0], [wb, oy, 0], [hb, oy, sz], [-hb, oy, sz]], TRANSOM, { edge: EDGE }); }
+
+  // Deckhouse — a tapered superstructure with a raked glass windshield, side glass bands over solid
+  // bulwarks, a back wall and a roof; then a smaller raked-glass bridge tier on top.
+  { const hw = 0.090, hwT = 0.074, baseZ = 0.064, midZ = 0.090, topZ = 0.118, fB = -0.16, fT = -0.09, bk = 0.14;
+    for (const s of [-1, 1]) {
+      F([[s * hw, fB, baseZ], [s * hw, bk, baseZ], [s * hw, bk, midZ], [s * hw, fB, midZ]], HOUSE, { edge: EDGE });
+      F([[s * hw, fB, midZ], [s * hw, bk, midZ], [s * hwT, bk, topZ], [s * hwT, fT, topZ]], GLASS, { glass: 1, edge: GEDGE });
+    }
+    F([[-hw, fB, baseZ], [hw, fB, baseZ], [hwT, fT, topZ], [-hwT, fT, topZ]], GLASS, { glass: 1, edge: GEDGE });   // raked windshield
+    F([[-hw, bk, baseZ], [hw, bk, baseZ], [hwT, bk, topZ], [-hwT, bk, topZ]], HOUSE, { edge: EDGE });
+    F([[-hwT, fT, topZ], [hwT, fT, topZ], [hwT, bk, topZ], [-hwT, bk, topZ]], ROOF);
+    const hw2 = 0.058, hw2T = 0.046, z0 = topZ, z1 = topZ + 0.046, f2B = -0.03, f2T = 0.01, bk2 = 0.10;
+    F([[-hw2, f2B, z0], [hw2, f2B, z0], [hw2T, f2T, z1], [-hw2T, f2T, z1]], GLASS, { glass: 1, edge: GEDGE });   // bridge windshield
+    for (const s of [-1, 1]) F([[s * hw2, f2B, z0], [s * hw2, bk2, z0], [s * hw2T, bk2, z1], [s * hw2T, f2T, z1]], GLASS, { glass: 1, edge: GEDGE });
+    F([[-hw2, bk2, z0], [hw2, bk2, z0], [hw2T, bk2, z1], [-hw2T, bk2, z1]], HOUSE, { edge: EDGE });
+    F([[-hw2T, f2T, z1], [hw2T, f2T, z1], [hw2T, bk2, z1], [-hw2T, bk2, z1]], ROOF); }
+
+  // Aft helipad — a low raised platform (its painted ring + "H" are stroked in the overlay pass).
+  const pO0 = 0.16, pO1 = 0.40, pHW = 0.108, pZ0 = 0.060, pZ1 = 0.070, padOY = (pO0 + pO1) / 2, padR = 0.088;
+  F([[-pHW, pO0, pZ1], [pHW, pO0, pZ1], [pHW, pO1, pZ1], [-pHW, pO1, pZ1]], PAD);
+  F([[-pHW, pO0, pZ0], [pHW, pO0, pZ0], [pHW, pO0, pZ1], [-pHW, pO0, pZ1]], HOUSE, { edge: EDGE });
+  for (const s of [-1, 1]) F([[s * pHW, pO0, pZ0], [s * pHW, pO1, pZ0], [s * pHW, pO1, pZ1], [s * pHW, pO0, pZ1]], HOUSE, { edge: EDGE });
+
+  // ── Lighting: directional sun (as the aircraft use), else a top-lit key at night ──
+  let toSun = null;
+  if (sun && sun.elev > 0.02 && !isNight) {
+    const e = clamp(sun.elev, 0, 1), hz = Math.sqrt(Math.max(0, 1 - e * e)), m = Math.hypot(sun.dir[0] * hz, sun.dir[1] * hz, e) || 1;
+    toSun = [sun.dir[0] * hz / m, sun.dir[1] * hz / m, e / m];
+  }
+  const camPos = [-(cam.back || 0) * cam.sinh, (cam.back || 0) * cam.cosh, cam.EH];   // eye position in world
+  const ctr = [dx, dy, 0.04];   // hull centre — used to orient every face's normal outward
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+  // ── Project, backface-cull, depth-sort (far→near), shade, fill ──
+  const draw = [];
+  for (const fc of faces) {
+    const w0 = wv(fc.p[0][0], fc.p[0][1], fc.p[0][2]), w1 = wv(fc.p[1][0], fc.p[1][1], fc.p[1][2]), w2 = wv(fc.p[2][0], fc.p[2][1], fc.p[2][2]);
+    const e1 = sub(w1, w0), e2 = sub(w2, w0);
+    let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+    const nm = Math.hypot(n[0], n[1], n[2]) || 1; n = [n[0] / nm, n[1] / nm, n[2] / nm];
+    const cen = [(w0[0] + w1[0] + w2[0]) / 3, (w0[1] + w1[1] + w2[1]) / 3, (w0[2] + w1[2] + w2[2]) / 3];
+    if (dot(n, sub(cen, ctr)) < 0) n = [-n[0], -n[1], -n[2]];   // orient outward from the hull centre
+    if (dot(n, sub(camPos, cen)) <= 0) continue;                // backface → skip
+    const sp = fc.p.map((p) => proj(p[0], p[1], p[2]));
+    if (sp.some((q) => q.f <= 0.07)) continue;
+    let af = 0; for (const q of sp) af += q.f; af /= sp.length;
+    const lm = toSun ? clamp(0.6 + 0.62 * Math.max(0, dot(n, toSun)) + 0.1 * Math.max(0, n[2]), 0.3, 1.3)
+                     : clamp(0.4 + 0.42 * Math.max(0, n[2]), 0.3, 1.05);
+    draw.push({ sp, col: fc.col, glass: fc.glass, edge: fc.edge, lm, af });
+  }
+  draw.sort((a, b) => b.af - a.af);
+  ctx.globalAlpha = 1;
+  for (const it of draw) {
+    let r = it.col[0] * it.lm, g = it.col[1] * it.lm, b = it.col[2] * it.lm;
+    if (it.glass) { r += 12; g += 18; b += 30; }   // glass lifts a cool sky reflection
+    ctx.beginPath(); it.sp.forEach((q, i) => (i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy))); ctx.closePath();
+    ctx.fillStyle = `rgba(${clamp(r, 0, 255) | 0},${clamp(g, 0, 255) | 0},${clamp(b, 0, 255) | 0},${alpha})`; ctx.fill();
+    if (it.edge) { ctx.strokeStyle = it.edge; ctx.lineWidth = 1; ctx.stroke(); }
+  }
+
+  // ── Overlays: helipad ring + "H", railings, radar arch, mast beacon ──
   ctx.save(); ctx.globalAlpha = alpha;
-  const ring = []; for (let i = 0; i <= 20; i++) { const a = i / 20 * Math.PI * 2, p = proj(Math.cos(a) * padR, padOY + Math.sin(a) * padR, padZ + 0.002); if (p.f <= 0.08) { ring.length = 0; break; } ring.push(p); }
-  const white = night ? 'rgba(255,210,120,0.9)' : 'rgba(236,239,243,0.9)';
+  const ring = []; for (let i = 0; i <= 20; i++) { const a = i / 20 * Math.PI * 2, p = proj(Math.cos(a) * padR, padOY + Math.sin(a) * padR, pZ1 + 0.002); if (p.f <= 0.08) { ring.length = 0; break; } ring.push(p); }
   if (ring.length) {
-    ctx.strokeStyle = white; ctx.lineWidth = 1.4;
+    ctx.strokeStyle = isNight ? 'rgba(255,210,120,0.9)' : 'rgba(236,239,243,0.9)'; ctx.lineWidth = 1.4;
     ctx.beginPath(); ring.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.stroke();
-    const HP = (ox, oy) => proj(ox * padR, padOY + oy * padR, padZ + 0.003);
-    const hp = [HP(-0.34, -0.42), HP(-0.34, 0.42), HP(0.34, -0.42), HP(0.34, 0.42), HP(-0.34, 0), HP(0.34, 0)];
-    if (hp.every(p => p.f > 0.08)) {   // a blocky "H"
-      ctx.lineWidth = 2.2;
-      ctx.beginPath(); ctx.moveTo(hp[0].sx, hp[0].sy); ctx.lineTo(hp[1].sx, hp[1].sy); ctx.moveTo(hp[2].sx, hp[2].sy); ctx.lineTo(hp[3].sx, hp[3].sy); ctx.moveTo(hp[4].sx, hp[4].sy); ctx.lineTo(hp[5].sx, hp[5].sy); ctx.stroke();
-    }
+    const HP = (ox, oy) => proj(ox * padR, padOY + oy * padR, pZ1 + 0.003), hp = [HP(-0.34, -0.42), HP(-0.34, 0.42), HP(0.34, -0.42), HP(0.34, 0.42), HP(-0.34, 0), HP(0.34, 0)];
+    if (hp.every(p => p.f > 0.08)) { ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(hp[0].sx, hp[0].sy); ctx.lineTo(hp[1].sx, hp[1].sy); ctx.moveTo(hp[2].sx, hp[2].sy); ctx.lineTo(hp[3].sx, hp[3].sy); ctx.moveTo(hp[4].sx, hp[4].sy); ctx.lineTo(hp[5].sx, hp[5].sy); ctx.stroke(); }
   }
-  ctx.restore();
-  // 3.5 Faceting — angular triangle panels that turn the box hull into a sharp, impressive
-  //     superyacht: a raked clipper prow, a swept foredeck vee, smoked-glass windshield facets,
-  //     hull chines down each flank, and a raked radar fin. All heading-aware via `proj`.
-  ctx.save(); ctx.globalAlpha = alpha;
-  const DK = 'rgba(9,12,17,0.98)', MD = 'rgba(26,32,41,0.97)', GL = 'rgba(46,70,98,0.9)', EDG = night ? 'rgba(120,150,185,0.35)' : 'rgba(196,212,230,0.32)';
-  const tri = (P0, P1, P2, fill, edge) => {
-    const a = proj(P0[0], P0[1], P0[2]), b = proj(P1[0], P1[1], P1[2]), c = proj(P2[0], P2[1], P2[2]);
-    if (a.f <= 0.06 || b.f <= 0.06 || c.f <= 0.06) return;
-    ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.lineTo(c.sx, c.sy); ctx.closePath();
-    ctx.fillStyle = fill; ctx.fill();
-    if (edge) { ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke(); }
-  };
-  // Raked clipper prow — two blades meeting at a point forward of the hull.
-  tri([0, -0.36, deckZ], [0, -0.48, 0.016], [-0.055, -0.32, 0.010], DK, EDG);
-  tri([0, -0.36, deckZ], [0, -0.48, 0.016], [0.055, -0.32, 0.010], MD, EDG);
-  // Swept foredeck vee.
-  tri([0, -0.34, deckZ + 0.002], [-0.095, -0.20, deckZ + 0.002], [0, -0.15, deckZ + 0.004], MD);
-  tri([0, -0.34, deckZ + 0.002], [0.095, -0.20, deckZ + 0.002], [0, -0.15, deckZ + 0.004], DK);
-  // Raked smoked-glass windshield facets climbing to the bridge.
-  tri([-0.095, -0.085, deckZ + 0.006], [0.095, -0.085, deckZ + 0.006], [0, -0.15, deckZ + 0.052], GL, EDG);
-  tri([-0.072, -0.10, deckZ + 0.05], [0.072, -0.10, deckZ + 0.05], [0, -0.145, deckZ + 0.10], GL, EDG);
-  // Angular hull chines down each flank.
-  tri([-0.13, -0.16, deckZ * 0.55], [-0.13, 0.18, deckZ * 0.55], [-0.10, 0.0, 0.0], MD, EDG);
-  tri([0.13, -0.16, deckZ * 0.55], [0.13, 0.18, deckZ * 0.55], [0.10, 0.0, 0.0], DK, EDG);
-  // Aft quarter facets flanking the helipad.
-  tri([-0.13, 0.14, deckZ], [-0.13, 0.34, deckZ], [-0.06, 0.30, deckZ], MD);
-  tri([0.13, 0.14, deckZ], [0.13, 0.34, deckZ], [0.06, 0.30, deckZ], DK);
-  // Raked radar fin above the bridge — a swept triangular sail on each side of the mast.
-  tri([-0.016, -0.12, deckZ + 0.10], [-0.016, -0.20, deckZ + 0.10], [-0.016, -0.15, deckZ + 0.24], DK, EDG);
-  tri([0.016, -0.12, deckZ + 0.10], [0.016, -0.20, deckZ + 0.10], [0.016, -0.15, deckZ + 0.24], MD, EDG);
-  ctx.restore();
-  // 4. A slim mast over the bridge, with a blinking red beacon.
-  const m0 = proj(0, -0.13, deckZ + 0.10), m1 = proj(0, -0.13, deckZ + 0.19);
-  if (m0.f > 0.12 && m1.f > 0.12) {
-    ctx.save(); ctx.globalAlpha = alpha;
-    ctx.strokeStyle = night ? 'rgba(180,190,200,0.8)' : 'rgba(90,96,104,0.9)'; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.moveTo(m0.sx, m0.sy); ctx.lineTo(m1.sx, m1.sy); ctx.stroke();
-    if (0.5 + 0.5 * Math.sin(now * 0.006) > 0.5) { ctx.fillStyle = 'rgba(255,90,80,0.95)'; ctx.beginPath(); ctx.arc(m1.sx, m1.sy, 2, 0, 7); ctx.fill(); }
-    ctx.restore();
+  // Railings — a top rail tracing the foredeck sheer with stanchions.
+  ctx.strokeStyle = isNight ? 'rgba(205,214,228,0.55)' : 'rgba(176,188,204,0.72)'; ctx.lineWidth = 1;
+  for (const s of [-1, 1]) {
+    const line = [];
+    for (let oy = -0.46; oy <= 0.02; oy += 0.04) { const [hb, sz] = hbsz(oy); const p = proj(s * hb, oy, sz + 0.017); if (p.f > 0.1) line.push(p); }
+    if (line.length > 1) { ctx.beginPath(); line.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke(); }
+    for (let oy = -0.44; oy <= 0.0; oy += 0.08) { const [hb, sz] = hbsz(oy); const a = proj(s * hb, oy, sz), b = proj(s * hb, oy, sz + 0.017); if (a.f > 0.1 && b.f > 0.1) { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); } }
   }
-  // 5. Night dressing — a superyacht lit up on the dark water: warm cabin spill through the
-  //    superstructure glass, a cool-lit bridge, the amber helipad wash, a necklace of white
-  //    running lights tracing both deck rails, warm deck-house windows, and a bow lamp.
-  if (night) {
-    const gp = (ox, oy, z, col, r, al) => { const w = W(ox, oy); glowPool(ctx, cam, w[0], w[1], z, col, r, al); };
-    gp(0, -0.03, deckZ + 0.03, '255,206,150', 15, alpha * 0.5);   // lounge deck aglow through the smoked glass
-    gp(0, -0.13, deckZ + 0.08, '200,220,255', 11, alpha * 0.42);  // lit bridge
-    gp(0, padOY, padZ + 0.004, '255,200,110', 16, alpha * 0.4);   // helipad wash
+  // Radar arch behind the bridge with a slowly-sweeping bar, and a mast + blinking beacon.
+  const archTop = 0.118 + 0.046 + 0.055;
+  ctx.strokeStyle = isNight ? 'rgba(180,190,205,0.75)' : 'rgba(70,78,90,0.9)'; ctx.lineWidth = 1.4;
+  for (const s of [-1, 1]) { const a = proj(s * 0.03, 0.09, 0.164), b = proj(s * 0.03, 0.11, archTop); if (a.f > 0.1 && b.f > 0.1) { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); } }
+  const al = proj(-0.03, 0.11, archTop), ar = proj(0.03, 0.11, archTop); if (al.f > 0.1 && ar.f > 0.1) { ctx.beginPath(); ctx.moveTo(al.sx, al.sy); ctx.lineTo(ar.sx, ar.sy); ctx.stroke(); }
+  const rc = proj(0, 0.11, archTop + 0.006), re = proj(Math.cos(now * 0.004) * 0.05, 0.11, archTop + 0.006); if (rc.f > 0.1 && re.f > 0.1) { ctx.beginPath(); ctx.moveTo(rc.sx, rc.sy); ctx.lineTo(re.sx, re.sy); ctx.stroke(); }
+  const m0 = proj(0, 0.02, 0.164), m1 = proj(0, 0.02, 0.264);
+  if (m0.f > 0.12 && m1.f > 0.12) { ctx.beginPath(); ctx.moveTo(m0.sx, m0.sy); ctx.lineTo(m1.sx, m1.sy); ctx.stroke(); if (0.5 + 0.5 * Math.sin(now * 0.006) > 0.5) { ctx.fillStyle = 'rgba(255,90,80,0.95)'; ctx.beginPath(); ctx.arc(m1.sx, m1.sy, 2, 0, 7); ctx.fill(); } }
+  ctx.restore();
+
+  // ── Night dressing — cabin glow through the glass, helipad wash, running lights, sidelights ──
+  if (isNight) {
+    const gp = (ox, oy, z, col, r, a) => { const w = W(ox, oy); glowPool(ctx, cam, w[0], w[1], z, col, r, a); };
+    gp(0, -0.02, 0.10, '255,206,150', 15, alpha * 0.5);   // lounge / saloon glow
+    gp(0, 0.05, 0.15, '200,220,255', 11, alpha * 0.42);   // lit bridge
+    gp(0, padOY, pZ1 + 0.004, '255,200,110', 16, alpha * 0.4);   // helipad wash
     ctx.save(); ctx.globalAlpha = alpha;
-    // Running lights: a bright white string down both rails, a glowing bow lamp, and proper red
-    // (port) / green (starboard) sidelights forward — so a dark hull on dark water clearly reads
-    // as a lit ship under way, not a shadow.
     ctx.fillStyle = 'rgba(245,248,252,0.95)';
-    const rail = [[0, -0.38]];
-    for (let i = 0; i <= 6; i++) { const oy = -0.34 + i * (0.64 / 6); rail.push([-0.12, oy], [0.12, oy]); }
-    for (const [ox, oy] of rail) {
-      const p = proj(ox, oy, deckZ + 0.006); if (p.f > 0.1) { ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(2.2 / p.f, 0.7, 3.2), 0, 7); ctx.fill(); }
-    }
-    gp(0, -0.38, deckZ + 0.012, '245,248,252', 8, alpha * 0.5);   // bow steaming-lamp glow
-    for (const [ox, glow, dot] of [[-0.12, '255,74,64', 'rgba(255,96,86,0.98)'], [0.12, '70,232,126', 'rgba(96,240,150,0.98)']]) {
-      gp(ox, -0.30, deckZ + 0.012, glow, 7, alpha * 0.55);       // port red / starboard green sidelight
-      const p = proj(ox, -0.30, deckZ + 0.012); if (p.f > 0.1) { ctx.fillStyle = dot; ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(2.2 / p.f, 0.8, 3.2), 0, 7); ctx.fill(); }
-    }
-    // Warm deck-house windows as bright points over the soft glow.
-    ctx.fillStyle = 'rgba(255,214,150,0.95)';
-    for (const [ox, oy, oz] of [[-0.06, -0.03, deckZ + 0.026], [0.06, -0.03, deckZ + 0.026], [0, -0.13, deckZ + 0.075]]) {
-      const p = proj(ox, oy, oz); if (p.f > 0.1) { ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(1.6 / p.f, 0.5, 2.4), 0, 7); ctx.fill(); }
+    for (const s of [-1, 1]) for (let oy = -0.44; oy <= 0.30; oy += 0.09) { const [hb, sz] = hbsz(oy); const p = proj(s * hb, oy, sz + 0.012); if (p.f > 0.1) { ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(2.0 / p.f, 0.6, 3.0), 0, 7); ctx.fill(); } }
+    gp(0, -0.5, 0.07, '245,248,252', 8, alpha * 0.5);   // bow steaming lamp
+    for (const [s, glow, dotc] of [[-1, '255,74,64', 'rgba(255,96,86,0.98)'], [1, '70,232,126', 'rgba(96,240,150,0.98)']]) {
+      const [hb, sz] = hbsz(-0.34); gp(s * hb, -0.34, sz + 0.012, glow, 7, alpha * 0.55);   // port red / starboard green
+      const p = proj(s * hb, -0.34, sz + 0.012); if (p.f > 0.1) { ctx.fillStyle = dotc; ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(2.2 / p.f, 0.8, 3.2), 0, 7); ctx.fill(); }
     }
     ctx.restore();
   }
