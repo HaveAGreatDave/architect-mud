@@ -1,0 +1,18 @@
+{
+  "description": "Slim uplighting sconces march up the grand staircase, washing the bulkheads in a soft warm glow.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_echelon_foyer_sconces",
+  "light_type": "lamp",
+  "lumen_output": 800,
+  "name": "brushed-titanium wall sconces",
+  "object_type": "light",
+  "power_draw_kw": 8,
+  "price": 0,
+  "zone_id": "zone_echelon_foyer"
+}

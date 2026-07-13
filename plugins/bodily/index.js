@@ -34,6 +34,13 @@ export const isToilet = (f) =>
   f?.object_type === 'toilet' || !!f?.flags?.toilet || /\btoilet\b/i.test(f?.name || '');
 const TOILET_SQL = `(object_type='toilet' OR jsonb_exists(flags,'toilet') OR name ILIKE '%toilet%')`;
 
+// What counts as a shower — the same three-way match as a toilet (object_type,
+// a flags.shower key, or the word in the name), so a fixture named "…shower…"
+// just works whether or not the dev remembered to type it.
+export const isShower = (f) =>
+  f?.object_type === 'shower' || !!f?.flags?.shower || /\bshower\b/i.test(f?.name || '');
+const SHOWER_SQL = `(object_type='shower' OR jsonb_exists(flags,'shower') OR name ILIKE '%shower%')`;
+
 // Runtime-only state. A toilet stays fouled (poop) / full of piss until flushed;
 // toiletSessions guards against starting a toilet routine twice at once.
 const fouledToilets  = new Set(); // furniture id — unflushed poop
@@ -645,6 +652,62 @@ async function cmdFlush(args, player) {
   };
 }
 
+// A brief cosmetic badge after a shower — no mechanical tick, just a visible
+// "Refreshed" status (same purely-visual pattern as weightbench's Exhausted).
+registerStatusEffect({ name: 'refreshed', label: 'Refreshed', onTick() {} });
+
+// Shower — the thorough clean. `wash` (owned by the MIS plugin) rinses off
+// dried fluid + blood at any sink/rain, but leaves the pee/poop stains that
+// bodily itself produces (clothing_contamination + the bare-skin soiled_state).
+// A shower strips all of it in one go and leaves you briefly Refreshed. Gated on
+// a shower fixture in the zone (object_type='shower' / flags.shower / named).
+async function cmdShower(player) {
+  const { rows } = await query(
+    `SELECT id FROM furniture WHERE zone_id=$1 AND ${SHOWER_SQL} LIMIT 1`,
+    [player.current_zone]
+  );
+  if (!rows.length) return { type:'error', message:`There's no shower here.` };
+
+  let cleaned = false;
+
+  // Clothing stains (urine/feces) — clear every soiled slot.
+  if (player.clothing_contamination && Object.keys(player.clothing_contamination).length) {
+    player.clothing_contamination = {};
+    await query(`UPDATE players SET clothing_contamination='{}'::jsonb WHERE id=$1`, [player.id]);
+    cleaned = true;
+  }
+
+  // Bare-skin soiling + any dried fluid — a full rinse takes both. (These are
+  // plain appearance_data fields read openly by appearance.js; clearing them
+  // here is a rinse, not MIS logic — no cross-plugin coupling.)
+  const ad = player.appearance_data || {};
+  if (ad.soiled_state || ad.ejaculate_state) {
+    ad.soiled_state = null;
+    ad.ejaculate_state = null;
+    player.appearance_data = ad;
+    await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(ad), player.id]);
+    cleaned = true;
+  }
+
+  // Blood.
+  if (player.covered_in_blood) {
+    player.covered_in_blood = 0;
+    await query('UPDATE players SET covered_in_blood=0 WHERE id=$1', [player.id]);
+    cleaned = true;
+  }
+
+  applyEffect(player, 'refreshed', 180); // ~3 min visible badge
+  emit('bodily.sfx', { zoneId: player.current_zone, playerId: player.id, cue: 'shower' });
+
+  return {
+    type: 'output',
+    private: true,
+    message: cleaned
+      ? `You step under the water and let it run until every trace of the day sluices off you. You feel human again.`
+      : `You step under the water and let it run hot. Nothing to scrub off — but it's good all the same. You feel refreshed.`,
+  };
+}
+
 // An unflushed toilet reads that way on a look, until someone flushes it.
 export const hooks = {
   'furniture.describe': (f) => {
@@ -774,6 +837,21 @@ async function cmdUseSink(player) {
   return { type:'output', message: msg };
 }
 
+async function cmdUseShower(player) {
+  const { rows } = await query(
+    `SELECT * FROM furniture WHERE zone_id=$1 AND ${SHOWER_SQL} LIMIT 1`,
+    [player.current_zone]
+  );
+  if (!rows.length) return undefined;
+
+  const s = rows[0];
+  const showerLink = `<span class="action-link" data-action="shower" data-target="">shower</span>`;
+
+  let msg = `${s.name}\n${s.description}`;
+  msg += `\n<span class="text-dim">Actions:</span> ${showerLink}`;
+  return { type:'output', message: msg };
+}
+
 export const specializedActions = [{
   verb: 'use',
   handler: async (args, raw, player) => {
@@ -781,6 +859,7 @@ export const specializedActions = [{
     if (!target) return undefined; // bare `use` stays with the inventory builtin
     if (target.includes('toilet')) return cmdUseToilet(player);
     if (target.includes('sink') || target.includes('faucet') || target.includes('tap')) return cmdUseSink(player);
+    if (target.includes('shower')) return cmdUseShower(player);
     return undefined;
   },
 }];
@@ -793,6 +872,7 @@ export const commands = {
   defecate: (args, raw, player, broadcast) => cmdPoop(args, player, broadcast),
   shit:     (args, raw, player, broadcast) => cmdPoop(args, player, broadcast),
   flush:    (args, raw, player)            => cmdFlush(args, player),
+  shower:   (args, raw, player)            => cmdShower(player),
 };
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }

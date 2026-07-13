@@ -262,6 +262,8 @@
     // --- Zone tags (scope 'zone': the zones.flags bag, validated on zone save) ---
     sanctuary: { label: 'Sanctuary', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Civilization carve-out — attach DELIBERATELY. Grants combat protection via the protection substrate, safe sleep, AI safe-flee targeting, and suppresses hostile spawns. (Not auto-derived from the legacy is_safe_zone column, which was stamped on most of the map.)' },
+    allow_sleep: { label: 'Allow Sleep', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
+      help: 'Permit `sleep` in this zone WITHOUT the full sanctuary bundle — grants safe-zone-rate rest but no combat protection / forcefield / spawn suppression. For places like the holding cell where you can doze but stay exposed.' },
     radiation: { label: 'Radiation', shape: 'int', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Ambient radiation 0-100. Players gain floor(value × 0.1) rads on entering the zone. Absent = clean. Replaces the radiation_level column.' },
     danger: { label: 'Danger Override', shape: 'enum', scope: 'zone', group: 'Zone: Law & Hazard',

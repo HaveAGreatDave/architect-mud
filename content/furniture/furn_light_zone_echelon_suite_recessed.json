@@ -1,0 +1,18 @@
+{
+  "description": "Concealed cove lighting and a scatter of pinpoint downlights render the owner's suite in flattering, dimmable warmth.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_echelon_suite_recessed",
+  "light_type": "overhead",
+  "lumen_output": 1600,
+  "name": "recessed suite lighting",
+  "object_type": "light",
+  "power_draw_kw": 25,
+  "price": 0,
+  "zone_id": "zone_echelon_suite"
+}

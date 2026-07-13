@@ -128,30 +128,51 @@ function _hitTrajectory(p) {
   return { batted: true, mode: 'hit', angle, land: _spot(angle, depth), fielder: _outfielderForAngle(angle) };
 }
 
-// ── Static field SVG (drawn once) ────────────────────────────────────────────────
+// Foul poles + the fence bezier. `_fencePt(t)` samples the fence arc (t 0→1, left→right).
+const GD_LP = [6, 15], GD_RP = [94, 15], GD_FC = [50, -3];
+function _fencePt(t) { const mt = 1 - t; return [mt * mt * GD_LP[0] + 2 * mt * t * GD_FC[0] + t * t * GD_RP[0], mt * mt * GD_LP[1] + 2 * mt * t * GD_FC[1] + t * t * GD_RP[1]]; }
+
+// ── Static field SVG (drawn once) — a top-down ballpark ──────────────────────────
 // preserveAspectRatio="none" so SVG user units map straight to the box's %, keeping the
 // tokens (which use left/top %) perfectly aligned with the drawn field at any box size.
 function _fieldSvg() {
   const P = (k) => `${SVGX(POS[k][0])},${SVGY(POS[k][1])}`;
+  const c = (k) => [SVGX(POS[k][0]), SVGY(POS[k][1])];
   const infield = `M${P('home')} L${P('b1')} L${P('b2')} L${P('b3')} Z`;
-  const lp = [6, 15], rp = [94, 15];          // foul poles at the upper corners
-  const fence = `M${lp[0]},${lp[1]} Q50,-3 ${rp[0]},${rp[1]}`;
+  const [lp, rp] = [GD_LP, GD_RP];
+  const fence = `M${lp[0]},${lp[1]} Q${GD_FC[0]},${GD_FC[1]} ${rp[0]},${rp[1]}`;
   const track = `M${lp[0] + 3},${lp[1] + 4} Q50,3 ${rp[0] - 3},${lp[1] + 4}`;   // warning track, just inside
-  const H = `${SVGX(POS.home[0])},${SVGY(POS.home[1])}`;
+  const home = c('home');
+
+  // Mowing fan — alternating grass wedges radiating from home to the fence.
+  let mow = '';
+  const N = 9;
+  for (let i = 0; i < N; i += 2) { const a = _fencePt(i / N), b = _fencePt((i + 1) / N); mow += `<path class="gd-mow" d="M${home[0]},${home[1]} L${a[0].toFixed(1)},${a[1].toFixed(1)} L${b[0].toFixed(1)},${b[1].toFixed(1)} Z"/>`; }
+
   return (
     `<svg class="gd-field-bg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">` +
+      `<defs><pattern id="gdCrowd" width="2.4" height="2.4" patternUnits="userSpaceOnUse">` +
+        `<rect width="2.4" height="2.4" fill="#0b1016"/><circle cx="0.7" cy="0.7" r="0.45" fill="rgba(255,255,255,0.07)"/><circle cx="1.9" cy="1.9" r="0.4" fill="rgba(255,255,255,0.05)"/>` +
+      `</pattern></defs>` +
+      // stands / crowd ring above the fence
+      `<path class="gd-stands" d="M0,0 L100,0 L100,${rp[1]} L${rp[0]},${rp[1]} Q${GD_FC[0]},${GD_FC[1]} ${lp[0]},${lp[1]} L0,${lp[1]} Z"/>` +
       // fair-territory grass, home → poles → along the fence
-      `<path class="gd-grass" d="M${H} L${lp[0]},${lp[1]} Q50,-3 ${rp[0]},${rp[1]} Z"/>` +
+      `<path class="gd-grass" d="M${SVGX(POS.home[0])},${SVGY(POS.home[1])} L${lp[0]},${lp[1]} Q${GD_FC[0]},${GD_FC[1]} ${rp[0]},${rp[1]} Z"/>` +
+      mow +
       // warning track band + outfield fence (the fence sits BEYOND the outfielders)
       `<path class="gd-track" d="${track}" fill="none"/>` +
       `<path class="gd-fence" d="${fence}" fill="none"/>` +
       // foul lines home → poles
       `<line class="gd-foul" x1="${SVGX(POS.home[0])}" y1="${SVGY(POS.home[1])}" x2="${lp[0]}" y2="${lp[1]}"/>` +
       `<line class="gd-foul" x1="${SVGX(POS.home[0])}" y1="${SVGY(POS.home[1])}" x2="${rp[0]}" y2="${rp[1]}"/>` +
-      // infield dirt + base paths + mound
-      `<path class="gd-dirt" d="${infield}"/>` +
+      // skinned infield — grass showing through, dirt base-paths + cut-outs + mound + home
+      `<path class="gd-dirtpath" d="${infield}" fill="none"/>` +
+      `<circle class="gd-dirtcut" cx="${c('b1')[0]}" cy="${c('b1')[1]}" r="4"/>` +
+      `<circle class="gd-dirtcut" cx="${c('b2')[0]}" cy="${c('b2')[1]}" r="4"/>` +
+      `<circle class="gd-dirtcut" cx="${c('b3')[0]}" cy="${c('b3')[1]}" r="4"/>` +
+      `<circle class="gd-dirtcut" cx="${home[0]}" cy="${home[1]}" r="5.5"/>` +
+      `<circle class="gd-mound" cx="${SVGX(POS.mound[0])}" cy="${SVGY(POS.mound[1])}" r="3.4"/>` +
       `<path class="gd-paths" d="${infield}" fill="none"/>` +
-      `<circle class="gd-mound" cx="${SVGX(POS.mound[0])}" cy="${SVGY(POS.mound[1])}" r="3.2"/>` +
     `</svg>`
   );
 }
@@ -175,6 +196,7 @@ function _fieldTokens() {
   const fielders = FIELDERS.map(([k, lbl]) =>
     `<div class="gd-fielder" data-pos="${k}" style="${at(k)}">${lbl}</div>`).join('');
   return (
+    `<div class="gd-fx"></div>` +
     `<div class="gd-bases">${bases}</div>` +
     `<div class="gd-fielders">${fielders}</div>` +
     `<div class="gd-batter" style="${at('bat')}"></div>` +
@@ -206,6 +228,7 @@ export function createGamedayView(host) {
   let timers = [];
   let caption = '';          // last announcer line, retained across the shell rebuild
   let field = null;          // the persistent .gd-field element (tokens live here)
+  let cardTimer = null;      // auto-dismiss for the Gameday-native jumbotron card
 
   function _stop() { timers.forEach(clearTimeout); timers = []; }
   function _t(ms, fn) { timers.push(setTimeout(fn, Math.max(0, ms))); }
@@ -227,6 +250,35 @@ export function createGamedayView(host) {
   const _base = (n) => field?.querySelector(`.gd-fbase[data-b="${n}"]`);
   const _litBase = (n, on) => { const b = _base(n); if (b) b.classList.toggle('lit', !!on); };
   const _crossBase = (n) => { const b = _base(n); if (!b) return; b.classList.remove('cross'); void b.offsetWidth; b.classList.add('cross'); };
+  const _fxLayer = () => field?.querySelector('.gd-fx');
+
+  // Spawn a short-lived effect token at fractional coords and auto-remove it.
+  function _spawn(cls, key, life) {
+    const layer = _fxLayer(); if (!layer) return null;
+    const el = document.createElement('div'); el.className = cls;
+    const [fx, fy] = Array.isArray(key) ? key : POS[key];
+    el.style.left = `${(fx * 100).toFixed(1)}%`; el.style.top = `${(fy * 100).toFixed(1)}%`;
+    layer.appendChild(el); _t(life, () => el.remove()); return el;
+  }
+  // A fading trail behind the ball: drops lit up in sequence along from→to as it passes.
+  function _trail(from, to, ms, hot) {
+    const a = Array.isArray(from) ? from : POS[from], b = Array.isArray(to) ? to : POS[to];
+    const n = 6;
+    for (let i = 1; i <= n; i++) { const f = i / (n + 1); const x = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f; _t(f * ms * 0.85, () => _spawn(`gd-trail${hot ? ' hot' : ''}`, [x, y], 520)); }
+  }
+  const _dust = (key) => _spawn('gd-dust', key, 620);            // kicked-up dirt at a bag
+  const _burst = (key) => _spawn('gd-burst', key, 900);          // celebratory ring
+
+  // Field-wide celebration for a home run / walk-off: pulse the field glow and pop a
+  // scatter of bursts along the fence where the ball left the yard.
+  function _celebrate(kind) {
+    if (!field) return;
+    field.classList.remove('celebrate', 'walkoff'); void field.offsetWidth;
+    field.classList.add('celebrate'); if (kind === 'walkoff') field.classList.add('walkoff');
+    _t(2400, () => field && field.classList.remove('celebrate', 'walkoff'));
+    const n = kind === 'walkoff' ? 6 : 4;
+    for (let i = 0; i < n; i++) { const pt = _fencePt(0.22 + (i / (n - 1)) * 0.56); _t(i * 150, () => _spawn('gd-burst hot', [pt[0] / 100, pt[1] / 100], 900)); }
+  }
 
   // Update the score bug + side rail (score, count, plot, matchup, play card). Never
   // touches the field (its tokens are animating), so it's safe to re-render each step.
@@ -286,16 +338,20 @@ export function createGamedayView(host) {
     // ── Ball + fielder ──
     if (traj.batted) {
       if (traj.mode === 'homer') {
+        _trail(POS.home, traj.land, T_HOMER, true);
         _move(ball, traj.land, T_HOMER, 'ease-out', true);
-        _t(T_HOMER, () => { if (ball) ball.style.opacity = '0'; });
+        _t(T_HOMER, () => { if (ball) ball.style.opacity = '0'; _burst(traj.land); _celebrate(p.walkoff ? 'walkoff' : 'homer'); });
       } else if (traj.mode === 'ground') {
+        _trail(POS.home, POS[traj.fielder], T_THROW);
         _move(ball, traj.fielder, T_THROW, 'linear');            // grounder to the infielder
-        _t(T_THROW, () => { _sfx(SFX.glove); _move(ball, 'F1B', T_THROW, 'linear'); _move(field.querySelector(`.gd-fielder[data-pos="${traj.fielder}"]`), traj.fielder, 1, 'linear'); });
+        _t(T_THROW, () => { _sfx(SFX.glove); _trail(POS[traj.fielder], POS.F1B, T_THROW); _move(ball, 'F1B', T_THROW, 'linear'); _move(field.querySelector(`.gd-fielder[data-pos="${traj.fielder}"]`), traj.fielder, 1, 'linear'); });
       } else { // fly / hit — arc to the landing spot; a fly is caught there
+        _trail(POS.home, traj.land, T_FLY);
         _move(ball, traj.land, T_FLY, 'ease-out', true);
         const f = field.querySelector(`.gd-fielder[data-pos="${traj.fielder}"]`);
         _move(f, traj.land, T_FLY, 'ease-in-out');
         if (traj.caught) _t(T_FLY, () => _sfx(SFX.glove));
+        if (p.walkoff) _t(T_FLY, () => _celebrate('walkoff'));
       }
     }
 
@@ -305,12 +361,25 @@ export function createGamedayView(host) {
     // clear pre-play lit; runner arrivals re-light below
     [0, 1, 2, 3].forEach(n => _litBase(n, false));
 
-    const scoreOff = (el, delay) => { _t(delay, () => { _crossBase(0); _move(el, 'dugout', T_RUN, 'ease-in'); _t(T_RUN, () => el && el.remove()); }); };
-    const sendRunner = (el, fromBase, bases, delay) => {
-      const target = fromBase + bases;
+    // Slide + kick up dirt as a runner reaches a bag.
+    const arrive = (el, key) => { _dust(key); if (el) { el.classList.remove('sliding'); void el.offsetWidth; el.classList.add('sliding'); } };
+    // Cross the plate and peel off to the dugout (a run scores).
+    const peel = (el) => { _crossBase(0); arrive(el, 'home'); _move(el, 'dugout', T_RUN, 'ease-in'); _t(T_RUN, () => el && el.remove()); };
+
+    // Advance a token base-by-base along the paths — ALWAYS 1st→2nd→3rd→home, one bag
+    // at a time, never cutting across the diamond. `startBase` is where it starts (0 =
+    // home, for the batter). Intermediate bags get a cross-pulse; the final bag lights.
+    const runBases = (el, startBase, bases, delay, legMs) => {
+      const dur = legMs || T_RUN;
       _t(delay, () => {
-        if (target >= 4) { _move(el, 'home', T_RUN, 'ease-in'); scoreOff(el, T_RUN); }
-        else { _move(el, BASE_POS[target], T_RUN * Math.max(1, bases), 'ease-in-out'); _t(T_RUN * Math.max(1, bases), () => _litBase(target, true)); }
+        for (let s = 1; s <= bases; s++) {
+          const to = startBase + s;
+          const last = s === bases;
+          _t((s - 1) * dur, () => _move(el, to >= 4 ? 'home' : BASE_POS[to], dur, to >= 4 ? 'ease-in' : 'ease-in-out'));
+          if (to >= 4) _t(s * dur, () => peel(el));
+          else if (last) _t(s * dur, () => { _litBase(to, true); arrive(el, BASE_POS[to]); });
+          else _t(s * dur, () => _crossBase(to));       // touched the bag in passing
+        }
       });
     };
 
@@ -326,33 +395,26 @@ export function createGamedayView(host) {
         else if (p.kind === 'doubleplay' && b === 1) { _t(T_THROW * 2, () => { _crossBase(1); r.classList.add('outed'); _t(300, () => r.remove()); }); continue; }
         else steps = 0;
       }
-      if (steps > 0) sendRunner(r, b, steps, traj.mode === 'ground' ? 120 : 60);
+      if (steps > 0) runBases(r, b, steps, traj.mode === 'ground' ? 120 : 60);
       else _t(30, () => _litBase(b, true));   // held — stays put, stays lit
     }
 
-    // Batter-runner.
+    // Batter-runner — out of the box and around the bags one at a time.
     if (adv >= 1) {
       const dest = Math.min(adv, 4);
-      if (dest >= 4) {
-        // home run: trot 1→2→3→home, then score.
-        const legs = ['b1', 'b2', 'b3', 'home'];
-        legs.forEach((k, i) => _t(i * (T_RUN * 0.75), () => { _move(batter, k, T_RUN * 0.8, 'ease-in-out'); if (i < 3) _crossBase(i + 1); }));
-        _t(legs.length * (T_RUN * 0.75), () => scoreOff(batter, 0));
-      } else {
-        _move(batter, BASE_POS[dest], T_RUN * dest, 'ease-in-out');
-        _t(T_RUN * dest, () => _litBase(dest, true));
-      }
+      runBases(batter, 0, dest, 0, dest >= 4 ? T_RUN * 0.8 : T_RUN);
     } else if (p.out && (p.kind === 'groundout' || p.kind === 'doubleplay' || p.kind === 'productout')) {
       // grounder: batter runs it out, thrown out at first
       _move(batter, 'b1', T_RUN, 'linear');
-      _t(T_RUN, () => { batter.classList.add('outed'); });
+      _t(T_RUN, () => { batter.classList.add('outed'); _dust('b1'); });
     } else {
       // fly / pop / K — batter doesn't reach
       _t(200, () => batter.classList.add('outed'));
     }
 
-    // Reconcile to the authoritative final base state once the motion has settled.
-    const settle = Math.max(T_RUN * 4, T_FLY) + 500;
+    // Reconcile to the authoritative final base state once the motion has settled
+    // (a runner may now traverse up to three bags one at a time, plus the peel).
+    const settle = Math.max(T_RUN * 5, T_FLY) + 500;
     _t(settle, () => {
       const after = p.basesAfter || [false, false, false];
       [1, 2, 3].forEach(n => _litBase(n, after[n - 1]));
@@ -428,11 +490,36 @@ export function createGamedayView(host) {
     if (el) { el.textContent = caption; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); }
   }
 
+  // Gameday-native jumbotron card. The server fires the same `sportsfx` graphics that
+  // normally take over the whole TV; while Gameday is open, tv.js routes them here so
+  // they render as a compact banner OVER the field instead — the field stays visible.
+  const CARD = {
+    homerun: (fx) => ({ title: fx.grand ? 'GRAND SLAM' : 'HOME RUN', sub: [fx.batter, fx.team].filter(Boolean).join(' · '), cls: 'hot' }),
+    walkoff: (fx) => ({ title: 'WALK-OFF!', sub: [fx.batter, fx.team].filter(Boolean).join(' · '), cls: 'hot' }),
+    doubleplay: () => ({ title: 'DOUBLE PLAY', sub: 'Two down', cls: 'out' }),
+    extras: (fx) => ({ title: 'EXTRA INNINGS', sub: fx.inningOrd ? `${fx.inningOrd} · Free Baseball` : 'Free Baseball', cls: '' }),
+    gamewin: (fx) => ({ title: 'FINAL', sub: fx.winner ? `${fx.winner} ${fx.winScore}–${fx.loseScore}` : '', cls: 'final' }),
+    matchup: (fx) => ({ title: 'DEADBALL', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: '' }),
+    worldseries: (fx) => ({ title: 'WORLD SERIES', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: 'hot' }),
+    champion: (fx) => ({ title: '🏆 CHAMPIONS', sub: fx.winner || '', cls: 'hot' }),
+  };
+  function showCard(fx) {
+    if (!host || !fx || !CARD[fx.kind]) return;
+    const m = CARD[fx.kind](fx);
+    let el = host.querySelector('.gd-jumbo');
+    if (!el) { el = document.createElement('div'); el.className = 'gd-jumbo'; host.appendChild(el); }
+    el.innerHTML = `<div class="gd-jumbo-title">${_esc(m.title)}</div>${m.sub ? `<div class="gd-jumbo-sub">${_esc(m.sub)}</div>` : ''}`;
+    el.className = `gd-jumbo ${m.cls}`; void el.offsetWidth; el.classList.add('in');
+    if (cardTimer) clearTimeout(cardTimer);
+    cardTimer = setTimeout(() => el && el.classList.remove('in'), (fx.duration || 3.5) * 1000);
+  }
+  function _clearCard() { if (cardTimer) { clearTimeout(cardTimer); cardTimer = null; } host?.querySelector('.gd-jumbo')?.remove(); }
+
   // Idle screen — shown when Gameday is opened before an at-bat has arrived (or on a
   // non-sports channel), so the view is never just black.
   function showIdle() {
     if (!host) return;
-    _stop();
+    _stop(); _clearCard();
     field = null;
     host.innerHTML =
       `<div class="gd-idle">` +
@@ -443,13 +530,13 @@ export function createGamedayView(host) {
   }
 
   function clear() {
-    _stop();
+    _stop(); _clearCard();
     if (host) host.innerHTML = '';
     field = null;
     caption = '';
   }
 
-  return { apply, clear, setCaption, showIdle };
+  return { apply, clear, setCaption, showIdle, showCard };
 }
 
 // Test hook — pure, DOM-independent pieces exercised by the offline harness.

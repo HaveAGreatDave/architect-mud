@@ -1,0 +1,14 @@
+{
+  "description": "A necklace of red obstruction lights traces the pad's rim, pulsing a slow warning into the dark over the Basin.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_echelon_helipad_rimlights",
+  "light_type": "streetlight",
+  "lumen_output": 400,
+  "name": "the red rim lights",
+  "object_type": "light",
+  "power_draw_kw": 6,
+  "price": 0,
+  "zone_id": "zone_echelon_helipad"
+}

@@ -1,0 +1,16 @@
+{
+  "description": "A squat, fuel-fed portable generator, all cage-frame and grab-handle, sitting on the grated deck with a cable running to the junction box.",
+  "flags": {
+    "generator_id": "gen_echelon_engine_portable"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pgen_zone_echelon_engine",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Portable Generator",
+  "object_type": "generator_portable",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_echelon_engine"
+}

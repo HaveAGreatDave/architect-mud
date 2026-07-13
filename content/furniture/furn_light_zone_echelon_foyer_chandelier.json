@@ -1,0 +1,18 @@
+{
+  "description": "A cascade of hand-cut crystal drops the height of two decks, each facet throwing a splinter of cold white light across the black marble.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_echelon_foyer_chandelier",
+  "light_type": "overhead",
+  "lumen_output": 2400,
+  "name": "the grand chandelier",
+  "object_type": "light",
+  "power_draw_kw": 30,
+  "price": 0,
+  "zone_id": "zone_echelon_foyer"
+}

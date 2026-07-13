@@ -1,0 +1,18 @@
+{
+  "description": "Cool blue-white LED strip runs trace every cable channel down the length of the corridor, humming faintly.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_echelon_engineering_conduit",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the conduit LED runs",
+  "object_type": "light",
+  "power_draw_kw": 15,
+  "price": 0,
+  "zone_id": "zone_echelon_engineering"
+}

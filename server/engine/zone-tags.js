@@ -21,3 +21,11 @@ export function getZoneRadiation(zone) {
 export function isSanctuary(zone) {
   return hasTag(zone, 'sanctuary');
 }
+
+// Allow-sleep = an explicit "you may sleep here" marker WITHOUT the sanctuary
+// bundle. Grants rest (safe-zone restore rate) but no combat protection /
+// forcefield / spawn suppression. For places like the Precinct 9 holding cell
+// where the game should let a prisoner doze but must NOT shield them.
+export function allowsSleep(zone) {
+  return hasTag(zone, 'allow_sleep');
+}

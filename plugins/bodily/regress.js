@@ -21,6 +21,16 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('flush');
   check('flush verb routed', /flush|no toilet/i.test(r?.message || ''), r?.message);
 
+  r = await run('shower');
+  check('shower verb routed + no-shower gate', /no shower here/i.test(r?.message || ''), r?.message);
+
+  // Shower recognised the same three ways as a toilet (type / flag / name).
+  const { isShower } = await import('./index.js');
+  check('object_type shower recognised', isShower({ name: 'jet', object_type: 'shower', flags: {} }) === true);
+  check('name-only shower recognised', isShower({ name: 'rain shower head', object_type: 'fixture', flags: {} }) === true);
+  check('flag shower recognised', isShower({ name: 'stall', object_type: 'fixture', flags: { shower: true } }) === true);
+  check('non-shower furniture ignored', isShower({ name: 'a wooden chair', object_type: 'furniture', flags: {} }) === false);
+
   // A toilet is recognised by name, not just object_type/flags — content
   // routinely types toilets as 'furniture'/'fixture'. Without this, relief,
   // flush, and the fouled/peed describe line all silently miss them.

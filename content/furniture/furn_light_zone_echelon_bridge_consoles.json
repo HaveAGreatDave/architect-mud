@@ -1,0 +1,18 @@
+{
+  "description": "Ranks of navigation consoles bathe the bridge in a low aquamarine light, their readouts scrolling in silence.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_echelon_bridge_consoles",
+  "light_type": "overhead",
+  "lumen_output": 1400,
+  "name": "the instrument-bank glow",
+  "object_type": "light",
+  "power_draw_kw": 20,
+  "price": 0,
+  "zone_id": "zone_echelon_bridge"
+}

@@ -4,6 +4,7 @@
 import { query } from '../../server/models/db.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { _test as news } from './news-generator.js';
+import { _test as calendar } from './calendar-app.js';
 
 export default async function regress({ run, check, getPlayer }) {
   let r = await run('tablet');
@@ -76,6 +77,48 @@ export default async function regress({ run, check, getPlayer }) {
   check('map app carries tiles + mode with no error', Array.isArray(r?.tiles) && typeof r?.mode === 'string' && !r?.error, JSON.stringify(r)?.slice(0, 200));
   r = await run('tabletnav map regional');
   check('map app regional mode switches level', r?.view === 'map' && r?.mode === 'regional', JSON.stringify(r)?.slice(0, 200));
+
+  // Calendar app: root is a list view leading with the "today" marker and
+  // carrying a new-reminder action. Adding a +N reminder persists to player_flags,
+  // then shows in the list; drilling in (client sends the breadcrumb as screenId +
+  // the id as params) opens a detail with a delete action; delete removes it.
+  const cal = getPlayer();
+  await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key=$2', [cal.id, 'calendar_reminders']);
+  r = await run('tabletnav calendar');
+  check('calendar app routes to a list view', r?.type === 'tablet_panel' && r?.appId === 'calendar' && r?.view === 'list' && !r?.error, JSON.stringify(r)?.slice(0, 200));
+  check('calendar list leads with the today marker', r?.items?.[0]?.id === 'today', JSON.stringify(r?.items)?.slice(0, 200));
+  check('calendar list offers a new-reminder action', Array.isArray(r?.actions) && r.actions.some(a => a.id === 'add' && a.prompt), JSON.stringify(r?.actions)?.slice(0, 200));
+
+  r = await run('tabletaction calendar add 2099-01-01 Regress reminder');
+  check('adding a dated reminder returns the list (no error)', r?.appId === 'calendar' && r?.view === 'list' && !r?.error, JSON.stringify(r)?.slice(0, 200));
+  const remItem = r?.items?.find(it => String(it.id).startsWith('rem_'));
+  check('the new reminder shows in the calendar list', !!remItem && /Regress reminder/.test(remItem.label), JSON.stringify(r?.items)?.slice(0, 240));
+
+  // Drill in the way the client does: `tabletnav calendar <breadcrumb> <id>`.
+  r = await run(`tabletnav calendar Calendar ${remItem?.id}`);
+  check('opening a reminder routes to a detail with a delete action', r?.view === 'detail' && r?.actions?.some(a => a.id === 'del'), JSON.stringify(r)?.slice(0, 200));
+
+  r = await run(`tabletaction calendar del ${remItem?.id}`);
+  const stillThere = (r?.items || []).some(it => it.id === remItem?.id);
+  check('deleting a reminder removes it from the list', r?.view === 'list' && !stillThere, JSON.stringify(r?.items)?.slice(0, 200));
+
+  r = await run('tabletaction calendar add nodatehere just some text');
+  check('a reminder with no leading date errors cleanly', r?.view === 'error', JSON.stringify(r)?.slice(0, 160));
+  await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key=$2', [cal.id, 'calendar_reminders']);
+
+  // Day-of ping selection (dueReminders): fires today/overdue & unfired only.
+  {
+    const today = '2087-07-13';
+    const list = [
+      { id: 'a', date: '2087-07-20', text: 'future' },
+      { id: 'b', date: '2087-07-13', text: 'today' },
+      { id: 'c', date: '2087-07-01', text: 'overdue' },
+      { id: 'd', date: '2087-07-01', text: 'already pinged', fired: true },
+    ];
+    const due = calendar.dueReminders(list, today).map(r => r.id).sort();
+    check('dueReminders fires today + overdue, skips future + already-fired', JSON.stringify(due) === JSON.stringify(['b', 'c']), JSON.stringify(due));
+    check('dueReminders is empty with no game date', calendar.dueReminders(list, null).length === 0);
+  }
 
   // Surveillance (SPECTER) app: the fake player hasn't installed SPECTER, so the
   // hub screen is the locked state (view surveillance, live:false); installing it

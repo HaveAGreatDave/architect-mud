@@ -29,6 +29,7 @@ is silently inert, so grep before renaming anything below.
 | `aa_bunker` | aa-sites | interior bunker zone under an AA site; value = the owning `aa_sites.id` |
 | `airspace_restricted` | flight | AA-gated airspace over this zone |
 | `always_lit` | environment | never dark regardless of power/time |
+| `allow_sleep` | protection/sleep | permit `sleep` here WITHOUT the sanctuary bundle — safe-zone-rate rest, but no combat protection/forcefield/spawn suppression (e.g. the Precinct 9 holding cell) |
 | `artery` | movement/ambience | major street (traffic ambience, routing) |
 | `building_name` | world | display name of the enclosing building |
 | `building_type` | world | building category (shop, apartment, …) |
@@ -55,7 +56,7 @@ is silently inert, so grep before renaming anything below.
 | `mining_table_id` | mining | scavenging-table id used for mining here |
 | `mis_ok` | mis | zone-gated NPC consent (see `mis_requires_zone_flag`) |
 | `no_spawn` | spawning | suppress enemy spawns |
-| `open_sky` | flight | outdoor zone aircraft can overfly/land |
+| `open_sky` | flight + environment | outdoor zone aircraft can overfly/land; on an `is_interior`/`is_building` zone (an open roof/deck) it also makes the zone climatically OUTDOORS — sky light, weather, and outdoor temp — while the raw interior flag keeps it in the power/building network (see `isIndoorZone`) |
 | `planner` | zone-planner | provenance: blueprint id that generated this zone (tools/zone-planner) |
 | `prologue` | prologue | part of the prologue instance |
 | `radiation` | survival | ambient radiation 0–100 (entry gain `floor(v×0.1)`; ≥25/≥40 floors danger to high/lethal). Replaced the `radiation_level` column (legacy 1–5 values rescaled ×10) |

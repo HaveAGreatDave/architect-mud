@@ -341,7 +341,13 @@ export function applyTvOverlay(overlay) {
   if (overlay && overlay.overlayType === 'scorebug') { _applyScorebug(overlay); return; }
   if (overlay && overlay.overlayType === 'gameday') { _handleGameday(overlay); return; }
   if (overlay && overlay.overlayType === 'standings') { _applyStandingsBug(overlay); return; }
-  if (overlay && overlay.overlayType === 'sportsfx') { _applySportsFx(overlay); return; }
+  // Sports "jumbotron" FX. While the Gameday sub-screen is open, render it Gameday-
+  // native (a compact card over the field) instead of taking over the whole TV screen.
+  if (overlay && overlay.overlayType === 'sportsfx') {
+    if (_gamedayOpen && _gamedayView) _gamedayView.showCard(overlay);
+    else _applySportsFx(overlay);
+    return;
+  }
   _clearOverlay();
   const container = document.getElementById('tv-overlay-container');
   if (!container || !overlay) return;

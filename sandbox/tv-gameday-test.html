@@ -57,9 +57,15 @@
                  {n:3,type:'Cutter',velo:90,x:0.55,y:0.55,result:'inplay',balls:1,strikes:1}] },
       { batter:'Stanton', pitcher:'Senga', kind:'homerun', desc:'Home Run — 2 RBI', out:false, outs:1, rbi:2,
         caption:'Stanton CRUSHES it — gone, way back, a three-run shot!',
+        card:{ kind:'homerun', batter:'Stanton', team:'Yankees', grand:false, duration:3.8 },
         basesBefore:[false,false,true], basesAfter:[false,false,false], awayScore:5, homeScore:2,
         pitches:[{n:1,type:'Slider',velo:84,x:0.6,y:0.4,result:'ball',balls:1,strikes:0},
                  {n:2,type:'Four-Seam Fastball',velo:97,x:0.5,y:0.5,result:'inplay',balls:1,strikes:0}] },
+      { batter:'Chisholm', pitcher:'Senga', kind:'doubleplay', desc:'Double Play', out:true, outs:2, rbi:0,
+        caption:'Chisholm bounces into a tailor-made double play — two down!',
+        card:{ kind:'doubleplay', duration:2.6 },
+        basesBefore:[true,false,false], basesAfter:[false,false,false], awayScore:5, homeScore:2,
+        pitches:[{n:1,type:'Sinker',velo:93,x:0.5,y:0.6,result:'inplay',balls:0,strikes:0}] },
       { batter:'Torres', pitcher:'Senga', kind:'groundout', desc:'Groundout', out:true, outs:2, rbi:0,
         caption:'Torres chops it to short — over to first, in time.',
         basesBefore:[false,false,false], basesAfter:[false,false,false], awayScore:5, homeScore:2,
@@ -71,8 +77,14 @@
                  {n:2,type:'Four-Seam Fastball',velo:96,x:0.5,y:0.5,result:'inplay',balls:0,strikes:1}] },
     ].map(p => ({ ...p, battingTeam:'Yankees', fieldingTeam:'Mets', battingAbbr:'NYY', fieldingAbbr:'NYM', inning:3, inningOrd:'3rd', half:'top' }));
 
-    let i = 0;
-    const step = () => { const p = PLAYS[i % PLAYS.length]; view.apply(p); view.setCaption(p.caption || ''); i++; };
+    let i = 0, cardT = null;
+    const step = () => {
+      const p = PLAYS[i % PLAYS.length];
+      view.apply(p); view.setCaption(p.caption || '');
+      if (cardT) clearTimeout(cardT);
+      if (p.card) cardT = setTimeout(() => view.showCard(p.card), 3400);   // fires ~when the call lands
+      i++;
+    };
     step();
     // AudioEngine needs a user gesture to unlock the AudioContext — first click does it.
     document.getElementById('next').addEventListener('click', () => { window.AudioEngine?.init?.(); step(); });

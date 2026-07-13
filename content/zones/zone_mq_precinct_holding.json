@@ -3,7 +3,7 @@
     "A cage door, unlatched, swings a slow inch on its hinge and stops.",
     "The floor drain exhales a cold, sour breath.",
     "Bootsteps cross the ceiling overhead and recede.",
-    "The overnight fluorescent buzzes at a pitch engineered to prevent sleep."
+    "The overnight fluorescent buzzes at a pitch that turns sleep into a thin, fitful thing."
   ],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
@@ -15,7 +15,8 @@
     "up": "zone_mq_precinct_lobby"
   },
   "flags": {
-    "is_interior": true
+    "is_interior": true,
+    "allow_sleep": true
   },
   "grid_x": 0,
   "grid_y": 0,

@@ -1,0 +1,19 @@
+{
+  "capacity_kw": 3000,
+  "city_generator_id": null,
+  "connection_range": 0,
+  "flags": {
+    "battery": 100,
+    "battery_max": 100,
+    "junction_box_id": "gen_zone_echelon_engine_jbox",
+    "tank": 20
+  },
+  "fuel_burn_rate": 0.02,
+  "fuel_remaining": 20,
+  "fuel_type": "fuel",
+  "generator_type": "player",
+  "id": "gen_echelon_engine_portable",
+  "name": "Portable Generator",
+  "owner_id": null,
+  "zone_id": "zone_echelon_engine"
+}

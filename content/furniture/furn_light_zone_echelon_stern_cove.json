@@ -1,0 +1,18 @@
+{
+  "description": "A continuous amber cove light rings the stern lounge, hidden behind the crown moulding — pure warmth, no visible source.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_echelon_stern_cove",
+  "light_type": "overhead",
+  "lumen_output": 1400,
+  "name": "recessed lounge cove lighting",
+  "object_type": "light",
+  "power_draw_kw": 20,
+  "price": 0,
+  "zone_id": "zone_echelon_stern"
+}

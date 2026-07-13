@@ -1,0 +1,14 @@
+{
+  "description": "A ring of recessed LED floods set flush into the deck edge, throwing hard white light across the painted landing circle after dark.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_echelon_helipad_floods",
+  "light_type": "streetlight",
+  "lumen_output": 1800,
+  "name": "the perimeter deck floods",
+  "object_type": "light",
+  "power_draw_kw": 40,
+  "price": 0,
+  "zone_id": "zone_echelon_helipad"
+}

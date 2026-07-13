@@ -37,6 +37,7 @@ import './bank-app.js';
 import './crafting-app.js';
 import './vehicles-app.js';
 import './properties-app.js';
+import './calendar-app.js';
 import './settings-app.js';
 import './help-app.js';
 import './corp-app.js';

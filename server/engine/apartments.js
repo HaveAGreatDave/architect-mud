@@ -5,7 +5,7 @@ import { skillCheck, awardSkillUse } from "./skills.js";
 import { adjustCredits } from "./economy.js";
 import { setPosture } from "./posture.js";
 import { registerProtectionProvider } from "./protection.js";
-import { isSanctuary } from "./zone-tags.js";
+import { isSanctuary, allowsSleep } from "./zone-tags.js";
 import { hasPerm, PERM } from "./org-perms.js";
 import { exitTargets, neighborZoneIds } from "./exits.js";
 import { emit } from "./events.js";
@@ -624,6 +624,15 @@ export function getSleepEligibility(player, zone) {
 			canSleep: true,
 			restore: SLEEP_RESTORE_SAFE_ZONE,
 			reason: "safe_zone",
+		};
+	}
+	// Sleep explicitly permitted here (e.g. a holding cell) — rest is allowed,
+	// but no forcefield/protection comes with it (that's the sanctuary path).
+	if (allowsSleep(zone)) {
+		return {
+			canSleep: true,
+			restore: SLEEP_RESTORE_SAFE_ZONE,
+			reason: "allowed",
 		};
 	}
 	return { canSleep: false, reason: "unsafe" };

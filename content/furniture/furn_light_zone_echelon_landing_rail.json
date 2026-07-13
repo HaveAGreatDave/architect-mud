@@ -1,0 +1,18 @@
+{
+  "description": "The onyx banister glows from within, a thin ribbon of light guiding the eye up toward the private decks.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_echelon_landing_rail",
+  "light_type": "lamp",
+  "lumen_output": 900,
+  "name": "the backlit onyx stair rail",
+  "object_type": "light",
+  "power_draw_kw": 8,
+  "price": 0,
+  "zone_id": "zone_echelon_landing"
+}

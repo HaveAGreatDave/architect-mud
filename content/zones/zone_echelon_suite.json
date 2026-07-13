@@ -11,17 +11,19 @@
   "created_by": "echelon",
   "description": "The owner's private suite — Cyd's quarters. A low black-silk bed the size of a small room, a bar stocked with things that don't exist on any menu, and a wall of screen that can show anything the vessel can reach. Every surface is soft, dark, and worth a fortune. This is the still center of the Echelon, and it answers to exactly one person. The only way out is the hatch (SOUTH) to the landing.",
   "exits": {
+    "in": "zone_echelon_suite_bath",
     "south": "zone_echelon_landing"
   },
   "flags": {
-    "yacht": true,
+    "building_name": "The Echelon",
     "echelon": true,
     "echelon_suite": true,
-    "is_interior": true,
     "is_building": true,
-    "building_name": "The Echelon",
+    "is_interior": true,
+    "mis_ok": true,
     "world_exit_zone": "zone_echelon_exterior",
-    "mis_ok": true
+    "yacht": true,
+    "always_lit": true
   },
   "grid_x": 0,
   "grid_y": -1,

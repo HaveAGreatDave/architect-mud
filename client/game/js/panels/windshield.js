@@ -4094,12 +4094,25 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now) {
     if (0.5 + 0.5 * Math.sin(now * 0.006) > 0.5) { ctx.fillStyle = 'rgba(255,90,80,0.95)'; ctx.beginPath(); ctx.arc(m1.sx, m1.sy, 2, 0, 7); ctx.fill(); }
     ctx.restore();
   }
-  // 5. Night dressing — helipad glow + white running lights tracing the deck edge.
+  // 5. Night dressing — a superyacht lit up on the dark water: warm cabin spill through the
+  //    superstructure glass, a cool-lit bridge, the amber helipad wash, a necklace of white
+  //    running lights tracing both deck rails, warm deck-house windows, and a bow lamp.
   if (night) {
-    glowPool(ctx, cam, dx, padY, padZ + 0.004, '255,200,110', 16, alpha * 0.4);
-    ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(240,244,250,0.9)';
-    for (const [ox, oy] of [[-0.13, -0.1], [0.13, -0.1], [-0.13, 0.2], [0.13, 0.2], [0, -0.36]]) {
-      const p = cam.proj(dx + ox, dy + oy, deckZ + 0.004); if (p.f > 0.1) { ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(2.2 / p.f, 0.6, 3), 0, 7); ctx.fill(); }
+    glowPool(ctx, cam, dx, dy - 0.03, deckZ + 0.03, '255,206,150', 15, alpha * 0.5);   // lounge deck aglow through the smoked glass
+    glowPool(ctx, cam, dx, dy - 0.13, deckZ + 0.08, '200,220,255', 11, alpha * 0.42);  // lit bridge
+    glowPool(ctx, cam, dx, padY, padZ + 0.004, '255,200,110', 16, alpha * 0.4);        // helipad wash
+    ctx.save(); ctx.globalAlpha = alpha;
+    // Running lights: a string down both rails, bow to stern, plus a bright bow lamp.
+    ctx.fillStyle = 'rgba(240,244,250,0.92)';
+    const rail = [[0, -0.38]];
+    for (let i = 0; i <= 6; i++) { const oy = -0.34 + i * (0.64 / 6); rail.push([-0.12, oy], [0.12, oy]); }
+    for (const [ox, oy] of rail) {
+      const p = cam.proj(dx + ox, dy + oy, deckZ + 0.006); if (p.f > 0.1) { ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(1.9 / p.f, 0.5, 2.6), 0, 7); ctx.fill(); }
+    }
+    // Warm deck-house windows as bright points over the soft glow.
+    ctx.fillStyle = 'rgba(255,214,150,0.95)';
+    for (const [ox, oy, oz] of [[-0.06, -0.03, deckZ + 0.026], [0.06, -0.03, deckZ + 0.026], [0, -0.13, deckZ + 0.075]]) {
+      const p = cam.proj(dx + ox, dy + oy, oz); if (p.f > 0.1) { ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(1.6 / p.f, 0.5, 2.4), 0, 7); ctx.fill(); }
     }
     ctx.restore();
   }

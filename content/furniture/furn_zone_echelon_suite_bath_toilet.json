@@ -1,0 +1,14 @@
+{
+  "description": "A low toilet in matte black, tucked discreetly against the marble. Heated, silent, self-cleaning — it flushes without a sound. In this city, working plumbing is a small miracle; this is closer to a boast.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_zone_echelon_suite_bath_toilet",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "black-marble toilet",
+  "object_type": "toilet",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_echelon_suite_bath"
+}

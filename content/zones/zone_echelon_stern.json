@@ -20,7 +20,8 @@
     "is_interior": true,
     "is_building": true,
     "building_name": "The Echelon",
-    "world_exit_zone": "zone_echelon_exterior"
+    "world_exit_zone": "zone_echelon_exterior",
+    "always_lit": true
   },
   "grid_x": 0,
   "grid_y": 1,

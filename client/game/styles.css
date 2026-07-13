@@ -7476,18 +7476,41 @@ body.fsim-external #look-resize-handle { display: none; }
    fielders on grass; sized to the available height, centred, letterboxed by the wrap. */
 .gd-field {
 	position: relative; height: 100%; aspect-ratio: 100 / 68; max-width: 100%;
-	background: radial-gradient(ellipse at 50% 30%, #164a2b, #0a2013 74%);
+	background: radial-gradient(ellipse at 50% 34%, #17512f, #0a2013 76%);
 	border: 1px solid var(--tv-border, rgba(0,220,180,0.3)); border-radius: 5px; overflow: hidden;
 	box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+	transition: box-shadow 0.3s;
 }
 .gd-field-bg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.gd-grass { fill: rgba(72,150,92,0.20); }
-.gd-fence { stroke: rgba(255,255,255,0.45); stroke-width: 0.8; stroke-dasharray: 1.6 1.4; }
-.gd-track { stroke: rgba(180,120,70,0.5); stroke-width: 3; }
-.gd-foul { stroke: rgba(255,255,255,0.32); stroke-width: 0.5; }
-.gd-dirt { fill: rgba(155,98,58,0.4); }
-.gd-paths { stroke: rgba(235,205,175,0.5); stroke-width: 0.7; }
-.gd-mound { fill: rgba(155,98,58,0.6); }
+.gd-stands { fill: url(#gdCrowd); }
+.gd-grass { fill: rgba(72,150,92,0.22); }
+.gd-mow { fill: rgba(120,190,120,0.07); }
+.gd-fence { stroke: rgba(255,255,255,0.5); stroke-width: 0.9; stroke-dasharray: 1.6 1.4; }
+.gd-track { stroke: rgba(184,124,72,0.55); stroke-width: 3; }
+.gd-foul { stroke: rgba(255,255,255,0.34); stroke-width: 0.5; }
+.gd-dirtpath { stroke: rgba(158,100,60,0.72); stroke-width: 3.4; stroke-linejoin: round; }
+.gd-dirtcut { fill: rgba(158,100,60,0.72); }
+.gd-paths { stroke: rgba(238,210,182,0.45); stroke-width: 0.6; }
+.gd-mound { fill: rgba(168,108,64,0.85); }
+/* Home-run / walk-off field celebration — glow pulse on the field edge. */
+.gd-field.celebrate { box-shadow: inset 0 0 40px rgba(0,0,0,0.5), inset 0 0 30px rgba(255,210,62,0.28), 0 0 22px rgba(255,210,62,0.4); animation: gd-celebrate 0.6s ease-out 3; }
+.gd-field.walkoff.celebrate { box-shadow: inset 0 0 40px rgba(0,0,0,0.5), inset 0 0 34px rgba(255,120,62,0.34), 0 0 26px rgba(255,120,62,0.5); }
+@keyframes gd-celebrate { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.25); } }
+
+/* ── Field FX layer (trails, dust, celebration bursts) ───────────────────────── */
+.gd-fx { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.gd-trail, .gd-dust, .gd-burst { position: absolute; pointer-events: none; }
+.gd-trail { width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255,255,255,0.85); box-shadow: 0 0 5px rgba(255,255,255,0.7); animation: gd-trail-fade 0.52s ease-out forwards; }
+.gd-trail.hot { background: #ffd23e; box-shadow: 0 0 6px #ffd23e; }
+@keyframes gd-trail-fade { from { opacity: 0.9; transform: scale(1); } to { opacity: 0; transform: scale(0.3); } }
+.gd-dust { width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: radial-gradient(circle, rgba(200,170,130,0.55), transparent 70%); animation: gd-dust-puff 0.62s ease-out forwards; }
+@keyframes gd-dust-puff { from { opacity: 0.8; transform: scale(0.3); } to { opacity: 0; transform: scale(2.4); } }
+.gd-burst { width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid var(--tv-header-color, #37d67a); animation: gd-burst-ring 0.9s ease-out forwards; }
+.gd-burst.hot { border-color: #ffd23e; }
+@keyframes gd-burst-ring { from { opacity: 0.9; transform: scale(0.2); } to { opacity: 0; transform: scale(3.4); } }
+.gd-runner.sliding { animation: gd-slide 0.42s ease-out; }
+.gd-batter.sliding { animation: gd-slide 0.42s ease-out; }
+@keyframes gd-slide { 0% { transform: scale(1.5, 0.7); } 60% { transform: scale(0.85, 1.15); } 100% { transform: scale(1); } }
 
 /* Instrument chrome over the field (grid + scanlines + corner reticles). */
 .gd-crt-grid {
@@ -7608,6 +7631,26 @@ body.fsim-external #look-resize-handle { display: none; }
 .gd-cap-text { flex: 1 1 auto; font-size: 12px; line-height: 1.35; color: var(--tv-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gd-cap-text.in { animation: gd-cap-in 0.3s ease-out; }
 @keyframes gd-cap-in { from { opacity: 0.25; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Gameday-native jumbotron card ───────────────────────────────────────────────
+   The sports FX cards, rendered as a compact banner over the field (not a full-screen
+   takeover) while the Gameday sub-screen is open. Auto-dismisses via `.in` toggle. */
+.gd-jumbo {
+	position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+	z-index: 9; pointer-events: none; text-align: center; padding: 10px 26px; border-radius: 4px;
+	background: rgba(4, 10, 8, 0.86); border: 1px solid var(--tv-header-color, #37d67a);
+	box-shadow: 0 0 22px rgba(0,220,180,0.35), inset 0 0 20px rgba(0,0,0,0.5);
+	opacity: 0; transition: opacity 0.35s ease-out;
+}
+.gd-jumbo.in { opacity: 1; animation: gd-jumbo-in 0.45s cubic-bezier(0.2,1.3,0.4,1); }
+.gd-jumbo-title { font-size: 26px; font-weight: bold; letter-spacing: 4px; color: var(--tv-header-color, #37d67a); text-shadow: 0 0 14px currentColor; line-height: 1.1; }
+.gd-jumbo-sub { font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--tv-text); margin-top: 4px; }
+.gd-jumbo.hot { border-color: #ffd23e; box-shadow: 0 0 26px rgba(255,210,62,0.5), inset 0 0 20px rgba(0,0,0,0.5); }
+.gd-jumbo.hot .gd-jumbo-title { color: #ffd23e; }
+.gd-jumbo.out { border-color: #ff4a5b; box-shadow: 0 0 22px rgba(255,74,91,0.45), inset 0 0 20px rgba(0,0,0,0.5); }
+.gd-jumbo.out .gd-jumbo-title { color: #ff5a6b; }
+.gd-jumbo.final .gd-jumbo-title { color: #fff; }
+@keyframes gd-jumbo-in { 0% { transform: translate(-50%,-50%) scale(0.55); opacity: 0; } 100% { transform: translate(-50%,-50%) scale(1); opacity: 1; } }
 
 /* ── Idle screen (opened before an at-bat) ───────────────────────────────────── */
 .gd-idle { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }

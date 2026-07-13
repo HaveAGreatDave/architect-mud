@@ -1,0 +1,14 @@
+{
+  "description": "A rain-head shower behind a single sheet of smoked glass, big enough for more than one. It runs hot and hard the moment you step in — no waiting, no rationing, the way nothing on this vessel waits or rations. Step in and let it strip the day off you.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_zone_echelon_suite_bath_shower",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "rain-head shower",
+  "object_type": "shower",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_echelon_suite_bath"
+}

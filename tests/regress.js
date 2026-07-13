@@ -619,7 +619,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 // are in-memory mutations of live world zone objects — no DB writes — and are
 // torn down in finally.
 {
-  const { getZoneRadiation, isSanctuary } = await import('../server/engine/zone-tags.js');
+  const { getZoneRadiation, isSanctuary, allowsSleep } = await import('../server/engine/zone-tags.js');
   const { getSleepEligibility } = await import('../server/engine/apartments.js');
   const { tickSpawns, getZoneEnemies } = await import('../server/engine/world.js');
   const p = getPlayer();
@@ -637,6 +637,13 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     // Sleep: a sanctuary tag is sleepable.
     const elig = getSleepEligibility(p, { id: 'z_synth', flags: { sanctuary: true } });
     check('sleep allowed in a tag-only sanctuary', elig.canSleep === true && elig.reason === 'safe_zone', JSON.stringify(elig));
+
+    // allow_sleep: rest is permitted WITHOUT the sanctuary bundle — the holding
+    // cell should be sleepable but grant NO forcefield/combat protection.
+    const eligAllow = getSleepEligibility(p, { id: 'z_cell', flags: { allow_sleep: true } });
+    check('allow_sleep grants sleep (safe-zone rate)', eligAllow.canSleep === true && eligAllow.reason === 'allowed', JSON.stringify(eligAllow));
+    check('allow_sleep is not a sanctuary (no forcefield bundle)',
+      allowsSleep({ flags: { allow_sleep: true } }) && !isSanctuary({ flags: { allow_sleep: true } }));
 
     // Spawn suppression: a due, weight-100 spawn in a sanctuary zone must not fire.
     const anyTimer = [...world.spawnTimers.values()][0];
