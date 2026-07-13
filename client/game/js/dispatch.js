@@ -29,7 +29,7 @@ import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
 import { openFishing, armFishFight } from './panels/fishing.js';
 import { abortMacros } from './panels/smartbar-macros.js';
 import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
-import { openHelm, closeHelm, isHelmActive } from './panels/helm-mode.js';
+import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmEndTransit } from './panels/helm-mode.js';
 import { setYachtAmbience, yachtUnderway } from './panels/yacht-ambience.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
@@ -712,10 +712,14 @@ const handlers = {
   cockpit_close: () => { closeCockpit(); sendCmdSilent('look'); },   // hand the area pane back to the room view
   // Continuous cockpit (client-sim + server-reconcile) — the Mayfly slice.
   flight_sim: (msg) => { openFlightSim(msg); },
-  // Echelon helm console — takes over the area pane like the flight sim. AHEAD fires the real
-  // `sail`; the ✕/Esc exit closes it and re-looks so the room description comes back cleanly.
-  helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, onSail: (dir) => sendCmdSilent('sail ' + dir), onExit: () => sendCmdSilent('look') }); },
+  // Echelon helm console — takes over the client like the flight sim. Engaging the telegraph fires
+  // the real `sail`; the ✕/Esc exit closes it and re-looks so the room description comes back cleanly.
+  // `sky` seeds the real sim weather field; `transitMs` restores the lock if opened mid-passage.
+  helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, sky: msg.sky, map: msg.map, transitMs: msg.transitMs, onSail: (dir) => sendCmdSilent('sail ' + dir), onExit: () => sendCmdSilent('look') }); },
   helm_close: () => { closeHelm(); sendCmdSilent('look'); },
+  helm_sky: (msg) => { if (isHelmActive()) helmSetSky(msg.sky); },   // live sim weather field, streamed like the flight sim's
+  // Passage complete → re-centre the chase view on the new tile's real world window, then unlock.
+  helm_arrived: (msg) => { if (!isHelmActive()) return; if (msg.map) helmSetWorld(msg.map, msg.gx, msg.gy); helmEndTransit(msg.gx, msg.gy); },
   yacht_underway: () => { yachtUnderway(); },   // swell the engine-room rumble while she makes way
   flight_ctx: (msg) => { flightSimContext(msg); },
   flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)

@@ -42,6 +42,8 @@ function liveEnv() {
 }
 
 const CARDINAL = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
+const DEG = { N: 0, E: 90, S: 180, W: 270 };
+const CRUISE = 0.6;   // steady making-way throttle held across a passage (0..1)
 
 // A proper (not flat) cloud field, synthesised from the live headline weather so the windshield's
 // fly-through volumetric deck has cells to render — clear skies pass null (its procedural fair-
@@ -113,8 +115,10 @@ export function openHelmChase(container, opts = {}) {
   const id = 'helm-chase-' + Math.random().toString(36).slice(2, 8);
   container.innerHTML = windshieldHTML(id, 'ECHELON · AFT');
 
-  // A static open-water window with the Echelon at its centre. The centre cell carries a live
-  // `wake` + `heading` we mutate each frame; every other cell is featureless sea.
+  // Fallback window: a static open-water grid with the Echelon at its centre (for the standalone
+  // rig / before the server streams the real basin). In game, setWorld swaps in the REAL world
+  // window — piers, shoreline, the city skyline — so she's framed against the actual basin. Either
+  // way the centre cell carries a live `wake` + `heading` we mutate each frame.
   const map = [];
   for (let y = -RAD; y <= RAD; y++) {
     const row = [];
@@ -126,9 +130,13 @@ export function openHelmChase(container, opts = {}) {
 
   const st = {
     gx: opts.gx ?? 0, gy: opts.gy ?? 0,
+    map, center: yacht, serverWorld: false,   // center = the yacht cell we overlay wake/heading onto
     hour: opts.hour ?? 19, weather: (opts.weather || 'clear').toLowerCase(),
     heading: opts.heading ?? 0, headingTarget: opts.heading ?? 0, turnRate: 16,   // deg/s — a big yacht comes about slowly
-    spd: 0, sailing: false, sailT: 0, sailDur: 2.6, sailDir: null,
+    // A passage is a long, sustained transit: she makes way at CRUISE for transitMs, then arrives
+    // at the next tile. sailT is 0..1 progress across the passage. spd rides toward the throttle.
+    spd: 0, sailing: false, sailT: 0, transitMs: 0, transitEnd: 0, sailDir: null,
+    serverField: null,   // the REAL weather field from the sim (setSky) — preferred over the synth
     // Camera: extYaw/extPitch are the orbit (drag), extZoom the dolly (wheel). The windshield
     // clamps extPitch above the terrain, so the orbit can never dip the eye below the water.
     extYaw: 0, extPitch: opts.extPitch ?? 0.34, extZoom: opts.extZoom ?? 1.7,
@@ -154,20 +162,24 @@ export function openHelmChase(container, opts = {}) {
     stepTurn(dt);
 
     if (st.sailing) {
-      st.sailT += dt / st.sailDur;
-      if (st.sailT >= 1) {
+      const total = st.transitMs || 1;
+      st.sailT = Math.min(1, (total - Math.max(0, st.transitEnd - now)) / total);
+      if (now >= st.transitEnd) {
         st.sailT = 1; st.sailing = false;
-        st.gx += DV[st.sailDir][0]; st.gy += DV[st.sailDir][1];
+        // With a real streamed world the server re-centres us (setWorld) on arrival; only advance
+        // our own position when running the synthetic fallback (standalone rig, no server).
+        if (!st.serverWorld) { st.gx += DV[st.sailDir][0]; st.gy += DV[st.sailDir][1]; }
         if (st.onArrive) st.onArrive(st.gx, st.gy, st.sailDir);
       }
     }
-    // Throttle: a bell only while actually making way — at rest she settles to a dead stop, so
-    // the wake vanishes (no idle floor). She's under way = there's a wake; moored = flat water.
-    const drive = st.sailing ? Math.sin(st.sailT * Math.PI) : 0;
+    // Throttle: while under way she holds a steady CRUISE bell (ramped in at cast-off and out as she
+    // comes to rest) so there's a sustained wake across the whole passage; moored ⇒ dead flat water.
+    const drive = st.sailing ? CRUISE * Math.min(1, st.sailT / 0.03, (1 - st.sailT) / 0.03) : 0;
     st.spd += (drive - st.spd) * Math.min(1, dt * 3.2);
     if (st.spd < 0.004) st.spd = 0;
-    yacht.wake.spd = st.spd;
-    yacht.heading = st.heading;
+    if (!st.center.wake) st.center.wake = { spd: 0 };
+    st.center.wake.spd = st.spd;
+    st.center.heading = st.heading;
     audio.update(st.spd);
     st.seaScroll = (st.seaScroll || 0) + st.spd * dt * 6;   // along-heading drift so the swell streams past under way
 
@@ -175,13 +187,18 @@ export function openHelmChase(container, opts = {}) {
     const env = liveEnv();
     const hour = env ? env.hour : st.hour;
     const weather = env ? env.weather : st.weather;
-    if (st.wx.key !== weather) { st.wx.key = weather; st.wx.field = buildWxField(weather, st.gx, st.gy); }
+    // Prefer the REAL sim weather field (setSky), so the helm renders the same moving clouds/rain
+    // at their true bearings as the flight sim does. Only synth a field when none was streamed
+    // (e.g. the standalone rig), so it never falls back to a flat sky.
+    let field;
+    if (st.serverField) field = st.serverField;
+    else { if (st.wx.key !== weather) { st.wx.key = weather; st.wx.field = buildWxField(weather, st.gx, st.gy); } field = st.wx.field; }
 
     paintWindshield(id, {
       external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1,
       heading: st.heading, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: st.extZoom,
-      height: 0, speed: st.spd, hour, weather, wxField: st.wx.field, seaScroll: st.seaScroll || 0,
-      map, mapCenter: { x: st.gx, y: st.gy }, mapOffset: { x: 0, y: 0 },
+      height: 0, speed: st.spd, hour, weather, wxField: field, seaScroll: st.seaScroll || 0,
+      map: st.map, mapCenter: { x: st.gx, y: st.gy }, mapOffset: { x: 0, y: 0 },
       acX: st.gx, acY: st.gy, biomeBelow: 'water', airport: 'default',
     });
     st.raf = requestAnimationFrame(frame);
@@ -194,12 +211,49 @@ export function openHelmChase(container, opts = {}) {
     // Turn the wheel: roll the course ±90° to the next cardinal. Locked while she's already coming
     // round or under way — she finishes the turn, then takes the next input. Returns the accepted flag.
     steer(delta) { if (busy()) return false; st.headingTarget = (st.headingTarget + delta + 360) % 360; return true; },
-    // Ahead: make way one tile along the current (settled) heading. Returns the compass dir
-    // ('N'/'E'/'S'/'W') so the caller can fire the live `sail` command, or false if busy.
-    ahead() { if (busy()) return false; const dir = CARDINAL[st.heading]; if (!dir) return false; st.sailing = true; st.sailT = 0; st.sailDir = dir; return dir; },
+    // The cardinal she's ready to make way on (settled on a cardinal heading, not already busy),
+    // or null. The console gates the throttle on this.
+    readyDir() { if (busy()) return null; return CARDINAL[st.heading] || null; },
+    // Ahead: make way one tile along the current (settled) heading over a short local surge — used
+    // only by the standalone rig, which has no server to time the passage. Returns the compass dir.
+    ahead() { const dir = this.readyDir(); if (!dir) return false; st.sailDir = dir; st.transitMs = 6000; st.transitEnd = performance.now() + 6000; st.sailing = true; st.sailT = 0; return dir; },
+    // Begin a real passage: a sustained making-way transit of `ms` along `dir`, arriving one tile
+    // on. Snaps her course to the travel heading; frame() eases her there and advances the tile at
+    // the end. The server drives this (10-min passage) and confirms arrival via endTransit.
+    beginTransit(dir, ms) {
+      if (!DV[dir]) return false;
+      st.headingTarget = DEG[dir]; st.sailDir = dir;
+      st.transitMs = ms; st.transitEnd = performance.now() + ms; st.sailing = true; st.sailT = 0;
+      return true;
+    },
+    // Authoritative arrival from the server: snap to her real tile and release the passage. Idempotent
+    // with frame()'s own local arrival (both just end the passage + fix position).
+    endTransit(gx, gy) { st.sailing = false; st.transitEnd = 0; if (gx != null) st.gx = gx; if (gy != null) st.gy = gy; },
+    transitLeft() { return st.sailing ? Math.max(0, st.transitEnd - performance.now()) : 0; },
+    speed() { return st.spd; },
     heading() { return st.heading; },
     isBusy: busy,
     isSailing() { return st.sailing; },
+    // Adopt the live sim sky (setSky): the REAL weather field + optional time/weather headline, so
+    // the helm shows the same weather the flight sim does. Streamed by the server while open.
+    setSky(sky) {
+      if (!sky) return;
+      st.serverField = sky.field || null;
+      if (typeof sky.hour === 'number') st.hour = sky.hour;
+      if (sky.weather) st.weather = String(sky.weather).toLowerCase();
+    },
+    // Swap in the REAL world window (piers/city/shoreline) centred on her tile (cx,cy), streamed by
+    // the server. The centre cell becomes the yacht we overlay wake/heading on; `self` cleared so
+    // her 3D model draws. Marks us server-driven, so arrivals re-centre from the server, not locally.
+    setWorld(rows, cx, cy) {
+      if (!Array.isArray(rows) || !rows.length) return;
+      const r = (rows.length - 1) >> 1;
+      const c = rows[r] && rows[r][r];
+      if (!c) return;
+      c.self = undefined; if (!c.mark) c.mark = 'yacht'; if (!c.wake) c.wake = { spd: st.spd };
+      st.map = rows; st.center = c; st.serverWorld = true;
+      if (cx != null) st.gx = cx; if (cy != null) st.gy = cy;
+    },
     env() { return liveEnv(); },   // live world time/weather (or null) for the console chips
     // Orbit the chase camera (drag): azimuth + elevation. Pitch is clamped to a sane band here;
     // the windshield further floors it above the waterline so it never goes under.

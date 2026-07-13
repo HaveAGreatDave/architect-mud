@@ -203,13 +203,30 @@ async function cmdInvites(args, raw, player) {
 // walk aboard; that exit is torn down the moment she gets underway again.
 
 const EXTERIOR = 'zone_echelon_exterior';
-const SAIL_COOLDOWN_MS = 5 * 60_000;
+// She is a big vessel: getting underway, she takes a full ten minutes to make the next tile,
+// and comes to rest only when she arrives. No new order can be given until she's there.
+const SAIL_TRANSIT_MS = 10 * 60_000;
 const DOCK_SOURCE = 'yacht_dock';
 const DIR_DELTA = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
 const DIR_ALIAS = { n: 'north', s: 'south', e: 'east', w: 'west', north: 'north', south: 'south', east: 'east', west: 'west' };
+const DIR_SHORT = { north: 'N', south: 'S', east: 'E', west: 'W' };
+const DIR_DEG = { north: 0, east: 90, south: 180, west: 270 };
 const REVERSE = { north: 'south', south: 'north', east: 'west', west: 'east' };
 
-let lastSailAt = 0; // module-level: there is exactly one Echelon (resets on restart)
+// While underway: { toX, toY, dir, startAt, arriveAt, timer }; null when moored/idle. Module-level:
+// there is exactly one Echelon (a server restart cancels an in-flight passage, leaving her at the
+// tile she departed from — position only commits on arrival, so nothing is left half-moved).
+let transit = null;
+const transitLeft = () => (transit ? Math.max(0, transit.arriveAt - Date.now()) : 0);
+
+// Players with the visual helm console open — we push them the live sky (real weather field) on a
+// timer, exactly like the flight sim streams its sky. Pruned as they leave the bridge / go offline.
+const helmViewers = new Set();
+// The flight plugin owns the authoritative sky/weather field + the shared "making way" wake. Soft-
+// imported (yacht → flight is the correct direction) and cached so the sky push isn't a dynamic
+// import every tick.
+let flightStateMod = null;
+import('../flight/state.js').then(m => { flightStateMod = m; }).catch(() => {});
 
 // The map_world tile at a coordinate, ignoring the yacht's own overlay.
 function worldTileAt(x, y) {
@@ -254,11 +271,51 @@ function rebuildFlightIndex() {
 }
 
 function helmStatus(ext, dockedPierName) {
-  const cd = Math.max(0, SAIL_COOLDOWN_MS - (Date.now() - lastSailAt));
-  const ready = cd <= 0 ? 'The engines are ready.' : `The engines are cycling — ready in ${Math.ceil(cd / 1000)}s.`;
-  const dock = dockedPierName ? `Docked alongside ${dockedPierName}.` : 'Underway, no pier alongside.';
+  const left = transitLeft();
+  const ready = left > 0 ? `Underway — she reaches her next position in ${Math.ceil(left / 1000)}s.` : 'The engines are ready.';
+  const dock = left > 0 ? 'Making way across the Basin.' : (dockedPierName ? `Docked alongside ${dockedPierName}.` : 'Underway, no pier alongside.');
   return `<span class="help-header">ECHELON — HELM</span>\nPosition: ${ext.grid_x}, ${ext.grid_y} (Coldwater Basin)\n${dock}\n${ready}\nUsage: sail <n|s|e|w>`;
 }
+
+// Arrival: the passage completes ten minutes after casting off. Only now does her authoritative
+// tile change; she re-indexes for flight, lowers a gangway if a pier is alongside, and releases
+// the helm. Any open helm console is told she's arrived so it unlocks precisely.
+async function arriveEchelon() {
+  if (!transit) return;
+  const { toX, toY } = transit;
+  transit = null;
+  await query('UPDATE zones SET grid_x=$1, grid_y=$2 WHERE id=$3', [toX, toY, EXTERIOR]);
+  const ext = getZone(EXTERIOR);
+  if (ext) { ext.grid_x = toX; ext.grid_y = toY; }
+  invalidateEntranceDirCache();
+  rebuildFlightIndex();
+  flightStateMod?.setYachtMakingWay?.();   // a last wake at the new tile for nearby pilots
+  const pier = adjacentPier(toX, toY);
+  if (pier) await dockTo(pier.pier.id, pier.dir);
+  const bc = getBroadcast();
+  for (const zid of [EXTERIOR, 'zone_echelon_bridge', 'zone_echelon_stern', 'zone_echelon_foyer']) {
+    bc?.(zid, { type: 'zone_event', message: 'The Echelon settles at her new position, engines easing back to idle.' }, null);
+  }
+  // Re-centre every open helm's chase view on the new tile: the real world window (the city/
+  // shoreline she's now amongst), plus the authoritative position that releases the console.
+  const map = flightStateMod?.yachtHelmWindow?.(toX, toY) || null;
+  for (const pid of helmViewers) sendToPlayer(pid, { type: 'helm_arrived', gx: toX, gy: toY, map });
+}
+
+// Push the live sky (time/weather + the REAL moving weather field) to every open helm console —
+// the same field the flight sim renders out its canopy. Also re-pings the making-way wake while
+// she's underway so nearby pilots keep seeing her working across the Basin, not sitting still.
+function pushHelmLive() {
+  if (!helmViewers.size) return;
+  if (transit) flightStateMod?.setYachtMakingWay?.();
+  const sky = flightStateMod?.skyState?.() || null;
+  for (const pid of [...helmViewers]) {
+    const p = getLivePlayer(pid);
+    if (!p || !getZone(p.current_zone)?.flags?.echelon_bridge) { helmViewers.delete(pid); continue; }
+    if (sky) sendToPlayer(pid, { type: 'helm_sky', sky });
+  }
+}
+setInterval(pushHelmLive, 15_000);
 
 async function cmdSail(args, raw, player, broadcast) {
   if (player.role !== 'admin') return ADMIN_ONLY;
@@ -272,8 +329,8 @@ async function cmdSail(args, raw, player, broadcast) {
   const dirWord = DIR_ALIAS[(args?.[0] || '').toLowerCase()];
   if (!dirWord) return { type: 'system', message: helmStatus(ext, dockPier?.pier?.name) };
 
-  const cd = SAIL_COOLDOWN_MS - (Date.now() - lastSailAt);
-  if (cd > 0) return { type: 'error', message: `The Echelon's engines are still cycling. She can move again in ${Math.ceil(cd / 1000)}s.` };
+  const left = transitLeft();
+  if (left > 0) return { type: 'error', message: `The Echelon is already underway. She reaches her next position in ${Math.ceil(left / 1000)}s — you can't give a new order until she's there.` };
 
   const [dx, dy] = DIR_DELTA[dirWord];
   const tx = ext.grid_x + dx, ty = ext.grid_y + dy;
@@ -282,32 +339,27 @@ async function cmdSail(args, raw, player, broadcast) {
     return { type: 'error', message: 'The Echelon moves only over open water. There is no channel that way.' };
   }
 
-  // Cast off, reposition, re-index.
+  // Cast off and get underway. Her tile does NOT change yet — she's between tiles for the next ten
+  // minutes and only commits to the new position on arrival (arriveEchelon), scheduled below.
   await undockAll();
-  await query('UPDATE zones SET grid_x=$1, grid_y=$2 WHERE id=$3', [tx, ty, EXTERIOR]);
-  ext.grid_x = tx; ext.grid_y = ty;
-  invalidateEntranceDirCache();
-  rebuildFlightIndex();
+  const now = Date.now();
+  transit = { toX: tx, toY: ty, dir: dirWord, startAt: now, arriveAt: now + SAIL_TRANSIT_MS, timer: null };
+  transit.timer = setTimeout(() => { arriveEchelon().catch(e => console.error('[yacht] arrive:', e.message)); }, SAIL_TRANSIT_MS);
   // Signal the flight renderer she's under way, so every nearby pilot's windshield paints a
-  // decaying wake at her new tile (the owner's Helm chase view sets its own wake client-side).
-  import('../flight/state.js').then(m => m.setYachtMakingWay?.()).catch(() => {});
-  lastSailAt = Date.now();
-
-  // Come to rest beside a pier? Lower the gangway.
-  const pier = adjacentPier(tx, ty);
-  if (pier) await dockTo(pier.pier.id, pier.dir);
+  // decaying wake (the owner's Helm chase view sets its own wake client-side); re-pinged while
+  // she's underway by pushHelmLive.
+  flightStateMod?.setYachtMakingWay?.();
 
   const bc = broadcast || getBroadcast();
   for (const zid of [EXTERIOR, 'zone_echelon_bridge', 'zone_echelon_stern', 'zone_echelon_foyer']) {
-    bc?.(zid, { type: 'zone_event', message: 'The deck shifts underfoot as the Echelon gets underway, then settles.' }, player.id);
+    bc?.(zid, { type: 'zone_event', message: 'The deck leans as the Echelon comes about and gets underway.' }, player.id);
   }
   // Cue the client ambience: swell the engine-room rumble (and deck wash) for everyone aboard
   // while she's making way. The client decays it back to idle over the making-way window.
   for (const zid of ['zone_echelon_engine', 'zone_echelon_engineering', EXTERIOR, 'zone_echelon_helipad', 'zone_echelon_stern', 'zone_echelon_bridge', 'zone_echelon_foyer']) {
     bc?.(zid, { type: 'yacht_underway' }, null);
   }
-  const dockLine = pier ? ` She comes to rest alongside ${pier.pier.name}.` : '';
-  return { type: 'system', message: `You ease the throttle ${dirWord}. The Echelon slides one length across the Basin to ${tx}, ${ty}.${dockLine}` };
+  return { type: 'system', message: `You engage the throttle ${dirWord}. The Echelon leans into her turn and gets underway across the Basin — she'll reach ${tx}, ${ty} in about ten minutes.` };
 }
 
 async function cmdDock(args, raw, player) {
@@ -375,8 +427,13 @@ async function cmdHelmConsole(args, raw, player) {
   if (!getZone(player.current_zone)?.flags?.echelon_bridge) {
     return { type: 'error', message: 'You can only take the helm from her bridge.' };
   }
-  const cd = Math.max(0, SAIL_COOLDOWN_MS - (Date.now() - lastSailAt));
-  sendToPlayer(player.id, { type: 'helm_open', gx: ext.grid_x, gy: ext.grid_y, heading: 0, cooldownMs: cd });
+  // Open already-underway (heading = her passage's course) so the console restores the lock + ETA;
+  // hand over the live sky (real weather field) up front, then pushHelmLive keeps it current.
+  const heading = transit ? DIR_DEG[transit.dir] : 0;
+  const sky = flightStateMod?.skyState?.() || null;
+  const map = flightStateMod?.yachtHelmWindow?.(ext.grid_x, ext.grid_y) || null;   // the real basin around her
+  sendToPlayer(player.id, { type: 'helm_open', gx: ext.grid_x, gy: ext.grid_y, heading, transitMs: transitLeft(), sky, map });
+  helmViewers.add(player.id);
   return { type: 'system', message: 'You take the helm. The console wakes under your hands.' };
 }
 

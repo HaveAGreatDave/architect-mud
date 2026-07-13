@@ -500,6 +500,18 @@ function mapWindow(a, radius = 24) {
   return rows;
 }
 
+// The same REAL world window (piers, buildings, roads, water, the city skyline) centred on an
+// arbitrary tile — for the Echelon's Helm chase view, so she's framed against the actual basin
+// and shoreline she sits in, not a blank ocean. The centre is her own tile: clear its `self`
+// flag (which suppresses the extrusion pass) so the windshield draws her 3D model, and keep it a
+// `mark:'yacht'` water cell. The client overlays live wake/heading on that centre cell each frame.
+export function yachtHelmWindow(x, y, radius = 24) {
+  const rows = mapWindow({ grid_x: x, grid_y: y }, radius);
+  const c = rows[radius] && rows[radius][radius];
+  if (c) { c.self = undefined; if (!c.mark) c.mark = 'yacht'; }
+  return rows;
+}
+
 // Nearest airfield to a coord + the bearing to it (for the <30%-fuel guide icon).
 function nearestField(x, y) {
   let best = null, bestD = Infinity;

@@ -19,6 +19,7 @@ export function createHelmWheel(canvas, opts = {}) {
   let angle = 0, vel = 0;
   let grabbing = false, grabPA = 0, grabWA = 0, lastA = 0, lastT = 0;
   let raf = 0, alive = true, last = performance.now();
+  let enabled = true;   // locked (dimmed, no grab) while she's underway on a passage
 
   // Carbon-fibre 2×2 twill tile (reused as a rotating pattern).
   let carbon = null;
@@ -37,7 +38,7 @@ export function createHelmWheel(canvas, opts = {}) {
 
   const centre = () => { const r = canvas.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
   const angOf = (e, c) => Math.atan2(e.clientY - c.y, e.clientX - c.x);
-  function down(e) { const c = centre(); grabbing = true; grabPA = angOf(e, c); grabWA = angle; vel = 0; lastA = angle; lastT = performance.now(); canvas.setPointerCapture?.(e.pointerId); canvas.style.cursor = 'grabbing'; e.preventDefault(); }
+  function down(e) { if (!enabled) return; const c = centre(); grabbing = true; grabPA = angOf(e, c); grabWA = angle; vel = 0; lastA = angle; lastT = performance.now(); canvas.setPointerCapture?.(e.pointerId); canvas.style.cursor = 'grabbing'; e.preventDefault(); }
   function move(e) {
     if (!grabbing) return;
     const c = centre(); angle = grabWA + (angOf(e, c) - grabPA);
@@ -51,6 +52,7 @@ export function createHelmWheel(canvas, opts = {}) {
   canvas.style.cursor = 'grab'; canvas.style.touchAction = 'none';
 
   function step(dt) {
+    if (!enabled) { vel = 0; return; }   // pinned while underway — no course demand
     if (!grabbing) { angle += vel * dt; vel *= Math.exp(-5.5 * dt); if (Math.abs(vel) < 0.05) vel = 0; }   // heavy: a little follow-through, settles fast
     onCourse((angle / GEAR) * 180 / Math.PI);   // wheel rotation → demanded compass course (deg)
   }
@@ -62,6 +64,7 @@ export function createHelmWheel(canvas, opts = {}) {
     if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, box.width, box.height);
+    ctx.globalAlpha = enabled ? 1 : 0.4;   // dim the whole wheel while pinned underway
     const cx = box.width / 2, cy = box.height / 2, R = Math.min(box.width, box.height) / 2 - 3;
     if (!carbon) carbon = makeCarbon();
     const pat = ctx.createPattern(carbon, 'repeat');
@@ -144,7 +147,7 @@ export function createHelmWheel(canvas, opts = {}) {
 
   return {
     setAccent(a) { accent = a || accent; },
-    setEnabled() {},                      // no-op (kept for API compatibility; the wheel is always live)
+    setEnabled(on) { enabled = on !== false; if (!enabled) { grabbing = false; vel = 0; } canvas.style.cursor = enabled ? 'grab' : 'not-allowed'; },
     getAngle: () => angle,
     destroy() { alive = false; cancelAnimationFrame(raf); canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move); removeEventListener('pointerup', up); },
   };
