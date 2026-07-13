@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_printer_roach",
+  "id": "zs_district_district_918_904_printer_roach",
+  "max_count": 2,
+  "respawn_seconds": 240,
+  "spawn_weight": 40,
+  "zone_id": "zone_district_918_904"
+}

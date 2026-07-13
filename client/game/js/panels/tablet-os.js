@@ -1003,6 +1003,14 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-link { display:flex; align-items:center; justify-content:center; color:color-mix(in srgb,var(--mg-accent) 40%,transparent); font-size:12px; line-height:1; pointer-events:none; }
     #tablet-os-overlay .tos-map-link.art { color:#c9a24a; font-weight:bold; text-shadow:0 0 6px rgba(201,162,74,.55); }
     #tablet-os-overlay .tos-map-legend { display:flex; flex-wrap:wrap; gap:5px 12px; margin:9px 0 4px; font-size:10px; color:var(--tos-fg-dim); }
+    /* Building-name legend — clickable chips tied to their map tiles. */
+    #tablet-os-overlay .tos-map-bldgs { margin:8px 0 2px; }
+    #tablet-os-overlay .tos-map-bldgs-t { font-size:10px; text-transform:uppercase; letter-spacing:.6px; color:var(--tos-fg-dim); opacity:.8; margin-bottom:5px; }
+    #tablet-os-overlay .tos-map-bldgs-list { display:flex; flex-wrap:wrap; gap:5px 6px; }
+    #tablet-os-overlay .tos-map-bldg { cursor:pointer; font-size:11px; padding:3px 8px; border-radius:11px; color:var(--tos-fg-dim); transition:filter .12s;
+      background:color-mix(in srgb,var(--mg-accent) 8%,transparent); border:1px solid color-mix(in srgb,var(--mg-accent) 22%,transparent); }
+    #tablet-os-overlay .tos-map-bldg:hover { filter:brightness(1.25); }
+    #tablet-os-overlay .tos-map-bldg.sel { color:#04120f; background:var(--mg-accent); border-color:var(--mg-accent); box-shadow:0 0 8px color-mix(in srgb,var(--mg-accent) 45%,transparent); }
     #tablet-os-overlay .tos-map-detail { margin-top:6px; border-top:1px solid color-mix(in srgb,var(--mg-accent) 16%,transparent); padding-top:8px; }
     #tablet-os-overlay .tos-map-note { font-size:11.5px; color:var(--tos-fg-dim); line-height:1.5; padding:6px 2px; }
 
@@ -2371,7 +2379,7 @@ function renderMap(d) {
     grid += `<svg class="tos-gps-svg" viewBox="0 0 ${gCols} ${gRows}" preserveAspectRatio="none"><polyline class="tos-gps-line" points="${gpsPts.join(' ')}"/></svg>`;
   grid += '</div>';
 
-  return `${renderMapCtl(d)}${renderMapBar(d)}<div class="tos-map-wrap">${grid}</div>${renderMapLegend(mode)}<div class="tos-map-detail" id="tos-map-detail">${renderMapDetail(d)}</div>`;
+  return `${renderMapCtl(d)}${renderMapBar(d)}<div class="tos-map-wrap">${grid}</div>${renderMapLegend(mode)}${renderMapBuildings(d)}<div class="tos-map-detail" id="tos-map-detail">${renderMapDetail(d)}</div>`;
 }
 
 // Persistent map controls (mirroring the sidebar minimap): Run + Auto-walk toggles,
@@ -2384,10 +2392,12 @@ function renderMapCtl(d) {
   // it back to the local street, then into the interior when you're in a building.
   const zoutOff = _mapCanZoom(d, -1) ? '' : ' disabled';
   const zinOff = _mapCanZoom(d, 1) ? '' : ' disabled';
+  const noRoute = (getTracePath() || []).length < 2 ? ' disabled' : '';
   return `<div class="tos-map-ctl">
     <span class="tos-map-mini${run}" data-map-run title="Toggle running">🏃 Run</span>
     <span class="tos-map-mini${auto}" data-map-autotoggle title="Toggle auto-walk to the plotted route">➤ Auto</span>
     <span class="tos-map-mini" data-map-recenter title="Recenter on you">◎ Center</span>
+    <span class="tos-map-mini${noRoute}" data-map-clear title="Clear the plotted GPS route">🧭 Clear</span>
     <span class="tos-map-zoom">
       <button class="tos-mz" data-map-zoom="out" title="Zoom out"${zoutOff}>−</button>
       <button class="tos-mz" data-map-zoom="in" title="Zoom in"${zinOff}>+</button>
@@ -2429,8 +2439,7 @@ function renderMapBar(d) {
   } else {
     status = 'Tap a tile, then Route here to plot a GPS course.';
   }
-  const clear = route.length > 1 ? `<span class="tos-map-mini" data-map-clear>✕ Clear</span>` : '';
-  return `<div class="tos-map-bar"><span class="tos-map-route">${status}</span>${clear}</div>`;
+  return `<div class="tos-map-bar"><span class="tos-map-route">${status}</span></div>`;
 }
 
 function renderMapLegend(mode) {
@@ -2441,6 +2450,26 @@ function renderMapLegend(mode) {
       ? `<span class="tos-cm-lg"><span class="sw" style="background:${FUNC_LEGEND[k].color}"></span>${esc(FUNC_LEGEND[k].label.split(/[ /]/)[0])}</span>` : '').join('');
   }
   return `<div class="tos-map-legend">${items}</div>`;
+}
+
+// Named buildings/landmarks present in the current view. Each entry is tied to its
+// tile by zone id: clicking it selects + centres that building, and clicking a
+// building tile lights up its legend name — the two stay in sync (mapSyncSelection).
+function mapBuildingTiles(d) {
+  const seen = new Set();
+  return (d.tiles || [])
+    .filter(t => (t.building_type || t.building_name || t.poi) && !seen.has(t.id) && seen.add(t.id))
+    .sort((a, b) => (a.building_name || a.name).localeCompare(b.building_name || b.name));
+}
+function renderMapBuildings(d) {
+  const bldgs = mapBuildingTiles(d);
+  if (!bldgs.length) return '';
+  const items = bldgs.map(t => {
+    const label = t.building_name || t.name;
+    const icon = t.icon ? `${esc(t.icon)} ` : '';
+    return `<span class="tos-map-bldg${t.id === _tosMapSel ? ' sel' : ''}" data-map-bldg="${esc(t.id)}" title="${esc(label)}">${icon}${esc(label)}</span>`;
+  }).join('');
+  return `<div class="tos-map-bldgs"><div class="tos-map-bldgs-t">Buildings</div><div class="tos-map-bldgs-list">${items}</div></div>`;
 }
 
 function _mapActBtns(list) {
@@ -3993,15 +4022,61 @@ function rebuildMap() {
   const root = _overlay.querySelector('#tos-map-root');
   if (root) { root.innerHTML = renderMap(_data); wireMap(); }
 }
+// Sync the current selection (_tosMapSel) across the map: highlight the matching
+// tile and its building-legend name so the two read as one thing, refresh the detail
+// panel, and (from a legend click) scroll the tile into the centre of the viewport.
+function mapSyncSelection(center) {
+  let selTile = null;
+  _overlay.querySelectorAll('.tos-map-tile').forEach(el => {
+    const on = el.getAttribute('data-map-zone') === _tosMapSel;
+    el.classList.toggle('sel', on);
+    if (on) selTile = el;
+  });
+  _overlay.querySelectorAll('.tos-map-bldg').forEach(el =>
+    el.classList.toggle('sel', el.getAttribute('data-map-bldg') === _tosMapSel));
+  if (center && selTile) _scrollMapTo(selTile);
+  const det = _overlay.querySelector('#tos-map-detail');
+  if (det) { det.innerHTML = renderMapDetail(_data); wireMapActs(); }
+}
+
+// Plot a GPS route from where you stand to a reachable tile (double-click / Route here).
+function mapRouteTo(id) {
+  const cur = (_data.tiles || []).find(t => t.isCurrent);
+  const t = (_data.tiles || []).find(x => x.id === id);
+  if (!cur || !t || t.isCurrent || t.reachable === false) return;
+  const path = routeBetween(cur.id, id, _data.tiles);
+  if (path && path.length > 1) { setGpsRoute(path); rebuildMap(); }
+}
+
+// Scroll the map viewport so a given tile element sits centred (mirrors centerMapOnPlayer).
+function _scrollMapTo(el) {
+  const wrap = _overlay?.querySelector('.tos-map-wrap');
+  if (!wrap || !el) return;
+  const wr = wrap.getBoundingClientRect(), cr = el.getBoundingClientRect();
+  wrap.scrollLeft += (cr.left + cr.width / 2) - (wr.left + wrap.clientWidth / 2);
+  wrap.scrollTop += (cr.top + cr.height / 2) - (wr.top + wrap.clientHeight / 2);
+}
+
 function wireMap() {
   _overlay.querySelectorAll('[data-map-zone]').forEach(el => {
+    // Single tap selects the tile (and lights up its legend name — mapSyncSelection).
     el.addEventListener('click', () => {
       _tosMapSel = el.getAttribute('data-map-zone');
       sfx(TOS_SELECT_DEF);
-      _overlay.querySelectorAll('.tos-map-tile.sel').forEach(s => s.classList.remove('sel'));
-      el.classList.add('sel');
-      const det = _overlay.querySelector('#tos-map-detail');
-      if (det) { det.innerHTML = renderMapDetail(_data); wireMapActs(); }
+      mapSyncSelection(false);
+    });
+    // Double-click a reachable tile to plot a GPS route straight to it, no Route-here trip.
+    el.addEventListener('dblclick', () => {
+      _tosMapSel = el.getAttribute('data-map-zone');
+      mapRouteTo(_tosMapSel);
+    });
+  });
+  // Building legend ↔ tile: clicking a name selects + centres that building.
+  _overlay.querySelectorAll('[data-map-bldg]').forEach(el => {
+    el.addEventListener('click', () => {
+      _tosMapSel = el.getAttribute('data-map-bldg');
+      sfx(TOS_SELECT_DEF);
+      mapSyncSelection(true);
     });
   });
   wireMapActs();
@@ -4074,12 +4149,7 @@ function wireMapActs() {
       const a = el.getAttribute('data-map-act');
       sfx(TOS_SELECT_DEF);
       if (a === 'route') {
-        const cur = (_data.tiles || []).find(t => t.isCurrent);
-        if (cur && _tosMapSel) {
-          const path = routeBetween(cur.id, _tosMapSel, _data.tiles);
-          if (path && path.length > 1) setGpsRoute(path);
-        }
-        rebuildMap();
+        mapRouteTo(_tosMapSel);
       } else if (a === 'auto') {
         toggleAutoWalk();
         rebuildMap();
