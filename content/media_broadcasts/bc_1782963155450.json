@@ -1298,10 +1298,12 @@
     }
   ],
   "name": "The Tonight Show with John Akerson",
+  "news_pools": null,
   "override_duration": null,
   "playback_mode": "scripted",
   "sports_pools": null,
   "tags": [],
+  "talkshow_pools": null,
   "updated_at": "1782963155",
   "weather_pools": null
 }

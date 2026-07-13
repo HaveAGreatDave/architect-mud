@@ -11,15 +11,15 @@
   "created_by": "the-under",
   "description": "The bottom of the Ironside storm drain. A rusted service ladder climbs back up toward a coin of grey daylight overhead; below it, brick tunnels run off into total black in three directions. The floor is a shallow sheet of cold water skinned with grease. Whatever light you carry is the only light there is down here.",
   "exits": {
-    "up": "zone_district_919_903",
-    "west": "zone_under_confluence",
+    "east": "zone_under_bend",
     "south": "zone_under_flooded",
-    "east": "zone_under_bend"
+    "up": "zone_district_919_903",
+    "west": "zone_under_confluence"
   },
   "flags": {
     "district": "sewer",
-    "is_interior": true,
     "intro_lore": "This is where the city's runoff goes to be forgotten, and lately where its newest citizens go to bleed off their first real fear. The Under doesn't hate you — it simply doesn't account for you at all. Down here the only thing between you and the dark is two cells and a bulb. Keep it lit.",
+    "is_interior": true,
     "scavenging_table_id": "scav_sewer"
   },
   "grid_x": 919,

@@ -11,10 +11,10 @@
   "created_by": "zone-planner",
   "description": "A Redline SAM nest thrown up on the old grassland — sandbags and scavenged plate bermed into a rough horseshoe, the launch rail exposed at the centre with two red-striped missiles nosed at the sky. The nest tracks the haze on a groaning powered mount, the crew lounging at it with the ease of people who charge a toll and mean it. A plate hatch, weighted with a truck spring, drops into the bunker where the reloads and the launch electronics are kept out of the weather.",
   "exits": {
+    "down": "zone_aa_redline_bunker",
     "east": "zone_district_892_903",
     "north": "zone_district_891_902",
-    "south": "zone_district_891_904",
-    "down": "zone_aa_redline_bunker"
+    "south": "zone_district_891_904"
   },
   "flags": {
     "aa_site": true,

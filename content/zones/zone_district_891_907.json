@@ -11,10 +11,10 @@
   "created_by": "zone-planner",
   "description": "A wastes gun nest bodged together on the open pasture — an autocannon bolted to the bed of a dead truck, sandbagged around and open to the whole sky. It's scavenged, jury-rigged, and mean, traversed by hand and fed by whoever's nearest. A hatch cut into a buried container beside the truck drops into the bunker where the spares and the belts are hoarded out of the sun.",
   "exits": {
+    "down": "zone_aa_wastes_bunker",
     "east": "zone_district_892_907",
     "north": "zone_district_891_906",
-    "south": "zone_district_891_908",
-    "down": "zone_aa_wastes_bunker"
+    "south": "zone_district_891_908"
   },
   "flags": {
     "aa_site": true,

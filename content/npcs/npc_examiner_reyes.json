@@ -3,8 +3,15 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "start": { "type": "start", "next": "idle" },
-      "idle": { "type": "wait", "seconds": 60, "next": "idle" }
+      "idle": {
+        "next": "idle",
+        "seconds": 60,
+        "type": "wait"
+      },
+      "start": {
+        "next": "idle",
+        "type": "start"
+      }
     }
   },
   "chitchat": [
@@ -16,14 +23,19 @@
   "dialogue_tree": {
     "accepted": {
       "actions": [
-        { "action": "START_CHECKRIDE" }
+        {
+          "action": "START_CHECKRIDE"
+        }
       ],
       "options": [],
       "text": "\"Then quit talking and start flying.\" She walks you out to a trainer Mayfly idling on the ramp and folds herself into the seat beside you. \"Follow my calls. Try not to embarrass either of us.\""
     },
     "already": {
       "options": [
-        { "label": "Just checking in.", "next": "bye" }
+        {
+          "label": "Just checking in.",
+          "next": "bye"
+        }
       ],
       "text": "\"You're already rated — I signed your ticket myself. Sky's yours. Don't make me regret it.\""
     },
@@ -33,37 +45,60 @@
     },
     "offer": {
       "options": [
-        { "label": "I'm ready. Let's go.", "next": "accepted" },
-        { "label": "Not just yet.", "next": "bye" }
+        {
+          "label": "I'm ready. Let's go.",
+          "next": "accepted"
+        },
+        {
+          "label": "Not just yet.",
+          "next": "bye"
+        }
       ],
       "text": "\"A checkride. You'll fly a trainer Mayfly off my ramp, thread a course of rings I'll throw up in front of you — climb, turn, come around — and grease her back onto Coldwater Regional, Grade B or better. Bend the aircraft and we start over; the trainers are free and I've a hangar of them. Two things before you strap in: the ENGINE switch lights her up, and the yoke is INVERTED — drag DOWN to pull back and climb. Everybody forgets that one. Once.\""
-    },
-    "tips": {
-      "options": [
-        { "label": "Got it.", "next": "root" }
-      ],
-      "text": "\"Throttle's on A and Z. Steer with the yoke — left and right to bank, and remember she's inverted: down to climb, up to descend. Keep your speed up in the turns, ease it down on final. The rings tell you where; the horizon tells you how.\""
     },
     "root": {
       "options": [
         {
           "conditions": [
-            { "flag": "air_pilot_licensed", "op": "unset", "scope": "player" }
+            {
+              "flag": "air_pilot_licensed",
+              "op": "unset",
+              "scope": "player"
+            }
           ],
           "label": "I want my pilot's licence.",
           "next": "offer"
         },
         {
           "conditions": [
-            { "flag": "air_pilot_licensed", "op": "set", "scope": "player" }
+            {
+              "flag": "air_pilot_licensed",
+              "op": "set",
+              "scope": "player"
+            }
           ],
           "label": "Good to be rated.",
           "next": "already"
         },
-        { "label": "How do these things fly?", "next": "tips" },
-        { "label": "(walk off)", "next": "bye" }
+        {
+          "label": "How do these things fly?",
+          "next": "tips"
+        },
+        {
+          "label": "(walk off)",
+          "next": "bye"
+        }
       ],
       "text": "The silver-haired woman clocks you the moment you step onto the hangar floor. \"Looking to fly? Nobody takes the pilot seat around here until they've flown a checkride with me. Name's Reyes. I decide who gets to leave the ground.\""
+    },
+    "tips": {
+      "options": [
+        {
+          "label": "Got it.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Throttle's on A and Z. Steer with the yoke — left and right to bank, and remember she's inverted: down to climb, up to descend. Keep your speed up in the turns, ease it down on final. The rings tell you where; the horizon tells you how.\""
     }
   },
   "faction": null,

@@ -264,10 +264,12 @@
     }
   ],
   "name": "SleepRight™ Sleep Pods - Wake Better.",
+  "news_pools": null,
   "override_duration": 30,
   "playback_mode": "scripted",
   "sports_pools": null,
   "tags": [],
+  "talkshow_pools": null,
   "updated_at": "1782872055",
   "weather_pools": null
 }

@@ -217,49 +217,6 @@
       ],
       "text": "He weighs the recovered cells in one hand and, for the first time, actually smiles. \"Well. Look at you — upright AND useful. Rare combination round here.\" He unclips the scratched flashlight from his belt and folds your fingers around it. \"This one’s mine. Was. Never once left me in the dark. Graduation gift. Consider yourself a regular.\""
     },
-    "sewer_offer": {
-      "options": [
-        {
-          "label": "Point me at it.",
-          "next": "sewer_accepted"
-        },
-        {
-          "label": "Maybe later.",
-          "next": "bye"
-        }
-      ],
-      "text": "\"Earn? Same way I do — off what nobody else’ll touch.\" He jerks a thumb at the floor. \"That storm drain out on Ironside, the one with the grate kicked off — it drops into the Under. Old sewers. Something’s breeding down there and it’s working its way up toward my vats. Rats. Roaches. Worse.\" He taps the flashlight he gave you. \"You’ve got the light now. Go down, thin ’em out — call it six of the things — and come tell me it’s done. The dark’s the only thing down there that’ll kill you, and you’re carrying the cure.\""
-    },
-    "sewer_accepted": {
-      "actions": [
-        {
-          "action": "START_QUEST",
-          "quest_id": "quest_down_the_drain"
-        }
-      ],
-      "options": [
-        {
-          "label": "Down I go.",
-          "next": "bye"
-        }
-      ],
-      "text": "\"Good. Green line’s on your map — walks you right to the drain. Keep that light charged; I sell cells if you run dry, and don’t be too proud to buy them. Six of the buggers. Then home.\""
-    },
-    "sewer_reported": {
-      "actions": [
-        {
-          "action": "TURN_IN",
-          "quest_id": "quest_down_the_drain"
-        }
-      ],
-      "options": [
-        {
-          "label": "All in a day’s work.",
-          "next": "bye"
-        }
-      ],
-      "text": "He hears the count and nods, slow. \"Six. And you walked back up under your own power — that’s the part most don’t manage.\" He counts a few spare cells into your palm along with the pay. \"A dead flashlight’s just a club, and you’re better than a club now. Barely. Keep it fed.\""
-    },
     "root": {
       "options": [
         {
@@ -334,6 +291,49 @@
         }
       ],
       "text": "The broad man clocks you the instant you’re upright. \"There it is. Another fresh one, blinking in the light.\" He spreads his hands over the crates. \"Name’s Grady. Folks call me Two-Cell. I sell the things that keep you breathing long enough to become a repeat customer.\""
+    },
+    "sewer_accepted": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_down_the_drain"
+        }
+      ],
+      "options": [
+        {
+          "label": "Down I go.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Good. Green line’s on your map — walks you right to the drain. Keep that light charged; I sell cells if you run dry, and don’t be too proud to buy them. Six of the buggers. Then home.\""
+    },
+    "sewer_offer": {
+      "options": [
+        {
+          "label": "Point me at it.",
+          "next": "sewer_accepted"
+        },
+        {
+          "label": "Maybe later.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Earn? Same way I do — off what nobody else’ll touch.\" He jerks a thumb at the floor. \"That storm drain out on Ironside, the one with the grate kicked off — it drops into the Under. Old sewers. Something’s breeding down there and it’s working its way up toward my vats. Rats. Roaches. Worse.\" He taps the flashlight he gave you. \"You’ve got the light now. Go down, thin ’em out — call it six of the things — and come tell me it’s done. The dark’s the only thing down there that’ll kill you, and you’re carrying the cure.\""
+    },
+    "sewer_reported": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_down_the_drain"
+        }
+      ],
+      "options": [
+        {
+          "label": "All in a day’s work.",
+          "next": "bye"
+        }
+      ],
+      "text": "He hears the count and nods, slow. \"Six. And you walked back up under your own power — that’s the part most don’t manage.\" He counts a few spare cells into your palm along with the pay. \"A dead flashlight’s just a club, and you’re better than a club now. Barely. Keep it fed.\""
     },
     "shop": {
       "actions": [

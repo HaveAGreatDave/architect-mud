@@ -190,10 +190,12 @@
     }
   ],
   "name": "Acid Cola™ - Reality Hurts",
+  "news_pools": null,
   "override_duration": 30,
   "playback_mode": "scripted",
   "sports_pools": null,
   "tags": [],
+  "talkshow_pools": null,
   "updated_at": "1782872045",
   "weather_pools": null
 }

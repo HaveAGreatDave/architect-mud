@@ -144,10 +144,12 @@
     }
   ],
   "name": "Jackpot Protocol",
+  "news_pools": null,
   "override_duration": 600,
   "playback_mode": "scripted",
   "sports_pools": null,
   "tags": [],
+  "talkshow_pools": null,
   "updated_at": "1783320932",
   "weather_pools": null
 }

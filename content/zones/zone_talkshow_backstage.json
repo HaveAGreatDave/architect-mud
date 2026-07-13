@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": null,
+  "description": "A featureless holding space between the world and the wings. Nothing reaches here.",
+  "exits": {},
+  "flags": {
+    "no_spawn": true
+  },
+  "grid_x": null,
+  "grid_y": null,
+  "grid_z": 0,
+  "id": "zone_talkshow_backstage",
+  "map_id": null,
+  "marker": null,
+  "name": "Backstage",
+  "parent_zone": null,
+  "updated_at": "1783882023"
+}

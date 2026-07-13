@@ -22,6 +22,7 @@
   "message_interval": 5,
   "messages": [],
   "name": "Deadball — Coldwater League Baseball",
+  "news_pools": null,
   "override_duration": 300,
   "playback_mode": "sports",
   "sports_pools": {
@@ -285,6 +286,7 @@
     "title": "bb_deadball_title"
   },
   "tags": [],
+  "talkshow_pools": null,
   "updated_at": "1783289745",
   "weather_pools": null
 }

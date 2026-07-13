@@ -1,0 +1,14 @@
+{
+  "description": "A tall metal post topped with a flickering sodium lamp.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_ext_1783838514035",
+  "light_type": "streetlight",
+  "lumen_output": 8000,
+  "name": "Street Light",
+  "object_type": "light",
+  "power_draw_kw": 0.2,
+  "price": 0,
+  "zone_id": "zone_district_913_911"
+}

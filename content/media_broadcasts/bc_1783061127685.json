@@ -22,10 +22,12 @@
   "message_interval": 5,
   "messages": [],
   "name": "DOOMCAST — Seven-Day Outlook",
+  "news_pools": null,
   "override_duration": 120,
   "playback_mode": "weather",
   "sports_pools": null,
   "tags": [],
+  "talkshow_pools": null,
   "updated_at": "1783061128",
   "weather_pools": {
     "host": "npc_dex_rime",

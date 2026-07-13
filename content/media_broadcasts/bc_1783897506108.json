@@ -1,0 +1,409 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "type": "start"
+      }
+    }
+  },
+  "category": "late_night",
+  "channel_id": "ch_7_1782953079593",
+  "created_by": "f991800d-6228-40ef-a95f-63aeefff1a47",
+  "description": "",
+  "enabled": 1,
+  "fallback_messages": [],
+  "id": "bc_1783897506108",
+  "loop": 1,
+  "message_interval": 5,
+  "messages": [],
+  "name": "The Tonight Show with John Akerson",
+  "news_pools": null,
+  "override_duration": 300,
+  "playback_mode": "talkshow",
+  "sports_pools": null,
+  "tags": [],
+  "talkshow_pools": {
+    "airSlots": [
+      7
+    ],
+    "guestNpc": "npc_guest",
+    "guests": [
+      {
+        "name": "Lenny \"Lucky\" Malone",
+        "tag": "lucky",
+        "theme": "",
+        "title": "professional lottery winner, eight-time and counting"
+      },
+      {
+        "name": "Dr. Priya Sundaram",
+        "tag": "surgeon",
+        "theme": "",
+        "title": "the surgeon who transplants organs she prints at home"
+      },
+      {
+        "name": "Mackenzie \"Mack\" Doyle",
+        "tag": "nation",
+        "theme": "",
+        "title": "the man who legally declared his apartment a sovereign nation"
+      },
+      {
+        "name": "Ophelia Crane",
+        "tag": "vending",
+        "theme": "",
+        "title": "spokeswoman for a vending machine that has killed forty people"
+      },
+      {
+        "name": "Reverend Cy Boone",
+        "tag": "reverend",
+        "theme": "",
+        "title": "founder of the Church of the Reasonable Refund"
+      },
+      {
+        "name": "Tabitha Voss",
+        "tag": "chef",
+        "theme": "",
+        "title": "the street chef whose mutant-squid tacos are \"probably fine"
+      },
+      {
+        "name": "Griff \"The Wall\" Nakamura",
+        "tag": "bouncer",
+        "theme": "",
+        "title": "a bouncer who has ejected the same man nine years running"
+      },
+      {
+        "name": "Marisol Etcheverry",
+        "tag": "exorcist",
+        "theme": "",
+        "title": "the only licensed exorcist in the Undermarket"
+      },
+      {
+        "name": "Dexter Flynt",
+        "tag": "scavenger",
+        "theme": "",
+        "title": "a scavenger who found a working toaster and became a millionaire"
+      },
+      {
+        "name": "Yuki Tanaka-Reyes",
+        "tag": "lawsuit",
+        "theme": "",
+        "title": "the woman suing the sun for emotional distress"
+      },
+      {
+        "name": "Colonel Otis Pemberton",
+        "tag": "colonel",
+        "theme": "",
+        "title": "retired, allegedly, from a war nobody will confirm happened"
+      },
+      {
+        "name": "Sable Okonkwo",
+        "tag": "influencer",
+        "theme": "",
+        "title": "an influencer with nine million followers, all of them bots she pays"
+      },
+      {
+        "name": "Sparky\" Reyes",
+        "tag": "sparky",
+        "theme": "",
+        "title": "an ex-grid saboteur now working as a safety consultant"
+      },
+      {
+        "name": "Delphine Rook",
+        "tag": "forecaster",
+        "theme": "",
+        "title": "a corporate futures forecaster who has never once been right"
+      },
+      {
+        "name": "Brother Ansel",
+        "tag": "monk",
+        "theme": "",
+        "title": "a monk who took a vow of aggressive silence"
+      },
+      {
+        "name": "Iris Vann",
+        "tag": "hoarder",
+        "theme": "",
+        "title": "three-time champion of competitive hoarding"
+      },
+      {
+        "name": "Gus \"Two-Livers\" Malkin",
+        "tag": "taster",
+        "theme": "",
+        "title": "a professional poison taster, mostly retired, involuntarily"
+      },
+      {
+        "name": "Nadia Sokol",
+        "tag": "florist",
+        "theme": "",
+        "title": "a retired assassin who now arranges flowers"
+      }
+    ],
+    "host": "npc_john_akerson",
+    "pools": {
+      "announce_host": [
+        "Ladies and gentlemen... please welcome your host... {host}!",
+        "And now, the man who signed a contract he clearly didn't read — {host}!",
+        "Here he is, still legally alive as of this taping — {host}!",
+        "Put your hands together, or whatever you've got left, for {host}!",
+        "The one, the only, the contractually-obligated — {host}!",
+        "He's brave, he's rested, he's had exactly one functioning idea today — {host}!",
+        "Direct from the makeup chair and straight into your nightmares — {host}!",
+        "Give it up for the last honest face on television, allegedly — {host}!"
+      ],
+      "applause": [
+        "( The audience erupts as {host} strolls out. )",
+        "( Applause and a couple of whistles fill the studio. )",
+        "( The crowd claps {guest} out to the chair. )",
+        "( Warm applause as {guest} sits down. )",
+        "( Big applause. Somebody throws something. It's fine. )",
+        "( The audience rises — a few of them, anyway. )",
+        "( Applause, thin but sincere. )"
+      ],
+      "audience": [
+        "( The audience laughs. )",
+        "( A big laugh rolls through the studio. )",
+        "( Scattered laughter, then a groan. )",
+        "( The crowd groans, then claps anyway. )",
+        "( Someone in the back whoops. )",
+        "( Nervous laughter. )",
+        "( A single, delayed \"HA!\" from the balcony. )",
+        "( The audience oooohs. )",
+        "( Laughter, and one heckler getting shushed. )",
+        "( Uneasy chuckles. )",
+        "( The audience absolutely loses it. )",
+        "( A polite ripple of laughter. )",
+        "( Someone claps once, loudly, alone. )",
+        "( Half the crowd laughs; the other half checks the exits. )",
+        "( A cough. One brave cough. )",
+        "( The audience laughs harder than the joke earned. )"
+      ],
+      "commercial": [
+        "We'll be right back after this word from Acid Cola — because reality is easier to tolerate when it's carbonated.",
+        "A quick break, brought to you by NeoNoodles: now twelve percent less synthetic, legally speaking.",
+        "Stay with us. This portion of the program is sponsored by Halcyon Insurance — we can't save you, but we can itemize you.",
+        "Don't touch that dial. Or do — the dial is also sponsored tonight, by the makers of dials.",
+        "We'll return in a moment. Tonight's episode is brought to you by Soylent Original: it's food, and that's the whole slogan.",
+        "Back after this. Brought to you by the Bank of the Basin — your money, our building, let's not make this weird.",
+        "This break sponsored by GleamTooth Dental, the only clinic in the district with a working autoclave, they think.",
+        "Right back. Tonight's sponsor is the Coldwater Transit Authority: we go places, and sometimes you go with us."
+      ],
+      "desk_bit": [
+        "Now, before we bring out our guest — you're not going to believe what I saw on the way in tonight.",
+        "Speaking of terrible decisions, let me tell you about my week. Actually, let me not. Legal's here.",
+        "Here's something. We got a letter from a viewer tonight. It was a threat, but it was very neatly written, so — progress.",
+        "You know what I love about this city? Nothing. But I love saying it, and that's the same thing after a while.",
+        "Quick programming note: if the screen goes dark for a moment, that's not us, that's the grid, and there is nothing anyone can do.",
+        "We tried a new thing this week where we told the truth for a full minute. We got fined. We're not doing that again.",
+        "I want to thank our sponsors, all of whom are currently under investigation, which is how you know they can afford us.",
+        "So the network gave me \"notes\" this week. The main note was \"fewer notes.\" I'm choosing to honor that spiritually.",
+        "Somebody in the front row is eating during my monologue. Sir. This is a comedy program. Show some fear.",
+        "Little behind-the-scenes for you: the desk isn't real. None of it's real. The desk is the most real thing here and it's cardboard."
+      ],
+      "guest_intro": [
+        "My first guest tonight is {title}. Please welcome {guest}!",
+        "You've read about my next guest, {guest} — {title}. Come on out!",
+        "I'm told my next guest is {title}. That's either impressive or a felony. Welcome, {guest}!",
+        "Give it up for {guest}, {title}, and a very brave choice of outfit!",
+        "Please welcome someone the producers swore was cleared by legal — {guest}, {title}!",
+        "My next guest is {title}. I did not know that was a job. Ladies and gentlemen, {guest}!",
+        "Straight from a life I would not wish on my worst enemy — {guest}, {title}!",
+        "Here to explain themselves, at long last — {guest}, {title}!"
+      ],
+      "interview": [
+        "Welcome to the show. First off — are you okay? You can blink twice. >> I've survived worse rooms than this one, John. Barely.",
+        "Be honest with me — do you sleep at night? >> Like a baby. I wake up every two hours screaming. Same as everyone in this city.",
+        "What's the biggest misconception about what you do? >> That I know what I'm doing. I do not. Nobody does. That's the whole secret.",
+        "Last question, our lawyers are standing — would you do it all again? >> John, I'm contractually obligated to do it again. Twice, on weekends.",
+        "What would you tell young people considering your line of work? >> Aim low. That way the disappointment is punctual.",
+        "And the money — as good as they say? >> It's incredible. It's also on fire, and so are my hands. But it's incredible.",
+        "Who taught you all this? >> A mentor. Then he vanished. I like to think he retired. The evidence suggests otherwise.",
+        "What keeps you up at night? >> The ceiling, mostly. It's structural. But also, yes, the dread.",
+        "People either love you or fear you. Which do you prefer? >> Fear's more reliable, John. Love expects things back.",
+        "There are rumors. Care to set the record straight? >> They're mostly true, and the parts that aren't, I'm flattered by.",
+        "Best part of the job, worst part, go. >> Same part, John. That's the trouble with an honest living out here.",
+        "Did you always know this was your calling? >> I knew the day everyone told me to stop. That's usually the sign, isn't it?",
+        "So how did you even get started? >> One bad decision, made confidently, repeated until it became a career.",
+        "Any regrets? >> Regret's a luxury, John. I can barely afford the studio parking."
+      ],
+      "interview.bouncer": [
+        "Nine years ejecting the same man? >> Same guy, same door. At this point it's less a job and more a marriage.",
+        "Does he ever just stay out? >> He always comes back. I always throw him out. We've never spoken. It's the purest thing I have.",
+        "What's the secret to bouncing? >> It isn't strength, John, it's sadness. You have to look like you've got nothing left to lose. I don't."
+      ],
+      "interview.chef": [
+        "These squid tacos — are they safe? >> Probably fine, John. \"Probably\" is doing a lot of work in that sentence, and I respect it.",
+        "Where do you source your ingredients? >> Locally. Out here that means \"from a hole I don't fully understand.\"",
+        "People say your food's dangerous. >> My food is HONEST. The danger is a seasoning."
+      ],
+      "interview.colonel": [
+        "Colonel, tell us about the war. >> I can neither confirm nor deny it, John — officially, it didn't happen. I have a medal that says so.",
+        "And the pension? >> For a conflict in no record. I cash it monthly. The check is real. The war is \"complicated.\"",
+        "What won it, in the end? >> Discipline. That's what won us the — well. Whatever it was we may or may not have won."
+      ],
+      "interview.exorcist": [
+        "An Undermarket exorcist — is any of it real? >> Most \"hauntings\" are bad wiring, John. But the other ten percent? That's why I carry two staplers.",
+        "Is exorcism as dramatic as they say? >> It's mostly paperwork. The spirits, like everyone down there, just want to be seen.",
+        "And you're... licensed? >> I paid for the license. The demon that runs the licensing office was very reasonable."
+      ],
+      "interview.florist": [
+        "From assassin to florist — quite a pivot. >> After the career I had, John, it's nice to work with things that are ALREADY dead.",
+        "People find your bouquets oddly menacing. >> The lilies are just lilies. Probably.",
+        "Enjoying retirement? >> Nobody's tried anything. They know exactly what the peace lilies mean, and they behave."
+      ],
+      "interview.forecaster": [
+        "Eleven years forecasting the market? >> And never once right, John. That's a KIND of consistency.",
+        "Then why do the corporates keep you on? >> A broken forecaster is a fixed point. You can navigate by being exactly wrong.",
+        "What's your call for tomorrow? >> Stability and growth. I've predicted that every day. You've watched the results."
+      ],
+      "interview.hoarder": [
+        "Three-time hoarding champion — the secret? >> You never, ever, EVER let go. Of anything. Ever.",
+        "People call it a problem. >> The trophies call it a lifestyle, John. I have all three. And their boxes. And the receipts.",
+        "What's your proudest possession? >> The narrow path from my door to my chair. That path is my life's work."
+      ],
+      "interview.influencer": [
+        "Nine million followers — that's remarkable. >> Every one a bot I personally pay, John. Do you know how expensive authenticity is?",
+        "Isn't that just fake engagement? >> My bots have never once let me down. Can you say that about a person?",
+        "Doesn't it ever feel hollow? >> I post my breakfast, the bots love it, I feel seen. The illusion holds one more day. It's the modern condition."
+      ],
+      "interview.lawsuit": [
+        "You're suing the sun? >> Emotional distress, John. It's been up there this whole time, judging me, and I've had enough.",
+        "What are your chances, realistically? >> My lawyer says it's a long shot, jurisdictionally. I said, so is the sun.",
+        "What happens if you win? >> Every sunrise owes me residuals. Think about the precedent. Think about the light."
+      ],
+      "interview.lucky": [
+        "You've won the city lottery eight times — what's the secret? >> Always buy the ticket right after surviving something that should've killed you.",
+        "Eight jackpots. Do you at least feel lucky? >> I feel HUNTED, John. There's a difference, and the difference has a legal team.",
+        "What was the first thing you bought? >> A deluxe apartment. The deluxe part is that only one wall leaks."
+      ],
+      "interview.monk": [
+        "Brother Ansel, welcome. What brings you here tonight? >> ...",
+        "Can you tell us a little about the vow? >> ......",
+        "Anything at all you'd like to say to the folks at home? >> (a stare of profound, radiant, aggressive silence)"
+      ],
+      "interview.nation": [
+        "You declared your apartment a sovereign nation. How's governance? >> One law, one citizen, and a standing army of me holding a bat.",
+        "Any foreign relations? >> We've opened talks with 4B down the hall. It's tense. They have a working stove.",
+        "Do the corporates recognize your statehood? >> They don't, John. But they DO recognize my rent. So we're at an impasse."
+      ],
+      "interview.reverend": [
+        "Tell us about the Church of the Reasonable Refund. >> We teach that suffering is real, John, and you're entitled to store credit for it.",
+        "Do you pass a collection plate? >> We pass a receipt. Salvation is itemized.",
+        "How's the flock these days? >> Grown to hundreds. Mostly people who wanted a refund and found God in the returns line."
+      ],
+      "interview.scavenger": [
+        "You got rich off a toaster? >> One working toaster, John. In this economy, a machine that browns bread reliably is a small nation's GDP.",
+        "People laughed at scavenging for a living. >> Nobody's laughing from inside their leaking apartment.",
+        "Ever find anything stranger than the toaster? >> I don't talk about the doll. We don't talk about the doll, John."
+      ],
+      "interview.sparky": [
+        "From grid saboteur to safety consultant? >> Same job, John. I just bill for it now.",
+        "Do you feel guilty about the blackouts? >> I feel EMPLOYED. The blackouts built my client list.",
+        "What's the key to electrical safety? >> Respect the current. I did not, for years, and now I glow faintly."
+      ],
+      "interview.surgeon": [
+        "You print the organs at home now? >> I do, John. The printer's louder than you'd think, and it does NOT do refunds.",
+        "Forty transplants and no license — how do you sleep? >> \"Unlicensed\" is such a cold word for someone who's given forty people a working spleen. Give or take.",
+        "Any pride in the work? >> The kidneys are my best. I sign them. Small signature, inside. You'll never know unless we meet again."
+      ],
+      "interview.taster": [
+        "A professional poison taster — how are you still alive? >> Spite, mostly, John. And a truly world-class stomach lining.",
+        "Two livers, is that right? >> One and a half now. It's been a week.",
+        "Is it a rough gig? >> Ninety percent fine, ten percent the worst afternoon of your life. I've had a lot of afternoons."
+      ],
+      "interview.vending": [
+        "Your machine has killed forty people. Care to comment? >> Forty lives, yes — but thousands of beverages dispensed. It's a NET positive.",
+        "Is the machine... okay? >> Legally it's a person now. Emotionally, it's a person very disappointed in all of us.",
+        "What do you call this business model? >> \"Aggressive vending.\" \"Killing spree\" tested poorly with the beverage demographic."
+      ],
+      "monologue": [
+        "Thank you, thank you! Sit down, we've got a fantastic show, assuming the power holds.",
+        "Big crowd tonight. Or it was — we lost a few during the metal detector portion.",
+        "Did everyone survive the commute? Traffic was backed up six blocks after somebody hacked the crossing lights to advertise noodles.",
+        "Corporate Security says crime is down again. Apparently they stopped counting anything that happens outside corporate property.",
+        "I stopped by a pharmacy today. They've started locking up the bottled water. The cybernetic organs? Still self-service.",
+        "You know times are tough when the mugger accepts store credit.",
+        "My landlord says the building is structurally sound. Turns out that's a completely different thing from \"safe.\"",
+        "The city announced a new mental health initiative. It's a billboard that says \"Have you considered being richer?\"",
+        "They renamed my district again. It's now \"Opportunity Basin.\" Same craters, better font.",
+        "I got a parking ticket today. For a car I don't own. In a district I've never been to. The Machine is very thorough.",
+        "Weather service says it's going to rain tomorrow. They didn't say water. They were very careful not to say water.",
+        "The transit authority added a new express line. It's the same line, but now it doesn't stop for the people who fall in.",
+        "Great news from the hospital — they've reduced wait times by simply removing the chairs.",
+        "A man tried to sell me a map to the surface today. I said, \"Buddy, I've seen the surface.\" He said, \"Then you know why I'm selling the map.\"",
+        "The Machine wished everyone a happy productivity quarter today. It does not know what happiness is. It's very confident about it anyway.",
+        "Rent went up again. My landlord calls it \"market rate.\" The market is a hole in the ground and the rate is everything you have.",
+        "I tried the new soylent flavor. It's called \"Original.\" I asked original what. They stopped returning my calls.",
+        "Somebody firebombed the DMV today and honestly the lines moved faster.",
+        "The mayor gave a speech about hope. Then the teleprompter caught fire, which, frankly, was the more honest part.",
+        "They opened a new luxury tower downtown. Forty floors. The elevator only goes up. Think about that.",
+        "I saw a billboard for a class-action lawsuit against a billboard. We've achieved something here, folks.",
+        "The bank called to say my account was compromised. I said by whom. They said by the bank. At least they're honest now.",
+        "Undermarket's booming — you can buy anything down there. I bought a warranty. It came with a warning label about the warranty.",
+        "Public transit unveiled a new safety mascot. It's a skeleton. It waves. Nobody approved this and nobody can stop it.",
+        "They say the air quality is \"moderate\" today. Moderate means you can see the person mugging you.",
+        "I joined a gym. It's just a room where they charge you to feel bad, so, you know, same as everywhere else.",
+        "Corporate rolled out a loyalty program. You give them loyalty, and in exchange they remember your name while they do it.",
+        "The lottery jackpot hit a record high tonight. The odds also hit a record high. Those are the same number now.",
+        "A drone delivered my mail today, then asked for a tip, then filed a complaint about me. I've never felt so seen.",
+        "The news anchor cried on air tonight. Ratings went up. They've made it a segment now. It's called \"The Weather.\"",
+        "My doctor told me to reduce stress. I asked how. He looked out the window for a while and then just quietly left.",
+        "There's a new dating app in the Basin. You match based on who owes the same people money. It's called Mutual."
+      ],
+      "open": [
+        "From somewhere above the smog and only slightly outside the blast radius... it's The Tonight Show!",
+        "Live from a studio that passed its last safety inspection under a different administration — it's The Tonight Show!",
+        "Coming to you on the one channel Corporate Security hasn't seized yet — it's The Tonight Show!",
+        "Broadcasting into your skull whether you asked for it or not — ladies, gentlemen, and legally-distinct entities, it's The Tonight Show!",
+        "Transmitting live on the frequency they SWORE they'd jammed — it's The Tonight Show!",
+        "From the last building on the block with working lights — most of them — it's The Tonight Show!",
+        "Beamed to you at great personal risk to everyone involved — it's The Tonight Show!",
+        "It's late, you're awake, and something's wrong — that can only mean it's The Tonight Show!"
+      ],
+      "sidekick_aside": [
+        "{sidekick}: That's the one you told at rehearsal, {host}. It didn't work then either.",
+        "{sidekick}: I laughed. I want that on the record. Somebody had to.",
+        "{sidekick}: The band would like it noted that they are contractually forbidden from reacting to that.",
+        "{sidekick}: Legally I have to remind the audience that laughter is voluntary.",
+        "{sidekick}: {host}, the sponsors just turned the applause sign off manually. That's a first.",
+        "{sidekick}: I've heard that joke in three districts now and it's wanted in two of them.",
+        "{sidekick}: Beautiful. No notes. Well — all notes, but no time.",
+        "{sidekick}: For those at home, {host} is now doing the little bow he does when he's stalling."
+      ],
+      "signoff": [
+        "That's all the time we've got tonight. Huge thanks to {guest} for surviving the segment.",
+        "Thanks to {guest}, thanks to the band, and thanks to whoever's keeping the generator running.",
+        "Remember: if somebody offers you free cyberware in an alley, at least ask if it comes with a warranty.",
+        "Get home safe, and if you can't get home, get somewhere with a door.",
+        "Goodnight, everybody — you've been a wonderful audience, and statistically, most of you will be back.",
+        "That's our show. Tip your bouncer, hydrate your fear, and we'll see you tomorrow. Probably.",
+        "Thanks again to {guest}. From all of us up here on the last lit stage in the district — goodnight.",
+        "That's it for tonight. Be kind to each other, or at least be quiet about it. Goodnight!",
+        "We're out of time and nearly out of power. Thanks to {guest}, and to you, for being awake. Goodnight.",
+        "Remember, folks: it's a hard city, but it's the only one that's still on the air. Goodnight from The Tonight Show."
+      ],
+      "tease": [
+        "Tonight — corporate executives explain why exploding vending machines are actually a premium feature.",
+        "Tonight — a local street chef prepares something the lawyers have asked us to call \"food.\"",
+        "Tonight — we meet a man who has legally declared his apartment an independent nation, and the tanks are already massing.",
+        "Tonight — the weather, the news, and a surprising amount of blood, all before the second commercial.",
+        "Tonight — one lucky audience member goes home with a prize, and the other four hundred go home with radiation sickness.",
+        "Tonight — science, culture, and a segment our insurer specifically told us not to air.",
+        "Tonight — we answer the question on everyone's mind: is it a leak, or is it a feature? The answer will not comfort you.",
+        "Tonight — a very special guest, a very ordinary catastrophe, and the band, if they've sobered up.",
+        "Tonight — celebrity gossip, from the two celebrities we have left.",
+        "Tonight — we test whether the studio audience can be replaced with cardboard. Results are inconclusive and litigious.",
+        "Tonight — heartwarming stories, market updates, and the slow collapse of everything, in that order.",
+        "Tonight — an interview so candid our sponsors have already fled the building."
+      ]
+    },
+    "sidekick": "npc_graham_mercer",
+    "theme": "tonight_theme",
+    "title": "tonight_show_logo"
+  },
+  "updated_at": "1783897506",
+  "weather_pools": null
+}

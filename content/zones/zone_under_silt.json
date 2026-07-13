@@ -11,10 +11,10 @@
   "created_by": "the-under",
   "description": "A wide, silted-up gallery where the flow slows and drops its load — decades of grey sediment banked in dunes against the walls. Things live in the silt; you can see the tracks. A branch runs east to a flooded overflow, and south a heavy service door stands sealed in its frame.",
   "exits": {
-    "west": "zone_under_flooded",
-    "north": "zone_under_bend",
     "east": "zone_under_overflow",
-    "south": "zone_under_door"
+    "north": "zone_under_bend",
+    "south": "zone_under_door",
+    "west": "zone_under_flooded"
   },
   "flags": {
     "district": "sewer",
