@@ -213,6 +213,9 @@ function stripperTick() {
     if (!zone.players || zone.players.size === 0) continue;
     for (const npc of getZoneNpcs(zoneId)) {
       if (npc._combatTargetId || npc.posture === 'lying' || npc._ai?.homeSleeping) continue;
+      // Force-stripped by the MIS `strip` verb: hold them fully bare and skip both
+      // the dancer show and the plain-NPC re-dress, so a strip actually sticks.
+      if (npc._forcedNude) { npc._clothingPeeled = layersOf(npc).length; continue; }
       if (!isStripper(npc)) { redressPlainNpc(npc, zoneId); continue; }
 
       // Cool the stage, and once the tips dry up, smartly cover back up. The

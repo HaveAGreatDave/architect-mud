@@ -29,6 +29,7 @@ import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { on, emit } from '../../server/engine/events.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
+import { recomputeArmor, recomputeInsulation } from '../../server/engine/commands/inventory.js';
 import { describeGenitals, ejaculateDescription, describeBodyPart } from '../../server/engine/appearance.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 
@@ -1732,8 +1733,62 @@ async function cmdExaminePart(args, raw, player, broadcast) {
   return { type: 'examine', message: desc || `You can't get a good look.` };
 }
 
+// ── strip <target> ──────────────────────────────────────────────────────────
+// A direct MIS strip: peels an NPC or a consenting player bare with none of the
+// tip/heat/willing/zone gates the club show runs on. The actor must have MIS on
+// (like every MIS verb). An NPC strips freely; a target PLAYER only if THEY have
+// MIS enabled (their own opt-in is the consent). Nudity is persisted:
+//   • NPC   — _clothingPeeled = all layers + _forcedNude (the strippers redress
+//             tick honours _forcedNude and leaves them bare).
+//   • player — every worn garment (not the weapon) is unequipped into their pack.
+function stripNpc(player, npc, broadcast) {
+  const layers = Array.isArray(npc.flags?.clothing_layers) ? npc.flags.clothing_layers : [];
+  npc._clothingPeeled = layers.length;
+  npc._forcedNude = true;
+  emit('mis.npc_act', { player, npc, verb: 'strip', zoneId: player.current_zone });
+  broadcastMis(player.current_zone, { type: 'zone_event', message: `${player.handle} strips ${npc.name} bare.` }, broadcast, player.id);
+  return { type: 'output', message: `You strip ${npc.name} bare. Nothing left on them but the light.` };
+}
+
+async function stripPlayer(player, target, broadcast) {
+  if (!isMisActive(target)) return { type: 'error', message: `${target.handle} isn't in the mood — nothing happens.` };
+  await query(
+    `UPDATE player_inventory SET is_equipped=0, slot=NULL, layer=NULL, equipped_at=NULL
+      WHERE player_id=$1 AND is_equipped=1 AND slot IS DISTINCT FROM 'weapon_hand'`,
+    [target.id]
+  );
+  await recomputeArmor(target); await recomputeInsulation(target);
+  broadcastMis(player.current_zone, { type: 'zone_event', message: `${player.handle} strips ${target.handle} bare.` }, broadcast, player.id, target.id);
+  sendToPlayer(target.id, { type: 'output', message: `${player.handle} strips you bare — your clothes end up in a heap in your pack.`, refresh: true });
+  return { type: 'output', message: `You strip ${target.handle} bare.` };
+}
+
+async function cmdStrip(args, raw, player, broadcast) {
+  const gate = misGate(player, raw); if (gate) return gate;
+  const nameStr = (args || []).join(' ').trim();
+  if (!nameStr) return { type: 'error', message: 'Strip whom? (strip <npc or player>)' };
+
+  const zoneId = player.current_zone;
+  // NPC in the room takes precedence (the common case — a dancer).
+  const npcs = getZoneNpcs(zoneId).filter(n => !n._dead);
+  const rn = siftResolve(nameStr, npcs.map(n => ({ id: n.id, name: n.name })));
+  if (rn.type === 'match') {
+    const npc = npcs.find(n => n.id === rn.candidate.id);
+    if (npc) return stripNpc(player, npc, broadcast);
+  }
+  // Otherwise a player in the room.
+  const others = getZonePlayers(zoneId).filter(p => p.id !== player.id);
+  const rp = siftResolve(nameStr, others.map(p => ({ id: p.id, name: p.handle })));
+  if (rp.type === 'match') {
+    const target = others.find(p => p.id === rp.candidate.id);
+    if (target) return stripPlayer(player, target, broadcast);
+  }
+  return { type: 'error', message: `There's no "${nameStr}" here to strip.` };
+}
+
 export const commands = {
   mis:          (args, raw, player, broadcast) => cmdMis(args, player, broadcast),
+  strip:        (args, raw, player, broadcast) => cmdStrip(args, raw, player, broadcast),
   finger:       (args, raw, player, broadcast) => cmdFinger(args, raw, player, broadcast),
   touch:        (args, raw, player, broadcast) => cmdTouch(args, raw, player, broadcast),
   grope:        (args, raw, player, broadcast) => cmdTouch(args, raw, player, broadcast),

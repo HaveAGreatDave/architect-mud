@@ -16,4 +16,8 @@ export default async function regress({ run, check }) {
 
   r = await run("cum in somebody's mouth");
   check('cum-in gated when opted out', r?.type === 'error' && /Unknown command/.test(r.message || ''), r?.message);
+
+  // strip is a MIS verb: hidden from a player who hasn't opted in.
+  r = await run('strip somebody');
+  check('strip gated when opted out', r?.type === 'error' && /Unknown command/.test(r.message || ''), r?.message);
 }
