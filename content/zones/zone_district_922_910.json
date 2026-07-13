@@ -5,27 +5,32 @@
   "bg_color": "#3f3a34",
   "color": "#b9a888",
   "created_by": "zone-planner",
-  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
+  "description": "A squat civic building of poured concrete and tall dark windows, wedged onto Kessler Street a single door north of Precinct 9. Chiselled above the lintel, half-legible under decades of grime: HALL OF RECORDS · COLDWATER MUNICIPAL. A brass slot beside the door reads DEPOSIT DEEDS HERE; someone has scratched underneath it, OR WEEP. The street runs on east and west; the door stands open to the north, and usually does.",
   "exits": {
     "east": "zone_district_923_910",
+    "in": "zone_records_reading",
     "north": "zone_district_922_909",
     "south": "zone_district_922_911",
     "west": "zone_district_921_910"
   },
   "flags": {
+    "building_name": "Hall of Records",
+    "building_type": "civic",
     "district": "residential",
-    "icon": "road_ne",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
     "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true
+    "street_life": true,
+    "world_exit_zone": "zone_district_922_909"
   },
   "grid_x": 922,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_district_922_910",
   "map_id": "map_world",
-  "marker": "▚",
-  "name": "Kessler Street",
+  "marker": "HR",
+  "name": "Hall of Records",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1783740000"
 }

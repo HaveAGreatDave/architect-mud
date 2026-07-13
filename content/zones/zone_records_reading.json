@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "A pneumatic tube somewhere in the walls thunks, delivers nothing, and falls silent.",
+    "Dust turns in a lamp's light over the flat-files, in no hurry to land.",
+    "The radiator ticks as it cools, thinks better of it, and ticks warm again."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2b2822",
+  "color": "#d8ccae",
+  "created_by": null,
+  "description": "A long civic reading room that has outlived the civics that built it. Ranks of steel flat-file cabinets line the walls, each drawer labelled in a small, precise hand. A scarred oak counter runs across the middle, worn pale where a thousand hands signed for a thousand permits. Green-shaded lamps throw honest pools of light onto blotters and index cards. It is warm, and quiet, and ordered to the point of devotion — the one room in this district that feels like someone still gives a damn about keeping the account straight.",
+  "exits": {
+    "north": "zone_records_stacks",
+    "out": "zone_district_922_910"
+  },
+  "flags": {
+    "always_lit": true,
+    "building_name": "Hall of Records",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_922_910"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_records_reading",
+  "map_id": "map_int_records_hall",
+  "marker": "HR",
+  "name": "Hall of Records — Reading Room",
+  "parent_zone": "zone_district_922_910",
+  "updated_at": "1783740000"
+}

@@ -244,7 +244,7 @@
           "next": "lookup"
         }
       ],
-      "text": "A dry sound that might be a laugh. \"This building was drawn as a records hall. Nothing else. The cells came later, when someone decided people minded the records more than the records minded them — so now it's a jail with an archive stapled to the front, and I'm the staple. There's a list of fees behind the glass for services that used to be free. I keep meaning to un-laminate one of them. I keep not managing it.\""
+      "text": "A dry sound that might be a laugh. \"Precinct Nine, next door. It was drawn as a records hall — very nearly this one; the plans were almost the same building, back to back. Then someone decided the cells mattered more than the records, and the records got shifted out here to make room for them. I came with the records. I usually do.\" He glances toward the wall the two buildings share. \"There's a list of fees behind their glass now, for services that used to be free. I keep meaning to walk over and un-laminate one. I keep not managing it.\""
     },
     "place_wastes": {
       "options": [
@@ -424,7 +424,7 @@
     "personality": "clerk"
   },
   "home_activities": [],
-  "home_zone": "zone_meridian_unit_302",
+  "home_zone": "zone_records_reading",
   "hp": 16,
   "hp_max": 16,
   "id": "npc_claude_merrin",
@@ -439,5 +439,5 @@
   "vendor_stock_size": null,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_mq_precinct_lobby"
+  "work_zone_id": "zone_records_reading"
 }

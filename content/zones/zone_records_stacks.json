@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "Far back in the shelving, a drawer no one opened slides itself shut.",
+    "The air tastes of paper going slowly, patiently, back to pulp.",
+    "A single caged bulb hums, flickers, and decides to keep going."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#211f1a",
+  "color": "#c8bda0",
+  "created_by": null,
+  "description": "The stacks proper: aisle after aisle of shelving that recedes further back than the building's footprint has any right to allow. Deeds, plats, condemnation notices — the paper skeleton of a whole city, filed with a patience that borders on grief. One cabinet near the back stands conspicuously empty, its drawers labelled and waiting, the only unfilled thing in a room that is otherwise a monument to keeping everything. You get the sense it has been waiting a very long time to be filled, and has made its peace with not being.",
+  "exits": {
+    "south": "zone_records_reading"
+  },
+  "flags": {
+    "always_lit": true,
+    "building_name": "Hall of Records",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_922_910"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_records_stacks",
+  "map_id": "map_int_records_hall",
+  "marker": "HR",
+  "name": "Hall of Records — The Stacks",
+  "parent_zone": "zone_district_922_910",
+  "updated_at": "1783740000"
+}
