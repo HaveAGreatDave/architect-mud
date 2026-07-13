@@ -1,5 +1,6 @@
-// Echelon Helm mode — the in-game console. Takes over the whole client on launch (a maximized
-// overlay, like a bridge console), with the chase view under a glass brass dash: the ship's wheel
+// Echelon Helm mode — the in-game console. Takes over the AREA PANE like the flight sim (the
+// sidebar, top bar and log stay put; the ⛶ chip toggles true OS fullscreen), with the chase view
+// filling the pane under a glass brass dash: the ship's wheel
 // (course), an engine telegraph you drag to engage (the throttle), read-only instruments, and live
 // WX/time chips synced from the world exactly like the flight sim. Time and weather are NOT
 // settable here — they're the real sim's, streamed in. Dependency-free: the game passes callbacks
@@ -28,15 +29,15 @@ export function ensureHelmStyles() {
   if (document.getElementById('helm-mode-styles')) return;
   const s = document.createElement('style'); s.id = 'helm-mode-styles';
   s.textContent = `
-    .helm-root{ position:relative; width:100%; height:clamp(440px,78vh,940px); overflow:hidden;
+    /* Takes over the area pane like the flight sim — the sidebar, top bar and log stay put. Fills
+       the pane's height the way the glass cockpit does; the ⛶ chip toggles true OS fullscreen. */
+    #area-content:has(.helm-root){ height:100%; }
+    .helm-root{ position:relative; width:100%; height:100%; min-height:420px; overflow:hidden;
       --accent:#c8a24e; --accent-hi:#ecd48f; --accent-lo:#8c6f34; --chart:#4fd0e0;
       --hpanel:#0e141b; --hink:#e2edf3; --hdim:#8ba0ae; --stbd:#35d07a; --brass:#b9923f;
       --hmono:'DejaVu Sans Mono','Consolas','Courier New',monospace; --hsans:'Helvetica Neue',Arial,system-ui,sans-serif;
       --hcarbon:repeating-linear-gradient(45deg,#12161b 0 3px,#0d1116 3px 6px),repeating-linear-gradient(-45deg,rgba(44,52,61,.5) 0 3px,transparent 3px 6px);
       font-family:var(--hsans); color:var(--hink); border-radius:8px; background:#04070c; }
-    /* Full-screen on launch: a maximized overlay taking over the whole client (reliable, no OS
-       fullscreen gesture needed). The ⛶ chip still toggles true OS fullscreen on top of this. */
-    .helm-root.max{ position:fixed; inset:0; width:100vw; height:100vh; border-radius:0; z-index:1400; }
     .helm-root:fullscreen{ height:100vh; border-radius:0; }
     .helm-chase{ position:absolute; inset:0; z-index:0; }
     .helm-chase canvas{ cursor:grab; } .helm-chase canvas:active{ cursor:grabbing; }
@@ -113,7 +114,7 @@ export function openHelm(opts = {}) {
   const onExit = opts.onExit || (() => {});
 
   mount.innerHTML = `
-    <div class="helm-root max">
+    <div class="helm-root">
       <div class="helm-chase"></div>
       <div class="helm-placard"><span class="m"></span><span class="n">ECHELON&nbsp; <small>HELM</small></span></div>
       <div class="helm-chips">
@@ -201,8 +202,9 @@ export function openHelm(opts = {}) {
   const keyH = (e) => { if (e.key === 'Escape') { closeHelm(); onExit(); } };
   addEventListener('keydown', keyH);
 
-  // Restore an in-progress passage (helm opened mid-transit): lock + run out the remaining time.
-  if (opts.transitMs > 0) { ctrl.beginTransit(HDG_TO_DIR[((Math.round(opts.heading || 0) % 360) + 360) % 360] || 'N', opts.transitMs); setUnderway(true); }
+  // Restore an in-progress passage (helm opened mid-transit): lock + run out the remaining time,
+  // seeding true progress from the full passage length so the world resumes part-slid (not from 0).
+  if (opts.transitMs > 0) { ctrl.beginTransit(HDG_TO_DIR[((Math.round(opts.heading || 0) % 360) + 360) % 360] || 'N', opts.transitMs, opts.transitTotal || opts.transitMs); setUnderway(true); }
 
   // Live readouts (heading eases + the passage runs on a timer, so poll). The telegraph/wheel lock
   // tracks her actual under-way state, so a server-driven begin/arrive keeps the console in sync.
