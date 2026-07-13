@@ -846,7 +846,7 @@ function overlayHull(ctx, P, strength) {
 // continuous across facets — and both flanks mirror (V keys off up/right, not the sign of
 // g), exactly like a real painted livery. Seeded off the colours: same scheme → same
 // splatter, so the paint never shimmers between the hangar and the sky.
-const JAZZ_ROLE = new Set(['body', 'wing', 'aileron', 'flap', 'stab', 'elevator', 'fin', 'rudder', 'nacelle']);
+export const JAZZ_ROLE = new Set(['body', 'wing', 'aileron', 'flap', 'stab', 'elevator', 'fin', 'rudder', 'nacelle']);
 const JAZZ_GROUND = [238, 231, 214];   // bone undercoat (the "cup paper" the colours pop against)
 const JZ_TW = 256, JZ_TH = 140;
 const _jazzCache = new Map();
@@ -908,7 +908,7 @@ const jzClamp = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 // Body coords [f=fore, g=right, h=up] → jazz texture pixel. Fore drives U along the length;
 // across drives V (up for the fuselage/tail, right for the flat wings). g's sign is dropped so
 // port and starboard wear the same side-profile paint. Clamped so the hull stays on-texture.
-function jazzUV(v, role) {
+export function jazzUV(v, role) {
   const along = 0.5 + v[0] * 0.42;
   const across = 0.5 - ((role === 'wing' || role === 'aileron' || role === 'flap') ? v[1] * 0.30 : v[2] * 0.55);
   return [jzClamp(along) * JZ_TW, jzClamp(across) * JZ_TH];
@@ -916,7 +916,7 @@ function jazzUV(v, role) {
 // Paint the baked jazz texture into ONE projected facet, MULTIPLY over its already-shaded bone
 // fill — so the facet's own light/finish shading carries through onto the colours (the plane
 // still reads 3D). `uv` are the per-vertex texture coords from jazzUV.
-function overlayJazz(ctx, P, uv, img) {
+export function overlayJazz(ctx, P, uv, img) {
   const n = P.length; if (n < 3 || n > 4) return;
   const d = P.map(q => [q.sx, q.sy]);
   ctx.save();

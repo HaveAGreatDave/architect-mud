@@ -34,7 +34,7 @@
 // }
 
 import { isWeatherFxEnabled } from './weather-fx.js';
-import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, glassSheen, drawNoseArt, deflectSurface } from './aircraft3d.js';
+import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, glassSheen, drawNoseArt, deflectSurface, jazzTex, jazzUV, overlayJazz, JAZZ_ROLE } from './aircraft3d.js';
 import { playThunderSample } from './engine-audio.js';
 
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
@@ -2014,6 +2014,8 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // Hall of Records — the ancient civic temple: weathered limestone, cleaner column stone, verdigris copper dome.
   ty_archive: [126, 118, 102], ty_archive_col: [150, 142, 124], ty_archive_dome: [78, 138, 118],
   __statue_stone: [116, 114, 118],   // weathered plinth stone for the town-square monument
+  // The Echelon — sleek black superyacht: mirror-black hull, faintly lighter deck house, smoked glass.
+  ty_yacht: [16, 18, 22], ty_yacht_deck: [30, 33, 40], ty_yacht_glass: [24, 30, 42],
   ty_door: [20, 22, 26] };
 const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
 
@@ -2523,6 +2525,9 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // and pattern-driven accents.
   const lv = c.livery || {};
   const pal = liveryPalette(lv);
+  // Jazz splatter: baked once per colour-set, affine-mapped across the hull facets in body space
+  // (the same Memphis paint the hangar draws — without this the sim shows only the bone undercoat).
+  const jazzImg = pal.pat === 'jazz' ? jazzTex(lv.base, lv.trim, lv.accent) : null;
   // Project every face; depth-sort by average forward distance (far first).
   const faces = [];
   let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9, drawn = 0;
@@ -2565,7 +2570,9 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       lm = 0.82 + 0.5 * nl * sunStr;
     }
     const col = shadeRgb(faceBaseRgb(face, pal), face.sh * pal.fmul * lm);
-    faces.push({ pts, af: af / pts.length, col, role: face.role, alpha: isGear ? gearDown : 1 }); drawn++;
+    // Jazz UV mapped from the drawn (deflected) body coords so the splatter tracks moving surfaces.
+    const uv = (jazzImg && JAZZ_ROLE.has(face.role)) ? lp.map(v => jazzUV(v, face.role)) : null;
+    faces.push({ pts, af: af / pts.length, col, role: face.role, alpha: isGear ? gearDown : 1, uv }); drawn++;
   }
   if (!drawn) return null;
   faces.sort((a, b) => b.af - a.af);
@@ -2578,6 +2585,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     for (let i = 1; i < fc.pts.length; i++) ctx.lineTo(fc.pts[i].sx, fc.pts[i].sy);
     ctx.closePath();
     ctx.fillStyle = fc.col; ctx.fill();
+    if (fc.uv && jazzImg) overlayJazz(ctx, fc.pts, fc.uv, jazzImg);             // Memphis splatter, mapped in body space (as in the hangar)
     if (fc.role === 'glass' || fc.role === 'window') glassSheen(ctx, fc.pts);   // glassy specular on canopy/windows, in flight too
     ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke();
     // Gloss finish: a bright specular flick on the fuselage crown.
@@ -3088,7 +3096,7 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
   const at = (rx, ry) => (ry >= 0 && ry < map.length && rx >= 0 && rx < map[ry].length) ? map[ry][rx] : null;
   const kindOf = (c) => !c ? null : c.kind === 'field' ? 'field' : c.road ? 'road' : null;   // an airfield tile paints as runway even if it also carries a road icon
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
-    const c = map[ry][rx], surf = kindOf(c); if (!surf) continue;
+    const c = map[ry][rx], surf = kindOf(c); if (!surf || c.mark === 'yacht') continue;   // the yacht's own deck is drawn as a 3D model over open water — no runway concrete
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     // Near-clip per CORNER against the CAMERA. proj() clamps its returned f to 0.06, so a test on
     // proj's f is dead (never trips) — and clipping the tile CENTRE (f+back) dropped the whole tile
@@ -3910,7 +3918,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   const FAR = VISIBLE_FAR_F, wcx = v.mapCenter ? v.mapCenter.x : 0, wcy = v.mapCenter ? v.mapCenter.y : 0;
   const items = [];
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
-    const c = map[ry][rx]; if (!c || c.kind === 'air' || c.self || c.kind === 'field' || c.biome === 'water') continue;
+    const c = map[ry][rx]; if (!c || c.kind === 'air' || c.self || ((c.kind === 'field' || c.biome === 'water') && c.mark !== 'yacht')) continue;   // the Echelon is a field-on-water tile that DOES get a 3D model
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     // Near-clip against the CAMERA, not the craft: in the external chase view the camera sits
     // `back` tiles behind the aircraft, so a building that has slipped behind the model is still
@@ -3954,6 +3962,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   for (const it of items) {
     const alpha = it.alpha, bi = it.c.biome;
     if (it.c.mark === 'statue') { drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now); continue; }   // town-square monument + fountain
+    if (it.c.mark === 'yacht') { drawYacht(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now); continue; }   // the Echelon — sleek black superyacht + helipad
     if (it.c.kind === 'nofly') { draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7); continue; }
     if (bi === 'parkland') { drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
     if (bi === 'badlands') { if ((it.seed % 3) === 0) drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
@@ -4043,6 +4052,57 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now) {
   // 5. Night — warm uplight on the figure + a cool glimmer off the pool.
   if (night) { glowPool(ctx, cam, dx, dy, figTop * 0.6, '255,220,150', 15, alpha * 0.32); glowPool(ctx, cam, dx, dy, 0.02, '90,160,205', 18, alpha * 0.22); }
   ctx.restore();
+}
+
+// The Echelon — a long, low, mirror-black superyacht sitting on the open water, bow to the
+// north, with a lit helipad aft (the tile a VTOL sets down on). Built world-fixed from a
+// spine of tapered hull boxes + a stepped deck house + a raised pad, so the sea (drawn by
+// the floor pass beneath) laps around the hull instead of runway concrete.
+function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now) {
+  const HULL = 'ty_yacht', DECK = 'ty_yacht_deck', GLASS = 'ty_yacht_glass';
+  const deckZ = 0.058;   // freeboard: main-deck height above the waterline (z=0)
+  // 1. Hull — a slim N–S spine of boxes, tapering to a point at the bow (−y).
+  for (const [oy, hw] of [[-0.36, 0.05], [-0.18, 0.11], [0.0, 0.13], [0.18, 0.13], [0.34, 0.10]])
+    draw3DBoxAt(ctx, cam, dx, dy + oy, hw, 0, deckZ, HULL, seed, night, alpha, true);
+  // 2. Stepped superstructure amidships — a broad lounge deck with a smoked-glass band, then a bridge.
+  draw3DBoxAt(ctx, cam, dx, dy - 0.04, 0.10, deckZ, deckZ + 0.05, DECK, seed, night, alpha, true);
+  draw3DBoxAt(ctx, cam, dx, dy - 0.03, 0.105, deckZ + 0.016, deckZ + 0.036, GLASS, seed, night, alpha, false);
+  draw3DBoxAt(ctx, cam, dx, dy - 0.13, 0.072, deckZ + 0.05, deckZ + 0.10, DECK, seed, night, alpha, true);
+  // 3. Helipad aft — a flat raised pad with a painted ring + "H", lit amber at night.
+  const padY = dy + 0.25, padZ = deckZ + 0.006;
+  draw3DBoxAt(ctx, cam, dx, padY, 0.13, deckZ, padZ, DECK, seed, night, alpha, true);
+  ctx.save(); ctx.globalAlpha = alpha;
+  const ring = []; for (let i = 0; i <= 20; i++) { const a = i / 20 * Math.PI * 2, p = cam.proj(dx + Math.cos(a) * fh * 0.9, padY + Math.sin(a) * fh * 0.9, padZ + 0.002); if (p.f <= 0.08) { ring.length = 0; break; } ring.push(p); }
+  const white = night ? 'rgba(255,210,120,0.9)' : 'rgba(236,239,243,0.9)';
+  if (ring.length) {
+    ctx.strokeStyle = white; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ring.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.stroke();
+    const P = (ox, oy) => cam.proj(dx + ox * fh, padY + oy * fh, padZ + 0.003);
+    const hp = [P(-0.34, -0.42), P(-0.34, 0.42), P(0.34, -0.42), P(0.34, 0.42), P(-0.34, 0), P(0.34, 0)];
+    if (hp.every(p => p.f > 0.08)) {   // a blocky "H"
+      ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(hp[0].sx, hp[0].sy); ctx.lineTo(hp[1].sx, hp[1].sy); ctx.moveTo(hp[2].sx, hp[2].sy); ctx.lineTo(hp[3].sx, hp[3].sy); ctx.moveTo(hp[4].sx, hp[4].sy); ctx.lineTo(hp[5].sx, hp[5].sy); ctx.stroke();
+    }
+  }
+  ctx.restore();
+  // 4. A slim mast over the bridge, with a blinking red beacon.
+  const m0 = cam.proj(dx, dy - 0.13, deckZ + 0.10), m1 = cam.proj(dx, dy - 0.13, deckZ + 0.19);
+  if (m0.f > 0.12 && m1.f > 0.12) {
+    ctx.save(); ctx.globalAlpha = alpha;
+    ctx.strokeStyle = night ? 'rgba(180,190,200,0.8)' : 'rgba(90,96,104,0.9)'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(m0.sx, m0.sy); ctx.lineTo(m1.sx, m1.sy); ctx.stroke();
+    if (0.5 + 0.5 * Math.sin(now * 0.006) > 0.5) { ctx.fillStyle = 'rgba(255,90,80,0.95)'; ctx.beginPath(); ctx.arc(m1.sx, m1.sy, 2, 0, 7); ctx.fill(); }
+    ctx.restore();
+  }
+  // 5. Night dressing — helipad glow + white running lights tracing the deck edge.
+  if (night) {
+    glowPool(ctx, cam, dx, padY, padZ + 0.004, '255,200,110', 16, alpha * 0.4);
+    ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(240,244,250,0.9)';
+    for (const [ox, oy] of [[-0.13, -0.1], [0.13, -0.1], [-0.13, 0.2], [0.13, 0.2], [0, -0.36]]) {
+      const p = cam.proj(dx + ox, dy + oy, deckZ + 0.004); if (p.f > 0.1) { ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(2.2 / p.f, 0.6, 3), 0, 7); ctx.fill(); }
+    }
+    ctx.restore();
+  }
 }
 
 // A building's ground shadow: a soft parallelogram beam of width = the footprint, cast in

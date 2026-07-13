@@ -19,6 +19,9 @@ import { setPosture } from './posture.js';
 // this bar. Tuned so weak early enemies (dodge 1–2) usually botch the break and
 // stay cornered, while nimbler things (higher dodge) slip away reliably.
 const FLEE_DIFFICULTY = 6;
+// A cornered enemy gets one break-away attempt per attack cycle, not one per AI
+// tick — otherwise a failed roll spams "can't break away!" several times a second.
+const FLEE_RETRY_MS = 4000;
 const d8 = () => 1 + Math.floor(Math.random() * 8);
 
 // Vendor closing-time farewells — picked when the vendor shuts up shop while a
@@ -208,6 +211,7 @@ export function initBlackboard() {
     lastSay:      0,     // timestamp — SAY debounce
     flags:        {},    // SET_FLAG scope:self values
     _roamNextAt:  0,     // timestamp — ROAM cooldown
+    _fleeNextAt:  0,     // timestamp — FLEE retry throttle (one attempt per attack cycle)
     vendor_was_working: false,  // true while vendor NPC is on a scheduled shift
     vendor_carrying:    0,      // credits extracted from safe, en route to ATM
     vendor_atm_zone:    null,   // cached nearest ATM zone for deposit run
@@ -782,6 +786,10 @@ async function execAction(node, entity, ctx) {
       const targetZoneId = targetPlayer?.current_zone;
       const exits = neighborZoneIds(zone);
       if (!exits.length) break;
+
+      // One break-away attempt per attack cycle — not once per AI tick.
+      if (Date.now() < ai._fleeNextAt) break;
+      ai._fleeNextAt = Date.now() + FLEE_RETRY_MS;
 
       // Roll to actually break contact. Weak enemies routinely fail and stay
       // cornered (keeping aggro so they re-try next tick); tough ones get away.

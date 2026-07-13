@@ -450,9 +450,11 @@ function mapWindow(a, radius = 24) {
         ent = (z && buildingEntranceDir(z)) || undefined;
         flr = cell.flags?.floors || undefined;
       }
-      // Public-plaza landmark: a `statue-*` map icon marks a monument tile (the town-square
-      // statue) so the windshield can raise a bespoke statue + fountain instead of bare ground.
-      const mark = /^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined;
+      // Bespoke landmarks the windshield raises instead of bare ground, carried on the
+      // `mark` channel: a `statue-*` map icon → the town-square statue+fountain; the
+      // Echelon's exterior tile (flags.yacht) → a sleek black yacht with a lit helipad.
+      const mark = cell.flags?.yacht ? 'yacht'
+        : (/^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined);
       // Road piece connections, straight off the map icon suffix (road_ns, road_ne turn,
       // road_nes T, road_nesw / road_x crossroads, road_n stub, …). The windshield paints
       // lane markings toward each connected edge, so junctions, turns and Ts all read as what
