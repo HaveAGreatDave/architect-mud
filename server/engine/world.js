@@ -578,7 +578,33 @@ export function getZone(id) { return world.zones.get(id) || null; }
 
 // Build a small graph snapshot for the minimap: current zone + everything
 // reachable within `depth` hops, with enough info to render an ASCII grid.
-export function getMinimapData(centerZoneId, depth = 8) {
+// Per-viewer minimap node filters. A plugin registers fn(zone, viewer) → boolean;
+// a node is dropped if any filter returns false. Sync by design (getMinimapData is
+// sync and hot) — a plugin backs its predicate with an in-memory cache, not a DB
+// hit. This is how the yacht hides itself from players not on its invite list
+// without the engine importing the plugin.
+const minimapNodeFilters = [];
+export function registerMinimapNodeFilter(fn) { if (typeof fn === 'function') minimapNodeFilters.push(fn); }
+
+// Filter a list of zone objects for what `viewer` may see on any map surface, and
+// resolve the yacht-over-water overlap (a visible yacht tile hides the water tile at
+// the same cell; when the yacht is filtered out, the water underneath shows through).
+// Shared by getMinimapData (sidebar) and the bigmap builder so both hide the Echelon
+// from non-invitees identically.
+export function applyMinimapVisibility(zones, viewer = null) {
+  let vis = zones;
+  if (minimapNodeFilters.length) {
+    vis = zones.filter((z) => minimapNodeFilters.every((f) => { try { return f(z, viewer); } catch { return true; } }));
+  }
+  const yachtCells = new Set();
+  for (const z of vis) if (z?.flags?.yacht) yachtCells.add(`${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`);
+  if (yachtCells.size) {
+    vis = vis.filter((z) => z?.flags?.yacht || !yachtCells.has(`${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`));
+  }
+  return vis;
+}
+
+export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
   const centerZone = world.zones.get(centerZoneId);
   const centerMapId = centerZone?.map_id || null;
 
@@ -621,10 +647,12 @@ export function getMinimapData(centerZoneId, depth = 8) {
     }
   }
 
+  // Resolve per-viewer visibility (hides the yacht from non-invitees) before building
+  // node payloads.
+  const zoneObjs = applyMinimapVisibility([...ids].map((id) => world.zones.get(id)).filter(Boolean), viewer);
+
   const nodes = [];
-  for (const id of ids) {
-    const zone = world.zones.get(id);
-    if (!zone) continue;
+  for (const zone of zoneObjs) {
     // Building name(s) reachable from this tile — for the hover tooltip (same rule
     // as the full map's buildingsAt: an exit into an is_building zone).
     const buildings = [];

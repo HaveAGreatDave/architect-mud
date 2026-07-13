@@ -35,6 +35,7 @@
 
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, glassSheen, drawNoseArt, deflectSurface } from './aircraft3d.js';
+import { playThunderSample } from './engine-audio.js';
 
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
 let _obsHgt = 0;                // current view altitude fraction — drawers show more of a roof/top as it climbs
@@ -70,7 +71,7 @@ export const RENDER_TUNE = {
   fov: 0.82,          // horizontal FOV / focal length (<1 pulls the scenery in toward the vanishing point = a tighter "tunnel"; 1 = the old wide spread). Pure render — collision math is world-space and unaffected.
   volClouds: 1,       // 1 = fly-THROUGH volumetric cloud deck (world-projected puff stacks that grow, part around you, and whiteout as you punch through) + camera-locked haze; 0 = the old flat dome billboards only
   cloudZ: 2.4,        // (superseded) old fixed cloud-base world-z. The fly-through deck now derives its base per-weather from a realistic altitude — see CLOUD_BASE_FT / cloudBaseZ() below.
-  cloudThick: 1.6,    // vertical spread (world-z) of that deck → how tall the wall of cloud you fly through is
+  cloudThick: 2.4,    // vertical spread (world-z) of that deck → how tall the wall of cloud you fly through is (raised: the deck was reading too thin)
   treeDensity: 2.0,   // trees per grass tile (×) — 0 = none, live 'Trees' slider
   treeForest: 0.9,    // forest-clump threshold: patches with an area-bias above this go densely wooded; lower = more/bigger forests
   chaseBack: 1.6,     // EXTERNAL chase cam: how many tiles behind the craft the camera sits
@@ -560,14 +561,12 @@ export function paintWindshield(id, view) {
       if (dist >= BOLT_MAX_DIST) continue;   // out of view — discard
       st.bolts.push(makeBolt(s.gx, s.gy, now, s.intensity));
       if (st.bolts.length > 6) st.bolts.shift();
-      // A sharp CRACK for a near strike, delayed by its distance (sound lags the flash); the
-      // ambient storm rumble in engine-audio covers the far ones, so only crack up close.
-      const ae = window.AudioEngine;
-      if (ae && ae.playSfx && dist < 30) {
+      // A recorded thunderclap for a near strike, delayed by its distance (sound lags the flash);
+      // the ambient storm thunder in engine-audio covers the rest, so only clap up close. Real
+      // samples (not a synth noise burst, which read as static).
+      if (dist < 30) {
         const near = clamp(1 - dist / 30, 0, 1);
-        setTimeout(() => { try { ae.playSfx({ config: { duration: 0.9 + (1 - near) * 1.1, layers: [
-          { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 300 + near * 900, q: 0.7 }, adsr: { a: 0.002, d: 0.12 + (1 - near) * 0.2, s: 0.05, r: 0.25 }, gain: 0.12 + near * 0.16 },
-          { waveform: 'sine', freq: 58, pitchBend: { to: 30, time: 0.9 }, filter: { type: 'lowpass', freq: 240, q: 1 }, adsr: { a: 0.02, d: 0.9, s: 0.15, r: 0.4 }, gain: 0.12 } ] } }); } catch {} }, Math.min(1400, dist * 40));
+        setTimeout(() => playThunderSample(0.28 + near * 0.5), Math.min(1400, dist * 40));
       }
     }
     _pendingStrikes.length = 0;
@@ -650,22 +649,15 @@ export function paintWindshield(id, view) {
     // grounding shadow first, then the feathered body
     ctx.fillStyle = rgb(mix(bt, [36, 40, 50], 0.55), a * 0.22);
     ctx.beginPath(); ctx.ellipse(cx + cs * 0.2, cy + cs * 0.52, cs * 1.7, cs * 0.26, 0, 0, 7); ctx.fill();
+    // Directional light: bias each lobe's bright focus TOWARD the key light so the far horizon deck
+    // is lit across its lobes (bright light-side, shaded far-side) rather than carrying a hard silver
+    // rim. Same soft read as the near fly-through puffs.
+    let lfx = 0, lfy = -0.35;
+    if (lightStr > 0.02) { let lx = lightX - cx, ly = lightY - cy; const L = Math.hypot(lx, ly) || 1; lfx = lx / L * 0.4; lfy = ly / L * 0.4 - 0.1; }
     for (const [ox, oy, rr] of [[-cs * 1.1, 7, cs * 0.92], [-cs * 0.25, 1, cs * 1.28], [cs * 0.75, 6, cs * 0.9], [cs * 0.3, -9, cs * 0.78], [cs * 1.55, 10, cs * 0.6]]) {
-      const rg = ctx.createRadialGradient(cx + ox, cy + oy - rr * 0.35, rr * 0.15, cx + ox, cy + oy, rr);
+      const rg = ctx.createRadialGradient(cx + ox + rr * lfx, cy + oy + rr * lfy, rr * 0.15, cx + ox, cy + oy, rr);
       rg.addColorStop(0, rgb(lt, a)); rg.addColorStop(0.5, rgb(bt, a * 0.9)); rg.addColorStop(1, rgb(bt, 0));
       ctx.fillStyle = rg; ctx.beginPath(); ctx.ellipse(cx + ox, cy + oy, rr, rr * 0.64, 0, 0, 7); ctx.fill();
-    }
-    // Silver lining: a bright feathered crescent on the lobe edge facing the sun/moon, so the top
-    // catches the light and the cloud reads as a lit 3-D mass rather than a flat grey smudge.
-    if (lightStr > 0.02) {
-      const ldx = cx - lightX, ldy = cy - lightY, ld = Math.hypot(ldx, ldy) || 1;
-      const ux = ldx / ld, uy = ldy / ld;                       // unit vector cloud→away-from-light
-      const hx = cx - ux * cs * 0.75, hy = cy - uy * cs * 0.42;  // sit the highlight on the lit edge
-      const rimA = a * lightStr * (d.stormy ? 0.4 : 0.85), rl = cs * 1.05;
-      const rimCol = mix(lt, [255, 255, 255], 0.45);
-      const rg = ctx.createRadialGradient(hx, hy, rl * 0.08, hx, hy, rl);
-      rg.addColorStop(0, rgb(rimCol, rimA)); rg.addColorStop(0.45, rgb(rimCol, rimA * 0.35)); rg.addColorStop(1, rgb(rimCol, 0));
-      ctx.fillStyle = rg; ctx.beginPath(); ctx.ellipse(hx, hy, rl, rl * 0.6, 0, 0, 7); ctx.fill();
     }
   }
   // High CIRRUS — thin, wispy horizontal streaks near the top of the sky (a different cloud TYPE
@@ -1844,7 +1836,12 @@ function cloudNoiseTex(){
 function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, dt, W, H, horizonY, wx, lightX, lightY, lightStr) {
   const cells = st.cells, ax = v.acX, ay = v.acY;
   if (!cells || !cells.length || ax == null || ay == null) return st.cloudImm = 0;
-  const nCards = W < 720 ? 4 : CLOUD_CARDS.length;   // thinner stacks on a phone
+  // Many small puffs, few cards each: the deck is built from a DENSE swarm of small puffs (≈10× the
+  // old count, each a fraction of the size) rather than a sparse handful of big cauliflower stacks —
+  // finer, more detailed vapour. Each small puff needs only a short card stack (base/body/crown +
+  // a couple of lobes), so the total card budget stays sane despite the 10× puff count.
+  const nCards = W < 720 ? 3 : 5;                    // shorter stacks — the density comes from puff COUNT now
+  const puffMul = W < 720 ? 4 : 9, puffCap = W < 720 ? 30 : 80, puffMin = W < 720 ? 12 : 24;
   const RANGE = 48, baseZ = cloudBaseZ(wx), thick = RENDER_TUNE.cloudThick;   // base sits at a realistic altitude for the weather (see CLOUD_BASE_FT)
   // Cumuliform vs stratiform shaping: cumulus billow tall and heaped (vScale up, hScale tight); a
   // stratus sheet is flat and spread wide (vScale down, hScale up). `litComp` also flattens the
@@ -1866,21 +1863,22 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
   for (const c of cells) {
     if (c.intensity <= 0.02) continue;
     const stormy = c.type === 'storm' || c.type === 'precip';
-    const sprites = Math.min(9, Math.max(3, Math.round(c.r * 0.7)));
+    const sprites = Math.min(puffCap, Math.max(puffMin, Math.round(c.r * puffMul)));
     for (let k = 0; k < sprites; k++) {
-      const rr = Math.sqrt(frac(c.seed + k * 1.7)) * c.r * 0.9, th = frac(c.seed + k * 3.3) * 6.2832;
+      const rr = Math.sqrt(frac(c.seed + k * 1.7)) * c.r * 0.95, th = frac(c.seed + k * 3.3) * 6.2832;
       const dx = c.x + Math.cos(th) * rr - ax, dy = c.y + Math.sin(th) * rr - ay, dist = Math.hypot(dx, dy);
       if (dist > RANGE) continue;
-      // Anchor the puff BASE near the ceiling (small scatter) and let the cards billow UP from there,
-      // so the deck has a flat-ish bottom instead of puffs floating at random heights.
-      const pz = baseZ + frac(c.seed + k * 2.9) * thick * 0.35;
-      const R = (3.0 + frac(c.seed + k * 5.7) * 3.0) * (0.7 + clamp(c.intensity, 0, 1) * 0.5);
-      const distFade = clamp(1 - dist / RANGE, 0.04, 1), cellA = alpha * clamp(c.intensity, 0.4, 1);
+      // Anchor the puff BASE near the ceiling, but scatter over a TALLER band now (the deck is thicker)
+      // and let the cards billow UP from there, so the deck has depth instead of a thin flat sheet.
+      const pz = baseZ + frac(c.seed + k * 2.9) * thick * 0.55;
+      // Small puffs (≈0.5× the old radius): the detail lives in their number, not their size.
+      const R = (1.55 + frac(c.seed + k * 5.7) * 1.7) * (0.7 + clamp(c.intensity, 0, 1) * 0.5);
+      const distFade = clamp(1 - dist / RANGE, 0.04, 1), cellA = alpha * clamp(c.intensity, 0.5, 1);
       // Inter-lobe ambient occlusion: a soft dark pool sunk into the puff base, sorted FARTHEST
       // (f+3) so it paints first, UNDER the lobes — deepening the shadowed crevices where the
       // cauliflower heaps meet, instead of every lobe reading equally bright.
       const pbase = cam.proj(dx, dy, pz);
-      if (pbase.f > 0.12) {
+      if (pbase.f > 0.12 && distFade > 0.4) {   // AO only on near puffs — the dense swarm makes a per-puff pool everywhere too costly
         const sAO = clamp(R * 0.95 * cam.FL / pbase.f, 2, W * 0.9);
         cards.push({ ao: true, x: pbase.sx, y: pbase.sy + sAO * 0.16, s: sAO, f: pbase.f + 3, a: cellA * distFade * 0.4 });
       }
@@ -1915,12 +1913,20 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
       }
       const bt = c.stormy ? mix(base, [78, 84, 94], 0.5) : base, lt = c.stormy ? mix(lit, [140, 146, 156], 0.5) : lit;
       const col = mix(bt, lt, c.lit), a = c.a * cardScale;
+      // Directional shading: bias the bright core of the puff TOWARD the key light and pull the lit
+      // side's colour toward the light, so sunlight rakes ACROSS each puff and the far side falls into
+      // its own soft shadow — a real volumetric light gradient, replacing the old hard silver-rim
+      // crescent. Purely the gradient's focus + colour; no extra draw pass.
+      let fx = 0, fy = -c.s * 0.12;
+      if (litOK) { let lx = lightX - c.x, ly = lightY - c.y; const L = Math.hypot(lx, ly) || 1; fx = lx / L * c.s * 0.44; fy = ly / L * c.s * 0.44 - c.s * 0.05; }
+      const litCol = litOK ? mix(col, lt, 0.4 * lightStr) : col;   // near-light side warms toward the lit tint
+      const shadeCol = mix(col, bt, 0.5);                          // outer/far edge falls into form shadow
       // A DENSER radial falloff holds opacity through the core, then rolls off to a firmer edge — a
       // solid cloud mass instead of a wispy smoke ring — and the per-card vertical squash (ys) keeps
       // the base shelves flat and the crowns rounded so the stack silhouettes as billowed cauliflower.
-      const rg = ctx.createRadialGradient(c.x, c.y - c.s * 0.12, c.s * 0.16, c.x, c.y, c.s);
-      rg.addColorStop(0, rgb(col, a)); rg.addColorStop(0.5, rgb(col, a * 0.95));
-      rg.addColorStop(0.82, rgb(col, a * 0.5)); rg.addColorStop(1, rgb(col, 0));
+      const rg = ctx.createRadialGradient(c.x + fx, c.y + fy, c.s * 0.14, c.x, c.y, c.s);
+      rg.addColorStop(0, rgb(litCol, a)); rg.addColorStop(0.5, rgb(col, a * 0.95));
+      rg.addColorStop(0.82, rgb(shadeCol, a * 0.5)); rg.addColorStop(1, rgb(shadeCol, 0));
       ctx.fillStyle = rg; ctx.beginPath(); ctx.ellipse(c.x, c.y, c.s, c.s * c.ys, 0, 0, 7); ctx.fill();
       // Value-noise mottle: stamp the curdled tile over big cards (overlay modulates brightness only).
       if (c.s > 15 && a > 0.12) {
@@ -1928,16 +1934,6 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
         ctx.beginPath(); ctx.ellipse(c.x, c.y, c.s * 0.98, c.s * c.ys * 0.98, 0, 0, 7); ctx.clip();
         ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = clamp(a * 0.6, 0, 0.5);
         ctx.drawImage(noiseTex, c.x - c.s, c.y - c.s * c.ys, c.s * 2, c.s * c.ys * 2);
-        ctx.restore();
-      }
-      // Silver lining: a bright feathered rim on the crown lobe's edge that FACES the key light, so
-      // a backlit front glows along its top instead of reading as a flat grey mass. Crowns only.
-      if (litOK && c.oz > 0.55 && c.lit > 0.6) {
-        let dx = lightX - c.x, dy = lightY - c.y; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
-        const ang = Math.atan2(dy, dx), ra = clamp(lightStr * a * 0.9, 0, 0.6);
-        ctx.save(); ctx.globalCompositeOperation = 'lighter';
-        ctx.strokeStyle = rgb(mix(lt, [255, 255, 255], 0.55), ra); ctx.lineWidth = Math.max(1, c.s * 0.12);
-        ctx.beginPath(); ctx.ellipse(c.x, c.y, c.s * 0.9, c.s * c.ys * 0.9, 0, ang - 0.95, ang + 0.95); ctx.stroke();
         ctx.restore();
       }
     }
@@ -2015,6 +2011,8 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_lux: [58, 52, 78], ty_chrome: [118, 126, 136], ty_meridian: [98, 104, 90],
   ty_grocery: [78, 100, 66], ty_tech: [46, 88, 96], ty_showroom: [56, 90, 86],
   ty_boutique: [92, 60, 88], ty_junk: [94, 70, 48],
+  // Hall of Records — the ancient civic temple: weathered limestone, cleaner column stone, verdigris copper dome.
+  ty_archive: [126, 118, 102], ty_archive_col: [150, 142, 124], ty_archive_dome: [78, 138, 118],
   __statue_stone: [116, 114, 118],   // weathered plinth stone for the town-square monument
   ty_door: [20, 22, 26] };
 const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
@@ -2062,7 +2060,7 @@ function bldgStyle(cell) {
 // exactly what you can hit.
 const TYPE_FLOORS = {
   corporate_office: 22, hotel: 6, apartment: 8, residential: 3, shop: 1, diner: 1,
-  bar: 1, club: 2, studio: 2, police: 3, clinic: 3, power: 5, hangar: 1, default: 4,
+  bar: 1, club: 2, studio: 2, police: 3, clinic: 3, power: 5, hangar: 1, civic: 5, default: 4,
 };
 const FLOOR_Z = 0.028;   // world-z per storey — vertically stretched (taller storeys) so buildings stand up off the deck instead of reading flat; not more floors, just taller ones
 function floorsOf(cell) {
@@ -3378,6 +3376,7 @@ const NAMED_MODELS = {
   chromecourt:                    { type: 'chrome',    pal: 'ty_chrome' },
   themeridianlobby:               { type: 'meridian',  pal: 'ty_meridian', penthouse: true },
   precinct9:                      { type: 'police',    pal: 'ty_police' },
+  hallofrecords:                  { type: 'archive',   pal: 'ty_archive' },
   coldwaterclonefacility:         { type: 'clone',     pal: 'ty_clone' },
   ksabtvstudiostage:              { type: 'studio',    pal: 'ty_studio' },
   coldwaterpowerplantturbinehall: { type: 'power',     pal: 'ty_power' },
@@ -3595,6 +3594,63 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
   // (it lives ON that face) instead of letting it float through the building from behind.
   const frontVis = (E[0] * (dx + E[0] * fh) + E[1] * (dy + E[1] * fh) + (cam.back || 0) * (E[0] * cam.sinh - E[1] * cam.cosh)) < 0;
   switch (m.type) {
+    case 'archive': {   // Hall of Records — the oldest thing on the skyline: a weathered stone
+      // civic temple. A stepped stylobate lifts a six-column portico under a heavy entablature and
+      // a classical pediment; behind it a drum of clerestory windows carries a verdigris copper
+      // dome, a stone lantern and one lonely amber beacon. No neon — it predates all that. At
+      // night it's floodlit from below like a monument nobody funds and nobody dares raze.
+      const stone = pal, colPal = 'ty_archive_col';
+      const plinth = h * 0.22, colTop = h * 1.02, entTop = h * 1.20;
+      // 1) Stepped stone plinth (stylobate) — three broad shrinking steps up off the deck.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.42, 0,        h * 0.07, stone, seed,     night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.30, h * 0.07, h * 0.14, stone, seed + 1, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.18, h * 0.14, plinth,   stone, seed + 2, night, alpha, true);
+      // 2) The cella — the solid records block behind the columns, warm windows lit.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.00, plinth, colTop, stone, seed + 3, night, alpha, true);
+      // 3) Front colonnade — six columns standing proud of the cella on the entrance side.
+      for (let i = 0; i < 6; i++) {
+        const [cx, cy] = F((-1 + i * 0.4) * fh * 0.98, fh * 1.12);
+        draw3DBoxAt(ctx, cam, cx, cy, fh * 0.10, plinth, colTop, colPal, seed + 10 + i, night, alpha, false);
+      }
+      // 4) Heavy entablature capping the columns and cella.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.14, colTop, entTop, stone, seed + 4, night, alpha, false);
+      // 5) Classical pediment — a stone gable triangle over the portico (front face only) + the
+      //    great warm rose-window/clock set into it.
+      if (frontVis) {
+        const [lx, ly] = F(-fh * 1.02, fh * 1.02), [rx, ry] = F(fh * 1.02, fh * 1.02), [ax, ay] = F(0, fh * 1.02);
+        const a = cam.proj(lx, ly, entTop), b = cam.proj(rx, ry, entTop), c = cam.proj(ax, ay, entTop + h * 0.17);
+        if (a.f > 0.1 && b.f > 0.1 && c.f > 0.1) {
+          ctx.globalAlpha = alpha; ctx.fillStyle = night ? 'rgb(70,66,58)' : 'rgb(150,142,124)';
+          ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.lineTo(c.sx, c.sy); ctx.closePath(); ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        const [wx, wy] = F(0, fh * 1.06); glowPool(ctx, cam, wx, wy, entTop + h * 0.02, '255,206,140', 9, alpha * (night ? 0.6 : 0.4));
+      }
+      // 6) The drum — a round tower of clerestory windows rising behind the pediment.
+      const drum1 = entTop + h * 0.5;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.60, entTop, drum1, stone, seed + 5, night, alpha, true);
+      // 7) The verdigris copper dome — smooth stacked discs following a hemisphere profile.
+      const domeH = h * 0.46, domeR = fh * 0.60, apex = drum1 + domeH;
+      for (let i = 0; i <= 7; i++) {
+        const t = i / 7, z = drum1 + domeH * t, r = domeR * Math.sqrt(Math.max(0, 1 - t * t));
+        const pts = []; let ok = true;
+        for (let k = 0; k <= 20; k++) { const ang = k / 20 * Math.PI * 2, p = cam.proj(dx + Math.cos(ang) * r, dy + Math.sin(ang) * r, z); if (p.f <= 0.08) { ok = false; break; } pts.push(p); }
+        if (!ok) continue;
+        const sh = 0.72 + 0.28 * t;   // lit lighter toward the crown
+        ctx.globalAlpha = alpha; ctx.fillStyle = `rgb(${Math.round(78 * sh)},${Math.round(138 * sh)},${Math.round(118 * sh)})`;
+        ctx.beginPath(); pts.forEach((p, k) => k ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      // 8) Stone lantern + finial, and one amber aviation beacon on the very crown.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.12, apex, apex + h * 0.14, colPal, seed + 6, night, alpha, false);
+      blinkLight(ctx, cam, dx, dy, apex + h * 0.18, '255,196,120', now, seed, alpha, 2);
+      // 9) Night: floodlit columns from below + warm spill from the tall windows and the drum.
+      if (night) {
+        glowPool(ctx, cam, dx, dy, plinth + h * 0.04, '255,196,120', 24, alpha * 0.30);
+        glowPool(ctx, cam, dx, dy, entTop + h * 0.2, '255,210,150', 14, alpha * 0.18);
+      }
+      break;
+    }
     case 'office': {   // corporate glass tower: three setbacks + spire beacon
       let w = fh * 1.1, z = 0; const H = h * 1.7;
       for (let i = 0; i < 3; i++) { const z1 = H * ((i + 1) / 3); draw3DBoxAt(ctx, cam, dx, dy, w, z, z1, pal, seed + i, night, alpha, true); z = z1; w *= 0.74; }

@@ -148,7 +148,7 @@ async function cmdLetThereBeLight(args, raw, player, broadcast) {
     ? `${flavor} — power hums through the grid and the room floods with light.`
     : `${flavor}, but no power reaches this room yet (status: ${powerStatus}).`;
   if (broadcast) broadcast(zoneId, { type: 'zone_event', message: `The ${lightName} flickers on.`, refresh: true }, player.id);
-  return { type: 'look', message: await describeZone(zone, player), notify, zone: zoneId, minimap: getMinimapData(zoneId) };
+  return { type: 'look', message: await describeZone(zone, player), notify, zone: zoneId, minimap: getMinimapData(zoneId, 8, player) };
 }
 
 export const commands = {

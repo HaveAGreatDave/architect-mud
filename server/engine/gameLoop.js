@@ -26,6 +26,7 @@ const IDLE_REGEN_MS = 8000;       // no-movement grace before stamina recovers
 const STAND_STAMINA_REGEN = 1;    // stamina per tick when idle & standing (slow)
 const SIT_STAMINA_REGEN = 6;      // stamina per tick when sitting (faster rest)
 const SIT_REGEN_HP = 3;           // HP per tick while sitting, once stamina is full
+const WINDED_REGEN_MULT = 0.5;    // stamina regen while winded (ran the tank dry, movement.js) — halved
 
 // Cloning-vat emergence beats (ms after respawn), played only on the normal vat
 // path: consciousness arrives immediately, the body reports in, then a dressing
@@ -1072,7 +1073,9 @@ async function restRegenTick() {
     // recovers faster; either way it's scaled down by temperature stress.
     if (idle && stamina < staminaMax) {
       const base = sitting ? SIT_STAMINA_REGEN : STAND_STAMINA_REGEN;
-      const gain = Math.max(0, Math.floor(base * tempRegenMultiplier(player.body_temp_c ?? 37)));
+      // Winded (ran the tank dry) throttles recovery until the penalty window lapses.
+      const windedMult = (player._windedUntil ?? 0) > now ? WINDED_REGEN_MULT : 1;
+      const gain = Math.max(0, Math.floor(base * tempRegenMultiplier(player.body_temp_c ?? 37) * windedMult));
       if (gain > 0) stamina = Math.min(staminaMax, stamina + gain);
     }
 

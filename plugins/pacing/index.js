@@ -12,9 +12,14 @@
  *      arteries) halve the cooldown (ROAD_SPEEDUP) so travel along the street grid
  *      is ×2 — the same road grid the GPS router hugs. Water is impassable, handled
  *      upstream by the engine:water move gate.
- *   2. SPRINT — `sprint on` moves faster than the walk cadence (SPRINT_COOLDOWN_MS)
- *      by spending SPRINT_COST stamina per step. Drop below SPRINT_FLOOR and you're
- *      WINDED: sprint auto-drops and can't be re-enabled until stamina recovers to
+ *   2. RUN — `player.running` (the `run` command / minimap Run toggle, owned by the
+ *      gps plugin, which also charges its own per-step stamina toll in movement.js)
+ *      shortens the cadence to RUN_COOLDOWN_MS. This is the SAME speed the client's
+ *      GPS auto-walker paces itself at while running, so the server no longer queues
+ *      its steps out from under it — walk < run < sprint is one shared clock.
+ *   3. SPRINT — `sprint on` moves faster still (SPRINT_COOLDOWN_MS) by spending
+ *      SPRINT_COST stamina per step. Drop below SPRINT_FLOOR and you're WINDED:
+ *      sprint auto-drops and can't be re-enabled until stamina recovers to
  *      WINDED_RECOVER (hysteresis, so it can't flicker at the floor).
  *
  * THE QUEUE: when a step arrives before the cadence elapses, the gate doesn't
@@ -46,6 +51,9 @@ import { cmdMove } from '../../server/engine/commands/movement.js';
 import { query } from '../../server/models/db.js';
 
 const WALK_COOLDOWN_MS   = 900;   // spam throttle; normal reading pace never hits it
+const RUN_COOLDOWN_MS    = 700;   // player.running cadence — must stay under the client's
+                                  // on-road run send-rate (minimap.js RUN_STEP_MS ÷ road
+                                  // speedup) so running auto-walk steps never get queued
 const SPRINT_COOLDOWN_MS = 350;   // burst cadence while sprinting
 const SPRINT_COST        = 8;     // stamina per sprint step
 const SPRINT_FLOOR       = 15;    // sprint auto-drops when stamina falls below this
@@ -67,8 +75,17 @@ function roadSpeedFactor(zone) {
   return isRoad ? ROAD_SPEEDUP : 1;
 }
 
+// Run only earns the faster cadence while you can still pay the per-step toll. Empty
+// the tank and movement.js walks the step for free — so we drop back to walk pace too,
+// mirroring the client's autoWalkDelay (minimap.js) so both authorities agree.
+const RUN_STEP_STAMINA = 4;   // must match movement.js RUN_STEP_STAMINA
+
 function cadenceMs(player) {
-  const base = player._sprinting ? SPRINT_COOLDOWN_MS : WALK_COOLDOWN_MS;
+  // walk < run < sprint. Sprint wins if both flags are set (it's the faster gear).
+  const canRun = player.running && staminaOf(player) >= RUN_STEP_STAMINA;
+  const base = player._sprinting ? SPRINT_COOLDOWN_MS
+    : canRun ? RUN_COOLDOWN_MS
+    : WALK_COOLDOWN_MS;
   return Math.round(base / roadSpeedFactor(getZone(player.current_zone)));
 }
 

@@ -1,0 +1,21 @@
+{
+  "banter": [],
+  "chitchat": [],
+  "description": "A statuesque dancer with an hourglass figure barely contained by the sheer wisp she's wearing, all curves and heavy-lidded confidence. She moves like the room belongs to her and everyone in it is a guest.",
+  "faction": "none",
+  "flags": {
+    "stripper": true,
+    "personality": "stripper",
+    "mis_requires_zone_flag": "mis_ok",
+    "mis_willing": true,
+    "clothing_layers": ["a sheer silk wrap"]
+  },
+  "home_zone": "zone_echelon_suite",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_echelon_dancer_1",
+  "name": "Roxy",
+  "npc_type": "npc",
+  "sex": "female",
+  "wanders": 0
+}

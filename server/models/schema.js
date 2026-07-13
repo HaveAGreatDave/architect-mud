@@ -1479,6 +1479,18 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_police_evidence_time ON police_evidence(created_at ASC);
 
+  -- ── The Echelon invite list (yacht plugin) ─────────────────────────────────
+  -- One row per player approved to board the admin superyacht. The Admin Console
+  -- aboard adds/removes rows; the yachtlock lock type, the yacht:board move gate,
+  -- and the smite-on-entry backstop all read it. A dedicated table (not a player
+  -- Flag) because the console must ENUMERATE invitees. Runtime, not world content
+  -- — excluded from the content export like accounts/inventory.
+  CREATE TABLE IF NOT EXISTS yacht_invites (
+    player_id  TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+    added_by   TEXT,
+    added_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
   -- ── Player-vs-player sports betting (sportsbet plugin) ─────────────────────
   -- One row per LOCKED wager on a baseball airing. The game is decided the moment
   -- it airs, so the outcome (winner/score) is captured here at lock time and the

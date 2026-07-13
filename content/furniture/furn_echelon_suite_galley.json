@@ -1,0 +1,15 @@
+{
+  "description": "A mirror-polished auto-galley set into the bar, humming softly. It never runs empty — press it and it produces something to eat, endlessly. VEND to take a portion.",
+  "flags": {
+    "vends": "item_soylent",
+    "interactions": ["vend"]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_suite_galley",
+  "name": "auto-galley dispenser",
+  "object_type": "furniture",
+  "power_draw_kw": 1,
+  "price": 0,
+  "zone_id": "zone_echelon_suite"
+}

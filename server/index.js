@@ -859,7 +859,7 @@ async function finishAuth(ws, session, player) {
 				type: "look",
 				message: await describeZone(zone, livePlayer),
 				zone: zone.id,
-				minimap: getMinimapData(zone.id),
+				minimap: getMinimapData(zone.id, 8, livePlayer),
 			}),
 		);
 		if (bodyTempLoginMsg) ws.send(JSON.stringify({ type: 'system', message: bodyTempLoginMsg }));
@@ -883,7 +883,7 @@ async function finishAuth(ws, session, player) {
 						describeVoidTeleport() +
 						(await describeZone(startZone, livePlayer)),
 					zone: "zone_start",
-					minimap: getMinimapData("zone_start"),
+					minimap: getMinimapData("zone_start", 8, livePlayer),
 				}),
 			);
 			broadcast(

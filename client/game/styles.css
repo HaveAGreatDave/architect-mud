@@ -2504,10 +2504,10 @@ body.fsim-external #look-resize-handle { display: none; }
    at any tile size; a dark halo keeps it readable over a rooftop footprint. Shared by
    the sidebar minimap (.mm-*) and the full-map popup (.map-*). */
 .mm-entrance, .map-entrance { position: absolute; width: 0; height: 0; z-index: 3; pointer-events: none; filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.95)); }
-.mm-ent-north, .map-ent-north { top: 0; left: 50%; transform: translateX(-50%); border-left: 3px solid transparent; border-right: 3px solid transparent; border-bottom: 4px solid #ffb454; }
-.mm-ent-south, .map-ent-south { bottom: 0; left: 50%; transform: translateX(-50%); border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 4px solid #ffb454; }
-.mm-ent-east, .map-ent-east { right: 0; top: 50%; transform: translateY(-50%); border-top: 3px solid transparent; border-bottom: 3px solid transparent; border-left: 4px solid #ffb454; }
-.mm-ent-west, .map-ent-west { left: 0; top: 50%; transform: translateY(-50%); border-top: 3px solid transparent; border-bottom: 3px solid transparent; border-right: 4px solid #ffb454; }
+.mm-ent-north, .map-ent-north { top: 0; left: 50%; transform: translateX(-50%); border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 6px solid var(--accent); }
+.mm-ent-south, .map-ent-south { bottom: 0; left: 50%; transform: translateX(-50%); border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid var(--accent); }
+.mm-ent-east, .map-ent-east { right: 0; top: 50%; transform: translateY(-50%); border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid var(--accent); }
+.mm-ent-west, .map-ent-west { left: 0; top: 50%; transform: translateY(-50%); border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-right: 6px solid var(--accent); }
 
 /* Overlay slider: None / Icons / Labels — a segmented control with a sliding
    highlight, sitting in the map header next to the Avenue View toggle. */
@@ -3802,6 +3802,21 @@ body.fsim-external #look-resize-handle { display: none; }
 	color: var(--accent);
 	margin-right: 4px;
 	font-style: normal;
+}
+/* A turn-in option for a quest that's accepted but not yet finished: looks
+   dimmed/locked, but is still tappable — it routes to the Tablet quest screen. */
+.dialogue-opt-locked {
+	opacity: 0.5;
+	font-style: italic;
+}
+.dialogue-opt-locked::before {
+	content: "\1F512"; /* padlock */
+	margin-right: 5px;
+	font-style: normal;
+}
+.dialogue-opt-locked:hover {
+	border-color: var(--border);
+	color: var(--text-dim, var(--text));
 }
 
 /* Shop layout */
@@ -7417,11 +7432,12 @@ body.fsim-external #look-resize-handle { display: none; }
 	display: none;
 	flex-direction: column;
 	background:
-		radial-gradient(ellipse at 50% 0%, rgba(0, 40, 30, 0.4), transparent 70%),
+		repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.10) 2px 3px),
+		radial-gradient(ellipse at 50% -10%, rgba(0, 60, 45, 0.35), transparent 60%),
 		var(--tv-bg, #080c10);
 	color: var(--tv-text, #b8d4c8);
 	font-family: var(--font-mono);
-	padding: 8px 10px 6px;
+	padding: 7px 9px 6px;
 	gap: 6px;
 	overflow: hidden;
 	animation: gd-in 0.25s ease-out;
@@ -7429,75 +7445,121 @@ body.fsim-external #look-resize-handle { display: none; }
 #tv-gameday.on { display: flex; }
 @keyframes gd-in { from { opacity: 0; } to { opacity: 1; } }
 
-/* Score header */
-.gd-top {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 8px;
-	padding: 4px 8px;
-	background: rgba(0, 0, 0, 0.4);
-	border: 1px solid var(--tv-border, rgba(0,220,180,0.35));
-	border-radius: 3px;
-	flex: 0 0 auto;
+/* ── Score bug (broadcast strip) ─────────────────────────────────────────────── */
+.gd-top { display: flex; align-items: stretch; justify-content: space-between; gap: 6px; height: 40px; flex: 0 0 auto; }
+.gd-team {
+	flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 0 14px; min-width: 104px;
+	background: rgba(0, 0, 0, 0.5); border: 1px solid var(--tv-border, rgba(0,220,180,0.3)); border-radius: 3px;
 }
-.gd-team { display: flex; align-items: center; gap: 8px; min-width: 92px; }
 .gd-team.home { justify-content: flex-end; }
-.gd-abbr { font-weight: bold; letter-spacing: 1.5px; font-size: 15px; color: rgba(220, 240, 235, 0.75); }
+.gd-team.lead { border-color: var(--tv-header-color, #37d67a); box-shadow: inset 0 0 12px rgba(0,220,180,0.12); }
+.gd-abbr { font-weight: bold; letter-spacing: 2px; font-size: 16px; color: rgba(220, 240, 235, 0.7); }
 .gd-team.lead .gd-abbr { color: #fff; }
-.gd-score { font-weight: bold; font-size: 22px; font-variant-numeric: tabular-nums; color: var(--tv-text); }
+.gd-score { font-weight: bold; font-size: 24px; font-variant-numeric: tabular-nums; color: var(--tv-text); }
 .gd-team.lead .gd-score { color: var(--tv-header-color, #37d67a); }
-.gd-mid { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.gd-inn { font-size: 11px; letter-spacing: 1px; color: var(--tv-header-color, #37d67a); text-transform: uppercase; }
-.gd-outs { display: flex; align-items: center; gap: 4px; font-size: 8px; letter-spacing: 0.5px; color: rgba(220,240,235,0.5); }
-.gd-outs em { font-style: normal; }
-.gd-out { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); }
-.gd-out.on { background: #ff3344; border-color: #ff3344; }
-.gd-count { font-size: 13px; font-weight: bold; font-variant-numeric: tabular-nums; color: #fff; }
-
-/* Body: three columns — diamond+matchup | pitch plot | play card + pitch list */
-.gd-body { flex: 1 1 auto; display: grid; grid-template-columns: 1.1fr 1fr 1.3fr; gap: 8px; min-height: 0; }
-.gd-col { min-width: 0; display: flex; flex-direction: column; }
-
-/* Diamond */
-.gd-diamond-col { align-items: center; justify-content: flex-start; gap: 6px; }
-.gd-diamond { width: 100%; max-width: 150px; aspect-ratio: 1; }
-.gd-basepath { stroke: rgba(255,255,255,0.14); stroke-width: 2; }
-.gd-base { fill: rgba(255,255,255,0.08); stroke: rgba(255,255,255,0.3); stroke-width: 1.5; }
-.gd-base.on { fill: var(--tv-header-color, #37d67a); stroke: var(--tv-header-color, #37d67a); }
-.gd-base.fresh { animation: gd-base-pop 0.6s ease-out; }
-.gd-plate { fill: rgba(255,255,255,0.5); stroke: rgba(255,255,255,0.6); stroke-width: 1; }
-.gd-diamond-col.scored .gd-plate { animation: gd-plate-flash 0.8s ease-out; }
-@keyframes gd-base-pop {
-	0% { transform: scale(0.4); opacity: 0.2; filter: brightness(2.2); }
-	60% { transform: scale(1.25); filter: brightness(1.6); }
-	100% { transform: scale(1); filter: brightness(1); }
-	/* transform-box keeps the scale centred on the rotated base rect */
+.gd-mid {
+	flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+	background: rgba(0, 0, 0, 0.35); border: 1px solid var(--tv-border, rgba(0,220,180,0.25)); border-radius: 3px;
 }
-.gd-base.fresh { transform-box: fill-box; transform-origin: center; }
-@keyframes gd-plate-flash {
-	0%, 100% { fill: rgba(255,255,255,0.5); }
-	40% { fill: #ffd23e; filter: drop-shadow(0 0 6px #ffd23e); }
-}
-.gd-matchup { width: 100%; display: flex; flex-direction: column; gap: 3px; }
-.gd-mrow { display: flex; align-items: center; gap: 6px; font-size: 11px; }
-.gd-mlabel {
-	flex: 0 0 auto; width: 22px; text-align: center; font-size: 8px; font-weight: bold;
-	letter-spacing: 0.5px; padding: 2px 0; border-radius: 2px;
-	background: rgba(255,255,255,0.08); color: rgba(220,240,235,0.6);
-}
-.gd-mlabel.bat { background: var(--tv-header-color, #37d67a); color: #041008; }
-.gd-mname { font-weight: bold; color: var(--tv-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gd-inn { font-size: 11px; font-weight: bold; letter-spacing: 2px; color: var(--tv-header-color, #37d67a); text-transform: uppercase; }
+.gd-mid-line { display: flex; align-items: center; gap: 12px; }
+.gd-outs { display: flex; align-items: center; gap: 4px; }
+.gd-out { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.3); }
+.gd-out.on { background: #ff3344; border-color: #ff3344; box-shadow: 0 0 5px rgba(255,51,68,0.6); }
+.gd-count { font-size: 15px; font-weight: bold; font-variant-numeric: tabular-nums; letter-spacing: 1px; color: #fff; }
 
-/* Pitch plot */
-.gd-plot-col { align-items: center; gap: 4px; }
-.gd-zone { width: 100%; max-width: 150px; aspect-ratio: 1; overflow: visible; }
+/* ── Main row: field (hero) + instrument rail ────────────────────────────────── */
+.gd-main { flex: 1 1 auto; display: flex; gap: 8px; min-height: 0; }
+.gd-fieldwrap { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; min-width: 0; }
+
+/* Top-down field. Box a touch wider than tall so the extended outfield fits with the
+   fielders on grass; sized to the available height, centred, letterboxed by the wrap. */
+.gd-field {
+	position: relative; height: 100%; aspect-ratio: 100 / 68; max-width: 100%;
+	background: radial-gradient(ellipse at 50% 30%, #164a2b, #0a2013 74%);
+	border: 1px solid var(--tv-border, rgba(0,220,180,0.3)); border-radius: 5px; overflow: hidden;
+	box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+}
+.gd-field-bg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.gd-grass { fill: rgba(72,150,92,0.20); }
+.gd-fence { stroke: rgba(255,255,255,0.45); stroke-width: 0.8; stroke-dasharray: 1.6 1.4; }
+.gd-track { stroke: rgba(180,120,70,0.5); stroke-width: 3; }
+.gd-foul { stroke: rgba(255,255,255,0.32); stroke-width: 0.5; }
+.gd-dirt { fill: rgba(155,98,58,0.4); }
+.gd-paths { stroke: rgba(235,205,175,0.5); stroke-width: 0.7; }
+.gd-mound { fill: rgba(155,98,58,0.6); }
+
+/* Instrument chrome over the field (grid + scanlines + corner reticles). */
+.gd-crt-grid {
+	position: absolute; inset: 0; pointer-events: none; z-index: 1;
+	background:
+		repeating-linear-gradient(0deg, transparent 0 12.5%, rgba(255,255,255,0.035) 12.5% calc(12.5% + 1px)),
+		repeating-linear-gradient(90deg, transparent 0 12.5%, rgba(255,255,255,0.035) 12.5% calc(12.5% + 1px));
+}
+.gd-crt-scan { position: absolute; inset: 0; pointer-events: none; z-index: 7; background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.16) 2px 3px); }
+.gd-reticle { position: absolute; inset: 5px; pointer-events: none; z-index: 8; }
+.gd-reticle i { position: absolute; width: 12px; height: 12px; border: 1.5px solid var(--tv-header-color, #37d67a); opacity: 0.6; }
+.gd-reticle i:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+.gd-reticle i:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+.gd-reticle i:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+.gd-reticle i:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+
+/* Field tokens — absolutely positioned by left/top %, centred via negative margins
+   so `transform` stays free for the hop (gd-lift) animation. */
+.gd-fielder, .gd-ball, .gd-runner, .gd-batter, .gd-fbase { position: absolute; }
+.gd-fielder {
+	width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
+	background: rgba(12,28,22,0.94); border: 1.5px solid var(--tv-header-color, #37d67a);
+	color: var(--tv-text); font-size: 7px; font-weight: bold; letter-spacing: 0.2px;
+	display: flex; align-items: center; justify-content: center;
+	box-shadow: 0 0 5px rgba(0,220,180,0.25); transition: left .5s ease, top .5s ease; z-index: 3;
+}
+.gd-batter {
+	width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 2px; background: #fff;
+	box-shadow: 0 0 5px rgba(255,255,255,0.7); transition: left .5s ease, top .5s ease; z-index: 5;
+}
+.gd-batter.outed { opacity: 0.25; background: #ff5a5a; box-shadow: none; }
+.gd-runner {
+	width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #ffd23e;
+	box-shadow: 0 0 6px rgba(255,210,62,0.75); transition: left .6s ease, top .6s ease; z-index: 5;
+}
+.gd-runner.outed { background: #ff5a5a; opacity: 0.3; box-shadow: none; }
+.gd-ball {
+	width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
+	background: radial-gradient(circle at 35% 35%, #fff, #d6d6d6);
+	box-shadow: 0 0 6px rgba(255,255,255,0.9); transition: left .34s linear, top .34s linear; z-index: 6;
+}
+.gd-fbase {
+	width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; transform: rotate(45deg);
+	background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.45);
+	transition: background .2s, box-shadow .2s; z-index: 2;
+}
+.gd-fbase.home { border-radius: 1px; }
+.gd-fbase.lit { background: var(--tv-header-color, #37d67a); border-color: var(--tv-header-color, #37d67a); box-shadow: 0 0 8px var(--tv-header-color, #37d67a); }
+.gd-fbase.cross { animation: gd-base-cross 0.5s ease-out; }
+@keyframes gd-base-cross { 0%,100% { box-shadow: none; } 40% { background: #ffd23e; box-shadow: 0 0 10px #ffd23e; } }
+@keyframes gd-lift { 0% { transform: translateY(0) scale(1); } 50% { transform: translateY(-14px) scale(1.3); } 100% { transform: translateY(0) scale(1); } }
+
+/* ── Instrument rail ─────────────────────────────────────────────────────────── */
+.gd-rail { flex: 0 0 176px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.gd-card {
+	flex: 0 0 auto; padding: 6px 8px 7px; border-radius: 3px;
+	background: rgba(0, 0, 0, 0.42); border: 1px solid var(--tv-border, rgba(0,220,180,0.2));
+	border-left: 3px solid var(--tv-header-color, #37d67a);
+}
+.gd-microlabel { display: block; font-size: 8px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: rgba(220,240,235,0.5); margin-bottom: 3px; }
+.gd-countcard { display: flex; align-items: baseline; gap: 8px; }
+.gd-countcard .gd-microlabel { margin: 0; }
+.gd-count-big { font-size: 22px; font-weight: bold; font-variant-numeric: tabular-nums; color: #fff; letter-spacing: 2px; }
+.gd-outlabel { margin-left: auto; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: rgba(220,240,235,0.55); }
+.gd-plotcard { display: flex; flex-direction: column; align-items: center; }
+.gd-plotcard .gd-microlabel { align-self: flex-start; }
+.gd-plot-inset { width: 100%; max-width: 106px; }
+.gd-zone { width: 100%; aspect-ratio: 1; overflow: visible; }
 .gd-zone-box { fill: rgba(255,255,255,0.03); stroke: rgba(255,255,255,0.35); stroke-width: 1; }
 .gd-zone-grid { stroke: rgba(255,255,255,0.12); stroke-width: 0.5; }
 .gd-pitch circle { stroke: rgba(0,0,0,0.6); stroke-width: 1; }
 .gd-pitch text { fill: #fff; font-size: 8px; font-weight: bold; text-anchor: middle; font-family: var(--font-mono); }
-/* Settled dots are static (the plot re-renders each reveal step); only the just-
-   thrown pitch (.new) drops in. */
 .gd-pitch { opacity: 1; }
 .gd-pitch.new { animation: gd-pitch-drop 0.34s ease-out; transform-box: fill-box; transform-origin: center; }
 @keyframes gd-pitch-drop {
@@ -7510,46 +7572,49 @@ body.fsim-external #look-resize-handle { display: none; }
 .gd-pitch.swinging circle { fill: #ef4444; }
 .gd-pitch.foul circle { fill: #eab308; }
 .gd-pitch.inplay circle { fill: #22c55e; }
-.gd-plot-legend { display: flex; gap: 8px; font-size: 8px; color: rgba(220,240,235,0.5); }
-.gd-plot-legend .gd-pldot { width: 12px; height: 12px; font-size: 8px; }
 
-/* Play card + pitch list */
-.gd-info-col { gap: 5px; }
+.gd-matchcard { display: flex; flex-direction: column; gap: 4px; }
+.gd-mrow { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.gd-mlabel {
+	flex: 0 0 auto; width: 24px; text-align: center; font-size: 8px; font-weight: bold;
+	letter-spacing: 0.5px; padding: 2px 0; border-radius: 2px;
+	background: rgba(255,255,255,0.08); color: rgba(220,240,235,0.6);
+}
+.gd-mlabel.bat { background: var(--tv-header-color, #37d67a); color: #041008; }
+.gd-mname { font-weight: bold; color: var(--tv-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .gd-play {
-	flex: 0 0 auto; padding: 6px 8px; border-radius: 3px;
-	background: rgba(0,0,0,0.4); border-left: 3px solid var(--tv-header-color, #37d67a);
-	animation: gd-play-in 0.3s ease-out;
+	flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; padding: 7px 9px; border-radius: 3px;
+	background: rgba(0, 0, 0, 0.42); border: 1px solid var(--tv-border, rgba(0,220,180,0.2));
+	border-left: 3px solid var(--tv-header-color, #37d67a); animation: gd-play-in 0.3s ease-out;
 }
-.gd-play.scored { border-left-color: #ffd23e; }
-/* Pre-outcome placeholder while the pitches play out — dim, no slide-in. */
-.gd-play.pending { border-left-color: rgba(255,255,255,0.25); animation: none; }
-.gd-play.pending .gd-play-desc { color: rgba(220,240,235,0.45); font-size: 13px; letter-spacing: 2px; }
+.gd-play.scored { border-left-color: #ffd23e; box-shadow: inset 0 0 16px rgba(255,210,62,0.14); }
+.gd-play.pending { border-left-color: rgba(255,255,255,0.22); animation: none; }
+.gd-play.pending .gd-play-desc { color: rgba(220,240,235,0.4); font-size: 13px; letter-spacing: 3px; }
 @keyframes gd-play-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
-.gd-play-desc { font-size: 15px; font-weight: bold; color: #fff; letter-spacing: 0.3px; }
+.gd-play-desc { font-size: 16px; font-weight: bold; color: #fff; letter-spacing: 0.3px; line-height: 1.15; }
 .gd-play.scored .gd-play-desc { color: #ffd23e; }
-.gd-play-bat { font-size: 10px; color: rgba(220,240,235,0.6); margin-top: 1px; }
-.gd-pitchlist { flex: 1 1 auto; overflow: hidden; display: flex; flex-direction: column; gap: 2px; }
-.gd-plrow { display: flex; align-items: center; gap: 6px; font-size: 9px; line-height: 1.3; color: rgba(220,240,235,0.75); }
-.gd-pldot {
-	flex: 0 0 auto; width: 14px; height: 14px; border-radius: 50%; display: flex;
-	align-items: center; justify-content: center; font-size: 8px; font-weight: bold; color: #041008;
-}
-.gd-pldot.ball { background: #3b82f6; color: #fff; }
-.gd-pldot.called { background: #f97316; }
-.gd-pldot.swinging { background: #ef4444; color: #fff; }
-.gd-pldot.foul { background: #eab308; }
-.gd-pldot.inplay { background: #22c55e; }
-.gd-plres { flex: 0 0 auto; width: 82px; }
-.gd-plpitch { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(220,240,235,0.55); }
-.gd-plcount { flex: 0 0 auto; font-variant-numeric: tabular-nums; color: rgba(220,240,235,0.5); }
+.gd-play-bat { font-size: 10px; color: rgba(220,240,235,0.6); margin-top: 2px; }
 
-/* Play-by-play feed */
-.gd-feed { flex: 0 0 auto; display: flex; flex-direction: column; gap: 1px; border-top: 1px solid var(--tv-border, rgba(0,220,180,0.25)); padding-top: 4px; }
-.gd-feed-row { display: flex; align-items: center; gap: 8px; font-size: 10px; color: rgba(220,240,235,0.5); }
-.gd-feed-row.latest { color: var(--tv-text); }
-.gd-feed-inn { flex: 0 0 auto; width: 26px; font-weight: bold; color: var(--tv-header-color, #37d67a); }
-.gd-feed-bat { flex: 0 0 auto; width: 90px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gd-feed-desc { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ── Announcer lower-third ───────────────────────────────────────────────────── */
+.gd-caption {
+	flex: 0 0 auto; display: flex; align-items: center; gap: 9px; min-height: 26px; padding: 4px 10px 4px 6px;
+	border-radius: 3px; background: rgba(0,0,0,0.6); border: 1px solid var(--tv-border, rgba(0,220,180,0.25));
+}
+.gd-cap-tag {
+	flex: 0 0 auto; font-size: 9px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase;
+	color: #041008; background: var(--tv-header-color, #37d67a); padding: 3px 8px; border-radius: 2px;
+}
+.gd-cap-text { flex: 1 1 auto; font-size: 12px; line-height: 1.35; color: var(--tv-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gd-cap-text.in { animation: gd-cap-in 0.3s ease-out; }
+@keyframes gd-cap-in { from { opacity: 0.25; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Idle screen (opened before an at-bat) ───────────────────────────────────── */
+.gd-idle { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+.gd-idle-logo { font-size: 30px; color: var(--tv-header-color, #37d67a); text-shadow: 0 0 14px var(--tv-header-color, #37d67a); animation: gd-idle-pulse 1.8s ease-in-out infinite; }
+.gd-idle-title { font-size: 14px; font-weight: bold; letter-spacing: 4px; color: var(--tv-text); }
+.gd-idle-sub { font-size: 11px; letter-spacing: 1.5px; color: rgba(220,240,235,0.5); }
+@keyframes gd-idle-pulse { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
 
 /* ── Standings bug (transient league table) ────────────────────────────────────
    Flashed up periodically during a sports broadcast, top-RIGHT so it blocks the

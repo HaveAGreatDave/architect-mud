@@ -1026,6 +1026,16 @@
     const DICT = {
       the:'DH AH', a:'AH', of:'AH V', to:'T UW', evening:'IY V N IH NG',
       soylent:'S OY L EH N T', coldwater:'K OW L D W AO T ER', architect:'AA R K IH T EH K T',
+      // Broadcast (.bsm) vocab the letter-rules mispronounce — world coinages/brands, recurring
+      // proper names, and spoken initialisms. Verified against the g2p fallback's wrong guesses
+      // (e.g. deadball→"deed-ball", hydrate→"hee-drate", cyberware→"see-ber", dmv→consonant mush).
+      halcyon:'HH AE L S IY AH N', deadball:'D EH D B AO L',
+      craniumtrust:'K R EY N IY AH M T R AH S T', gleamtooth:'G L IY M T UW TH',
+      cyberware:'S AY B ER W EH R', cybernetic:'S AY B ER N EH T IH K',
+      neonoodles:'N IY OW N UW D AH L Z', hydrate:'HH AY D R EY T',
+      grimaldi:'G R IH M AA L D IY', delacroix:'D EH L AH K R W AA',
+      delphine:'D EH L F IY N', ferraro:'F ER AA R OW',
+      dmv:'D IY EH M V IY', gdp:'JH IY D IY P IY', crt:'S IY AA R T IY',
     };
     function dictLook(w){ return DICT[w] ? DICT[w].split(' ') : null; }
 
@@ -1227,7 +1237,7 @@
       return {
         f0:     high ? 120+r()*55 : 82+r()*38,
         fshift: high ? 1.02+r()*0.16 : 0.9+r()*0.12,
-        speed:  1.02+r()*0.22,
+        speed:  1.12+r()*0.22,   // ~10% quicker cadence — snappier without losing legibility
         ring:   r()<0.25 ? 0.10+r()*0.22 : r()*0.06,
         wave:   pick(['sawtooth','sawtooth','square','square']),
         jitter: 0.004+r()*0.016,

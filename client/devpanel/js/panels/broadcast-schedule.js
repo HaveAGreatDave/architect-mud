@@ -142,6 +142,7 @@ async function _schedLoadItems() {
       const cond = item.conditions ? (typeof item.conditions === 'string' ? JSON.parse(item.conditions) : item.conditions) : {};
       const isBreak = item.slot_type === 'commercial_break';
       return {
+        id:                item.id,
         broadcast_id:      item.broadcast_id,
         broadcast_name:    isBreak ? 'Commercial Break' : (bc.name || item.broadcast_id),
         broadcast_category: isBreak ? 'commercial' : (bc.category || 'general'),
@@ -965,6 +966,11 @@ function _schedAutoSchedule(startSec, endSec, loops) {
 async function _schedSave() {
   if (!_schedChannelId) return;
   const payload = _schedItems.filter(item => !item.missing_cassette).map(item => ({
+    // Round-trip the slot id so existing rows keep their id across saves. Without
+    // this the server mints a fresh pl_<uuid> for every slot on each save (the PUT
+    // deletes + reinserts the whole playlist), orphaning the old ids in git — which
+    // then resurrect on the next content:import and bring "deleted" shows back.
+    id:                item.id,
     broadcast_id:      item.broadcast_id,
     start_time:        item.start_time,
     duration_override: item.duration_override,

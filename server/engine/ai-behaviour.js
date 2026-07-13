@@ -13,6 +13,14 @@ import { getNpcChitchat } from './npc-personality.js';
 import { OPPOSITE as OPPOSITE_DIR } from './directions.js';
 import { setPosture } from './posture.js';
 
+// Breaking contact to flee is a competence check, not a given. An entity's flee
+// skill (`flags.flee_skill`, else its combat `dodge`, else 1) is rolled against a
+// 2d8−2d8 swing (−14..+14, mean 0); it gets away only if skill + swing clears
+// this bar. Tuned so weak early enemies (dodge 1–2) usually botch the break and
+// stay cornered, while nimbler things (higher dodge) slip away reliably.
+const FLEE_DIFFICULTY = 6;
+const d8 = () => 1 + Math.floor(Math.random() * 8);
+
 // Vendor closing-time farewells — picked when the vendor shuts up shop while a
 // player is mid-session. Warm if they bought, needling if they didn't.
 const VENDOR_CLOSE_HAPPY = [
@@ -774,6 +782,14 @@ async function execAction(node, entity, ctx) {
       const targetZoneId = targetPlayer?.current_zone;
       const exits = neighborZoneIds(zone);
       if (!exits.length) break;
+
+      // Roll to actually break contact. Weak enemies routinely fail and stay
+      // cornered (keeping aggro so they re-try next tick); tough ones get away.
+      const fleeSkill = Number(entity.flags?.flee_skill ?? entity.dodge ?? 1);
+      if (fleeSkill + (d8() + d8()) - (d8() + d8()) < FLEE_DIFFICULTY) {
+        broadcast(zone.id, { type: 'output', message: `<span style="color:var(--yellow)">${entity.name} scrabbles for a way out but can't break away!</span>` });
+        break;
+      }
 
       // Move to any adjacent zone that doesn't contain the target
       const safeExits = exits.filter(z => z !== targetZoneId);

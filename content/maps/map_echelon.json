@@ -1,0 +1,8 @@
+{
+  "created_by": null,
+  "entry_zone_id": "zone_echelon_foyer",
+  "id": "map_echelon",
+  "name": "The Echelon — Interior",
+  "parent_zone_id": "zone_echelon_exterior",
+  "updated_at": "1783740000"
+}

@@ -1,0 +1,34 @@
+{
+  "ambient_events": [
+    "Navigation glass paints the Basin in cold vector lines across the forward window.",
+    "The helm console breathes a slow blue pulse, waiting for a hand.",
+    "Far below the bow, the water parts around nothing, patient."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#0d1420",
+  "color": "#bfe0ff",
+  "created_by": "echelon",
+  "description": "The bridge. A single curved window of smoked glass wraps the bow, the Basin beyond rendered in cold navigational overlays. The helm console sits at the center — a slab of dark glass and one worn brass throttle, the only analogue thing aboard. From here the Echelon is steered, one deliberate move at a time. The foyer lies to the SOUTH.",
+  "exits": {
+    "south": "zone_echelon_foyer"
+  },
+  "flags": {
+    "yacht": true,
+    "echelon": true,
+    "echelon_bridge": true,
+    "is_interior": true,
+    "is_building": true,
+    "building_name": "The Echelon",
+    "world_exit_zone": "zone_echelon_exterior"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 1,
+  "id": "zone_echelon_bridge",
+  "map_id": "map_echelon",
+  "marker": null,
+  "name": "Echelon — Bridge",
+  "parent_zone": "zone_echelon_exterior",
+  "updated_at": "1783740000"
+}

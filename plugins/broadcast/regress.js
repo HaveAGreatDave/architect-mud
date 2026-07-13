@@ -5,7 +5,7 @@
 import { getRegisteredAINodes, tickEntityAI, initBlackboard } from '../../server/engine/ai-behaviour.js';
 import { world } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
-import { ensureClipBroadcast, _test, _piracyTest } from './index.js';
+import { ensureClipBroadcast, _test, _piracyTest, startEmergency, stopEmergency, emergencyActive } from './index.js';
 import { getCrimeStars, getCrimeWitness } from '../../server/engine/crimes.js';
 
 export default async function regress({ check, run }) {
@@ -387,4 +387,20 @@ export default async function regress({ check, run }) {
   const { engineerDueAt } = _piracyTest;
   check('engineer is due one defend window after seizure', engineerDueAt({ pirate_since: 1000 }) === 1000 + 120000, String(engineerDueAt({ pirate_since: 1000 })));
   check('a stamped retry time overrides the default window', engineerDueAt({ pirate_since: 1000, pirate_engineer_at: 5000 }) === 5000, String(engineerDueAt({ pirate_since: 1000, pirate_engineer_at: 5000 })));
+
+  // ── Emergency broadcast override (the Echelon's special MediaDeck) ────────────
+  // Verbs are admin-gated; the fake player is a plain 'player'.
+  let r = await run('airemergency');
+  check('airemergency refused for non-admin', r?.type === 'error' && /administrators/i.test(r.message || ''), r?.message);
+  r = await run('endemergency');
+  check('endemergency refused for non-admin', r?.type === 'error' && /administrators/i.test(r.message || ''), r?.message);
+
+  // Exported takeover API: real broadcast engages, unknown id refused, clear releases.
+  check('emergency inactive at rest', emergencyActive() === false);
+  const start = await startEmergency('bc_echelon_emergency');
+  check('startEmergency engages a real bulletin', start?.ok === true && emergencyActive() === true, JSON.stringify(start));
+  const bad = await startEmergency('bc_does_not_exist');
+  check('startEmergency refuses an unknown bulletin', bad?.ok === false);
+  const stop = stopEmergency();
+  check('stopEmergency releases the airwaves', stop?.wasActive === true && emergencyActive() === false, JSON.stringify(stop));
 }

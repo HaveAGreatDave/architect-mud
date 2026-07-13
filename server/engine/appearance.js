@@ -169,6 +169,151 @@ export function ejaculateDescription(player, isSelf, coveredSlots) {
   return `${subject} dried fluid visible on ${visibleLocs.join(', ')}.`;
 }
 
+// ── Detailed body-part examination (MIS drill-down) ──────────────────────────
+// `examine <who>'s <part>` routes here through the MIS plugin's input matcher.
+// Returns tone-appropriate prose for a single part. Works on players (sized from
+// appearance_data) and NPCs (no stored sizes — generic, sex-driven copy). The
+// caller has already confirmed MIS is active.
+function rp(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+const PENIS_DETAIL = {
+  small: [
+    `{sub} cock is on the small side — {state}, and making no apologies for it.`,
+    `{sub} dick is modest. Compact. It does what it needs to and clocks out.`,
+    `{sub} cock is small and {state}. Nature was working within a budget.`,
+  ],
+  'average-sized': [
+    `{sub} cock is average and {state} — reassuringly unremarkable.`,
+    `{sub} dick is a textbook build, {state}, no notes.`,
+    `{sub} cock hangs {state} at a perfectly respectable size.`,
+  ],
+  large: [
+    `{sub} cock is large and {state}. It commands the room a little.`,
+    `{sub} dick is big, {state}, and clearly used to being the main event.`,
+    `{sub} cock is generously sized and {state}. Gravity has an opinion.`,
+  ],
+  'very large': [
+    `{sub} cock is enormous and {state} — frankly it's showing off.`,
+    `{sub} dick is massive, {state}, a genuine logistical concern.`,
+    `{sub} cock is huge and {state}. You could set a watch by it.`,
+  ],
+};
+const BALLS_DETAIL = {
+  small:      [`{sub} balls are small and tucked up tight.`, `{sub} testicles are compact, keeping a low profile.`, `{sub} balls sit high and neat.`],
+  average:    [`{sub} balls hang at an ordinary, unbothered weight.`, `{sub} testicles are average — nothing to write home about.`, `{sub} balls are perfectly standard-issue.`],
+  large:      [`{sub} balls are heavy and low-slung.`, `{sub} testicles are large, hanging with real conviction.`, `{sub} balls are substantial — they've got presence.`],
+  'very large': [`{sub} balls are enormous, swinging like they pay rent.`, `{sub} testicles are massive and heavy.`, `{sub} balls are huge — an anatomical statement.`],
+};
+const PUSSY_DETAIL = {
+  average:   [`{sub} pussy is neat and unremarkable, {wet}.`, `{sub} cunt sits average and tidy, {wet}.`, `{sub} pussy is a textbook build, {wet}.`],
+  prominent: [`{sub} pussy is full and prominent, lips soft and parted, {wet}.`, `{sub} cunt has generous, pronounced lips, {wet}.`, `{sub} pussy is lush and full, {wet}.`],
+  tucked:    [`{sub} pussy is neat and tucked, lips closed and tidy, {wet}.`, `{sub} cunt is compact and tucked away, {wet}.`, `{sub} pussy is small and neatly closed, {wet}.`],
+};
+const PUSSY_WET = {
+  wet: [`slick and obviously worked up`, `wet enough to leave no doubt`, `glistening, well past pretending`],
+  dry: [`dry and composed for now`, `unbothered and dry`, `keeping its opinions to itself`],
+};
+const BREAST_DETAIL = {
+  flat:         [`{sub} chest is nearly flat — efficient, no complaints from physics.`, `{sub} breasts are barely there, present mostly in theory.`, `{sub} chest is smooth and flat, aerodynamic.`],
+  small:        [`{sub} breasts are small and high, perky to the point of smug.`, `{sub} tits are modest and pert, making no apologies.`, `{sub} breasts sit small and neat.`],
+  medium:       [`{sub} breasts are a solid handful each — the satisfying kind.`, `{sub} tits are average in the best sense, full and round.`, `{sub} breasts are a comfortable medium, unbothered by gravity.`],
+  large:        [`{sub} breasts are large and full. Gravity is aware of them.`, `{sub} tits are heavy and generous, impossible to ignore.`, `{sub} breasts are big and soft, with real weight to them.`],
+  'very large': [`{sub} breasts are enormous — their own gravitational field.`, `{sub} tits are massive, structurally impressive.`, `{sub} breasts are huge, and doing frankly too much.`],
+};
+const NIPPLE_DETAIL_HARD = [
+  `{poss} nipples are rock hard, standing at full attention.`,
+  `{poss} nipples are stiff and pointed, not remotely subtle.`,
+  `{poss} nipples are hard enough to cut glass. They have opinions.`,
+];
+const NIPPLE_DETAIL_SOFT = [
+  `{poss} nipples are soft and relaxed, diplomatically neutral.`,
+  `{poss} nipples are at ease — no agenda, no complaints.`,
+  `{poss} nipples are soft, resting quietly.`,
+];
+const ASS_DETAIL = {
+  flat:     [`{sub} ass is completely flat — more suggestion than ass.`, `{sub} rear is aerodynamically optimized. No drag, no drama.`, `{sub} backside barely registers.`],
+  small:    [`{sub} ass is small and tight — compact, quietly excellent.`, `{sub} backside is modest but well-formed.`, `{sub} ass is trim and firm.`],
+  average:  [`{sub} ass is average — a solid, dependable rear.`, `{sub} ass occupies exactly the expected amount of space. Respectable.`, `{sub} backside is unremarkable and content about it.`],
+  round:    [`{sub} ass is round and full, the kind you notice leaving.`, `{sub} rear is geometrically satisfying.`, `{sub} ass is plump and well-shaped.`],
+  large:    [`{sub} ass is large and pronounced, a presence unto itself.`, `{sub} backside is generous — substantial enough to have an agenda.`, `{sub} ass is big and heavy, impossible to overlook.`],
+  enormous: [`{sub} ass is enormous. It is, arguably, doing too much.`, `{sub} rear is massive — a geographical feature more than a body part.`, `{sub} ass is colossal, and unbothered by your staring.`],
+};
+const ASSHOLE_DETAIL = [
+  `{sub} asshole is tight and puckered, keeping to itself.`,
+  `{sub} asshole is neat, clenched, and minding its own business.`,
+  `{sub} asshole is a tight little knot, unbothered by the scrutiny.`,
+  `{sub} asshole twitches slightly under the attention. Rude of you, honestly.`,
+];
+const GENERIC_NPC_PART = {
+  penis:   [`It's a cock. Attached to {name}. You've seen one before.`, `{name} is packing the standard equipment.`],
+  balls:   [`{name} has balls. They hang there, doing balls things.`],
+  pussy:   [`{name} has a pussy. It exists. It is right there.`],
+  breasts: [`{name} has a chest. It's doing fine.`],
+  nipples: [`{name} has nipples. Two of them, by the look of it.`],
+  ass:     [`{name} has an ass. It's an ass.`],
+  asshole: [`{name}'s asshole is where you'd expect it to be. Congratulations on finding it.`],
+};
+
+// partKey ∈ genitals|penis|balls|pussy|breasts|nipples|ass|asshole
+export function describeBodyPart(subject, partKey, isSelf) {
+  const sex = subject.biological_sex || subject.sex;
+  const name = subject.handle || subject.name || 'they';
+  const sub = isSelf ? 'Your' : `${name}'s`;
+  const poss = isSelf ? 'Your' : `${name}'s`;
+  const data = subject.appearance_data || null; // NPCs have none → generic copy
+  const horny = subject.horniness || 0;
+
+  // Resolve "genitals"/"crotch" to the sex-appropriate part
+  if (partKey === 'genitals') partKey = sex === 'male' ? 'penis' : 'pussy';
+
+  const fill = s => s.replace(/\{sub\}/g, sub).replace(/\{poss\}/g, poss).replace(/\{name\}/g, name);
+
+  switch (partKey) {
+    case 'penis': {
+      if (sex !== 'male') return isSelf ? `You don't have one of those.` : `${name} isn't equipped that way.`;
+      if (!data) { const line = fill(rp(GENERIC_NPC_PART.penis)); return line; }
+      const len = data.penis_length_cm || 13;
+      const sizeWord = len <= 11 ? 'small' : len <= 14 ? 'average-sized' : len <= 17 ? 'large' : 'very large';
+      const state = subject.erect ? 'stiff and standing' : 'soft and hanging';
+      const penisLine = fill(rp(PENIS_DETAIL[sizeWord]).replace(/\{state\}/g, state));
+      const ballsLine = fill(rp(BALLS_DETAIL[data.testicle_size || 'average']));
+      return `${penisLine} ${ballsLine}`;
+    }
+    case 'balls': {
+      if (sex !== 'male') return isSelf ? `You don't have any.` : `${name} isn't equipped that way.`;
+      if (!data) return fill(rp(GENERIC_NPC_PART.balls));
+      return fill(rp(BALLS_DETAIL[data.testicle_size || 'average']));
+    }
+    case 'pussy': {
+      if (sex !== 'female') return isSelf ? `You don't have one of those.` : `${name} isn't equipped that way.`;
+      if (!data) return fill(rp(GENERIC_NPC_PART.pussy));
+      const wet = rp(horny > 30 ? PUSSY_WET.wet : PUSSY_WET.dry);
+      return fill(rp(PUSSY_DETAIL[data.labia_style || 'average']).replace(/\{wet\}/g, wet));
+    }
+    case 'breasts': {
+      if (sex !== 'female') return isSelf ? `Nothing much to report up top.` : `${name}'s chest is flat and unremarkable.`;
+      if (!data) return fill(rp(GENERIC_NPC_PART.breasts));
+      const bLine = fill(rp(BREAST_DETAIL[data.breast_size || 'medium']));
+      const nLine = fill(rp(horny > 30 ? NIPPLE_DETAIL_HARD : NIPPLE_DETAIL_SOFT));
+      return `${bLine} ${nLine}`;
+    }
+    case 'nipples': {
+      if (!data && sex !== 'female') return fill(rp(GENERIC_NPC_PART.nipples));
+      return fill(rp(horny > 30 ? NIPPLE_DETAIL_HARD : NIPPLE_DETAIL_SOFT));
+    }
+    case 'ass': {
+      if (!data) return fill(rp(GENERIC_NPC_PART.ass));
+      return fill(rp(ASS_DETAIL[data.ass_size || 'average']));
+    }
+    case 'asshole': {
+      if (!data) return fill(rp(GENERIC_NPC_PART.asshole));
+      return fill(rp(ASSHOLE_DETAIL));
+    }
+    default:
+      return null;
+  }
+}
+
 // Describe bare-skin urine/feces residue (bodily plugin's stainCreatureBodyPart
 // falls back to this when the targeted body part has no garment to soak).
 // Not MIS-gated — bodily functions aren't a sexual mechanic.

@@ -59,9 +59,10 @@ function pushQLog(text) {
   if (log[0] && log[0].text === text) return;
   log.unshift({ t: Date.now(), text });
   try { localStorage.setItem(QLOG_KEY, JSON.stringify(log.slice(0, QLOG_CAP))); } catch {}
-  // If the player is looking at the Quests root right now, refresh it in place so
-  // the new line appears without reopening the app.
-  if (_overlay && _data && _data.appId === 'quests' && _data.view === 'categories') {
+  // If the player is looking at a Quests screen that carries the activity log
+  // (the root list or an individual quest's detail), refresh it in place so the
+  // new line appears without reopening the app.
+  if (_overlay && _data && _data.appId === 'quests' && (_data.view === 'categories' || _data.view === 'detail')) {
     _keepQuestScroll = true;
     render();
   }
@@ -1825,6 +1826,7 @@ const TOS_AUDIO_TOGGLES = [
   { key: 'music', label: 'Music', on: '🎵', off: '🔇' },
   { key: 'sfx', label: 'SFX', on: '💥', off: '🔕' },
   { key: 'tv', label: 'TV Audio', on: '📺', off: '📵' },
+  { key: 'welcome', label: 'Welcome Voice', on: '👋', off: '🔕' },
   { key: 'muteWhenHidden', label: 'Mute When Hidden', on: '🙈', off: '▶️' },
 ];
 const TOS_VOL_SLIDERS = [
@@ -1946,8 +1948,8 @@ function renderTabletSettings() {
     <div class="tos-opt${soundOn ? ' selected' : ''}" data-set-sound="on" title="Sound On">🔊 On</div>
     <div class="tos-opt${!soundOn ? ' selected' : ''}" data-set-sound="off" title="Sound Off">🔇 Off</div>
   </div></div>`;
-  // Two compact rows of paired audio toggles above the sliders — icons only (meaning
-  // carried by the tooltip): row 1 = Music / SFX, row 2 = TV / Mute-When-Hidden.
+  // Compact rows of paired audio toggles above the sliders — icons only (meaning
+  // carried by the tooltip): Music / SFX, TV / Welcome Voice, Mute-When-Hidden.
   const audioToggleCell = a => {
     const on = !!audio[a.key];
     return `<div class="tos-opts" title="${esc(a.label)}">
@@ -1955,7 +1957,7 @@ function renderTabletSettings() {
       <div class="tos-opt${!on ? ' selected' : ''}" data-set-audio="${esc(a.key)}" data-set-audio-val="false" title="${esc(a.label)} Off">${esc(a.off)}</div>
     </div>`;
   };
-  const audioToggleRows = [[0, 1], [2, 3]]
+  const audioToggleRows = [[0, 1], [2, 3], [4]]
     .map(pair => `<div class="tos-set-row tos-iconrow">${pair.map(i => audioToggleCell(TOS_AUDIO_TOGGLES[i])).join('')}</div>`)
     .join('');
   const volRows = TOS_VOL_SLIDERS.map(v =>
@@ -3659,6 +3661,9 @@ function renderBody() {
   if (d.view === 'detail') {
     const det = d.detail || d.quest || {};
     const params = det.id || '';
+    // The Quests detail carries the same client-only activity log as the root, so
+    // you can track your current activity from an individual quest screen too.
+    const qlog = d.appId === 'quests' ? renderQuestActivityLog() : '';
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}
       ${d.notice ? `<div class="tos-error" style="text-align:left;padding:0 0 10px">${esc(d.notice)}</div>` : ''}
       <div class="tos-detail-name">${esc(det.name || '')}</div>
@@ -3666,6 +3671,7 @@ function renderBody() {
       ${renderObjectives(d.quest?.objectives)}
       ${renderDetailRows(det.rows)}
       ${renderActions(d.appId, d.actions, params)}
+      ${qlog}
     </div>`;
   }
   return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, [d.appName])}<div class="tos-empty">Unknown screen.</div></div>`;
@@ -4523,6 +4529,17 @@ export function openTabletToLoadout() {
   _gearTab = 'loadout';
   _skipBoot = true;
   sendCmdSilent('tabletnav gear');
+}
+
+// Open the tablet Quests app straight to a specific quest's detail screen — used
+// when a locked ("finish the job first") turn-in option in an NPC dialogue is
+// tapped, so the player lands on the objectives instead of a dead button. The
+// quest detail is keyed purely by the id param (quests-app buildScreen), so any
+// non-board screen token works ('active' keeps the normal category breadcrumb).
+export function openTabletToQuest(questId) {
+  if (!questId) return;
+  _skipBoot = true;
+  sendCmdSilent(`tabletnav quests active ${questId}`);
 }
 
 // If the tablet is open on the Gear app, silently re-fetch it so an equip/unequip

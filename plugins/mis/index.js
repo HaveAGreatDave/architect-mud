@@ -18,6 +18,8 @@ import {
   MASTURBATE_EVENT_SELF_MALE, MASTURBATE_EVENT_SELF_FEMALE,
   NPC_WITNESS_AROUSED, NPC_WITNESS_DISGUST,
   FUCK_EVENT_MSGS, FUCK_EVENT_PLAYER_MSGS, FUCK_EVENT_TARGET_MSGS, EJACULATE_ZONE_MSGS,
+  SERVICE_EVENTS, SERVICE_CLIMAX_ZONE, SERVICE_CLIMAX_ACTOR, triggerServiceClimax,
+  NPC_AROUSAL_MSGS, NPC_CLIMAX_MSGS,
 } from './mis-system.js';
 import { world, getZone, getZonePlayers, getZoneNpcs, getLivePlayer, getAllLivePlayers } from '../../server/engine/world.js';
 import { stainZone, stainClothing } from '../../server/engine/bodily.js';
@@ -27,7 +29,7 @@ import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { on, emit } from '../../server/engine/events.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { describeGenitals, ejaculateDescription } from '../../server/engine/appearance.js';
+import { describeGenitals, ejaculateDescription, describeBodyPart } from '../../server/engine/appearance.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 
 function misGate(player, raw) {
@@ -89,6 +91,54 @@ function fleeNpcToHome(npc, broadcast) {
   broadcast(dest, { type: 'zone_event', message: `${npc.name} hurries in, flustered.`, refresh: true });
 }
 
+// Sex of an NPC — players carry biological_sex; NPCs carry sex.
+function npcSex(npc) { return npc.biological_sex || npc.sex; }
+
+// Broadcast an NPC's MIS dialogue line (shout if it's written in ALL CAPS).
+function broadcastNpcMisLine(npc, willing, zoneId, broadcast) {
+  const line = getNpcMisLine(npc, willing);
+  if (!line) return;
+  const letters = line.replace(/[^A-Za-z]/g, '');
+  const shout = letters.length > 3 && letters === letters.toUpperCase();
+  broadcastMis(zoneId, { type: 'zone_event', message: `${npc.name} ${shout ? 'shouts' : 'says'}, "${line}"` }, broadcast);
+}
+
+// Zone-gated NPCs (e.g. a VIP-only dancer) refuse MIS outside their room.
+// Returns a refusal result to hand straight back, or null if it's allowed here.
+function npcZoneRefusal(player, npc, broadcast) {
+  const zoneGate = npc.flags?.mis_requires_zone_flag;
+  if (zoneGate && !getZone(player.current_zone)?.flags?.[zoneGate]) {
+    broadcastNpcMisLine(npc, false, player.current_zone, broadcast);
+    return { type: 'output', message: `Not here. ${npc.name} won't — take it somewhere private.` };
+  }
+  return null;
+}
+
+// Transient, in-memory NPC arousal — never persisted; it lives on the live NPC
+// object for the duration of the scene (kept client-side in spirit). A willing
+// NPC builds arousal from MIS acts exactly like a player: moans broadcast as it
+// climbs, and at 100 they climax (a reaction is broadcast; males stain the zone)
+// and reset. Returns true on the tick the NPC finishes.
+async function addNpcArousal(npc, amount, broadcast, zoneId) {
+  if (!isNpcMisWilling(npc)) return false;
+  npc._misHorny = Math.min(100, (npc._misHorny || 0) + amount);
+  npc._misHornyAt = Date.now();
+
+  if (npc._misHorny >= 100) {
+    const pool = npcSex(npc) === 'male' ? NPC_CLIMAX_MSGS.male : NPC_CLIMAX_MSGS.female;
+    broadcastMis(zoneId, { type: 'zone_event', message: pool[Math.floor(Math.random() * pool.length)].replace('{npc}', npc.name) }, broadcast);
+    if (npcSex(npc) === 'male') await stainZone(zoneId, 'ejaculate');
+    npc._misHorny = 0;
+    return true;
+  }
+  // Moan as arousal climbs — throttled so it doesn't fire on literally every tick.
+  if (Math.random() < 0.6) {
+    const pool = npc._misHorny >= 75 ? NPC_AROUSAL_MSGS.edge : NPC_AROUSAL_MSGS.building;
+    broadcastMis(zoneId, { type: 'zone_event', message: pool[Math.floor(Math.random() * pool.length)].replace('{npc}', npc.name) }, broadcast);
+  }
+  return false;
+}
+
 // Shared NPC MIS reaction handler. verb is the action name for actor message copy.
 // opts.isStrip = true broadcasts a clothing strip message (for penetrative commands).
 async function handleNpcMis(player, npc, verb, broadcast, opts = {}) {
@@ -101,20 +151,10 @@ async function handleNpcMis(player, npc, verb, broadcast, opts = {}) {
   // MIS in a room carrying that flag (e.g. a club dancer who'll only play in the
   // VIP room). Anywhere else they just wave you off — no fleeing, no fight, so
   // the main-room rule is "tip and watch". VIP rooms set the flag on the zone.
-  const zoneGate = npc.flags?.mis_requires_zone_flag;
-  if (zoneGate && !getZone(player.current_zone)?.flags?.[zoneGate]) {
-    const refusal = getNpcMisLine(npc, false);
-    if (refusal) {
-      broadcastMis(player.current_zone, {
-        type: 'zone_event',
-        message: `${npc.name} says, "${refusal}"`,
-      }, broadcast);
-    }
-    return { type: 'output', message: `Not here. ${npc.name} won't — take it somewhere private.` };
-  }
+  const refusal = npcZoneRefusal(player, npc, broadcast);
+  if (refusal) return refusal;
 
   const willing = isNpcMisWilling(npc);
-  const line = getNpcMisLine(npc, willing);
 
   if (opts.isStrip) {
     broadcastMis(player.current_zone, {
@@ -123,19 +163,14 @@ async function handleNpcMis(player, npc, verb, broadcast, opts = {}) {
     }, broadcast);
   }
 
-  if (line) {
-    const upper = line.replace(/[^A-Za-z]/g, '');
-    const shout = upper.length > 3 && upper === upper.toUpperCase();
-    const verb2 = shout ? 'shouts' : 'says';
-    broadcastMis(player.current_zone, {
-      type: 'zone_event',
-      message: `${npc.name} ${verb2}, "${line}"`,
-    }, broadcast);
-  }
+  broadcastNpcMisLine(npc, willing, player.current_zone, broadcast);
 
   if (willing) {
     const msgs = await addHorniness(player, 15, broadcast);
     if (msgs.length) broadcast(null, { type: 'resource_tick', messages: msgs, player_update: { horniness: player.horniness } }, null, player.id);
+    // The NPC gets aroused too (transient) — a one-shot act nudges them toward
+    // their own climax, which lands on a later act once they cross the edge.
+    await addNpcArousal(npc, 15, broadcast, player.current_zone);
     const actorLines = {
       touch:         `You touch ${npc.name}. They don't stop you.`,
       squeeze:       `You squeeze ${npc.name}. They let you.`,
@@ -145,6 +180,8 @@ async function handleNpcMis(player, npc, verb, broadcast, opts = {}) {
       slap:          `You slap ${npc.name}. They absorb it without complaint.`,
       suck:          `You take ${npc.name} into your mouth. They enjoy it.`,
       fuck:          `You take ${npc.name}. They go with it.`,
+      finger:        `You work your fingers into ${npc.name}. They let you.`,
+      handjob:       `You take ${npc.name} in hand and stroke. They don't stop you.`,
       'jerk off on': `You jerk off in front of ${npc.name}. They watch.`,
       'eat out':     `You go down on ${npc.name}. They don't object.`,
     };
@@ -288,6 +325,229 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessage
   if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs }, null, player.id);
   broadcastMis(player.current_zone, { type:'zone_event', message: `${player.handle} and ${name} are getting intimate.` }, broadcast, player.id, res.target.id);
   return { type:'output', message: pickMsg(targetMessages || selfMessages, { part, actor: player.handle, name }) };
+}
+
+// Ongoing "service" act (finger / handjob / suck / eat out): the ACTOR pleasures
+// the TARGET, so the TARGET's horniness drives the climax — the opposite of
+// fuck/masturbate, where the actor finishes. Runs on an 8s tick, broadcasting a
+// fresh room line each beat, until the receiver comes or the actor STOPs.
+// opts: { key: SERVICE_EVENTS key, action, actorGain, targetGain, actorClimaxPool? }
+async function startServiceEvent(player, target, broadcast, opts) {
+  const pools = SERVICE_EVENTS[opts.key] || SERVICE_EVENTS.handjob;
+  const playerId = player.id;
+  const targetId = target.id;
+  const name = target.handle;
+
+  startMisEvent(playerId, async () => {
+    const live = getLivePlayer(playerId);
+    if (!live || !isMisActive(live)) { stopMisEvent(playerId); return; }
+    const liveTarget = getLivePlayer(targetId);
+    if (!liveTarget || !isMisActive(liveTarget)) {
+      stopMisEvent(playerId);
+      broadcast(null, { type: 'output', message: `${name} isn't available anymore.` }, null, playerId);
+      return;
+    }
+
+    // Receiver would cross the edge this beat → climax and end. Handled by
+    // projection (not addHorniness's own >=100 path) so the receiver — who has no
+    // MIS event of their own — doesn't auto-climax generically and skip the
+    // service-specific room broadcast below.
+    const projected = (liveTarget.horniness || 0) + opts.targetGain;
+    if (projected >= 100) {
+      stopMisEvent(playerId);
+      const climaxSelf = await triggerServiceClimax(liveTarget);
+      const isMaleR = liveTarget.biological_sex === 'male';
+      if (isMaleR) await stainZone(liveTarget.current_zone, 'ejaculate');
+
+      const zonePool = isMaleR ? SERVICE_CLIMAX_ZONE.male : SERVICE_CLIMAX_ZONE.female;
+      const zoneText = zonePool[Math.floor(Math.random() * zonePool.length)]
+        .replace(/\{name\}/g, live.handle).replace(/\{target\}/g, name);
+      broadcastMis(live.current_zone, { type: 'zone_event', message: zoneText }, broadcast, live.id, targetId);
+      npcWitnessMis(live.current_zone, broadcast, 0.7);
+
+      const actorPool = opts.actorClimaxPool || SERVICE_CLIMAX_ACTOR.generic;
+      broadcast(null, {
+        type: 'output',
+        message: actorPool[Math.floor(Math.random() * actorPool.length)].replace(/\{target\}/g, name),
+      }, null, playerId);
+      broadcast(null, {
+        type: 'resource_tick',
+        messages: climaxSelf,
+        player_update: { horniness: liveTarget.horniness, erect: liveTarget.erect, sanity: liveTarget.sanity },
+      }, null, targetId);
+      return;
+    }
+
+    // Tick lines: room (third-person), actor-private, target-private.
+    const z = pools.zone[Math.floor(Math.random() * pools.zone.length)]
+      .replace(/\{name\}/g, live.handle).replace(/\{target\}/g, name);
+    broadcastMis(live.current_zone, { type: 'zone_event', message: z }, broadcast, live.id, targetId);
+    npcWitnessMis(live.current_zone, broadcast, 0.2);
+
+    broadcast(null, {
+      type: 'output',
+      message: pools.actor[Math.floor(Math.random() * pools.actor.length)].replace(/\{target\}/g, name),
+    }, null, playerId);
+
+    // Direct physical stimulation builds the receiver's arousal regardless of
+    // attraction; the actor gets a smaller share.
+    const targetMsgs = await addHorniness(liveTarget, opts.targetGain, broadcast);
+    broadcast(null, {
+      type: 'resource_tick',
+      messages: [pools.target[Math.floor(Math.random() * pools.target.length)].replace(/\{name\}/g, live.handle), ...targetMsgs],
+      player_update: { horniness: liveTarget.horniness, erect: liveTarget.erect },
+    }, null, targetId);
+
+    const actorMsgs = await addHorniness(live, opts.actorGain, broadcast);
+    if (actorMsgs.length) broadcast(null, { type: 'resource_tick', messages: actorMsgs, player_update: { horniness: live.horniness, erect: live.erect } }, null, playerId);
+  }, 8000, { action: opts.action, target: name });
+}
+
+// Shared prologue for the service acts (finger/handjob/suck/eat out): gate,
+// stop-if-running, resolve NPC (one-shot handleNpcMis) or player target. Returns
+// { done } for an early return, or { target, name } to start an event.
+async function serviceSetup(player, raw, broadcast, { verb, str, npcVerb }) {
+  const gate = misGate(player, raw);
+  if (gate) return { done: gate };
+  if (hasMisEvent(player.id)) {
+    stopMisEvent(player.id);
+    return { done: { type: 'output', message: `You stop.` } };
+  }
+  const npc = resolveNpcForMis(str, player.current_zone);
+  if (npc) {
+    // Unwilling NPCs bail out the old way (flee/attack). Willing ones become the
+    // ongoing event's receiver, gaining arousal and climaxing like a player.
+    if (!isNpcMisWilling(npc)) return { done: await handleNpcMis(player, npc, npcVerb, broadcast) };
+    const refusal = npcZoneRefusal(player, npc, broadcast);
+    if (refusal) return { done: refusal };
+    return { npc };
+  }
+  const { res, error, ambiguous } = resolveTargetMis(str, player, verb);
+  if (ambiguous) return { done: ambiguous };
+  if (error) return { done: { type: 'error', message: error } };
+  return { target: res.target, name: res.target.handle };
+}
+
+// Service-act tick loop with a willing NPC as the receiver. Same cadence as the
+// player version, but the NPC's feedback is a transient arousal meter that
+// broadcasts moans/climax to the room (addNpcArousal) rather than private
+// messages. The NPC's climax ends the scene.
+async function startServiceEventNpc(player, npc, broadcast, opts) {
+  const pools = SERVICE_EVENTS[opts.key] || SERVICE_EVENTS.handjob;
+  const playerId = player.id;
+  const npcId = npc.id;
+  const name = npc.name;
+
+  startMisEvent(playerId, async () => {
+    const live = getLivePlayer(playerId);
+    if (!live || !isMisActive(live)) { stopMisEvent(playerId); return; }
+    const liveNpc = world.npcs.get(npcId);
+    if (!liveNpc || liveNpc._dead || liveNpc.zone_id !== live.current_zone || !isNpcMisWilling(liveNpc)) {
+      stopMisEvent(playerId);
+      broadcast(null, { type: 'output', message: `${name} isn't available anymore.` }, null, playerId);
+      return;
+    }
+
+    const z = pools.zone[Math.floor(Math.random() * pools.zone.length)]
+      .replace(/\{name\}/g, live.handle).replace(/\{target\}/g, name);
+    broadcastMis(live.current_zone, { type: 'zone_event', message: z }, broadcast, live.id);
+    npcWitnessMis(live.current_zone, broadcast, 0.2);
+    broadcast(null, {
+      type: 'output',
+      message: pools.actor[Math.floor(Math.random() * pools.actor.length)].replace(/\{target\}/g, name),
+    }, null, playerId);
+
+    const climaxed = await addNpcArousal(liveNpc, opts.targetGain, broadcast, live.current_zone);
+
+    const actorMsgs = await addHorniness(live, opts.actorGain, broadcast);
+    if (actorMsgs.length) broadcast(null, { type: 'resource_tick', messages: actorMsgs, player_update: { horniness: live.horniness, erect: live.erect } }, null, playerId);
+
+    if (climaxed) {
+      stopMisEvent(playerId);
+      const actorPool = opts.actorClimaxPool || SERVICE_CLIMAX_ACTOR.generic;
+      broadcast(null, {
+        type: 'output',
+        message: actorPool[Math.floor(Math.random() * actorPool.length)].replace(/\{target\}/g, name),
+      }, null, playerId);
+      npcWitnessMis(live.current_zone, broadcast, 0.7);
+    }
+  }, 8000, { action: opts.action, target: name });
+}
+
+// Kick off a service act on a player target: resolve, arousal bump, room-visible
+// opener, then hand to the ongoing tick loop. configure(target) runs after the
+// target is known (so hole/anatomy can be decided from their sex) and returns
+// { key, startZone, startActor, actorClimaxPool? } or { error }.
+async function beginService(player, raw, broadcast, { str, verb, npcVerb, actorGain, targetGain, action, configure }) {
+  const setup = await serviceSetup(player, raw, broadcast, { verb, str, npcVerb });
+  if (setup.done) return setup.done;
+
+  // Willing NPC receiver — configure reads sex/name from a normalized view, the
+  // event ticks the NPC's transient arousal.
+  if (setup.npc) {
+    const npc = setup.npc;
+    const cfg = configure({ biological_sex: npcSex(npc), handle: npc.name });
+    if (cfg.error) return { type: 'error', message: cfg.error };
+    const msgs = await addHorniness(player, actorGain, broadcast);
+    if (msgs.length) broadcast(null, { type: 'resource_tick', messages: msgs, player_update: { horniness: player.horniness, erect: player.erect } }, null, player.id);
+    broadcastMis(player.current_zone, {
+      type: 'zone_event',
+      message: cfg.startZone.replace(/\{name\}/g, player.handle).replace(/\{target\}/g, npc.name),
+    }, broadcast, player.id);
+    npcWitnessMis(player.current_zone, broadcast, 0.4);
+    startServiceEventNpc(player, npc, broadcast, { key: cfg.key, action, actorGain, targetGain, actorClimaxPool: cfg.actorClimaxPool });
+    return { type: 'output', message: cfg.startActor.replace(/\{target\}/g, npc.name) };
+  }
+
+  const { target, name } = setup;
+
+  const cfg = configure(target);
+  if (cfg.error) return { type: 'error', message: cfg.error };
+
+  const msgs = await addHorniness(player, actorGain, broadcast);
+  if (msgs.length) broadcast(null, { type: 'resource_tick', messages: msgs, player_update: { horniness: player.horniness, erect: player.erect } }, null, player.id);
+
+  broadcastMis(player.current_zone, {
+    type: 'zone_event',
+    message: cfg.startZone.replace(/\{name\}/g, player.handle).replace(/\{target\}/g, name),
+  }, broadcast, player.id, target.id);
+  npcWitnessMis(player.current_zone, broadcast, 0.4);
+
+  startServiceEvent(player, target, broadcast, { key: cfg.key, action, actorGain, targetGain, actorClimaxPool: cfg.actorClimaxPool });
+  return { type: 'output', message: cfg.startActor.replace(/\{target\}/g, name) };
+}
+
+// finger <target> — defaults to pussy on a female target, asshole on a male one;
+// `finger <target>'s pussy/asshole` forces the hole. Ongoing service event.
+async function cmdFinger(args, raw, player, broadcast) {
+  const gate = misGate(player, raw);
+  if (gate) return gate;
+  if (hasMisEvent(player.id)) { stopMisEvent(player.id); return { type: 'output', message: `You stop.` }; }
+
+  const str = raw.replace(/^finger\s*/i, '').trim();
+  // "finger" / "finger self" with no partner → fall back to solo (like fingerself).
+  if (!str || /^(me|self|myself)$/i.test(str)) return cmdMasturbate(args, raw, player, broadcast);
+
+  let targetStr = str, holeStr = '';
+  const apos = str.match(/^(.+?)'s\s+(.+)$/i);
+  if (apos) { targetStr = apos[1].trim(); holeStr = apos[2].trim().toLowerCase(); }
+  else {
+    const m = str.match(/\b(pussy|cunt|vagina|ass|asshole|anus|butt)\b/i);
+    if (m) { holeStr = m[0].toLowerCase(); targetStr = str.slice(0, m.index).trim(); }
+  }
+
+  return beginService(player, raw, broadcast, {
+    str: targetStr, verb: 'finger', npcVerb: 'finger', actorGain: 6, targetGain: 20, action: 'fingering',
+    configure: (t) => {
+      let hole = /pussy|cunt|vagina/.test(holeStr) ? 'pussy'
+               : /ass|anus|asshole|butt/.test(holeStr) ? 'ass'
+               : (t.biological_sex === 'female' ? 'pussy' : 'ass');
+      if (hole === 'pussy' && t.biological_sex !== 'female') hole = 'ass';
+      return hole === 'pussy'
+        ? { key: 'finger_pussy', startZone: `{name} slides a hand between {target}'s legs and starts fingering them.`, startActor: `You slide your fingers into {target} and start working them.` }
+        : { key: 'finger_ass', startZone: `{name} works a finger against {target}'s ass.`, startActor: `You ease a finger into {target}'s ass and find a rhythm.` };
+    },
+  });
 }
 
 // --- Command implementations ---
@@ -683,6 +943,39 @@ async function cmdJerkOffOn(args, raw, player, broadcast) {
 }
 
 async function cmdSuck(args, raw, player, broadcast) {
+  // Sucking a genital on a PLAYER is an ongoing service event (the receiver
+  // finishes). Anything else — a finger, a neck, or any NPC — stays the original
+  // one-shot handled by actHandler.
+  const argStr = args.join(' ');
+  const apos = argStr.match(/^(.+?)'s\s+(.+)$/i);
+  const targetStr = apos ? apos[1].trim() : '';
+  const partStr = apos ? apos[2].trim().toLowerCase() : '';
+  const GENITAL = /cock|dick|penis|tits?|breasts?|nipples?|pussy|cunt|clit/;
+
+  if (isMisActive(player) && targetStr && GENITAL.test(partStr)) {
+    return beginService(player, raw, broadcast, {
+      str: targetStr, verb: 'suck', npcVerb: 'suck', actorGain: 5, targetGain: 20, action: 'sucking',
+      configure: (t) => {
+        if (/cock|dick|penis/.test(partStr)) {
+          if (t.biological_sex !== 'male') return { error: `${t.handle} doesn't have one of those.` };
+          return { key: 'suck_cock', actorClimaxPool: SERVICE_CLIMAX_ACTOR.suck_cock,
+            startZone: `{name} goes down on {target}, taking their cock in their mouth.`,
+            startActor: `You take {target}'s cock into your mouth.` };
+        }
+        if (/tits?|breasts?|nipples?/.test(partStr)) {
+          if (t.biological_sex !== 'female') return { error: `Not much there to work with.` };
+          return { key: 'suck_tits',
+            startZone: `{name} sucks at {target}'s tits.`,
+            startActor: `You close your mouth over {target}'s nipple.` };
+        }
+        if (t.biological_sex !== 'female') return { error: `${t.handle} doesn't have one of those.` };
+        return { key: 'suck_pussy',
+          startZone: `{name} gets between {target}'s legs, mouth working.`,
+          startActor: `You lower your mouth to {target}'s pussy and start sucking.` };
+      },
+    });
+  }
+
   return actHandler({
     player, broadcast, rawArgs: args, verb: 'suck',
     defaultPart: 'fingers',
@@ -700,6 +993,75 @@ async function cmdSuck(args, raw, player, broadcast) {
     horninessGain: 18,
     sanityGain: 8,
   });
+}
+
+// Ongoing fuck with a willing NPC as the receiver. Actor-driven (the actor's
+// climax ends it, like the player version), but the NPC's side is a transient
+// arousal meter that broadcasts moans and its own climaxes to the room.
+async function startFuckEventNpc(player, npc, broadcast, location) {
+  const name = npc.name;
+
+  broadcastMis(player.current_zone, { type: 'zone_event', message: `${player.handle} strips off ${name}'s clothing.` }, broadcast);
+  broadcastNpcMisLine(npc, true, player.current_zone, broadcast);
+
+  const openers = {
+    mouth:   `You push into ${name}'s mouth.`,
+    pussy:   `You spread ${name} and slide in deep.`,
+    ass:     `You grip ${name}'s hips and push into their ass.`,
+    default: `You pull ${name} close and start fucking them.`,
+  };
+  const opener = openers[location] || openers.default;
+
+  const msgs = await addHorniness(player, 20, broadcast);
+  player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 8);
+  await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]);
+  if (msgs.length) broadcast(null, { type: 'resource_tick', messages: msgs, player_update: { horniness: player.horniness, erect: player.erect } }, null, player.id);
+
+  broadcastMis(player.current_zone, { type: 'zone_event', message: `${player.handle} starts fucking ${name}.` }, broadcast, player.id);
+  npcWitnessMis(player.current_zone, broadcast, 0.5);
+  await addNpcArousal(npc, 15, broadcast, player.current_zone);
+
+  const playerId = player.id;
+  const npcId = npc.id;
+  const zonePool = FUCK_EVENT_MSGS[location] || FUCK_EVENT_MSGS.default;
+  const actorPool = FUCK_EVENT_PLAYER_MSGS[location] || FUCK_EVENT_PLAYER_MSGS.default;
+  const ejacPart = location === 'mouth' ? 'throat' : location === 'ass' ? 'ass' : location === 'pussy' ? 'pussy' : 'body';
+
+  startMisEvent(playerId, async () => {
+    const live = getLivePlayer(playerId);
+    if (!live || !isMisActive(live)) { stopMisEvent(playerId); return; }
+    const liveNpc = world.npcs.get(npcId);
+    if (!liveNpc || liveNpc._dead || liveNpc.zone_id !== live.current_zone || !isNpcMisWilling(liveNpc)) {
+      stopMisEvent(playerId);
+      broadcast(null, { type: 'output', message: `${name} isn't available anymore.` }, null, playerId);
+      return;
+    }
+
+    if (live.horniness >= 100) {
+      stopMisEvent(playerId);
+      const climaxMsgs = await triggerClimax(live, broadcast, ejacPart);
+      const ejacPool = EJACULATE_ZONE_MSGS.into_player;
+      const ejacText = ejacPool[Math.floor(Math.random() * ejacPool.length)]
+        .replace(/\{name\}/g, live.handle).replace(/\{target\}/g, name).replace(/\{part\}/g, ejacPart);
+      broadcastMis(live.current_zone, { type: 'zone_event', message: ejacText }, broadcast, live.id);
+      await addNpcArousal(liveNpc, 40, broadcast, live.current_zone); // finishing tips them over too
+      npcWitnessMis(live.current_zone, broadcast, 0.7);
+      broadcast(null, { type: 'resource_tick', messages: climaxMsgs, player_update: { horniness: live.horniness, erect: live.erect, sanity: live.sanity } }, null, playerId);
+      return;
+    }
+
+    const zoneTpl = zonePool[Math.floor(Math.random() * zonePool.length)];
+    broadcastMis(live.current_zone, { type: 'zone_event', message: zoneTpl.replace(/\{name\}/g, live.handle).replace(/\{target\}/g, name) }, broadcast, live.id);
+    npcWitnessMis(live.current_zone, broadcast, 0.2);
+    broadcast(null, { type: 'output', message: actorPool[Math.floor(Math.random() * actorPool.length)].replace(/\{target\}/g, name) }, null, playerId);
+
+    await addNpcArousal(liveNpc, 15, broadcast, live.current_zone);
+
+    const climaxMsgs = await addHorniness(live, 18, broadcast);
+    broadcast(null, { type: 'resource_tick', messages: climaxMsgs, player_update: { horniness: live.horniness, erect: live.erect } }, null, playerId);
+  }, 8000, { action: 'fuck', target: name });
+
+  return { type: 'output', message: opener };
 }
 
 // Penetrative sex — ongoing event version
@@ -723,9 +1085,17 @@ async function cmdFuck(args, raw, player, broadcast) {
 
   if (!targetStr) return { type:'error', message:`Usage: fuck <target> [in mouth/pussy/ass]` };
 
-  // NPC target — skip all clothing checks; broadcast strip message then react by personality
+  // NPC target — skip all clothing checks. Unwilling NPCs strip-then-react by
+  // personality (flee/attack); willing ones become an ongoing fuck event and
+  // gain arousal / climax just like a player partner.
   const fuckNpc = resolveNpcForMis(targetStr, player.current_zone);
-  if (fuckNpc) return handleNpcMis(player, fuckNpc, 'fuck', broadcast, { isStrip: true });
+  if (fuckNpc) {
+    if (!isNpcMisWilling(fuckNpc)) return handleNpcMis(player, fuckNpc, 'fuck', broadcast, { isStrip: true });
+    const refusal = npcZoneRefusal(player, fuckNpc, broadcast);
+    if (refusal) return refusal;
+    if (hasMisEvent(player.id)) { stopMisEvent(player.id); return { type: 'output', message: `You stop.` }; }
+    return startFuckEventNpc(player, fuckNpc, broadcast, location);
+  }
 
   if (hasMisEvent(player.id)) {
     const meta = stopMisEvent(player.id);
@@ -913,6 +1283,84 @@ async function cmdEjaculate(args, raw, player, broadcast) {
 
   const str = raw.replace(/^(?:ejaculate|cum|come)\s*/i, '').trim().toLowerCase();
 
+  // "in <target>'s <hole>" — finish INSIDE (cum in X's mouth / pussy / ass).
+  // Distinct from "on <target>'s <part>" below, which marks the surface.
+  if (/^in\s+/i.test(str)) {
+    const inBody = str.replace(/^in\s+/i, '').trim();
+    let tStr, hole;
+    const am = inBody.match(/^(.+?)'s\s+(mouth|throat|face|pussy|cunt|vagina|ass|asshole|anus)\b/i);
+    if (am) { tStr = am[1].trim(); hole = am[2].toLowerCase(); }
+    else {
+      const hm = inBody.match(/\b(mouth|throat|face|pussy|cunt|vagina|ass|asshole|anus)\b/i);
+      if (hm) { hole = hm[1].toLowerCase(); tStr = inBody.slice(0, hm.index).replace(/'s$/, '').trim(); }
+      else { tStr = inBody.replace(/'s$/, '').trim(); hole = 'mouth'; }
+    }
+    const holeLabel = /mouth|throat|face/.test(hole) ? 'mouth' : /pussy|cunt|vagina/.test(hole) ? 'pussy' : 'ass';
+    const isMouth = holeLabel === 'mouth';
+    const residueLoc = isMouth ? 'mouth' : holeLabel;
+    const zonePool = isMouth ? EJACULATE_ZONE_MSGS.into_mouth : EJACULATE_ZONE_MSGS.into_player;
+
+    if (!tStr) return { type:'error', message:`Cum in whose ${holeLabel}?` };
+
+    const resetActor = async () => {
+      player.horniness = 0; player.erect = 0;
+      player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 10);
+      player.horniness_last_increased = null;
+      if (!player.appearance_data) player.appearance_data = {};
+      player.appearance_data.ejaculate_state = { locations: ['penis'] };
+      await query('UPDATE players SET horniness=$1, erect=$2, sanity=$3, appearance_data=$4 WHERE id=$5',
+        [player.horniness, player.erect, player.sanity, JSON.stringify(player.appearance_data), player.id]);
+    };
+
+    // NPC target — willing ones take it; unwilling ones react (flee/attack).
+    const inNpc = resolveNpcForMis(tStr, player.current_zone);
+    if (inNpc) {
+      if (!isNpcMisWilling(inNpc)) return handleNpcMis(player, inNpc, 'jerk off on', broadcast);
+      await resetActor();
+      await stainZone(player.current_zone, 'ejaculate');
+      const line = getNpcMisLine(inNpc, true);
+      if (line) {
+        const upper = line.replace(/[^A-Za-z]/g, '');
+        const shout = upper.length > 3 && upper === upper.toUpperCase();
+        broadcastMis(player.current_zone, { type:'zone_event', message: `${inNpc.name} ${shout ? 'shouts' : 'says'}, "${line}"` }, broadcast);
+      }
+      broadcast(player.current_zone, {
+        type:'zone_event',
+        message: zonePool[Math.floor(Math.random() * zonePool.length)]
+          .replace(/\{name\}/g, player.handle).replace(/\{target\}/g, inNpc.name).replace(/\{part\}/g, holeLabel),
+      }, player.id);
+      npcWitnessMis(player.current_zone, broadcast, 0.6);
+      broadcast(null, { type:'resource_tick', messages: [], player_update: { horniness: player.horniness, erect: player.erect, sanity: player.sanity } }, null, player.id);
+      return { type:'output', message: `You finish in ${inNpc.name}'s ${holeLabel}.` };
+    }
+
+    const { res, error, ambiguous } = resolveTargetMis(tStr, player, 'ejaculate');
+    if (ambiguous) return ambiguous;
+    if (error) return { type:'error', message: error };
+    const name = targetName(res);
+
+    await resetActor();
+    if (res.type === 'player') {
+      const tgt = res.target;
+      if (!tgt.appearance_data) tgt.appearance_data = {};
+      tgt.appearance_data.ejaculate_state = { locations: [residueLoc] };
+      await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(tgt.appearance_data), tgt.id]);
+    }
+    await stainZone(player.current_zone, 'ejaculate');
+
+    broadcast(player.current_zone, {
+      type:'zone_event',
+      message: zonePool[Math.floor(Math.random() * zonePool.length)]
+        .replace(/\{name\}/g, player.handle).replace(/\{target\}/g, name).replace(/\{part\}/g, holeLabel),
+    }, player.id, res.type === 'player' ? res.target.id : null);
+    if (res.type === 'player') {
+      broadcast(null, { type:'output', message: `${player.handle} finishes in your ${holeLabel}.` }, null, res.target.id);
+    }
+    npcWitnessMis(player.current_zone, broadcast, 0.6);
+    broadcast(null, { type:'resource_tick', messages: [], player_update: { horniness: player.horniness, erect: player.erect, sanity: player.sanity } }, null, player.id);
+    return { type:'output', message: `You finish in ${name}'s ${holeLabel}.` };
+  }
+
   // No argument or "on ground" / "on floor"
   if (!str || /^on\s+(?:the\s+)?(?:ground|floor)$/.test(str)) {
     // Underwear on → it can't reach the floor; it soaks into the fabric.
@@ -1093,89 +1541,39 @@ async function cmdEjaculate(args, raw, player, broadcast) {
   return { type:'output', message: `You come on the ground.` };
 }
 
-// Eat out — cunnilingus or rimjob. Player gains small arousal, target gains a lot.
+// Eat out — cunnilingus or rimjob. Ongoing service event; the receiver finishes.
 async function cmdEatOut(args, raw, player, broadcast) {
-  const gate = misGate(player, raw);
-  if (gate) return gate;
-
-  // Parse: eat out <target>'s [pussy|ass] OR eat out <target> [pussy|ass]
+  // Parse the hole off the raw before beginService (it gates/resolves for us).
   const str = raw.replace(/^eat\s+out\s*/i, '').trim();
-  const apostropheMatch = str.match(/^(.+?)'s\s+(pussy|ass|cunt|vagina|anus|asshole)$/i);
-  let targetStr, part;
-  if (apostropheMatch) {
-    targetStr = apostropheMatch[1].trim();
-    part = apostropheMatch[2].toLowerCase();
-  } else {
+  let targetStr = str, holeStr = '';
+  const apos = str.match(/^(.+?)'s\s+(pussy|ass|cunt|vagina|anus|asshole)$/i);
+  if (apos) { targetStr = apos[1].trim(); holeStr = apos[2].toLowerCase(); }
+  else {
     const words = str.split(/\s+/);
     targetStr = words[0] || '';
-    part = words.slice(1).join(' ').toLowerCase() || 'pussy';
+    holeStr = words.slice(1).join(' ').toLowerCase();
   }
-  const isPussy = /pussy|cunt|vagina/.test(part);
-  const partLabel = isPussy ? 'pussy' : 'ass';
-
-  if (!targetStr) return { type:'error', message:`Usage: eat out <target>'s [pussy/ass]` };
-
-  const eatNpc = resolveNpcForMis(targetStr, player.current_zone);
-  if (eatNpc) return handleNpcMis(player, eatNpc, 'eat out', broadcast);
-
-  const { res, error, ambiguous } = resolveTargetMis(targetStr, player);
-  if (ambiguous) return ambiguous;
-  if (error) return { type:'error', message: error };
-  const name = targetName(res);
-
-  const actorMsgs = isPussy ? [
-    `You get between ${name}'s legs and go down on them.`,
-    `You bury your face in ${name}'s pussy and get to work.`,
-    `You drag your tongue through ${name}'s folds slowly.`,
-    `You eat ${name} out with focused, deliberate attention.`,
-  ] : [
-    `You press your face into ${name}'s ass and get to work.`,
-    `Your tongue works at ${name}'s ass with slow, deliberate strokes.`,
-    `You rim ${name} thoroughly.`,
-  ];
-
-  const targetReceiveMsgs = isPussy ? [
-    `${player.handle} gets between your legs and goes down on you.`,
-    `${player.handle} buries their face in your pussy.`,
-    `${player.handle}'s tongue drags through you slowly.`,
-    `${player.handle} eats you out with focused attention.`,
-  ] : [
-    `${player.handle} presses their face into your ass.`,
-    `${player.handle}'s tongue works at your ass with deliberate strokes.`,
-    `${player.handle} rims you thoroughly.`,
-  ];
-
-  const actorMsg = actorMsgs[Math.floor(Math.random() * actorMsgs.length)];
-
-  // Player gains small arousal; target gains a lot
-  const actorMsgs2 = await addHorniness(player, 8, broadcast);
-  player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 5);
-  await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]);
-  if (actorMsgs2.length) broadcast(null, { type:'resource_tick', messages: actorMsgs2, player_update: { horniness: player.horniness } }, null, player.id);
-
-  if (res.type === 'player' && isMisActive(res.target)) {
-    if (isAttractedTo(res.target, player)) {
-      const targetArousals = await addHorniness(res.target, 22, broadcast);
-      if (targetArousals.length) broadcast(null, { type:'resource_tick', messages: targetArousals, player_update: { horniness: res.target.horniness } }, null, res.target.id);
-    }
-    broadcast(null, { type:'output', message: targetReceiveMsgs[Math.floor(Math.random() * targetReceiveMsgs.length)] }, null, res.target.id);
-    res.target.sanity = Math.min(res.target.sanity_max || 100, (res.target.sanity || 50) + 10);
-    await query('UPDATE players SET sanity=$1 WHERE id=$2', [res.target.sanity, res.target.id]);
+  if (!misGate(player, raw) && !targetStr && !hasMisEvent(player.id)) {
+    return { type: 'error', message: `Usage: eat out <target>'s [pussy/ass]` };
   }
+  const isAss = /ass|anus|asshole/.test(holeStr);
 
-  broadcast(player.current_zone, {
-    type: 'zone_event',
-    message: `${player.handle} goes down on ${name}.`,
-  }, player.id, res.type === 'player' ? res.target.id : null);
-
-  return { type:'output', message: actorMsg };
+  return beginService(player, raw, broadcast, {
+    str: targetStr, verb: 'eat out', npcVerb: 'eat out', actorGain: 8, targetGain: 22, action: 'eating out',
+    configure: (t) => {
+      if (!isAss && t.biological_sex !== 'female') return { error: `${t.handle} doesn't have one of those — try their ass.` };
+      return isAss
+        ? { key: 'eatout_ass', startZone: `{name} gets behind {target} and starts rimming them.`, startActor: `You spread {target} and press your tongue to their ass.` }
+        : { key: 'eatout_pussy', startZone: `{name} buries their face between {target}'s legs.`, startActor: `You get between {target}'s legs and go down on them.` };
+    },
+  });
 }
 
-// Blowjob: if actor is female performing on a male, route to suck cock
+// Blowjob: female actor giving head → suck cock (ongoing, he finishes). Anyone
+// else → fuck their mouth (the actor finishes) via the existing fuck event.
 async function cmdBlowjob(args, raw, player, broadcast) {
   const target = args.join(' ');
   if (!target) return { type:'error', message:`Usage: blowjob <target>` };
-  // Female actor giving blowjob to male target → suck cock
   if (player.biological_sex === 'female') {
     const { res, error, ambiguous } = resolveTargetMis(target, player, 'blowjob');
     if (ambiguous) return ambiguous;
@@ -1187,8 +1585,18 @@ async function cmdBlowjob(args, raw, player, broadcast) {
   return cmdFuck(args, `fuck ${target} in mouth`, player, broadcast);
 }
 
-// Handjob shortcut
+// Handjob — ongoing service event on a male player (he finishes). NPCs and any
+// non-genital fallback stay the one-shot actHandler version.
 async function cmdHandjob(args, raw, player, broadcast) {
+  const str = args.join(' ');
+  if (isMisActive(player) && str) {
+    return beginService(player, raw, broadcast, {
+      str, verb: 'handjob', npcVerb: 'handjob', actorGain: 6, targetGain: 18, action: 'stroking',
+      configure: (t) => t.biological_sex !== 'male'
+        ? { error: `${t.handle} doesn't have a cock to work with.` }
+        : { key: 'handjob', startZone: `{name} takes {target}'s cock in hand and starts stroking.`, startActor: `You wrap your hand around {target}'s cock and start stroking.` },
+    });
+  }
   return actHandler({
     player, broadcast, rawArgs: args, verb: 'handjob',
     defaultPart: 'cock',
@@ -1265,8 +1673,68 @@ async function cmdWash(args, raw, player) {
   return { type:'output', message: msg };
 }
 
+// Detailed body-part examination: `examine <target>'s <part>`. Routed here by an
+// input matcher (below) only when the input names a part word; when MIS is off,
+// or it's really an item/furniture, we return undefined and the engine's normal
+// examine takes over.
+const EXAM_PART_RE = /\b(genitals?|crotch|cock|penis|dick|balls?|testicles?|pussy|cunt|vagina|labia|tits?|breasts?|boobs?|nipples?|ass|asshole|anus|butt)\b/i;
+
+function normalizeExamPart(word) {
+  const w = word.toLowerCase();
+  if (/genitals?|crotch/.test(w)) return 'genitals';
+  if (/cock|penis|dick/.test(w)) return 'penis';
+  if (/balls?|testicles?/.test(w)) return 'balls';
+  if (/pussy|cunt|vagina|labia/.test(w)) return 'pussy';
+  if (/tits?|breasts?|boobs?/.test(w)) return 'breasts';
+  if (/nipples?/.test(w)) return 'nipples';
+  if (/asshole|anus/.test(w)) return 'asshole';
+  if (/ass|butt/.test(w)) return 'ass';
+  return null;
+}
+
+async function cmdExaminePart(args, raw, player, broadcast) {
+  if (!isMisActive(player)) return undefined; // fall through to normal examine
+  const rest = raw.replace(/^(?:x|exam|examine|look)(?:\s+at)?\s+/i, '').trim();
+  const pm = rest.match(EXAM_PART_RE);
+  if (!pm) return undefined;
+  // Trailing text after the part word means this is really an item/furniture
+  // name ("ass-kicking boots") — let the normal examine handle it.
+  if (rest.slice(pm.index + pm[0].length).replace(/^'s\b/, '').trim()) return undefined;
+  const part = normalizeExamPart(pm[0]);
+  if (!part) return undefined;
+
+  let who = rest.slice(0, pm.index).replace(/'s\s*$/, '').replace(/^(?:at|the)\s+/i, '').trim();
+  const isSelf = !who || /^(my|self|me|myself|own)$/i.test(who);
+  if (isSelf) {
+    const desc = describeBodyPart(player, part, true);
+    return { type: 'examine', message: desc || `You can't get a good look at that.` };
+  }
+
+  const npc = resolveNpcForMis(who, player.current_zone);
+  if (npc) {
+    const desc = describeBodyPart(npc, part, false);
+    return { type: 'examine', message: desc || `You can't get a good look.` };
+  }
+
+  const r = resolveTarget(who, player);
+  if (r.type === 'none') return { type: 'error', message: `You don't see "${who}" here.` };
+  if (r.type === 'ambiguous') {
+    createSelectionState(player.id, r.candidates, { verb: 'examine' });
+    return { type: 'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
+  }
+  const target = r.candidate;
+  if (!isMisActive(target)) return { type: 'error', message: `${target.handle} hasn't enabled MIS.` };
+  if (isAttractedTo(player, target) && broadcast) {
+    const am = await addHorniness(player, 3, broadcast);
+    if (am.length) broadcast(null, { type: 'resource_tick', messages: am, player_update: { horniness: player.horniness } }, null, player.id);
+  }
+  const desc = describeBodyPart(target, part, false);
+  return { type: 'examine', message: desc || `You can't get a good look.` };
+}
+
 export const commands = {
   mis:          (args, raw, player, broadcast) => cmdMis(args, player, broadcast),
+  finger:       (args, raw, player, broadcast) => cmdFinger(args, raw, player, broadcast),
   touch:        (args, raw, player, broadcast) => cmdTouch(args, raw, player, broadcast),
   grope:        (args, raw, player, broadcast) => cmdTouch(args, raw, player, broadcast),
   squeeze:      (args, raw, player, broadcast) => cmdSqueeze(args, raw, player, broadcast),
@@ -1300,6 +1768,11 @@ export const commands = {
 // Multi-word verbs — registered through the dispatcher's input-matcher chain.
 registerInputMatcher(/^jerk\s+off\s+on\b/i, (args, raw, player, broadcast) => cmdJerkOffOn(args, raw, player, broadcast), 'mis');
 registerInputMatcher(/^eat\s+out\b/i, (args, raw, player, broadcast) => cmdEatOut(args, raw, player, broadcast), 'mis');
+// Detailed part-examine — only intercepts examine/look when a genital/ass/chest
+// word is present; cmdExaminePart returns undefined (falls through) otherwise.
+registerInputMatcher(
+  /^(?:x|exam|examine|look)(?:\s+at)?\s+.*\b(?:genitals?|crotch|cock|penis|dick|balls?|testicles?|pussy|cunt|vagina|labia|tits?|breasts?|boobs?|nipples?|ass|asshole|anus|butt)\b/i,
+  (args, raw, player, broadcast) => cmdExaminePart(args, raw, player, broadcast), 'mis');
 
 // The unified STOP command halts an ongoing MIS event like any other repeating action.
 on('player.stop', ({ player, stopped }) => {
@@ -1330,6 +1803,15 @@ schedule('1m', async () => {
     player.horniness = Math.max(0, player.horniness - 1);
     await query('UPDATE players SET horniness=$1 WHERE id=$2', [player.horniness, player.id]);
     sendToPlayer(player.id, { type: 'resource_tick', messages: [], player_update: { horniness: player.horniness, mis_enabled: player.mis_enabled } });
+  }
+
+  // Transient NPC arousal cools off once nobody's touched them for a while — it's
+  // in-memory only, so this just lets the meter drain back to zero after a scene.
+  const decayDelayMs = 5 * 60 * 1000;
+  for (const npc of world.npcs.values()) {
+    if (!npc || !npc._misHorny) continue;
+    if (npc._misHornyAt && (Date.now() - npc._misHornyAt) < decayDelayMs) continue;
+    npc._misHorny = Math.max(0, npc._misHorny - 5);
   }
 });
 

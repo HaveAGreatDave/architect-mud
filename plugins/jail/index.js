@@ -301,7 +301,7 @@ async function bookIntoCell(player, { teleport = false } = {}) {
     const bc = getBroadcast();
     await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: CELL_ZONE }, context: { broadcast: bc } });
     const zone = getZone(CELL_ZONE);
-    if (zone) sendToPlayer(player.id, { type: 'move', message: await describeZone(zone, player), zone: CELL_ZONE, minimap: getMinimapData(CELL_ZONE) });
+    if (zone) sendToPlayer(player.id, { type: 'move', message: await describeZone(zone, player), zone: CELL_ZONE, minimap: getMinimapData(CELL_ZONE, 8, player) });
     try { await dispatchAction({ type: 'WANTED_CLEAR', actor: player }); } catch { /* surveillance not loaded */ }
     sendToPlayer(player.id, { type: 'output', message });
   }
@@ -481,7 +481,7 @@ async function release(playerId) {
       }, playerId);
       await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: rec.release_zone }, context: { broadcast: bc } });
       const zone = getZone(rec.release_zone);
-      if (zone) sendToPlayer(playerId, { type: 'move', message: await describeZone(zone, player), zone: rec.release_zone, minimap: getMinimapData(rec.release_zone) });
+      if (zone) sendToPlayer(playerId, { type: 'move', message: await describeZone(zone, player), zone: rec.release_zone, minimap: getMinimapData(rec.release_zone, 8, player) });
       sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">${officerName} slides a plastic tub across the counter — your things, minus anything the law keeps. "Stay out of trouble."</span>` });
       if (rec.held_credits || rec.fine) {
         const ledger = rec.fine > 0

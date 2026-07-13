@@ -1,0 +1,30 @@
+{
+  "broadcast_graph": null,
+  "category": "emergency",
+  "channel_id": null,
+  "created_by": "echelon",
+  "description": "The Echelon's emergency address — seizes every tuned set in Architect when the special MediaDeck goes to air.",
+  "enabled": 1,
+  "fallback_messages": [],
+  "id": "bc_echelon_emergency",
+  "loop": 1,
+  "message_interval": 6,
+  "messages": [
+    { "text": "▓▓▓  EMERGENCY BROADCAST — STAND BY  ▓▓▓" },
+    { "text": "All programming has been suspended. This is a message from the Echelon." },
+    { "text": "Remain where you are. The Architect is aware of your situation." },
+    { "text": "The Architect is always aware." },
+    { "text": "Do not attempt to leave the district. Do not attempt to interfere." },
+    { "text": "Normal service will resume when it is permitted to resume." },
+    { "text": "Compliance is appreciated. This has been a message from the Echelon." }
+  ],
+  "name": "Echelon Emergency Address",
+  "news_pools": null,
+  "override_duration": 30,
+  "playback_mode": "scripted",
+  "sports_pools": null,
+  "tags": [],
+  "talkshow_pools": null,
+  "updated_at": "1783740000",
+  "weather_pools": null
+}

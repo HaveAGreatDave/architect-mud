@@ -1,11 +1,11 @@
 {
   "ambient_events": [],
-  "ambient_theme": "coast",
+  "ambient_theme": "outdoors",
   "audio_theme_id": null,
-  "bg_color": "#1d3b52",
-  "color": "#7fd3ff",
+  "bg_color": "#2b2b2b",
+  "color": "#f5d400",
   "created_by": "zone-planner",
-  "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot — the channel beyond is deep, and impassable without a boat.",
+  "description": "The north–south centreline runs out to the far threshold here, the last stretch of tarmac before the ground gives way to the cold shoreline beyond. Paint and grooved concrete underfoot; open water a stone's throw past the numbers.",
   "exits": {
     "east": "zone_district_926_898",
     "north": "zone_district_925_897",
@@ -13,17 +13,18 @@
     "west": "zone_district_924_898"
   },
   "flags": {
-    "district": "water",
+    "district": "wasteland",
+    "icon": "runway_ns",
     "planner": "bp_district",
-    "water": true
+    "runway": "ns"
   },
   "grid_x": 925,
   "grid_y": 898,
   "grid_z": 0,
   "id": "zone_district_925_898",
   "map_id": "map_world",
-  "marker": "≈",
-  "name": "Coldwater Basin",
+  "marker": "┃",
+  "name": "Runway",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

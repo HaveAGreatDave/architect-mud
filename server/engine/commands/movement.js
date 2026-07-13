@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, buildingEntranceDir, interiorExitDirs, facadeStreetTile } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, buildingEntranceDir, interiorExitDirs, facadeStreetTile, applyMinimapVisibility } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -35,6 +35,10 @@ const WIND_MOVE_SPAN     = 16;    // → ~10 stamina at sev 0.4, ~20 at sev 1.0
 // "stamina gate". GPS auto-walk sends real moves down this same path, so its
 // stamina loss matches a manual run exactly.
 const RUN_STEP_STAMINA = 4;
+// Push a running stride you can't afford and you're WINDED for this long: stamina
+// regen is throttled (gameLoop restRegenTick reads player._windedUntil) until it
+// lapses, so recovering means actually resting — not jogging in place on empty.
+const WINDED_DURATION_MS = 30000;
 
 // ── Engine move gates (the law layer) ────────────────────────────────────────
 // Registered through the same chain plugins use (registerMoveGate), so engine
@@ -203,7 +207,7 @@ async function cmdLook(player, targetStr, broadcast) {
   if (!targetStr || targetStr === 'room' || targetStr === 'around') {
     const zone = getZone(player.current_zone);
     if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
-    return { type:'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(zone.id) };
+    return { type:'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(zone.id, 8, player) };
   }
   const inMatch = targetStr.match(/^in\s+(.+)$/i);
   if (inMatch) {
@@ -533,6 +537,13 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
       player.stamina = before - RUN_STEP_STAMINA;
       await query('UPDATE players SET stamina=$1 WHERE id=$2', [player.stamina, player.id]);
       broadcast(null, { type:'resource_tick', messages:[], player_update:{ stamina: player.stamina } }, null, player.id);
+    } else {
+      // Still trying to run on an empty tank — you're gassed. Stamp (and keep pushing
+      // forward) the winded window so regen stays throttled until you rest; announce
+      // only on the transition in, not on every wheezing stride.
+      const wasWinded = (player._windedUntil ?? 0) > Date.now();
+      player._windedUntil = Date.now() + WINDED_DURATION_MS;
+      if (!wasWinded) broadcast(null, { type:'resource_tick', messages:['You\'re completely winded — chest heaving, you have to catch your breath before you can run again.'], player_update:{ stamina: player.stamina } }, null, player.id);
     }
   }
 
@@ -565,7 +576,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     }
   }
 
-  return { type:'move', message:zoneDesc, narration, zone:targetId, direction, radiation_gain:radGain, minimap: getMinimapData(targetId), tempC: getZoneTemperature(targetId) };
+  return { type:'move', message:zoneDesc, narration, zone:targetId, direction, radiation_gain:radGain, minimap: getMinimapData(targetId, 8, player), tempC: getZoneTemperature(targetId) };
 }
 
 // Move every live player following `leaderId` (a player or NPC id) out of
@@ -703,17 +714,17 @@ function mapTile(zone, x, y, placed, currentId) {
 // 11×11 window centered on centerId, tiles positioned relative to it (center at 0,0).
 // Placed centers use grid coords; unplaced (coordless interior) centers fall back to a
 // BFS virtual grid clamped to the window.
-function window11(centerId) {
+function window11(centerId, viewer = null) {
   const center = getZone(centerId);
   if (!center) return [];
   const H = MAP_WINDOW_HALF;
 
   if (center.map_id && center.grid_x != null && center.grid_y != null) {
     const cx = center.grid_x, cy = center.grid_y, cz = center.grid_z ?? 0;
-    const onMap = getAllZones().filter(z =>
+    const onMap = applyMinimapVisibility(getAllZones().filter(z =>
       z.map_id === center.map_id && (z.grid_z ?? 0) === cz &&
       z.grid_x != null && z.grid_y != null &&
-      Math.abs(z.grid_x - cx) <= H && Math.abs(z.grid_y - cy) <= H);
+      Math.abs(z.grid_x - cx) <= H && Math.abs(z.grid_y - cy) <= H), viewer);
     const placed = new Set(onMap.map(z => z.id));
     return onMap.map(z => mapTile(z, z.grid_x - cx, z.grid_y - cy, placed, centerId));
   }
@@ -774,10 +785,10 @@ function landmassTiles(onMap, startId) {
 
 // Full overworld (map_world, floor 0), absolute coords — the regional land-use view,
 // scoped to the player's own contiguous landmass (see landmassTiles).
-export function regionalTiles(currentOverworldId) {
-  const onMap = getAllZones().filter(z =>
+export function regionalTiles(currentOverworldId, viewer = null) {
+  const onMap = applyMinimapVisibility(getAllZones().filter(z =>
     z.map_id === 'map_world' && (z.grid_z ?? 0) === 0 &&
-    z.grid_x != null && z.grid_y != null);
+    z.grid_x != null && z.grid_y != null), viewer);
   const tilesOnLandmass = landmassTiles(onMap, currentOverworldId);
   const placed = new Set(tilesOnLandmass.map(z => z.id));
   return tilesOnLandmass.map(z =>
@@ -809,11 +820,11 @@ export function buildMapPayload(player, arg = '') {
   else if (['zone','zones','rooms','raw','default','legacy'].includes(arg)) mode = 'zone';
   else mode = inside ? 'interior' : 'zone'; // bare `map`
 
-  if (mode === 'interior') return { mode, tiles: window11(current.id), insideInterior: inside };
+  if (mode === 'interior') return { mode, tiles: window11(current.id, player), insideInterior: inside };
   const owId = overworldTileId(current);
-  if (mode === 'regional') return { mode, tiles: regionalTiles(owId), insideInterior: inside };
+  if (mode === 'regional') return { mode, tiles: regionalTiles(owId, player), insideInterior: inside };
   // zone: 11×11 overworld centered on your surface tile (owId), or current if unresolved.
-  return { mode:'zone', tiles: window11(owId || current.id), insideInterior: inside };
+  return { mode:'zone', tiles: window11(owId || current.id, player), insideInterior: inside };
 }
 
 function cmdMap(player, args = []) {

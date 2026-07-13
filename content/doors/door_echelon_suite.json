@@ -1,0 +1,25 @@
+{
+  "door_type": "reinforced",
+  "exit_dir": "north",
+  "flags": {},
+  "hp": 2000,
+  "hp_max": 2000,
+  "id": "door_echelon_suite",
+  "is_locked": 1,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "the suite hatch",
+  "tags": {
+    "lock:yachtlock": {
+      "ownerOnly": true,
+      "messages": {
+        "denied": "The suite hatch does not so much as acknowledge you. This deck belongs to Cyd alone.",
+        "lock": "The suite hatch seals with a whisper of hydraulics.",
+        "unlock": "The suite hatch releases, recognising its owner."
+      }
+    },
+    "unbreakable": true
+  },
+  "target_zone": "zone_echelon_suite",
+  "zone_id": "zone_echelon_landing"
+}

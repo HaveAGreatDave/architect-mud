@@ -80,13 +80,22 @@ export default async function regress({ run, check, getPlayer }) {
   const { rows: npcRows } = await query('SELECT * FROM npcs WHERE id=$1', [TEST_NPC_ID]);
   const npc = npcRows[0];
 
-  await setFlag('player', TEST_QUEST_ID, 'active', player);
+  // Never accepted → the turn-in option is hidden entirely.
   let rendered = await renderDialogueNode(npc, 'root', player, {});
-  check('turn-in option is hidden while the quest is only active', !rendered.options.some(o => o.next === 'reported'), JSON.stringify(rendered.options));
+  check('turn-in option is hidden while the quest is not accepted', !rendered.options.some(o => o.next === 'reported'), JSON.stringify(rendered.options));
 
+  // Accepted but not yet complete → the option is SHOWN but disabled (the client
+  // routes a click to the Tablet quest screen), carrying the quest id to route to.
+  await setFlag('player', TEST_QUEST_ID, 'active', player);
+  rendered = await renderDialogueNode(npc, 'root', player, {});
+  const activeOpt = rendered.options.find(o => o.next === 'reported');
+  check('turn-in option is shown-but-disabled while the quest is only active', !!activeOpt && activeOpt._turninDisabled === true && activeOpt._turninQuestId === TEST_QUEST_ID, JSON.stringify(rendered.options));
+
+  // Completed → the option is shown and clickable (not disabled).
   await setFlag('player', TEST_QUEST_ID, 'completed', player);
   rendered = await renderDialogueNode(npc, 'root', player, {});
-  check('turn-in option appears once the quest is completed', rendered.options.some(o => o.next === 'reported'), JSON.stringify(rendered.options));
+  const doneOpt = rendered.options.find(o => o.next === 'reported');
+  check('turn-in option appears and is enabled once the quest is completed', !!doneOpt && !doneOpt._turninDisabled, JSON.stringify(rendered.options));
 
   // Cleanup.
   await query('DELETE FROM npcs WHERE id=$1', [TEST_NPC_ID]);

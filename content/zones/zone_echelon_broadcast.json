@@ -1,0 +1,34 @@
+{
+  "ambient_events": [
+    "A wall of dark monitors waits, every one of them a window into someone's living room.",
+    "The ON AIR lamp above the booth is dark. For now.",
+    "Somewhere a cooling fan spins up, spins down, and the room is silent again."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#100a14",
+  "color": "#e6c8ff",
+  "created_by": "echelon",
+  "description": "The broadcast complex — a compact television studio and, behind armored glass, the Emergency Broadcast Room. A production console faces a bank of monitors that mirror every tuned screen in the city. This is the one deck aboard that reaches outward: from here the Echelon can seize every set in Architect and speak with a single voice. An ON AIR lamp hangs dark above the booth. The engineering corridor lies to the NORTH.",
+  "exits": {
+    "north": "zone_echelon_engineering"
+  },
+  "flags": {
+    "yacht": true,
+    "echelon": true,
+    "echelon_broadcast": true,
+    "is_interior": true,
+    "is_building": true,
+    "building_name": "The Echelon",
+    "world_exit_zone": "zone_echelon_exterior"
+  },
+  "grid_x": 0,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_echelon_broadcast",
+  "map_id": "map_echelon",
+  "marker": null,
+  "name": "Echelon — Broadcast Complex",
+  "parent_zone": "zone_echelon_exterior",
+  "updated_at": "1783740000"
+}

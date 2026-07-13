@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "Cable runs march along the low ceiling, humming with contained power.",
+    "A diagnostic panel scrolls green figures no one is reading.",
+    "The deck vibrates faintly, the engine's pulse felt more than heard."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#0e0f0d",
+  "color": "#c8f0c0",
+  "created_by": "echelon",
+  "description": "The engineering corridor, a narrow spine of grated deck and exposed conduit running the length of the lower deck. Everything down here is function over form — but even the pipework is machined to a tolerance that whispers money. The staircase climbs (UP) to the foyer. The engine room lies FORWARD (NORTH); the broadcast complex, AFT (SOUTH).",
+  "exits": {
+    "up": "zone_echelon_foyer",
+    "north": "zone_echelon_engine",
+    "south": "zone_echelon_broadcast"
+  },
+  "flags": {
+    "yacht": true,
+    "echelon": true,
+    "is_interior": true,
+    "is_building": true,
+    "building_name": "The Echelon",
+    "world_exit_zone": "zone_echelon_exterior"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_echelon_engineering",
+  "map_id": "map_echelon",
+  "marker": null,
+  "name": "Echelon — Engineering Corridor",
+  "parent_zone": "zone_echelon_exterior",
+  "updated_at": "1783740000"
+}

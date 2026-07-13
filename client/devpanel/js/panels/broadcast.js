@@ -372,19 +372,26 @@ function _bcCanvasHtml(rec, opts = {}) {
 
   const nodeCount = Object.keys(rec?.broadcast_graph?.nodes || {}).length;
 
-  // Weather + sports are live-assembled: the runtime builds a fresh graph from the
-  // broadcast's line pools every airing, so the stored graph is just the Start node.
-  // Say so, or an empty storyboard/VINE reads as broken.
-  const liveAssembled = rec?.playback_mode === 'weather' || rec?.playback_mode === 'sports' || rec?.playback_mode === 'news';
+  // Weather + sports + news + talkshow are live-assembled: the runtime builds a fresh
+  // graph from the broadcast's line pools every airing, so the stored graph is just the
+  // Start node. Say so, or an empty storyboard/VINE reads as broken.
+  const liveAssembled = rec?.playback_mode === 'weather' || rec?.playback_mode === 'sports' || rec?.playback_mode === 'news' || rec?.playback_mode === 'talkshow';
+  const liveAssembledSource = rec?.playback_mode === 'weather' ? 'from the live 7-day forecast'
+    : rec?.playback_mode === 'news' ? 'from the live news generator each airing'
+    : rec?.playback_mode === 'talkshow' ? 'performed live on the studio stage by the host, sidekick and that night&rsquo;s guest'
+    : 'a newly simulated game each airing';
+  const liveAssembledEdit = rec?.playback_mode === 'talkshow'
+    ? 'edit the <code>::lines</code> pools (and the <code>::guests</code> personas) in its <code>.bsm</code> and re-import'
+    : 'edit the <code>::lines</code> pools in its <code>.bsm</code> and re-import';
   const liveAssembledNotice = liveAssembled ? `
       <div style="display:flex;gap:10px;padding:10px 12px;margin-bottom:12px;border:1px solid var(--accent2);border-left:3px solid var(--accent2);border-radius:0 3px 3px 0;background:var(--bg3)">
         <span style="font-size:15px;line-height:1">🎲</span>
         <div style="font-size:11px;color:var(--text);line-height:1.5">
           <strong>Live-assembled ${rec.playback_mode} broadcast.</strong>
           A fresh script is generated from this broadcast's line pools <em>every time it airs</em>
-          (${rec.playback_mode === 'weather' ? 'from the live 7-day forecast' : rec.playback_mode === 'news' ? 'from the live news generator each airing' : 'a newly simulated game each airing'}),
+          (${liveAssembledSource}),
           so the stored graph is only the <em>Start</em> node — the storyboard and ⬡ VINE view will look empty by design.
-          To change its content, edit the <code>::lines</code> pools in its <code>.bsm</code> and re-import.
+          To change its content, ${liveAssembledEdit}.
         </div>
       </div>` : '';
 

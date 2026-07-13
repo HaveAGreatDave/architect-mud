@@ -78,10 +78,11 @@ const WALK_STEP_MS = 1000;         // relaxed walking cadence
 const RUN_STEP_MS  = 480;          // brisk running cadence
 // Delay before the next auto-walk step: run cadence only while running AND with
 // stamina left to spend — otherwise a winded runner auto-drops to the walk pace.
-// Off-road, the run cadence is floored to the walk pace: the pacing plugin throttles
-// non-road steps to ~900ms and QUEUES anything faster (a silent deferral), which the
-// stuck-detector below would misread as no-progress. Roads are paced ~2× faster, so
-// the brisk RUN_STEP_MS clears the throttle there and stays snappy.
+// The server's pacing plugin honours player.running too (RUN_COOLDOWN_MS, road-halved),
+// so our send-rate must stay just above the server's cooldown or a too-fast step gets
+// silently QUEUED — which the stuck-detector below would misread as no-progress. On-road
+// the server cooldown is ~350ms, so the brisk RUN_STEP_MS (480) clears it with margin.
+// Off-road we conservatively floor to the walk pace (server cooldown ~700ms there).
 function autoWalkDelay() {
   const sta = state.player?.stamina ?? 100;
   if (!runMode || sta < RUN_STEP_STAMINA) return WALK_STEP_MS;
@@ -508,7 +509,7 @@ export function renderMinimap(nodes, direction) {
         else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); cs.push(`background-color:rgba(${dr},${dg},${db},0.20)`); }
         const cterrCls = cterr ? ` mm-terr mm-${cterr}` : '';
         const cStyle = cs.length ? ` style="${cs.join(';')}"` : '';
-        html += `<span class="mm-c mm-room mm-current${cterrCls}"${cStyle} title="${titleFor(node)}"></span>`;
+        html += `<span class="mm-c mm-room mm-current${cterrCls}"${cStyle} title="${titleFor(node)}">${entranceMark(node.entrance, 'mm')}${exitMarks(node.exit_dirs, 'mm')}</span>`;
         continue;
       }
       // Foreign tile: only the ones one step across a boundary survive, as a gateway

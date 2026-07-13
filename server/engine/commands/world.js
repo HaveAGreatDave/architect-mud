@@ -414,6 +414,14 @@ function itemActionVerbs(it) {
     verbs.push(it.is_equipped ? 'unequip' : 'equip');
   }
   for (const v of availableActions(it)) if (!verbs.includes(v)) verbs.push(v);
+  // A currency chip is `consumable` (so the credit-payout path fires), which the
+  // food plugin surfaces as "eat". You don't eat a credit chip — you `use` it to
+  // bank it, so swap the consumable verbs for the plain `use` the payout keys on.
+  if (it.tags?.currency) {
+    const cleaned = verbs.filter(v => v !== 'eat' && v !== 'drink');
+    if (!cleaned.includes('use')) cleaned.push('use');
+    return cleaned;
+  }
   return verbs;
 }
 
@@ -421,7 +429,7 @@ async function cmdExamine(targetStr, player, broadcast) {
   if (!targetStr || targetStr === 'room') {
     const zone = getZone(player.current_zone);
     if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
-    return { type:'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(player.current_zone) };
+    return { type:'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(player.current_zone, 8, player) };
   }
 
   const t = targetStr.toLowerCase();
@@ -996,7 +1004,7 @@ async function applyLightSwitch(nameStr, dir, player, broadcast) {
   if (broadcast) broadcast(player.current_zone, { type: 'zone_event', message: otherMsg, refresh: true }, player.id);
   const zone = getZone(player.current_zone);
   const lookMsg = await describeZone(zone, player);
-  return { type:'look', message: lookMsg, notify: flipMsg, zone: player.current_zone, minimap: getMinimapData(player.current_zone) };
+  return { type:'look', message: lookMsg, notify: flipMsg, zone: player.current_zone, minimap: getMinimapData(player.current_zone, 8, player) };
 }
 
 // "switch on/off <name>" or "switch <name> on/off" or "switch <name>" (toggle)
@@ -1061,7 +1069,7 @@ async function cmdTeleport(targetZoneId, player, broadcast) {
   broadcast(targetZoneId, { type:'zone_event', message:`${player.handle} flickers into existence out of nowhere.` }, player.id);
 
   logActivity('admin_cmd', player.handle, null, `teleport → ${targetZoneId}`);
-  return { type:'move', message: await describeZone(targetZone, player), zone: targetZoneId, minimap: getMinimapData(targetZoneId) };
+  return { type:'move', message: await describeZone(targetZone, player), zone: targetZoneId, minimap: getMinimapData(targetZoneId, 8, player) };
 }
 
 // The `.admin` command reference. One hand-maintained catalog is the single
@@ -1084,6 +1092,13 @@ const ADMIN_COMMANDS = [
   { verb:'dresscyd',        args:'[save]',                 desc:'Dress the Cyd NPC from the saved outfit (save = snapshot current).', roles:['admin','dev'],           cat:'Content' },
   { verb:'cooktest',        args:'[difficulty] [hard]',    desc:'Open the cook minigame in test mode (no inventory).', roles:['admin','dev','builder','designer'],   cat:'Content' },
   { verb:'splicetest',      args:'',                       desc:'Open the splice designer in test mode.',             roles:['admin','dev','builder','designer'],   cat:'Content' },
+  { verb:'invite',          args:'<player>',               desc:'Add a player to The Echelon invite list.',           roles:['admin'],                              cat:'Echelon' },
+  { verb:'uninvite',        args:'<player>',               desc:'Remove a player from The Echelon invite list.',      roles:['admin'],                              cat:'Echelon' },
+  { verb:'invites',         args:'',                       desc:'List The Echelon invite list.',                      roles:['admin'],                              cat:'Echelon' },
+  { verb:'sail',            args:'<n|s|e|w>',              desc:"Steer The Echelon one water tile (from her bridge; 5-min cooldown). No arg shows helm status.", roles:['admin'], cat:'Echelon' },
+  { verb:'dock',            args:'',                       desc:'Lower or retract The Echelon gangway to an adjacent pier.', roles:['admin'],                        cat:'Echelon' },
+  { verb:'airemergency',    args:'[broadcast id]',         desc:"Seize every tuned TV in Architect with the Echelon's emergency bulletin (from the Emergency Broadcast Console).", roles:['admin','dev'], cat:'Echelon' },
+  { verb:'endemergency',    args:'',                       desc:'End the emergency broadcast; normal programming resumes citywide.', roles:['admin','dev'],                cat:'Echelon' },
 ];
 
 function cmdAdmin(player) {

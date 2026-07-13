@@ -2533,6 +2533,37 @@ function _playDeckItem(item, state, nowMs) {
   return result ? { text: result.text, key: `deck:${item.broadcastId}:${result.idx}` } : null;
 }
 
+// ── Emergency broadcast override ───────────────────────────────────────────────
+// The Echelon's special MediaDeck can seize EVERY on-air channel at once: while an
+// override is active, every channel plays the emergency feed instead of its own
+// content, and normal programming resumes the instant it's cleared. Only ONE feed,
+// city-wide — this is the single global counterpart to the per-deck pirate override.
+let emergencyOverride = null; // { broadcastId, item } | null
+
+const _EMERGENCY_COLS = 'playback_mode, messages, message_interval, broadcast_graph, fallback_messages, weather_pools, sports_pools';
+
+export async function startEmergency(broadcastId) {
+  if (!broadcastId) return { ok: false, error: 'no broadcast id' };
+  const { rows } = await query(`SELECT ${_EMERGENCY_COLS} FROM media_broadcasts WHERE id=$1`, [broadcastId]).catch(() => ({ rows: [] }));
+  if (!rows[0]) return { ok: false, error: `no such broadcast: ${broadcastId}` };
+  emergencyOverride = { broadcastId, item: _deckItemFrom(broadcastId, rows[0]) };
+  return { ok: true };
+}
+
+export function stopEmergency() { const was = !!emergencyOverride; emergencyOverride = null; return { ok: true, wasActive: was }; }
+export function emergencyActive() { return !!emergencyOverride; }
+
+// The one place channel content is resolved for a tick. While an emergency override
+// is live it wins over everything (deck cassette, pirate, scheduled programming);
+// otherwise the normal precedence applies: loaded deck/pirate cassette, then the
+// scheduled channel content. `deckZoneId` is the channel's transmitter zone (null on
+// the studio-acting path when the channel has no deck bound).
+async function _resolveTickMessage(deckZoneId, state, nowMs) {
+  if (emergencyOverride) return _playDeckItem(emergencyOverride.item, state, nowMs);
+  const deckResult = deckZoneId ? await _getDeckMessage(deckZoneId, nowMs, state) : null;
+  return deckResult || await getCurrentMessage(state, nowMs);
+}
+
 // ── Broadcast tick ───────────────────────────────────────────────────────────
 
 // The media deck IS the channel's transmitter: it routes the studio cameras and
@@ -2601,9 +2632,9 @@ async function broadcastTick() {
 
       let result;
       try {
-        // Media deck check: a loaded cassette in this zone overrides channel content
-        const deckResult = await _getDeckMessage(zoneId, nowMs, state);
-        result = deckResult || await getCurrentMessage(state, nowMs);
+        // Media deck check: a loaded cassette in this zone overrides channel content,
+        // and a city-wide emergency override wins over even that.
+        result = await _resolveTickMessage(zoneId, state, nowMs);
       } catch (err) {
         console.error(`[broadcast] tick error (${channelId}):`, err.message);
         continue;
@@ -2729,8 +2760,7 @@ async function broadcastTick() {
     if (!observed) continue;
     activeChannels.add(channelId);                 // claim it so the deck pass won't re-tick
     try {
-      const deckResult = state.deckZoneId ? await _getDeckMessage(state.deckZoneId, nowMs, state) : null;
-      const result = deckResult || await getCurrentMessage(state, nowMs);
+      const result = await _resolveTickMessage(state.deckZoneId, state, nowMs);
       // getCurrentMessage already performed the on-stage acting via sendToZone as a
       // side effect. There are no TV watchers on this path (or the channel would be in
       // activeChannels), so we only track state and feed any deck-preview monitors.
@@ -2775,8 +2805,7 @@ async function broadcastTick() {
     if (!state) continue;
     let result;
     try {
-      const deckResult = state.deckZoneId ? await _getDeckMessage(state.deckZoneId, nowMs, state) : null;
-      result = deckResult || await getCurrentMessage(state, nowMs);
+      result = await _resolveTickMessage(state.deckZoneId, state, nowMs);
     } catch (err) {
       console.error(`[broadcast] deck-preview tick error (${channelId}):`, err.message);
       continue;
@@ -4994,11 +5023,38 @@ export function getZoneNowPlaying(zoneId) {
   };
 }
 
+// ── Emergency broadcast verbs (the Echelon's special MediaDeck) ────────────────
+async function cmdAirEmergency(args, raw, player, broadcast) {
+  if (!_isDeckAdmin(player)) return { type: 'error', message: 'Only station administrators can seize the airwaves.' };
+  const { rows } = await query(
+    `SELECT flags FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"emergency_deck"%' LIMIT 1`,
+    [player.current_zone]
+  ).catch(() => ({ rows: [] }));
+  if (!rows[0]) return { type: 'error', message: 'There is no emergency broadcast deck here. This can only be done from the Echelon.' };
+  const dflags = typeof rows[0].flags === 'object' ? rows[0].flags : JSON.parse(rows[0].flags || '{}');
+  const broadcastId = args?.[0] || dflags.deck_active || dflags.emergency_broadcast_id;
+  if (!broadcastId) return { type: 'error', message: 'Load an emergency bulletin into the deck first, or name one: airemergency <broadcast id>.' };
+  const r = await startEmergency(broadcastId);
+  if (!r.ok) return { type: 'error', message: `Cannot go to air: ${r.error}.` };
+  broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} throws the EMERGENCY BROADCAST switch. The ON AIR lamp floods the room red.` }, player.id);
+  return { type: 'system', message: '⚠ EMERGENCY BROADCAST ENGAGED. Every tuned television in Architect now carries your feed. Type ENDEMERGENCY to release the airwaves.' };
+}
+
+function cmdEndEmergency(args, raw, player, broadcast) {
+  if (!_isDeckAdmin(player)) return { type: 'error', message: 'Only station administrators can release the airwaves.' };
+  const r = stopEmergency();
+  if (!r.wasActive) return { type: 'system', message: 'No emergency broadcast is currently on air.' };
+  broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} cuts the emergency feed. The ON AIR lamp dies.` }, player.id);
+  return { type: 'system', message: 'Emergency broadcast ended. Normal programming resumes across the city.' };
+}
+
 export const commands = {
   tune:  cmdTune,
   watch: cmdWatch,
   listen: cmdWatch,
   tv:    cmdTv,
+  airemergency: cmdAirEmergency,
+  endemergency: cmdEndEmergency,
   load:  (args, raw, player) => {
     // A surveillance chip is a mini-cassette (media_cassette tag + a hidden
     // scripted broadcast of its footage), so `load chip`/`load footage …` plays a

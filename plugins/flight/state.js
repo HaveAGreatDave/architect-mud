@@ -772,12 +772,18 @@ export async function parkAt(live, zoneId) {
     const p = getLivePlayer(pid);
     if (!p) continue;
     if (p.posture === 'flying') forceStand(p, 'flight.land');
+    const from = p.current_zone;
     p.current_zone = occZone;
     getZone(occZone)?.players.add(pid);
     closeHud(pid);
     out(pid, occZone === zoneId
       ? `<span class="text-dim">You are down at ${z?.name || 'the field'}.</span>`
       : `<span class="text-dim">You taxi into the hangar at ${z?.name || 'the field'}, cut the engine, and climb out.</span>`);
+    // Setting foot on the ground is an arrival — fire the event so zone.entered
+    // consumers (first-visit lore, and the Echelon's board check that smites an
+    // uninvited pilot who set down on the yacht) run for a fly-in exactly as they
+    // do for someone who walked in.
+    emit('zone.entered', { actor: p, zone: occZone, from });
   }
   await persist(live);
 }

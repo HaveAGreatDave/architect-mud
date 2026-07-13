@@ -285,7 +285,7 @@ function playBroadcast(player) {
       }).join(', ');
       out(player, `<span class="ambient">Objects thud onto the invisible floor in front of you, one after another, as if the dark is emptying its pockets:</span> ${mentions}. <span class="hint">(take them or leave them — then go north to the collapse)</span>`);
       const zone = getZone(Z_BROADCAST);
-      if (zone) sendToPlayer(player.id, { type: 'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(zone.id) });
+      if (zone) sendToPlayer(player.id, { type: 'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(zone.id, 8, player) });
     } catch (e) {
       console.error('[prologue] broadcast kit drop failed:', e.message);
     }

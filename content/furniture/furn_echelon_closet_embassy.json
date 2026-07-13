@@ -1,0 +1,17 @@
+{
+  "description": "A narrow wardrobe closet built into the wall, its door flush with the panelling. It looks entirely ordinary.",
+  "flags": {
+    "teleporter": true,
+    "teleport_target": "zone_echelon_foyer",
+    "concealed": true,
+    "interactions": []
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_closet_embassy",
+  "name": "wardrobe closet",
+  "object_type": "furniture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_apt_9"
+}

@@ -240,21 +240,29 @@ const HORNY_TIERS = [
     ['Your thoughts drift somewhere warmer. You push them aside — mostly.'],
     ['A low heat settles in your body, patient and insistent.'],
     ['You become aware of your body in a way you weren\'t a moment ago.'],
+    ['A slow ache starts up, low and unhurried.'],
+    ['Your skin prickles. Something in you just woke up and stretched.'],
   ]},
   { at: 65, messages: [
     ['The heat is getting harder to ignore. It has your attention now.'],
     [`Your pulse picks up for no reason you'd admit to out loud.`],
     ['You catch yourself thinking about it. More than once.'],
+    [`There's a tension coiling low in your gut, winding tighter.`],
+    ['You shift your weight. It doesn\'t help.'],
   ]},
   { at: 80, messages: [
     [`It's getting hard to think about anything else.`],
     ['Your body is very clearly asking for something now.'],
     [`The heat has stopped being subtle. You're squirming a little.`],
+    [`Every thought keeps sliding back to the same place.`],
+    [`You're breathing a little harder and you know exactly why.`],
   ]},
   { at: 92, messages: [
     [`You're right on the edge. It wouldn't take much at all.`],
     ['Every nerve feels lit up. You could go any second.'],
     [`You're teetering. One more push and you're gone.`],
+    [`Your whole body is drawn tight as a wire.`],
+    [`You're so close it aches. Do not stop now.`],
   ]},
 ];
 
@@ -264,21 +272,32 @@ const HNNNG_MESSAGES = [
   [`HNNNNNNNNNGGGGGGGGG— you're seconds away. Last chance to choose where this goes.`],
   [`HNNNGGGGGGH— it's right there. If you're going to aim, do it NOW.`],
   [`HNNNNNGGGGGGG— your whole body has locked up. This is it.`],
+  [`HNNNNGH— no more decisions after this one. Aim or don't.`],
+  [`HHHNNNNGGGG— the point of no return just waved goodbye. NOW.`],
 ];
 
 const CLIMAX_MESSAGES = [
   ['A wave of release moves through you, sudden and overwhelming. The tension breaks. (+10 Sanity)'],
   ['Your body shudders. For a moment, nothing else exists. Then the world comes back. (+10 Sanity)'],
   ['The pressure crests and lets go all at once. You exhale. (+10 Sanity)'],
+  ['It hits you like a dropped ceiling. Everything goes white, then quiet. (+10 Sanity)'],
+  ['You come apart at the seams and take a moment to reassemble. (+10 Sanity)'],
+  ['Release rolls through you, toes to scalp. You forget your own name briefly. (+10 Sanity)'],
 ];
 
 const GROUND_CLIMAX_MESSAGES = [
   ['You come hard, spilling onto the ground at your feet. The tension leaves your body all at once. (+10 Sanity)'],
   ['Your body shudders through it and you finish on the floor. You stand still for a moment, catching your breath. (+10 Sanity)'],
   ['You let go, making a mess of the ground below you. Your legs feel weak. (+10 Sanity)'],
+  ['You finish with a groan, painting the floor and swaying on your feet. (+10 Sanity)'],
+  ['It rips through you and you spill onto the ground, knees buckling. (+10 Sanity)'],
+  ['You come undone, making a mess of the floor and regretting nothing. (+10 Sanity)'],
 ];
 
-// Message pools for ongoing masturbation events (zone-visible)
+// Message pools for ongoing masturbation events (zone-visible).
+// MASTURBATE_EVENT_* (zone, third-person) and MASTURBATE_EVENT_SELF_* (actor,
+// "you") are index-aligned — the event loop uses the same idx for both, so an
+// onlooker's line always matches the actor's private one. Keep them in lockstep.
 export const MASTURBATE_EVENT_MALE = [
   `{name} strokes themselves slowly, lost in it.`,
   `{name} jerks off against the wall, breath catching.`,
@@ -286,6 +305,12 @@ export const MASTURBATE_EVENT_MALE = [
   `{name} masturbates openly, completely absorbed.`,
   `{name} pumps their fist in long, deliberate strokes.`,
   `{name} edges themselves, fingers tight, pace building.`,
+  `{name} spits in their palm and keeps going, shameless.`,
+  `{name} grips themselves harder, jaw clenched.`,
+  `{name} strokes faster now, all pretense gone.`,
+  `{name} works their cock like it owes them money.`,
+  `{name} groans low, hips jerking into their own fist.`,
+  `{name} thumbs the head and shudders, not stopping.`,
 ];
 
 export const MASTURBATE_EVENT_FEMALE = [
@@ -295,10 +320,15 @@ export const MASTURBATE_EVENT_FEMALE = [
   `{name} masturbates openly, breath coming in short pulls.`,
   `{name} works their fingers faster, thighs pressing together.`,
   `{name} pleasures themselves with slow, deliberate circles.`,
+  `{name} sinks two fingers in and rolls their hips.`,
+  `{name} rubs their clit in tight, urgent circles.`,
+  `{name} bites their lip, grinding down onto their own hand.`,
+  `{name} fucks themselves on their fingers, pace climbing.`,
+  `{name} whimpers, thighs shaking around their wrist.`,
+  `{name} works themselves harder, past caring who sees.`,
 ];
 
-// Self ("you") versions of the masturbation event lines, index-aligned with the
-// zone-visible pools above so the actor's private message matches what onlookers see.
+// Self ("you") versions, index-aligned with the zone-visible pools above.
 export const MASTURBATE_EVENT_SELF_MALE = [
   `You stroke yourself slowly, lost in it.`,
   `You jerk off against the wall, breath catching.`,
@@ -306,6 +336,12 @@ export const MASTURBATE_EVENT_SELF_MALE = [
   `You masturbate, completely absorbed.`,
   `You pump your fist in long, deliberate strokes.`,
   `You edge yourself, fingers tight, pace building.`,
+  `You spit in your palm and keep going, shameless.`,
+  `You grip yourself harder, jaw clenched.`,
+  `You stroke faster now, all pretense gone.`,
+  `You work your cock like it owes you money.`,
+  `You groan low, hips jerking into your own fist.`,
+  `You thumb the head and shudder, not stopping.`,
 ];
 
 export const MASTURBATE_EVENT_SELF_FEMALE = [
@@ -315,6 +351,12 @@ export const MASTURBATE_EVENT_SELF_FEMALE = [
   `You masturbate, breath coming in short pulls.`,
   `You work your fingers faster, thighs pressing together.`,
   `You pleasure yourself with slow, deliberate circles.`,
+  `You sink two fingers in and roll your hips.`,
+  `You rub your clit in tight, urgent circles.`,
+  `You bite your lip, grinding down onto your own hand.`,
+  `You fuck yourself on your fingers, pace climbing.`,
+  `You whimper, thighs shaking around your wrist.`,
+  `You work yourself harder, past caring who sees.`,
 ];
 
 // Passive-witness reaction lines for NPCs who see a MIS act happen in their zone.
@@ -326,6 +368,12 @@ export const NPC_WITNESS_AROUSED = [
   `{npc} bites their lip, watching.`,
   `{npc} doesn't look away — they like what they see.`,
   `{npc} lets out a low, appreciative sound.`,
+  `{npc} adjusts themselves, not bothering to hide it.`,
+  `{npc} murmurs "oh, don't stop on my account."`,
+  `{npc} leans against the wall to enjoy the view.`,
+  `{npc} watches with the focus of a nature documentary crew.`,
+  `{npc} grins and starts quietly rooting for you.`,
+  `{npc}'s breath goes shallow watching.`,
 ];
 
 export const NPC_WITNESS_DISGUST = [
@@ -335,7 +383,47 @@ export const NPC_WITNESS_DISGUST = [
   `{npc} mutters something and grimaces.`,
   `{npc} shoots a horrified look their way.`,
   `{npc} wrinkles their nose and turns away.`,
+  `{npc} gags audibly and steps back.`,
+  `{npc} says "what is WRONG with you" to no one in particular.`,
+  `{npc} covers their eyes like a scandalized aunt.`,
+  `{npc} makes a note to burn this whole zone down later.`,
+  `{npc} loudly announces they are calling someone about this.`,
+  `{npc} whispers a prayer to whatever's listening.`,
 ];
+
+// Reactions a willing NPC broadcasts as their (transient, in-memory) arousal
+// climbs and finally breaks. {npc} = the NPC's name.
+export const NPC_AROUSAL_MSGS = {
+  building: [
+    `{npc} lets out a soft moan.`,
+    `{npc}'s breath goes ragged.`,
+    `{npc} whimpers and pushes into it.`,
+    `{npc} grips at you, breathing hard.`,
+    `{npc} moans, hips moving on their own.`,
+    `{npc} bites back a groan and fails.`,
+  ],
+  edge: [
+    `{npc} is panting now, right on the edge.`,
+    `{npc} claws at you, barely holding on.`,
+    `{npc} gasps, "don't stop — don't you dare stop—"`,
+    `{npc} shakes, teeth gritted, so close.`,
+    `{npc} whines high in their throat, almost there.`,
+  ],
+};
+export const NPC_CLIMAX_MSGS = {
+  female: [
+    `{npc} cries out and comes hard, shuddering against you.`,
+    `{npc} arches, moans, and finishes with a full-body shudder.`,
+    `{npc} clenches and comes, gasping someone's name.`,
+    `{npc} shudders through a climax and sags, breathless.`,
+  ],
+  male: [
+    `{npc} groans and spills, cock pulsing.`,
+    `{npc} grunts and finishes, shuddering through it.`,
+    `{npc} comes hard with a strangled groan.`,
+    `{npc} empties with a shudder and goes slack.`,
+  ],
+};
 
 // Ongoing fucking event messages by location
 export const FUCK_EVENT_PLAYER_MSGS = {
@@ -344,21 +432,32 @@ export const FUCK_EVENT_PLAYER_MSGS = {
     `You pump {target}'s cock down your throat, setting a rhythm.`,
     `{target} grips your head and keeps fucking your face.`,
     `You gag slightly as {target} keeps going.`,
+    `You bury {target} to the base and hold it there.`,
+    `You drool down {target}'s cock, working it with your tongue.`,
+    `You take {target} deeper, eyes watering.`,
   ],
   pussy: [
     `You thrust into {target} harder.`,
     `You drive into {target}'s pussy, deep and insistent.`,
     `You pick up the pace, fucking {target} harder.`,
     `You and {target} keep going, completely absorbed.`,
+    `You grip {target}'s hips and slam home.`,
+    `You feel {target} clench around you and keep pounding.`,
+    `You fold {target} in half and go deeper.`,
   ],
   ass: [
     `You pump into {target}'s ass in a grinding rhythm.`,
     `You drive deep into {target} and keep going.`,
     `You set a harder pace, buried in {target}'s ass.`,
+    `You grip {target}'s hips and bury yourself to the hilt.`,
+    `You spread {target} wider and thrust deeper.`,
+    `You ride {target}'s ass in long, punishing strokes.`,
   ],
   default: [
     `You keep going, fucking {target} with increasing urgency.`,
     `You and {target} go at it steadily.`,
+    `You grip {target} tighter and pick up the pace.`,
+    `You lose the rhythm to sheer need, hammering into {target}.`,
   ],
 };
 
@@ -368,20 +467,31 @@ export const FUCK_EVENT_TARGET_MSGS = {
     `{name} pumps into your throat.`,
     `{name} grips your head and keeps going.`,
     `You gag slightly as {name} keeps going.`,
+    `{name} holds you down, buried to the base.`,
+    `{name} fucks your face without mercy.`,
+    `{name} pushes deeper, your eyes watering.`,
   ],
   pussy: [
     `{name} drives into your pussy harder.`,
     `{name} thrusts into you with building intensity.`,
     `{name} picks up the pace, fucking you harder.`,
+    `{name} grips your hips and slams home.`,
+    `{name} folds you in half and goes deeper.`,
+    `{name} fills you completely with every stroke.`,
   ],
   ass: [
     `{name} pumps into your ass in a grinding rhythm.`,
     `{name} drives deep and keeps going.`,
     `{name} sets a harder pace in your ass.`,
+    `{name} buries themselves in your ass to the hilt.`,
+    `{name} spreads you wider and thrusts deeper.`,
+    `{name} rides your ass in long, punishing strokes.`,
   ],
   default: [
     `{name} keeps fucking you with increasing urgency.`,
     `You and {name} keep going.`,
+    `{name} grips you tighter and picks up the pace.`,
+    `{name} hammers into you, past all restraint.`,
   ],
 };
 
@@ -390,6 +500,9 @@ export const FUCK_EVENT_MSGS = {
     `{name} pumps into {target}'s throat, setting a rhythm.`,
     `{name} grips {target}'s head, fucking their face steadily.`,
     `{target} gags slightly as {name} keeps going.`,
+    `{name} holds {target} down and thrusts deep.`,
+    `{target} drools around {name}'s cock, taking it.`,
+    `{name} uses {target}'s mouth without mercy.`,
   ],
   pussy: [
     `{name} thrusts into {target} with building intensity.`,
@@ -397,18 +510,26 @@ export const FUCK_EVENT_MSGS = {
     `{name} drives into {target}'s pussy, deep and insistent.`,
     `{target} grips {name}'s back as {name} keeps thrusting.`,
     `{name} picks up the pace, fucking {target} harder.`,
+    `{name} grips {target}'s hips and slams home.`,
+    `{target} moans as {name} folds them in half.`,
+    `{name} pounds into {target}, the slap of skin filling the room.`,
   ],
   ass: [
     `{name} pumps into {target}'s ass in a grinding rhythm.`,
     `{name} and {target} continue — {name} buried in {target}'s ass.`,
     `{name} drives deep into {target} and keeps going.`,
     `{target} grunts as {name} sets a harder pace.`,
+    `{name} grips {target}'s hips and buries themselves to the hilt.`,
+    `{name} spreads {target} wider and thrusts deeper.`,
+    `{name} rides {target}'s ass in long, punishing strokes.`,
   ],
   default: [
     `{name} and {target} continue having sex.`,
     `{name} and {target} are going at it steadily.`,
     `{name} fucks {target} with increasing urgency.`,
     `{name} and {target} keep going, lost in each other.`,
+    `{name} grips {target} tighter and picks up the pace.`,
+    `{name} hammers into {target}, past all restraint.`,
   ],
 };
 
@@ -418,22 +539,231 @@ export const EJACULATE_ZONE_MSGS = {
     `{name} finishes with a groan, coming onto the ground.`,
     `{name} shudders and spills across the floor.`,
     `{name} comes hard, making a mess at their feet.`,
+    `{name} grunts and empties onto the ground.`,
+    `{name} paints the floor and exhales like they ran a marathon.`,
+    `{name} finishes messily where they stand.`,
   ],
   on_player: [
     `{name} finishes on {target}, leaving them marked.`,
     `{name} comes across {target}'s {part}.`,
     `{name} shudders and empties onto {target}.`,
+    `{name} paints {target}'s {part} and groans.`,
+    `{name} coats {target}'s {part}, breathing hard.`,
+    `{name} finishes all over {target}'s {part}.`,
   ],
   into_player: [
     `{name} buries deep and finishes inside {target}.`,
     `{name} comes hard inside {target}'s {part}.`,
     `{name} shudders through a climax, buried in {target}.`,
+    `{name} holds {target} down and empties inside them.`,
+    `{name} floods {target}'s {part} and stays buried.`,
+    `{name} finishes deep in {target} with a low groan.`,
+  ],
+  into_mouth: [
+    `{name} finishes down {target}'s throat.`,
+    `{name} holds {target}'s head still and empties into their mouth.`,
+    `{name} comes hard in {target}'s mouth; they swallow it down.`,
+    `{name} shudders, spilling across {target}'s tongue.`,
+    `{name} pumps the last of it into {target}'s mouth.`,
   ],
   furniture: [
     `{name} finishes against the {target}, leaving it marked.`,
     `{name} comes onto the {target}.`,
+    `{name} empties onto the {target} with a grunt.`,
+    `{name} leaves the {target} dripping and doesn't apologize.`,
   ],
 };
+
+// ── Service acts (finger / handjob / suck / eat out) ─────────────────────────
+// These are ongoing timed events where the ACTOR pleasures the TARGET, so the
+// TARGET's horniness drives the climax (unlike fuck/masturbate, where the actor
+// finishes). Pools keyed by act — {name} is the actor (performer), {target} is
+// the receiver. zone = third-person room line, actor = performer's "you" line,
+// target = receiver's "{name}…" line.
+export const SERVICE_EVENTS = {
+  finger_pussy: {
+    zone: [
+      `{name} works their fingers into {target}, wrist moving steadily.`,
+      `{name} fingers {target} deep, thumb circling.`,
+      `{target} rocks against {name}'s hand, breath ragged.`,
+      `{name} curls their fingers inside {target} and doesn't let up.`,
+    ],
+    actor: [
+      `You pump your fingers into {target}, curling them just right.`,
+      `You work {target} open, thumb rolling over their clit.`,
+      `You feel {target} clench around your fingers and go faster.`,
+      `You finger {target} harder, their wetness slicking your hand.`,
+    ],
+    target: [
+      `{name} works their fingers into you, curling them just right.`,
+      `{name} thumbs your clit while they finger you deeper.`,
+      `{name} picks up the pace, fingers buried in you.`,
+      `{name} has you clenching helplessly around their hand.`,
+    ],
+  },
+  finger_ass: {
+    zone: [
+      `{name} works a finger into {target}'s ass, slow and deliberate.`,
+      `{name} fingers {target}'s ass, other hand gripping their hip.`,
+      `{target} pushes back onto {name}'s hand with a grunt.`,
+    ],
+    actor: [
+      `You ease your fingers into {target}'s ass and find a rhythm.`,
+      `You work {target} open, feeling them tighten around you.`,
+      `You finger {target}'s ass deeper, their breath hitching.`,
+    ],
+    target: [
+      `{name} works their fingers into your ass, finding a rhythm.`,
+      `{name} presses deeper, and you push back onto their hand.`,
+      `{name} fingers your ass steadily, not letting up.`,
+    ],
+  },
+  handjob: {
+    zone: [
+      `{name} strokes {target}'s cock in a steady rhythm.`,
+      `{name} works {target} in their fist, wrist twisting.`,
+      `{target}'s hips buck into {name}'s hand.`,
+      `{name} pumps {target}'s cock faster, thumb over the head.`,
+    ],
+    actor: [
+      `You stroke {target}'s cock, thumb sliding over the head.`,
+      `You work {target} in your fist, twisting on the upstroke.`,
+      `You feel {target} throb in your hand and speed up.`,
+      `You jerk {target} harder, their breath going short.`,
+    ],
+    target: [
+      `{name} strokes your cock, thumb sliding over the head.`,
+      `{name} twists their fist on the upstroke and you groan.`,
+      `{name} works you faster, grip just right.`,
+      `{name} jerks you harder, and your hips buck into their hand.`,
+    ],
+  },
+  suck_cock: {
+    zone: [
+      `{name} works their mouth up and down {target}'s cock.`,
+      `{name} takes {target} deep, cheeks hollowing.`,
+      `{target} grips the back of {name}'s head, hips twitching.`,
+      `{name} drools around {target}'s cock, bobbing steadily.`,
+    ],
+    actor: [
+      `You take {target}'s cock deep, tongue working the underside.`,
+      `You bob up and down, cheeks hollowing around {target}.`,
+      `You feel {target} throb against your tongue and take them deeper.`,
+      `You drool down {target}'s cock and swallow around it.`,
+    ],
+    target: [
+      `{name} takes your cock deep, tongue working the underside.`,
+      `{name} bobs up and down, cheeks hollowing around you.`,
+      `{name} swallows around you, and your hips twitch.`,
+      `{name} takes you to the base and holds it there.`,
+    ],
+  },
+  suck_tits: {
+    zone: [
+      `{name} sucks at {target}'s nipple, hand kneading the other breast.`,
+      `{name} works {target}'s tits with mouth and hands.`,
+      `{target} arches into {name}'s mouth with a gasp.`,
+    ],
+    actor: [
+      `You suck {target}'s nipple, rolling the other between your fingers.`,
+      `You lave {target}'s tits with your tongue, kneading them.`,
+      `You feel {target} arch into your mouth and don't stop.`,
+    ],
+    target: [
+      `{name} sucks your nipple, rolling the other between their fingers.`,
+      `{name} works your tits with mouth and hands.`,
+      `{name} has you arching into their mouth with every pass.`,
+    ],
+  },
+  eatout_pussy: {
+    zone: [
+      `{name} buries their face between {target}'s legs, tongue working.`,
+      `{name} eats {target} out with slow, deliberate focus.`,
+      `{target} grinds against {name}'s mouth, thighs shaking.`,
+      `{name} laps at {target}, hands pinning their hips.`,
+    ],
+    actor: [
+      `You drag your tongue through {target}, slow and deliberate.`,
+      `You suck {target}'s clit and feel their thighs clamp your head.`,
+      `You eat {target} out, hands pinning their bucking hips.`,
+      `You work {target} with your tongue until they're shaking.`,
+    ],
+    target: [
+      `{name} drags their tongue through you, slow and deliberate.`,
+      `{name} sucks your clit and your thighs clamp around their head.`,
+      `{name} eats you out, hands pinning your bucking hips.`,
+      `{name} works you with their tongue until you're shaking.`,
+    ],
+  },
+  eatout_ass: {
+    zone: [
+      `{name} presses their tongue against {target}'s ass, working slowly.`,
+      `{name} rims {target}, hands spreading them wide.`,
+      `{target} shudders under {name}'s tongue.`,
+    ],
+    actor: [
+      `You work your tongue against {target}'s ass, slow and thorough.`,
+      `You rim {target}, spreading them wider with both hands.`,
+      `You feel {target} shudder against your mouth and keep going.`,
+    ],
+    target: [
+      `{name} works their tongue against your ass, slow and thorough.`,
+      `{name} rims you, spreading you wider with both hands.`,
+      `{name} has you shuddering against their mouth.`,
+    ],
+  },
+};
+
+// Receiver's climax (service acts). {name} = actor, {target} = receiver.
+export const SERVICE_CLIMAX_ZONE = {
+  female: [
+    `{target} arches and comes hard as {name} keeps working.`,
+    `{target} shudders through a climax under {name}.`,
+    `{target} cries out, finishing while {name} doesn't let up.`,
+  ],
+  male: [
+    `{target} groans and spills as {name} keeps working.`,
+    `{target} shudders and finishes under {name}.`,
+    `{target} comes hard, {name} working them through it.`,
+  ],
+};
+export const SERVICE_CLIMAX_ACTOR = {
+  generic: [
+    `{target} comes apart under you. You work them through it.`,
+    `You feel {target} tense and let go, and don't stop until they're done.`,
+    `{target} finishes hard. You keep going until they're wrung out.`,
+  ],
+  suck_cock: [
+    `{target} finishes in your mouth. You take all of it.`,
+    `{target} spills across your tongue with a groan; you swallow.`,
+    `{target} empties into your mouth and you don't spill a drop.`,
+  ],
+};
+const SERVICE_TARGET_CLIMAX = [
+  ['Your body seizes and lets go all at once. The tension breaks. (+10 Sanity)'],
+  ['You come hard under their hands, legs shaking. (+10 Sanity)'],
+  ['Release rips through you and leaves you boneless. (+10 Sanity)'],
+];
+
+// Reset the RECEIVER after a service-act climax. Males mark penis residue +
+// caller stains the zone; females mark legs. Mirrors triggerClimax's bookkeeping.
+export async function triggerServiceClimax(target) {
+  target.horniness = 0;
+  target.sanity = Math.min(target.sanity_max || 100, (target.sanity || 50) + 10);
+  target.horniness_last_increased = null;
+  if (!target.appearance_data) target.appearance_data = {};
+  if (target.biological_sex === 'male') {
+    target.erect = 0;
+    target.appearance_data.ejaculate_state = { locations: ['penis'] };
+    await query('UPDATE players SET horniness=0, erect=0, sanity=$1, appearance_data=$2 WHERE id=$3',
+      [target.sanity, JSON.stringify(target.appearance_data), target.id]);
+  } else {
+    target.appearance_data.ejaculate_state = { locations: ['legs'] };
+    await query('UPDATE players SET horniness=0, sanity=$1, appearance_data=$2 WHERE id=$3',
+      [target.sanity, JSON.stringify(target.appearance_data), target.id]);
+  }
+  return pick(SERVICE_TARGET_CLIMAX);
+}
 
 export const MIS_TUTORIAL = `<span style="color:var(--accent)">— MATURE INTERACTION SYSTEM ENABLED —</span>
 
@@ -448,18 +778,25 @@ You've unlocked biological realism mode. This system simulates the body honestly
   touch / squeeze / fondle / lick &lt;target&gt;'s &lt;body part&gt;
   kiss &lt;target&gt;
   slap &lt;target&gt;'s &lt;body part&gt;
-  suck &lt;target&gt;'s &lt;body part&gt;
+  finger &lt;target&gt;['s pussy / asshole]   (defaults by their sex)
   handjob / hj &lt;target&gt;
+  suck &lt;target&gt;'s [cock / tits / pussy]
   blowjob / bj &lt;target&gt;
   eat out &lt;target&gt;'s [pussy / ass]
   fuck &lt;target&gt; [in mouth / pussy / ass]
   sex / screw / rail / bang / breed &lt;target&gt; [in ...]
+  cum in &lt;target&gt;'s [mouth / pussy / ass]  (males, 50%+ arousal)
+
+<span style="color:var(--text-dim)">LOOK CLOSER:</span>
+  examine &lt;target&gt;'s [genitals / tits / nipples / ass / asshole]
 
 <span style="color:var(--text-dim)">OTHER:</span>
   wash   — clean yourself with water
 
 Most acts restore sanity. Arousal builds during events and peaks at climax.
-Penetrative sex requires naked legs — clothed players grind instead.
+finger / handjob / suck / eat out are ongoing — they run until your partner
+finishes (or you STOP), and the whole room can see. Penetrative sex requires
+naked legs — clothed players grind instead.
 Type <span style="color:var(--accent)">examine me</span> to see your current state.
 
 <span style="color:var(--text-dim)">Type MIS OFF in the debug field to disable.</span>`;

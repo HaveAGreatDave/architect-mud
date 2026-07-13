@@ -61,6 +61,18 @@ export function openDialogue(msg) {
     } else {
       btn.textContent = label;
     }
+    // A turn-in option for a quest you've accepted but not yet finished: the
+    // server marks it disabled rather than hiding it, so you can see the hand-in
+    // exists but can't misfire it. Clicking it isn't dead — it drops you into the
+    // Tablet Quests screen for that quest so you can read what's still outstanding.
+    if (opt._turninDisabled) {
+      btn.classList.add('dialogue-opt-locked');
+      btn.title = 'Finish this job first — tap to see what\'s left to do.';
+      const qid = opt._turninQuestId;
+      btn.onclick = () => { closeDialogue(); import('./tablet-os.js').then(m => m.openTabletToQuest(qid)); };
+      opts.appendChild(btn);
+      continue;
+    }
     // A `cmd`-carrying option (e.g. "What's on the board?") jumps straight to
     // another UI (Tablet OS) instead of the next dialogue screen — close this
     // panel and run the command like any other action-link, rather than

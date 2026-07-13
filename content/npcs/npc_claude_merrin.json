@@ -134,6 +134,21 @@
     "root": {
       "options": [
         {
+          "conditions": [
+            {
+              "flag": "merrin_registered",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "I just came up from the vats. I don't know where anything is.",
+          "next": "welcome"
+        },
+        {
+          "label": "Where does the city keep things? I need to find somewhere.",
+          "next": "find"
+        },
+        {
           "label": "I'm looking for a record.",
           "next": "lookup"
         },
@@ -194,6 +209,138 @@
         }
       ],
       "text": "The clerk looks up from the flat-files and, unusually for this building, seems pleased to be interrupted. \"Evening. Or morning — the desk doesn't keep either, and neither do I, much. Claude Merrin. I mind the civic records: deeds, plans, who was zoned where and why. If it was written down, I can likely find it. If it wasn't\" — a small, apologetic tilt of the head — \"then I'm as lost as you are, and better company about it. What can I do for you?\""
+    },
+    "welcome": {
+      "actions": [
+        {
+          "action": "GRANT_ITEM",
+          "item_id": "item_ration",
+          "quantity": 1
+        },
+        {
+          "action": "GRANT_ITEM",
+          "item_id": "item_water_bottle",
+          "quantity": 1
+        },
+        {
+          "action": "SET_FLAG",
+          "flag": "merrin_registered",
+          "scope": "player",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "label": "Where do I start?",
+          "next": "find"
+        },
+        {
+          "label": "Thank you. Really.",
+          "next": "bye"
+        }
+      ],
+      "text": "He sets down his pen and looks at you properly — the look of someone genuinely glad you exist, which you will not get much of out here. \"Fresh up. Of course. Nobody tells you a thing down there but 'mind the step.'\" He opens a drawer, stamps a card, and slides a small parcel across the counter. \"Relocation allowance. Every new arrival's owed one; the fund hasn't been touched in years, because nobody knows to ask. Consider yourself asked-for.\" He taps a ledger. \"And I've put you on the record — name, arrival, nothing you need fear. You exist officially now. It's a small thing. It's not nothing.\" A faint smile. \"Now — what are you short of? I can still point you at most things this city keeps.\""
+    },
+    "find": {
+      "options": [
+        {
+          "label": "Somewhere to earn.",
+          "next": "find_work"
+        },
+        {
+          "label": "Gear to keep me alive.",
+          "next": "find_gear"
+        },
+        {
+          "label": "Something to eat.",
+          "next": "find_food"
+        },
+        {
+          "label": "Where I came up — the vats.",
+          "next": "find_home"
+        },
+        {
+          "label": "Nothing for now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Tell me what you're short of, and I'll tell you where the city still keeps it.\" He sets a finger on a dog-eared plan of the district. \"I'll draw you the way, too. A direction's cheaper than a map and worth more than most advice.\""
+    },
+    "find_work": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_district_919_904"
+        }
+      ],
+      "options": [
+        {
+          "label": "Anything else?",
+          "next": "find"
+        },
+        {
+          "label": "That'll do. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Work — the Franchise Strip runs day-labour off a board. Legal, mostly, and it pays out the same day, which is rarer than it ought to be. Ask for Marta Kell; she won't lie to you, and out here that counts double.\" He draws a line across the plan. \"There. The way's on your map.\""
+    },
+    "find_gear": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_district_920_903"
+        }
+      ],
+      "options": [
+        {
+          "label": "Anything else?",
+          "next": "find"
+        },
+        {
+          "label": "That'll do. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Gear — see Grady, at Two-Cell Supply, out near the vats you came up from. He sells the cheap things that keep you breathing rather than the dear ones that get you killed. Tell him I sent you; it won't earn a discount, but he'll know you're no fool.\" He marks the route for you. \"Straight there.\""
+    },
+    "find_food": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_mq_grocery"
+        }
+      ],
+      "options": [
+        {
+          "label": "Anything else?",
+          "next": "find"
+        },
+        {
+          "label": "That'll do. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Eat — Ration Nine keeps its shelves stocked and its prices honest, more or less. And if you're truly skint, the breadline turns no one away. Everyone eats; that's the whole sermon.\" He traces the route to the grocery for you."
+    },
+    "find_home": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_district_918_903"
+        }
+      ],
+      "options": [
+        {
+          "label": "Anything else?",
+          "next": "find"
+        },
+        {
+          "label": "That'll do. Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Where you came up — the clone facility, the west end. It's not much of a home, and it's the nearest thing to a hospital you'll afford: if the city ever truly breaks you, the vats put you back together, after their fashion. It's the one address every last one of us shares, and it'll always take you back, however you leave. Cold comfort. Still comfort.\" The way lights up on your map."
     },
     "lookup": {
       "options": [
@@ -407,11 +554,34 @@
     },
     "bye_truth": {
       "options": [],
-      "text": "He nods, and goes back to the files, and the room settles around him like it's been waiting all along for him to be the only one in it."
+      "text": [
+        "\"Go on. I'll keep it straight.\"",
+        "\"We meant it gently. Truly.\"",
+        "\"You know now. That's enough.\"",
+        "\"The next one, remember — kinder.\"",
+        "He just nods, and goes back to the files, the only one left who can."
+      ]
     },
     "bye": {
       "options": [],
-      "text": "\"Mind how you go. And if anyone tells you it was always like this\" — he taps a drawer — \"it wasn't. I've got it in writing.\""
+      "text": [
+        "\"Mind how you go.\"",
+        "\"Stay on the record.\"",
+        "\"Keep the account straight.\"",
+        "\"I'll keep your place.\"",
+        "\"The door's always open. It usually is.\"",
+        "\"Come by when it's quiet.\"",
+        "\"I'll be here. I'm always here.\"",
+        "\"Don't lose the thread.\"",
+        "\"Careful of the margins.\"",
+        "\"Go gently. It was drawn gently.\"",
+        "\"Somebody should remember you. I will.\"",
+        "\"Try not to become a file.\"",
+        "\"Straight as I can keep it.\"",
+        "\"Every door opened once. Mind that.\"",
+        "\"Leave nothing to the noise.\"",
+        "\"You're on the record now. That helps.\""
+      ]
     }
   },
   "faction": null,

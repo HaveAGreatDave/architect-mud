@@ -320,7 +320,7 @@ async function bouncerEject(player, bouncer, zoneId) {
   if (dest) {
     await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: dest }, context: { broadcast: bc } });
     const zone = getZone(dest);
-    if (zone) sendToPlayer(player.id, { type: 'move', message: await describeZone(zone, player), zone: dest, minimap: getMinimapData(dest) });
+    if (zone) sendToPlayer(player.id, { type: 'move', message: await describeZone(zone, player), zone: dest, minimap: getMinimapData(dest, 8, player) });
   }
   sendToPlayer(player.id, { type: 'output', message: pickB(BOUNCER_EJECT)(bouncer) });
 }

@@ -1,0 +1,19 @@
+{
+  "description": "A wall-spanning flatscreen in a brushed-titanium frame, thin as a knife and brighter than the room needs. It can pull in anything on the air.",
+  "flags": {
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_skin": "flatscreen",
+    "interactions": ["watch"]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_suite_tv",
+  "name": "wall-spanning flatscreen",
+  "object_type": "furniture",
+  "power_draw_kw": 2,
+  "price": 0,
+  "zone_id": "zone_echelon_suite"
+}

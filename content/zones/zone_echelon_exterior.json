@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "The hull's mirrored flank swallows the grey light off the Basin.",
+    "Water slaps quietly against the waterline, then goes still again.",
+    "A row of white running lights traces the superstructure and holds.",
+    "Somewhere below deck, machinery you can't see hums and falls silent."
+  ],
+  "ambient_theme": "coast",
+  "audio_theme_id": null,
+  "bg_color": "#0a0a0d",
+  "color": "#dfe6ee",
+  "created_by": "echelon",
+  "description": "A massive black luxury yacht sits motionless upon the water, its mirrored hull swallowing the light around it. Smoked glass stretches across the upper decks; subtle white running lights trace its silhouette against the Basin. The vessel is immaculate — too immaculate — as if maintained by unseen hands. It radiates quiet wealth and absolute authority. A gangway hatch leads IN to the boarding foyer.",
+  "exits": {
+    "in": "zone_echelon_foyer"
+  },
+  "flags": {
+    "yacht": true,
+    "echelon": true,
+    "district": "water",
+    "icon": "boat",
+    "airfield_id": "echelon_helipad",
+    "airfield_name": "The Echelon — Helipad",
+    "hangar_interior_zone": "zone_echelon_helipad"
+  },
+  "grid_x": 897,
+  "grid_y": 898,
+  "grid_z": 0,
+  "id": "zone_echelon_exterior",
+  "map_id": "map_world",
+  "marker": "⛴",
+  "name": "The Echelon",
+  "parent_zone": null,
+  "updated_at": "1783740000"
+}

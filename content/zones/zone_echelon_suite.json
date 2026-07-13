@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "The bed's black silk catches the light and lets it go reluctantly.",
+    "The wall screen shifts through a muted feed, painting the room in slow colour.",
+    "Something expensive and floral hangs in the air, just short of cloying."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1c1218",
+  "color": "#ffd9e6",
+  "created_by": "echelon",
+  "description": "The owner's private suite — Cyd's quarters. A low black-silk bed the size of a small room, a bar stocked with things that don't exist on any menu, and a wall of screen that can show anything the vessel can reach. Every surface is soft, dark, and worth a fortune. This is the still center of the Echelon, and it answers to exactly one person. The only way out is the hatch (SOUTH) to the landing.",
+  "exits": {
+    "south": "zone_echelon_landing"
+  },
+  "flags": {
+    "yacht": true,
+    "echelon": true,
+    "echelon_suite": true,
+    "is_interior": true,
+    "is_building": true,
+    "building_name": "The Echelon",
+    "world_exit_zone": "zone_echelon_exterior",
+    "mis_ok": true
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 2,
+  "id": "zone_echelon_suite",
+  "map_id": "map_echelon",
+  "marker": null,
+  "name": "Echelon — Owner's Suite",
+  "parent_zone": "zone_echelon_exterior",
+  "updated_at": "1783740000"
+}

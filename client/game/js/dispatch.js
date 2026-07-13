@@ -48,9 +48,37 @@ import { openHangarBay, openCharterScreen, closeHangarBay, isHangarBayActive } f
 import { openAdminPanel } from './panels/admin.js';
 import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
+import { loadSettings } from '/shared/settings.js';
 
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
+
+// The station's spoken login greeting — the formant voice (seeded to a single
+// steady "Architect" machine voice) welcomes the player by name. Mostly the plain
+// line; rarely (~1 in 8) something quieter and more ominous — but always their name.
+// It's a TV-narrator voice, so it obeys TV Audio and, on top of that, its own
+// dedicated switch (Sound → Welcome Voice) so it can be silenced independently.
+const WELCOME_PLAIN = n => `Welcome to Architect, ${n}.`;
+const WELCOME_OMINOUS = [
+  n => `Welcome back, ${n}. We kept your seat warm.`,
+  n => `${n}. You returned. They said you wouldn't.`,
+  n => `The city remembers you, ${n}. It always does.`,
+  n => `Welcome to Architect, ${n}. Do try to last longer this time.`,
+  n => `We have been waiting for you, ${n}.`,
+  n => `${n}. Reconnection confirmed. Compliance appreciated.`,
+];
+function playWelcomeVoice(handle) {
+  try {
+    const audio = loadSettings().audio || {};
+    if (audio.welcome === false) return;   // dedicated opt-out (TV Audio still gates it in speak())
+    const name = (handle || 'operator').trim();
+    const line = Math.random() < 0.125
+      ? WELCOME_OMINOUS[Math.floor(Math.random() * WELCOME_OMINOUS.length)]
+      : WELCOME_PLAIN;
+    window.AudioEngine?.init?.();
+    window.AudioEngine?.speak(line(name), { seed: 'architect' });
+  } catch { /* audio unavailable — no greeting */ }
+}
 
 // Keep the synthesized game SFX mellow — they sit under speech, music and
 // ambience and shouldn't jump out. Scales every server-pushed SFX on top of
@@ -81,6 +109,7 @@ const handlers = {
     initChannels(msg.channels || []);
     if (DEV_ROLES.includes(state.player.role)) showDevPanelButton();
     if (wasReconnect) appendMsg('Reconnected.', 'system');
+    else playWelcomeVoice(state.player.handle);   // spoken login greeting (fresh logins only)
     syncPanels(); // request data + cam catalog for any custom panels
   },
 

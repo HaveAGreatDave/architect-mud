@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "The landing circle's marker lights breathe a slow, patient red.",
+    "Wind scours straight across the open pad and off into the dark.",
+    "A windsock snaps once toward the city and goes slack."
+  ],
+  "ambient_theme": "coast",
+  "audio_theme_id": null,
+  "bg_color": "#12161a",
+  "color": "#cfd8e0",
+  "created_by": "echelon",
+  "description": "The helipad: a broad open circle of non-slip deck ringed in recessed landing lights, cantilevered out over the stern and open to the sky. Rotor wash, rain, wind and ash all reach you here — it is outside in every sense but the floor beneath your feet. A Dragonfly sets down on a whisper of turbine and its passengers step straight out onto the deck. Beyond the rail there is only air and the long drop to the Basin. The stair landing lies to the NORTH.",
+  "exits": {
+    "north": "zone_echelon_landing"
+  },
+  "flags": {
+    "yacht": true,
+    "echelon": true,
+    "echelon_helipad": true,
+    "is_interior": true,
+    "is_building": true,
+    "open_sky": true,
+    "building_name": "The Echelon",
+    "world_exit_zone": "zone_echelon_exterior"
+  },
+  "grid_x": 0,
+  "grid_y": 1,
+  "grid_z": 2,
+  "id": "zone_echelon_helipad",
+  "map_id": "map_echelon",
+  "marker": null,
+  "name": "Echelon — Helipad",
+  "parent_zone": "zone_echelon_exterior",
+  "updated_at": "1783740000"
+}

@@ -23,9 +23,15 @@ function turnInQuestId(opt, tree) {
 }
 
 // Options are gated by their authored Conditions AND, additively, an implicit
-// gate: a "turn in" option never shows unless the quest is actually complete
-// (player Flag `quest_<id> === 'completed'`) — so authors can't forget to add
-// that Condition by hand and leave a "report back" choice always clickable.
+// gate on any "turn in" option, driven by the player's quest status flag. Three
+// states, so a player is never offered a hand-in they can't actually make:
+//   • completed              → shown and clickable (normal option)
+//   • active (accepted, not
+//     yet complete)          → shown but DISABLED (`_turninDisabled`); the client
+//                              routes a click to the Tablet Quests screen for this
+//                              quest (`_turninQuestId`) so they see what's left.
+//   • unset / turned_in /
+//     abandoned               → hidden entirely (never accepted, or already done).
 export async function filterDialogueOptions(options, tree, player) {
   const out = [];
   for (const opt of options || []) {
@@ -33,6 +39,7 @@ export async function filterDialogueOptions(options, tree, player) {
     const questId = turnInQuestId(opt, tree);
     if (questId && player) {
       const status = await getFlag('player', questId, player);
+      if (status === 'active') { out.push({ ...opt, _turninDisabled: true, _turninQuestId: questId }); continue; }
       if (status !== 'completed') continue;
     }
     out.push(opt);
@@ -79,7 +86,10 @@ export async function renderDialogueNode(npc, nodeKey, player, context) {
   const options = await filterDialogueOptions(node.options, tree, player);
   // `{quest}` in a node's text resolves to the quest name a generic hand-in node is
   // turning in (context.quest_name, set by Tablet OS) so the NPC can name the job.
-  let text = node.text + appendMessage;
+  // A node may carry an ARRAY of interchangeable lines (e.g. an NPC's varied sign-offs);
+  // pick one at random each render so repeated visits don't read from a fixed script.
+  const baseText = Array.isArray(node.text) ? node.text[Math.floor(Math.random() * node.text.length)] : node.text;
+  let text = baseText + appendMessage;
   if (context?.quest_name) text = text.replace(/\{quest\}/g, context.quest_name);
   return { text, options };
 }

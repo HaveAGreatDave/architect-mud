@@ -1,0 +1,36 @@
+{
+  "ambient_events": [
+    "Sconces trace the stair rail in a thin line of gold.",
+    "The deck barely moves underfoot — the Basin held at arm's length.",
+    "Glass to port and starboard frames the water in two cold rectangles."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1a1620",
+  "color": "#efe6ff",
+  "created_by": "echelon",
+  "description": "The upper-deck landing, hushed and carpeted in something deep enough to lose a coin in. The staircase descends (DOWN) to the foyer. Forward (NORTH) a single sealed hatch guards the owner's suite; aft (SOUTH) the deck opens to the helipad. You can LOOK EAST or WEST out across the Basin through the smoked glass.",
+  "exits": {
+    "down": "zone_echelon_foyer",
+    "north": "zone_echelon_suite",
+    "south": "zone_echelon_helipad"
+  },
+  "flags": {
+    "yacht": true,
+    "echelon": true,
+    "echelon_view": true,
+    "is_interior": true,
+    "is_building": true,
+    "building_name": "The Echelon",
+    "world_exit_zone": "zone_echelon_exterior"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 2,
+  "id": "zone_echelon_landing",
+  "map_id": "map_echelon",
+  "marker": null,
+  "name": "Echelon — Stair Landing",
+  "parent_zone": "zone_echelon_exterior",
+  "updated_at": "1783740000"
+}

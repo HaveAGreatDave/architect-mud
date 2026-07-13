@@ -22,7 +22,7 @@ const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
 const G_KT = 19.06;               // gravity as a knots/second airspeed change (9.81 m/s²)
 const wrap360 = (d) => ((d % 360) + 360) % 360;
-const GROUND_EFFECT_FT = 24;      // AGL band (~a wingspan) where the wing rides a lift cushion → float + flare to land
+const GROUND_EFFECT_FT = 32;      // AGL band (~a wingspan) where the wing rides a lift cushion → float + flare to land (raised: engages higher so there's more room to arrest the sink and a wider safe-landing window)
 const HELI_GROUND_EFFECT_FT = 34; // AGL band (~a rotor diameter) where the downwash piles into a lift cushion → soft settle onto the skids
 
 // ── Per-airframe tuning ───────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ export const TYPES = {
 // A stall-shaped lift-coefficient curve: rises with AoA to the critical angle, then
 // falls off hard (the wing lets go). CL0 gives a little lift at zero AoA.
 const CL0 = 0.28, CL_ALPHA = 0.09, STALL_FALLOFF = 0.09;
-const STALL_HOLD = 1.2;   // seconds below stall speed before lift actually collapses
+const STALL_HOLD = 1.9;   // seconds below stall speed before lift actually collapses (raised: a slow flare has more grace before it lets go, so you can bleed to touchdown speed without stalling)
 function liftCoef(aoa, aoaCrit, stalled) {
   let cl = CL0 + CL_ALPHA * aoa;
   if (aoa > aoaCrit) {
@@ -451,7 +451,7 @@ export function step(state, input, p, dt) {
   // FLARE (ease back to trade the float for a gentle touchdown) instead of flying it into the deck.
   if (!s.onGround && vsTarget < 0 && s.altitude < GROUND_EFFECT_FT) {
     const ge = 1 - s.altitude / GROUND_EFFECT_FT;   // 0 at the top of the band → 1 on the deck
-    vsTarget *= 1 - 0.42 * ge * ge;                 // a lighter cushion — enough to reward a flare, but she no longer FLOATS down the strip; slow + easing back settles her onto the runway
+    vsTarget *= 1 - 0.55 * ge * ge;                 // a firmer cushion — arrests the sink more as you near the deck, so a well-flown flare greases on and a slightly-fast arrival still settles (wider safe band), without floating the whole strip
   }
   if (s.onGround && vsTarget <= 0) {
     s.vs = 0;                                 // sitting on the wheels — no lift to climb on
@@ -476,7 +476,7 @@ export function step(state, input, p, dt) {
   // drag (per-type via gearDragFrac, default 0.35) so it's proportioned to each craft. `input.gear`
   // is the extended fraction (0 = up, 1 = down); fixed-gear craft pass 0 (drag already in dragP).
   const gearExt = clamp(input.gear || 0, 0, 1);
-  const drag = (p.dragP + flaps * p.flapDrag * 0.0016) * s.airspeed * s.airspeed * (1 - 0.9 * diveClean)  // parasitic drag ∝ V² (almost all shed in a dive → gravity wins and speed builds quickly)
+  const drag = (p.dragP + flaps * p.flapDrag * 0.0022) * s.airspeed * s.airspeed * (1 - 0.9 * diveClean)  // parasitic drag ∝ V² (almost all shed in a dive → gravity wins and speed builds quickly). Flap drag term raised so extending flaps bleeds speed decisively on final — you can get slow for the touchdown zone instead of floating past it (overshoot)
              + gearExt * (p.gearDragFrac ?? 0.35) * p.dragP * s.airspeed * s.airspeed                     // gear-down parasitic drag (retractable craft only)
              + Math.max(0, s.aoa) ** 2 * 0.0016 * s.airspeed                    // profile-drag rise with a hard PULL only — a nose-down push (negative AoA) doesn't load the wing, so it never penalises a dive
              + (p.glideDrag || 0) * Math.max(0, 1 - s.rpm / 0.4) * (weight * weight) / (s.airspeed * s.airspeed + 40);   // DEAD-STICK induced drag (∝ 1/V²): engages only as the powerplant winds down toward idle (rpm below ~0.4), full at a stopped/windmilling engine. It penalises the SLOW end of a glide, so best-glide sits at a sensible speed with a realistic ratio instead of floating forever just above the stall — and because it's gated to low rpm it leaves ALL powered cruise/climb untouched. Per-type; unset ⇒ 0 (legacy floaty glide).

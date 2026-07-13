@@ -127,7 +127,7 @@ Executes one action and stops the tick. The cursor is saved to the `next` port's
 | `ACQUIRE_TARGET` | `prefer: 'lowest_hp' \| 'random'` | Pick a player from the current zone as target |
 | `DROP_TARGET` | — | Clear `targetId`, `aggroedAt`; reset patrol state |
 | `PATROL` | `waypoints: [zone_id]`, `loop: bool`, `mode: 'walk' \| 'teleport'` | Step toward next waypoint; walk mode uses BFS (one zone per tick) |
-| `FLEE` | — | Move to an adjacent zone that doesn't contain the target |
+| `FLEE` | — | Roll to break contact, then move to an adjacent zone that doesn't contain the target. The roll is `flee_skill + (2d8−2d8)` vs a fixed difficulty (6); `flee_skill` = enemy `flags.flee_skill`, else the combat `dodge` stat, else 1. On a **fail** the entity keeps its aggro and stays put (broadcasts "can't break away", re-tries next tick) — so weak early enemies routinely botch the escape while nimbler ones slip away reliably |
 | `SAY` | `message`, `cooldown_s`, `once: bool` | Broadcast message to zone; respects cooldown and once-flag |
 | `CALL_BACKUP` | `radius`, `faction_only: bool` | Alert same-faction enemies/NPCs within radius to adopt entity's target (30s cooldown) |
 | `TELEPORT` | `zone_id` | Instantly move entity; persists `zone_id` to DB for NPCs |

@@ -249,7 +249,39 @@ function weatherKey(w) {
   if (/fog|mist|haze/.test(w)) return 'fog';
   return null;   // clear / cloudy → silence
 }
-let curWeather = null, _stormT = 0;
+let curWeather = null, _lastThunder = 0;
+
+// Recorded thunder claps — the same samples the ground weather plays on `weather.thunder`
+// (thunder4/5/6). Far cleaner than a synthesized noise burst, which read as static hiss.
+// snes_bits:0 bypasses AudioEngine's retro bit-crush so the recording stays crisp.
+const THUNDER_SAMPLES = [
+  'smp_357d0dd8-6e28-44c8-8db9-33ede3ca6e79',   // thunder4
+  'smp_457b9e5f-a133-4351-bd19-deedb2e96fd4',   // thunder5
+  'smp_94055023-841c-4346-8f75-ba4b85a28eee',   // thunder6
+];
+export function playThunderSample(gain = 0.6) {
+  const ae = AE(); if (!ae?.playSample) return;
+  const id = THUNDER_SAMPLES[(Math.random() * THUNDER_SAMPLES.length) | 0];
+  try { ae.playSample({ id, snes_bits: 0, category: 'ambient', priority: 4, config: { gain: 1 } }, { gain }); } catch {}
+}
+
+// Proximity of the aircraft to the nearest storm cell of the live weather field: 1 inside the
+// cell, falling to 0 by ~STORM_FALLOFF tiles beyond its edge. Drives thunder cadence + volume so
+// only storms actually near the plane rumble (distant cells stay silent). Returns 0 if we have no
+// field / position (the old always-on ambient cadence is retired in favour of this).
+const STORM_FALLOFF = 45;
+function stormProximity(s) {
+  const cells = s?.sky?.field?.cells; const ax = s?.acX, ay = s?.acY;
+  if (!cells || !cells.length || ax == null || ay == null) return 0;
+  let near = 0;
+  for (const c of cells) {
+    if (c.type !== 'storm') continue;
+    const edge = Math.hypot(c.x - ax, c.y - ay) - (c.r || 0);
+    const n = edge <= 0 ? 1 : Math.max(0, 1 - edge / STORM_FALLOFF);
+    if (n > near) near = n;
+  }
+  return near;
+}
 // `s` = the cockpit state: { sky, airborne, spd, atmos:{windKt,turb} }. The bed is driven by
 // the SAME sampled atmosphere the flight model uses — so the precip hiss swells with the gusts
 // you feel and intensifies with airspeed (more weather hitting the canopy). Unified atmosphere.
@@ -267,11 +299,16 @@ function applyWeather(s) {
     const windN = Math.min(1, (atmos.windKt || sky?.wind || 0) / 40);   // gust-inclusive → the bed pulses with gusts
     const spdN = Math.min(1, (s.spd || 0) / 200);                        // faster = more precip on the canopy
     ae.setLoopGain?.('flt-weather', Math.min(0.95, (0.24 + windN * 0.5 + spdN * 0.3) * WEATHER_LOOP[key].vol), 0.6);
-    // Occasional distant thunder in a storm.
-    if (key === 'storm' && (_stormT = (_stormT + 1) % 5) === 0 && Math.random() < 0.5) {
-      try { ae.playSfx?.({ config: { duration: 1.8, layers: [
-        { waveform: 'sine', freq: 46, pitchBend: { to: 28, time: 1.6 }, filter: { type: 'lowpass', freq: 220, q: 1 }, adsr: { a: 0.05, d: 1.4, s: 0.2, r: 0.4 }, gain: 0.16 },
-        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 340, q: 0.6 }, adsr: { a: 0.02, d: 1.2, s: 0.1, r: 0.4 }, gain: 0.09 } ] } }); } catch {}
+    // Thunder — a recorded clap, but ONLY when a storm cell is near the aircraft (closer ⇒ more
+    // frequent + louder). No fixed cadence: distant storms stay silent, and a min-interval keeps
+    // claps from clustering. Replaces the old always-on synthesized rumble that sounded like static.
+    if (key === 'storm') {
+      const near = stormProximity(s);
+      const nowMs = Date.now();
+      if (near > 0.08 && nowMs - _lastThunder > 2600 && Math.random() < 0.04 + near * 0.15) {
+        _lastThunder = nowMs;
+        playThunderSample(0.3 + near * 0.6);
+      }
     }
   }
 }

@@ -1,0 +1,16 @@
+{
+  "name": "yacht",
+  "version": "1.0.0",
+  "description": "The Echelon — an invite-only admin superyacht in Coldwater Basin. Owns the invite list (Admin Console verbs), the yachtlock access lock, the yacht:board move gate, and the smite-on-entry backstop that erases any uninvited player who ends up aboard.",
+  "commands": ["invite", "uninvite", "invites", "sail", "helm", "dock"],
+  "actions": {
+    "tagGated": [
+      { "verb": "use", "requiredTag": "teleporter" }
+    ]
+  },
+  "events": {
+    "consumes": ["zone.entered"]
+  },
+  "dependencies": ["doors"],
+  "dataSchema": ["yacht_invites"]
+}

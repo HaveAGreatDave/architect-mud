@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "The chandelier overhead throws splinters of light across black marble.",
+    "The grand staircase sweeps up into shadow and down into a low mechanical thrum.",
+    "Your reflection follows you across the polished bulkheads, a half-step behind."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#14141a",
+  "color": "#e8e0ff",
+  "created_by": "echelon",
+  "description": "The boarding foyer of the Echelon: a double-height atrium in black marble and brushed titanium, lit by a single vast chandelier that costs more than most people will earn in a lifetime. A grand staircase sweeps UP to the cabin deck and DOWN to engineering. Forward (NORTH) lies the bridge; aft (SOUTH), the stern lounge. The gangway hatch leads OUT onto the water.",
+  "exits": {
+    "up": "zone_echelon_landing",
+    "down": "zone_echelon_engineering",
+    "north": "zone_echelon_bridge",
+    "south": "zone_echelon_stern",
+    "out": "zone_echelon_exterior"
+  },
+  "flags": {
+    "yacht": true,
+    "echelon": true,
+    "is_interior": true,
+    "is_building": true,
+    "building_name": "The Echelon",
+    "world_exit_zone": "zone_echelon_exterior"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_echelon_foyer",
+  "map_id": "map_echelon",
+  "marker": null,
+  "name": "Echelon — Boarding Foyer",
+  "parent_zone": "zone_echelon_exterior",
+  "updated_at": "1783740000"
+}

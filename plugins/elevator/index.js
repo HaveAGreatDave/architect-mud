@@ -85,7 +85,7 @@ async function ride(player, floor, broadcast) {
     message: await describeZone(target, player),
     zone: floor.zone,
     narration: `→ The elevator hums to Floor ${floor.n}. The doors open on ${target.name}.`,
-    minimap: getMinimapData(floor.zone),
+    minimap: getMinimapData(floor.zone, 8, player),
   };
 }
 

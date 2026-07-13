@@ -1,0 +1,17 @@
+{
+  "description": "A steward's closet set discreetly into the foyer panelling, its door flush and unremarkable. Only the faintest hum betrays that it is anything more.",
+  "flags": {
+    "teleporter": true,
+    "teleport_target": "zone_apt_9",
+    "concealed": true,
+    "interactions": []
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_closet_foyer",
+  "name": "steward's closet",
+  "object_type": "furniture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_echelon_foyer"
+}

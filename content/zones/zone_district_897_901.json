@@ -1,11 +1,15 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_events": [
+    "Water slaps the pilings under the boards and draws back.",
+    "A cleat sits empty at the jetty's end, rope-scarred and waiting.",
+    "Out on the black water, something large and unlit holds its position."
+  ],
+  "ambient_theme": "coast",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#2a3330",
+  "color": "#9fc0b8",
   "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "A weathered timber jetty runs out from the grass into Coldwater Basin, its planks salt-grey and slick. Mooring cleats stud the edge; the last few metres are reinforced with steel plate, as if something heavy is expected to tie up here. The water beyond (NORTH) is deep and cold. When the right vessel is alongside, a gangway comes down here and not one metre further.",
   "exits": {
     "east": "zone_district_898_901",
     "north": "zone_district_897_900",
@@ -14,15 +18,16 @@
   },
   "flags": {
     "district": "docks",
-    "planner": "bp_district"
+    "planner": "bp_district",
+    "pier": true
   },
   "grid_x": 897,
   "grid_y": 901,
   "grid_z": 0,
   "id": "zone_district_897_901",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "⊥",
+  "name": "Basin Jetty",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1783740000"
 }

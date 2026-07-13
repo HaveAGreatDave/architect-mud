@@ -38,35 +38,45 @@
     // A synthetic half-inning: bases advance play to play, a couple of runs score.
     const PLAYS = [
       { batter:'Volpe', pitcher:'Senga', kind:'strikeout', desc:'Strikeout', out:true, outs:0, rbi:0,
+        caption:'Senga freezes Volpe with the high heater — strike three!',
         basesBefore:[false,false,false], basesAfter:[false,false,false], awayScore:3, homeScore:2,
         pitches:[{n:1,type:'Four-Seam Fastball',velo:97,x:0.5,y:0.45,result:'called',balls:0,strikes:1},
                  {n:2,type:'Slider',velo:85,x:0.7,y:0.6,result:'ball',balls:1,strikes:1},
                  {n:3,type:'Slider',velo:86,x:0.55,y:0.5,result:'swinging',balls:1,strikes:2},
                  {n:4,type:'Four-Seam Fastball',velo:98,x:0.5,y:0.5,result:'swinging',balls:1,strikes:3}] },
       { batter:'Judge', pitcher:'Senga', kind:'single', desc:'Single', out:false, outs:1, rbi:0,
+        caption:'Judge lines one into right field for a base hit.',
         basesBefore:[false,false,false], basesAfter:[true,false,false], awayScore:3, homeScore:2,
         pitches:[{n:1,type:'Sinker',velo:93,x:0.3,y:0.6,result:'ball',balls:1,strikes:0},
                  {n:2,type:'Changeup',velo:86,x:0.5,y:0.5,result:'inplay',balls:1,strikes:0}] },
       { batter:'Soto', pitcher:'Senga', kind:'double', desc:'Double', out:false, outs:1, rbi:0,
+        caption:'Soto rips it into the left-center gap — Judge to third!',
         basesBefore:[true,false,false], basesAfter:[false,false,true], awayScore:3, homeScore:2,
         pitches:[{n:1,type:'Curveball',velo:79,x:0.4,y:0.7,result:'ball',balls:1,strikes:0},
                  {n:2,type:'Four-Seam Fastball',velo:96,x:0.5,y:0.45,result:'called',balls:1,strikes:1},
                  {n:3,type:'Cutter',velo:90,x:0.55,y:0.55,result:'inplay',balls:1,strikes:1}] },
       { batter:'Stanton', pitcher:'Senga', kind:'homerun', desc:'Home Run — 2 RBI', out:false, outs:1, rbi:2,
-        basesBefore:[true,false,true], basesAfter:[false,false,false], awayScore:5, homeScore:2,
+        caption:'Stanton CRUSHES it — gone, way back, a three-run shot!',
+        basesBefore:[false,false,true], basesAfter:[false,false,false], awayScore:5, homeScore:2,
         pitches:[{n:1,type:'Slider',velo:84,x:0.6,y:0.4,result:'ball',balls:1,strikes:0},
                  {n:2,type:'Four-Seam Fastball',velo:97,x:0.5,y:0.5,result:'inplay',balls:1,strikes:0}] },
       { batter:'Torres', pitcher:'Senga', kind:'groundout', desc:'Groundout', out:true, outs:2, rbi:0,
+        caption:'Torres chops it to short — over to first, in time.',
         basesBefore:[false,false,false], basesAfter:[false,false,false], awayScore:5, homeScore:2,
         pitches:[{n:1,type:'Sinker',velo:94,x:0.5,y:0.6,result:'inplay',balls:0,strikes:0}] },
+      { batter:'Wells', pitcher:'Senga', kind:'flyout', desc:'Flyout', out:true, outs:3, rbi:0,
+        caption:'Wells lifts a lazy fly to center — Nimmo camps under it.',
+        basesBefore:[false,false,false], basesAfter:[false,false,false], awayScore:5, homeScore:2,
+        pitches:[{n:1,type:'Changeup',velo:85,x:0.45,y:0.4,result:'called',balls:0,strikes:1},
+                 {n:2,type:'Four-Seam Fastball',velo:96,x:0.5,y:0.5,result:'inplay',balls:0,strikes:1}] },
     ].map(p => ({ ...p, battingTeam:'Yankees', fieldingTeam:'Mets', battingAbbr:'NYY', fieldingAbbr:'NYM', inning:3, inningOrd:'3rd', half:'top' }));
 
     let i = 0;
-    const step = () => { view.apply(PLAYS[i % PLAYS.length]); i++; };
+    const step = () => { const p = PLAYS[i % PLAYS.length]; view.apply(p); view.setCaption(p.caption || ''); i++; };
     step();
     // AudioEngine needs a user gesture to unlock the AudioContext — first click does it.
     document.getElementById('next').addEventListener('click', () => { window.AudioEngine?.init?.(); step(); });
-    setInterval(step, 6500);   // each at-bat now plays out pitch-by-pitch (~3–5s) before the next
+    setInterval(step, 15000);   // realistic pacing — each at-bat plays out on the field over ~10–13s
   </script>
 </body>
 </html>

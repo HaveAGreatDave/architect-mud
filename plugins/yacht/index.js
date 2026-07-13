@@ -1,0 +1,367 @@
+// plugins/yacht/index.js
+//
+// The Echelon — the admin superyacht in Coldwater Basin. This plugin owns the
+// vessel's access control; the rooms, furniture, and NPCs themselves are plain
+// world content (JSON under content/, flagged flags.yacht).
+//
+// Access model:
+//   • The owner (Cyd) is always approved. EVERYONE else — admins included — must be
+//     on the invite list (the yacht_invites table) to board or even see the boat.
+//     Being staff grants no access; an uninvited admin is treated like anyone else.
+//     Cyd starts as the only approved occupant.
+//   • The Admin Console aboard adds/removes/lists invitees (invite/uninvite/invites
+//     verbs, admin-gated — an admin operates the console, but must add themselves to
+//     the list before they can board).
+//   • Three layers keep the riff-raff off, in order of how a body gets aboard:
+//       1. yachtlock — the lock type on interior doors (e.g. Cyd's suite).
+//       2. yacht:board move gate — you can't WALK into a yacht zone uninvited
+//          (the "non-NPC bouncer": the vessel refuses the gangway).
+//       3. zone.entered smite — anyone force-teleported / glitched aboard while
+//          uninvited is erased on arrival. This is the backstop the move gate
+//          can't cover (TELEPORT bypasses move gates by design).
+//
+// Owner: Cyd (an admin). Movement, docking, and the emergency broadcast live in
+// later slices; this slice is "boardable and secure."
+
+import { query } from '../../server/models/db.js';
+import { getZone, getLivePlayer, world, invalidateEntranceDirCache, addExitOverride, removeExitOverride, registerMinimapNodeFilter, getMinimapData } from '../../server/engine/world.js';
+import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
+import { describeZone } from '../../server/engine/commands/describe.js';
+import { on } from '../../server/engine/events.js';
+import { dispatchAction } from '../../server/engine/actions.js';
+import { registerLockType } from '../../server/engine/locks.js';
+import { registerMoveGate } from '../../server/engine/movement-gates.js';
+import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
+
+// ── Invite list ────────────────────────────────────────────────────────────────
+// One row per approved non-admin player. Admins bypass the list entirely.
+
+// The owner. The Echelon answers to exactly one person — Cyd — who is always aboard-
+// worthy and always sees the vessel, listed or not. EVERYONE else (admins included)
+// must be explicitly invited: an admin isn't Cyd, so an uninvited admin can neither
+// see the boat on the minimap nor board it until Cyd (or another admin, via the
+// console) adds them. Cyd starts as the only approved occupant.
+const OWNER_HANDLE = 'Cyd';
+const isOwner = (player) => player?.handle === OWNER_HANDLE;
+
+// In-memory mirror of the invite list, for the SYNC minimap filter (getMinimapData
+// can't await a DB hit per tile). The DB stays the source of truth for the security
+// gates; a briefly-stale cache only means an invitee's boat icon lags a moment.
+const invitedIds = new Set();
+query('SELECT player_id FROM yacht_invites', [])
+  .then(({ rows }) => rows.forEach(r => invitedIds.add(r.player_id)))
+  .catch(e => console.error('[yacht] invite cache load:', e.message));
+
+async function isInvitedById(playerId) {
+  if (!playerId) return false;
+  const { rows } = await query('SELECT 1 FROM yacht_invites WHERE player_id=$1 LIMIT 1', [playerId]);
+  return rows.length > 0;
+}
+
+// The load-bearing check every gate funnels through: the owner, or a player on the
+// invite list. NOT admins by default — being staff doesn't grant access to the boat.
+export async function isInvited(player) {
+  if (!player?.id) return false;
+  if (isOwner(player)) return true;
+  return isInvitedById(player.id);
+}
+
+// Sync counterpart, cache-backed — used only by the minimap filter (display, not security).
+function isInvitedSync(player) {
+  if (!player?.id) return false;
+  return isOwner(player) || invitedIds.has(player.id);
+}
+
+async function addInvite(playerId, byHandle) {
+  await query(
+    `INSERT INTO yacht_invites (player_id, added_by) VALUES ($1, $2)
+     ON CONFLICT (player_id) DO NOTHING`,
+    [playerId, byHandle || null]
+  );
+  invitedIds.add(playerId);
+}
+
+async function removeInvite(playerId) {
+  await query('DELETE FROM yacht_invites WHERE player_id=$1', [playerId]);
+  invitedIds.delete(playerId);
+}
+
+// Hide the Echelon from anyone not on the list: any map surface drops a yacht tile
+// for a viewer who isn't invited/admin, leaving the open water tile beneath it.
+registerMinimapNodeFilter((zone, viewer) => !zone?.flags?.yacht || isInvitedSync(viewer));
+
+// Resolve a typed handle to { id, handle } — online first (exact/prefix), then the
+// DB (offline players can be invited by name).
+async function resolveHandle(nameStr) {
+  const needle = nameStr.trim().toLowerCase();
+  if (!needle) return null;
+  for (const p of world.players.values()) {
+    if (p.handle?.toLowerCase() === needle) return { id: p.id, handle: p.handle };
+  }
+  const { rows } = await query(
+    'SELECT id, handle FROM players WHERE lower(handle)=lower($1) LIMIT 1',
+    [nameStr.trim()]
+  );
+  return rows.length ? { id: rows[0].id, handle: rows[0].handle } : null;
+}
+
+// ── Access gate: the yachtlock lock type ────────────────────────────────────────
+// A door tagged { 'lock:yachtlock': {} } opens for any invited player (or admin).
+// Tag it { ownerOnly: true } to tighten a threshold to the owner (admins) alone —
+// that's how Cyd's private suite stays private from ordinary guests who are
+// otherwise cleared to be aboard. Not hackable; the list (or ownership) is the key.
+registerLockType('yachtlock', {
+  tagType: 'lock:yachtlock',
+  kitTag:  'lockkit:yachtlock',
+  defaults: {
+    messages: {
+      lock:   'The Echelon seals the hatch with a whisper of hydraulics.',
+      unlock: 'The hatch releases, recognising you.',
+      denied: 'The hatch does not acknowledge you. You are not welcome here.',
+    },
+  },
+  authFn: async (lockTag, door, player) => {
+    if (lockTag.ownerOnly) return isOwner(player);  // Cyd's private quarters — the owner alone
+    return isInvited(player);
+  },
+});
+
+// ── Access gate: the boarding move gate (the "non-NPC bouncer") ─────────────────
+// You cannot WALK into a yacht zone (flags.yacht) unless you're invited/admin.
+// Only fires on the crossing FROM a non-yacht tile — moving between yacht rooms
+// once you're legitimately aboard never re-queries. Teleports skip move gates, so
+// the smite backstop below covers that path.
+registerMoveGate(async ({ player, from, to }) => {
+  if (!to?.flags?.yacht) return;           // not boarding the yacht
+  if (from?.flags?.yacht) return;          // already aboard — internal move
+  if (await isInvited(player)) return;
+  return { block: true, message: 'An unseen checkpoint holds you at the gangway. The Echelon does not know you.' };
+}, 'yacht:board');
+
+// ── Smite backstop ──────────────────────────────────────────────────────────────
+// Any player who ends up in a yacht zone while uninvited — forced, teleported, or
+// glitched past the move gate — is erased on arrival. NPCs and admins are exempt.
+const SMITE_LABEL = 'Erased by The Echelon';
+on('zone.entered', async ({ actor, zone }) => {
+  if (!actor?.id) return;
+  if (!getLivePlayer(actor.id)) return;          // only real, online players — never NPCs
+  const z = getZone(zone);
+  if (!z?.flags?.yacht) return;
+  if (await isInvited(actor)) return;
+  const bc = getBroadcast();
+  bc?.(zone, { type: 'zone_event', message: `${actor.handle} sets foot aboard the Echelon — and is gone in a flash of white light.` }, actor.id);
+  sendToPlayer(actor.id, { type: 'output', message: 'The deck recognises an intruder. There is a flash of white, and then nothing at all.' });
+  await handlePlayerDeath(actor, null, { type: 'admin', label: SMITE_LABEL }).catch(e => console.error('[yacht] smite:', e.message));
+});
+
+// ── Admin Console: invite management ────────────────────────────────────────────
+const ADMIN_ONLY = { type: 'error', message: "You don't have the clearance for that." };
+
+async function cmdInvite(args, raw, player) {
+  if (player.role !== 'admin') return ADMIN_ONLY;
+  const nameStr = (args || []).join(' ').trim();
+  if (!nameStr) return { type: 'error', message: 'Usage: invite <player> — adds them to the Echelon invite list.' };
+  const target = await resolveHandle(nameStr);
+  if (!target) return { type: 'error', message: `No player named "${nameStr}" found.` };
+  if (await isInvitedById(target.id)) return { type: 'system', message: `${target.handle} is already on the Echelon invite list.` };
+  await addInvite(target.id, player.handle);
+  return { type: 'system', message: `${target.handle} added to the Echelon invite list. They may now board.` };
+}
+
+async function cmdUninvite(args, raw, player) {
+  if (player.role !== 'admin') return ADMIN_ONLY;
+  const nameStr = (args || []).join(' ').trim();
+  if (!nameStr) return { type: 'error', message: 'Usage: uninvite <player> — removes them from the Echelon invite list.' };
+  const target = await resolveHandle(nameStr);
+  if (!target) return { type: 'error', message: `No player named "${nameStr}" found.` };
+  if (!(await isInvitedById(target.id))) return { type: 'system', message: `${target.handle} is not on the Echelon invite list.` };
+  await removeInvite(target.id);
+  return { type: 'system', message: `${target.handle} removed from the Echelon invite list.` };
+}
+
+async function cmdInvites(args, raw, player) {
+  if (player.role !== 'admin') return ADMIN_ONLY;
+  const { rows } = await query(
+    `SELECT y.player_id, p.handle, y.added_by, y.added_at
+       FROM yacht_invites y LEFT JOIN players p ON p.id = y.player_id
+      ORDER BY y.added_at ASC`,
+    []
+  );
+  if (!rows.length) {
+    return { type: 'system', message: 'The Echelon invite list is empty. (Admins always have access.)' };
+  }
+  const lines = rows.map(r => `  ${(r.handle || r.player_id).padEnd(24)} added by ${r.added_by || '—'}`).join('\n');
+  return { type: 'system', message: `<span class="help-header">ECHELON INVITE LIST (${rows.length})</span>\n${lines}\n\n(Admins always have access, listed or not.)` };
+}
+
+// ── Helm: moving the vessel ─────────────────────────────────────────────────────
+// The Echelon occupies one tile on map_world (the exterior zone). An admin at the
+// bridge moves it one water tile at a time; each move starts a 5-minute cooldown.
+// Only grid_x/grid_y of the exterior tile change — the interior map is coordinate-
+// independent, so nothing inside moves. When the vessel comes to rest beside a
+// pier, a gangway exit is wired both ways (guarded by yacht:board) so invitees can
+// walk aboard; that exit is torn down the moment she gets underway again.
+
+const EXTERIOR = 'zone_echelon_exterior';
+const SAIL_COOLDOWN_MS = 5 * 60_000;
+const DOCK_SOURCE = 'yacht_dock';
+const DIR_DELTA = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+const DIR_ALIAS = { n: 'north', s: 'south', e: 'east', w: 'west', north: 'north', south: 'south', east: 'east', west: 'west' };
+const REVERSE = { north: 'south', south: 'north', east: 'west', west: 'east' };
+
+let lastSailAt = 0; // module-level: there is exactly one Echelon (resets on restart)
+
+// The map_world tile at a coordinate, ignoring the yacht's own overlay.
+function worldTileAt(x, y) {
+  for (const z of world.zones.values()) {
+    if (z.map_id !== 'map_world' || z.id === EXTERIOR) continue;
+    if (z.grid_x === x && z.grid_y === y && (z.grid_z ?? 0) === 0) return z;
+  }
+  return null;
+}
+
+// A pier tile (flags.pier) orthogonally adjacent to (x,y), or null.
+function adjacentPier(x, y) {
+  for (const [dir, [dx, dy]] of Object.entries(DIR_DELTA)) {
+    const t = worldTileAt(x + dx, y + dy);
+    if (t?.flags?.pier) return { pier: t, dir };
+  }
+  return null;
+}
+
+async function isDocked() {
+  const { rows } = await query('SELECT 1 FROM zone_exit_overrides WHERE source=$1 LIMIT 1', [DOCK_SOURCE]);
+  return rows.length > 0;
+}
+
+// Tear down every gangway exit, wherever it points. Robust across restarts — reads
+// the persisted overrides rather than trusting in-memory state.
+async function undockAll() {
+  const { rows } = await query('SELECT zone_id, direction, target_zone FROM zone_exit_overrides WHERE source=$1', [DOCK_SOURCE]);
+  for (const r of rows) await removeExitOverride(r.zone_id, r.direction, r.target_zone);
+}
+
+// Wire the gangway both ways between the exterior tile and an adjacent pier.
+async function dockTo(pierZoneId, dirYachtToPier) {
+  await addExitOverride(EXTERIOR, dirYachtToPier, pierZoneId, DOCK_SOURCE);
+  await addExitOverride(pierZoneId, REVERSE[dirYachtToPier], EXTERIOR, DOCK_SOURCE);
+}
+
+function rebuildFlightIndex() {
+  // The flight plugin caches a coord→surface index; a moved yacht must not linger
+  // at its old tile in that index. Soft dependency — skip if flight isn't loaded.
+  import('../flight/state.js').then(m => m.buildCoordIndex?.()).catch(() => {});
+}
+
+function helmStatus(ext, dockedPierName) {
+  const cd = Math.max(0, SAIL_COOLDOWN_MS - (Date.now() - lastSailAt));
+  const ready = cd <= 0 ? 'The engines are ready.' : `The engines are cycling — ready in ${Math.ceil(cd / 1000)}s.`;
+  const dock = dockedPierName ? `Docked alongside ${dockedPierName}.` : 'Underway, no pier alongside.';
+  return `<span class="help-header">ECHELON — HELM</span>\nPosition: ${ext.grid_x}, ${ext.grid_y} (Coldwater Basin)\n${dock}\n${ready}\nUsage: sail <n|s|e|w>`;
+}
+
+async function cmdSail(args, raw, player, broadcast) {
+  if (player.role !== 'admin') return ADMIN_ONLY;
+  const ext = getZone(EXTERIOR);
+  if (!ext) return { type: 'error', message: 'The Echelon is not on the water right now.' };
+  if (!getZone(player.current_zone)?.flags?.echelon_bridge) {
+    return { type: 'error', message: 'You can only steer the Echelon from her bridge.' };
+  }
+
+  const dockPier = adjacentPier(ext.grid_x, ext.grid_y);
+  const dirWord = DIR_ALIAS[(args?.[0] || '').toLowerCase()];
+  if (!dirWord) return { type: 'system', message: helmStatus(ext, dockPier?.pier?.name) };
+
+  const cd = SAIL_COOLDOWN_MS - (Date.now() - lastSailAt);
+  if (cd > 0) return { type: 'error', message: `The Echelon's engines are still cycling. She can move again in ${Math.ceil(cd / 1000)}s.` };
+
+  const [dx, dy] = DIR_DELTA[dirWord];
+  const tx = ext.grid_x + dx, ty = ext.grid_y + dy;
+  const target = worldTileAt(tx, ty);
+  if (!target?.flags?.water) {
+    return { type: 'error', message: 'The Echelon moves only over open water. There is no channel that way.' };
+  }
+
+  // Cast off, reposition, re-index.
+  await undockAll();
+  await query('UPDATE zones SET grid_x=$1, grid_y=$2 WHERE id=$3', [tx, ty, EXTERIOR]);
+  ext.grid_x = tx; ext.grid_y = ty;
+  invalidateEntranceDirCache();
+  rebuildFlightIndex();
+  lastSailAt = Date.now();
+
+  // Come to rest beside a pier? Lower the gangway.
+  const pier = adjacentPier(tx, ty);
+  if (pier) await dockTo(pier.pier.id, pier.dir);
+
+  const bc = broadcast || getBroadcast();
+  for (const zid of [EXTERIOR, 'zone_echelon_bridge', 'zone_echelon_stern', 'zone_echelon_foyer']) {
+    bc?.(zid, { type: 'zone_event', message: 'The deck shifts underfoot as the Echelon gets underway, then settles.' }, player.id);
+  }
+  const dockLine = pier ? ` She comes to rest alongside ${pier.pier.name}.` : '';
+  return { type: 'system', message: `You ease the throttle ${dirWord}. The Echelon slides one length across the Basin to ${tx}, ${ty}.${dockLine}` };
+}
+
+async function cmdDock(args, raw, player) {
+  if (player.role !== 'admin') return ADMIN_ONLY;
+  const ext = getZone(EXTERIOR);
+  if (!ext) return { type: 'error', message: 'The Echelon is not on the water right now.' };
+  if (await isDocked()) {
+    await undockAll();
+    return { type: 'system', message: 'The gangway retracts. The Echelon is free to move.' };
+  }
+  const pier = adjacentPier(ext.grid_x, ext.grid_y);
+  if (!pier) return { type: 'error', message: 'There is no pier alongside. Bring her beside one first.' };
+  await dockTo(pier.pier.id, pier.dir);
+  return { type: 'system', message: `The gangway lowers to ${pier.pier.name}. Invited guests may now board or step ashore.` };
+}
+
+// ── Secret teleporter closet ────────────────────────────────────────────────────
+// A hidden furniture (flags.teleporter, flags.teleport_target=<zone id>) links Cyd's
+// Embassy apartment to a secure room aboard the Echelon, and back — the owner's
+// private way aboard regardless of where the yacht is or whether it's docked. To
+// anyone not approved it is, and must appear to be, an ordinary closet: the secret
+// is never disclosed. It bypasses embarkation/docking but still respects the same
+// approval check as every other way aboard.
+const CLOSET_MUNDANE = [
+  'You rummage through the closet. Coats, a dead umbrella, the smell of old cedar. Nothing else.',
+  'You open the closet. Empty hangers chime against each other. Just a closet.',
+  'You poke around inside the closet. Dust, a single lost glove, bare shelving. Nothing of interest.',
+];
+
+async function doUseTeleporter(args, raw, player, broadcast) {
+  const { rows } = await query(
+    `SELECT flags FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"teleporter"%' LIMIT 1`,
+    [player.current_zone]
+  ).catch(() => ({ rows: [] }));
+  if (!rows[0]) return undefined; // no teleporter here — fall through to normal `use`
+  const flags = typeof rows[0].flags === 'object' ? rows[0].flags : JSON.parse(rows[0].flags || '{}');
+
+  // Not approved → it's just a closet. Never reveal the mechanism.
+  if (!(await isInvited(player))) {
+    return { type: 'emote', message: CLOSET_MUNDANE[Math.floor((player.id?.length || 0) % CLOSET_MUNDANE.length)] };
+  }
+  const dest = flags.teleport_target;
+  if (!getZone(dest)) return { type: 'error', message: 'The closet hums, but the far end is dark. Nothing happens.' };
+
+  const bc = broadcast || getBroadcast();
+  sendToPlayer(player.id, { type: 'output', message: 'You press the false back of the closet. It swings inward onto a lit alcove, and the world folds sideways around you.' });
+  await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: dest }, context: { broadcast: bc } });
+  const zone = getZone(dest);
+  return zone
+    ? { type: 'move', message: await describeZone(zone, player), zone: dest, minimap: getMinimapData(dest, 8, player) }
+    : { type: 'emote', message: 'You step through into somewhere else.' };
+}
+
+export const specializedActions = [
+  { verb: 'use', requiredTag: 'teleporter', handler: doUseTeleporter },
+];
+
+export const commands = {
+  invite:   cmdInvite,
+  uninvite: cmdUninvite,
+  invites:  cmdInvites,
+  sail:     cmdSail,
+  helm:     cmdSail,
+  dock:     cmdDock,
+};

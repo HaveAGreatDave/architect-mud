@@ -75,6 +75,7 @@ export function faceBaseRgb(face, pal) {
   const role = face.role;
   if (role === 'glass' || role === 'window') return [14, 26, 36];
   if (role === 'strut' || role === 'gear' || role === 'gun') return [44, 48, 54];
+  if (pal.pat === 'jazz' && JAZZ_ROLE.has(role)) return JAZZ_GROUND;   // bone undercoat; overlayJazz paints the splatter on top
   return faceWearsTrim(face, pal.pat) ? pal.trim : pal.base;
 }
 
@@ -838,6 +839,94 @@ function overlayHull(ctx, P, strength) {
   ctx.restore();
 }
 
+// ── Jazz livery (procedural Memphis dry-brush splatter) ───────────────────────
+// The one pattern the per-facet base/trim picker can't express: a fine squiggle over
+// dry-brush zigzag bands. Baked ONCE per colour-set into an opaque bone-ground texture,
+// then affine-mapped across the hull facets in BODY space (jazzUV) so the pattern is
+// continuous across facets — and both flanks mirror (V keys off up/right, not the sign of
+// g), exactly like a real painted livery. Seeded off the colours: same scheme → same
+// splatter, so the paint never shimmers between the hangar and the sky.
+const JAZZ_ROLE = new Set(['body', 'wing', 'aileron', 'flap', 'stab', 'elevator', 'fin', 'rudder', 'nacelle']);
+const JAZZ_GROUND = [238, 231, 214];   // bone undercoat (the "cup paper" the colours pop against)
+const JZ_TW = 256, JZ_TH = 140;
+const _jazzCache = new Map();
+function jzRng(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function jzHash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function jzResample(spine, step) {
+  const out = [];
+  for (let s = 0; s < spine.length - 1; s++) {
+    const a = spine[s], b = spine[s + 1], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len, nx = -uy, ny = ux, n = Math.max(1, Math.floor(len / step));
+    for (let i = 0; i < n; i++) { const t = i / n; out.push([a[0] + dx * t, a[1] + dy * t, nx, ny]); }
+  }
+  return out;
+}
+function jzBrush(g, spine, color, width, rng, grain) {
+  const pts = jzResample(spine, Math.max(1.5, width * 0.22)); g.fillStyle = color;
+  for (const p of pts) {
+    const dabs = Math.max(3, Math.round(width / 2.4));
+    for (let k = 0; k < dabs; k++) {
+      if (rng() < grain) continue;   // dry-brush gap
+      const off = (rng() * 2 - 1) * width * 0.5, r = width * 0.12 + rng() * width * 0.14;
+      g.globalAlpha = 0.55 + rng() * 0.45;
+      g.beginPath(); g.ellipse(p[0] + p[2] * off, p[1] + p[3] * off, r, r * (0.65 + rng() * 0.6), 0, 0, 7); g.fill();
+    }
+  }
+  g.globalAlpha = 1;
+}
+function jzZig(cx, cy, ang, axis, seg, amp, rng) {
+  const ux = Math.cos(ang), uy = Math.sin(ang), px = -uy, py = ux, sp = [], n = Math.ceil(axis / seg), sx = cx - ux * axis / 2, sy = cy - uy * axis / 2;
+  for (let i = 0; i <= n; i++) { const d = i * seg, side = i % 2 === 0 ? 1 : -1, j = (rng() * 2 - 1) * amp * 0.25; sp.push([sx + ux * d + px * (side * amp + j), sy + uy * d + py * (side * amp + j)]); }
+  return sp;
+}
+function jzSquig(cx, cy, ang, axis, humps, amp, rng) {
+  const ux = Math.cos(ang), uy = Math.sin(ang), px = -uy, py = ux, sp = [], steps = 64, sx = cx - ux * axis / 2, sy = cy - uy * axis / 2, ph = rng() * 6.28;
+  for (let i = 0; i <= steps; i++) { const t = i / steps, d = t * axis, off = Math.sin(ph + t * humps * 6.28) * amp + Math.sin(ph * 1.7 + t * humps * 2.3 * 6.28) * amp * 0.3; sp.push([sx + ux * d + px * off, sy + uy * d + py * off]); }
+  return sp;
+}
+export function jazzTex(c0, c1, c2) {
+  c0 = c0 || '#18b8c2'; c1 = c1 || '#5a2c9c'; c2 = c2 || '#c22b8c';
+  const key = c0 + c1 + c2, hit = _jazzCache.get(key); if (hit) return hit;
+  const cv = document.createElement('canvas'); cv.width = JZ_TW; cv.height = JZ_TH;
+  const g = cv.getContext('2d'), W = JZ_TW, H = JZ_TH, rng = jzRng(jzHash(key) || 1);
+  g.fillStyle = rgbStr(JAZZ_GROUND); g.fillRect(0, 0, W, H);
+  const diag = Math.hypot(W, H), ang = -(22 + rng() * 10) * Math.PI / 180, cx = W / 2, cy = H / 2;
+  const ux = Math.cos(ang), uy = Math.sin(ang), px = -uy, py = ux, gap = H * 0.17;
+  for (let b = 0; b < 3; b++) {   // stacked teal zigzag bands
+    const o = (b - 1) * gap + (rng() * 2 - 1) * H * 0.02;
+    jzBrush(g, jzZig(cx + px * o, cy + py * o, ang, diag * 1.15, Math.max(24, W * 0.09) * (0.9 + rng() * 0.3), H * 0.12 * (0.9 + rng() * 0.4), rng), c0, H * 0.12 * (0.85 + rng() * 0.3), rng, 0.3);
+  }
+  jzBrush(g, jzSquig(cx, cy, ang, diag * 1.05, 3 + Math.floor(rng() * 2), H * 0.18, rng), c1, H * 0.055, rng, 0.24);          // squiggle
+  jzBrush(g, jzSquig(cx + px * gap * 0.6, cy + py * gap * 0.6, ang, diag * 0.95, 4, H * 0.13, rng), c2, H * 0.04, rng, 0.3);   // accent squiggle
+  const pal = [c0, c1, c2], dots = Math.round(W * H / 260);
+  for (let i = 0; i < dots; i++) { g.globalAlpha = 0.5 + rng() * 0.5; g.fillStyle = pal[(rng() * 3) | 0]; g.beginPath(); g.arc(rng() * W, rng() * H, 1 + rng() * 2, 0, 7); g.fill(); }
+  g.globalAlpha = 1;
+  if (_jazzCache.size > 24) _jazzCache.clear();
+  _jazzCache.set(key, cv); return cv;
+}
+const jzClamp = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+// Body coords [f=fore, g=right, h=up] → jazz texture pixel. Fore drives U along the length;
+// across drives V (up for the fuselage/tail, right for the flat wings). g's sign is dropped so
+// port and starboard wear the same side-profile paint. Clamped so the hull stays on-texture.
+function jazzUV(v, role) {
+  const along = 0.5 + v[0] * 0.42;
+  const across = 0.5 - ((role === 'wing' || role === 'aileron' || role === 'flap') ? v[1] * 0.30 : v[2] * 0.55);
+  return [jzClamp(along) * JZ_TW, jzClamp(across) * JZ_TH];
+}
+// Paint the baked jazz texture into ONE projected facet, MULTIPLY over its already-shaded bone
+// fill — so the facet's own light/finish shading carries through onto the colours (the plane
+// still reads 3D). `uv` are the per-vertex texture coords from jazzUV.
+function overlayJazz(ctx, P, uv, img) {
+  const n = P.length; if (n < 3 || n > 4) return;
+  const d = P.map(q => [q.sx, q.sy]);
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(d[0][0], d[0][1]); for (let i = 1; i < n; i++) ctx.lineTo(d[i][0], d[i][1]); ctx.closePath(); ctx.clip();
+  ctx.globalCompositeOperation = 'multiply';
+  if (n === 4) { acTexTri(ctx, img, uv[0], uv[1], uv[2], d[0], d[1], d[2]); acTexTri(ctx, img, uv[0], uv[2], uv[3], d[0], d[2], d[3]); }
+  else acTexTri(ctx, img, uv[0], uv[1], uv[2], d[0], d[1], d[2]);
+  ctx.restore();
+}
+
 // Glass sheen — overlay a soft procedural highlight on a filled canopy/window pane so it
 // reads as curved glass rather than a flat dark polygon: a bright top-left wash, a hot
 // diagonal specular streak down the middle, and a darker lower edge. Cheap (one clipped
@@ -926,11 +1015,16 @@ export function drawNoseArt(ctx, proj, cls, lv) {
     grid.push(row);
   }
   if (!anyNear) return;
+  // The single decal image is UV-mapped nose→tail in WORLD space, so viewing the far (starboard/right,
+  // sign=+1) flank projects it MIRRORED — the art reads backwards on that side. Flip U there only, so
+  // both flanks read forward-facing (port keeps the authored orientation; starboard is un-mirrored).
+  const flip = sign === 1;
+  const uOf = (col) => (flip ? (Nc - col) : col) / Nc * W;
   for (let j = 0; j < Nr; j++) for (let i = 0; i < Nc; i++) {
     const a = grid[j][i], b = grid[j][i + 1], c = grid[j + 1][i + 1], d = grid[j + 1][i];
     if (a.z <= 0.18 || b.z <= 0.18 || c.z <= 0.18 || d.z <= 0.18) continue;             // skip cells crossing behind the eye
-    const s0 = [i / Nc * W, j / Nr * H], s1 = [(i + 1) / Nc * W, j / Nr * H];
-    const s2 = [(i + 1) / Nc * W, (j + 1) / Nr * H], s3 = [i / Nc * W, (j + 1) / Nr * H];
+    const s0 = [uOf(i), j / Nr * H], s1 = [uOf(i + 1), j / Nr * H];
+    const s2 = [uOf(i + 1), (j + 1) / Nr * H], s3 = [uOf(i), (j + 1) / Nr * H];
     acTexTri(ctx, img, s0, s1, s2, [a.sx, a.sy], [b.sx, b.sy], [c.sx, c.sy]);
     acTexTri(ctx, img, s0, s2, s3, [a.sx, a.sy], [c.sx, c.sy], [d.sx, d.sy]);
   }
@@ -1301,6 +1395,7 @@ export function drawTurntable(ctx, opts) {
 function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null }) {
   const faces = wreck ? buildWreck() : aircraftFaces(cls);
   const pal = liveryPalette(livery || {});
+  const jazzImg = (!wreck && pal.pat === 'jazz') ? jazzTex(livery?.base, livery?.trim, livery?.accent) : null;
   const texStr = wreck ? 0.62 : (TEX_STRENGTH[livery?.finish] ?? 0.46);
   const roll = wreck ? -0.26 : 0, cro = Math.cos(roll), sro = Math.sin(roll);
   const ox = w / 2, oy = h * 0.52;
@@ -1368,7 +1463,9 @@ function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom =
     let rgb = faceBaseRgb(face, pal);
     if (wreck) rgb = mix3(rgb, [74, 72, 66], 0.55);
     let z = 0; for (const q of P) z += q.z;
-    drawn.push({ P, role: face.role, avgZ: z / P.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (wreck ? 0.8 : 1)) });
+    const rec = { P, role: face.role, avgZ: z / P.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (wreck ? 0.8 : 1)) };
+    if (jazzImg && JAZZ_ROLE.has(face.role)) rec.uv = face.p.map(v => jazzUV(v, face.role));
+    drawn.push(rec);
   }
   drawn.sort((a, b) => b.avgZ - a.avgZ);
   ctx.lineJoin = 'round';
@@ -1377,7 +1474,8 @@ function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom =
     for (let i = 1; i < fc.P.length; i++) ctx.lineTo(fc.P[i].sx, fc.P[i].sy);
     ctx.closePath();
     ctx.fillStyle = fc.col; ctx.fill();
-    if (TEXTURED.has(fc.role)) overlayHull(ctx, fc.P, texStr);   // procedural panel/rivet detail
+    if (fc.uv) overlayJazz(ctx, fc.P, fc.uv, jazzImg);           // Memphis splatter, mapped in body space
+    else if (TEXTURED.has(fc.role)) overlayHull(ctx, fc.P, texStr);   // procedural panel/rivet detail
     if (!wreck && (fc.role === 'glass' || fc.role === 'window')) glassSheen(ctx, fc.P);   // glassy specular on canopy/windows
     ctx.strokeStyle = 'rgba(8,10,14,0.55)'; ctx.lineWidth = 1; ctx.stroke();
     if (!wreck && livery?.finish === 'gloss' && fc.role === 'body') {
@@ -1679,6 +1777,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky }) {
     const sc = scales[i];   // real relative size — a Cessna parks much smaller than a Twin Otter
     const faces = e.wreck ? buildWreck() : aircraftFaces(e.cls);
     const pal = liveryPalette(e.livery || {});
+    const jazzImg = (!e.wreck && pal.pat === 'jazz') ? jazzTex(e.livery?.base, e.livery?.trim, e.livery?.accent) : null;
     const roll = e.wreck ? -0.22 : 0, cro = Math.cos(roll), sro = Math.sin(roll);
     const selected = e.id === selId;
     const cen = proj(0, laneG, 0);   // this plane's own centre in normal-space (its lane, not the origin) — for backface culling
@@ -1713,11 +1812,13 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky }) {
       let rgb = faceBaseRgb(face, pal);
       if (e.wreck) rgb = mix3(rgb, [74, 72, 66], 0.55);
       let z = 0; for (const q of P) z += q.z;
-      drawn.push({ P, role: face.role, avgZ: z / P.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (selected ? 1.12 : 1) * (e.wreck ? 0.8 : 1)) });
+      const rec = { P, role: face.role, avgZ: z / P.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (selected ? 1.12 : 1) * (e.wreck ? 0.8 : 1)) };
+      if (jazzImg && JAZZ_ROLE.has(face.role)) rec.uv = face.p.map(v => jazzUV(v, face.role));
+      drawn.push(rec);
     }
     const origin = proj(0.2, laneG, 0);
     hits.push({ id: e.id, sx: origin.sx, sy: origin.sy, r: Math.max(26, focal / origin.z * 0.55) });
-    return { entry: e, faces: drawn.filter(Boolean), avgZ: proj(0, laneG, 0).z, laneG, origin, selected, sc };
+    return { entry: e, faces: drawn.filter(Boolean), avgZ: proj(0, laneG, 0).z, laneG, origin, selected, sc, jazzImg };
   });
 
   // Depth-sort WHOLE PLANES first (far to near), then faces within each — so one
@@ -1740,6 +1841,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky }) {
       for (let i = 1; i < fc.P.length; i++) ctx.lineTo(fc.P[i].sx, fc.P[i].sy);
       ctx.closePath();
       ctx.fillStyle = fc.col; ctx.fill();
+      if (fc.uv) overlayJazz(ctx, fc.P, fc.uv, grp.jazzImg);   // Memphis splatter (same body-space map as the turntable)
       if (!grp.entry.wreck && (fc.role === 'glass' || fc.role === 'window')) glassSheen(ctx, fc.P);   // glassy specular on canopy/windows
       ctx.strokeStyle = 'rgba(8,10,14,0.5)'; ctx.lineWidth = 1; ctx.stroke();
     }

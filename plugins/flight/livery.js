@@ -10,7 +10,7 @@
 
 // ── The model ─────────────────────────────────────────────────────────────────
 export const LIVERY_DEFAULT = {
-  base: '#5a5f66', trim: '#8a9099', pattern: 'bare', finish: 'satin',
+  base: '#5a5f66', trim: '#8a9099', accent: '#c22b8c', pattern: 'bare', finish: 'satin',
   decal: 'none', cabin: '#2a2e33', uphol: 'standard', text: '',
 };
 
@@ -31,6 +31,7 @@ export const PATTERNS = [
   { id: 'stripes',  label: 'Racing Stripes',  sig: 1.05 },
   { id: 'splinter', label: 'Splinter Camo',   sig: 0.85 },
   { id: 'hazard',   label: 'Hazard Chevrons', sig: 1.15 },
+  { id: 'jazz',     label: 'Jazz',            sig: 1.18 },   // Memphis dry-brush splatter — the loudest thing on the ramp
 ];
 
 // Finish coat — the other signature lever. Matte/weathered kill glare; gloss flares.
@@ -57,6 +58,7 @@ export const PRESETS = [
   { id: 'desert',    label: 'Desert',      base: '#b79a63', trim: '#6d5c38', pattern: 'splinter', finish: 'weathered', cabin: '#3a3324', uphol: 'leather' },
   { id: 'racing',    label: 'Racing Red',  base: '#b81f24', trim: '#e8e8e8', pattern: 'stripes',  finish: 'gloss',     cabin: '#2a1416', uphol: 'leather' },
   { id: 'coldblue',  label: 'Cold Blue',   base: '#274b7a', trim: '#7fb0e0', pattern: 'twotone',  finish: 'satin',     cabin: '#16202e', uphol: 'quilted' },
+  { id: 'jazz',      label: 'Jazz Wave',   base: '#18b8c2', trim: '#5a2c9c', accent: '#c22b8c', pattern: 'jazz', finish: 'gloss', cabin: '#1a1230', uphol: 'quilted' },
 ];
 
 const PATTERN_IDS = new Set(PATTERNS.map(p => p.id));
@@ -105,6 +107,7 @@ export function normalizeLivery(cd) {
   return {
     base:    isHex(raw.base) ? raw.base : LIVERY_DEFAULT.base,
     trim:    isHex(raw.trim) ? raw.trim : LIVERY_DEFAULT.trim,
+    accent:  isHex(raw.accent) ? raw.accent : LIVERY_DEFAULT.accent,
     pattern: PATTERN_IDS.has(raw.pattern) ? raw.pattern : LIVERY_DEFAULT.pattern,
     finish:  FINISH_IDS.has(raw.finish) ? raw.finish : LIVERY_DEFAULT.finish,
     decal:   DECAL_IDS.has(raw.decal) ? raw.decal : LIVERY_DEFAULT.decal,
@@ -120,6 +123,7 @@ export function sanitizeLivery(patch, prev = LIVERY_DEFAULT) {
   return {
     base:    isHex(p.base) ? p.base : prev.base,
     trim:    isHex(p.trim) ? p.trim : prev.trim,
+    accent:  isHex(p.accent) ? p.accent : (prev.accent || LIVERY_DEFAULT.accent),
     pattern: PATTERN_IDS.has(p.pattern) ? p.pattern : prev.pattern,
     finish:  FINISH_IDS.has(p.finish) ? p.finish : prev.finish,
     decal:   DECAL_IDS.has(p.decal) ? p.decal : (prev.decal || 'none'),
@@ -139,7 +143,7 @@ export function readSchemes(cd) {
 // The core (non-schemes, non-text) fields that make up one saved scheme.
 export function schemeOf(livery) {
   const lv = normalizeLivery({ livery });
-  return { base: lv.base, trim: lv.trim, pattern: lv.pattern, finish: lv.finish, decal: lv.decal, cabin: lv.cabin, uphol: lv.uphol };
+  return { base: lv.base, trim: lv.trim, accent: lv.accent, pattern: lv.pattern, finish: lv.finish, decal: lv.decal, cabin: lv.cabin, uphol: lv.uphol };
 }
 
 // ── Signature / conspicuousness ───────────────────────────────────────────────
@@ -178,6 +182,7 @@ function trimClause(lv) {
     case 'stripes':  return `${c} racing stripes down the fuselage`;
     case 'splinter': return `${c} splinter camo`;
     case 'hazard':   return `${c} hazard chevrons`;
+    case 'jazz':     return `a wild ${colorName(lv.trim)}-and-${colorName(lv.accent)} jazz splatter`;
     default:         return '';   // bare
   }
 }

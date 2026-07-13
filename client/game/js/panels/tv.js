@@ -450,6 +450,7 @@ function _toggleGameday() {
   if (_gamedayOpen) {
     if (!_gamedayView) _gamedayView = createGamedayView(host);
     if (_lastGameday) _gamedayView.apply(_lastGameday);
+    else _gamedayView.showIdle();   // opened before an at-bat arrived — never blank
   }
 }
 
@@ -894,6 +895,12 @@ export function appendTvMessage(text, style, duration) {
     });
   } else {
     el.innerHTML = _tvColorizeNpcSay(renderMarkup(text));
+    // Mirror Chip's spoken line into the Gameday caption bar while that view is open
+    // (the text rides this broadcast message, separate from the gameday overlay).
+    if (_gamedayOpen && _gamedayView) {
+      const plain = String(text).replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
+      if (plain) _gamedayView.setCaption(plain);
+    }
   }
   container.appendChild(el);
 

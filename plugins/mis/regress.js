@@ -10,4 +10,10 @@ export default async function regress({ run, check }) {
 
   r = await run('mis');
   check('mis toggle verb reachable', r != null && !/Unknown command/.test(r?.message || ''), r?.message);
+
+  r = await run('finger somebody');
+  check('finger verb gated when opted out', r?.type === 'error' && /Unknown command/.test(r.message || ''), r?.message);
+
+  r = await run("cum in somebody's mouth");
+  check('cum-in gated when opted out', r?.type === 'error' && /Unknown command/.test(r.message || ''), r?.message);
 }
