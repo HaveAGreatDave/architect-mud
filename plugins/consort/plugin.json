@@ -1,0 +1,8 @@
+{
+  "name": "consort",
+  "version": "1.0.0",
+  "description": "Brings flags.consort NPCs (the Echelon's kept companions, Roxy & Bijou) to life in the cabin. A 15s tick reads the live room: when the one they're devoted to (flags.devoted_to handle) is aboard and alone with them, arousal builds and they slowly undress themselves (MIS-gated), murmur devotion, and run tender two-hander banter with each other. A stranger in the room cools them off, covers them back up, and turns them shy. The `npc.talk` hook answers warmly to their keeper and shyly to everyone else. No money, no pole — they're on the payroll.",
+  "hooks": ["npc.talk"],
+  "commands": [],
+  "ticks": ["15s"]
+}

@@ -61,6 +61,7 @@ const PILOT_COLORS = {
   npc_charter_doyle: '#e2701e',    // Ratchet Doyle — burnt orange
   npc_charter_kessler: '#4fb8e0',  // Old Kessler — cold blue
   npc_charter_soto: '#c03b8f',     // Magpie Soto — magpie magenta
+  npc_charter_echelon: '#c9d4de',  // Wren Halloran — the Echelon's brushed silver
 };
 export function pilotColor(pilotId) { return PILOT_COLORS[pilotId] || '#f2b01e'; }
 
@@ -199,7 +200,9 @@ function syncPilots() {
 function openDeskElsewhere(exceptField) {
   for (const p of getNpcsByFlag('charter_pilot')) {
     if (p.flags.charter_pilot.field === exceptField) continue;
-    if (available(p)) { const z = getZone(p.flags.charter_pilot.field); return { field: z?.flags?.airfield_name || z?.name || p.flags.charter_pilot.field, pilot: p.name }; }
+    const z = getZone(p.flags.charter_pilot.field);
+    if (z?.flags?.yacht) continue;   // never point a stranger at Cyd's invite-only pad
+    if (available(p)) { return { field: z?.flags?.airfield_name || z?.name || p.flags.charter_pilot.field, pilot: p.name }; }
   }
   return null;
 }
@@ -257,10 +260,14 @@ function openCharterDialog(player, field, pilot) {
     const fareAny = zone && zone.grid_x != null ? charterFare(field.grid_x, field.grid_y, zone.grid_x, zone.grid_y, true) : null;
     return { ...t, charterAirfield: airfield, charterFareMule: fareMule, charterFareAny: fareAny, charterHere: t.id === field.id };
   });
+  // A VTOL-only field (the Echelon's aft pad) has no runway — the Mule can't work
+  // out of it. The client defaults to the off-airfield Dragonfly drop and drops the
+  // Mule/airfield leg entirely: every reachable tile is a Dragonfly destination.
+  const vtolOnly = !!field.flags.charter_vtol_only;
   return { type: 'charter_open', data: {
     pilotName: pilot.name, pilotColor: pilotColor(pilot.id),
     fieldName: field.flags.airfield_name || field.name,
-    muleName: 'Mule', anyName: 'Dragonfly',
+    muleName: 'Mule', anyName: 'Dragonfly', vtolOnly,
     credits: player.credits || 0, tiles,
   } };
 }
@@ -272,7 +279,8 @@ function openCharterDialog(player, field, pilot) {
 export async function cmdCharterBook(args, raw, player) {
   const { field, pilot, err } = charterGate(player);
   if (err) return err;
-  const anywhere = args.some(a => a.toLowerCase() === 'any' || a.toLowerCase() === 'anywhere');
+  // A VTOL-only field flies the Dragonfly off-airfield, always — there's no Mule/runway.
+  const anywhere = !!field.flags.charter_vtol_only || args.some(a => a.toLowerCase() === 'any' || a.toLowerCase() === 'anywhere');
   const destId = args.find(a => a && a.toLowerCase() !== 'any' && a.toLowerCase() !== 'anywhere');
   const { dest, err: derr } = resolveDest(field, anywhere, destId);
   if (derr) return derr;

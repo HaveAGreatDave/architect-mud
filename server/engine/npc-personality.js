@@ -284,6 +284,50 @@ const DEFAULTS = {
     ],
   },
 
+  // A kept companion, not a performer — forked from `stripper` but stripped of the
+  // pole, the tips, and the crowd. A consort keeps no shift and works no floor; the
+  // `consort` plugin drives their whole life in the cabin (arousal-driven undress,
+  // cover-up, two-hander banter, devotion to their keeper, shyness to strangers).
+  // These pools are only the archetype baseline for a future consort placed into an
+  // autonomous role — Roxy & Bijou themselves run entirely off the plugin.
+  consort: {
+    label: 'Consort', icon: '🌹', sells: false, mobile: false, npcType: 'npc',
+    workchitchat: [
+      'stands a soft step behind their keeper, present and unhurried',
+      '"Whatever you need. You only have to look at me."',
+      'refills a glass without being asked and folds back into the quiet',
+      '"I like it best when it\'s just us and the water."',
+    ],
+    lifechitchat: [
+      'curls into the end of the bed, half-watching the wall screen',
+      'pads barefoot across the cabin and refills a glass at the bar',
+      'draws a silk throw around bare shoulders and watches the hatch',
+      '"Off the water the world\'s so loud. In here it\'s only us."',
+      'hums something low, tidying a cushion that didn\'t need it',
+      'stretches like a cat in the warm dark and settles again',
+    ],
+    combat_lines: [
+      'Don\'t — please, I don\'t fight, I don\'t —',
+      'Someone help, HELP, get him off the boat —',
+      'You\'re not supposed to be here. You\'re not supposed to be HERE.',
+      'I\'ll scream. I mean it. This isn\'t your room to be in.',
+      'Stay back. He\'ll have you thrown to the basin for this.',
+    ],
+    mis_willing: true,
+    mis_lines_ok: [
+      'Yes. Anything you want — you never have to ask twice.',
+      'Mm. Closer. I\'m yours, you know that.',
+      'I\'ve been waiting all day for exactly this.',
+      'Take your time. We have the whole night and the whole sea.',
+    ],
+    mis_lines_no: [
+      'Oh — no. Not you. I don\'t know you.',
+      'Please don\'t. I\'m not for the guests.',
+      'That\'s not — you should ask whoever brought you aboard.',
+      'Hands off. I belong to someone, and it isn\'t you.',
+    ],
+  },
+
   tv_host: {
     label: 'TV Host', icon: '📺', sells: false, mobile: false, npcType: 'npc',
     workchitchat: [
@@ -1070,6 +1114,17 @@ const CLOTHING = {
       ['a sequinned robe barely closed', 'a rhinestone bikini top', 'a matching G-string'],
       ['a sheer wrap and thigh-high boots', 'a lace bra', 'a lace thong'],
       ['an unbuttoned satin shirt', 'a bejewelled bra', 'a sequinned thong'],
+    ],
+  },
+  consort: {
+    male: [
+      ['a loosely-belted silk robe', 'a fitted mesh undershirt', 'a pair of black silk briefs'],
+      ['an open kimono jacket', 'a sheer sleeveless top', 'a snug trunk'],
+    ],
+    female: [
+      ['a loosely-belted silk robe', 'a lace-trimmed slip', 'a matching lace bra and panties'],
+      ['a sheer floor-length peignoir', 'a satin camisole', 'a delicate lace thong'],
+      ['a soft cashmere wrap left open', 'a silk chemise', 'a strappy bralette and briefs'],
     ],
   },
   tv_host: {

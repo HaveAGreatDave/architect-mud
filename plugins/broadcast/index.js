@@ -341,7 +341,7 @@ function _vineDuration(graph, interval) {
     if (node.type === 'say' || node.type === 'ticker') total += interval;
     else if (node.type === 'wait') total += node.data?.seconds ?? 5;
     else if (node.type === 'credits') total += node.data?.duration ?? 10;
-    else if (node.type === 'title_card') total += node.data?.duration ?? 10;
+    else if (node.type === 'title_card') total += node.data?.theme ? Math.max(_themeDurationMs(node.data.theme) / 1000, node.data?.duration ?? 10) : (node.data?.duration ?? 10);
     else if (node.type === 'music') total += 8;
     nodeId = node.next ?? null;
   }
@@ -1702,11 +1702,13 @@ function assembleNewsGraph(script, broadcastId, stories, bucket) {
     return id;
   };
   add({ type: 'start' });
-  if (script.title) add({ type: 'title_card', graphic_id: script.title });
-  // Intro theme sting (@theme → an audio_songs row). The walker plays it if the song
-  // exists, else the cue text shows briefly and it moves on — so a missing song never
-  // stalls the bulletin.
-  if (script.theme) add({ type: 'music', song: script.theme, text: '♪ Raptor News theme ♪' });
+  // Intro theme sting (@theme → an audio_songs / audio_samples row). When there's a title
+  // card, the theme rides it: the song starts as the card appears and the card holds until
+  // the theme ends, so the first anchor line doesn't step on the intro. With no title card,
+  // it plays as a standalone music node (cue text shows if the song is missing, so a missing
+  // theme never stalls the bulletin).
+  if (script.title) add({ type: 'title_card', graphic_id: script.title, theme: script.theme || null });
+  else if (script.theme) add({ type: 'music', song: script.theme, text: '♪ Raptor News theme ♪' });
 
   // Every line is attributed to whoever is speaking it: the text is emitted as
   // `Name says, "line"` so the TV client renders a screenplay nameplate (and seeds
@@ -1941,8 +1943,10 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   };
 
   add({ type: 'start' });
-  if (script.title) add({ type: 'title_card', graphic_id: script.title });
-  if (script.theme) add({ type: 'music', song: script.theme, text: '♪ The theme plays. ♪' });
+  // Title card carries the theme when present: the intro plays over the card and the cold
+  // open waits for it to end (title-card / theme sync). No card ⇒ standalone theme sting.
+  if (script.title) add({ type: 'title_card', graphic_id: script.title, theme: script.theme || null });
+  else if (script.theme) add({ type: 'music', song: script.theme, text: '♪ The theme plays. ♪' });
 
   // Cold open — the sidekick/announcer does the "It's the show!" intro + tonight's tease.
   // Line counts wobble night to night so the open never feels rote.
@@ -2677,8 +2681,10 @@ async function broadcastTick() {
 
       const zone = getZone(zoneId);
       const formatted = formatMessage(result.text, deviceType, zone, result.style);
-      const isMusic = result.style === 'music' && result.song;
-      const isSample = result.style === 'music' && result.sample;
+      // Audio rides any result carrying a resolved def — a `music` node, or a `title_card`
+      // whose theme song/sample starts the moment the card appears.
+      const isMusic = !!result.song;
+      const isSample = !!result.sample;
       if (!formatted && !isMusic && !isSample) continue;
 
       const programName = result.programName ?? state.currentProgramName ?? null;
@@ -3314,6 +3320,22 @@ function _evalBroadcastCondition(node, channelId, nowMs) {
 // (nodeHoldMs) land close to their target + 1s buffer; the tick only re-evaluates, never skips.
 const BROADCAST_TICK_MS = 1000;
 
+// One-pass length (ms) of a theme, before it loops. A tracker song's natural end is
+// its longest channel × the per-step duration (tempo → 16th notes, STEPS_PER_BEAT = 4,
+// mirroring the client's makeSongPlayer). Recorded samples carry no server-side length,
+// so they fall back to the standard 8 s music hold. Returns 0 when the name resolves to
+// nothing (missing theme ⇒ caller uses the plain title-card hold).
+function _themeDurationMs(name) {
+  const song = getSongDefByName(name);
+  if (song) {
+    const channels = Array.isArray(song.channels) ? song.channels : [];
+    const steps = channels.reduce((m, ch) => Math.max(m, Array.isArray(ch) ? ch.length : 0), 0);
+    if (steps > 0) return Math.round(steps * (60 / (song.tempo || 120) / 4) * 1000);
+  }
+  if (getSampleDefByName(name)) return 8000;
+  return 0;
+}
+
 // Canonical on-air hold (ms) for a content node, before tick-quantization. This is the
 // single source of truth for how long each node type stays up, shared by the live walker
 // (tickBroadcastGraph sets bb.waitUntil = nowMs + nodeHoldMs(node)) and the late-tune
@@ -3327,6 +3349,9 @@ function nodeHoldMs(node) {
     case 'music':
       return (getSongDefByName(d.song) || getSampleDefByName(d.song)) ? 8000 : 5000;
     case 'title_card':
+      // A title card carrying a theme holds for the theme's full length, so its intro
+      // song plays out before the first spoken line drops (title-card / theme sync).
+      if (d.theme) { const t = _themeDurationMs(d.theme); if (t > 0) return t; }
       return (d.duration ?? 10) * 1000;
     case 'wait':
       return (d.seconds ?? 5) * 1000;
@@ -3682,7 +3707,16 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         bb.waitUntil = nowMs + nodeHoldMs(node);
         if (graphic && (graphic.content || '').trim()) {
           const caption = node.data?.caption ? `\n${node.data.caption}` : '';
-          return { text: graphic.content + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphicStyle(graphic) };
+          // A theme rides the card: the intro song starts the moment the card appears,
+          // and the card holds for the theme's length (see nodeHoldMs) so no spoken line
+          // drops until it ends. song/sample defs ride the result for broadcastTick to play.
+          const themeName = node.data?.theme;
+          const themeSong = themeName ? getSongDefByName(themeName) : null;
+          const themeSample = themeSong ? null : (themeName ? getSampleDefByName(themeName) : null);
+          if ((themeSong || themeSample) && liveActed && state.studioZoneId) {
+            sendToZone(state.studioZoneId, themeSong ? { type: 'audio_music', def: themeSong } : { type: 'audio_sample', def: themeSample });
+          }
+          return { text: graphic.content + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphicStyle(graphic), ...(themeSong ? { song: themeSong } : {}), ...(themeSample ? { sample: themeSample } : {}) };
         }
         // Graphic missing or empty — log it and skip straight to the next card this
         // tick (no dead 5s hold on a card that can't render).

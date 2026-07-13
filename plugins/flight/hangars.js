@@ -167,7 +167,10 @@ export async function pushHangarBay(player, selectId, opts = {}) {
   // held for them; clicking it embarks instead of opening the booking dialog.
   const parked = charterParkedAt(field.id);
   const charterWaiting = parked && parked.chartererId === player.id ? { destName: parked.destName } : null;
-  const canBuy = !!field.flags.airfield_dealer, canRent = !!field.flags.airfield_charter;
+  // `airfield_charter` normally means BOTH an NPC charter AND a self-fly rental desk.
+  // A VTOL-only charter pad (the Echelon) offers the NPC Dragonfly ride but NOT a full
+  // rental desk of every airframe — so the buy/rent screen stays closed there.
+  const canBuy = !!field.flags.airfield_dealer, canRent = !!field.flags.airfield_charter && !field.flags.charter_vtol_only;
   // ONE lot per airframe carrying BOTH prices — the client shows a single wireframe with a
   // Buy and a Rent button under it (each gated on afford + licence), instead of separate
   // buy/rent sections. Buy/Rent buttons still show only where the field offers that desk.
@@ -188,6 +191,9 @@ export async function pushHangarBay(player, selectId, opts = {}) {
     exitDir: hangarExitDir(player),
     refreshOnly: !!opts.refreshOnly,
     hasBay: mine.length > 0, credits: player.credits || 0, craft,
+    // The venue the 3D hangar scene renders: a yacht field draws an open-air boat
+    // helipad (no roof, sea around the deck) instead of the industrial bay.
+    venue: field.flags.yacht ? 'helipad' : 'hangar',
     select: selectId || null,   // client pre-selects this craft (from `view <tail>`)
     pilot: pilotStatusForField(field.id),
     charterWaiting,

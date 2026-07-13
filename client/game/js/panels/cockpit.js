@@ -2234,19 +2234,19 @@ function offMapHeading(F) {
 
 // Landing report card — grades the touchdown by sink rate (fpm at contact) and flashes a big
 // letter grade + the fpm + a wisecrack over the windshield for a couple of seconds. ~200 fpm is
-// a good arrival; 600 fpm is the gear-breaking crash threshold; everything between is graded.
+// a good arrival; 800 fpm is the gear-breaking crash threshold; everything between is graded.
 const LANDING_GRADES = [
-  [50,  'A+', 'butter', '🧈 BUTTER. Absolutely greased it.'],
-  [100, 'A',  'butter', 'Silky. The passengers applauded.'],
-  [150, 'A-', 'good',   'Smooth. Barely a bump.'],
-  [200, 'B+', 'good',   'Nice one — textbook touchdown.'],
-  [260, 'B',  'good',   "Solid. The coffee didn't spill."],
-  [320, 'B-', 'mid',    'Firm, but perfectly fine.'],
-  [380, 'C+', 'mid',    'Ooh — felt that one.'],
-  [440, 'C',  'mid',    'That was an arrival, not a landing.'],
-  [500, 'C-', 'bad',    'Ouch. Better check the struts.'],
-  [560, 'D',  'bad',    'The tower is filing paperwork.'],
-  [600, 'F-', 'bad',    'The landing gear is openly weeping.'],
+  [60,  'A+', 'butter', '🧈 BUTTER. Absolutely greased it.'],
+  [120, 'A',  'butter', 'Silky. The passengers applauded.'],
+  [180, 'A-', 'good',   'Smooth. Barely a bump.'],
+  [250, 'B+', 'good',   'Nice one — textbook touchdown.'],
+  [330, 'B',  'good',   "Solid. The coffee didn't spill."],
+  [420, 'B-', 'mid',    'Firm, but perfectly fine.'],
+  [510, 'C+', 'mid',    'Ooh — felt that one.'],
+  [600, 'C',  'mid',    'That was an arrival, not a landing.'],
+  [680, 'C-', 'bad',    'Ouch. Better check the struts.'],
+  [750, 'D',  'bad',    'The tower is filing paperwork.'],
+  [800, 'F-', 'bad',    'The landing gear is openly weeping.'],
 ];
 function landingGrade(fpm) {
   for (const [lim, grade, cls, txt] of LANDING_GRADES) if (fpm <= lim) return { grade, cls, txt };
@@ -2348,7 +2348,7 @@ function fsimFrame(now) {
     if (s.airspeed > 0.5) {
       // Ground pace is quick so you actually roll down the runway, then decays FAST with altitude
       // (exp, groundDecay-ft e-fold) to the slow cruise pace (worldPace) so the sky doesn't rush past.
-      const pace = RENDER_TUNE.worldPace * (1 + (RENDER_TUNE.groundBoost - 1) * Math.exp(-Math.max(0, s.altitude) / (RENDER_TUNE.groundDecay || 25)));
+      const pace = RENDER_TUNE.worldPace * (P.worldPaceMult || 1) * (1 + (RENDER_TUNE.groundBoost - 1) * Math.exp(-Math.max(0, s.altitude) / (RENDER_TUNE.groundDecay || 25)));
       const d = s.airspeed * pace * h, hr = s.heading * Math.PI / 180;
       // Ground track = air velocity + wind (airborne only — on the wheels the gear holds you to
       // the ground). A crosswind drifts you off the runway centreline; a head/tailwind slows/speeds
@@ -2420,8 +2420,9 @@ function fsimFrame(now) {
       showLandingCard(root, sinkFpm, true);   // crash card
       sendCmdSilent('flightevent crash ditched');
       if (F.toast) F.toast('CRASH — you ditched in the water');
-    } else if (sinkFpm > 600 && establishedClimb) {
-      // Slammed it in — a touchdown sinking faster than 600 fpm breaks the gear/airframe.
+    } else if (sinkFpm > 800 && establishedClimb) {
+      // Slammed it in — a touchdown sinking faster than 800 fpm breaks the gear/airframe. (Raised
+      // from 600 to make landings more forgiving: a firm arrival now rolls out instead of writing her off.)
       // Report a crash: the server destroys the craft and closes the sim (cockpit_close).
       F.rolling = false;
       groundFx('touchdownHard'); csfx('flight-crash', 'hololock-lose');

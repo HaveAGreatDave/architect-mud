@@ -1,0 +1,94 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "have_life",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "go_home_off",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "The Dragonfly'll set you down wherever's flat. Rooftop, sandbar, a road if it's quiet.",
+    "Cyd keeps her fuelled and keeps me paid. I keep my mouth shut. Everyone's happy.",
+    "Off-airfield only aboard the Echelon — no runway out here, just water and the pad."
+  ],
+  "description": "A trim, unhurried pilot in a pressed charcoal flight suit with the Echelon's silver monogram at the collar. She flies Cyd's private Dragonfly off the aft pad and asks no questions — where you want to set down is your business, not hers.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "charter_pilot": {
+      "field": "zone_echelon_exterior",
+      "shift_start": 0
+    },
+    "personality": "charter_pilot"
+  },
+  "home_activities": [],
+  "home_zone": "zone_echelon_helipad",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_charter_echelon",
+  "name": "Wren Halloran",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_echelon_helipad"
+}

@@ -128,6 +128,17 @@ function cmdGps(args, raw, player) {
 
   if (!query) return { type: 'error', message: 'GPS to where? Try: gps <part of a location name>' };
 
+  // `$home` / `$home_id` — the client macro tokens, but also honoured typed raw in the
+  // command box (where nothing interpolates them). Plot a route to the player's bound
+  // home apartment straight from its zone id, bypassing name matching entirely.
+  if (/^\$home(_id)?$/i.test(query)) {
+    if (!player.home_zone)
+      return { type: 'error', message: "You've no home set. Rent an apartment, then `home` to bind it." };
+    const dest = getZone(player.home_zone);
+    if (!dest) return { type: 'error', message: "Your bound home no longer exists." };
+    return plotRoute(player, dest, routeOpts);
+  }
+
   // Standing in a tile whose exact name you typed? You're already there. Resolve self
   // first so identically-named tiles (many "Grasslands" etc.) don't route you to a
   // same-named neighbour instead of recognising the one you're on.

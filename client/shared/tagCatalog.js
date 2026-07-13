@@ -362,6 +362,8 @@
       help: 'Display name of the airfield.' },
     airfield_charter: { label: 'Airfield: Charter', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
       help: 'Zone offers charter flights.' },
+    charter_vtol_only: { label: 'Charter: VTOL-only', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
+      help: 'Charter pad flies the VTOL Dragonfly off-airfield only — no Mule, no self-fly rental desk (e.g. the Echelon helipad).' },
     airfield_dealer: { label: 'Airfield: Dealer', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
       help: 'Aircraft dealer here.' },
     airfield_fuel: { label: 'Airfield: Fuel', shape: 'flag', scope: 'zone', group: 'Zone: Flight',

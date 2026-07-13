@@ -212,6 +212,7 @@ function stripperTick() {
   for (const [zoneId, zone] of world.zones) {
     if (!zone.players || zone.players.size === 0) continue;
     for (const npc of getZoneNpcs(zoneId)) {
+      if (npc.flags?.consort) continue; // a consort's undress/redress belongs to the consort plugin, not the club
       if (npc._combatTargetId || npc.posture === 'lying' || npc._ai?.homeSleeping) continue;
       // Force-stripped by the MIS `strip` verb: hold them fully bare and skip both
       // the dancer show and the plain-NPC re-dress, so a strip actually sticks.

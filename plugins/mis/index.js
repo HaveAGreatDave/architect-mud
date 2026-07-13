@@ -31,7 +31,7 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { recomputeArmor, recomputeInsulation } from '../../server/engine/commands/inventory.js';
 import { describeGenitals, ejaculateDescription, describeBodyPart } from '../../server/engine/appearance.js';
-import { getEnvironmentState } from '../../server/engine/environment.js';
+import { getEnvironmentState, getZonePrecip } from '../../server/engine/environment.js';
 
 function misGate(player, raw) {
   if (!isMisActive(player)) {
@@ -1641,15 +1641,26 @@ async function cmdWash(args, raw, player) {
   );
   const hasSink = sinkRows.length > 0;
 
-  let waterRow = null;
+  // Falling rain is a free open-air water source. Acid rain is caustic — it
+  // won't clean you (and would only make things worse), so reject it.
+  let inRain = false;
   if (!hasSink) {
+    const { precipType, precipRate } = getZonePrecip(player.current_zone);
+    if (precipRate > 0) {
+      if (precipType === 'acid') return { type:'error', message:`The rain is caustic — washing in acid would only make things worse.` };
+      if (['rain', 'sleet', 'thunderstorm', 'storm'].includes(precipType)) inRain = true;
+    }
+  }
+
+  let waterRow = null;
+  if (!hasSink && !inRain) {
     const { rows } = await query(
       `SELECT pi.id, pi.quantity FROM player_inventory pi
        JOIN items i ON i.id=pi.item_id
        WHERE pi.player_id=$1 AND (i.tags->>'restore_thirst' IS NOT NULL OR i.name ILIKE '%water%') LIMIT 1`,
       [player.id]
     );
-    if (!rows.length) return { type:'error', message:`You need a sink or water to wash yourself.` };
+    if (!rows.length) return { type:'error', message:`You need a sink, rain, or water to wash yourself.` };
     waterRow = rows[0];
   }
 
@@ -1667,10 +1678,13 @@ async function cmdWash(args, raw, player) {
     else await query('DELETE FROM player_inventory WHERE id=$1', [waterRow.id]);
   }
 
-  const src = `the water`;
-  const msg = bloodWashed
-    ? `You use ${src} to scrub the blood off. Better.`
-    : `You use ${src} to clean yourself off. Better.`;
+  const msg = inRain
+    ? (bloodWashed
+        ? `You stand out in the rain and let it scrub the blood off. Better.`
+        : `You stand out in the rain and let it rinse you clean. Better.`)
+    : (bloodWashed
+        ? `You use the water to scrub the blood off. Better.`
+        : `You use the water to clean yourself off. Better.`);
   return { type:'output', message: msg };
 }
 

@@ -22,8 +22,8 @@ const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
 const G_KT = 19.06;               // gravity as a knots/second airspeed change (9.81 m/s²)
 const wrap360 = (d) => ((d % 360) + 360) % 360;
-const GROUND_EFFECT_FT = 32;      // AGL band (~a wingspan) where the wing rides a lift cushion → float + flare to land (raised: engages higher so there's more room to arrest the sink and a wider safe-landing window)
-const HELI_GROUND_EFFECT_FT = 34; // AGL band (~a rotor diameter) where the downwash piles into a lift cushion → soft settle onto the skids
+const GROUND_EFFECT_FT = 38;      // AGL band (~a wingspan) where the wing rides a lift cushion → float + flare to land (raised: engages higher so there's more room to arrest the sink and a wider safe-landing window)
+const HELI_GROUND_EFFECT_FT = 40; // AGL band (~a rotor diameter) where the downwash piles into a lift cushion → soft settle onto the skids
 
 // ── Per-airframe tuning ───────────────────────────────────────────────────────
 // The Mayfly is the Phase-1 reference: a light, forgiving fixed-wing. Heavier types
@@ -129,6 +129,10 @@ export const TYPES = {
     pitchStable: 1.1, rollStable: 1.3, dragP: 0.00140, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
     rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 3600, vsGain: 3000, vsTau: 0.85,
     brake: 7.5, groundSteer: 28, ceiling: 17000, bestGlide: 76,
+    // COVERS GROUND FAST (per author direction): the strike platform eats distance between targets.
+    // A pure world-travel multiplier — the terrain scrolls past ~1.7× for the same airspeed, so she
+    // gets across the map without touching handling/stall/energy (read in the sim's world-translate).
+    worldPaceMult: 1.7,
   },
   // Dragonfly — a REVOLUTION MINI 500 analogue: a tiny single-rotor kit helicopter. Light,
   // darty and gets into tight spots (huge cyclic + pedal authority, spins on the spot in a
@@ -164,20 +168,11 @@ export const TYPES = {
   },
 };
 
-// A stall-shaped lift-coefficient curve: rises with AoA to the critical angle, then
-// falls off hard (the wing lets go). CL0 gives a little lift at zero AoA.
-const CL0 = 0.28, CL_ALPHA = 0.09, STALL_FALLOFF = 0.09;
+// The lift-curve constants: CL0 is the coefficient at zero AoA, CL_ALPHA the per-degree slope.
+// They anchor both the weight the wing carries (weightOf) and the AoA the wing needs to hold 1g
+// at a given speed (the flight-path energy model in step §7).
+const CL0 = 0.28, CL_ALPHA = 0.09;
 const STALL_HOLD = 1.9;   // seconds below stall speed before lift actually collapses (raised: a slow flare has more grace before it lets go, so you can bleed to touchdown speed without stalling)
-function liftCoef(aoa, aoaCrit, stalled) {
-  let cl = CL0 + CL_ALPHA * aoa;
-  if (aoa > aoaCrit) {
-    const clMax = CL0 + CL_ALPHA * aoaCrit;
-    // Past critical AoA lift only PLATEAUS (mushy handling); it collapses solely in a
-    // real, sustained stall — so a brief over-pull never dumps you out of the sky.
-    cl = stalled ? Math.max(0, clMax * (1 - (aoa - aoaCrit) * STALL_FALLOFF)) : clMax;
-  }
-  return Math.max(0, cl);
-}
 
 // Weight the model holds up. Anchored at the STALL point — at the clean stall speed
 // the wing at its max lift coefficient just holds the aircraft up. This makes the
@@ -423,35 +418,36 @@ export function step(state, input, p, dt) {
     }
   }
 
-  // 7. Lift vs weight → a bounded target vertical speed the aircraft eases toward
-  //    (vertical inertia — vs never jumps). Excess lift climbs; a deficit sinks.
-  const cl = liftCoef(s.aoa, p.aoaCrit, s.stalled) * (1 + flaps * p.flapLift);
-  const lift = 0.5 * s.airspeed * s.airspeed * cl * p.liftScale;
-  // Only the vertical component holds you up — in a steep bank the lift vector tilts,
-  // so a hard turn bleeds climb (add power or back-pressure to hold altitude).
-  const vLift = lift * Math.cos(s.bank * D2R);
-  // Release the yoke (centred) and the aircraft trims toward LEVEL flight — with power
-  // it holds altitude; small power differences give a gentle climb/descent, not a plunge.
-  const handsOff = clamp(1 - Math.abs(s.elevEff) * 3, 0, 1);
-  // A stall FALLS faster than it can climb — let the sink run well past the climb cap so the
-  // eye-height drops rapidly (the "falling out of the sky" feel). Held stalls sink hardest.
-  const sinkFloor = s.stalled ? -p.vsMax * 2.4 : -p.vsMax;
-  // Service ceiling: full climb until the top ~40% of the envelope, then it tapers to zero at
-  // p.ceiling as the air thins — you can't climb past it (descent is unaffected). Emergent, no cap.
+  // 7. Vertical motion — a FLIGHT-PATH ENERGY model (the rollercoaster). The velocity vector
+  //    chases where the NOSE points, offset by the angle of attack the wing needs to carry its
+  //    own weight at this speed:  γ_target = pitch − α_trim.
+  //      • FAST → the wing needs little AoA → γ ≈ pitch, so she goes exactly where she's pointed.
+  //        Nose DOWN and you DESCEND — and §8's gravity term trades that height for speed. You can
+  //        NOT hold altitude with the nose down (no "nose-low hover" — no level nose-down strafe).
+  //      • SLOW → the wing needs a big AoA → γ droops well below the nose (she mushes and sinks);
+  //        a hard BANK spills lift the same way (a steep turn sinks unless you pull / add power).
+  //    Because a climb bleeds speed (§8) which RAISES α_trim, a sustained zoom tapers itself off as
+  //    the energy runs out, and a dive builds speed you can zoom back into height — the coaster:
+  //    energy sloshes between altitude and airspeed instead of appearing out of the yoke. Hands-off
+  //    the nose self-levels toward pitch 0 (§3) → γ→0 → she holds altitude, no ballooning term needed.
+  const flapLiftF = 1 + flaps * p.flapLift;                  // flaps buy lift → less AoA to stay up → fly slower with the nose lower (eases the approach)
+  const dynBank = 0.5 * s.airspeed * s.airspeed * p.liftScale * Math.cos(s.bank * D2R);   // vertical dynamic-pressure budget (a bank spills it)
+  const clNeed = weight / Math.max(20, dynBank);             // lift coefficient the wing must make to hold 1g
+  const aoaTrim = clamp((clNeed / flapLiftF - CL0) / CL_ALPHA, 0, p.aoaCrit);   // AoA that buys it; saturates at the critical angle → mush/sink
+  let vsTarget = s.airspeed * 101.33 * Math.sin((s.pitch - aoaTrim) * D2R);     // ft/min along the commanded flight path (1 kt = 101.33 ft/min)
+  // A real, sustained stall dumps the wing: the path collapses well past even the mushing sink so
+  // the eye-height drops away (the "falling out of the sky" feel). A held stall sinks hardest.
+  if (s.stalled) vsTarget = Math.min(vsTarget, -p.vsMax * (s.elevEff > 0.3 ? 2.4 : 1.4));
+  // Service ceiling: climb authority fades to zero as the air thins toward p.ceiling (descent is
+  // untouched). A brief zoom can still trade speed for height above it — you just can't SUSTAIN a climb.
   const ceil = p.ceiling || 20000;
-  const climbCap = p.vsMax * clamp((ceil - s.altitude) / (ceil * 0.4), 0, 1);
-  let vsTarget = clamp((vLift / weight - 1) * p.vsGain, sinkFloor, climbCap);
-  // Hands off the yoke the aircraft shouldn't BALLOON, so damp the climb side toward level — but
-  // it must still settle: an idle, level plane bleeds speed and sinks, and that descent side is
-  // left alone. This is what lets you bleed altitude at low power without shoving the nose down;
-  // the sink stays gentle (bounded to the climb cap) right up until a real, sustained stall.
-  if (vsTarget > 0) vsTarget *= (1 - handsOff * 0.8);
-  // Ground effect: within ~a wingspan of the ground the wing rides a cushion of trapped air —
-  // induced drag falls away and the sink softens, so the aircraft FLOATS over the runway. You
-  // FLARE (ease back to trade the float for a gentle touchdown) instead of flying it into the deck.
+  if (vsTarget > 0) vsTarget *= clamp((ceil - s.altitude) / (ceil * 0.4), 0, 1);
+  // Ground effect: within ~a wingspan of the deck the wing rides a cushion of trapped air — the
+  // sink softens so she FLOATS and you FLARE her on instead of driving her into the runway. A firm,
+  // wide cushion makes the touchdown forgiving — a slightly-fast/high-sink arrival still settles.
   if (!s.onGround && vsTarget < 0 && s.altitude < GROUND_EFFECT_FT) {
     const ge = 1 - s.altitude / GROUND_EFFECT_FT;   // 0 at the top of the band → 1 on the deck
-    vsTarget *= 1 - 0.55 * ge * ge;                 // a firmer cushion — arrests the sink more as you near the deck, so a well-flown flare greases on and a slightly-fast arrival still settles (wider safe band), without floating the whole strip
+    vsTarget *= 1 - 0.62 * ge * ge;
   }
   if (s.onGround && vsTarget <= 0) {
     s.vs = 0;                                 // sitting on the wheels — no lift to climb on

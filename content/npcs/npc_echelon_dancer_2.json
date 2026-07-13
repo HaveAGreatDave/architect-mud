@@ -1,14 +1,16 @@
 {
   "banter": [],
   "chitchat": [],
-  "description": "A lush, full-figured dancer with a wicked grin and almost nothing on, draped across the end of the bed like she was poured there. She watches the door for exactly one person and treats everyone else as scenery.",
+  "description": "A lush, full-figured woman with a wicked grin and a satin chemise that leaves little argument, draped along the end of the bed like she was poured there. She watches the hatch for exactly one person and treats every other face as furniture — politely, and from a careful distance.",
   "faction": "none",
   "flags": {
-    "stripper": true,
-    "personality": "stripper",
+    "consort": true,
+    "personality": "consort",
+    "devoted_to": "Cyd",
+    "no_banter": true,
     "mis_requires_zone_flag": "mis_ok",
     "mis_willing": true,
-    "clothing_layers": ["a thin satin robe"]
+    "clothing_layers": ["a sheer floor-length peignoir", "a satin camisole", "a delicate lace thong"]
   },
   "home_zone": "zone_echelon_suite",
   "hp": 40,

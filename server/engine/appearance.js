@@ -159,11 +159,17 @@ export function describeGenitals(player, isSelf) {
   return null;
 }
 
+// Ejaculate/soil locations are body sites (penis, balls, ass…) but the coveredSlots
+// passed in are equipment-slot keys (legs, torso…). Crotch-area sites are hidden by
+// whatever fills the `legs` slot — without this map "penis" never matches "legs" and
+// fluid shows through fully clothed legs.
+const EJAC_COVER_SLOT = { penis: 'legs', balls: 'legs', ass: 'legs', asshole: 'legs', pussy: 'legs', crotch: 'legs' };
+
 // Describe ejaculate visible on a player (if MIS active and not covered)
 export function ejaculateDescription(player, isSelf, coveredSlots) {
   const state = player.appearance_data?.ejaculate_state;
   if (!state || !state.locations?.length) return null;
-  const visibleLocs = state.locations.filter(loc => !coveredSlots.has(loc));
+  const visibleLocs = state.locations.filter(loc => !coveredSlots.has(EJAC_COVER_SLOT[loc] || loc));
   if (!visibleLocs.length) return null;
   const subject = isSelf ? 'You have' : `${player.handle} has`;
   return `${subject} dried fluid visible on ${visibleLocs.join(', ')}.`;

@@ -60,7 +60,7 @@ export function openHangarBay(data) {
 export function openCharterScreen(data) {
   if (!B) openHangarBay({});
   charterData = data;
-  charterAny = false;
+  charterAny = !!data?.vtolOnly;   // a VTOL-only pad (the Echelon) is Dragonfly-from-the-start
   B.screen = 'charter';
   render();
 }
@@ -169,9 +169,12 @@ function sceneEntries() {
   // not present/bookable (server-gated: only the charterer can board it).
   if (pilot && d.canRent !== undefined) {
     const ready = pilot.present || !!d.charterWaiting;
-    const unrated = !d.licensed && !d.isAdmin;
+    // The checkride hook is for self-fly fields; a yacht helipad only sells the NPC-flown
+    // ride (no licence needed to be a passenger), so it never shows the "earn your licence" tell.
+    const unrated = !d.licensed && !d.isAdmin && d.venue !== 'helipad';
+    const dragonfly = d.venue === 'helipad';
     entries.push({
-      id: '__charter', cls: 'prop', tint: (ready || unrated) ? (pilot.color || '#f2b01e') : null,
+      id: '__charter', cls: dragonfly ? 'heli' : 'prop', tint: (ready || unrated) ? (pilot.color || '#f2b01e') : null,
       livery: { base: pilot.color || '#f2b01e', trim: '#1a1a1a', pattern: 'solid', finish: 'gloss', cabin: '#1a1a1a' },
       // Unrated pilots see the charter plane as their way in: click it to take the checkride.
       label: unrated ? '✈ CHARTER — click to take your checkride & earn your licence'
@@ -283,6 +286,11 @@ function charterScreen() {
     </div>`;
   }).join('');
 
+  const vtolOnly = !!c.vtolOnly;
+  const legend = vtolOnly
+    ? `<span><i class="hb-swatch hb-sw-any"></i> The Dragonfly sets down anywhere flat — pick any tile.</span>`
+    : `<span><i class="hb-swatch hb-sw-air"></i> Airfield — the Mule (${charterAny ? '' : 'active'})</span>
+       <span><i class="hb-swatch hb-sw-any"></i> Any tile — the Dragonfly, off-airfield premium</span>`;
   return `
     <div class="hb-charter-crt">
       <div class="hb-charter-head">
@@ -291,13 +299,10 @@ function charterScreen() {
         <span class="hb-credits">₵ ${c.credits ?? 0}</span>
       </div>
       <div class="hb-charter-map" style="grid-template-columns:repeat(${W},20px); grid-template-rows:repeat(${H},20px);">${cells}</div>
-      <div class="hb-charter-legend">
-        <span><i class="hb-swatch hb-sw-air"></i> Airfield — the Mule (${charterAny ? '' : 'active'})</span>
-        <span><i class="hb-swatch hb-sw-any"></i> Any tile — the Dragonfly, off-airfield premium</span>
-      </div>
+      <div class="hb-charter-legend">${legend}</div>
     </div>
     <div class="hb-toolbar">
-      <div class="hb-tb-group">${tbtn('⛟', `${charterAny ? '✓ ' : ''}Off-airfield drop (Dragonfly)`, 'data-act="charter-any"', charterAny ? 'hb-accent' : '')}</div>
+      <div class="hb-tb-group">${vtolOnly ? '' : tbtn('⛟', `${charterAny ? '✓ ' : ''}Off-airfield drop (Dragonfly)`, 'data-act="charter-any"', charterAny ? 'hb-accent' : '')}</div>
       <div class="hb-tb-group hb-tb-right">${tbtn('‹', 'Back', 'data-act="back"')}</div>
     </div>`;
 }
@@ -801,7 +806,7 @@ function wire() {
       // Unrated pilots can't fly anything yet — clicking the charter plane starts the
       // checkride (the loaner Mayfly + guided tutorial) so a new player has a discoverable
       // way to earn their licence right here on the hangar floor.
-      if (!B.data.licensed && !B.data.isAdmin) { sendCmdSilent('checkride'); closeHangarBay(); return; }
+      if (!B.data.licensed && !B.data.isAdmin && B.data.venue !== 'helipad') { sendCmdSilent('checkride'); closeHangarBay(); return; }
       // Already booked for you: click boards it directly. Otherwise, if a pilot's
       // on duty, click opens the booking dialog. A stranger's booking (pilot busy,
       // not yours) is neither — the server keeps it unbookable either way.
@@ -983,7 +988,7 @@ function startSpin() {
       const ctx = scene.getContext('2d');
       if (ctx) {
         ctx.setTransform(scene._dpr, 0, 0, scene._dpr, 0, 0);
-        sceneHits = drawHangarScene(ctx, { w: scene._cw, h: scene._ch, entries: sceneEntries(), selId: B.selId, sky: B.data?.sky });
+        sceneHits = drawHangarScene(ctx, { w: scene._cw, h: scene._ch, entries: sceneEntries(), selId: B.selId, sky: B.data?.sky, venue: B.data?.venue });
       }
     }
 
@@ -1022,7 +1027,7 @@ function startSpin() {
       const c = (B.data.craft || []).find(x => x.id === B.selId);
       if (ctx && inspect._cw && c) {
         ctx.setTransform(inspect._dpr, 0, 0, inspect._dpr, 0, 0);
-        const opts = { cls: c.class, wreck: !!c.wreck, livery: c.livery, w: inspect._cw, h: inspect._ch, sky: { ...(B.data?.sky || {}), fx: skyFx }, floor: true, floor3d: true };
+        const opts = { cls: c.class, wreck: !!c.wreck, livery: c.livery, w: inspect._cw, h: inspect._ch, sky: { ...(B.data?.sky || {}), fx: skyFx }, floor: true, floor3d: true, venue: B.data?.venue };
         if (B.inspect.mode === 'walk') opts.cam = { ...B.inspect.cam, z: B.inspect.cam.z + (B.inspect.hop?.off || 0) };   // layer the hop bob onto the eye
         else { opts.yaw = B.inspect.yaw; opts.elev = B.inspect.elev; opts.zoom = B.inspect.zoom; }
         drawHangarFloorBay(ctx, opts);

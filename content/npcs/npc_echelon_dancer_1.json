@@ -1,14 +1,16 @@
 {
   "banter": [],
   "chitchat": [],
-  "description": "A statuesque dancer with an hourglass figure barely contained by the sheer wisp she's wearing, all curves and heavy-lidded confidence. She moves like the room belongs to her and everyone in it is a guest.",
+  "description": "A statuesque woman with an hourglass figure wrapped in soft silk, all curves and heavy-lidded calm. Off any stage she moves slower, like the cabin belongs to her and she's in no hurry to prove it. Her eyes drift to the hatch whenever it so much as creaks.",
   "faction": "none",
   "flags": {
-    "stripper": true,
-    "personality": "stripper",
+    "consort": true,
+    "personality": "consort",
+    "devoted_to": "Cyd",
+    "no_banter": true,
     "mis_requires_zone_flag": "mis_ok",
     "mis_willing": true,
-    "clothing_layers": ["a sheer silk wrap"]
+    "clothing_layers": ["a loosely-belted silk robe", "a lace-trimmed slip", "a matching lace bra and panties"]
   },
   "home_zone": "zone_echelon_suite",
   "hp": 40,

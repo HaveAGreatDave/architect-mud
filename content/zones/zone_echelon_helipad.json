@@ -20,6 +20,8 @@
     "is_interior": true,
     "is_building": true,
     "open_sky": true,
+    "hangar_interior": true,
+    "hangar_ramp": "zone_echelon_exterior",
     "building_name": "The Echelon",
     "world_exit_zone": "zone_echelon_exterior"
   },

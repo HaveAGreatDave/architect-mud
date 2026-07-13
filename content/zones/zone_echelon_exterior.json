@@ -21,7 +21,9 @@
     "icon": "boat",
     "airfield_id": "echelon_helipad",
     "airfield_name": "The Echelon — Helipad",
-    "hangar_interior_zone": "zone_echelon_helipad"
+    "hangar_interior_zone": "zone_echelon_helipad",
+    "airfield_charter": true,
+    "charter_vtol_only": true
   },
   "grid_x": 897,
   "grid_y": 898,

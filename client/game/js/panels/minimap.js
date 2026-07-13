@@ -108,6 +108,15 @@ export function setRunState(running) {
 // arrival, the route runs out, or the user stops it. Cadence follows run/walk mode.
 const DIR_CMDS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out'];
 let autoWalkTimer = null;
+// Watchdog for a sent-but-unconfirmed hop. Auto-walk is CONFIRMATION-DRIVEN: after
+// sending a step we don't blind-fire the next one on a timer (that races the server —
+// a slow move reply meant we'd re-send the same hop, double-step, overshoot a turn and
+// wander off the plotted corridor → the "bouncing / off-path" bug). Instead we wait for
+// the server's move reply to confirm we reached the next tile (notifyAutoWalkArrival),
+// then pace the following hop. The watchdog only fires if that confirmation never comes
+// (a swallowed move, a stall), re-evaluating from our real position.
+let autoWalkWatchdog = null;
+const AUTO_WATCHDOG_MS = 3000;
 // The player's standing intent to auto-walk. Distinct from autoWalkTimer (the
 // "currently stepping" state): it SURVIVES arriving at a waypoint, so when a quest
 // advances a phase and re-plots the route (gps_route resumeAuto), we can pick the
@@ -141,6 +150,16 @@ const AUTO_BLOCK_MAX = 3;
 
 function autoWalkBtn() { return document.getElementById('mm-auto-toggle'); }
 
+function clearAutoWalkWatchdog() {
+  if (autoWalkWatchdog) { clearTimeout(autoWalkWatchdog); autoWalkWatchdog = null; }
+}
+// Arm the safety net for a hop we just sent: if the server never confirms arrival,
+// re-run the step from our real position (which either retries, reroutes, or stops).
+function armAutoWalkWatchdog() {
+  clearAutoWalkWatchdog();
+  autoWalkWatchdog = setTimeout(() => { autoWalkWatchdog = null; autoWalkStep(); }, AUTO_WATCHDOG_MS);
+}
+
 // Ask the server to re-plot to `destId` from wherever we are now, routing around any
 // tiles we've learned are blocked, and quietly resume the armed walk (no y/n prompt).
 // Shared by off-course recovery and blocked-entrance recovery.
@@ -169,19 +188,23 @@ export function resolveAutoWalkPicker(picker) {
 // next one" case — the timer stops but the intent persists for a resume.
 function stopAutoWalk(message, { keepArmed = false } = {}) {
   if (autoWalkTimer) { clearTimeout(autoWalkTimer); autoWalkTimer = null; }
+  clearAutoWalkWatchdog();
   if (!keepArmed) { autoWalkArmed = false; autoWalkBtn()?.classList.remove('active'); autoAvoid.clear(); }
   autoNoProgress = 0; autoLastZone = null; autoPendingTarget = null; autoRerouteTries = 0;
   autoBlockAnchor = null; autoBlockTries = 0;
   if (message) appendMsg(message, 'system');
 }
 
-export function isAutoWalking() { return autoWalkTimer !== null; }
+// Actively walking = either pacing the gap to the next hop (autoWalkTimer) or waiting
+// for the server to confirm a hop we already sent (autoWalkWatchdog). Both count so a
+// blocked move / exit picker arriving during the confirmation wait is still handled.
+export function isAutoWalking() { return autoWalkTimer !== null || autoWalkWatchdog !== null; }
 
 // A quest re-plotted the GPS route for a new phase (gps_route resumeAuto). If the
 // player had auto-walk engaged for the prior leg — even if it "arrived" and paused
 // between legs — resume walking the fresh route automatically.
 export function resumeAutoWalkIfArmed() {
-  if (autoWalkArmed && !autoWalkTimer) startAutoWalk();
+  if (autoWalkArmed && !isAutoWalking()) startAutoWalk();
 }
 
 function autoWalkStep() {
@@ -234,6 +257,23 @@ function autoWalkStep() {
   if (!dir || !DIR_CMDS.includes(dir)) { stopAutoWalk("Auto-walk stopped — can't step off the route from here."); return; }
   autoPendingTarget = nextId; // so an exit picker can be answered toward this zone
   sendCmd(dir);
+  // Confirmation-driven: wait for the server to report we've reached nextId
+  // (notifyAutoWalkArrival) before pacing the next hop — don't blind-fire a timer that
+  // could outrun the server and walk us off the plotted path. The watchdog re-evaluates
+  // only if that confirmation never lands.
+  armAutoWalkWatchdog();
+}
+
+// renderMinimap calls this on every confirmed position update. When the tile we were
+// stepping toward becomes our current room, the hop is done — pace the next one. Cosmetic
+// re-renders (avenue toggle, overlay changes) pass our unchanged standing tile, which can
+// never equal the pending NEXT tile, so they never false-advance the walk.
+export function notifyAutoWalkArrival(currentId) {
+  if (!autoWalkArmed || autoPendingTarget == null) return;
+  if (currentId !== autoPendingTarget) return;   // not the hop we're waiting on
+  autoPendingTarget = null;
+  clearAutoWalkWatchdog();
+  if (autoWalkTimer) clearTimeout(autoWalkTimer);
   autoWalkTimer = setTimeout(autoWalkStep, autoWalkDelay());
 }
 
@@ -241,6 +281,7 @@ export function startAutoWalk() {
   // Idempotent — clear any walk already in flight so a fresh route (e.g. the
   // Tablet's Auto button re-plotting) never leaves two step-timers racing.
   if (autoWalkTimer) { clearTimeout(autoWalkTimer); autoWalkTimer = null; }
+  clearAutoWalkWatchdog();
   const current = (_lastMinimapNodes || []).find(n => n.is_current);
   const path = current ? effectiveTracePath(current.id) : null;
   if (!path || path.length < 2) { appendMsg('Auto-walk: no GPS route plotted.', 'system'); return; }
@@ -295,6 +336,7 @@ export function autoWalkBlocked(message) {
   if (blocked && destId && blocked !== destId && autoAvoid.size < AUTO_AVOID_MAX && autoBlockTries <= AUTO_BLOCK_MAX) {
     autoAvoid.add(blocked);
     if (autoWalkTimer) { clearTimeout(autoWalkTimer); autoWalkTimer = null; }
+    clearAutoWalkWatchdog();
     autoLastZone = null; autoPendingTarget = null;
     requestReroute(destId);
     return true;
@@ -388,6 +430,7 @@ export function renderMinimap(nodes, direction) {
   const current = nodes.find(n => n.is_current);
   if (!current) { minimapMessage('(unmapped)'); return; }
   _lastMinimapNodes = nodes; // cache so the Avenue View toggle can re-render in place
+  notifyAutoWalkArrival(current.id); // confirmation-driven auto-walk: advance only when we actually arrive
 
   const byId = new Map(nodes.map(n => [n.id, n]));
   const coords = new Map();
@@ -671,7 +714,6 @@ const TERRAIN_FILL = { water: '#3f7fb0', grass: '#5a9e57' }; // fallback if a ti
 // #map-viewport in styles.css). The window never resizes; the regional view scales
 // its tiles down to fit the whole region inside it.
 const MAP_WINDOW_PX = 374;
-const MAP_BASE_TILE = 34; // #map-grid --map-room default (zone/interior tile px)
 
 // Small entrance arrow overlaid on a building tile, pointing to the edge the door
 // faces (server `entrance` field). A CSS triangle (no glyph) via .<pfx>-ent-<dir>;
@@ -734,6 +776,14 @@ let mapUiWired = false;
 // Pan offset of the grid within the fixed 11×11 viewport, and live drag state.
 const mapPan = { tx: 0, ty: 0 };
 const mapDrag = { on: false };
+// Popup full-map pixel zoom: the tile size (px) for the zone/interior grid, stepped
+// by the −/+ buttons and the mouse wheel. Zooming past the 34px default overflows the
+// fixed viewport, which is exactly what makes drag-to-pan live (an 11×11 grid that
+// merely fills the viewport has nothing to pan). Regional stays auto-fit-to-window.
+const MAP_TILE_ZOOMS = [22, 28, 34, 42, 52, 64, 80];
+const MAP_ZOOM_KEY = 'map_tile_zoom';
+let mapZoom = 2; // index → 34px, matching the CSS default
+try { const z = parseInt(localStorage.getItem(MAP_ZOOM_KEY), 10); if (z >= 0 && z < MAP_TILE_ZOOMS.length) mapZoom = z; } catch {}
 
 function twoLetterAbbrev(name) {
   return ((name || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 2) || '??');
@@ -817,17 +867,29 @@ function syncOverlaySlider() {
     seg.classList.toggle('active', seg.getAttribute('data-ov') === mapState.avenueOverlay);
 }
 
-// Available zoom levels, inner→outer. Interior only exists when you're inside one.
-function mapLevels() {
-  return mapState.insideInterior ? ['interior', 'zone', 'regional'] : ['zone', 'regional'];
+// Step the pixel zoom (zone/interior only — regional auto-fits). +1 = zoom in.
+// Re-renders in place; centerMapOnCurrent (end of renderMapGrid) keeps you centred.
+function stepMapZoom(delta) {
+  if (mapState.mode === 'regional') return;
+  const next = Math.min(MAP_TILE_ZOOMS.length - 1, Math.max(0, mapZoom + delta));
+  if (next === mapZoom) return;
+  mapZoom = next;
+  try { localStorage.setItem(MAP_ZOOM_KEY, String(mapZoom)); } catch {}
+  renderMapGrid();
 }
-// Step one level; +1 = zoom out (toward regional), −1 = zoom in. Clamps at the ends.
-function stepMapLevel(delta) {
-  const levels = mapLevels();
-  let i = levels.indexOf(mapState.mode);
-  if (i < 0) i = 0;
-  const next = levels[Math.min(levels.length - 1, Math.max(0, i + delta))];
-  if (next && next !== mapState.mode) sendCmdSilent(`map ${next}`);
+// Grey out the −/+ buttons at the ends of the zoom range, or entirely in regional
+// (which is fit-to-window and doesn't pixel-zoom).
+function updateMapZoomBtns() {
+  const out = document.getElementById('map-zoom-out');
+  const zin = document.getElementById('map-zoom-in');
+  const regional = mapState.mode === 'regional';
+  if (out) out.disabled = regional || mapZoom <= 0;
+  if (zin) zin.disabled = regional || mapZoom >= MAP_TILE_ZOOMS.length - 1;
+}
+// Keep the header Auto-walk button lit in step with the shared auto-walk state, so a
+// map refresh (player moved) or a start/stop from elsewhere stays reflected.
+function syncMapAutoBtn() {
+  document.getElementById('map-auto-toggle')?.classList.toggle('active', isAutoWalking());
 }
 
 function mapTooltipEl() {
@@ -966,15 +1028,26 @@ function wireMapUi() {
     renderMapGrid();
     if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes); // clear it off the minimap too
   });
+  // −/+ pixel zoom (zone/interior). Zooming in overflows the viewport so the drag-pan
+  // below has room to move; regional ignores it (auto-fit).
+  document.getElementById('map-zoom-out')?.addEventListener('click', () => stepMapZoom(-1));
+  document.getElementById('map-zoom-in')?.addEventListener('click', () => stepMapZoom(1));
+  // Auto-walk toggle: follow the plotted GPS route (or stop if already walking). The
+  // lit state is kept in sync by syncMapAutoBtn on every render.
+  document.getElementById('map-auto-toggle')?.addEventListener('click', () => {
+    if (isAutoWalking()) stopAutoWalk('Auto-walk stopped.');
+    else startAutoWalk();
+    syncMapAutoBtn();
+  });
   const vp = document.getElementById('map-viewport');
   if (vp) {
     let lastWheel = 0;
     vp.addEventListener('wheel', (e) => {
       e.preventDefault();
       const now = Date.now();
-      if (now - lastWheel < 150) return; // one notch = one step
+      if (now - lastWheel < 120) return; // one notch = one step
       lastWheel = now;
-      stepMapLevel(e.deltaY < 0 ? 1 : -1); // up = zoom out, down = zoom in
+      stepMapZoom(e.deltaY < 0 ? 1 : -1); // up = zoom in, down = zoom out
     }, { passive: false });
 
     // Drag to pan the grid within the bounded viewport. Pointer capture is deferred
@@ -1247,17 +1320,19 @@ function renderMapGrid() {
   // once — full district in view, no panning. Zone/interior keep the CSS default tile
   // size (34px). The window itself never changes size. `--map-room` drives both the
   // column width and the .map-c row height, so setting it here scales tiles square.
-  let tilePx = MAP_BASE_TILE; // CSS default #map-grid --map-room (zone/interior)
+  let tilePx;
   if (regional) {
     // Fit the whole region into the viewport's *actual* width — which shrinks on
     // mobile (the CSS media query narrows --map-room), so read it live rather than
     // trusting the desktop MAP_WINDOW_PX constant.
     const winPx = document.getElementById('map-viewport')?.clientWidth || MAP_WINDOW_PX;
     tilePx = Math.max(5, Math.floor(Math.min(winPx / gCols, winPx / gRows)));
-    grid.style.setProperty('--map-room', `${tilePx}px`);
   } else {
-    grid.style.removeProperty('--map-room');
+    // Zone/interior: the user's pixel zoom. Larger than the 34px default overflows the
+    // fixed viewport → drag-to-pan becomes live (see applyMapPan/centerMapOnCurrent).
+    tilePx = MAP_TILE_ZOOMS[mapZoom];
   }
+  grid.style.setProperty('--map-room', `${tilePx}px`);
   grid.style.gridTemplateColumns = `repeat(${gCols}, var(--map-room))`;
   grid.classList.remove('avenue');
 
@@ -1379,6 +1454,8 @@ function renderMapGrid() {
 
   // Center the viewport on the current tile (offsets require the panel laid out).
   centerMapOnCurrent();
+  updateMapZoomBtns();
+  syncMapAutoBtn();
 }
 
 // If the map popup is currently open, silently re-request it at the current

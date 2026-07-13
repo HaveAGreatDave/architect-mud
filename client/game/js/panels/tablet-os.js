@@ -139,6 +139,8 @@ let _gearLayer = 2; // Gear app: displayed body layer (0 skin / 1 clothes / 2 ar
 let _gearTab = 'inventory';  // Gear app primary tab: 'inventory' (full paged pack) or 'loadout' (paperdoll)
 let _gearTrayPage = 0;       // Gear app: current page of the loadout carried tray
 let _gearInvPage = 0;        // Gear app: current page of the Inventory tab
+let _gearClothingOpen = false; // Gear app: is the Inventory-tab Clothing group expanded? (collapsed by default)
+let _gearArmorOpen = false;  // Gear app: is the Inventory-tab Armour group expanded? (collapsed by default)
 let _gearIdp = null;         // Gear app: open item-detail modal element (Inventory tab)
 let _gearTipEl = null;       // Gear app: shared hover tooltip element (quick stats)
 let _gearFbTimer = null;     // Gear app: auto-clear timer for the below-feet feedback line
@@ -750,6 +752,15 @@ function ensureStyles() {
     #tablet-os-overlay .tos-ginv-slot { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
     #tablet-os-overlay .tos-ginv-eq { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--mg-accent); white-space:nowrap; }
     #tablet-os-overlay .tos-ginv-chev { flex:0 0 auto; font-size:15px; color:var(--tos-fg-dim2); }
+    /* Collapsible Clothing group header on the Inventory tab. */
+    #tablet-os-overlay .tos-ginv-grouphead { display:flex; align-items:center; gap:8px; cursor:pointer; margin-top:8px; padding:7px 10px;
+      border-radius:5px; background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); transition:filter .12s, border-color .12s; }
+    #tablet-os-overlay .tos-ginv-grouphead:hover { border-color:color-mix(in srgb, var(--mg-accent) 48%, transparent); filter:brightness(1.08); }
+    #tablet-os-overlay .tos-ginv-groupname { flex:1; min-width:0; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-ginv-groupcount { flex:0 0 auto; font-size:10px; padding:1px 7px; border-radius:9px;
+      background:color-mix(in srgb, var(--mg-accent) 16%, transparent); color:var(--tos-fg-dim2); }
 
     /* Item-detail sheet (tap a row on the Inventory tab). */
     /* pointer-events:auto — the overlay container is pointer-events:none (clicks pass
@@ -2668,9 +2679,17 @@ function renderGearLoadout(d) {
 // game's inventory. A tap opens the item-detail sheet with the piece's actions.
 function renderGearInventory(d) {
   const all = d.inventory || [];
-  const pages = Math.max(1, Math.ceil(all.length / GEAR_INV_PAGE));
+  // Worn body-slot gear folds into two collapsed-by-default groups so the pack
+  // list isn't buried: Clothing (underwear/outerwear) and Armour (the `armor`
+  // layer). Weapons, accessories, and loose gear stay in the main paged list.
+  const isArmor = (it) => GEAR_ARMOR_SLOTS.includes(it.tags?.slot) && (it.tags?.layer || 'outerwear') === 'armor';
+  const isClothing = (it) => GEAR_ARMOR_SLOTS.includes(it.tags?.slot) && !isArmor(it);
+  const clothing = all.filter(isClothing);
+  const armor = all.filter(isArmor);
+  const main = all.filter(it => !isClothing(it) && !isArmor(it));
+  const pages = Math.max(1, Math.ceil(main.length / GEAR_INV_PAGE));
   _gearInvPage = Math.min(Math.max(0, _gearInvPage), pages - 1);
-  const slice = all.slice(_gearInvPage * GEAR_INV_PAGE, _gearInvPage * GEAR_INV_PAGE + GEAR_INV_PAGE);
+  const slice = main.slice(_gearInvPage * GEAR_INV_PAGE, _gearInvPage * GEAR_INV_PAGE + GEAR_INV_PAGE);
   const wPct = d.capacity ? Math.min(100, Math.round((d.weight / d.capacity) * 100)) : 0;
   const head =
     `<div class="tos-gear-head">
@@ -2689,10 +2708,22 @@ function renderGearInventory(d) {
       <span class="tos-ginv-name">${esc(it.name)}${qty}</span>${badge}
       <span class="tos-ginv-chev">›</span></div>`;
   };
-  const list = all.length
+  const list = main.length
     ? `<div class="tos-ginv-list">${slice.map(row).join('')}</div>`
-    : '<div class="tos-gtray-empty">Your pack is empty.</div>';
-  return `${head}${list}${gearPager('inv', _gearInvPage, pages)}`;
+    : ((clothing.length || armor.length) ? '' : '<div class="tos-gtray-empty">Your pack is empty.</div>');
+  // A collapsible group: header with count + expanded row list. `key` is the
+  // data attribute the click handler toggles.
+  const group = (items, label, key, open) => items.length
+    ? `<div class="tos-ginv-grouphead${open ? ' open' : ''}" data-${key}>
+         <span class="tos-ginv-chev">${open ? '⌄' : '›'}</span>
+         <span class="tos-ginv-groupname">${label}</span>
+         <span class="tos-ginv-groupcount">${items.length}</span>
+       </div>
+       ${open ? `<div class="tos-ginv-list">${items.map(row).join('')}</div>` : ''}`
+    : '';
+  const groups = group(clothing, 'Clothing', 'gclothing', _gearClothingOpen)
+    + group(armor, 'Armour', 'garmor', _gearArmorOpen);
+  return `${head}${list}${gearPager('inv', _gearInvPage, pages)}${groups}`;
 }
 
 // A tablet-native item-detail sheet — the tap target from the Inventory tab. Shows
@@ -2945,6 +2976,16 @@ function wireGear() {
       const it = gearTrayItem(el.getAttribute('data-ginv'));
       if (it) showGearItemDetail(it);
     });
+  });
+
+  // Clothing / Armour group headers toggle their collapsed/expanded state (client-side).
+  _overlay.querySelector('[data-gclothing]')?.addEventListener('click', () => {
+    _gearClothingOpen = !_gearClothingOpen;
+    sfx(TOS_SELECT_DEF); rebuildGear();
+  });
+  _overlay.querySelector('[data-garmor]')?.addEventListener('click', () => {
+    _gearArmorOpen = !_gearArmorOpen;
+    sfx(TOS_SELECT_DEF); rebuildGear();
   });
 
   // Hover quick-stats tooltip on tray items (data-gid) and worn slots (data-geq),

@@ -1036,7 +1036,14 @@ export function drawNoseArt(ctx, proj, cls, lv) {
 // wash + a receding grid + a soft contact pool under the craft — enough of a floor to feel
 // grounded in a real space.
 const FLOOR_Z = -0.27;   // ground plane, just under the wheels
-function drawInspectBackdrop(ctx, w, h) {
+function drawInspectBackdrop(ctx, w, h, venue = null, sky = null) {
+  if (venue === 'helipad') {
+    // Open sky over the pad — the live sky/weather palette, sea-dark toward the deck.
+    const pal = skyPalette(sky), g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, rgbStr(pal.top)); g.addColorStop(0.5, rgbStr(pal.hor)); g.addColorStop(1, rgbStr(mix3(pal.hor, [8, 12, 18], 0.7)));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    return;
+  }
   const g = ctx.createLinearGradient(0, 0, 0, h);
   g.addColorStop(0, '#0b1218'); g.addColorStop(0.55, '#0e1621'); g.addColorStop(1, '#05090d');
   ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
@@ -1248,6 +1255,110 @@ function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
   ctx.strokeStyle = 'rgba(36,44,52,0.95)'; ctx.lineWidth = 4;                  // heavy door frame
   ctx.beginPath(); ctx.moveTo(DP[0].sx, DP[0].sy); for (let i = 1; i < DP.length; i++) ctx.lineTo(DP[i].sx, DP[i].sy); ctx.closePath(); ctx.stroke();
 }
+// ── Walk-inspect: the Echelon's open boat helipad ─────────────────────────────
+// The yacht variant of drawInspectRoom — no roof, no walls. An open non-slip deck
+// disc (painted 'H' + ring of breathing red pad lights), a low guard rail around the
+// water's edge, the smoked-glass deckhouse rising forward of the pad, and the Basin
+// lapping out to a distant lit skyline on every open side. Same free `proj` as the
+// grid + model, so it holds in world space as you walk; skyPalette ties the water +
+// sky to the live weather. Drawn before the model so the craft sits ON the pad.
+const DECK_R = 2.55;
+function drawHelipadRoom(ctx, proj, sky, w, h) {
+  const F0 = FLOOR_Z, pal = skyPalette(sky), night = pal.night, wx = pal.weather;
+  // Near-clipped projected fill (walls/water span the camera near plane).
+  const poly = (modelPts, style) => {
+    const cl = clipNear(modelPts, proj); if (cl.length < 3) return;
+    const P = cl.map(p => proj(p[0], p[1], p[2]));
+    ctx.beginPath(); ctx.moveTo(P[0].sx, P[0].sy); for (let i = 1; i < P.length; i++) ctx.lineTo(P[i].sx, P[i].sy); ctx.closePath();
+    ctx.fillStyle = typeof style === 'function' ? style(P) : style; ctx.fill();
+  };
+  // A projected model quad with NO clipping (structures out past the near plane) — skip if any
+  // corner is behind the eye. Used for the deckhouse + skyline blocks that never straddle it.
+  const fillModel = (pts, style) => {
+    const P = pts.map(p => proj(p[0], p[1], p[2])); if (P.some(q => q.z <= ROOM_NEAR)) return;
+    ctx.fillStyle = style; ctx.beginPath(); ctx.moveTo(P[0].sx, P[0].sy); for (let i = 1; i < P.length; i++) ctx.lineTo(P[i].sx, P[i].sy); ctx.closePath(); ctx.fill();
+  };
+  // 1) The Basin — one big water plane at deck level out to the far distance; the deck +
+  //    structures paint over its middle. Gradient: hazed horizon far, dark water near.
+  poly([[-46, -46, F0], [46, -46, F0], [46, 46, F0], [-46, 46, F0]], (P) => {
+    const ys = P.map(q => q.sy), g = ctx.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys));
+    g.addColorStop(0, rgbStr(mix3(pal.hor, [16, 26, 40], 0.55))); g.addColorStop(1, rgbStr(mix3([10, 16, 24], [4, 8, 14], night)));
+    return g;
+  });
+  // 2) Distant skyline ringing the Basin — a circle of hazed slabs, each a tangential
+  //    billboard so the city wraps the horizon as you turn. Lit windows at night.
+  const litRGB = night > 0.4 ? [255, 214, 150] : [150, 170, 188];
+  for (let i = 0; i < 20; i++) {
+    const a = i / 20 * Math.PI * 2, R = 30 + hash01(i * 3.3) * 5;
+    const cf = Math.cos(a) * R, cg = Math.sin(a) * R, tf = -Math.sin(a), tg = Math.cos(a);
+    const hw = 1.1 + hash01(i * 7.1) * 1.5, top = F0 + 0.9 + hash01(i * 5.7) * 2.4;
+    const haze = clampN(0.34 + (R - 30) * 0.06, 0.3, 0.6);
+    const front = rgbStr(mix3(pal.hor, [26, 31, 38], haze));
+    fillModel([[cf - tf * hw, cg - tg * hw, F0], [cf + tf * hw, cg + tg * hw, F0], [cf + tf * hw, cg + tg * hw, top], [cf - tf * hw, cg - tg * hw, top]], front);
+    if (night > 0.4 && hash01(i * 2.1) < 0.6) {   // a couple of lit windows
+      for (let r = 0; r < 3; r++) for (let c = -1; c <= 1; c++) {
+        if (hash01(i * 9.1 + r * 3.7 + c * 1.9) < 0.45) continue;
+        const wf = cf + tf * c * hw * 0.5, wg = cg + tg * c * hw * 0.5, z = F0 + 0.4 + r * (top - F0 - 0.4) / 3;
+        fillModel([[wf - tf * 0.14, wg - tg * 0.14, z], [wf + tf * 0.14, wg + tg * 0.14, z], [wf + tf * 0.14, wg + tg * 0.14, z + 0.2], [wf - tf * 0.14, wg - tg * 0.14, z + 0.2]], rgbStr(litRGB, 0.9));
+      }
+    }
+  }
+  // 3) The deck — a dark non-slip disc, its rim caught by a thin light line.
+  const deckPts = []; for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; deckPts.push([Math.cos(a) * DECK_R, Math.sin(a) * DECK_R, F0]); }
+  poly(deckPts, 'rgb(19,22,27)');
+  // 4) The painted landing circle + 'H'.
+  ctx.strokeStyle = 'rgba(208,222,236,0.5)'; ctx.lineWidth = 3; ctx.beginPath();
+  let started = false;
+  for (let k = 0; k <= 48; k++) { const a = k / 48 * Math.PI * 2, p = proj(Math.cos(a) * 1.85, Math.sin(a) * 1.85, F0 + 0.002); if (p.z <= ROOM_NEAR) { started = false; continue; } started ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy); started = true; }
+  ctx.stroke();
+  const Hcol = 'rgba(224,232,240,0.6)', z2 = F0 + 0.003;
+  const bar = (f0, f1, g0, g1) => poly([[f0, g0, z2], [f1, g0, z2], [f1, g1, z2], [f0, g1, z2]], Hcol);
+  bar(-0.7, 0.7, -0.55, -0.39); bar(-0.7, 0.7, 0.39, 0.55); bar(-0.1, 0.1, -0.39, 0.39);
+  // 5) Recessed pad lights around the rim — a slow, patient red, each with a soft bloom.
+  for (let k = 0; k < 16; k++) {
+    const a = k / 16 * Math.PI * 2, p = proj(Math.cos(a) * (DECK_R - 0.14), Math.sin(a) * (DECK_R - 0.14), F0 + 0.02);
+    if (p.z <= ROOM_NEAR) continue;
+    const r = clampN(20 / p.z, 2, 9);
+    const rg = ctx.createRadialGradient(p.sx, p.sy, 1, p.sx, p.sy, r * 1.7);
+    rg.addColorStop(0, 'rgba(255,84,66,0.55)'); rg.addColorStop(1, 'rgba(255,84,66,0)');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(p.sx, p.sy, r * 1.7, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,96,74,0.95)'; ctx.beginPath(); ctx.arc(p.sx, p.sy, r * 0.42, 0, 7); ctx.fill();
+  }
+  // 6) Low guard rail around the OPEN edge (skip the forward wedge where the deckhouse is).
+  const railZ = F0 + 0.34, open = (a) => Math.cos(a) < 0.5;
+  ctx.strokeStyle = 'rgba(150,168,184,0.7)'; ctx.lineWidth = 2; ctx.beginPath(); started = false;
+  for (let k = 0; k <= 44; k++) { const a = k / 44 * Math.PI * 2; if (!open(a)) { started = false; continue; } const p = proj(Math.cos(a) * (DECK_R + 0.04), Math.sin(a) * (DECK_R + 0.04), railZ); if (p.z <= ROOM_NEAR) { started = false; continue; } started ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy); started = true; }
+  ctx.stroke();
+  for (let k = 0; k < 22; k++) { const a = k / 22 * Math.PI * 2; if (!open(a)) continue; const bx = Math.cos(a) * (DECK_R + 0.04), bg = Math.sin(a) * (DECK_R + 0.04), p0 = proj(bx, bg, F0), p1 = proj(bx, bg, railZ); if (p0.z <= ROOM_NEAR || p1.z <= ROOM_NEAR) continue; ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(p1.sx, p1.sy); ctx.stroke(); }
+  // 7) The deckhouse — a stepped mirror-black superstructure forward of the pad, a smoked-
+  //    glass band, and a masthead beacon. Fixed shades (no cull): front lit, sides darker.
+  const hf0 = DECK_R - 0.15, hf1 = DECK_R + 3.2, hg = 1.95, hz1 = F0 + 1.35, hz2 = F0 + 2.15;
+  const glass = (P) => { const ys = P.map(q => q.sy), g = ctx.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys)); g.addColorStop(0, 'rgba(58,80,104,0.9)'); g.addColorStop(1, 'rgba(24,34,46,0.95)'); return g; };
+  // sides (recede to +f) — drawn first so the front face overlaps them
+  for (const s of [1, -1]) fillModel([[hf0, s * hg, F0], [hf1, s * hg, F0], [hf1, s * hg, hz2], [hf0, s * hg, hz1]], 'rgb(12,13,17)');
+  fillModel([[hf0, -hg, hz2 - 0.005], [hf0, hg, hz2 - 0.005], [hf1, hg, hz2], [hf1, -hg, hz2]], 'rgb(20,22,28)');   // roof
+  fillModel([[hf0, -hg, F0], [hf0, hg, F0], [hf0, hg, hz1], [hf0, -hg, hz1]], 'rgb(16,17,22)');                     // lower hull front (mirror-black)
+  poly([[hf0, -hg, hz1 - 0.02], [hf0, hg, hz1 - 0.02], [hf0, hg, hz2], [hf0, -hg, hz2]], glass);                    // smoked-glass band
+  // Glass mullions.
+  ctx.strokeStyle = 'rgba(120,150,178,0.35)'; ctx.lineWidth = 1;
+  for (let gg = -hg + 0.4; gg < hg; gg += 0.5) { const a = proj(hf0, gg, hz1 - 0.02), b = proj(hf0, gg, hz2); if (a.z <= ROOM_NEAR || b.z <= ROOM_NEAR) continue; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); }
+  // Masthead beacon — a small warm light atop the deckhouse.
+  const bc = proj(hf0 + 1.2, 0, hz2 + 0.9);
+  if (bc.z > ROOM_NEAR) {
+    const r = clampN(24 / bc.z, 3, 12), rg = ctx.createRadialGradient(bc.sx, bc.sy, 1, bc.sx, bc.sy, r * 2);
+    rg.addColorStop(0, 'rgba(255,238,200,0.8)'); rg.addColorStop(1, 'rgba(255,238,200,0)');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(bc.sx, bc.sy, r * 2, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,244,214,0.95)'; ctx.beginPath(); ctx.arc(bc.sx, bc.sy, r * 0.4, 0, 7); ctx.fill();
+  }
+  // 8) Live precip over the open deck (only with Motion/WeatherFX on).
+  const fx = sky?.fx || {};
+  if (fx.motion && /rain|storm/.test(wx)) {
+    const now = performance.now() / 1000, slant = 3 + Math.min(8, (sky?.wind || 0) / 6);
+    ctx.strokeStyle = rgbStr([192, 212, 236], wx === 'storm' ? 0.5 : 0.36); ctx.lineWidth = 1.1;
+    for (let i = 0; i < 34; i++) { const px = (hash01(i * 1.3) * w + now * 90) % w, py = (hash01(i * 2.7) * h + now * 560) % h; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - slant, py + 12); ctx.stroke(); }
+  }
+}
+
 // Deterministic 0..1 hash — a stable per-index value so windows/billboards/stars don't jitter.
 const hash01 = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
 // A grid of lit/dark windows on a building's camera-facing front face (constant f), in MODEL space
@@ -1392,7 +1503,7 @@ export function drawTurntable(ctx, opts) {
 // The turntable's paint step alone, with NO clear — so a caller that's already
 // painted a backdrop into the canvas (drawHangarFloorBay below) can draw the plane
 // on top of it in the same pass instead of the model wiping the scene behind it.
-function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null }) {
+function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null }) {
   const faces = wreck ? buildWreck() : aircraftFaces(cls);
   const pal = liveryPalette(livery || {});
   const jazzImg = (!wreck && pal.pat === 'jazz') ? jazzTex(livery?.base, livery?.trim, livery?.accent) : null;
@@ -1430,8 +1541,10 @@ function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom =
     };
     eyeW = [camDist * cosE, 0, camDist * sinE];   // orbit eye in (fx,gy,hz) space: solves camZ = camDist, camY = 0
   }
-  if (floor && cam) drawInspectRoom(ctx, proj, sky);   // walk view: a real 3D hangar around you, live sky through the bay door
-  if (floor) drawFloorGrid(ctx, proj);   // 3D ground under the plane (draws before the model)
+  const helipad = venue === 'helipad';
+  if (floor && cam && helipad) drawHelipadRoom(ctx, proj, sky, w, h);   // walk view: an open boat helipad (deck draws its own ground)
+  else if (floor && cam) drawInspectRoom(ctx, proj, sky);              // walk view: a real 3D hangar around you, live sky through the bay door
+  if (floor && !(cam && helipad)) drawFloorGrid(ctx, proj);   // 3D ground under the plane (the helipad draws its own deck instead)
   const drawn = [];
   for (const face of faces) {
     if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
@@ -1570,6 +1683,71 @@ const rgbStr = (c, a) => a == null ? `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})` 
 // painted first, no clearRect of its own (the caller clears once for the whole
 // composed scene). `tint` washes the door-light strip a pilot's signature colour
 // (the CHARTER Mule bay); `sky` drives the world glimpse through the door.
+// The floor-scene backdrop for a YACHT field (the Echelon): an open-air aft helipad
+// instead of the industrial bay — sky + Basin + a distant skyline over the horizon, a
+// compact non-slip deck (painted 'H' + ring + red pad lights) reading much smaller than
+// a hangar floor, and the mirror-black deckhouse to one side. No roof, no truss.
+function drawHelipadBackdrop(ctx, w, h, { sky } = {}) {
+  const pal = skyPalette(sky), horizon = h * 0.44, cx = w / 2;
+  // Sky.
+  let g = ctx.createLinearGradient(0, 0, 0, horizon);
+  g.addColorStop(0, rgbStr(pal.top)); g.addColorStop(1, rgbStr(pal.hor));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, horizon);
+  if (/^(clear|dust)$/.test(pal.weather)) {
+    const sx = cx + (pal.night > 0.4 ? -1 : 1) * w * 0.24, sy = horizon * 0.42, disc = pal.night > 0.4 ? [220, 224, 236] : [255, 246, 214];
+    const rg = ctx.createRadialGradient(sx, sy, 1, sx, sy, w * 0.09);
+    rg.addColorStop(0, rgbStr(disc, 0.9)); rg.addColorStop(1, rgbStr(disc, 0));
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(sx, sy, w * 0.09, 0, 7); ctx.fill();
+  }
+  // Distant skyline across the water.
+  ctx.fillStyle = rgbStr(mix3(pal.hor, [20, 26, 34], 0.5), 0.72);
+  const bw = w / 11;
+  for (let i = 0; i < 11; i++) { const bh = horizon * (0.12 + hash01(i * 4.2) * 0.42); ctx.fillRect(i * bw, horizon - bh, bw * 0.84, bh); }
+  // Sea from the horizon down to the deck.
+  g = ctx.createLinearGradient(0, horizon, 0, h);
+  g.addColorStop(0, rgbStr(mix3(pal.hor, [14, 24, 38], 0.55))); g.addColorStop(1, 'rgb(9,14,20)');
+  ctx.fillStyle = g; ctx.fillRect(0, horizon, w, h - horizon);
+  // The deckhouse — a mirror-black block with a smoked-glass band, set to the left, rising
+  // off the far deck edge so the scene reads as sitting on a superyacht.
+  const dhx = w * 0.04, dhy = horizon - h * 0.09, dhw = w * 0.3, dhh = h * 0.2;
+  ctx.fillStyle = '#13151b'; ctx.fillRect(dhx, dhy, dhw, dhh);
+  const gl = ctx.createLinearGradient(0, dhy, 0, dhy + dhh * 0.55);
+  gl.addColorStop(0, 'rgba(58,80,104,0.9)'); gl.addColorStop(1, 'rgba(22,32,44,0.95)');
+  ctx.fillStyle = gl; ctx.fillRect(dhx + 4, dhy + 5, dhw - 8, dhh * 0.5);
+  ctx.strokeStyle = 'rgba(120,150,178,0.3)'; ctx.lineWidth = 1;
+  for (let x = dhx + 10; x < dhx + dhw - 6; x += 12) { ctx.beginPath(); ctx.moveTo(x, dhy + 5); ctx.lineTo(x, dhy + 5 + dhh * 0.5); ctx.stroke(); }
+  // The deck — a compact non-slip pad, a perspective trapezoid narrower at the far edge.
+  const dTopY = horizon + h * 0.04, dTopHalf = w * 0.2, dBotHalf = w * 0.66;
+  ctx.beginPath(); ctx.moveTo(cx - dTopHalf, dTopY); ctx.lineTo(cx + dTopHalf, dTopY); ctx.lineTo(cx + dBotHalf, h); ctx.lineTo(cx - dBotHalf, h); ctx.closePath();
+  g = ctx.createLinearGradient(0, dTopY, 0, h); g.addColorStop(0, '#1f252c'); g.addColorStop(1, '#0f1318');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.save(); ctx.clip();   // keep the markings + lights on the deck
+  // Painted landing circle + 'H'.
+  const px = cx, py = h * 0.72, rx = w * 0.2, ry = h * 0.12;
+  ctx.strokeStyle = 'rgba(208,222,236,0.45)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(px, py, rx, ry, 0, 0, 7); ctx.stroke();
+  ctx.fillStyle = 'rgba(224,232,240,0.5)';
+  const hw = rx * 0.42, hh = ry * 0.9, barW = rx * 0.12;
+  ctx.fillRect(px - hw - barW / 2, py - hh, barW, hh * 2);
+  ctx.fillRect(px + hw - barW / 2, py - hh, barW, hh * 2);
+  ctx.fillRect(px - hw, py - hh * 0.16, hw * 2, hh * 0.32);
+  // Recessed red pad lights around the rim.
+  for (let k = 0; k < 14; k++) {
+    const a = k / 14 * Math.PI * 2, lx = px + Math.cos(a) * rx * 1.06, ly = py + Math.sin(a) * ry * 1.06;
+    const rg = ctx.createRadialGradient(lx, ly, 1, lx, ly, 9);
+    rg.addColorStop(0, 'rgba(255,84,66,0.5)'); rg.addColorStop(1, 'rgba(255,84,66,0)');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(lx, ly, 9, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,96,74,0.9)'; ctx.beginPath(); ctx.arc(lx, ly, 2.4, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+  // A soft pool of light where the craft sit, plus a light vignette.
+  const pool = ctx.createRadialGradient(cx, h * 0.82, 4, cx, h * 0.82, w * 0.5);
+  pool.addColorStop(0, 'rgba(220,232,246,0.16)'); pool.addColorStop(1, 'rgba(220,232,246,0)');
+  ctx.fillStyle = pool; ctx.fillRect(0, dTopY, w, h - dTopY);
+  const vg = ctx.createRadialGradient(cx, h * 0.5, Math.min(w, h) * 0.45, cx, h * 0.5, Math.max(w, h) * 0.85);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.3)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+}
+
 function drawHangarBackdrop(ctx, w, h, { tint, doorFrac = 0.34, sky } = {}) {
   const horizon = h * 0.46, floorTop = horizon, cx = w / 2;
   // Back wall + ceiling above the horizon — a lit industrial grey, not a black void.
@@ -1716,7 +1894,7 @@ export function drawHangarFloorBay(ctx, opts) {
   // flat: true skips the hangar-room backdrop and leaves the canvas transparent —
   // used by the mechanics-bench hero shot, which sits over the panel's own themed
   // background instead of a hangar interior.
-  if (opts.floor3d) drawInspectBackdrop(ctx, opts.w, opts.h);          // walkaround inspect — a 3D floor, not the 2D room
+  if (opts.floor3d) drawInspectBackdrop(ctx, opts.w, opts.h, opts.venue, opts.sky);   // walkaround inspect — a 3D floor, not the 2D room
   else if (!opts.flat) drawHangarBackdrop(ctx, opts.w, opts.h, { tint: opts.tint, sky: opts.sky });
   if (opts.cls) paintTurntable(ctx, opts);
 }
@@ -1728,10 +1906,11 @@ export function drawHangarFloorBay(ctx, opts) {
 // thumbnails. `entries = [{ id, cls, livery, wreck, tint, label }]`. Returns the
 // screen-space hit circle for each entry so the caller can do click-to-select on
 // the one canvas (there's no per-plane DOM element to attach a listener to).
-export function drawHangarScene(ctx, { w, h, entries, selId, sky }) {
+export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }) {
   ctx.clearRect(0, 0, w, h);
   const n = entries.length;
-  drawHangarBackdrop(ctx, w, h, { doorFrac: Math.min(0.8, 0.34 + n * 0.05), sky });
+  if (venue === 'helipad') drawHelipadBackdrop(ctx, w, h, { sky });
+  else drawHangarBackdrop(ctx, w, h, { doorFrac: Math.min(0.8, 0.34 + n * 0.05), sky });
   if (!n) return [];
 
   const E = 0.34, cosE = Math.cos(E), sinE = Math.sin(E);

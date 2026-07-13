@@ -18,6 +18,7 @@ is silently inert, so grep before renaming anything below.
 | key | owner | meaning |
 |---|---|---|
 | `airfield_charter` | flight | zone offers charter flights |
+| `charter_vtol_only` | flight | charter pad is VTOL Dragonfly-only, off-airfield drops, no rental desk (Echelon helipad) |
 | `airfield_dealer` | flight | aircraft dealer here |
 | `airfield_fuel` | flight | fuel vendor here |
 | `airfield_fuels` | flight | fuel price/stock config |

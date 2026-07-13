@@ -791,7 +791,7 @@ You've unlocked biological realism mode. This system simulates the body honestly
   examine &lt;target&gt;'s [genitals / tits / nipples / ass / asshole]
 
 <span style="color:var(--text-dim)">OTHER:</span>
-  wash   — clean yourself with water
+  wash   — clean yourself at a sink, in the rain, or with water
 
 Most acts restore sanity. Arousal builds during events and peaks at climax.
 finger / handjob / suck / eat out are ongoing — they run until your partner

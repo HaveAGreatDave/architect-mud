@@ -4,6 +4,7 @@ import { effectiveSkill, awardSkillUse } from './skills.js';
 import { ensureTunables, getTunable } from './tunables.js';
 import { getZoneVisibility, lightHitPenalty } from './environment.js';
 import { fireHook } from './plugins.js';
+import { getZoneProtection } from './protection.js';
 import { query } from '../models/db.js';
 
 // Darkness to-hit penalty for an attacker swinging in `zoneId`, from the
@@ -285,6 +286,10 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
 
 // Enemy attacks player — returns damage result (async: needs effectiveSkill for player dodge)
 export async function enemyAttackPlayer(enemy, player) {
+  // A quantum forcefield shields its zone from all hostile touch — the same law
+  // that stops a player's swing (getZoneProtection) stops an enemy's. The claws
+  // wash off the blue field, harmless. No cooldown burn: it's as if no swing landed.
+  if (getZoneProtection(player.current_zone)) return null;
   const now = Date.now();
   await ensureTunables();
   const attackInterval = getTunable('enemy_attack_interval_ms', 4000);
@@ -647,6 +652,7 @@ export async function enemyAttackEnemy(attacker, defender) {
 // NPC retaliates against a player. Returns { hit, damage, message } or null when on cooldown.
 export async function npcAttackPlayer(npc, player) {
   if (npc._dead) return null;
+  if (getZoneProtection(player.current_zone)) return null;   // quantum forcefield repels NPC blows too
   const now = Date.now();
   await ensureTunables();
   const attackInterval = getTunable('enemy_attack_interval_ms', 4000);

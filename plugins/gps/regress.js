@@ -125,6 +125,30 @@ export default async function regress({ run, check, getPlayer }) {
     }
   }
 
+  // `$home` — the macro token, honoured typed raw in the command box too, plots a route
+  // to the player's bound home. With a home set a few hops out it routes there; with no
+  // home it errors with a bind hint. Set a temporary home to a reachable tile and assert.
+  {
+    const savedHome = p.home_zone;
+    const here = getZone(p.current_zone);
+    const homeTile = getAllZones().find(z =>
+      z.id !== here.id && !z.flags?.water &&
+      (findPath(here.id, z.id, { roads: false, maxDistance: 60 }) || []).length >= 2);
+    if (homeTile) {
+      p.home_zone = homeTile.id;
+      r = await run('gps $home');
+      check(
+        'gps $home routes to the bound home tile',
+        r?.type === 'gps_route' && r.path[r.path.length - 1] === homeTile.id,
+        `type=${r?.type} end=${r?.path?.[r.path.length - 1]} want=${homeTile.id}`,
+      );
+    }
+    p.home_zone = null;
+    r = await run('gps $home');
+    check('gps $home with no home set errors with a bind hint', r?.type === 'error' && /home/i.test(r?.message || ''), r?.message);
+    p.home_zone = savedHome;
+  }
+
   // Road-preferring routing: a route between two street tiles should stay ON the street
   // grid — its interior hops are all roads/street tiles, never routed through a building
   // facade. Find one real road-to-road route a handful of hops long and assert it hugs
