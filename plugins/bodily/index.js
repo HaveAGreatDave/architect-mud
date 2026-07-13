@@ -46,6 +46,7 @@ const SHOWER_SQL = `(object_type='shower' OR jsonb_exists(flags,'shower') OR nam
 const fouledToilets  = new Set(); // furniture id — unflushed poop
 const peedToilets    = new Set(); // furniture id — unflushed piss
 const toiletSessions = new Map(); // playerId -> { mode, target, zoneId, seated, sitOn, droppedLegs, timers }
+const showerSessions = new Map(); // playerId -> { zoneId, timers } — the timed shower ritual
 
 // Foul / un-foul a toilet by furniture id. finishRelief fouls it; flush clears
 // it. Contamination (the describe line + the water/fillable sickness) is derived
@@ -74,6 +75,10 @@ on('player.logout', ({ id }) => {
     query(`UPDATE player_inventory SET is_equipped=1, slot='legs', layer=$1 WHERE id=$2`, [it.layer, it.id]).catch(() => {});
   }
 });
+
+// Same for a shower in progress: drop the timers so they don't fire against a
+// stale player object after disconnect. They didn't finish, so nothing is cleaned.
+on('player.logout', ({ id }) => endShower(id));
 
 // ── Pressure simulation (was engine tickBodily, on gameLoop's minute tick) ───
 
@@ -656,17 +661,69 @@ async function cmdFlush(args, player) {
 // "Refreshed" status (same purely-visual pattern as weightbench's Exhausted).
 registerStatusEffect({ name: 'refreshed', label: 'Refreshed', onTick() {} });
 
-// Shower — the thorough clean. `wash` (owned by the MIS plugin) rinses off
-// dried fluid + blood at any sink/rain, but leaves the pee/poop stains that
-// bodily itself produces (clothing_contamination + the bare-skin soiled_state).
-// A shower strips all of it in one go and leaves you briefly Refreshed. Gated on
+// Shower — the thorough clean, played as a short, unhurried ritual rather than a
+// one-liner. `wash` (owned by the MIS plugin) rinses off dried fluid + blood at
+// any sink/rain in a single line; a shower is the luxury version: hot water over
+// three beats (~15s), and only at the end does it strip EVERYTHING — the pee/poop
+// stains bodily itself produces (clothing_contamination + bare-skin soiled_state)
+// as well as the dried fluid and blood — and leave you briefly Refreshed. Gated on
 // a shower fixture in the zone (object_type='shower' / flags.shower / named).
+const SHOWER_OPEN = `You twist the valve and step in. The water comes through hot and heavy, drumming across your shoulders, and steam climbs the glass until the room beyond it blurs to gold.`;
+const SHOWER_MID = [
+  `You tip your head back and let it sheet over your face, through your hair, down the length of your spine. The day begins, grudgingly, to let go of you.`,
+  `Heat works its way into muscle you didn't know was clenched. Lather, steam, a long exhale — you lose track of where the water stops and you begin.`,
+];
+const SHOWER_DONE_DIRTY = `One last turn toward cold, then off. You step out wreathed in steam and pull a towel thick as a rug around yourself. Every trace of the day has gone down the drain — you feel entirely, luxuriously human again.`;
+const SHOWER_DONE_CLEAN = `One last turn toward cold, then off. Nothing needed scrubbing, but the heat alone was worth the water bill. You step out into the steam, towel down, and feel refreshed to the bone.`;
+const SHOWER_BROKEN = `You step out of the water half-rinsed, the ritual broken.`;
+
+// Forget a shower session and cancel its remaining beats. Keyed by player id so
+// the logout hook can call it without a live player object.
+function endShower(id) {
+  const s = showerSessions.get(id);
+  if (!s) return;
+  showerSessions.delete(id);
+  for (const t of s.timers) clearTimeout(t);
+}
+
+// A staged beat only proceeds while THIS session is still live and the player is
+// still standing under the water; stepping away (or disconnecting) aborts the rest
+// of the ritual with no clean and no Refreshed.
+function showerStage(player, session, fn) {
+  return () => {
+    if (showerSessions.get(player.id) !== session) return; // cancelled / superseded
+    if (player.current_zone !== session.zoneId || player.offline_sleeping) {
+      endShower(player.id);
+      sendToPlayer(player.id, { type:'output', private:true, message: SHOWER_BROKEN });
+      return;
+    }
+    fn();
+  };
+}
+
 async function cmdShower(player) {
   const { rows } = await query(
     `SELECT id FROM furniture WHERE zone_id=$1 AND ${SHOWER_SQL} LIMIT 1`,
     [player.current_zone]
   );
   if (!rows.length) return { type:'error', message:`There's no shower here.` };
+  if (showerSessions.has(player.id)) return { type:'error', message:`You're already under the water.` };
+
+  const session = { zoneId: player.current_zone, timers: [] };
+  showerSessions.set(player.id, session);
+  emit('bodily.sfx', { zoneId: player.current_zone, playerId: player.id, cue: 'shower' });
+
+  const step = (delay, fn) => session.timers.push(setTimeout(showerStage(player, session, fn), delay));
+  step(5000,  () => sendToPlayer(player.id, { type:'output', private:true, message: SHOWER_MID[0] }));
+  step(10000, () => sendToPlayer(player.id, { type:'output', private:true, message: SHOWER_MID[1] }));
+  step(15000, () => finishShower(player, session).catch(logErr));
+
+  return { type:'output', private:true, message: SHOWER_OPEN };
+}
+
+// The pay-off, applied only if the player stayed under the water the whole ritual.
+async function finishShower(player, session) {
+  endShower(player.id);
 
   let cleaned = false;
 
@@ -697,15 +754,7 @@ async function cmdShower(player) {
   }
 
   applyEffect(player, 'refreshed', 180); // ~3 min visible badge
-  emit('bodily.sfx', { zoneId: player.current_zone, playerId: player.id, cue: 'shower' });
-
-  return {
-    type: 'output',
-    private: true,
-    message: cleaned
-      ? `You step under the water and let it run until every trace of the day sluices off you. You feel human again.`
-      : `You step under the water and let it run hot. Nothing to scrub off — but it's good all the same. You feel refreshed.`,
-  };
+  sendToPlayer(player.id, { type:'output', private:true, message: cleaned ? SHOWER_DONE_DIRTY : SHOWER_DONE_CLEAN });
 }
 
 // An unflushed toilet reads that way on a look, until someone flushes it.

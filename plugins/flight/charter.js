@@ -126,6 +126,13 @@ function shiftLabel(pilot) {
 function pilotBusy(pilotId) { for (const c of activeCharters.values()) if (c.pilotId === pilotId) return c; return null; }
 // The walk-in hangar interior for a pilot's field, if one has been built.
 function hangarInteriorOf(cp) { return getZone(cp.field)?.flags?.hangar_interior_zone || null; }
+// Where a set-down passenger actually ends up at a destination: INSIDE the walk-in
+// hangar when the field has one (so they arrive at the desk, not out on the runway),
+// else the field/ramp tile itself. Mirrors the self-flown landing (parkAt in state.js).
+function dropZoneOf(destZoneId) {
+  const hangar = getZone(destZoneId)?.flags?.hangar_interior_zone;
+  return getZone(hangar) ? hangar : destZoneId;
+}
 // "At work" = out on a flight, OR present at their field — either sitting at the
 // desk inside the walk-in hangar OR standing on the ramp tile itself.
 function inHangar(pilot) {
@@ -579,13 +586,14 @@ async function touchdown(ch, live) {
   // parkAt() does for a self-flown landing. `disembark` is then just the "climb out
   // of the parked aircraft" flavour text; without this the player's current_zone
   // stayed pinned at the home field until the 20s auto-eject timeout caught up.
+  const dropZone = dropZoneOf(ch.destZone);
   for (const pid of live.occupants) {
     if (pid === ch.pilotId) continue;
     const p = getLivePlayer(pid);
     if (!p) continue;
     if (p.posture === 'flying') forceStand(p, 'charter.arrive');
-    p.current_zone = ch.destZone;
-    getZone(ch.destZone)?.players.add(pid);
+    p.current_zone = dropZone;
+    getZone(dropZone)?.players.add(pid);
   }
   await persist(live);
   pushHud(live);
@@ -610,7 +618,7 @@ async function dropoffReturn(ch, live) {
     if (pid === ch.pilotId) continue;   // the pilot flies the return leg — stays aboard
     const p = getLivePlayer(pid);
     detach(p || { id: pid, aircraftId: ch.aircraftId });
-    if (p) { p.current_zone = ch.destZone; getZone(ch.destZone)?.players.add(pid); out(pid, `<span class="text-dim">You climb down at ${ch.destName}. ${ch.pilotName} gives you a nod and starts buttoning up to head back.</span>`); }
+    if (p) { const dz = dropZoneOf(ch.destZone); p.current_zone = dz; getZone(dz)?.players.add(pid); out(pid, `<span class="text-dim">You climb down at ${ch.destName}. ${ch.pilotName} gives you a nod and starts buttoning up to head back.</span>`); }
   }
   log({ player: getLivePlayer(ch.playerId)?.handle || '?', pilot: ch.pilotName, from: ch.homeName, to: ch.destName, status: 'delivered' });
   // Deadhead home.

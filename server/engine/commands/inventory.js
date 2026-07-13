@@ -615,6 +615,30 @@ async function cmdUnequipById(inventoryId, player) {
   return dispatchEquip({ type:'UNEQUIP', actor: player, params: { row: rows[0] } }, player);
 }
 
+// undress — take off every layer of clothing/armor in one go: all worn pieces in
+// the five body slots (underwear/outerwear/armor). The wielded weapon and any
+// accessories stay on — those aren't clothing. A bulk sibling of `unequip <item>`;
+// mirrors MIS `strip`'s DB shape but self-only and with no MIS/consent gate. Shed
+// pieces drop to is_equipped=0 (carried in the pack), same as a normal unequip.
+async function cmdUndress(player, broadcast) {
+  const { rows } = await query(
+    `SELECT i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+      WHERE pi.player_id=$1 AND pi.is_equipped=1 AND pi.slot = ANY($2)`,
+    [player.id, BODY_SLOTS]
+  );
+  if (!rows.length) return { type:'output', message:"You're not wearing anything to take off." };
+  await query(
+    `UPDATE player_inventory SET is_equipped=0, slot=NULL, layer=NULL, equipped_at=NULL
+      WHERE player_id=$1 AND is_equipped=1 AND slot = ANY($2)`,
+    [player.id, BODY_SLOTS]
+  );
+  await recomputeArmor(player);
+  await recomputeInsulation(player);
+  emit('inventory.changed', { actor: player });
+  broadcast?.(player.current_zone, { type:'zone_event', message:`${player.handle} strips down.` }, player.id);
+  return { type:'output', message:`You take off everything you're wearing (${rows.length} item${rows.length === 1 ? '' : 's'}) and stash it in your pack.`, refresh:true };
+}
+
 // Find a container the player can reach: their inventory first, then the ground.
 async function resolveContainer(nameStr, player) {
   if (nameStr) {
@@ -987,6 +1011,7 @@ export const handlers = {
   drink: (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast),
   equip:    (args, raw, player, broadcast) => cmdEquip(args.join(' '), player, broadcast),
   unequip:  (args, raw, player) => cmdUnequip(args.join(' '), player),
+  undress:  (args, raw, player, broadcast) => cmdUndress(player, broadcast),
   equipid:   (args, raw, player, broadcast) => cmdEquipById(args[0], player, broadcast),
   unequipid: (args, raw, player) => cmdUnequipById(args[0], player),
   stow:  (args, raw, player) => cmdStow(args.join(' '), player),

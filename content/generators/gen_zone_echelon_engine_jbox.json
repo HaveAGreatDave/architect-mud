@@ -1,8 +1,10 @@
 {
   "capacity_kw": 5000,
-  "city_generator_id": "gen_zone_powerplantnew_1782069598190",
+  "city_generator_id": null,
   "connection_range": 0,
-  "flags": {},
+  "flags": {
+    "offgrid": true
+  },
   "fuel_burn_rate": 0,
   "fuel_remaining": 0,
   "fuel_type": null,

@@ -35,6 +35,7 @@ is silently inert, so grep before renaming anything below.
 | `building_type` | world | building category (shop, apartment, …) |
 | `checkpoint` | govgate | checkpoint gate zone |
 | `claimable` | corps | territory override: force claimable (absent = derived from inferred danger) |
+| `claimable_asset` | corps | this building is a claimable corporate income asset (Corporate Assets Phase A); `corps/ventures.js` reads it for `corp asset claim` |
 | `danger` | danger | manual danger override (`safe/low/medium/high/lethal`) — normally inferred from spawns + radiation (`engine/danger.js`) |
 | `district` | districts | override the id-prefix-derived district key (`engine/districts.js`) |
 | `elevator` | movement | elevator car zone |
@@ -60,7 +61,7 @@ is silently inert, so grep before renaming anything below.
 | `planner` | zone-planner | provenance: blueprint id that generated this zone (tools/zone-planner) |
 | `prologue` | prologue | part of the prologue instance |
 | `radiation` | survival | ambient radiation 0–100 (entry gain `floor(v×0.1)`; ≥25/≥40 floors danger to high/lethal). Replaced the `radiation_level` column (legacy 1–5 values rescaled ×10) |
-| `sanctuary` | protection/sleep/spawning | civilization carve-out: combat protection (protection substrate), safe sleep, AI safe-flee, no hostile spawns. DELIBERATE — replaced `is_safe_zone`, which was dropped without conversion |
+| `sanctuary` | protection/sleep/spawning | civilization carve-out: combat protection (protection substrate — now blocks NPC **and** enemy attacks too, not just player attack/loot/steal/shove; see `enemyAttackPlayer`/`npcAttackPlayer` in `combat.js`), safe sleep, AI safe-flee, no hostile spawns. DELIBERATE — replaced `is_safe_zone`, which was dropped without conversion |
 | `scavenging_table_id` | scavenging | loot table for searching here |
 | `street_life` | ambience | ambient street-life event pool strength |
 | `utility_room` | power | building utility room (junction box lives here) |

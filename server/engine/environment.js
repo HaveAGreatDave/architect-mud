@@ -2564,6 +2564,7 @@ export async function fixBuildingPowerConnections() {
     SELECT g.id, g.zone_id, z.grid_x, z.grid_y FROM generators g
     LEFT JOIN zones z ON z.id = g.zone_id
     WHERE g.generator_type = 'junction_box' AND g.city_generator_id IS NULL
+      AND COALESCE((g.flags->>'offgrid')::boolean, false) = false
   `);
   for (const jb of unlinkedJBs) {
     let nearest = null, minDist = Infinity;

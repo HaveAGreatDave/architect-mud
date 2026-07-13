@@ -177,7 +177,7 @@ const PAIR_WITH_KEEPER = [
   ],
   [
     ['R', `"Tell us where you sailed today. Bijou pretends she doesn't listen, but she memorises every word."`],
-    ['B', `"I do not." A beat. "...it was the northern channel, though, wasn't it."`],
+    ['B', `doesn't look up from the porthole. "I do not." A beat. "...it was the northern channel, though, wasn't it."`],
   ],
 ];
 

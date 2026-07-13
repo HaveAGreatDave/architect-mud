@@ -315,7 +315,11 @@ function paintWindow(id, a, s) {
   // scene-phase hysteresis above already tracks — so the airport scenery and the Mode-7
   // world actually blend across the climb-out/flare instead of swapping in one frame the
   // instant `_scenePhase` flips.
-  const worldBlend = clampNum(((a.height ?? 0) - 0.02) / 0.08, 0, 1);
+  const climbBlend = clampNum(((a.height ?? 0) - 0.02) / 0.08, 0, 1);
+  // Charter passengers should already see the city skyline while parked, so the
+  // buildings don't pop in during rotation. Floor the blend on the deck for the pax
+  // cabin only — the pilot's forward view keeps the runway-first ground crossfade.
+  const worldBlend = pax ? Math.max(0.7, climbBlend) : climbBlend;
   // Fractional world offset from the eased position above vs. the map window's
   // (integer) centre — slides the Mode-7 camera smoothly between pushes instead
   // of snapping a tile at a time.
@@ -1291,6 +1295,11 @@ function ensureFlightSimStyles() {
     .fsim-viewbtn{ position:absolute; top:6px; right:92px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
       border-radius:6px; height:22px; padding:0 7px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer; }
     .fsim-viewbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
+    /* Orbit-camera reset (⟲) — only meaningful in external view, so hidden until then. Sits just left of ◎ EXT. */
+    .fsim-orbitreset{ display:none; position:absolute; top:6px; right:132px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
+      border-radius:6px; height:22px; width:24px; padding:0; font-size:13px; line-height:20px; text-align:center; cursor:pointer; }
+    .fsim-orbitreset:hover{ background:var(--cy); color:#05141f; border-color:var(--cy); }
+    body.fsim-external .fsim-orbitreset{ display:block; }
     /* External view: the chase-cam world fills the WHOLE pane and the flying controls
        (throttle + cyclic + master/flaps) float over it on TRANSPARENT backgrounds — no black
        instrument slab. The dashboard (PFD/gauges/MFD, placard, transponder) is dropped, and so
@@ -1714,7 +1723,7 @@ export function openFlightSim(opts = {}) {
   const isAdmin = ['admin', 'dev', 'builder', 'designer'].includes(state.myRole);
   const adminBtn = isAdmin ? '<button class="fsim-adminbtn" id="fsim-rewindbtn" title="ADMIN — rewind to the hangar you departed, with the plane (test)">⏪</button>' : '';
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
-    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div></div>
+    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div></div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -1799,16 +1808,23 @@ export function openFlightSim(opts = {}) {
   add(window, 'pointerup', () => { F.thrDrag = false; });
 
   // External-view orbit — hold the MIDDLE mouse button and drag to spin the chase camera around
-  // the aircraft; release and it eases back to behind (frame loop). Only active in external view.
+  // the aircraft (drag left/right = orbit horizontally, up/down = orbit vertically). The camera
+  // LOCKS wherever you leave it — no spring-back — so you can fly and watch from any angle. The
+  // ⟲ reset button (or double-middle-click) snaps it back behind the craft. Only in external view.
   const viewEl = q('.fsim-view');
   if (viewEl) {
-    let ox = 0;
+    let ox = 0, oy = 0;
     add(viewEl, 'pointerdown', (e) => {
       if (e.button !== 1 || !F.external) return;
-      F.orbitDrag = true; ox = e.clientX; e.preventDefault();
+      F.orbitDrag = true; ox = e.clientX; oy = e.clientY; e.preventDefault();
       try { viewEl.setPointerCapture(e.pointerId); } catch {}
     });
-    add(window, 'pointermove', (e) => { if (!F.orbitDrag) return; F.extOrbit = (F.extOrbit || 0) + (e.clientX - ox) * 0.4; ox = e.clientX; });
+    add(window, 'pointermove', (e) => {
+      if (!F.orbitDrag) return;
+      F.extOrbit = (F.extOrbit || 0) + (e.clientX - ox) * 0.4;                          // horizontal yaw (deg), unbounded — spins all the way around
+      F.extElev = clampNum((F.extElev || 0) - (e.clientY - oy) * 0.006, -0.18, 3.0);     // vertical: drag up = rise + look down; clamp keeps the camera above the terrain (renderer floors EH too)
+      ox = e.clientX; oy = e.clientY;
+    });
     add(window, 'pointerup', (e) => { if (e.button === 1) F.orbitDrag = false; });
     add(viewEl, 'auxclick', (e) => { if (e.button === 1) e.preventDefault(); });   // no middle-click autoscroll inside the view
     // External-view zoom — mouse wheel pulls the chase camera in/out (scale on chaseBack).
@@ -2169,6 +2185,9 @@ export function openFlightSim(opts = {}) {
   setExternal = (on) => { F.external = on; if (viewBtn) viewBtn.classList.toggle('on', on); document.body.classList.toggle('fsim-external', on); fsimToast(on ? '◎ EXTERNAL VIEW' : '◎ COCKPIT VIEW'); };
   add(viewBtn, 'click', () => setExternal(!F.external));
 
+  // ⟲ Reset the locked orbit camera back to behind the craft (zero yaw + elevation + zoom).
+  add(q('#fsim-orbitreset'), 'click', () => { F.extOrbit = 0; F.extElev = 0; F.extZoom = 1; fsimToast('⟲ CAMERA RESET'); });
+
   // Refuel — shown only when parked on a fuelled strip (the frame loop toggles it). Fires the
   // same `refuel` verb the command line uses; the server tops the tank and pushes fuel back.
   add(q('#fsim-refuel'), 'click', (e) => { e.stopPropagation(); sendCmdSilent('refuel'); fsimToast('REFUELLING…'); });
@@ -2295,8 +2314,7 @@ function fsimFrame(now) {
 
   // Yoke springs to centre when released.
   if (!F.yokeDrag) { input.elevator = lerpN(input.elevator, 0, Math.min(1, dt * 6)); input.aileron = lerpN(input.aileron, 0, Math.min(1, dt * 6)); }
-  // External-view orbit eases back to behind (chase) once the middle mouse is released.
-  if (!F.orbitDrag && F.extOrbit) F.extOrbit = lerpN(F.extOrbit, 0, Math.min(1, dt * 3));
+  // External-view orbit LOCKS wherever you left it (no spring-back) — the ⟲ reset button zeroes it.
   // Keyboard throttle (A/Z held) ramps the lever ~2s full-sweep.
   if (F.throttleKey) input.throttle = clampNum(input.throttle + F.throttleKey * dt * 0.5, 0, 1);
   // Pedals held: ramp toward the held side, spring to centre on release. The heli tail rotor (Q/E)
@@ -2704,7 +2722,15 @@ function fsimFrame(now) {
   // that scales with the spool, so the blades visibly slow to rest instead of snapping to a halt.
   // DISC: propDisc is keyed to real rpm/throttle, so the translucent blur fades IN only as you power
   // up and fades OUT first on shutdown (blades still turning under it). Reverses the startup order.
-  const propTgt = F.engineOn ? 0.20 + 0.80 * clampNum(s.rpm, 0, 1) : 0;
+  // WINDMILL: with the engine dead (out of fuel/power) the prop hangs stopped — but the airflow of
+  // a dive can still drive it. Past cruise the blades freewheel, winding up toward Vne; below cruise
+  // there's not enough bite so it settles to a complete rest. (Helis autorotate differently — left
+  // to wind fully down.) No disc under it (propDisc rides real rpm ≈ 0), so it reads as a slow
+  // free-spinning prop, not powered.
+  const windmill = (!F.heli && !F.engineOn)
+    ? clampNum((r.airspeed - P.cruise) / Math.max(1, (P.vne || 120) - P.cruise), 0, 1) * 0.55
+    : 0;
+  const propTgt = F.engineOn ? 0.20 + 0.80 * clampNum(s.rpm, 0, 1) : windmill;
   F.propSpin = lerpN(F.propSpin || 0, propTgt, Math.min(1, dt * (propTgt > (F.propSpin || 0) ? 2.2 : 1.0)));
   F.propPhase = (F.propPhase || 0) + dt * F.propSpin * 34;   // rev rate ∝ spool → frozen at rest
   const propDisc = clampNum((d.rpm - 0.12) / 0.45, 0, 1);    // no disc at idle; fully in by ~57% rpm
@@ -2726,7 +2752,7 @@ function fsimFrame(now) {
     landGuide,
     hud: true, navWarn: navWarnAlpha <= 0.02 ? null : `⚠ TURN ${String(back).padStart(3, '0')}° — RETURN TO MAP`, navWarnAlpha,
     threat: (F.aa && F.reportedAirborne) ? F.aa : null,   // AA envelope telegraph → pulsing banner + tape chevron
-    airports: F.fields, apTarget, apTargetId: F.apTargetId, viewYaw: F.viewYaw, extYaw: F.extOrbit || 0,
+    airports: F.fields, apTarget, apTargetId: F.apTargetId, viewYaw: F.viewYaw, extYaw: F.extOrbit || 0, extElev: F.extElev || 0,
     // Looking off the nose (Q/E/S) → frame the view as a side cabin window instead of the
     // forward windscreen. The real, rotated Mode-7 world still renders behind the pane.
     windowClass: F.viewYaw ? F.cls : undefined,

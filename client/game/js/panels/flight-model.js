@@ -476,7 +476,14 @@ export function step(state, input, p, dt) {
              + gearExt * (p.gearDragFrac ?? 0.35) * p.dragP * s.airspeed * s.airspeed                     // gear-down parasitic drag (retractable craft only)
              + Math.max(0, s.aoa) ** 2 * 0.0016 * s.airspeed                    // profile-drag rise with a hard PULL only — a nose-down push (negative AoA) doesn't load the wing, so it never penalises a dive
              + (p.glideDrag || 0) * Math.max(0, 1 - s.rpm / 0.4) * (weight * weight) / (s.airspeed * s.airspeed + 40);   // DEAD-STICK induced drag (∝ 1/V²): engages only as the powerplant winds down toward idle (rpm below ~0.4), full at a stopped/windmilling engine. It penalises the SLOW end of a glide, so best-glide sits at a sensible speed with a realistic ratio instead of floating forever just above the stall — and because it's gated to low rpm it leaves ALL powered cruise/climb untouched. Per-type; unset ⇒ 0 (legacy floaty glide).
-  const grav = G_KT * Math.sin(s.pitch * D2R);
+  // Gravity accelerates the airframe along its actual VELOCITY VECTOR (the flight-path angle γ),
+  // not along where the NOSE points. Fast/powered/diving the wing carries its weight at a low AoA
+  // so γ≈pitch and this is identical to before (cruise, climb, top speed, dive all untouched). They
+  // only diverge when the wing MUSHES (slow, high AoA): the nose sits shallow but the plane sinks
+  // steeply — and that steep descent must build speed back. Crediting pitch instead of γ there made
+  // the sink "free" energy loss, so a shallow glide bled off into a stall instead of settling; using
+  // γ closes the energy loop, so a slightly-nose-down attitude self-trims to a stable glide speed.
+  const grav = G_KT * Math.sin(gamma * D2R);
   // Ground friction: idle rolling drag, plus wheel brakes from FORWARD pressure (push the
   // yoke, elevator < 0). Pushing also pins the nose to the runway, so braking never fights
   // the back-pressure you use to rotate and lift off — they're opposite gestures.

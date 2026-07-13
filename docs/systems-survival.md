@@ -177,6 +177,8 @@ Two hidden float columns on the `players` row — `digestive_load` (bowel) and `
 
 `foodLoad(restoreHunger)` and `drinkLoad(restoreThirst)` are exported so the `use`/`eat`/`drink` path can apply load at the same time as it applies the hunger/thirst restore.
 
+**Hygiene** rides the same plugin. MIS `wash` (at a sink, a one-liner) and the bodily **`shower`** verb (gated on a shower fixture — `object_type='shower'`/`flags.shower`) clear accumulated grime. `shower` is the luxurious superset: a **~15s timed ritual** of hot-water beats that, on completion, wipes `clothing_contamination`, bare-skin `soiled_state`, dried `ejaculate_state`, and `covered_in_blood`, plus a brief cosmetic `refreshed` badge (~180s). Leaving mid-shower aborts it with no clean. See the **bodily** row in [plugins.md](plugins.md).
+
 ## Body temperature & thermal comfort
 
 `players.body_temp_c` (float, initialised to `37.0` on login in [index.js](../server/index.js)), drifted once per minute by `resourceTick` in [gameLoop.js](../server/engine/gameLoop.js) for each awake player. Clamped to **25–45°C** and rounded to one decimal. This is an **engine** system; the clothing fields it reads (`player.insulation`, `player.exposurePenalty`) are derived by `recomputeInsulation` in [inventory.js](../server/engine/commands/inventory.js), and the wetness field it reads (`player.wetness`) is owned by the clothing-wetness plugin (see below). The three must agree on those field names.

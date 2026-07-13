@@ -140,6 +140,7 @@ Neon `DATABASE_URL`.
 | `inventory` / `i` | Visual inventory & equipment panel |
 | `take` / `drop` / `use` | Item management |
 | `equip` / `unequip` | Equip by name (or drag in the panel) |
+| `undress` | Take off all clothing/armor at once (weapon & accessories stay on) |
 | `stow <item> in <container>` / `pull <item> from <container>` | Container management |
 | `recipes` / `craft <id>` | Crafting |
 | `shop <npc>` / `buy` / `sell` | Trading |

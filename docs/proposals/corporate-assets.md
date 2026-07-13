@@ -1,8 +1,13 @@
 # Corporate Assets — Evolution of the Corporation System
 
-> **Status: proposal / working instructions.** This is the head of the spec. The working
-> instructions below tell Claude how to approach the build; the implementation spec proper
-> follows under "Specification" (to be written).
+> **Status: Phase A server core BUILT (2026-07); rest is proposal.** The `org_ventures`
+> table, world cache/accessors, the `claimable_asset` flag, and `plugins/corps/ventures.js`
+> (restaurant asset type + `corp asset list|claim` + a live `vendor.purchase` sale-cut listener
+> + the 24h income tick) have shipped. Still pending: console/tablet UI, a placed example venture,
+> the full DB-loop verification, the non-restaurant asset types (warehouse/security_office/front_office
+> are stubs), and all staffing (Phase B). See the build-order note in
+> [../systems-corps.md](../systems-corps.md). The working instructions below tell Claude how to
+> approach the remaining build.
 
 ---
 

@@ -557,7 +557,10 @@ export function gaugePayload(live) {
     armed: !!a.weapons_hot, hardpoints: t.hardpoints || 0,
     cargo: eff.cargo, maxTOW: eff.maxTOW, cargoCap: t.cargo_capacity || 0,
     seats: t.seats || 1, vtol: t.takeoff_mode === 'vtol', hover: !!live.hover,
-    map: a.airborne ? mapWindow(a) : null,
+    // Sent parked too (grid coords are valid on the deck) so the charter cabin can
+    // paint the city skyline BEFORE takeoff instead of having it pop in during the
+    // climb — the client fades it up under the airport scenery.
+    map: mapWindow(a),
     biomeBelow: a.airborne && below ? districtBiome(below) : null,
     minimap: a.airborne && below ? getMinimapData(below.id, 3) : null,
     guide: (a.airborne && fuelPct < 30) ? nearestField(a.grid_x, a.grid_y) : null,

@@ -79,10 +79,18 @@ unrelated and untouched.
 ## Cell fixtures
 
 `zone_mq_precinct_holding` has a `toilet` (steel combo), a `sink`
-(`flags.water_source`), and a `cot` (`interactions:['sit','lie']`). No engine
-changes — the **bodily** (relief/hygiene), **water**, and **posture** (sleep/regen)
-systems auto-detect these by `object_type`/flags, so `pee`/`poop`/`flush`/`use sink`/
+(`flags.water_source`), and a `cot` (`interactions:['sit','lie']`). The
+**bodily** (relief/hygiene), **water**, and **posture** (sleep/regen) systems
+auto-detect these by `object_type`/flags, so `pee`/`poop`/`flush`/`use sink`/
 `wash` and lying down all work while you do time.
+
+**Sleeping in the cell** takes the **`allow_sleep`** zone tag (set on
+`zone_mq_precinct_holding`). Ordinarily `sleep` requires a sanctuary bundle;
+`allow_sleep` (read by `allowsSleep` in `zone-tags.js`, consumed in
+`getSleepEligibility` in `apartments.js`) grants rest at the safe-zone rate
+**without** making the cell a sanctuary — no forcefield, no combat protection,
+no spawn suppression. It's the flag that makes doing your time restful without
+turning the holding cell into a safe room.
 
 ## The evidence locker (`police_evidence`)
 

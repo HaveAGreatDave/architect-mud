@@ -236,6 +236,8 @@ Supported param types: `text`, `number`, `boolean`, `select` (with `options` arr
 
 The full list of action types: `GRANT_ITEM`, `REMOVE_ITEM`, `START_QUEST`, `COMPLETE`, `TURN_IN`, `OPEN_SHOP`, `OPEN_BANK`, `OPEN_STORAGE`, `OPEN_CRAFTING`, `TELEPORT`, `EXECUTE_SCRIPT`, `TRIGGER_EVENT`, `SET_FLAG`, `CLEAR_FLAG`, `END_CONVERSATION`, `GOTO_NODE`.
 
+Plugins also register dialogue actions via `registerAction` that the editor catalog (`vine-action-types.js`) doesn't yet list, so they're authored by hand in the JSON. Notably **`GPS_TO`** (from the **gps** plugin, `params.zone`) plots a route onto the player's map and pushes a `gps_route` independently of the dialogue text — an NPC can send you somewhere (e.g. `npc_claude_merrin`). No-ops when you're already at the destination.
+
 ---
 
 ## Auto-layout

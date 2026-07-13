@@ -849,6 +849,11 @@ function overlayHull(ctx, P, strength) {
 export const JAZZ_ROLE = new Set(['body', 'wing', 'aileron', 'flap', 'stab', 'elevator', 'fin', 'rudder', 'nacelle']);
 const JAZZ_GROUND = [238, 231, 214];   // bone undercoat (the "cup paper" the colours pop against)
 const JZ_TW = 256, JZ_TH = 140;
+// Supersample the baked texture: the artwork is authored in the 256×140 design space below, but
+// rendered into a canvas JZ_SS× larger (via ctx.scale) so the affine hull mapping has finer texels
+// to sample — crisper paint on a large close-up hull, same pattern. jazzUV scales to match. One-time
+// bake per colour-set (cached), so the extra cost is paid once.
+const JZ_SS = 3;
 const _jazzCache = new Map();
 function jzRng(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function jzHash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -887,8 +892,9 @@ function jzSquig(cx, cy, ang, axis, humps, amp, rng) {
 export function jazzTex(c0, c1, c2) {
   c0 = c0 || '#18b8c2'; c1 = c1 || '#5a2c9c'; c2 = c2 || '#c22b8c';
   const key = c0 + c1 + c2, hit = _jazzCache.get(key); if (hit) return hit;
-  const cv = document.createElement('canvas'); cv.width = JZ_TW; cv.height = JZ_TH;
+  const cv = document.createElement('canvas'); cv.width = JZ_TW * JZ_SS; cv.height = JZ_TH * JZ_SS;
   const g = cv.getContext('2d'), W = JZ_TW, H = JZ_TH, rng = jzRng(jzHash(key) || 1);
+  g.scale(JZ_SS, JZ_SS);   // draw in 256×140 design space; the canvas is JZ_SS× denser
   g.fillStyle = rgbStr(JAZZ_GROUND); g.fillRect(0, 0, W, H);
   const diag = Math.hypot(W, H), ang = -(22 + rng() * 10) * Math.PI / 180, cx = W / 2, cy = H / 2;
   const ux = Math.cos(ang), uy = Math.sin(ang), px = -uy, py = ux, gap = H * 0.17;
@@ -911,7 +917,7 @@ const jzClamp = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 export function jazzUV(v, role) {
   const along = 0.5 + v[0] * 0.42;
   const across = 0.5 - ((role === 'wing' || role === 'aileron' || role === 'flap') ? v[1] * 0.30 : v[2] * 0.55);
-  return [jzClamp(along) * JZ_TW, jzClamp(across) * JZ_TH];
+  return [jzClamp(along) * JZ_TW * JZ_SS, jzClamp(across) * JZ_TH * JZ_SS];
 }
 // Paint the baked jazz texture into ONE projected facet, MULTIPLY over its already-shaded bone
 // fill — so the facet's own light/finish shading carries through onto the colours (the plane

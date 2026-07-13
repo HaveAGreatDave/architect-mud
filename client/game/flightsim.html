@@ -120,47 +120,46 @@ const RECENTER = 4;                // regenerate + recenter once you drift this 
 // ── Infinite terrain beyond the real map ──────────────────────────────────────
 // The snapshot only covers Coldwater's ~888 tiles; fly past its edge and there used
 // to be nothing but open air (a void on the horizon). Instead we EXTRAPOLATE the
-// world outward: Coldwater Bay opens into a giant ocean, the land rolls on into
-// wilderness, and the two are split by a procedurally WANDERING coastline — so the
-// city reads as sitting on a real, ragged shore rather than a floating map chip.
+// world outward so the map reads as a real coastline, not a floating chip: Coldwater
+// Bay OPENS NORTH into open ocean, while the landmass WRAPS AROUND the west, east and
+// south flanks. So every approach reads land → city → water, and the shore continues
+// past every edge instead of the sea filling the whole horizon.
 //
-// The split is derived from where the REAL map's water and land actually sit: the
-// vector from the land centroid to the water centroid is "seaward" (for Coldwater
-// that's ≈ due north, into the bay). A point's signed distance along that axis, past
-// a mid-shore line and perturbed by 1-D fractal noise along the coast, decides
-// ocean vs. land — giving a meandering, non-straight coastline that stays coherent
-// with the map edge it continues from.
-const COAST = (() => {
-  let wx = 0, wy = 0, wn = 0, lx = 0, ly = 0, ln = 0;
-  for (const k in WORLD.cells){
-    const c = WORLD.cells[k]; const i = k.indexOf(','); const x = +k.slice(0, i), y = +k.slice(i + 1);
-    if (c.biome === 'water'){ wx += x; wy += y; wn++; } else { lx += x; ly += y; ln++; }
-  }
-  if (!wn || !ln) return null;                                   // no shore to speak of → all land beyond
-  wx /= wn; wy /= wn; lx /= ln; ly /= ln;
-  let dx = wx - lx, dy = wy - ly; const m = Math.hypot(dx, dy) || 1; dx /= m; dy /= m;   // seaward unit vector
-  const seaProj = wx * dx + wy * dy, landProj = lx * dx + ly * dy;
-  return { dx, dy, tx: -dy, ty: dx, coast0: (seaProj + landProj) / 2 };   // tangent = coast direction
-})();
-const COAST_FREQ = 0.055;   // coastline wobble wavelength (~1/freq tiles per feature)
-const COAST_AMP  = 13;      // how far (tiles) the shore wanders seaward/landward
-// Deterministic 1-D value noise + a small fractal stack → a smooth wandering shore.
+// The map is (near enough) a filled rectangle, so the nearest real tile to any off-map
+// point is the rectangle-clamped tile. An off-map point is OCEAN only when the map
+// column it sits over meets the water at that edge (i.e. it's seaward of the bay) —
+// step off the WEST or EAST flank and the land wraps around as a headland. A little
+// 1-D fractal noise makes the side headlands wander so the wrap isn't a ruler line;
+// the north shore's raggedness comes for free from the map's own bay outline.
+const B = WORLD.bounds;     // { minx, maxx, miny, maxy }
+const COAST_FREQ = 0.06;    // headland wobble wavelength (~1/freq tiles per feature)
+const COAST_AMP  = 8;       // how far (tiles) the side headland wanders in/out
+// Deterministic 1-D value noise + a small fractal stack → a smooth wandering edge.
 function vnoise1(t){ const i = Math.floor(t), f = t - i;
   const h = n => { const s = Math.sin(n * 127.1) * 43758.5453; return (s - Math.floor(s)) * 2 - 1; };
   const u = f * f * (3 - 2 * f); return h(i) + (h(i + 1) - h(i)) * u; }
 function coastFbm(t){ return vnoise1(t) * 0.6 + vnoise1(t * 2.13 + 5.2) * 0.28 + vnoise1(t * 4.31 + 9.1) * 0.12; }
-// Is the extrapolated tile (x,y) ocean? Seaward of the wandering shore ⇒ yes.
+const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+// Is the extrapolated tile (x,y) open ocean?
 function isOcean(x, y){
-  if (!COAST) return false;
-  const s = x * COAST.dx + y * COAST.dy - COAST.coast0;   // signed seaward distance from mid-shore
-  const along = x * COAST.tx + y * COAST.ty;              // position ALONG the coast
-  return s + coastFbm(along * COAST_FREQ) * COAST_AMP > 0;
+  if (!B) return false;
+  // Off the west / east flank ⇒ land headland wraps the bay (with a wandering shore).
+  if (x < B.minx - 1 + coastFbm(y * COAST_FREQ) * COAST_AMP) return false;
+  if (x > B.maxx + 1 + coastFbm(y * COAST_FREQ + 50) * COAST_AMP) return false;
+  // Otherwise inherit water/land from the map tile we'd hit going inland (rectangle
+  // clamp): north of a water column ⇒ open sea; south of it / over land ⇒ land.
+  const t = WORLD.cells[`${clamp(x, B.minx, B.maxx)},${clamp(y, B.miny, B.maxy)}`];
+  return !!(t && t.biome === 'water');
 }
 const OCEAN_CELL = { kind: 'land', biome: 'water', road: 0 };            // open sea — flat blue, no buildings
-const WILD_CELL  = { kind: 'land', biome: 'badlands', road: 0 };         // wilderness landmass beyond the city
+// Land beyond the edge continues the nearest real district's look (wastes to the west,
+// the Yards to the east…) minus buildings/roads — a believable fringe, not a grey void.
 function worldCell(x, y){
-  return WORLD.cells[`${x},${y}`]                                        // inside the real map ⇒ authoritative snapshot tile
-      || (isOcean(x, y) ? OCEAN_CELL : WILD_CELL);                       // beyond it ⇒ extrapolated ocean / landmass
+  const real = WORLD.cells[`${x},${y}`];
+  if (real) return real;                                                 // inside the real map ⇒ authoritative snapshot tile
+  if (isOcean(x, y)) return OCEAN_CELL;
+  const t = WORLD.cells[`${clamp(x, B.minx, B.maxx)},${clamp(y, B.miny, B.maxy)}`];
+  return { kind: 'land', biome: (t && t.biome && t.biome !== 'water') ? t.biome : 'badlands', road: 0 };
 }
 function genWindow(cx, cy){
   const rows = [];

@@ -41,7 +41,7 @@
   let ctx = null;
   let masterGain, musicGain, sfxGain, ambientGain, tvGain;
   let _noiseBuffer = null;
-  let _settings = { enabled: true, music: true, sfx: true, tv: true, masterVolume: 0.8, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.3, tvVolume: 0.6, muteWhenHidden: true };
+  let _settings = { enabled: true, music: true, sfx: true, tv: true, masterVolume: 0.60, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.3, tvVolume: 0.6, muteWhenHidden: true };
   let _hiddenDucked = false;
   let echoNodes = null; // global master-bus echo send (weed) — { wet, delay, fb }
 

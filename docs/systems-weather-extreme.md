@@ -59,6 +59,10 @@ The lethal path already exists in `resourceTick` ([gameLoop.js](../server/engine
   `stepIndoorTemps`). A mild outage barely drifts (survivable), but a −30°C snap drops an unheated flat to
   10°C in ~23 min and 0°C in ~51 min — after which an unprotected body freezes, while `insulation` gear buys
   hours. Backup heat, gear, or relocation become real decisions.
+- **Open-sky interiors get no shelter at all:** a zone flagged `open_sky` on an `is_interior`/`is_building`
+  tile (an open roof, deck, or helipad) is treated as **climatically outdoors** by `isIndoorZone` — it skips
+  `stepIndoorTemps` HVAC entirely and takes raw outdoor temp + weather exposure, even though it stays on the
+  building's power/network for lighting. Standing on the pad in a storm is standing in the storm.
 
 ### 2. Wind — attrition *(built, step 4)*
 Moving into an exposed zone costs **extra stamina** scaled by local `getZoneSeverity(targetId)`, applied at

@@ -57,7 +57,7 @@ export const RENDER_TUNE = {
   worldPace: 0.001,   // cruise/air pace (tiles per knot per second)
   groundBoost: 8,     // pace multiplier at zero altitude → quick down the runway
   groundDecay: 32,    // altitude e-fold (ft) for the boost → larger = the runway rush bleeds off GRADUALLY through the climb-out (a smooth takeoff→cruise transition) instead of lurching to cruise pace right at liftoff
-  eh: 0.14,           // Mode-7 eye height on the GROUND — raised from 0.05 to lift the camera so the bare near foreground drops off the bottom edge (runway reaches the bottom, no dirt shown below it); a floor still keeps the runway from collapsing
+  eh: 0.24,           // Mode-7 eye height on the GROUND — raised 0.05→0.14→0.24 to lift the camera so the near foreground drops off the bottom AND enough of the tile grid spreads into view that parked/startup ground reads as individual land tiles, not one flat sheet painted with the tile you're sitting on; a floor still keeps the runway from collapsing
   climbLift: 7.0,     // eye-height ADDED per unit altitude: EH = max(floor, eh + climbLift*height). ~2 by 500ft → clears buildings
   tile: 0.85,         // Mode-7 floor tile frequency (higher = smaller terrain tiles)
   pixel: 4,           // Mode-7 render downscale → pixel chunkiness (higher = blockier/retro)
@@ -353,7 +353,14 @@ export function paintWindshield(id, view) {
   const ctx = cv.getContext('2d');
   const st = sceneFor(id, cw, ch);
   const now = performance.now();
-  const dt = Math.min(0.05, st.last ? (now - st.last) / 1000 : 0.016); st.last = now;
+  const raw = st.last ? (now - st.last) : 16;
+  const dt = Math.min(0.05, st.last ? raw / 1000 : 0.016); st.last = now;
+  // Smoothed frame time → a cloud-quality dial. When frames run long (heavy cloud decks are the
+  // usual culprit), shrink the volumetric puff budget so the fly-through layer sheds load and fps
+  // recovers; the EMA damps it into a stable equilibrium instead of oscillating. 1 = full quality
+  // (≤~22ms/45fps), down to 0.3 under sustained load. Read by drawVolumetricClouds below.
+  st.frameMs = st.frameMs ? st.frameMs + (raw - st.frameMs) * 0.1 : raw;
+  st.cloudQ = clamp(1 - (st.frameMs - 22) / 26, 0.3, 1);
 
   const v = view || {};
   // Look direction: Q/E/S swivel the camera off the nose (viewYaw ≠ 0) while the aircraft
@@ -370,10 +377,11 @@ export function paintWindshield(id, view) {
   const ext = !!v.external && !framed;   // external chase view: a real camera behind + above the craft
   // External orbit: hold the middle mouse to spin the chase camera around the craft. Adding it to
   // the VIEW heading rotates the world + camera around the aircraft, while the model keeps its own
-  // real heading (drawn below), so we see the plane from the orbit angle. Snaps back to behind on release.
-  // Aiming (v.reticle) drops the resting 3/4 off-astern angle so the chase camera looks straight up
-  // the nose/gun line — the boresight then runs up the screen centre and the two-part reticle aligns.
-  const extOrbit = ext ? ((v.extYaw || 0) + (v.reticle ? 0 : RENDER_TUNE.chaseYaw)) : 0;
+  // real heading (drawn below), so we see the plane from the orbit angle. The camera LOCKS wherever
+  // you leave it (no spring-back); the ⟲ reset button zeroes it.
+  // Aiming (v.reticle) overrides the locked orbit entirely: it forces the chase camera dead-astern
+  // (no yaw, no elevation) so the boresight runs up the screen centre and the two-part reticle aligns.
+  const extOrbit = ext ? (v.reticle ? 0 : (v.extYaw || 0) + RENDER_TUNE.chaseYaw) : 0;
   const yawOff = (v.viewYaw || (v.side ? 90 : 0)) + extOrbit;
   const vw = yawOff ? { ...v, heading: (v.heading || 0) + yawOff } : v;
   const W = cw, H = ch, speed = clamp(v.speed || 0, 0, 1), height = clamp(v.height || 0, 0, 1);
@@ -387,7 +395,11 @@ export function paintWindshield(id, view) {
   const szRef = CONTACT_SIZE.prop || 0.11;
   const szFac = clamp((CONTACT_SIZE[v.cls] || szRef) / szRef, 0.55, 1.15);
   const extZoom = clamp(v.extZoom || 1, 0.45, 2.4);
-  const chase = ext ? { back: RENDER_TUNE.chaseBack * szFac * extZoom, up: RENDER_TUNE.chaseUp * szFac } : null;   // tiles behind / world-z above the craft (tunable)
+  // Vertical orbit (middle-drag up/down): extElev raises/lowers the chase camera's eye-height so
+  // you look down onto the craft from above, or level with it. The camera can never dip below the
+  // terrain — makeCam / the Mode-7 ground both floor the eye-height at 0.05 world-z above ground.
+  const extElev = ext && !v.reticle ? (v.extElev || 0) : 0;
+  const chase = ext ? { back: RENDER_TUNE.chaseBack * szFac * extZoom, up: RENDER_TUNE.chaseUp * szFac + extElev } : null;   // tiles behind / world-z above the craft (tunable)
   // On the deck (ground/takeoff/landing) we paint a real, terrain-themed airport.
   const onDeck = phase === 'ground' || phase === 'takeoff' || phase === 'landing';
   // Continuous ground↔air crossfade weight (0 = fully on the deck, 1 = fully airborne).
@@ -695,12 +707,21 @@ export function paintWindshield(id, view) {
   ctx.lineWidth = 1;
   const gridCol = rgb(mix(gTop, [180, 220, 200], 0.5), 0.16 + speed * 0.12);
   ctx.strokeStyle = gridCol;
+  // Mode-7-inspired textured ground plane (grass/land tiles + relief + water) — faded in
+  // by worldBlend so it crossfades against the airport/runway rather than popping in.
+  // Drawn for the SIDE window too: the camera heading (vw) already carries the +90° side
+  // yaw, so the ground renders correctly out the cabin window — without this the side view
+  // left a flat colour band where the grass should be ("grass isn't showing").
+  if (worldBlend > 0.02) {
+    ctx.save(); ctx.globalAlpha = worldBlend;
+    drawMode7Floor(ctx, W, H, horizonY, focal, vw, sky, gTop, now, sunFx, chase);
+    ctx.restore();
+  }
   if (side) {
-    // Side window: the ground rushes past laterally — vertical hatching that
-    // scrolls sideways sells forward motion far better than a converging grid.
-    // Runs on the deck too (taxi/rotate/roll-out) — the passenger's view stays
-    // perpendicular to travel the whole time, never swapping to a forward look
-    // down the runway.
+    // Side window: lateral hatching OVER the textured floor sells the ground rushing past
+    // (forward motion) — the passenger's view stays perpendicular to travel the whole time,
+    // never swapping to a forward look down the runway.
+    ctx.strokeStyle = gridCol;
     for (let k = 0; k < 24; k++) {
       const f = ((k / 24) + st.sideScroll) % 1, x = -OX + f * ex;
       ctx.globalAlpha = 0.09 + speed * 0.2;
@@ -708,12 +729,6 @@ export function paintWindshield(id, view) {
     }
     for (let k = 1; k <= 5; k++) { const y = horizonY + depthGround * (k / 5) * (k / 5); ctx.globalAlpha = 0.06; ctx.beginPath(); ctx.moveTo(-OX, y); ctx.lineTo(W + OX, y); ctx.stroke(); }
     ctx.globalAlpha = 1;
-  } else if (worldBlend > 0.02) {
-    // Mode-7-inspired textured ground plane (forward view) — faded in by worldBlend so
-    // it crossfades against the airport/runway rather than popping in with it.
-    ctx.save(); ctx.globalAlpha = worldBlend;
-    drawMode7Floor(ctx, W, H, horizonY, focal, vw, sky, gTop, now, sunFx, chase);
-    ctx.restore();
   }
 
   // Pilotwings horizon: distant rolling land + a soft hazy glow along the horizon.
@@ -1609,7 +1624,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
   const buf = m7buf(bw, bhMax), data = buf.img.data;
   const Y1 = H + depth * 0.3;
   const usedH = Math.min(bhMax, Math.max(1, Math.ceil((Y1 - horizonY) / DS)));
-  const EH = Math.max(0.05, RENDER_TUNE.eh + (v.height || 0) * RENDER_TUNE.climbLift) + (chase ? chase.up : 0);   // additive + floor: altitude adds real eye-height so you climb above buildings; chase.up lifts the external camera above the craft
+  const EH = Math.max(0.05, RENDER_TUNE.eh + (v.height || 0) * RENDER_TUNE.climbLift + (chase ? chase.up : 0));   // additive + floor: altitude adds real eye-height so you climb above buildings; chase.up lifts the external camera above the craft; the floor wraps the sum so a low vertical orbit can't sink the camera below the terrain
   const hd = (v.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
   const off = v.mapOffset, back = chase ? chase.back : 0;
   const ax = (off ? off.x : 0) - back * sinh, ay = (off ? off.y : 0) + back * cosh;   // external view: sample from `back` tiles behind the craft
@@ -1841,7 +1856,7 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
   // finer, more detailed vapour. Each small puff needs only a short card stack (base/body/crown +
   // a couple of lobes), so the total card budget stays sane despite the 10× puff count.
   const nCards = W < 720 ? 3 : 5;                    // shorter stacks — the density comes from puff COUNT now
-  const puffMul = W < 720 ? 4 : 9, puffCap = W < 720 ? 30 : 80, puffMin = W < 720 ? 12 : 24;
+  const puffMul = W < 720 ? 7 : 15, puffCap = W < 720 ? 50 : 140, puffMin = W < 720 ? 18 : 36;
   const RANGE = 48, baseZ = cloudBaseZ(wx), thick = RENDER_TUNE.cloudThick;   // base sits at a realistic altitude for the weather (see CLOUD_BASE_FT)
   // Cumuliform vs stratiform shaping: cumulus billow tall and heaped (vScale up, hScale tight); a
   // stratus sheet is flat and spread wide (vScale down, hScale up). `litComp` also flattens the
@@ -1859,20 +1874,48 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
   }
   // Scatter a clump of puffs inside each nearby cell (deterministic in the cell's seed, so the clump
   // rides along as the front drifts) and build the card stacks. Mirrors the dome field-cell scatter.
-  const cards = [];
+  // Cells are worked NEAREST-FIRST against a global puff budget: "lots of clouds" = lots of active
+  // cells, and without a ceiling the card count (and its per-card radial-gradient fills) grows
+  // unbounded → framerate collapse. The budget caps total work; far cells thin out first (they hide
+  // behind nearer puffs and the whiteout anyway), and the fps dial (cloudQ) scales the ceiling.
+  const q = st.cloudQ ?? 1;
+  const mottleOK = q > 0.7;                                 // shed the clip+drawImage noise overlay under load
+  let budget = Math.round((W < 720 ? 150 : 340) * q);       // total puffs this frame across all cells
+  const nearCells = [];
   for (const c of cells) {
     if (c.intensity <= 0.02) continue;
+    const d = Math.hypot(c.x - ax, c.y - ay);
+    if (d > RANGE + 8) continue;
+    nearCells.push({ c, d });
+  }
+  nearCells.sort((a, b) => a.d - b.d);
+  // Frustum cull: only puffs inside the forward view cone are worth projecting. cam.sinh/cosh split
+  // a world offset into forward (fwd) + lateral (lat); |lat| under fwd·halfExt means it lands within
+  // the screen's horizontal span. Rejecting everything behind and beside the camera BEFORE the costly
+  // projection + gradient cards means the global budget is spent only on puffs you can SEE — so the
+  // in-view deck is several times denser (and can afford smaller, finer puffs) for the same draw cost.
+  const halfExt = (W / 2) / cam.FL, camBack = cam.back || 0;
+  const cards = [];
+  for (const { c } of nearCells) {
+    if (budget <= 0) break;
     const stormy = c.type === 'storm' || c.type === 'precip';
     const sprites = Math.min(puffCap, Math.max(puffMin, Math.round(c.r * puffMul)));
     for (let k = 0; k < sprites; k++) {
+      if (budget <= 0) break;
       const rr = Math.sqrt(frac(c.seed + k * 1.7)) * c.r * 0.95, th = frac(c.seed + k * 3.3) * 6.2832;
       const dx = c.x + Math.cos(th) * rr - ax, dy = c.y + Math.sin(th) * rr - ay, dist = Math.hypot(dx, dy);
       if (dist > RANGE) continue;
+      const fwd = dx * cam.sinh - dy * cam.cosh + camBack;
+      if (fwd <= 0.12) continue;                                  // behind the eye
+      const lat = dx * cam.cosh + dy * cam.sinh;
+      if (Math.abs(lat) > fwd * halfExt + 3.0) continue;          // outside the forward cone (+ puff-radius margin)
+      budget--;                                                   // survived the cull → this puff draws; charge the budget
       // Anchor the puff BASE near the ceiling, but scatter over a TALLER band now (the deck is thicker)
       // and let the cards billow UP from there, so the deck has depth instead of a thin flat sheet.
       const pz = baseZ + frac(c.seed + k * 2.9) * thick * 0.55;
-      // Small puffs (≈0.5× the old radius): the detail lives in their number, not their size.
-      const R = (1.55 + frac(c.seed + k * 5.7) * 1.7) * (0.7 + clamp(c.intensity, 0, 1) * 0.5);
+      // Small puffs — the detail lives in their number, not their size. With the view-cone cull the
+      // budget now buys only visible puffs, so we can afford finer (smaller) ones and still fill the sky.
+      const R = (1.1 + frac(c.seed + k * 5.7) * 1.25) * (0.7 + clamp(c.intensity, 0, 1) * 0.5);
       const distFade = clamp(1 - dist / RANGE, 0.04, 1), cellA = alpha * clamp(c.intensity, 0.5, 1);
       // Inter-lobe ambient occlusion: a soft dark pool sunk into the puff base, sorted FARTHEST
       // (f+3) so it paints first, UNDER the lobes — deepening the shadowed crevices where the
@@ -1929,7 +1972,8 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
       rg.addColorStop(0.82, rgb(shadeCol, a * 0.5)); rg.addColorStop(1, rgb(shadeCol, 0));
       ctx.fillStyle = rg; ctx.beginPath(); ctx.ellipse(c.x, c.y, c.s, c.s * c.ys, 0, 0, 7); ctx.fill();
       // Value-noise mottle: stamp the curdled tile over big cards (overlay modulates brightness only).
-      if (c.s > 15 && a > 0.12) {
+      // Dropped under fps load — the clip+drawImage roughly doubles a card's cost and reads faintest.
+      if (mottleOK && c.s > 15 && a > 0.12) {
         ctx.save();
         ctx.beginPath(); ctx.ellipse(c.x, c.y, c.s * 0.98, c.s * c.ys * 0.98, 0, 0, 7); ctx.clip();
         ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = clamp(a * 0.6, 0, 0.5);
@@ -1944,6 +1988,7 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
     if (c.intensity <= 0.05 || !(c.type === 'storm' || c.type === 'precip')) continue;
     const cdx = c.x - ax, cdy = c.y - ay, cdist = Math.hypot(cdx, cdy);
     if (cdist > RANGE) continue;
+    if (cdx * cam.sinh - cdy * cam.cosh + camBack <= 0.1) continue;   // storm cell behind the camera → its shafts can't be seen
     const shafts = Math.min(8, Math.max(3, Math.round(c.r))), rake = (v.wind || 0) * 0.02;
     const dfade = clamp(1 - cdist / RANGE, 0.04, 1) * (1 - imm), topZ = baseZ - 0.05;
     const col = c.type === 'storm' ? [120, 132, 150] : [150, 162, 176];
@@ -2192,7 +2237,7 @@ function drawTexQuad(ctx, img, P0, P1, P2, P3) {
 function makeCam(W, horizonY, depth, v, chase) {
   const R = v.map ? (v.map.length - 1) / 2 : 0;
   const EHbase = Math.max(0.05, RENDER_TUNE.eh + (v.height || 0) * RENDER_TUNE.climbLift);   // additive + floor: altitude adds real eye-height so you climb above buildings; floor keeps the runway/ground from collapsing at eh→0
-  const back = chase ? chase.back : 0, EH = EHbase + (chase ? chase.up : 0);
+  const back = chase ? chase.back : 0, EH = Math.max(0.05, EHbase + (chase ? chase.up : 0));   // floor the summed eye-height so a low vertical orbit never drops the camera below the terrain
   const hd = (v.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
   const off = v.mapOffset, ox = off ? off.x : 0, oy = off ? off.y : 0;
   const cx = W / 2, FL = (W / 2) / 1.15 * (RENDER_TUNE.fov || 1);   // fov<1 compresses the world laterally into a tighter tunnel
