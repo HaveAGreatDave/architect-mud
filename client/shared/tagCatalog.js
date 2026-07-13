@@ -267,6 +267,10 @@
       help: 'Corps territory override: force this zone claimable. Absent = derived (claimable when inferred danger isn\'t safe, never apartments).' },
     claimable_asset: { label: 'Claimable Business', shape: 'text', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Corporate Assets: a corp can take this storefront over with "corp asset claim". Value is the asset type key (restaurant, casino, fence, gun_shop, clinic, chem_supply). Needs a vendor NPC in the zone for the sales cut.' },
+    aa_site: { label: 'AA Emplacement', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
+      help: 'Exposed anti-aircraft emplacement (aa-sites plugin): the standable tile that fires on overflying aircraft and can be assaulted on foot. Pairs with an aa_sites row.' },
+    aa_bunker: { label: 'AA Bunker', shape: 'text', scope: 'zone', group: 'Zone: Law & Hazard',
+      help: 'Interior bunker of an AA emplacement (aa-sites plugin). Value is the linked AA site id (e.g. aa_clone_guard).' },
 
     is_interior: { label: 'Interior', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Indoors — weather/temperature/lighting use the interior model.' },
