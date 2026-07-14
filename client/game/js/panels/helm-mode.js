@@ -354,8 +354,8 @@ export function openHelm(opts = {}) {
     const dir = ctrl.readyDir();
     if (!dir) { setKnob(0); tele.classList.add('warn'); teleLabel.textContent = 'Steady the helm'; setTimeout(() => { tele.classList.remove('warn'); if (!engaged) teleLabel.textContent = 'Engine Telegraph'; }, 1400); return; }
     const t = Math.max(0, Math.min(1, knobP));
-    const estMs = MS_PER_TILE(t);   // one-tile passage; the server's helm_underway confirms ms/tiles/cruise (or helm_hold cancels if land ahead)
-    ctrl.beginTransit(dir, estMs, estMs, 1, cruiseFor(t));   // local placeholder (1 tile) so the wake blooms instantly without ever over-gliding
+    const estMs = 3 * MS_PER_TILE(t);   // up-to-3-tile passage; the server's helm_underway confirms real ms/tiles/cruise (shortening it if land truncates the run), or helm_hold cancels if land is immediately ahead
+    ctrl.beginTransit(dir, estMs, estMs, 3, cruiseFor(t));   // local placeholder (3 tiles) so a full open-water passage needs no correction; a truncated one is fixed early by helm_underway
     onSail(dir, Math.round(t * 100));                        // fire the real `sail <dir> <bell%>` in game
     setUnderway(true);
   }
