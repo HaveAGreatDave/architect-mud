@@ -286,9 +286,10 @@ export function openHelm(opts = {}) {
   if (opts.sky) ctrl.setSky(opts.sky);   // seed the real sim weather field immediately
   if (opts.map) ctrl.setWorld(opts.map, opts.gx, opts.gy);   // frame her against the REAL basin, not blank ocean
 
-  // The wheel is a DIRECT course selector: its (heavily geared) rotation demands a course and she
-  // swings slowly toward it; the hub needle reads her actual heading as she comes round.
-  const wheel = createHelmWheel(q('.helm-wheel'), { accent, gear: 8, onCourse: (deg) => ctrl.setCourse(deg), getHeading: () => ctrl.heading() });
+  // The wheel is a DIRECTION control: its spin steers the demanded course by that much (clockwise =
+  // right, counter-clockwise = left) and she swings slowly toward it; the hub needle reads her actual
+  // heading as she comes round.
+  const wheel = createHelmWheel(q('.helm-wheel'), { accent, gear: 8, onSteer: (deg) => ctrl.steerBy(deg), getHeading: () => ctrl.heading() });
 
   // ── NAV chart — a live top-down basin scope drawn from the chase view's own world window
   // (ctrl.mapSnapshot): land/piers slate, water the dark teal ground, the Echelon a cyan chevron

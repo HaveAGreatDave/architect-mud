@@ -2125,6 +2125,8 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   __statue_stone: [116, 114, 118],   // weathered plinth stone for the town-square monument
   // The Echelon — sleek black superyacht: mirror-black hull, faintly lighter deck house, smoked glass.
   ty_yacht: [16, 18, 22], ty_yacht_deck: [30, 33, 40], ty_yacht_glass: [24, 30, 42],
+  // Corporate-Assets claimable businesses — a distinct wall tone per storefront type.
+  ty_armory: [70, 74, 80], ty_casino: [58, 30, 60], ty_pawn: [74, 62, 44], ty_chem: [76, 92, 70],
   ty_door: [20, 22, 26] };
 const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
 
@@ -2151,6 +2153,10 @@ const BLDG_TYPE_3D = {
   clinic:           { a: 'civic',     h: 0.22 },
   power:            { a: 'industrial', h: 0.34 },
   hangar:           { a: 'freight',   h: 0.14 },
+  gun_shop:         { a: 'citycore',   h: 0.13 }, // squat riveted blockhouse
+  casino:           { a: 'marquee',    h: 0.17 }, // neon-drowned gambling house
+  fence:            { a: 'citycore',   h: 0.13 }, // grimy pawnshop
+  chem_supply:      { a: 'industrial', h: 0.16 }, // drum-stacked depot
   default:          { a: 'citycore',  h: 0.22 }, // fallback when a type has no entry / fails to load
 };
 // The archetype + base height for a map cell: a building tile (has `bt`) renders its
@@ -2171,7 +2177,8 @@ function bldgStyle(cell) {
 // exactly what you can hit.
 const TYPE_FLOORS = {
   corporate_office: 22, hotel: 6, apartment: 8, residential: 3, shop: 1, diner: 1,
-  bar: 1, club: 2, studio: 2, police: 3, clinic: 3, power: 5, hangar: 1, civic: 5, default: 4,
+  bar: 1, club: 2, studio: 2, police: 3, clinic: 3, power: 5, hangar: 1, civic: 5,
+  gun_shop: 1, casino: 2, fence: 1, chem_supply: 2, default: 4,
 };
 const FLOOR_Z = 0.028;   // world-z per storey — vertically stretched (taller storeys) so buildings stand up off the deck instead of reading flat; not more floors, just taller ones
 function floorsOf(cell) {
@@ -3546,7 +3553,7 @@ const NAMED_MODELS = {
   sump:                           { type: 'divebar',   pal: 'ty_bar_a',    neon: '#7dff6a' },
   thedeadpigeon:                  { type: 'divebar',   pal: 'ty_bar_b',    neon: '#5fd0ff', perch: true },
   thecherrypit:                   { type: 'strip',     pal: 'ty_club',     neon: '#ff4a9a' },
-  rationnine:                     { type: 'grocery',   pal: 'ty_grocery',  neon: '#ffcf3e' },
+  rationnine:                     { type: 'diner',     pal: 'ty_diner',    neon: '#ffcf3e' },
   ampersandelectronics:           { type: 'techstall', pal: 'ty_tech',     neon: '#5fd0ff' },
   deadspaceinteriors:             { type: 'showroom',  pal: 'ty_showroom', neon: '#7dff6a' },
   secondskin:                     { type: 'boutique',  pal: 'ty_boutique', neon: '#ff4a9a' },
@@ -3574,6 +3581,10 @@ const TYPE_MODEL = {
   clinic:           { type: 'clinic',    pal: 'ty_clinic' },
   power:            { type: 'power',     pal: 'ty_power' },
   hangar:           { type: 'hangar',    pal: 'ty_hangar_a' },
+  gun_shop:         { type: 'armory',    pal: 'ty_armory', neon: '#ff6a4a' },
+  casino:           { type: 'casino',    pal: 'ty_casino', neon: '#ff3e8a' },
+  fence:            { type: 'pawn',      pal: 'ty_pawn',   neon: '#ffcf3e' },
+  chem_supply:      { type: 'chemsupply', pal: 'ty_chem',  neon: '#7dff6a' },
 };
 function modelFor(cell) { return (cell.bn && namedModel(cell.bn)) || (cell.bt && TYPE_MODEL[cell.bt]) || null; }
 
@@ -4035,10 +4046,45 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       glowPool(ctx, cam, dx, dy, h * 0.85, '255,74,154', 20, alpha * (night ? 0.34 : 0.16));
       break;
     }
-    case 'diner': {   // small warm box + rooftop neon + window glow
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, 0, h * 0.6, pal, seed, night, alpha, true);
-      neonBlade(ctx, cam, dx, dy, h * 0.6, h * 0.92, m.neon || '#ffcf3e', night, alpha);
-      if (night) glowPool(ctx, cam, dx, dy, h * 0.3, '255,200,120', 12, alpha * 0.2);
+    case 'diner': {   // long low diner — warm box, street-side counter awning, rooftop neon, window glow
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, h * 0.58, pal, seed, night, alpha, true);
+      { const [ax, ay] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.1, h * 0.1, h * 0.2, 'ty_door', seed + 1, night, alpha, false); }   // counter awning faces the street
+      neonBlade(ctx, cam, dx, dy, h * 0.58, h * 0.92, m.neon || '#ffcf3e', night, alpha);
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.3, '255,200,120', 13, alpha * 0.24);              // warm window glow
+      break;
+    }
+    case 'armory': {   // Ironside Arms: a squat riveted blockhouse — heavy overhanging parapet, vault door, slit-window glow
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, h * 0.7, pal, seed, night, alpha, true);          // bunker box
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.24, h * 0.7, h * 0.82, pal, seed + 1, night, alpha, true); // thick overhanging parapet
+      { const [gx, gy] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.46, 0, h * 0.4, 'ty_door', seed + 2, night, alpha, false); }   // vault door
+      if (night) { const [wx, wy] = F(fh * 0.5, fh * 0.9); glowPool(ctx, cam, wx, wy, h * 0.34, '255,140,80', 6, alpha * 0.22); }   // amber slit window
+      neonBlade(ctx, cam, dx, dy, h * 0.82, h * 1.06, m.neon || '#ff6a4a', night, alpha);           // small hard sign
+      break;
+    }
+    case 'casino': {   // The Neon Vig: a squat house drowned in neon — marquee crown, chasing bulbs, magenta wash
+      const neon = m.neon || '#ff3e8a';
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, h * 0.7, pal, seed, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.22, h * 0.7, h * 0.9, pal, seed + 1, night, alpha, true); // marquee crown band
+      { const [ax, ay] = F(-fh * 0.5, 0); neonBlade(ctx, cam, ax, ay, h * 0.9, h * 1.3, neon, night, alpha); }
+      { const [bx, by] = F(fh * 0.5, 0); neonBlade(ctx, cam, bx, by, h * 0.9, h * 1.3, neon, night, alpha); }
+      for (const s of [-0.7, -0.24, 0.24, 0.7]) { const [lx, ly] = F(s * fh, fh * 0.9); blinkLight(ctx, cam, lx, ly, h * 0.92, '255,210,90', now, seed + s * 9, alpha, 1.7); }   // chasing marquee bulbs
+      glowPool(ctx, cam, dx, dy, h * 0.86, '255,62,138', 22, alpha * (night ? 0.4 : 0.2));           // neon wash
+      break;
+    }
+    case 'pawn': {   // Pawn & Pity: grimy box, barred storefront, three hanging pawn spheres, a half-dead sign
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.1, 0, h * 0.72, pal, seed, night, alpha, true);
+      { const [gx, gy] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, gx, gy, fh * 1.0, h * 0.1, h * 0.2, 'ty_door', seed + 1, night, alpha, false); }   // barred storefront band
+      { const [px, py] = F(fh * 0.6, fh * 0.55); for (const z of [0.9, 0.78, 0.66]) blinkLight(ctx, cam, px, py, h * z, '255,206,80', now, seed + 20 + z * 10, alpha, 1.5); }   // three hanging spheres
+      neonBlade(ctx, cam, dx, dy, h * 0.72, h * 0.98, m.neon || '#ffcf3e', night, alpha);
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.24, '210,180,110', 8, alpha * 0.14);               // dim barred-window glow
+      break;
+    }
+    case 'chemsupply': {   // Bulk & Bond: a chem depot — roof storage tank, stacked drums out front, a hazard-green wash
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.25, 0, h * 0.62, pal, seed, night, alpha, true);          // depot shed
+      { const [tx, ty] = F(-fh * 0.5, 0); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.34, h * 0.62, h * 0.95, pal, seed + 2, night, alpha, true); }   // roof storage tank
+      for (const s of [-0.6, 0, 0.6]) { const [ox, oy] = F(s * fh * 0.7, fh * 0.9); draw3DBoxAt(ctx, cam, ox, oy, fh * 0.2, 0, h * 0.22, 'ty_door', seed + 5 + s * 3, night, alpha, true); }   // drums out front
+      neonBlade(ctx, cam, dx, dy, h * 0.62, h * 0.9, m.neon || '#7dff6a', night, alpha);
+      glowPool(ctx, cam, dx, dy, h * 0.28, '120,220,120', 12, alpha * (night ? 0.3 : 0.16));         // hazard-green wash
       break;
     }
     case 'shop':

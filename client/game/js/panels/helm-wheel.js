@@ -1,26 +1,27 @@
 // The Echelon's helm — a big, futuristic carbon-and-accent ship's wheel you grab and spin. It's a
-// DIRECT course selector: the wheel's rotation maps (heavily geared) to a compass course, and the
-// boat swings slowly toward wherever you've spun it. A fixed outer compass bezel + an upright
-// ECHELON hub with a course needle read the heading; the carbon wheel + handles turn inside it.
+// pure DIRECTION control: only the wheel's DIRECTION of spin steers her — turn it clockwise and the
+// heading walks right (N→NE→E→SE→S…), counter-clockwise and it walks left. A fixed outer compass
+// bezel + an upright ECHELON hub with a course needle read the heading; the carbon wheel turns inside.
 //
-// createHelmWheel(canvas, { accent, gear, onCourse(deg), getHeading() }) → controller.
-//   onCourse(deg) — the wheel's demanded course (absolute degrees, unbounded; caller snaps).
-//   getHeading()  — the boat's ACTUAL heading (deg) for the course needle. Optional.
-//   gear          — wheel-turn per heading (higher = much more spinning per quarter turn).
+// createHelmWheel(canvas, { accent, gear, onSteer(deg), getHeading() }) → controller.
+//   onSteer(deg) — the CHANGE in demanded course this frame (signed: + = right/CW, − = left/CCW).
+//   getHeading() — the boat's ACTUAL heading (deg) for the course needle. Optional.
+//   gear         — wheel-turn per heading (higher = much more spinning per rhumb).
 
 export function createHelmWheel(canvas, opts = {}) {
   const ctx = canvas.getContext('2d');
   let accent = opts.accent || '#c8a24e';
-  const onCourse = opts.onCourse || (() => {});
+  const onSteer = opts.onSteer || (() => {});
   const getHeading = opts.getHeading || null;
-  const GEAR = opts.gear || 8;                 // 8 ⇒ ~two full wheel turns per 90° of heading
+  const GEAR = opts.gear || 8;                 // 8 ⇒ ~one full wheel turn per 45° of heading (one rhumb)
   const SPOKES = 5;
 
-  // Seed the wheel to the boat's CURRENT heading, not 0. step() demands course = angle/GEAR EVERY
-  // frame, so a wheel starting at angle 0 continuously orders course 0 (north) — which is why the
-  // Echelon always swung bow-north on open, ignoring her persisted last course. Starting the wheel at
-  // her real heading makes it demand exactly that, so she holds the course she was left on.
-  let angle = getHeading ? getHeading() * Math.PI / 180 * GEAR : 0, vel = 0;
+  // The wheel reports only the CHANGE in its rotation each frame (see step) — it never asserts an
+  // absolute course. So spinning it clockwise steers the heading right and counter-clockwise steers
+  // left, the amount you spin being how far she comes round; and because it never re-demands a fixed
+  // bearing, she can't be yanked back to a stale course after a passage (the old snap-home bug).
+  // `reported` is the wheel angle we last emitted a delta from.
+  let angle = 0, vel = 0, reported = 0;
   let grabbing = false, grabPA = 0, grabWA = 0, lastA = 0, lastT = 0;
   let raf = 0, alive = true, last = performance.now();
   let enabled = true;   // locked (dimmed, no grab) while she's underway on a passage
@@ -56,9 +57,10 @@ export function createHelmWheel(canvas, opts = {}) {
   canvas.style.cursor = 'grab'; canvas.style.touchAction = 'none';
 
   function step(dt) {
-    if (!enabled) { vel = 0; return; }   // pinned while underway — no course demand
+    if (!enabled) { vel = 0; reported = angle; return; }   // pinned while underway — accrue no course change
     if (!grabbing) { angle += vel * dt; vel *= Math.exp(-5.5 * dt); if (Math.abs(vel) < 0.05) vel = 0; }   // heavy: a little follow-through, settles fast
-    onCourse((angle / GEAR) * 180 / Math.PI);   // wheel rotation → demanded compass course (deg)
+    const d = angle - reported;                 // how far the wheel turned since we last reported
+    if (d) { onSteer((d / GEAR) * 180 / Math.PI); reported = angle; }   // spin direction → heading change (CW=right, CCW=left)
   }
 
   function draw() {

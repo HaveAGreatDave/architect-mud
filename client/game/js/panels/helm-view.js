@@ -144,10 +144,13 @@ export function openHelmChase(container, opts = {}) {
     map, center: yacht, serverWorld: false,   // center = the yacht cell we overlay wake/heading onto
     hour: opts.hour ?? 19, weather: (opts.weather || 'clear').toLowerCase(),
     heading: opts.heading ?? 0, headingTarget: opts.heading ?? 0, turnRate: 16,   // deg/s — a big yacht comes about slowly
-    // The wheel now turns FREELY to any bearing (headingTarget follows it), but she only makes way
-    // when the demanded course clicks into one of the eight rhumb notches. courseDemand is the raw
-    // wheel bearing; locked/lockedDir latch the notch it's currently seated in (null between notches).
-    courseDemand: opts.heading ?? 0, locked: false, lockedDir: null,
+    // The wheel steers by DIRECTION (relative), so courseDemand accumulates the demanded course and
+    // she makes way only when it clicks into one of the eight rhumb notches. locked/lockedDir latch
+    // the notch it's currently seated in (null between notches) — seeded from her opening heading (a
+    // persisted rhumb) so she can cast off on her current course without first jiggling the wheel.
+    courseDemand: opts.heading ?? 0,
+    locked: Math.abs((opts.heading ?? 0) - Math.round((opts.heading ?? 0) / 45) * 45) <= LOCK_TOL,
+    lockedDir: CARDINAL[((Math.round((opts.heading ?? 0) / 45) * 45 % 360) + 360) % 360],
     // A passage is a long, sustained transit: she makes way at CRUISE for transitMs, then arrives
     // at the next tile. sailT is 0..1 progress across the passage. spd rides toward the throttle.
     spd: 0, sailing: false, sailT: 0, transitMs: 0, transitEnd: 0, sailDir: null, sailTiles: 1,
@@ -278,6 +281,7 @@ export function openHelmChase(container, opts = {}) {
     beginTransit(dir, ms, total, tiles, cruise) {
       if (!DV[dir]) return false;
       st.headingTarget = nearestEquiv(DEG[dir]); st.sailDir = dir; st.sailTiles = Math.max(1, tiles || 1);   // rebase near current so she comes about the short way to the ordered course
+      st.courseDemand = st.headingTarget; st.locked = true; st.lockedDir = dir;   // she's now on the ordered rhumb — resync the demand so wheel deltas resume relative to it (no snap-home)
       if (cruise > 0) st.cruise = Math.max(0.2, Math.min(1.2, cruise));   // the passage's bell (visual way); omitted ⇒ keep the default
       // `ms` = time remaining, `total` = the whole passage (defaults to ms for a fresh cast-off).
       // Seeding transitMs from the total makes sailT reflect TRUE progress, so a helm reopened mid-
@@ -334,24 +338,29 @@ export function openHelmChase(container, opts = {}) {
     // eases toward a level near-horizon chase. The ship is kept centred by the canvas itself sizing to
     // the band, so this only sets the ANGLE, not her screen position. Adopts it live unless mid-orbit.
     setRestPitch(p) { const was = st.restPitch; st.restPitch = p; if (Math.abs(st.extPitch - was) < 1e-3) st.extPitch = p; },
-    // Absolute course (from the wheel): the wheel turns FREELY, so she eases toward whatever bearing
-    // it's spun to — EXCEPT within LOCK_TOL of one of the eight rhumbs, where the course "clicks" into
-    // that notch (locked) and she settles exactly on it. Between notches she sits off-cardinal, locked
-    // is false, and the throttle stays gated (readyDir null) until you seat the wheel in a notch.
-    setCourse(deg) {
-      // `deg` arrives UNBOUNDED from the wheel (it winds with the handle), so keep the winding: the
-      // nearest notch and the free target are both computed in unbounded space, and headingTarget
-      // therefore climbs/falls the same way the wheel turned — turn right, she comes right, always.
-      st.courseDemand = deg;
-      const notch = Math.round(deg / 45) * 45;   // nearest rhumb, unbounded
-      const off = Math.abs(deg - notch);         // 0..22.5
+    // Steer by the wheel's spin (RELATIVE): `deg` is the signed change in demanded course this frame
+    // (+ = right/CW, − = left/CCW). It accumulates onto courseDemand — kept UNBOUNDED so the heading
+    // climbs/falls the same way the wheel turned — and she eases toward it, EXCEPT within LOCK_TOL of
+    // one of the eight rhumbs, where the course "clicks" into that notch (locked) and she settles
+    // exactly on it. Between notches she sits off-cardinal, locked is false, and the throttle stays
+    // gated (readyDir null) until you seat the wheel in a notch. Being incremental, the wheel never
+    // re-asserts a stale absolute bearing after a passage — the fix for her snapping home.
+    steerBy(deg) {
+      st.courseDemand += deg;
+      const notch = Math.round(st.courseDemand / 45) * 45;   // nearest rhumb, unbounded
+      const off = Math.abs(st.courseDemand - notch);         // 0..22.5
       if (off <= LOCK_TOL) { st.locked = true; st.lockedDir = CARDINAL[((notch % 360) + 360) % 360]; st.headingTarget = notch; }
-      else { st.locked = false; st.lockedDir = null; st.headingTarget = deg; }
+      else { st.locked = false; st.lockedDir = null; st.headingTarget = st.courseDemand; }
     },
     setHour(h) { st.hour = h; },
     setWeather(w) { st.weather = (w || 'clear').toLowerCase(); st.wx.key = null; },
     setPosition(gx, gy) { st.gx = gx; st.gy = gy; },
-    setHeading(h) { st.heading = st.headingTarget = ((h % 360) + 360) % 360; },
+    setHeading(h) {
+      st.heading = st.headingTarget = st.courseDemand = ((h % 360) + 360) % 360;   // resync the demand so the wheel steers relative to her real heading
+      const notch = Math.round(st.courseDemand / 45) * 45;
+      st.locked = Math.abs(st.courseDemand - notch) <= LOCK_TOL;
+      st.lockedDir = st.locked ? CARDINAL[((notch % 360) + 360) % 360] : null;
+    },
     setTrim(pitch, zoom) { if (pitch != null) st.extPitch = pitch; if (zoom != null) st.extZoom = zoom; },
     // Live camera tuning handle (dev): read / set the whole resting chase pose at once, so the
     // framing can be dialled in from the console and the winning numbers baked into REST.

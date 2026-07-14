@@ -1352,6 +1352,18 @@ function drawHelipadRoom(ctx, proj, sky, w, h) {
     ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(p.sx, p.sy, r * 1.7, 0, 7); ctx.fill();
     ctx.fillStyle = 'rgba(255,96,74,0.95)'; ctx.beginPath(); ctx.arc(p.sx, p.sy, r * 0.42, 0, 7); ctx.fill();
   }
+  // 5b) Deck floodlights — the Echelon is a powered vessel, so her pad stays lit
+  //     after dark instead of going black; the wash tracks how dark the sky's gone.
+  //     Drawn before the rails/deckhouse so those still read crisply on top.
+  if (night > 0.04) {
+    const pc = proj(0, 0, F0 + 0.01);
+    if (pc.z > ROOM_NEAR) {
+      const fr = clampN(240 / pc.z, 60, 320);
+      const fg = ctx.createRadialGradient(pc.sx, pc.sy, 1, pc.sx, pc.sy, fr);
+      fg.addColorStop(0, `rgba(216,232,250,${0.34 * night})`); fg.addColorStop(1, 'rgba(216,232,250,0)');
+      ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(pc.sx, pc.sy, fr, 0, 7); ctx.fill();
+    }
+  }
   // 6) Low guard rail around the OPEN edge (skip the forward wedge where the deckhouse is).
   const railZ = F0 + 0.34, open = (a) => Math.cos(a) < 0.5;
   ctx.strokeStyle = 'rgba(150,168,184,0.7)'; ctx.lineWidth = 2; ctx.beginPath(); started = false;
