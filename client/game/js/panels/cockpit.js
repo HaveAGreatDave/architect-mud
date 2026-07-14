@@ -2561,7 +2561,10 @@ function fsimFrame(now) {
     // don't let its (very real, very fast) sink rate write the plane off. Only arm the
     // hard-landing crash check once she's actually climbed clear of the ground.
     const establishedClimb = (F.peakAltSinceLift || 0) >= 25;
-    const overWater = F.biomeBelow === 'water';
+    // The Echelon sits on a water tile (her district is water), so a set-down on OR alongside her
+    // reads as "over water" — but that's the helipad, not a ditching. F.onYacht suppresses the
+    // ditch so the touchdown rolls through to the auto-land path below (server snaps it to the pad).
+    const overWater = F.biomeBelow === 'water' && !F.onYacht;
     sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} 0 ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} 0 1 0`);
     if (overWater && establishedClimb) {
       // Touched down on open water — nothing in the fleet floats, so it's an instant ditching,
@@ -2613,6 +2616,17 @@ function fsimFrame(now) {
     // helipad (F.onYacht), so you don't hunt for her exact tile or have to type disembark.
     if ((F.onField && !F.heli) || (F.heli && F.onYacht)) finishLanding(F, s);
     else if (!F.stopHinted) { F.stopHinted = true; if (F.toast) F.toast(F.heli ? 'DOWN — type disembark to climb out' : 'STOPPED — cut the ENGINE to shut down & park'); }
+  }
+
+  // Helipad capture: hovering low over the Echelon, she reaches up and takes you. A Dragonfly
+  // within a tile of her (F.onYacht) and slow below ~150ft settles straight onto the pad — no need
+  // to grease the wheels onto her exact deck. Gated to a slow, non-climbing approach so a fast low
+  // fly-by, and the climb-out on takeoff (vs well positive), are never grabbed.
+  if (F.heli && F.onYacht && !s.onGround && !F.landed && F.reportedAirborne
+      && s.altitude <= 150 && s.airspeed < 30 && s.vs < 20) {
+    if (F.toast) F.toast('The Echelon has you — settling onto the pad.');
+    F.landGrade = 'A'; F.landFpm = Math.round(Math.max(0, -(s.vs || 0)));   // a guided set-down grades clean
+    finishLanding(F, s);
   }
 
   // Stall horn (intermittent → continuous).
