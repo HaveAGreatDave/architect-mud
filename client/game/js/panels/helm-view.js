@@ -138,6 +138,7 @@ export function openHelmChase(container, opts = {}) {
     spd: 0, sailing: false, sailT: 0, transitMs: 0, transitEnd: 0, sailDir: null,
     mapOffset: { x: 0, y: 0 },   // sub-tile world pan across a passage (yacht held centred by center.sub)
     serverField: null,   // the REAL weather field from the sim (setSky) — preferred over the synth
+    contacts: [],        // airborne craft near the Echelon (absolute x,y), streamed by the server
     // Camera: extYaw/extPitch are the orbit (drag), extZoom the dolly (wheel). The windshield
     // clamps extPitch above the terrain, so the orbit can never dip the eye below the water.
     extYaw: 0, extPitch: opts.extPitch ?? 0.34, extZoom: opts.extZoom ?? 1.7,
@@ -207,10 +208,16 @@ export function openHelmChase(container, opts = {}) {
     if (st.serverField) field = st.serverField;
     else { if (st.wx.key !== weather) { st.wx.key = weather; st.wx.field = buildWxField(weather, st.gx, st.gy); } field = st.wx.field; }
 
+    // Planes over the Basin: convert each contact's absolute tile to an offset from the yacht (the
+    // same dx/dy the flight sim hands the windshield) so drawContacts frames them around her.
+    const contacts = st.contacts.length
+      ? st.contacts.map(c => { const dx = (c.x ?? 0) - st.gx, dy = (c.y ?? 0) - st.gy; return { ...c, dx, dy, altDiff: c.alt || 0, rng: Math.hypot(dx, dy) }; })
+      : null;
+
     paintWindshield(id, {
       external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1,
       heading: st.heading, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: st.extZoom,
-      height: 0, speed: st.spd, hour, weather, wxField: field, seaScroll: st.seaScroll || 0,
+      height: 0, speed: st.spd, hour, weather, wxField: field, seaScroll: st.seaScroll || 0, contacts,
       map: st.map, mapCenter: { x: st.gx, y: st.gy }, mapOffset: st.mapOffset,
       acX: st.gx, acY: st.gy, biomeBelow: 'water', airport: 'default',
     });
@@ -259,6 +266,8 @@ export function openHelmChase(container, opts = {}) {
       if (typeof sky.hour === 'number') st.hour = sky.hour;
       if (sky.weather) st.weather = String(sky.weather).toLowerCase();
     },
+    // Airborne craft near the Echelon (absolute tiles), streamed ~2s; the frame reprojects them.
+    setContacts(list) { st.contacts = Array.isArray(list) ? list : []; },
     // Swap in the REAL world window (piers/city/shoreline) centred on her tile (cx,cy), streamed by
     // the server. The centre cell becomes the yacht we overlay wake/heading on; `self` cleared so
     // her 3D model draws. Marks us server-driven, so arrivals re-centre from the server, not locally.

@@ -23,6 +23,7 @@ export function isHelmActive() { return !!_helm; }
 // arrival at the end of a passage — both routed here by dispatch.
 export function helmSetSky(sky) { _helm?.ctrl?.setSky(sky); }
 export function helmSetWorld(rows, cx, cy) { _helm?.ctrl?.setWorld(rows, cx, cy); }
+export function helmSetContacts(list) { _helm?.ctrl?.setContacts(list); }
 export function helmEndTransit(gx, gy) { _helm?.ctrl?.endTransit(gx, gy); }
 
 export function ensureHelmStyles() {

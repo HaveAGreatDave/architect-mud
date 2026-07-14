@@ -784,6 +784,19 @@ export function airContact(live) {
   };
 }
 
+// Airborne craft near an arbitrary tile (the Echelon), as airContacts — so the Helm chase view can
+// paint planes passing over the Basin with the SAME 3D models the flight sim draws out its canopy.
+export function aircraftNearCoord(x, y, range = 26) {
+  const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+  const out = [];
+  for (const other of liveAircraft.values()) {
+    if (!other.row?.airborne || other.row?.is_wreck || other.cont?.onGround) continue;
+    if (cheb(x, y, other.row.grid_x ?? 0, other.row.grid_y ?? 0) > range) continue;
+    out.push(airContact(other));
+  }
+  return out;
+}
+
 export function closeHud(pid) { sendToPlayer(pid, { type: 'cockpit_close' }); }
 export function out(pid, message) { sendToPlayer(pid, { type: 'output', message }); }
 export function toOccupants(live, message) { for (const pid of live.occupants) out(pid, message); }

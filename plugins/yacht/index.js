@@ -319,6 +319,17 @@ function pushHelmLive() {
 }
 setInterval(pushHelmLive, 15_000);
 
+// Planes over the Basin: stream airborne craft near the Echelon to every open helm so the chase
+// view paints them (charter + player aircraft), refreshed briskly since they move. Only while
+// someone's at the helm; sends an empty list to clear when the sky's empty.
+function pushHelmContacts() {
+  if (!helmViewers.size) return;
+  const ext = getZone(EXTERIOR); if (!ext) return;
+  const contacts = flightStateMod?.aircraftNearCoord?.(ext.grid_x, ext.grid_y) || [];
+  for (const pid of helmViewers) sendToPlayer(pid, { type: 'helm_contacts', contacts });
+}
+setInterval(pushHelmContacts, 2000);
+
 // Walking off the bridge closes the helm at once (you can only steer from the bridge) — don't wait
 // for the 15s prune. The client `helm_close` hands the pane back to the room view.
 on('zone.entered', ({ actor, zone }) => {

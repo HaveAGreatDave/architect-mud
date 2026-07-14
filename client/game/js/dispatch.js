@@ -29,7 +29,7 @@ import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
 import { openFishing, armFishFight } from './panels/fishing.js';
 import { abortMacros } from './panels/smartbar-macros.js';
 import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
-import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmEndTransit } from './panels/helm-mode.js';
+import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit } from './panels/helm-mode.js';
 import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
@@ -729,6 +729,7 @@ const handlers = {
   helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, sky: msg.sky, map: msg.map, transitMs: msg.transitMs, transitTotal: msg.transitTotal, onSail: (dir) => sendCmdSilent('sail ' + dir), onExit: () => sendCmdSilent('helm') }); },
   helm_close: () => { closeHelm(); sendCmdSilent('look'); },
   helm_sky: (msg) => { if (isHelmActive()) helmSetSky(msg.sky); },   // live sim weather field, streamed like the flight sim's
+  helm_contacts: (msg) => { if (isHelmActive()) helmSetContacts(msg.contacts); },   // planes over the Basin, drawn in the chase view
   // Passage complete → re-centre the chase view on the new tile's real world window, then unlock.
   helm_arrived: (msg) => { if (!isHelmActive()) return; if (msg.map) helmSetWorld(msg.map, msg.gx, msg.gy); helmEndTransit(msg.gx, msg.gy); },
   yacht_underway: (msg) => { yachtUnderway(msg.level, msg.durationMs); },   // roar to life for the passage, at this zone's loudness
