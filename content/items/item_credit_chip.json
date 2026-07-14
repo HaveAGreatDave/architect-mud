@@ -4,7 +4,6 @@
   "id": "item_credit_chip",
   "name": "credit chip",
   "tags": {
-    "consumable": true,
     "currency": true,
     "description": "A Franchise-issue credit chip loaded with a variable balance. Use it to bank the credits.",
     "stackable": false,

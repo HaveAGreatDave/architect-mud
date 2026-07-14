@@ -120,6 +120,9 @@ async function cmdInventory(player) {
     // Derived fields for the client item-detail panel (see equipment.js showItemDetail).
     item.sell_value = computeSellUnitPrice(item.value, player.stat_cool);
     item.actions = availableActions(item);
+    // A non-food usable — an explicit `use_message` but not `consumable` (e.g. a credit chip banked
+    // with `use`, since currency isn't eaten) — surfaces `use` in the item menu, not the food `eat`.
+    if (hasTag(item, 'use_message') && !hasTag(item, 'consumable') && !item.actions.includes('use')) item.actions.push('use');
   }
   const weight = await computeCarriedWeight(player);
   const cap = carryCapacity(player);
@@ -148,6 +151,9 @@ async function cmdGear(player) {
   for (const item of rows) {
     item.sell_value = computeSellUnitPrice(item.value, player.stat_cool);
     item.actions = availableActions(item);
+    // A non-food usable — an explicit `use_message` but not `consumable` (e.g. a credit chip banked
+    // with `use`, since currency isn't eaten) — surfaces `use` in the item menu, not the food `eat`.
+    if (hasTag(item, 'use_message') && !hasTag(item, 'consumable') && !item.actions.includes('use')) item.actions.push('use');
     if (item.is_equipped) {
       const sb = tagValue(item, 'stat_bonus');
       if (sb && typeof sb === 'object') for (const [k,v] of Object.entries(sb)) effects.stat_bonus[k] = (effects.stat_bonus[k]||0) + (Number(v)||0);
@@ -450,7 +456,9 @@ async function cmdUse(targetStr, player, broadcast) {
     return applyDrugUse(player, item, cd, opts, broadcast);
   }
 
-  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND (i.name ILIKE $2 OR i.id ILIKE $3) AND jsonb_exists(i.tags,'consumable') LIMIT 1`, [player.id, `%${targetStr}%`, targetStr]);
+  // `consumable` (food/drugs) OR an explicit `use_message` (a non-food usable, e.g. a credit chip
+  // banked with `use` — currency isn't eaten). Both funnel through the same payout/effect path below.
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND (i.name ILIKE $2 OR i.id ILIKE $3) AND (jsonb_exists(i.tags,'consumable') OR jsonb_exists(i.tags,'use_message')) LIMIT 1`, [player.id, `%${targetStr}%`, targetStr]);
   if (!rows.length) return cmdUseFurniture(targetStr, player, broadcast);
   const item = rows[0];
   const t = item.tags || {};
