@@ -20,7 +20,8 @@ let _getEnvSnapshot = null;
 import('./environment.js').then(m => { _getEnvSnapshot = m.getEnvSnapshot; }).catch(() => {});
 
 const RAD = 10;                                   // half-width of the ocean window (tiles)
-const DV = { N: [0, -1], E: [1, 0], S: [0, 1], W: [-1, 0] };
+// All eight rhumbs — she can now make way on the diagonals across open water, not just the cardinals.
+const DV = { N: [0, -1], NE: [1, -1], E: [1, 0], SE: [1, 1], S: [0, 1], SW: [-1, 1], W: [-1, 0], NW: [-1, -1] };
 const oceanCell = () => ({ kind: 'land', biome: 'water', road: 0 });   // open sea — flat, no buildings
 
 // The general (non-flight) environment system speaks a slightly wider weather taxonomy than
@@ -41,8 +42,9 @@ function liveEnv() {
   } catch { return null; }
 }
 
-const CARDINAL = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
-const DEG = { N: 0, E: 90, S: 180, W: 270 };
+const CARDINAL = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SW', 270: 'W', 315: 'NW' };
+const DEG = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
+const LOCK_TOL = 6;   // deg — how close to a rhumb the demanded course must be to "click" into the notch (lock)
 const CRUISE = 0.78;   // steady making-way throttle held across a passage (0..1) — drives wake + wash + swell.
                        // Pushed UP so she reads as genuinely UNDERWAY: a boiling wake and a sea that
                        // streams hard past the hull, not a calm creep. Passage DISTANCE is still time-based
@@ -142,6 +144,10 @@ export function openHelmChase(container, opts = {}) {
     map, center: yacht, serverWorld: false,   // center = the yacht cell we overlay wake/heading onto
     hour: opts.hour ?? 19, weather: (opts.weather || 'clear').toLowerCase(),
     heading: opts.heading ?? 0, headingTarget: opts.heading ?? 0, turnRate: 16,   // deg/s — a big yacht comes about slowly
+    // The wheel now turns FREELY to any bearing (headingTarget follows it), but she only makes way
+    // when the demanded course clicks into one of the eight rhumb notches. courseDemand is the raw
+    // wheel bearing; locked/lockedDir latch the notch it's currently seated in (null between notches).
+    courseDemand: opts.heading ?? 0, locked: false, lockedDir: null,
     // A passage is a long, sustained transit: she makes way at CRUISE for transitMs, then arrives
     // at the next tile. sailT is 0..1 progress across the passage. spd rides toward the throttle.
     spd: 0, sailing: false, sailT: 0, transitMs: 0, transitEnd: 0, sailDir: null, sailTiles: 1,
@@ -247,9 +253,14 @@ export function openHelmChase(container, opts = {}) {
     // Turn the wheel: roll the course ±90° to the next cardinal. Locked while she's already coming
     // round or under way — she finishes the turn, then takes the next input. Returns the accepted flag.
     steer(delta) { if (busy()) return false; st.headingTarget = (st.headingTarget + delta + 360) % 360; return true; },
-    // The cardinal she's ready to make way on (settled on a cardinal heading, not already busy),
-    // or null. The console gates the throttle on this.
-    readyDir() { if (busy()) return null; return CARDINAL[st.heading] || null; },
+    // The rhumb she's ready to make way on: the wheel must be locked into a notch AND she must have
+    // come round onto it (not still turning / not already under way). null otherwise — the console
+    // gates the throttle on this, so you can't go forward until the heading strip lights up.
+    readyDir() { if (busy()) return null; return st.locked ? st.lockedDir : null; },
+    // The notch the wheel is currently seated in (regardless of whether she's finished turning to it),
+    // and the raw demanded bearing — the heading strip lights the locked notch and rides the demand.
+    lockedDir() { return st.locked ? st.lockedDir : null; },
+    courseDemand() { return st.courseDemand; },
     // Ahead: make way one tile along the current (settled) heading over a short local surge — used
     // only by the standalone rig, which has no server to time the passage. Returns the compass dir.
     ahead() { const dir = this.readyDir(); if (!dir) return false; st.sailDir = dir; st.sailTiles = 1; st.cruise = CRUISE; st.transitMs = 6000; st.transitEnd = performance.now() + 6000; st.sailing = true; st.sailT = 0; return dir; },
@@ -315,9 +326,18 @@ export function openHelmChase(container, opts = {}) {
     // eases toward a level near-horizon chase. The ship is kept centred by the canvas itself sizing to
     // the band, so this only sets the ANGLE, not her screen position. Adopts it live unless mid-orbit.
     setRestPitch(p) { const was = st.restPitch; st.restPitch = p; if (Math.abs(st.extPitch - was) < 1e-3) st.extPitch = p; },
-    // Absolute course (from the wheel): snap the demanded degrees to the nearest cardinal and
-    // let her ease there — so she "spins to the direction you spin the wheel to", slowly.
-    setCourse(deg) { const c = Math.round(deg / 90) * 90; st.headingTarget = ((c % 360) + 360) % 360; },
+    // Absolute course (from the wheel): the wheel turns FREELY, so she eases toward whatever bearing
+    // it's spun to — EXCEPT within LOCK_TOL of one of the eight rhumbs, where the course "clicks" into
+    // that notch (locked) and she settles exactly on it. Between notches she sits off-cardinal, locked
+    // is false, and the throttle stays gated (readyDir null) until you seat the wheel in a notch.
+    setCourse(deg) {
+      const norm = ((deg % 360) + 360) % 360;
+      st.courseDemand = norm;
+      const notch = (Math.round(norm / 45) * 45) % 360;
+      const off = Math.abs(((norm - notch + 540) % 360) - 180);
+      if (off <= LOCK_TOL) { st.locked = true; st.lockedDir = CARDINAL[notch]; st.headingTarget = notch; }
+      else { st.locked = false; st.lockedDir = null; st.headingTarget = norm; }
+    },
     setHour(h) { st.hour = h; },
     setWeather(w) { st.weather = (w || 'clear').toLowerCase(); st.wx.key = null; },
     setPosition(gx, gy) { st.gx = gx; st.gy = gy; },

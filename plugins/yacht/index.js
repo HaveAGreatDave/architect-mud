@@ -222,11 +222,23 @@ const DEFAULT_BELL = 0.5;               // a typed `sail <dir>` with no bell = H
 // throttle t∈[0,1] → { ms per tile, visual cruise 0..1 }
 const bellFor = (t) => ({ msPerTile: Math.round(SAIL_MS_PER_TILE_SLOW + (SAIL_MS_PER_TILE_FULL - SAIL_MS_PER_TILE_SLOW) * t), cruise: +(0.35 + 0.65 * t).toFixed(3) });
 const DOCK_SOURCE = 'yacht_dock';
-const DIR_DELTA = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
-const DIR_ALIAS = { n: 'north', s: 'south', e: 'east', w: 'west', north: 'north', south: 'south', east: 'east', west: 'west' };
-const DIR_SHORT = { north: 'N', south: 'S', east: 'E', west: 'W' };
-const DIR_DEG = { north: 0, east: 90, south: 180, west: 270 };
-const REVERSE = { north: 'south', south: 'north', east: 'west', west: 'east' };
+// She now answers to all eight rhumbs — the four cardinals plus the diagonals, so she can cut
+// straight across open water on a NE/SE/SW/NW heading, not just step the compass points.
+const DIR_DELTA = {
+  north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0],
+  northeast: [1, -1], northwest: [-1, -1], southeast: [1, 1], southwest: [-1, 1],
+};
+const DIR_ALIAS = {
+  n: 'north', s: 'south', e: 'east', w: 'west', ne: 'northeast', nw: 'northwest', se: 'southeast', sw: 'southwest',
+  north: 'north', south: 'south', east: 'east', west: 'west',
+  northeast: 'northeast', northwest: 'northwest', southeast: 'southeast', southwest: 'southwest',
+};
+const DIR_SHORT = { north: 'N', south: 'S', east: 'E', west: 'W', northeast: 'NE', northwest: 'NW', southeast: 'SE', southwest: 'SW' };
+const DIR_DEG = { north: 0, northeast: 45, east: 90, southeast: 135, south: 180, southwest: 225, west: 270, northwest: 315 };
+const REVERSE = { north: 'south', south: 'north', east: 'west', west: 'east', northeast: 'southwest', southwest: 'northeast', northwest: 'southeast', southeast: 'northwest' };
+// The gangway only ever lowers to an ORTHOGONALLY adjacent pier (you can't walk a diagonal between
+// zones), so pier-finding stays four-way even though she can sail the diagonals.
+const ORTHO_DELTA = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
 
 // While underway: { toX, toY, dir, startAt, arriveAt, timer }; null when moored/idle. Module-level:
 // there is exactly one Echelon (a server restart cancels an in-flight passage, leaving her at the
@@ -254,7 +266,7 @@ function worldTileAt(x, y) {
 
 // A pier tile (flags.pier) orthogonally adjacent to (x,y), or null.
 function adjacentPier(x, y) {
-  for (const [dir, [dx, dy]] of Object.entries(DIR_DELTA)) {
+  for (const [dir, [dx, dy]] of Object.entries(ORTHO_DELTA)) {
     const t = worldTileAt(x + dx, y + dy);
     if (t?.flags?.pier) return { pier: t, dir };
   }
@@ -293,7 +305,7 @@ function helmStatus(ext, dockedPierName) {
   const left = transitLeft();
   const ready = left > 0 ? `Underway — she reaches her next position in ${Math.ceil(left / 1000)}s.` : 'The engines are ready.';
   const dock = left > 0 ? 'Making way across the Basin.' : (dockedPierName ? `Docked alongside ${dockedPierName}.` : 'Underway, no pier alongside.');
-  return `<span class="help-header">ECHELON — HELM</span>\nPosition: ${ext.grid_x}, ${ext.grid_y} (Coldwater Basin)\n${dock}\n${ready}\nUsage: sail <n|s|e|w>`;
+  return `<span class="help-header">ECHELON — HELM</span>\nPosition: ${ext.grid_x}, ${ext.grid_y} (Coldwater Basin)\n${dock}\n${ready}\nUsage: sail <n|ne|e|se|s|sw|w|nw>`;
 }
 
 // Arrival: the passage completes ten minutes after casting off. Only now does her authoritative

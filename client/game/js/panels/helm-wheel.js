@@ -80,9 +80,9 @@ export function createHelmWheel(canvas, opts = {}) {
     bz.addColorStop(0, '#0c1015'); bz.addColorStop(1, '#05080b');
     ctx.beginPath(); ctx.arc(0, 0, bezO, 0, 7); ctx.arc(0, 0, bezI, 0, 7, true); ctx.fillStyle = bz; ctx.fill('evenodd');
     for (let d = 0; d < 360; d += 15) {
-      const a = (d - 90) * Math.PI / 180, card = d % 90 === 0;
-      const r0 = card ? bezI - R * 0.02 : bezI + R * 0.03, r1 = bezO - R * 0.02;
-      ctx.strokeStyle = card ? accent : 'rgba(150,170,185,0.4)'; ctx.lineWidth = card ? 2 : 1;
+      const a = (d - 90) * Math.PI / 180, card = d % 90 === 0, diag = !card && d % 45 === 0;   // the four diagonals are steering notches too
+      const r0 = card ? bezI - R * 0.02 : (diag ? bezI + R * 0.005 : bezI + R * 0.03), r1 = bezO - R * 0.02;
+      ctx.strokeStyle = card ? accent : (diag ? shade(accent, 0.7) : 'rgba(150,170,185,0.4)'); ctx.lineWidth = card ? 2 : (diag ? 1.6 : 1);
       ctx.beginPath(); ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.stroke();
     }
     ctx.fillStyle = accent; ctx.font = `700 ${R * 0.1}px 'DejaVu Sans Mono',monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

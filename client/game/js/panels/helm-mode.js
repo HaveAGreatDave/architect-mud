@@ -141,6 +141,9 @@ export function ensureHelmStyles() {
     .helm-col canvas{ pointer-events:auto; }
     .helm-col .cap{ display:none; }   /* the COURSE cap is redundant — the wheel is self-evident */
     .helm-wheel{ width:calc(150px*var(--hs)); height:calc(150px*var(--hs)); filter:drop-shadow(0 6px 14px rgba(0,0,0,.7)); }
+    /* Heading strip — a compass tape riding just above the wheel; display-only (never grabs the pointer). */
+    .helm-strip{ width:calc(216px*var(--hs)); height:calc(30px*var(--hs)); pointer-events:none !important;
+      filter:drop-shadow(0 2px 6px rgba(0,0,0,.55)); }
     .helm-col .cap{ font-family:var(--hmono); font-size:8px; letter-spacing:4px; color:color-mix(in srgb,var(--accent) 70%,var(--hdim)); text-transform:uppercase;
       background:rgba(4,7,11,.6); padding:1px 8px; border-radius:4px; }
 
@@ -178,7 +181,7 @@ export function ensureHelmStyles() {
 }
 
 const CARD = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SW', 270: 'W', 315: 'NW' };
-const HDG_TO_DIR = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
+const HDG_TO_DIR = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SW', 270: 'W', 315: 'NW' };
 const fmtETA = (ms) => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
 export function openHelm(opts = {}) {
@@ -224,6 +227,9 @@ export function openHelm(opts = {}) {
             <!-- Ship's wheel — the centred centrepiece, docked INSIDE the console so it never rises
                  into the water/ship view above the bar. -->
             <div class="helm-col">
+              <!-- Heading strip: the eight rhumbs on a sliding tape. The notch the wheel is seated in
+                   lights up, and the centre lubber goes green when she's actually ready to make way. -->
+              <canvas class="helm-strip" data-strip></canvas>
               <canvas class="helm-wheel"></canvas>
               <div class="cap">Course</div>
             </div>
@@ -332,6 +338,48 @@ export function openHelm(opts = {}) {
   }
   navRaf = requestAnimationFrame(drawNav);
 
+  // ── Heading strip — a compass tape under the lubber showing all eight rhumbs. It rides the boat's
+  // actual heading (marks slide as she comes about); the notch the wheel is locked into lights up so
+  // you can see when you're "in the notch", and the fixed centre lubber turns green the instant she's
+  // settled on it and free to make way (readyDir) — the "you can go now" cue.
+  const stripCanvas = q('[data-strip]'), stripCtx = stripCanvas.getContext('2d');
+  const STRIP_MARKS = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SW', 225], ['W', 270], ['NW', 315]];
+  let stripAlive = true, stripRaf = 0;
+  function drawStrip() {
+    if (!stripAlive) return;
+    stripRaf = requestAnimationFrame(drawStrip);
+    const box = stripCanvas.getBoundingClientRect(); if (!box.width || !stripCtx) return;
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    const W = Math.max(2, Math.round(box.width * dpr)), H = Math.max(2, Math.round(box.height * dpr));
+    if (stripCanvas.width !== W || stripCanvas.height !== H) { stripCanvas.width = W; stripCanvas.height = H; }
+    stripCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const w = box.width, h = box.height, cx = w / 2;
+    stripCtx.clearRect(0, 0, w, h);
+    // Glass bed + hairline frame.
+    stripCtx.fillStyle = 'rgba(8,13,18,0.62)'; stripCtx.fillRect(0, 0, w, h);
+    stripCtx.strokeStyle = 'rgba(92,207,224,0.22)'; stripCtx.lineWidth = 1; stripCtx.strokeRect(0.5, 0.5, w - 1, h - 1);
+    const heading = ((ctrl.heading() % 360) + 360) % 360;
+    const locked = ctrl.lockedDir?.() || null;   // notch the wheel is seated in (lit mark)
+    const ready = ctrl.readyDir?.() || null;      // seated AND come round → green lubber
+    const WIN = 70, pxDeg = (w / 2) / WIN;        // ±70° of tape visible across the strip
+    stripCtx.textAlign = 'center'; stripCtx.textBaseline = 'middle';
+    for (const [lab, deg] of STRIP_MARKS) {
+      const off = ((deg - heading + 540) % 360) - 180;   // signed angle from the centred heading
+      if (Math.abs(off) > WIN) continue;
+      const x = cx + off * pxDeg, lit = locked === lab;
+      stripCtx.strokeStyle = lit ? '#bdf1f8' : 'rgba(150,170,185,0.5)'; stripCtx.lineWidth = lit ? 2 : 1;
+      stripCtx.beginPath(); stripCtx.moveTo(x, h * 0.14); stripCtx.lineTo(x, h * 0.42); stripCtx.stroke();
+      stripCtx.font = `700 ${Math.round(h * 0.34)}px 'DejaVu Sans Mono',monospace`;
+      if (lit) { stripCtx.fillStyle = '#d6f6fb'; stripCtx.shadowColor = '#5ccfe0'; stripCtx.shadowBlur = 10; }
+      else { stripCtx.fillStyle = 'rgba(150,170,185,0.6)'; stripCtx.shadowBlur = 0; }
+      stripCtx.fillText(lab, x, h * 0.72); stripCtx.shadowBlur = 0;
+    }
+    // Fixed centre lubber — green (go) when she's ready, cyan otherwise.
+    stripCtx.fillStyle = ready ? '#35d07a' : '#5ccfe0';
+    stripCtx.beginPath(); stripCtx.moveTo(cx, 2); stripCtx.lineTo(cx - 4, h * 0.2); stripCtx.lineTo(cx + 4, h * 0.2); stripCtx.closePath(); stripCtx.fill();
+  }
+  stripRaf = requestAnimationFrame(drawStrip);
+
   // ── Engine telegraph (a real variable throttle) ───────────────────────────────
   // The knob's HEIGHT is the bell: push it up to get underway, and the higher you push the harder she
   // steams — a bigger boiling wake AND a shorter passage (the server scales trip time by the bell, so
@@ -412,7 +460,7 @@ export function openHelm(opts = {}) {
     if (env) { q('[data-time]').textContent = env.time; q('[data-wx]').textContent = (env.weather || 'clear').toUpperCase(); }
   }, 100);
 
-  _helm = { mount, ctrl, wheel, poll, upH, keyH, teleMove, teleUp, ro, rescale, stopNav: () => { navAlive = false; cancelAnimationFrame(navRaf); } };
+  _helm = { mount, ctrl, wheel, poll, upH, keyH, teleMove, teleUp, ro, rescale, stopNav: () => { navAlive = false; cancelAnimationFrame(navRaf); stripAlive = false; cancelAnimationFrame(stripRaf); } };
   return { ctrl, wheel, close: () => { closeHelm(); onExit(); }, setPosition: (gx, gy) => ctrl.setPosition(gx, gy), setHeading: (h) => ctrl.setHeading(h), setSky: (sky) => ctrl.setSky(sky) };
 }
 
