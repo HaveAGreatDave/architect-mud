@@ -1,7 +1,8 @@
 // Yacht ambience — the Echelon's location-gated soundscape. The server tags each room's look/move
 // with `ambience`: 'naval' on the open decks, 'engine' in the engine spaces, null everywhere else.
-// The engine bed (a live diesel/osc graph on the ambient bus) now idles under BOTH 'engine' and
-// 'naval', so she throbs underfoot right up to the top deck — loudest below, still plainly there up top.
+// The engine bed (a live diesel/osc graph on the ambient bus) idles ONLY in the engine spaces — a
+// low constant drone you hear standing over the machinery. Everywhere else aboard (open decks, the
+// suites, corridors) she's SILENT at a dead stop, and only sounds when she's making way (the roar).
 // 'naval' is the HARBOR: a real-time Yamaha-style FM synth built directly on the AudioEngine's
 // ambient bus via engineNodes() (same seam the flight engine uses) — every gull, bell, fog horn,
 // creak, rope, hull knock, splash and gust is generated from operators (sine carriers + FM
@@ -447,16 +448,16 @@ function engBuild() {
     const gn = ctx.createGain(); gn.gain.value = g; o.connect(gn).connect(sum); o.start(t); srcs.push(o);
   }
   // Diesel — three slightly detuned saws (their harmonics are the audible engine mids) through a
-  // fairly open lowpass so the grunt and clatter carry, then a slow triangle LFO chugging the
-  // amplitude for the heavy "chug-chug" lope of a big marine motor.
+  // fairly open lowpass so the grunt and clatter carry. A STEADY roar, not a chug: a very slow, very
+  // shallow LFO gives it a faint breath of life without any audible "chug-chug" pulse.
   const dieselG = ctx.createGain(); dieselG.gain.value = 0.3;
   const dieselLP = ctx.createBiquadFilter(); dieselLP.type = 'lowpass'; dieselLP.frequency.value = 2800; dieselLP.Q.value = 0.6;
   dieselLP.connect(dieselG).connect(sum);
   for (const f of [45.2, 46.4, 47.6]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(dieselLP); o.start(t); srcs.push(o); }
   // A low square doubling adds the hollow "thump" of cylinders firing under the saw grunt.
   { const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 46.4; const og = ctx.createGain(); og.gain.value = 0.09; o.connect(og).connect(dieselLP); o.start(t); srcs.push(o); }
-  const chug = ctx.createOscillator(); chug.type = 'triangle'; chug.frequency.value = 1.9;
-  const chugD = ctx.createGain(); chugD.gain.value = 0.16; chug.connect(chugD).connect(dieselG.gain); chug.start(t); srcs.push(chug);
+  const chug = ctx.createOscillator(); chug.type = 'triangle'; chug.frequency.value = 0.35;
+  const chugD = ctx.createGain(); chugD.gain.value = 0.03; chug.connect(chugD).connect(dieselG.gain); chug.start(t); srcs.push(chug);
   // Wash — filtered-noise water/air rush, gain ridden by engRoar each tick (silent at a dead stop).
   const wash = ctx.createBufferSource(); wash.buffer = noiseBuf; wash.loop = true;
   const washBP = ctx.createBiquadFilter(); washBP.type = 'bandpass'; washBP.frequency.value = 520; washBP.Q.value = 0.5;
