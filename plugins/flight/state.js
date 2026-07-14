@@ -897,6 +897,20 @@ export async function parkAt(live, zoneId) {
   await persist(live);
 }
 
+// Relocate every craft PARKED on a moving field (the Echelon) to the field's new tile, so a
+// helicopter left on her helipad sails with her — its next takeoff lifts off from where she is
+// now, not the open water she left. parkAt froze the craft's grid at landing time; this re-anchors
+// it whenever the field commits to a new position. Updates loaded rows AND the DB (a reaped craft
+// exists only as a row until someone re-boards it). Airborne craft carry a null parked_zone_id, so
+// the `parked_zone_id` filter already excludes anything in flight. Called by the yacht plugin from
+// arriveEchelon; flight owns the aircraft table, so the write lives here.
+export async function moveParkedAircraftTo(zoneId, x, y) {
+  for (const live of liveAircraft.values()) {
+    if (live.row.parked_zone_id === zoneId) { live.row.grid_x = x; live.row.grid_y = y; live.fx = x; live.fy = y; }
+  }
+  await query('UPDATE aircraft SET grid_x=$1, grid_y=$2 WHERE parked_zone_id=$3 AND airborne=0', [x, y, zoneId]);
+}
+
 // ── Turn the craft into a salvageable wreck + kill everyone aboard ────────────
 // `byPlayer` (optional) is the pilot who shot it down — used for the kill feed + the
 // death label so an air-to-air kill reads as a kill, not a solo crash.

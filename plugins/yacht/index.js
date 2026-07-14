@@ -324,6 +324,10 @@ async function arriveEchelon() {
   if (ext) { ext.grid_x = toX; ext.grid_y = toY; ext.flags = flags; }
   invalidateEntranceDirCache();
   rebuildFlightIndex();
+  // A helicopter parked on her deck sails with her — move any craft parked on the exterior tile
+  // to her new position, so its next takeoff lifts off from where she is now, not the water she
+  // left. (flight owns the aircraft table, so it does the write; we just hand it her new tile.)
+  await flightStateMod?.moveParkedAircraftTo?.(EXTERIOR, toX, toY);
   flightStateMod?.setYachtMakingWay?.();   // a last wake at the new tile for nearby pilots
   const pier = adjacentPier(toX, toY);
   if (pier) await dockTo(pier.pier.id, pier.dir);
