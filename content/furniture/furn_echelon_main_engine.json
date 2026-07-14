@@ -1,0 +1,17 @@
+{
+  "description": "The Echelon's main engine — a vast block of turbined steel that fills the compartment floor to overhead, cowlings warm to the touch and thrumming with a deep, patient power. Polished brass inspection plates, a forest of colour-coded fuel and coolant lines, a bank of analog gauges trembling just off their pins. Everything aboard draws from here: the junction box on the bulkhead splits her output to the whole vessel, and the squat portable generator beside it stands by to carry the load if she ever falls silent.",
+  "flags": {
+    "destructible": true,
+    "interactions": []
+  },
+  "hp": 4000,
+  "hp_max": 4000,
+  "id": "furn_echelon_main_engine",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Main Engine",
+  "object_type": "fixture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_echelon_engine"
+}
