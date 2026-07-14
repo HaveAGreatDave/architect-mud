@@ -95,6 +95,33 @@ export default async function regress({ check }) {
   catch { deckThrew = true; }
   check('area: runAreaActivity picks an activity without throwing', deckThrew === false && !!deckGirl._activity);
   check('area: the activity holds for a good while', (deckGirl._activityUntil || 0) - 1_000_000 >= _test.ACT_MIN_MS || (deckGirl._activityUntil || 0) > 1_000_000);
+  check('area: onFurniture is set to a name or null (never undefined)', deckGirl.onFurniture === null || typeof deckGirl.onFurniture === 'string');
+
+  // Every sun-deck activity that occupies furniture points at a real furniture name.
+  const OCCUPIABLE = new Set(['jacuzzi', 'sun loungers']);
+  let badOccupy = null;
+  for (const a of _test.AREA_ACTIVITIES.sundeck) {
+    if (a.occupies && !OCCUPIABLE.has(a.occupies)) { badOccupy = `${a.key}→${a.occupies}`; break; }
+  }
+  check('area: sundeck occupies-targets are real furniture names', badOccupy === null, badOccupy || '');
+
+  // Deck banter pools are well-formed two-handers (both voices, balanced quotes).
+  let bantBad = null;
+  for (const [prof, pool] of Object.entries(_test.AREA_BANTER)) {
+    for (const thread of pool) {
+      const whos = thread.map(t => t[0]);
+      const ok = thread.length >= 2 && whos.includes('R') && whos.includes('B')
+        && whos.every(w => w === 'R' || w === 'B')
+        && thread.every(([, line]) => typeof line === 'string' && line.trim() && (line.match(/"/g) || []).length % 2 === 0);
+      if (!ok) { bantBad = `${prof}: ${JSON.stringify(thread).slice(0, 100)}`; break; }
+    }
+    if (bantBad) break;
+  }
+  check('area: deck banter threads are well-formed two-handers', bantBad === null, bantBad || '');
+
+  // Furniture-describe hook: a line for a consort parked on the piece, nothing otherwise.
+  const jac = { zone_id: 'zone_deck_x', name: 'jacuzzi' };
+  check('furn: no describe line when nobody is parked', _test.onFurnitureDescribe(jac, null) === undefined);
   _test.arousal.delete('regress_deck_roxy');
   _test.lastSpoke.delete('regress_deck_roxy');
 

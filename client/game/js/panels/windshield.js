@@ -1336,6 +1336,17 @@ function drawWxBadge(ctx, W, wx, wind) {
 // Forward-view HUD (opt-in via v.hud): a sliding heading tape across the top with N/E/S/W
 // letters + a fixed centre caret/readout, and an off-map "turn back" banner (v.navWarn).
 const HDG_NAMES = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
+// A boxed primary readout (IAS/ALT): small caption top-left, big value right-aligned, optional
+// sub-line (e.g. a V/S trend) under the caption. warn recolours the frame + value when set.
+function bigReadout(ctx, x, y, w, h, label, val, col, warn, sub) {
+  ctx.fillStyle = 'rgba(6,12,18,0.78)'; ctx.strokeStyle = warn || col; ctx.lineWidth = warn ? 1.6 : 1;
+  ctx.fillRect(x, y, w, h); ctx.strokeRect(x, y, w, h);
+  ctx.fillStyle = warn || col; ctx.font = '6px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(label, x + 3, y + 2);
+  if (sub) { ctx.fillStyle = '#9fd0ec'; ctx.font = '6px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(sub, x + 3, y + h - 2); }
+  ctx.fillStyle = warn || '#eaf6ff'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText(val, x + w - 3, y + h / 2 + 1);
+}
 function drawHud(ctx, W, H, v) {
   const hdg = (((v.heading || 0) % 360) + 360) % 360;
   const cx = W / 2, tapeY = 3, tapeH = 14, half = W * 0.34, ppd = half / 45;   // ±45° visible
@@ -1357,6 +1368,17 @@ function drawHud(ctx, W, H, v) {
   ctx.fillRect(cx - 13, tapeY + tapeH + 7, 26, 12); ctx.strokeRect(cx - 13, tapeY + tapeH + 7, 26, 12);
   ctx.fillStyle = '#ffcf3e'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(String(Math.round(hdg)).padStart(3, '0'), cx, tapeY + tapeH + 13.5);
+  // Big IAS (left) + ALT (right) readouts flanking the heading box — the two primary numbers, boxed
+  // large so airspeed and altitude are legible at a glance on every craft's forward view. A red IAS
+  // frame warns of the never-exceed redline (or a slow-flight edge below the heli's/wing's floor).
+  if (v.ias != null || v.alt != null) {
+    const boxY = tapeY + tapeH + 5, bw = 50, bh = 22, gap = 8;
+    const fast = v.vne && v.ias >= v.vne * 0.95, slow = v.vs0 && v.ias < v.vs0;   // vs0 doubles as the heli ETL floor
+    bigReadout(ctx, cx - 13 - gap - bw, boxY, bw, bh, 'IAS·kt', String(Math.max(0, Math.round(v.ias || 0))), '#5fe0a0', fast ? '#ff5a5b' : slow ? '#ffb23e' : null);
+    // ALT box carries a small climb/descent arrow + fpm so vertical trend reads without the tape.
+    const vs = Math.round(v.vsi || 0), trend = vs > 40 ? '▲' : vs < -40 ? '▼' : '·';
+    bigReadout(ctx, cx + 13 + gap, boxY, bw, bh, 'ALT·ft', String(Math.round(v.alt || 0)), '#7ec8ff', null, `${trend}${Math.abs(vs)}`);
+  }
   // Wind indicator (bottom-left): an arrow showing which way the wind is blowing relative to
   // the nose (up = ahead) plus its speed — so a crosswind you're crabbing into is legible.
   if (v.windVec && v.windVec.kt > 1) {
@@ -2987,17 +3009,17 @@ function muzzleFlash(ctx, cam, x, y, z) {
 // tile so the thing shooting at you is a PLACE you can spot from altitude and roll in on,
 // not just a bearing on the glass. Built from the same Mode-7 camera as the buildings, so it
 // banks and scrolls with the world. `v.aaSites` = [{dx, dy, name}] (live tile-offset from us).
-// The installation we describe on the ground: a squat concrete BUNKER, an EXPOSED twin gun
-// on a turret that SLEWS to track the viewing pilot (barrels point straight at your aircraft
-// — the thing shooting at you is visibly aimed at you), and a RADAR antenna sweeping a slow
-// circle beside it, topped with a pulsing red target-lock beacon that catches the eye at range.
+// The installation we describe on the ground: a squat concrete BUNKER, an EXPOSED 8.8cm flak
+// gun — a single long barrel on a cruciform mount, TRAVERSED to track the viewing pilot (the
+// barrel points straight at your aircraft — the thing shooting at you is visibly aimed at you)
+// — and a RADAR antenna sweeping a slow circle beside it, topped with a pulsing red
+// target-lock beacon that catches the eye at range.
 function drawAASites(ctx, cam, v, now) {
   const sites = v.aaSites; if (!sites || !sites.length) return;
   const night = v.sky?.night || 0;
   const pulse = 0.45 + 0.55 * Math.abs(Math.sin(now / 300));   // target-lock throb (0.45..1)
   const sweep = (now / 620) % (Math.PI * 2);                   // radar antenna azimuth (rad)
   const BW = 0.2, H_BUNK = 0.09, H_RAD = 0.17;                 // bunker half-width + heights (tiles)
-  const BL = 0.22, EL = 0.11;                                  // gun barrel length + elevation rise
   const P = (s, ox, oy, wz) => cam.proj(s.dx + ox, s.dy + oy, wz);
   // Far → near so nearer installations overpaint the ones behind them.
   const list = sites.map(s => ({ s, f: P(s, 0, 0, 0).f })).filter(o => o.f > 0.14 && o.f < 20).sort((a, b) => b.f - a.f);
@@ -3037,18 +3059,41 @@ function drawAASites(ctx, cam, v, now) {
     ctx.fillStyle = 'rgba(150,220,140,0.7)';
     ctx.beginPath(); ctx.arc(e0.sx, e0.sy, clamp(2.6 / f, 0.6, 4), 0, 7); ctx.fill();
 
-    // Exposed twin gun on a turret drum, SLEWED to point at the viewing pilot. The eye is at
-    // offset (0,0); the barrels lie along the ground vector from the gun toward it and tilt up.
+    // Exposed 8.8cm flak gun on a cruciform mount, TRAVERSED to point at the viewing pilot.
+    // The eye is at offset (0,0); the single long barrel lies along the ground vector from the
+    // gun toward it and tilts up — the thing shooting at you is visibly aimed at you.
     const len = Math.hypot(s.dx, s.dy) || 1, ux = -s.dx / len, uy = -s.dy / len, px = -uy, py = ux;
-    const drum0 = P(s, 0, 0, H_BUNK), drum1 = P(s, 0, 0, H_BUNK + 0.05);
-    ctx.strokeStyle = '#3f443c'; ctx.lineWidth = clamp(9 / f, 2, 16);
-    ctx.beginPath(); ctx.moveTo(drum0.sx, drum0.sy); ctx.lineTo(drum1.sx, drum1.sy); ctx.stroke();   // turret drum
-    ctx.strokeStyle = '#565c50'; ctx.lineWidth = clamp(3.4 / f, 0.9, 5.5);
-    for (const side of [-1, 1]) {
-      const ox = px * 0.028 * side, oy = py * 0.028 * side;
-      const b0 = P(s, ox, oy, H_BUNK + 0.05), b1 = P(s, ux * BL + ox, uy * BL + oy, H_BUNK + 0.05 + EL);
-      ctx.beginPath(); ctx.moveTo(b0.sx, b0.sy); ctx.lineTo(b1.sx, b1.sy); ctx.stroke();
+    const zB = H_BUNK;   // gun deck (top of the bunker pad)
+    // Cruciform base — four splayed outrigger legs pinning the mount to the pad, each ending
+    // in a small upright foot (the 88's signature ground cross).
+    ctx.strokeStyle = '#3a3f37'; ctx.lineWidth = clamp(3 / f, 0.8, 5);
+    for (const [lx, ly] of [[0.15, 0], [-0.15, 0], [0, 0.15], [0, -0.15]]) {
+      const c0 = P(s, 0, 0, zB), c1 = P(s, lx, ly, zB), ft = P(s, lx, ly, zB + 0.02);
+      ctx.beginPath(); ctx.moveTo(c0.sx, c0.sy); ctx.lineTo(c1.sx, c1.sy); ctx.lineTo(ft.sx, ft.sy); ctx.stroke();
     }
+    // Central pedestal + traversing cradle up to the trunnion (pivot).
+    const zP = zB + 0.06;
+    const ped0 = P(s, 0, 0, zB), ped1 = P(s, 0, 0, zP);
+    ctx.strokeStyle = '#4a5047'; ctx.lineWidth = clamp(7 / f, 1.8, 12);
+    ctx.beginPath(); ctx.moveTo(ped0.sx, ped0.sy); ctx.lineTo(ped1.sx, ped1.sy); ctx.stroke();
+    // Gun shield — a flat plate across the breech, facing the target (the crew's cover), the
+    // barrel poking through it.
+    const sh = 0.075;
+    const shA = P(s, -px * sh, -py * sh, zP), shB = P(s, px * sh, py * sh, zP);
+    const shC = P(s, px * sh, py * sh, zP + 0.085), shD = P(s, -px * sh, -py * sh, zP + 0.085);
+    ctx.fillStyle = '#3f443c';
+    ctx.beginPath(); ctx.moveTo(shA.sx, shA.sy); ctx.lineTo(shB.sx, shB.sy); ctx.lineTo(shC.sx, shC.sy); ctx.lineTo(shD.sx, shD.sy); ctx.closePath(); ctx.fill();
+    // Long single 88 barrel from the trunnion, elevated toward the eye; a shorter, thinner
+    // recuperator sleeve rides just above the breech end, and a dark muzzle collar caps the end.
+    const BARLEN = 0.36, ELEV = 0.2;
+    const piv = P(s, 0, 0, zP), muz = P(s, ux * BARLEN, uy * BARLEN, zP + ELEV);
+    ctx.strokeStyle = '#5b6157'; ctx.lineWidth = clamp(3.2 / f, 0.9, 5.5);
+    ctx.beginPath(); ctx.moveTo(piv.sx, piv.sy); ctx.lineTo(muz.sx, muz.sy); ctx.stroke();
+    const rc0 = P(s, ux * 0.05, uy * 0.05, zP + 0.035);
+    const rc1 = P(s, ux * BARLEN * 0.55, uy * BARLEN * 0.55, zP + ELEV * 0.55 + 0.035);
+    ctx.strokeStyle = '#464b43'; ctx.lineWidth = clamp(1.8 / f, 0.5, 3);
+    ctx.beginPath(); ctx.moveTo(rc0.sx, rc0.sy); ctx.lineTo(rc1.sx, rc1.sy); ctx.stroke();
+    ctx.fillStyle = '#20241f'; ctx.beginPath(); ctx.arc(muz.sx, muz.sy, clamp(2.6 / f, 0.7, 4.5), 0, 7); ctx.fill();
 
     // Pulsing red target-lock beacon on the radar mast — the long-range eye-catcher.
     const bcn = P(s, rx, ry, H_RAD + 0.03), bR = clamp(7 / f, 1.5, 14) * (0.7 + 0.6 * pulse);

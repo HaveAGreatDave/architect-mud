@@ -37,14 +37,16 @@ import { exitTargets } from '../../server/engine/exits.js';
 import { query } from '../../server/models/db.js';
 
 // ── Tunables ────────────────────────────────────────────────────────────────
+// Deliberately unhurried: these beats are meant to land rarely and mean something,
+// not chatter. The gaps are long and most eligible ticks pass in silence.
 const MAX_AROUSAL   = 100;              // fully bare at this
-const RISE_PER_TICK  = 20;              // arousal gained per tick while alone with their keeper
-const COOL_PER_TICK  = 15;              // arousal shed per tick otherwise
+const RISE_PER_TICK  = 12;              // arousal gained per tick while alone with their keeper (slow burn)
+const COOL_PER_TICK  = 12;              // arousal shed per tick otherwise
 const AROUSED_AT     = 66;              // arousal at/above which solo lines turn hot
-const SPEAK_GAP_MS   = 32_000;          // min gap between an NPC's spoken beats
-const SPEAK_CHANCE   = 0.5;             // an eligible tick where she just is, quietly
-const SCENE_GAP_MS   = 4 * 60_000;      // keep the two-hander a treat, not a loop
-const SCENE_CHANCE   = 0.45;            // ...and only sometimes when it's eligible
+const SPEAK_GAP_MS   = 75_000;          // min gap between an NPC's spoken beats
+const SPEAK_CHANCE   = 0.33;            // an eligible tick where she just is, quietly
+const SCENE_GAP_MS   = 8 * 60_000;      // keep the two-hander a rare treat, not a loop
+const SCENE_CHANCE   = 0.3;             // ...and only sometimes when it's eligible
 const SCENE_TURN_MS  = [4500, 8000];    // random delay between turns of a scene
 const MAX_TURNS      = 6;               // cap however long a chosen thread runs
 
@@ -246,10 +248,10 @@ function areaProfile(zone) {
 
 // Activity tunables — deliberately slow. She settles into a thing for minutes, and
 // most eligible ticks pass with nothing said.
-const ACT_MIN_MS       = 150_000;   // ~2.5 min settled into an activity...
-const ACT_MAX_MS       = 360_000;   // ...up to ~6
-const ACT_SPEAK_GAP_MS = 45_000;    // and a long gap between any continuation beats
-const ACT_IDLE_CHANCE  = 0.25;      // most eligible ticks she simply is
+const ACT_MIN_MS       = 210_000;   // ~3.5 min settled into an activity...
+const ACT_MAX_MS       = 480_000;   // ...up to ~8
+const ACT_SPEAK_GAP_MS = 90_000;    // and a long gap between any continuation beats
+const ACT_IDLE_CHANCE  = 0.15;      // most eligible ticks she simply is
 
 // Line factory: `§` is replaced with her name. Second arg is the MIS-only (skin)
 // variant, shown only to opted-in viewers and only when she's alone with her keeper.
@@ -257,33 +259,45 @@ const L = (t, h) => ({ t: (n) => t.replaceAll('§', n), h: h ? (n) => h.replaceA
 
 const AREA_ACTIVITIES = {
   sundeck: [
-    { key: 'suntan',
-      start: L('§ stretches out on a lounger and tips her face up to the sun.',
+    { key: 'suntan', occupies: 'sun loungers',
+      start: L('§ stretches out along a lounger and tips her face up to the sun.',
                '§ shrugs out of her robe to a scrap of bikini and stretches out to tan, warm and unbothered.'),
       idle: [ L('§ turns over to catch the sun on her back, unhurried.'),
-              L('§ reaches lazily for the sunscreen and doesn’t quite bother with it.'),
+              L('§ reaches lazily for the sunscreen and, after a slow appraisal of who’s watching, decides you can do her back.',
+                '§ presses the sunscreen into your hand, rolls onto her front, and unties the bikini at her back without comment.'),
               L('§ hums behind big dark glasses, one knee lazily up.',
-                '§ tugs a bikini strap off her shoulder for an even tan.') ] },
-    { key: 'jacuzzi', minMs: 240_000, maxMs: 600_000,
+                '§ tugs a bikini strap off her shoulder for an even tan, and then the other, just to see if you’ll say anything.'),
+              L('§ arches in a long, luxurious stretch on the lounger and pretends she didn’t.',
+                '§ arches off the lounger in a long stretch, bare and gilded with sun oil, and holds it a beat too long for it to be an accident.') ] },
+    { key: 'jacuzzi', occupies: 'jacuzzi', minMs: 240_000, maxMs: 600_000,
       start: L('§ slips into the jacuzzi with a long, contented sigh, water up to her collarbone.',
                '§ peels down and sinks into the jacuzzi bare, water sliding over warm skin, and moans softly at the heat.'),
       idle: [ L('§ tips her head back against the jacuzzi’s edge, eyes closed, jets purring.'),
-              L('§ trails a slow hand through the steaming water, in no hurry to get out.'),
+              L('§ trails a slow hand through the steaming water, in no hurry to get out.',
+                '§ drifts to your side of the jacuzzi through the steam and settles a bare thigh over yours under the water.'),
               L('§ sinks lower until the water kisses her chin, blissed-out.',
-                '§ rises to rest bare and glistening on the tiled edge a moment, then sinks back under.') ] },
+                '§ rises to rest bare and glistening on the tiled edge a moment, thighs parted to the jets, then sinks back under with a wicked little smile.'),
+              L('§ nudges a jet with her hip, decides she approves of it, and stays exactly there.',
+                '§ shifts onto a jet with a slow shudder, bites her lip, and murmurs that the Echelon really does think of everything.') ] },
     { key: 'cocktail',
       start: L('§ plucks a frosted glass off the tray and sips, watching the water.'),
       idle: [ L('§ rolls the cold glass against her cheek and sighs at the sun.'),
+              L('§ fishes the cherry out with two fingers and eats it while holding your eye, entirely on purpose.'),
               L('§ swirls the ice and steals a look your way over the rim.') ] },
-    { key: 'dip',
-      start: L('§ sits on the deck edge and trails her toes through the jacuzzi’s warm spill.'),
-      idle: [ L('§ kicks a lazy arc of water into the light and laughs at nothing.') ] },
-    { key: 'read',
+    { key: 'dip', occupies: 'jacuzzi',
+      start: L('§ perches on the jacuzzi’s tiled lip and trails her toes through the warm spill.'),
+      idle: [ L('§ kicks a lazy arc of water into the light and laughs at nothing.'),
+              L('§ dangles both legs into the froth and leans back on her hands, sun on her throat.',
+                '§ dangles both legs into the froth, leans back bare to the sun, and asks — perfectly innocent — whether you’re coming in.') ] },
+    { key: 'read', occupies: 'sun loungers',
       start: L('§ curls into a lounger with a glossy magazine, one knee up.'),
-      idle: [ L('§ turns a page without really reading it, sun-drunk.') ] },
-    { key: 'nap',
-      start: L('§ pulls a wide sunhat down over her eyes and dozes, breathing slow.'),
-      idle: [ L('§ stirs, murmurs something, and settles deeper into the cushions.') ] },
+      idle: [ L('§ turns a page without really reading it, sun-drunk.'),
+              L('§ holds the magazine up like a fig leaf, peeks over the top at you, and grins.',
+                '§ lets the magazine slide off her bare stomach, gives up the pretence entirely, and just watches you.') ] },
+    { key: 'nap', occupies: 'sun loungers',
+      start: L('§ pulls a wide sunhat down over her eyes and dozes on the lounger, breathing slow.'),
+      idle: [ L('§ stirs, murmurs something, and settles deeper into the cushions.',
+                '§ shifts in her half-sleep, one bare leg sliding off the lounger, utterly unbothered by where the robe’s gone.') ] },
   ],
   view: [
     { key: 'recline',
@@ -323,6 +337,39 @@ const AREA_ACTIVITIES = {
   ],
 };
 
+// Deck two-handers — Roxy⇄Bijou banter keyed to where they're beckoned, played the
+// same way as the cabin scenes but out in the open (tame; the public deck isn't the
+// place they come undone). Rare and long-gapped like every other beat.
+const AREA_BANTER = {
+  sundeck: [
+    [
+      ['B', `sinks into the jacuzzi opposite Roxy. "He built a boat with a hot tub on the roof. For us. Do you ever just... stop and think about that?"`],
+      ['R', `"I try not to. If I think about it too hard I start crying into very expensive water."`],
+    ],
+    [
+      ['R', `flicks a little water at Bijou across the froth. "You're hogging the good jet again."`],
+      ['B', `"I found it first. Possession is nine tenths." She does not move. "You can share it. If you're nice."`],
+      ['R', `raises an eyebrow, and slides over. "...I can be nice."`],
+    ],
+    [
+      ['B', `oils her shoulders on the lounger and holds the bottle out. "Do my back? Roxy always misses a bit on purpose."`],
+      ['R', `"I do not." A beat. "I miss it so he has to finish the job. That's strategy, not laziness."`],
+      ['B', `laughs. "See, this is exactly why he keeps us both."`],
+    ],
+    [
+      ['R', `stretches out gold with sun oil and sighs. "If the harbour could see us now."`],
+      ['B', `"The harbour can see us now. That's a camera drone." She waves at it, lazy and unbothered.`],
+    ],
+  ],
+  view: [
+    [
+      ['B', `"I could watch this water all night."`],
+      ['R', `settles in beside her. "You say that, and then you're asleep on my shoulder in twenty minutes."`],
+      ['B', `"...and you let me. Every time."`],
+    ],
+  ],
+};
+
 // One consort's turn of area-life. Picks/holds an activity keyed to the deck, and
 // only rarely narrates. Hot (skin) lines play only when she's alone with her keeper.
 function runAreaActivity(npc, zone, zoneId, now, keeperHere, strangerHere) {
@@ -343,6 +390,7 @@ function runAreaActivity(npc, zone, zoneId, now, keeperHere, strangerHere) {
     const act = pick(choices.length ? choices : acts);
     npc._activity = { key: act.key, profile };
     npc._activityUntil = now + randInt(act.minMs || ACT_MIN_MS, act.maxMs || ACT_MAX_MS);
+    npc.onFurniture = act.occupies || null;   // parks her on the jacuzzi/loungers so the room shows it
     tieredZoneLine(zoneId, act.start.t(npc.name), graphicOK ? act.start.h?.(npc.name) : null);
     lastSpoke.set(npc.id, now);
     return;
@@ -375,6 +423,23 @@ function consortTick() {
       // and only when the room is private (no stranger to be shy in front of).
       const anyStranger = (devoted) => players.some(p => p.handle !== devoted);
 
+      // Deck banter: out on the ship (not the intimate cabins), the two of them
+      // occasionally run a scene keyed to the deck they're on. Rare and long-gapped.
+      if (!isIntimateZone(zone) && !sceneZones.has(zoneId)
+          && now - (sceneAt.get(zoneId) || 0) > SCENE_GAP_MS
+          && Math.random() < SCENE_CHANCE) {
+        const roxy = findConsort(consorts, 'roxy');
+        const bijou = findConsort(consorts, 'bijou');
+        const pool = AREA_BANTER[areaProfile(zone)];
+        if (roxy && bijou && roxy !== bijou && pool?.length
+            && !roxy._combatTargetId && !bijou._combatTargetId
+            && roxy.zone_id === zoneId && bijou.zone_id === zoneId) {
+          sceneAt.set(zoneId, now);
+          playScene(zoneId, roxy, bijou, pick(pool));
+          continue;                                              // the banter owns the room this tick
+        }
+      }
+
       for (const npc of consorts) {
         if (npc._combatTargetId || npc.posture === 'lying') continue;
         const devoted     = npc.flags?.devoted_to;
@@ -388,6 +453,7 @@ function consortTick() {
           runAreaActivity(npc, zone, zoneId, now, keeperHere, strangerHere);
           continue;
         }
+        npc.onFurniture = null;   // back in the cabins she's on the arousal/undress path, not parked on deck furniture
 
         // Arousal only ever climbs when they're ALONE with the one they belong to.
         // A stranger in the room — even with him present — kills it.
@@ -492,7 +558,8 @@ function emergeZoneOf(npc) {
 function narrateToRoom(zoneId, keeperId, tame, hot) {
   for (const p of getZonePlayers(zoneId)) {
     if (p.id === keeperId) continue;
-    sendToPlayer(p.id, { type: 'zone_event', message: (hot && isMisActive(p)) ? hot : tame });
+    // refresh so the top pane re-looks and lists her now that she's in the room.
+    sendToPlayer(p.id, { type: 'zone_event', message: (hot && isMisActive(p)) ? hot : tame, refresh: true });
   }
 }
 
@@ -531,12 +598,15 @@ async function cmdBeckon(args, raw, player) {
   for (const npc of targets) {
     if (npc._dead || npc.zone_id === dest) continue;               // dead or already here
     npc._activity = null; npc._activityUntil = 0;                  // fresh read of the new area
+    npc.onFurniture = null;                                        // not parked on anything until she settles
     const [tame, hot] = arriveLines(npc.name, viaWardrobe);
     narrateToRoom(dest, player.id, tame, hot);
     moveEntity(npc, dest, NOOP, query);                            // silent hop; we narrate it
     lines.push(isMisActive(player) ? hot : tame);
   }
   if (!lines.length) return { type: 'output', message: 'They’re already here with you.' };
+  // Refresh the keeper's own top pane too, so the room lists her the moment she arrives.
+  sendToPlayer(player.id, { type: 'zone_event', refresh: true });
   return { type: 'output', message: lines.join('\n') };
 }
 
@@ -549,7 +619,7 @@ function retreatConsorts(list, filterName) {
     if (filterName && !String(npc.name || '').toLowerCase().includes(filterName)) continue;
     const [tame, hot] = departLines(npc.name, npc.zone_id === emergeZoneOf(npc));
     tieredZoneLine(npc.zone_id, tame, hot);
-    npc._activity = null; npc._activityUntil = 0;
+    npc._activity = null; npc._activityUntil = 0; npc.onFurniture = null;
     moveEntity(npc, npc.home_zone, NOOP, query);
     sent.push(npc);
   }
@@ -587,8 +657,35 @@ on('player.logout', ({ id }) => {
   }
 });
 
+// ── Furniture describe hook ─────────────────────────────────────────────────────
+// `examine jacuzzi` / `examine sun loungers` adds a line for whichever consort is
+// currently parked on it (onFurniture), MIS-tiered like everything else. The room
+// list already names the occupant; this is the closer, hotter look.
+const FURN_DESC = {
+  jacuzzi: {
+    tame: (n) => `${n} is lounging in the water here, arms spread along the tiled rim, watching you.`,
+    hot:  (n) => `${n} is soaking here bare to the collarbone, flushed pink from the heat, thighs drifting apart in the froth as she watches you.`,
+  },
+  lounger: {
+    tame: (n) => `${n} is stretched out on a lounger here, sunning herself, one knee lazily up.`,
+    hot:  (n) => `${n} is stretched out on a lounger here, oiled and all but bare, a bikini strap slid off one shoulder, watching you from behind dark glasses.`,
+  },
+};
+
+function onFurnitureDescribe(f, viewer) {
+  if (!f?.zone_id || !f?.name) return undefined;
+  const occupants = getZoneNpcs(f.zone_id).filter(n => isConsort(n) && n.onFurniture === f.name);
+  if (!occupants.length) return undefined;
+  const kind = /jacuzzi/i.test(f.name) ? 'jacuzzi' : 'lounger';
+  const d = FURN_DESC[kind];
+  const mis = viewer && isMisActive(viewer);
+  const lines = occupants.map(n => (mis ? d.hot : d.tame)(n.name));
+  return `<span class="text-dim">${lines.join(' ')}</span>`;
+}
+
 export const hooks = {
   'npc.talk': (payload) => onTalk(payload).catch(e => { console.error('[consort] onTalk:', e.message); return undefined; }),
+  'furniture.describe': (f, viewer) => { try { return onFurnitureDescribe(f, viewer); } catch (e) { console.error('[consort] onFurnitureDescribe:', e.message); return undefined; } },
 };
 
 export const commands = {
@@ -603,4 +700,5 @@ export const _test = {
   MAX_AROUSAL, AROUSED_AT,
   consortsOf, cmdBeckon, cmdDismiss, retreatConsorts,
   areaProfile, isIntimateZone, runAreaActivity, AREA_ACTIVITIES, ACT_MIN_MS,
+  AREA_BANTER, onFurnitureDescribe,
 };

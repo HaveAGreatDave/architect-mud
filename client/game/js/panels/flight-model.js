@@ -204,15 +204,28 @@ export function createState(p) {
 function stepHeli(state, input, p, dt) {
   const s = state;
   s.events = [];
-  const cycP = clamp(input.elevator || 0, -1, 1);   // aft (+1) = nose up / decelerate
+  // Cyclic folds in TRIM so a centred stick holds the trimmed attitude hands-off — roll in a
+  // little forward (nose-down) trim and she cruises forward without holding the stick.
+  const cycP = clamp((input.elevator || 0) + (input.trim || 0), -1, 1);   // aft (+1) = nose up / decelerate
   const cycR = clamp(input.aileron || 0, -1, 1);     // right (+1) = bank right
-  const coll = clamp(input.throttle || 0, 0, 1);     // collective (already engine-gated upstream)
+  const coll = clamp(input.collRaw ?? input.throttle ?? 0, 0, 1);   // collective lever — the pilot works it even engine-out (for autorotation)
+  const powered = input.power !== false;             // engine driving the rotor (false ⇒ dead engine, autorotation)
   const pedal = clamp(input.pedal || 0, -1, 1);
 
-  // 1. Rotor Nr eases toward the collective demand (engine off ⇒ coll 0 ⇒ it winds down).
-  //    A greedy collective outruns the little two-stroke, so Nr DROOPS at high pitch — the
-  //    classic low-rotor-RPM trap (less Nr → less thrust → you sink while pulling up).
-  const nrTarget = coll > 0.02 ? clamp(1 - Math.max(0, coll - 0.7) * 1.8, 0.4, 1) : 0;
+  // 1. Rotor Nr.
+  //  • POWERED: Nr eases toward the governed demand, DROOPING if a greedy collective outruns the
+  //    little two-stroke — the classic low-rotor trap (less Nr → less thrust → you sink pulling up).
+  //  • ENGINE-OUT (autorotation): the rotor is an autogyro — the UPFLOW of a real descent drives it.
+  //    FLAT pitch (collective down) lets it freewheel and hold Nr; pulling collective loads the disc
+  //    and BLEEDS the rpm. So the drill is: drop the lever, drop the nose to keep air flowing up
+  //    through the disc, and the rotor keeps turning all the way down — energy you spend in the flare.
+  let nrTarget;
+  if (powered) {
+    nrTarget = coll > 0.02 ? clamp(1 - Math.max(0, coll - 0.7) * 1.8, 0.4, 1) : 0;
+  } else {
+    const airDrive = clamp(Math.max(0, -s.vs) / 900 + Math.abs(s.airspeed) / p.cruise * 0.45, 0, 1.15);
+    nrTarget = clamp(airDrive * (1 - coll * 0.8), 0, 1);   // low collective = full autorotative Nr; over-pitch and it winds down
+  }
   s.rpm += (nrTarget - s.rpm) * Math.min(1, dt / p.engineLag);
   const Nr = s.rpm;
 
@@ -265,8 +278,9 @@ function stepHeli(state, input, p, dt) {
   // just pulling more pitch. That's what makes it a trap rather than a speed bump.
   const slow = Math.abs(s.airspeed) < p.vs0 * 0.9;
   if (!s.vrsState) {
-    if (!s.onGround && s.vs < -(p.vrsVs || 480) && slow && coll > 0.4) s.vrsState = true;
-  } else if (s.onGround || !slow || coll < 0.25) {
+    // Vortex ring is a POWERED phenomenon — an engine-out autorotative descent can't fall into it.
+    if (powered && !s.onGround && s.vs < -(p.vrsVs || 480) && slow && coll > 0.4) s.vrsState = true;
+  } else if (s.onGround || !slow || coll < 0.25 || !powered) {
     s.vrsState = false;
   }
   let vrs = 0;
@@ -291,6 +305,7 @@ function stepHeli(state, input, p, dt) {
 
   // 6. Warnings the HUD/horn read: low rotor RPM + settling. No aerodynamic stall on a heli.
   s.aoa = 0; s.stalled = false;
+  s.autorot = !powered && !s.onGround;               // engine-out: flying it down on the freewheeling rotor
   s.lowNr = !s.onGround && Nr < 0.6;
   s.vrs = vrs > 0.25;
   s.stallMargin = clamp((Nr - 0.5) / 0.4, 0, 1);   // reuse the margin channel to drive the horn

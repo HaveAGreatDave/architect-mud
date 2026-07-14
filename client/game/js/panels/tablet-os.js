@@ -124,6 +124,7 @@ let _tosMisListenerBound = false; // one-time bind of the server mis_state_updat
 let _tosCorpSel = null; // Corp Territory Map: selected zone id (client-side, no round trip)
 let _tosCorpPage = 0; // Corp dashboard: current page (Overview/Operatives/Territory/Diplomacy), client-side
 let _tosMapSel = null; // Map app: tapped/destination zone id (client-side, drives the GPS route)
+let _tosMapLabels = false; // Map app: label mode — stamp a two-letter code on each building tile (client-side)
 // Map app zoom: one unified axis. The −/+ buttons walk the server's zoom ladder
 // (movement.js MAP_ZOOM_HALVES) — each step grows the tile window and, at the far
 // end, becomes the whole-region view — instead of just resizing pixels. This array
@@ -985,6 +986,11 @@ function ensureStyles() {
        full map's mm-icon. */
     #tablet-os-overlay .tos-map-tile .mt-svg { width:82%; height:82%; background:currentColor;
       -webkit-mask:var(--zi) center/contain no-repeat; mask:var(--zi) center/contain no-repeat; }
+    /* Label mode — a two-letter building code centred on its tile, over a dark
+       plate so it reads on any land-use colour. */
+    #tablet-os-overlay .tos-map-tile .mt-code { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      font-size:13px; font-weight:700; letter-spacing:.5px; color:#fff; text-shadow:0 0 3px #000,0 1px 2px #000;
+      background:radial-gradient(closest-side, rgba(0,0,0,.55), rgba(0,0,0,.15)); pointer-events:none; z-index:2; }
     #tablet-os-overlay .tos-map-tile .mt-you { position:absolute; top:0; right:2px; font-size:9px; color:var(--mg-accent); text-shadow:0 0 4px #000; }
     #tablet-os-overlay .tos-map-tile .mt-dest { position:absolute; top:0; left:2px; font-size:9px; color:#ffcf4a; text-shadow:0 0 4px #000; }
     /* Tileable terrain: drop the border/rounding so water & parkland read as one
@@ -2287,6 +2293,19 @@ function _mapHexRgb(hex) {
   const h = String(hex || '').replace('#', '');
   return [parseInt(h.slice(0, 2), 16) || 0, parseInt(h.slice(2, 4), 16) || 0, parseInt(h.slice(4, 6), 16) || 0];
 }
+// A tile counts as a building for label mode if it carries a building identity
+// (same test the Buildings legend uses, minus the standalone-POI landmarks).
+function _mapIsBldg(t) {
+  return !!(t.building_type || t.building_name);
+}
+// Two-letter code for a building tile: initials of its first two words, else the
+// first two letters of a single-word name. Upper-cased.
+function _mapBldgCode(t) {
+  const name = String(t.building_name || t.name || '').trim();
+  const words = name.split(/[\s/&-]+/).filter(Boolean);
+  const code = words.length >= 2 ? words[0][0] + words[1][0] : name.replace(/[^a-z0-9]/gi, '').slice(0, 2);
+  return code.toUpperCase() || '··';
+}
 function _mapTileSym(t) {
   if (t.isCurrent) return '<span class="mt-icon">◉</span>';
   // A named zone-icon SVG (road/building/runway) is the tile's own footprint — it
@@ -2365,7 +2384,9 @@ function renderMap(d) {
     const ent = ['north', 'south', 'east', 'west'].includes(t.entrance) ? `<span class="tos-ent tos-ent-${t.entrance}"></span>` : '';
     // Interior exit arrows — same triangle, one per way out of the building (exit_dirs).
     const exits = Array.isArray(t.exit_dirs) ? t.exit_dirs.map(dr => `<span class="tos-ent tos-ent-${dr}"></span>`).join('') : '';
-    grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${sym}${ent}${exits}</div>`;
+    // Label mode: stamp the building's two-letter code over its tile (hides the icon).
+    const code = _tosMapLabels && _mapIsBldg(t) ? `<span class="mt-code">${esc(_mapBldgCode(t))}</span>` : '';
+    grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${code || sym}${ent}${exits}</div>`;
   }
   // GPS route line: an accent polyline through route tile centres, laid over the grid
   // as an SVG spanning every track (viewBox in tile units), mirroring the minimap.
@@ -2398,6 +2419,7 @@ function renderMapCtl(d) {
     <span class="tos-map-mini${auto}" data-map-autotoggle title="Toggle auto-walk to the plotted route">➤ Auto</span>
     <span class="tos-map-mini" data-map-recenter title="Recenter on you">◎ Center</span>
     <span class="tos-map-mini${noRoute}" data-map-clear title="Clear the plotted GPS route">🧭 Clear</span>
+    <span class="tos-map-mini${_tosMapLabels ? ' active' : ''}" data-map-labels title="Toggle two-letter building labels">🏷 Labels</span>
     <span class="tos-map-zoom">
       <button class="tos-mz" data-map-zoom="out" title="Zoom out"${zoutOff}>−</button>
       <button class="tos-mz" data-map-zoom="in" title="Zoom in"${zinOff}>+</button>
@@ -4088,6 +4110,7 @@ function wireMap() {
   _overlay.querySelector('[data-map-run]')?.addEventListener('click', () => sendCmdSilent('run'));
   _overlay.querySelector('[data-map-autotoggle]')?.addEventListener('click', () => { toggleAutoWalk(); rebuildMap(); });
   _overlay.querySelector('[data-map-recenter]')?.addEventListener('click', centerMapOnPlayer);
+  _overlay.querySelector('[data-map-labels]')?.addEventListener('click', () => { _tosMapLabels = !_tosMapLabels; rebuildMap(); });
   _overlay.querySelectorAll('[data-map-zoom]').forEach((b) => b.addEventListener('click', () => {
     const arg = _mapZoomArg(_data, b.getAttribute('data-map-zoom') === 'in' ? 1 : -1);
     if (arg) nav('map', arg, null);

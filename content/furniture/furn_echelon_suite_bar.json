@@ -1,0 +1,16 @@
+{
+  "description": "A private bar of smoked glass and brushed titanium, backlit amber, stocked with bottles that don't exist on any menu anywhere. Nothing here has a price because nothing here is for sale.",
+  "flags": {
+    "interactions": ["lean"]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_suite_bar",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "private bar",
+  "object_type": "furniture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_echelon_suite"
+}

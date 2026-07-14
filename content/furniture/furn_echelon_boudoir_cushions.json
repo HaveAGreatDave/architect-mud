@@ -1,0 +1,16 @@
+{
+  "description": "A drift of oversized silk floor cushions in wine and gold, spilling out from the daybed across the warm floor. Comfortable enough that nobody in here ever seems to bother with actual furniture.",
+  "flags": {
+    "interactions": ["sit", "lie"]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_boudoir_cushions",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "silk floor cushions",
+  "object_type": "furniture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_echelon_suite_boudoir"
+}

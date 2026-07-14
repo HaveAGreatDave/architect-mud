@@ -1,0 +1,16 @@
+{
+  "description": "A low bed the size of a small room, dressed in black silk that drinks the light and gives it back grudgingly. The mattress is deep enough to lose an evening in, and the linens smell faintly of that expensive floral nothing that hangs over the whole suite.",
+  "flags": {
+    "interactions": ["lie", "sit"]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_suite_bed",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "black-silk bed",
+  "object_type": "furniture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_echelon_suite"
+}

@@ -1994,8 +1994,16 @@ export function openFlightSim(opts = {}) {
       trimVal.classList.toggle('set', n !== 0);
     }
   };
-  if (F.heli) { if (trimEl) trimEl.style.display = 'none'; }
-  else if (trimWheel) {
+  // Helis get a cyclic trim wheel too (not realistic on a real Mini-500, but a big usability win):
+  // roll in forward trim and she holds a nose-down cruise attitude hands-off instead of needing
+  // constant forward stick. Relabel the ends FWD/AFT since on a heli nose-down = accelerate forward.
+  if (F.heli) {
+    const nd = trimEl && trimEl.querySelector('.fsim-trim-nd'), nu = trimEl && trimEl.querySelector('.fsim-trim-nu');
+    if (nd) nd.innerHTML = 'NOSE<br>FWD';
+    if (nu) nu.innerHTML = 'NOSE<br>AFT';
+    if (trimEl) trimEl.title = 'CYCLIC TRIM — drag or roll the wheel; up = NOSE FWD (cruise), down = NOSE AFT';
+  }
+  if (trimWheel) {
     // Spatially consistent everywhere: moving toward NOSE UP (down) raises trim, toward NOSE
     // DOWN (up) lowers it. Wheel + click step; a vertical drag rolls it continuously.
     add(trimWheel, 'wheel', (e) => { e.preventDefault(); setTrim(F.input.trim + (e.deltaY > 0 ? TRIM_STEP : -TRIM_STEP)); }, { passive: false });
@@ -2469,7 +2477,10 @@ function fsimFrame(now) {
     // gear: extended fraction of RETRACTABLE gear (1 = down/locked, 0 = up) — feeds the model's
     // gear-drag term so leaving the wheels down bleeds speed. Fixed-gear craft report 0 (their
     // gear drag is already baked into dragP), so they take no extra penalty.
-    step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0 }, P, h);
+    // collRaw + power let the heli model autorotate: the collective lever keeps working with the
+    // engine dead (power=false), so a rotor-out descent is flyable to a flared touchdown. Fixed-wing
+    // ignores both. power gates on engine master / dead-stick / belly (same conditions that gate thr).
+    step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, collRaw: input.throttle, power: (F.engineOn && !F.deadStick && !bellyDown), flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0 }, P, h);
 
     // Turbulence: the air disturbs the AIRCRAFT (you correct it), it never cheats the physics.
     // Deterministic summed-sine "noise" (no RNG) rolls/pitches you and bumps lift, ∝ severity.
@@ -2651,7 +2662,7 @@ function fsimFrame(now) {
     rpm: F.rpms[0], temp: F.temps[0], ias: r.airspeed, vr: P.vr, vne: P.vne, vs0: P.vs0,
     fuelPct: Math.round(F.fuel / (F.fuelCap || 1) * 100), battery: F.battery,
     stall: r.stalled, warn: r.stalled || s.stallMargin < 0.35, hornBeat: F.hornBeat, night: F.nightLight,
-    lowNr: !!s.lowNr, vrs: !!s.vrs,   // heli: low-rotor-RPM + settling-with-power annunciators
+    lowNr: !!s.lowNr, vrs: !!s.vrs, autorot: !!s.autorot,   // heli: low-rotor-RPM + settling-with-power + autorotation annunciators
     // Extra panel furniture (annunciator strip · secondary bar gauges · reaper gun/stores):
     craft: F.craftType, engineOn: F.engineOn, airborne: F.reportedAirborne, prpm: F.rpms[0] || 0,
     gear: F.gearRetract ? (F.gearUp ? 'up' : 'down') : 'fixed',
@@ -2865,6 +2876,9 @@ function fsimFrame(now) {
     // the deck, so feeding rounded feet made the eye-height jump in visible steps on the climb-out
     // (worst on slow climbers). The raw float climbs continuously.
     height: Math.min(1, Math.sqrt(Math.max(0, s.altitude) / 3000)), speed: clampNum(r.airspeed / (P.vne || 120), 0, 1),
+    // Big IAS/ALT/VSI readouts over the glass — the two numbers the eye needs most, boxed large so
+    // they read at a glance in every cockpit. vne feeds the tape a redline warn when the speed reddens.
+    ias: Math.round(r.airspeed), alt: Math.round(r.altitude), vsi: Math.round(s.vs), vne: P.vne, vs0: P.vs0,
     hour: F.sky?.hour, weather: F.sky?.weather, wind: F.sky?.wind, heading: d.hdg,
     // Spatial weather cells + our absolute world position → real clouds/rain out the canopy.
     wxField: F.sky?.field, acX: F.pos.x, acY: F.pos.y,
@@ -3241,7 +3255,7 @@ function paintGauges(cv, g) {
       { lbl: 'GEN', on: g.battery < 20, col: '#ff5a5b' },
       { lbl: 'STALL', on: !!g.stall, col: '#ff5a5b' },
     ];
-    if (eng === 'heli') tiles.push({ lbl: 'LO NR', on: !!g.lowNr, col: '#ff5a5b' }, { lbl: 'VRS', on: !!g.vrs, col: '#ff5a5b' });
+    if (eng === 'heli') tiles.push({ lbl: 'AUTO', on: !!g.autorot, col: '#ffb23e' }, { lbl: 'LO NR', on: !!g.lowNr, col: '#ff5a5b' }, { lbl: 'VRS', on: !!g.vrs, col: '#ff5a5b' });
     if (g.hardpoints > 0 && !gun) tiles.push({ lbl: 'ARM', on: !!g.armed, col: '#ff5a3a' });
     if (gun) { gunStores(ctx, koR, innerR, H * 0.10, H * 0.52, g); annunTiles(ctx, koR, H * 0.58, innerR, H * 0.9, tiles); }
     else annunTiles(ctx, koR, H * 0.14, innerR, H * 0.86, tiles);

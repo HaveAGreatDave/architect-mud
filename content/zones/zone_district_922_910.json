@@ -5,13 +5,11 @@
   "bg_color": "#3f3a34",
   "color": "#b9a888",
   "created_by": "zone-planner",
-  "description": "A squat civic building of poured concrete and tall dark windows, wedged onto Kessler Street a single door north of Precinct 9. Chiselled above the lintel, half-legible under decades of grime: HALL OF RECORDS · COLDWATER MUNICIPAL. A brass slot beside the door reads DEPOSIT DEEDS HERE; someone has scratched underneath it, OR WEEP. The street runs on east and west; the door stands open to the north, and usually does.",
+  "description": "A squat civic building of poured concrete and tall dark windows, set back off Kessler Street a single door north of Precinct 9. Chiselled above the lintel, half-legible under decades of grime: HALL OF RECORDS · COLDWATER MUNICIPAL. A brass slot beside the door reads DEPOSIT DEEDS HERE; someone has scratched underneath it, OR WEEP. Kessler Street runs past to the east; the door faces it, standing open as it usually does — step in off the road and the noise falls away behind you.",
   "exits": {
     "east": "zone_district_923_910",
     "in": "zone_records_reading",
-    "north": "zone_district_922_909",
-    "south": "zone_district_922_911",
-    "west": "zone_district_921_910"
+    "south": "zone_district_922_911"
   },
   "flags": {
     "building_name": "Hall of Records",
@@ -22,7 +20,7 @@
     "planner": "bp_district",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "world_exit_zone": "zone_district_922_909"
+    "world_exit_zone": "zone_district_923_910"
   },
   "grid_x": 922,
   "grid_y": 910,

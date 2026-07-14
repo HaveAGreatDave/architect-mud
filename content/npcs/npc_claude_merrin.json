@@ -153,6 +153,10 @@
           "next": "lookup"
         },
         {
+          "label": "The months — Janufizz, Septek, Decibel. Who named them that?",
+          "next": "calendar"
+        },
+        {
           "label": "You talk about the city like you remember building it.",
           "next": "meant_followup"
         },
@@ -341,6 +345,49 @@
         }
       ],
       "text": "\"Where you came up — the clone facility, the west end. It's not much of a home, and it's the nearest thing to a hospital you'll afford: if the city ever truly breaks you, the vats put you back together, after their fashion. It's the one address every last one of us shares, and it'll always take you back, however you leave. Cold comfort. Still comfort.\" The way lights up on your map."
+    },
+    "calendar": {
+      "options": [
+        {
+          "label": "All twelve? Truly?",
+          "next": "calendar_list"
+        },
+        {
+          "label": "And nobody remembers?",
+          "next": "calendar_forgotten"
+        },
+        {
+          "label": "Another matter.",
+          "next": "root"
+        }
+      ],
+      "text": "He brightens — the specific brightness of a man asked about a drawer nobody thinks to open. \"Ah. Now there's a record I'm fond of, precisely because almost no one asks.\" He draws a thin folder without hunting for it. \"The Corporate Calendar Standardisation Initiative. Long before the Conversion — the old governments were so far in debt to the corporations that ran the lights and the water that when the calendar came up for modernising, they did the obvious thing. They sold it. Twelve months, twelve naming rights, to the highest bidders.\" A dry tilt of the head. \"Mind you, the companies didn't buy the names outright — they bought the right to *re-name*. A marketing house would fold the brand into the old month so it slid down easy. Fizz into January, and you have Janufizz. Nobody quite noticed the swallow. That was rather the point.\""
+    },
+    "calendar_list": {
+      "options": [
+        {
+          "label": "And nobody remembers?",
+          "next": "calendar_forgotten"
+        },
+        {
+          "label": "Another matter.",
+          "next": "root"
+        }
+      ],
+      "text": "\"All twelve, sold like billboard space.\" He counts them off on ink-stained fingers, unhurried. \"Janufizz was a soda company. Februtek made robots. Marchex ran freight across half the world. Aprilex sold better genes to those who could afford them. Julyte kept the substations lit — scrape the paint off an old transformer and you'll still find their mark under three newer ones. Augmentum built limbs, and chose a grand Latin sound to seem permanent; ironically, it's the one thing of theirs that lasted. Septek was a security house — surveillance, predictive policing — which is the one that gives me a chill, given where we all ended up. Octane scarcely had to change its name at all. Novapex built rockets. And Decibel was the great broadcaster, and because their month carried the holidays, they owned the festive season for generations.\" He pauses on one, and turns his mug a quarter-turn without drinking. \"And Maytrix — an early thinking-machine company; a trademark suit forced the odd spelling. Some of us who keep these records believe their work fed, in time, the thing that drew this city.\" He does not say the word. \"I only file the belief. I've never been able to stamp it true.\""
+    },
+    "calendar_forgotten": {
+      "options": [
+        {
+          "label": "Huh. I'll never hear the date the same way.",
+          "next": "bye"
+        },
+        {
+          "label": "Another matter.",
+          "next": "root"
+        }
+      ],
+      "text": "\"No one remembers, and that is the marvel of the thing.\" He closes the folder gently. \"Most advertising dies in a fortnight. These twelve got themselves sewn straight into the language, so a child says 'Septek' and means only the season — never the security firm that paid for the syllables. The corporations went the way corporations go: merged, bankrupt, taken, bombed, forgotten. The words outlived every last one of them.\" A small, tired smile. \"That's the part I keep, when the rest decays into noise — not the products, not the profits, but the names. Billions of mouths still speaking dead slogans and calling it the date.\" He squares the folder against the counter. \"A record's a stubborn thing. It almost never keeps what its authors meant it to. I've made a sort of peace with that.\""
     },
     "lookup": {
       "options": [

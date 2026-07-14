@@ -21,7 +21,8 @@
 import { query } from '../../server/models/db.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { getAllLivePlayers } from '../../server/engine/world.js';
+import { getAllLivePlayers, getZone, getMinimapData } from '../../server/engine/world.js';
+import { describeZone } from '../../server/engine/commands/describe.js';
 import { LIGHT_LADDER, floorVisibility } from '../../server/engine/environment.js';
 
 const BATTERY_MAX = 120;     // units of charge = minutes of light on a fresh cell
@@ -50,6 +51,20 @@ async function resolveFlashlight(player, name) {
   return rows[0] || null;
 }
 
+// The beam only changes how the *holder* perceives the room, so re-describe it
+// for them alone: the echo of what they did rides in `notify`, and `message`
+// carries the freshly-lit (or darkened) room description.
+async function lookAfterToggle(player, notify) {
+  const zone = getZone(player.current_zone);
+  return {
+    type: 'look',
+    message: await describeZone(zone, player),
+    notify,
+    zone: player.current_zone,
+    minimap: getMinimapData(player.current_zone, 8, player),
+  };
+}
+
 async function light(args, raw, player) {
   const f = await resolveFlashlight(player, args.join(' ').trim());
   if (!f) return undefined; // fall through — no flashlight to light
@@ -60,7 +75,7 @@ async function light(args, raw, player) {
   await query(
     `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || $1::jsonb WHERE id=$2`,
     [JSON.stringify({ lit: true, battery }), f.id]);
-  return { type: 'use', message: `You switch on the ${f.name}. A hard white cone of light cuts through the gloom.` };
+  return lookAfterToggle(player, `You switch on the ${f.name}. A hard white cone of light cuts through the gloom.`);
 }
 
 async function unlight(args, raw, player) {
@@ -70,7 +85,7 @@ async function unlight(args, raw, player) {
   await query(
     `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || '{"lit":false}'::jsonb WHERE id=$1`,
     [f.id]);
-  return { type: 'use', message: `You switch off the ${f.name}.` };
+  return lookAfterToggle(player, `You switch off the ${f.name}.`);
 }
 
 async function reload(args, raw, player) {

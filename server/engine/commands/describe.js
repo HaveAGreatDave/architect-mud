@@ -234,6 +234,22 @@ export function resolveNamedDestination(zone, typedNameRaw) {
 	return { type: "none" };
 }
 
+// Who is currently occupying a named piece of furniture — seated/lying players
+// (posture + sittingOn) and NPCs a plugin has parked on it (runtime onFurniture,
+// e.g. a consort soaking in the jacuzzi). Rendered as a dim aside on the furniture
+// line so a glance shows the jacuzzi/loungers are taken.
+function furnitureOccupants(fname, zonePlayers, npcs, viewer) {
+	const names = [];
+	for (const p of zonePlayers) {
+		if ((p.posture === "sitting" || p.posture === "lying") && p.sittingOn === fname)
+			names.push(viewer && p.id === viewer.id ? "you" : p.handle);
+	}
+	for (const n of npcs) {
+		if (n.onFurniture === fname) names.push(n.name);
+	}
+	return names;
+}
+
 function _vaguePresence(npc) {
 	const g = npc.flags?.gender;
 	const GENERIC = [
@@ -533,16 +549,21 @@ export async function describeZone(zone, player) {
 		// list — they're woven into the room description as a dim aside instead.
 		const plainFurniture = visibleFurniture.filter((f) => f.object_type !== "security_device");
 		if (plainFurniture.length) {
+			const seatedHere = getZonePlayers(zone.id);
 			const furnitureLinks = plainFurniture.map((f) => {
 				const stateTag =
 					f.object_type === "light"
 						? ` <span class="light-state ${f.light_on ? "light-on" : "light-off"}">(${f.light_on ? "on" : "off"})</span>`
 						: "";
+				const occ = furnitureOccupants(f.name, seatedHere, npcs, player);
+				const occTag = occ.length
+					? ` <span class="text-dim">(${occ.join(", ")})</span>`
+					: "";
 				// Ship each piece's full affordance set so the mobile smart bar can
 				// surface exactly the verbs it supports (sit/switch/watch/…).
 				const verbs = furnitureVerbs(f);
 				const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
-				return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}"${actionsAttr} title="Examine ${f.name}">${titleCaseName(f.name)}</span>${stateTag}`;
+				return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}"${actionsAttr} title="Examine ${f.name}">${titleCaseName(f.name)}</span>${stateTag}${occTag}`;
 			});
 			desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
 		}

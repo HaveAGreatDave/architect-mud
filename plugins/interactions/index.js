@@ -213,7 +213,7 @@ async function cmdLie(args, raw, player, broadcast) {
 				type: "emote",
 				message: `You are already lying on the ${rows[0].name}.`,
 			};
-		setPosture(player, "lying");
+		setPosture(player, "lying", { sittingOn: rows[0].name });
 		return doEmote(
 			`You lie down on the ${rows[0].name}${mod}.`,
 			`${player.handle} lies down on the ${rows[0].name}.`,
@@ -231,7 +231,7 @@ async function cmdLie(args, raw, player, broadcast) {
 		[player.current_zone],
 	);
 	if (beds.length) {
-		setPosture(player, "lying");
+		setPosture(player, "lying", { sittingOn: beds[0].name });
 		return doEmote(
 			`You lie down on the ${beds[0].name}${mod}.`,
 			`${player.handle} lies down on the ${beds[0].name}.`,

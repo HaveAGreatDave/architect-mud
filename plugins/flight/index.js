@@ -234,6 +234,9 @@ async function cmdDisembark(args, raw, player, broadcast) {
   // A remaining pilot's cabin readout updates as riders leave.
   if (liveAircraft.has(live.row.id) && isContinuous(live)) pushContext(live);
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} climbs down out of the ${name}.` }, player.id);
+  // Climbed out inside a walk-in hangar (a charter set you down here, or you taxied
+  // your own craft in) → drop straight onto the hangar floor, same as walking in.
+  if (getZone(player.current_zone)?.flags?.hangar_interior) await pushHangarBay(player);
   return { type: 'emote', message: `You climb down out of the ${name}.` };
 }
 

@@ -213,6 +213,12 @@ function stopAutoWalk(message, { keepArmed = false } = {}) {
 // blocked move / exit picker arriving during the confirmation wait is still handled.
 export function isAutoWalking() { return autoWalkTimer !== null || autoWalkWatchdog !== null; }
 
+// A manual `gps` walk is a one-shot to a chosen destination (autoWalkPersist false),
+// as opposed to a continuing quest walk (persist true). Dispatch uses this to keep a
+// background quest re-plot from hijacking the route mid manual-walk — the player picked
+// where they're going; let them arrive and stop there.
+export function isManualAutoWalkInProgress() { return isAutoWalking() && !autoWalkPersist; }
+
 // A quest re-plotted the GPS route for a new phase (gps_route resumeAuto). If the
 // player had auto-walk engaged for the prior leg — even if it "arrived" and paused
 // between legs — resume walking the fresh route automatically.

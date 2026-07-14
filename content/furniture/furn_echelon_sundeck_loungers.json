@@ -1,7 +1,7 @@
 {
   "description": "A long curved run of deep, cushioned sun loungers in cream canvas, angled to take the sun and the view at once. A folded stack of white towels waits at one end.",
   "flags": {
-    "interactions": ["lean"]
+    "interactions": ["lie", "sit", "lean"]
   },
   "hp": null,
   "hp_max": null,

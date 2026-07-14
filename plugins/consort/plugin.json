@@ -2,7 +2,7 @@
   "name": "consort",
   "version": "1.0.0",
   "description": "Brings flags.consort NPCs (the Echelon's kept companions, Roxy & Bijou) to life. They live in a concealed boudoir off the owner's suite and only step out when the keeper `beckon`s them (keeper-only) to wherever he is aboard; `dismiss` — or the keeper stepping off the ship / logging off — sends them back into hiding. A 15s tick reads the live room. In the intimate cabins (suite/boudoir): when the one they're devoted to (flags.devoted_to handle) is alone with them, arousal builds and they slowly undress themselves (MIS-gated), murmur devotion, and run tender two-hander banter; a stranger cools them off, covers them up, and turns them shy. Beckoned anywhere else aboard they instead live a life keyed to that deck (areaProfile off zone flags) — suntanning, soaking in the sun-deck jacuzzi, watching the water — holding each activity for minutes and rarely commenting. The `npc.talk` hook answers warmly to their keeper and shyly to everyone else. No money, no pole — they're on the payroll.",
-  "hooks": ["npc.talk"],
+  "hooks": ["npc.talk", "furniture.describe"],
   "commands": ["beckon", "dismiss"],
   "ticks": ["15s"]
 }

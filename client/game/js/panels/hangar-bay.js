@@ -383,16 +383,12 @@ function drawSV(canvas, hue) {
 // hero canvas re-reads it every animation frame (startSpin), so the plane repaints
 // live as you drag, with no full render() (which would tear down the popover) until
 // the picker closes.
+// It stays open until you explicitly dismiss it (the ✕ / Done in its own header) —
+// picking a colour never closes it, so you can nudge the swatch as much as you like.
 let cpState = null; // { field, pop, btn, hue, sat, val }
-function onDocPointerDown(e) {
-  if (!cpState) return;
-  if (cpState.pop.contains(e.target) || e.target === cpState.btn) return;
-  closeColorPopover();
-}
 function cleanupPopover() {
   if (!cpState) return;
   cpState.pop.remove();
-  document.removeEventListener('pointerdown', onDocPointerDown, true);
   cpState = null;
 }
 function closeColorPopover() { if (cpState) { cleanupPopover(); render(); } }
@@ -412,9 +408,11 @@ function openColorPopover(field, btn) {
   const pop = document.createElement('div');
   pop.className = 'hb-cp-pop';
   pop.innerHTML = `
+    <div class="hb-cp-head"><span class="hb-cp-title">${esc(field)}</span><button type="button" class="hb-cp-close" title="Close">✕</button></div>
     <div class="hb-cp-svwrap"><canvas class="hb-cp-sv" width="160" height="100"></canvas><div class="hb-cp-svcursor"></div></div>
     <div class="hb-cp-hue"><div class="hb-cp-huecursor"></div></div>
-    <input type="text" class="hb-cp-hex-input" maxlength="7" value="${B.work[field]}">`;
+    <input type="text" class="hb-cp-hex-input" maxlength="7" value="${B.work[field]}">
+    <button type="button" class="hb-cp-done">Done</button>`;
   btn.parentElement.style.position = 'relative';
   btn.parentElement.appendChild(pop);
   cpState = { field, pop, btn, hue: h, sat: s, val: v };
@@ -464,7 +462,8 @@ function openColorPopover(field, btn) {
     setPickerColor(field, v2);
     placeCursors();
   });
-  setTimeout(() => document.addEventListener('pointerdown', onDocPointerDown, true), 0);
+  pop.querySelector('.hb-cp-close').addEventListener('click', closeColorPopover);
+  pop.querySelector('.hb-cp-done').addEventListener('click', closeColorPopover);
 }
 
 function swatchRow(label, field) {
@@ -759,6 +758,9 @@ function benchScreen() {
 // ── Render dispatch ─────────────────────────────────────────────────────────
 function render() {
   if (!B) return;
+  // setAreaPane rebuilds #hb-root, so drop any live colour popover first — otherwise
+  // cpState would point at a detached node (it no longer self-closes on outside click).
+  cleanupPopover();
   const d = B.data || {};
   const title = B.screen === 'charter' ? 'CHARTER' : B.screen === 'buyrent' ? 'BUY / RENT' : B.screen === 'bench' ? 'MECHANICS BENCH' : B.screen === 'inspect' ? 'INSPECT' : 'HANGAR BAY';
   const body = B.screen === 'charter' ? charterScreen() : B.screen === 'buyrent' ? buyRentScreen() : B.screen === 'bench' ? benchScreen() : B.screen === 'inspect' ? inspectScreen() : floorScreen();
@@ -1344,7 +1346,11 @@ function ensureStyles() {
      reachable instead of being clipped off the bottom. The stage's sticky top:0 pins
      within this scroller, keeping the plane/scope visible as the panels scroll. */
   #hb-root .hb-bench { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start;
-    flex:1 1 auto; min-height:0; overflow-y:auto; }
+    flex:1 1 auto; min-height:0; overflow-y:auto;
+    scrollbar-width:thin; scrollbar-color:var(--border) var(--bg2); }
+  #hb-root .hb-bench::-webkit-scrollbar { width:6px; }
+  #hb-root .hb-bench::-webkit-scrollbar-track { background:var(--bg2); }
+  #hb-root .hb-bench::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
   #hb-root .hb-bench-stage { flex:0 0 auto; position:sticky; top:0; z-index:4; }
   #hb-root .hb-bench-panels { flex:1 1 260px; min-width:230px; position:relative; z-index:4; }
   /* No overflow:hidden here — this element holds the sticky stage, and
@@ -1438,6 +1444,12 @@ function ensureStyles() {
   #hb-root .hb-ctl input[type=color] { width:44px; height:26px; padding:0; border:1px solid #5a7185; border-radius:5px; background:none; cursor:pointer; }
   #hb-root .hb-cp-swatch { width:44px; height:26px; padding:0; border:1px solid #5a7185; border-radius:5px; cursor:pointer; }
   #hb-root .hb-cp-pop { position:absolute; z-index:50; top:calc(100% + 6px); right:0; padding:10px; background:#1c2530; border:1px solid #5a7185; border-radius:8px; box-shadow:0 10px 24px rgba(0,0,0,0.5); width:160px; }
+  #hb-root .hb-cp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  #hb-root .hb-cp-title { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:#a8c6d8; }
+  #hb-root .hb-cp-close { width:20px; height:20px; padding:0; line-height:1; font-family:inherit; font-size:12px; color:#dcecf8; background:rgba(0,0,0,0.25); border:1px solid #5a7185; border-radius:5px; cursor:pointer; }
+  #hb-root .hb-cp-close:hover { border-color:#7fd6ff; color:#fff; }
+  #hb-root .hb-cp-done { margin-top:8px; width:100%; padding:6px; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:1px; color:#eafffb; background:linear-gradient(160deg,#3a4c5a,#2b3a46); border:1px solid #5a7185; border-radius:5px; cursor:pointer; }
+  #hb-root .hb-cp-done:hover { border-color:#7fd6ff; box-shadow:0 0 8px rgba(127,214,255,0.3); }
   #hb-root .hb-cp-svwrap { position:relative; width:160px; height:100px; }
   #hb-root .hb-cp-sv { display:block; width:160px; height:100px; border-radius:4px; cursor:crosshair; touch-action:none; }
   #hb-root .hb-cp-svcursor { position:absolute; top:0; left:0; width:10px; height:10px; margin:-5px 0 0 -5px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 2px rgba(0,0,0,0.8); pointer-events:none; }

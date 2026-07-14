@@ -1,0 +1,16 @@
+{
+  "description": "A heaped daybed piled with silk cushions and a tumble of throws, the whole thing warm and slept-in and unmistakably shared. It takes up most of the little room. This is where the waiting happens.",
+  "flags": {
+    "interactions": ["lie", "sit"]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_boudoir_daybed",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "heaped daybed",
+  "object_type": "furniture",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_echelon_suite_boudoir"
+}

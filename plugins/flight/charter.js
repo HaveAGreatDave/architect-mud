@@ -29,6 +29,7 @@ import {
   sendToZone, sendToPlayer, getLivePlayer, surfaceAt, setPosture, forceStand, bearingDeg, degToCardinal, effStats,
   fieldFor as fieldOf, inHangarInterior,
 } from './state.js';
+import { pushHangarBay } from './hangars.js';
 
 const SHIFT_HOURS = 8;
 const AUTO_DISEMBARK_MS = 20000;
@@ -618,7 +619,13 @@ async function dropoffReturn(ch, live) {
     if (pid === ch.pilotId) continue;   // the pilot flies the return leg — stays aboard
     const p = getLivePlayer(pid);
     detach(p || { id: pid, aircraftId: ch.aircraftId });
-    if (p) { const dz = dropZoneOf(ch.destZone); p.current_zone = dz; getZone(dz)?.players.add(pid); out(pid, `<span class="text-dim">You climb down at ${ch.destName}. ${ch.pilotName} gives you a nod and starts buttoning up to head back.</span>`); }
+    if (p) {
+      const dz = dropZoneOf(ch.destZone); p.current_zone = dz; getZone(dz)?.players.add(pid);
+      out(pid, `<span class="text-dim">You climb down at ${ch.destName}. ${ch.pilotName} gives you a nod and starts buttoning up to head back.</span>`);
+      // Set down inside the destination's walk-in hangar → open the hangar floor,
+      // same as a manual disembark there (auto-eject skips cmdDisembark's open).
+      if (getZone(dz)?.flags?.hangar_interior) await pushHangarBay(p);
+    }
   }
   log({ player: getLivePlayer(ch.playerId)?.handle || '?', pilot: ch.pilotName, from: ch.homeName, to: ch.destName, status: 'delivered' });
   // Deadhead home.
