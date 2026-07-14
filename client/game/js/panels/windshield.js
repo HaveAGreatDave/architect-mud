@@ -1773,10 +1773,11 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       //   · a damp, darker strip of sand just above the line where the wash reaches
       let cr = 0, foam = 0, gln = 0, moon = 0, cap = 0;
       if (waterW > 0.002) {
-        // Lively small swell (a Wave Race read — choppy, not big rollers): three crossing sine
-        // trains at the drifted coords so the sea streams past when making way.
+        // A slow, coherent swell (not fast chop): three crossing sine trains at the drifted coords
+        // so the sea streams past when making way. Temporal rates are kept low so crests and the
+        // specular glitter evolve as a rolling swell rather than a fast, meaningless shimmer.
         const swx = wx + ssX, swy = wy + ssY;
-        const wv = 0.5 * Math.sin(swx * 6.2 + swy * 1.4 + t * 2.3) + 0.4 * Math.sin((swx - swy) * 4.1 - t * 1.7) + 0.14 * Math.sin((swx + swy) * 9.0 + t * 3.4);
+        const wv = 0.5 * Math.sin(swx * 5.6 + swy * 1.3 + t * 0.9) + 0.4 * Math.sin((swx - swy) * 3.7 - t * 0.66) + 0.11 * Math.sin((swx + swy) * 7.4 + t * 1.25);
         tex = tex * (1 - waterW) + (1 + wv * 0.15 * detail) * waterW;
         tex *= 1 - clamp((waterW - 0.5) * 2, 0, 1) * 0.18;   // shallows near the line stay lighter; open water sits darker
         if (wv > 0.78) cr = (wv - 0.78) * 5 * waterW;   // crest glint, added as a bluish-white lift below
@@ -1785,7 +1786,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
         // real bearing, not the drift) — the swell chops it into a shimmering trail of gold flecks.
         if (sun && sun.elev > 0.05) {
           const along = ((wx - ax) * sun.dir[0] + (wy - ay) * sun.dir[1]) / Math.max(0.6, d);
-          if (along > 0.12) gln = clamp((along - 0.12) * 1.7, 0, 1) * (0.4 + 0.7 * Math.max(0, wv)) * (0.4 + 0.6 * sun.elev) * waterW;
+          if (along > 0.12) gln = clamp((along - 0.12) * 1.7, 0, 1) * (0.58 + 0.42 * Math.max(0, wv)) * (0.4 + 0.6 * sun.elev) * waterW;
         }
         // Moonlight: at night the sun is down and open water reads black. Give the swell a cool
         // silver sheen (so the waves are legible) plus a broken specular path toward the moon —
@@ -1814,7 +1815,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       const near = clamp((0.55 - d) / 0.55, 0, 1);
       if (near > 0.01) {
         if (waterW > 0.002) {
-          const wv2 = 0.5 * Math.sin((wx + ssX) * 22 + (wy + ssY) * 15 - t * 3.1) + 0.5 * Math.sin((wx + ssX + wy + ssY) * 17 + t * 2.2);
+          const wv2 = 0.5 * Math.sin((wx + ssX) * 22 + (wy + ssY) * 15 - t * 1.3) + 0.5 * Math.sin((wx + ssX + wy + ssY) * 17 + t * 1.0);
           tex *= 1 + (0.06 + wv2 * 0.11) * near * waterW;               // lift + fine chop breaks the flat dark
           if (wv2 > 0.7) cr = Math.max(cr, (wv2 - 0.7) * 2.6 * near * waterW);   // fine crest lift (neutral, day or night)
           if (wv2 > 0.86) cap = Math.max(cap, (wv2 - 0.86) * 6 * near * waterW); // near-field whitecaps

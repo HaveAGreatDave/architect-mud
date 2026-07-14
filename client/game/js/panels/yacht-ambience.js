@@ -14,20 +14,12 @@
 // steal the oldest when the 8-voice budget is full. Nothing here uses recorded samples.
 
 const AE = () => window.AudioEngine;
-const ENGINE = 'yacht-engine';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const chance = (p) => Math.random() < p;
 const c2r = (cents) => Math.pow(2, cents / 1200);           // cents → frequency multiplier
 const vary = (v, pct) => v * (1 + rnd(-pct, pct));           // ±pct proportional jitter
-
-// ── Engine-room bed (below decks) — unchanged filtered-noise/osc loop ────────
-const ENGINE_BED = [
-  { waveform: 'sine', freq: 44, adsr: { a: 1.5, d: 0, s: 1, r: 1.5 }, gain: 0.13 },
-  { waveform: 'sawtooth', freq: 46, filter: { type: 'lowpass', freq: 150, q: 0.8 }, adsr: { a: 1.5, d: 0, s: 1, r: 1.5 }, gain: 0.06 },
-  { waveform: 'sine', freq: 88, adsr: { a: 1.5, d: 0, s: 1, r: 1.5 }, gain: 0.03 },
-];
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  Harbor FM synth
@@ -37,13 +29,20 @@ let harborOut = null, reverbReturn = null, reverb = null;
 const voices = new Set();
 const MAX_VOICES = 8;
 
-function audio() {
-  if (ctx && harborOut) return true;
+// Shared ctx/bus/noise grab (used by both the harbor synth and the engine loop) — the engine can
+// run without the harbor (e.g. standing in the engine room), so this is factored out of audio().
+function ensureNodes() {
+  if (ctx && bus) return true;
   const ae = AE(); if (!ae?.engineNodes) return false;
   ae.init?.();
   const eng = ae.engineNodes(); if (!eng?.ctx || !eng.bus) return false;
   ctx = eng.ctx; bus = eng.bus; noiseBuf = eng.noise;
   if (ctx.state === 'suspended') { try { ctx.resume(); } catch {} }
+  return true;
+}
+function audio() {
+  if (ctx && harborOut) return true;
+  if (!ensureNodes()) return false;
   buildBusChain();
   return !!harborOut;
 }
@@ -412,29 +411,77 @@ function stopHarbor() {
 }
 
 // ── Engine bed + making-way roar ─────────────────────────────────────────────
-// Two gain drivers ride ONE engine loop: `engFloor` — a steady bed you always hear when standing
-// in the engine room; and `engRoar` — the making-way roar during a ten-minute passage, which is
-// heard EVERYWHERE aboard (scaled per zone by the server: loud in the engine room, muted in the
-// suite) and roars to life then settles. The loop plays whenever either is up, wherever you stand.
+// The engine is a live node graph built straight on the ambient bus (like the harbor synth), so it
+// owns a MASTER MUFFLE lowpass whose cutoff follows the room you're standing in: bright & present on
+// the open deck and in the engine room, low-passed to a muffled thump in the cabins behind doors.
+// That's the "heard throughout the ship, muffled behind doors" model. Layers: a sub-bass rumble
+// (felt), a chugging diesel whose sawtooth harmonics carry the audible mid-range, and a filtered-
+// noise wash that rises with way (so she plainly sounds like she's MOVING, not just idling).
+//   graph:  [subs + diesel(chug) + wash] → sum → muffle(lowpass) → master(gain) → ambient bus
+// Two gain drivers pick the master level: `engFloor` (steady engine-room bed) and `engRoar` (the
+// making-way roar during a passage, heard everywhere aboard). The wash rides engRoar specifically.
 let engFloor = 0;                 // steady engine-room bed (0 in every other zone)
-let engRoar = 0, engGain = 0;     // current making-way roar + the eased loop gain
+let engRoar = 0, engGain = 0;     // current making-way roar + the eased master gain
 let roarLevel = 0, roarUntil = 0; // passage roar target + when it ends (arrival)
-let engTimer = null, lastT = 0, engRunning = false;
+let engTimer = null, lastT = 0;
+let engNodes = null;              // { master, muffle, washG, srcs } once built
+let muffleTarget = 650;           // lowpass cutoff for the CURRENT zone (open→bright, cabin→muffled)
 
-function engEnsureLoop() {
-  if (engRunning) return; const ae = AE(); if (!ae) return;
-  try { ae.init?.(); ae.loopSound({ id: ENGINE, category: 'ambient', config: { gain: 1, layers: ENGINE_BED } }); ae.setLoopGain?.(ENGINE, 0, 0.05); } catch {}
-  engRunning = true;
+// Cutoff (Hz) by the room you're in: engine room wide open, open deck fairly bright, everywhere else
+// (interior cabins/corridors, all behind doors) heavily muffled so you hear a low thump, not detail.
+const muffleFor = (k) => k === 'engine' ? 7000 : k === 'naval' ? 5200 : 650;
+
+function engBuild() {
+  if (engNodes) return true;
+  if (!ensureNodes()) return false;
+  const t = ctx.currentTime;
+  const master = ctx.createGain(); master.gain.value = 0;
+  const muffle = ctx.createBiquadFilter(); muffle.type = 'lowpass'; muffle.frequency.value = muffleTarget; muffle.Q.value = 0.6;
+  muffle.connect(master); master.connect(bus);
+  const sum = ctx.createGain(); sum.gain.value = 1; sum.connect(muffle);
+  const srcs = [];
+  // Sub-bass rumble — felt more than heard; always passes the muffle.
+  for (const [f, g] of [[42, 0.5], [63, 0.3], [84, 0.12]]) {
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+    const gn = ctx.createGain(); gn.gain.value = g; o.connect(gn).connect(sum); o.start(t); srcs.push(o);
+  }
+  // Diesel — two slightly detuned saws (their harmonics are the audible engine mids) through a warm
+  // lowpass, then a slow triangle LFO chugging the amplitude for the "chug-chug" of a big motor.
+  const dieselG = ctx.createGain(); dieselG.gain.value = 0.14;
+  const dieselLP = ctx.createBiquadFilter(); dieselLP.type = 'lowpass'; dieselLP.frequency.value = 1600; dieselLP.Q.value = 0.5;
+  dieselLP.connect(dieselG).connect(sum);
+  for (const f of [46.4, 47.6]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(dieselLP); o.start(t); srcs.push(o); }
+  const chug = ctx.createOscillator(); chug.type = 'triangle'; chug.frequency.value = 2.3;
+  const chugD = ctx.createGain(); chugD.gain.value = 0.06; chug.connect(chugD).connect(dieselG.gain); chug.start(t); srcs.push(chug);
+  // Wash — filtered-noise water/air rush, gain ridden by engRoar each tick (silent at a dead stop).
+  const wash = ctx.createBufferSource(); wash.buffer = noiseBuf; wash.loop = true;
+  const washBP = ctx.createBiquadFilter(); washBP.type = 'bandpass'; washBP.frequency.value = 520; washBP.Q.value = 0.5;
+  const washG = ctx.createGain(); washG.gain.value = 0;
+  wash.connect(washBP).connect(washG).connect(sum); wash.start(t); srcs.push(wash);
+  engNodes = { master, muffle, washG, srcs };
+  return true;
+}
+function engTeardown() {
+  if (!engNodes) return;
+  const c = ctx ? ctx.currentTime : 0;
+  for (const s of engNodes.srcs) { try { s.stop(c + 0.05); } catch {} }
+  try { engNodes.master.disconnect(); engNodes.muffle.disconnect(); } catch {}
+  engNodes = null; engGain = 0;
 }
 function engTick() {
   const now = performance.now(), dt = Math.min(1, (now - lastT) / 1000); lastT = now;
   if (roarUntil && now < roarUntil) engRoar += (roarLevel - engRoar) * Math.min(1, dt * 0.55);   // roar to life over ~a few seconds, then hold
   else { engRoar = Math.max(0, engRoar - dt * 0.4); if (engRoar < 0.01) engRoar = 0; }            // settle back to quiet on arrival
   const target = Math.max(engFloor, engRoar);
-  if (target > 0.002) engEnsureLoop();
+  if (target > 0.002 && !engBuild()) return;   // build lazily on first need; bail if audio isn't ready yet
   engGain += (target - engGain) * Math.min(1, dt * 2.4);
-  if (engRunning) { try { AE()?.setLoopGain?.(ENGINE, engGain, 0.2); } catch {} }
-  if (engGain < 0.004 && target <= 0.002) { try { AE()?.stopLoop?.(ENGINE); } catch {} engRunning = false; engGain = 0; clearInterval(engTimer); engTimer = null; }
+  if (engNodes) {
+    const c = ctx.currentTime;
+    engNodes.master.gain.setTargetAtTime(engGain, c, 0.2);
+    engNodes.washG.gain.setTargetAtTime(Math.min(0.5, engRoar * 0.55), c, 0.25);   // the rush of way
+    engNodes.muffle.frequency.setTargetAtTime(muffleTarget, c, 0.5);               // ease the door-muffle as you move room to room
+  }
+  if (engGain < 0.004 && target <= 0.002) { engTeardown(); clearInterval(engTimer); engTimer = null; }
 }
 function engEnsureTimer() { if (engTimer) return; lastT = performance.now(); engTimer = setInterval(engTick, 120); }
 
@@ -442,7 +489,8 @@ function engEnsureTimer() { if (engTimer) return; lastT = performance.now(); eng
 let kind = null;   // 'naval' | 'engine' | null
 export function setYachtAmbience(next) {
   next = next === 'naval' || next === 'engine' ? next : null;
-  if (next === kind) return;
+  muffleTarget = muffleFor(next);   // the door-muffle follows the room even when `kind` is otherwise unchanged
+  if (next === kind) { if (engNodes) engEnsureTimer(); return; }   // only tick if the engine is actually live (avoid churn on every city move)
   if (kind === 'naval') stopHarbor();
   kind = next;
   if (kind === 'naval') startHarbor();
@@ -453,9 +501,9 @@ export function setYachtAmbience(next) {
 // `yacht_underway` — a passage began. Roar to life at this zone's loudness (server-scaled: ~1.0
 // engine room, ~0.22 suite) and hold for the whole passage; the envelope quiets it on arrival.
 export function yachtUnderway(level, durationMs) {
-  roarLevel = 0.12 + (level == null ? 0.55 : level) * 0.95;
-  roarUntil = performance.now() + (durationMs || 600000);
-  engEnsureLoop(); engEnsureTimer();
+  roarLevel = 0.14 + (level == null ? 0.55 : level) * 0.9;
+  roarUntil = performance.now() + (durationMs || 90000);
+  engEnsureTimer();
 }
 // `yacht_settled` — she's arrived; let the roar fall away to quiet.
 export function yachtSettled() { roarUntil = 0; engEnsureTimer(); }

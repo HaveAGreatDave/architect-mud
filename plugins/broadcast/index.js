@@ -2973,6 +2973,40 @@ function _fmtHHMM(mins) {
   const m = Math.max(0, Math.round(mins));
   return `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 }
+// A nightly TV guide for a `@airtime`-locked sports channel: one row per featured slot,
+// stamped with the in-game clock time it airs, the night's matchup, and — during the
+// World Series — the finalists under a WORLD SERIES banner. So the Series' airtime is
+// obvious from the guide, matching the news posting. Continuous leagues return null (fall
+// back to the generic loop schedule).
+function _sportsScheduleSlots(script, cur) {
+  const G = SPORTS_GAMES_PER_DAY;
+  const featured = (Array.isArray(script?.airSlots) && script.airSlots.length)
+    ? [...new Set(script.airSlots.map((n) => ((n % G) + G) % G))].sort((x, y) => x - y) : null;
+  if (!featured) return null;
+  const s = _seasonCache || {};
+  const isWs = s.phase === 'worldseries' && s.finalistA && s.finalistB;
+  const wsSlot = s.wsSlot != null ? Number(s.wsSlot) : null;
+  const curDay = Math.floor(cur / G);
+  return featured.map((f) => {
+    let cand = curDay * G + f;
+    if (cand < cur) cand += G;                       // tonight's slot already passed → tomorrow
+    const dayDelta = Math.floor(cand / G) - curDay;
+    const dayTag = dayDelta <= 0 ? '' : (dayDelta === 1 ? ' — tomorrow' : ` — in ${dayDelta}d`);
+    let name;
+    if (isWs && wsSlot != null && cand === wsSlot) {
+      name = `⚾ WORLD SERIES — ${s.finalistA} vs ${s.finalistB}`;
+    } else {
+      const gs = sportsGameForSlot(script, cand, null);
+      name = gs ? `DEADBALL — ${gs.game.away.name} @ ${gs.game.home.name}` : 'DEADBALL — Coldwater League Baseball';
+    }
+    return {
+      name: name + dayTag,
+      todLabel: _fmtHHMM(f * SPORTS_SLOT_GAME_MIN),
+      durationSec: SPORTS_SLOT_GAME_MIN * 60,
+      onNow: cand === cur,
+    };
+  });
+}
 function sendTvSchedule(playerId, channelId) {
   const state = channelId ? channelRuntime.get(channelId) : null;
   const nowMin = getEnvironmentState().minutes ?? 0;
@@ -2986,6 +3020,13 @@ function sendTvSchedule(playerId, channelId) {
   };
   if (!state || !state.playlist?.length) {
     sendToPlayer(playerId, { ...base, slots: [] });
+    return;
+  }
+  // A `@airtime`-locked sports channel gets a real nightly guide (with the WS airtime).
+  const sportsItem = state.playlist.find((i) => i.playback_mode === 'sports' && i.sportsScript);
+  const sportsSlots = sportsItem ? _sportsScheduleSlots(sportsItem.sportsScript, sportsSlotIndex()) : null;
+  if (sportsSlots) {
+    sendToPlayer(playerId, { ...base, scheduleMode: 'daily', slots: sportsSlots });
     return;
   }
   const nameFor = (i) => (i.slotType === 'commercial_break') ? 'Commercial break' : (i.broadcastName || 'Untitled');
@@ -4004,6 +4045,29 @@ async function anySportsScript() {
 registerAction({
   type: 'broadcast.getSportsClock',
   handler: async () => ({ slot: sportsSlotIndex(), slotMs: sportsSlotMs(), gamesPerDay: SPORTS_GAMES_PER_DAY, ready: !!getEnvironmentState()?.date }),
+});
+
+// The next slot strictly AFTER `after` whose slot-of-day is one of `featured` (the
+// `@airtime` blocks). `featured` null/empty ⇒ the immediate next slot (continuous league).
+// Returns `{ slot, hour }` (hour = that block's in-game start hour). Pure.
+function nextAirSlot(after, featured, G) {
+  const feat = (Array.isArray(featured) && featured.length) ? featured.map((n) => ((n % G) + G) % G) : null;
+  let slot = after + 1;
+  if (feat) {
+    for (let k = 1; k <= G; k++) { const c = after + k; if (feat.includes(((c % G) + G) % G)) { slot = c; break; } }
+  }
+  return { slot, hour: (((slot % G) + G) % G) * (24 / G) };
+}
+
+// Lets the sportsleague schedule the World Series onto the normal nightly slot instead of
+// "the next hour", so it airs — and can be advertised — at a predictable in-game time.
+registerAction({
+  type: 'broadcast.nextSportsAirSlot',
+  handler: async ({ params = {} } = {}) => {
+    const after = Number.isFinite(params.after) ? params.after : sportsSlotIndex();
+    const script = await anySportsScript();
+    return nextAirSlot(after, script?.airSlots, SPORTS_GAMES_PER_DAY);
+  },
 });
 
 // ZERO-WRITE STANDINGS. Every game is a pure function of its slot, so the league table
@@ -5173,7 +5237,7 @@ export const _piracyTest = { canOperateDeck, deckLockError: _deckLockError, next
 // regress suite can assert same-slot reproducibility and the round-robin schedule.
 export const _test = {
   sportsGameForSlot, sportsMatchupForSlot, roundRobinRounds, sportsSlotIndex,
-  sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY,
+  sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, nextAirSlot,
   assembleNewsGraph, newsFill, newsSceneNames,
   assembleTalkshowGraph, talkshowAiring, talkshowPersonaFor, talkshowFill, makeTalkshowGuestGraph, ensureTalkshowSlot,
 };

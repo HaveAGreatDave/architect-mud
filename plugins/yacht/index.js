@@ -156,9 +156,12 @@ on('zone.entered', async ({ actor, zone }) => {
 
 // ── Admin Console: invite management ────────────────────────────────────────────
 const ADMIN_ONLY = { type: 'error', message: "You don't have the clearance for that." };
+// Guest-list management is the OWNER's prerogative (it's his boat) — or an admin's. Being aboard
+// isn't enough; an ordinary invited guest can't add or drop other guests.
+const canManageInvites = (player) => isOwner(player) || player.role === 'admin';
 
 async function cmdInvite(args, raw, player) {
-  if (player.role !== 'admin') return ADMIN_ONLY;
+  if (!canManageInvites(player)) return ADMIN_ONLY;
   const nameStr = (args || []).join(' ').trim();
   if (!nameStr) return { type: 'error', message: 'Usage: invite <player> — adds them to the Echelon invite list.' };
   const target = await resolveHandle(nameStr);
@@ -169,7 +172,7 @@ async function cmdInvite(args, raw, player) {
 }
 
 async function cmdUninvite(args, raw, player) {
-  if (player.role !== 'admin') return ADMIN_ONLY;
+  if (!canManageInvites(player)) return ADMIN_ONLY;
   const nameStr = (args || []).join(' ').trim();
   if (!nameStr) return { type: 'error', message: 'Usage: uninvite <player> — removes them from the Echelon invite list.' };
   const target = await resolveHandle(nameStr);
@@ -180,7 +183,7 @@ async function cmdUninvite(args, raw, player) {
 }
 
 async function cmdInvites(args, raw, player) {
-  if (player.role !== 'admin') return ADMIN_ONLY;
+  if (!canManageInvites(player)) return ADMIN_ONLY;
   const { rows } = await query(
     `SELECT y.player_id, p.handle, y.added_by, y.added_at
        FROM yacht_invites y LEFT JOIN players p ON p.id = y.player_id

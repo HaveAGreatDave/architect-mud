@@ -46,8 +46,19 @@ export default async function regress({ run, check, getPlayer }) {
   g = await runMoveGates({ player: owner, from: outside, to: foyer, direction: 'in' });
   check('the owner boards freely', g === null || !g?.block, JSON.stringify(g));
 
-  // Elevate the fake player to admin for the MANAGEMENT verbs (invite/sail stay
-  // role-gated — an admin runs the console even before being added to the list).
+  // Owner access: guest-list verbs answer to the OWNER (Cyd) even without admin role —
+  // it's his boat. Prove it's ownership, not staff privilege, by using a non-admin Cyd.
+  const ownerSavedHandle = p.handle, ownerSavedRole = p.role;
+  p.handle = 'Cyd'; p.role = 'player';
+  try {
+    r = await run('invites');
+    check('owner (Cyd) can list invites without admin', r?.type === 'system' && /invite list/i.test(r.message || ''), r?.message);
+  } finally {
+    p.handle = ownerSavedHandle; p.role = ownerSavedRole;
+  }
+
+  // Elevate the fake player to admin for the MANAGEMENT verbs (sail stays bridge+role
+  // gated — an admin runs the helm even before being added to the invite list).
   const savedRole = p.role;
   p.role = 'admin';
   try {

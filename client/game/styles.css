@@ -1897,6 +1897,19 @@ body.fsim-external #look-resize-handle { display: none; }
 .furniture-link {
 	color: var(--orange);
 }
+/* Furniture woven into the room prose (flags.woven): reads as body text, not a
+   bright link. Stays clickable — a faint dotted underline surfaces on hover. */
+.action-link.furniture-woven {
+	color: inherit;
+	font-weight: inherit;
+	text-decoration: none;
+}
+.action-link.furniture-woven:hover {
+	text-decoration: underline;
+	text-decoration-style: dotted;
+	text-underline-offset: 3px;
+	filter: none;
+}
 .player-link {
 	color: var(--purple);
 }

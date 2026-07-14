@@ -41,6 +41,7 @@ import { stopAll } from '../server/engine/scheduler.js';
 import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../server/models/schema.js';
 import { handleApiRequest, apiUpdateZone, apiPatchZoneTag } from '../server/api/routes.js';
+import { query } from '../server/models/db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGINS_DIR = join(__dirname, '../plugins');
@@ -340,6 +341,49 @@ r = await run('equip');
 check('bare equip → prompt', r?.type === 'error' && /Equip what/.test(r.message || ''), r?.message);
 r = await run('gear');
 check('gear returns a gear payload', r?.type === 'gear' && Array.isArray(r.items) && r.soak !== undefined && r.effects !== undefined, JSON.stringify(r)?.slice(0, 120));
+
+// Restocking furniture container (engine law in buildContainerView): a container
+// flagged `restock_items` keeps one of each listed item present — take one and the
+// refreshed view a pull returns respawns it, so the supply is bottomless. Seed a
+// throwaway container + item, drive the real open/pull verbs, clean up in finally.
+// Mirrors the vending fixture pattern.
+{
+  const savedZone = getPlayer().current_zone;
+  const RZ = 'zone_restock_regress', RITEM = 'item_restock_regress', RFURN = 'furn_restock_regress';
+  try {
+    await query(
+      `INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,'restock probe','restock probe','misc',0,10,$2)
+       ON CONFLICT (id) DO UPDATE SET tags=$2`,
+      [RITEM, JSON.stringify({ misc: true })]
+    );
+    await query(
+      `INSERT INTO furniture (id,name,description,object_type,zone_id,flags) VALUES ($1,'restock case','a restock case','container',$3,$2)
+       ON CONFLICT (id) DO UPDATE SET flags=$2, zone_id=$3`,
+      [RFURN, JSON.stringify({ container: 40000, restock_items: [RITEM] }), RZ]
+    );
+    await query('DELETE FROM player_inventory WHERE container_id=$1', [RFURN]);
+    await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [getPlayer().id, RITEM]);
+
+    getPlayer().current_zone = RZ;
+    // Open on an empty case → buildContainerView tops it up to one of each listed item.
+    let rc = await run(`opencontainer ${RFURN}`);
+    const seeded = rc?.type === 'container_view' && rc.containerItems?.find(i => i.item_id === RITEM);
+    check('restock container fills on open', !!seeded, JSON.stringify(rc?.containerItems)?.slice(0, 160));
+
+    // Take the one copy out; the view a pull returns must have respawned it, and
+    // the player must now hold a copy — the supply never runs dry.
+    if (seeded) await run(`pullid ${seeded.id}`);
+    const inCase = await query('SELECT 1 FROM player_inventory WHERE container_id=$1 AND item_id=$2', [RFURN, RITEM]);
+    const held = await query('SELECT 1 FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL', [getPlayer().id, RITEM]);
+    check('pulling from a restock container respawns it', inCase.rows.length === 1 && held.rows.length === 1, `inCase=${inCase.rows.length} held=${held.rows.length}`);
+  } finally {
+    await query('DELETE FROM player_inventory WHERE container_id=$1', [RFURN]).catch(() => {});
+    await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [getPlayer().id, RITEM]).catch(() => {});
+    await query('DELETE FROM furniture WHERE id=$1', [RFURN]).catch(() => {});
+    await query('DELETE FROM items WHERE id=$1', [RITEM]).catch(() => {});
+    getPlayer().current_zone = savedZone;
+  }
+}
 
 const gateOwners = getRegisteredMoveGates();
 check('engine law gates registered', gateOwners.includes('engine:door-lock') && gateOwners.includes('engine:encumbrance'), gateOwners.join(','));

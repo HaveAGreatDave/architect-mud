@@ -359,6 +359,12 @@ function furnitureEditForm(rec, isNew) {
       </div>
       <div style="font-size:10px;color:var(--text-dim);margin-top:2px">Which commands players can use on this piece of furniture.</div>
     </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal">
+        <input type="checkbox" id="f-woven" ${rec.flags?.woven ? 'checked' : ''} style="accent-color:var(--accent)"> Woven into room prose
+      </label>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px">Fold this piece into the room description (its first sentence) instead of the Furniture list. Best for scenery/dressing — woven pieces collapse with the description on mobile.</div>
+    </div>
     ${(() => {
       const flags = (rec.flags && typeof rec.flags === 'object') ? rec.flags : {};
       const tagNames = Object.keys(flags).filter(n => TAG_CATALOG[n] && tagAppliesTo(TAG_CATALOG[n], 'furniture'));
@@ -472,6 +478,8 @@ async function saveFurniture(existing) {
   const checkedIx = FURNITURE_STD_INTERACTIONS.filter(i => document.getElementById(`f-ix-${i}`)?.checked);
   const preservedIx = (existing?.flags?.interactions || []).filter(i => !FURNITURE_STD_INTERACTIONS.includes(i));
   const flags = { ...(existing?.flags || {}), interactions: [...checkedIx, ...preservedIx] };
+  if (document.getElementById('f-woven')?.checked) flags.woven = true;
+  else delete flags.woven;
   // Re-derive furniture-applicable catalog tags from the picker. Non-catalog
   // flags (e.g. atm) and the interactions array are preserved.
   for (const [name, def] of Object.entries(TAG_CATALOG)) {

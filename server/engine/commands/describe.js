@@ -85,19 +85,19 @@ function getConnectedDestinations(zone) {
 				continue;
 			}
 		}
-		if (targetZone?.flags?.is_building) {
+		// Already inside a structure and stepping to another interior zone of it
+		// (e.g. moving between rooms of the Echelon, whose cells are each flagged
+		// is_building with the same building_name): show the room's own name, not
+		// the shared building name. Must win over the is_building branch below.
+		if (currentIsInterior && targetZone && isInteriorZone(targetZone)) {
+			rooms.push({ direction, targetId, name: targetZone.name });
+		} else if (targetZone?.flags?.is_building) {
 			buildings.push({
 				direction,
 				targetId,
 				name: targetZone.flags.building_name || targetZone.name,
 				type: targetZone.flags.building_type || null,
 			});
-		} else if (
-			currentIsInterior &&
-			targetZone &&
-			isInteriorZone(targetZone)
-		) {
-			rooms.push({ direction, targetId, name: targetZone.name });
 		} else {
 			plain.push({ direction, targetId, name: targetZone?.name || null });
 		}
@@ -116,6 +116,51 @@ function destLink(direction, name, cls) {
 	const destAttr = name ? ` data-dest="${String(name).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
 	const title = name ? `Go to ${name}` : `Go ${direction}`;
 	return `<span class="dir-tag">[${dirLabel}]</span> <span class="action-link ${cls}" data-action="go" data-target="${direction}"${destAttr} title="${title.replace(/"/g, '&quot;')}">${label}</span>`;
+}
+
+const COUNT_WORDS = ["", "", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+function countWord(n) {
+	return COUNT_WORDS[n] || String(n);
+}
+// First full sentence of a description — the standalone "placement" line woven
+// into the room; the rest of the text stays for `examine`. Reuses the sentence
+// regex idiom the light-truncation code below uses.
+function firstSentence(text) {
+	const t = String(text || "").trim();
+	return (t.match(/[^.!?]+[.!?]+(\s|$)/)?.[0] || t).trim();
+}
+function pluralName(name) {
+	return /s$/i.test(name) ? name : `${name}s`;
+}
+function escAttr(s) {
+	return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
+// Furniture flagged `flags.woven` is folded into the room prose (the PD-camera
+// pattern generalized) instead of the plain Furniture list: its description's
+// first sentence, kept clickable so examine/sit/etc. still work and the smart
+// bar reads its verbs. Identical pieces (same name) collapse into one counted
+// sentence so four chairs don't spawn four lines.
+function weaveFurniture(pieces) {
+	if (!pieces.length) return "";
+	const groups = new Map();
+	for (const f of pieces) {
+		const key = f.name.toLowerCase();
+		const g = groups.get(key);
+		if (g) g.qty++;
+		else groups.set(key, { f, qty: 1 });
+	}
+	const sentences = [...groups.values()].map(({ f, qty }) => {
+		const verbs = furnitureVerbs(f);
+		const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
+		const target = escAttr(f.name);
+		const body =
+			qty === 1
+				? firstSentence(f.description)
+				: `${countWord(qty)} ${pluralName(f.name)} are here.`;
+		return `<span class="action-link furniture-link furniture-woven" data-action="examine" data-target="${target}"${actionsAttr} title="Examine ${target}">${body}</span>`;
+	});
+	return ` ${sentences.join(" ")}`;
 }
 
 const DIRECTION_PHRASE = {
@@ -392,6 +437,29 @@ export async function describeZone(zone, player) {
 		? ""
 		: ` <span class="text-dim">${cameras.length === 1 ? "A " : ""}<span class="action-link furniture-link" data-action="examine" data-target="cam" title="Examine camera">${cameras.length === 1 ? "camera" : "Cameras"}</span> ${cameras.length === 1 ? "watches" : "watch"}, unblinking.</span>`;
 
+	// Furniture partition — shared by the woven prose aside (below, folded into
+	// room-desc) and the plain Furniture list further down. Plugins may claim
+	// pieces for their own panel; suppressed ids and concealed pieces drop from
+	// both. In the dark only lights survive, so woven (non-light) pieces auto-hide
+	// like the cameras. Computed once here so the aside is ready for room-desc.
+	const furniturePanel =
+		!isDark && furniture.length
+			? await fireHook("zone.furniturePanel", zone, furniture, player)
+			: null;
+	const furnitureSuppress = new Set(furniturePanel?.suppressIds || []);
+	const visibleFurniture = (isDark
+		? furniture.filter((f) => f.object_type === "light")
+		: furniture
+	).filter((f) => !furnitureSuppress.has(f.id) && !f.flags?.concealed);
+	const wovenPieces = visibleFurniture.filter(
+		(f) => f.flags?.woven && f.object_type !== "security_device",
+	);
+	// The plain list excludes cameras (their own aside) and woven pieces (prose).
+	const plainFurniture = visibleFurniture.filter(
+		(f) => f.object_type !== "security_device" && !f.flags?.woven,
+	);
+	const furnitureAside = weaveFurniture(wovenPieces);
+
 	// Header line: name and the danger tag sit together so the [SAFE]/[LETHAL]
 	// chip reads as a label on the room rather than a separate line.
 	const dangerNow = zoneDanger(zone);
@@ -443,7 +511,7 @@ export async function describeZone(zone, player) {
 		}
 	}
 	// Prose paragraph wrapped so the client can collapse/expand it independently.
-	desc += `\n<span class="room-desc">${zoneDesc}${weatherLine}${skylineLine}${describeBuildingDiscovery(buildings)}${cameraAside}</span>`;
+	desc += `\n<span class="room-desc">${zoneDesc}${weatherLine}${skylineLine}${describeBuildingDiscovery(buildings)}${furnitureAside}${cameraAside}</span>`;
 	// First-visit tone-setting lore (per-player, new-account-only) — a plugin
 	// decides whether this player has earned an introduction to this zone and
 	// returns the shimmering block, or nothing. Player is passed so eligibility
@@ -534,41 +602,28 @@ export async function describeZone(zone, player) {
 		}
 	}
 
-	if (furniture.length) {
-		// Plugins may claim some furniture (e.g. the poker table's chairs) and
-		// render their own panel for it. Suppressed ids drop out of the plain list.
-		const panel = isDark
-			? null
-			: await fireHook("zone.furniturePanel", zone, furniture, player);
-		const suppress = new Set(panel?.suppressIds || []);
-		const visibleFurniture = (isDark
-			? furniture.filter((f) => f.object_type === "light")
-			: furniture
-		).filter((f) => !suppress.has(f.id) && !f.flags?.concealed);
-		// Surveillance devices (PD street cams) are excluded from the plain Furniture
-		// list — they're woven into the room description as a dim aside instead.
-		const plainFurniture = visibleFurniture.filter((f) => f.object_type !== "security_device");
-		if (plainFurniture.length) {
-			const seatedHere = getZonePlayers(zone.id);
-			const furnitureLinks = plainFurniture.map((f) => {
-				const stateTag =
-					f.object_type === "light"
-						? ` <span class="light-state ${f.light_on ? "light-on" : "light-off"}">(${f.light_on ? "on" : "off"})</span>`
-						: "";
-				const occ = furnitureOccupants(f.name, seatedHere, npcs, player);
-				const occTag = occ.length
-					? ` <span class="text-dim">(${occ.join(", ")})</span>`
+	// Furniture list — cameras and woven pieces already dropped out in the shared
+	// partition above (plainFurniture); the panel/suppress were computed there too.
+	if (plainFurniture.length) {
+		const seatedHere = getZonePlayers(zone.id);
+		const furnitureLinks = plainFurniture.map((f) => {
+			const stateTag =
+				f.object_type === "light"
+					? ` <span class="light-state ${f.light_on ? "light-on" : "light-off"}">(${f.light_on ? "on" : "off"})</span>`
 					: "";
-				// Ship each piece's full affordance set so the mobile smart bar can
-				// surface exactly the verbs it supports (sit/switch/watch/…).
-				const verbs = furnitureVerbs(f);
-				const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
-				return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}"${actionsAttr} title="Examine ${f.name}">${titleCaseName(f.name)}</span>${stateTag}${occTag}`;
-			});
-			desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
-		}
-		if (panel?.html) desc += `\n${panel.html}`;
+			const occ = furnitureOccupants(f.name, seatedHere, npcs, player);
+			const occTag = occ.length
+				? ` <span class="text-dim">(${occ.join(", ")})</span>`
+				: "";
+			// Ship each piece's full affordance set so the mobile smart bar can
+			// surface exactly the verbs it supports (sit/switch/watch/…).
+			const verbs = furnitureVerbs(f);
+			const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
+			return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}"${actionsAttr} title="Examine ${f.name}">${titleCaseName(f.name)}</span>${stateTag}${occTag}`;
+		});
+		desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
 	}
+	if (furniturePanel?.html) desc += `\n${furniturePanel.html}`;
 	if (!isDark) {
 		const { rows: zoneGens } = await query(
 			`SELECT name, status FROM generators WHERE zone_id=$1 AND generator_type='junction_box'`,

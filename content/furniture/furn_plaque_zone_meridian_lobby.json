@@ -1,6 +1,8 @@
 {
   "description": "A brass plaque bolted above the entrance: THE MERIDIAN — ESTABLISHED 2031. Someone has polished the lettering by hand recently, which is either touching or completely unhinged. It remains the most optimistic object in the building.",
-  "flags": {},
+  "flags": {
+    "woven": true
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_plaque_zone_meridian_lobby",

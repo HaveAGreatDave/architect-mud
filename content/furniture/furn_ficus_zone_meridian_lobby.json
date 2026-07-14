@@ -1,6 +1,8 @@
 {
   "description": "A ficus in a chipped ceramic planter, dead so long it has gone the grey of old newspaper. And yet the soil is damp — someone keeps watering it. Hope is a hard habit to break.",
-  "flags": {},
+  "flags": {
+    "woven": true
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_ficus_zone_meridian_lobby",

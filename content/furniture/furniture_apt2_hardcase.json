@@ -1,7 +1,18 @@
 {
   "description": "A matte-black composite case the size of a footlocker, its corners scuffed down to bare alloy. A biometric pad glows a patient amber above the seam — jailbroken, by the look of it, the lock light stuttering between green and red. Heavier than it has any right to be.",
   "flags": {
-    "container": 40000
+    "container": 40000,
+    "restock_items": [
+      "item_hack_deck",
+      "item_signal_jammer",
+      "item_feed_spoofer",
+      "item_relay_node",
+      "item_spy_drone",
+      "item_wired_cam",
+      "item_sticky_cam",
+      "item_motion_sensor",
+      "item_audio_sensor"
+    ]
   },
   "hp": null,
   "hp_max": null,

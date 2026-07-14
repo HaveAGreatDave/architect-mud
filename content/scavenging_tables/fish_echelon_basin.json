@@ -1,0 +1,41 @@
+{
+  "fishing_bait_catches": [
+    {
+      "difficulty": 7,
+      "itemId": "item_glass_eel",
+      "name": "glass eel",
+      "requiresBaitTag": "bait_bloodworm",
+      "weight": 3
+    }
+  ],
+  "fishing_monsters": [
+    {
+      "difficulty": 9,
+      "enemyTemplateId": "enemy_cable_eel",
+      "name": "a cable eel",
+      "weight": 2
+    }
+  ],
+  "flags": {},
+  "id": "fish_echelon_basin",
+  "messages": {
+    "broadcast": [
+      "trails a line off the transom and settles in to fish the deep water."
+    ],
+    "player": [
+      "You pay a line out over the transom into the black water of the Basin and wait.",
+      "The float rides the long, slow swell off the stern. You watch it and wait.",
+      "You let the line sink into the cold deep behind the Echelon, past where the wake would be.",
+      "Somewhere under the polished dark, the Basin shifts. You keep the rod easy.",
+      "The heaters glow amber at your back while your line hangs in the black."
+    ],
+    "quiet": [
+      "Nothing's biting. The deep keeps its own counsel.",
+      "The line stays slack. Whatever's down there hasn't decided about you yet.",
+      "You feel a nibble — then slack. The Basin lets it go.",
+      "A single bubble rises and breaks, and that's all."
+    ]
+  },
+  "name": "Echelon Basin Fishing",
+  "replenish_interval_seconds": 90
+}

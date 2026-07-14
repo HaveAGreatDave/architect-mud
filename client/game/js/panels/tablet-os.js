@@ -1019,6 +1019,24 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-bldg.sel { color:#04120f; background:var(--mg-accent); border-color:var(--mg-accent); box-shadow:0 0 8px color-mix(in srgb,var(--mg-accent) 45%,transparent); }
     #tablet-os-overlay .tos-map-detail { margin-top:6px; border-top:1px solid color-mix(in srgb,var(--mg-accent) 16%,transparent); padding-top:8px; }
     #tablet-os-overlay .tos-map-note { font-size:11.5px; color:var(--tos-fg-dim); line-height:1.5; padding:6px 2px; }
+    /* Map app fills the screen so the panel itself never scrolls: the body is a
+       flex column pinned to 100% height, the map + rail take the slack, and all
+       scrolling/panning happens inside them (drag = pan the map, not the page). */
+    #tablet-os-overlay .tos-body.tos-map-view { box-sizing:border-box; height:100%; display:flex; flex-direction:column; }
+    #tablet-os-overlay .tos-map-view #tos-map-root { flex:1; min-height:0; display:flex; flex-direction:column; }
+    /* Map ↔ legend rail, side by side, filling the remaining height. */
+    #tablet-os-overlay .tos-map-main { flex:1; min-height:0; display:flex; gap:9px; margin-top:2px; }
+    #tablet-os-overlay .tos-map-main .tos-map-wrap { flex:1 1 auto; min-width:0; max-height:none; }
+    /* Right rail: legend pinned at the top, buildings + detail scroll beneath it. */
+    #tablet-os-overlay .tos-map-side { flex:0 0 158px; display:flex; flex-direction:column; min-height:0; }
+    #tablet-os-overlay .tos-map-side .tos-map-legend { flex:0 0 auto; flex-direction:column; gap:4px; margin:0 0 8px; }
+    #tablet-os-overlay .tos-map-side-scroll { flex:1; min-height:0; overflow-y:auto; scrollbar-width:thin;
+      scrollbar-color:color-mix(in srgb,var(--mg-accent) 40%,transparent) transparent; }
+    #tablet-os-overlay .tos-map-side-scroll::-webkit-scrollbar { width:6px; }
+    #tablet-os-overlay .tos-map-side-scroll::-webkit-scrollbar-thumb { background:color-mix(in srgb,var(--mg-accent) 35%,transparent); border-radius:5px; }
+    #tablet-os-overlay .tos-map-side .tos-map-bldgs { margin-top:0; }
+    #tablet-os-overlay .tos-map-side .tos-map-bldgs-list { gap:5px; }
+    #tablet-os-overlay .tos-map-side .tos-map-bldg { width:100%; }
 
     /* ── News app — "The Coldwater Sentinel" ────────────────────────────────────
        The feed is dressed as a newsprint sheet. The paper look is done by
@@ -2400,7 +2418,15 @@ function renderMap(d) {
     grid += `<svg class="tos-gps-svg" viewBox="0 0 ${gCols} ${gRows}" preserveAspectRatio="none"><polyline class="tos-gps-line" points="${gpsPts.join(' ')}"/></svg>`;
   grid += '</div>';
 
-  return `${renderMapCtl(d)}${renderMapBar(d)}<div class="tos-map-wrap">${grid}</div>${renderMapLegend(mode)}${renderMapBuildings(d)}<div class="tos-map-detail" id="tos-map-detail">${renderMapDetail(d)}</div>`;
+  // Map + right rail: the map pans on its own inside .tos-map-wrap, and the legend
+  // stays pinned to the top of the rail while the buildings list + detail scroll
+  // under it — so the tablet panel itself never has to scroll (drag = pan, always).
+  return `${renderMapCtl(d)}${renderMapBar(d)}<div class="tos-map-main">`
+    + `<div class="tos-map-wrap">${grid}</div>`
+    + `<div class="tos-map-side">${renderMapLegend(mode)}`
+    + `<div class="tos-map-side-scroll">${renderMapBuildings(d)}`
+    + `<div class="tos-map-detail" id="tos-map-detail">${renderMapDetail(d)}</div></div></div>`
+    + `</div>`;
 }
 
 // Persistent map controls (mirroring the sidebar minimap): Run + Auto-walk toggles,
@@ -3767,7 +3793,7 @@ function renderBody() {
     </div>`;
   }
   if (d.view === 'map') {
-    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+    return `<div class="tos-body tos-map-view">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       <div id="tos-map-root">${renderMap(d)}</div>
     </div>`;
   }

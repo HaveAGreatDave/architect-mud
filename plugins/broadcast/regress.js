@@ -41,6 +41,15 @@ export default async function regress({ check, run }) {
   check('featuring every slot always airs', _test.sportsAiring({ airSlots: allSlots }) === true, 'all-slots');
   check('featuring no valid slot never airs', _test.sportsAiring({ airSlots: [-1] }) === false, 'empty-window');
 
+  // World Series airtime: the Series is pinned to the NEXT nightly @airtime slot (so it airs
+  // — and is advertised in the news/TV guide — at the fixed evening time), not "the next hour".
+  const G = _test.SPORTS_GAMES_PER_DAY;   // 8 → slot-of-day 6 == the 18:00–21:00 block
+  const fromMorning = _test.nextAirSlot(40 * G + 0, [6], G);   // start of a day (slot-of-day 0)
+  check('WS pins to tonight\'s evening slot', fromMorning.slot % G === 6 && fromMorning.hour === 18, JSON.stringify(fromMorning));
+  const fromEvening = _test.nextAirSlot(40 * G + 6, [6], G);   // seeded DURING the evening block
+  check('WS seeded at the evening slot rolls to the next night', fromEvening.slot === 41 * G + 6 && fromEvening.hour === 18, JSON.stringify(fromEvening));
+  check('continuous league (no airSlots) uses the next slot', _test.nextAirSlot(100, null, G).slot === 101, JSON.stringify(_test.nextAirSlot(100, null, G)));
+
   // ── News bulletin assembly ──────────────────────────────────────────────────
   // A news broadcast reads live stories and reads them out through anchor/reporter
   // NAME strings — no NPC. Feed synthetic stories and check the assembled graph: it

@@ -4,6 +4,7 @@
 @type sports
 @sport baseball
 @announcer "Chip Vega"
+@airtime 19
 @length 300
 @titlecard bb_deadball_title
 

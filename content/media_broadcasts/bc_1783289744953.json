@@ -26,6 +26,9 @@
   "override_duration": 300,
   "playback_mode": "sports",
   "sports_pools": {
+    "airSlots": [
+      6
+    ],
     "announcer": "Chip Vega",
     "players": [
       "Rodriguez",

@@ -316,9 +316,11 @@ on('sports.champion', ({ champion, runnerUp, champScore, runScore }) => {
   record(`DEADBALL: ${champion} Crush ${runnerUp} ${champScore}-${runScore} to Take the Crown`);
 });
 
-on('sports.worldseries', ({ teams }) => {
+on('sports.worldseries', ({ teams, when, airHour }) => {
   if (!Array.isArray(teams) || teams.length < 2) return;
-  record(`DEADBALL WORLD SERIES SET: ${teams[0]} vs ${teams[1]} — City Grinds to a Halt`);
+  const time = Number.isFinite(airHour) ? `${String(airHour).padStart(2, '0')}:00` : 'this evening';
+  const whenTxt = (when || 'tonight').replace(/^\w/, (c) => c.toUpperCase());
+  record(`DEADBALL WORLD SERIES SET: ${teams[0]} vs ${teams[1]} — First Pitch ${whenTxt}, ${time}; City Grinds to a Halt`);
 });
 
 on('weather.event', ({ type, phase }) => {

@@ -34,8 +34,9 @@ export function ensureHelmStyles() {
        the pane's height the way the glass cockpit does; the ⛶ chip toggles true OS fullscreen. */
     #area-content:has(.helm-root){ height:100%; }
     .helm-root{ position:relative; width:100%; height:100%; min-height:420px; overflow:hidden;
-      --accent:#c8a24e; --accent-hi:#ecd48f; --accent-lo:#8c6f34; --chart:#4fd0e0;
-      --hpanel:#0e141b; --hink:#e2edf3; --hdim:#8ba0ae; --stbd:#35d07a; --brass:#b9923f;
+      --accent:#5ccfe0; --accent-hi:#bdf1f8; --accent-lo:#2b8b99; --chart:#4fd0e0;
+      --hpanel:#0e141b; --hink:#e2edf3; --hdim:#8ba0ae; --stbd:#35d07a;
+      --steel:#c3cdd6; --steel-hi:#eff4f8; --steel-lo:#5c6670;
       --hmono:'DejaVu Sans Mono','Consolas','Courier New',monospace; --hsans:'Helvetica Neue',Arial,system-ui,sans-serif;
       --hcarbon:repeating-linear-gradient(45deg,#12161b 0 3px,#0d1116 3px 6px),repeating-linear-gradient(-45deg,rgba(44,52,61,.5) 0 3px,transparent 3px 6px);
       font-family:var(--hsans); color:var(--hink); border-radius:8px; background:#04070c; }
@@ -59,7 +60,7 @@ export function ensureHelmStyles() {
        A single machined brushed-metal helm station laid across the bottom of the view.
        The ship's wheel rises out of a binnacle at its centre so its lower half tucks
        behind the console lip; the NAV chart + digital instruments + engine telegraph
-       are milled into the face. Cool cyan HUD glass against warm brass mechanicals. */
+       are milled into the face. Cool cyan HUD glass on brushed steel + carbon fibre. */
     .helm-dash{ position:absolute; left:0; right:0; bottom:0; z-index:5; }
     .helm-console{ position:relative; padding-bottom:env(safe-area-inset-bottom);
       /* brushed titanium: fine vertical grain over a top-lit gunmetal body */
@@ -69,12 +70,15 @@ export function ensureHelmStyles() {
         radial-gradient(140% 120% at 50% -10%,#3a4149 0,#242a31 32%,#161a20 66%,#0c0f14 100%);
       border-top:1px solid rgba(0,0,0,.7);
       box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(0,0,0,.6), 0 -14px 34px rgba(0,0,0,.55); }
-    /* a thin machined accent seam catches light on the lip — a filet, not a glowing bar */
-    .helm-console::before{ content:''; position:absolute; left:0; right:0; top:1px; height:2px; pointer-events:none;
-      background:linear-gradient(90deg,transparent,rgba(180,146,63,.0) 6%,color-mix(in srgb,var(--brass) 55%,transparent) 34%,color-mix(in srgb,var(--accent-hi) 70%,transparent) 50%,color-mix(in srgb,var(--brass) 55%,transparent) 66%,transparent 94%);
-      opacity:.55; }
-    .helm-console-face{ display:grid; grid-template-columns:minmax(190px,1fr) minmax(220px,320px) 1fr; align-items:center; gap:22px;
+    /* a thin machined steel seam catches light on the lip — a polished filet, not a glowing bar */
+    .helm-console::before{ content:''; position:absolute; left:0; right:0; top:1px; height:1px; pointer-events:none;
+      background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--steel) 40%,transparent) 22%,color-mix(in srgb,var(--steel-hi) 75%,transparent) 50%,color-mix(in srgb,var(--steel) 40%,transparent) 78%,transparent 96%);
+      opacity:.7; }
+    .helm-console-face{ position:relative; display:grid; grid-template-columns:minmax(190px,1fr) minmax(220px,320px) 1fr; align-items:center; gap:22px;
       padding:14px 26px 15px; max-width:1180px; margin:0 auto; }
+    /* faint carbon-fibre weave milled into the console face, under the brushed grain */
+    .helm-console-face::before{ content:''; position:absolute; inset:0; pointer-events:none; opacity:.14;
+      background:var(--hcarbon); background-size:6px 6px,6px 6px; mix-blend-mode:overlay; }
 
     /* NAV chart — top-down basin scope with the Echelon blip */
     .helm-nav{ display:flex; align-items:center; gap:12px; }
@@ -117,23 +121,24 @@ export function ensureHelmStyles() {
     .helm-col .cap{ font-family:var(--hmono); font-size:8px; letter-spacing:4px; color:color-mix(in srgb,var(--accent) 70%,var(--hdim)); text-transform:uppercase;
       background:rgba(4,7,11,.6); padding:1px 8px; border-radius:4px; }
 
-    /* Engine telegraph — brass lever in a milled slot, right of the console */
+    /* Engine telegraph — a milled steel lever in a carbon slot, right of the console */
     .helm-tele{ display:flex; flex-direction:column; align-items:center; gap:6px; user-select:none; justify-self:end; }
     .helm-tele-track{ position:relative; width:60px; height:128px; border-radius:11px;
-      background:linear-gradient(180deg,#0f1319,#05080c);
-      border:1px solid color-mix(in srgb,var(--brass) 50%,#000);
+      background:var(--hcarbon),linear-gradient(180deg,#0f1319,#05080c); background-size:6px 6px,6px 6px,auto;
+      border:1px solid color-mix(in srgb,var(--steel) 32%,#000);
       box-shadow:inset 0 2px 10px rgba(0,0,0,.85),0 1px 0 rgba(255,255,255,.08); overflow:hidden; }
     .helm-tele-track::before{ content:''; position:absolute; left:50%; top:14px; bottom:14px; width:6px; transform:translateX(-50%);
       border-radius:4px; background:linear-gradient(180deg,#04060a,#141922); box-shadow:inset 0 0 5px rgba(0,0,0,.95); }
     .helm-tele-mark{ position:absolute; left:0; right:0; text-align:center; font-family:var(--hmono); font-size:8px; letter-spacing:2px; color:var(--hdim); pointer-events:none; z-index:2; }
     .helm-tele-mark.ahead{ top:7px; color:var(--stbd); } .helm-tele-mark.stop{ bottom:7px; }
+    /* brushed-steel knob: fine vertical grain + machined grip ridges */
     .helm-tele-knob{ position:absolute; left:7px; right:7px; height:32px; top:78px; border-radius:7px; cursor:grab; touch-action:none; z-index:3;
-      background:linear-gradient(180deg,var(--accent-hi),var(--accent) 55%,var(--accent-lo));
-      border:1px solid #2a1f08; box-shadow:0 3px 8px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.6),inset 0 -2px 4px rgba(0,0,0,.35); }
+      background:repeating-linear-gradient(90deg,rgba(255,255,255,.14) 0 1px,rgba(0,0,0,.10) 1px 2px,transparent 2px 3px),linear-gradient(180deg,var(--steel-hi),var(--steel) 52%,var(--steel-lo));
+      border:1px solid #20262c; box-shadow:0 3px 8px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.7),inset 0 -2px 4px rgba(0,0,0,.4); }
     .helm-tele-knob::after{ content:''; position:absolute; left:6px; right:6px; top:50%; height:7px; transform:translateY(-50%);
-      background:repeating-linear-gradient(90deg,rgba(0,0,0,.4) 0 2px,transparent 2px 4px); border-radius:2px; }
+      background:repeating-linear-gradient(90deg,rgba(0,0,0,.42) 0 2px,rgba(255,255,255,.12) 2px 3px,transparent 3px 4px); border-radius:2px; }
     .helm-tele-knob:active{ cursor:grabbing; }
-    .helm-tele.engaged .helm-tele-knob{ cursor:not-allowed; box-shadow:0 0 14px var(--stbd),0 3px 8px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.6); }
+    .helm-tele.engaged .helm-tele-knob{ cursor:not-allowed; box-shadow:0 0 14px var(--stbd),0 3px 8px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.7); }
     .helm-tele.engaged .helm-tele-track{ border-color:var(--stbd); box-shadow:inset 0 2px 10px rgba(0,0,0,.85),0 0 12px color-mix(in srgb,var(--stbd) 40%,transparent); }
     .helm-tele-label{ font-family:var(--hmono); font-size:8px; letter-spacing:2.5px; color:var(--hdim); text-transform:uppercase; }
     .helm-tele.warn .helm-tele-label{ color:#ff8a7a; }
@@ -155,7 +160,9 @@ export function openHelm(opts = {}) {
   if (!mount) return null;
   closeHelm();
   ensureHelmStyles();
-  const accent = opts.accent || (getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#c8a24e');
+  // Steel-cyan wheel accent (carbon rim, cyan LED grooves + needle) — pinned so it stays brushed-
+  // metal/cyan regardless of the player's global theme accent, which may be gold.
+  const accent = opts.accent || '#5ccfe0';
   const onSail = opts.onSail || (() => {});
   const onExit = opts.onExit || (() => {});
 
@@ -209,7 +216,7 @@ export function openHelm(opts = {}) {
 
   const ctrl = openHelmChase(q('.helm-chase'), {
     gx: opts.gx ?? 0, gy: opts.gy ?? 0, heading: opts.heading ?? 0, sky: opts.sky,
-    onArrive: (gx, gy) => { q('[data-pos]').textContent = gx + ',' + gy; },
+    onArrive: (gx, gy) => { q('[data-pos]').textContent = gx + ' · ' + gy; },
   });
   if (opts.sky) ctrl.setSky(opts.sky);   // seed the real sim weather field immediately
   if (opts.map) ctrl.setWorld(opts.map, opts.gx, opts.gy);   // frame her against the REAL basin, not blank ocean
@@ -217,6 +224,54 @@ export function openHelm(opts = {}) {
   // The wheel is a DIRECT course selector: its (heavily geared) rotation demands a course and she
   // swings slowly toward it; the hub needle reads her actual heading as she comes round.
   const wheel = createHelmWheel(q('.helm-wheel'), { accent, gear: 8, onCourse: (deg) => ctrl.setCourse(deg), getHeading: () => ctrl.heading() });
+
+  // ── NAV chart — a live top-down basin scope drawn from the chase view's own world window
+  // (ctrl.mapSnapshot): land/piers slate, water the dark teal ground, the Echelon a cyan chevron
+  // held at centre (the chart slides under her as she makes way) with range rings + a radar sweep.
+  const navCanvas = q('[data-nav]'), navCtx = navCanvas.getContext('2d');
+  let navAlive = true, navRaf = 0;
+  function drawNav(now) {
+    if (!navAlive) return;
+    navRaf = requestAnimationFrame(drawNav);
+    const snap = ctrl.mapSnapshot?.(); if (!snap || !navCtx) return;
+    const box = navCanvas.getBoundingClientRect(); if (!box.width) return;
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    const W = Math.max(2, Math.round(box.width * dpr)), H = Math.max(2, Math.round(box.height * dpr));
+    if (navCanvas.width !== W || navCanvas.height !== H) { navCanvas.width = W; navCanvas.height = H; }
+    navCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const w = box.width, h = box.height, cx = w / 2, cy = h / 2;
+    navCtx.clearRect(0, 0, w, h);
+    const rows = snap.rows || [], N = rows.length || 1;
+    const cw = w / N, ch = h / N;
+    // Sub-tile glide: shift the whole chart against the direction of travel so the blip stays put.
+    const sx = (snap.sub ? -snap.sub.x : 0) * cw, sy = (snap.sub ? -snap.sub.y : 0) * ch;
+    for (let ry = 0; ry < N; ry++) {
+      const row = rows[ry] || [];
+      for (let rx = 0; rx < row.length; rx++) {
+        const c = row[rx]; if (!c || c.mark === 'yacht') continue;
+        if (c.biome === 'water' || !c.biome) continue;   // water = the scope's own teal bed
+        navCtx.fillStyle = c.bt ? '#3a4650' : (c.road ? '#2b343d' : '#232b33');   // buildings > roads > land
+        navCtx.fillRect(rx * cw + sx - 0.5, ry * ch + sy - 0.5, cw + 1, ch + 1);
+      }
+    }
+    // Range rings + centre cross.
+    navCtx.strokeStyle = 'rgba(79,208,224,0.16)'; navCtx.lineWidth = 1;
+    for (const r of [h * 0.22, h * 0.42]) { navCtx.beginPath(); navCtx.arc(cx, cy, r, 0, 7); navCtx.stroke(); }
+    navCtx.beginPath(); navCtx.moveTo(cx - 5, cy); navCtx.lineTo(cx + 5, cy); navCtx.moveTo(cx, cy - 5); navCtx.lineTo(cx, cy + 5); navCtx.stroke();
+    // Radar sweep — a fading wedge rotating clockwise.
+    const sweep = ((now || 0) * 0.0011) % (Math.PI * 2);
+    navCtx.save(); navCtx.translate(cx, cy); navCtx.rotate(sweep);
+    const grad = navCtx.createLinearGradient(0, 0, h * 0.5, 0);
+    grad.addColorStop(0, 'rgba(79,208,224,0.26)'); grad.addColorStop(1, 'rgba(79,208,224,0)');
+    navCtx.fillStyle = grad; navCtx.beginPath(); navCtx.moveTo(0, 0); navCtx.arc(0, 0, h * 0.5, -0.32, 0); navCtx.closePath(); navCtx.fill();
+    navCtx.restore();
+    // Own-ship blip — a glowing cyan chevron pointing along her heading.
+    navCtx.save(); navCtx.translate(cx, cy); navCtx.rotate((snap.heading || 0) * Math.PI / 180);
+    navCtx.fillStyle = '#c7f3fa'; navCtx.shadowColor = '#5ccfe0'; navCtx.shadowBlur = snap.sailing ? 10 : 6;
+    navCtx.beginPath(); navCtx.moveTo(0, -6.5); navCtx.lineTo(4.5, 5.5); navCtx.lineTo(0, 2.5); navCtx.lineTo(-4.5, 5.5); navCtx.closePath(); navCtx.fill();
+    navCtx.restore();
+  }
+  navRaf = requestAnimationFrame(drawNav);
 
   // ── Engine telegraph (the throttle) ──────────────────────────────────────────
   // Drag the handle up to AHEAD to engage: she gets underway and the console pins for the whole
@@ -274,19 +329,21 @@ export function openHelm(opts = {}) {
     const h = ((Math.round(ctrl.heading()) % 360) + 360) % 360;
     q('[data-hdg]').textContent = CARD[h] ?? (h + '°');
     q('[data-kn]').textContent = (ctrl.speed() * 20).toFixed(1);
+    const snap = ctrl.mapSnapshot?.();
+    if (snap) q('[data-pos]').textContent = snap.gx + ' · ' + snap.gy;
     const sailing = ctrl.isSailing();
     if (sailing !== wasSailing) { setUnderway(sailing); wasSailing = sailing; }
     const left = ctrl.transitLeft();
     q('[data-eta]').textContent = left > 0 ? fmtETA(left) : '—';
-    q('.helm-cell.eta').classList.toggle('idle', left <= 0);
+    q('.helm-readout.eta').classList.toggle('idle', left <= 0);
     const busy = ctrl.isBusy();
     q('[data-status]').textContent = sailing ? 'MAKING WAY' : (busy ? 'COMING ABOUT' : 'MOORED');
-    q('.helm-cell.st').classList.toggle('busy', busy);
+    q('.helm-readout.st').classList.toggle('busy', busy);
     const env = ctrl.env?.();   // live world time/weather for the chips
     if (env) { q('[data-time]').textContent = env.time; q('[data-wx]').textContent = (env.weather || 'clear').toUpperCase(); }
   }, 100);
 
-  _helm = { mount, ctrl, wheel, poll, upH, keyH, teleMove, teleUp };
+  _helm = { mount, ctrl, wheel, poll, upH, keyH, teleMove, teleUp, stopNav: () => { navAlive = false; cancelAnimationFrame(navRaf); } };
   return { ctrl, wheel, close: () => { closeHelm(); onExit(); }, setPosition: (gx, gy) => ctrl.setPosition(gx, gy), setHeading: (h) => ctrl.setHeading(h), setSky: (sky) => ctrl.setSky(sky) };
 }
 
@@ -298,6 +355,7 @@ export function closeHelm() {
   removeEventListener('keydown', h.keyH);
   removeEventListener('pointermove', h.teleMove);
   removeEventListener('pointerup', h.teleUp);
+  try { h.stopNav?.(); } catch {}
   document.body.classList.remove('helm-fullscreen', 'helm-hidepanel');
   try { h.wheel?.destroy(); } catch {}
   try { h.ctrl?.destroy(); } catch {}

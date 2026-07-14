@@ -38,7 +38,6 @@ function render() {
     return `<div class="players-online-row">
       <div class="players-online-who">
         <span class="players-online-handle${isSelf ? ' is-self' : ''}">${p.handle}${isSelf ? ' (you)' : ''}</span>
-        <span class="players-online-zone">${p.current_zone || ''}</span>
       </div>
       ${whisper}
     </div>`;

@@ -36,7 +36,11 @@ const SPORTS_MIN_WS_GAMES = 8;   // the #2 team must have played at least this m
 // window end) can use the placeholder; anchoring waits for ready.
 async function currentSlot() {
   const res = await dispatchAction({ type: 'broadcast.getSportsClock' }).catch(() => null);
-  return { slot: Number.isFinite(res?.slot) ? res.slot : 0, ready: !!res?.ready };
+  return {
+    slot: Number.isFinite(res?.slot) ? res.slot : 0,
+    gamesPerDay: Number.isFinite(res?.gamesPerDay) ? res.gamesPerDay : 8,
+    ready: !!res?.ready,
+  };
 }
 
 // ── Season lifecycle ───────────────────────────────────────────────────────────
@@ -89,9 +93,10 @@ async function ensureSeason() {
   return currentSeason();
 }
 
-// Seed the World Series: the top two teams (needs a real sample). The Series airs the
-// NEXT full slot (ws_slot); the regular standings freeze at that boundary. Returns the
-// updated season row, or null if it couldn't seed (too few teams / not enough games).
+// Seed the World Series: the top two teams (needs a real sample). The Series airs at the
+// NEXT nightly airtime slot (ws_slot) — the same fixed time the regular game airs, so it's
+// a scheduled marquee event, not a random hour — and the regular standings freeze at that
+// boundary. Returns the updated season row, or null if it couldn't seed.
 async function seedWorldSeries(season) {
   const table = await queryStandings();
   if (table.length < 2) return null;
@@ -99,14 +104,22 @@ async function seedWorldSeries(season) {
   if ((b.wins + b.losses) < SPORTS_MIN_WS_GAMES) return null;   // guard: #2 must have played enough
   const clock = await currentSlot();
   if (!clock.ready) return null;                                // don't seed off a boot-placeholder slot
-  const wsSlot = clock.slot + 1;
+  // Pin the Series to the next featured airtime slot (falls back to next slot if the
+  // league airs continuously), so it lands at the advertised nightly time.
+  const air = await dispatchAction({ type: 'broadcast.nextSportsAirSlot', params: { after: clock.slot } }).catch(() => null);
+  const wsSlot = Number.isFinite(air?.slot) ? air.slot : clock.slot + 1;
+  const airHour = Number.isFinite(air?.hour) ? air.hour : null;
   await query(
     `UPDATE sports_season SET phase = 'worldseries', finalist_a = $1, finalist_b = $2, ws_slot = $3 WHERE season_no = $4`,
     [a.team, b.team, wsSlot, season.season_no],
   ).catch((e) => console.error('[sportsleague] seed error:', e.message));
   _standCache.key = null;   // freeze the window at ws_slot now
-  emit('sports.worldseries', { seasonNo: season.season_no, teams: [a.team, b.team] });
-  console.log(`[sportsleague] WORLD SERIES seeded (season ${season.season_no}): ${a.team} vs ${b.team} @ slot ${wsSlot}`);
+  // Advertise WHEN it airs so the news app + TV guide can state the time.
+  const gpd = clock.gamesPerDay || 8;
+  const dayNow = Math.floor(clock.slot / gpd), dayWs = Math.floor(wsSlot / gpd);
+  const when = dayWs <= dayNow ? 'tonight' : (dayWs === dayNow + 1 ? 'tomorrow night' : `in ${dayWs - dayNow} nights`);
+  emit('sports.worldseries', { seasonNo: season.season_no, teams: [a.team, b.team], wsSlot, airHour, when });
+  console.log(`[sportsleague] WORLD SERIES seeded (season ${season.season_no}): ${a.team} vs ${b.team} @ slot ${wsSlot} (${when}${airHour != null ? `, ${airHour}:00` : ''})`);
   return { ...season, phase: 'worldseries', finalist_a: a.team, finalist_b: b.team, ws_slot: wsSlot };
 }
 
@@ -138,10 +151,15 @@ async function crownChampion(season) {
 let _standCache = { key: null, rows: [] };
 async function queryStandings() {
   const s = await currentSeason();
-  const { slot } = await currentSlot();
+  const { slot, gamesPerDay } = await currentSlot();
   // BIGINT columns come back as strings from node-pg — coerce before use.
-  const startSlot = s?.start_slot != null ? Number(s.start_slot) : slot;
+  const startRaw = s?.start_slot != null ? Number(s.start_slot) : slot;
   const endSlot = (s?.phase === 'worldseries' && s?.ws_slot != null) ? Number(s.ws_slot) : slot;
+  // Guardrail: a season can never span more than its own length (one game/team/day).
+  // If the roller ever stalls and the anchor goes stale, show the most recent
+  // season-length window rather than folding tens of thousands of games.
+  const maxWindow = SPORTS_SEASON_DAYS * (gamesPerDay || 8);
+  const startSlot = (endSlot - startRaw > maxWindow) ? endSlot - maxWindow : startRaw;
   const key = `${s?.season_no || 0}:${startSlot}:${endSlot}`;
   if (_standCache.key !== key) {
     const res = await dispatchAction({ type: 'broadcast.computeStandings', params: { startSlot, endSlot } }).catch(() => null);
@@ -273,8 +291,12 @@ async function seasonTick() {
       [gameDate(), gameMonth(), c.slot, s.season_no]).catch(() => {});
     return;
   }
-  const elapsed = daysElapsed(s.start_date);
-  if (elapsed !== null && elapsed >= SPORTS_SEASON_DAYS) await seedWorldSeries(s);
+  // End the season by SLOTS elapsed — the same axis the standings fold uses — so the
+  // roll can never drift from the window. (Measuring off start_date left the season
+  // stranded in 'regular' whenever the date math failed, letting the window balloon.)
+  const c = await currentSlot();
+  const seasonSlots = SPORTS_SEASON_DAYS * (c.gamesPerDay || 8);
+  if (c.ready && (c.slot - Number(s.start_slot)) >= seasonSlots) await seedWorldSeries(s);
 }
 schedule('1m', seasonTick);
 setTimeout(() => ensureSeason().catch((e) => console.error('[sportsleague] boot season error:', e.message)), 8000);

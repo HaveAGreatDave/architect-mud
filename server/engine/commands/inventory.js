@@ -709,9 +709,31 @@ async function describeContainer(container) {
   return msg;
 }
 
+// Furniture containers flagged `restock_items` (a list of item ids) act as a
+// bottomless dispenser: they keep exactly one of each listed item present.
+// Run on every container view (open + the refresh a pull/stow returns), so
+// taking an item makes a fresh copy reappear. player_id is a throwaway sentinel
+// — container contents are keyed by container_id and reassigned on pull.
+async function restockContainer(container) {
+  if (container.kind !== 'furniture') return;
+  const ids = container.tags?.restock_items;
+  if (!Array.isArray(ids) || !ids.length) return;
+  const { rows } = await query('SELECT DISTINCT item_id FROM player_inventory WHERE container_id=$1', [container.id]);
+  const present = new Set(rows.map(r => r.item_id));
+  for (const itemId of ids) {
+    if (present.has(itemId)) continue;
+    await query(
+      `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id)
+       SELECT $1,'_restock',id,1,1.0,$2 FROM items WHERE id=$3`,
+      [randomUUID(), container.id, itemId]
+    );
+  }
+}
+
 async function buildContainerView(containerId, player) {
   const container = await loadContainerById(containerId, player);
   if (!container) return { type:'error', message:'Container not found.' };
+  await restockContainer(container);
   const cap = containerCapacity(container);
   const used = await containerContentsWeight(container.id);
   const { rows: invItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
@@ -934,7 +956,7 @@ async function cmdStow(argStr, player) {
   // Check for trash bin furniture before normal container resolution.
   if (containerPart) {
     const { rows: trashRows } = await query(
-      `SELECT id,name FROM furniture WHERE zone_id=$1 AND name ILIKE $2 AND (object_type='container' OR flags->>'trash_bin'='true') LIMIT 1`,
+      `SELECT id,name FROM furniture WHERE zone_id=$1 AND name ILIKE $2 AND flags->>'trash_bin'='true' LIMIT 1`,
       [player.current_zone, `%${containerPart}%`]
     );
     if (trashRows.length) {
@@ -946,8 +968,16 @@ async function cmdStow(argStr, player) {
     }
   }
 
-  const container = await resolveContainer(containerPart, player);
+  let container = await resolveContainer(containerPart, player);
   if (container === 'ambiguous') return { type:'error', message:`Which container? Try "stow <item> in <name>".` };
+  if (!container && containerPart) {
+    // No item/ground container matched — fall through to a furniture container in this zone.
+    const { rows: fRows } = await query(
+      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND name ILIKE $2 LIMIT 1`,
+      [player.current_zone, `%${containerPart}%`]
+    );
+    if (fRows.length) container = await loadContainerById(fRows[0].id, player);
+  }
   if (!container) return { type:'error', message:`You don't see a container${containerPart?` matching "${containerPart}"`:''} here.` };
 
   const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
@@ -959,7 +989,7 @@ async function cmdStow(argStr, player) {
     if (innerItems.length) return { type:'error', message:`Empty the ${item.name} first.` };
   }
 
-  const cap = tagValue(container, 'container', 0);
+  const cap = containerCapacity(container);
   const used = await containerContentsWeight(container.id);
   const adding = (item.weight || 0) * item.quantity;
   if (used + adding > cap) return { type:'error', message:`${container.name} can't hold that — ${formatWeight(used)}/${formatWeight(cap)} used, ${item.name} weighs ${formatWeight(adding)}.` };

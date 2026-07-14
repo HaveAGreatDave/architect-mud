@@ -41,7 +41,7 @@ function _renderWhoList(players) {
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--border)">
       <div>
         <span style="font-weight:600;color:${isSelf?'var(--accent)':'var(--text-bright)'};font-size:12px">${p.handle}${isSelf?' (you)':''}</span>
-        <span style="color:var(--text-dim);font-size:10px;margin-left:8px">${p.current_zone||''}</span>
+        ${IS_ADMIN() ? `<span style="color:var(--text-dim);font-size:10px;margin-left:8px">${p.current_zone||''}</span>` : ''}
       </div>
       <div style="display:flex;gap:4px;align-items:center">${whisperBtn}${adminBtns}</div>
     </div>`;

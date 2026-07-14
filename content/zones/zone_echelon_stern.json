@@ -22,7 +22,8 @@
     "is_building": true,
     "building_name": "The Echelon",
     "world_exit_zone": "zone_echelon_exterior",
-    "always_lit": true
+    "always_lit": true,
+    "fishing_table_id": "fish_echelon_basin"
   },
   "grid_x": 0,
   "grid_y": 1,

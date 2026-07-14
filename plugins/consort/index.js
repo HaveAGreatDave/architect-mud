@@ -52,6 +52,7 @@ const MAX_TURNS      = 6;               // cap however long a chosen thread runs
 
 // ── Runtime state (ephemeral) ─────────────────────────────────────────────────
 const arousal    = new Map(); // npcId  -> current arousal
+const moodCap    = new Map(); // npcId  -> arousal ceiling for the current warming session
 const lastSpoke  = new Map(); // npcId  -> ms of last spoken beat (any kind)
 const sceneAt    = new Map(); // zoneId -> ms the last two-hander began
 const sceneZones = new Set(); // zoneIds with a two-hander currently running
@@ -69,6 +70,20 @@ function peeledForArousal(npc, a) {
   if (!n) return 0;
   if (a >= MAX_AROUSAL) return n;
   return Math.min(n, Math.floor((n * a) / MAX_AROUSAL));
+}
+
+// Not every warm evening ends with her clothes on the floor. Each time she starts to
+// warm from cold she settles into a mood for that stretch: often she just stays dressed
+// and close, sometimes she goes part way, sometimes all the way. The ceiling caps how
+// far her arousal — and so her undress — can climb this session.
+function rollMoodCap(npc) {
+  const r = Math.random();
+  if (r < 0.45) {                                   // dressed — warm and devoted, nothing comes off
+    const n = layersOf(npc).length || 1;
+    return Math.max(0, Math.floor(MAX_AROUSAL / n) - 1);   // just under the first layer peeling
+  }
+  if (r < 0.72) return randInt(AROUSED_AT, MAX_AROUSAL - 12); // part way — some layers, not bare
+  return MAX_AROUSAL;                                          // all the way
 }
 
 // Send a room line, explicit version only to MIS-opted-in players (same pattern as
@@ -118,11 +133,26 @@ const SHY = [
   `gives you a small, distant nod and finds something across the cabin to look at.`,
 ];
 
-// Peel / redress narration (generic; {g} is the garment).
+// Peel / redress narration (generic; {g} is the garment). When she does come undone
+// for him the hot beats aren't just undressing — she touches herself and reaches for
+// you unbidden, no asking required.
+const PEEL_HOT = [
+  (n, g) => `${n} peels ${g} off slow, watching your face, and lets it drop.`,
+  (n, g) => `${n} slips ${g} off and drags her own nails slow up the bared skin, shivering at her own touch.`,
+  (n, g) => `${n} works ${g} loose, then takes your hand without a word and presses it to the warm skin beneath.`,
+  (n, g) => `${n} lets ${g} fall and leans in to draw your palm down herself, guiding it exactly where she wants it.`,
+  (n, g) => `${n} sheds ${g} and cups herself with a soft sound, eyes never once leaving you.`,
+];
+const BARE_HOT = [
+  (n) => `${n} is completely bare now, offering the whole of herself with a slow, certain smile.`,
+  (n) => `${n} is bare now, hands wandering her own body, watching for the moment they wander to you instead.`,
+  (n) => `${n} is down to nothing and pulls you in by the wrist, laying your hands where she wants them.`,
+  (n) => `${n} is naked and unhurried, one hand slow on herself and the other already reaching for you, certain of her welcome.`,
+];
 const peelTame    = (n, g) => `${n} slips ${g} off and lets it pool on the silk, eyes on you.`;
-const peelHot     = (n, g) => `${n} peels ${g} off slow, watching your face, and lets it drop.`;
+const peelHot     = (n, g) => pick(PEEL_HOT)(n, g);
 const bareTame    = (n) => `${n} is down to nothing now, unhurried and unashamed in the warm dark.`;
-const bareHot     = (n) => `${n} is completely bare now, offering the whole of herself with a slow, certain smile.`;
+const bareHot     = (n) => pick(BARE_HOT)(n);
 const redressTame = (n, g) => `${n} draws ${g} back over herself, the moment folded away.`;
 const redressHot  = (n, g) => `${n} slides ${g} back over warm skin, covering up.`;
 
@@ -380,6 +410,7 @@ function runAreaActivity(npc, zone, zoneId, now, keeperHere, strangerHere) {
   // onto the sun deck mid-strip.
   if ((npc._clothingPeeled || 0) && !npc._forcedNude) npc._clothingPeeled = 0;
   arousal.set(npc.id, 0);
+  moodCap.delete(npc.id);   // next time she's back in the cabin she rolls a fresh mood
 
   const graphicOK = keeperHere && !strangerHere;   // she only bares for him
   const cur = npc._activity;
@@ -456,10 +487,18 @@ function consortTick() {
         npc.onFurniture = null;   // back in the cabins she's on the arousal/undress path, not parked on deck furniture
 
         // Arousal only ever climbs when they're ALONE with the one they belong to.
-        // A stranger in the room — even with him present — kills it.
+        // A stranger in the room — even with him present — kills it. How far it climbs
+        // this session is capped by the mood she rolled when she first warmed up, so
+        // she doesn't strip every single time.
         const warming = keeperHere && !strangerHere;
         let a = arousal.get(npc.id) || 0;
-        a = warming ? Math.min(MAX_AROUSAL, a + RISE_PER_TICK) : Math.max(0, a - COOL_PER_TICK);
+        if (warming) {
+          if (a === 0 && !moodCap.has(npc.id)) moodCap.set(npc.id, rollMoodCap(npc));
+          a = Math.min(moodCap.has(npc.id) ? moodCap.get(npc.id) : MAX_AROUSAL, a + RISE_PER_TICK);
+        } else {
+          a = Math.max(0, a - COOL_PER_TICK);
+          if (a === 0) moodCap.delete(npc.id);   // cooled all the way → fresh mood next time she warms
+        }
         arousal.set(npc.id, a);
 
         // Undress / cover up. A force-stripped consort (the `strip` verb) is held
@@ -696,7 +735,8 @@ export const commands = {
 // Exposed for the regress suite.
 export const _test = {
   isConsort, peeledForArousal, onTalk, consortTick,
-  PAIR_PRIVATE, PAIR_WITH_KEEPER, arousal, lastSpoke,
+  PAIR_PRIVATE, PAIR_WITH_KEEPER, arousal, moodCap, lastSpoke,
+  rollMoodCap, PEEL_HOT, BARE_HOT,
   MAX_AROUSAL, AROUSED_AT,
   consortsOf, cmdBeckon, cmdDismiss, retreatConsorts,
   areaProfile, isIntimateZone, runAreaActivity, AREA_ACTIVITIES, ACT_MIN_MS,
