@@ -9,11 +9,15 @@
   "color": "#d8c8a0",
   "created_by": null,
   "description": "A low room drowned in dying neon, where the carpet was chosen to hide sins and does. Felt tables ring a caged cashier, and every surface tilts a fraction toward the house. The air is climate-controlled to a permanent, luckless 2 a.m.",
-  "exits": {},
+  "exits": {
+    "west": "zone_district_920_909"
+  },
   "flags": {
     "building_name": "The Neon Vig",
     "claimable_asset": "casino",
-    "is_interior": true
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_920_909"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -22,6 +26,6 @@
   "map_id": "map_interior_zone_casino_interior",
   "marker": "CA",
   "name": "The Neon Vig",
-  "parent_zone": null,
+  "parent_zone": "zone_district_920_909",
   "updated_at": "1783740000"
 }

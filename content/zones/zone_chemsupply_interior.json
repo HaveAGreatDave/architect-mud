@@ -9,11 +9,15 @@
   "color": "#d8c8a0",
   "created_by": null,
   "description": "A concrete warehouse-shop stacked to the rafters with drums, glassware and coils of tubing. A forklift idles in the aisle and a clipboard-and-ballpoint sign-out sheet does duty as the entire compliance department.",
-  "exits": {},
+  "exits": {
+    "west": "zone_district_920_907"
+  },
   "flags": {
     "building_name": "Bulk & Bond Supply",
     "claimable_asset": "chem_supply",
-    "is_interior": true
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_920_907"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -22,6 +26,6 @@
   "map_id": "map_interior_zone_chemsupply_interior",
   "marker": "CH",
   "name": "Bulk & Bond Supply",
-  "parent_zone": null,
+  "parent_zone": "zone_district_920_907",
   "updated_at": "1783740000"
 }

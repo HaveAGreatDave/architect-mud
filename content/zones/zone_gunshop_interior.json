@@ -9,11 +9,15 @@
   "color": "#d8c8a0",
   "created_by": null,
   "description": "A tight, orderly shop that smells of oil and cold metal. Long guns stand racked behind a scarred counter, ammunition boxed in neat ziggurats, a firing lane sealed off behind scratched glass at the back.",
-  "exits": {},
+  "exits": {
+    "west": "zone_district_920_905"
+  },
   "flags": {
     "building_name": "Ironside Arms",
     "claimable_asset": "gun_shop",
-    "is_interior": true
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_920_905"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -22,6 +26,6 @@
   "map_id": "map_interior_zone_gunshop_interior",
   "marker": "GN",
   "name": "Ironside Arms",
-  "parent_zone": null,
+  "parent_zone": "zone_district_920_905",
   "updated_at": "1783740000"
 }

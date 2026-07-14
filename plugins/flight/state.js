@@ -525,7 +525,7 @@ function mapWindow(a, radius = 24) {
           const ddx = toX - fromX, ddy = toY - fromY;
           sub = { x: ddx * frac, y: ddy * frac };
           heading = deltaHeading(ddx, ddy);
-          wake = { spd: 0.78 };   // steady making-way wash for the whole passage
+          wake = { spd: 0.42 };   // steady but calm making-way wash for the whole passage (a big hull moves slowly)
         } else if (_yachtWakeUntil > now) {
           wake = { spd: (_yachtWakeUntil - now) / YACHT_WAKE_MS };   // 1 → 0 over YACHT_WAKE_MS
         }

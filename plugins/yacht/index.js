@@ -206,9 +206,12 @@ async function cmdInvites(args, raw, player) {
 // walk aboard; that exit is torn down the moment she gets underway again.
 
 const EXTERIOR = 'zone_echelon_exterior';
-// She is a big vessel: getting underway, she takes ninety seconds to make the next tile, and comes
-// to rest only when she arrives. No new order can be given until she's there.
+// She is a big vessel: getting underway, she takes ninety seconds to complete a passage, and comes
+// to rest only when she arrives. No new order can be given until she's there. A passage covers up
+// to SAIL_TILES water tiles (stopping short at the first obstacle), so an order visibly carries her
+// across the Basin rather than creeping a single tile.
 const SAIL_TRANSIT_MS = 90_000;
+const SAIL_TILES = 3;
 const DOCK_SOURCE = 'yacht_dock';
 const DIR_DELTA = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
 const DIR_ALIAS = { n: 'north', s: 'south', e: 'east', w: 'west', north: 'north', south: 'south', east: 'east', west: 'west' };
@@ -268,8 +271,12 @@ async function dockTo(pierZoneId, dirYachtToPier) {
 }
 
 function rebuildFlightIndex() {
-  // The flight plugin caches a coord→surface index; a moved yacht must not linger
-  // at its old tile in that index. Soft dependency — skip if flight isn't loaded.
+  // The flight plugin caches a coord→surface index; a moved yacht must not linger at its old tile
+  // in that index. This MUST run synchronously before we build the helm window on arrival — the
+  // cached module (flightStateMod) lets us do that. A stale index left the yacht flagged at BOTH
+  // her old tile and her new one, so the chase view painted a second Echelon a tile astern. The
+  // async dynamic-import fallback only matters before flightStateMod has finished loading at boot.
+  if (flightStateMod?.buildCoordIndex) { flightStateMod.buildCoordIndex(); return; }
   import('../flight/state.js').then(m => m.buildCoordIndex?.()).catch(() => {});
 }
 
@@ -382,10 +389,16 @@ async function cmdSail(args, raw, player, broadcast) {
   const left = transitLeft();
   if (left > 0) return { type: 'error', message: `The Echelon is already underway. She reaches her next position in ${Math.ceil(left / 1000)}s — you can't give a new order until she's there.` };
 
+  // Carry her up to SAIL_TILES water tiles this passage, stopping short at the first tile that
+  // isn't open water — so a single order visibly crosses the Basin instead of creeping one tile.
   const [dx, dy] = DIR_DELTA[dirWord];
-  const tx = ext.grid_x + dx, ty = ext.grid_y + dy;
-  const target = worldTileAt(tx, ty);
-  if (!target?.flags?.water) {
+  let tx = ext.grid_x, ty = ext.grid_y, tiles = 0;
+  for (let i = 1; i <= SAIL_TILES; i++) {
+    const nx = ext.grid_x + dx * i, ny = ext.grid_y + dy * i;
+    if (!worldTileAt(nx, ny)?.flags?.water) break;
+    tx = nx; ty = ny; tiles = i;
+  }
+  if (!tiles) {
     return { type: 'error', message: 'The Echelon moves only over open water. There is no channel that way.' };
   }
 
@@ -402,6 +415,11 @@ async function cmdSail(args, raw, player, broadcast) {
   // its own glide from the timing the console is handed.
   flightStateMod?.setYachtTransit?.({ fromX: ext.grid_x, fromY: ext.grid_y, toX: tx, toY: ty, startAt: now, arriveAt: now + SAIL_TRANSIT_MS });
   flightStateMod?.setYachtMakingWay?.();
+
+  // Tell any open helm console the true passage vector (direction + tile count) so its chase view
+  // glides her the whole distance smoothly — whether the order came from the telegraph or a typed
+  // `sail`. The client snaps to the authoritative position on helm_arrived regardless.
+  for (const pid of helmViewers) sendToPlayer(pid, { type: 'helm_underway', dir: DIR_SHORT[dirWord], tiles, ms: SAIL_TRANSIT_MS });
 
   const bc = broadcast || getBroadcast();
   for (const zid of [EXTERIOR, 'zone_echelon_bridge', 'zone_echelon_stern', 'zone_echelon_foyer']) {
@@ -487,9 +505,10 @@ async function cmdHelmConsole(args, raw, player) {
   // Open already-underway (heading = her passage's course) so the console restores the lock + ETA;
   // hand over the live sky (real weather field) up front, then pushHelmLive keeps it current.
   const heading = transit ? DIR_DEG[transit.dir] : 0;
+  const transitTiles = transit ? Math.max(Math.abs(transit.toX - transit.fromX), Math.abs(transit.toY - transit.fromY)) : 0;
   const sky = flightStateMod?.skyState?.() || null;
   const map = flightStateMod?.yachtHelmWindow?.(ext.grid_x, ext.grid_y) || null;   // the real basin around her
-  sendToPlayer(player.id, { type: 'helm_open', gx: ext.grid_x, gy: ext.grid_y, heading, transitMs: transitLeft(), transitTotal: transit ? SAIL_TRANSIT_MS : 0, sky, map });
+  sendToPlayer(player.id, { type: 'helm_open', gx: ext.grid_x, gy: ext.grid_y, heading, transitMs: transitLeft(), transitTotal: transit ? SAIL_TRANSIT_MS : 0, transitTiles, sky, map });
   helmViewers.add(player.id);
   return { type: 'system', message: 'You take the helm. The console wakes under your hands.' };
 }

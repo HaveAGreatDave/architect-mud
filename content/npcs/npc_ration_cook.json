@@ -1,0 +1,162 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "chat": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "wait",
+        "type": "action"
+      },
+      "look": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "wait",
+        "ifTrue": "chat",
+        "type": "condition"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "look",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Coffee's fresh. Well. It's hot. Same thing, after a while.\"",
+    "\"You want it fast or you want it good? Pick one — this is a diner.\"",
+    "\"Everything's a ration, friend. We just plate it.\""
+  ],
+  "description": "A broad, unhurried short-order cook with a paper hat gone limp and a spatula worn to a sliver. He never stops moving and never seems to hurry.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "He turns back to the griddle."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's on the menu?",
+          "next": "shop"
+        },
+        {
+          "label": "(leave)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit anywhere that'll hold you. Menu's on the wall, cash on the counter.\""
+    },
+    "shop": {
+      "actions": [
+        {
+          "action": "OPEN_SHOP",
+          "npcId": "npc_ration_cook"
+        }
+      ],
+      "options": [
+        {
+          "label": "(look it over)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Grill's hot. Point at what you want.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grease-shined apron over a white tee",
+      "a limp paper cook's hat"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_ration_interior",
+  "hp": 50,
+  "hp_max": 50,
+  "id": "npc_ration_cook",
+  "name": "Dell Fry",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_drug_coffee",
+      "price": 6,
+      "stock": 40
+    },
+    {
+      "item_id": "item_beef_jerky",
+      "price": 9,
+      "stock": 30
+    },
+    {
+      "item_id": "item_bar_jerky",
+      "price": 5,
+      "stock": 30
+    },
+    {
+      "item_id": "item_energy_drink",
+      "price": 8,
+      "stock": 24
+    },
+    {
+      "item_id": "item_crushed_soda",
+      "price": 3,
+      "stock": 24
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Ration Nine",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_ration_interior"
+}

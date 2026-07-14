@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "The griddle hisses as someone flips something grey.",
+    "The coffee urn gurgles like it resents being awake."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2a2620",
+  "color": "#e8d8a0",
+  "created_by": null,
+  "description": "A long chrome-and-vinyl diner gone soft at the edges — cracked booths, a griddle that never fully cools, and a coffee urn that has seen the end of the world and kept pouring. A chalk menu on the wall promises CALORIES, HONESTLY PRICED.",
+  "exits": {
+    "south": "zone_district_920_908"
+  },
+  "flags": {
+    "building_name": "Ration Nine",
+    "claimable_asset": "restaurant",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_920_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_ration_interior",
+  "map_id": "map_interior_zone_ration_interior",
+  "marker": "RN",
+  "name": "Ration Nine",
+  "parent_zone": "zone_district_920_908",
+  "updated_at": "1783740000"
+}

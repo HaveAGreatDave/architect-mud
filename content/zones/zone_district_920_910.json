@@ -5,25 +5,30 @@
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "The face of Pawn & Pity — barred windows, a half-dead sign, and no questions. Whatever you lost is probably in the case out front. Ironside Street runs off to the west.",
   "exits": {
-    "east": "zone_district_921_910",
+    "east": "zone_fence_interior",
     "north": "zone_district_920_909",
     "south": "zone_district_920_911",
     "west": "zone_district_919_910"
   },
   "flags": {
+    "building_name": "Pawn & Pity",
+    "building_type": "fence",
     "district": "wasteland",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "scavenging_table_id": "scav_west_wastes",
+    "world_exit_zone": "zone_district_919_910"
   },
   "grid_x": 920,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_district_920_910",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "PP",
+  "name": "Pawn & Pity",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

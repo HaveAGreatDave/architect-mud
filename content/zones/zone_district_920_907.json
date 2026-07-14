@@ -5,24 +5,29 @@
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "The face of Bulk & Bond — a chem-supply depot stacked to the roofline with drums and double-bagged sacks, a yellow hazard chevron ringing the door. Ironside Street runs off to the west.",
   "exits": {
-    "east": "zone_district_921_907",
+    "east": "zone_chemsupply_interior",
     "north": "zone_district_920_906",
     "west": "zone_district_919_907"
   },
   "flags": {
+    "building_name": "Bulk & Bond Supply",
+    "building_type": "chem_supply",
     "district": "wasteland",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "scavenging_table_id": "scav_west_wastes",
+    "world_exit_zone": "zone_district_919_907"
   },
   "grid_x": 920,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_920_907",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "BB",
+  "name": "Bulk & Bond Supply",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

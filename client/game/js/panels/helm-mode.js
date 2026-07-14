@@ -25,6 +25,9 @@ export function helmSetSky(sky) { _helm?.ctrl?.setSky(sky); }
 export function helmSetWorld(rows, cx, cy) { _helm?.ctrl?.setWorld(rows, cx, cy); }
 export function helmSetContacts(list) { _helm?.ctrl?.setContacts(list); }
 export function helmEndTransit(gx, gy) { _helm?.ctrl?.endTransit(gx, gy); }
+// The server confirms a passage's true vector (direction + tile count) so the chase view glides her
+// the whole distance — fired for the telegraph AND a typed `sail`, so either path animates the helm.
+export function helmBeginTransit(dir, tiles, ms) { _helm?.ctrl?.beginTransit(dir, ms, ms, tiles); }
 
 export function ensureHelmStyles() {
   if (document.getElementById('helm-mode-styles')) return;
@@ -114,11 +117,13 @@ export function ensureHelmStyles() {
     .helm-readout.st .rv{ color:var(--hdim); text-shadow:none; }
     .helm-readout.st.busy .rv{ color:var(--stbd); text-shadow:0 0 7px color-mix(in srgb,var(--stbd) 55%,transparent); }
 
-    /* Wheel binnacle — the wheel straddles the console top edge, lower half behind the lip */
-    .helm-col{ position:absolute; left:50%; bottom:100%; transform:translate(-50%,52%); z-index:6;
+    /* Wheel binnacle — the wheel tucks DEEP into the console lip (most of it behind the face), so
+       only its top arc peeks above the bar and it never rises up over the ship in the chase view. */
+    .helm-col{ position:absolute; left:50%; bottom:100%; transform:translate(-50%,62%); z-index:6;
       display:flex; flex-direction:column; align-items:center; gap:3px; pointer-events:none; }
     .helm-col canvas{ pointer-events:auto; }
-    .helm-wheel{ width:calc(178px*var(--hs)); height:calc(178px*var(--hs)); filter:drop-shadow(0 10px 22px rgba(0,0,0,.8)); }
+    .helm-col .cap{ display:none; }   /* the COURSE cap sat in the sky above the wheel — drop it, the wheel is self-evident */
+    .helm-wheel{ width:calc(158px*var(--hs)); height:calc(158px*var(--hs)); filter:drop-shadow(0 10px 22px rgba(0,0,0,.8)); }
     .helm-col .cap{ font-family:var(--hmono); font-size:8px; letter-spacing:4px; color:color-mix(in srgb,var(--accent) 70%,var(--hdim)); text-transform:uppercase;
       background:rgba(4,7,11,.6); padding:1px 8px; border-radius:4px; }
 
@@ -332,7 +337,7 @@ export function openHelm(opts = {}) {
 
   // Restore an in-progress passage (helm opened mid-transit): lock + run out the remaining time,
   // seeding true progress from the full passage length so the world resumes part-slid (not from 0).
-  if (opts.transitMs > 0) { ctrl.beginTransit(HDG_TO_DIR[((Math.round(opts.heading || 0) % 360) + 360) % 360] || 'N', opts.transitMs, opts.transitTotal || opts.transitMs); setUnderway(true); }
+  if (opts.transitMs > 0) { ctrl.beginTransit(HDG_TO_DIR[((Math.round(opts.heading || 0) % 360) + 360) % 360] || 'N', opts.transitMs, opts.transitTotal || opts.transitMs, opts.transitTiles || 1); setUnderway(true); }
 
   // Live readouts (heading eases + the passage runs on a timer, so poll). The telegraph/wheel lock
   // tracks her actual under-way state, so a server-driven begin/arrive keeps the console in sync.
