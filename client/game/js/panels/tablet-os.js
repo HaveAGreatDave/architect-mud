@@ -2423,7 +2423,7 @@ function renderMap(d) {
   // under it — so the tablet panel itself never has to scroll (drag = pan, always).
   return `${renderMapCtl(d)}${renderMapBar(d)}<div class="tos-map-main">`
     + `<div class="tos-map-wrap">${grid}</div>`
-    + `<div class="tos-map-side">${renderMapLegend(mode)}`
+    + `<div class="tos-map-side">${tosIsMobile() ? '' : renderMapLegend(mode)}`
     + `<div class="tos-map-side-scroll">${renderMapBuildings(d)}`
     + `<div class="tos-map-detail" id="tos-map-detail">${renderMapDetail(d)}</div></div></div>`
     + `</div>`;
