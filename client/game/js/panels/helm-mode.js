@@ -250,20 +250,21 @@ export function openHelm(opts = {}) {
   // too, since those grow .helm-root). Two jobs:
   //   1. --hs: the SMALLER the pane (in EITHER axis), the smaller the whole helm station (console bar
   //      + wheel + telegraph shrink together) so the Echelon is never buried behind it.
-  //   2. Chase framing: the console eats the bottom band, so we clip the chase view to the WATER band
-  //      ABOVE it (sea.bottom = console height). The ship is drawn at canvas-centre, so this keeps her
-  //      centred in open water — never behind the dash — in EVERY panel state; only the band's HEIGHT
-  //      changes. Then we pitch by room: a short band tips DOWN (top-down, hull fills it), a tall
-  //      fullscreen band eases toward a level near-horizon chase.
+  //   2. Chase framing: the chase view ALWAYS fills the whole pane (full render height, so the hull
+  //      keeps its true 3D proportions — never squashed into a short canvas). The console is just an
+  //      opaque glass dash OVER the bottom of that view, so it clips the HUD, not the camera. We only
+  //      re-pitch by the water room ABOVE the dash: a cramped view tips DOWN (more top-down / 3⁄4 so
+  //      the whole hull reads clear of the dash), a roomy fullscreen view eases to a level chase.
   const rescale = () => {
     const w = root.clientWidth || 0, h = root.clientHeight || 0;
     const byH = (h - 150) / 560;   // ~1 at a comfortable height
     const byW = w / 1180;          // ~1 at the console's natural full width
     root.style.setProperty('--hs', String(Math.max(0.55, Math.min(1, Math.min(byH, byW))).toFixed(3)));
     const consoleH = consoleEl?.offsetHeight || 0;
-    const band = Math.max(80, h - consoleH);
-    sea.style.bottom = consoleH + 'px';
-    ctrl.setRestPitch(clampN(0.40 + (band - 320) * (0.14 - 0.40) / 320, 0.14, 0.40));
+    const band = Math.max(80, h - consoleH);   // open water above the dash — drives the framing pitch only
+    // Gentle 3⁄4-from-above chase (the fullscreen look), a touch more top-down when the water band is
+    // cramped so the hull still reads clear of the dash. Full render height keeps her 3D either way.
+    ctrl.setRestPitch(clampN(0.38 + (band - 300) * (0.20 - 0.38) / 360, 0.20, 0.38));
   };
   const ro = ('ResizeObserver' in window) ? new ResizeObserver(rescale) : null;
   ro ? ro.observe(root) : addEventListener('resize', rescale);
