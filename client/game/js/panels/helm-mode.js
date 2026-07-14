@@ -366,7 +366,9 @@ export function openHelm(opts = {}) {
     for (const [lab, deg] of STRIP_MARKS) {
       const off = ((deg - heading + 540) % 360) - 180;   // signed angle from the centred heading
       if (Math.abs(off) > WIN) continue;
-      const x = cx + off * pxDeg, lit = locked === lab;
+      // x = cx − off·px (NOT +): as she turns to starboard (heading climbing, the wheel spun right)
+      // the marks slide RIGHT, and to port they slide LEFT — the tape tracks the wheel's own hand.
+      const x = cx - off * pxDeg, lit = locked === lab;
       stripCtx.strokeStyle = lit ? '#bdf1f8' : 'rgba(150,170,185,0.5)'; stripCtx.lineWidth = lit ? 2 : 1;
       stripCtx.beginPath(); stripCtx.moveTo(x, h * 0.14); stripCtx.lineTo(x, h * 0.42); stripCtx.stroke();
       stripCtx.font = `700 ${Math.round(h * 0.34)}px 'DejaVu Sans Mono',monospace`;

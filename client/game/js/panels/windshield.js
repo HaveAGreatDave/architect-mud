@@ -4131,7 +4131,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   for (const it of items) {
     const alpha = it.alpha, bi = it.c.biome;
     if (it.c.mark === 'statue') { drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now); continue; }   // town-square monument + fountain
-    if (it.c.mark === 'yacht') { const sub = it.c.sub; drawYacht(ctx, cam, it.dx + (sub ? sub.x : 0), it.dy + (sub ? sub.y : 0), BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now, it.c.wake, it.c.heading, sun); continue; }   // the Echelon — a high-poly superyacht hull, sun-lit (wake/heading present only when she's under way; `sub` glides her sub-tile toward her destination across a passage)
+    if (it.c.mark === 'yacht') { const sub = it.c.sub, yx = it.dx + (sub ? sub.x : 0), yy = it.dy + (sub ? sub.y : 0); drawYacht(ctx, cam, yx, yy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now, it.c.wake, it.c.heading, sun); if (v.padDome) drawYachtPadDome(ctx, cam, yx, yy, (it.c.heading || 0) * Math.PI / 180, now, alpha, v.padDome.armed); continue; }   // the Echelon — a high-poly superyacht hull, sun-lit (wake/heading present only when she's under way; `sub` glides her sub-tile toward her destination across a passage). padDome = an auto-land guidance dome over her helipad, drawn for a nearby helicopter.
     if (it.c.kind === 'nofly') { draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7); continue; }
     if (bi === 'parkland') { drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
     if (bi === 'badlands') { if ((it.seed % 3) === 0) drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
@@ -4384,6 +4384,39 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading,
     }
     ctx.restore();
   }
+}
+
+// Auto-land guidance dome — a translucent holo-hemisphere hovering over the Echelon's aft
+// helipad, telling a nearby helicopter where to descend to be "grabbed" for the auto-land.
+// Drawn in the same yacht-local frame as drawYacht (pad centred at oy 0.28, deck z≈0.07), so
+// it rides the hull as she moves/turns. Reads FAINT CYAN as passive guidance; when `armed`
+// (the pilot is in the capture window) it flips to a brighter GREEN with a quicker pulse.
+function drawYachtPadDome(ctx, cam, dx, dy, hr, now, alpha, armed) {
+  const shr = Math.sin(hr), chr = Math.cos(hr);
+  const padOY = 0.28, R = 0.155, DH = 0.14, baseZ = 0.073;   // pad centre / dome radius / dome height / just above the pad surface
+  const P = (ox, oy, z) => cam.proj(dx - oy * shr + ox * chr, dy + oy * chr + ox * shr, z);
+  const pulse = 0.5 + 0.5 * Math.sin(now * (armed ? 0.007 : 0.003));
+  const col = armed ? '86,240,150' : '120,205,255';
+  const A = alpha * (armed ? 0.6 : 0.34);
+  // A ring of screen points at radius r, height z — null if any vertex crosses the lens.
+  const ring = (r, z, n = 26) => { const pts = []; for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, p = P(Math.cos(a) * r, padOY + Math.sin(a) * r, z); if (p.f <= 0.08) return null; pts.push(p); } return pts; };
+  const trace = (pts) => { if (!pts) return; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke(); };
+  ctx.save();
+  ctx.strokeStyle = `rgb(${col})`; ctx.fillStyle = `rgb(${col})`;
+  // Base disc on the pad — a soft translucent fill + a bright rim that pulses.
+  const base = ring(R, baseZ);
+  if (base) { ctx.globalAlpha = A * 0.22; ctx.beginPath(); base.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); }
+  ctx.lineWidth = 1.6; ctx.globalAlpha = A * (0.7 + 0.3 * pulse); trace(base);
+  // Latitude rings up the dome (radius shrinks, height climbs on a quarter-circle).
+  ctx.lineWidth = 1;
+  for (const lt of [0.38, 0.7]) { const z = baseZ + DH * Math.sin(lt * Math.PI / 2), r = R * Math.cos(lt * Math.PI / 2); ctx.globalAlpha = A * 0.55; trace(ring(r, z)); }
+  // Meridian half-arcs from rim to apex.
+  for (let m = 0; m < 4; m++) { const ang = m / 4 * Math.PI * 2, ca = Math.cos(ang), sa = Math.sin(ang), arc = []; let ok = true; for (let i = 0; i <= 10; i++) { const lt = i / 10, z = baseZ + DH * Math.sin(lt * Math.PI / 2), r = R * Math.cos(lt * Math.PI / 2), p = P(ca * r, padOY + sa * r, z); if (p.f <= 0.08) { ok = false; break; } arc.push(p); } if (ok) { ctx.globalAlpha = A * 0.5; trace(arc); } }
+  // Apex node + a downward "set down here" chevron stack that marches down onto the pad.
+  const apex = P(0, padOY, baseZ + DH);
+  if (apex.f > 0.08) { ctx.globalAlpha = A; ctx.beginPath(); ctx.arc(apex.sx, apex.sy, 2.4, 0, 7); ctx.fill(); }
+  if (armed) { ctx.lineWidth = 2; for (let k = 0; k < 3; k++) { const ph = ((now * 0.0016 + k / 3) % 1), z = baseZ + DH * 0.86 * (1 - ph), r = R * 0.34, cen = P(0, padOY, z), lp = P(-r, padOY, z), rp = P(r, padOY, z); if (cen.f > 0.08 && lp.f > 0.08 && rp.f > 0.08) { ctx.globalAlpha = A * (1 - ph) * 0.9; ctx.beginPath(); ctx.moveTo(lp.sx, lp.sy); ctx.lineTo(cen.sx, cen.sy); ctx.lineTo(rp.sx, rp.sy); ctx.stroke(); } } }
+  ctx.restore();
 }
 
 // The Echelon's wake — foam boiling off the transom and streaming astern (+y, toward the

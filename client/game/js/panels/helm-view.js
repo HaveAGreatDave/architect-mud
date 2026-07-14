@@ -169,14 +169,21 @@ export function openHelmChase(container, opts = {}) {
   };
   const audio = makeBoatAudio();
 
-  // Shortest-path ease of heading → headingTarget; returns whether she's still coming round.
+  // Ease heading → headingTarget the SAME rotational way the wheel was turned. Both are tracked
+  // UNBOUNDED (they wind past 360 / below 0), so the difference carries the wheel's real direction:
+  // spin the wheel right and headingTarget climbs, so she turns right — never the deceptively "short"
+  // way round. Callers that only know an absolute bearing (a server passage) rebase the target to the
+  // nearest equivalent first, so those still take the short route. Display normalizes with mod 360.
   function stepTurn(dt) {
-    let d = ((st.headingTarget - st.heading + 540) % 360) - 180;   // −180..180
+    const d = st.headingTarget - st.heading;
     const step = st.turnRate * dt;
     if (Math.abs(d) <= step) st.heading = st.headingTarget;
-    else st.heading = (st.heading + Math.sign(d) * step + 360) % 360;
+    else st.heading += Math.sign(d) * step;
     return st.heading !== st.headingTarget;
   }
+  // The value ≡ deg (mod 360) closest to the current unbounded heading — used to rebase an absolute
+  // bearing (server passage / reset) so she still comes about the short way to it.
+  const nearestEquiv = (deg) => deg + Math.round((st.heading - deg) / 360) * 360;
 
   function frame(now) {
     if (!st.alive) return;
@@ -205,7 +212,8 @@ export function openHelmChase(container, opts = {}) {
     if (st.spd < 0.004) st.spd = 0;
     if (!st.center.wake) st.center.wake = { spd: 0 };
     st.center.wake.spd = st.spd;
-    st.center.heading = st.heading;
+    const hdgN = ((st.heading % 360) + 360) % 360;   // heading winds unbounded; the renderer wants 0..360
+    st.center.heading = hdgN;
     audio.update(st.spd);
     st.seaScroll = (st.seaScroll || 0) + st.spd * dt * 11;   // along-heading drift so the swell streams hard past the hull under way — the main "we're moving" cue, scaled by throttle
     // Real passage progress: pan the whole world window sub-tile toward the destination (mapOffset)
@@ -238,7 +246,7 @@ export function openHelmChase(container, opts = {}) {
 
     paintWindshield(id, {
       external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1,
-      heading: st.heading, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: st.extZoom,
+      heading: hdgN, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: st.extZoom,
       height: 0, speed: st.spd, hour, weather, wxField: field, seaScroll: st.seaScroll || 0, contacts,
       map: st.map, mapCenter: { x: st.gx, y: st.gy }, mapOffset: st.mapOffset,
       acX: st.gx, acY: st.gy, biomeBelow: 'water', airport: 'default',
@@ -269,7 +277,7 @@ export function openHelmChase(container, opts = {}) {
     // the end. The server drives this (10-min passage) and confirms arrival via endTransit.
     beginTransit(dir, ms, total, tiles, cruise) {
       if (!DV[dir]) return false;
-      st.headingTarget = DEG[dir]; st.sailDir = dir; st.sailTiles = Math.max(1, tiles || 1);
+      st.headingTarget = nearestEquiv(DEG[dir]); st.sailDir = dir; st.sailTiles = Math.max(1, tiles || 1);   // rebase near current so she comes about the short way to the ordered course
       if (cruise > 0) st.cruise = Math.max(0.2, Math.min(1.2, cruise));   // the passage's bell (visual way); omitted ⇒ keep the default
       // `ms` = time remaining, `total` = the whole passage (defaults to ms for a fresh cast-off).
       // Seeding transitMs from the total makes sailT reflect TRUE progress, so a helm reopened mid-
@@ -331,12 +339,14 @@ export function openHelmChase(container, opts = {}) {
     // that notch (locked) and she settles exactly on it. Between notches she sits off-cardinal, locked
     // is false, and the throttle stays gated (readyDir null) until you seat the wheel in a notch.
     setCourse(deg) {
-      const norm = ((deg % 360) + 360) % 360;
-      st.courseDemand = norm;
-      const notch = (Math.round(norm / 45) * 45) % 360;
-      const off = Math.abs(((norm - notch + 540) % 360) - 180);
-      if (off <= LOCK_TOL) { st.locked = true; st.lockedDir = CARDINAL[notch]; st.headingTarget = notch; }
-      else { st.locked = false; st.lockedDir = null; st.headingTarget = norm; }
+      // `deg` arrives UNBOUNDED from the wheel (it winds with the handle), so keep the winding: the
+      // nearest notch and the free target are both computed in unbounded space, and headingTarget
+      // therefore climbs/falls the same way the wheel turned — turn right, she comes right, always.
+      st.courseDemand = deg;
+      const notch = Math.round(deg / 45) * 45;   // nearest rhumb, unbounded
+      const off = Math.abs(deg - notch);         // 0..22.5
+      if (off <= LOCK_TOL) { st.locked = true; st.lockedDir = CARDINAL[((notch % 360) + 360) % 360]; st.headingTarget = notch; }
+      else { st.locked = false; st.lockedDir = null; st.headingTarget = deg; }
     },
     setHour(h) { st.hour = h; },
     setWeather(w) { st.weather = (w || 'clear').toLowerCase(); st.wx.key = null; },
