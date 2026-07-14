@@ -227,6 +227,7 @@ function _pitchPlot(pitches, newestN) {
 export function createGamedayView(host) {
   let timers = [];
   let caption = '';          // last announcer line, retained across the shell rebuild
+  let pendingCaption = null; // Chip's line for the current at-bat, held until the hit lands
   let field = null;          // the persistent .gd-field element (tokens live here)
   let cardTimer = null;      // auto-dismiss for the Gameday-native jumbotron card
 
@@ -481,13 +482,34 @@ export function createGamedayView(host) {
       else if (p.out) { _sfx(SFX.out); if (p.kind === 'doubleplay') _t(150, () => _sfx(SFX.out)); }
       else _sfx(SFX.base);
     });
+
+    // Hold Chip's play-by-play (staged by setCaption on this same beat) until the batted
+    // ball has finished travelling, so his call lands as a reaction to the hit rather
+    // than preceding it. The previous at-bat's line lingers until then.
+    if (pendingCaption != null) {
+      const line = pendingCaption;
+      pendingCaption = null;
+      const ballFlight = !traj.batted ? 200
+        : traj.mode === 'homer' ? T_HOMER
+        : traj.mode === 'ground' ? T_THROW * 2
+        : T_FLY;
+      _t(outMs + ballFlight, () => _showCaption(line));
+    }
   }
 
-  // Chip's live play-by-play, forwarded from tv.js as broadcast lines arrive.
-  function setCaption(text) {
+  // Paint a line into the caption bar with the slide-in animation.
+  function _showCaption(text) {
     caption = String(text || '');
     const el = host && host.querySelector('.gd-cap-text');
     if (el) { el.textContent = caption; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); }
+  }
+
+  // Chip's live play-by-play, forwarded from tv.js as broadcast lines arrive. His line
+  // rides the beat and reaches us just BEFORE the `gameday` overlay that starts the
+  // animation, so DON'T paint it yet — stage it and let apply() hold it until the batted
+  // ball has finished its flight, so the call reads as a reaction to the hit.
+  function setCaption(text) {
+    pendingCaption = String(text || '');
   }
 
   // Gameday-native jumbotron card. The server fires the same `sportsfx` graphics that
@@ -534,6 +556,7 @@ export function createGamedayView(host) {
     if (host) host.innerHTML = '';
     field = null;
     caption = '';
+    pendingCaption = null;
   }
 
   return { apply, clear, setCaption, showIdle, showCard };
