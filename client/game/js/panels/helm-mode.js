@@ -81,8 +81,10 @@ export function ensureHelmStyles() {
     .helm-console::before{ content:''; position:absolute; left:0; right:0; top:1px; height:1px; pointer-events:none;
       background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--steel) 40%,transparent) 22%,color-mix(in srgb,var(--steel-hi) 75%,transparent) 50%,color-mix(in srgb,var(--steel) 40%,transparent) 78%,transparent 96%);
       opacity:.7; }
-    .helm-console-face{ position:relative; display:grid; grid-template-columns:minmax(calc(190px*var(--hs)),1fr) minmax(calc(220px*var(--hs)),320px) 1fr; align-items:center; gap:calc(22px*var(--hs));
-      padding:calc(14px*var(--hs)) calc(26px*var(--hs)) calc(15px*var(--hs)); max-width:1180px; margin:0 auto; }
+    /* nav+position | gauges | WHEEL | telegraph — the wheel is now a normal in-bar column, so the
+       whole area above the console is clear water. */
+    .helm-console-face{ position:relative; display:grid; grid-template-columns:minmax(calc(180px*var(--hs)),1fr) minmax(calc(210px*var(--hs)),300px) auto auto; align-items:center; justify-items:center; gap:calc(20px*var(--hs));
+      padding:calc(10px*var(--hs)) calc(26px*var(--hs)) calc(11px*var(--hs)); max-width:1280px; margin:0 auto; }
     /* faint carbon-fibre weave milled into the console face, under the brushed grain */
     .helm-console-face::before{ content:''; position:absolute; inset:0; pointer-events:none; opacity:.14;
       background:var(--hcarbon); background-size:6px 6px,6px 6px; mix-blend-mode:overlay; }
@@ -120,13 +122,12 @@ export function ensureHelmStyles() {
     .helm-readout.st .rv{ color:var(--hdim); text-shadow:none; }
     .helm-readout.st.busy .rv{ color:var(--stbd); text-shadow:0 0 7px color-mix(in srgb,var(--stbd) 55%,transparent); }
 
-    /* Wheel binnacle — the wheel tucks DEEP into the console lip (most of it behind the face), so
-       only its top arc peeks above the bar and it never rises up over the ship in the chase view. */
-    .helm-col{ position:absolute; left:50%; bottom:100%; transform:translate(-50%,62%); z-index:6;
-      display:flex; flex-direction:column; align-items:center; gap:3px; pointer-events:none; }
+    /* Ship's wheel — a normal column INSIDE the console bar (no longer a floating binnacle above it),
+       so it can never rise into the water/ship view. Sized to sit within the bar's height. */
+    .helm-col{ display:flex; flex-direction:column; align-items:center; gap:3px; }
     .helm-col canvas{ pointer-events:auto; }
-    .helm-col .cap{ display:none; }   /* the COURSE cap sat in the sky above the wheel — drop it, the wheel is self-evident */
-    .helm-wheel{ width:calc(158px*var(--hs)); height:calc(158px*var(--hs)); filter:drop-shadow(0 10px 22px rgba(0,0,0,.8)); }
+    .helm-col .cap{ display:none; }   /* the COURSE cap is redundant — the wheel is self-evident */
+    .helm-wheel{ width:calc(118px*var(--hs)); height:calc(118px*var(--hs)); filter:drop-shadow(0 6px 14px rgba(0,0,0,.7)); }
     .helm-col .cap{ font-family:var(--hmono); font-size:8px; letter-spacing:4px; color:color-mix(in srgb,var(--accent) 70%,var(--hdim)); text-transform:uppercase;
       background:rgba(4,7,11,.6); padding:1px 8px; border-radius:4px; }
 
@@ -153,9 +154,10 @@ export function ensureHelmStyles() {
     .helm-tele.warn .helm-tele-label{ color:#ff8a7a; }
 
     @media (max-width:760px){
-      .helm-console-face{ grid-template-columns:1fr auto; grid-template-rows:auto auto; gap:12px 18px; padding:12px 16px 13px; }
-      .helm-nav{ order:1; } .helm-gauges{ order:3; grid-column:1 / -1; grid-template-columns:repeat(4,1fr); } .helm-tele{ order:2; }
-      .helm-wheel{ width:150px; height:150px; } .helm-col{ transform:translate(-50%,46%); }
+      .helm-console-face{ grid-template-columns:auto 1fr; grid-template-rows:auto auto; gap:10px 16px; padding:10px 16px 11px; }
+      .helm-col{ order:1; } .helm-nav{ order:2; } .helm-tele{ order:3; }
+      .helm-gauges{ order:4; grid-column:1 / -1; grid-template-columns:repeat(4,1fr); }
+      .helm-wheel{ width:104px; height:104px; }
       .helm-nav-scope{ width:112px; height:88px; } }`;
   document.head.appendChild(s);
 }
@@ -201,6 +203,12 @@ export function openHelm(opts = {}) {
               <div class="helm-readout eta idle"><span class="rk">ETA</span><span class="rv" data-eta>—</span></div>
               <div class="helm-readout st"><span class="rk">Status</span><span class="rv sm" data-status>MOORED</span></div>
             </div>
+            <!-- Ship's wheel — docked INSIDE the console (a normal column), so it never rises into
+                 the water/ship view above the bar. -->
+            <div class="helm-col">
+              <canvas class="helm-wheel"></canvas>
+              <div class="cap">Course</div>
+            </div>
             <!-- Engine telegraph -->
             <div class="helm-tele" data-tele>
               <div class="helm-tele-track">
@@ -211,11 +219,6 @@ export function openHelm(opts = {}) {
               <div class="helm-tele-label" data-telelabel>Engine Telegraph</div>
             </div>
           </div>
-        </div>
-        <!-- Wheel sits in a binnacle straddling the console lip — its lower half tucks behind. -->
-        <div class="helm-col">
-          <canvas class="helm-wheel"></canvas>
-          <div class="cap">Course</div>
         </div>
       </div>
     </div>`;

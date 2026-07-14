@@ -51,7 +51,7 @@ const CRUISE = 0.40;   // steady making-way throttle held across a passage (0..1
 // separate them VERTICALLY: a LOW pitch rides the eye nearly level with her, framing her up near the
 // horizon — well ABOVE the wheel that straddles the console lip — while the strong yaw gives the
 // rear-quarter flank angle. zoom pulls back so the whole hull sits clear in the upper water band.
-const REST = { yaw: 34, pitch: 0.17, zoom: 1.7 };
+const REST = { yaw: 34, pitch: 0.12, zoom: 1.7 };
 
 // A proper (not flat) cloud field, synthesised from the live headline weather so the windshield's
 // fly-through volumetric deck has cells to render — clear skies pass null (its procedural fair-
