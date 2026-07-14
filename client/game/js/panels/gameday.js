@@ -227,7 +227,7 @@ function _pitchPlot(pitches, newestN) {
 export function createGamedayView(host) {
   let timers = [];
   let caption = '';          // last announcer line, retained across the shell rebuild
-  let pendingCaption = null; // Chip's line for the current at-bat, held until the hit lands
+  let pendingCaption = null; // { text, speak } for the current at-bat, held until the hit lands
   let field = null;          // the persistent .gd-field element (tokens live here)
   let cardTimer = null;      // auto-dismiss for the Gameday-native jumbotron card
 
@@ -484,16 +484,17 @@ export function createGamedayView(host) {
     });
 
     // Hold Chip's play-by-play (staged by setCaption on this same beat) until the batted
-    // ball has finished travelling, so his call lands as a reaction to the hit rather
-    // than preceding it. The previous at-bat's line lingers until then.
+    // ball has finished travelling, then reveal it AND start his voice together, so the
+    // call lands as a reaction to the hit rather than preceding it. The previous at-bat's
+    // line lingers until then.
     if (pendingCaption != null) {
-      const line = pendingCaption;
+      const pend = pendingCaption;
       pendingCaption = null;
       const ballFlight = !traj.batted ? 200
         : traj.mode === 'homer' ? T_HOMER
         : traj.mode === 'ground' ? T_THROW * 2
         : T_FLY;
-      _t(outMs + ballFlight, () => _showCaption(line));
+      _t(outMs + ballFlight, () => { _showCaption(pend.text); if (pend.speak) pend.speak(); });
     }
   }
 
@@ -504,12 +505,20 @@ export function createGamedayView(host) {
     if (el) { el.textContent = caption; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); }
   }
 
-  // Chip's live play-by-play, forwarded from tv.js as broadcast lines arrive. His line
-  // rides the beat and reaches us just BEFORE the `gameday` overlay that starts the
-  // animation, so DON'T paint it yet — stage it and let apply() hold it until the batted
-  // ball has finished its flight, so the call reads as a reaction to the hit.
-  function setCaption(text) {
-    pendingCaption = String(text || '');
+  // Chip's line, forwarded from tv.js as broadcast lines arrive. tv.js hands us the
+  // caption text plus a `speak` thunk (the formant voice), and we start both together.
+  //   held (a play-by-play line): stage it — apply() reveals + speaks it once the batted
+  //     ball has finished its flight, so the call reads as a reaction to the hit. His
+  //     line rides the beat just BEFORE the `gameday` overlay that starts the animation.
+  //   not held (a between-play line): show + speak the moment he says it, not to an event.
+  function setCaption(text, opts) {
+    const speak = opts && opts.speak;
+    if (opts && opts.held) {
+      pendingCaption = { text: String(text || ''), speak };
+    } else {
+      _showCaption(text);
+      if (speak) speak();
+    }
   }
 
   // Gameday-native jumbotron card. The server fires the same `sportsfx` graphics that

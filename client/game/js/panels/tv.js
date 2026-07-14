@@ -24,6 +24,12 @@ function _tvColorizeNpcSay(html) {
 let _lastSpeakAt = 0;
 let _speakWindow = 5;   // fallback: estimated seconds between spoken lines
 export function tvSpeak(rawText, style, windowSec) {
+  // While the Gameday view is open it owns Chip's voice, starting it exactly when his
+  // caption is displayed (a play-by-play line waits for the hit to land). Let it drive.
+  if (_gamedayOpen && _gamedayView) return;
+  _speakNow(rawText, style, windowSec);
+}
+function _speakNow(rawText, style, windowSec) {
   if (!_readAloud || !rawText) return;
   if (style && style !== 'raw' && style !== 'emote' && style !== 'narrate' && style !== 'system') return;
   const strip = s => s.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();  // drop markup/bug tags
@@ -877,7 +883,7 @@ function _clearTvMessages() {
 
 export function clearTvMessages() { _clearTvMessages(); }
 
-export function appendTvMessage(text, style, duration) {
+export function appendTvMessage(text, style, duration, hasGameday) {
   const container = document.getElementById('tv-messages');
   if (!container) return;
 
@@ -985,11 +991,13 @@ export function appendTvMessage(text, style, duration) {
     });
   } else {
     el.innerHTML = _tvColorizeNpcSay(renderMarkup(text));
-    // Mirror Chip's spoken line into the Gameday caption bar while that view is open
-    // (the text rides this broadcast message, separate from the gameday overlay).
+    // While the Gameday view is open it owns Chip's caption AND his voice, so the two
+    // start together. A play-by-play line (hasGameday) is held until the ball lands; a
+    // between-play line shows and speaks the moment it airs. The speak thunk carries the
+    // raw text (with the "Name says" prefix) so the voice still seeds off the narrator.
     if (_gamedayOpen && _gamedayView) {
       const plain = String(text).replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
-      if (plain) _gamedayView.setCaption(plain);
+      if (plain) _gamedayView.setCaption(plain, { speak: () => _speakNow(text, style, duration), held: !!hasGameday });
     }
   }
   container.appendChild(el);

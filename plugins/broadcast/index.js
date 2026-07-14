@@ -2729,7 +2729,7 @@ async function broadcastTick() {
 
       for (const player of players) {
         if (tvWatchers.get(player.id) === channelId) {
-          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}) });
+          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
           if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song });
           if (isSample) sendToPlayer(player.id, { type: 'audio_sample', def: result.sample });
           if (scorebugOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });

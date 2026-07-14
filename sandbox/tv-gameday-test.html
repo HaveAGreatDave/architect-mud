@@ -80,7 +80,10 @@
     let i = 0, cardT = null;
     const step = () => {
       const p = PLAYS[i % PLAYS.length];
-      view.apply(p); view.setCaption(p.caption || '');
+      // Match production order: stage Chip's held play-by-play (with its voice) first,
+      // then start the animation — apply() reveals + speaks it when the hit lands.
+      view.setCaption(p.caption || '', { held: true, speak: () => window.AudioEngine?.speak?.(p.caption || '', { seed: 'Chip Vega' }) });
+      view.apply(p);
       if (cardT) clearTimeout(cardT);
       if (p.card) cardT = setTimeout(() => view.showCard(p.card), 3400);   // fires ~when the call lands
       i++;
