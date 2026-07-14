@@ -15,7 +15,6 @@
     "district": "wasteland",
     "icon": "road_e",
     "intro_lore": "Ironside Street is as close to neutral ground as the district keeps — a sagging stretch of broken kerb where every route in and out of the wastes has to pass, and nobody's yet managed to hold it. You'll cross it a hundred times; the trick is making it a hundred and one.",
-    "no_spawn": true,
     "planner": "bp_district",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true
