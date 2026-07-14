@@ -88,7 +88,7 @@
   ],
   "death_message": "The clonejacker drops what they lifted and folds over the pile, wheezing.",
   "description": "A twitchy opportunist in a stolen vat-tech coat two sizes too big, pockets bulging with other people’s starter kits. Loiters by the birth-doors the way a gull works a fry stand.",
-  "dodge": 1,
+  "dodge": 0,
   "faction": null,
   "flags": {
     "attacks_npcs": false,

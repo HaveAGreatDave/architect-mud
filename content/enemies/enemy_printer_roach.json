@@ -79,7 +79,7 @@
   "butcher_table": [],
   "death_message": "The roach pops with a wet electrical crackle and stops twitching.",
   "description": "A skittering thing the size of a boot, half chitin and half salvaged printer guts, antennae twitching toward the warmth of anything with a battery in it.",
-  "dodge": 3,
+  "dodge": 0,
   "faction": null,
   "flags": {
     "attacks_npcs": false,
