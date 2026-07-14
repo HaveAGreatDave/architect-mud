@@ -57,8 +57,8 @@ export function ensureHelmStyles() {
     /* The console: a brass-railed glass dash across the bottom, wheel centred, instruments left,
        engine telegraph right — a bridge helm station, not just a floating wheel. */
     .helm-dash{ position:absolute; left:0; right:0; bottom:0; z-index:5; display:grid; grid-template-columns:1fr auto 1fr; align-items:end; gap:18px;
-      padding:20px 22px calc(16px + env(safe-area-inset-bottom));
-      background:linear-gradient(180deg,rgba(6,10,14,0) 0%,rgba(6,10,14,.74) 30%,rgba(3,6,9,.95) 100%);
+      padding:10px 22px calc(12px + env(safe-area-inset-bottom));
+      background:linear-gradient(180deg,rgba(6,10,14,0) 0%,rgba(6,10,14,.5) 52%,rgba(3,6,9,.9) 100%);
       border-top:2px solid transparent;
       border-image:linear-gradient(90deg,transparent,var(--brass) 18%,var(--accent-hi) 50%,var(--brass) 82%,transparent) 1;
       box-shadow:inset 0 2px 0 rgba(0,0,0,.6); }
@@ -71,7 +71,7 @@ export function ensureHelmStyles() {
     .helm-cell.st .v{ color:var(--hdim); } .helm-cell.st.busy .v{ color:var(--stbd); }
     .helm-cell.eta .v{ color:var(--accent-hi); } .helm-cell.eta.idle .v{ color:var(--hdim); }
     .helm-col{ display:flex; flex-direction:column; align-items:center; gap:6px; }
-    .helm-wheel{ width:248px; height:248px; filter:drop-shadow(0 10px 24px rgba(0,0,0,.7)); }
+    .helm-wheel{ width:172px; height:172px; filter:drop-shadow(0 8px 18px rgba(0,0,0,.7)); }
     .helm-col .cap{ font-family:var(--hmono); font-size:9px; letter-spacing:3px; color:var(--hdim); text-transform:uppercase; }
     /* Engine telegraph — a brass-housed lever in a slot. Drag the handle up to AHEAD to engage;
        it pins there for the passage and springs back to STOP on arrival. */
@@ -120,6 +120,7 @@ export function openHelm(opts = {}) {
       <div class="helm-chips">
         <span class="helm-chip"><b data-wx>CLEAR</b></span>
         <span class="helm-chip"><b data-time>--:--</b></span>
+        <button class="helm-icon" data-hide title="hide the log — more view">⊟</button>
         <button class="helm-icon" data-fs title="fullscreen">⛶</button>
         <button class="helm-icon exit" data-exit title="leave the helm">✕</button>
       </div>
@@ -195,7 +196,12 @@ export function openHelm(opts = {}) {
   const upH = () => { drag = false; }; addEventListener('pointerup', upH);
   sea.addEventListener('wheel', (e) => { e.preventDefault(); ctrl.zoom(e.deltaY > 0 ? 0.08 : -0.08); }, { passive: false });
 
-  q('[data-fs]').addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen(); else root.requestFullscreen?.().catch(() => {}); });
+  // Fullscreen / hide-panel — the SAME body-class mechanism the flight sim uses (styles.css):
+  // the helm grows to fill the output column (⛶ also folds the command box, ⊟ keeps it) instead
+  // of an OS-fullscreen overlay. Cleared on close.
+  const fsBtn = q('[data-fs]'), hideBtn = q('[data-hide]');
+  fsBtn.addEventListener('click', () => { const on = document.body.classList.toggle('helm-fullscreen'); fsBtn.classList.toggle('on', on); if (on) { document.body.classList.remove('helm-hidepanel'); hideBtn.classList.remove('on'); } });
+  hideBtn.addEventListener('click', () => { const on = document.body.classList.toggle('helm-hidepanel'); hideBtn.classList.toggle('on', on); if (on) { document.body.classList.remove('helm-fullscreen'); fsBtn.classList.remove('on'); } });
   q('[data-exit]').addEventListener('click', () => { closeHelm(); onExit(); });
 
   // Keyboard: Esc exits. (Course is the wheel; the throttle is the telegraph — both are grab-and-drag.)
@@ -237,7 +243,7 @@ export function closeHelm() {
   removeEventListener('keydown', h.keyH);
   removeEventListener('pointermove', h.teleMove);
   removeEventListener('pointerup', h.teleUp);
-  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  document.body.classList.remove('helm-fullscreen', 'helm-hidepanel');
   try { h.wheel?.destroy(); } catch {}
   try { h.ctrl?.destroy(); } catch {}
   if (h.mount) h.mount.innerHTML = '';

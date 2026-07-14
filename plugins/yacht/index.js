@@ -297,6 +297,7 @@ async function arriveEchelon() {
   for (const zid of [EXTERIOR, 'zone_echelon_bridge', 'zone_echelon_stern', 'zone_echelon_foyer']) {
     bc?.(zid, { type: 'zone_event', message: 'The Echelon settles at her new position, engines easing back to idle.' }, null);
   }
+  broadcastSettled(bc);   // let the making-way roar fall away everywhere aboard
   // Re-centre every open helm's chase view on the new tile: the real world window (the city/
   // shoreline she's now amongst), plus the authoritative position that releases the console.
   const map = flightStateMod?.yachtHelmWindow?.(toX, toY) || null;
@@ -317,6 +318,40 @@ function pushHelmLive() {
   }
 }
 setInterval(pushHelmLive, 15_000);
+
+// Walking off the bridge closes the helm at once (you can only steer from the bridge) — don't wait
+// for the 15s prune. The client `helm_close` hands the pane back to the room view.
+on('zone.entered', ({ actor, zone }) => {
+  if (!actor?.id || !helmViewers.has(actor.id)) return;
+  if (getZone(zone)?.flags?.echelon_bridge) return;   // still on the bridge — keep the console up
+  helmViewers.delete(actor.id);
+  sendToPlayer(actor.id, { type: 'helm_close' });
+});
+
+// ── Engine audio: the making-way roar, heard through the whole ship ───────────
+// Every yacht zone hears the engines while she's under way, roaring to life then settling — but at
+// a per-zone loudness: full in the engine room, muted in the owner's suite, mid everywhere else.
+const yachtZones = () => [...world.zones.values()].filter(z => z.flags?.yacht);
+function engineLevelFor(z) {
+  const id = z.id || '';
+  if (z.flags?.echelon_engine || z.flags?.echelon_engineering || /engine|engineering/.test(id)) return 1.0;
+  if (z.flags?.echelon_suite || /suite|boudoir/.test(id)) return 0.22;   // quieter in the suite
+  return 0.55;
+}
+function broadcastUnderway(bc, durationMs) {
+  for (const z of yachtZones()) bc?.(z.id, { type: 'yacht_underway', level: engineLevelFor(z), durationMs }, null);
+}
+function broadcastSettled(bc) {
+  for (const z of yachtZones()) bc?.(z.id, { type: 'yacht_settled' }, null);
+}
+// Entering a yacht zone mid-passage picks up that zone's roar level (so walking from the deck down
+// into the engine room gets louder, and into the suite quieter, without waiting for the next sail).
+on('zone.entered', ({ actor, zone }) => {
+  if (!actor?.id || !transit) return;
+  const z = getZone(zone);
+  if (!z?.flags?.yacht) return;
+  sendToPlayer(actor.id, { type: 'yacht_underway', level: engineLevelFor(z), durationMs: transitLeft() });
+});
 
 async function cmdSail(args, raw, player, broadcast) {
   if (player.role !== 'admin') return ADMIN_ONLY;
@@ -358,11 +393,9 @@ async function cmdSail(args, raw, player, broadcast) {
   for (const zid of [EXTERIOR, 'zone_echelon_bridge', 'zone_echelon_stern', 'zone_echelon_foyer']) {
     bc?.(zid, { type: 'zone_event', message: 'The deck leans as the Echelon comes about and gets underway.' }, player.id);
   }
-  // Cue the client ambience: swell the engine-room rumble (and deck wash) for everyone aboard
-  // while she's making way. The client decays it back to idle over the making-way window.
-  for (const zid of ['zone_echelon_engine', 'zone_echelon_engineering', EXTERIOR, 'zone_echelon_helipad', 'zone_echelon_stern', 'zone_echelon_bridge', 'zone_echelon_foyer']) {
-    bc?.(zid, { type: 'yacht_underway' }, null);
-  }
+  // Cue the client ambience: the engines roar to life for everyone aboard and hold for the whole
+  // passage, per-zone loud→muted; the client settles them on arrival (broadcastSettled).
+  broadcastUnderway(bc, SAIL_TRANSIT_MS);
   return { type: 'system', message: `You engage the throttle ${dirWord}. The Echelon leans into her turn and gets underway across the Basin — she'll reach ${tx}, ${ty} in about ten minutes.` };
 }
 
@@ -430,6 +463,12 @@ async function cmdHelmConsole(args, raw, player) {
   if (!ext) return { type: 'error', message: 'The Echelon is not on the water right now.' };
   if (!getZone(player.current_zone)?.flags?.echelon_bridge) {
     return { type: 'error', message: 'You can only take the helm from her bridge.' };
+  }
+  // `helm` toggles: a second call while the console is up steps back from it (closes the client view).
+  if (helmViewers.has(player.id)) {
+    helmViewers.delete(player.id);
+    sendToPlayer(player.id, { type: 'helm_close' });
+    return { type: 'system', message: 'You step back from the helm.' };
   }
   // Open already-underway (heading = her passage's course) so the console restores the lock + ETA;
   // hand over the live sky (real weather field) up front, then pushHelmLive keeps it current.

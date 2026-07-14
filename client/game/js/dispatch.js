@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
-import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
+import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors } from './panels/environment.js';
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
 import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
@@ -30,7 +30,7 @@ import { openFishing, armFishFight } from './panels/fishing.js';
 import { abortMacros } from './panels/smartbar-macros.js';
 import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmEndTransit } from './panels/helm-mode.js';
-import { setYachtAmbience, yachtUnderway } from './panels/yacht-ambience.js';
+import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
@@ -253,7 +253,8 @@ const handlers = {
   zone_event: (() => {
     let _lookTimer = null;
     return (msg) => {
-      appendHtml(msg.message, 'zone-event');
+      // A refresh-only event (no message) just re-looks the room — don't print a blank line.
+      if (msg.message) appendHtml(msg.message, 'zone-event');
       // Grid power cut: the server tags the cutout line with class="power-out".
       // Arm the flicker + pop and refresh brightness now, don't wait for the look debounce.
       if (msg.message && msg.message.includes('power-out')) { signalPowerOut(); refreshZoneVisibility(); }
@@ -555,6 +556,14 @@ const handlers = {
     appendHtml(msg.message, 'help');
   },
   gps_route: (msg) => {
+    // A background quest re-plot (routeToObjective/routeToTurnIn: continueOnArrival,
+    // no prompt, no autostart) must not hijack a manual `gps` walk already in progress.
+    // Replacing the route mid-walk would sail the player past their chosen one-shot
+    // destination toward the quest objective — and, being a "continuing" leg, never
+    // stop. Let the manual walk reach its target; the quest route re-plots on the next
+    // quest event, by which point the player is standing still.
+    const questReplot = msg.continueOnArrival === true && !msg.promptAutoWalk && !msg.autostart;
+    if (questReplot && isManualAutoWalkInProgress()) return;
     if (msg.path) setGpsRoute(msg.path, msg.dirs);
     // Whether arriving should keep auto-walk armed for a following leg. Only routes
     // that declare it change the setting — an in-progress reroute omits it, so a quest
@@ -715,12 +724,15 @@ const handlers = {
   // Echelon helm console — takes over the client like the flight sim. Engaging the telegraph fires
   // the real `sail`; the ✕/Esc exit closes it and re-looks so the room description comes back cleanly.
   // `sky` seeds the real sim weather field; `transitMs` restores the lock if opened mid-passage.
-  helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, sky: msg.sky, map: msg.map, transitMs: msg.transitMs, transitTotal: msg.transitTotal, onSail: (dir) => sendCmdSilent('sail ' + dir), onExit: () => sendCmdSilent('look') }); },
+  // ✕/Esc exit → `helm` toggles the server-side console closed (drops us from the viewer set), so a
+  // later `helm` re-opens cleanly; the server's helm_close hands the pane back with a `look`.
+  helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, sky: msg.sky, map: msg.map, transitMs: msg.transitMs, transitTotal: msg.transitTotal, onSail: (dir) => sendCmdSilent('sail ' + dir), onExit: () => sendCmdSilent('helm') }); },
   helm_close: () => { closeHelm(); sendCmdSilent('look'); },
   helm_sky: (msg) => { if (isHelmActive()) helmSetSky(msg.sky); },   // live sim weather field, streamed like the flight sim's
   // Passage complete → re-centre the chase view on the new tile's real world window, then unlock.
   helm_arrived: (msg) => { if (!isHelmActive()) return; if (msg.map) helmSetWorld(msg.map, msg.gx, msg.gy); helmEndTransit(msg.gx, msg.gy); },
-  yacht_underway: () => { yachtUnderway(); },   // swell the engine-room rumble while she makes way
+  yacht_underway: (msg) => { yachtUnderway(msg.level, msg.durationMs); },   // roar to life for the passage, at this zone's loudness
+  yacht_settled: () => { yachtSettled(); },   // she's arrived — let the engine roar fall away
   flight_ctx: (msg) => { flightSimContext(msg); },
   flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)
   flight_aasites: (msg) => { flightSimAASites(msg); },     // active ground AA emplacements → 3D turret models

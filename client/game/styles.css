@@ -412,6 +412,21 @@ body.fsim-hidepanel .fsim-view { height: auto; flex: 1 1 auto; min-height: 0; }
 body.fsim-hidepanel #output,
 body.fsim-hidepanel #look-resize-handle { display: none; }
 
+/* Echelon helm — the SAME fullscreen / hide-panel mechanism as the flight sim, so the helm
+   console grows to fill the output column (not an OS-fullscreen overlay). Cleared when the helm
+   closes. ⛶ folds the command box too; ⊟ keeps it so you can still type. */
+body.helm-fullscreen #area-pane,
+body.helm-hidepanel #area-pane { max-height: none; flex: 1 1 auto; }
+body.helm-fullscreen #area-content,
+body.helm-hidepanel #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
+body.helm-fullscreen .helm-root,
+body.helm-hidepanel .helm-root { flex: 1 1 auto; min-height: 0; height: auto; }
+body.helm-fullscreen #output,
+body.helm-fullscreen #look-resize-handle,
+body.helm-fullscreen #bottom-input-wrap { display: none; }
+body.helm-hidepanel #output,
+body.helm-hidepanel #look-resize-handle { display: none; }
+
 /* Hangar bay fullscreen / hide-panel: the 3D hangar app mounts in #area-pane exactly
    like the flight sim, so it gets the same two immersive layouts — ⛶ fullscreen (pane
    fills the column, log + command box folded away) and ⊟ hide-panel (log gone, command
