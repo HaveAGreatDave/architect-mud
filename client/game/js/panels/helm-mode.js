@@ -13,10 +13,9 @@
 import { openHelmChase } from './helm-view.js';
 import { createHelmWheel } from './helm-wheel.js';
 
-// One tile is a 90-second passage (mirrors SAIL_TRANSIT_MS server-side). The console locks for the
-// full passage; the server's helm_arrived releases it precisely, this is the local fallback timer.
-const HELM_TRANSIT_MS = 90_000;
-
+// The passage length is now the server's authoritative `ms` (distance × the throttle bell), streamed
+// on helm_underway; the telegraph derives a local placeholder timer from the same bell math and the
+// server's helm_arrived releases the lock precisely.
 let _helm = null;
 export function isHelmActive() { return !!_helm; }
 // The server streams the live sim sky (real weather field) while the helm is open, and confirms an
@@ -27,7 +26,7 @@ export function helmSetContacts(list) { _helm?.ctrl?.setContacts(list); }
 export function helmEndTransit(gx, gy) { _helm?.ctrl?.endTransit(gx, gy); }
 // The server confirms a passage's true vector (direction + tile count) so the chase view glides her
 // the whole distance — fired for the telegraph AND a typed `sail`, so either path animates the helm.
-export function helmBeginTransit(dir, tiles, ms) { _helm?.ctrl?.beginTransit(dir, ms, ms, tiles); }
+export function helmBeginTransit(dir, tiles, ms, cruise) { _helm?.ctrl?.beginTransit(dir, ms, ms, tiles, cruise); }
 
 export function ensureHelmStyles() {
   // Reuse the tag if present, but ALWAYS rewrite its content — never early-return. A stale style
@@ -194,7 +193,7 @@ export function openHelm(opts = {}) {
       <div class="helm-chips">
         <span class="helm-chip"><b data-wx>CLEAR</b></span>
         <span class="helm-chip"><b data-time>--:--</b></span>
-        <button class="helm-icon" data-hide title="hide the log — more view">⊟</button>
+        <button class="helm-icon" data-hide title="compact the console">⊟</button>
         <button class="helm-icon" data-fs title="fullscreen">⛶</button>
         <button class="helm-icon exit" data-exit title="leave the helm">✕</button>
       </div>
@@ -255,11 +254,13 @@ export function openHelm(opts = {}) {
   //      opaque glass dash OVER the bottom of that view, so it clips the HUD, not the camera. We only
   //      re-pitch by the water room ABOVE the dash: a cramped view tips DOWN (more top-down / 3⁄4 so
   //      the whole hull reads clear of the dash), a roomy fullscreen view eases to a level chase.
+  let compact = false;   // the ⊟ toggle — shrinks the console + pins it low, WITHOUT touching the camera
   const rescale = () => {
     const w = root.clientWidth || 0, h = root.clientHeight || 0;
     const byH = (h - 150) / 560;   // ~1 at a comfortable height
     const byW = w / 1180;          // ~1 at the console's natural full width
-    root.style.setProperty('--hs', String(Math.max(0.55, Math.min(1, Math.min(byH, byW))).toFixed(3)));
+    const base = Math.max(0.55, Math.min(1, Math.min(byH, byW)));
+    root.style.setProperty('--hs', (base * (compact ? 0.6 : 1)).toFixed(3));   // compact just scales the dash down; the chase view is full-pane regardless
     const consoleH = consoleEl?.offsetHeight || 0;
     const band = Math.max(80, h - consoleH);   // open water above the dash — drives the framing pitch only
     // Gentle 3⁄4-from-above chase (the fullscreen look), a touch more top-down when the water band is
@@ -328,28 +329,36 @@ export function openHelm(opts = {}) {
   }
   navRaf = requestAnimationFrame(drawNav);
 
-  // ── Engine telegraph (the throttle) ──────────────────────────────────────────
-  // Drag the handle up to AHEAD to engage: she gets underway and the console pins for the whole
-  // ten-minute passage (wheel + telegraph locked). It springs back to STOP the moment she arrives.
+  // ── Engine telegraph (a real variable throttle) ───────────────────────────────
+  // The knob's HEIGHT is the bell: push it up to get underway, and the higher you push the harder she
+  // steams — a bigger boiling wake AND a shorter passage (the server scales trip time by the bell, so
+  // Full Ahead reaches the same tile in a fraction of a Dead-Slow passage). It holds where you set it
+  // while under way and springs to STOP the moment she arrives.
   const tele = q('[data-tele]'), knob = q('[data-knob]'), track = q('.helm-tele-track'), teleLabel = q('[data-telelabel]');
   const KNOBH = 34, PAD = 8;
+  const MS_PER_TILE = (t) => 3600 + (1000 - 3600) * t;   // mirrors the server bell (local placeholder timing only)
+  const cruiseFor = (t) => 0.35 + 0.65 * t;                // mirrors the server's visual bell (wake/water/knots)
+  const throttleFor = (c) => Math.max(0, Math.min(1, (c - 0.35) / 0.65));   // invert: cruise → knob position
+  const bellName = (p) => p < 0.34 ? 'Dead Slow' : p < 0.67 ? 'Half Ahead' : 'Full Ahead';
   let knobP = 0, teleDrag = false, engaged = false;
   const setKnob = (p) => { knobP = Math.max(0, Math.min(1, p)); const rng = track.clientHeight - KNOBH - PAD * 2; knob.style.top = (PAD + (1 - knobP) * rng) + 'px'; };
   function setUnderway(on) {
     engaged = on; tele.classList.toggle('engaged', on); wheel.setEnabled(!on);
-    teleLabel.textContent = on ? 'Ahead — Underway' : 'Engine Telegraph';
-    setKnob(on ? 1 : 0);
+    teleLabel.textContent = on ? ('Ahead — ' + bellName(knobP)) : 'Engine Telegraph';
+    if (!on) setKnob(0);   // arrived / moored → lever springs back to STOP (engaging leaves it where set)
   }
   function tryEngage() {
     const dir = ctrl.readyDir();
     if (!dir) { setKnob(0); tele.classList.add('warn'); teleLabel.textContent = 'Steady the helm'; setTimeout(() => { tele.classList.remove('warn'); if (!engaged) teleLabel.textContent = 'Engine Telegraph'; }, 1400); return; }
-    ctrl.beginTransit(dir, HELM_TRANSIT_MS);   // local passage timer (server confirms arrival)
-    onSail(dir);                               // fire the real `sail` command in game
+    const t = Math.max(0, Math.min(1, knobP));
+    const estMs = Math.round(10 * MS_PER_TILE(t));   // longest passage at this bell; the server's helm_underway corrects ms/tiles/cruise
+    ctrl.beginTransit(dir, estMs, estMs, 10, cruiseFor(t));   // local placeholder so the wake blooms instantly
+    onSail(dir, Math.round(t * 100));                        // fire the real `sail <dir> <bell%>` in game
     setUnderway(true);
   }
   const teleDown = (e) => { if (engaged) return; teleDrag = true; knob.setPointerCapture?.(e.pointerId); e.preventDefault(); };
-  const teleMove = (e) => { if (!teleDrag) return; const r = track.getBoundingClientRect(); setKnob(1 - (e.clientY - r.top - KNOBH / 2) / (r.height - KNOBH)); };
-  const teleUp = () => { if (!teleDrag) return; teleDrag = false; if (knobP > 0.85) tryEngage(); else if (!engaged) setKnob(0); };
+  const teleMove = (e) => { if (!teleDrag) return; const r = track.getBoundingClientRect(); setKnob(1 - (e.clientY - r.top - KNOBH / 2) / (r.height - KNOBH)); teleLabel.textContent = knobP > 0.2 ? bellName(knobP) : 'Engine Telegraph'; };
+  const teleUp = () => { if (!teleDrag) return; teleDrag = false; if (knobP > 0.2) tryEngage(); else if (!engaged) setKnob(0); };
   knob.addEventListener('pointerdown', teleDown);
   addEventListener('pointermove', teleMove); addEventListener('pointerup', teleUp);
   setKnob(0);
@@ -365,8 +374,10 @@ export function openHelm(opts = {}) {
   // the helm grows to fill the output column (⛶ also folds the command box, ⊟ keeps it) instead
   // of an OS-fullscreen overlay. Cleared on close.
   const fsBtn = q('[data-fs]'), hideBtn = q('[data-hide]');
-  fsBtn.addEventListener('click', () => { const on = document.body.classList.toggle('helm-fullscreen'); fsBtn.classList.toggle('on', on); if (on) { document.body.classList.remove('helm-hidepanel'); hideBtn.classList.remove('on'); } });
-  hideBtn.addEventListener('click', () => { const on = document.body.classList.toggle('helm-hidepanel'); hideBtn.classList.toggle('on', on); if (on) { document.body.classList.remove('helm-fullscreen'); fsBtn.classList.remove('on'); } });
+  fsBtn.addEventListener('click', () => { const on = document.body.classList.toggle('helm-fullscreen'); fsBtn.classList.toggle('on', on); });
+  // ⊟ = compact the dash: shrink the console and keep it flush to the bottom so it stops covering the
+  // 3D view. It does NOT resize the pane, so the camera is never squashed — only the HUD gets smaller.
+  hideBtn.addEventListener('click', () => { compact = !compact; hideBtn.classList.toggle('on', compact); rescale(); });
   q('[data-exit]').addEventListener('click', () => { closeHelm(); onExit(); });
 
   // Keyboard: Esc exits. (Course is the wheel; the throttle is the telegraph — both are grab-and-drag.)
@@ -375,7 +386,7 @@ export function openHelm(opts = {}) {
 
   // Restore an in-progress passage (helm opened mid-transit): lock + run out the remaining time,
   // seeding true progress from the full passage length so the world resumes part-slid (not from 0).
-  if (opts.transitMs > 0) { ctrl.beginTransit(HDG_TO_DIR[((Math.round(opts.heading || 0) % 360) + 360) % 360] || 'N', opts.transitMs, opts.transitTotal || opts.transitMs, opts.transitTiles || 1); setUnderway(true); }
+  if (opts.transitMs > 0) { if (opts.cruise > 0) setKnob(throttleFor(opts.cruise)); ctrl.beginTransit(HDG_TO_DIR[((Math.round(opts.heading || 0) % 360) + 360) % 360] || 'N', opts.transitMs, opts.transitTotal || opts.transitMs, opts.transitTiles || 1, opts.cruise); setUnderway(true); }
 
   // Live readouts (heading eases + the passage runs on a timer, so poll). The telegraph/wheel lock
   // tracks her actual under-way state, so a server-driven begin/arrive keeps the console in sync.
@@ -387,7 +398,7 @@ export function openHelm(opts = {}) {
     const snap = ctrl.mapSnapshot?.();
     if (snap) q('[data-pos]').textContent = snap.gx + ' · ' + snap.gy;
     const sailing = ctrl.isSailing();
-    if (sailing !== wasSailing) { setUnderway(sailing); wasSailing = sailing; }
+    if (sailing !== wasSailing) { if (sailing) setKnob(throttleFor(ctrl.cruise())); setUnderway(sailing); wasSailing = sailing; }
     const left = ctrl.transitLeft();
     q('[data-eta]').textContent = left > 0 ? fmtETA(left) : '—';
     q('.helm-readout.eta').classList.toggle('idle', left <= 0);

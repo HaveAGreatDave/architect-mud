@@ -43,9 +43,10 @@ function liveEnv() {
 
 const CARDINAL = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
 const DEG = { N: 0, E: 90, S: 180, W: 270 };
-const CRUISE = 0.40;   // steady making-way throttle held across a passage (0..1) — drives wake + wash + swell.
-                       // Kept LOW so a big hull's water churn reads calm; passage DISTANCE is time-based
-                       // (sailT), independent of this, so she still crosses her tiles in 90s regardless.
+const CRUISE = 0.78;   // steady making-way throttle held across a passage (0..1) — drives wake + wash + swell.
+                       // Pushed UP so she reads as genuinely UNDERWAY: a boiling wake and a sea that
+                       // streams hard past the hull, not a calm creep. Passage DISTANCE is still time-based
+                       // (sailT over transitMs), independent of this, so the tile math is unchanged.
 // Resting chase pose. The yacht is the SUBJECT, so she's pinned near screen-centre horizontally — a
 // yaw twist shows her flank (the "quarter" view) but can't slide her off the centred wheel. The
 // strong yaw gives the rear-quarter flank angle; the pitch tips the eye DOWN over her stern so the
@@ -144,6 +145,8 @@ export function openHelmChase(container, opts = {}) {
     // A passage is a long, sustained transit: she makes way at CRUISE for transitMs, then arrives
     // at the next tile. sailT is 0..1 progress across the passage. spd rides toward the throttle.
     spd: 0, sailing: false, sailT: 0, transitMs: 0, transitEnd: 0, sailDir: null, sailTiles: 1,
+    cruise: CRUISE,   // the bell's visual way (0..1) — set per-passage by the throttle; drives wake/wash/knots
+
     mapOffset: { x: 0, y: 0 },   // sub-tile world pan across a passage (yacht held centred by center.sub)
     serverField: null,   // the REAL weather field from the sim (setSky) — preferred over the synth
     contacts: [],        // airborne craft near the Echelon (absolute x,y), streamed by the server
@@ -188,16 +191,17 @@ export function openHelmChase(container, opts = {}) {
         if (st.onArrive) st.onArrive(st.gx, st.gy, st.sailDir);
       }
     }
-    // Throttle: while under way she holds a steady CRUISE bell (ramped in at cast-off and out as she
-    // comes to rest) so there's a sustained wake across the whole passage; moored ⇒ dead flat water.
-    const drive = st.sailing ? CRUISE * Math.min(1, st.sailT / 0.03, (1 - st.sailT) / 0.03) : 0;
+    // Throttle: while under way she holds the passage's bell (st.cruise — set by how far the telegraph
+    // was pushed), ramped in at cast-off and out as she comes to rest, so a higher bell reads as a
+    // bigger boiling wake + faster water + more knots; moored ⇒ dead flat water.
+    const drive = st.sailing ? st.cruise * Math.min(1, st.sailT / 0.03, (1 - st.sailT) / 0.03) : 0;
     st.spd += (drive - st.spd) * Math.min(1, dt * 3.2);
     if (st.spd < 0.004) st.spd = 0;
     if (!st.center.wake) st.center.wake = { spd: 0 };
     st.center.wake.spd = st.spd;
     st.center.heading = st.heading;
     audio.update(st.spd);
-    st.seaScroll = (st.seaScroll || 0) + st.spd * dt * 4;   // along-heading drift so the swell streams past under way (gentle — she's a slow, heavy hull)
+    st.seaScroll = (st.seaScroll || 0) + st.spd * dt * 11;   // along-heading drift so the swell streams hard past the hull under way — the main "we're moving" cue, scaled by throttle
     // Real passage progress: pan the whole world window sub-tile toward the destination (mapOffset)
     // AND lead the yacht cell by the same amount (center.sub) so she holds screen-centre while the
     // city/shoreline slide past her — she visibly crosses the Basin over the ten minutes, not a
@@ -248,13 +252,14 @@ export function openHelmChase(container, opts = {}) {
     readyDir() { if (busy()) return null; return CARDINAL[st.heading] || null; },
     // Ahead: make way one tile along the current (settled) heading over a short local surge — used
     // only by the standalone rig, which has no server to time the passage. Returns the compass dir.
-    ahead() { const dir = this.readyDir(); if (!dir) return false; st.sailDir = dir; st.sailTiles = 1; st.transitMs = 6000; st.transitEnd = performance.now() + 6000; st.sailing = true; st.sailT = 0; return dir; },
+    ahead() { const dir = this.readyDir(); if (!dir) return false; st.sailDir = dir; st.sailTiles = 1; st.cruise = CRUISE; st.transitMs = 6000; st.transitEnd = performance.now() + 6000; st.sailing = true; st.sailT = 0; return dir; },
     // Begin a real passage: a sustained making-way transit of `ms` along `dir`, arriving one tile
     // on. Snaps her course to the travel heading; frame() eases her there and advances the tile at
     // the end. The server drives this (10-min passage) and confirms arrival via endTransit.
-    beginTransit(dir, ms, total, tiles) {
+    beginTransit(dir, ms, total, tiles, cruise) {
       if (!DV[dir]) return false;
       st.headingTarget = DEG[dir]; st.sailDir = dir; st.sailTiles = Math.max(1, tiles || 1);
+      if (cruise > 0) st.cruise = Math.max(0.2, Math.min(1.2, cruise));   // the passage's bell (visual way); omitted ⇒ keep the default
       // `ms` = time remaining, `total` = the whole passage (defaults to ms for a fresh cast-off).
       // Seeding transitMs from the total makes sailT reflect TRUE progress, so a helm reopened mid-
       // passage resumes with the world already part-slid rather than snapping back to the start.
@@ -262,6 +267,7 @@ export function openHelmChase(container, opts = {}) {
       st.sailT = Math.max(0, Math.min(1, (st.transitMs - ms) / st.transitMs));
       return true;
     },
+    cruise() { return st.cruise; },
     // Authoritative arrival from the server: snap to her real tile and release the passage. Idempotent
     // with frame()'s own local arrival (both just end the passage + fix position).
     endTransit(gx, gy) { st.sailing = false; st.transitEnd = 0; st.mapOffset.x = 0; st.mapOffset.y = 0; st.center.sub = undefined; if (gx != null) st.gx = gx; if (gy != null) st.gy = gy; },

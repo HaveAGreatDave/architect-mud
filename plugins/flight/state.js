@@ -526,8 +526,11 @@ function mapWindow(a, radius = 24) {
           sub = { x: ddx * frac, y: ddy * frac };
           heading = deltaHeading(ddx, ddy);
           wake = { spd: 0.42 };   // steady but calm making-way wash for the whole passage (a big hull moves slowly)
-        } else if (_yachtWakeUntil > now) {
-          wake = { spd: (_yachtWakeUntil - now) / YACHT_WAKE_MS };   // 1 → 0 over YACHT_WAKE_MS
+        } else {
+          // Moored (or just arrived): hold the last course she steamed (persisted on flags.heading),
+          // so she never snaps back to bow-north for pilots overflying her.
+          heading = Number(cell.flags?.heading) || 0;
+          if (_yachtWakeUntil > now) wake = { spd: (_yachtWakeUntil - now) / YACHT_WAKE_MS };   // 1 → 0 over YACHT_WAKE_MS
         }
       }
       // Road piece connections, straight off the map icon suffix (road_ns, road_ne turn,
