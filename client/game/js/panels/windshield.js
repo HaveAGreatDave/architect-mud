@@ -2514,13 +2514,13 @@ function drawGates(ctx, cam, v, W, H, now) {
 // pointing), bank, pitch and perspective all come out physically correct for free.
 const CONTACT_ALT_K = 1 / 600;   // feet of altitude delta → world-z units (tune)
 const CONTACT_VS = 1.6;          // vertical exaggeration so the projected model isn't screen-squashed (tune)
-const CONTACT_SIZE = { ultralight: 0.06, heli: 0.11, prop: 0.11, heavy: 0.17, gunship: 0.13, wreck: 0.10 };   // Cessna ~0.55× the Twin Otter — a small light single (matches MODEL_SCALE in the hangar)
+const CONTACT_SIZE = { ultralight: 0.06, heli: 0.05, prop: 0.11, heavy: 0.17, gunship: 0.13, wreck: 0.10 };   // Cessna ~0.55× the Twin Otter; heli (Mini 500, ~5.8m rotor) is smaller still — matches MODEL_SCALE in the hangar
 // Own-ship EXTERNAL-chase scale: how much bigger the hero model draws than a same-class contact.
 // The chase camera sits a FIXED number of tiles back (chaseBack, normalised to CONTACT_SIZE.prop),
 // so lowering this shrinks the plane against the world/buildings without moving the camera — i.e. it
 // fixes plane↔building scale. It is the ONE own-ext multiplier: the draw, the ground anchor
 // (ownShipBaseWz/modelGroundDrop) and the gun muzzles all read it, so the gear stays pinned to the deck.
-const OWN_EXT_MUL = 2.3;
+const OWN_EXT_MUL = 1.9;   // was 2.3 — dropped so the hero craft sits truer against the buildings (a Twin Otter reads ~half a tower's footprint, not level with it)
 const LOD_HI_TILES = 4.5;   // contacts nearer than this (or the own chase model) render the full-detail mesh; farther ones drop to the coarse LOD (they're only a few px)
 
 // The own-ship external-chase model's centre world-z. Two jobs, and it takes the higher of them:

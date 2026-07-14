@@ -44,6 +44,10 @@ function liveEnv() {
 const CARDINAL = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
 const DEG = { N: 0, E: 90, S: 180, W: 270 };
 const CRUISE = 0.82;   // steady making-way throttle held across a passage (0..1) — drives wake + wash + swell
+// Resting chase pose: a rear-quarter, looking-down "helicopter shot" of the Echelon. yaw is off her
+// stern quarter (deg, added on top of the renderer's chaseYaw) so she sits off-centre, clear of the
+// centred wheel; pitch tips the eye down over her; zoom pulls back so the full hull + wake read.
+const REST = { yaw: 24, pitch: 0.42, zoom: 1.5 };
 
 // A proper (not flat) cloud field, synthesised from the live headline weather so the windshield's
 // fly-through volumetric deck has cells to render — clear skies pass null (its procedural fair-
@@ -141,7 +145,10 @@ export function openHelmChase(container, opts = {}) {
     contacts: [],        // airborne craft near the Echelon (absolute x,y), streamed by the server
     // Camera: extYaw/extPitch are the orbit (drag), extZoom the dolly (wheel). The windshield
     // clamps extPitch above the terrain, so the orbit can never dip the eye below the water.
-    extYaw: 0, extPitch: opts.extPitch ?? 0.34, extZoom: opts.extZoom ?? 1.7,
+    // Resting pose is a QUARTER-DOWN chase — offset off her stern quarter (extYaw) so she frames
+    // clear of the dead-centre wheel, looking down-and-over (extPitch) so the whole hull reads on
+    // the water rather than silhouetted on the horizon behind the binnacle.
+    extYaw: opts.extYaw ?? REST.yaw, extPitch: opts.extPitch ?? REST.pitch, extZoom: opts.extZoom ?? REST.zoom,
     wx: { key: null, field: null },
     onArrive: opts.onArrive || null,
     alive: true, raf: 0, last: performance.now(),
@@ -290,7 +297,7 @@ export function openHelmChase(container, opts = {}) {
     // the windshield further floors it above the waterline so it never goes under.
     orbit(dYaw, dPitch) { st.extYaw = (st.extYaw + dYaw + 360) % 360; st.extPitch = Math.max(-0.15, Math.min(1.2, st.extPitch + dPitch)); },
     zoom(dz) { st.extZoom = Math.max(0.6, Math.min(2.4, st.extZoom * (1 + dz))); },
-    resetView() { st.extYaw = 0; st.extPitch = opts.extPitch ?? 0.34; st.extZoom = opts.extZoom ?? 1.7; },
+    resetView() { st.extYaw = opts.extYaw ?? REST.yaw; st.extPitch = opts.extPitch ?? REST.pitch; st.extZoom = opts.extZoom ?? REST.zoom; },
     // Absolute course (from the wheel): snap the demanded degrees to the nearest cardinal and
     // let her ease there — so she "spins to the direction you spin the wheel to", slowly.
     setCourse(deg) { const c = Math.round(deg / 90) * 90; st.headingTarget = ((c % 360) + 360) % 360; },

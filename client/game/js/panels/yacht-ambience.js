@@ -1,6 +1,7 @@
 // Yacht ambience — the Echelon's location-gated soundscape. The server tags each room's look/move
 // with `ambience`: 'naval' on the open decks, 'engine' in the engine spaces, null everywhere else.
-// 'engine' is the below-decks rumble (unchanged, a filtered-noise/osc loop on the ambient bus).
+// The engine bed (a live diesel/osc graph on the ambient bus) now idles under BOTH 'engine' and
+// 'naval', so she throbs underfoot right up to the top deck — loudest below, still plainly there up top.
 // 'naval' is the HARBOR: a real-time Yamaha-style FM synth built directly on the AudioEngine's
 // ambient bus via engineNodes() (same seam the flight engine uses) — every gull, bell, fog horn,
 // creak, rope, hull knock, splash and gust is generated from operators (sine carriers + FM
@@ -441,18 +442,21 @@ function engBuild() {
   const sum = ctx.createGain(); sum.gain.value = 1; sum.connect(muffle);
   const srcs = [];
   // Sub-bass rumble — felt more than heard; always passes the muffle.
-  for (const [f, g] of [[42, 0.5], [63, 0.3], [84, 0.12]]) {
+  for (const [f, g] of [[42, 0.6], [63, 0.4], [84, 0.18]]) {
     const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
     const gn = ctx.createGain(); gn.gain.value = g; o.connect(gn).connect(sum); o.start(t); srcs.push(o);
   }
-  // Diesel — two slightly detuned saws (their harmonics are the audible engine mids) through a warm
-  // lowpass, then a slow triangle LFO chugging the amplitude for the "chug-chug" of a big motor.
-  const dieselG = ctx.createGain(); dieselG.gain.value = 0.14;
-  const dieselLP = ctx.createBiquadFilter(); dieselLP.type = 'lowpass'; dieselLP.frequency.value = 1600; dieselLP.Q.value = 0.5;
+  // Diesel — three slightly detuned saws (their harmonics are the audible engine mids) through a
+  // fairly open lowpass so the grunt and clatter carry, then a slow triangle LFO chugging the
+  // amplitude for the heavy "chug-chug" lope of a big marine motor.
+  const dieselG = ctx.createGain(); dieselG.gain.value = 0.3;
+  const dieselLP = ctx.createBiquadFilter(); dieselLP.type = 'lowpass'; dieselLP.frequency.value = 2800; dieselLP.Q.value = 0.6;
   dieselLP.connect(dieselG).connect(sum);
-  for (const f of [46.4, 47.6]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(dieselLP); o.start(t); srcs.push(o); }
-  const chug = ctx.createOscillator(); chug.type = 'triangle'; chug.frequency.value = 2.3;
-  const chugD = ctx.createGain(); chugD.gain.value = 0.06; chug.connect(chugD).connect(dieselG.gain); chug.start(t); srcs.push(chug);
+  for (const f of [45.2, 46.4, 47.6]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(dieselLP); o.start(t); srcs.push(o); }
+  // A low square doubling adds the hollow "thump" of cylinders firing under the saw grunt.
+  { const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 46.4; const og = ctx.createGain(); og.gain.value = 0.09; o.connect(og).connect(dieselLP); o.start(t); srcs.push(o); }
+  const chug = ctx.createOscillator(); chug.type = 'triangle'; chug.frequency.value = 1.9;
+  const chugD = ctx.createGain(); chugD.gain.value = 0.16; chug.connect(chugD).connect(dieselG.gain); chug.start(t); srcs.push(chug);
   // Wash — filtered-noise water/air rush, gain ridden by engRoar each tick (silent at a dead stop).
   const wash = ctx.createBufferSource(); wash.buffer = noiseBuf; wash.loop = true;
   const washBP = ctx.createBiquadFilter(); washBP.type = 'bandpass'; washBP.frequency.value = 520; washBP.Q.value = 0.5;
@@ -494,7 +498,10 @@ export function setYachtAmbience(next) {
   if (kind === 'naval') stopHarbor();
   kind = next;
   if (kind === 'naval') startHarbor();
-  engFloor = kind === 'engine' ? 0.42 : 0;   // the engine-room bed; other zones lean on the passage roar
+  // Steady idle bed: full in the engine room, and now carried right up to the open decks so she
+  // plainly throbs underfoot at the top deck too (not just when under way). Interior cabins/city
+  // zones (null) stay silent and lean on the passage roar.
+  engFloor = kind === 'engine' ? 0.72 : kind === 'naval' ? 0.5 : 0;
   engEnsureTimer();
 }
 

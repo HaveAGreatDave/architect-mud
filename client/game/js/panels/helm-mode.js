@@ -34,6 +34,7 @@ export function ensureHelmStyles() {
        the pane's height the way the glass cockpit does; the ⛶ chip toggles true OS fullscreen. */
     #area-content:has(.helm-root){ height:100%; }
     .helm-root{ position:relative; width:100%; height:100%; min-height:420px; overflow:hidden;
+      --hs:1;   /* console scale — driven down by a ResizeObserver on short panes so the ship stays clear */
       --accent:#5ccfe0; --accent-hi:#bdf1f8; --accent-lo:#2b8b99; --chart:#4fd0e0;
       --hpanel:#0e141b; --hink:#e2edf3; --hdim:#8ba0ae; --stbd:#35d07a;
       --steel:#c3cdd6; --steel-hi:#eff4f8; --steel-lo:#5c6670;
@@ -74,15 +75,15 @@ export function ensureHelmStyles() {
     .helm-console::before{ content:''; position:absolute; left:0; right:0; top:1px; height:1px; pointer-events:none;
       background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--steel) 40%,transparent) 22%,color-mix(in srgb,var(--steel-hi) 75%,transparent) 50%,color-mix(in srgb,var(--steel) 40%,transparent) 78%,transparent 96%);
       opacity:.7; }
-    .helm-console-face{ position:relative; display:grid; grid-template-columns:minmax(190px,1fr) minmax(220px,320px) 1fr; align-items:center; gap:22px;
-      padding:14px 26px 15px; max-width:1180px; margin:0 auto; }
+    .helm-console-face{ position:relative; display:grid; grid-template-columns:minmax(calc(190px*var(--hs)),1fr) minmax(calc(220px*var(--hs)),320px) 1fr; align-items:center; gap:calc(22px*var(--hs));
+      padding:calc(14px*var(--hs)) calc(26px*var(--hs)) calc(15px*var(--hs)); max-width:1180px; margin:0 auto; }
     /* faint carbon-fibre weave milled into the console face, under the brushed grain */
     .helm-console-face::before{ content:''; position:absolute; inset:0; pointer-events:none; opacity:.14;
       background:var(--hcarbon); background-size:6px 6px,6px 6px; mix-blend-mode:overlay; }
 
     /* NAV chart — top-down basin scope with the Echelon blip */
     .helm-nav{ display:flex; align-items:center; gap:12px; }
-    .helm-nav-scope{ position:relative; width:132px; height:104px; border-radius:9px; flex:0 0 auto;
+    .helm-nav-scope{ position:relative; width:calc(132px*var(--hs)); height:calc(104px*var(--hs)); border-radius:9px; flex:0 0 auto;
       background:linear-gradient(180deg,#03151b,#010a0e); overflow:hidden;
       border:1px solid color-mix(in srgb,var(--chart) 32%,#000);
       box-shadow:inset 0 0 22px rgba(0,0,0,.85), inset 0 0 8px color-mix(in srgb,var(--chart) 16%,transparent), 0 1px 0 rgba(255,255,255,.06); }
@@ -117,13 +118,13 @@ export function ensureHelmStyles() {
     .helm-col{ position:absolute; left:50%; bottom:100%; transform:translate(-50%,52%); z-index:6;
       display:flex; flex-direction:column; align-items:center; gap:3px; pointer-events:none; }
     .helm-col canvas{ pointer-events:auto; }
-    .helm-wheel{ width:178px; height:178px; filter:drop-shadow(0 10px 22px rgba(0,0,0,.8)); }
+    .helm-wheel{ width:calc(178px*var(--hs)); height:calc(178px*var(--hs)); filter:drop-shadow(0 10px 22px rgba(0,0,0,.8)); }
     .helm-col .cap{ font-family:var(--hmono); font-size:8px; letter-spacing:4px; color:color-mix(in srgb,var(--accent) 70%,var(--hdim)); text-transform:uppercase;
       background:rgba(4,7,11,.6); padding:1px 8px; border-radius:4px; }
 
     /* Engine telegraph — a milled steel lever in a carbon slot, right of the console */
     .helm-tele{ display:flex; flex-direction:column; align-items:center; gap:6px; user-select:none; justify-self:end; }
-    .helm-tele-track{ position:relative; width:60px; height:128px; border-radius:11px;
+    .helm-tele-track{ position:relative; width:calc(60px*var(--hs)); height:calc(128px*var(--hs)); border-radius:11px;
       background:var(--hcarbon),linear-gradient(180deg,#0f1319,#05080c); background-size:6px 6px,6px 6px,auto;
       border:1px solid color-mix(in srgb,var(--steel) 32%,#000);
       box-shadow:inset 0 2px 10px rgba(0,0,0,.85),0 1px 0 rgba(255,255,255,.08); overflow:hidden; }
@@ -213,6 +214,17 @@ export function openHelm(opts = {}) {
 
   const root = mount.querySelector('.helm-root');
   const q = (s) => root.querySelector(s);
+
+  // Dynamic console scale — the shorter the view pane, the smaller the whole helm station (console
+  // bar + wheel + telegraph shrink together via --hs) so the Echelon is never buried behind it.
+  // At a comfortable height the station is full-size; it eases down to ~0.6 on a squat pane.
+  const rescale = () => {
+    const h = root.clientHeight || 0;
+    root.style.setProperty('--hs', String(Math.max(0.6, Math.min(1, (h - 150) / 560)).toFixed(3)));
+  };
+  const ro = ('ResizeObserver' in window) ? new ResizeObserver(rescale) : null;
+  ro ? ro.observe(root) : addEventListener('resize', rescale);
+  rescale();
 
   const ctrl = openHelmChase(q('.helm-chase'), {
     gx: opts.gx ?? 0, gy: opts.gy ?? 0, heading: opts.heading ?? 0, sky: opts.sky,
@@ -343,7 +355,7 @@ export function openHelm(opts = {}) {
     if (env) { q('[data-time]').textContent = env.time; q('[data-wx]').textContent = (env.weather || 'clear').toUpperCase(); }
   }, 100);
 
-  _helm = { mount, ctrl, wheel, poll, upH, keyH, teleMove, teleUp, stopNav: () => { navAlive = false; cancelAnimationFrame(navRaf); } };
+  _helm = { mount, ctrl, wheel, poll, upH, keyH, teleMove, teleUp, ro, rescale, stopNav: () => { navAlive = false; cancelAnimationFrame(navRaf); } };
   return { ctrl, wheel, close: () => { closeHelm(); onExit(); }, setPosition: (gx, gy) => ctrl.setPosition(gx, gy), setHeading: (h) => ctrl.setHeading(h), setSky: (sky) => ctrl.setSky(sky) };
 }
 
@@ -355,6 +367,7 @@ export function closeHelm() {
   removeEventListener('keydown', h.keyH);
   removeEventListener('pointermove', h.teleMove);
   removeEventListener('pointerup', h.teleUp);
+  try { h.ro ? h.ro.disconnect() : removeEventListener('resize', h.rescale); } catch {}
   try { h.stopNav?.(); } catch {}
   document.body.classList.remove('helm-fullscreen', 'helm-hidepanel');
   try { h.wheel?.destroy(); } catch {}

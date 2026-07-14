@@ -101,6 +101,10 @@ const CATALOG = [
   // beside it. Opens the tablet with no CRT boot delay (client-side onFire).
   { build: () => ({ label: 'Inv', accent: true, onFire: () => import('./tablet-os.js').then(m => m.openTabletToInventory?.()) }) },
 
+  // Fast lane to the Quests app root — same accent anchor, sits right after Inv.
+  // Opens the tablet with no CRT boot delay (client-side onFire).
+  { build: () => ({ label: 'Quests', accent: true, onFire: () => import('./tablet-os.js').then(m => m.openTabletToQuests?.()) }) },
+
   // Combat / social — single target, fires immediately when there's just one.
   { build: (m) => pick('Attack', 'Attack what?', m.enemies,
       (e) => ({ label: e.label, cmd: `attack ${e.id || e.target.toLowerCase()}`, logLabel: `attack ${e.label}` })) },

@@ -1770,9 +1770,24 @@ function broadcastZoneWeather(occupied) {
   const base = state.tempC + diurnalOffset(state.minutes);
   const active = state.currentPrecip !== 'none';
   for (const zoneId of occupied) {
+    // Which world tile's weather is over this zone? A map_world zone samples itself. An open_sky
+    // interior deck — roofless but sitting on its own building map (e.g. the Echelon's sun deck) —
+    // is climatically outdoors yet not on map_world, so it borrows the weather over its world tile
+    // (world_exit_zone / parent_zone). For the yacht that tile tracks her as she sails, so the deck
+    // gets whatever sky she's currently under. Resolved off world.zones (authoritative live coords),
+    // since these decks aren't necessarily in the power model's state.zones.
+    let gx, gy;
     const z = state.zones.get(zoneId);
-    if (!z || z.mapId !== 'map_world') continue;
-    const f = sampleField(z.gridX, z.gridY);
+    if (z && z.mapId === 'map_world') { gx = z.gridX; gy = z.gridY; }
+    else {
+      const wz = world.zones.get(zoneId);
+      if (!wz?.flags?.open_sky) continue;
+      const worldId = wz.flags.world_exit_zone || wz.parent_zone;
+      const ext = worldId ? world.zones.get(worldId) : null;
+      if (!ext || ext.map_id !== 'map_world' || ext.grid_x == null) continue;
+      gx = ext.grid_x; gy = ext.grid_y;
+    }
+    const f = sampleField(gx, gy);
     let precipRate = active ? f.precipRate : 0;
     // Local precip TYPE comes from the field's full taxonomy (rain/sleet/thunder-
     // storm/storm/snow/blizzard/acid), not the coarse global roll — a passing storm

@@ -4768,6 +4768,14 @@ export function openTabletToQuest(questId) {
   sendCmdSilent(`tabletnav quests active ${questId}`);
 }
 
+// Open the tablet straight to the Quests app root (the category/quest list) — the
+// smartbar "Quests" anchor beside "Inv". Skip-boot for a snappy open, same as the
+// other deep-links.
+export function openTabletToQuests() {
+  _skipBoot = true;
+  sendCmdSilent('tabletnav quests');
+}
+
 // If the tablet is open on the Gear app, silently re-fetch it so an equip/unequip
 // that happened elsewhere (a typed command, a macro, a script) reflects on the
 // paperdoll. Returns whether it refreshed, so the caller can fall back to printing

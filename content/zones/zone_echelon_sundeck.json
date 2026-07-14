@@ -18,6 +18,7 @@
     "echelon": true,
     "echelon_sundeck": true,
     "echelon_view": true,
+    "naval_ambience": true,
     "is_interior": true,
     "is_building": true,
     "open_sky": true,

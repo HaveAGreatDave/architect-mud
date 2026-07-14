@@ -15,7 +15,7 @@
  *
  * A lit flashlight with charge doesn't touch zone lighting — it raises how
  * brightly the *holder* perceives the room, via the `visibility.perceive` hook
- * fired in describe.js. It floors perceived light at `clear` (fairly visible),
+ * fired in describe.js. It floors perceived light at `bright` (good visibility),
  * so it only helps when the room is dimmer than that.
  */
 import { query } from '../../server/models/db.js';
@@ -26,7 +26,7 @@ import { describeZone } from '../../server/engine/commands/describe.js';
 import { LIGHT_LADDER, floorVisibility } from '../../server/engine/environment.js';
 
 const BATTERY_MAX = 120;     // units of charge = minutes of light on a fresh cell
-const LIT_FLOOR = 'clear';   // perceived light level a lit flashlight guarantees
+const LIT_FLOOR = 'bright';  // perceived light level a lit flashlight guarantees
 
 // Charge spent per lit-minute. A stock flashlight burns 1 unit/min (a 120-min
 // cell); a better-made light sips slower via flags.flashlight_drain (a positive

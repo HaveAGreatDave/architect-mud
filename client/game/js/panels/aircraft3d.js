@@ -557,28 +557,45 @@ function addOtterGear(faces, p, wz) {
 
 // A light rotorcraft (Mini 500): a rounded egg/bubble CABIN, a slender straight tail boom, a
 // small tail fin + rotor, tubular skids on cross-tubes, and a translucent main-rotor disc on a
-// short head. Cabin + boom are skinned from cross-section rings so they read smooth, not faceted.
+// short head. Cabin + boom are skinned from finely-subdivided cross-section rings so they read
+// as one smooth teardrop, not a faceted egg. Anchors held fixed for the FX layer: main mast at
+// (0.1, 0, 0.28), tail rotor at (-1.04, 0.07, 0.12) — see drawRotorFX.
 function buildHeli() {
   const faces = [];
-  const sides = 8;
+  const sides = 14;   // ring resolution (was 8) — smooth bubble & boom
   const ring = (f, rg, rv, cz) => { const o = []; for (let k = 0; k < sides; k++) { const a = k / sides * Math.PI * 2; o.push(V(f, Math.cos(a) * rg, cz + Math.sin(a) * rv)); } return o; };
   const shFor = (k) => 0.6 + 0.36 * (0.5 + 0.5 * Math.sin((k + 0.5) / sides * Math.PI * 2));   // top bright → bottom dark
-  const skin = (A, B, m = 1) => { for (let k = 0; k < sides; k++) { const k2 = (k + 1) % sides; faces.push({ role: 'body', sh: shFor(k) * m, p: [A[k], A[k2], B[k2], B[k]] }); } };
-  // Rounded egg CABIN: a full bubble front, widest at the seats, tapering down to the boom.
+  const skin = (A, B, role = 'body', m = 1) => { for (let k = 0; k < sides; k++) { const k2 = (k + 1) % sides; faces.push({ role, sh: shFor(k) * m, p: [A[k], A[k2], B[k2], B[k]] }); } };
+  // Rounded egg CABIN: a big glass bubble front, widest at the seats, an engine hump, tapering
+  // down to the boom. More stations (7 vs 3) so the profile curves instead of creasing.
   const cabin = [
-    ring(0.60, 0.10, 0.11, 0.02),   // rounded bubble front (glass cap below)
-    ring(0.24, 0.21, 0.21, 0.02),   // widest — cabin/bubble
-    ring(-0.08, 0.15, 0.16, 0.04),
-    ring(-0.20, 0.07, 0.08, 0.05),  // boom junction
+    ring(0.60, 0.105, 0.115, 0.02),   // front of the bubble (nose dome caps it below)
+    ring(0.46, 0.165, 0.180, 0.015),  // bubble swelling out
+    ring(0.30, 0.205, 0.215, 0.015),  // widest — canopy/seats
+    ring(0.10, 0.210, 0.215, 0.025),  // cabin waist
+    ring(-0.06, 0.170, 0.185, 0.045), // engine bay shoulders
+    ring(-0.16, 0.110, 0.120, 0.050),
+    ring(-0.24, 0.062, 0.070, 0.052), // boom junction
   ];
-  for (let i = 0; i < cabin.length - 1; i++) skin(cabin[i], cabin[i + 1]);
-  faces.push({ role: 'glass', sh: 0.95, p: cabin[0] });   // the bubble windscreen
-  // Thin, near-straight tail BOOM (a slender tube) rising slightly toward the tail rotor.
-  const boom = [ring(-0.20, 0.06, 0.07, 0.05), ring(-0.55, 0.04, 0.04, 0.09), ring(-0.95, 0.028, 0.028, 0.12)];
-  for (let i = 0; i < boom.length - 1; i++) skin(boom[i], boom[i + 1], 0.92);
-  // Tail fin + tail rotor.
-  faces.push({ role: 'fin', sh: 0.9, p: [V(-0.9, 0, 0.12), V(-1.0, 0, 0.36), V(-1.06, 0, 0.12)] });
-  faces.push({ role: 'rotor', sh: 0.7, p: [V(-0.98, 0.06, 0.14), V(-1.06, 0.06, 0.30), V(-1.1, 0.06, 0.14), V(-1.02, 0.06, -0.02)] });
+  // Front three sections are the wrap-around glass canopy; the rest is painted shell.
+  for (let i = 0; i < cabin.length - 1; i++) skin(cabin[i], cabin[i + 1], i < 2 ? 'glass' : 'body', i < 2 ? 1 : 1);
+  // Rounded NOSE DOME closing the bubble — a fan of glass triangles to an apex ahead of the
+  // front ring, so the canopy reads as a smooth blister rather than a flat octagon cap.
+  const noseApex = V(0.70, 0, 0.03);
+  for (let k = 0; k < sides; k++) { const k2 = (k + 1) % sides; faces.push({ role: 'glass', sh: shFor(k), p: [noseApex, cabin[0][k], cabin[0][k2]] }); }
+  // Thin, near-straight tail BOOM (a slender tapering tube) rising slightly toward the tail rotor.
+  const boom = [ring(-0.24, 0.058, 0.066, 0.052), ring(-0.50, 0.044, 0.048, 0.078), ring(-0.76, 0.034, 0.036, 0.100), ring(-1.00, 0.026, 0.028, 0.118)];
+  for (let i = 0; i < boom.length - 1; i++) skin(boom[i], boom[i + 1], 'body', 0.92);
+  // Vertical tail FIN — a thin extruded blade (two faces + a swept leading/trailing edge).
+  const finT = 0.014, fin = [V(-0.86, 0, 0.13), V(-0.99, 0, 0.30), V(-1.10, 0, 0.40), V(-1.10, 0, 0.11)];
+  for (const s of [1, -1]) { const p = fin.map(v => V(v[0], s * finT, v[2])); faces.push({ role: 'fin', sh: s > 0 ? 0.92 : 0.72, p }); }
+  faces.push({ role: 'fin', sh: 0.8, p: [V(-0.99, finT, 0.30), V(-1.10, finT, 0.40), V(-1.10, -finT, 0.40), V(-0.99, -finT, 0.30)] });   // top edge
+  // Small horizontal STABILISER across the boom (a thin flat plate each side).
+  faces.push({ role: 'fin', sh: 0.85, p: [V(-0.82, 0.02, 0.115), V(-0.82, 0.16, 0.120), V(-0.94, 0.16, 0.125), V(-0.94, 0.02, 0.120)] });
+  faces.push({ role: 'fin', sh: 0.7, p: [V(-0.82, -0.02, 0.115), V(-0.94, -0.02, 0.120), V(-0.94, -0.16, 0.125), V(-0.82, -0.16, 0.120)] });
+  // Tail-rotor gearbox fairing + the disc face (schematic renderer only; painted layers draw blades).
+  addTube(faces, V(-0.96, 0.02, 0.12), V(-1.06, 0.07, 0.12), 0.022, 'nacelle', 0.75, 6);
+  faces.push({ role: 'rotor', sh: 0.7, p: [V(-1.0, 0.07, 0.02), V(-1.0, 0.07, 0.30), V(-1.1, 0.07, 0.30), V(-1.1, 0.07, 0.02)] });
   // Tubular SKIDS: a round rail each side (with an upturned front toe) on two cross-tube legs.
   const skidZ = -0.30, skidG = 0.22;
   for (const s of [1, -1]) {
@@ -586,15 +603,19 @@ function buildHeli() {
     addTube(faces, V(0.34, s * skidG, skidZ + 0.02), V(0.42, s * skidG, skidZ + 0.09), 0.015, 'gear', 0.56);   // upturned front toe
     for (const cf of [0.24, -0.06]) addTube(faces, V(cf, s * skidG, skidZ + 0.02), V(cf, s * 0.05, -0.14), 0.012, 'strut', 0.55);   // cross-tube leg
   }
-  // Main-rotor disc (octagon) + short head + hub. The disc face only feeds the schematic
-  // wireframe renderer — the painted renderers skip role 'rotor' and draw the live blades.
-  const disc = [], cf = 0.1, cz = 0.28, rad = 1.05;   // rotor sits LOW on a short head just above the cabin, not on a tall pole
+  // ── Rotor MAST + HEAD ── short pylon just above the cabin, a hub block, and a swashplate ring.
+  const cf = 0.1, cz = 0.28, rad = 1.05;   // rotor sits LOW on a short head just above the cabin
+  addTube(faces, V(cf, 0, 0.19), V(cf, 0, cz - 0.01), 0.026, 'nacelle', 0.8, 8);   // tapered mast pylon
+  const hb = 0.045;   // hub block above the mast
+  for (const [du, dv] of [[hb, 0], [0, hb], [-hb, 0], [0, -hb]]) faces.push({ role: 'nacelle', sh: 0.85, p: [V(cf + du * 0.4, dv * 0.4, cz - 0.02), V(cf + du, dv, cz), V(cf + du, dv, cz + 0.02), V(cf + du * 0.4, dv * 0.4, cz)] });
+  faces.push({ role: 'nacelle', sh: 0.95, p: [V(cf + hb, 0, cz + 0.02), V(cf, hb, cz + 0.02), V(cf - hb, 0, cz + 0.02), V(cf, -hb, cz + 0.02)] });   // hub top cap
+  const swash = [];   // swashplate ring under the head
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; swash.push(V(cf + Math.cos(a) * 0.07, Math.sin(a) * 0.07, cz - 0.03)); }
+  faces.push({ role: 'nacelle', sh: 0.6, p: swash });
+  // Main-rotor disc (octagon) — schematic wireframe renderer only; painted renderers draw blades.
+  const disc = [];
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; disc.push(V(cf + Math.cos(a) * rad, Math.sin(a) * rad, cz)); }
   faces.push({ role: 'rotor', sh: 0.65, p: disc });
-  faces.push({ role: 'body', sh: 0.7, p: [V(cf + 0.03, 0, 0.21), V(cf + 0.03, 0, cz), V(cf - 0.03, 0, cz), V(cf - 0.03, 0, 0.21)] });
-  faces.push({ role: 'body', sh: 0.6, p: [V(cf, 0.03, 0.21), V(cf, 0.03, cz), V(cf, -0.03, cz), V(cf, -0.03, 0.21)] });
-  const hb = 0.05;
-  faces.push({ role: 'nacelle', sh: 0.9, p: [V(cf + hb, 0, cz + hb), V(cf, hb, cz), V(cf - hb, 0, cz + hb)] });
   return faces;
 }
 
