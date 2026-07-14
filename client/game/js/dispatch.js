@@ -732,6 +732,7 @@ const handlers = {
   helm_contacts: (msg) => { if (isHelmActive()) helmSetContacts(msg.contacts); },   // planes over the Basin, drawn in the chase view
   // Passage complete → re-centre the chase view on the new tile's real world window, then unlock.
   helm_underway: (msg) => { if (isHelmActive()) helmBeginTransit(msg.dir, msg.tiles, msg.ms, msg.cruise); },   // authoritative passage vector (+ bell) → chase view glides the full distance at the right speed
+  helm_hold: (msg) => { if (isHelmActive()) helmEndTransit(msg.gx, msg.gy); },   // order refused (land ahead) → cancel the optimistic local glide, she stays put
   helm_arrived: (msg) => { if (!isHelmActive()) return; if (msg.map) helmSetWorld(msg.map, msg.gx, msg.gy); helmEndTransit(msg.gx, msg.gy); },
   yacht_underway: (msg) => { yachtUnderway(msg.level, msg.durationMs); },   // roar to life for the passage, at this zone's loudness
   yacht_settled: () => { yachtSettled(); },   // she's arrived — let the engine roar fall away

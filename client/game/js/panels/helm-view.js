@@ -52,7 +52,7 @@ const CRUISE = 0.78;   // steady making-way throttle held across a passage (0..1
 // strong yaw gives the rear-quarter flank angle; the pitch tips the eye DOWN over her stern so the
 // whole hull drops clear of the top edge into the water band — foreground sea in front of her — and
 // is never clipped by the console/HUD along the bottom. zoom pulls back so the full hull reads.
-const REST = { yaw: 34, pitch: 0.30, zoom: 1.7 };
+const REST = { yaw: 34, pitch: 0.50, zoom: 1.7 };
 
 // A proper (not flat) cloud field, synthesised from the live headline weather so the windshield's
 // fly-through volumetric deck has cells to render — clear skies pass null (its procedural fair-
@@ -304,9 +304,10 @@ export function openHelmChase(container, opts = {}) {
       if (cx != null) st.gx = cx; if (cy != null) st.gy = cy;
     },
     env() { return liveEnv(); },   // live world time/weather (or null) for the console chips
-    // Orbit the chase camera (drag): azimuth + elevation. Pitch is clamped to a sane band here;
-    // the windshield further floors it above the waterline so it never goes under.
-    orbit(dYaw, dPitch) { st.extYaw = (st.extYaw + dYaw + 360) % 360; st.extPitch = Math.max(-0.15, Math.min(1.2, st.extPitch + dPitch)); },
+    // Orbit the chase camera (drag): azimuth spins freely around her; elevation is floored WELL above
+    // the waterline so the eye never sinks to (or under) the sea — you can only ever crane it further
+    // OVER her (more top-down), never dip below a high 3⁄4. Keeps her hull clear on the water at any angle.
+    orbit(dYaw, dPitch) { st.extYaw = (st.extYaw + dYaw + 360) % 360; st.extPitch = Math.max(0.28, Math.min(1.35, st.extPitch + dPitch)); },
     zoom(dz) { st.extZoom = Math.max(0.6, Math.min(2.4, st.extZoom * (1 + dz))); },
     resetView() { st.extYaw = opts.extYaw ?? REST.yaw; st.extPitch = st.restPitch; st.extZoom = opts.extZoom ?? REST.zoom; },
     // Resting elevation, driven by the console from the visible water band: a cramped view (panel up)

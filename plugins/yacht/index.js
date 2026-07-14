@@ -210,15 +210,13 @@ const EXTERIOR = 'zone_echelon_exterior';
 // to rest only when she arrives. No new order can be given until she's there. A passage covers up
 // to SAIL_TILES water tiles (stopping short at the first obstacle), so an order visibly carries her
 // across the Basin rather than creeping a single tile.
-const SAIL_TILES = 10;  // a passage carries her up to ten water tiles (stopping short at the first obstacle),
-                        // so an order sweeps her a long way across the Basin — at Full Ahead that's a ~10-second
-                        // dash covering as much ground as she can reach, the shoreline/city racing past.
-// Variable throttle (the engine telegraph): the bell sets her SPEED, so the passage time is
-// distance × time-per-tile and throttling up genuinely shortens the trip. She's a fast hull now —
-// ~5× the old creep — so Full Ahead is 1 s/tile (ten tiles in ten seconds). `cruise` is the matching
-// visual way (wake/water intensity + shown knots) streamed to the chase view so faster = a bigger wake.
-const SAIL_MS_PER_TILE_SLOW = 3_600;    // dead slow ahead — 3.6 s per water tile
-const SAIL_MS_PER_TILE_FULL = 1_000;    // full ahead — 1 s per water tile (ten tiles ≈ ten seconds)
+const SAIL_TILES = 1;   // one water tile per order (she stops before any non-water tile — never enters land).
+// Single speed now: ~2× the original hull, and the slow bell matches the fast bell (they were asked to be
+// equal), so every order is the same ~2.5-second one-tile hop regardless of how far the lever is pushed.
+// `cruise` (the streamed visual way — wake/water intensity + shown knots) still tracks the lever so a
+// harder bell reads as a bigger wake, but the passage TIME no longer changes.
+const SAIL_MS_PER_TILE_SLOW = 2_500;    // 2.5 s per water tile
+const SAIL_MS_PER_TILE_FULL = 2_500;    // identical — slow == fast
 const DEFAULT_BELL = 0.5;               // a typed `sail <dir>` with no bell = Half Ahead
 // throttle t∈[0,1] → { ms per tile, visual cruise 0..1 }
 const bellFor = (t) => ({ msPerTile: Math.round(SAIL_MS_PER_TILE_SLOW + (SAIL_MS_PER_TILE_FULL - SAIL_MS_PER_TILE_SLOW) * t), cruise: +(0.35 + 0.65 * t).toFixed(3) });
@@ -418,6 +416,10 @@ async function cmdSail(args, raw, player, broadcast) {
     tx = nx; ty = ny; tiles = i;
   }
   if (!tiles) {
+    // Land (or another obstacle) dead ahead — she can't answer the order. If this came from an open helm
+    // console, cancel its optimistic local glide so the chase view snaps her right back to her real tile
+    // (she never moved) instead of holding a bogus lead that would later read as "returning to the start".
+    if (helmViewers.has(player.id)) sendToPlayer(player.id, { type: 'helm_hold', gx: ext.grid_x, gy: ext.grid_y });
     return { type: 'error', message: 'The Echelon moves only over open water. There is no channel that way.' };
   }
 

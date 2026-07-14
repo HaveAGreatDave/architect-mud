@@ -104,20 +104,22 @@ export function ensureHelmStyles() {
     .helm-nav-tag{ position:absolute; left:7px; top:6px; font-family:var(--hmono); font-size:8px; letter-spacing:2px;
       color:color-mix(in srgb,var(--chart) 82%,#fff); text-shadow:0 0 6px color-mix(in srgb,var(--chart) 70%,transparent); z-index:2; }
 
-    /* Digital instrument readouts — recessed HUD glass, cyan phosphor */
-    .helm-gauges{ display:grid; grid-template-columns:repeat(2,1fr); gap:9px; }
-    .helm-readout{ position:relative; padding:6px 11px 7px; border-radius:8px; overflow:hidden;
+    /* Digital instrument readouts — recessed HUD glass, cyan phosphor. Sized off --hs so the readouts
+       (which drive the bar's HEIGHT) shrink WITH the rest of the station — so the ⊟ compact toggle
+       shortens the whole bar, not just the wheel/telegraph. */
+    .helm-gauges{ display:grid; grid-template-columns:repeat(2,1fr); gap:calc(9px*var(--hs)); }
+    .helm-readout{ position:relative; padding:calc(6px*var(--hs)) calc(11px*var(--hs)) calc(7px*var(--hs)); border-radius:8px; overflow:hidden;
       background:linear-gradient(180deg,#05171d 0,#020a0e 100%);
       border:1px solid color-mix(in srgb,var(--chart) 26%,#000);
       box-shadow:inset 0 0 14px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.05); }
     .helm-readout.wide{ flex:1; min-width:0; }
-    .helm-readout .rk{ display:block; font-family:var(--hmono); font-size:8px; letter-spacing:2.5px; text-transform:uppercase;
+    .helm-readout .rk{ display:block; font-family:var(--hmono); font-size:calc(8px*var(--hs)); letter-spacing:2.5px; text-transform:uppercase;
       color:color-mix(in srgb,var(--chart) 55%,var(--hdim)); }
-    .helm-readout .rv{ display:block; margin-top:2px; font-family:var(--hmono); font-weight:700; font-size:17px; letter-spacing:1px;
+    .helm-readout .rv{ display:block; margin-top:2px; font-family:var(--hmono); font-weight:700; font-size:calc(17px*var(--hs)); letter-spacing:1px;
       font-variant-numeric:tabular-nums; color:color-mix(in srgb,var(--chart) 85%,#fff);
       text-shadow:0 0 7px color-mix(in srgb,var(--chart) 55%,transparent); }
-    .helm-readout .rv.big{ font-size:22px; letter-spacing:2px; }
-    .helm-readout .rv.sm{ font-size:13px; letter-spacing:1.5px; }
+    .helm-readout .rv.big{ font-size:calc(22px*var(--hs)); letter-spacing:2px; }
+    .helm-readout .rv.sm{ font-size:calc(13px*var(--hs)); letter-spacing:1.5px; }
     .helm-readout .rv i{ font-style:normal; font-size:9px; margin-left:3px; opacity:.6; letter-spacing:.5px; }
     .helm-readout.eta .rv{ color:color-mix(in srgb,var(--accent-hi) 88%,#fff); text-shadow:0 0 7px color-mix(in srgb,var(--accent) 55%,transparent); }
     .helm-readout.eta.idle .rv{ color:var(--hdim); text-shadow:none; }
@@ -263,9 +265,10 @@ export function openHelm(opts = {}) {
     root.style.setProperty('--hs', (base * (compact ? 0.6 : 1)).toFixed(3));   // compact just scales the dash down; the chase view is full-pane regardless
     const consoleH = consoleEl?.offsetHeight || 0;
     const band = Math.max(80, h - consoleH);   // open water above the dash — drives the framing pitch only
-    // Gentle 3⁄4-from-above chase (the fullscreen look), a touch more top-down when the water band is
-    // cramped so the hull still reads clear of the dash. Full render height keeps her 3D either way.
-    ctrl.setRestPitch(clampN(0.38 + (band - 300) * (0.20 - 0.38) / 360, 0.20, 0.38));
+    // Top-down 3⁄4 chase held well above the water, a touch steeper when the water band is cramped so
+    // the whole hull reads clear of the dash. Full render height keeps her 3D either way; the orbit
+    // floor (helm-view) never lets the eye drop below this toward the sea.
+    ctrl.setRestPitch(clampN(0.60 + (band - 300) * (0.42 - 0.60) / 360, 0.42, 0.60));
   };
   const ro = ('ResizeObserver' in window) ? new ResizeObserver(rescale) : null;
   ro ? ro.observe(root) : addEventListener('resize', rescale);
@@ -336,7 +339,7 @@ export function openHelm(opts = {}) {
   // while under way and springs to STOP the moment she arrives.
   const tele = q('[data-tele]'), knob = q('[data-knob]'), track = q('.helm-tele-track'), teleLabel = q('[data-telelabel]');
   const KNOBH = 34, PAD = 8;
-  const MS_PER_TILE = (t) => 3600 + (1000 - 3600) * t;   // mirrors the server bell (local placeholder timing only)
+  const MS_PER_TILE = () => 2500;   // single speed (slow == fast), mirrors the server (local placeholder timing only)
   const cruiseFor = (t) => 0.35 + 0.65 * t;                // mirrors the server's visual bell (wake/water/knots)
   const throttleFor = (c) => Math.max(0, Math.min(1, (c - 0.35) / 0.65));   // invert: cruise → knob position
   const bellName = (p) => p < 0.34 ? 'Dead Slow' : p < 0.67 ? 'Half Ahead' : 'Full Ahead';
@@ -351,8 +354,8 @@ export function openHelm(opts = {}) {
     const dir = ctrl.readyDir();
     if (!dir) { setKnob(0); tele.classList.add('warn'); teleLabel.textContent = 'Steady the helm'; setTimeout(() => { tele.classList.remove('warn'); if (!engaged) teleLabel.textContent = 'Engine Telegraph'; }, 1400); return; }
     const t = Math.max(0, Math.min(1, knobP));
-    const estMs = Math.round(10 * MS_PER_TILE(t));   // longest passage at this bell; the server's helm_underway corrects ms/tiles/cruise
-    ctrl.beginTransit(dir, estMs, estMs, 10, cruiseFor(t));   // local placeholder so the wake blooms instantly
+    const estMs = MS_PER_TILE(t);   // one-tile passage; the server's helm_underway confirms ms/tiles/cruise (or helm_hold cancels if land ahead)
+    ctrl.beginTransit(dir, estMs, estMs, 1, cruiseFor(t));   // local placeholder (1 tile) so the wake blooms instantly without ever over-gliding
     onSail(dir, Math.round(t * 100));                        // fire the real `sail <dir> <bell%>` in game
     setUnderway(true);
   }
