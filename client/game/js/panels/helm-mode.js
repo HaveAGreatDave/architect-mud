@@ -81,10 +81,13 @@ export function ensureHelmStyles() {
     .helm-console::before{ content:''; position:absolute; left:0; right:0; top:1px; height:1px; pointer-events:none;
       background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--steel) 40%,transparent) 22%,color-mix(in srgb,var(--steel-hi) 75%,transparent) 50%,color-mix(in srgb,var(--steel) 40%,transparent) 78%,transparent 96%);
       opacity:.7; }
-    /* nav+position | gauges | WHEEL | telegraph — the wheel is now a normal in-bar column, so the
-       whole area above the console is clear water. */
-    .helm-console-face{ position:relative; display:grid; grid-template-columns:minmax(calc(180px*var(--hs)),1fr) minmax(calc(210px*var(--hs)),300px) auto auto; align-items:center; justify-items:center; gap:calc(20px*var(--hs));
+    /* [ nav+position + gauges ] | WHEEL | telegraph — the wheel is the centred centrepiece, flanked
+       by the instrument cluster (left) and the engine telegraph (right). The 1fr/auto/1fr columns
+       keep the wheel dead-centre in the bar. All still in-bar, so the water above stays clear. */
+    .helm-console-face{ position:relative; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:calc(20px*var(--hs));
       padding:calc(10px*var(--hs)) calc(26px*var(--hs)) calc(11px*var(--hs)); max-width:1280px; margin:0 auto; }
+    /* left instrument cluster: nav scope + position + the digital gauge stack, packed together */
+    .helm-left{ justify-self:start; display:flex; align-items:center; gap:calc(20px*var(--hs)); min-width:0; }
     /* faint carbon-fibre weave milled into the console face, under the brushed grain */
     .helm-console-face::before{ content:''; position:absolute; inset:0; pointer-events:none; opacity:.14;
       background:var(--hcarbon); background-size:6px 6px,6px 6px; mix-blend-mode:overlay; }
@@ -124,15 +127,15 @@ export function ensureHelmStyles() {
 
     /* Ship's wheel — a normal column INSIDE the console bar (no longer a floating binnacle above it),
        so it can never rise into the water/ship view. Sized to sit within the bar's height. */
-    .helm-col{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+    .helm-col{ justify-self:center; display:flex; flex-direction:column; align-items:center; gap:3px; }
     .helm-col canvas{ pointer-events:auto; }
     .helm-col .cap{ display:none; }   /* the COURSE cap is redundant — the wheel is self-evident */
-    .helm-wheel{ width:calc(118px*var(--hs)); height:calc(118px*var(--hs)); filter:drop-shadow(0 6px 14px rgba(0,0,0,.7)); }
+    .helm-wheel{ width:calc(168px*var(--hs)); height:calc(168px*var(--hs)); filter:drop-shadow(0 6px 14px rgba(0,0,0,.7)); }
     .helm-col .cap{ font-family:var(--hmono); font-size:8px; letter-spacing:4px; color:color-mix(in srgb,var(--accent) 70%,var(--hdim)); text-transform:uppercase;
       background:rgba(4,7,11,.6); padding:1px 8px; border-radius:4px; }
 
     /* Engine telegraph — a milled steel lever in a carbon slot, right of the console */
-    .helm-tele{ display:flex; flex-direction:column; align-items:center; gap:6px; user-select:none; justify-self:end; }
+    .helm-tele{ display:flex; flex-direction:column; align-items:center; gap:6px; user-select:none; justify-self:end; grid-column:3; }
     .helm-tele-track{ position:relative; width:calc(60px*var(--hs)); height:calc(128px*var(--hs)); border-radius:11px;
       background:var(--hcarbon),linear-gradient(180deg,#0f1319,#05080c); background-size:6px 6px,6px 6px,auto;
       border:1px solid color-mix(in srgb,var(--steel) 32%,#000);
@@ -154,10 +157,13 @@ export function ensureHelmStyles() {
     .helm-tele.warn .helm-tele-label{ color:#ff8a7a; }
 
     @media (max-width:760px){
-      .helm-console-face{ grid-template-columns:auto 1fr; grid-template-rows:auto auto; gap:10px 16px; padding:10px 16px 11px; }
-      .helm-col{ order:1; } .helm-nav{ order:2; } .helm-tele{ order:3; }
-      .helm-gauges{ order:4; grid-column:1 / -1; grid-template-columns:repeat(4,1fr); }
-      .helm-wheel{ width:104px; height:104px; }
+      /* Wheel on its own centred row above; the left cluster + telegraph share the row below. */
+      .helm-console-face{ grid-template-columns:1fr auto; grid-template-rows:auto auto; gap:10px 16px; padding:10px 16px 11px; }
+      .helm-col{ order:1; grid-column:1 / -1; justify-self:center; }
+      .helm-left{ order:2; flex-wrap:wrap; }
+      .helm-tele{ order:3; grid-column:2; }
+      .helm-gauges{ grid-template-columns:repeat(2,1fr); }
+      .helm-wheel{ width:calc(132px*var(--hs)); height:calc(132px*var(--hs)); }
       .helm-nav-scope{ width:112px; height:88px; } }`;
   document.head.appendChild(s);
 }
@@ -191,20 +197,23 @@ export function openHelm(opts = {}) {
       <div class="helm-dash">
         <div class="helm-console">
           <div class="helm-console-face">
-            <!-- NAV chart: live top-down basin chart with the Echelon's blip. -->
-            <div class="helm-nav">
-              <div class="helm-nav-scope"><canvas data-nav></canvas><span class="helm-nav-tag">NAV · BASIN</span></div>
-              <div class="helm-readout wide"><span class="rk">Position</span><span class="rv" data-pos>— · —</span></div>
+            <!-- Left instrument cluster: NAV scope + position + the digital gauge stack. -->
+            <div class="helm-left">
+              <!-- NAV chart: live top-down basin chart with the Echelon's blip. -->
+              <div class="helm-nav">
+                <div class="helm-nav-scope"><canvas data-nav></canvas><span class="helm-nav-tag">NAV · BASIN</span></div>
+                <div class="helm-readout wide"><span class="rk">Position</span><span class="rv" data-pos>— · —</span></div>
+              </div>
+              <!-- Digital instrument stack -->
+              <div class="helm-gauges">
+                <div class="helm-readout hdg"><span class="rk">Heading</span><span class="rv big" data-hdg>N</span></div>
+                <div class="helm-readout"><span class="rk">Speed</span><span class="rv"><span data-kn>0.0</span><i>kn</i></span></div>
+                <div class="helm-readout eta idle"><span class="rk">ETA</span><span class="rv" data-eta>—</span></div>
+                <div class="helm-readout st"><span class="rk">Status</span><span class="rv sm" data-status>MOORED</span></div>
+              </div>
             </div>
-            <!-- Digital instrument stack -->
-            <div class="helm-gauges">
-              <div class="helm-readout hdg"><span class="rk">Heading</span><span class="rv big" data-hdg>N</span></div>
-              <div class="helm-readout"><span class="rk">Speed</span><span class="rv"><span data-kn>0.0</span><i>kn</i></span></div>
-              <div class="helm-readout eta idle"><span class="rk">ETA</span><span class="rv" data-eta>—</span></div>
-              <div class="helm-readout st"><span class="rk">Status</span><span class="rv sm" data-status>MOORED</span></div>
-            </div>
-            <!-- Ship's wheel — docked INSIDE the console (a normal column), so it never rises into
-                 the water/ship view above the bar. -->
+            <!-- Ship's wheel — the centred centrepiece, docked INSIDE the console so it never rises
+                 into the water/ship view above the bar. -->
             <div class="helm-col">
               <canvas class="helm-wheel"></canvas>
               <div class="cap">Course</div>
@@ -226,12 +235,15 @@ export function openHelm(opts = {}) {
   const root = mount.querySelector('.helm-root');
   const q = (s) => root.querySelector(s);
 
-  // Dynamic console scale — the shorter the view pane, the smaller the whole helm station (console
-  // bar + wheel + telegraph shrink together via --hs) so the Echelon is never buried behind it.
-  // At a comfortable height the station is full-size; it eases down to ~0.6 on a squat pane.
+  // Dynamic console scale — the SMALLER the view pane (in EITHER axis), the smaller the whole helm
+  // station (console bar + wheel + telegraph shrink together via --hs) so the Echelon is never buried
+  // behind it. Full-size on a roomy pane; it eases down to ~0.55 on a squat or narrow one, driven by
+  // whichever axis is tighter so a short-and-wide OR tall-and-narrow pane both scale down.
   const rescale = () => {
-    const h = root.clientHeight || 0;
-    root.style.setProperty('--hs', String(Math.max(0.6, Math.min(1, (h - 150) / 560)).toFixed(3)));
+    const w = root.clientWidth || 0, h = root.clientHeight || 0;
+    const byH = (h - 150) / 560;   // ~1 at a comfortable height
+    const byW = w / 1180;          // ~1 at the console's natural full width
+    root.style.setProperty('--hs', String(Math.max(0.55, Math.min(1, Math.min(byH, byW))).toFixed(3)));
   };
   const ro = ('ResizeObserver' in window) ? new ResizeObserver(rescale) : null;
   ro ? ro.observe(root) : addEventListener('resize', rescale);
