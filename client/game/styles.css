@@ -7735,14 +7735,19 @@ body.fsim-external #look-resize-handle { display: none; }
 
 /* ── Announcer lower-third ───────────────────────────────────────────────────── */
 .gd-caption {
-	flex: 0 0 auto; display: flex; align-items: center; gap: 9px; min-height: 26px; padding: 4px 10px 4px 6px;
+	flex: 0 0 auto; display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 5px 10px 5px 6px;
 	border-radius: 3px; background: rgba(0,0,0,0.6); border: 1px solid var(--tv-border, rgba(0,220,180,0.25));
 }
 .gd-cap-tag {
 	flex: 0 0 auto; font-size: 9px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase;
 	color: #041008; background: var(--tv-header-color, #37d67a); padding: 3px 8px; border-radius: 2px;
 }
-.gd-cap-text { flex: 1 1 auto; font-size: 12px; line-height: 1.35; color: var(--tv-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Comfortably fits up to two lines; the reserved min-height keeps the lower-third from
+   jumping as one- and two-line calls alternate. Clamps with an ellipsis beyond two. */
+.gd-cap-text {
+	flex: 1 1 auto; font-size: 12px; line-height: 1.35; color: var(--tv-text); overflow: hidden;
+	display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
 .gd-cap-text.in { animation: gd-cap-in 0.3s ease-out; }
 @keyframes gd-cap-in { from { opacity: 0.25; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 

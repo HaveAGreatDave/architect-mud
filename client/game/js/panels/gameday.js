@@ -228,10 +228,12 @@ export function createGamedayView(host) {
   let timers = [];
   let caption = '';          // last announcer line, retained across the shell rebuild
   let pendingCaption = null; // { text, speak } for the current at-bat, held until the hit lands
+  let pendingCard = null;    // a jumbotron card (HR/DP/…) held until the play lands
+  let playAnimating = false; // an at-bat is on the field right now — hold event graphics until it lands
   let field = null;          // the persistent .gd-field element (tokens live here)
   let cardTimer = null;      // auto-dismiss for the Gameday-native jumbotron card
 
-  function _stop() { timers.forEach(clearTimeout); timers = []; }
+  function _stop() { timers.forEach(clearTimeout); timers = []; playAnimating = false; pendingCard = null; }
   function _t(ms, fn) { timers.push(setTimeout(fn, Math.max(0, ms))); }
   function _sfx(def) { window.AudioEngine?.playSfx(def); }
   const _pitchSfx = (pt, terminal) => pt.result === 'swinging' ? SFX.whiff
@@ -483,19 +485,23 @@ export function createGamedayView(host) {
       else _sfx(SFX.base);
     });
 
-    // Hold Chip's play-by-play (staged by setCaption on this same beat) until the batted
-    // ball has finished travelling, then reveal it AND start his voice together, so the
-    // call lands as a reaction to the hit rather than preceding it. The previous at-bat's
-    // line lingers until then.
-    if (pendingCaption != null) {
-      const pend = pendingCaption;
-      pendingCaption = null;
-      const ballFlight = !traj.batted ? 200
-        : traj.mode === 'homer' ? T_HOMER
-        : traj.mode === 'ground' ? T_THROW * 2
-        : T_FLY;
-      _t(outMs + ballFlight, () => { _showCaption(pend.text); if (pend.speak) pend.speak(); });
-    }
+    // The play "lands" once the batted ball has finished travelling. Hold everything
+    // that reacts to it until that moment — Chip's call (staged by setCaption on this
+    // beat), his voice, AND any event graphic (HOME RUN / DOUBLE PLAY / …) that rides
+    // the beat and reaches showCard just after this apply — so they land as a reaction
+    // to the play rather than spoiling it. The previous at-bat's line lingers until then.
+    const ballFlight = !traj.batted ? 200
+      : traj.mode === 'homer' ? T_HOMER
+      : traj.mode === 'ground' ? T_THROW * 2
+      : T_FLY;
+    const pend = pendingCaption;
+    pendingCaption = null;
+    playAnimating = true;
+    _t(outMs + ballFlight, () => {
+      playAnimating = false;
+      if (pend) { _showCaption(pend.text); if (pend.speak) pend.speak(); }
+      if (pendingCard) { const fx = pendingCard; pendingCard = null; _renderCard(fx); }
+    });
   }
 
   // Paint a line into the caption bar with the slide-in animation.
@@ -534,7 +540,7 @@ export function createGamedayView(host) {
     worldseries: (fx) => ({ title: 'WORLD SERIES', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: 'hot' }),
     champion: (fx) => ({ title: '🏆 CHAMPIONS', sub: fx.winner || '', cls: 'hot' }),
   };
-  function showCard(fx) {
+  function _renderCard(fx) {
     if (!host || !fx || !CARD[fx.kind]) return;
     const m = CARD[fx.kind](fx);
     let el = host.querySelector('.gd-jumbo');
@@ -543,6 +549,15 @@ export function createGamedayView(host) {
     el.className = `gd-jumbo ${m.cls}`; void el.offsetWidth; el.classList.add('in');
     if (cardTimer) clearTimeout(cardTimer);
     cardTimer = setTimeout(() => el && el.classList.remove('in'), (fx.duration || 3.5) * 1000);
+  }
+  // A jumbotron graphic rides the same beat as its play and reaches us just AFTER the
+  // `gameday` overlay that starts the animation. If an at-bat is on the field, hold the
+  // card until it lands (apply()'s reveal shows it, in step with Chip's call); otherwise
+  // — a game-level card between at-bats (matchup / FINAL / extras) — show it right away.
+  function showCard(fx) {
+    if (!host || !fx || !CARD[fx.kind]) return;
+    if (playAnimating) pendingCard = fx;
+    else _renderCard(fx);
   }
   function _clearCard() { if (cardTimer) { clearTimeout(cardTimer); cardTimer = null; } host?.querySelector('.gd-jumbo')?.remove(); }
 
