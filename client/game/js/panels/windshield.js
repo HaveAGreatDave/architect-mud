@@ -4091,7 +4091,10 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // well in front of the camera (fCam = f + back) and must keep drawing — clipping on the raw
     // craft distance `f` popped it out the instant it passed the tail. Far stays on `f`.
     const fCam = f + (cam.back || 0);
-    if (fCam <= VISIBLE_NEAR_F || f > FAR) continue;
+    // The Echelon is the chase SUBJECT (in the Helm view she's dead-centre) — never tile-cull her, or
+    // zooming in / orbiting swings her tile across the near plane and pops the whole hull out. Her own
+    // per-face near-clip in drawYacht handles anything that crosses the lens gracefully.
+    if (c.mark !== 'yacht' && (fCam <= VISIBLE_NEAR_F || f > FAR)) continue;
     // Buildings hold FULL opacity all the way to the camera — NO near-pass fade — so a
     // building directly ahead of (or passing right beside/under) you never dissolves. Only
     // the far edge fades, and only as haze: distant blocks ghost UP out of the horizon rather
