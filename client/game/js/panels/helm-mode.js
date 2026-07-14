@@ -68,16 +68,20 @@ export function ensureHelmStyles() {
        behind the console lip; the NAV chart + digital instruments + engine telegraph
        are milled into the face. Cool cyan HUD glass on brushed steel + carbon fibre. */
     .helm-dash{ position:absolute; left:0; right:0; bottom:0; z-index:5; }
-    .helm-console{ position:relative; padding-bottom:env(safe-area-inset-bottom);
-      /* brushed titanium: fine vertical grain over a top-lit gunmetal body */
+    /* Inline (non-fullscreen): NO brushed-metal panel — the wheel + telegraph + readouts just FLOAT
+       over the water. The full machined console only materialises in fullscreen (below), where there's
+       room for the whole helm station. So .helm-console is transparent by default. */
+    .helm-console{ position:relative; padding-bottom:env(safe-area-inset-bottom); }
+    /* Fullscreen: the real brushed-titanium station — fine vertical grain over a top-lit gunmetal body */
+    body.helm-fullscreen .helm-console{
       background:
         linear-gradient(180deg,rgba(255,255,255,.10) 0,rgba(255,255,255,0) 3px),
         repeating-linear-gradient(90deg,rgba(255,255,255,.045) 0 1px,rgba(0,0,0,.05) 1px 2px,transparent 2px 4px),
         radial-gradient(140% 120% at 50% -10%,#3a4149 0,#242a31 32%,#161a20 66%,#0c0f14 100%);
       border-top:1px solid rgba(0,0,0,.7);
       box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(0,0,0,.6), 0 -14px 34px rgba(0,0,0,.55); }
-    /* a thin machined steel seam catches light on the lip — a polished filet, not a glowing bar */
-    .helm-console::before{ content:''; position:absolute; left:0; right:0; top:1px; height:1px; pointer-events:none;
+    /* a thin machined steel seam catches light on the lip — fullscreen only, with the panel */
+    body.helm-fullscreen .helm-console::before{ content:''; position:absolute; left:0; right:0; top:1px; height:1px; pointer-events:none;
       background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--steel) 40%,transparent) 22%,color-mix(in srgb,var(--steel-hi) 75%,transparent) 50%,color-mix(in srgb,var(--steel) 40%,transparent) 78%,transparent 96%);
       opacity:.7; }
     /* [ nav+position + gauges ] | WHEEL | telegraph — the wheel is the centred centrepiece, flanked
@@ -87,8 +91,8 @@ export function ensureHelmStyles() {
       padding:calc(3px*var(--hs)) calc(26px*var(--hs)) calc(4px*var(--hs)); max-width:1280px; margin:0 auto; }
     /* left instrument cluster: nav scope + position + the digital gauge stack, packed together */
     .helm-left{ justify-self:start; display:flex; align-items:center; gap:calc(20px*var(--hs)); min-width:0; }
-    /* faint carbon-fibre weave milled into the console face, under the brushed grain */
-    .helm-console-face::before{ content:''; position:absolute; inset:0; pointer-events:none; opacity:.14;
+    /* faint carbon-fibre weave milled into the console face — fullscreen only (part of the panel) */
+    body.helm-fullscreen .helm-console-face::before{ content:''; position:absolute; inset:0; pointer-events:none; opacity:.14;
       background:var(--hcarbon); background-size:6px 6px,6px 6px; mix-blend-mode:overlay; }
 
     /* NAV chart — top-down basin scope with the Echelon blip */
@@ -239,8 +243,7 @@ export function openHelm(opts = {}) {
 
   const root = mount.querySelector('.helm-root');
   const q = (s) => root.querySelector(s);
-  const sea = q('.helm-chase'), consoleEl = q('.helm-console');
-  const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+  const sea = q('.helm-chase');
 
   const ctrl = openHelmChase(sea, {
     gx: opts.gx ?? 0, gy: opts.gy ?? 0, heading: opts.heading ?? 0, sky: opts.sky,
@@ -253,9 +256,9 @@ export function openHelm(opts = {}) {
   //      + wheel + telegraph shrink together) so the Echelon is never buried behind it.
   //   2. Chase framing: the chase view ALWAYS fills the whole pane (full render height, so the hull
   //      keeps its true 3D proportions — never squashed into a short canvas). The console is just an
-  //      opaque glass dash OVER the bottom of that view, so it clips the HUD, not the camera. We only
-  //      re-pitch by the water room ABOVE the dash: a cramped view tips DOWN (more top-down / 3⁄4 so
-  //      the whole hull reads clear of the dash), a roomy fullscreen view eases to a level chase.
+  //      opaque glass dash OVER the bottom of that view, so it clips the HUD, not the camera. The
+  //      camera pitch is a FIXED low sea-level angle (set below) — azimuth-only orbit, no vertical
+  //      tilt — so she always rides high on screen, clear of the dash, in every panel state.
   let compact = false;   // the ⊟ toggle — shrinks the console + pins it low, WITHOUT touching the camera
   const rescale = () => {
     const w = root.clientWidth || 0, h = root.clientHeight || 0;
@@ -263,12 +266,9 @@ export function openHelm(opts = {}) {
     const byW = w / 1180;          // ~1 at the console's natural full width
     const base = Math.max(0.55, Math.min(1, Math.min(byH, byW)));
     root.style.setProperty('--hs', (base * (compact ? 0.6 : 1)).toFixed(3));   // compact just scales the dash down; the chase view is full-pane regardless
-    const consoleH = consoleEl?.offsetHeight || 0;
-    const band = Math.max(80, h - consoleH);   // open water above the dash — drives the framing pitch only
-    // Top-down 3⁄4 chase held well above the water, a touch steeper when the water band is cramped so
-    // the whole hull reads clear of the dash. Full render height keeps her 3D either way; the orbit
-    // floor (helm-view) never lets the eye drop below this toward the sea.
-    ctrl.setRestPitch(clampN(0.60 + (band - 300) * (0.42 - 0.60) / 360, 0.42, 0.60));
+    // Fixed low sea-level elevation — always the same angle so she rides high on screen, clear of the
+    // dash, in every panel state. The orbit is azimuth-only (helm-view), so this pitch never changes.
+    ctrl.setRestPitch(0.10);
   };
   const ro = ('ResizeObserver' in window) ? new ResizeObserver(rescale) : null;
   ro ? ro.observe(root) : addEventListener('resize', rescale);
@@ -369,7 +369,7 @@ export function openHelm(opts = {}) {
   // Orbit / zoom on the sea — the chase cam stays fixed on the boat and arcs around it.
   let drag = false, lx = 0, ly = 0;
   sea.addEventListener('pointerdown', (e) => { drag = true; lx = e.clientX; ly = e.clientY; sea.setPointerCapture?.(e.pointerId); });
-  sea.addEventListener('pointermove', (e) => { if (!drag) return; ctrl.orbit((e.clientX - lx) * 0.4, -(e.clientY - ly) * 0.006); lx = e.clientX; ly = e.clientY; });
+  sea.addEventListener('pointermove', (e) => { if (!drag) return; ctrl.orbit((e.clientX - lx) * 0.4); lx = e.clientX; ly = e.clientY; });   // azimuth-only dome orbit (no vertical tilt)
   const upH = () => { drag = false; }; addEventListener('pointerup', upH);
   sea.addEventListener('wheel', (e) => { e.preventDefault(); ctrl.zoom(e.deltaY > 0 ? 0.08 : -0.08); }, { passive: false });
 

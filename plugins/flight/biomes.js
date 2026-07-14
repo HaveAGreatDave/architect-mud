@@ -23,6 +23,10 @@ export const BIOMES = [
 // The tag used for the map/silhouettes — airfields read as 'airport'.
 export function biomeOf(zone) {
   if (!zone) return null;
+  // The Echelon's exterior tile carries an airfield_id (for her helipad / VTOL landing) but IS open
+  // sea — so its ground must read as WATER, not dark tarmac. Check this before the airfield case, or
+  // the floor paints a dark "oil slick" airport-apron square under the hull.
+  if (zone.flags?.yacht) return 'water';
   if (zone.flags?.airfield_id) return 'airport';
   return districtBiome(zone);
 }

@@ -5,31 +5,26 @@
   "bg_color": "#3f3a34",
   "color": "#b9a888",
   "created_by": "zone-planner",
-  "description": "The face of The Neon Vig — a squat gambling house drenched in buzzing neon, its door flanked by two men who are not as bored as they look. The house always takes its cut. Ironside Street runs off to the west.",
+  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
   "exits": {
-    "east": "zone_casino_interior",
+    "east": "zone_district_921_909",
     "south": "zone_district_920_910",
     "west": "zone_district_919_909"
   },
   "flags": {
-    "building_name": "The Neon Vig",
-    "building_type": "casino",
     "district": "wasteland",
-    "facade": true,
     "icon": "road_ew",
-    "is_building": true,
     "planner": "bp_district",
     "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true,
-    "world_exit_zone": "zone_district_919_909"
+    "street_life": true
   },
   "grid_x": 920,
   "grid_y": 909,
   "grid_z": 0,
   "id": "zone_district_920_909",
   "map_id": "map_world",
-  "marker": "NV",
-  "name": "The Neon Vig",
+  "marker": "⁙∴",
+  "name": "Marrow Street",
   "parent_zone": null,
   "updated_at": "1783739474"
 }
