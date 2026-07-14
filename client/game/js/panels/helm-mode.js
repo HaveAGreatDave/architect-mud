@@ -13,9 +13,9 @@
 import { openHelmChase } from './helm-view.js';
 import { createHelmWheel } from './helm-wheel.js';
 
-// One tile is a ten-minute passage (mirrors SAIL_TRANSIT_MS server-side). The console locks for the
+// One tile is a 90-second passage (mirrors SAIL_TRANSIT_MS server-side). The console locks for the
 // full passage; the server's helm_arrived releases it precisely, this is the local fallback timer.
-const HELM_TRANSIT_MS = 10 * 60_000;
+const HELM_TRANSIT_MS = 90_000;
 
 let _helm = null;
 export function isHelmActive() { return !!_helm; }
@@ -55,49 +55,94 @@ export function ensureHelmStyles() {
       color:var(--accent); font-size:15px; width:34px; height:32px; cursor:pointer; backdrop-filter:blur(3px); line-height:1; }
     .helm-icon:hover{ filter:brightness(1.25); } .helm-icon.on{ background:var(--accent); color:#05141f; }
     .helm-icon.exit{ color:#ff8a7a; border-color:color-mix(in srgb,#ff8a7a 40%,transparent); font-weight:700; }
-    /* The console: a brass-railed glass dash across the bottom, wheel centred, instruments left,
-       engine telegraph right — a bridge helm station, not just a floating wheel. */
-    .helm-dash{ position:absolute; left:0; right:0; bottom:0; z-index:5; display:grid; grid-template-columns:1fr auto 1fr; align-items:end; gap:18px;
-      padding:10px 22px calc(12px + env(safe-area-inset-bottom));
-      background:linear-gradient(180deg,rgba(6,10,14,0) 0%,rgba(6,10,14,.5) 52%,rgba(3,6,9,.9) 100%);
-      border-top:2px solid transparent;
-      border-image:linear-gradient(90deg,transparent,var(--brass) 18%,var(--accent-hi) 50%,var(--brass) 82%,transparent) 1;
-      box-shadow:inset 0 2px 0 rgba(0,0,0,.6); }
-    .helm-tel{ display:flex; gap:10px; flex-wrap:wrap; }
-    .helm-cell{ min-width:76px; padding:7px 12px; border-radius:9px; background:var(--hcarbon),var(--hpanel);
-      border:1px solid color-mix(in srgb,var(--accent) 20%,transparent); box-shadow:inset 0 1px 0 rgba(255,255,255,.08),inset 0 -3px 6px rgba(0,0,0,.5); }
-    .helm-cell .k{ font-family:var(--hmono); font-size:9px; letter-spacing:2px; color:var(--hdim); text-transform:uppercase; }
-    .helm-cell .v{ font-family:var(--hmono); font-size:17px; font-weight:700; letter-spacing:.5px; color:var(--hink); font-variant-numeric:tabular-nums; }
-    .helm-cell .v small{ font-size:10px; color:var(--hdim); font-weight:400; }
-    .helm-cell.st .v{ color:var(--hdim); } .helm-cell.st.busy .v{ color:var(--stbd); }
-    .helm-cell.eta .v{ color:var(--accent-hi); } .helm-cell.eta.idle .v{ color:var(--hdim); }
-    .helm-col{ display:flex; flex-direction:column; align-items:center; gap:6px; }
-    .helm-wheel{ width:172px; height:172px; filter:drop-shadow(0 8px 18px rgba(0,0,0,.7)); }
-    .helm-col .cap{ font-family:var(--hmono); font-size:9px; letter-spacing:3px; color:var(--hdim); text-transform:uppercase; }
-    /* Engine telegraph — a brass-housed lever in a slot. Drag the handle up to AHEAD to engage;
-       it pins there for the passage and springs back to STOP on arrival. */
-    .helm-right{ display:flex; flex-direction:column; align-items:flex-end; }
-    .helm-tele{ display:flex; flex-direction:column; align-items:center; gap:7px; user-select:none; }
-    .helm-tele-track{ position:relative; width:64px; height:150px; border-radius:12px;
-      background:linear-gradient(180deg,#161b22,#080b10); border:1px solid color-mix(in srgb,var(--brass) 55%,#000);
-      box-shadow:inset 0 2px 8px rgba(0,0,0,.7),0 1px 0 rgba(255,255,255,.06); overflow:hidden; }
+    /* ── The console ──────────────────────────────────────────────────────────────
+       A single machined brushed-metal helm station laid across the bottom of the view.
+       The ship's wheel rises out of a binnacle at its centre so its lower half tucks
+       behind the console lip; the NAV chart + digital instruments + engine telegraph
+       are milled into the face. Cool cyan HUD glass against warm brass mechanicals. */
+    .helm-dash{ position:absolute; left:0; right:0; bottom:0; z-index:5; }
+    .helm-console{ position:relative; padding-bottom:env(safe-area-inset-bottom);
+      /* brushed titanium: fine vertical grain over a top-lit gunmetal body */
+      background:
+        linear-gradient(180deg,rgba(255,255,255,.10) 0,rgba(255,255,255,0) 3px),
+        repeating-linear-gradient(90deg,rgba(255,255,255,.045) 0 1px,rgba(0,0,0,.05) 1px 2px,transparent 2px 4px),
+        radial-gradient(140% 120% at 50% -10%,#3a4149 0,#242a31 32%,#161a20 66%,#0c0f14 100%);
+      border-top:1px solid rgba(0,0,0,.7);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(0,0,0,.6), 0 -14px 34px rgba(0,0,0,.55); }
+    /* a thin machined accent seam catches light on the lip — a filet, not a glowing bar */
+    .helm-console::before{ content:''; position:absolute; left:0; right:0; top:1px; height:2px; pointer-events:none;
+      background:linear-gradient(90deg,transparent,rgba(180,146,63,.0) 6%,color-mix(in srgb,var(--brass) 55%,transparent) 34%,color-mix(in srgb,var(--accent-hi) 70%,transparent) 50%,color-mix(in srgb,var(--brass) 55%,transparent) 66%,transparent 94%);
+      opacity:.55; }
+    .helm-console-face{ display:grid; grid-template-columns:minmax(190px,1fr) minmax(220px,320px) 1fr; align-items:center; gap:22px;
+      padding:14px 26px 15px; max-width:1180px; margin:0 auto; }
+
+    /* NAV chart — top-down basin scope with the Echelon blip */
+    .helm-nav{ display:flex; align-items:center; gap:12px; }
+    .helm-nav-scope{ position:relative; width:132px; height:104px; border-radius:9px; flex:0 0 auto;
+      background:linear-gradient(180deg,#03151b,#010a0e); overflow:hidden;
+      border:1px solid color-mix(in srgb,var(--chart) 32%,#000);
+      box-shadow:inset 0 0 22px rgba(0,0,0,.85), inset 0 0 8px color-mix(in srgb,var(--chart) 16%,transparent), 0 1px 0 rgba(255,255,255,.06); }
+    .helm-nav-scope canvas{ display:block; width:100%; height:100%; }
+    /* faint horizontal scanlines over the scope for a CRT feel */
+    .helm-nav-scope::after{ content:''; position:absolute; inset:0; pointer-events:none;
+      background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px); mix-blend-mode:multiply; }
+    .helm-nav-tag{ position:absolute; left:7px; top:6px; font-family:var(--hmono); font-size:8px; letter-spacing:2px;
+      color:color-mix(in srgb,var(--chart) 82%,#fff); text-shadow:0 0 6px color-mix(in srgb,var(--chart) 70%,transparent); z-index:2; }
+
+    /* Digital instrument readouts — recessed HUD glass, cyan phosphor */
+    .helm-gauges{ display:grid; grid-template-columns:repeat(2,1fr); gap:9px; }
+    .helm-readout{ position:relative; padding:6px 11px 7px; border-radius:8px; overflow:hidden;
+      background:linear-gradient(180deg,#05171d 0,#020a0e 100%);
+      border:1px solid color-mix(in srgb,var(--chart) 26%,#000);
+      box-shadow:inset 0 0 14px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.05); }
+    .helm-readout.wide{ flex:1; min-width:0; }
+    .helm-readout .rk{ display:block; font-family:var(--hmono); font-size:8px; letter-spacing:2.5px; text-transform:uppercase;
+      color:color-mix(in srgb,var(--chart) 55%,var(--hdim)); }
+    .helm-readout .rv{ display:block; margin-top:2px; font-family:var(--hmono); font-weight:700; font-size:17px; letter-spacing:1px;
+      font-variant-numeric:tabular-nums; color:color-mix(in srgb,var(--chart) 85%,#fff);
+      text-shadow:0 0 7px color-mix(in srgb,var(--chart) 55%,transparent); }
+    .helm-readout .rv.big{ font-size:22px; letter-spacing:2px; }
+    .helm-readout .rv.sm{ font-size:13px; letter-spacing:1.5px; }
+    .helm-readout .rv i{ font-style:normal; font-size:9px; margin-left:3px; opacity:.6; letter-spacing:.5px; }
+    .helm-readout.eta .rv{ color:color-mix(in srgb,var(--accent-hi) 88%,#fff); text-shadow:0 0 7px color-mix(in srgb,var(--accent) 55%,transparent); }
+    .helm-readout.eta.idle .rv{ color:var(--hdim); text-shadow:none; }
+    .helm-readout.st .rv{ color:var(--hdim); text-shadow:none; }
+    .helm-readout.st.busy .rv{ color:var(--stbd); text-shadow:0 0 7px color-mix(in srgb,var(--stbd) 55%,transparent); }
+
+    /* Wheel binnacle — the wheel straddles the console top edge, lower half behind the lip */
+    .helm-col{ position:absolute; left:50%; bottom:100%; transform:translate(-50%,52%); z-index:6;
+      display:flex; flex-direction:column; align-items:center; gap:3px; pointer-events:none; }
+    .helm-col canvas{ pointer-events:auto; }
+    .helm-wheel{ width:178px; height:178px; filter:drop-shadow(0 10px 22px rgba(0,0,0,.8)); }
+    .helm-col .cap{ font-family:var(--hmono); font-size:8px; letter-spacing:4px; color:color-mix(in srgb,var(--accent) 70%,var(--hdim)); text-transform:uppercase;
+      background:rgba(4,7,11,.6); padding:1px 8px; border-radius:4px; }
+
+    /* Engine telegraph — brass lever in a milled slot, right of the console */
+    .helm-tele{ display:flex; flex-direction:column; align-items:center; gap:6px; user-select:none; justify-self:end; }
+    .helm-tele-track{ position:relative; width:60px; height:128px; border-radius:11px;
+      background:linear-gradient(180deg,#0f1319,#05080c);
+      border:1px solid color-mix(in srgb,var(--brass) 50%,#000);
+      box-shadow:inset 0 2px 10px rgba(0,0,0,.85),0 1px 0 rgba(255,255,255,.08); overflow:hidden; }
     .helm-tele-track::before{ content:''; position:absolute; left:50%; top:14px; bottom:14px; width:6px; transform:translateX(-50%);
-      border-radius:4px; background:linear-gradient(180deg,#05070a,#12161c); box-shadow:inset 0 0 4px rgba(0,0,0,.9); }
-    .helm-tele-mark{ position:absolute; left:0; right:0; text-align:center; font-family:var(--hmono); font-size:9px; letter-spacing:2px; color:var(--hdim); pointer-events:none; }
+      border-radius:4px; background:linear-gradient(180deg,#04060a,#141922); box-shadow:inset 0 0 5px rgba(0,0,0,.95); }
+    .helm-tele-mark{ position:absolute; left:0; right:0; text-align:center; font-family:var(--hmono); font-size:8px; letter-spacing:2px; color:var(--hdim); pointer-events:none; z-index:2; }
     .helm-tele-mark.ahead{ top:7px; color:var(--stbd); } .helm-tele-mark.stop{ bottom:7px; }
-    .helm-tele-knob{ position:absolute; left:8px; right:8px; height:34px; top:92px; border-radius:8px; cursor:grab; touch-action:none;
-      background:linear-gradient(180deg,var(--accent-hi),var(--accent),var(--accent-lo));
-      border:1px solid #2a1f08; box-shadow:0 3px 7px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.55); }
-    .helm-tele-knob::after{ content:''; position:absolute; left:6px; right:6px; top:50%; height:6px; transform:translateY(-50%);
-      background:repeating-linear-gradient(90deg,rgba(0,0,0,.35) 0 2px,transparent 2px 4px); border-radius:2px; }
+    .helm-tele-knob{ position:absolute; left:7px; right:7px; height:32px; top:78px; border-radius:7px; cursor:grab; touch-action:none; z-index:3;
+      background:linear-gradient(180deg,var(--accent-hi),var(--accent) 55%,var(--accent-lo));
+      border:1px solid #2a1f08; box-shadow:0 3px 8px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.6),inset 0 -2px 4px rgba(0,0,0,.35); }
+    .helm-tele-knob::after{ content:''; position:absolute; left:6px; right:6px; top:50%; height:7px; transform:translateY(-50%);
+      background:repeating-linear-gradient(90deg,rgba(0,0,0,.4) 0 2px,transparent 2px 4px); border-radius:2px; }
     .helm-tele-knob:active{ cursor:grabbing; }
-    .helm-tele.engaged .helm-tele-knob{ cursor:not-allowed; box-shadow:0 0 12px var(--stbd),0 3px 7px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.55); }
-    .helm-tele.engaged .helm-tele-track{ border-color:var(--stbd); }
-    .helm-tele-label{ font-family:var(--hmono); font-size:9px; letter-spacing:3px; color:var(--hdim); text-transform:uppercase; }
+    .helm-tele.engaged .helm-tele-knob{ cursor:not-allowed; box-shadow:0 0 14px var(--stbd),0 3px 8px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.6); }
+    .helm-tele.engaged .helm-tele-track{ border-color:var(--stbd); box-shadow:inset 0 2px 10px rgba(0,0,0,.85),0 0 12px color-mix(in srgb,var(--stbd) 40%,transparent); }
+    .helm-tele-label{ font-family:var(--hmono); font-size:8px; letter-spacing:2.5px; color:var(--hdim); text-transform:uppercase; }
     .helm-tele.warn .helm-tele-label{ color:#ff8a7a; }
-    @media (max-width:760px){ .helm-dash{ grid-template-columns:1fr auto; grid-template-rows:auto auto; gap:12px; align-items:center; }
-      .helm-tel{ order:3; grid-column:1 / -1; justify-content:center; } .helm-col{ order:1; } .helm-right{ order:2; align-items:center; }
-      .helm-wheel{ width:184px; height:184px; } .helm-tele-track{ height:120px; } .helm-tele-knob{ top:70px; } }`;
+
+    @media (max-width:760px){
+      .helm-console-face{ grid-template-columns:1fr auto; grid-template-rows:auto auto; gap:12px 18px; padding:12px 16px 13px; }
+      .helm-nav{ order:1; } .helm-gauges{ order:3; grid-column:1 / -1; grid-template-columns:repeat(4,1fr); } .helm-tele{ order:2; }
+      .helm-wheel{ width:150px; height:150px; } .helm-col{ transform:translate(-50%,46%); }
+      .helm-nav-scope{ width:112px; height:88px; } }`;
   document.head.appendChild(s);
 }
 
@@ -126,26 +171,35 @@ export function openHelm(opts = {}) {
         <button class="helm-icon exit" data-exit title="leave the helm">✕</button>
       </div>
       <div class="helm-dash">
-        <div class="helm-tel">
-          <div class="helm-cell"><span class="k">Heading</span><span class="v" data-hdg>N</span></div>
-          <div class="helm-cell"><span class="k">Position</span><span class="v" data-pos style="font-size:14px">—</span></div>
-          <div class="helm-cell"><span class="k">Speed</span><span class="v"><span data-kn>0.0</span><small> kn</small></span></div>
-          <div class="helm-cell eta idle"><span class="k">ETA</span><span class="v" data-eta>—</span></div>
-          <div class="helm-cell st"><span class="k">Status</span><span class="v" data-status>MOORED</span></div>
+        <div class="helm-console">
+          <div class="helm-console-face">
+            <!-- NAV chart: live top-down basin chart with the Echelon's blip. -->
+            <div class="helm-nav">
+              <div class="helm-nav-scope"><canvas data-nav></canvas><span class="helm-nav-tag">NAV · BASIN</span></div>
+              <div class="helm-readout wide"><span class="rk">Position</span><span class="rv" data-pos>— · —</span></div>
+            </div>
+            <!-- Digital instrument stack -->
+            <div class="helm-gauges">
+              <div class="helm-readout hdg"><span class="rk">Heading</span><span class="rv big" data-hdg>N</span></div>
+              <div class="helm-readout"><span class="rk">Speed</span><span class="rv"><span data-kn>0.0</span><i>kn</i></span></div>
+              <div class="helm-readout eta idle"><span class="rk">ETA</span><span class="rv" data-eta>—</span></div>
+              <div class="helm-readout st"><span class="rk">Status</span><span class="rv sm" data-status>MOORED</span></div>
+            </div>
+            <!-- Engine telegraph -->
+            <div class="helm-tele" data-tele>
+              <div class="helm-tele-track">
+                <span class="helm-tele-mark ahead">AHEAD</span>
+                <span class="helm-tele-mark stop">STOP</span>
+                <div class="helm-tele-knob" data-knob></div>
+              </div>
+              <div class="helm-tele-label" data-telelabel>Engine Telegraph</div>
+            </div>
+          </div>
         </div>
+        <!-- Wheel sits in a binnacle straddling the console lip — its lower half tucks behind. -->
         <div class="helm-col">
           <canvas class="helm-wheel"></canvas>
           <div class="cap">Course</div>
-        </div>
-        <div class="helm-right">
-          <div class="helm-tele" data-tele>
-            <div class="helm-tele-track">
-              <span class="helm-tele-mark ahead">AHEAD</span>
-              <span class="helm-tele-mark stop">STOP</span>
-              <div class="helm-tele-knob" data-knob></div>
-            </div>
-            <div class="helm-tele-label" data-telelabel>Engine Telegraph</div>
-          </div>
         </div>
       </div>
     </div>`;

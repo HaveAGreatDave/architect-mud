@@ -203,9 +203,9 @@ async function cmdInvites(args, raw, player) {
 // walk aboard; that exit is torn down the moment she gets underway again.
 
 const EXTERIOR = 'zone_echelon_exterior';
-// She is a big vessel: getting underway, she takes a full ten minutes to make the next tile,
-// and comes to rest only when she arrives. No new order can be given until she's there.
-const SAIL_TRANSIT_MS = 10 * 60_000;
+// She is a big vessel: getting underway, she takes ninety seconds to make the next tile, and comes
+// to rest only when she arrives. No new order can be given until she's there.
+const SAIL_TRANSIT_MS = 90_000;
 const DOCK_SOURCE = 'yacht_dock';
 const DIR_DELTA = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
 const DIR_ALIAS = { n: 'north', s: 'south', e: 'east', w: 'west', north: 'north', south: 'south', east: 'east', west: 'west' };
@@ -407,7 +407,7 @@ async function cmdSail(args, raw, player, broadcast) {
   // Cue the client ambience: the engines roar to life for everyone aboard and hold for the whole
   // passage, per-zone loud→muted; the client settles them on arrival (broadcastSettled).
   broadcastUnderway(bc, SAIL_TRANSIT_MS);
-  return { type: 'system', message: `You engage the throttle ${dirWord}. The Echelon leans into her turn and gets underway across the Basin — she'll reach ${tx}, ${ty} in about ten minutes.` };
+  return { type: 'system', message: `You engage the throttle ${dirWord}. The Echelon leans into her turn and gets underway across the Basin — she'll reach ${tx}, ${ty} in about ninety seconds.` };
 }
 
 async function cmdDock(args, raw, player) {

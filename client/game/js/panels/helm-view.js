@@ -43,7 +43,7 @@ function liveEnv() {
 
 const CARDINAL = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
 const DEG = { N: 0, E: 90, S: 180, W: 270 };
-const CRUISE = 0.6;   // steady making-way throttle held across a passage (0..1)
+const CRUISE = 0.82;   // steady making-way throttle held across a passage (0..1) — drives wake + wash + swell
 
 // A proper (not flat) cloud field, synthesised from the live headline weather so the windshield's
 // fly-through volumetric deck has cells to render — clear skies pass null (its procedural fair-
@@ -185,7 +185,7 @@ export function openHelmChase(container, opts = {}) {
     st.center.wake.spd = st.spd;
     st.center.heading = st.heading;
     audio.update(st.spd);
-    st.seaScroll = (st.seaScroll || 0) + st.spd * dt * 6;   // along-heading drift so the swell streams past under way
+    st.seaScroll = (st.seaScroll || 0) + st.spd * dt * 12;   // along-heading drift so the swell clearly streams past under way
     // Real passage progress: pan the whole world window sub-tile toward the destination (mapOffset)
     // AND lead the yacht cell by the same amount (center.sub) so she holds screen-centre while the
     // city/shoreline slide past her — she visibly crosses the Basin over the ten minutes, not a
@@ -256,6 +256,9 @@ export function openHelmChase(container, opts = {}) {
     transitLeft() { return st.sailing ? Math.max(0, st.transitEnd - performance.now()) : 0; },
     speed() { return st.spd; },
     heading() { return st.heading; },
+    // Top-down chart snapshot for the console's NAV map — the live world window (piers/shoreline/
+    // open water) centred on the yacht, plus her tile, heading and passage lead so the blip glides.
+    mapSnapshot() { return { rows: st.map, gx: st.gx, gy: st.gy, heading: st.heading, sub: st.center && st.center.sub || null, sailing: st.sailing }; },
     isBusy: busy,
     isSailing() { return st.sailing; },
     // Adopt the live sim sky (setSky): the REAL weather field + optional time/weather headline, so
