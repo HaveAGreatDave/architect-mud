@@ -514,9 +514,14 @@ function doorPrePass(fn) {
       const rest = args[0] === 'door' ? args.slice(1) : args;
       return fn(rest, raw, player, broadcast);
     }
-    // Bare command — only intercept if there's exactly one door here.
+    // Bare command. With no door here, fall through (window/container/apartment).
+    // With one OR several doors, hand to the door handler: it re-resolves against
+    // the real args, so a bare verb on several doors gets the "specify a direction"
+    // prompt (instead of silently falling through to an unrelated handler that
+    // answers "no windows/no door here"), while `open box`-style args still
+    // resolve to no door and fall through cleanly.
     const door = resolveDoor([], player);
-    if (!door || door === 'ambiguous') return undefined;
+    if (!door) return undefined;
     return fn(args, raw, player, broadcast);
   };
 }
