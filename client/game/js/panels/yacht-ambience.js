@@ -499,10 +499,10 @@ export function setYachtAmbience(next) {
   if (kind === 'naval') stopHarbor();
   kind = next;
   if (kind === 'naval') startHarbor();
-  // Steady idle bed: full in the engine room, and now carried right up to the open decks so she
-  // plainly throbs underfoot at the top deck too (not just when under way). Interior cabins/city
-  // zones (null) stay silent and lean on the passage roar.
-  engFloor = kind === 'engine' ? 0.72 : kind === 'naval' ? 0.5 : 0;
+  // Steady idle bed: a low constant drone in the engine room ONLY — you hear it standing over the
+  // machinery. The open decks, the suites and every other zone stay silent at a dead stop and lean
+  // entirely on the passage roar (heard throughout while she's making way, muffled in the suites).
+  engFloor = kind === 'engine' ? 0.6 : 0;
   engEnsureTimer();
 }
 
