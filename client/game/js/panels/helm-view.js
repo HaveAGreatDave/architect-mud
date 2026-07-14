@@ -153,6 +153,7 @@ export function openHelmChase(container, opts = {}) {
     // clear of the dead-centre wheel, looking down-and-over (extPitch) so the whole hull reads on
     // the water rather than silhouetted on the horizon behind the binnacle.
     extYaw: opts.extYaw ?? REST.yaw, extPitch: opts.extPitch ?? REST.pitch, extZoom: opts.extZoom ?? REST.zoom,
+    restPitch: opts.extPitch ?? REST.pitch,   // resting elevation — the console re-tunes this by panel size (setRestPitch)
     wx: { key: null, field: null },
     onArrive: opts.onArrive || null,
     alive: true, raf: 0, last: performance.now(),
@@ -301,7 +302,12 @@ export function openHelmChase(container, opts = {}) {
     // the windshield further floors it above the waterline so it never goes under.
     orbit(dYaw, dPitch) { st.extYaw = (st.extYaw + dYaw + 360) % 360; st.extPitch = Math.max(-0.15, Math.min(1.2, st.extPitch + dPitch)); },
     zoom(dz) { st.extZoom = Math.max(0.6, Math.min(2.4, st.extZoom * (1 + dz))); },
-    resetView() { st.extYaw = opts.extYaw ?? REST.yaw; st.extPitch = opts.extPitch ?? REST.pitch; st.extZoom = opts.extZoom ?? REST.zoom; },
+    resetView() { st.extYaw = opts.extYaw ?? REST.yaw; st.extPitch = st.restPitch; st.extZoom = opts.extZoom ?? REST.zoom; },
+    // Resting elevation, driven by the console from the visible water band: a cramped view (panel up)
+    // pitches DOWN (top-down) so the whole hull reads in the short band; a roomy view (fullscreen)
+    // eases toward a level near-horizon chase. The ship is kept centred by the canvas itself sizing to
+    // the band, so this only sets the ANGLE, not her screen position. Adopts it live unless mid-orbit.
+    setRestPitch(p) { const was = st.restPitch; st.restPitch = p; if (Math.abs(st.extPitch - was) < 1e-3) st.extPitch = p; },
     // Absolute course (from the wheel): snap the demanded degrees to the nearest cardinal and
     // let her ease there — so she "spins to the direction you spin the wheel to", slowly.
     setCourse(deg) { const c = Math.round(deg / 90) * 90; st.headingTarget = ((c % 360) + 360) % 360; },

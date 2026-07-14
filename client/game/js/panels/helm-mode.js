@@ -94,7 +94,7 @@ export function ensureHelmStyles() {
 
     /* NAV chart — top-down basin scope with the Echelon blip */
     .helm-nav{ display:flex; align-items:center; gap:12px; }
-    .helm-nav-scope{ position:relative; width:calc(132px*var(--hs)); height:calc(104px*var(--hs)); border-radius:9px; flex:0 0 auto;
+    .helm-nav-scope{ position:relative; width:calc(112px*var(--hs)); height:calc(80px*var(--hs)); border-radius:9px; flex:0 0 auto;
       background:linear-gradient(180deg,#03151b,#010a0e); overflow:hidden;
       border:1px solid color-mix(in srgb,var(--chart) 32%,#000);
       box-shadow:inset 0 0 22px rgba(0,0,0,.85), inset 0 0 8px color-mix(in srgb,var(--chart) 16%,transparent), 0 1px 0 rgba(255,255,255,.06); }
@@ -127,16 +127,21 @@ export function ensureHelmStyles() {
 
     /* Ship's wheel — a normal column INSIDE the console bar (no longer a floating binnacle above it),
        so it can never rise into the water/ship view. Sized to sit within the bar's height. */
-    .helm-col{ justify-self:center; display:flex; flex-direction:column; align-items:center; gap:3px; }
+    /* The wheel is lifted OUT of the flow (absolute, centred) so it no longer stretches the console
+       bar — that lets the bar be thin while the wheel rises out of it like a binnacle, its lower half
+       docked in the bar and its top arc hanging over the lip into the water. bottom:0 seats it on the
+       console floor; being taller than the thin bar, the overhang happens for free. */
+    .helm-col{ position:absolute; left:50%; bottom:0; transform:translateX(-50%); z-index:7;
+      display:flex; flex-direction:column; align-items:center; gap:3px; pointer-events:none; }
     .helm-col canvas{ pointer-events:auto; }
     .helm-col .cap{ display:none; }   /* the COURSE cap is redundant — the wheel is self-evident */
-    .helm-wheel{ width:calc(168px*var(--hs)); height:calc(168px*var(--hs)); filter:drop-shadow(0 6px 14px rgba(0,0,0,.7)); }
+    .helm-wheel{ width:calc(150px*var(--hs)); height:calc(150px*var(--hs)); filter:drop-shadow(0 6px 14px rgba(0,0,0,.7)); }
     .helm-col .cap{ font-family:var(--hmono); font-size:8px; letter-spacing:4px; color:color-mix(in srgb,var(--accent) 70%,var(--hdim)); text-transform:uppercase;
       background:rgba(4,7,11,.6); padding:1px 8px; border-radius:4px; }
 
     /* Engine telegraph — a milled steel lever in a carbon slot, right of the console */
     .helm-tele{ display:flex; flex-direction:column; align-items:center; gap:6px; user-select:none; justify-self:end; grid-column:3; }
-    .helm-tele-track{ position:relative; width:calc(60px*var(--hs)); height:calc(128px*var(--hs)); border-radius:11px;
+    .helm-tele-track{ position:relative; width:calc(54px*var(--hs)); height:calc(92px*var(--hs)); border-radius:11px;
       background:var(--hcarbon),linear-gradient(180deg,#0f1319,#05080c); background-size:6px 6px,6px 6px,auto;
       border:1px solid color-mix(in srgb,var(--steel) 32%,#000);
       box-shadow:inset 0 2px 10px rgba(0,0,0,.85),0 1px 0 rgba(255,255,255,.08); overflow:hidden; }
@@ -157,14 +162,13 @@ export function ensureHelmStyles() {
     .helm-tele.warn .helm-tele-label{ color:#ff8a7a; }
 
     @media (max-width:760px){
-      /* Wheel on its own centred row above; the left cluster + telegraph share the row below. */
-      .helm-console-face{ grid-template-columns:1fr auto; grid-template-rows:auto auto; gap:10px 16px; padding:10px 16px 11px; }
-      .helm-col{ order:1; grid-column:1 / -1; justify-self:center; }
-      .helm-left{ order:2; flex-wrap:wrap; }
-      .helm-tele{ order:3; grid-column:2; }
+      /* Wheel stays the centred binnacle (absolute) hanging over the bar; left cluster + telegraph
+         flank it below. Extra side padding keeps them clear of the overhanging wheel. */
+      .helm-console-face{ grid-template-columns:1fr auto 1fr; gap:10px; padding:6px 16px 8px; }
+      .helm-left{ flex-wrap:wrap; }
       .helm-gauges{ grid-template-columns:repeat(2,1fr); }
-      .helm-wheel{ width:calc(132px*var(--hs)); height:calc(132px*var(--hs)); }
-      .helm-nav-scope{ width:112px; height:88px; } }`;
+      .helm-wheel{ width:calc(128px*var(--hs)); height:calc(128px*var(--hs)); }
+      .helm-nav-scope{ width:100px; height:74px; } }`;
   document.head.appendChild(s);
 }
 
@@ -234,25 +238,36 @@ export function openHelm(opts = {}) {
 
   const root = mount.querySelector('.helm-root');
   const q = (s) => root.querySelector(s);
+  const sea = q('.helm-chase'), consoleEl = q('.helm-console');
+  const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
 
-  // Dynamic console scale — the SMALLER the view pane (in EITHER axis), the smaller the whole helm
-  // station (console bar + wheel + telegraph shrink together via --hs) so the Echelon is never buried
-  // behind it. Full-size on a roomy pane; it eases down to ~0.55 on a squat or narrow one, driven by
-  // whichever axis is tighter so a short-and-wide OR tall-and-narrow pane both scale down.
+  const ctrl = openHelmChase(sea, {
+    gx: opts.gx ?? 0, gy: opts.gy ?? 0, heading: opts.heading ?? 0, sky: opts.sky,
+    onArrive: (gx, gy) => { q('[data-pos]').textContent = gx + ' · ' + gy; },
+  });
+
+  // Dynamic layout — recomputed on every pane resize (which fires on the fullscreen/hide-log toggles
+  // too, since those grow .helm-root). Two jobs:
+  //   1. --hs: the SMALLER the pane (in EITHER axis), the smaller the whole helm station (console bar
+  //      + wheel + telegraph shrink together) so the Echelon is never buried behind it.
+  //   2. Chase framing: the console eats the bottom band, so we clip the chase view to the WATER band
+  //      ABOVE it (sea.bottom = console height). The ship is drawn at canvas-centre, so this keeps her
+  //      centred in open water — never behind the dash — in EVERY panel state; only the band's HEIGHT
+  //      changes. Then we pitch by room: a short band tips DOWN (top-down, hull fills it), a tall
+  //      fullscreen band eases toward a level near-horizon chase.
   const rescale = () => {
     const w = root.clientWidth || 0, h = root.clientHeight || 0;
     const byH = (h - 150) / 560;   // ~1 at a comfortable height
     const byW = w / 1180;          // ~1 at the console's natural full width
     root.style.setProperty('--hs', String(Math.max(0.55, Math.min(1, Math.min(byH, byW))).toFixed(3)));
+    const consoleH = consoleEl?.offsetHeight || 0;
+    const band = Math.max(80, h - consoleH);
+    sea.style.bottom = consoleH + 'px';
+    ctrl.setRestPitch(clampN(0.40 + (band - 320) * (0.14 - 0.40) / 320, 0.14, 0.40));
   };
   const ro = ('ResizeObserver' in window) ? new ResizeObserver(rescale) : null;
   ro ? ro.observe(root) : addEventListener('resize', rescale);
   rescale();
-
-  const ctrl = openHelmChase(q('.helm-chase'), {
-    gx: opts.gx ?? 0, gy: opts.gy ?? 0, heading: opts.heading ?? 0, sky: opts.sky,
-    onArrive: (gx, gy) => { q('[data-pos]').textContent = gx + ' · ' + gy; },
-  });
   // Dev tuning handle: from the browser console you can dial the resting chase framing live —
   //   __helmCtrl.setPose({ yaw: 34, pitch: 0.16, zoom: 1.7 })   // then read __helmCtrl.pose()
   // Find the framing you like, tell me the numbers, and I bake them into REST (helm-view.js).
@@ -339,7 +354,7 @@ export function openHelm(opts = {}) {
   setKnob(0);
 
   // Orbit / zoom on the sea — the chase cam stays fixed on the boat and arcs around it.
-  const sea = q('.helm-chase'); let drag = false, lx = 0, ly = 0;
+  let drag = false, lx = 0, ly = 0;
   sea.addEventListener('pointerdown', (e) => { drag = true; lx = e.clientX; ly = e.clientY; sea.setPointerCapture?.(e.pointerId); });
   sea.addEventListener('pointermove', (e) => { if (!drag) return; ctrl.orbit((e.clientX - lx) * 0.4, -(e.clientY - ly) * 0.006); lx = e.clientX; ly = e.clientY; });
   const upH = () => { drag = false; }; addEventListener('pointerup', upH);
