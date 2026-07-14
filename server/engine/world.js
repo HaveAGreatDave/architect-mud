@@ -123,6 +123,7 @@ const BUILDING_TYPE_ICON = {
   bar: 'bldg_bar', club: 'bldg_club', police: 'bldg_police',
   corporate_office: 'bldg_office', hotel: 'bldg_hotel', power: 'bldg_power',
   hangar: 'bldg_hangar', studio: 'bldg_studio', clinic: 'bldg_clinic', diner: 'bldg_diner',
+  gun_shop: 'bldg_gunshop', casino: 'bldg_casino', fence: 'bldg_fence', chem_supply: 'bldg_chem',
 };
 export function buildingIconSvg(zone) {
   if (!zone || !hasTag(zone, 'facade')) return null;
