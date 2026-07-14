@@ -16,6 +16,7 @@
 //     if (envResult) return envResult;
 
 import * as env from '../engine/environment.js';
+import { fireHook } from '../engine/plugins.js';
 
 const DEV_ROLES = ['dev', 'admin', 'builder', 'designer'];
 
@@ -72,7 +73,16 @@ export async function handleEnvironmentApi(path, method, body, auth) {
 
   if (path.startsWith('/environment/visibility/') && method === 'GET') {
     const zoneId = decodeURIComponent(path.split('/')[3] || '');
-    return { status: 200, body: env.getZoneVisibility(zoneId) };
+    const vis = env.getZoneVisibility(zoneId);
+    // Per-player perception: a carried light source (a lit flashlight, via the
+    // visibility.perceive hook) can raise how bright THIS player sees the room.
+    // Mirror describeZone's seam so the client brightness filter matches the
+    // revealed text/items. Unauthenticated callers just get raw zone visibility.
+    if (auth?.playerId) {
+      const perceived = await fireHook('visibility.perceive', { id: auth.playerId }, vis, { id: zoneId });
+      if (perceived) { vis.category = perceived.category; vis.visibility = perceived.visibility; }
+    }
+    return { status: 200, body: vis };
   }
 
   // Everything past this point changes world state — dev/admin only,

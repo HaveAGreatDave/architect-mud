@@ -267,7 +267,12 @@ function _playPowerOutSfx() {
 export function refreshZoneVisibility() {
   if (!state.currentZone) return;
   const zone = state.currentZone;
-  fetch(`/api/environment/visibility/${encodeURIComponent(zone)}`)
+  // Send the player's API token so the server can apply THIS player's perception
+  // (a carried lit flashlight lifts the room's visibility for them) — otherwise
+  // the brightness filter reflects only ambient zone lighting.
+  const token = sessionStorage.getItem('devpanel-token');
+  fetch(`/api/environment/visibility/${encodeURIComponent(zone)}`,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
     .then(r => r.json())
     .then(v => {
       const vis = Math.max(0, Math.min(1, v.visibility ?? 1));
