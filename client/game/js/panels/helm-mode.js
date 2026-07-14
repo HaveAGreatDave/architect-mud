@@ -85,7 +85,7 @@ export function ensureHelmStyles() {
        by the instrument cluster (left) and the engine telegraph (right). The 1fr/auto/1fr columns
        keep the wheel dead-centre in the bar. All still in-bar, so the water above stays clear. */
     .helm-console-face{ position:relative; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:calc(20px*var(--hs));
-      padding:calc(10px*var(--hs)) calc(26px*var(--hs)) calc(11px*var(--hs)); max-width:1280px; margin:0 auto; }
+      padding:calc(3px*var(--hs)) calc(26px*var(--hs)) calc(4px*var(--hs)); max-width:1280px; margin:0 auto; }
     /* left instrument cluster: nav scope + position + the digital gauge stack, packed together */
     .helm-left{ justify-self:start; display:flex; align-items:center; gap:calc(20px*var(--hs)); min-width:0; }
     /* faint carbon-fibre weave milled into the console face, under the brushed grain */
