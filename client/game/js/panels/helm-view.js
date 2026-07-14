@@ -46,10 +46,12 @@ const DEG = { N: 0, E: 90, S: 180, W: 270 };
 const CRUISE = 0.40;   // steady making-way throttle held across a passage (0..1) — drives wake + wash + swell.
                        // Kept LOW so a big hull's water churn reads calm; passage DISTANCE is time-based
                        // (sailT), independent of this, so she still crosses her tiles in 90s regardless.
-// Resting chase pose: a rear-quarter, looking-down "helicopter shot" of the Echelon. yaw is off her
-// stern quarter (deg, added on top of the renderer's chaseYaw) so she sits off-centre, clear of the
-// centred wheel; pitch tips the eye down over her; zoom pulls back so the full hull + wake read.
-const REST = { yaw: 30, pitch: 0.40, zoom: 1.45 };
+// Resting chase pose. The yacht is the SUBJECT, so she's pinned near screen-centre horizontally — a
+// yaw twist shows her flank (the "quarter" view) but can't slide her off the centred wheel. So we
+// separate them VERTICALLY: a LOW pitch rides the eye nearly level with her, framing her up near the
+// horizon — well ABOVE the wheel that straddles the console lip — while the strong yaw gives the
+// rear-quarter flank angle. zoom pulls back so the whole hull sits clear in the upper water band.
+const REST = { yaw: 34, pitch: 0.17, zoom: 1.7 };
 
 // A proper (not flat) cloud field, synthesised from the live headline weather so the windshield's
 // fly-through volumetric deck has cells to render — clear skies pass null (its procedural fair-
@@ -308,6 +310,10 @@ export function openHelmChase(container, opts = {}) {
     setPosition(gx, gy) { st.gx = gx; st.gy = gy; },
     setHeading(h) { st.heading = st.headingTarget = ((h % 360) + 360) % 360; },
     setTrim(pitch, zoom) { if (pitch != null) st.extPitch = pitch; if (zoom != null) st.extZoom = zoom; },
+    // Live camera tuning handle (dev): read / set the whole resting chase pose at once, so the
+    // framing can be dialled in from the console and the winning numbers baked into REST.
+    pose() { return { yaw: +st.extYaw.toFixed(1), pitch: +st.extPitch.toFixed(3), zoom: +st.extZoom.toFixed(3) }; },
+    setPose(p = {}) { if (p.yaw != null) st.extYaw = ((p.yaw % 360) + 360) % 360; if (p.pitch != null) st.extPitch = p.pitch; if (p.zoom != null) st.extZoom = p.zoom; return this.pose(); },
     destroy() { st.alive = false; cancelAnimationFrame(st.raf); audio.stop(); disposeWindshield(id); container.innerHTML = ''; },
   };
 }

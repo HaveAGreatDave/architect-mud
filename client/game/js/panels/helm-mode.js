@@ -238,6 +238,10 @@ export function openHelm(opts = {}) {
     gx: opts.gx ?? 0, gy: opts.gy ?? 0, heading: opts.heading ?? 0, sky: opts.sky,
     onArrive: (gx, gy) => { q('[data-pos]').textContent = gx + ' · ' + gy; },
   });
+  // Dev tuning handle: from the browser console you can dial the resting chase framing live —
+  //   __helmCtrl.setPose({ yaw: 34, pitch: 0.16, zoom: 1.7 })   // then read __helmCtrl.pose()
+  // Find the framing you like, tell me the numbers, and I bake them into REST (helm-view.js).
+  window.__helmCtrl = ctrl;
   if (opts.sky) ctrl.setSky(opts.sky);   // seed the real sim weather field immediately
   if (opts.map) ctrl.setWorld(opts.map, opts.gx, opts.gy);   // frame her against the REAL basin, not blank ocean
 
@@ -380,5 +384,6 @@ export function closeHelm() {
   document.body.classList.remove('helm-fullscreen', 'helm-hidepanel');
   try { h.wheel?.destroy(); } catch {}
   try { h.ctrl?.destroy(); } catch {}
+  try { if (window.__helmCtrl === h.ctrl) delete window.__helmCtrl; } catch {}
   if (h.mount) h.mount.innerHTML = '';
 }
