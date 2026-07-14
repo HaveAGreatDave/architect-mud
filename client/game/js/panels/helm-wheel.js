@@ -16,7 +16,11 @@ export function createHelmWheel(canvas, opts = {}) {
   const GEAR = opts.gear || 8;                 // 8 ⇒ ~two full wheel turns per 90° of heading
   const SPOKES = 5;
 
-  let angle = 0, vel = 0;
+  // Seed the wheel to the boat's CURRENT heading, not 0. step() demands course = angle/GEAR EVERY
+  // frame, so a wheel starting at angle 0 continuously orders course 0 (north) — which is why the
+  // Echelon always swung bow-north on open, ignoring her persisted last course. Starting the wheel at
+  // her real heading makes it demand exactly that, so she holds the course she was left on.
+  let angle = getHeading ? getHeading() * Math.PI / 180 * GEAR : 0, vel = 0;
   let grabbing = false, grabPA = 0, grabWA = 0, lastA = 0, lastT = 0;
   let raf = 0, alive = true, last = performance.now();
   let enabled = true;   // locked (dimmed, no grab) while she's underway on a passage
